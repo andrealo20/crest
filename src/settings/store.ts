@@ -1,5 +1,6 @@
 import { createStore } from "../lib/store";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
+import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -34,11 +35,16 @@ export interface Settings {
     /** Focus mode look: half transparent (as before) or shrunk to a thin line at the edge. */
     focusStyle: "dim" | "line";
     /**
-     * Closed look outside focus mode: the notch, or a thin line (no music etc.; only a
-     * finished timer opens it into the notch until dismissed). Hover and click work as usual.
+     * Closed look outside focus mode: the notch, the floating capsule, or a thin line (no
+     * music etc.; only a finished timer opens it into the notch until dismissed). Hover and
+     * click work as usual.
      */
-    idleStyle: "notch" | "line";
+    idleStyle: "notch" | "capsule" | "line";
+    /** Distance of the capsule from the top edge of the monitor in CSS px (set by dragging). */
+    y: number;
   };
+  /** What the closed notch row shows: which parts, in which order, and their options. */
+  closed: ClosedSettings;
   /** Gaming mode: FPS + load in the closed notch: off, only in fullscreen, or always. */
   gaming: { mode: "off" | "fullscreen" | "on" };
   /** Dots like on iPhone: mic/camera (green) or screen recording (red) in use. */
@@ -95,7 +101,8 @@ const defaults: Settings = {
     },
   },
   weather: null,
-  display: { visibility: "always", monitor: null, offset: 0, focusStyle: "dim", idleStyle: "notch" },
+  display: { visibility: "always", monitor: null, offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5 },
+  closed: CLOSED_DEFAULTS,
   gaming: { mode: "off" },
   privacyDots: false,
   discord: { clientId: "" },
@@ -159,6 +166,7 @@ settings.set((s) => {
     units: { ...defaults.units, ...s.units },
     presentation: { ...defaults.presentation, ...s.presentation },
     updates: { ...defaults.updates, ...s.updates },
+    closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
   };
 });
