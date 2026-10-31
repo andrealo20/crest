@@ -26,6 +26,17 @@ export function powerAlert(prev: PowerState | null, next: PowerState, low: LowBa
   return fresh && level && p !== null ? { kind: "power", icon: "battery", text: tr("Akku {p} %", { p }), tone: level } : null;
 }
 
+/** What the alerts compare against: `null` (or no headsets) until a seed or an event says otherwise. */
+export interface StatusKnown { power: PowerState | null; online: boolean | null; headsets: Set<string> }
+
+/**
+ * Merges a seed (the command or the event, in either order, partial or complete) into what is known: it fills only the
+ * fields still unknown, so a later, fuller seed completes an early partial one and never overwrites what an event set.
+ */
+export function mergeSeed(known: StatusKnown, seed: { power: PowerState | null; online: boolean | null; headsets: readonly string[] }): StatusKnown {
+  return { power: known.power ?? seed.power, online: known.online ?? seed.online, headsets: new Set([...known.headsets, ...seed.headsets]) };
+}
+
 /** Only a change of state; the first reading (`prev` null) is silent. */
 export function netAlert(prev: boolean | null, next: boolean, tr: Tr): StatusAlert | null {
   if (prev === null || prev === next) return null;

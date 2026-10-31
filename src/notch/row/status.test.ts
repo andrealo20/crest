@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { btAlert, netAlert, powerAlert } from "./status.ts";
+import { btAlert, mergeSeed, netAlert, powerAlert } from "./status.ts";
 
 const tr = (k: string, v: Record<string, string | number> = {}) => k.replace(/\{(\w+)\}/g, (_, x) => String(v[x]));
 const s = (ac: boolean, percent: number | null, battery = true) => ({ ac, percent, battery });
@@ -62,4 +62,17 @@ test("bt", () => {
   assert.equal(btAlert({ name: "Buds", connected: false, battery: null }, tr)?.text, "Buds · Getrennt");
   assert.equal(btAlert({ name: "  ", connected: true, battery: 50 }, tr), null);
   assert.equal(btAlert({ name: "", connected: false, battery: null }, tr), null);
+});
+
+test("seed: fills only what is still unknown", () => {
+  const none = { power: null, online: null, headsets: new Set<string>() };
+  // A partial seed (registration still running), then the complete one.
+  const partial = mergeSeed(none, { power: s(true, 64), online: null, headsets: [] });
+  const full = mergeSeed(partial, { power: s(true, 64), online: true, headsets: ["Buds"] });
+  assert.deepEqual(full, { power: s(true, 64), online: true, headsets: new Set(["Buds"]) });
+  // An event before any seed stays; a seed after an event does not overwrite it.
+  const evented = mergeSeed({ power: s(false, 40), online: false, headsets: new Set<string>() }, { power: s(true, 64), online: true, headsets: [] });
+  assert.deepEqual([evented.power, evented.online], [s(false, 40), false]);
+  // Headsets are the union of what is known and what the seed lists.
+  assert.deepEqual(mergeSeed({ ...none, headsets: new Set(["A"]) }, { power: null, online: null, headsets: ["A", "B"] }).headsets, new Set(["A", "B"]));
 });
