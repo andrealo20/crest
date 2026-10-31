@@ -328,7 +328,14 @@ function TaskDetails({ task, onClose }: { task: Task; onClose: () => void }) {
   const now = Date.now();
   const [time, setTime] = useState(task.due !== null ? formatTime(task.due) : "");
   const parsed = parseTime(time);
-  const [day, setDay] = useState<"0" | "1" | null>(task.due !== null ? (dayDiff(now, task.due) === 1 ? "1" : "0") : null);
+  // null = automatic: today while the typed time is still ahead, else tomorrow. Only a saved "tomorrow" that
+  // automatic would read as today (tomorrow 15:00, now 14:00) is kept as a choice; anything else, including a
+  // time already past today, follows the typed time.
+  const [day, setDay] = useState<"0" | "1" | null>(() => {
+    if (task.due === null || dayDiff(now, task.due) !== 1) return null;
+    const d = new Date(task.due);
+    return defaultDay(now, d.getHours(), d.getMinutes()) === 0 ? "1" : null;
+  });
   const chosenDay = day ?? (parsed ? String(defaultDay(now, parsed.h, parsed.m)) : "0");
   const save = () => {
     if (!parsed) return;
@@ -357,7 +364,7 @@ function TaskDetails({ task, onClose }: { task: Task; onClose: () => void }) {
         onChange={(e) => setTime(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && save()}
         placeholder={t("z. B. 14:30")}
-        aria-label={t("Uhrzeit")}
+        aria-label={t("Zeit")}
         className={`tabular h-6 w-[72px] rounded-[6px] bg-fill-2 px-1.5 text-footnote text-label outline-none placeholder:text-label-4 ${time && !parsed ? "ring-1 ring-red" : ""}`}
       />
       <Segmented

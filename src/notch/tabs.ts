@@ -59,8 +59,16 @@ export interface NotchTab {
 }
 
 export const tabs: NotchTab[] = [
-  // Taller while the quote line is on; read on every render, so the shape follows the setting.
-  { id: "overview", label: "Übersicht", icon: SquaresFour, get size() { return { w: 520, h: 252 + (settings.get().productivity.quotes ? QUOTE_LINE_H : 0) }; }, View: OverviewView },
+  {
+    id: "overview",
+    label: "Übersicht",
+    icon: SquaresFour,
+    // Taller while the quote line is on; read on every render, so the shape follows the setting.
+    get size() {
+      return { w: 520, h: 252 + (settings.get().productivity.quotes ? QUOTE_LINE_H : 0) };
+    },
+    View: OverviewView,
+  },
   { id: "media", label: "Wiedergabe", icon: MusicNotesSimple, size: { w: 520, h: 232 }, View: NowPlayingView },
   { id: "timer", label: "Timer", icon: Timer, size: { w: 520, h: 192 }, View: TimerView },
   { id: "todos", label: "To-Dos", icon: CheckCircle, size: { w: 600, h: 276 }, View: TodosView },
@@ -76,7 +84,8 @@ export const tabs: NotchTab[] = [
   { id: "discord", label: "Discord", icon: DiscordLogo, size: { w: 520, h: 210 }, View: DiscordView },
   { id: "vault", label: "Tresor", icon: Vault, size: { w: 560, h: 324 }, View: VaultView },
   { id: "water", label: "Wasser", icon: Drop, size: { w: 520, h: 236 }, View: WaterView },
-  { id: "scratchpad", label: "Code-Notizblock", icon: Code, size: { w: 600, h: 320 }, View: ScratchpadView },];
+  { id: "scratchpad", label: "Code-Notizblock", icon: Code, size: { w: 600, h: 320 }, View: ScratchpadView },
+];
 
 /** Settings: reached via the gear, not in the tool bar. */
 export const settingsTab: NotchTab = { id: "settings", label: "Einstellungen", icon: GearSix, size: { w: 660, h: 460 }, View: SettingsView };

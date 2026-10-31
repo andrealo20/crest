@@ -538,5 +538,8 @@
  "Grün": "Green",
  "Blau": "Blue",
  "Braucht das Tool To-Dos": "Needs the To-dos tool",
- "Braucht das Tool Wasser": "Needs the Water tool"
+ "Braucht das Tool Wasser": "Needs the Water tool",
+ "Zeit": "Time",
+ "Kopieren fehlgeschlagen": "Copy failed",
+ "Leeren rückgängig": "Undo clear"
 }
