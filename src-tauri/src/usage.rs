@@ -168,7 +168,8 @@ pub async fn usage_tokens(app: AppHandle) -> Result<logs::TokenReport, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<UsageState>();
         let mut cache = state.logs.lock().unwrap();
-        logs::report(&mut cache)
+        let disk = app.path().app_data_dir().ok().filter(|d| std::fs::create_dir_all(d).is_ok()).map(|d| d.join("usage-logs.json"));
+        logs::report(&mut cache, disk.as_deref())
     })
     .await
     .map_err(|e| e.to_string())
