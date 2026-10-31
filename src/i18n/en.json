@@ -495,5 +495,8 @@
  "Hängt an": "Hangs from",
  "Über der Taskleiste verdeckt die Notch einen Teil davon": "Over the taskbar the notch covers part of it",
  "Bildschirmkante": "Screen edge",
- "Taskleiste": "Taskbar"
+ "Taskleiste": "Taskbar",
+ "Portable Kopie": "Portable copy",
+ "Daten liegen im Ordner data neben Crest.exe": "Data is kept in the data folder next to Crest.exe",
+ "Der Ordner ist schreibgeschützt: Daten liegen im Benutzerprofil, Updates öffnen die Downloadseite": "The folder is read-only: data is kept in your user profile and updates open the download page"
 }

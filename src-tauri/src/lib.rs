@@ -203,7 +203,7 @@ fn autostart_set(enabled: bool, app: AppHandle) -> Result<(), String> {
 /// Enables autostart on the very first launch; after that the tray check and settings decide.
 fn enable_autostart_once(app: &AppHandle) {
     // A portable copy writes nothing outside its folder unless asked to (tray or settings).
-    if portable::data_dir().is_some() {
+    if portable::is_portable() {
         return;
     }
     let Ok(dir) = crate::portable::app_data_dir(app) else { return };

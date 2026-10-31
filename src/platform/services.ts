@@ -309,7 +309,8 @@ export function filePreview(path: string): Promise<string | null> {
 /** A found update: version + install (downloads, installs, restarts). */
 export interface UpdateHandle {
   version: string;
-  install: (onProgress: (fraction: number) => void) => Promise<void>;
+  /** Resolves "page" when it only opened the download page (a read-only portable copy) and the app keeps running. */
+  install: (onProgress: (fraction: number) => void) => Promise<"page" | void>;
 }
 
 /** What changed in a version (`src/changelog.json`, newest first). */
@@ -657,7 +658,7 @@ async function portableUpdate(): Promise<UpdateHandle | null> {
     install: async (onProgress) => {
       const off = await listen<number>("portable://progress", (e) => onProgress(e.payload));
       try {
-        await invoke("portable_install");
+        return (await invoke<boolean>("portable_install")) ? "page" : undefined;
       } finally {
         off();
       }

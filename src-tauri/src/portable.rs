@@ -8,8 +8,8 @@
 //! download; the new executable is written as `Crest.exe.new`, the running one is renamed to
 //! `Crest.exe.old` (Windows allows renaming a running executable), the new one takes its name and is
 //! started with `--after-update <pid>`, which waits for this process to exit before it runs (the
-//! single-instance lock) and removes the old file. A folder the user cannot write to gets the
-//! download page instead.
+//! single-instance lock) and removes the old file. A folder the user cannot write to (checked once
+//! at start) keeps its data in the installed location and gets the download page instead.
 
 use std::fs;
 use std::io::{Cursor, Read};
@@ -35,15 +35,40 @@ fn exe() -> Option<&'static Path> {
     EXE.get_or_init(|| std::env::current_exe().ok()).as_deref()
 }
 
-/// The data folder of an executable whose folder holds the marker; None for an installed copy.
-pub fn data_dir_for(exe: &Path, is_file: impl Fn(&Path) -> bool) -> Option<PathBuf> {
-    let dir = exe.parent()?;
-    is_file(&dir.join(MARKER)).then(|| dir.join(DATA))
+/// This copy, worked out once at start: its folder, whether the marker is there, and whether that folder can be written.
+struct Copy {
+    dir: PathBuf,
+    portable: bool,
+    writable: bool,
 }
 
-/// The portable data folder of this copy, None when installed.
+static COPY: OnceLock<Option<Copy>> = OnceLock::new();
+
+fn copy() -> Option<&'static Copy> {
+    COPY.get_or_init(|| {
+        let dir = exe()?.parent()?.to_path_buf();
+        let portable = dir.join(MARKER).is_file();
+        let writable = portable && can_write(&dir);
+        Some(Copy { dir, portable, writable })
+    })
+    .as_ref()
+}
+
+/// Whether this copy is portable (the marker is next to the exe), writable or not.
+pub fn is_portable() -> bool {
+    copy().is_some_and(|c| c.portable)
+}
+
+/// The data folder of a copy in `dir`: next to the exe for a portable copy whose folder can be written. A read-only portable copy
+/// (a CD, a locked share, Program Files) uses the installed data location instead, since WebView2 could not start there.
+pub fn data_dir_for(dir: &Path, portable: bool, writable: bool) -> Option<PathBuf> {
+    (portable && writable).then(|| dir.join(DATA))
+}
+
+/// The portable data folder of this copy, None when installed or read-only.
 pub fn data_dir() -> Option<PathBuf> {
-    data_dir_for(exe()?, Path::is_file)
+    let c = copy()?;
+    data_dir_for(&c.dir, c.portable, c.writable)
 }
 
 /// Where the app keeps its own files: the portable data folder or the usual app data folder.
@@ -89,10 +114,11 @@ pub fn after_update(args: &[String]) {
 
 fn wait_for_exit(pid: u32) {
     use windows::Win32::Foundation::CloseHandle;
-    use windows::Win32::System::Threading::{OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE};
+    use windows::Win32::System::Threading::{OpenProcess, WaitForSingleObject, INFINITE, PROCESS_SYNCHRONIZE};
     unsafe {
         if let Ok(process) = OpenProcess(PROCESS_SYNCHRONIZE, false, pid) {
-            WaitForSingleObject(process, 30_000);
+            // As long as it takes: the new version must not start beside the old one.
+            WaitForSingleObject(process, INFINITE);
             let _ = CloseHandle(process);
         }
     }
@@ -141,14 +167,13 @@ pub fn swap(exe: &Path, bytes: &[u8]) -> std::io::Result<()> {
 #[derive(Serialize)]
 pub struct PortableInfo {
     portable: bool,
-    /// The folder can be written, so the copy can update itself.
+    /// The folder can be written: the data stays next to the exe and the copy updates itself.
     writable: bool,
 }
 
 #[tauri::command]
 pub fn portable_info() -> PortableInfo {
-    let dir = exe().and_then(Path::parent);
-    PortableInfo { portable: data_dir().is_some(), writable: dir.is_some_and(can_write) }
+    PortableInfo { portable: is_portable(), writable: copy().is_some_and(|c| c.writable) }
 }
 
 /// The newer version of the portable package, None when up to date.
@@ -158,24 +183,28 @@ pub async fn portable_check(app: AppHandle) -> Result<Option<String>, String> {
     Ok(update.map(|u| u.version))
 }
 
-/// Downloads and verifies the portable package, puts its executable in place and starts it; `portable://progress` reports 0..1.
-/// A folder that cannot be written opens the download page instead.
+/// Downloads and verifies the portable package, puts its executable in place and starts it; `portable://progress` reports 0..1 in
+/// whole percents. A folder that cannot be written opens the download page instead and returns true (the app keeps running).
 #[tauri::command]
-pub async fn portable_install(app: AppHandle) -> Result<(), String> {
+pub async fn portable_install(app: AppHandle) -> Result<bool, String> {
     let exe = exe().ok_or("no executable path")?;
-    if !exe.parent().is_some_and(can_write) {
-        return Command::new("explorer").arg(DOWNLOAD_PAGE).spawn().map(|_| ()).map_err(|e| e.to_string());
+    if !copy().is_some_and(|c| c.writable) {
+        return Command::new("explorer").arg(DOWNLOAD_PAGE).spawn().map(|_| true).map_err(|e| e.to_string());
     }
     let update = app.updater_builder().target(TARGET).build().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?;
     let Some(update) = update else { return Err("no update".into()) };
-    let mut done = 0usize;
+    let (mut done, mut shown) = (0usize, 0u64);
     // download() checks the minisign signature against the key in tauri.conf.json before it returns.
     let zip = update
         .download(
             |chunk, total| {
                 done += chunk;
                 if let Some(total) = total.filter(|t| *t > 0) {
-                    let _ = app.emit("portable://progress", (done as f64 / total as f64).min(1.0));
+                    let percent = (done as u64 * 100 / total).min(100);
+                    if percent != shown {
+                        shown = percent;
+                        let _ = app.emit("portable://progress", percent as f64 / 100.0);
+                    }
                 }
             },
             || {},
@@ -186,7 +215,7 @@ pub async fn portable_install(app: AppHandle) -> Result<(), String> {
     swap(exe, &bytes).map_err(|e| e.to_string())?;
     Command::new(exe).arg(AFTER_UPDATE).arg(std::process::id().to_string()).spawn().map_err(|e| e.to_string())?;
     app.exit(0);
-    Ok(())
+    Ok(false)
 }
 
 #[cfg(test)]
@@ -194,11 +223,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn data_next_to_the_exe_only_with_the_marker() {
-        let exe = Path::new(r"D:\Tools\Crest\Crest.exe");
-        assert_eq!(data_dir_for(exe, |p| p == Path::new(r"D:\Tools\Crest\Crest.portable")), Some(PathBuf::from(r"D:\Tools\Crest\data")));
-        assert_eq!(data_dir_for(exe, |_| false), None);
-        assert_eq!(data_dir_for(Path::new("Crest.exe"), |_| true), Some(PathBuf::from("data")));
+    fn data_next_to_the_exe_only_when_portable_and_writable() {
+        let dir = Path::new(r"D:\Tools\Crest");
+        assert_eq!(data_dir_for(dir, true, true), Some(PathBuf::from(r"D:\Tools\Crest\data")));
+        // Read-only portable copy: the installed data location.
+        assert_eq!(data_dir_for(dir, true, false), None);
+        assert_eq!(data_dir_for(dir, false, true), None);
+    }
+
+    #[test]
+    fn write_probe_leaves_nothing_behind() {
+        let dir = std::env::temp_dir().join(format!("crest-probe-test-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        assert!(can_write(&dir));
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 0);
+        assert!(!can_write(&dir.join("missing")));
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
