@@ -12,6 +12,7 @@
 //!   else the app shown before).
 //! - Controls go to the shown app, not to whatever Windows considers current.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -27,7 +28,7 @@ use windows::Media::Control::{
 use windows::Media::MediaPlaybackAutoRepeatMode as RepeatMode;
 use windows::Storage::Streams::DataReader;
 
-use crate::media_pick::{choose, Candidate};
+use crate::media_pick::{choose, shown_session, Candidate};
 
 /// One media session, for the choice of player.
 #[derive(Clone, PartialEq, Serialize)]
@@ -60,17 +61,13 @@ pub struct NowPlaying {
     sources: Vec<Source>,
 }
 
-/// Last emitted state and when it was emitted; the pinned app ID.
+/// Last emitted state and when it was emitted; the pinned app ID; lyrics on screen (see `media_lyrics`).
 #[derive(Default)]
-pub struct MediaState(Mutex<Option<(NowPlaying, SystemTime)>>, Mutex<Option<String>>);
+pub struct MediaState(Mutex<Option<(NowPlaying, SystemTime)>>, Mutex<Option<String>>, AtomicBool);
 
 impl MediaState {
     fn pinned(&self) -> Option<String> {
         self.1.lock().unwrap().clone()
-    }
-
-    fn app_id(&self) -> String {
-        self.0.lock().unwrap().as_ref().map(|(np, _)| np.app_id.clone()).unwrap_or_default()
     }
 
     /// App ID and title of the shown session (mixer, "open the app").
@@ -94,12 +91,15 @@ pub fn media_get(state: State<'_, MediaState>) -> Option<NowPlaying> {
 
 // Async so the blocking `join()` doesn't stall the main thread.
 #[tauri::command]
-pub async fn media_control(state: State<'_, MediaState>, action: String, position: Option<f64>) -> Result<(), String> {
-    let shown = state.app_id();
+pub async fn media_control(state: State<'_, MediaState>, action: String, position: Option<f64>, on: Option<bool>) -> Result<(), String> {
+    let (shown_app, shown_title) = state.shown().unwrap_or_default();
     let run = || -> windows::core::Result<()> {
         let manager = SessionManager::RequestAsync()?.join()?;
-        let session = match sessions(&manager).into_iter().find(|s| app_id(s) == shown) {
-            Some(s) => s,
+        // The shown session, also when its app has several (two tabs): a lyric click seeks the tab on screen.
+        let all = sessions(&manager);
+        let info = describe(&all);
+        let session = match shown_session(&candidates(&info, None), &shown_app, &shown_title) {
+            Some(i) => all[i].clone(),
             None => manager.GetCurrentSession()?,
         };
         match action.as_str() {
@@ -112,10 +112,8 @@ pub async fn media_control(state: State<'_, MediaState>, action: String, positio
                 let ticks = start + (position.unwrap_or(0.0).max(0.0) * 10_000_000.0) as i64;
                 session.TryChangePlaybackPositionAsync(ticks)?.join()?
             }
-            "shuffle" => {
-                let on = session.GetPlaybackInfo()?.IsShuffleActive().and_then(|v| v.Value()).unwrap_or(false);
-                session.TryChangeShuffleActiveAsync(!on)?.join()?
-            }
+            // The target comes from the interface, so a click while the state is still on its way doesn't undo itself.
+            "shuffle" => session.TryChangeShuffleActiveAsync(on.unwrap_or(false))?.join()?,
             "repeat" => {
                 // Off, all, one, like Spotify and Apple Music.
                 let mode = session.GetPlaybackInfo()?.AutoRepeatMode().and_then(|v| v.Value()).unwrap_or(RepeatMode::None);
@@ -131,6 +129,12 @@ pub async fn media_control(state: State<'_, MediaState>, action: String, positio
         Ok(())
     };
     run().map_err(|e| e.message())
+}
+
+/// Lyrics are on screen: send the position every few seconds while playing (only then).
+#[tauri::command]
+pub fn media_lyrics(on: bool, state: State<'_, MediaState>) {
+    state.2.store(on, Ordering::Relaxed);
 }
 
 /// Pins the app to show (`None` = automatic). The frontend sends it at start and on change.
@@ -175,6 +179,8 @@ const POLL: Duration = Duration::from_millis(400);
 const ARTWORK_SETTLE: Duration = Duration::from_secs(10);
 /// Drift beyond which a position counts as a seek and is sent again.
 const SEEK_THRESHOLD: f64 = 1.5;
+/// How often the position is sent anyway while lyrics are on screen.
+const LYRICS_RESYNC: Duration = Duration::from_secs(5);
 
 pub fn spawn(app: AppHandle) {
     thread::spawn(move || {
@@ -193,7 +199,7 @@ pub fn spawn(app: AppHandle) {
                 thread::sleep(Duration::from_secs(2));
                 continue;
             };
-            let shown = last.as_ref().map(|np| np.app_id.as_str()).unwrap_or_default();
+            let shown = last.as_ref().map(|np| (np.app_id.as_str(), np.title.as_str())).unwrap_or_default();
             let pinned = app.state::<MediaState>().pinned();
             let (session, sources) = pick(manager_ref, shown, pinned.as_deref());
             let current = session.and_then(|session| read(&session, &mut artwork).ok()).map(|np| NowPlaying { sources, ..np });
@@ -202,7 +208,11 @@ pub fn spawn(app: AppHandle) {
                 manager = None;
             }
 
-            if changed(&last, &current, last_sent_at) {
+            // While lyrics show, the frontend's extrapolated position is refreshed now and then, so lines don't drift.
+            let resync = app.state::<MediaState>().2.load(Ordering::Relaxed)
+                && current.as_ref().is_some_and(|np| np.is_playing)
+                && last_sent_at.elapsed().is_ok_and(|d| d > LYRICS_RESYNC);
+            if resync || changed(&last, &current, last_sent_at) {
                 last_sent_at = SystemTime::now();
                 *app.state::<MediaState>().0.lock().unwrap() = current.clone().map(|np| (np, last_sent_at));
                 let _ = app.emit("media://update", &current);
@@ -225,19 +235,37 @@ fn is_playing(session: &Session) -> bool {
     session.GetPlaybackInfo().and_then(|p| p.PlaybackStatus()).is_ok_and(|s| s == PlaybackStatus::Playing)
 }
 
-/// The session to show (`shown` = the app shown so far, see media_pick.rs) and every session's app and state.
-fn pick(manager: &SessionManager, shown: &str, pinned: Option<&str>) -> (Option<Session>, Vec<Source>) {
+/// App ID, title and play state of each session. The title is only read for an app with several sessions (two
+/// browser tabs), where the app alone can't tell them apart; reading it is a round trip per session.
+fn describe(all: &[Session]) -> Vec<(String, String, bool)> {
+    let ids: Vec<String> = all.iter().map(app_id).collect();
+    all.iter()
+        .zip(&ids)
+        .map(|(s, id)| {
+            let shared = ids.iter().filter(|other| *other == id).count() > 1;
+            let title = if shared {
+                s.TryGetMediaPropertiesAsync().and_then(|op| op.join()).and_then(|p| p.Title()).map(|h| h.to_string()).unwrap_or_default()
+            } else {
+                String::new()
+            };
+            (id.clone(), title, is_playing(s))
+        })
+        .collect()
+}
+
+fn candidates<'a>(info: &'a [(String, String, bool)], current: Option<&str>) -> Vec<Candidate<'a>> {
+    info.iter().map(|(id, title, playing)| Candidate { app_id: id, title, playing: *playing, current: current == Some(id.as_str()) }).collect()
+}
+
+/// The session to show (`shown` = app and title shown so far, see media_pick.rs) and every app's state.
+fn pick(manager: &SessionManager, shown: (&str, &str), pinned: Option<&str>) -> (Option<Session>, Vec<Source>) {
     let current = manager.GetCurrentSession().ok().map(|s| app_id(&s));
     let all = sessions(manager);
-    let sources: Vec<Source> = all.iter().map(|s| Source { app_id: app_id(s), is_playing: is_playing(s) }).collect();
-    let candidates: Vec<Candidate> = sources
-        .iter()
-        .map(|s| Candidate { app_id: &s.app_id, playing: s.is_playing, current: current.as_deref() == Some(s.app_id.as_str()) })
-        .collect();
-    let chosen = choose(&candidates, shown, pinned).map(|i| all[i].clone());
+    let info = describe(&all);
+    let chosen = choose(&candidates(&info, current.as_deref()), shown, pinned).map(|i| all[i].clone());
     // One row per app in the menu; two sessions of one browser are one choice.
     let mut unique: Vec<Source> = Vec::new();
-    for s in sources {
+    for s in info.into_iter().map(|(app_id, _, is_playing)| Source { app_id, is_playing }) {
         match unique.iter_mut().find(|u| u.app_id == s.app_id) {
             Some(u) => u.is_playing |= s.is_playing,
             None => unique.push(s),

@@ -51,6 +51,8 @@ export interface MediaSource {
   cycleRepeat(): void;
   /** Shows this app whatever else plays; null = automatic. */
   pin(appId: string | null): void;
+  /** Lyrics are on screen: the position is refreshed every few seconds while playing. */
+  lyricsShown(on: boolean): void;
   /** Every session with its track (asked when the player menu opens). */
   sources(): Promise<SourceInfo[]>;
 }

@@ -81,6 +81,7 @@ pub fn run() {
             media::media_control,
             media::media_pin,
             media::media_sources,
+            media::media_lyrics,
             memory::memory_low,
             clipboard::clipboard_list,
             clipboard::clipboard_mode,
