@@ -47,6 +47,16 @@ test("bridge and window", () => {
   assert.equal(windowYFor("capsule", 1040, 1080), 520); assert.equal(windowYFor("line", 300, 1080), 0);
   assert.equal(panelTop(500, 200), 360); assert.equal(panelTop(40, 200), 40);
 });
+test("window stays at the top while the capsule is bridged", () => {
+  // Top taskbar of 48: the bridge reaches up to 48 + 20 = 68, and the window has to cover the strip down to the capsule.
+  for (const [y, expected] of [[55, 0], [68, 0], [68.5, 62.5]] as const) {
+    assert.equal(windowYFor("capsule", y, 1080, 48), expected, `window at y ${y}`);
+    assert.equal(hasBridge("capsule", y, 48), expected === 0, `bridge at y ${y}`);
+  }
+  for (const y of [0, 20, 40, 48, 68, 68.5, 300, 1043, Number.NaN]) for (const workTop of [0, 48, -10, Number.NaN]) {
+    if (hasBridge("capsule", y, workTop)) assert.equal(windowYFor("capsule", y, 1080, workTop), 0, `y ${y}, workTop ${workTop}`);
+  }
+});
 test("bridge and window edges", () => {
   assert.equal(hasBridge("line", 900, 0), true); assert.equal(hasBridge("capsule", 300, 0), false);
   assert.equal(hasBridge("capsule", 20, Number.NaN), true); assert.equal(hasBridge("capsule", 20, -30), true);
