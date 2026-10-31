@@ -5,11 +5,12 @@
 //! (AUTOCONVERTPCM), so no resampling happens here. Every packet carries the QPC time
 //! of its first frame; the pause clock turns that into media time and the mixer puts
 //! it on the timeline. Writing trails the clock by DELAY so late packets still land.
+//! When Windows drops an input (default device changed, unplugged), it is opened again.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use windows::core::Result;
 use windows::Win32::Media::Audio::*;
@@ -19,12 +20,14 @@ use super::math::{to_frames, to_time, Mixer};
 use super::record::{Shared, AUDIO_CHANNELS, AUDIO_RATE};
 
 const TICK: Duration = Duration::from_millis(10);
+const RETRY: Duration = Duration::from_millis(500);
 /// How far writing trails the clock (100 ns): above the usual device latency plus a tick.
 const DELAY: i64 = 1_500_000;
 
 pub struct Input {
     client: IAudioClient,
     capture: IAudioCaptureClient,
+    loopback: bool,
 }
 
 // Opened in the multithreaded apartment, so usable from the audio thread.
@@ -63,8 +66,9 @@ pub fn start(shared: Arc<Shared>, inputs: Vec<Input>, now: fn() -> i64) -> Audio
         unsafe {
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         }
-        run(&shared, &inputs, &flag, now);
-        for i in inputs {
+        let mut slots: Vec<Slot> = inputs.into_iter().map(|i| Slot { loopback: i.loopback, input: Some(i), retry: Instant::now() }).collect();
+        run(&shared, &mut slots, &flag, now);
+        for i in slots.into_iter().filter_map(|s| s.input) {
             let _ = unsafe { i.client.Stop() };
         }
     });
@@ -104,25 +108,42 @@ unsafe fn open(loopback: bool) -> Result<Input> {
         client.Initialize(AUDCLNT_SHAREMODE_SHARED, flags, 2_000_000, 0, &format, None)?;
         let capture: IAudioCaptureClient = client.GetService()?;
         client.Start()?;
-        Ok(Input { client, capture })
+        Ok(Input { client, capture, loopback })
     }
 }
 
-fn run(shared: &Shared, inputs: &[Input], stop: &AtomicBool, now: fn() -> i64) {
+/// An input and how to get it back when Windows drops it.
+struct Slot {
+    input: Option<Input>,
+    loopback: bool,
+    retry: Instant,
+}
+
+fn run(shared: &Shared, slots: &mut [Slot], stop: &AtomicBool, now: fn() -> i64) {
     let rate = AUDIO_RATE as i64;
-    let mut mixer = Mixer::new(inputs.len(), rate);
+    let mut mixer = Mixer::new(slots.len(), rate);
     loop {
         let last = stop.load(Ordering::Relaxed);
         if !last {
             thread::sleep(TICK);
         }
-        for (i, input) in inputs.iter().enumerate() {
-            let _ = drain(shared, input, i, &mut mixer);
+        for (i, slot) in slots.iter_mut().enumerate() {
+            // The default device changed or went away (AUDCLNT_E_DEVICE_INVALIDATED and the like):
+            // open the new default, retrying twice a second until there is one.
+            let failed = slot.input.as_ref().is_some_and(|input| drain(shared, input, i, &mut mixer).is_err());
+            if failed {
+                slot.input = None;
+            }
+            if slot.input.is_none() && Instant::now() >= slot.retry {
+                slot.input = unsafe { open(slot.loopback) }.ok();
+                slot.retry = Instant::now() + RETRY;
+            }
         }
         // At the end everything up to now goes out, without the delay.
         let elapsed = shared.clock.lock().unwrap().elapsed(now()) - if last { 0 } else { DELAY };
         let (from, samples) = mixer.take(to_frames(elapsed.max(0), rate));
         let _ = shared.write_audio(to_time(from, rate), &samples);
+        shared.tick(elapsed.max(0));
         if last {
             return;
         }

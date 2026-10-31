@@ -1,6 +1,7 @@
 //! Screen recording: Windows.Graphics.Capture delivers frames of a monitor or a window
 //! as D3D11 textures; the Media Foundation Sink Writer encodes them to H.264 in an MP4,
-//! with the audio track from `audio.rs` as AAC. No ffmpeg.
+//! with the audio track from `audio.rs` as AAC. No ffmpeg. The MP4 is fragmented, so a
+//! file cut off by a crash still plays.
 //!
 //! The GPU path hands the textures to the encoder through a DXGI device manager. If the
 //! writer cannot start that way (old driver, no hardware encoder), it starts again with
@@ -10,6 +11,7 @@
 //! pauses leave no gap and audio and video share one timeline.
 
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use windows::core::{factory, Interface, Result, HSTRING};
@@ -17,8 +19,9 @@ use windows::Foundation::TypedEventHandler;
 use windows::Graphics::Capture::{Direct3D11CaptureFramePool, GraphicsCaptureAccess, GraphicsCaptureAccessKind, GraphicsCaptureItem, GraphicsCaptureSession};
 use windows::Graphics::DirectX::Direct3D11::IDirect3DDevice;
 use windows::Graphics::DirectX::DirectXPixelFormat;
-use windows::Win32::Foundation::{HMODULE, HWND};
-use windows::Win32::Graphics::Direct3D::D3D_DRIVER_TYPE_HARDWARE;
+use windows::Security::Authorization::AppCapabilityAccess::AppCapabilityAccessStatus;
+use windows::Win32::Foundation::{E_FAIL, E_POINTER, HMODULE, HWND};
+use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP};
 use windows::Win32::Graphics::Direct3D11::*;
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC};
 use windows::Win32::Graphics::Dxgi::IDXGIDevice;
@@ -54,6 +57,11 @@ struct Writer {
     staging: Option<ID3D11Texture2D>,
     size: (u32, u32),
     pacer: Pacer,
+    /// The last frame seen while paused (a copy), written when recording resumes.
+    held: Option<(ID3D11Texture2D, (u32, u32))>,
+    /// Media time of the last frame written, and of the last stream tick sent.
+    last_video: Option<i64>,
+    last_tick: i64,
 }
 
 // Media Foundation and D3D11 (with multithread protection on) are free-threaded; every use goes through the mutex.
@@ -73,24 +81,34 @@ pub struct Recorder {
 // WinRT capture objects are agile.
 unsafe impl Send for Recorder {}
 
+/// Called once when the recording has to end on its own: None when the window or monitor
+/// went away, Some("video") when capturing or encoding failed. Runs on a system thread.
+pub type OnEnd = Arc<dyn Fn(Option<&'static str>) + Send + Sync>;
+
+/// A COM out-parameter that came back empty although the call succeeded.
+fn out<T>(v: Option<T>) -> Result<T> {
+    v.ok_or_else(|| windows::core::Error::from(E_POINTER))
+}
+
+/// The GPU, or WARP (software rendering) on machines without a usable one.
+unsafe fn d3d_device() -> Result<(ID3D11Device, ID3D11DeviceContext)> {
+    let mut last = None;
+    for driver in [D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP] {
+        let (mut device, mut context) = (None, None);
+        let flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT | if driver == D3D_DRIVER_TYPE_HARDWARE { D3D11_CREATE_DEVICE_VIDEO_SUPPORT } else { D3D11_CREATE_DEVICE_FLAG(0) };
+        match unsafe { D3D11CreateDevice(None, driver, HMODULE::default(), flags, None, D3D11_SDK_VERSION, Some(&mut device), None, Some(&mut context)) } {
+            Ok(()) => return Ok((out(device)?, out(context)?)),
+            Err(e) => last = Some(e),
+        }
+    }
+    Err(last.unwrap_or_else(|| E_FAIL.into()))
+}
+
 /// Starts capturing `source` into `path` (an .mp4). Media Foundation must be started on this thread's apartment.
-/// `on_closed` runs on a system thread when the window or monitor goes away.
-pub fn start(source: Source, path: &Path, fps: u32, audio: bool, now: fn() -> i64, on_closed: impl Fn() + Send + 'static) -> Result<Recorder> {
+/// `border`: keep Windows' yellow capture frame (turned off only when Windows allows it).
+pub fn start(source: Source, path: &Path, fps: u32, audio: bool, border: bool, now: fn() -> i64, on_end: OnEnd) -> Result<Recorder> {
     unsafe {
-        let mut device = None;
-        let mut context = None;
-        D3D11CreateDevice(
-            None,
-            D3D_DRIVER_TYPE_HARDWARE,
-            HMODULE::default(),
-            D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_VIDEO_SUPPORT,
-            None,
-            D3D11_SDK_VERSION,
-            Some(&mut device),
-            None,
-            Some(&mut context),
-        )?;
-        let (device, context) = (device.unwrap(), context.unwrap());
+        let (device, context) = d3d_device()?;
         // The encoder uses the device from its own threads.
         let _ = device.cast::<ID3D11Multithread>()?.SetMultithreadProtected(true);
         let winrt: IDirect3DDevice = CreateDirect3D11DeviceFromDXGIDevice(&device.cast::<IDXGIDevice>()?)?.cast()?;
@@ -106,7 +124,7 @@ pub fn start(source: Source, path: &Path, fps: u32, audio: bool, now: fn() -> i6
         let mut token = 0;
         let mut manager = None;
         MFCreateDXGIDeviceManager(&mut token, &mut manager)?;
-        let manager = manager.unwrap();
+        let manager = out(manager)?;
         manager.ResetDevice(&device, token)?;
         let (sink, video, audio_stream, gpu) = match open_sink(path, size, fps, audio, Some(&manager)) {
             Ok((s, v, a)) => (s, v, a, true),
@@ -118,31 +136,65 @@ pub fn start(source: Source, path: &Path, fps: u32, audio: bool, now: fn() -> i6
 
         let shared = Arc::new(Shared {
             clock: Mutex::new(Clock::new(now())),
-            writer: Mutex::new(Writer { sink, video, audio: audio_stream, gpu, done: false, device, context, staging: None, size, pacer: Pacer::new(fps) }),
+            writer: Mutex::new(Writer {
+                sink,
+                video,
+                audio: audio_stream,
+                gpu,
+                done: false,
+                device,
+                context,
+                staging: None,
+                size,
+                pacer: Pacer::new(fps),
+                held: None,
+                last_video: None,
+                last_tick: 0,
+            }),
         });
+
+        // Ends the recording once, whichever comes first: the source closing or a failure.
+        let ended = Arc::new(AtomicBool::new(false));
+        let end = {
+            let ended = ended.clone();
+            move |why: Option<&'static str>| {
+                if !ended.swap(true, Ordering::SeqCst) {
+                    on_end(why);
+                }
+            }
+        };
+        let end_closed = end.clone();
 
         // Two buffers: one being copied, one being filled.
         let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(&winrt, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, item_size)?;
         let frames = shared.clone();
         pool.FrameArrived(&TypedEventHandler::new(move |pool: windows::core::Ref<Direct3D11CaptureFramePool>, _| {
             if let Some(pool) = pool.as_ref() {
-                let frame = pool.TryGetNextFrame()?;
-                let result = frames.on_frame(&frame);
-                frame.Close()?;
-                result?;
+                let result = pool.TryGetNextFrame().and_then(|frame| {
+                    let r = frames.on_frame(&frame);
+                    let _ = frame.Close();
+                    r
+                });
+                // Device lost, encoder error: stop and say why, instead of recording nothing.
+                if result.is_err() {
+                    end(Some("video"));
+                }
             }
             Ok(())
         }))?;
         item.Closed(&TypedEventHandler::new(move |_, _| {
-            on_closed();
+            end_closed(None);
             Ok(())
         }))?;
 
         let session = pool.CreateCaptureSession(&item)?;
         let _ = session.SetIsCursorCaptureEnabled(true);
-        // The yellow frame Windows 11 draws around a capture; turning it off needs a one-time permission.
-        if GraphicsCaptureAccess::RequestAccessAsync(GraphicsCaptureAccessKind::Borderless).and_then(|op| op.join()).is_ok() {
-            let _ = session.SetIsBorderRequired(false);
+        // The yellow frame Windows 11 draws around a capture shows honestly what is recorded; it goes only on request and with Windows' permission.
+        if !border {
+            let allowed = GraphicsCaptureAccess::RequestAccessAsync(GraphicsCaptureAccessKind::Borderless).and_then(|op| op.join());
+            if allowed == Ok(AppCapabilityAccessStatus::Allowed) {
+                let _ = session.SetIsBorderRequired(false);
+            }
         }
         // The clock starts with the capture, not before the slow setup above (device, encoder).
         *shared.clock.lock().unwrap() = Clock::new(now());
@@ -166,15 +218,51 @@ impl Recorder {
 impl Shared {
     fn on_frame(&self, frame: &windows::Graphics::Capture::Direct3D11CaptureFrame) -> Result<()> {
         let t = frame.SystemRelativeTime()?.Duration;
-        let Some(media) = self.clock.lock().unwrap().media(t) else { return Ok(()) };
+        let (media, paused) = {
+            let clock = self.clock.lock().unwrap();
+            (clock.media(t), clock.paused())
+        };
         let mut w = self.writer.lock().unwrap();
-        if w.done || !w.pacer.admit(media) {
+        if w.done {
             return Ok(());
         }
         let content = frame.ContentSize()?;
+        let content = (content.Width.max(0) as u32, content.Height.max(0) as u32);
         let access: IDirect3DDxgiInterfaceAccess = frame.Surface()?.cast()?;
         let texture: ID3D11Texture2D = unsafe { access.GetInterface()? };
-        w.write_frame(&texture, (content.Width.max(0) as u32, content.Height.max(0) as u32), media)
+        match media {
+            Some(media) if w.pacer.admit(media) => w.write_frame(&texture, content, media),
+            // The screen may not change again after resuming, so the frame from the pause is kept.
+            None if paused => w.hold(&texture, content),
+            _ => Ok(()),
+        }
+    }
+
+    /// Resumes the clock and writes the frame held during the pause at the resume point.
+    pub fn resume(&self, now: i64) {
+        let media = {
+            let mut clock = self.clock.lock().unwrap();
+            clock.resume(now);
+            clock.elapsed(now)
+        };
+        let mut w = self.writer.lock().unwrap();
+        if let (Some((texture, content)), false) = (w.held.take(), w.done) {
+            if w.pacer.admit(media) {
+                let _ = w.write_frame(&texture, content, media);
+            }
+        }
+    }
+
+    /// Called every audio tick: on a still screen no frames come, and the writer is told
+    /// about the gap twice a second, so the audio is not held back waiting for video.
+    pub fn tick(&self, media: i64) {
+        let mut w = self.writer.lock().unwrap();
+        let Some(last) = w.last_video else { return };
+        if w.done || media - last.max(w.last_tick) < 5_000_000 {
+            return;
+        }
+        w.last_tick = media;
+        let _ = unsafe { w.sink.SendStreamTick(w.video, media) };
     }
 
     /// Writes interleaved 16-bit stereo PCM at media time `time`.
@@ -202,6 +290,28 @@ impl Shared {
 }
 
 impl Writer {
+    /// Copies `src` into the held texture (made once, the size of the capture buffers).
+    fn hold(&mut self, src: &ID3D11Texture2D, content: (u32, u32)) -> Result<()> {
+        unsafe {
+            if self.held.is_none() {
+                let mut desc = D3D11_TEXTURE2D_DESC::default();
+                src.GetDesc(&mut desc);
+                desc.Usage = D3D11_USAGE_DEFAULT;
+                desc.BindFlags = 0;
+                desc.CPUAccessFlags = 0;
+                desc.MiscFlags = 0;
+                let mut t = None;
+                self.device.CreateTexture2D(&desc, None, Some(&mut t))?;
+                self.held = Some((out(t)?, content));
+            }
+            if let Some((held, size)) = self.held.as_mut() {
+                self.context.CopyResource(&*held, src);
+                *size = content;
+            }
+        }
+        Ok(())
+    }
+
     fn write_frame(&mut self, src: &ID3D11Texture2D, content: (u32, u32), time: i64) -> Result<()> {
         let (tw, th) = self.size;
         let (cw, ch) = copy_box(content, self.size);
@@ -221,12 +331,12 @@ impl Writer {
             };
             let mut texture = None;
             self.device.CreateTexture2D(&desc, None, Some(&mut texture))?;
-            let texture = texture.unwrap();
+            let texture = out(texture)?;
             if cw < tw || ch < th {
                 // A window got smaller than at the start: black around it instead of old pixels.
                 let mut rtv = None;
                 self.device.CreateRenderTargetView(&texture, None, Some(&mut rtv))?;
-                self.context.ClearRenderTargetView(&rtv.unwrap(), &[0.0, 0.0, 0.0, 1.0]);
+                self.context.ClearRenderTargetView(&out(rtv)?, &[0.0, 0.0, 0.0, 1.0]);
             }
             let area = D3D11_BOX { left: 0, top: 0, front: 0, right: cw, bottom: ch, back: 1 };
             self.context.CopySubresourceRegion(&texture, 0, 0, 0, 0, src, 0, Some(&area));
@@ -242,7 +352,9 @@ impl Writer {
             sample.AddBuffer(&buffer)?;
             sample.SetSampleTime(time)?;
             sample.SetSampleDuration(self.pacer.interval())?;
-            self.sink.WriteSample(self.video, &sample)
+            self.sink.WriteSample(self.video, &sample)?;
+            self.last_video = Some(time);
+            Ok(())
         }
     }
 
@@ -265,9 +377,9 @@ impl Writer {
                 };
                 let mut t = None;
                 self.device.CreateTexture2D(&desc, None, Some(&mut t))?;
-                self.staging = t;
+                self.staging = Some(out(t)?);
             }
-            let staging = self.staging.as_ref().unwrap();
+            let Some(staging) = self.staging.as_ref() else { return Err(E_POINTER.into()) };
             self.context.CopyResource(staging, texture);
             let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
             self.context.Map(staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped))?;
@@ -294,9 +406,13 @@ fn pack(hi: u32, lo: u32) -> u64 {
 unsafe fn open_sink(path: &Path, (w, h): (u32, u32), fps: u32, audio: bool, manager: Option<&IMFDXGIDeviceManager>) -> Result<(IMFSinkWriter, u32, Option<u32>)> {
     unsafe {
         let mut attrs = None;
-        MFCreateAttributes(&mut attrs, 2)?;
-        let attrs = attrs.unwrap();
+        MFCreateAttributes(&mut attrs, 4)?;
+        let attrs = out(attrs)?;
         attrs.SetUINT32(&MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, 1)?;
+        // WriteSample must never block the audio thread while a still screen sends no video.
+        attrs.SetUINT32(&MF_SINK_WRITER_DISABLE_THROTTLING, 1)?;
+        // Fragmented MP4: a file cut off by a crash or power loss still plays; a finished one shows duration and thumbnail in Explorer.
+        attrs.SetGUID(&MF_TRANSCODE_CONTAINERTYPE, &MFTranscodeContainerType_FMPEG4)?;
         if let Some(m) = manager {
             attrs.SetUnknown(&MF_SINK_WRITER_D3D_MANAGER, m)?;
         }

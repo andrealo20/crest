@@ -11,7 +11,8 @@ mod record;
 mod shot;
 
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::UNIX_EPOCH;
 
 use serde::Serialize;
@@ -20,7 +21,7 @@ use windows::core::{Interface, BOOL, HSTRING, PCWSTR};
 use windows::Win32::Foundation::{HWND, LPARAM, PROPERTYKEY, RECT, SIZE};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::Graphics::Gdi::*;
-use windows::Win32::Media::MediaFoundation::{MFShutdown, MFStartup, MFSTARTUP_FULL, MF_VERSION};
+use windows::Win32::Media::MediaFoundation::{MFCreateSourceReaderFromURL, MFShutdown, MFStartup, MFSTARTUP_FULL, MF_VERSION};
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_MULTITHREADED};
 use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
 use windows::Win32::System::SystemInformation::GetLocalTime;
@@ -31,14 +32,23 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 use math::{file_name, Rect, Stamp};
 
 #[derive(Default)]
-pub struct CaptureState(Mutex<Option<Recording>>);
+pub struct CaptureState {
+    rec: Mutex<Option<Recording>>,
+    /// A recording is being set up (one to three seconds); the slot is filled only after,
+    /// so pause, state and screenshots never wait on the setup.
+    starting: AtomicBool,
+}
+
+impl CaptureState {
+    fn busy(&self) -> bool {
+        self.starting.load(Ordering::SeqCst) || self.rec.lock().unwrap().is_some()
+    }
+}
 
 struct Recording {
     recorder: record::Recorder,
     audio: Option<audio::AudioCapture>,
     path: PathBuf,
-    /// Crest's window, excluded from capture until the end.
-    own: isize,
 }
 
 #[derive(Serialize, Clone)]
@@ -49,7 +59,8 @@ pub struct RecState {
     elapsed_ms: i64,
     /// The finished file, once, when a recording ends.
     path: Option<String>,
-    /// Inputs that could not be opened ("system", "mic"), or a failure while saving ("save").
+    /// Inputs that could not be opened ("system", "mic"), why a recording stopped on its own
+    /// ("video": capture or encoder failed), or that writing the file failed ("save").
     failed: Vec<&'static str>,
 }
 
@@ -77,14 +88,19 @@ fn recordings_dir(app: &AppHandle) -> Option<PathBuf> {
 }
 
 /// A free file name in `dir` (created if missing).
+/// Errors that reach the frontend are short codes it translates (CaptureView).
 fn new_file(dir: &Path, prefix: &str, ext: &str) -> Result<PathBuf, String> {
-    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(dir).map_err(|_| "no-folder".to_string())?;
     Ok(dir.join(file_name(prefix, ext, stamp(), |n| dir.join(n).exists())))
 }
 
-fn exclude(own: isize, on: bool) {
-    let hwnd = HWND(own as *mut _);
-    let _ = unsafe { SetWindowDisplayAffinity(hwnd, if on { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }) };
+/// Every Crest window (the notch, the floating timer, ...) in or out of captures.
+fn exclude(app: &AppHandle, on: bool) {
+    for w in app.webview_windows().values() {
+        if let Ok(hwnd) = w.hwnd() {
+            let _ = unsafe { SetWindowDisplayAffinity(hwnd, if on { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }) };
+        }
+    }
 }
 
 fn own_hwnd(window: &WebviewWindow) -> isize {
@@ -139,7 +155,7 @@ pub struct SourceInfo {
 }
 
 /// Visible top-level windows with a title, the way Alt+Tab lists them.
-fn windows_list(own: isize) -> Vec<SourceInfo> {
+fn windows_list(own: &[isize]) -> Vec<SourceInfo> {
     unsafe extern "system" fn each(hwnd: HWND, data: LPARAM) -> BOOL {
         let list = unsafe { &mut *(data.0 as *mut Vec<(HWND, String, RECT)>) };
         unsafe {
@@ -165,14 +181,15 @@ fn windows_list(own: isize) -> Vec<SourceInfo> {
     }
     found
         .into_iter()
-        .filter(|(h, ..)| h.0 as isize != own)
+        .filter(|(h, ..)| !own.contains(&(h.0 as isize)))
         .map(|(h, name, r)| SourceInfo { id: format!("window:{}", h.0 as isize), kind: "window", name, width: r.right - r.left, height: r.bottom - r.top, primary: false })
         .collect()
 }
 
 #[tauri::command]
-pub async fn capture_sources(window: WebviewWindow) -> Vec<SourceInfo> {
-    let own = own_hwnd(&window);
+pub async fn capture_sources(app: AppHandle) -> Vec<SourceInfo> {
+    // Crest's own windows are not offered as sources.
+    let own: Vec<isize> = app.webview_windows().values().filter_map(|w| w.hwnd().ok()).map(|h| h.0 as isize).collect();
     tauri::async_runtime::spawn_blocking(move || {
         unsafe {
             let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -181,7 +198,7 @@ pub async fn capture_sources(window: WebviewWindow) -> Vec<SourceInfo> {
             .into_iter()
             .map(|m| SourceInfo { id: format!("monitor:{}", m.name), kind: "monitor", name: m.name, width: m.rect.w, height: m.rect.h, primary: m.primary })
             .collect();
-        list.extend(windows_list(own));
+        list.extend(windows_list(&own));
         list
     })
     .await
@@ -205,40 +222,41 @@ pub struct Shot {
 #[tauri::command]
 pub async fn capture_shot(mode: String, monitor: Option<String>, app: AppHandle, window: WebviewWindow) -> Result<Option<Shot>, String> {
     let own = own_hwnd(&window);
-    let dir = screenshots_dir(&app).ok_or("No Pictures folder")?;
+    let dir = screenshots_dir(&app).ok_or("no-folder")?;
     tauri::async_runtime::spawn_blocking(move || {
-        let recording = app.state::<CaptureState>().0.lock().unwrap().is_some();
+        let recording = app.state::<CaptureState>().busy();
         if !recording {
-            exclude(own, true);
-            // Let the compositor drop the window from the next frame.
+            exclude(&app, true);
+            // Let the compositor drop the windows from the next frame.
             std::thread::sleep(std::time::Duration::from_millis(60));
         }
-        let result = take_shot(&mode, monitor.as_deref(), &dir);
+        let result = take_shot(&mode, monitor.as_deref(), &dir, own);
         if !recording {
-            exclude(own, false);
+            exclude(&app, false);
         }
         result
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|_| "failed".to_string())?
 }
 
-fn take_shot(mode: &str, monitor: Option<&str>, dir: &Path) -> Result<Option<Shot>, String> {
+/// `owner`: the notch window, which the region overlay stays above.
+fn take_shot(mode: &str, monitor: Option<&str>, dir: &Path, owner: isize) -> Result<Option<Shot>, String> {
     unsafe {
         let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     }
     let screen = shot::virtual_screen();
-    let dib = shot::grab(screen).map_err(|e| e.message())?;
+    let dib = shot::grab(screen).map_err(|_| "failed")?;
     let all = Rect { x: 0, y: 0, w: screen.w, h: screen.h };
     let list = monitors();
     let crop = match mode {
-        "region" => match shot::pick_region(&dib, screen, &list.iter().map(|m| m.rect).collect::<Vec<_>>()).map_err(|e| e.message())? {
+        "region" => match shot::pick_region(&dib, screen, &list.iter().map(|m| m.rect).collect::<Vec<_>>(), owner).map_err(|_| "failed")? {
             Some(r) => r,
             None => return Ok(None),
         },
         "monitor" => {
-            let m = list.iter().find(|m| Some(m.name.as_str()) == monitor).or_else(|| list.iter().find(|m| m.primary)).ok_or("No monitor")?;
-            math::to_bitmap(m.rect, screen).ok_or("Monitor not found")?
+            let m = list.iter().find(|m| Some(m.name.as_str()) == monitor).or_else(|| list.iter().find(|m| m.primary)).ok_or("no-monitor")?;
+            math::to_bitmap(m.rect, screen).ok_or("no-monitor")?
         }
         _ => all,
     };
@@ -246,9 +264,12 @@ fn take_shot(mode: &str, monitor: Option<&str>, dir: &Path) -> Result<Option<Sho
     drop(dib);
     let path = new_file(dir, "Screenshot", "png")?;
     // Fast compression: a multi-monitor shot saves in a fraction of the time, for slightly larger files.
-    let file = std::io::BufWriter::new(std::fs::File::create(&path).map_err(|e| e.to_string())?);
+    let file = std::io::BufWriter::new(std::fs::File::create(&path).map_err(|_| "save-failed")?);
     let png = image::codecs::png::PngEncoder::new_with_quality(file, image::codecs::png::CompressionType::Fast, image::codecs::png::FilterType::Adaptive);
-    rgba.write_with_encoder(png).map_err(|e| e.to_string())?;
+    if rgba.write_with_encoder(png).is_err() {
+        let _ = std::fs::remove_file(&path);
+        return Err("save-failed".into());
+    }
     let _ = arboard::Clipboard::new().and_then(|mut c| {
         c.set_image(arboard::ImageData { width: rgba.width() as usize, height: rgba.height() as usize, bytes: rgba.as_raw().into() })
     });
@@ -268,7 +289,7 @@ fn emit(app: &AppHandle, s: RecState) {
 }
 
 fn current(state: &CaptureState) -> RecState {
-    match state.0.lock().unwrap().as_ref() {
+    match state.rec.lock().unwrap().as_ref() {
         None => RecState { phase: "idle", elapsed_ms: 0, path: None, failed: vec![] },
         Some(r) => {
             let clock = r.recorder.shared.clock.lock().unwrap();
@@ -282,84 +303,81 @@ pub fn capture_state(app: AppHandle) -> RecState {
     current(&app.state::<CaptureState>())
 }
 
-/// `source`: an id from `capture_sources`.
+/// `source`: an id from `capture_sources`. `border`: keep Windows' yellow capture frame.
 #[tauri::command]
-pub async fn capture_start(source: String, fps: u32, mic: bool, system: bool, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    let own = own_hwnd(&window);
-    let dir = recordings_dir(&app).ok_or("No Videos folder")?;
+pub async fn capture_start(source: String, fps: u32, mic: bool, system: bool, border: bool, app: AppHandle) -> Result<(), String> {
+    let dir = recordings_dir(&app).ok_or("no-folder")?;
+    if app.state::<CaptureState>().busy() || app.state::<CaptureState>().starting.swap(true, Ordering::SeqCst) {
+        return Err("busy".into());
+    }
     let task = app.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let app = task;
-        let state = app.state::<CaptureState>();
-        let mut slot = state.0.lock().unwrap();
-        if slot.is_some() {
-            return Err("Already recording".to_string());
+    let result = tauri::async_runtime::spawn_blocking(move || begin(&task, &source, fps, mic, system, border, &dir)).await.unwrap_or(Err("failed".into()));
+    app.state::<CaptureState>().starting.store(false, Ordering::SeqCst);
+    result
+}
+
+fn begin(app: &AppHandle, source: &str, fps: u32, mic: bool, system: bool, border: bool, dir: &Path) -> Result<(), String> {
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
+    let target = if let Some(name) = source.strip_prefix("monitor:") {
+        let list = monitors();
+        let m = list.iter().find(|m| m.name == name).or_else(|| list.iter().find(|m| m.primary)).ok_or("no-monitor")?;
+        record::Source::Monitor(m.handle)
+    } else if let Some(h) = source.strip_prefix("window:").and_then(|h| h.parse::<isize>().ok()) {
+        let hwnd = HWND(h as *mut _);
+        if !unsafe { IsWindow(Some(hwnd)) }.as_bool() {
+            return Err("window-closed".into());
         }
+        record::Source::Window(hwnd)
+    } else {
+        return Err("unknown-source".into());
+    };
+    let path = new_file(dir, "Recording", "mp4")?;
+    unsafe { MFStartup(MF_VERSION, MFSTARTUP_FULL) }.map_err(|_| "failed")?;
+    exclude(app, true);
+    let fps = if fps >= 60 { 60 } else { 30 };
+    // Opening the audio takes about half a second; it runs while the encoder starts.
+    let opening = std::thread::spawn(move || {
         unsafe {
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-            let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         }
-        let target = if let Some(name) = source.strip_prefix("monitor:") {
-            let list = monitors();
-            let m = list.iter().find(|m| m.name == name).or_else(|| list.iter().find(|m| m.primary)).ok_or("No monitor")?;
-            record::Source::Monitor(m.handle)
-        } else if let Some(h) = source.strip_prefix("window:").and_then(|h| h.parse::<isize>().ok()) {
-            let hwnd = HWND(h as *mut _);
-            if !unsafe { IsWindow(Some(hwnd)) }.as_bool() {
-                return Err("Window closed".into());
-            }
-            record::Source::Window(hwnd)
-        } else {
-            return Err("Unknown source".into());
-        };
-        let path = new_file(&dir, "Recording", "mp4")?;
-        unsafe { MFStartup(MF_VERSION, MFSTARTUP_FULL) }.map_err(|e| e.message())?;
-        exclude(own, true);
-        let closed = app.clone();
-        let fps = if fps >= 60 { 60 } else { 30 };
-        // Opening the audio takes about half a second; it runs while the encoder starts.
-        let opening = std::thread::spawn(move || {
+        audio::open_inputs(system, mic)
+    });
+    let ending = app.clone();
+    // The source closed or capturing failed: stop on another thread, the capture's own must return.
+    let on_end: record::OnEnd = Arc::new(move |why| {
+        let app = ending.clone();
+        std::thread::spawn(move || finish(&app, why));
+    });
+    let recorder = match record::start(target, &path, fps, mic || system, border, now, on_end) {
+        Ok(r) => r,
+        Err(_) => {
+            exclude(app, false);
+            drop(opening.join());
+            let _ = std::fs::remove_file(&path);
             unsafe {
-                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+                let _ = MFShutdown();
             }
-            audio::open_inputs(system, mic)
-        });
-        let recorder = match record::start(target, &path, fps, mic || system, now, move || {
-            // The recorded window closed: stop on another thread, the capture's own must return.
-            let app = closed.clone();
-            std::thread::spawn(move || finish(&app));
-        }) {
-            Ok(r) => r,
-            Err(e) => {
-                exclude(own, false);
-                drop(opening.join());
-                let _ = std::fs::remove_file(&path);
-                unsafe {
-                    let _ = MFShutdown();
-                }
-                return Err(e.message());
-            }
-        };
-        let (inputs, failed) = opening.join().unwrap_or_default();
-        let audio = recorder.has_audio.then(|| audio::start(recorder.shared.clone(), inputs, now));
-        *slot = Some(Recording { recorder, audio, path, own });
-        drop(slot);
-        emit(&app, RecState { phase: "recording", elapsed_ms: 0, path: None, failed });
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
+            return Err("failed".into());
+        }
+    };
+    let (inputs, failed) = opening.join().unwrap_or_default();
+    let audio = recorder.has_audio.then(|| audio::start(recorder.shared.clone(), inputs, now));
+    *app.state::<CaptureState>().rec.lock().unwrap() = Some(Recording { recorder, audio, path });
+    emit(app, RecState { phase: "recording", elapsed_ms: 0, path: None, failed });
+    Ok(())
 }
 
 #[tauri::command]
 pub fn capture_pause(paused: bool, app: AppHandle) {
     let state = app.state::<CaptureState>();
-    if let Some(r) = state.0.lock().unwrap().as_ref() {
-        let mut clock = r.recorder.shared.clock.lock().unwrap();
+    if let Some(r) = state.rec.lock().unwrap().as_ref() {
         if paused {
-            clock.pause(now());
+            r.recorder.shared.clock.lock().unwrap().pause(now());
         } else {
-            clock.resume(now());
+            r.recorder.shared.resume(now());
         }
     }
     emit(&app, current(&state));
@@ -367,23 +385,31 @@ pub fn capture_pause(paused: bool, app: AppHandle) {
 
 #[tauri::command]
 pub async fn capture_stop(app: AppHandle) {
-    let _ = tauri::async_runtime::spawn_blocking(move || finish(&app)).await;
+    let _ = tauri::async_runtime::spawn_blocking(move || finish(&app, None)).await;
 }
 
-/// Ends the recording (if any), writes the file and tells the frontend.
-fn finish(app: &AppHandle) {
-    let Some(r) = app.state::<CaptureState>().0.lock().unwrap().take() else { return };
+/// Ends the recording (if any), writes the file and tells the frontend. `why`: the reason
+/// it ended on its own ("video"), None when asked to. Also called when Crest quits.
+pub(crate) fn finish(app: &AppHandle, why: Option<&'static str>) {
+    let Some(r) = app.state::<CaptureState>().rec.lock().unwrap().take() else { return };
     let elapsed = r.recorder.shared.clock.lock().unwrap().elapsed(now()) / 10_000;
     if let Some(a) = r.audio {
         a.stop();
     }
-    let saved = r.recorder.stop();
+    let finished = r.recorder.stop().is_ok();
+    // Fragmented MP4 still plays when it could not be finished: kept then ("partial"), removed only when unreadable ("save").
+    let playable = finished || unsafe { MFCreateSourceReaderFromURL(&HSTRING::from(r.path.as_path()), None) }.is_ok();
     unsafe {
         let _ = MFShutdown();
     }
-    exclude(r.own, false);
-    let failed = if saved.is_ok() { vec![] } else { vec!["save"] };
-    emit(app, RecState { phase: "idle", elapsed_ms: elapsed, path: Some(r.path.to_string_lossy().into_owned()), failed });
+    exclude(app, false);
+    if !playable {
+        let _ = std::fs::remove_file(&r.path);
+    }
+    let problem = if !playable { Some("save") } else if !finished { Some("partial") } else { None };
+    let failed = why.into_iter().chain(problem).collect();
+    let path = playable.then(|| r.path.to_string_lossy().into_owned());
+    emit(app, RecState { phase: "idle", elapsed_ms: elapsed, path, failed });
 }
 
 // ---------- Library ----------
@@ -500,7 +526,7 @@ pub fn capture_delete(path: String, app: AppHandle) -> Result<(), String> {
     let inside = [screenshots_dir(&app), recordings_dir(&app)].into_iter().flatten().filter_map(|d| d.canonicalize().ok()).any(|d| Some(&d) == parent.as_ref());
     let ext_ok = p.extension().is_some_and(|x| x.eq_ignore_ascii_case("png") || x.eq_ignore_ascii_case("mp4"));
     if !inside || !ext_ok || !p.is_file() {
-        return Err("Not a capture".into());
+        return Err("not-capture".into());
     }
     // Double-null-terminated list of one path.
     let from: Vec<u16> = path.encode_utf16().chain([0, 0]).collect();
@@ -512,7 +538,7 @@ pub fn capture_delete(path: String, app: AppHandle) -> Result<(), String> {
     };
     match unsafe { SHFileOperationW(&mut op) } {
         0 => Ok(()),
-        code => Err(format!("Delete failed ({code})")),
+        _ => Err("delete-failed".into()),
     }
 }
 
@@ -521,6 +547,80 @@ mod live {
     //! Records two seconds of the primary monitor with system audio into a temp file and reads it back.
     //! Touches real hardware, so only on request: `cargo test --lib capture::live -- --ignored`.
     use super::*;
+
+    fn init() {
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+            MFStartup(MF_VERSION, MFSTARTUP_FULL).unwrap();
+        }
+    }
+
+    fn no_end() -> record::OnEnd {
+        Arc::new(|_| {})
+    }
+
+    fn streams(path: &Path) -> usize {
+        unsafe { MFCreateSourceReaderFromURL(&HSTRING::from(path), None) }.map(|r| (0..2).filter(|&i| unsafe { r.GetNativeMediaType(i, 0) }.is_ok()).count()).unwrap_or(0)
+    }
+
+    /// Crest killed mid-recording: the writer is dropped without finishing, the fragmented MP4 still plays.
+    #[test]
+    #[ignore]
+    fn unfinished_file_still_plays() {
+        init();
+        let path = std::env::temp_dir().join("crest-capture-unfinished.mp4");
+        let _ = std::fs::remove_file(&path);
+        let m = monitors().into_iter().find(|m| m.primary).unwrap();
+        let (inputs, _) = audio::open_inputs(true, false);
+        let recorder = record::start(record::Source::Monitor(m.handle), &path, 30, true, true, now, no_end()).unwrap();
+        let audio = audio::start(recorder.shared.clone(), inputs, now);
+        std::thread::sleep(std::time::Duration::from_millis(3000));
+        audio.stop();
+        drop(recorder);
+        assert_eq!(streams(&path), 2);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    /// A window that never changes delivers one frame: with audio running the writer must not
+    /// stall, and stopping after `CREST_STILL_SECS` (default 60) must finish the file.
+    #[test]
+    #[ignore]
+    fn still_window_does_not_stall() {
+        use windows::core::w;
+        init();
+        let secs: u64 = std::env::var("CREST_STILL_SECS").ok().and_then(|s| s.parse().ok()).unwrap_or(60);
+        let hwnd = unsafe { CreateWindowExW(WS_EX_TOOLWINDOW, w!("STATIC"), w!("Crest still test"), WS_POPUP | WS_VISIBLE, 40, 40, 320, 240, None, None, None, None) }.unwrap();
+        let path = std::env::temp_dir().join("crest-capture-still.mp4");
+        let _ = std::fs::remove_file(&path);
+        let (inputs, _) = audio::open_inputs(true, false);
+        let recorder = record::start(record::Source::Window(hwnd), &path, 30, true, true, now, no_end()).unwrap();
+        let audio = audio::start(recorder.shared.clone(), inputs, now);
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(secs);
+        let mut msg = MSG::default();
+        while std::time::Instant::now() < until {
+            unsafe {
+                while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
+                    let _ = TranslateMessage(&msg);
+                    DispatchMessageW(&msg);
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        let stopping = std::time::Instant::now();
+        audio.stop();
+        recorder.stop().unwrap();
+        let took = stopping.elapsed();
+        unsafe {
+            let _ = DestroyWindow(hwnd);
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        }
+        let ms = details(path.to_string_lossy().into_owned()).duration_ms.unwrap_or(0);
+        eprintln!("still {secs} s: stop took {took:?}, duration {ms} ms, streams {}", streams(&path));
+        assert!(took < std::time::Duration::from_secs(5));
+        assert!((secs * 1000 - 500..=secs * 1000 + 500).contains(&ms), "{ms}");
+        std::fs::remove_file(&path).unwrap();
+    }
 
     /// Opens the region overlay and drives it with posted messages: a drag, then Esc.
     #[test]
@@ -550,10 +650,10 @@ mod live {
         };
         let at = |x: isize, y: isize| (y << 16) | x;
         let t = post(vec![(WM_LBUTTONDOWN, 0, at(10, 20)), (WM_MOUSEMOVE, 0, at(200, 120)), (WM_LBUTTONUP, 0, at(110, 70))]);
-        assert_eq!(shot::pick_region(&dib, screen, &[]).unwrap(), Some(Rect { x: 10, y: 20, w: 101, h: 51 }));
+        assert_eq!(shot::pick_region(&dib, screen, &[], 0).unwrap(), Some(Rect { x: 10, y: 20, w: 101, h: 51 }));
         t.join().unwrap();
         let t = post(vec![(WM_KEYDOWN, VK_ESCAPE.0 as usize, 0)]);
-        assert_eq!(shot::pick_region(&dib, screen, &[]).unwrap(), None);
+        assert_eq!(shot::pick_region(&dib, screen, &[], 0).unwrap(), None);
         t.join().unwrap();
     }
 
@@ -562,11 +662,11 @@ mod live {
     fn takes_screenshots() {
         let dir = std::env::temp_dir().join("crest-capture-shots");
         let _ = std::fs::remove_dir_all(&dir);
-        let all = take_shot("all", None, &dir).unwrap().unwrap();
+        let all = take_shot("all", None, &dir, 0).unwrap().unwrap();
         let screen = shot::virtual_screen();
         assert_eq!((all.width, all.height), (screen.w, screen.h));
         let primary = monitors().into_iter().find(|m| m.primary).unwrap();
-        let one = take_shot("monitor", Some(&primary.name), &dir).unwrap().unwrap();
+        let one = take_shot("monitor", Some(&primary.name), &dir, 0).unwrap().unwrap();
         assert_eq!((one.width, one.height), (primary.rect.w, primary.rect.h));
         // Two in the same second get different names.
         assert_ne!(all.path, one.path);
@@ -589,7 +689,7 @@ mod live {
         let t0 = std::time::Instant::now();
         let (inputs, failed) = audio::open_inputs(true, false);
         assert!(failed.is_empty(), "{failed:?}");
-        let recorder = record::start(record::Source::Monitor(m.handle), &path, 30, true, now, || {}).unwrap();
+        let recorder = record::start(record::Source::Monitor(m.handle), &path, 30, true, true, now, no_end()).unwrap();
         let audio = audio::start(recorder.shared.clone(), inputs, now);
         eprintln!("started in {:?}, gpu {}", t0.elapsed(), recorder.gpu);
         std::thread::sleep(std::time::Duration::from_millis(1000));

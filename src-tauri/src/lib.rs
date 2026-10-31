@@ -168,8 +168,14 @@ pub fn run() {
             build_tray(app)?;
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("failed to start Crest");
+        .build(tauri::generate_context!())
+        .expect("failed to start Crest")
+        .run(|app, event| {
+            // A recording still running when Crest quits is finished, so the file is complete.
+            if let tauri::RunEvent::Exit = event {
+                capture::finish(app, None);
+            }
+        });
 }
 
 /// Window that was in the foreground before the shortcut opened the notch.
