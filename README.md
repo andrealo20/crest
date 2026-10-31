@@ -18,7 +18,7 @@
   <a href="https://github.com/andrealo20/crest/issues/new"><b>Suggest an idea</b></a>
 </p>
 
-Crest sits at the top of your screen as a small notch, stays out of the way until you need it, and opens on hover, click or **Ctrl + Alt + Space**.
+Crest sits at the edge of your screen as a small notch (at the top unless you move it to another edge), stays out of the way until you need it, and opens on hover, click or **Ctrl + Alt + Space**.
 
 Inside: music controls with a live equalizer, a vault for passwords and 2FA codes, live weather, your Discord call, your portfolio, an AI chat (Claude, ChatGPT and more) with your usage limits, clipboard history, a file shelf, a file and unit converter, timers, to-dos and notes, live hardware stats with FPS for games, and privacy dots for mic, camera and screen recording.
 
@@ -39,6 +39,13 @@ Notch and capsule show a row of parts, centred and in the order you choose: cove
 Short notices appear over the row: a finished timer stays until you dismiss it, a quota alert at 70% and 90% shows for 5 seconds (it needs the AI quota rings turned on), and a new song for 4 seconds.
 
 Status alerts show briefly when you plug in or unplug the charger, when the battery reaches 20% and 10%, when the internet drops or comes back, and when Bluetooth headphones connect or disconnect. Turn each one off in **Settings → Display**.
+
+### Screen edge, window rules and shortcuts
+
+- **Any screen edge.** **Screen edge** in **Settings → Display** hangs the notch and the line from the top, bottom, left or right edge, from the screen's edge or from the taskbar's. Dragging the closed notch towards another edge moves it there. On the left and right edges the parts stand in a column, and a notice shows as one icon: a finished timer (click to dismiss), a status alert, a live notice's app logo or a due to-do (click to open the To-dos). The capsule stays on the top.
+- **Screen and app rules.** **Settings → Window** chooses what Crest does while a maximized window, a borderless full-screen app or an exclusive full-screen game covers its monitor: keep its look, turn into the line, or hide. It can also check the windows behind the one in front. Rules per app, picked from the running apps or typed, override these.
+- **Panel size and scale.** Drag the open panel's sides, bottom or bottom corners to size each tool (double click resets), or pick Compact, Standard or Spacious for all of them. The whole notch can be shown at 100 % or 150 %.
+- **Shortcuts.** Opening and closing, hiding and showing Crest, and resizing the panel with the arrow keys each take a shortcut you record in **Settings → Window**. Crest tells you when another program or the launcher's Alt keys already use it. Right click on the notch opens the settings, and the mouse wheel switches tools.
 
 ### Live notices
 
@@ -88,6 +95,8 @@ The vault is off by default; turn it on under **Settings → Tools**.
 2. Run it. No Node, Rust or admin rights needed; it installs for your user only.
 3. The notch appears at the top of your screen and starts with Windows from then on.
 
+**Portable:** download Crest-x.y.z-Portable-x64.zip instead, unzip it anywhere you can write to and run Crest.exe. Nothing is installed: settings, notes and caches stay in a data folder next to it, crest-notify.exe comes along, and updates replace both in place after checking their signature. Start with Windows is off for a portable copy until you switch it on. API keys stay in the Windows Credential Manager of each PC. Details are in README-portable.txt inside the zip.
+
 Crest keeps its settings and data apart from L4-Notchbar, so both can be installed at the same time.
 
 Built and tested on Windows 11; Windows 10 should work but is untested. If WebView2 is missing, the installer fetches it automatically.
@@ -102,13 +111,13 @@ The installer is not code-signed yet, so Windows SmartScreen may warn on first l
 | Switch tools | Tool bar at the bottom of the open notch |
 | Settings | Gear icon at the end of the tool bar, or **Settings …** in the tray menu |
 | Tray icon | Left click opens the notch, right click shows the menu (open, settings, autostart, quit) |
-| Move the notch | Drag it sideways, either closed or by its header. "Reset to center" is in settings |
+| Move the notch | Drag it along its edge, closed or by its header; drag the closed notch towards another edge to move it there. "Reset to center" is in settings |
 | Focus mode | Click the notch three times quickly. It turns half transparent and clicks pass through. Three more clicks bring it back |
 | Add files | Drag them onto the notch, or paste with Ctrl + V |
 
 ## Settings
 
-Settings are grouped into General, Display, Tools, Timer, AI, Connections and Notices. There you can reorder (drag) or hide tools, pick the monitor, hide the notch automatically during fullscreen apps, and enable autostart. The interface is in English.
+Settings are grouped into General, Display, Window, Tools, Timer, AI, Connections, Themes and Notices. There you can reorder (drag) or hide tools, pick the monitor and the screen edge, set what the notch does over full-screen and maximized windows, record shortcuts, and enable autostart. The interface is in English.
 
 ### Setting up the integrations
 
@@ -195,7 +204,7 @@ Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Wi
 
 - The Antigravity quota reader comes from an upstream pull request by [Fraustiz](https://github.com/Linux5Real/L4-Windows-NotchBar/pull/11).
 - The LRCLIB lookup (exact match, search fallback by length, cleanup of video titles) follows an upstream pull request by mhmmdazizy ([L4-Notchbar PR #13](https://github.com/Linux5Real/L4-Windows-NotchBar/pull/13)).
-- The layout of the collapsed row, the carousel timing, the capsule placement rules, the per-app audio capture, the way live notices learn of new Windows notifications from the event log, the screen-edge frame, the side column and the portable packaging are translated from [BrimDeck](https://github.com/MoFeng2223/BrimDeck) (Apache-2.0, license text in [licenses/BrimDeck-LICENSE](licenses/BrimDeck-LICENSE)).
+- The layout of the collapsed row, the carousel timing, the capsule placement rules, the per-app audio capture, the way live notices learn of new Windows notifications from the event log, the screen-edge frame, the side column, the portable packaging, the window and app rules, the shortcut text and the panel sizes and scale are translated from [BrimDeck](https://github.com/MoFeng2223/BrimDeck) (Apache-2.0, license text in [licenses/BrimDeck-LICENSE](licenses/BrimDeck-LICENSE)).
 - The panel themes, their readability correction and the day and night switch are translated from BrimDeck too ([docs/themes.md](docs/themes.md)). The One Dark Pro, GitHub, Dracula and Night Owl themes use the colours of those VS Code themes under the MIT License ([licenses/theme-palettes-MIT.txt](licenses/theme-palettes-MIT.txt)).
 - The notch proportions were derived from [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT).
 - The terminal uses [xterm.js](https://github.com/xtermjs/xterm.js) (MIT).
