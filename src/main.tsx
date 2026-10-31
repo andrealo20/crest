@@ -10,12 +10,13 @@ import { clipboard } from "./platform/clipboard";
 import { settings } from "./settings/store";
 import { applyDisplay, windowY } from "./notch/drag";
 import { focusMode, startFocusMode } from "./notch/focus";
-import { monitor, startMonitorWatch } from "./notch/monitor";
+import { monitor, reloadMonitor, startMonitorWatch } from "./notch/monitor";
 import { startSystemPolling } from "./features/system/store";
 import { startUsagePolling } from "./features/usage/store";
 import { startGamingWatch } from "./features/system/gaming";
 import { startDiscord } from "./features/discord/store";
 import { startUpdateWatch } from "./lib/update";
+import { screen, startWindowBehavior } from "./features/window/store";
 import { showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
 
@@ -29,21 +30,30 @@ startUsagePolling();
 startGamingWatch();
 startDiscord();
 startUpdateWatch();
+startWindowBehavior();
 
 // Send display settings (monitor, fullscreen, offset, window top, gaming) to Rust on start and on every change.
 // The window top follows the style, the capsule's y, focus mode and the monitor once it has loaded.
 let lastDisplay = "";
+let lastScale = 100;
 const syncDisplay = () => {
-  const { display, gaming } = settings.get();
-  const key = `${display.visibility}|${display.monitor}|${display.offset}|${windowY()}|${gaming.mode}`;
+  const { display, gaming, behavior } = settings.get();
+  const rules = JSON.stringify([behavior.rules, behavior.apps, behavior.scale]);
+  const key = `${rules}|${display.monitor}|${display.offset}|${windowY()}|${gaming.mode}`;
   if (key === lastDisplay) return;
   lastDisplay = key;
   applyDisplay();
+  // The monitor's size in CSS px changes with the panel scale: read it again once Rust has the new one (same command queue).
+  if (behavior.scale !== lastScale) {
+    lastScale = behavior.scale;
+    reloadMonitor();
+  }
 };
 syncDisplay();
 settings.subscribe(syncDisplay);
 monitor.subscribe(syncDisplay);
 focusMode.subscribe(syncDisplay);
+screen.subscribe(syncDisplay);
 
 // Clipboard history only records what an enabled tool uses (Ask: the latest text).
 let lastClipMode = "";

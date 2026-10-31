@@ -2,14 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createStore } from "../lib/store";
 import { setPinned } from "../platform/native";
 import { hoverDelayMs, settings } from "../settings/store";
+import { closeDelayMs } from "../features/window/model";
 
 export type NotchStatus = "closed" | "peek" | "open";
 
-/** Delays in ms. The hover delay comes from the settings. */
-export const timing = {
-  /** Grace period on leave, so slipping off briefly doesn't close it. */
-  leaveClose: 180,
-};
+/** Grace period on leave, so slipping off briefly doesn't close it (the close delay in the settings). */
+const closeDelay = () => closeDelayMs[settings.get().behavior.closeDelay];
 
 /*
  * "Hold": while dragging (seeking, drag and drop) the notch stays open and
@@ -110,7 +108,7 @@ export function useNotchState() {
     hovering.current = false;
     window.clearTimeout(timer.current);
     if (statusRef.current === "peek") setStatus("closed");
-    else if (statusRef.current === "open" && mayAutoClose()) later(timing.leaveClose, "closed");
+    else if (statusRef.current === "open" && mayAutoClose()) later(closeDelay(), "closed");
   }, [setStatus, later]);
 
   // Hold ended and the cursor is outside → handle the missed leave now.
@@ -118,7 +116,7 @@ export function useNotchState() {
     () =>
       holds.subscribe(() => {
         if (!hovering.current && statusRef.current === "open" && mayAutoClose()) {
-          later(timing.leaveClose, "closed");
+          later(closeDelay(), "closed");
         }
       }),
     [later],
@@ -128,7 +126,7 @@ export function useNotchState() {
   useEffect(
     () =>
       pinned.subscribe(() => {
-        if (!pinned.get() && !hovering.current && statusRef.current === "open" && mayAutoClose()) later(timing.leaveClose, "closed");
+        if (!pinned.get() && !hovering.current && statusRef.current === "open" && mayAutoClose()) later(closeDelay(), "closed");
       }),
     [later],
   );

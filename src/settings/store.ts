@@ -1,6 +1,7 @@
 import { createStore } from "../lib/store";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
+import { WINDOW_DEFAULTS, normalizeWindow, type WindowSettings } from "../features/window/model";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -29,6 +30,7 @@ export interface Settings {
    * `offset` = horizontal offset from the center in CSS px (set by dragging).
    */
   display: {
+    /** Replaced by `behavior.rules`; only read once to seed them for older installs. */
     visibility: "always" | "hide-fullscreen";
     monitor: string | null;
     offset: number;
@@ -62,6 +64,8 @@ export interface Settings {
   presentation: { manual: boolean; auto: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
+  /** Window behaviour: full-screen and app rules, shortcuts, panel sizes and scale, close delay, mouse (src/features/window). */
+  behavior: WindowSettings;
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -111,6 +115,7 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
+  behavior: WINDOW_DEFAULTS,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -170,6 +175,7 @@ settings.set((s) => {
     updates: { ...defaults.updates, ...s.updates },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
+    behavior: normalizeWindow(s.behavior, s.display?.visibility),
   };
 });
 

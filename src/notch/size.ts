@@ -1,4 +1,5 @@
 import { createStore } from "../lib/store";
+import { PANEL_MAX } from "../features/window/panelSize";
 
 /*
  * A tool can change its open size at runtime (e.g. the image preview in the
@@ -8,7 +9,7 @@ import { createStore } from "../lib/store";
 export const sizeOverride = createStore<{ tabId: string; w: number; h: number } | null>(null);
 
 /** Maximum usable area in the window (tauri.conf.json: 760 × 560). */
-export const MAX_SIZE = { w: 740, h: 540 };
+export const MAX_SIZE = PANEL_MAX;
 
 export function requestSize(tabId: string, size: { w: number; h: number } | null) {
   sizeOverride.set(

@@ -407,8 +407,8 @@ export const display = {
           { name: "\\.\DISPLAY1", primary: true, width: 2560, height: 1440, workTop: 0, workHeight: 1440 - 48 },
           { name: "\\.\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48 },
         ]),
-  /** `y`: window top in CSS px below the monitor's top edge (default 0). */
-  apply: (config: { hideFullscreen: boolean; monitor: string | null; offset: number; y?: number; gaming: boolean }) => {
+  /** `y`: window top in CSS px below the monitor's top edge (default 0); `rules`: screen_policy.rs Rules; `zoom`: panel scale (1 or 1.5). */
+  apply: (config: { monitor: string | null; offset: number; y?: number; gaming: boolean; rules: unknown; zoom: number }) => {
     if (isNative) void invoke("display_apply", { config });
   },
   /** true while an app covers the notch's monitor in fullscreen. */
@@ -632,5 +632,50 @@ export const systemControls = {
     if (isNative) return invoke<FocusState>("focus_set", { active });
     mockFocus.active = active;
     return Promise.resolve({ ...mockFocus });
+  },
+};
+
+// ---------- Window behaviour (display.rs, shell.rs) ----------
+
+/** What the window rules call for right now. */
+export type ScreenBehavior = "normal" | "line" | "hide";
+export interface RunningApp {
+  name: string;
+  path: string;
+}
+/** in-use: another program holds the combination. */
+export type HotkeyState = "unset" | "active" | "in-use" | "invalid";
+export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState };
+
+export const windowShell = {
+  screen: (): Promise<ScreenBehavior> => (isNative ? invoke<ScreenBehavior>("display_screen") : Promise.resolve("normal")),
+  onScreen: (handler: (b: ScreenBehavior) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<ScreenBehavior>("notch://screen", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Shows Crest if the hide shortcut hid it and puts it above other always-on-top windows. */
+  raise: () => {
+    if (isNative) void invoke("display_raise");
+  },
+  apps: (): Promise<RunningApp[]> =>
+    isNative
+      ? invoke<RunningApp[]>("display_apps")
+      : Promise.resolve([
+          { name: "chrome", path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
+          { name: "vlc", path: "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe" },
+        ]),
+  applyHotkeys: (config: { open: string; hide: string; resize: string; openLabel: string }): Promise<HotkeyStates> =>
+    isNative
+      ? invoke<HotkeyStates>("hotkeys_apply", { config })
+      : Promise.resolve({ open: config.open ? "active" : "unset", hide: config.hide ? "active" : "unset", resize: config.resize ? "active" : "unset" }),
+  /** The resize shortcut: one arrow press. */
+  onResizeKey: (handler: (dir: "left" | "right" | "up" | "down") => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<"left" | "right" | "up" | "down">("notch://resize", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  crashLog: (text: string) => {
+    if (isNative) void invoke("crash_log", { text });
   },
 };

@@ -10,7 +10,10 @@ import { useDragToMove, windowY } from "./drag";
 import { useLiveActivity } from "./live";
 import { CompactRow } from "./row/CompactRow";
 import { NoticeLayer } from "./row/NoticeLayer";
-import { fullscreen } from "../features/system/gaming";
+import { effectiveIdleStyle, screen } from "../features/window/store";
+import { ResizeHandles, stepToolSize, useToolSize, wheelTaken } from "../features/window/panel";
+import { cycle } from "../features/window/model";
+import { windowShell } from "../platform/services";
 import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, geometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
 import { hasBridge, panelTop, windowYFor } from "./capsule";
 import { monitor, monitorMetrics } from "./monitor";
@@ -36,14 +39,16 @@ const MEMORY_LOW_AFTER_MS = 20_000;
 export function Notch() {
   const { status, open, close, dismiss, toggle, onPointerEnter, onPointerLeave } = useNotchState();
   const focus = focusMode.use();
-  const { tools: toolSettings, display: displaySettings, gaming: { mode: gamingMode } } = settings.use();
-  const isFullscreen = fullscreen.use();
+  const { tools: toolSettings, display: displaySettings, behavior } = settings.use();
+  // Window rules (display.rs): "line" turns the closed look into the idle line, "hide" means Rust hid the window.
+  const screenBehavior = screen.use();
+  const idleStyle = effectiveIdleStyle(displaySettings.idleStyle, screenBehavior);
   // Focus mode as a line: no live activity, no dots, only the thin strip at the edge.
   const line = focus && displaySettings.focusStyle === "line";
   // Line as the normal closed look: hover and click work as usual, but nothing shows
   // while closed but the song's progress. Only a finished timer opens it into the notch (its notice), until dismissed.
   const timerDone = timer.use().finished;
-  const idleLine = !focus && displaySettings.idleStyle === "line";
+  const idleLine = !focus && idleStyle === "line";
   const alert = idleLine && timerDone;
   const visible = toolSettings.filter((t) => t.enabled).map((t) => findTab(t.id)).filter((t): t is NotchTab => !!t);
   const { tabId } = nav.use();
@@ -74,14 +79,17 @@ export function Notch() {
   useQuickDrop(status, open, dismiss);
 
   const override = sizeOverride.use();
-  const size = override?.tabId === tab.id ? override : tab.size;
+  const toolSize = useToolSize(tab.id, tab.size);
+  // A tool's own runtime request (e.g. the clipboard's image preview) wins over the dragged size.
+  const overridden = override?.tabId === tab.id;
+  const size = overridden ? override : toolSize;
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
-  const style = line ? "line" : displaySettings.idleStyle;
+  const style = line ? "line" : idleStyle;
   const surface = style === "capsule" ? "capsule" : "notch";
-  // The row is on screen closed or peeking, not as a line, not in focus mode, not while Rust hides the window for fullscreen (display.rs).
-  const hiddenForFullscreen = displaySettings.visibility === "hide-fullscreen" && gamingMode === "off" && isFullscreen;
+  // The row is on screen closed or peeking, not as a line, not in focus mode, not while Rust hides the window for a window rule.
+  const hiddenForFullscreen = screenBehavior === "hide";
   const showRow = status !== "open" && !line && !idleLine && !focus && !hiddenForFullscreen;
   // Content width of the closed row, as it last reported it (kept while open, so closing goes straight to it).
   const [rowWidth, setRowWidth] = useState(0);
@@ -142,18 +150,52 @@ export function Notch() {
     if (!focus && status !== "open") open();
   };
 
+  /** Opens on `tab` (null = as usual). */
+  const openOn = (tab: string | null) => {
+    // Only remember it while opening, otherwise it would stick for the next open.
+    trayTab.current = status === "open" ? null : tab;
+    if (tab) navigate(tab);
+    open();
+  };
+
+  // Right click on the notch opens the settings; text fields keep their menu.
+  const onContextMenu = (e: React.MouseEvent) => {
+    if (!behavior.rightClickSettings || focus || isTextField(e.target) || drag.moved()) return;
+    openOn(settingsTab.id);
+  };
+
+  // The wheel over the open panel switches tools, one step per gesture, unless something under the pointer scrolls or took it.
+  const wheelAt = useRef(0);
+  const onWheel = (e: React.WheelEvent) => {
+    if (status !== "open" || !behavior.wheelTools || tab.id === settingsTab.id) return;
+    if (e.nativeEvent.defaultPrevented || wheelTaken(e.target, e.currentTarget, e.deltaX, e.deltaY)) return;
+    const now = performance.now(), quiet = now - wheelAt.current > 350;
+    wheelAt.current = now;
+    const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    const next = quiet && delta !== 0 ? cycle(visible.map((t) => t.id), tab.id, delta > 0 ? 1 : -1) : null;
+    if (next) navigate(next);
+  };
+
   // Shortcut: opening takes focus (Esc, typing), closing gives it back.
   useEffect(() => onShortcut(() => toggle() === "open" && keyboardFocus(true)), [toggle]);
   useEffect(
     () =>
       onTrayOpen((tab) => {
-        // Only remember it while opening, otherwise it would stick for the next open.
-        trayTab.current = status === "open" ? null : tab;
-        if (tab) navigate(tab);
-        open();
+        openOn(tab);
         keyboardFocus(true);
       }),
     [open, status],
+  );
+  // Resize shortcut: each arrow press resizes the open tool; while closed the first press opens it.
+  useEffect(
+    () =>
+      windowShell.onResizeKey((dir) => {
+        if (status !== "open") {
+          open();
+          keyboardFocus(true);
+        } else if (!overridden) stepToolSize(tab.id, tab.size, dir);
+      }),
+    [open, status, tab, overridden],
   );
   useEffect(() => {
     if (status === "closed") keyboardFocus(false);
@@ -200,6 +242,8 @@ export function Notch() {
         onPointerEnter={isNative || focus ? undefined : onPointerEnter}
         onPointerLeave={isNative || focus ? undefined : onPointerLeave}
         onClick={onClick}
+        onContextMenu={onContextMenu}
+        onWheel={onWheel}
       >
         <NotchShape geometry={shape} transition={transition} elevated={status === "open"}>
           <AnimatePresence>{showRow && <CompactRow key="row" style={surface} covered={notice !== null} onWidth={setRowWidth} />}</AnimatePresence>
@@ -234,6 +278,7 @@ export function Notch() {
                   </AnimatePresence>
                 </div>
                 <Dock tabs={visible} activeId={tab.id} />
+                {!overridden && <ResizeHandles id={tab.id} def={tab.size} size={size} />}
               </motion.div>
             )}
           </AnimatePresence>

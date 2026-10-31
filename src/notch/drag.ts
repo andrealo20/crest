@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { isNative } from "../platform/native";
 import { display } from "../platform/services";
 import { settings, updateSettings } from "../settings/store";
+import { effectiveIdleStyle } from "../features/window/store";
 import { snapCapsule, windowYFor } from "./capsule";
 import { focusMode } from "./focus";
 import { monitorMetrics, reloadMonitor } from "./monitor";
@@ -15,7 +16,7 @@ const SNAP = 24;
 /** The window's top for the capsule top `y` (display.y unless given) on the notch's monitor; always finite, since Rust rejects NaN. */
 export function windowY(y = settings.get().display.y): number {
   const s = settings.get(), m = monitorMetrics();
-  const style = focusMode.get() && s.display.focusStyle === "line" ? "line" : s.display.idleStyle;
+  const style = focusMode.get() && s.display.focusStyle === "line" ? "line" : effectiveIdleStyle(s.display.idleStyle);
   const top = windowYFor(style, y, m.height, m.workTop);
   return Number.isFinite(top) ? top : 0;
 }
@@ -23,7 +24,8 @@ export function windowY(y = settings.get().display.y): number {
 /** Sends display settings to Rust, optionally with an offset and a capsule top `y` that aren't saved yet (Rust gets the window's top from `windowY`). */
 export function applyDisplay(offset = settings.get().display.offset, y?: number) {
   const s = settings.get();
-  display.apply({ hideFullscreen: s.display.visibility === "hide-fullscreen", monitor: s.display.monitor, offset, y: windowY(y), gaming: s.gaming.mode !== "off" });
+  const b = s.behavior;
+  display.apply({ monitor: s.display.monitor, offset, y: windowY(y), gaming: s.gaming.mode !== "off", rules: { ...b.rules, apps: b.apps }, zoom: b.scale / 100 });
 }
 
 /** The area the capsule is dragged in: the monitor, in the browser the viewport with DesktopMock's 48 px taskbar. */
@@ -52,7 +54,7 @@ export function useDragToMove(status: NotchStatus, size: { w: number; h: number 
     // When open only via the header, otherwise lists and sliders would drag too.
     if (status === "open" && !target.closest("[data-drag-handle]")) return;
 
-    const capsule = saved.idleStyle === "capsule";
+    const capsule = effectiveIdleStyle(saved.idleStyle) === "capsule";
     if (capsule) reloadMonitor();
     const { pointerId: id, screenX: x, screenY: sy } = e;
     const from = { offset, y };
