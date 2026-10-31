@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PANEL_MAX, clampSize, currentQuick, dragSize, fitScale, limits, normalizeSizes, quickSize, sizeFor, stepSize } from "./panelSize.ts";
+import { PANEL_MAX, clampSize, currentQuick, dragSize, fitScale, limits, normalizeSizes, quickSize, rescale, sizeFor, stepSize } from "./panelSize.ts";
 
 const def = { w: 520, h: 250 };
 
@@ -47,6 +47,14 @@ test("the resize shortcut steps", () => {
   assert.deepEqual(stepSize(def, "right", l), { w: 540, h: 250 });
   assert.deepEqual(stepSize(def, "up", l), { w: 520, h: 230 });
   assert.deepEqual(stepSize({ w: 740, h: 540 }, "down", l), { w: 740, h: 540 });
+});
+
+test("positions keep their device pixels across a scale change", () => {
+  assert.equal(rescale(150, 100, 150), 100);
+  assert.equal(rescale(-90, 150, 100), -135);
+  assert.equal(rescale(5, 100, 150), 3);
+  assert.equal(rescale(7, 100, 100), 7);
+  assert.equal(rescale(Number.NaN, 100, 150), 0);
 });
 
 test("scale and saved sizes are repaired", () => {

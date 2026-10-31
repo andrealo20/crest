@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { combinations, conflicts, keycaps, label, normalize, parse, record, type KeyLike } from "./hotkeys.ts";
+import { altGrRisk, combinations, conflicts, keycaps, label, normalize, parse, record, type KeyLike } from "./hotkeys.ts";
 
 const key = (code: string, mods: Partial<KeyLike> = {}): KeyLike => ({ code, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
 
@@ -49,6 +49,17 @@ test("conflicts: the later shortcut yields to the earlier one", () => {
   // Invalid or unset ones collide with nothing.
   assert.deepEqual(conflicts({ open: "", hide: "", resize: "" }), { open: null, hide: null, resize: null });
   assert.deepEqual(conflicts({ open: "KeyK", hide: "KeyK", resize: "" }), { open: null, hide: null, resize: null });
+});
+
+test("Ctrl+Alt with a character key warns about AltGr", () => {
+  assert.equal(altGrRisk("open", "Ctrl+Alt+KeyQ"), true);
+  assert.equal(altGrRisk("hide", "Ctrl+Alt+Digit2"), true);
+  assert.equal(altGrRisk("open", "Ctrl+Alt+Space"), false);
+  assert.equal(altGrRisk("open", "Ctrl+Alt+F5"), false);
+  assert.equal(altGrRisk("open", "Ctrl+Alt+Shift+KeyQ"), false);
+  assert.equal(altGrRisk("open", "Ctrl+Alt+Win+KeyQ"), false);
+  assert.equal(altGrRisk("resize", "Ctrl+Alt+Arrows"), false);
+  assert.equal(altGrRisk("open", ""), false);
 });
 
 test("labels", () => {

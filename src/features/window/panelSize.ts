@@ -88,6 +88,14 @@ export function fitScale(v: unknown): PanelScale {
   return v === 150 ? 150 : 100;
 }
 
+/**
+ * A position in CSS px (display.offset, display.y) moved to another scale so it stays on the same device pixels:
+ * CSS px times the zoom is what Rust places.
+ */
+export function rescale(v: number, from: PanelScale, to: PanelScale): number {
+  return Number.isFinite(v) ? Math.round((v * from) / to) : 0;
+}
+
 /** Saved sizes from a settings file: finite, positive pairs only. */
 export function normalizeSizes(v: unknown): Record<string, Size> {
   const out: Record<string, Size> = {};

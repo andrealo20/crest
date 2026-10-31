@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLineUp, X } from "@phosphor-icons/react";
 import { windowShell, type RunningApp } from "../../platform/services";
-import { settings } from "../../settings/store";
+import { settings, updateSettings } from "../../settings/store";
 import { tabs, settingsTab } from "../../notch/tabs";
 import { Button, Group, Row, Segmented, Select, Switch, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
-import { conflicts, keycaps, record, type HotkeyKind, type RecordError } from "./hotkeys";
+import { altGrRisk, conflicts, keycaps, record, type HotkeyKind, type RecordError } from "./hotkeys";
 import { CONTEXTS, MAX_APP_RULES, addRule, newRule, ruleKey, type AppRule, type Behavior, type ScreenContext } from "./model";
-import { currentQuick, quickSize, type QuickSize } from "./panelSize";
+import { currentQuick, quickSize, rescale, type QuickSize } from "./panelSize";
 import { hotkeyStatus, pauseHotkeys, updateBehavior } from "./store";
 
 const contextLabel: Record<ScreenContext, string> = {
@@ -59,7 +59,7 @@ function Rules() {
       <Row label={t("Auch Fenster dahinter prüfen")} hint={t("Ein maximiertes oder randloses Fenster hinter dem aktiven zählt auch")}>
         <Switch label={t("Auch Fenster dahinter prüfen")} checked={r.background} onChange={(background) => updateBehavior((b) => ({ rules: { ...b.rules, background } }))} />
       </Row>
-      <Row label={t("Nach vorne holen")} hint={t("Wenn ein anderes Fenster über Crest liegt, oder nach dem Ausblenden per Tastenkürzel")}>
+      <Row label={t("Nach vorne holen")} hint={t("Wenn ein anderes Fenster über Crest liegt")}>
         <Button icon={ArrowLineUp} onClick={windowShell.raise}>
           {t("Jetzt")}
         </Button>
@@ -195,6 +195,7 @@ function HotkeyRow({ kind }: { kind: HotkeyKind }) {
   const box = useRef<HTMLButtonElement>(null);
   const value = hotkeys[kind];
   const clash = conflicts(hotkeys)[kind];
+  const altGr = altGrRisk(kind, value);
 
   const stop = () => {
     setRecording(false);
@@ -231,8 +232,10 @@ function HotkeyRow({ kind }: { kind: HotkeyKind }) {
         ? t("Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv")
         : status === "invalid"
           ? t("Nicht erkannt, bitte neu aufnehmen")
-          : t(hotkeyHint[kind]);
-  const warn = !!error || !!clash || status === "in-use" || status === "invalid";
+          : altGr
+            ? t("Strg+Alt ist auf vielen Tastaturen AltGr und tippt dann z. B. @ oder €; besser Umschalt oder Win dazunehmen")
+            : t(hotkeyHint[kind]);
+  const warn = !!error || !!clash || status === "in-use" || status === "invalid" || altGr;
   const caps = keycaps(value, t("Pfeiltasten"));
 
   return (
@@ -304,7 +307,18 @@ function Panel() {
           id="panel-scale"
           size="sm"
           value={String(b.scale) as "100" | "150"}
-          onChange={(v) => updateBehavior({ scale: v === "150" ? 150 : 100 })}
+          onChange={(v) => {
+            const to = v === "150" ? 150 : 100;
+            // Offset and capsule top are CSS px, which grow with the scale: keep the notch where it is on screen.
+            updateSettings((cur) => {
+              const from = cur.behavior.scale;
+              if (from === to) return {};
+              return {
+                behavior: { ...cur.behavior, scale: to },
+                display: { ...cur.display, offset: rescale(cur.display.offset, from, to), y: rescale(cur.display.y, from, to) },
+              };
+            });
+          }}
           options={[
             { value: "100", label: "100 %" },
             { value: "150", label: "150 %" },

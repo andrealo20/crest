@@ -136,6 +136,19 @@ export function record(kind: HotkeyKind, e: KeyLike): { text: string } | { error
   return allowedPlain(p) ? { text: format(p) } : { error: "need-modifier" };
 }
 
+/** Keys that type a character: with AltGr they type another one on many layouts. */
+const CHARACTER_KEY = /^(Key[A-Z]|Digit\d|Backquote|Backslash|BracketLeft|BracketRight|Comma|Period|Minus|Equal|Quote|Semicolon|Slash)$/;
+
+/**
+ * Ctrl+Alt with a character key and nothing else is AltGr on many layouts (Ctrl+Alt+Q types @ on German keyboards),
+ * so the shortcut would swallow that character. Still allowed; the settings warn. Space, F and arrow keys type nothing.
+ */
+export function altGrRisk(kind: HotkeyKind, text: string): boolean {
+  const p = parse(normalize(kind, text));
+  if (!p || kind === "resize") return false;
+  return p.mods.length === 2 && p.mods.includes("Ctrl") && p.mods.includes("Alt") && CHARACTER_KEY.test(p.key);
+}
+
 const KEY_LABELS: Record<string, string> = {
   Space: "Space", Backquote: "`", Backslash: "\\", BracketLeft: "[", BracketRight: "]", Comma: ",", Period: ".",
   Minus: "-", Equal: "=", Quote: "'", Semicolon: ";", Slash: "/", Escape: "Esc", ArrowLeft: "Left", ArrowRight: "Right",
