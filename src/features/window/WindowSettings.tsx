@@ -186,6 +186,9 @@ function Shortcuts() {
   );
 }
 
+/** A keycap in the interface language: Ctrl is "Strg" and Space "Leertaste" in German. */
+export const keyText = (k: string) => (k === "Ctrl" ? t("Strg") : k === "Space" ? t("Leertaste") : k === "Alt" ? t("Alt") : k);
+
 /** Click the box, press the combination. Esc cancels, Backspace clears. */
 function HotkeyRow({ kind }: { kind: HotkeyKind }) {
   const s = settings.use(), hotkeys = s.behavior.hotkeys;
@@ -236,7 +239,7 @@ function HotkeyRow({ kind }: { kind: HotkeyKind }) {
             ? t("Strg+Alt ist auf vielen Tastaturen AltGr und tippt dann z. B. @ oder €; besser Umschalt oder Win dazunehmen")
             : t(hotkeyHint[kind]);
   const warn = !!error || !!clash || status === "in-use" || status === "invalid" || altGr;
-  const caps = keycaps(value, t("Pfeiltasten"));
+  const caps = keycaps(value, t("Pfeiltasten")).map(keyText);
 
   return (
     <Row label={t(hotkeyLabel[kind])} hint={<span className={warn ? "text-orange" : undefined}>{hint}</span>}>

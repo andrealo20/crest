@@ -976,5 +976,6 @@
  "Wird noch geladen: {names}.": "Still loading: {names}.",
  "In Trading 212: Einstellungen → API (Beta) → Schlüssel erstellen. Rechte: Konto-Daten und Portfolio. Mehr ist nicht nötig: die Notch liest nur.": "In Trading 212: Settings → API (Beta) → Create key. Permissions: account data and portfolio. Nothing more is needed: the notch only reads.",
  "In Client Portal: Performance & Reports → Flex Queries. Eine Activity Flex Query mit dem Zeitraum „Last Business Day“ anlegen. Unter „Open Positions“ die Felder symbol, description, currency, assetCategory, position, markPrice, positionValue, costBasisMoney und levelOfDetail wählen, unter „Cash Report“ endingCash. Dann unter Flex Web Service einen Token erstellen. Der Stand ist der des letzten Handelstags.": "In Client Portal: Performance & Reports → Flex Queries. Create an Activity Flex Query with the period \"Last Business Day\". Under \"Open Positions\" pick the fields symbol, description, currency, assetCategory, position, markPrice, positionValue, costBasisMoney and levelOfDetail, under \"Cash Report\" endingCash. Then create a token under Flex Web Service. Figures are as of the last trading day.",
- "Unbekannter Wert": "Unknown asset"
+ "Unbekannter Wert": "Unknown asset",
+ "Alt": "Alt"
 }

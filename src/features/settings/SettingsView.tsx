@@ -50,7 +50,7 @@ import { SystemSettings } from "../system/SystemSettings";
 import { LauncherSettings } from "../launcher/LauncherSettings";
 import { GithubSettings } from "../github/GithubSettings";
 import { NoticesSettings } from "../notices/NoticesSettings";
-import { WindowSettings } from "../window/WindowSettings";
+import { WindowSettings, keyText } from "../window/WindowSettings";
 import { keycaps } from "../window/hotkeys";
 import { TradingSettings } from "../trading/TradingSettings";
 import { detectPlace } from "../weather/store";
@@ -456,7 +456,7 @@ function General() {
       <Row label={t("Tastenkürzel")} hint={t("Öffnet und schließt die Notch von überall; ändern unter Fenster")}>
         <span className="flex items-center gap-1 text-caption text-label-2">
           <Keyboard size={13} weight="bold" className="text-label-3" />
-          {keycaps(s.behavior.hotkeys.open).map((k) => (
+          {keycaps(s.behavior.hotkeys.open).map(keyText).map((k) => (
             <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">{k}</kbd>
           ))}
         </span>
