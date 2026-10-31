@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { CheckCircle, LockSimple, Plus, X } from "@phosphor-icons/react";
 import { fade } from "../../design/motion";
 import { formatMoney } from "../../lib/format";
 import { secrets } from "../../platform/services";
-import { localDate } from "../../platform/portfolio";
+import { forgetAccount, localDate } from "../../platform/portfolio";
+import { effectiveBase } from "./base";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, Row, Segmented, Select, TextField } from "../../ui/controls";
 import { locale, t } from "../../i18n";
@@ -22,7 +23,7 @@ export function TradingSettings() {
     <>
       <Group title={t("Portfolio")} id="settings-trading">
         <Row label={t("Basiswährung")} hint={t("Alle Konten werden darin angezeigt")}>
-          <Select value={s.trading.base} options={baseOptions} onChange={(base) => updateSettings((p) => ({ trading: { ...p.trading, base } }))} width="w-24" />
+          <Select value={effectiveBase(s.trading.base)} options={baseOptions} onChange={(base) => updateSettings((p) => ({ trading: { ...p.trading, base } }))} width="w-24" />
         </Row>
         <div className="flex items-start gap-1.5 px-3 py-2 text-caption text-label-3">
           <LockSimple size={11} weight="bold" className="mt-0.5 shrink-0" />
@@ -41,7 +42,14 @@ function ProviderRow({ provider: p }: { provider: ProviderInfo }) {
   const s = settings.use();
   const [connected, setConnected] = useState(false);
   const [open, setOpen] = useState(false);
-  const check = () => void secrets.has(p.fields[0].secret).then(setConnected);
+  // Deleting the main key also forgets that account's cache, Kraken ledger and history.
+  const was = useRef(false);
+  const check = () =>
+    void secrets.has(p.fields[0].secret).then((has) => {
+      if (was.current && !has) void forgetAccount(p.id);
+      was.current = has;
+      setConnected(has);
+    });
   useEffect(check, [p]);
 
   return (
@@ -89,7 +97,7 @@ const num = (n: number | null) => (n === null ? "" : n.toLocaleString("en-US", {
 /** Holdings typed in by hand: coins are priced by CoinGecko, stocks and ETFs at the price entered. */
 function ManualHoldings() {
   const list = manualHoldings.use();
-  const base = settings.use().trading.base;
+  const base = effectiveBase(settings.use().trading.base);
   const [draft, setDraft] = useState<Draft | null>(null);
 
   const edit = (m: ManualHolding) =>

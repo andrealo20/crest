@@ -1,7 +1,6 @@
 import { createStore } from "../lib/store";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
-import { baseForRegion } from "../features/trading/portfolio";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -19,7 +18,7 @@ export interface Settings {
   hoverDelay: "fast" | "normal" | "patient";
   /** Order = order in the tool bar. */
   tools: { id: string; enabled: boolean }[];
-  /** Portfolio: Trading 212 account and the base currency all accounts are shown in. */
+  /** Portfolio: Trading 212 account, and the base currency ("" = not chosen yet, see features/trading/base.ts). */
   trading: { env: "live" | "demo"; base: string };
   /** AI usage: which providers are shown (order = display order). */
   usage: { claude: boolean; codex: boolean; gemini: boolean; cursor: boolean };
@@ -91,7 +90,7 @@ const defaults: Settings = {
   openMode: "hover",
   hoverDelay: "normal",
   tools: TOOL_IDS.map((id) => ({ id, enabled: !DEFAULT_OFF.has(id) })),
-  trading: { env: "live", base: regionBase() },
+  trading: { env: "live", base: "" },
   usage: { claude: true, codex: true, gemini: true, cursor: false },
   ask: {
     provider: "custom",
@@ -114,15 +113,6 @@ const defaults: Settings = {
   presentation: { manual: false, auto: true },
   updates: { auto: true },
 };
-
-/** Portfolio base currency from the Windows region (GBP in the UK, USD in the US, …). */
-function regionBase(): string {
-  try {
-    return baseForRegion(new Intl.Locale(navigator.language || "en-US").maximize().region ?? "");
-  } catch {
-    return "EUR";
-  }
-}
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
 function regionUnits(): Settings["units"] {

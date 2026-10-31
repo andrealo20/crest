@@ -12,7 +12,7 @@ import { Button, Empty, Segmented, Skeleton } from "../../ui/controls";
 import { locale, t } from "../../i18n";
 import { usePresenting } from "../privacy/store";
 import { manualHoldings } from "./manual";
-import { seriesFor, todayChange, type History, type Line, type Range, type Totals } from "./portfolio";
+import { combineChanges, seriesFor, todayChange, type DayChange, type History, type Line, type Range, type Totals } from "./portfolio";
 import { providerName } from "./providers";
 import { usePortfolio, type AccountState } from "./usePortfolio";
 
@@ -80,12 +80,20 @@ export function TradingView() {
 
   const totals: Totals | null = selected ? selected.summary : state.total;
   const history: History | null = selected ? selected.history : state.history;
-  if (!totals) return <ErrorState name={t("Portfolio")} code={accounts.find((a) => a.error)?.error ?? "network:"} onRetry={() => void refresh()} />;
+  if (!totals) {
+    // Nothing to show yet: the first accounts are still on their way.
+    if (accounts.some((a) => a.loading)) return <LoadingState />;
+    return <ErrorState name={t("Portfolio")} code={accounts.find((a) => a.error)?.error ?? "network:"} onRetry={() => void refresh()} />;
+  }
+  // The total compares only accounts with points on both days, so a new or failing one is no jump.
+  const today = selected
+    ? selected.history && todayChange(performance(totals), selected.history)
+    : combineChanges(accounts.map((a) => (a.summary && a.history ? todayChange(performance(a.summary), a.history) : null)));
 
   return (
     <div className="flex h-full flex-col px-5 pt-1 pb-2">
       {actions}
-      <Overview totals={totals} history={history} range={r} money={money} title={selected && !single ? <BackLink name={t(providerName(selected.id))} onBack={() => setPicked(null)} /> : null} />
+      <Overview totals={totals} history={history} today={today} range={r} money={money} title={selected && !single ? <BackLink name={t(providerName(selected.id))} onBack={() => setPicked(null)} /> : null} />
       <Notice state={selected ? [selected] : accounts} failed={state.failed} />
       <div className="-mx-2 mt-2 min-h-0 flex-1 overflow-y-auto px-2 [scrollbar-width:none]">
         {selected ? <Positions account={selected} money={money} hidden={hidden} /> : accounts.map((a, i) => <AccountRow key={a.id} account={a} index={i} money={money} onOpen={() => setPicked(a.id)} />)}
@@ -96,9 +104,11 @@ export function TradingView() {
 
 type MoneyFn = (v: number, opts?: { signed?: boolean }) => string;
 
-function Overview({ totals, history, range: r, money, title }: { totals: Totals; history: History | null; range: Range; money: MoneyFn; title: ReactNode }) {
-  const pnlNow = totals.unrealized + totals.realized;
-  const today = history ? todayChange(pnlNow, history) : null;
+/** Performance now: P&L plus the value of positions without a cost basis (see portfolio.ts). */
+const performance = (t: Totals) => t.unrealized + t.realized + t.noCost;
+
+function Overview(props: { totals: Totals; history: History | null; today: DayChange | null; range: Range; money: MoneyFn; title: ReactNode }) {
+  const { totals, history, today, range: r, money, title } = props;
   const series = history ? seriesFor(history, r) : [];
   const openPct = totals.invested > 0 ? (totals.unrealized / totals.invested) * 100 : null;
   return (
@@ -137,21 +147,34 @@ function BackLink({ name, onBack }: { name: string; onBack: () => void }) {
 /** One line under the stats: the most important thing that makes the numbers incomplete. */
 function Notice({ state, failed }: { state: AccountState[]; failed: string[] }) {
   const warn = state.find((a) => a.account?.warning === "key-can-trade");
+  const noLedger = state.find((a) => a.account?.warning === "ledger-forbidden");
   const partial = state.find((a) => a.summary?.partial);
   const missing = [...new Set(state.flatMap((a) => a.summary?.missing ?? []))];
   const errors = state.filter((a) => a.error);
+  const pending = state.filter((a) => a.loading && !a.summary);
   let text: string | null = null;
   if (warn) text = t("Der {name}-Schlüssel darf mehr als lesen. Crest liest nur, trotzdem besser einen Nur-Lese-Schlüssel erstellen.", { name: providerName(warn.id) });
   else if (errors.length) text = t("Nicht erreichbar: {names}. Nicht mitgezählt.", { names: errors.map((a) => t(providerName(a.id))).join(", ") });
+  else if (noLedger) text = t("Dem {name}-Schlüssel fehlt „Query Ledger Entries“: Einstand unbekannt.", { name: providerName(noLedger.id) });
+  else if (pending.length) text = t("Wird noch geladen: {names}.", { names: pending.map((a) => t(providerName(a.id))).join(", ") });
   else if (partial) text = t("{name}: Handelsverlauf wird noch geladen, G/V ist unvollständig.", { name: providerName(partial.id) });
   else if (failed.length && missing.length) text = t("Kurse gerade nicht abrufbar. Ohne Kurs: {symbols}.", { symbols: missing.slice(0, 4).join(", ") });
   else if (missing.length) text = t("Ohne Kurs, nicht mitgezählt: {symbols}.", { symbols: missing.slice(0, 4).join(", ") + (missing.length > 4 ? " …" : "") });
   if (!text) return null;
-  return (
-    <button onClick={() => (warn || errors.length ? navigate("settings", "trading") : undefined)} className="mt-1.5 flex items-start gap-1 text-left text-caption text-label-3">
+  const body = (
+    <>
       <WarningCircle size={12} weight="fill" className={`mt-px shrink-0 ${warn ? "text-orange" : ""}`} />
       <span className="line-clamp-2">{text}</span>
+    </>
+  );
+  const style = "mt-1.5 flex items-start gap-1 text-left text-caption text-label-3";
+  // Only the key problems lead somewhere (the settings).
+  return warn || errors.length || noLedger ? (
+    <button onClick={() => navigate("settings", "trading")} className={style}>
+      {body}
     </button>
+  ) : (
+    <div className={style}>{body}</div>
   );
 }
 
@@ -163,9 +186,10 @@ function AccountRow({ account: a, index, money, onOpen }: { account: AccountStat
     ? errorLine(a.error)
     : s
       ? t("{n} Positionen", { n: s.lines.length }) + (s.cash > 0.005 ? ` · ${t("Cash")} ${money(s.cash)}` : "")
-      : "";
+      : t("Wird geladen …");
   return (
     <motion.button
+      disabled={!a.error && !s}
       onClick={a.error ? () => navigate("settings", "trading") : onOpen}
       className="pressable flex h-10 w-full items-center gap-3 border-b border-separator px-1 text-left last:border-0"
       initial={{ opacity: 0, transform: "translateY(4px)" }}

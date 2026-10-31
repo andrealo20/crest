@@ -24,6 +24,8 @@ export interface RecordEntry {
   value: number;
   pnl: number;
   invested: number;
+  /** Value of positions without a cost basis. */
+  noCost: number;
   /** Trading 212 env whose old history seeds this scope once (same currency only). */
   seed?: string;
 }
@@ -32,6 +34,11 @@ export interface RecordEntry {
 export function recordHistory(base: string, entries: RecordEntry[]): Promise<Record<string, History>> {
   const today = localDate(new Date());
   return isNative ? invoke<Record<string, History>>("portfolio_record", { base, today, entries }) : Promise.resolve(mockHistory(entries));
+}
+
+/** The key of `provider` was deleted: forget its cache, ledger and history. */
+export function forgetAccount(provider: string): Promise<void> {
+  return isNative ? invoke("portfolio_forget", { provider }) : Promise.resolve();
 }
 
 export function localDate(d: Date): string {
@@ -127,7 +134,7 @@ function mockHistory(entries: RecordEntry[]): Record<string, History> {
       d.setDate(d.getDate() - i);
       const f = (30 - i) / 30;
       const pnl = i === 0 ? e.pnl : i === 1 ? yesterday : yesterday - e.value * 0.05 * (1 - f) + Math.sin(i * 0.9) * e.value * 0.004 - Math.max(0, 1 - Math.abs(i - 14) / 5) * e.value * 0.014;
-      history.push({ date: localDate(d), value: e.value - e.pnl + pnl, invested: e.invested, pnl });
+      history.push({ date: localDate(d), value: e.value - e.pnl + pnl, invested: e.invested, pnl, noCost: e.noCost });
     }
     const start = new Date();
     start.setHours(9, 0, 0, 0);
@@ -135,7 +142,7 @@ function mockHistory(entries: RecordEntry[]): Record<string, History> {
     const intraday = Array.from({ length: steps }, (_, i) => {
       const f = i / (steps - 1);
       const p = i === steps - 1 ? e.pnl : yesterday + change * f + Math.sin(i * 0.8) * change * 0.15 * (1 - f) - Math.sin(f * Math.PI) * change * 0.2;
-      return { t: start.getTime() + i * 120_000, value: e.value - e.pnl + p, pnl: p };
+      return { t: start.getTime() + i * 120_000, value: e.value - e.pnl + p, pnl: p, noCost: e.noCost };
     });
     out[e.scope] = { history, intraday };
   }
