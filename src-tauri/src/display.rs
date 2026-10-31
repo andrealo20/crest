@@ -28,8 +28,10 @@ use windows::Win32::UI::Shell::{SHQueryUserNotificationState, QUNS_RUNNING_D3D_F
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetDesktopWindow, GetForegroundWindow, GetShellWindow, GetWindow, GetWindowLongPtrW, GetWindowRect,
     GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SetWindowPos, GWL_EXSTYLE, GWL_STYLE, GW_OWNER,
-    HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WS_CAPTION, WS_EX_TOOLWINDOW,
+    HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
+use windows::Win32::UI::WindowsAndMessaging::FindWindowExW;
+use windows::core::{w, PCWSTR};
 
 use crate::hit_test::HitState;
 use crate::screen_policy::{self, Behavior, Context, Rules};
@@ -66,7 +68,8 @@ pub struct Config {
     /// Gaming mode: full screen keeps the style so FPS show.
     #[serde(default)]
     gaming: bool,
-    #[serde(default)]
+    /// A malformed rule is skipped instead of failing the whole call.
+    #[serde(default, deserialize_with = "screen_policy::lenient_rules")]
     rules: Rules,
     /// Panel scale: 1.0 or 1.5.
     #[serde(default = "one")]
@@ -178,10 +181,10 @@ pub async fn display_apps() -> Vec<RunningApp> {
     for hwnd in top_windows() {
         let titled = unsafe { GetWindowTextLengthW(hwnd) } > 0;
         let owned = unsafe { GetWindow(hwnd, GW_OWNER) }.is_ok_and(|o| !o.is_invalid());
-        if !titled || owned || !candidate(hwnd) {
+        if !titled || owned || !candidate(hwnd) || has_ex_style(hwnd, WS_EX_TOOLWINDOW.0) {
             continue;
         }
-        let pid = window_pid(hwnd);
+        let pid = app_pid(hwnd);
         if pid == own {
             continue;
         }
@@ -271,7 +274,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             let monitor = unsafe { MonitorFromWindow(own, MONITOR_DEFAULTTONEAREST) };
             let fg = read_foreground(foreground, own, monitor, &mut front);
             // Looked up only where it can matter: nothing in front fills the monitor.
-            let bg = (rules.background && fg.context == Context::Desktop)
+            let bg = (rules.background_matters() && fg.context == Context::Desktop)
                 .then(|| read_background(foreground, own, monitor, &mut behind))
                 .flatten();
 
@@ -351,7 +354,7 @@ fn read_foreground(hwnd: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) 
         return Seen::desktop();
     }
     let Some(m) = monitor_rect(monitor) else { return Seen::desktop() };
-    let (name, path) = known.describe(hwnd, pid);
+    let (name, path) = known.describe(hwnd, app_pid(hwnd));
     // The notification state is global; with the foreground window on our monitor, it is this window.
     let exclusive = unsafe { SHQueryUserNotificationState() }.is_ok_and(|s| s == QUNS_RUNNING_D3D_FULL_SCREEN);
     let context = screen_policy::classify(exclusive, covers(frame_rect(hwnd), m), has_caption(hwnd), unsafe { IsZoomed(hwnd) }.as_bool());
@@ -372,26 +375,24 @@ fn read_background(foreground: HWND, own: HWND, monitor: HMONITOR, known: &mut K
         let maximized = unsafe { IsZoomed(hwnd) }.as_bool();
         let caption = has_caption(hwnd);
         let full = covers(frame_rect(hwnd), m);
-        if !maximized && !(full && !caption) {
+        // Tool windows, click-through and never-activated windows are overlays (dimmers, recording frames), not apps.
+        if (!maximized && !(full && !caption)) || has_ex_style(hwnd, WS_EX_TOOLWINDOW.0 | WS_EX_TRANSPARENT.0 | WS_EX_NOACTIVATE.0) {
             continue;
         }
         let pid = window_pid(hwnd);
         if pid == own_pid {
             continue;
         }
-        let (name, path) = known.describe(hwnd, pid);
+        let (name, path) = known.describe(hwnd, app_pid(hwnd));
         return Some(Seen { context: screen_policy::classify(false, full, caption, maximized), name, path });
     }
     None
 }
 
-/// Visible, not minimized, not a tool window, not cloaked, not the desktop or taskbar.
+/// Visible, not minimized, not cloaked, not the desktop or taskbar.
 fn candidate(hwnd: HWND) -> bool {
     unsafe {
         if !IsWindowVisible(hwnd).as_bool() || IsIconic(hwnd).as_bool() || is_desktop(hwnd) {
-            return false;
-        }
-        if GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_TOOLWINDOW.0 != 0 {
             return false;
         }
         let mut cloaked = 0u32;
@@ -414,6 +415,28 @@ fn window_pid(hwnd: HWND) -> u32 {
     let mut pid = 0u32;
     unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
     pid
+}
+
+/// The app behind a window: a UWP app's frame belongs to ApplicationFrameHost, its CoreWindow child to the app.
+fn app_pid(hwnd: HWND) -> u32 {
+    if class_name(hwnd) == "ApplicationFrameWindow" {
+        if let Ok(core) = unsafe { FindWindowExW(Some(hwnd), None, w!("Windows.UI.Core.CoreWindow"), PCWSTR::null()) } {
+            if !core.is_invalid() {
+                return window_pid(core);
+            }
+        }
+    }
+    window_pid(hwnd)
+}
+
+fn has_ex_style(hwnd: HWND, bits: u32) -> bool {
+    unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 & bits != 0 }
+}
+
+fn class_name(hwnd: HWND) -> String {
+    let mut buf = [0u16; 64];
+    let len = unsafe { GetClassNameW(hwnd, &mut buf) }.max(0) as usize;
+    String::from_utf16_lossy(&buf[..len])
 }
 
 /// "C:\…\Game.exe" → "Game".
@@ -449,13 +472,8 @@ fn covers(r: RECT, m: RECT) -> bool {
 
 /// Desktop and taskbar never count as fullscreen.
 fn is_desktop(hwnd: HWND) -> bool {
-    unsafe {
-        if hwnd == GetDesktopWindow() || hwnd == GetShellWindow() {
-            return true;
-        }
-        let mut buf = [0u16; 64];
-        let len = GetClassNameW(hwnd, &mut buf).max(0) as usize;
-        let class = String::from_utf16_lossy(&buf[..len]);
-        matches!(class.as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd")
+    if unsafe { hwnd == GetDesktopWindow() || hwnd == GetShellWindow() } {
+        return true;
     }
+    matches!(class_name(hwnd).as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd")
 }

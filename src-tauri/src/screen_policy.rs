@@ -52,8 +52,7 @@ pub struct AppRule {
     pub exclusive: Option<Behavior>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[derive(Clone, Debug)]
 pub struct Rules {
     pub maximized: Behavior,
     pub borderless: Behavior,
@@ -67,6 +66,35 @@ impl Default for Rules {
     fn default() -> Self {
         Rules { maximized: Behavior::Normal, borderless: Behavior::Normal, exclusive: Behavior::Normal, background: true, apps: Vec::new() }
     }
+}
+
+impl Rules {
+    /// Field by field, so one bad value (or one malformed app rule, which is skipped) can't drop the rest.
+    pub fn from_value(v: &serde_json::Value) -> Rules {
+        let d = Rules::default();
+        let behavior = |key: &str, fallback| v.get(key).and_then(|x| Behavior::deserialize(x).ok()).unwrap_or(fallback);
+        Rules {
+            maximized: behavior("maximized", d.maximized),
+            borderless: behavior("borderless", d.borderless),
+            exclusive: behavior("exclusive", d.exclusive),
+            background: v.get("background").and_then(|x| x.as_bool()).unwrap_or(d.background),
+            apps: v
+                .get("apps")
+                .and_then(|a| a.as_array())
+                .map(|a| a.iter().filter_map(|x| AppRule::deserialize(x).ok()).collect())
+                .unwrap_or_default(),
+        }
+    }
+
+    /// Whether a window behind the foreground one could change anything: only maximized and borderless are read there.
+    pub fn background_matters(&self) -> bool {
+        self.background && (self.maximized != Behavior::Normal || self.borderless != Behavior::Normal || !self.apps.is_empty())
+    }
+}
+
+/// For `#[serde(deserialize_with)]`: never fails, see `Rules::from_value`.
+pub fn lenient_rules<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Rules, D::Error> {
+    Ok(Rules::from_value(&serde_json::Value::deserialize(d)?))
 }
 
 /// The context of one window. A frameless window across the monitor is borderless even when
@@ -196,6 +224,35 @@ mod tests {
         // A foreground context wins over the background.
         r.background = true;
         assert_eq!(decide(&r, (Context::Exclusive, "game", ""), bg, false), Behavior::Hide);
+    }
+
+    #[test]
+    fn malformed_rules_keep_what_is_valid() {
+        let v = serde_json::json!({
+            "maximized": "line", "borderless": 7, "background": "yes",
+            "apps": [{ "name": "mpv", "borderless": "hide" }, { "name": "bad", "maximized": "bogus" }, 3]
+        });
+        let r = Rules::from_value(&v);
+        assert_eq!(r.maximized, Behavior::Line);
+        assert_eq!(r.borderless, Behavior::Normal);
+        assert!(r.background);
+        assert_eq!(r.apps.len(), 1);
+        assert_eq!(r.apps[0].borderless, Some(Behavior::Hide));
+        assert_eq!(Rules::from_value(&serde_json::json!(null)).apps.len(), 0);
+    }
+
+    #[test]
+    fn the_background_scan_runs_only_when_it_can_matter() {
+        let mut r = Rules::default();
+        assert!(!r.background_matters());
+        r.exclusive = Behavior::Hide;
+        assert!(!r.background_matters());
+        r.maximized = Behavior::Line;
+        assert!(r.background_matters());
+        r.background = false;
+        assert!(!r.background_matters());
+        let r = Rules { apps: vec![AppRule { name: "x".into(), ..Default::default() }], ..Rules::default() };
+        assert!(r.background_matters());
     }
 
     #[test]
