@@ -3,11 +3,12 @@ import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, Row, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
 import { SecretRow } from "../settings/SettingsView";
-import { refreshGithub } from "./store";
+import { github, refreshGithub } from "./store";
 
 /** Settings → Connections → GitHub: the username, and an optional token for the API. */
 export function GithubSettings() {
   const saved = settings.use().github.user;
+  const rejected = github.use().error === "token-rejected";
   const [user, setUser] = useState(saved);
   // Pasting a profile URL works too: only the name is kept.
   const clean = user.trim().replace(/^https?:\/\/github\.com\//i, "").replace(/^@/, "").replace(/\/.*$/, "");
@@ -23,7 +24,11 @@ export function GithubSettings() {
       <SecretRow
         name="github.token"
         label={t("Token (optional)")}
-        hint={t("Nur falls die Seite nicht lesbar ist: ein Token ohne Rechte reicht, gelesen wird über die GraphQL-API")}
+        hint={
+          rejected
+            ? t("GitHub hat diesen Token abgelehnt: ersetzen oder löschen")
+            : t("Nur falls die Seite nicht lesbar ist: ein Token ohne Rechte reicht, gelesen wird über die GraphQL-API")
+        }
         onSaved={() => void refreshGithub(true)}
       />
     </Group>

@@ -16,6 +16,7 @@ const CELL = 10, GAP = 3;
 
 export const githubError: Record<string, string> = {
   "not-found": "Diesen GitHub-Nutzer gibt es nicht",
+  "token-rejected": "GitHub hat den Token abgelehnt, in den Einstellungen ersetzen oder löschen",
   "rate-limited": "GitHub drosselt gerade, später erneut",
   offline: "Keine Verbindung",
   parse: "GitHub-Seite nicht lesbar, ein Token in den Einstellungen hilft",
