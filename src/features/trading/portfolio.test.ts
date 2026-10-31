@@ -11,6 +11,8 @@ import {
   summarize,
   toBase,
   todayChange,
+  combineChanges,
+  mergeRates,
   type Account,
   type Holding,
   type Rates,
@@ -133,10 +135,10 @@ test("manual portfolio: coins priced live, stocks at the manual price", () => {
 
 test("totals add up across accounts", () => {
   const t = addTotals([
-    { value: 1, cash: 2, invested: 3, unrealized: 4, realized: 5 },
-    { value: 10, cash: 20, invested: 30, unrealized: 40, realized: 50 },
+    { value: 1, cash: 2, invested: 3, unrealized: 4, realized: 5, noCost: 6 },
+    { value: 10, cash: 20, invested: 30, unrealized: 40, realized: 50, noCost: 60 },
   ]);
-  assert.deepEqual(t, { value: 11, cash: 22, invested: 33, unrealized: 44, realized: 55 });
+  assert.deepEqual(t, { value: 11, cash: 22, invested: 33, unrealized: 44, realized: 55, noCost: 66 });
 });
 
 test("amounts typed with either separator", () => {
@@ -165,9 +167,44 @@ test("today's change and chart series", () => {
       { t: 2, value: 1_050, pnl: 150 },
     ],
   };
-  assert.deepEqual(todayChange(150, h), { change: 50, pct: 5, since: null });
-  assert.deepEqual(todayChange(150, { history: [], intraday: h.intraday }), { change: 40, pct: (40 / 1_010) * 100, since: 1 });
+  assert.deepEqual(todayChange(150, h), { change: 50, pct: 5, from: 1_000, since: null });
+  assert.deepEqual(todayChange(150, { history: [], intraday: h.intraday }), { change: 40, pct: (40 / 1_010) * 100, from: 1_010, since: 1 });
   assert.equal(todayChange(150, { history: [], intraday: [] }), null);
   assert.deepEqual(seriesFor(h, "1d"), [100, 110, 150]);
   assert.deepEqual(seriesFor(h, "7d"), [100, 150]);
+});
+
+test("value without cost basis counts for today and the chart", () => {
+  const s = summarize(account({ holdings: [holding({ symbol: "BTC", quantity: 0.1 }), holding({ symbol: "ETH", quantity: 1, value: 2_000, cost: 1_500, currency: "EUR" })] }), rates);
+  near(s.noCost, 5_000);
+  near(s.unrealized, 500);
+  const h = {
+    history: [
+      { date: "2026-10-30", value: 6_400, invested: 1_500, pnl: 400, noCost: 4_900 },
+      { date: "2026-10-31", value: 7_000, invested: 1_500, pnl: 500, noCost: 5_000 },
+    ],
+    intraday: [],
+  };
+  // P&L +100 and the uncosted BTC +100.
+  assert.equal(todayChange(500 + 5_000, h)?.change, 200);
+  assert.deepEqual(seriesFor(h, "7d"), [5_300, 5_500]);
+  // Coins beyond what trades explain are part of it too.
+  const approx = summarize(account({ holdings: [holding({ symbol: "BTC", quantity: 1 })], trades: [trade(1, ["EUR", -20_000], ["BTC", 0.5])] }), rates);
+  near(approx.noCost, 25_000);
+});
+
+test("the total's today only compares accounts present both days", () => {
+  const a = { change: 50, pct: 5, from: 1_000, since: null };
+  const fresh = { change: 9_000, pct: 900, from: 1_000, since: 123 };
+  assert.deepEqual(combineChanges([a, null, fresh]), { change: 50, pct: 5, from: 1_000, since: null });
+  assert.deepEqual(combineChanges([null, fresh, { ...fresh, change: 10, since: 456 }]), { change: 9_010, pct: (9_010 / 2_000) * 100, from: 2_000, since: 456 });
+  assert.equal(combineChanges([null, null]), null);
+});
+
+test("prices of a failed source come from the previous refresh", () => {
+  const prev: Rates = { base: "EUR", crypto: { BTC: 1, ETH: 2 }, fx: { USD: 1.2 }, failed: [] };
+  const next: Rates = { base: "EUR", crypto: {}, fx: { USD: 1.3 }, failed: ["coingecko"] };
+  assert.deepEqual(mergeRates(next, prev).crypto, { BTC: 1, ETH: 2 });
+  assert.deepEqual(mergeRates(next, prev).fx, { USD: 1.3 });
+  assert.deepEqual(mergeRates(next, { ...prev, base: "USD" }).crypto, {});
 });

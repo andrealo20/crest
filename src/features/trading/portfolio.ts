@@ -82,6 +82,8 @@ export interface Totals {
   invested: number;
   unrealized: number;
   realized: number;
+  /** Value of positions without a cost basis: not in P&L, but its change counts for "today". */
+  noCost: number;
 }
 
 export interface Summary extends Totals {
@@ -188,6 +190,7 @@ export function summarize(account: Account, rates: Rates): Summary {
   const lines: Line[] = [];
   const missing: string[] = [];
   let cash = 0;
+  let noCost = 0;
 
   for (const h of account.holdings) {
     const value = valueOf(h, rates);
@@ -217,8 +220,10 @@ export function summarize(account: Account, rates: Rates): Summary {
         approx = true;
         cost = b.cost;
         pnl = value * (b.quantity / h.quantity) - b.cost;
+        noCost += value * (1 - b.quantity / h.quantity);
       }
     }
+    if (pnl === null) noCost += value;
     lines.push({ symbol: h.symbol, name: h.name, kind: h.kind, quantity: h.quantity, price: h.quantity ? value / h.quantity : null, value, cost, pnl, approx });
   }
   lines.sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity));
@@ -234,6 +239,7 @@ export function summarize(account: Account, rates: Rates): Summary {
     invested: sum((l) => l.cost),
     unrealized: sum((l) => l.pnl),
     realized: (realizedProvider ?? 0) + tradeRealized,
+    noCost,
   };
 }
 
@@ -249,15 +255,29 @@ function valueOf(h: Holding, rates: Rates): number | null {
 }
 
 export function addTotals(list: Totals[]): Totals {
-  const t: Totals = { value: 0, cash: 0, invested: 0, unrealized: 0, realized: 0 };
+  const t: Totals = { value: 0, cash: 0, invested: 0, unrealized: 0, realized: 0, noCost: 0 };
   for (const x of list) {
     t.value += x.value;
     t.cash += x.cash;
     t.invested += x.invested;
     t.unrealized += x.unrealized;
     t.realized += x.realized;
+    t.noCost += x.noCost;
   }
   return t;
+}
+
+/**
+ * Rates after a refresh: values of a source that failed this time come from the previous
+ * rates (same base), so a CoinGecko hiccup does not blank every coin.
+ */
+export function mergeRates(next: Rates, prev: Rates | null): Rates {
+  if (!prev || prev.base !== next.base || !next.failed.length) return next;
+  return {
+    ...next,
+    crypto: next.failed.includes("coingecko") ? { ...prev.crypto, ...next.crypto } : next.crypto,
+    fx: next.failed.includes("frankfurter") ? { ...prev.fx, ...next.fx } : next.fx,
+  };
 }
 
 /** What to ask the price service for: coins without a provider value, and every currency seen. */
@@ -334,12 +354,15 @@ export interface Snapshot {
   value: number;
   invested: number;
   pnl: number;
+  /** Missing in files written before it existed. */
+  noCost?: number;
 }
 
 export interface Point {
   t: number;
   value: number;
   pnl: number;
+  noCost?: number;
 }
 
 export interface History {
@@ -348,26 +371,59 @@ export interface History {
 }
 
 /**
- * Today = P&L now − P&L at the end of yesterday (percent of yesterday's value).
- * Without yesterday: since the first point today (`since` = its time). Without either: null.
+ * What "today" and the chart follow: P&L plus the value of positions without a cost basis.
+ * P&L ignores deposits and purchases; the second part has no cost, so only its value can move.
  */
-export function todayChange(pnlNow: number, h: History): { change: number; pct: number | null; since: number | null } | null {
+export function performance(x: { pnl: number; noCost?: number }): number {
+  return x.pnl + (x.noCost ?? 0);
+}
+
+export interface DayChange {
+  change: number;
+  pct: number | null;
+  /** Value the percentage refers to (yesterday's, or the first point today). */
+  from: number;
+  /** null = against yesterday; else since this time today (ms). */
+  since: number | null;
+}
+
+/**
+ * Today = performance now − performance at the end of yesterday (percent of yesterday's value).
+ * Without yesterday: since the first point today. Without either: null.
+ */
+export function todayChange(now: number, h: History): DayChange | null {
   const prev = h.history.length >= 2 ? h.history[h.history.length - 2] : null;
-  if (prev) return { change: pnlNow - prev.pnl, pct: prev.value > 0 ? ((pnlNow - prev.pnl) / prev.value) * 100 : null, since: null };
-  const first = h.intraday[0];
-  if (first && h.intraday.length >= 2) return { change: pnlNow - first.pnl, pct: first.value > 0 ? ((pnlNow - first.pnl) / first.value) * 100 : null, since: first.t };
-  return null;
+  const first = h.intraday.length >= 2 ? h.intraday[0] : null;
+  const ref = prev ?? first;
+  if (!ref) return null;
+  const change = now - performance(ref);
+  return { change, pct: ref.value > 0 ? (change / ref.value) * 100 : null, from: ref.value, since: prev ? null : first!.t };
+}
+
+/**
+ * The total's "today" from the accounts' own changes, so an account that is new, loading or
+ * failing does not show up as a jump. Accounts with a yesterday win; if none has one, the
+ * accounts with points today count since the latest of their first points.
+ */
+export function combineChanges(parts: (DayChange | null)[]): DayChange | null {
+  const known = parts.filter((p) => p !== null);
+  const daily = known.filter((p) => p.since === null);
+  const use = daily.length ? daily : known;
+  if (!use.length) return null;
+  const change = use.reduce((s, p) => s + p.change, 0);
+  const from = use.reduce((s, p) => s + p.from, 0);
+  return { change, from, pct: from > 0 ? (change / from) * 100 : null, since: daily.length ? null : Math.max(...use.map((p) => p.since ?? 0)) };
 }
 
 export type Range = "1d" | "7d" | "30d" | "all";
 
-/** P&L history for the range: 1D from intraday points, otherwise one point per day. */
+/** Performance history for the range: 1D from intraday points, otherwise one point per day. */
 export function seriesFor(h: History, r: Range): number[] {
   if (r === "1d") {
-    const prev = h.history.length >= 2 ? h.history[h.history.length - 2].pnl : null;
-    const points = h.intraday.map((p) => p.pnl);
+    const prev = h.history.length >= 2 ? performance(h.history[h.history.length - 2]) : null;
+    const points = h.intraday.map(performance);
     return prev !== null && points.length ? [prev, ...points] : points;
   }
   const days = r === "7d" ? 8 : r === "30d" ? 31 : Infinity;
-  return h.history.slice(-days).map((s) => s.pnl);
+  return h.history.slice(-days).map(performance);
 }
