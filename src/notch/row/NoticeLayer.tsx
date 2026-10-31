@@ -1,17 +1,19 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, CheckCircle } from "@phosphor-icons/react";
+import { AlarmIcon, BatteryHigh, BatteryLow, BatteryWarning, CheckCircle, Headphones, Plug, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
 import { content, pulse } from "../../design/motion";
 import { useNowPlaying } from "../../platform/media";
 import type { UsageId } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { ringing, timer, timerActions } from "../../features/timer/store";
 import { usage } from "../../features/usage/store";
+import { statusAlert } from "../../features/status/store";
 import { windowLabel } from "../../features/usage/UsageView";
 import { brandName } from "../../ui/brands";
 import { formatIn } from "../../lib/format";
 import { t } from "../../i18n";
 import { QUOTA, TRACK, armTrack, detectRise, newQuotaTracker, observeTrack, topNotice, type QuotaRise, type TrackGate } from "./notices";
+import type { StatusAlert } from "./status";
 import { ROW } from "./layout";
 import { trackCaption } from "./parts";
 import { fontEpoch, measureText } from "./measure";
@@ -21,6 +23,8 @@ import { Ring } from "./parts/Rings";
 const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76;
 /** The widest content any closed surface allows (the notch's insets are the larger ones). */
 const MAX = ROW.maxSurface - 2 * ROW.insetNotch;
+const STATUS_ICON: Record<StatusAlert["icon"], Icon> = { plug: Plug, battery: BatteryHigh, wifi: WifiHigh, "wifi-off": WifiSlash, headphones: Headphones };
+const TONE = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" } as const;
 
 /** The last quota level rise, for QUOTA.showMs. The tracker seeds on the first answer seen, so mounting at 95% does not alert. */
 function useQuotaRise(): QuotaRise | null {
@@ -67,9 +71,9 @@ function useTrackCaption(on: boolean): string | null {
 }
 
 /**
- * Covers the closed row with the most important notice: a finished timer (until dismissed by a click), a quota that
- * crossed a level, or a new track while the title part is off. Reports its content width while one shows, null otherwise;
- * the shape takes that width. Mounted with the row, and on the idle line while a finished timer opens it into the notch.
+ * Covers the closed row with the most important notice: a finished timer (until dismissed by a click), a status alert
+ * (charger, network, headphones), a quota that crossed a level, or a new track while the title part is off. Reports its content width while one shows, null otherwise;
+ * the shape takes that width. Mounted with the row, and on the idle line while a finished timer or a status alert opens it into the notch.
  */
 export function NoticeLayer({ onWidth }: { onWidth: (content: number | null) => void }) {
   fontEpoch.use();
@@ -78,7 +82,8 @@ export function NoticeLayer({ onWidth }: { onWidth: (content: number | null) => 
   const ring = ringing.use();
   const rise = useQuotaRise();
   const track = useTrackCaption(!closed.parts.title);
-  const kind = topNotice({ timer: finished, quota: !!rise && closed.quotaAlerts, track: !!track });
+  const status = statusAlert.use();
+  const kind = topNotice({ timer: finished, status: !!status, quota: !!rise && closed.quotaAlerts, track: !!track });
 
   let width = 0, key = "", body: ReactNode = null;
   if (kind === "timer") {
@@ -105,6 +110,18 @@ export function NoticeLayer({ onWidth }: { onWidth: (content: number | null) => 
         )}
         <span className="whitespace-nowrap text-footnote font-medium">{label}</span>
       </button>
+    );
+  } else if (kind === "status" && status) {
+    const I = status.icon === "battery" && status.tone !== "normal" ? (status.tone === "critical" ? BatteryWarning : BatteryLow) : STATUS_ICON[status.icon];
+    const textW = Math.min(measureText(status.text), MAX - ICON - GAP);
+    width = ICON + GAP + textW;
+    // One key per kind: a newer alert of the same kind swaps its text in place instead of cross-fading.
+    key = `status:${status.kind}`;
+    body = (
+      <span className="flex h-full items-center" style={{ gap: GAP, color: TONE[status.tone] }}>
+        <I size={ICON} weight="fill" className="shrink-0" />
+        <span className="truncate text-footnote font-medium" style={{ width: textW }}>{status.text}</span>
+      </span>
     );
   } else if (kind === "quota" && rise) {
     const used = Math.round(Math.min(100, Math.max(0, rise.used)));

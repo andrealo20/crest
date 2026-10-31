@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isNative } from "./native";
+import type { PowerState } from "../notch/row/status";
 import bundledChangelog from "../changelog.json";
 import { showcase, showcaseCall, showcaseCash, showcaseDayChange, showcaseFileSizes, showcasePositions, showcaseRealized } from "../dev/showcase-data";
 
@@ -418,6 +419,53 @@ export const display = {
     return () => void off.then((f) => f());
   },
 };
+
+// ---------- Status alerts (sysevents.rs) ----------
+
+export interface HeadsetEvent { name: string; connected: boolean; battery: number | null }
+/** State at start, so what is already true (charger in, headphones on) does not alert. */
+export interface StatusSeed { power: PowerState | null; online: boolean | null; headsets: string[] }
+export interface StatusHandlers { seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: HeadsetEvent): void }
+
+export const status = {
+  seed: (): Promise<StatusSeed> => (isNative ? invoke<StatusSeed>("status_seed") : Promise.resolve(mockStatus.seed())),
+  on: (h: StatusHandlers): (() => void) => {
+    if (!isNative) return mockStatus.subscribe(h);
+    const offs = [
+      listen<StatusSeed>("status://seed", (e) => h.seed(e.payload)),
+      listen<PowerState>("status://power", (e) => h.power(e.payload)),
+      listen<{ online: boolean }>("status://net", (e) => h.net(e.payload.online)),
+      listen<HeadsetEvent>("status://bt", (e) => h.bt(e.payload)),
+    ];
+    return () => offs.forEach((off) => void off.then((f) => f()));
+  },
+};
+
+/** Browser: each dev button toggles one source. Unplugging drops the mock percent by 9, so the low tones show too. */
+export const mockStatus = (() => {
+  let power: PowerState = { ac: true, percent: 64, battery: true }, online = true, buds = false;
+  const listeners = new Set<StatusHandlers>();
+  return {
+    seed: (): StatusSeed => ({ power, online, headsets: buds ? ["Buds"] : [] }),
+    subscribe(h: StatusHandlers) {
+      listeners.add(h);
+      return () => void listeners.delete(h);
+    },
+    unplug() {
+      const percent = power.ac ? (power.percent! > 10 ? power.percent! - 9 : 64) : power.percent;
+      power = { ac: !power.ac, percent, battery: true };
+      listeners.forEach((h) => h.power(power));
+    },
+    offline() {
+      online = !online;
+      listeners.forEach((h) => h.net(online));
+    },
+    headphones() {
+      buds = !buds;
+      listeners.forEach((h) => h.bt({ name: "Buds", connected: buds, battery: buds ? 80 : null }));
+    },
+  };
+})();
 
 // ---------- Gaming mode ----------
 

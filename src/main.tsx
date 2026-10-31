@@ -14,6 +14,7 @@ import { monitor, startMonitorWatch } from "./notch/monitor";
 import { startSystemPolling } from "./features/system/store";
 import { startUsagePolling } from "./features/usage/store";
 import { startGamingWatch } from "./features/system/gaming";
+import { startStatusWatch } from "./features/status/store";
 import { startDiscord } from "./features/discord/store";
 import { startUpdateWatch } from "./lib/update";
 import { showcase } from "./dev/showcase-data";
@@ -27,6 +28,7 @@ startMonitorWatch();
 startSystemPolling();
 startUsagePolling();
 startGamingWatch();
+startStatusWatch();
 startDiscord();
 startUpdateWatch();
 

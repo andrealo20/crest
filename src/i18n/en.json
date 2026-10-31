@@ -485,5 +485,13 @@
  "Schwebt frei, zum Verschieben ziehen": "Floats freely, drag to move it",
  "Sekunden": "Seconds",
  "Songtitel": "Song title",
- "Zeigt, wie weit das Lied ist, solange Musik läuft": "Shows how far the song is while music plays"
+ "Zeigt, wie weit das Lied ist, solange Musik läuft": "Shows how far the song is while music plays",
+ "Lädt · {p} %": "Charging · {p}%",
+ "Akku · {p} %": "On battery · {p}%",
+ "Akku {p} %": "Battery {p}%",
+ "Online": "Online",
+ "{n} · {p} %": "{n} · {p}%",
+ "{n} · Getrennt": "{n} · Disconnected",
+ "Lädt": "Charging",
+ "Akku": "On battery"
 }

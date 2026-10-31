@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { media, useNowPlaying } from "../platform/media";
-import { mockApps, mockDiscord, mockPrivacy } from "../platform/services";
+import { mockApps, mockDiscord, mockPrivacy, mockStatus } from "../platform/services";
 import { showcase } from "./showcase-data";
 
 /** Mixer: the playing app moves to the next one in the list (tests the reorder). */
@@ -57,6 +57,9 @@ export function DesktopMock() {
         <DevButton onClick={() => mockDiscord.toggleCall()}>Discord call</DevButton>
         <DevButton onClick={() => (mockPrivacy.mic = !mockPrivacy.mic)}>Mic</DevButton>
         <DevButton onClick={() => (mockPrivacy.screen = !mockPrivacy.screen)}>Recording</DevButton>
+        <DevButton onClick={mockStatus.unplug}>Unplug</DevButton>
+        <DevButton onClick={mockStatus.offline}>Offline</DevButton>
+        <DevButton onClick={mockStatus.headphones}>Headphones</DevButton>
         <DevButton onClick={() => setLight((l) => !l)}>{light ? "Dark" : "Light"}</DevButton>
       </div>}
 
