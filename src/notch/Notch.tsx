@@ -7,7 +7,9 @@ import { isNative, keyboardFocus, onNativeBlur, onNativeHover, onShortcut, onTra
 import { PrivacyDots } from "../features/privacy/PrivacyDots";
 import { FOCUS_CLICKS, focusMode, setFocusMode } from "./focus";
 import { useDragToMove, windowY } from "./drag";
-import { LiveSlot, useLiveActivity } from "./live";
+import { useLiveActivity } from "./live";
+import { CompactRow } from "./row/CompactRow";
+import { fullscreen } from "../features/system/gaming";
 import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, geometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
 import { hasBridge, panelTop, windowYFor } from "./capsule";
 import { monitor, monitorMetrics } from "./monitor";
@@ -33,7 +35,8 @@ const MEMORY_LOW_AFTER_MS = 20_000;
 export function Notch() {
   const { status, open, close, dismiss, toggle, onPointerEnter, onPointerLeave } = useNotchState();
   const focus = focusMode.use();
-  const { tools: toolSettings, display: displaySettings } = settings.use();
+  const { tools: toolSettings, display: displaySettings, gaming: { mode: gamingMode } } = settings.use();
+  const isFullscreen = fullscreen.use();
   // Focus mode as a line: no live activity, no dots, only the thin strip at the edge.
   const line = focus && displaySettings.focusStyle === "line";
   // Line as the normal closed look: hover and click work as usual, but nothing shows
@@ -71,16 +74,17 @@ export function Notch() {
 
   const override = sizeOverride.use();
   const size = override?.tabId === tab.id ? override : tab.size;
-  // Live activity shown in the closed notch (the idle line only lets the timer alarm through).
-  const shownLive = line ? null : idleLine ? (alert ? "timer" : null) : live.id;
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
   const style = line ? "line" : displaySettings.idleStyle;
   const surface = style === "capsule" ? "capsule" : "notch";
-  // Content width of the closed row (0 until the row reports it).
-  const [rowWidth] = useState(0);
-  const closedW = shownLive === "system" ? geometry.gaming.w : shownLive ? geometry.live.w : surfaceWidth(surface, rowWidth);
+  // The row is on screen closed or peeking, not as a line, not in focus mode, not while Rust hides the window for fullscreen (display.rs).
+  const hiddenForFullscreen = displaySettings.visibility === "hide-fullscreen" && gamingMode === "off" && isFullscreen;
+  const showRow = status !== "open" && !line && !idleLine && !focus && !hiddenForFullscreen;
+  // Content width of the closed row, as it last reported it (kept while open, so closing goes straight to it).
+  const [rowWidth, setRowWidth] = useState(0);
+  const closedW = surfaceWidth(surface, showRow || status === "open" ? rowWidth : 0);
   const drag = useDragToMove(status, closedGeometry(surface, closedW));
 
   // Natively the window sits at windowY and the capsule drag.y below the monitor's top; in the browser the
@@ -193,8 +197,9 @@ export function Notch() {
         onClick={onClick}
       >
         <NotchShape geometry={shape} transition={transition} elevated={status === "open"}>
-          <LiveSlot id={status === "open" ? null : shownLive} />
-          {!line && !idleLine && <PrivacyDots />}
+          <AnimatePresence>{showRow && <CompactRow key="row" style={surface} onWidth={setRowWidth} />}</AnimatePresence>
+          {/* Closed, the dots are the row's last part. */}
+          {status === "open" && !line && !idleLine && <PrivacyDots />}
 
           <AnimatePresence>
             {status === "open" && (

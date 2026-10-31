@@ -20,9 +20,10 @@ export function useGamingLive(): boolean {
 
 export const fps = createStore<{ value: number | null; error: string | null }>({ value: null, error: null });
 
-/** Poll FPS once a second while the overlay is visible. */
-export function useFpsPolling() {
+/** Poll FPS once a second while mounted and `active` (the readings in the closed row during gaming). */
+export function useFpsPolling(active = true) {
   useEffect(() => {
+    if (!active) return;
     let alive = true;
     const load = () => void fetchFps().then((r) => alive && fps.set({ value: r.fps, error: r.error }));
     load();
@@ -31,5 +32,5 @@ export function useFpsPolling() {
       alive = false;
       clearInterval(id);
     };
-  }, []);
+  }, [active]);
 }

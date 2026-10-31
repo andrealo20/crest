@@ -188,8 +188,8 @@ export function fetchUsage(providers: string[]): Promise<UsageProvider[]> {
       error: null,
       updatedAt: now - 4 * 60_000,
     },
-    { id: "gemini", plan: null, windows: [], error: "not-found", updatedAt: now },
-    { id: "cursor", plan: null, windows: [], error: "not-found", updatedAt: now },
+    { id: "gemini", plan: null, windows: [{ kind: "session", usedPercent: 12, resetsAt: now + 3.6 * h, windowSecs: 5 * 3600 }], error: null, updatedAt: now },
+    { id: "cursor", plan: "Pro", windows: [{ kind: "monthly", usedPercent: 93, resetsAt: now + 11 * d, windowSecs: 30 * 86_400 }], error: null, updatedAt: now },
   ];
   return new Promise((r) => setTimeout(() => r(all.filter((p) => providers.includes(p.id))), 350));
 }

@@ -25,27 +25,33 @@ function enabledIds(): UsageId[] {
   return (Object.keys(enabled) as UsageId[]).filter((id) => enabled[id]);
 }
 
+/** The providers the data in `usage` was asked for. */
+let fetchedKey = "";
+
 export function refreshUsage(): Promise<void> {
-  const call = ++latest;
+  const call = ++latest, ids = enabledIds();
+  fetchedKey = ids.join(",");
   usage.set((u) => ({ ...u, loading: true }));
-  return fetchUsage(enabledIds()).then((providers) => {
+  return fetchUsage(ids).then((providers) => {
     // An older answer (providers changed meanwhile) must not overwrite a newer one.
     if (call === latest) usage.set({ providers, loading: false, updatedAt: Date.now() });
   });
 }
 
 function apply() {
-  const s = settings.get();
-  if (!((s.closed.parts.rings && rowVisible.get()) || viewers.get() > 0)) {
+  const s = settings.get(), key = enabledIds().join(",");
+  // No provider chosen: nothing to ask, and nothing left over to draw.
+  if (!key) usage.set((u) => (u.providers.length ? { ...u, providers: [] } : u));
+  if (!key || !((s.closed.parts.rings && rowVisible.get()) || viewers.get() > 0)) {
     if (timer) clearInterval(timer);
     timer = null;
     return;
   }
-  // Providers changed: read again right away, not after the next tick.
-  const key = enabledIds().join(",");
   if (timer && timerKey === key) return;
   if (timer) clearInterval(timer);
-  void refreshUsage();
+  // Re-armed (the notch closed again, a view mounted): read right away only if the providers changed or the data is a poll old.
+  const { updatedAt, loading } = usage.get();
+  if (key !== fetchedKey || (!loading && (updatedAt === null || Date.now() - updatedAt >= POLL_MS))) void refreshUsage();
   timer = setInterval(() => void refreshUsage(), POLL_MS);
   timerKey = key;
 }

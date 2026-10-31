@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { carouselWindow, minimumWindow, share, arrange, requiredWidth, naturalWidth, planRow, surfaceWidth, type RowItem } from "./layout.ts";
+import { carouselWindow, minimumWindow, share, arrange, requiredWidth, naturalWidth, planRow, planVisible, surfaceWidth, type RowItem } from "./layout.ts";
 
 const w = [30, 40, 20, 50];
 test("carousel window", () => {
@@ -83,4 +83,11 @@ test("plan row", () => {
   }
   assert.deepEqual(planRow(items, 700, 1).parts.map((x) => x.window?.count), [undefined, undefined, 4, 6, undefined, undefined]);
   assert.deepEqual(planRow(items, 400, 1).dropped, []);
+});
+test("plan visible drops a carousel with no whole item and its gap", () => {
+  const items: RowItem[] = [{ id: "timer", kind: "fixed", width: 600 }, { id: "rings", kind: "carousel", items: [12, 12], gap: 8 }];
+  assert.equal(planRow(items, 610, 1).parts[1].window?.count, 0);
+  const plan = planVisible(items, 610, 1);
+  assert.deepEqual(plan.parts.map((p) => [p.id, p.left]), [["timer", 5]]);
+  assert.deepEqual(planVisible(items, 700, 1), planRow(items, 700, 1));
 });

@@ -1,39 +1,13 @@
 import { AnimatePresence, motion } from "motion/react";
 import { MusicNoteSimple } from "@phosphor-icons/react";
-import { artwork as artworkSwap, content } from "../../design/motion";
+import { artwork as artworkSwap } from "../../design/motion";
 import { useSmoothArtwork } from "./artwork";
-import type { NowPlaying } from "../../platform/media";
-import { Equalizer } from "./Equalizer";
-import { LiveEdge } from "../../notch/liveEdges";
 
 /**
- * Closed notch while music plays: cover on the left, equalizer on the right,
- * the middle stays empty like a real notch.
+ * The cover in the closed row (20 x 20, radius 5). Track or app change: the new cover (already decoded) fades in on top
+ * of the old one with a blur bridge, the old one leaves a beat later. No cut, no gap, same calm pace as the accent color.
  */
-export function LiveActivity({ np }: { np: NowPlaying }) {
-  return (
-    <motion.div
-      className="absolute inset-0 flex items-center justify-between px-[9px]"
-      initial={{ opacity: 0, filter: "blur(4px)" }}
-      animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
-      exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
-    >
-      <LiveEdge side="left">
-        <LiveArtwork artwork={np.artwork} />
-      </LiveEdge>
-      <LiveEdge side="right">
-        <Equalizer playing={np.isPlaying} />
-      </LiveEdge>
-    </motion.div>
-  );
-}
-
-/**
- * Track or app change: the new cover (already decoded) fades in on top of the old one
- * with a blur bridge, the old one leaves a beat later. No cut, no gap, same calm
- * pace as the accent color of the equalizer.
- */
-function LiveArtwork({ artwork: src }: { artwork: string | null }) {
+export function LiveArtwork({ artwork: src }: { artwork: string | null }) {
   const artwork = useSmoothArtwork(src);
   return (
     <div className="relative size-5 shrink-0">

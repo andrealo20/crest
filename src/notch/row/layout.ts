@@ -192,6 +192,13 @@ export function planRow(items: RowItem[], contentWidth: number, dpi: number): Ro
   };
 }
 
+/** planRow, then again without any carousel left with no whole item, so the row keeps no gap for it. */
+export function planVisible(items: RowItem[], contentWidth: number, dpi: number): RowPlan {
+  const plan = planRow(items, contentWidth, dpi);
+  const empty = plan.parts.filter((p) => p.window?.count === 0).map((p) => p.id);
+  return empty.length ? planRow(items.filter((it) => !empty.includes(it.id)), contentWidth, dpi) : plan;
+}
+
 /** The surface's width for a content width: the content plus the inset at both ends, never outside minSurface..maxSurface. */
 export function surfaceWidth(style: "notch" | "capsule", content: number): number {
   const inset = style === "notch" ? ROW.insetNotch : ROW.insetCapsule;

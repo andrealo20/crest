@@ -1,7 +1,9 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { animate, motion, useMotionValue, useTransform, type Transition } from "motion/react";
+import { createContext, useEffect, useRef, type ReactNode } from "react";
+import { animate, motion, motionValue, useMotionValue, useTransform, type MotionValue, type Transition } from "motion/react";
 import type { NotchGeometry } from "./geometry";
-import { ShapeWidth } from "./liveEdges";
+
+/** The shape's spring-animated width, unrounded. */
+export const ShapeWidth = createContext<MotionValue<number>>(motionValue(0));
 
 interface Props {
   geometry: NotchGeometry;

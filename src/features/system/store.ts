@@ -23,8 +23,8 @@ export interface SystemState {
  * Only pauses when neither the Hardware tool, gaming mode nor readings in the closed row are on.
  *
  * Three rhythms, slow ones filled in linearly so the history keeps one value per second:
- * - shown (Hardware tool open, gaming overlay): everything once a second;
- * - GPU reading in the closed row: CPU, RAM and GPU every 2 s, without waking the ping;
+ * - shown (Hardware tool open): everything once a second;
+ * - GPU reading in the closed row (or gaming there): CPU, RAM and GPU every 2 s, without waking the ping;
  * - background: CPU and RAM every 3 s; GPU and ping stay gaps (their counters are the expensive part).
  */
 export const system = createStore<SystemState>({ stats: null, history: { cpu: [], mem: [], gpu: [], ping: [] }, tick: 0 });
@@ -38,10 +38,15 @@ let timerMs = 0;
 /** Mounted views that show the values (see `useSystemShown`). */
 const shown = createStore(0);
 
+/** When the last answer came (performance.now()), so the history gains one value per second that really passed. */
+let lastAnswer: number | null = null;
+
 function poll(ms: number) {
   const full = ms === SHOWN_MS, gpu = ms === GPU_MS;
   void fetchSystem(full, gpu).then((next) => {
-    const steps = Math.round(ms / SHOWN_MS);
+    // Seconds since the last answer, at most one poll's worth: a rhythm switch right after an answer adds nothing, a long pause no more than one poll.
+    const at = performance.now(), steps = lastAnswer === null ? 1 : Math.min(ms / SHOWN_MS, Math.round((at - lastAnswer) / SHOWN_MS));
+    lastAnswer = at;
     system.set(({ stats, history: h, tick }) => {
       const mem = (next.memUsed / next.memTotal) * 100;
       // Linear from the previous value, so a slow poll still adds one value per second.
@@ -55,12 +60,12 @@ function poll(ms: number) {
       return {
         // Slower rhythms: keep the last numbers they skip for the first frame when opened.
         stats: full || !stats ? next : gpu ? { ...next, ping: stats.ping } : { ...next, gpu: stats.gpu, gpuMemUsed: stats.gpuMemUsed, ping: stats.ping },
-        tick: tick + 1,
+        tick: steps > 0 ? tick + 1 : tick,
         history: {
           cpu: push(h.cpu, fill(h.cpu, next.cpu)),
           mem: push(h.mem, fill(h.mem, mem)),
           gpu: push(h.gpu, full || gpu ? fill(h.gpu, next.gpu ?? Number.NaN) : gaps),
-          ping: push(h.ping, full ? [next.ping ?? Number.NaN] : gaps),
+          ping: push(h.ping, full ? Array<number>(steps).fill(next.ping ?? Number.NaN) : gaps),
         },
       };
     });
@@ -75,7 +80,8 @@ function wanted(): boolean {
 function rhythm(): number {
   if (shown.get() > 0) return SHOWN_MS;
   const s = settings.get();
-  const gpu = rowVisible.get() && s.closed.parts.readings && (s.closed.readings.gpu || gamingLive(s.gaming.mode, fullscreen.get()));
+  // Gaming puts the GPU in the row even with the readings part off.
+  const gpu = rowVisible.get() && ((s.closed.parts.readings && s.closed.readings.gpu) || gamingLive(s.gaming.mode, fullscreen.get()));
   return gpu ? GPU_MS : BACKGROUND_MS;
 }
 

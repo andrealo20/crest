@@ -5,30 +5,32 @@ import { settings } from "../../settings/store";
 import { discordState } from "../discord/store";
 import { privacy } from "./store";
 
-/**
- * Dots like on iPhone, right of the camera: green = mic or camera in use
- * (call, Discord), red = screen is being recorded or streamed.
- * While you talk in a Discord call, the green dot glows.
- */
-export function PrivacyDots() {
+/** Dot size and the space between two dots. */
+const DOT = 6, DOT_GAP = 5;
+export const dotsWidth = (n: number) => (n > 0 ? n * DOT + (n - 1) * DOT_GAP : 0);
+
+/** The dots on now: red = screen recorded or streamed, green = mic or camera in use (call, Discord). Empty while the setting is off. */
+export function usePrivacyDots(): ("red" | "green")[] {
   const enabled = settings.use().privacyDots;
   const p = privacy.use();
   const call = discordState.use().call;
-
   const talk = p.mic || p.camera || (!!call && !call.mute);
-  const dots = enabled ? [p.screen && "red", talk && "green"].filter((d): d is string => !!d) : [];
+  return enabled ? [p.screen && ("red" as const), talk && ("green" as const)].filter((d): d is "red" | "green" => !!d) : [];
+}
 
+/** Dots like on iPhone, in a row. While you talk in a Discord call, the green dot glows. */
+export function Dots({ dots }: { dots: ("red" | "green")[] }) {
+  const call = discordState.use().call;
   return (
-    // A bit right of the imagined camera in the middle, clear both closed and open.
-    <div className="pointer-events-none absolute top-0 left-1/2 ml-[24px] flex h-[30px] items-center gap-[5px]">
+    <div className="pointer-events-none flex items-center" style={{ gap: DOT_GAP }}>
       <AnimatePresence>
         {dots.map((color) => (
           <motion.span
             key={color}
-            className="privacy-dot size-[6px] rounded-full"
+            className="privacy-dot shrink-0 rounded-full"
             title={color === "red" ? t("Bildschirm wird aufgenommen") : t("Mikrofon oder Kamera aktiv")}
             data-pulse={color === "green" && call?.speaking ? true : undefined}
-            style={{ backgroundColor: `var(--color-${color})`, ["--dot" as string]: `var(--color-${color})` }}
+            style={{ width: DOT, height: DOT, backgroundColor: `var(--color-${color})`, ["--dot" as string]: `var(--color-${color})` }}
             initial={{ opacity: 0, transform: "scale(0.9)" }}
             animate={{ opacity: 1, transform: "scale(1)" }}
             exit={{ opacity: 0, transform: "scale(0.9)" }}
@@ -36,6 +38,16 @@ export function PrivacyDots() {
           />
         ))}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/** The open notch: the dots a bit right of the imagined camera in the middle, clear of the header's title and buttons. Closed, the row shows them at its end. */
+export function PrivacyDots() {
+  const dots = usePrivacyDots();
+  return (
+    <div className="pointer-events-none absolute top-0 left-1/2 ml-[24px] flex h-[30px] items-center">
+      <Dots dots={dots} />
     </div>
   );
 }

@@ -130,6 +130,26 @@ export function useRemaining(): number {
   return remainingOf(s, now);
 }
 
+/**
+ * Date.now(), re-rendering once each time the second changes while `active`: one setTimeout aimed just past the next boundary, no polling.
+ * `phase` (ms) moves the boundary, so a countdown to `endsAt` ticks when its own seconds change (`endsAt % 1000`).
+ */
+export function useSecondTick(active: boolean, phase = 0): number {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!active) return;
+    let id = 0;
+    const next = () => {
+      const t = Date.now();
+      setNow(t);
+      id = window.setTimeout(next, 1000 - ((((t - phase) % 1000) + 1000) % 1000) + 5);
+    };
+    next();
+    return () => window.clearTimeout(id);
+  }, [active, phase]);
+  return now;
+}
+
 export function formatClock(seconds: number): string {
   const s = Math.ceil(seconds);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;

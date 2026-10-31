@@ -21,7 +21,7 @@ const SETTLE = 0.18;
 /** GSMTC briefly reports "paused" on seek/track change; ignore it for this long. */
 const PAUSE_DEBOUNCE_MS = 320;
 /** Keep the capture open briefly after pausing so resuming reacts instantly. */
-const RELEASE_CAPTURE_MS = 2000;
+export const RELEASE_CAPTURE_MS = 2000;
 /** Below one 60 Hz frame with room for timer jitter: 60 Hz draws every frame, 120 Hz
  *  every 2nd (60 fps), 144 Hz every 2nd (72 fps), 165 Hz every 3rd (55 fps), 240 Hz
  *  every 4th (60 fps). Always whole frames, so the pacing stays even. */
