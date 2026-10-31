@@ -136,17 +136,36 @@ fn body_from_json(text: &str) -> Option<String> {
         .find_map(|k| value.get(k).and_then(|v| v.as_str()).map(str::trim).filter(|s| !s.is_empty()).map(str::to_string))
 }
 
-/// Whether the process at the server end of the pipe runs as this user. Another account could create the pipe name
-/// first (pipe names are shared by the whole machine); its notices would go to that account.
-fn server_is_ours(pipe: &std::fs::File, sid: &str) -> bool {
+#[derive(Debug, PartialEq)]
+enum Server {
+    Ours,
+    /// Runs as another user, or as this user at a lower integrity level (a sandboxed process posing as Crest).
+    Foreign,
+    /// The server process could not be opened or read.
+    Unverified,
+}
+
+/// Who runs the server end of the pipe. Another account could create the pipe name first (pipe names are shared by
+/// the whole machine), and its notices would go to that account.
+fn server_owner(pipe: &std::fs::File) -> Server {
     use std::os::windows::io::AsRawHandle;
     use windows::Win32::Foundation::HANDLE;
     use windows::Win32::System::Pipes::GetNamedPipeServerProcessId;
     let mut pid = 0u32;
     if unsafe { GetNamedPipeServerProcessId(HANDLE(pipe.as_raw_handle()), &mut pid) }.is_err() {
-        return false;
+        return Server::Unverified;
     }
-    notify_wire::pid_sid(pid).as_deref() == Some(sid)
+    let (Some(server), Some(own)) = (notify_wire::pid_token(pid), notify_wire::own_token()) else { return Server::Unverified };
+    judge(&server, &own)
+}
+
+/// Ours when the user matches and the server's integrity level is not below ours.
+fn judge(server: &(String, u32), own: &(String, u32)) -> Server {
+    if server.0 == own.0 && server.1 >= own.1 {
+        Server::Ours
+    } else {
+        Server::Foreign
+    }
 }
 
 /// Sends one request and waits for the reply; the exit code for the outcome.
@@ -175,9 +194,16 @@ fn send(request: &Request) -> u8 {
             }
         }
     };
-    if !server_is_ours(&pipe, &sid) {
-        say!("crest-notify: the notice channel belongs to another user; nothing was sent");
-        return 3;
+    match server_owner(&pipe) {
+        Server::Ours => {}
+        Server::Foreign => {
+            say!("crest-notify: the notice channel is not Crest's (another user or a lower integrity level); nothing was sent");
+            return 3;
+        }
+        Server::Unverified => {
+            say!("crest-notify: Crest could not be verified at the other end of the channel; nothing was sent");
+            return 3;
+        }
     }
     if pipe.write_all(&line).and_then(|_| pipe.flush()).is_err() {
         say!("crest-notify: Crest closed the connection");
@@ -338,6 +364,17 @@ mod tests {
         assert_eq!(body_from_json(r#"{"hook_event_name":"Notification","message":" Needs input "}"#).as_deref(), Some("Needs input"));
         assert_eq!(body_from_json(r#"{"hook_event_name":"Stop"}"#), None);
         assert_eq!(body_from_json("not json"), None);
+    }
+
+    #[test]
+    fn server_judgement() {
+        let me = ("S-1-5-21-1".to_string(), 0x2000);
+        assert_eq!(judge(&me, &me), Server::Ours);
+        assert_eq!(judge(&("S-1-5-21-1".into(), 0x3000), &me), Server::Ours);
+        assert_eq!(judge(&("S-1-5-21-1".into(), 0x1000), &me), Server::Foreign);
+        assert_eq!(judge(&("S-1-5-21-2".into(), 0x2000), &me), Server::Foreign);
+        let own = notify_wire::own_token().expect("own token");
+        assert!(own.1 >= 0x1000, "integrity level {:#x}", own.1);
     }
 
     #[test]

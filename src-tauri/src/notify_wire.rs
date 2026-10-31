@@ -148,44 +148,63 @@ pub fn identity() -> Option<(u32, String)> {
     unsafe {
         let mut session = 0u32;
         ProcessIdToSessionId(GetCurrentProcessId(), &mut session).ok()?;
-        Some((session, process_sid(GetCurrentProcess())?))
+        Some((session, process_token(GetCurrentProcess())?.0))
     }
 }
 
-/// The user SID of another process, or None when it cannot be opened (another user's process usually cannot).
+/// This process's user SID and integrity level (0x2000 medium, 0x3000 high, 0x1000 low).
 #[cfg(windows)]
-pub fn pid_sid(pid: u32) -> Option<String> {
+pub fn own_token() -> Option<(String, u32)> {
+    unsafe { process_token(windows::Win32::System::Threading::GetCurrentProcess()) }
+}
+
+/// Another process's user SID and integrity level, or None when it cannot be opened (another user's process usually
+/// cannot).
+#[cfg(windows)]
+pub fn pid_token(pid: u32) -> Option<(String, u32)> {
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
     unsafe {
         let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
-        let sid = process_sid(process);
+        let token = process_token(process);
         let _ = CloseHandle(process);
-        sid
+        token
     }
 }
 
 #[cfg(windows)]
-unsafe fn process_sid(process: windows::Win32::Foundation::HANDLE) -> Option<String> {
+unsafe fn process_token(process: windows::Win32::Foundation::HANDLE) -> Option<(String, u32)> {
     use windows::Win32::Foundation::{CloseHandle, HANDLE, HLOCAL, LocalFree};
     use windows::Win32::Security::Authorization::ConvertSidToStringSidW;
-    use windows::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
+    use windows::Win32::Security::{
+        GetSidSubAuthority, GetSidSubAuthorityCount, GetTokenInformation, TokenIntegrityLevel, TokenUser, TOKEN_INFORMATION_CLASS,
+        TOKEN_MANDATORY_LABEL, TOKEN_QUERY, TOKEN_USER,
+    };
     use windows::Win32::System::Threading::OpenProcessToken;
+    let info = |token: HANDLE, class: TOKEN_INFORMATION_CLASS| -> Option<Vec<u64>> {
+        let mut size = 0u32;
+        let _ = unsafe { GetTokenInformation(token, class, None, 0, &mut size) };
+        // u64 keeps the buffer aligned for the structures read from it.
+        let mut buf = vec![0u64; (size as usize).div_ceil(8)];
+        unsafe { GetTokenInformation(token, class, Some(buf.as_mut_ptr().cast()), size, &mut size) }.ok()?;
+        Some(buf)
+    };
     unsafe {
         let mut token = HANDLE::default();
         OpenProcessToken(process, TOKEN_QUERY, &mut token).ok()?;
-        let mut size = 0u32;
-        let _ = GetTokenInformation(token, TokenUser, None, 0, &mut size);
-        let mut buf = vec![0u8; size as usize];
-        let ok = GetTokenInformation(token, TokenUser, Some(buf.as_mut_ptr().cast()), size, &mut size);
+        let user = info(token, TokenUser);
+        let label = info(token, TokenIntegrityLevel);
         let _ = CloseHandle(token);
-        ok.ok()?;
-        let user = &*(buf.as_ptr() as *const TOKEN_USER);
+        let (user, label) = (user?, label?);
+        let user = &*(user.as_ptr() as *const TOKEN_USER);
         let mut text = windows::core::PWSTR::null();
         ConvertSidToStringSidW(user.User.Sid, &mut text).ok()?;
         let sid = text.to_string().ok();
         let _ = LocalFree(Some(HLOCAL(text.0.cast())));
-        sid
+        let label = &*(label.as_ptr() as *const TOKEN_MANDATORY_LABEL);
+        let count = *GetSidSubAuthorityCount(label.Label.Sid);
+        let level = *GetSidSubAuthority(label.Label.Sid, u32::from(count).checked_sub(1)?);
+        Some((sid?, level))
     }
 }
 

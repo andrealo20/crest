@@ -8,7 +8,7 @@
 //! every POLL instead. Both sources send `notices://in`; rules, quiet hours and history live in the frontend.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -37,6 +37,8 @@ pub struct NoticesState {
     windows_gen: AtomicU64,
     /// The running Windows source thread's channel, to stop it at once.
     windows_tx: Mutex<Option<mpsc::Sender<Trigger>>>,
+    /// The Windows source stopped because access was not allowed; started again once it is.
+    awaiting_access: AtomicBool,
     /// The pipe server's generation; a watch so a waiting accept wakes when it changes.
     pipe_gen: watch::Sender<u64>,
     on: Mutex<(bool, bool)>,
@@ -49,6 +51,7 @@ impl Default for NoticesState {
         NoticesState {
             windows_gen: AtomicU64::new(0),
             windows_tx: Mutex::new(None),
+            awaiting_access: AtomicBool::new(false),
             pipe_gen: watch::channel(0).0,
             on: Mutex::new((false, false)),
             status: Mutex::new(Status::default()),
@@ -123,11 +126,28 @@ pub fn notices_configure(windows: bool, pipe: bool, app: AppHandle, state: State
     *on = (windows, pipe);
 }
 
+/// The current state. A Windows source that stopped for lack of access starts now if access was granted meanwhile in
+/// Windows Settings (the settings page asks for this state when it opens).
 #[tauri::command]
-pub fn notices_status(state: State<'_, NoticesState>) -> Status {
+pub fn notices_status(app: AppHandle, state: State<'_, NoticesState>) -> Status {
     let mut status = state.status.lock().unwrap().clone();
     status.access = access().into();
+    if status.access == "allowed" && state.awaiting_access.swap(false, Ordering::SeqCst) {
+        start_if_on(&app);
+    }
     status
+}
+
+/// Starts (or restarts) the Windows source while its switch is on. The `on` lock is held across the start, so a
+/// concurrent notices_configure switching it off waits and then stops this thread, never leaving one running.
+fn start_if_on(app: &AppHandle) {
+    let state = app.state::<NoticesState>();
+    let on = state.on.lock().unwrap();
+    if on.0 {
+        let generation = state.windows_gen.fetch_add(1, Ordering::SeqCst) + 1;
+        start_windows(app, generation);
+    }
+    drop(on);
 }
 
 /// Asks Windows for access to notifications. Windows asks the user only the first time; afterwards the answer is the
@@ -149,10 +169,9 @@ pub async fn notices_request_access(app: AppHandle) -> String {
     if !answered && now != "allowed" {
         return "request-failed".into();
     }
-    let state = app.state::<NoticesState>();
-    if state.on.lock().unwrap().0 && now == "allowed" {
-        let generation = state.windows_gen.fetch_add(1, Ordering::SeqCst) + 1;
-        start_windows(&app, generation);
+    if now == "allowed" {
+        app.state::<NoticesState>().awaiting_access.store(false, Ordering::SeqCst);
+        start_if_on(&app);
     }
     now.into()
 }
@@ -249,7 +268,8 @@ fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx
         return set_status(&app, |s| s.mode = "failed".into());
     };
     if access() != "allowed" {
-        // Started again by notices_request_access once allowed.
+        // Started again by notices_request_access or notices_status once allowed.
+        app.state::<NoticesState>().awaiting_access.store(true, Ordering::SeqCst);
         return set_status(&app, |s| s.mode = "off".into());
     }
     let mut icons: HashMap<String, Option<String>> = HashMap::new();
@@ -791,7 +811,7 @@ mod tests {
                 // The check crest-notify makes: the server end runs as this user.
                 let mut pid = 0u32;
                 unsafe { windows::Win32::System::Pipes::GetNamedPipeServerProcessId(windows::Win32::Foundation::HANDLE(pipe.as_raw_handle()), &mut pid) }.unwrap();
-                assert_eq!(notify_wire::pid_sid(pid), notify_wire::identity().map(|(_, s)| s));
+                assert_eq!(notify_wire::pid_token(pid), notify_wire::own_token());
                 pipe.write_all(b"{\"title\":\"Build\",\"source\":\"CI\",\"progress\":40}\n").unwrap();
                 let mut out = String::new();
                 std::io::BufReader::new(pipe).read_line(&mut out).unwrap();
