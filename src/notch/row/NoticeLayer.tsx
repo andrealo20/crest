@@ -8,6 +8,10 @@ import { settings } from "../../settings/store";
 import { ringing, timer, timerActions } from "../../features/timer/store";
 import { usage } from "../../features/usage/store";
 import { windowLabel } from "../../features/usage/UsageView";
+import { dueTasks } from "../../features/todos/store";
+import { reminderNotice } from "../../features/todos/ReminderNotice";
+import { waterDue } from "../../features/water/store";
+import { waterNotice } from "../../features/water/WaterNotice";
 import { brandName } from "../../ui/brands";
 import { formatIn } from "../../lib/format";
 import { t } from "../../i18n";
@@ -68,17 +72,19 @@ function useTrackCaption(on: boolean): string | null {
 
 /**
  * Covers the closed row with the most important notice: a finished timer (until dismissed by a click), a quota that
- * crossed a level, or a new track while the title part is off. Reports its content width while one shows, null otherwise;
- * the shape takes that width. Mounted with the row, and on the idle line while a finished timer opens it into the notch.
+ * crossed a level, a new track while the title part is off, a due to-do or the water reminder. Reports its content width while one shows, null otherwise;
+ * the shape takes that width. Mounted with the row, and on the idle line while a finished timer or a due to-do opens it into the notch.
  */
 export function NoticeLayer({ onWidth }: { onWidth: (content: number | null) => void }) {
   fontEpoch.use();
-  const closed = settings.use().closed;
+  const { closed, productivity } = settings.use();
   const finished = timer.use().finished;
   const ring = ringing.use();
   const rise = useQuotaRise();
   const track = useTrackCaption(!closed.parts.title);
-  const kind = topNotice({ timer: finished, quota: !!rise && closed.quotaAlerts, track: !!track });
+  const due = dueTasks.use();
+  const drink = waterDue.use();
+  const kind = topNotice({ timer: finished, quota: !!rise && closed.quotaAlerts, track: !!track, reminder: due.length > 0, water: drink });
 
   let width = 0, key = "", body: ReactNode = null;
   if (kind === "timer") {
@@ -125,7 +131,8 @@ export function NoticeLayer({ onWidth }: { onWidth: (content: number | null) => 
     width = Math.min(textW, MAX);
     key = `track:${track}`;
     body = <Marquee text={track} textWidth={textW} width={width} paused={false} once />;
-  }
+  } else if (kind === "reminder") ({ width, key, body } = reminderNotice(due));
+  else if (kind === "water") ({ width, key, body } = waterNotice(productivity.water.goalMl));
   const dpi = window.devicePixelRatio || 1;
   // An even number of device pixels, as the row, so the centred notice starts on a whole one.
   width = Math.min(MAX, (Math.ceil((width * dpi) / 2 - 1e-9) * 2) / dpi);

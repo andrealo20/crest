@@ -27,6 +27,7 @@ import { findTab, settingsTab, tabs, type NotchTab } from "./tabs";
 import { holdOpen, pinned, togglePin, useNotchState, type NotchStatus } from "./useNotchState";
 import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
+import { dueTasks } from "../features/todos/store";
 
 /** If the notch was closed at most this long, it reopens on the last used tool. */
 const RESUME_MS = 60_000;
@@ -42,7 +43,8 @@ export function Notch() {
   const line = focus && displaySettings.focusStyle === "line";
   // Line as the normal closed look: hover and click work as usual, but nothing shows
   // while closed but the song's progress. Only a finished timer opens it into the notch (its notice), until dismissed.
-  const timerDone = timer.use().finished;
+  // A due to-do reminder counts as urgent as a finished timer: the user asked to be told at that time.
+  const timerDone = timer.use().finished || dueTasks.use().length > 0;
   const idleLine = !focus && displaySettings.idleStyle === "line";
   const alert = idleLine && timerDone;
   const visible = toolSettings.filter((t) => t.enabled).map((t) => findTab(t.id)).filter((t): t is NotchTab => !!t);

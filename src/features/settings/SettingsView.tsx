@@ -36,6 +36,7 @@ import { discordState, reconnectDiscord } from "../discord/store";
 import { fps } from "../system/gaming";
 import { PlaceSearch } from "../weather/WeatherView";
 import { VaultSettings } from "../vault/VaultSettings";
+import { ProductivitySettings } from "../water/WaterSettings";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
@@ -66,6 +67,8 @@ const sectionPage: Record<string, PageId> = {
   discord: "accounts",
   trading: "accounts",
   vault: "tools",
+  todos: "tools",
+  water: "tools",
 };
 
 /** Last open page survives closing/opening the notch (the component is rebuilt). */
@@ -144,6 +147,7 @@ export function SettingsView() {
               <>
                 <Tools />
                 <VaultSettings />
+                <ProductivitySettings />
               </>
             )}
             {page === "timer" && <Alarm />}
