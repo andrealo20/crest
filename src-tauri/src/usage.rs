@@ -12,6 +12,16 @@
 //!   tested with agy 1.3.3), so its login is never read here. Starting the CLI takes a
 //!   few seconds → 5 min cache.
 //! - Cursor: monthly requests via `cursor.com/api/usage` with the Cursor app's login.
+//! - OpenRouter, DeepSeek, Z.ai: credits, balance and coding-plan limits with an API key the
+//!   user saved in Credential Manager (see secrets.rs).
+//!
+//! Every provider shares one rule for 429 answers (usage_backoff.rs) and keeps its last good
+//! reading on any error. Token counts and cost from the local logs: usage_logs.rs.
+
+#[path = "usage_backoff.rs"]
+mod backoff;
+#[path = "usage_logs.rs"]
+mod logs;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -30,15 +40,31 @@ fn cache_for(id: &str) -> Duration {
         _ => Duration::from_secs(2 * 60),
     }
 }
-const BACKOFF_429: Duration = Duration::from_secs(10 * 60);
 /// agy answers in about 6 s; after this it is killed.
 const AGY_TIMEOUT: Duration = Duration::from_secs(40);
+const PROVIDERS: &[&str] = &["claude", "codex", "gemini", "cursor", "openrouter", "deepseek", "zai"];
 
 #[derive(Default)]
 pub struct UsageState {
     /// Last result per provider + earliest time (Unix ms) of the next real query.
     cache: Mutex<HashMap<String, (u64, Provider)>>,
     loaded: Mutex<bool>,
+    /// 429 pause per provider.
+    backoff: Mutex<HashMap<String, backoff::Backoff>>,
+    /// Parsed session logs (only filled once the AI usage tool asked for tokens).
+    logs: Mutex<logs::Cache>,
+    /// Hash of the API key each key source was last asked with (memory only, never logged).
+    keys: Mutex<HashMap<String, u64>>,
+}
+
+/// Credential Manager entry of the API-key sources.
+fn key_name(id: &str) -> Option<&'static str> {
+    match id {
+        "openrouter" => Some("ai.openrouter"),
+        "deepseek" => Some("usage.deepseek"),
+        "zai" => Some("usage.zai"),
+        _ => None,
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -47,11 +73,37 @@ pub struct Provider {
     id: String,
     plan: Option<String>,
     windows: Vec<Window>,
+    /// Money figures (credits, balances, spend) for API-key providers.
+    #[serde(default)]
+    balances: Vec<Balance>,
     /// Error code for the frontend (translated there): not-found, not-signed-in, expired,
-    /// rate-limited, offline, failed. With `windows` present, the data is stale.
+    /// no-key, bad-key, rate-limited, offline, failed. With data present, the data is stale.
     error: Option<String>,
     /// Unix ms when the data was produced.
     updated_at: u64,
+    /// Unix ms of the next try while a 429 pause runs.
+    #[serde(default)]
+    retry_at: Option<u64>,
+}
+
+impl Provider {
+    fn new(id: &str) -> Self {
+        Provider { id: id.into(), plan: None, windows: vec![], balances: vec![], error: None, updated_at: now_ms(), retry_at: None }
+    }
+    fn has_data(&self) -> bool {
+        !self.windows.is_empty() || !self.balances.is_empty()
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Balance {
+    /// account | key | budget | granted | today | month (translated in the frontend).
+    kind: String,
+    amount: f64,
+    /// The cap the amount is part of (a key limit), if any.
+    total: Option<f64>,
+    currency: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -71,12 +123,19 @@ pub async fn usage_fetch(providers: Vec<String>, app: AppHandle, state: State<'_
     load_disk_cache(&app, &state);
     let mut out = Vec::new();
     for id in providers {
-        if !matches!(id.as_str(), "claude" | "codex" | "gemini" | "cursor") {
+        if !PROVIDERS.contains(&id.as_str()) {
             continue;
         }
         let cached = state.cache.lock().unwrap().get(&id).cloned();
-        if let Some((next_at, p)) = &cached {
-            if now_ms() < *next_at {
+        // A key saved or removed since the last answer: ask again now, whatever the cache or a pause says.
+        let key_now = key_name(&id).map(|name| logs::fnv(crate::secrets::read(name).unwrap_or_default().as_bytes()));
+        let key_changed = key_now.is_some() && state.keys.lock().unwrap().get(&id).is_some_and(|old| Some(*old) != key_now);
+        if key_changed {
+            state.backoff.lock().unwrap().remove(&id);
+        }
+        let paused = state.backoff.lock().unwrap().get_mut(&id).and_then(|b| b.retry_at(now_ms()));
+        if let Some((next_at, p)) = cached.as_ref().filter(|_| !key_changed) {
+            if paused.is_some() || now_ms() < *next_at {
                 out.push(p.clone());
                 continue;
             }
@@ -85,38 +144,74 @@ pub async fn usage_fetch(providers: Vec<String>, app: AppHandle, state: State<'_
             "claude" => fetch_claude().await,
             "codex" => fetch_codex().await,
             "gemini" => fetch_gemini().await,
-            _ => fetch_cursor().await,
+            "cursor" => fetch_cursor().await,
+            "openrouter" => fetch_openrouter().await,
+            "deepseek" => fetch_deepseek().await,
+            _ => fetch_zai().await,
         };
-        let (provider, wait) = match (result, cached) {
-            (Ok(p), _) => (p, cache_for(&id)),
-            // Error → keep the last good result, just note the error.
-            (Err(e), Some((_, mut old))) if !old.windows.is_empty() => {
-                let wait = e.wait.unwrap_or(cache_for(&id));
-                old.error = Some(e.code);
-                (old, wait)
+        let now = now_ms();
+        // A 429 starts or grows the pause; any other answer ends it.
+        let retry_at = {
+            let mut all = state.backoff.lock().unwrap();
+            let b = all.entry(id.clone()).or_default();
+            match &result {
+                Err(Fail { code, retry_after, .. }) if code == "rate-limited" => Some(b.fail(now, *retry_after, jitter())),
+                _ => {
+                    b.reset();
+                    None
+                }
             }
-            (Err(e), _) => (
-                Provider { id: id.clone(), plan: None, windows: vec![], error: Some(e.code.clone()), updated_at: now_ms() },
-                e.wait.unwrap_or(cache_for(&id)),
-            ),
         };
-        state.cache.lock().unwrap().insert(id, (now_ms() + wait.as_millis() as u64, provider.clone()));
+        let mut provider = match (result, cached) {
+            (Ok(p), _) => p,
+            // Error → keep the last good result, just note the error.
+            (Err(e), Some((_, mut old))) if old.has_data() => {
+                old.error = Some(e.code);
+                old
+            }
+            (Err(e), _) => Provider { error: Some(e.code), ..Provider::new(&id) },
+        };
+        provider.retry_at = retry_at;
+        if let Some(k) = key_now {
+            state.keys.lock().unwrap().insert(id.clone(), k);
+        }
+        // A missing key costs no request to check, so it is asked again on the next poll.
+        let next_at = if provider.error.as_deref() == Some("no-key") { now } else { retry_at.unwrap_or(0).max(now + cache_for(&id).as_millis() as u64) };
+        state.cache.lock().unwrap().insert(id, (next_at, provider.clone()));
         out.push(provider);
     }
     save_disk_cache(&app, &state);
     Ok(out)
 }
 
+/// Token counts per model from the local Claude Code and Codex logs (last 31 days).
+#[tauri::command]
+pub async fn usage_tokens(app: AppHandle) -> Result<logs::TokenReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<UsageState>();
+        let mut cache = state.logs.lock().unwrap();
+        let disk = app.path().app_data_dir().ok().filter(|d| std::fs::create_dir_all(d).is_ok()).map(|d| d.join("usage-logs.json"));
+        logs::report(&mut cache, disk.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 struct Fail {
     code: String,
-    /// Earliest time to ask again (after 429).
-    wait: Option<Duration>,
+    /// What the server's Retry-After said, in ms (after a 429).
+    retry_after: Option<u64>,
 }
 
 impl Fail {
     fn new(code: &str) -> Self {
-        Self { code: code.into(), wait: None }
+        Self { code: code.into(), retry_after: None }
     }
+}
+
+/// 0..1 for the backoff's spread, from the clock (no random crate needed for this).
+fn jitter() -> f64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.subsec_nanos() % 1000).unwrap_or(0) as f64 / 1000.0
 }
 
 impl From<&str> for Fail {
@@ -129,24 +224,35 @@ fn client() -> Result<reqwest::Client, Fail> {
     reqwest::Client::builder().timeout(Duration::from_secs(10)).build().map_err(|_| Fail::new("failed"))
 }
 
-/// Maps HTTP status to error codes; 429 uses Retry-After (at least BACKOFF_429).
+/// Maps HTTP status to error codes; a 429 carries its Retry-After for the backoff.
 fn check(res: &reqwest::Response) -> Result<(), Fail> {
     match res.status().as_u16() {
         200 => Ok(()),
         401 | 403 => Err(Fail::new("expired")),
         429 => {
-            let retry = res
-                .headers()
-                .get("retry-after")
-                .and_then(|v| v.to_str().ok())
-                .and_then(|v| v.parse::<u64>().ok())
-                .map(Duration::from_secs)
-                .unwrap_or(BACKOFF_429)
-                .max(BACKOFF_429);
-            Err(Fail { code: "rate-limited".into(), wait: Some(retry) })
+            let retry_after = res.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(|v| parse_retry_after(v, now_ms()));
+            Err(Fail { code: "rate-limited".into(), retry_after })
         }
         _ => Err(Fail::new("failed")),
     }
+}
+
+/// For API-key providers a refused key is the key's fault, not an expired sign-in.
+fn check_key(res: &reqwest::Response) -> Result<(), Fail> {
+    check(res).map_err(|e| if e.code == "expired" { Fail::new("bad-key") } else { e })
+}
+
+/// Retry-After as seconds or as an HTTP date ("Wed, 21 Oct 2026 07:28:00 GMT") → ms from now.
+fn parse_retry_after(value: &str, now: u64) -> Option<u64> {
+    let value = value.trim();
+    if let Ok(secs) = value.parse::<u64>() {
+        return Some(secs.saturating_mul(1000));
+    }
+    let mut p = value.split_whitespace().skip(1);
+    let (day, month, year, time) = (p.next()?, p.next()?, p.next()?, p.next()?);
+    let month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].iter().position(|m| *m == month)? + 1;
+    let at = parse_iso_ms(&format!("{year}-{month:02}-{day:0>2}T{time}Z"))?;
+    Some(at.saturating_sub(now))
 }
 
 // ---------- Claude ----------
@@ -182,7 +288,7 @@ async fn fetch_claude() -> Result<Provider, Fail> {
             })
         })
         .collect();
-    Ok(Provider { id: "claude".into(), plan, windows, error: None, updated_at: now_ms() })
+    Ok(Provider { plan, windows, ..Provider::new("claude") })
 }
 
 // ---------- ChatGPT (Codex) ----------
@@ -220,7 +326,7 @@ async fn fetch_codex_live() -> Result<Provider, Fail> {
     if windows.is_empty() {
         return Err("failed".into());
     }
-    Ok(Provider { id: "codex".into(), plan: body["plan_type"].as_str().map(capitalize), windows, error: None, updated_at: now_ms() })
+    Ok(Provider { plan: body["plan_type"].as_str().map(capitalize), windows, ..Provider::new("codex") })
 }
 
 fn codex_from_sessions() -> Option<Provider> {
@@ -244,7 +350,7 @@ fn codex_from_sessions() -> Option<Provider> {
                 continue;
             }
             let updated_at = event["timestamp"].as_str().and_then(parse_iso_ms).unwrap_or_else(now_ms);
-            return Some(Provider { id: "codex".into(), plan, windows, error: None, updated_at });
+            return Some(Provider { plan, windows, updated_at, ..Provider::new("codex") });
         }
     }
     None
@@ -274,7 +380,7 @@ fn window_kind(minutes: u64) -> &'static str {
 
 async fn fetch_gemini() -> Result<Provider, Fail> {
     let stdout = tauri::async_runtime::spawn_blocking(run_agy).await.map_err(|_| Fail::new("failed"))??;
-    Ok(Provider { id: "gemini".into(), plan: None, windows: parse_agy_usage(&stdout)?, error: None, updated_at: now_ms() })
+    Ok(Provider { windows: parse_agy_usage(&stdout)?, ..Provider::new("gemini") })
 }
 
 /// Runs the CLI's own `/usage` and returns what it prints. `agy` from PATH, otherwise
@@ -397,7 +503,7 @@ async fn fetch_cursor() -> Result<Provider, Fail> {
     if windows.is_empty() {
         return Err("failed".into());
     }
-    Ok(Provider { id: "cursor".into(), plan: None, windows, error: None, updated_at: now_ms() })
+    Ok(Provider { windows, ..Provider::new("cursor") })
 }
 
 /// First JWT ("eyJ…") after `key` in a binary file (Cursor's SQLite file, without SQLite).
@@ -417,6 +523,157 @@ fn find_jwt_after(bytes: &[u8], key: &[u8]) -> Option<String> {
         from = after;
     }
     None
+}
+
+// ---------- API-key providers ----------
+// Endpoints and fields as BrimDeck reads them (src/BrimDeck.Core/ProviderScripts.cs), each
+// checked against the provider's documentation named there. Read-only GET requests.
+
+fn key(name: &str) -> Result<String, Fail> {
+    crate::secrets::read(name).filter(|k| !k.trim().is_empty()).ok_or_else(|| Fail::new("no-key"))
+}
+
+async fn get_json(req: reqwest::RequestBuilder) -> Result<Value, Fail> {
+    let res = req.header("Accept", "application/json").send().await.map_err(|_| Fail::new("offline"))?;
+    check_key(&res)?;
+    res.json().await.map_err(|_| Fail::new("failed"))
+}
+
+/// GET /api/v1/key (openrouter.ai/docs/api/reference/limits): the key's spend today and this
+/// month and its own cap; GET /api/v1/credits: the account's credits, answered for ordinary
+/// keys too, so shown only when it answers. The same key as the AI chat's OpenRouter key.
+async fn fetch_openrouter() -> Result<Provider, Fail> {
+    let key = key("ai.openrouter")?;
+    let http = client()?;
+    let body = get_json(http.get("https://openrouter.ai/api/v1/key").bearer_auth(&key)).await?;
+    let credits = get_json(http.get("https://openrouter.ai/api/v1/credits").bearer_auth(&key)).await.ok();
+    parse_openrouter(&body, credits.as_ref(), now_ms())
+}
+
+fn parse_openrouter(body: &Value, credits: Option<&Value>, now: u64) -> Result<Provider, Fail> {
+    let data = &body["data"];
+    let (Some(daily), Some(monthly)) = (data["usage_daily"].as_f64(), data["usage_monthly"].as_f64()) else { return Err("failed".into()) };
+    let usd = |kind: &str, amount: f64, total: Option<f64>| Balance { kind: kind.into(), amount, total, currency: "USD".into() };
+    let mut p = Provider::new("openrouter");
+    if let Some(c) = credits.map(|c| &c["data"]) {
+        if let (Some(total), Some(used)) = (c["total_credits"].as_f64(), c["total_usage"].as_f64()) {
+            p.balances.push(usd("account", total - used, None));
+        }
+    }
+    if let (Some(limit), Some(left)) = (data["limit"].as_f64().filter(|l| *l > 0.0), data["limit_remaining"].as_f64()) {
+        p.balances.push(usd("key", left, Some(limit)));
+        let (resets_at, window_secs) = match data["limit_reset"].as_str() {
+            Some("daily") => (Some(next_utc(now, "day")), Some(86_400)),
+            Some("weekly") => (Some(next_utc(now, "week")), Some(7 * 86_400)),
+            Some("monthly") => (Some(next_utc(now, "month")), Some(30 * 86_400)),
+            _ => (None, None),
+        };
+        p.windows.push(Window { kind: "key-limit".into(), used_percent: ((limit - left) / limit * 100.0).clamp(0.0, 100.0), resets_at, window_secs });
+    }
+    p.balances.push(usd("today", daily.max(0.0), None));
+    p.balances.push(usd("month", monthly.max(0.0), None));
+    Ok(p)
+}
+
+/// GET /user/balance (api-docs.deepseek.com/api/get-user-balance): per currency, total and
+/// granted balance as decimal strings.
+async fn fetch_deepseek() -> Result<Provider, Fail> {
+    let key = key("usage.deepseek")?;
+    let body = get_json(client()?.get("https://api.deepseek.com/user/balance").bearer_auth(key)).await?;
+    parse_deepseek(&body)
+}
+
+fn parse_deepseek(body: &Value) -> Result<Provider, Fail> {
+    let mut p = Provider::new("deepseek");
+    for info in body["balance_infos"].as_array().ok_or("failed")? {
+        let Some(currency) = info["currency"].as_str().filter(|c| matches!(*c, "CNY" | "USD")) else { continue };
+        let amount = |field: &str| info[field].as_str().and_then(|s| s.parse::<f64>().ok());
+        let total = amount("total_balance").ok_or("failed")?;
+        p.balances.push(Balance { kind: "account".into(), amount: total, total: None, currency: currency.into() });
+        if let Some(granted) = amount("granted_balance").filter(|g| *g > 0.0) {
+            p.balances.push(Balance { kind: "granted".into(), amount: granted, total: None, currency: currency.into() });
+        }
+    }
+    if p.balances.is_empty() {
+        return Err("failed".into());
+    }
+    Ok(p)
+}
+
+/// GET /api/monitor/usage/quota/limit (the Z.ai coding plan, global host). The key goes in
+/// Authorization as is. TOKENS_LIMIT / CREDIT_LIMIT with unit 3 count hours (number 5 is the
+/// 5-hour window), unit 6 is the week; TIME_LIMIT is the monthly tool-call quota.
+async fn fetch_zai() -> Result<Provider, Fail> {
+    let key = key("usage.zai")?;
+    let url = "https://api.z.ai/api/monitor/usage/quota/limit";
+    let http = client()?;
+    // The coding plan takes the key as is; if that is refused, try once the usual Bearer form.
+    let body = match get_json(http.get(url).header("Authorization", &key)).await {
+        Err(e) if e.code == "bad-key" => get_json(http.get(url).bearer_auth(&key)).await?,
+        other => other?,
+    };
+    parse_zai(&body, now_ms())
+}
+
+fn parse_zai(body: &Value, now: u64) -> Result<Provider, Fail> {
+    if body["success"] == false || body["code"].as_i64().is_some_and(|c| c != 0 && c != 200) {
+        return Err("failed".into());
+    }
+    let data = &body["data"];
+    let mut p = Provider::new("zai");
+    p.plan = data["level"].as_str().filter(|l| !l.is_empty()).map(capitalize);
+    for limit in data["limits"].as_array().ok_or("failed")? {
+        let reset = limit["nextResetTime"].as_u64().filter(|r| *r > 0);
+        let counted = || {
+            let total = limit["usage"].as_f64().filter(|t| *t > 0.0)?;
+            Some(limit["currentValue"].as_f64().unwrap_or(0.0) / total * 100.0)
+        };
+        // Credit plans report exact credits; token plans only a rounded percentage.
+        let percent = || if limit["type"] == "CREDIT_LIMIT" { counted() } else { None }.or(limit["percentage"].as_f64());
+        let (kind, secs, used) = match (limit["type"].as_str().unwrap_or(""), limit["unit"].as_u64(), limit["number"].as_u64()) {
+            ("TIME_LIMIT", ..) => ("monthly-tools", 30 * 86_400, counted()),
+            ("TOKENS_LIMIT" | "CREDIT_LIMIT", Some(3), Some(hours)) if hours > 0 => ("session", hours * 3600, percent()),
+            ("TOKENS_LIMIT" | "CREDIT_LIMIT", Some(6), _) => ("weekly", 7 * 86_400, percent()),
+            _ => continue,
+        };
+        let Some(used) = used else { continue };
+        // A reset beyond the window length is not a real reset time.
+        let resets_at = reset.filter(|r| *r <= now + secs * 1000);
+        p.windows.push(Window { kind: kind.into(), used_percent: used.clamp(0.0, 100.0), resets_at, window_secs: Some(secs) });
+    }
+    p.windows.sort_by_key(|w| match w.kind.as_str() { "session" => 0, "weekly" => 1, _ => 2 });
+    p.windows.dedup_by(|a, b| a.kind == b.kind);
+    if p.windows.is_empty() {
+        return Err("failed".into());
+    }
+    Ok(p)
+}
+
+/// Start of the next UTC day, week (Monday) or month after `now`.
+fn next_utc(now: u64, unit: &str) -> u64 {
+    let day = now / 86_400_000;
+    match unit {
+        "day" => (day + 1) * 86_400_000,
+        // 1970-01-01 was a Thursday: (day + 3) % 7 is 0 on Mondays.
+        "week" => (day + 7 - (day + 3) % 7) * 86_400_000,
+        _ => {
+            let (y, m) = civil_year_month(day as i64);
+            let (y, m) = if m == 12 { (y + 1, 1) } else { (y, m + 1) };
+            parse_iso_ms(&format!("{y}-{m:02}-01T00:00:00Z")).unwrap_or(now)
+        }
+    }
+}
+
+/// Year and month of a day count since 1970 (Howard Hinnant's civil_from_days).
+fn civil_year_month(days: i64) -> (i64, i64) {
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    (yoe + era * 400 + i64::from(m <= 2), m)
 }
 
 // ---------- Disk cache ----------
@@ -441,7 +698,7 @@ fn save_disk_cache(app: &AppHandle, state: &UsageState) {
     let Some(path) = cache_path(app) else { return };
     let cache = state.cache.lock().unwrap();
     // Only store real data, not bare errors.
-    let keep: HashMap<&String, &(u64, Provider)> = cache.iter().filter(|(_, (_, p))| !p.windows.is_empty()).collect();
+    let keep: HashMap<&String, &(u64, Provider)> = cache.iter().filter(|(_, (_, p))| p.has_data()).collect();
     let _ = std::fs::write(path, serde_json::to_vec(&keep).unwrap_or_default());
 }
 
@@ -521,7 +778,74 @@ fn parse_iso_ms(s: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{find_jwt_after, parse_agy_usage, parse_iso_ms};
+    use super::{find_jwt_after, next_utc, parse_agy_usage, parse_deepseek, parse_iso_ms, parse_openrouter, parse_retry_after, parse_zai};
+    use serde_json::json;
+
+    #[test]
+    fn retry_after() {
+        let now = parse_iso_ms("2026-10-21T07:27:00Z").unwrap();
+        assert_eq!(parse_retry_after("120", now), Some(120_000));
+        assert_eq!(parse_retry_after("Wed, 21 Oct 2026 07:28:00 GMT", now), Some(60_000));
+        assert_eq!(parse_retry_after("Wed, 21 Oct 2026 07:20:00 GMT", now), Some(0));
+        assert_eq!(parse_retry_after("soon", now), None);
+    }
+
+    #[test]
+    fn utc_resets() {
+        let now = parse_iso_ms("2026-10-31T15:00:00Z").unwrap(); // a Saturday
+        assert_eq!(next_utc(now, "day"), parse_iso_ms("2026-11-01T00:00:00Z").unwrap());
+        assert_eq!(next_utc(now, "week"), parse_iso_ms("2026-11-02T00:00:00Z").unwrap());
+        assert_eq!(next_utc(now, "month"), parse_iso_ms("2026-11-01T00:00:00Z").unwrap());
+        let dec = parse_iso_ms("2026-12-10T00:00:00Z").unwrap();
+        assert_eq!(next_utc(dec, "month"), parse_iso_ms("2027-01-01T00:00:00Z").unwrap());
+        // On a Monday the next week starts a week later.
+        let monday = parse_iso_ms("2026-11-02T08:00:00Z").unwrap();
+        assert_eq!(next_utc(monday, "week"), parse_iso_ms("2026-11-09T00:00:00Z").unwrap());
+    }
+
+    #[test]
+    fn openrouter() {
+        let now = parse_iso_ms("2026-10-31T15:00:00Z").unwrap();
+        let key = json!({"data": {"label": "sk-or-v1-abc", "limit": 20.0, "limit_remaining": 5.0, "limit_reset": "monthly", "usage": 40.0, "usage_daily": 1.5, "usage_weekly": 4.0, "usage_monthly": 15.0}});
+        let credits = json!({"data": {"total_credits": 50.0, "total_usage": 42.5}});
+        let p = parse_openrouter(&key, Some(&credits), now).map_err(|e| e.code).unwrap();
+        let got: Vec<_> = p.balances.iter().map(|b| (b.kind.as_str(), b.amount, b.total)).collect();
+        assert_eq!(got, [("account", 7.5, None), ("key", 5.0, Some(20.0)), ("today", 1.5, None), ("month", 15.0, None)]);
+        assert_eq!(p.windows.len(), 1);
+        assert_eq!((p.windows[0].kind.as_str(), p.windows[0].used_percent), ("key-limit", 75.0));
+        assert_eq!(p.windows[0].resets_at, parse_iso_ms("2026-11-01T00:00:00Z"));
+        // No cap and no credits: spend only.
+        let plain = json!({"data": {"limit": null, "limit_remaining": null, "usage_daily": 0.0, "usage_monthly": 2.0}});
+        let p = parse_openrouter(&plain, None, now).map_err(|e| e.code).unwrap();
+        assert!(p.windows.is_empty());
+        assert_eq!(p.balances.len(), 2);
+        assert_eq!(parse_openrouter(&json!({"error": "x"}), None, now).err().map(|e| e.code), Some("failed".into()));
+    }
+
+    #[test]
+    fn deepseek() {
+        let body = json!({"is_available": true, "balance_infos": [{"currency": "CNY", "total_balance": "110.00", "granted_balance": "10.00", "topped_up_balance": "100.00"}, {"currency": "EUR", "total_balance": "1"}]});
+        let p = parse_deepseek(&body).map_err(|e| e.code).unwrap();
+        let got: Vec<_> = p.balances.iter().map(|b| (b.kind.as_str(), b.amount, b.currency.as_str())).collect();
+        assert_eq!(got, [("account", 110.0, "CNY"), ("granted", 10.0, "CNY")]);
+        assert_eq!(parse_deepseek(&json!({"balance_infos": []})).err().map(|e| e.code), Some("failed".into()));
+    }
+
+    #[test]
+    fn zai() {
+        let now = parse_iso_ms("2026-10-31T15:00:00Z").unwrap();
+        let body = json!({"code": 200, "success": true, "data": {"level": "pro", "limits": [
+            {"type": "TOKENS_LIMIT", "unit": 6, "number": 1, "percentage": 40, "nextResetTime": now + 3 * 86_400_000},
+            {"type": "TOKENS_LIMIT", "unit": 3, "number": 5, "percentage": 12, "nextResetTime": now + 3_600_000},
+            {"type": "TIME_LIMIT", "unit": 5, "number": 1, "usage": 1000, "currentValue": 250, "nextResetTime": now + 400 * 86_400_000u64}
+        ]}});
+        let p = parse_zai(&body, now).map_err(|e| e.code).unwrap();
+        assert_eq!(p.plan.as_deref(), Some("Pro"));
+        let got: Vec<_> = p.windows.iter().map(|w| (w.kind.as_str(), w.used_percent, w.resets_at.is_some())).collect();
+        // Session first; a tool-call reset far beyond its month is dropped.
+        assert_eq!(got, [("session", 12.0, true), ("weekly", 40.0, true), ("monthly-tools", 25.0, false)]);
+        assert!(parse_zai(&json!({"code": 1001, "msg": "bad", "success": false}), now).is_err());
+    }
 
     /// Real output of agy 1.3.3, only the fractions edited.
     const AGY_USAGE: &str = r#"{"conversation_id":"","status":"SUCCESS","response":"Gemini Models\tWeekly Limit Remaining\t50%\t2026-10-19T09:39:00Z\nGemini Models\tFive Hour Limit Remaining\t75%\t2026-10-12T23:31:25Z\nClaude and GPT models\tWeekly Limit Remaining\t100%\t2026-10-19T18:31:25Z\nClaude and GPT models\tFive Hour Limit Remaining\t25%\t2026-10-12T23:31:25Z\n","duration_seconds":0,"num_turns":0,"usage":{"input_tokens":0,"output_tokens":0,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":0},"command":{"name":"usage","data":{"description":"Within each group, models share a weekly limit and a 5-hour limit.","groups":[{"name":"Gemini Models","description":"Models within this group: Gemini Flash, Gemini Pro","buckets":[{"id":"gemini-weekly","name":"Weekly Limit Remaining","window":"weekly","remaining_fraction":0.5,"reset_time":"2026-10-19T09:39:00Z"},{"id":"gemini-5h","name":"Five Hour Limit Remaining","window":"5h","remaining_fraction":0.75,"reset_time":"2026-10-12T23:31:25Z"}]},{"name":"Claude and GPT models","description":"Models within this group: Claude Opus, Claude Sonnet, GPT-OSS","buckets":[{"id":"3p-weekly","name":"Weekly Limit Remaining","window":"weekly","remaining_fraction":1,"reset_time":"2026-10-19T18:31:25Z"},{"id":"3p-5h","name":"Five Hour Limit Remaining","window":"5h","remaining_fraction":0.25,"reset_time":"2026-10-12T23:31:25Z"}]}]}}}"#;

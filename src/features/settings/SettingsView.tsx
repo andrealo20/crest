@@ -26,9 +26,9 @@ import { content, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, stopAlarm, type AlarmDuration } from "../../lib/sound";
 import { nav } from "../../notch/nav";
 import { tabs } from "../../notch/tabs";
-import { autostart, display, secrets, unlockFps, type ChangelogEntry, type MonitorInfo, type SecretName, type UsageId } from "../../platform/services";
+import { autostart, display, secrets, unlockFps, type ChangelogEntry, type MonitorInfo, type SecretName } from "../../platform/services";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
-import { BrandLogo, brandName, DiscordLogo } from "../../ui/brands";
+import { DiscordLogo } from "../../ui/brands";
 import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
 import type { ClosedSettings, PartId } from "../../notch/row/parts";
 import { effortLevels, providerInfo } from "../ask/providers";
@@ -41,6 +41,7 @@ import { ProductivitySettings } from "../water/WaterSettings";
 import { TerminalSettings } from "../terminal/TerminalSettings";
 import { MusicSettings } from "../now-playing/MusicSettings";
 import { setMusic } from "../now-playing/music";
+import { UsageSettings } from "../usage/UsageSettings";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
@@ -166,7 +167,7 @@ export function SettingsView() {
             {page === "ai" && (
               <>
                 <Ask />
-                <UsageProviders />
+                <UsageSettings />
                 <KeysNote />
               </>
             )}
@@ -788,44 +789,6 @@ function Alarm() {
   );
 }
 
-/** AI usage: which plans are shown. Data comes from the signed-in apps. */
-const usageSources: { id: UsageId | "grok"; hint: string; available: boolean }[] = [
-  { id: "claude", hint: "Über die Anmeldung von Claude Code", available: true },
-  { id: "codex", hint: "Über die Anmeldung der Codex CLI", available: true },
-  { id: "gemini", hint: "Über die Anmeldung der Antigravity CLI", available: true },
-  { id: "cursor", hint: "Über die Anmeldung der Cursor-App", available: true },
-  { id: "grok", hint: "xAI bietet keinen Abruf der Abo-Limits", available: false },
-];
-
-function UsageProviders() {
-  const usage = settings.use().usage;
-  return (
-    <Group title={t("AI-Nutzung")} id="settings-usage">
-      {usageSources.map((src) => (
-        <Row
-          key={src.id}
-          label={
-            <span className={`flex items-center gap-2 ${src.available ? "" : "text-label-3"}`}>
-              <BrandLogo id={src.id} size={14} /> {brandName[src.id]}
-            </span>
-          }
-          hint={t(src.hint)}
-        >
-          {src.available ? (
-            <Switch
-              label={brandName[src.id]}
-              checked={usage[src.id as UsageId]}
-              onChange={(on) => updateSettings((cur) => ({ usage: { ...cur.usage, [src.id]: on } }))}
-            />
-          ) : (
-            <span className="text-caption text-label-4">{t("Nicht verfügbar")}</span>
-          )}
-        </Row>
-      ))}
-    </Group>
-  );
-}
-
 /** FPS without admin: unlock once instead of running the notch as administrator every time. */
 function FpsUnlockRow() {
   const [state, setState] = useState<"idle" | "busy" | "ok" | "relogin" | "cancelled" | "failed">("idle");
@@ -963,7 +926,7 @@ function Tools() {
  * Field for a key. Stored values are never read back, it only shows
  * "saved ✓". Typing a new one overwrites it, saving empty deletes it.
  */
-function SecretRow({ name, label, hint, onSaved }: { name: SecretName; label: string; hint?: string; onSaved?: () => void }) {
+export function SecretRow({ name, label, hint, onSaved }: { name: SecretName; label: string; hint?: string; onSaved?: () => void }) {
   const [stored, setStored] = useState(false);
   const [value, setValue] = useState("");
   const [saved, setSaved] = useState(false);

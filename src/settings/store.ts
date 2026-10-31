@@ -3,6 +3,7 @@ import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
 import { normalizeLook, type TimerLook } from "../features/timer/looks";
 import { WATER_DEFAULTS, normalizeWater, type WaterConfig } from "../features/water/water";
+import { normalizeCards, USAGE_CARDS_DEFAULTS, type UsageCards } from "../features/usage/cards";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -22,7 +23,9 @@ export interface Settings {
   tools: { id: string; enabled: boolean }[];
   trading: { env: "live" | "demo" };
   /** AI usage: which providers are shown (order = display order). */
-  usage: { claude: boolean; codex: boolean; gemini: boolean; cursor: boolean };
+  usage: { claude: boolean; codex: boolean; gemini: boolean; cursor: boolean; openrouter: boolean; deepseek: boolean; zai: boolean };
+  /** AI usage cards: order, names typed by the user, model prices set by hand. */
+  aiUsage: UsageCards;
   ask: { provider: AskProvider; configs: Record<AskProvider, AskProviderConfig> };
   /** `auto` = detected via IP (again on every start); a picked location stays. */
   weather: { name: string; lat: number; lon: number; auto?: boolean } | null;
@@ -106,7 +109,8 @@ const defaults: Settings = {
   hoverDelay: "normal",
   tools: TOOL_IDS.map((id) => ({ id, enabled: !DEFAULT_OFF.has(id) })),
   trading: { env: "live" },
-  usage: { claude: true, codex: true, gemini: true, cursor: false },
+  usage: { claude: true, codex: true, gemini: true, cursor: false, openrouter: false, deepseek: false, zai: false },
+  aiUsage: USAGE_CARDS_DEFAULTS,
   ask: {
     provider: "custom",
     configs: {
@@ -180,6 +184,7 @@ settings.set((s) => {
     tools,
     trading: { ...defaults.trading, ...s.trading },
     usage: { ...defaults.usage, ...s.usage },
+    aiUsage: normalizeCards(s.aiUsage),
     // A saved y that is not a finite number (null, a string) would place the capsule nowhere.
     display: { ...defaults.display, ...s.display, y: Number.isFinite(s.display?.y) ? s.display.y : defaults.display.y },
     gaming: { ...defaults.gaming, ...s.gaming },

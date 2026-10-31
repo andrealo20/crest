@@ -104,6 +104,7 @@ pub fn run() {
             secrets::secret_has,
             trading::trading_fetch,
             usage::usage_fetch,
+            usage::usage_tokens,
             system::system_stats,
             sysevents::status_seed,
             convert::convert_probe,
