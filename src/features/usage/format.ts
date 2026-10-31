@@ -2,7 +2,9 @@ import { locale, t } from "../../i18n";
 import type { Totals } from "./tokens";
 
 const formats = new Map<string, Intl.NumberFormat>();
-const format = (key: string, make: () => Intl.NumberFormat) => {
+// Keyed by locale too, so a formatter made for one language is never reused for another.
+const format = (name: string, make: () => Intl.NumberFormat) => {
+  const key = `${locale()}|${name}`;
   let f = formats.get(key);
   if (!f) formats.set(key, (f = make()));
   return f;

@@ -187,7 +187,7 @@ export function UsageView() {
                 </div>
               </>
             )}
-            {tool && <TokenFoot found={logs ? logs.found : null} today={logs ? totals(logs.buckets, today, s.aiUsage.prices) : null} week={logs ? totals(logs.buckets, week, s.aiUsage.prices) : null} />}
+            {tool && <TokenFoot found={logs ? logs.found : null} failed={tok.failed} today={logs ? totals(logs.buckets, today, s.aiUsage.prices) : null} week={logs ? totals(logs.buckets, week, s.aiUsage.prices) : null} />}
           </motion.div>
         );
       })}
@@ -235,12 +235,14 @@ function BalanceRow({ b }: { b: UsageBalance }) {
   );
 }
 
-/** Today and the last 7 days from the tool's local logs. `found` null = not read yet. */
-function TokenFoot({ found, today, week }: { found: boolean | null; today: Totals | null; week: Totals | null }) {
+/** Today and the last 7 days from the tool's local logs. `found` null = not read yet; `failed` = the read failed before any report came. */
+function TokenFoot({ found, failed, today, week }: { found: boolean | null; failed: boolean; today: Totals | null; week: Totals | null }) {
   const tip = t("Aus den Protokollen auf diesem PC, zu API-Listenpreisen");
   return (
     <div className="mt-2 border-t border-separator pt-1.5 text-caption" title={tip}>
-      {found === null ? (
+      {found === null && failed ? (
+        <div className="py-0.5 text-label-4">{t("Protokolle nicht lesbar")}</div>
+      ) : found === null ? (
         <div className="flex flex-col gap-1.5 py-0.5">
           <Skeleton className="h-2.5 w-full" />
           <Skeleton className="h-2.5 w-full" />
