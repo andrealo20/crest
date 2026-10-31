@@ -24,7 +24,7 @@ Inside: music controls with a live equalizer, a vault for passwords and 2FA code
 
 Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0. Version 0.1 is that app under a new name, with the Antigravity quota in place of the retired Gemini CLI. Version 0.2 adds the closed notch styles and the row of live readings. Coming next, roughly in this order:
 
-1. Short status alerts: volume and brightness, Caps Lock and keyboard language, charger, Wi-Fi and Bluetooth headphones.
+1. Short status alerts for the charger, the network and Bluetooth headphones. This is under way. A volume and brightness overlay and Caps Lock are not part of it.
 2. Synced lyrics, shuffle and repeat, and a choice of player.
 3. To-dos with projects and reminders, a water reminder, timer styles, an app launcher, GitHub activity and a code scratchpad.
 4. Screenshots and screen recording with system audio and microphone.
@@ -46,6 +46,8 @@ Pick the closed look under **Settings → Display**.
 Notch and capsule show a row of parts, centred and in the order you choose: cover, timer, Discord call, AI quota rings (one colour per provider), song title, CPU, RAM and GPU readings, equalizer and clock. Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel. The line shows only the song's progress, and a finished timer.
 
 Short notices appear over the row: a finished timer stays until you dismiss it, a quota alert at 70% and 90% shows for 5 seconds (it needs the AI quota rings turned on), and a new song for 4 seconds.
+
+Status alerts show briefly when you plug in or unplug the charger, when the battery reaches 20% and 10%, when the internet drops or comes back, and when Bluetooth headphones connect. Turn each one off in **Settings → Display**.
 
 ### Windows and system
 

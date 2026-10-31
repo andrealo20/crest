@@ -485,5 +485,12 @@
  "Schwebt frei, zum Verschieben ziehen": "Floats freely, drag to move it",
  "Sekunden": "Seconds",
  "Songtitel": "Song title",
- "Zeigt, wie weit das Lied ist, solange Musik läuft": "Shows how far the song is while music plays"
+ "Zeigt, wie weit das Lied ist, solange Musik läuft": "Shows how far the song is while music plays",
+ "Statusmeldungen": "Status alerts",
+ "Ladegerät und Akku": "Charger and battery",
+ "Beim Ein- und Ausstecken, Akku bei 20 und 10 %": "When you plug in or unplug, and battery at 20% and 10%",
+ "Netzwerk": "Network",
+ "Wenn das Internet wegfällt und zurückkommt": "When the internet drops and comes back",
+ "Bluetooth-Kopfhörer": "Bluetooth headphones",
+ "Beim Verbinden, mit Akku, wenn sie ihn melden": "When they connect, with their battery if they report it"
 }
