@@ -20,6 +20,7 @@ import { ROW } from "./layout";
 import { trackCaption } from "./parts";
 import { fontEpoch, measureText } from "./measure";
 import { Marquee } from "./Marquee";
+import { useNoticeHover } from "./NoticeButton";
 import { Ring } from "./parts/Rings";
 
 const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76;
@@ -73,10 +74,11 @@ function useTrackCaption(on: boolean): string | null {
 /**
  * Covers the closed row with the most important notice: a finished timer (until dismissed by a click), a quota that
  * crossed a level, a new track while the title part is off, a due to-do or the water reminder. Reports its content width while one shows, null otherwise;
- * the shape takes that width. Mounted with the row, and on the idle line while a finished timer or a due to-do opens it into the notch.
+ * the shape takes that width. Mounted with the row, and on the idle line or in focus mode while a finished timer or a due to-do opens it into the notch (`urgentOnly`).
  */
-export function NoticeLayer({ onWidth }: { onWidth: (content: number | null) => void }) {
+export function NoticeLayer({ onWidth, urgentOnly }: { onWidth: (content: number | null) => void; urgentOnly: boolean }) {
   fontEpoch.use();
+  const timerHover = useNoticeHover();
   const { closed, productivity } = settings.use();
   const finished = timer.use().finished;
   const ring = ringing.use();
@@ -84,7 +86,14 @@ export function NoticeLayer({ onWidth }: { onWidth: (content: number | null) => 
   const track = useTrackCaption(!closed.parts.title);
   const due = dueTasks.use();
   const drink = waterDue.use();
-  const kind = topNotice({ timer: finished, quota: !!rise && closed.quotaAlerts, track: !!track, reminder: due.length > 0, water: drink });
+  // On the idle line and in focus mode only what cannot wait: the finished timer and a due reminder.
+  const kind = topNotice({
+    timer: finished,
+    quota: !urgentOnly && !!rise && closed.quotaAlerts,
+    track: !urgentOnly && !!track,
+    reminder: due.length > 0,
+    water: !urgentOnly && drink,
+  });
 
   let width = 0, key = "", body: ReactNode = null;
   if (kind === "timer") {
@@ -96,9 +105,12 @@ export function NoticeLayer({ onWidth }: { onWidth: (content: number | null) => 
         aria-label={t("Schließen")}
         className="pointer-events-auto flex h-full items-center"
         style={{ gap: GAP, color: "var(--color-green)" }}
-        // Only dismisses: the click must not also open the notch.
+        // Only dismisses: neither the click nor hovering it may open the notch.
+        onPointerEnter={timerHover.onPointerEnter}
+        onPointerLeave={timerHover.onPointerLeave}
         onClick={(e) => {
           e.stopPropagation();
+          timerHover.used();
           timerActions.dismiss();
         }}
       >

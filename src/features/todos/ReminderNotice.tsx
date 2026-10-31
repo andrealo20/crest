@@ -2,34 +2,17 @@ import type { ReactNode } from "react";
 import { motion } from "motion/react";
 import { AlarmIcon, Check, ClockClockwise } from "@phosphor-icons/react";
 import { pulse } from "../../design/motion";
-import { navigate } from "../../notch/nav";
+import { openOn } from "../../notch/nav";
 import { ROW } from "../../notch/row/layout";
 import { measureText } from "../../notch/row/measure";
 import { Marquee } from "../../notch/row/Marquee";
+import { NOTICE_BUTTON as BUTTON, NoticeButton } from "../../notch/row/NoticeButton";
 import { t } from "../../i18n";
 import { todoActions } from "./store";
 import { colorVar } from "./colors";
 import type { Task } from "./model";
 
-const ICON = 17, GAP = 6, BUTTON = 22, TEXT_MAX = 300;
-
-/** A small round button in the closed notch: acts without opening it. */
-export function NoticeButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      aria-label={label}
-      title={label}
-      className="pressable pointer-events-auto flex shrink-0 items-center justify-center rounded-full bg-fill-2 text-label hover:bg-fill-3"
-      style={{ width: BUTTON, height: BUTTON }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-    >
-      {children}
-    </button>
-  );
-}
+const ICON = 17, GAP = 6, TEXT_MAX = 300;
 
 /** "Time's up · task" with snooze and done, for the closed notch. A click on the text opens the To-dos. */
 export function reminderNotice(due: Task[]): { width: number; key: string; body: ReactNode } {
@@ -44,7 +27,7 @@ export function reminderNotice(due: Task[]): { width: number; key: string; body:
     body: (
       <span className="flex h-full items-center" style={{ gap: GAP }}>
         {/* Not stopped: the click also opens the notch, which then lands on the To-dos. */}
-        <button className="pointer-events-auto flex h-full items-center" style={{ gap: GAP }} onClick={() => navigate("todos")}>
+        <button className="pointer-events-auto flex h-full items-center" style={{ gap: GAP }} onClick={() => openOn("todos")}>
           <motion.span className="flex" style={{ color: colorVar(task.color) ?? "var(--color-orange)" }} animate={{ opacity: [1, 0.45] }} transition={{ ...pulse, repeat: 5 }}>
             <AlarmIcon size={ICON} weight="fill" />
           </motion.span>

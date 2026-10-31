@@ -21,7 +21,7 @@ import { NotchShape } from "./NotchShape";
 import { drop } from "../platform/drop";
 import { settings } from "../settings/store";
 import { useUnseen } from "../lib/changelog";
-import { nav, navigate } from "./nav";
+import { nav, navigate, takeOpenTarget } from "./nav";
 import { update } from "../lib/update";
 import { findTab, settingsTab, tabs, type NotchTab } from "./tabs";
 import { holdOpen, pinned, togglePin, useNotchState, type NotchStatus } from "./useNotchState";
@@ -42,11 +42,11 @@ export function Notch() {
   // Focus mode as a line: no live activity, no dots, only the thin strip at the edge.
   const line = focus && displaySettings.focusStyle === "line";
   // Line as the normal closed look: hover and click work as usual, but nothing shows
-  // while closed but the song's progress. Only a finished timer opens it into the notch (its notice), until dismissed.
-  // A due to-do reminder counts as urgent as a finished timer: the user asked to be told at that time.
-  const timerDone = timer.use().finished || dueTasks.use().length > 0;
+  // while closed but the song's progress. Only an urgent notice opens it into the notch, until answered:
+  // a finished timer or a due to-do reminder (the user asked to be told at that time).
+  const urgent = timer.use().finished || dueTasks.use().length > 0;
   const idleLine = !focus && displaySettings.idleStyle === "line";
-  const alert = idleLine && timerDone;
+  const alert = idleLine && urgent;
   const visible = toolSettings.filter((t) => t.enabled).map((t) => findTab(t.id)).filter((t): t is NotchTab => !!t);
   const { tabId } = nav.use();
   // Hidden tool active (e.g. just disabled) → first visible one.
@@ -60,12 +60,13 @@ export function Notch() {
   // Layout effect runs before paint → no frame with the old tab size.
   const prevStatus = useRef(status);
   const closedAt = useRef(0);
-  // A target tool from the tray (settings entry) takes priority over the live activity.
+  // A target tool from the tray (settings entry) or a clicked notice takes priority over the live activity.
   const trayTab = useRef<string | null>(null);
   useLayoutEffect(() => {
     if (status === "open" && prevStatus.current !== "open") {
       const resumed = Date.now() - closedAt.current < RESUME_MS;
-      if (trayTab.current) navigate(trayTab.current);
+      const target = trayTab.current ?? takeOpenTarget();
+      if (target) navigate(target);
       else if (!resumed && live.id && visible.some((t) => t.id === live.id)) navigate(live.id);
       trayTab.current = null;
     }
@@ -87,8 +88,8 @@ export function Notch() {
   const showRow = status !== "open" && !line && !idleLine && !focus && !hiddenForFullscreen;
   // Content width of the closed row, as it last reported it (kept while open, so closing goes straight to it).
   const [rowWidth, setRowWidth] = useState(0);
-  // Notices cover the row; on the idle line and in dimmed focus mode only a finished timer brings them up. While one shows the shape takes its width.
-  const showNotices = status !== "open" && (showRow || alert || (timerDone && !line && !hiddenForFullscreen));
+  // Notices cover the row; on the idle line and in dimmed focus mode only urgent ones show (timer, reminder). While one shows the shape takes its width.
+  const showNotices = status !== "open" && (showRow || alert || (urgent && !line && !hiddenForFullscreen));
   const [noticeWidth, setNoticeWidth] = useState<number | null>(null);
   const notice = showNotices ? noticeWidth : null;
   const closedW = surfaceWidth(surface, notice ?? (showRow || status === "open" ? rowWidth : 0));
@@ -205,7 +206,7 @@ export function Notch() {
       >
         <NotchShape geometry={shape} transition={transition} elevated={status === "open"}>
           <AnimatePresence>{showRow && <CompactRow key="row" style={surface} covered={notice !== null} onWidth={setRowWidth} />}</AnimatePresence>
-          <AnimatePresence>{showNotices && <NoticeLayer key="notices" onWidth={setNoticeWidth} />}</AnimatePresence>
+          <AnimatePresence>{showNotices && <NoticeLayer key="notices" onWidth={setNoticeWidth} urgentOnly={!showRow} />}</AnimatePresence>
           {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress />}
           {/* Closed, the dots are the row's last part; open or dimmed for focus there is no row, so they stand on their own. */}
           {(status === "open" || focus) && !line && !idleLine && <PrivacyDots />}
