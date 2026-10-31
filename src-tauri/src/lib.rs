@@ -14,6 +14,7 @@ mod memory;
 mod mixer;
 mod privacy;
 pub mod secrets;
+mod shelf;
 mod system;
 mod timer_window;
 mod trading;
@@ -140,6 +141,8 @@ pub fn run() {
             autostart_set,
             timer_window::timer_window_open,
             timer_window::timer_window_close,
+            shelf::shelf_drag_out,
+            shelf::shelf_clipboard_text,
         ])
         .setup(move |app| {
             let window = app.get_webview_window("notch").expect("window 'notch' missing");
