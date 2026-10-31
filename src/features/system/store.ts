@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
+import { rowVisible } from "../../notch/row/visibility";
 import { fetchSystem, type SystemStats } from "../../platform/services";
 import { settings } from "../../settings/store";
+import { fullscreen, gamingLive } from "./gaming";
 
 /** 60 values = one minute of history at one value per second. */
 export const HISTORY = 60;
@@ -18,15 +20,17 @@ export interface SystemState {
 /**
  * Runs in the background from app start (not only while the tool is open), so the
  * history is a minute long when opened and gaming mode shares the same values.
- * Only pauses when neither the Hardware tool nor gaming mode is active.
+ * Only pauses when neither the Hardware tool, gaming mode nor readings in the closed row are on.
  *
- * While shown (Hardware tool open, gaming overlay): everything once a second. In the
- * background: CPU and RAM every 3 s, filled in linearly so the history keeps one value
- * per second; GPU and ping stay gaps until shown (their counters are the expensive part).
+ * Three rhythms, slow ones filled in linearly so the history keeps one value per second:
+ * - shown (Hardware tool open, gaming overlay): everything once a second;
+ * - GPU reading in the closed row: CPU, RAM and GPU every 2 s, without waking the ping;
+ * - background: CPU and RAM every 3 s; GPU and ping stay gaps (their counters are the expensive part).
  */
 export const system = createStore<SystemState>({ stats: null, history: { cpu: [], mem: [], gpu: [], ping: [] }, tick: 0 });
 
 const SHOWN_MS = 1000;
+const GPU_MS = 2000;
 const BACKGROUND_MS = 3000;
 
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -34,10 +38,10 @@ let timerMs = 0;
 /** Mounted views that show the values (see `useSystemShown`). */
 const shown = createStore(0);
 
-function poll() {
-  const full = shown.get() > 0;
-  void fetchSystem(full).then((next) => {
-    const steps = full ? 1 : Math.round(BACKGROUND_MS / SHOWN_MS);
+function poll(ms: number) {
+  const full = ms === SHOWN_MS, gpu = ms === GPU_MS;
+  void fetchSystem(full, gpu).then((next) => {
+    const steps = Math.round(ms / SHOWN_MS);
     system.set(({ stats, history: h, tick }) => {
       const mem = (next.memUsed / next.memTotal) * 100;
       // Linear from the previous value, so a slow poll still adds one value per second.
@@ -49,13 +53,13 @@ function poll() {
       const push = (prev: number[], values: number[]) => [...prev, ...values].slice(-HISTORY);
       const gaps = Array<number>(steps).fill(Number.NaN);
       return {
-        // Background: keep the last GPU/ping numbers for the first frame when opened.
-        stats: full || !stats ? next : { ...next, gpu: stats.gpu, gpuMemUsed: stats.gpuMemUsed, ping: stats.ping },
+        // Slower rhythms: keep the last numbers they skip for the first frame when opened.
+        stats: full || !stats ? next : gpu ? { ...next, ping: stats.ping } : { ...next, gpu: stats.gpu, gpuMemUsed: stats.gpuMemUsed, ping: stats.ping },
         tick: tick + 1,
         history: {
           cpu: push(h.cpu, fill(h.cpu, next.cpu)),
           mem: push(h.mem, fill(h.mem, mem)),
-          gpu: push(h.gpu, full ? [next.gpu ?? Number.NaN] : gaps),
+          gpu: push(h.gpu, full || gpu ? fill(h.gpu, next.gpu ?? Number.NaN) : gaps),
           ping: push(h.ping, full ? [next.ping ?? Number.NaN] : gaps),
         },
       };
@@ -65,21 +69,28 @@ function poll() {
 
 function wanted(): boolean {
   const s = settings.get();
-  return s.tools.some((x) => x.id === "system" && x.enabled) || s.gaming.mode !== "off";
+  return s.tools.some((x) => x.id === "system" && x.enabled) || s.gaming.mode !== "off" || (s.closed.parts.readings && rowVisible.get());
+}
+
+function rhythm(): number {
+  if (shown.get() > 0) return SHOWN_MS;
+  const s = settings.get();
+  const gpu = rowVisible.get() && s.closed.parts.readings && (s.closed.readings.gpu || gamingLive(s.gaming.mode, fullscreen.get()));
+  return gpu ? GPU_MS : BACKGROUND_MS;
 }
 
 function apply() {
-  const ms = shown.get() > 0 ? SHOWN_MS : BACKGROUND_MS;
   if (!wanted()) {
     if (timer) clearInterval(timer);
     timer = null;
     return;
   }
+  const ms = rhythm();
   if (timer && timerMs === ms) return;
   if (timer) clearInterval(timer);
-  // Switching to shown: fresh values right away, not after the next tick.
-  poll();
-  timer = setInterval(poll, ms);
+  // Switching rhythm: fresh values right away, not after the next tick.
+  poll(ms);
+  timer = setInterval(() => poll(ms), ms);
   timerMs = ms;
 }
 
@@ -87,6 +98,8 @@ export function startSystemPolling() {
   apply();
   settings.subscribe(apply);
   shown.subscribe(apply);
+  rowVisible.subscribe(apply);
+  fullscreen.subscribe(apply);
 }
 
 /** For views that show the values: full polling once a second while mounted. */

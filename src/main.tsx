@@ -9,9 +9,11 @@ import { isNative } from "./platform/native";
 import { startDropListener } from "./platform/drop";
 import { clipboard } from "./platform/clipboard";
 import { settings } from "./settings/store";
-import { applyDisplay } from "./notch/drag";
-import { startFocusMode } from "./notch/focus";
+import { applyDisplay, windowY } from "./notch/drag";
+import { focusMode, startFocusMode } from "./notch/focus";
+import { monitor, startMonitorWatch } from "./notch/monitor";
 import { startSystemPolling } from "./features/system/store";
+import { startUsagePolling } from "./features/usage/store";
 import { startGamingWatch } from "./features/system/gaming";
 import { startDiscord } from "./features/discord/store";
 import { startUpdateWatch } from "./lib/update";
@@ -22,22 +24,27 @@ if (showcase) startShowcase();
 
 startDropListener();
 startFocusMode();
+startMonitorWatch();
 startSystemPolling();
+startUsagePolling();
 startGamingWatch();
 startDiscord();
 startUpdateWatch();
 
-// Send display settings (monitor, fullscreen, offset, gaming) to Rust on start and on every change.
+// Send display settings (monitor, fullscreen, offset, window top, gaming) to Rust on start and on every change.
+// The window top follows the style, the capsule's y, focus mode and the monitor once it has loaded.
 let lastDisplay = "";
 const syncDisplay = () => {
   const { display, gaming } = settings.get();
-  const key = `${display.visibility}|${display.monitor}|${display.offset}|${gaming.mode}`;
+  const key = `${display.visibility}|${display.monitor}|${display.offset}|${windowY()}|${gaming.mode}`;
   if (key === lastDisplay) return;
   lastDisplay = key;
   applyDisplay();
 };
 syncDisplay();
 settings.subscribe(syncDisplay);
+monitor.subscribe(syncDisplay);
+focusMode.subscribe(syncDisplay);
 
 // Clipboard history only records what an enabled tool uses (Ask: the latest text).
 let lastClipMode = "";

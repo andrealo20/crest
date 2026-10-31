@@ -1,20 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowClockwise, Gauge, SlidersHorizontal, WarningCircle } from "@phosphor-icons/react";
 import { content, spin, springs } from "../../design/motion";
 import { formatAgo, formatIn } from "../../lib/format";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
-import { fetchUsage, type UsageId, type UsageProvider, type UsageWindow } from "../../platform/services";
+import type { UsageId, UsageProvider, UsageWindow } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { BrandLogo, brandName } from "../../ui/brands";
 import { Button, Empty, Skeleton } from "../../ui/controls";
 import { t } from "../../i18n";
+import { refreshUsage, usage, useUsageViewer } from "./store";
 
-/** Rust caches per provider (Claude 5 min), so polling more often costs nothing. */
-const POLL_MS = 60_000;
-
-const windowLabel: Record<string, string> = {
+const windowLabels: Record<string, string> = {
   session: "Session",
   weekly: "Woche",
   "weekly-opus": "Woche · Opus",
@@ -24,6 +22,11 @@ const windowLabel: Record<string, string> = {
   daily: "Heute",
   monthly: "Monat",
 };
+
+/** The limit window's name, translated ("model:Opus" is just "Opus"). */
+export function windowLabel(kind: string): string {
+  return kind.startsWith("model:") ? kind.slice(6) : t(windowLabels[kind] ?? kind);
+}
 
 export const usageError: Record<string, string> = {
   "not-found": "Nicht auf diesem PC gefunden",
@@ -43,35 +46,22 @@ export const usageError: Record<string, string> = {
  * Like OmniNotch: one card per provider, one bar per limit window.
  */
 export function UsageView() {
+  useUsageViewer();
   const enabled = settings.use().usage;
   const ids = (Object.keys(enabled) as UsageId[]).filter((id) => enabled[id]);
-  const key = ids.join(",");
-  const [providers, setProviders] = useState<UsageProvider[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [now, setNow] = useState(Date.now);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    void fetchUsage(key ? key.split(",") : []).then((p) => {
-      setProviders(p);
-      setNow(Date.now());
-      setLoading(false);
-    });
-  }, [key]);
+  const { providers, loading, updatedAt } = usage.use();
+  const [tick, setTick] = useState(Date.now);
+  // "x ago" moves every 30 s and with every answer.
+  const now = Math.max(tick, updatedAt ?? 0);
 
   useEffect(() => {
-    load();
-    const poll = setInterval(load, POLL_MS);
-    const tick = setInterval(() => setNow(Date.now()), 30_000);
-    return () => {
-      clearInterval(poll);
-      clearInterval(tick);
-    };
-  }, [load]);
+    const id = setInterval(() => setTick(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const actions = (
     <HeaderActions>
-      <HeaderButton label={t("Aktualisieren")} onClick={load}>
+      <HeaderButton label={t("Aktualisieren")} onClick={() => void refreshUsage()}>
         <motion.span className="flex" animate={{ rotate: loading ? 360 : 0 }} transition={loading ? spin : { duration: 0 }}>
           <ArrowClockwise size={14} weight="bold" />
         </motion.span>
@@ -93,7 +83,7 @@ export function UsageView() {
     );
   }
 
-  const list: (Partial<UsageProvider> & { id: UsageId })[] = providers ?? ids.map((id) => ({ id }));
+  const list: (Partial<UsageProvider> & { id: UsageId })[] = updatedAt === null ? ids.map((id) => ({ id })) : providers;
   return (
     <div className="flex h-full gap-2 overflow-x-auto px-4 pt-1 pb-2 [scrollbar-width:none]">
       {actions}
@@ -140,8 +130,8 @@ export function UsageView() {
 
 function WindowRow({ w, now }: { w: UsageWindow; now: number }) {
   const used = Math.max(0, Math.min(100, w.usedPercent));
-  const label = w.kind.startsWith("model:") ? w.kind.slice(6) : t(windowLabel[w.kind] ?? w.kind);
-  const fill = used >= 95 ? "var(--color-red)" : used >= 80 ? "var(--color-orange)" : "var(--color-label)";
+  const label = windowLabel(w.kind);
+  const fill = used >= 90 ? "var(--color-red)" : used >= 70 ? "var(--color-orange)" : "var(--color-label)";
 
   return (
     <div className="text-caption">
@@ -160,7 +150,7 @@ function WindowRow({ w, now }: { w: UsageWindow; now: number }) {
       </div>
       <div className="tabular mt-1 flex justify-between gap-2 text-label-3">
         <span className="truncate" title={t("Setzt sich zurück")}>{w.resetsAt ? formatIn(w.resetsAt - now) : ""}</span>
-        <span className={`shrink-0 whitespace-nowrap ${used >= 95 ? "text-red" : ""}`}>{t("{n} % übrig", { n: Math.round(100 - used) })}</span>
+        <span className={`shrink-0 whitespace-nowrap ${used >= 90 ? "text-red" : ""}`}>{t("{n} % übrig", { n: Math.round(100 - used) })}</span>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 //! System stats for the Hardware tool: CPU, RAM, GPU (load + VRAM), ping.
-//! Polled ~1×/s while shown (Hardware tool open, gaming mode); in the background every
+//! Polled ~1×/s while shown (Hardware tool open, gaming overlay); every 2 s with the GPU
+//! but no ping while the closed notch shows a GPU reading (`with_gpu`); otherwise every
 //! 3 s with CPU and RAM only (`full = false`).
 //!
 //! - GPU load: performance counter "GPU Engine(*engtype_3D)", the same value as
@@ -91,8 +92,8 @@ pub fn system_stats(full: bool, with_gpu: Option<bool>, state: State<'_, SystemS
         p.sys.refresh_cpu_list(sysinfo::CpuRefreshKind::nothing());
     }
     // Background (notch closed): CPU and RAM only. The GPU counters walk every process's
-    // engines and the ping goes over the network, so both only run while shown.
-    // `with_gpu` reads the GPU without waking the ping (closed notch with a GPU reading).
+    // engines and the ping goes over the network, so both only run while shown; `with_gpu`
+    // reads the GPU without waking the ping (closed notch with a GPU reading, every 2 s).
     if full {
         *p.ping.wanted_at.lock().unwrap() = Instant::now();
     }

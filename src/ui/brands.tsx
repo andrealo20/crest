@@ -16,6 +16,9 @@ export const brandName: Record<BrandId, string> = {
   grok: "Grok",
 };
 
+/** Ring colours in the closed row: Claude, ChatGPT and Cursor all start with C, so the colour tells them apart. */
+export const brandColor: Record<"claude" | "codex" | "gemini" | "cursor", string> = { claude: "#D97757", codex: "#10A37F", gemini: "#4285F4", cursor: "#A1A1AA" };
+
 export function BrandLogo({ id, size = 14, className }: { id: BrandId; size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden fill="currentColor">

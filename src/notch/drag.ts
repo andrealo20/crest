@@ -1,6 +1,9 @@
 import { useRef, useState } from "react";
 import { display } from "../platform/services";
 import { settings, updateSettings } from "../settings/store";
+import { windowYFor } from "./capsule";
+import { focusMode } from "./focus";
+import { monitorMetrics } from "./monitor";
 import { holdOpen, type NotchStatus } from "./useNotchState";
 
 /** Below this distance it's a click, not a drag. */
@@ -8,10 +11,18 @@ const THRESHOLD = 6;
 /** The notch snaps to the center when close to it. */
 const SNAP = 24;
 
-/** Sends display settings to Rust, optionally with an offset that isn't saved yet. */
-export function applyDisplay(offset = settings.get().display.offset) {
+/** The window's top for the capsule top `y` (display.y unless given) on the notch's monitor; always finite, since Rust rejects NaN. */
+export function windowY(y = settings.get().display.y): number {
+  const s = settings.get(), m = monitorMetrics();
+  const style = focusMode.get() && s.display.focusStyle === "line" ? "line" : s.display.idleStyle;
+  const top = windowYFor(style, y, m.height, m.workTop);
+  return Number.isFinite(top) ? top : 0;
+}
+
+/** Sends display settings to Rust, optionally with an offset and a capsule top `y` that aren't saved yet (Rust gets the window's top from `windowY`). */
+export function applyDisplay(offset = settings.get().display.offset, y?: number) {
   const s = settings.get();
-  display.apply({ hideFullscreen: s.display.visibility === "hide-fullscreen", monitor: s.display.monitor, offset, gaming: s.gaming.mode !== "off" });
+  display.apply({ hideFullscreen: s.display.visibility === "hide-fullscreen", monitor: s.display.monitor, offset, y: windowY(y), gaming: s.gaming.mode !== "off" });
 }
 
 /*
