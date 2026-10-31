@@ -1,9 +1,11 @@
 //! Kraken spot (REST, private endpoints are POST but read-only): Balance and Ledgers.
 //!
 //! Key rights needed: "Query Funds" and "Query Ledger Entries", nothing else.
-//! Kraken has no cost basis, so the trade entries of the ledger are kept on disk (Kraken returns
-//! 50 per call and limits calls) and turned into trades for the average cost in the frontend.
-//! A first load reads at most `PAGES` pages per refresh and marks the account partial meanwhile.
+//! Kraken has no cost basis, so the ledger entries that swap coins against money (trades, and
+//! the spend/receive pairs of Buy Crypto and Convert) are kept on disk and turned into trades
+//! for the average cost in the frontend. Kraken returns 50 entries per call and limits calls,
+//! so a first load reads at most `PAGES` pages per refresh and marks the account partial.
+//! Spend/receive cannot be filtered server side, so the full ledger is read and filtered here.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -19,6 +21,10 @@ const API: &str = "https://api.kraken.com";
 /// Each Ledgers call costs 2 of the 15 points of the starter tier; Balance costs 1.
 const PAGES: usize = 5;
 const PAGE_SIZE: usize = 50;
+/// Ledger types that swap coins against money or other coins.
+const COST_TYPES: &[&str] = &["trade", "spend", "receive"];
+/// Bumped when the cache shape or the kept types change, so old files are read again.
+const CACHE_VERSION: u32 = 2;
 
 #[derive(Deserialize)]
 struct Reply<T> {
@@ -31,14 +37,14 @@ struct Reply<T> {
 struct LedgerPage {
     #[serde(default)]
     ledger: HashMap<String, Entry>,
-    #[serde(default)]
-    count: usize,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 struct Entry {
     refid: String,
     time: f64,
+    #[serde(default, rename = "type")]
+    kind: String,
     asset: String,
     amount: String,
     fee: String,
@@ -47,11 +53,20 @@ struct Entry {
 /// Ledger entries already read, for one key.
 #[derive(Default, Serialize, Deserialize)]
 struct LedgerCache {
+    #[serde(default)]
+    version: u32,
     key: String,
     entries: HashMap<String, Entry>,
-    /// Offset for the first full read (newest first).
+    /// Offset of the first full read (newest first, counting every entry type).
     ofs: usize,
     complete: bool,
+    /// A read of newer entries in progress: its start time (exclusive) and offset.
+    #[serde(default)]
+    scan: Option<(f64, usize)>,
+    /// Time of the newest entry of any type seen (staking rewards included), so the scan for
+    /// newer entries does not read the same rewards again.
+    #[serde(default)]
+    newest: f64,
 }
 
 pub async fn fetch(client: &reqwest::Client, app: &AppHandle) -> Result<Account, String> {
@@ -72,11 +87,15 @@ pub async fn fetch(client: &reqwest::Client, app: &AppHandle) -> Result<Account,
     let path = app.path().app_data_dir().ok().map(|d| d.join("kraken-ledger.json"));
     let fingerprint = super::sign::hex(&Sha256::digest(key.as_bytes())[..8]);
     let mut cache: LedgerCache = path.as_ref().and_then(|p| std::fs::read(p).ok()).and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
-    if cache.key != fingerprint {
-        cache = LedgerCache { key: fingerprint, ..Default::default() };
+    if cache.key != fingerprint || cache.version != CACHE_VERSION {
+        cache = LedgerCache { key: fingerprint, version: CACHE_VERSION, ..Default::default() };
     }
-    // A rate limit while reading the ledger keeps what was read; balances still show.
-    let _ = read_ledger(client, &key, &secret, &mut cache).await;
+    match read_ledger(client, &key, &secret, &mut cache).await {
+        // Without "Query Ledger Entries" the balances still show, with cost unknown.
+        Err(e) if e == "forbidden" => return Ok(Account { holdings, warning: Some("ledger-forbidden".into()), ..Default::default() }),
+        // A rate limit while reading keeps what was read; the next refresh goes on.
+        _ => {}
+    }
     if let Some(p) = &path {
         let _ = std::fs::write(p, serde_json::to_vec(&cache).unwrap_or_default());
     }
@@ -85,27 +104,31 @@ pub async fn fetch(client: &reqwest::Client, app: &AppHandle) -> Result<Account,
 }
 
 async fn read_ledger(client: &reqwest::Client, key: &str, secret: &str, cache: &mut LedgerCache) -> Result<(), String> {
-    let newest = cache.entries.values().map(|e| e.time).fold(0.0, f64::max);
-    let mut ofs = 0;
     for _ in 0..PAGES {
-        // First the full history page by page, then only what is newer than the newest entry
-        // (one second earlier and de-duplicated, since both legs of a trade share the time).
+        // First the full history page by page; after that only what is newer than the newest
+        // entry (one second earlier and de-duplicated, since both legs of a trade share the
+        // time), page by page until a short page, also across refreshes.
         let params = if cache.complete {
-            format!("type=trade&start={}&ofs={ofs}", (newest - 1.0).max(0.0).floor())
+            let (start, ofs) = *cache.scan.get_or_insert_with(|| ((cache.newest - 1.0).max(0.0).floor(), 0));
+            format!("start={start}&ofs={ofs}&without_count=true")
         } else {
-            format!("type=trade&ofs={}", cache.ofs)
+            format!("ofs={}&without_count=true", cache.ofs)
         };
         let page: LedgerPage = call(client, key, secret, "Ledgers", &params).await?;
         let n = page.ledger.len();
-        cache.entries.extend(page.ledger);
+        cache.newest = page.ledger.values().map(|e| e.time).fold(cache.newest, f64::max);
+        cache.entries.extend(page.ledger.into_iter().filter(|(_, e)| COST_TYPES.contains(&e.kind.as_str())));
         if cache.complete {
-            ofs += n;
-            if n < PAGE_SIZE {
-                break;
+            match &mut cache.scan {
+                Some((_, ofs)) if n == PAGE_SIZE => *ofs += n,
+                _ => {
+                    cache.scan = None;
+                    break;
+                }
             }
         } else {
             cache.ofs += n;
-            if n < PAGE_SIZE || cache.ofs >= page.count {
+            if n < PAGE_SIZE {
                 cache.complete = true;
                 break;
             }
@@ -113,6 +136,7 @@ async fn read_ledger(client: &reqwest::Client, key: &str, secret: &str, cache: &
     }
     Ok(())
 }
+
 
 async fn call<T: for<'de> Deserialize<'de>>(client: &reqwest::Client, key: &str, secret: &str, method: &str, params: &str) -> Result<T, String> {
     let path = format!("/0/private/{method}");
@@ -210,6 +234,7 @@ mod tests {
         let e = |refid: &str, time: f64, asset: &str, amount: &str, fee: &str| Entry {
             refid: refid.into(),
             time,
+            kind: "trade".into(),
             asset: asset.into(),
             amount: amount.into(),
             fee: fee.into(),
