@@ -32,6 +32,7 @@ use windows::Win32::System::Performance::{
     PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData, PdhGetFormattedCounterArrayW, PdhOpenQueryW, PDH_FMT_COUNTERVALUE_ITEM_W,
     PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY,
 };
+use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 use windows::Win32::System::ProcessStatus::{GetPerformanceInfo, PERFORMANCE_INFORMATION};
 use windows::Win32::System::SystemInformation::GetSystemCpuSetInformation;
 
@@ -49,10 +50,17 @@ const PROCESS_KEEP: usize = 12;
 /// DXGI is asked again for a counter adapter it did not list (LUIDs change when a driver restarts), at most this often.
 const ADAPTERS_EVERY: Duration = Duration::from_secs(30);
 
-pub struct SystemState(Mutex<Probe>);
+pub struct SystemState(Arc<Mutex<Probe>>);
+
+/// The process list is dropped this long after the last full poll (tool closed), with sysinfo's process handles.
+const PROCESS_LINGER: Duration = Duration::from_secs(10);
 
 struct Probe {
     sys: System,
+    /// Processes only: sysinfo keeps a handle per listed process, so this lives only while the tool is shown
+    /// (created on the first full poll, dropped on a non-full one or by the sweeper after `PROCESS_LINGER`).
+    procs: Option<System>,
+    full_at: Instant,
     started: Instant,
     gpu: Option<Pdh>,
     cpu: Option<Pdh>,
@@ -60,6 +68,8 @@ struct Probe {
     zones: Option<Option<Pdh>>,
     meter: Option<Option<Pdh>>,
     adapters: Vec<Adapter>,
+    /// Keys DXGI lists but that are not shown (the software renderer), so they never ask for a new listing.
+    skipped: Vec<String>,
     adapters_at: Instant,
     /// Efficiency rank per logical processor (0 = fastest kind).
     kinds: Vec<u8>,
@@ -90,14 +100,18 @@ impl Default for SystemState {
     fn default() -> Self {
         let ping = Arc::new(Ping { ms: AtomicU64::new(NO_PING), wanted_at: Mutex::new(Instant::now() - PING_IDLE) });
         spawn_ping(ping.clone());
-        Self(Mutex::new(Probe {
+        let (adapters, skipped) = adapters();
+        let probe = Arc::new(Mutex::new(Probe {
             sys: System::new(),
+            procs: None,
+            full_at: Instant::now(),
             started: Instant::now(),
             gpu: Pdh::open(&[w!("\\GPU Engine(*)\\Utilization Percentage"), w!("\\GPU Adapter Memory(*)\\Dedicated Usage")]),
             cpu: Pdh::open(&[w!("\\Processor Information(_Total)\\% Processor Performance"), w!("\\Processor Information(_Total)\\Processor Frequency")]),
             zones: None,
             meter: None,
-            adapters: adapters(),
+            adapters,
+            skipped,
             adapters_at: Instant::now(),
             kinds: core_kinds(),
             processes: Vec::new(),
@@ -105,8 +119,28 @@ impl Default for SystemState {
             names: HashMap::new(),
             hw: hw::Hardware::new(),
             ping,
-        }))
+        }));
+        spawn_process_sweeper(probe.clone());
+        Self(probe)
     }
+}
+
+fn lock(m: &Mutex<Probe>) -> std::sync::MutexGuard<'_, Probe> {
+    // A panic inside one read must not take the monitor down for good.
+    m.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Polling stops altogether when nothing shows the values, so a closed tool's process handles are let go here.
+fn spawn_process_sweeper(probe: Arc<Mutex<Probe>>) {
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_secs(5));
+        let mut p = lock(&probe);
+        if p.procs.is_some() && p.full_at.elapsed() > PROCESS_LINGER {
+            p.procs = None;
+            p.processes.clear();
+            p.processes_at = None;
+        }
+    });
 }
 
 /// Extras the closed row asks for outside the tool (the tool gets everything).
@@ -126,7 +160,7 @@ pub struct Stats {
     cpu_name: String,
     mem_used: u64,
     mem_total: u64,
-    /// The strongest adapter (most VRAM); the page picks the one chosen from `gpus`. None if the GPU counters are missing.
+    /// The busiest adapter (most VRAM while none is busy); the page picks the one chosen from `gpus`. None if the GPU counters are missing.
     gpu: Option<f64>,
     gpu_name: Option<String>,
     gpu_mem_used: u64,
@@ -193,7 +227,7 @@ pub struct Proc {
 
 #[tauri::command]
 pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>, state: State<'_, SystemState>) -> Result<Stats, String> {
-    let mut guard = state.0.lock().map_err(|_| "system probe poisoned".to_string())?;
+    let mut guard = lock(&state.0);
     let p = &mut *guard;
     let want = if full { Want { net: true, temps: true, power: true, battery: true } } else { want.unwrap_or_default() };
     p.sys.refresh_cpu_usage();
@@ -202,7 +236,13 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
         p.sys.refresh_cpu_list(sysinfo::CpuRefreshKind::nothing());
     }
     if full {
-        *p.ping.wanted_at.lock().unwrap() = Instant::now();
+        *p.ping.wanted_at.lock().unwrap_or_else(|e| e.into_inner()) = Instant::now();
+        p.full_at = Instant::now();
+    } else if p.procs.is_some() {
+        // The tool closed: let go of every process handle at once.
+        p.procs = None;
+        p.processes.clear();
+        p.processes_at = None;
     }
 
     // GPU counters walk every process's engines: only while shown, for a GPU reading in the row, or for a GPU temperature.
@@ -211,7 +251,14 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
     if want.temps {
         p.hw.gpu_temps(&mut gpus);
     }
-    let strongest = p.adapters.iter().enumerate().max_by_key(|(_, a)| a.vram).map(|(i, _)| i);
+    // The busiest adapter, or the one with most VRAM while none is busy; the page replaces it with the one chosen.
+    let busiest = gpus
+        .iter()
+        .enumerate()
+        .filter(|(_, g)| g.usage.is_some_and(|u| u > 0.0))
+        .max_by(|a, b| a.1.usage.unwrap_or(0.0).total_cmp(&b.1.usage.unwrap_or(0.0)))
+        .map(|(i, _)| i);
+    let strongest = busiest.or_else(|| p.adapters.iter().enumerate().max_by_key(|(_, a)| a.vram).map(|(i, _)| i));
     let (gpu, gpu_mem_used) = strongest.and_then(|i| gpus.get(i)).map(|g| (g.usage, g.mem_used)).unwrap_or((None, 0));
 
     let cores = if full {
@@ -264,6 +311,10 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
 /// The program's icon as a PNG data URL, for the process list (the page caches it per path).
 #[tauri::command]
 pub async fn system_icon(path: String) -> Result<Option<String>, String> {
+    // The shell's icon lookup wants COM on this thread, as in mixer.rs.
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+    }
     Ok(crate::mixer::icon_png(&path))
 }
 
@@ -278,10 +329,12 @@ impl Probe {
                 (usage, vram) = gpu_counters(&pdh.read(0), &pdh.read(1));
                 read = true;
             }
-            let unknown = usage.keys().any(|k| !self.adapters.iter().any(|a| &a.key == k));
+            let unknown = usage.keys().any(|k| !self.adapters.iter().any(|a| &a.key == k) && !self.skipped.contains(k));
             if unknown && self.adapters_at.elapsed() > ADAPTERS_EVERY {
-                self.adapters = adapters();
+                (self.adapters, self.skipped) = adapters();
                 self.adapters_at = Instant::now();
+                let keys: Vec<&str> = self.adapters.iter().map(|a| a.key.as_str()).collect();
+                self.hw.forget_gpus(&keys);
             }
         }
         self.adapters
@@ -294,7 +347,8 @@ impl Probe {
                     mem_total: a.vram,
                     // An adapter the counters do not list is idle (asleep on a laptop), not unknown.
                     usage: read.then(|| busy.map(|b| b.0).unwrap_or(0.0)),
-                    engine: busy.filter(|b| b.0 > 0.0).map(|b| b.1.clone()),
+                    // Below ~5 % the busiest kind is noise and the label would flicker.
+                    engine: busy.filter(|b| b.0 > 5.0).map(|b| b.1.clone()),
                     mem_used: vram.get(&a.key).copied().unwrap_or(0.0) as u64,
                     temp: None,
                     luid: a.luid,
@@ -329,13 +383,14 @@ impl Probe {
             return self.processes.clone();
         }
         self.processes_at = Some(Instant::now());
-        self.sys.refresh_processes_specifics(
+        let sys = self.procs.get_or_insert_with(System::new);
+        sys.refresh_processes_specifics(
             ProcessesToUpdate::All,
             true,
             ProcessRefreshKind::nothing().with_cpu().with_memory().with_exe(UpdateKind::OnlyIfNotSet),
         );
         let mut apps: HashMap<String, Proc> = HashMap::new();
-        for proc in self.sys.processes().values() {
+        for proc in sys.processes().values() {
             let name = proc.name().to_string_lossy();
             if name.is_empty() || proc.pid().as_u32() == 0 {
                 continue;
@@ -414,18 +469,20 @@ fn luid_text(l: LUID) -> String {
     format!("luid_0x{:08x}_0x{:08x}", l.HighPart as u32, l.LowPart)
 }
 
-/// The real GPUs (no software renderer), in DXGI order.
-fn adapters() -> Vec<Adapter> {
+/// The real GPUs (no software renderer), in DXGI order, and the keys of the adapters left out.
+fn adapters() -> (Vec<Adapter>, Vec<String>) {
     let mut list = Vec::new();
+    let mut skipped = Vec::new();
     unsafe {
-        let Ok(factory) = CreateDXGIFactory1::<IDXGIFactory1>() else { return list };
+        let Ok(factory) = CreateDXGIFactory1::<IDXGIFactory1>() else { return (list, skipped) };
         for i in 0..16 {
             let Ok(adapter) = factory.EnumAdapters1(i) else { break };
             let Ok(desc) = adapter.GetDesc1() else { continue };
+            let key = luid_text(desc.AdapterLuid);
             if desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE.0 as u32 != 0 {
+                skipped.push(key);
                 continue;
             }
-            let key = luid_text(desc.AdapterLuid);
             if list.iter().any(|a: &Adapter| a.key == key) {
                 continue;
             }
@@ -433,7 +490,7 @@ fn adapters() -> Vec<Adapter> {
             list.push(Adapter { key, luid: desc.AdapterLuid, name: clean_name(&String::from_utf16_lossy(&desc.Description[..len])), vram: desc.DedicatedVideoMemory as u64 });
         }
     }
-    list
+    (list, skipped)
 }
 
 /// Efficiency rank of each logical processor of group 0 (0 = the fastest kind); all 0 with one kind of core.

@@ -28,6 +28,8 @@ use super::GpuReading;
 
 pub struct Hardware {
     /// Laptops and tablets: the discrete GPU may sleep, so it is only asked while busy, and NVML stays unloaded.
+    /// shortcut: a USB UPS that Windows reports as a system battery makes a desktop count as a laptop here (and shows a
+    /// battery row); telling them apart needs the battery's device chemistry or bus, worth it if a user reports it.
     has_battery: bool,
     gpu: HashMap<String, Sensor>,
     nvml: Option<Option<Nvml>>,
@@ -47,8 +49,24 @@ impl Hardware {
             if self.has_battery && g.usage.is_none_or(|u| u <= 0.0) {
                 continue;
             }
-            g.temp = self.gpu.entry(g.key.clone()).or_default().read(g.luid, now);
+            let sensor = self.gpu.entry(g.key.clone()).or_default();
+            g.temp = sensor.read(g.luid, now);
+            // An open handle could keep a hybrid laptop's discrete GPU from its deepest sleep.
+            if self.has_battery {
+                sensor.close();
+            }
         }
+    }
+
+    /// Adapters that went away (a driver restart gives new LUIDs): their handles are closed.
+    pub fn forget_gpus(&mut self, keys: &[&str]) {
+        self.gpu.retain(|key, sensor| {
+            let keep = keys.contains(&key.as_str());
+            if !keep {
+                sensor.close();
+            }
+            keep
+        });
     }
 
     pub fn nvml(&mut self) -> Vec<NvmlGpu> {
@@ -177,6 +195,15 @@ impl Sensor {
             }
         }
         self.wait(now)
+    }
+
+    fn close(&mut self) {
+        if self.handle != 0 {
+            unsafe {
+                let _ = D3DKMTCloseAdapter(&mut self.handle);
+            }
+            self.handle = 0;
+        }
     }
 
     fn wait(&mut self, now: Instant) -> Option<f64> {
