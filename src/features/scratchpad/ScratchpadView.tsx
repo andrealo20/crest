@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Check, Copy, Trash } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, Check, Copy, Trash, X } from "@phosphor-icons/react";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { createStore } from "../../lib/store";
 import { Select } from "../../ui/controls";
@@ -19,6 +19,9 @@ const colors: Record<TokenKind, string | undefined> = {
   number: "var(--color-orange)",
   keyword: "var(--color-link)",
 };
+/** The draft taken by the last Clear, for one undo; kept while the notch closes, dropped on the next edit. */
+let cleared: { lang: Language; text: string } | null = null;
+
 // Same metrics on the textarea and the coloured copy below it, or the caret drifts.
 const TEXT = "font-mono text-[12px] leading-[18px] [tab-size:4] whitespace-pre";
 
@@ -29,24 +32,53 @@ const TEXT = "font-mono text-[12px] leading-[18px] [tab-size:4] whitespace-pre";
 export function ScratchpadView() {
   const { lang, texts } = pad.use();
   const text = texts[lang] ?? "";
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"ok" | "failed" | null>(null);
+  const [, redraw] = useState(0);
+  const canUndo = !text && cleared?.lang === lang;
   const area = useRef<HTMLTextAreaElement>(null);
   const tokens = useMemo(() => tokenize(text, lang), [text, lang]);
   const lines = text.split("\n").length;
   const setText = (v: string) => pad.set((s) => ({ ...s, texts: { ...s.texts, [s.lang]: v } }));
 
-  const copy = async () => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
+  const edit = (v: string) => {
+    cleared = null;
+    setText(v);
+  };
+  const clearOrUndo = () => {
+    if (canUndo) {
+      setText(cleared!.text);
+      cleared = null;
+    } else {
+      cleared = { lang, text };
+      setText("");
+    }
+    redraw((n) => n + 1);
+    area.current?.focus();
   };
 
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied("ok");
+    } catch {
+      setCopied("failed");
+    }
+    window.setTimeout(() => setCopied(null), 1600);
+  };
+
+  // Escape leaves the field first and stops there, so it does not also close the notch; the next Escape closes.
   // Tab indents instead of leaving the field; with a selection it indents every selected line, Shift+Tab outdents.
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      return e.currentTarget.blur();
+    }
     if (e.key !== "Tab" || e.ctrlKey || e.altKey) return;
     e.preventDefault();
     const el = e.currentTarget, ind = indentOf(lang);
-    const { selectionStart: a, selectionEnd: b, value } = el;
+    const { selectionStart: a, value } = el;
+    // A selection ending at the start of a line (whole lines picked) leaves that next line alone.
+    const b = el.selectionEnd > a && value[el.selectionEnd - 1] === "\n" ? el.selectionEnd - 1 : el.selectionEnd;
     const lineStart = value.lastIndexOf("\n", a - 1) + 1;
     if (a === b && !e.shiftKey) {
       el.setRangeText(ind, a, b, "end");
@@ -55,25 +87,18 @@ export function ScratchpadView() {
       const next = e.shiftKey ? block.replace(new RegExp(`^ {1,${ind.length}}`, "gm"), "") : block.replace(/^/gm, ind);
       el.setRangeText(next, lineStart, b, "select");
     }
-    setText(el.value);
+    edit(el.value);
   };
 
   return (
     <div className="flex h-full flex-col px-4 pt-1 pb-1">
       <HeaderActions>
         <Select width="w-32" value={lang} onChange={(l) => pad.set((s) => ({ ...s, lang: l }))} options={LANGUAGES.map((l) => ({ value: l, label: t(names[l]) }))} />
-        <HeaderButton label={copied ? t("Kopiert") : t("Kopieren")} disabled={!text} onClick={() => void copy()}>
-          {copied ? <Check size={14} weight="bold" /> : <Copy size={14} weight="bold" />}
+        <HeaderButton label={copied === "ok" ? t("Kopiert") : copied === "failed" ? t("Kopieren fehlgeschlagen") : t("Kopieren")} disabled={!text} onClick={() => void copy()}>
+          {copied === "ok" ? <Check size={14} weight="bold" /> : copied === "failed" ? <X size={14} weight="bold" className="text-red" /> : <Copy size={14} weight="bold" />}
         </HeaderButton>
-        <HeaderButton
-          label={t("Leeren")}
-          disabled={!text}
-          onClick={() => {
-            setText("");
-            area.current?.focus();
-          }}
-        >
-          <Trash size={14} weight="bold" />
+        <HeaderButton label={canUndo ? t("Leeren rückgängig") : t("Leeren")} disabled={!text && !canUndo} onClick={clearOrUndo}>
+          {canUndo ? <ArrowCounterClockwise size={14} weight="bold" /> : <Trash size={14} weight="bold" />}
         </HeaderButton>
       </HeaderActions>
 
@@ -95,7 +120,7 @@ export function ScratchpadView() {
           <textarea
             ref={area}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => edit(e.target.value)}
             onKeyDown={onKeyDown}
             spellCheck={false}
             autoCapitalize="off"
