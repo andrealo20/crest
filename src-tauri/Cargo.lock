@@ -887,6 +887,7 @@ dependencies = [
  "tokio",
  "webview2-com",
  "windows",
+ "windows-core",
  "zip 8.6.0",
 ]
 
