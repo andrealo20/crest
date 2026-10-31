@@ -8,7 +8,7 @@
 //! into the seed (`status://seed`, `status_seed`), never into a change event.
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use std::thread;
 
 use serde::Serialize;
@@ -22,7 +22,7 @@ use windows::Win32::Devices::Properties::{DEVPKEY_Device_ContainerId, DEVPROPTYP
 use windows::Win32::Media::Audio::{
     eRender, EDataFlow, ERole, IMMDeviceEnumerator, IMMNotificationClient, IMMNotificationClient_Impl, MMDeviceEnumerator, DEVICE_STATE, DEVICE_STATE_ACTIVE,
 };
-use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToGUID, PropVariantToStringAlloc};
+use windows::Win32::System::Com::StructuredStorage::{PropVariantToGUID, PropVariantToStringAlloc};
 use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
 use windows::Networking::Connectivity::{NetworkConnectivityLevel, NetworkInformation, NetworkStatusChangedEventHandler};
 use windows::Win32::Foundation::{DEVPROPKEY, HANDLE, HWND, LPARAM, LRESULT, PROPERTYKEY, WPARAM};
@@ -74,9 +74,14 @@ pub struct Seed {
 
 static SEED: Mutex<Seed> = Mutex::new(Seed { power: None, online: None, headsets: Vec::new() });
 
+/// A panic elsewhere must not take the alerts down with it: the seed stays readable.
+fn seed() -> MutexGuard<'static, Seed> {
+    SEED.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 #[tauri::command]
 pub fn status_seed() -> Seed {
-    SEED.lock().unwrap().clone()
+    seed().clone()
 }
 
 pub fn spawn(app: AppHandle) {
@@ -104,7 +109,7 @@ fn run(app: AppHandle) {
             }
         });
         if power_on {
-            SEED.lock().unwrap().power = power();
+            seed().power = power();
         }
 
         let h = hwnd.0 as isize;
@@ -113,7 +118,7 @@ fn run(app: AppHandle) {
             Ok(())
         });
         match NetworkInformation::NetworkStatusChanged(&handler) {
-            Ok(_) => SEED.lock().unwrap().online = Some(online()),
+            Ok(_) => seed().online = Some(online()),
             Err(e) => eprintln!("sysevents: network notification failed: {e}"),
         }
 
@@ -124,7 +129,7 @@ fn run(app: AppHandle) {
             .inspect_err(|e| eprintln!("sysevents: audio endpoint notification failed: {e}"))
             .ok();
         let mut groups = devices.as_ref().map(headsets).unwrap_or_default();
-        SEED.lock().unwrap().headsets = groups.values().cloned().collect();
+        seed().headsets = groups.values().cloned().collect();
 
         let _ = app.emit("status://seed", status_seed());
 
@@ -133,10 +138,10 @@ fn run(app: AppHandle) {
         while GetMessageW(&mut msg, None, 0, 0).0 > 0 {
             match msg.message {
                 WM_POWER => {
+                    // Only this thread writes the seed, and the lock is not held across emit.
                     let now = power();
-                    let mut seed = SEED.lock().unwrap();
-                    if now.is_some() && now != seed.power {
-                        seed.power = now;
+                    if now.is_some() && seed().power != now {
+                        seed().power = now;
                         let _ = app.emit("status://power", now);
                     }
                 }
@@ -147,9 +152,8 @@ fn run(app: AppHandle) {
                 WM_TIMER if msg.wParam.0 == NET_TIMER => {
                     let _ = KillTimer(Some(hwnd), NET_TIMER);
                     let now = Some(online());
-                    let mut seed = SEED.lock().unwrap();
-                    if now != seed.online {
-                        seed.online = now;
+                    if seed().online != now {
+                        seed().online = now;
                         let _ = app.emit("status://net", serde_json::json!({ "online": now }));
                     }
                 }
@@ -167,7 +171,7 @@ fn run(app: AppHandle) {
                         }
                     }
                     groups = now;
-                    SEED.lock().unwrap().headsets = groups.values().cloned().collect();
+                    seed().headsets = groups.values().cloned().collect();
                 }
                 _ => {
                     DispatchMessageW(&msg);
@@ -275,23 +279,20 @@ fn headsets(devices: &IMMDeviceEnumerator) -> HashMap<GUID, String> {
 
 unsafe fn prop_string(store: &IPropertyStore, key: &PROPERTYKEY) -> Option<String> {
     unsafe {
-        let mut value = store.GetValue(key).ok()?;
+        let value = store.GetValue(key).ok()?;
         let text = PropVariantToStringAlloc(&value).ok().and_then(|p| {
             let text = p.to_string().ok();
             CoTaskMemFree(Some(p.0 as _));
             text
         });
-        let _ = PropVariantClear(&mut value);
         text.filter(|t| !t.is_empty())
     }
 }
 
 unsafe fn prop_guid(store: &IPropertyStore, key: &PROPERTYKEY) -> Option<GUID> {
     unsafe {
-        let mut value = store.GetValue(key).ok()?;
-        let guid = PropVariantToGUID(&value).ok();
-        let _ = PropVariantClear(&mut value);
-        guid
+        let value = store.GetValue(key).ok()?;
+        PropVariantToGUID(&value).ok()
     }
 }
 
