@@ -83,7 +83,7 @@ pub struct Stats {
 }
 
 #[tauri::command]
-pub fn system_stats(full: bool, state: State<'_, SystemState>) -> Stats {
+pub fn system_stats(full: bool, with_gpu: Option<bool>, state: State<'_, SystemState>) -> Stats {
     let mut p = state.0.lock().unwrap();
     p.sys.refresh_cpu_usage();
     p.sys.refresh_memory();
@@ -92,11 +92,12 @@ pub fn system_stats(full: bool, state: State<'_, SystemState>) -> Stats {
     }
     // Background (notch closed): CPU and RAM only. The GPU counters walk every process's
     // engines and the ping goes over the network, so both only run while shown.
+    // `with_gpu` reads the GPU without waking the ping (closed notch with a GPU reading).
     if full {
         *p.ping.wanted_at.lock().unwrap() = Instant::now();
     }
 
-    let (gpu, gpu_mem_used) = if full { p.gpu.as_ref().map(Gpu::read).unwrap_or((None, 0)) } else { (None, 0) };
+    let (gpu, gpu_mem_used) = if full || with_gpu == Some(true) { p.gpu.as_ref().map(Gpu::read).unwrap_or((None, 0)) } else { (None, 0) };
     let ping = if full { p.ping.ms.load(Ordering::Relaxed) } else { NO_PING };
     Stats {
         cpu: p.sys.global_cpu_usage(),

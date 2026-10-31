@@ -36,6 +36,9 @@ pub struct Config {
     /// Horizontal offset from the center in CSS px.
     #[serde(default)]
     offset: f64,
+    /// Window top below the monitor's top edge in CSS px (the frontend computes it).
+    #[serde(default)]
+    y: f64,
     /// Gaming mode "in fullscreen": don't hide, just report.
     #[serde(default)]
     gaming: bool,
@@ -48,6 +51,9 @@ pub struct MonitorInfo {
     primary: bool,
     width: u32,
     height: u32,
+    /// Work area (without taskbar) in CSS px: top below the monitor's top edge, and height.
+    work_top: f64,
+    work_height: f64,
 }
 
 #[tauri::command]
@@ -60,10 +66,13 @@ pub fn display_monitors(window: WebviewWindow) -> Vec<MonitorInfo> {
         .map(|m| {
             let name = m.name().cloned().unwrap_or_default();
             let scale = m.scale_factor();
+            let wa = m.work_area();
             MonitorInfo {
                 primary: primary.as_deref() == Some(name.as_str()),
                 width: (m.size().width as f64 / scale) as u32,
                 height: (m.size().height as f64 / scale) as u32,
+                work_top: (wa.position.y - m.position().y) as f64 / scale,
+                work_height: wa.size.height as f64 / scale,
                 name,
             }
         })
@@ -74,7 +83,7 @@ pub fn display_monitors(window: WebviewWindow) -> Vec<MonitorInfo> {
 pub fn display_apply(config: Config, window: WebviewWindow, state: State<'_, DisplayState>) {
     let moved = {
         let cur = state.0.lock().unwrap();
-        cur.monitor != config.monitor || cur.offset != config.offset
+        cur.monitor != config.monitor || cur.offset != config.offset || cur.y != config.y
     };
     *state.0.lock().unwrap() = config;
     if moved {
@@ -82,11 +91,11 @@ pub fn display_apply(config: Config, window: WebviewWindow, state: State<'_, Dis
     }
 }
 
-/// Centered and flush at the top of the chosen monitor (primary otherwise).
+/// Centered on the chosen monitor (primary otherwise), `y` CSS px below its top edge (clamped to the monitor).
 pub fn place(window: &WebviewWindow, state: &DisplayState) -> tauri::Result<()> {
-    let (wanted, offset) = {
+    let (wanted, offset, y) = {
         let c = state.0.lock().unwrap();
-        (c.monitor.clone(), c.offset)
+        (c.monitor.clone(), c.offset, c.y)
     };
     let monitors = window.available_monitors()?;
     let monitor = wanted
@@ -100,7 +109,8 @@ pub fn place(window: &WebviewWindow, state: &DisplayState) -> tauri::Result<()> 
         let free = (monitor.size().width as i32 - size.width as i32).max(0);
         let shift = ((offset * monitor.scale_factor()) as i32).clamp(-free / 2, free / 2);
         let x = monitor.position().x + free / 2 + shift;
-        window.set_position(PhysicalPosition::new(x, monitor.position().y))?;
+        let top = ((y * monitor.scale_factor()) as i32).clamp(0, (monitor.size().height as i32 - size.height as i32).max(0));
+        window.set_position(PhysicalPosition::new(x, monitor.position().y + top))?;
     }
     Ok(())
 }

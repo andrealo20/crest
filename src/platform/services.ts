@@ -211,9 +211,9 @@ export interface SystemStats {
 }
 
 let mock = { cpu: 18, gpu: 32, ping: 14 };
-/** `full = false`: CPU and RAM only (GPU and ping come back as null / 0). */
-export function fetchSystem(full: boolean): Promise<SystemStats> {
-  if (isNative) return invoke<SystemStats>("system_stats", { full });
+/** `full = false`: CPU and RAM only (GPU and ping come back as null / 0); `withGpu` adds the GPU without the ping. */
+export function fetchSystem(full: boolean, withGpu = false): Promise<SystemStats> {
+  if (isNative) return invoke<SystemStats>("system_stats", { full, withGpu });
   const walk = (v: number, step: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v + (Math.random() - 0.5) * step));
   mock = { cpu: walk(mock.cpu, 14, 3, 96), gpu: walk(mock.gpu, 18, 0, 99), ping: walk(mock.ping, 6, 8, 60) };
   const gb = 1024 ** 3;
@@ -222,9 +222,9 @@ export function fetchSystem(full: boolean): Promise<SystemStats> {
     cpuName: "Ryzen 7 7800X3D 8-Core",
     memUsed: 13.4 * gb + Math.random() * 0.3 * gb,
     memTotal: 32 * gb,
-    gpu: full ? mock.gpu : null,
+    gpu: full || withGpu ? mock.gpu : null,
     gpuName: "GeForce RTX 4070 Ti",
-    gpuMemUsed: full ? 2.9 * gb + (mock.gpu / 100) * 3 * gb : 0,
+    gpuMemUsed: full || withGpu ? 2.9 * gb + (mock.gpu / 100) * 3 * gb : 0,
     gpuMemTotal: 12 * gb,
     ping: full ? Math.round(mock.ping) : null,
   });
@@ -394,6 +394,9 @@ export interface MonitorInfo {
   primary: boolean;
   width: number;
   height: number;
+  /** Work area (without taskbar): top below the monitor's top edge, and height, in CSS px. */
+  workTop: number;
+  workHeight: number;
 }
 
 export const display = {
@@ -401,10 +404,11 @@ export const display = {
     isNative
       ? invoke<MonitorInfo[]>("display_monitors")
       : Promise.resolve([
-          { name: "\\.\DISPLAY1", primary: true, width: 2560, height: 1440 },
-          { name: "\\.\DISPLAY2", primary: false, width: 1920, height: 1080 },
+          { name: "\\.\DISPLAY1", primary: true, width: 2560, height: 1440, workTop: 0, workHeight: 1440 - 48 },
+          { name: "\\.\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48 },
         ]),
-  apply: (config: { hideFullscreen: boolean; monitor: string | null; offset: number; gaming: boolean }) => {
+  /** `y`: window top in CSS px below the monitor's top edge (default 0). */
+  apply: (config: { hideFullscreen: boolean; monitor: string | null; offset: number; y?: number; gaming: boolean }) => {
     if (isNative) void invoke("display_apply", { config });
   },
   /** true while an app covers the notch's monitor in fullscreen. */
