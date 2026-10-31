@@ -22,10 +22,7 @@ Crest sits at the top of your screen as a small notch, stays out of the way unti
 
 Inside: music controls with a live equalizer, a vault for passwords and 2FA codes, live weather, your Discord call, your portfolio, an AI chat (Claude, ChatGPT and more) with your usage limits, clipboard history, a file shelf, a file and unit converter, timers, to-dos and notes, live hardware stats with FPS for games, and privacy dots for mic, camera and screen recording.
 
-Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0. Version 0.1 is that app under a new name, with the Antigravity quota in place of the retired Gemini CLI. Version 0.2 adds the closed notch styles and the row of live readings. Coming next, roughly in this order:
-
-1. Screenshots and screen recording with system audio and microphone.
-2. More brokers for the portfolio, read only.
+Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0. Version 0.1 is that app under a new name, with the Antigravity quota in place of the retired Gemini CLI. Version 0.2 adds the closed notch styles and the row of live readings. Coming next: screenshots and screen recording with system audio and microphone.
 
 ## What it does
 
