@@ -95,6 +95,7 @@ pub fn run() {
             trading::trading_fetch,
             usage::usage_fetch,
             system::system_stats,
+            system::system_icon,
             convert::convert_probe,
             convert::convert_files,
             convert::reveal_file,

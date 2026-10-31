@@ -79,6 +79,11 @@ windows = { version = "0.62", features = [
   "Win32_System_LibraryLoader",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_WindowsAndMessaging",
+  "Win32_System_IO",
+  "Win32_System_ProcessStatus",
+  "Win32_NetworkManagement_Ndis",
+  "Devices_Power",
+  "System_Power",
 ] }
 
 [profile.release]
