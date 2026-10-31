@@ -163,26 +163,30 @@ pub fn to_time(frames: i64, rate: i64) -> i64 {
     frames * 10_000_000 / rate
 }
 
-/// Mixes stereo 16-bit sources onto one timeline. Each packet lands at the frame its
-/// timestamp says; small jitter is snapped to the end of the previous packet so
-/// continuous audio stays continuous, gaps (a silent loopback sends nothing) stay zero.
+/// Mixes stereo 16-bit sources onto one timeline. A packet continues where the previous
+/// one ended while its timestamp is within 1 ms of that; beyond, it moves one frame
+/// toward the timestamp per packet, so a device clock that drifts from QPC is followed
+/// without audible jumps. Only a real gap (over 100 ms, a silent loopback sends nothing)
+/// jumps, and stays zero.
 pub struct Mixer {
     /// First frame not yet taken; `buf[0]` is that frame.
     emitted: i64,
     buf: VecDeque<[i32; 2]>,
     next: Vec<Option<i64>>,
-    snap: i64,
+    band: i64,
+    gap: i64,
 }
 
 impl Mixer {
     pub fn new(sources: usize, rate: i64) -> Self {
-        Mixer { emitted: 0, buf: VecDeque::new(), next: vec![None; sources], snap: rate / 50 }
+        Mixer { emitted: 0, buf: VecDeque::new(), next: vec![None; sources], band: rate / 1000, gap: rate / 10 }
     }
 
-    /// Adds interleaved stereo `samples` of `source`, starting at frame `at`.
-    pub fn add(&mut self, source: usize, at: i64, samples: &[i16]) {
+    /// Adds interleaved stereo `samples` of `source`, stamped at frame `at`. Returns where they landed.
+    pub fn add(&mut self, source: usize, at: i64, samples: &[i16]) -> i64 {
         let at = match self.next[source] {
-            Some(n) if (at - n).abs() <= self.snap => n,
+            Some(n) if (at - n).abs() <= self.band => n,
+            Some(n) if (at - n).abs() <= self.gap => n + (at - n).signum(),
             _ => at,
         };
         let frames = (samples.len() / 2) as i64;
@@ -200,6 +204,7 @@ impl Mixer {
             f[0] += samples[2 * i as usize] as i32;
             f[1] += samples[2 * i as usize + 1] as i32;
         }
+        at
     }
 
     /// Frames from the last take up to `upto` (exclusive), interleaved, clipped to 16 bit.
@@ -333,14 +338,35 @@ mod tests {
         assert_eq!(from, 0);
         assert_eq!(s, vec![100, 100, 32_767, -32_500, 1_300, 1_300, 0, 0]);
         // Too late: frames before the taken point are dropped; a far jump leaves a silent gap.
-        m.add(0, 2_000, &[5, 5]);
-        let (from, s) = m.take(2_001);
+        m.add(0, 10_000, &[5, 5]);
+        let (from, s) = m.take(10_001);
         assert_eq!(from, 4);
-        assert_eq!(s.len(), (2_001 - 4) * 2);
+        assert_eq!(s.len(), (10_001 - 4) * 2);
         assert_eq!(&s[s.len() - 2..], &[5, 5]);
         assert!(s[..s.len() - 2].iter().all(|&x| x == 0));
         m.add(1, 0, &[9, 9]);
-        assert_eq!(m.take(2_002).1, vec![0, 0]);
+        assert_eq!(m.take(10_002).1, vec![0, 0]);
+    }
+
+    #[test]
+    fn mixer_follows_clock_drift_without_jumps() {
+        // 10 minutes of 10 ms packets from a device whose clock runs 200 ppm fast or slow against QPC.
+        for ppm in [200.0, -200.0] {
+            let mut m = Mixer::new(1, 48_000);
+            let packet = vec![0i16; 480 * 2];
+            let mut prev_end: Option<i64> = None;
+            for k in 0..60_000i64 {
+                let stamp = (k as f64 * 480.0 / (1.0 + ppm / 1e6)).round() as i64;
+                let at = m.add(0, stamp, &packet);
+                if let Some(end) = prev_end {
+                    assert!((at - end).abs() <= 1, "jump of {} frames at packet {k} ({ppm} ppm)", at - end);
+                }
+                // Never more than 1 ms plus a frame away from the device timestamp.
+                assert!((at - stamp).abs() <= 49, "{} frames off at packet {k} ({ppm} ppm)", at - stamp);
+                prev_end = Some(at + 480);
+                m.take(at);
+            }
+        }
     }
 
     #[test]
