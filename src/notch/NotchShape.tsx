@@ -1,9 +1,6 @@
-import { createContext, useEffect, useRef, type ReactNode } from "react";
-import { animate, motion, motionValue, useMotionValue, useTransform, type MotionValue, type Transition } from "motion/react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { animate, motion, useMotionValue, useTransform, type Transition } from "motion/react";
 import type { NotchGeometry } from "./geometry";
-
-/** The shape's spring-animated width, unrounded. */
-export const ShapeWidth = createContext<MotionValue<number>>(motionValue(0));
 
 interface Props {
   geometry: NotchGeometry;
@@ -96,7 +93,7 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
         className="absolute inset-0 overflow-clip bg-notch"
         style={{ borderTopLeftRadius: rt, borderTopRightRadius: rt, borderBottomLeftRadius: r, borderBottomRightRadius: r }}
       >
-        <ShapeWidth.Provider value={w}>{children}</ShapeWidth.Provider>
+        {children}
       </motion.div>
     </motion.div>
   );
