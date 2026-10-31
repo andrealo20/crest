@@ -95,6 +95,7 @@ pub fn run() {
             trading::portfolio_fetch,
             trading::portfolio_prices,
             trading::portfolio_record,
+            trading::portfolio_forget,
             usage::usage_fetch,
             system::system_stats,
             convert::convert_probe,

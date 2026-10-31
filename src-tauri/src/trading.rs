@@ -21,12 +21,14 @@ mod t212;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager, State};
 
+use crate::secrets;
 pub use prices::Rates;
 
 const KEEP_DAYS: usize = 120;
@@ -34,8 +36,35 @@ const INTRADAY_STEP_MS: u64 = 2 * 60 * 1000;
 
 #[derive(Default)]
 pub struct TradingState {
+    /// By "provider:env:key fingerprint", so a changed key never serves the old account.
     accounts: Mutex<HashMap<String, (Instant, Account)>>,
-    prices: Mutex<Option<(Instant, String, Rates)>>,
+    /// One fetch per provider at a time (Kraken nonces, rate limits).
+    inflight: Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
+    prices: tokio::sync::Mutex<prices::Cache>,
+}
+
+/// Credential Manager entries of each provider.
+fn secret_names(provider: &str) -> &'static [&'static str] {
+    match provider {
+        "t212" => &["t212.key", "t212.secret"],
+        "kraken" => &["kraken.key", "kraken.secret"],
+        "coinbase" => &["coinbase.key", "coinbase.secret"],
+        "binance" => &["binance.key", "binance.secret"],
+        "bitpanda" => &["bitpanda.key"],
+        "etoro" => &["etoro.key", "etoro.user"],
+        "ibkr" => &["ibkr.token", "ibkr.query"],
+        _ => &[],
+    }
+}
+
+/// Short hash of the provider's keys (never the keys themselves).
+pub fn fingerprint(provider: &str) -> String {
+    let mut h = Sha256::new();
+    for name in secret_names(provider) {
+        h.update(secrets::read(name).unwrap_or_default().as_bytes());
+        h.update([0]);
+    }
+    sign::hex(&h.finalize()[..8])
 }
 
 /// One account as the provider reports it. Amounts are in `Holding::currency` (or priced later).
@@ -139,7 +168,10 @@ fn ttl(provider: &str) -> Duration {
 /// unknown-provider, network:…, api:… (the provider's own message).
 #[tauri::command]
 pub async fn portfolio_fetch(provider: String, env: String, app: AppHandle, state: State<'_, TradingState>) -> Result<Account, String> {
-    let cache_key = format!("{provider}:{env}");
+    let gate = state.inflight.lock().unwrap().entry(provider.clone()).or_default().clone();
+    // A second call waits for the running one and then usually hits the cache.
+    let _running = gate.lock().await;
+    let cache_key = format!("{provider}:{env}:{}", fingerprint(&provider));
     if let Some((at, account)) = state.accounts.lock().unwrap().get(&cache_key) {
         if at.elapsed() < ttl(&provider) {
             return Ok(account.clone());
@@ -156,22 +188,38 @@ pub async fn portfolio_fetch(provider: String, env: String, app: AppHandle, stat
         "ibkr" => ibkr::fetch(&client).await?,
         _ => return Err("unknown-provider".into()),
     };
-    state.accounts.lock().unwrap().insert(cache_key, (Instant::now(), account.clone()));
+    let mut cache = state.accounts.lock().unwrap();
+    // Entries of an older key of this provider go.
+    cache.retain(|k, _| !k.starts_with(&format!("{provider}:{env}:")));
+    cache.insert(cache_key, (Instant::now(), account.clone()));
     Ok(account)
 }
 
 /// Crypto prices in `base` and FX rates (units of a currency per 1 `base`). Public, no keys.
+/// Cached per symbol, so asking again as more accounts arrive only fetches what is new.
 #[tauri::command]
 pub async fn portfolio_prices(base: String, crypto: Vec<String>, fiats: Vec<String>, state: State<'_, TradingState>) -> Result<Rates, String> {
-    let key = format!("{base}|{}|{}", crypto.join(","), fiats.join(","));
-    if let Some((at, cached_key, rates)) = state.prices.lock().unwrap().as_ref() {
-        if at.elapsed() < Duration::from_secs(60) && *cached_key == key {
-            return Ok(rates.clone());
+    let mut cache = state.prices.lock().await;
+    prices::fetch(&client()?, &mut cache, &base, &crypto, &fiats).await
+}
+
+/// The key of `provider` was deleted: drop its cache, its Kraken ledger and its history files.
+#[tauri::command]
+pub fn portfolio_forget(provider: String, app: AppHandle, state: State<'_, TradingState>) {
+    state.accounts.lock().unwrap().retain(|k, _| !k.starts_with(&format!("{provider}:")));
+    let Ok(dir) = app.path().app_data_dir() else { return };
+    if provider == "kraken" {
+        let _ = std::fs::remove_file(dir.join("kraken-ledger.json"));
+    }
+    let scopes: Vec<String> = if provider == "t212" { vec!["t212-live".into(), "t212-demo".into()] } else { vec![provider.clone()] };
+    let Ok(entries) = std::fs::read_dir(&dir) else { return };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        let ours = scopes.iter().any(|s| name.starts_with(&format!("portfolio-history-{s}-")) || name.starts_with(&format!("portfolio-intraday-{s}-")));
+        if ours && name.ends_with(".json") {
+            let _ = std::fs::remove_file(entry.path());
         }
     }
-    let rates = prices::fetch(&client()?, &base, &crypto, &fiats).await?;
-    *state.prices.lock().unwrap() = Some((Instant::now(), key, rates.clone()));
-    Ok(rates)
 }
 
 pub fn client() -> Result<reqwest::Client, String> {
@@ -183,11 +231,16 @@ pub fn client() -> Result<reqwest::Client, String> {
         .map_err(|e| format!("network:{e}"))
 }
 
+/// Error text without the URL: query strings carry tokens and signatures.
+pub fn net(e: reqwest::Error) -> String {
+    format!("network:{}", e.without_url())
+}
+
 /// Sends a request and maps the status to the shared error codes.
 pub async fn send_json<T: for<'de> Deserialize<'de>>(req: reqwest::RequestBuilder) -> Result<T, String> {
-    let res = req.send().await.map_err(|e| format!("network:{e}"))?;
+    let res = req.send().await.map_err(net)?;
     match res.status().as_u16() {
-        200..=299 => res.json::<T>().await.map_err(|e| format!("network:unreadable response ({e})")),
+        200..=299 => res.json::<T>().await.map_err(|e| format!("network:unreadable response ({})", e.without_url())),
         401 => Err("unauthorized".into()),
         403 => Err("forbidden".into()),
         429 => Err("rate".into()),
@@ -212,6 +265,10 @@ pub struct Point {
     t: u64,
     value: f64,
     pnl: f64,
+    /// Value of holdings without a cost basis (Coinbase, Binance, coins without trades):
+    /// its change counts in "today" and the chart next to the P&L change.
+    #[serde(default)]
+    no_cost: f64,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -231,14 +288,19 @@ pub struct Snapshot {
     /// independent of deposits and purchases.
     #[serde(default)]
     pnl: f64,
+    #[serde(default)]
+    no_cost: f64,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RecordEntry {
     scope: String,
     value: f64,
     pnl: f64,
     invested: f64,
+    #[serde(default)]
+    no_cost: f64,
     /// Trading 212 env whose old files (in the account currency) seed this scope once.
     seed: Option<String>,
 }
@@ -257,8 +319,8 @@ pub fn portfolio_record(base: String, today: String, entries: Vec<RecordEntry>, 
     entries
         .into_iter()
         .map(|e| {
-            let point = Point { t: now_ms(), value: e.value, pnl: e.pnl };
-            let snapshot = Snapshot { date: today.clone(), value: e.value, invested: e.invested, pnl: e.pnl };
+            let point = Point { t: now_ms(), value: e.value, pnl: e.pnl, no_cost: e.no_cost };
+            let snapshot = Snapshot { date: today.clone(), value: e.value, invested: e.invested, pnl: e.pnl, no_cost: e.no_cost };
             let recorded = match &dir {
                 Some(dir) => {
                     let scope: String = e.scope.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').collect();
