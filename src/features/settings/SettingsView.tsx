@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, Reorder } from "motion/react";
 import {
   ArrowsInLineHorizontal,
+  BellSimple,
   ChartDonut,
   CheckCircle,
   Clock,
@@ -36,6 +37,7 @@ import { discordState, reconnectDiscord } from "../discord/store";
 import { fps } from "../system/gaming";
 import { PlaceSearch } from "../weather/WeatherView";
 import { VaultSettings } from "../vault/VaultSettings";
+import { NoticesSettings } from "../notices/NoticesSettings";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
@@ -43,7 +45,7 @@ import { between, changelog, itemText, markSeen, useUnseen } from "../../lib/cha
 import { privacy, togglePresentation, usePresenting } from "../privacy/store";
 import { locale, t, tBackend } from "../../i18n";
 
-type PageId = "general" | "display" | "tools" | "timer" | "ai" | "accounts";
+type PageId = "general" | "display" | "tools" | "timer" | "ai" | "accounts" | "notices";
 
 const pages: { id: PageId; label: string; icon: Icon }[] = [
   { id: "general", label: "Allgemein", icon: SlidersHorizontal },
@@ -52,6 +54,7 @@ const pages: { id: PageId; label: string; icon: Icon }[] = [
   { id: "timer", label: "Timer", icon: Timer },
   { id: "ai", label: "AI", icon: Sparkle },
   { id: "accounts", label: "Verbindungen", icon: Plugs },
+  { id: "notices", label: "Mitteilungen", icon: BellSimple },
 ];
 
 /** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. */
@@ -66,6 +69,7 @@ const sectionPage: Record<string, PageId> = {
   discord: "accounts",
   trading: "accounts",
   vault: "tools",
+  notices: "notices",
 };
 
 /** Last open page survives closing/opening the notch (the component is rebuilt). */
@@ -147,6 +151,7 @@ export function SettingsView() {
               </>
             )}
             {page === "timer" && <Alarm />}
+            {page === "notices" && <NoticesSettings />}
             {page === "ai" && (
               <>
                 <Ask />

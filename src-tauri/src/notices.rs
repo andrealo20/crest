@@ -652,7 +652,8 @@ async fn serve(mut pipe: NamedPipeServer, limiter: Arc<Mutex<RateLimiter>>, emit
         let _ = pipe.write_all(&out).await;
         let _ = pipe.flush().await;
     }
-    let _ = pipe.disconnect();
+    // Disconnecting would discard a reply the client has not read yet; wait (briefly) for it to hang up instead.
+    let _ = tokio::time::timeout(Duration::from_secs(1), pipe.read(&mut [0u8; 1])).await;
 }
 
 #[cfg(test)]
@@ -683,7 +684,7 @@ mod tests {
     /// A real pipe with the user-only descriptor: a second first instance is refused, one request gets one reply.
     #[test]
     fn pipe_round_trip() {
-        use std::io::{Read, Write};
+        use std::io::{BufRead, Write};
         let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
         let (session, sid) = notify_wire::identity().expect("identity");
         let name = format!("{}-test-{}", notify_wire::pipe_name(session, &sid), std::process::id());
@@ -703,7 +704,7 @@ mod tests {
                 let mut pipe = std::fs::OpenOptions::new().read(true).write(true).open(&client_name).unwrap();
                 pipe.write_all(b"{\"title\":\"Build\",\"source\":\"CI\",\"progress\":40}\n").unwrap();
                 let mut out = String::new();
-                let _ = pipe.read_to_string(&mut out);
+                std::io::BufReader::new(pipe).read_line(&mut out).unwrap();
                 out
             })
             .await

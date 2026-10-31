@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import {
   ArrowsLeftRight,
+  BellSimple,
   CheckCircle,
   ClipboardText,
   CloudSun,
@@ -33,6 +34,7 @@ import { WeatherView } from "../features/weather/WeatherView";
 import { SystemView } from "../features/system/SystemView";
 import { DiscordView } from "../features/discord/DiscordView";
 import { VaultView } from "../features/vault/VaultView";
+import { NoticesView } from "../features/notices/NoticesView";
 import { SettingsView } from "../features/settings/SettingsView";
 
 /**
@@ -68,6 +70,7 @@ export const tabs: NotchTab[] = [
   { id: "system", label: "Hardware", icon: Cpu, size: { w: 600, h: 248 }, View: SystemView },
   { id: "discord", label: "Discord", icon: DiscordLogo, size: { w: 520, h: 210 }, View: DiscordView },
   { id: "vault", label: "Tresor", icon: Vault, size: { w: 560, h: 324 }, View: VaultView },
+  { id: "notices", label: "Mitteilungen", icon: BellSimple, size: { w: 560, h: 320 }, View: NoticesView },
 ];
 
 /** Settings: reached via the gear, not in the tool bar. */

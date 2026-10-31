@@ -161,7 +161,11 @@ fn send(request: &Request) -> u8 {
 
 fn run(mut request: Request, command: Vec<String>) -> ExitCode {
     let started = Instant::now();
-    let status = std::process::Command::new(&command[0]).args(&command[1..]).status();
+    let mut status = std::process::Command::new(&command[0]).args(&command[1..]).status();
+    // Windows only finds .exe files this way; npm, yarn and other .cmd scripts need cmd.
+    if matches!(&status, Err(e) if e.kind() == std::io::ErrorKind::NotFound) {
+        status = std::process::Command::new("cmd").args(["/d", "/c"]).args(&command).status();
+    }
     let (code, failed_to_start) = match status {
         Ok(s) => (s.code().unwrap_or(1), false),
         Err(e) => {
@@ -174,7 +178,8 @@ fn run(mut request: Request, command: Vec<String>) -> ExitCode {
     request.duration_ms = Some(if failed_to_start { 0 } else { started.elapsed().as_millis() as u64 });
     // The command's result matters more than whether the notice arrived.
     let _ = send(&request);
-    ExitCode::from(code.clamp(0, 255) as u8)
+    // The full 32-bit code (a crash's 0xC0000005 must not come back as 0).
+    std::process::exit(code)
 }
 
 fn main() -> ExitCode {

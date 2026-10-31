@@ -15,6 +15,7 @@ import { startSystemPolling } from "./features/system/store";
 import { startUsagePolling } from "./features/usage/store";
 import { startGamingWatch } from "./features/system/gaming";
 import { startDiscord } from "./features/discord/store";
+import { startNotices } from "./features/notices/store";
 import { startUpdateWatch } from "./lib/update";
 import { showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
@@ -28,6 +29,7 @@ startSystemPolling();
 startUsagePolling();
 startGamingWatch();
 startDiscord();
+startNotices();
 startUpdateWatch();
 
 // Send display settings (monitor, fullscreen, offset, window top, gaming) to Rust on start and on every change.

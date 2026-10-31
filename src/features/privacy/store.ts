@@ -53,6 +53,12 @@ export function usePresenting(): boolean {
   return isPresenting(manual, auto, screen, off);
 }
 
+/** usePresenting outside React (live notices check it as each one arrives). */
+export function presentingNow(): boolean {
+  const { manual, auto } = settings.get().presentation;
+  return isPresenting(manual, auto, privacy.get().screen, snoozed.get());
+}
+
 /** One switch for both cases: during an auto-detected recording "off" only lasts until it ends. */
 export function togglePresentation() {
   const { manual, auto } = settings.get().presentation;

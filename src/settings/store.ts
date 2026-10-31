@@ -1,6 +1,7 @@
 import { createStore } from "../lib/store";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
+import { NOTICE_DEFAULTS, normalizeNotices, type NoticeSettings } from "../features/notices/rules";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -62,6 +63,8 @@ export interface Settings {
   presentation: { manual: boolean; auto: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
+  /** Live notices: Windows notifications and crest-notify in the closed notch, with per-app rules and quiet hours. */
+  notices: NoticeSettings;
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -81,9 +84,10 @@ export const TOOL_IDS = [
   "system",
   "discord",
   "vault",
+  "notices",
 ] as const;
 
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault"]);
+const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "notices"]);
 
 const defaults: Settings = {
   openMode: "hover",
@@ -111,6 +115,7 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
+  notices: NOTICE_DEFAULTS,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -169,6 +174,7 @@ settings.set((s) => {
     presentation: { ...defaults.presentation, ...s.presentation },
     updates: { ...defaults.updates, ...s.updates },
     closed: normalizeClosed(s.closed),
+    notices: normalizeNotices(s.notices),
     ask: migrateAsk(s.ask),
   };
 });

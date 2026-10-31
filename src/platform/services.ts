@@ -634,3 +634,43 @@ export const systemControls = {
     return Promise.resolve({ ...mockFocus });
   },
 };
+
+// ---------- Live notices (src-tauri/src/notices.rs) ----------
+
+/** One notice from Windows or crest-notify, before the history gives it an id. */
+export type IncomingNotice = Omit<import("../features/notices/history").Notice, "id">;
+
+export interface NoticeSourceStatus {
+  access: "allowed" | "denied" | "unspecified" | "unavailable";
+  mode: "off" | "event-log" | "polling" | "failed";
+  pipe: boolean;
+}
+
+/** In the browser there is no source; `mockNotice` stands in (from the dev tools console). */
+const mockNoticeHandlers = new Set<(n: IncomingNotice) => void>();
+export function mockNotice(n: Partial<IncomingNotice>) {
+  const full: IncomingNotice = { source: "cli", appId: "cli:crest-notify", appName: "crest-notify", title: "", body: "", at: Date.now(), ...n };
+  mockNoticeHandlers.forEach((h) => h(full));
+}
+
+export const noticeSource = {
+  configure: (windows: boolean, pipe: boolean) => {
+    if (isNative) void invoke("notices_configure", { windows, pipe });
+  },
+  status: (): Promise<NoticeSourceStatus> =>
+    isNative ? invoke<NoticeSourceStatus>("notices_status") : Promise.resolve({ access: "allowed", mode: "off", pipe: false }),
+  requestAccess: (): Promise<NoticeSourceStatus["access"]> => (isNative ? invoke<NoticeSourceStatus["access"]>("notices_request_access") : Promise.resolve("allowed")),
+  onNotice: (handler: (n: IncomingNotice) => void): (() => void) => {
+    if (!isNative) {
+      mockNoticeHandlers.add(handler);
+      return () => void mockNoticeHandlers.delete(handler);
+    }
+    const off = listen<IncomingNotice>("notices://in", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  onStatus: (handler: (s: NoticeSourceStatus) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<NoticeSourceStatus>("notices://status", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+};
