@@ -9,6 +9,7 @@ mod documents;
 mod drop;
 mod fps;
 mod hit_test;
+mod loopback;
 mod media;
 mod memory;
 mod mixer;

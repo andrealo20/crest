@@ -44,6 +44,8 @@ tauri-plugin-process = "2"
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"
+# For #[implement] in loopback.rs; already in the tree through windows.
+windows-core = "0.62"
 windows = { version = "0.62", features = [
   "Foundation",
   "Foundation_Collections",
@@ -79,6 +81,8 @@ windows = { version = "0.62", features = [
   "Win32_System_LibraryLoader",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_WindowsAndMessaging",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Variant",
 ] }
 
 [profile.release]
