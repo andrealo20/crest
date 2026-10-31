@@ -8,7 +8,7 @@ import { t } from "../../i18n";
 import { altGrRisk, conflicts, keycaps, record, type HotkeyKind, type RecordError } from "./hotkeys";
 import { CONTEXTS, MAX_APP_RULES, addRule, newRule, ruleKey, type AppRule, type Behavior, type ScreenContext } from "./model";
 import { currentQuick, quickSize, type QuickSize } from "./panelSize";
-import { hotkeyStatus, pauseHotkeys, updateBehavior } from "./store";
+import { hotkeyStatus, pauseHotkeys, takenByLauncher, updateBehavior } from "./store";
 
 const contextLabel: Record<ScreenContext, string> = {
   maximized: "Maximiertes Fenster",
@@ -188,13 +188,13 @@ function Shortcuts() {
 
 /** Click the box, press the combination. Esc cancels, Backspace clears. */
 function HotkeyRow({ kind }: { kind: HotkeyKind }) {
-  const hotkeys = settings.use().behavior.hotkeys;
+  const s = settings.use(), hotkeys = s.behavior.hotkeys;
   const status = hotkeyStatus.use()[kind];
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<RecordError | null>(null);
   const box = useRef<HTMLButtonElement>(null);
   const value = hotkeys[kind];
-  const clash = conflicts(hotkeys)[kind];
+  const clash = conflicts(hotkeys, takenByLauncher(s))[kind];
   const altGr = altGrRisk(kind, value);
 
   const stop = () => {
@@ -227,7 +227,7 @@ function HotkeyRow({ kind }: { kind: HotkeyKind }) {
   const hint = error
     ? t(recordErrors[error])
     : clash
-      ? t("Schon belegt von „{name}“, bitte eine andere Kombination", { name: t(hotkeyLabel[clash]) })
+      ? t("Schon belegt von „{name}“, bitte eine andere Kombination", { name: clash === "launcher" ? t("Launcher") : t(hotkeyLabel[clash]) })
       : status === "in-use"
         ? t("Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv")
         : status === "invalid"

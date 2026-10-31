@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { altGrRisk, combinations, conflicts, keycaps, label, normalize, parse, record, type KeyLike } from "./hotkeys.ts";
+import { altGrRisk, combinations, conflicts, launcherKeys, keycaps, label, normalize, parse, record, type KeyLike } from "./hotkeys.ts";
 
 const key = (code: string, mods: Partial<KeyLike> = {}): KeyLike => ({ code, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
 
@@ -49,6 +49,9 @@ test("conflicts: the later shortcut yields to the earlier one", () => {
   // Invalid or unset ones collide with nothing.
   assert.deepEqual(conflicts({ open: "", hide: "", resize: "" }), { open: null, hide: null, resize: null });
   assert.deepEqual(conflicts({ open: "KeyK", hide: "KeyK", resize: "" }), { open: null, hide: null, resize: null });
+  // The launcher's Alt+N keys, while on, come first.
+  assert.deepEqual(conflicts({ open: "Alt+Digit2", hide: "Alt+Digit5", resize: "" }, launcherKeys(3)), { open: "launcher", hide: null, resize: null });
+  assert.deepEqual(launcherKeys(9), ["Alt+Digit1", "Alt+Digit2", "Alt+Digit3", "Alt+Digit4", "Alt+Digit5", "Alt+Digit6"]);
 });
 
 test("Ctrl+Alt with a character key warns about AltGr", () => {

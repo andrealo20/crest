@@ -93,13 +93,16 @@ export function combinations(kind: HotkeyKind, text: string): string[] {
   return ARROW_KEYS.map((key) => format({ mods, key }));
 }
 
+/** The launcher's Alt+1.. keys for `count` favourites (at most six), in the saved spelling. */
+export const launcherKeys = (count: number): string[] => Array.from({ length: Math.min(6, Math.max(0, count)) }, (_, i) => `Alt+Digit${i + 1}`);
+
 /**
- * Which earlier shortcut each one collides with (order: open, hide, resize); the later one yields and is
- * not registered. Unset or invalid shortcuts collide with nothing.
+ * Which earlier shortcut each one collides with (order: open, hide, resize), or "launcher" for the launcher's Alt+N keys
+ * (`launcher`, while they are switched on); the later one yields and is not registered. Unset or invalid shortcuts collide with nothing.
  */
-export function conflicts(h: Record<HotkeyKind, string>): Record<HotkeyKind, HotkeyKind | null> {
-  const out: Record<HotkeyKind, HotkeyKind | null> = { open: null, hide: null, resize: null };
-  const taken: { kind: HotkeyKind; combos: string[] }[] = [];
+export function conflicts(h: Record<HotkeyKind, string>, launcher: string[] = []): Record<HotkeyKind, HotkeyKind | "launcher" | null> {
+  const out: Record<HotkeyKind, HotkeyKind | "launcher" | null> = { open: null, hide: null, resize: null };
+  const taken: { kind: HotkeyKind | "launcher"; combos: string[] }[] = [{ kind: "launcher", combos: launcher }];
   for (const kind of HOTKEY_KINDS) {
     const combos = combinations(kind, h[kind]);
     const hit = taken.find((t) => t.combos.some((c) => combos.includes(c)));

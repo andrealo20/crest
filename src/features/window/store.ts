@@ -1,7 +1,7 @@
 import { createStore } from "../../lib/store";
 import { windowShell, type HotkeyState, type ScreenBehavior } from "../../platform/services";
 import { settings, updateSettings, type Settings } from "../../settings/store";
-import { conflicts, label, normalize, type HotkeyKind } from "./hotkeys";
+import { conflicts, label, launcherKeys, normalize, type HotkeyKind } from "./hotkeys";
 import type { WindowSettings } from "./model";
 
 /** What the window rules call for right now (display.rs): the line is drawn here, hiding happens in Rust. */
@@ -30,13 +30,19 @@ export function pauseHotkeys(on: boolean) {
   applyHotkeys();
 }
 
+/** The launcher's Alt+N keys while they are switched on and the tool is on (src/features/launcher/store.ts); a Crest shortcut on one of them yields. */
+export function takenByLauncher(s: Settings = settings.get()): string[] {
+  const on = s.launcher.hotkeys && s.tools.some((x) => x.id === "launcher" && x.enabled);
+  return launcherKeys(on ? (s.launcher.favorites?.length ?? 0) : 0);
+}
+
 /** Registers the saved shortcuts in Rust; a duplicate is not sent, so it can't take the other one's place. */
 function applyHotkeys() {
-  const h = settings.get().behavior.hotkeys;
-  const key = `${paused}|${h.open}|${h.hide}|${h.resize}`;
+  const h = settings.get().behavior.hotkeys, launcher = takenByLauncher();
+  const key = `${paused}|${h.open}|${h.hide}|${h.resize}|${launcher.join()}`;
   if (key === lastHotkeys) return;
   lastHotkeys = key;
-  const clash = conflicts(h);
+  const clash = conflicts(h, launcher);
   const send = (k: HotkeyKind) => (paused || clash[k] ? "" : normalize(k, h[k]));
   const config = { open: send("open"), hide: send("hide"), resize: send("resize"), openLabel: label(h.open) };
   const wasPaused = paused;
