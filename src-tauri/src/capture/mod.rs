@@ -522,6 +522,41 @@ mod live {
     //! Touches real hardware, so only on request: `cargo test --lib capture::live -- --ignored`.
     use super::*;
 
+    /// Opens the region overlay and drives it with posted messages: a drag, then Esc.
+    #[test]
+    #[ignore]
+    fn region_overlay_drag_and_cancel() {
+        use windows::core::w;
+        use windows::Win32::Foundation::WPARAM;
+        use windows::Win32::UI::Input::KeyboardAndMouse::VK_ESCAPE;
+        unsafe {
+            let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        }
+        let screen = shot::virtual_screen();
+        let dib = shot::grab(screen).unwrap();
+        let post = |msgs: Vec<(u32, usize, isize)>| {
+            std::thread::spawn(move || {
+                // Windows rescales posted mouse coordinates between threads of different DPI awareness.
+                unsafe {
+                    let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                let hwnd = unsafe { FindWindowW(w!("CrestCaptureOverlay"), None) }.unwrap();
+                for (m, wp, lp) in msgs {
+                    unsafe { PostMessageW(Some(hwnd), m, WPARAM(wp), LPARAM(lp)) }.unwrap();
+                    std::thread::sleep(std::time::Duration::from_millis(30));
+                }
+            })
+        };
+        let at = |x: isize, y: isize| (y << 16) | x;
+        let t = post(vec![(WM_LBUTTONDOWN, 0, at(10, 20)), (WM_MOUSEMOVE, 0, at(200, 120)), (WM_LBUTTONUP, 0, at(110, 70))]);
+        assert_eq!(shot::pick_region(&dib, screen, &[]).unwrap(), Some(Rect { x: 10, y: 20, w: 101, h: 51 }));
+        t.join().unwrap();
+        let t = post(vec![(WM_KEYDOWN, VK_ESCAPE.0 as usize, 0)]);
+        assert_eq!(shot::pick_region(&dib, screen, &[]).unwrap(), None);
+        t.join().unwrap();
+    }
+
     #[test]
     #[ignore]
     fn takes_screenshots() {

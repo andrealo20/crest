@@ -184,6 +184,8 @@ pub fn pick_region(shot: &Dib, screen: Rect, monitors: &[Rect]) -> Result<Option
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, state as isize);
         let _ = ShowWindow(hwnd, SW_SHOW);
         let _ = SetForegroundWindow(hwnd);
+        // The notch window re-asserts "on top" when the foreground changes (display.rs); this keeps the overlay above it.
+        SetTimer(Some(hwnd), 1, 300, None);
 
         let mut msg = MSG::default();
         while (*state).result.is_none() && GetMessageW(&mut msg, None, 0, 0).as_bool() {
@@ -240,6 +242,9 @@ unsafe extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPA
             }
             WM_RBUTTONDOWN => s.result = Some(None),
             WM_KEYDOWN if wparam.0 == VK_ESCAPE.0 as usize => s.result = Some(None),
+            WM_TIMER => {
+                let _ = SetWindowPos(hwnd, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
             WM_ERASEBKGND => return LRESULT(1),
             WM_PAINT => paint(hwnd, s),
             _ => return DefWindowProcW(hwnd, msg, wparam, lparam),
