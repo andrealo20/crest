@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { accentFrom } from "../../lib/accent";
-import type { MediaSource, NowPlaying } from "./types";
+import type { MediaSource, NowPlaying, RepeatMode, SourceInfo } from "./types";
 
 /** Shape of the data from Rust (src-tauri/src/media.rs). */
 interface NativeNowPlaying {
@@ -13,6 +13,9 @@ interface NativeNowPlaying {
   duration: number;
   canSeek: boolean;
   appId: string;
+  shuffle: boolean | null;
+  repeat: RepeatMode | null;
+  sources: { appId: string; isPlaying: boolean }[];
 }
 
 function livePositionOf(np: NowPlaying): number {
@@ -107,5 +110,15 @@ export function createNativeMedia(): MediaSource {
       control("seek", position);
     },
     openSource: () => invoke<boolean>("media_open_source").catch(() => false),
+    toggleShuffle() {
+      if (state?.shuffle != null) optimistic({ shuffle: !state.shuffle });
+      control("shuffle");
+    },
+    cycleRepeat() {
+      if (state?.repeat) optimistic({ repeat: state.repeat === "none" ? "list" : state.repeat === "list" ? "track" : "none" });
+      control("repeat");
+    },
+    pin: (appId) => void invoke("media_pin", { appId }),
+    sources: () => invoke<SourceInfo[]>("media_sources").catch(() => []),
   };
 }

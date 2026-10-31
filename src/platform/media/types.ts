@@ -13,6 +13,23 @@ export interface NowPlaying {
   /** Does the source allow seeking? */
   canSeek: boolean;
   updatedAt: number;
+  /** Media app ID of the shown session ("Spotify.exe", "Chrome" …). */
+  appId: string;
+  /** null = the app offers no shuffle (repeat) control. */
+  shuffle: boolean | null;
+  repeat: RepeatMode | null;
+  /** Every media session, one per app. */
+  sources: { appId: string; isPlaying: boolean }[];
+}
+
+export type RepeatMode = "none" | "list" | "track";
+
+/** A session with its track, for the player menu. */
+export interface SourceInfo {
+  appId: string;
+  title: string;
+  artist: string;
+  isPlaying: boolean;
 }
 
 /**
@@ -29,6 +46,13 @@ export interface MediaSource {
   seek(position: number): void;
   /** Brings the playing app (Spotify, the browser …) to the front. false = not found. */
   openSource(): Promise<boolean>;
+  toggleShuffle(): void;
+  /** Off, list, track, off. */
+  cycleRepeat(): void;
+  /** Shows this app whatever else plays; null = automatic. */
+  pin(appId: string | null): void;
+  /** Every session with its track (asked when the player menu opens). */
+  sources(): Promise<SourceInfo[]>;
 }
 
 /** Current playback position, extrapolated from the last state. */

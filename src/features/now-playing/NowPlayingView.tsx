@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useAnimationFrame, useMotionValue, useTransform } from "motion/react";
-import { ArrowUpRight, MusicNoteSimple, Pause, Play, SkipBack, SkipForward } from "@phosphor-icons/react";
+import { ArrowUpRight, MicrophoneStage, MusicNoteSimple, Pause, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward } from "@phosphor-icons/react";
 import { artwork as artworkSwap, content, springs } from "../../design/motion";
 import { useSmoothArtwork } from "./artwork";
 import { livePosition, media, useNowPlaying, type NowPlaying } from "../../platform/media";
@@ -9,28 +9,49 @@ import { requestSize } from "../../notch/size";
 import { findTab } from "../../notch/tabs";
 import { MIXER_MAX_ROWS, MIXER_ROW, MixerList, MixerToggle, useMixer } from "./Mixer";
 import { Equalizer } from "./Equalizer";
+import { LYRICS_PANEL, LyricsPanel } from "./LyricsPanel";
+import { SourcePanel, SourceToggle, sourcePanelRows } from "./SourcePanel";
+import { offersSources } from "./sources";
+import { setMusic } from "./music";
+import { settings } from "../../settings/store";
 import { t } from "../../i18n";
+
+type Panel = "mixer" | "sources" | "lyrics" | null;
 
 /*
  * Layout like the expanded Dynamic Island:
  *   [Cover] Title / Artist                   [EQ]     ← click: open the playing app
  *   0:52 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -3:10
- *                   ⏮      ⏯      ⏭               [⌄]
- *   (mixer list, the notch grows down)
+ *   [Spotify ⇅]     ⇄   ⏮   ⏯   ⏭   ↻          [🎤][⌄]
+ *   (one panel below: player menu, lyrics or mixer; the notch grows down)
+ * The player menu only shows with two or more players, shuffle and repeat only where the app offers them.
  */
 export function NowPlayingView() {
   const np = useNowPlaying();
   const mix = useMixer();
-  const [mixerOpen, setMixerOpen] = useState(false);
+  const music = settings.use().music;
+  // The lyrics stay open from one visit to the next; the other panels close with the notch.
+  const [panel, setPanelState] = useState<Panel>(() => (music.lyricsOpen ? "lyrics" : null));
+  const setPanel = (p: Panel) => {
+    setPanelState(p);
+    if ((p === "lyrics") !== music.lyricsOpen) setMusic({ lyricsOpen: p === "lyrics" });
+  };
+  const toggle = (p: Panel) => setPanel(panel === p ? null : p);
   const source = mix.source?.name;
+  const shown = panel === "sources" && np && !offersSources(np.sources, music.pinned) ? null : panel;
 
-  // The mixer grows the notch by its rows (at most MIXER_MAX_ROWS, then it scrolls).
-  const rows = Math.min(MIXER_MAX_ROWS, (mix.system ? 1 : 0) + Math.max(1, mix.apps.length));
+  // A panel grows the notch by its rows (at most MIXER_MAX_ROWS, then it scrolls).
+  const mixerRows = Math.min(MIXER_MAX_ROWS, (mix.system ? 1 : 0) + Math.max(1, mix.apps.length));
+  const extra = !np ? 0
+    : shown === "mixer" ? mixerRows * MIXER_ROW + 14
+    : shown === "sources" ? sourcePanelRows(np, music.pinned) * MIXER_ROW + 14
+    : shown === "lyrics" ? LYRICS_PANEL
+    : 0;
   useEffect(() => {
-    if (!mixerOpen || !np) return requestSize("media", null);
+    if (!extra) return requestSize("media", null);
     const base = findTab("media")!.size;
-    requestSize("media", { w: base.w, h: base.h + rows * MIXER_ROW + 14 });
-  }, [mixerOpen, rows, !!np]);
+    requestSize("media", { w: base.w, h: base.h + extra });
+  }, [extra]);
   useEffect(() => () => requestSize("media", null), []);
 
   if (!np) return <Empty />;
@@ -62,13 +83,30 @@ export function NowPlayingView() {
       </div>
       <Progress np={np} />
       <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <div />
-        <Controls playing={np.isPlaying} />
-        <div className="flex min-w-0 justify-end">
-          <MixerToggle open={mixerOpen} onToggle={() => setMixerOpen((o) => !o)} />
+        <div className="flex min-w-0 justify-start">
+          <SourceToggle np={np} open={shown === "sources"} onToggle={() => toggle("sources")} />
+        </div>
+        <Controls np={np} />
+        <div className="flex min-w-0 items-center justify-end gap-1">
+          <button
+            onClick={() => toggle("lyrics")}
+            aria-pressed={shown === "lyrics"}
+            aria-label={t("Songtext")}
+            title={t("Songtext")}
+            className={`pressable pressable-fill flex size-7 items-center justify-center rounded-full transition-colors duration-150 ${
+              shown === "lyrics" ? "bg-fill-2 text-label" : "text-label-3 hover:text-label-2"
+            }`}
+          >
+            <MicrophoneStage size={14} weight="bold" />
+          </button>
+          <MixerToggle open={shown === "mixer"} onToggle={() => toggle("mixer")} />
         </div>
       </div>
-      <AnimatePresence>{mixerOpen && <MixerList key="mixer" data={mix} />}</AnimatePresence>
+      <AnimatePresence mode="popLayout">
+        {shown === "mixer" && <MixerList key="mixer" data={mix} />}
+        {shown === "sources" && <SourcePanel key="sources" np={np} />}
+        {shown === "lyrics" && <LyricsPanel key="lyrics" np={np} />}
+      </AnimatePresence>
     </div>
   );
 }
@@ -217,9 +255,17 @@ function Progress({ np }: { np: NowPlaying }) {
   );
 }
 
-function Controls({ playing }: { playing: boolean }) {
+function Controls({ np }: { np: NowPlaying }) {
+  const playing = np.isPlaying;
+  // Either one offered: both slots stay, so play/pause keeps the centre.
+  const modes = np.shuffle !== null || np.repeat !== null;
   return (
-    <div className="flex items-center justify-center gap-6">
+    <div className={`flex items-center justify-center ${modes ? "gap-4" : "gap-6"}`}>
+      {modes && (
+        <ModeButton label={t("Zufallswiedergabe")} active={!!np.shuffle} offered={np.shuffle !== null} onClick={media.toggleShuffle}>
+          <Shuffle size={16} weight="bold" />
+        </ModeButton>
+      )}
       <IconButton label={t("Zurück")} onClick={media.previous}>
         <SkipBack size={20} weight="fill" />
       </IconButton>
@@ -240,7 +286,36 @@ function Controls({ playing }: { playing: boolean }) {
       <IconButton label={t("Weiter")} onClick={media.next}>
         <SkipForward size={20} weight="fill" />
       </IconButton>
+      {modes && (
+        <ModeButton
+          label={np.repeat === "track" ? t("Titel wiederholen") : np.repeat === "list" ? t("Alle wiederholen") : t("Wiederholen aus")}
+          active={!!np.repeat && np.repeat !== "none"}
+          offered={np.repeat !== null}
+          onClick={media.cycleRepeat}
+        >
+          {np.repeat === "track" ? <RepeatOnce size={16} weight="bold" /> : <Repeat size={16} weight="bold" />}
+        </ModeButton>
+      )}
     </div>
+  );
+}
+
+/** Shuffle or repeat: dim while off, bright with a dot while on, an empty slot where the app has no such control. */
+function ModeButton(props: { label: string; active: boolean; offered: boolean; onClick: () => void; children: React.ReactNode }) {
+  if (!props.offered) return <span className="size-8" aria-hidden />;
+  return (
+    <button
+      aria-label={props.label}
+      aria-pressed={props.active}
+      title={props.label}
+      onClick={props.onClick}
+      className={`pressable pressable-fill relative flex size-8 items-center justify-center rounded-full transition-colors duration-150 ${
+        props.active ? "text-label" : "text-label-3 hover:text-label-2"
+      }`}
+    >
+      {props.children}
+      <span className={`absolute bottom-0.5 size-1 rounded-full bg-label transition-opacity duration-150 ${props.active ? "opacity-100" : "opacity-0"}`} />
+    </button>
   );
 }
 

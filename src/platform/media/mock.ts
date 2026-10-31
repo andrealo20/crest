@@ -16,7 +16,9 @@ function cover(a: string, b: string, c: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-const defaultTracks: Omit<NowPlaying, "isPlaying" | "position" | "updatedAt" | "canSeek">[] = [
+type Track = Omit<NowPlaying, "isPlaying" | "position" | "updatedAt" | "canSeek" | "appId" | "shuffle" | "repeat" | "sources">;
+
+const defaultTracks: Track[] = [
   {
     title: "Midnight City",
     artist: "M83",
@@ -44,10 +46,13 @@ const tracks = showcase ? showcaseTracks : defaultTracks;
 
 export function createMockMedia(): MediaSource {
   let index = 0;
+  // A second, paused player, so the player menu can be designed in the browser.
+  const extra = { appId: "Chrome", title: "Lo-fi beats to study to", artist: "Lofi Girl", isPlaying: false };
+  const session = { appId: "Spotify.exe", shuffle: false, repeat: "none" as const, sources: [{ appId: "Spotify.exe", isPlaying: true }, extra] };
   // Showcase starts paused, so the video can open on an idle notch.
   let state: NowPlaying = showcase
-    ? { ...tracks[0], isPlaying: false, position: showcaseStartPosition, canSeek: true, updatedAt: performance.now() }
-    : { ...tracks[0], isPlaying: true, position: 42, canSeek: true, updatedAt: performance.now() };
+    ? { ...tracks[0], ...session, isPlaying: false, position: showcaseStartPosition, canSeek: true, updatedAt: performance.now() }
+    : { ...tracks[0], ...session, isPlaying: true, position: 42, canSeek: true, updatedAt: performance.now() };
   const listeners = new Set<() => void>();
 
   const set = (patch: Partial<NowPlaying>) => {
@@ -79,5 +84,10 @@ export function createMockMedia(): MediaSource {
       console.info("[media] would bring the source app to the front");
       return Promise.resolve(true);
     },
+    toggleShuffle: () => set({ shuffle: !state.shuffle }),
+    cycleRepeat: () => set({ repeat: state.repeat === "none" ? "list" : state.repeat === "list" ? "track" : "none" }),
+    pin: (appId) => console.info("[media] pinned", appId),
+    sources: () =>
+      Promise.resolve([{ appId: "Spotify.exe", title: state.title, artist: state.artist, isPlaying: state.isPlaying }, extra]),
   };
 }

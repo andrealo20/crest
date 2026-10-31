@@ -62,6 +62,11 @@ export interface Settings {
   presentation: { manual: boolean; auto: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
+  /**
+   * Music: the lyrics panel in Now Playing is open; the Song title part shows the current lyric line; the closed notch
+   * shows only cover and line while synced lyrics play; the player shown whatever else plays (media app ID, null = automatic).
+   */
+  music: { lyricsOpen: boolean; titleLyrics: boolean; notchLyrics: boolean; pinned: string | null };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -111,6 +116,7 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
+  music: { lyricsOpen: false, titleLyrics: false, notchLyrics: false, pinned: null },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -168,6 +174,7 @@ settings.set((s) => {
     units: { ...defaults.units, ...s.units },
     presentation: { ...defaults.presentation, ...s.presentation },
     updates: { ...defaults.updates, ...s.updates },
+    music: { ...defaults.music, ...s.music },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
   };
