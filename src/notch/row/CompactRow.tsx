@@ -16,7 +16,7 @@ import { rowVisible } from "./visibility";
 import { fontEpoch, measureText } from "./measure";
 import { Carousel } from "./Carousel";
 import { Marquee } from "./Marquee";
-import { RING, RING_GAP, Ring, ringProviders } from "./parts/Rings";
+import { RING, RING_GAP, Ring, ringProviders, ringValue } from "./parts/Rings";
 import { READING_GAP, ReadingView, readingWidth, useReadings } from "./parts/Readings";
 import { Clock, clockWidth } from "./parts/Clock";
 import { TimerPart, timerWidth } from "./parts/TimerPart";
@@ -42,7 +42,7 @@ function useHeld(on: boolean, ms: number): boolean {
  * neighbour. Reports its content width; the shape is that plus its insets. Mounted only while the row is on screen
  * (closed or peeking, not the line, not focus, not hidden for fullscreen), so its audio, timers and polling stop with it.
  */
-export function CompactRow({ style, onWidth }: { style: "notch" | "capsule"; onWidth: (content: number) => void }) {
+export function CompactRow({ style, covered, onWidth }: { style: "notch" | "capsule"; covered: boolean; onWidth: (content: number) => void }) {
   useEffect(() => {
     rowVisible.set(++mounted > 0);
     return () => rowVisible.set(--mounted > 0);
@@ -75,7 +75,7 @@ export function CompactRow({ style, onWidth }: { style: "notch" | "capsule"; onW
     } else if (id === "rings" && rings.length) {
       parts.push({
         item: { id, kind: "carousel", items: rings.map(() => RING), gap: RING_GAP },
-        draw: (p) => <Carousel items={rings.map((r) => <Ring key={r.id} provider={r} />)} gap={RING_GAP} window={p.window!} width={p.width} paused={hovered} />,
+        draw: (p) => <Carousel items={rings.map((r) => <Ring key={r.id} id={r.id} value={ringValue(r)} />)} gap={RING_GAP} window={p.window!} width={p.width} paused={hovered} />,
       });
     } else if (id === "readings" && readings.length) {
       // useReadings already leaves the part out when it is off and gaming is not forcing it on.
@@ -101,7 +101,8 @@ export function CompactRow({ style, onWidth }: { style: "notch" | "capsule"; onW
       className="absolute top-0 left-1/2 h-[30px]"
       style={{ width, marginLeft: -width / 2 }}
       initial={{ opacity: 0, filter: "blur(4px)" }}
-      animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
+      // Under a notice the row only fades out: it stays mounted, so its cycles and polling go on.
+      animate={covered ? { opacity: 0, filter: "blur(4px)", transition: content.exit } : { opacity: 1, filter: "blur(0px)", transition: content.enter }}
       exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}

@@ -2,13 +2,14 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "re
 import { AnimatePresence, animate, frame, motion, useMotionValue, type MotionValue, type Transition } from "motion/react";
 import { GearSix, PushPin, Selection } from "@phosphor-icons/react";
 import { content, springs } from "../design/motion";
-import { useNowPlaying } from "../platform/media";
+import { livePosition, useNowPlaying } from "../platform/media";
 import { isNative, keyboardFocus, onNativeBlur, onNativeHover, onShortcut, onTrayOpen, setHitRect, setMemoryLow } from "../platform/native";
 import { PrivacyDots } from "../features/privacy/PrivacyDots";
 import { FOCUS_CLICKS, focusMode, setFocusMode } from "./focus";
 import { useDragToMove, windowY } from "./drag";
 import { useLiveActivity } from "./live";
 import { CompactRow } from "./row/CompactRow";
+import { NoticeLayer } from "./row/NoticeLayer";
 import { fullscreen } from "../features/system/gaming";
 import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, geometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
 import { hasBridge, panelTop, windowYFor } from "./capsule";
@@ -25,7 +26,7 @@ import { update } from "../lib/update";
 import { findTab, settingsTab, tabs, type NotchTab } from "./tabs";
 import { holdOpen, pinned, togglePin, useNotchState, type NotchStatus } from "./useNotchState";
 import { t } from "../i18n";
-import { timer } from "../features/timer/store";
+import { timer, useSecondTick } from "../features/timer/store";
 
 /** If the notch was closed at most this long, it reopens on the last used tool. */
 const RESUME_MS = 60_000;
@@ -40,7 +41,7 @@ export function Notch() {
   // Focus mode as a line: no live activity, no dots, only the thin strip at the edge.
   const line = focus && displaySettings.focusStyle === "line";
   // Line as the normal closed look: hover and click work as usual, but nothing shows
-  // while closed. Only a finished timer opens it into the notch, until dismissed.
+  // while closed but the song's progress. Only a finished timer opens it into the notch (its notice), until dismissed.
   const timerDone = timer.use().finished;
   const idleLine = !focus && displaySettings.idleStyle === "line";
   const alert = idleLine && timerDone;
@@ -84,7 +85,11 @@ export function Notch() {
   const showRow = status !== "open" && !line && !idleLine && !focus && !hiddenForFullscreen;
   // Content width of the closed row, as it last reported it (kept while open, so closing goes straight to it).
   const [rowWidth, setRowWidth] = useState(0);
-  const closedW = surfaceWidth(surface, showRow || status === "open" ? rowWidth : 0);
+  // Notices cover the row, and on the idle line the finished timer's; while one shows the shape takes its width.
+  const showNotices = status !== "open" && (showRow || alert);
+  const [noticeWidth, setNoticeWidth] = useState<number | null>(null);
+  const notice = showNotices ? noticeWidth : null;
+  const closedW = surfaceWidth(surface, notice ?? (showRow || status === "open" ? rowWidth : 0));
   const drag = useDragToMove(status, closedGeometry(surface, closedW));
 
   // Natively the window sits at windowY and the capsule drag.y below the monitor's top; in the browser the
@@ -197,7 +202,9 @@ export function Notch() {
         onClick={onClick}
       >
         <NotchShape geometry={shape} transition={transition} elevated={status === "open"}>
-          <AnimatePresence>{showRow && <CompactRow key="row" style={surface} onWidth={setRowWidth} />}</AnimatePresence>
+          <AnimatePresence>{showRow && <CompactRow key="row" style={surface} covered={notice !== null} onWidth={setRowWidth} />}</AnimatePresence>
+          <AnimatePresence>{showNotices && <NoticeLayer key="notices" onWidth={setNoticeWidth} />}</AnimatePresence>
+          {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress />}
           {/* Closed, the dots are the row's last part; open or dimmed for focus there is no row, so they stand on their own. */}
           {(status === "open" || focus) && !line && !idleLine && <PrivacyDots />}
 
@@ -234,6 +241,17 @@ export function Notch() {
       </motion.div>
     </div>
   );
+}
+
+/** The song's progress along the idle line, as tall as the line: moved once a second with a 1 s linear transition, only while playing. */
+function LineProgress() {
+  const on = settings.use().closed.lineProgress;
+  const np = useNowPlaying();
+  const playing = on && !!np?.isPlaying && np.duration > 0;
+  useSecondTick(playing);
+  if (!playing || !np) return null;
+  const f = Math.min(1, Math.max(0, livePosition(np) / np.duration));
+  return <span aria-hidden className="absolute inset-0 origin-left bg-accent" style={{ transform: `scaleX(${f})`, transition: "transform 1s linear" }} />;
 }
 
 /** Header: tool title on the left, actions + pin on the right. The middle (camera) stays free. */
