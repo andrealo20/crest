@@ -899,5 +899,18 @@
  "Schließen-Verzögerung": "Close delay",
  "Wie lange die Notch offen bleibt, nachdem der Zeiger sie verlassen hat": "How long the notch stays open after the pointer leaves it",
  "Öffnet und schließt die Notch von überall; ändern unter Fenster": "Opens and closes the notch from anywhere; change it under Window",
- "Strg+Alt ist auf vielen Tastaturen AltGr und tippt dann z. B. @ oder €; besser Umschalt oder Win dazunehmen": "Ctrl+Alt is AltGr on many keyboards, where it types characters such as @ or €; add Shift or Win"
+ "Strg+Alt ist auf vielen Tastaturen AltGr und tippt dann z. B. @ oder €; besser Umschalt oder Win dazunehmen": "Ctrl+Alt is AltGr on many keyboards, where it types characters such as @ or €; add Shift or Win",
+ "Bildschirmrand": "Screen edge",
+ "Geschlossen auch an einen anderen Rand ziehen": "Or drag it closed to another edge",
+ "Rand oben": "Top",
+ "Rand unten": "Bottom",
+ "Rand links": "Left",
+ "Rand rechts": "Right",
+ "Hängt an": "Hangs from",
+ "Über der Taskleiste verdeckt die Notch einen Teil davon": "Over the taskbar the notch covers part of it",
+ "Bildschirmkante": "Screen edge",
+ "Taskleiste": "Taskbar",
+ "Portable Kopie": "Portable copy",
+ "Daten liegen im Ordner data neben Crest.exe": "Data is kept in the data folder next to Crest.exe",
+ "Der Ordner ist schreibgeschützt: Daten liegen im Benutzerprofil, Updates öffnen die Downloadseite": "The folder is read-only: data is kept in your user profile and updates open the download page"
 }

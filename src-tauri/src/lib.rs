@@ -18,6 +18,7 @@ mod memory;
 mod mixer;
 mod notices;
 mod notify_wire;
+pub mod portable;
 mod privacy;
 mod screen_policy;
 pub mod secrets;
@@ -173,10 +174,13 @@ pub fn run() {
             notices::notices_configure,
             notices::notices_status,
             notices::notices_request_access,
+            portable::portable_info,
+            portable::portable_check,
+            portable::portable_install,
         ])
         .setup(move |app| {
             shell::init(app);
-            let window = app.get_webview_window("notch").expect("window 'notch' missing");
+            let window = portable::create_window(app)?;
             display::place(&window, &app.state::<display::DisplayState>())?;
             window.show()?;
             // Only after show(): this fails on a window that was never shown.
@@ -234,7 +238,11 @@ fn autostart_set(enabled: bool, app: AppHandle) -> Result<(), String> {
 
 /// Enables autostart on the very first launch; after that the tray check and settings decide.
 fn enable_autostart_once(app: &AppHandle) {
-    let Ok(dir) = app.path().app_data_dir() else { return };
+    // A portable copy writes nothing outside its folder unless asked to (tray or settings).
+    if portable::is_portable() {
+        return;
+    }
+    let Ok(dir) = crate::portable::app_data_dir(app) else { return };
     let marker = dir.join("autostart-initialized");
     if marker.exists() {
         return;

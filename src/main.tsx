@@ -8,7 +8,7 @@ import { isNative } from "./platform/native";
 import { startDropListener } from "./platform/drop";
 import { clipboard } from "./platform/clipboard";
 import { settings } from "./settings/store";
-import { applyDisplay, windowY } from "./notch/drag";
+import { applyDisplay, placementKey } from "./notch/drag";
 import { focusMode, startFocusMode } from "./notch/focus";
 import { monitor, reloadMonitor, startMonitorWatch } from "./notch/monitor";
 import { startSystemPolling } from "./features/system/store";
@@ -55,7 +55,7 @@ let lastScale = 100;
 const syncDisplay = () => {
   const { display, gaming, behavior } = settings.get();
   const rules = JSON.stringify([behavior.rules, behavior.apps, behavior.scale]);
-  const key = `${rules}|${display.monitor}|${display.offset}|${windowY()}|${gaming.mode}`;
+  const key = `${rules}|${display.monitor}|${display.offset}|${placementKey()}|${gaming.mode}`;
   if (key === lastDisplay) return;
   lastDisplay = key;
   applyDisplay();

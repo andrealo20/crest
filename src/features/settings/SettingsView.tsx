@@ -55,6 +55,8 @@ import { keycaps } from "../window/hotkeys";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
+import { EdgeSettings } from "../../notch/EdgeSettings";
+import { PortableNote } from "../portable/PortableNote";
 import { between, changelog, itemText, markSeen, useUnseen } from "../../lib/changelog";
 import { privacy, togglePresentation, usePresenting } from "../privacy/store";
 import { locale, t, tBackend } from "../../i18n";
@@ -237,6 +239,7 @@ function Updates() {
           {t("Jetzt suchen")}
         </Button>
       </Row>
+      <PortableNote />
       <AnimatePresence initial={false}>
         {(u.phase === "available" || u.phase === "downloading") && u.version && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={fade} className="overflow-hidden">
@@ -516,6 +519,7 @@ function Display() {
           />
         </Row>
       )}
+      <EdgeSettings />
       {(d.offset !== 0 || d.y !== 5) && (
         <Row label={t("Position")} hint={t("Notch an der Kopfzeile oder geschlossen ziehen, um sie zu verschieben")}>
           <Button onClick={() => updateSettings((cur) => ({ display: { ...cur.display, offset: 0, y: 5 } }))}>

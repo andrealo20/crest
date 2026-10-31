@@ -16,7 +16,14 @@ pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, app: AppHandle) -
         return window.show().map_err(|e| e.to_string());
     }
     let config = app.config().app.windows.iter().find(|w| w.label == LABEL).cloned().ok_or("Timer window missing in config")?;
-    let window = WebviewWindowBuilder::from_config(&app, &config).and_then(|b| b.build()).map_err(|e| e.to_string())?;
+    // A portable copy gives this window the notch's WebView2 folder too (portable.rs).
+    let window = WebviewWindowBuilder::from_config(&app, &config)
+        .map(|b| match crate::portable::data_dir() {
+            Some(dir) => b.data_directory(dir),
+            None => b,
+        })
+        .and_then(|b| b.build())
+        .map_err(|e| e.to_string())?;
 
     let saved = x.zip(y).filter(|&(x, y)| on_screen(&window, x, y));
     if let Some((x, y)) = saved.or_else(|| default_spot(&window)) {

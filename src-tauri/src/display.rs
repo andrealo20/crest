@@ -10,8 +10,9 @@
 //! The hide hotkey (shell.rs) hides Crest on top of that until it is pressed again, the notch is
 //! opened from the tray, or "raise now" runs.
 //!
-//! `offset` moves the notch sideways (dragging), clamped to the monitor. `zoom` is the panel scale:
+//! `offset` moves the notch along its edge (dragging), clamped to the monitor. `zoom` is the panel scale:
 //! the page is zoomed and the window grown by it, so CSS px times DPI times zoom are device pixels.
+//! `edge` and `line` put the window on another screen edge (bottom, left, right).
 
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Mutex;
@@ -37,9 +38,6 @@ use crate::hit_test::HitState;
 use crate::screen_policy::{self, Behavior, Context, Rules};
 
 const POLL: Duration = Duration::from_millis(400);
-/// The window's size at 100 % (tauri.conf.json).
-const WINDOW_W: f64 = 760.0;
-const WINDOW_H: f64 = 560.0;
 
 #[derive(Default)]
 pub struct DisplayState {
@@ -74,6 +72,12 @@ pub struct Config {
     /// Panel scale: 1.0 or 1.5.
     #[serde(default = "one")]
     zoom: f64,
+    /// Screen edge the window hangs from: "top" (default), "bottom", "left" or "right" (src/notch/edge.ts).
+    #[serde(default)]
+    edge: String,
+    /// Where that edge's frame starts, CSS px from the monitor's top (bottom) or left (left, right). On top `y` is used.
+    #[serde(default)]
+    line: f64,
 }
 
 fn one() -> f64 {
@@ -82,7 +86,7 @@ fn one() -> f64 {
 
 impl Default for Config {
     fn default() -> Self {
-        Config { monitor: None, offset: 0.0, y: 0.0, gaming: false, rules: Rules::default(), zoom: 1.0 }
+        Config { monitor: None, offset: 0.0, y: 0.0, gaming: false, rules: Rules::default(), zoom: 1.0, edge: String::new(), line: 0.0 }
     }
 }
 
@@ -95,6 +99,11 @@ fn fit_zoom(z: f64) -> f64 {
     }
 }
 
+/// The window's logical size at 100 %: as on top (tauri.conf.json), and on a side edge as deep as long so the widest panel fits across.
+const ALONG: f64 = 760.0;
+const DEPTH: f64 = 560.0;
+const SIDE_DEPTH: f64 = 760.0;
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MonitorInfo {
@@ -105,6 +114,9 @@ pub struct MonitorInfo {
     /// Work area (without taskbar) in CSS px: top below the monitor's top edge, and height.
     work_top: f64,
     work_height: f64,
+    /// The work area's left edge from the monitor's left, and its width (a taskbar on the left or right), in CSS px.
+    work_left: f64,
+    work_width: f64,
 }
 
 #[tauri::command]
@@ -125,6 +137,8 @@ pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -
                 height: (m.size().height as f64 / scale) as u32,
                 work_top: (wa.position.y - m.position().y) as f64 / scale,
                 work_height: wa.size.height as f64 / scale,
+                work_left: (wa.position.x - m.position().x) as f64 / scale,
+                work_width: wa.size.width as f64 / scale,
                 name,
             }
         })
@@ -136,13 +150,16 @@ pub fn display_apply(mut config: Config, window: WebviewWindow, state: State<'_,
     config.zoom = fit_zoom(config.zoom);
     let (moved, zoomed) = {
         let cur = state.config.lock().unwrap();
-        (cur.monitor != config.monitor || cur.offset != config.offset || cur.y != config.y, cur.zoom != config.zoom)
+        (
+            cur.monitor != config.monitor || cur.offset != config.offset || cur.y != config.y || cur.edge != config.edge || cur.line != config.line,
+            cur.zoom != config.zoom,
+        )
     };
     let zoom = config.zoom;
     *state.config.lock().unwrap() = config;
+    // The window's size follows the edge and the zoom in `place`.
     if zoomed {
         let _ = window.set_zoom(zoom);
-        let _ = window.set_size(LogicalSize::new(WINDOW_W * zoom, WINDOW_H * zoom));
         hit.set_zoom(zoom);
     }
     if moved || zoomed {
@@ -232,11 +249,13 @@ fn sync(app: &AppHandle) {
 }
 
 /// Centered on the chosen monitor (primary otherwise), `y` CSS px below its top edge (clamped to the monitor).
+/// Off the top edge the window's own edge goes on `line`, centred along that edge, and on a side edge it is as deep as long.
 pub fn place(window: &WebviewWindow, state: &DisplayState) -> tauri::Result<()> {
-    let (wanted, offset, y, zoom) = {
+    let (wanted, offset, y, zoom, edge, line) = {
         let c = state.config.lock().unwrap();
-        (c.monitor.clone(), c.offset, c.y, c.zoom)
+        (c.monitor.clone(), c.offset, c.y, c.zoom, c.edge.clone(), c.line)
     };
+    let side = edge == "left" || edge == "right";
     let monitors = window.available_monitors()?;
     let monitor = wanted
         .and_then(|name| monitors.into_iter().find(|m| m.name() == Some(&name)))
@@ -245,15 +264,34 @@ pub fn place(window: &WebviewWindow, state: &DisplayState) -> tauri::Result<()> 
     // Set twice: when moving to a monitor with different scaling, the window size
     // only updates after the first move.
     for _ in 0..2 {
-        let size = window.outer_size()?;
-        let factor = monitor.scale_factor() * zoom;
-        let free = (monitor.size().width as i32 - size.width as i32).max(0);
-        let shift = ((offset * factor) as i32).clamp(-free / 2, free / 2);
-        let x = monitor.position().x + free / 2 + shift;
-        let top = ((y * factor) as i32).clamp(0, (monitor.size().height as i32 - size.height as i32).max(0));
-        window.set_position(PhysicalPosition::new(x, monitor.position().y + top))?;
+        let mut size = window.outer_size()?;
+        // Only resized when the orientation or the zoom changes, so the top edge at 100 % keeps its window as it was.
+        let (lw, lh) = (if side { SIDE_DEPTH } else { ALONG } * zoom, if side { ALONG } else { DEPTH } * zoom);
+        let dpi = window.scale_factor()?;
+        if (size.width as f64 - lw * dpi).abs() > 2.0 || (size.height as f64 - lh * dpi).abs() > 2.0 {
+            window.set_size(LogicalSize::new(lw, lh))?;
+            size = window.outer_size()?;
+        }
+        let scale = monitor.scale_factor() * zoom;
+        let (mw, mh) = (monitor.size().width as i32, monitor.size().height as i32);
+        let (w, h) = (size.width as i32, size.height as i32);
+        let free_x = (mw - w).max(0);
+        let free_y = (mh - h).max(0);
+        let line = (line * scale) as i32;
+        let (x, top) = match edge.as_str() {
+            "bottom" => (free_x / 2 + shift(offset, scale, free_x), (line - h).clamp(0, free_y)),
+            "left" => (line.clamp(0, free_x), free_y / 2 + shift(offset, scale, free_y)),
+            "right" => ((line - w).clamp(0, free_x), free_y / 2 + shift(offset, scale, free_y)),
+            _ => (free_x / 2 + shift(offset, scale, free_x), ((y * scale) as i32).clamp(0, free_y)),
+        };
+        window.set_position(PhysicalPosition::new(monitor.position().x + x, monitor.position().y + top))?;
     }
     Ok(())
+}
+
+/// The offset along the edge in physical px, kept within the monitor.
+fn shift(offset: f64, scale: f64, free: i32) -> i32 {
+    ((offset * scale) as i32).clamp(-free / 2, free / 2)
 }
 
 pub fn spawn(app: AppHandle, window: WebviewWindow) {

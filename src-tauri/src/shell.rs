@@ -6,7 +6,7 @@
 //! means another program holds the combination.
 //!
 //! Crash log: panics and uncaught frontend errors are appended to crash.log in the app's log folder
-//! (%LOCALAPPDATA%\io.github.andrealo20.crest\logs), rolled to crash.old.log past 512 KB.
+//! (%LOCALAPPDATA%\io.github.andrealo20.crest\logs, or data\logs in a portable copy), rolled to crash.old.log past 512 KB.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -158,10 +158,11 @@ pub fn set_tray_open(app: &App, item: MenuItem<Wry>) {
 
 /// At start: credentials copied from the old prefix, crash log, the default open shortcut.
 pub fn init(app: &App) {
-    if let Ok(dir) = app.path().app_data_dir() {
+    if let Ok(dir) = crate::portable::app_data_dir(app.handle()) {
         crate::secrets::migrate_legacy(&dir);
     }
-    if let Ok(dir) = app.path().app_log_dir() {
+    // A portable copy keeps its log in its own folder.
+    if let Some(dir) = crate::portable::data_dir().map(|d| d.join("logs")).or_else(|| app.path().app_log_dir().ok()) {
         install_crash_log(dir);
     }
     // If another app owns the shortcut, Crest still runs, just without it.

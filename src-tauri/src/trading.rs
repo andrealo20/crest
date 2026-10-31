@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 
 use base64::Engine;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 
 use crate::secrets;
 
@@ -220,14 +220,14 @@ fn short_ticker(ticker: &str) -> String {
 }
 
 fn history_path(app: &AppHandle, env: &str) -> Option<PathBuf> {
-    let dir = app.path().app_data_dir().ok()?;
+    let dir = crate::portable::app_data_dir(app).ok()?;
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir.join(format!("trading-history-{env}.json")))
 }
 
 /// Adds an intraday point (at most every 2 min, otherwise the last one is replaced).
 fn record_point(app: &AppHandle, env: &str, today: &str, point: Point) -> Vec<Point> {
-    let Some(path) = app.path().app_data_dir().ok().map(|d| d.join(format!("trading-intraday-{env}.json"))) else { return vec![point] };
+    let Some(path) = crate::portable::app_data_dir(app).ok().map(|d| d.join(format!("trading-intraday-{env}.json"))) else { return vec![point] };
     let mut day: Intraday = std::fs::read(&path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
     if day.date != today {
         day = Intraday { date: today.to_string(), points: vec![] };

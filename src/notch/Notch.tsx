@@ -6,16 +6,19 @@ import { livePosition, useNowPlaying } from "../platform/media";
 import { isNative, keyboardFocus, onNativeBlur, onNativeHover, onShortcut, onTrayOpen, setHitRect, setMemoryLow } from "../platform/native";
 import { PrivacyDots } from "../features/privacy/PrivacyDots";
 import { FOCUS_CLICKS, focusMode, setFocusMode } from "./focus";
-import { useDragToMove, windowY } from "./drag";
+import { edgeOf, useDragToMove, viewLine, windowY } from "./drag";
 import { useLiveActivity } from "./live";
 import { CompactRow } from "./row/CompactRow";
+import { CompactColumn } from "./row/CompactColumn";
 import { NoticeLayer } from "./row/NoticeLayer";
 import { statusAlert } from "../features/status/store";
 import { effectiveIdleStyle, screen } from "../features/window/store";
 import { ResizeHandles, stepToolSize, useToolSize, wheelTaken } from "../features/window/panel";
 import { cycle } from "../features/window/model";
 import { windowShell } from "../platform/services";
-import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, geometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
+import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, geometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
+import { WINDOW, across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
+import { columnSurface } from "./column";
 import { hasBridge, panelTop, windowYFor } from "./capsule";
 import { monitor, monitorMetrics } from "./monitor";
 import { surfaceWidth } from "./row/layout";
@@ -102,11 +105,21 @@ export function Notch() {
   // Content width of the closed row, as it last reported it (kept while open, so closing goes straight to it).
   const [rowWidth, setRowWidth] = useState(0);
   // Notices cover the row; on the idle line and in dimmed focus mode only urgent ones show (timer, reminder, and on the line a status alert). While one shows the shape takes its width.
-  const showNotices = status !== "open" && (showRow || alert || (urgent && !line && !hiddenForFullscreen));
+  // The capsule snaps with its closed shape, read when a drag moves (closedW is set below).
+  const drag = useDragToMove(status, () => closedGeometry(surface, closedW));
+  // The edge it hangs from (the capsule floats on the top frame); on a side edge the row stands as a column, which shows notices as an icon line.
+  const edge = edgeOf(style, drag.dock);
+  const side = across(edge);
+  const noticeTime = status !== "open" && (showRow || alert || (urgent && !line && !hiddenForFullscreen));
+  const showNotices = !side && noticeTime;
+  // On the idle line or dimmed, only an urgent notice brings the column up: its icon alone, so the shape always has something to click.
+  const showColumn = side && noticeTime;
   const [noticeWidth, setNoticeWidth] = useState<number | null>(null);
   const notice = showNotices ? noticeWidth : null;
   const closedW = surfaceWidth(surface, notice ?? (showRow || status === "open" ? rowWidth : 0));
-  const drag = useDragToMove(status, closedGeometry(surface, closedW));
+  const [column, setColumn] = useState({ length: 0, width: 0 });
+  const columnShows = showColumn || status === "open";
+  const sideSize = side ? columnSurface(columnShows ? column.length : 0, columnShows ? column.width : 0) : null;
 
   // Natively the window sits at windowY and the capsule drag.y below the monitor's top; in the browser the
   // viewport stands in for the monitor and the window is only imagined, so the same rules place the panel.
@@ -124,9 +137,10 @@ export function Notch() {
       ? geometry.line
       : lineIdle && status === "peek"
         ? geometry.linePeek
-        : shapeFor(status, surface, closedW, size, !bridged);
+        : shapeFor(status, surface, closedW, size, !bridged, sideSize);
   const tightHit = shape === geometry.line || shape === geometry.linePeek;
-  const sticky = useStickyHitZone(status, size.h);
+  // On a side edge the open panel reaches across the screen as far as the page is wide.
+  const sticky = useStickyHitZone(status, side ? size.w : size.h, edge);
   const transition = useTransitionFor(status, shape);
   const topValue = useSpringTop(top, transition, drag.dragging);
 
@@ -144,7 +158,7 @@ export function Notch() {
     };
   }, [dismiss]);
 
-  useNativeBridge(hitRef, topValue, onPointerEnter, onPointerLeave);
+  useNativeBridge(hitRef, topValue, onPointerEnter, onPointerLeave, edge);
 
   // Focus mode on → notch closes, no more hover.
   useEffect(() => {
@@ -201,9 +215,9 @@ export function Notch() {
         if (status !== "open") {
           open();
           keyboardFocus(true);
-        } else if (!overridden) stepToolSize(tab.id, tab.size, dir);
+        } else if (!overridden && edge === "top") stepToolSize(tab.id, tab.size, dir);
       }),
-    [open, status, tab, overridden],
+    [open, status, tab, overridden, edge],
   );
   useEffect(() => {
     if (status === "closed") keyboardFocus(false);
@@ -231,11 +245,19 @@ export function Notch() {
     return () => window.removeEventListener("keydown", onKey);
   }, [status, visible]);
 
+  // Off the top edge everything below is drawn in the edge's frame (edge.ts): as long as the window along the edge, mapped onto it.
+  const frame = frameCss(edge, isNative ? windowLine(edge) : viewLine(drag.dock));
+  const slide = isNative ? undefined : `translateX(${drag.offset}px)`;
   return (
     <div
       className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center transition-opacity duration-200"
       // In the browser the notch moves inside the window; natively the whole window moves (display.rs).
-      style={{ ["--accent" as string]: accent, opacity: focus && !line ? 0.5 : 1, transform: isNative ? undefined : `translateX(${drag.offset}px)` }}
+      style={{
+        ["--accent" as string]: accent,
+        opacity: focus && !line ? 0.5 : 1,
+        transform: frame ? [frame, slide].filter(Boolean).join(" ") : slide,
+        ...(frame && { right: "auto", width: isNative ? WINDOW.along : side ? window.innerHeight : window.innerWidth, transformOrigin: "0 0" }),
+      }}
     >
       {/* Hit zone: bigger than the visible shape (Fitts) and flush with the top edge, unless the capsule floats. */}
       <motion.div
@@ -255,12 +277,16 @@ export function Notch() {
         onContextMenu={onContextMenu}
         onWheel={onWheel}
       >
-        <NotchShape geometry={shape} transition={transition} elevated={status === "open"}>
+        <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge}>
           {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes). */}
           <div data-theme-ink className="contents" style={closedInk}>
-            <AnimatePresence>{showRow && <CompactRow key="row" style={surface} covered={notice !== null} onWidth={setRowWidth} />}</AnimatePresence>
+            <AnimatePresence>
+              {side
+                ? showColumn && <CompactColumn key="column" parts={showRow} onSize={setColumn} />
+                : showRow && <CompactRow key="row" style={surface} covered={notice !== null} onWidth={setRowWidth} />}
+            </AnimatePresence>
             <AnimatePresence>{showNotices && <NoticeLayer key="notices" onWidth={setNoticeWidth} urgentOnly={!showRow} />}</AnimatePresence>
-            {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress />}
+            {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress along={side ? "y" : "x"} />}
           </div>
           {/* Closed, the dots are the row's last part; open or dimmed for focus there is no row, so they stand on their own. */}
           {(status === "open" || focus) && !line && !idleLine && <PrivacyDots />}
@@ -269,8 +295,9 @@ export function Notch() {
             {status === "open" && (
               <motion.div
                 key="open"
-                className="absolute top-0 left-1/2 flex flex-col"
-                style={{ width: size.w, height: size.h, marginLeft: -size.w / 2 }}
+                // Anchored at the edge it hangs from, so it stays put while the shape grows from there.
+                className={`absolute flex flex-col ${PANEL_ANCHOR[edge]}`}
+                style={{ width: size.w, height: size.h, ...(side ? { marginTop: -size.h / 2 } : { marginLeft: -size.w / 2 }) }}
                 // No scale here: scaling re-rasterizes the small dock icons at shifting subpixels every frame, which reads as jitter (issue #3).
                 initial={{ opacity: 0, transform: "translateY(-6px)", filter: "blur(6px)" }}
                 animate={{ opacity: 1, transform: "translateY(0px)", filter: "blur(0px)", transition: content.enter }}
@@ -291,7 +318,8 @@ export function Notch() {
                   </AnimatePresence>
                 </div>
                 <Dock tabs={visible} activeId={tab.id} />
-                {!overridden && <ResizeHandles id={tab.id} def={tab.size} size={size} />}
+                {/* The grips and their sizes assume a panel hanging from the top edge. */}
+                {!overridden && edge === "top" && <ResizeHandles id={tab.id} def={tab.size} size={size} />}
               </motion.div>
             )}
           </AnimatePresence>
@@ -301,15 +329,24 @@ export function Notch() {
   );
 }
 
-/** The song's progress along the idle line, as tall as the line: moved once a second with a 1 s linear transition, only while playing. */
-function LineProgress() {
+/** Where the open panel sits in the upright shape, per edge. */
+const PANEL_ANCHOR: Record<Edge, string> = { top: "top-0 left-1/2", bottom: "bottom-0 left-1/2", left: "left-0 top-1/2", right: "right-0 top-1/2" };
+
+/** The song's progress along the idle line, as thick as the line: moved once a second with a 1 s linear transition, only while playing. `along`: the upright axis the edge runs on. */
+function LineProgress({ along }: { along: "x" | "y" }) {
   const on = settings.use().closed.lineProgress;
   const np = useNowPlaying();
   const playing = on && !!np?.isPlaying && np.duration > 0;
   useSecondTick(playing);
   if (!playing || !np) return null;
   const f = Math.min(1, Math.max(0, livePosition(np) / np.duration));
-  return <span aria-hidden className="absolute inset-0 origin-left bg-accent" style={{ transform: `scaleX(${f})`, transition: "transform 1s linear" }} />;
+  return (
+    <span
+      aria-hidden
+      className={`absolute inset-0 bg-accent ${along === "x" ? "origin-left" : "origin-top"}`}
+      style={{ transform: along === "x" ? `scaleX(${f})` : `scaleY(${f})`, transition: "transform 1s linear" }}
+    />
+  );
 }
 
 /** Header: tool title on the left, actions + pin on the right. The middle (camera) stays free. */
@@ -407,7 +444,7 @@ function DockButton(props: { label: string; icon: NotchTab["icon"]; active: bool
  * once the cursor is back over the shape (or the notch closes).
  * Applies natively too: Rust gets this zone's rectangle.
  */
-function useStickyHitZone(status: NotchStatus, height: number) {
+function useStickyHitZone(status: NotchStatus, height: number, edge: Edge) {
   const [minHeight, setMinHeight] = useState<number | undefined>(undefined);
   const prev = useRef(height);
   useLayoutEffect(() => {
@@ -421,8 +458,8 @@ function useStickyHitZone(status: NotchStatus, height: number) {
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (minHeight === undefined) return;
-    const shapeBottom = e.currentTarget.getBoundingClientRect().top + height;
-    if (e.clientY < shapeBottom) setMinHeight(undefined);
+    // Measured away from the edge it hangs from: on top that is the client y below the zone's top.
+    if (pointerIn(edge, e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY).depth < height) setMinHeight(undefined);
   };
   return { minHeight, onPointerMove };
 }
@@ -430,8 +467,9 @@ function useStickyHitZone(status: NotchStatus, height: number) {
 /** pb-3 of the hit zone. */
 const HIT_PAD_BOTTOM = 12;
 
-/** `w` is the closed width; the hover nudge grows from it, so it also fits the live state. */
-function shapeFor(status: NotchStatus, surface: "notch" | "capsule", w: number, size: { w: number; h: number }, floating: boolean): NotchGeometry {
+/** `w` is the closed width; the hover nudge grows from it, so it also fits the live state. `side`: the column's closed shape on a side edge, where the open page lies across the frame. */
+function shapeFor(status: NotchStatus, surface: "notch" | "capsule", w: number, size: { w: number; h: number }, floating: boolean, side: { w: number; h: number } | null): NotchGeometry {
+  if (side) return status === "open" ? openGeometry(size.h, size.w) : columnGeometry(side.w, side.h, status === "peek");
   if (status === "open") return openGeometry(size.w, size.h, floating);
   return status === "peek" ? peekGeometry(surface, w) : closedGeometry(surface, w);
 }
@@ -525,6 +563,8 @@ function useNativeBridge(
   top: MotionValue<number>,
   onEnter: () => void,
   onLeave: () => void,
+  // Another edge moves the zone by a transform, which the observer doesn't see either: the effect runs again and reports it.
+  edge: Edge,
 ) {
   useEffect(() => {
     const el = hitRef.current;
@@ -561,7 +601,7 @@ function useNativeBridge(
       el.removeEventListener("focusout", onFocusOut);
       if (typing) holdOpen(false);
     };
-  }, [hitRef, top, onEnter, onLeave]);
+  }, [hitRef, top, onEnter, onLeave, edge]);
 }
 
 function isInteractive(el: EventTarget | null): boolean {
