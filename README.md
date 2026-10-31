@@ -47,6 +47,10 @@ Notch and capsule show a row of parts, centred and in the order you choose: cove
 
 Short notices appear over the row: a finished timer stays until you dismiss it, a quota alert at 70% and 90% shows for 5 seconds (it needs the AI quota rings turned on), and a new song for 4 seconds.
 
+### Live notices
+
+Turn on **Settings → Notices** and Windows notifications from any app show in the closed notch for 6 seconds, with the app's logo, name, title and text, and land on a **Notices** page in the open notch. Each app can be shown, muted (history only) or turned off; presentation mode and an optional daily quiet window keep them in the history without popping up. Scripts, builds and coding agents can send their own notices with `crest-notify`, including `crest-notify run -- <command>` for the exit code and duration. Details, ready-made hooks for Claude Code and Codex, and how notifications are read: [docs/notices.md](docs/notices.md).
+
 ### Windows and system
 
 - **Overview** is a small control center: time, weather, what is playing right now, Windows focus and a volume slider.
@@ -110,7 +114,7 @@ The installer is not code-signed yet, so Windows SmartScreen may warn on first l
 
 ## Settings
 
-Settings are grouped into General, Display, Tools, Timer, AI and Connections. There you can reorder (drag) or hide tools, pick the monitor, hide the notch automatically during fullscreen apps, and enable autostart. The interface is in English.
+Settings are grouped into General, Display, Tools, Timer, AI, Connections and Notices. There you can reorder (drag) or hide tools, pick the monitor, hide the notch automatically during fullscreen apps, and enable autostart. The interface is in English.
 
 ### Setting up the integrations
 
@@ -138,6 +142,7 @@ Crest has no account, no server of its own, no analytics and no tracking. Everyt
 - **Keys and secrets** are stored in the Windows Credential Manager, never in a plain file, and they are never sent back to the interface.
 - **The vault** lives in one file encrypted with Windows DPAPI, readable only under your Windows account. The PIN is checked in the app's backend, not in the interface, and 2FA keys never leave the backend. With Windows Hello turned on, secrets are additionally sealed with AES-256-GCM under a TPM-backed Windows Hello key.
 - **Integrations talk directly to their own service** and nowhere else: Ask to the AI provider you chose, Portfolio to Trading 212, Discord to the Discord app on your PC (and discord.com for the sign-in), AI usage to the provider you are signed in to, Weather to Open-Meteo (plus an IP-based city lookup unless you picked a city). If you don't set an integration up, it makes no requests.
+- **Live notices** (off by default) read other apps' Windows notifications through Windows' own notification listener, after you allow it. Crest learns that one arrived from Windows' push notification event log for your account, reads only that notification, and never changes, dismisses or opens anything. The history is kept in memory only and is gone when Crest quits. `crest-notify` talks to Crest over a named pipe that only your Windows account can open and that refuses connections from other computers.
 - **Updates.** Once a day the app makes a single anonymous request to this repository's public release page to check for a new version. No personal data is sent. If an update exists, a dot appears on the gear icon and **Settings → General → Updates** shows it. Nothing is downloaded until you click **Update now**; the app then installs the update and restarts. Every update is cryptographically signed and verified before it is installed. You can turn the daily check off in the same place.
 
 ## Development
@@ -182,6 +187,7 @@ The workflow builds the signed installer and publishes release `v0.2.0` with the
 src/            React frontend: notch shape, tools, design tokens, i18n
 src-tauri/      Rust backend: window, hit testing, tray and the Windows APIs
 scripts/        Helper scripts such as the version bump and the i18n check
+docs/           Longer guides, such as live notices and crest-notify
 ```
 
 ## License and credits
@@ -191,6 +197,6 @@ scripts/        Helper scripts such as the version bump and the i18n check
 Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) by Linux5Real, forked from version 1.6.0 on 31 October 2026. The commit history lists every change since then.
 
 - The Antigravity quota reader comes from an upstream pull request by [Fraustiz](https://github.com/Linux5Real/L4-Windows-NotchBar/pull/11).
-- The layout of the collapsed row, the carousel timing and the capsule placement rules are translated from [BrimDeck](https://github.com/MoFeng2223/BrimDeck) (Apache-2.0, license text in [licenses/BrimDeck-LICENSE](licenses/BrimDeck-LICENSE)).
+- The layout of the collapsed row, the carousel timing, the capsule placement rules and the way live notices learn of new Windows notifications from the event log are translated from [BrimDeck](https://github.com/MoFeng2223/BrimDeck) (Apache-2.0, license text in [licenses/BrimDeck-LICENSE](licenses/BrimDeck-LICENSE)).
 - The notch proportions were derived from [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT).
 - The design follows Apple's Dynamic Island and the macOS app OmniNotch. Crest is not affiliated with Apple or OmniNotch.
