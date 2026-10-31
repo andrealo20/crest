@@ -139,12 +139,12 @@ pub fn clipboard_mode(mode: &str, app: AppHandle, state: State<'_, ClipboardStat
 pub fn clipboard_copy(id: u64, app: AppHandle, state: State<'_, ClipboardState>) -> Result<(), String> {
     {
         let mut entries = state.entries.lock().unwrap();
-        let index = entries.iter().position(|e| e.id == id).ok_or("Eintrag nicht gefunden")?;
+        let index = entries.iter().position(|e| e.id == id).ok_or("Entry not found")?;
         let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
         match &entries[index].content {
             Content::Text(t) => clipboard.set_text(t.clone()),
             Content::Image(img) => {
-                let rgba = img.rgba().ok_or("Bild unlesbar")?;
+                let rgba = img.rgba().ok_or("Cannot read image")?;
                 clipboard.set_image(ImageData { width: img.width as usize, height: img.height as usize, bytes: rgba.into_raw().into() })
             }
             Content::Files(files) => clipboard.set().file_list(files),
@@ -229,10 +229,10 @@ pub async fn clipboard_paste_files() -> Result<Vec<String>, String> {
             }
         }
         let Ok(img) = clipboard.get_image() else { return Ok(vec![]) };
-        let rgba = image::RgbaImage::from_raw(img.width as u32, img.height as u32, img.bytes.into_owned()).ok_or("Bild unlesbar")?;
+        let rgba = image::RgbaImage::from_raw(img.width as u32, img.height as u32, img.bytes.into_owned()).ok_or("Cannot read image")?;
         let dir = pictures_dir().join("Crest");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let path = dir.join(format!("Eingefügt {}.png", local_stamp()));
+        let path = dir.join(format!("Pasted {}.png", local_stamp()));
         rgba.save(&path).map_err(|e| e.to_string())?;
         Ok(vec![path.display().to_string()])
     })

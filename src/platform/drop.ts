@@ -28,7 +28,7 @@ export function takeDropped(): string[] | null {
 export async function pasteFiles(): Promise<boolean> {
   const paths = isNative
     ? await invoke<string[]>("clipboard_paste_files").catch(() => [])
-    : [`C:\\Users\\Demo\\Pictures\\Crest\\Eingefügt ${new Date().toLocaleTimeString("de-DE").replaceAll(":", "-")}.png`];
+    : [`C:\\Users\\Demo\\Pictures\\Crest\\Pasted ${new Date().toLocaleTimeString("en-GB").replaceAll(":", "-")}.png`];
   if (paths.length === 0) return false;
   drop.set({ dragging: false, dropped: paths });
   return true;

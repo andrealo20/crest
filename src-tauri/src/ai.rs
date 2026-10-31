@@ -163,7 +163,7 @@ pub async fn stream_chat(
             }
             let Ok(event) = serde_json::from_str::<Value>(data) else { continue };
             if let Some(err) = event.get("error") {
-                return Err(err["message"].as_str().unwrap_or("Fehler vom Anbieter").to_string());
+                return Err(err["message"].as_str().unwrap_or("Provider error").to_string());
             }
             let text = if anthropic {
                 (event["type"] == "content_block_delta" && event["delta"]["type"] == "text_delta")

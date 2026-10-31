@@ -91,7 +91,7 @@ fn dnd_profile() -> Option<u32> {
 fn set_dnd(on: bool) -> Result<(), String> {
     let value: u32 = if on { 1 } else { 0 };
     let status = unsafe { NtUpdateWnfStateData(&WNF_QUIET_HOURS, (&value as *const u32).cast(), 4, std::ptr::null(), std::ptr::null(), 0, 0) };
-    if status >= 0 { Ok(()) } else { Err(format!("Nicht stören ließ sich nicht schalten ({status:#x})")) }
+    if status >= 0 { Ok(()) } else { Err(format!("Could not switch Do Not Disturb ({status:#x})")) }
 }
 
 fn sessions() -> Option<FocusSessionManager> {
