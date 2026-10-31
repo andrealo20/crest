@@ -35,7 +35,7 @@ export function observeTrack(gate: TrackGate, playing: boolean, now: number): bo
   return now <= until;
 }
 
-// Transient notices (status, quota, track) rank above the persistent ones (reminder, water): they would expire unseen, while a reminder comes back after them.
-export type NoticeKind = "timer" | "status" | "quota" | "track" | "reminder" | "water";
-const ORDER: NoticeKind[] = ["timer", "status", "quota", "track", "reminder", "water"];
+// Transient notices (status, live notice, quota, track) rank above the persistent ones (reminder, water): they would expire unseen, while a reminder comes back after them.
+export type NoticeKind = "timer" | "status" | "notice" | "quota" | "track" | "reminder" | "water";
+const ORDER: NoticeKind[] = ["timer", "status", "notice", "quota", "track", "reminder", "water"];
 export function topNotice(active: Record<NoticeKind, boolean>): NoticeKind | null { return ORDER.find((k) => active[k]) ?? null; }

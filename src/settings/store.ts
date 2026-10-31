@@ -7,6 +7,7 @@ import { normalizeCards, USAGE_CARDS_DEFAULTS, type UsageCards } from "../featur
 import { THEME_DEFAULTS, normalizeThemeSettings, type ThemeSettings } from "../features/themes/themes";
 import type { ColorScheme } from "../features/system/levels";
 import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
+import { NOTICE_DEFAULTS, normalizeNotices, type NoticeSettings } from "../features/notices/rules";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -92,6 +93,8 @@ export interface Settings {
   launcher: { favorites: Favorite[] | null; hotkeys: boolean };
   /** GitHub activity: the public username. An optional token is stored with the secrets. */
   github: { user: string };
+  /** Live notices: Windows notifications and crest-notify in the closed notch, with per-app rules and quiet hours. */
+  notices: NoticeSettings;
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -116,9 +119,10 @@ export const TOOL_IDS = [
   "terminal",
   "launcher",
   "github",
+  "notices",
 ] as const;
 
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github"]);
+const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "notices"]);
 
 const defaults: Settings = {
   openMode: "hover",
@@ -155,6 +159,7 @@ const defaults: Settings = {
   system: { colors: "calm", gpu: "", gpuIndex: 0, sort: "cpu" },
   launcher: { favorites: null, hotkeys: false },
   github: { user: "" },
+  notices: NOTICE_DEFAULTS,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -223,6 +228,7 @@ settings.set((s) => {
     launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true },
     github: { ...defaults.github, ...s.github },
     closed: normalizeClosed(s.closed),
+    notices: normalizeNotices(s.notices),
     ask: migrateAsk(s.ask),
   };
 });

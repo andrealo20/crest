@@ -3,6 +3,8 @@ name = "crest"
 version = "0.2.0"
 edition = "2021"
 license = "GPL-3.0-only"
+# src/bin/crest-notify.rs is a second binary; `cargo run` and the app mean this one.
+default-run = "crest"
 
 [lib]
 name = "crest_lib"
@@ -99,6 +101,12 @@ windows = { version = "0.62", features = [
   "Win32_NetworkManagement_Ndis",
   "Devices_Power",
   "System_Power",
+  "ApplicationModel",
+  "UI_Notifications",
+  "UI_Notifications_Management",
+  "Win32_System_EventLog",
+  "Win32_System_RemoteDesktop",
+  "Win32_System_Pipes",
 ] }
 
 [profile.release]

@@ -24,6 +24,8 @@ import { fontEpoch, measureText } from "./measure";
 import { Marquee } from "./Marquee";
 import { useNoticeHover } from "./NoticeButton";
 import { Ring } from "./parts/Rings";
+import { popping } from "../../features/notices/store";
+import { noticePop } from "../../features/notices/NoticePop";
 
 const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76;
 /** The widest content any closed surface allows (the notch's insets are the larger ones). */
@@ -77,7 +79,8 @@ function useTrackCaption(on: boolean): string | null {
 
 /**
  * Covers the closed row with the most important notice: a finished timer (until dismissed by a click), a status alert
- * (charger, network, headphones), a quota that crossed a level, a new track while the title part is off, a due to-do or the water reminder.
+ * (charger, network, headphones), a live notice from Windows or crest-notify (features/notices), a quota that crossed a level,
+ * a new track while the title part is off, a due to-do or the water reminder.
  * Reports its content width while one shows, null otherwise; the shape takes that width. Mounted with the row, and on the idle line
  * or in focus mode while a finished timer, a status alert or a due to-do opens it into the notch (`urgentOnly`).
  */
@@ -90,12 +93,14 @@ export function NoticeLayer({ onWidth, urgentOnly }: { onWidth: (content: number
   const rise = useQuotaRise();
   const track = useTrackCaption(!closed.parts.title);
   const status = statusAlert.use();
+  const pop = popping.use();
   const due = dueTasks.use();
   const drink = waterDue.use();
   // On the idle line and in focus mode only what cannot wait: the finished timer, a status alert (its store already skips focus mode) and a due reminder.
   const kind = topNotice({
     timer: finished,
     status: !!status,
+    notice: !urgentOnly && !!pop,
     quota: !urgentOnly && !!rise && closed.quotaAlerts,
     track: !urgentOnly && !!track,
     reminder: due.length > 0,
@@ -143,6 +148,8 @@ export function NoticeLayer({ onWidth, urgentOnly }: { onWidth: (content: number
         <span className="truncate text-footnote font-medium" style={{ width: textW }}>{status.text}</span>
       </span>
     );
+  } else if (kind === "notice" && pop) {
+    ({ width, key, body } = noticePop(pop, MAX));
   } else if (kind === "quota" && rise) {
     const used = Math.round(Math.min(100, Math.max(0, rise.used)));
     const name = brandName[rise.provider as UsageId] ?? rise.provider;

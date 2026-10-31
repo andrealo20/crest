@@ -16,6 +16,8 @@ mod media;
 mod media_pick;
 mod memory;
 mod mixer;
+mod notices;
+mod notify_wire;
 mod privacy;
 pub mod secrets;
 mod shelf;
@@ -83,6 +85,7 @@ pub fn run() {
         .manage(terminal::TerminalState::default())
         .manage(launcher::LauncherState::default())
         .manage(github::GithubState::default())
+        .manage(notices::NoticesState::default())
         .invoke_handler(tauri::generate_handler![
             hit_test::set_hit_rect,
             hit_test::set_pinned,
@@ -173,6 +176,9 @@ pub fn run() {
             launcher::launcher_open,
             launcher::launcher_shortcuts,
             github::github_contributions,
+            notices::notices_configure,
+            notices::notices_status,
+            notices::notices_request_access,
         ])
         .setup(move |app| {
             let window = app.get_webview_window("notch").expect("window 'notch' missing");

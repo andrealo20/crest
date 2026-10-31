@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import {
   ArrowsLeftRight,
+  BellSimple,
   CheckCircle,
   ClipboardText,
   CloudSun,
@@ -42,6 +43,7 @@ import { WaterView } from "../features/water/WaterView";
 import { ScratchpadView } from "../features/scratchpad/ScratchpadView";
 import { QUOTE_LINE_H } from "../features/quotes/QuoteLine";
 import { settings } from "../settings/store";
+import { NoticesView } from "../features/notices/NoticesView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { TerminalView } from "../features/terminal/TerminalView";
 import { LauncherView } from "../features/launcher/LauncherView";
@@ -94,6 +96,7 @@ export const tabs: NotchTab[] = [
   { id: "terminal", label: "Terminal", icon: TerminalWindow, size: { w: 720, h: 460 }, View: TerminalView },
   { id: "launcher", label: "Launcher", icon: RocketLaunch, size: { w: 520, h: 210 }, View: LauncherView },
   { id: "github", label: "GitHub", icon: GithubLogo, size: { w: 520, h: 236 }, View: GithubView },
+  { id: "notices", label: "Mitteilungen", icon: BellSimple, size: { w: 560, h: 320 }, View: NoticesView },
 ];
 
 /** Settings: reached via the gear, not in the tool bar. */

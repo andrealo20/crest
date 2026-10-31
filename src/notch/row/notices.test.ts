@@ -27,9 +27,10 @@ test("track gate", () => {
 });
 
 test("priority", () => {
-  const none = { timer: false, status: false, quota: false, track: false, reminder: false, water: false };
-  assert.equal(topNotice({ timer: true, status: true, quota: true, track: true, reminder: true, water: true }), "timer");
-  assert.equal(topNotice({ ...none, status: true, quota: true, track: true, reminder: true }), "status");
+  const none = { timer: false, status: false, notice: false, quota: false, track: false, reminder: false, water: false };
+  assert.equal(topNotice({ timer: true, status: true, notice: true, quota: true, track: true, reminder: true, water: true }), "timer");
+  assert.equal(topNotice({ ...none, status: true, notice: true, quota: true, track: true, reminder: true }), "status");
+  assert.equal(topNotice({ ...none, notice: true, quota: true, track: true, reminder: true }), "notice");
   assert.equal(topNotice({ ...none, quota: true, track: true, reminder: true }), "quota");
   assert.equal(topNotice({ ...none, track: true, reminder: true, water: true }), "track");
   assert.equal(topNotice({ ...none, reminder: true, water: true }), "reminder");
