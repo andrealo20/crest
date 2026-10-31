@@ -99,7 +99,8 @@ export function useDragToMove(status: NotchStatus, shape: () => { w: number; h: 
 
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== id) return;
-      const dx = ev.screenX - x, dy = ev.screenY - sy;
+      // Open, the notch only slides along its edge (by the header), so moving across neither starts a drag nor changes the edge.
+      const dx = ev.screenX - x, dy = capsule || status !== "open" ? ev.screenY - sy : 0;
       if (!moved.current && Math.max(Math.abs(dx), Math.abs(dy)) < THRESHOLD) return;
       if (!moved.current) {
         moved.current = true;
@@ -111,13 +112,13 @@ export function useDragToMove(status: NotchStatus, shape: () => { w: number; h: 
         const c = snapCapsule(left + from.offset + dx, from.y + dy, size.w, size.h, m.width, m.height, { top: m.workTop, height: m.workHeight });
         current = { offset: Math.round(c.x - left), y: Math.round(c.y), dock: from.dock };
       } else {
-        const p = { x: grab.x + dx, y: grab.y + dy }, work = workOf(m);
-        // Open, it stays on its edge: the panel would jump around the screen.
-        const edge = status === "open" ? edge0 : nearestEdge(p.x, p.y, m.width, m.height, current.dock.edge);
+        const p = { x: grab.x + dx, y: grab.y + dy }, work = workOf(m), open = status === "open";
+        // Open, it keeps its edge and anchor: the panel would jump around the screen.
+        const edge = open ? edge0 : nearestEdge(p.x, p.y, m.width, m.height, current.dock.edge);
         const anchor = anchorAt(edge, p.x, p.y, m.width, m.height, work) ?? (edge === edge0 ? from.dock.anchor : "auto");
         // On the edge it started on, the grabbed point stays under the pointer; on another, the notch's centre comes under it.
         const along = alongOf(edge, p.x, p.y) - span(edge, m.width, m.height) / 2 - (edge === edge0 ? rel.along : 0);
-        current = { offset: Math.abs(along) < SNAP ? 0 : Math.round(along), y: from.y, dock: { edge, anchor } };
+        current = { offset: Math.abs(along) < SNAP ? 0 : Math.round(along), y: from.y, dock: open ? from.dock : { edge, anchor } };
       }
       setLive(current);
       cancelAnimationFrame(frame);
