@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { createStore } from "../../lib/store";
 import { holdOpen } from "../../notch/useNotchState";
 import { monitor, monitorMetrics } from "../../notch/monitor";
@@ -46,10 +47,15 @@ const GRIPS: { edge: Edge; className: string; cursor: string }[] = [
  * move, the panel stays centred), a double click goes back to the default. Held open while dragging.
  */
 export function ResizeHandles({ id, def, size }: { id: string; def: Size; size: Size }) {
+  // Ends a drag in progress; also on unmount (tab switch, panel closed), so the hold can't stick.
+  const end = useRef<(() => void) | null>(null);
+  useEffect(() => () => end.current?.(), []);
+
   const onPointerDown = (edge: Edge) => (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    end.current?.();
     const el = e.currentTarget, pointer = e.pointerId;
     el.setPointerCapture(pointer);
     holdOpen(true);
@@ -60,11 +66,13 @@ export function ResizeHandles({ id, def, size }: { id: string; def: Size; size: 
       current = dragSize(start, edge, ev.clientX - x0, ev.clientY - y0, lim);
       live.set({ tabId: id, ...current });
     };
-    const onUp = (ev: PointerEvent) => {
-      if (ev.pointerId !== pointer) return;
+    const onUp = (ev: PointerEvent) => ev.pointerId === pointer && end.current?.();
+    end.current = () => {
+      end.current = null;
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onUp);
+      el.removeEventListener("lostpointercapture", onUp);
       holdOpen(false);
       if (current !== start) save(id, current);
       live.set(null);
@@ -72,6 +80,7 @@ export function ResizeHandles({ id, def, size }: { id: string; def: Size; size: 
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerup", onUp);
     el.addEventListener("pointercancel", onUp);
+    el.addEventListener("lostpointercapture", onUp);
   };
 
   return (

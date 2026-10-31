@@ -59,7 +59,8 @@ function startCrashLog() {
     if (e.message?.startsWith("ResizeObserver loop")) return;
     log(`${e.message} at ${e.filename}:${e.lineno}:${e.colno}\n${e.error?.stack ?? ""}`);
   });
-  window.addEventListener("unhandledrejection", (e) => log(`unhandled rejection: ${e.reason instanceof Error ? (e.reason.stack ?? e.reason.message) : String(e.reason)}`));
+  // Only the first line: a rejected value can carry a whole response body.
+  window.addEventListener("unhandledrejection", (e) => log(`unhandled rejection: ${String(e.reason).split("\n")[0]}`));
 }
 
 export function startWindowBehavior() {
