@@ -31,10 +31,19 @@ export function windowSize(edge: Edge): { w: number; h: number } {
   return across(edge) ? { w: WINDOW.sideDepth, h: WINDOW.along } : { w: WINDOW.along, h: WINDOW.depth };
 }
 
-/** The frame's depth (the window's size away from the edge). */
-export const frameDepth = (edge: Edge) => (across(edge) ? WINDOW.sideDepth : WINDOW.depth);
+/** Where the window's own edge lies in it, for frameCss: the window is placed with that edge on the frame's line (display.rs). */
+export const windowLine = (edge: Edge) => (edge === "bottom" ? WINDOW.depth : edge === "right" ? WINDOW.sideDepth : 0);
 
-export const overTaskbar = (edge: Edge, anchor: Anchor) => (anchor === "auto" ? edge === "top" : anchor === "screen");
+/** The saved choice (settings `dock`). */
+export interface Dock { edge: Edge; anchor: Anchor }
+export const DOCK_DEFAULTS: Dock = { edge: "top", anchor: "auto" };
+/** Whatever was saved becomes a valid choice. */
+export function normalizeDock(saved: unknown): Dock {
+  const s = typeof saved === "object" && saved !== null ? (saved as Record<string, unknown>) : {};
+  return { edge: isEdge(s.edge) ? s.edge : DOCK_DEFAULTS.edge, anchor: isAnchor(s.anchor) ? s.anchor : DOCK_DEFAULTS.anchor };
+}
+
+export const overTaskbar =(edge: Edge, anchor: Anchor) => (anchor === "auto" ? edge === "top" : anchor === "screen");
 
 /** Whether a taskbar takes part of the screen along an edge: there the screen's edge and the work area's differ. */
 export function hasTaskbar(edge: Edge, screenW: number, screenH: number, work: Work): boolean {
@@ -109,10 +118,10 @@ const LINEAR: Record<Edge, [number, number, number, number]> = { top: [1, 0, 0, 
 /** Its inverse, which sets content upright. */
 const UPRIGHT: Record<Edge, [number, number, number, number]> = { top: [1, 0, 0, 1], bottom: [1, 0, 0, -1], left: [0, 1, 1, 0], right: [0, -1, 1, 0] };
 
-/** The CSS transform (origin 0 0) that draws a frame box `depth` deep into the window; undefined on top, where nothing changes. */
-export function frameCss(edge: Edge, depth: number): string | undefined {
+/** The CSS transform (origin 0 0) that draws the frame with its edge at `line` in the view (y for the bottom, x for the sides); undefined on top, where nothing changes. */
+export function frameCss(edge: Edge, line: number): string | undefined {
   if (edge === "top") return undefined;
-  const [a, b, c, d] = LINEAR[edge], e = edge === "right" ? depth : 0, f = edge === "bottom" ? depth : 0;
+  const [a, b, c, d] = LINEAR[edge], e = across(edge) ? fin(line) : 0, f = edge === "bottom" ? fin(line) : 0;
   return `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`;
 }
 

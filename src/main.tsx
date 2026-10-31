@@ -8,7 +8,7 @@ import { isNative } from "./platform/native";
 import { startDropListener } from "./platform/drop";
 import { clipboard } from "./platform/clipboard";
 import { settings } from "./settings/store";
-import { applyDisplay, windowY } from "./notch/drag";
+import { applyDisplay, placementKey } from "./notch/drag";
 import { focusMode, startFocusMode } from "./notch/focus";
 import { monitor, startMonitorWatch } from "./notch/monitor";
 import { startSystemPolling } from "./features/system/store";
@@ -35,7 +35,7 @@ startUpdateWatch();
 let lastDisplay = "";
 const syncDisplay = () => {
   const { display, gaming } = settings.get();
-  const key = `${display.visibility}|${display.monitor}|${display.offset}|${windowY()}|${gaming.mode}`;
+  const key = `${display.visibility}|${display.monitor}|${display.offset}|${placementKey()}|${gaming.mode}`;
   if (key === lastDisplay) return;
   lastDisplay = key;
   applyDisplay();

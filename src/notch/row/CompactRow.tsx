@@ -12,7 +12,7 @@ import { usage } from "../../features/usage/store";
 import { Dots, dotsWidth, usePrivacyDots } from "../../features/privacy/PrivacyDots";
 import { ROW, naturalWidth, planVisible, type PlacedPart, type RowItem } from "./layout";
 import { trackCaption } from "./parts";
-import { rowVisible } from "./visibility";
+import { useRowVisible } from "./visibility";
 import { fontEpoch, measureText } from "./measure";
 import { Carousel } from "./Carousel";
 import { Marquee } from "./Marquee";
@@ -22,11 +22,8 @@ import { Clock, clockWidth } from "./parts/Clock";
 import { TimerPart, timerWidth } from "./parts/TimerPart";
 import { DISCORD_WIDTH, DiscordPart } from "./parts/DiscordPart";
 
-/** Rows mounted: an exiting row and the next one can overlap for a moment, and the polling must stay on in between. */
-let mounted = 0;
-
 /** True while `on`, and for `ms` after it turns off: GSMTC reports a short pause on seek and track change. */
-function useHeld(on: boolean, ms: number): boolean {
+export function useHeld(on: boolean, ms: number): boolean {
   const [held, setHeld] = useState(on);
   useEffect(() => {
     if (on) return setHeld(true);
@@ -43,10 +40,7 @@ function useHeld(on: boolean, ms: number): boolean {
  * (closed or peeking, not the line, not focus, not hidden for fullscreen), so its audio, timers and polling stop with it.
  */
 export function CompactRow({ style, covered, onWidth }: { style: "notch" | "capsule"; covered: boolean; onWidth: (content: number) => void }) {
-  useEffect(() => {
-    rowVisible.set(++mounted > 0);
-    return () => rowVisible.set(--mounted > 0);
-  }, []);
+  useRowVisible();
   fontEpoch.use();
   const s = settings.use(), closed = s.closed;
   const np = useNowPlaying();

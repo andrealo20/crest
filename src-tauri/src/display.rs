@@ -8,13 +8,14 @@
 //! Gaming mode "in fullscreen": the notch stays visible instead; Rust emits
 //! `notch://fullscreen` and the frontend shows FPS and load.
 //! `offset` moves the notch sideways (dragging), clamped to the monitor.
+//! `edge` and `line` put the window on another screen edge (bottom, left, right).
 
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewWindow};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, State, WebviewWindow};
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::UI::WindowsAndMessaging::{GetClassNameW, GetDesktopWindow, GetForegroundWindow, GetShellWindow, GetWindowRect, IsZoomed};
@@ -42,7 +43,18 @@ pub struct Config {
     /// Gaming mode "in fullscreen": don't hide, just report.
     #[serde(default)]
     gaming: bool,
+    /// Screen edge the window hangs from: "top" (default), "bottom", "left" or "right" (src/notch/edge.ts).
+    #[serde(default)]
+    edge: String,
+    /// Where that edge's frame starts, CSS px from the monitor's top (bottom) or left (left, right). On top `y` is used.
+    #[serde(default)]
+    line: f64,
 }
+
+/// The window's logical size: as on top (tauri.conf.json), and on a side edge as deep as long so the widest panel fits across.
+const ALONG: f64 = 760.0;
+const DEPTH: f64 = 560.0;
+const SIDE_DEPTH: f64 = 760.0;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,6 +66,9 @@ pub struct MonitorInfo {
     /// Work area (without taskbar) in CSS px: top below the monitor's top edge, and height.
     work_top: f64,
     work_height: f64,
+    /// The work area's left edge from the monitor's left, and its width (a taskbar on the left or right), in CSS px.
+    work_left: f64,
+    work_width: f64,
 }
 
 #[tauri::command]
@@ -73,6 +88,8 @@ pub fn display_monitors(window: WebviewWindow) -> Vec<MonitorInfo> {
                 height: (m.size().height as f64 / scale) as u32,
                 work_top: (wa.position.y - m.position().y) as f64 / scale,
                 work_height: wa.size.height as f64 / scale,
+                work_left: (wa.position.x - m.position().x) as f64 / scale,
+                work_width: wa.size.width as f64 / scale,
                 name,
             }
         })
@@ -83,7 +100,7 @@ pub fn display_monitors(window: WebviewWindow) -> Vec<MonitorInfo> {
 pub fn display_apply(config: Config, window: WebviewWindow, state: State<'_, DisplayState>) {
     let moved = {
         let cur = state.0.lock().unwrap();
-        cur.monitor != config.monitor || cur.offset != config.offset || cur.y != config.y
+        cur.monitor != config.monitor || cur.offset != config.offset || cur.y != config.y || cur.edge != config.edge || cur.line != config.line
     };
     *state.0.lock().unwrap() = config;
     if moved {
@@ -92,11 +109,13 @@ pub fn display_apply(config: Config, window: WebviewWindow, state: State<'_, Dis
 }
 
 /// Centered on the chosen monitor (primary otherwise), `y` CSS px below its top edge (clamped to the monitor).
+/// Off the top edge the window's own edge goes on `line`, centred along that edge, and on a side edge it is as deep as long.
 pub fn place(window: &WebviewWindow, state: &DisplayState) -> tauri::Result<()> {
-    let (wanted, offset, y) = {
+    let (wanted, offset, y, edge, line) = {
         let c = state.0.lock().unwrap();
-        (c.monitor.clone(), c.offset, c.y)
+        (c.monitor.clone(), c.offset, c.y, c.edge.clone(), c.line)
     };
+    let side = edge == "left" || edge == "right";
     let monitors = window.available_monitors()?;
     let monitor = wanted
         .and_then(|name| monitors.into_iter().find(|m| m.name() == Some(&name)))
@@ -105,14 +124,32 @@ pub fn place(window: &WebviewWindow, state: &DisplayState) -> tauri::Result<()> 
     // Set twice: when moving to a monitor with different scaling, the window size
     // only updates after the first move.
     for _ in 0..2 {
-        let size = window.outer_size()?;
-        let free = (monitor.size().width as i32 - size.width as i32).max(0);
-        let shift = ((offset * monitor.scale_factor()) as i32).clamp(-free / 2, free / 2);
-        let x = monitor.position().x + free / 2 + shift;
-        let top = ((y * monitor.scale_factor()) as i32).clamp(0, (monitor.size().height as i32 - size.height as i32).max(0));
-        window.set_position(PhysicalPosition::new(x, monitor.position().y + top))?;
+        let mut size = window.outer_size()?;
+        // Only resized when it changes between a horizontal and a vertical edge, so the top edge keeps its window as it was.
+        if (size.height as f64 >= size.width as f64 * 0.9) != side {
+            window.set_size(LogicalSize::new(if side { SIDE_DEPTH } else { ALONG }, if side { ALONG } else { DEPTH }))?;
+            size = window.outer_size()?;
+        }
+        let scale = monitor.scale_factor();
+        let (mw, mh) = (monitor.size().width as i32, monitor.size().height as i32);
+        let (w, h) = (size.width as i32, size.height as i32);
+        let free_x = (mw - w).max(0);
+        let free_y = (mh - h).max(0);
+        let line = (line * scale) as i32;
+        let (x, top) = match edge.as_str() {
+            "bottom" => (free_x / 2 + shift(offset, scale, free_x), (line - h).clamp(0, free_y)),
+            "left" => (line.clamp(0, free_x), free_y / 2 + shift(offset, scale, free_y)),
+            "right" => ((line - w).clamp(0, free_x), free_y / 2 + shift(offset, scale, free_y)),
+            _ => (free_x / 2 + shift(offset, scale, free_x), ((y * scale) as i32).clamp(0, free_y)),
+        };
+        window.set_position(PhysicalPosition::new(monitor.position().x + x, monitor.position().y + top))?;
     }
     Ok(())
+}
+
+/// The offset along the edge in physical px, kept within the monitor.
+fn shift(offset: f64, scale: f64, free: i32) -> i32 {
+    ((offset * scale) as i32).clamp(-free / 2, free / 2)
 }
 
 pub fn spawn(app: AppHandle, window: WebviewWindow) {

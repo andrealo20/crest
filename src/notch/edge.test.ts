@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  EDGES, EDGE_HYSTERESIS, anchorAt, applyLinear, deltaFromScreen, edgeLine, frameCss, frameFor, fromScreen, hasTaskbar, linear, nearestEdge,
+  EDGES, EDGE_HYSTERESIS, anchorAt, applyLinear, deltaFromScreen, edgeLine, frameCss, frameFor, fromScreen, hasTaskbar, linear, nearestEdge, normalizeDock,
   pointToScreen, pointerIn, toScreen, upright, uprightCss, windowSize, type Work,
 } from "./edge.ts";
 
@@ -55,7 +55,8 @@ test("css: the frame and upright maps compose to the identity, top stays untouch
   assert.equal(frameCss("top", 560), undefined);
   assert.equal(uprightCss("top"), undefined);
   assert.equal(frameCss("bottom", 560), "matrix(1, 0, 0, -1, 0, 560)");
-  assert.equal(frameCss("left", 760), "matrix(0, 1, 1, 0, 0, 0)");
+  assert.equal(frameCss("left", 0), "matrix(0, 1, 1, 0, 0, 0)");
+  assert.equal(frameCss("left", 60), "matrix(0, 1, 1, 0, 60, 0)");
   assert.equal(frameCss("right", 760), "matrix(0, 1, -1, 0, 760, 0)");
   for (const edge of EDGES) for (const [x, y] of [[1, 0], [0, 1], [3, -2]]) {
     const u = applyLinear(upright(edge), x, y), back = applyLinear(linear(edge), u.x, u.y);
@@ -98,6 +99,13 @@ test("taskbar and anchor while dragging", () => {
   assert.equal(anchorAt("left", 90, 500, W, H, leftBar), "taskbar");
   assert.equal(anchorAt("right", W - 10, 500, W, H, rightBar), "screen");
   assert.equal(anchorAt("top", 900, 5, W, H, bottomBar), null);
+});
+
+test("saved dock: valid values kept, anything else falls back", () => {
+  assert.deepEqual(normalizeDock(undefined), { edge: "top", anchor: "auto" });
+  assert.deepEqual(normalizeDock({ edge: "left", anchor: "screen" }), { edge: "left", anchor: "screen" });
+  assert.deepEqual(normalizeDock({ edge: "middle", anchor: 3 }), { edge: "top", anchor: "auto" });
+  assert.deepEqual(normalizeDock([1, 2]), { edge: "top", anchor: "auto" });
 });
 
 test("pointer in a hanging rectangle: depth from the edge side, along from the centre", () => {

@@ -42,6 +42,11 @@ export function peekGeometry(style: "notch" | "capsule", w: number): NotchGeomet
   return style === "capsule" ? { w: w + 16, h: 34, r: 17, ear: 0, rt: 17 } : { w: w + 16, h: 34, r: 12, ear: 7, rt: 0 };
 }
 
+/** The notch on a side edge, in its frame: `w` along the edge, `h` away from it (column.ts); hovered it grows like the notch on top. */
+export function columnGeometry(w: number, h: number, peek: boolean): NotchGeometry {
+  return peek ? { w: w + 16, h: h + 4, r: 12, ear: 7, rt: 0 } : { w, h, r: 10, ear: 6, rt: 0 };
+}
+
 /** Open state: size comes from the active tab, radii are fixed; floating (a capsule away from the edge) rounds the top too. */
 export function openGeometry(w: number, h: number, floating = false): NotchGeometry {
   return floating ? { w, h, r: 30, ear: 0, rt: 30 } : { w, h, r: 30, ear: 14, rt: 0 };

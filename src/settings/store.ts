@@ -1,6 +1,7 @@
 import { createStore } from "../lib/store";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
+import { DOCK_DEFAULTS, normalizeDock, type Dock } from "../notch/edge";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -62,6 +63,8 @@ export interface Settings {
   presentation: { manual: boolean; auto: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
+  /** The screen edge the notch and the line hang from, and whether from the screen's edge or the taskbar's (the capsule floats on the top frame). */
+  dock: Dock;
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -111,6 +114,7 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
+  dock: DOCK_DEFAULTS,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -170,6 +174,7 @@ settings.set((s) => {
     updates: { ...defaults.updates, ...s.updates },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
+    dock: normalizeDock(s.dock),
   };
 });
 

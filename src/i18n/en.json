@@ -485,5 +485,15 @@
  "Schwebt frei, zum Verschieben ziehen": "Floats freely, drag to move it",
  "Sekunden": "Seconds",
  "Songtitel": "Song title",
- "Zeigt, wie weit das Lied ist, solange Musik läuft": "Shows how far the song is while music plays"
+ "Zeigt, wie weit das Lied ist, solange Musik läuft": "Shows how far the song is while music plays",
+ "Bildschirmrand": "Screen edge",
+ "Geschlossen auch an einen anderen Rand ziehen": "Or drag it closed to another edge",
+ "Rand oben": "Top",
+ "Rand unten": "Bottom",
+ "Rand links": "Left",
+ "Rand rechts": "Right",
+ "Hängt an": "Hangs from",
+ "Über der Taskleiste verdeckt die Notch einen Teil davon": "Over the taskbar the notch covers part of it",
+ "Bildschirmkante": "Screen edge",
+ "Taskleiste": "Taskbar"
 }
