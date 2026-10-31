@@ -35,5 +35,5 @@ export function observeTrack(gate: TrackGate, playing: boolean, now: number): bo
   return now <= until;
 }
 
-export type NoticeKind = "timer" | "quota" | "track";
-export function topNotice(active: Record<NoticeKind, boolean>): NoticeKind | null { return active.timer ? "timer" : active.quota ? "quota" : active.track ? "track" : null; }
+export type NoticeKind = "timer" | "status" | "quota" | "track";
+export function topNotice(active: Record<NoticeKind, boolean>): NoticeKind | null { return active.timer ? "timer" : active.status ? "status" : active.quota ? "quota" : active.track ? "track" : null; }

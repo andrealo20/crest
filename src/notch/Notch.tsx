@@ -11,6 +11,7 @@ import { useLiveActivity } from "./live";
 import { CompactRow } from "./row/CompactRow";
 import { NoticeLayer } from "./row/NoticeLayer";
 import { fullscreen } from "../features/system/gaming";
+import { statusAlert } from "../features/status/store";
 import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, geometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
 import { hasBridge, panelTop, windowYFor } from "./capsule";
 import { monitor, monitorMetrics } from "./monitor";
@@ -41,10 +42,11 @@ export function Notch() {
   // Focus mode as a line: no live activity, no dots, only the thin strip at the edge.
   const line = focus && displaySettings.focusStyle === "line";
   // Line as the normal closed look: hover and click work as usual, but nothing shows
-  // while closed but the song's progress. Only a finished timer opens it into the notch (its notice), until dismissed.
+  // while closed but the song's progress. A finished timer (until dismissed) or a status alert (for its time) opens it into the notch.
   const timerDone = timer.use().finished;
+  const statusOn = statusAlert.use() !== null;
   const idleLine = !focus && displaySettings.idleStyle === "line";
-  const alert = idleLine && timerDone;
+  const alert = idleLine && (timerDone || statusOn);
   const visible = toolSettings.filter((t) => t.enabled).map((t) => findTab(t.id)).filter((t): t is NotchTab => !!t);
   const { tabId } = nav.use();
   // Hidden tool active (e.g. just disabled) → first visible one.
@@ -85,7 +87,7 @@ export function Notch() {
   const showRow = status !== "open" && !line && !idleLine && !focus && !hiddenForFullscreen;
   // Content width of the closed row, as it last reported it (kept while open, so closing goes straight to it).
   const [rowWidth, setRowWidth] = useState(0);
-  // Notices cover the row; on the idle line and in dimmed focus mode only a finished timer brings them up. While one shows the shape takes its width.
+  // Notices cover the row; on the idle line a finished timer or a status alert brings them up, in dimmed focus mode only the timer. While one shows the shape takes its width.
   const showNotices = status !== "open" && (showRow || alert || (timerDone && !line && !hiddenForFullscreen));
   const [noticeWidth, setNoticeWidth] = useState<number | null>(null);
   const notice = showNotices ? noticeWidth : null;
