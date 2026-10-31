@@ -95,12 +95,14 @@ pub async fn fetch(client: &reqwest::Client) -> Result<Account, String> {
                 currency: money,
                 ..Default::default()
             },
-            // Not in the asset list: still listed, by its id and without a price.
+            // Not in the asset list: still listed by its id, with Bitpanda's value. The name is a
+            // code the frontend translates.
             None => Holding {
                 symbol: item.asset_id.chars().take(8).collect(),
-                name: "Unknown asset".into(),
+                name: "unknown-asset".into(),
                 kind: "stock",
                 quantity,
+                value,
                 cost,
                 currency: money,
                 ..Default::default()
@@ -116,11 +118,11 @@ async fn all<T: for<'de> Deserialize<'de>>(client: &reqwest::Client, key: &str, 
     let mut cursor: Option<String> = None;
     // A bound against a server that keeps handing out the same cursor.
     for _ in 0..50 {
-        let sep = if url.contains('?') { '&' } else { '?' };
-        let page_url = match &cursor {
-            Some(c) => format!("{url}{sep}cursor={}", c.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').collect::<String>()),
-            None => url.to_string(),
-        };
+        let mut page_url = reqwest::Url::parse(url).map_err(|e| format!("network:{e}"))?;
+        if let Some(c) = &cursor {
+            // Percent-encoded by the URL type.
+            page_url.query_pairs_mut().append_pair("cursor", c);
+        }
         let page: List<T> = send_json(client.get(page_url).header("x-api-key", key)).await?;
         out.extend(page.data);
         match page.next_cursor.filter(|c| page.has_next_page && !c.is_empty() && Some(c) != cursor.as_ref()) {

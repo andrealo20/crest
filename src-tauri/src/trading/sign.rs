@@ -34,7 +34,7 @@ pub fn coinbase_jwt(key_name: &str, pem: &str, uri: &str, now_secs: u64, nonce: 
     let key = ec_private_key(pem)?;
     let header = serde_json::json!({ "alg": "ES256", "typ": "JWT", "kid": key_name, "nonce": nonce });
     // nbf a few seconds back, so a PC clock slightly ahead of Coinbase's still passes.
-    let claims = serde_json::json!({ "iss": "cdp", "sub": key_name, "nbf": now_secs - 5, "exp": now_secs + 120, "uri": uri });
+    let claims = serde_json::json!({ "iss": "cdp", "sub": key_name, "nbf": now_secs.saturating_sub(5), "exp": now_secs + 120, "uri": uri });
     let input = format!("{}.{}", URL_SAFE_NO_PAD.encode(header.to_string()), URL_SAFE_NO_PAD.encode(claims.to_string()));
     let signature = cng::sign_p256(&key, &Sha256::digest(input.as_bytes()))?;
     Ok(format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature)))
@@ -49,10 +49,23 @@ pub struct EcKey {
 
 impl Drop for EcKey {
     fn drop(&mut self) {
-        // Volatile, so the wipe of the private scalar is not optimized away.
-        for b in self.d.iter_mut() {
-            unsafe { std::ptr::write_volatile(b, 0) };
-        }
+        wipe(&mut self.d);
+    }
+}
+
+/// Zeroes with volatile writes, so the wipe of key material is not optimized away.
+fn wipe(bytes: &mut [u8]) {
+    for b in bytes.iter_mut() {
+        unsafe { std::ptr::write_volatile(b, 0) };
+    }
+}
+
+/// Bytes holding key material, zeroed when dropped on every path (errors and `?` included).
+struct Wiped(Vec<u8>);
+
+impl Drop for Wiped {
+    fn drop(&mut self) {
+        wipe(&mut self.0);
     }
 }
 
@@ -67,7 +80,9 @@ pub fn ec_private_key(pem: &str) -> Result<EcKey, String> {
         text.replace_range(start..end, "");
     }
     let body: String = text.chars().filter(|c| !c.is_whitespace()).collect();
-    let der = STANDARD.decode(body).map_err(|_| "bad-key")?;
+    let body = Wiped(body.into_bytes());
+    let der = Wiped(STANDARD.decode(&body.0).map_err(|_| "bad-key")?);
+    let der = &der.0;
     // Version 1 and the 32-byte private key: 02 01 01 04 20 <d>.
     let at = der.windows(5).position(|w| w == [0x02, 0x01, 0x01, 0x04, 0x20]).ok_or("bad-key")? + 5;
     let d = der.get(at..at + 32).ok_or("bad-key")?;
@@ -89,7 +104,7 @@ pub fn random_hex(len: usize) -> Result<String, String> {
 }
 
 mod cng {
-    use super::EcKey;
+    use super::{EcKey, Wiped};
     use windows::Win32::Security::Cryptography::{
         BCryptCloseAlgorithmProvider, BCryptDestroyKey, BCryptGenRandom, BCryptImportKeyPair, BCryptOpenAlgorithmProvider, BCryptSignHash,
         BCRYPT_ALG_HANDLE, BCRYPT_ECCPRIVATE_BLOB, BCRYPT_ECDSA_P256_ALGORITHM, BCRYPT_ECDSA_PRIVATE_P256_MAGIC, BCRYPT_FLAGS, BCRYPT_KEY_HANDLE,
@@ -98,19 +113,20 @@ mod cng {
 
     /// Imports the key pair and runs `f` with it; handles are always released.
     pub fn with_key<T>(key: &EcKey, f: impl FnOnce(BCRYPT_KEY_HANDLE) -> Result<T, String>) -> Result<T, String> {
-        let mut blob = Vec::with_capacity(8 + 96);
-        blob.extend(BCRYPT_ECDSA_PRIVATE_P256_MAGIC.to_le_bytes());
-        blob.extend(32u32.to_le_bytes());
-        blob.extend(key.x);
-        blob.extend(key.y);
-        blob.extend(key.d);
+        // Capacity up front, so the private part is never left behind in a reallocation.
+        let mut blob = Wiped(Vec::with_capacity(8 + 96));
+        blob.0.extend(BCRYPT_ECDSA_PRIVATE_P256_MAGIC.to_le_bytes());
+        blob.0.extend(32u32.to_le_bytes());
+        blob.0.extend(key.x);
+        blob.0.extend(key.y);
+        blob.0.extend(key.d);
         unsafe {
             let mut alg = BCRYPT_ALG_HANDLE::default();
             BCryptOpenAlgorithmProvider(&mut alg, BCRYPT_ECDSA_P256_ALGORITHM, None, BCRYPT_OPEN_ALGORITHM_PROVIDER_FLAGS(0))
                 .ok()
                 .map_err(|e| format!("network:ECDSA unavailable ({e})"))?;
             let mut handle = BCRYPT_KEY_HANDLE::default();
-            let imported = BCryptImportKeyPair(alg, None, BCRYPT_ECCPRIVATE_BLOB, &mut handle, &blob, 0).ok();
+            let imported = BCryptImportKeyPair(alg, None, BCRYPT_ECCPRIVATE_BLOB, &mut handle, &blob.0, 0).ok();
             let result = match imported {
                 Ok(()) => {
                     let r = f(handle);
@@ -120,7 +136,6 @@ mod cng {
                 Err(_) => Err("bad-key".to_string()),
             };
             let _ = BCryptCloseAlgorithmProvider(alg, 0);
-            blob.fill(0);
             result
         }
     }

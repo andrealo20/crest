@@ -205,14 +205,28 @@ pub async fn portfolio_prices(base: String, crypto: Vec<String>, fiats: Vec<Stri
 
 /// The key of `provider` was deleted: drop its cache, its Kraken ledger and its history files.
 #[tauri::command]
-pub fn portfolio_forget(provider: String, app: AppHandle, state: State<'_, TradingState>) {
+pub async fn portfolio_forget(provider: String, app: AppHandle, state: State<'_, TradingState>) -> Result<(), String> {
+    // Only real provider ids, so "all" or any other string deletes nothing.
+    if secret_names(&provider).is_empty() {
+        return Ok(());
+    }
+    // Wait for a running fetch, so it cannot write the ledger again after the delete.
+    let gate = state.inflight.lock().unwrap().entry(provider.clone()).or_default().clone();
+    let _running = gate.lock().await;
     state.accounts.lock().unwrap().retain(|k, _| !k.starts_with(&format!("{provider}:")));
-    let Ok(dir) = app.path().app_data_dir() else { return };
+    let Ok(dir) = app.path().app_data_dir() else { return Ok(()) };
     if provider == "kraken" {
         let _ = std::fs::remove_file(dir.join("kraken-ledger.json"));
     }
+    if provider == "t212" {
+        // The old files would seed the history of a new key's account.
+        for env in ["live", "demo"] {
+            let _ = std::fs::remove_file(dir.join(format!("trading-history-{env}.json")));
+            let _ = std::fs::remove_file(dir.join(format!("trading-intraday-{env}.json")));
+        }
+    }
     let scopes: Vec<String> = if provider == "t212" { vec!["t212-live".into(), "t212-demo".into()] } else { vec![provider.clone()] };
-    let Ok(entries) = std::fs::read_dir(&dir) else { return };
+    let Ok(entries) = std::fs::read_dir(&dir) else { return Ok(()) };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         let ours = scopes.iter().any(|s| name.starts_with(&format!("portfolio-history-{s}-")) || name.starts_with(&format!("portfolio-intraday-{s}-")));
@@ -220,6 +234,7 @@ pub fn portfolio_forget(provider: String, app: AppHandle, state: State<'_, Tradi
             let _ = std::fs::remove_file(entry.path());
         }
     }
+    Ok(())
 }
 
 pub fn client() -> Result<reqwest::Client, String> {
