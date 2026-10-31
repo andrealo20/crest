@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use quick_xml::events::Event;
 
-use super::{is_fiat, num, Account, Holding};
+use super::{is_fiat, Account, Holding};
 use crate::secrets;
 
 const SEND: &str = "https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService/SendRequest";
@@ -23,9 +23,7 @@ pub async fn fetch(client: &reqwest::Client) -> Result<Account, String> {
     check(&reply)?;
     let reference = tag(&reply, "ReferenceCode").ok_or("network:no reference code")?;
     // The token only goes to IB's own host.
-    let url = tag(&reply, "Url")
-        .filter(|u| u.starts_with("https://") && u.split('/').nth(2).is_some_and(|h| h.ends_with(".interactivebrokers.com")))
-        .unwrap_or_else(|| SEND.replace("SendRequest", "GetStatement"));
+    let url = tag(&reply, "Url").filter(|u| ib_host(u)).unwrap_or_else(|| SEND.replace("SendRequest", "GetStatement"));
 
     // The statement is generated on demand; IB answers 1019 until it is ready.
     for attempt in 0..8 {
@@ -47,12 +45,20 @@ fn safe(s: &str) -> String {
     s.chars().filter(|c| c.is_ascii_alphanumeric()).collect()
 }
 
+/// An https URL on interactivebrokers.com or a subdomain, with no query of its own.
+fn ib_host(url: &str) -> bool {
+    reqwest::Url::parse(url).is_ok_and(|u| {
+        u.scheme() == "https" && u.query().is_none() && u.host_str().is_some_and(|h| h == "interactivebrokers.com" || h.ends_with(".interactivebrokers.com"))
+    })
+}
+
+/// Errors never carry the URL: the token is in its query.
 async fn text(req: reqwest::RequestBuilder) -> Result<String, String> {
-    let res = req.send().await.map_err(|e| format!("network:{e}"))?;
+    let res = req.send().await.map_err(super::net)?;
     if !res.status().is_success() {
         return Err(format!("network:HTTP {}", res.status().as_u16()));
     }
-    res.text().await.map_err(|e| format!("network:{e}"))
+    res.text().await.map_err(super::net)
 }
 
 /// Maps a Flex error reply to the shared codes.
@@ -83,33 +89,33 @@ fn parse(xml: &str) -> Account {
                 if name != "OpenPosition" && name != "CashReportCurrency" {
                     continue;
                 }
-                let attr = |key: &str| -> String {
+                let attr = |key: &str| -> Option<String> {
                     e.attributes()
                         .flatten()
                         .find(|a| AsRef::<str>::as_ref(&a.key.local_name()) == key)
-                        .and_then(|a| a.normalized_value(quick_xml::XmlVersion::Implicit1_0).ok().map(|v| v.to_string()))
-                        .unwrap_or_default()
+                        .and_then(|a| a.normalized_value(quick_xml::XmlVersion::Implicit1_0).ok().map(|v| v.trim().to_string()))
+                        .filter(|v| !v.is_empty())
                 };
+                // A missing or unreadable number is unknown, never 0.
+                let number = |key: &str| attr(key).and_then(|v| v.parse::<f64>().ok());
                 if name == "OpenPosition" {
-                    let detail = attr("levelOfDetail");
-                    if !detail.is_empty() && detail != "SUMMARY" {
+                    if attr("levelOfDetail").is_some_and(|d| d != "SUMMARY") {
                         continue;
                     }
+                    let (Some(symbol), Some(quantity)) = (attr("symbol"), number("position")) else { continue };
                     let currency = attr("currency");
                     holdings.push(Holding {
-                        symbol: attr("symbol"),
-                        name: attr("description"),
-                        kind: if attr("assetCategory") == "CRYPTO" { "crypto" } else { "stock" },
-                        quantity: num(&attr("position")),
-                        price: Some(num(&attr("markPrice"))),
-                        price_currency: Some(currency.clone()),
-                        value: Some(num(&attr("positionValue"))),
-                        cost: Some(num(&attr("costBasisMoney"))),
-                        currency: Some(currency),
+                        symbol,
+                        name: attr("description").unwrap_or_default(),
+                        kind: if attr("assetCategory").as_deref() == Some("CRYPTO") { "crypto" } else { "stock" },
+                        quantity,
+                        price: number("markPrice"),
+                        price_currency: currency.clone(),
+                        value: number("positionValue"),
+                        cost: number("costBasisMoney"),
+                        currency,
                     });
-                } else {
-                    let currency = attr("currency");
-                    let cash = num(&attr("endingCash"));
+                } else if let (Some(currency), Some(cash)) = (attr("currency"), number("endingCash")) {
                     if is_fiat(&currency) && cash.abs() > 0.005 {
                         holdings.push(Holding::cash(&currency, cash));
                     }
@@ -151,5 +157,24 @@ mod tests {
         assert_eq!(account.holdings[1].symbol, "M&G");
         assert_eq!(account.holdings[2].kind, "fiat");
         assert_eq!(account.holdings[2].value, Some(400.0));
+    }
+
+    #[test]
+    fn missing_attributes_are_unknown() {
+        let xml = r#"<FlexQueryResponse><OpenPosition symbol="VWRL" currency="GBP" position="3" /><OpenPosition currency="USD" position="1" /></FlexQueryResponse>"#;
+        let account = parse(xml);
+        assert_eq!(account.holdings.len(), 1);
+        assert_eq!(account.holdings[0].value, None);
+        assert_eq!(account.holdings[0].cost, None);
+        assert_eq!(account.holdings[0].price, None);
+    }
+
+    #[test]
+    fn statement_url_must_be_ib() {
+        assert!(ib_host("https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService/GetStatement"));
+        assert!(!ib_host("https://interactivebrokers.com.evil.example/x"));
+        assert!(!ib_host("https://evil.example/?h=.interactivebrokers.com"));
+        assert!(!ib_host("http://gdcdyn.interactivebrokers.com/x"));
+        assert!(!ib_host("https://user@evilinteractivebrokers.com/x"));
     }
 }
