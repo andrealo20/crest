@@ -11,18 +11,22 @@ use std::sync::{Arc, Mutex};
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Manager, State};
-use windows::core::{HSTRING, PWSTR};
+use windows::core::{w, HSTRING, PWSTR};
+use windows::Win32::System::Registry::{RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ};
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Console::{ClosePseudoConsole, CreatePseudoConsole, ResizePseudoConsole, COORD, HPCON};
 use windows::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation, SetInformationJobObject, TerminateJobObject,
-    JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK,
 };
-use windows::Win32::System::Pipes::CreatePipe;
+use windows::Win32::Security::{TOKEN_DUPLICATE, TOKEN_IMPERSONATE, TOKEN_QUERY};
+use windows::Win32::System::Environment::{CreateEnvironmentBlock, DestroyEnvironmentBlock};
+use windows::Win32::System::Pipes::{CreatePipe, PeekNamedPipe};
 use windows::Win32::System::Threading::{
-    CreateProcessW, DeleteProcThreadAttributeList, GetExitCodeProcess, InitializeProcThreadAttributeList, ResumeThread, TerminateProcess,
-    UpdateProcThreadAttribute, WaitForSingleObject, CREATE_SUSPENDED, EXTENDED_STARTUPINFO_PRESENT, INFINITE, LPPROC_THREAD_ATTRIBUTE_LIST,
-    PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, STARTF_USESTDHANDLES, STARTUPINFOEXW,
+    CreateProcessW, DeleteProcThreadAttributeList, GetCurrentProcess, GetExitCodeProcess, InitializeProcThreadAttributeList, OpenProcessToken,
+    ResumeThread, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
+    EXTENDED_STARTUPINFO_PRESENT, INFINITE, LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+    STARTF_USESTDHANDLES, STARTUPINFOEXW,
 };
 
 /// A running shell. Dropping it closes the pseudo console, which ends conhost and
@@ -68,7 +72,9 @@ fn system32() -> PathBuf {
 /// PowerShell 7 from PATH or its default install folder. symlink_metadata, because the
 /// Store version is an app execution alias that metadata() cannot open.
 fn find_pwsh() -> Option<PathBuf> {
-    let on_path: Vec<PathBuf> = std::env::var_os("PATH").map(|p| std::env::split_paths(&p).map(|d| d.join("pwsh.exe")).collect()).unwrap_or_default();
+    // Relative PATH entries would resolve against Crest's working folder.
+    let on_path: Vec<PathBuf> =
+        std::env::var_os("PATH").map(|p| std::env::split_paths(&p).filter(|d| d.is_absolute()).map(|d| d.join("pwsh.exe")).collect()).unwrap_or_default();
     let installed = ["ProgramFiles", "ProgramW6432"].into_iter().filter_map(std::env::var_os).map(|d| PathBuf::from(d).join("PowerShell\\7\\pwsh.exe"));
     on_path.into_iter().chain(installed).find(|p| std::fs::symlink_metadata(p).is_ok_and(|m| !m.is_dir()))
 }
@@ -84,11 +90,14 @@ fn shell_exe(shell: &str) -> Option<PathBuf> {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ShellInfo {
     pwsh: Option<String>,
     powershell: String,
     cmd: String,
     home: String,
+    /// Windows build, for xterm's ConPTY quirks (reflow, wrapped lines). 0 = unknown.
+    build_number: u32,
 }
 
 #[tauri::command]
@@ -99,7 +108,29 @@ pub fn terminal_info() -> ShellInfo {
         powershell: s(shell_exe("powershell").unwrap_or_default()),
         cmd: s(shell_exe("cmd").unwrap_or_default()),
         home: s(home()),
+        build_number: windows_build(),
     }
+}
+
+/// CurrentBuildNumber from the registry; GetVersionEx would report the manifest's version instead.
+fn windows_build() -> u32 {
+    let mut buf = [0u16; 32];
+    let mut bytes = std::mem::size_of_val(&buf) as u32;
+    let found = unsafe {
+        RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            w!("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion"),
+            w!("CurrentBuildNumber"),
+            RRF_RT_REG_SZ,
+            None,
+            Some(buf.as_mut_ptr().cast()),
+            Some(&mut bytes),
+        )
+    };
+    if found.is_err() {
+        return 0;
+    }
+    String::from_utf16_lossy(&buf[..bytes as usize / 2]).trim_end_matches('\0').parse().unwrap_or(0)
 }
 
 fn size(cols: u16, rows: u16) -> COORD {
@@ -153,13 +184,48 @@ pub async fn terminal_start(
 
 /// Keeps reading even if the webview is gone, so conhost never blocks on a full pipe.
 fn pump(mut output: File, channel: &Channel<InvokeResponseBody>) {
-    let mut buf = vec![0u8; 16 * 1024];
-    while let Ok(n) = output.read(&mut buf) {
+    const MAX: usize = 64 * 1024;
+    let mut buf = vec![0u8; MAX];
+    while let Ok(mut n) = output.read(&mut buf) {
         if n == 0 {
             break;
         }
+        // What arrived meanwhile goes in the same message: fewer webview calls under heavy output.
+        while n < MAX && available(&output) > 0 {
+            match output.read(&mut buf[n..]) {
+                Ok(0) | Err(_) => break,
+                Ok(m) => n += m,
+            }
+        }
         let _ = channel.send(InvokeResponseBody::Raw(buf[..n].to_vec()));
     }
+}
+
+/// Bytes waiting in the pipe, without blocking.
+fn available(pipe: &File) -> u32 {
+    let mut bytes = 0u32;
+    let _ = unsafe { PeekNamedPipe(HANDLE(pipe.as_raw_handle()), None, 0, None, Some(&mut bytes), None) };
+    bytes
+}
+
+/// The user's environment as a new logon would build it, so PATH changes made after Crest
+/// started reach the shell. Freed on drop.
+struct Environment(*mut c_void);
+
+impl Drop for Environment {
+    fn drop(&mut self) {
+        let _ = unsafe { DestroyEnvironmentBlock(self.0) };
+    }
+}
+
+/// None (inherit Crest's environment) when any step fails.
+unsafe fn fresh_environment() -> Option<Environment> {
+    let mut token = HANDLE::default();
+    OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_IMPERSONATE, &mut token).ok()?;
+    let token = OwnedHandle::from_raw_handle(token.0);
+    let mut block = std::ptr::null_mut();
+    CreateEnvironmentBlock(&mut block, Some(handle(&token)), false).ok()?;
+    Some(Environment(block))
 }
 
 fn spawn(exe: &Path, command_line: &str, cwd: &Path, size: COORD) -> windows::core::Result<(Pty, File)> {
@@ -189,12 +255,13 @@ fn spawn(exe: &Path, command_line: &str, cwd: &Path, size: COORD) -> windows::co
     }
 }
 
-/// Job that kills the shell and everything it started once its last handle closes:
-/// on kill, on quit, and when Crest crashes.
+/// Job that kills the shell once its last handle closes: on kill, on quit, and when Crest
+/// crashes. Only the shell: what it starts breaks away, so a GUI app opened from the
+/// terminal stays open. Console programs end with the pseudo console instead.
 unsafe fn kill_on_close_job() -> windows::core::Result<OwnedHandle> {
     let job = OwnedHandle::from_raw_handle(CreateJobObjectW(None, None)?.0);
     let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
-    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK;
     SetInformationJobObject(
         handle(&job),
         JobObjectExtendedLimitInformation,
@@ -223,21 +290,26 @@ unsafe fn launch(hpc: HPCON, exe: &Path, command_line: &str, cwd: &Path) -> wind
         si.lpAttributeList = attrs;
         let mut cmd: Vec<u16> = command_line.encode_utf16().chain([0]).collect();
         let mut pi = PROCESS_INFORMATION::default();
+        let env = fresh_environment();
+        let mut flags = EXTENDED_STARTUPINFO_PRESENT | CREATE_SUSPENDED;
+        if env.is_some() {
+            flags |= CREATE_UNICODE_ENVIRONMENT;
+        }
         CreateProcessW(
             &HSTRING::from(exe.as_os_str()),
             Some(PWSTR(cmd.as_mut_ptr())),
             None,
             None,
             false,
-            EXTENDED_STARTUPINFO_PRESENT | CREATE_SUSPENDED,
-            None,
+            flags,
+            env.as_ref().map(|e| e.0 as *const c_void),
             &HSTRING::from(cwd.as_os_str()),
             &si.StartupInfo,
             &mut pi,
         )?;
         let process = OwnedHandle::from_raw_handle(pi.hProcess.0);
         let thread = OwnedHandle::from_raw_handle(pi.hThread.0);
-        // Suspended until it is in the job, so nothing it starts escapes.
+        // Suspended until it is in the job, so it cannot exit or crash before the job holds it.
         let job = AssignProcessToJobObject(handle(&job), handle(&process)).is_ok().then_some(job);
         ResumeThread(handle(&thread));
         Ok((process, job))
@@ -246,8 +318,9 @@ unsafe fn launch(hpc: HPCON, exe: &Path, command_line: &str, cwd: &Path) -> wind
     result
 }
 
-/// Keystrokes and pastes. Sync on purpose: commands then run in order on the main thread.
-#[tauri::command]
+/// Keystrokes and pastes. Off the main thread, so a shell that stops reading cannot freeze the
+/// UI; order holds because the frontend keeps one write in flight.
+#[tauri::command(async)]
 pub fn terminal_write(data: String, state: State<'_, TerminalState>) -> Result<(), String> {
     let pty = state.0.lock().unwrap().clone().ok_or("No session")?;
     (&pty.input).write_all(data.as_bytes()).map_err(|e| e.to_string())
