@@ -349,6 +349,8 @@ export const updater = {
       install: async (onProgress) => {
         let total = 0;
         let done = 0;
+        // The installer ends the process without Tauri's exit event, so a running recording is finished first.
+        await invoke("capture_stop");
         await found.downloadAndInstall((e) => {
           if (e.event === "Started") total = e.data.contentLength ?? 0;
           else if (e.event === "Progress" && total) onProgress(Math.min(1, (done += e.data.chunkLength) / total));

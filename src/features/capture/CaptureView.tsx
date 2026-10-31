@@ -205,23 +205,29 @@ function Library() {
 
   useEffect(() => {
     let alive = true;
-    void capture.list().then((list) => {
-      if (!alive) return;
-      setFiles(list);
-      const missing = list.filter((f) => !detailCache.has(cacheKey(f))).slice(0, LIBRARY_MAX);
-      if (!missing.length) return;
-      void capture.details(missing.map((f) => f.path)).then((ds) => {
-        missing.forEach((f) => {
-          const d = ds.find((x) => x.path === f.path);
-          if (d) detailCache.set(cacheKey(f), d);
-        });
-        if (alive) setLoaded((n) => n + 1);
-      });
-    });
+    void capture.list().then((list) => alive && setFiles(list));
     return () => void (alive = false);
   }, [epoch]);
 
   const shown = files.filter((f) => filter === "all" || f.kind === filter).slice(0, LIBRARY_MAX);
+
+  // Details only for the cards on screen: the newest of the chosen filter.
+  const missingKey = shown.filter((f) => !detailCache.has(cacheKey(f))).map(cacheKey).join("\n");
+  useEffect(() => {
+    const missing = shown.filter((f) => !detailCache.has(cacheKey(f)));
+    if (!missing.length) return;
+    let alive = true;
+    void capture.details(missing.map((f) => f.path)).then((ds) => {
+      missing.forEach((f) => {
+        const d = ds.find((x) => x.path === f.path);
+        if (d) detailCache.set(cacheKey(f), d);
+      });
+      if (alive) setLoaded((n) => n + 1);
+    });
+    return () => void (alive = false);
+    // `shown` is derived; the key says when the cards needing details change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missingKey]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-1.5">
