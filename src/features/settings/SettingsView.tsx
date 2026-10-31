@@ -36,6 +36,7 @@ import { discordState, reconnectDiscord } from "../discord/store";
 import { fps } from "../system/gaming";
 import { PlaceSearch } from "../weather/WeatherView";
 import { VaultSettings } from "../vault/VaultSettings";
+import { TradingSettings } from "../trading/TradingSettings";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
@@ -157,7 +158,7 @@ export function SettingsView() {
             {page === "accounts" && (
               <>
                 <Discord />
-                <Trading />
+                <TradingSettings />
                 <KeysNote />
               </>
             )}
@@ -325,31 +326,6 @@ function Ask() {
           options={effortLevels}
         />
       </Row>
-    </Group>
-  );
-}
-
-function Trading() {
-  const s = settings.use();
-  return (
-    <Group title="Trading 212" id="settings-trading">
-      <Row label={t("Konto")}>
-        <Segmented
-          id="t212-env"
-          size="sm"
-          value={s.trading.env}
-          onChange={(env) => updateSettings({ trading: { env } })}
-          options={[
-            { value: "live", label: t("Echt") },
-            { value: "demo", label: "Demo" },
-          ]}
-        />
-      </Row>
-      <SecretRow name="t212.key" label={t("API-Schlüssel")} />
-      <SecretRow name="t212.secret" label={t("API-Secret")} hint={t("Nur einmal sichtbar beim Erstellen")} />
-      <div className="px-3 py-2 text-caption text-label-3">
-        {t("In Trading 212: Einstellungen → API (Beta) → Schlüssel erstellen. Rechte: Konto-Daten und Portfolio – mehr ist nicht nötig, die Notch liest nur.")}
-      </div>
     </Group>
   );
 }
@@ -934,7 +910,7 @@ function Tools() {
  * Field for a key. Stored values are never read back, it only shows
  * "saved ✓". Typing a new one overwrites it, saving empty deletes it.
  */
-function SecretRow({ name, label, hint, onSaved }: { name: SecretName; label: string; hint?: string; onSaved?: () => void }) {
+export function SecretRow({ name, label, hint, onSaved }: { name: SecretName; label: string; hint?: string; onSaved?: () => void }) {
   const [stored, setStored] = useState(false);
   const [value, setValue] = useState("");
   const [saved, setSaved] = useState(false);

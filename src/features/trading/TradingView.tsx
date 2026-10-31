@@ -1,25 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowClockwise, Key, WarningCircle } from "@phosphor-icons/react";
+import { ArrowClockwise, CaretLeft, CaretRight, Key, WarningCircle, Wallet } from "@phosphor-icons/react";
 import { DepotIcon } from "../../ui/icons";
 import { content, fade, spin, springs } from "../../design/motion";
 import { formatAgo, formatMoney, formatPercent, formatTime } from "../../lib/format";
 import { createStore } from "../../lib/store";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
-import { fetchTrading, type TradingData } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { Button, Empty, Segmented, Skeleton } from "../../ui/controls";
 import { locale, t } from "../../i18n";
 import { usePresenting } from "../privacy/store";
+import { manualHoldings } from "./manual";
+import { seriesFor, todayChange, type History, type Line, type Range, type Totals } from "./portfolio";
+import { providerName } from "./providers";
+import { usePortfolio, type AccountState } from "./usePortfolio";
 
 /** Amounts in presentation mode: percentages stay, money is hidden. */
 const MASK = "••••••";
 
-/** Polls while the tool is open. The API allows one request per 5 s. */
-const POLL_MS = 30_000;
-
-type Range = "1d" | "7d" | "30d" | "all";
 const ranges: { value: Range; label: string }[] = [
   { value: "1d", label: "1T" },
   { value: "7d", label: "7T" },
@@ -29,28 +28,36 @@ const ranges: { value: Range; label: string }[] = [
 const range = createStore<Range>("1d", { persist: "trading-range" });
 
 /*
- *   Portfolio                                [1D 7D 30D All] [⟳] [📌]
+ *   ‹ All · Kraken                           [1D 7D 30D All] [⟳]
  *   12.345,67 €                         ╱╲    ╱‾‾
  *   +4,20 € (+0,17 %) today        ___╱  ╲__╱      P&L +12,30 € · 7D
  *   [Cash] [Invested] [Open +0,07 € +1,9 %] [Realized +85 €]
- *   AAPL  Apple                                  845,20 €  [+2,10 %]
+ *   Kraken    3 positions                        845,20 €  [+2,10 %]   (all accounts)
+ *   AAPL  Apple                                  845,20 €  [+2,10 %]   (one account)
  *
- * All changes are based on profit (realized + unrealized) instead of account value,
- * so deposits and withdrawals distort neither "today" nor the history.
- * Percent today = change / yesterday's account value; percent open = open P&L / cost basis.
+ * Everything is in the base currency (settings). All changes are based on profit
+ * (realized + unrealized) instead of value, so deposits and withdrawals distort neither
+ * "today" nor the history. Percent today = change / yesterday's value; percent open =
+ * open P&L / cost basis.
  */
 export function TradingView() {
   const env = settings.use().trading.env;
-  const { data, error, loading, updatedAt, refresh } = useTrading(env);
+  const { state, loading, updatedAt, refresh } = usePortfolio();
+  const [picked, setPicked] = useState<string | null>(null);
   const r = range.use();
   const hidden = usePresenting();
-  const money: typeof formatMoney = (...args) => (hidden ? MASK : formatMoney(...args));
+
+  const accounts = state?.accounts ?? [];
+  const single = accounts.length === 1 ? accounts[0] : null;
+  const selected = single ?? accounts.find((a) => a.id === picked) ?? null;
+  const base = state?.base ?? "EUR";
+  const money = (v: number, opts?: { signed?: boolean }) => (hidden ? MASK : formatMoney(v, base, opts));
 
   const actions = (
     <HeaderActions>
-      {env === "demo" && <span className="mr-1 rounded-full bg-fill-2 px-1.5 text-caption text-label-2">{t("Demo")}</span>}
-      {data && <Segmented id="trading-range" size="sm" value={r} onChange={range.set} options={ranges.map((o) => ({ ...o, label: t(o.label) }))} />}
-      <HeaderButton label={updatedAt ? t("Aktualisiert {ago}", { ago: formatAgo(Date.now() - updatedAt) }) : t("Aktualisieren")} onClick={refresh}>
+      {env === "demo" && accounts.some((a) => a.id === "t212") && <span className="mr-1 rounded-full bg-fill-2 px-1.5 text-caption text-label-2">{t("Demo")}</span>}
+      {state?.total && <Segmented id="trading-range" size="sm" value={r} onChange={range.set} options={ranges.map((o) => ({ ...o, label: t(o.label) }))} />}
+      <HeaderButton label={updatedAt ? t("Aktualisiert {ago}", { ago: formatAgo(Date.now() - updatedAt) }) : t("Aktualisieren")} onClick={() => void refresh()}>
         <motion.span className="flex" animate={{ rotate: loading ? 360 : 0 }} transition={loading ? spin : { duration: 0 }}>
           <ArrowClockwise size={14} weight="bold" />
         </motion.span>
@@ -58,143 +65,170 @@ export function TradingView() {
     </HeaderActions>
   );
 
-  if (!data && error === "no-key") {
+  if (!state) return <LoadingState />;
+  if (state.empty) {
     return (
       <Empty
-        icon={Key}
-        title={t("Trading 212 verbinden")}
-        text={t("API-Schlüssel in Trading 212 erstellen (Einstellungen → API), Rechte: Konto + Portfolio.")}
-        action={<Button primary onClick={() => navigate("settings", "trading")}>{t("Schlüssel eintragen")}</Button>}
+        icon={Wallet}
+        title={t("Portfolio verbinden")}
+        text={t("Broker oder Börse mit einem Nur-Lese-Schlüssel verbinden oder Bestände von Hand eintragen.")}
+        action={<Button primary onClick={() => navigate("settings", "trading")}>{t("Einrichten")}</Button>}
       />
     );
   }
-  if (!data && error) return <ErrorState code={error} onRetry={refresh} />;
-  if (!data) return <LoadingState />;
+  if (single?.error) return <ErrorState name={providerName(single.id)} code={single.error} onRetry={() => void refresh()} />;
 
-  const today = todayChange(data);
-  const series = seriesFor(data, r);
-  const openPct = data.invested > 0 ? (data.unrealized / data.invested) * 100 : null;
+  const totals: Totals | null = selected ? selected.summary : state.total;
+  const history: History | null = selected ? selected.history : state.history;
+  if (!totals) return <ErrorState name={t("Portfolio")} code={accounts.find((a) => a.error)?.error ?? "network:"} onRetry={() => void refresh()} />;
 
   return (
     <div className="flex h-full flex-col px-5 pt-1 pb-2">
       {actions}
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <AnimatedValue className="tabular text-[30px] leading-9 font-semibold tracking-[-0.025em]" text={money(data.totalValue, data.currency)} />
-          {today ? (
-            <Change value={today.change} pct={today.pct} money={money(today.change, data.currency, { signed: true })} suffix={today.label} />
-          ) : (
-            <div className="text-footnote text-label-3">{t("Tagesänderung ab dem nächsten Abruf")}</div>
-          )}
-        </div>
-        <Chart series={series} money={(v) => money(v, data.currency, { signed: true })} rangeLabel={t(ranges.find((x) => x.value === r)!.label)} />
-      </div>
-
-      <div className="mt-3 grid grid-cols-[1fr_1fr_1.45fr_1fr] gap-1.5">
-        <Stat label={t("Cash")} value={money(data.cash, data.currency)} />
-        <Stat label={t("Investiert")} value={money(data.invested, data.currency)} />
-        <Stat
-          label={t("Offen")}
-          value={money(data.unrealized, data.currency, { signed: true })}
-          sub={openPct !== null ? formatPercent(openPct) : undefined}
-          tone={data.unrealized}
-        />
-        <Stat label={t("Realisiert")} value={money(data.realized, data.currency, { signed: true })} tone={data.realized} />
-      </div>
-
+      <Overview totals={totals} history={history} range={r} money={money} title={selected && !single ? <BackLink name={t(providerName(selected.id))} onBack={() => setPicked(null)} /> : null} />
+      <Notice state={selected ? [selected] : accounts} failed={state.failed} />
       <div className="-mx-2 mt-2 min-h-0 flex-1 overflow-y-auto px-2 [scrollbar-width:none]">
-        {data.positions.length === 0 && <div className="py-4 text-center text-caption text-label-3">{t("Keine offenen Positionen")}</div>}
-        {data.positions.map((p, i) => {
-          const pct = p.cost > 0 ? (p.pnl / p.cost) * 100 : 0;
-          return (
-            <motion.div
-              key={p.ticker}
-              className="flex h-10 items-center gap-3 border-b border-separator px-1 last:border-0"
-              initial={{ opacity: 0, transform: "translateY(4px)" }}
-              animate={{ opacity: 1, transform: "translateY(0px)" }}
-              transition={{ ...content.enter, delay: 0.03 * i }}
-              title={hidden ? undefined : `${p.quantity.toLocaleString(locale())} ${t("Stk.")} · Ø ${p.averagePrice.toLocaleString(locale())} → ${p.currentPrice.toLocaleString(locale())} ${p.priceCurrency}`}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-footnote font-semibold text-label">{p.ticker}</div>
-                <div className="truncate text-caption text-label-3">{p.name}</div>
-              </div>
-              <div className="text-right">
-                <div className="tabular text-footnote text-label">{money(p.value, data.currency)}</div>
-                <div className={`tabular text-caption ${tone(p.pnl)}`}>{money(p.pnl, data.currency, { signed: true })}</div>
-              </div>
-              <span className={`tabular w-[68px] rounded-[6px] py-0.5 text-center text-caption font-semibold ${pill(p.pnl)}`}>{formatPercent(pct)}</span>
-            </motion.div>
-          );
-        })}
+        {selected ? <Positions account={selected} money={money} hidden={hidden} /> : accounts.map((a, i) => <AccountRow key={a.id} account={a} index={i} money={money} onOpen={() => setPicked(a.id)} />)}
       </div>
     </div>
   );
 }
 
-function useTrading(env: "live" | "demo") {
-  const [data, setData] = useState<TradingData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
-  const alive = useRef(true);
+type MoneyFn = (v: number, opts?: { signed?: boolean }) => string;
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const d = await fetchTrading(env);
-      if (!alive.current) return;
-      setData(d);
-      setError(null);
-      setUpdatedAt(Date.now());
-    } catch (e) {
-      if (!alive.current) return;
-      const code = String(e);
-      // Silently swallow rate limits while we have data.
-      if (code !== "rate") setError(code);
-    } finally {
-      if (alive.current) setLoading(false);
-    }
-  }, [env]);
-
-  useEffect(() => {
-    alive.current = true;
-    void refresh();
-    const id = setInterval(() => void refresh(), POLL_MS);
-    return () => {
-      alive.current = false;
-      clearInterval(id);
-    };
-  }, [refresh]);
-
-  return { data, error, loading, updatedAt, refresh };
+function Overview({ totals, history, range: r, money, title }: { totals: Totals; history: History | null; range: Range; money: MoneyFn; title: ReactNode }) {
+  const pnlNow = totals.unrealized + totals.realized;
+  const today = history ? todayChange(pnlNow, history) : null;
+  const series = history ? seriesFor(history, r) : [];
+  const openPct = totals.invested > 0 ? (totals.unrealized / totals.invested) * 100 : null;
+  return (
+    <>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          {title}
+          <AnimatedValue className="tabular text-[30px] leading-9 font-semibold tracking-[-0.025em]" text={money(totals.value)} />
+          {today ? (
+            <Change value={today.change} pct={today.pct} money={money(today.change, { signed: true })} suffix={today.since === null ? t("heute") : t("seit {time}", { time: formatTime(today.since) })} />
+          ) : (
+            <div className="text-footnote text-label-3">{t("Tagesänderung ab dem nächsten Abruf")}</div>
+          )}
+        </div>
+        <Chart series={series} money={(v) => money(v, { signed: true })} rangeLabel={t(ranges.find((x) => x.value === r)!.label)} />
+      </div>
+      <div className="mt-3 grid grid-cols-[1fr_1fr_1.45fr_1fr] gap-1.5">
+        <Stat label={t("Cash")} value={money(totals.cash)} />
+        <Stat label={t("Investiert")} value={money(totals.invested)} />
+        <Stat label={t("Offen")} value={money(totals.unrealized, { signed: true })} sub={openPct !== null ? formatPercent(openPct) : undefined} tone={totals.unrealized} />
+        <Stat label={t("Realisiert")} value={money(totals.realized, { signed: true })} tone={totals.realized} />
+      </div>
+    </>
+  );
 }
 
-/**
- * Today = P&L now − P&L at the end of yesterday (percent of yesterday's account value).
- * Without yesterday: since the first fetch today. Without either: nothing (instead of nonsense).
- */
-function todayChange(d: TradingData): { change: number; pct: number | null; label: string } | null {
-  const pnlNow = d.unrealized + d.realized;
-  const prev = d.history.length >= 2 ? d.history.at(-2)! : null;
-  if (prev) return { change: pnlNow - prev.pnl, pct: prev.value > 0 ? ((pnlNow - prev.pnl) / prev.value) * 100 : null, label: t("heute") };
-  const first = d.intraday[0];
-  if (first && d.intraday.length >= 2) {
-    const since = formatTime(first.t);
-    return { change: pnlNow - first.pnl, pct: first.value > 0 ? ((pnlNow - first.pnl) / first.value) * 100 : null, label: t("seit {time}", { time: since }) };
-  }
-  return null;
+function BackLink({ name, onBack }: { name: string; onBack: () => void }) {
+  return (
+    <button onClick={onBack} className="pressable -ml-1 flex items-center gap-0.5 rounded-[6px] px-1 text-caption font-medium text-label-3 hover:text-label-2">
+      <CaretLeft size={11} weight="bold" />
+      {t("Alle Konten")} <span className="text-label-2">· {name}</span>
+    </button>
+  );
 }
 
-/** P&L history for the range: 1D from intraday points, otherwise one point per day. */
-function seriesFor(d: TradingData, r: Range): number[] {
-  if (r === "1d") {
-    const prev = d.history.length >= 2 ? d.history.at(-2)!.pnl : null;
-    const points = d.intraday.map((p) => p.pnl);
-    return prev !== null && points.length ? [prev, ...points] : points;
-  }
-  const days = r === "7d" ? 8 : r === "30d" ? 31 : Infinity;
-  return d.history.slice(-days).map((s) => s.pnl);
+/** One line under the stats: the most important thing that makes the numbers incomplete. */
+function Notice({ state, failed }: { state: AccountState[]; failed: string[] }) {
+  const warn = state.find((a) => a.account?.warning === "key-can-trade");
+  const partial = state.find((a) => a.summary?.partial);
+  const missing = [...new Set(state.flatMap((a) => a.summary?.missing ?? []))];
+  const errors = state.filter((a) => a.error);
+  let text: string | null = null;
+  if (warn) text = t("Der {name}-Schlüssel darf mehr als lesen. Crest liest nur, trotzdem besser einen Nur-Lese-Schlüssel erstellen.", { name: providerName(warn.id) });
+  else if (errors.length) text = t("Nicht erreichbar: {names}. Nicht mitgezählt.", { names: errors.map((a) => t(providerName(a.id))).join(", ") });
+  else if (partial) text = t("{name}: Handelsverlauf wird noch geladen, G/V ist unvollständig.", { name: providerName(partial.id) });
+  else if (failed.length && missing.length) text = t("Kurse gerade nicht abrufbar. Ohne Kurs: {symbols}.", { symbols: missing.slice(0, 4).join(", ") });
+  else if (missing.length) text = t("Ohne Kurs, nicht mitgezählt: {symbols}.", { symbols: missing.slice(0, 4).join(", ") + (missing.length > 4 ? " …" : "") });
+  if (!text) return null;
+  return (
+    <button onClick={() => (warn || errors.length ? navigate("settings", "trading") : undefined)} className="mt-1.5 flex items-start gap-1 text-left text-caption text-label-3">
+      <WarningCircle size={12} weight="fill" className={`mt-px shrink-0 ${warn ? "text-orange" : ""}`} />
+      <span className="line-clamp-2">{text}</span>
+    </button>
+  );
+}
+
+function AccountRow({ account: a, index, money, onOpen }: { account: AccountState; index: number; money: MoneyFn; onOpen: () => void }) {
+  const s = a.summary;
+  const pnl = s ? s.unrealized : 0;
+  const pct = s && s.invested > 0 ? (s.unrealized / s.invested) * 100 : null;
+  const sub = a.error
+    ? errorLine(a.error)
+    : s
+      ? t("{n} Positionen", { n: s.lines.length }) + (s.cash > 0.005 ? ` · ${t("Cash")} ${money(s.cash)}` : "")
+      : "";
+  return (
+    <motion.button
+      onClick={a.error ? () => navigate("settings", "trading") : onOpen}
+      className="pressable flex h-10 w-full items-center gap-3 border-b border-separator px-1 text-left last:border-0"
+      initial={{ opacity: 0, transform: "translateY(4px)" }}
+      animate={{ opacity: 1, transform: "translateY(0px)" }}
+      transition={{ ...content.enter, delay: 0.03 * index }}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-footnote font-semibold text-label">{t(providerName(a.id))}</div>
+        <div className={`truncate text-caption ${a.error ? "text-red" : "text-label-3"}`}>{sub}</div>
+      </div>
+      {s && (
+        <div className="text-right">
+          <div className="tabular text-footnote text-label">{money(s.value)}</div>
+          <div className={`tabular text-caption ${tone(pnl)}`}>{s.invested > 0 ? money(pnl, { signed: true }) : "–"}</div>
+        </div>
+      )}
+      {s && <span className={`tabular w-[68px] rounded-[6px] py-0.5 text-center text-caption font-semibold ${pill(pnl)}`}>{pct !== null ? formatPercent(pct) : "–"}</span>}
+      <CaretRight size={11} weight="bold" className="shrink-0 text-label-4" />
+    </motion.button>
+  );
+}
+
+function Positions({ account, money, hidden }: { account: AccountState; money: MoneyFn; hidden: boolean }) {
+  const manual = manualHoldings.use();
+  const lines = account.summary?.lines ?? [];
+  if (!lines.length) return <div className="py-4 text-center text-caption text-label-3">{t("Keine offenen Positionen")}</div>;
+  return (
+    <>
+      {lines.map((p, i) => {
+        const pct = p.cost && p.cost > 0 && p.pnl !== null ? (p.pnl / p.cost) * 100 : null;
+        const priceDate = account.id === "manual" && p.kind === "stock" ? manual.find((m) => m.symbol.toUpperCase() === p.symbol)?.priceDate : null;
+        return (
+          <motion.div
+            key={p.symbol}
+            className="flex h-10 items-center gap-3 border-b border-separator px-1 last:border-0"
+            initial={{ opacity: 0, transform: "translateY(4px)" }}
+            animate={{ opacity: 1, transform: "translateY(0px)" }}
+            transition={{ ...content.enter, delay: 0.03 * i }}
+            title={hidden ? undefined : tooltip(p, money)}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-footnote font-semibold text-label">{p.symbol}</div>
+              <div className="truncate text-caption text-label-3">{priceDate ? t("Kurs vom {date}", { date: new Date(priceDate).toLocaleDateString(locale(), { day: "numeric", month: "short" }) }) : p.name}</div>
+            </div>
+            <div className="text-right">
+              <div className="tabular text-footnote text-label">{p.value !== null ? money(p.value) : t("Kein Kurs")}</div>
+              <div className={`tabular text-caption ${tone(p.pnl ?? 0)}`}>{p.pnl !== null ? (p.approx ? "≈ " : "") + money(p.pnl, { signed: true }) : "–"}</div>
+            </div>
+            <span className={`tabular w-[68px] rounded-[6px] py-0.5 text-center text-caption font-semibold ${pill(p.pnl ?? 0)}`}>{pct !== null ? formatPercent(pct) : "–"}</span>
+          </motion.div>
+        );
+      })}
+    </>
+  );
+}
+
+function tooltip(p: Line, money: MoneyFn): string {
+  const qty = p.quantity.toLocaleString(locale(), { maximumFractionDigits: 8 });
+  const parts = [`${qty} ${t("Stk.")}`];
+  if (p.price !== null) parts.push(`${t("Kurs")} ${money(p.price)}`);
+  if (p.cost !== null && p.quantity) parts.push(`Ø ${money(p.cost / p.quantity)}`);
+  if (p.approx) parts.push(t("G/V nur für gehandelte Stücke"));
+  return parts.join(" · ");
 }
 
 function tone(v: number): string {
@@ -314,21 +348,31 @@ function LoadingState() {
 }
 
 const errorText: Record<string, string> = {
+  "no-key": "Schlüssel fehlt.",
   unauthorized: "Schlüssel ungültig – bitte neu eintragen.",
-  forbidden: "Dem Schlüssel fehlen Rechte. Benötigt: Konto-Daten und Portfolio.",
+  forbidden: "Dem Schlüssel fehlen Leserechte, siehe Einstellungen.",
+  "bad-key": "Privater Schlüssel nicht lesbar. Nötig ist ein ECDSA-Schlüssel im PEM-Format.",
+  rate: "Zu viele Abfragen, gleich wieder.",
 };
 
-function ErrorState({ code, onRetry }: { code: string; onRetry: () => void }) {
-  const text = errorText[code] ? t(errorText[code]) : code.startsWith("network:") ? t("Keine Verbindung zu Trading 212 ({e}).", { e: code.slice(8) }) : code;
-  const isKey = code in errorText;
+/** Short text for an error code from Rust. */
+function errorLine(code: string): string {
+  if (errorText[code]) return t(errorText[code]);
+  if (code.startsWith("network:")) return t("Keine Verbindung ({e}).", { e: code.slice(8) || "?" });
+  if (code.startsWith("api:")) return code.slice(4);
+  return code;
+}
+
+function ErrorState({ name, code, onRetry }: { name: string; code: string; onRetry: () => void }) {
+  const isKey = code in errorText && code !== "rate";
   return (
     <Empty
       icon={isKey ? Key : WarningCircle}
-      title={isKey ? t("Zugang prüfen") : t("Depot nicht erreichbar")}
-      text={text}
+      title={isKey ? t("Zugang prüfen") : t("{name} nicht erreichbar", { name })}
+      text={errorLine(code)}
       action={
         <div className="flex gap-2">
-          {isKey && <Button onClick={() => navigate("settings", "trading")}>{t("Einstellungen")}</Button>}
+          <Button onClick={() => navigate("settings", "trading")}>{t("Einstellungen")}</Button>
           <Button primary onClick={onRetry} icon={DepotIcon}>{t("Erneut laden")}</Button>
         </div>
       }
