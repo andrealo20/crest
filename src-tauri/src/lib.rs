@@ -12,6 +12,8 @@ mod hit_test;
 mod media;
 mod memory;
 mod mixer;
+mod notices;
+mod notify_wire;
 mod privacy;
 pub mod secrets;
 mod system;
@@ -71,6 +73,7 @@ pub fn run() {
         .manage(display::DisplayState::default())
         .manage(discord::DiscordState::default())
         .manage(vault::VaultState::default())
+        .manage(notices::NoticesState::default())
         .invoke_handler(tauri::generate_handler![
             hit_test::set_hit_rect,
             hit_test::set_pinned,
@@ -137,6 +140,9 @@ pub fn run() {
             vault::vault_hello_disable,
             autostart_get,
             autostart_set,
+            notices::notices_configure,
+            notices::notices_status,
+            notices::notices_request_access,
         ])
         .setup(move |app| {
             let window = app.get_webview_window("notch").expect("window 'notch' missing");
