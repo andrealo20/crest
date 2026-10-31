@@ -57,7 +57,8 @@ export function CompactRow({ style, onWidth }: { style: "notch" | "capsule"; onW
   const readings = useReadings(closed, useGamingLive());
   const dots = usePrivacyDots();
   const [hovered, setHovered] = useState(false);
-  const caption = np && playing ? trackCaption(np.title ?? "", np.artist ?? "") : "";
+  // The title stays while paused, like the cover; it only scrolls while playing.
+  const caption = np ? trackCaption(np.title ?? "", np.artist ?? "") : "";
 
   const parts: { item: RowItem; draw: (p: PlacedPart) => ReactNode }[] = [];
   const fixed = (id: string, width: number, draw: () => ReactNode) => parts.push({ item: { id, kind: "fixed", width }, draw });

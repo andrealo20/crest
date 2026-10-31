@@ -198,8 +198,8 @@ export function Notch() {
       >
         <NotchShape geometry={shape} transition={transition} elevated={status === "open"}>
           <AnimatePresence>{showRow && <CompactRow key="row" style={surface} onWidth={setRowWidth} />}</AnimatePresence>
-          {/* Closed, the dots are the row's last part. */}
-          {status === "open" && !line && !idleLine && <PrivacyDots />}
+          {/* Closed, the dots are the row's last part; open or dimmed for focus there is no row, so they stand on their own. */}
+          {(status === "open" || focus) && !line && !idleLine && <PrivacyDots />}
 
           <AnimatePresence>
             {status === "open" && (

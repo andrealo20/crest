@@ -40,8 +40,13 @@ export function refreshUsage(): Promise<void> {
 
 function apply() {
   const s = settings.get(), key = enabledIds().join(",");
-  // No provider chosen: nothing to ask, and nothing left over to draw.
-  if (!key) usage.set((u) => (u.providers.length ? { ...u, providers: [] } : u));
+  // No provider chosen: nothing to ask and nothing left to draw. Forget what was fetched, so the same set chosen again reads at once,
+  // and drop an answer still in flight, so it cannot paint rings for providers just turned off.
+  if (!key && fetchedKey) {
+    fetchedKey = "";
+    latest++;
+    usage.set((u) => ({ ...u, providers: [], loading: false }));
+  }
   if (!key || !((s.closed.parts.rings && rowVisible.get()) || viewers.get() > 0)) {
     if (timer) clearInterval(timer);
     timer = null;
