@@ -634,3 +634,20 @@ export const systemControls = {
     return Promise.resolve({ ...mockFocus });
   },
 };
+
+// ---------- Detached timer window (src-tauri/src/timer_window.rs) ----------
+
+/** Opens the small always-on-top timer window at a saved position (physical px), if it is still on a monitor. */
+export function openTimerWindow(pos: { x: number; y: number } | null): Promise<void> {
+  return isNative ? invoke("timer_window_open", { x: pos?.x ?? null, y: pos?.y ?? null }) : Promise.resolve();
+}
+
+export function closeTimerWindow(): Promise<void> {
+  return isNative ? invoke("timer_window_close") : Promise.resolve();
+}
+
+/** True when the window opens, false when it is gone. */
+export function onTimerWindow(handler: (open: boolean) => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen<boolean>("timer-window://open", (e) => handler(e.payload));
+  return () => void off.then((f) => f());

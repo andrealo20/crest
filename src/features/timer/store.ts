@@ -115,8 +115,28 @@ function scheduleEnd() {
     scheduleEnd();
   }, Math.max(0, endsAt - Date.now()));
 }
-timer.subscribe(scheduleEnd);
-scheduleEnd();
+/** The detached timer window (timer.html) shows and controls the timer, but only the notch window rings. */
+export const isTimerWindow = location.pathname.endsWith("/timer.html");
+
+if (!isTimerWindow) {
+  timer.subscribe(scheduleEnd);
+  scheduleEnd();
+  // Dismissed or restarted from the detached window: stop the sound here too.
+  timer.subscribe(() => {
+    if (!timer.get().finished && ringing.get()) timerActions.silence();
+  });
+}
+
+// Both windows share the persisted state: adopt what the other window wrote. Writing the same
+// text back to localStorage fires no new event, so this does not loop.
+window.addEventListener("storage", (e) => {
+  if (e.key !== "notch:timer" || !e.newValue) return;
+  try {
+    timer.set(JSON.parse(e.newValue) as TimerState);
+  } catch {
+    // Broken entry: keep the current state.
+  }
+});
 
 /** Remaining seconds, updated on every second boundary. */
 export function useRemaining(): number {
