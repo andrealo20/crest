@@ -2,14 +2,15 @@
 //! What one player renders, for the equalizer: process loopback capture of the process
 //! behind the shown media app, its child processes included.
 //!
-//! Needs Windows 10 build 20348 or later (Windows 11 has it); on older builds the
-//! activation fails and audio.rs falls back to the whole-system loopback. Samples stay
+//! Needs Windows build 20348 or later (Windows 11 has it); on older builds audio.rs
+//! uses the whole-system loopback and never tries this. Samples stay
 //! in memory and are dropped after the FFT. Create, read and drop on one MTA thread.
 
-use std::sync::mpsc;
+use std::sync::{mpsc, OnceLock};
 use std::time::Duration;
 
-use windows::core::{implement, Interface, IUnknown, Ref, HRESULT};
+use windows::core::{implement, w, Interface, IUnknown, Ref, HRESULT};
+use windows::Win32::System::Registry::{RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ};
 use windows::Win32::Media::Audio::{
     eRender, ActivateAudioInterfaceAsync, AudioSessionStateActive, IActivateAudioInterfaceAsyncOperation, IActivateAudioInterfaceCompletionHandler,
     IActivateAudioInterfaceCompletionHandler_Impl, IAudioCaptureClient, IAudioClient, IAudioSessionControl2, IAudioSessionManager2, IMMDeviceEnumerator,
@@ -28,6 +29,38 @@ pub const RATE: u32 = 44_100;
 const CHANNELS: u16 = 2;
 /// 100 ms: the thread drains every 25 ms, so nothing is lost in between.
 const BUFFER: i64 = 1_000_000;
+
+/// First Windows build with process loopback.
+const MIN_BUILD: u32 = 20348;
+
+/// Is process loopback available? Read once from the registry; unknown counts as no.
+pub fn supported() -> bool {
+    static SUPPORTED: OnceLock<bool> = OnceLock::new();
+    *SUPPORTED.get_or_init(|| unsafe {
+        let mut buf = [0u16; 16];
+        let mut size = std::mem::size_of_val(&buf) as u32;
+        let ok = RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            w!("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion"),
+            w!("CurrentBuildNumber"),
+            RRF_RT_REG_SZ,
+            None,
+            Some(buf.as_mut_ptr().cast()),
+            Some(&mut size),
+        )
+        .is_ok();
+        let text = String::from_utf16_lossy(&buf[..(size as usize / 2).saturating_sub(1)]);
+        ok && text.trim().parse::<u32>().is_ok_and(|b| b >= MIN_BUILD)
+    })
+}
+
+/// A capture of the player behind the media app ID, if this Windows has process loopback and the player has a session.
+pub fn capture(app_id: &str) -> Option<ProcessCapture> {
+    if !supported() {
+        return None;
+    }
+    process_of(app_id).and_then(ProcessCapture::start)
+}
 
 /// Process ID of the audio session that belongs to the media app ID, a playing one first.
 /// Looks at every active output device, not only the default one.

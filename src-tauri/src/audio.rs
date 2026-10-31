@@ -131,14 +131,14 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                     Some(Capture::Player(c)) => reopen = shown != player_app || loopback::process_of(&player_app) != Some(c.pid),
                     Some(Capture::System { device, .. }) => {
                         reopen = *device != default_output();
-                        upgrade = !reopen && (shown != player_app || last_try.elapsed() > RETRY);
+                        upgrade = !reopen && loopback::supported() && (shown != player_app || last_try.elapsed() > RETRY);
                     }
                     None => {}
                 }
                 if upgrade {
                     player_app = shown;
                     last_try = Instant::now();
-                    if let Some(player) = loopback::process_of(&player_app).and_then(ProcessCapture::start) {
+                    if let Some(player) = loopback::capture(&player_app) {
                         capture = Some(Capture::Player(player));
                         sample_rate = loopback::RATE as f32;
                         samples.lock().unwrap().clear();
@@ -150,7 +150,7 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                 samples.lock().unwrap().clear();
                 player_app = shown_app(&app);
                 last_try = Instant::now();
-                capture = match loopback::process_of(&player_app).and_then(ProcessCapture::start) {
+                capture = match loopback::capture(&player_app) {
                     Some(player) => {
                         sample_rate = loopback::RATE as f32;
                         Some(Capture::Player(player))
@@ -168,7 +168,11 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
             if let Some(Capture::Player(player)) = &capture {
                 let mut ring = samples.lock().unwrap();
                 if !player.drain(&mut |mono| push(&mut ring, mono)) {
+                    // A stream that keeps failing would otherwise be reopened 40 times a second.
                     failed.store(true, Ordering::Relaxed);
+                    drop(ring);
+                    thread::sleep(Duration::from_secs(1));
+                    continue;
                 }
             }
 
