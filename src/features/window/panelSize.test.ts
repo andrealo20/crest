@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PANEL_MAX, clampSize, currentQuick, dragSize, fitScale, limits, normalizeSizes, quickSize, rescale, sizeFor, stepSize } from "./panelSize.ts";
+import { PANEL_MAX, clampSize, currentQuick, dragSize, fitScale, limits, normalizeSizes, quickSize, sizeFor, stepSize, toPageCss, toSaved } from "./panelSize.ts";
 
 const def = { w: 520, h: 250 };
 
@@ -49,12 +49,19 @@ test("the resize shortcut steps", () => {
   assert.deepEqual(stepSize({ w: 740, h: 540 }, "down", l), { w: 740, h: 540 });
 });
 
-test("positions keep their device pixels across a scale change", () => {
-  assert.equal(rescale(150, 100, 150), 100);
-  assert.equal(rescale(-90, 150, 100), -135);
-  assert.equal(rescale(5, 100, 150), 3);
-  assert.equal(rescale(7, 100, 100), 7);
-  assert.equal(rescale(Number.NaN, 100, 150), 0);
+test("positions survive scale round trips exactly and keep their device pixels", () => {
+  const values = [0, 1, 2, 5, 7, 100, 101, 333, 1234, -1, -5, -7, -100, -999, 0.5, -2.25];
+  for (const chain of [[100, 150, 100], [100, 125, 175, 100]]) {
+    for (const v of values) {
+      // Saved once at the first scale; a scale change only changes how the saved value is read.
+      const saved = toSaved(v, chain[0]);
+      for (const scale of chain) assert.ok(Math.abs((toPageCss(saved, scale) * scale) / 100 - saved) < 1e-9, `${v} at ${scale}`);
+      assert.equal(toPageCss(saved, chain[chain.length - 1]), v, `${v} through ${chain.join(" > ")}`);
+    }
+  }
+  // Dragged at 150 %, read again at 150 %: the same CSS px.
+  assert.equal(toPageCss(toSaved(-40, 150), 150), -40);
+  assert.equal(toPageCss(Number.NaN, 150), 0);
 });
 
 test("scale and saved sizes are repaired", () => {

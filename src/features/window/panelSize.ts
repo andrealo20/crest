@@ -88,12 +88,16 @@ export function fitScale(v: unknown): PanelScale {
   return v === 150 ? 150 : 100;
 }
 
-/**
- * A position in CSS px (display.offset, display.y) moved to another scale so it stays on the same device pixels:
- * CSS px times the zoom is what Rust places.
+/*
+ * display.offset and display.y are saved at 100 % scale, so a scale change never rewrites (or drifts) them; the page
+ * works in CSS px of the current scale, which Rust multiplies by the zoom again.
  */
-export function rescale(v: number, from: PanelScale, to: PanelScale): number {
-  return Number.isFinite(v) ? Math.round((v * from) / to) : 0;
+export function toPageCss(saved: number, scale: number): number {
+  return Number.isFinite(saved) ? (saved * 100) / scale : 0;
+}
+
+export function toSaved(css: number, scale: number): number {
+  return Number.isFinite(css) ? (css * scale) / 100 : 0;
 }
 
 /** Saved sizes from a settings file: finite, positive pairs only. */
