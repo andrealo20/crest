@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiKey, detectAi, mergeApps, normalizeFavorites, searchApps, toggleFavorite, type LauncherApp } from "./apps.ts";
+import { aiKey, detectAi, mergeApps, moveFavorite, normalizeFavorites, searchApps, toggleFavorite, type LauncherApp } from "./apps.ts";
 
 const start = (name: string, id = `shell:AppsFolder\\${name}`): LauncherApp => ({ id, name, source: "start" });
 const path = (name: string, id: string): LauncherApp => ({ id, name, source: "apppaths" });
@@ -57,6 +57,17 @@ test("saved favourites are repaired", () => {
       { id: "d", name: "D" },
     ],
   );
+});
+
+test("move favourite", () => {
+  const favs = ["a", "b", "c"].map((id) => ({ id, name: id }));
+  const ids = (f: { id: string }[]) => f.map((x) => x.id).join("");
+  assert.equal(ids(moveFavorite(favs, 0, 1)), "bac");
+  assert.equal(ids(moveFavorite(favs, 2, -1)), "acb");
+  assert.equal(ids(moveFavorite(favs, 0, -1)), "abc");
+  assert.equal(ids(moveFavorite(favs, 2, 1)), "abc");
+  assert.equal(ids(moveFavorite(favs, 5, -1)), "abc");
+  assert.equal(ids(favs), "abc");
 });
 
 test("toggle favourite", () => {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { shortcutIds, slotStatus } from "./shortcuts.ts";
+import { hotkeysPaused, shortcutIds, slotStatus } from "./shortcuts.ts";
 
 const favs = Array.from({ length: 8 }, (_, i) => ({ id: `app${i}`, name: `App ${i}` }));
 
@@ -9,6 +9,13 @@ test("first six favourites get Alt+1 to Alt+6", () => {
   assert.deepEqual(shortcutIds(favs.slice(0, 2), true), ["app0", "app1"]);
   assert.deepEqual(shortcutIds(favs, false), []);
   assert.deepEqual(shortcutIds([], true), []);
+});
+
+test("keys rest in fullscreen and in gaming mode", () => {
+  assert.equal(hotkeysPaused("off", false), false);
+  assert.equal(hotkeysPaused("fullscreen", false), false);
+  assert.equal(hotkeysPaused("off", true), true);
+  assert.equal(hotkeysPaused("on", false), true);
 });
 
 test("status per favourite", () => {

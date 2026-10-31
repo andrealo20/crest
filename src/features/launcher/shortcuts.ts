@@ -6,6 +6,9 @@ export const MAX_SHORTCUTS = 6;
 
 export const shortcutLabel = (slot: number) => `Alt+${slot + 1}`;
 
+/** Alt+N rests while a game or other fullscreen app runs, or gaming mode is always on: games use those keys. */
+export const hotkeysPaused = (gamingMode: "off" | "fullscreen" | "on", fullscreen: boolean) => fullscreen || gamingMode === "on";
+
 /** The app ids to register, slot = index. Empty when off, so no key is taken from other apps. */
 export function shortcutIds(favorites: Favorite[], enabled: boolean): string[] {
   return enabled ? favorites.slice(0, MAX_SHORTCUTS).map((f) => f.id) : [];

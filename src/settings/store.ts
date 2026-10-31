@@ -64,10 +64,10 @@ export interface Settings {
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
   /**
-   * App launcher: pinned apps, the first six on Alt+1 to Alt+6. `null` until the first app list
-   * arrives, which pins the detected AI apps once.
+   * App launcher: pinned apps, `null` until the first app list arrives, which pins the detected
+   * AI apps once. `hotkeys`: the first six on Alt+1 to Alt+6, opt-in (other apps lose those keys).
    */
-  launcher: { favorites: Favorite[] | null; shortcuts: boolean };
+  launcher: { favorites: Favorite[] | null; hotkeys: boolean };
   /** GitHub activity: the public username. An optional token is stored with the secrets. */
   github: { user: string };
 }
@@ -121,7 +121,7 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
-  launcher: { favorites: null, shortcuts: true },
+  launcher: { favorites: null, hotkeys: false },
   github: { user: "" },
 };
 
@@ -180,7 +180,8 @@ settings.set((s) => {
     units: { ...defaults.units, ...s.units },
     presentation: { ...defaults.presentation, ...s.presentation },
     updates: { ...defaults.updates, ...s.updates },
-    launcher: { ...defaults.launcher, ...s.launcher, favorites: normalizeFavorites(s.launcher?.favorites) },
+    // Only an explicit opt-in turns the keys on; an older saved `shortcuts: true` does not.
+    launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true },
     github: { ...defaults.github, ...s.github },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),

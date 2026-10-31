@@ -105,6 +105,16 @@ export function normalizeFavorites(saved: unknown): Favorite[] | null {
   return out;
 }
 
+/** Moves the favourite at `index` by `delta` places (the keyboard way to reorder); out of range = unchanged. */
+export function moveFavorite(favorites: Favorite[], index: number, delta: number): Favorite[] {
+  const to = index + delta;
+  if (index < 0 || index >= favorites.length || to < 0 || to >= favorites.length) return favorites;
+  const next = [...favorites];
+  const [f] = next.splice(index, 1);
+  next.splice(to, 0, f);
+  return next;
+}
+
 /** Pins or unpins; a new pin goes to the end. */
 export function toggleFavorite(favorites: Favorite[], app: LauncherApp): Favorite[] {
   return favorites.some((f) => f.id === app.id) ? favorites.filter((f) => f.id !== app.id) : [...favorites, { id: app.id, name: app.name }];

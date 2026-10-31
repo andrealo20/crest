@@ -11,9 +11,10 @@ import { Button, Empty, Skeleton, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
 import { aiKey, searchApps, toggleFavorite, type Favorite } from "./apps";
 import { slotStatus, type SlotStatus } from "./shortcuts";
-import { launcherApps, loadApps, shortcutResult, useIcons } from "./store";
+import { hotkeysResting, launchError, launcherApps, loadApps, shortcutResult, showLaunchError, useIcons } from "./store";
 
 const PICKER_SIZE = { w: 520, h: 420 };
+const PICKER_LIMIT = 60;
 
 /*
  *   [icon] [icon] [icon] [icon]  [+]
@@ -25,7 +26,7 @@ const PICKER_SIZE = { w: 520, h: 420 };
  */
 export function LauncherView() {
   const l = settings.use().launcher;
-  const { apps } = launcherApps.use();
+  const { apps, failed } = launcherApps.use();
   const [picking, setPicking] = useState(false);
   const favorites = l.favorites ?? [];
 
@@ -58,7 +59,7 @@ export function LauncherView() {
     return (
       <>
         {actions}
-        {l.favorites === null && apps === null ? (
+        {l.favorites === null && apps === null && !failed ? (
           <div className="flex h-full items-center gap-3 px-5">
             {[0, 1, 2, 3].map((i) => (
               <Skeleton key={i} className="size-12 rounded-[12px]" />
@@ -68,7 +69,7 @@ export function LauncherView() {
           <Empty
             icon={RocketLaunch}
             title={t("Keine Apps angeheftet")}
-            text={t("Hefte Apps aus dem Startmenü an. Die ersten sechs starten auch mit Alt+1 bis Alt+6.")}
+            text={t("Hefte Apps aus dem Startmenü an. Alt+1 bis Alt+6 kannst du danach einschalten.")}
             action={<Button onClick={() => setPicking(true)}>{t("Apps hinzufügen")}</Button>}
           />
         )}
@@ -78,24 +79,41 @@ export function LauncherView() {
   return (
     <>
       {actions}
-      <Grid favorites={favorites} status={slotStatus(favorites, l.shortcuts, shortcutResult.use())} onAdd={() => setPicking(true)} />
+      <Grid favorites={favorites} status={slotStatus(favorites, l.hotkeys, shortcutResult.use())} onAdd={() => setPicking(true)} />
     </>
   );
 }
 
+/** Under the tiles: a failed launch, or the Alt+N state with the one-tap opt-in. */
+function Footer() {
+  const { hotkeys } = settings.use().launcher;
+  const error = launchError.use();
+  const resting = hotkeysResting.use();
+  if (error) return <div className="truncate pt-1 text-caption text-red">{error}</div>;
+  if (hotkeys) return resting ? <div className="truncate pt-1 text-caption text-label-3">{t("Alt+1 bis Alt+6 ruhen, solange ein Spiel oder eine Vollbild-App läuft")}</div> : null;
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <button
+        onClick={() => updateSettings((s) => ({ launcher: { ...s.launcher, hotkeys: true } }))}
+        className="pressable pressable-fill shrink-0 rounded-full bg-fill-2 px-2.5 py-0.5 text-caption font-medium text-label"
+      >
+        {t("Alt+1 bis Alt+6 nutzen")}
+      </button>
+      <span className="min-w-0 truncate text-caption text-label-3" title={t(HOTKEY_HINT)}>
+        {t(HOTKEY_HINT)}
+      </span>
+    </div>
+  );
+}
+
+export const HOTKEY_HINT = "Solange an, fehlen diese Tasten anderen Apps wie VS Code, JetBrains oder Office";
+
 function Grid({ favorites, status, onAdd }: { favorites: Favorite[]; status: SlotStatus[]; onAdd: () => void }) {
   const icons = useIcons(favorites.map((f) => f.id));
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!error) return;
-    const id = window.setTimeout(() => setError(null), 4000);
-    return () => window.clearTimeout(id);
-  }, [error]);
 
   const start = (f: Favorite) => {
-    setError(null);
-    launcher.open(f.id).catch((e) => setError(t(e === "not-found" ? "{name} ist nicht mehr installiert" : "{name} startet nicht", { name: f.name })));
+    launchError.set(null);
+    launcher.open(f.id).catch((e) => showLaunchError(f.id, e));
   };
 
   return (
@@ -128,7 +146,7 @@ function Grid({ favorites, status, onAdd }: { favorites: Favorite[]; status: Slo
           <span className="text-caption">{t("Hinzufügen")}</span>
         </button>
       </div>
-      {error && <div className="pt-1 text-caption text-red">{error}</div>}
+      <Footer />
     </div>
   );
 }
@@ -157,9 +175,10 @@ export function AppIcon({ src, size }: { src: string | null | undefined; size: n
 
 /** Search over every Start menu entry; a click pins or unpins. */
 function Picker({ favorites }: { favorites: Favorite[] }) {
-  const { apps, loading } = launcherApps.use();
+  const { apps, loading, failed } = launcherApps.use();
   const [query, setQuery] = useState("");
-  const results = apps ? searchApps(apps, query) : [];
+  const results = apps ? searchApps(apps, query, PICKER_LIMIT) : [];
+  const truncated = !!apps && results.length === PICKER_LIMIT && searchApps(apps, query, Infinity).length > PICKER_LIMIT;
   const icons = useIcons(results.map((a) => a.id));
   const pinned = new Set(favorites.map((f) => f.id));
 
@@ -173,7 +192,9 @@ function Picker({ favorites }: { favorites: Favorite[] }) {
         </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto rounded-[12px] bg-fill-1 [scrollbar-width:none]">
-        {!apps ? (
+        {!apps && failed ? (
+          <div className="p-3 text-caption text-label-3">{t("App-Liste nicht lesbar, Neu einlesen versuchen")}</div>
+        ) : !apps ? (
           <div className="flex flex-col gap-2 p-3">
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-1/2" />
@@ -192,7 +213,7 @@ function Picker({ favorites }: { favorites: Favorite[] }) {
               >
                 <AppIcon src={icons[a.id]} size={20} />
                 <span className="min-w-0 flex-1 truncate text-body text-label">{a.name}</span>
-                {aiKey(a) && <span className="rounded-full bg-fill-2 px-1.5 text-caption text-label-2">AI</span>}
+                {aiKey(a) && <span className="rounded-full bg-fill-2 px-1.5 text-caption text-label-2">{t("AI")}</span>}
                 <span className={`flex size-5 items-center justify-center rounded-full ${on ? "bg-green text-black" : "bg-fill-2 text-label-3"}`}>
                   {on ? <Check size={11} weight="bold" /> : <Plus size={11} weight="bold" />}
                 </span>
@@ -200,6 +221,7 @@ function Picker({ favorites }: { favorites: Favorite[] }) {
             );
           })
         )}
+        {truncated && <div className="px-3 py-2 text-caption text-label-3">{t("Tippen, um alle Apps zu durchsuchen")}</div>}
       </div>
     </div>
   );
