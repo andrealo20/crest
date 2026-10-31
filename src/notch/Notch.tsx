@@ -27,7 +27,7 @@ import { findTab, settingsTab, tabs, type NotchTab } from "./tabs";
 import { holdOpen, pinned, togglePin, useNotchState, type NotchStatus } from "./useNotchState";
 import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
-import { useClosedInk, useThemedAccent } from "../features/themes/store";
+import { refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/store";
 
 /** If the notch was closed at most this long, it reopens on the last used tool. */
 const RESUME_MS = 60_000;
@@ -160,6 +160,8 @@ export function Notch() {
   );
   useEffect(() => {
     if (status === "closed") keyboardFocus(false);
+    // A day/night change missed in sleep or across a clock shift shows up on the next open.
+    if (status === "open") refreshTheme();
   }, [status]);
 
   // Closed for a while → WebView2 may trim memory; back to normal on the first touch

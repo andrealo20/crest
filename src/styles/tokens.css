@@ -10,7 +10,7 @@
   /* Text: white at stepped opacities instead of grays (like Apple's label colors). */
   --color-label: rgb(255 255 255 / 0.96);
   --color-label-2: rgb(255 255 255 / 0.58);
-  --color-label-3: rgb(255 255 255 / 0.36);
+  --color-label-3: rgb(255 255 255 / 0.34);
   --color-label-4: rgb(255 255 255 / 0.18);
 
   /* Fills for buttons, tracks, cards; never invent your own grays. */

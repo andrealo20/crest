@@ -68,6 +68,21 @@ test("a file of a few colours is a complete theme, and a weak colour is correcte
   assert.equal(resolveTheme({ format: 1, id: "t", name: "T", colors: { background: "#ffffff00" } }).vars["--color-notch"], "#000000");
 });
 
+test("fills, separator and label-4 follow the corrected foreground", () => {
+  const r = resolveTheme({ format: 1, id: "dim", name: "Dim", colors: { background: "#000000", foreground: "#333333" } });
+  const fg = parseColor(r.vars["--color-label"])!;
+  assert.notEqual(fg.r, 0x33);
+  for (const name of ["--color-fill-1", "--color-fill-3", "--color-separator", "--color-label-4"]) assert.equal(parseColor(r.vars[name])!.r, fg.r, name);
+});
+
+test("Dark keeps Crest's idle accent and its own link colour", () => {
+  const v = resolveTheme(dark).vars;
+  assert.equal(v["--theme-accent"], "#0a84ff");
+  assert.equal(v["--color-link"], "#419cff");
+  // Without a written link, links follow the accent.
+  assert.equal(resolveTheme(light).vars["--color-link"], "#0066cc");
+});
+
 test("readable accent: unchanged on black, darkened on a light panel", () => {
   const onDark = resolveTheme(dark);
   assert.equal(readableAccent("hsl(60 90% 70%)", onDark), "hsl(60 90% 70%)");
@@ -88,6 +103,7 @@ test("setThemeColor re-derives from a new background or foreground", () => {
   assert.equal(flipped.colors.foreground, "#1d1d1f");
   // A translucent foreground keeps its opacity; the accent leaves everything else alone.
   assert.equal(setThemeColor(dark, "foreground", parseColor("#ff0000")!).colors.foreground, "#ff0000f5");
+  assert.equal(setThemeColor(dark, "accent", parseColor("#00ff00")!).colors.link, undefined);
   const accent = setThemeColor(odp, "accent", parseColor("#00ff00")!);
   assert.equal(accent.colors.secondary, odp.colors.secondary);
 });
@@ -124,22 +140,27 @@ test("theme file text: JSON, size, round trip", () => {
   for (const t of BUILT_IN_THEMES) assert.deepEqual(parseThemeText(themeToText(t)).theme, t);
 });
 
-test("import adds, replaces and refuses", () => {
+test("import adds, never replaces, and skips what is already there", () => {
   const mine: ThemeFile = { format: 1, id: "mine", name: "Mine", colors: { accent: "#ff0000" } };
   const r = importThemes(
     [mine],
     [
       { file: "a.json", text: JSON.stringify({ name: "New one", colors: {} }) },
-      { file: "b.json", text: JSON.stringify({ id: "mine", name: "Mine 2", colors: {} }) },
+      { file: "b.json", text: JSON.stringify({ id: "mine", name: "Mine", colors: { accent: "#00ff00" } }) },
+      { file: "b2.json", text: JSON.stringify({ id: "mine", name: "Mine", colors: { accent: "#FF0000" } }) },
       { file: "c.json", text: JSON.stringify({ id: "dark", name: "Fake", colors: {} }) },
+      { file: "dark.json", text: themeToText(BUILT_IN_THEMES[0]) },
       { file: "d.json", text: "nope" },
       { file: "e.json", error: "Datei größer als 64 KB" },
     ],
   );
-  assert.deepEqual(r.added.map((t) => t.id), ["new-one"]);
-  assert.deepEqual(r.replaced.map((t) => t.name), ["Mine 2"]);
+  // The old export of "mine" with other colours comes in beside it; the equal one is skipped, as is Dark's own export.
+  assert.deepEqual(r.added.map((t) => t.id), ["new-one", "mine-2"]);
+  assert.equal(r.unchanged, 2);
   assert.deepEqual(r.failed.map((f) => f.file), ["c.json", "d.json", "e.json"]);
-  assert.deepEqual(r.custom.map((t) => t.name), ["Mine 2", "New one"]);
+  assert.deepEqual(r.custom.map((t) => [t.id, t.colors.accent]), [["mine", "#ff0000"], ["new-one", undefined], ["mine-2", "#00ff00"]]);
+  // Importing the same folder again adds nothing.
+  assert.deepEqual(importThemes(r.custom, [{ file: "b.json", text: JSON.stringify({ id: "mine", name: "Mine", colors: { accent: "#00ff00" } }) }]).added, []);
 });
 
 test("settings normalisation", () => {

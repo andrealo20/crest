@@ -60,15 +60,17 @@ function scheduleNext() {
   window.clearTimeout(timer);
   if (!s.on) return;
   const wait = nextChange(s, new Date()).getTime() - Date.now();
-  // shortcut: capped at 10 min so a PC that slept through the change catches up soon after waking; an OS time-change event would be exact.
-  timer = window.setTimeout(
-    () => {
-      lastSchedule = "";
-      apply();
-      scheduleNext();
-    },
-    Math.min(wait + 500, 10 * 60_000),
-  );
+  timer = window.setTimeout(refreshTheme, wait + 500);
+}
+
+/**
+ * Checks the theme due now and sets the next timeout again. Runs on the timeout and whenever the
+ * notch opens, which covers a PC that slept through the change and a daylight saving shift.
+ */
+export function refreshTheme() {
+  lastSchedule = "";
+  apply();
+  scheduleNext();
 }
 
 export function startThemes() {
@@ -126,17 +128,21 @@ export function deleteCustomTheme(id: string) {
 
 // ---------- Editing ----------
 
-export function startEditing() {
+/** The name field under the editor; kept here so it survives the settings page being rebuilt. */
+export const draftName = createStore("");
+
+export function startEditing(name: string) {
+  draftName.set(name);
   draft.set(startHistory(savedTheme()));
 }
 
-const edit = (change: (t: ThemeFile) => ThemeFile) => {
+const edit = (key: string, change: (t: ThemeFile) => ThemeFile) => {
   const h = draft.get();
-  if (h) draft.set(record(h, change(h.present), performance.now()));
+  if (h) draft.set(record(h, change(h.present), performance.now(), key));
 };
 
-export const editColor = (key: ThemeKey, value: Rgba) => edit((t) => setThemeColor(t, key, value));
-export const editClosedNotch = (on: boolean) => edit((t) => ({ ...t, closedNotch: on ? "background" : undefined }));
+export const editColor = (key: ThemeKey, value: Rgba) => edit(key, (t) => setThemeColor(t, key, value));
+export const editClosedNotch = (on: boolean) => edit("closedNotch", (t) => ({ ...t, closedNotch: on ? "background" : undefined }));
 
 export function undoEdit() {
   const h = draft.get();
@@ -168,9 +174,18 @@ export function overwriteTheme() {
 
 // ---------- Files ----------
 
-/** Writes the saved theme due now into the themes folder; returns the file's path ("" in the browser). */
+/**
+ * Writes the theme on screen into the themes folder: the draft while editing, else the saved theme
+ * due now. A changed built-in leaves under the editor's name, so its file never carries a built-in
+ * id. Returns the file's path ("" in the browser).
+ */
 export function exportTheme(): Promise<string> {
-  const theme = savedTheme();
+  const h = draft.get();
+  let theme = h?.present ?? savedTheme();
+  if (h && h.past.length > 0 && isBuiltIn(theme.id)) {
+    const name = draftName.get().trim().slice(0, 60) || theme.name;
+    theme = { format: 1, id: uniqueId(name, new Set(BUILT_IN_THEMES.map((t) => t.id))), name, colors: theme.colors, ...(theme.closedNotch ? { closedNotch: theme.closedNotch } : {}) };
+  }
   return themeFiles.write(theme.id, themeToText(theme));
 }
 

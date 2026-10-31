@@ -8,7 +8,7 @@ import { BLACK, WHITE, contrast, ensureContrast, formatColor, isDark, mix, over,
  * them. Readability never depends on the theme: every colour with a minimum is held to it on the
  * backgrounds it is drawn on, and a colour that misses is moved along its own hue just far enough.
  */
-export const THEME_KEYS = ["background", "foreground", "secondary", "tertiary", "accent", "warning", "critical", "success", "elevated"] as const;
+export const THEME_KEYS = ["background", "foreground", "secondary", "tertiary", "accent", "link", "warning", "critical", "success", "elevated"] as const;
 export type ThemeKey = (typeof THEME_KEYS)[number];
 /** The colours the settings editor offers. */
 export const EDITOR_KEYS = ["background", "foreground", "accent", "warning", "critical"] as const satisfies readonly ThemeKey[];
@@ -35,6 +35,8 @@ export interface ThemeSettings {
 }
 
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
+/** Tertiary text (hints, inactive icons): Crest's own dark tertiary, white at 34 %, is 2.9:1 on black. */
+export const TERTIARY = 2.8;
 export const MAX_FILE_BYTES = 64 * 1024;
 export const DEFAULT_THEME = "dark";
 
@@ -42,12 +44,12 @@ export const DEFAULT_THEME = "dark";
 const MODES = {
   dark: {
     foreground: "rgb(255 255 255 / 0.96)",
-    accent: "#419cff",
+    accent: "#0a84ff",
     warning: "#ff9f0a",
     critical: "#ff453a",
     success: "#30d158",
     yellow: "#ffd60a",
-    alpha: { secondary: 0.58, tertiary: 0.36, label4: 0.18, fill1: 0.06, fill2: 0.1, fill3: 0.16, separator: 0.08 },
+    alpha: { secondary: 0.58, tertiary: 0.34, label4: 0.18, fill1: 0.06, fill2: 0.1, fill3: 0.16, separator: 0.08 },
   },
   light: {
     foreground: "#1d1d1f",
@@ -68,8 +70,9 @@ export const BUILT_IN_THEMES: readonly ThemeFile[] = [
     background: "#000000",
     foreground: "rgb(255 255 255 / 0.96)",
     secondary: "rgb(255 255 255 / 0.58)",
-    tertiary: "rgb(255 255 255 / 0.36)",
-    accent: "#419cff",
+    tertiary: "rgb(255 255 255 / 0.34)",
+    accent: "#0a84ff",
+    link: "#419cff",
     warning: "#ff9f0a",
     critical: "#ff453a",
     success: "#30d158",
@@ -151,10 +154,7 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
   const dark = isDark(bg);
   const mode = dark ? MODES.dark : MODES.light;
   const ink = written("foreground") ?? parseColor(mode.foreground)!;
-  const tint = (a: number) => withAlpha(ink, a);
   const elevated = over(written("elevated") ?? (dark ? mix(bg, over(ink, bg), 0.11) : mix(bg, WHITE, 0.8)), bg);
-  const fill = [tint(mode.alpha.fill1), tint(mode.alpha.fill2), tint(mode.alpha.fill3)];
-  const [fill1, fill2, fill3] = fill.map((f) => over(f, bg));
 
   const needs = (minimum: number, ...backgrounds: Rgba[]): ContrastNeed[] => backgrounds.map((background) => ({ background, minimum }));
   const adjustments: Adjustment[] = [];
@@ -168,13 +168,21 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
   };
   const pick = (k: ThemeKey, fallback: string | Rgba) => written(k) ?? (typeof fallback === "string" ? parseColor(fallback)! : fallback);
 
+  // The foreground first (its fill-3 check uses the written ink), then every tint from the foreground as drawn.
+  const foreground = ensure("foreground", ink, [...needs(STRONG_TEXT, bg, elevated), ...needs(TEXT, over(withAlpha(ink, mode.alpha.fill3), bg))]);
+  const tint = (a: number) => withAlpha(foreground, a);
+  const fill = [tint(mode.alpha.fill1), tint(mode.alpha.fill2), tint(mode.alpha.fill3)];
+  const [fill1, fill2] = fill.map((f) => over(f, bg));
+  const accent = ensure("accent", pick("accent", mode.accent), needs(GRAPHIC, bg, elevated));
+
   const colors: Record<ThemeKey, Rgba> = {
     background: bg,
     elevated,
-    foreground: ensure("foreground", ink, [...needs(STRONG_TEXT, bg, elevated), ...needs(TEXT, fill3)]),
+    foreground,
     secondary: ensure("secondary", pick("secondary", tint(mode.alpha.secondary)), needs(TEXT, bg, elevated, fill1, fill2)),
-    tertiary: ensure("tertiary", pick("tertiary", tint(mode.alpha.tertiary)), needs(GRAPHIC, bg, elevated, fill1)),
-    accent: ensure("accent", pick("accent", mode.accent), needs(GRAPHIC, bg, elevated)),
+    tertiary: ensure("tertiary", pick("tertiary", tint(mode.alpha.tertiary)), needs(TERTIARY, bg, elevated, fill1)),
+    accent,
+    link: ensure("link", pick("link", accent), needs(GRAPHIC, bg, elevated)),
     warning: ensure("warning", pick("warning", mode.warning), needs(TEXT, bg)),
     critical: ensure("critical", pick("critical", mode.critical), needs(TEXT, bg)),
     success: ensure("success", pick("success", mode.success), needs(GRAPHIC, bg)),
@@ -200,7 +208,7 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     "--color-red": formatColor(colors.critical),
     "--color-orange": formatColor(colors.warning),
     "--color-yellow": formatColor(yellow),
-    "--color-link": formatColor(colors.accent),
+    "--color-link": formatColor(colors.link),
     "--color-black": formatColor(onLabel),
     "--theme-accent": formatColor(colors.accent),
     "--notch-closed": closedNotch ? formatColor(bg) : "#000000",
@@ -238,6 +246,8 @@ export function setThemeColor(file: ThemeFile, key: ThemeKey, value: Rgba): Them
     delete colors.tertiary;
     delete colors.elevated;
   }
+  // Links follow a new accent.
+  if (key === "accent") delete colors.link;
   if (key === "background") {
     const before = over(parseColor(file.colors.background) ?? BLACK, BLACK);
     const nowDark = isDark(next);
@@ -325,14 +335,26 @@ export function themeToText(theme: ThemeFile): string {
 
 export interface ImportResult {
   added: ThemeFile[];
-  replaced: ThemeFile[];
+  /** Files that are already there: equal to a custom theme, or an export of a built-in one. */
+  unchanged: number;
   failed: { file: string; problems: ThemeProblem[] }[];
 }
 
-/** Adds the valid files to the custom themes; one with a custom theme's id replaces it, one with a built-in id is refused. */
+/** Same colours (compared as colours, so `#FFF` equals `#ffffff`). */
+export function sameColors(a: ThemeFile, b: ThemeFile): boolean {
+  const same = (x: Rgba | null, y: Rgba | null) => (x && y ? x.r === y.r && x.g === y.g && x.b === y.b && Math.abs(x.a - y.a) < 0.002 : x === y);
+  return THEME_KEYS.every((k) => same(parseColor(a.colors[k]), parseColor(b.colors[k]))) && (a.closedNotch ?? "black") === (b.closedNotch ?? "black");
+}
+
+/**
+ * Adds the valid files to the custom themes and never replaces one: the folder may hold an old
+ * export of a theme edited since. A file equal to a theme that is already there is skipped; one
+ * that shares a custom theme's id but differs comes in under a new id (`id-2`). A file with a
+ * built-in id is skipped when it is that theme's export, refused when its colours differ.
+ */
 export function importThemes(custom: readonly ThemeFile[], files: { file: string; text?: string | null; error?: string | null }[]): ImportResult & { custom: ThemeFile[] } {
   const next = [...custom];
-  const result: ImportResult = { added: [], replaced: [], failed: [] };
+  const result: ImportResult = { added: [], unchanged: 0, failed: [] };
   for (const f of files) {
     const check: ThemeCheck = f.error || f.text == null ? { theme: null, problems: [{ key: f.error ?? "Datei nicht lesbar" }] } : parseThemeText(f.text);
     if (!check.theme) {
@@ -340,18 +362,20 @@ export function importThemes(custom: readonly ThemeFile[], files: { file: string
       continue;
     }
     const theme = check.theme;
-    if (isBuiltIn(theme.id)) {
-      result.failed.push({ file: f.file, problems: [{ key: "Die ID „{id}“ gehört zu einem eingebauten Theme", vars: { id: theme.id } }] });
+    const builtIn = BUILT_IN_THEMES.find((t) => t.id === theme.id);
+    if (builtIn) {
+      if (sameColors(builtIn, theme)) result.unchanged++;
+      else result.failed.push({ file: f.file, problems: [{ key: "Die ID „{id}“ gehört zu einem eingebauten Theme", vars: { id: theme.id } }] });
       continue;
     }
-    const at = next.findIndex((t) => t.id === theme.id);
-    if (at >= 0) {
-      next[at] = theme;
-      result.replaced.push(theme);
-    } else {
-      next.push(theme);
-      result.added.push(theme);
+    if (next.some((t) => t.name === theme.name && sameColors(t, theme))) {
+      result.unchanged++;
+      continue;
     }
+    const taken = new Set([...BUILT_IN_THEMES, ...next].map((t) => t.id));
+    const added = taken.has(theme.id) ? { ...theme, id: uniqueId(theme.id, taken) } : theme;
+    next.push(added);
+    result.added.push(added);
   }
   return { ...result, custom: next };
 }

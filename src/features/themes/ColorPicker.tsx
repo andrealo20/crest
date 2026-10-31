@@ -1,3 +1,5 @@
+// Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck.Core/ColorMath.cs and src/BrimDeck/SettingsThemeEditor.cs.
+
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { TextField } from "../../ui/controls";
 import { t } from "../../i18n";
@@ -64,8 +66,11 @@ export function ColorPicker({ value, onChange, swatches }: { value: Rgba; onChan
         role="slider"
         tabIndex={0}
         aria-label={t("Sättigung und Helligkeit")}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(s * 100)}
         aria-valuetext={t("Sättigung {s} %, Helligkeit {v} %", { s: Math.round(s * 100), v: Math.round(v * 100) })}
-        className="relative h-24 w-full cursor-crosshair touch-none rounded-[8px] outline-none focus-visible:ring-1 focus-visible:ring-label-3"
+        className="relative h-24 w-full cursor-crosshair touch-none rounded-[8px] outline-none forced-color-adjust-none focus-visible:ring-1 focus-visible:ring-label-3"
         style={{ background: `linear-gradient(to top, black, transparent), linear-gradient(to right, white, hsl(${h} 100% 50%))` }}
         {...drag(fromSquare)}
         onKeyDown={(e) =>
@@ -90,7 +95,7 @@ export function ColorPicker({ value, onChange, swatches }: { value: Rgba; onChan
         aria-valuemin={0}
         aria-valuemax={360}
         aria-valuenow={Math.round(h)}
-        className="relative h-3 w-full cursor-pointer touch-none rounded-full outline-none focus-visible:ring-1 focus-visible:ring-label-3"
+        className="relative h-3 w-full cursor-pointer touch-none rounded-full outline-none forced-color-adjust-none focus-visible:ring-1 focus-visible:ring-label-3"
         style={{ background: `linear-gradient(to right, ${[0, 60, 120, 180, 240, 300, 360].map((x) => `hsl(${x} 100% 50%)`).join(", ")})` }}
         {...drag(fromStrip)}
         onKeyDown={(e) => keys(e, (d) => set([(h + d * 360 + 360) % 360, s, v]))}
@@ -125,7 +130,7 @@ export function ColorPicker({ value, onChange, swatches }: { value: Rgba; onChan
                 const c = parseColor(sw);
                 if (c) set(toHsv(c));
               }}
-              className="pressable size-5 rounded-full ring-1 ring-separator"
+              className="pressable size-5 rounded-full ring-1 ring-separator forced-color-adjust-none"
               style={{ background: sw }}
             />
           ))}

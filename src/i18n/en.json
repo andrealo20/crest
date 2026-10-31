@@ -541,7 +541,7 @@
  "Ordner öffnen": "Open folder",
  "Importieren": "Import",
  "Keine .json-Dateien im Ordner": "No .json files in the folder",
- "{n} importiert ({r} ersetzt) {names}": "{n} imported ({r} replaced) {names}",
+ "{n} importiert, {u} schon vorhanden {names}": "{n} imported, {u} already there {names}",
  "Sättigung und Helligkeit": "Saturation and brightness",
  "Sättigung {s} %, Helligkeit {v} %": "Saturation {s}%, brightness {v}%",
  "Farbton": "Hue",
@@ -556,5 +556,6 @@
  "Datei größer als 64 KB": "File larger than 64 KB",
  "Kein gültiges JSON: {error}": "Not valid JSON: {error}",
  "Datei nicht lesbar": "Cannot read file",
- "Die ID „{id}“ gehört zu einem eingebauten Theme": "The id \"{id}\" belongs to a built-in theme"
+ "Die ID „{id}“ gehört zu einem eingebauten Theme": "The id \"{id}\" belongs to a built-in theme",
+ "Links": "Links"
 }

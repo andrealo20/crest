@@ -20,7 +20,7 @@ With a Windows contrast theme on, Crest uses the system colours whatever theme i
 
 ## Theme files
 
-A theme is a JSON file. **Export** writes the current theme to `%APPDATA%\io.github.andrealo20.crest\themes\<id>.json`. **Import** reads every `.json` file in that folder (**Open folder** opens it) and adds the valid ones to your themes; a file with the id of one of yours replaces it. Each file that cannot be used is listed with the reason.
+A theme is a JSON file. **Export** writes the theme on screen (the unsaved colours too, while editing) to `%APPDATA%\io.github.andrealo20.crest\themes\<id>.json`. **Import** reads every `.json` file in that folder (**Open folder** opens it, at most 100 files are read) and adds the valid ones to your themes. It never replaces a theme: a file equal to one you have is skipped, and a different file with the id of one of yours comes in beside it as `<id>-2`, so an old export cannot undo later edits. An export of a built-in theme is skipped; a file that reuses a built-in id with other colours is refused. Each file that cannot be used is listed with the reason.
 
 ```json
 {
@@ -43,8 +43,9 @@ A theme is a JSON file. **Export** writes the current theme to `%APPDATA%\io.git
 | `background` | The open panel; always drawn opaque | |
 | `foreground` | Titles and main text | 7:1 on the background and menus |
 | `secondary` | Labels | 4.5:1 |
-| `tertiary` | Hints and small notes | 3:1 |
-| `accent` | Links, focus, and the music colour when nothing plays | 3:1 |
+| `tertiary` | Hints and small notes | 2.8:1 (Dark's own is 2.9:1) |
+| `accent` | Focus, and the music colour when nothing plays | 3:1 |
+| `link` | Links and badges; follows `accent` when left out | 3:1 |
 | `warning` | Warnings, also as text | 4.5:1 |
 | `critical` | Errors and critical levels, also as text | 4.5:1 |
 | `success` | Switches and checks | 3:1 |

@@ -15,6 +15,7 @@ import {
   deleteCustomTheme,
   discardEdits,
   draft,
+  draftName,
   editClosedNotch,
   editColor,
   exportTheme,
@@ -48,6 +49,7 @@ const KEY_LABELS: Record<Adjustment["key"], string> = {
   secondary: "Zweiter Text",
   tertiary: "Dritter Text",
   accent: "Akzent",
+  link: "Links",
   warning: "Warnung",
   critical: "Kritisch",
   success: "Erfolg",
@@ -124,8 +126,8 @@ function ThemeChoice() {
 function ThemePreview({ theme }: { theme: ThemeFile }) {
   const v = useMemo(() => resolveTheme(theme).vars, [theme]);
   return (
-    <span className="flex h-full w-full items-center gap-1.5 px-2" style={{ background: v["--color-notch"] }}>
-      <span className="size-2 shrink-0 rounded-full" style={{ background: v["--color-link"] }} />
+    <span className="flex h-full w-full items-center gap-1.5 px-2 forced-color-adjust-none" style={{ background: v["--color-notch"] }}>
+      <span className="size-2 shrink-0 rounded-full" style={{ background: v["--theme-accent"] }} />
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="h-1 w-4/5 rounded-full" style={{ background: v["--color-label"] }} />
         <span className="h-1 w-1/2 rounded-full" style={{ background: v["--color-label-3"] }} />
@@ -186,7 +188,7 @@ function ThemeEditor() {
   const h = draft.use();
   const theme = activeTheme.use();
   const [open, setOpen] = useState<ThemeKey | null>(null);
-  const [name, setName] = useState("");
+  const name = draftName.use();
 
   if (!h)
     return (
@@ -194,8 +196,7 @@ function ThemeEditor() {
         <Row label={t("Farben anpassen")} hint={t("Beginnt beim aktuellen Theme, jede Änderung ist sofort zu sehen")}>
           <Button
             onClick={() => {
-              startEditing();
-              setName(t("{name} (eigenes)", { name: savedTheme().name }));
+              startEditing(t("{name} (eigenes)", { name: savedTheme().name }));
               setOpen(null);
             }}
           >
@@ -231,7 +232,7 @@ function ThemeEditor() {
               aria-expanded={open === key}
               className="pressable pressable-fill flex min-h-9 w-full items-center gap-2.5 px-3 py-1.5 text-left"
             >
-              <span className="size-4 shrink-0 rounded-full ring-1 ring-separator" style={{ background: theme.vars[varFor[key]] }} />
+              <span className="size-4 shrink-0 rounded-full ring-1 ring-separator forced-color-adjust-none" style={{ background: theme.vars[varFor[key]] }} />
               <span className="flex-1 text-body text-label">{t(KEY_LABELS[key])}</span>
               {key !== "background" && <span className="tabular text-caption text-label-3">{ratio(contrast(shown, bg))}</span>}
               <span className="tabular w-16 text-right text-caption text-label-2">{hexOf(written)}</span>
@@ -263,7 +264,7 @@ function ThemeEditor() {
           <Button onClick={discardEdits}>{changed ? t("Verwerfen") : t("Schließen")}</Button>
         </div>
       </Row>
-      <Row label={<TextField value={name} onChange={setName} placeholder={t("Name")} width="w-36" />}>
+      <Row label={<TextField value={name} onChange={(v) => draftName.set(v)} placeholder={t("Name")} width="w-36" />}>
         <div className="flex gap-1.5">
           {custom && (
             <Button disabled={!changed} onClick={overwriteTheme}>
@@ -282,7 +283,7 @@ function ThemeEditor() {
 const varFor: Record<(typeof EDITOR_KEYS)[number], string> = {
   background: "--color-notch",
   foreground: "--color-label",
-  accent: "--color-link",
+  accent: "--theme-accent",
   warning: "--color-orange",
   critical: "--color-red",
 };
@@ -330,13 +331,13 @@ function ThemeFiles() {
             onClick={() =>
               run(async () => {
                 const r = await importFromFolder();
-                const names = [...r.added, ...r.replaced].map((x) => x.name).join(", ");
+                const names = r.added.map((x) => x.name).join(", ");
                 return (
                   <span className="flex flex-col gap-0.5">
                     <span>
-                      {r.added.length + r.replaced.length === 0 && r.failed.length === 0
+                      {r.added.length + r.unchanged + r.failed.length === 0
                         ? t("Keine .json-Dateien im Ordner")
-                        : t("{n} importiert ({r} ersetzt) {names}", { n: r.added.length + r.replaced.length, r: r.replaced.length, names })}
+                        : t("{n} importiert, {u} schon vorhanden {names}", { n: r.added.length, u: r.unchanged, names })}
                     </span>
                     {r.failed.map((f) => (
                       <span key={f.file} className="text-orange">

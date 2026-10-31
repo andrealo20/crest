@@ -1,3 +1,5 @@
+/* Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck.Core/PanelThemes.HighContrast.cs and src/BrimDeck/MainWindow.ThemeFade.cs. */
+
 /*
  * Theme tokens are set inline on <html> (store.ts). Registered as colours, so switching themes
  * crossfades them like the cover accent instead of jumping.
@@ -5,7 +7,7 @@
 @property --color-notch { syntax: "<color>"; inherits: true; initial-value: #000; }
 @property --color-label { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.96); }
 @property --color-label-2 { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.58); }
-@property --color-label-3 { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.36); }
+@property --color-label-3 { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.34); }
 @property --color-label-4 { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.18); }
 @property --color-fill-1 { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.06); }
 @property --color-fill-2 { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.1); }
