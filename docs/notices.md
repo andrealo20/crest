@@ -15,7 +15,9 @@ Turn it on under **Settings → Notices → Live notices**. It is off by default
 
 Windows lets apps read the notifications in the action centre through its notification listener, after you allow it once (the **Allow access** button, or **Windows Settings → Privacy & security → Notifications**). The listener's "a notification arrived" event only reaches apps installed as a package, and Crest is a plain desktop program, so Crest watches a different signal: for every notification delivered to your account, Windows' push notification service writes an entry to the event log **Applications and Services Logs → Microsoft → Windows → PushNotification-Platform → Operational**. The entry holds the notification's number and the app's id. Crest subscribes to that log, filtered to your account, and reads that one notification through the listener. It checks that the notification belongs to the app the entry names, so an entry never brings up another app's text.
 
-Nothing waits on a timer while this works: Crest does no work until Windows writes an entry. When the log is turned off (some company policies do that) or the subscription fails, Crest reads the list every 5 seconds instead; **Settings → Notices** says which of the two is in use.
+Nothing waits on a timer while this works: Crest does no work until Windows writes an entry. A notification Windows cannot return yet, or one that belongs to another app than the entry says, makes Crest read the whole list once instead, so it is not lost. When the log is turned off (some company policies do that) or the subscription fails, Crest reads the list every 5 seconds and tries the log again after 1 minute, then after 2, 4 and so on up to 30 minutes; **Settings → Notices** says which of the two is in use.
+
+If Windows answers **Allow access** without showing a prompt (it may do that for a desktop program), the settings say so: turn on notification access for apps under **Windows Settings → Privacy & security → Notifications**, then open Crest's settings page again.
 
 The first reading after starting is a baseline: what is already in the action centre is not shown again.
 
@@ -52,10 +54,11 @@ crest-notify run -s Tests -- cargo test
 | `-r`, `--replace <key>` | A later notice from the same source with the same key replaces this one |
 | `-p`, `--progress <0-100>` | Shows a progress ring |
 | `-j`, `--json <text or ->` | Takes the body from an agent's event (`message` or `last-assistant-message`); `-` reads it from standard input. `--body` is used when the JSON has neither |
+| `-q`, `--quiet` | Prints nothing and always exits 0, for hooks where a failing command would stop or warn the agent. With `run` the command's own exit code is still returned |
 
-`run` starts the command with your console, waits for it, sends the result and returns the command's own exit code. Commands that are `.cmd` scripts (npm, yarn) are started through `cmd` when Windows cannot start them directly.
+`run` starts the command with your console, waits for it, sends the result and returns the command's own exit code. Commands that Windows cannot start directly, such as the `.cmd` scripts of npm and yarn, are started through `cmd /d /c`. `cmd` then reads the arguments again, so `&`, `|`, `^`, `<` and `>` in them act as `cmd` operators; quote such arguments for `cmd`, or call `cmd /c` yourself.
 
-Exit codes: 0 delivered (also when your rules keep it quiet), 1 usage error, 2 rejected (malformed, or more than 200 notices in 10 seconds), 3 Crest is not running, live notices or crest-notify are off, or Crest did not answer within 3 seconds.
+Exit codes: 0 delivered (also when your rules keep it quiet), 1 usage error, 2 rejected (malformed, or more than 200 notices in 10 seconds), 3 Crest is not running, live notices or crest-notify are off, the channel belongs to another account, or Crest did not answer within 3 seconds.
 
 Titles are cut to 256 characters, texts to 4000, a message to 64 KB. Control characters and the characters that reverse text direction are removed.
 
@@ -63,25 +66,25 @@ Titles are cut to 256 characters, texts to 4000, a message to 64 KB. Control cha
 
 Crest does not change any agent's configuration; copy what you need.
 
-**Claude Code** (`hooks` in `~/.claude/settings.json` or a project's `.claude/settings.json`): a notice when it needs your input and when it finishes a turn. Both events write their details to standard input; `--json -` takes the message from there, and `-b` is the text when there is none.
+**Claude Code** (`hooks` in `~/.claude/settings.json` or a project's `.claude/settings.json`): a notice when it needs your input and when it finishes a turn. Both events write their details to standard input; `--json -` takes the message from there, and `-b` is the text when there is none. `-q` keeps the hook from ever failing: a Stop hook that exits with code 2 would keep the agent working.
 
 ```json
 {
   "hooks": {
     "Notification": [
-      { "hooks": [{ "type": "command", "command": "crest-notify \"Claude Code\" -s \"Claude Code\" -r claude-code -b \"Needs your input\" --json -" }] }
+      { "hooks": [{ "type": "command", "command": "crest-notify \"Claude Code\" -s \"Claude Code\" -r claude-code -b \"Needs your input\" --json - -q" }] }
     ],
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "crest-notify \"Claude Code\" -s \"Claude Code\" -r claude-code -b \"Finished\" --json -" }] }
+      { "hooks": [{ "type": "command", "command": "crest-notify \"Claude Code\" -s \"Claude Code\" -r claude-code -b \"Finished\" --json - -q" }] }
     ]
   }
 }
 ```
 
-**Codex** (`~/.codex/config.toml`): Codex runs the `notify` program at the end of each turn and adds its event as the last argument, which fills `--json`.
+**Codex** (`~/.codex/config.toml`): Codex runs the `notify` program at the end of each turn and adds its event as the last argument, which fills `--json`, so `--json` has to stay last.
 
 ```toml
-notify = ["crest-notify", "Codex", "-s", "Codex", "-r", "codex", "-b", "Turn finished", "--json"]
+notify = ["crest-notify", "Codex", "-s", "Codex", "-r", "codex", "-b", "Turn finished", "-q", "--json"]
 ```
 
 If `crest-notify` is not on your `PATH`, put the full path in its place, for example `C:/Users/you/AppData/Local/Crest/crest-notify.exe`.
@@ -91,5 +94,5 @@ If `crest-notify` is not on your `PATH`, put the full path in its place, for exa
 - Everything happens on this PC. No notification, title or text is sent anywhere.
 - The history is kept in memory only, at most 100 notices and 24 hours, and is gone when Crest quits or live notices are switched off. Notification texts are never written to disk. The settings keep the names and ids of the apps that sent notices, so their rules can be set.
 - App logos come from Windows; nothing is downloaded.
-- The crest-notify channel is a named pipe that only your Windows account can open: its access list grants your user and nobody else, connections from other computers are refused, and the pipe name includes your session and user id. Crest only opens the channel when no other program holds that name; if one does, crest-notify stays off and the settings keep showing it as starting.
+- The crest-notify channel is a named pipe that only your Windows account can open: its access list grants your user and nobody else, connections from other computers are refused, clients from another sign-in session are refused, and the pipe name includes your session and user id. Crest only opens the channel when no other program holds that name; if one does, the settings say the channel could not be opened. On its side, crest-notify sends nothing unless the program at the other end of the pipe runs under your account, and it connects for identification only, so that program could not act as you even if it were someone else's.
 - A notice's text is only ever shown as text; it is never run.
