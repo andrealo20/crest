@@ -185,7 +185,7 @@ pub async fn mixer_set(id: String, level: Option<f32>, muted: Option<bool>) -> R
 }
 
 /// "Google Chrome" from the exe's version info, otherwise the file name ("Spotify").
-fn display_name(path: &str) -> String {
+pub(crate) fn display_name(path: &str) -> String {
     description(path).filter(|d| !d.trim().is_empty()).unwrap_or_else(|| {
         let stem = file_name(path);
         let stem = stem.strip_suffix(".exe").unwrap_or(&stem);
@@ -220,7 +220,7 @@ fn description(path: &str) -> Option<String> {
 }
 
 /// The exe's 32 px icon as a PNG data URL.
-fn icon_png(path: &str) -> Option<String> {
+pub(crate) fn icon_png(path: &str) -> Option<String> {
     unsafe {
         let mut info = SHFILEINFOW::default();
         let ok = SHGetFileInfoW(

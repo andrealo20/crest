@@ -5,6 +5,7 @@ import { normalizeLook, type TimerLook } from "../features/timer/looks";
 import { WATER_DEFAULTS, normalizeWater, type WaterConfig } from "../features/water/water";
 import { normalizeCards, USAGE_CARDS_DEFAULTS, type UsageCards } from "../features/usage/cards";
 import { THEME_DEFAULTS, normalizeThemeSettings, type ThemeSettings } from "../features/themes/themes";
+import type { ColorScheme } from "../features/system/levels";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -81,6 +82,8 @@ export interface Settings {
   music: { lyricsOpen: boolean; titleLyrics: boolean; notchLyrics: boolean; pinned: string | null };
   /** Panel theme, custom themes and the day and night switch (src/features/themes). */
   themes: ThemeSettings;
+  /** Hardware tool: colours of the readings, the GPU shown (adapter name, "" = automatic: the busiest; index among adapters of that name), process ranking. */
+  system: { colors: ColorScheme; gpu: string; gpuIndex: number; sort: "cpu" | "mem" };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -139,6 +142,7 @@ const defaults: Settings = {
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
   music: { lyricsOpen: false, titleLyrics: false, notchLyrics: false, pinned: null },
   themes: THEME_DEFAULTS,
+  system: { colors: "calm", gpu: "", gpuIndex: 0, sort: "cpu" },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -202,6 +206,7 @@ settings.set((s) => {
     terminal: { ...defaults.terminal, ...s.terminal },
     music: { ...defaults.music, ...s.music },
     themes: normalizeThemeSettings(s.themes),
+    system: { ...defaults.system, ...s.system },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
   };

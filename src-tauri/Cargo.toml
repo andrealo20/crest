@@ -94,6 +94,11 @@ windows = { version = "0.62", features = [
   "Win32_System_Pipes",
   "Win32_System_JobObjects",
   "Win32_System_Environment",
+  "Win32_System_IO",
+  "Win32_System_ProcessStatus",
+  "Win32_NetworkManagement_Ndis",
+  "Devices_Power",
+  "System_Power",
 ] }
 
 [profile.release]

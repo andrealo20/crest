@@ -5,6 +5,8 @@ import { isNative } from "./native";
 import type { PowerState } from "../notch/row/status";
 import type { LaunchPlan, ShellInfo } from "../features/terminal/shell";
 import type { TokenReport } from "../features/usage/tokens";
+import type { BatteryRaw } from "../features/system/battery";
+import type { DrivesRaw } from "../features/system/storage";
 import bundledChangelog from "../changelog.json";
 import { showcase, showcaseCall, showcaseCash, showcaseDayChange, showcaseFileSizes, showcasePositions, showcaseRealized } from "../dev/showcase-data";
 
@@ -258,16 +260,83 @@ export interface SystemStats {
   gpuMemTotal: number;
   /** ms; null = no reply. */
   ping: number | null;
+  /** ms since the probe started (monotonic), for rates. */
+  at: number;
+  /** Per logical processor while the tool is shown; `kind` 0 = the fastest kind of core. */
+  cores: { usage: number; kind: number }[];
+  cpuMhz: number | null;
+  physicalCores: number | null;
+  /** Bytes; 0 while the tool is not shown. */
+  memCached: number;
+  memCommit: number;
+  memCommitLimit: number;
+  /** Every real adapter; `usage` null while its counters were not read. */
+  gpus: GpuReading[];
+  /** Cumulative bytes [received, sent]. */
+  net: [number, number] | null;
+  /** ACPI thermal zones: [zone, kelvin]. */
+  zones: [string, number][];
+  /** Energy Meter / Power Meter channels: [instance, milliwatts]. */
+  energy: [string, number][];
+  meter: [string, number][];
+  nvml: { name: string; watts: number | null; temp: number | null }[];
+  battery: BatteryRaw | null;
+  drives: DrivesRaw | null;
+  processes: ProcReading[] | null;
 }
 
-let mock = { cpu: 18, gpu: 32, ping: 14 };
-/** `full = false`: CPU and RAM only (GPU and ping come back as null / 0); `withGpu` adds the GPU without the ping. */
-export function fetchSystem(full: boolean, withGpu = false): Promise<SystemStats> {
-  if (isNative) return invoke<SystemStats>("system_stats", { full, withGpu });
+export interface GpuReading { key: string; name: string; memTotal: number; usage: number | null; engine: string | null; memUsed: number; temp: number | null }
+/** One app: its processes folded by executable name. `cpu` is percent of one core. */
+export interface ProcReading { id: string; name: string; path: string | null; count: number; cpu: number; mem: number }
+/** Extras the closed row asks for outside the tool. */
+export interface SystemWant { net: boolean; temps: boolean; power: boolean; battery: boolean }
+
+/** A program's icon as a PNG data URL. */
+export const systemIcon = (path: string): Promise<string | null> => (isNative ? invoke<string | null>("system_icon", { path }) : Promise.resolve(null));
+
+let mock = { cpu: 18, gpu: 32, ping: 14, rx: 0, tx: 0, at: 0 };
+/** `full = false`: CPU and RAM only (GPU and ping come back as null / 0) plus what `want` asks; `withGpu` adds the GPU without the ping. */
+export function fetchSystem(full: boolean, withGpu = false, want?: SystemWant): Promise<SystemStats> {
+  if (isNative) return invoke<SystemStats>("system_stats", { full, withGpu, want });
   const walk = (v: number, step: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v + (Math.random() - 0.5) * step));
-  mock = { cpu: walk(mock.cpu, 14, 3, 96), gpu: walk(mock.gpu, 18, 0, 99), ping: walk(mock.ping, 6, 8, 60) };
+  mock = { cpu: walk(mock.cpu, 14, 3, 96), gpu: walk(mock.gpu, 18, 0, 99), ping: walk(mock.ping, 6, 8, 60), rx: mock.rx + Math.random() * 4e6, tx: mock.tx + Math.random() * 3e5, at: performance.now() };
   const gb = 1024 ** 3;
+  const all = { net: true, temps: true, power: true, battery: true, ...want, ...(full ? { net: true, temps: true, power: true, battery: true } : {}) };
+  const gpus: GpuReading[] = [
+    { key: "luid_a", name: "GeForce RTX 4070 Ti", memTotal: 12 * gb, usage: full || withGpu ? mock.gpu : null, engine: "3D", memUsed: 2.9 * gb, temp: all.temps ? 54 + mock.gpu / 5 : null },
+    { key: "luid_b", name: "Radeon Graphics", memTotal: 0.5 * gb, usage: full || withGpu ? 2 : null, engine: "VideoDecode", memUsed: 0.2 * gb, temp: null },
+  ];
   return Promise.resolve({
+    at: mock.at,
+    cores: full ? Array.from({ length: 16 }, (_, i) => ({ usage: walk(mock.cpu, 40, 0, 100), kind: i < 8 ? 0 : 1 })) : [],
+    cpuMhz: full ? 4200 + Math.random() * 600 : null,
+    physicalCores: full ? 12 : null,
+    memCached: full ? 6.2 * gb : 0,
+    memCommit: full ? 21 * gb : 0,
+    memCommitLimit: full ? 37 * gb : 0,
+    gpus,
+    net: all.net ? [mock.rx, mock.tx] : null,
+    zones: all.temps ? [["\\_TZ.CPUZ", 320 + mock.cpu / 4]] : [],
+    energy: all.power ? [["RAPL_Package0_PKG", 20000 + mock.cpu * 600]] : [],
+    meter: [],
+    nvml: all.power ? [{ name: "NVIDIA GeForce RTX 4070 Ti", watts: 40 + mock.gpu * 2, temp: 55 }] : [],
+    battery: all.battery ? { status: 1, rateMw: -14000, remainingMwh: 41000, fullMwh: 62000, designMwh: 70000, ac: false, percent: 66, lifeSecs: null, saver: false } : null,
+    drives: full
+      ? {
+          volumes: [{ letter: "C:", total: 931 * gb, free: 402 * gb, disk: 0 }, { letter: "D:", total: 1863 * gb, free: 911 * gb, disk: 1 }],
+          disks: [{ number: 0, model: "Samsung SSD 990 PRO 1TB", bus: 17, removable: false, ssd: true, temp: [41, 82, 85] }, { number: 1, model: "WD Blue SN580 2TB", bus: 17, removable: false, ssd: true, temp: [38, 0, 0] }],
+        }
+      : null,
+    processes: full
+      ? [
+          { id: "chrome.exe", name: "Google Chrome", path: null, count: 24, cpu: mock.cpu * 2, mem: 3.1 * gb },
+          { id: "code.exe", name: "Visual Studio Code", path: null, count: 11, cpu: 22, mem: 1.4 * gb },
+          { id: "discord.exe", name: "Discord", path: null, count: 6, cpu: 4, mem: 0.7 * gb },
+          { id: "spotify.exe", name: "Spotify", path: null, count: 5, cpu: 3, mem: 0.4 * gb },
+          { id: "explorer.exe", name: "Windows Explorer", path: null, count: 1, cpu: 1.2, mem: 0.2 * gb },
+          { id: "msedgewebview2.exe", name: "Microsoft Edge WebView2", path: null, count: 8, cpu: 5, mem: 0.6 * gb },
+        ]
+      : null,
     cpu: mock.cpu,
     cpuName: "Ryzen 7 7800X3D 8-Core",
     memUsed: 13.4 * gb + Math.random() * 0.3 * gb,

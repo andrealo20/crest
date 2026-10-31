@@ -108,6 +108,7 @@ pub fn run() {
             usage::usage_tokens,
             system::system_stats,
             sysevents::status_seed,
+            system::system_icon,
             convert::convert_probe,
             convert::convert_files,
             convert::reveal_file,

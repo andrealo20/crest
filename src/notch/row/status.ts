@@ -22,7 +22,7 @@ export function powerAlert(prev: PowerState | null, next: PowerState, low: LowBa
   if (!prev) return null;
   if (prev.ac !== next.ac) return next.ac
     ? { kind: "power", icon: "plug", text: p === null ? tr("Lädt") : tr("Lädt · {p} %", { p }), tone: "normal" }
-    : { kind: "power", icon: "battery", text: p === null ? tr("Akku") : tr("Akku · {p} %", { p }), tone: level ?? "normal" };
+    : { kind: "power", icon: "battery", text: p === null ? tr("Am Akku") : tr("Akku · {p} %", { p }), tone: level ?? "normal" };
   return fresh && level && p !== null ? { kind: "power", icon: "battery", text: tr("Akku {p} %", { p }), tone: level } : null;
 }
 

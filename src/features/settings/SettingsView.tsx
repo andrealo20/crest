@@ -43,6 +43,7 @@ import { TerminalSettings } from "../terminal/TerminalSettings";
 import { MusicSettings } from "../now-playing/MusicSettings";
 import { setMusic } from "../now-playing/music";
 import { UsageSettings } from "../usage/UsageSettings";
+import { SystemSettings } from "../system/SystemSettings";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
@@ -79,6 +80,7 @@ const sectionPage: Record<string, PageId> = {
   water: "tools",
   terminal: "tools",
   themes: "themes",
+  system: "tools",
 };
 
 /** Last open page survives closing/opening the notch (the component is rebuilt). */
@@ -157,6 +159,7 @@ export function SettingsView() {
             {page === "tools" && (
               <>
                 <Tools />
+                <SystemSettings />
                 <VaultSettings />
                 <ProductivitySettings />
                 <TerminalSettings />
@@ -621,7 +624,8 @@ function ClosedParts() {
   const { closed: c, music } = settings.use();
   const [dragging, setDragging] = useState<PartId | null>(null);
   const setClosed = (patch: (cur: ClosedSettings) => Partial<ClosedSettings>) => updateSettings((cur) => ({ closed: { ...cur.closed, ...patch(cur.closed) } }));
-  const readingsOn = Object.values(c.readings).filter(Boolean).length;
+  // Only these always show; battery, power and temperature can be missing, so they cannot keep the part alone.
+  const readingsOn = (["cpu", "ram", "gpu"] as const).filter((k) => c.readings[k]).length;
 
   return (
     <div>

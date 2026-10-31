@@ -47,7 +47,7 @@ test("power: the warning fires again after plugging in", () => {
 test("power: plug and unplug without a percent", () => {
   const low = { warned20: false, warned10: false };
   assert.deepEqual(powerAlert(s(false, null), s(true, null), low, tr), { kind: "power", icon: "plug", text: "Lädt", tone: "normal" });
-  assert.deepEqual(powerAlert(s(true, null), s(false, null), low, tr), { kind: "power", icon: "battery", text: "Akku", tone: "normal" });
+  assert.deepEqual(powerAlert(s(true, null), s(false, null), low, tr), { kind: "power", icon: "battery", text: "Am Akku", tone: "normal" });
   assert.equal(powerAlert(s(false, null), s(false, null), low, tr), null);
 });
 test("net", () => {
