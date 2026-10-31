@@ -24,14 +24,8 @@ Inside: music controls with a live equalizer, a vault for passwords and 2FA code
 
 Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0. Version 0.1 is that app under a new name, with the Antigravity quota in place of the retired Gemini CLI. Version 0.2 adds the closed notch styles and the row of live readings. Coming next, roughly in this order:
 
-1. Short status alerts for the charger, the network and Bluetooth headphones. This is under way. A volume and brightness overlay and Caps Lock are not part of it.
-2. Synced lyrics, shuffle and repeat, and a choice of player.
-3. To-dos with projects and reminders, a water reminder, timer styles, an app launcher, GitHub activity and a code scratchpad.
-4. Screenshots and screen recording with system audio and microphone.
-5. A PowerShell prompt in the notch.
-6. More AI usage sources, with tokens and cost per day and per model.
-7. A deeper system monitor: cores, network, processes, drives, temperatures, power and battery.
-8. More brokers for the portfolio, read only.
+1. Screenshots and screen recording with system audio and microphone.
+2. More brokers for the portfolio, read only.
 
 ## What it does
 
