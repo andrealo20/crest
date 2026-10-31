@@ -232,7 +232,7 @@ function Positions({ account, money, hidden }: { account: AccountState; money: M
           >
             <div className="min-w-0 flex-1">
               <div className="truncate text-footnote font-semibold text-label">{p.symbol}</div>
-              <div className="truncate text-caption text-label-3">{priceDate ? t("Kurs vom {date}", { date: new Date(priceDate).toLocaleDateString(locale(), { day: "numeric", month: "short" }) }) : p.name}</div>
+              <div className="truncate text-caption text-label-3">{priceDate ? t("Kurs vom {date}", { date: new Date(priceDate).toLocaleDateString(locale(), { day: "numeric", month: "short" }) }) : p.name === "unknown-asset" ? t("Unbekannter Wert") : p.name}</div>
             </div>
             <div className="text-right">
               <div className="tabular text-footnote text-label">{p.value !== null ? money(p.value) : t("Kein Kurs")}</div>

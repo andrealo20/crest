@@ -132,7 +132,9 @@ export function usePortfolio() {
             last.current.accounts[slot.scope] = slot.account;
             slot.error = null;
             // Upgrade from the Trading 212-only version: keep its currency, so its history carries on.
-            if (id === "t212" && adoptBase(slot.account.holdings.find((h) => h.currency)?.currency)) adopted = true;
+            // Only a different currency starts a new refresh (the settings change); this one then stops.
+            const currency = slot.account.holdings.find((h) => h.currency)?.currency;
+            if (id === "t212" && adoptBase(currency) && currency?.toUpperCase() !== base) adopted = true;
           } catch (e) {
             const error = String(e);
             // A rate limit while data is on screen keeps the last data.
