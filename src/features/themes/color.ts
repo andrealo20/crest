@@ -2,7 +2,7 @@
 
 /**
  * Colour maths for the themes: parsing, WCAG 2 contrast and the readability correction.
- * Channels are 0–255 integers, alpha is 0–1.
+ * Channels are 0 to 255 integers, alpha is 0 to 1.
  */
 export interface Rgba {
   r: number;
@@ -150,7 +150,7 @@ export function ensureContrast(c: Rgba, needs: ContrastNeed[]): Rgba {
   return found === null ? c : fromHsl(h, s, found);
 }
 
-/** Hue in degrees 0–360, saturation and lightness 0–1. */
+/** Hue in degrees 0 to 360, saturation and lightness 0 to 1. */
 export function toHsl(c: Rgba): [number, number, number] {
   const r = c.r / 255, g = c.g / 255, b = c.b / 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min, l = (max + min) / 2;
@@ -169,7 +169,7 @@ export function fromHsl(h: number, s: number, l: number): Rgba {
   return { r: byte((r + m) * 255), g: byte((g + m) * 255), b: byte((b + m) * 255), a: 1 };
 }
 
-/** For the colour picker: hue 0–360, saturation and value 0–1. Grays report hue 0; the picker keeps its own hue for them. */
+/** For the colour picker: hue 0 to 360, saturation and value 0 to 1. Grays report hue 0; the picker keeps its own hue for them. */
 export function toHsv(c: Rgba): [number, number, number] {
   const r = c.r / 255, g = c.g / 255, b = c.b / 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
