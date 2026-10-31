@@ -272,26 +272,44 @@ pub fn place(window: &WebviewWindow, state: &DisplayState) -> tauri::Result<()> 
             window.set_size(LogicalSize::new(lw, lh))?;
             size = window.outer_size()?;
         }
-        let scale = monitor.scale_factor() * zoom;
-        let (mw, mh) = (monitor.size().width as i32, monitor.size().height as i32);
-        let (w, h) = (size.width as i32, size.height as i32);
-        let free_x = (mw - w).max(0);
-        let free_y = (mh - h).max(0);
-        let line = (line * scale) as i32;
-        let (x, top) = match edge.as_str() {
-            "bottom" => (free_x / 2 + shift(offset, scale, free_x), (line - h).clamp(0, free_y)),
-            "left" => (line.clamp(0, free_x), free_y / 2 + shift(offset, scale, free_y)),
-            "right" => ((line - w).clamp(0, free_x), free_y / 2 + shift(offset, scale, free_y)),
-            _ => (free_x / 2 + shift(offset, scale, free_x), ((y * scale) as i32).clamp(0, free_y)),
-        };
+        let monitor_px = (monitor.size().width as i32, monitor.size().height as i32);
+        let at = Placement { edge: &edge, offset, y, line, scale: monitor.scale_factor() * zoom };
+        let (x, top) = at.position(monitor_px, (size.width as i32, size.height as i32));
         window.set_position(PhysicalPosition::new(monitor.position().x + x, monitor.position().y + top))?;
     }
     Ok(())
 }
 
-/// The offset along the edge in physical px, kept within the monitor.
-fn shift(offset: f64, scale: f64, free: i32) -> i32 {
-    ((offset * scale) as i32).clamp(-free / 2, free / 2)
+/// The widest panel along its edge in CSS px (panelSize.ts MAX_SIZE), kept on the monitor when the notch is moved.
+const PANEL_ALONG: f64 = 740.0;
+
+/// Where the window goes on its monitor; CSS px values, `scale` = monitor DPI x zoom.
+struct Placement<'a> {
+    edge: &'a str,
+    offset: f64,
+    y: f64,
+    line: f64,
+    scale: f64,
+}
+
+impl Placement<'_> {
+    /// The window's top-left in physical px from the monitor's top-left, for a `window` (w, h) on a `monitor` (w, h).
+    /// The hanging edge stays on `line` (or `y` on top) and the window is centred along the edge even when it is larger
+    /// than the monitor (a big scale on a small screen), so the notch never leaves its edge; the offset along the edge
+    /// is clamped so the widest panel stays on the monitor.
+    fn position(&self, (mw, mh): (i32, i32), (w, h): (i32, i32)) -> (i32, i32) {
+        let line = (self.line * self.scale).round() as i32;
+        let side = self.edge == "left" || self.edge == "right";
+        let (m_along, w_along) = if side { (mh, h) } else { (mw, w) };
+        let free = (m_along - (PANEL_ALONG * self.scale).round() as i32).max(0);
+        let along = (m_along - w_along) / 2 + ((self.offset * self.scale) as i32).clamp(-free / 2, free / 2);
+        match self.edge {
+            "bottom" => (along, line - h),
+            "left" => (line, along),
+            "right" => (line - w, along),
+            _ => (along, ((self.y * self.scale) as i32).min(mh - h).max(0)),
+        }
+    }
 }
 
 pub fn spawn(app: AppHandle, window: WebviewWindow) {
@@ -514,4 +532,59 @@ fn is_desktop(hwnd: HWND) -> bool {
         return true;
     }
     matches!(class_name(hwnd).as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd")
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 1920 x 1080 at 100, 125 and 150 % Windows scaling, panel scale 1 and 1.5, on every edge, hanging from the screen edge.
+    #[test]
+    fn the_notch_stays_on_its_edge_and_centred_even_when_the_window_is_larger_than_the_monitor() {
+        let (mw, mh) = (1920, 1080);
+        for dpi in [1.0, 1.25, 1.5] {
+            for zoom in [1.0, 1.5] {
+                let scale = dpi * zoom;
+                for edge in ["top", "bottom", "left", "right"] {
+                    let side = edge == "left" || edge == "right";
+                    let w = ((if side { SIDE_DEPTH } else { ALONG }) * zoom * dpi).round() as i32;
+                    let h = ((if side { ALONG } else { DEPTH }) * zoom * dpi).round() as i32;
+                    let line = match edge {
+                        "bottom" => mh as f64 / scale,
+                        "right" => mw as f64 / scale,
+                        _ => 0.0,
+                    };
+                    let at = |offset: f64| Placement { edge, offset, y: 0.0, line, scale }.position((mw, mh), (w, h));
+                    let case = format!("{edge} at {dpi} x {zoom}");
+                    let (x, top) = at(0.0);
+                    match edge {
+                        "top" => assert_eq!(top, 0, "{case}"),
+                        "bottom" => assert!((top + h - mh).abs() <= 1, "{case}: bottom edge at {}", top + h),
+                        "left" => assert_eq!(x, 0, "{case}"),
+                        _ => assert!((x + w - mw).abs() <= 1, "{case}: right edge at {}", x + w),
+                    }
+                    let (along, m_along, w_along) = if side { (top, mh, h) } else { (x, mw, w) };
+                    assert_eq!(along, (m_along - w_along) / 2, "{case}: centred");
+                    // Pushed far either way, the widest panel (centred in the window) stays on the monitor when it fits at all.
+                    let panel = PANEL_ALONG * scale;
+                    for push in [-10_000.0, 10_000.0] {
+                        let (x, top) = at(push);
+                        let centre = (if side { top + h / 2 } else { x + w / 2 }) as f64;
+                        if panel <= m_along as f64 {
+                            assert!(centre - panel / 2.0 >= -1.0 && centre + panel / 2.0 <= m_along as f64 + 1.0, "{case}: pushed {push}");
+                        } else {
+                            assert_eq!(if side { top } else { x }, (m_along - w_along) / 2, "{case}: no room, stays centred");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_capsule_top_stays_on_the_monitor() {
+        let at = |y: f64| Placement { edge: "top", offset: 0.0, y, line: 0.0, scale: 1.0 }.position((1920, 1080), (760, 560));
+        assert_eq!(at(100.0).1, 100);
+        assert_eq!(at(5000.0).1, 520);
+        assert_eq!(at(-50.0).1, 0);
+    }
 }
