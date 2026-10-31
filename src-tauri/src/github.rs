@@ -3,7 +3,7 @@
 //! Without a token: the public page `github.com/users/<name>/contributions` (what the profile
 //! shows), parsed here. With a token in Credential Manager (`github.token`): the GraphQL
 //! `contributionCalendar` first, the page if that fails. Cached for an hour per user.
-//! Errors: no-user, not-found, rate-limited, offline, parse, failed.
+//! Errors: no-user, not-found, token-rejected, rate-limited, offline, parse, failed.
 
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -64,7 +64,12 @@ pub async fn github_contributions(user: String, force: bool, state: State<'_, Gi
         .map_err(|_| "failed".to_string())?;
     let mut data = None;
     if let Some(token) = crate::secrets::read("github.token") {
-        data = from_api(&client, &user, &token).await.ok();
+        match from_api(&client, &user, &token).await {
+            Ok(d) => data = Some(d),
+            // A rejected token is shown rather than hidden behind the page.
+            Err(e) if e == "token-rejected" => return Err(e),
+            Err(_) => {}
+        }
     }
     let data = match data {
         Some(d) => d,
@@ -101,12 +106,25 @@ async fn from_page(client: &reqwest::Client, user: &str) -> Result<Contributions
     Ok(Contributions { user: user.to_string(), total, days, source: "page", fetched_at: now_ms() })
 }
 
-/// The value of ` name="…"` inside one tag.
+/// The value of `name="…"` inside one tag, the name preceded by any ASCII whitespace.
 fn attr<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
-    let key = format!(" {name}=\"");
-    let start = tag.find(&key)? + key.len();
-    let len = tag[start..].find('"')?;
-    Some(&tag[start..start + len])
+    let key = format!("{name}=\"");
+    let mut from = 0;
+    while let Some(i) = tag[from..].find(&key) {
+        let at = from + i;
+        if tag[..at].ends_with(|c: char| c.is_ascii_whitespace()) {
+            let start = at + key.len();
+            let len = tag[start..].find('"')?;
+            return Some(&tag[start..start + len]);
+        }
+        from = at + key.len();
+    }
+    None
+}
+
+/// `<name` followed by whitespace (a space, tab or line break before the first attribute).
+fn is_tag(tag: &str, name: &str) -> bool {
+    tag.strip_prefix('<').and_then(|t| t.strip_prefix(name)).is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_whitespace()))
 }
 
 /// Leading number of a text, thousands separators allowed ("1,031 contributions on …").
@@ -125,14 +143,14 @@ pub(crate) fn parse_page(html: &str) -> Option<(u32, Vec<Day>)> {
         rest = &rest[i..];
         let Some(end) = rest.find('>') else { break };
         let tag = &rest[..end];
-        if tag.starts_with("<td ") {
+        if is_tag(tag, "td") {
             if let (Some(date), Some(id)) = (attr(tag, "data-date"), attr(tag, "id")) {
                 let level = attr(tag, "data-level").and_then(|l| l.parse().ok()).unwrap_or(0u8).min(4);
                 if date.len() == 10 {
                     days.push((id.to_string(), Day { date: date.to_string(), count: 0, level }));
                 }
             }
-        } else if tag.starts_with("<tool-tip ") {
+        } else if is_tag(tag, "tool-tip") {
             if let Some(target) = attr(tag, "for") {
                 let body = &rest[end + 1..];
                 let text = &body[..body.find("</tool-tip>").unwrap_or(0)];
@@ -201,6 +219,9 @@ async fn from_api(client: &reqwest::Client, user: &str, token: &str) -> Result<C
         .send()
         .await
         .map_err(net_error)?;
+    if r.status() == reqwest::StatusCode::UNAUTHORIZED {
+        return Err("token-rejected".into());
+    }
     if !r.status().is_success() {
         return Err(status_error(r.status()));
     }
@@ -255,6 +276,15 @@ mod tests {
     fn total_falls_back_to_the_sum() {
         let html = r#"<td data-date="2026-01-02" id="a" data-level="1"></td><tool-tip for="a">3 contributions</tool-tip>"#;
         assert_eq!(parse_page(html), Some((3, vec![day("2026-01-02", 3, 1)])));
+    }
+
+    #[test]
+    fn accepts_any_whitespace_between_attributes() {
+        let html = "<td\n\tdata-date=\"2026-01-02\"\r\n id=\"a\"\tdata-level=\"2\"></td><tool-tip\nfor=\"a\">4 contributions</tool-tip>";
+        assert_eq!(parse_page(html), Some((4, vec![day("2026-01-02", 4, 2)])));
+        // `data-id` must not be read as `id`, nor `<tdx` as a cell.
+        let html = r#"<td data-id="x" data-date="2026-01-02" id="b"></td><tdx data-date="2026-01-03" id="c"></tdx>"#;
+        assert_eq!(parse_page(html), Some((0, vec![day("2026-01-02", 0, 0)])));
     }
 
     #[test]
