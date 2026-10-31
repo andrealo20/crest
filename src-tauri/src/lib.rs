@@ -12,6 +12,7 @@ mod hit_test;
 mod media;
 mod memory;
 mod mixer;
+pub mod portable;
 mod privacy;
 pub mod secrets;
 mod system;
@@ -137,9 +138,12 @@ pub fn run() {
             vault::vault_hello_disable,
             autostart_get,
             autostart_set,
+            portable::portable_info,
+            portable::portable_check,
+            portable::portable_install,
         ])
         .setup(move |app| {
-            let window = app.get_webview_window("notch").expect("window 'notch' missing");
+            let window = portable::create_window(app)?;
             display::place(&window, &app.state::<display::DisplayState>())?;
             window.show()?;
             // Only after show(): this fails on a window that was never shown.
@@ -198,7 +202,11 @@ fn autostart_set(enabled: bool, app: AppHandle) -> Result<(), String> {
 
 /// Enables autostart on the very first launch; after that the tray check and settings decide.
 fn enable_autostart_once(app: &AppHandle) {
-    let Ok(dir) = app.path().app_data_dir() else { return };
+    // A portable copy writes nothing outside its folder unless asked to (tray or settings).
+    if portable::data_dir().is_some() {
+        return;
+    }
+    let Ok(dir) = crate::portable::app_data_dir(app) else { return };
     let marker = dir.join("autostart-initialized");
     if marker.exists() {
         return;

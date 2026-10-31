@@ -1,0 +1,44 @@
+# Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), scripts/PortablePackage.ps1.
+# Builds the portable zip from the release executable: one folder with Crest.exe, the Crest.portable marker
+# (with it the app keeps its data in a data folder next to the exe and updates itself in place, see
+# src-tauri/src/portable.rs) and a short note about the WebView2 runtime.
+#   pwsh scripts/portable-package.ps1 -Exe src-tauri/target/release/crest.exe -Destination Crest-0.3.0-Portable-x64.zip
+param(
+    [Parameter(Mandatory)][string]$Exe,
+    [Parameter(Mandatory)][string]$Destination,
+    [string]$Folder = 'Crest'
+)
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+
+$marker = "Portable copy of Crest: settings, notes and the vault are kept in the data folder next to Crest.exe.`r`nDelete this file to use the data of an installed Crest instead.`r`n"
+$readme = @"
+Crest portable
+
+Unzip the folder anywhere you can write to and run Crest.exe. Nothing is installed.
+Settings, notes, the vault and caches stay in the data folder next to Crest.exe, so the
+folder can move to another PC or a USB drive. API keys stay in Windows Credential Manager
+of each PC and have to be entered again there.
+
+Updates: Settings, General, Updates downloads the new portable package, checks its
+signature and replaces Crest.exe on restart. In a folder Crest cannot write to, such as
+Program Files, it opens the download page instead.
+
+Crest needs the Microsoft Edge WebView2 Runtime. Windows 10 and 11 normally include it.
+If Crest does not start, install the Evergreen runtime from
+https://developer.microsoft.com/microsoft-edge/webview2/
+
+Start with Windows is off for a portable copy; switch it on in the tray menu if wanted.
+"@
+
+if (Test-Path -LiteralPath $Destination) { Remove-Item -LiteralPath $Destination }
+$zip = [IO.Compression.ZipFile]::Open([IO.Path]::GetFullPath($Destination), [IO.Compression.ZipArchiveMode]::Create)
+try {
+    [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, (Resolve-Path -LiteralPath $Exe).Path, "$Folder/Crest.exe", [IO.Compression.CompressionLevel]::Optimal)
+    foreach ($entry in @(@{ Name = 'Crest.portable'; Text = $marker }, @{ Name = 'README-portable.txt'; Text = $readme -replace "`r?`n", "`r`n" })) {
+        $writer = [IO.StreamWriter]::new($zip.CreateEntry("$Folder/$($entry.Name)").Open(), [Text.UTF8Encoding]::new($false))
+        try { $writer.Write($entry.Text) } finally { $writer.Dispose() }
+    }
+}
+finally { $zip.Dispose() }
+Get-Item -LiteralPath $Destination

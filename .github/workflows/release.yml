@@ -79,9 +79,34 @@ jobs:
             **Install:** download `Crest_${{ needs.check.outputs.version }}_x64-setup.exe` below and run it. No admin rights or developer tools needed.
             Already installed? The app offers this version under **Settings → General → Updates**.
 
+            **Portable:** `Crest-${{ needs.check.outputs.version }}-Portable-x64.zip` needs no install: unzip it anywhere you can write to and run Crest.exe. It keeps its data in a `data` folder next to it and updates itself in place.
+
             Windows SmartScreen may warn because the installer is not code-signed yet: **More info → Run anyway**.
 
             ${{ needs.check.outputs.highlights }}
 
             ### Changes
             ${{ needs.check.outputs.notes }}
+
+      # Portable zip next to the installer: signed like it, and listed in latest.json as windows-x86_64-portable,
+      # the entry a portable copy updates from (src-tauri/src/portable.rs).
+      - name: Portable package
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          $tag = "v$env:VERSION"
+          $zip = "Crest-$env:VERSION-Portable-x64.zip"
+          ./scripts/portable-package.ps1 -Exe src-tauri/target/release/crest.exe -Destination $zip
+          npx tauri signer sign $zip
+          if ($LASTEXITCODE -ne 0) { throw "signing failed" }
+          gh release upload $tag $zip "$zip.sig" --clobber
+          gh release download $tag --pattern latest.json --clobber
+          $latest = Get-Content latest.json -Raw | ConvertFrom-Json
+          $entry = [ordered]@{ signature = (Get-Content "$zip.sig" -Raw).Trim(); url = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/$zip" }
+          $latest.platforms | Add-Member -NotePropertyName windows-x86_64-portable -NotePropertyValue $entry -Force
+          $latest | ConvertTo-Json -Depth 10 | Set-Content latest.json -Encoding utf8NoBOM
+          gh release upload $tag latest.json --clobber

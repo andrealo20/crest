@@ -46,6 +46,8 @@ export async function installUpdate() {
   update.set((s) => ({ ...s, phase: "downloading", progress: 0 }));
   try {
     await found.install((progress) => update.set((s) => ({ ...s, progress })));
+    // Still running: a portable copy in a folder it can't write opened the download page instead.
+    update.set((s) => (s.phase === "downloading" ? { ...s, phase: "available" } : s));
   } catch {
     update.set((s) => ({ ...s, phase: "error" }));
   }

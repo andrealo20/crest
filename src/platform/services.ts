@@ -341,6 +341,7 @@ export const updater = {
   /** Fetches the signed latest.json from the newest GitHub release. null = up to date. */
   check: async (): Promise<UpdateHandle | null> => {
     if (!isNative) return new URLSearchParams(location.search).has("update") ? mockUpdate : null;
+    if ((await portable.info()).portable) return portableUpdate();
     const { check } = await import("@tauri-apps/plugin-updater");
     const found = await check();
     if (!found) return null;
@@ -638,3 +639,28 @@ export const systemControls = {
     return Promise.resolve({ ...mockFocus });
   },
 };
+
+// ---------- Portable ----------
+
+/** A portable copy (Crest.portable next to the exe) keeps its data beside it and updates itself in place (portable.rs). */
+export const portable = {
+  info: (): Promise<{ portable: boolean; writable: boolean }> =>
+    isNative ? invoke<{ portable: boolean; writable: boolean }>("portable_info") : Promise.resolve({ portable: false, writable: false }),
+};
+
+/** The portable package's update: verified and swapped in by Rust, which restarts the app; a folder that can't be written opens the download page. */
+async function portableUpdate(): Promise<UpdateHandle | null> {
+  const version = await invoke<string | null>("portable_check");
+  if (!version) return null;
+  return {
+    version,
+    install: async (onProgress) => {
+      const off = await listen<number>("portable://progress", (e) => onProgress(e.payload));
+      try {
+        await invoke("portable_install");
+      } finally {
+        off();
+      }
+    },
+  };
+}

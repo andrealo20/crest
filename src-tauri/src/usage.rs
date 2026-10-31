@@ -21,7 +21,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 
 /// Minimum interval between real queries per provider.
 fn cache_for(id: &str) -> Duration {
@@ -422,7 +422,7 @@ fn find_jwt_after(bytes: &[u8], key: &[u8]) -> Option<String> {
 // ---------- Disk cache ----------
 
 fn cache_path(app: &AppHandle) -> Option<PathBuf> {
-    let dir = app.path().app_data_dir().ok()?;
+    let dir = crate::portable::app_data_dir(app).ok()?;
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir.join("usage-cache.json"))
 }
