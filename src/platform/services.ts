@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isNative } from "./native";
+import type { TokenReport } from "../features/usage/tokens";
 import bundledChangelog from "../changelog.json";
 import { showcase, showcaseCall, showcaseCash, showcaseDayChange, showcaseFileSizes, showcasePositions, showcaseRealized } from "../dev/showcase-data";
 
@@ -11,7 +12,7 @@ import { showcase, showcaseCall, showcaseCash, showcaseDayChange, showcaseFileSi
 
 // ---------- Secrets (Credential Manager) ----------
 
-export type SecretName = "t212.key" | "t212.secret" | "ai.anthropic" | "ai.openai" | "ai.openrouter" | "ai.custom" | "discord.secret";
+export type SecretName = "t212.key" | "t212.secret" | "ai.anthropic" | "ai.openai" | "ai.openrouter" | "ai.custom" | "discord.secret" | "usage.deepseek" | "usage.zai";
 
 const mockSecrets = new Map<SecretName, string>();
 
@@ -141,7 +142,16 @@ function showcaseTrading(): TradingData {
 
 // ---------- AI usage ----------
 
-export type UsageId = "claude" | "codex" | "gemini" | "cursor";
+export type UsageId = "claude" | "codex" | "gemini" | "cursor" | "openrouter" | "deepseek" | "zai";
+
+/** Money on an API-key account: kind is account | key | budget | granted | today | month. */
+export interface UsageBalance {
+  kind: string;
+  amount: number;
+  /** The cap the amount belongs to (a key limit). */
+  total: number | null;
+  currency: string;
+}
 
 export interface UsageWindow {
   /** session | weekly | weekly-opus | weekly-sonnet | daily | monthly | model:<Name> */
@@ -156,9 +166,13 @@ export interface UsageProvider {
   id: UsageId;
   plan: string | null;
   windows: UsageWindow[];
-  /** not-found | not-signed-in | expired | rate-limited | offline | failed (with data: stale). */
+  /** Missing in answers saved by older versions. */
+  balances?: UsageBalance[];
+  /** not-found | not-signed-in | expired | no-key | bad-key | rate-limited | offline | failed (with data: stale). */
   error: string | null;
   updatedAt: number;
+  /** While a 429 pause runs: when the next request goes out. */
+  retryAt?: number | null;
 }
 
 export function fetchUsage(providers: string[]): Promise<UsageProvider[]> {
@@ -190,8 +204,41 @@ export function fetchUsage(providers: string[]): Promise<UsageProvider[]> {
     },
     { id: "gemini", plan: null, windows: [{ kind: "session", usedPercent: 12, resetsAt: now + 3.6 * h, windowSecs: 5 * 3600 }], error: null, updatedAt: now },
     { id: "cursor", plan: "Pro", windows: [{ kind: "monthly", usedPercent: 93, resetsAt: now + 11 * d, windowSecs: 30 * 86_400 }], error: null, updatedAt: now },
+    {
+      id: "openrouter",
+      plan: null,
+      windows: [{ kind: "key-limit", usedPercent: 62, resetsAt: now + 9 * d, windowSecs: 30 * 86_400 }],
+      balances: [
+        { kind: "account", amount: 18.4, total: null, currency: "USD" },
+        { kind: "today", amount: 0.82, total: null, currency: "USD" },
+        { kind: "month", amount: 12.4, total: null, currency: "USD" },
+      ],
+      error: null,
+      updatedAt: now,
+    },
+    { id: "deepseek", plan: null, windows: [], balances: [{ kind: "account", amount: 42.15, total: null, currency: "CNY" }], error: null, updatedAt: now },
+    { id: "zai", plan: "Pro", windows: [], error: "rate-limited", updatedAt: now, retryAt: now + 4 * 60_000 },
   ];
   return new Promise((r) => setTimeout(() => r(all.filter((p) => providers.includes(p.id))), 350));
+}
+
+/** Tokens per model from the local Claude Code and Codex logs (src-tauri/src/usage_logs.rs). */
+export function fetchUsageTokens(): Promise<TokenReport> {
+  if (isNative) return invoke<TokenReport>("usage_tokens");
+  // Sample: a steady week of Claude Code and a little Codex, one quarter hour every two hours.
+  const now = Date.now(), q = 15 * 60_000;
+  const buckets = (models: [string, number][]) =>
+    Array.from({ length: 31 * 12 }, (_, i) => now - i * 2 * 3600_000).flatMap((at, i) =>
+      models.map(([model, scale]) => ({ at: at - (at % q), model, band: 0, input: 900 * scale, output: 2400 * scale, cacheRead: 40_000 * scale * (1 + (i % 3)), cacheWrite: 3000 * scale, cacheWrite1h: 0 })),
+    );
+  const report: TokenReport = {
+    since: now - 31 * 86_400_000,
+    tools: [
+      { id: "claude", found: true, files: 214, unreadable: 0, buckets: buckets([["claude-opus-5-5", 3], ["claude-sonnet-5-5", 1], ["claude-haiku-5-5", 0.2]]) },
+      { id: "codex", found: true, files: 12, unreadable: 0, buckets: buckets([["gpt-5-codex", 0.5], ["gpt-6-preview", 0.1]]) },
+    ],
+  };
+  return new Promise((r) => setTimeout(() => r(report), 400));
 }
 
 // ---------- System ----------
