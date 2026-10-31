@@ -526,5 +526,7 @@
  "Schlüssel abgelehnt, in den Einstellungen prüfen": "Key rejected, check it in Settings",
  "Guthaben und Ausgaben, mit API-Schlüssel": "Credits and spend, with an API key",
  "Kontostand, mit API-Schlüssel": "Balance, with an API key",
- "Limits des Coding-Plans, mit API-Schlüssel": "Coding plan limits, with an API key"
+ "Limits des Coding-Plans, mit API-Schlüssel": "Coding plan limits, with an API key",
+ "Neuere GPT-Modelle brauchen einen eigenen Preis": "Newer GPT models need a price set by hand",
+ "Ziehen oder Alt+Pfeil hoch/runter zum Verschieben": "Drag, or Alt+Up/Down, to move"
 }

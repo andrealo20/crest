@@ -38,6 +38,14 @@ test("prices: table, cache defaults, tiers and manual override", () => {
   assert.equal(validPrices({ input: 1 } as never), false);
 });
 
+test("every model id found in the real logs on 2026-10-31 has a price", () => {
+  // From ~/.claude/projects on Andrea's PC, dated snapshot included; "<synthetic>" lines carry no tokens.
+  const seen = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-opus-5", "claude-sonnet-5", "claude-opus-4-7", "claude-haiku-5-5", "claude-fable-5-1", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"];
+  for (const id of seen) assert.ok(findPrices(id, {}), id);
+  assert.equal(findPrices("<synthetic>", {}), null);
+  assert.equal(findPrices("claude-haiku-4-5-20251001", {})?.prices.input, 1);
+});
+
 test("local days", () => {
   const now = new Date(2026, 9, 31, 15, 30).getTime();
   assert.equal(dayStart(now, 0), new Date(2026, 9, 31).getTime());

@@ -119,8 +119,15 @@ export function ModelDetails({ state }: { state: { report: TokenReport | null; l
       </div>
 
       {rows.length > 0 && <Line totals={total} label={<span className="font-semibold text-label">{t("Summe")}</span>} strong />}
-      <div className="truncate pt-1 text-caption text-label-4">
-        {[t("API-Listenpreise, geschätzt aus den Protokollen auf diesem PC"), t("{n} Dateien", { n: files }), unreadable > 0 ? t("{n} Zeilen nicht lesbar", { n: unreadable }) : ""].filter(Boolean).join(" · ")}
+      <div className="line-clamp-2 pt-1 text-caption text-label-4">
+        {[
+          t("API-Listenpreise, geschätzt aus den Protokollen auf diesem PC"),
+          tools.has("codex") ? t("Neuere GPT-Modelle brauchen einen eigenen Preis") : "",
+          t("{n} Dateien", { n: files }),
+          unreadable > 0 ? t("{n} Zeilen nicht lesbar", { n: unreadable }) : "",
+        ]
+          .filter(Boolean)
+          .join(" · ")}
       </div>
     </div>
   );

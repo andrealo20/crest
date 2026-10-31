@@ -13,8 +13,12 @@ export interface TokenCounts { input: number; output: number; cacheRead: number;
 const same = (ids: string[], p: ModelPrices) => Object.fromEntries(ids.map((id) => [id, p]));
 
 /**
- * List prices as published by the makers (Anthropic's model table; OpenAI's API pricing for the GPT-5 family). Codex used with a ChatGPT
- * plan has no per-token bill, so its figure is what the same tokens would cost on the API.
+ * List prices as published by the makers. Codex used with a ChatGPT plan has no per-token bill, so its figure is what the same tokens would
+ * cost on the API.
+ * - Anthropic: checked 2026-10-31 against https://platform.claude.com/docs/en/about-claude/pricing (model table of 2026-10-06), cache
+ *   multipliers from the prompt caching page. Opus 4.1 / 4 and the Claude 3.x entries are the older published prices.
+ * - OpenAI: https://openai.com/api/pricing/, only the GPT-5, 5.1 and 5.2 models whose prices were known when this table was written; later
+ *   GPT models are left out on purpose and stay unpriced until set by hand. Check them again when a newer Codex model shows up.
  */
 export const PRICES: Record<string, ModelPrices> = {
   ...same(["claude-fable-5-1", "claude-mythos-5-1"], { input: 10, output: 50, cacheRead: 0.25 }),
