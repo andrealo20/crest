@@ -447,7 +447,7 @@ pub fn file_thumbnail(path: &Path) -> Option<String> {
     thumbnail(&image::open(path).ok()?.to_rgba8())
 }
 
-fn thumbnail(rgba: &image::RgbaImage) -> Option<String> {
+pub(crate) fn thumbnail(rgba: &image::RgbaImage) -> Option<String> {
     let scale = (THUMB_SIZE as f32 / rgba.width().max(rgba.height()) as f32).min(1.0);
     let (w, h) = (((rgba.width() as f32 * scale) as u32).max(1), ((rgba.height() as f32 * scale) as u32).max(1));
     let small = image::imageops::thumbnail(rgba, w, h);

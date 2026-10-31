@@ -1,0 +1,600 @@
+//! Capture: screenshots and screen recordings.
+//!
+//! Screenshots land in Pictures\Crest\Screenshots as PNG and on the clipboard;
+//! recordings in Videos\Crest\Recordings as MP4. While either is taken, Crest's own
+//! window is excluded from capture (WDA_EXCLUDEFROMCAPTURE), and only then.
+//! Recording state goes to the frontend as `capture://state`.
+
+mod audio;
+mod math;
+mod record;
+mod shot;
+
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::UNIX_EPOCH;
+
+use serde::Serialize;
+use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+use windows::core::{Interface, BOOL, HSTRING, PCWSTR};
+use windows::Win32::Foundation::{HWND, LPARAM, PROPERTYKEY, RECT, SIZE};
+use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
+use windows::Win32::Graphics::Gdi::*;
+use windows::Win32::Media::MediaFoundation::{MFShutdown, MFStartup, MFSTARTUP_FULL, MF_VERSION};
+use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_MULTITHREADED};
+use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
+use windows::Win32::System::SystemInformation::GetLocalTime;
+use windows::Win32::UI::HiDpi::{SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
+use windows::Win32::UI::Shell::*;
+use windows::Win32::UI::WindowsAndMessaging::*;
+
+use math::{file_name, Rect, Stamp};
+
+#[derive(Default)]
+pub struct CaptureState(Mutex<Option<Recording>>);
+
+struct Recording {
+    recorder: record::Recorder,
+    audio: Option<audio::AudioCapture>,
+    path: PathBuf,
+    /// Crest's window, excluded from capture until the end.
+    own: isize,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RecState {
+    /// idle | recording | paused
+    phase: &'static str,
+    elapsed_ms: i64,
+    /// The finished file, once, when a recording ends.
+    path: Option<String>,
+    /// Inputs that could not be opened ("system", "mic"), or a failure while saving ("save").
+    failed: Vec<&'static str>,
+}
+
+/// QPC now in 100 ns, the clock frames and audio packets are stamped with.
+fn now() -> i64 {
+    let (mut c, mut f) = (0i64, 0i64);
+    unsafe {
+        let _ = QueryPerformanceCounter(&mut c);
+        let _ = QueryPerformanceFrequency(&mut f);
+    }
+    (c as i128 * 10_000_000 / f.max(1) as i128) as i64
+}
+
+fn stamp() -> Stamp {
+    let t = unsafe { GetLocalTime() };
+    Stamp { year: t.wYear, month: t.wMonth, day: t.wDay, hour: t.wHour, minute: t.wMinute, second: t.wSecond }
+}
+
+fn screenshots_dir(app: &AppHandle) -> Option<PathBuf> {
+    Some(app.path().picture_dir().ok()?.join("Crest").join("Screenshots"))
+}
+
+fn recordings_dir(app: &AppHandle) -> Option<PathBuf> {
+    Some(app.path().video_dir().ok()?.join("Crest").join("Recordings"))
+}
+
+/// A free file name in `dir` (created if missing).
+fn new_file(dir: &Path, prefix: &str, ext: &str) -> Result<PathBuf, String> {
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    Ok(dir.join(file_name(prefix, ext, stamp(), |n| dir.join(n).exists())))
+}
+
+fn exclude(own: isize, on: bool) {
+    let hwnd = HWND(own as *mut _);
+    let _ = unsafe { SetWindowDisplayAffinity(hwnd, if on { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }) };
+}
+
+fn own_hwnd(window: &WebviewWindow) -> isize {
+    window.hwnd().map(|h| h.0 as isize).unwrap_or(0)
+}
+
+// ---------- Sources ----------
+
+struct Monitor {
+    handle: HMONITOR,
+    name: String,
+    rect: Rect,
+    primary: bool,
+}
+
+fn monitors() -> Vec<Monitor> {
+    unsafe extern "system" fn each(handle: HMONITOR, _: HDC, _: *mut RECT, data: LPARAM) -> BOOL {
+        let list = unsafe { &mut *(data.0 as *mut Vec<Monitor>) };
+        let mut info = MONITORINFOEXW::default();
+        info.monitorInfo.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
+        if unsafe { GetMonitorInfoW(handle, &mut info.monitorInfo) }.as_bool() {
+            let r = info.monitorInfo.rcMonitor;
+            let len = info.szDevice.iter().position(|&c| c == 0).unwrap_or(info.szDevice.len());
+            list.push(Monitor {
+                handle,
+                name: String::from_utf16_lossy(&info.szDevice[..len]),
+                rect: Rect { x: r.left, y: r.top, w: r.right - r.left, h: r.bottom - r.top },
+                primary: info.monitorInfo.dwFlags & MONITORINFOF_PRIMARY != 0,
+            });
+        }
+        true.into()
+    }
+    let mut list: Vec<Monitor> = Vec::new();
+    unsafe {
+        let _ = EnumDisplayMonitors(None, None, Some(each), LPARAM(&mut list as *mut _ as isize));
+    }
+    // Primary first, then left to right: the order people number their screens in.
+    list.sort_by_key(|m| (!m.primary, m.rect.x, m.rect.y));
+    list
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceInfo {
+    /// "monitor:\\.\DISPLAY1" or "window:<handle>"
+    id: String,
+    kind: &'static str,
+    name: String,
+    width: i32,
+    height: i32,
+    primary: bool,
+}
+
+/// Visible top-level windows with a title, the way Alt+Tab lists them.
+fn windows_list(own: isize) -> Vec<SourceInfo> {
+    unsafe extern "system" fn each(hwnd: HWND, data: LPARAM) -> BOOL {
+        let list = unsafe { &mut *(data.0 as *mut Vec<(HWND, String, RECT)>) };
+        unsafe {
+            let ex = GetWindowLongW(hwnd, GWL_EXSTYLE) as u32;
+            let mut cloaked = 0u32;
+            let _ = DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &mut cloaked as *mut u32 as *mut _, 4);
+            if !IsWindowVisible(hwnd).as_bool() || cloaked != 0 || ex & WS_EX_TOOLWINDOW.0 != 0 || GetWindow(hwnd, GW_OWNER).is_ok_and(|o| !o.is_invalid()) {
+                return true.into();
+            }
+            let mut buf = [0u16; 256];
+            let len = GetWindowTextW(hwnd, &mut buf).max(0) as usize;
+            let mut r = RECT::default();
+            let _ = GetWindowRect(hwnd, &mut r);
+            if len > 0 && r.right - r.left > 40 && r.bottom - r.top > 40 {
+                list.push((hwnd, String::from_utf16_lossy(&buf[..len]), r));
+            }
+        }
+        true.into()
+    }
+    let mut found: Vec<(HWND, String, RECT)> = Vec::new();
+    unsafe {
+        let _ = EnumWindows(Some(each), LPARAM(&mut found as *mut _ as isize));
+    }
+    found
+        .into_iter()
+        .filter(|(h, ..)| h.0 as isize != own)
+        .map(|(h, name, r)| SourceInfo { id: format!("window:{}", h.0 as isize), kind: "window", name, width: r.right - r.left, height: r.bottom - r.top, primary: false })
+        .collect()
+}
+
+#[tauri::command]
+pub async fn capture_sources(window: WebviewWindow) -> Vec<SourceInfo> {
+    let own = own_hwnd(&window);
+    tauri::async_runtime::spawn_blocking(move || {
+        unsafe {
+            let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        }
+        let mut list: Vec<SourceInfo> = monitors()
+            .into_iter()
+            .map(|m| SourceInfo { id: format!("monitor:{}", m.name), kind: "monitor", name: m.name, width: m.rect.w, height: m.rect.h, primary: m.primary })
+            .collect();
+        list.extend(windows_list(own));
+        list
+    })
+    .await
+    .unwrap_or_default()
+}
+
+// ---------- Screenshots ----------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Shot {
+    path: String,
+    name: String,
+    thumb: Option<String>,
+    width: i32,
+    height: i32,
+}
+
+/// `mode`: "all" (every screen), "monitor" (`monitor` = device name, primary if missing) or "region".
+/// None when the region pick was cancelled.
+#[tauri::command]
+pub async fn capture_shot(mode: String, monitor: Option<String>, app: AppHandle, window: WebviewWindow) -> Result<Option<Shot>, String> {
+    let own = own_hwnd(&window);
+    let dir = screenshots_dir(&app).ok_or("No Pictures folder")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let recording = app.state::<CaptureState>().0.lock().unwrap().is_some();
+        if !recording {
+            exclude(own, true);
+            // Let the compositor drop the window from the next frame.
+            std::thread::sleep(std::time::Duration::from_millis(60));
+        }
+        let result = take_shot(&mode, monitor.as_deref(), &dir);
+        if !recording {
+            exclude(own, false);
+        }
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn take_shot(mode: &str, monitor: Option<&str>, dir: &Path) -> Result<Option<Shot>, String> {
+    unsafe {
+        let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
+    let screen = shot::virtual_screen();
+    let dib = shot::grab(screen).map_err(|e| e.message())?;
+    let all = Rect { x: 0, y: 0, w: screen.w, h: screen.h };
+    let list = monitors();
+    let crop = match mode {
+        "region" => match shot::pick_region(&dib, screen, &list.iter().map(|m| m.rect).collect::<Vec<_>>()).map_err(|e| e.message())? {
+            Some(r) => r,
+            None => return Ok(None),
+        },
+        "monitor" => {
+            let m = list.iter().find(|m| Some(m.name.as_str()) == monitor).or_else(|| list.iter().find(|m| m.primary)).ok_or("No monitor")?;
+            math::to_bitmap(m.rect, screen).ok_or("Monitor not found")?
+        }
+        _ => all,
+    };
+    let rgba = dib.crop_rgba(crop);
+    drop(dib);
+    let path = new_file(dir, "Screenshot", "png")?;
+    // Fast compression: a multi-monitor shot saves in a fraction of the time, for slightly larger files.
+    let file = std::io::BufWriter::new(std::fs::File::create(&path).map_err(|e| e.to_string())?);
+    let png = image::codecs::png::PngEncoder::new_with_quality(file, image::codecs::png::CompressionType::Fast, image::codecs::png::FilterType::Adaptive);
+    rgba.write_with_encoder(png).map_err(|e| e.to_string())?;
+    let _ = arboard::Clipboard::new().and_then(|mut c| {
+        c.set_image(arboard::ImageData { width: rgba.width() as usize, height: rgba.height() as usize, bytes: rgba.as_raw().into() })
+    });
+    Ok(Some(Shot {
+        name: path.file_name().unwrap_or_default().to_string_lossy().into_owned(),
+        path: path.to_string_lossy().into_owned(),
+        thumb: crate::clipboard::thumbnail(&rgba),
+        width: crop.w,
+        height: crop.h,
+    }))
+}
+
+// ---------- Recording ----------
+
+fn emit(app: &AppHandle, s: RecState) {
+    let _ = app.emit("capture://state", s);
+}
+
+fn current(state: &CaptureState) -> RecState {
+    match state.0.lock().unwrap().as_ref() {
+        None => RecState { phase: "idle", elapsed_ms: 0, path: None, failed: vec![] },
+        Some(r) => {
+            let clock = r.recorder.shared.clock.lock().unwrap();
+            RecState { phase: if clock.paused() { "paused" } else { "recording" }, elapsed_ms: clock.elapsed(now()) / 10_000, path: None, failed: vec![] }
+        }
+    }
+}
+
+#[tauri::command]
+pub fn capture_state(app: AppHandle) -> RecState {
+    current(&app.state::<CaptureState>())
+}
+
+/// `source`: an id from `capture_sources`.
+#[tauri::command]
+pub async fn capture_start(source: String, fps: u32, mic: bool, system: bool, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+    let own = own_hwnd(&window);
+    let dir = recordings_dir(&app).ok_or("No Videos folder")?;
+    let task = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let app = task;
+        let state = app.state::<CaptureState>();
+        let mut slot = state.0.lock().unwrap();
+        if slot.is_some() {
+            return Err("Already recording".to_string());
+        }
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        }
+        let target = if let Some(name) = source.strip_prefix("monitor:") {
+            let list = monitors();
+            let m = list.iter().find(|m| m.name == name).or_else(|| list.iter().find(|m| m.primary)).ok_or("No monitor")?;
+            record::Source::Monitor(m.handle)
+        } else if let Some(h) = source.strip_prefix("window:").and_then(|h| h.parse::<isize>().ok()) {
+            let hwnd = HWND(h as *mut _);
+            if !unsafe { IsWindow(Some(hwnd)) }.as_bool() {
+                return Err("Window closed".into());
+            }
+            record::Source::Window(hwnd)
+        } else {
+            return Err("Unknown source".into());
+        };
+        let path = new_file(&dir, "Recording", "mp4")?;
+        unsafe { MFStartup(MF_VERSION, MFSTARTUP_FULL) }.map_err(|e| e.message())?;
+        exclude(own, true);
+        let closed = app.clone();
+        let fps = if fps >= 60 { 60 } else { 30 };
+        // Opening the audio takes about half a second; it runs while the encoder starts.
+        let opening = std::thread::spawn(move || {
+            unsafe {
+                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            }
+            audio::open_inputs(system, mic)
+        });
+        let recorder = match record::start(target, &path, fps, mic || system, now, move || {
+            // The recorded window closed: stop on another thread, the capture's own must return.
+            let app = closed.clone();
+            std::thread::spawn(move || finish(&app));
+        }) {
+            Ok(r) => r,
+            Err(e) => {
+                exclude(own, false);
+                drop(opening.join());
+                let _ = std::fs::remove_file(&path);
+                unsafe {
+                    let _ = MFShutdown();
+                }
+                return Err(e.message());
+            }
+        };
+        let (inputs, failed) = opening.join().unwrap_or_default();
+        let audio = recorder.has_audio.then(|| audio::start(recorder.shared.clone(), inputs, now));
+        *slot = Some(Recording { recorder, audio, path, own });
+        drop(slot);
+        emit(&app, RecState { phase: "recording", elapsed_ms: 0, path: None, failed });
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn capture_pause(paused: bool, app: AppHandle) {
+    let state = app.state::<CaptureState>();
+    if let Some(r) = state.0.lock().unwrap().as_ref() {
+        let mut clock = r.recorder.shared.clock.lock().unwrap();
+        if paused {
+            clock.pause(now());
+        } else {
+            clock.resume(now());
+        }
+    }
+    emit(&app, current(&state));
+}
+
+#[tauri::command]
+pub async fn capture_stop(app: AppHandle) {
+    let _ = tauri::async_runtime::spawn_blocking(move || finish(&app)).await;
+}
+
+/// Ends the recording (if any), writes the file and tells the frontend.
+fn finish(app: &AppHandle) {
+    let Some(r) = app.state::<CaptureState>().0.lock().unwrap().take() else { return };
+    let elapsed = r.recorder.shared.clock.lock().unwrap().elapsed(now()) / 10_000;
+    if let Some(a) = r.audio {
+        a.stop();
+    }
+    let saved = r.recorder.stop();
+    unsafe {
+        let _ = MFShutdown();
+    }
+    exclude(r.own, false);
+    let failed = if saved.is_ok() { vec![] } else { vec!["save"] };
+    emit(app, RecState { phase: "idle", elapsed_ms: elapsed, path: Some(r.path.to_string_lossy().into_owned()), failed });
+}
+
+// ---------- Library ----------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptureFile {
+    path: String,
+    name: String,
+    /// shot | video
+    kind: &'static str,
+    size: u64,
+    /// ms since 1970
+    modified: u64,
+}
+
+#[tauri::command]
+pub fn capture_list(app: AppHandle) -> Vec<CaptureFile> {
+    let mut out = Vec::new();
+    for (dir, kind, ext) in [(screenshots_dir(&app), "shot", "png"), (recordings_dir(&app), "video", "mp4")] {
+        let Some(entries) = dir.and_then(|d| std::fs::read_dir(d).ok()) else { continue };
+        for e in entries.flatten() {
+            let p = e.path();
+            let Ok(meta) = e.metadata() else { continue };
+            if !meta.is_file() || !p.extension().is_some_and(|x| x.eq_ignore_ascii_case(ext)) {
+                continue;
+            }
+            out.push(CaptureFile {
+                name: e.file_name().to_string_lossy().into_owned(),
+                path: p.to_string_lossy().into_owned(),
+                kind,
+                size: meta.len(),
+                modified: meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_millis() as u64),
+            });
+        }
+    }
+    out.sort_by(|a, b| b.modified.cmp(&a.modified));
+    out
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Details {
+    path: String,
+    thumb: Option<String>,
+    duration_ms: Option<u64>,
+}
+
+/// System.Media.Duration, in 100 ns.
+const PKEY_MEDIA_DURATION: PROPERTYKEY = PROPERTYKEY { fmtid: windows::core::GUID::from_u128(0x64440490_4c8b_11d1_8b70_080036b11a03), pid: 3 };
+
+/// Explorer's thumbnail and, for videos, the duration. One STA thread for the batch, as the shell expects.
+#[tauri::command]
+pub async fn capture_details(paths: Vec<String>) -> Vec<Details> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    std::thread::spawn(move || {
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        }
+        let _ = tx.send(paths.into_iter().map(|p| details(p)).collect::<Vec<_>>());
+    });
+    rx.await.unwrap_or_default()
+}
+
+fn details(path: String) -> Details {
+    let mut d = Details { path, thumb: None, duration_ms: None };
+    unsafe {
+        let Ok(item) = SHCreateItemFromParsingName::<_, _, IShellItem2>(&HSTRING::from(d.path.as_str()), None) else { return d };
+        d.duration_ms = item.GetUInt64(&PKEY_MEDIA_DURATION).ok().filter(|&v| v > 0).map(|v| v / 10_000);
+        if let Ok(bmp) = item.cast::<IShellItemImageFactory>().and_then(|f| f.GetImage(SIZE { cx: 240, cy: 240 }, SIIGBF_BIGGERSIZEOK | SIIGBF_THUMBNAILONLY)) {
+            d.thumb = bitmap_thumb(bmp);
+            let _ = DeleteObject(bmp.into());
+        }
+    }
+    d
+}
+
+/// HBITMAP from the shell as a PNG data URL.
+unsafe fn bitmap_thumb(bmp: HBITMAP) -> Option<String> {
+    unsafe {
+        let mut info = BITMAP::default();
+        if GetObjectW(bmp.into(), std::mem::size_of::<BITMAP>() as i32, Some(&mut info as *mut _ as *mut _)) == 0 {
+            return None;
+        }
+        let (w, h) = (info.bmWidth, info.bmHeight.abs());
+        let mut header = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER { biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32, biWidth: w, biHeight: -h, biPlanes: 1, biBitCount: 32, biCompression: BI_RGB.0, ..Default::default() },
+            ..Default::default()
+        };
+        let mut px = vec![0u8; (w * h * 4) as usize];
+        let dc = GetDC(None);
+        let lines = GetDIBits(dc, bmp, 0, h as u32, Some(px.as_mut_ptr() as *mut _), &mut header, DIB_RGB_COLORS);
+        ReleaseDC(None, dc);
+        if lines == 0 {
+            return None;
+        }
+        // Thumbnails without an alpha channel come back with alpha 0 everywhere.
+        let opaque = px.chunks_exact(4).all(|p| p[3] == 0);
+        for p in px.chunks_exact_mut(4) {
+            p.swap(0, 2);
+            if opaque {
+                p[3] = 255;
+            }
+        }
+        crate::clipboard::thumbnail(&image::RgbaImage::from_raw(w as u32, h as u32, px)?)
+    }
+}
+
+/// Moves a capture to the Recycle Bin. Only files in the two capture folders.
+#[tauri::command]
+pub fn capture_delete(path: String, app: AppHandle) -> Result<(), String> {
+    let p = Path::new(&path);
+    let parent = p.parent().and_then(|d| d.canonicalize().ok());
+    let inside = [screenshots_dir(&app), recordings_dir(&app)].into_iter().flatten().filter_map(|d| d.canonicalize().ok()).any(|d| Some(&d) == parent.as_ref());
+    let ext_ok = p.extension().is_some_and(|x| x.eq_ignore_ascii_case("png") || x.eq_ignore_ascii_case("mp4"));
+    if !inside || !ext_ok || !p.is_file() {
+        return Err("Not a capture".into());
+    }
+    // Double-null-terminated list of one path.
+    let from: Vec<u16> = path.encode_utf16().chain([0, 0]).collect();
+    let mut op = SHFILEOPSTRUCTW {
+        wFunc: FO_DELETE,
+        pFrom: PCWSTR(from.as_ptr()),
+        fFlags: (FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI).0 as u16,
+        ..Default::default()
+    };
+    match unsafe { SHFileOperationW(&mut op) } {
+        0 => Ok(()),
+        code => Err(format!("Delete failed ({code})")),
+    }
+}
+
+#[cfg(test)]
+mod live {
+    //! Records two seconds of the primary monitor with system audio into a temp file and reads it back.
+    //! Touches real hardware, so only on request: `cargo test --lib capture::live -- --ignored`.
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn takes_screenshots() {
+        let dir = std::env::temp_dir().join("crest-capture-shots");
+        let _ = std::fs::remove_dir_all(&dir);
+        let all = take_shot("all", None, &dir).unwrap().unwrap();
+        let screen = shot::virtual_screen();
+        assert_eq!((all.width, all.height), (screen.w, screen.h));
+        let primary = monitors().into_iter().find(|m| m.primary).unwrap();
+        let one = take_shot("monitor", Some(&primary.name), &dir).unwrap().unwrap();
+        assert_eq!((one.width, one.height), (primary.rect.w, primary.rect.h));
+        // Two in the same second get different names.
+        assert_ne!(all.path, one.path);
+        assert_eq!(image::image_dimensions(&one.path).unwrap(), (one.width as u32, one.height as u32));
+        assert!(one.thumb.is_some());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    #[ignore]
+    fn records_a_playable_mp4() {
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+            MFStartup(MF_VERSION, MFSTARTUP_FULL).unwrap();
+        }
+        let path = std::env::temp_dir().join("crest-capture-test.mp4");
+        let _ = std::fs::remove_file(&path);
+        let m = monitors().into_iter().find(|m| m.primary).unwrap();
+        let t0 = std::time::Instant::now();
+        let (inputs, failed) = audio::open_inputs(true, false);
+        assert!(failed.is_empty(), "{failed:?}");
+        let recorder = record::start(record::Source::Monitor(m.handle), &path, 30, true, now, || {}).unwrap();
+        let audio = audio::start(recorder.shared.clone(), inputs, now);
+        eprintln!("started in {:?}, gpu {}", t0.elapsed(), recorder.gpu);
+        std::thread::sleep(std::time::Duration::from_millis(1000));
+        recorder.shared.clock.lock().unwrap().pause(now());
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        recorder.shared.clock.lock().unwrap().resume(now());
+        std::thread::sleep(std::time::Duration::from_millis(1000));
+        audio.stop();
+        recorder.stop().unwrap();
+        let size = std::fs::metadata(&path).unwrap().len();
+        unsafe {
+            use windows::Win32::Media::MediaFoundation::*;
+            let reader = MFCreateSourceReaderFromURL(&HSTRING::from(path.as_path()), None).unwrap();
+            let kinds: Vec<_> = (0..2).filter_map(|i| reader.GetNativeMediaType(i, 0).ok()).map(|t| t.GetMajorType().unwrap()).collect();
+            assert!(kinds.contains(&MFMediaType_Video) && kinds.contains(&MFMediaType_Audio), "{kinds:?}");
+        }
+        assert!(size > 10_000, "{size}");
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        }
+        let d = details(path.to_string_lossy().into_owned());
+        let ms = d.duration_ms.unwrap_or(0);
+        eprintln!("size {size} bytes, duration {ms} ms, thumb {}", d.thumb.is_some());
+        // Two seconds recorded, the half-second pause left out.
+        assert!((1900..=2300).contains(&ms), "{ms}");
+
+        // Rows top to bottom: the video's thumbnail looks like the screen, not like it upside down.
+        use base64::Engine;
+        let png = base64::engine::general_purpose::STANDARD.decode(d.thumb.unwrap().trim_start_matches("data:image/png;base64,")).unwrap();
+        let thumb = image::load_from_memory(&png).unwrap().to_rgba8();
+        let screen = shot::virtual_screen();
+        let now_shot = shot::grab(screen).unwrap().crop_rgba(math::to_bitmap(m.rect, screen).unwrap());
+        let small = image::imageops::resize(&now_shot, thumb.width(), thumb.height(), image::imageops::FilterType::Triangle);
+        let diff = |flip: bool| -> u64 {
+            let h = thumb.height();
+            thumb.enumerate_pixels().map(|(x, y, p)| (0..3).map(|c| (p[c] as i64 - small.get_pixel(x, if flip { h - 1 - y } else { y })[c] as i64).unsigned_abs()).sum::<u64>()).sum()
+        };
+        let (upright, flipped) = (diff(false), diff(true));
+        eprintln!("thumbnail difference upright {upright}, flipped {flipped}");
+        assert!(upright < flipped);
+        std::fs::remove_file(&path).unwrap();
+    }
+}

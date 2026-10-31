@@ -1,5 +1,6 @@
 pub mod ai;
 mod audio;
+mod capture;
 mod clipboard;
 mod controls;
 pub mod convert;
@@ -71,6 +72,7 @@ pub fn run() {
         .manage(display::DisplayState::default())
         .manage(discord::DiscordState::default())
         .manage(vault::VaultState::default())
+        .manage(capture::CaptureState::default())
         .invoke_handler(tauri::generate_handler![
             hit_test::set_hit_rect,
             hit_test::set_pinned,
@@ -137,6 +139,15 @@ pub fn run() {
             vault::vault_hello_disable,
             autostart_get,
             autostart_set,
+            capture::capture_sources,
+            capture::capture_shot,
+            capture::capture_state,
+            capture::capture_start,
+            capture::capture_pause,
+            capture::capture_stop,
+            capture::capture_list,
+            capture::capture_details,
+            capture::capture_delete,
         ])
         .setup(move |app| {
             let window = app.get_webview_window("notch").expect("window 'notch' missing");
