@@ -15,7 +15,7 @@ use windows::Win32::Security::Credentials::{
 };
 
 /// Allowed names, so the frontend can't create arbitrary entries.
-const ALLOWED: &[&str] = &["t212.key", "t212.secret", "ai.anthropic", "ai.openai", "ai.openrouter", "ai.custom", "discord.secret", "discord.token", "usage.deepseek", "usage.zai", "github.token"];
+const ALLOWED: &[&str] = &["t212.key", "t212.secret", "ai.anthropic", "ai.openai", "ai.openrouter", "ai.custom", "discord.secret", "discord.token", "usage.deepseek", "usage.zai", "github.token", "kraken.key", "kraken.secret", "coinbase.key", "coinbase.secret", "binance.key", "binance.secret", "bitpanda.key", "etoro.key", "etoro.user", "ibkr.token", "ibkr.query"];
 
 const PREFIX: &str = "Crest/";
 /// Shared with L4-Notchbar, only ever read (and only by `migrate_legacy`).
