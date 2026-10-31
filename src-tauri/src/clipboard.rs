@@ -472,10 +472,23 @@ fn now_ms() -> u64 {
 mod tests {
     use super::*;
 
-    /// A 4K "screenshot" tiled from a real one: round trip is lossless and far smaller than RGBA.
+    /// A UI-like tile: flat panels with rows of pseudo-random "glyphs" (fixed seed), like a window of text.
+    fn ui_tile() -> image::RgbaImage {
+        let mut seed = 0x2545_f491u32;
+        let mut next = move || { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; seed };
+        let glyphs: Vec<u32> = (0..64 * 40).map(|_| next()).collect();
+        image::RgbaImage::from_fn(512, 320, |x, y| {
+            let panel = if x < 140 { [32, 33, 38, 255] } else { [24, 24, 28, 255] };
+            let (col, row) = (x / 8, y / 8);
+            let ink = y % 8 < 6 && x % 8 < 6 && glyphs[(row * 64 + col) as usize % glyphs.len()] % 3 != 0;
+            image::Rgba(if ink && y > 24 { [220, 222, 228, 255] } else { panel })
+        })
+    }
+
+    /// A 4K "screenshot" tiled from a UI-like tile: round trip is lossless and far smaller than RGBA.
     #[test]
     fn stored_image_is_lossless_and_compact() {
-        let tile = image::open(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/media/vault-passwords.png")).unwrap().to_rgba8();
+        let tile = ui_tile();
         let (w, h) = (3840, 2160);
         let shot = image::RgbaImage::from_fn(w, h, |x, y| *tile.get_pixel(x % tile.width(), y % tile.height()));
         let raw = shot.as_raw().len();
