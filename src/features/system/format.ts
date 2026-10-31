@@ -26,7 +26,7 @@ export function compactRate(bytesPerSecond: number): string {
 }
 
 /** The widest figures each closed-row reading can show, for the room it reserves. */
-export const WIDEST = { rate: "888M", watts: "888W", percent: "100%", temp: "188°" } as const;
+export const WIDEST = { rate: "888M", watts: "~888W", percent: "100%", temp: "188°" } as const;
 
 /** Watts with one decimal under 100, whole from there: "38.2", "112". */
 export const watts = (w: number) => (finite(w) < 99.95 ? one(finite(w)) : whole(finite(w)));

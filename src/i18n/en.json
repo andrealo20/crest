@@ -521,5 +521,9 @@
  "Ganzer PC; geschätzt, wenn kein Messgerät da ist": "Whole PC; an estimate where no meter exists",
  "CPU, sonst GPU; erscheint, sobald ein Sensor antwortet": "CPU, else GPU; appears once a sensor answers",
  "Druck hoch": "Pressure high",
- "Druck kritisch": "Pressure critical"
+ "Druck kritisch": "Pressure critical",
+ "Download": "Download",
+ "Upload": "Upload",
+ "CPU-Temperatur": "CPU temperature",
+ "GPU-Temperatur": "GPU temperature"
 }

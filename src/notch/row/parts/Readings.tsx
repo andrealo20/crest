@@ -11,17 +11,19 @@ import type { ClosedSettings } from "../parts";
 import { CAPTION_FONT, measureText } from "../measure";
 
 export type ReadingId = "fps" | "cpu" | "ram" | "gpu" | "down" | "up" | "power" | "battery" | "temp";
-export interface Reading { id: ReadingId; value: number | null; level: Level }
+/** `source`: which sensor a temperature comes from; `estimate`: power summed from parts, not measured. */
+export interface Reading { id: ReadingId; value: number | null; level: Level; source?: "cpu" | "gpu"; estimate?: boolean }
 
 export const READING_GAP = 6;
-const DIAL = 16, DIAL_GAP = 3, GLYPH = 11;
+/** MARK: the C / G letter after the thermometer. */
+const DIAL = 16, DIAL_GAP = 3, GLYPH = 11, MARK = 6;
 const LETTER: Partial<Record<ReadingId, string>> = { cpu: "C", ram: "M", gpu: "G" };
 const GLYPHS: Partial<Record<ReadingId, Icon>> = { down: ArrowDown, up: ArrowUp, power: Lightning, temp: Thermometer };
 
 /** Each reading reserves its widest figure (tabular digits are each as wide as an 8), so the row never shifts. */
 const widest = (id: ReadingId) => (id === "down" || id === "up" ? WIDEST.rate : id === "power" ? WIDEST.watts : id === "temp" ? WIDEST.temp : WIDEST.percent);
 const digits = (id: ReadingId) => measureText(widest(id).replace(/[0-9]/g, "8"));
-const lead = (id: ReadingId) => (id === "fps" ? measureText("FPS", CAPTION_FONT) : id === "battery" ? BATTERY_W : LETTER[id] ? DIAL : GLYPH);
+const lead = (id: ReadingId) => (id === "fps" ? measureText("FPS", CAPTION_FONT) : id === "battery" ? BATTERY_W : LETTER[id] ? DIAL : id === "temp" ? GLYPH + MARK : GLYPH);
 export const readingWidth = (id: ReadingId) => lead(id) + DIAL_GAP + digits(id);
 
 /** Once the GPU has answered with a number it has counters; before that (or never, without them) it stays out of the row. */
@@ -52,27 +54,38 @@ export function useReadings(closed: ClosedSettings, gaming: boolean): Reading[] 
     list.push({ id: "down", value: st.net?.down ?? null, level: ofRate(st.net?.down ?? 0) });
     list.push({ id: "up", value: st.net?.up ?? null, level: ofRate(st.net?.up ?? 0) });
   }
-  if (on.power && st.power) list.push({ id: "power", value: st.power.watts, level: 0 });
+  if (on.power && st.power) list.push({ id: "power", value: st.power.watts, level: 0, estimate: st.power.estimate });
   if (on.battery && st.battery) list.push({ id: "battery", value: st.battery.percent, level: batteryLevel(st.battery) });
-  const temp = st.cpuTemp !== null ? { c: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp) } : st.gpuTemp !== null ? { c: st.gpuTemp, level: tempLevel("gpu", st.gpuTemp) } : null;
-  if (on.temp && temp) list.push({ id: "temp", value: temp.c, level: temp.level });
+  if (on.temp && st.cpuTemp !== null) list.push({ id: "temp", value: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp), source: "cpu" });
+  else if (on.temp && st.gpuTemp !== null) list.push({ id: "temp", value: st.gpuTemp, level: tempLevel("gpu", st.gpuTemp), source: "gpu" });
   return list;
 }
 
-const text = (id: ReadingId, v: number | null) => {
+const text = ({ id, value: v, estimate }: Reading) => {
   if (v === null) return "-";
   if (id === "down" || id === "up") return compactRate(v);
-  if (id === "power") return `${compactWatts(v)}W`;
+  // "~" as in the tool: a sum of parts, not a measurement.
+  if (id === "power") return `${estimate ? "~" : ""}${compactWatts(v)}W`;
   if (id === "temp") return `${Math.round(v)}°`;
   return `${Math.round(v)}%`;
 };
 
+/** What a screen reader says for the readings that have no dial letter of their own. */
+function spoken(r: Reading): string | undefined {
+  const name =
+    r.id === "down" ? t("Download") : r.id === "up" ? t("Upload") : r.id === "power" ? t("Leistung") : r.id === "battery" ? t("Akku")
+    : r.id === "temp" ? t(r.source === "gpu" ? "GPU-Temperatur" : "CPU-Temperatur") : null;
+  return name === null ? undefined : `${name} ${text(r)}`;
+}
+
 /** A dial open at the bottom with its letter, then the number; FPS as a word, the others with a small glyph. */
-export function ReadingView({ reading: { id, value, level } }: { reading: Reading }) {
+export function ReadingView({ reading }: { reading: Reading }) {
+  const { id, value, level, source } = reading;
   const color = id === "fps" ? "var(--color-label)" : schemeColor(settings.use().system.colors, level);
   const G = GLYPHS[id];
+  const label = spoken(reading);
   return (
-    <span className="flex shrink-0 items-center" style={{ gap: DIAL_GAP, width: readingWidth(id), color }}>
+    <span className="flex shrink-0 items-center" style={{ gap: DIAL_GAP, width: readingWidth(id), color }} role={label ? "img" : undefined} aria-label={label}>
       {id === "fps" ? (
         <span className="text-caption font-medium text-label-3">FPS</span>
       ) : LETTER[id] ? (
@@ -80,10 +93,18 @@ export function ReadingView({ reading: { id, value, level } }: { reading: Readin
       ) : id === "battery" ? (
         <BatteryGlyph value={value ?? 0} />
       ) : G ? (
-        <G size={GLYPH} weight="bold" className="shrink-0" aria-hidden />
+        <span className="flex shrink-0 items-center" aria-hidden>
+          <G size={GLYPH} weight="bold" />
+          {/* C or G: which sensor the temperature is from. */}
+          {id === "temp" && (
+            <span className="text-[8px] leading-none font-bold" style={{ width: MARK }}>
+              {LETTER[source ?? "cpu"]}
+            </span>
+          )}
+        </span>
       ) : null}
-      <span className="tabular text-right text-footnote font-medium transition-colors duration-300" style={{ width: digits(id) }}>
-        {id === "fps" ? <FpsValue /> : text(id, value)}
+      <span className="tabular text-right text-footnote font-medium transition-colors duration-300" style={{ width: digits(id) }} aria-hidden={label ? true : undefined}>
+        {id === "fps" ? <FpsValue /> : text(reading)}
       </span>
     </span>
   );
