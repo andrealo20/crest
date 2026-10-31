@@ -634,3 +634,35 @@ export const systemControls = {
     return Promise.resolve({ ...mockFocus });
   },
 };
+
+// ---------- Theme files (themes.rs) ----------
+
+export interface ThemeFileText {
+  file: string;
+  text: string | null;
+  error: string | null;
+}
+
+/** In the browser: export downloads the file, import reads one sample theme. */
+const mockThemeFiles: ThemeFileText[] = [
+  {
+    file: "midnight-teal.json",
+    text: JSON.stringify({ format: 1, id: "midnight-teal", name: "Midnight teal", colors: { background: "#04161a", foreground: "#e6f4f1", accent: "#2dd4bf" } }),
+    error: null,
+  },
+];
+
+export const themeFiles = {
+  folder: (): Promise<string> => (isNative ? invoke<string>("themes_folder") : Promise.resolve("")),
+  read: (): Promise<ThemeFileText[]> => (isNative ? invoke<ThemeFileText[]>("themes_read") : Promise.resolve(mockThemeFiles)),
+  /** Writes `<id>.json` into the themes folder and returns its path. */
+  write: (id: string, text: string): Promise<string> => {
+    if (isNative) return invoke<string>("themes_write", { id, text });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+    a.download = `${id}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    return Promise.resolve("");
+  },
+};

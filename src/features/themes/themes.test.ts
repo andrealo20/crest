@@ -95,6 +95,7 @@ test("setThemeColor re-derives from a new background or foreground", () => {
 test("ids", () => {
   assert.equal(normalizeId("  Midnight Teal! "), "midnight-teal");
   assert.equal(normalizeId("..x.."), "x");
+  assert.equal(normalizeId("a..b"), "a.b");
   assert.equal(normalizeId("a".repeat(80)).length, 64);
   assert.equal(normalizeId(undefined), "");
   assert.equal(uniqueId("Dark", new Set(["dark", "dark-2"])), "dark-3");

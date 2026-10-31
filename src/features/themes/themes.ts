@@ -254,6 +254,7 @@ export function normalizeId(id: unknown): string {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/\.{2,}/g, ".")
     .replace(/^[-.]+|[-.]+$/g, "");
   return text.slice(0, 64).replace(/[-.]+$/, "");
 }

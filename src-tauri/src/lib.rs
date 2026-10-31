@@ -15,6 +15,7 @@ mod mixer;
 mod privacy;
 pub mod secrets;
 mod system;
+mod themes;
 mod trading;
 pub mod usage;
 mod vault;
@@ -137,6 +138,9 @@ pub fn run() {
             vault::vault_hello_disable,
             autostart_get,
             autostart_set,
+            themes::themes_folder,
+            themes::themes_read,
+            themes::themes_write,
         ])
         .setup(move |app| {
             let window = app.get_webview_window("notch").expect("window 'notch' missing");
