@@ -16,19 +16,25 @@ $readme = @"
 Crest portable
 
 Unzip the folder anywhere you can write to and run Crest.exe. Nothing is installed.
-Settings, notes, the vault and caches stay in the data folder next to Crest.exe, so the
-folder can move to another PC or a USB drive. API keys stay in Windows Credential Manager
-of each PC and have to be entered again there.
+Settings, notes and caches stay in the data folder next to Crest.exe and travel with the
+folder to another PC or a USB drive. The vault file travels too, but it is locked to the
+Windows user and PC that created it (DPAPI): elsewhere it does not open. API keys stay in
+Windows Credential Manager of each PC and have to be entered again there.
+
+In a folder Crest cannot write to (a locked share, Program Files) it still starts, keeps its
+data in your user profile like an installed copy, and updates open the download page.
 
 Updates: Settings, General, Updates downloads the new portable package, checks its
-signature and replaces Crest.exe on restart. In a folder Crest cannot write to, such as
-Program Files, it opens the download page instead.
+signature and replaces Crest.exe on restart.
+
+An installed and a portable Crest on the same PC share one single-instance lock (only one
+runs at a time) and one "Start with Windows" entry: switching it on in one points it at
+that copy. Start with Windows is off for a new portable copy; switch it on in the tray
+menu if wanted.
 
 Crest needs the Microsoft Edge WebView2 Runtime. Windows 10 and 11 normally include it.
 If Crest does not start, install the Evergreen runtime from
 https://developer.microsoft.com/microsoft-edge/webview2/
-
-Start with Windows is off for a portable copy; switch it on in the tray menu if wanted.
 "@
 
 if (Test-Path -LiteralPath $Destination) { Remove-Item -LiteralPath $Destination }

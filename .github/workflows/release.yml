@@ -102,11 +102,14 @@ jobs:
           $zip = "Crest-$env:VERSION-Portable-x64.zip"
           ./scripts/portable-package.ps1 -Exe src-tauri/target/release/crest.exe -Destination $zip
           npx tauri signer sign $zip
-          if ($LASTEXITCODE -ne 0) { throw "signing failed" }
+          if ($LASTEXITCODE) { exit 1 }
           gh release upload $tag $zip "$zip.sig" --clobber
+          if ($LASTEXITCODE) { exit 1 }
           gh release download $tag --pattern latest.json --clobber
-          $latest = Get-Content latest.json -Raw | ConvertFrom-Json
-          $entry = [ordered]@{ signature = (Get-Content "$zip.sig" -Raw).Trim(); url = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/$zip" }
-          $latest.platforms | Add-Member -NotePropertyName windows-x86_64-portable -NotePropertyValue $entry -Force
-          $latest | ConvertTo-Json -Depth 10 | Set-Content latest.json -Encoding utf8NoBOM
+          if ($LASTEXITCODE) { exit 1 }
+          # Node, not ConvertFrom-Json: that turns pub_date into a DateTime and writes it back in another format.
+          # The script checks that pub_date and the installer entries are unchanged before it writes.
+          node scripts/portable-latest.mjs latest.json "$zip.sig" "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/$zip"
+          if ($LASTEXITCODE) { exit 1 }
           gh release upload $tag latest.json --clobber
+          if ($LASTEXITCODE) { exit 1 }
