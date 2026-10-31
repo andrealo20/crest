@@ -65,6 +65,15 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      # crest-notify ships in the portable zip (scripts/portable-package.ps1): a missing exe must stop the run before
+      # tauri-action publishes the installer release.
+      - name: Build crest-notify
+        shell: pwsh
+        working-directory: src-tauri
+        run: |
+          cargo build --release --bin crest-notify
+          if ($LASTEXITCODE) { exit 1 }
+          if (-not (Test-Path target/release/crest-notify.exe)) { Write-Error "target/release/crest-notify.exe is missing"; exit 1 }
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
