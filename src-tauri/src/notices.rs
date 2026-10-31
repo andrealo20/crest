@@ -35,6 +35,8 @@ const ICON_PX: f32 = 48.0;
 pub struct NoticesState {
     /// Bumped when the Windows source is switched; its old thread then ends.
     windows_gen: AtomicU64,
+    /// The running Windows source thread's channel, to stop it at once.
+    windows_tx: Mutex<Option<mpsc::Sender<Trigger>>>,
     /// The pipe server's generation; a watch so a waiting accept wakes when it changes.
     pipe_gen: watch::Sender<u64>,
     on: Mutex<(bool, bool)>,
@@ -46,6 +48,7 @@ impl Default for NoticesState {
     fn default() -> Self {
         NoticesState {
             windows_gen: AtomicU64::new(0),
+            windows_tx: Mutex::new(None),
             pipe_gen: watch::channel(0).0,
             on: Mutex::new((false, false)),
             status: Mutex::new(Status::default()),
@@ -62,11 +65,13 @@ pub struct Status {
     /// off | event-log | polling | failed
     mode: String,
     pipe: bool,
+    /// The crest-notify channel could not be opened (no user id, or another program holds the name).
+    pipe_failed: bool,
 }
 
 impl Default for Status {
     fn default() -> Self {
-        Status { access: "unspecified".into(), mode: "off".into(), pipe: false }
+        Status { access: "unspecified".into(), mode: "off".into(), pipe: false, pipe_failed: false }
     }
 }
 
@@ -97,9 +102,9 @@ pub fn notices_configure(windows: bool, pipe: bool, app: AppHandle, state: State
     if on.0 != windows {
         let generation = state.windows_gen.fetch_add(1, Ordering::SeqCst) + 1;
         if windows {
-            let app = app.clone();
-            std::thread::spawn(move || windows_source(app, generation));
+            start_windows(&app, generation);
         } else {
+            stop_windows(&app);
             set_status(&app, |s| s.mode = "off".into());
         }
     }
@@ -112,7 +117,7 @@ pub fn notices_configure(windows: bool, pipe: bool, app: AppHandle, state: State
         if pipe {
             tauri::async_runtime::spawn(pipe_server(app.clone(), generation));
         } else {
-            set_status(&app, |s| s.pipe = false);
+            set_status(&app, |s| (s.pipe, s.pipe_failed) = (false, false));
         }
     }
     *on = (windows, pipe);
@@ -127,6 +132,7 @@ pub fn notices_status(state: State<'_, NoticesState>) -> Status {
 
 /// Asks Windows for access to notifications. Windows asks the user only the first time; afterwards the answer is the
 /// earlier choice, changed in Settings > Privacy & security > Notifications. Restarts the Windows source when allowed.
+/// "request-failed" when Windows refused the request itself (an unpackaged app may get no prompt at all).
 #[tauri::command]
 pub async fn notices_request_access(app: AppHandle) -> String {
     let (tx, rx) = tokio::sync::oneshot::channel();
@@ -135,20 +141,20 @@ pub async fn notices_request_access(app: AppHandle) -> String {
         let op = windows::UI::Notifications::Management::UserNotificationListener::Current().and_then(|l| l.RequestAccessAsync());
         let _ = tx.send(op.ok());
     });
-    if asked.is_err() {
-        return access().into();
-    }
-    if let Ok(Some(op)) = rx.await {
-        let _ = tauri::async_runtime::spawn_blocking(move || op.join()).await;
+    let answered = match (asked, rx.await) {
+        (Ok(()), Ok(Some(op))) => matches!(tauri::async_runtime::spawn_blocking(move || op.join()).await, Ok(Ok(_))),
+        _ => false,
+    };
+    let now = access();
+    if !answered && now != "allowed" {
+        return "request-failed".into();
     }
     let state = app.state::<NoticesState>();
-    let windows_on = state.on.lock().unwrap().0;
-    if windows_on && access() == "allowed" {
+    if state.on.lock().unwrap().0 && now == "allowed" {
         let generation = state.windows_gen.fetch_add(1, Ordering::SeqCst) + 1;
-        let app2 = app.clone();
-        std::thread::spawn(move || windows_source(app2, generation));
+        start_windows(&app, generation);
     }
-    access().into()
+    now.into()
 }
 
 fn access() -> &'static str {
@@ -180,6 +186,8 @@ enum Trigger {
     Ignore,
     /// The log stopped delivering.
     Broken,
+    /// Switched off or restarted.
+    Stop,
 }
 
 /// What one log entry asks for. A delivered toast is read directly only when both its id and app id are there, so an
@@ -211,8 +219,32 @@ fn current(app: &AppHandle, generation: u64) -> bool {
     app.state::<NoticesState>().windows_gen.load(Ordering::SeqCst) == generation
 }
 
-fn windows_source(app: AppHandle, generation: u64) {
+/// Starts the Windows source thread for `generation`; the previous thread gets a stop message and ends at once.
+fn start_windows(app: &AppHandle, generation: u64) {
+    let (tx, rx) = mpsc::channel::<Trigger>();
+    if let Some(old) = app.state::<NoticesState>().windows_tx.lock().unwrap().replace(tx.clone()) {
+        let _ = old.send(Trigger::Stop);
+    }
+    let app = app.clone();
+    std::thread::spawn(move || windows_source(app, generation, tx, rx));
+}
+
+fn stop_windows(app: &AppHandle) {
+    if let Some(old) = app.state::<NoticesState>().windows_tx.lock().unwrap().take() {
+        let _ = old.send(Trigger::Stop);
+    }
+}
+
+/// The next wait before subscribing to the log again: 1 min, doubling up to 30 min.
+fn resubscribe_after(failures: u32) -> Duration {
+    Duration::from_secs(60 * 2u64.pow(failures.saturating_sub(1).min(5))).min(Duration::from_secs(30 * 60))
+}
+
+fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx: mpsc::Receiver<Trigger>) {
+    use std::time::Instant;
     use windows::UI::Notifications::Management::UserNotificationListener;
+    use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+    let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
     let Ok(listener) = UserNotificationListener::Current() else {
         return set_status(&app, |s| s.mode = "failed".into());
     };
@@ -227,66 +259,78 @@ fn windows_source(app: AppHandle, generation: u64) {
         Err(_) => return set_status(&app, |s| s.mode = "failed".into()),
     };
 
-    let (tx, rx) = mpsc::channel::<Trigger>();
-    let subscription = Subscription::start(tx);
-    set_status(&app, |s| s.mode = if subscription.is_some() { "event-log" } else { "polling" }.into());
-    let mut polling = subscription.is_none();
+    let mut subscription = Subscription::start(tx.clone());
+    let mut failures = u32::from(subscription.is_none());
+    let mut retry_at = Instant::now() + resubscribe_after(failures);
+    let mode = |on: bool| if on { "event-log" } else { "polling" };
+    set_status(&app, |s| s.mode = mode(subscription.is_some()).into());
 
     while current(&app, generation) {
-        let wait = if polling { POLL } else { Duration::from_secs(60) };
+        // Without the log the list is read every POLL; with it nothing happens until an entry arrives.
+        let wait = if subscription.is_some() { Duration::from_secs(3600) } else { POLL };
         let mut batch = Vec::new();
-        match rx.recv_timeout(wait) {
-            Ok(t) => {
+        if let Ok(t) = rx.recv_timeout(wait) {
+            if t != Trigger::Stop {
                 std::thread::sleep(COALESCE);
-                batch.push(t);
-                batch.extend(rx.try_iter());
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-            // No subscription holds the sender: polling, so only wait.
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                polling = true;
-                std::thread::sleep(wait);
-            }
+            batch.push(t);
+            batch.extend(rx.try_iter());
         }
-        if !current(&app, generation) {
+        if batch.contains(&Trigger::Stop) || !current(&app, generation) {
             break;
         }
-        if batch.contains(&Trigger::Broken) && !polling {
-            polling = true;
+        if batch.contains(&Trigger::Broken) && subscription.is_some() {
+            subscription = None;
+            failures += 1;
+            retry_at = Instant::now() + resubscribe_after(failures);
             set_status(&app, |s| s.mode = "polling".into());
         }
-        let full = polling || batch.contains(&Trigger::Full);
-        if full {
+        if subscription.is_none() && Instant::now() >= retry_at {
+            subscription = Subscription::start(tx.clone());
+            if subscription.is_some() {
+                failures = 0;
+                set_status(&app, |s| s.mode = "event-log".into());
+            } else {
+                failures += 1;
+                retry_at = Instant::now() + resubscribe_after(failures);
+            }
+        }
+
+        let mut full = subscription.is_none() || batch.contains(&Trigger::Full);
+        if !full {
+            for t in batch {
+                let Trigger::Read(id, app_id) = t else { continue };
+                if known.contains(&id) {
+                    continue;
+                }
+                // Known only once shown: a toast Windows cannot return yet, or one whose app does not match the entry,
+                // is left to a full reading of this batch instead of being lost.
+                match listener.GetNotification(id) {
+                    Ok(n) if emit_toast(&app, &n, Some(&app_id), &mut icons) => {
+                        known.insert(id);
+                    }
+                    _ => full = true,
+                }
+            }
+            if full {
+                std::thread::sleep(Duration::from_millis(500));
+            }
+        }
+        // The log never says which toasts were cleared; a long session prunes the set with one reading.
+        if full || known.len() > 1000 {
             let Ok(list) = read_all(&listener) else { continue };
             let ids: HashSet<u32> = list.iter().filter_map(|n| n.Id().ok()).collect();
-            for n in &list {
-                if let Ok(id) = n.Id() {
-                    if !known.contains(&id) {
+            if full {
+                for n in &list {
+                    if n.Id().is_ok_and(|id| !known.contains(&id)) {
                         emit_toast(&app, n, None, &mut icons);
                     }
                 }
             }
             // Removed toasts leave the set, so it stays the size of the action centre.
             known = ids;
-            continue;
-        }
-        for t in batch {
-            let Trigger::Read(id, app_id) = t else { continue };
-            if !known.insert(id) {
-                continue;
-            }
-            if let Ok(n) = listener.GetNotification(id) {
-                emit_toast(&app, &n, Some(&app_id), &mut icons);
-            }
-        }
-        // The log never says which toasts were cleared; a long session prunes the set with one reading.
-        if known.len() > 1000 {
-            if let Ok(list) = read_all(&listener) {
-                known = list.iter().filter_map(|n| n.Id().ok()).collect();
-            }
         }
     }
-    drop(subscription);
 }
 
 fn read_all(
@@ -302,9 +346,9 @@ fn emit_toast(
     n: &windows::UI::Notifications::UserNotification,
     expected: Option<&str>,
     icons: &mut HashMap<String, Option<String>>,
-) {
-    let Some(notice) = read_toast(n, expected, icons) else { return };
-    let _ = app.emit("notices://in", notice);
+) -> bool {
+    let Some(notice) = read_toast(n, expected, icons) else { return false };
+    app.emit("notices://in", notice).is_ok()
 }
 
 fn read_toast(
@@ -564,8 +608,9 @@ async fn pipe_server(app: AppHandle, generation: u64) {
     let mut changed = state.pipe_gen.subscribe();
     let limiter = state.limiter.clone();
     let stopped = |rx: &watch::Receiver<u64>| *rx.borrow() != generation;
-    let Some((session, sid)) = notify_wire::identity() else { return };
-    let Some(descriptor) = Descriptor::for_user(&sid) else { return };
+    let failed = |app: &AppHandle| set_status(app, |s| (s.pipe, s.pipe_failed) = (false, true));
+    let Some((session, sid)) = notify_wire::identity() else { return failed(&app) };
+    let Some(descriptor) = Descriptor::for_user(&sid) else { return failed(&app) };
     let name = notify_wire::pipe_name(session, &sid);
 
     // The first instance proves no other process holds the name. An old server still closing (switched off and on
@@ -583,21 +628,37 @@ async fn pipe_server(app: AppHandle, generation: u64) {
             Err(_) => tokio::time::sleep(Duration::from_millis(500)).await,
         }
     }
-    let Some(mut server) = server else { return };
-    set_status(&app, |s| s.pipe = true);
+    if server.is_none() {
+        return failed(&app);
+    }
+    set_status(&app, |s| (s.pipe, s.pipe_failed) = (true, false));
+    // Clients served at once; the rest wait (and crest-notify retries a busy pipe), so instances never run out.
+    let serving = Arc::new(tokio::sync::Semaphore::new(MAX_SERVING));
 
     loop {
+        // A new instance can fail while all are busy; it is tried again shortly, the server never gives up.
+        let Some(listening) = server.as_mut() else {
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_millis(250)) => server = create_pipe(&name, &descriptor, false).ok(),
+                _ = changed.changed() => if stopped(&changed) { break },
+            }
+            continue;
+        };
         tokio::select! {
-            connected = server.connect() => {
+            connected = listening.connect() => {
+                let client = server.take();
                 if connected.is_err() {
-                    let Ok(next) = create_pipe(&name, &descriptor, false) else { break };
-                    server = next;
                     continue;
                 }
-                let Ok(next) = create_pipe(&name, &descriptor, false) else { break };
-                let client = std::mem::replace(&mut server, next);
+                let Some(client) = client else { continue };
+                let Ok(permit) = serving.clone().acquire_owned().await else { break };
+                server = create_pipe(&name, &descriptor, false).ok();
                 let app = app.clone();
-                tauri::async_runtime::spawn(serve(client, limiter.clone(), move |n| { let _ = app.emit("notices://in", n); }));
+                let limiter = limiter.clone();
+                tauri::async_runtime::spawn(async move {
+                    serve(client, session, limiter, move |n| { let _ = app.emit("notices://in", n); }).await;
+                    drop(permit);
+                });
             }
             _ = changed.changed() => if stopped(&changed) { break },
         }
@@ -607,8 +668,25 @@ async fn pipe_server(app: AppHandle, generation: u64) {
     }
 }
 
-/// One client: one request line, one reply line, within two seconds.
-async fn serve(mut pipe: NamedPipeServer, limiter: Arc<Mutex<RateLimiter>>, emit: impl FnOnce(NoticeIn)) {
+/// Clients served at the same time (pipe instances are capped at 16).
+const MAX_SERVING: usize = 12;
+
+/// The logon session of the process at the other end of the pipe.
+fn client_session(pipe: &NamedPipeServer) -> Option<u32> {
+    use std::os::windows::io::AsRawHandle;
+    use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::System::Pipes::GetNamedPipeClientSessionId;
+    let mut id = 0u32;
+    unsafe { GetNamedPipeClientSessionId(HANDLE(pipe.as_raw_handle()), &mut id) }.ok()?;
+    Some(id)
+}
+
+/// One client: one request line, one reply line, within two seconds. A client from another logon session of the same
+/// user (a second sign-in, a service) is refused.
+async fn serve(mut pipe: NamedPipeServer, session: u32, limiter: Arc<Mutex<RateLimiter>>, emit: impl FnOnce(NoticeIn)) {
+    if client_session(&pipe) != Some(session) {
+        return;
+    }
     let read = async {
         let mut buf = Vec::new();
         let mut chunk = [0u8; 4096];
@@ -675,6 +753,12 @@ mod tests {
     }
 
     #[test]
+    fn backoff() {
+        let mins = |f| resubscribe_after(f).as_secs() / 60;
+        assert_eq!((mins(0), mins(1), mins(2), mins(3), mins(5), mins(6), mins(40)), (1, 1, 2, 4, 16, 30, 30));
+    }
+
+    #[test]
     fn queries() {
         assert!(query(Some("S-1-5-21-1-2")).contains("Security[@UserID='S-1-5-21-1-2']"));
         assert!(!query(Some("S-1-5' or '1'='1")).contains("UserID"));
@@ -697,7 +781,7 @@ mod tests {
             let sink = got.clone();
             let task = tokio::spawn(async move {
                 server.connect().await.unwrap();
-                serve(server, limiter, move |n| sink.lock().unwrap().push(n)).await;
+                serve(server, session, limiter, move |n| sink.lock().unwrap().push(n)).await;
             });
             let client_name = name.clone();
             let reply = tokio::task::spawn_blocking(move || {
