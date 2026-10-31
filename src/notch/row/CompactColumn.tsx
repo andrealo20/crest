@@ -5,7 +5,7 @@ import { AlarmIcon, BatteryHigh, BatteryLow, BatteryWarning, CheckCircle, Headph
 import { content, pulse } from "../../design/motion";
 import { t } from "../../i18n";
 import { ringing, timerActions } from "../../features/timer/store";
-import { statusNotice } from "./columnNotice";
+import { statusAlert } from "../../features/status/store";
 import { topNotice } from "./notices";
 import { popping } from "../../features/notices/store";
 import { AppIcon } from "../../features/notices/NoticePop";
@@ -49,7 +49,7 @@ function useNoticeLine(urgentOnly: boolean): Line | null {
   const finished = timer.use().finished;
   const ring = ringing.use();
   const timerHover = useNoticeHover();
-  const status = statusNotice.use();
+  const status = statusAlert.use();
   const pop = popping.use();
   const due = dueTasks.use();
   const kind = topNotice({ timer: finished, status: !!status, notice: !urgentOnly && !!pop, quota: false, track: false, reminder: due.length > 0, water: false });

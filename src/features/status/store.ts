@@ -4,19 +4,12 @@ import { settings } from "../../settings/store";
 import { focusMode } from "../../notch/focus";
 import { fullscreen } from "../system/gaming";
 import { t } from "../../i18n";
-import { statusNotice } from "../../notch/row/columnNotice";
 import { STATUS, btAlert, netAlert, powerAlert, mergeSeed, type LowBattery, type PowerState, type StatusAlert } from "../../notch/row/status";
 
 /** The status alert on screen, for STATUS.showMs; a new one replaces it. */
 export const statusAlert = createStore<StatusAlert | null>(null);
 
 let started = false;
-
-/** Sets the alert and, for the side column's icon line, its kind, icon and tone. */
-function put(alert: StatusAlert | null) {
-  statusAlert.set(alert);
-  statusNotice.set(alert && { kind: alert.kind, icon: alert.icon, tone: alert.tone });
-}
 
 /** Listens to sysevents.rs from the seed on and turns each change into an alert by the rules in status.ts. */
 export function startStatusWatch() {
@@ -29,9 +22,9 @@ export function startStatusWatch() {
   const show = (alert: StatusAlert | null, on: boolean) => {
     // Not in focus mode nor over a fullscreen app; dropped rather than kept for later.
     if (!alert || !on || focusMode.get() || fullscreen.get()) return;
-    put(alert);
+    statusAlert.set(alert);
     clearTimeout(hide);
-    hide = window.setTimeout(() => put(null), STATUS.showMs);
+    hide = window.setTimeout(() => statusAlert.set(null), STATUS.showMs);
   };
   // The command and the event may both deliver it, and the command can return a partial one while sysevents.rs still registers.
   const seed = (s: StatusSeed) => {
