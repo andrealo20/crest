@@ -350,7 +350,8 @@ export const updater = {
         let total = 0;
         let done = 0;
         // The installer ends the process without Tauri's exit event, so a running recording is finished first.
-        await invoke("capture_stop");
+        // A failed or hung stop never blocks the install: the fragmented MP4 plays as far as it got.
+        await Promise.race([invoke("capture_stop").catch(() => {}), new Promise((done) => setTimeout(done, 6000))]);
         await found.downloadAndInstall((e) => {
           if (e.event === "Started") total = e.data.contentLength ?? 0;
           else if (e.event === "Progress" && total) onProgress(Math.min(1, (done += e.data.chunkLength) / total));

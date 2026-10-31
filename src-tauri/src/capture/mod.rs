@@ -407,7 +407,11 @@ pub(crate) fn finish_on_exit(app: &AppHandle) {
     let (tx, rx) = std::sync::mpsc::channel();
     let task = app.clone();
     std::thread::spawn(move || {
-        finish(&task, None);
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        }
+        // No window calls here: the main thread is waiting below, and asking a window for its handle would block on it.
+        end(&task, None, false);
         let _ = tx.send(());
     });
     let _ = rx.recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()));
@@ -419,6 +423,11 @@ pub(crate) fn finish_on_exit(app: &AppHandle) {
 /// Ends the recording (if any), writes the file and tells the frontend. `why`: the reason
 /// it ended on its own ("video"), None when asked to.
 fn finish(app: &AppHandle, why: Option<&'static str>) {
+    end(app, why, true);
+}
+
+/// `restore`: take Crest's windows out of capture exclusion again (skipped on exit, where the process ends anyway).
+fn end(app: &AppHandle, why: Option<&'static str>, restore: bool) {
     let state = app.state::<CaptureState>();
     let r = {
         let mut slot = state.rec.lock().unwrap();
@@ -438,7 +447,6 @@ fn finish(app: &AppHandle, why: Option<&'static str>) {
     unsafe {
         let _ = MFShutdown();
     }
-    exclude(app, false);
     if !playable {
         let _ = std::fs::remove_file(&r.path);
     }
@@ -447,6 +455,11 @@ fn finish(app: &AppHandle, why: Option<&'static str>) {
     let path = playable.then(|| r.path.to_string_lossy().into_owned());
     emit(app, RecState { phase: "idle", elapsed_ms: elapsed, path, failed });
     state.stopping.store(false, Ordering::SeqCst);
+    // Last, after the file work and the flag: window handles go through the main thread, which may
+    // be waiting for this stop on quit (finish_on_exit).
+    if restore {
+        exclude(app, false);
+    }
 }
 
 // ---------- Library ----------
