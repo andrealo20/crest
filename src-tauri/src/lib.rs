@@ -11,6 +11,7 @@ mod fps;
 mod hit_test;
 mod loopback;
 mod media;
+mod media_pick;
 mod memory;
 mod mixer;
 mod privacy;
@@ -78,6 +79,8 @@ pub fn run() {
             hit_test::set_passthrough,
             media::media_get,
             media::media_control,
+            media::media_pin,
+            media::media_sources,
             memory::memory_low,
             clipboard::clipboard_list,
             clipboard::clipboard_mode,
