@@ -1,4 +1,5 @@
-//! Shell: the global shortcuts, a second launch, and the crash log.
+//! Shell: the global shortcuts (Crest's own and the launcher's Alt+N, all in one registry), a
+//! second launch, and the crash log.
 //!
 //! Shortcuts arrive from the settings as "Ctrl+Alt+Shift+Win+<KeyboardEvent.code>"; the resize
 //! shortcut as "<modifiers>+Arrows", registered as four shortcuts. The frontend checks the
@@ -33,6 +34,8 @@ struct Bound {
     open: Option<Shortcut>,
     hide: Option<Shortcut>,
     resize: Vec<(Shortcut, &'static str)>,
+    /// The launcher's Alt+N keys and the app id each opens.
+    launch: Vec<(Shortcut, String)>,
     /// The tray's "Open Crest" item, which shows the open shortcut.
     tray_open: Option<MenuItem<Wry>>,
 }
@@ -97,21 +100,49 @@ fn bind_arrows(app: &AppHandle, text: &str, slots: &mut Vec<(Shortcut, &'static 
 #[tauri::command]
 pub async fn hotkeys_apply(config: HotkeyConfig, app: AppHandle, state: State<'_, Hotkeys>) -> Result<HotkeyStatus, String> {
     // Not locked while registering: that waits for the main thread, where the shortcut handler locks too.
-    let old = std::mem::take(&mut *state.0.lock().unwrap());
-    for s in old.open.into_iter().chain(old.hide).chain(old.resize.into_iter().map(|(s, _)| s)) {
+    // Only Crest's own keys are taken out; the launcher's stay as they are (`bind_launch`).
+    let (open, hide, resize) = {
+        let mut b = state.0.lock().unwrap();
+        (b.open.take(), b.hide.take(), std::mem::take(&mut b.resize))
+    };
+    for s in open.into_iter().chain(hide).chain(resize.into_iter().map(|(s, _)| s)) {
         let _ = app.global_shortcut().unregister(s);
     }
-    let mut bound = Bound { tray_open: old.tray_open, ..Default::default() };
+    let (mut open, mut hide, mut resize) = (None, None, Vec::new());
     let status = HotkeyStatus {
-        open: bind(&app, &config.open, &mut bound.open),
-        hide: bind(&app, &config.hide, &mut bound.hide),
-        resize: bind_arrows(&app, &config.resize, &mut bound.resize),
+        open: bind(&app, &config.open, &mut open),
+        hide: bind(&app, &config.hide, &mut hide),
+        resize: bind_arrows(&app, &config.resize, &mut resize),
     };
-    if let Some(item) = &bound.tray_open {
-        let _ = item.set_text(label_text(if bound.open.is_some() { &config.open_label } else { "" }));
+    let mut b = state.0.lock().unwrap();
+    if let Some(item) = &b.tray_open {
+        let _ = item.set_text(label_text(if open.is_some() { &config.open_label } else { "" }));
     }
-    *state.0.lock().unwrap() = bound;
+    (b.open, b.hide, b.resize) = (open, hide, resize);
     Ok(status)
+}
+
+/// The launcher's Alt+N keys (launcher.rs): frees the ones held before and registers these, each
+/// opening its app id. Per key whether Windows gave it (false = another program, or a Crest shortcut, holds it).
+pub fn bind_launch(app: &AppHandle, keys: Vec<(Shortcut, String)>) -> Vec<bool> {
+    let state = app.state::<Hotkeys>();
+    let old = std::mem::take(&mut state.0.lock().unwrap().launch);
+    for (s, _) in old {
+        let _ = app.global_shortcut().unregister(s);
+    }
+    let mut held = Vec::new();
+    let ok = keys
+        .into_iter()
+        .map(|(shortcut, id)| {
+            let ok = app.global_shortcut().register(shortcut).is_ok();
+            if ok {
+                held.push((shortcut, id));
+            }
+            ok
+        })
+        .collect();
+    state.0.lock().unwrap().launch = held;
+    ok
 }
 
 /// For the global-shortcut plugin's handler.
@@ -120,16 +151,19 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
         return;
     }
     let id = shortcut.id();
-    let (open, hide, resize) = {
+    let (open, hide, resize, launch) = {
         let b = app.state::<Hotkeys>();
         let b = b.0.lock().unwrap();
         (
             b.open.is_some_and(|s| s.id() == id),
             b.hide.is_some_and(|s| s.id() == id),
             b.resize.iter().find(|(s, _)| s.id() == id).map(|(_, d)| *d),
+            b.launch.iter().find(|(s, _)| s.id() == id).map(|(_, app_id)| app_id.clone()),
         )
     };
-    if open {
+    if let Some(app_id) = launch {
+        crate::launcher::launch_from_key(app, app_id);
+    } else if open {
         display::unhide(app);
         let _ = app.emit("notch://shortcut", ());
     } else if hide {

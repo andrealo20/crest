@@ -6,7 +6,7 @@
 //!   find AI apps missing from the Start menu).
 //! - Icons: `IShellItemImageFactory` for both kinds, as PNG data URLs, cached per id.
 //! - Launch: only ids from the list, so the WebView cannot start an arbitrary command.
-//! - Shortcuts: Alt+1..6 through the global-shortcut plugin, one handler per key.
+//! - Shortcuts: Alt+1..6, registered and dispatched by shell.rs with Crest's other shortcuts.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -14,8 +14,8 @@ use std::time::{Duration, Instant};
 
 use base64::Engine;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
 use windows::core::{HSTRING, PCWSTR, PWSTR};
 use windows::Win32::Foundation::{ERROR_MORE_DATA, ERROR_SUCCESS, SIZE};
 use windows::Win32::Graphics::Gdi::{
@@ -53,8 +53,6 @@ pub struct LauncherState {
     /// When the list was last read.
     scanned: Mutex<Option<Instant>>,
     icons: Mutex<HashMap<String, Option<String>>>,
-    /// Alt+N keys this app holds right now.
-    shortcuts: Mutex<Vec<Shortcut>>,
 }
 
 /// Runs COM work on its own STA thread: shell extensions expect one, and the async runtime's
@@ -223,41 +221,25 @@ fn open(state: &LauncherState, id: String) -> Result<(), String> {
     if ok { Ok(()) } else { Err("failed".into()) }
 }
 
-/// Registers Alt+1.. for these ids (slot = index, at most six) and frees the keys held before.
-/// Returns per slot whether Windows gave the key (false = another app holds it).
+/// Registers Alt+1.. for these ids (slot = index, at most six) through the shell's shortcut registry,
+/// which frees the keys held before. Returns per slot whether Windows gave the key (false = another app holds it).
 /// Not async: it runs on the main thread, where the plugin's hotkey window lives.
 #[tauri::command]
-pub fn launcher_shortcuts(ids: Vec<String>, app: AppHandle, state: State<'_, LauncherState>) -> Vec<bool> {
-    let keys = app.global_shortcut();
-    let mut held = state.shortcuts.lock().unwrap();
-    for s in held.drain(..) {
-        let _ = keys.unregister(s);
-    }
-    ids.into_iter()
-        .zip(DIGITS)
-        .map(|(id, code)| {
-            let shortcut = Shortcut::new(Some(Modifiers::ALT), code);
-            let ok = keys
-                .on_shortcut(shortcut, move |app, _, event| {
-                    if event.state() == ShortcutState::Pressed {
-                        let (app, id) = (app.clone(), id.clone());
-                        // Off the main thread: the first launch may have to read the app list.
-                        std::thread::spawn(move || {
-                            if open(&app.state::<LauncherState>(), id.clone()) == Err("not-found".into()) {
-                                // The frontend names the app; open the notch so the message is seen.
-                                let _ = app.emit("launcher://missing", id);
-                                let _ = app.emit("notch://open", Some("launcher"));
-                            }
-                        });
-                    }
-                })
-                .is_ok();
-            if ok {
-                held.push(shortcut);
-            }
-            ok
-        })
-        .collect()
+pub fn launcher_shortcuts(ids: Vec<String>, app: AppHandle) -> Vec<bool> {
+    crate::shell::bind_launch(&app, ids.into_iter().zip(DIGITS).map(|(id, code)| (Shortcut::new(Some(Modifiers::ALT), code), id)).collect())
+}
+
+/// An Alt+N key was pressed (dispatched by `shell::on_shortcut`).
+pub fn launch_from_key(app: &AppHandle, id: String) {
+    let app = app.clone();
+    // Off the main thread: the first launch may have to read the app list.
+    std::thread::spawn(move || {
+        if open(&app.state::<LauncherState>(), id.clone()) == Err("not-found".into()) {
+            // The frontend names the app; open the notch so the message is seen.
+            let _ = app.emit("launcher://missing", id);
+            let _ = app.emit("notch://open", Some("launcher"));
+        }
+    });
 }
 
 /// The entry's icon as a PNG data URL (works for `shell:AppsFolder\…` ids and exe paths).
