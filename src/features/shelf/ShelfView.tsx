@@ -24,6 +24,17 @@ interface ShelfItem extends DroppedFile {
 const shelf = createStore<ShelfItem[]>([], { persist: "shelf" });
 const MAX_ITEMS = 30;
 
+/** Puts files at the front of the Shelf (also used by Capture for new screenshots). */
+export function addToShelf(paths: string[]) {
+  void probeFiles(paths).then(({ files }) => {
+    const now = Date.now();
+    shelf.set((list) => {
+      const fresh = files.filter((f) => !list.some((x) => x.path === f.path)).map((f) => ({ ...f, addedAt: now }));
+      return [...fresh, ...list].slice(0, MAX_ITEMS);
+    });
+  });
+}
+
 const kindIcon: Record<FileKind, Icon> = { image: ImageSquare, audio: FileAudio, video: FileVideo, document: FileText, table: Table, other: File };
 
 export function ShelfView() {
@@ -35,14 +46,7 @@ export function ShelfView() {
 
   useEffect(() => {
     const paths = takeDropped();
-    if (!paths?.length) return;
-    void probeFiles(paths).then(({ files }) => {
-      const now = Date.now();
-      shelf.set((list) => {
-        const fresh = files.filter((f) => !list.some((x) => x.path === f.path)).map((f) => ({ ...f, addedAt: now }));
-        return [...fresh, ...list].slice(0, MAX_ITEMS);
-      });
-    });
+    if (paths?.length) addToShelf(paths);
   }, [dropped]);
 
   const copyAll = async (paths: string[], key: string) => {

@@ -62,6 +62,12 @@ export interface Settings {
   presentation: { manual: boolean; auto: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
+  /**
+   * Capture tool: what a screenshot takes ("all" or a monitor id), the recording source
+   * (null = primary monitor), frame rate, microphone and system audio, and whether new
+   * screenshots also go on the Shelf.
+   */
+  capture: { shotTarget: string; source: string | null; fps: 30 | 60; mic: boolean; system: boolean; shelf: boolean };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -81,6 +87,7 @@ export const TOOL_IDS = [
   "system",
   "discord",
   "vault",
+  "capture",
 ] as const;
 
 const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault"]);
@@ -111,6 +118,7 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
+  capture: { shotTarget: "all", source: null, fps: 30, mic: false, system: true, shelf: false },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -168,6 +176,7 @@ settings.set((s) => {
     units: { ...defaults.units, ...s.units },
     presentation: { ...defaults.presentation, ...s.presentation },
     updates: { ...defaults.updates, ...s.updates },
+    capture: { ...defaults.capture, ...s.capture },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
   };

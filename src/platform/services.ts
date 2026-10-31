@@ -634,3 +634,72 @@ export const systemControls = {
     return Promise.resolve({ ...mockFocus });
   },
 };
+
+// ---------- Capture (src-tauri/src/capture) ----------
+
+export interface CaptureSource {
+  /** "monitor:\\.\DISPLAY1" or "window:<handle>" */
+  id: string;
+  kind: "monitor" | "window";
+  name: string;
+  width: number;
+  height: number;
+  primary: boolean;
+}
+
+export interface CaptureShot {
+  path: string;
+  name: string;
+  thumb: string | null;
+  width: number;
+  height: number;
+}
+
+export interface CaptureRecState {
+  phase: "idle" | "recording" | "paused";
+  elapsedMs: number;
+  /** Set once, when a recording has ended and its file is written. */
+  path: string | null;
+  /** Inputs that could not be opened ("system", "mic"), or "save" when writing the file failed. */
+  failed: string[];
+}
+
+export interface CaptureFile {
+  path: string;
+  name: string;
+  kind: "shot" | "video";
+  size: number;
+  modified: number;
+}
+
+export interface CaptureDetails {
+  path: string;
+  thumb: string | null;
+  durationMs: number | null;
+}
+
+const mockSources: CaptureSource[] = [
+  { id: "monitor:\\\\.\\DISPLAY1", kind: "monitor", name: "\\\\.\\DISPLAY1", width: 2560, height: 1440, primary: true },
+  { id: "monitor:\\\\.\\DISPLAY2", kind: "monitor", name: "\\\\.\\DISPLAY2", width: 1920, height: 1080, primary: false },
+  { id: "window:1", kind: "window", name: "Visual Studio Code", width: 1600, height: 1000, primary: false },
+];
+
+export const capture = {
+  sources: (): Promise<CaptureSource[]> => (isNative ? invoke<CaptureSource[]>("capture_sources") : Promise.resolve(mockSources)),
+  /** null when the region pick was cancelled. */
+  shot: (mode: "all" | "monitor" | "region", monitor: string | null): Promise<CaptureShot | null> =>
+    isNative ? invoke<CaptureShot | null>("capture_shot", { mode, monitor }) : Promise.resolve(null),
+  state: (): Promise<CaptureRecState> => (isNative ? invoke<CaptureRecState>("capture_state") : Promise.resolve({ phase: "idle", elapsedMs: 0, path: null, failed: [] })),
+  start: (source: string, fps: number, mic: boolean, system: boolean): Promise<void> => (isNative ? invoke("capture_start", { source, fps, mic, system }) : Promise.resolve()),
+  pause: (paused: boolean): Promise<void> => (isNative ? invoke("capture_pause", { paused }) : Promise.resolve()),
+  stop: (): Promise<void> => (isNative ? invoke("capture_stop") : Promise.resolve()),
+  list: (): Promise<CaptureFile[]> => (isNative ? invoke<CaptureFile[]>("capture_list") : Promise.resolve([])),
+  details: (paths: string[]): Promise<CaptureDetails[]> => (isNative ? invoke<CaptureDetails[]>("capture_details", { paths }) : Promise.resolve([])),
+  remove: (path: string): Promise<void> => (isNative ? invoke("capture_delete", { path }) : Promise.resolve()),
+  /** Recording state from Rust: start, pause, resume, end. */
+  onState: (handler: (s: CaptureRecState) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<CaptureRecState>("capture://state", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+};
