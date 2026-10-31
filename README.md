@@ -60,7 +60,7 @@ Short notices appear over the row: a finished timer stays until you dismiss it, 
 ### Services
 
 - **Ask** is a chat with Claude, ChatGPT, OpenRouter or any OpenAI-compatible endpoint, with streaming and adjustable reasoning effort.
-- **AI usage** shows your subscription limits for Claude, ChatGPT, Antigravity and Cursor.
+- **AI usage** shows your subscription limits for Claude, ChatGPT, Antigravity, Cursor and the Z.ai coding plan, credits and balances for OpenRouter and DeepSeek, and the tokens and cost of Claude Code and Codex today and over 7 days, read from their local logs. A models page breaks tokens and cost down per model for today, 7 or 30 days. Cards can be reordered, renamed, added and removed.
 - **Weather** gives current conditions and a 7-day forecast through Open-Meteo. No API key needed.
 - **Portfolio** connects to Trading 212 and shows profit and loss and a history chart, live or in demo mode. The app only reads, it never trades.
 - **Discord** shows your current voice call with speaking members and buttons for mute, deafen and hang up. In the closed notch, a green equalizer plays while someone talks.
@@ -120,6 +120,8 @@ Every integration is optional. Tools you don't connect simply stay out of your w
 
 **AI usage.** Nothing to enter. If you are signed in to Claude Code, the Codex CLI, the Antigravity CLI (`agy`) or Cursor on this PC, Crest reads their existing local login and shows your limits. For Antigravity it asks the CLI itself and never touches its login.
 
+OpenRouter, DeepSeek and Z.ai need an API key, entered under **AI** once the card is switched on (OpenRouter uses the same key as Ask). Token cost is estimated at the API list price of each model; for models the built-in table does not know, click the cost on the models page and set a price by hand. With a subscription the figure is what the same tokens would cost on the API, not what you pay. After a rate limit (HTTP 429) a source pauses for 2 to 30 minutes, or as long as the service asks, and keeps showing its last reading.
+
 **Portfolio.** In Trading 212 go to Settings, API (Beta) and create a key with permission for account data and portfolio. Nothing more is required. Paste key and secret under **Connections** and choose live or demo account.
 
 **Discord.** Discord only hands out voice permissions to your own application:
@@ -137,7 +139,7 @@ Crest has no account, no server of its own, no analytics and no tracking. Everyt
 
 - **Keys and secrets** are stored in the Windows Credential Manager, never in a plain file, and they are never sent back to the interface.
 - **The vault** lives in one file encrypted with Windows DPAPI, readable only under your Windows account. The PIN is checked in the app's backend, not in the interface, and 2FA keys never leave the backend. With Windows Hello turned on, secrets are additionally sealed with AES-256-GCM under a TPM-backed Windows Hello key.
-- **Integrations talk directly to their own service** and nowhere else: Ask to the AI provider you chose, Portfolio to Trading 212, Discord to the Discord app on your PC (and discord.com for the sign-in), AI usage to the provider you are signed in to, Weather to Open-Meteo (plus an IP-based city lookup unless you picked a city). If you don't set an integration up, it makes no requests.
+- **Integrations talk directly to their own service** and nowhere else: Ask to the AI provider you chose, Portfolio to Trading 212, Discord to the Discord app on your PC (and discord.com for the sign-in), AI usage to the provider you are signed in to or gave a key for (token counts are read from local files and never sent anywhere), Weather to Open-Meteo (plus an IP-based city lookup unless you picked a city). If you don't set an integration up, it makes no requests.
 - **Updates.** Once a day the app makes a single anonymous request to this repository's public release page to check for a new version. No personal data is sent. If an update exists, a dot appears on the gear icon and **Settings → General → Updates** shows it. Nothing is downloaded until you click **Update now**; the app then installs the update and restarts. Every update is cryptographically signed and verified before it is installed. You can turn the daily check off in the same place.
 
 ## Development
