@@ -26,7 +26,7 @@ export const providers: ProviderInfo[] = [
       { secret: "t212.key", label: "API-Schlüssel" },
       { secret: "t212.secret", label: "API-Secret", hint: "Nur einmal sichtbar beim Erstellen" },
     ],
-    help: "In Trading 212: Einstellungen → API (Beta) → Schlüssel erstellen. Rechte: Konto-Daten und Portfolio – mehr ist nicht nötig, die Notch liest nur.",
+    help: "In Trading 212: Einstellungen → API (Beta) → Schlüssel erstellen. Rechte: Konto-Daten und Portfolio. Mehr ist nicht nötig: die Notch liest nur.",
   },
   {
     id: "kraken",
@@ -77,7 +77,7 @@ export const providers: ProviderInfo[] = [
       { secret: "ibkr.token", label: "Flex-Token" },
       { secret: "ibkr.query", label: "Flex-Query-ID" },
     ],
-    help: "In Client Portal: Performance & Reports → Flex Queries. Eine Activity Flex Query mit „Open Positions“ und „Cash Report“ und dem Zeitraum „Last Business Day“ anlegen, dann unter Flex Web Service einen Token erstellen. Der Stand ist der des letzten Handelstags.",
+    help: "In Client Portal: Performance & Reports → Flex Queries. Eine Activity Flex Query mit dem Zeitraum „Last Business Day“ anlegen. Unter „Open Positions“ die Felder symbol, description, currency, assetCategory, position, markPrice, positionValue, costBasisMoney und levelOfDetail wählen, unter „Cash Report“ endingCash. Dann unter Flex Web Service einen Token erstellen. Der Stand ist der des letzten Handelstags.",
   },
 ];
 
