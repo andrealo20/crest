@@ -91,16 +91,19 @@ export function Notch() {
   // Notices cover the row; on the idle line and in dimmed focus mode only a finished timer brings them up. While one shows the shape takes its width.
   // The capsule snaps with its closed shape, read when a drag moves (closedW is set below).
   const drag = useDragToMove(status, () => closedGeometry(surface, closedW));
-  // The edge it hangs from (the capsule floats on the top frame); on a side edge the row stands as a column and notices (wide text) stay away.
+  // The edge it hangs from (the capsule floats on the top frame); on a side edge the row stands as a column, which shows notices as an icon line.
   const edge = edgeOf(style, drag.dock);
   const side = across(edge);
-  const showNotices = !side && status !== "open" && (showRow || alert || (timerDone && !line && !hiddenForFullscreen));
+  const noticeTime = status !== "open" && (showRow || alert || (timerDone && !line && !hiddenForFullscreen));
+  const showNotices = !side && noticeTime;
+  // On the idle line or dimmed, only a finished timer brings the column up: its alarm alone, so the shape always has something to click.
+  const showColumn = side && noticeTime;
   const [noticeWidth, setNoticeWidth] = useState<number | null>(null);
   const notice = showNotices ? noticeWidth : null;
   const closedW = surfaceWidth(surface, notice ?? (showRow || status === "open" ? rowWidth : 0));
   const [column, setColumn] = useState({ length: 0, width: 0 });
-  const rowShows = showRow || status === "open";
-  const sideSize = side ? columnSurface(rowShows ? column.length : 0, rowShows ? column.width : 0) : null;
+  const columnShows = showColumn || status === "open";
+  const sideSize = side ? columnSurface(columnShows ? column.length : 0, columnShows ? column.width : 0) : null;
 
   // Natively the window sits at windowY and the capsule drag.y below the monitor's top; in the browser the
   // viewport stands in for the monitor and the window is only imagined, so the same rules place the panel.
@@ -222,7 +225,9 @@ export function Notch() {
       >
         <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge}>
           <AnimatePresence>
-            {showRow && (side ? <CompactColumn key="column" onSize={setColumn} /> : <CompactRow key="row" style={surface} covered={notice !== null} onWidth={setRowWidth} />)}
+            {side
+              ? showColumn && <CompactColumn key="column" parts={showRow} onSize={setColumn} />
+              : showRow && <CompactRow key="row" style={surface} covered={notice !== null} onWidth={setRowWidth} />}
           </AnimatePresence>
           <AnimatePresence>{showNotices && <NoticeLayer key="notices" onWidth={setNoticeWidth} />}</AnimatePresence>
           {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress along={side ? "y" : "x"} />}

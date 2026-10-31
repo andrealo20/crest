@@ -1,7 +1,12 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck/MainWindow.CompactColumn.cs.
 import { useLayoutEffect, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { content } from "../../design/motion";
+import { AlarmIcon, BatteryMedium, BatteryWarning, CheckCircle, Headphones, Plug, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
+import { content, pulse } from "../../design/motion";
+import { t } from "../../i18n";
+import { ringing, timerActions } from "../../features/timer/store";
+import { statusNotice } from "./columnNotice";
+import type { StatusAlert } from "./status";
 import { useNowPlaying } from "../../platform/media";
 import { settings } from "../../settings/store";
 import { LiveArtwork } from "../../features/now-playing/LiveActivity";
@@ -23,14 +28,56 @@ import { DISCORD_WIDTH, DiscordPart } from "./parts/DiscordPart";
 
 interface Line { id: string; w: number; h: number; draw: () => ReactNode }
 
+const NOTICE_ICON = 17;
+const STATUS_ICON: Record<StatusAlert["icon"], Icon> = { plug: Plug, battery: BatteryMedium, wifi: WifiHigh, "wifi-off": WifiSlash, headphones: Headphones };
+const TONE: Record<StatusAlert["tone"], string> = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" };
+
+/** The notice as an icon on its own line (the notice text is too wide for a column): a finished timer's alarm, which dismisses it, else the status alert's icon. */
+function useNoticeLine(finished: boolean): Line | null {
+  const ring = ringing.use();
+  const status = statusNotice.use();
+  if (finished)
+    return {
+      id: "notice-timer",
+      w: NOTICE_ICON,
+      h: 20,
+      draw: () => (
+        <button
+          aria-label={t("Schließen")}
+          className="pointer-events-auto flex"
+          style={{ color: "var(--color-green)" }}
+          // Only dismisses: the click must not also open the notch.
+          onClick={(e) => {
+            e.stopPropagation();
+            timerActions.dismiss();
+          }}
+        >
+          {ring ? (
+            <motion.span className="flex" animate={{ opacity: [1, 0.35] }} transition={pulse}>
+              <AlarmIcon size={NOTICE_ICON} weight="fill" />
+            </motion.span>
+          ) : (
+            <CheckCircle size={NOTICE_ICON} weight="fill" />
+          )}
+        </button>
+      ),
+    };
+  if (!status) return null;
+  const I = status.icon === "battery" && status.tone !== "normal" ? BatteryWarning : STATUS_ICON[status.icon];
+  return { id: `notice-${status.kind}-${status.icon}`, w: NOTICE_ICON, h: 20, draw: () => <I size={NOTICE_ICON} weight="fill" style={{ color: TONE[status.tone] }} /> };
+}
+
 /**
  * The closed notch's content on a side edge: the row's parts one below the other, each centred on its own line, in the row's order with
- * the cover first and the privacy dots last. The song title is left out: a scrolling title does not fit across a column. Lines that do
- * not fit in the longest notch are dropped from the end. Reports its length and width; the shape is that plus its insets and pads.
+ * the cover first and the privacy dots last, under the notice line if there is one. The song title is left out: a scrolling title does
+ * not fit across a column. Lines that do not fit in the longest notch are dropped from the end. `parts` false (the idle line or dimmed
+ * focus mode, opened only by a finished timer) shows the notice line alone. Reports its length and width; the shape is that plus its
+ * insets and pads.
  */
-export function CompactColumn({ onSize }: { onSize: (size: { length: number; width: number }) => void }) {
-  useRowVisible();
+export function CompactColumn({ parts, onSize }: { parts: boolean; onSize: (size: { length: number; width: number }) => void }) {
+  useRowVisible(parts);
   fontEpoch.use();
+  const notice = useNoticeLine(timer.use().finished);
   const s = settings.use(), closed = s.closed;
   const np = useNowPlaying();
   const playing = useHeld(!!np?.isPlaying, RELEASE_CAPTURE_MS);
@@ -60,7 +107,7 @@ export function CompactColumn({ onSize }: { onSize: (size: { length: number; wid
   }
   if (dots.length) fixed.push({ id: "privacy", w: dotsWidth(dots.length), h: 8, draw: () => <Dots dots={dots} /> });
 
-  const width = columnWidth([...fixed.map((l) => l.w), rings.length ? RING : 0], readingLines.map((l) => l.w));
+  const width = columnWidth([notice?.w ?? 0, ...(parts ? [...fixed.map((l) => l.w), rings.length ? RING : 0] : [])], parts ? readingLines.map((l) => l.w) : []);
   const { perLine, lines: ringRows } = ringLines(rings.length, RING, COLUMN.ringGap, width);
   const ringLinesList: Line[] = Array.from({ length: ringRows }, (_, row) => {
     const slice = rings.slice(row * perLine, (row + 1) * perLine);
@@ -75,13 +122,13 @@ export function CompactColumn({ onSize }: { onSize: (size: { length: number; wid
       ),
     };
   });
-  const all: Line[] = [];
-  fixed.forEach((l, i) => {
+  const all: Line[] = notice ? [notice] : [];
+  if (parts) fixed.forEach((l, i) => {
     if (i === ringsAt) all.push(...ringLinesList);
     if (l.id === "readings") all.push(...readingLines);
     else all.push(l);
   });
-  if (ringsAt === fixed.length) all.push(...ringLinesList);
+  if (parts && ringsAt === fixed.length) all.push(...ringLinesList);
 
   const shown = all.slice(0, fitLines(all.map((l) => l.h), COLUMN.gap, COLUMN_ROOM));
   const { tops, length } = stack(shown.map((l) => l.h), COLUMN.gap);
