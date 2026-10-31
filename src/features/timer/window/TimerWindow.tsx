@@ -1,5 +1,5 @@
-import { useEffect, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useState, type ReactNode } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Check, Pause, Play, X } from "@phosphor-icons/react";
 import { content, pulse } from "../../../design/motion";
@@ -19,10 +19,22 @@ import { t } from "../../../i18n";
  */
 export function TimerWindow() {
   const s = timer.use();
-  const remaining = useRemaining();
-  const look = settings.use().timer.look;
+  const { timer: timerSettings, alarm } = settings.use();
+  const look = timerSettings.look;
+  const remaining = useRemaining(look === "hud");
   const running = s.endsAt !== null;
   const tint = s.mode === "focus" ? "var(--color-orange)" : "var(--color-green)";
+
+  // Finished: pulse about as long as the alarm rings (same rule as in store.ts), then stay dimmed.
+  // Ringing itself lives in the notch window only.
+  const reduced = useReducedMotion();
+  const [pulsing, setPulsing] = useState(false);
+  useEffect(() => {
+    if (!s.finished) return setPulsing(false);
+    setPulsing(true);
+    const id = window.setTimeout(() => setPulsing(false), (alarm.duration === -1 ? 120 : Math.max(3, alarm.duration)) * 1000);
+    return () => window.clearTimeout(id);
+  }, [s.finished, alarm.duration]);
 
   // Remember where it was put; Rust checks the spot is still on a monitor next time.
   useEffect(() => {
@@ -47,8 +59,8 @@ export function TimerWindow() {
       >
         <motion.div
           className="flex min-w-0 flex-1"
-          animate={{ opacity: s.finished ? [1, 0.45] : 1 }}
-          transition={s.finished ? pulse : content.enter}
+          animate={{ opacity: s.finished ? (pulsing && !reduced ? [1, 0.45] : 0.6) : 1 }}
+          transition={s.finished && pulsing && !reduced ? pulse : content.enter}
         >
           <Look look={look} remaining={s.finished ? 0 : remaining} duration={s.duration} running={running} mode={s.mode} tint={tint} h={40} />
         </motion.div>

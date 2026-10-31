@@ -245,18 +245,10 @@ function Zen(p: LookProps) {
         </span>
       </span>
       <div className="relative h-px min-w-0 flex-1 bg-fill-2">
-        <span
-          className="look-fade absolute top-1/2 rounded-full"
-          style={{
-            left: `${(1 - left) * 100}%`,
-            width: 5,
-            height: 5,
-            marginLeft: -2.5,
-            marginTop: -2.5,
-            backgroundColor: p.tint,
-            transitionProperty: "left",
-          }}
-        />
+        {/* The track-wide layer moves (a transform, % of its own width = the track), the dot sits at its left edge. */}
+        <span className="look-fade absolute inset-0" style={{ transform: `translateX(${(1 - left) * 100}%)`, transitionProperty: "transform" }}>
+          <span className="absolute top-1/2 left-0 rounded-full" style={{ width: 5, height: 5, marginLeft: -2.5, marginTop: -2.5, backgroundColor: p.tint }} />
+        </span>
       </div>
     </div>
   );

@@ -23,6 +23,12 @@ window.addEventListener("storage", (e) => {
 document.documentElement.lang = "en";
 // A window, not a web page: no browser menu, reload or print.
 window.addEventListener("contextmenu", (e) => e.preventDefault());
+// WebView2 would open a dropped file or link in this window; nothing can be dropped here.
+window.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+});
+window.addEventListener("drop", (e) => e.preventDefault());
 window.addEventListener("keydown", (e) => {
   if (e.key === "F5" || e.key === "F7" || e.key === "F12" || (e.ctrlKey && ["r", "p", "f", "j", "u", "s"].includes(e.key.toLowerCase()))) e.preventDefault();
 });

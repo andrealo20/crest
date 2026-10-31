@@ -37,6 +37,7 @@
         "create": false,
         "url": "timer.html",
         "title": "Crest Timer",
+        "focusable": false,
         "width": 320,
         "height": 84,
         "transparent": true,

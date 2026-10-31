@@ -113,9 +113,10 @@ function FinishedView() {
 
 function SetupView() {
   const s = timer.use();
-  const remaining = useRemaining();
-  const running = s.endsAt !== null;
   const look = settings.use().timer.look;
+  // Only the HUD shows tenths; the other looks change once a second.
+  const remaining = useRemaining(look === "hud");
+  const running = s.endsAt !== null;
   const tint = s.mode === "focus" ? "var(--color-orange)" : "var(--color-green)";
   const [editing, setEditing] = useState(false);
   const clockRef = useRef<HTMLDivElement>(null);
