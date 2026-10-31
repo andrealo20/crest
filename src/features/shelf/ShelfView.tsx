@@ -1,113 +1,289 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent, type PointerEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowSquareOut, Check, ClipboardText, Copy, File, FileAudio, FileText, FileVideo, FolderOpen, ImageSquare, Table, Trash, Tray, X, type Icon } from "@phosphor-icons/react";
+import {
+  ArrowSquareOut,
+  Check,
+  CheckSquare,
+  ClipboardText,
+  Copy,
+  File,
+  FileAudio,
+  FileText,
+  FileVideo,
+  FolderOpen,
+  ImageSquare,
+  Table,
+  TextT,
+  Trash,
+  Tray,
+  X,
+  type Icon,
+} from "@phosphor-icons/react";
 import { fade, springs } from "../../design/motion";
 import { createStore } from "../../lib/store";
 import { formatBytes } from "../../lib/format";
 import { drop, pasteFiles, takeDropped, usePasteFiles } from "../../platform/drop";
 import { HeaderActions, HeaderButton } from "../../notch/header";
-import { copyFiles, filePreview, openFile, probeFiles, revealFile, type DroppedFile, type FileKind } from "../../platform/services";
+import { clipboardText, copyFiles, filePreview, openFile, probeFiles, revealFile, shelfDragOut, type FileKind } from "../../platform/services";
+import { addFiles, addText, dragPayload, isText, keyOf, normalizeItems, removeKeys, type FileItem, type ShelfItem, type TextItem } from "./model";
+import { NONE, clickSelect, dragKeys, prune, type Selection } from "./selection";
 import { t } from "../../i18n";
 
 /*
- * Shelf: put files on the notch and later open them with one click,
- * show them in Explorer or paste them elsewhere with Ctrl+V.
- * Only references are stored; the files stay where they are.
+ * Shelf: put files on the notch and later open them with one click, show them in Explorer,
+ * paste them elsewhere with Ctrl+V or drag them out into another app. Only references are
+ * stored; the files stay where they are. Text cards keep a snippet: click copies it, dragging
+ * gives the text.
  *
- * Files come in via drag and drop or Ctrl+V (screenshots too). Anything dropped on
- * the closed notch lands in the last used file tool.
+ * Files come in via drag and drop or Ctrl+V (screenshots too), text via drop on the open
+ * shelf or Ctrl+V. Anything dropped on the closed notch lands in the last used file tool.
+ *
+ * Select several: Ctrl+click, Shift+click or the select button; then drag, copy or remove
+ * them together.
  */
-interface ShelfItem extends DroppedFile {
-  addedAt: number;
-}
-
 const shelf = createStore<ShelfItem[]>([], { persist: "shelf" });
-const MAX_ITEMS = 30;
+shelf.set(normalizeItems);
+
+/** A drag out of the shelf is running: its own drop overlay and drops back stay quiet. */
+const draggingOut = createStore(false);
+
+/** Movement in px before a press on a card becomes a drag. */
+const DRAG_START = 6;
 
 const kindIcon: Record<FileKind, Icon> = { image: ImageSquare, audio: FileAudio, video: FileVideo, document: FileText, table: Table, other: File };
+
+const newTextId = () => `text-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+
+function keepText(text: string) {
+  shelf.set((list) => addText(list, text, Date.now(), newTextId()));
+}
+
+/** Ctrl+V or the paste button: files or an image first, otherwise text becomes a card. */
+async function pasteTextFallback(): Promise<boolean> {
+  const text = await clipboardText();
+  if (!text.trim()) return false;
+  keepText(text);
+  return true;
+}
+
+const isTextDrag = (e: DragEvent) => {
+  const types = e.dataTransfer.types;
+  return types.includes("text/plain") && !types.includes("Files");
+};
 
 export function ShelfView() {
   const items = shelf.use();
   const { dragging, dropped } = drop.use();
+  const out = draggingOut.use();
   const [copied, setCopied] = useState<string | null>(null);
   const [nothing, setNothing] = useState(false);
-  usePasteFiles(() => flash(setNothing));
+  const [textOver, setTextOver] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  /** Last drag out error (e.g. the files are gone), shown briefly in the header. */
+  const [failed, setFailed] = useState<string | null>(null);
+  const [rawSel, setSel] = useState<Selection>(NONE);
+  const order = items.map(keyOf);
+  const sel = prune(rawSel, order);
+  const press = useRef<{ x: number; y: number; key: string } | null>(null);
+  const swallowClick = useRef(false);
+
+  usePasteFiles(() => void pasteTextFallback().then((ok) => !ok && flash(setNothing)));
 
   useEffect(() => {
     const paths = takeDropped();
     if (!paths?.length) return;
-    void probeFiles(paths).then(({ files }) => {
-      const now = Date.now();
-      shelf.set((list) => {
-        const fresh = files.filter((f) => !list.some((x) => x.path === f.path)).map((f) => ({ ...f, addedAt: now }));
-        return [...fresh, ...list].slice(0, MAX_ITEMS);
-      });
-    });
+    // A file dragged out and dropped back on the notch is already here and keeps its place.
+    void probeFiles(paths).then(({ files }) => shelf.set((list) => addFiles(list, files, Date.now())));
   }, [dropped]);
 
-  const copyAll = async (paths: string[], key: string) => {
-    await copyFiles(paths);
+  const flashCopied = (key: string) => {
     setCopied(key);
     setTimeout(() => setCopied((c) => (c === key ? null : c)), 1200);
   };
 
+  const copyKeys = async (keys: string[], flashKey: string) => {
+    const { paths, text } = dragPayload(items, keys);
+    if (paths.length) await copyFiles(paths);
+    else if (text !== null) await navigator.clipboard.writeText(text);
+    else return;
+    flashCopied(flashKey);
+  };
+
+  const clearSelection = () => {
+    setSel(NONE);
+    setSelecting(false);
+  };
+
+  // Drag out: press, move a few px with the button held, then Windows takes over until the drop.
+  const onPointerDown = (e: PointerEvent, key: string) => {
+    swallowClick.current = false;
+    press.current = e.button === 0 ? { x: e.clientX, y: e.clientY, key } : null;
+  };
+  const onPointerMove = (e: PointerEvent) => {
+    const p = press.current;
+    if (!p || !(e.buttons & 1) || Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_START) return;
+    press.current = null;
+    swallowClick.current = true;
+    const { paths, text } = dragPayload(items, dragKeys(sel, p.key));
+    if (!paths.length && text === null) return;
+    draggingOut.set(true);
+    void shelfDragOut(paths, text)
+      .catch((e: unknown) => {
+        setFailed(String(e));
+        setTimeout(() => setFailed(null), 2400);
+      })
+      // The drop back on the notch reaches the page a moment after the drag ends.
+      .finally(() => setTimeout(() => draggingOut.set(false), 500));
+  };
+
+  // Modifier clicks and select mode pick cards instead of opening or copying them.
+  const onClickCapture = (e: MouseEvent, key: string) => {
+    if (swallowClick.current) {
+      swallowClick.current = false;
+      e.stopPropagation();
+      return;
+    }
+    const toggle = e.ctrlKey || e.metaKey || selecting;
+    if ((!toggle && !e.shiftKey) || (e.target as Element).closest("[data-remove]")) return;
+    e.stopPropagation();
+    e.preventDefault();
+    setSel(clickSelect(sel, order, key, { toggle, range: e.shiftKey }));
+  };
+
+  const dropHandlers = {
+    onDragOver: (e: DragEvent) => {
+      if (!isTextDrag(e) || draggingOut.get()) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      setTextOver(true);
+    },
+    onDragLeave: (e: DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setTextOver(false);
+    },
+    onDrop: (e: DragEvent) => {
+      setTextOver(false);
+      if (!isTextDrag(e) || draggingOut.get()) return;
+      e.preventDefault();
+      keepText(e.dataTransfer.getData("text/plain"));
+    },
+  };
+
+  const over = (dragging || textOver) && !out;
+
   if (items.length === 0) {
     return (
-      <div className="h-full px-4 pt-1 pb-2">
+      <div className="h-full px-4 pt-1 pb-2" {...dropHandlers}>
         <motion.div
           className={`flex h-full flex-col items-center justify-center gap-1.5 rounded-[14px] border-[1.5px] border-dashed transition-colors duration-200 ${
-            dragging ? "border-label-2 bg-fill-2" : "border-fill-3 bg-fill-1"
+            over ? "border-label-2 bg-fill-2" : "border-fill-3 bg-fill-1"
           }`}
-          animate={{ transform: dragging ? "scale(1.015)" : "scale(1)" }}
+          animate={{ transform: over ? "scale(1.015)" : "scale(1)" }}
           transition={springs.snappy}
         >
-          <Tray size={22} weight="bold" className={dragging ? "text-label" : "text-label-3"} />
-          <span className="text-body text-label-2">{dragging ? t("Loslassen zum Ablegen") : t("Dateien hierher ziehen")}</span>
-          <PasteHint nothing={nothing} />
+          <Tray size={22} weight="bold" className={over ? "text-label" : "text-label-3"} />
+          <span className="text-body text-label-2">{over ? t("Loslassen zum Ablegen") : t("Dateien oder Text hierher ziehen")}</span>
+          <PasteHint nothing={nothing} onPaste={() => void pasteAny().then((ok) => !ok && flash(setNothing))} />
         </motion.div>
       </div>
     );
   }
 
+  const picked = sel.keys.length;
+
   return (
-    <div className="relative flex h-full flex-col px-4 pt-1 pb-2">
+    <div className="relative flex h-full flex-col px-4 pt-1 pb-2" {...dropHandlers}>
       <HeaderActions>
-        <span className="tabular mr-1 text-caption text-label-3">
-          {items.length} {items.length === 1 ? t("Datei") : t("Dateien")}
-        </span>
-        <HeaderButton label={copied === "all" ? t("Kopiert") : t("Alle kopieren")} onClick={() => void copyAll(items.map((i) => i.path), "all")}>
-          {copied === "all" ? <Check size={14} weight="bold" /> : <Copy size={14} weight="bold" />}
-        </HeaderButton>
-        <HeaderButton label={t("Ablage leeren")} onClick={() => shelf.set([])}>
-          <Trash size={14} weight="bold" />
-        </HeaderButton>
+        {failed !== null && (
+          <span role="alert" title={failed} className="mr-1 text-caption text-red">
+            {t("Ziehen fehlgeschlagen")}
+          </span>
+        )}
+        {picked > 0 ? (
+          <>
+            <span className="tabular mr-1 text-caption text-label-2">{t("{n} ausgewählt", { n: picked })}</span>
+            <HeaderButton label={copied === "picked" ? t("Kopiert") : t("Auswahl kopieren")} onClick={() => void copyKeys(sel.keys, "picked")}>
+              {copied === "picked" ? <Check size={14} weight="bold" /> : <Copy size={14} weight="bold" />}
+            </HeaderButton>
+            <HeaderButton label={t("Auswahl entfernen")} onClick={() => shelf.set((l) => removeKeys(l, sel.keys))}>
+              <Trash size={14} weight="bold" />
+            </HeaderButton>
+            <HeaderButton label={t("Auswahl aufheben")} onClick={clearSelection}>
+              <X size={14} weight="bold" />
+            </HeaderButton>
+          </>
+        ) : (
+          <>
+            <span className="tabular mr-1 text-caption text-label-3">
+              {items.length} {items.length === 1 ? t("Eintrag") : t("Einträge")}
+            </span>
+            <HeaderButton label={selecting ? t("Auswählen beenden") : t("Auswählen")} active={selecting} onClick={() => (selecting ? clearSelection() : setSelecting(true))}>
+              <CheckSquare size={14} weight="bold" />
+            </HeaderButton>
+            <HeaderButton label={copied === "all" ? t("Kopiert") : t("Alle kopieren")} onClick={() => void copyKeys(order, "all")}>
+              {copied === "all" ? <Check size={14} weight="bold" /> : <Copy size={14} weight="bold" />}
+            </HeaderButton>
+            <HeaderButton label={t("Ablage leeren")} onClick={() => shelf.set([])}>
+              <Trash size={14} weight="bold" />
+            </HeaderButton>
+          </>
+        )}
       </HeaderActions>
-      <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
+      <div role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
         <AnimatePresence initial={false} mode="popLayout">
-          {items.map((item) => (
-            <motion.div
-              key={item.path}
-              layout
-              transition={springs.snappy}
-              initial={{ opacity: 0, transform: "scale(0.94)" }}
-              animate={{ opacity: 1, transform: "scale(1)" }}
-              exit={{ opacity: 0, transform: "scale(0.94)", transition: fade }}
-              className="group relative h-full w-[112px] shrink-0"
-            >
-              <Card item={item} copied={copied === item.path} onCopy={() => void copyAll([item.path], item.path)} />
-              <button
-                aria-label={t("Entfernen")}
-                onClick={() => shelf.set((l) => l.filter((x) => x.path !== item.path))}
-                className="pressable absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-fill-3 text-label-2 opacity-0 backdrop-blur-md group-hover:opacity-100 hover:text-label"
+          {items.map((item) => {
+            const key = keyOf(item);
+            const on = sel.keys.includes(key);
+            return (
+              <motion.div
+                key={key}
+                layout
+                transition={springs.snappy}
+                initial={{ opacity: 0, transform: "scale(0.94)" }}
+                animate={{ opacity: 1, transform: "scale(1)" }}
+                exit={{ opacity: 0, transform: "scale(0.94)", transition: fade }}
+                className="group relative h-full w-[112px] shrink-0"
+                onPointerDown={(e) => onPointerDown(e, key)}
+                onPointerMove={onPointerMove}
+                onPointerUp={() => (press.current = null)}
+                onClickCapture={(e) => onClickCapture(e, key)}
+                role="option"
+                aria-selected={on}
+                aria-label={isText(item) ? item.text.slice(0, 80) : item.name}
               >
-                <X size={10} weight="bold" />
-              </button>
-            </motion.div>
-          ))}
+                {isText(item) ? (
+                  <TextCard item={item} copied={copied === key} onCopy={() => void copyKeys([key], key)} />
+                ) : (
+                  <FileCard item={item} copied={copied === key} onCopy={() => void copyKeys([key], key)} />
+                )}
+                <span
+                  className={`pointer-events-none absolute inset-0 rounded-[14px] ring-2 transition-opacity duration-150 ring-inset ${
+                    on ? "opacity-100 ring-label-2" : "opacity-0 ring-transparent"
+                  }`}
+                />
+                {(selecting || picked > 0) && (
+                  <span
+                    className={`pointer-events-none absolute top-1.5 left-1.5 flex size-5 items-center justify-center rounded-full backdrop-blur-md ${
+                      on ? "bg-label text-notch" : "bg-fill-3 text-transparent"
+                    }`}
+                  >
+                    <Check size={10} weight="bold" />
+                  </span>
+                )}
+                <button
+                  data-remove
+                  aria-label={t("Entfernen")}
+                  onClick={() => shelf.set((l) => removeKeys(l, [key]))}
+                  className="pressable absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-fill-3 text-label-2 opacity-0 backdrop-blur-md group-hover:opacity-100 hover:text-label"
+                >
+                  <X size={10} weight="bold" />
+                </button>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </div>
       <AnimatePresence>
-        {dragging && (
+        {over && (
           <motion.div
             className="pointer-events-none absolute inset-x-4 top-1 bottom-3 flex items-center justify-center rounded-[14px] border-[1.5px] border-dashed border-label-2 bg-black/70 text-body text-label"
             initial={{ opacity: 0 }}
@@ -123,7 +299,11 @@ export function ShelfView() {
   );
 }
 
-function Card({ item, copied, onCopy }: { item: ShelfItem; copied: boolean; onCopy: () => void }) {
+async function pasteAny(): Promise<boolean> {
+  return (await pasteFiles()) || (await pasteTextFallback());
+}
+
+function FileCard({ item, copied, onCopy }: { item: FileItem; copied: boolean; onCopy: () => void }) {
   const [preview, setPreview] = useState<string | null>(null);
   const I = kindIcon[item.kind];
   useEffect(() => {
@@ -158,10 +338,39 @@ function Card({ item, copied, onCopy }: { item: ShelfItem; copied: boolean; onCo
   );
 }
 
-/** Second path besides drag and drop, visible because Ctrl+V isn't discoverable. */
-export function PasteHint({ nothing }: { nothing: boolean }) {
+/** A kept snippet: click copies it, dragging it out gives the text. */
+function TextCard({ item, copied, onCopy }: { item: TextItem; copied: boolean; onCopy: () => void }) {
   return (
-    <button onClick={() => void pasteFiles()} className="pressable flex items-center gap-1 text-caption text-label-3 hover:text-label-2">
+    <div className="relative flex size-full flex-col overflow-hidden rounded-[14px] bg-fill-1">
+      <button onClick={onCopy} title={t("Klicken zum Kopieren")} className="pressable flex min-h-0 flex-1 items-start overflow-hidden px-2.5 pt-2.5 text-left">
+        <p className="line-clamp-6 text-caption break-words whitespace-pre-wrap text-label-2">{item.text}</p>
+      </button>
+      <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
+        <span className="flex items-center gap-1 text-caption text-label-3">
+          <TextT size={12} weight="bold" />
+          <span className="tabular">{t("{n} Zeichen", { n: item.text.length })}</span>
+        </span>
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={copied ? "done" : "copy"}
+            className={`flex ${copied ? "text-green" : "text-label-3 opacity-0 group-hover:opacity-100"}`}
+            initial={{ opacity: 0, transform: "scale(0.6)" }}
+            animate={{ opacity: 1, transform: "scale(1)" }}
+            exit={{ opacity: 0, transform: "scale(0.6)" }}
+            transition={fade}
+          >
+            {copied ? <Check size={12} weight="bold" /> : <Copy size={12} weight="bold" />}
+          </motion.span>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+/** Second path besides drag and drop, visible because Ctrl+V isn't discoverable. */
+export function PasteHint({ nothing, onPaste }: { nothing: boolean; onPaste?: () => void }) {
+  return (
+    <button onClick={onPaste ?? (() => void pasteFiles())} className="pressable flex items-center gap-1 text-caption text-label-3 hover:text-label-2">
       <ClipboardText size={12} weight="bold" />
       {nothing ? t("Keine Dateien in der Zwischenablage") : t("oder Strg+V zum Einfügen")}
     </button>

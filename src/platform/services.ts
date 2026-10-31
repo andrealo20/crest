@@ -682,3 +682,37 @@ export const systemControls = {
     return Promise.resolve({ ...mockFocus });
   },
 };
+
+// ---------- Detached timer window (src-tauri/src/timer_window.rs) ----------
+
+/** Opens the small always-on-top timer window at a saved position (physical px), if it is still on a monitor. */
+export function openTimerWindow(pos: { x: number; y: number } | null): Promise<void> {
+  return isNative ? invoke("timer_window_open", { x: pos?.x ?? null, y: pos?.y ?? null }) : Promise.resolve();
+}
+
+export function closeTimerWindow(): Promise<void> {
+  return isNative ? invoke("timer_window_close") : Promise.resolve();
+}
+
+/** True when the window opens, false when it is gone. */
+export function onTimerWindow(handler: (open: boolean) => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen<boolean>("timer-window://open", (e) => handler(e.payload));
+  return () => void off.then((f) => f());
+}
+
+// ---------- Shelf drag out and text (src-tauri/src/shelf.rs) ----------
+
+/**
+ * Native drag of files (or, with no files, text) into other apps; resolves when it is dropped
+ * or cancelled. Must be called while the left button is down.
+ */
+export function shelfDragOut(paths: string[], text: string | null): Promise<void> {
+  return isNative ? invoke("shelf_drag_out", { paths, text }) : Promise.resolve();
+}
+
+/** Text on the clipboard ("" if none). */
+export function clipboardText(): Promise<string> {
+  if (isNative) return invoke<string>("shelf_clipboard_text").catch(() => "");
+  return navigator.clipboard.readText().catch(() => "");
+}

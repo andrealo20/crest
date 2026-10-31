@@ -36,6 +36,7 @@ import { discordState, reconnectDiscord } from "../discord/store";
 import { fps } from "../system/gaming";
 import { PlaceSearch } from "../weather/WeatherView";
 import { VaultSettings } from "../vault/VaultSettings";
+import { TimerLookSettings } from "../timer/LookSettings";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
@@ -146,7 +147,12 @@ export function SettingsView() {
                 <VaultSettings />
               </>
             )}
-            {page === "timer" && <Alarm />}
+            {page === "timer" && (
+              <>
+                <Alarm />
+                <TimerLookSettings />
+              </>
+            )}
             {page === "ai" && (
               <>
                 <Ask />

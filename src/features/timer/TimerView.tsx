@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, ArrowCounterClockwise, Check, CheckCircle, Pause, PencilSimple, Play, SpeakerSimpleSlash, X } from "@phosphor-icons/react";
+import { AlarmIcon, ArrowCounterClockwise, Check, CheckCircle, Pause, PencilSimple, PictureInPicture, Play, SpeakerSimpleSlash, X } from "@phosphor-icons/react";
 import { content, pulse, springs } from "../../design/motion";
 import {
   MAX_MINUTES,
@@ -13,6 +13,11 @@ import {
   useRemaining,
   type TimerMode,
 } from "./store";
+import { Look } from "./Look";
+import { detached, toggleDetached } from "./detach";
+import { settings } from "../../settings/store";
+import { HeaderActions, HeaderButton } from "../../notch/header";
+import { isNative } from "../../platform/native";
 import { t } from "../../i18n";
 
 const modeLabel: Record<TimerMode, string> = { focus: "Fokus", break: "Pause" };
@@ -26,8 +31,24 @@ const modeLabel: Record<TimerMode, string> = { focus: "Fokus", break: "Pause" };
  */
 export function TimerView() {
   const s = timer.use();
-  if (s.finished) return <FinishedView />;
-  return <SetupView />;
+  return (
+    <>
+      {isNative && <DetachButton />}
+      {s.finished ? <FinishedView /> : <SetupView />}
+    </>
+  );
+}
+
+/** Pops the timer into its own small always-on-top window, or takes it back. */
+function DetachButton() {
+  const open = detached.use();
+  return (
+    <HeaderActions>
+      <HeaderButton label={open ? t("Timer-Fenster schließen") : t("Timer abdocken")} active={open} onClick={toggleDetached}>
+        <PictureInPicture size={14} weight="bold" />
+      </HeaderButton>
+    </HeaderActions>
+  );
 }
 
 /*
@@ -39,6 +60,7 @@ export function TimerView() {
 function FinishedView() {
   const s = timer.use();
   const ring = ringing.use();
+  const look = settings.use().timer.look;
   const tint = s.mode === "focus" ? "var(--color-orange)" : "var(--color-green)";
   return (
     <motion.div
@@ -58,15 +80,13 @@ function FinishedView() {
         <span className="font-medium text-label-3">· {formatClock(s.duration)}</span>
       </div>
       <div className="flex items-center gap-4">
-        <motion.span
-          className="tabular text-[40px] leading-none font-semibold tracking-[-0.03em]"
-          style={{ color: tint }}
+        <motion.div
+          className="flex min-w-0 flex-1"
           animate={{ opacity: ring ? [1, 0.45] : 1 }}
           transition={ring ? pulse : content.enter}
         >
-          0:00
-        </motion.span>
-        <div className="h-[5px] flex-1 rounded-full" style={{ backgroundColor: tint }} />
+          <Look look={look} remaining={0} duration={s.duration} running={false} mode={s.mode} tint={tint} h={44} />
+        </motion.div>
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
             key={ring ? "silence" : "close"}
@@ -93,12 +113,13 @@ function FinishedView() {
 
 function SetupView() {
   const s = timer.use();
-  const remaining = useRemaining();
+  const look = settings.use().timer.look;
+  // Only the HUD shows tenths; the other looks change once a second.
+  const remaining = useRemaining(look === "hud");
   const running = s.endsAt !== null;
-  const progress = 1 - remaining / s.duration;
   const tint = s.mode === "focus" ? "var(--color-orange)" : "var(--color-green)";
   const [editing, setEditing] = useState(false);
-  const clockRef = useRef<HTMLSpanElement>(null);
+  const clockRef = useRef<HTMLDivElement>(null);
 
   // The wheel sets the minutes. Only when not started; passive:false for preventDefault.
   const editable = !running && remaining === s.duration;
@@ -174,22 +195,8 @@ function SetupView() {
       </div>
 
       <div className="flex items-center gap-4">
-        <span
-          ref={clockRef}
-          title={editable ? t("Mausrad: ±1 min, Shift: ±5 min") : undefined}
-          className="tabular text-[40px] leading-none font-semibold tracking-[-0.03em]"
-          style={{ color: tint }}
-        >
-          {formatClock(remaining)}
-        </span>
-        <div className="relative h-[5px] flex-1 overflow-hidden rounded-full bg-fill-2">
-          <motion.div
-            className="absolute inset-0 origin-left rounded-full"
-            style={{ backgroundColor: tint }}
-            initial={false}
-            animate={{ transform: `scaleX(${progress})` }}
-            transition={{ duration: 0.25, ease: "linear" }}
-          />
+        <div ref={clockRef} title={editable ? t("Mausrad: ±1 min, Shift: ±5 min") : undefined} className="flex min-w-0 flex-1">
+          <Look look={look} remaining={remaining} duration={s.duration} running={running} mode={s.mode} tint={tint} h={44} />
         </div>
         <div className="flex gap-1.5">
           <RoundButton label={t("Zurücksetzen")} onClick={timerActions.reset} disabled={editable}>

@@ -115,19 +115,49 @@ function scheduleEnd() {
     scheduleEnd();
   }, Math.max(0, endsAt - Date.now()));
 }
-timer.subscribe(scheduleEnd);
-scheduleEnd();
+/** The detached timer window (timer.html) shows and controls the timer, but only the notch window rings. */
+export const isTimerWindow = location.pathname.endsWith("/timer.html");
 
-/** Remaining seconds, updated on every second boundary. */
-export function useRemaining(): number {
+if (!isTimerWindow) {
+  timer.subscribe(scheduleEnd);
+  scheduleEnd();
+  // Dismissed or restarted from the detached window: stop the sound here too.
+  timer.subscribe(() => {
+    if (!timer.get().finished && ringing.get()) timerActions.silence();
+  });
+}
+
+// Both windows share the persisted state: adopt what the other window wrote. Writing the same
+// text back to localStorage fires no new event, so this does not loop.
+window.addEventListener("storage", (e) => {
+  if (e.key !== "notch:timer") return;
+  // Read the current value: several writes can arrive as a burst of events.
+  const raw = localStorage.getItem("notch:timer");
+  if (!raw) return;
+  try {
+    timer.set(JSON.parse(raw) as TimerState);
+  } catch {
+    // Broken entry: keep the current state.
+  }
+});
+
+/**
+ * Remaining seconds while the timer runs: once per second, on the boundary where the shown
+ * second changes, or every 200 ms with `fast` (looks with tenths).
+ */
+export function useRemaining(fast = true): number {
   const s = timer.use();
+  const running = s.endsAt !== null;
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
-    if (s.endsAt === null) return;
+    if (!running || !fast) return;
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 200);
     return () => clearInterval(id);
-  }, [s.endsAt]);
-  return remainingOf(s, now);
+  }, [running, fast]);
+  const tick = useSecondTick(running && !fast, (s.endsAt ?? 0) % 1000);
+  // Clamped: for one render after a start the clock may still be from before it.
+  return Math.min(s.duration, remainingOf(s, fast ? now : tick));
 }
 
 /**
