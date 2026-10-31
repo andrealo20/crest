@@ -156,6 +156,7 @@ settings.set((s) => {
   return {
     ...defaults,
     ...s,
+    language: "en", // English only; the field stays for older saved settings
     tools,
     trading: { ...defaults.trading, ...s.trading },
     usage: { ...defaults.usage, ...s.usage },

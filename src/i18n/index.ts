@@ -1,30 +1,27 @@
-import { settings } from "../settings/store";
 import { en } from "./en";
 
 /*
- * Translation: the German text lives directly in the code and doubles as the key;
- * `en.ts` provides the English version. Missing entries stay German.
+ * Translation: the interface is English only. The German text lives directly in the
+ * code as an internal id; `en.json` provides the English text shown to everyone.
+ * Missing entries fall back to the id.
  * Placeholders: t("vor {n} Min.", { n: 5 }).
- *
- * No hook needed: the notch subscribes to the settings and re-renders the whole tree
- * when the language changes. Send module-level constants (label lists) through t()
- * only at render time, otherwise they stay in the startup language.
  */
 export type Language = "de" | "en";
 
+/** Always English; the saved `language` setting is kept only for compatibility. */
 export function lang(): Language {
-  return settings.get().language;
+  return "en";
 }
 
 export function t(de: string, vars?: Record<string, string | number>): string {
-  let s = lang() === "en" ? (en[de] ?? de) : de;
+  let s = en[de] ?? de;
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
   return s;
 }
 
 /** Locale for Intl (numbers, dates, weekdays). */
 export function locale(): string {
-  return lang() === "en" ? "en-GB" : "de-DE";
+  return "en-GB";
 }
 
 /** Error texts from Rust (AI chat, converter) arrive in German; translate them by pattern. */
@@ -70,7 +67,6 @@ const backendPatterns: [RegExp, string][] = [
 ];
 
 export function tBackend(msg: string): string {
-  if (lang() !== "en") return msg;
   for (const [re, en] of backendPatterns) if (re.test(msg)) return msg.replace(re, en);
   return msg;
 }

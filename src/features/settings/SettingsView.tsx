@@ -363,18 +363,6 @@ function General() {
 
   return (
     <Group>
-      <Row label={t("Sprache")}>
-        <Segmented
-          id="language"
-          size="sm"
-          value={s.language}
-          onChange={(language) => updateSettings({ language })}
-          options={[
-            { value: "de", label: "Deutsch" },
-            { value: "en", label: "English" },
-          ]}
-        />
-      </Row>
       <Row label={t("Uhrzeit")}>
         <Segmented
           id="clock-format"

@@ -40,24 +40,24 @@ export function DesktopMock() {
           className="flex h-8 items-center px-3 text-xs opacity-70"
           style={{ background: light ? "#f3f3f3" : "#2b2b2b" }}
         >
-          Datei-Explorer
+          File Explorer
         </div>
         <div className="space-y-2 p-6 text-sm opacity-60">
-          <div>Dokumente</div>
+          <div>Documents</div>
           <div>Downloads</div>
-          <div>Bilder</div>
+          <div>Pictures</div>
         </div>
       </div>}
 
       {/* Dev panel */}
       {!showcase && <div className="fixed right-4 bottom-16 z-10 flex gap-2 rounded-xl bg-black/60 p-2 text-xs text-white backdrop-blur">
         <DevButton onClick={media.toggle}>{np?.isPlaying ? "Pause" : "Play"}</DevButton>
-        <DevButton onClick={media.next}>Nächster Song</DevButton>
-        <DevButton onClick={switchSource}>Quelle wechseln</DevButton>
-        <DevButton onClick={() => mockDiscord.toggleCall()}>Discord-Anruf</DevButton>
-        <DevButton onClick={() => (mockPrivacy.mic = !mockPrivacy.mic)}>Mikro</DevButton>
-        <DevButton onClick={() => (mockPrivacy.screen = !mockPrivacy.screen)}>Aufnahme</DevButton>
-        <DevButton onClick={() => setLight((l) => !l)}>{light ? "Dunkel" : "Hell"}</DevButton>
+        <DevButton onClick={media.next}>Next song</DevButton>
+        <DevButton onClick={switchSource}>Switch source</DevButton>
+        <DevButton onClick={() => mockDiscord.toggleCall()}>Discord call</DevButton>
+        <DevButton onClick={() => (mockPrivacy.mic = !mockPrivacy.mic)}>Mic</DevButton>
+        <DevButton onClick={() => (mockPrivacy.screen = !mockPrivacy.screen)}>Recording</DevButton>
+        <DevButton onClick={() => setLight((l) => !l)}>{light ? "Dark" : "Light"}</DevButton>
       </div>}
 
       {/* Fake taskbar */}

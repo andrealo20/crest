@@ -31,7 +31,7 @@ use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForeground
 
 /// Opens/closes the notch from anywhere. Ctrl+Alt = AltGr on German keyboards;
 /// AltGr+Space types nothing, so there's no conflict.
-const SHORTCUT_LABEL: &str = "Strg+Alt+Leertaste";
+const SHORTCUT_LABEL: &str = "Ctrl+Alt+Space";
 
 /// For main.rs: elevated "Unlock FPS" call (see fps::fps_unlock).
 pub fn fps_elevated_unlock(sid: &str) -> i32 {
@@ -135,7 +135,6 @@ pub fn run() {
             vault::vault_hello_unlock,
             vault::vault_hello_enable,
             vault::vault_hello_disable,
-            set_language,
             autostart_get,
             autostart_set,
         ])
@@ -210,45 +209,15 @@ fn enable_autostart_once(app: &AppHandle) {
     }
 }
 
-/// Tray items whose text or check state changes at runtime.
-struct Tray {
-    open: MenuItem<tauri::Wry>,
-    settings: MenuItem<tauri::Wry>,
-    focus: CheckMenuItem<tauri::Wry>,
-    autostart: CheckMenuItem<tauri::Wry>,
-    quit: MenuItem<tauri::Wry>,
-}
-
+/// The focus-mode tray item, whose check state changes at runtime.
 #[derive(Default)]
-struct TrayItems(Mutex<Option<Tray>>);
-
-/// Open (shortcut right-aligned via tab, like Windows menus), settings, focus mode, autostart, quit.
-fn tray_texts(lang: &str) -> [String; 5] {
-    if lang == "en" {
-        let keys = SHORTCUT_LABEL.replace("Strg", "Ctrl").replace("Leertaste", "Space");
-        [format!("Open Crest\t{keys}"), "Settings …".into(), "Focus mode".into(), "Start with Windows".into(), "Quit Crest".into()]
-    } else {
-        [format!("Crest öffnen\t{SHORTCUT_LABEL}"), "Einstellungen …".into(), "Fokus-Modus".into(), "Mit Windows starten".into(), "Crest beenden".into()]
-    }
-}
-
-#[tauri::command]
-fn set_language(lang: String, state: State<'_, TrayItems>) {
-    if let Some(tray) = state.0.lock().unwrap().as_ref() {
-        let [a, b, c, d, e] = tray_texts(&lang);
-        let _ = tray.open.set_text(a);
-        let _ = tray.settings.set_text(b);
-        let _ = tray.focus.set_text(c);
-        let _ = tray.autostart.set_text(d);
-        let _ = tray.quit.set_text(e);
-    }
-}
+struct TrayItems(Mutex<Option<CheckMenuItem<tauri::Wry>>>);
 
 /// The frontend owns focus mode; the tray check only mirrors it.
 #[tauri::command]
 fn tray_focus(on: bool, state: State<'_, TrayItems>) {
-    if let Some(tray) = state.0.lock().unwrap().as_ref() {
-        let _ = tray.focus.set_checked(on);
+    if let Some(focus) = state.0.lock().unwrap().as_ref() {
+        let _ = focus.set_checked(on);
     }
 }
 
@@ -277,20 +246,14 @@ fn dark_menus() {
 fn build_tray(app: &App) -> tauri::Result<()> {
     dark_menus();
     let enabled = app.autolaunch().is_enabled().unwrap_or(false);
-    let [open_text, settings_text, focus_text, autostart_text, quit_text] = tray_texts("de");
-    let open = MenuItem::with_id(app, "open", open_text, true, None::<&str>)?;
-    let settings = MenuItem::with_id(app, "settings", settings_text, true, None::<&str>)?;
+    // Open has its shortcut right-aligned via tab, like Windows menus.
+    let open = MenuItem::with_id(app, "open", format!("Open Crest\t{SHORTCUT_LABEL}"), true, None::<&str>)?;
+    let settings = MenuItem::with_id(app, "settings", "Settings …", true, None::<&str>)?;
     // The real state follows right after start (the frontend calls tray_focus).
-    let focus = CheckMenuItem::with_id(app, "focus", focus_text, true, false, None::<&str>)?;
-    let autostart = CheckMenuItem::with_id(app, "autostart", autostart_text, true, enabled, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", quit_text, true, None::<&str>)?;
-    *app.state::<TrayItems>().0.lock().unwrap() = Some(Tray {
-        open: open.clone(),
-        settings: settings.clone(),
-        focus: focus.clone(),
-        autostart: autostart.clone(),
-        quit: quit.clone(),
-    });
+    let focus = CheckMenuItem::with_id(app, "focus", "Focus mode", true, false, None::<&str>)?;
+    let autostart = CheckMenuItem::with_id(app, "autostart", "Start with Windows", true, enabled, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit Crest", true, None::<&str>)?;
+    *app.state::<TrayItems>().0.lock().unwrap() = Some(focus.clone());
     let menu = Menu::with_items(
         app,
         &[&open, &settings, &PredefinedMenuItem::separator(app)?, &focus, &autostart, &PredefinedMenuItem::separator(app)?, &quit],
