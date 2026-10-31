@@ -8,11 +8,11 @@
 //! - The manager is requested fresh on every poll. A long-lived one goes stale when
 //!   an app recreates its session (Spotify closed to the tray, reopened), and then
 //!   keeps reporting the old status and position.
-//! - Which session is shown: a playing one wins (Windows' current first, then the
-//!   app shown before, then any). If nothing plays, the app shown before stays, so
-//!   pausing with a media key doesn't make it jump to another app.
+//! - Which session is shown: see media_pick.rs (a pinned app, else a playing one,
+//!   else the app shown before).
 //! - Controls go to the shown app, not to whatever Windows considers current.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -25,7 +25,18 @@ use windows::Media::Control::{
     GlobalSystemMediaTransportControlsSessionManager as SessionManager,
     GlobalSystemMediaTransportControlsSessionPlaybackStatus as PlaybackStatus,
 };
+use windows::Media::MediaPlaybackAutoRepeatMode as RepeatMode;
 use windows::Storage::Streams::DataReader;
+
+use crate::media_pick::{choose, shown_session, Candidate};
+
+/// One media session, for the choice of player.
+#[derive(Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Source {
+    app_id: String,
+    is_playing: bool,
+}
 
 #[derive(Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,15 +53,21 @@ pub struct NowPlaying {
     /// Does the app allow seeking? (Spotify, YouTube: yes; some players: no)
     can_seek: bool,
     app_id: String,
+    /// `None` = the app offers no shuffle (or repeat) control.
+    shuffle: Option<bool>,
+    /// "none", "track" or "list".
+    repeat: Option<&'static str>,
+    /// Every session, in Windows' order.
+    sources: Vec<Source>,
 }
 
-/// Last emitted state and when it was emitted.
+/// Last emitted state and when it was emitted; the pinned app ID; lyrics on screen (see `media_lyrics`).
 #[derive(Default)]
-pub struct MediaState(Mutex<Option<(NowPlaying, SystemTime)>>);
+pub struct MediaState(Mutex<Option<(NowPlaying, SystemTime)>>, Mutex<Option<String>>, AtomicBool);
 
 impl MediaState {
-    fn app_id(&self) -> String {
-        self.0.lock().unwrap().as_ref().map(|(np, _)| np.app_id.clone()).unwrap_or_default()
+    fn pinned(&self) -> Option<String> {
+        self.1.lock().unwrap().clone()
     }
 
     /// App ID and title of the shown session (mixer, "open the app").
@@ -74,12 +91,15 @@ pub fn media_get(state: State<'_, MediaState>) -> Option<NowPlaying> {
 
 // Async so the blocking `join()` doesn't stall the main thread.
 #[tauri::command]
-pub async fn media_control(state: State<'_, MediaState>, action: String, position: Option<f64>) -> Result<(), String> {
-    let shown = state.app_id();
+pub async fn media_control(state: State<'_, MediaState>, action: String, position: Option<f64>, on: Option<bool>) -> Result<(), String> {
+    let (shown_app, shown_title) = state.shown().unwrap_or_default();
     let run = || -> windows::core::Result<()> {
         let manager = SessionManager::RequestAsync()?.join()?;
-        let session = match sessions(&manager).into_iter().find(|s| app_id(s) == shown) {
-            Some(s) => s,
+        // The shown session, also when its app has several (two tabs): a lyric click seeks the tab on screen.
+        let all = sessions(&manager);
+        let info = describe(&all);
+        let session = match shown_session(&candidates(&info, None), &shown_app, &shown_title) {
+            Some(i) => all[i].clone(),
             None => manager.GetCurrentSession()?,
         };
         match action.as_str() {
@@ -92,11 +112,65 @@ pub async fn media_control(state: State<'_, MediaState>, action: String, positio
                 let ticks = start + (position.unwrap_or(0.0).max(0.0) * 10_000_000.0) as i64;
                 session.TryChangePlaybackPositionAsync(ticks)?.join()?
             }
+            // The target comes from the interface, so a click while the state is still on its way doesn't undo itself.
+            "shuffle" => session.TryChangeShuffleActiveAsync(on.unwrap_or(false))?.join()?,
+            "repeat" => {
+                // Off, all, one, like Spotify and Apple Music.
+                let mode = session.GetPlaybackInfo()?.AutoRepeatMode().and_then(|v| v.Value()).unwrap_or(RepeatMode::None);
+                let next = match mode {
+                    RepeatMode::None => RepeatMode::List,
+                    RepeatMode::List => RepeatMode::Track,
+                    _ => RepeatMode::None,
+                };
+                session.TryChangeAutoRepeatModeAsync(next)?.join()?
+            }
             _ => false,
         };
         Ok(())
     };
     run().map_err(|e| e.message())
+}
+
+/// Lyrics are on screen: send the position every few seconds while playing (only then).
+#[tauri::command]
+pub fn media_lyrics(on: bool, state: State<'_, MediaState>) {
+    state.2.store(on, Ordering::Relaxed);
+}
+
+/// Pins the app to show (`None` = automatic). The frontend sends it at start and on change.
+#[tauri::command]
+pub fn media_pin(app_id: Option<String>, state: State<'_, MediaState>) {
+    *state.1.lock().unwrap() = app_id.filter(|id| !id.is_empty());
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceInfo {
+    app_id: String,
+    title: String,
+    artist: String,
+    is_playing: bool,
+}
+
+/// Every session with its track, for the player menu (only read while it is open).
+#[tauri::command]
+pub async fn media_sources() -> Result<Vec<SourceInfo>, String> {
+    let run = || -> windows::core::Result<Vec<SourceInfo>> {
+        let manager = SessionManager::RequestAsync()?.join()?;
+        Ok(sessions(&manager)
+            .iter()
+            .map(|s| {
+                let text = |h: windows::core::Result<windows::core::HSTRING>| h.map(|h| h.to_string()).unwrap_or_default();
+                let (title, artist) = s
+                    .TryGetMediaPropertiesAsync()
+                    .and_then(|op| op.join())
+                    .map(|p| (text(p.Title()), text(p.Artist())))
+                    .unwrap_or_default();
+                SourceInfo { app_id: app_id(s), title, artist, is_playing: is_playing(s) }
+            })
+            .collect())
+    };
+    tauri::async_runtime::spawn_blocking(move || run().map_err(|e| e.message())).await.map_err(|e| e.to_string())?
 }
 
 const POLL: Duration = Duration::from_millis(400);
@@ -105,6 +179,8 @@ const POLL: Duration = Duration::from_millis(400);
 const ARTWORK_SETTLE: Duration = Duration::from_secs(10);
 /// Drift beyond which a position counts as a seek and is sent again.
 const SEEK_THRESHOLD: f64 = 1.5;
+/// How often the position is sent anyway while lyrics are on screen.
+const LYRICS_RESYNC: Duration = Duration::from_secs(5);
 
 pub fn spawn(app: AppHandle) {
     thread::spawn(move || {
@@ -123,14 +199,20 @@ pub fn spawn(app: AppHandle) {
                 thread::sleep(Duration::from_secs(2));
                 continue;
             };
-            let shown = last.as_ref().map(|np| np.app_id.as_str()).unwrap_or_default();
-            let current = pick(manager_ref, shown).and_then(|session| read(&session, &mut artwork).ok());
+            let shown = last.as_ref().map(|np| (np.app_id.as_str(), np.title.as_str())).unwrap_or_default();
+            let pinned = app.state::<MediaState>().pinned();
+            let (session, sources) = pick(manager_ref, shown, pinned.as_deref());
+            let current = session.and_then(|session| read(&session, &mut artwork).ok()).map(|np| NowPlaying { sources, ..np });
             // Nothing found: is the manager still alive (e.g. after an Explorer restart)?
             if current.is_none() && manager_ref.GetSessions().is_err() {
                 manager = None;
             }
 
-            if changed(&last, &current, last_sent_at) {
+            // While lyrics show, the frontend's extrapolated position is refreshed now and then, so lines don't drift.
+            let resync = app.state::<MediaState>().2.load(Ordering::Relaxed)
+                && current.as_ref().is_some_and(|np| np.is_playing)
+                && last_sent_at.elapsed().is_ok_and(|d| d > LYRICS_RESYNC);
+            if resync || changed(&last, &current, last_sent_at) {
                 last_sent_at = SystemTime::now();
                 *app.state::<MediaState>().0.lock().unwrap() = current.clone().map(|np| (np, last_sent_at));
                 let _ = app.emit("media://update", &current);
@@ -153,19 +235,43 @@ fn is_playing(session: &Session) -> bool {
     session.GetPlaybackInfo().and_then(|p| p.PlaybackStatus()).is_ok_and(|s| s == PlaybackStatus::Playing)
 }
 
-/// The session to show; `shown` is the app shown so far (see the module docs).
-fn pick(manager: &SessionManager, shown: &str) -> Option<Session> {
-    let current = manager.GetCurrentSession().ok();
-    if current.as_ref().is_some_and(is_playing) {
-        return current;
-    }
+/// App ID, title and play state of each session. The title is only read for an app with several sessions (two
+/// browser tabs), where the app alone can't tell them apart; reading it is a round trip per session.
+fn describe(all: &[Session]) -> Vec<(String, String, bool)> {
+    let ids: Vec<String> = all.iter().map(app_id).collect();
+    all.iter()
+        .zip(&ids)
+        .map(|(s, id)| {
+            let shared = ids.iter().filter(|other| *other == id).count() > 1;
+            let title = if shared {
+                s.TryGetMediaPropertiesAsync().and_then(|op| op.join()).and_then(|p| p.Title()).map(|h| h.to_string()).unwrap_or_default()
+            } else {
+                String::new()
+            };
+            (id.clone(), title, is_playing(s))
+        })
+        .collect()
+}
+
+fn candidates<'a>(info: &'a [(String, String, bool)], current: Option<&str>) -> Vec<Candidate<'a>> {
+    info.iter().map(|(id, title, playing)| Candidate { app_id: id, title, playing: *playing, current: current == Some(id.as_str()) }).collect()
+}
+
+/// The session to show (`shown` = app and title shown so far, see media_pick.rs) and every app's state.
+fn pick(manager: &SessionManager, shown: (&str, &str), pinned: Option<&str>) -> (Option<Session>, Vec<Source>) {
+    let current = manager.GetCurrentSession().ok().map(|s| app_id(&s));
     let all = sessions(manager);
-    let by_shown = || all.iter().find(|s| app_id(s) == shown).cloned();
-    by_shown()
-        .filter(is_playing)
-        .or_else(|| all.iter().find(|s| is_playing(s)).cloned())
-        .or_else(by_shown)
-        .or(current)
+    let info = describe(&all);
+    let chosen = choose(&candidates(&info, current.as_deref()), shown, pinned).map(|i| all[i].clone());
+    // One row per app in the menu; two sessions of one browser are one choice.
+    let mut unique: Vec<Source> = Vec::new();
+    for s in info.into_iter().map(|(app_id, _, is_playing)| Source { app_id, is_playing }) {
+        match unique.iter_mut().find(|u| u.app_id == s.app_id) {
+            Some(u) => u.is_playing |= s.is_playing,
+            None => unique.push(s),
+        }
+    }
+    (chosen, unique)
 }
 
 /// Cover of the shown track: reloaded on a track change and for a while after it.
@@ -194,7 +300,18 @@ fn read(session: &Session, artwork: &mut Artwork) -> windows::core::Result<NowPl
 
     let playback = session.GetPlaybackInfo()?;
     let is_playing = playback.PlaybackStatus()? == PlaybackStatus::Playing;
-    let can_seek = playback.Controls().and_then(|c| c.IsPlaybackPositionEnabled()).unwrap_or(false);
+    let controls = playback.Controls().ok();
+    let can_seek = controls.as_ref().and_then(|c| c.IsPlaybackPositionEnabled().ok()).unwrap_or(false);
+    let offers = |f: fn(&windows::Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackControls) -> windows::core::Result<bool>| {
+        controls.as_ref().and_then(|c| f(c).ok()).unwrap_or(false)
+    };
+    // Apps that offer the control but report no state count as off.
+    let shuffle = offers(|c| c.IsShuffleEnabled()).then(|| playback.IsShuffleActive().and_then(|v| v.Value()).unwrap_or(false));
+    let repeat = offers(|c| c.IsRepeatEnabled()).then(|| match playback.AutoRepeatMode().and_then(|v| v.Value()) {
+        Ok(RepeatMode::Track) => "track",
+        Ok(RepeatMode::List) => "list",
+        _ => "none",
+    });
     let timeline = session.GetTimelineProperties()?;
     let duration = ticks_to_secs(timeline.EndTime()?.Duration - timeline.StartTime()?.Duration);
     let mut position = ticks_to_secs(timeline.Position()?.Duration);
@@ -211,7 +328,7 @@ fn read(session: &Session, artwork: &mut Artwork) -> windows::core::Result<NowPl
         position = position.clamp(0.0, duration);
     }
 
-    Ok(NowPlaying { title, artist, artwork: artwork.data.clone(), is_playing, position, duration, can_seek, app_id })
+    Ok(NowPlaying { title, artist, artwork: artwork.data.clone(), is_playing, position, duration, can_seek, app_id, shuffle, repeat, sources: Vec::new() })
 }
 
 fn load_thumbnail(reference: &windows::Storage::Streams::IRandomAccessStreamReference) -> windows::core::Result<String> {
@@ -247,7 +364,7 @@ fn changed(last: &Option<NowPlaying>, current: &Option<NowPlaying>, last_sent_at
         (Some(a), Some(b)) => {
             if a.title != b.title || a.artist != b.artist || a.is_playing != b.is_playing
                 || a.artwork != b.artwork || a.duration != b.duration || a.app_id != b.app_id
-                || a.can_seek != b.can_seek
+                || a.can_seek != b.can_seek || a.shuffle != b.shuffle || a.repeat != b.repeat || a.sources != b.sources
             {
                 return true;
             }

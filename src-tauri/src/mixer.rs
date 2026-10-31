@@ -95,7 +95,7 @@ fn sessions() -> windows::core::Result<Vec<Entry>> {
     }
 }
 
-fn process_path(pid: u32) -> Option<String> {
+pub(crate) fn process_path(pid: u32) -> Option<String> {
     unsafe {
         let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
         let mut buf = [0u16; 1024];
@@ -106,7 +106,7 @@ fn process_path(pid: u32) -> Option<String> {
     }
 }
 
-fn file_name(path: &str) -> String {
+pub(crate) fn file_name(path: &str) -> String {
     path.rsplit(['\\', '/']).next().unwrap_or(path).to_lowercase()
 }
 
@@ -116,7 +116,7 @@ fn squash(s: &str) -> String {
 }
 
 /// Does the media app ID belong to this exe? Firefox reports a fixed hash instead of a name.
-fn matches(app_id: &str, exe: &str) -> bool {
+pub(crate) fn matches(app_id: &str, exe: &str) -> bool {
     let stem = squash(exe.strip_suffix(".exe").unwrap_or(exe));
     let id = squash(app_id.strip_suffix(".exe").unwrap_or(app_id));
     if stem.is_empty() || id.is_empty() {

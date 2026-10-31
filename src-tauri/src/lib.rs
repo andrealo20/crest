@@ -9,7 +9,9 @@ mod documents;
 mod drop;
 mod fps;
 mod hit_test;
+mod loopback;
 mod media;
+mod media_pick;
 mod memory;
 mod mixer;
 mod privacy;
@@ -82,6 +84,9 @@ pub fn run() {
             hit_test::set_passthrough,
             media::media_get,
             media::media_control,
+            media::media_pin,
+            media::media_sources,
+            media::media_lyrics,
             memory::memory_low,
             clipboard::clipboard_list,
             clipboard::clipboard_mode,

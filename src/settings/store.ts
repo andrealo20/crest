@@ -70,6 +70,11 @@ export interface Settings {
   productivity: { reminderSound: boolean; quotes: boolean; water: WaterConfig };
   /** Terminal tool: shell, font size in px, start folder ("" = home), end the shell when the notch closes. */
   terminal: { shell: "pwsh" | "powershell" | "cmd"; fontSize: number; startDir: string; endOnClose: boolean };
+  /**
+   * Music: the lyrics panel in Now Playing is open; the Song title part shows the current lyric line; the closed notch
+   * shows only cover and line while synced lyrics play; the player shown whatever else plays (media app ID, null = automatic).
+   */
+  music: { lyricsOpen: boolean; titleLyrics: boolean; notchLyrics: boolean; pinned: string | null };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -125,6 +130,7 @@ const defaults: Settings = {
   timer: { look: "clean" },
   productivity: { reminderSound: true, quotes: false, water: WATER_DEFAULTS },
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
+  music: { lyricsOpen: false, titleLyrics: false, notchLyrics: false, pinned: null },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -185,6 +191,7 @@ settings.set((s) => {
     timer: { look: normalizeLook(s.timer?.look) },
     productivity: { ...defaults.productivity, ...s.productivity, water: normalizeWater(s.productivity?.water) },
     terminal: { ...defaults.terminal, ...s.terminal },
+    music: { ...defaults.music, ...s.music },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
   };

@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { accentFrom } from "../../lib/accent";
-import type { MediaSource, NowPlaying } from "./types";
+import type { MediaSource, NowPlaying, RepeatMode, SourceInfo } from "./types";
 
 /** Shape of the data from Rust (src-tauri/src/media.rs). */
 interface NativeNowPlaying {
@@ -13,6 +13,9 @@ interface NativeNowPlaying {
   duration: number;
   canSeek: boolean;
   appId: string;
+  shuffle: boolean | null;
+  repeat: RepeatMode | null;
+  sources: { appId: string; isPlaying: boolean }[];
 }
 
 function livePositionOf(np: NowPlaying): number {
@@ -82,8 +85,8 @@ export function createNativeMedia(): MediaSource {
     window.clearTimeout(resyncTimer);
     resyncTimer = window.setTimeout(() => void invoke<NativeNowPlaying | null>("media_get").then(apply), 1500);
   };
-  const control = (action: string, position?: number) => {
-    void invoke("media_control", { action, position }).finally(resync);
+  const control = (action: string, position?: number, on?: boolean) => {
+    void invoke("media_control", { action, position, on }).finally(resync);
   };
 
   return {
@@ -107,5 +110,18 @@ export function createNativeMedia(): MediaSource {
       control("seek", position);
     },
     openSource: () => invoke<boolean>("media_open_source").catch(() => false),
+    toggleShuffle() {
+      // The target as shown, so a second click before Rust answers doesn't flip it back.
+      const on = !state?.shuffle;
+      if (state?.shuffle != null) optimistic({ shuffle: on });
+      control("shuffle", undefined, on);
+    },
+    cycleRepeat() {
+      if (state?.repeat) optimistic({ repeat: state.repeat === "none" ? "list" : state.repeat === "list" ? "track" : "none" });
+      control("repeat");
+    },
+    pin: (appId) => void invoke("media_pin", { appId }),
+    lyricsShown: (on) => void invoke("media_lyrics", { on }),
+    sources: () => invoke<SourceInfo[]>("media_sources").catch(() => []),
   };
 }
