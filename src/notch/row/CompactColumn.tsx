@@ -24,6 +24,7 @@ import { usage } from "../../features/usage/store";
 import { Dots, dotsWidth, usePrivacyDots } from "../../features/privacy/PrivacyDots";
 import { COLUMN, COLUMN_ROOM, columnWidth, fitLines, ringLines, stack } from "../column";
 import { useHeld } from "./CompactRow";
+import { useNoticeHover } from "./NoticeButton";
 import { useRowVisible } from "./visibility";
 import { fontEpoch } from "./measure";
 import { RING, Ring, ringProviders, ringValue } from "./parts/Rings";
@@ -47,6 +48,7 @@ const TONE: Record<StatusAlert["tone"], string> = { normal: "var(--color-label)"
 function useNoticeLine(urgentOnly: boolean): Line | null {
   const finished = timer.use().finished;
   const ring = ringing.use();
+  const timerHover = useNoticeHover();
   const status = statusNotice.use();
   const pop = popping.use();
   const due = dueTasks.use();
@@ -58,9 +60,12 @@ function useNoticeLine(urgentOnly: boolean): Line | null {
         aria-label={t("Schließen")}
         className="pointer-events-auto flex"
         style={{ color: "var(--color-green)" }}
-        // Only dismisses: the click must not also open the notch.
+        // Only dismisses: neither the click nor hovering it may open the notch.
+        onPointerEnter={timerHover.onPointerEnter}
+        onPointerLeave={timerHover.onPointerLeave}
         onClick={(e) => {
           e.stopPropagation();
+          timerHover.used();
           timerActions.dismiss();
         }}
       >
