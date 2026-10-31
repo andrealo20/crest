@@ -7,7 +7,8 @@ const GLIDE = { hold: 2.5, endHold: 2, speed: 12, fade: 0.25 } as const, MARQUEE
 export interface Stretch { moving: boolean; start: number; end: number }
 export interface Cycle { period: number; shift(t: number): number; opacity(t: number): number; moving(t: number): boolean; stretch(t: number): Stretch }
 
-const wrap = (t: number, period: number) => (period > 0 && Number.isFinite(t) ? ((t % period) + period) % period : 0);
+// ((t % P) + P) % P, but a t already in [0, P) comes back untouched: adding P rounds it by an ulp, and a boundary looked up as `stretch(s.end)` then falls in the stretch before.
+const wrap = (t: number, period: number) => { if (!(period > 0 && Number.isFinite(t))) return 0; const r = t % period; return r >= 0 ? r : (r + period) % period; };
 
 const sample = (t: number, a: number, b: number) => ((1 - 3 * b + 3 * a) * t + (3 * b - 6 * a)) * t * t + 3 * a * t;
 const slope = (t: number, a: number, b: number) => 3 * (1 - 3 * b + 3 * a) * t * t + 2 * (3 * b - 6 * a) * t + 3 * a;
