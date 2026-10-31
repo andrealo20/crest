@@ -10,7 +10,7 @@
 //! so clicks reach the app below (e.g. browser tabs). Three quick clicks on the notch
 //! emit `notch://focus-exit`; only the mouse button is watched for that.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -54,11 +54,23 @@ pub struct HitState {
     refresh: AtomicBool,
     /// Focus mode: always click-through, no hover.
     passthrough: AtomicBool,
+    /// Panel scale (the page's zoom) as f64 bits; 0 = 1.0.
+    zoom: AtomicU64,
 }
 
 impl HitState {
     pub fn refresh(&self) {
         self.refresh.store(true, Ordering::Relaxed);
+    }
+
+    pub fn set_zoom(&self, zoom: f64) {
+        self.zoom.store(zoom.to_bits(), Ordering::Relaxed);
+        self.refresh();
+    }
+
+    fn zoom(&self) -> f64 {
+        let z = f64::from_bits(self.zoom.load(Ordering::Relaxed));
+        if z > 0.0 { z } else { 1.0 }
     }
 }
 
@@ -113,6 +125,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 continue;
             };
 
+            // The hit rect is in the zoomed page's CSS px.
+            let scale = scale * state.zoom();
             let x = (cursor.x - origin.x as f64) / scale;
             let y = (cursor.y - origin.y as f64) / scale;
             let rect = *state.rect.lock().unwrap();
