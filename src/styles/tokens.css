@@ -1,15 +1,16 @@
 /*
  * Design tokens: the single source for colors, type, radii and curves.
- * No hex values in components.
+ * No hex values in components. These are the Dark theme; src/features/themes sets them at runtime
+ * for the chosen theme (a test keeps Dark equal to this file).
  */
 @theme {
-  /* Surface: the notch is always pure black (blends into the screen edge). */
+  /* Surface: the open panel. The closed notch stays pure black (blends into the screen edge) in every theme unless the theme opts in. */
   --color-notch: #000;
 
   /* Text: white at stepped opacities instead of grays (like Apple's label colors). */
   --color-label: rgb(255 255 255 / 0.96);
   --color-label-2: rgb(255 255 255 / 0.58);
-  --color-label-3: rgb(255 255 255 / 0.34);
+  --color-label-3: rgb(255 255 255 / 0.36);
   --color-label-4: rgb(255 255 255 / 0.18);
 
   /* Fills for buttons, tracks, cards; never invent your own grays. */
