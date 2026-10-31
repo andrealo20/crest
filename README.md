@@ -43,9 +43,9 @@ Pick the closed look under **Settings → Display**.
 - **Capsule** is a pill you can drag up and down to any height. It snaps to the screen edges and the taskbar.
 - **Line** is a thin bar with a progress bar for the current song.
 
-All three can show a row of parts, centred and in the order you choose: cover, timer, Discord call, AI quota rings (one colour per provider), song title, CPU, RAM and GPU readings, equalizer and clock. Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel.
+Notch and capsule show a row of parts, centred and in the order you choose: cover, timer, Discord call, AI quota rings (one colour per provider), song title, CPU, RAM and GPU readings, equalizer and clock. Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel. The line shows only the song's progress, and a finished timer.
 
-Short notices appear over the row: a finished timer stays until you dismiss it, a quota alert at 70% and 90% shows for 5 seconds, and a new song for 4 seconds.
+Short notices appear over the row: a finished timer stays until you dismiss it, a quota alert at 70% and 90% shows for 5 seconds (it needs the AI quota rings turned on), and a new song for 4 seconds.
 
 ### Windows and system
 
@@ -191,6 +191,6 @@ scripts/        Helper scripts such as the version bump and the i18n check
 Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) by Linux5Real, forked from version 1.6.0 on 31 October 2026. The commit history lists every change since then.
 
 - The Antigravity quota reader comes from an upstream pull request by [Fraustiz](https://github.com/Linux5Real/L4-Windows-NotchBar/pull/11).
-- The layout of the collapsed row, the carousel timing and the capsule placement rules are translated from [BrimDeck](https://github.com/MoFeng2223/BrimDeck) (Apache-2.0).
+- The layout of the collapsed row, the carousel timing and the capsule placement rules are translated from [BrimDeck](https://github.com/MoFeng2223/BrimDeck) (Apache-2.0, license text in [licenses/BrimDeck-LICENSE](licenses/BrimDeck-LICENSE)).
 - The notch proportions were derived from [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT).
 - The design follows Apple's Dynamic Island and the macOS app OmniNotch. Crest is not affiliated with Apple or OmniNotch.
