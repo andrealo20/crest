@@ -63,8 +63,8 @@ export interface Settings {
   presentation: { manual: boolean; auto: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
-  /** Hardware tool: colours of the readings, the GPU shown (adapter name, "" = automatic: most VRAM), process ranking. */
-  system: { colors: ColorScheme; gpu: string; sort: "cpu" | "mem" };
+  /** Hardware tool: colours of the readings, the GPU shown (adapter name, "" = automatic: the busiest; index among adapters of that name), process ranking. */
+  system: { colors: ColorScheme; gpu: string; gpuIndex: number; sort: "cpu" | "mem" };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -114,7 +114,7 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
-  system: { colors: "calm", gpu: "", sort: "cpu" },
+  system: { colors: "calm", gpu: "", gpuIndex: 0, sort: "cpu" },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */

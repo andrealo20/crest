@@ -65,7 +65,7 @@ export const tabs: NotchTab[] = [
   { id: "trading", label: "Depot", icon: DepotIcon, size: { w: 560, h: 380 }, View: TradingView },
   { id: "usage", label: "AI-Nutzung", icon: Gauge, size: { w: 600, h: 320 }, View: UsageView },
   { id: "weather", label: "Wetter", icon: CloudSun, size: { w: 520, h: 250 }, View: WeatherView },
-  { id: "system", label: "Hardware", icon: Cpu, size: { w: 740, h: 420 }, View: SystemView },
+  { id: "system", label: "Hardware", icon: Cpu, size: { w: 720, h: 380 }, View: SystemView },
   { id: "discord", label: "Discord", icon: DiscordLogo, size: { w: 520, h: 210 }, View: DiscordView },
   { id: "vault", label: "Tresor", icon: Vault, size: { w: 560, h: 324 }, View: VaultView },
 ];

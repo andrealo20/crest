@@ -119,14 +119,23 @@ test("levels and schemes", () => {
 });
 
 test("GPU choice", () => {
-  const gpus = [{ name: "UHD 770", memTotal: 128 }, { name: "GeForce RTX 4070", memTotal: 12e9 }];
-  assert.equal(pickGpu(gpus, "")?.name, "GeForce RTX 4070");
-  assert.equal(pickGpu(gpus, "UHD 770")?.name, "UHD 770");
-  assert.equal(pickGpu(gpus, "Gone")?.name, "GeForce RTX 4070", "a saved adapter that went away falls back");
-  assert.equal(pickGpu([], ""), null);
-  assert.equal(nextGpu(gpus, ""), "UHD 770");
-  assert.equal(nextGpu(gpus, "UHD 770"), "GeForce RTX 4070");
-  assert.equal(nextGpu([gpus[0]], ""), "");
+  const auto = { name: "", index: 0 };
+  const idle = [{ key: "a", name: "UHD 770", memTotal: 128, usage: null }, { key: "b", name: "GeForce RTX 4070", memTotal: 12e9, usage: null }];
+  assert.equal(pickGpu(idle, auto)?.key, "b", "no load known: most VRAM");
+  assert.equal(pickGpu(idle, { name: "UHD 770", index: 0 })?.key, "a");
+  assert.equal(pickGpu(idle, { name: "Gone", index: 0 })?.key, "b", "a saved adapter that went away falls back");
+  assert.equal(pickGpu([], auto), null);
+  const busy = [{ ...idle[0], usage: 40 }, { ...idle[1], usage: 5 }];
+  assert.equal(pickGpu(busy, auto)?.key, "a", "automatic: the busiest");
+  assert.equal(pickGpu([{ ...busy[0], usage: 12 }, busy[1]], auto, "b")?.key, "b", "stays unless clearly busier");
+  assert.equal(pickGpu([{ ...busy[0], usage: 16 }, busy[1]], auto, "b")?.key, "a");
+  assert.equal(pickGpu(busy, { name: "GeForce RTX 4070", index: 0 }, "a")?.key, "b", "a picked name is kept whatever the load");
+  assert.deepEqual(nextGpu(idle, idle[1]), { name: "UHD 770", index: 0 });
+  assert.equal(nextGpu([idle[0]], idle[0]), null);
+  const twins = [{ key: "x", name: "RTX A4000", memTotal: 16e9, usage: 0 }, { key: "y", name: "RTX A4000", memTotal: 16e9, usage: 0 }];
+  assert.deepEqual(nextGpu(twins, twins[0]), { name: "RTX A4000", index: 1 }, "two identical cards cycle by index");
+  assert.equal(pickGpu(twins, { name: "RTX A4000", index: 1 })?.key, "y");
+  assert.deepEqual(nextGpu(twins, twins[1]), { name: "RTX A4000", index: 0 });
 });
 
 test("power source order", () => {

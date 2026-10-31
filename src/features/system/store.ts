@@ -94,8 +94,8 @@ function poll(ms: number) {
     // Seconds since the last answer, at most one poll's worth: a rhythm switch right after an answer adds nothing, a long pause no more than one poll.
     const at = performance.now(), steps = lastAnswer === null ? 1 : Math.min(ms / SHOWN_MS, Math.round((at - lastAnswer) / SHOWN_MS));
     lastAnswer = at;
-    const choice = settings.get().system.gpu;
-    const gpu = pickGpu(raw.gpus ?? [], choice);
+    const { gpu: name, gpuIndex } = settings.get().system;
+    const gpu = pickGpu(raw.gpus ?? [], { name, index: gpuIndex }, system.get().gpu?.key ?? null);
     const counted = gpu?.usage != null;
     // The chosen adapter stands in the classic fields, so gaming and the closed row show the same one.
     const next: SystemStats = gpu ? { ...raw, gpu: gpu.usage, gpuName: gpu.name, gpuMemUsed: gpu.memUsed, gpuMemTotal: gpu.memTotal } : raw;
@@ -129,6 +129,8 @@ function poll(ms: number) {
       const push = (prev: number[], values: number[]) => [...prev, ...values].slice(-HISTORY);
       const gaps = Array<number>(steps).fill(Number.NaN);
       const add = (prev: number[], v: number | null | undefined, read: boolean) => push(prev, read ? fill(prev, v ?? Number.NaN) : gaps);
+      // Another adapter shown (picked, or automatic moved on): its line starts fresh rather than continuing the other's.
+      const gpuHistory = counted && cur.gpu && gpu && cur.gpu.key !== gpu.key ? [] : h.gpu;
       return {
         // Slower rhythms: keep the last numbers they skip for the first frame when opened.
         stats: full || !stats ? next : counted ? { ...next, ping: stats.ping } : { ...next, gpu: stats.gpu, gpuMemUsed: stats.gpuMemUsed, ping: stats.ping },
@@ -144,7 +146,7 @@ function poll(ms: number) {
         history: {
           cpu: push(h.cpu, fill(h.cpu, next.cpu)),
           mem: push(h.mem, fill(h.mem, mem)),
-          gpu: add(h.gpu, next.gpu, counted),
+          gpu: add(gpuHistory, next.gpu, counted),
           ping: push(h.ping, full ? Array<number>(steps).fill(next.ping ?? Number.NaN) : gaps),
           down: add(h.down, net?.down, want.net),
           up: add(h.up, net?.up, want.net),
@@ -152,6 +154,8 @@ function poll(ms: number) {
         },
       };
     });
+  }).catch(() => {
+    // A failed read (the probe busy or gone for a moment) skips this poll; the next one tries again.
   });
 }
 
@@ -179,7 +183,7 @@ function apply() {
     return;
   }
   const ms = rhythm();
-  const key = `${ms}|${Object.values(rowWant()).join()}|${settings.get().system.gpu}`;
+  const key = `${ms}|${Object.values(rowWant()).join()}|${settings.get().system.gpu}#${settings.get().system.gpuIndex}`;
   if (timer && applied === key) return;
   if (timer) clearInterval(timer);
   // Switching rhythm: fresh values right away, not after the next tick.

@@ -34,14 +34,33 @@ const COLORS: Record<ColorScheme, [string, string, string]> = {
 
 export const schemeColor = (scheme: ColorScheme, level: Level) => (COLORS[scheme] ?? COLORS.calm)[level];
 
-/** The adapter to show: the chosen one by name, else the one with most dedicated memory ("" = automatic). */
-export function pickGpu<T extends { name: string; memTotal: number }>(gpus: T[], choice: string): T | null {
-  return gpus.find((g) => choice && g.name === choice) ?? gpus.reduce<T | null>((best, g) => (!best || g.memTotal > best.memTotal ? g : best), null);
+interface Adapter { key: string; name: string; memTotal: number; usage: number | null }
+/** A saved choice: the adapter's name and which of the adapters with that name (two identical cards); name "" = automatic. */
+export interface GpuChoice { name: string; index: number }
+
+/** Automatic mode moves to another adapter only when it is busier by this many points, so it does not flip between two. */
+export const AUTO_MARGIN = 10;
+
+/**
+ * The adapter to show: the chosen one (name and index among same-named adapters), else automatic: the busiest, staying
+ * on `previous` (its key) unless another is clearly busier; with no load known, the one with most dedicated memory.
+ */
+export function pickGpu<T extends Adapter>(gpus: T[], choice: GpuChoice, previous: string | null = null): T | null {
+  if (choice.name) {
+    const same = gpus.filter((g) => g.name === choice.name);
+    const hit = same[Math.min(Math.max(0, choice.index), same.length - 1)];
+    if (hit) return hit;
+  }
+  const strongest = gpus.reduce<T | null>((best, g) => (!best || g.memTotal > best.memTotal ? g : best), null);
+  const busiest = gpus.reduce<T | null>((best, g) => ((g.usage ?? 0) > (best?.usage ?? 0) ? g : best), null);
+  const kept = gpus.find((g) => g.key === previous);
+  if (kept && (!busiest || (busiest.usage ?? 0) <= (kept.usage ?? 0) + AUTO_MARGIN)) return kept;
+  return busiest ?? kept ?? strongest;
 }
 
-/** Click on the GPU row: the next adapter after the one shown, round. */
-export function nextGpu<T extends { name: string; memTotal: number }>(gpus: T[], choice: string): string {
-  const shown = pickGpu(gpus, choice);
-  if (!shown || gpus.length < 2) return choice;
-  return gpus[(gpus.indexOf(shown) + 1) % gpus.length].name;
+/** Click on the GPU row: the next adapter after the one shown, round, saved with its index among same-named adapters. */
+export function nextGpu<T extends Adapter>(gpus: T[], shown: T | null): GpuChoice | null {
+  if (!shown || gpus.length < 2) return null;
+  const next = gpus[(gpus.findIndex((g) => g.key === shown.key) + 1) % gpus.length];
+  return { name: next.name, index: gpus.filter((g) => g.name === next.name).indexOf(next) };
 }

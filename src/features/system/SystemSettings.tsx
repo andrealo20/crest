@@ -19,9 +19,8 @@ export function SystemSettings() {
   const s = settings.use();
   const gpus = system.use().stats?.gpus ?? [];
   const set = (patch: Partial<typeof s.system>) => updateSettings((cur) => ({ system: { ...cur.system, ...patch } }));
-  // One reading stays on, otherwise the part would be empty (as in Display, Content).
-  const setReading = (key: ReadingKey, on: boolean) =>
-    updateSettings((cur) => (on || Object.values(cur.closed.readings).filter(Boolean).length > 1 ? { closed: { ...cur.closed, readings: { ...cur.closed.readings, [key]: on } } } : {}));
+  // These can come and go with the hardware; the part stays non-empty through CPU, RAM or GPU (Display, Content).
+  const setReading = (key: ReadingKey, on: boolean) => updateSettings((cur) => ({ closed: { ...cur.closed, readings: { ...cur.closed.readings, [key]: on } } }));
 
   return (
     <Group title={t("Hardware")} id="settings-system">
@@ -47,7 +46,21 @@ export function SystemSettings() {
       </Row>
       {gpus.length > 1 && (
         <Row label="GPU" hint={t("Auch per Klick auf die GPU-Zeile im Tool")}>
-          <Select value={s.system.gpu} onChange={(gpu) => set({ gpu })} options={[{ value: "", label: t("Automatisch") }, ...gpus.map((g) => ({ value: g.name, label: g.name }))]} />
+          <Select
+            value={s.system.gpu ? `${s.system.gpuIndex}#${s.system.gpu}` : ""}
+            onChange={(v) => {
+              const at = v.indexOf("#");
+              set(at < 0 ? { gpu: "", gpuIndex: 0 } : { gpu: v.slice(at + 1), gpuIndex: Number(v.slice(0, at)) });
+            }}
+            options={[
+              { value: "", label: t("Automatisch") },
+              // Two cards of one model are told apart by their order.
+              ...gpus.map((g) => {
+                const same = gpus.filter((x) => x.name === g.name), n = same.indexOf(g);
+                return { value: `${n}#${g.name}`, label: same.length > 1 ? `${g.name} (${n + 1})` : g.name };
+              }),
+            ]}
+          />
         </Row>
       )}
       <Row label={t("In der geschlossenen Notch")} hint={t("Zusätzliche Werte im Teil „Auslastung“")} />

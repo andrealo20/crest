@@ -31,7 +31,7 @@ import { HISTORY, holdProcesses, system, useSystemShown } from "./store";
 export function SystemView() {
   useSystemShown();
   const st = system.use();
-  const { colors, gpu: choice, sort } = settings.use().system;
+  const { colors, sort } = settings.use().system;
   const [detail, setDetail] = useState<ProcReading | null>(null);
   // Closed with the pointer still over the list: the next opening ranks freely again.
   useEffect(() => () => holdProcesses.set(false), []);
@@ -44,10 +44,15 @@ export function SystemView() {
   const cores = s.cores.length;
   const g = st.gpu;
   const gpus = s.gpus ?? [];
-  const cpuDetail = [s.cpuName, s.physicalCores ? `${s.physicalCores}C ${cores}T` : cores ? `${cores}T` : null, s.cpuMhz ? `${ghz(s.cpuMhz)} GHz` : null];
+  // Name last, so cores, threads and frequency survive truncation; "8-Core" only repeats the count.
+  const cpuDetail = [s.physicalCores ? `${s.physicalCores}C ${cores}T` : cores ? `${cores}T` : null, s.cpuMhz ? `${ghz(s.cpuMhz)} GHz` : null, s.cpuName.replace(/\s*\d+-Core\b/i, "")];
   const gpuDetail = g ? [g.name, g.memTotal ? `${gb(g.memUsed)} / ${gb(g.memTotal)} GB` : null, g.engine && g.engine !== "3D" ? g.engine : null] : [t("Nicht verfügbar")];
   const net = st.net, b = st.battery, p = st.power;
-  const procs = st.processes ? (sort === "mem" ? st.processes.mem : st.processes.cpu).slice(0, 6) : [];
+  const procs = st.processes ? (sort === "mem" ? st.processes.mem : st.processes.cpu).slice(0, 5) : [];
+  const cycleGpu = () => {
+    const n = nextGpu(gpus, g);
+    if (n) updateSettings((cur) => ({ system: { ...cur.system, gpu: n.name, gpuIndex: n.index } }));
+  };
 
   let i = 0;
   return (
@@ -71,7 +76,7 @@ export function SystemView() {
           max={100}
           value={g?.usage == null ? "-" : `${Math.round(g.usage)} %`}
           level={ofShare(g?.usage ?? 0)}
-          onClick={gpus.length > 1 ? () => updateSettings((cur) => ({ system: { ...cur.system, gpu: nextGpu(gpus, choice) } })) : undefined}
+          onClick={gpus.length > 1 ? cycleGpu : undefined}
           badge={gpus.length > 1 && g ? `${gpus.findIndex((x) => x.key === g.key) + 1}/${gpus.length}` : undefined}
         />
         {net && (
@@ -133,7 +138,7 @@ export function SystemView() {
         />
       </div>
 
-      <div className="relative flex w-[244px] shrink-0 flex-col gap-2">
+      <div className="relative flex w-[236px] shrink-0 flex-col gap-2">
         <div className="rounded-[14px] bg-fill-1 pb-1" onPointerEnter={() => holdProcesses.set(true)} onPointerLeave={() => holdProcesses.set(false)}>
           <div className="flex h-8 items-center justify-between pr-1.5 pl-3">
             <span className="text-caption font-medium tracking-wide text-label-3 uppercase">{t("Prozesse")}</span>
@@ -218,7 +223,7 @@ function Row(props: {
       <div className="flex h-[32px] items-center gap-3">
         <I size={15} weight="bold" className="shrink-0 text-label-3" />
         <span className="w-12 shrink-0 text-footnote font-medium text-label">{props.label}</span>
-        <span className="tabular flex w-[180px] shrink-0 items-center gap-1.5 truncate text-caption text-label-3">
+        <span className="tabular flex w-[170px] shrink-0 items-center gap-1.5 truncate text-caption text-label-3">
           <span className="truncate" title={typeof props.detail === "string" ? props.detail : undefined}>
             {props.detail}
           </span>
