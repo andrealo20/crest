@@ -11,6 +11,8 @@ export interface ShellInfo {
   powershell: string;
   cmd: string;
   home: string;
+  /** Windows build number, 0 when unknown. */
+  buildNumber: number;
 }
 
 export interface TerminalPrefs {

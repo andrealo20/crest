@@ -86,7 +86,9 @@ async function load() {
       if (data === "\r") void start();
       return;
     }
-    if (sessionState.get() === "running") void send(data);
+    // Typed while the shell starts: held and sent once it runs.
+    if (sessionState.get() === "starting") unsent += data;
+    else if (sessionState.get() === "running") void send(data);
   });
   term.onResize(({ cols, rows }) => resizer.push(cols, rows));
   term.attachCustomKeyEventHandler(onKey);
@@ -160,7 +162,8 @@ export async function attachTerminal(container: HTMLElement): Promise<() => void
     resizer.flush();
     // Blur first: a focused textarea holds the notch open, and removal alone does not always fire focusout.
     term.blur();
-    host.remove();
+    // A newer view may already hold the host (quick close and reopen).
+    if (host.parentElement === container) host.remove();
   };
 }
 
@@ -172,16 +175,23 @@ export function focusTerminal() {
 export async function start() {
   const { term } = await ensureTerminal();
   const id = ++generation;
+  unsent = "";
   sessionState.set("starting");
   watchTool();
   try {
     info ??= pty.info();
-    const plan = launchPlan(settings.get().terminal, await info);
+    const shells = await info;
+    const plan = launchPlan(settings.get().terminal, shells);
     if (id !== generation) return;
+    // Lets xterm handle ConPTY's reflow and line wrapping the way this Windows build does it.
+    if (shells.buildNumber) term.options.windowsPty = { backend: "conpty", buildNumber: shells.buildNumber };
     term.reset();
     resizer.reset(term.cols, term.rows);
     await pty.start(plan, term.cols, term.rows, (m) => onMessage(id, m));
-    if (id === generation) sessionState.set("running");
+    if (id === generation) {
+      sessionState.set("running");
+      void send("");
+    }
     // Ended while it was starting (a newer start replaces it in Rust by itself).
     else if (sessionState.get() === "idle") pty.kill();
   } catch (e) {

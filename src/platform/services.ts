@@ -1,4 +1,5 @@
-import { Channel, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
+import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isNative } from "./native";
 import type { LaunchPlan, ShellInfo } from "../features/terminal/shell";
@@ -645,7 +646,7 @@ export const terminal = {
   info: (): Promise<ShellInfo> =>
     isNative
       ? invoke<ShellInfo>("terminal_info")
-      : Promise.resolve({ pwsh: null, powershell: "powershell.exe", cmd: "cmd.exe", home: "C:\\Users\\you" }),
+      : Promise.resolve({ pwsh: null, powershell: "powershell.exe", cmd: "cmd.exe", home: "C:\\Users\\you", buildNumber: 0 }),
   start: (plan: LaunchPlan, cols: number, rows: number, onOutput: (m: TerminalMessage) => void): Promise<void> => {
     if (!isNative) return Promise.resolve(mockShell.start(onOutput));
     const channel = new Channel<TerminalMessage>();

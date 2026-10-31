@@ -7,6 +7,7 @@ const info: ShellInfo = {
   powershell: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
   cmd: "C:\\Windows\\System32\\cmd.exe",
   home: "C:\\Users\\andre",
+  buildNumber: 26300,
 };
 
 test("pwsh when installed, Windows PowerShell otherwise", () => {
