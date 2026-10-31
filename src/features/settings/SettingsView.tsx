@@ -433,7 +433,7 @@ function General() {
 const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string][] = [
   ["power", "Ladegerät und Akku", "Beim Ein- und Ausstecken, Akku bei 20 und 10 %"],
   ["net", "Netzwerk", "Wenn das Internet wegfällt und zurückkommt"],
-  ["bt", "Bluetooth-Kopfhörer", "Beim Verbinden, mit Akku, wenn sie ihn melden"],
+  ["bt", "Bluetooth-Kopfhörer", "Beim Verbinden oder Trennen, mit Akku, wenn sie ihn melden"],
 ];
 
 /** Where and when the notch shows up. */

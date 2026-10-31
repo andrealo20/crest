@@ -492,7 +492,7 @@
  "Netzwerk": "Network",
  "Wenn das Internet wegfällt und zurückkommt": "When the internet drops and comes back",
  "Bluetooth-Kopfhörer": "Bluetooth headphones",
- "Beim Verbinden, mit Akku, wenn sie ihn melden": "When they connect, with their battery if they report it",
+ "Beim Verbinden oder Trennen, mit Akku, wenn sie ihn melden": "When they connect or disconnect, with their battery if they report it",
  "Lädt · {p} %": "Charging · {p}%",
  "Akku · {p} %": "On battery · {p}%",
  "Akku {p} %": "Battery {p}%",

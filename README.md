@@ -47,7 +47,7 @@ Notch and capsule show a row of parts, centred and in the order you choose: cove
 
 Short notices appear over the row: a finished timer stays until you dismiss it, a quota alert at 70% and 90% shows for 5 seconds (it needs the AI quota rings turned on), and a new song for 4 seconds.
 
-Status alerts show briefly when you plug in or unplug the charger, when the battery reaches 20% and 10%, when the internet drops or comes back, and when Bluetooth headphones connect. Turn each one off in **Settings → Display**.
+Status alerts show briefly when you plug in or unplug the charger, when the battery reaches 20% and 10%, when the internet drops or comes back, and when Bluetooth headphones connect or disconnect. Turn each one off in **Settings → Display**.
 
 ### Windows and system
 
