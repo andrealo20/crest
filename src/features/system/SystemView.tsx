@@ -1,127 +1,415 @@
-import { motion } from "motion/react";
-import { Cpu, WifiHigh, type Icon } from "@phosphor-icons/react";
+import { useEffect, useState, type ReactNode } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { AppWindow, ArrowDown, ArrowsDownUp, ArrowUp, BatteryHigh, Cpu, HardDrives, Lightning, WifiHigh, X, type Icon } from "@phosphor-icons/react";
 import { GpuIcon, RamIcon } from "../../ui/icons";
-import { content } from "../../design/motion";
-import { locale, t } from "../../i18n";
-import { HISTORY, system, useSystemShown } from "./store";
+import { Segmented } from "../../ui/controls";
+import { content, fade } from "../../design/motion";
+import { t } from "../../i18n";
+import { revealFile, systemIcon, type ProcReading } from "../../platform/services";
+import { settings, updateSettings } from "../../settings/store";
+import { batteryLevel, healthLevel } from "./battery";
+import { compactRate, driveSizes, duration, ghz, gigabytes, processMemory, processShare, rate, watts } from "./format";
+import { memoryLevel, nextGpu, ofRate, ofShare, schemeColor, type Level } from "./levels";
+import { tempLevel, degrees } from "./temps";
+import { HISTORY, holdProcesses, system, useSystemShown } from "./store";
 
 /*
- *   ┌──────────────────────────────────────────────────────────┐
- *   │ ▣ CPU      Ryzen 7 7800X3D         ╱╲__╱╲___     23 %   │
- *   │ ▤ RAM      13,4 / 32 GB            ‾‾‾‾‾‾‾‾‾     42 %   │
- *   │ ▦ GPU      RTX 4070 Ti · 3,1 GB    _╱╲_____╱     31 %   │
- *   │ ◠ Ping     1.1.1.1                 ___╱╲____    14 ms   │
- *   └──────────────────────────────────────────────────────────┘
- * Like OmniNotch: a calm card with rows. Instead of bars, one minute of history as a
- * line, so you see whether something is spiking or staying high. `store.ts` collects
- * the values from app start, so the history is already full when opened.
+ *   ┌───────────────────────────────────────────────┬──────────────────────────┐
+ *   │ ▣ CPU   Ryzen 7 · 8C 16T · 4.21 GHz  ╱╲_   23%│ Processes      CPU | Mem │
+ *   │   P ▂▅▂▇▂▁▃▂  E ▁▁▂▁                          │ ◧ Chrome            12.4 │
+ *   │ ▤ RAM   13.4 / 32 GB                 ‾‾‾   42%│ ◧ Code               3.1 │
+ *   │   ███████░░░░ cache 6.2 · commit 21 / 37 GB   │ …                        │
+ *   │ ▦ GPU   RTX 4070 Ti · 3D · 54 °C     _╱╲   31%│ Drives                   │
+ *   │ ⇅ Net   ↓ 12.3 MB/s ↑ 340 KB/s       ╱‾╲  12M │ C:  Samsung 990  ▓▓░ 41° │
+ *   │ ϟ Power Estimate · CPU 20 W          ‾╲_  38 W│                          │
+ *   │ ▭ Bat.  2 h 40 min left · 88 %             66%│                          │
+ *   │ ◠ Ping  1.1.1.1                      ___ 14 ms│                          │
+ *   └───────────────────────────────────────────────┴──────────────────────────┘
+ * Rows keep one minute of history as a line (store.ts collects from app start). Readings a machine cannot give
+ * (battery on a desktop, power without any meter, temperatures without a sensor) are left out rather than shown as 0.
  */
 export function SystemView() {
   useSystemShown();
-  const { stats: s, history: h, tick } = system.use();
+  const st = system.use();
+  const { colors, gpu: choice, sort } = settings.use().system;
+  const [detail, setDetail] = useState<ProcReading | null>(null);
+  // Closed with the pointer still over the list: the next opening ranks freely again.
+  useEffect(() => () => holdProcesses.set(false), []);
+  const s = st.stats;
   if (!s) return null;
-  const gb = (b: number) => (b / 1024 ** 3).toLocaleString(locale(), { maximumFractionDigits: 1 });
+  const tone = (l: Level) => schemeColor(colors, l);
+  const gb = (b: number) => gigabytes(b);
   const mem = (s.memUsed / s.memTotal) * 100;
+  const memLevel = memoryLevel(s.memUsed, s.memTotal, s.memCommit, s.memCommitLimit);
+  const cores = s.cores.length;
+  const g = st.gpu;
+  const gpus = s.gpus ?? [];
+  const cpuDetail = [s.cpuName, s.physicalCores ? `${s.physicalCores}C ${cores}T` : cores ? `${cores}T` : null, s.cpuMhz ? `${ghz(s.cpuMhz)} GHz` : null];
+  const gpuDetail = g ? [g.name, g.memTotal ? `${gb(g.memUsed)} / ${gb(g.memTotal)} GB` : null, g.engine && g.engine !== "3D" ? g.engine : null] : [t("Nicht verfügbar")];
+  const net = st.net, b = st.battery, p = st.power;
+  const procs = st.processes ? (sort === "mem" ? st.processes.mem : st.processes.cpu).slice(0, 6) : [];
 
+  let i = 0;
   return (
-    <div className="h-full px-4 pt-1 pb-2">
-      <div className="divide-y divide-separator rounded-[14px] bg-fill-1">
-        <Row i={0} tick={tick} icon={Cpu} label="CPU" detail={s.cpuName} values={h.cpu} max={100} value={`${Math.round(s.cpu)} %`} level={s.cpu} />
-        <Row i={1} tick={tick} icon={RamIcon} label="RAM" detail={`${gb(s.memUsed)} / ${gb(s.memTotal)} GB`} values={h.mem} max={100} value={`${Math.round(mem)} %`} level={mem} />
+    <div className="flex h-full gap-2 px-4 pt-1 pb-2">
+      <div className="min-w-0 flex-1 divide-y divide-separator rounded-[14px] bg-fill-1">
+        <Row i={i++} tick={st.tick} icon={Cpu} label="CPU" detail={join(cpuDetail)} temp={st.cpuTemp !== null ? { c: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp) } : null} tone={tone} values={st.history.cpu} max={100} value={`${Math.round(s.cpu)} %`} level={ofShare(s.cpu)}>
+          {cores > 0 && <CoreColumns cores={s.cores} tone={tone} />}
+        </Row>
+        <Row i={i++} tick={st.tick} icon={RamIcon} label="RAM" detail={`${gb(s.memUsed)} / ${gb(s.memTotal)} GB`} tone={tone} values={st.history.mem} max={100} value={`${Math.round(mem)} %`} level={memLevel}>
+          {s.memTotal > 0 && s.memCommitLimit > 0 && <MemoryBar used={s.memUsed} cached={s.memCached} total={s.memTotal} commit={s.memCommit} limit={s.memCommitLimit} level={memLevel} color={tone(memLevel)} />}
+        </Row>
         <Row
-          i={2}
-          tick={tick}
+          i={i++}
+          tick={st.tick}
           icon={GpuIcon}
           label="GPU"
-          detail={[s.gpuName, s.gpuMemTotal ? `${gb(s.gpuMemUsed)} / ${gb(s.gpuMemTotal)} GB` : null].filter(Boolean).join(" · ") || t("Nicht verfügbar")}
-          values={h.gpu}
+          detail={join(gpuDetail)}
+          temp={st.gpuTemp !== null ? { c: st.gpuTemp, level: tempLevel("gpu", st.gpuTemp) } : null}
+          tone={tone}
+          values={st.history.gpu}
           max={100}
-          value={s.gpu === null ? "–" : `${Math.round(s.gpu)} %`}
-          level={s.gpu ?? 0}
+          value={g?.usage == null ? "-" : `${Math.round(g.usage)} %`}
+          level={ofShare(g?.usage ?? 0)}
+          onClick={gpus.length > 1 ? () => updateSettings((cur) => ({ system: { ...cur.system, gpu: nextGpu(gpus, choice) } })) : undefined}
+          badge={gpus.length > 1 && g ? `${gpus.findIndex((x) => x.key === g.key) + 1}/${gpus.length}` : undefined}
         />
+        {net && (
+          <Row
+            i={i++}
+            tick={st.tick}
+            icon={ArrowsDownUp}
+            label={t("Netz")}
+            detail={<NetDetail down={net.down} up={net.up} />}
+            tone={tone}
+            values={st.history.down}
+            second={st.history.up}
+            max={Math.max(1e6, ...st.history.down.filter(Number.isFinite), ...st.history.up.filter(Number.isFinite))}
+            value={compactRate(net.down)}
+            level={ofRate(Math.max(net.down, net.up))}
+          />
+        )}
+        {p && (
+          <Row
+            i={i++}
+            tick={st.tick}
+            icon={Lightning}
+            label={t("Leistung")}
+            detail={join([t(p.source === "meter" ? "Gemessen" : p.source === "battery" ? "Akku-Entladung" : "Schätzung"), p.cpu !== null ? `CPU ${watts(p.cpu)} W` : null, p.gpu !== null ? `GPU ${watts(p.gpu)} W` : null])}
+            tone={tone}
+            values={st.history.power}
+            max={Math.max(30, ...st.history.power.filter(Number.isFinite))}
+            value={`${p.estimate ? "~" : ""}${watts(p.watts)} W`}
+            level={0}
+          />
+        )}
+        {b && (
+          <Row
+            i={i++}
+            tick={st.tick}
+            icon={BatteryHigh}
+            label={t("Akku")}
+            detail={join([
+              b.state === "charging" ? (b.toFull !== null ? `${t("Voll in")} ${duration(b.toFull)}` : t("Lädt")) : b.state === "discharging" ? (b.left !== null ? `${duration(b.left)} ${t("übrig")}` : t("Entlädt")) : b.state === "full" ? t("Voll") : t("Angeschlossen"),
+              b.saver ? t("Energiesparen") : null,
+            ])}
+            health={b.health !== null ? { text: `${t("Zustand")} ${Math.round(b.health * 100)} %`, color: tone(healthLevel(b.health)) } : null}
+            tone={tone}
+            value={`${Math.round(b.percent)} %`}
+            level={batteryLevel(b)}
+          />
+        )}
         <Row
-          i={3}
-          tick={tick}
+          i={i++}
+          tick={st.tick}
           icon={WifiHigh}
           label="Ping"
           detail="1.1.1.1"
-          values={h.ping}
-          max={Math.max(60, ...h.ping.filter(Number.isFinite))}
+          tone={tone}
+          values={st.history.ping}
+          max={Math.max(60, ...st.history.ping.filter(Number.isFinite))}
           value={s.ping === null ? t("Offline") : `${s.ping} ms`}
-          level={s.ping === null ? 100 : s.ping >= 150 ? 95 : s.ping >= 60 ? 70 : 0}
+          level={s.ping === null ? 2 : s.ping >= 150 ? 2 : s.ping >= 60 ? 1 : 0}
         />
+      </div>
+
+      <div className="relative flex w-[244px] shrink-0 flex-col gap-2">
+        <div className="rounded-[14px] bg-fill-1 pb-1" onPointerEnter={() => holdProcesses.set(true)} onPointerLeave={() => holdProcesses.set(false)}>
+          <div className="flex h-8 items-center justify-between pr-1.5 pl-3">
+            <span className="text-caption font-medium tracking-wide text-label-3 uppercase">{t("Prozesse")}</span>
+            <Segmented
+              id="system-sort"
+              size="sm"
+              value={sort}
+              onChange={(v) => updateSettings((cur) => ({ system: { ...cur.system, sort: v } }))}
+              options={[{ value: "cpu", label: "CPU" }, { value: "mem", label: t("Speicher") }]}
+            />
+          </div>
+          {procs.map((proc) => (
+            <ProcessRow key={proc.id} proc={proc} value={sort === "mem" ? processMemory(proc.mem) : processShare(proc.cpu, cores || navigator.hardwareConcurrency)} onClick={() => setDetail(proc)} />
+          ))}
+          {!procs.length && <div className="px-3 py-2 text-caption text-label-3">{t("Wird gelesen …")}</div>}
+        </div>
+        {st.drives.length > 0 && (
+          <div className="rounded-[14px] bg-fill-1 py-1">
+            {st.drives.slice(0, 3).map((d) => {
+              const sz = driveSizes(d.used, d.total), share = d.total ? (d.used / d.total) * 100 : 0;
+              return (
+                <div key={d.key} className="flex h-7 items-center gap-2 px-3" title={d.model}>
+                  <HardDrives size={13} weight="bold" className="shrink-0 text-label-3" />
+                  <span className="tabular w-[46px] shrink-0 truncate text-footnote font-medium text-label">{d.letters}</span>
+                  <span className="relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-fill-2">
+                    <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${share}%`, background: tone(ofShare(share)) }} />
+                  </span>
+                  <span className="tabular shrink-0 text-caption text-label-3">
+                    {sz.used}/{sz.total} {sz.unit}
+                  </span>
+                  {d.temp !== null && (
+                    <span className="tabular w-7 shrink-0 text-right text-caption font-medium" style={{ color: tone(d.tempLevel) }}>
+                      {degrees(d.temp)}°
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <AnimatePresence>{detail && <ProcessCard key="card" proc={st.processes?.cpu.find((x) => x.id === detail.id) ?? detail} cores={cores} onClose={() => setDetail(null)} />}</AnimatePresence>
       </div>
     </div>
   );
 }
 
-/** Traffic-light colors only when it gets critical, otherwise everything stays monochrome. */
-export function levelColor(level: number): string {
-  return level >= 90 ? "var(--color-red)" : level >= 70 ? "var(--color-orange)" : "var(--color-label)";
-}
+const join = (parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ");
 
-function Row(props: { i: number; tick: number; icon: Icon; label: string; detail: string; values: number[]; max: number; value: string; level: number }) {
+function Row(props: {
+  i: number;
+  tick: number;
+  icon: Icon;
+  label: string;
+  detail: ReactNode;
+  temp?: { c: number; level: Level } | null;
+  health?: { text: string; color: string } | null;
+  tone: (l: Level) => string;
+  values?: number[];
+  second?: number[];
+  max?: number;
+  value: string;
+  level: Level;
+  onClick?: () => void;
+  badge?: string;
+  children?: ReactNode;
+}) {
   const I = props.icon;
-  const color = levelColor(props.level);
+  const color = props.tone(props.level);
+  const click = props.onClick;
   return (
     <motion.div
-      className="flex h-[38px] items-center gap-3 px-3"
+      className={`block w-full px-3 text-left ${click ? "pressable cursor-pointer" : ""}`}
+      onClick={click}
+      role={click ? "button" : undefined}
+      tabIndex={click ? 0 : undefined}
+      onKeyDown={click ? (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), click()) : undefined}
+      title={props.onClick ? t("Klicken für die nächste GPU") : undefined}
       initial={{ opacity: 0, transform: "translateY(4px)" }}
       animate={{ opacity: 1, transform: "translateY(0px)" }}
-      transition={{ ...content.enter, delay: 0.04 * props.i }}
+      transition={{ ...content.enter, delay: 0.03 * props.i }}
     >
-      <I size={15} weight="bold" className="shrink-0 text-label-3" />
-      <span className="w-10 shrink-0 text-footnote font-medium text-label">{props.label}</span>
-      <span className="tabular w-[190px] shrink-0 truncate text-caption text-label-3" title={props.detail}>
-        {props.detail}
+      <div className="flex h-[32px] items-center gap-3">
+        <I size={15} weight="bold" className="shrink-0 text-label-3" />
+        <span className="w-12 shrink-0 text-footnote font-medium text-label">{props.label}</span>
+        <span className="tabular flex w-[180px] shrink-0 items-center gap-1.5 truncate text-caption text-label-3">
+          <span className="truncate" title={typeof props.detail === "string" ? props.detail : undefined}>
+            {props.detail}
+          </span>
+          {props.temp && (
+            <span className="shrink-0 font-medium" style={{ color: props.tone(props.temp.level) }}>
+              {degrees(props.temp.c)} °C
+            </span>
+          )}
+          {props.health && (
+            <span className="shrink-0 font-medium" style={{ color: props.health.color }}>
+              {props.health.text}
+            </span>
+          )}
+          {props.badge && <span className="shrink-0 rounded-[4px] bg-fill-2 px-1 text-[10px] text-label-2">{props.badge}</span>}
+        </span>
+        {props.values ? <Trend values={props.values} second={props.second} max={props.max ?? 100} color={color} tick={props.tick} /> : <span className="flex-1" />}
+        <span className="tabular w-[58px] shrink-0 text-right text-footnote font-semibold transition-colors duration-300" style={{ color }}>
+          {props.value}
+        </span>
+      </div>
+      {props.children && <div className="-mt-1 pb-1.5 pl-[87px]">{props.children}</div>}
+    </motion.div>
+  );
+}
+
+/** One column per logical processor, grouped by kind of core (P fastest, E slowest) where the CPU has more than one kind. */
+function CoreColumns({ cores, tone }: { cores: { usage: number; kind: number }[]; tone: (l: Level) => string }) {
+  const kinds = [...new Set(cores.map((c) => c.kind))].sort();
+  const letter = (k: number) => (kinds.length < 2 ? null : k === kinds[0] ? "P" : k === kinds.at(-1) ? "E" : "M");
+  return (
+    <div className="flex h-[16px] items-end gap-2" aria-hidden>
+      {kinds.map((k) => (
+        <div key={k} className="flex h-full min-w-0 items-end gap-[2px]">
+          {letter(k) && <span className="mr-0.5 self-center text-[9px] font-semibold text-label-4">{letter(k)}</span>}
+          {cores
+            .filter((c) => c.kind === k)
+            .map((c, n) => (
+              <span key={n} className="relative h-full w-[4px] overflow-hidden rounded-[1.5px] bg-fill-2">
+                <span className="absolute inset-x-0 bottom-0 rounded-[1.5px] transition-[height] duration-500" style={{ height: `${Math.max(6, Math.min(100, c.usage))}%`, background: tone(ofShare(c.usage)) }} />
+              </span>
+            ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** In use (solid), file cache (light: given to any app that asks), and the commit charge against its limit. */
+function MemoryBar(p: { used: number; cached: number; total: number; commit: number; limit: number; level: Level; color: string }) {
+  const used = (p.used / p.total) * 100, cached = Math.min(100 - used, (p.cached / p.total) * 100);
+  return (
+    <div className="flex h-[16px] items-center gap-2">
+      <span className="relative h-1.5 w-[90px] shrink-0 overflow-hidden rounded-full bg-fill-2">
+        <span className="absolute inset-y-0 left-0" style={{ width: `${used}%`, background: p.color }} />
+        <span className="absolute inset-y-0" style={{ left: `${used}%`, width: `${cached}%`, background: p.color, opacity: 0.35 }} />
       </span>
-      <Trend values={props.values} max={props.max} color={color} tick={props.tick} />
-      <span className="tabular w-[58px] shrink-0 text-right text-footnote font-semibold transition-colors duration-300" style={{ color }}>
-        {props.value}
+      <span className="tabular truncate text-[10px] text-label-3">
+        {p.level > 0 && (
+          <span className="font-semibold" style={{ color: p.color }}>
+            {t(p.level === 2 ? "Druck kritisch" : "Druck hoch")} ·{" "}
+          </span>
+        )}
+        {t("Cache")} {gigabytes(p.cached)} · {t("Zugesichert")} {gigabytes(p.commit)} / {gigabytes(p.limit)} GB
       </span>
+    </div>
+  );
+}
+
+function NetDetail({ down, up }: { down: number; up: number }) {
+  const d = rate(down), u = rate(up);
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="inline-flex items-center gap-0.5">
+        <ArrowDown size={10} weight="bold" />
+        {d.n} {d.unit}
+      </span>
+      <span className="inline-flex items-center gap-0.5">
+        <ArrowUp size={10} weight="bold" />
+        {u.n} {u.unit}
+      </span>
+    </span>
+  );
+}
+
+/** Icons by executable path, asked once each. */
+const icons = new Map<string, string | null>();
+function useIcon(path: string | null): string | null {
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    if (!path || icons.has(path)) return;
+    icons.set(path, null);
+    void systemIcon(path).then((url) => {
+      icons.set(path, url);
+      redraw((n) => n + 1);
+    });
+  }, [path]);
+  return path ? (icons.get(path) ?? null) : null;
+}
+
+function AppIcon({ path, size }: { path: string | null; size: number }) {
+  const src = useIcon(path);
+  return src ? <img src={src} width={size} height={size} className="shrink-0" alt="" /> : <AppWindow size={size} weight="bold" className="shrink-0 text-label-3" />;
+}
+
+function ProcessRow({ proc, value, onClick }: { proc: ProcReading; value: string; onClick: () => void }) {
+  return (
+    <motion.button layout="position" transition={{ duration: 0.25 }} onClick={onClick} className="pressable flex h-[24px] w-full items-center gap-2 px-3 text-left hover:bg-fill-2">
+      <AppIcon path={proc.path} size={14} />
+      <span className="min-w-0 flex-1 truncate text-caption text-label-2">{proc.name}</span>
+      {proc.count > 1 && <span className="tabular shrink-0 text-[10px] text-label-4">{proc.count}</span>}
+      <span className="tabular w-[40px] shrink-0 text-right text-caption font-medium text-label">{value}</span>
+    </motion.button>
+  );
+}
+
+function ProcessCard({ proc, cores, onClose }: { proc: ProcReading; cores: number; onClose: () => void }) {
+  return (
+    <motion.div {...fade} className="absolute inset-x-0 top-0 z-10 rounded-[14px] bg-elevated p-3 shadow-[0_6px_18px_rgb(0_0_0/0.45)]">
+      <div className="flex items-center gap-2">
+        <AppIcon path={proc.path} size={22} />
+        <span className="min-w-0 flex-1 truncate text-body font-medium text-label">{proc.name}</span>
+        <button onClick={onClose} aria-label={t("Schließen")} className="pressable text-label-3 hover:text-label">
+          <X size={13} weight="bold" />
+        </button>
+      </div>
+      <div className="tabular mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-caption">
+        <span className="text-label-3">CPU</span>
+        <span className="text-label">{processShare(proc.cpu, cores || navigator.hardwareConcurrency)} %</span>
+        <span className="text-label-3">{t("Speicher")}</span>
+        <span className="text-label">{processMemory(proc.mem)}B</span>
+        <span className="text-label-3">{t("Prozesse")}</span>
+        <span className="text-label">{proc.count}</span>
+        <span className="text-label-3">{t("Pfad")}</span>
+        <span className="truncate text-label-2" title={proc.path ?? undefined}>
+          {proc.path ?? proc.id}
+        </span>
+      </div>
+      {proc.path && (
+        <button onClick={() => revealFile(proc.path!)} className="pressable mt-2 text-caption font-medium text-link">
+          {t("Im Explorer zeigen")}
+        </button>
+      )}
     </motion.div>
   );
 }
 
 /**
- * One minute of history; gaps (no value) stay open. Right = now.
- * The line is drawn one step to the right and glides left by that step every second,
- * so it scrolls smoothly instead of jumping.
+ * One minute of history; gaps (no value) stay open. Right = now. `second` is drawn fainter (upload under download).
+ * The line is drawn one step to the right and glides left by that step every second, so it scrolls smoothly instead of jumping.
  */
-function Trend({ values, max, color, tick }: { values: number[]; max: number; color: string; tick: number }) {
+function Trend({ values, second, max, color, tick }: { values: number[]; second?: number[]; max: number; color: string; tick: number }) {
   const w = 160;
   const h = 22;
   const step = w / (HISTORY - 2);
-  const offset = HISTORY - values.length;
-  let d = "";
-  let pen = false;
-  values.forEach((v, i) => {
-    if (!Number.isFinite(v)) {
-      pen = false;
-      return;
-    }
-    const x = (offset + i) * step;
-    const y = h - 2 - (Math.min(v, max) / max) * (h - 4);
-    d += `${pen ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
-    pen = true;
-  });
+  const path = (vals: number[]) => {
+    const offset = HISTORY - vals.length;
+    let d = "";
+    let pen = false;
+    vals.forEach((v, i) => {
+      if (!Number.isFinite(v)) {
+        pen = false;
+        return;
+      }
+      const x = (offset + i) * step;
+      const y = h - 2 - (Math.min(v, max) / max) * (h - 4);
+      d += `${pen ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
+      pen = true;
+    });
+    return d;
+  };
+  const line = (d: string, opacity: number, key: string) => (
+    <path
+      // New value → new animation (key); before that the line sits one step to the right.
+      key={`${key}${tick}`}
+      className="trend-scroll"
+      d={d}
+      fill="none"
+      stroke={color}
+      strokeOpacity={opacity}
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+      strokeLinecap="round"
+      vectorEffect="non-scaling-stroke"
+      style={{ ["--step" as string]: `${step}px` }}
+    />
+  );
   return (
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-[22px] min-w-0 flex-1 overflow-hidden">
       <line x1="0" x2={w} y1={h - 1} y2={h - 1} stroke="var(--color-separator)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-      <path
-        // New value → new animation (key); before that the line sits one step to the right.
-        key={tick}
-        className="trend-scroll"
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeOpacity="0.8"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        vectorEffect="non-scaling-stroke"
-        style={{ ["--step" as string]: `${step}px` }}
-      />
+      {second && line(path(second), 0.35, "b")}
+      {line(path(values), 0.8, "a")}
     </svg>
   );
 }

@@ -1,6 +1,7 @@
 import { createStore } from "../lib/store";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
+import type { ColorScheme } from "../features/system/levels";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -62,6 +63,8 @@ export interface Settings {
   presentation: { manual: boolean; auto: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
+  /** Hardware tool: colours of the readings, the GPU shown (adapter name, "" = automatic: most VRAM), process ranking. */
+  system: { colors: ColorScheme; gpu: string; sort: "cpu" | "mem" };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -111,6 +114,7 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
+  system: { colors: "calm", gpu: "", sort: "cpu" },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -168,6 +172,7 @@ settings.set((s) => {
     units: { ...defaults.units, ...s.units },
     presentation: { ...defaults.presentation, ...s.presentation },
     updates: { ...defaults.updates, ...s.updates },
+    system: { ...defaults.system, ...s.system },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
   };
