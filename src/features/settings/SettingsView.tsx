@@ -430,6 +430,12 @@ function General() {
   );
 }
 
+const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string][] = [
+  ["power", "Ladegerät und Akku", "Beim Ein- und Ausstecken, Akku bei 20 und 10 %"],
+  ["net", "Netzwerk", "Wenn das Internet wegfällt und zurückkommt"],
+  ["bt", "Bluetooth-Kopfhörer", "Beim Verbinden, mit Akku, wenn sie ihn melden"],
+];
+
 /** Where and when the notch shows up. */
 function Display() {
   const s = settings.use();
@@ -506,6 +512,12 @@ function Display() {
       <Row label={t("Hinweis bei Kontingent 70 und 90 %")} hint={t("Braucht den Teil AI-Nutzung")}>
         <Switch label={t("Hinweis bei Kontingent 70 und 90 %")} checked={s.closed.quotaAlerts} onChange={(quotaAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, quotaAlerts } }))} />
       </Row>
+      <Row label={t("Statusmeldungen")} />
+      {statusAlerts.map(([k, label, hint]) => (
+        <Row key={k} label={t(label)} hint={t(hint)}>
+          <Switch label={t(label)} checked={s.closed.statusAlerts[k]} onChange={(v) => updateSettings((cur) => ({ closed: { ...cur.closed, statusAlerts: { ...cur.closed.statusAlerts, [k]: v } } }))} />
+        </Row>
+      ))}
       <Row label={t("Fokus-Modus")} hint={t("Klicks gehen durch. 3× schnell auf die Notch klicken schaltet um – oder im Tray-Menü.")}>
         <Switch label={t("Fokus-Modus")} checked={focus} onChange={setFocusMode} />
       </Row>
