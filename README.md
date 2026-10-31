@@ -62,7 +62,7 @@ Short notices appear over the row: a finished timer stays until you dismiss it, 
 - **Ask** is a chat with Claude, ChatGPT, OpenRouter or any OpenAI-compatible endpoint, with streaming and adjustable reasoning effort.
 - **AI usage** shows your subscription limits for Claude, ChatGPT, Antigravity and Cursor.
 - **Weather** gives current conditions and a 7-day forecast through Open-Meteo. No API key needed.
-- **Portfolio** connects to Trading 212 and shows profit and loss and a history chart, live or in demo mode. The app only reads, it never trades.
+- **Portfolio** combines Trading 212, Kraken, Coinbase, Binance, Bitpanda, eToro, Interactive Brokers and holdings entered by hand in one base currency, with profit and loss per account and in total and a history chart. The app only reads, it never trades or moves funds.
 - **Discord** shows your current voice call with speaking members and buttons for mute, deafen and hang up. In the closed notch, a green equalizer plays while someone talks.
 
 ### Local and offline
@@ -120,7 +120,7 @@ Every integration is optional. Tools you don't connect simply stay out of your w
 
 **AI usage.** Nothing to enter. If you are signed in to Claude Code, the Codex CLI, the Antigravity CLI (`agy`) or Cursor on this PC, Crest reads their existing local login and shows your limits. For Antigravity it asks the CLI itself and never touches its login.
 
-**Portfolio.** In Trading 212 go to Settings, API (Beta) and create a key with permission for account data and portfolio. Nothing more is required. Paste key and secret under **Connections** and choose live or demo account.
+**Portfolio.** Under **Connections** pick the base currency and set up each account with a key that can only read; each provider lists the exact rights to tick (for Trading 212: account data and portfolio; Kraken: Query Funds and Query Ledger Entries; Coinbase: an ECDSA key with View only; Binance: Enable Reading only; Bitpanda: Balances; eToro: a Read key; Interactive Brokers: a Flex Web Service token and an Activity Flex Query with Open Positions and Cash Report). Coins entered by hand are priced by CoinGecko; stocks and ETFs entered by hand use the price you type, since there is no free documented stock quote source. Degiro, Trade Republic and Scalable Capital have no official API and are not supported.
 
 **Discord.** Discord only hands out voice permissions to your own application:
 
@@ -137,7 +137,7 @@ Crest has no account, no server of its own, no analytics and no tracking. Everyt
 
 - **Keys and secrets** are stored in the Windows Credential Manager, never in a plain file, and they are never sent back to the interface.
 - **The vault** lives in one file encrypted with Windows DPAPI, readable only under your Windows account. The PIN is checked in the app's backend, not in the interface, and 2FA keys never leave the backend. With Windows Hello turned on, secrets are additionally sealed with AES-256-GCM under a TPM-backed Windows Hello key.
-- **Integrations talk directly to their own service** and nowhere else: Ask to the AI provider you chose, Portfolio to Trading 212, Discord to the Discord app on your PC (and discord.com for the sign-in), AI usage to the provider you are signed in to, Weather to Open-Meteo (plus an IP-based city lookup unless you picked a city). If you don't set an integration up, it makes no requests.
+- **Integrations talk directly to their own service** and nowhere else: Ask to the AI provider you chose, Portfolio to the brokers you set up plus CoinGecko and the ECB rates at frankfurter.dev for prices (no account data is sent there, only coin symbols and currency codes), Discord to the Discord app on your PC (and discord.com for the sign-in), AI usage to the provider you are signed in to, Weather to Open-Meteo (plus an IP-based city lookup unless you picked a city). If you don't set an integration up, it makes no requests.
 - **Updates.** Once a day the app makes a single anonymous request to this repository's public release page to check for a new version. No personal data is sent. If an update exists, a dot appears on the gear icon and **Settings → General → Updates** shows it. Nothing is downloaded until you click **Update now**; the app then installs the update and restarts. Every update is cryptographically signed and verified before it is installed. You can turn the daily check off in the same place.
 
 ## Development
