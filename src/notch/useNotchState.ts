@@ -35,6 +35,12 @@ export function togglePin() {
   pinned.set((p) => !p);
 }
 
+/*
+ * The pointer is on a button of a closed-notch notice (snooze, done, dismiss), or has just used one. Hovering
+ * must not open the notch then, or the button would vanish before the click. Cleared when the pointer leaves.
+ */
+export const noticeHover = createStore(false);
+
 /**
  * Notch state machine:
  *
@@ -62,7 +68,10 @@ export function useNotchState() {
   const later = useCallback(
     (ms: number, s: NotchStatus) => {
       window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(() => setStatus(s), ms);
+      timer.current = window.setTimeout(() => {
+        if (s === "open" && statusRef.current === "peek" && noticeHover.get()) return;
+        setStatus(s);
+      }, ms);
     },
     [setStatus],
   );
@@ -108,6 +117,7 @@ export function useNotchState() {
 
   const onPointerLeave = useCallback(() => {
     hovering.current = false;
+    noticeHover.set(false);
     window.clearTimeout(timer.current);
     if (statusRef.current === "peek") setStatus("closed");
     else if (statusRef.current === "open" && mayAutoClose()) later(timing.leaveClose, "closed");
@@ -120,6 +130,16 @@ export function useNotchState() {
         if (!hovering.current && statusRef.current === "open" && mayAutoClose()) {
           later(timing.leaveClose, "closed");
         }
+      }),
+    [later],
+  );
+
+  // Off a notice button but still on the notch (peeking) → the hover delay starts again.
+  useEffect(
+    () =>
+      noticeHover.subscribe(() => {
+        const s = settings.get();
+        if (!noticeHover.get() && hovering.current && statusRef.current === "peek" && s.openMode === "hover") later(hoverDelayMs[s.hoverDelay], "open");
       }),
     [later],
   );

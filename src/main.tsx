@@ -17,6 +17,8 @@ import { startGamingWatch } from "./features/system/gaming";
 import { startStatusWatch } from "./features/status/store";
 import { startDiscord } from "./features/discord/store";
 import { startUpdateWatch } from "./lib/update";
+import { startTodoReminders } from "./features/todos/store";
+import { startWaterReminders } from "./features/water/store";
 import { showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
 
@@ -31,6 +33,8 @@ startGamingWatch();
 startStatusWatch();
 startDiscord();
 startUpdateWatch();
+startTodoReminders();
+startWaterReminders();
 
 // Send display settings (monitor, fullscreen, offset, window top, gaming) to Rust on start and on every change.
 // The window top follows the style, the capsule's y, focus mode and the monitor once it has loaded.

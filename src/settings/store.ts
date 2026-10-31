@@ -2,6 +2,7 @@ import { createStore } from "../lib/store";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
 import { normalizeLook, type TimerLook } from "../features/timer/looks";
+import { WATER_DEFAULTS, normalizeWater, type WaterConfig } from "../features/water/water";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -65,6 +66,8 @@ export interface Settings {
   updates: { auto: boolean };
   /** Look of the big countdown in the Timer tool and the detached timer window. */
   timer: { look: TimerLook };
+  /** To-do reminders (sound), the water reminder and the quote line in Overview. */
+  productivity: { reminderSound: boolean; quotes: boolean; water: WaterConfig };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -84,9 +87,11 @@ export const TOOL_IDS = [
   "system",
   "discord",
   "vault",
+  "water",
+  "scratchpad",
 ] as const;
 
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault"]);
+const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad"]);
 
 const defaults: Settings = {
   openMode: "hover",
@@ -115,6 +120,7 @@ const defaults: Settings = {
   presentation: { manual: false, auto: true },
   updates: { auto: true },
   timer: { look: "clean" },
+  productivity: { reminderSound: true, quotes: false, water: WATER_DEFAULTS },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -173,6 +179,7 @@ settings.set((s) => {
     presentation: { ...defaults.presentation, ...s.presentation },
     updates: { ...defaults.updates, ...s.updates },
     timer: { look: normalizeLook(s.timer?.look) },
+    productivity: { ...defaults.productivity, ...s.productivity, water: normalizeWater(s.productivity?.water) },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
   };

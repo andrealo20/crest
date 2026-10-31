@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowsOutSimple,
   Check,
+  Code,
   Copy,
   File,
   FileArchive,
@@ -29,6 +30,7 @@ import { clipboard, useClipboard, type ClipItem, type ClipPreview } from "../../
 import { Redacted, Segmented } from "../../ui/controls";
 import { usePresenting } from "../privacy/store";
 import { t } from "../../i18n";
+import { isCode } from "./code";
 
 const kindIcon: Record<ClipItem["kind"], Icon> = {
   text: TextAa,
@@ -37,10 +39,11 @@ const kindIcon: Record<ClipItem["kind"], Icon> = {
   files: Files,
 };
 
-type Filter = "all" | "text" | "link" | "image" | "files";
+type Filter = "all" | "text" | "code" | "link" | "image" | "files";
 const filters: { value: Filter; label: string }[] = [
   { value: "all", label: "Alle" },
   { value: "text", label: "Text" },
+  { value: "code", label: "Code" },
   { value: "link", label: "Links" },
   { value: "image", label: "Bilder" },
   { value: "files", label: "Dateien" },
@@ -66,7 +69,14 @@ export function ClipboardView() {
   const [copied, setCopied] = useState<number | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [previewId, setPreviewId] = useState<number | null>(null);
-  const items = filter === "all" ? all : all.filter((i) => i.kind === filter || (filter === "image" && !!i.thumbnail));
+  const code = useCodeIds(all);
+  // Text and Code split the text entries between them.
+  const items =
+    filter === "all"
+      ? all
+      : all.filter((i) =>
+          filter === "code" ? code.has(i.id) : filter === "text" ? i.kind === "text" && !code.has(i.id) : i.kind === filter || (filter === "image" && !!i.thumbnail),
+        );
   const hidden = usePresenting();
   const preview = usePreview(hidden ? null : previewId);
 
@@ -138,6 +148,7 @@ export function ClipboardView() {
             >
               <Card
                 item={item}
+                code={code.has(item.id)}
                 now={now}
                 hidden={hidden}
                 copied={copied === item.id}
@@ -244,9 +255,9 @@ function PreviewPane({ preview, onCopy, onClose }: { preview: LoadedPreview; onC
   );
 }
 
-function Card(props: { item: ClipItem; now: number; hidden: boolean; copied: boolean; selected: boolean; onClick: () => void }) {
+function Card(props: { item: ClipItem; code: boolean; now: number; hidden: boolean; copied: boolean; selected: boolean; onClick: () => void }) {
   const { item, now, copied, hidden } = props;
-  const KindIcon = kindIcon[item.kind];
+  const KindIcon = props.code ? Code : kindIcon[item.kind];
   // Images and copied image files fill the card (not in presentation mode).
   const isImage = !!item.thumbnail && !hidden;
 
@@ -273,7 +284,7 @@ function Card(props: { item: ClipItem; now: number; hidden: boolean; copied: boo
         </span>
       </div>
 
-      {hidden ? <Redacted lines={3} className="relative" /> : <Body item={item} />}
+      {hidden ? <Redacted lines={3} className="relative" /> : <Body item={item} code={props.code} />}
 
       <AnimatePresence>
         {copied && (
@@ -292,7 +303,7 @@ function Card(props: { item: ClipItem; now: number; hidden: boolean; copied: boo
   );
 }
 
-function Body({ item }: { item: ClipItem }) {
+function Body({ item, code }: { item: ClipItem; code: boolean }) {
   switch (item.kind) {
     case "image":
       return <p className="relative text-caption font-medium text-label-2 tabular">{item.text}</p>;
@@ -317,6 +328,7 @@ function Body({ item }: { item: ClipItem }) {
       );
     }
     default:
+      if (code) return <p className="relative line-clamp-4 font-mono text-[11px] leading-[14px] whitespace-pre text-label-2">{item.text}</p>;
       return <p className="relative line-clamp-3 text-footnote text-label-2 [overflow-wrap:anywhere]">{item.text}</p>;
   }
 }
@@ -351,6 +363,11 @@ function splitUrl(url: string): { host: string; rest: string } {
   } catch {
     return { host: url, rest: "" };
   }
+}
+
+/** Ids of the text entries that look like code; each text is checked once per history change. */
+function useCodeIds(items: ClipItem[]): Set<number> {
+  return useMemo(() => new Set(items.filter((i) => i.kind === "text" && isCode(i.text)).map((i) => i.id)), [items]);
 }
 
 function useNow(interval: number): number {
