@@ -1,0 +1,33 @@
+// Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck.Core/TrackNotice.cs (track gate) and MainWindow.xaml.cs (DetectThresholds).
+// Rules for the closed notch's notices: when a quota crosses a level, when a new track may show its title, and which notice wins the row. Pure, so the row only has to ask.
+import type { UsageProvider } from "../../platform/services";
+
+export const QUOTA = { warning: 70, critical: 90, showMs: 5000 } as const;
+export const TRACK = { armMs: 5000, showMs: 4000 } as const;
+
+export function quotaLevel(used: number): 0 | 1 | 2 { return used >= QUOTA.critical ? 2 : used >= QUOTA.warning ? 1 : 0; }
+
+export interface QuotaRise { provider: string; kind: string; used: number; resetsAt: number | null }
+export interface QuotaTracker { seeded: boolean; levels: Map<string, number> }
+export function newQuotaTracker(): QuotaTracker { return { seeded: false, levels: new Map() }; }
+
+export function detectRise(tracker: QuotaTracker, providers: UsageProvider[]): QuotaRise | null {
+  // TODO(human): skip providers with an error or no windows; key each window as `provider:kind`; a rise is
+  // `tracker.seeded && tracker.levels.has(key) && level > prev`; always store the new level; among rises with level > 0
+  // return the one with the highest used percent (as a QuotaRise); set `tracker.seeded = true` after the first pass.
+  void tracker; void providers; // placeholder so noUnusedParameters passes until the body exists, delete with the TODO
+  return null;
+}
+
+// A track change shows its title only if playback starts within armMs of being armed (a song started by hand later does not).
+export interface TrackGate { until: number | null }
+export function armTrack(gate: TrackGate, now: number, live: boolean): void { gate.until = live ? now + TRACK.armMs : null; }
+export function observeTrack(gate: TrackGate, playing: boolean, now: number): boolean {
+  if (gate.until === null || !playing) return false;
+  const until = gate.until;
+  gate.until = null;
+  return now <= until;
+}
+
+export type NoticeKind = "timer" | "quota" | "track";
+export function topNotice(active: Record<NoticeKind, boolean>): NoticeKind | null { return active.timer ? "timer" : active.quota ? "quota" : active.track ? "track" : null; }
