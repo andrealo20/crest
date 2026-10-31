@@ -1,5 +1,39 @@
 [
   {
+    "version": "0.2.0",
+    "date": "2026-10-31",
+    "items": [
+      {
+        "de": "Die geschlossene Notch gibt es als Notch, Kapsel oder Linie",
+        "en": "The closed notch comes as a notch, a capsule or a line"
+      },
+      {
+        "de": "Die Kapsel lässt sich senkrecht frei verschieben und rastet an Rändern und Taskleiste ein",
+        "en": "The capsule moves freely up and down and snaps to the edges and the taskbar"
+      },
+      {
+        "de": "Eine Zeile zeigt Cover, Timer, Discord-Anruf, KI-Kontingent, Titel, CPU, RAM, GPU, Equalizer und Uhr",
+        "en": "A row shows cover, timer, Discord call, AI quota, song title, CPU, RAM, GPU, equalizer and clock"
+      },
+      {
+        "de": "Auswahl und Reihenfolge der Teile stehen in Einstellungen, Anzeige; was nicht passt, läuft im Karussell",
+        "en": "Choose and reorder the parts in Settings, Display; what does not fit rotates in a carousel"
+      },
+      {
+        "de": "Hinweise über der Zeile: Timer abgelaufen, Kontingent bei 70 % und 90 %, neuer Song",
+        "en": "Notices over the row: timer finished, quota at 70% and 90%, new song"
+      },
+      {
+        "de": "Der Spielmodus ergänzt FPS in den Anzeigen, statt die Notch zu überdecken",
+        "en": "Gaming mode adds FPS to the readings instead of covering the notch"
+      },
+      {
+        "de": "Die Oberfläche ist nur noch auf Englisch",
+        "en": "The interface is English only"
+      }
+    ]
+  },
+  {
     "version": "0.1.0",
     "date": "2026-10-31",
     "items": [

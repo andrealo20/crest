@@ -22,19 +22,30 @@ Crest sits at the top of your screen as a small notch, stays out of the way unti
 
 Inside: music controls with a live equalizer, a vault for passwords and 2FA codes, live weather, your Discord call, your portfolio, an AI chat (Claude, ChatGPT and more) with your usage limits, clipboard history, a file shelf, a file and unit converter, timers, to-dos and notes, live hardware stats with FPS for games, and privacy dots for mic, camera and screen recording.
 
-Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0. Version 0.1 is that app under a new name, with the Antigravity quota in place of the retired Gemini CLI. Coming next, roughly in this order:
+Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0. Version 0.1 is that app under a new name, with the Antigravity quota in place of the retired Gemini CLI. Version 0.2 adds the closed notch styles and the row of live readings. Coming next, roughly in this order:
 
-1. A choice of closed look (notch, floating capsule or line) and a closed notch that shows the clock, music, AI quota rings and CPU and RAM at a glance.
-2. Short status alerts: volume and brightness, Caps Lock and keyboard language, charger, Wi-Fi and Bluetooth headphones.
-3. Synced lyrics, shuffle and repeat, and a choice of player.
-4. To-dos with projects and reminders, a water reminder, timer styles, an app launcher, GitHub activity and a code scratchpad.
-5. Screenshots and screen recording with system audio and microphone.
-6. A PowerShell prompt in the notch.
-7. More AI usage sources, with tokens and cost per day and per model.
-8. A deeper system monitor: cores, network, processes, drives, temperatures, power and battery.
-9. More brokers for the portfolio, read only.
+1. Short status alerts: volume and brightness, Caps Lock and keyboard language, charger, Wi-Fi and Bluetooth headphones.
+2. Synced lyrics, shuffle and repeat, and a choice of player.
+3. To-dos with projects and reminders, a water reminder, timer styles, an app launcher, GitHub activity and a code scratchpad.
+4. Screenshots and screen recording with system audio and microphone.
+5. A PowerShell prompt in the notch.
+6. More AI usage sources, with tokens and cost per day and per model.
+7. A deeper system monitor: cores, network, processes, drives, temperatures, power and battery.
+8. More brokers for the portfolio, read only.
 
 ## What it does
+
+### The closed notch
+
+Pick the closed look under **Settings → Display**.
+
+- **Notch** hugs the top edge like a hardware notch.
+- **Capsule** is a pill you can drag up and down to any height. It snaps to the screen edges and the taskbar.
+- **Line** is a thin bar with a progress bar for the current song.
+
+All three can show a row of parts, centred and in the order you choose: cover, timer, Discord call, AI quota rings (one colour per provider), song title, CPU, RAM and GPU readings, equalizer and clock. Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel.
+
+Short notices appear over the row: a finished timer stays until you dismiss it, a quota alert at 70% and 90% shows for 5 seconds, and a new song for 4 seconds.
 
 ### Windows and system
 
@@ -43,7 +54,7 @@ Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchB
 - **Clipboard** keeps a history of text, links, images and files, with filters and previews. Password managers are excluded on purpose, and nothing is written to disk.
 - **Shelf** is a parking spot for files. Drop them onto the notch or press Ctrl + V, then open, copy or reveal them later.
 - **Hardware** shows live CPU, RAM, GPU, VRAM and ping, with history that keeps recording while the notch is closed.
-- **Gaming mode** puts FPS, CPU, GPU and RAM into the closed notch, always or only while a fullscreen app runs. FPS works for DirectX, OpenGL and Vulkan games. Windows only allows this for members of the *Performance Log Users* group: click **Settings → Display → Unlock FPS** once, confirm the Windows prompt, then sign out and back in. A lock icon in the notch means this step is still missing.
+- **Gaming mode** adds FPS to the readings in the closed notch, always or only while a fullscreen app runs. FPS works for DirectX, OpenGL and Vulkan games. Windows only allows this for members of the *Performance Log Users* group: click **Settings → Display → Unlock FPS** once, confirm the Windows prompt, then sign out and back in. A lock icon in the notch means this step is still missing.
 - **Privacy dots** turn green when the microphone or camera is in use and red while the screen is being recorded, like on an iPhone.
 
 ### Services
@@ -99,7 +110,7 @@ The installer is not code-signed yet, so Windows SmartScreen may warn on first l
 
 ## Settings
 
-Settings are grouped into General, Display, Tools, Timer, AI and Connections. There you can reorder (drag) or hide tools, pick the monitor, hide the notch automatically during fullscreen apps, enable autostart and switch between German and English.
+Settings are grouped into General, Display, Tools, Timer, AI and Connections. There you can reorder (drag) or hide tools, pick the monitor, hide the notch automatically during fullscreen apps, and enable autostart. The interface is in English.
 
 ### Setting up the integrations
 
@@ -180,5 +191,6 @@ scripts/        Helper scripts such as the version bump and the i18n check
 Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) by Linux5Real, forked from version 1.6.0 on 31 October 2026. The commit history lists every change since then.
 
 - The Antigravity quota reader comes from an upstream pull request by [Fraustiz](https://github.com/Linux5Real/L4-Windows-NotchBar/pull/11).
+- The layout of the collapsed row, the carousel timing and the capsule placement rules are translated from [BrimDeck](https://github.com/MoFeng2223/BrimDeck) (Apache-2.0).
 - The notch proportions were derived from [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT).
 - The design follows Apple's Dynamic Island and the macOS app OmniNotch. Crest is not affiliated with Apple or OmniNotch.
