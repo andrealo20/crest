@@ -29,6 +29,9 @@ export const secrets = {
   },
 };
 
+// Kept here for code that imports it from services (the portfolio bridge owns it).
+export { localDate } from "./portfolio";
+
 // ---------- AI usage ----------
 
 export type UsageId = "claude" | "codex" | "gemini" | "cursor";
