@@ -58,12 +58,13 @@ const syncDisplay = () => {
   const key = `${rules}|${display.monitor}|${display.offset}|${placementKey()}|${gaming.mode}`;
   if (key === lastDisplay) return;
   lastDisplay = key;
-  applyDisplay();
-  // The monitor's size in CSS px changes with the panel scale: read it again once Rust has the new one (same command queue).
+  // The monitor's size in CSS px changes with the panel scale: until it is read again (once Rust has the new one, same command queue)
+  // the line and the window top are converted from the old scale's metrics.
   if (behavior.scale !== lastScale) {
+    applyDisplay(undefined, undefined, undefined, behavior.scale / lastScale);
     lastScale = behavior.scale;
     reloadMonitor();
-  }
+  } else applyDisplay();
 };
 syncDisplay();
 settings.subscribe(syncDisplay);

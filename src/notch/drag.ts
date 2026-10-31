@@ -46,11 +46,15 @@ export function windowY(y = pageCss(settings.get().display.y)): number {
 /** What Rust places the window by, beyond the saved display settings; for noticing changes. */
 export const placementKey = () => `${windowY()}|${edgeOf(shownStyle(), settings.get().dock)}|${dockLine()}`;
 
-/** Sends display settings to Rust, optionally with an offset, a capsule top `y` and a dock that aren't saved yet (Rust gets the window's top from `windowY`). */
-export function applyDisplay(offset = pageCss(settings.get().display.offset), y?: number, dock = settings.get().dock) {
-  const s = settings.get(), b = s.behavior, style = shownStyle(s), edge = edgeOf(style, dock), line = dockLine(dock, style);
+/**
+ * Sends display settings to Rust, optionally with an offset, a capsule top `y` and a dock that aren't saved yet (Rust gets the window's top from `windowY`).
+ * `stale`: right after a scale change the monitor metrics are still in CSS px of the old scale; this is new scale / old scale, and the line and
+ * the window top worked out from them are converted to the new one.
+ */
+export function applyDisplay(offset = pageCss(settings.get().display.offset), y?: number, dock = settings.get().dock, stale = 1) {
+  const s = settings.get(), b = s.behavior, style = shownStyle(s), edge = edgeOf(style, dock), line = dockLine(dock, style) / stale;
   // On top the window's top is windowY (0 for the notch), or the edge of a taskbar on top it hangs from.
-  const top = style === "capsule" ? windowY(y) : edge === "top" ? line : 0;
+  const top = style === "capsule" ? windowY((y ?? pageCss(s.display.y)) * stale) / stale : edge === "top" ? line : 0;
   display.apply({ monitor: s.display.monitor, offset, y: top, gaming: s.gaming.mode !== "off", rules: { ...b.rules, apps: b.apps }, zoom: b.scale / 100, edge, line });
 }
 
