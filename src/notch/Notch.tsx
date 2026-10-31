@@ -27,6 +27,7 @@ import { findTab, settingsTab, tabs, type NotchTab } from "./tabs";
 import { holdOpen, pinned, togglePin, useNotchState, type NotchStatus } from "./useNotchState";
 import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
+import { useClosedInk, useThemedAccent } from "../features/themes/store";
 
 /** If the notch was closed at most this long, it reopens on the last used tool. */
 const RESUME_MS = 60_000;
@@ -51,6 +52,8 @@ export function Notch() {
   const tab = tabId === settingsTab.id ? settingsTab : (visible.find((t) => t.id === tabId) ?? visible[0] ?? tabs[0]);
   const np = useNowPlaying();
   const live = useLiveActivity();
+  const accent = useThemedAccent(np?.accent);
+  const closedInk = useClosedInk(np?.accent);
 
   // Like the Dynamic Island: opening jumps to the running activity's tool,
   // but only after a pause. Closed briefly (copying a key, grabbing a file) → you
@@ -183,7 +186,7 @@ export function Notch() {
     <div
       className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center transition-opacity duration-200"
       // In the browser the notch moves inside the window; natively the whole window moves (display.rs).
-      style={{ ["--accent" as string]: np?.accent, opacity: focus && !line ? 0.5 : 1, transform: isNative ? undefined : `translateX(${drag.offset}px)` }}
+      style={{ ["--accent" as string]: accent, opacity: focus && !line ? 0.5 : 1, transform: isNative ? undefined : `translateX(${drag.offset}px)` }}
     >
       {/* Hit zone: bigger than the visible shape (Fitts) and flush with the top edge, unless the capsule floats. */}
       <motion.div
@@ -202,9 +205,12 @@ export function Notch() {
         onClick={onClick}
       >
         <NotchShape geometry={shape} transition={transition} elevated={status === "open"}>
-          <AnimatePresence>{showRow && <CompactRow key="row" style={surface} covered={notice !== null} onWidth={setRowWidth} />}</AnimatePresence>
-          <AnimatePresence>{showNotices && <NoticeLayer key="notices" onWidth={setNoticeWidth} />}</AnimatePresence>
-          {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress />}
+          {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes). */}
+          <div data-theme-ink className="contents" style={closedInk}>
+            <AnimatePresence>{showRow && <CompactRow key="row" style={surface} covered={notice !== null} onWidth={setRowWidth} />}</AnimatePresence>
+            <AnimatePresence>{showNotices && <NoticeLayer key="notices" onWidth={setNoticeWidth} />}</AnimatePresence>
+            {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress />}
+          </div>
           {/* Closed, the dots are the row's last part; open or dimmed for focus there is no row, so they stand on their own. */}
           {(status === "open" || focus) && !line && !idleLine && <PrivacyDots />}
 
