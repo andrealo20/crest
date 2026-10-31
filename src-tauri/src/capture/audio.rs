@@ -158,12 +158,13 @@ fn drain(shared: &Shared, input: &Input, index: usize, mixer: &mut Mixer) -> Res
             input.capture.GetBuffer(&mut data, &mut frames, &mut flags, None, Some(&mut qpc))?;
             let n = frames as usize * AUDIO_CHANNELS as usize;
             let silent = flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 != 0 || data.is_null();
+            let lost = flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY.0 as u32 != 0;
             // Packets from inside a pause have no media time and are dropped.
             if let Some(t) = shared.clock.lock().unwrap().media(qpc as i64) {
                 if silent {
-                    mixer.add(index, to_frames(t, rate), &vec![0; n]);
+                    mixer.add(index, to_frames(t, rate), &vec![0; n], lost);
                 } else {
-                    mixer.add(index, to_frames(t, rate), std::slice::from_raw_parts(data as *const i16, n));
+                    mixer.add(index, to_frames(t, rate), std::slice::from_raw_parts(data as *const i16, n), lost);
                 }
             }
             input.capture.ReleaseBuffer(frames)?;

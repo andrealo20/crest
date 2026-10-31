@@ -173,7 +173,7 @@ pub fn run() {
         .run(|app, event| {
             // A recording still running when Crest quits is finished, so the file is complete.
             if let tauri::RunEvent::Exit = event {
-                capture::finish(app, None);
+                capture::finish_on_exit(app);
             }
         });
 }

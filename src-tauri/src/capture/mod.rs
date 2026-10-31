@@ -37,6 +37,8 @@ pub struct CaptureState {
     /// A recording is being set up (one to three seconds); the slot is filled only after,
     /// so pause, state and screenshots never wait on the setup.
     starting: AtomicBool,
+    /// A recording is being finished (audio flushed, file written).
+    stopping: AtomicBool,
 }
 
 impl CaptureState {
@@ -370,17 +372,21 @@ fn begin(app: &AppHandle, source: &str, fps: u32, mic: bool, system: bool, borde
     Ok(())
 }
 
+/// Async: resuming copies the held frame on the GPU and writes it, which must not run on the main thread.
 #[tauri::command]
-pub fn capture_pause(paused: bool, app: AppHandle) {
-    let state = app.state::<CaptureState>();
-    if let Some(r) = state.rec.lock().unwrap().as_ref() {
-        if paused {
-            r.recorder.shared.clock.lock().unwrap().pause(now());
-        } else {
-            r.recorder.shared.resume(now());
+pub async fn capture_pause(paused: bool, app: AppHandle) {
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<CaptureState>();
+        if let Some(r) = state.rec.lock().unwrap().as_ref() {
+            if paused {
+                r.recorder.shared.clock.lock().unwrap().pause(now());
+            } else {
+                r.recorder.shared.resume(now());
+            }
         }
-    }
-    emit(&app, current(&state));
+        emit(&app, current(&state));
+    })
+    .await;
 }
 
 #[tauri::command]
@@ -388,15 +394,45 @@ pub async fn capture_stop(app: AppHandle) {
     let _ = tauri::async_runtime::spawn_blocking(move || finish(&app, None)).await;
 }
 
+/// When Crest quits: finishes the recording, or waits for a start or stop already under way,
+/// at most EXIT_WAIT. Giving up is safe: the fragmented MP4 plays as far as it got.
+pub(crate) fn finish_on_exit(app: &AppHandle) {
+    const EXIT_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
+    let deadline = std::time::Instant::now() + EXIT_WAIT;
+    let state = app.state::<CaptureState>();
+    let busy = || state.starting.load(Ordering::SeqCst) || state.stopping.load(Ordering::SeqCst);
+    while state.starting.load(Ordering::SeqCst) && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    let (tx, rx) = std::sync::mpsc::channel();
+    let task = app.clone();
+    std::thread::spawn(move || {
+        finish(&task, None);
+        let _ = tx.send(());
+    });
+    let _ = rx.recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()));
+    while busy() && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
 /// Ends the recording (if any), writes the file and tells the frontend. `why`: the reason
-/// it ended on its own ("video"), None when asked to. Also called when Crest quits.
-pub(crate) fn finish(app: &AppHandle, why: Option<&'static str>) {
-    let Some(r) = app.state::<CaptureState>().rec.lock().unwrap().take() else { return };
+/// it ended on its own ("video"), None when asked to.
+fn finish(app: &AppHandle, why: Option<&'static str>) {
+    let state = app.state::<CaptureState>();
+    let r = {
+        let mut slot = state.rec.lock().unwrap();
+        let Some(r) = slot.take() else { return };
+        // Set under the lock, so a second caller that finds the slot empty can see a stop is running.
+        state.stopping.store(true, Ordering::SeqCst);
+        r
+    };
     let elapsed = r.recorder.shared.clock.lock().unwrap().elapsed(now()) / 10_000;
     if let Some(a) = r.audio {
         a.stop();
     }
     let finished = r.recorder.stop().is_ok();
+    // Checked after `stop`, which releases the writer and with it the file.
     // Fragmented MP4 still plays when it could not be finished: kept then ("partial"), removed only when unreadable ("save").
     let playable = finished || unsafe { MFCreateSourceReaderFromURL(&HSTRING::from(r.path.as_path()), None) }.is_ok();
     unsafe {
@@ -410,6 +446,7 @@ pub(crate) fn finish(app: &AppHandle, why: Option<&'static str>) {
     let failed = why.into_iter().chain(problem).collect();
     let path = playable.then(|| r.path.to_string_lossy().into_owned());
     emit(app, RecState { phase: "idle", elapsed_ms: elapsed, path, failed });
+    state.stopping.store(false, Ordering::SeqCst);
 }
 
 // ---------- Library ----------

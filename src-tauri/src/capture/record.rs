@@ -47,7 +47,8 @@ pub struct Shared {
 }
 
 struct Writer {
-    sink: IMFSinkWriter,
+    /// Taken (and released) when the recording stops, so the file is closed right after.
+    sink: Option<IMFSinkWriter>,
     video: u32,
     audio: Option<u32>,
     gpu: bool,
@@ -137,7 +138,7 @@ pub fn start(source: Source, path: &Path, fps: u32, audio: bool, border: bool, n
         let shared = Arc::new(Shared {
             clock: Mutex::new(Clock::new(now())),
             writer: Mutex::new(Writer {
-                sink,
+                sink: Some(sink),
                 video,
                 audio: audio_stream,
                 gpu,
@@ -149,7 +150,7 @@ pub fn start(source: Source, path: &Path, fps: u32, audio: bool, border: bool, n
                 pacer: Pacer::new(fps),
                 held: None,
                 last_video: None,
-                last_tick: 0,
+                last_tick: -1,
             }),
         });
 
@@ -176,7 +177,8 @@ pub fn start(source: Source, path: &Path, fps: u32, audio: bool, border: bool, n
                     r
                 });
                 // Device lost, encoder error: stop and say why, instead of recording nothing.
-                if result.is_err() {
+                // No frame waiting comes back as an error with a success code: not a failure.
+                if result.is_err_and(|e| e.code().is_err()) {
                     end(Some("video"));
                 }
             }
@@ -209,23 +211,29 @@ impl Recorder {
         let _ = self.session.Close();
         let _ = self.pool.Close();
         drop(self.item);
-        let mut w = self.shared.writer.lock().unwrap();
-        w.done = true;
-        unsafe { w.sink.Finalize() }
+        let sink = {
+            let mut w = self.shared.writer.lock().unwrap();
+            w.done = true;
+            w.held = None;
+            w.sink.take()
+        };
+        // The writer is released here, not when the last frame handler lets go of `shared`.
+        sink.map_or(Ok(()), |s| unsafe { s.Finalize() })
     }
 }
 
 impl Shared {
     fn on_frame(&self, frame: &windows::Graphics::Capture::Direct3D11CaptureFrame) -> Result<()> {
         let t = frame.SystemRelativeTime()?.Duration;
-        let (media, paused) = {
-            let clock = self.clock.lock().unwrap();
-            (clock.media(t), clock.paused())
-        };
+        // Writer first, then the clock (as in `resume`): a pause cannot end between reading it and holding the frame.
         let mut w = self.writer.lock().unwrap();
         if w.done {
             return Ok(());
         }
+        let (media, paused) = {
+            let clock = self.clock.lock().unwrap();
+            (clock.media(t), clock.paused())
+        };
         let content = frame.ContentSize()?;
         let content = (content.Width.max(0) as u32, content.Height.max(0) as u32);
         let access: IDirect3DDxgiInterfaceAccess = frame.Surface()?.cast()?;
@@ -240,16 +248,16 @@ impl Shared {
 
     /// Resumes the clock and writes the frame held during the pause at the resume point.
     pub fn resume(&self, now: i64) {
+        let mut w = self.writer.lock().unwrap();
         let media = {
             let mut clock = self.clock.lock().unwrap();
             clock.resume(now);
             clock.elapsed(now)
         };
-        let mut w = self.writer.lock().unwrap();
         if let (Some((texture, content)), false) = (w.held.take(), w.done) {
-            if w.pacer.admit(media) {
-                let _ = w.write_frame(&texture, content, media);
-            }
+            // Written whatever the pacer says, and the schedule restarts from it.
+            w.pacer.restart(media);
+            let _ = w.write_frame(&texture, content, media);
         }
     }
 
@@ -262,13 +270,15 @@ impl Shared {
             return;
         }
         w.last_tick = media;
-        let _ = unsafe { w.sink.SendStreamTick(w.video, media) };
+        if let Some(sink) = &w.sink {
+            let _ = unsafe { sink.SendStreamTick(w.video, media) };
+        }
     }
 
     /// Writes interleaved 16-bit stereo PCM at media time `time`.
     pub fn write_audio(&self, time: i64, samples: &[i16]) -> Result<()> {
         let w = self.writer.lock().unwrap();
-        let (Some(stream), false) = (w.audio, w.done) else { return Ok(()) };
+        let (Some(stream), Some(sink), false) = (w.audio, w.sink.as_ref(), w.done) else { return Ok(()) };
         if samples.is_empty() {
             return Ok(());
         }
@@ -284,7 +294,7 @@ impl Shared {
             sample.AddBuffer(&buffer)?;
             sample.SetSampleTime(time)?;
             sample.SetSampleDuration(super::math::to_time((samples.len() / AUDIO_CHANNELS as usize) as i64, AUDIO_RATE as i64))?;
-            w.sink.WriteSample(stream, &sample)
+            sink.WriteSample(stream, &sample)
         }
     }
 }
@@ -313,6 +323,10 @@ impl Writer {
     }
 
     fn write_frame(&mut self, src: &ID3D11Texture2D, content: (u32, u32), time: i64) -> Result<()> {
+        // Never behind a stream tick or the last frame: the writer needs rising timestamps.
+        if time <= self.last_tick || self.last_video.is_some_and(|last| time <= last) {
+            return Ok(());
+        }
         let (tw, th) = self.size;
         let (cw, ch) = copy_box(content, self.size);
         unsafe {
@@ -352,7 +366,8 @@ impl Writer {
             sample.AddBuffer(&buffer)?;
             sample.SetSampleTime(time)?;
             sample.SetSampleDuration(self.pacer.interval())?;
-            self.sink.WriteSample(self.video, &sample)?;
+            let Some(sink) = &self.sink else { return Ok(()) };
+            sink.WriteSample(self.video, &sample)?;
             self.last_video = Some(time);
             Ok(())
         }

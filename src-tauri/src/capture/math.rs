@@ -79,6 +79,11 @@ impl Pacer {
         self.interval
     }
 
+    /// A frame at `t` was written outside the schedule (the one held over a pause): continue from it.
+    pub fn restart(&mut self, t: i64) {
+        self.next = Some(t + self.interval);
+    }
+
     /// Keep a frame at media time `t`? A quarter interval early still counts, so a
     /// 60 Hz screen recorded at 30 fps keeps every second frame instead of drifting.
     pub fn admit(&mut self, t: i64) -> bool {
@@ -166,8 +171,8 @@ pub fn to_time(frames: i64, rate: i64) -> i64 {
 /// Mixes stereo 16-bit sources onto one timeline. A packet continues where the previous
 /// one ended while its timestamp is within 1 ms of that; beyond, it moves one frame
 /// toward the timestamp per packet, so a device clock that drifts from QPC is followed
-/// without audible jumps. Only a real gap (over 100 ms, a silent loopback sends nothing)
-/// jumps, and stays zero.
+/// without audible jumps. A real gap (over 20 ms: a silent loopback sends nothing) or a
+/// packet Windows marks as discontinuous jumps to its timestamp; the gap stays zero.
 pub struct Mixer {
     /// First frame not yet taken; `buf[0]` is that frame.
     emitted: i64,
@@ -179,12 +184,14 @@ pub struct Mixer {
 
 impl Mixer {
     pub fn new(sources: usize, rate: i64) -> Self {
-        Mixer { emitted: 0, buf: VecDeque::new(), next: vec![None; sources], band: rate / 1000, gap: rate / 10 }
+        Mixer { emitted: 0, buf: VecDeque::new(), next: vec![None; sources], band: rate / 1000, gap: rate / 50 }
     }
 
-    /// Adds interleaved stereo `samples` of `source`, stamped at frame `at`. Returns where they landed.
-    pub fn add(&mut self, source: usize, at: i64, samples: &[i16]) -> i64 {
+    /// Adds interleaved stereo `samples` of `source`, stamped at frame `at`; `discontinuity`: the
+    /// device says data was lost before it. Returns where they landed.
+    pub fn add(&mut self, source: usize, at: i64, samples: &[i16], discontinuity: bool) -> i64 {
         let at = match self.next[source] {
+            _ if discontinuity => at,
             Some(n) if (at - n).abs() <= self.band => n,
             Some(n) if (at - n).abs() <= self.gap => n + (at - n).signum(),
             _ => at,
@@ -301,6 +308,9 @@ mod tests {
         assert!(p.admit(50_000_000));
         assert!(!p.admit(50_100_000));
         assert!(p.admit(50_333_334));
+        p.restart(90_000_000);
+        assert!(!p.admit(90_100_000));
+        assert!(p.admit(90_333_334));
     }
 
     #[test]
@@ -329,23 +339,36 @@ mod tests {
     #[test]
     fn mixer_timeline() {
         let mut m = Mixer::new(2, 48_000);
-        m.add(0, 0, &[100, 100, 200, 200]);
+        m.add(0, 0, &[100, 100, 200, 200], false);
         // Jitter of a few frames snaps to the end of the last packet.
-        m.add(0, 3, &[300, 300]);
+        m.add(0, 3, &[300, 300], false);
         // The second source overlaps and adds up, with clipping.
-        m.add(1, 1, &[32_700, -32_700, 1_000, 1_000]);
+        m.add(1, 1, &[32_700, -32_700, 1_000, 1_000], false);
         let (from, s) = m.take(4);
         assert_eq!(from, 0);
         assert_eq!(s, vec![100, 100, 32_767, -32_500, 1_300, 1_300, 0, 0]);
         // Too late: frames before the taken point are dropped; a far jump leaves a silent gap.
-        m.add(0, 10_000, &[5, 5]);
+        m.add(0, 10_000, &[5, 5], false);
         let (from, s) = m.take(10_001);
         assert_eq!(from, 4);
         assert_eq!(s.len(), (10_001 - 4) * 2);
         assert_eq!(&s[s.len() - 2..], &[5, 5]);
         assert!(s[..s.len() - 2].iter().all(|&x| x == 0));
-        m.add(1, 0, &[9, 9]);
+        m.add(1, 0, &[9, 9], false);
         assert_eq!(m.take(10_002).1, vec![0, 0]);
+    }
+
+    #[test]
+    fn mixer_jumps_only_on_gaps_and_discontinuities() {
+        let mut m = Mixer::new(1, 48_000);
+        let p = [0i16; 960];
+        assert_eq!(m.add(0, 0, &p, false), 0);
+        // 15 ms late: under the 20 ms threshold, corrected one frame at a time.
+        assert_eq!(m.add(0, 480 + 720, &p, false), 481);
+        // 60 ms of nothing (a silent loopback): jumps to the timestamp.
+        assert_eq!(m.add(0, 961 + 2_880, &p, false), 3_841);
+        // Marked discontinuous: jumps even for 2 ms.
+        assert_eq!(m.add(0, 4_321 + 96, &p, true), 4_417);
     }
 
     #[test]
@@ -357,7 +380,7 @@ mod tests {
             let mut prev_end: Option<i64> = None;
             for k in 0..60_000i64 {
                 let stamp = (k as f64 * 480.0 / (1.0 + ppm / 1e6)).round() as i64;
-                let at = m.add(0, stamp, &packet);
+                let at = m.add(0, stamp, &packet, false);
                 if let Some(end) = prev_end {
                     assert!((at - end).abs() <= 1, "jump of {} frames at packet {k} ({ppm} ppm)", at - end);
                 }
