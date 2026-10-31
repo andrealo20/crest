@@ -12,11 +12,17 @@ export interface QuotaTracker { seeded: boolean; levels: Map<string, number> }
 export function newQuotaTracker(): QuotaTracker { return { seeded: false, levels: new Map() }; }
 
 export function detectRise(tracker: QuotaTracker, providers: UsageProvider[]): QuotaRise | null {
-  // TODO(human): skip providers with an error or no windows; key each window as `provider:kind`; a rise is
-  // `tracker.seeded && tracker.levels.has(key) && level > prev`; always store the new level; among rises with level > 0
-  // return the one with the highest used percent (as a QuotaRise); set `tracker.seeded = true` after the first pass.
-  void tracker; void providers; // placeholder so noUnusedParameters passes until the body exists, delete with the TODO
-  return null;
+  let risen: QuotaRise | null = null;
+  for (const p of providers) {
+    if (p.error || !p.windows.length) continue;
+    for (const w of p.windows) {
+      const key = `${p.id}:${w.kind}`, level = quotaLevel(w.usedPercent), prev = tracker.levels.get(key);
+      tracker.levels.set(key, level); // always stored, so a rise is only ever reported once per level step
+      if (tracker.seeded && prev !== undefined && level > prev && level > 0 && (!risen || w.usedPercent > risen.used)) risen = { provider: p.id, kind: w.kind, used: w.usedPercent, resetsAt: w.resetsAt };
+    }
+  }
+  tracker.seeded = true; // the first pass only records levels, so opening the app at 95% does not alert
+  return risen;
 }
 
 // A track change shows its title only if playback starts within armMs of being armed (a song started by hand later does not).
