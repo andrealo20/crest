@@ -20,6 +20,10 @@ const USAGE: &str = "Usage:
   crest-notify <title> [-b|--body <text>] [-s|--source <name>] [-r|--replace <key>] [-p|--progress <0-100>]
   crest-notify run [-s <name>] [-r <key>] -- <command> [args...]
 
+  -j, --json <text|->  take the body from an agent event's JSON (\"message\" or
+                       \"last-assistant-message\"); - reads it from standard input.
+                       --body is used when the JSON has neither.
+
 Sends a notice to Crest. The same --replace key updates the notice shown before.
 Exit codes: 0 delivered, 1 usage error, 2 rejected, 3 Crest not running or notices off.
 `run` returns the command's exit code.";
@@ -27,7 +31,8 @@ Exit codes: 0 delivered, 1 usage error, 2 rejected, 3 Crest not running or notic
 #[derive(Debug, PartialEq)]
 enum Command {
     Help,
-    Send(Request),
+    /// The request and a --json value ("-" = standard input) to take the body from.
+    Send(Request, Option<String>),
     Run(Request, Vec<String>),
 }
 
@@ -35,6 +40,7 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
     let mut r = Request::default();
     let mut words: Vec<String> = Vec::new();
     let mut run = false;
+    let mut json = None;
     let mut i = 0;
     let value = |i: usize, flag: &str| args.get(i + 1).cloned().ok_or_else(|| format!("{flag} needs a value"));
     while i < args.len() {
@@ -51,6 +57,10 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
             }
             "-b" | "--body" => {
                 r.body = Some(value(i, a)?);
+                i += 1;
+            }
+            "-j" | "--json" => {
+                json = Some(value(i, a)?);
                 i += 1;
             }
             "-s" | "--source" => {
@@ -80,10 +90,29 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
     if !words.is_empty() {
         r.title = Some(words.join(" "));
     }
-    if r.title.is_none() && r.body.is_none() {
+    if r.title.is_none() && r.body.is_none() && json.is_none() {
         return Err("a title or --body is needed".into());
     }
-    Ok(Command::Send(r))
+    Ok(Command::Send(r, json))
+}
+
+/// The --json value: the text itself, or standard input for "-" (a hook writes its event there and closes it).
+fn read_json(spec: &str) -> Option<String> {
+    if spec != "-" {
+        return Some(spec.to_string());
+    }
+    let mut text = String::new();
+    std::io::stdin().take(notify_wire::MAX_FRAME as u64 * 16).read_to_string(&mut text).ok()?;
+    Some(text)
+}
+
+/// The message in an agent's event: `message` (Claude Code's Notification hook) or `last-assistant-message` (Codex's
+/// notify). None when there is neither, so the --body given as a fallback stays.
+fn body_from_json(text: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    ["message", "last-assistant-message", "last_assistant_message"]
+        .iter()
+        .find_map(|k| value.get(k).and_then(|v| v.as_str()).map(str::trim).filter(|s| !s.is_empty()).map(str::to_string))
 }
 
 /// Sends one request and waits for the reply; the exit code for the outcome.
@@ -189,7 +218,16 @@ fn main() -> ExitCode {
             println!("{USAGE}");
             ExitCode::SUCCESS
         }
-        Ok(Command::Send(r)) => ExitCode::from(send(&r)),
+        Ok(Command::Send(mut r, json)) => {
+            if let Some(text) = json.and_then(|j| read_json(&j)).and_then(|t| body_from_json(&t)) {
+                r.body = Some(text);
+            }
+            if r.title.is_none() && r.body.is_none() {
+                eprintln!("crest-notify: the JSON had no message and no title or --body was given");
+                return ExitCode::from(1);
+            }
+            ExitCode::from(send(&r))
+        }
         Ok(Command::Run(r, command)) => run(r, command),
         Err(e) => {
             eprintln!("crest-notify: {e}\n\n{USAGE}");
@@ -208,12 +246,12 @@ mod tests {
 
     #[test]
     fn send_args() {
-        let Ok(Command::Send(r)) = parse_args(&args(&["Build", "done", "-b", "ok", "-r", "b1", "-p", "40"])) else { panic!() };
+        let Ok(Command::Send(r, None)) = parse_args(&args(&["Build", "done", "-b", "ok", "-r", "b1", "-p", "40"])) else { panic!() };
         assert_eq!(r.title.as_deref(), Some("Build done"));
         assert_eq!(r.body.as_deref(), Some("ok"));
         assert_eq!(r.replace.as_deref(), Some("b1"));
         assert_eq!(r.progress, Some(40.0));
-        assert!(matches!(parse_args(&args(&["--body", "only"])), Ok(Command::Send(_))));
+        assert!(matches!(parse_args(&args(&["--body", "only"])), Ok(Command::Send(_, None))));
         assert_eq!(parse_args(&args(&["-h"])), Ok(Command::Help));
     }
 
@@ -234,6 +272,18 @@ mod tests {
         assert_eq!(r.source.as_deref(), Some("CI"));
         assert_eq!(cmd, args(&["cargo", "test", "-q"]));
         // A word "run" later is part of the title.
-        assert!(matches!(parse_args(&args(&["Tests", "run"])), Ok(Command::Send(_))));
+        assert!(matches!(parse_args(&args(&["Tests", "run"])), Ok(Command::Send(_, None))));
+    }
+
+    #[test]
+    fn agent_json() {
+        // Codex appends its event as the last argument, which fills --json.
+        let Ok(Command::Send(r, Some(j))) = parse_args(&args(&["Codex", "-s", "Codex", "--json", r#"{"type":"agent-turn-complete","last-assistant-message":"Done."}"#])) else { panic!() };
+        assert_eq!(r.title.as_deref(), Some("Codex"));
+        assert_eq!(body_from_json(&j).as_deref(), Some("Done."));
+        assert!(matches!(parse_args(&args(&["--json", "-"])), Ok(Command::Send(_, Some(_)))));
+        assert_eq!(body_from_json(r#"{"hook_event_name":"Notification","message":" Needs input "}"#).as_deref(), Some("Needs input"));
+        assert_eq!(body_from_json(r#"{"hook_event_name":"Stop"}"#), None);
+        assert_eq!(body_from_json("not json"), None);
     }
 }
