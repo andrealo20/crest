@@ -4,6 +4,8 @@ import { content, fade, springs } from "../../design/motion";
 import { useNowPlaying } from "../../platform/media";
 import { settings } from "../../settings/store";
 import { LiveArtwork } from "../../features/now-playing/LiveActivity";
+import { LIVE_LYRIC_MAX, LiveLyric } from "../../features/now-playing/LiveLyric";
+import { useLyricLine } from "../../features/now-playing/lyrics";
 import { Equalizer, RELEASE_CAPTURE_MS } from "../../features/now-playing/Equalizer";
 import { timer } from "../../features/timer/store";
 import { useDiscordCall } from "../../features/discord/store";
@@ -58,12 +60,22 @@ export function CompactRow({ style, covered, onWidth }: { style: "notch" | "caps
   const dots = usePrivacyDots();
   const [hovered, setHovered] = useState(false);
   // The title stays while paused, like the cover; it only scrolls while playing.
-  const caption = np ? trackCaption(np.title ?? "", np.artist ?? "") : "";
+  const music = s.music;
+  const lyric = useLyricLine(np, (closed.parts.title && music.titleLyrics) || music.notchLyrics);
+  // Lyric mode of the title part: the current line, the title before the first line, in gaps and without lyrics.
+  const titleLyric = music.titleLyrics && lyric;
+  const caption = titleLyric ? lyric : np ? trackCaption(np.title ?? "", np.artist ?? "") : "";
+  // Lyrics in the closed notch: while a line is sung, cover and line replace the row, which grows and shrinks with each line.
+  const lyricOnly = music.notchLyrics && lyric && np?.isPlaying ? lyric : null;
 
   const parts: { item: RowItem; draw: (p: PlacedPart) => ReactNode }[] = [];
   const fixed = (id: string, width: number, draw: () => ReactNode) => parts.push({ item: { id, kind: "fixed", width }, draw });
   if (np) fixed("cover", 20, () => <LiveArtwork artwork={np.artwork} />);
-  for (const id of closed.order) {
+  if (lyricOnly) {
+    const text = measureText(lyricOnly);
+    fixed("lyric", Math.min(text, LIVE_LYRIC_MAX), () => <LiveLyric text={lyricOnly} textWidth={text} width={Math.min(text, LIVE_LYRIC_MAX)} paused={hovered || covered} />);
+  }
+  for (const id of lyricOnly ? [] : closed.order) {
     if (!closed.parts[id] && id !== "readings") continue;
     if (id === "timer" && running) fixed(id, timerWidth(timer.get().duration), () => <TimerPart paused={covered} />);
     else if (id === "discord" && call) fixed(id, DISCORD_WIDTH, () => <DiscordPart call={call} paused={covered} />);
@@ -71,7 +83,9 @@ export function CompactRow({ style, covered, onWidth }: { style: "notch" | "caps
     else if (id === "clock") fixed(id, clockWidth(closed.clockSeconds, s.units.clock === "12"), () => <Clock seconds={closed.clockSeconds} h12={s.units.clock === "12"} paused={covered} />);
     else if (id === "title" && caption) {
       const text = measureText(caption);
-      parts.push({ item: { id, kind: "title", text }, draw: (p) => <Marquee key={caption} text={caption} textWidth={text} width={p.width} paused={hovered || covered || !np?.isPlaying} /> });
+      parts.push({ item: { id, kind: "title", text }, draw: (p) => titleLyric
+        ? <LiveLyric text={caption} textWidth={text} width={p.width} paused={hovered || covered} />
+        : <Marquee key={caption} text={caption} textWidth={text} width={p.width} paused={hovered || covered || !np?.isPlaying} /> });
     } else if (id === "rings" && rings.length) {
       parts.push({
         item: { id, kind: "carousel", items: rings.map(() => RING), gap: RING_GAP },

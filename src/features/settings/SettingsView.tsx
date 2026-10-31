@@ -36,6 +36,8 @@ import { discordState, reconnectDiscord } from "../discord/store";
 import { fps } from "../system/gaming";
 import { PlaceSearch } from "../weather/WeatherView";
 import { VaultSettings } from "../vault/VaultSettings";
+import { MusicSettings } from "../now-playing/MusicSettings";
+import { setMusic } from "../now-playing/music";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
@@ -137,6 +139,7 @@ export function SettingsView() {
             {page === "display" && (
               <>
                 <Display />
+                <MusicSettings />
                 <Presentation />
               </>
             )}
@@ -584,7 +587,7 @@ function SubSwitch({ label, checked, onChange }: { label: string; checked: boole
 
 /** Parts of the closed row (notch and capsule share them): drag to reorder, switch on/off. Same pattern as `Tools()`. */
 function ClosedParts() {
-  const c = settings.use().closed;
+  const { closed: c, music } = settings.use();
   const [dragging, setDragging] = useState<PartId | null>(null);
   const setClosed = (patch: (cur: ClosedSettings) => Partial<ClosedSettings>) => updateSettings((cur) => ({ closed: { ...cur.closed, ...patch(cur.closed) } }));
   const readingsOn = Object.values(c.readings).filter(Boolean).length;
@@ -624,6 +627,7 @@ function ClosedParts() {
                     />
                   ))}
                 {on && id === "clock" && <SubSwitch label={t("Sekunden")} checked={c.clockSeconds} onChange={(clockSeconds) => setClosed(() => ({ clockSeconds }))} />}
+                {on && id === "title" && <SubSwitch label={t("Songtext")} checked={music.titleLyrics} onChange={(titleLyrics) => setMusic({ titleLyrics })} />}
                 <Switch label={t(label)} checked={on} onChange={(v) => setClosed((cur) => ({ parts: { ...cur.parts, [id]: v } }))} />
               </div>
             </Reorder.Item>
