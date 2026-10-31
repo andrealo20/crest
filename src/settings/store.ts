@@ -25,7 +25,8 @@ export interface Settings {
   hoverDelay: "fast" | "normal" | "patient";
   /** Order = order in the tool bar. */
   tools: { id: string; enabled: boolean }[];
-  trading: { env: "live" | "demo" };
+  /** Portfolio: Trading 212 account, and the base currency ("" = not chosen yet, see features/trading/base.ts). */
+  trading: { env: "live" | "demo"; base: string };
   /** AI usage: which providers are shown (order = display order). */
   usage: { claude: boolean; codex: boolean; gemini: boolean; cursor: boolean; openrouter: boolean; deepseek: boolean; zai: boolean };
   /** AI usage cards: order, names typed by the user, model prices set by hand. */
@@ -128,7 +129,7 @@ const defaults: Settings = {
   openMode: "hover",
   hoverDelay: "normal",
   tools: TOOL_IDS.map((id) => ({ id, enabled: !DEFAULT_OFF.has(id) })),
-  trading: { env: "live" },
+  trading: { env: "live", base: "" },
   usage: { claude: true, codex: true, gemini: true, cursor: false, openrouter: false, deepseek: false, zai: false },
   aiUsage: USAGE_CARDS_DEFAULTS,
   ask: {

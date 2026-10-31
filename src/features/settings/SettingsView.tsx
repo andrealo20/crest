@@ -49,6 +49,7 @@ import { SystemSettings } from "../system/SystemSettings";
 import { LauncherSettings } from "../launcher/LauncherSettings";
 import { GithubSettings } from "../github/GithubSettings";
 import { NoticesSettings } from "../notices/NoticesSettings";
+import { TradingSettings } from "../trading/TradingSettings";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
@@ -192,7 +193,7 @@ export function SettingsView() {
             {page === "accounts" && (
               <>
                 <Discord />
-                <Trading />
+                <TradingSettings />
                 <GithubSettings />
                 <KeysNote />
               </>
@@ -362,31 +363,6 @@ function Ask() {
           options={effortLevels}
         />
       </Row>
-    </Group>
-  );
-}
-
-function Trading() {
-  const s = settings.use();
-  return (
-    <Group title="Trading 212" id="settings-trading">
-      <Row label={t("Konto")}>
-        <Segmented
-          id="t212-env"
-          size="sm"
-          value={s.trading.env}
-          onChange={(env) => updateSettings({ trading: { env } })}
-          options={[
-            { value: "live", label: t("Echt") },
-            { value: "demo", label: "Demo" },
-          ]}
-        />
-      </Row>
-      <SecretRow name="t212.key" label={t("API-Schlüssel")} />
-      <SecretRow name="t212.secret" label={t("API-Secret")} hint={t("Nur einmal sichtbar beim Erstellen")} />
-      <div className="px-3 py-2 text-caption text-label-3">
-        {t("In Trading 212: Einstellungen → API (Beta) → Schlüssel erstellen. Rechte: Konto-Daten und Portfolio – mehr ist nicht nötig, die Notch liest nur.")}
-      </div>
     </Group>
   );
 }

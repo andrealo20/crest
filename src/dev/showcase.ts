@@ -19,7 +19,7 @@ export function startShowcase() {
       ...SHOWCASE_TOOLS.map((id) => ({ id, enabled: true })),
       ...s.tools.filter((x) => !SHOWCASE_TOOLS.includes(x.id)).map((x) => ({ id: x.id, enabled: false })),
     ],
-    trading: { env: "live" },
+    trading: { env: "live", base: "EUR" },
     weather: { name: "Amsterdam", lat: 52.37, lon: 4.89, auto: false },
     ask: { provider: "anthropic", configs: { ...s.ask.configs, anthropic: { model: "Claude Opus 5.5", effort: "high", baseUrl: "" } } },
   }));
