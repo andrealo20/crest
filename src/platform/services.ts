@@ -690,7 +690,8 @@ export const capture = {
   shot: (mode: "all" | "monitor" | "region", monitor: string | null): Promise<CaptureShot | null> =>
     isNative ? invoke<CaptureShot | null>("capture_shot", { mode, monitor }) : Promise.resolve(null),
   state: (): Promise<CaptureRecState> => (isNative ? invoke<CaptureRecState>("capture_state") : Promise.resolve({ phase: "idle", elapsedMs: 0, path: null, failed: [] })),
-  start: (source: string, fps: number, mic: boolean, system: boolean): Promise<void> => (isNative ? invoke("capture_start", { source, fps, mic, system }) : Promise.resolve()),
+  start: (source: string, fps: number, mic: boolean, system: boolean, border: boolean): Promise<void> =>
+    isNative ? invoke("capture_start", { source, fps, mic, system, border }) : Promise.resolve(),
   pause: (paused: boolean): Promise<void> => (isNative ? invoke("capture_pause", { paused }) : Promise.resolve()),
   stop: (): Promise<void> => (isNative ? invoke("capture_stop") : Promise.resolve()),
   list: (): Promise<CaptureFile[]> => (isNative ? invoke<CaptureFile[]>("capture_list") : Promise.resolve([])),

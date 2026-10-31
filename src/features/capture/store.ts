@@ -46,8 +46,8 @@ export async function takeShot(mode: "all" | "monitor" | "region", monitor: stri
   if (settings.get().capture.shelf) addToShelf([shot.path]);
 }
 
-export async function startRecording(source: string, fps: number, mic: boolean, system: boolean) {
-  await capture.start(source, fps, mic, system);
+export async function startRecording(source: string, fps: number, mic: boolean, system: boolean, border: boolean) {
+  await capture.start(source, fps, mic, system, border);
   // In the browser there is no Rust to report back.
   if (!isNative) apply({ phase: "recording", elapsedMs: 0, path: null, failed: [] });
 }

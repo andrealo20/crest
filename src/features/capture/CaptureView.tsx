@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Camera, Crop, FilmStrip, FolderOpen, ImageSquare, Microphone, MicrophoneSlash, Pause, Play, Record, SpeakerHigh, SpeakerSlash, Stop, Trash, Tray, type Icon } from "@phosphor-icons/react";
+import { BoundingBox, Camera, Crop, FilmStrip, FolderOpen, ImageSquare, Microphone, MicrophoneSlash, Pause, Play, Record, SpeakerHigh, SpeakerSlash, Stop, Trash, Tray, type Icon } from "@phosphor-icons/react";
 import { fade, pulse, springs } from "../../design/motion";
 import { formatBytes, formatTime } from "../../lib/format";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -41,23 +41,23 @@ export function CaptureView() {
   const shotTarget = monitors.some((m) => m.id === cfg.shotTarget) ? cfg.shotTarget : "all";
   const source = sources.find((s) => s.id === cfg.source)?.id ?? monitors[0]?.id ?? "";
 
-  const run = async (job: () => Promise<void>) => {
+  const run = async (job: () => Promise<void>, fallback: string) => {
     setError(null);
     setBusy(true);
     try {
       await job();
     } catch (e) {
-      setError(String(e));
+      setError(errorText(String(e), fallback));
     } finally {
       setBusy(false);
     }
   };
   const shoot = (region: boolean) =>
-    run(() => (region ? takeShot("region", null) : shotTarget === "all" ? takeShot("all", null) : takeShot("monitor", shotTarget.slice("monitor:".length))));
+    run(() => (region ? takeShot("region", null) : shotTarget === "all" ? takeShot("all", null) : takeShot("monitor", shotTarget.slice("monitor:".length))), t("Bildschirmfoto fehlgeschlagen"));
 
   const record = () => {
     setStarting(true);
-    void run(() => startRecording(source, cfg.fps, cfg.mic, cfg.system)).finally(() => setStarting(false));
+    void run(() => startRecording(source, cfg.fps, cfg.mic, cfg.system, cfg.border), t("Aufnahme konnte nicht starten")).finally(() => setStarting(false));
   };
 
   const warning = error ?? failureText(rec.failed);
@@ -67,6 +67,9 @@ export function CaptureView() {
       <HeaderActions>
         <HeaderButton label={t("Bildschirmfotos auch in die Ablage")} active={cfg.shelf} onClick={() => setCapture({ shelf: !cfg.shelf })}>
           <Tray size={14} weight={cfg.shelf ? "fill" : "bold"} />
+        </HeaderButton>
+        <HeaderButton label={cfg.border ? t("Gelben Aufnahmerahmen ausblenden") : t("Gelben Aufnahmerahmen zeigen")} active={cfg.border} onClick={() => setCapture({ border: !cfg.border })}>
+          <BoundingBox size={14} weight="bold" />
         </HeaderButton>
       </HeaderActions>
 
@@ -123,8 +126,25 @@ export function CaptureView() {
   );
 }
 
+/** Rust sends short codes (src-tauri/src/capture); anything unknown gets the action's own message. */
+function errorText(code: string, fallback: string): string {
+  const known: Record<string, string> = {
+    busy: t("Es läuft schon eine Aufnahme"),
+    "window-closed": t("Das Fenster ist geschlossen"),
+    "unknown-source": t("Quelle nicht gefunden"),
+    "no-monitor": t("Bildschirm nicht gefunden"),
+    "no-folder": t("Ordner nicht verfügbar"),
+    "save-failed": t("Datei konnte nicht gespeichert werden"),
+    "not-capture": t("Keine Aufnahme von Crest"),
+    "delete-failed": t("Löschen fehlgeschlagen"),
+  };
+  return known[code] ?? fallback;
+}
+
 function failureText(failed: string[]): string | null {
   if (failed.includes("save")) return t("Die Aufnahme konnte nicht gespeichert werden");
+  if (failed.includes("video")) return t("Aufnahme gestoppt: Bild oder Encoder ausgefallen");
+  if (failed.includes("partial")) return t("Aufnahme vorzeitig beendet, das Aufgenommene ist gespeichert");
   const parts = [failed.includes("system") && t("Systemton nicht verfügbar"), failed.includes("mic") && t("Mikrofon nicht verfügbar")].filter(Boolean);
   return parts.length ? parts.join(" · ") : null;
 }
@@ -170,6 +190,9 @@ function Toggle(props: { on: boolean; icons: [Icon, Icon]; labels: [string, stri
 
 // ---------- Saved files ----------
 
+/** Newest cards shown; older files stay on disk and in Explorer. */
+const LIBRARY_MAX = 60;
+
 /** Thumbnails and durations by path and modification time, kept while the app runs. */
 const detailCache = new Map<string, CaptureDetails>();
 const cacheKey = (f: CaptureFile) => `${f.path}|${f.modified}`;
@@ -185,7 +208,7 @@ function Library() {
     void capture.list().then((list) => {
       if (!alive) return;
       setFiles(list);
-      const missing = list.filter((f) => !detailCache.has(cacheKey(f))).slice(0, 40);
+      const missing = list.filter((f) => !detailCache.has(cacheKey(f))).slice(0, LIBRARY_MAX);
       if (!missing.length) return;
       void capture.details(missing.map((f) => f.path)).then((ds) => {
         missing.forEach((f) => {
@@ -198,7 +221,7 @@ function Library() {
     return () => void (alive = false);
   }, [epoch]);
 
-  const shown = files.filter((f) => filter === "all" || f.kind === filter);
+  const shown = files.filter((f) => filter === "all" || f.kind === filter).slice(0, LIBRARY_MAX);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-1.5">

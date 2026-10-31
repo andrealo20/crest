@@ -510,5 +510,19 @@
  "Video": "Video",
  "Videos": "Recordings",
  "Zum Löschen erneut klicken": "Click again to delete",
- "Startet …": "Starting …"
+ "Startet …": "Starting …",
+ "Bildschirmfoto fehlgeschlagen": "The screenshot failed",
+ "Aufnahme konnte nicht starten": "The recording could not start",
+ "Es läuft schon eine Aufnahme": "A recording is already running",
+ "Das Fenster ist geschlossen": "That window is closed",
+ "Quelle nicht gefunden": "Source not found",
+ "Bildschirm nicht gefunden": "Display not found",
+ "Ordner nicht verfügbar": "The folder is not available",
+ "Datei konnte nicht gespeichert werden": "The file could not be saved",
+ "Keine Aufnahme von Crest": "Not a Crest capture",
+ "Löschen fehlgeschlagen": "Delete failed",
+ "Aufnahme gestoppt: Bild oder Encoder ausgefallen": "Recording stopped: the capture or the encoder failed",
+ "Aufnahme vorzeitig beendet, das Aufgenommene ist gespeichert": "The recording ended early; what was recorded is saved",
+ "Gelben Aufnahmerahmen ausblenden": "Hide the yellow recording frame",
+ "Gelben Aufnahmerahmen zeigen": "Show the yellow recording frame"
 }
