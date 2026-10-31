@@ -38,7 +38,12 @@ export function NowPlayingView() {
   };
   const toggle = (p: Panel) => setPanel(panel === p ? null : p);
   const source = mix.source?.name;
-  const shown = panel === "sources" && np && !offersSources(np.sources, music.pinned) ? null : panel;
+  // The player menu closes for good when the choice goes away (a player quit), so it doesn't pop up again later.
+  const noChoice = panel === "sources" && !!np && !offersSources(np.sources, music.pinned);
+  useEffect(() => {
+    if (noChoice) setPanelState(null);
+  }, [noChoice]);
+  const shown = noChoice ? null : panel;
 
   // A panel grows the notch by its rows (at most MIXER_MAX_ROWS, then it scrolls).
   const mixerRows = Math.min(MIXER_MAX_ROWS, (mix.system ? 1 : 0) + Math.max(1, mix.apps.length));

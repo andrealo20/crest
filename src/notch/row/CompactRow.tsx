@@ -65,7 +65,8 @@ export function CompactRow({ style, covered, onWidth }: { style: "notch" | "caps
   // Lyric mode of the title part: the current line, the title before the first line, in gaps and without lyrics.
   const titleLyric = music.titleLyrics && lyric;
   const caption = titleLyric ? lyric : np ? trackCaption(np.title ?? "", np.artist ?? "") : "";
-  // Lyrics in the closed notch: while a line is sung, cover and line replace the row, which grows and shrinks with each line.
+  // Lyrics in the closed notch: while a line is sung, cover and line (with a running timer or a Discord call) replace the row,
+  // which grows and shrinks with each line.
   const lyricOnly = music.notchLyrics && lyric && np?.isPlaying ? lyric : null;
 
   const parts: { item: RowItem; draw: (p: PlacedPart) => ReactNode }[] = [];
@@ -75,8 +76,10 @@ export function CompactRow({ style, covered, onWidth }: { style: "notch" | "caps
     const text = measureText(lyricOnly);
     fixed("lyric", Math.min(text, LIVE_LYRIC_MAX), () => <LiveLyric text={lyricOnly} textWidth={text} width={Math.min(text, LIVE_LYRIC_MAX)} paused={hovered || covered} />);
   }
-  for (const id of lyricOnly ? [] : closed.order) {
+  for (const id of closed.order) {
     if (!closed.parts[id] && id !== "readings") continue;
+    // A running timer and a Discord call stay next to the line; they only show while active anyway.
+    if (lyricOnly && id !== "timer" && id !== "discord") continue;
     if (id === "timer" && running) fixed(id, timerWidth(timer.get().duration), () => <TimerPart paused={covered} />);
     else if (id === "discord" && call) fixed(id, DISCORD_WIDTH, () => <DiscordPart call={call} paused={covered} />);
     else if (id === "equalizer" && np && playing) fixed(id, 16, () => <Equalizer playing={np.isPlaying && !covered} />);
