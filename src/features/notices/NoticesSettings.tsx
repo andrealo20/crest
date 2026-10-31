@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, Row, Segmented, Switch, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
 import { minutes, ruleFor, type NoticeRule, type NoticeSettings } from "./rules";
-import { requestAccess, setAppRule, setNoticesEnabled, sourceStatus } from "./store";
+import { refreshStatus, requestAccess, requestFailed, setAppRule, setNoticesEnabled, sourceStatus } from "./store";
 
 const modeText: Record<string, string> = {
   "event-log": "Aktiv · liest jede neue Mitteilung, sobald Windows sie meldet",
@@ -24,10 +24,14 @@ const patch = (p: (n: NoticeSettings) => Partial<NoticeSettings>) => updateSetti
 export function NoticesSettings() {
   const n = settings.use().notices;
   const status = sourceStatus.use();
+  const failed = requestFailed.use();
   const apps = Object.entries(n.apps).sort((a, b) => a[1].localeCompare(b[1]));
+  // Access may have changed in Windows Settings while Crest ran.
+  useEffect(refreshStatus, []);
 
   const windowsHint =
-    status.access === "unspecified" ? t("Windows muss den Zugriff einmal erlauben")
+    failed && status.access !== "allowed" ? t("Windows hat nicht gefragt: Einstellungen › Datenschutz und Sicherheit › Benachrichtigungen, Zugriff für Apps erlauben")
+    : status.access === "unspecified" ? t("Windows muss den Zugriff einmal erlauben")
     : status.access === "denied" ? t("In Windows abgelehnt: Einstellungen › Datenschutz und Sicherheit › Benachrichtigungen")
     : status.access === "unavailable" ? t("Auf diesem Windows nicht verfügbar")
     : n.enabled && n.windows ? t(modeText[status.mode] ?? status.mode)
@@ -47,7 +51,12 @@ export function NoticesSettings() {
                 <Switch label={t("Windows-Mitteilungen")} checked={n.windows} onChange={(windows) => patch(() => ({ windows }))} />
               </div>
             </Row>
-            <Row label="crest-notify" hint={n.cli ? (status.pipe ? t("Bereit · für Skripte und Agent-Hooks") : t("Startet …")) : t("Für Skripte und Agent-Hooks")}>
+            <Row label="crest-notify" hint={
+                !n.cli ? t("Für Skripte und Agent-Hooks")
+                : status.pipe ? t("Bereit · für Skripte und Agent-Hooks")
+                : status.pipeFailed ? t("Kanal konnte nicht geöffnet werden · belegt ein anderes Programm den Namen?")
+                : t("Startet …")
+              }>
               <Switch label="crest-notify" checked={n.cli} onChange={(cli) => patch(() => ({ cli }))} />
             </Row>
           </>

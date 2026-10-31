@@ -522,5 +522,7 @@
  "Noch keine": "None yet",
  "Apps erscheinen hier mit ihrer ersten Mitteilung": "Apps appear here with their first notice",
  "Zeigen": "Show",
- "Stumm: nur im Verlauf. Aus: verworfen.": "Mute: history only. Off: dropped."
+ "Stumm: nur im Verlauf. Aus: verworfen.": "Mute: history only. Off: dropped.",
+ "Windows hat nicht gefragt: Einstellungen › Datenschutz und Sicherheit › Benachrichtigungen, Zugriff für Apps erlauben": "Windows did not ask: allow notification access for apps in Settings › Privacy & security › Notifications",
+ "Kanal konnte nicht geöffnet werden · belegt ein anderes Programm den Namen?": "Could not open the channel · is another program holding its name?"
 }

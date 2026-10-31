@@ -1,7 +1,7 @@
 import { createStore } from "../../lib/store";
 import { noticeSource, type IncomingNotice, type NoticeSourceStatus } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
-import { presentingNow } from "../privacy/store";
+import { presentingNow, privacy } from "../privacy/store";
 import { addNotice, removeApp, removeNotice, type Notice } from "./history";
 import { rememberApp, route, setRule, type NoticeRule } from "./rules";
 
@@ -17,7 +17,7 @@ export const POP_MS = 6000;
 export const history = createStore<Notice[]>([]);
 /** The notice showing in the closed notch now (NoticeLayer). */
 export const popping = createStore<Notice | null>(null);
-export const sourceStatus = createStore<NoticeSourceStatus>({ access: "unspecified", mode: "off", pipe: false });
+export const sourceStatus = createStore<NoticeSourceStatus>({ access: "unspecified", mode: "off", pipe: false, pipeFailed: false });
 
 let popTimer: number | undefined;
 let nextId = 0;
@@ -65,10 +65,19 @@ export function setAppRule(appId: string, rule: NoticeRule) {
   }
 }
 
+/** Windows refused the access request itself (no prompt); the settings then point to Windows Settings. */
+export const requestFailed = createStore(false);
+
 /** Asks Windows for access to notifications (its prompt shows only the first time). */
 export async function requestAccess() {
   const access = await noticeSource.requestAccess();
-  sourceStatus.set((s) => ({ ...s, access }));
+  requestFailed.set(access === "request-failed");
+  if (access !== "request-failed") sourceStatus.set((s) => ({ ...s, access }));
+}
+
+/** Reads the sources' state again (the settings page does this when it opens). */
+export function refreshStatus() {
+  void noticeSource.status().then((s) => sourceStatus.set(s));
 }
 
 let started = false;
@@ -79,7 +88,11 @@ export function startNotices() {
   started = true;
   noticeSource.onNotice(ingest);
   noticeSource.onStatus((s) => sourceStatus.set(s));
-  void noticeSource.status().then((s) => sourceStatus.set(s));
+  refreshStatus();
+  // A notice on screen goes as soon as presentation mode starts.
+  const hideWhenPresenting = () => presentingNow() && popping.get() && dismissPop();
+  privacy.subscribe(hideWhenPresenting);
+  settings.subscribe(hideWhenPresenting);
 
   let last = "";
   const apply = () => {

@@ -644,6 +644,8 @@ export interface NoticeSourceStatus {
   access: "allowed" | "denied" | "unspecified" | "unavailable";
   mode: "off" | "event-log" | "polling" | "failed";
   pipe: boolean;
+  /** The crest-notify channel could not be opened. */
+  pipeFailed: boolean;
 }
 
 /** In the browser there is no source; `mockNotice` stands in (from the dev tools console). */
@@ -658,8 +660,10 @@ export const noticeSource = {
     if (isNative) void invoke("notices_configure", { windows, pipe });
   },
   status: (): Promise<NoticeSourceStatus> =>
-    isNative ? invoke<NoticeSourceStatus>("notices_status") : Promise.resolve({ access: "allowed", mode: "off", pipe: false }),
-  requestAccess: (): Promise<NoticeSourceStatus["access"]> => (isNative ? invoke<NoticeSourceStatus["access"]>("notices_request_access") : Promise.resolve("allowed")),
+    isNative ? invoke<NoticeSourceStatus>("notices_status") : Promise.resolve({ access: "allowed", mode: "off", pipe: false, pipeFailed: false }),
+  /** The access now, or "request-failed" when Windows refused the request itself. */
+  requestAccess: (): Promise<NoticeSourceStatus["access"] | "request-failed"> =>
+    isNative ? invoke<NoticeSourceStatus["access"] | "request-failed">("notices_request_access") : Promise.resolve("allowed"),
   onNotice: (handler: (n: IncomingNotice) => void): (() => void) => {
     if (!isNative) {
       mockNoticeHandlers.add(handler);
