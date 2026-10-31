@@ -1,11 +1,13 @@
 # Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), scripts/PortablePackage.ps1.
-# Builds the portable zip from the release executable: one folder with Crest.exe, the Crest.portable marker
+# Builds the portable zip from the release executables: one folder with Crest.exe, crest-notify.exe, the Crest.portable marker
 # (with it the app keeps its data in a data folder next to the exe and updates itself in place, see
 # src-tauri/src/portable.rs) and a short note about the WebView2 runtime.
 #   pwsh scripts/portable-package.ps1 -Exe src-tauri/target/release/crest.exe -Destination Crest-0.3.0-Portable-x64.zip
+# crest-notify.exe is taken from the same folder as -Exe unless -Notify names it.
 param(
     [Parameter(Mandatory)][string]$Exe,
     [Parameter(Mandatory)][string]$Destination,
+    [string]$Notify = (Join-Path (Split-Path -Parent $Exe) 'crest-notify.exe'),
     [string]$Folder = 'Crest'
 )
 $ErrorActionPreference = 'Stop'
@@ -24,8 +26,11 @@ Windows Credential Manager of each PC and have to be entered again there.
 In a folder Crest cannot write to (a locked share, Program Files) it still starts, keeps its
 data in your user profile like an installed copy, and updates open the download page.
 
+crest-notify.exe sends your own notices to Crest from scripts and builds; add this folder to
+your PATH to call it by name.
+
 Updates: Settings, General, Updates downloads the new portable package, checks its
-signature and replaces Crest.exe on restart.
+signature and replaces Crest.exe and crest-notify.exe on restart.
 
 An installed and a portable Crest on the same PC share one single-instance lock (only one
 runs at a time) and one "Start with Windows" entry: switching it on in one points it at
@@ -41,6 +46,7 @@ if (Test-Path -LiteralPath $Destination) { Remove-Item -LiteralPath $Destination
 $zip = [IO.Compression.ZipFile]::Open([IO.Path]::GetFullPath($Destination), [IO.Compression.ZipArchiveMode]::Create)
 try {
     [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, (Resolve-Path -LiteralPath $Exe).Path, "$Folder/Crest.exe", [IO.Compression.CompressionLevel]::Optimal)
+    [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, (Resolve-Path -LiteralPath $Notify).Path, "$Folder/crest-notify.exe", [IO.Compression.CompressionLevel]::Optimal)
     foreach ($entry in @(@{ Name = 'Crest.portable'; Text = $marker }, @{ Name = 'README-portable.txt'; Text = $readme -replace "`r?`n", "`r`n" })) {
         $writer = [IO.StreamWriter]::new($zip.CreateEntry("$Folder/$($entry.Name)").Open(), [Text.UTF8Encoding]::new($false))
         try { $writer.Write($entry.Text) } finally { $writer.Dispose() }

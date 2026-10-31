@@ -8,7 +8,7 @@
 //! download; the new executable is written as `Crest.exe.new`, the running one is renamed to
 //! `Crest.exe.old` (Windows allows renaming a running executable), the new one takes its name and is
 //! started with `--after-update <pid>`, which waits for this process to exit before it runs (the
-//! single-instance lock) and removes the old file. A folder the user cannot write to (checked once
+//! single-instance lock) and removes the old file. crest-notify.exe next to it is swapped the same way first. A folder the user cannot write to (checked once
 //! at start) keeps its data in the installed location and gets the download page instead.
 
 use std::fs;
@@ -27,6 +27,8 @@ pub const DATA: &str = "data";
 const TARGET: &str = "windows-x86_64-portable";
 const DOWNLOAD_PAGE: &str = "https://github.com/andrealo20/crest/releases/latest";
 const AFTER_UPDATE: &str = "--after-update";
+/// The command-line tool shipped next to Crest.exe (src/bin/crest-notify.rs), updated with it.
+pub const NOTIFY_EXE: &str = "crest-notify.exe";
 
 static EXE: OnceLock<Option<PathBuf>> = OnceLock::new();
 
@@ -107,8 +109,10 @@ pub fn after_update(args: &[String]) {
         }
     }
     if let Some(exe) = exe() {
-        let _ = fs::remove_file(sibling(exe, "old"));
-        let _ = fs::remove_file(sibling(exe, "new"));
+        for file in [exe.to_path_buf(), exe.with_file_name(NOTIFY_EXE)] {
+            let _ = fs::remove_file(sibling(&file, "old"));
+            let _ = fs::remove_file(sibling(&file, "new"));
+        }
     }
 }
 
@@ -131,21 +135,28 @@ fn can_write(dir: &Path) -> bool {
     ok
 }
 
-/// The executable from a portable zip: its one `.exe` (the zip wraps the files in a folder; the copy may have been renamed).
-pub fn exe_from_zip(zip: &[u8]) -> Result<Vec<u8>, String> {
+/// The executables from a portable zip: the app's (its one `.exe` other than crest-notify; the zip wraps the files in a folder and the
+/// copy may have been renamed) and crest-notify's when the zip has it.
+pub fn exes_from_zip(zip: &[u8]) -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
     let mut archive = zip::ZipArchive::new(Cursor::new(zip)).map_err(|e| e.to_string())?;
+    let (mut app, mut notify) = (None, None);
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
         let path = entry.enclosed_name().ok_or("unsafe path in the update")?;
-        if entry.is_file() && path.extension().is_some_and(|e| e.eq_ignore_ascii_case("exe")) {
-            let mut bytes = Vec::with_capacity(entry.size() as usize);
-            entry.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
-            return Ok(bytes);
+        if !entry.is_file() || !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("exe")) {
+            continue;
+        }
+        let is_notify = path.file_name().is_some_and(|n| n.eq_ignore_ascii_case(NOTIFY_EXE));
+        let mut bytes = Vec::with_capacity(entry.size() as usize);
+        entry.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+        if is_notify {
+            notify = Some(bytes);
+        } else if app.is_none() {
+            app = Some(bytes);
         }
     }
-    Err("no executable in the update".into())
+    app.map(|a| (a, notify)).ok_or_else(|| "no executable in the update".into())
 }
-
 /// Puts the new executable in place of the running one; on any error the old one stays where it was.
 pub fn swap(exe: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let staged = sibling(exe, "new");
@@ -211,7 +222,12 @@ pub async fn portable_install(app: AppHandle) -> Result<bool, String> {
         )
         .await
         .map_err(|e| e.to_string())?;
-    let bytes = exe_from_zip(&zip)?;
+    let (bytes, notify) = exes_from_zip(&zip)?;
+    // crest-notify first: if it fails, the app's own exe is still untouched. A missing one (an older copy) is simply written.
+    if let Some(notify) = notify {
+        let path = exe.with_file_name(NOTIFY_EXE);
+        if path.exists() { swap(&path, &notify) } else { fs::write(&path, &notify) }.map_err(|e| e.to_string())?;
+    }
     swap(exe, &bytes).map_err(|e| e.to_string())?;
     Command::new(exe).arg(AFTER_UPDATE).arg(std::process::id().to_string()).spawn().map_err(|e| e.to_string())?;
     app.exit(0);
@@ -273,12 +289,16 @@ mod tests {
             let options = zip::write::SimpleFileOptions::default();
             zip.start_file("Crest/README-portable.txt", options).unwrap();
             std::io::Write::write_all(&mut zip, b"note").unwrap();
+            zip.start_file("Crest/crest-notify.exe", options).unwrap();
+            std::io::Write::write_all(&mut zip, b"notify").unwrap();
             zip.start_file("Crest/Crest.exe", options).unwrap();
             std::io::Write::write_all(&mut zip, b"binary").unwrap();
             zip.finish().unwrap();
         }
         let bytes = buf.into_inner();
-        assert_eq!(exe_from_zip(&bytes).unwrap(), b"binary");
-        assert!(exe_from_zip(b"not a zip").is_err());
+        let (app, notify) = exes_from_zip(&bytes).unwrap();
+        assert_eq!(app, b"binary");
+        assert_eq!(notify.as_deref(), Some(&b"notify"[..]));
+        assert!(exes_from_zip(b"not a zip").is_err());
     }
 }
