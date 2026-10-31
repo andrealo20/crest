@@ -56,34 +56,23 @@ struct Currency {
 
 pub async fn fetch(client: &reqwest::Client) -> Result<Account, String> {
     let key = secrets::read("bitpanda.key").ok_or("no-key")?;
-    let get = |url: String| client.get(url).header("x-api-key", key.trim());
+    let key = key.trim();
 
-    let portfolio: List<Item> = send_json(get(format!("{API}/portfolio"))).await?;
-    let currencies: List<Currency> = send_json(get(format!("{API}/currencies"))).await?;
-    let currency: HashMap<String, String> = currencies.data.into_iter().map(|c| (c.id, c.symbol)).collect();
+    let portfolio: Vec<Item> = all(client, key, &format!("{API}/portfolio")).await?;
+    let currencies: Vec<Currency> = all(client, key, &format!("{API}/currencies")).await?;
+    let currency: HashMap<String, String> = currencies.into_iter().map(|c| (c.id, c.symbol)).collect();
 
-    let mut ids: Vec<&str> = portfolio.data.iter().map(|i| i.asset_id.as_str()).filter(|id| !currency.contains_key(*id)).collect();
+    let mut ids: Vec<&str> = portfolio.iter().map(|i| i.asset_id.as_str()).filter(|id| !currency.contains_key(*id)).collect();
     ids.sort();
     ids.dedup();
     let mut assets: HashMap<String, Asset> = HashMap::new();
     for chunk in ids.chunks(50) {
-        let mut cursor: Option<String> = None;
-        loop {
-            let mut url = format!("{API}/assets?page_size=100&id={}", chunk.join(","));
-            if let Some(c) = &cursor {
-                url.push_str(&format!("&cursor={c}"));
-            }
-            let page: List<Asset> = send_json(get(url)).await?;
-            assets.extend(page.data.into_iter().map(|a| (a.id.clone(), a)));
-            match page.next_cursor.filter(|_| page.has_next_page) {
-                Some(next) => cursor = Some(next),
-                None => break,
-            }
-        }
+        let page: Vec<Asset> = all(client, key, &format!("{API}/assets?page_size=100&id={}", chunk.join(","))).await?;
+        assets.extend(page.into_iter().map(|a| (a.id.clone(), a)));
     }
 
     let mut holdings = Vec::new();
-    for item in portfolio.data {
+    for item in portfolio {
         let quantity = item.balance.as_ref().map(|v| num(&v.value)).unwrap_or(0.0);
         if quantity.abs() < 1e-12 {
             continue;
@@ -93,17 +82,51 @@ pub async fn fetch(client: &reqwest::Client) -> Result<Account, String> {
             holdings.push(Holding::cash(fiat, quantity));
             continue;
         }
-        let Some(asset) = assets.get(&item.asset_id) else { continue };
-        holdings.push(Holding {
-            symbol: asset.symbol.clone(),
-            name: asset.name.clone(),
-            kind: if asset.kind.eq_ignore_ascii_case("CRYPTO") { "crypto" } else { "stock" },
-            quantity,
-            value: item.currency_balance.as_ref().map(|v| num(&v.value)),
-            cost: item.invested_amount.as_ref().map(|v| num(&v.value)),
-            currency: money,
-            ..Default::default()
+        let value = item.currency_balance.as_ref().map(|v| num(&v.value));
+        let cost = item.invested_amount.as_ref().map(|v| num(&v.value));
+        holdings.push(match assets.get(&item.asset_id) {
+            Some(asset) => Holding {
+                symbol: asset.symbol.clone(),
+                name: asset.name.clone(),
+                kind: if asset.kind.eq_ignore_ascii_case("CRYPTO") { "crypto" } else { "stock" },
+                quantity,
+                value,
+                cost,
+                currency: money,
+                ..Default::default()
+            },
+            // Not in the asset list: still listed, by its id and without a price.
+            None => Holding {
+                symbol: item.asset_id.chars().take(8).collect(),
+                name: "Unknown asset".into(),
+                kind: "stock",
+                quantity,
+                cost,
+                currency: money,
+                ..Default::default()
+            },
         });
     }
     Ok(Account { holdings, ..Default::default() })
+}
+
+/// Every page of a list, following `next_cursor` while `has_next_page`.
+async fn all<T: for<'de> Deserialize<'de>>(client: &reqwest::Client, key: &str, url: &str) -> Result<Vec<T>, String> {
+    let mut out = Vec::new();
+    let mut cursor: Option<String> = None;
+    // A bound against a server that keeps handing out the same cursor.
+    for _ in 0..50 {
+        let sep = if url.contains('?') { '&' } else { '?' };
+        let page_url = match &cursor {
+            Some(c) => format!("{url}{sep}cursor={}", c.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').collect::<String>()),
+            None => url.to_string(),
+        };
+        let page: List<T> = send_json(client.get(page_url).header("x-api-key", key)).await?;
+        out.extend(page.data);
+        match page.next_cursor.filter(|c| page.has_next_page && !c.is_empty() && Some(c) != cursor.as_ref()) {
+            Some(next) => cursor = Some(next),
+            None => break,
+        }
+    }
+    Ok(out)
 }
