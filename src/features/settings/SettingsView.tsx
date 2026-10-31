@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, Reorder } from "motion/react";
 import {
+  AppWindow,
   ArrowsInLineHorizontal,
   BellSimple,
   ChartDonut,
@@ -49,6 +50,8 @@ import { SystemSettings } from "../system/SystemSettings";
 import { LauncherSettings } from "../launcher/LauncherSettings";
 import { GithubSettings } from "../github/GithubSettings";
 import { NoticesSettings } from "../notices/NoticesSettings";
+import { WindowSettings } from "../window/WindowSettings";
+import { keycaps } from "../window/hotkeys";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
@@ -57,11 +60,12 @@ import { privacy, togglePresentation, usePresenting } from "../privacy/store";
 import { locale, t, tBackend } from "../../i18n";
 import { ThemeSettings } from "../themes/ThemeSettings";
 
-type PageId = "general" | "display" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices";
+type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices";
 
 const pages: { id: PageId; label: string; icon: Icon }[] = [
   { id: "general", label: "Allgemein", icon: SlidersHorizontal },
   { id: "display", label: "Darstellung", icon: Monitor },
+  { id: "window", label: "Fenster", icon: AppWindow },
   { id: "tools", label: "Tools", icon: SquaresFour },
   { id: "timer", label: "Timer", icon: Timer },
   { id: "ai", label: "AI", icon: Sparkle },
@@ -76,6 +80,7 @@ const sectionPage: Record<string, PageId> = {
   updates: "general",
   display: "display",
   presentation: "display",
+  window: "window",
   alarm: "timer",
   ask: "ai",
   usage: "ai",
@@ -165,6 +170,7 @@ export function SettingsView() {
                 <Presentation />
               </>
             )}
+            {page === "window" && <WindowSettings />}
             {page === "tools" && (
               <>
                 <Tools />
@@ -443,6 +449,19 @@ function General() {
           </motion.div>
         )}
       </AnimatePresence>
+      <Row label={t("Schließen-Verzögerung")} hint={t("Wie lange die Notch offen bleibt, nachdem der Zeiger sie verlassen hat")}>
+        <Segmented
+          id="close-delay"
+          size="sm"
+          value={s.behavior.closeDelay}
+          onChange={(closeDelay) => updateSettings((cur) => ({ behavior: { ...cur.behavior, closeDelay } }))}
+          options={[
+            { value: "fast", label: t("Schnell") },
+            { value: "normal", label: t("Normal") },
+            { value: "patient", label: t("Geduldig") },
+          ]}
+        />
+      </Row>
       <Row label={t("Mit Windows starten")}>
         {auto !== null && (
           <Switch
@@ -455,11 +474,11 @@ function General() {
           />
         )}
       </Row>
-      <Row label={t("Tastenkürzel")} hint={t("Öffnet und schließt die Notch von überall")}>
+      <Row label={t("Tastenkürzel")} hint={t("Öffnet und schließt die Notch von überall; ändern unter Fenster")}>
         <span className="flex items-center gap-1 text-caption text-label-2">
           <Keyboard size={13} weight="bold" className="text-label-3" />
-          {["Strg", "Alt", "Leertaste"].map((k) => (
-            <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">{t(k)}</kbd>
+          {keycaps(s.behavior.hotkeys.open).map((k) => (
+            <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">{k}</kbd>
           ))}
         </span>
       </Row>
@@ -487,18 +506,6 @@ function Display() {
 
   return (
     <Group id="settings-display">
-      <Row label={t("Sichtbarkeit")} hint={d.visibility === "always" ? t("Bleibt über jedem Fenster, auch im Vollbild") : t("Verschwindet bei Spielen, Videos und Präsentationen")}>
-        <Segmented
-          id="display-visibility"
-          size="sm"
-          value={d.visibility}
-          onChange={(visibility) => updateSettings((cur) => ({ display: { ...cur.display, visibility } }))}
-          options={[
-            { value: "always", label: t("Immer oben") },
-            { value: "hide-fullscreen", label: t("Vollbild: aus") },
-          ]}
-        />
-      </Row>
       {monitors.length > 1 && (
         <Row label={t("Monitor")}>
           <Select

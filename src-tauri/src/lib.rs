@@ -19,8 +19,10 @@ mod mixer;
 mod notices;
 mod notify_wire;
 mod privacy;
+mod screen_policy;
 pub mod secrets;
 mod shelf;
+mod shell;
 mod system;
 mod sysevents;
 mod timer_window;
@@ -36,13 +38,8 @@ use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{App, AppHandle, Emitter, Manager, State, WebviewWindow};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
-
-/// Opens/closes the notch from anywhere. Ctrl+Alt = AltGr on German keyboards;
-/// AltGr+Space types nothing, so there's no conflict.
-const SHORTCUT_LABEL: &str = "Ctrl+Alt+Space";
 
 /// For main.rs: elevated "Unlock FPS" call (see fps::fps_unlock).
 pub fn fps_elevated_unlock(sid: &str) -> i32 {
@@ -50,24 +47,16 @@ pub fn fps_elevated_unlock(sid: &str) -> i32 {
 }
 
 pub fn run() {
-    let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Space);
-
     tauri::Builder::default()
-        // A second launch doesn't open a second notch.
-        .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
+        // A second launch doesn't open a second notch; it opens the settings of this one.
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| shell::second_launch(app)))
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         // Updates: signed installers from GitHub, only on click in the settings.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(move |app, pressed, event| {
-                    if pressed == &shortcut && event.state() == ShortcutState::Pressed {
-                        let _ = app.emit("notch://shortcut", ());
-                    }
-                })
-                .build(),
-        )
+        // Shortcuts are set in the settings (shell.rs).
+        .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(shell::on_shortcut).build())
+        .manage(shell::Hotkeys::default())
         .manage(hit_test::HitState::default())
         .manage(media::MediaState::default())
         .manage(mixer::MixerState::default())
@@ -124,6 +113,11 @@ pub fn run() {
             convert::file_preview,
             display::display_monitors,
             display::display_apply,
+            display::display_screen,
+            display::display_raise,
+            display::display_apps,
+            shell::hotkeys_apply,
+            shell::crash_log,
             fps::gaming_fps,
             fps::fps_unlock,
             controls::volume_get,
@@ -181,6 +175,7 @@ pub fn run() {
             notices::notices_request_access,
         ])
         .setup(move |app| {
+            shell::init(app);
             let window = app.get_webview_window("notch").expect("window 'notch' missing");
             display::place(&window, &app.state::<display::DisplayState>())?;
             window.show()?;
@@ -194,8 +189,6 @@ pub fn run() {
             audio::spawn(app.handle().clone(), &app.state::<audio::AudioState>());
             sysevents::spawn(app.handle().clone());
 
-            // If another app owns the shortcut, the notch still runs, just without it.
-            let _ = app.global_shortcut().register(shortcut);
             enable_autostart_once(app.handle());
             build_tray(app)?;
             Ok(())
@@ -290,7 +283,8 @@ fn build_tray(app: &App) -> tauri::Result<()> {
     dark_menus();
     let enabled = app.autolaunch().is_enabled().unwrap_or(false);
     // Open has its shortcut right-aligned via tab, like Windows menus.
-    let open = MenuItem::with_id(app, "open", format!("Open Crest\t{SHORTCUT_LABEL}"), true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", shell::default_open_label(), true, None::<&str>)?;
+    shell::set_tray_open(app, open.clone());
     let settings = MenuItem::with_id(app, "settings", "Settings …", true, None::<&str>)?;
     // The real state follows right after start (the frontend calls tray_focus).
     let focus = CheckMenuItem::with_id(app, "focus", "Focus mode", true, false, None::<&str>)?;
@@ -311,16 +305,12 @@ fn build_tray(app: &App) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
-                let _ = tray.app_handle().emit("notch://open", None::<&str>);
+                shell::open(tray.app_handle(), None);
             }
         })
         .on_menu_event(move |app, event| match event.id().as_ref() {
-            "open" => {
-                let _ = app.emit("notch://open", None::<&str>);
-            }
-            "settings" => {
-                let _ = app.emit("notch://open", Some("settings"));
-            }
+            "open" => shell::open(app, None),
+            "settings" => shell::open(app, Some("settings")),
             "quit" => app.exit(0),
             "focus" => {
                 // The click already toggled the check; the frontend applies it and mirrors it back.

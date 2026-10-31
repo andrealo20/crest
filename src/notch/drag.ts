@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { isNative } from "../platform/native";
 import { display } from "../platform/services";
 import { settings, updateSettings } from "../settings/store";
+import { effectiveIdleStyle } from "../features/window/store";
+import { toPageCss, toSaved } from "../features/window/panelSize";
 import { snapCapsule, windowYFor } from "./capsule";
 import { focusMode } from "./focus";
 import { monitorMetrics, reloadMonitor } from "./monitor";
@@ -12,18 +14,22 @@ const THRESHOLD = 6;
 /** The notch snaps to the center when close to it. */
 const SNAP = 24;
 
+/** display.offset and display.y are saved at 100 % scale; the page works in CSS px of the current scale. */
+const pageCss = (saved: number) => toPageCss(saved, settings.get().behavior.scale);
+
 /** The window's top for the capsule top `y` (display.y unless given) on the notch's monitor; always finite, since Rust rejects NaN. */
-export function windowY(y = settings.get().display.y): number {
+export function windowY(y = pageCss(settings.get().display.y)): number {
   const s = settings.get(), m = monitorMetrics();
-  const style = focusMode.get() && s.display.focusStyle === "line" ? "line" : s.display.idleStyle;
+  const style = focusMode.get() && s.display.focusStyle === "line" ? "line" : effectiveIdleStyle(s.display.idleStyle);
   const top = windowYFor(style, y, m.height, m.workTop);
   return Number.isFinite(top) ? top : 0;
 }
 
 /** Sends display settings to Rust, optionally with an offset and a capsule top `y` that aren't saved yet (Rust gets the window's top from `windowY`). */
-export function applyDisplay(offset = settings.get().display.offset, y?: number) {
+export function applyDisplay(offset = pageCss(settings.get().display.offset), y?: number) {
   const s = settings.get();
-  display.apply({ hideFullscreen: s.display.visibility === "hide-fullscreen", monitor: s.display.monitor, offset, y: windowY(y), gaming: s.gaming.mode !== "off" });
+  const b = s.behavior;
+  display.apply({ monitor: s.display.monitor, offset, y: windowY(y), gaming: s.gaming.mode !== "off", rules: { ...b.rules, apps: b.apps }, zoom: b.scale / 100 });
 }
 
 /** The area the capsule is dragged in: the monitor, in the browser the viewport with DesktopMock's 48 px taskbar. */
@@ -39,11 +45,11 @@ function dragArea() {
  * `size` is the closed shape, which the capsule snaps with.
  */
 export function useDragToMove(status: NotchStatus, size: { w: number; h: number }) {
-  const saved = settings.use().display;
+  const { display: saved, behavior: { scale } } = settings.use();
   const [live, setLive] = useState<{ offset: number; y: number } | null>(null);
   const moved = useRef(false);
-  const offset = live?.offset ?? saved.offset;
-  const y = live?.y ?? saved.y;
+  const offset = live?.offset ?? toPageCss(saved.offset, scale);
+  const y = live?.y ?? toPageCss(saved.y, scale);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -52,7 +58,7 @@ export function useDragToMove(status: NotchStatus, size: { w: number; h: number 
     // When open only via the header, otherwise lists and sliders would drag too.
     if (status === "open" && !target.closest("[data-drag-handle]")) return;
 
-    const capsule = saved.idleStyle === "capsule";
+    const capsule = effectiveIdleStyle(saved.idleStyle) === "capsule";
     if (capsule) reloadMonitor();
     const { pointerId: id, screenX: x, screenY: sy } = e;
     const from = { offset, y };
@@ -84,7 +90,10 @@ export function useDragToMove(status: NotchStatus, size: { w: number; h: number 
       window.removeEventListener("pointercancel", onUp);
       if (!moved.current) return;
       holdOpen(false);
-      updateSettings((cur) => ({ display: { ...cur.display, offset: current.offset, y: current.y } }));
+      // Back to 100 % units; the notch only moves sideways, so its y is left as saved.
+      updateSettings((cur) => ({
+        display: { ...cur.display, offset: toSaved(current.offset, scale), y: capsule ? toSaved(current.y, scale) : cur.display.y },
+      }));
       setLive(null);
       // The click right after releasing shouldn't open anything.
       setTimeout(() => (moved.current = false), 0);
