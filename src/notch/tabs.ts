@@ -37,6 +37,8 @@ import { DiscordView } from "../features/discord/DiscordView";
 import { VaultView } from "../features/vault/VaultView";
 import { WaterView } from "../features/water/WaterView";
 import { ScratchpadView } from "../features/scratchpad/ScratchpadView";
+import { QUOTE_LINE_H } from "../features/quotes/QuoteLine";
+import { settings } from "../settings/store";
 import { SettingsView } from "../features/settings/SettingsView";
 
 /**
@@ -57,7 +59,8 @@ export interface NotchTab {
 }
 
 export const tabs: NotchTab[] = [
-  { id: "overview", label: "Übersicht", icon: SquaresFour, size: { w: 520, h: 252 }, View: OverviewView },
+  // Taller while the quote line is on; read on every render, so the shape follows the setting.
+  { id: "overview", label: "Übersicht", icon: SquaresFour, get size() { return { w: 520, h: 252 + (settings.get().productivity.quotes ? QUOTE_LINE_H : 0) }; }, View: OverviewView },
   { id: "media", label: "Wiedergabe", icon: MusicNotesSimple, size: { w: 520, h: 232 }, View: NowPlayingView },
   { id: "timer", label: "Timer", icon: Timer, size: { w: 520, h: 192 }, View: TimerView },
   { id: "todos", label: "To-Dos", icon: CheckCircle, size: { w: 600, h: 276 }, View: TodosView },
