@@ -11,7 +11,9 @@ test("parse and format", () => {
   assert.deepEqual(parseColor("rgb(255 255 255 / 0.96)"), { r: 255, g: 255, b: 255, a: 0.96 });
   assert.deepEqual(parseColor("rgb(1, 2, 3)"), { r: 1, g: 2, b: 3, a: 1 });
   assert.equal(toHex(parseColor("hsl(210 100% 60%)")!), "#3399ff");
-  for (const bad of ["", "#12", "#ggg", "red", "rgb(300 0 0)", "rgb(0 0 0 / 2)", 5, null]) assert.equal(parseColor(bad), null, String(bad));
+  for (const bad of ["", "#12", "#ggg", "red", "rgb(300 0 0)", "rgb(0 0 0 / 2)", "rgb(1.2.3 0 0)", "hsl(1.2.3 50% 50%)", "hsl(0 120% 50%)", "hsl(0 50% 101%)", "hsl(0 50% 50% / 2)", 5, null])
+    assert.equal(parseColor(bad), null, String(bad));
+  assert.deepEqual(parseColor("hsl(0 100% 50% / 0.5)"), { r: 255, g: 0, b: 0, a: 0.5 });
   assert.equal(formatColor(c("#ABCDEF")), "#abcdef");
   assert.equal(formatColor({ r: 255, g: 255, b: 255, a: 0.1 }), "rgb(255 255 255 / 0.1)");
 });

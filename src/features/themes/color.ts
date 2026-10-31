@@ -45,8 +45,10 @@ export function parseColor(text: unknown): Rgba | null {
   }
   m = /^hsla?\(\s*([\d.]+)(?:deg)?[\s,]+([\d.]+)%[\s,]+([\d.]+)%\s*(?:[,/]\s*([\d.]+))?\s*\)$/.exec(s);
   if (m) {
-    const c = fromHsl(Number(m[1]), Number(m[2]) / 100, Number(m[3]) / 100);
-    return { ...c, a: m[4] === undefined ? 1 : clamp(Number(m[4]), 0, 1) };
+    const [h, sat, l] = [m[1], m[2], m[3]].map(Number);
+    const a = m[4] === undefined ? 1 : Number(m[4]);
+    if (![h, sat, l, a].every(Number.isFinite) || sat > 100 || l > 100 || a > 1) return null;
+    return { ...fromHsl(h, sat / 100, l / 100), a };
   }
   return null;
 }
