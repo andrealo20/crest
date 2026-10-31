@@ -156,6 +156,7 @@ pub fn display_apply(mut config: Config, window: WebviewWindow, state: State<'_,
         )
     };
     let zoom = config.zoom;
+    hit.set_edge(&config.edge);
     *state.config.lock().unwrap() = config;
     // The window's size follows the edge and the zoom in `place`.
     if zoomed {
