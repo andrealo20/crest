@@ -47,7 +47,7 @@ pub async fn fetch(client: &reqwest::Client) -> Result<Account, String> {
     let pem = secrets::read("coinbase.secret").ok_or("no-key")?;
     let get = |path: &str, query: &str| -> Result<reqwest::RequestBuilder, String> {
         let now = super::now_ms() / 1000;
-        let jwt = sign::coinbase_jwt(key_name.trim(), &pem, &format!("GET {HOST}{path}"), now, &sign::random_hex(16))?;
+        let jwt = sign::coinbase_jwt(key_name.trim(), &pem, &format!("GET {HOST}{path}"), now, &sign::random_hex(16)?)?;
         Ok(client.get(format!("https://{HOST}{path}{query}")).bearer_auth(jwt))
     };
 

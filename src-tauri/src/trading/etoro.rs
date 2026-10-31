@@ -17,15 +17,15 @@ const API: &str = "https://public-api.etoro.com/api/v1";
 pub async fn fetch(client: &reqwest::Client) -> Result<Account, String> {
     let api_key = secrets::read("etoro.key").ok_or("no-key")?;
     let user_key = secrets::read("etoro.user").ok_or("no-key")?;
-    let get = |url: String| {
-        client
+    let get = |url: String| -> Result<reqwest::RequestBuilder, String> {
+        Ok(client
             .get(url)
             .header("x-api-key", api_key.trim())
             .header("x-user-key", user_key.trim())
-            .header("x-request-id", request_id())
+            .header("x-request-id", request_id()?))
     };
 
-    let reply: Value = send_json(get(format!("{API}/trading/info/real/pnl"))).await?;
+    let reply: Value = send_json(get(format!("{API}/trading/info/real/pnl"))?).await?;
     let portfolio = &reply["clientPortfolio"];
     let positions = portfolio["positions"].as_array().cloned().unwrap_or_default();
 
@@ -38,7 +38,7 @@ pub async fn fetch(client: &reqwest::Client) -> Result<Account, String> {
     let mut names: HashMap<i64, (String, String)> = HashMap::new();
     for chunk in ids.chunks(50) {
         // Names are cosmetic: a failure here still shows the positions by id.
-        if let Ok(data) = send_json::<Value>(get(format!("{API}/market-data/instruments?instrumentIds={}", chunk.join(",")))).await {
+        if let Ok(data) = send_json::<Value>(get(format!("{API}/market-data/instruments?instrumentIds={}", chunk.join(",")))?).await {
             for d in data["instrumentDisplayDatas"].as_array().into_iter().flatten() {
                 if let Some(id) = field(d, &["instrumentID", "instrumentId"]).as_i64() {
                     let symbol = d["symbolFull"].as_str().unwrap_or_default().to_string();
@@ -105,10 +105,10 @@ fn pnl(p: &Value) -> f64 {
 }
 
 /// A random UUID v4 per request, as eToro requires.
-fn request_id() -> String {
-    let h = sign::random_hex(16);
+fn request_id() -> Result<String, String> {
+    let h = sign::random_hex(16)?;
     let variant = ["8", "9", "a", "b"][(u8::from_str_radix(&h[16..17], 16).unwrap_or(0) % 4) as usize];
-    format!("{}-{}-4{}-{}{}-{}", &h[0..8], &h[8..12], &h[13..16], variant, &h[17..20], &h[20..32])
+    Ok(format!("{}-{}-4{}-{}{}-{}", &h[0..8], &h[8..12], &h[13..16], variant, &h[17..20], &h[20..32]))
 }
 
 #[cfg(test)]
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn request_id_is_a_v4_uuid() {
-        let id = request_id();
+        let id = request_id().unwrap();
         let parts: Vec<&str> = id.split('-').collect();
         assert_eq!(parts.iter().map(|p| p.len()).collect::<Vec<_>>(), vec![8, 4, 4, 4, 12]);
         assert!(parts[2].starts_with('4'));

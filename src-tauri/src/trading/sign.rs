@@ -33,7 +33,8 @@ pub fn hex(bytes: &[u8]) -> String {
 pub fn coinbase_jwt(key_name: &str, pem: &str, uri: &str, now_secs: u64, nonce: &str) -> Result<String, String> {
     let key = ec_private_key(pem)?;
     let header = serde_json::json!({ "alg": "ES256", "typ": "JWT", "kid": key_name, "nonce": nonce });
-    let claims = serde_json::json!({ "iss": "cdp", "sub": key_name, "nbf": now_secs, "exp": now_secs + 120, "uri": uri });
+    // nbf a few seconds back, so a PC clock slightly ahead of Coinbase's still passes.
+    let claims = serde_json::json!({ "iss": "cdp", "sub": key_name, "nbf": now_secs - 5, "exp": now_secs + 120, "uri": uri });
     let input = format!("{}.{}", URL_SAFE_NO_PAD.encode(header.to_string()), URL_SAFE_NO_PAD.encode(claims.to_string()));
     let signature = cng::sign_p256(&key, &Sha256::digest(input.as_bytes()))?;
     Ok(format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature)))
@@ -44,6 +45,15 @@ pub struct EcKey {
     pub d: [u8; 32],
     pub x: [u8; 32],
     pub y: [u8; 32],
+}
+
+impl Drop for EcKey {
+    fn drop(&mut self) {
+        // Volatile, so the wipe of the private scalar is not optimized away.
+        for b in self.d.iter_mut() {
+            unsafe { std::ptr::write_volatile(b, 0) };
+        }
+    }
 }
 
 /// Reads a SEC1 "EC PRIVATE KEY" PEM, also as pasted from Coinbase's JSON file (literal "\n")
@@ -71,11 +81,11 @@ pub fn ec_private_key(pem: &str) -> Result<EcKey, String> {
     Ok(key)
 }
 
-/// Random hex for the JWT nonce.
-pub fn random_hex(len: usize) -> String {
+/// Random hex (JWT nonce, request ids). Fails rather than returning zeros.
+pub fn random_hex(len: usize) -> Result<String, String> {
     let mut buf = vec![0u8; len];
-    cng::random(&mut buf);
-    hex(&buf)
+    cng::random(&mut buf)?;
+    Ok(hex(&buf))
 }
 
 mod cng {
@@ -126,10 +136,8 @@ mod cng {
         })
     }
 
-    pub fn random(buf: &mut [u8]) {
-        unsafe {
-            let _ = BCryptGenRandom(None, buf, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
-        }
+    pub fn random(buf: &mut [u8]) -> Result<(), String> {
+        unsafe { BCryptGenRandom(None, buf, BCRYPT_USE_SYSTEM_PREFERRED_RNG) }.ok().map_err(|e| format!("network:no random numbers ({e})"))
     }
 
     #[cfg(test)]
@@ -213,7 +221,7 @@ mod tests {
         assert_eq!(header["nonce"], "abc");
         assert_eq!(claims["iss"], "cdp");
         assert_eq!(claims["sub"], "organizations/o/apiKeys/k");
-        assert_eq!(claims["nbf"], 1_700_000_000);
+        assert_eq!(claims["nbf"], 1_699_999_995);
         assert_eq!(claims["exp"], 1_700_000_120);
         assert_eq!(claims["uri"], "GET api.coinbase.com/api/v3/brokerage/accounts");
         let sig = URL_SAFE_NO_PAD.decode(parts[2]).unwrap();
