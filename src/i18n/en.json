@@ -485,5 +485,21 @@
  "Schwebt frei, zum Verschieben ziehen": "Floats freely, drag to move it",
  "Sekunden": "Seconds",
  "Songtitel": "Song title",
- "Zeigt, wie weit das Lied ist, solange Musik läuft": "Shows how far the song is while music plays"
+ "Zeigt, wie weit das Lied ist, solange Musik läuft": "Shows how far the song is while music plays",
+ "Terminal": "Terminal",
+ "Neue Sitzung": "New session",
+ "Shell konnte nicht starten: {error}": "The shell could not start: {error}",
+ "Enter versucht es noch einmal.": "Press Enter to try again.",
+ "Sitzung beendet (Code {code}). Enter startet eine neue.": "Session ended (code {code}). Press Enter to start a new one.",
+ "Shell": "Shell",
+ "PowerShell 7": "PowerShell 7",
+ "Windows PowerShell": "Windows PowerShell",
+ "Eingabeaufforderung": "Command Prompt",
+ "PowerShell 7 nicht gefunden, startet Windows PowerShell": "PowerShell 7 not found, Windows PowerShell starts instead",
+ "Gilt ab der nächsten Sitzung": "Applies from the next session",
+ "Schriftgröße": "Font size",
+ "Startordner": "Start folder",
+ "Leer = Benutzerordner, ~ steht für ihn": "Empty = your user folder, ~ stands for it",
+ "Beim Schließen beenden": "End session on close",
+ "Sonst läuft die Sitzung weiter, wenn die Notch zugeht": "Otherwise the session keeps running while the notch is closed"
 }

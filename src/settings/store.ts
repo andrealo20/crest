@@ -62,6 +62,8 @@ export interface Settings {
   presentation: { manual: boolean; auto: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
+  /** Terminal tool: shell, font size in px, start folder ("" = home), end the shell when the notch closes. */
+  terminal: { shell: "pwsh" | "powershell" | "cmd"; fontSize: number; startDir: string; endOnClose: boolean };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -81,9 +83,10 @@ export const TOOL_IDS = [
   "system",
   "discord",
   "vault",
+  "terminal",
 ] as const;
 
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault"]);
+const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "terminal"]);
 
 const defaults: Settings = {
   openMode: "hover",
@@ -111,6 +114,7 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
+  terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -168,6 +172,7 @@ settings.set((s) => {
     units: { ...defaults.units, ...s.units },
     presentation: { ...defaults.presentation, ...s.presentation },
     updates: { ...defaults.updates, ...s.updates },
+    terminal: { ...defaults.terminal, ...s.terminal },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
   };

@@ -14,6 +14,7 @@ import {
   Timer,
   Tray,
   Vault,
+  TerminalWindow,
   type Icon,
 } from "@phosphor-icons/react";
 import { DepotIcon } from "../ui/icons";
@@ -34,6 +35,7 @@ import { SystemView } from "../features/system/SystemView";
 import { DiscordView } from "../features/discord/DiscordView";
 import { VaultView } from "../features/vault/VaultView";
 import { SettingsView } from "../features/settings/SettingsView";
+import { TerminalView } from "../features/terminal/TerminalView";
 
 /**
  * Registry of all tools in the open notch. New tool = new entry here
@@ -68,6 +70,7 @@ export const tabs: NotchTab[] = [
   { id: "system", label: "Hardware", icon: Cpu, size: { w: 600, h: 248 }, View: SystemView },
   { id: "discord", label: "Discord", icon: DiscordLogo, size: { w: 520, h: 210 }, View: DiscordView },
   { id: "vault", label: "Tresor", icon: Vault, size: { w: 560, h: 324 }, View: VaultView },
+  { id: "terminal", label: "Terminal", icon: TerminalWindow, size: { w: 720, h: 460 }, View: TerminalView },
 ];
 
 /** Settings: reached via the gear, not in the tool bar. */
