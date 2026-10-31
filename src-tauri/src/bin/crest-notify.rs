@@ -20,13 +20,32 @@ const USAGE: &str = "Usage:
   crest-notify <title> [-b|--body <text>] [-s|--source <name>] [-r|--replace <key>] [-p|--progress <0-100>]
   crest-notify run [-s <name>] [-r <key>] -- <command> [args...]
 
-  -j, --json <text|->  take the body from an agent event's JSON (\"message\" or
+  -j, --json <text|->  take the body from an agent hook's JSON (\"message\" or
                        \"last-assistant-message\"); - reads it from standard input.
                        --body is used when the JSON has neither.
+  -q, --quiet          print nothing and always exit 0 (for hooks); with run, the
+                       command's exit code is still returned.
 
 Sends a notice to Crest. The same --replace key updates the notice shown before.
 Exit codes: 0 delivered, 1 usage error, 2 rejected, 3 Crest not running or notices off.
-`run` returns the command's exit code.";
+`run` returns the command's exit code. A command Windows cannot start directly (a .cmd
+script such as npm) is run through cmd /d /c, which parses & | ^ < > in its arguments.";
+
+static QUIET: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// eprintln unless --quiet.
+macro_rules! say {
+    ($($t:tt)*) => {
+        if !QUIET.load(std::sync::atomic::Ordering::Relaxed) {
+            eprintln!($($t)*);
+        }
+    };
+}
+
+/// --quiet among crest-notify's own options (a -q after `--` belongs to the command).
+fn is_quiet(args: &[String]) -> bool {
+    args.iter().take_while(|a| *a != "--").any(|a| a == "-q" || a == "--quiet")
+}
 
 #[derive(Debug, PartialEq)]
 enum Command {
@@ -47,6 +66,8 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
         let a = args[i].as_str();
         match a {
             "-h" | "--help" => return Ok(Command::Help),
+            // Read by is_quiet.
+            "-q" | "--quiet" => {}
             "run" if i == 0 => run = true,
             "--" if run => {
                 let command: Vec<String> = args[i + 1..].to_vec();
@@ -106,8 +127,8 @@ fn read_json(spec: &str) -> Option<String> {
     Some(text)
 }
 
-/// The message in an agent's event: `message` (Claude Code's Notification hook) or `last-assistant-message` (Codex's
-/// notify). None when there is neither, so the --body given as a fallback stays.
+/// The message in an agent hook's event: `message`, `last-assistant-message` or `last_assistant_message`. None when
+/// there is none of them, so the --body given as a fallback stays.
 fn body_from_json(text: &str) -> Option<String> {
     let value: serde_json::Value = serde_json::from_str(text).ok()?;
     ["message", "last-assistant-message", "last_assistant_message"]
@@ -115,31 +136,51 @@ fn body_from_json(text: &str) -> Option<String> {
         .find_map(|k| value.get(k).and_then(|v| v.as_str()).map(str::trim).filter(|s| !s.is_empty()).map(str::to_string))
 }
 
+/// Whether the process at the server end of the pipe runs as this user. Another account could create the pipe name
+/// first (pipe names are shared by the whole machine); its notices would go to that account.
+fn server_is_ours(pipe: &std::fs::File, sid: &str) -> bool {
+    use std::os::windows::io::AsRawHandle;
+    use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::System::Pipes::GetNamedPipeServerProcessId;
+    let mut pid = 0u32;
+    if unsafe { GetNamedPipeServerProcessId(HANDLE(pipe.as_raw_handle()), &mut pid) }.is_err() {
+        return false;
+    }
+    notify_wire::pid_sid(pid).as_deref() == Some(sid)
+}
+
 /// Sends one request and waits for the reply; the exit code for the outcome.
 fn send(request: &Request) -> u8 {
     let Some(line) = notify_wire::encode(request) else {
-        eprintln!("crest-notify: the notice is larger than 64 KB");
+        say!("crest-notify: the notice is larger than 64 KB");
         return 1;
     };
     let Some((session, sid)) = notify_wire::identity() else {
-        eprintln!("crest-notify: cannot read the current user");
+        say!("crest-notify: cannot read the current user");
         return 3;
     };
     let name = notify_wire::pipe_name(session, &sid);
     // The server opens the next instance right after taking a client; a busy pipe (error 231) only waits a moment.
     let deadline = Instant::now() + Duration::from_secs(2);
     let mut pipe = loop {
-        match std::fs::OpenOptions::new().read(true).write(true).open(&name) {
+        use std::os::windows::fs::OpenOptionsExt;
+        // Identification only: a server that is not Crest cannot act as this user with our handle.
+        let qos = windows::Win32::Storage::FileSystem::SECURITY_IDENTIFICATION.0;
+        match std::fs::OpenOptions::new().read(true).write(true).security_qos_flags(qos).open(&name) {
             Ok(p) => break p,
             Err(e) if e.raw_os_error() == Some(231) && Instant::now() < deadline => std::thread::sleep(Duration::from_millis(50)),
             Err(_) => {
-                eprintln!("crest-notify: Crest is not running, or live notices are off");
+                say!("crest-notify: Crest is not running, or live notices are off");
                 return 3;
             }
         }
     };
+    if !server_is_ours(&pipe, &sid) {
+        say!("crest-notify: the notice channel belongs to another user; nothing was sent");
+        return 3;
+    }
     if pipe.write_all(&line).and_then(|_| pipe.flush()).is_err() {
-        eprintln!("crest-notify: Crest closed the connection");
+        say!("crest-notify: Crest closed the connection");
         return 3;
     }
     // Read on a thread so a Crest that hangs cannot hold the caller (a hook, a build script) for long.
@@ -159,7 +200,7 @@ fn send(request: &Request) -> u8 {
         let _ = tx.send(buf);
     });
     let Ok(buf) = rx.recv_timeout(Duration::from_secs(3)) else {
-        eprintln!("crest-notify: Crest did not answer in time");
+        say!("crest-notify: Crest did not answer in time");
         return 3;
     };
     let reply = match notify_wire::take_line(&buf) {
@@ -169,20 +210,20 @@ fn send(request: &Request) -> u8 {
     match reply.as_ref().map(|r| r.result.as_str()) {
         Some("accepted") => 0,
         Some("limited") => {
-            eprintln!("crest-notify: too many notices, try again in a few seconds");
+            say!("crest-notify: too many notices, try again in a few seconds");
             2
         }
         Some("rejected") => {
             let why = reply.and_then(|r| r.reason).unwrap_or_default();
-            eprintln!("crest-notify: notice rejected ({why})");
+            say!("crest-notify: notice rejected ({why})");
             2
         }
         Some("off") => {
-            eprintln!("crest-notify: live notices are off in Crest");
+            say!("crest-notify: live notices are off in Crest");
             3
         }
         _ => {
-            eprintln!("crest-notify: unexpected answer from Crest");
+            say!("crest-notify: unexpected answer from Crest");
             3
         }
     }
@@ -198,7 +239,7 @@ fn run(mut request: Request, command: Vec<String>) -> ExitCode {
     let (code, failed_to_start) = match status {
         Ok(s) => (s.code().unwrap_or(1), false),
         Err(e) => {
-            eprintln!("crest-notify: cannot start {}: {e}", command[0]);
+            say!("crest-notify: cannot start {}: {e}", command[0]);
             (127, true)
         }
     };
@@ -213,7 +254,19 @@ fn run(mut request: Request, command: Vec<String>) -> ExitCode {
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    match parse_args(&args) {
+    let quiet = is_quiet(&args);
+    QUIET.store(quiet, std::sync::atomic::Ordering::Relaxed);
+    // A hook that fails can stop or warn its agent; --quiet never does.
+    let code = outcome(&args);
+    if quiet {
+        ExitCode::SUCCESS
+    } else {
+        code
+    }
+}
+
+fn outcome(args: &[String]) -> ExitCode {
+    match parse_args(args) {
         Ok(Command::Help) => {
             println!("{USAGE}");
             ExitCode::SUCCESS
@@ -223,14 +276,14 @@ fn main() -> ExitCode {
                 r.body = Some(text);
             }
             if r.title.is_none() && r.body.is_none() {
-                eprintln!("crest-notify: the JSON had no message and no title or --body was given");
+                say!("crest-notify: the JSON had no message and no title or --body was given");
                 return ExitCode::from(1);
             }
             ExitCode::from(send(&r))
         }
         Ok(Command::Run(r, command)) => run(r, command),
         Err(e) => {
-            eprintln!("crest-notify: {e}\n\n{USAGE}");
+            say!("crest-notify: {e}\n\n{USAGE}");
             ExitCode::from(1)
         }
     }
@@ -277,13 +330,22 @@ mod tests {
 
     #[test]
     fn agent_json() {
-        // Codex appends its event as the last argument, which fills --json.
-        let Ok(Command::Send(r, Some(j))) = parse_args(&args(&["Codex", "-s", "Codex", "--json", r#"{"type":"agent-turn-complete","last-assistant-message":"Done."}"#])) else { panic!() };
-        assert_eq!(r.title.as_deref(), Some("Codex"));
+        // An agent that appends its event as the last argument fills --json.
+        let Ok(Command::Send(r, Some(j))) = parse_args(&args(&["Agent", "-s", "Agent", "--json", r#"{"type":"turn-complete","last-assistant-message":"Done."}"#])) else { panic!() };
+        assert_eq!(r.title.as_deref(), Some("Agent"));
         assert_eq!(body_from_json(&j).as_deref(), Some("Done."));
         assert!(matches!(parse_args(&args(&["--json", "-"])), Ok(Command::Send(_, Some(_)))));
         assert_eq!(body_from_json(r#"{"hook_event_name":"Notification","message":" Needs input "}"#).as_deref(), Some("Needs input"));
         assert_eq!(body_from_json(r#"{"hook_event_name":"Stop"}"#), None);
         assert_eq!(body_from_json("not json"), None);
+    }
+
+    #[test]
+    fn quiet() {
+        assert!(is_quiet(&args(&["t", "--quiet"])));
+        assert!(is_quiet(&args(&["run", "-q", "--", "cargo", "test"])));
+        // A -q after -- belongs to the command.
+        assert!(!is_quiet(&args(&["run", "--", "cargo", "test", "-q"])));
+        assert!(matches!(parse_args(&args(&["t", "-q"])), Ok(Command::Send(r, None)) if r.title.as_deref() == Some("t")));
     }
 }

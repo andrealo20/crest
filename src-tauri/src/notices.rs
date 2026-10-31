@@ -785,7 +785,13 @@ mod tests {
             });
             let client_name = name.clone();
             let reply = tokio::task::spawn_blocking(move || {
-                let mut pipe = std::fs::OpenOptions::new().read(true).write(true).open(&client_name).unwrap();
+                use std::os::windows::{fs::OpenOptionsExt, io::AsRawHandle};
+                let qos = windows::Win32::Storage::FileSystem::SECURITY_IDENTIFICATION.0;
+                let mut pipe = std::fs::OpenOptions::new().read(true).write(true).security_qos_flags(qos).open(&client_name).unwrap();
+                // The check crest-notify makes: the server end runs as this user.
+                let mut pid = 0u32;
+                unsafe { windows::Win32::System::Pipes::GetNamedPipeServerProcessId(windows::Win32::Foundation::HANDLE(pipe.as_raw_handle()), &mut pid) }.unwrap();
+                assert_eq!(notify_wire::pid_sid(pid), notify_wire::identity().map(|(_, s)| s));
                 pipe.write_all(b"{\"title\":\"Build\",\"source\":\"CI\",\"progress\":40}\n").unwrap();
                 let mut out = String::new();
                 std::io::BufReader::new(pipe).read_line(&mut out).unwrap();

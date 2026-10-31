@@ -19,7 +19,7 @@ pub struct Request {
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
-    /// Who sent it ("Build", "Claude Code"); shown as the app name and used for the per-app rule.
+    /// Who sent it ("Build", "Tests"); shown as the app name and used for the per-app rule.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
     /// A later notice with the same source and key replaces the earlier one.
@@ -143,16 +143,37 @@ pub fn pipe_name(session: u32, sid: &str) -> String {
 /// The current user's SID ("S-1-5-21-…") and logon session id.
 #[cfg(windows)]
 pub fn identity() -> Option<(u32, String)> {
-    use windows::Win32::Foundation::{CloseHandle, HANDLE, HLOCAL, LocalFree};
-    use windows::Win32::Security::Authorization::ConvertSidToStringSidW;
-    use windows::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
     use windows::Win32::System::RemoteDesktop::ProcessIdToSessionId;
-    use windows::Win32::System::Threading::{GetCurrentProcess, GetCurrentProcessId, OpenProcessToken};
+    use windows::Win32::System::Threading::{GetCurrentProcess, GetCurrentProcessId};
     unsafe {
         let mut session = 0u32;
         ProcessIdToSessionId(GetCurrentProcessId(), &mut session).ok()?;
+        Some((session, process_sid(GetCurrentProcess())?))
+    }
+}
+
+/// The user SID of another process, or None when it cannot be opened (another user's process usually cannot).
+#[cfg(windows)]
+pub fn pid_sid(pid: u32) -> Option<String> {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+    unsafe {
+        let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let sid = process_sid(process);
+        let _ = CloseHandle(process);
+        sid
+    }
+}
+
+#[cfg(windows)]
+unsafe fn process_sid(process: windows::Win32::Foundation::HANDLE) -> Option<String> {
+    use windows::Win32::Foundation::{CloseHandle, HANDLE, HLOCAL, LocalFree};
+    use windows::Win32::Security::Authorization::ConvertSidToStringSidW;
+    use windows::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
+    use windows::Win32::System::Threading::OpenProcessToken;
+    unsafe {
         let mut token = HANDLE::default();
-        OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token).ok()?;
+        OpenProcessToken(process, TOKEN_QUERY, &mut token).ok()?;
         let mut size = 0u32;
         let _ = GetTokenInformation(token, TokenUser, None, 0, &mut size);
         let mut buf = vec![0u8; size as usize];
@@ -164,7 +185,7 @@ pub fn identity() -> Option<(u32, String)> {
         ConvertSidToStringSidW(user.User.Sid, &mut text).ok()?;
         let sid = text.to_string().ok();
         let _ = LocalFree(Some(HLOCAL(text.0.cast())));
-        Some((session, sid?))
+        sid
     }
 }
 
