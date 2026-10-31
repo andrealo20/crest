@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Reorder } from "motion/react";
 import { Check, DotsSixVertical, PencilSimple } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
@@ -9,6 +9,7 @@ import { Group, Row, Switch, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
 import { SecretRow } from "../settings/SettingsView";
 import { NAME_MAX } from "./cards";
+import { refreshUsage } from "./store";
 
 const hints: Record<UsageId, string> = {
   claude: "Über die Anmeldung von Claude Code",
@@ -23,14 +24,29 @@ const hints: Record<UsageId, string> = {
 /** Key sources and their Credential Manager entry; OpenRouter shares the AI chat's key. */
 const keys: Partial<Record<UsageId, SecretName>> = { openrouter: "ai.openrouter", deepseek: "usage.deepseek", zai: "usage.zai" };
 
-/** The AI usage cards: drag to reorder, switch to add or remove, pencil to rename. Keys for the API-key sources below. */
+/** The AI usage cards: drag (or Alt+arrows) to reorder, switch to add or remove, pencil to rename. Keys for the API-key sources below. */
 export function UsageSettings() {
   const s = settings.use();
   const { order, names } = s.aiUsage;
   const [dragging, setDragging] = useState<UsageId | null>(null);
   const [renaming, setRenaming] = useState<UsageId | null>(null);
   const [draft, setDraft] = useState("");
+  // While dragging, the order lives here and is saved once on drop, not on every step.
+  const [moving, setMovingState] = useState<UsageId[] | null>(null);
+  const movingRef = useRef<UsageId[] | null>(null);
+  const setMoving = (next: UsageId[] | null) => setMovingState((movingRef.current = next));
+  const shown = moving ?? order;
   const keyed = order.filter((id) => keys[id] && s.usage[id]);
+
+  const saveOrder = (next: UsageId[]) => updateSettings((cur) => ({ aiUsage: { ...cur.aiUsage, order: next } }));
+  /** One place up (-1) or down (1). */
+  const move = (id: UsageId, by: number) => {
+    const i = order.indexOf(id), j = i + by;
+    if (i < 0 || j < 0 || j >= order.length) return;
+    const next = [...order];
+    [next[i], next[j]] = [next[j], next[i]];
+    saveOrder(next);
+  };
 
   const commit = () => {
     if (!renaming) return;
@@ -47,14 +63,8 @@ export function UsageSettings() {
   return (
     <>
       <Group title={t("AI-Nutzung")} id="settings-usage">
-        <Reorder.Group
-          as="div"
-          axis="y"
-          values={order}
-          onReorder={(next: UsageId[]) => updateSettings((cur) => ({ aiUsage: { ...cur.aiUsage, order: next } }))}
-          className="divide-y divide-separator"
-        >
-          {order.map((id) => {
+        <Reorder.Group as="div" axis="y" values={shown} onReorder={(next: UsageId[]) => setMoving(next)} className="divide-y divide-separator">
+          {shown.map((id) => {
             const on = s.usage[id];
             return (
               <Reorder.Item
@@ -63,17 +73,38 @@ export function UsageSettings() {
                 as="div"
                 transition={springs.snappy}
                 onDragStart={() => setDragging(id)}
-                onDragEnd={() => setDragging(null)}
+                onDragEnd={() => {
+                  setDragging(null);
+                  if (movingRef.current) saveOrder(movingRef.current);
+                  setMoving(null);
+                }}
                 whileDrag={{ scale: 1.02 }}
-                className={`group relative flex min-h-11 cursor-grab items-center gap-2.5 px-3 py-1.5 active:cursor-grabbing ${
+                // Alt+Up / Alt+Down on the row, or on any control in it, moves the card one place.
+                tabIndex={0}
+                aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                onKeyDown={(e) => {
+                  if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+                  e.preventDefault();
+                  move(id, e.key === "ArrowUp" ? -1 : 1);
+                }}
+                className={`group relative flex min-h-11 cursor-grab items-center gap-2.5 px-3 py-1.5 outline-none focus-visible:bg-fill-2 active:cursor-grabbing ${
                   dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
                 }`}
               >
-                <DotsSixVertical size={13} weight="bold" className="-ml-1 shrink-0 text-label-4 transition-colors group-hover:text-label-3" />
+                <span title={t("Ziehen oder Alt+Pfeil hoch/runter zum Verschieben")} className="-ml-1 shrink-0">
+                  <DotsSixVertical size={13} weight="bold" className="text-label-4 transition-colors group-hover:text-label-3" />
+                </span>
                 <BrandLogo id={id} size={14} className={`shrink-0 ${on ? "text-label-2" : "text-label-4"}`} />
                 <div className="min-w-0 flex-1 select-none">
                   {renaming === id ? (
-                    <div onPointerDown={(e) => e.stopPropagation()}>
+                    <div
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => {
+                        // Inside the field: Escape keeps the old name, Alt+arrows do not move the card.
+                        e.stopPropagation();
+                        if (e.key === "Escape") setRenaming(null);
+                      }}
+                    >
                       <TextField autoFocus value={draft} onChange={setDraft} onSubmit={commit} placeholder={brandName[id]} width="w-40" />
                     </div>
                   ) : (
@@ -114,7 +145,8 @@ export function UsageSettings() {
       {keyed.length > 0 && (
         <Group title={t("Schlüssel für die AI-Nutzung")}>
           {keyed.map((id) => (
-            <SecretRow key={id} name={keys[id]!} label={names[id] || brandName[id]} hint={id === "openrouter" ? t("Derselbe Schlüssel wie im AI-Chat") : undefined} />
+            // Saving a key asks the source again at once, so an old "no key" or "key rejected" does not linger.
+            <SecretRow key={id} name={keys[id]!} label={names[id] || brandName[id]} hint={id === "openrouter" ? t("Derselbe Schlüssel wie im AI-Chat") : undefined} onSaved={() => void refreshUsage()} />
           ))}
         </Group>
       )}
