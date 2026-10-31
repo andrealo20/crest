@@ -15,6 +15,7 @@ mod mixer;
 mod privacy;
 pub mod secrets;
 mod system;
+mod terminal;
 mod trading;
 pub mod usage;
 mod vault;
@@ -71,6 +72,7 @@ pub fn run() {
         .manage(display::DisplayState::default())
         .manage(discord::DiscordState::default())
         .manage(vault::VaultState::default())
+        .manage(terminal::TerminalState::default())
         .invoke_handler(tauri::generate_handler![
             hit_test::set_hit_rect,
             hit_test::set_pinned,
@@ -137,6 +139,12 @@ pub fn run() {
             vault::vault_hello_disable,
             autostart_get,
             autostart_set,
+            terminal::terminal_info,
+            terminal::terminal_start,
+            terminal::terminal_write,
+            terminal::terminal_resize,
+            terminal::terminal_kill,
+            terminal::terminal_clipboard_text,
         ])
         .setup(move |app| {
             let window = app.get_webview_window("notch").expect("window 'notch' missing");
