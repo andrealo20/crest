@@ -23,6 +23,7 @@ import { READING_GAP, ReadingView, readingWidth, useReadings } from "./parts/Rea
 import { Clock, clockWidth } from "./parts/Clock";
 import { TimerPart, timerWidth } from "./parts/TimerPart";
 import { DISCORD_WIDTH, DiscordPart } from "./parts/DiscordPart";
+import { GithubPart, githubWidth, useGithubToday } from "./parts/GithubPart";
 
 /** Rows mounted: an exiting row and the next one can overlap for a moment, and the polling must stay on in between. */
 let mounted = 0;
@@ -58,6 +59,7 @@ export function CompactRow({ style, covered, onWidth }: { style: "notch" | "caps
   const rings = ringProviders(usage.use().providers);
   const readings = useReadings(closed, useGamingLive());
   const dots = usePrivacyDots();
+  const gh = useGithubToday();
   const [hovered, setHovered] = useState(false);
   // The title stays while paused, like the cover; it only scrolls while playing.
   const music = s.music;
@@ -83,6 +85,7 @@ export function CompactRow({ style, covered, onWidth }: { style: "notch" | "caps
     if (id === "timer" && running) fixed(id, timerWidth(timer.get().duration), () => <TimerPart paused={covered} />);
     else if (id === "discord" && call) fixed(id, DISCORD_WIDTH, () => <DiscordPart call={call} paused={covered} />);
     else if (id === "equalizer" && np && playing) fixed(id, 16, () => <Equalizer playing={np.isPlaying && !covered} />);
+    else if (id === "github" && gh) fixed(id, githubWidth(gh.count), () => <GithubPart count={gh.count} level={gh.level} />);
     else if (id === "clock") fixed(id, clockWidth(closed.clockSeconds, s.units.clock === "12"), () => <Clock seconds={closed.clockSeconds} h12={s.units.clock === "12"} paused={covered} />);
     else if (id === "title" && caption) {
       const text = measureText(caption);

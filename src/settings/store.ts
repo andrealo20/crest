@@ -6,6 +6,7 @@ import { WATER_DEFAULTS, normalizeWater, type WaterConfig } from "../features/wa
 import { normalizeCards, USAGE_CARDS_DEFAULTS, type UsageCards } from "../features/usage/cards";
 import { THEME_DEFAULTS, normalizeThemeSettings, type ThemeSettings } from "../features/themes/themes";
 import type { ColorScheme } from "../features/system/levels";
+import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -84,6 +85,13 @@ export interface Settings {
   themes: ThemeSettings;
   /** Hardware tool: colours of the readings, the GPU shown (adapter name, "" = automatic: the busiest; index among adapters of that name), process ranking. */
   system: { colors: ColorScheme; gpu: string; gpuIndex: number; sort: "cpu" | "mem" };
+  /**
+   * App launcher: pinned apps, `null` until the first app list arrives, which pins the detected
+   * AI apps once. `hotkeys`: the first six on Alt+1 to Alt+6, opt-in (other apps lose those keys).
+   */
+  launcher: { favorites: Favorite[] | null; hotkeys: boolean };
+  /** GitHub activity: the public username. An optional token is stored with the secrets. */
+  github: { user: string };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -106,9 +114,11 @@ export const TOOL_IDS = [
   "water",
   "scratchpad",
   "terminal",
+  "launcher",
+  "github",
 ] as const;
 
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal"]);
+const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github"]);
 
 const defaults: Settings = {
   openMode: "hover",
@@ -143,6 +153,8 @@ const defaults: Settings = {
   music: { lyricsOpen: false, titleLyrics: false, notchLyrics: false, pinned: null },
   themes: THEME_DEFAULTS,
   system: { colors: "calm", gpu: "", gpuIndex: 0, sort: "cpu" },
+  launcher: { favorites: null, hotkeys: false },
+  github: { user: "" },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -207,6 +219,9 @@ settings.set((s) => {
     music: { ...defaults.music, ...s.music },
     themes: normalizeThemeSettings(s.themes),
     system: { ...defaults.system, ...s.system },
+    // Only an explicit opt-in turns the keys on; an older saved `shortcuts: true` does not.
+    launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true },
+    github: { ...defaults.github, ...s.github },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
   };

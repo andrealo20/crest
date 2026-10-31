@@ -6,6 +6,7 @@ import {
   CheckCircle,
   Clock,
   Cpu,
+  GithubLogo,
   DotsSixVertical,
   Keyboard,
   LockSimple,
@@ -44,6 +45,8 @@ import { MusicSettings } from "../now-playing/MusicSettings";
 import { setMusic } from "../now-playing/music";
 import { UsageSettings } from "../usage/UsageSettings";
 import { SystemSettings } from "../system/SystemSettings";
+import { LauncherSettings } from "../launcher/LauncherSettings";
+import { GithubSettings } from "../github/GithubSettings";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
@@ -81,6 +84,8 @@ const sectionPage: Record<string, PageId> = {
   terminal: "tools",
   themes: "themes",
   system: "tools",
+  launcher: "tools",
+  github: "accounts",
 };
 
 /** Last open page survives closing/opening the notch (the component is rebuilt). */
@@ -163,6 +168,7 @@ export function SettingsView() {
                 <VaultSettings />
                 <ProductivitySettings />
                 <TerminalSettings />
+                <LauncherSettings />
               </>
             )}
             {page === "timer" && (
@@ -182,6 +188,7 @@ export function SettingsView() {
               <>
                 <Discord />
                 <Trading />
+                <GithubSettings />
                 <KeysNote />
               </>
             )}
@@ -607,6 +614,7 @@ const partInfo: Record<PartId, { label: string; icon: Icon }> = {
   readings: { label: "Auslastung", icon: Cpu },
   equalizer: { label: "Equalizer", icon: Waveform },
   clock: { label: "Uhrzeit", icon: Clock },
+  github: { label: "GitHub heute", icon: GithubLogo },
 };
 
 /** Small labelled switch for a part's own options, next to its main switch. */

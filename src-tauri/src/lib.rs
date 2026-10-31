@@ -8,8 +8,10 @@ mod display;
 mod documents;
 mod drop;
 mod fps;
+mod github;
 mod hit_test;
 mod loopback;
+mod launcher;
 mod media;
 mod media_pick;
 mod memory;
@@ -79,6 +81,8 @@ pub fn run() {
         .manage(discord::DiscordState::default())
         .manage(vault::VaultState::default())
         .manage(terminal::TerminalState::default())
+        .manage(launcher::LauncherState::default())
+        .manage(github::GithubState::default())
         .invoke_handler(tauri::generate_handler![
             hit_test::set_hit_rect,
             hit_test::set_pinned,
@@ -164,6 +168,11 @@ pub fn run() {
             themes::themes_folder,
             themes::themes_read,
             themes::themes_write,
+            launcher::launcher_apps,
+            launcher::launcher_icons,
+            launcher::launcher_open,
+            launcher::launcher_shortcuts,
+            github::github_contributions,
         ])
         .setup(move |app| {
             let window = app.get_webview_window("notch").expect("window 'notch' missing");

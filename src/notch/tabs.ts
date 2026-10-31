@@ -9,6 +9,8 @@ import {
   Drop,
   Gauge,
   GearSix,
+  GithubLogo,
+  RocketLaunch,
   SquaresFour,
   MusicNotesSimple,
   NotePencil,
@@ -42,6 +44,8 @@ import { QUOTE_LINE_H } from "../features/quotes/QuoteLine";
 import { settings } from "../settings/store";
 import { SettingsView } from "../features/settings/SettingsView";
 import { TerminalView } from "../features/terminal/TerminalView";
+import { LauncherView } from "../features/launcher/LauncherView";
+import { GithubView } from "../features/github/GithubView";
 
 /**
  * Registry of all tools in the open notch. New tool = new entry here
@@ -88,6 +92,8 @@ export const tabs: NotchTab[] = [
   { id: "water", label: "Wasser", icon: Drop, size: { w: 520, h: 236 }, View: WaterView },
   { id: "scratchpad", label: "Code-Notizblock", icon: Code, size: { w: 600, h: 320 }, View: ScratchpadView },
   { id: "terminal", label: "Terminal", icon: TerminalWindow, size: { w: 720, h: 460 }, View: TerminalView },
+  { id: "launcher", label: "Launcher", icon: RocketLaunch, size: { w: 520, h: 210 }, View: LauncherView },
+  { id: "github", label: "GitHub", icon: GithubLogo, size: { w: 520, h: 236 }, View: GithubView },
 ];
 
 /** Settings: reached via the gear, not in the tool bar. */
