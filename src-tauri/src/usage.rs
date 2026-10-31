@@ -53,6 +53,18 @@ pub struct UsageState {
     backoff: Mutex<HashMap<String, backoff::Backoff>>,
     /// Parsed session logs (only filled once the AI usage tool asked for tokens).
     logs: Mutex<logs::Cache>,
+    /// Hash of the API key each key source was last asked with (memory only, never logged).
+    keys: Mutex<HashMap<String, u64>>,
+}
+
+/// Credential Manager entry of the API-key sources.
+fn key_name(id: &str) -> Option<&'static str> {
+    match id {
+        "openrouter" => Some("ai.openrouter"),
+        "deepseek" => Some("usage.deepseek"),
+        "zai" => Some("usage.zai"),
+        _ => None,
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -115,8 +127,14 @@ pub async fn usage_fetch(providers: Vec<String>, app: AppHandle, state: State<'_
             continue;
         }
         let cached = state.cache.lock().unwrap().get(&id).cloned();
+        // A key saved or removed since the last answer: ask again now, whatever the cache or a pause says.
+        let key_now = key_name(&id).map(|name| logs::fnv(crate::secrets::read(name).unwrap_or_default().as_bytes()));
+        let key_changed = key_now.is_some() && state.keys.lock().unwrap().get(&id).is_some_and(|old| Some(*old) != key_now);
+        if key_changed {
+            state.backoff.lock().unwrap().remove(&id);
+        }
         let paused = state.backoff.lock().unwrap().get_mut(&id).and_then(|b| b.retry_at(now_ms()));
-        if let Some((next_at, p)) = &cached {
+        if let Some((next_at, p)) = cached.as_ref().filter(|_| !key_changed) {
             if paused.is_some() || now_ms() < *next_at {
                 out.push(p.clone());
                 continue;
@@ -154,7 +172,11 @@ pub async fn usage_fetch(providers: Vec<String>, app: AppHandle, state: State<'_
             (Err(e), _) => Provider { error: Some(e.code), ..Provider::new(&id) },
         };
         provider.retry_at = retry_at;
-        let next_at = retry_at.unwrap_or(0).max(now + cache_for(&id).as_millis() as u64);
+        if let Some(k) = key_now {
+            state.keys.lock().unwrap().insert(id.clone(), k);
+        }
+        // A missing key costs no request to check, so it is asked again on the next poll.
+        let next_at = if provider.error.as_deref() == Some("no-key") { now } else { retry_at.unwrap_or(0).max(now + cache_for(&id).as_millis() as u64) };
         state.cache.lock().unwrap().insert(id, (next_at, provider.clone()));
         out.push(provider);
     }
@@ -583,7 +605,13 @@ fn parse_deepseek(body: &Value) -> Result<Provider, Fail> {
 /// 5-hour window), unit 6 is the week; TIME_LIMIT is the monthly tool-call quota.
 async fn fetch_zai() -> Result<Provider, Fail> {
     let key = key("usage.zai")?;
-    let body = get_json(client()?.get("https://api.z.ai/api/monitor/usage/quota/limit").header("Authorization", key)).await?;
+    let url = "https://api.z.ai/api/monitor/usage/quota/limit";
+    let http = client()?;
+    // The coding plan takes the key as is; if that is refused, try once the usual Bearer form.
+    let body = match get_json(http.get(url).header("Authorization", &key)).await {
+        Err(e) if e.code == "bad-key" => get_json(http.get(url).bearer_auth(&key)).await?,
+        other => other?,
+    };
     parse_zai(&body, now_ms())
 }
 
