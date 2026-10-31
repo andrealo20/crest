@@ -11,7 +11,7 @@ interface Props {
 }
 
 /**
- * The black shape: a body with rounded bottom corners + two concave "ears"
+ * The shape (black closed, the theme background open): a body with rounded bottom corners + two concave "ears"
  * at the top that blend the notch into the screen edge (the capsule has no
  * ears and rounds its top corners instead).
  *
@@ -53,7 +53,12 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
   }, [elevated, shadow]);
 
   return (
-    <motion.div className="relative" style={{ width: wPx, height: hPx }}>
+    <motion.div
+      data-notch-shape
+      className="relative"
+      // The theme's background open; closed black, unless the theme opts in (--notch-closed). Crossfades (themes.css).
+      style={{ width: wPx, height: hPx, ["--shape" as string]: elevated ? "var(--color-notch)" : "var(--notch-closed)" }}
+    >
       <motion.span
         aria-hidden
         className="absolute top-0"
@@ -62,7 +67,7 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
           width: ear,
           height: ear,
           background:
-            "radial-gradient(circle farthest-side at 0% 100%, transparent calc(100% - 0.75px), var(--color-notch) 100%)",
+            "radial-gradient(circle farthest-side at 0% 100%, transparent calc(100% - 0.75px), var(--shape) 100%)",
         }}
       />
       <motion.span
@@ -73,7 +78,7 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
           width: ear,
           height: ear,
           background:
-            "radial-gradient(circle farthest-side at 100% 100%, transparent calc(100% - 0.75px), var(--color-notch) 100%)",
+            "radial-gradient(circle farthest-side at 100% 100%, transparent calc(100% - 0.75px), var(--shape) 100%)",
         }}
       />
       <motion.div
@@ -90,7 +95,7 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
       />
       <motion.div
         // clip instead of hidden: no scroll container, so focus/scrollIntoView can't shift the content.
-        className="absolute inset-0 overflow-clip bg-notch"
+        className="absolute inset-0 overflow-clip bg-(--shape)"
         style={{ borderTopLeftRadius: rt, borderTopRightRadius: rt, borderBottomLeftRadius: r, borderBottomRightRadius: r }}
       >
         {children}

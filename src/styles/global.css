@@ -8,8 +8,11 @@
   inherits: true;
   initial-value: #0a84ff;
 }
+/* The opacity part keeps the notch container's focus-mode dim fading (its transition-opacity would lose to this rule). */
 [style*="--accent"] {
-  transition: --accent 500ms ease;
+  transition:
+    --accent 500ms ease,
+    opacity 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 html,

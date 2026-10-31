@@ -4,6 +4,7 @@ import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/
 import { normalizeLook, type TimerLook } from "../features/timer/looks";
 import { WATER_DEFAULTS, normalizeWater, type WaterConfig } from "../features/water/water";
 import { normalizeCards, USAGE_CARDS_DEFAULTS, type UsageCards } from "../features/usage/cards";
+import { THEME_DEFAULTS, normalizeThemeSettings, type ThemeSettings } from "../features/themes/themes";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -78,6 +79,8 @@ export interface Settings {
    * shows only cover and line while synced lyrics play; the player shown whatever else plays (media app ID, null = automatic).
    */
   music: { lyricsOpen: boolean; titleLyrics: boolean; notchLyrics: boolean; pinned: string | null };
+  /** Panel theme, custom themes and the day and night switch (src/features/themes). */
+  themes: ThemeSettings;
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -135,6 +138,7 @@ const defaults: Settings = {
   productivity: { reminderSound: true, quotes: false, water: WATER_DEFAULTS },
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
   music: { lyricsOpen: false, titleLyrics: false, notchLyrics: false, pinned: null },
+  themes: THEME_DEFAULTS,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -197,6 +201,7 @@ settings.set((s) => {
     productivity: { ...defaults.productivity, ...s.productivity, water: normalizeWater(s.productivity?.water) },
     terminal: { ...defaults.terminal, ...s.terminal },
     music: { ...defaults.music, ...s.music },
+    themes: normalizeThemeSettings(s.themes),
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
   };

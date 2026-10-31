@@ -21,6 +21,7 @@ mod system;
 mod sysevents;
 mod timer_window;
 mod terminal;
+mod themes;
 mod trading;
 pub mod usage;
 mod vault;
@@ -159,6 +160,9 @@ pub fn run() {
             terminal::terminal_resize,
             terminal::terminal_kill,
             terminal::terminal_clipboard_text,
+            themes::themes_folder,
+            themes::themes_read,
+            themes::themes_write,
         ])
         .setup(move |app| {
             let window = app.get_webview_window("notch").expect("window 'notch' missing");
