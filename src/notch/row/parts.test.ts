@@ -33,6 +33,11 @@ test("does not alias the defaults", () => {
   n.order.reverse(); n.parts.timer = false; n.readings.cpu = false;
   assert.deepEqual(CLOSED_DEFAULTS.order, [...PART_IDS]); assert.equal(CLOSED_DEFAULTS.parts.timer, true); assert.equal(CLOSED_DEFAULTS.readings.cpu, true);
 });
+test("status alerts setting", () => {
+  assert.deepEqual(normalizeClosed(undefined).statusAlerts, { power: true, net: true, bt: true });
+  assert.deepEqual(normalizeClosed({ statusAlerts: { net: false } }).statusAlerts, { power: true, net: false, bt: true });
+  assert.deepEqual(normalizeClosed({ statusAlerts: "no" }).statusAlerts, { power: true, net: true, bt: true });
+});
 test("caption", () => {
   assert.equal(trackCaption("Paper Sky", "Lumen Coast"), "Paper Sky · Lumen Coast");
   assert.equal(trackCaption("Paper Sky", ""), "Paper Sky");
