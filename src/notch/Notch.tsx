@@ -27,6 +27,7 @@ import { findTab, settingsTab, tabs, type NotchTab } from "./tabs";
 import { holdOpen, pinned, togglePin, useNotchState, type NotchStatus } from "./useNotchState";
 import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
+import { recording } from "../features/capture/store";
 
 /** If the notch was closed at most this long, it reopens on the last used tool. */
 const RESUME_MS = 60_000;
@@ -42,9 +43,10 @@ export function Notch() {
   const line = focus && displaySettings.focusStyle === "line";
   // Line as the normal closed look: hover and click work as usual, but nothing shows
   // while closed but the song's progress. Only a finished timer opens it into the notch (its notice), until dismissed.
-  const timerDone = timer.use().finished;
+  // A running recording does the same: its time and stop button stay in reach.
+  const mustShow = timer.use().finished || recording.use().phase !== "idle";
   const idleLine = !focus && displaySettings.idleStyle === "line";
-  const alert = idleLine && timerDone;
+  const alert = idleLine && mustShow;
   const visible = toolSettings.filter((t) => t.enabled).map((t) => findTab(t.id)).filter((t): t is NotchTab => !!t);
   const { tabId } = nav.use();
   // Hidden tool active (e.g. just disabled) → first visible one.
@@ -86,7 +88,7 @@ export function Notch() {
   // Content width of the closed row, as it last reported it (kept while open, so closing goes straight to it).
   const [rowWidth, setRowWidth] = useState(0);
   // Notices cover the row; on the idle line and in dimmed focus mode only a finished timer brings them up. While one shows the shape takes its width.
-  const showNotices = status !== "open" && (showRow || alert || (timerDone && !line && !hiddenForFullscreen));
+  const showNotices = status !== "open" && (showRow || alert || (mustShow && !line && !hiddenForFullscreen));
   const [noticeWidth, setNoticeWidth] = useState<number | null>(null);
   const notice = showNotices ? noticeWidth : null;
   const closedW = surfaceWidth(surface, notice ?? (showRow || status === "open" ? rowWidth : 0));

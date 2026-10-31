@@ -1,26 +1,61 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, CheckCircle } from "@phosphor-icons/react";
+import { AlarmIcon, CheckCircle, FilmStrip, Pause, Play, Stop } from "@phosphor-icons/react";
+import { pauseRecording, recording, saved, stopRecording, type Saved } from "../../features/capture/store";
+import { elapsedAt, formatElapsed } from "../../features/capture/clock";
+import { openFile } from "../../platform/services";
 import { content, pulse } from "../../design/motion";
 import { useNowPlaying } from "../../platform/media";
 import type { UsageId } from "../../platform/services";
 import { settings } from "../../settings/store";
-import { ringing, timer, timerActions } from "../../features/timer/store";
+import { ringing, timer, timerActions, useSecondTick } from "../../features/timer/store";
 import { usage } from "../../features/usage/store";
 import { windowLabel } from "../../features/usage/UsageView";
 import { brandName } from "../../ui/brands";
 import { formatIn } from "../../lib/format";
 import { t } from "../../i18n";
-import { QUOTA, TRACK, armTrack, detectRise, newQuotaTracker, observeTrack, topNotice, type QuotaRise, type TrackGate } from "./notices";
+import { QUOTA, SAVED, TRACK, armTrack, detectRise, newQuotaTracker, observeTrack, topNotice, type QuotaRise, type TrackGate } from "./notices";
 import { ROW } from "./layout";
 import { trackCaption } from "./parts";
 import { fontEpoch, measureText } from "./measure";
 import { Marquee } from "./Marquee";
 import { Ring } from "./parts/Rings";
 
-const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76;
+const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76, REC_DOT = 8, REC_BUTTON = 20, THUMB_W = 28;
 /** The widest content any closed surface allows (the notch's insets are the larger ones). */
 const MAX = ROW.maxSurface - 2 * ROW.insetNotch;
+
+/** The capture saved in the last SAVED.showMs (also one taken while the notch was open, for what is left of its time). */
+function useSaved(): Saved | null {
+  const last = saved.use();
+  const [shown, setShown] = useState<Saved | null>(null);
+  useEffect(() => {
+    const left = last ? SAVED.showMs - (Date.now() - last.at) : 0;
+    if (!last || left <= 0) return setShown(null);
+    setShown(last);
+    const id = window.setTimeout(() => setShown(null), left);
+    return () => window.clearTimeout(id);
+  }, [last]);
+  return shown;
+}
+
+function NoticeButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      aria-label={label}
+      title={label}
+      className="pointer-events-auto flex shrink-0 items-center justify-center rounded-full text-label-2 hover:text-label"
+      style={{ width: REC_BUTTON, height: REC_BUTTON }}
+      // Only acts: the click must not also open the notch.
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 /** The last quota level rise, for QUOTA.showMs. The tracker seeds on the first answer seen, so mounting at 95% does not alert. */
 function useQuotaRise(): QuotaRise | null {
@@ -67,7 +102,8 @@ function useTrackCaption(on: boolean): string | null {
 }
 
 /**
- * Covers the closed row with the most important notice: a finished timer (until dismissed by a click), a quota that
+ * Covers the closed row with the most important notice: a running recording (time, pause and stop, until it ends),
+ * a finished timer (until dismissed by a click), a screenshot or recording just saved, a quota that
  * crossed a level, or a new track while the title part is off. Reports its content width while one shows, null otherwise;
  * the shape takes that width. Mounted with the row, and on the idle line while a finished timer opens it into the notch.
  */
@@ -78,10 +114,61 @@ export function NoticeLayer({ onWidth }: { onWidth: (content: number | null) => 
   const ring = ringing.use();
   const rise = useQuotaRise();
   const track = useTrackCaption(!closed.parts.title);
-  const kind = topNotice({ timer: finished, quota: !!rise && closed.quotaAlerts, track: !!track });
+  const rec = recording.use();
+  const recRunning = rec.phase === "recording";
+  useSecondTick(recRunning, rec.at);
+  const shot = useSaved();
+  const kind = topNotice({ recording: rec.phase !== "idle", timer: finished, saved: !!shot, quota: !!rise && closed.quotaAlerts, track: !!track });
 
   let width = 0, key = "", body: ReactNode = null;
-  if (kind === "timer") {
+  if (kind === "recording") {
+    const label = formatElapsed(elapsedAt(rec, Date.now()));
+    // Measured with zeros so the width only changes when a digit is added, not every second.
+    width = REC_DOT + GAP + measureText(label.replace(/\d/g, "0")) + GAP + 2 * REC_BUTTON;
+    key = "recording";
+    body = (
+      <span className="flex h-full items-center" style={{ gap: GAP }}>
+        <motion.span
+          className="shrink-0 rounded-full bg-red"
+          style={{ width: REC_DOT, height: REC_DOT }}
+          animate={{ opacity: recRunning ? [1, 0.35] : 0.45 }}
+          transition={recRunning ? pulse : content.exit}
+        />
+        <span className="tabular grow whitespace-nowrap text-footnote font-medium text-label">{label}</span>
+        <span className="flex">
+          <NoticeButton label={recRunning ? t("Pause") : t("Fortsetzen")} onClick={() => pauseRecording(recRunning)}>
+            {recRunning ? <Pause size={13} weight="fill" /> : <Play size={13} weight="fill" />}
+          </NoticeButton>
+          <NoticeButton label={t("Aufnahme beenden")} onClick={stopRecording}>
+            <Stop size={13} weight="fill" />
+          </NoticeButton>
+        </span>
+      </span>
+    );
+  } else if (kind === "saved" && shot) {
+    const label = shot.kind === "shot" ? t("Bildschirmfoto gespeichert") : t("Aufnahme gespeichert");
+    width = (shot.thumb ? THUMB_W : ICON) + GAP + measureText(label);
+    key = `saved:${shot.at}`;
+    body = (
+      <button
+        aria-label={t("Öffnen")}
+        className="pointer-events-auto flex h-full items-center text-label"
+        style={{ gap: GAP }}
+        // Opens the file; the click must not also open the notch.
+        onClick={(e) => {
+          e.stopPropagation();
+          void openFile(shot.path);
+        }}
+      >
+        {shot.thumb ? (
+          <img src={shot.thumb} alt="" draggable={false} className="h-[18px] rounded-[4px] object-cover" style={{ width: THUMB_W }} />
+        ) : (
+          <FilmStrip size={ICON} weight="fill" />
+        )}
+        <span className="whitespace-nowrap text-footnote font-medium">{label}</span>
+      </button>
+    );
+  } else if (kind === "timer") {
     const label = t("Abgelaufen");
     width = ICON + GAP + measureText(label);
     key = "timer";

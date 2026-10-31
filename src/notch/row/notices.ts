@@ -35,5 +35,11 @@ export function observeTrack(gate: TrackGate, playing: boolean, now: number): bo
   return now <= until;
 }
 
-export type NoticeKind = "timer" | "quota" | "track";
-export function topNotice(active: Record<NoticeKind, boolean>): NoticeKind | null { return active.timer ? "timer" : active.quota ? "quota" : active.track ? "track" : null; }
+/** A saved screenshot or recording shows this long. */
+export const SAVED = { showMs: 4000 } as const;
+
+// A running recording outranks everything: its stop button must stay reachable. A capture the user just took comes right after the timer.
+export type NoticeKind = "recording" | "timer" | "saved" | "quota" | "track";
+export function topNotice(active: Partial<Record<NoticeKind, boolean>>): NoticeKind | null {
+  return active.recording ? "recording" : active.timer ? "timer" : active.saved ? "saved" : active.quota ? "quota" : active.track ? "track" : null;
+}

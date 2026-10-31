@@ -30,4 +30,7 @@ test("priority", () => {
   assert.equal(topNotice({ timer: true, quota: true, track: true }), "timer");
   assert.equal(topNotice({ timer: false, quota: true, track: true }), "quota");
   assert.equal(topNotice({ timer: false, quota: false, track: false }), null);
+  assert.equal(topNotice({ recording: true, timer: true, saved: true, quota: true, track: true }), "recording");
+  assert.equal(topNotice({ timer: true, saved: true }), "timer");
+  assert.equal(topNotice({ saved: true, quota: true, track: true }), "saved");
 });
