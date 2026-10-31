@@ -52,6 +52,50 @@ export function Segmented<T extends string>(props: {
   );
 }
 
+/** Cards with a small drawing each, for choices that are easier seen than read. Radio group: Tab reaches the chosen card, arrows move and pick. */
+export function StyleCards<T extends string>(props: {
+  value: T;
+  options: { value: T; label: ReactNode; preview: ReactNode }[];
+  onChange: (v: T) => void;
+  label?: string;
+}) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const pick = (i: number) => {
+    const j = (i + props.options.length) % props.options.length;
+    props.onChange(props.options[j].value);
+    refs.current[j]?.focus();
+  };
+  return (
+    <div role="radiogroup" aria-label={props.label} className="grid grid-cols-3 gap-2">
+      {props.options.map((o, i) => {
+        const active = o.value === props.value;
+        return (
+          <button
+            key={o.value}
+            ref={(el) => void (refs.current[i] = el)}
+            role="radio"
+            aria-checked={active}
+            tabIndex={active ? 0 : -1}
+            onClick={() => props.onChange(o.value)}
+            onKeyDown={(e) => {
+              const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+              if (!step) return;
+              e.preventDefault();
+              pick(i + step);
+            }}
+            className={`pressable flex flex-col items-center gap-1.5 rounded-[10px] p-2 outline-none transition-colors duration-150 focus-visible:ring-1 focus-visible:ring-label-3 ${
+              active ? "bg-fill-3 text-label" : "bg-fill-2 text-label-3 hover:text-label-2"
+            }`}
+          >
+            <span className="flex h-7 w-full items-start justify-center overflow-hidden rounded-[6px] bg-fill-1">{o.preview}</span>
+            <span className="text-caption font-medium">{o.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** iOS switch. Green like Apple's; the knob slides with a spring. */
 export function Switch({
   checked,

@@ -2,11 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, Reorder } from "motion/react";
 import {
   ArrowsInLineHorizontal,
+  ChartDonut,
   CheckCircle,
+  Clock,
+  Cpu,
   DotsSixVertical,
   Keyboard,
   LockSimple,
   Monitor,
+  MusicNote,
   Play,
   Plugs,
   SlidersHorizontal,
@@ -15,6 +19,7 @@ import {
   SignOut,
   Stop,
   Timer,
+  Waveform,
   type Icon,
 } from "@phosphor-icons/react";
 import { content, fade, springs } from "../../design/motion";
@@ -23,8 +28,9 @@ import { nav } from "../../notch/nav";
 import { tabs } from "../../notch/tabs";
 import { autostart, display, secrets, unlockFps, type ChangelogEntry, type MonitorInfo, type SecretName, type UsageId } from "../../platform/services";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
-import { BrandLogo, brandName } from "../../ui/brands";
-import { Button, Group, Row, Segmented, Select, Slider, Switch, TextField } from "../../ui/controls";
+import { BrandLogo, brandName, DiscordLogo } from "../../ui/brands";
+import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
+import type { ClosedSettings, PartId } from "../../notch/row/parts";
 import { effortLevels, providerInfo } from "../ask/providers";
 import { discordState, reconnectDiscord } from "../discord/store";
 import { fps } from "../system/gaming";
@@ -481,24 +487,36 @@ function Display() {
           </Button>
         </Row>
       )}
-      <Row
-        label={t("Geschlossen")}
-        hint={
-          d.idleStyle === "line"
-            ? t("Nur eine dünne Linie – Musik und Co. bleiben verborgen, ein abgelaufener Timer klappt trotzdem auf")
-            : t("Die Notch zeigt Musik, Timer und Co.")
-        }
-      >
-        <Segmented
-          id="idle-style"
-          size="sm"
-          value={d.idleStyle}
-          onChange={(idleStyle) => updateSettings((cur) => ({ display: { ...cur.display, idleStyle } }))}
-          options={[
-            { value: "notch", label: t("Notch") },
-            { value: "line", label: t("Linie") },
-          ]}
+      <div className="pb-3">
+        <Row
+          label={t("Geschlossen")}
+          hint={
+            d.idleStyle === "line"
+              ? t("Nur eine dünne Linie, ein abgelaufener Timer klappt trotzdem auf")
+              : d.idleStyle === "capsule"
+                ? t("Schwebt frei, zum Verschieben ziehen")
+                : t("Die Notch zeigt Musik, Timer und Co.")
+          }
         />
+        <div className="px-3">
+          <StyleCards
+            label={t("Geschlossen")}
+            value={d.idleStyle}
+            onChange={(idleStyle) => updateSettings((cur) => ({ display: { ...cur.display, idleStyle } }))}
+            options={[
+              { value: "notch", label: t("Notch"), preview: <ShapePreview d="M6 0H54C51 0 50 1.5 50 4V8C50 11 48 13 45 13H15C12 13 10 11 10 8V4C10 1.5 9 0 6 0Z" /> },
+              { value: "capsule", label: t("Kapsel"), preview: <ShapePreview d="M16.5 4H43.5A4.5 4.5 0 0 1 43.5 13H16.5A4.5 4.5 0 0 1 16.5 4Z" /> },
+              { value: "line", label: t("Linie"), preview: <ShapePreview d="M15 0H45A1 1 0 0 1 45 2H15A1 1 0 0 1 15 0Z" /> },
+            ]}
+          />
+        </div>
+      </div>
+      <ClosedParts />
+      <Row label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>
+        <Switch label={t("Fortschritt auf der Linie")} checked={s.closed.lineProgress} onChange={(lineProgress) => updateSettings((cur) => ({ closed: { ...cur.closed, lineProgress } }))} />
+      </Row>
+      <Row label={t("Hinweis bei Kontingent 70 und 90 %")}>
+        <Switch label={t("Hinweis bei Kontingent 70 und 90 %")} checked={s.closed.quotaAlerts} onChange={(quotaAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, quotaAlerts } }))} />
       </Row>
       <Row label={t("Fokus-Modus")} hint={t("Klicks gehen durch. 3× schnell auf die Notch klicken schaltet um – oder im Tray-Menü.")}>
         <Switch label={t("Fokus-Modus")} checked={focus} onChange={setFocusMode} />
@@ -544,6 +562,87 @@ function Display() {
         <Switch label={t("Aufnahme-Punkte")} checked={s.privacyDots} onChange={(privacyDots) => updateSettings({ privacyDots })} />
       </Row>
     </Group>
+  );
+}
+
+/** Miniature of a closed shape hanging from the screen's top edge (viewBox 60 × 16). */
+function ShapePreview({ d }: { d: string }) {
+  return (
+    <svg width={90} height={24} viewBox="0 0 60 16" aria-hidden>
+      <path d={d} fill="currentColor" />
+    </svg>
+  );
+}
+
+const partInfo: Record<PartId, { label: string; icon: Icon }> = {
+  timer: { label: "Timer", icon: Timer },
+  discord: { label: "Discord", icon: DiscordLogo },
+  rings: { label: "AI-Nutzung", icon: ChartDonut },
+  title: { label: "Songtitel", icon: MusicNote },
+  readings: { label: "Auslastung", icon: Cpu },
+  equalizer: { label: "Equalizer", icon: Waveform },
+  clock: { label: "Uhrzeit", icon: Clock },
+};
+
+/** Small labelled switch for a part's own options, next to its main switch. */
+function SubSwitch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <span className="flex items-center gap-1.5 text-caption text-label-3 select-none">
+      {label}
+      <Switch label={label} checked={checked} onChange={onChange} />
+    </span>
+  );
+}
+
+/** Parts of the closed row (notch and capsule share them): drag to reorder, switch on/off. Same pattern as `Tools()`. */
+function ClosedParts() {
+  const c = settings.use().closed;
+  const [dragging, setDragging] = useState<PartId | null>(null);
+  const setClosed = (patch: (cur: ClosedSettings) => Partial<ClosedSettings>) => updateSettings((cur) => ({ closed: { ...cur.closed, ...patch(cur.closed) } }));
+  const readingsOn = Object.values(c.readings).filter(Boolean).length;
+
+  return (
+    <div>
+      <Row label={t("Inhalt")} hint={t("Gilt für Notch und Kapsel, zum Sortieren ziehen")} />
+      <Reorder.Group as="div" axis="y" values={c.order} onReorder={(order: PartId[]) => setClosed(() => ({ order }))} className="divide-y divide-separator">
+        {c.order.map((id) => {
+          const { label, icon: I } = partInfo[id];
+          const on = c.parts[id];
+          return (
+            <Reorder.Item
+              key={id}
+              value={id}
+              as="div"
+              transition={springs.snappy}
+              onDragStart={() => setDragging(id)}
+              onDragEnd={() => setDragging(null)}
+              whileDrag={{ scale: 1.02 }}
+              className={`group relative flex h-9 cursor-grab items-center gap-2.5 px-3 active:cursor-grabbing ${
+                dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
+              }`}
+            >
+              <DotsSixVertical size={13} weight="bold" className="-ml-1 text-label-4 transition-colors group-hover:text-label-3" />
+              <I size={15} weight="bold" className={on ? "text-label-2" : "text-label-4"} />
+              <span className={`flex-1 text-body select-none ${on ? "text-label" : "text-label-3"}`}>{t(label)}</span>
+              <div onPointerDown={(e) => e.stopPropagation()} className="flex items-center gap-3">
+                {on && id === "readings" &&
+                  (["cpu", "ram", "gpu"] as const).map((k) => (
+                    <SubSwitch
+                      key={k}
+                      label={k.toUpperCase()}
+                      checked={c.readings[k]}
+                      // One reading stays on, otherwise the part would be empty.
+                      onChange={(v) => (v || readingsOn > 1) && setClosed((cur) => ({ readings: { ...cur.readings, [k]: v } }))}
+                    />
+                  ))}
+                {on && id === "clock" && <SubSwitch label={t("Sekunden")} checked={c.clockSeconds} onChange={(clockSeconds) => setClosed(() => ({ clockSeconds }))} />}
+                <Switch label={t(label)} checked={on} onChange={(v) => setClosed((cur) => ({ parts: { ...cur.parts, [id]: v } }))} />
+              </div>
+            </Reorder.Item>
+          );
+        })}
+      </Reorder.Group>
+    </div>
   );
 }
 
