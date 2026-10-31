@@ -85,8 +85,8 @@ export function Notch() {
   const showRow = status !== "open" && !line && !idleLine && !focus && !hiddenForFullscreen;
   // Content width of the closed row, as it last reported it (kept while open, so closing goes straight to it).
   const [rowWidth, setRowWidth] = useState(0);
-  // Notices cover the row, and on the idle line the finished timer's; while one shows the shape takes its width.
-  const showNotices = status !== "open" && (showRow || alert);
+  // Notices cover the row; on the idle line and in dimmed focus mode only a finished timer brings them up. While one shows the shape takes its width.
+  const showNotices = status !== "open" && (showRow || alert || (timerDone && !line && !hiddenForFullscreen));
   const [noticeWidth, setNoticeWidth] = useState<number | null>(null);
   const notice = showNotices ? noticeWidth : null;
   const closedW = surfaceWidth(surface, notice ?? (showRow || status === "open" ? rowWidth : 0));
