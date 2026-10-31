@@ -160,7 +160,8 @@ settings.set((s) => {
     tools,
     trading: { ...defaults.trading, ...s.trading },
     usage: { ...defaults.usage, ...s.usage },
-    display: { ...defaults.display, ...s.display },
+    // A saved y that is not a finite number (null, a string) would place the capsule nowhere.
+    display: { ...defaults.display, ...s.display, y: Number.isFinite(s.display?.y) ? s.display.y : defaults.display.y },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },
     alarm: { ...defaults.alarm, ...s.alarm },
