@@ -4,6 +4,7 @@ import {
   CheckCircle,
   ClipboardText,
   CloudSun,
+  Code,
   Cpu,
   Drop,
   Gauge,
@@ -35,6 +36,7 @@ import { SystemView } from "../features/system/SystemView";
 import { DiscordView } from "../features/discord/DiscordView";
 import { VaultView } from "../features/vault/VaultView";
 import { WaterView } from "../features/water/WaterView";
+import { ScratchpadView } from "../features/scratchpad/ScratchpadView";
 import { SettingsView } from "../features/settings/SettingsView";
 
 /**
@@ -70,7 +72,8 @@ export const tabs: NotchTab[] = [
   { id: "system", label: "Hardware", icon: Cpu, size: { w: 600, h: 248 }, View: SystemView },
   { id: "discord", label: "Discord", icon: DiscordLogo, size: { w: 520, h: 210 }, View: DiscordView },
   { id: "vault", label: "Tresor", icon: Vault, size: { w: 560, h: 324 }, View: VaultView },
-  { id: "water", label: "Wasser", icon: Drop, size: { w: 520, h: 236 }, View: WaterView },];
+  { id: "water", label: "Wasser", icon: Drop, size: { w: 520, h: 236 }, View: WaterView },
+  { id: "scratchpad", label: "Code-Notizblock", icon: Code, size: { w: 600, h: 320 }, View: ScratchpadView },];
 
 /** Settings: reached via the gear, not in the tool bar. */
 export const settingsTab: NotchTab = { id: "settings", label: "Einstellungen", icon: GearSix, size: { w: 660, h: 460 }, View: SettingsView };
