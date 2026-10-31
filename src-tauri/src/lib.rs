@@ -15,6 +15,7 @@ mod mixer;
 mod privacy;
 pub mod secrets;
 mod system;
+mod sysevents;
 mod trading;
 pub mod usage;
 mod vault;
@@ -95,6 +96,7 @@ pub fn run() {
             trading::trading_fetch,
             usage::usage_fetch,
             system::system_stats,
+            sysevents::status_seed,
             convert::convert_probe,
             convert::convert_files,
             convert::reveal_file,
@@ -150,6 +152,7 @@ pub fn run() {
             media::spawn(app.handle().clone());
             clipboard::spawn(app.handle().clone());
             audio::spawn(app.handle().clone(), &app.state::<audio::AudioState>());
+            sysevents::spawn(app.handle().clone());
 
             // If another app owns the shortcut, the notch still runs, just without it.
             let _ = app.global_shortcut().register(shortcut);
