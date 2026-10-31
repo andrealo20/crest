@@ -506,5 +506,6 @@
  "Einträge": "items",
  "Klicken zum Kopieren": "Click to copy",
  "{n} Zeichen": "{n} chars",
- "{n} ausgewählt": "{n} selected"
+ "{n} ausgewählt": "{n} selected",
+ "Ziehen fehlgeschlagen": "Drag failed"
 }

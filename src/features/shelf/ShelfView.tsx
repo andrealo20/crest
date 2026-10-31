@@ -79,6 +79,8 @@ export function ShelfView() {
   const [nothing, setNothing] = useState(false);
   const [textOver, setTextOver] = useState(false);
   const [selecting, setSelecting] = useState(false);
+  /** Last drag out error (e.g. the files are gone), shown briefly in the header. */
+  const [failed, setFailed] = useState<string | null>(null);
   const [rawSel, setSel] = useState<Selection>(NONE);
   const order = items.map(keyOf);
   const sel = prune(rawSel, order);
@@ -126,7 +128,10 @@ export function ShelfView() {
     if (!paths.length && text === null) return;
     draggingOut.set(true);
     void shelfDragOut(paths, text)
-      .catch(() => {})
+      .catch((e: unknown) => {
+        setFailed(String(e));
+        setTimeout(() => setFailed(null), 2400);
+      })
       // The drop back on the notch reaches the page a moment after the drag ends.
       .finally(() => setTimeout(() => draggingOut.set(false), 500));
   };
@@ -188,6 +193,11 @@ export function ShelfView() {
   return (
     <div className="relative flex h-full flex-col px-4 pt-1 pb-2" {...dropHandlers}>
       <HeaderActions>
+        {failed !== null && (
+          <span role="alert" title={failed} className="mr-1 text-caption text-red">
+            {t("Ziehen fehlgeschlagen")}
+          </span>
+        )}
         {picked > 0 ? (
           <>
             <span className="tabular mr-1 text-caption text-label-2">{t("{n} ausgewählt", { n: picked })}</span>
@@ -218,7 +228,7 @@ export function ShelfView() {
           </>
         )}
       </HeaderActions>
-      <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
+      <div role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
         <AnimatePresence initial={false} mode="popLayout">
           {items.map((item) => {
             const key = keyOf(item);
@@ -236,7 +246,9 @@ export function ShelfView() {
                 onPointerMove={onPointerMove}
                 onPointerUp={() => (press.current = null)}
                 onClickCapture={(e) => onClickCapture(e, key)}
-                aria-selected={selecting || picked > 0 ? on : undefined}
+                role="option"
+                aria-selected={on}
+                aria-label={isText(item) ? item.text.slice(0, 80) : item.name}
               >
                 {isText(item) ? (
                   <TextCard item={item} copied={copied === key} onCopy={() => void copyKeys([key], key)} />
