@@ -6,6 +6,7 @@ import {
   CheckCircle,
   Clock,
   Cpu,
+  GithubLogo,
   DotsSixVertical,
   Keyboard,
   LockSimple,
@@ -36,6 +37,8 @@ import { discordState, reconnectDiscord } from "../discord/store";
 import { fps } from "../system/gaming";
 import { PlaceSearch } from "../weather/WeatherView";
 import { VaultSettings } from "../vault/VaultSettings";
+import { LauncherSettings } from "../launcher/LauncherSettings";
+import { GithubSettings } from "../github/GithubSettings";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
@@ -66,6 +69,8 @@ const sectionPage: Record<string, PageId> = {
   discord: "accounts",
   trading: "accounts",
   vault: "tools",
+  launcher: "tools",
+  github: "accounts",
 };
 
 /** Last open page survives closing/opening the notch (the component is rebuilt). */
@@ -144,6 +149,7 @@ export function SettingsView() {
               <>
                 <Tools />
                 <VaultSettings />
+                <LauncherSettings />
               </>
             )}
             {page === "timer" && <Alarm />}
@@ -158,6 +164,7 @@ export function SettingsView() {
               <>
                 <Discord />
                 <Trading />
+                <GithubSettings />
                 <KeysNote />
               </>
             )}
@@ -570,6 +577,7 @@ const partInfo: Record<PartId, { label: string; icon: Icon }> = {
   readings: { label: "Auslastung", icon: Cpu },
   equalizer: { label: "Equalizer", icon: Waveform },
   clock: { label: "Uhrzeit", icon: Clock },
+  github: { label: "GitHub heute", icon: GithubLogo },
 };
 
 /** Small labelled switch for a part's own options, next to its main switch. */
@@ -934,7 +942,7 @@ function Tools() {
  * Field for a key. Stored values are never read back, it only shows
  * "saved ✓". Typing a new one overwrites it, saving empty deletes it.
  */
-function SecretRow({ name, label, hint, onSaved }: { name: SecretName; label: string; hint?: string; onSaved?: () => void }) {
+export function SecretRow({ name, label, hint, onSaved }: { name: SecretName; label: string; hint?: string; onSaved?: () => void }) {
   const [stored, setStored] = useState(false);
   const [value, setValue] = useState("");
   const [saved, setSaved] = useState(false);

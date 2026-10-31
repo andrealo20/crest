@@ -11,7 +11,7 @@ import { showcase, showcaseCall, showcaseCash, showcaseDayChange, showcaseFileSi
 
 // ---------- Secrets (Credential Manager) ----------
 
-export type SecretName = "t212.key" | "t212.secret" | "ai.anthropic" | "ai.openai" | "ai.openrouter" | "ai.custom" | "discord.secret";
+export type SecretName = "t212.key" | "t212.secret" | "ai.anthropic" | "ai.openai" | "ai.openrouter" | "ai.custom" | "discord.secret" | "github.token";
 
 const mockSecrets = new Map<SecretName, string>();
 
@@ -634,3 +634,63 @@ export const systemControls = {
     return Promise.resolve({ ...mockFocus });
   },
 };
+
+// ---------- Launcher ----------
+
+export interface LauncherAppEntry {
+  /** `shell:AppsFolder\<app id>` or an exe path; Rust only opens ids from its own list. */
+  id: string;
+  name: string;
+  source: "start" | "apppaths";
+}
+
+const mockLauncherApps: LauncherAppEntry[] = ["Claude", "ChatGPT", "Copilot", "Cursor", "Perplexity", "Calculator", "Notepad", "Paint", "Spotify", "Terminal", "Uninstall Cursor"].map((name) => ({
+  id: `shell:AppsFolder\\${name}`,
+  name,
+  source: "start",
+}));
+const mockLauncherIcon = (name: string) =>
+  svgIcon(`<rect width="32" height="32" rx="8" fill="hsl(${[...name].reduce((h, c) => h + c.charCodeAt(0) * 7, 0) % 360} 55% 45%)"/><text x="16" y="21" font-size="14" font-family="sans-serif" fill="#fff" text-anchor="middle">${name[0]}</text>`);
+
+/** Start menu apps, icons, launching and the Alt+1..6 keys (src-tauri/src/launcher.rs). */
+export const launcher = {
+  apps: (refresh = false): Promise<LauncherAppEntry[]> => (isNative ? invoke<LauncherAppEntry[]>("launcher_apps", { refresh }) : Promise.resolve(mockLauncherApps)),
+  icons: (ids: string[]): Promise<Record<string, string | null>> =>
+    isNative ? invoke("launcher_icons", { ids }) : Promise.resolve(Object.fromEntries(ids.map((id) => [id, mockLauncherIcon(id.split("\\").pop() ?? "?")]))),
+  /** Errors: not-found (no longer installed), failed. */
+  open: (id: string): Promise<void> => (isNative ? invoke("launcher_open", { id }) : Promise.resolve()),
+  /** Registers Alt+1.. for these ids; per slot whether Windows gave the key. */
+  shortcuts: (ids: string[]): Promise<boolean[]> => (isNative ? invoke<boolean[]>("launcher_shortcuts", { ids }) : Promise.resolve(ids.map((_, i) => i !== 2))),
+};
+
+// ---------- GitHub ----------
+
+export interface GithubDay {
+  date: string;
+  count: number;
+  /** GitHub's shade, 0 to 4. */
+  level: number;
+}
+
+export interface GithubContributions {
+  user: string;
+  /** Contributions in the last year, as GitHub states it. */
+  total: number;
+  days: GithubDay[];
+  source: "page" | "api";
+  fetchedAt: number;
+}
+
+/** Errors from Rust: no-user, not-found, rate-limited, offline, parse, failed. `force` skips the hour's cache (once a minute at most). */
+export function fetchGithub(user: string, force: boolean): Promise<GithubContributions> {
+  if (isNative) return invoke<GithubContributions>("github_contributions", { user, force });
+  if (!user.trim()) return Promise.reject("no-user");
+  const today = new Date();
+  const days = Array.from({ length: 371 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 370 + i);
+    const count = Math.max(0, Math.round(Math.sin(i * 0.7) * 4 + Math.sin(i * 0.13) * 5 + (i % 7 === 0 ? -6 : 1)));
+    return { date: localDate(d), count, level: count === 0 ? 0 : Math.min(4, Math.ceil(count / 3)) };
+  });
+  return new Promise((r) => setTimeout(() => r({ user, total: days.reduce((s, d) => s + d.count, 0), days, source: "page", fetchedAt: Date.now() }), 300));
+}

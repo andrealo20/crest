@@ -1,12 +1,12 @@
 // Settings model of the closed notch's row: which parts show and in what order. Pure, so the saved shape can be repaired (and tested) without the app around it.
 
-export const PART_IDS = ["timer", "discord", "rings", "title", "readings", "equalizer", "clock"] as const;
+export const PART_IDS = ["timer", "discord", "rings", "title", "readings", "equalizer", "clock", "github"] as const;
 export type PartId = (typeof PART_IDS)[number];
 export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: { cpu: boolean; ram: boolean; gpu: boolean }; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; statusAlerts: { power: boolean; net: boolean; bt: boolean } }
 
 export const CLOSED_DEFAULTS: ClosedSettings = {
   order: [...PART_IDS],
-  parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false },
+  parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false },
   readings: { cpu: true, ram: true, gpu: true },
   clockSeconds: false, lineProgress: true, quotaAlerts: true,
   statusAlerts: { power: true, net: true, bt: true },

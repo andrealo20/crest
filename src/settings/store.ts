@@ -1,6 +1,7 @@
 import { createStore } from "../lib/store";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
+import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -62,6 +63,13 @@ export interface Settings {
   presentation: { manual: boolean; auto: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
+  /**
+   * App launcher: pinned apps, the first six on Alt+1 to Alt+6. `null` until the first app list
+   * arrives, which pins the detected AI apps once.
+   */
+  launcher: { favorites: Favorite[] | null; shortcuts: boolean };
+  /** GitHub activity: the public username. An optional token is stored with the secrets. */
+  github: { user: string };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -81,9 +89,11 @@ export const TOOL_IDS = [
   "system",
   "discord",
   "vault",
+  "launcher",
+  "github",
 ] as const;
 
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault"]);
+const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "github"]);
 
 const defaults: Settings = {
   openMode: "hover",
@@ -111,6 +121,8 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
+  launcher: { favorites: null, shortcuts: true },
+  github: { user: "" },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -168,6 +180,8 @@ settings.set((s) => {
     units: { ...defaults.units, ...s.units },
     presentation: { ...defaults.presentation, ...s.presentation },
     updates: { ...defaults.updates, ...s.updates },
+    launcher: { ...defaults.launcher, ...s.launcher, favorites: normalizeFavorites(s.launcher?.favorites) },
+    github: { ...defaults.github, ...s.github },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
   };

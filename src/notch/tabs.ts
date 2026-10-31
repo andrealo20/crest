@@ -7,6 +7,8 @@ import {
   Cpu,
   Gauge,
   GearSix,
+  GithubLogo,
+  RocketLaunch,
   SquaresFour,
   MusicNotesSimple,
   NotePencil,
@@ -34,6 +36,8 @@ import { SystemView } from "../features/system/SystemView";
 import { DiscordView } from "../features/discord/DiscordView";
 import { VaultView } from "../features/vault/VaultView";
 import { SettingsView } from "../features/settings/SettingsView";
+import { LauncherView } from "../features/launcher/LauncherView";
+import { GithubView } from "../features/github/GithubView";
 
 /**
  * Registry of all tools in the open notch. New tool = new entry here
@@ -68,6 +72,8 @@ export const tabs: NotchTab[] = [
   { id: "system", label: "Hardware", icon: Cpu, size: { w: 600, h: 248 }, View: SystemView },
   { id: "discord", label: "Discord", icon: DiscordLogo, size: { w: 520, h: 210 }, View: DiscordView },
   { id: "vault", label: "Tresor", icon: Vault, size: { w: 560, h: 324 }, View: VaultView },
+  { id: "launcher", label: "Launcher", icon: RocketLaunch, size: { w: 520, h: 210 }, View: LauncherView },
+  { id: "github", label: "GitHub", icon: GithubLogo, size: { w: 520, h: 236 }, View: GithubView },
 ];
 
 /** Settings: reached via the gear, not in the tool bar. */
