@@ -27,7 +27,7 @@ export function WaterView() {
   const now = useNow();
   const total = todayTotal(log, now);
   const p = progress(total, cfg.goalMl);
-  const next = nextWaterAlert(now, lastAt, cfg, total >= cfg.goalMl);
+  const next = nextWaterAlert(now, lastAt, cfg, log);
   const bars = hourly(log, now, cfg);
   const peak = Math.max(cfg.bottleMl, ...bars.map((b) => b.ml));
   const hourNow = new Date(now).getHours();

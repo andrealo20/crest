@@ -1,6 +1,7 @@
 // Water reminder rules: today's total, the hourly chart and when the next reminder is due. Pure, every function takes `now`.
 
-export interface Drink { at: number; ml: number }
+/** `prev` is the reminder base before this drink, so undoing it puts the next reminder back where it was. */
+export interface Drink { at: number; ml: number; prev?: number | null }
 export interface WaterConfig {
   /** Reminders on or off; logging works either way. */
   remind: boolean;
@@ -80,19 +81,25 @@ function windows(t: number, cfg: WaterConfig): [number, number][] {
 /**
  * When the next reminder is due: `everyMin` after the last drink or dismissed reminder, counted from the start of
  * the window if that was earlier, never outside the window. The result may be in the past (overdue → show now).
- * Once today's goal is reached, nothing until tomorrow's window. null when reminders are off.
+ * A window belongs to the day it starts on: once that day's goal is reached the whole window is done, including
+ * a tail past midnight, where today's total has already started again at zero. null when reminders are off.
  */
-export function nextWaterAlert(now: number, last: number | null, cfg: WaterConfig, goalReached: boolean): number | null {
+export function nextWaterAlert(now: number, last: number | null, cfg: WaterConfig, log: Drink[]): number | null {
   if (!cfg.remind) return null;
   const every = cfg.everyMin * 60_000;
-  const from = goalReached ? dayStart(now, 1) : now;
-  for (const [start, end] of windows(from, cfg)) {
-    if (end <= from) continue;
-    // With the goal reached, a window running past midnight counts only from midnight on.
-    const next = Math.max(last ?? -Infinity, start, goalReached ? from : -Infinity) + every;
+  for (const [start, end] of windows(now, cfg)) {
+    if (end <= now || todayTotal(log, start) >= cfg.goalMl) continue;
+    const next = Math.max(last ?? -Infinity, start) + every;
     if (next <= end) return next;
   }
   return null;
+}
+
+/** Takes back today's last drink and puts the reminder base back to what it was before it. Older days stay. */
+export function undoLast(log: Drink[], lastAt: number | null, now: number): { log: Drink[]; lastAt: number | null } {
+  const last = log[log.length - 1];
+  if (!last || last.at < dayStart(now) || last.at >= dayStart(now, 1)) return { log, lastAt };
+  return { log: log.slice(0, -1), lastAt: last.prev !== undefined ? last.prev : lastAt };
 }
 
 /** "09:00" ⇄ minutes after midnight. */

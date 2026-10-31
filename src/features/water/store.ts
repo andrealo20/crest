@@ -1,6 +1,6 @@
 import { createStore } from "../../lib/store";
 import { settings, updateSettings } from "../../settings/store";
-import { nextWaterAlert, prune, todayTotal, type Drink, type WaterConfig } from "./water";
+import { nextWaterAlert, prune, undoLast, type Drink, type WaterConfig } from "./water";
 
 interface WaterState {
   log: Drink[];
@@ -21,16 +21,10 @@ export const waterDue = createStore(false);
 export const waterActions = {
   drink(ml = settings.get().productivity.water.bottleMl) {
     const now = Date.now();
-    water.set((s) => ({ log: prune([...s.log, { at: now, ml }], now), lastAt: now }));
+    water.set((s) => ({ log: prune([...s.log, { at: now, ml, prev: s.lastAt }], now), lastAt: now }));
   },
   /** Takes back today's last drink (a click by mistake). */
-  undo() {
-    const now = Date.now();
-    water.set((s) => {
-      const last = s.log[s.log.length - 1];
-      return last && todayTotal([last], now) > 0 ? { ...s, log: s.log.slice(0, -1) } : s;
-    });
-  },
+  undo: () => water.set((s) => undoLast(s.log, s.lastAt, Date.now())),
   /** Hides the reminder until the next interval. */
   dismiss: () => water.set((s) => ({ ...s, lastAt: Date.now() })),
   setConfig(patch: Partial<WaterConfig>) {
@@ -49,7 +43,7 @@ function check() {
   const cfg = s.productivity.water;
   const on = s.tools.some((t) => t.id === "water" && t.enabled);
   const { log, lastAt } = water.get();
-  const next = on ? nextWaterAlert(now, lastAt, cfg, todayTotal(log, now) >= cfg.goalMl) : null;
+  const next = on ? nextWaterAlert(now, lastAt, cfg, log) : null;
   const due = next !== null && next <= now;
   if (due !== waterDue.get()) waterDue.set(due);
   if (next !== null && !due) timeout = window.setTimeout(check, Math.min(60_000, next - now) + 20);
