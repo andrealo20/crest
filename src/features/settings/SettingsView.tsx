@@ -472,9 +472,9 @@ function Display() {
           />
         </Row>
       )}
-      {d.offset !== 0 && (
+      {(d.offset !== 0 || d.y !== 5) && (
         <Row label={t("Position")} hint={t("Notch an der Kopfzeile oder geschlossen ziehen, um sie zu verschieben")}>
-          <Button onClick={() => updateSettings((cur) => ({ display: { ...cur.display, offset: 0 } }))}>
+          <Button onClick={() => updateSettings((cur) => ({ display: { ...cur.display, offset: 0, y: 5 } }))}>
             <span className="flex items-center gap-1.5">
               <ArrowsInLineHorizontal size={13} weight="bold" /> {t("Zur Mitte")}
             </span>

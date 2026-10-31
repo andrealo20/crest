@@ -13,7 +13,8 @@ interface Props {
 
 /**
  * The black shape: a body with rounded bottom corners + two concave "ears"
- * at the top that blend the notch into the screen edge.
+ * at the top that blend the notch into the screen edge (the capsule has no
+ * ears and rounds its top corners instead).
  *
  * All dimensions are motion values animated directly by springs, no React
  * re-render per frame. Animations are interruptible and keep their velocity
@@ -24,6 +25,7 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
   const h = useMotionValue(geometry.h);
   const r = useMotionValue(geometry.r);
   const ear = useMotionValue(geometry.ear);
+  const rt = useMotionValue(geometry.rt);
   const shadow = useMotionValue(elevated ? 1 : 0);
   const earOffset = useTransform(ear, (e) => -e + 0.5); // 0.5px overlap against hairlines
   // Whole device pixels: the shape is centered, so an odd or fractional size puts its edges
@@ -40,9 +42,11 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
     // Settle to within 0.01 px: the live activity follows the width on subpixels, and
     // Motion's default rest threshold ended every spring with a visible ~0.25 px jump.
     const t = { ...transition, restDelta: 0.01, restSpeed: 0.1 };
-    const controls = [animate(w, geometry.w, t), animate(h, geometry.h, t), animate(r, geometry.r, t), animate(ear, geometry.ear, t)];
+    // Rounding the top waits a moment, so the ears are already going in (notch to capsule, as in BrimDeck).
+    const top = geometry.rt > rt.get() ? { ...t, delay: 0.06 } : t;
+    const controls = [animate(w, geometry.w, t), animate(h, geometry.h, t), animate(r, geometry.r, t), animate(ear, geometry.ear, t), animate(rt, geometry.rt, top)];
     return () => controls.forEach((c) => c.stop());
-  }, [geometry.w, geometry.h, geometry.r, geometry.ear, transition, w, h, r, ear]);
+  }, [geometry.w, geometry.h, geometry.r, geometry.ear, geometry.rt, transition, w, h, r, ear, rt]);
 
   useEffect(() => {
     const c = animate(shadow, elevated ? 1 : 0, { duration: 0.3, ease: [0.23, 1, 0.32, 1] });
@@ -78,6 +82,8 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
         className="absolute inset-0"
         style={{
           opacity: shadow,
+          borderTopLeftRadius: rt,
+          borderTopRightRadius: rt,
           borderBottomLeftRadius: r,
           borderBottomRightRadius: r,
           boxShadow: "0 18px 40px -10px rgb(0 0 0 / 0.7), 0 4px 12px rgb(0 0 0 / 0.35)",
@@ -86,7 +92,7 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
       <motion.div
         // clip instead of hidden: no scroll container, so focus/scrollIntoView can't shift the content.
         className="absolute inset-0 overflow-clip bg-notch"
-        style={{ borderBottomLeftRadius: r, borderBottomRightRadius: r }}
+        style={{ borderTopLeftRadius: rt, borderTopRightRadius: rt, borderBottomLeftRadius: r, borderBottomRightRadius: r }}
       >
         <ShapeWidth.Provider value={w}>{children}</ShapeWidth.Provider>
       </motion.div>

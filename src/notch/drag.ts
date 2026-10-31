@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
+import { isNative } from "../platform/native";
 import { display } from "../platform/services";
 import { settings, updateSettings } from "../settings/store";
-import { windowYFor } from "./capsule";
+import { snapCapsule, windowYFor } from "./capsule";
 import { focusMode } from "./focus";
-import { monitorMetrics } from "./monitor";
+import { monitorMetrics, reloadMonitor } from "./monitor";
 import { holdOpen, type NotchStatus } from "./useNotchState";
 
 /** Below this distance it's a click, not a drag. */
@@ -25,16 +26,24 @@ export function applyDisplay(offset = settings.get().display.offset, y?: number)
   display.apply({ hideFullscreen: s.display.visibility === "hide-fullscreen", monitor: s.display.monitor, offset, y: windowY(y), gaming: s.gaming.mode !== "off" });
 }
 
+/** The area the capsule is dragged in: the monitor, in the browser the viewport with DesktopMock's 48 px taskbar. */
+function dragArea() {
+  if (isNative) return monitorMetrics();
+  return { width: window.innerWidth, height: window.innerHeight, workTop: 0, workHeight: window.innerHeight - 48 };
+}
+
 /*
- * Move the notch sideways: grab it anywhere when closed, by the header when open.
- * Natively the window itself moves (display.rs, clamped to the monitor), in the
- * browser only the notch inside the window. Saved on release.
+ * Move the notch sideways, the capsule anywhere: grab it anywhere when closed, by the
+ * header when open. Natively the window itself moves (display.rs, clamped to the
+ * monitor), in the browser only the notch inside the window. Saved on release.
+ * `size` is the closed shape, which the capsule snaps with.
  */
-export function useDragToMove(status: NotchStatus) {
-  const saved = settings.use().display.offset;
-  const [live, setLive] = useState<number | null>(null);
+export function useDragToMove(status: NotchStatus, size: { w: number; h: number }) {
+  const saved = settings.use().display;
+  const [live, setLive] = useState<{ offset: number; y: number } | null>(null);
   const moved = useRef(false);
-  const offset = live ?? saved;
+  const offset = live?.offset ?? saved.offset;
+  const y = live?.y ?? saved.y;
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -43,24 +52,30 @@ export function useDragToMove(status: NotchStatus) {
     // When open only via the header, otherwise lists and sliders would drag too.
     if (status === "open" && !target.closest("[data-drag-handle]")) return;
 
-    const { pointerId: id, screenX: x } = e;
-    const from = offset;
+    const capsule = saved.idleStyle === "capsule";
+    if (capsule) reloadMonitor();
+    const { pointerId: id, screenX: x, screenY: sy } = e;
+    const from = { offset, y };
     let current = from;
     let frame = 0;
     moved.current = false;
 
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== id) return;
-      const dx = ev.screenX - x;
-      if (!moved.current && Math.abs(dx) < THRESHOLD) return;
+      const dx = ev.screenX - x, dy = capsule ? ev.screenY - sy : 0;
+      if (!moved.current && Math.max(Math.abs(dx), Math.abs(dy)) < THRESHOLD) return;
       if (!moved.current) {
         moved.current = true;
         holdOpen(true);
       }
-      current = Math.abs(from + dx) < SNAP ? 0 : Math.round(from + dx);
+      if (capsule) {
+        const m = dragArea(), left = m.width / 2 - size.w / 2;
+        const s = snapCapsule(left + from.offset + dx, from.y + dy, size.w, size.h, m.width, m.height, { top: m.workTop, height: m.workHeight });
+        current = { offset: Math.round(s.x - left), y: Math.round(s.y) };
+      } else current = { offset: Math.abs(from.offset + dx) < SNAP ? 0 : Math.round(from.offset + dx), y: from.y };
       setLive(current);
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => applyDisplay(current));
+      frame = requestAnimationFrame(() => applyDisplay(current.offset, current.y));
     };
     const onUp = (ev: PointerEvent) => {
       if (ev.pointerId !== id) return;
@@ -69,7 +84,7 @@ export function useDragToMove(status: NotchStatus) {
       window.removeEventListener("pointercancel", onUp);
       if (!moved.current) return;
       holdOpen(false);
-      updateSettings((cur) => ({ display: { ...cur.display, offset: current } }));
+      updateSettings((cur) => ({ display: { ...cur.display, offset: current.offset, y: current.y } }));
       setLive(null);
       // The click right after releasing shouldn't open anything.
       setTimeout(() => (moved.current = false), 0);
@@ -79,5 +94,5 @@ export function useDragToMove(status: NotchStatus) {
     window.addEventListener("pointercancel", onUp);
   };
 
-  return { offset, dragging: live !== null, onPointerDown, moved: () => moved.current };
+  return { offset, y, dragging: live !== null, onPointerDown, moved: () => moved.current };
 }

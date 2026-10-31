@@ -1,14 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { AnimatePresence, motion, type Transition } from "motion/react";
+import { AnimatePresence, animate, frame, motion, useMotionValue, type MotionValue, type Transition } from "motion/react";
 import { GearSix, PushPin, Selection } from "@phosphor-icons/react";
 import { content, springs } from "../design/motion";
 import { useNowPlaying } from "../platform/media";
 import { isNative, keyboardFocus, onNativeBlur, onNativeHover, onShortcut, onTrayOpen, setHitRect, setMemoryLow } from "../platform/native";
 import { PrivacyDots } from "../features/privacy/PrivacyDots";
 import { FOCUS_CLICKS, focusMode, setFocusMode } from "./focus";
-import { useDragToMove } from "./drag";
+import { useDragToMove, windowY } from "./drag";
 import { LiveSlot, useLiveActivity } from "./live";
-import { DOCK_HEIGHT, HEADER_HEIGHT, geometry, openGeometry, type NotchGeometry } from "./geometry";
+import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, geometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
+import { hasBridge, panelTop, windowYFor } from "./capsule";
+import { monitor, monitorMetrics } from "./monitor";
+import { surfaceWidth } from "./row/layout";
 import { HeaderButton, headerSlot } from "./header";
 import { sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
@@ -73,15 +76,34 @@ export function Notch() {
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
+  const style = line ? "line" : displaySettings.idleStyle;
+  const surface = style === "capsule" ? "capsule" : "notch";
+  // Content width of the closed row (0 until the row reports it).
+  const [rowWidth] = useState(0);
+  const closedW = shownLive === "system" ? geometry.gaming.w : shownLive ? geometry.live.w : surfaceWidth(surface, rowWidth);
+  const drag = useDragToMove(status, closedGeometry(surface, closedW));
+
+  // Natively the window sits at windowY and the capsule drag.y below the monitor's top; in the browser the
+  // viewport stands in for the monitor and the window is only imagined, so the same rules place the panel.
+  monitor.use(); // windowY and the bridge read the monitor's height and work area
+  const workTop = monitorMetrics().workTop;
+  const bridged = hasBridge(style, drag.y, workTop);
+  const winTop = isNative ? windowY(drag.y) : windowYFor(style, drag.y, window.innerHeight, workTop);
+  const capsuleTop = style === "capsule" ? drag.y - winTop : 0;
+  // Open, a bridged capsule hangs from the edge like the notch; a floating one opens from its top, moved up as far as the panel needs.
+  const shapeTop = status !== "open" ? capsuleTop : bridged ? 0 : panelTop(capsuleTop, size.h);
+  const top = (isNative ? 0 : winTop) + shapeTop;
+
   const shape =
     line || (lineIdle && status === "closed")
       ? geometry.line
       : lineIdle && status === "peek"
         ? geometry.linePeek
-        : shapeFor(status, shownLive, size);
+        : shapeFor(status, surface, closedW, size, !bridged);
   const tightHit = shape === geometry.line || shape === geometry.linePeek;
   const sticky = useStickyHitZone(status, size.h);
   const transition = useTransitionFor(status, shape);
+  const topValue = useSpringTop(top, transition, drag.dragging);
 
   // Click outside closes (in the browser the fake desktop, in Tauri the window blur).
   const hitRef = useRef<HTMLDivElement>(null);
@@ -97,8 +119,7 @@ export function Notch() {
     };
   }, [dismiss]);
 
-  useNativeBridge(hitRef, onPointerEnter, onPointerLeave);
-  const drag = useDragToMove(status);
+  useNativeBridge(hitRef, topValue, onPointerEnter, onPointerLeave);
 
   // Focus mode on → notch closes, no more hover.
   useEffect(() => {
@@ -155,14 +176,15 @@ export function Notch() {
       // In the browser the notch moves inside the window; natively the whole window moves (display.rs).
       style={{ ["--accent" as string]: np?.accent, opacity: focus && !line ? 0.5 : 1, transform: isNative ? undefined : `translateX(${drag.offset}px)` }}
     >
-      {/* Hit zone: bigger than the visible shape (Fitts) and flush with the top edge. */}
-      <div
+      {/* Hit zone: bigger than the visible shape (Fitts) and flush with the top edge, unless the capsule floats. */}
+      <motion.div
         ref={hitRef}
         data-notch-hit
         // The line is meant to stay out of the way: only a hair of extra hit zone, so
         // the cursor has to be on it (the normal notch gets the generous Fitts margin).
         className={`pointer-events-auto ${tightHit ? "px-1 pb-1" : "px-4 pb-3"}`}
-        style={{ minHeight: sticky.minHeight, cursor: drag.dragging ? "grabbing" : undefined }}
+        // Bridged, the strip up to the screen edge is part of the zone (pushing the pointer up opens it); floating, only the capsule is (CollapsedHover.cs).
+        style={{ minHeight: sticky.minHeight, cursor: drag.dragging ? "grabbing" : undefined, paddingTop: bridged ? topValue : 0, marginTop: bridged ? 0 : topValue }}
         onPointerMove={sticky.onPointerMove}
         onPointerDown={focus ? undefined : drag.onPointerDown}
         // In Tauri, hover comes from the Rust poll (useNativeBridge), not the DOM.
@@ -204,7 +226,7 @@ export function Notch() {
             )}
           </AnimatePresence>
         </NotchShape>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -327,21 +349,27 @@ function useStickyHitZone(status: NotchStatus, height: number) {
 /** pb-3 of the hit zone. */
 const HIT_PAD_BOTTOM = 12;
 
-function shapeFor(status: NotchStatus, live: string | null, size: { w: number; h: number }): NotchGeometry {
-  if (status === "open") return openGeometry(size.w, size.h);
-  const base = live === "system" ? geometry.gaming : live ? geometry.live : geometry.closed;
-  if (status === "peek") {
-    // Hover nudge relative to the current width so it also fits the live state.
-    const bump = geometry.peek.w - geometry.closed.w;
-    return { ...geometry.peek, w: base.w + bump };
-  }
-  return base;
+/** `w` is the closed width; the hover nudge grows from it, so it also fits the live state. */
+function shapeFor(status: NotchStatus, surface: "notch" | "capsule", w: number, size: { w: number; h: number }, floating: boolean): NotchGeometry {
+  if (status === "open") return openGeometry(size.w, size.h, floating);
+  return status === "peek" ? peekGeometry(surface, w) : closedGeometry(surface, w);
+}
+
+/** The shape's top in the wrapper as a value that springs with the shape, and follows the pointer while dragging. */
+function useSpringTop(top: number, transition: Transition, dragging: boolean): MotionValue<number> {
+  const value = useMotionValue(top);
+  useEffect(() => {
+    if (dragging) return value.jump(top);
+    const c = animate(value, top, { ...transition, restDelta: 0.01, restSpeed: 0.1 });
+    return () => c.stop();
+  }, [top, transition, dragging, value]);
+  return value;
 }
 
 /** Picks the spring for the transition (open ≠ close ≠ morph). */
 function useTransitionFor(status: NotchStatus, shape: NotchGeometry): Transition {
   const prev = useRef(status);
-  const key = `${shape.w}x${shape.h}`;
+  const key = `${shape.w}x${shape.h}x${shape.r}x${shape.ear}x${shape.rt}`;
   const prevKey = useRef(key);
 
   let t: Transition;
@@ -413,6 +441,7 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
  */
 function useNativeBridge(
   hitRef: RefObject<HTMLDivElement | null>,
+  top: MotionValue<number>,
   onEnter: () => void,
   onLeave: () => void,
 ) {
@@ -428,6 +457,8 @@ function useNativeBridge(
     const ro = new ResizeObserver(report);
     ro.observe(el);
     report();
+    // Moving the capsule changes padding or margin, which the observer doesn't see; measured after Motion has rendered the new value.
+    const offTop = top.on("change", () => frame.postRender(report));
 
     const offHover = onNativeHover((inside) => (inside ? onEnter() : onLeave()));
     // Text field focused → hold (clickable, no collapse) until focus leaves.
@@ -443,12 +474,13 @@ function useNativeBridge(
 
     return () => {
       ro.disconnect();
+      offTop();
       offHover();
       el.removeEventListener("focusin", onFocusIn);
       el.removeEventListener("focusout", onFocusOut);
       if (typing) holdOpen(false);
     };
-  }, [hitRef, onEnter, onLeave]);
+  }, [hitRef, top, onEnter, onLeave]);
 }
 
 function isInteractive(el: EventTarget | null): boolean {
