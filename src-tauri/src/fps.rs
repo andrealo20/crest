@@ -7,7 +7,7 @@
 //! - One frame can fire several of these events depending on the API, so each event
 //!   kind is counted separately and the highest count wins, never the sum.
 //! - Real-time ETW needs admin rights or membership in "Performance Log Users".
-//!   `fps_unlock` runs the app elevated once (UAC prompt shows "L4-Notchbar") and adds
+//!   `fps_unlock` runs the app elevated once (UAC prompt shows "Crest") and adds
 //!   the account to that group. Windows only applies group changes to new sign-ins,
 //!   so until then `gaming_fps` returns "relogin"; without membership "no-admin".
 //!   (Per-GUID ETW rights via EventAccessControl don't help: creating a real-time
@@ -240,7 +240,7 @@ unsafe extern "system" fn on_event(record: *mut EVENT_RECORD) {
 }
 
 /// One-time unlock: runs the app itself elevated (`--fps-unlock <SID>`) so the UAC
-/// prompt shows "L4-Notchbar" instead of PowerShell. The SID comes from this
+/// prompt shows "Crest" instead of PowerShell. The SID comes from this
 /// non-elevated process: with a standard account, a different admin account signs in
 /// at the UAC prompt, but this account is the one to unlock.
 ///

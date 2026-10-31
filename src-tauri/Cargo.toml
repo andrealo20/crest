@@ -1,11 +1,11 @@
 [package]
-name = "notch"
-version = "1.6.0"
+name = "crest"
+version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
 
 [lib]
-name = "notch_lib"
+name = "crest_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

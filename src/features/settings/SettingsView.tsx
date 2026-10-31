@@ -719,7 +719,7 @@ function FpsUnlockRow() {
     ok: t("Freigeschaltet – die FPS laufen"),
     relogin: t("Fertig – einmal ab- und wieder anmelden, dann laufen die FPS"),
     cancelled: t("Abgebrochen"),
-    failed: t("Hat nicht geklappt – L4-Notchbar einmal als Administrator starten"),
+    failed: t("Hat nicht geklappt – Crest einmal als Administrator starten"),
   }[state];
   return (
     <Row label={t("FPS freischalten")} hint={hint}>

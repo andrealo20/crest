@@ -1,7 +1,7 @@
 //! Backend check without UI: cargo run --example backend_check -- <scratch-dir>
 fn main() {
     let dir = std::env::args().nth(1).expect("pass a scratch directory");
-    let rt = tauri::async_runtime::block_on(notch_lib::usage::probe_for_test());
+    let rt = tauri::async_runtime::block_on(crest_lib::usage::probe_for_test());
     // Only print window counts or error codes, never account data.
     for (id, result) in rt {
         println!("usage {id}: {result:?}");
@@ -12,7 +12,7 @@ fn main() {
         .save(&png)
         .unwrap();
     for target in ["jpg", "webp", "ico", "bmp", "png"] {
-        match notch_lib::convert::convert_for_test(&png, target) {
+        match crest_lib::convert::convert_for_test(&png, target) {
             Ok(out) => {
                 let name = std::path::Path::new(&out).file_name().unwrap().to_string_lossy().into_owned();
                 println!("convert png->{target}: OK {name} ({} B)", std::fs::metadata(&out).unwrap().len());
@@ -21,5 +21,5 @@ fn main() {
         }
     }
     let webp = format!("{dir}/test.webp");
-    println!("convert webp->png: {:?}", notch_lib::convert::convert_for_test(&webp, "png").map(|_| "OK"));
+    println!("convert webp->png: {:?}", crest_lib::convert::convert_for_test(&webp, "png").map(|_| "OK"));
 }

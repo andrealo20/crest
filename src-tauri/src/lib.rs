@@ -159,7 +159,7 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("failed to start L4-Notchbar");
+        .expect("failed to start Crest");
 }
 
 /// Window that was in the foreground before the shortcut opened the notch.
@@ -226,9 +226,9 @@ struct TrayItems(Mutex<Option<Tray>>);
 fn tray_texts(lang: &str) -> [String; 5] {
     if lang == "en" {
         let keys = SHORTCUT_LABEL.replace("Strg", "Ctrl").replace("Leertaste", "Space");
-        [format!("Open L4-Notchbar\t{keys}"), "Settings …".into(), "Focus mode".into(), "Start with Windows".into(), "Quit L4-Notchbar".into()]
+        [format!("Open Crest\t{keys}"), "Settings …".into(), "Focus mode".into(), "Start with Windows".into(), "Quit Crest".into()]
     } else {
-        [format!("L4-Notchbar öffnen\t{SHORTCUT_LABEL}"), "Einstellungen …".into(), "Fokus-Modus".into(), "Mit Windows starten".into(), "L4-Notchbar beenden".into()]
+        [format!("Crest öffnen\t{SHORTCUT_LABEL}"), "Einstellungen …".into(), "Fokus-Modus".into(), "Mit Windows starten".into(), "Crest beenden".into()]
     }
 }
 
@@ -300,7 +300,7 @@ fn build_tray(app: &App) -> tauri::Result<()> {
     let focus_item = focus.clone();
     TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
-        .tooltip("L4-Notchbar")
+        .tooltip("Crest")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {

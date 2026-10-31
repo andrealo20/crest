@@ -7,8 +7,8 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if let [_, flag, sid] = args.as_slice() {
         if flag == "--fps-unlock" {
-            std::process::exit(notch_lib::fps_elevated_unlock(sid));
+            std::process::exit(crest_lib::fps_elevated_unlock(sid));
         }
     }
-    notch_lib::run()
+    crest_lib::run()
 }

@@ -7,3 +7,11 @@ src-tauri/gen
 
 # Launch-video workspace (frames, renders, intermediates)
 brag-output/
+
+# Agent working files, kept local
+CLAUDE.md
+AGENTS.md
+PLAN.md
+PLAN-REVIEW-LOG.md
+.claude/
+.codex/

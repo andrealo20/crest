@@ -17,6 +17,6 @@ const edit = (path, pattern, replacement) => {
 edit("package.json", /("version":\s*")[^"]+(")/, `$1${version}$2`);
 edit("src-tauri/tauri.conf.json", /("version":\s*")[^"]+(")/, `$1${version}$2`);
 edit("src-tauri/Cargo.toml", /^(version\s*=\s*")[^"]+(")/m, `$1${version}$2`);
-edit("src-tauri/Cargo.lock", /(name = "notch"\r?\nversion = ")[^"]+(")/, `$1${version}$2`);
+edit("src-tauri/Cargo.lock", /(name = "crest"\r?\nversion = ")[^"]+(")/, `$1${version}$2`);
 
 console.log(`Version set to ${version}. Commit and push to publish the release.`);

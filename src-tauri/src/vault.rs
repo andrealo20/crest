@@ -43,6 +43,7 @@ use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM
 
 /// App-specific DPAPI entropy: other programs of the same user can't decrypt the
 /// file by calling DPAPI blindly.
+// The L4-Notchbar names here and in protect() predate Crest; neither is ever shown, so renaming them gains nothing.
 const ENTROPY: &[u8] = b"L4-Notchbar vault v1";
 /// Unlocked stays unlocked this long after the last action (the UI also locks on leave).
 const UNLOCK_IDLE: Duration = Duration::from_secs(120);
@@ -668,7 +669,7 @@ mod hello {
     use windows::Security::Cryptography::CryptographicBuffer;
     use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 
-    const NAME: &str = "L4-Notchbar Vault";
+    const NAME: &str = "Crest Vault";
 
     fn init() {
         let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };

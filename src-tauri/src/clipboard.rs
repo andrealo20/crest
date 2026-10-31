@@ -230,7 +230,7 @@ pub async fn clipboard_paste_files() -> Result<Vec<String>, String> {
         }
         let Ok(img) = clipboard.get_image() else { return Ok(vec![]) };
         let rgba = image::RgbaImage::from_raw(img.width as u32, img.height as u32, img.bytes.into_owned()).ok_or("Bild unlesbar")?;
-        let dir = pictures_dir().join("Notch");
+        let dir = pictures_dir().join("Crest");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         let path = dir.join(format!("Eingefügt {}.png", local_stamp()));
         rgba.save(&path).map_err(|e| e.to_string())?;

@@ -5,14 +5,14 @@
 use std::io::Write;
 use std::time::Instant;
 
-use notch_lib::ai::{stream_chat, ChatConfig};
+use crest_lib::ai::{stream_chat, ChatConfig};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let key = std::env::var("NOTCH_AI_KEY").expect("NOTCH_AI_KEY not set");
     let provider = args[0].clone();
     let config = ChatConfig { provider: provider.clone(), base_url: Some(args[1].clone()), model: args[2].clone(), effort: args.get(3).cloned() };
-    let messages: Vec<notch_lib::ai::Msg> = serde_json::from_value(serde_json::json!([{ "role": "user", "content": "Antworte in genau einem kurzen Satz: Was ist eine Notch?" }])).unwrap();
+    let messages: Vec<crest_lib::ai::Msg> = serde_json::from_value(serde_json::json!([{ "role": "user", "content": "Antworte in genau einem kurzen Satz: Was ist eine Notch?" }])).unwrap();
 
     let start = Instant::now();
     let mut first: Option<f32> = None;
@@ -27,7 +27,7 @@ fn main() {
 
     if args.iter().any(|a| a == "--store") {
         let name = format!("ai.{provider}");
-        notch_lib::secrets::secret_set(name.clone(), key.clone()).expect("saving failed");
-        println!("stored as Notch/{name}, read back ok: {}", notch_lib::secrets::read(&name).as_deref() == Some(key.as_str()));
+        crest_lib::secrets::secret_set(name.clone(), key.clone()).expect("saving failed");
+        println!("stored as Notch/{name}, read back ok: {}", crest_lib::secrets::read(&name).as_deref() == Some(key.as_str()));
     }
 }

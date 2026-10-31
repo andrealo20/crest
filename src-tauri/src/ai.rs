@@ -135,7 +135,7 @@ pub async fn stream_chat(
         }
         let mut req = client.post(&url).bearer_auth(key);
         if config.provider == "openrouter" {
-            req = req.header("X-Title", "Notch");
+            req = req.header("X-Title", "Crest");
         }
         req.json(&body)
     };
