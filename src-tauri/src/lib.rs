@@ -18,6 +18,7 @@ mod shelf;
 mod system;
 mod sysevents;
 mod timer_window;
+mod terminal;
 mod trading;
 pub mod usage;
 mod vault;
@@ -74,6 +75,7 @@ pub fn run() {
         .manage(display::DisplayState::default())
         .manage(discord::DiscordState::default())
         .manage(vault::VaultState::default())
+        .manage(terminal::TerminalState::default())
         .invoke_handler(tauri::generate_handler![
             hit_test::set_hit_rect,
             hit_test::set_pinned,
@@ -145,6 +147,12 @@ pub fn run() {
             timer_window::timer_window_close,
             shelf::shelf_drag_out,
             shelf::shelf_clipboard_text,
+            terminal::terminal_info,
+            terminal::terminal_start,
+            terminal::terminal_write,
+            terminal::terminal_resize,
+            terminal::terminal_kill,
+            terminal::terminal_clipboard_text,
         ])
         .setup(move |app| {
             let window = app.get_webview_window("notch").expect("window 'notch' missing");

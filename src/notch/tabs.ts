@@ -16,6 +16,7 @@ import {
   Timer,
   Tray,
   Vault,
+  TerminalWindow,
   type Icon,
 } from "@phosphor-icons/react";
 import { DepotIcon } from "../ui/icons";
@@ -40,6 +41,7 @@ import { ScratchpadView } from "../features/scratchpad/ScratchpadView";
 import { QUOTE_LINE_H } from "../features/quotes/QuoteLine";
 import { settings } from "../settings/store";
 import { SettingsView } from "../features/settings/SettingsView";
+import { TerminalView } from "../features/terminal/TerminalView";
 
 /**
  * Registry of all tools in the open notch. New tool = new entry here
@@ -85,6 +87,7 @@ export const tabs: NotchTab[] = [
   { id: "vault", label: "Tresor", icon: Vault, size: { w: 560, h: 324 }, View: VaultView },
   { id: "water", label: "Wasser", icon: Drop, size: { w: 520, h: 236 }, View: WaterView },
   { id: "scratchpad", label: "Code-Notizblock", icon: Code, size: { w: 600, h: 320 }, View: ScratchpadView },
+  { id: "terminal", label: "Terminal", icon: TerminalWindow, size: { w: 720, h: 460 }, View: TerminalView },
 ];
 
 /** Settings: reached via the gear, not in the tool bar. */

@@ -1,7 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
+import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isNative } from "./native";
 import type { PowerState } from "../notch/row/status";
+import type { LaunchPlan, ShellInfo } from "../features/terminal/shell";
 import bundledChangelog from "../changelog.json";
 import { showcase, showcaseCall, showcaseCash, showcaseDayChange, showcaseFileSizes, showcasePositions, showcaseRealized } from "../dev/showcase-data";
 
@@ -716,3 +718,63 @@ export function clipboardText(): Promise<string> {
   if (isNative) return invoke<string>("shelf_clipboard_text").catch(() => "");
   return navigator.clipboard.readText().catch(() => "");
 }
+// ---------- Terminal ----------
+
+/** Shell output as raw bytes; the last message of a session is its exit code. */
+export type TerminalMessage = ArrayBuffer | { exit: number };
+
+export const terminal = {
+  info: (): Promise<ShellInfo> =>
+    isNative
+      ? invoke<ShellInfo>("terminal_info")
+      : Promise.resolve({ pwsh: null, powershell: "powershell.exe", cmd: "cmd.exe", home: "C:\\Users\\you", buildNumber: 0 }),
+  start: (plan: LaunchPlan, cols: number, rows: number, onOutput: (m: TerminalMessage) => void): Promise<void> => {
+    if (!isNative) return Promise.resolve(mockShell.start(onOutput));
+    const channel = new Channel<TerminalMessage>();
+    channel.onmessage = onOutput;
+    return invoke("terminal_start", { ...plan, cols, rows, onOutput: channel });
+  },
+  write: (data: string): Promise<void> => (isNative ? invoke<void>("terminal_write", { data }).catch(() => {}) : Promise.resolve(mockShell.write(data))),
+  resize: (cols: number, rows: number) => {
+    if (isNative) void invoke("terminal_resize", { cols, rows });
+  },
+  kill: () => (isNative ? void invoke("terminal_kill") : mockShell.kill()),
+  clipboardText: (): Promise<string | null> =>
+    isNative ? invoke<string | null>("terminal_clipboard_text") : navigator.clipboard.readText().catch(() => null),
+};
+
+/** Browser: a fake prompt that echoes what you type, so the tool can be designed without the app. */
+const mockShell = (() => {
+  let out: ((m: TerminalMessage) => void) | null = null;
+  let line = "";
+  const prompt = "\x1b[32mPS\x1b[0m C:\\Users\\you> ";
+  const say = (s: string) => out?.(new TextEncoder().encode(s).buffer as ArrayBuffer);
+  return {
+    start(onOutput: (m: TerminalMessage) => void) {
+      out = onOutput;
+      line = "";
+      say(`Browser preview, no real shell.\r\n\r\n${prompt}`);
+    },
+    write(data: string) {
+      for (const ch of data) {
+        if (ch === "\r") {
+          if (line.trim() === "exit") return void (out?.({ exit: 0 }), (out = null));
+          say(`\r\n${prompt}`);
+          line = "";
+        } else if (ch === "\x7f") {
+          if (line) say("\b \b");
+          line = line.slice(0, -1);
+        } else if (ch === "\x03") {
+          say(`^C\r\n${prompt}`);
+          line = "";
+        } else if (ch >= " ") {
+          line += ch;
+          say(ch);
+        }
+      }
+    },
+    kill() {
+      out = null;
+    },
+  };
+})();

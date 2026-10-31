@@ -68,6 +68,8 @@ export interface Settings {
   timer: { look: TimerLook };
   /** To-do reminders (sound), the water reminder and the quote line in Overview. */
   productivity: { reminderSound: boolean; quotes: boolean; water: WaterConfig };
+  /** Terminal tool: shell, font size in px, start folder ("" = home), end the shell when the notch closes. */
+  terminal: { shell: "pwsh" | "powershell" | "cmd"; fontSize: number; startDir: string; endOnClose: boolean };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -89,9 +91,10 @@ export const TOOL_IDS = [
   "vault",
   "water",
   "scratchpad",
+  "terminal",
 ] as const;
 
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad"]);
+const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal"]);
 
 const defaults: Settings = {
   openMode: "hover",
@@ -121,6 +124,7 @@ const defaults: Settings = {
   updates: { auto: true },
   timer: { look: "clean" },
   productivity: { reminderSound: true, quotes: false, water: WATER_DEFAULTS },
+  terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -180,6 +184,7 @@ settings.set((s) => {
     updates: { ...defaults.updates, ...s.updates },
     timer: { look: normalizeLook(s.timer?.look) },
     productivity: { ...defaults.productivity, ...s.productivity, water: normalizeWater(s.productivity?.water) },
+    terminal: { ...defaults.terminal, ...s.terminal },
     closed: normalizeClosed(s.closed),
     ask: migrateAsk(s.ask),
   };
