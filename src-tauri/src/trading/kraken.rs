@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use super::{is_fiat, now_ms, num, sign, Account, Holding, Leg, Trade};
 use crate::secrets;
@@ -84,7 +84,7 @@ pub async fn fetch(client: &reqwest::Client, app: &AppHandle) -> Result<Account,
     let mut holdings: Vec<Holding> = merged.into_iter().filter(|(_, q)| q.abs() > 1e-12).map(|(s, q)| Holding::balance(&s, q)).collect();
     holdings.sort_by(|a, b| a.symbol.cmp(&b.symbol));
 
-    let path = app.path().app_data_dir().ok().map(|d| d.join("kraken-ledger.json"));
+    let path = crate::portable::app_data_dir(app).ok().map(|d| d.join("kraken-ledger.json"));
     let fingerprint = super::sign::hex(&Sha256::digest(key.as_bytes())[..8]);
     let mut cache: LedgerCache = path.as_ref().and_then(|p| std::fs::read(p).ok()).and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
     if cache.key != fingerprint || cache.version != CACHE_VERSION {

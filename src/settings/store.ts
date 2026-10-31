@@ -8,6 +8,8 @@ import { THEME_DEFAULTS, normalizeThemeSettings, type ThemeSettings } from "../f
 import type { ColorScheme } from "../features/system/levels";
 import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
 import { NOTICE_DEFAULTS, normalizeNotices, type NoticeSettings } from "../features/notices/rules";
+import { WINDOW_DEFAULTS, normalizeWindow, type WindowSettings } from "../features/window/model";
+import { DOCK_DEFAULTS, normalizeDock, type Dock } from "../notch/edge";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -39,6 +41,7 @@ export interface Settings {
    * `offset` = horizontal offset from the center in CSS px (set by dragging).
    */
   display: {
+    /** Replaced by `behavior.rules`; only read once to seed them for older installs. */
     visibility: "always" | "hide-fullscreen";
     monitor: string | null;
     offset: number;
@@ -96,6 +99,10 @@ export interface Settings {
   github: { user: string };
   /** Live notices: Windows notifications and crest-notify in the closed notch, with per-app rules and quiet hours. */
   notices: NoticeSettings;
+  /** Window behaviour: full-screen and app rules, shortcuts, panel sizes and scale, close delay, mouse (src/features/window). */
+  behavior: WindowSettings;
+  /** The screen edge the notch and the line hang from, and whether from the screen's edge or the taskbar's (the capsule floats on the top frame). */
+  dock: Dock;
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -161,6 +168,8 @@ const defaults: Settings = {
   launcher: { favorites: null, hotkeys: false },
   github: { user: "" },
   notices: NOTICE_DEFAULTS,
+  behavior: WINDOW_DEFAULTS,
+  dock: DOCK_DEFAULTS,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -231,6 +240,8 @@ settings.set((s) => {
     closed: normalizeClosed(s.closed),
     notices: normalizeNotices(s.notices),
     ask: migrateAsk(s.ask),
+    behavior: normalizeWindow(s.behavior, s.display?.visibility),
+    dock: normalizeDock(s.dock),
   };
 });
 

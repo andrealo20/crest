@@ -26,7 +26,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 
 use crate::secrets;
 pub use prices::Rates;
@@ -214,7 +214,7 @@ pub async fn portfolio_forget(provider: String, app: AppHandle, state: State<'_,
     let gate = state.inflight.lock().unwrap().entry(provider.clone()).or_default().clone();
     let _running = gate.lock().await;
     state.accounts.lock().unwrap().retain(|k, _| !k.starts_with(&format!("{provider}:")));
-    let Ok(dir) = app.path().app_data_dir() else { return Ok(()) };
+    let Ok(dir) = crate::portable::app_data_dir(&app) else { return Ok(()) };
     if provider == "kraken" {
         let _ = std::fs::remove_file(dir.join("kraken-ledger.json"));
     }
@@ -329,7 +329,7 @@ pub struct Recorded {
 /// Records today's value for each scope and returns its history. `today`: local "YYYY-MM-DD".
 #[tauri::command]
 pub fn portfolio_record(base: String, today: String, entries: Vec<RecordEntry>, app: AppHandle) -> HashMap<String, Recorded> {
-    let dir = app.path().app_data_dir().ok().filter(|d| std::fs::create_dir_all(d).is_ok());
+    let dir = crate::portable::app_data_dir(&app).ok().filter(|d| std::fs::create_dir_all(d).is_ok());
     let base: String = base.chars().filter(|c| c.is_ascii_alphabetic()).collect();
     entries
         .into_iter()

@@ -17,3 +17,4 @@ PLAN-REVIEW-LOG.md
 .codex/
 .design/
 src-tauri/target-shared
+.agent-notes/

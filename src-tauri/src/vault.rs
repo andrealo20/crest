@@ -29,7 +29,7 @@ use aes_gcm::{Aes256Gcm, Nonce};
 use base64::Engine;
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 use windows::core::w;
 use windows::Win32::Foundation::{LocalFree, HANDLE, HLOCAL};
 use windows::Win32::Security::Cryptography::{
@@ -136,7 +136,7 @@ pub struct VaultState {
 // ---------- File + DPAPI ----------
 
 fn path(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let dir = crate::portable::app_data_dir(app).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir.join("vault.bin"))
 }

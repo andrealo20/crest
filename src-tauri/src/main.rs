@@ -10,5 +10,7 @@ fn main() {
             std::process::exit(crest_lib::fps_elevated_unlock(sid));
         }
     }
+    // A portable copy that just updated itself waits for the old process to exit first.
+    crest_lib::portable::after_update(&args);
     crest_lib::run()
 }

@@ -7,7 +7,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 /// Same limit as the frontend check, so a huge file is never read into memory.
 const MAX_BYTES: u64 = 64 * 1024;
@@ -23,7 +23,7 @@ pub struct ThemeFileText {
 }
 
 fn folder(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("themes");
+    let dir = crate::portable::app_data_dir(app).map_err(|e| e.to_string())?.join("themes");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
 }

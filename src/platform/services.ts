@@ -7,6 +7,7 @@ import type { LaunchPlan, ShellInfo } from "../features/terminal/shell";
 import type { TokenReport } from "../features/usage/tokens";
 import type { BatteryRaw } from "../features/system/battery";
 import type { DrivesRaw } from "../features/system/storage";
+import type { RulesPayload } from "../features/window/model";
 import bundledChangelog from "../changelog.json";
 import { showcase, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
 
@@ -322,7 +323,8 @@ export function filePreview(path: string): Promise<string | null> {
 /** A found update: version + install (downloads, installs, restarts). */
 export interface UpdateHandle {
   version: string;
-  install: (onProgress: (fraction: number) => void) => Promise<void>;
+  /** Resolves "page" when it only opened the download page (a read-only portable copy) and the app keeps running. */
+  install: (onProgress: (fraction: number) => void) => Promise<"page" | void>;
 }
 
 /** What changed in a version (`src/changelog.json`, newest first). */
@@ -354,6 +356,7 @@ export const updater = {
   /** Fetches the signed latest.json from the newest GitHub release. null = up to date. */
   check: async (): Promise<UpdateHandle | null> => {
     if (!isNative) return new URLSearchParams(location.search).has("update") ? mockUpdate : null;
+    if ((await portable.info()).portable) return portableUpdate();
     const { check } = await import("@tauri-apps/plugin-updater");
     const found = await check();
     if (!found) return null;
@@ -410,6 +413,9 @@ export interface MonitorInfo {
   /** Work area (without taskbar): top below the monitor's top edge, and height, in CSS px. */
   workTop: number;
   workHeight: number;
+  /** The work area's left edge from the monitor's left, and its width (a taskbar on the left or right), in CSS px. */
+  workLeft: number;
+  workWidth: number;
 }
 
 export const display = {
@@ -417,11 +423,14 @@ export const display = {
     isNative
       ? invoke<MonitorInfo[]>("display_monitors")
       : Promise.resolve([
-          { name: "\\.\DISPLAY1", primary: true, width: 2560, height: 1440, workTop: 0, workHeight: 1440 - 48 },
-          { name: "\\.\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48 },
+          { name: "\\.\DISPLAY1", primary: true, width: 2560, height: 1440, workTop: 0, workHeight: 1440 - 48, workLeft: 0, workWidth: 2560 },
+          { name: "\\.\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48, workLeft: 0, workWidth: 1920 },
         ]),
-  /** `y`: window top in CSS px below the monitor's top edge (default 0). */
-  apply: (config: { hideFullscreen: boolean; monitor: string | null; offset: number; y?: number; gaming: boolean }) => {
+  /**
+   * `y`: window top in CSS px below the monitor's top edge (default 0); `rules`: screen_policy.rs Rules; `zoom`: panel scale (1 or 1.5).
+   * `edge` and `line`: the screen edge the window hangs from and where (CSS px from the monitor's top or left); `y` is used on top.
+   */
+  apply: (config: { monitor: string | null; offset: number; y?: number; gaming: boolean; rules: RulesPayload; zoom: number; edge?: string; line?: number }) => {
     if (isNative) void invoke("display_apply", { config });
   },
   /** true while an app covers the notch's monitor in fullscreen. */
@@ -927,3 +936,72 @@ export const noticeSource = {
     return () => void off.then((f) => f());
   },
 };
+
+// ---------- Window behaviour (display.rs, shell.rs) ----------
+
+/** What the window rules call for right now. */
+export type ScreenBehavior = "normal" | "line" | "hide";
+export interface RunningApp {
+  name: string;
+  path: string;
+}
+/** in-use: another program holds the combination. */
+export type HotkeyState = "unset" | "active" | "in-use" | "invalid";
+export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState };
+
+export const windowShell = {
+  screen: (): Promise<ScreenBehavior> => (isNative ? invoke<ScreenBehavior>("display_screen") : Promise.resolve("normal")),
+  onScreen: (handler: (b: ScreenBehavior) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<ScreenBehavior>("notch://screen", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Shows Crest if the hide shortcut hid it and puts it above other always-on-top windows. */
+  raise: () => {
+    if (isNative) void invoke("display_raise");
+  },
+  apps: (): Promise<RunningApp[]> =>
+    isNative
+      ? invoke<RunningApp[]>("display_apps")
+      : Promise.resolve([
+          { name: "chrome", path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
+          { name: "vlc", path: "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe" },
+        ]),
+  applyHotkeys: (config: { open: string; hide: string; resize: string; openLabel: string }): Promise<HotkeyStates> =>
+    isNative
+      ? invoke<HotkeyStates>("hotkeys_apply", { config })
+      : Promise.resolve({ open: config.open ? "active" : "unset", hide: config.hide ? "active" : "unset", resize: config.resize ? "active" : "unset" }),
+  /** The resize shortcut: one arrow press. */
+  onResizeKey: (handler: (dir: "left" | "right" | "up" | "down") => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<"left" | "right" | "up" | "down">("notch://resize", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  crashLog: (text: string) => {
+    if (isNative) void invoke("crash_log", { text });
+  },
+};
+// ---------- Portable ----------
+
+/** A portable copy (Crest.portable next to the exe) keeps its data beside it and updates itself in place (portable.rs). */
+export const portable = {
+  info: (): Promise<{ portable: boolean; writable: boolean }> =>
+    isNative ? invoke<{ portable: boolean; writable: boolean }>("portable_info") : Promise.resolve({ portable: false, writable: false }),
+};
+
+/** The portable package's update: verified and swapped in by Rust, which restarts the app; a folder that can't be written opens the download page. */
+async function portableUpdate(): Promise<UpdateHandle | null> {
+  const version = await invoke<string | null>("portable_check");
+  if (!version) return null;
+  return {
+    version,
+    install: async (onProgress) => {
+      const off = await listen<number>("portable://progress", (e) => onProgress(e.payload));
+      try {
+        return (await invoke<boolean>("portable_install")) ? "page" : undefined;
+      } finally {
+        off();
+      }
+    },
+  };
+}

@@ -190,7 +190,7 @@ pub async fn usage_tokens(app: AppHandle) -> Result<logs::TokenReport, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<UsageState>();
         let mut cache = state.logs.lock().unwrap();
-        let disk = app.path().app_data_dir().ok().filter(|d| std::fs::create_dir_all(d).is_ok()).map(|d| d.join("usage-logs.json"));
+        let disk = crate::portable::app_data_dir(&app).ok().filter(|d| std::fs::create_dir_all(d).is_ok()).map(|d| d.join("usage-logs.json"));
         logs::report(&mut cache, disk.as_deref())
     })
     .await
@@ -679,7 +679,7 @@ fn civil_year_month(days: i64) -> (i64, i64) {
 // ---------- Disk cache ----------
 
 fn cache_path(app: &AppHandle) -> Option<PathBuf> {
-    let dir = app.path().app_data_dir().ok()?;
+    let dir = crate::portable::app_data_dir(app).ok()?;
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir.join("usage-cache.json"))
 }
