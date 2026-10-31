@@ -4,7 +4,9 @@ import { MAX_APP_RULES, WINDOW_DEFAULTS, addRule, cycle, exeName, newRule, norma
 
 test("without a saved group the rules follow the old visibility setting", () => {
   assert.deepEqual(normalizeWindow(undefined).rules, WINDOW_DEFAULTS.rules);
-  assert.deepEqual(normalizeWindow(undefined, "hide-fullscreen").rules, { maximized: "normal", borderless: "hide", exclusive: "hide", background: true });
+  // The old setting only read the window in front, so the check behind starts off.
+  assert.deepEqual(normalizeWindow(undefined, "hide-fullscreen").rules, { maximized: "normal", borderless: "hide", exclusive: "hide", background: false });
+  assert.equal(WINDOW_DEFAULTS.rules.background, true);
   // Once saved, the old setting no longer matters.
   assert.equal(normalizeWindow({ rules: { borderless: "line" } }, "hide-fullscreen").rules.borderless, "line");
 });

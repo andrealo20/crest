@@ -36,6 +36,9 @@ export interface WindowSettings {
 
 export const MAX_APP_RULES = 32;
 
+/** What display.rs reads as `rules` (screen_policy.rs Rules). */
+export type RulesPayload = WindowSettings["rules"] & { apps: AppRule[] };
+
 export const WINDOW_DEFAULTS: WindowSettings = {
   rules: { maximized: "normal", borderless: "normal", exclusive: "normal", background: true },
   apps: [],
@@ -85,7 +88,8 @@ export function normalizeWindow(saved: unknown, legacyVisibility?: string): Wind
   const d = WINDOW_DEFAULTS;
   if (!saved || typeof saved !== "object") {
     const hide = legacyVisibility === "hide-fullscreen";
-    return { ...d, rules: { ...d.rules, borderless: hide ? "hide" : "normal", exclusive: hide ? "hide" : "normal" } };
+    // The old setting only looked at the window in front; an F11 browser behind another app didn't hide the notch.
+    return { ...d, rules: { ...d.rules, borderless: hide ? "hide" : "normal", exclusive: hide ? "hide" : "normal", background: !hide } };
   }
   const s = saved as Partial<Record<keyof WindowSettings, unknown>>;
   const r = (s.rules ?? {}) as Record<string, unknown>;

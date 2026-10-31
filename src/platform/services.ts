@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isNative } from "./native";
+import type { RulesPayload } from "../features/window/model";
 import bundledChangelog from "../changelog.json";
 import { showcase, showcaseCall, showcaseCash, showcaseDayChange, showcaseFileSizes, showcasePositions, showcaseRealized } from "../dev/showcase-data";
 
@@ -408,7 +409,7 @@ export const display = {
           { name: "\\.\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48 },
         ]),
   /** `y`: window top in CSS px below the monitor's top edge (default 0); `rules`: screen_policy.rs Rules; `zoom`: panel scale (1 or 1.5). */
-  apply: (config: { monitor: string | null; offset: number; y?: number; gaming: boolean; rules: unknown; zoom: number }) => {
+  apply: (config: { monitor: string | null; offset: number; y?: number; gaming: boolean; rules: RulesPayload; zoom: number }) => {
     if (isNative) void invoke("display_apply", { config });
   },
   /** true while an app covers the notch's monitor in fullscreen. */
