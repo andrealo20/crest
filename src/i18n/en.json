@@ -504,5 +504,6 @@
  "Zeigt beim Abspielen nur Cover und die aktuelle Zeile, die Notch passt sich jeder Zeile an": "While playing, shows only the cover and the current line; the notch fits each line",
  "Zeigt, was gerade spielt": "Shows what is playing",
  "Zufallswiedergabe": "Shuffle",
- "{app} bleibt in der Notch, auch wenn eine andere App spielt": "{app} stays in the notch even while another app plays"
+ "{app} bleibt in der Notch, auch wenn eine andere App spielt": "{app} stays in the notch even while another app plays",
+ "Songtexte nur für Songs bis 20 Minuten mit bekannter Länge": "Lyrics are only looked up for songs up to 20 minutes with a known length"
 }

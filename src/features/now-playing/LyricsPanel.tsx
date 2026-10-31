@@ -33,6 +33,7 @@ export function LyricsPanel({ np }: { np: NowPlaying }) {
     state?.kind === "loading" ? t("Songtext wird gesucht …")
     : state?.kind === "instrumental" ? t("Instrumental")
     : state?.kind === "offline" ? t("LRCLIB ist gerade nicht erreichbar")
+    : state?.kind === "skipped" ? t("Songtexte nur für Songs bis 20 Minuten mit bekannter Länge")
     : !lines ? t("Kein synchronisierter Songtext für diesen Song")
     : null;
 

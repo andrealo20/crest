@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { livePosition, type NowPlaying } from "../../platform/media";
-import { LEAD, cacheKey, lineAt, lyricsOf, pickRecord, searchTerms, untilNext, type LrclibRecord, type LyricLine, type Lyrics } from "./lrc";
+import { livePosition, media, type NowPlaying } from "../../platform/media";
+import { LEAD, cacheKey, lineAt, lookupAllowed, lyricsOf, pickRecord, searchTerms, untilNext, type LrclibRecord, type LyricLine, type Lyrics } from "./lrc";
 import { createLyricsCache, type CacheEntry } from "./lyricsCache";
 
 /*
  * Synced lyrics from LRCLIB (lrclib.net, free, no key). Only title, artist and length are sent, and only while a lyrics
- * surface is on: the panel in Now Playing or a lyric mode of the closed notch. Answers are cached in memory and on disk.
+ * surface is on (the panel in Now Playing or a lyric mode of the closed notch) and only for sessions with a known length
+ * up to 20 minutes. Answers are cached in memory and on disk.
  */
 
 const API = "https://lrclib.net/api";
@@ -22,16 +23,29 @@ const cache = createLyricsCache(
   })(),
 );
 const pending = new Map<string, Promise<Lyrics | null>>();
-/** After a 429, nothing is asked until then (LRCLIB requires honouring Retry-After). */
+/** After a 429, nothing is asked until then. */
 let blockedUntil = 0;
+/** Cleared if a request only goes through without the custom header (a refused CORS preflight). */
+let identify = true;
 
 class Unavailable extends Error {}
 
 async function ask(path: "get" | "search", params: Record<string, string>): Promise<unknown> {
   if (Date.now() < blockedUntil) throw new Unavailable();
-  const r = await fetch(`${API}/${path}?${new URLSearchParams(params)}`, { headers: { "Lrclib-Client": CLIENT }, signal: AbortSignal.timeout(8000) });
+  const url = `${API}/${path}?${new URLSearchParams(params)}`;
+  const send = (named: boolean) => fetch(url, { headers: named ? { "Lrclib-Client": CLIENT } : {}, signal: AbortSignal.timeout(8000) });
+  let r: Response;
+  try {
+    r = await send(identify);
+  } catch (e) {
+    // fetch reports a refused preflight as a TypeError, like being offline; one try without the header tells them apart.
+    if (!(e instanceof TypeError) || !identify) throw e;
+    r = await send(false);
+    identify = false;
+  }
   if (r.status === 404) return null;
   if (r.status === 429) {
+    // Retry-After is not CORS-safelisted, so the page usually can't read it and the 60 s default applies.
     const wait = Number(r.headers.get("Retry-After"));
     blockedUntil = Date.now() + (Number.isFinite(wait) && wait > 0 ? wait : 60) * 1000;
     throw new Unavailable();
@@ -46,7 +60,7 @@ async function fetchEntry(title: string, artist: string, duration: number): Prom
   // The exact match needs an artist; without one only the search can help.
   if (!q.artist) return entryOf(pickRecord(await ask("search", { track_name: q.title }), duration));
   const base: Record<string, string> = { track_name: q.title, artist_name: q.artist };
-  const exact = (await ask("get", duration > 0 ? { ...base, duration: String(Math.round(duration)) } : base)) as LrclibRecord | null;
+  const exact = (await ask("get", { ...base, duration: String(Math.round(duration)) })) as LrclibRecord | null;
   return entryOf(exact?.instrumental || exact?.syncedLyrics ? exact : pickRecord(await ask("search", base), duration));
 }
 
@@ -73,22 +87,55 @@ function lyricsFor(title: string, artist: string, duration: number): Promise<Lyr
   return p;
 }
 
-export type LyricsState = Lyrics | { kind: "loading" } | { kind: "offline" };
+export type LyricsState = Lyrics | { kind: "loading" } | { kind: "offline" } | { kind: "skipped" };
+
+/** An unreachable LRCLIB is asked once more, when the network is back or after this. */
+const OFFLINE_RETRY_MS = 60_000;
+
+/** Lyrics surfaces on screen; while there is one, Rust refreshes the position every few seconds. */
+let shown = 0;
 
 /** Lyrics of the shown song while `enabled`; nothing is fetched otherwise. */
 export function useLyrics(np: NowPlaying | null, enabled: boolean): LyricsState | null {
   // Browser players report no artist for some videos; the title alone still finds many songs.
-  const key = np && enabled && np.title.trim() ? cacheKey(np.title, np.artist, np.duration) : null;
+  const wanted = !!np && enabled && np.title.trim() !== "";
+  // Streams, podcasts and other long or open-ended sessions are not looked up, so their titles stay on the PC.
+  const allowed = wanted && lookupAllowed(np.duration);
+  const key = allowed ? cacheKey(np.title, np.artist, np.duration) : null;
   const [state, setState] = useState<{ key: string; value: LyricsState } | null>(null);
   useEffect(() => {
     if (!key || !np) return;
-    let alive = true;
+    let alive = true, retried = false, timer = 0;
+    const again = () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("online", again);
+      if (alive) load();
+    };
+    const load = () =>
+      void lyricsFor(np.title, np.artist, np.duration).then((l) => {
+        if (!alive) return;
+        setState({ key, value: l ?? { kind: "offline" } });
+        if (l || retried) return;
+        retried = true;
+        window.addEventListener("online", again);
+        timer = window.setTimeout(again, OFFLINE_RETRY_MS);
+      });
     setState({ key, value: { kind: "loading" } });
-    void lyricsFor(np.title, np.artist, np.duration).then((l) => alive && setState({ key, value: l ?? { kind: "offline" } }));
+    load();
     return () => {
       alive = false;
+      window.clearTimeout(timer);
+      window.removeEventListener("online", again);
     };
   }, [key]);
+  useEffect(() => {
+    if (!key) return;
+    if (++shown === 1) media.lyricsShown(true);
+    return () => {
+      if (--shown === 0) media.lyricsShown(false);
+    };
+  }, [!!key]);
+  if (wanted && !allowed) return { kind: "skipped" };
   return key && state?.key === key ? state.value : key ? { kind: "loading" } : null;
 }
 

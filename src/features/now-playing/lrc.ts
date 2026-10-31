@@ -82,6 +82,12 @@ export function searchTerms(title: string, artist: string): { title: string; art
   return { title: t, artist: a };
 }
 
+/** Longest session that is looked up; longer ones are mixes, podcasts or streams. */
+export const MAX_LOOKUP_SECONDS = 20 * 60;
+
+/** Only songs with a known length up to MAX_LOOKUP_SECONDS are sent to LRCLIB. */
+export const lookupAllowed = (duration: number) => duration > 0 && duration <= MAX_LOOKUP_SECONDS;
+
 const norm = (s: string) => s.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
 
 /** Cache key of a song: the cleaned query and the length in whole seconds (0 = unknown). */

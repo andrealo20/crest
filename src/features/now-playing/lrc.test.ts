@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cacheKey, lineAt, lyricsOf, parseLrc, pickRecord, searchTerms, untilNext } from "./lrc.ts";
+import { cacheKey, lineAt, lookupAllowed, lyricsOf, parseLrc, pickRecord, searchTerms, untilNext } from "./lrc.ts";
 
 test("parses stamps, repeats, offset and tags", () => {
   const lines = parseLrc("[ar:Someone]\n[ti:Song]\n[00:12.50]First\r\n[00:05.00][01:02.3]Chorus  again\n[00:20.000]\nno stamp\n[1:03:5]x");
@@ -49,6 +49,15 @@ test("cache keys", () => {
   assert.equal(cacheKey("Adele - Hello (Official Video)", "Chrome", 0), "adele\nhello\n0");
   assert.notEqual(cacheKey("Hello", "Adele", 295), cacheKey("Hello", "Adele", 200));
   assert.equal(cacheKey("Ｈｅｌｌｏ", "Adele", -1), "adele\nhello\n0");
+});
+
+test("only songs with a known length up to 20 minutes are looked up", () => {
+  assert.equal(lookupAllowed(0), false);
+  assert.equal(lookupAllowed(-1), false);
+  assert.equal(lookupAllowed(Number.NaN), false);
+  assert.equal(lookupAllowed(1), true);
+  assert.equal(lookupAllowed(1200), true);
+  assert.equal(lookupAllowed(1201), false);
 });
 
 test("search result choice", () => {
