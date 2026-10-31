@@ -27,8 +27,9 @@ function useMinuteTick(active: boolean): number {
   return now;
 }
 
-export function Clock({ seconds, h12 }: { seconds: boolean; h12: boolean }) {
-  const minute = useMinuteTick(!seconds), second = useSecondTick(seconds);
+/** `paused` (under a notice) stops the ticking; it catches up on the first tick after. */
+export function Clock({ seconds, h12, paused }: { seconds: boolean; h12: boolean; paused: boolean }) {
+  const minute = useMinuteTick(!seconds && !paused), second = useSecondTick(seconds && !paused);
   const d = new Date(seconds ? second : minute), h = d.getHours();
   const time = `${h12 ? h % 12 || 12 : pad2(h)}:${pad2(d.getMinutes())}${seconds ? `:${pad2(d.getSeconds())}` : ""}${h12 ? (h < 12 ? " AM" : " PM") : ""}`;
   return (

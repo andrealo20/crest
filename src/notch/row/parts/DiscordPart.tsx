@@ -7,7 +7,7 @@ import { GuildIcon } from "../../../features/discord/DiscordView";
 export const DISCORD_WIDTH = 20 + 4 + 16;
 
 /** A Discord call: server icon, then a green equalizer while someone talks, or red when you are deafened or muted. */
-export function DiscordPart({ call }: { call: DiscordCall }) {
+export function DiscordPart({ call, paused }: { call: DiscordCall; paused: boolean }) {
   return (
     <span className="flex shrink-0 items-center gap-1">
       <GuildIcon call={call} size={20} />
@@ -17,7 +17,7 @@ export function DiscordPart({ call }: { call: DiscordCall }) {
         ) : call.mute ? (
           <MicrophoneSlash size={15} weight="fill" className="text-red" />
         ) : (
-          <Equalizer playing={call.speaking || call.members.some((m) => m.speaking)} tint="bg-green" />
+          <Equalizer playing={!paused && (call.speaking || call.members.some((m) => m.speaking))} tint="bg-green" />
         )}
       </span>
     </span>

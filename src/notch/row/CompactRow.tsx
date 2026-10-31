@@ -65,23 +65,23 @@ export function CompactRow({ style, covered, onWidth }: { style: "notch" | "caps
   if (np) fixed("cover", 20, () => <LiveArtwork artwork={np.artwork} />);
   for (const id of closed.order) {
     if (!closed.parts[id] && id !== "readings") continue;
-    if (id === "timer" && running) fixed(id, timerWidth(timer.get().duration), () => <TimerPart />);
-    else if (id === "discord" && call) fixed(id, DISCORD_WIDTH, () => <DiscordPart call={call} />);
-    else if (id === "equalizer" && np && playing) fixed(id, 16, () => <Equalizer playing={np.isPlaying} />);
-    else if (id === "clock") fixed(id, clockWidth(closed.clockSeconds, s.units.clock === "12"), () => <Clock seconds={closed.clockSeconds} h12={s.units.clock === "12"} />);
+    if (id === "timer" && running) fixed(id, timerWidth(timer.get().duration), () => <TimerPart paused={covered} />);
+    else if (id === "discord" && call) fixed(id, DISCORD_WIDTH, () => <DiscordPart call={call} paused={covered} />);
+    else if (id === "equalizer" && np && playing) fixed(id, 16, () => <Equalizer playing={np.isPlaying && !covered} />);
+    else if (id === "clock") fixed(id, clockWidth(closed.clockSeconds, s.units.clock === "12"), () => <Clock seconds={closed.clockSeconds} h12={s.units.clock === "12"} paused={covered} />);
     else if (id === "title" && caption) {
       const text = measureText(caption);
-      parts.push({ item: { id, kind: "title", text }, draw: (p) => <Marquee key={caption} text={caption} textWidth={text} width={p.width} paused={hovered || !np?.isPlaying} /> });
+      parts.push({ item: { id, kind: "title", text }, draw: (p) => <Marquee key={caption} text={caption} textWidth={text} width={p.width} paused={hovered || covered || !np?.isPlaying} /> });
     } else if (id === "rings" && rings.length) {
       parts.push({
         item: { id, kind: "carousel", items: rings.map(() => RING), gap: RING_GAP },
-        draw: (p) => <Carousel items={rings.map((r) => <Ring key={r.id} id={r.id} value={ringValue(r)} />)} gap={RING_GAP} window={p.window!} width={p.width} paused={hovered} />,
+        draw: (p) => <Carousel items={rings.map((r) => <Ring key={r.id} id={r.id} value={ringValue(r)} />)} gap={RING_GAP} window={p.window!} width={p.width} paused={hovered || covered} />,
       });
     } else if (id === "readings" && readings.length) {
       // useReadings already leaves the part out when it is off and gaming is not forcing it on.
       parts.push({
         item: { id, kind: "carousel", items: readings.map((r) => readingWidth(r.id)), gap: READING_GAP },
-        draw: (p) => <Carousel items={readings.map((r) => <ReadingView key={r.id} reading={r} />)} gap={READING_GAP} window={p.window!} width={p.width} paused={hovered} />,
+        draw: (p) => <Carousel items={readings.map((r) => <ReadingView key={r.id} reading={r} />)} gap={READING_GAP} window={p.window!} width={p.width} paused={hovered || covered} />,
       });
     }
   }
@@ -101,7 +101,7 @@ export function CompactRow({ style, covered, onWidth }: { style: "notch" | "caps
       className="absolute top-0 left-1/2 h-[30px]"
       style={{ width, marginLeft: -width / 2 }}
       initial={{ opacity: 0, filter: "blur(4px)" }}
-      // Under a notice the row only fades out: it stays mounted, so its cycles and polling go on.
+      // Under a notice the row only fades out: it stays mounted, so its polling goes on, but its cycles, clock and equalizers rest.
       animate={covered ? { opacity: 0, filter: "blur(4px)", transition: content.exit } : { opacity: 1, filter: "blur(0px)", transition: content.enter }}
       exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
       onPointerEnter={() => setHovered(true)}
