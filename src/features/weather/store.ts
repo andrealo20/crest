@@ -147,7 +147,7 @@ export function useForecast(): Forecast | null | "error" {
   return place ? data : null;
 }
 
-// On start, only without a saved place and when the weather shows somewhere (its tool or the Overview header):
-// location from IP. A saved place, picked or detected, stays until "automatic" is chosen again in the settings.
+// On start, only when the weather shows somewhere (its tool or the Overview header): first run or "automatic"
+// → location from IP (detectPlace leaves a hand-picked one alone).
 const shown = settings.get().tools.some((x) => (x.id === "weather" || x.id === "overview") && x.enabled);
-if (shown && !settings.get().weather) void detectPlace();
+if (shown) void detectPlace();
