@@ -31,6 +31,7 @@
  "Alle": "すべて",
  "Alle kopieren": "すべてコピー",
  "Alle löschen": "すべて消去",
+ "Alle Monitore": "すべてのモニター",
  "Alles": "すべて",
  "Alles erledigt": "すべて完了",
  "Allgemein": "一般",
@@ -75,6 +76,7 @@
  "Datei": "ファイル",
  "Dateien hierher ziehen": "ここにファイルをドラッグ",
  "Dauer": "長さ",
+ "Dem Mauszeiger folgen": "ポインターに追従",
  "Dem Schlüssel fehlen Rechte. Benötigt: Konto-Daten und Portfolio.": "キーの権限が足りません。必要な権限: アカウントデータとポートフォリオ。",
  "Demo": "デモ",
  "Depot": "ポートフォリオ",
@@ -93,6 +95,7 @@
  "Eigene Zeit": "カスタム時間",
  "Eigene Zeit (oder Mausrad über der Zeit)": "カスタム時間（時間の上でホイール操作も可）",
  "Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv; ändern unter Fenster": "ほかのプログラムがこの組み合わせを使っているため無効です。「ウィンドウ」で変更できます",
+ "Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst": "各モニターに閉じたノッチを表示。触れた場所で開きます",
  "Einfügen": "貼り付け",
  "Einheiten": "単位",
  "Einmal täglich, anonym bei GitHub – ohne deine Daten": "1日1回、GitHub に匿名で確認（データは送信しません）",
@@ -132,6 +135,7 @@
  "gerade eben": "たった今",
  "Gerade gedrosselt – nächster Versuch in ein paar Minuten": "制限中です。数分後に再試行します",
  "Gerade läuft nichts": "再生していません",
+ "Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger": "閉じている間、ノッチはポインターのあるモニターへ移動します",
  "Gespeichert": "保存しました",
  "Gewicht": "重さ",
  "Gewitter": "雷雨",
@@ -1158,5 +1162,7 @@
  "Konnte nicht gespeichert werden": "保存できませんでした",
  "Gerade in Benutzung, gleich erneut versuchen": "使用中です。少し待ってから再試行してください",
  "Abgelaufen, bitte erneut auswählen": "期限切れです。もう一度選んでください",
- "Skript-Anzeigen (crest-notify)": "スクリプトのパーツ (crest-notify)"
+ "Skript-Anzeigen (crest-notify)": "スクリプトのパーツ (crest-notify)",
+ "Nächster Titel": "次の曲",
+ "Vorheriger Titel": "前の曲"
 }

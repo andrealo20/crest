@@ -1162,5 +1162,7 @@
  "Konnte nicht gespeichert werden": "Could not be saved",
  "Gerade in Benutzung, gleich erneut versuchen": "In use right now, try again in a moment",
  "Abgelaufen, bitte erneut auswählen": "Expired, please pick it again",
- "Skript-Anzeigen (crest-notify)": "Script parts (crest-notify)"
+ "Skript-Anzeigen (crest-notify)": "Script parts (crest-notify)",
+ "Nächster Titel": "Next track",
+ "Vorheriger Titel": "Previous track"
 }

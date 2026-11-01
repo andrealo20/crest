@@ -31,6 +31,7 @@
  "Alle": "सभी",
  "Alle kopieren": "सभी कॉपी करें",
  "Alle löschen": "सभी साफ़ करें",
+ "Alle Monitore": "सभी मॉनिटर",
  "Alles": "सभी",
  "Alles erledigt": "सब पूरा हुआ",
  "Allgemein": "सामान्य",
@@ -75,6 +76,7 @@
  "Datei": "फ़ाइल",
  "Dateien hierher ziehen": "फ़ाइलें यहाँ खींचें",
  "Dauer": "अवधि",
+ "Dem Mauszeiger folgen": "पॉइंटर के साथ चलें",
  "Dem Schlüssel fehlen Rechte. Benötigt: Konto-Daten und Portfolio.": "कुंजी के पास अनुमतियाँ नहीं हैं। आवश्यक: खाता डेटा और पोर्टफ़ोलियो।",
  "Demo": "डेमो",
  "Depot": "पोर्टफ़ोलियो",
@@ -93,6 +95,7 @@
  "Eigene Zeit": "कस्टम समय",
  "Eigene Zeit (oder Mausrad über der Zeit)": "कस्टम समय (या समय पर स्क्रॉल करें)",
  "Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv; ändern unter Fenster": "कोई दूसरा प्रोग्राम इस संयोजन का उपयोग करता है, इसलिए यह सक्रिय नहीं है; इसे विंडो में बदलें",
+ "Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst": "हर मॉनिटर पर एक बंद नॉच; जहाँ छुएँ, वहीं खुलता है",
  "Einfügen": "चिपकाएँ",
  "Einheiten": "इकाइयाँ",
  "Einmal täglich, anonym bei GitHub – ohne deine Daten": "दिन में एक बार, GitHub पर गुमनाम रूप से (आपका कोई डेटा नहीं)",
@@ -132,6 +135,7 @@
  "gerade eben": "अभी-अभी",
  "Gerade gedrosselt – nächster Versuch in ein paar Minuten": "दर सीमित, कुछ मिनटों में फिर कोशिश होगी",
  "Gerade läuft nichts": "कुछ नहीं चल रहा",
+ "Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger": "बंद होने पर नॉच उस मॉनिटर पर चला जाता है जहाँ पॉइंटर है",
  "Gespeichert": "सहेजा गया",
  "Gewicht": "वज़न",
  "Gewitter": "आंधी-तूफ़ान",
@@ -1158,5 +1162,7 @@
  "Konnte nicht gespeichert werden": "सहेजा नहीं जा सका",
  "Gerade in Benutzung, gleich erneut versuchen": "अभी उपयोग में है, थोड़ी देर में फिर कोशिश करें",
  "Abgelaufen, bitte erneut auswählen": "समय समाप्त, कृपया फिर से चुनें",
- "Skript-Anzeigen (crest-notify)": "स्क्रिप्ट भाग (crest-notify)"
+ "Skript-Anzeigen (crest-notify)": "स्क्रिप्ट भाग (crest-notify)",
+ "Nächster Titel": "अगला ट्रैक",
+ "Vorheriger Titel": "पिछला ट्रैक"
 }

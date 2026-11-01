@@ -31,6 +31,7 @@
  "Alle": "Todos",
  "Alle kopieren": "Copiar todo",
  "Alle löschen": "Borrar todo",
+ "Alle Monitore": "Todos los monitores",
  "Alles": "Todo",
  "Alles erledigt": "Todo hecho",
  "Allgemein": "General",
@@ -75,6 +76,7 @@
  "Datei": "archivo",
  "Dateien hierher ziehen": "Arrastra archivos aquí",
  "Dauer": "Duración",
+ "Dem Mauszeiger folgen": "Seguir el puntero",
  "Dem Schlüssel fehlen Rechte. Benötigt: Konto-Daten und Portfolio.": "A la clave le faltan permisos. Necesarios: datos de la cuenta y cartera.",
  "Demo": "Demo",
  "Depot": "Cartera",
@@ -93,6 +95,7 @@
  "Eigene Zeit": "Tiempo personalizado",
  "Eigene Zeit (oder Mausrad über der Zeit)": "Tiempo personalizado (o usa la rueda sobre el tiempo)",
  "Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv; ändern unter Fenster": "Otro programa usa esta combinación, así que no está activa; cámbiala en Ventana",
+ "Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst": "Un notch cerrado en cada monitor; se abre donde lo tocas",
  "Einfügen": "Pegar",
  "Einheiten": "Unidades",
  "Einmal täglich, anonym bei GitHub – ohne deine Daten": "Una vez al día, de forma anónima en GitHub (sin ninguno de tus datos)",
@@ -132,6 +135,7 @@
  "gerade eben": "ahora mismo",
  "Gerade gedrosselt – nächster Versuch in ein paar Minuten": "Limitado temporalmente, se reintenta en unos minutos",
  "Gerade läuft nichts": "No se reproduce nada",
+ "Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger": "Cerrado, el notch se mueve al monitor donde está el puntero",
  "Gespeichert": "Guardado",
  "Gewicht": "Peso",
  "Gewitter": "Tormenta",
@@ -1158,5 +1162,7 @@
  "Konnte nicht gespeichert werden": "No se pudo guardar",
  "Gerade in Benutzung, gleich erneut versuchen": "En uso ahora mismo, inténtalo de nuevo en un momento",
  "Abgelaufen, bitte erneut auswählen": "Caducado, vuelve a elegirlo",
- "Skript-Anzeigen (crest-notify)": "Elementos de scripts (crest-notify)"
+ "Skript-Anzeigen (crest-notify)": "Elementos de scripts (crest-notify)",
+ "Nächster Titel": "Pista siguiente",
+ "Vorheriger Titel": "Pista anterior"
 }

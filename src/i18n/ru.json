@@ -31,6 +31,7 @@
  "Alle": "Все",
  "Alle kopieren": "Копировать всё",
  "Alle löschen": "Очистить всё",
+ "Alle Monitore": "Все мониторы",
  "Alles": "Всё",
  "Alles erledigt": "Всё выполнено",
  "Allgemein": "Общие",
@@ -75,6 +76,7 @@
  "Datei": "файл",
  "Dateien hierher ziehen": "Перетащите файлы сюда",
  "Dauer": "Длительность",
+ "Dem Mauszeiger folgen": "Следовать за указателем",
  "Dem Schlüssel fehlen Rechte. Benötigt: Konto-Daten und Portfolio.": "У ключа недостаточно прав. Нужны: данные аккаунта и портфель.",
  "Demo": "Демо",
  "Depot": "Портфель",
@@ -93,6 +95,7 @@
  "Eigene Zeit": "Своё время",
  "Eigene Zeit (oder Mausrad über der Zeit)": "Своё время (или колесо мыши над временем)",
  "Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv; ändern unter Fenster": "Это сочетание занято другой программой и не работает; изменить его можно в разделе «Окно»",
+ "Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst": "Закрытый вырез на каждом мониторе; открывается там, где вы его коснулись",
  "Einfügen": "Вставить",
  "Einheiten": "Единицы",
  "Einmal täglich, anonym bei GitHub – ohne deine Daten": "Раз в день, анонимно через GitHub (без ваших данных)",
@@ -132,6 +135,7 @@
  "gerade eben": "только что",
  "Gerade gedrosselt – nächster Versuch in ein paar Minuten": "Лимит запросов, повтор через несколько минут",
  "Gerade läuft nichts": "Ничего не играет",
+ "Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger": "В закрытом виде вырез переходит на монитор с указателем",
  "Gespeichert": "Сохранено",
  "Gewicht": "Вес",
  "Gewitter": "Гроза",
@@ -1158,5 +1162,7 @@
  "Konnte nicht gespeichert werden": "Не удалось сохранить",
  "Gerade in Benutzung, gleich erneut versuchen": "Сейчас используется, повторите чуть позже",
  "Abgelaufen, bitte erneut auswählen": "Истекло, выберите заново",
- "Skript-Anzeigen (crest-notify)": "Элементы скриптов (crest-notify)"
+ "Skript-Anzeigen (crest-notify)": "Элементы скриптов (crest-notify)",
+ "Nächster Titel": "Следующий трек",
+ "Vorheriger Titel": "Предыдущий трек"
 }

@@ -31,6 +31,7 @@
  "Alle": "Tous",
  "Alle kopieren": "Tout copier",
  "Alle löschen": "Tout effacer",
+ "Alle Monitore": "Tous les écrans",
  "Alles": "Tout",
  "Alles erledigt": "Tout est fait",
  "Allgemein": "Général",
@@ -75,6 +76,7 @@
  "Datei": "fichier",
  "Dateien hierher ziehen": "Glissez des fichiers ici",
  "Dauer": "Durée",
+ "Dem Mauszeiger folgen": "Suivre le pointeur",
  "Dem Schlüssel fehlen Rechte. Benötigt: Konto-Daten und Portfolio.": "Il manque des autorisations à la clé. Requises : données du compte et portefeuille.",
  "Demo": "Démo",
  "Depot": "Portefeuille",
@@ -93,6 +95,7 @@
  "Eigene Zeit": "Durée personnalisée",
  "Eigene Zeit (oder Mausrad über der Zeit)": "Durée personnalisée (ou molette sur la durée)",
  "Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv; ändern unter Fenster": "Un autre programme utilise cette combinaison, elle n'est donc pas active ; modifiez-la dans Fenêtre",
+ "Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst": "Une encoche fermée sur chaque écran ; elle s'ouvre là où vous la touchez",
  "Einfügen": "Coller",
  "Einheiten": "Unités",
  "Einmal täglich, anonym bei GitHub – ohne deine Daten": "Une fois par jour, anonymement sur GitHub (aucune de vos données)",
@@ -132,6 +135,7 @@
  "gerade eben": "à l'instant",
  "Gerade gedrosselt – nächster Versuch in ein paar Minuten": "Limité pour le moment, nouvel essai dans quelques minutes",
  "Gerade läuft nichts": "Aucune lecture en cours",
+ "Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger": "Fermée, l'encoche passe sur l'écran où se trouve le pointeur",
  "Gespeichert": "Enregistré",
  "Gewicht": "Poids",
  "Gewitter": "Orage",
@@ -1158,5 +1162,7 @@
  "Konnte nicht gespeichert werden": "Impossible d'enregistrer",
  "Gerade in Benutzung, gleich erneut versuchen": "En cours d'utilisation, réessayez dans un instant",
  "Abgelaufen, bitte erneut auswählen": "Expiré, veuillez le choisir à nouveau",
- "Skript-Anzeigen (crest-notify)": "Éléments de script (crest-notify)"
+ "Skript-Anzeigen (crest-notify)": "Éléments de script (crest-notify)",
+ "Nächster Titel": "Piste suivante",
+ "Vorheriger Titel": "Piste précédente"
 }

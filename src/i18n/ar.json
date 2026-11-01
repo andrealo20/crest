@@ -31,6 +31,7 @@
  "Alle": "الكل",
  "Alle kopieren": "نسخ الكل",
  "Alle löschen": "مسح الكل",
+ "Alle Monitore": "كل الشاشات",
  "Alles": "الكل",
  "Alles erledigt": "اكتمل كل شيء",
  "Allgemein": "عام",
@@ -75,6 +76,7 @@
  "Datei": "ملف",
  "Dateien hierher ziehen": "اسحب الملفات إلى هنا",
  "Dauer": "المدة",
+ "Dem Mauszeiger folgen": "اتباع المؤشر",
  "Dem Schlüssel fehlen Rechte. Benötigt: Konto-Daten und Portfolio.": "المفتاح يفتقر إلى أذونات. المطلوب: بيانات الحساب والمحفظة.",
  "Demo": "تجريبي",
  "Depot": "المحفظة",
@@ -93,6 +95,7 @@
  "Eigene Zeit": "وقت مخصص",
  "Eigene Zeit (oder Mausrad über der Zeit)": "وقت مخصص (أو مرّر العجلة فوق الوقت)",
  "Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv; ändern unter Fenster": "برنامج آخر يستخدم هذه المجموعة، لذا فهي غير نشطة؛ غيّرها في «النافذة»",
+ "Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst": "نوتش مغلق على كل شاشة، يُفتح حيث تلمسه",
  "Einfügen": "لصق",
  "Einheiten": "الوحدات",
  "Einmal täglich, anonym bei GitHub – ohne deine Daten": "مرة يوميًا، بلا هوية على GitHub (دون أي من بياناتك)",
@@ -132,6 +135,7 @@
  "gerade eben": "الآن",
  "Gerade gedrosselt – nächster Versuch in ein paar Minuten": "محدود مؤقتًا، إعادة المحاولة بعد دقائق",
  "Gerade läuft nichts": "لا شيء قيد التشغيل",
+ "Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger": "وهو مغلق، ينتقل النوتش إلى الشاشة التي عليها المؤشر",
  "Gespeichert": "حُفظ",
  "Gewicht": "الوزن",
  "Gewitter": "عاصفة رعدية",
@@ -1158,5 +1162,7 @@
  "Konnte nicht gespeichert werden": "تعذّر الحفظ",
  "Gerade in Benutzung, gleich erneut versuchen": "قيد الاستخدام الآن، حاول مجددًا بعد لحظة",
  "Abgelaufen, bitte erneut auswählen": "انتهت الصلاحية، يُرجى الاختيار مجددًا",
- "Skript-Anzeigen (crest-notify)": "أجزاء البرامج النصية (crest-notify)"
+ "Skript-Anzeigen (crest-notify)": "أجزاء البرامج النصية (crest-notify)",
+ "Nächster Titel": "المقطع التالي",
+ "Vorheriger Titel": "المقطع السابق"
 }

@@ -31,6 +31,7 @@
  "Alle": "Todos",
  "Alle kopieren": "Copiar tudo",
  "Alle löschen": "Limpar tudo",
+ "Alle Monitore": "Todos os monitores",
  "Alles": "Tudo",
  "Alles erledigt": "Tudo feito",
  "Allgemein": "Geral",
@@ -75,6 +76,7 @@
  "Datei": "arquivo",
  "Dateien hierher ziehen": "Arraste arquivos para cá",
  "Dauer": "Duração",
+ "Dem Mauszeiger folgen": "Seguir o ponteiro",
  "Dem Schlüssel fehlen Rechte. Benötigt: Konto-Daten und Portfolio.": "Faltam permissões à chave. Necessárias: dados da conta e carteira.",
  "Demo": "Demo",
  "Depot": "Carteira",
@@ -93,6 +95,7 @@
  "Eigene Zeit": "Tempo personalizado",
  "Eigene Zeit (oder Mausrad über der Zeit)": "Tempo personalizado (ou role sobre o tempo)",
  "Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv; ändern unter Fenster": "Outro programa usa esta combinação, então ela não está ativa; altere em Janela",
+ "Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst": "Um notch fechado em cada monitor; ele abre onde você tocar",
  "Einfügen": "Colar",
  "Einheiten": "Unidades",
  "Einmal täglich, anonym bei GitHub – ohne deine Daten": "Uma vez por dia, de forma anônima no GitHub (nenhum dado seu)",
@@ -132,6 +135,7 @@
  "gerade eben": "agora mesmo",
  "Gerade gedrosselt – nächster Versuch in ein paar Minuten": "Limitado no momento, nova tentativa em alguns minutos",
  "Gerade läuft nichts": "Nada tocando",
+ "Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger": "Fechado, o notch vai para o monitor onde está o ponteiro",
  "Gespeichert": "Salvo",
  "Gewicht": "Peso",
  "Gewitter": "Tempestade",
@@ -1158,5 +1162,7 @@
  "Konnte nicht gespeichert werden": "Não foi possível salvar",
  "Gerade in Benutzung, gleich erneut versuchen": "Em uso agora, tente de novo em instantes",
  "Abgelaufen, bitte erneut auswählen": "Expirado, escolha de novo",
- "Skript-Anzeigen (crest-notify)": "Elementos de scripts (crest-notify)"
+ "Skript-Anzeigen (crest-notify)": "Elementos de scripts (crest-notify)",
+ "Nächster Titel": "Próxima faixa",
+ "Vorheriger Titel": "Faixa anterior"
 }

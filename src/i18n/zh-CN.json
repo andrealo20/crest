@@ -31,6 +31,7 @@
  "Alle": "全部",
  "Alle kopieren": "全部复制",
  "Alle löschen": "全部清除",
+ "Alle Monitore": "所有显示器",
  "Alles": "全部",
  "Alles erledigt": "全部完成",
  "Allgemein": "常规",
@@ -75,6 +76,7 @@
  "Datei": "文件",
  "Dateien hierher ziehen": "将文件拖到这里",
  "Dauer": "时长",
+ "Dem Mauszeiger folgen": "跟随鼠标指针",
  "Dem Schlüssel fehlen Rechte. Benötigt: Konto-Daten und Portfolio.": "该密钥权限不足。需要：账户数据和投资组合。",
  "Demo": "模拟",
  "Depot": "投资组合",
@@ -93,6 +95,7 @@
  "Eigene Zeit": "自定义时间",
  "Eigene Zeit (oder Mausrad über der Zeit)": "自定义时间（或在时间上滚动鼠标滚轮）",
  "Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv; ändern unter Fenster": "其他程序正在使用此组合键，因此未生效；可在“窗口”中更改",
+ "Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst": "每个显示器上都有一个收起的刘海，在哪里触碰就在哪里展开",
  "Einfügen": "粘贴",
  "Einheiten": "单位",
  "Einmal täglich, anonym bei GitHub – ohne deine Daten": "每天一次，匿名访问 GitHub（不发送你的任何数据）",
@@ -132,6 +135,7 @@
  "gerade eben": "刚刚",
  "Gerade gedrosselt – nächster Versuch in ein paar Minuten": "请求受限，几分钟后重试",
  "Gerade läuft nichts": "未在播放",
+ "Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger": "收起时，刘海会移到鼠标指针所在的显示器",
  "Gespeichert": "已保存",
  "Gewicht": "重量",
  "Gewitter": "雷暴",
@@ -1158,5 +1162,7 @@
  "Konnte nicht gespeichert werden": "无法保存",
  "Gerade in Benutzung, gleich erneut versuchen": "正在使用中，请稍后重试",
  "Abgelaufen, bitte erneut auswählen": "已过期，请重新选择",
- "Skript-Anzeigen (crest-notify)": "脚本组件 (crest-notify)"
+ "Skript-Anzeigen (crest-notify)": "脚本组件 (crest-notify)",
+ "Nächster Titel": "下一首",
+ "Vorheriger Titel": "上一首"
 }

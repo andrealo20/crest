@@ -273,7 +273,7 @@ function Controls({ np }: { np: NowPlaying }) {
           <Shuffle size={16} weight="bold" />
         </ModeButton>
       )}
-      <IconButton label={t("Zurück")} onClick={media.previous}>
+      <IconButton label={t("Vorheriger Titel")} onClick={media.previous}>
         <SkipBack size={20} weight="fill" />
       </IconButton>
       <IconButton label={playing ? t("Pause") : t("Abspielen")} onClick={media.toggle}>
@@ -290,7 +290,7 @@ function Controls({ np }: { np: NowPlaying }) {
           </motion.span>
         </AnimatePresence>
       </IconButton>
-      <IconButton label={t("Weiter")} onClick={media.next}>
+      <IconButton label={t("Nächster Titel")} onClick={media.next}>
         <SkipForward size={20} weight="fill" />
       </IconButton>
       {modes && (
