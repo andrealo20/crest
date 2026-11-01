@@ -25,6 +25,7 @@
   <img src="https://img.shields.io/badge/Rust-CE422B?style=for-the-badge&logo=rust&logoColor=white" alt="Rust" />
   <img src="https://img.shields.io/badge/React-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=for-the-badge&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="Total downloads" /></a>
   <a href="https://github.com/andrealo20/crest/stargazers"><img src="https://img.shields.io/github/stars/andrealo20/crest?style=for-the-badge&color=FFC75F&logo=github&logoColor=black" alt="GitHub stars" /></a>
 </p>
 
