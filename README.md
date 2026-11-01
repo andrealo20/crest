@@ -30,17 +30,17 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/English-FFC75F?style=flat-square" alt="English" />
-  <img src="https://img.shields.io/badge/%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-FF9A4D?style=flat-square" alt="简体中文" />
-  <img src="https://img.shields.io/badge/Espa%C3%B1ol-FF6B6B?style=flat-square" alt="Español" />
-  <img src="https://img.shields.io/badge/%E0%A4%B9%E0%A4%BF%E0%A4%A8%E0%A5%8D%E0%A4%A6%E0%A5%80-E0559E?style=flat-square" alt="हिन्दी" />
-  <img src="https://img.shields.io/badge/%D8%A7%D9%84%D8%B9%D8%B1%D8%A8%D9%8A%D8%A9-7B61FF?style=flat-square" alt="العربية" />
-  <img src="https://img.shields.io/badge/Fran%C3%A7ais-FFC75F?style=flat-square" alt="Français" />
-  <img src="https://img.shields.io/badge/Portugu%C3%AAs-FF9A4D?style=flat-square" alt="Português" />
-  <img src="https://img.shields.io/badge/%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-FF6B6B?style=flat-square" alt="Русский" />
-  <img src="https://img.shields.io/badge/%E6%97%A5%E6%9C%AC%E8%AA%9E-E0559E?style=flat-square" alt="日本語" />
-  <img src="https://img.shields.io/badge/Deutsch-7B61FF?style=flat-square" alt="Deutsch" />
-  <img src="https://img.shields.io/badge/Italiano-FFC75F?style=flat-square" alt="Italiano" />
+  <img src="docs/media/badges/lang-en.svg" alt="English" />
+  <img src="docs/media/badges/lang-zh-CN.svg" alt="简体中文" />
+  <img src="docs/media/badges/lang-es.svg" alt="Español" />
+  <img src="docs/media/badges/lang-hi.svg" alt="हिन्दी" />
+  <img src="docs/media/badges/lang-ar.svg" alt="العربية" />
+  <img src="docs/media/badges/lang-fr.svg" alt="Français" />
+  <img src="docs/media/badges/lang-pt-BR.svg" alt="Português" />
+  <img src="docs/media/badges/lang-ru.svg" alt="Русский" />
+  <img src="docs/media/badges/lang-ja.svg" alt="日本語" />
+  <img src="docs/media/badges/lang-de.svg" alt="Deutsch" />
+  <img src="docs/media/badges/lang-it.svg" alt="Italiano" />
 </p>
 
 <p align="center">
