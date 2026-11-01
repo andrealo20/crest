@@ -9,6 +9,15 @@
 </p>
 
 <p align="center">
+  <a href="https://apps.microsoft.com/detail/9N2KXJ2924KS?referrer=appbadge&mode=full">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/media/store/get-it-from-microsoft-light.svg">
+      <img src="docs/media/store/get-it-from-microsoft-dark.svg" width="161" height="44" alt="Get it from Microsoft">
+    </picture>
+  </a>
+</p>
+
+<p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-A42E2B?style=for-the-badge&logo=gnu&logoColor=white" alt="License: GPL-3.0" /></a>
   <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=for-the-badge&label=release&color=7B61FF&logo=github&logoColor=white" alt="Latest release" /></a>
   <a href="https://github.com/andrealo20/crest/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/andrealo20/crest/release.yml?style=for-the-badge&label=build&logo=githubactions&logoColor=white" alt="Release build status" /></a>
@@ -16,7 +25,6 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgxMS40djExLjRIMHpNMTIuNiAwSDI0djExLjRIMTIuNnpNMCAxMi42aDExLjRWMjRIMHpNMTIuNiAxMi42SDI0VjI0SDEyLjZ6Ii8%2BPC9zdmc%2B" alt="Platform: Windows 10 and 11" />
-  <a href="https://apps.microsoft.com/detail/9N2KXJ2924KS"><img src="https://img.shields.io/badge/Microsoft%20Store-get%20it-0067B8?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZD0iTTggNi41VjVhNCA0IDAgMCAxIDggMHYxLjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8%2BPHJlY3QgeD0iMyIgeT0iNiIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE3IiByeD0iMiIgZmlsbD0iI2ZmZiIvPjxyZWN0IHg9IjciIHk9IjEwIiB3aWR0aD0iNC42IiBoZWlnaHQ9IjQuNiIgZmlsbD0iI0YyNTAyMiIvPjxyZWN0IHg9IjEyLjQiIHk9IjEwIiB3aWR0aD0iNC42IiBoZWlnaHQ9IjQuNiIgZmlsbD0iIzdGQkEwMCIvPjxyZWN0IHg9IjciIHk9IjE1LjQiIHdpZHRoPSI0LjYiIGhlaWdodD0iNC42IiBmaWxsPSIjMDBBNEVGIi8%2BPHJlY3QgeD0iMTIuNCIgeT0iMTUuNCIgd2lkdGg9IjQuNiIgaGVpZ2h0PSI0LjYiIGZpbGw9IiNGRkI5MDAiLz48L3N2Zz4%3D" alt="Get Crest Island from the Microsoft Store" /></a>
   <a href="https://github.com/sponsors/andrealo20"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" /></a>
 </p>
 
@@ -133,6 +141,7 @@ Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Wi
 - The text is set in [Inter](https://github.com/rsms/inter) (SIL Open Font License 1.1, [licenses/Inter-OFL.txt](licenses/Inter-OFL.txt)), bundled through Fontsource.
 - The icons are [Phosphor](https://github.com/phosphor-icons/react) (MIT, [licenses/Phosphor-MIT.txt](licenses/Phosphor-MIT.txt)).
 - The design follows Apple's Dynamic Island and the macOS app OmniNotch. Crest is not affiliated with Apple or OmniNotch.
+- Crest is an independent app by Andrea Loroni. It is not made, sponsored or endorsed by Microsoft.
 
 ## License
 
