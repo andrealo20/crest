@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import { content } from "../design/motion";
@@ -11,9 +11,17 @@ import { createStore } from "../lib/store";
  */
 export const headerSlot = createStore<HTMLElement | null>(null);
 
+/** The tool on screen (Notch.tsx), and the tool a view belongs to. */
+export const activeTool = createStore<string | null>(null);
+export const ToolScope = createContext<string | null>(null);
+
 export function HeaderActions({ children }: { children: ReactNode }) {
   const slot = headerSlot.use();
-  if (!slot) return null;
+  const owner = useContext(ToolScope);
+  const active = activeTool.use();
+  // A view on its way out can be held by its exit animation (fast switching left one behind for good):
+  // only the tool on screen puts actions in the header.
+  if (!slot || (owner !== null && owner !== active)) return null;
   return createPortal(
     <motion.div
       className="col-start-1 row-start-1 flex items-center justify-end gap-1"

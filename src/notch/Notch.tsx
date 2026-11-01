@@ -25,7 +25,7 @@ import { monitor, monitorMetrics, notchBusy } from "./monitor";
 import { useMirror } from "./mirror";
 import { rowRoom, surfaceWidth } from "./row/layout";
 import { toPageCss } from "../features/window/panelSize";
-import { HeaderButton, headerSlot } from "./header";
+import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
 import { sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
 import { drop, takeDropped } from "../platform/drop";
@@ -73,6 +73,10 @@ export function Notch() {
   const { tabId } = nav.use();
   // Hidden tool active (e.g. just disabled) → first visible one.
   const tab = pageTabs.find((t) => t.id === tabId) ?? visible.find((t) => t.id === tabId) ?? visible[0] ?? tabs[0];
+  // Header actions follow the tool on screen (header.tsx).
+  useLayoutEffect(() => {
+    activeTool.set(tab.id);
+  }, [tab.id]);
   const np = useNowPlaying();
   const live = useLiveActivity();
   const accent = useThemedAccent(np?.accent);
@@ -344,7 +348,9 @@ export function Notch() {
                       animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
                       exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
                     >
-                      <tab.View />
+                      <ToolScope.Provider value={tab.id}>
+                        <tab.View />
+                      </ToolScope.Provider>
                     </motion.div>
                   </AnimatePresence>
                 </div>
