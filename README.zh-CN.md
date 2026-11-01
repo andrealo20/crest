@@ -53,13 +53,13 @@
   <a href="https://github.com/andrealo20/crest/issues/new/choose"><b>提建议</b></a>
 </p>
 
-https://github.com/user-attachments/assets/e466c24f-95a3-4804-ac29-833cfb46866f
+https://github.com/user-attachments/assets/fe651427-10df-4261-8687-0e4ab1705914
 
 ## 这是什么
 
 Crest 是 Windows 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具。免费且开源。
 
-<p align="center"><img src="docs/media/demo.gif" alt="Crest 依次展示正在播放、计时器、待办、剪贴板、提问、投资组合、天气、硬件、终端、GitHub、截图录屏、设置和主题" width="800" /></p>
+<p align="center"><img src="docs/media/demo.gif" alt="Crest 依次展示概览、带歌词的正在播放、计时器、剪贴板、提问、转换器、AI 用量、硬件、终端、GitHub、截图录屏、设置、主题和语言设置" width="800" /></p>
 
 ## 功能
 
