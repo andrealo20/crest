@@ -59,7 +59,7 @@ https://github.com/user-attachments/assets/fe651427-10df-4261-8687-0e4ab1705914
 
 A notch at the edge of your Windows screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day. Free and open source.
 
-<p align="center"><img src="docs/media/demo.gif" alt="Crest going through Overview, Now Playing with lyrics, Timer, Clipboard, Ask, Converter, AI Usage, Hardware, Terminal, GitHub, Capture, Settings, Themes and the language setting" width="800" /></p>
+<p align="center"><img src="docs/media/tour.gif" alt="Crest going through Overview, Now Playing with lyrics, Timer, Clipboard, Ask, Converter, AI Usage, Hardware, Terminal, GitHub, Capture, Settings, Themes and the language setting" width="800" /></p>
 
 ## Features
 
