@@ -38,11 +38,11 @@ Run Tauri and Cargo commands from PowerShell. In Git Bash, `/usr/bin/link` shado
 The Store gets its own package, built with the `store` Cargo feature:
 
 ```powershell
-powershell -File scripts/store-package.ps1             # result: dist/store/Crest-<version>-x64.msix
+powershell -File scripts/store-package.ps1             # result: dist-store/Crest-<version>-x64.msix
 powershell -File scripts/store-package.ps1 -TestSign   # also a self-signed copy to install on this PC
 ```
 
-The script needs a Windows SDK for `makeappx` and `signtool` and takes the newest one under `C:\Program Files (x86)\Windows Kits\10\bin`. It builds into `src-tauri/target-store`, apart from the normal build, and gives the package the version from `tauri.conf.json` with a fourth part of 0. The manifest is `packaging/store/AppxManifest.xml`; besides Crest it declares crest-notify with an alias, so `crest-notify` runs by name from any terminal once the package is installed. Upload the unsigned `.msix` to Partner Center, which signs Store packages itself.
+The script needs a Windows SDK for `makeappx` and `signtool` and takes the newest one under `C:\Program Files (x86)\Windows Kits\10\bin`. It builds into `src-tauri/target-store`, apart from the normal build, and gives the package the version from `tauri.conf.json` with a fourth part of 0. The manifest is `packaging/store/AppxManifest.xml`; Crest's entry also carries an alias for crest-notify, so `crest-notify` runs by name from any terminal once the package is installed. Upload the unsigned `.msix` to Partner Center, which signs Store packages itself.
 
 The Store build never updates itself: the updater plugin is not loaded, and Settings, General, Updates says that updates come from the Microsoft Store instead of offering a check. It is never portable, whatever sits next to the exe. Start with Windows goes through the package's startup task, which Task Manager lists under Startup apps, and stays off until the user turns it on. If the user switched it off there, Windows keeps it off and Settings tells them where to turn it back on.
 

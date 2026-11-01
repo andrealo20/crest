@@ -27,7 +27,8 @@
   </Resources>
 
   <Applications>
-    <Application Id="Crest" Executable="crest.exe" EntryPoint="Windows.FullTrustApplication">
+    <!-- SupportsMultipleInstances: makeappx requires it for the console alias below; crest.exe keeps one instance itself. -->
+    <Application Id="Crest" Executable="crest.exe" EntryPoint="Windows.FullTrustApplication" desktop4:SupportsMultipleInstances="true">
       <uap:VisualElements
         DisplayName="Crest Island"
         Description="A notch at the top of your Windows screen for music, timers, notes and quick tools."
@@ -42,20 +43,9 @@
         <desktop:Extension Category="windows.startupTask" Executable="crest.exe" EntryPoint="Windows.FullTrustApplication">
           <desktop:StartupTask TaskId="CrestStartup" Enabled="false" DisplayName="Crest" />
         </desktop:Extension>
-      </Extensions>
-    </Application>
-
-    <!-- crest-notify (docs/notices.md) runs by name from any terminal through its alias; no Start menu entry. -->
-    <Application Id="CrestNotify" Executable="crest-notify.exe" EntryPoint="Windows.FullTrustApplication" desktop4:SupportsMultipleInstances="true">
-      <uap:VisualElements
-        DisplayName="crest-notify"
-        Description="Sends notices to Crest from scripts and builds."
-        BackgroundColor="transparent"
-        Square150x150Logo="Square150x150Logo.png"
-        Square44x44Logo="Square44x44Logo.png"
-        AppListEntry="none" />
-      <Extensions>
-        <uap5:Extension Category="windows.appExecutionAlias">
+        <!-- crest-notify (docs/notices.md) runs by name from any terminal. An extension of this app, not an app of its own:
+             the Store refuses a second app without a Start menu entry. -->
+        <uap5:Extension Category="windows.appExecutionAlias" Executable="crest-notify.exe" EntryPoint="Windows.FullTrustApplication">
           <uap5:AppExecutionAlias desktop4:Subsystem="console">
             <uap5:ExecutionAlias Alias="crest-notify.exe" />
           </uap5:AppExecutionAlias>

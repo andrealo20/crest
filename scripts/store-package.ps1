@@ -1,6 +1,6 @@
 # Builds the Microsoft Store package: crest.exe and crest-notify.exe from the `store` Cargo feature (no self-update, never
 # portable, Start with Windows through the package's startup task), the logos and packaging/store/AppxManifest.xml, packed
-# unsigned into dist/store/Crest-<version>-x64.msix for Partner Center, which signs it.
+# unsigned into dist-store/Crest-<version>-x64.msix (outside dist/, which every frontend build empties) for Partner Center, which signs it.
 #   powershell -File scripts/store-package.ps1
 #   powershell -File scripts/store-package.ps1 -TestSign   # also a self-signed copy to install on this PC
 # Run it from PowerShell: in Git Bash /usr/bin/link shadows the MSVC linker.
@@ -58,7 +58,7 @@ foreach ($logo in 'Square44x44Logo', 'Square71x71Logo', 'Square150x150Logo', 'St
 $manifest = (Get-Content -Raw (Join-Path $root 'packaging\store\AppxManifest.xml')).Replace('{version}', $storeVersion)
 [IO.File]::WriteAllText((Join-Path $stage 'AppxManifest.xml'), $manifest, [Text.UTF8Encoding]::new($false))
 
-$out = Join-Path $root 'dist\store'
+$out = Join-Path $root 'dist-store'
 New-Item -ItemType Directory -Path $out -Force | Out-Null
 $msix = Join-Path $out "Crest-$version-x64.msix"
 Invoke-Tool (Join-Path $tools 'makeappx.exe') pack /d $stage /p $msix /o
