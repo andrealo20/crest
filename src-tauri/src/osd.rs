@@ -143,9 +143,21 @@ fn suppress() {
 pub fn restore() {
     let _scan = SCAN.lock().unwrap_or_else(|e| e.into_inner());
     unsafe {
+        // The flyouts live in a shell z-order band that EnumWindows does not list (seen on Windows 11 26300: a hidden
+        // flyout stayed invisible after restore); FindWindowExW, which `flyouts` uses to hide them, does find them.
+        for class in FLYOUT_CLASSES {
+            let mut after = None;
+            while let Ok(hwnd) = FindWindowExW(None, after, class, PCWSTR::null()) {
+                after = Some(hwnd);
+                let _ = restore_one(hwnd, LPARAM(0));
+            }
+        }
         let _ = EnumWindows(Some(restore_one), LPARAM(0));
     }
 }
+
+/// The window classes `flyouts` hides and `restore` looks through.
+const FLYOUT_CLASSES: [PCWSTR; 2] = [w!("XamlExplorerHostIslandWindow"), w!("NativeHWNDHost")];
 
 unsafe extern "system" fn restore_one(hwnd: HWND, _: LPARAM) -> BOOL {
     unsafe {
@@ -168,7 +180,7 @@ unsafe fn flyouts() -> Vec<HWND> {
         let mut explorer = 0;
         GetWindowThreadProcessId(tray, Some(&mut explorer));
         let (screen_w, screen_h) = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
-        for (class, win10) in [(w!("XamlExplorerHostIslandWindow"), false), (w!("NativeHWNDHost"), true)] {
+        for (class, win10) in [(FLYOUT_CLASSES[0], false), (FLYOUT_CLASSES[1], true)] {
             let mut after = None;
             while let Ok(hwnd) = FindWindowExW(None, after, class, PCWSTR::null()) {
                 after = Some(hwnd);
