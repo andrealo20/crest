@@ -18,23 +18,11 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-A42E2B?style=for-the-badge&logo=gnu&logoColor=white" alt="License: GPL-3.0" /></a>
-  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=for-the-badge&label=release&color=7B61FF&logo=github&logoColor=white" alt="Latest release" /></a>
   <a href="https://github.com/andrealo20/crest/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/andrealo20/crest/release.yml?style=for-the-badge&label=build&logo=githubactions&logoColor=white" alt="Release build status" /></a>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgxMS40djExLjRIMHpNMTIuNiAwSDI0djExLjRIMTIuNnpNMCAxMi42aDExLjRWMjRIMHpNMTIuNiAxMi42SDI0VjI0SDEyLjZ6Ii8%2BPC9zdmc%2B" alt="Platform: Windows 10 and 11" />
-  <a href="https://github.com/sponsors/andrealo20"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" /></a>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Tauri-2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white" alt="Built with Tauri 2" />
-  <img src="https://img.shields.io/badge/Rust-CE422B?style=for-the-badge&logo=rust&logoColor=white" alt="Rust" />
-  <img src="https://img.shields.io/badge/React-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React 19" />
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=for-the-badge&label=release&color=7B61FF&logo=github&logoColor=white" alt="Latest release" /></a>
   <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=for-the-badge&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="Total downloads" /></a>
-  <a href="https://github.com/andrealo20/crest/stargazers"><img src="https://img.shields.io/github/stars/andrealo20/crest?style=for-the-badge&color=FFC75F&logo=github&logoColor=black" alt="GitHub stars" /></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgxMS40djExLjRIMHpNMTIuNiAwSDI0djExLjRIMTIuNnpNMCAxMi42aDExLjRWMjRIMHpNMTIuNiAxMi42SDI0VjI0SDEyLjZ6Ii8%2BPC9zdmc%2B" alt="Platform: Windows 10 and 11" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-A42E2B?style=for-the-badge&logo=gnu&logoColor=white" alt="License: GPL-3.0" /></a>
 </p>
 
 <p align="center">
