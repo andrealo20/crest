@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.3.0",
+    "date": "2026-11-01",
+    "items": [
+      {
+        "en": "Plugins: add your own tools as sandboxed web widgets, and your own parts to the closed row with crest-notify"
+      },
+      {
+        "en": "Crest in 11 languages, Arabic right to left; it follows Windows unless you pick one in Settings, General"
+      },
+      {
+        "en": "A read-only Calendar from ICS links or CalDAV, with a notice before each event"
+      },
+      {
+        "en": "A first-run setup with presets, the closed look and the shortcut"
+      },
+      {
+        "en": "Volume and brightness in the closed notch, which can stand in for the Windows indicator"
+      },
+      {
+        "en": "Lyrics word by word, with translation and romanisation, from more sources"
+      },
+      {
+        "en": "With more monitors the notch can follow the pointer or sit on every monitor"
+      },
+      {
+        "en": "A larger toolbar with a mark under the tool you are on"
+      },
+      {
+        "en": "ARM64 builds, a SHA256SUMS file with every release and Copy diagnostics in Settings"
+      }
+    ]
+  },
+  {
     "version": "0.2.2",
     "date": "2026-11-01",
     "items": [
