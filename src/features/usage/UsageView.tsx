@@ -40,6 +40,7 @@ export const usageError: Record<string, string> = {
   "not-found": "Nicht auf diesem PC gefunden",
   "not-signed-in": "Nicht angemeldet",
   expired: "Anmeldung abgelaufen – App kurz öffnen",
+  "claude-expired": "Anmeldung abgelaufen: einmal claude im Terminal starten",
   "no-key": "Noch kein API-Schlüssel",
   "bad-key": "Schlüssel abgelehnt, in den Einstellungen prüfen",
   "rate-limited": "Gerade gedrosselt – nächster Versuch in ein paar Minuten",

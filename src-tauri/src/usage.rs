@@ -267,8 +267,9 @@ async fn fetch_claude() -> Result<Provider, Fail> {
     let creds = read_json(&home().join(".claude").join(".credentials.json")).ok_or("not-found")?;
     let oauth = &creds["claudeAiOauth"];
     let token = oauth["accessToken"].as_str().ok_or("not-signed-in")?;
+    // The file is refreshed only by the Claude Code CLI; the desktop app keeps its own sign-in, so the card says to run the CLI.
     if oauth["expiresAt"].as_u64().is_some_and(|exp| exp < now_ms()) {
-        return Err("expired".into());
+        return Err("claude-expired".into());
     }
     let plan = oauth["subscriptionType"].as_str().map(capitalize);
 
@@ -279,7 +280,7 @@ async fn fetch_claude() -> Result<Provider, Fail> {
         .send()
         .await
         .map_err(|_| Fail::new("offline"))?;
-    check(&res)?;
+    check(&res).map_err(|e| if e.code == "expired" { Fail::new("claude-expired") } else { e })?;
     let body: Value = res.json().await.map_err(|_| Fail::new("failed"))?;
 
     let windows = [("five_hour", "session", 5 * 3600), ("seven_day", "weekly", 7 * 86_400), ("seven_day_opus", "weekly-opus", 7 * 86_400), ("seven_day_sonnet", "weekly-sonnet", 7 * 86_400)]

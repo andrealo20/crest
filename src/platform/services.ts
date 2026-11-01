@@ -68,7 +68,7 @@ export interface UsageProvider {
   windows: UsageWindow[];
   /** Missing in answers saved by older versions. */
   balances?: UsageBalance[];
-  /** not-found | not-signed-in | expired | no-key | bad-key | rate-limited | offline | failed (with data: stale). */
+  /** not-found | not-signed-in | expired | claude-expired | no-key | bad-key | rate-limited | offline | failed (with data: stale). */
   error: string | null;
   updatedAt: number;
   /** While a 429 pause runs: when the next request goes out. */
