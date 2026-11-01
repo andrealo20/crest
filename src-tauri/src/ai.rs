@@ -186,9 +186,9 @@ fn http_error(status: u16, body: &str) -> String {
         .and_then(|v| v["error"]["message"].as_str().or(v["message"].as_str()).map(str::to_string))
         .unwrap_or_else(|| body.chars().take(140).collect());
     match status {
-        401 | 403 => format!("Schlüssel abgelehnt ({status}) – {}", short(&detail)),
-        404 => format!("Nicht gefunden (404) – Base-URL oder Modell prüfen. {}", short(&detail)),
-        429 => "Limit erreicht (429) – kurz warten".into(),
+        401 | 403 => format!("Schlüssel abgelehnt ({status}): {}", short(&detail)),
+        404 => format!("Nicht gefunden (404): Base-URL oder Modell prüfen. {}", short(&detail)),
+        429 => "Limit erreicht (429), kurz warten".into(),
         _ => format!("Fehler {status}: {}", short(&detail)),
     }
 }
