@@ -29,7 +29,7 @@ pub struct HitRect {
 }
 
 impl HitRect {
-    fn contains(&self, x: f64, y: f64) -> bool {
+    pub(crate) fn contains(&self, x: f64, y: f64) -> bool {
         x >= self.x && x <= self.x + self.w && y >= self.y && y <= self.y + self.h
     }
 

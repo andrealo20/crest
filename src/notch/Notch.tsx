@@ -21,7 +21,8 @@ import { across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
 import { columnRoom, columnSurface } from "./column";
 import { capsuleY, hasBridge, panelTop, windowYFor } from "./capsule";
 import { contentScale, sideLength } from "./collapsed";
-import { monitor, monitorMetrics } from "./monitor";
+import { monitor, monitorMetrics, notchBusy } from "./monitor";
+import { useMirror } from "./mirror";
 import { rowRoom, surfaceWidth } from "./row/layout";
 import { toPageCss } from "../features/window/panelSize";
 import { HeaderButton, headerSlot } from "./header";
@@ -160,6 +161,13 @@ export function Notch() {
   const transition = useTransitionFor(status, shape);
   const topValue = useSpringTop(top, transition, drag.dragging);
 
+  // "Follow the cursor" and "All monitors" (monitor.ts) move the notch only while it is closed, not dragged and not recording.
+  const busy = status !== "closed" || drag.dragging || recordingOn;
+  useEffect(() => notchBusy.set(busy), [busy]);
+  // "All monitors": the copies on the other monitors draw the closed notch as it is here.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useMirror(rootRef, status === "closed" && screenBehavior === "normal");
+
   // Click outside closes (in the browser the fake desktop, in Tauri the window blur).
   const hitRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -266,6 +274,7 @@ export function Notch() {
   const slide = isNative ? undefined : `translateX(${drag.offset}px)`;
   return (
     <div
+      ref={rootRef}
       className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center transition-opacity duration-200"
       // In the browser the notch moves inside the window; natively the whole window moves (display.rs).
       style={{

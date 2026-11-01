@@ -10,7 +10,7 @@ import { clipboard } from "./platform/clipboard";
 import { settings } from "./settings/store";
 import { applyDisplay, placementKey } from "./notch/drag";
 import { focusMode, startFocusMode } from "./notch/focus";
-import { monitor, reloadMonitor, startMonitorWatch } from "./notch/monitor";
+import { monitor, monitors, reloadMonitor, startMonitorWatch } from "./notch/monitor";
 import { startSystemPolling } from "./features/system/store";
 import { startUsagePolling } from "./features/usage/store";
 import { startGamingWatch } from "./features/system/gaming";
@@ -63,7 +63,7 @@ let lastScale = 100;
 const syncDisplay = () => {
   const { display, gaming, behavior } = settings.get();
   const rules = JSON.stringify([behavior.rules, behavior.apps, behavior.scale]);
-  const key = `${rules}|${display.monitor}|${display.offset}|${placementKey()}|${gaming.mode}`;
+  const key = `${rules}|${display.monitor}|${display.monitorMode}|${display.offset}|${placementKey()}|${gaming.mode}`;
   if (key === lastDisplay) return;
   lastDisplay = key;
   // The monitor's size in CSS px changes with the panel scale: until it is read again (once Rust has the new one, same command queue)
@@ -77,6 +77,7 @@ const syncDisplay = () => {
 syncDisplay();
 settings.subscribe(syncDisplay);
 monitor.subscribe(syncDisplay);
+monitors.subscribe(syncDisplay);
 focusMode.subscribe(syncDisplay);
 screen.subscribe(syncDisplay);
 

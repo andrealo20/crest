@@ -417,6 +417,9 @@ export const autostart = {
 
 // ---------- Display ----------
 
+/** The closed notch as markup (mirror.rs Picture): the page's theme variables, and the `data:` images by index (null = unchanged). */
+export interface MirrorPicture { html: string; root: string; theme: string; images: string[] | null }
+
 export interface MonitorInfo {
   name: string;
   primary: boolean;
@@ -442,9 +445,39 @@ export const display = {
    * `y`: window top in CSS px below the monitor's top edge (default 0); `rules`: screen_policy.rs Rules; `zoom`: panel scale (1 or 1.5).
    * `edge` and `line`: the screen edge the window hangs from and where (CSS px from the monitor's top or left); `y` is used on top.
    * `along`: the window's length along that edge in CSS px, at least 760 (src/notch/collapsed.ts windowAlong).
+   * `mode`: the Monitor setting's "follow" or "all"; with "all", `spots` holds `line` and `y` for every monitor, where mirror.rs puts a copy.
    */
-  apply: (config: { monitor: string | null; offset: number; y?: number; gaming: boolean; rules: RulesPayload; zoom: number; edge?: string; line?: number; along?: number }) => {
+  apply: (config: {
+    monitor: string | null;
+    mode?: string;
+    spots?: { monitor: string; line: number; y: number }[];
+    offset: number;
+    y?: number;
+    gaming: boolean;
+    rules: RulesPayload;
+    zoom: number;
+    edge?: string;
+    line?: number;
+    along?: number;
+  }) => {
     if (isNative) void invoke("display_apply", { config });
+  },
+  /** With "follow" or "all", the monitor Rust last reported for the pointer (mirror.rs): where it stayed, or whose copy it is over. */
+  cursorMonitor: (): Promise<string | null> => (isNative ? invoke<string | null>("display_cursor_monitor") : Promise.resolve(null)),
+  onCursorMonitor: (handler: (name: string | null) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<string | null>("notch://cursor-monitor", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** A monitor was added, removed, rescaled or got another taskbar. */
+  onMonitors: (handler: () => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen("notch://monitors", () => handler());
+    return () => void off.then((f) => f());
+  },
+  /** The closed notch for the copies on the other monitors (src/notch/mirror.ts); `rect` is its hit zone in the window, CSS px. */
+  mirror: (picture: MirrorPicture, rect: { x: number; y: number; w: number; h: number }) => {
+    if (isNative) void invoke("mirror_picture_set", { picture, rect });
   },
   /** true while an app covers the notch's monitor in fullscreen. */
   onFullscreen: (handler: (on: boolean) => void): (() => void) => {

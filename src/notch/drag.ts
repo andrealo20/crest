@@ -8,7 +8,8 @@ import { capsuleY, snapCapsule, windowYFor } from "./capsule";
 import { across, alongOf, anchorAt, edgeLine, frameFor, nearestEdge, pointToScreen, pointerIn, span, type Dock, type Edge, type Work } from "./edge";
 import { windowAlong } from "./collapsed";
 import { focusMode } from "./focus";
-import { monitorMetrics, reloadMonitor } from "./monitor";
+import { spotFor } from "./follow";
+import { monitorMetrics, monitors, placedMonitor, reloadMonitor } from "./monitor";
 import { holdOpen, type NotchStatus } from "./useNotchState";
 
 /** Below this distance it's a click, not a drag. */
@@ -50,8 +51,11 @@ export function windowLength(dock = settings.get().dock, stale = 1): number {
   return windowAlong(s.closedSize, style, side, (side ? m.height : m.width) / stale);
 }
 
-/** What Rust places the window by, beyond the saved display settings; for noticing changes. */
-export const placementKey = () => `${windowY()}|${edgeOf(shownStyle(), settings.get().dock)}|${dockLine()}|${windowLength()}`;
+/** What Rust places the window by, beyond the saved display settings; for noticing changes. With "all" every monitor counts. */
+export const placementKey = () => {
+  const all = settings.get().display.monitorMode === "all" ? JSON.stringify(monitors.get()) : "";
+  return `${windowY()}|${edgeOf(shownStyle(), settings.get().dock)}|${dockLine()}|${windowLength()}|${placedMonitor()}|${all}`;
+};
 
 /**
  * Sends display settings to Rust, optionally with an offset, a capsule top `y` and a dock that aren't saved yet (Rust gets the window's top from `windowY`).
@@ -59,10 +63,24 @@ export const placementKey = () => `${windowY()}|${edgeOf(shownStyle(), settings.
  * the window top worked out from them are converted to the new one.
  */
 export function applyDisplay(offset = pageCss(settings.get().display.offset), y?: number, dock = settings.get().dock, stale = 1) {
-  const s = settings.get(), b = s.behavior, style = shownStyle(s), edge = edgeOf(style, dock), line = dockLine(dock, style) / stale;
-  // On top the window's top is windowY (0 for the notch), or the edge of a taskbar on top it hangs from.
-  const top = style === "capsule" ? windowY((y ?? pageCss(s.display.y)) * stale) / stale : edge === "top" ? line : 0;
-  display.apply({ monitor: s.display.monitor, offset, y: top, gaming: s.gaming.mode !== "off", rules: { ...b.rules, apps: b.apps }, zoom: b.scale / 100, edge, line, along: windowLength(dock, stale) });
+  const s = settings.get(), b = s.behavior, style = shownStyle(s), edge = edgeOf(style, dock), mode = s.display.monitorMode;
+  const capsuleTop = y ?? pageCss(s.display.y), spot = (m: Metrics) => spotFor(m, dock, style, capsuleTop, s.closedSize.capsuleHeight, stale);
+  const here = spot(monitorMetrics());
+  // With "all" each monitor's copy hangs from that monitor's own edge and taskbar.
+  const spots = mode === "all" ? monitors.get().map((m) => ({ monitor: m.name, ...spot(m) })) : [];
+  display.apply({
+    monitor: placedMonitor(),
+    mode: mode === "chosen" ? "" : mode,
+    spots,
+    offset,
+    y: here.y,
+    gaming: s.gaming.mode !== "off",
+    rules: { ...b.rules, apps: b.apps },
+    zoom: b.scale / 100,
+    edge,
+    line: here.line,
+    along: windowLength(dock, stale),
+  });
 }
 
 /** The area the notch is dragged in: the monitor, in the browser the viewport with DesktopMock's 48 px taskbar. */

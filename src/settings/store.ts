@@ -11,6 +11,7 @@ import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
 import { NOTICE_DEFAULTS, normalizeNotices, type NoticeSettings } from "../features/notices/rules";
 import { WINDOW_DEFAULTS, normalizeWindow, type WindowSettings } from "../features/window/model";
 import { DOCK_DEFAULTS, normalizeDock, type Dock } from "../notch/edge";
+import { normalizeMonitorMode, type MonitorMode } from "../notch/follow";
 import { CALENDAR_DEFAULTS, normalizeCalendar, type CalendarSettings } from "../features/calendar/model";
 import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
 import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
@@ -48,6 +49,8 @@ export interface Settings {
     /** Replaced by `behavior.rules`; only read once to seed them for older installs. */
     visibility: "always" | "hide-fullscreen";
     monitor: string | null;
+    /** "chosen": on `monitor`; "follow": where the pointer is while closed; "all": a closed copy on every other monitor (src/notch/monitor.ts). */
+    monitorMode: MonitorMode;
     offset: number;
     /** Focus mode look: half transparent (as before) or shrunk to a thin line at the edge. */
     focusStyle: "dim" | "line";
@@ -181,7 +184,7 @@ const defaults: Settings = {
     },
   },
   weather: null,
-  display: { visibility: "always", monitor: null, offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5 },
+  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5 },
   closed: CLOSED_DEFAULTS,
   closedSize: CLOSED_SIZE_DEFAULTS,
   gaming: { mode: "off" },
@@ -269,7 +272,7 @@ settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
     usage: { ...defaults.usage, ...s.usage },
     aiUsage: normalizeCards(s.aiUsage),
     // A saved y that is not a finite number (null, a string) would place the capsule nowhere.
-    display: { ...defaults.display, ...s.display, y: fitCapsuleTop(s.display?.y) },
+    display: { ...defaults.display, ...s.display, y: fitCapsuleTop(s.display?.y), monitorMode: normalizeMonitorMode(s.display?.monitorMode) },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },
     alarm: { ...defaults.alarm, ...s.alarm },

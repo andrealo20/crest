@@ -34,6 +34,27 @@
         "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,Translate,msEdgeTranslate,SpareRendererForSitePerProcess,OptimizationHints,MediaRouter,AutofillServerCommunication --disable-background-networking --disable-component-update --disable-sync --no-pings --renderer-process-limit=1"
       },
       {
+        "label": "mirror",
+        "create": false,
+        "url": "mirror.html",
+        "title": "Crest",
+        "focusable": false,
+        "width": 760,
+        "height": 560,
+        "transparent": true,
+        "decorations": false,
+        "shadow": false,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "focus": false,
+        "dragDropEnabled": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,Translate,msEdgeTranslate,SpareRendererForSitePerProcess,OptimizationHints,MediaRouter,AutofillServerCommunication --disable-background-networking --disable-component-update --disable-sync --no-pings --renderer-process-limit=1"
+      },
+      {
         "label": "timer",
         "create": false,
         "url": "timer.html",

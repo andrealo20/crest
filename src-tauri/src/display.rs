@@ -14,8 +14,11 @@
 //! `offset` moves the notch along its edge (dragging), clamped to the monitor. `zoom` is the panel scale:
 //! the page is zoomed and the window grown by it, so CSS px times DPI times zoom are device pixels.
 //! `edge` and `line` put the window on another screen edge (bottom, left, right).
+//!
+//! `mode` "follow" or "all" (mirror.rs): the frontend picks `monitor` from where the pointer is, and with "all" sends a `spot`
+//! (line and window top) for every monitor, where mirror.rs places a closed-only copy of the notch.
 
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU8, Ordering};
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
@@ -53,13 +56,21 @@ pub struct DisplayState {
     hidden: AtomicBool,
     /// Last behaviour the rules called for (Behavior as u8), for `display_screen`.
     behavior: AtomicU8,
+    /// The monitor (HMONITOR) of another screen whose foreground window the rules keep the notch off, so its mirror hides; 0 = none.
+    pub(crate) mirror_block: AtomicIsize,
 }
 
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     /// Monitor name ("\\.\DISPLAY2"); None = primary monitor.
-    monitor: Option<String>,
+    pub(crate) monitor: Option<String>,
+    /// "follow" (the notch goes where the pointer is) or "all" (a mirror on every other monitor); empty = the chosen monitor.
+    #[serde(default)]
+    pub(crate) mode: String,
+    /// With "all": where the window goes on each monitor, worked out by the frontend from that monitor's size and taskbar.
+    #[serde(default)]
+    pub(crate) spots: Vec<Spot>,
     /// Horizontal offset from the center in CSS px.
     #[serde(default)]
     offset: f64,
@@ -74,7 +85,7 @@ pub struct Config {
     rules: Rules,
     /// Panel scale: 1.0 or 1.5.
     #[serde(default = "one")]
-    zoom: f64,
+    pub(crate) zoom: f64,
     /// Screen edge the window hangs from: "top" (default), "bottom", "left" or "right" (src/notch/edge.ts).
     #[serde(default)]
     edge: String,
@@ -86,13 +97,33 @@ pub struct Config {
     along: f64,
 }
 
+/// `line` and `y` of Config for one monitor.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub struct Spot {
+    pub monitor: String,
+    pub line: f64,
+    pub y: f64,
+}
+
 fn one() -> f64 {
     1.0
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Config { monitor: None, offset: 0.0, y: 0.0, gaming: false, rules: Rules::default(), zoom: 1.0, edge: String::new(), line: 0.0, along: 0.0 }
+        Config {
+            monitor: None,
+            mode: String::new(),
+            spots: Vec::new(),
+            offset: 0.0,
+            y: 0.0,
+            gaming: false,
+            rules: Rules::default(),
+            zoom: 1.0,
+            edge: String::new(),
+            line: 0.0,
+            along: 0.0,
+        }
     }
 }
 
@@ -165,11 +196,12 @@ pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -
 #[tauri::command]
 pub fn display_apply(mut config: Config, window: WebviewWindow, state: State<'_, DisplayState>, hit: State<'_, HitState>) {
     config.zoom = fit_zoom(config.zoom);
-    let (moved, zoomed) = {
+    let (moved, zoomed, mirrored) = {
         let cur = state.config.lock().unwrap();
         (
             cur.monitor != config.monitor || cur.offset != config.offset || cur.y != config.y || cur.edge != config.edge || cur.line != config.line || cur.along != config.along,
             cur.zoom != config.zoom,
+            cur.mode != config.mode || cur.spots != config.spots,
         )
     };
     let zoom = config.zoom;
@@ -182,6 +214,9 @@ pub fn display_apply(mut config: Config, window: WebviewWindow, state: State<'_,
     }
     if moved || zoomed {
         let _ = place(&window, &state);
+    }
+    if moved || zoomed || mirrored {
+        crate::mirror::wake(window.app_handle());
     }
 }
 
@@ -259,6 +294,11 @@ pub fn closed(app: &AppHandle) {
     }
 }
 
+/// Hidden with the hide hotkey (the mirrors hide with it; a rule only hides the notch on its own monitor).
+pub fn user_hidden(app: &AppHandle) -> bool {
+    app.state::<DisplayState>().user_hidden.load(Ordering::Relaxed)
+}
+
 /// Hidden by a rule or the hotkey; the hit-test thread rests meanwhile.
 pub fn is_hidden(app: &AppHandle) -> bool {
     app.state::<DisplayState>().hidden.load(Ordering::Relaxed)
@@ -272,6 +312,7 @@ fn sync(app: &AppHandle) {
     if state.hidden.swap(hide, Ordering::Relaxed) == hide {
         return;
     }
+    crate::mirror::wake(app);
     // The timer window exists only while it is open (timer_window.rs destroys it on close).
     if let Some(timer) = app.get_webview_window("timer") {
         let _ = if hide { timer.hide() } else { timer.show() };
@@ -290,14 +331,23 @@ fn sync(app: &AppHandle) {
 /// Centered on the chosen monitor (primary otherwise), `y` CSS px below its top edge (clamped to the monitor).
 /// Off the top edge the window's own edge goes on `line`, centred along that edge, and on a side edge it is as deep as long.
 pub fn place(window: &WebviewWindow, state: &DisplayState) -> tauri::Result<()> {
-    let (wanted, offset, y, zoom, edge, line, along) = {
-        let c = state.config.lock().unwrap();
-        (c.monitor.clone(), c.offset, c.y, c.zoom, c.edge.clone(), c.line, fit_along(c.along))
-    };
+    let c = state.config();
+    put(window, c.monitor.as_deref(), &c, c.line, c.y)
+}
+
+impl DisplayState {
+    pub(crate) fn config(&self) -> Config {
+        self.config.lock().unwrap().clone()
+    }
+}
+
+/// `place` for any window: on `wanted` (the primary monitor when it is missing), with `line` and `y` for that monitor and the rest of `c`.
+pub(crate) fn put(window: &WebviewWindow, wanted: Option<&str>, c: &Config, line: f64, y: f64) -> tauri::Result<()> {
+    let (offset, zoom, edge, along) = (c.offset, c.zoom, c.edge.as_str(), fit_along(c.along));
     let side = edge == "left" || edge == "right";
     let monitors = window.available_monitors()?;
     let monitor = wanted
-        .and_then(|name| monitors.into_iter().find(|m| m.name() == Some(&name)))
+        .and_then(|name| monitors.into_iter().find(|m| m.name().map(String::as_str) == Some(name)))
         .or(window.primary_monitor()?);
     let Some(monitor) = monitor else { return Ok(()) };
     // Set twice: when moving to a monitor with different scaling, the window size
@@ -312,7 +362,7 @@ pub fn place(window: &WebviewWindow, state: &DisplayState) -> tauri::Result<()> 
             size = window.outer_size()?;
         }
         let monitor_px = (monitor.size().width as i32, monitor.size().height as i32);
-        let at = Placement { edge: &edge, offset, y, line, keep: kept_along(along), scale: monitor.scale_factor() * zoom };
+        let at = Placement { edge, offset, y, line, keep: kept_along(along), scale: monitor.scale_factor() * zoom };
         let (x, top) = at.position(monitor_px, (size.width as i32, size.height as i32));
         window.set_position(PhysicalPosition::new(monitor.position().x + x, monitor.position().y + top))?;
     }
@@ -365,13 +415,13 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
         let mut last_fullscreen = false;
         let mut last_behavior: Option<Behavior> = None;
         let mut last_foreground = HWND::default();
-        let (mut front, mut behind) = (Known::default(), Known::default());
+        let (mut front, mut behind, mut aside) = (Known::default(), Known::default(), Known::default());
         loop {
             thread::sleep(POLL);
             let state = app.state::<DisplayState>();
-            let (rules, gaming) = {
+            let (rules, gaming, mirrors) = {
                 let c = state.config.lock().unwrap();
-                (c.rules.clone(), c.gaming)
+                (c.rules.clone(), c.gaming, c.mode == "all")
             };
             let foreground = unsafe { GetForegroundWindow() };
             let monitor = unsafe { MonitorFromWindow(own, MONITOR_DEFAULTTONEAREST) };
@@ -398,6 +448,18 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 state.rule_hide.store(behavior == Behavior::Hide, Ordering::Relaxed);
                 let _ = app.emit("notch://screen", behavior.as_str());
                 sync(&app);
+            }
+            // With mirrors, the foreground window on another monitor answers for the mirror there (only it, not the windows behind it).
+            let elsewhere = unsafe { MonitorFromWindow(foreground, MONITOR_DEFAULTTONEAREST) };
+            let block = if mirrors && elsewhere != monitor {
+                let seen = read_foreground(foreground, own, elsewhere, &mut aside);
+                let rule = screen_policy::decide(&rules, (seen.context, &seen.name, &seen.path), None, gaming);
+                if rule == Behavior::Normal { 0 } else { elsewhere.0 as isize }
+            } else {
+                0
+            };
+            if state.mirror_block.swap(block, Ordering::Relaxed) != block {
+                crate::mirror::wake(&app);
             }
             // New foreground window: reapply "on top" in case it covered us.
             if !state.hidden.load(Ordering::Relaxed) && foreground != last_foreground {

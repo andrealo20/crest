@@ -102,6 +102,8 @@ A short first-run setup picks a preset (Music, Productivity, AI or your own tool
 
 Crest speaks 11 languages (English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German, Italian) and follows the Windows language unless you pick one in Settings → General.
 
+With more than one monitor the notch stays on the one you pick, follows the pointer from monitor to monitor, or shows a closed notch on every monitor that opens where you touch it.
+
 Every feature in detail, with setup steps for each integration: [docs/features.md](docs/features.md).
 
 ## Install

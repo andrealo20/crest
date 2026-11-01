@@ -627,12 +627,26 @@ function Display() {
   return (
     <Group id="settings-display">
       {monitors.length > 1 && (
-        <Row label={t("Monitor")}>
+        <Row
+          label={t("Monitor")}
+          hint={d.monitorMode === "follow" ? t("Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger") : d.monitorMode === "all" ? t("Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst") : undefined}
+        >
           <Select
             width="w-52"
-            value={d.monitor ?? monitors.find((m) => m.primary)?.name ?? monitors[0].name}
-            onChange={(name) => updateSettings((cur) => ({ display: { ...cur.display, monitor: monitors.find((m) => m.name === name)?.primary ? null : name } }))}
-            options={monitors.map((m, i) => ({ value: m.name, label: label(m, i) }))}
+            value={d.monitorMode !== "chosen" ? d.monitorMode : (d.monitor ?? monitors.find((m) => m.primary)?.name ?? monitors[0].name)}
+            onChange={(value) =>
+              updateSettings((cur) => ({
+                display:
+                  value === "follow" || value === "all"
+                    ? { ...cur.display, monitorMode: value }
+                    : { ...cur.display, monitorMode: "chosen", monitor: monitors.find((m) => m.name === value)?.primary ? null : value },
+              }))
+            }
+            options={[
+              { value: "follow", label: t("Dem Mauszeiger folgen") },
+              { value: "all", label: t("Alle Monitore") },
+              ...monitors.map((m, i) => ({ value: m.name, label: label(m, i) })),
+            ]}
           />
         </Row>
       )}
