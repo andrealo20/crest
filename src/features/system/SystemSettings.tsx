@@ -44,6 +44,9 @@ export function SystemSettings() {
           }))}
         />
       </Row>
+      <Row label={t("Farbige Symbole")} hint={t("Jeder Wert der geschlossenen Notch mit eigener Symbolfarbe")}>
+        <Switch label={t("Farbige Symbole")} checked={s.system.iconColors} onChange={(iconColors) => set({ iconColors })} />
+      </Row>
       {gpus.length > 1 && (
         <Row label="GPU" hint={t("Auch per Klick auf die GPU-Zeile im Tool")}>
           <Select

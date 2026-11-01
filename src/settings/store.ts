@@ -89,7 +89,8 @@ export interface Settings {
   /** Panel theme, custom themes and the day and night switch (src/features/themes). */
   themes: ThemeSettings;
   /** Hardware tool: colours of the readings, the GPU shown (adapter name, "" = automatic: the busiest; index among adapters of that name), process ranking. */
-  system: { colors: ColorScheme; gpu: string; gpuIndex: number; sort: "cpu" | "mem" };
+  /** `iconColors`: each closed-row reading's icon in a colour of its own (Readings.tsx); the numbers keep `colors`. */
+  system: { colors: ColorScheme; iconColors: boolean; gpu: string; gpuIndex: number; sort: "cpu" | "mem" };
   /**
    * App launcher: pinned apps, `null` until the first app list arrives, which pins the detected
    * AI apps once. `hotkeys`: the first six on Alt+1 to Alt+6, opt-in (other apps lose those keys).
@@ -171,7 +172,7 @@ const defaults: Settings = {
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
   music: { lyricsOpen: false, titleLyrics: false, notchLyrics: false, pinned: null },
   themes: THEME_DEFAULTS,
-  system: { colors: "calm", gpu: "", gpuIndex: 0, sort: "cpu" },
+  system: { colors: "calm", iconColors: false, gpu: "", gpuIndex: 0, sort: "cpu" },
   launcher: { favorites: null, hotkeys: false },
   github: { user: "" },
   notices: NOTICE_DEFAULTS,

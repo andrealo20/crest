@@ -18,6 +18,10 @@ export const READING_GAP = 6;
 /** MARK: the C / G letter after the thermometer. */
 const DIAL = 16, DIAL_GAP = 3, GLYPH = 11, MARK = 6;
 const LETTER: Partial<Record<ReadingId, string>> = { cpu: "C", ram: "M", gpu: "G" };
+/** Settings, Tools, Hardware, "Coloured icons". The closed notch stays black in every theme, so fixed colours read on it. */
+const ICON_COLORS: Partial<Record<ReadingId, string>> = {
+  cpu: "#4c9aff", ram: "#a78bfa", gpu: "#34d399", down: "#22d3ee", up: "#f472b6", power: "#fbbf24", battery: "#4ade80", temp: "#fb923c",
+};
 const GLYPHS: Partial<Record<ReadingId, Icon>> = { down: ArrowDown, up: ArrowUp, power: Lightning, temp: Thermometer };
 
 /** Each reading reserves its widest figure (tabular digits are each as wide as an 8), so the row never shifts. */
@@ -81,29 +85,34 @@ function spoken(r: Reading): string | undefined {
 /** A dial open at the bottom with its letter, then the number; FPS as a word, the others with a small glyph. */
 export function ReadingView({ reading }: { reading: Reading }) {
   const { id, value, level, source } = reading;
-  const color = id === "fps" ? "var(--color-label)" : schemeColor(settings.use().system.colors, level);
+  const sys = settings.use().system;
+  const color = id === "fps" ? "var(--color-label)" : schemeColor(sys.colors, level);
+  const iconColor = sys.iconColors ? ICON_COLORS[id] : undefined;
   const G = GLYPHS[id];
   const label = spoken(reading);
   return (
     <span className="flex shrink-0 items-center" style={{ gap: DIAL_GAP, width: readingWidth(id), color }} role={label ? "img" : undefined} aria-label={label}>
-      {id === "fps" ? (
-        <span className="text-caption font-medium text-label-3">FPS</span>
-      ) : LETTER[id] ? (
-        <Dial letter={LETTER[id]} value={value ?? 0} />
-      ) : id === "battery" ? (
-        <BatteryGlyph value={value ?? 0} />
-      ) : G ? (
-        <span className="flex shrink-0 items-center" aria-hidden>
-          <G size={GLYPH} weight="bold" />
-          {/* C or G: which sensor the temperature is from. */}
-          {id === "temp" && (
-            <span className="text-[8px] leading-none font-bold" style={{ width: MARK }}>
-              {LETTER[source ?? "cpu"]}
-            </span>
-          )}
-        </span>
-      ) : null}
-      <span className="tabular text-right text-footnote font-medium transition-colors duration-300" style={{ width: digits(id) }} aria-hidden={label ? true : undefined}>
+      <span className="flex shrink-0 items-center" style={{ color: iconColor }}>
+        {id === "fps" ? (
+          <span className="text-caption font-medium text-label-3">FPS</span>
+        ) : LETTER[id] ? (
+          <Dial letter={LETTER[id]} value={value ?? 0} />
+        ) : id === "battery" ? (
+          <BatteryGlyph value={value ?? 0} />
+        ) : G ? (
+          <span className="flex shrink-0 items-center" aria-hidden>
+            <G size={GLYPH} weight="bold" />
+            {/* C or G: which sensor the temperature is from. */}
+            {id === "temp" && (
+              <span className="text-[8px] leading-none font-bold" style={{ width: MARK }}>
+                {LETTER[source ?? "cpu"]}
+              </span>
+            )}
+          </span>
+        ) : null}
+      </span>
+      {/* Left-aligned next to its own icon: the space left for wider figures falls before the next reading. */}
+      <span className="tabular text-left text-footnote font-medium transition-colors duration-300" style={{ width: digits(id) }} aria-hidden={label ? true : undefined}>
         {id === "fps" ? <FpsValue /> : text(reading)}
       </span>
     </span>
