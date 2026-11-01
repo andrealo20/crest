@@ -49,7 +49,7 @@ A notch at the edge of your Windows screen that opens on hover, click or **Ctrl 
 
 ## Features
 
-<p align="center"><img src="docs/media/features/closed-notch.png" alt="The closed notch showing the cover of the song playing, AI quota rings, the title, hardware readings and the clock" width="560" /><br /><b>The closed notch</b>: cover, timer, quota rings, title or lyrics, hardware and clock in one row. A notch, a capsule or a line, on any screen edge.</p>
+<p align="center"><img src="docs/media/features/closed-notch.png" alt="The closed notch on a real desktop: song cover, a running timer, the song title, CPU, RAM and GPU load, download and upload, power draw, battery, the clock and today's GitHub contributions" width="820" /><br /><b>The closed notch</b>: cover, timer, title or lyrics, AI quota, CPU, RAM, GPU, network, power, battery, temperature, clock and GitHub in one row, rotating when it doesn't fit. A notch, a capsule or a line, on any screen edge.</p>
 
 <table>
   <tr>
