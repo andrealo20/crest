@@ -30,6 +30,7 @@ Other ways were considered and left out. Reading Windows' notification database 
 - **Per app**: every app that sent a notice is listed under **Settings → Notices → Apps** with **Show** (pops up), **Mute** (history only) or **Off** (dropped). The buttons next to a notice on the Notices page do the same.
 - **Presentation mode**: while it is on (by hand or during a screen recording), notices go to the history without popping up, and the history page hides their text.
 - **Every day**: a daily quiet window, for example 22:00 to 07:00, works the same way.
+- **Full screen and focus**: while an app fills the notch's screen, or Windows focus or Do Not Disturb is on, notices also go to the history only.
 
 In the closed notch a finished timer and status alerts come first, then notices, then quota alerts and new songs. Notices do not show on the line look or in focus mode; they still go to the history.
 

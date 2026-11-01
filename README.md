@@ -20,9 +20,9 @@
 
 Crest sits at the edge of your screen as a small notch (at the top unless you move it to another edge), stays out of the way until you need it, and opens on hover, click or **Ctrl + Alt + Space**.
 
-Inside: music controls with a live equalizer, a vault for passwords and 2FA codes, live weather, your Discord call, your portfolio, an AI chat (Claude, ChatGPT and more) with your usage limits, clipboard history, a file shelf, screenshots and screen recording, a file and unit converter, timers, to-dos and notes, live hardware stats with FPS for games, and privacy dots for mic, camera and screen recording.
+Inside: music controls with a live equalizer and synced lyrics, a vault for passwords and 2FA codes, live weather, your Discord call, your portfolio across several brokers, an AI chat (Claude, ChatGPT and more) with your usage limits, clipboard history, a file shelf, screenshots and screen recording, a terminal, an app launcher, your GitHub activity, a file and unit converter, timers, to-dos with reminders, notes, a code scratchpad, a water reminder, live hardware stats with FPS for games, Windows notifications in the notch, themes, and privacy dots for mic, camera and screen recording.
 
-Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0. Version 0.1 is that app under a new name, with the Antigravity quota in place of the retired Gemini CLI. Version 0.2 adds the closed notch styles and the row of live readings.
+Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0.
 
 ## What it does
 
@@ -34,9 +34,21 @@ Pick the closed look under **Settings → Display**.
 - **Capsule** is a pill you can drag up and down to any height. It snaps to the screen edges and the taskbar.
 - **Line** is a thin bar with a progress bar for the current song.
 
-Notch and capsule show a row of parts, centred and in the order you choose: cover, timer, Discord call, AI quota rings (one colour per provider), song title, CPU, RAM and GPU readings, equalizer and clock. Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel. The line shows only the song's progress, and a finished timer.
+Notch and capsule show a row of parts, centred and in the order you choose: the cover of what is playing, a running timer, your Discord call, AI quota rings (one colour per provider), song title (or the current lyric line), hardware readings (CPU, RAM and GPU, plus network, power, battery and temperature if you turn them on), equalizer, clock (with seconds if you like) and today's GitHub contributions. Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel. The line shows only the song's progress, and a finished timer.
 
-Short notices appear over the row: a finished timer stays until you dismiss it, a quota alert at 70% and 90% shows for 5 seconds (it needs the AI quota rings turned on), and a new song for 4 seconds.
+Notices appear over the row, one at a time:
+
+- a running recording, with its time and pause and stop buttons, until it ends;
+- a finished timer, until you dismiss it;
+- a screenshot or recording just saved, for 4 seconds, with a thumbnail; click it to open the file;
+- a status alert (see below);
+- a live notice from Windows or `crest-notify`, for 6 seconds;
+- a quota alert at 70% and 90%, for 5 seconds (it needs the AI quota rings turned on);
+- a new song, for 4 seconds, while the title part is off;
+- a due to-do, with buttons to snooze it 10 minutes or mark it done;
+- the water reminder, with buttons to log a drink or wait for the next one.
+
+A running recording outranks every other notice, so its stop button stays in reach.
 
 Status alerts show briefly when you plug in or unplug the charger, when the battery reaches 20% and 10%, when the internet drops or comes back, and when Bluetooth headphones connect or disconnect. Turn each one off in **Settings → Display**.
 
@@ -45,11 +57,11 @@ Status alerts show briefly when you plug in or unplug the charger, when the batt
 - **Any screen edge.** **Screen edge** in **Settings → Display** hangs the notch and the line from the top, bottom, left or right edge, from the screen's edge or from the taskbar's. Dragging the closed notch towards another edge moves it there. On the left and right edges the parts stand in a column, and a notice shows as one icon: a finished timer (click to dismiss), a status alert, a live notice's app logo or a due to-do (click to open the To-dos). The capsule stays on the top.
 - **Screen and app rules.** **Settings → Window** chooses what Crest does while a maximized window, a borderless full-screen app or an exclusive full-screen game covers its monitor: keep its look, turn into the line, or hide. It can also check the windows behind the one in front. Rules per app, picked from the running apps or typed, override these.
 - **Panel size and scale.** Drag the open panel's sides, bottom or bottom corners to size each tool (double click resets), or pick Compact, Standard or Spacious for all of them. The whole notch can be shown at 100 % or 150 %.
-- **Shortcuts.** Opening and closing, hiding and showing Crest, and resizing the panel with the arrow keys each take a shortcut you record in **Settings → Window**. Crest tells you when another program or the launcher's Alt keys already use it. Right click on the notch opens the settings, and the mouse wheel switches tools.
+- **Shortcuts.** Opening and closing, hiding and showing Crest, and resizing the panel with the arrow keys each take a shortcut you record in **Settings → Window**. Crest tells you when another program or the launcher's Alt keys already use it. Opening Crest on purpose (shortcut, tray, a second launch) shows it even while a rule hides it, until it closes again. Right click on the notch opens the settings, and the mouse wheel switches tools.
 
 ### Live notices
 
-Turn on **Settings → Notices** and Windows notifications from any app show in the closed notch for 6 seconds, with the app's logo, name, title and text, and land on a **Notices** page in the open notch. Each app can be shown, muted (history only) or turned off; presentation mode and an optional daily quiet window keep them in the history without popping up. Scripts, builds and coding agents can send their own notices with `crest-notify`, including `crest-notify run -- <command>` for the exit code and duration. Details, ready-made hooks for Claude Code and Codex, and how notifications are read: [docs/notices.md](docs/notices.md).
+Turn on **Settings → Notices** and Windows notifications from any app show in the closed notch for 6 seconds, with the app's logo, name, title and text, and land on a **Notices** page in the open notch. Each app can be shown, muted (history only) or turned off; presentation mode, a full-screen app, Windows focus or Do Not Disturb, and an optional daily quiet window keep them in the history without popping up. Scripts, builds and coding agents can send their own notices with `crest-notify`, including `crest-notify run -- <command>` for the exit code and duration. Details, ready-made hooks for Claude Code and Codex, and how notifications are read: [docs/notices.md](docs/notices.md).
 
 ### Windows and system
 
@@ -58,8 +70,10 @@ Turn on **Settings → Notices** and Windows notifications from any app show in 
 - **Synced lyrics** from LRCLIB: the microphone button opens them under the controls, scrolling along with the song. Click a line to jump there. In the closed notch the song title part can show the current line instead of the title (its **Lyrics** switch in **Settings → Display**), and **Lyrics in the closed notch** shows only the cover and the line (plus a running timer or Discord call) while a song plays, with the notch growing and shrinking to each line.
 - **Clipboard** keeps a history of text, links, images and files, with filters and previews. Password managers are excluded on purpose, and nothing is written to disk.
 - **Shelf** is a parking spot for files. Drop them onto the notch or press Ctrl + V, then open, copy or reveal them later.
-- **Capture** takes screenshots of all screens, one screen or a region you drag, saves them as PNG in *Pictures\Crest\Screenshots* and copies them to the clipboard, optionally onto the Shelf too. It records a screen or a window to MP4 in *Videos\Crest\Recordings*, at 30 or 60 fps, with system audio and the microphone if you want them. While it records, the closed notch shows the time with pause and stop buttons. Crest keeps itself out of every capture. The tool lists what you took, with thumbnails and lengths; a deleted capture goes to the Recycle Bin.
-- **Hardware** shows live CPU, RAM, GPU, VRAM and ping, with history that keeps recording while the notch is closed.
+- **Capture** takes screenshots of all screens, one screen or a region you drag, saves them as PNG in *Pictures\Crest\Screenshots* and copies them to the clipboard, optionally onto the Shelf too. It records a screen or a window to MP4 in *Videos\Crest\Recordings*, at 30 or 60 fps, with system audio and the microphone if you want them. While it records, the closed notch shows the time with pause and stop buttons. Crest keeps itself out of its own screenshots and recordings; other apps that record or share the screen still see it. The tool lists what you took, with thumbnails and lengths; a deleted capture goes to the Recycle Bin.
+- **Terminal** runs PowerShell 7, Windows PowerShell or Command Prompt inside the notch, with a start folder and font size of your choice. The session can keep running while the notch is closed.
+- **Launcher** lists your pinned apps (detected AI apps such as Claude, ChatGPT and Cursor are pinned on first use) and starts them with a click. Any Start menu entry can be pinned. If you opt in, the first six also open with **Alt + 1** to **Alt + 6**, which then no longer reach other apps.
+- **Hardware** shows live CPU, RAM, GPU, VRAM, network, power draw, battery, temperatures, ping, the busiest processes and your drives, with history that keeps recording while the notch is closed. Readings your PC cannot give (a battery on a desktop, a missing sensor) are left out.
 - **Gaming mode** adds FPS to the readings in the closed notch, always or only while a fullscreen app runs. FPS works for DirectX, OpenGL and Vulkan games. Windows only allows this for members of the *Performance Log Users* group: click **Settings → Display → Unlock FPS** once, confirm the Windows prompt, then sign out and back in. A lock icon in the notch means this step is still missing.
 - **Privacy dots** turn green when the microphone or camera is in use and red while the screen is being recorded, like on an iPhone.
 
@@ -70,12 +84,19 @@ Turn on **Settings → Notices** and Windows notifications from any app show in 
 - **Weather** gives current conditions and a 7-day forecast through Open-Meteo. No API key needed.
 - **Portfolio** combines Trading 212, Kraken, Coinbase, Binance, Bitpanda, eToro, Interactive Brokers and holdings entered by hand in one base currency, with profit and loss per account and in total and a history chart. The app only reads, it never trades or moves funds.
 - **Discord** shows your current voice call with speaking members and buttons for mute, deafen and hang up. In the closed notch, a green equalizer plays while someone talks.
+- **GitHub activity** shows the contribution calendar of a public username for the last 36 weeks, with the yearly total, today's count and your current and longest streak. A part in the closed notch shows today's count. It reads the public contribution page once an hour; a token without any rights is only needed if that page cannot be read.
 
 ### Local and offline
 
 - **Timer** with focus and break presets, custom durations, six alarm sounds and a running countdown in the closed notch. An expired timer stays visible until you dismiss it.
-- **To-dos** and **notes** live on your machine and need no account.
+- **To-dos** and **notes** live on your machine and need no account. A to-do can have a due time; when it comes, an alarm sounds (unless you turn the sound off) and the to-do shows in the closed notch until you snooze it or mark it done.
+- **Scratchpad** is a code pad with syntax colouring for JavaScript, TypeScript, Rust and Python, or plain text. Each language keeps its own draft, saved as you type.
+- **Water** logs what you drink against a daily goal (2 L unless you change it), with an hourly chart. Reminders are optional: every hour, or the interval you pick, between the times you set.
 - **Converter** handles units, images (PNG, JPG, WebP, ICO, BMP, DDS), documents (PDF, DOCX, TXT, Markdown, HTML), spreadsheets (XLSX, CSV, JSON) and audio or video if ffmpeg is installed.
+
+### Themes
+
+Seven built-in panel themes (Dark, Light, One Dark Pro, GitHub Dark, GitHub Light, Dracula and Night Owl) under **Settings → Themes**. The editor changes background, foreground, accent and the warning colours with a colour picker and shows each change on the panel at once; save the result as your own theme, export and import themes as JSON files, or switch between a day and a night theme by time. The closed notch stays black unless a theme opts in to colour it. Details: [docs/themes.md](docs/themes.md).
 
 ### Vault
 
@@ -139,7 +160,7 @@ OpenRouter, DeepSeek and Z.ai need an API key, entered under **AI** once the car
 3. Under OAuth2, Redirects, add `http://localhost` and save. Without it Discord keeps asking for permission again.
 4. Join a call. Discord asks you once to confirm.
 
-**Weather.** Works out of the box with your approximate location (city level, from your IP). Pick a city by hand in the weather tool if you prefer; then the IP lookup stops.
+**Weather.** Works out of the box with your approximate location (city level, from your IP), looked up once while no place is saved and the weather shows (the Weather tool or Overview), then kept. Choose **Automatic** in the weather settings or the locate button in the tool to look it up again, or pick a city by hand.
 
 ## Your data stays on your PC
 
@@ -147,10 +168,21 @@ Crest has no account, no server of its own, no analytics and no tracking. Everyt
 
 - **Keys and secrets** are stored in the Windows Credential Manager under "Crest/…", never in a plain file, and they are never sent back to the interface. On the first start Crest copies keys it finds under "Notch/…" (where older versions and L4-Notchbar keep them). Those originals stay where they are: deleting a key in Crest does not remove them, so remove them in the Credential Manager if you no longer need them.
 - **The vault** lives in one file encrypted with Windows DPAPI, readable only under your Windows account. The PIN is checked in the app's backend, not in the interface, and 2FA keys never leave the backend. With Windows Hello turned on, secrets are additionally sealed with AES-256-GCM under a TPM-backed Windows Hello key.
-- **Integrations talk directly to their own service** and nowhere else: Ask to the AI provider you chose, Portfolio to the brokers you set up plus CoinGecko and the ECB rates at frankfurter.dev for prices (no account data is sent there, only coin symbols and currency codes), Discord to the Discord app on your PC (and discord.com for the sign-in), AI usage to the provider you are signed in to or gave a key for (token counts are read from local files and never sent anywhere), Weather to Open-Meteo (plus an IP-based city lookup unless you picked a city). If you don't set an integration up, it makes no requests.
+
+### What goes over the network, and when
+
+Every request goes straight from your PC to the service named here, and nowhere else. On by default are the AI usage rings, the weather in Overview and the daily update check; everything else makes no requests until you set it up or turn it on.
+
+- **AI usage** (the quota rings in the closed notch are on by default, with the Claude, ChatGPT and Antigravity cards): while the rings show or the AI usage tool is open, Crest asks the services you are signed in to on this PC, at most every 5 minutes for Claude and Antigravity and every 2 minutes for the others: api.anthropic.com with the Claude Code login, chatgpt.com with the Codex CLI login, cursor.com with the Cursor login, and openrouter.ai, api.deepseek.com and api.z.ai with the key you entered. For Antigravity it starts the `agy` CLI on your PC, which asks Google itself. A service you are not signed in to and have no key for gets no request. Token counts are read from local log files and never sent anywhere.
+- **Ask** sends your messages to the provider you chose (api.anthropic.com, api.openai.com, openrouter.ai or your own endpoint), only when you send one.
+- **Portfolio** asks each broker you set up (live.trading212.com or demo.trading212.com, api.kraken.com, api.coinbase.com, api.binance.com, api.public.bitpanda.com, public-api.etoro.com, ndcdyn.interactivebrokers.com), plus api.coingecko.com for coin prices and api.frankfurter.dev for the ECB exchange rates. Those two get only coin symbols and currency codes, no account data.
+- **Weather** sends the place's coordinates to api.open-meteo.com for the forecast, and what you type to geocoding-api.open-meteo.com when you search a city. To find your approximate location it asks get.geojs.io, and ipwho.is if that fails, only while no place is saved and the weather shows (Weather tool or Overview), or when you choose automatic location again.
+- **Discord** talks to the Discord app on your PC, to discord.com for the sign-in, and loads the call members' avatars and the server icon from cdn.discordapp.com while you are in a call.
+- **GitHub activity**, once you set a username, reads github.com's public contribution page for it once an hour while the tool or its closed-notch part shows, or api.github.com if you added a token.
+- **Hardware** sends an ICMP ping to 1.1.1.1 every 2 seconds while the Hardware tool is open, for the ping reading.
 - **Lyrics** come from LRCLIB (lrclib.net). Crest sends the title and artist of whatever is playing, with its length, and nothing else. It does so only while the lyrics panel is open or a lyrics option of the closed notch is on, and never for sessions without a known length or longer than 20 minutes (streams, mixes, podcasts). Answers are kept in a small cache on your PC, so a song is looked up once.
-- **Live notices** (off by default) read other apps' Windows notifications through Windows' own notification listener, after you allow it. Crest learns that one arrived from Windows' push notification event log for your account, reads only that notification, and never changes, dismisses or opens anything. The history is kept in memory only and is gone when Crest quits. `crest-notify` talks to Crest over a named pipe that only your Windows account can open and that refuses connections from other computers.
-- **Updates.** Once a day the app makes a single anonymous request to this repository's public release page to check for a new version. No personal data is sent. If an update exists, a dot appears on the gear icon and **Settings → General → Updates** shows it. Nothing is downloaded until you click **Update now**; the app then installs the update and restarts. Every update is cryptographically signed and verified before it is installed. You can turn the daily check off in the same place.
+- **Live notices** (off by default) read other apps' Windows notifications through Windows' own notification listener, after you allow it. Crest learns that one arrived from Windows' push notification event log for your account, reads only that notification, and never changes, dismisses or opens anything. The history is kept in memory only and is gone when Crest quits. `crest-notify` talks to Crest over a local named pipe that only your Windows account can open and that refuses connections from other computers; nothing goes over the network.
+- **Updates.** Once a day the app makes one anonymous request to this repository's release on github.com to check for a new version. If one exists, a second request fetches its changelog from raw.githubusercontent.com. No personal data is sent. If an update exists, a dot appears on the gear icon and **Settings → General → Updates** shows it. Nothing is downloaded until you click **Update now**; the app then installs the update and restarts. Every update is cryptographically signed and verified before it is installed. You can turn the daily check off in the same place.
 
 ## Development
 
