@@ -1,11 +1,12 @@
 //! System status for the closed notch's alerts: charger and battery, internet,
-//! Bluetooth headphones.
+//! Bluetooth headphones, and the volume of the default output device for the HUD (brightness is in brightness.rs).
 //!
 //! One thread with a message-only window. Power settings arrive as WM_POWERBROADCAST and are
 //! handled in the GetMessageW loop, so the thread sleeps at idle. The network and audio
 //! endpoint callbacks only post to the same loop; the network is settled with a window timer. Each source registers on its own:
 //! a failure is logged and leaves only that source off. What a source reads at registration goes
-//! into the seed (`status://seed`, `status_seed`), never into a change event.
+//! into the seed (`status://seed`, `status_seed`), never into a change event. The volume callback only fires on a change,
+//! so registering it is silent too; changes Crest makes itself carry `controls::OWN_CHANGE` and are skipped.
 
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};
@@ -19,8 +20,9 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
     CM_GETIDLIST_FILTER_PRESENT, CM_LOCATE_DEVNODE_NORMAL, CR_SUCCESS,
 };
 use windows::Win32::Devices::Properties::{DEVPKEY_Device_ContainerId, DEVPROPTYPE, DEVPROP_TYPE_BYTE, DEVPROP_TYPE_GUID};
+use windows::Win32::Media::Audio::Endpoints::{IAudioEndpointVolume, IAudioEndpointVolumeCallback, IAudioEndpointVolumeCallback_Impl};
 use windows::Win32::Media::Audio::{
-    eRender, EDataFlow, ERole, IMMDeviceEnumerator, IMMNotificationClient, IMMNotificationClient_Impl, MMDeviceEnumerator, DEVICE_STATE, DEVICE_STATE_ACTIVE,
+    eConsole, eRender, EDataFlow, ERole, IMMDeviceEnumerator, AUDIO_VOLUME_NOTIFICATION_DATA, IMMNotificationClient, IMMNotificationClient_Impl, MMDeviceEnumerator, DEVICE_STATE, DEVICE_STATE_ACTIVE,
 };
 use windows::Win32::System::Com::StructuredStorage::{PropVariantToGUID, PropVariantToStringAlloc};
 use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
@@ -54,6 +56,10 @@ const NET_TIMER: usize = 1;
 const NET_SETTLE_MS: u32 = 2000;
 /// Posted from the audio service thread on endpoint changes.
 const WM_BT: u32 = WM_APP + 3;
+/// Posted from the audio service thread on a volume or mute change: wParam the level in percent, lParam bit 0 muted, bit 1 Crest's own.
+const WM_VOL: u32 = WM_APP + 4;
+/// The default output device changed: the volume callback moves to the new one.
+const WM_VOLDEV: u32 = WM_APP + 5;
 
 #[derive(Serialize, Clone, Copy, PartialEq)]
 pub struct Power {
@@ -131,6 +137,10 @@ fn run(app: AppHandle) {
         let mut groups = devices.as_ref().map(headsets).unwrap_or_default();
         seed().headsets = groups.values().cloned().collect();
 
+        let volume_client: IAudioEndpointVolumeCallback = VolumeWatch(h).into();
+        let mut volume = devices.as_ref().and_then(|d| watch_volume(d, &volume_client));
+        let mut last_volume = volume.as_ref().map(|v| v.1);
+
         let _ = app.emit("status://seed", status_seed());
 
         // Runs for the app's lifetime; process exit releases the registrations.
@@ -172,6 +182,20 @@ fn run(app: AppHandle) {
                     }
                     groups = now;
                     seed().headsets = groups.values().cloned().collect();
+                }
+                WM_VOL => {
+                    let now = (msg.wParam.0.min(100) as u8, msg.lParam.0 & 1 != 0);
+                    // Crest's own change still moves the baseline, so the next outside change compares against it.
+                    if volume_changed(&mut last_volume, now) && msg.lParam.0 & 2 == 0 {
+                        emit_level(&app, "volume", now.0, now.1);
+                    }
+                }
+                WM_VOLDEV => {
+                    if let Some((endpoint, _)) = &volume {
+                        let _ = endpoint.UnregisterControlChangeNotify(&volume_client);
+                    }
+                    volume = devices.as_ref().and_then(|d| watch_volume(d, &volume_client));
+                    last_volume = volume.as_ref().map(|v| v.1);
                 }
                 _ => {
                     DispatchMessageW(&msg);
@@ -244,7 +268,11 @@ impl IMMNotificationClient_Impl for Endpoints_Impl {
         self.wake();
         Ok(())
     }
-    fn OnDefaultDeviceChanged(&self, _: EDataFlow, _: ERole, _: &PCWSTR) -> windows::core::Result<()> {
+    // The volume keys and the taskbar act on the console role of the default output.
+    fn OnDefaultDeviceChanged(&self, flow: EDataFlow, role: ERole, _: &PCWSTR) -> windows::core::Result<()> {
+        if flow == eRender && role == eConsole {
+            let _ = unsafe { PostMessageW(Some(HWND(self.0 as _)), WM_VOLDEV, WPARAM(0), LPARAM(0)) };
+        }
         Ok(())
     }
     fn OnPropertyValueChanged(&self, _: &PCWSTR, _: &PROPERTYKEY) -> windows::core::Result<()> {
@@ -335,4 +363,82 @@ unsafe fn node_prop<T: Default>(node: u32, key: &DEVPROPKEY, kind: DEVPROPTYPE) 
     let mut size = size_of::<T>() as u32;
     let ok = unsafe { CM_Get_DevNode_PropertyW(node, key, &mut found, Some(&mut value as *mut T as *mut u8), &mut size, 0) } == CR_SUCCESS;
     (ok && found == kind && size as usize == size_of::<T>()).then_some(value)
+}
+
+/// Volume and mute in percent, as the taskbar shows them.
+type Level = (u8, bool);
+
+/// The default output's volume callback; returns its endpoint (kept to unregister) and the level now, the baseline.
+unsafe fn watch_volume(devices: &IMMDeviceEnumerator, client: &IAudioEndpointVolumeCallback) -> Option<(IAudioEndpointVolume, Level)> {
+    unsafe {
+        // No output device at all is not an error: the next default change registers.
+        let endpoint: IAudioEndpointVolume = devices.GetDefaultAudioEndpoint(eRender, eConsole).and_then(|d| d.Activate(CLSCTX_ALL, None)).ok()?;
+        endpoint.RegisterControlChangeNotify(client).inspect_err(|e| eprintln!("sysevents: volume notification failed: {e}")).ok()?;
+        let now = (percent(endpoint.GetMasterVolumeLevelScalar().unwrap_or(0.0)), endpoint.GetMute().is_ok_and(|m| m.as_bool()));
+        Some((endpoint, now))
+    }
+}
+
+/// Runs on an audio service thread: it only posts the new level to the loop.
+#[implement(IAudioEndpointVolumeCallback)]
+struct VolumeWatch(isize);
+
+impl IAudioEndpointVolumeCallback_Impl for VolumeWatch_Impl {
+    fn OnNotify(&self, data: *mut AUDIO_VOLUME_NOTIFICATION_DATA) -> windows::core::Result<()> {
+        let Some(d) = (unsafe { data.as_ref() }) else { return Ok(()) };
+        let flags = d.bMuted.as_bool() as isize | ((d.guidEventContext == crate::controls::OWN_CHANGE) as isize) << 1;
+        let _ = unsafe { PostMessageW(Some(HWND(self.0 as _)), WM_VOL, WPARAM(percent(d.fMasterVolume) as usize), LPARAM(flags)) };
+        Ok(())
+    }
+}
+
+/// A scalar 0..1 as the whole percent Windows shows.
+fn percent(scalar: f32) -> u8 {
+    (scalar.clamp(0.0, 1.0) * 100.0).round() as u8
+}
+
+/// The callback also fires for balance and channel changes and repeats while a key is held: only a new level or mute counts.
+fn volume_changed(last: &mut Option<Level>, now: Level) -> bool {
+    let changed = *last != Some(now);
+    *last = Some(now);
+    changed
+}
+
+/// One HUD reading for the frontend (status://level): `kind` "volume" or "brightness", `level` 0..100.
+pub fn emit_level(app: &AppHandle, kind: &str, level: u8, muted: bool) {
+    let _ = app.emit("status://level", serde_json::json!({ "kind": kind, "level": level, "muted": muted }));
+    crate::osd::after_change();
+}
+
+/// From the settings: external monitors are read over DDC/CI only while the Brightness alert is on, and the Windows indicator is
+/// hidden only while the frontend says Crest's HUD replaces it.
+#[tauri::command]
+pub fn status_configure(ddc: bool, hide_osd: bool) {
+    crate::brightness::set_ddc(ddc);
+    crate::osd::set(hide_osd);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn percent_rounds_and_clamps() {
+        assert_eq!(percent(0.0), 0);
+        assert_eq!(percent(0.319_99), 32);
+        assert_eq!(percent(0.5), 50);
+        assert_eq!(percent(1.2), 100);
+        assert_eq!(percent(-0.1), 0);
+    }
+
+    #[test]
+    fn volume_changed_only_on_a_new_level() {
+        let mut last = None;
+        assert!(volume_changed(&mut last, (40, false)));
+        // The same level again (a balance change, a held key at the top) is no change.
+        assert!(!volume_changed(&mut last, (40, false)));
+        assert!(volume_changed(&mut last, (40, true)));
+        assert!(volume_changed(&mut last, (42, true)));
+        assert_eq!(last, Some((42, true)));
+    }
 }

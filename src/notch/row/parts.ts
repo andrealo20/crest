@@ -5,14 +5,16 @@ export type PartId = (typeof PART_IDS)[number];
 /** Readings of the closed row; net, power, battery and temp are opt-in. */
 export const READING_KEYS = ["cpu", "ram", "gpu", "net", "power", "battery", "temp"] as const;
 export type ReadingKey = (typeof READING_KEYS)[number];
-export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; statusAlerts: { power: boolean; net: boolean; bt: boolean } }
+export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; statusAlerts: StatusAlerts }
+/** `hideOsd` is not an alert: it hides the Windows volume and brightness indicator while Crest shows its own (status.ts osdHidden). */
+export interface StatusAlerts { power: boolean; net: boolean; bt: boolean; volume: boolean; brightness: boolean; hideOsd: boolean }
 
 export const CLOSED_DEFAULTS: ClosedSettings = {
   order: [...PART_IDS],
   parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false },
   readings: { cpu: true, ram: true, gpu: true, net: false, power: false, battery: false, temp: false },
   clockSeconds: false, lineProgress: true, quotaAlerts: true,
-  statusAlerts: { power: true, net: true, bt: true },
+  statusAlerts: { power: true, net: true, bt: true, volume: true, brightness: true, hideOsd: false },
 };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -29,7 +31,7 @@ export function normalizeClosed(saved: unknown): ClosedSettings {
     parts: Object.fromEntries(PART_IDS.map((id) => [id, bool(parts[id], d.parts[id])])) as Record<PartId, boolean>,
     readings: Object.fromEntries(READING_KEYS.map((k) => [k, bool(readings[k], d.readings[k])])) as Record<ReadingKey, boolean>,
     clockSeconds: bool(s.clockSeconds, d.clockSeconds), lineProgress: bool(s.lineProgress, d.lineProgress), quotaAlerts: bool(s.quotaAlerts, d.quotaAlerts),
-    statusAlerts: { power: bool(alerts.power, d.statusAlerts.power), net: bool(alerts.net, d.statusAlerts.net), bt: bool(alerts.bt, d.statusAlerts.bt) },
+    statusAlerts: Object.fromEntries(Object.entries(d.statusAlerts).map(([k, v]) => [k, bool(alerts[k], v)])) as unknown as StatusAlerts,
   };
 }
 

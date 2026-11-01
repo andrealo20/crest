@@ -14,6 +14,9 @@ use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
 use windows::Win32::Media::Audio::{eConsole, eRender, IMMDeviceEnumerator, MMDeviceEnumerator};
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
 
+/// Passed with Crest's own volume changes, so the HUD (sysevents.rs) can tell them from keys and other apps.
+pub const OWN_CHANGE: windows::core::GUID = windows::core::GUID::from_u128(0x5f2c6a1e_93b4_4d7e_a0c1_c4e57a3b9d20);
+
 #[derive(Serialize)]
 pub struct Volume {
     /// 0..1
@@ -56,13 +59,13 @@ pub async fn volume_set(level: Option<f32>, muted: Option<bool>) -> Result<Volum
         let ep = endpoint().map_err(|e| e.message())?;
         unsafe {
             if let Some(l) = level {
-                ep.SetMasterVolumeLevelScalar(l.clamp(0.0, 1.0), std::ptr::null()).map_err(|e| e.message())?;
+                ep.SetMasterVolumeLevelScalar(l.clamp(0.0, 1.0), &OWN_CHANGE).map_err(|e| e.message())?;
                 if l > 0.0 && muted.is_none() {
-                    let _ = ep.SetMute(false, std::ptr::null());
+                    let _ = ep.SetMute(false, &OWN_CHANGE);
                 }
             }
             if let Some(m) = muted {
-                ep.SetMute(m, std::ptr::null()).map_err(|e| e.message())?;
+                ep.SetMute(m, &OWN_CHANGE).map_err(|e| e.message())?;
             }
         }
         read_volume().map_err(|e| e.message())

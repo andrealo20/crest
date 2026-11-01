@@ -1,5 +1,6 @@
 pub mod ai;
 mod audio;
+mod brightness;
 mod capture;
 mod clipboard;
 mod controls;
@@ -18,6 +19,7 @@ mod memory;
 mod mixer;
 mod notices;
 mod notify_wire;
+mod osd;
 pub mod portable;
 mod privacy;
 mod screen_policy;
@@ -45,6 +47,11 @@ use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForeground
 /// For main.rs: elevated "Unlock FPS" call (see fps::fps_unlock).
 pub fn fps_elevated_unlock(sid: &str) -> i32 {
     fps::elevated_unlock(sid)
+}
+
+/// For main.rs: the process that puts the Windows volume and brightness indicator back after Crest (see osd.rs).
+pub fn osd_guard(pid: &str) -> i32 {
+    osd::guard(pid)
 }
 
 pub fn run() {
@@ -113,6 +120,7 @@ pub fn run() {
             usage::usage_tokens,
             system::system_stats,
             sysevents::status_seed,
+            sysevents::status_configure,
             system::system_icon,
             convert::convert_probe,
             convert::reveal_file,
@@ -211,6 +219,9 @@ pub fn run() {
             clipboard::spawn(app.handle().clone());
             audio::spawn(app.handle().clone(), &app.state::<audio::AudioState>());
             sysevents::spawn(app.handle().clone());
+            brightness::spawn(app.handle().clone());
+            // A run that ended without restoring the Windows indicator (and whose guard was ended with it) is cleaned up here.
+            osd::restore();
 
             enable_autostart_once(app.handle());
             build_tray(app)?;
@@ -222,6 +233,7 @@ pub fn run() {
             // A recording still running when Crest quits is finished, so the file is complete.
             if let tauri::RunEvent::Exit = event {
                 capture::finish_on_exit(app);
+                osd::set(false);
             }
         });
 }

@@ -55,6 +55,8 @@ A running recording outranks every other notice, so its stop button stays in rea
 
 Status alerts show briefly when you plug in or unplug the charger, when the battery reaches 20% and 10%, when the internet drops or comes back, and when Bluetooth headphones connect or disconnect. Turn each one off in **Settings → Display**.
 
+The volume and brightness HUD is a status alert too: when the volume or mute changes (keys, the mixer, any app) or the brightness changes, the closed notch shows an icon, a level bar and the percent for a moment, also on the line style, which opens for it. Changes made in Crest itself do not show it. The built-in screen reports its brightness at once; external monitors are read over DDC/CI every 2 seconds while the Brightness alert is on, and only those that support it. **Hide the Windows indicator** (off by default, needs Volume and Brightness on) keeps the Windows volume and brightness flyout invisible while Crest runs and while its HUD can show (not in focus mode or over a fullscreen app). Windows gets it back when you turn the option off or quit Crest, and a small helper process restores it if Crest crashes or is ended from Task Manager.
+
 ## Music and lyrics
 
 - **Now Playing** controls anything with a Windows media session (Spotify, browser players and so on) and shows cover, title, progress and a live equalizer.

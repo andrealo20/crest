@@ -94,7 +94,7 @@ A notch at the edge of your Windows screen that opens on hover, click or **Ctrl 
   </tr>
 </table>
 
-Also in the notch: a password and 2FA vault, Windows notifications with a history page, `crest-notify` for scripts and builds, status alerts, your Discord call and privacy dots for the mic, camera and screen recording.
+Also in the notch: a password and 2FA vault, Windows notifications with a history page, `crest-notify` for scripts and builds, status alerts with a volume and brightness HUD, your Discord call and privacy dots for the mic, camera and screen recording.
 
 A short first-run setup picks a preset (Music, Productivity, AI or your own tools), the closed look and edge, and shows how to open the notch; Settings → General runs it again.
 
@@ -126,6 +126,7 @@ Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Wi
 - The LRCLIB lookup (exact match, search fallback by length, cleanup of video titles) follows an upstream pull request by mhmmdazizy ([L4-Notchbar PR #13](https://github.com/Linux5Real/L4-Windows-NotchBar/pull/13)).
 - The layout of the collapsed row, the carousel timing, the capsule placement rules, the per-app audio capture, the way live notices learn of new Windows notifications from the event log, the screen-edge frame, the side column, the portable packaging, the window and app rules, the shortcut text and the panel sizes and scale are translated from [BrimDeck](https://github.com/MoFeng2223/BrimDeck) (Apache-2.0, license text in [licenses/BrimDeck-LICENSE](licenses/BrimDeck-LICENSE)).
 - The panel themes, their readability correction and the day and night switch are translated from BrimDeck too ([docs/themes.md](docs/themes.md)). The One Dark Pro, GitHub, Dracula and Night Owl themes use the colours of those VS Code themes under the MIT License ([licenses/theme-palettes-MIT.txt](licenses/theme-palettes-MIT.txt)).
+- Hiding the Windows volume and brightness indicator follows [Bloom](https://github.com/SehajveerSingh2005/bloom) (GPL-3.0, license text in [licenses/Bloom-LICENSE](licenses/Bloom-LICENSE)).
 - The notch proportions were derived from [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT).
 - The terminal uses [xterm.js](https://github.com/xtermjs/xterm.js) (MIT, [licenses/xterm-MIT.txt](licenses/xterm-MIT.txt)).
 - The text is set in [Inter](https://github.com/rsms/inter) (SIL Open Font License 1.1, [licenses/Inter-OFL.txt](licenses/Inter-OFL.txt)), bundled through Fontsource.

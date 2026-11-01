@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, BatteryHigh, BatteryLow, BatteryWarning, CheckCircle, FilmStrip, Headphones, Pause, Play, Plug, Stop, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
+import { AlarmIcon, BatteryHigh, BatteryLow, BatteryWarning, CheckCircle, FilmStrip, Headphones, Pause, Play, Plug, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
 import { pauseRecording, recording, saved, stopRecording, type Saved } from "../../features/capture/store";
 import { elapsedAt, formatElapsed } from "../../features/capture/clock";
 import { openFile } from "../../platform/services";
@@ -30,8 +30,11 @@ import { popping } from "../../features/notices/store";
 import { noticePop } from "../../features/notices/NoticePop";
 import { usePresenting } from "../../features/privacy/store";
 
-const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76, REC_DOT = 8, THUMB_W = 28;
-const STATUS_ICON: Record<StatusAlert["icon"], Icon> = { plug: Plug, battery: BatteryHigh, wifi: WifiHigh, "wifi-off": WifiSlash, headphones: Headphones };
+const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76, REC_DOT = 8, THUMB_W = 28, LEVEL_BAR = 56;
+const STATUS_ICON: Record<StatusAlert["icon"], Icon> = {
+  plug: Plug, battery: BatteryHigh, wifi: WifiHigh, "wifi-off": WifiSlash, headphones: Headphones,
+  "speaker-high": SpeakerHigh, "speaker-low": SpeakerLow, "speaker-none": SpeakerNone, "speaker-x": SpeakerX, sun: Sun, "sun-dim": SunDim,
+};
 const TONE = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" } as const;
 
 /** The capture saved in the last SAVED.showMs (also one taken while the notch was open, for what is left of its time). */
@@ -95,7 +98,7 @@ function useTrackCaption(on: boolean): string | null {
 /**
  * Covers the closed row with the most important notice: a running recording (time, pause and stop, until it ends),
  * a finished timer (until dismissed by a click), a screenshot or recording just saved, a status alert
- * (charger, network, headphones), a live notice from Windows or crest-notify (features/notices), a quota that crossed a level,
+ * (charger, network, headphones, the volume and brightness HUD), a live notice from Windows or crest-notify (features/notices), a quota that crossed a level,
  * a new track while the title part is off, a due to-do or the water reminder.
  * Reports its content width while one shows, null otherwise; the shape takes that width. Mounted with the row, and on the idle line
  * or in focus mode while a finished timer, a recording, a status alert or a due to-do opens it into the notch (`urgentOnly`).
@@ -214,14 +217,25 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
     );
   } else if (kind === "status" && status) {
     const I = status.icon === "battery" && status.tone !== "normal" ? (status.tone === "critical" ? BatteryWarning : BatteryLow) : STATUS_ICON[status.icon];
-    const textW = Math.min(measureText(status.text), max - ICON - GAP);
-    width = ICON + GAP + textW;
+    // The volume and brightness HUD adds a level bar; its text keeps the width of "100 %", so the notch holds still while the level moves.
+    const bar = status.level === undefined ? 0 : LEVEL_BAR + GAP;
+    const textW = Math.min(Math.max(measureText(status.text), bar && measureText(t("{p} %", { p: 100 }))), max - ICON - GAP - bar);
+    width = ICON + GAP + bar + textW;
     // One key per kind: a newer alert of the same kind swaps its text in place instead of cross-fading.
     key = `status:${status.kind}`;
     body = (
       <span className="flex h-full items-center" style={{ gap: GAP, color: TONE[status.tone] }}>
         <I size={ICON} weight="fill" className="shrink-0" />
-        <span className="truncate text-footnote font-medium" style={{ width: textW }}>{status.text}</span>
+        {status.level !== undefined && (
+          <span className="h-1 shrink-0 overflow-hidden rounded-full bg-fill-3" style={{ width: LEVEL_BAR }}>
+            <span
+              className="block h-full rounded-full transition-[width] duration-150 ease-out"
+              // Muted keeps the level, greyed, as Windows shows it.
+              style={{ width: `${status.level}%`, background: status.icon === "speaker-x" ? "var(--color-label-3)" : "currentColor" }}
+            />
+          </span>
+        )}
+        <span className={`truncate text-footnote font-medium ${bar ? "tabular" : ""}`} style={{ width: textW }}>{status.text}</span>
       </span>
     );
   } else if (kind === "notice" && pop) {

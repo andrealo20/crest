@@ -4,7 +4,7 @@ import { settings } from "../../settings/store";
 import { focusMode } from "../../notch/focus";
 import { fullscreen } from "../system/gaming";
 import { t } from "../../i18n";
-import { STATUS, btAlert, netAlert, powerAlert, mergeSeed, type LowBattery, type PowerState, type StatusAlert } from "../../notch/row/status";
+import { STATUS, btAlert, levelAlert, netAlert, osdHidden, powerAlert, mergeSeed, type LowBattery, type PowerState, type StatusAlert } from "../../notch/row/status";
 
 /** The status alert on screen, for STATUS.showMs; a new one replaces it. */
 export const statusAlert = createStore<StatusAlert | null>(null);
@@ -50,6 +50,20 @@ export function startStatusWatch() {
       if (e.connected && known) return;
       show(btAlert(e, t), settings.get().closed.statusAlerts.bt);
     },
+    level: (e) => show(levelAlert(e, t), settings.get().closed.statusAlerts[e.kind]),
   });
   void status.seed().then(seed, () => {});
+  // Tells Rust what to read and whether to hide the Windows indicator; sent again only when that changes.
+  let sent = "";
+  const configure = () => {
+    const alerts = settings.get().closed.statusAlerts;
+    const c = { ddc: alerts.brightness, hideOsd: osdHidden(alerts, focusMode.get(), fullscreen.get()) };
+    if (JSON.stringify(c) === sent) return;
+    sent = JSON.stringify(c);
+    status.configure(c);
+  };
+  settings.subscribe(configure);
+  focusMode.subscribe(configure);
+  fullscreen.subscribe(configure);
+  configure();
 }

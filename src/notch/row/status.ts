@@ -1,7 +1,14 @@
-// Rules for the closed notch's status alerts (power, network, headphones): which transition deserves a short message. Pure; `tr` is passed in so this stays free of i18n.
+// Rules for the closed notch's status alerts (power, network, headphones, the volume and brightness HUD): which transition deserves a short message. Pure; `tr` is passed in so this stays free of i18n.
 
 export interface PowerState { ac: boolean; percent: number | null; battery: boolean }
-export interface StatusAlert { kind: "power" | "net" | "bt"; icon: "plug" | "battery" | "wifi" | "wifi-off" | "headphones"; text: string; tone: "normal" | "warning" | "critical" }
+export interface StatusAlert {
+  kind: "power" | "net" | "bt" | "volume" | "brightness";
+  icon: "plug" | "battery" | "wifi" | "wifi-off" | "headphones" | "speaker-high" | "speaker-low" | "speaker-none" | "speaker-x" | "sun" | "sun-dim";
+  text: string;
+  tone: "normal" | "warning" | "critical";
+  /** 0..100, drawn as a level bar (volume and brightness only). */
+  level?: number;
+}
 /** Which low-battery levels already fired in this discharge. */
 export interface LowBattery { warned20: boolean; warned10: boolean }
 type Tr = (de: string, vars?: Record<string, string | number>) => string;
@@ -49,4 +56,23 @@ export function btAlert(event: { name: string; connected: boolean; battery: numb
   if (!name) return null;
   const text = !event.connected ? tr("{n} · Getrennt", { n: name }) : event.battery === null ? name : tr("{n} · {p} %", { n: name, p: event.battery });
   return { kind: "bt", icon: "headphones", text, tone: "normal" };
+}
+
+/** A volume or brightness reading from sysevents.rs and brightness.rs, which already drop repeats, Crest's own changes and the start. */
+export interface LevelEvent { kind: "volume" | "brightness"; level: number; muted: boolean }
+
+/** The HUD: the icon follows the level (half way splits low and high), the bar shows it, the text says the percent or that it is muted. */
+export function levelAlert(e: LevelEvent, tr: Tr): StatusAlert {
+  const p = Math.round(Math.min(100, Math.max(0, e.level)));
+  if (e.kind === "brightness") return { kind: "brightness", icon: p < 50 ? "sun-dim" : "sun", text: tr("{p} %", { p }), tone: "normal", level: p };
+  const icon = e.muted ? "speaker-x" : p === 0 ? "speaker-none" : p < 50 ? "speaker-low" : "speaker-high";
+  return { kind: "volume", icon, text: e.muted ? tr("Stummgeschaltet") : tr("{p} %", { p }), tone: "normal", level: p };
+}
+
+/**
+ * Whether the Windows indicator is hidden: only while Crest's HUD stands in for both volume and brightness (Windows draws them in
+ * one flyout) and can show, so not in focus mode nor over a fullscreen app, where status alerts are dropped.
+ */
+export function osdHidden(alerts: { volume: boolean; brightness: boolean; hideOsd: boolean }, focus: boolean, fullscreen: boolean): boolean {
+  return alerts.hideOsd && alerts.volume && alerts.brightness && !focus && !fullscreen;
 }

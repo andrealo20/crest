@@ -1,7 +1,7 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck/MainWindow.CompactColumn.cs.
 import { useLayoutEffect, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { AlarmIcon, BatteryHigh, BatteryLow, BatteryWarning, CheckCircle, Headphones, Pause, Play, Plug, Stop, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
+import { AlarmIcon, BatteryHigh, BatteryLow, BatteryWarning, CheckCircle, Headphones, Pause, Play, Plug, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
 import { content, pulse } from "../../design/motion";
 import { t } from "../../i18n";
 import { ringing, timerActions, useSecondTick } from "../../features/timer/store";
@@ -41,7 +41,12 @@ interface Line { id: string; w: number; h: number; draw: () => ReactNode }
 const NOTICE_ICON = 17;
 /** The recording line: dot 8, time 14, two buttons, 4 between. */
 const REC_STACK = 8 + 14 + 2 * NOTICE_BUTTON + 3 * 4;
-const STATUS_ICON: Record<StatusAlert["icon"], Icon> = { plug: Plug, battery: BatteryHigh, wifi: WifiHigh, "wifi-off": WifiSlash, headphones: Headphones };
+const STATUS_ICON: Record<StatusAlert["icon"], Icon> = {
+  plug: Plug, battery: BatteryHigh, wifi: WifiHigh, "wifi-off": WifiSlash, headphones: Headphones,
+  "speaker-high": SpeakerHigh, "speaker-low": SpeakerLow, "speaker-none": SpeakerNone, "speaker-x": SpeakerX, sun: Sun, "sun-dim": SunDim,
+};
+/** The HUD's level bar under the icon: 3 high, 4 below the icon. */
+const LEVEL_H = 3, LEVEL_GAP = 4;
 const TONE: Record<StatusAlert["tone"], string> = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" };
 
 /**
@@ -109,6 +114,23 @@ function useNoticeLine(urgentOnly: boolean): Line | null {
     ));
   if (kind === "status" && status) {
     const I = status.icon === "battery" && status.tone !== "normal" ? (status.tone === "critical" ? BatteryWarning : BatteryLow) : STATUS_ICON[status.icon];
+    if (status.level !== undefined) {
+      const level = status.level;
+      // One id per kind, so a held key moves the bar in place.
+      return {
+        id: `notice-${status.kind}`,
+        w: NOTICE_ICON,
+        h: NOTICE_ICON + LEVEL_GAP + LEVEL_H,
+        draw: () => (
+          <span className="flex flex-col items-center" style={{ gap: LEVEL_GAP, color: TONE[status.tone] }}>
+            <I size={NOTICE_ICON} weight="fill" />
+            <span className="overflow-hidden rounded-full bg-fill-3" style={{ width: NOTICE_ICON, height: LEVEL_H }}>
+              <span className="block h-full rounded-full" style={{ width: `${level}%`, background: status.icon === "speaker-x" ? "var(--color-label-3)" : "currentColor" }} />
+            </span>
+          </span>
+        ),
+      };
+    }
     return line(`notice-${status.kind}-${status.icon}`, () => <I size={NOTICE_ICON} weight="fill" style={{ color: TONE[status.tone] }} />);
   }
   if (kind === "notice" && pop) return line(`notice-pop-${pop.id}`, () => <AppIcon n={pop} size={NOTICE_ICON} />);

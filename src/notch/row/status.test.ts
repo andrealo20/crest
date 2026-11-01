@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { btAlert, mergeSeed, netAlert, powerAlert } from "./status.ts";
+import { btAlert, levelAlert, mergeSeed, netAlert, osdHidden, powerAlert } from "./status.ts";
 
 const tr = (k: string, v: Record<string, string | number> = {}) => k.replace(/\{(\w+)\}/g, (_, x) => String(v[x]));
 const s = (ac: boolean, percent: number | null, battery = true) => ({ ac, percent, battery });
@@ -75,4 +75,31 @@ test("seed: fills only what is still unknown", () => {
   assert.deepEqual([evented.power, evented.online], [s(false, 40), false]);
   // Headsets are the union of what is known and what the seed lists.
   assert.deepEqual(mergeSeed({ ...none, headsets: new Set(["A"]) }, { power: null, online: null, headsets: ["A", "B"] }).headsets, new Set(["A", "B"]));
+});
+
+test("level: volume icon, bar and text", () => {
+  const v = (level: number, muted = false) => levelAlert({ kind: "volume", level, muted }, tr);
+  assert.deepEqual(v(64), { kind: "volume", icon: "speaker-high", text: "64 %", tone: "normal", level: 64 });
+  assert.equal(v(49).icon, "speaker-low");
+  assert.equal(v(50).icon, "speaker-high");
+  assert.deepEqual([v(0).icon, v(0).text], ["speaker-none", "0 %"]);
+  // Muted keeps the level for the bar and says so instead of the percent.
+  assert.deepEqual(v(30, true), { kind: "volume", icon: "speaker-x", text: "Stummgeschaltet", tone: "normal", level: 30 });
+});
+test("level: brightness and out of range readings", () => {
+  const b = (level: number) => levelAlert({ kind: "brightness", level, muted: false }, tr);
+  assert.deepEqual(b(80), { kind: "brightness", icon: "sun", text: "80 %", tone: "normal", level: 80 });
+  assert.equal(b(20).icon, "sun-dim");
+  assert.equal(b(140).level, 100);
+  assert.equal(b(-5).level, 0);
+  assert.equal(b(33.6).text, "34 %");
+});
+test("osd: hidden only while the HUD replaces both and can show", () => {
+  const on = { volume: true, brightness: true, hideOsd: true };
+  assert.equal(osdHidden(on, false, false), true);
+  assert.equal(osdHidden({ ...on, hideOsd: false }, false, false), false);
+  assert.equal(osdHidden({ ...on, brightness: false }, false, false), false);
+  assert.equal(osdHidden({ ...on, volume: false }, false, false), false);
+  assert.equal(osdHidden(on, true, false), false);
+  assert.equal(osdHidden(on, false, true), false);
 });

@@ -36,9 +36,12 @@ test("does not alias the defaults", () => {
   assert.deepEqual(CLOSED_DEFAULTS.order, [...PART_IDS]); assert.equal(CLOSED_DEFAULTS.parts.timer, true); assert.equal(CLOSED_DEFAULTS.readings.cpu, true);
 });
 test("status alerts setting", () => {
-  assert.deepEqual(normalizeClosed(undefined).statusAlerts, { power: true, net: true, bt: true });
-  assert.deepEqual(normalizeClosed({ statusAlerts: { net: false } }).statusAlerts, { power: true, net: false, bt: true });
-  assert.deepEqual(normalizeClosed({ statusAlerts: "no" }).statusAlerts, { power: true, net: true, bt: true });
+  const alerts = { power: true, net: true, bt: true, volume: true, brightness: true, hideOsd: false };
+  assert.deepEqual(normalizeClosed(undefined).statusAlerts, alerts);
+  // 0.2 saved only the first three: the new ones take their defaults.
+  assert.deepEqual(normalizeClosed({ statusAlerts: { net: false, power: true, bt: true } }).statusAlerts, { ...alerts, net: false });
+  assert.deepEqual(normalizeClosed({ statusAlerts: { hideOsd: true, volume: "yes" } }).statusAlerts, { ...alerts, hideOsd: true });
+  assert.deepEqual(normalizeClosed({ statusAlerts: "no" }).statusAlerts, alerts);
 });
 test("caption", () => {
   assert.equal(trackCaption("Paper Sky", "Lumen Coast"), "Paper Sky · Lumen Coast");
