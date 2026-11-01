@@ -8,7 +8,8 @@
 //! on top" is reapplied in case another app put itself above.
 //!
 //! The hide hotkey (shell.rs) hides Crest on top of that until it is pressed again, the notch is
-//! opened from the tray, or "raise now" runs.
+//! opened from the tray, or "raise now" runs. Opening on purpose also shows Crest over a "hide" rule
+//! until the notch closes; the floating timer hides and shows with the notch.
 //!
 //! `offset` moves the notch along its edge (dragging), clamped to the monitor. `zoom` is the panel scale:
 //! the page is zoomed and the window grown by it, so CSS px times DPI times zoom are device pixels.
@@ -46,6 +47,8 @@ pub struct DisplayState {
     user_hidden: AtomicBool,
     /// The rules call for hiding right now.
     rule_hide: AtomicBool,
+    /// Opened on purpose (shortcut, tray, second launch, launcher): shown over `rule_hide` until the notch closes.
+    opened: AtomicBool,
     /// The window is hidden right now.
     hidden: AtomicBool,
     /// Last behaviour the rules called for (Behavior as u8), for `display_screen`.
@@ -177,7 +180,10 @@ pub fn display_screen(state: State<'_, DisplayState>) -> &'static str {
 /// "Raise now": shows Crest if the hide hotkey hid it and puts it on top of the topmost windows.
 #[tauri::command]
 pub fn display_raise(app: AppHandle) {
-    unhide(&app);
+    // Not `unhide`: nothing opens here, so a "hide" rule keeps its say.
+    if app.state::<DisplayState>().user_hidden.swap(false, Ordering::Relaxed) {
+        sync(&app);
+    }
     let Some(window) = app.get_webview_window("notch") else { return };
     if let Ok(hwnd) = window.hwnd() {
         let _ = unsafe { SetWindowPos(hwnd, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
@@ -223,20 +229,38 @@ pub fn toggle_user_hidden(app: &AppHandle) {
     sync(app);
 }
 
-/// Opening from the tray, the open hotkey or a second launch brings back a Crest hidden with the hotkey.
+/// Opening from the tray, the open hotkey, a second launch or the launcher brings back a Crest hidden with
+/// the hotkey, and shows it over a "hide" rule until the notch closes again.
 pub fn unhide(app: &AppHandle) {
     let state = app.state::<DisplayState>();
-    if state.user_hidden.swap(false, Ordering::Relaxed) {
+    state.user_hidden.store(false, Ordering::Relaxed);
+    state.opened.store(true, Ordering::Relaxed);
+    sync(app);
+}
+
+/// The notch closed (keyboard_focus(false) in lib.rs): the rules hide it again.
+pub fn closed(app: &AppHandle) {
+    if app.state::<DisplayState>().opened.swap(false, Ordering::Relaxed) {
         sync(app);
     }
 }
 
-/// Shows or hides the window to match the hotkey and the rules; only acts on a change.
+/// Hidden by a rule or the hotkey; the hit-test thread rests meanwhile.
+pub fn is_hidden(app: &AppHandle) -> bool {
+    app.state::<DisplayState>().hidden.load(Ordering::Relaxed)
+}
+
+/// Shows or hides the window (and the floating timer with it) to match the hotkey and the rules; only acts on a change.
 fn sync(app: &AppHandle) {
     let state = app.state::<DisplayState>();
-    let hide = state.user_hidden.load(Ordering::Relaxed) || state.rule_hide.load(Ordering::Relaxed);
+    let rule_hide = state.rule_hide.load(Ordering::Relaxed) && !state.opened.load(Ordering::Relaxed);
+    let hide = state.user_hidden.load(Ordering::Relaxed) || rule_hide;
     if state.hidden.swap(hide, Ordering::Relaxed) == hide {
         return;
+    }
+    // The timer window exists only while it is open (timer_window.rs destroys it on close).
+    if let Some(timer) = app.get_webview_window("timer") {
+        let _ = if hide { timer.hide() } else { timer.show() };
     }
     let Some(window) = app.get_webview_window("notch") else { return };
     if hide {

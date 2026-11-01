@@ -8,6 +8,7 @@ import { capture, openFile, revealFile, type CaptureDetails, type CaptureFile, t
 import { settings, updateSettings, type Settings } from "../../settings/store";
 import { Button, Empty, Segmented, Select } from "../../ui/controls";
 import { useSecondTick } from "../timer/store";
+import { usePresenting } from "../privacy/store";
 import { locale, t } from "../../i18n";
 import { elapsedAt, formatElapsed } from "./clock";
 import { libraryEpoch, pauseRecording, recording, startRecording, stopRecording, takeShot } from "./store";
@@ -277,6 +278,8 @@ function when(ms: number): string {
 function Card({ file, details, onDeleted }: { file: CaptureFile; details?: CaptureDetails; onDeleted: () => void }) {
   const video = file.kind === "video";
   const I = video ? FilmStrip : ImageSquare;
+  // A thumbnail can show anything that was on screen: only the icon while presenting.
+  const thumb = usePresenting() ? null : details?.thumb;
   // Delete takes a second click within a few seconds.
   const [armed, setArmed] = useState(false);
   const disarm = useRef(0);
@@ -294,7 +297,7 @@ function Card({ file, details, onDeleted }: { file: CaptureFile; details?: Captu
   return (
     <div className="relative flex size-full flex-col overflow-hidden rounded-[14px] bg-fill-1">
       <button onClick={() => void openFile(file.path)} title={t("{name} öffnen", { name: file.name })} className="pressable relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-        {details?.thumb ? <img src={details.thumb} alt="" draggable={false} className="absolute inset-0 size-full object-cover" /> : <I size={28} weight="duotone" className="text-label-2" />}
+        {thumb ? <img src={thumb} alt="" draggable={false} className="absolute inset-0 size-full object-cover" /> : <I size={28} weight="duotone" className="text-label-2" />}
         {video && (
           <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
             <span className="flex size-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-md">

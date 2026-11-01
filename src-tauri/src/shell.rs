@@ -126,8 +126,17 @@ pub async fn hotkeys_apply(config: HotkeyConfig, app: AppHandle, state: State<'_
 /// opening its app id. Per key whether Windows gave it (false = another program, or a Crest shortcut, holds it).
 pub fn bind_launch(app: &AppHandle, keys: Vec<(Shortcut, String)>) -> Vec<bool> {
     let state = app.state::<Hotkeys>();
-    let old = std::mem::take(&mut state.0.lock().unwrap().launch);
-    for (s, _) in old {
+    // A Crest shortcut on a launch key yields to it (hotkeys.ts does the same), even before `hotkeys_apply` runs.
+    // The resize arrows can never be an Alt+digit key.
+    let old: Vec<Shortcut> = {
+        let mut b = state.0.lock().unwrap();
+        let taken = |s: &mut Shortcut| keys.iter().any(|(k, _)| k.id() == s.id());
+        let mut old: Vec<Shortcut> = std::mem::take(&mut b.launch).into_iter().map(|(s, _)| s).collect();
+        old.extend(b.open.take_if(taken));
+        old.extend(b.hide.take_if(taken));
+        old
+    };
+    for s in old {
         let _ = app.global_shortcut().unregister(s);
     }
     let mut held = Vec::new();

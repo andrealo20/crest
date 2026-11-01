@@ -16,8 +16,8 @@ import { lang, t } from "../../i18n";
 
 /*
  * Weather data via Open-Meteo (free, no key). Used by the weather tool and the
- * overview. Location: detected via IP on first start ("auto"); a location you pick
- * yourself stays.
+ * overview. Location: detected via IP at each start while it is automatic ("auto");
+ * a location you pick yourself stays.
  */
 export interface Forecast {
   current: { temp: number; feels: number; code: number; wind: number; day: boolean };
@@ -147,5 +147,7 @@ export function useForecast(): Forecast | null | "error" {
   return place ? data : null;
 }
 
-// On start: first run or "automatic" → location from IP (a hand-picked one stays).
-void detectPlace();
+// On start, only when the weather shows somewhere (its tool or the Overview header): first run or "automatic"
+// → location from IP (detectPlace leaves a hand-picked one alone).
+const shown = settings.get().tools.some((x) => (x.id === "weather" || x.id === "overview") && x.enabled);
+if (shown) void detectPlace();

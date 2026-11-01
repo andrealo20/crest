@@ -239,10 +239,14 @@ fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusStat
             *previous = foreground;
         }
         let _ = window.set_focus();
-    } else if foreground == own && *previous != 0 {
+        return;
+    }
+    if foreground == own && *previous != 0 {
         let _ = unsafe { SetForegroundWindow(HWND(*previous as *mut _)) };
         *previous = 0;
     }
+    // Sent when the notch closes: a "hide" rule takes over again.
+    display::closed(window.app_handle());
 }
 
 #[tauri::command]

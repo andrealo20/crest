@@ -237,7 +237,7 @@ pub fn launch_from_key(app: &AppHandle, id: String) {
         if open(&app.state::<LauncherState>(), id.clone()) == Err("not-found".into()) {
             // The frontend names the app; open the notch so the message is seen.
             let _ = app.emit("launcher://missing", id);
-            let _ = app.emit("notch://open", Some("launcher"));
+            crate::shell::open(&app, Some("launcher"));
         }
     });
 }

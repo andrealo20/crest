@@ -29,6 +29,16 @@ test("routing", () => {
   assert.equal(route("x", quiet, { presenting: false, now: 8 * 60 }), "pop");
 });
 
+test("a fullscreen app or Windows focus keeps notices in the history", () => {
+  const on = { ...NOTICE_DEFAULTS, enabled: true, rules: { gone: "hide" as const } };
+  const ctx = { presenting: false, now: 12 * 60 };
+  assert.equal(route("x", on, { ...ctx, fullscreen: true }), "history");
+  assert.equal(route("x", on, { ...ctx, focus: true }), "history");
+  assert.equal(route("x", on, { ...ctx, fullscreen: false, focus: false }), "pop");
+  assert.equal(route("gone", on, { ...ctx, fullscreen: true, focus: true }), "drop");
+  assert.equal(route("x", NOTICE_DEFAULTS, { ...ctx, focus: true }), "drop");
+});
+
 test("quiet window", () => {
   assert.equal(minutes("7:05"), 425);
   assert.equal(minutes("24:00"), null);

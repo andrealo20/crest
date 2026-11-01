@@ -1,7 +1,8 @@
 import { createStore } from "../../lib/store";
-import { noticeSource, type IncomingNotice, type NoticeSourceStatus } from "../../platform/services";
+import { noticeSource, systemControls, type IncomingNotice, type NoticeSourceStatus } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { presentingNow, privacy } from "../privacy/store";
+import { fullscreen } from "../system/gaming";
 import { addNotice, removeApp, removeNotice, type Notice } from "./history";
 import { rememberApp, route, setRule, type NoticeRule } from "./rules";
 
@@ -22,13 +23,22 @@ export const sourceStatus = createStore<NoticeSourceStatus>({ access: "unspecifi
 let popTimer: number | undefined;
 let nextId = 0;
 
-function ingest(input: IncomingNotice) {
+// Notices wait for each other here, so reading the focus state cannot reorder them.
+let queue = Promise.resolve();
+
+function receive(input: IncomingNotice) {
+  if (!settings.get().notices.enabled) return;
+  // Read when a notice arrives instead of polling; a failed read counts as focus off.
+  queue = queue.then(() => systemControls.focus().then((f) => f.active, () => false).then((focus) => ingest(input, focus))).catch(console.error);
+}
+
+function ingest(input: IncomingNotice, focus: boolean) {
   const s = settings.get().notices;
   if (!s.enabled) return;
   const apps = rememberApp(s.apps, input.appId, input.appName);
   if (apps !== s.apps) updateSettings((cur) => ({ notices: { ...cur.notices, apps } }));
   const d = new Date();
-  const where = route(input.appId, s, { presenting: presentingNow(), now: d.getHours() * 60 + d.getMinutes() });
+  const where = route(input.appId, s, { presenting: presentingNow(), now: d.getHours() * 60 + d.getMinutes(), fullscreen: fullscreen.get(), focus });
   if (where === "drop") return;
   const n: Notice = { ...input, id: `${Date.now()}-${nextId++}` };
   history.set((list) => addNotice(list, n, Date.now()));
@@ -86,13 +96,14 @@ let started = false;
 export function startNotices() {
   if (started) return;
   started = true;
-  noticeSource.onNotice(ingest);
+  noticeSource.onNotice(receive);
   noticeSource.onStatus((s) => sourceStatus.set(s));
   refreshStatus();
-  // A notice on screen goes as soon as presentation mode starts.
-  const hideWhenPresenting = () => presentingNow() && popping.get() && dismissPop();
+  // A notice on screen goes as soon as presentation mode starts or an app goes fullscreen.
+  const hideWhenPresenting = () => (presentingNow() || fullscreen.get()) && popping.get() && dismissPop();
   privacy.subscribe(hideWhenPresenting);
   settings.subscribe(hideWhenPresenting);
+  fullscreen.subscribe(hideWhenPresenting);
 
   let last = "";
   const apply = () => {

@@ -682,7 +682,7 @@ function Presentation() {
     <Group title={t("Präsentationsmodus")} id="settings-presentation">
       <Row
         label={t("Präsentationsmodus")}
-        hint={presenting && !manual ? t("Aktiv – Bildschirmaufnahme erkannt") : t("Blendet Zwischenablage, Kontostände und Tresor aus")}
+        hint={presenting && !manual ? t("Aktiv – Bildschirmaufnahme erkannt") : t("Blendet Zwischenablage, Kontostände, Tresor, Aufnahmen und Ablage aus")}
       >
         <Switch label={t("Präsentationsmodus")} checked={presenting} onChange={togglePresentation} />
       </Row>

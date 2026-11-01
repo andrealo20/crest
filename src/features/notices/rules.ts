@@ -72,11 +72,12 @@ export function inQuiet(now: number, from: string, to: string): boolean {
   return a < b ? now >= a && now < b : now >= a || now < b;
 }
 
-export function route(appId: string, s: NoticeSettings, ctx: { presenting: boolean; now: number }): Route {
+/** `fullscreen`: an app fills the notch's screen; `focus`: Windows focus or Do Not Disturb is on. Both keep notices quiet. */
+export function route(appId: string, s: NoticeSettings, ctx: { presenting: boolean; now: number; fullscreen?: boolean; focus?: boolean }): Route {
   if (!s.enabled) return "drop";
   const rule = ruleFor(s.rules, appId);
   if (rule === "hide") return "drop";
-  if (rule === "mute" || ctx.presenting || (s.quiet.on && inQuiet(ctx.now, s.quiet.from, s.quiet.to))) return "history";
+  if (rule === "mute" || ctx.presenting || ctx.fullscreen || ctx.focus || (s.quiet.on && inQuiet(ctx.now, s.quiet.from, s.quiet.to))) return "history";
   return "pop";
 }
 
