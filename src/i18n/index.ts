@@ -64,6 +64,7 @@ const backendPatterns: [RegExp, string][] = [
   [/^Token abgelehnt$/, "Token rejected"],
   [/^Abgelehnt$/, "Declined"],
   [/^Im Portal http:\/\/localhost als Redirect eintragen$/, "Add http://localhost as a redirect in the developer portal"],
+  [/^Von Windows ausgeschaltet\. Crest im Task-Manager unter Autostart-Apps einschalten$/, "Turned off in Windows. Switch Crest on in Task Manager under Startup apps"],
 ];
 
 export function tBackend(msg: string): string {

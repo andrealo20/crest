@@ -10,6 +10,8 @@
 //! started with `--after-update <pid>`, which waits for this process to exit before it runs (the
 //! single-instance lock) and removes the old file. crest-notify.exe next to it is swapped the same way first. A folder the user cannot write to (checked once
 //! at start) keeps its data in the installed location and gets the download page instead.
+//!
+//! The Store build (feature `store`) is never portable and never updates itself: the Microsoft Store does that.
 
 use std::fs;
 use std::io::{Cursor, Read};
@@ -49,7 +51,7 @@ static COPY: OnceLock<Option<Copy>> = OnceLock::new();
 fn copy() -> Option<&'static Copy> {
     COPY.get_or_init(|| {
         let dir = exe()?.parent()?.to_path_buf();
-        let portable = dir.join(MARKER).is_file();
+        let portable = !cfg!(feature = "store") && dir.join(MARKER).is_file();
         let writable = portable && can_write(&dir);
         Some(Copy { dir, portable, writable })
     })
@@ -187,9 +189,14 @@ pub fn portable_info() -> PortableInfo {
     PortableInfo { portable: is_portable(), writable: copy().is_some_and(|c| c.writable) }
 }
 
+const STORE_UPDATES: &str = "the Store build is updated by the Microsoft Store";
+
 /// The newer version of the portable package, None when up to date.
 #[tauri::command]
 pub async fn portable_check(app: AppHandle) -> Result<Option<String>, String> {
+    if cfg!(feature = "store") {
+        return Err(STORE_UPDATES.into());
+    }
     let update = app.updater_builder().target(TARGET).build().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?;
     Ok(update.map(|u| u.version))
 }
@@ -198,6 +205,9 @@ pub async fn portable_check(app: AppHandle) -> Result<Option<String>, String> {
 /// whole percents. A folder that cannot be written opens the download page instead and returns true (the app keeps running).
 #[tauri::command]
 pub async fn portable_install(app: AppHandle) -> Result<bool, String> {
+    if cfg!(feature = "store") {
+        return Err(STORE_UPDATES.into());
+    }
     let exe = exe().ok_or("no executable path")?;
     if !copy().is_some_and(|c| c.writable) {
         return Command::new("explorer").arg(DOWNLOAD_PAGE).spawn().map(|_| true).map_err(|e| e.to_string());

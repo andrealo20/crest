@@ -237,10 +237,13 @@ function Updates() {
   return (
     <Group title={t("Updates")} id="settings-updates">
       <Row label={t("Version {v}", { v: u.current ?? "–" })} hint={status}>
-        <Button disabled={busy} onClick={() => void checkForUpdate()}>
-          {t("Jetzt suchen")}
-        </Button>
+        {!u.store && (
+          <Button disabled={busy} onClick={() => void checkForUpdate()}>
+            {t("Jetzt suchen")}
+          </Button>
+        )}
       </Row>
+      {u.store && <Row label={t("Updates kommen über den Microsoft Store")} />}
       <PortableNote />
       <AnimatePresence initial={false}>
         {(u.phase === "available" || u.phase === "downloading") && u.version && (
@@ -285,9 +288,11 @@ function Updates() {
           </motion.div>
         )}
       </AnimatePresence>
-      <Row label={t("Automatisch suchen")} hint={t("Einmal täglich, anonym bei GitHub – ohne deine Daten")}>
-        <Switch label={t("Automatisch suchen")} checked={auto} onChange={(on) => updateSettings({ updates: { auto: on } })} />
-      </Row>
+      {!u.store && (
+        <Row label={t("Automatisch suchen")} hint={t("Einmal täglich, anonym bei GitHub – ohne deine Daten")}>
+          <Switch label={t("Automatisch suchen")} checked={auto} onChange={(on) => updateSettings({ updates: { auto: on } })} />
+        </Row>
+      )}
     </Group>
   );
 }
@@ -390,6 +395,7 @@ function Ask() {
 function General() {
   const s = settings.use();
   const [auto, setAuto] = useState<boolean | null>(null);
+  const [autoError, setAutoError] = useState<string | null>(null);
   useEffect(() => {
     void autostart.get().then(setAuto);
   }, []);
@@ -452,14 +458,19 @@ function General() {
           ]}
         />
       </Row>
-      <Row label={t("Mit Windows starten")}>
+      <Row label={t("Mit Windows starten")} hint={autoError ?? undefined}>
         {auto !== null && (
           <Switch
             label={t("Mit Windows starten")}
             checked={auto}
             onChange={(v) => {
               setAuto(v);
-              void autostart.set(v);
+              setAutoError(null);
+              // Windows can refuse (the Store build's startup task switched off in Task Manager): say so and show the real state.
+              autostart.set(v).catch((e) => {
+                setAutoError(tBackend(String(e)));
+                void autostart.get().then(setAuto);
+              });
             }}
           />
         )}

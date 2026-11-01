@@ -10,6 +10,10 @@ default-run = "crest"
 name = "crest_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Microsoft Store build (scripts/store-package.ps1): no self-update, never portable, Start with Windows through the package.
+store = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

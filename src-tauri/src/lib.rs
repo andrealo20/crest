@@ -25,6 +25,7 @@ mod screen_policy;
 pub mod secrets;
 mod shelf;
 mod shell;
+mod startup;
 mod system;
 mod sysevents;
 mod timer_window;
@@ -39,7 +40,6 @@ use std::sync::Mutex;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{App, AppHandle, Emitter, Manager, State, WebviewWindow};
-use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
 
@@ -49,12 +49,16 @@ pub fn fps_elevated_unlock(sid: &str) -> i32 {
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         // A second launch doesn't open a second notch; it opens the settings of this one.
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| shell::second_launch(app)))
-        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| shell::second_launch(app)));
+    // The Store build starts with Windows through its package (startup.rs) and only the Store may update it.
+    #[cfg(not(feature = "store"))]
+    let builder = builder
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         // Updates: signed installers from GitHub, only on click in the settings.
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build());
+    builder
         .plugin(tauri_plugin_process::init())
         // Shortcuts are set in the settings (shell.rs).
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(shell::on_shortcut).build())
@@ -158,6 +162,7 @@ pub fn run() {
             vault::vault_hello_disable,
             autostart_get,
             autostart_set,
+            build_info,
             open_sponsors,
             timer_window::timer_window_open,
             timer_window::timer_window_close,
@@ -252,13 +257,18 @@ fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusStat
 
 #[tauri::command]
 fn autostart_get(app: AppHandle) -> bool {
-    app.autolaunch().is_enabled().unwrap_or(false)
+    startup::is_enabled(&app)
 }
 
 #[tauri::command]
 fn autostart_set(enabled: bool, app: AppHandle) -> Result<(), String> {
-    let manager = app.autolaunch();
-    if enabled { manager.enable() } else { manager.disable() }.map_err(|e| e.to_string())
+    startup::set(&app, enabled)
+}
+
+/// Which build runs: the Microsoft Store one leaves updates to the Store.
+#[tauri::command]
+fn build_info() -> serde_json::Value {
+    serde_json::json!({ "store": cfg!(feature = "store") })
 }
 
 /// Opens the GitHub Sponsors page in the default browser. The address is fixed here, so the interface cannot open anything else.
@@ -269,8 +279,8 @@ fn open_sponsors() -> Result<(), String> {
 
 /// Enables autostart on the very first launch; after that the tray check and settings decide.
 fn enable_autostart_once(app: &AppHandle) {
-    // A portable copy writes nothing outside its folder unless asked to (tray or settings).
-    if portable::is_portable() {
+    // A portable copy writes nothing outside its folder unless asked to (tray or settings); in the Store build the user turns it on.
+    if portable::is_portable() || cfg!(feature = "store") {
         return;
     }
     let Ok(dir) = crate::portable::app_data_dir(app) else { return };
@@ -278,7 +288,7 @@ fn enable_autostart_once(app: &AppHandle) {
     if marker.exists() {
         return;
     }
-    if app.autolaunch().enable().is_ok() {
+    if startup::set(app, true).is_ok() {
         let _ = std::fs::create_dir_all(&dir);
         let _ = std::fs::write(marker, "");
     }
@@ -320,7 +330,7 @@ fn dark_menus() {
 /// Left click opens the notch, right click shows the menu.
 fn build_tray(app: &App) -> tauri::Result<()> {
     dark_menus();
-    let enabled = app.autolaunch().is_enabled().unwrap_or(false);
+    let enabled = startup::is_enabled(app.handle());
     // Open has its shortcut right-aligned via tab, like Windows menus.
     let open = MenuItem::with_id(app, "open", shell::default_open_label(), true, None::<&str>)?;
     shell::set_tray_open(app, open.clone());
@@ -359,8 +369,10 @@ fn build_tray(app: &App) -> tauri::Result<()> {
             "autostart" => {
                 // The check item toggles itself on click; read the new state.
                 let on = autostart_item.is_checked().unwrap_or(false);
-                let manager = app.autolaunch();
-                let _ = if on { manager.enable() } else { manager.disable() };
+                // Windows can refuse (Store build: the user switched it off in Task Manager); the check then shows the real state.
+                if startup::set(app, on).is_err() {
+                    let _ = autostart_item.set_checked(startup::is_enabled(app));
+                }
             }
             _ => {}
         })

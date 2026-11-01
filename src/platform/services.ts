@@ -326,6 +326,13 @@ export function filePreview(path: string): Promise<string | null> {
 
 // ---------- Updates ----------
 
+let buildInfo: Promise<{ store: boolean }> | undefined;
+
+/** Which build runs, asked once: the Microsoft Store build (Cargo feature `store`) is updated by the Store only. */
+export const build = {
+  info: (): Promise<{ store: boolean }> => (buildInfo ??= isNative ? invoke<{ store: boolean }>("build_info") : Promise.resolve({ store: false })),
+};
+
 /** A found update: version + install (downloads, installs, restarts). */
 export interface UpdateHandle {
   version: string;
