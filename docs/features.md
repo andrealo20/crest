@@ -76,7 +76,7 @@ Status alerts show briefly when you plug in or unplug the charger, when the batt
 - **Shelf** is a parking spot for files. Drop them onto the notch or press Ctrl + V, then open, copy or reveal them later.
 - **Scratchpad** is a code pad with syntax colouring for JavaScript, TypeScript, Rust and Python, or plain text. Each language keeps its own draft, saved as you type.
 - **Water** logs what you drink against a daily goal (2 L unless you change it), with an hourly chart. Reminders are optional: every hour, or the interval you pick, between the times you set.
-- **Converter** handles units, images (PNG, JPG, WebP, ICO, BMP, DDS), documents (PDF, DOCX, TXT, Markdown, HTML), spreadsheets (XLSX, CSV, JSON) and audio or video if ffmpeg is installed.
+- **Converter** handles units (length, weight, temperature, volume, speed) and currencies at the European Central Bank's reference rates, about 30 currencies updated every working day. Any two currencies convert through your portfolio's base currency, which is also the default.
 
 <p align="center"><img src="media/features/timer.png" alt="Timer: a 25 minute focus countdown in big pixel digits, with presets and controls" width="520" /></p>
 
@@ -91,7 +91,7 @@ Status alerts show briefly when you plug in or unplug the charger, when the batt
   </tr>
   <tr>
     <td><img src="media/features/scratchpad.png" alt="Code scratchpad with a language picker" /></td>
-    <td><img src="media/features/converter.png" alt="Converter: drop images, audio, video, documents or spreadsheets, or switch to units" /></td>
+    <td><img src="media/features/converter.png" alt="Converter: an amount in pounds converted to euros at the ECB rates" /></td>
   </tr>
 </table>
 

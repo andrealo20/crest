@@ -20,6 +20,8 @@ pub struct Rates {
     pub crypto: HashMap<String, f64>,
     /// Units of a currency per one `base` (as the ECB publishes them).
     pub fx: HashMap<String, f64>,
+    /// The ECB day `fx` is from ("2026-10-31"); None until rates arrived once.
+    pub date: Option<String>,
     /// Sources that failed ("coingecko", "frankfurter"); the rest is still returned.
     pub failed: Vec<String>,
 }
@@ -28,7 +30,7 @@ pub struct Rates {
 pub struct Cache {
     base: String,
     crypto: HashMap<String, (Instant, Option<f64>)>,
-    fx: Option<(Instant, HashMap<String, f64>)>,
+    fx: Option<(Instant, String, HashMap<String, f64>)>,
 }
 
 pub async fn fetch(client: &reqwest::Client, cache: &mut Cache, base: &str, crypto: &[String], fiats: &[String]) -> Result<Rates, String> {
@@ -65,13 +67,14 @@ pub async fn fetch(client: &reqwest::Client, cache: &mut Cache, base: &str, cryp
     }
 
     let needs_fx = fiats.iter().any(|f| !f.eq_ignore_ascii_case(&base));
-    if needs_fx && cache.fx.as_ref().is_none_or(|(at, _)| at.elapsed() > FRESH) {
+    if needs_fx && cache.fx.as_ref().is_none_or(|(at, _, _)| at.elapsed() > FRESH) {
         #[derive(serde::Deserialize)]
         struct Latest {
+            date: String,
             rates: HashMap<String, f64>,
         }
         match send_json::<Latest>(client.get(format!("https://api.frankfurter.dev/v1/latest?base={base}"))).await {
-            Ok(latest) => cache.fx = Some((Instant::now(), latest.rates)),
+            Ok(latest) => cache.fx = Some((Instant::now(), latest.date, latest.rates)),
             Err(_) => failed.push("frankfurter".to_string()),
         }
     }
@@ -79,7 +82,8 @@ pub async fn fetch(client: &reqwest::Client, cache: &mut Cache, base: &str, cryp
     // On failure the older cached values still answer.
     Ok(Rates {
         crypto: wanted.iter().filter_map(|s| cache.crypto.get(s).and_then(|(_, p)| *p).map(|p| (s.clone(), p))).collect(),
-        fx: cache.fx.as_ref().map(|(_, fx)| fx.clone()).unwrap_or_default(),
+        fx: cache.fx.as_ref().map(|(_, _, fx)| fx.clone()).unwrap_or_default(),
+        date: cache.fx.as_ref().map(|(_, date, _)| date.clone()),
         base,
         failed,
     })

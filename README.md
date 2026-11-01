@@ -65,7 +65,7 @@ A notch at the edge of your Windows screen that opens on hover, click or **Ctrl 
     <td valign="top"><img src="docs/media/features/scratchpad.png" alt="Code scratchpad with a language picker" /><br /><b>Scratchpad</b>: code with syntax colouring, one draft per language</td>
   </tr>
   <tr>
-    <td valign="top"><img src="docs/media/features/converter.png" alt="Converter for files and units" /><br /><b>Converter</b>: units, images, documents, spreadsheets, audio and video</td>
+    <td valign="top"><img src="docs/media/features/converter.png" alt="Converter for units and currencies" /><br /><b>Converter</b>: units, and currencies at the ECB rates</td>
     <td valign="top"><img src="docs/media/features/capture.png" alt="Capture: screenshots, recording settings and the list of captures" /><br /><b>Capture</b>: screenshots and recordings with system audio and mic</td>
   </tr>
   <tr>

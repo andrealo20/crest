@@ -113,7 +113,7 @@ export const showcaseClips = [
   { id: 7, kind: "image" as const, text: "2560 × 1440", thumbnail: screenshot(2560, 1440), folders: 0, age: 6_800_000 },
 ];
 
-// ---------- Converter ----------
+// ---------- Dropped files ----------
 
 export const showcaseFileSizes: Record<string, number> = {
   "Screenshot 2026-10-05 093812.png": 2_518_000,

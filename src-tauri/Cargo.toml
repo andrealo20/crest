@@ -32,14 +32,8 @@ rustfft = "6"
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "json", "charset"] }
 sysinfo = "0.39"
 tokio = { version = "1", features = ["net", "io-util", "sync", "time", "macros"] }
-calamine = { version = "0.36.1", features = ["dates"] }
-rust_xlsxwriter = "0.99.1"
-pdf-extract = "0.12.1"
-pulldown-cmark = "0.13.4"
-texpresso = "2.0.2"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 quick-xml = "0.42.0"
-csv = "1.4.0"
 hmac = "0.12"
 sha1 = "0.10"
 sha2 = "0.10"

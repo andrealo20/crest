@@ -59,6 +59,8 @@ export interface Rates {
   crypto: Record<string, number>;
   /** Units of a currency per one `base`. */
   fx: Record<string, number>;
+  /** The ECB day `fx` is from ("2026-10-31"); null until rates arrived once. */
+  date?: string | null;
   failed: string[];
 }
 

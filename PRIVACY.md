@@ -25,6 +25,7 @@ Every request goes straight from your PC to the service named here. On by defaul
 | AI usage | api.anthropic.com, chatgpt.com, cursor.com (with your existing local login for each), openrouter.ai, api.deepseek.com, api.z.ai (with the key you entered); the `agy` CLI on your PC asks Google for Antigravity | While the quota rings show or the tool is open, at most every 2 to 5 minutes, and only for services you are signed in to or have a key for |
 | Ask (AI chat) | The provider you chose: api.anthropic.com, api.openai.com, openrouter.ai or your own endpoint | Only when you send a message |
 | Portfolio | Each broker you set up, plus api.coingecko.com (coin symbols) and api.frankfurter.dev (currency codes) | After you set up an account |
+| Converter (currencies) | api.frankfurter.dev (the European Central Bank's reference rates, no personal data) | When you open the Currency tab, at most once a minute |
 | Weather | api.open-meteo.com (coordinates), geocoding-api.open-meteo.com (the city you search), get.geojs.io or ipwho.is (approximate location from your IP) | While the weather shows; the location lookup once per start, and never after you pick a city |
 | Discord | The Discord app on your PC, discord.com (sign-in), cdn.discordapp.com (avatars) | After you connect it, while you are in a call |
 | GitHub activity | github.com, or api.github.com with a token; github.com and avatars.githubusercontent.com (profile picture) | Once an hour while it shows, after you set a username |

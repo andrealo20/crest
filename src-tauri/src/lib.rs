@@ -6,7 +6,6 @@ mod controls;
 pub mod convert;
 mod discord;
 mod display;
-mod documents;
 mod drop;
 mod fps;
 mod github;
@@ -116,7 +115,6 @@ pub fn run() {
             sysevents::status_seed,
             system::system_icon,
             convert::convert_probe,
-            convert::convert_files,
             convert::reveal_file,
             convert::open_path,
             convert::copy_files,
