@@ -27,6 +27,7 @@ const PICKER_LIMIT = 60;
 export function LauncherView() {
   const l = settings.use().launcher;
   const { apps, failed } = launcherApps.use();
+  const shortcuts = shortcutResult.use();
   const [picking, setPicking] = useState(false);
   const favorites = l.favorites ?? [];
 
@@ -79,7 +80,7 @@ export function LauncherView() {
   return (
     <>
       {actions}
-      <Grid favorites={favorites} status={slotStatus(favorites, l.hotkeys, shortcutResult.use())} onAdd={() => setPicking(true)} />
+      <Grid favorites={favorites} status={slotStatus(favorites, l.hotkeys, shortcuts)} onAdd={() => setPicking(true)} />
     </>
   );
 }
