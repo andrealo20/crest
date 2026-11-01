@@ -36,13 +36,13 @@
   <a href="https://github.com/andrealo20/crest/issues/new/choose"><b>Suggest an idea</b></a>
 </p>
 
-<p align="center"><img src="docs/media/demo.gif" alt="Crest going through Now Playing, Timer, To-dos, Clipboard, Ask, Portfolio, Weather, Hardware, Terminal, GitHub, Capture, Settings and Themes" width="800" /></p>
+https://github.com/user-attachments/assets/5d359599-738b-4766-bae1-44aee8adb6d4
 
 ## What it is
 
 A notch at the edge of your Windows screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day. Free and open source.
 
-<p align="center"><img src="docs/media/hero.png" alt="Crest open at the top of a Windows desktop on the Overview tool: clock, weather, the song playing, focus and volume" width="800" /></p>
+<p align="center"><img src="docs/media/demo.gif" alt="Crest going through Now Playing, Timer, To-dos, Clipboard, Ask, Portfolio, Weather, Hardware, Terminal, GitHub, Capture, Settings and Themes" width="800" /></p>
 
 ## Features
 
