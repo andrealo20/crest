@@ -18,3 +18,4 @@ PLAN-REVIEW-LOG.md
 .design/
 src-tauri/target-shared
 .agent-notes/
+src-tauri/target-dbg

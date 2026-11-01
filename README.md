@@ -34,17 +34,9 @@ Inside: music controls with a live equalizer and synced lyrics, a vault for pass
 
 Crest is free and open source under the GPL-3.0. It is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0.
 
-<!--
-  Screenshots and demo. Nothing here renders until the comment markers around this block are removed.
+<p align="center"><img src="docs/media/hero.png" alt="Crest open at the top of a Windows desktop on the Overview tool: clock, weather, the song playing, focus and volume" width="800" /></p>
 
-  1. Hero screenshot: save it as docs/media/hero.png (about 1600 px wide), then move this line out of the comment:
-     <p align="center"><img src="docs/media/hero.png" alt="Crest open at the top of a Windows desktop, playing music with lyrics" width="800" /></p>
-
-  2. Demo: GitHub does not play a video stored in the repository from a README. Either drag docs/media/demo.mp4
-     into README.md while editing it on github.com (GitHub uploads it and inserts a user-attachments link to paste here),
-     or save a short loop as docs/media/demo.gif and move this line out of the comment:
-     <p align="center"><img src="docs/media/demo.gif" alt="Crest opening, switching tools and closing" width="800" /></p>
--->
+<p align="center"><img src="docs/media/demo.gif" alt="Crest switching between Now Playing, Timer, To-dos, Clipboard and Ask" width="800" /></p>
 
 ## Features
 
@@ -65,6 +57,9 @@ Notch and capsule show a row of parts, centred and in the order you choose:
 - equalizer, clock (with seconds if you like) and today's GitHub contributions.
 
 Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel.
+
+<p align="center"><img src="docs/media/features/closed-notch.png" alt="The closed notch showing the cover of the song playing, three AI quota rings and the equalizer" width="380" /></p>
+<p align="center"><img src="docs/media/features/settings-closed-notch.png" alt="Settings, Display: the closed row's parts with switches, the system load readings and the quota alerts" width="560" /></p>
 
 **Privacy dots** turn green when the microphone or camera is in use and red while the screen is being recorded, like on an iPhone.
 
@@ -96,11 +91,20 @@ Status alerts show briefly when you plug in or unplug the charger, when the batt
 - In the closed notch the song title part can show the current line instead of the title (its **Lyrics** switch in **Settings → Display**).
 - **Lyrics in the closed notch** shows only the cover and the line (plus a running timer or Discord call) while a song plays, with the notch growing and shrinking to each line.
 
+<p align="center"><img src="docs/media/features/now-playing.png" alt="Now Playing with cover, progress, playback controls and synced lyrics scrolling under them" width="520" /></p>
+
 ### Overview, weather and Discord
 
 - **Overview** is a small control center: time, weather, what is playing right now, Windows focus and a volume slider.
 - **Weather** gives current conditions and a 7-day forecast through Open-Meteo. No API key needed.
 - **Discord** shows your current voice call with speaking members and buttons for mute, deafen and hang up. In the closed notch, a green equalizer plays while someone talks.
+
+<table>
+  <tr>
+    <td><img src="docs/media/features/overview.png" alt="Overview: time, date, weather, the song playing, Windows focus and a volume slider" /></td>
+    <td><img src="docs/media/features/weather.png" alt="Weather: current conditions and a 7-day forecast" /></td>
+  </tr>
+</table>
 
 ### Productivity tools
 
@@ -112,6 +116,23 @@ Status alerts show briefly when you plug in or unplug the charger, when the batt
 - **Water** logs what you drink against a daily goal (2 L unless you change it), with an hourly chart. Reminders are optional: every hour, or the interval you pick, between the times you set.
 - **Converter** handles units, images (PNG, JPG, WebP, ICO, BMP, DDS), documents (PDF, DOCX, TXT, Markdown, HTML), spreadsheets (XLSX, CSV, JSON) and audio or video if ffmpeg is installed.
 
+<p align="center"><img src="docs/media/features/timer.png" alt="Timer: a 25 minute focus countdown in big pixel digits, with presets and controls" width="520" /></p>
+
+<table>
+  <tr>
+    <td><img src="docs/media/features/todos.png" alt="To-dos with projects and a field for a new task" /></td>
+    <td><img src="docs/media/features/note.png" alt="Notes: a quick note with a word count" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/features/clipboard.png" alt="Clipboard history with filters for text, code, links, images and files" /></td>
+    <td><img src="docs/media/features/shelf.png" alt="Shelf: drop files or text here, or paste with Ctrl+V" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/features/scratchpad.png" alt="Code scratchpad with a language picker" /></td>
+    <td><img src="docs/media/features/converter.png" alt="Converter: drop images, audio, video, documents or spreadsheets, or switch to units" /></td>
+  </tr>
+</table>
+
 ### Capture
 
 - **Screenshots** of all screens, one screen or a region you drag, saved as PNG in *Pictures\Crest\Screenshots* and copied to the clipboard, optionally onto the Shelf too.
@@ -120,10 +141,14 @@ Status alerts show briefly when you plug in or unplug the charger, when the batt
 - Crest keeps itself out of its own screenshots and recordings; other apps that record or share the screen still see it.
 - The tool lists what you took, with thumbnails and lengths; a deleted capture goes to the Recycle Bin.
 
+<p align="center"><img src="docs/media/features/capture.png" alt="Capture: screenshot and region buttons, recording settings and the list of captures with thumbnails" width="520" /></p>
+
 ### Terminal
 
 - Runs PowerShell 7, Windows PowerShell or Command Prompt inside the notch, with a start folder and font size of your choice.
 - The session can keep running while the notch is closed.
+
+<p align="center"><img src="docs/media/features/terminal.png" alt="A PowerShell prompt inside the open notch" width="720" /></p>
 
 ### Launcher and GitHub
 
@@ -132,12 +157,21 @@ Status alerts show briefly when you plug in or unplug the charger, when the batt
 - **GitHub activity** shows the contribution calendar of a public username for the last 36 weeks, with the yearly total, today's count and your current and longest streak. A part in the closed notch shows today's count.
 - It reads the public contribution page once an hour; a token without any rights is only needed if that page cannot be read.
 
+<table>
+  <tr>
+    <td><img src="docs/media/features/launcher.png" alt="Launcher with pinned apps and the opt-in Alt+1 to Alt+6 keys" /></td>
+    <td><img src="docs/media/features/github.png" alt="GitHub activity: contribution calendar, yearly total, today and streaks" /></td>
+  </tr>
+</table>
+
 ### AI chat and usage
 
 - **Ask** is a chat with Claude, ChatGPT, OpenRouter or any OpenAI-compatible endpoint, with streaming and adjustable reasoning effort.
 - **AI usage** shows your subscription limits for Claude, ChatGPT, Antigravity, Cursor and the Z.ai coding plan, and credits and balances for OpenRouter and DeepSeek.
 - It also shows the tokens and cost of Claude Code and Codex today and over 7 days, read from their local logs. A models page breaks tokens and cost down per model for today, 7 or 30 days.
 - Cards can be reordered, renamed, added and removed.
+
+<p align="center"><img src="docs/media/features/ask.png" alt="Ask: a chat box with quick actions to summarize, rephrase or translate the clipboard" width="520" /></p>
 
 ### Hardware monitor
 
@@ -146,11 +180,20 @@ Status alerts show briefly when you plug in or unplug the charger, when the batt
 - **Gaming mode** adds FPS to the readings in the closed notch, always or only while a fullscreen app runs. FPS works for DirectX, OpenGL and Vulkan games.
 - Windows only allows FPS readings for members of the *Performance Log Users* group: click **Settings → Display → Unlock FPS** once, confirm the Windows prompt, then sign out and back in. A lock icon in the notch means this step is still missing.
 
+<p align="center"><img src="docs/media/features/hardware.png" alt="Hardware: CPU, RAM, GPU, power, battery and ping with history, the busiest processes and a drive" width="720" /></p>
+
 ### Portfolio
 
 - Combines Trading 212, Kraken, Coinbase, Binance, Bitpanda, eToro, Interactive Brokers and holdings entered by hand in one base currency.
 - Profit and loss per account and in total, and a history chart.
 - The app only reads, it never trades or moves funds.
+
+<table>
+  <tr>
+    <td><img src="docs/media/features/portfolio.png" alt="Portfolio: total value, cash, invested, open and realized profit, and positions" /></td>
+    <td><img src="docs/media/features/settings-connections.png" alt="Settings, Connections: Trading 212, Kraken, Coinbase, Binance, Bitpanda, eToro and Interactive Brokers" /></td>
+  </tr>
+</table>
 
 ### Vault
 
@@ -172,6 +215,8 @@ The vault is off by default; turn it on under **Settings → Tools**.
 - Save the result as your own theme, export and import themes as JSON files, or switch between a day and a night theme by time.
 - The closed notch stays black unless a theme opts in to colour it.
 
+<p align="center"><img src="docs/media/features/settings-themes.png" alt="Settings, Themes: previews of the built-in themes and the day and night switch" width="560" /></p>
+
 Details: [docs/themes.md](docs/themes.md).
 
 ### Live notices and crest-notify
@@ -190,12 +235,16 @@ Details, ready-made hooks for Claude Code and Codex, and how notifications are r
 - **Screen and app rules.** **Settings → Window** chooses what Crest does while a maximized window, a borderless full-screen app or an exclusive full-screen game covers its monitor: keep its look, turn into the line, or hide. It can also check the windows behind the one in front. Rules per app, picked from the running apps or typed, override these.
 - **Panel size and scale.** Drag the open panel's sides, bottom or bottom corners to size each tool (double click resets), or pick Compact, Standard or Spacious for all of them. The whole notch can be shown at 100 % or 150 %.
 
+<p align="center"><img src="docs/media/features/settings-window.png" alt="Settings, Window: what Crest does over maximized, borderless and exclusive full-screen windows, and the per-app rules" width="560" /></p>
+
 ### Shortcuts
 
 - Opening and closing, hiding and showing Crest, and resizing the panel with the arrow keys each take a shortcut you record in **Settings → Window**.
 - Crest tells you when another program or the launcher's Alt keys already use it.
 - Opening Crest on purpose (shortcut, tray, a second launch) shows it even while a rule hides it, until it closes again.
 - Right click on the notch opens the settings, and the mouse wheel switches tools.
+
+<p align="center"><img src="docs/media/features/settings-general.png" alt="Settings, General: clock, open on hover or click, delays, start with Windows and the shortcut" width="560" /></p>
 
 ### Portable build
 
@@ -236,6 +285,8 @@ Crest keeps its settings and data apart from L4-Notchbar, so both can be install
 ## Settings
 
 Settings are grouped into General, Display, Window, Tools, Timer, AI, Connections, Themes and Notices. There you can reorder (drag) or hide tools, pick the monitor and the screen edge, set what the notch does over full-screen and maximized windows, record shortcuts, and enable autostart. The interface is in English.
+
+<p align="center"><img src="docs/media/features/settings-tools.png" alt="Settings, Tools: the tools in their order with switches, and their options" width="560" /></p>
 
 ### Setting up the integrations
 

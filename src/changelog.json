@@ -1,31 +1,59 @@
 [
   {
     "version": "0.2.0",
-    "date": "2026-10-31",
+    "date": "2026-11-01",
     "items": [
       {
-        "de": "Die geschlossene Notch gibt es als Notch, Kapsel oder Linie",
-        "en": "The closed notch comes as a notch, a capsule or a line"
+        "de": "Die geschlossene Notch gibt es als Notch, Kapsel oder Linie, an jedem Bildschirmrand",
+        "en": "The closed notch comes as a notch, a capsule or a line, on any screen edge"
       },
       {
-        "de": "Die Kapsel lässt sich senkrecht frei verschieben und rastet an Rändern und Taskleiste ein",
-        "en": "The capsule moves freely up and down and snaps to the edges and the taskbar"
+        "de": "Eine Zeile zeigt Cover, Timer, Discord-Anruf, KI-Kontingent, Titel oder Songtext, Hardware, Equalizer, Uhr und GitHub",
+        "en": "A row shows cover, timer, Discord call, AI quota, title or lyrics, hardware, equalizer, clock and GitHub"
       },
       {
-        "de": "Eine Zeile zeigt Cover, Timer, Discord-Anruf, KI-Kontingent, Titel, CPU, RAM, GPU, Equalizer und Uhr",
-        "en": "A row shows cover, timer, Discord call, AI quota, song title, CPU, RAM, GPU, equalizer and clock"
+        "de": "Hinweise in der Notch: Aufnahme, Timer, Statusmeldungen, Windows-Mitteilungen, Kontingent, Aufgaben und Wasser",
+        "en": "Notices in the notch: recording, timer, status alerts, Windows notifications, quota, to-dos and water"
       },
       {
-        "de": "Auswahl und Reihenfolge der Teile stehen in Einstellungen, Anzeige; was nicht passt, läuft im Karussell",
-        "en": "Choose and reorder the parts in Settings, Display; what does not fit rotates in a carousel"
+        "de": "Synchronisierte Songtexte, ein Equalizer nur für den Player und eine Player-Auswahl",
+        "en": "Synced lyrics, an equalizer fed only by the player, and a player picker"
       },
       {
-        "de": "Hinweise über der Zeile: Timer abgelaufen, Kontingent bei 70 % und 90 %, neuer Song",
-        "en": "Notices over the row: timer finished, quota at 70% and 90%, new song"
+        "de": "Screenshots und Bildschirmaufnahmen mit Systemton und Mikrofon",
+        "en": "Screenshots and screen recording with system audio and microphone"
       },
       {
-        "de": "Der Spielmodus ergänzt FPS in den Anzeigen, statt die Notch zu überdecken",
-        "en": "Gaming mode adds FPS to the readings instead of covering the notch"
+        "de": "Ein Terminal mit PowerShell oder Eingabeaufforderung in der Notch",
+        "en": "A terminal with PowerShell or Command Prompt in the notch"
+      },
+      {
+        "de": "Launcher mit angehefteten Apps und GitHub-Aktivität",
+        "en": "A launcher with pinned apps, and your GitHub activity"
+      },
+      {
+        "de": "Aufgaben mit Fälligkeit, Wasser-Erinnerung und ein Code-Notizblock",
+        "en": "To-dos with due times, a water reminder and a code scratchpad"
+      },
+      {
+        "de": "KI-Nutzung mit Tokens und Kosten aus den lokalen Protokollen und weiteren Anbietern",
+        "en": "AI usage with tokens and cost from local logs, and more providers"
+      },
+      {
+        "de": "Hardware mit Kernen, GPUs, Netzwerk, Leistung, Akku, Temperaturen, Prozessen und Laufwerken",
+        "en": "Hardware with cores, GPUs, network, power, battery, temperatures, processes and drives"
+      },
+      {
+        "de": "Portfolio über mehrere Broker in einer Basiswährung, nur lesend",
+        "en": "A portfolio across several brokers in one base currency, read only"
+      },
+      {
+        "de": "Themen mit Editor und Tag- und Nachtwechsel",
+        "en": "Themes with an editor and a day and night switch"
+      },
+      {
+        "de": "Regeln für Vollbild und Apps, Skalierung, eigene Tastenkürzel und eine portable Version",
+        "en": "Rules for full screen and apps, scaling, your own shortcuts and a portable build"
       },
       {
         "de": "Die Oberfläche ist nur noch auf Englisch",
