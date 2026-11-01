@@ -158,6 +158,7 @@ pub fn run() {
             vault::vault_hello_disable,
             autostart_get,
             autostart_set,
+            open_sponsors,
             timer_window::timer_window_open,
             timer_window::timer_window_close,
             shelf::shelf_drag_out,
@@ -258,6 +259,12 @@ fn autostart_get(app: AppHandle) -> bool {
 fn autostart_set(enabled: bool, app: AppHandle) -> Result<(), String> {
     let manager = app.autolaunch();
     if enabled { manager.enable() } else { manager.disable() }.map_err(|e| e.to_string())
+}
+
+/// Opens the GitHub Sponsors page in the default browser. The address is fixed here, so the interface cannot open anything else.
+#[tauri::command]
+fn open_sponsors() -> Result<(), String> {
+    std::process::Command::new("explorer").arg("https://github.com/sponsors/andrealo20").spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Enables autostart on the very first launch; after that the tray check and settings decide.

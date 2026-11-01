@@ -309,6 +309,12 @@ export function openFile(path: string): Promise<void> {
   return isNative ? invoke("open_path", { path }) : Promise.resolve();
 }
 
+/** GitHub Sponsors in the default browser. */
+export function openSponsors() {
+  if (isNative) void invoke("open_sponsors");
+  else window.open("https://github.com/sponsors/andrealo20", "_blank");
+}
+
 /** Puts files on the clipboard (Ctrl+V in Explorer pastes them). */
 export function copyFiles(paths: string[]): Promise<void> {
   return isNative ? invoke("copy_files", { paths }) : Promise.resolve();

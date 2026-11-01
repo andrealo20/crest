@@ -30,7 +30,7 @@ import { content, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, stopAlarm, type AlarmDuration } from "../../lib/sound";
 import { nav } from "../../notch/nav";
 import { tabs } from "../../notch/tabs";
-import { autostart, display, secrets, unlockFps, type ChangelogEntry, type MonitorInfo, type SecretName } from "../../platform/services";
+import { autostart, display, openSponsors, secrets, unlockFps, type ChangelogEntry, type MonitorInfo, type SecretName } from "../../platform/services";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
 import { DiscordLogo } from "../../ui/brands";
 import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
@@ -164,6 +164,7 @@ export function SettingsView() {
                 <General />
                 <Weather />
                 <Updates />
+                <Support />
               </>
             )}
             {page === "display" && (
@@ -286,6 +287,16 @@ function Updates() {
       </AnimatePresence>
       <Row label={t("Automatisch suchen")} hint={t("Einmal täglich, anonym bei GitHub – ohne deine Daten")}>
         <Switch label={t("Automatisch suchen")} checked={auto} onChange={(on) => updateSettings({ updates: { auto: on } })} />
+      </Row>
+    </Group>
+  );
+}
+
+function Support() {
+  return (
+    <Group title={t("Unterstützen")} id="settings-support">
+      <Row label={t("Crest unterstützen")} hint={t("Kostenlos und ohne Werbung. Spenden über GitHub Sponsors sind freiwillig")}>
+        <Button onClick={openSponsors}>{t("Sponsern")}</Button>
       </Row>
     </Group>
   );
