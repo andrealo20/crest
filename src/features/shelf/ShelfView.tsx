@@ -28,6 +28,7 @@ import { clipboardText, copyFiles, filePreview, openFile, probeFiles, revealFile
 import { addFiles, addText, dragPayload, isText, keyOf, normalizeItems, removeKeys, type FileItem, type ShelfItem, type TextItem } from "./model";
 import { NONE, clickSelect, dragKeys, prune, type Selection } from "./selection";
 import { t } from "../../i18n";
+import { usePresenting } from "../privacy/store";
 
 /*
  * Shelf: put files on the notch and later open them with one click, show them in Explorer,
@@ -310,6 +311,7 @@ async function pasteAny(): Promise<boolean> {
 function FileCard({ item, copied, onCopy }: { item: FileItem; copied: boolean; onCopy: () => void }) {
   const [preview, setPreview] = useState<string | null>(null);
   const I = kindIcon[item.kind];
+  const hidden = usePresenting();
   useEffect(() => {
     if (item.kind === "image") void filePreview(item.path).then(setPreview);
   }, [item.path, item.kind]);
@@ -321,7 +323,7 @@ function FileCard({ item, copied, onCopy }: { item: FileItem; copied: boolean; o
         title={t("{name} öffnen", { name: item.name })}
         className="pressable relative flex min-h-0 flex-1 items-center justify-center overflow-hidden"
       >
-        {preview ? (
+        {preview && !hidden ? (
           <img src={preview} alt="" draggable={false} className="absolute inset-0 size-full object-cover" />
         ) : (
           <I size={30} weight="duotone" className="text-label-2" />

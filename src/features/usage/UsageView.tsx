@@ -16,6 +16,7 @@ import { ModelDetails } from "./ModelDetails";
 import { refreshTokens, refreshUsage, usage, useTokens, useUsageViewer } from "./store";
 import { formatAmount, formatCost, formatTokens } from "./format";
 import { dayStart, totals, type Totals } from "./tokens";
+import { usePresenting } from "../privacy/store";
 
 const windowLabels: Record<string, string> = {
   session: "Session",
@@ -223,13 +224,16 @@ function WindowRow({ w, now }: { w: UsageWindow; now: number }) {
   );
 }
 
+/** Money stays hidden in presentation mode, as in Trading. */
 function BalanceRow({ b }: { b: UsageBalance }) {
+  const hidden = usePresenting();
+  const amount = (v: number) => (hidden ? "••••••" : formatAmount(v, b.currency));
   return (
     <div className="flex items-baseline justify-between gap-2 text-caption">
       <span className="truncate text-label-2">{t(balanceLabels[b.kind] ?? b.kind)}</span>
       <span className="tabular shrink-0 font-semibold text-label">
-        {formatAmount(b.amount, b.currency)}
-        {b.total !== null && <span className="font-normal text-label-3"> / {formatAmount(b.total, b.currency)}</span>}
+        {amount(b.amount)}
+        {b.total !== null && <span className="font-normal text-label-3"> / {amount(b.total)}</span>}
       </span>
     </div>
   );

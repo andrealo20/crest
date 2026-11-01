@@ -29,6 +29,7 @@ import { NOTICE_BUTTON as REC_BUTTON, NoticeButton, useNoticeHover } from "./Not
 import { Ring } from "./parts/Rings";
 import { popping } from "../../features/notices/store";
 import { noticePop } from "../../features/notices/NoticePop";
+import { usePresenting } from "../../features/privacy/store";
 
 const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76, REC_DOT = 8, THUMB_W = 28;
 /** The widest content any closed surface allows (the notch's insets are the larger ones). */
@@ -119,11 +120,13 @@ export function NoticeLayer({ onWidth, urgentOnly }: { onWidth: (content: number
   const recRunning = rec.phase === "recording";
   useSecondTick(recRunning, rec.at);
   const shot = useSaved();
+  // The thumbnail can show anything that was on screen: not while presenting.
+  const presenting = usePresenting();
   // On the idle line and in focus mode only what cannot wait: a recording, the finished timer, a status alert (its store already skips focus mode) and a due reminder.
   const kind = topNotice({
     recording: rec.phase !== "idle",
     timer: finished,
-    saved: !urgentOnly && !!shot,
+    saved: !urgentOnly && !!shot && !presenting,
     status: !!status,
     notice: !urgentOnly && !!pop,
     quota: !urgentOnly && !!rise && closed.quotaAlerts,
