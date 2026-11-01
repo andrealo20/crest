@@ -11,9 +11,19 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-111?style=flat-square" alt="License: GPL-3.0" /></a>
   <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=flat-square&label=release&color=111" alt="Latest release" /></a>
+  <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=flat-square&label=downloads&color=111" alt="Total downloads" /></a>
+  <a href="https://github.com/andrealo20/crest/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/andrealo20/crest/release.yml?style=flat-square&label=build" alt="Release build status" /></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-111?style=flat-square" alt="Platform: Windows 10 and 11" />
   <img src="https://img.shields.io/badge/Microsoft%20Store-coming%20soon-111?style=flat-square" alt="Microsoft Store: coming soon" />
   <a href="https://github.com/sponsors/andrealo20"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-111?style=flat-square&logo=githubsponsors" alt="Sponsor on GitHub" /></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Tauri-2-111?style=flat-square&logo=tauri" alt="Built with Tauri 2" />
+  <img src="https://img.shields.io/badge/Rust-111?style=flat-square&logo=rust" alt="Rust" />
+  <img src="https://img.shields.io/badge/React-19-111?style=flat-square&logo=react" alt="React 19" />
+  <img src="https://img.shields.io/badge/TypeScript-111?style=flat-square&logo=typescript" alt="TypeScript" />
+  <a href="https://github.com/andrealo20/crest/stargazers"><img src="https://img.shields.io/github/stars/andrealo20/crest?style=flat-square&color=111" alt="GitHub stars" /></a>
 </p>
 
 <p align="center">
