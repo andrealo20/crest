@@ -103,6 +103,12 @@ export interface Settings {
   behavior: WindowSettings;
   /** The screen edge the notch and the line hang from, and whether from the screen's edge or the taskbar's (the capsule floats on the top frame). */
   dock: Dock;
+  /**
+   * Capture tool: what a screenshot takes ("all" or a monitor id), the recording source
+   * (null = primary monitor), frame rate, microphone and system audio, and whether new
+   * screenshots also go on the Shelf, and whether Windows' yellow frame marks what is recorded.
+   */
+  capture: { shotTarget: string; source: string | null; fps: 30 | 60; mic: boolean; system: boolean; shelf: boolean; border: boolean };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -128,6 +134,7 @@ export const TOOL_IDS = [
   "launcher",
   "github",
   "notices",
+  "capture",
 ] as const;
 
 const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "notices"]);
@@ -170,6 +177,7 @@ const defaults: Settings = {
   notices: NOTICE_DEFAULTS,
   behavior: WINDOW_DEFAULTS,
   dock: DOCK_DEFAULTS,
+  capture: { shotTarget: "all", source: null, fps: 30, mic: false, system: true, shelf: false, border: true },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -237,6 +245,7 @@ settings.set((s) => {
     // Only an explicit opt-in turns the keys on; an older saved `shortcuts: true` does not.
     launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true },
     github: { ...defaults.github, ...s.github },
+    capture: { ...defaults.capture, ...s.capture },
     closed: normalizeClosed(s.closed),
     notices: normalizeNotices(s.notices),
     ask: migrateAsk(s.ask),

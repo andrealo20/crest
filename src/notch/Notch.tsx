@@ -36,6 +36,7 @@ import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
 import { dueTasks } from "../features/todos/store";
 import { refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/store";
+import { recording } from "../features/capture/store";
 
 /** If the notch was closed at most this long, it reopens on the last used tool. */
 const RESUME_MS = 60_000;
@@ -53,8 +54,8 @@ export function Notch() {
   const line = focus && displaySettings.focusStyle === "line";
   // Line as the normal closed look: hover and click work as usual, but nothing shows
   // while closed but the song's progress. Only an urgent notice opens it into the notch, until answered or for its time:
-  // a finished timer, a due to-do reminder (the user asked to be told at that time) or a status alert.
-  const urgent = timer.use().finished || dueTasks.use().length > 0;
+  // a finished timer, a due to-do reminder (the user asked to be told at that time), a running recording (its stop button stays in reach) or a status alert.
+  const urgent = timer.use().finished || dueTasks.use().length > 0 || recording.use().phase !== "idle";
   const statusOn = statusAlert.use() !== null;
   const idleLine = !focus && idleStyle === "line";
   const alert = idleLine && (urgent || statusOn);

@@ -1,5 +1,6 @@
 pub mod ai;
 mod audio;
+mod capture;
 mod clipboard;
 mod controls;
 pub mod convert;
@@ -76,6 +77,7 @@ pub fn run() {
         .manage(launcher::LauncherState::default())
         .manage(github::GithubState::default())
         .manage(notices::NoticesState::default())
+        .manage(capture::CaptureState::default())
         .invoke_handler(tauri::generate_handler![
             hit_test::set_hit_rect,
             hit_test::set_pinned,
@@ -180,6 +182,15 @@ pub fn run() {
             portable::portable_info,
             portable::portable_check,
             portable::portable_install,
+            capture::capture_sources,
+            capture::capture_shot,
+            capture::capture_state,
+            capture::capture_start,
+            capture::capture_pause,
+            capture::capture_stop,
+            capture::capture_list,
+            capture::capture_details,
+            capture::capture_delete,
         ])
         .setup(move |app| {
             shell::init(app);
@@ -200,8 +211,14 @@ pub fn run() {
             build_tray(app)?;
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("failed to start Crest");
+        .build(tauri::generate_context!())
+        .expect("failed to start Crest")
+        .run(|app, event| {
+            // A recording still running when Crest quits is finished, so the file is complete.
+            if let tauri::RunEvent::Exit = event {
+                capture::finish_on_exit(app);
+            }
+        });
 }
 
 /// Window that was in the foreground before the shortcut opened the notch.

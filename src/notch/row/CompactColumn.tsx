@@ -1,10 +1,12 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck/MainWindow.CompactColumn.cs.
 import { useLayoutEffect, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { AlarmIcon, BatteryHigh, BatteryLow, BatteryWarning, CheckCircle, Headphones, Plug, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
+import { AlarmIcon, BatteryHigh, BatteryLow, BatteryWarning, CheckCircle, Headphones, Pause, Play, Plug, Stop, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
 import { content, pulse } from "../../design/motion";
 import { t } from "../../i18n";
-import { ringing, timerActions } from "../../features/timer/store";
+import { ringing, timerActions, useSecondTick } from "../../features/timer/store";
+import { pauseRecording, recording, stopRecording } from "../../features/capture/store";
+import { elapsedAt, formatElapsed } from "../../features/capture/clock";
 import { statusAlert } from "../../features/status/store";
 import { topNotice } from "./notices";
 import { popping } from "../../features/notices/store";
@@ -24,9 +26,9 @@ import { usage } from "../../features/usage/store";
 import { Dots, dotsWidth, usePrivacyDots } from "../../features/privacy/PrivacyDots";
 import { COLUMN, COLUMN_ROOM, columnWidth, fitLines, ringLines, stack } from "../column";
 import { useHeld } from "./CompactRow";
-import { useNoticeHover } from "./NoticeButton";
+import { NOTICE_BUTTON, NoticeButton, useNoticeHover } from "./NoticeButton";
 import { useRowVisible } from "./visibility";
-import { fontEpoch } from "./measure";
+import { CAPTION_FONT, fontEpoch, measureText } from "./measure";
 import { RING, Ring, ringProviders, ringValue } from "./parts/Rings";
 import { ReadingView, readingWidth, useReadings } from "./parts/Readings";
 import { Clock, clockWidth } from "./parts/Clock";
@@ -37,12 +39,14 @@ import { GithubPart, githubWidth, useGithubToday } from "./parts/GithubPart";
 interface Line { id: string; w: number; h: number; draw: () => ReactNode }
 
 const NOTICE_ICON = 17;
+/** The recording line: dot 8, time 14, two buttons, 4 between. */
+const REC_STACK = 8 + 14 + 2 * NOTICE_BUTTON + 3 * 4;
 const STATUS_ICON: Record<StatusAlert["icon"], Icon> = { plug: Plug, battery: BatteryHigh, wifi: WifiHigh, "wifi-off": WifiSlash, headphones: Headphones };
 const TONE: Record<StatusAlert["tone"], string> = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" };
 
 /**
  * The notice as an icon on its own line (the notice text is too wide for a column), by the same priority as NoticeLayer: a finished
- * timer's alarm, which dismisses it; the status alert's icon; a live notice's app logo; a due to-do's alarm, which opens the To-dos.
+ * timer's alarm, which dismisses it (after a running recording: its dot, time, pause and stop); the status alert's icon; a live notice's app logo; a due to-do's alarm, which opens the To-dos.
  * `urgentOnly` (the idle line, dimmed focus mode) leaves out the live notice, as on top. Quota, track and water notices stay off the column.
  */
 function useNoticeLine(urgentOnly: boolean): Line | null {
@@ -52,8 +56,33 @@ function useNoticeLine(urgentOnly: boolean): Line | null {
   const status = statusAlert.use();
   const pop = popping.use();
   const due = dueTasks.use();
-  const kind = topNotice({ timer: finished, status: !!status, notice: !urgentOnly && !!pop, quota: false, track: false, reminder: due.length > 0, water: false });
+  const rec = recording.use();
+  const recRunning = rec.phase === "recording";
+  useSecondTick(recRunning, rec.at);
+  const kind = topNotice({ recording: rec.phase !== "idle", timer: finished, saved: false, status: !!status, notice: !urgentOnly && !!pop, quota: false, track: false, reminder: due.length > 0, water: false });
   const line = (id: string, draw: () => ReactNode): Line => ({ id, w: NOTICE_ICON, h: 20, draw });
+  if (kind === "recording") {
+    // Stacked: dot, time, pause or resume, stop. The width is the time's, measured with zeros so it only changes with a new digit.
+    const label = formatElapsed(elapsedAt(rec, Date.now()));
+    const w = Math.max(NOTICE_BUTTON, Math.ceil(measureText(label.replace(/\d/g, "0"), CAPTION_FONT)));
+    return {
+      id: "notice-recording",
+      w,
+      h: REC_STACK,
+      draw: () => (
+        <span className="flex flex-col items-center" style={{ gap: 4 }}>
+          <motion.span className="size-2 rounded-full bg-red" animate={{ opacity: recRunning ? [1, 0.35] : 0.45 }} transition={recRunning ? pulse : content.exit} />
+          <span className="tabular text-caption font-medium whitespace-nowrap text-label">{label}</span>
+          <NoticeButton label={recRunning ? t("Pause") : t("Fortsetzen")} onClick={() => pauseRecording(recRunning)}>
+            {recRunning ? <Pause size={12} weight="fill" /> : <Play size={12} weight="fill" />}
+          </NoticeButton>
+          <NoticeButton label={t("Aufnahme beenden")} onClick={stopRecording}>
+            <Stop size={12} weight="fill" />
+          </NoticeButton>
+        </span>
+      ),
+    };
+  }
   if (kind === "timer")
     return line("notice-timer", () => (
       <button

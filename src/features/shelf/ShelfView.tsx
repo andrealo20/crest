@@ -50,6 +50,11 @@ const draggingOut = createStore(false);
 /** Movement in px before a press on a card becomes a drag. */
 const DRAG_START = 6;
 
+/** Puts files at the front of the Shelf (also used by Capture for new screenshots). */
+export function addToShelf(paths: string[]) {
+  void probeFiles(paths).then(({ files }) => shelf.set((list) => addFiles(list, files, Date.now())));
+}
+
 const kindIcon: Record<FileKind, Icon> = { image: ImageSquare, audio: FileAudio, video: FileVideo, document: FileText, table: Table, other: File };
 
 const newTextId = () => `text-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -91,9 +96,8 @@ export function ShelfView() {
 
   useEffect(() => {
     const paths = takeDropped();
-    if (!paths?.length) return;
     // A file dragged out and dropped back on the notch is already here and keeps its place.
-    void probeFiles(paths).then(({ files }) => shelf.set((list) => addFiles(list, files, Date.now())));
+    if (paths?.length) addToShelf(paths);
   }, [dropped]);
 
   const flashCopied = (key: string) => {

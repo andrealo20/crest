@@ -20,9 +20,9 @@
 
 Crest sits at the edge of your screen as a small notch (at the top unless you move it to another edge), stays out of the way until you need it, and opens on hover, click or **Ctrl + Alt + Space**.
 
-Inside: music controls with a live equalizer, a vault for passwords and 2FA codes, live weather, your Discord call, your portfolio, an AI chat (Claude, ChatGPT and more) with your usage limits, clipboard history, a file shelf, a file and unit converter, timers, to-dos and notes, live hardware stats with FPS for games, and privacy dots for mic, camera and screen recording.
+Inside: music controls with a live equalizer, a vault for passwords and 2FA codes, live weather, your Discord call, your portfolio, an AI chat (Claude, ChatGPT and more) with your usage limits, clipboard history, a file shelf, screenshots and screen recording, a file and unit converter, timers, to-dos and notes, live hardware stats with FPS for games, and privacy dots for mic, camera and screen recording.
 
-Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0. Version 0.1 is that app under a new name, with the Antigravity quota in place of the retired Gemini CLI. Version 0.2 adds the closed notch styles and the row of live readings. Coming next: screenshots and screen recording with system audio and microphone.
+Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0. Version 0.1 is that app under a new name, with the Antigravity quota in place of the retired Gemini CLI. Version 0.2 adds the closed notch styles and the row of live readings.
 
 ## What it does
 
@@ -58,6 +58,7 @@ Turn on **Settings → Notices** and Windows notifications from any app show in 
 - **Synced lyrics** from LRCLIB: the microphone button opens them under the controls, scrolling along with the song. Click a line to jump there. In the closed notch the song title part can show the current line instead of the title (its **Lyrics** switch in **Settings → Display**), and **Lyrics in the closed notch** shows only the cover and the line (plus a running timer or Discord call) while a song plays, with the notch growing and shrinking to each line.
 - **Clipboard** keeps a history of text, links, images and files, with filters and previews. Password managers are excluded on purpose, and nothing is written to disk.
 - **Shelf** is a parking spot for files. Drop them onto the notch or press Ctrl + V, then open, copy or reveal them later.
+- **Capture** takes screenshots of all screens, one screen or a region you drag, saves them as PNG in *Pictures\Crest\Screenshots* and copies them to the clipboard, optionally onto the Shelf too. It records a screen or a window to MP4 in *Videos\Crest\Recordings*, at 30 or 60 fps, with system audio and the microphone if you want them. While it records, the closed notch shows the time with pause and stop buttons. Crest keeps itself out of every capture. The tool lists what you took, with thumbnails and lengths; a deleted capture goes to the Recycle Bin.
 - **Hardware** shows live CPU, RAM, GPU, VRAM and ping, with history that keeps recording while the notch is closed.
 - **Gaming mode** adds FPS to the readings in the closed notch, always or only while a fullscreen app runs. FPS works for DirectX, OpenGL and Vulkan games. Windows only allows this for members of the *Performance Log Users* group: click **Settings → Display → Unlock FPS** once, confirm the Windows prompt, then sign out and back in. A lock icon in the notch means this step is still missing.
 - **Privacy dots** turn green when the microphone or camera is in use and red while the screen is being recorded, like on an iPhone.

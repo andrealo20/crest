@@ -48,6 +48,8 @@ import { SettingsView } from "../features/settings/SettingsView";
 import { TerminalView } from "../features/terminal/TerminalView";
 import { LauncherView } from "../features/launcher/LauncherView";
 import { GithubView } from "../features/github/GithubView";
+import { CaptureView } from "../features/capture/CaptureView";
+import { Camera } from "@phosphor-icons/react";
 
 /**
  * Registry of all tools in the open notch. New tool = new entry here
@@ -97,6 +99,7 @@ export const tabs: NotchTab[] = [
   { id: "launcher", label: "Launcher", icon: RocketLaunch, size: { w: 520, h: 210 }, View: LauncherView },
   { id: "github", label: "GitHub", icon: GithubLogo, size: { w: 520, h: 236 }, View: GithubView },
   { id: "notices", label: "Mitteilungen", icon: BellSimple, size: { w: 560, h: 320 }, View: NoticesView },
+  { id: "capture", label: "Erfassen", icon: Camera, size: { w: 620, h: 336 }, View: CaptureView },
 ];
 
 /** Settings: reached via the gear, not in the tool bar. */
