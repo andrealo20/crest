@@ -332,7 +332,7 @@ export interface ChangelogEntry {
   version: string;
   date: string;
   /** `highlight`: shown in bold and bright (e.g. an announcement). Older versions ignore it. */
-  items: { de: string; en: string; highlight?: boolean }[];
+  items: { en: string; highlight?: boolean }[];
 }
 
 /** In the browser, `?update` in the URL fakes an update for testing. */
@@ -386,7 +386,7 @@ export const updater = {
  */
 export async function fetchChangelog(version: string): Promise<ChangelogEntry[] | null> {
   if (!isNative) {
-    const mock = { de: "Beispiel: Neuerung aus der kommenden Version", en: "Example: something new in the upcoming version" };
+    const mock = { en: "Example: something new in the upcoming version" };
     return [{ version, date: new Date().toISOString().slice(0, 10), items: [mock, mock] }, ...bundledChangelog];
   }
   try {

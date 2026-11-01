@@ -4,59 +4,45 @@
     "date": "2026-11-01",
     "items": [
       {
-        "de": "Die geschlossene Notch gibt es als Notch, Kapsel oder Linie, an jedem Bildschirmrand",
         "en": "The closed notch comes as a notch, a capsule or a line, on any screen edge"
       },
       {
-        "de": "Eine Zeile zeigt Cover, Timer, Discord-Anruf, KI-Kontingent, Titel oder Songtext, Hardware, Equalizer, Uhr und GitHub",
         "en": "A row shows cover, timer, Discord call, AI quota, title or lyrics, hardware, equalizer, clock and GitHub"
       },
       {
-        "de": "Hinweise in der Notch: Aufnahme, Timer, Statusmeldungen, Windows-Mitteilungen, Kontingent, Aufgaben und Wasser",
         "en": "Notices in the notch: recording, timer, status alerts, Windows notifications, quota, to-dos and water"
       },
       {
-        "de": "Synchronisierte Songtexte, ein Equalizer nur für den Player und eine Player-Auswahl",
         "en": "Synced lyrics, an equalizer fed only by the player, and a player picker"
       },
       {
-        "de": "Screenshots und Bildschirmaufnahmen mit Systemton und Mikrofon",
         "en": "Screenshots and screen recording with system audio and microphone"
       },
       {
-        "de": "Ein Terminal mit PowerShell oder Eingabeaufforderung in der Notch",
         "en": "A terminal with PowerShell or Command Prompt in the notch"
       },
       {
-        "de": "Launcher mit angehefteten Apps und GitHub-Aktivität",
         "en": "A launcher with pinned apps, and your GitHub activity"
       },
       {
-        "de": "Aufgaben mit Fälligkeit, Wasser-Erinnerung und ein Code-Notizblock",
         "en": "To-dos with due times, a water reminder and a code scratchpad"
       },
       {
-        "de": "KI-Nutzung mit Tokens und Kosten aus den lokalen Protokollen und weiteren Anbietern",
         "en": "AI usage with tokens and cost from local logs, and more providers"
       },
       {
-        "de": "Hardware mit Kernen, GPUs, Netzwerk, Leistung, Akku, Temperaturen, Prozessen und Laufwerken",
         "en": "Hardware with cores, GPUs, network, power, battery, temperatures, processes and drives"
       },
       {
-        "de": "Portfolio über mehrere Broker in einer Basiswährung, nur lesend",
         "en": "A portfolio across several brokers in one base currency, read only"
       },
       {
-        "de": "Themen mit Editor und Tag- und Nachtwechsel",
         "en": "Themes with an editor and a day and night switch"
       },
       {
-        "de": "Regeln für Vollbild und Apps, Skalierung, eigene Tastenkürzel und eine portable Version",
         "en": "Rules for full screen and apps, scaling, your own shortcuts and a portable build"
       },
       {
-        "de": "Die Oberfläche ist nur noch auf Englisch",
         "en": "The interface is English only"
       }
     ]
@@ -66,11 +52,9 @@
     "date": "2026-10-31",
     "items": [
       {
-        "de": "Crest basiert auf L4-Notchbar 1.6.0 und hat einen eigenen Namen, eigene Updates und eigene Einstellungen",
         "en": "Crest is based on L4-Notchbar 1.6.0, with its own name, updates and settings"
       },
       {
-        "de": "KI-Nutzung zeigt die Limits von Antigravity statt der eingestellten Gemini CLI",
         "en": "AI usage shows the Antigravity limits instead of the retired Gemini CLI"
       }
     ]

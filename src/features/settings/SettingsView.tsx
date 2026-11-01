@@ -58,7 +58,7 @@ import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
 import { EdgeSettings } from "../../notch/EdgeSettings";
 import { PortableNote } from "../portable/PortableNote";
-import { between, changelog, itemText, markSeen, useUnseen } from "../../lib/changelog";
+import { between, changelog, markSeen, useUnseen } from "../../lib/changelog";
 import { privacy, togglePresentation, usePresenting } from "../privacy/store";
 import { locale, t, tBackend } from "../../i18n";
 import { ThemeSettings } from "../themes/ThemeSettings";
@@ -312,7 +312,7 @@ function ChangelogList({ entries, fresh }: { entries: ChangelogEntry[]; fresh?: 
             {e.items.map((item, j) => (
               <li key={j} className={`flex gap-2 text-footnote ${item.highlight ? "font-semibold text-label" : "text-label-2"}`}>
                 <span aria-hidden className={`mt-[7px] size-[3px] shrink-0 rounded-full ${item.highlight ? "bg-label" : "bg-label-3"}`} />
-                <span>{itemText(item)}</span>
+                <span>{item.en}</span>
               </li>
             ))}
           </ul>

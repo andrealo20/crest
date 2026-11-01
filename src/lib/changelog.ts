@@ -1,5 +1,4 @@
 import bundled from "../changelog.json";
-import { lang } from "../i18n";
 import { firstRun } from "../settings/store";
 import type { ChangelogEntry } from "../platform/services";
 import { createStore } from "./store";
@@ -29,10 +28,6 @@ export function compareVersions(a: string, b: string): number {
 /** Entries after `from` up to and including `to`. */
 export function between(entries: ChangelogEntry[], from: string | null, to: string): ChangelogEntry[] {
   return entries.filter((e) => compareVersions(e.version, to) <= 0 && (!from || compareVersions(e.version, from) > 0));
-}
-
-export function itemText(item: ChangelogEntry["items"][number]): string {
-  return lang() === "en" ? item.en : item.de;
 }
 
 /**
