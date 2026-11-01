@@ -27,7 +27,7 @@ Every request goes straight from your PC to the service named here. On by defaul
 | Portfolio | Each broker you set up, plus api.coingecko.com (coin symbols) and api.frankfurter.dev (currency codes) | After you set up an account |
 | Weather | api.open-meteo.com (coordinates), geocoding-api.open-meteo.com (the city you search), get.geojs.io or ipwho.is (approximate location from your IP) | While the weather shows; the location lookup once per start, and never after you pick a city |
 | Discord | The Discord app on your PC, discord.com (sign-in), cdn.discordapp.com (avatars) | After you connect it, while you are in a call |
-| GitHub activity | github.com, or api.github.com with a token | Once an hour while it shows, after you set a username |
+| GitHub activity | github.com, or api.github.com with a token; github.com and avatars.githubusercontent.com (profile picture) | Once an hour while it shows, after you set a username |
 | Hardware | ICMP ping to 1.1.1.1 | Every 2 seconds while the Hardware tool is open |
 | Lyrics | lrclib.net (title, artist and length of the song) | While the lyrics panel is open or a lyrics option of the closed notch is on |
 | Updates | github.com and raw.githubusercontent.com (anonymous) | Once a day; can be turned off in **Settings → General → Updates** |

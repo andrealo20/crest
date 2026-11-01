@@ -86,7 +86,16 @@ export function GithubView() {
     >
       {actions}
       <div className="flex items-baseline gap-5 text-caption text-label-3">
-        <span className="truncate text-footnote font-semibold text-label">{data.user}</span>
+        <span className="flex min-w-0 items-center gap-2 self-center">
+          {/* GitHub redirects /<user>.png to the avatar; Rust only returns names that pass valid_user. */}
+          <img
+            src={`https://github.com/${data.user}.png?size=64`}
+            alt=""
+            className="size-5 shrink-0 rounded-full bg-fill-2"
+            onError={(e) => (e.currentTarget.style.display = "none")}
+          />
+          <span className="truncate text-footnote font-semibold text-label">{data.user}</span>
+        </span>
         <Stat label={t("Letztes Jahr")} value={data.total.toLocaleString(locale())} />
         <Stat label={t("Heute")} value={String(todayCount(data.days, today))} />
         <Stat label={t("Serie")} value={days(current)} />

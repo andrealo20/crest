@@ -56,7 +56,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost https://lrclib.net https://api.open-meteo.com https://geocoding-api.open-meteo.com https://get.geojs.io https://ipwho.is https://raw.githubusercontent.com; img-src 'self' data: https://cdn.discordapp.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; object-src 'none'; base-uri 'self'"
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost https://lrclib.net https://api.open-meteo.com https://geocoding-api.open-meteo.com https://get.geojs.io https://ipwho.is https://raw.githubusercontent.com; img-src 'self' data: https://cdn.discordapp.com https://github.com https://avatars.githubusercontent.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; object-src 'none'; base-uri 'self'"
     }
   },
   "bundle": {
