@@ -8,14 +8,23 @@ import { isNative } from "./platform/native";
 import { startDropListener } from "./platform/drop";
 import { clipboard } from "./platform/clipboard";
 import { settings } from "./settings/store";
-import { applyDisplay, windowY } from "./notch/drag";
+import { applyDisplay, placementKey } from "./notch/drag";
 import { focusMode, startFocusMode } from "./notch/focus";
-import { monitor, startMonitorWatch } from "./notch/monitor";
+import { monitor, reloadMonitor, startMonitorWatch } from "./notch/monitor";
 import { startSystemPolling } from "./features/system/store";
 import { startUsagePolling } from "./features/usage/store";
 import { startGamingWatch } from "./features/system/gaming";
+import { startStatusWatch } from "./features/status/store";
 import { startDiscord } from "./features/discord/store";
+import { startNotices } from "./features/notices/store";
 import { startUpdateWatch } from "./lib/update";
+import { startTodoReminders } from "./features/todos/store";
+import { startWaterReminders } from "./features/water/store";
+import { startMusic } from "./features/now-playing/music";
+import { startThemes } from "./features/themes/store";
+import { startLauncher } from "./features/launcher/store";
+import { startGithub } from "./features/github/store";
+import { screen, startWindowBehavior } from "./features/window/store";
 import { startCapture } from "./features/capture/store";
 import { showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
@@ -28,24 +37,42 @@ startMonitorWatch();
 startSystemPolling();
 startUsagePolling();
 startGamingWatch();
+startStatusWatch();
 startDiscord();
+startNotices();
 startUpdateWatch();
+startTodoReminders();
+startWaterReminders();
+startMusic();
+startThemes();
+startLauncher();
+startGithub();
+startWindowBehavior();
 startCapture();
 
 // Send display settings (monitor, fullscreen, offset, window top, gaming) to Rust on start and on every change.
 // The window top follows the style, the capsule's y, focus mode and the monitor once it has loaded.
 let lastDisplay = "";
+let lastScale = 100;
 const syncDisplay = () => {
-  const { display, gaming } = settings.get();
-  const key = `${display.visibility}|${display.monitor}|${display.offset}|${windowY()}|${gaming.mode}`;
+  const { display, gaming, behavior } = settings.get();
+  const rules = JSON.stringify([behavior.rules, behavior.apps, behavior.scale]);
+  const key = `${rules}|${display.monitor}|${display.offset}|${placementKey()}|${gaming.mode}`;
   if (key === lastDisplay) return;
   lastDisplay = key;
-  applyDisplay();
+  // The monitor's size in CSS px changes with the panel scale: until it is read again (once Rust has the new one, same command queue)
+  // the line and the window top are converted from the old scale's metrics.
+  if (behavior.scale !== lastScale) {
+    applyDisplay(undefined, undefined, undefined, behavior.scale / lastScale);
+    lastScale = behavior.scale;
+    reloadMonitor();
+  } else applyDisplay();
 };
 syncDisplay();
 settings.subscribe(syncDisplay);
 monitor.subscribe(syncDisplay);
 focusMode.subscribe(syncDisplay);
+screen.subscribe(syncDisplay);
 
 // Clipboard history only records what an enabled tool uses (Ask: the latest text).
 let lastClipMode = "";

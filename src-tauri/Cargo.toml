@@ -3,6 +3,8 @@ name = "crest"
 version = "0.2.0"
 edition = "2021"
 license = "GPL-3.0-only"
+# src/bin/crest-notify.rs is a second binary; `cargo run` and the app mean this one.
+default-run = "crest"
 
 [lib]
 name = "crest_lib"
@@ -44,15 +46,20 @@ tauri-plugin-process = "2"
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"
+# Already in the tree through `windows`; #[implement] expands to `::windows_core` paths.
+windows-core = "0.62"
 windows = { version = "0.62", features = [
   "Foundation",
   "Foundation_Collections",
   "Security_Credentials",
   "Security_Cryptography",
   "Media_Control",
+  "Networking_Connectivity",
   "UI_Shell",
   "Storage_Streams",
   "Win32_Foundation",
+  "Win32_Devices_DeviceAndDriverInstallation",
+  "Win32_Devices_Properties",
   "Win32_Media_Audio",
   "Win32_Media_Audio_Endpoints",
   "Win32_Graphics_Dxgi",
@@ -61,6 +68,8 @@ windows = { version = "0.62", features = [
   "Win32_Networking_WinSock",
   "Win32_System_Performance",
   "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Variant",
   "Win32_Storage_FileSystem",
   "Win32_System_Diagnostics_Etw",
   "Win32_System_Registry",
@@ -72,6 +81,7 @@ windows = { version = "0.62", features = [
   "Win32_NetworkManagement_NetManagement",
   "Win32_System_Threading",
   "Win32_UI_Shell",
+  "Win32_UI_Shell_PropertiesSystem",
   "Win32_System_Power",
   "Win32_System_SystemInformation",
   "Win32_System_DataExchange",
@@ -79,13 +89,31 @@ windows = { version = "0.62", features = [
   "Win32_System_LibraryLoader",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_WindowsAndMessaging",
+  "Win32_System_Ole",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_UI_Shell_Common",
+  "Win32_System_Console",
+  "Win32_System_Pipes",
+  "Win32_System_JobObjects",
+  "Win32_System_Environment",
+  "Win32_System_IO",
+  "Win32_System_ProcessStatus",
+  "Win32_NetworkManagement_Ndis",
+  "Devices_Power",
+  "System_Power",
+  "ApplicationModel",
+  "UI_Notifications",
+  "UI_Notifications_Management",
+  "Win32_System_EventLog",
+  "Win32_System_RemoteDesktop",
+  "Win32_System_Pipes",
+  "Win32_Graphics_Dwm",
   "Graphics_Capture",
   "Graphics_DirectX_Direct3D11",
   "Security_Authorization_AppCapabilityAccess",
   "Win32_Graphics_Direct3D",
   "Win32_Graphics_Direct3D11",
   "Win32_Graphics_Dxgi_Common",
-  "Win32_Graphics_Dwm",
   "Win32_Media_MediaFoundation",
   "Win32_System_WinRT_Direct3D11",
   "Win32_System_WinRT_Graphics_Capture",

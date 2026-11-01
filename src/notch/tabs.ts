@@ -1,12 +1,17 @@
 import type { ComponentType } from "react";
 import {
   ArrowsLeftRight,
+  BellSimple,
   CheckCircle,
   ClipboardText,
   CloudSun,
+  Code,
   Cpu,
+  Drop,
   Gauge,
   GearSix,
+  GithubLogo,
+  RocketLaunch,
   SquaresFour,
   MusicNotesSimple,
   NotePencil,
@@ -14,6 +19,7 @@ import {
   Timer,
   Tray,
   Vault,
+  TerminalWindow,
   type Icon,
 } from "@phosphor-icons/react";
 import { DepotIcon } from "../ui/icons";
@@ -33,7 +39,15 @@ import { WeatherView } from "../features/weather/WeatherView";
 import { SystemView } from "../features/system/SystemView";
 import { DiscordView } from "../features/discord/DiscordView";
 import { VaultView } from "../features/vault/VaultView";
+import { WaterView } from "../features/water/WaterView";
+import { ScratchpadView } from "../features/scratchpad/ScratchpadView";
+import { QUOTE_LINE_H } from "../features/quotes/QuoteLine";
+import { settings } from "../settings/store";
+import { NoticesView } from "../features/notices/NoticesView";
 import { SettingsView } from "../features/settings/SettingsView";
+import { TerminalView } from "../features/terminal/TerminalView";
+import { LauncherView } from "../features/launcher/LauncherView";
+import { GithubView } from "../features/github/GithubView";
 import { CaptureView } from "../features/capture/CaptureView";
 import { Camera } from "@phosphor-icons/react";
 
@@ -55,10 +69,19 @@ export interface NotchTab {
 }
 
 export const tabs: NotchTab[] = [
-  { id: "overview", label: "Übersicht", icon: SquaresFour, size: { w: 520, h: 252 }, View: OverviewView },
+  {
+    id: "overview",
+    label: "Übersicht",
+    icon: SquaresFour,
+    // Taller while the quote line is on; read on every render, so the shape follows the setting.
+    get size() {
+      return { w: 520, h: 252 + (settings.get().productivity.quotes ? QUOTE_LINE_H : 0) };
+    },
+    View: OverviewView,
+  },
   { id: "media", label: "Wiedergabe", icon: MusicNotesSimple, size: { w: 520, h: 232 }, View: NowPlayingView },
   { id: "timer", label: "Timer", icon: Timer, size: { w: 520, h: 192 }, View: TimerView },
-  { id: "todos", label: "To-Dos", icon: CheckCircle, size: { w: 520, h: 276 }, View: TodosView },
+  { id: "todos", label: "To-Dos", icon: CheckCircle, size: { w: 600, h: 276 }, View: TodosView },
   { id: "notes", label: "Notiz", icon: NotePencil, size: { w: 520, h: 260 }, View: NotesView },
   { id: "clipboard", label: "Zwischenablage", icon: ClipboardText, size: { w: 600, h: 236 }, View: ClipboardView },
   { id: "shelf", label: "Ablage", icon: Tray, size: { w: 560, h: 236 }, View: ShelfView },
@@ -67,9 +90,15 @@ export const tabs: NotchTab[] = [
   { id: "trading", label: "Depot", icon: DepotIcon, size: { w: 560, h: 380 }, View: TradingView },
   { id: "usage", label: "AI-Nutzung", icon: Gauge, size: { w: 600, h: 320 }, View: UsageView },
   { id: "weather", label: "Wetter", icon: CloudSun, size: { w: 520, h: 250 }, View: WeatherView },
-  { id: "system", label: "Hardware", icon: Cpu, size: { w: 600, h: 248 }, View: SystemView },
+  { id: "system", label: "Hardware", icon: Cpu, size: { w: 720, h: 380 }, View: SystemView },
   { id: "discord", label: "Discord", icon: DiscordLogo, size: { w: 520, h: 210 }, View: DiscordView },
   { id: "vault", label: "Tresor", icon: Vault, size: { w: 560, h: 324 }, View: VaultView },
+  { id: "water", label: "Wasser", icon: Drop, size: { w: 520, h: 236 }, View: WaterView },
+  { id: "scratchpad", label: "Code-Notizblock", icon: Code, size: { w: 600, h: 320 }, View: ScratchpadView },
+  { id: "terminal", label: "Terminal", icon: TerminalWindow, size: { w: 720, h: 460 }, View: TerminalView },
+  { id: "launcher", label: "Launcher", icon: RocketLaunch, size: { w: 520, h: 210 }, View: LauncherView },
+  { id: "github", label: "GitHub", icon: GithubLogo, size: { w: 520, h: 236 }, View: GithubView },
+  { id: "notices", label: "Mitteilungen", icon: BellSimple, size: { w: 560, h: 320 }, View: NoticesView },
   { id: "capture", label: "Erfassen", icon: Camera, size: { w: 620, h: 336 }, View: CaptureView },
 ];
 

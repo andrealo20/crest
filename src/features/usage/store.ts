@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
 import { rowVisible } from "../../notch/row/visibility";
-import { fetchUsage, type UsageId, type UsageProvider } from "../../platform/services";
+import { fetchUsage, fetchUsageTokens, type UsageId, type UsageProvider } from "../../platform/services";
 import { settings } from "../../settings/store";
+import { shownIds } from "./cards";
+import type { TokenReport } from "./tokens";
 
 /** Rust caches per provider (Claude 5 min), so polling more often costs nothing. */
 const POLL_MS = 60_000;
@@ -21,8 +23,8 @@ let timerKey = "";
 let latest = 0;
 
 function enabledIds(): UsageId[] {
-  const enabled = settings.get().usage;
-  return (Object.keys(enabled) as UsageId[]).filter((id) => enabled[id]);
+  const s = settings.get();
+  return shownIds(s.aiUsage.order, s.usage);
 }
 
 /** The providers the data in `usage` was asked for. */
@@ -74,4 +76,37 @@ export function useUsageViewer() {
     viewers.set((n) => n + 1);
     return () => viewers.set((n) => n - 1);
   }, []);
+}
+
+/** Tokens from the local logs. Read only while the AI usage tool is open; Rust reads just the lines added since the last time. */
+export const tokens = createStore<{ report: TokenReport | null; loading: boolean; failed: boolean }>({ report: null, loading: false, failed: false });
+
+let tokenViewers = 0;
+let tokenTimer: ReturnType<typeof setInterval> | null = null;
+
+export function refreshTokens() {
+  if (tokens.get().loading) return;
+  tokens.set((s) => ({ ...s, loading: true }));
+  fetchUsageTokens().then(
+    (report) => tokens.set({ report, loading: false, failed: false }),
+    () => tokens.set((s) => ({ ...s, loading: false, failed: true })),
+  );
+}
+
+/** `active` false (no card shows tokens and the models page is closed): no reading at all. */
+export function useTokens(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    if (tokenViewers++ === 0) {
+      refreshTokens();
+      tokenTimer = setInterval(refreshTokens, POLL_MS);
+    }
+    return () => {
+      if (--tokenViewers === 0 && tokenTimer) {
+        clearInterval(tokenTimer);
+        tokenTimer = null;
+      }
+    };
+  }, [active]);
+  return tokens.use();
 }

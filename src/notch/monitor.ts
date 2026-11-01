@@ -6,11 +6,11 @@ import { settings } from "../settings/store";
 export const monitor = createStore<MonitorInfo | null>(null);
 
 /** Size and work area of that monitor in CSS px; before it loads, the screen with a 48 px taskbar at the bottom. */
-export function monitorMetrics(): { width: number; height: number; workTop: number; workHeight: number } {
+export function monitorMetrics(): { width: number; height: number; workTop: number; workHeight: number; workLeft: number; workWidth: number } {
   const m = monitor.get();
-  if (m) return { width: m.width, height: m.height, workTop: m.workTop, workHeight: m.workHeight };
+  if (m) return { width: m.width, height: m.height, workTop: m.workTop, workHeight: m.workHeight, workLeft: m.workLeft, workWidth: m.workWidth };
   const height = window.screen.height;
-  return { width: window.screen.width, height, workTop: 0, workHeight: height - 48 };
+  return { width: window.screen.width, height, workTop: 0, workHeight: height - 48, workLeft: 0, workWidth: window.screen.width };
 }
 
 let loaded: string | null | undefined;

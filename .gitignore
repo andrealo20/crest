@@ -16,3 +16,5 @@ PLAN-REVIEW-LOG.md
 .claude/
 .codex/
 .design/
+src-tauri/target-shared
+.agent-notes/

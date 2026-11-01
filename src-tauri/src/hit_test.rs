@@ -10,7 +10,7 @@
 //! so clicks reach the app below (e.g. browser tabs). Three quick clicks on the notch
 //! emit `notch://focus-exit`; only the mouse button is watched for that.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -35,8 +35,15 @@ impl HitRect {
 
     /// Larger zone while something is dragged towards the notch, so files are easier
     /// to drop onto the small closed notch (quick drop).
-    fn grown(&self) -> HitRect {
-        HitRect { x: self.x - DROP_MARGIN, y: self.y, w: self.w + DROP_MARGIN * 2.0, h: self.h + DROP_MARGIN }
+    /// Grows into the screen from the edge the notch hangs from (0 top, 1 bottom, 2 left, 3 right) and along it both ways.
+    fn grown(&self, edge: u8) -> HitRect {
+        let m = DROP_MARGIN;
+        match edge {
+            1 => HitRect { x: self.x - m, y: self.y - m, w: self.w + m * 2.0, h: self.h + m },
+            2 => HitRect { x: self.x, y: self.y - m, w: self.w + m, h: self.h + m * 2.0 },
+            3 => HitRect { x: self.x - m, y: self.y - m, w: self.w + m, h: self.h + m * 2.0 },
+            _ => HitRect { x: self.x - m, y: self.y, w: self.w + m * 2.0, h: self.h + m },
+        }
     }
 }
 
@@ -54,11 +61,29 @@ pub struct HitState {
     refresh: AtomicBool,
     /// Focus mode: always click-through, no hover.
     passthrough: AtomicBool,
+    /// Panel scale (the page's zoom) as f64 bits; 0 = 1.0.
+    zoom: AtomicU64,
+    /// The screen edge the notch hangs from, for the drop zone (see HitRect::grown).
+    edge: AtomicU8,
 }
 
 impl HitState {
     pub fn refresh(&self) {
         self.refresh.store(true, Ordering::Relaxed);
+    }
+
+    pub fn set_edge(&self, edge: &str) {
+        self.edge.store(match edge { "bottom" => 1, "left" => 2, "right" => 3, _ => 0 }, Ordering::Relaxed);
+    }
+
+    pub fn set_zoom(&self, zoom: f64) {
+        self.zoom.store(zoom.to_bits(), Ordering::Relaxed);
+        self.refresh();
+    }
+
+    fn zoom(&self) -> f64 {
+        let z = f64::from_bits(self.zoom.load(Ordering::Relaxed));
+        if z > 0.0 { z } else { 1.0 }
     }
 }
 
@@ -113,6 +138,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 continue;
             };
 
+            // The hit rect is in the zoomed page's CSS px.
+            let scale = scale * state.zoom();
             let x = (cursor.x - origin.x as f64) / scale;
             let y = (cursor.y - origin.y as f64) / scale;
             let rect = *state.rect.lock().unwrap();
@@ -149,7 +176,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             // from Explorer). A plain click right below the notch must reach the app
             // underneath; growing on every press swallowed those clicks (issue #7).
             if dragging && !was_down {
-                drag_from = (!rect.grown().contains(x, y)).then_some((x, y));
+                drag_from = (!rect.grown(state.edge.load(Ordering::Relaxed)).contains(x, y)).then_some((x, y));
                 drag_active = false;
             } else if !dragging {
                 drag_from = None;
@@ -160,7 +187,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             }
             was_down = dragging;
 
-            let inside = if drag_active { rect.grown() } else { rect }.contains(x, y);
+            let inside = if drag_active { rect.grown(state.edge.load(Ordering::Relaxed)) } else { rect }.contains(x, y);
             let ignore = !inside && !*state.pinned.lock().unwrap();
 
             // Only call on change: every call goes through the event loop.

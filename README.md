@@ -18,20 +18,11 @@
   <a href="https://github.com/andrealo20/crest/issues/new"><b>Suggest an idea</b></a>
 </p>
 
-Crest sits at the top of your screen as a small notch, stays out of the way until you need it, and opens on hover, click or **Ctrl + Alt + Space**.
+Crest sits at the edge of your screen as a small notch (at the top unless you move it to another edge), stays out of the way until you need it, and opens on hover, click or **Ctrl + Alt + Space**.
 
-Inside: music controls with a live equalizer, a vault for passwords and 2FA codes, live weather, your Discord call, your portfolio, an AI chat (Claude, ChatGPT and more) with your usage limits, clipboard history, a file shelf, a file and unit converter, timers, to-dos and notes, live hardware stats with FPS for games, and privacy dots for mic, camera and screen recording.
+Inside: music controls with a live equalizer, a vault for passwords and 2FA codes, live weather, your Discord call, your portfolio, an AI chat (Claude, ChatGPT and more) with your usage limits, clipboard history, a file shelf, screenshots and screen recording, a file and unit converter, timers, to-dos and notes, live hardware stats with FPS for games, and privacy dots for mic, camera and screen recording.
 
-Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0. Version 0.1 is that app under a new name, with the Antigravity quota in place of the retired Gemini CLI. Version 0.2 adds the closed notch styles and the row of live readings. Coming next, roughly in this order:
-
-1. Short status alerts: volume and brightness, Caps Lock and keyboard language, charger, Wi-Fi and Bluetooth headphones.
-2. Synced lyrics, shuffle and repeat, and a choice of player.
-3. To-dos with projects and reminders, a water reminder, timer styles, an app launcher, GitHub activity and a code scratchpad.
-4. Screenshots and screen recording with system audio and microphone.
-5. A PowerShell prompt in the notch.
-6. More AI usage sources, with tokens and cost per day and per model.
-7. A deeper system monitor: cores, network, processes, drives, temperatures, power and battery.
-8. More brokers for the portfolio, read only.
+Crest is a fork of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 1.6.0. Version 0.1 is that app under a new name, with the Antigravity quota in place of the retired Gemini CLI. Version 0.2 adds the closed notch styles and the row of live readings.
 
 ## What it does
 
@@ -47,12 +38,27 @@ Notch and capsule show a row of parts, centred and in the order you choose: cove
 
 Short notices appear over the row: a finished timer stays until you dismiss it, a quota alert at 70% and 90% shows for 5 seconds (it needs the AI quota rings turned on), and a new song for 4 seconds.
 
+Status alerts show briefly when you plug in or unplug the charger, when the battery reaches 20% and 10%, when the internet drops or comes back, and when Bluetooth headphones connect or disconnect. Turn each one off in **Settings → Display**.
+
+### Screen edge, window rules and shortcuts
+
+- **Any screen edge.** **Screen edge** in **Settings → Display** hangs the notch and the line from the top, bottom, left or right edge, from the screen's edge or from the taskbar's. Dragging the closed notch towards another edge moves it there. On the left and right edges the parts stand in a column, and a notice shows as one icon: a finished timer (click to dismiss), a status alert, a live notice's app logo or a due to-do (click to open the To-dos). The capsule stays on the top.
+- **Screen and app rules.** **Settings → Window** chooses what Crest does while a maximized window, a borderless full-screen app or an exclusive full-screen game covers its monitor: keep its look, turn into the line, or hide. It can also check the windows behind the one in front. Rules per app, picked from the running apps or typed, override these.
+- **Panel size and scale.** Drag the open panel's sides, bottom or bottom corners to size each tool (double click resets), or pick Compact, Standard or Spacious for all of them. The whole notch can be shown at 100 % or 150 %.
+- **Shortcuts.** Opening and closing, hiding and showing Crest, and resizing the panel with the arrow keys each take a shortcut you record in **Settings → Window**. Crest tells you when another program or the launcher's Alt keys already use it. Right click on the notch opens the settings, and the mouse wheel switches tools.
+
+### Live notices
+
+Turn on **Settings → Notices** and Windows notifications from any app show in the closed notch for 6 seconds, with the app's logo, name, title and text, and land on a **Notices** page in the open notch. Each app can be shown, muted (history only) or turned off; presentation mode and an optional daily quiet window keep them in the history without popping up. Scripts, builds and coding agents can send their own notices with `crest-notify`, including `crest-notify run -- <command>` for the exit code and duration. Details, ready-made hooks for Claude Code and Codex, and how notifications are read: [docs/notices.md](docs/notices.md).
+
 ### Windows and system
 
 - **Overview** is a small control center: time, weather, what is playing right now, Windows focus and a volume slider.
-- **Now Playing** controls anything with a Windows media session (Spotify, browser players and so on) and shows cover, title, progress and a live equalizer driven by the actual audio output.
+- **Now Playing** controls anything with a Windows media session (Spotify, browser players and so on) and shows cover, title, progress and a live equalizer driven by the playing app's own audio, so a notification or a call doesn't move it (on Windows builds before 20348 it follows the whole output). Shuffle and repeat appear when the app offers them. With several players open, the name left of the controls picks one and pins it; Automatic follows whatever plays.
+- **Synced lyrics** from LRCLIB: the microphone button opens them under the controls, scrolling along with the song. Click a line to jump there. In the closed notch the song title part can show the current line instead of the title (its **Lyrics** switch in **Settings → Display**), and **Lyrics in the closed notch** shows only the cover and the line (plus a running timer or Discord call) while a song plays, with the notch growing and shrinking to each line.
 - **Clipboard** keeps a history of text, links, images and files, with filters and previews. Password managers are excluded on purpose, and nothing is written to disk.
 - **Shelf** is a parking spot for files. Drop them onto the notch or press Ctrl + V, then open, copy or reveal them later.
+- **Capture** takes screenshots of all screens, one screen or a region you drag, saves them as PNG in *Pictures\Crest\Screenshots* and copies them to the clipboard, optionally onto the Shelf too. It records a screen or a window to MP4 in *Videos\Crest\Recordings*, at 30 or 60 fps, with system audio and the microphone if you want them. While it records, the closed notch shows the time with pause and stop buttons. Crest keeps itself out of every capture. The tool lists what you took, with thumbnails and lengths; a deleted capture goes to the Recycle Bin.
 - **Hardware** shows live CPU, RAM, GPU, VRAM and ping, with history that keeps recording while the notch is closed.
 - **Gaming mode** adds FPS to the readings in the closed notch, always or only while a fullscreen app runs. FPS works for DirectX, OpenGL and Vulkan games. Windows only allows this for members of the *Performance Log Users* group: click **Settings → Display → Unlock FPS** once, confirm the Windows prompt, then sign out and back in. A lock icon in the notch means this step is still missing.
 - **Privacy dots** turn green when the microphone or camera is in use and red while the screen is being recorded, like on an iPhone.
@@ -60,9 +66,9 @@ Short notices appear over the row: a finished timer stays until you dismiss it, 
 ### Services
 
 - **Ask** is a chat with Claude, ChatGPT, OpenRouter or any OpenAI-compatible endpoint, with streaming and adjustable reasoning effort.
-- **AI usage** shows your subscription limits for Claude, ChatGPT, Antigravity and Cursor.
+- **AI usage** shows your subscription limits for Claude, ChatGPT, Antigravity, Cursor and the Z.ai coding plan, credits and balances for OpenRouter and DeepSeek, and the tokens and cost of Claude Code and Codex today and over 7 days, read from their local logs. A models page breaks tokens and cost down per model for today, 7 or 30 days. Cards can be reordered, renamed, added and removed.
 - **Weather** gives current conditions and a 7-day forecast through Open-Meteo. No API key needed.
-- **Portfolio** connects to Trading 212 and shows profit and loss and a history chart, live or in demo mode. The app only reads, it never trades.
+- **Portfolio** combines Trading 212, Kraken, Coinbase, Binance, Bitpanda, eToro, Interactive Brokers and holdings entered by hand in one base currency, with profit and loss per account and in total and a history chart. The app only reads, it never trades or moves funds.
 - **Discord** shows your current voice call with speaking members and buttons for mute, deafen and hang up. In the closed notch, a green equalizer plays while someone talks.
 
 ### Local and offline
@@ -90,6 +96,8 @@ The vault is off by default; turn it on under **Settings → Tools**.
 2. Run it. No Node, Rust or admin rights needed; it installs for your user only.
 3. The notch appears at the top of your screen and starts with Windows from then on.
 
+**Portable:** download Crest-x.y.z-Portable-x64.zip instead, unzip it anywhere you can write to and run Crest.exe. Nothing is installed: settings, notes and caches stay in a data folder next to it, crest-notify.exe comes along, and updates replace both in place after checking their signature. Start with Windows is off for a portable copy until you switch it on. API keys stay in the Windows Credential Manager of each PC. Details are in README-portable.txt inside the zip.
+
 Crest keeps its settings and data apart from L4-Notchbar, so both can be installed at the same time.
 
 Built and tested on Windows 11; Windows 10 should work but is untested. If WebView2 is missing, the installer fetches it automatically.
@@ -104,13 +112,13 @@ The installer is not code-signed yet, so Windows SmartScreen may warn on first l
 | Switch tools | Tool bar at the bottom of the open notch |
 | Settings | Gear icon at the end of the tool bar, or **Settings …** in the tray menu |
 | Tray icon | Left click opens the notch, right click shows the menu (open, settings, autostart, quit) |
-| Move the notch | Drag it sideways, either closed or by its header. "Reset to center" is in settings |
+| Move the notch | Drag it along its edge, closed or by its header; drag the closed notch towards another edge to move it there. "Reset to center" is in settings |
 | Focus mode | Click the notch three times quickly. It turns half transparent and clicks pass through. Three more clicks bring it back |
 | Add files | Drag them onto the notch, or paste with Ctrl + V |
 
 ## Settings
 
-Settings are grouped into General, Display, Tools, Timer, AI and Connections. There you can reorder (drag) or hide tools, pick the monitor, hide the notch automatically during fullscreen apps, and enable autostart. The interface is in English.
+Settings are grouped into General, Display, Window, Tools, Timer, AI, Connections, Themes and Notices. There you can reorder (drag) or hide tools, pick the monitor and the screen edge, set what the notch does over full-screen and maximized windows, record shortcuts, and enable autostart. The interface is in English.
 
 ### Setting up the integrations
 
@@ -120,7 +128,9 @@ Every integration is optional. Tools you don't connect simply stay out of your w
 
 **AI usage.** Nothing to enter. If you are signed in to Claude Code, the Codex CLI, the Antigravity CLI (`agy`) or Cursor on this PC, Crest reads their existing local login and shows your limits. For Antigravity it asks the CLI itself and never touches its login.
 
-**Portfolio.** In Trading 212 go to Settings, API (Beta) and create a key with permission for account data and portfolio. Nothing more is required. Paste key and secret under **Connections** and choose live or demo account.
+OpenRouter, DeepSeek and Z.ai need an API key, entered under **AI** once the card is switched on (OpenRouter uses the same key as Ask). Token cost is estimated at the API list price of each model; for models the built-in table does not know, click the cost on the models page and set a price by hand. With a subscription the figure is what the same tokens would cost on the API, not what you pay. After a rate limit (HTTP 429) a source pauses for 2 to 30 minutes, or as long as the service asks, and keeps showing its last reading.
+
+**Portfolio.** Under **Connections** pick the base currency and set up each account with a key that can only read; each provider lists the exact rights to tick (for Trading 212: account data and portfolio; Kraken: Query Funds and Query Ledger Entries; Coinbase: an ECDSA key with View only; Binance: Enable Reading only; Bitpanda: Balances; eToro: a Read key; Interactive Brokers: a Flex Web Service token and an Activity Flex Query with Open Positions and Cash Report). Coins entered by hand are priced by CoinGecko; stocks and ETFs entered by hand use the price you type, since there is no free documented stock quote source. Degiro, Trade Republic and Scalable Capital have no official API and are not supported.
 
 **Discord.** Discord only hands out voice permissions to your own application:
 
@@ -135,9 +145,11 @@ Every integration is optional. Tools you don't connect simply stay out of your w
 
 Crest has no account, no server of its own, no analytics and no tracking. Everything it stores (settings, to-dos, notes, timer presets) lives on your machine. The clipboard history is kept in memory only and never written to disk.
 
-- **Keys and secrets** are stored in the Windows Credential Manager, never in a plain file, and they are never sent back to the interface.
+- **Keys and secrets** are stored in the Windows Credential Manager under "Crest/…", never in a plain file, and they are never sent back to the interface. On the first start Crest copies keys it finds under "Notch/…" (where older versions and L4-Notchbar keep them). Those originals stay where they are: deleting a key in Crest does not remove them, so remove them in the Credential Manager if you no longer need them.
 - **The vault** lives in one file encrypted with Windows DPAPI, readable only under your Windows account. The PIN is checked in the app's backend, not in the interface, and 2FA keys never leave the backend. With Windows Hello turned on, secrets are additionally sealed with AES-256-GCM under a TPM-backed Windows Hello key.
-- **Integrations talk directly to their own service** and nowhere else: Ask to the AI provider you chose, Portfolio to Trading 212, Discord to the Discord app on your PC (and discord.com for the sign-in), AI usage to the provider you are signed in to, Weather to Open-Meteo (plus an IP-based city lookup unless you picked a city). If you don't set an integration up, it makes no requests.
+- **Integrations talk directly to their own service** and nowhere else: Ask to the AI provider you chose, Portfolio to the brokers you set up plus CoinGecko and the ECB rates at frankfurter.dev for prices (no account data is sent there, only coin symbols and currency codes), Discord to the Discord app on your PC (and discord.com for the sign-in), AI usage to the provider you are signed in to or gave a key for (token counts are read from local files and never sent anywhere), Weather to Open-Meteo (plus an IP-based city lookup unless you picked a city). If you don't set an integration up, it makes no requests.
+- **Lyrics** come from LRCLIB (lrclib.net). Crest sends the title and artist of whatever is playing, with its length, and nothing else. It does so only while the lyrics panel is open or a lyrics option of the closed notch is on, and never for sessions without a known length or longer than 20 minutes (streams, mixes, podcasts). Answers are kept in a small cache on your PC, so a song is looked up once.
+- **Live notices** (off by default) read other apps' Windows notifications through Windows' own notification listener, after you allow it. Crest learns that one arrived from Windows' push notification event log for your account, reads only that notification, and never changes, dismisses or opens anything. The history is kept in memory only and is gone when Crest quits. `crest-notify` talks to Crest over a named pipe that only your Windows account can open and that refuses connections from other computers.
 - **Updates.** Once a day the app makes a single anonymous request to this repository's public release page to check for a new version. No personal data is sent. If an update exists, a dot appears on the gear icon and **Settings → General → Updates** shows it. Nothing is downloaded until you click **Update now**; the app then installs the update and restarts. Every update is cryptographically signed and verified before it is installed. You can turn the daily check off in the same place.
 
 ## Development
@@ -182,6 +194,7 @@ The workflow builds the signed installer and publishes release `v0.2.0` with the
 src/            React frontend: notch shape, tools, design tokens, i18n
 src-tauri/      Rust backend: window, hit testing, tray and the Windows APIs
 scripts/        Helper scripts such as the version bump and the i18n check
+docs/           Longer guides, such as live notices and crest-notify
 ```
 
 ## License and credits
@@ -191,6 +204,9 @@ scripts/        Helper scripts such as the version bump and the i18n check
 Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) by Linux5Real, forked from version 1.6.0 on 31 October 2026. The commit history lists every change since then.
 
 - The Antigravity quota reader comes from an upstream pull request by [Fraustiz](https://github.com/Linux5Real/L4-Windows-NotchBar/pull/11).
-- The layout of the collapsed row, the carousel timing and the capsule placement rules are translated from [BrimDeck](https://github.com/MoFeng2223/BrimDeck) (Apache-2.0, license text in [licenses/BrimDeck-LICENSE](licenses/BrimDeck-LICENSE)).
+- The LRCLIB lookup (exact match, search fallback by length, cleanup of video titles) follows an upstream pull request by mhmmdazizy ([L4-Notchbar PR #13](https://github.com/Linux5Real/L4-Windows-NotchBar/pull/13)).
+- The layout of the collapsed row, the carousel timing, the capsule placement rules, the per-app audio capture, the way live notices learn of new Windows notifications from the event log, the screen-edge frame, the side column, the portable packaging, the window and app rules, the shortcut text and the panel sizes and scale are translated from [BrimDeck](https://github.com/MoFeng2223/BrimDeck) (Apache-2.0, license text in [licenses/BrimDeck-LICENSE](licenses/BrimDeck-LICENSE)).
+- The panel themes, their readability correction and the day and night switch are translated from BrimDeck too ([docs/themes.md](docs/themes.md)). The One Dark Pro, GitHub, Dracula and Night Owl themes use the colours of those VS Code themes under the MIT License ([licenses/theme-palettes-MIT.txt](licenses/theme-palettes-MIT.txt)).
 - The notch proportions were derived from [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT).
+- The terminal uses [xterm.js](https://github.com/xtermjs/xterm.js) (MIT).
 - The design follows Apple's Dynamic Island and the macOS app OmniNotch. Crest is not affiliated with Apple or OmniNotch.

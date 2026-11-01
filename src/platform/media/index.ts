@@ -4,7 +4,7 @@ import { createMockMedia } from "./mock";
 import { createNativeMedia } from "./native";
 import type { MediaSource } from "./types";
 
-export type { NowPlaying } from "./types";
+export type { NowPlaying, RepeatMode, SourceInfo } from "./types";
 export { livePosition } from "./types";
 
 // In the app: Windows media (GSMTC). In the browser: sample data for design work.

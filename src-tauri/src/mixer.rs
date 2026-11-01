@@ -95,7 +95,7 @@ fn sessions() -> windows::core::Result<Vec<Entry>> {
     }
 }
 
-fn process_path(pid: u32) -> Option<String> {
+pub(crate) fn process_path(pid: u32) -> Option<String> {
     unsafe {
         let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
         let mut buf = [0u16; 1024];
@@ -106,7 +106,7 @@ fn process_path(pid: u32) -> Option<String> {
     }
 }
 
-fn file_name(path: &str) -> String {
+pub(crate) fn file_name(path: &str) -> String {
     path.rsplit(['\\', '/']).next().unwrap_or(path).to_lowercase()
 }
 
@@ -116,7 +116,7 @@ fn squash(s: &str) -> String {
 }
 
 /// Does the media app ID belong to this exe? Firefox reports a fixed hash instead of a name.
-fn matches(app_id: &str, exe: &str) -> bool {
+pub(crate) fn matches(app_id: &str, exe: &str) -> bool {
     let stem = squash(exe.strip_suffix(".exe").unwrap_or(exe));
     let id = squash(app_id.strip_suffix(".exe").unwrap_or(app_id));
     if stem.is_empty() || id.is_empty() {
@@ -185,7 +185,7 @@ pub async fn mixer_set(id: String, level: Option<f32>, muted: Option<bool>) -> R
 }
 
 /// "Google Chrome" from the exe's version info, otherwise the file name ("Spotify").
-fn display_name(path: &str) -> String {
+pub(crate) fn display_name(path: &str) -> String {
     description(path).filter(|d| !d.trim().is_empty()).unwrap_or_else(|| {
         let stem = file_name(path);
         let stem = stem.strip_suffix(".exe").unwrap_or(&stem);
@@ -220,7 +220,7 @@ fn description(path: &str) -> Option<String> {
 }
 
 /// The exe's 32 px icon as a PNG data URL.
-fn icon_png(path: &str) -> Option<String> {
+pub(crate) fn icon_png(path: &str) -> Option<String> {
     unsafe {
         let mut info = SHFILEINFOW::default();
         let ok = SHGetFileInfoW(

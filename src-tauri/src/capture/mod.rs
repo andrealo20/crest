@@ -96,6 +96,13 @@ fn new_file(dir: &Path, prefix: &str, ext: &str) -> Result<PathBuf, String> {
     Ok(dir.join(file_name(prefix, ext, stamp(), |n| dir.join(n).exists())))
 }
 
+/// For a Crest window opened while a recording runs (the floating timer): exclude it too.
+pub(crate) fn exclude_if_capturing(app: &AppHandle) {
+    if app.state::<CaptureState>().busy() {
+        exclude(app, true);
+    }
+}
+
 /// Every Crest window (the notch, the floating timer, ...) in or out of captures.
 fn exclude(app: &AppHandle, on: bool) {
     for w in app.webview_windows().values() {

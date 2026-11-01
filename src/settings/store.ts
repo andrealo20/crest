@@ -1,6 +1,15 @@
 import { createStore } from "../lib/store";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
+import { normalizeLook, type TimerLook } from "../features/timer/looks";
+import { WATER_DEFAULTS, normalizeWater, type WaterConfig } from "../features/water/water";
+import { normalizeCards, USAGE_CARDS_DEFAULTS, type UsageCards } from "../features/usage/cards";
+import { THEME_DEFAULTS, normalizeThemeSettings, type ThemeSettings } from "../features/themes/themes";
+import type { ColorScheme } from "../features/system/levels";
+import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
+import { NOTICE_DEFAULTS, normalizeNotices, type NoticeSettings } from "../features/notices/rules";
+import { WINDOW_DEFAULTS, normalizeWindow, type WindowSettings } from "../features/window/model";
+import { DOCK_DEFAULTS, normalizeDock, type Dock } from "../notch/edge";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -18,9 +27,12 @@ export interface Settings {
   hoverDelay: "fast" | "normal" | "patient";
   /** Order = order in the tool bar. */
   tools: { id: string; enabled: boolean }[];
-  trading: { env: "live" | "demo" };
+  /** Portfolio: Trading 212 account, and the base currency ("" = not chosen yet, see features/trading/base.ts). */
+  trading: { env: "live" | "demo"; base: string };
   /** AI usage: which providers are shown (order = display order). */
-  usage: { claude: boolean; codex: boolean; gemini: boolean; cursor: boolean };
+  usage: { claude: boolean; codex: boolean; gemini: boolean; cursor: boolean; openrouter: boolean; deepseek: boolean; zai: boolean };
+  /** AI usage cards: order, names typed by the user, model prices set by hand. */
+  aiUsage: UsageCards;
   ask: { provider: AskProvider; configs: Record<AskProvider, AskProviderConfig> };
   /** `auto` = detected via IP (again on every start); a picked location stays. */
   weather: { name: string; lat: number; lon: number; auto?: boolean } | null;
@@ -29,6 +41,7 @@ export interface Settings {
    * `offset` = horizontal offset from the center in CSS px (set by dragging).
    */
   display: {
+    /** Replaced by `behavior.rules`; only read once to seed them for older installs. */
     visibility: "always" | "hide-fullscreen";
     monitor: string | null;
     offset: number;
@@ -62,6 +75,34 @@ export interface Settings {
   presentation: { manual: boolean; auto: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
+  /** Look of the big countdown in the Timer tool and the detached timer window. */
+  timer: { look: TimerLook };
+  /** To-do reminders (sound), the water reminder and the quote line in Overview. */
+  productivity: { reminderSound: boolean; quotes: boolean; water: WaterConfig };
+  /** Terminal tool: shell, font size in px, start folder ("" = home), end the shell when the notch closes. */
+  terminal: { shell: "pwsh" | "powershell" | "cmd"; fontSize: number; startDir: string; endOnClose: boolean };
+  /**
+   * Music: the lyrics panel in Now Playing is open; the Song title part shows the current lyric line; the closed notch
+   * shows only cover and line while synced lyrics play; the player shown whatever else plays (media app ID, null = automatic).
+   */
+  music: { lyricsOpen: boolean; titleLyrics: boolean; notchLyrics: boolean; pinned: string | null };
+  /** Panel theme, custom themes and the day and night switch (src/features/themes). */
+  themes: ThemeSettings;
+  /** Hardware tool: colours of the readings, the GPU shown (adapter name, "" = automatic: the busiest; index among adapters of that name), process ranking. */
+  system: { colors: ColorScheme; gpu: string; gpuIndex: number; sort: "cpu" | "mem" };
+  /**
+   * App launcher: pinned apps, `null` until the first app list arrives, which pins the detected
+   * AI apps once. `hotkeys`: the first six on Alt+1 to Alt+6, opt-in (other apps lose those keys).
+   */
+  launcher: { favorites: Favorite[] | null; hotkeys: boolean };
+  /** GitHub activity: the public username. An optional token is stored with the secrets. */
+  github: { user: string };
+  /** Live notices: Windows notifications and crest-notify in the closed notch, with per-app rules and quiet hours. */
+  notices: NoticeSettings;
+  /** Window behaviour: full-screen and app rules, shortcuts, panel sizes and scale, close delay, mouse (src/features/window). */
+  behavior: WindowSettings;
+  /** The screen edge the notch and the line hang from, and whether from the screen's edge or the taskbar's (the capsule floats on the top frame). */
+  dock: Dock;
   /**
    * Capture tool: what a screenshot takes ("all" or a monitor id), the recording source
    * (null = primary monitor), frame rate, microphone and system audio, and whether new
@@ -87,17 +128,24 @@ export const TOOL_IDS = [
   "system",
   "discord",
   "vault",
+  "water",
+  "scratchpad",
+  "terminal",
+  "launcher",
+  "github",
+  "notices",
   "capture",
 ] as const;
 
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault"]);
+const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "notices"]);
 
 const defaults: Settings = {
   openMode: "hover",
   hoverDelay: "normal",
   tools: TOOL_IDS.map((id) => ({ id, enabled: !DEFAULT_OFF.has(id) })),
-  trading: { env: "live" },
-  usage: { claude: true, codex: true, gemini: true, cursor: false },
+  trading: { env: "live", base: "" },
+  usage: { claude: true, codex: true, gemini: true, cursor: false, openrouter: false, deepseek: false, zai: false },
+  aiUsage: USAGE_CARDS_DEFAULTS,
   ask: {
     provider: "custom",
     configs: {
@@ -118,6 +166,17 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
+  timer: { look: "clean" },
+  productivity: { reminderSound: true, quotes: false, water: WATER_DEFAULTS },
+  terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
+  music: { lyricsOpen: false, titleLyrics: false, notchLyrics: false, pinned: null },
+  themes: THEME_DEFAULTS,
+  system: { colors: "calm", gpu: "", gpuIndex: 0, sort: "cpu" },
+  launcher: { favorites: null, hotkeys: false },
+  github: { user: "" },
+  notices: NOTICE_DEFAULTS,
+  behavior: WINDOW_DEFAULTS,
+  dock: DOCK_DEFAULTS,
   capture: { shotTarget: "all", source: null, fps: 30, mic: false, system: true, shelf: false, border: true },
 };
 
@@ -168,6 +227,7 @@ settings.set((s) => {
     tools,
     trading: { ...defaults.trading, ...s.trading },
     usage: { ...defaults.usage, ...s.usage },
+    aiUsage: normalizeCards(s.aiUsage),
     // A saved y that is not a finite number (null, a string) would place the capsule nowhere.
     display: { ...defaults.display, ...s.display, y: Number.isFinite(s.display?.y) ? s.display.y : defaults.display.y },
     gaming: { ...defaults.gaming, ...s.gaming },
@@ -176,9 +236,21 @@ settings.set((s) => {
     units: { ...defaults.units, ...s.units },
     presentation: { ...defaults.presentation, ...s.presentation },
     updates: { ...defaults.updates, ...s.updates },
+    timer: { look: normalizeLook(s.timer?.look) },
+    productivity: { ...defaults.productivity, ...s.productivity, water: normalizeWater(s.productivity?.water) },
+    terminal: { ...defaults.terminal, ...s.terminal },
+    music: { ...defaults.music, ...s.music },
+    themes: normalizeThemeSettings(s.themes),
+    system: { ...defaults.system, ...s.system },
+    // Only an explicit opt-in turns the keys on; an older saved `shortcuts: true` does not.
+    launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true },
+    github: { ...defaults.github, ...s.github },
     capture: { ...defaults.capture, ...s.capture },
     closed: normalizeClosed(s.closed),
+    notices: normalizeNotices(s.notices),
     ask: migrateAsk(s.ask),
+    behavior: normalizeWindow(s.behavior, s.display?.visibility),
+    dock: normalizeDock(s.dock),
   };
 });
 

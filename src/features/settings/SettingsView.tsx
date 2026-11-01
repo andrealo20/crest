@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, Reorder } from "motion/react";
 import {
+  AppWindow,
   ArrowsInLineHorizontal,
+  BellSimple,
   ChartDonut,
   CheckCircle,
   Clock,
   Cpu,
+  GithubLogo,
   DotsSixVertical,
   Keyboard,
   LockSimple,
   Monitor,
   MusicNote,
+  Palette,
   Play,
   Plugs,
   SlidersHorizontal,
@@ -26,9 +30,9 @@ import { content, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, stopAlarm, type AlarmDuration } from "../../lib/sound";
 import { nav } from "../../notch/nav";
 import { tabs } from "../../notch/tabs";
-import { autostart, display, secrets, unlockFps, type ChangelogEntry, type MonitorInfo, type SecretName, type UsageId } from "../../platform/services";
+import { autostart, display, secrets, unlockFps, type ChangelogEntry, type MonitorInfo, type SecretName } from "../../platform/services";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
-import { BrandLogo, brandName, DiscordLogo } from "../../ui/brands";
+import { DiscordLogo } from "../../ui/brands";
 import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
 import type { ClosedSettings, PartId } from "../../notch/row/parts";
 import { effortLevels, providerInfo } from "../ask/providers";
@@ -36,22 +40,41 @@ import { discordState, reconnectDiscord } from "../discord/store";
 import { fps } from "../system/gaming";
 import { PlaceSearch } from "../weather/WeatherView";
 import { VaultSettings } from "../vault/VaultSettings";
+import { TimerLookSettings } from "../timer/LookSettings";
+import { ProductivitySettings } from "../water/WaterSettings";
+import { TerminalSettings } from "../terminal/TerminalSettings";
+import { MusicSettings } from "../now-playing/MusicSettings";
+import { setMusic } from "../now-playing/music";
+import { UsageSettings } from "../usage/UsageSettings";
+import { SystemSettings } from "../system/SystemSettings";
+import { LauncherSettings } from "../launcher/LauncherSettings";
+import { GithubSettings } from "../github/GithubSettings";
+import { NoticesSettings } from "../notices/NoticesSettings";
+import { WindowSettings, keyText } from "../window/WindowSettings";
+import { keycaps } from "../window/hotkeys";
+import { TradingSettings } from "../trading/TradingSettings";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
+import { EdgeSettings } from "../../notch/EdgeSettings";
+import { PortableNote } from "../portable/PortableNote";
 import { between, changelog, itemText, markSeen, useUnseen } from "../../lib/changelog";
 import { privacy, togglePresentation, usePresenting } from "../privacy/store";
 import { locale, t, tBackend } from "../../i18n";
+import { ThemeSettings } from "../themes/ThemeSettings";
 
-type PageId = "general" | "display" | "tools" | "timer" | "ai" | "accounts";
+type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices";
 
 const pages: { id: PageId; label: string; icon: Icon }[] = [
   { id: "general", label: "Allgemein", icon: SlidersHorizontal },
   { id: "display", label: "Darstellung", icon: Monitor },
+  { id: "window", label: "Fenster", icon: AppWindow },
   { id: "tools", label: "Tools", icon: SquaresFour },
   { id: "timer", label: "Timer", icon: Timer },
   { id: "ai", label: "AI", icon: Sparkle },
   { id: "accounts", label: "Verbindungen", icon: Plugs },
+  { id: "themes", label: "Themen", icon: Palette },
+  { id: "notices", label: "Mitteilungen", icon: BellSimple },
 ];
 
 /** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. */
@@ -60,12 +83,21 @@ const sectionPage: Record<string, PageId> = {
   updates: "general",
   display: "display",
   presentation: "display",
+  window: "window",
   alarm: "timer",
   ask: "ai",
   usage: "ai",
   discord: "accounts",
   trading: "accounts",
   vault: "tools",
+  todos: "tools",
+  water: "tools",
+  terminal: "tools",
+  themes: "themes",
+  system: "tools",
+  launcher: "tools",
+  github: "accounts",
+  notices: "notices",
 };
 
 /** Last open page survives closing/opening the notch (the component is rebuilt). */
@@ -137,30 +169,44 @@ export function SettingsView() {
             {page === "display" && (
               <>
                 <Display />
+                <MusicSettings />
                 <Presentation />
               </>
             )}
+            {page === "window" && <WindowSettings />}
             {page === "tools" && (
               <>
                 <Tools />
+                <SystemSettings />
                 <VaultSettings />
+                <ProductivitySettings />
+                <TerminalSettings />
+                <LauncherSettings />
               </>
             )}
-            {page === "timer" && <Alarm />}
+            {page === "timer" && (
+              <>
+                <Alarm />
+                <TimerLookSettings />
+              </>
+            )}
+            {page === "notices" && <NoticesSettings />}
             {page === "ai" && (
               <>
                 <Ask />
-                <UsageProviders />
+                <UsageSettings />
                 <KeysNote />
               </>
             )}
             {page === "accounts" && (
               <>
                 <Discord />
-                <Trading />
+                <TradingSettings />
+                <GithubSettings />
                 <KeysNote />
               </>
             )}
+            {page === "themes" && <ThemeSettings />}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -194,6 +240,7 @@ function Updates() {
           {t("Jetzt suchen")}
         </Button>
       </Row>
+      <PortableNote />
       <AnimatePresence initial={false}>
         {(u.phase === "available" || u.phase === "downloading") && u.version && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={fade} className="overflow-hidden">
@@ -329,31 +376,6 @@ function Ask() {
   );
 }
 
-function Trading() {
-  const s = settings.use();
-  return (
-    <Group title="Trading 212" id="settings-trading">
-      <Row label={t("Konto")}>
-        <Segmented
-          id="t212-env"
-          size="sm"
-          value={s.trading.env}
-          onChange={(env) => updateSettings({ trading: { env } })}
-          options={[
-            { value: "live", label: t("Echt") },
-            { value: "demo", label: "Demo" },
-          ]}
-        />
-      </Row>
-      <SecretRow name="t212.key" label={t("API-Schlüssel")} />
-      <SecretRow name="t212.secret" label={t("API-Secret")} hint={t("Nur einmal sichtbar beim Erstellen")} />
-      <div className="px-3 py-2 text-caption text-label-3">
-        {t("In Trading 212: Einstellungen → API (Beta) → Schlüssel erstellen. Rechte: Konto-Daten und Portfolio – mehr ist nicht nötig, die Notch liest nur.")}
-      </div>
-    </Group>
-  );
-}
-
 function General() {
   const s = settings.use();
   const [auto, setAuto] = useState<boolean | null>(null);
@@ -406,6 +428,19 @@ function General() {
           </motion.div>
         )}
       </AnimatePresence>
+      <Row label={t("Schließen-Verzögerung")} hint={t("Wie lange die Notch offen bleibt, nachdem der Zeiger sie verlassen hat")}>
+        <Segmented
+          id="close-delay"
+          size="sm"
+          value={s.behavior.closeDelay}
+          onChange={(closeDelay) => updateSettings((cur) => ({ behavior: { ...cur.behavior, closeDelay } }))}
+          options={[
+            { value: "fast", label: t("Schnell") },
+            { value: "normal", label: t("Normal") },
+            { value: "patient", label: t("Geduldig") },
+          ]}
+        />
+      </Row>
       <Row label={t("Mit Windows starten")}>
         {auto !== null && (
           <Switch
@@ -418,17 +453,23 @@ function General() {
           />
         )}
       </Row>
-      <Row label={t("Tastenkürzel")} hint={t("Öffnet und schließt die Notch von überall")}>
+      <Row label={t("Tastenkürzel")} hint={t("Öffnet und schließt die Notch von überall; ändern unter Fenster")}>
         <span className="flex items-center gap-1 text-caption text-label-2">
           <Keyboard size={13} weight="bold" className="text-label-3" />
-          {["Strg", "Alt", "Leertaste"].map((k) => (
-            <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">{t(k)}</kbd>
+          {keycaps(s.behavior.hotkeys.open).map(keyText).map((k) => (
+            <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">{k}</kbd>
           ))}
         </span>
       </Row>
     </Group>
   );
 }
+
+const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string][] = [
+  ["power", "Ladegerät und Akku", "Beim Ein- und Ausstecken, Akku bei 20 und 10 %"],
+  ["net", "Netzwerk", "Wenn das Internet wegfällt und zurückkommt"],
+  ["bt", "Bluetooth-Kopfhörer", "Beim Verbinden oder Trennen, mit Akku, wenn sie ihn melden"],
+];
 
 /** Where and when the notch shows up. */
 function Display() {
@@ -444,18 +485,6 @@ function Display() {
 
   return (
     <Group id="settings-display">
-      <Row label={t("Sichtbarkeit")} hint={d.visibility === "always" ? t("Bleibt über jedem Fenster, auch im Vollbild") : t("Verschwindet bei Spielen, Videos und Präsentationen")}>
-        <Segmented
-          id="display-visibility"
-          size="sm"
-          value={d.visibility}
-          onChange={(visibility) => updateSettings((cur) => ({ display: { ...cur.display, visibility } }))}
-          options={[
-            { value: "always", label: t("Immer oben") },
-            { value: "hide-fullscreen", label: t("Vollbild: aus") },
-          ]}
-        />
-      </Row>
       {monitors.length > 1 && (
         <Row label={t("Monitor")}>
           <Select
@@ -466,6 +495,7 @@ function Display() {
           />
         </Row>
       )}
+      <EdgeSettings />
       {(d.offset !== 0 || d.y !== 5) && (
         <Row label={t("Position")} hint={t("Notch an der Kopfzeile oder geschlossen ziehen, um sie zu verschieben")}>
           <Button onClick={() => updateSettings((cur) => ({ display: { ...cur.display, offset: 0, y: 5 } }))}>
@@ -506,6 +536,12 @@ function Display() {
       <Row label={t("Hinweis bei Kontingent 70 und 90 %")} hint={t("Braucht den Teil AI-Nutzung")}>
         <Switch label={t("Hinweis bei Kontingent 70 und 90 %")} checked={s.closed.quotaAlerts} onChange={(quotaAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, quotaAlerts } }))} />
       </Row>
+      <Row label={t("Statusmeldungen")} />
+      {statusAlerts.map(([k, label, hint]) => (
+        <Row key={k} label={t(label)} hint={t(hint)}>
+          <Switch label={t(label)} checked={s.closed.statusAlerts[k]} onChange={(v) => updateSettings((cur) => ({ closed: { ...cur.closed, statusAlerts: { ...cur.closed.statusAlerts, [k]: v } } }))} />
+        </Row>
+      ))}
       <Row label={t("Fokus-Modus")} hint={t("Klicks gehen durch. 3× schnell auf die Notch klicken schaltet um – oder im Tray-Menü.")}>
         <Switch label={t("Fokus-Modus")} checked={focus} onChange={setFocusMode} />
       </Row>
@@ -570,6 +606,7 @@ const partInfo: Record<PartId, { label: string; icon: Icon }> = {
   readings: { label: "Auslastung", icon: Cpu },
   equalizer: { label: "Equalizer", icon: Waveform },
   clock: { label: "Uhrzeit", icon: Clock },
+  github: { label: "GitHub heute", icon: GithubLogo },
 };
 
 /** Small labelled switch for a part's own options, next to its main switch. */
@@ -584,10 +621,11 @@ function SubSwitch({ label, checked, onChange }: { label: string; checked: boole
 
 /** Parts of the closed row (notch and capsule share them): drag to reorder, switch on/off. Same pattern as `Tools()`. */
 function ClosedParts() {
-  const c = settings.use().closed;
+  const { closed: c, music } = settings.use();
   const [dragging, setDragging] = useState<PartId | null>(null);
   const setClosed = (patch: (cur: ClosedSettings) => Partial<ClosedSettings>) => updateSettings((cur) => ({ closed: { ...cur.closed, ...patch(cur.closed) } }));
-  const readingsOn = Object.values(c.readings).filter(Boolean).length;
+  // Only these always show; battery, power and temperature can be missing, so they cannot keep the part alone.
+  const readingsOn = (["cpu", "ram", "gpu"] as const).filter((k) => c.readings[k]).length;
 
   return (
     <div>
@@ -624,6 +662,7 @@ function ClosedParts() {
                     />
                   ))}
                 {on && id === "clock" && <SubSwitch label={t("Sekunden")} checked={c.clockSeconds} onChange={(clockSeconds) => setClosed(() => ({ clockSeconds }))} />}
+                {on && id === "title" && <SubSwitch label={t("Songtext")} checked={music.titleLyrics} onChange={(titleLyrics) => setMusic({ titleLyrics })} />}
                 <Switch label={t(label)} checked={on} onChange={(v) => setClosed((cur) => ({ parts: { ...cur.parts, [id]: v } }))} />
               </div>
             </Reorder.Item>
@@ -755,44 +794,6 @@ function Alarm() {
       <Row label={t("Dauer")} hint={t("Wie lange der Alarm klingelt")}>
         <Segmented id="alarm-duration" size="sm" value={String(a.duration)} onChange={(v) => set({ duration: Number(v) as AlarmDuration })} options={durations.map((o) => ({ ...o, label: t(o.label) }))} />
       </Row>
-    </Group>
-  );
-}
-
-/** AI usage: which plans are shown. Data comes from the signed-in apps. */
-const usageSources: { id: UsageId | "grok"; hint: string; available: boolean }[] = [
-  { id: "claude", hint: "Über die Anmeldung von Claude Code", available: true },
-  { id: "codex", hint: "Über die Anmeldung der Codex CLI", available: true },
-  { id: "gemini", hint: "Über die Anmeldung der Antigravity CLI", available: true },
-  { id: "cursor", hint: "Über die Anmeldung der Cursor-App", available: true },
-  { id: "grok", hint: "xAI bietet keinen Abruf der Abo-Limits", available: false },
-];
-
-function UsageProviders() {
-  const usage = settings.use().usage;
-  return (
-    <Group title={t("AI-Nutzung")} id="settings-usage">
-      {usageSources.map((src) => (
-        <Row
-          key={src.id}
-          label={
-            <span className={`flex items-center gap-2 ${src.available ? "" : "text-label-3"}`}>
-              <BrandLogo id={src.id} size={14} /> {brandName[src.id]}
-            </span>
-          }
-          hint={t(src.hint)}
-        >
-          {src.available ? (
-            <Switch
-              label={brandName[src.id]}
-              checked={usage[src.id as UsageId]}
-              onChange={(on) => updateSettings((cur) => ({ usage: { ...cur.usage, [src.id]: on } }))}
-            />
-          ) : (
-            <span className="text-caption text-label-4">{t("Nicht verfügbar")}</span>
-          )}
-        </Row>
-      ))}
     </Group>
   );
 }
@@ -934,7 +935,7 @@ function Tools() {
  * Field for a key. Stored values are never read back, it only shows
  * "saved ✓". Typing a new one overwrites it, saving empty deletes it.
  */
-function SecretRow({ name, label, hint, onSaved }: { name: SecretName; label: string; hint?: string; onSaved?: () => void }) {
+export function SecretRow({ name, label, hint, onSaved }: { name: SecretName; label: string; hint?: string; onSaved?: () => void }) {
   const [stored, setStored] = useState(false);
   const [value, setValue] = useState("");
   const [saved, setSaved] = useState(false);

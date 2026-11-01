@@ -9,13 +9,27 @@ mod display;
 mod documents;
 mod drop;
 mod fps;
+mod github;
 mod hit_test;
+mod loopback;
+mod launcher;
 mod media;
+mod media_pick;
 mod memory;
 mod mixer;
+mod notices;
+mod notify_wire;
+pub mod portable;
 mod privacy;
+mod screen_policy;
 pub mod secrets;
+mod shelf;
+mod shell;
 mod system;
+mod sysevents;
+mod timer_window;
+mod terminal;
+mod themes;
 mod trading;
 pub mod usage;
 mod vault;
@@ -26,13 +40,8 @@ use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{App, AppHandle, Emitter, Manager, State, WebviewWindow};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
-
-/// Opens/closes the notch from anywhere. Ctrl+Alt = AltGr on German keyboards;
-/// AltGr+Space types nothing, so there's no conflict.
-const SHORTCUT_LABEL: &str = "Ctrl+Alt+Space";
 
 /// For main.rs: elevated "Unlock FPS" call (see fps::fps_unlock).
 pub fn fps_elevated_unlock(sid: &str) -> i32 {
@@ -40,24 +49,16 @@ pub fn fps_elevated_unlock(sid: &str) -> i32 {
 }
 
 pub fn run() {
-    let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Space);
-
     tauri::Builder::default()
-        // A second launch doesn't open a second notch.
-        .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
+        // A second launch doesn't open a second notch; it opens the settings of this one.
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| shell::second_launch(app)))
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         // Updates: signed installers from GitHub, only on click in the settings.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(move |app, pressed, event| {
-                    if pressed == &shortcut && event.state() == ShortcutState::Pressed {
-                        let _ = app.emit("notch://shortcut", ());
-                    }
-                })
-                .build(),
-        )
+        // Shortcuts are set in the settings (shell.rs).
+        .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(shell::on_shortcut).build())
+        .manage(shell::Hotkeys::default())
         .manage(hit_test::HitState::default())
         .manage(media::MediaState::default())
         .manage(mixer::MixerState::default())
@@ -72,6 +73,10 @@ pub fn run() {
         .manage(display::DisplayState::default())
         .manage(discord::DiscordState::default())
         .manage(vault::VaultState::default())
+        .manage(terminal::TerminalState::default())
+        .manage(launcher::LauncherState::default())
+        .manage(github::GithubState::default())
+        .manage(notices::NoticesState::default())
         .manage(capture::CaptureState::default())
         .invoke_handler(tauri::generate_handler![
             hit_test::set_hit_rect,
@@ -79,6 +84,9 @@ pub fn run() {
             hit_test::set_passthrough,
             media::media_get,
             media::media_control,
+            media::media_pin,
+            media::media_sources,
+            media::media_lyrics,
             memory::memory_low,
             clipboard::clipboard_list,
             clipboard::clipboard_mode,
@@ -94,9 +102,15 @@ pub fn run() {
             secrets::secret_set,
             secrets::secret_delete,
             secrets::secret_has,
-            trading::trading_fetch,
+            trading::portfolio_fetch,
+            trading::portfolio_prices,
+            trading::portfolio_record,
+            trading::portfolio_forget,
             usage::usage_fetch,
+            usage::usage_tokens,
             system::system_stats,
+            sysevents::status_seed,
+            system::system_icon,
             convert::convert_probe,
             convert::convert_files,
             convert::reveal_file,
@@ -105,6 +119,11 @@ pub fn run() {
             convert::file_preview,
             display::display_monitors,
             display::display_apply,
+            display::display_screen,
+            display::display_raise,
+            display::display_apps,
+            shell::hotkeys_apply,
+            shell::crash_log,
             fps::gaming_fps,
             fps::fps_unlock,
             controls::volume_get,
@@ -139,6 +158,30 @@ pub fn run() {
             vault::vault_hello_disable,
             autostart_get,
             autostart_set,
+            timer_window::timer_window_open,
+            timer_window::timer_window_close,
+            shelf::shelf_drag_out,
+            shelf::shelf_clipboard_text,
+            terminal::terminal_info,
+            terminal::terminal_start,
+            terminal::terminal_write,
+            terminal::terminal_resize,
+            terminal::terminal_kill,
+            terminal::terminal_clipboard_text,
+            themes::themes_folder,
+            themes::themes_read,
+            themes::themes_write,
+            launcher::launcher_apps,
+            launcher::launcher_icons,
+            launcher::launcher_open,
+            launcher::launcher_shortcuts,
+            github::github_contributions,
+            notices::notices_configure,
+            notices::notices_status,
+            notices::notices_request_access,
+            portable::portable_info,
+            portable::portable_check,
+            portable::portable_install,
             capture::capture_sources,
             capture::capture_shot,
             capture::capture_state,
@@ -150,7 +193,8 @@ pub fn run() {
             capture::capture_delete,
         ])
         .setup(move |app| {
-            let window = app.get_webview_window("notch").expect("window 'notch' missing");
+            shell::init(app);
+            let window = portable::create_window(app)?;
             display::place(&window, &app.state::<display::DisplayState>())?;
             window.show()?;
             // Only after show(): this fails on a window that was never shown.
@@ -161,9 +205,8 @@ pub fn run() {
             media::spawn(app.handle().clone());
             clipboard::spawn(app.handle().clone());
             audio::spawn(app.handle().clone(), &app.state::<audio::AudioState>());
+            sysevents::spawn(app.handle().clone());
 
-            // If another app owns the shortcut, the notch still runs, just without it.
-            let _ = app.global_shortcut().register(shortcut);
             enable_autostart_once(app.handle());
             build_tray(app)?;
             Ok(())
@@ -215,7 +258,11 @@ fn autostart_set(enabled: bool, app: AppHandle) -> Result<(), String> {
 
 /// Enables autostart on the very first launch; after that the tray check and settings decide.
 fn enable_autostart_once(app: &AppHandle) {
-    let Ok(dir) = app.path().app_data_dir() else { return };
+    // A portable copy writes nothing outside its folder unless asked to (tray or settings).
+    if portable::is_portable() {
+        return;
+    }
+    let Ok(dir) = crate::portable::app_data_dir(app) else { return };
     let marker = dir.join("autostart-initialized");
     if marker.exists() {
         return;
@@ -264,7 +311,8 @@ fn build_tray(app: &App) -> tauri::Result<()> {
     dark_menus();
     let enabled = app.autolaunch().is_enabled().unwrap_or(false);
     // Open has its shortcut right-aligned via tab, like Windows menus.
-    let open = MenuItem::with_id(app, "open", format!("Open Crest\t{SHORTCUT_LABEL}"), true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", shell::default_open_label(), true, None::<&str>)?;
+    shell::set_tray_open(app, open.clone());
     let settings = MenuItem::with_id(app, "settings", "Settings …", true, None::<&str>)?;
     // The real state follows right after start (the frontend calls tray_focus).
     let focus = CheckMenuItem::with_id(app, "focus", "Focus mode", true, false, None::<&str>)?;
@@ -285,16 +333,12 @@ fn build_tray(app: &App) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
-                let _ = tray.app_handle().emit("notch://open", None::<&str>);
+                shell::open(tray.app_handle(), None);
             }
         })
         .on_menu_event(move |app, event| match event.id().as_ref() {
-            "open" => {
-                let _ = app.emit("notch://open", None::<&str>);
-            }
-            "settings" => {
-                let _ = app.emit("notch://open", Some("settings"));
-            }
+            "open" => shell::open(app, None),
+            "settings" => shell::open(app, Some("settings")),
             "quit" => app.exit(0),
             "focus" => {
                 // The click already toggled the check; the frontend applies it and mirrors it back.

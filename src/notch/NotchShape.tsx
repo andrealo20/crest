@@ -1,17 +1,20 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { animate, motion, useMotionValue, useTransform, type Transition } from "motion/react";
 import type { NotchGeometry } from "./geometry";
+import { across, uprightCss, type Edge } from "./edge";
 
 interface Props {
   geometry: NotchGeometry;
   transition: Transition;
   /** Shadow only when the notch "floats" over content (open). */
   elevated: boolean;
+  /** The edge it hangs from; the shape is drawn in that edge's frame and its content is turned back upright. */
+  edge?: Edge;
   children?: ReactNode;
 }
 
 /**
- * The black shape: a body with rounded bottom corners + two concave "ears"
+ * The shape (black closed, the theme background open): a body with rounded bottom corners + two concave "ears"
  * at the top that blend the notch into the screen edge (the capsule has no
  * ears and rounds its top corners instead).
  *
@@ -19,7 +22,7 @@ interface Props {
  * re-render per frame. Animations are interruptible and keep their velocity
  * (important when hovering in and out quickly).
  */
-export function NotchShape({ geometry, transition, elevated, children }: Props) {
+export function NotchShape({ geometry, transition, elevated, edge = "top", children }: Props) {
   const w = useMotionValue(geometry.w);
   const h = useMotionValue(geometry.h);
   const r = useMotionValue(geometry.r);
@@ -53,7 +56,12 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
   }, [elevated, shadow]);
 
   return (
-    <motion.div className="relative" style={{ width: wPx, height: hPx }}>
+    <motion.div
+      data-notch-shape
+      className="relative"
+      // The theme's background open; closed black, unless the theme opts in (--notch-closed). Crossfades (themes.css).
+      style={{ width: wPx, height: hPx, ["--shape" as string]: elevated ? "var(--color-notch)" : "var(--notch-closed)" }}
+    >
       <motion.span
         aria-hidden
         className="absolute top-0"
@@ -62,7 +70,7 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
           width: ear,
           height: ear,
           background:
-            "radial-gradient(circle farthest-side at 0% 100%, transparent calc(100% - 0.75px), var(--color-notch) 100%)",
+            "radial-gradient(circle farthest-side at 0% 100%, transparent calc(100% - 0.75px), var(--shape) 100%)",
         }}
       />
       <motion.span
@@ -73,7 +81,7 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
           width: ear,
           height: ear,
           background:
-            "radial-gradient(circle farthest-side at 100% 100%, transparent calc(100% - 0.75px), var(--color-notch) 100%)",
+            "radial-gradient(circle farthest-side at 100% 100%, transparent calc(100% - 0.75px), var(--shape) 100%)",
         }}
       />
       <motion.div
@@ -90,12 +98,28 @@ export function NotchShape({ geometry, transition, elevated, children }: Props) 
       />
       <motion.div
         // clip instead of hidden: no scroll container, so focus/scrollIntoView can't shift the content.
-        className="absolute inset-0 overflow-clip bg-notch"
-        style={{ borderTopLeftRadius: rt, borderTopRightRadius: rt, borderBottomLeftRadius: r, borderBottomRightRadius: r }}
+        className="absolute inset-0 overflow-clip bg-(--shape)"
+        style={{ borderTopLeftRadius: rt, borderTopRightRadius: rt, borderBottomLeftRadius: r, borderBottomRightRadius: r, containerType: edge === "top" ? undefined : "size" }}
       >
-        {children}
+        {edge === "top" ? children : <Upright edge={edge}>{children}</Upright>}
       </motion.div>
     </motion.div>
+  );
+}
+
+/**
+ * The content turned back upright in the shape: a box as wide and tall as the shape on screen (its height and width in the frame on a side
+ * edge), centred in it and turned by the inverse of the frame's mapping, so text reads normally on every edge.
+ */
+function Upright({ edge, children }: { edge: Edge; children?: ReactNode }) {
+  const turned = across(edge);
+  return (
+    <div
+      className="absolute top-1/2 left-1/2"
+      style={{ width: turned ? "100cqh" : "100cqw", height: turned ? "100cqw" : "100cqh", transform: `translate(-50%, -50%) ${uprightCss(edge)}` }}
+    >
+      {children}
+    </div>
   );
 }
 

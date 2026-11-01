@@ -1,8 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
+import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isNative } from "./native";
+import type { PowerState } from "../notch/row/status";
+import type { LaunchPlan, ShellInfo } from "../features/terminal/shell";
+import type { TokenReport } from "../features/usage/tokens";
+import type { BatteryRaw } from "../features/system/battery";
+import type { DrivesRaw } from "../features/system/storage";
+import type { RulesPayload } from "../features/window/model";
 import bundledChangelog from "../changelog.json";
-import { showcase, showcaseCall, showcaseCash, showcaseDayChange, showcaseFileSizes, showcasePositions, showcaseRealized } from "../dev/showcase-data";
+import { showcase, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
 
 /*
  * Bridges to the Rust services (src-tauri/src/*.rs). In the browser they return
@@ -11,7 +18,10 @@ import { showcase, showcaseCall, showcaseCash, showcaseDayChange, showcaseFileSi
 
 // ---------- Secrets (Credential Manager) ----------
 
-export type SecretName = "t212.key" | "t212.secret" | "ai.anthropic" | "ai.openai" | "ai.openrouter" | "ai.custom" | "discord.secret";
+export type SecretName = "t212.key" | "t212.secret" | "ai.anthropic" | "ai.openai" | "ai.openrouter" | "ai.custom" | "discord.secret" | "usage.deepseek" | "usage.zai" | "github.token" | PortfolioSecret;
+
+/** Read-only keys of the portfolio providers (src-tauri/src/trading/). */
+export type PortfolioSecret = "kraken.key" | "kraken.secret" | "coinbase.key" | "coinbase.secret" | "binance.key" | "binance.secret" | "bitpanda.key" | "etoro.key" | "etoro.user" | "ibkr.token" | "ibkr.query";
 
 const mockSecrets = new Map<SecretName, string>();
 
@@ -26,122 +36,22 @@ export const secrets = {
   },
 };
 
-// ---------- Trading 212 ----------
-
-export interface Position {
-  ticker: string;
-  name: string;
-  quantity: number;
-  averagePrice: number;
-  currentPrice: number;
-  priceCurrency: string;
-  value: number;
-  cost: number;
-  pnl: number;
-}
-
-export interface Snapshot {
-  date: string;
-  /** Account value including cash. */
-  value: number;
-  invested: number;
-  /** Total profit; change vs. yesterday = daily change (excluding deposits/purchases). */
-  pnl: number;
-}
-
-export interface TradingData {
-  currency: string;
-  totalValue: number;
-  cash: number;
-  invested: number;
-  currentValue: number;
-  unrealized: number;
-  realized: number;
-  positions: Position[];
-  history: Snapshot[];
-  /** Today's data points (every ~2 min while the portfolio was open). */
-  intraday: { t: number; value: number; pnl: number }[];
-}
-
-/** Error codes from Rust: no-key, unauthorized, forbidden, rate, network:… */
-export function fetchTrading(env: "live" | "demo"): Promise<TradingData> {
-  const today = localDate(new Date());
-  return isNative ? invoke<TradingData>("trading_fetch", { env, today }) : mockTrading();
-}
-
-export function localDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-async function mockTrading(): Promise<TradingData> {
-  await new Promise((r) => setTimeout(r, showcase ? 160 : 450));
-  if (!mockSecrets.has("t212.key")) throw "no-key";
-  if (showcase) return showcaseTrading();
-  const positions: Position[] = [
-    { ticker: "NVDA", name: "NVIDIA", quantity: 12, averagePrice: 98.4, currentPrice: 141.2, priceCurrency: "USD", value: 1458.3, cost: 1012.6, pnl: 445.7 },
-    { ticker: "VUSA", name: "Vanguard S&P 500", quantity: 30, averagePrice: 88.1, currentPrice: 104.6, priceCurrency: "EUR", value: 3138.0, cost: 2643.0, pnl: 495.0 },
-    { ticker: "AAPL", name: "Apple", quantity: 6, averagePrice: 212.5, currentPrice: 204.9, priceCurrency: "USD", value: 1060.8, cost: 1100.1, pnl: -39.3 },
-    { ticker: "ASML", name: "ASML Holding", quantity: 1.5, averagePrice: 690.0, currentPrice: 655.2, priceCurrency: "EUR", value: 982.8, cost: 1035.0, pnl: -52.2 },
-    { ticker: "MSFT", name: "Microsoft", quantity: 2, averagePrice: 380.0, currentPrice: 431.5, priceCurrency: "USD", value: 742.4, cost: 655.8, pnl: 86.6 },
-  ];
-  const currentValue = positions.reduce((s, p) => s + p.value, 0);
-  const invested = positions.reduce((s, p) => s + p.cost, 0);
-  const cash = 412.35;
-  const realized = 128.4;
-  const pnlNow = currentValue - invested + realized;
-  const history: Snapshot[] = [];
-  let pnl = pnlNow - 260;
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    pnl = i === 0 ? pnlNow : pnl + Math.sin(i * 1.7) * 55 + 18;
-    history.push({ date: localDate(d), value: invested + cash + pnl - realized, invested, pnl });
-  }
-  // Intraday from 9:00 every 2 min, ending at the current value.
-  const start = new Date();
-  start.setHours(9, 0, 0, 0);
-  const steps = Math.max(2, Math.floor((Date.now() - start.getTime()) / 120_000));
-  const yesterday = history.at(-2)!.pnl;
-  const intraday = Array.from({ length: steps }, (_, i) => {
-    const f = i / (steps - 1);
-    const p = yesterday + (pnlNow - yesterday) * f + Math.sin(i * 0.09) * 18 * (1 - f) + Math.sin(i * 0.31) * 3;
-    return { t: start.getTime() + i * 120_000, value: invested + cash + p - realized, pnl: i === steps - 1 ? pnlNow : p };
-  });
-  return { currency: "EUR", totalValue: currentValue + cash, cash, invested, currentValue, unrealized: currentValue - invested, realized, positions, history, intraday };
-}
-
-/** Showcase: 30 days of steady growth, today exactly +showcaseDayChange. */
-function showcaseTrading(): TradingData {
-  const positions: Position[] = showcasePositions;
-  const currentValue = Math.round(positions.reduce((s, p) => s + p.value, 0) * 100) / 100;
-  const invested = Math.round(positions.reduce((s, p) => s + p.cost, 0) * 100) / 100;
-  const cash = showcaseCash;
-  const realized = showcaseRealized;
-  const pnlNow = currentValue - invested + realized;
-  const yesterday = pnlNow - showcaseDayChange;
-  const history: Snapshot[] = [];
-  for (let i = 30; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const f = (30 - i) / 30;
-    // Rising trend with a dip in the middle; the last two points are fixed.
-    const pnl = i === 0 ? pnlNow : i === 1 ? yesterday : yesterday - 1450 * (1 - f) + Math.sin(i * 0.9) * 120 - Math.max(0, 1 - Math.abs(i - 14) / 5) * 380;
-    history.push({ date: localDate(d), value: invested + cash + pnl - realized, invested, pnl });
-  }
-  const start = new Date();
-  start.setHours(9, 0, 0, 0);
-  const steps = Math.max(2, Math.floor((Date.now() - start.getTime()) / 120_000));
-  const intraday = Array.from({ length: steps }, (_, i) => {
-    const f = i / (steps - 1);
-    const p = i === steps - 1 ? pnlNow : yesterday + showcaseDayChange * f + Math.sin(i * 0.8) * 46 * (1 - f) - Math.sin(f * Math.PI) * 60;
-    return { t: start.getTime() + i * 120_000, value: invested + cash + p - realized, pnl: p };
-  });
-  return { currency: "EUR", totalValue: currentValue + cash, cash, invested, currentValue, unrealized: currentValue - invested, realized, positions, history, intraday };
-}
+// Kept here for code that imports it from services (the portfolio bridge owns it).
+import { localDate } from "./portfolio";
+export { localDate };
 
 // ---------- AI usage ----------
 
-export type UsageId = "claude" | "codex" | "gemini" | "cursor";
+export type UsageId = "claude" | "codex" | "gemini" | "cursor" | "openrouter" | "deepseek" | "zai";
+
+/** Money on an API-key account: kind is account | key | budget | granted | today | month. */
+export interface UsageBalance {
+  kind: string;
+  amount: number;
+  /** The cap the amount belongs to (a key limit). */
+  total: number | null;
+  currency: string;
+}
 
 export interface UsageWindow {
   /** session | weekly | weekly-opus | weekly-sonnet | daily | monthly | model:<Name> */
@@ -156,9 +66,13 @@ export interface UsageProvider {
   id: UsageId;
   plan: string | null;
   windows: UsageWindow[];
-  /** not-found | not-signed-in | expired | rate-limited | offline | failed (with data: stale). */
+  /** Missing in answers saved by older versions. */
+  balances?: UsageBalance[];
+  /** not-found | not-signed-in | expired | no-key | bad-key | rate-limited | offline | failed (with data: stale). */
   error: string | null;
   updatedAt: number;
+  /** While a 429 pause runs: when the next request goes out. */
+  retryAt?: number | null;
 }
 
 export function fetchUsage(providers: string[]): Promise<UsageProvider[]> {
@@ -190,8 +104,41 @@ export function fetchUsage(providers: string[]): Promise<UsageProvider[]> {
     },
     { id: "gemini", plan: null, windows: [{ kind: "session", usedPercent: 12, resetsAt: now + 3.6 * h, windowSecs: 5 * 3600 }], error: null, updatedAt: now },
     { id: "cursor", plan: "Pro", windows: [{ kind: "monthly", usedPercent: 93, resetsAt: now + 11 * d, windowSecs: 30 * 86_400 }], error: null, updatedAt: now },
+    {
+      id: "openrouter",
+      plan: null,
+      windows: [{ kind: "key-limit", usedPercent: 62, resetsAt: now + 9 * d, windowSecs: 30 * 86_400 }],
+      balances: [
+        { kind: "account", amount: 18.4, total: null, currency: "USD" },
+        { kind: "today", amount: 0.82, total: null, currency: "USD" },
+        { kind: "month", amount: 12.4, total: null, currency: "USD" },
+      ],
+      error: null,
+      updatedAt: now,
+    },
+    { id: "deepseek", plan: null, windows: [], balances: [{ kind: "account", amount: 42.15, total: null, currency: "CNY" }], error: null, updatedAt: now },
+    { id: "zai", plan: "Pro", windows: [], error: "rate-limited", updatedAt: now, retryAt: now + 4 * 60_000 },
   ];
   return new Promise((r) => setTimeout(() => r(all.filter((p) => providers.includes(p.id))), 350));
+}
+
+/** Tokens per model from the local Claude Code and Codex logs (src-tauri/src/usage_logs.rs). */
+export function fetchUsageTokens(): Promise<TokenReport> {
+  if (isNative) return invoke<TokenReport>("usage_tokens");
+  // Sample: a steady week of Claude Code and a little Codex, one quarter hour every two hours.
+  const now = Date.now(), q = 15 * 60_000;
+  const buckets = (models: [string, number][]) =>
+    Array.from({ length: 31 * 12 }, (_, i) => now - i * 2 * 3600_000).flatMap((at, i) =>
+      models.map(([model, scale]) => ({ at: at - (at % q), model, band: 0, input: 900 * scale, output: 2400 * scale, cacheRead: 40_000 * scale * (1 + (i % 3)), cacheWrite: 3000 * scale, cacheWrite1h: 0 })),
+    );
+  const report: TokenReport = {
+    since: now - 31 * 86_400_000,
+    tools: [
+      { id: "claude", found: true, files: 214, unreadable: 0, buckets: buckets([["claude-opus-5-5", 3], ["claude-sonnet-5-5", 1], ["claude-haiku-5-5", 0.2]]) },
+      { id: "codex", found: true, files: 12, unreadable: 0, buckets: buckets([["gpt-5-codex", 0.5], ["gpt-6-preview", 0.1]]) },
+    ],
+  };
+  return new Promise((r) => setTimeout(() => r(report), 400));
 }
 
 // ---------- System ----------
@@ -208,16 +155,83 @@ export interface SystemStats {
   gpuMemTotal: number;
   /** ms; null = no reply. */
   ping: number | null;
+  /** ms since the probe started (monotonic), for rates. */
+  at: number;
+  /** Per logical processor while the tool is shown; `kind` 0 = the fastest kind of core. */
+  cores: { usage: number; kind: number }[];
+  cpuMhz: number | null;
+  physicalCores: number | null;
+  /** Bytes; 0 while the tool is not shown. */
+  memCached: number;
+  memCommit: number;
+  memCommitLimit: number;
+  /** Every real adapter; `usage` null while its counters were not read. */
+  gpus: GpuReading[];
+  /** Cumulative bytes [received, sent]. */
+  net: [number, number] | null;
+  /** ACPI thermal zones: [zone, kelvin]. */
+  zones: [string, number][];
+  /** Energy Meter / Power Meter channels: [instance, milliwatts]. */
+  energy: [string, number][];
+  meter: [string, number][];
+  nvml: { name: string; watts: number | null; temp: number | null }[];
+  battery: BatteryRaw | null;
+  drives: DrivesRaw | null;
+  processes: ProcReading[] | null;
 }
 
-let mock = { cpu: 18, gpu: 32, ping: 14 };
-/** `full = false`: CPU and RAM only (GPU and ping come back as null / 0); `withGpu` adds the GPU without the ping. */
-export function fetchSystem(full: boolean, withGpu = false): Promise<SystemStats> {
-  if (isNative) return invoke<SystemStats>("system_stats", { full, withGpu });
+export interface GpuReading { key: string; name: string; memTotal: number; usage: number | null; engine: string | null; memUsed: number; temp: number | null }
+/** One app: its processes folded by executable name. `cpu` is percent of one core. */
+export interface ProcReading { id: string; name: string; path: string | null; count: number; cpu: number; mem: number }
+/** Extras the closed row asks for outside the tool. */
+export interface SystemWant { net: boolean; temps: boolean; power: boolean; battery: boolean }
+
+/** A program's icon as a PNG data URL. */
+export const systemIcon = (path: string): Promise<string | null> => (isNative ? invoke<string | null>("system_icon", { path }) : Promise.resolve(null));
+
+let mock = { cpu: 18, gpu: 32, ping: 14, rx: 0, tx: 0, at: 0 };
+/** `full = false`: CPU and RAM only (GPU and ping come back as null / 0) plus what `want` asks; `withGpu` adds the GPU without the ping. */
+export function fetchSystem(full: boolean, withGpu = false, want?: SystemWant): Promise<SystemStats> {
+  if (isNative) return invoke<SystemStats>("system_stats", { full, withGpu, want });
   const walk = (v: number, step: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v + (Math.random() - 0.5) * step));
-  mock = { cpu: walk(mock.cpu, 14, 3, 96), gpu: walk(mock.gpu, 18, 0, 99), ping: walk(mock.ping, 6, 8, 60) };
+  mock = { cpu: walk(mock.cpu, 14, 3, 96), gpu: walk(mock.gpu, 18, 0, 99), ping: walk(mock.ping, 6, 8, 60), rx: mock.rx + Math.random() * 4e6, tx: mock.tx + Math.random() * 3e5, at: performance.now() };
   const gb = 1024 ** 3;
+  const all = { net: true, temps: true, power: true, battery: true, ...want, ...(full ? { net: true, temps: true, power: true, battery: true } : {}) };
+  const gpus: GpuReading[] = [
+    { key: "luid_a", name: "GeForce RTX 4070 Ti", memTotal: 12 * gb, usage: full || withGpu ? mock.gpu : null, engine: "3D", memUsed: 2.9 * gb, temp: all.temps ? 54 + mock.gpu / 5 : null },
+    { key: "luid_b", name: "Radeon Graphics", memTotal: 0.5 * gb, usage: full || withGpu ? 2 : null, engine: "VideoDecode", memUsed: 0.2 * gb, temp: null },
+  ];
   return Promise.resolve({
+    at: mock.at,
+    cores: full ? Array.from({ length: 16 }, (_, i) => ({ usage: walk(mock.cpu, 40, 0, 100), kind: i < 8 ? 0 : 1 })) : [],
+    cpuMhz: full ? 4200 + Math.random() * 600 : null,
+    physicalCores: full ? 12 : null,
+    memCached: full ? 6.2 * gb : 0,
+    memCommit: full ? 21 * gb : 0,
+    memCommitLimit: full ? 37 * gb : 0,
+    gpus,
+    net: all.net ? [mock.rx, mock.tx] : null,
+    zones: all.temps ? [["\\_TZ.CPUZ", 320 + mock.cpu / 4]] : [],
+    energy: all.power ? [["RAPL_Package0_PKG", 20000 + mock.cpu * 600]] : [],
+    meter: [],
+    nvml: all.power ? [{ name: "NVIDIA GeForce RTX 4070 Ti", watts: 40 + mock.gpu * 2, temp: 55 }] : [],
+    battery: all.battery ? { status: 1, rateMw: -14000, remainingMwh: 41000, fullMwh: 62000, designMwh: 70000, ac: false, percent: 66, lifeSecs: null, saver: false } : null,
+    drives: full
+      ? {
+          volumes: [{ letter: "C:", total: 931 * gb, free: 402 * gb, disk: 0 }, { letter: "D:", total: 1863 * gb, free: 911 * gb, disk: 1 }],
+          disks: [{ number: 0, model: "Samsung SSD 990 PRO 1TB", bus: 17, removable: false, ssd: true, temp: [41, 82, 85] }, { number: 1, model: "WD Blue SN580 2TB", bus: 17, removable: false, ssd: true, temp: [38, 0, 0] }],
+        }
+      : null,
+    processes: full
+      ? [
+          { id: "chrome.exe", name: "Google Chrome", path: null, count: 24, cpu: mock.cpu * 2, mem: 3.1 * gb },
+          { id: "code.exe", name: "Visual Studio Code", path: null, count: 11, cpu: 22, mem: 1.4 * gb },
+          { id: "discord.exe", name: "Discord", path: null, count: 6, cpu: 4, mem: 0.7 * gb },
+          { id: "spotify.exe", name: "Spotify", path: null, count: 5, cpu: 3, mem: 0.4 * gb },
+          { id: "explorer.exe", name: "Windows Explorer", path: null, count: 1, cpu: 1.2, mem: 0.2 * gb },
+          { id: "msedgewebview2.exe", name: "Microsoft Edge WebView2", path: null, count: 8, cpu: 5, mem: 0.6 * gb },
+        ]
+      : null,
     cpu: mock.cpu,
     cpuName: "Ryzen 7 7800X3D 8-Core",
     memUsed: 13.4 * gb + Math.random() * 0.3 * gb,
@@ -309,7 +323,8 @@ export function filePreview(path: string): Promise<string | null> {
 /** A found update: version + install (downloads, installs, restarts). */
 export interface UpdateHandle {
   version: string;
-  install: (onProgress: (fraction: number) => void) => Promise<void>;
+  /** Resolves "page" when it only opened the download page (a read-only portable copy) and the app keeps running. */
+  install: (onProgress: (fraction: number) => void) => Promise<"page" | void>;
 }
 
 /** What changed in a version (`src/changelog.json`, newest first). */
@@ -341,6 +356,7 @@ export const updater = {
   /** Fetches the signed latest.json from the newest GitHub release. null = up to date. */
   check: async (): Promise<UpdateHandle | null> => {
     if (!isNative) return new URLSearchParams(location.search).has("update") ? mockUpdate : null;
+    if ((await portable.info()).portable) return portableUpdate();
     const { check } = await import("@tauri-apps/plugin-updater");
     const found = await check();
     if (!found) return null;
@@ -400,6 +416,9 @@ export interface MonitorInfo {
   /** Work area (without taskbar): top below the monitor's top edge, and height, in CSS px. */
   workTop: number;
   workHeight: number;
+  /** The work area's left edge from the monitor's left, and its width (a taskbar on the left or right), in CSS px. */
+  workLeft: number;
+  workWidth: number;
 }
 
 export const display = {
@@ -407,11 +426,14 @@ export const display = {
     isNative
       ? invoke<MonitorInfo[]>("display_monitors")
       : Promise.resolve([
-          { name: "\\.\DISPLAY1", primary: true, width: 2560, height: 1440, workTop: 0, workHeight: 1440 - 48 },
-          { name: "\\.\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48 },
+          { name: "\\.\DISPLAY1", primary: true, width: 2560, height: 1440, workTop: 0, workHeight: 1440 - 48, workLeft: 0, workWidth: 2560 },
+          { name: "\\.\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48, workLeft: 0, workWidth: 1920 },
         ]),
-  /** `y`: window top in CSS px below the monitor's top edge (default 0). */
-  apply: (config: { hideFullscreen: boolean; monitor: string | null; offset: number; y?: number; gaming: boolean }) => {
+  /**
+   * `y`: window top in CSS px below the monitor's top edge (default 0); `rules`: screen_policy.rs Rules; `zoom`: panel scale (1 or 1.5).
+   * `edge` and `line`: the screen edge the window hangs from and where (CSS px from the monitor's top or left); `y` is used on top.
+   */
+  apply: (config: { monitor: string | null; offset: number; y?: number; gaming: boolean; rules: RulesPayload; zoom: number; edge?: string; line?: number }) => {
     if (isNative) void invoke("display_apply", { config });
   },
   /** true while an app covers the notch's monitor in fullscreen. */
@@ -421,6 +443,53 @@ export const display = {
     return () => void off.then((f) => f());
   },
 };
+
+// ---------- Status alerts (sysevents.rs) ----------
+
+export interface HeadsetEvent { name: string; connected: boolean; battery: number | null }
+/** State at start, so what is already true (charger in, headphones on) does not alert. */
+export interface StatusSeed { power: PowerState | null; online: boolean | null; headsets: string[] }
+export interface StatusHandlers { seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: HeadsetEvent): void }
+
+export const status = {
+  seed: (): Promise<StatusSeed> => (isNative ? invoke<StatusSeed>("status_seed") : Promise.resolve(mockStatus.seed())),
+  on: (h: StatusHandlers): (() => void) => {
+    if (!isNative) return mockStatus.subscribe(h);
+    const offs = [
+      listen<StatusSeed>("status://seed", (e) => h.seed(e.payload)),
+      listen<PowerState>("status://power", (e) => h.power(e.payload)),
+      listen<{ online: boolean }>("status://net", (e) => h.net(e.payload.online)),
+      listen<HeadsetEvent>("status://bt", (e) => h.bt(e.payload)),
+    ];
+    return () => offs.forEach((off) => void off.then((f) => f()));
+  },
+};
+
+/** Browser: each dev button toggles one source. Unplugging drops the mock percent by 9, so the low tones show too. */
+export const mockStatus = (() => {
+  let power: PowerState = { ac: true, percent: 64, battery: true }, online = true, buds = false;
+  const listeners = new Set<StatusHandlers>();
+  return {
+    seed: (): StatusSeed => ({ power, online, headsets: buds ? ["Buds"] : [] }),
+    subscribe(h: StatusHandlers) {
+      listeners.add(h);
+      return () => void listeners.delete(h);
+    },
+    unplug() {
+      const percent = power.ac ? (power.percent! > 10 ? power.percent! - 9 : 64) : power.percent;
+      power = { ac: !power.ac, percent, battery: true };
+      listeners.forEach((h) => h.power(power));
+    },
+    offline() {
+      online = !online;
+      listeners.forEach((h) => h.net(online));
+    },
+    headphones() {
+      buds = !buds;
+      listeners.forEach((h) => h.bt({ name: "Buds", connected: buds, battery: buds ? 80 : null }));
+    },
+  };
+})();
 
 // ---------- Gaming mode ----------
 
@@ -638,6 +707,307 @@ export const systemControls = {
   },
 };
 
+// ---------- Detached timer window (src-tauri/src/timer_window.rs) ----------
+
+/** Opens the small always-on-top timer window at a saved position (physical px), if it is still on a monitor. */
+export function openTimerWindow(pos: { x: number; y: number } | null): Promise<void> {
+  return isNative ? invoke("timer_window_open", { x: pos?.x ?? null, y: pos?.y ?? null }) : Promise.resolve();
+}
+
+export function closeTimerWindow(): Promise<void> {
+  return isNative ? invoke("timer_window_close") : Promise.resolve();
+}
+
+/** True when the window opens, false when it is gone. */
+export function onTimerWindow(handler: (open: boolean) => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen<boolean>("timer-window://open", (e) => handler(e.payload));
+  return () => void off.then((f) => f());
+}
+
+// ---------- Shelf drag out and text (src-tauri/src/shelf.rs) ----------
+
+/**
+ * Native drag of files (or, with no files, text) into other apps; resolves when it is dropped
+ * or cancelled. Must be called while the left button is down.
+ */
+export function shelfDragOut(paths: string[], text: string | null): Promise<void> {
+  return isNative ? invoke("shelf_drag_out", { paths, text }) : Promise.resolve();
+}
+
+/** Text on the clipboard ("" if none). */
+export function clipboardText(): Promise<string> {
+  if (isNative) return invoke<string>("shelf_clipboard_text").catch(() => "");
+  return navigator.clipboard.readText().catch(() => "");
+}
+// ---------- Terminal ----------
+
+/** Shell output as raw bytes; the last message of a session is its exit code. */
+export type TerminalMessage = ArrayBuffer | { exit: number };
+
+export const terminal = {
+  info: (): Promise<ShellInfo> =>
+    isNative
+      ? invoke<ShellInfo>("terminal_info")
+      : Promise.resolve({ pwsh: null, powershell: "powershell.exe", cmd: "cmd.exe", home: "C:\\Users\\you", buildNumber: 0 }),
+  start: (plan: LaunchPlan, cols: number, rows: number, onOutput: (m: TerminalMessage) => void): Promise<void> => {
+    if (!isNative) return Promise.resolve(mockShell.start(onOutput));
+    const channel = new Channel<TerminalMessage>();
+    channel.onmessage = onOutput;
+    return invoke("terminal_start", { ...plan, cols, rows, onOutput: channel });
+  },
+  write: (data: string): Promise<void> => (isNative ? invoke<void>("terminal_write", { data }).catch(() => {}) : Promise.resolve(mockShell.write(data))),
+  resize: (cols: number, rows: number) => {
+    if (isNative) void invoke("terminal_resize", { cols, rows });
+  },
+  kill: () => (isNative ? void invoke("terminal_kill") : mockShell.kill()),
+  clipboardText: (): Promise<string | null> =>
+    isNative ? invoke<string | null>("terminal_clipboard_text") : navigator.clipboard.readText().catch(() => null),
+};
+
+/** Browser: a fake prompt that echoes what you type, so the tool can be designed without the app. */
+const mockShell = (() => {
+  let out: ((m: TerminalMessage) => void) | null = null;
+  let line = "";
+  const prompt = "\x1b[32mPS\x1b[0m C:\\Users\\you> ";
+  const say = (s: string) => out?.(new TextEncoder().encode(s).buffer as ArrayBuffer);
+  return {
+    start(onOutput: (m: TerminalMessage) => void) {
+      out = onOutput;
+      line = "";
+      say(`Browser preview, no real shell.\r\n\r\n${prompt}`);
+    },
+    write(data: string) {
+      for (const ch of data) {
+        if (ch === "\r") {
+          if (line.trim() === "exit") return void (out?.({ exit: 0 }), (out = null));
+          say(`\r\n${prompt}`);
+          line = "";
+        } else if (ch === "\x7f") {
+          if (line) say("\b \b");
+          line = line.slice(0, -1);
+        } else if (ch === "\x03") {
+          say(`^C\r\n${prompt}`);
+          line = "";
+        } else if (ch >= " ") {
+          line += ch;
+          say(ch);
+        }
+      }
+    },
+    kill() {
+      out = null;
+    },
+  };
+})();
+// ---------- Theme files (themes.rs) ----------
+
+export interface ThemeFileText {
+  file: string;
+  text: string | null;
+  error: string | null;
+}
+
+/** In the browser: export downloads the file, import reads one sample theme. */
+const mockThemeFiles: ThemeFileText[] = [
+  {
+    file: "midnight-teal.json",
+    text: JSON.stringify({ format: 1, id: "midnight-teal", name: "Midnight teal", colors: { background: "#04161a", foreground: "#e6f4f1", accent: "#2dd4bf" } }),
+    error: null,
+  },
+];
+
+export const themeFiles = {
+  folder: (): Promise<string> => (isNative ? invoke<string>("themes_folder") : Promise.resolve("")),
+  read: (): Promise<ThemeFileText[]> => (isNative ? invoke<ThemeFileText[]>("themes_read") : Promise.resolve(mockThemeFiles)),
+  /** Writes `<id>.json` into the themes folder and returns its path. */
+  write: (id: string, text: string): Promise<string> => {
+    if (isNative) return invoke<string>("themes_write", { id, text });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+    a.download = `${id}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    return Promise.resolve("");
+  },
+};
+// ---------- Launcher ----------
+
+export interface LauncherAppEntry {
+  /** `shell:AppsFolder\<app id>` or an exe path; Rust only opens ids from its own list. */
+  id: string;
+  name: string;
+  source: "start" | "apppaths";
+}
+
+const mockLauncherApps: LauncherAppEntry[] = ["Claude", "ChatGPT", "Copilot", "Cursor", "Perplexity", "Calculator", "Notepad", "Paint", "Spotify", "Terminal", "Uninstall Cursor"].map((name) => ({
+  id: `shell:AppsFolder\\${name}`,
+  name,
+  source: "start",
+}));
+const mockLauncherIcon = (name: string) =>
+  svgIcon(`<rect width="32" height="32" rx="8" fill="hsl(${[...name].reduce((h, c) => h + c.charCodeAt(0) * 7, 0) % 360} 55% 45%)"/><text x="16" y="21" font-size="14" font-family="sans-serif" fill="#fff" text-anchor="middle">${name[0]}</text>`);
+
+/** Start menu apps, icons, launching and the Alt+1..6 keys (src-tauri/src/launcher.rs). */
+export const launcher = {
+  apps: (refresh = false): Promise<LauncherAppEntry[]> => (isNative ? invoke<LauncherAppEntry[]>("launcher_apps", { refresh }) : Promise.resolve(mockLauncherApps)),
+  icons: (ids: string[]): Promise<Record<string, string | null>> =>
+    isNative ? invoke("launcher_icons", { ids }) : Promise.resolve(Object.fromEntries(ids.map((id) => [id, mockLauncherIcon(id.split("\\").pop() ?? "?")]))),
+  /** Errors: not-found (no longer installed), failed. */
+  open: (id: string): Promise<void> => (isNative ? invoke("launcher_open", { id }) : Promise.resolve()),
+  /** Registers Alt+1.. for these ids; per slot whether Windows gave the key. */
+  shortcuts: (ids: string[]): Promise<boolean[]> => (isNative ? invoke<boolean[]>("launcher_shortcuts", { ids }) : Promise.resolve(ids.map((_, i) => i !== 2))),
+  /** A hotkey was pressed for an app that is no longer installed (payload: its id). */
+  onMissing: (handler: (id: string) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<string>("launcher://missing", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+};
+
+// ---------- GitHub ----------
+
+export interface GithubDay {
+  date: string;
+  count: number;
+  /** GitHub's shade, 0 to 4. */
+  level: number;
+}
+
+export interface GithubContributions {
+  user: string;
+  /** Contributions in the last year, as GitHub states it. */
+  total: number;
+  days: GithubDay[];
+  source: "page" | "api";
+  fetchedAt: number;
+}
+
+/** Errors from Rust: no-user, not-found, rate-limited, offline, parse, failed. `force` skips the hour's cache (once a minute at most). */
+export function fetchGithub(user: string, force: boolean): Promise<GithubContributions> {
+  if (isNative) return invoke<GithubContributions>("github_contributions", { user, force });
+  if (!user.trim()) return Promise.reject("no-user");
+  const today = new Date();
+  const days = Array.from({ length: 371 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 370 + i);
+    const count = Math.max(0, Math.round(Math.sin(i * 0.7) * 4 + Math.sin(i * 0.13) * 5 + (i % 7 === 0 ? -6 : 1)));
+    return { date: localDate(d), count, level: count === 0 ? 0 : Math.min(4, Math.ceil(count / 3)) };
+  });
+  return new Promise((r) => setTimeout(() => r({ user, total: days.reduce((s, d) => s + d.count, 0), days, source: "page", fetchedAt: Date.now() }), 300));
+}
+// ---------- Live notices (src-tauri/src/notices.rs) ----------
+
+/** One notice from Windows or crest-notify, before the history gives it an id. */
+export type IncomingNotice = Omit<import("../features/notices/history").Notice, "id">;
+
+export interface NoticeSourceStatus {
+  access: "allowed" | "denied" | "unspecified" | "unavailable";
+  mode: "off" | "event-log" | "polling" | "failed";
+  pipe: boolean;
+  /** The crest-notify channel could not be opened. */
+  pipeFailed: boolean;
+}
+
+/** In the browser there is no source; `mockNotice` stands in (from the dev tools console). */
+const mockNoticeHandlers = new Set<(n: IncomingNotice) => void>();
+export function mockNotice(n: Partial<IncomingNotice>) {
+  const full: IncomingNotice = { source: "cli", appId: "cli:crest-notify", appName: "crest-notify", title: "", body: "", at: Date.now(), ...n };
+  mockNoticeHandlers.forEach((h) => h(full));
+}
+
+export const noticeSource = {
+  configure: (windows: boolean, pipe: boolean) => {
+    if (isNative) void invoke("notices_configure", { windows, pipe });
+  },
+  status: (): Promise<NoticeSourceStatus> =>
+    isNative ? invoke<NoticeSourceStatus>("notices_status") : Promise.resolve({ access: "allowed", mode: "off", pipe: false, pipeFailed: false }),
+  /** The access now, or "request-failed" when Windows refused the request itself. */
+  requestAccess: (): Promise<NoticeSourceStatus["access"] | "request-failed"> =>
+    isNative ? invoke<NoticeSourceStatus["access"] | "request-failed">("notices_request_access") : Promise.resolve("allowed"),
+  onNotice: (handler: (n: IncomingNotice) => void): (() => void) => {
+    if (!isNative) {
+      mockNoticeHandlers.add(handler);
+      return () => void mockNoticeHandlers.delete(handler);
+    }
+    const off = listen<IncomingNotice>("notices://in", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  onStatus: (handler: (s: NoticeSourceStatus) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<NoticeSourceStatus>("notices://status", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+};
+
+// ---------- Window behaviour (display.rs, shell.rs) ----------
+
+/** What the window rules call for right now. */
+export type ScreenBehavior = "normal" | "line" | "hide";
+export interface RunningApp {
+  name: string;
+  path: string;
+}
+/** in-use: another program holds the combination. */
+export type HotkeyState = "unset" | "active" | "in-use" | "invalid";
+export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState };
+
+export const windowShell = {
+  screen: (): Promise<ScreenBehavior> => (isNative ? invoke<ScreenBehavior>("display_screen") : Promise.resolve("normal")),
+  onScreen: (handler: (b: ScreenBehavior) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<ScreenBehavior>("notch://screen", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Shows Crest if the hide shortcut hid it and puts it above other always-on-top windows. */
+  raise: () => {
+    if (isNative) void invoke("display_raise");
+  },
+  apps: (): Promise<RunningApp[]> =>
+    isNative
+      ? invoke<RunningApp[]>("display_apps")
+      : Promise.resolve([
+          { name: "chrome", path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
+          { name: "vlc", path: "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe" },
+        ]),
+  applyHotkeys: (config: { open: string; hide: string; resize: string; openLabel: string }): Promise<HotkeyStates> =>
+    isNative
+      ? invoke<HotkeyStates>("hotkeys_apply", { config })
+      : Promise.resolve({ open: config.open ? "active" : "unset", hide: config.hide ? "active" : "unset", resize: config.resize ? "active" : "unset" }),
+  /** The resize shortcut: one arrow press. */
+  onResizeKey: (handler: (dir: "left" | "right" | "up" | "down") => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<"left" | "right" | "up" | "down">("notch://resize", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  crashLog: (text: string) => {
+    if (isNative) void invoke("crash_log", { text });
+  },
+};
+// ---------- Portable ----------
+
+/** A portable copy (Crest.portable next to the exe) keeps its data beside it and updates itself in place (portable.rs). */
+export const portable = {
+  info: (): Promise<{ portable: boolean; writable: boolean }> =>
+    isNative ? invoke<{ portable: boolean; writable: boolean }>("portable_info") : Promise.resolve({ portable: false, writable: false }),
+};
+
+/** The portable package's update: verified and swapped in by Rust, which restarts the app; a folder that can't be written opens the download page. */
+async function portableUpdate(): Promise<UpdateHandle | null> {
+  const version = await invoke<string | null>("portable_check");
+  if (!version) return null;
+  return {
+    version,
+    install: async (onProgress) => {
+      const off = await listen<number>("portable://progress", (e) => onProgress(e.payload));
+      try {
+        return (await invoke<boolean>("portable_install")) ? "page" : undefined;
+      } finally {
+        off();
+      }
+    },
+  };
+}
 // ---------- Capture (src-tauri/src/capture) ----------
 
 export interface CaptureSource {

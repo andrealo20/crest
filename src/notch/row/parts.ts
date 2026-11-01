@@ -1,13 +1,16 @@
 // Settings model of the closed notch's row: which parts show and in what order. Pure, so the saved shape can be repaired (and tested) without the app around it.
 
-export const PART_IDS = ["timer", "discord", "rings", "title", "readings", "equalizer", "clock"] as const;
+export const PART_IDS = ["timer", "discord", "rings", "title", "readings", "equalizer", "clock", "github"] as const;
 export type PartId = (typeof PART_IDS)[number];
-export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: { cpu: boolean; ram: boolean; gpu: boolean }; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; statusAlerts: { power: boolean; net: boolean; bt: boolean } }
+/** Readings of the closed row; net, power, battery and temp are opt-in. */
+export const READING_KEYS = ["cpu", "ram", "gpu", "net", "power", "battery", "temp"] as const;
+export type ReadingKey = (typeof READING_KEYS)[number];
+export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; statusAlerts: { power: boolean; net: boolean; bt: boolean } }
 
 export const CLOSED_DEFAULTS: ClosedSettings = {
   order: [...PART_IDS],
-  parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false },
-  readings: { cpu: true, ram: true, gpu: true },
+  parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false },
+  readings: { cpu: true, ram: true, gpu: true, net: false, power: false, battery: false, temp: false },
   clockSeconds: false, lineProgress: true, quotaAlerts: true,
   statusAlerts: { power: true, net: true, bt: true },
 };
@@ -24,7 +27,7 @@ export function normalizeClosed(saved: unknown): ClosedSettings {
   return {
     order,
     parts: Object.fromEntries(PART_IDS.map((id) => [id, bool(parts[id], d.parts[id])])) as Record<PartId, boolean>,
-    readings: { cpu: bool(readings.cpu, d.readings.cpu), ram: bool(readings.ram, d.readings.ram), gpu: bool(readings.gpu, d.readings.gpu) },
+    readings: Object.fromEntries(READING_KEYS.map((k) => [k, bool(readings[k], d.readings[k])])) as Record<ReadingKey, boolean>,
     clockSeconds: bool(s.clockSeconds, d.clockSeconds), lineProgress: bool(s.lineProgress, d.lineProgress), quotaAlerts: bool(s.quotaAlerts, d.quotaAlerts),
     statusAlerts: { power: bool(alerts.power, d.statusAlerts.power), net: bool(alerts.net, d.statusAlerts.net), bt: bool(alerts.bt, d.statusAlerts.bt) },
   };

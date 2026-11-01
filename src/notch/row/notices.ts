@@ -39,7 +39,7 @@ export function observeTrack(gate: TrackGate, playing: boolean, now: number): bo
 export const SAVED = { showMs: 4000 } as const;
 
 // A running recording outranks everything: its stop button must stay reachable. A capture the user just took comes right after the timer.
-export type NoticeKind = "recording" | "timer" | "saved" | "quota" | "track";
-export function topNotice(active: Partial<Record<NoticeKind, boolean>>): NoticeKind | null {
-  return active.recording ? "recording" : active.timer ? "timer" : active.saved ? "saved" : active.quota ? "quota" : active.track ? "track" : null;
-}
+// Transient notices (status, live notice, quota, track) rank above the persistent ones (reminder, water): they would expire unseen, while a reminder comes back after them.
+export type NoticeKind = "recording" | "timer" | "saved" | "status" | "notice" | "quota" | "track" | "reminder" | "water";
+const ORDER: NoticeKind[] = ["recording", "timer", "saved", "status", "notice", "quota", "track", "reminder", "water"];
+export function topNotice(active: Record<NoticeKind, boolean>): NoticeKind | null { return ORDER.find((k) => active[k]) ?? null; }

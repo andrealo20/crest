@@ -2,14 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createStore } from "../lib/store";
 import { setPinned } from "../platform/native";
 import { hoverDelayMs, settings } from "../settings/store";
+import { closeDelayMs } from "../features/window/model";
 
 export type NotchStatus = "closed" | "peek" | "open";
 
-/** Delays in ms. The hover delay comes from the settings. */
-export const timing = {
-  /** Grace period on leave, so slipping off briefly doesn't close it. */
-  leaveClose: 180,
-};
+/** Grace period on leave, so slipping off briefly doesn't close it (the close delay in the settings). */
+const closeDelay = () => closeDelayMs[settings.get().behavior.closeDelay];
 
 /*
  * "Hold": while dragging (seeking, drag and drop) the notch stays open and
@@ -34,6 +32,12 @@ export const pinned = createStore(false);
 export function togglePin() {
   pinned.set((p) => !p);
 }
+
+/*
+ * The pointer is on a button of a closed-notch notice (snooze, done, dismiss), or has just used one. Hovering
+ * must not open the notch then, or the button would vanish before the click. Cleared when the pointer leaves.
+ */
+export const noticeHover = createStore(false);
 
 /**
  * Notch state machine:
@@ -62,7 +66,10 @@ export function useNotchState() {
   const later = useCallback(
     (ms: number, s: NotchStatus) => {
       window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(() => setStatus(s), ms);
+      timer.current = window.setTimeout(() => {
+        if (s === "open" && statusRef.current === "peek" && noticeHover.get()) return;
+        setStatus(s);
+      }, ms);
     },
     [setStatus],
   );
@@ -108,9 +115,10 @@ export function useNotchState() {
 
   const onPointerLeave = useCallback(() => {
     hovering.current = false;
+    noticeHover.set(false);
     window.clearTimeout(timer.current);
     if (statusRef.current === "peek") setStatus("closed");
-    else if (statusRef.current === "open" && mayAutoClose()) later(timing.leaveClose, "closed");
+    else if (statusRef.current === "open" && mayAutoClose()) later(closeDelay(), "closed");
   }, [setStatus, later]);
 
   // Hold ended and the cursor is outside → handle the missed leave now.
@@ -118,8 +126,18 @@ export function useNotchState() {
     () =>
       holds.subscribe(() => {
         if (!hovering.current && statusRef.current === "open" && mayAutoClose()) {
-          later(timing.leaveClose, "closed");
+          later(closeDelay(), "closed");
         }
+      }),
+    [later],
+  );
+
+  // Off a notice button but still on the notch (peeking) → the hover delay starts again.
+  useEffect(
+    () =>
+      noticeHover.subscribe(() => {
+        const s = settings.get();
+        if (!noticeHover.get() && hovering.current && statusRef.current === "peek" && s.openMode === "hover") later(hoverDelayMs[s.hoverDelay], "open");
       }),
     [later],
   );
@@ -128,7 +146,7 @@ export function useNotchState() {
   useEffect(
     () =>
       pinned.subscribe(() => {
-        if (!pinned.get() && !hovering.current && statusRef.current === "open" && mayAutoClose()) later(timing.leaveClose, "closed");
+        if (!pinned.get() && !hovering.current && statusRef.current === "open" && mayAutoClose()) later(closeDelay(), "closed");
       }),
     [later],
   );

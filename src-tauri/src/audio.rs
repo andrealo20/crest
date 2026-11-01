@@ -1,7 +1,10 @@
 //! Real levels for the equalizer.
 //!
-//! WASAPI loopback: the default output device is opened as an input and delivers
-//! exactly what is playing. An FFT over the latest samples gives 4 frequency bands,
+//! Listens only to the shown player: process loopback of its process tree
+//! (loopback.rs), so a notification sound or a video call doesn't move the bars.
+//! Where that is not possible (older Windows, a player without its own audio session)
+//! it falls back to WASAPI loopback of the default output device, which delivers
+//! everything that is playing. An FFT over the latest samples gives 4 frequency bands,
 //! sent as `audio://levels` (0..1).
 //!
 //! Only runs while the frontend asks for it (music playing, equalizer visible).
@@ -16,7 +19,11 @@ use std::time::{Duration, Instant};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, Stream};
 use rustfft::{num_complex::Complex, FftPlanner};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
+use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+
+use crate::loopback::{self, ProcessCapture};
+use crate::media::MediaState;
 
 const FFT_SIZE: usize = 1024;
 /// ~40 fps. The frontend interpolates with CSS.
@@ -26,6 +33,35 @@ const BANDS: [(f32, f32); 4] = [(40.0, 160.0), (160.0, 600.0), (600.0, 2400.0), 
 /// Fast attack, slower release, like an analog meter.
 const ATTACK: f32 = 0.55;
 const RELEASE: f32 = 0.18;
+/// How often the shown app and the output device are checked.
+const CHECK: Duration = Duration::from_secs(2);
+/// How often a system-wide capture tries to become a player-only one again.
+const RETRY: Duration = Duration::from_secs(5);
+
+/// What the equalizer listens to.
+enum Capture {
+    /// Only the shown player's process tree.
+    Player(ProcessCapture),
+    /// Everything on the default output device.
+    System { _stream: Stream, device: Option<cpal::DeviceId> },
+}
+
+fn shown_app(app: &AppHandle) -> String {
+    app.state::<MediaState>().shown().map(|(id, _)| id).unwrap_or_default()
+}
+
+fn default_output() -> Option<cpal::DeviceId> {
+    cpal::default_host().default_output_device().and_then(|d| d.id().ok())
+}
+
+fn push(ring: &mut VecDeque<f32>, mono: &mut dyn Iterator<Item = f32>) {
+    for s in mono {
+        if ring.len() >= FFT_SIZE * 2 {
+            ring.pop_front();
+        }
+        ring.push_back(s);
+    }
+}
 
 #[derive(Default)]
 pub struct AudioState {
@@ -47,10 +83,15 @@ pub fn audio_levels(enabled: bool, state: State<'_, AudioState>) {
 pub fn spawn(app: AppHandle, state: &AudioState) {
     let enabled = state.enabled.clone();
     let handle = thread::spawn(move || {
+        // Process loopback is created, read and dropped on this thread (MTA; cpal accepts it).
+        let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
         let samples: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::with_capacity(FFT_SIZE * 2)));
         let failed = Arc::new(AtomicBool::new(false));
-        let mut capture: Option<(Stream, Option<cpal::DeviceId>)> = None;
-        let mut last_device_check = Instant::now();
+        let mut capture: Option<Capture> = None;
+        // The app the capture was opened for, and when a player-only capture was last tried.
+        let mut player_app = String::new();
+        let mut last_check = Instant::now();
+        let mut last_try = Instant::now();
 
         let fft = FftPlanner::<f32>::new().plan_fft_forward(FFT_SIZE);
         let window: Vec<f32> = (0..FFT_SIZE)
@@ -78,18 +119,58 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                 continue;
             }
 
-            // Headphones plugged in, device changed or error: reconnect.
-            let device_changed = last_device_check.elapsed() > Duration::from_secs(2) && {
-                last_device_check = Instant::now();
-                let current = cpal::default_host().default_output_device().and_then(|d| d.id().ok());
-                capture.as_ref().is_some_and(|(_, id)| *id != current)
-            };
-            if capture.is_none() || device_changed || failed.swap(false, Ordering::Relaxed) {
-                capture = open(samples.clone(), failed.clone()).map(|(stream, rate, id)| {
-                    sample_rate = rate;
-                    (stream, id)
-                });
+            // Another app shown, the player restarted (new process), headphones plugged in
+            // (system capture) or an error: reconnect. A system capture also keeps trying
+            // to become a player-only one, and is only replaced once that works.
+            let mut reopen = failed.swap(false, Ordering::Relaxed);
+            if !reopen && last_check.elapsed() > CHECK {
+                last_check = Instant::now();
+                let shown = shown_app(&app);
+                let mut upgrade = false;
+                match &capture {
+                    Some(Capture::Player(c)) => reopen = shown != player_app || loopback::process_of(&player_app) != Some(c.pid),
+                    Some(Capture::System { device, .. }) => {
+                        reopen = *device != default_output();
+                        upgrade = !reopen && loopback::supported() && (shown != player_app || last_try.elapsed() > RETRY);
+                    }
+                    None => {}
+                }
+                if upgrade {
+                    player_app = shown;
+                    last_try = Instant::now();
+                    if let Some(player) = loopback::capture(&player_app) {
+                        capture = Some(Capture::Player(player));
+                        sample_rate = loopback::RATE as f32;
+                        samples.lock().unwrap().clear();
+                    }
+                }
+            }
+            if capture.is_none() || reopen {
+                drop(capture.take()); // close the old stream before opening a new one
+                samples.lock().unwrap().clear();
+                player_app = shown_app(&app);
+                last_try = Instant::now();
+                capture = match loopback::capture(&player_app) {
+                    Some(player) => {
+                        sample_rate = loopback::RATE as f32;
+                        Some(Capture::Player(player))
+                    }
+                    None => open(samples.clone(), failed.clone()).map(|(stream, rate, id)| {
+                        sample_rate = rate;
+                        Capture::System { _stream: stream, device: id }
+                    }),
+                };
                 if capture.is_none() {
+                    thread::sleep(Duration::from_secs(1));
+                    continue;
+                }
+            }
+            if let Some(Capture::Player(player)) = &capture {
+                let mut ring = samples.lock().unwrap();
+                if !player.drain(&mut |mono| push(&mut ring, mono)) {
+                    // A stream that keeps failing would otherwise be reopened 40 times a second.
+                    failed.store(true, Ordering::Relaxed);
+                    drop(ring);
                     thread::sleep(Duration::from_secs(1));
                     continue;
                 }
@@ -140,29 +221,21 @@ fn open(samples: Arc<Mutex<VecDeque<f32>>>, failed: Arc<AtomicBool>) -> Option<(
     let rate = supported.sample_rate() as f32;
     let config = supported.config();
 
-    let push = move |mono: &mut dyn Iterator<Item = f32>| {
-        let mut ring = samples.lock().unwrap();
-        for s in mono {
-            if ring.len() >= FFT_SIZE * 2 {
-                ring.pop_front();
-            }
-            ring.push_back(s);
-        }
-    };
+    let feed = move |mono: &mut dyn Iterator<Item = f32>| push(&mut samples.lock().unwrap(), mono);
     let on_error = move |_| failed.store(true, Ordering::Relaxed);
 
     // The shared-mode mix format is almost always f32; i16 as a fallback.
     let stream = match supported.sample_format() {
         SampleFormat::F32 => device.build_input_stream::<f32, _, _>(
             config,
-            move |data, _| push(&mut data.chunks(channels).map(|f| f.iter().sum::<f32>() / channels as f32)),
+            move |data, _| feed(&mut data.chunks(channels).map(|f| f.iter().sum::<f32>() / channels as f32)),
             on_error,
             None,
         ),
         SampleFormat::I16 => device.build_input_stream::<i16, _, _>(
             config,
             move |data, _| {
-                push(&mut data.chunks(channels).map(|f| f.iter().map(|&s| s as f32 / 32768.0).sum::<f32>() / channels as f32))
+                feed(&mut data.chunks(channels).map(|f| f.iter().map(|&s| s as f32 / 32768.0).sum::<f32>() / channels as f32))
             },
             on_error,
             None,

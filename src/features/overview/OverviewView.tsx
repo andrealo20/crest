@@ -16,6 +16,7 @@ import { describe, useForecast } from "../weather/store";
 import { settings } from "../../settings/store";
 import { formatTemp, formatTimeParts } from "../../lib/format";
 import { locale, t } from "../../i18n";
+import { QuoteLine } from "../quotes/QuoteLine";
 
 /*
  *   14:32                                    ☀ 18°
@@ -29,6 +30,7 @@ import { locale, t } from "../../i18n";
  */
 export function OverviewView() {
   const presenting = usePresenting();
+  const quotes = settings.use().productivity.quotes;
   return (
     <div className="flex h-full flex-col gap-2.5 px-4 pt-1 pb-3">
       <HeaderActions>
@@ -42,6 +44,7 @@ export function OverviewView() {
         <FocusTile />
         <VolumeTile />
       </div>
+      {quotes && <QuoteLine />}
     </div>
   );
 }
