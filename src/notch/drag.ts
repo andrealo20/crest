@@ -4,8 +4,9 @@ import { display } from "../platform/services";
 import { settings, updateSettings } from "../settings/store";
 import { effectiveIdleStyle } from "../features/window/store";
 import { toPageCss, toSaved } from "../features/window/panelSize";
-import { snapCapsule, windowYFor } from "./capsule";
-import { alongOf, anchorAt, edgeLine, frameFor, nearestEdge, pointToScreen, pointerIn, span, type Dock, type Edge, type Work } from "./edge";
+import { capsuleY, snapCapsule, windowYFor } from "./capsule";
+import { across, alongOf, anchorAt, edgeLine, frameFor, nearestEdge, pointToScreen, pointerIn, span, type Dock, type Edge, type Work } from "./edge";
+import { windowAlong } from "./collapsed";
 import { focusMode } from "./focus";
 import { monitorMetrics, reloadMonitor } from "./monitor";
 import { holdOpen, type NotchStatus } from "./useNotchState";
@@ -36,15 +37,21 @@ export function dockLine(dock = settings.get().dock, style = shownStyle(), m: Me
   return style === "capsule" ? 0 : edgeLine(dock.edge, dock.anchor, m.width, m.height, workOf(m));
 }
 
-/** The window's top for the capsule top `y` (display.y unless given) on the notch's monitor; always finite, since Rust rejects NaN. */
+/** The window's top for the capsule top `y` (display.y unless given, kept on the monitor) on the notch's monitor; always finite, since Rust rejects NaN. */
 export function windowY(y = pageCss(settings.get().display.y)): number {
   const s = settings.get(), m = monitorMetrics();
-  const top = windowYFor(shownStyle(s), y, m.height, m.workTop);
+  const top = windowYFor(shownStyle(s), capsuleY(y, s.closedSize.capsuleHeight, m.height), m.height, m.workTop);
   return Number.isFinite(top) ? top : 0;
 }
 
+/** The window's length along its edge for the closed sizes (collapsed.ts) on the notch's monitor, in CSS px; `stale` as in applyDisplay. */
+export function windowLength(dock = settings.get().dock, stale = 1): number {
+  const s = settings.get(), m = monitorMetrics(), style = shownStyle(s), side = across(edgeOf(style, dock));
+  return windowAlong(s.closedSize, style, side, (side ? m.height : m.width) / stale);
+}
+
 /** What Rust places the window by, beyond the saved display settings; for noticing changes. */
-export const placementKey = () => `${windowY()}|${edgeOf(shownStyle(), settings.get().dock)}|${dockLine()}`;
+export const placementKey = () => `${windowY()}|${edgeOf(shownStyle(), settings.get().dock)}|${dockLine()}|${windowLength()}`;
 
 /**
  * Sends display settings to Rust, optionally with an offset, a capsule top `y` and a dock that aren't saved yet (Rust gets the window's top from `windowY`).
@@ -55,7 +62,7 @@ export function applyDisplay(offset = pageCss(settings.get().display.offset), y?
   const s = settings.get(), b = s.behavior, style = shownStyle(s), edge = edgeOf(style, dock), line = dockLine(dock, style) / stale;
   // On top the window's top is windowY (0 for the notch), or the edge of a taskbar on top it hangs from.
   const top = style === "capsule" ? windowY((y ?? pageCss(s.display.y)) * stale) / stale : edge === "top" ? line : 0;
-  display.apply({ monitor: s.display.monitor, offset, y: top, gaming: s.gaming.mode !== "off", rules: { ...b.rules, apps: b.apps }, zoom: b.scale / 100, edge, line });
+  display.apply({ monitor: s.display.monitor, offset, y: top, gaming: s.gaming.mode !== "off", rules: { ...b.rules, apps: b.apps }, zoom: b.scale / 100, edge, line, along: windowLength(dock, stale) });
 }
 
 /** The area the notch is dragged in: the monitor, in the browser the viewport with DesktopMock's 48 px taskbar. */

@@ -199,8 +199,20 @@ export function planVisible(items: RowItem[], contentWidth: number, dpi: number)
   return empty.length ? planRow(items.filter((it) => !empty.includes(it.id)), contentWidth, dpi) : plan;
 }
 
-/** The surface's width for a content width: the content plus the inset at both ends, never outside minSurface..maxSurface. */
-export function surfaceWidth(style: "notch" | "capsule", content: number): number {
-  const inset = style === "notch" ? ROW.insetNotch : ROW.insetCapsule;
-  return Math.min(ROW.maxSurface, Math.max(ROW.minSurface, (content > 0 ? content : 0) + 2 * inset));
+const insetOf = (style: "notch" | "capsule") => (style === "notch" ? ROW.insetNotch : ROW.insetCapsule);
+const scaleOf = (scale: number) => (Number.isFinite(scale) && scale > 0 ? scale : 1);
+const spanOf = (span: number) => (Number.isFinite(span) && span > 0 ? span : Infinity);
+
+/**
+ * The surface's width for a content width at scale 1: the content plus the inset at both ends (at most maxSurface), both grown by `scale`,
+ * never narrower than `min` (the saved width) and never wider than `span` (the monitor along the edge), which only narrows what is drawn.
+ */
+export function surfaceWidth(style: "notch" | "capsule", content: number, min: number = ROW.minSurface, scale = 1, span = Infinity): number {
+  const wanted = Math.min(ROW.maxSurface, (content > 0 ? content : 0) + 2 * insetOf(style)) * scaleOf(scale);
+  return Math.min(spanOf(span), Math.max(Number.isFinite(min) ? min : ROW.minSurface, wanted));
+}
+
+/** The widest the row's content gets, at scale 1: the widest surface (maxSurface, or less on a monitor that is shorter at this scale) less the insets. */
+export function rowRoom(style: "notch" | "capsule", scale = 1, span = Infinity): number {
+  return Math.max(0, Math.min(ROW.maxSurface, spanOf(span) / scaleOf(scale)) - 2 * insetOf(style));
 }

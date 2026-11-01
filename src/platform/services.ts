@@ -445,8 +445,9 @@ export const display = {
   /**
    * `y`: window top in CSS px below the monitor's top edge (default 0); `rules`: screen_policy.rs Rules; `zoom`: panel scale (1 or 1.5).
    * `edge` and `line`: the screen edge the window hangs from and where (CSS px from the monitor's top or left); `y` is used on top.
+   * `along`: the window's length along that edge in CSS px, at least 760 (src/notch/collapsed.ts windowAlong).
    */
-  apply: (config: { monitor: string | null; offset: number; y?: number; gaming: boolean; rules: RulesPayload; zoom: number; edge?: string; line?: number }) => {
+  apply: (config: { monitor: string | null; offset: number; y?: number; gaming: boolean; rules: RulesPayload; zoom: number; edge?: string; line?: number; along?: number }) => {
     if (isNative) void invoke("display_apply", { config });
   },
   /** true while an app covers the notch's monitor in fullscreen. */

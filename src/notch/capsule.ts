@@ -11,6 +11,11 @@ export interface WorkArea { top: number; height: number }
 const safe = (v: number) => (Number.isFinite(v) ? Math.max(0, v) : 0);
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
+/** The capsule's top for the saved one: kept on the monitor, so on a shorter one it stops at the bottom (the saved value stays as it is). */
+export function capsuleY(y: number, h: number, monitorH: number): number {
+  return clamp(Number.isFinite(y) ? y : 0, 0, Math.max(0, safe(monitorH) - safe(h)));
+}
+
 /** The top of the window: at the screen's top for the notch, the line and a bridged capsule (the strip up to the work area's top has to lie inside the window), else just above the capsule and kept inside the monitor (at 0 on a monitor shorter than the window). */
 export function windowYFor(style: Style, y: number, monitorH: number, workTop = 0): number {
   if (Number.isNaN(y) || hasBridge(style, y, workTop)) return 0;

@@ -81,6 +81,9 @@ pub struct Config {
     /// Where that edge's frame starts, CSS px from the monitor's top (bottom) or left (left, right). On top `y` is used.
     #[serde(default)]
     line: f64,
+    /// The window's length along that edge in CSS px, longer than `ALONG` for a wide closed notch (src/notch/collapsed.ts windowAlong); see `fit_along`.
+    #[serde(default)]
+    along: f64,
 }
 
 fn one() -> f64 {
@@ -89,7 +92,7 @@ fn one() -> f64 {
 
 impl Default for Config {
     fn default() -> Self {
-        Config { monitor: None, offset: 0.0, y: 0.0, gaming: false, rules: Rules::default(), zoom: 1.0, edge: String::new(), line: 0.0 }
+        Config { monitor: None, offset: 0.0, y: 0.0, gaming: false, rules: Rules::default(), zoom: 1.0, edge: String::new(), line: 0.0, along: 0.0 }
     }
 }
 
@@ -106,6 +109,17 @@ fn fit_zoom(z: f64) -> f64 {
 const ALONG: f64 = 760.0;
 const DEPTH: f64 = 560.0;
 const SIDE_DEPTH: f64 = 760.0;
+/// The longest window along the edge: the widest closed notch the settings allow (8000) and the room around it.
+const MAX_ALONG: f64 = 8060.0;
+
+/// The window's length along its edge at 100 %: `ALONG`, or what a wider closed notch asks for, up to `MAX_ALONG`.
+fn fit_along(along: f64) -> f64 {
+    if along.is_finite() {
+        along.clamp(ALONG, MAX_ALONG)
+    } else {
+        ALONG
+    }
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -154,7 +168,7 @@ pub fn display_apply(mut config: Config, window: WebviewWindow, state: State<'_,
     let (moved, zoomed) = {
         let cur = state.config.lock().unwrap();
         (
-            cur.monitor != config.monitor || cur.offset != config.offset || cur.y != config.y || cur.edge != config.edge || cur.line != config.line,
+            cur.monitor != config.monitor || cur.offset != config.offset || cur.y != config.y || cur.edge != config.edge || cur.line != config.line || cur.along != config.along,
             cur.zoom != config.zoom,
         )
     };
@@ -276,9 +290,9 @@ fn sync(app: &AppHandle) {
 /// Centered on the chosen monitor (primary otherwise), `y` CSS px below its top edge (clamped to the monitor).
 /// Off the top edge the window's own edge goes on `line`, centred along that edge, and on a side edge it is as deep as long.
 pub fn place(window: &WebviewWindow, state: &DisplayState) -> tauri::Result<()> {
-    let (wanted, offset, y, zoom, edge, line) = {
+    let (wanted, offset, y, zoom, edge, line, along) = {
         let c = state.config.lock().unwrap();
-        (c.monitor.clone(), c.offset, c.y, c.zoom, c.edge.clone(), c.line)
+        (c.monitor.clone(), c.offset, c.y, c.zoom, c.edge.clone(), c.line, fit_along(c.along))
     };
     let side = edge == "left" || edge == "right";
     let monitors = window.available_monitors()?;
@@ -290,15 +304,15 @@ pub fn place(window: &WebviewWindow, state: &DisplayState) -> tauri::Result<()> 
     // only updates after the first move.
     for _ in 0..2 {
         let mut size = window.outer_size()?;
-        // Only resized when the orientation or the zoom changes, so the top edge at 100 % keeps its window as it was.
-        let (lw, lh) = (if side { SIDE_DEPTH } else { ALONG } * zoom, if side { ALONG } else { DEPTH } * zoom);
+        // Only resized when the orientation, the zoom or the closed notch's length changes, so the top edge at 100 % keeps its window as it was.
+        let (lw, lh) = (if side { SIDE_DEPTH } else { along } * zoom, if side { along } else { DEPTH } * zoom);
         let dpi = window.scale_factor()?;
         if (size.width as f64 - lw * dpi).abs() > 2.0 || (size.height as f64 - lh * dpi).abs() > 2.0 {
             window.set_size(LogicalSize::new(lw, lh))?;
             size = window.outer_size()?;
         }
         let monitor_px = (monitor.size().width as i32, monitor.size().height as i32);
-        let at = Placement { edge: &edge, offset, y, line, scale: monitor.scale_factor() * zoom };
+        let at = Placement { edge: &edge, offset, y, line, keep: kept_along(along), scale: monitor.scale_factor() * zoom };
         let (x, top) = at.position(monitor_px, (size.width as i32, size.height as i32));
         window.set_position(PhysicalPosition::new(monitor.position().x + x, monitor.position().y + top))?;
     }
@@ -308,12 +322,20 @@ pub fn place(window: &WebviewWindow, state: &DisplayState) -> tauri::Result<()> 
 /// The widest panel along its edge in CSS px (panelSize.ts MAX_SIZE), kept on the monitor when the notch is moved.
 const PANEL_ALONG: f64 = 740.0;
 
+/// What stays on the monitor when a window this long is moved along its edge: the widest panel, or a wider closed notch with its hover nudge,
+/// which a longer window holds with the same margin as `ALONG` holds the panel.
+fn kept_along(along: f64) -> f64 {
+    fit_along(along) - (ALONG - PANEL_ALONG)
+}
+
 /// Where the window goes on its monitor; CSS px values, `scale` = monitor DPI x zoom.
 struct Placement<'a> {
     edge: &'a str,
     offset: f64,
     y: f64,
     line: f64,
+    /// The length along the edge kept on the monitor (`kept_along`).
+    keep: f64,
     scale: f64,
 }
 
@@ -321,12 +343,12 @@ impl Placement<'_> {
     /// The window's top-left in physical px from the monitor's top-left, for a `window` (w, h) on a `monitor` (w, h).
     /// The hanging edge stays on `line` (or `y` on top) and the window is centred along the edge even when it is larger
     /// than the monitor (a big scale on a small screen), so the notch never leaves its edge; the offset along the edge
-    /// is clamped so the widest panel stays on the monitor.
+    /// is clamped so the widest panel (or a wider closed notch) stays on the monitor.
     fn position(&self, (mw, mh): (i32, i32), (w, h): (i32, i32)) -> (i32, i32) {
         let line = (self.line * self.scale).round() as i32;
         let side = self.edge == "left" || self.edge == "right";
         let (m_along, w_along) = if side { (mh, h) } else { (mw, w) };
-        let free = (m_along - (PANEL_ALONG * self.scale).round() as i32).max(0);
+        let free = (m_along - (self.keep * self.scale).round() as i32).max(0);
         let along = (m_along - w_along) / 2 + ((self.offset * self.scale) as i32).clamp(-free / 2, free / 2);
         match self.edge {
             "bottom" => (along, line - h),
@@ -562,42 +584,46 @@ fn is_desktop(hwnd: HWND) -> bool {
 mod tests {
     use super::*;
 
-    /// 1920 x 1080 at 100, 125 and 150 % Windows scaling, panel scale 1 and 1.5, on every edge, hanging from the screen edge.
+    /// 1920 x 1080 at 100, 125 and 150 % Windows scaling, panel scale 1 and 1.5, on every edge, hanging from the screen edge,
+    /// with the usual window and one lengthened for a wide closed notch.
     #[test]
     fn the_notch_stays_on_its_edge_and_centred_even_when_the_window_is_larger_than_the_monitor() {
         let (mw, mh) = (1920, 1080);
-        for dpi in [1.0, 1.25, 1.5] {
-            for zoom in [1.0, 1.5] {
-                let scale = dpi * zoom;
-                for edge in ["top", "bottom", "left", "right"] {
-                    let side = edge == "left" || edge == "right";
-                    let w = ((if side { SIDE_DEPTH } else { ALONG }) * zoom * dpi).round() as i32;
-                    let h = ((if side { ALONG } else { DEPTH }) * zoom * dpi).round() as i32;
-                    let line = match edge {
-                        "bottom" => mh as f64 / scale,
-                        "right" => mw as f64 / scale,
-                        _ => 0.0,
-                    };
-                    let at = |offset: f64| Placement { edge, offset, y: 0.0, line, scale }.position((mw, mh), (w, h));
-                    let case = format!("{edge} at {dpi} x {zoom}");
-                    let (x, top) = at(0.0);
-                    match edge {
-                        "top" => assert_eq!(top, 0, "{case}"),
-                        "bottom" => assert!((top + h - mh).abs() <= 1, "{case}: bottom edge at {}", top + h),
-                        "left" => assert_eq!(x, 0, "{case}"),
-                        _ => assert!((x + w - mw).abs() <= 1, "{case}: right edge at {}", x + w),
-                    }
-                    let (along, m_along, w_along) = if side { (top, mh, h) } else { (x, mw, w) };
-                    assert_eq!(along, (m_along - w_along) / 2, "{case}: centred");
-                    // Pushed far either way, the widest panel (centred in the window) stays on the monitor when it fits at all.
-                    let panel = PANEL_ALONG * scale;
-                    for push in [-10_000.0, 10_000.0] {
-                        let (x, top) = at(push);
-                        let centre = (if side { top + h / 2 } else { x + w / 2 }) as f64;
-                        if panel <= m_along as f64 {
-                            assert!(centre - panel / 2.0 >= -1.0 && centre + panel / 2.0 <= m_along as f64 + 1.0, "{case}: pushed {push}");
-                        } else {
-                            assert_eq!(if side { top } else { x }, (m_along - w_along) / 2, "{case}: no room, stays centred");
+        for wanted in [0.0, 1400.0] {
+            let length = fit_along(wanted);
+            for dpi in [1.0, 1.25, 1.5] {
+                for zoom in [1.0, 1.5] {
+                    let scale = dpi * zoom;
+                    for edge in ["top", "bottom", "left", "right"] {
+                        let side = edge == "left" || edge == "right";
+                        let w = ((if side { SIDE_DEPTH } else { length }) * zoom * dpi).round() as i32;
+                        let h = ((if side { length } else { DEPTH }) * zoom * dpi).round() as i32;
+                        let line = match edge {
+                            "bottom" => mh as f64 / scale,
+                            "right" => mw as f64 / scale,
+                            _ => 0.0,
+                        };
+                        let at = |offset: f64| Placement { edge, offset, y: 0.0, line, keep: kept_along(wanted), scale }.position((mw, mh), (w, h));
+                        let case = format!("{edge} at {dpi} x {zoom}, {length} long");
+                        let (x, top) = at(0.0);
+                        match edge {
+                            "top" => assert_eq!(top, 0, "{case}"),
+                            "bottom" => assert!((top + h - mh).abs() <= 1, "{case}: bottom edge at {}", top + h),
+                            "left" => assert_eq!(x, 0, "{case}"),
+                            _ => assert!((x + w - mw).abs() <= 1, "{case}: right edge at {}", x + w),
+                        }
+                        let (along, m_along, w_along) = if side { (top, mh, h) } else { (x, mw, w) };
+                        assert_eq!(along, (m_along - w_along) / 2, "{case}: centred");
+                        // Pushed far either way, the widest panel or closed notch (centred in the window) stays on the monitor when it fits at all.
+                        let panel = kept_along(wanted) * scale;
+                        for push in [-10_000.0, 10_000.0] {
+                            let (x, top) = at(push);
+                            let centre = (if side { top + h / 2 } else { x + w / 2 }) as f64;
+                            if panel <= m_along as f64 {
+                                assert!(centre - panel / 2.0 >= -1.0 && centre + panel / 2.0 <= m_along as f64 + 1.0, "{case}: pushed {push}");
+                            } else {
+                                assert_eq!(if side { top } else { x }, (m_along - w_along) / 2, "{case}: no room, stays centred");
+                            }
                         }
                     }
                 }
@@ -606,8 +632,18 @@ mod tests {
     }
 
     #[test]
+    fn the_window_is_as_long_as_before_unless_a_wide_closed_notch_needs_more() {
+        assert_eq!(fit_along(0.0), ALONG);
+        assert_eq!(kept_along(0.0), PANEL_ALONG);
+        assert_eq!(fit_along(f64::NAN), ALONG);
+        assert_eq!(fit_along(1400.0), 1400.0);
+        assert_eq!(kept_along(1400.0), 1380.0);
+        assert_eq!(fit_along(1e9), MAX_ALONG);
+    }
+
+    #[test]
     fn the_capsule_top_stays_on_the_monitor() {
-        let at = |y: f64| Placement { edge: "top", offset: 0.0, y, line: 0.0, scale: 1.0 }.position((1920, 1080), (760, 560));
+        let at = |y: f64| Placement { edge: "top", offset: 0.0, y, line: 0.0, keep: PANEL_ALONG, scale: 1.0 }.position((1920, 1080), (760, 560));
         assert_eq!(at(100.0).1, 100);
         assert_eq!(at(5000.0).1, 520);
         assert_eq!(at(-50.0).1, 0);

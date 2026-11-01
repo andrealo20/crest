@@ -21,7 +21,6 @@ import { formatIn } from "../../lib/format";
 import { t } from "../../i18n";
 import { QUOTA, SAVED, TRACK, armTrack, detectRise, newQuotaTracker, observeTrack, topNotice, type QuotaRise, type TrackGate } from "./notices";
 import type { StatusAlert } from "./status";
-import { ROW } from "./layout";
 import { trackCaption } from "./parts";
 import { fontEpoch, measureText } from "./measure";
 import { Marquee } from "./Marquee";
@@ -32,8 +31,6 @@ import { noticePop } from "../../features/notices/NoticePop";
 import { usePresenting } from "../../features/privacy/store";
 
 const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76, REC_DOT = 8, THUMB_W = 28;
-/** The widest content any closed surface allows (the notch's insets are the larger ones). */
-const MAX = ROW.maxSurface - 2 * ROW.insetNotch;
 const STATUS_ICON: Record<StatusAlert["icon"], Icon> = { plug: Plug, battery: BatteryHigh, wifi: WifiHigh, "wifi-off": WifiSlash, headphones: Headphones };
 const TONE = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" } as const;
 
@@ -102,8 +99,9 @@ function useTrackCaption(on: boolean): string | null {
  * a new track while the title part is off, a due to-do or the water reminder.
  * Reports its content width while one shows, null otherwise; the shape takes that width. Mounted with the row, and on the idle line
  * or in focus mode while a finished timer, a recording, a status alert or a due to-do opens it into the notch (`urgentOnly`).
+ * Drawn `scale` times its designed size like the row; `max` is the widest it gets at that size.
  */
-export function NoticeLayer({ onWidth, urgentOnly }: { onWidth: (content: number | null) => void; urgentOnly: boolean }) {
+export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; scale: number; onWidth: (content: number | null) => void; urgentOnly: boolean }) {
   fontEpoch.use();
   const timerHover = useNoticeHover();
   const savedHover = useNoticeHover();
@@ -216,7 +214,7 @@ export function NoticeLayer({ onWidth, urgentOnly }: { onWidth: (content: number
     );
   } else if (kind === "status" && status) {
     const I = status.icon === "battery" && status.tone !== "normal" ? (status.tone === "critical" ? BatteryWarning : BatteryLow) : STATUS_ICON[status.icon];
-    const textW = Math.min(measureText(status.text), MAX - ICON - GAP);
+    const textW = Math.min(measureText(status.text), max - ICON - GAP);
     width = ICON + GAP + textW;
     // One key per kind: a newer alert of the same kind swaps its text in place instead of cross-fading.
     key = `status:${status.kind}`;
@@ -227,12 +225,12 @@ export function NoticeLayer({ onWidth, urgentOnly }: { onWidth: (content: number
       </span>
     );
   } else if (kind === "notice" && pop) {
-    ({ width, key, body } = noticePop(pop, MAX));
+    ({ width, key, body } = noticePop(pop, max));
   } else if (kind === "quota" && rise) {
     const used = Math.round(Math.min(100, Math.max(0, rise.used)));
     const name = brandName[rise.provider as UsageId] ?? rise.provider;
     const text = [t("{w} {p}% genutzt", { w: windowLabel(rise.kind), p: used }), rise.resetsAt !== null ? formatIn(rise.resetsAt - Date.now()) : ""].filter(Boolean).join(" · ");
-    const nameW = Math.min(NAME_MAX, measureText(name)), textW = measureText(text), room = MAX - QUOTA_RING - nameW - 2 * GAP;
+    const nameW = Math.min(NAME_MAX, measureText(name)), textW = measureText(text), room = max - QUOTA_RING - nameW - 2 * GAP;
     width = QUOTA_RING + nameW + 2 * GAP + Math.min(textW, room);
     key = `quota:${rise.provider}:${rise.kind}:${used}`;
     body = (
@@ -244,14 +242,14 @@ export function NoticeLayer({ onWidth, urgentOnly }: { onWidth: (content: number
     );
   } else if (kind === "track" && track) {
     const textW = measureText(track);
-    width = Math.min(textW, MAX);
+    width = Math.min(textW, max);
     key = `track:${track}`;
     body = <Marquee text={track} textWidth={textW} width={width} paused={false} once />;
   } else if (kind === "reminder") ({ width, key, body } = reminderNotice(due));
   else if (kind === "water") ({ width, key, body } = waterNotice(productivity.water.goalMl));
-  const dpi = window.devicePixelRatio || 1;
+  const dpi = (window.devicePixelRatio || 1) * scale;
   // An even number of device pixels, as the row, so the centred notice starts on a whole one.
-  width = Math.min(MAX, (Math.ceil((width * dpi) / 2 - 1e-9) * 2) / dpi);
+  width = Math.min(max, (Math.ceil((width * dpi) / 2 - 1e-9) * 2) / dpi);
   useLayoutEffect(() => onWidth(kind ? width : null), [kind, width, onWidth]);
   useEffect(() => () => onWidth(null), [onWidth]);
 

@@ -10,6 +10,8 @@ interface Props {
   elevated: boolean;
   /** The edge it hangs from; the shape is drawn in that edge's frame and its content is turned back upright. */
   edge?: Edge;
+  /** The line: nothing is centred across it, so its thickness takes whole device pixels instead of an even number, and half px steps show. */
+  thin?: boolean;
   children?: ReactNode;
 }
 
@@ -22,7 +24,7 @@ interface Props {
  * re-render per frame. Animations are interruptible and keep their velocity
  * (important when hovering in and out quickly).
  */
-export function NotchShape({ geometry, transition, elevated, edge = "top", children }: Props) {
+export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, children }: Props) {
   const w = useMotionValue(geometry.w);
   const h = useMotionValue(geometry.h);
   const r = useMotionValue(geometry.r);
@@ -33,7 +35,7 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", child
   // Whole device pixels: the shape is centered, so an odd or fractional size puts its edges
   // (and the cover pinned to them) on subpixels that shift every frame, which reads as jitter.
   const wPx = useTransform(w, snap);
-  const hPx = useTransform(h, snap);
+  const hPx = useTransform(h, thin ? whole : snap);
 
   const first = useRef(true);
   useEffect(() => {
@@ -127,4 +129,10 @@ function Upright({ edge, children }: { edge: Edge; children?: ReactNode }) {
 function snap(v: number): number {
   const dpr = window.devicePixelRatio || 1;
   return (Math.round((v * dpr) / 2) * 2) / dpr;
+}
+
+/** Nearest whole number of device pixels, at least one (BrimDeck's SnapToDevicePixels). */
+function whole(v: number): number {
+  const dpr = window.devicePixelRatio || 1;
+  return Math.max(1, Math.round(v * dpr)) / dpr;
 }

@@ -25,21 +25,23 @@ export const DOCK_HEIGHT = 46;
 /** Padding when open. Inner radii = r − PADDING (concentric). */
 export const PADDING = 16;
 
-export const geometry = {
-  /** Focus mode "line": a thin strip at the screen edge, just enough to find it again. */
-  line: { w: 150, h: 5, r: 2.5, ear: 3, rt: 0 },
-  /** Hover on the line: it stays a line, just a touch bigger, then opens straight away. */
-  linePeek: { w: 166, h: 7, r: 3.5, ear: 3.5, rt: 0 },
-} satisfies Record<string, NotchGeometry>;
-
-/** Idle at width w: the notch hangs from the edge with ears (MacBook proportions), the capsule is round all over. */
-export function closedGeometry(style: "notch" | "capsule", w: number): NotchGeometry {
-  return style === "capsule" ? { w, h: 30, r: 15, ear: 0, rt: 15 } : { w, h: 30, r: 10, ear: 6, rt: 0 };
+/**
+ * The line (the idle style, or focus mode's thin strip at the edge, just enough to find it again), `w` long and `h` thick: hanging from the
+ * edge with ears, or round all over when `floating` away from it. Hovered it stays a line, just a touch bigger, then opens straight away.
+ */
+export function lineGeometry(w: number, h: number, floating: boolean, peek: boolean): NotchGeometry {
+  const t = peek ? h + 2 : h;
+  return { w: peek ? w + 16 : w, h: t, r: t / 2, ear: floating ? 0 : peek ? 3.5 : 3, rt: floating ? t / 2 : 0 };
 }
 
-/** Hover on a closed shape of width w: slightly larger, as feedback. */
-export function peekGeometry(style: "notch" | "capsule", w: number): NotchGeometry {
-  return style === "capsule" ? { w: w + 16, h: 34, r: 17, ear: 0, rt: 17 } : { w: w + 16, h: 34, r: 12, ear: 7, rt: 0 };
+/** Idle at width w and height h: the notch hangs from the edge with ears (MacBook proportions), the capsule is round all over. The notch's corners keep their size at every height. */
+export function closedGeometry(style: "notch" | "capsule", w: number, h = 30): NotchGeometry {
+  return style === "capsule" ? { w, h, r: h / 2, ear: 0, rt: h / 2 } : { w, h, r: 10, ear: 6, rt: 0 };
+}
+
+/** Hover on a closed shape of width w and height h: slightly larger, as feedback. */
+export function peekGeometry(style: "notch" | "capsule", w: number, h = 30): NotchGeometry {
+  return style === "capsule" ? { w: w + 16, h: h + 4, r: h / 2 + 2, ear: 0, rt: h / 2 + 2 } : { w: w + 16, h: h + 4, r: 12, ear: 7, rt: 0 };
 }
 
 /** The notch on a side edge, in its frame: `w` along the edge, `h` away from it (column.ts); hovered it grows like the notch on top. */

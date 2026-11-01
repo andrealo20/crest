@@ -57,6 +57,7 @@ import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
 import { EdgeSettings } from "../../notch/EdgeSettings";
+import { SizeSettings } from "../../notch/SizeSettings";
 import { PortableNote } from "../portable/PortableNote";
 import { between, changelog, markSeen, useUnseen } from "../../lib/changelog";
 import { privacy, togglePresentation, usePresenting } from "../privacy/store";
@@ -551,6 +552,7 @@ function Display() {
           />
         </div>
       </div>
+      <SizeSettings />
       <ClosedParts />
       <Row label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>
         <Switch label={t("Fortschritt auf der Linie")} checked={s.closed.lineProgress} onChange={(lineProgress) => updateSettings((cur) => ({ closed: { ...cur.closed, lineProgress } }))} />

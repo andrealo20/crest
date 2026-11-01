@@ -54,10 +54,20 @@ export function fitLines(heights: number[], gap: number, room: number): number {
   return n;
 }
 
-/** The closed shape in the frame for a column: along the edge its length plus the insets (minLength..maxLength), away from the edge its width plus the pads. */
-export function columnSurface(length: number, width: number): { w: number; h: number } {
-  return { w: Math.min(COLUMN.maxLength, Math.max(COLUMN.minLength, fin(length) + 2 * COLUMN.inset)), h: Math.max(COLUMN.minWidth, fin(width)) + 2 * COLUMN.pad };
+const scaleOf = (scale: number) => (Number.isFinite(scale) && scale > 0 ? scale : 1);
+const spanOf = (span: number) => (Number.isFinite(span) && span > 0 ? span : Infinity);
+
+/**
+ * The closed shape in the frame for a column of content at scale 1: along the edge its length plus the insets (at most maxLength), away
+ * from the edge its width plus the pads, both grown by `scale`; along the edge never shorter than `minLength` nor longer than `span` (the monitor).
+ */
+export function columnSurface(length: number, width: number, scale = 1, minLength: number = COLUMN.minLength, span = Infinity): { w: number; h: number } {
+  const k = scaleOf(scale), along = Math.min(COLUMN.maxLength, fin(length) + 2 * COLUMN.inset) * k;
+  return { w: Math.min(spanOf(span), Math.max(Number.isFinite(minLength) ? minLength : COLUMN.minLength, along)), h: (Math.max(COLUMN.minWidth, fin(width)) + 2 * COLUMN.pad) * k };
 }
 
-/** The room for lines along the edge in the longest notch. */
-export const COLUMN_ROOM = COLUMN.maxLength - 2 * COLUMN.inset;
+/** The room for lines along the edge in the longest notch, at scale 1 (less on a monitor shorter than that notch at this scale). */
+export function columnRoom(scale = 1, span = Infinity): number {
+  return Math.max(0, Math.min(COLUMN.maxLength, spanOf(span) / scaleOf(scale)) - 2 * COLUMN.inset);
+}
+export const COLUMN_ROOM = columnRoom();

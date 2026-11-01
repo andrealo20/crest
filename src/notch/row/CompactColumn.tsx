@@ -24,7 +24,7 @@ import { useDiscordCall } from "../../features/discord/store";
 import { useGamingLive } from "../../features/system/gaming";
 import { usage } from "../../features/usage/store";
 import { Dots, dotsWidth, usePrivacyDots } from "../../features/privacy/PrivacyDots";
-import { COLUMN, COLUMN_ROOM, columnWidth, fitLines, ringLines, stack } from "../column";
+import { COLUMN, columnWidth, fitLines, ringLines, stack } from "../column";
 import { useHeld } from "./CompactRow";
 import { NOTICE_BUTTON, NoticeButton, useNoticeHover } from "./NoticeButton";
 import { useRowVisible } from "./visibility";
@@ -132,9 +132,9 @@ function useNoticeLine(urgentOnly: boolean): Line | null {
  * not fit across a column, and neither does a lyric line, so the title's lyric mode and the lyrics-only notch keep the column as it is.
  * Lines that do not fit in the longest notch are dropped from the end. `parts` false (the idle line or dimmed focus mode, opened only by
  * an urgent notice) shows the notice line alone and keeps the row's polling off. Reports its length and width; the shape is that plus
- * its insets and pads.
+ * its insets and pads. Drawn at the content scale like the row (Notch.tsx): `room` is the longest it gets at its designed size.
  */
-export function CompactColumn({ parts, onSize }: { parts: boolean; onSize: (size: { length: number; width: number }) => void }) {
+export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: number; onSize: (size: { length: number; width: number }) => void }) {
   useRowVisible(parts);
   fontEpoch.use();
   const notice = useNoticeLine(!parts);
@@ -192,7 +192,7 @@ export function CompactColumn({ parts, onSize }: { parts: boolean; onSize: (size
   });
   if (parts && ringsAt === fixed.length) all.push(...ringLinesList);
 
-  const shown = all.slice(0, fitLines(all.map((l) => l.h), COLUMN.gap, COLUMN_ROOM));
+  const shown = all.slice(0, fitLines(all.map((l) => l.h), COLUMN.gap, room));
   const { tops, length } = stack(shown.map((l) => l.h), COLUMN.gap);
   useLayoutEffect(() => onSize({ length, width }), [length, width, onSize]);
 

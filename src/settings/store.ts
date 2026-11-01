@@ -10,6 +10,7 @@ import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
 import { NOTICE_DEFAULTS, normalizeNotices, type NoticeSettings } from "../features/notices/rules";
 import { WINDOW_DEFAULTS, normalizeWindow, type WindowSettings } from "../features/window/model";
 import { DOCK_DEFAULTS, normalizeDock, type Dock } from "../notch/edge";
+import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -53,11 +54,13 @@ export interface Settings {
      * click work as usual.
      */
     idleStyle: "notch" | "capsule" | "line";
-    /** Distance of the capsule from the top edge of the monitor in CSS px (set by dragging). */
+    /** Distance of the capsule from the top edge of the monitor in CSS px at 100 % (set by dragging or in the settings, 0 to 8000). */
     y: number;
   };
   /** What the closed notch row shows: which parts, in which order, and their options. */
   closed: ClosedSettings;
+  /** Size of the closed notch, capsule and line, and the line's distance from the edge (src/notch/collapsed.ts). */
+  closedSize: ClosedSize;
   /** Gaming mode: FPS + load in the closed notch: off, only in fullscreen, or always. */
   gaming: { mode: "off" | "fullscreen" | "on" };
   /** Dots like on iPhone: mic/camera (green) or screen recording (red) in use. */
@@ -159,6 +162,7 @@ const defaults: Settings = {
   weather: null,
   display: { visibility: "always", monitor: null, offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5 },
   closed: CLOSED_DEFAULTS,
+  closedSize: CLOSED_SIZE_DEFAULTS,
   gaming: { mode: "off" },
   privacyDots: false,
   discord: { clientId: "" },
@@ -230,7 +234,7 @@ settings.set((s) => {
     usage: { ...defaults.usage, ...s.usage },
     aiUsage: normalizeCards(s.aiUsage),
     // A saved y that is not a finite number (null, a string) would place the capsule nowhere.
-    display: { ...defaults.display, ...s.display, y: Number.isFinite(s.display?.y) ? s.display.y : defaults.display.y },
+    display: { ...defaults.display, ...s.display, y: fitCapsuleTop(s.display?.y) },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },
     alarm: { ...defaults.alarm, ...s.alarm },
@@ -248,6 +252,7 @@ settings.set((s) => {
     github: { ...defaults.github, ...s.github },
     capture: { ...defaults.capture, ...s.capture },
     closed: normalizeClosed(s.closed),
+    closedSize: normalizeClosedSize(s.closedSize),
     notices: normalizeNotices(s.notices),
     ask: migrateAsk(s.ask),
     behavior: normalizeWindow(s.behavior, s.display?.visibility),

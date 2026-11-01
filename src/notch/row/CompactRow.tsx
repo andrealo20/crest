@@ -12,7 +12,7 @@ import { useDiscordCall } from "../../features/discord/store";
 import { useGamingLive } from "../../features/system/gaming";
 import { usage } from "../../features/usage/store";
 import { Dots, dotsWidth, usePrivacyDots } from "../../features/privacy/PrivacyDots";
-import { ROW, naturalWidth, planVisible, type PlacedPart, type RowItem } from "./layout";
+import { naturalWidth, planVisible, type PlacedPart, type RowItem } from "./layout";
 import { trackCaption } from "./parts";
 import { useRowVisible } from "./visibility";
 import { fontEpoch, measureText } from "./measure";
@@ -41,8 +41,9 @@ export function useHeld(on: boolean, ms: number): boolean {
  * and the privacy dots last. Widths are fixed or measured, never read back from layout, so changing digits never move a
  * neighbour. Reports its content width; the shape is that plus its insets. Mounted only while the row is on screen
  * (closed or peeking, not the line, not focus, not hidden for fullscreen), so its audio, timers and polling stop with it.
+ * Laid out at its designed size and drawn `scale` times as big (Notch.tsx): `room` is the widest it gets at that size.
  */
-export function CompactRow({ style, covered, onWidth }: { style: "notch" | "capsule"; covered: boolean; onWidth: (content: number) => void }) {
+export function CompactRow({ room, scale, covered, onWidth }: { room: number; scale: number; covered: boolean; onWidth: (content: number) => void }) {
   useRowVisible();
   fontEpoch.use();
   const s = settings.use(), closed = s.closed;
@@ -102,9 +103,9 @@ export function CompactRow({ style, covered, onWidth }: { style: "notch" | "caps
   if (dots.length) fixed("privacy", dotsWidth(dots.length), () => <Dots dots={dots} />);
 
   const items = parts.map((p) => p.item);
-  const dpi = window.devicePixelRatio || 1;
-  // An even number of device pixels, so the centred row starts on a whole one.
-  const width = Math.min(ROW.maxSurface - 2 * (style === "notch" ? ROW.insetNotch : ROW.insetCapsule), (Math.ceil((naturalWidth(items) * dpi) / 2 - 1e-9) * 2) / dpi);
+  // Device pixels per px of the row as drawn; an even number of them, so the centred row starts on a whole one.
+  const dpi = (window.devicePixelRatio || 1) * scale;
+  const width = Math.min(room, (Math.ceil((naturalWidth(items) * dpi) / 2 - 1e-9) * 2) / dpi);
   const plan = planVisible(items, width, dpi);
   useLayoutEffect(() => onWidth(width), [width, onWidth]);
 

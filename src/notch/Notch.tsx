@@ -6,7 +6,7 @@ import { livePosition, useNowPlaying } from "../platform/media";
 import { isNative, keyboardFocus, onNativeBlur, onNativeHover, onShortcut, onTrayOpen, setHitRect, setMemoryLow } from "../platform/native";
 import { PrivacyDots } from "../features/privacy/PrivacyDots";
 import { FOCUS_CLICKS, focusMode, setFocusMode } from "./focus";
-import { edgeOf, useDragToMove, viewLine, windowY } from "./drag";
+import { dragArea, edgeOf, useDragToMove, viewLine, windowLength, windowY } from "./drag";
 import { useLiveActivity } from "./live";
 import { CompactRow } from "./row/CompactRow";
 import { CompactColumn } from "./row/CompactColumn";
@@ -16,12 +16,14 @@ import { effectiveIdleStyle, screen } from "../features/window/store";
 import { ResizeHandles, stepToolSize, useToolSize, wheelTaken } from "../features/window/panel";
 import { cycle } from "../features/window/model";
 import { windowShell } from "../platform/services";
-import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, geometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
-import { WINDOW, across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
-import { columnSurface } from "./column";
-import { hasBridge, panelTop, windowYFor } from "./capsule";
+import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
+import { across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
+import { columnRoom, columnSurface } from "./column";
+import { capsuleY, hasBridge, panelTop, windowYFor } from "./capsule";
+import { contentScale, sideLength } from "./collapsed";
 import { monitor, monitorMetrics } from "./monitor";
-import { surfaceWidth } from "./row/layout";
+import { rowRoom, surfaceWidth } from "./row/layout";
+import { toPageCss } from "../features/window/panelSize";
 import { HeaderButton, headerSlot } from "./header";
 import { sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
@@ -46,7 +48,7 @@ const MEMORY_LOW_AFTER_MS = 20_000;
 export function Notch() {
   const { status, open, close, dismiss, toggle, onPointerEnter, onPointerLeave } = useNotchState();
   const focus = focusMode.use();
-  const { tools: toolSettings, display: displaySettings, behavior } = settings.use();
+  const { tools: toolSettings, display: displaySettings, behavior, closedSize: sizes } = settings.use();
   // Window rules (display.rs): "line" turns the closed look into the idle line, "hide" means Rust hid the window.
   const screenBehavior = screen.use();
   const idleStyle = effectiveIdleStyle(displaySettings.idleStyle, screenBehavior);
@@ -110,8 +112,8 @@ export function Notch() {
   // Content width of the closed row, as it last reported it (kept while open, so closing goes straight to it).
   const [rowWidth, setRowWidth] = useState(0);
   // Notices cover the row; on the idle line and in dimmed focus mode only urgent ones show (timer, reminder, and on the line a status alert). While one shows the shape takes its width.
-  // The capsule snaps with its closed shape, read when a drag moves (closedW is set below).
-  const drag = useDragToMove(status, () => closedGeometry(surface, closedW));
+  // The capsule snaps with its closed shape, read when a drag moves (closedW and closedH are set below).
+  const drag = useDragToMove(status, () => closedGeometry(surface, closedW, closedH));
   // The edge it hangs from (the capsule floats on the top frame); on a side edge the row stands as a column, which shows notices as an icon line.
   const edge = edgeOf(style, drag.dock);
   const side = across(edge);
@@ -121,29 +123,33 @@ export function Notch() {
   const showColumn = side && noticeTime;
   const [noticeWidth, setNoticeWidth] = useState<number | null>(null);
   const notice = showNotices ? noticeWidth : null;
-  const closedW = surfaceWidth(surface, notice ?? (showRow || status === "open" ? rowWidth : 0));
+  // The chosen size (collapsed.ts): the content is drawn at the height over its designed 30, the width is a minimum the content widens,
+  // and the monitor along the edge only narrows what is drawn. On a side edge the height is the column's depth, the width its length.
+  monitor.use(); // the span, windowY and the bridge read the monitor's size and work area
+  const area = dragArea(), span = side ? area.height : area.width;
+  const closedH = surface === "capsule" ? sizes.capsuleHeight : sizes.notchHeight, scale = contentScale(closedH);
+  const closedW = surfaceWidth(surface, notice ?? (showRow || status === "open" ? rowWidth : 0), surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span);
   const [column, setColumn] = useState({ length: 0, width: 0 });
   const columnShows = showColumn || status === "open";
-  const sideSize = side ? columnSurface(columnShows ? column.length : 0, columnShows ? column.width : 0) : null;
+  const sideSize = side ? columnSurface(columnShows ? column.length : 0, columnShows ? column.width : 0, scale, sideLength(sizes.notchWidth), span) : null;
 
   // Natively the window sits at windowY and the capsule drag.y below the monitor's top; in the browser the
   // viewport stands in for the monitor and the window is only imagined, so the same rules place the panel.
-  monitor.use(); // windowY and the bridge read the monitor's height and work area
   const workTop = monitorMetrics().workTop;
-  const bridged = hasBridge(style, drag.y, workTop);
-  const winTop = isNative ? windowY(drag.y) : windowYFor(style, drag.y, window.innerHeight, workTop);
-  const capsuleTop = style === "capsule" ? drag.y - winTop : 0;
+  const capY = capsuleY(drag.y, sizes.capsuleHeight, isNative ? monitorMetrics().height : window.innerHeight);
+  const bridged = hasBridge(style, capY, workTop);
+  const winTop = isNative ? windowY(capY) : windowYFor(style, capY, window.innerHeight, workTop);
+  const capsuleTop = style === "capsule" ? capY - winTop : 0;
+  const lineShape = line || (lineIdle && status !== "open");
   // Open, a bridged capsule hangs from the edge like the notch; a floating one opens from its top, moved up as far as the panel needs.
-  const shapeTop = status !== "open" ? capsuleTop : bridged ? 0 : panelTop(capsuleTop, size.h);
+  // The line's distance from the edge is a place on the screen, saved at 100 % like display.y.
+  const shapeTop = status !== "open" ? (lineShape ? toPageCss(sizes.lineTop, behavior.scale) : capsuleTop) : bridged ? 0 : panelTop(capsuleTop, size.h);
   const top = (isNative ? 0 : winTop) + shapeTop;
 
-  const shape =
-    line || (lineIdle && status === "closed")
-      ? geometry.line
-      : lineIdle && status === "peek"
-        ? geometry.linePeek
-        : shapeFor(status, surface, closedW, size, !bridged, sideSize);
-  const tightHit = shape === geometry.line || shape === geometry.linePeek;
+  const shape = lineShape
+    ? lineGeometry(Math.min(sizes.lineLength, span), sizes.lineThickness, sizes.lineTop > 0, !line && status === "peek")
+    : shapeFor(status, surface, closedW, closedH, size, !bridged, sideSize);
+  const tightHit = lineShape;
   // On a side edge the open panel reaches across the screen as far as the page is wide.
   const sticky = useStickyHitZone(status, side ? size.w : size.h, edge);
   const transition = useTransitionFor(status, shape);
@@ -261,7 +267,7 @@ export function Notch() {
         ["--accent" as string]: accent,
         opacity: focus && !line ? 0.5 : 1,
         transform: frame ? [frame, slide].filter(Boolean).join(" ") : slide,
-        ...(frame && { right: "auto", width: isNative ? WINDOW.along : side ? window.innerHeight : window.innerWidth, transformOrigin: "0 0" }),
+        ...(frame && { right: "auto", width: isNative ? windowLength(drag.dock) : side ? window.innerHeight : window.innerWidth, transformOrigin: "0 0" }),
       }}
     >
       {/* Hit zone: bigger than the visible shape (Fitts) and flush with the top edge, unless the capsule floats. */}
@@ -282,19 +288,25 @@ export function Notch() {
         onContextMenu={onContextMenu}
         onWheel={onWheel}
       >
-        <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge}>
+        <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge} thin={lineShape}>
           {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes). */}
           <div data-theme-ink className="contents" style={closedInk}>
-            <AnimatePresence>
-              {side
-                ? showColumn && <CompactColumn key="column" parts={showRow} onSize={setColumn} />
-                : showRow && <CompactRow key="row" style={surface} covered={notice !== null} onWidth={setRowWidth} />}
-            </AnimatePresence>
-            <AnimatePresence>{showNotices && <NoticeLayer key="notices" onWidth={setNoticeWidth} urgentOnly={!showRow} />}</AnimatePresence>
+            {/* Laid out at their designed size and drawn at the content scale, from the edge (the column from its centre). */}
+            <div className="absolute inset-0" style={{ transform: `scale(${scale})`, transformOrigin: side ? "50% 50%" : "50% 0" }}>
+              <AnimatePresence>
+                {side
+                  ? showColumn && <CompactColumn key="column" parts={showRow} room={columnRoom(scale, span)} onSize={setColumn} />
+                  : showRow && <CompactRow key="row" room={rowRoom(surface, scale, span)} scale={scale} covered={notice !== null} onWidth={setRowWidth} />}
+              </AnimatePresence>
+              {/* The notch's insets are the larger ones, so a notice fits either surface. */}
+              <AnimatePresence>{showNotices && <NoticeLayer key="notices" max={rowRoom("notch", scale, span)} scale={scale} onWidth={setNoticeWidth} urgentOnly={!showRow} />}</AnimatePresence>
+              {/* Closed, the dots are the row's last part; dimmed for focus there is no row, so they stand on their own. */}
+              {focus && status !== "open" && !line && <PrivacyDots />}
+            </div>
             {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress along={side ? "y" : "x"} />}
           </div>
-          {/* Closed, the dots are the row's last part; open or dimmed for focus there is no row, so they stand on their own. */}
-          {(status === "open" || focus) && !line && !idleLine && <PrivacyDots />}
+          {/* Open they stand in the header. */}
+          {status === "open" && !line && !idleLine && <PrivacyDots />}
 
           <AnimatePresence>
             {status === "open" && (
@@ -472,11 +484,11 @@ function useStickyHitZone(status: NotchStatus, height: number, edge: Edge) {
 /** pb-3 of the hit zone. */
 const HIT_PAD_BOTTOM = 12;
 
-/** `w` is the closed width; the hover nudge grows from it, so it also fits the live state. `side`: the column's closed shape on a side edge, where the open page lies across the frame. */
-function shapeFor(status: NotchStatus, surface: "notch" | "capsule", w: number, size: { w: number; h: number }, floating: boolean, side: { w: number; h: number } | null): NotchGeometry {
+/** `w` and `h` are the closed size; the hover nudge grows from it, so it also fits the live state. `side`: the column's closed shape on a side edge, where the open page lies across the frame. */
+function shapeFor(status: NotchStatus, surface: "notch" | "capsule", w: number, h: number, size: { w: number; h: number }, floating: boolean, side: { w: number; h: number } | null): NotchGeometry {
   if (side) return status === "open" ? openGeometry(size.h, size.w) : columnGeometry(side.w, side.h, status === "peek");
   if (status === "open") return openGeometry(size.w, size.h, floating);
-  return status === "peek" ? peekGeometry(surface, w) : closedGeometry(surface, w);
+  return status === "peek" ? peekGeometry(surface, w, h) : closedGeometry(surface, w, h);
 }
 
 /** The shape's top in the wrapper as a value that springs with the shape, and follows the pointer while dragging. */
