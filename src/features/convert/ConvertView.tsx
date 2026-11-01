@@ -194,7 +194,7 @@ function FilesPanel() {
           >
             <span className="min-w-0 flex-1 truncate text-footnote text-label-2">
               {done.length > 0 && t(done.length === 1 ? "{n} Datei umgewandelt" : "{n} Dateien umgewandelt", { n: done.length })}
-              {failed.length > 0 && <span className="text-red">{done.length ? " · " : ""}{t("{n} fehlgeschlagen", { n: failed.length })} – {tBackend(failed[0].error!)}</span>}
+              {failed.length > 0 && <span className="text-red">{done.length ? " · " : ""}{t("{n} fehlgeschlagen", { n: failed.length })}: {tBackend(failed[0].error!)}</span>}
             </span>
             {done[0]?.output && (
               <Button icon={FolderOpen} onClick={() => revealFile(done[0].output!)}>

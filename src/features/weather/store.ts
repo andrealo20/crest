@@ -16,8 +16,8 @@ import { lang, t } from "../../i18n";
 
 /*
  * Weather data via Open-Meteo (free, no key). Used by the weather tool and the
- * overview. Location: detected via IP while none is saved ("auto"), or when "automatic"
- * is chosen again; a location you pick yourself stays.
+ * overview. Location: detected via IP at each start while it is automatic ("auto");
+ * a location you pick yourself stays.
  */
 export interface Forecast {
   current: { temp: number; feels: number; code: number; wind: number; day: boolean };

@@ -160,7 +160,7 @@ OpenRouter, DeepSeek and Z.ai need an API key, entered under **AI** once the car
 3. Under OAuth2, Redirects, add `http://localhost` and save. Without it Discord keeps asking for permission again.
 4. Join a call. Discord asks you once to confirm.
 
-**Weather.** Works out of the box with your approximate location (city level, from your IP), looked up once while no place is saved and the weather shows (the Weather tool or Overview), then kept. Choose **Automatic** in the weather settings or the locate button in the tool to look it up again, or pick a city by hand.
+**Weather.** Works out of the box with your approximate location (city level, from your IP), looked up at each start while the location is automatic and the weather shows (the Weather tool or Overview). The locate button in the tool looks it up again; pick a city by hand to stop the lookups.
 
 ## Your data stays on your PC
 
