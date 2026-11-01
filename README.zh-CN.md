@@ -9,11 +9,6 @@
 </p>
 
 <p align="center">
-  <a href="README.md"><img src="https://img.shields.io/badge/English-README-7B61FF?style=for-the-badge" alt="English README" /></a>
-  <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-README-E0559E?style=for-the-badge" alt="简体中文 README" /></a>
-</p>
-
-<p align="center">
   <a href="https://apps.microsoft.com/detail/9N2KXJ2924KS?referrer=appbadge&mode=full">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/media/store/get-it-from-microsoft-light.svg">
@@ -28,6 +23,10 @@
   <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=for-the-badge&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="总下载量" /></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgxMS40djExLjRIMHpNMTIuNiAwSDI0djExLjRIMTIuNnpNMCAxMi42aDExLjRWMjRIMHpNMTIuNiAxMi42SDI0VjI0SDEyLjZ6Ii8%2BPC9zdmc%2B" alt="平台：Windows 10 和 11" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-A42E2B?style=for-the-badge&logo=gnu&logoColor=white" alt="许可证：GPL-3.0" /></a>
+</p>
+
+<p align="center">
+  <a href="README.md"><img src="https://img.shields.io/badge/README-English-7B61FF?style=for-the-badge" alt="English README" /></a>
 </p>
 
 <p align="center">
