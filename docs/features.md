@@ -20,7 +20,7 @@ Notch and capsule show a row of parts, centred and in the order you choose:
 
 Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel.
 
-<p align="center"><img src="media/features/closed-notch.png" alt="The closed notch showing the cover of the song playing, three AI quota rings and the equalizer" width="380" /></p>
+<p align="center"><img src="media/features/closed-notch.png" alt="The closed notch with coloured icons: a running timer, the AI quota ring, CPU, RAM and GPU load, download and upload, power draw, battery, temperature, the clock and today's GitHub contributions" width="820" /></p>
 <p align="center"><img src="media/features/settings-closed-notch.png" alt="Settings, Display: the closed row's parts with switches, the system load readings and the quota alerts" width="560" /></p>
 
 **Privacy dots** turn green when the microphone or camera is in use and red while the screen is being recorded, like on an iPhone.
