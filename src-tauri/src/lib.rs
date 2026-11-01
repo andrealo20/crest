@@ -22,6 +22,7 @@ mod mixer;
 mod notices;
 mod notify_wire;
 mod osd;
+mod plugins;
 pub mod portable;
 mod privacy;
 mod romanize;
@@ -92,6 +93,13 @@ pub fn run() {
         .manage(calendar::CalendarState::default())
         .manage(notices::NoticesState::default())
         .manage(capture::CaptureState::default())
+        .manage(plugins::PluginsState::default())
+        // Plugin pages, each only from its own folder (plugins.rs).
+        .register_asynchronous_uri_scheme_protocol(plugins::SCHEME, |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            let webview = ctx.webview_label().to_string();
+            tauri::async_runtime::spawn_blocking(move || responder.respond(plugins::protocol(&app, &webview, &request)));
+        })
         .invoke_handler(tauri::generate_handler![
             hit_test::set_hit_rect,
             hit_test::set_pinned,
@@ -204,6 +212,14 @@ pub fn run() {
             notices::notices_configure,
             notices::notices_status,
             notices::notices_request_access,
+            plugins::plugins_list,
+            plugins::plugins_pick,
+            plugins::plugins_stage,
+            plugins::plugins_commit,
+            plugins::plugins_discard,
+            plugins::plugins_remove,
+            plugins::plugins_storage,
+            plugins::plugins_fetch,
             portable::portable_info,
             portable::portable_check,
             portable::portable_install,

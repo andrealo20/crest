@@ -11,6 +11,17 @@ pub const MAX_BODY: usize = 4000;
 pub const MAX_FIELD: usize = 128;
 pub const RATE_MAX: usize = 200;
 pub const RATE_WINDOW_MS: u64 = 10_000;
+/// Custom closed-row parts (`crest-notify part`): text length, id length and the longest time one stays.
+pub const MAX_PART_TEXT: usize = 48;
+pub const MAX_PART_ID: usize = 32;
+pub const MAX_PART_TTL: u64 = 24 * 60 * 60;
+
+/// Icons a custom part or a plugin may name; drawn from Crest's own set (src/features/plugins/icons.tsx), never loaded from outside.
+pub const ICONS: &[&str] = &[
+    "puzzle", "star", "heart", "bell", "clock", "timer", "calendar", "cloud", "sun", "moon", "chart", "code", "terminal", "music", "book",
+    "quote", "globe", "rocket", "lightning", "check", "warning", "flag", "fire", "coffee", "game", "build", "bug", "branch", "download",
+    "upload", "cpu", "battery", "wifi", "money", "cart", "mail", "chat", "user", "home", "leaf",
+];
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,6 +46,31 @@ pub struct Request {
     pub duration_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
+    /// `crest-notify part`: sets or clears a custom closed-row part instead of sending a notice.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub part: Option<Part>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Part {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    /// One of ICONS.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    /// 0 to 100.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub progress: Option<f64>,
+    /// A tool id (`timer`) or a plugin's (`plugin:hello-crest`) the notch opens on when the part is clicked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open: Option<String>,
+    /// Seconds until the part goes by itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ttl: Option<u64>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub clear: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -87,6 +123,10 @@ pub fn parse(line: &[u8]) -> Result<Request, &'static str> {
     r.source = clean(r.source, MAX_FIELD, false);
     r.command = clean(r.command, MAX_FIELD, false);
     r.replace = clean(r.replace, MAX_FIELD, false);
+    if let Some(part) = r.part.take() {
+        r.part = Some(check_part(part)?);
+        return Ok(r);
+    }
     if r.title.is_none() && r.body.is_none() && r.command.is_none() {
         return Err("empty");
     }
@@ -96,6 +136,34 @@ pub fn parse(line: &[u8]) -> Result<Request, &'static str> {
         }
     }
     Ok(r)
+}
+
+fn check_part(mut p: Part) -> Result<Part, &'static str> {
+    let id_ok = (1..=MAX_PART_ID).contains(&p.id.len()) && p.id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_');
+    if !id_ok {
+        return Err("part-id");
+    }
+    if p.clear {
+        return Ok(Part { id: p.id, clear: true, ..Default::default() });
+    }
+    p.text = clean(p.text, MAX_PART_TEXT, false);
+    if p.icon.as_deref().is_some_and(|i| !ICONS.contains(&i)) {
+        return Err("part-icon");
+    }
+    if p.progress.is_some_and(|v| !v.is_finite() || !(0.0..=100.0).contains(&v)) {
+        return Err("progress");
+    }
+    let open_ok = |o: &str| (1..=48).contains(&o.len()) && o.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b':');
+    if p.open.as_deref().is_some_and(|o| !open_ok(o)) {
+        return Err("part-open");
+    }
+    if p.ttl.is_some_and(|t| !(1..=MAX_PART_TTL).contains(&t)) {
+        return Err("part-ttl");
+    }
+    if p.text.is_none() && p.progress.is_none() {
+        return Err("part-empty");
+    }
+    Ok(p)
 }
 
 pub fn clean(text: Option<String>, max: usize, multiline: bool) -> Option<String> {
@@ -249,6 +317,34 @@ mod tests {
         assert_eq!(r.title.unwrap().chars().count(), MAX_TITLE);
         assert_eq!(r.body.unwrap(), "ab\nc");
         assert_eq!(parse(br#"{"title":"a\nb"}"#).unwrap().title.unwrap(), "a b");
+    }
+
+    #[test]
+    fn parts() {
+        let r = parse(br#"{"part":{"id":"build","text":" Compiling ","icon":"build","progress":40,"open":"plugin:hello-crest","ttl":60}}"#).unwrap();
+        let p = r.part.unwrap();
+        assert_eq!((p.text.as_deref(), p.icon.as_deref(), p.progress, p.open.as_deref(), p.ttl), (Some("Compiling"), Some("build"), Some(40.0), Some("plugin:hello-crest"), Some(60)));
+        // A part needs no title.
+        assert!(parse(br#"{"part":{"id":"a","progress":0}}"#).is_ok());
+        assert_eq!(parse(br#"{"part":{"id":"a"}}"#), Err("part-empty"));
+        assert_eq!(parse(br#"{"part":{"id":"a","text":"   "}}"#), Err("part-empty"));
+        assert_eq!(parse(br#"{"part":{"id":"","text":"x"}}"#), Err("part-id"));
+        assert_eq!(parse(br#"{"part":{"id":"A b","text":"x"}}"#), Err("part-id"));
+        assert_eq!(parse(format!(r#"{{"part":{{"id":"{}","text":"x"}}}}"#, "a".repeat(MAX_PART_ID + 1)).as_bytes()), Err("part-id"));
+        assert_eq!(parse(br#"{"part":{"id":"a","text":"x","icon":"https://evil.example/x.png"}}"#), Err("part-icon"));
+        assert_eq!(parse(br#"{"part":{"id":"a","text":"x","progress":101}}"#), Err("progress"));
+        assert_eq!(parse(br#"{"part":{"id":"a","text":"x","open":"../settings"}}"#), Err("part-open"));
+        assert_eq!(parse(br#"{"part":{"id":"a","text":"x","ttl":0}}"#), Err("part-ttl"));
+        assert_eq!(parse(br#"{"part":{"id":"a","text":"x","ttl":86401}}"#), Err("part-ttl"));
+        let text = format!("{}{}", '\u{202e}', "x".repeat(100));
+        let long = parse(&serde_json::to_vec(&serde_json::json!({ "part": { "id": "a", "text": text } })).unwrap()).unwrap();
+        assert_eq!(long.part.unwrap().text.unwrap().chars().count(), MAX_PART_TEXT);
+        // Clearing ignores (and drops) everything else, even values that would be refused.
+        let c = parse(br#"{"part":{"id":"a","clear":true,"icon":"nope","ttl":0}}"#).unwrap().part.unwrap();
+        assert_eq!(c, Part { id: "a".into(), clear: true, ..Default::default() });
+        let req = Request { part: Some(Part { id: "x".into(), text: Some("y".into()), ..Default::default() }), ..Default::default() };
+        let line = encode(&req).unwrap();
+        assert_eq!(parse(&line[..line.len() - 1]).unwrap(), req);
     }
 
     #[test]

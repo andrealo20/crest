@@ -96,6 +96,8 @@ A notch at the edge of your Windows screen that opens on hover, click or **Ctrl 
 
 Also in the notch: a read-only calendar agenda from ICS links (Google, Outlook, iCloud) or CalDAV, with a notice before each event and the next event in the closed row, a password and 2FA vault, Windows notifications with a history page, `crest-notify` for scripts and builds, status alerts with a volume and brightness HUD, your Discord call and privacy dots for the mic, camera and screen recording.
 
+Plugins add your own tools: a folder of HTML, CSS and JavaScript with a `crest-plugin.json`, installed from **Settings → Plugins**, running sandboxed with only the network addresses and storage it declares ([docs/plugins.md](docs/plugins.md)). Scripts can also put their own parts in the closed row with `crest-notify part`.
+
 A short first-run setup picks a preset (Music, Productivity, AI or your own tools), the closed look and edge, and shows how to open the notch; Settings → General runs it again.
 
 Crest speaks 11 languages (English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German, Italian) and follows the Windows language unless you pick one in Settings → General.

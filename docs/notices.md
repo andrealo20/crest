@@ -63,6 +63,33 @@ Exit codes: 0 delivered (also when your rules keep it quiet), 1 usage error, 2 r
 
 Titles are cut to 256 characters, texts to 4000, a message to 64 KB. Control characters and the characters that reverse text direction are removed.
 
+### Custom parts in the closed row
+
+`crest-notify part` puts a small part of your own in the closed notch's row, next to the clock and the timer: an icon, a short text and an optional progress bar. It stays until you clear it, its time runs out or Crest quits. Turn on **Script parts (crest-notify)** under **Settings → Display** and place it among the other parts.
+
+```text
+# set (the same id updates it)
+crest-notify part build "Compiling" -i build -p 40 -o terminal
+crest-notify part build "Tests" -i check -p 90
+# remove it
+crest-notify part build --clear
+# a part that goes by itself after ten minutes
+crest-notify part deploy "Deploying v2" -i rocket -t 600
+```
+
+| Option | Meaning |
+| --- | --- |
+| `<id>` | 1 to 32 characters: lowercase letters, digits, `-` and `_` |
+| `[text]` | Up to 48 characters; the words after the id |
+| `-i`, `--icon <name>` | One of Crest's icons (the list is in [plugins.md](plugins.md#icons)); nothing is loaded from outside |
+| `-p`, `--progress <0-100>` | A small bar after the text |
+| `-o`, `--open <tool>` | The tool a click opens: a tool id such as `timer`, `terminal`, `notices`, or `plugin:<id>` for a plugin; it only works while that tool is on |
+| `-t`, `--ttl <seconds>` | Removes the part after that many seconds, at most a day |
+| `-c`, `--clear` | Removes the part |
+| `-s`, `--source <name>` | Shown as the tooltip |
+
+A part needs a text or a progress value. At most four parts show; a fifth replaces the one set longest ago. Parts are kept in memory only, so a script sets them again after Crest restarts. They use the same channel, rate limit and exit codes as notices, and need live notices and crest-notify on.
+
 ### Hooks for coding agents
 
 Crest does not change any agent's configuration; copy what you need.

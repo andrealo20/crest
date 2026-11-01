@@ -27,6 +27,7 @@ import { startGithub } from "./features/github/store";
 import { startCalendar } from "./features/calendar/store";
 import { screen, startWindowBehavior } from "./features/window/store";
 import { startCapture } from "./features/capture/store";
+import { startPlugins } from "./features/plugins/store";
 import { showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
 import { language, startLanguage, t } from "./i18n";
@@ -53,6 +54,7 @@ startGithub();
 startCalendar();
 startWindowBehavior();
 startCapture();
+startPlugins();
 
 // Send display settings (monitor, fullscreen, offset, window top, gaming) to Rust on start and on every change.
 // The window top follows the style, the capsule's y, focus mode and the monitor once it has loaded.

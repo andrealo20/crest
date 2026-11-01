@@ -29,7 +29,7 @@ export interface Settings {
   /** Open on hover or only on click. */
   openMode: "hover" | "click";
   hoverDelay: "fast" | "normal" | "patient";
-  /** Order = order in the tool bar. */
+  /** Order = order in the tool bar. Installed plugins are tools `plugin:<id>` (src/features/plugins). */
   tools: { id: string; enabled: boolean }[];
   /** Portfolio: Trading 212 account, and the base currency ("" = not chosen yet, see features/trading/base.ts). */
   trading: { env: "live" | "demo"; base: string };
@@ -251,7 +251,8 @@ export const settings = createStore<Settings>(defaults, { persist: "settings" })
 // Fill in settings from older versions: new fields + append new tools.
 settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
   const known = new Set<string>(TOOL_IDS);
-  const tools = (s.tools ?? []).filter((t) => known.has(t.id));
+  // Plugin tools stay; src/features/plugins/store.ts drops those no longer installed once it has read the list.
+  const tools = (s.tools ?? []).filter((t) => known.has(t.id) || /^plugin:[a-z0-9-]{3,32}$/.test(t.id));
   for (const id of TOOL_IDS) {
     if (tools.some((t) => t.id === id)) continue;
     // Overview is the start page, so put it first for existing installs.

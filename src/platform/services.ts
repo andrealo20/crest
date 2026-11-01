@@ -8,6 +8,8 @@ import type { TokenReport } from "../features/usage/tokens";
 import type { BatteryRaw } from "../features/system/battery";
 import type { DrivesRaw } from "../features/system/storage";
 import type { RulesPayload } from "../features/window/model";
+import type { PartMessage } from "../features/notices/scriptParts";
+import type { PluginManifest } from "../features/plugins/model";
 import bundledChangelog from "../changelog.json";
 import { showcase, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
 
@@ -1025,6 +1027,48 @@ export const noticeSource = {
     const off = listen<NoticeSourceStatus>("notices://status", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
+  /** `crest-notify part`: a custom closed-row part set or cleared. In the browser `mockPart` stands in. */
+  onPart: (handler: (p: PartMessage) => void): (() => void) => {
+    if (!isNative) {
+      mockPartHandlers.add(handler);
+      return () => void mockPartHandlers.delete(handler);
+    }
+    const off = listen<PartMessage>("notices://part", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+};
+
+const mockPartHandlers = new Set<(p: PartMessage) => void>();
+export function mockPart(p: Partial<PartMessage> & { id: string }) {
+  mockPartHandlers.forEach((h) => h({ source: "crest-notify", clear: false, ...p }));
+}
+
+// ---------- Plugins (src-tauri/src/plugins.rs) ----------
+
+export interface StagedPlugin {
+  token: string;
+  manifest: PluginManifest;
+  /** The installed version this one replaces. */
+  replaces: string | null;
+}
+
+export type StorageOp = { op: "get" | "remove"; key: string } | { op: "set"; key: string; value: unknown } | { op: "keys" };
+export interface PluginFetch { url: string; method?: string; headers?: Record<string, string>; body?: string }
+export interface PluginResponse { status: number; contentType: string; body: string }
+
+const notInBrowser = () => Promise.reject("not-native");
+
+/** Install, list and remove plugins, and run what their pages ask for (src/features/plugins/PluginView.tsx). */
+export const pluginApi = {
+  list: (): Promise<PluginManifest[]> => (isNative ? invoke<PluginManifest[]>("plugins_list") : Promise.resolve([])),
+  /** The system's folder or .zip picker; null when cancelled. */
+  pick: (zip: boolean): Promise<string | null> => (isNative ? invoke<string | null>("plugins_pick", { zip }) : Promise.resolve(null)),
+  stage: (path: string): Promise<StagedPlugin> => (isNative ? invoke<StagedPlugin>("plugins_stage", { path }) : notInBrowser()),
+  commit: (token: string): Promise<PluginManifest> => (isNative ? invoke<PluginManifest>("plugins_commit", { token }) : notInBrowser()),
+  discard: (token: string): Promise<void> => (isNative ? invoke("plugins_discard", { token }) : Promise.resolve()),
+  remove: (id: string): Promise<void> => (isNative ? invoke("plugins_remove", { id }) : notInBrowser()),
+  storage: (id: string, op: StorageOp): Promise<unknown> => (isNative ? invoke("plugins_storage", { id, op }) : notInBrowser()),
+  fetch: (id: string, request: PluginFetch): Promise<PluginResponse> => (isNative ? invoke<PluginResponse>("plugins_fetch", { id, request }) : notInBrowser()),
 };
 
 // ---------- Window behaviour (display.rs, shell.rs) ----------

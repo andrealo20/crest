@@ -18,6 +18,8 @@ import {
   Palette,
   Play,
   Plugs,
+  PuzzlePiece,
+  TerminalWindow,
   SlidersHorizontal,
   Sparkle,
   SquaresFour,
@@ -30,7 +32,9 @@ import {
 import { content, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, stopAlarm, type AlarmDuration } from "../../lib/sound";
 import { nav, navigate } from "../../notch/nav";
-import { setupTab, tabs } from "../../notch/tabs";
+import { findTab, setupTab } from "../../notch/tabs";
+import { PluginSettings } from "../plugins/PluginSettings";
+import { plugins } from "../plugins/store";
 import {
   autostart,
   build,
@@ -81,7 +85,7 @@ import { privacy, togglePresentation, usePresenting } from "../privacy/store";
 import { LANGUAGE_NAMES, LANGUAGES, locale, t, tBackend, type LanguageSetting } from "../../i18n";
 import { ThemeSettings } from "../themes/ThemeSettings";
 
-type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices";
+type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins";
 
 const pages: { id: PageId; label: string; icon: Icon }[] = [
   { id: "general", label: "Allgemein", icon: SlidersHorizontal },
@@ -93,6 +97,7 @@ const pages: { id: PageId; label: string; icon: Icon }[] = [
   { id: "accounts", label: "Verbindungen", icon: Plugs },
   { id: "themes", label: "Themen", icon: Palette },
   { id: "notices", label: "Mitteilungen", icon: BellSimple },
+  { id: "plugins", label: "Plugins", icon: PuzzlePiece },
 ];
 
 /** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. */
@@ -117,6 +122,7 @@ const sectionPage: Record<string, PageId> = {
   github: "accounts",
   calendar: "accounts",
   notices: "notices",
+  plugins: "plugins",
 };
 
 /** Last open page survives closing/opening the notch (the component is rebuilt). */
@@ -211,6 +217,7 @@ export function SettingsView() {
               </>
             )}
             {page === "notices" && <NoticesSettings />}
+            {page === "plugins" && <PluginSettings />}
             {page === "ai" && (
               <>
                 <Ask />
@@ -751,6 +758,7 @@ const partInfo: Record<PartId, { label: string; icon: Icon }> = {
   clock: { label: "Uhrzeit", icon: Clock },
   github: { label: "GitHub heute", icon: GithubLogo },
   calendar: { label: "Nächster Termin", icon: CalendarBlank },
+  script: { label: "Skript-Anzeigen (crest-notify)", icon: TerminalWindow },
 };
 
 /** Small labelled switch for a part's own options, next to its main switch. */
@@ -1026,6 +1034,8 @@ function Weather() {
 /** Show/hide tools and drag to reorder. At least one stays on. */
 function Tools() {
   const s = settings.use();
+  // Plugin tools are listed once their list has been read.
+  plugins.use();
   const enabledCount = s.tools.filter((x) => x.enabled).length;
   const [dragging, setDragging] = useState<string | null>(null);
 
@@ -1039,7 +1049,7 @@ function Tools() {
         className="divide-y divide-separator"
       >
         {s.tools.map((tool) => {
-          const tab = tabs.find((x) => x.id === tool.id);
+          const tab = findTab(tool.id);
           if (!tab) return null;
           return (
             <Reorder.Item

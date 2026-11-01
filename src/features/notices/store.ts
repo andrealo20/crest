@@ -5,6 +5,7 @@ import { presentingNow, privacy } from "../privacy/store";
 import { fullscreen } from "../system/gaming";
 import { addNotice, removeApp, removeNotice, type Notice } from "./history";
 import { rememberApp, route, setRule, type NoticeRule } from "./rules";
+import { applyPart, livePart, nextExpiry, type PartMessage, type ScriptPart } from "./scriptParts";
 
 /*
  * Live notices: every notice from Rust (`notices://in`) goes through the app's rule, quiet hours and presentation
@@ -25,6 +26,28 @@ let nextId = 0;
 
 // Notices wait for each other here, so reading the focus state cannot reorder them.
 let queue = Promise.resolve();
+
+/** Custom closed-row parts from `crest-notify part` (the "script" part draws them). */
+export const scriptParts = createStore<ScriptPart[]>([]);
+let partTimer: number | undefined;
+
+function receivePart(m: PartMessage) {
+  scriptParts.set((list) => applyPart(list, m, Date.now()));
+  schedulePrune();
+}
+
+function schedulePrune() {
+  window.clearTimeout(partTimer);
+  const at = nextExpiry(scriptParts.get());
+  if (at === null) return;
+  partTimer = window.setTimeout(() => {
+    scriptParts.set((list) => list.filter(livePart(Date.now())));
+    schedulePrune();
+  }, Math.max(0, at - Date.now()) + 50);
+}
+
+/** A notice from a plugin that may show them; it goes through the same rules, quiet hours and history. */
+export const receivePluginNotice = (input: IncomingNotice) => receive(input);
 
 function receive(input: IncomingNotice) {
   if (!settings.get().notices.enabled) return;
@@ -98,6 +121,7 @@ export function startNotices() {
   started = true;
   noticeSource.onNotice(receive);
   noticeSource.onStatus((s) => sourceStatus.set(s));
+  noticeSource.onPart(receivePart);
   refreshStatus();
   // A notice on screen goes as soon as presentation mode starts or an app goes fullscreen.
   const hideWhenPresenting = () => (presentingNow() || fullscreen.get()) && popping.get() && dismissPop();
@@ -114,6 +138,7 @@ export function startNotices() {
     noticeSource.configure(enabled && windows, enabled && cli);
     // Switched off: nothing of what was read stays on screen or in memory.
     if (!enabled) clearHistory();
+    if (!(enabled && cli)) scriptParts.set([]);
   };
   apply();
   settings.subscribe(apply);

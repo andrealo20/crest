@@ -28,7 +28,8 @@ Notch and capsule show a row of parts, centred and in the order you choose:
 - AI quota rings (one colour per provider);
 - song title (or the current lyric line);
 - hardware readings: CPU, RAM and GPU, plus network, power, battery and temperature if you turn them on;
-- equalizer, clock (with seconds if you like), today's GitHub contributions and your next calendar event.
+- equalizer, clock (with seconds if you like), today's GitHub contributions and your next calendar event;
+- parts your scripts set with `crest-notify part`: an icon, a short text and a progress bar, which can open a tool or plugin on click.
 
 Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel.
 
@@ -214,8 +215,18 @@ Details: [themes.md](themes.md).
 - Each app can be shown, muted (history only) or turned off.
 - Presentation mode, a full-screen app, Windows focus or Do Not Disturb, and an optional daily quiet window keep them in the history without popping up.
 - Scripts, builds and coding agents can send their own notices with `crest-notify`, including `crest-notify run -- <command>` for the exit code and duration.
+- `crest-notify part` sets a custom part of the closed row (icon, text up to 48 characters, progress, a tool to open on click, an optional time to live); turn on **Script parts (crest-notify)** among the closed-row parts.
 
 Details, ready-made hooks for Claude Code and Codex, and how notifications are read: [notices.md](notices.md).
+
+## Plugins
+
+- A plugin is a small HTML, CSS and JavaScript widget in a folder with a `crest-plugin.json`. Install one from a folder or a `.zip` in **Settings → Plugins**; it becomes a tool with its own icon in the tool bar.
+- Before installing, Crest shows what the plugin asks for: the addresses it may fetch from, its own storage, and notices in the closed notch. Nothing else is possible: no files, keys, vault, clipboard, settings or other plugins.
+- Plugin pages run in a sandboxed frame that cannot reach the network itself; Crest fetches for them, only over https and only from the hosts they declared.
+- Switch a plugin off like any tool, or remove it with its data in **Settings → Plugins**. A sample plugin is in `examples/plugins/hello-crest`.
+
+Format, API, limits and the security model: [plugins.md](plugins.md).
 
 ## Screen edges, window rules and panel size
 

@@ -98,6 +98,33 @@ pub struct NoticeIn {
     command: Option<String>,
 }
 
+/// A custom closed-row part set or cleared by `crest-notify part` (`notices://part`); the frontend keeps the list.
+#[derive(Clone, Serialize, Default, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PartIn {
+    id: String,
+    source: String,
+    text: Option<String>,
+    icon: Option<String>,
+    progress: Option<f64>,
+    open: Option<String>,
+    ttl: Option<u64>,
+    clear: bool,
+}
+
+/// What one crest-notify request delivers.
+enum Delivery {
+    Notice(NoticeIn),
+    Part(PartIn),
+}
+
+fn deliver(app: &AppHandle, d: Delivery) {
+    let _ = match d {
+        Delivery::Notice(n) => app.emit("notices://in", n),
+        Delivery::Part(p) => app.emit("notices://part", p),
+    };
+}
+
 /// Switches the two sources. Called by the frontend on start and on every settings change.
 #[tauri::command]
 pub fn notices_configure(windows: bool, pipe: bool, app: AppHandle, state: State<'_, NoticesState>) {
@@ -676,7 +703,7 @@ async fn pipe_server(app: AppHandle, generation: u64) {
                 let app = app.clone();
                 let limiter = limiter.clone();
                 tauri::async_runtime::spawn(async move {
-                    serve(client, session, limiter, move |n| { let _ = app.emit("notices://in", n); }).await;
+                    serve(client, session, limiter, move |d| deliver(&app, d)).await;
                     drop(permit);
                 });
             }
@@ -703,7 +730,7 @@ fn client_session(pipe: &NamedPipeServer) -> Option<u32> {
 
 /// One client: one request line, one reply line, within two seconds. A client from another logon session of the same
 /// user (a second sign-in, a service) is refused.
-async fn serve(mut pipe: NamedPipeServer, session: u32, limiter: Arc<Mutex<RateLimiter>>, emit: impl FnOnce(NoticeIn)) {
+async fn serve(mut pipe: NamedPipeServer, session: u32, limiter: Arc<Mutex<RateLimiter>>, emit: impl FnOnce(Delivery)) {
     if client_session(&pipe) != Some(session) {
         return;
     }
@@ -726,6 +753,11 @@ async fn serve(mut pipe: NamedPipeServer, session: u32, limiter: Arc<Mutex<RateL
     let reply = match notify_wire::parse(&line) {
         Err(why) => Reply::new("rejected", Some(why)),
         Ok(_) if !limiter.lock().unwrap().allow(now_ms()) => Reply::new("limited", None),
+        Ok(notify_wire::Request { part: Some(p), source, .. }) => {
+            let source = source.unwrap_or_else(|| "crest-notify".into());
+            emit(Delivery::Part(PartIn { id: p.id, source, text: p.text, icon: p.icon, progress: p.progress, open: p.open, ttl: p.ttl, clear: p.clear }));
+            Reply::new("accepted", None)
+        }
         Ok(r) => {
             let name = r.source.clone().unwrap_or_else(|| "crest-notify".into());
             let notice = NoticeIn {
@@ -742,7 +774,7 @@ async fn serve(mut pipe: NamedPipeServer, session: u32, limiter: Arc<Mutex<RateL
                 duration_ms: r.duration_ms,
                 command: r.command,
             };
-            emit(notice);
+            emit(Delivery::Notice(notice));
             Reply::new("accepted", None)
         }
     };
@@ -801,7 +833,12 @@ mod tests {
             let sink = got.clone();
             let task = tokio::spawn(async move {
                 server.connect().await.unwrap();
-                serve(server, session, limiter, move |n| sink.lock().unwrap().push(n)).await;
+                serve(server, session, limiter, move |d| {
+                    if let Delivery::Notice(n) = d {
+                        sink.lock().unwrap().push(n)
+                    }
+                })
+                .await;
             });
             let client_name = name.clone();
             let reply = tokio::task::spawn_blocking(move || {

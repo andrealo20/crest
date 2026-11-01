@@ -11,6 +11,7 @@ Crest is a free, open-source Windows app by Andrea Loroni. It has no account, no
 - The events of your calendars from yesterday to two weeks ahead (titles, places and times), in `calendar-cache.json` in the app's data folder, so the agenda shows offline. Removing a calendar drops its events from the file at the next refresh.
 - The vault (passwords and 2FA codes, off by default), in one file encrypted with Windows DPAPI and readable only under your Windows account. With Windows Hello turned on it is additionally sealed with a TPM-backed key.
 - Screenshots and recordings you take, in *Pictures\Crest\Screenshots* and *Videos\Crest\Recordings*.
+- Plugins you install, in the `plugins` folder of the app's data folder, and the data of those that keep any, in `plugin-data`.
 - A crash log (`crash.log` in the `logs` folder), written only when the app crashes or hits an uncaught error. It is not sent anywhere.
 
 The clipboard history and the history of live notices are kept in memory only and are gone when Crest quits.
@@ -36,8 +37,11 @@ Every request goes straight from your PC to the service named here. On by defaul
 | Lyrics translation | The Ask provider you chose, with your key: the lyric lines of the song | Only with **Translate with Ask** on, once per song without a translation from its source |
 | Kanji dictionary | github.com and release-assets.githubusercontent.com (a fixed JMdict release, anonymous) | Only when you press **Download** under Romanisation |
 | Updates | github.com and raw.githubusercontent.com (anonymous) | Once a day; can be turned off in **Settings → General → Updates** |
+| Plugins | Only the hosts each plugin you install declares in its `crest-plugin.json`, over https, with whatever the plugin sends them | When the plugin's tool is open and it asks; Crest shows these hosts before you install it |
 
 Live notices read other apps' Windows notifications on your PC, after you allow it, and never send them anywhere. `crest-notify` talks to Crest over a local named pipe and makes no network request.
+
+Plugins you install can contact only the hosts they declare, which Crest lists before you confirm the install; their pages cannot reach the network themselves, and Crest refuses requests to other hosts, to IP addresses and to addresses on your PC or local network. Plugins cannot read your files, keys, vault, clipboard, settings or other plugins. A plugin with storage keeps its data in the `plugin-data` folder of Crest's data folder, removed with the plugin. No plugin is installed by default.
 
 The services above have their own privacy policies. Crest sends them only what the feature needs, as described in the [README](README.md#what-goes-over-the-network-and-when).
 

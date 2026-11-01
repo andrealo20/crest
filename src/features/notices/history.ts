@@ -3,7 +3,7 @@
 /** One notice as Rust sends it (`notices://in`), plus the id the history gives it. */
 export interface Notice {
   id: string;
-  source: "windows" | "cli";
+  source: "windows" | "cli" | "plugin";
   appId: string;
   appName: string;
   title: string;

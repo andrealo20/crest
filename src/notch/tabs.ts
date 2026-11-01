@@ -54,6 +54,7 @@ import { CalendarView } from "../features/calendar/CalendarView";
 import { CaptureView } from "../features/capture/CaptureView";
 import { SetupView } from "../features/setup/SetupView";
 import { Camera } from "@phosphor-icons/react";
+import { pluginTab } from "../features/plugins/tabs";
 
 /**
  * Registry of all tools in the open notch. New tool = new entry here
@@ -116,6 +117,7 @@ export const setupTab: NotchTab = { id: "setup", label: "Einrichtung", icon: Han
 /** Pages reached outside the tool bar; they show whether or not a tool is enabled. */
 export const pageTabs = [settingsTab, setupTab];
 
+/** A built-in tool, a page, or an installed plugin (`plugin:<id>`). */
 export function findTab(id: string): NotchTab | undefined {
-  return pageTabs.find((t) => t.id === id) ?? tabs.find((t) => t.id === id);
+  return pageTabs.find((t) => t.id === id) ?? tabs.find((t) => t.id === id) ?? pluginTab(id);
 }

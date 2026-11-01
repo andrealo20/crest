@@ -3,6 +3,8 @@
 //!   crest-notify "Build finished" -b "Tests passed"
 //!   crest-notify "Deploying" -r deploy -p 40
 //!   crest-notify run -- cargo test
+//!   crest-notify part build "Compiling" -i build -p 40 -o terminal
+//!   crest-notify part build --clear
 //!
 //! Exit codes: 0 delivered, 1 usage error, 2 rejected (invalid or rate limited), 3 Crest not running, notices off,
 //! or no answer in time. `run` returns the command's own exit code.
@@ -19,6 +21,8 @@ use notify_wire::{Reply, Request};
 const USAGE: &str = "Usage:
   crest-notify <title> [-b|--body <text>] [-s|--source <name>] [-r|--replace <key>] [-p|--progress <0-100>]
   crest-notify run [-s <name>] [-r <key>] -- <command> [args...]
+  crest-notify part <id> [text] [-i|--icon <name>] [-p|--progress <0-100>] [-o|--open <tool>] [-t|--ttl <seconds>]
+  crest-notify part <id> --clear
 
   -j, --json <text|->  take the body from an agent hook's JSON (\"message\" or
                        \"last-assistant-message\"); - reads it from standard input.
@@ -27,6 +31,9 @@ const USAGE: &str = "Usage:
                        command's exit code is still returned.
 
 Sends a notice to Crest. The same --replace key updates the notice shown before.
+`part` sets a custom part of the closed notch (at most 48 characters; the same id updates it):
+--icon is one of Crest's icon names (docs/plugins.md), --open the tool or plugin:<id> a click opens,
+--ttl removes it after that many seconds (at most a day). Crest shows four such parts at most.
 Exit codes: 0 delivered, 1 usage error, 2 rejected, 3 Crest not running or notices off.
 `run` returns the command's exit code. A command Windows cannot start directly (a .cmd
 script such as npm) is run through cmd /d /c, which parses & | ^ < > in its arguments.";
@@ -69,6 +76,7 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
             // Read by is_quiet.
             "-q" | "--quiet" => {}
             "run" if i == 0 => run = true,
+            "part" if i == 0 => return parse_part(&args[1..]),
             "--" if run => {
                 let command: Vec<String> = args[i + 1..].to_vec();
                 if command.is_empty() {
@@ -93,11 +101,7 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
                 i += 1;
             }
             "-p" | "--progress" => {
-                let p: f64 = value(i, a)?.parse().map_err(|_| "progress must be a number from 0 to 100".to_string())?;
-                if !p.is_finite() || !(0.0..=100.0).contains(&p) {
-                    return Err("progress must be a number from 0 to 100".into());
-                }
-                r.progress = Some(p);
+                r.progress = Some(progress(&value(i, a)?)?);
                 i += 1;
             }
             _ if a.starts_with('-') && a.len() > 1 => return Err(format!("unknown option {a}")),
@@ -115,6 +119,63 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
         return Err("a title or --body is needed".into());
     }
     Ok(Command::Send(r, json))
+}
+
+fn progress(v: &str) -> Result<f64, String> {
+    match v.parse::<f64>() {
+        Ok(p) if p.is_finite() && (0.0..=100.0).contains(&p) => Ok(p),
+        _ => Err("progress must be a number from 0 to 100".into()),
+    }
+}
+
+/// `part <id> [text] [options]`: the words after the id are the text. Crest checks the values again.
+fn parse_part(args: &[String]) -> Result<Command, String> {
+    let mut p = notify_wire::Part::default();
+    let mut source = None;
+    let mut words: Vec<String> = Vec::new();
+    let mut i = 0;
+    let value = |i: usize, flag: &str| args.get(i + 1).cloned().ok_or_else(|| format!("{flag} needs a value"));
+    while i < args.len() {
+        let a = args[i].as_str();
+        match a {
+            "-h" | "--help" => return Ok(Command::Help),
+            "-q" | "--quiet" => {}
+            "-c" | "--clear" => p.clear = true,
+            "-i" | "--icon" => {
+                p.icon = Some(value(i, a)?);
+                i += 1;
+            }
+            "-p" | "--progress" => {
+                p.progress = Some(progress(&value(i, a)?)?);
+                i += 1;
+            }
+            "-o" | "--open" => {
+                p.open = Some(value(i, a)?);
+                i += 1;
+            }
+            "-t" | "--ttl" => {
+                p.ttl = Some(value(i, a)?.parse().map_err(|_| "ttl must be a whole number of seconds".to_string())?);
+                i += 1;
+            }
+            "-s" | "--source" => {
+                source = Some(value(i, a)?);
+                i += 1;
+            }
+            _ if a.starts_with('-') && a.len() > 1 => return Err(format!("unknown option {a}")),
+            _ => words.push(a.to_string()),
+        }
+        i += 1;
+    }
+    let mut words = words.into_iter();
+    p.id = words.next().ok_or("part needs an id")?;
+    let text: Vec<String> = words.collect();
+    if !text.is_empty() {
+        p.text = Some(text.join(" "));
+    }
+    if !p.clear && p.text.is_none() && p.progress.is_none() {
+        return Err("part needs a text, --progress or --clear".into());
+    }
+    Ok(Command::Send(Request { part: Some(p), source, ..Default::default() }, None))
 }
 
 /// The --json value: the text itself, or standard input for "-" (a hook writes its event there and closes it).
@@ -301,7 +362,7 @@ fn outcome(args: &[String]) -> ExitCode {
             if let Some(text) = json.and_then(|j| read_json(&j)).and_then(|t| body_from_json(&t)) {
                 r.body = Some(text);
             }
-            if r.title.is_none() && r.body.is_none() {
+            if r.title.is_none() && r.body.is_none() && r.part.is_none() {
                 say!("crest-notify: the JSON had no message and no title or --body was given");
                 return ExitCode::from(1);
             }
@@ -375,6 +436,23 @@ mod tests {
         assert_eq!(judge(&("S-1-5-21-2".into(), 0x2000), &me), Server::Foreign);
         let own = notify_wire::own_token().expect("own token");
         assert!(own.1 >= 0x1000, "integrity level {:#x}", own.1);
+    }
+
+    #[test]
+    fn part_args() {
+        let Ok(Command::Send(r, None)) = parse_args(&args(&["part", "build", "Compiling", "crest", "-i", "build", "-p", "40", "-o", "terminal", "-t", "60", "-s", "CI"])) else { panic!() };
+        let p = r.part.unwrap();
+        assert_eq!((p.id.as_str(), p.text.as_deref(), p.icon.as_deref(), p.progress, p.open.as_deref(), p.ttl), ("build", Some("Compiling crest"), Some("build"), Some(40.0), Some("terminal"), Some(60)));
+        assert_eq!(r.source.as_deref(), Some("CI"));
+        assert!(r.title.is_none());
+        let Ok(Command::Send(r, None)) = parse_args(&args(&["part", "build", "--clear"])) else { panic!() };
+        assert!(r.part.unwrap().clear);
+        assert!(parse_args(&args(&["part"])).is_err());
+        assert!(parse_args(&args(&["part", "build"])).is_err());
+        assert!(parse_args(&args(&["part", "build", "x", "-t", "soon"])).is_err());
+        assert!(parse_args(&args(&["part", "build", "x", "-p", "200"])).is_err());
+        // Only as the first word.
+        assert!(matches!(parse_args(&args(&["Build", "part"])), Ok(Command::Send(r, None)) if r.part.is_none()));
     }
 
     #[test]

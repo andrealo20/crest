@@ -39,6 +39,7 @@ import { timer, useSecondTick } from "../features/timer/store";
 import { dueTasks } from "../features/todos/store";
 import { refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/store";
 import { recording } from "../features/capture/store";
+import { plugins } from "../features/plugins/store";
 
 /** If the notch was closed at most this long, it reopens on the last used tool. */
 const RESUME_MS = 60_000;
@@ -65,6 +66,8 @@ export function Notch() {
   const statusOn = statusAlert.use() !== null;
   const idleLine = !focus && idleStyle === "line";
   const alert = idleLine && (urgent || statusOn);
+  // Plugin tools exist once their list has been read.
+  plugins.use();
   const visible = toolSettings.filter((t) => t.enabled).map((t) => findTab(t.id)).filter((t): t is NotchTab => !!t);
   const { tabId } = nav.use();
   // Hidden tool active (e.g. just disabled) → first visible one.

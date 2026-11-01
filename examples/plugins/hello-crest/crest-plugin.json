@@ -1,0 +1,15 @@
+{
+  "id": "hello-crest",
+  "name": "Hello Crest",
+  "version": "1.0.0",
+  "author": "Andrea Loroni",
+  "description": "A countdown kept in the plugin's own storage and a line from GitHub's zen endpoint.",
+  "icon": "rocket",
+  "entry": "index.html",
+  "size": { "w": 520, "h": 250 },
+  "permissions": {
+    "network": ["api.github.com"],
+    "storage": true,
+    "notices": true
+  }
+}
