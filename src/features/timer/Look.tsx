@@ -1,7 +1,9 @@
 import { motion } from "motion/react";
-import { SEGMENTS, litCells, lookText, pixelMatrix, progressOf, terminalBar, zenParts, type TimerLook } from "./looks";
+import { SEGMENTS, clockText, litCells, lookText, pixelMatrix, progressOf, terminalBar, zenParts, type TimerLook } from "./looks";
 import type { TimerMode } from "./store";
-import { t } from "../../i18n";
+import { locale, t } from "../../i18n";
+import { settings } from "../../settings/store";
+import { formatTimeParts } from "../../lib/format";
 import "./looks.css";
 
 /*
@@ -17,6 +19,8 @@ export interface LookProps {
   mode: TimerMode;
   tint: string;
   h: number;
+  /** Shown as a clock: the time in place of the countdown, the caption (weekday or AM/PM) in place of the mode. */
+  clock?: { text: string; caption: string };
 }
 
 export function Look(props: LookProps) {
@@ -39,13 +43,15 @@ export function Look(props: LookProps) {
 }
 
 const modeName = (mode: TimerMode) => t(mode === "focus" ? "Fokus" : "Pause");
+const mainText = (p: LookProps, look: TimerLook) => p.clock?.text ?? lookText(look, p.remaining);
+const caption = (p: LookProps) => p.clock?.caption ?? modeName(p.mode);
 const percent = (p: LookProps) => Math.round(progressOf(p.remaining, p.duration) * 100);
 
 function Clean(p: LookProps) {
   return (
     <div className="flex min-w-0 flex-1 items-center" style={{ gap: p.h * 0.36 }}>
       <span className="tabular shrink-0 leading-none font-semibold tracking-[-0.03em]" style={{ color: p.tint, fontSize: p.h * 0.91 }}>
-        {lookText("clean", p.remaining)}
+        {mainText(p, "clean")}
       </span>
       <div className="relative flex-1 overflow-hidden rounded-full bg-fill-2" style={{ height: Math.max(3, p.h * 0.11) }}>
         <motion.div
@@ -62,14 +68,14 @@ function Clean(p: LookProps) {
 
 /** Pixel dusk: 3x5 pixel digits coloured like a sunset sky, and a row of blocks that go dark as time passes. */
 function Pixel(p: LookProps) {
-  const matrix = pixelMatrix(lookText("pixel", p.remaining));
+  const matrix = pixelMatrix(mainText(p, "pixel"));
   const cell = (p.h * 0.84) / 5;
   const cols = matrix[0].length;
   const blocks = 12;
   const lit = litCells(p.remaining, p.duration, blocks);
   return (
     <div className="flex min-w-0 flex-1 items-end" style={{ gap: p.h * 0.3 }}>
-      <svg width={cols * cell} height={5 * cell} className="shrink-0" aria-label={lookText("clean", p.remaining)} role="img">
+      <svg width={cols * cell} height={5 * cell} className="shrink-0" aria-label={mainText(p, "clean")} role="img">
         {matrix.flatMap((row, y) =>
           row.map((on, x) => (
             <rect
@@ -111,7 +117,7 @@ function Dots(p: LookProps) {
   return (
     <div className="flex min-w-0 flex-1 items-center" style={{ gap: p.h * 0.3 }}>
       <span className="tabular shrink-0 leading-none font-semibold tracking-[-0.02em]" style={{ color: p.tint, fontSize: p.h * 0.55 }}>
-        {lookText("dots", p.remaining)}
+        {mainText(p, "dots")}
       </span>
       <svg className="min-w-0 flex-1" height={rows * dot * 1.6} viewBox={`0 0 ${cols * 16} ${rows * 16}`} preserveAspectRatio="xMaxYMid meet">
         {Array.from({ length: cols * rows }, (_, i) => (
@@ -142,7 +148,7 @@ const SEGMENT_RECTS: Record<string, [number, number, number, number]> = {
 
 /** Retro clock: glowing seven segment digits over their unlit ghosts, a blinking colon, mode and percent like an LCD. */
 function Retro(p: LookProps) {
-  const text = lookText("retro", p.remaining);
+  const text = mainText(p, "retro");
   let x = 0;
   const parts = [...text].map((c) => {
     const at = x;
@@ -185,7 +191,7 @@ function Retro(p: LookProps) {
         </g>
       </svg>
       <div className="look-mono flex min-w-0 flex-col leading-tight font-semibold tracking-[0.12em] uppercase" style={{ fontSize: Math.max(8, p.h * 0.21) }}>
-        <span className="truncate">{modeName(p.mode)}</span>
+        <span className="truncate">{caption(p)}</span>
         <span className="tabular opacity-50">{percent(p)}%</span>
       </div>
     </div>
@@ -198,14 +204,14 @@ function Terminal(p: LookProps) {
     <div className="look-mono flex min-w-0 flex-1 flex-col justify-center overflow-hidden whitespace-nowrap" style={{ color: p.tint, gap: p.h * 0.1 }}>
       <div className="leading-none font-semibold" style={{ fontSize: p.h * 0.52 }}>
         <span className="text-label-3">$ </span>
-        {lookText("terminal", p.remaining)}
+        {mainText(p, "terminal")}
         <span
           className={`ml-[0.12em] inline-block align-[-0.08em] ${p.running ? "look-blink" : ""}`}
           style={{ width: "0.55em", height: "0.9em", backgroundColor: "currentColor" }}
         />
       </div>
       <div className="leading-none text-label-2" style={{ fontSize: Math.max(8, p.h * 0.24) }}>
-        {modeName(p.mode).toLowerCase()} {terminalBar(p.remaining, p.duration, Math.round(p.h * 0.4))} {percent(p)}%
+        {caption(p).toLowerCase()} {terminalBar(p.remaining, p.duration, Math.round(p.h * 0.4))} {percent(p)}%
       </div>
     </div>
   );
@@ -213,7 +219,7 @@ function Terminal(p: LookProps) {
 
 /** Zen: thin minutes only, a breathing ring, and a single dot drifting along a hairline. */
 function Zen(p: LookProps) {
-  const z = zenParts(p.remaining);
+  const z = p.clock ? { value: p.clock.text, unit: p.clock.caption } : zenParts(p.remaining);
   const r = 15;
   const circ = 2 * Math.PI * r;
   const left = 1 - progressOf(p.remaining, p.duration);
@@ -289,16 +295,30 @@ function Hud(p: LookProps) {
         ))}
         {p.running && <span className="look-scan" />}
         <div className="look-glow leading-none font-semibold whitespace-nowrap" style={{ fontSize: p.h * 0.5 }}>
-          <span className="opacity-60" style={{ fontSize: "0.45em" }}>
-            T-
-          </span>
-          {lookText("hud", p.remaining)}
+          {!p.clock && (
+            <span className="opacity-60" style={{ fontSize: "0.45em" }}>
+              T-
+            </span>
+          )}
+          {mainText(p, "hud")}
         </div>
       </div>
       <div className="flex min-w-0 flex-col leading-tight tracking-[0.14em] uppercase" style={{ fontSize: Math.max(8, p.h * 0.2) }}>
-        <span className="truncate">{modeName(p.mode)}</span>
+        <span className="truncate">{caption(p)}</span>
         <span className="tabular opacity-50">{String(percent(p)).padStart(3, "0")}%</span>
       </div>
     </div>
   );
+}
+
+/**
+ * A look as a clock: the time in ASCII digits (clockText; some locales write others), AM/PM or the short
+ * weekday as the caption, and the share of the day still to come as the countdown.
+ */
+export function clockFace(now: Date): Pick<LookProps, "clock" | "remaining" | "duration"> {
+  const text = clockText(now.getHours(), now.getMinutes(), settings.get().units.clock === "12");
+  const caption = formatTimeParts(now).period || new Intl.DateTimeFormat(locale(), { weekday: "short" }).format(now);
+  const midnight = new Date(now);
+  midnight.setHours(24, 0, 0, 0);
+  return { clock: { text, caption }, remaining: (midnight.getTime() - now.getTime()) / 1000, duration: 86400 };
 }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SEGMENTS, TIMER_LOOKS, litCells, lookText, normalizeLook, pixelMatrix, progressOf, terminalBar, zenParts } from "./looks.ts";
+import { SEGMENTS, TIMER_LOOKS, clockText, litCells, lookText, normalizeClockLook, normalizeLook, pixelMatrix, progressOf, terminalBar, zenParts } from "./looks.ts";
 
 test("text per look", () => {
   assert.equal(lookText("clean", 1500), "25:00");
@@ -66,4 +66,18 @@ test("seven segments", () => {
   assert.equal(SEGMENTS["8"], "abcdefg");
   assert.equal(SEGMENTS["1"], "bc");
   for (let d = 0; d <= 9; d++) assert.ok(SEGMENTS[String(d)].length >= 2);
+});
+
+test("clock text and clock look", () => {
+  assert.equal(clockText(7, 5, false), "07:05");
+  assert.equal(clockText(0, 0, false), "00:00");
+  assert.equal(clockText(0, 30, true), "12:30");
+  assert.equal(clockText(12, 0, true), "12:00");
+  assert.equal(clockText(23, 59, true), "11:59");
+  // every character has a pixel glyph and seven segments
+  assert.equal(pixelMatrix(clockText(20, 6, false))[0].length, pixelMatrix("20:06")[0].length);
+  for (const c of "0123456789") assert.ok(SEGMENTS[c]);
+  assert.equal(normalizeClockLook("pixel"), "pixel");
+  assert.equal(normalizeClockLook(undefined), "standard");
+  assert.equal(normalizeClockLook("standard"), "standard");
 });

@@ -2,7 +2,7 @@ import { createStore } from "../lib/store";
 import { isLanguage, type LanguageSetting } from "../i18n/core";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
-import { normalizeLook, type TimerLook } from "../features/timer/looks";
+import { normalizeClockLook, normalizeLook, type ClockLook, type TimerLook } from "../features/timer/looks";
 import { WATER_DEFAULTS, normalizeWater, type WaterConfig } from "../features/water/water";
 import { normalizeCards, USAGE_CARDS_DEFAULTS, type UsageCards } from "../features/usage/cards";
 import { THEME_DEFAULTS, normalizeThemeSettings, type ThemeSettings } from "../features/themes/themes";
@@ -86,7 +86,7 @@ export interface Settings {
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
   /** Look of the big countdown in the Timer tool and the detached timer window. */
-  timer: { look: TimerLook };
+  timer: { look: TimerLook; clockLook: ClockLook };
   /** To-do reminders (sound), the water reminder and the quote line in Overview. */
   productivity: { reminderSound: boolean; quotes: boolean; water: WaterConfig };
   /** Terminal tool: shell, font size in px, start folder ("" = home), end the shell when the notch closes. */
@@ -195,7 +195,7 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
-  timer: { look: "clean" },
+  timer: { look: "clean", clockLook: "standard" },
   productivity: { reminderSound: true, quotes: false, water: WATER_DEFAULTS },
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
   music: {
@@ -279,7 +279,7 @@ settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
     units: { ...defaults.units, ...s.units },
     presentation: { ...defaults.presentation, ...s.presentation },
     updates: { ...defaults.updates, ...s.updates },
-    timer: { look: normalizeLook(s.timer?.look) },
+    timer: { look: normalizeLook(s.timer?.look), clockLook: normalizeClockLook(s.timer?.clockLook) },
     productivity: { ...defaults.productivity, ...s.productivity, water: normalizeWater(s.productivity?.water) },
     terminal: { ...defaults.terminal, ...s.terminal },
     music: { ...defaults.music, ...s.music, lyricSources: normalizeSources(s.music?.lyricSources) },

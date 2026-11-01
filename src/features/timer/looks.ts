@@ -21,6 +21,18 @@ export function normalizeLook(v: unknown): TimerLook {
   return TIMER_LOOKS.includes(v as TimerLook) ? (v as TimerLook) : "clean";
 }
 
+/** The Overview clock: its usual text ("standard") or one of the timer looks. */
+export type ClockLook = "standard" | TimerLook;
+
+/** Clock text in ASCII digits, which the pixel and segment fonts draw: "07:05" or, on a 12 hour clock, "7:05". */
+export function clockText(hours: number, minutes: number, h12: boolean): string {
+  return `${h12 ? hours % 12 || 12 : pad(hours)}:${pad(minutes)}`;
+}
+
+export function normalizeClockLook(v: unknown): ClockLook {
+  return TIMER_LOOKS.includes(v as TimerLook) ? (v as TimerLook) : "standard";
+}
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** Elapsed share 0..1. */

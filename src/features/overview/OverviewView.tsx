@@ -12,6 +12,7 @@ import { useDiscordCall } from "../discord/store";
 import { Equalizer } from "../now-playing/Equalizer";
 import { ARTWORK_LAYOUT_ID } from "../now-playing/NowPlayingView";
 import { formatClock, timer, useRemaining } from "../timer/store";
+import { Look, clockFace } from "../timer/Look";
 import { describe, useForecast } from "../weather/store";
 import { settings } from "../../settings/store";
 import { formatTemp, formatTimeParts } from "../../lib/format";
@@ -63,16 +64,23 @@ function Header() {
   const forecast = useForecast();
   const place = settings.use().weather;
   const weather = forecast && forecast !== "error" ? describe(forecast.current.code, forecast.current.day) : null;
+  const clockLook = settings.use().timer.clockLook;
   const { time, period } = formatTimeParts(now);
   const date = new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long" }).format(now);
 
   return (
-    <div className="flex items-end justify-between">
-      <div>
-        <div className="tabular text-[34px] leading-none font-semibold tracking-[-0.03em] text-label">
-          {time}
-          {period && <span className="ms-1 text-title font-semibold tracking-normal text-label-3">{period}</span>}
-        </div>
+    <div className="flex items-end justify-between gap-4">
+      <div className={clockLook === "standard" ? undefined : "flex min-w-0 flex-1 flex-col"}>
+        {clockLook === "standard" ? (
+          <div className="tabular text-[34px] leading-none font-semibold tracking-[-0.03em] text-label">
+            {time}
+            {period && <span className="ms-1 text-title font-semibold tracking-normal text-label-3">{period}</span>}
+          </div>
+        ) : (
+          <div className="flex max-w-[340px]">
+            <Look look={clockLook} {...clockFace(now)} running mode="focus" tint="var(--color-label)" h={38} />
+          </div>
+        )}
         <div className="mt-1 text-footnote text-label-3">{date}</div>
       </div>
       <button onClick={() => navigate("weather")} className="pressable flex flex-col items-end text-end" title={t("Wetter öffnen")}>

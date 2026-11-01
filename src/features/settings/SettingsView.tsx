@@ -59,7 +59,7 @@ import { discordState, reconnectDiscord } from "../discord/store";
 import { fps } from "../system/gaming";
 import { PlaceSearch } from "../weather/WeatherView";
 import { VaultSettings } from "../vault/VaultSettings";
-import { TimerLookSettings } from "../timer/LookSettings";
+import { ClockLookSettings, TimerLookSettings } from "../timer/LookSettings";
 import { ProductivitySettings } from "../water/WaterSettings";
 import { TerminalSettings } from "../terminal/TerminalSettings";
 import { MusicSettings } from "../now-playing/MusicSettings";
@@ -214,6 +214,7 @@ export function SettingsView() {
               <>
                 <Alarm />
                 <TimerLookSettings />
+                <ClockLookSettings />
               </>
             )}
             {page === "notices" && <NoticesSettings />}
