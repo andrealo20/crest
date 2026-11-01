@@ -36,7 +36,7 @@
   <a href="https://github.com/andrealo20/crest/issues/new/choose"><b>Suggest an idea</b></a>
 </p>
 
-<p align="center"><img src="docs/media/demo.gif" alt="Crest switching between Now Playing, Timer, To-dos, Clipboard and Ask" width="800" /></p>
+<p align="center"><img src="docs/media/demo.gif" alt="Crest going through Now Playing, Timer, To-dos, Clipboard, Ask, Portfolio, Weather, Hardware, Terminal, GitHub, Capture, Settings and Themes" width="800" /></p>
 
 ## What it is
 
