@@ -122,6 +122,8 @@ pub struct Window {
 pub async fn usage_fetch(providers: Vec<String>, app: AppHandle, state: State<'_, UsageState>) -> Result<Vec<Provider>, String> {
     load_disk_cache(&app, &state);
     let mut out = Vec::new();
+    // The cache file is written only when a stored entry changed, not on every poll answered from memory.
+    let mut changed = false;
     for id in providers {
         if !PROVIDERS.contains(&id.as_str()) {
             continue;
@@ -178,9 +180,13 @@ pub async fn usage_fetch(providers: Vec<String>, app: AppHandle, state: State<'_
         // A missing key costs no request to check, so it is asked again on the next poll.
         let next_at = if provider.error.as_deref() == Some("no-key") { now } else { retry_at.unwrap_or(0).max(now + cache_for(&id).as_millis() as u64) };
         state.cache.lock().unwrap().insert(id, (next_at, provider.clone()));
+        // Only entries with data are stored. "no-key" is asked again on every poll without a request, so it leaves the file as it is.
+        changed |= provider.has_data() && provider.error.as_deref() != Some("no-key");
         out.push(provider);
     }
-    save_disk_cache(&app, &state);
+    if changed {
+        save_disk_cache(&app, &state);
+    }
     Ok(out)
 }
 
