@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Microsoft Store package of Crest. scripts/store-package.ps1 fills in {version}; Partner Center signs the package. -->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 uap5 desktop desktop4 rescap">
+
+  <Identity Name="andrealo.CrestIsland" Publisher="CN=6324E174-874E-4AF4-BEFF-97AD455C0AFD" Version="{version}" ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Crest Island</DisplayName>
+    <PublisherDisplayName>andrealo</PublisherDisplayName>
+    <Logo>StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="Crest" Executable="crest.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Crest Island"
+        Description="A notch at the top of your Windows screen for music, timers, notes and quick tools."
+        BackgroundColor="transparent"
+        Square150x150Logo="Square150x150Logo.png"
+        Square44x44Logo="Square44x44Logo.png">
+        <!-- No Square310x310Logo: Windows then also wants a Wide310x150Logo, and Crest has no wide artwork. -->
+        <uap:DefaultTile Square71x71Logo="Square71x71Logo.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <!-- Off until the user turns on Start with Windows (src-tauri/src/startup.rs). -->
+        <desktop:Extension Category="windows.startupTask" Executable="crest.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="CrestStartup" Enabled="false" DisplayName="Crest" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+
+    <!-- crest-notify (docs/notices.md) runs by name from any terminal through its alias; no Start menu entry. -->
+    <Application Id="CrestNotify" Executable="crest-notify.exe" EntryPoint="Windows.FullTrustApplication" desktop4:SupportsMultipleInstances="true">
+      <uap:VisualElements
+        DisplayName="crest-notify"
+        Description="Sends notices to Crest from scripts and builds."
+        BackgroundColor="transparent"
+        Square150x150Logo="Square150x150Logo.png"
+        Square44x44Logo="Square44x44Logo.png"
+        AppListEntry="none" />
+      <Extensions>
+        <uap5:Extension Category="windows.appExecutionAlias">
+          <uap5:AppExecutionAlias desktop4:Subsystem="console">
+            <uap5:ExecutionAlias Alias="crest-notify.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <uap3:Capability Name="userNotificationListener" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
