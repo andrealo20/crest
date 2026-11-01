@@ -121,8 +121,9 @@ impl ProcessCapture {
                     },
                 },
             });
-            // A PROPVARIANT holding a VT_BLOB that points at the parameters (no PropVariantClear: the blob is ours).
-            let variant = PROPVARIANT {
+            // A PROPVARIANT holding a VT_BLOB that points at the parameters. ManuallyDrop: the windows crate's Drop for
+            // PROPVARIANT calls PropVariantClear, which would CoTaskMemFree the Box and corrupt the heap on its own drop.
+            let variant = std::mem::ManuallyDrop::new(PROPVARIANT {
                 Anonymous: PROPVARIANT_0 {
                     Anonymous: std::mem::ManuallyDrop::new(PROPVARIANT_0_0 {
                         vt: VT_BLOB,
@@ -134,11 +135,11 @@ impl ProcessCapture {
                         },
                     }),
                 },
-            };
+            });
             let (tx, rx) = mpsc::sync_channel(1);
             let handler: IActivateAudioInterfaceCompletionHandler = Done(tx).into();
             let operation =
-                ActivateAudioInterfaceAsync(VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, &IAudioClient::IID, Some(&variant), &handler).ok()?;
+                ActivateAudioInterfaceAsync(VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, &IAudioClient::IID, Some(&*variant), &handler).ok()?;
             if rx.recv_timeout(Duration::from_secs(2)).is_err() {
                 // Still running: it may read the parameters later, so they must stay valid.
                 std::mem::forget(params);
