@@ -4,7 +4,7 @@ import { content, spin } from "../../design/motion";
 import { formatAgo } from "../../lib/format";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
-import { localDate } from "../../platform/services";
+import { localDate, openGithubProfile } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { Button, Empty, Skeleton } from "../../ui/controls";
 import { locale, t } from "../../i18n";
@@ -86,7 +86,11 @@ export function GithubView() {
     >
       {actions}
       <div className="flex items-baseline gap-5 text-caption text-label-3">
-        <span className="flex min-w-0 items-center gap-2 self-center">
+        <button
+          title={t("Auf GitHub öffnen")}
+          onClick={() => openGithubProfile(data.user)}
+          className="pressable -mx-1 flex min-w-0 items-center gap-2 self-center rounded-full px-1 hover:bg-fill-1"
+        >
           {/* GitHub redirects /<user>.png to the avatar; Rust only returns names that pass valid_user. */}
           <img
             src={`https://github.com/${data.user}.png?size=64`}
@@ -95,7 +99,7 @@ export function GithubView() {
             onError={(e) => (e.currentTarget.style.display = "none")}
           />
           <span className="truncate text-footnote font-semibold text-label">{data.user}</span>
-        </span>
+        </button>
         <Stat label={t("Letztes Jahr")} value={data.total.toLocaleString(locale())} />
         <Stat label={t("Heute")} value={String(todayCount(data.days, today))} />
         <Stat label={t("Serie")} value={days(current)} />

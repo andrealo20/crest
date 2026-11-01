@@ -875,6 +875,12 @@ export interface GithubContributions {
 }
 
 /** Errors from Rust: no-user, not-found, rate-limited, offline, parse, failed. `force` skips the hour's cache (once a minute at most). */
+/** The user's profile on github.com in the browser. */
+export function openGithubProfile(user: string) {
+  if (isNative) void invoke("github_open_profile", { user });
+  else window.open(`https://github.com/${encodeURIComponent(user)}`, "_blank");
+}
+
 export function fetchGithub(user: string, force: boolean): Promise<GithubContributions> {
   if (isNative) return invoke<GithubContributions>("github_contributions", { user, force });
   if (!user.trim()) return Promise.reject("no-user");

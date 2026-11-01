@@ -180,6 +180,7 @@ pub fn run() {
             launcher::launcher_open,
             launcher::launcher_shortcuts,
             github::github_contributions,
+            github::github_open_profile,
             notices::notices_configure,
             notices::notices_status,
             notices::notices_request_access,

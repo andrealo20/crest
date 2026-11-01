@@ -42,6 +42,16 @@ fn valid_user(user: &str) -> bool {
     !user.is_empty() && user.len() <= 39 && user.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
 
+/// Opens the user's GitHub profile in the browser; only a valid login, so the page cannot open any other address.
+#[tauri::command]
+pub fn github_open_profile(user: String) -> Result<(), String> {
+    let user = user.trim();
+    if !valid_user(user) {
+        return Err("not-found".into());
+    }
+    std::process::Command::new("explorer").arg(format!("https://github.com/{user}")).spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn github_contributions(user: String, force: bool, state: State<'_, GithubState>) -> Result<Contributions, String> {
     let user = user.trim().to_string();
