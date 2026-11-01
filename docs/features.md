@@ -148,7 +148,7 @@ The volume and brightness HUD is a status alert too: when the volume or mute cha
 
 ## Calendar
 
-- **Calendar** shows today and the next six days as an agenda, each event with its calendar's colour, the time (or "All day") and the place. Past events of today are dimmed.
+- **Calendar** shows the month on the left, with a dot under each day that has events in the colour of its calendar, from the previous month to two months ahead. On the right, the agenda from the picked day (today unless you click another) and the next six days: each event with its calendar's colour, the time (or "All day") and the place. Past events of today are dimmed; a click on the month's name goes back to today.
 - Sources are ICS links (the secret iCal address from Google Calendar, Outlook or iCloud, or any `webcal://` link) and CalDAV accounts (Nextcloud, Fastmail, iCloud, Radicale and others). It only reads; nothing is ever written back.
 - Recurring events are expanded in their own time zone (daily, weekly, monthly and yearly rules with intervals, counts, end dates and weekdays), with skipped and moved instances. Time zones can be IANA names, Windows names (Outlook) or ones defined in the file.
 - A notice in the closed notch 5 or 10 minutes before an event, and an optional **Next event** part that shows the title and time once an event is within 30 minutes to 8 hours.

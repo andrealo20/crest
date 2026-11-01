@@ -28,8 +28,9 @@ const CACHE: Duration = Duration::from_secs(10 * 60);
 const MIN_FORCED: Duration = Duration::from_secs(20);
 const MAX_SOURCES: usize = 20;
 const MAX_ICS_BYTES: usize = 20 * 1024 * 1024;
-const DAYS_BACK: i64 = 1;
-const DAYS_AHEAD: i64 = 15;
+// The month view goes back one month and ahead two: the window covers them whatever today is.
+const DAYS_BACK: i64 = 62;
+const DAYS_AHEAD: i64 = 100;
 const CACHE_FILE: &str = "calendar-cache.json";
 
 /// One source from the settings. `url` and `user` are only set for CalDAV (an ICS link is a secret).
@@ -146,7 +147,7 @@ fn hash<S: AsRef<str>>(parts: impl IntoIterator<Item = S>) -> String {
     h.finalize().iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
-/// The window in UTC: local midnight yesterday to local midnight in two weeks.
+/// The window in UTC: local midnight DAYS_BACK days ago to local midnight DAYS_AHEAD days ahead.
 fn window(local: &TimeZone) -> (Timestamp, Timestamp) {
     let today = local.to_datetime(Timestamp::now()).date();
     let at = |days: i64| {

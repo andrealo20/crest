@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CALENDAR_DEFAULTS, PALETTE, agenda, dayLabel, dueEvent, linkHost, newSourceId, nextChange, nextColor, nextEvent, normalizeCalendar } from "./model.ts";
+import { CALENDAR_DEFAULTS, PALETTE, agenda, dayLabel, dueEvent, linkHost, newSourceId, nextChange, nextColor, monthGrid, nextEvent, normalizeCalendar } from "./model.ts";
 
 const at = (d: number, h = 0, m = 0) => new Date(2026, 10, d, h, m).getTime(); // November 2026
 const ev = (id: string, start: number, end: number, allDay = false) => ({ id, start, end, allDay });
@@ -95,4 +95,23 @@ test("day labels", () => {
   assert.equal(dayLabel(at(1), at(1, 15), labels, fmt), "Today");
   assert.equal(dayLabel(at(2), at(1, 15), labels, fmt), "Tomorrow");
   assert.equal(dayLabel(at(5), at(1, 15), labels, fmt), "5.");
+});
+
+test("month grid: six weeks from the first weekday, calendars per day", () => {
+  const on = (id: string, calendar: string, start: number, end: number, allDay = false) => ({ ...ev(id, start, end, allDay), calendar });
+  const events = [on("call", "work", at(3, 10), at(3, 11)), on("gym", "home", at(3), at(4), true), on("trip", "work", at(5), at(7), true), on("again", "work", at(3, 15), at(3, 16))];
+  // 1 November 2026 is a Sunday: a Monday week starts on 26 October, a Sunday week on the 1st.
+  const monday = monthGrid(events, at(15, 12), 1);
+  assert.equal(monday.length, 42);
+  assert.equal(monday[0].day, new Date(2026, 9, 26).getTime());
+  assert.equal(monday[0].inMonth, false);
+  assert.equal(monday[6].day, at(1));
+  assert.equal(monday[6].inMonth, true);
+  assert.equal(monday[41].day, new Date(2026, 11, 6).getTime());
+  assert.equal(monthGrid(events, at(1), 0)[0].day, at(1));
+  const cell = (d: number) => monday.find((c) => c.day === at(d))!;
+  assert.deepEqual(cell(3).calendars, ["work", "home"]);
+  assert.deepEqual(cell(5).calendars, ["work"]);
+  assert.deepEqual(cell(6).calendars, ["work"]);
+  assert.deepEqual(cell(7).calendars, []);
 });

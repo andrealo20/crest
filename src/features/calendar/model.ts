@@ -100,11 +100,36 @@ export function addDays(day: number, n: number): number {
 export function agenda<T extends CalendarEventLike>(events: T[], now: number, days: number): { day: number; events: T[] }[] {
   const today = startOfDay(now);
   return Array.from({ length: days }, (_, i) => {
-    const day = addDays(today, i), next = addDays(today, i + 1);
-    const list = events
-      .filter((e) => e.start < next && (e.end > day || (e.end === e.start && e.start >= day)))
+    const day = addDays(today, i);
+    const list = eventsOn(events, day)
       .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start - b.start || a.end - b.end);
     return { day, events: list };
+  });
+}
+
+/** The events that touch the day starting at local midnight `day` (a zero-length event counts on its own day). */
+export function eventsOn<T extends CalendarEventLike>(events: T[], day: number): T[] {
+  const next = addDays(day, 1);
+  return events.filter((e) => e.start < next && (e.end > day || (e.end === e.start && e.start >= day)));
+}
+
+/**
+ * The month around `month` (any time in it) as 6 weeks of 7 days, starting on `firstWeekday` (0 Sunday, 1 Monday ...).
+ * Each day lists the calendars with events on it, in order of first appearance, for the dots under the number.
+ */
+export function monthGrid<T extends CalendarEventLike & { calendar: string }>(
+  events: T[],
+  month: number,
+  firstWeekday: number,
+): { day: number; inMonth: boolean; calendars: string[] }[] {
+  const first = new Date(month);
+  first.setDate(1);
+  first.setHours(0, 0, 0, 0);
+  const start = addDays(first.getTime(), -((first.getDay() - firstWeekday + 7) % 7));
+  return Array.from({ length: 42 }, (_, i) => {
+    const day = addDays(start, i);
+    const calendars = [...new Set(eventsOn(events, day).map((e) => e.calendar))];
+    return { day, inMonth: new Date(day).getMonth() === first.getMonth(), calendars };
   });
 }
 
