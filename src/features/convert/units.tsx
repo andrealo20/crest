@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowsLeftRight } from "@phosphor-icons/react";
 import { Segmented, Select } from "../../ui/controls";
 import { locale, t } from "../../i18n";
+import { parseAmount } from "./parse";
 
 /*
  * Unit conversion (like OmniNotch's converter): length, weight, temperature,
@@ -91,9 +92,8 @@ export function UnitsPanel() {
   const [[from, to], setPair] = useState(defaults.length);
   const [input, setInput] = useState("100");
 
-  // Comma and dot both work as decimal separators (1,5 = 1.5).
-  const value = Number(input.replace(",", "."));
-  const result = input.trim() === "" || Number.isNaN(value) ? null : convertUnit(cat, value, from, to);
+  const value = parseAmount(input);
+  const result = value === null ? null : convertUnit(cat, value, from, to);
   const options = units[cat].map((u) => ({ value: u.id, label: t(u.label) }));
 
   return (

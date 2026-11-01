@@ -10,8 +10,8 @@ import { isNative } from "./native";
  * (`src-tauri/src/drop.rs`), which sends back real paths; the browser only gets
  * file names (for design work).
  *
- * `dragging` drives the notch (opens to the converter), `dropped` holds the paths
- * the converter takes and then clears.
+ * `dragging` drives the notch (opens on the Shelf), `dropped` holds the paths
+ * the Shelf takes and then clears.
  */
 export const drop = createStore<{ dragging: boolean; dropped: string[] | null }>({ dragging: false, dropped: null });
 
@@ -34,7 +34,7 @@ export async function pasteFiles(): Promise<boolean> {
   return true;
 }
 
-/** Ctrl+V outside text fields → `pasteFiles`. For Shelf and Converter. */
+/** Ctrl+V outside text fields → `pasteFiles`. For the Shelf. */
 export function usePasteFiles(onEmpty?: () => void) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -37,7 +37,7 @@ import { usePresenting } from "../privacy/store";
  * gives the text.
  *
  * Files come in via drag and drop or Ctrl+V (screenshots too), text via drop on the open
- * shelf or Ctrl+V. Anything dropped on the closed notch lands in the last used file tool.
+ * shelf or Ctrl+V. Anything dropped on the closed notch lands here.
  *
  * Select several: Ctrl+click, Shift+click or the select button; then drag, copy or remove
  * them together.

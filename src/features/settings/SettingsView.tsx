@@ -52,6 +52,7 @@ import { GithubSettings } from "../github/GithubSettings";
 import { NoticesSettings } from "../notices/NoticesSettings";
 import { WindowSettings, keyText } from "../window/WindowSettings";
 import { keycaps } from "../window/hotkeys";
+import { hotkeyStatus } from "../window/store";
 import { TradingSettings } from "../trading/TradingSettings";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
@@ -395,6 +396,7 @@ function Ask() {
 
 function General() {
   const s = settings.use();
+  const openKey = hotkeyStatus.use().open;
   const [auto, setAuto] = useState<boolean | null>(null);
   const [autoError, setAutoError] = useState<string | null>(null);
   useEffect(() => {
@@ -476,7 +478,16 @@ function General() {
           />
         )}
       </Row>
-      <Row label={t("Tastenkürzel")} hint={t("Öffnet und schließt die Notch von überall; ändern unter Fenster")}>
+      <Row
+        label={t("Tastenkürzel")}
+        hint={
+          openKey === "in-use" ? (
+            <span className="text-orange">{t("Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv; ändern unter Fenster")}</span>
+          ) : (
+            t("Öffnet und schließt die Notch von überall; ändern unter Fenster")
+          )
+        }
+      >
         <span className="flex items-center gap-1 text-caption text-label-2">
           <Keyboard size={13} weight="bold" className="text-label-3" />
           {keycaps(s.behavior.hotkeys.open).map(keyText).map((k) => (

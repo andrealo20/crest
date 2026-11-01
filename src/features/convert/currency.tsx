@@ -7,6 +7,7 @@ import { settings } from "../../settings/store";
 import { effectiveBase } from "../trading/base";
 import { BASES, type Rates } from "../trading/portfolio";
 import { convertMoney, currencies } from "./fx";
+import { parseAmount } from "./parse";
 
 /*
  * Currencies at the ECB reference rates (Frankfurter, the portfolio's source; Rust caches them for a minute). They are
@@ -48,9 +49,8 @@ export function CurrencyPanel() {
 
   const known = rates && Object.keys(rates.fx).length > 0 ? rates : null;
   const options = (known ? currencies(known) : [...BASES]).map((c) => ({ value: c, label: label(c) }));
-  // Comma and dot both work as decimal separators (1,5 = 1.5).
-  const value = Number(input.replace(",", "."));
-  const result = !known || input.trim() === "" || Number.isNaN(value) ? null : convertMoney(value, from, to, known);
+  const value = parseAmount(input);
+  const result = !known || value === null ? null : convertMoney(value, from, to, known);
   const day = known?.date ? new Date(`${known.date}T12:00:00`).toLocaleDateString(locale(), { day: "numeric", month: "short" }) : null;
 
   return (

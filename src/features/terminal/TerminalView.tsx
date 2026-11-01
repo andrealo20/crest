@@ -49,7 +49,8 @@ export function TerminalView() {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div ref={box} className="h-full w-full" />
+        {/* xterm 6 draws its own slider (theme in session.ts); its viewport would add the white system scrollbar beside it. */}
+        <div ref={box} className="h-full w-full [&_.xterm-viewport]:[scrollbar-width:none]" />
       </div>
     </div>
   );

@@ -189,7 +189,8 @@ export function UsageView() {
                 </div>
               </>
             )}
-            {tool && <TokenFoot found={logs ? logs.found : null} failed={tok.failed} today={logs ? totals(logs.buckets, today, s.aiUsage.prices) : null} week={logs ? totals(logs.buckets, week, s.aiUsage.prices) : null} />}
+            {/* Not found and no logs: the foot would only push this card's message off the line of its neighbours'. */}
+            {tool && (hasData || logs?.found) && <TokenFoot found={logs ? logs.found : null} failed={tok.failed} today={logs ? totals(logs.buckets, today, s.aiUsage.prices) : null} week={logs ? totals(logs.buckets, week, s.aiUsage.prices) : null} />}
           </motion.div>
         );
       })}

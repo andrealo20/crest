@@ -7,6 +7,7 @@ import { ofRate, ofShare, schemeColor, type Level } from "../../../features/syst
 import { system } from "../../../features/system/store";
 import { tempLevel } from "../../../features/system/temps";
 import { settings } from "../../../settings/store";
+import { activeTheme } from "../../../features/themes/store";
 import type { ClosedSettings } from "../parts";
 import { CAPTION_FONT, measureText } from "../measure";
 
@@ -18,7 +19,7 @@ export const READING_GAP = 6;
 /** MARK: the C / G letter after the thermometer. */
 const DIAL = 16, DIAL_GAP = 3, GLYPH = 11, MARK = 6;
 const LETTER: Partial<Record<ReadingId, string>> = { cpu: "C", ram: "M", gpu: "G" };
-/** Settings, Tools, Hardware, "Coloured icons". The closed notch stays black in every theme, so fixed colours read on it. */
+/** Settings, Tools, Hardware, "Coloured icons". Tuned for the black closed notch; a theme that paints the closed notch keeps its own ink. */
 const ICON_COLORS: Partial<Record<ReadingId, string>> = {
   cpu: "#4c9aff", ram: "#a78bfa", gpu: "#34d399", down: "#22d3ee", up: "#f472b6", power: "#fbbf24", battery: "#4ade80", temp: "#fb923c",
 };
@@ -86,8 +87,9 @@ function spoken(r: Reading): string | undefined {
 export function ReadingView({ reading }: { reading: Reading }) {
   const { id, value, level, source } = reading;
   const sys = settings.use().system;
+  const themedNotch = !!activeTheme.use().closedNotch;
   const color = id === "fps" ? "var(--color-label)" : schemeColor(sys.colors, level);
-  const iconColor = sys.iconColors ? ICON_COLORS[id] : undefined;
+  const iconColor = sys.iconColors && !themedNotch ? ICON_COLORS[id] : undefined;
   const G = GLYPHS[id];
   const label = spoken(reading);
   return (

@@ -27,10 +27,10 @@ import { toPageCss } from "../features/window/panelSize";
 import { HeaderButton, headerSlot } from "./header";
 import { sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
-import { drop } from "../platform/drop";
+import { drop, takeDropped } from "../platform/drop";
 import { settings } from "../settings/store";
 import { useUnseen } from "../lib/changelog";
-import { nav, navigate, takeOpenTarget } from "./nav";
+import { nav, navigate, openOn, takeOpenTarget } from "./nav";
 import { update } from "../lib/update";
 import { findTab, settingsTab, tabs, type NotchTab } from "./tabs";
 import { holdOpen, pinned, togglePin, useNotchState, type NotchStatus } from "./useNotchState";
@@ -409,19 +409,22 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
   const unseen = useUnseen().length > 0;
   const badge = updateReady || unseen;
 
+  // A strip of its own: buttons share its width up to 42 px each, so a narrow panel squeezes them evenly.
   return (
-    <div className="flex shrink-0 items-start justify-center gap-0.5 px-4 pt-1" style={{ height: DOCK_HEIGHT }}>
-      {tabs.map((tab) => (
-        <DockButton key={tab.id} label={t(tab.label)} icon={tab.icon} active={tab.id === activeId} onClick={() => navigate(tab.id)} />
-      ))}
-      <span aria-hidden className="mx-1.5 mt-2 h-4 w-px bg-separator" />
-      <DockButton
-        label={t(settingsTab.label)}
-        icon={GearSix}
-        active={inSettings}
-        badge={badge}
-        onClick={() => (inSettings ? navigate(lastTool.current ?? tabs[0].id) : navigate(settingsTab.id, badge ? "updates" : null))}
-      />
+    <div className="flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
+      <div className="flex h-10 max-w-full items-center gap-0.5 rounded-[14px] bg-fill-2 p-0.5">
+        {tabs.map((tab) => (
+          <DockButton key={tab.id} label={t(tab.label)} icon={tab.icon} active={tab.id === activeId} onClick={() => navigate(tab.id)} />
+        ))}
+        <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-separator" />
+        <DockButton
+          label={t(settingsTab.label)}
+          icon={GearSix}
+          active={inSettings}
+          badge={badge}
+          onClick={() => (inSettings ? navigate(lastTool.current ?? tabs[0].id) : navigate(settingsTab.id, badge ? "updates" : null))}
+        />
+      </div>
     </div>
   );
 }
@@ -433,17 +436,22 @@ function DockButton(props: { label: string; icon: NotchTab["icon"]; active: bool
       aria-label={props.label}
       title={props.label}
       onClick={props.onClick}
-      className={`pressable relative flex h-8 w-8 items-center justify-center rounded-[10px] ${
-        props.active ? "text-label" : "text-label-3 hover:text-label-2"
+      className={`pressable relative flex h-9 w-[42px] min-w-0 shrink items-center justify-center rounded-[12px] transition-colors duration-150 ${
+        props.active ? "text-label" : "text-label-2 hover:text-label"
       }`}
     >
-      {props.active && <motion.span layoutId="dock-pill" className="absolute inset-0 rounded-[10px] bg-fill-2" transition={springs.snappy} />}
-      <I size={16} weight={props.active ? "fill" : "bold"} className="relative" />
+      {/* The current tool: a brighter pill with a mark under the icon, sliding from tool to tool. */}
+      {props.active && (
+        <motion.span layoutId="dock-pill" className="absolute inset-0 rounded-[12px] bg-fill-3" transition={springs.snappy}>
+          <span className="absolute bottom-[3px] left-1/2 h-[2px] w-3 -translate-x-1/2 rounded-full bg-label" />
+        </motion.span>
+      )}
+      <I size={18} weight={props.active ? "fill" : "bold"} className="relative" />
       {/* Badge dot (e.g. update available) at the icon's top right. */}
       <AnimatePresence>
         {props.badge && (
           <motion.span
-            className="absolute top-1 right-1 size-[7px] rounded-full bg-link ring-2 ring-notch"
+            className="absolute top-[6px] left-1/2 ml-[4px] size-[7px] rounded-full bg-link ring-2 ring-notch"
             initial={{ opacity: 0, transform: "scale(0.9)" }}
             animate={{ opacity: 1, transform: "scale(1)" }}
             exit={{ opacity: 0, transform: "scale(0.9)" }}
@@ -526,8 +534,9 @@ function useTransitionFor(status: NotchStatus, shape: NotchGeometry): Transition
 }
 
 /**
- * Quick drop: drag files over the notch and it opens on the Shelf.
- * A cancelled drag closes it again if it only opened for that.
+ * Quick drop: drag files over the notch and it opens on the Shelf, ahead of a live activity.
+ * A cancelled drag closes it again if it only opened for that. With the Shelf off nothing takes files:
+ * the drag is ignored and a drop forgotten, so it cannot turn up when the Shelf is switched on later.
  */
 function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void) {
   const openedByDrag = useRef(false);
@@ -539,6 +548,10 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
     () =>
       drop.subscribe(() => {
         const { dragging, dropped } = drop.get();
+        if (!settings.get().tools.some((t) => t.id === "shelf" && t.enabled)) {
+          if (dropped) takeDropped();
+          return;
+        }
         if (dragging && !holding.current) {
           holding.current = true;
           holdOpen(true);
@@ -546,7 +559,7 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
             openedByDrag.current = true;
             open();
           }
-          if (nav.get().tabId !== "shelf") navigate("shelf");
+          if (nav.get().tabId !== "shelf") openOn("shelf");
         } else if (!dragging && holding.current) {
           // Drag over: dropped → stay open, cancelled → close again.
           holding.current = false;

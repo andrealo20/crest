@@ -8,17 +8,26 @@ import { navigate } from "../../notch/nav";
 import { clipboard } from "../../platform/clipboard";
 import { settings } from "../../settings/store";
 import { providerInfo, streamChat, type ChatMessage } from "./providers";
-import { t, tBackend } from "../../i18n";
+import { locale, t, tBackend } from "../../i18n";
 
 /** The conversation only lives until restart (no history on disk); × clears it. */
 const chat = createStore<ChatMessage[]>([]);
 // Older versions stored the chat; remove it once.
 localStorage.removeItem("notch:ask-chat");
 
+/** The language Windows runs in, by name ("English", "Italian"): what the translate action translates into. */
+function systemLanguage(): string {
+  try {
+    return new Intl.DisplayNames(locale(), { type: "language" }).of(new Intl.Locale(navigator.language).language) ?? "English";
+  } catch {
+    return "English";
+  }
+}
+
 const quick: { icon: Icon; label: string; prompt: (text: string) => string }[] = [
   { icon: TextAlignLeft, label: "Zusammenfassen", prompt: (text) => t("Fasse kurz zusammen: {x}", { x: text }) },
   { icon: NotePencil, label: "Umformulieren", prompt: (text) => t("Formuliere klarer um: {x}", { x: text }) },
-  { icon: Translate, label: "Ins Englische", prompt: (text) => t("Übersetze ins Englische: {x}", { x: text }) },
+  { icon: Translate, label: "Auf {lang}", prompt: (text) => t("Übersetze auf {lang}: {x}", { lang: systemLanguage(), x: text }) },
 ];
 
 /*
@@ -125,7 +134,7 @@ export function AskView() {
                   onClick={() => runQuick(q)}
                   className="pressable pressable-fill flex h-7 items-center gap-1.5 rounded-full bg-fill-1 px-3 text-footnote text-label-2"
                 >
-                  <q.icon size={13} weight="bold" /> {t(q.label)}
+                  <q.icon size={13} weight="bold" /> {t(q.label, { lang: systemLanguage() })}
                 </button>
               ))}
             </div>
