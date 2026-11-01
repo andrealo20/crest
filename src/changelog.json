@@ -1,5 +1,26 @@
 [
   {
+    "version": "0.2.2",
+    "date": "2026-11-01",
+    "items": [
+      {
+        "en": "Set the size of the closed notch, capsule and line in Settings, Display"
+      },
+      {
+        "en": "Each reading of the closed notch sits next to its own icon, with coloured icons as an option"
+      },
+      {
+        "en": "A currency converter at the ECB reference rates; file conversion is gone"
+      },
+      {
+        "en": "Your profile picture in the GitHub tool, and a click on it opens your profile"
+      },
+      {
+        "en": "The installer shows the Crest icon"
+      }
+    ]
+  },
+  {
     "version": "0.2.1",
     "date": "2026-11-01",
     "items": [
