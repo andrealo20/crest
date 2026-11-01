@@ -772,6 +772,7 @@ dependencies = [
  "cpal",
  "hmac",
  "image",
+ "jiff",
  "quick-xml",
  "reqwest",
  "rqrr",

@@ -23,8 +23,13 @@ const LEGACY_PREFIX: &str = "Notch/";
 /// In the app data folder: the one-time copy from the legacy prefix has run.
 const MIGRATED_MARKER: &str = "credentials-migrated";
 
+/// Calendar sources keep their ICS link or CalDAV password as `calendar.<source id>` (src-tauri/src/calendar.rs).
+fn calendar_name(name: &str) -> bool {
+    name.strip_prefix("calendar.").is_some_and(|id| !id.is_empty() && id.len() <= 24 && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()))
+}
+
 fn target_name(name: &str) -> Result<String, String> {
-    if !ALLOWED.contains(&name) {
+    if !ALLOWED.contains(&name) && !calendar_name(name) {
         return Err(format!("Unknown key: {name}"));
     }
     Ok(format!("{PREFIX}{name}"))
@@ -130,6 +135,9 @@ mod tests {
         assert!(target_name("ai.other").is_err());
         assert!(legacy_target_name("Notch/ai.openai").is_err());
         assert!(target_name("").is_err());
+        assert_eq!(target_name("calendar.k3x9a").unwrap(), "Crest/calendar.k3x9a");
+        assert!(target_name("calendar.").is_err());
+        assert!(target_name("calendar.A/b").is_err());
     }
 
     #[test]

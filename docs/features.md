@@ -28,7 +28,7 @@ Notch and capsule show a row of parts, centred and in the order you choose:
 - AI quota rings (one colour per provider);
 - song title (or the current lyric line);
 - hardware readings: CPU, RAM and GPU, plus network, power, battery and temperature if you turn them on;
-- equalizer, clock (with seconds if you like) and today's GitHub contributions.
+- equalizer, clock (with seconds if you like), today's GitHub contributions and your next calendar event.
 
 Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel.
 
@@ -48,6 +48,7 @@ Notices appear over the row, one at a time:
 - a live notice from Windows or `crest-notify`, for 6 seconds;
 - a quota alert at 70% and 90%, for 5 seconds (it needs the AI quota rings turned on);
 - a new song, for 4 seconds, while the title part is off;
+- a calendar event about to start, 5 or 10 minutes before, until it starts or you dismiss it;
 - a due to-do, with buttons to snooze it 10 minutes or mark it done;
 - the water reminder, with buttons to log a drink or wait for the next one.
 
@@ -139,6 +140,14 @@ The volume and brightness HUD is a status alert too: when the volume or mute cha
     <td><img src="media/features/github.png" alt="GitHub activity: contribution calendar, yearly total, today and streaks" /></td>
   </tr>
 </table>
+
+## Calendar
+
+- **Calendar** shows today and the next six days as an agenda, each event with its calendar's colour, the time (or "All day") and the place. Past events of today are dimmed.
+- Sources are ICS links (the secret iCal address from Google Calendar, Outlook or iCloud, or any `webcal://` link) and CalDAV accounts (Nextcloud, Fastmail, iCloud, Radicale and others). It only reads; nothing is ever written back.
+- Recurring events are expanded in their own time zone (daily, weekly, monthly and yearly rules with intervals, counts, end dates and weekdays), with skipped and moved instances. Time zones can be IANA names, Windows names (Outlook) or ones defined in the file.
+- A notice in the closed notch 5 or 10 minutes before an event, and an optional **Next event** part that shows the title and time once an event is within 30 minutes to 8 hours.
+- The last good result is kept on disk, so the agenda still shows offline; a calendar that fails keeps its last events and shows the error in the settings.
 
 ## AI chat and usage
 
@@ -262,6 +271,13 @@ OpenRouter, DeepSeek and Z.ai need an API key, entered under **AI** once the car
 2. Under OAuth2, copy the **Client ID** and **Client Secret** into **Connections**.
 3. Under OAuth2, Redirects, add `http://localhost` and save. Without it Discord keeps asking for permission again.
 4. Join a call. Discord asks you once to confirm.
+
+**Calendar.** Under **Connections**, add a calendar:
+
+- *ICS link.* Google Calendar: Settings, your calendar, Integrate calendar, **Secret address in iCal format**. Outlook: Settings, Calendar, Shared calendars, **Publish a calendar**, then the ICS link. iCloud: share the calendar as a **Public Calendar** and copy the `webcal://` link. The link is stored in the Credential Manager, since anyone with it can read the calendar.
+- *CalDAV.* The server (for example `https://caldav.icloud.com`, or your Nextcloud or Fastmail CalDAV address), the user name and an app password (for iCloud: appleid.apple.com, Sign-In and Security, App-Specific Passwords). Crest finds the account's calendars on its own; a calendar's own address works too.
+
+Then switch on the Calendar tool. The notice and the **Next event** part's horizon are set in the same section; the part itself is switched on under **Display**.
 
 **Weather.** Works out of the box with your approximate location (city level, from your IP), looked up at each start while the location is automatic and the weather shows (the Weather tool or Overview). The locate button in the tool looks it up again; pick a city by hand to stop the lookups.
 

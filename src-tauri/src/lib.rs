@@ -1,6 +1,7 @@
 pub mod ai;
 mod audio;
 mod brightness;
+mod calendar;
 mod capture;
 mod clipboard;
 mod controls;
@@ -86,6 +87,7 @@ pub fn run() {
         .manage(terminal::TerminalState::default())
         .manage(launcher::LauncherState::default())
         .manage(github::GithubState::default())
+        .manage(calendar::CalendarState::default())
         .manage(notices::NoticesState::default())
         .manage(capture::CaptureState::default())
         .invoke_handler(tauri::generate_handler![
@@ -189,6 +191,7 @@ pub fn run() {
             launcher::launcher_shortcuts,
             github::github_contributions,
             github::github_open_profile,
+            calendar::calendar_fetch,
             notices::notices_configure,
             notices::notices_status,
             notices::notices_request_access,

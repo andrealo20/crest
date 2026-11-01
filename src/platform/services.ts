@@ -18,7 +18,10 @@ import { showcase, showcaseCall, showcaseFileSizes } from "../dev/showcase-data"
 
 // ---------- Secrets (Credential Manager) ----------
 
-export type SecretName = "t212.key" | "t212.secret" | "ai.anthropic" | "ai.openai" | "ai.openrouter" | "ai.custom" | "discord.secret" | "usage.deepseek" | "usage.zai" | "github.token" | PortfolioSecret;
+export type SecretName = "t212.key" | "t212.secret" | "ai.anthropic" | "ai.openai" | "ai.openrouter" | "ai.custom" | "discord.secret" | "usage.deepseek" | "usage.zai" | "github.token" | PortfolioSecret | CalendarSecret;
+
+/** A calendar source's ICS link or CalDAV app password (src-tauri/src/calendar.rs). */
+export type CalendarSecret = `calendar.${string}`;
 
 /** Read-only keys of the portfolio providers (src-tauri/src/trading/). */
 export type PortfolioSecret = "kraken.key" | "kraken.secret" | "coinbase.key" | "coinbase.secret" | "binance.key" | "binance.secret" | "bitpanda.key" | "etoro.key" | "etoro.user" | "ibkr.token" | "ibkr.query";
@@ -907,6 +910,65 @@ export function fetchGithub(user: string, force: boolean): Promise<GithubContrib
   });
   return new Promise((r) => setTimeout(() => r({ user, total: days.reduce((s, d) => s + d.count, 0), days, source: "page", fetchedAt: Date.now() }), 300));
 }
+// ---------- Calendar (src-tauri/src/calendar.rs) ----------
+
+/** A source as Rust needs it; an ICS link is not here, it is the source's secret. */
+export interface CalendarSourceIn {
+  id: string;
+  kind: "ics" | "caldav";
+  url: string;
+  user: string;
+  name: string;
+  color: string;
+}
+
+export interface CalendarInfo {
+  id: string;
+  source: string;
+  name: string;
+  color: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  calendar: string;
+  title: string;
+  location: string;
+  /** Epoch ms; an all-day event runs from local midnight to local midnight, end exclusive. */
+  start: number;
+  end: number;
+  allDay: boolean;
+}
+
+export interface CalendarData {
+  calendars: CalendarInfo[];
+  events: CalendarEvent[];
+  /** Per source: an error code (no-key, bad-url, auth, not-found, offline, too-large, parse, no-calendars, failed) and when its events were fetched. */
+  sources: { id: string; error: string | null; fetchedAt: number | null }[];
+  fetchedAt: number;
+}
+
+/** Events from yesterday to two weeks ahead; `force` skips Rust's ten minutes' cache. */
+export function fetchCalendar(sources: CalendarSourceIn[], force: boolean): Promise<CalendarData> {
+  if (isNative) return invoke<CalendarData>("calendar_fetch", { sources, force });
+  const day = new Date();
+  day.setHours(0, 0, 0, 0);
+  const at = (d: number, h: number, m = 0) => day.getTime() + d * 86_400_000 + (h * 60 + m) * 60_000;
+  const calendars = sources.map((s) => ({ id: s.id, source: s.id, name: s.name || "Calendar", color: s.color || "#419cff" }));
+  const c = (i: number) => calendars[i % Math.max(1, calendars.length)]?.id ?? "";
+  const sample: [number, string, string, number, number, boolean][] = [
+    [0, "Standup", "", at(0, 9, 30), at(0, 9, 45), false],
+    [1, "Lunch with Sam", "Café Central", at(0, 12, 30), at(0, 13, 30), false],
+    [0, "Design review", "Room 4", at(0, 16), at(0, 17), false],
+    [1, "Dentist", "", at(1, 8, 15), at(1, 9), false],
+    [0, "Sprint planning", "", at(1, 10), at(1, 11, 30), false],
+    [1, "Mum's birthday", "", at(2, 0), at(3, 0), true],
+    [0, "Release 0.3", "", at(3, 14), at(3, 15), false],
+  ];
+  const events = calendars.length ? sample.map(([i, title, location, start, end, allDay], n) => ({ id: `s${n}`, calendar: c(i), title, location, start, end, allDay })) : [];
+  return new Promise((r) => setTimeout(() => r({ calendars, events, sources: sources.map((s) => ({ id: s.id, error: null, fetchedAt: Date.now() })), fetchedAt: Date.now() }), 300));
+}
+
 // ---------- Live notices (src-tauri/src/notices.rs) ----------
 
 /** One notice from Windows or crest-notify, before the history gives it an id. */

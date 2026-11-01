@@ -10,6 +10,7 @@ import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
 import { NOTICE_DEFAULTS, normalizeNotices, type NoticeSettings } from "../features/notices/rules";
 import { WINDOW_DEFAULTS, normalizeWindow, type WindowSettings } from "../features/window/model";
 import { DOCK_DEFAULTS, normalizeDock, type Dock } from "../notch/edge";
+import { CALENDAR_DEFAULTS, normalizeCalendar, type CalendarSettings } from "../features/calendar/model";
 import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
@@ -101,6 +102,8 @@ export interface Settings {
   launcher: { favorites: Favorite[] | null; hotkeys: boolean };
   /** GitHub activity: the public username. An optional token is stored with the secrets. */
   github: { user: string };
+  /** Calendar: ICS links and CalDAV accounts (the link or app password is stored with the secrets), the notice before an event, the next-event part's horizon. */
+  calendar: CalendarSettings;
   /** Live notices: Windows notifications and crest-notify in the closed notch, with per-app rules and quiet hours. */
   notices: NoticeSettings;
   /** Window behaviour: full-screen and app rules, shortcuts, panel sizes and scale, close delay, mouse (src/features/window). */
@@ -139,11 +142,12 @@ export const TOOL_IDS = [
   "terminal",
   "launcher",
   "github",
+  "calendar",
   "notices",
   "capture",
 ] as const;
 
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "notices"]);
+const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "calendar", "notices"]);
 
 const defaults: Settings = {
   openMode: "hover",
@@ -181,6 +185,7 @@ const defaults: Settings = {
   system: { colors: "calm", iconColors: false, gpu: "", gpuIndex: 0, sort: "cpu" },
   launcher: { favorites: null, hotkeys: false },
   github: { user: "" },
+  calendar: CALENDAR_DEFAULTS,
   notices: NOTICE_DEFAULTS,
   behavior: WINDOW_DEFAULTS,
   dock: DOCK_DEFAULTS,
@@ -253,6 +258,7 @@ settings.set((s) => {
     // Only an explicit opt-in turns the keys on; an older saved `shortcuts: true` does not.
     launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true },
     github: { ...defaults.github, ...s.github },
+    calendar: normalizeCalendar(s.calendar),
     capture: { ...defaults.capture, ...s.capture },
     closed: normalizeClosed(s.closed),
     closedSize: normalizeClosedSize(s.closedSize),

@@ -7,7 +7,8 @@ Crest is a free, open-source Windows app by Andrea Loroni. It has no account, no
 ## What Crest keeps on your PC
 
 - Settings, to-dos, notes, timer presets, themes, the lyrics cache and the other tool data, in the app's data folders under your Windows profile (`%APPDATA%\io.github.andrealo20.crest` and `%LOCALAPPDATA%\io.github.andrealo20.crest`), or in the `data` folder next to Crest.exe for the portable build.
-- API keys and other secrets, in the Windows Credential Manager under "Crest/…". They are never written to a plain file.
+- API keys and other secrets, in the Windows Credential Manager under "Crest/…". They are never written to a plain file. Calendar links and CalDAV app passwords are kept there too, as "Crest/calendar.…".
+- The events of your calendars from yesterday to two weeks ahead (titles, places and times), in `calendar-cache.json` in the app's data folder, so the agenda shows offline. Removing a calendar drops its events from the file at the next refresh.
 - The vault (passwords and 2FA codes, off by default), in one file encrypted with Windows DPAPI and readable only under your Windows account. With Windows Hello turned on it is additionally sealed with a TPM-backed key.
 - Screenshots and recordings you take, in *Pictures\Crest\Screenshots* and *Videos\Crest\Recordings*.
 - A crash log (`crash.log` in the `logs` folder), written only when the app crashes or hits an uncaught error. It is not sent anywhere.
@@ -29,6 +30,7 @@ Every request goes straight from your PC to the service named here. On by defaul
 | Weather | api.open-meteo.com (coordinates), geocoding-api.open-meteo.com (the city you search), get.geojs.io or ipwho.is (approximate location from your IP) | While the weather shows; the location lookup once per start, and never after you pick a city |
 | Discord | The Discord app on your PC, discord.com (sign-in), cdn.discordapp.com (avatars) | After you connect it, while you are in a call |
 | GitHub activity | github.com, or api.github.com with a token; github.com and avatars.githubusercontent.com (profile picture) | Once an hour while it shows, after you set a username |
+| Calendar | The hosts of the ICS links and CalDAV servers you add (for example calendar.google.com, outlook.office365.com or outlook.live.com, p01-caldav.icloud.com or caldav.icloud.com), with your user name and app password for CalDAV; only the time range is sent, nothing else about you | When you add or edit a calendar, then every 12 minutes while the Calendar tool is on, and when you refresh |
 | Hardware | ICMP ping to 1.1.1.1 | Every 2 seconds while the Hardware tool is open |
 | Lyrics | lrclib.net (title, artist and length of the song) | While the lyrics panel is open or a lyrics option of the closed notch is on |
 | Updates | github.com and raw.githubusercontent.com (anonymous) | Once a day; can be turned off in **Settings → General → Updates** |

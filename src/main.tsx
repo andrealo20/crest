@@ -24,6 +24,7 @@ import { startMusic } from "./features/now-playing/music";
 import { startThemes } from "./features/themes/store";
 import { startLauncher } from "./features/launcher/store";
 import { startGithub } from "./features/github/store";
+import { startCalendar } from "./features/calendar/store";
 import { screen, startWindowBehavior } from "./features/window/store";
 import { startCapture } from "./features/capture/store";
 import { showcase } from "./dev/showcase-data";
@@ -47,6 +48,7 @@ startMusic();
 startThemes();
 startLauncher();
 startGithub();
+startCalendar();
 startWindowBehavior();
 startCapture();
 

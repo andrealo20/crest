@@ -5,24 +5,24 @@ import { CLOSED_DEFAULTS, PART_IDS, normalizeClosed, trackCaption } from "./part
 test("defaults and upgrade", () => {
   assert.deepEqual(normalizeClosed(undefined), CLOSED_DEFAULTS);
   const n = normalizeClosed({ order: ["clock", "bogus", "rings"], parts: { clock: true }, readings: { gpu: false } });
-  assert.deepEqual(n.order, ["clock", "rings", "timer", "discord", "title", "readings", "equalizer", "github"]);
+  assert.deepEqual(n.order, ["clock", "rings", "timer", "discord", "title", "readings", "equalizer", "github", "calendar"]);
   assert.equal(n.parts.clock, true); assert.equal(n.parts.rings, true); assert.equal(n.readings.gpu, false); assert.equal(n.readings.cpu, true);
   assert.equal(normalizeClosed({ quotaAlerts: "yes" }).quotaAlerts, true);
 });
 test("default values", () => {
   assert.deepEqual(CLOSED_DEFAULTS.order, [...PART_IDS]);
-  assert.deepEqual(CLOSED_DEFAULTS.parts, { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false });
+  assert.deepEqual(CLOSED_DEFAULTS.parts, { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, calendar: false });
   assert.deepEqual(CLOSED_DEFAULTS.readings, { cpu: true, ram: true, gpu: true, net: false, power: false, battery: false, temp: false });
   assert.equal(CLOSED_DEFAULTS.clockSeconds, false); assert.equal(CLOSED_DEFAULTS.lineProgress, true); assert.equal(CLOSED_DEFAULTS.quotaAlerts, true);
 });
 test("total on any shape", () => {
   for (const bad of [null, 0, "x", [], true, { order: "timer", parts: 3, readings: null }, { order: [1, null, {}] }]) assert.deepEqual(normalizeClosed(bad), CLOSED_DEFAULTS);
-  assert.deepEqual(normalizeClosed({ order: ["rings", "rings", "timer", "rings"] }).order, ["rings", "timer", "discord", "title", "readings", "equalizer", "clock", "github"]);
+  assert.deepEqual(normalizeClosed({ order: ["rings", "rings", "timer", "rings"] }).order, ["rings", "timer", "discord", "title", "readings", "equalizer", "clock", "github", "calendar"]);
 });
 test("keeps valid saved values", () => {
   const saved = { order: ["clock", "title", "readings", "equalizer", "rings", "discord", "timer"], parts: { timer: false, title: true, clock: true }, readings: { cpu: false, ram: false, gpu: true }, clockSeconds: true, lineProgress: false, quotaAlerts: false };
   const n = normalizeClosed(saved);
-  assert.deepEqual(n.order, [...saved.order, "github"]);
+  assert.deepEqual(n.order, [...saved.order, "github", "calendar"]);
   assert.equal(n.parts.timer, false); assert.equal(n.parts.title, true); assert.equal(n.parts.rings, true); assert.equal(n.parts.readings, false);
   assert.deepEqual(n.readings, { cpu: false, ram: false, gpu: true, net: false, power: false, battery: false, temp: false });
   assert.equal(normalizeClosed({ readings: { net: true, temp: "x" } }).readings.net, true);

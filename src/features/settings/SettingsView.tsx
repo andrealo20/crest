@@ -4,6 +4,7 @@ import {
   AppWindow,
   ArrowsInLineHorizontal,
   BellSimple,
+  CalendarBlank,
   ChartDonut,
   CheckCircle,
   Clock,
@@ -49,6 +50,7 @@ import { UsageSettings } from "../usage/UsageSettings";
 import { SystemSettings } from "../system/SystemSettings";
 import { LauncherSettings } from "../launcher/LauncherSettings";
 import { GithubSettings } from "../github/GithubSettings";
+import { CalendarSettings } from "../calendar/CalendarSettings";
 import { NoticesSettings } from "../notices/NoticesSettings";
 import { WindowSettings, keyText } from "../window/WindowSettings";
 import { keycaps } from "../window/hotkeys";
@@ -99,6 +101,7 @@ const sectionPage: Record<string, PageId> = {
   system: "tools",
   launcher: "tools",
   github: "accounts",
+  calendar: "accounts",
   notices: "notices",
 };
 
@@ -206,6 +209,7 @@ export function SettingsView() {
                 <Discord />
                 <TradingSettings />
                 <GithubSettings />
+                <CalendarSettings />
                 <KeysNote />
               </>
             )}
@@ -674,6 +678,7 @@ const partInfo: Record<PartId, { label: string; icon: Icon }> = {
   equalizer: { label: "Equalizer", icon: Waveform },
   clock: { label: "Uhrzeit", icon: Clock },
   github: { label: "GitHub heute", icon: GithubLogo },
+  calendar: { label: "Nächster Termin", icon: CalendarBlank },
 };
 
 /** Small labelled switch for a part's own options, next to its main switch. */

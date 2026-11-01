@@ -24,6 +24,7 @@ import { Clock, clockWidth } from "./parts/Clock";
 import { TimerPart, timerWidth } from "./parts/TimerPart";
 import { DISCORD_WIDTH, DiscordPart } from "./parts/DiscordPart";
 import { GithubPart, githubWidth, useGithubToday } from "./parts/GithubPart";
+import { NextEventPart, nextEventWidth, useNextEvent } from "./parts/NextEventPart";
 
 /** True while `on`, and for `ms` after it turns off: GSMTC reports a short pause on seek and track change. */
 export function useHeld(on: boolean, ms: number): boolean {
@@ -55,6 +56,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   const readings = useReadings(closed, useGamingLive());
   const dots = usePrivacyDots();
   const gh = useGithubToday();
+  const next = useNextEvent();
   const [hovered, setHovered] = useState(false);
   // The title stays while paused, like the cover; it only scrolls while playing.
   const music = s.music;
@@ -81,6 +83,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
     else if (id === "discord" && call) fixed(id, DISCORD_WIDTH, () => <DiscordPart call={call} paused={covered} />);
     else if (id === "equalizer" && np && playing) fixed(id, 16, () => <Equalizer playing={np.isPlaying && !covered} />);
     else if (id === "github" && gh) fixed(id, githubWidth(gh.count), () => <GithubPart count={gh.count} level={gh.level} />);
+    else if (id === "calendar" && next) fixed(id, nextEventWidth(next.text), () => <NextEventPart text={next.text} color={next.color} />);
     else if (id === "clock") fixed(id, clockWidth(closed.clockSeconds, s.units.clock === "12"), () => <Clock seconds={closed.clockSeconds} h12={s.units.clock === "12"} paused={covered} />);
     else if (id === "title" && caption) {
       const text = measureText(caption);

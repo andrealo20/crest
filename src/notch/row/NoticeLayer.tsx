@@ -16,6 +16,8 @@ import { dueTasks } from "../../features/todos/store";
 import { reminderNotice } from "../../features/todos/ReminderNotice";
 import { waterDue } from "../../features/water/store";
 import { waterNotice } from "../../features/water/WaterNotice";
+import { calendarDue } from "../../features/calendar/store";
+import { calendarNotice } from "../../features/calendar/CalendarNotice";
 import { brandName } from "../../ui/brands";
 import { formatIn } from "../../lib/format";
 import { t } from "../../i18n";
@@ -99,7 +101,7 @@ function useTrackCaption(on: boolean): string | null {
  * Covers the closed row with the most important notice: a running recording (time, pause and stop, until it ends),
  * a finished timer (until dismissed by a click), a screenshot or recording just saved, a status alert
  * (charger, network, headphones, the volume and brightness HUD), a live notice from Windows or crest-notify (features/notices), a quota that crossed a level,
- * a new track while the title part is off, a due to-do or the water reminder.
+ * a new track while the title part is off, an event about to start, a due to-do or the water reminder.
  * Reports its content width while one shows, null otherwise; the shape takes that width. Mounted with the row, and on the idle line
  * or in focus mode while a finished timer, a recording, a status alert or a due to-do opens it into the notch (`urgentOnly`).
  * Drawn `scale` times its designed size like the row; `max` is the widest it gets at that size.
@@ -117,6 +119,7 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
   const pop = popping.use();
   const due = dueTasks.use();
   const drink = waterDue.use();
+  const meeting = calendarDue.use();
   const rec = recording.use();
   const recRunning = rec.phase === "recording";
   useSecondTick(recRunning, rec.at);
@@ -132,6 +135,7 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
     notice: !urgentOnly && !!pop,
     quota: !urgentOnly && !!rise && closed.quotaAlerts,
     track: !urgentOnly && !!track,
+    calendar: !urgentOnly && !!meeting,
     reminder: due.length > 0,
     water: !urgentOnly && drink,
   });
@@ -259,7 +263,8 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
     width = Math.min(textW, max);
     key = `track:${track}`;
     body = <Marquee text={track} textWidth={textW} width={width} paused={false} once />;
-  } else if (kind === "reminder") ({ width, key, body } = reminderNotice(due));
+  } else if (kind === "calendar" && meeting) ({ width, key, body } = calendarNotice(meeting));
+  else if (kind === "reminder") ({ width, key, body } = reminderNotice(due));
   else if (kind === "water") ({ width, key, body } = waterNotice(productivity.water.goalMl));
   const dpi = (window.devicePixelRatio || 1) * scale;
   // An even number of device pixels, as the row, so the centred notice starts on a whole one.
