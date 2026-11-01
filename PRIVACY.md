@@ -32,7 +32,9 @@ Every request goes straight from your PC to the service named here. On by defaul
 | GitHub activity | github.com, or api.github.com with a token; github.com and avatars.githubusercontent.com (profile picture) | Once an hour while it shows, after you set a username |
 | Calendar | The hosts of the ICS links and CalDAV servers you add (for example calendar.google.com, outlook.office365.com or outlook.live.com, p01-caldav.icloud.com or caldav.icloud.com), with your user name and app password for CalDAV; only the time range is sent, nothing else about you | When you add or edit a calendar, then every 12 minutes while the Calendar tool is on, and when you refresh |
 | Hardware | ICMP ping to 1.1.1.1 | Every 2 seconds while the Hardware tool is open |
-| Lyrics | lrclib.net (title, artist and length of the song) | While the lyrics panel is open or a lyrics option of the closed notch is on |
+| Lyrics | The sources you turned on in **Settings → Display → Lyrics**, in their order, each with the title, artist and length of the song: lrclib.net (on by default), lyrics.kugou.com (Kugou) and music.163.com (NetEase Cloud Music), both unofficial APIs and off by default | While the lyrics panel is open or a lyrics option of the closed notch is on, for songs up to 20 minutes; each answer is cached |
+| Lyrics translation | The Ask provider you chose, with your key: the lyric lines of the song | Only with **Translate with Ask** on, once per song without a translation from its source |
+| Kanji dictionary | github.com and release-assets.githubusercontent.com (a fixed JMdict release, anonymous) | Only when you press **Download** under Romanisation |
 | Updates | github.com and raw.githubusercontent.com (anonymous) | Once a day; can be turned off in **Settings → General → Updates** |
 
 Live notices read other apps' Windows notifications on your PC, after you allow it, and never send them anywhere. `crest-notify` talks to Crest over a local named pipe and makes no network request.

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cacheKey, lineAt, lookupAllowed, lyricsOf, parseLrc, pickRecord, searchTerms, untilNext } from "./lrc.ts";
+import { cacheKey, foundOf, lineAt, lookupAllowed, lyricsOf, parseLrc, pickRecord, searchTerms, untilNext, withExtra } from "./lrc.ts";
 
 test("parses stamps, repeats, offset and tags", () => {
   const lines = parseLrc("[ar:Someone]\n[ti:Song]\n[00:12.50]First\r\n[00:05.00][01:02.3]Chorus  again\n[00:20.000]\nno stamp\n[1:03:5]x");
@@ -75,8 +75,46 @@ test("search result choice", () => {
 });
 
 test("what a record means", () => {
-  assert.deepEqual(lyricsOf({ instrumental: true, syncedLyrics: null }), { kind: "instrumental" });
+  assert.deepEqual(lyricsOf(foundOf({ instrumental: true, syncedLyrics: null })), { kind: "instrumental" });
   assert.deepEqual(lyricsOf(null), { kind: "none" });
-  assert.deepEqual(lyricsOf({ syncedLyrics: "[00:01.00]\n[00:02.00]" }), { kind: "none" });
-  assert.deepEqual(lyricsOf({ syncedLyrics: "[00:01.00]a" }), { kind: "synced", lines: [{ time: 1, text: "a" }] });
+  assert.deepEqual(lyricsOf(foundOf(null)), { kind: "none" });
+  assert.deepEqual(lyricsOf(foundOf({ syncedLyrics: "[00:01.00]\n[00:02.00]" })), { kind: "none" });
+  assert.deepEqual(lyricsOf(foundOf({ syncedLyrics: "[00:01.00]a" })), { kind: "synced", lines: [{ time: 1, text: "a" }] });
+});
+
+test("enhanced LRC: words with their stamps", () => {
+  const [line] = parseLrc("[00:01.00]<00:01.00>Hello <00:01.50>big  <00:02.00>world<00:02.80>");
+  assert.deepEqual(line, {
+    time: 1,
+    text: "Hello big world",
+    words: [{ time: 1, text: "Hello " }, { time: 1.5, text: "big  " }, { time: 2, text: "world" }],
+  });
+  // A repeated line moves its words with it; the offset moves them too; a lone space joins the word before.
+  const lines = parseLrc("[offset:500]\n[00:10.00][00:30.00]<00:10.00>la<00:10.40> <00:10.50>la");
+  assert.deepEqual(lines.map((l) => l.words!.map((w) => w.time)), [[9.5, 10], [29.5, 30]]);
+  assert.deepEqual(lines[0].words!.map((w) => w.text), ["la ", "la"]);
+  // Text before the first stamp joins the first word; a line without word stamps has no words.
+  assert.deepEqual(parseLrc("[00:01.00]Oh <00:01.20>yeah")[0].words, [{ time: 1.2, text: "Oh yeah" }]);
+  assert.equal(parseLrc("[00:01.00]plain")[0].words, undefined);
+  assert.deepEqual(parseLrc("[00:20.00]<00:20.00> <00:21.00>"), [{ time: 20, text: "" }]);
+});
+
+test("translation and romanisation go on the line with the same stamp", () => {
+  const found = {
+    lrc: "[00:01.43]沈むように\n[00:08.83]夜に\n[00:20.00]",
+    instrumental: false,
+    translation: "[by:someone]\n[00:01.430]Like sinking\n[00:20.00]",
+    roman: "[00:01.40]shizumu youni\n[00:08.83]夜に",
+  };
+  assert.deepEqual(lyricsOf(found), {
+    kind: "synced",
+    lines: [
+      { time: 1.43, text: "沈むように", translation: "Like sinking", roman: "shizumu youni" },
+      { time: 8.83, text: "夜に" },
+      { time: 20, text: "" },
+    ],
+  });
+  const plain = [{ time: 1, text: "a" }];
+  assert.equal(withExtra(plain, null, "translation"), plain);
+  assert.equal(withExtra(plain, "no stamps", "translation"), plain);
 });

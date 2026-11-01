@@ -12,6 +12,7 @@ import { WINDOW_DEFAULTS, normalizeWindow, type WindowSettings } from "../featur
 import { DOCK_DEFAULTS, normalizeDock, type Dock } from "../notch/edge";
 import { CALENDAR_DEFAULTS, normalizeCalendar, type CalendarSettings } from "../features/calendar/model";
 import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
+import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "low" | "medium" | "high" | "xhigh";
@@ -88,8 +89,20 @@ export interface Settings {
   /**
    * Music: the lyrics panel in Now Playing is open; the Song title part shows the current lyric line; the closed notch
    * shows only cover and line while synced lyrics play; the player shown whatever else plays (media app ID, null = automatic).
+   * Lyrics: the sources in the order they are asked; word-by-word highlighting where the source times words; the source's
+   * translation; a translation through the Ask provider for songs without one; romanisation of Japanese, Chinese and Korean.
    */
-  music: { lyricsOpen: boolean; titleLyrics: boolean; notchLyrics: boolean; pinned: string | null };
+  music: {
+    lyricsOpen: boolean;
+    titleLyrics: boolean;
+    notchLyrics: boolean;
+    pinned: string | null;
+    lyricSources: LyricSourceSetting[];
+    lyricWords: boolean;
+    lyricTranslation: boolean;
+    lyricAskTranslation: boolean;
+    lyricRoman: boolean;
+  };
   /** Panel theme, custom themes and the day and night switch (src/features/themes). */
   themes: ThemeSettings;
   /** Hardware tool: colours of the readings, the GPU shown (adapter name, "" = automatic: the busiest; index among adapters of that name), process ranking. */
@@ -180,7 +193,17 @@ const defaults: Settings = {
   timer: { look: "clean" },
   productivity: { reminderSound: true, quotes: false, water: WATER_DEFAULTS },
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
-  music: { lyricsOpen: false, titleLyrics: false, notchLyrics: false, pinned: null },
+  music: {
+    lyricsOpen: false,
+    titleLyrics: false,
+    notchLyrics: false,
+    pinned: null,
+    lyricSources: LYRIC_SOURCE_DEFAULTS,
+    lyricWords: true,
+    lyricTranslation: true,
+    lyricAskTranslation: false,
+    lyricRoman: false,
+  },
   themes: THEME_DEFAULTS,
   system: { colors: "calm", iconColors: false, gpu: "", gpuIndex: 0, sort: "cpu" },
   launcher: { favorites: null, hotkeys: false },
@@ -252,7 +275,7 @@ settings.set((s) => {
     timer: { look: normalizeLook(s.timer?.look) },
     productivity: { ...defaults.productivity, ...s.productivity, water: normalizeWater(s.productivity?.water) },
     terminal: { ...defaults.terminal, ...s.terminal },
-    music: { ...defaults.music, ...s.music },
+    music: { ...defaults.music, ...s.music, lyricSources: normalizeSources(s.music?.lyricSources) },
     themes: normalizeThemeSettings(s.themes),
     system: { ...defaults.system, ...s.system },
     // Only an explicit opt-in turns the keys on; an older saved `shortcuts: true` does not.

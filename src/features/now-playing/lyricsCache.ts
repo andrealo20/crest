@@ -7,19 +7,21 @@ export interface KeyValue {
   removeItem(key: string): void;
 }
 
-/** `lrc` = the synced text; null with `instrumental` false = LRCLIB has none. */
+/** `lrc` = the synced text; null with `instrumental` false = no source has it. Translation and romanisation as LRC. */
 export interface CacheEntry {
   lrc: string | null;
   instrumental: boolean;
+  translation?: string | null;
+  roman?: string | null;
   /** When it was fetched (ms). */
   at: number;
 }
 
 export const CACHE_PREFIX = "crest:lyrics:";
 const INDEX = `${CACHE_PREFIX}index`;
-/** About 2 to 5 KB per song. */
+/** About 2 to 5 KB per song, up to 15 with word stamps and a translation. */
 export const CACHE_MAX = 200;
-/** A song without lyrics is asked again after this; LRCLIB keeps growing. Found lyrics never expire. */
+/** A song without lyrics is asked again after this; the sources keep growing. Found lyrics never expire. */
 export const NONE_TTL = 3 * 24 * 3600 * 1000;
 
 const isEntry = (v: unknown): v is CacheEntry =>
@@ -51,7 +53,7 @@ export function createLyricsCache(disk: KeyValue | null, max = CACHE_MAX) {
     memory.delete(key);
     safe(() => disk?.removeItem(CACHE_PREFIX + key), undefined);
   };
-  const fresh = (e: CacheEntry, now: number) => e.lrc !== null || e.instrumental || now - e.at < NONE_TTL;
+  const fresh = (e: CacheEntry, now: number) => e.lrc !== null || e.instrumental || !!e.translation || now - e.at < NONE_TTL;
 
   return {
     get(key: string, now = Date.now()): CacheEntry | undefined {

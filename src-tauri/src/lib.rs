@@ -13,6 +13,7 @@ mod fps;
 mod github;
 mod hit_test;
 mod loopback;
+mod lyrics;
 mod launcher;
 mod media;
 mod media_pick;
@@ -23,6 +24,7 @@ mod notify_wire;
 mod osd;
 pub mod portable;
 mod privacy;
+mod romanize;
 mod screen_policy;
 pub mod secrets;
 mod shelf;
@@ -193,6 +195,11 @@ pub fn run() {
             github::github_contributions,
             github::github_open_profile,
             calendar::calendar_fetch,
+            lyrics::lyrics_fetch,
+            romanize::lyrics_romanize,
+            romanize::lyrics_dict_status,
+            romanize::lyrics_dict_download,
+            romanize::lyrics_dict_remove,
             notices::notices_configure,
             notices::notices_status,
             notices::notices_request_access,

@@ -49,7 +49,7 @@ A notch at the edge of your Windows screen that opens on hover, click or **Ctrl 
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="docs/media/features/now-playing.png" alt="Now Playing with cover, controls and synced lyrics" /><br /><b>Now Playing</b>: any player, with a live equalizer and synced lyrics</td>
+    <td width="50%" valign="top"><img src="docs/media/features/now-playing.png" alt="Now Playing with cover, controls and synced lyrics" /><br /><b>Now Playing</b>: any player, with a live equalizer and synced lyrics, word by word where the source times words, with translation and romanisation for Japanese, Chinese and Korean</td>
     <td width="50%" valign="top"><img src="docs/media/features/overview.png" alt="Overview: time, weather, the song playing, focus and volume" /><br /><b>Overview</b>: time, weather, the song playing, focus and volume</td>
   </tr>
   <tr>
@@ -131,6 +131,7 @@ Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Wi
 - Hiding the Windows volume and brightness indicator follows [Bloom](https://github.com/SehajveerSingh2005/bloom) (GPL-3.0, license text in [licenses/Bloom-LICENSE](licenses/Bloom-LICENSE)).
 - The notch proportions were derived from [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT).
 - The terminal uses [xterm.js](https://github.com/xtermjs/xterm.js) (MIT, [licenses/xterm-MIT.txt](licenses/xterm-MIT.txt)).
+- Pinyin for Chinese lyrics comes from [rust-pinyin](https://github.com/mozillazg/rust-pinyin) (MIT, [licenses/pinyin-MIT.txt](licenses/pinyin-MIT.txt)). Kanji readings use [JMdict](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0) in the [jmdict-simplified](https://github.com/scriptin/jmdict-simplified) format, downloaded on demand and not shipped with Crest.
 - The text is set in [Inter](https://github.com/rsms/inter) (SIL Open Font License 1.1, [licenses/Inter-OFL.txt](licenses/Inter-OFL.txt)), bundled through Fontsource.
 - The icons are [Phosphor](https://github.com/phosphor-icons/react) (MIT, [licenses/Phosphor-MIT.txt](licenses/Phosphor-MIT.txt)).
 - The calendar maps Windows time zone names to IANA names with the table from [jiff](https://github.com/BurntSushi/jiff) (MIT, [licenses/jiff-LICENSE](licenses/jiff-LICENSE)), which also supplies the time zone database.
