@@ -23,25 +23,13 @@
   <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=for-the-badge&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="总下载量" /></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgxMS40djExLjRIMHpNMTIuNiAwSDI0djExLjRIMTIuNnpNMCAxMi42aDExLjRWMjRIMHpNMTIuNiAxMi42SDI0VjI0SDEyLjZ6Ii8%2BPC9zdmc%2B" alt="平台：Windows 10 和 11" />
   <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/badge/arch-x64%20%7C%20ARM64-0091BD?style=for-the-badge&logo=arm&logoColor=white" alt="架构：x64 和 ARM64" /></a>
+  <img src="https://img.shields.io/badge/languages-EN%20%C2%B7%20ZH%20%C2%B7%20ES%20%C2%B7%20HI%20%C2%B7%20AR%20%C2%B7%20FR%20%C2%B7%20PT%20%C2%B7%20RU%20%C2%B7%20JA%20%C2%B7%20DE%20%C2%B7%20IT-FF9A4D?style=for-the-badge&logo=googletranslate&logoColor=white" alt="语言：英语、简体中文、西班牙语、印地语、阿拉伯语、法语、葡萄牙语、俄语、日语、德语、意大利语" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-A42E2B?style=for-the-badge&logo=gnu&logoColor=white" alt="许可证：GPL-3.0" /></a>
+  <a href="https://github.com/sponsors/andrealo20"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="在 GitHub 上赞助" /></a>
 </p>
 
 <p align="center">
   <a href="README.md"><img src="https://img.shields.io/badge/README-English-7B61FF?style=for-the-badge" alt="English README" /></a>
-</p>
-
-<p align="center">
-  <img src="docs/media/badges/lang-en.svg" alt="English" />
-  <img src="docs/media/badges/lang-zh-CN.svg" alt="简体中文" />
-  <img src="docs/media/badges/lang-es.svg" alt="Español" />
-  <img src="docs/media/badges/lang-hi.svg" alt="हिन्दी" />
-  <img src="docs/media/badges/lang-ar.svg" alt="العربية" />
-  <img src="docs/media/badges/lang-fr.svg" alt="Français" />
-  <img src="docs/media/badges/lang-pt-BR.svg" alt="Português" />
-  <img src="docs/media/badges/lang-ru.svg" alt="Русский" />
-  <img src="docs/media/badges/lang-ja.svg" alt="日本語" />
-  <img src="docs/media/badges/lang-de.svg" alt="Deutsch" />
-  <img src="docs/media/badges/lang-it.svg" alt="Italiano" />
 </p>
 
 <p align="center">
