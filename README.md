@@ -16,7 +16,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgxMS40djExLjRIMHpNMTIuNiAwSDI0djExLjRIMTIuNnpNMCAxMi42aDExLjRWMjRIMHpNMTIuNiAxMi42SDI0VjI0SDEyLjZ6Ii8%2BPC9zdmc%2B" alt="Platform: Windows 10 and 11" />
-  <img src="https://img.shields.io/badge/Microsoft%20Store-coming%20soon-0067B8?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZD0iTTggNi41VjVhNCA0IDAgMCAxIDggMHYxLjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8%2BPHJlY3QgeD0iMyIgeT0iNiIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE3IiByeD0iMiIgZmlsbD0iI2ZmZiIvPjxyZWN0IHg9IjciIHk9IjEwIiB3aWR0aD0iNC42IiBoZWlnaHQ9IjQuNiIgZmlsbD0iI0YyNTAyMiIvPjxyZWN0IHg9IjEyLjQiIHk9IjEwIiB3aWR0aD0iNC42IiBoZWlnaHQ9IjQuNiIgZmlsbD0iIzdGQkEwMCIvPjxyZWN0IHg9IjciIHk9IjE1LjQiIHdpZHRoPSI0LjYiIGhlaWdodD0iNC42IiBmaWxsPSIjMDBBNEVGIi8%2BPHJlY3QgeD0iMTIuNCIgeT0iMTUuNCIgd2lkdGg9IjQuNiIgaGVpZ2h0PSI0LjYiIGZpbGw9IiNGRkI5MDAiLz48L3N2Zz4%3D" alt="Microsoft Store: coming soon" />
+  <a href="https://apps.microsoft.com/detail/9N2KXJ2924KS"><img src="https://img.shields.io/badge/Microsoft%20Store-get%20it-0067B8?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZD0iTTggNi41VjVhNCA0IDAgMCAxIDggMHYxLjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8%2BPHJlY3QgeD0iMyIgeT0iNiIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE3IiByeD0iMiIgZmlsbD0iI2ZmZiIvPjxyZWN0IHg9IjciIHk9IjEwIiB3aWR0aD0iNC42IiBoZWlnaHQ9IjQuNiIgZmlsbD0iI0YyNTAyMiIvPjxyZWN0IHg9IjEyLjQiIHk9IjEwIiB3aWR0aD0iNC42IiBoZWlnaHQ9IjQuNiIgZmlsbD0iIzdGQkEwMCIvPjxyZWN0IHg9IjciIHk9IjE1LjQiIHdpZHRoPSI0LjYiIGhlaWdodD0iNC42IiBmaWxsPSIjMDBBNEVGIi8%2BPHJlY3QgeD0iMTIuNCIgeT0iMTUuNCIgd2lkdGg9IjQuNiIgaGVpZ2h0PSI0LjYiIGZpbGw9IiNGRkI5MDAiLz48L3N2Zz4%3D" alt="Get Crest Island from the Microsoft Store" /></a>
   <a href="https://github.com/sponsors/andrealo20"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" /></a>
 </p>
 
@@ -104,9 +104,9 @@ Every feature in detail, with setup steps for each integration: [docs/features.m
 
 ## Install
 
+- **Microsoft Store:** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS), signed by Microsoft and kept up to date by the Store.
 - **Installer:** download `Crest_x.y.z_x64-setup.exe` from the [latest release](https://github.com/andrealo20/crest/releases/latest) and run it. It installs for your user only. The installer is not code-signed yet, so SmartScreen may warn on first launch: click **More info → Run anyway**.
 - **Portable:** unzip `Crest-x.y.z-Portable-x64.zip` anywhere you can write to and run `Crest.exe`. Nothing is installed.
-- **Microsoft Store:** coming soon.
 
 Windows 11 or Windows 10, 64-bit.
 

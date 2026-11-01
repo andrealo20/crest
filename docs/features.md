@@ -253,7 +253,7 @@ OpenRouter, DeepSeek and Z.ai need an API key, entered under **AI** once the car
 
 ## Install in detail
 
-**Microsoft Store.** Coming soon. Until then, use one of the downloads below.
+**Microsoft Store.** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS) is the Store build: Microsoft signs it and the Store installs its updates, so it has no update check of its own and no portable copy. Start with Windows goes through the package and stays off until you turn it on.
 
 **Installer.**
 
