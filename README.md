@@ -22,6 +22,7 @@
   <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=for-the-badge&label=release&color=7B61FF&logo=github&logoColor=white" alt="Latest release" /></a>
   <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=for-the-badge&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="Total downloads" /></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgxMS40djExLjRIMHpNMTIuNiAwSDI0djExLjRIMTIuNnpNMCAxMi42aDExLjRWMjRIMHpNMTIuNiAxMi42SDI0VjI0SDEyLjZ6Ii8%2BPC9zdmc%2B" alt="Platform: Windows 10 and 11" />
+  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/badge/arch-x64%20%7C%20ARM64-0091BD?style=for-the-badge&logo=arm&logoColor=white" alt="Architectures: x64 and ARM64" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-A42E2B?style=for-the-badge&logo=gnu&logoColor=white" alt="License: GPL-3.0" /></a>
 </p>
 
