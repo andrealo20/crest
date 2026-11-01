@@ -1,14 +1,26 @@
 # Builds the Microsoft Store package: crest.exe and crest-notify.exe from the `store` Cargo feature (no self-update, never
 # portable, Start with Windows through the package's startup task), the logos and packaging/store/AppxManifest.xml, packed
-# unsigned into dist-store/Crest-<version>-x64.msix (outside dist/, which every frontend build empties) for Partner Center, which signs it.
-#   powershell -File scripts/store-package.ps1
-#   powershell -File scripts/store-package.ps1 -TestSign   # also a self-signed copy to install on this PC
+# unsigned into dist-store/Crest-<version>-<arch>.msix (outside dist/, which every frontend build empties) for Partner Center, which signs it.
+#   powershell -File scripts/store-package.ps1                # x64
+#   powershell -File scripts/store-package.ps1 -Arch arm64    # needs the MSVC ARM64 build tools and clang (for ring)
+#   powershell -File scripts/store-package.ps1 -Bundle        # both, plus dist-store/Crest-<version>.msixbundle
+#   powershell -File scripts/store-package.ps1 -TestSign      # also a self-signed copy to install on this PC
 # Run it from PowerShell: in Git Bash /usr/bin/link shadows the MSVC linker.
-param([switch]$TestSign)
+#
+# Partner Center, adding arm64: open the app's new submission, Packages, and upload Crest-<version>-x64.msix and
+# Crest-<version>-arm64.msix together (or the one .msixbundle from -Bundle instead of both). Both carry the same version;
+# the Store hands each PC the package of its architecture. Check that the Packages table lists x64 and arm64, then
+# submit. Device family availability stays Windows.Desktop.
+param(
+    [ValidateSet('x64', 'arm64')][string]$Arch = 'x64',
+    [switch]$Bundle,
+    [switch]$TestSign
+)
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 $publisher = 'CN=6324E174-874E-4AF4-BEFF-97AD455C0AFD'
+$rustTargets = @{ x64 = 'x86_64-pc-windows-msvc'; arm64 = 'aarch64-pc-windows-msvc' }
 
 # Package versions have four parts and the Store wants the last one 0: 0.2.0 becomes 0.2.0.0.
 function Get-StoreVersion([string]$Version) {
@@ -36,33 +48,53 @@ $tools = Join-Path $sdk.FullName 'x64'
 
 # Its own target folder, so the Store build never mixes with the GitHub build's files.
 $target = Join-Path $root 'src-tauri\target-store'
-$previousTarget = $env:CARGO_TARGET_DIR
-$env:CARGO_TARGET_DIR = $target
-Push-Location $root
-try {
-    # npx.cmd: the npx.ps1 shim rereads the caller's command line and loses splatted arguments.
-    Invoke-Tool npx.cmd tauri build --no-bundle --features store
-}
-finally {
-    Pop-Location
-    $env:CARGO_TARGET_DIR = $previousTarget
-}
-
-$stage = Join-Path $target 'store-staging'
-if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse }
-New-Item -ItemType Directory -Path $stage | Out-Null
-foreach ($exe in 'crest.exe', 'crest-notify.exe') { Copy-Item -LiteralPath (Join-Path $target "release\$exe") -Destination $stage }
-foreach ($logo in 'Square44x44Logo', 'Square71x71Logo', 'Square150x150Logo', 'StoreLogo') {
-    Copy-Item -LiteralPath (Join-Path $root "src-tauri\icons\$logo.png") -Destination $stage
-}
-$manifest = (Get-Content -Raw (Join-Path $root 'packaging\store\AppxManifest.xml')).Replace('{version}', $storeVersion)
-[IO.File]::WriteAllText((Join-Path $stage 'AppxManifest.xml'), $manifest, [Text.UTF8Encoding]::new($false))
-
 $out = Join-Path $root 'dist-store'
 New-Item -ItemType Directory -Path $out -Force | Out-Null
-$msix = Join-Path $out "Crest-$version-x64.msix"
-Invoke-Tool (Join-Path $tools 'makeappx.exe') pack /d $stage /p $msix /o
-Get-Item -LiteralPath $msix
+
+# One .msix for one architecture; the Rust target is always named, so an ARM PC building x64 gets x64.
+function New-StorePackage([string]$PackageArch) {
+    $rustTarget = $rustTargets[$PackageArch]
+    $previousTarget = $env:CARGO_TARGET_DIR
+    $env:CARGO_TARGET_DIR = $target
+    Push-Location $root
+    try {
+        # npx.cmd: the npx.ps1 shim rereads the caller's command line and loses splatted arguments.
+        # Out-Host: the tools' output must not become part of what this function returns.
+        Invoke-Tool npx.cmd tauri build --no-bundle --features store --target $rustTarget | Out-Host
+    }
+    finally {
+        Pop-Location
+        $env:CARGO_TARGET_DIR = $previousTarget
+    }
+
+    $stage = Join-Path $target "store-staging-$PackageArch"
+    if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse }
+    New-Item -ItemType Directory -Path $stage | Out-Null
+    foreach ($exe in 'crest.exe', 'crest-notify.exe') { Copy-Item -LiteralPath (Join-Path $target "$rustTarget\release\$exe") -Destination $stage }
+    foreach ($logo in 'Square44x44Logo', 'Square71x71Logo', 'Square150x150Logo', 'StoreLogo') {
+        Copy-Item -LiteralPath (Join-Path $root "src-tauri\icons\$logo.png") -Destination $stage
+    }
+    $manifest = (Get-Content -Raw (Join-Path $root 'packaging\store\AppxManifest.xml')).Replace('{version}', $storeVersion).Replace('{arch}', $PackageArch)
+    [IO.File]::WriteAllText((Join-Path $stage 'AppxManifest.xml'), $manifest, [Text.UTF8Encoding]::new($false))
+
+    $msix = Join-Path $out "Crest-$version-$PackageArch.msix"
+    Invoke-Tool (Join-Path $tools 'makeappx.exe') pack /d $stage /p $msix /o | Out-Host
+    $msix
+}
+
+if ($Bundle) {
+    # makeappx bundles every package in a folder: only these two go in.
+    $bundleDir = Join-Path $target 'store-bundle'
+    if (Test-Path -LiteralPath $bundleDir) { Remove-Item -LiteralPath $bundleDir -Recurse }
+    New-Item -ItemType Directory -Path $bundleDir | Out-Null
+    foreach ($a in 'x64', 'arm64') { Copy-Item -LiteralPath (New-StorePackage $a) -Destination $bundleDir }
+    $package = Join-Path $out "Crest-$version.msixbundle"
+    Invoke-Tool (Join-Path $tools 'makeappx.exe') bundle /d $bundleDir /p $package /bv $storeVersion /o
+}
+else {
+    $package = New-StorePackage $Arch
+}
+Get-Item -LiteralPath $package
 
 if ($TestSign) {
     # A self-signed code-signing certificate in the user's store, its subject equal to the package's Publisher. No admin needed.
@@ -74,12 +106,12 @@ if ($TestSign) {
     }
     $cer = Join-Path $env:TEMP 'crest-store-test.cer'
     Export-Certificate -Cert $cert -FilePath $cer | Out-Null
-    $signed = Join-Path $out "Crest-$version-x64-test.msix"
-    Copy-Item -LiteralPath $msix -Destination $signed -Force
+    $signed = Join-Path $out ([IO.Path]::GetFileNameWithoutExtension($package) + '-test' + [IO.Path]::GetExtension($package))
+    Copy-Item -LiteralPath $package -Destination $signed -Force
     Invoke-Tool (Join-Path $tools 'signtool.exe') sign /fd SHA256 /sha1 $cert.Thumbprint $signed
     Write-Host ''
     Write-Host 'Test copy signed. Trust its certificate once, from an elevated PowerShell:'
     Write-Host "  Import-Certificate -FilePath '$cer' -CertStoreLocation Cert:\LocalMachine\TrustedPeople"
-    Write-Host 'Then install it (no admin needed):'
+    Write-Host 'Then install it (no admin needed; an arm64 package only installs on an ARM PC):'
     Write-Host "  Add-AppxPackage -Path '$signed'"
 }

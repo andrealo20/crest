@@ -31,7 +31,21 @@ import { content, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, stopAlarm, type AlarmDuration } from "../../lib/sound";
 import { nav, navigate } from "../../notch/nav";
 import { setupTab, tabs } from "../../notch/tabs";
-import { autostart, display, openSponsors, secrets, unlockFps, type ChangelogEntry, type MonitorInfo, type SecretName } from "../../platform/services";
+import {
+  autostart,
+  build,
+  display,
+  openSponsors,
+  portable,
+  secrets,
+  systemDiagnostics,
+  unlockFps,
+  type ChangelogEntry,
+  type MonitorInfo,
+  type SecretName,
+} from "../../platform/services";
+import { diagnosticsText } from "./diagnostics";
+import { github } from "../github/store";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
 import { DiscordLogo } from "../../ui/brands";
 import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
@@ -250,6 +264,7 @@ function Updates() {
         )}
       </Row>
       {u.store && <Row label={t("Updates kommen über den Microsoft Store")} />}
+      <DiagnosticsRow />
       <PortableNote />
       <AnimatePresence initial={false}>
         {(u.phase === "available" || u.phase === "downloading") && u.version && (
@@ -300,6 +315,54 @@ function Updates() {
         </Row>
       )}
     </Group>
+  );
+}
+
+/** Copies a plain-text block for bug reports (diagnostics.ts): versions, Windows, monitors, settings and error codes only. */
+function DiagnosticsRow() {
+  const [copied, setCopied] = useState<"ok" | "failed" | null>(null);
+  const copy = async () => {
+    const s = settings.get();
+    const u = update.get();
+    try {
+      const [sys, info, port] = await Promise.all([systemDiagnostics(), build.info(), portable.info()]);
+      const text = diagnosticsText({
+        version: u.current ?? "unknown",
+        build: info.store ? "store" : port.portable ? "portable" : "installer",
+        os: sys.os,
+        osBuild: sys.build,
+        arch: sys.arch,
+        machine: sys.machine,
+        scales: sys.scales,
+        panelScale: s.behavior.scale,
+        tools: s.tools.filter((x) => x.enabled).map((x) => x.id),
+        closedStyle: s.display.idleStyle,
+        edge: s.dock.edge,
+        anchor: s.dock.anchor,
+        errors: [
+          ["update", u.phase === "error" ? "check-failed" : null],
+          ["github", github.get().error],
+          ["fps", fps.get().error],
+          ["discord", discordState.get().error],
+        ],
+      });
+      await navigator.clipboard.writeText(text);
+      setCopied("ok");
+    } catch {
+      setCopied("failed");
+    }
+    window.setTimeout(() => setCopied(null), 1600);
+  };
+  const hint =
+    copied === "ok"
+      ? t("Kopiert")
+      : copied === "failed"
+        ? t("Kopieren fehlgeschlagen")
+        : t("Version, Windows, Bildschirme und Einstellungen für einen Fehlerbericht, ohne persönliche Daten");
+  return (
+    <Row label={t("Diagnose kopieren")} hint={hint}>
+      <Button onClick={() => void copy()}>{t("Kopieren")}</Button>
+    </Row>
   );
 }
 

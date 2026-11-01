@@ -287,19 +287,23 @@ Then switch on the Calendar tool. The notice and the **Next event** part's horiz
 
 **Installer.**
 
-1. Download `Crest_x.y.z_x64-setup.exe` from the [latest release](https://github.com/andrealo20/crest/releases/latest).
+1. Download `Crest_x.y.z_x64-setup.exe` (on a Windows on ARM PC, `Crest_x.y.z_arm64-setup.exe`) from the [latest release](https://github.com/andrealo20/crest/releases/latest).
 2. Run it. No Node, Rust or admin rights needed; it installs for your user only.
 3. The notch appears at the top of your screen and starts with Windows from then on.
 
 The installer is not code-signed yet, so Windows SmartScreen may warn on first launch. Click **More info → Run anyway**.
 
-**Portable zip.** Download Crest-x.y.z-Portable-x64.zip instead, unzip it anywhere you can write to and run Crest.exe. Nothing is installed: settings, notes and caches stay in a data folder next to it, crest-notify.exe comes along, and updates replace both in place after checking their signature. Start with Windows is off for a portable copy until you switch it on. API keys stay in the Windows Credential Manager of each PC. Details are in README-portable.txt inside the zip.
+**Portable zip.** Download Crest-x.y.z-Portable-x64.zip (or Crest-x.y.z-Portable-arm64.zip on ARM) instead, unzip it anywhere you can write to and run Crest.exe. Nothing is installed: settings, notes and caches stay in a data folder next to it, crest-notify.exe comes along, and updates replace both in place after checking their signature. Start with Windows is off for a portable copy until you switch it on. API keys stay in the Windows Credential Manager of each PC. Details are in README-portable.txt inside the zip.
+
+**Checksums.** Each release has a `SHA256SUMS` file listing the SHA-256 of every file in it. `sha256sum -c SHA256SUMS --ignore-missing` checks the files you downloaded; in PowerShell, compare `Get-FileHash <file>` with its line.
 
 Crest keeps its settings and data apart from L4-Notchbar, so both can be installed at the same time.
 
-**Requirements.** Windows 11 or Windows 10, 64-bit. Built and tested on Windows 11; Windows 10 should work but is untested. Crest uses WebView2; if it is missing, the installer fetches it automatically.
+**Requirements.** Windows 11 or Windows 10, 64-bit, on an x64 or ARM64 PC. Built and tested on Windows 11; Windows 10 should work but is untested. Crest uses WebView2; if it is missing, the installer fetches it automatically.
 
 **Crash log.** If Crest crashes, panics and uncaught interface errors are appended to `crash.log` in `%LOCALAPPDATA%\io.github.andrealo20.crest\logs` (installer), or in `data\logs` next to Crest.exe (portable). Past 512 KB it is renamed to `crash.old.log` and a new one starts. The file stays on your PC; attach it to a bug report if you like.
+
+**Copy diagnostics.** Settings, General, Updates has Copy diagnostics, which puts a short plain-text block on the clipboard for a bug report: the app version and build (installer, portable or Store), the Windows edition and build, the app's and the PC's architecture, the number of monitors and their scale, the panel scale, the enabled tools, the closed style and edge, and the codes of current errors (update check, GitHub, FPS, Discord). It never includes your user name, the PC's name, file paths, keys, tokens, account names or your location; an error that is not one of Crest's own codes shows as `other`.
 
 ## Keys and the vault
 

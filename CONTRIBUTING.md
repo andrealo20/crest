@@ -38,9 +38,13 @@ Run Tauri and Cargo commands from PowerShell. In Git Bash, `/usr/bin/link` shado
 The Store gets its own package, built with the `store` Cargo feature:
 
 ```powershell
-powershell -File scripts/store-package.ps1             # result: dist-store/Crest-<version>-x64.msix
-powershell -File scripts/store-package.ps1 -TestSign   # also a self-signed copy to install on this PC
+powershell -File scripts/store-package.ps1               # result: dist-store/Crest-<version>-x64.msix
+powershell -File scripts/store-package.ps1 -Arch arm64   # dist-store/Crest-<version>-arm64.msix
+powershell -File scripts/store-package.ps1 -Bundle       # both, and dist-store/Crest-<version>.msixbundle
+powershell -File scripts/store-package.ps1 -TestSign     # also a self-signed copy to install on this PC
 ```
+
+An arm64 package cross-compiles on an x64 PC when Visual Studio has the "MSVC ARM64 build tools" and "C++ Clang compiler for Windows" components (ring, a TLS dependency, compiles its ARM64 code with clang). Partner Center takes the x64 and arm64 `.msix` side by side in one submission, or the `.msixbundle` in their place; the steps are at the top of the script.
 
 The script needs a Windows SDK for `makeappx` and `signtool` and takes the newest one under `C:\Program Files (x86)\Windows Kits\10\bin`. It builds into `src-tauri/target-store`, apart from the normal build, and gives the package the version from `tauri.conf.json` with a fourth part of 0. The manifest is `packaging/store/AppxManifest.xml`; Crest's entry also carries an alias for crest-notify, so `crest-notify` runs by name from any terminal once the package is installed. Upload the unsigned `.msix` to Partner Center, which signs Store packages itself.
 
@@ -58,7 +62,7 @@ git commit -am "Release 0.2.0"
 git push
 ```
 
-The workflow builds the signed installer and publishes release `v0.2.0` with the installer, its signature and `latest.json`, which installed apps use to offer the update. Pushes without a version bump don't create a release. The signing key lives in the repository secret `TAURI_SIGNING_PRIVATE_KEY`.
+The workflow builds the signed installers and portable zips for x64 and arm64 (arm64 cross-compiled on the x64 runner) and publishes release `v0.2.0` with them, their signatures and `latest.json`, which installed apps and portable copies use to offer the update. A last job adds `SHA256SUMS` with the SHA-256 of every file of the release. Pushes without a version bump don't create a release. The signing key lives in the repository secret `TAURI_SIGNING_PRIVATE_KEY`.
 
 ### Project layout
 

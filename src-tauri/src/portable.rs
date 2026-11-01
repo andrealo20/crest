@@ -3,8 +3,9 @@
 //! Secrets stay in Windows Credential Manager on purpose. The installer never ships the marker, so
 //! an installed copy or a build output is never portable.
 //!
-//! Updating in place: the release's latest.json has a `windows-x86_64-portable` entry for the
-//! portable zip with its minisign signature. The updater plugin checks that entry and verifies the
+//! Updating in place: the release's latest.json has a `windows-x86_64-portable` and a `windows-aarch64-portable`
+//! entry for the portable zips with their minisign signatures; a copy reads the one of the architecture it was
+//! built for. The updater plugin checks that entry and verifies the
 //! download; the new executable is written as `Crest.exe.new`, the running one is renamed to
 //! `Crest.exe.old` (Windows allows renaming a running executable), the new one takes its name and is
 //! started with `--after-update <pid>`, which waits for this process to exit before it runs (the
@@ -25,8 +26,9 @@ use tauri_plugin_updater::UpdaterExt;
 
 pub const MARKER: &str = "Crest.portable";
 pub const DATA: &str = "data";
-/// The latest.json platform key of the portable zip (release.yml).
-const TARGET: &str = "windows-x86_64-portable";
+/// The latest.json platform key of the portable zip for this build's architecture (release.yml). An x64 copy running
+/// emulated on an ARM PC stays on the x64 zip.
+const TARGET: &str = if cfg!(target_arch = "aarch64") { "windows-aarch64-portable" } else { "windows-x86_64-portable" };
 const DOWNLOAD_PAGE: &str = "https://github.com/andrealo20/crest/releases/latest";
 const AFTER_UPDATE: &str = "--after-update";
 /// The command-line tool shipped next to Crest.exe (src/bin/crest-notify.rs), updated with it.
@@ -265,6 +267,12 @@ mod tests {
         assert_eq!(fs::read_dir(&dir).unwrap().count(), 0);
         assert!(!can_write(&dir.join("missing")));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn portable_entry_matches_the_architecture() {
+        // The keys release.yml writes: windows-x86_64-portable and windows-aarch64-portable.
+        assert_eq!(TARGET, format!("windows-{}-portable", std::env::consts::ARCH));
     }
 
     #[test]

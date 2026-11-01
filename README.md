@@ -103,10 +103,12 @@ Every feature in detail, with setup steps for each integration: [docs/features.m
 ## Install
 
 - **Microsoft Store:** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS), signed by Microsoft and kept up to date by the Store.
-- **Installer:** download `Crest_x.y.z_x64-setup.exe` from the [latest release](https://github.com/andrealo20/crest/releases/latest) and run it. It installs for your user only. The installer is not code-signed yet, so SmartScreen may warn on first launch: click **More info → Run anyway**.
-- **Portable:** unzip `Crest-x.y.z-Portable-x64.zip` anywhere you can write to and run `Crest.exe`. Nothing is installed.
+- **Installer:** download `Crest_x.y.z_x64-setup.exe` (or `Crest_x.y.z_arm64-setup.exe` on a Windows on ARM PC) from the [latest release](https://github.com/andrealo20/crest/releases/latest) and run it. It installs for your user only. The installer is not code-signed yet, so SmartScreen may warn on first launch: click **More info → Run anyway**.
+- **Portable:** unzip `Crest-x.y.z-Portable-x64.zip` (or `-Portable-arm64.zip`) anywhere you can write to and run `Crest.exe`. Nothing is installed.
 
-Windows 11 or Windows 10, 64-bit.
+Every release has a `SHA256SUMS` file with the SHA-256 of each download, to check with `sha256sum -c SHA256SUMS --ignore-missing` or `Get-FileHash`.
+
+Windows 11 or Windows 10, 64-bit (x64 or ARM64).
 
 ## Your data stays on your PC
 

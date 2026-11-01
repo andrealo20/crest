@@ -1,7 +1,7 @@
 name: Release
 
-# Pushing a new version (src-tauri/tauri.conf.json) to main publishes a release:
-# signed installer, .sig and latest.json for the in-app updater.
+# Pushing a new version (src-tauri/tauri.conf.json) to main publishes a release: signed installers and portable zips for
+# x64 and arm64, their .sig files, latest.json for the in-app updater and, uploaded last, SHA256SUMS over all of them.
 # Pushes without a version bump only run the check and stop.
 on:
   push:
@@ -55,10 +55,29 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
+  # Both architectures in one job, one after the other: the second tauri-action run finds the release by its tag and
+  # merges its entries into the latest.json the first one wrote, and nothing else writes latest.json at the same time.
+  # arm64 is cross-compiled on the x64 runner (MSVC ARM64 build tools and clang, which ring needs, are in the image).
   build:
     needs: check
     if: needs.check.outputs.release == 'true'
     runs-on: windows-latest
+    env:
+      # Both tauri-action runs pass the same body: latest.json takes its notes from the run that writes it last.
+      RELEASE_BODY: |
+        **Install:** download `Crest_${{ needs.check.outputs.version }}_x64-setup.exe` below and run it. No admin rights or developer tools needed. On a Windows on ARM PC (Snapdragon and other ARM64 laptops), take `Crest_${{ needs.check.outputs.version }}_arm64-setup.exe` instead.
+        Already installed? The app offers this version under **Settings → General → Updates**.
+
+        **Portable:** `Crest-${{ needs.check.outputs.version }}-Portable-x64.zip` (or `-Portable-arm64.zip` on ARM) needs no install: unzip it anywhere you can write to and run Crest.exe. It keeps its data in a `data` folder next to it and updates itself in place.
+
+        **Checksums:** `SHA256SUMS` lists the SHA-256 of every file of this release. Check a download with `sha256sum -c SHA256SUMS --ignore-missing`, or in PowerShell compare `Get-FileHash <file>` with its line.
+
+        Windows SmartScreen may warn because the installer is not code-signed yet: **More info → Run anyway**.
+
+        ${{ needs.check.outputs.highlights }}
+
+        ### Changes
+        ${{ needs.check.outputs.notes }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -66,45 +85,55 @@ jobs:
           node-version: 22
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc,aarch64-pc-windows-msvc
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
       - run: npm ci
-      # crest-notify ships in the portable zip (scripts/portable-package.ps1): a missing exe must stop the run before
-      # tauri-action publishes the installer release.
+      # crest-notify ships in the portable zips (scripts/portable-package.ps1): a missing exe must stop the run before
+      # tauri-action publishes anything. Building it for arm64 here also compiles the app's library and every dependency
+      # for arm64, so a cross-compile problem stops the run before the x64 release is out.
       - name: Build crest-notify
         shell: pwsh
         working-directory: src-tauri
         run: |
-          cargo build --release --bin crest-notify
-          if ($LASTEXITCODE) { exit 1 }
-          if (-not (Test-Path target/release/crest-notify.exe)) { Write-Error "target/release/crest-notify.exe is missing"; exit 1 }
-      - uses: tauri-apps/tauri-action@v0
+          foreach ($target in 'x86_64-pc-windows-msvc', 'aarch64-pc-windows-msvc') {
+            cargo build --release --bin crest-notify --target $target
+            if ($LASTEXITCODE) { exit 1 }
+            if (-not (Test-Path "target/$target/release/crest-notify.exe")) { Write-Error "target/$target/release/crest-notify.exe is missing"; exit 1 }
+          }
+      - name: Installer x64
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
+          args: --target x86_64-pc-windows-msvc
           tagName: v__VERSION__
           releaseName: Crest v__VERSION__
           releaseDraft: false
           prerelease: false
-          releaseBody: |
-            **Install:** download `Crest_${{ needs.check.outputs.version }}_x64-setup.exe` below and run it. No admin rights or developer tools needed.
-            Already installed? The app offers this version under **Settings → General → Updates**.
+          releaseBody: ${{ env.RELEASE_BODY }}
+      # latest.json gains windows-aarch64 and windows-aarch64-nsis next to the x64 entries.
+      - name: Installer arm64
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          args: --target aarch64-pc-windows-msvc
+          tagName: v__VERSION__
+          releaseName: Crest v__VERSION__
+          releaseDraft: false
+          prerelease: false
+          releaseBody: ${{ env.RELEASE_BODY }}
 
-            **Portable:** `Crest-${{ needs.check.outputs.version }}-Portable-x64.zip` needs no install: unzip it anywhere you can write to and run Crest.exe. It keeps its data in a `data` folder next to it and updates itself in place.
-
-            Windows SmartScreen may warn because the installer is not code-signed yet: **More info → Run anyway**.
-
-            ${{ needs.check.outputs.highlights }}
-
-            ### Changes
-            ${{ needs.check.outputs.notes }}
-
-      # Portable zip next to the installer: signed like it, and listed in latest.json as windows-x86_64-portable,
-      # the entry a portable copy updates from (src-tauri/src/portable.rs).
-      - name: Portable package
+      # Portable zips next to the installers: signed like them, and listed in latest.json as windows-x86_64-portable and
+      # windows-aarch64-portable, the entries a portable copy updates from (src-tauri/src/portable.rs).
+      - name: Portable packages
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -113,17 +142,47 @@ jobs:
           VERSION: ${{ needs.check.outputs.version }}
         run: |
           $tag = "v$env:VERSION"
-          $zip = "Crest-$env:VERSION-Portable-x64.zip"
-          ./scripts/portable-package.ps1 -Exe src-tauri/target/release/crest.exe -Destination $zip
-          npx tauri signer sign $zip
-          if ($LASTEXITCODE) { exit 1 }
-          gh release upload $tag $zip "$zip.sig" --clobber
-          if ($LASTEXITCODE) { exit 1 }
           gh release download $tag --pattern latest.json --clobber
           if ($LASTEXITCODE) { exit 1 }
-          # Node, not ConvertFrom-Json: that turns pub_date into a DateTime and writes it back in another format.
-          # The script checks that pub_date and the installer entries are unchanged before it writes.
-          node scripts/portable-latest.mjs latest.json "$zip.sig" "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/$zip"
-          if ($LASTEXITCODE) { exit 1 }
+          foreach ($build in @(@{ Target = 'x86_64-pc-windows-msvc'; Arch = 'x86_64'; Name = 'x64' }, @{ Target = 'aarch64-pc-windows-msvc'; Arch = 'aarch64'; Name = 'arm64' })) {
+            $zip = "Crest-$env:VERSION-Portable-$($build.Name).zip"
+            ./scripts/portable-package.ps1 -Exe "src-tauri/target/$($build.Target)/release/crest.exe" -Destination $zip
+            npx tauri signer sign $zip
+            if ($LASTEXITCODE) { exit 1 }
+            gh release upload $tag $zip "$zip.sig" --clobber
+            if ($LASTEXITCODE) { exit 1 }
+            # Node, not ConvertFrom-Json: that turns pub_date into a DateTime and writes it back in another format.
+            # The script checks that pub_date and every other entry are unchanged before it writes.
+            node scripts/portable-latest.mjs latest.json $build.Arch "$zip.sig" "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/$zip"
+            if ($LASTEXITCODE) { exit 1 }
+          }
           gh release upload $tag latest.json --clobber
           if ($LASTEXITCODE) { exit 1 }
+
+  # Last, once every other asset is in place: SHA256SUMS over all of them, in the format `sha256sum -c` reads.
+  checksums:
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="v$VERSION"
+          mkdir assets
+          cd assets
+          gh release download "$tag" -R "$GITHUB_REPOSITORY" --pattern '*'
+          rm -f SHA256SUMS
+          # The release is complete: both installers and zips with their signatures, and all six updater entries.
+          for f in "Crest_${VERSION}_x64-setup.exe" "Crest_${VERSION}_arm64-setup.exe" "Crest-${VERSION}-Portable-x64.zip" "Crest-${VERSION}-Portable-arm64.zip"; do
+            if [ ! -s "$f" ] || [ ! -s "$f.sig" ]; then echo "::error::$f or $f.sig is missing from the release"; exit 1; fi
+          done
+          for k in windows-x86_64 windows-x86_64-nsis windows-x86_64-portable windows-aarch64 windows-aarch64-nsis windows-aarch64-portable; do
+            jq -e --arg k "$k" '.platforms[$k].url and .platforms[$k].signature' latest.json >/dev/null || { echo "::error::latest.json has no $k entry"; exit 1; }
+          done
+          sha256sum -- * > ../SHA256SUMS
+          sha256sum -c ../SHA256SUMS
+          cd ..
+          cat SHA256SUMS
+          gh release upload "$tag" SHA256SUMS -R "$GITHUB_REPOSITORY" --clobber

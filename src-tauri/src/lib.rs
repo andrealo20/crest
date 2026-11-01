@@ -171,6 +171,7 @@ pub fn run() {
             autostart_get,
             autostart_set,
             build_info,
+            diagnostics_info,
             open_sponsors,
             timer_window::timer_window_open,
             timer_window::timer_window_close,
@@ -285,6 +286,33 @@ fn build_info() -> serde_json::Value {
     serde_json::json!({ "store": cfg!(feature = "store") })
 }
 
+/// For Copy diagnostics (Settings, General): Windows edition and build, the architecture of this build and of the PC
+/// (an x64 build on an ARM PC runs emulated), and each monitor's scale. Nothing about the user, the PC's name or a path.
+#[tauri::command]
+fn diagnostics_info(window: tauri::WebviewWindow) -> serde_json::Value {
+    let scales: Vec<f64> = window.available_monitors().unwrap_or_default().iter().map(|m| m.scale_factor()).collect();
+    serde_json::json!({
+        "os": sysinfo::System::long_os_version(),
+        "build": sysinfo::System::kernel_version(),
+        "arch": std::env::consts::ARCH,
+        "machine": native_machine(),
+        "scales": scales,
+    })
+}
+
+/// The PC's own architecture, which GetSystemInfo hides from an emulated process.
+fn native_machine() -> Option<&'static str> {
+    use windows::Win32::System::SystemInformation::{IMAGE_FILE_MACHINE, IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_ARM64};
+    use windows::Win32::System::Threading::{GetCurrentProcess, IsWow64Process2};
+    let (mut process, mut native) = (IMAGE_FILE_MACHINE::default(), IMAGE_FILE_MACHINE::default());
+    unsafe { IsWow64Process2(GetCurrentProcess(), &mut process, Some(&mut native)) }.ok()?;
+    match native {
+        IMAGE_FILE_MACHINE_AMD64 => Some("x86_64"),
+        IMAGE_FILE_MACHINE_ARM64 => Some("aarch64"),
+        _ => Some("other"),
+    }
+}
+
 /// Opens the GitHub Sponsors page in the default browser. The address is fixed here, so the interface cannot open anything else.
 #[tauri::command]
 fn open_sponsors() -> Result<(), String> {
@@ -392,4 +420,17 @@ fn build_tray(app: &App) -> tauri::Result<()> {
         })
         .build(app)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn native_machine_is_known_and_matches_a_native_build() {
+        let native = super::native_machine();
+        assert!(matches!(native, Some("x86_64" | "aarch64")), "{native:?}");
+        // An arm64 build never runs emulated; an x64 one may, on an ARM PC.
+        if cfg!(target_arch = "aarch64") {
+            assert_eq!(native, Some("aarch64"));
+        }
+    }
 }

@@ -313,6 +313,20 @@ export const build = {
   info: (): Promise<{ store: boolean }> => (buildInfo ??= isNative ? invoke<{ store: boolean }>("build_info") : Promise.resolve({ store: false })),
 };
 
+export interface SystemDiagnostics {
+  os: string | null;
+  build: string | null;
+  arch: string;
+  machine: string | null;
+  scales: number[];
+}
+
+/** Windows, architecture and monitor scales for Copy diagnostics (lib.rs diagnostics_info). */
+export const systemDiagnostics = (): Promise<SystemDiagnostics> =>
+  isNative
+    ? invoke<SystemDiagnostics>("diagnostics_info")
+    : Promise.resolve({ os: "Windows 11 Pro", build: "26100", arch: "x86_64", machine: "x86_64", scales: [1.5, 1] });
+
 /** A found update: version + install (downloads, installs, restarts). */
 export interface UpdateHandle {
   version: string;

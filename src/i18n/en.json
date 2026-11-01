@@ -160,6 +160,8 @@
  "Jetzt": "Now",
  "Jetzt aktualisieren": "Update now",
  "Jetzt suchen": "Check now",
+ "Diagnose kopieren": "Copy diagnostics",
+ "Version, Windows, Bildschirme und Einstellungen für einen Fehlerbericht, ohne persönliche Daten": "Version, Windows, monitors and settings for a bug report, with no personal data",
  "Kein Anruf": "No call",
  "Kein API-Schlüssel für {p} – in den Einstellungen eintragen.": "No API key for {p}: add one in Settings.",
  "Keine Anbieter aktiv": "No providers enabled",
