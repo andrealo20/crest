@@ -28,8 +28,8 @@ import {
 } from "@phosphor-icons/react";
 import { content, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, stopAlarm, type AlarmDuration } from "../../lib/sound";
-import { nav } from "../../notch/nav";
-import { tabs } from "../../notch/tabs";
+import { nav, navigate } from "../../notch/nav";
+import { setupTab, tabs } from "../../notch/tabs";
 import { autostart, display, openSponsors, secrets, unlockFps, type ChangelogEntry, type MonitorInfo, type SecretName } from "../../platform/services";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
 import { DiscordLogo } from "../../ui/brands";
@@ -394,29 +394,11 @@ function Ask() {
   );
 }
 
-function General() {
+/** Open on hover or click, and the hover delay (also in the first-run setup). */
+export function OpenRows() {
   const s = settings.use();
-  const openKey = hotkeyStatus.use().open;
-  const [auto, setAuto] = useState<boolean | null>(null);
-  const [autoError, setAutoError] = useState<string | null>(null);
-  useEffect(() => {
-    void autostart.get().then(setAuto);
-  }, []);
-
   return (
-    <Group>
-      <Row label={t("Uhrzeit")}>
-        <Segmented
-          id="clock-format"
-          size="sm"
-          value={s.units.clock}
-          onChange={(clock) => updateSettings((p) => ({ units: { ...p.units, clock } }))}
-          options={[
-            { value: "24", label: t("24 Std.") },
-            { value: "12", label: t("12 Std.") },
-          ]}
-        />
-      </Row>
+    <>
       <Row label={t("Öffnen")}>
         <Segmented
           id="open-mode"
@@ -448,6 +430,58 @@ function General() {
           </motion.div>
         )}
       </AnimatePresence>
+    </>
+  );
+}
+
+/** The open shortcut as keycaps, with a warning when another program holds it. */
+export function ShortcutRow() {
+  const keys = settings.use().behavior.hotkeys.open;
+  const openKey = hotkeyStatus.use().open;
+  return (
+    <Row
+      label={t("Tastenkürzel")}
+      hint={
+        openKey === "in-use" ? (
+          <span className="text-orange">{t("Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv; ändern unter Fenster")}</span>
+        ) : (
+          t("Öffnet und schließt die Notch von überall; ändern unter Fenster")
+        )
+      }
+    >
+      <span className="flex items-center gap-1 text-caption text-label-2">
+        <Keyboard size={13} weight="bold" className="text-label-3" />
+        {keycaps(keys).map(keyText).map((k) => (
+          <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">{k}</kbd>
+        ))}
+      </span>
+    </Row>
+  );
+}
+
+function General() {
+  const s = settings.use();
+  const [auto, setAuto] = useState<boolean | null>(null);
+  const [autoError, setAutoError] = useState<string | null>(null);
+  useEffect(() => {
+    void autostart.get().then(setAuto);
+  }, []);
+
+  return (
+    <Group>
+      <Row label={t("Uhrzeit")}>
+        <Segmented
+          id="clock-format"
+          size="sm"
+          value={s.units.clock}
+          onChange={(clock) => updateSettings((p) => ({ units: { ...p.units, clock } }))}
+          options={[
+            { value: "24", label: t("24 Std.") },
+            { value: "12", label: t("12 Std.") },
+          ]}
+        />
+      </Row>
+      <OpenRows />
       <Row label={t("Schließen-Verzögerung")} hint={t("Wie lange die Notch offen bleibt, nachdem der Zeiger sie verlassen hat")}>
         <Segmented
           id="close-delay"
@@ -478,22 +512,9 @@ function General() {
           />
         )}
       </Row>
-      <Row
-        label={t("Tastenkürzel")}
-        hint={
-          openKey === "in-use" ? (
-            <span className="text-orange">{t("Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv; ändern unter Fenster")}</span>
-          ) : (
-            t("Öffnet und schließt die Notch von überall; ändern unter Fenster")
-          )
-        }
-      >
-        <span className="flex items-center gap-1 text-caption text-label-2">
-          <Keyboard size={13} weight="bold" className="text-label-3" />
-          {keycaps(s.behavior.hotkeys.open).map(keyText).map((k) => (
-            <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">{k}</kbd>
-          ))}
-        </span>
+      <ShortcutRow />
+      <Row label={t("Einrichtung")} hint={t("Voreinstellung, Aussehen und Öffnen noch einmal wählen")}>
+        <Button onClick={() => navigate(setupTab.id)}>{t("Erneut starten")}</Button>
       </Row>
     </Group>
   );
@@ -539,30 +560,7 @@ function Display() {
           </Button>
         </Row>
       )}
-      <div className="pb-3">
-        <Row
-          label={t("Geschlossen")}
-          hint={
-            d.idleStyle === "line"
-              ? t("Nur eine dünne Linie, ein abgelaufener Timer klappt trotzdem auf")
-              : d.idleStyle === "capsule"
-                ? t("Schwebt frei, zum Verschieben ziehen")
-                : t("Die Notch zeigt Musik, Timer und Co.")
-          }
-        />
-        <div className="px-3">
-          <StyleCards
-            label={t("Geschlossen")}
-            value={d.idleStyle}
-            onChange={(idleStyle) => updateSettings((cur) => ({ display: { ...cur.display, idleStyle } }))}
-            options={[
-              { value: "notch", label: t("Notch"), preview: <ShapePreview d="M6 0H54C51 0 50 1.5 50 4V8C50 11 48 13 45 13H15C12 13 10 11 10 8V4C10 1.5 9 0 6 0Z" /> },
-              { value: "capsule", label: t("Kapsel"), preview: <ShapePreview d="M16.5 4H43.5A4.5 4.5 0 0 1 43.5 13H16.5A4.5 4.5 0 0 1 16.5 4Z" /> },
-              { value: "line", label: t("Linie"), preview: <ShapePreview d="M15 0H45A1 1 0 0 1 45 2H15A1 1 0 0 1 15 0Z" /> },
-            ]}
-          />
-        </div>
-      </div>
+      <ClosedStyle />
       <SizeSettings />
       <ClosedParts />
       <Row label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>
@@ -621,6 +619,37 @@ function Display() {
         <Switch label={t("Aufnahme-Punkte")} checked={s.privacyDots} onChange={(privacyDots) => updateSettings({ privacyDots })} />
       </Row>
     </Group>
+  );
+}
+
+/** Closed look: notch, capsule or line, with previews (also in the first-run setup). */
+export function ClosedStyle() {
+  const style = settings.use().display.idleStyle;
+  return (
+    <div className="pb-3">
+      <Row
+        label={t("Geschlossen")}
+        hint={
+          style === "line"
+            ? t("Nur eine dünne Linie, ein abgelaufener Timer klappt trotzdem auf")
+            : style === "capsule"
+              ? t("Schwebt frei, zum Verschieben ziehen")
+              : t("Die Notch zeigt Musik, Timer und Co.")
+        }
+      />
+      <div className="px-3">
+        <StyleCards
+          label={t("Geschlossen")}
+          value={style}
+          onChange={(idleStyle) => updateSettings((cur) => ({ display: { ...cur.display, idleStyle } }))}
+          options={[
+            { value: "notch", label: t("Notch"), preview: <ShapePreview d="M6 0H54C51 0 50 1.5 50 4V8C50 11 48 13 45 13H15C12 13 10 11 10 8V4C10 1.5 9 0 6 0Z" /> },
+            { value: "capsule", label: t("Kapsel"), preview: <ShapePreview d="M16.5 4H43.5A4.5 4.5 0 0 1 43.5 13H16.5A4.5 4.5 0 0 1 16.5 4Z" /> },
+            { value: "line", label: t("Linie"), preview: <ShapePreview d="M15 0H45A1 1 0 0 1 45 2H15A1 1 0 0 1 15 0Z" /> },
+          ]}
+        />
+      </div>
+    </div>
   );
 }
 

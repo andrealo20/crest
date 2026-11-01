@@ -58,6 +58,8 @@ export function StyleCards<T extends string>(props: {
   options: { value: T; label: ReactNode; preview: ReactNode }[];
   onChange: (v: T) => void;
   label?: string;
+  /** Cards per row (default 3). */
+  columns?: 3 | 4;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const pick = (i: number) => {
@@ -66,7 +68,7 @@ export function StyleCards<T extends string>(props: {
     refs.current[j]?.focus();
   };
   return (
-    <div role="radiogroup" aria-label={props.label} className="grid grid-cols-3 gap-2">
+    <div role="radiogroup" aria-label={props.label} className={`grid gap-2 ${props.columns === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
       {props.options.map((o, i) => {
         const active = o.value === props.value;
         return (

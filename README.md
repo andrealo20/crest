@@ -96,6 +96,8 @@ A notch at the edge of your Windows screen that opens on hover, click or **Ctrl 
 
 Also in the notch: a password and 2FA vault, Windows notifications with a history page, `crest-notify` for scripts and builds, status alerts, your Discord call and privacy dots for the mic, camera and screen recording.
 
+A short first-run setup picks a preset (Music, Productivity, AI or your own tools), the closed look and edge, and shows how to open the notch; Settings → General runs it again.
+
 Every feature in detail, with setup steps for each integration: [docs/features.md](docs/features.md).
 
 ## Install

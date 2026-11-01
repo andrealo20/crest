@@ -10,6 +10,7 @@ import {
   Drop,
   Gauge,
   GearSix,
+  HandWaving,
   GithubLogo,
   RocketLaunch,
   SquaresFour,
@@ -49,6 +50,7 @@ import { TerminalView } from "../features/terminal/TerminalView";
 import { LauncherView } from "../features/launcher/LauncherView";
 import { GithubView } from "../features/github/GithubView";
 import { CaptureView } from "../features/capture/CaptureView";
+import { SetupView } from "../features/setup/SetupView";
 import { Camera } from "@phosphor-icons/react";
 
 /**
@@ -105,6 +107,12 @@ export const tabs: NotchTab[] = [
 /** Settings: reached via the gear, not in the tool bar. */
 export const settingsTab: NotchTab = { id: "settings", label: "Einstellungen", icon: GearSix, size: { w: 660, h: 460 }, View: SettingsView };
 
+/** First-run setup: opens by itself until finished or skipped, and again from Settings, General. Not in the tool bar either. */
+export const setupTab: NotchTab = { id: "setup", label: "Einrichtung", icon: HandWaving, size: { w: 600, h: 400 }, View: SetupView };
+
+/** Pages reached outside the tool bar; they show whether or not a tool is enabled. */
+export const pageTabs = [settingsTab, setupTab];
+
 export function findTab(id: string): NotchTab | undefined {
-  return id === settingsTab.id ? settingsTab : tabs.find((t) => t.id === id);
+  return pageTabs.find((t) => t.id === id) ?? tabs.find((t) => t.id === id);
 }

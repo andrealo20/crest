@@ -113,6 +113,8 @@ export interface Settings {
    * screenshots also go on the Shelf, and whether Windows' yellow frame marks what is recorded.
    */
   capture: { shotTarget: string; source: string | null; fps: 30 | 60; mic: boolean; system: boolean; shelf: boolean; border: boolean };
+  /** First-run setup (src/features/setup) finished or skipped. Settings saved without the field come from an older version, which counts as done. */
+  setup: { done: boolean };
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -183,6 +185,7 @@ const defaults: Settings = {
   behavior: WINDOW_DEFAULTS,
   dock: DOCK_DEFAULTS,
   capture: { shotTarget: "all", source: null, fps: 30, mic: false, system: true, shelf: false, border: true },
+  setup: { done: false },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -257,6 +260,8 @@ settings.set((s) => {
     ask: migrateAsk(s.ask),
     behavior: normalizeWindow(s.behavior, s.display?.visibility),
     dock: normalizeDock(s.dock),
+    // Only a fresh install starts from the defaults (done: false); settings saved by 0.2.x have no `setup` and never see it.
+    setup: { done: s.setup ? s.setup.done === true : true },
   };
 });
 

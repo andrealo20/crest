@@ -32,7 +32,7 @@ import { settings } from "../settings/store";
 import { useUnseen } from "../lib/changelog";
 import { nav, navigate, openOn, takeOpenTarget } from "./nav";
 import { update } from "../lib/update";
-import { findTab, settingsTab, tabs, type NotchTab } from "./tabs";
+import { findTab, pageTabs, settingsTab, setupTab, tabs, type NotchTab } from "./tabs";
 import { holdOpen, pinned, togglePin, useNotchState, type NotchStatus } from "./useNotchState";
 import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
@@ -68,7 +68,7 @@ export function Notch() {
   const visible = toolSettings.filter((t) => t.enabled).map((t) => findTab(t.id)).filter((t): t is NotchTab => !!t);
   const { tabId } = nav.use();
   // Hidden tool active (e.g. just disabled) → first visible one.
-  const tab = tabId === settingsTab.id ? settingsTab : (visible.find((t) => t.id === tabId) ?? visible[0] ?? tabs[0]);
+  const tab = pageTabs.find((t) => t.id === tabId) ?? visible.find((t) => t.id === tabId) ?? visible[0] ?? tabs[0];
   const np = useNowPlaying();
   const live = useLiveActivity();
   const accent = useThemedAccent(np?.accent);
@@ -87,6 +87,8 @@ export function Notch() {
       const resumed = Date.now() - closedAt.current < RESUME_MS;
       const target = trayTab.current ?? takeOpenTarget();
       if (target) navigate(target);
+      // A fresh install opens on the setup until it is finished or skipped.
+      else if (!settings.get().setup.done) navigate(setupTab.id);
       else if (!resumed && live.id && visible.some((t) => t.id === live.id)) navigate(live.id);
       trayTab.current = null;
     }
@@ -200,7 +202,7 @@ export function Notch() {
   // The wheel over the open panel switches tools, one step per gesture, unless something under the pointer scrolls or took it.
   const wheelAt = useRef(0);
   const onWheel = (e: React.WheelEvent) => {
-    if (status !== "open" || !behavior.wheelTools || tab.id === settingsTab.id) return;
+    if (status !== "open" || !behavior.wheelTools || pageTabs.includes(tab)) return;
     if (e.nativeEvent.defaultPrevented || wheelTaken(e.target, e.currentTarget, e.deltaX, e.deltaY)) return;
     const now = performance.now(), quiet = now - wheelAt.current > 350;
     wheelAt.current = now;
@@ -402,7 +404,7 @@ function Header({ title, onDragStart }: { title: string; onDragStart: (e: React.
 /** Tool bar at the bottom (like OmniNotch). The gear at the end toggles between settings and the last tool. */
 function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
   const lastTool = useRef(tabs[0]?.id);
-  if (activeId !== settingsTab.id) lastTool.current = activeId;
+  if (!pageTabs.some((p) => p.id === activeId)) lastTool.current = activeId;
   const inSettings = activeId === settingsTab.id;
   const updateReady = update.use().phase === "available";
   // Dot on the gear = update ready or unseen changes → jump straight to that section.

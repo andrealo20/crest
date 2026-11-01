@@ -1019,5 +1019,20 @@
  "In Client Portal: Performance & Reports → Flex Queries. Eine Activity Flex Query mit dem Zeitraum „Last Business Day“ anlegen. Unter „Open Positions“ die Felder symbol, description, currency, assetCategory, position, markPrice, positionValue, costBasisMoney und levelOfDetail wählen, unter „Cash Report“ endingCash. Dann unter Flex Web Service einen Token erstellen. Der Stand ist der des letzten Handelstags.": "In Client Portal: Performance & Reports → Flex Queries. Create an Activity Flex Query with the period \"Last Business Day\". Under \"Open Positions\" pick the fields symbol, description, currency, assetCategory, position, markPrice, positionValue, costBasisMoney and levelOfDetail, under \"Cash Report\" endingCash. Then create a token under Flex Web Service. Figures are as of the last trading day.",
  "Unbekannter Wert": "Unknown asset",
  "Alt": "Alt",
-  "Anmeldung abgelaufen: einmal claude im Terminal starten": "Sign-in expired: run claude once in a terminal"
+  "Anmeldung abgelaufen: einmal claude im Terminal starten": "Sign-in expired: run claude once in a terminal",
+ "Einrichtung": "Setup",
+ "Voreinstellung, Aussehen und Öffnen noch einmal wählen": "Pick a preset, the look and how it opens again",
+ "Erneut starten": "Run again",
+ "Wie Crest geschlossen aussieht und an welchem Rand.": "How Crest looks when closed, and which edge it sits on.",
+ "Öffnen mit dem Tastenkürzel, oder mit dem Zeiger auf der Notch.": "Open it with the shortcut, or by pointing at the notch.",
+ "Überspringen": "Skip",
+ "Schritt {n} von {m}": "Step {n} of {m}",
+ "Wiedergabe und Timer; geschlossen Songtitel mit Songtext und Equalizer": "Now Playing and Timer; closed, the song with its lyrics and the equalizer",
+ "Timer, To-Dos, Notiz, Zwischenablage, Ablage, Converter und Wetter": "Timer, To-dos, Notes, Clipboard, Shelf, Converter and Weather",
+ "Ask, AI-Nutzung und Terminal; geschlossen die Kontingent-Ringe": "Ask, AI Usage and Terminal; closed, the quota rings",
+ "Die Tools antippen, die du willst": "Tick the tools you want",
+ "Was soll Crest zeigen? Alles lässt sich später in den Einstellungen ändern.": "What should Crest show? You can change all of it later in Settings.",
+ "Voreinstellung": "Preset",
+ "Produktivität": "Productivity",
+ "Eigene": "Custom"
 }

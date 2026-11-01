@@ -2,6 +2,18 @@
 
 Everything Crest does, tool by tool. The short version with pictures is in the [README](../README.md).
 
+## First-run setup
+
+- On a new install the open notch starts with a short setup in three steps. **Skip** ends it at any step, and **Settings → General → Setup** runs it again.
+- Step 1 picks a preset, which switches tools and parts of the closed row on and off. Overview stays on in each.
+  - **Music:** Now Playing and Timer; the closed row shows the song title with the current lyric line, the equalizer and the timer.
+  - **Productivity:** Timer, To-dos, Notes, Clipboard, Shelf, Converter and Weather; the row shows the timer and the equalizer.
+  - **AI:** Ask, AI Usage and Terminal; the row shows the quota rings and the equalizer.
+  - **Custom:** keeps what was there when the setup started (the defaults on a new install) and lets you tick tools one by one. Picking it after another preset undoes that preset.
+- Step 2 picks the closed look (notch, capsule or line) and the screen edge.
+- Step 3 shows the open shortcut and whether the notch opens on hover or on click.
+- Updating from an earlier version never shows it: it only starts by itself when no settings were saved before.
+
 ## The closed notch and its row
 
 Pick the closed look under **Settings → Display**.
