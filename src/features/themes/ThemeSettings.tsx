@@ -218,7 +218,7 @@ function ThemeEditor() {
         <span className="font-semibold text-label">{t("Titel")}</span>
         <span className="text-label-2">{t("Text")}</span>
         <span className="text-label-3">{t("Hinweis")}</span>
-        <span className="ml-auto text-link">{t("Akzent")}</span>
+        <span className="ms-auto text-link">{t("Akzent")}</span>
         <span className="text-orange">{t("Warnung")}</span>
         <span className="text-red">{t("Kritisch")}</span>
       </div>
@@ -230,12 +230,12 @@ function ThemeEditor() {
             <button
               onClick={() => setOpen(open === key ? null : key)}
               aria-expanded={open === key}
-              className="pressable pressable-fill flex min-h-9 w-full items-center gap-2.5 px-3 py-1.5 text-left"
+              className="pressable pressable-fill flex min-h-9 w-full items-center gap-2.5 px-3 py-1.5 text-start"
             >
               <span className="size-4 shrink-0 rounded-full ring-1 ring-separator forced-color-adjust-none" style={{ background: theme.vars[varFor[key]] }} />
               <span className="flex-1 text-body text-label">{t(KEY_LABELS[key])}</span>
               {key !== "background" && <span className="tabular text-caption text-label-3">{ratio(contrast(shown, bg))}</span>}
-              <span className="tabular w-16 text-right text-caption text-label-2">{hexOf(written)}</span>
+              <span className="tabular w-16 text-end text-caption text-label-2">{hexOf(written)}</span>
             </button>
             {open === key && <ColorPicker value={withAlpha(written, 1)} onChange={(c) => editColor(key, c)} swatches={swatches} />}
           </Fragment>

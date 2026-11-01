@@ -80,7 +80,9 @@ export function StyleCards<T extends string>(props: {
             tabIndex={active ? 0 : -1}
             onClick={() => props.onChange(o.value)}
             onKeyDown={(e) => {
-              const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+              // Right to left, the next card is the one on the left.
+              const rtl = e.currentTarget.matches(":dir(rtl)");
+              const step = ({ ArrowDown: 1, ArrowUp: -1, ArrowRight: rtl ? -1 : 1, ArrowLeft: rtl ? 1 : -1 } as Record<string, number>)[e.key] ?? 0;
               if (!step) return;
               e.preventDefault();
               pick(i + step);
@@ -114,7 +116,7 @@ export function Switch({
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`pressable relative h-[18px] w-[30px] shrink-0 rounded-full transition-colors duration-200 ${checked ? "bg-green" : "bg-fill-3"}`}
+      className={`pressable relative h-[18px] w-[30px] shrink-0 rounded-full transition-colors duration-200 rtl:-scale-x-100 ${checked ? "bg-green" : "bg-fill-3"}`}
     >
       <motion.span
         className="absolute top-[2px] left-[2px] size-[14px] rounded-full bg-white shadow-sm"
@@ -275,7 +277,7 @@ export function Meter({
       style={{ height }}
     >
       <motion.div
-        className="absolute inset-0 origin-left rounded-full"
+        className="absolute inset-0 origin-left rounded-full rtl:origin-right"
         style={{ backgroundColor: tint }}
         initial={{ transform: "scaleX(0)" }}
         animate={{ transform: `scaleX(${p / 100})` }}
@@ -507,7 +509,7 @@ export function Select<T extends string>(props: {
                     props.onChange(o.value);
                     setOpen(false);
                   }}
-                  className={`flex h-7 w-full items-center rounded-[6px] px-2 text-left text-footnote hover:bg-fill-2 ${
+                  className={`flex h-7 w-full items-center rounded-[6px] px-2 text-start text-footnote hover:bg-fill-2 ${
                     o.value === props.value ? "text-label" : "text-label-2"
                   }`}
                 >

@@ -36,7 +36,7 @@ export function QuoteLine() {
         onClick={() => setN((skip = n + 1))}
         className="pressable flex size-4 shrink-0 items-center justify-center rounded-full text-label-3 hover:text-label-2"
       >
-        <ArrowRight size={11} weight="bold" />
+        <ArrowRight size={11} weight="bold" className="rtl:-scale-x-100" />
       </button>
     </div>
   );

@@ -35,7 +35,7 @@ export function TerminalSettings() {
       <Row label={t("Schriftgröße")}>
         <div className="flex w-52 items-center gap-2">
           <Slider label={t("Schriftgröße")} value={prefs.fontSize} min={10} max={18} step={1} onChange={(fontSize) => set({ fontSize })} />
-          <span className="tabular w-8 text-right text-caption text-label-2">{prefs.fontSize}</span>
+          <span className="tabular w-8 text-end text-caption text-label-2">{prefs.fontSize}</span>
         </div>
       </Row>
       <Row label={t("Startordner")} hint={t("Leer = Benutzerordner, ~ steht für ihn")}>

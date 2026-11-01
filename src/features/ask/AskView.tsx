@@ -105,7 +105,7 @@ export function AskView() {
         <button
           onClick={() => navigate("settings", "ask")}
           title={t("Modell in den Einstellungen ändern")}
-          className="mr-1 max-w-40 truncate text-caption text-label-3 hover:text-label-2"
+          className="me-1 max-w-40 truncate text-caption text-label-3 hover:text-label-2"
         >
           {config.model || providerInfo[provider].label}
         </button>
@@ -166,7 +166,7 @@ export function AskView() {
       </AnimatePresence>
 
       <form
-        className="mt-1 flex items-end gap-2 rounded-[16px] bg-fill-1 py-1.5 pr-1.5 pl-3"
+        className="mt-1 flex items-end gap-2 rounded-[16px] bg-fill-1 py-1.5 pe-1.5 ps-3"
         onSubmit={(e) => {
           e.preventDefault();
           void send(draft);
@@ -223,11 +223,11 @@ function Bubble({ message, streaming }: { message: ChatMessage; streaming: boole
     >
       <div
         className={`relative max-w-[85%] text-body whitespace-pre-wrap ${
-          user ? "rounded-[14px] rounded-br-[4px] bg-fill-2 px-3 py-1.5 text-label" : "px-1 text-label-2"
+          user ? "rounded-[14px] rounded-ee-[4px] bg-fill-2 px-3 py-1.5 text-label" : "px-1 text-label-2"
         }`}
       >
         {message.content}
-        {streaming && <span className="ml-0.5 inline-block h-3.5 w-[2px] translate-y-[2px] animate-pulse bg-label-2" />}
+        {streaming && <span className="ms-0.5 inline-block h-3.5 w-[2px] translate-y-[2px] animate-pulse bg-label-2" />}
         {!user && !streaming && message.content && (
           <button
             aria-label={t("Kopieren")}

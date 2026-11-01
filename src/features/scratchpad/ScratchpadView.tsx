@@ -102,7 +102,7 @@ export function ScratchpadView() {
         </HeaderButton>
       </HeaderActions>
 
-      <div className="flex min-h-0 flex-1 overflow-auto rounded-[12px] bg-fill-1 py-2 [scrollbar-width:thin]" onClick={() => area.current?.focus()}>
+      <div dir="ltr" className="flex min-h-0 flex-1 overflow-auto rounded-[12px] bg-fill-1 py-2 [scrollbar-width:thin]" onClick={() => area.current?.focus()}>
         <div aria-hidden className={`${TEXT} shrink-0 pr-3 pl-3 text-right text-label-4 select-none`}>
           {Array.from({ length: lines }, (_, i) => `${i + 1}\n`).join("")}
         </div>

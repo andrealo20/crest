@@ -70,7 +70,7 @@ export function WaterView() {
       </div>
 
       <div className="h-1.5 overflow-hidden rounded-full bg-fill-2">
-        <motion.div className="h-full origin-left rounded-full bg-link" initial={false} animate={{ transform: `scaleX(${p})` }} transition={springs.snappy} />
+        <motion.div className="h-full origin-left rtl:origin-right rounded-full bg-link" initial={false} animate={{ transform: `scaleX(${p})` }} transition={springs.snappy} />
       </div>
 
       <div className="flex flex-1 flex-col justify-end">

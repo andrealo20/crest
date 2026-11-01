@@ -39,6 +39,8 @@ body {
 /* Numbers that change (times, timers, values) must not jump. */
 .tabular {
   font-variant-numeric: tabular-nums;
+  /* Right to left, "44 %" or "-3:12" would otherwise read "% 44" and "3:12-": the text sets its own direction. */
+  unicode-bidi: plaintext;
 }
 
 /*

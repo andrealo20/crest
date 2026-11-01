@@ -38,6 +38,9 @@ struct Bound {
     launch: Vec<(Shortcut, String)>,
     /// The tray's "Open Crest" item, which shows the open shortcut.
     tray_open: Option<MenuItem<Wry>>,
+    /// Its text in the interface language ("" = English) and the shortcut shown after it.
+    open_text: String,
+    open_label: String,
 }
 
 #[derive(Deserialize)]
@@ -63,8 +66,9 @@ fn parse(text: &str) -> Option<Shortcut> {
     Shortcut::from_str(&spelled.join("+")).ok()
 }
 
-fn label_text(label: &str) -> String {
-    if label.is_empty() { "Open Crest".into() } else { format!("Open Crest\t{label}") }
+fn label_text(text: &str, label: &str) -> String {
+    let text = if text.is_empty() { "Open Crest" } else { text };
+    if label.is_empty() { text.into() } else { format!("{text}\t{label}") }
 }
 
 /// Registers one shortcut: "unset", "active", "in-use" (another program holds it) or "invalid".
@@ -115,8 +119,9 @@ pub async fn hotkeys_apply(config: HotkeyConfig, app: AppHandle, state: State<'_
         resize: bind_arrows(&app, &config.resize, &mut resize),
     };
     let mut b = state.0.lock().unwrap();
+    b.open_label = if open.is_some() { config.open_label } else { String::new() };
     if let Some(item) = &b.tray_open {
-        let _ = item.set_text(label_text(if open.is_some() { &config.open_label } else { "" }));
+        let _ = item.set_text(label_text(&b.open_text, &b.open_label));
     }
     (b.open, b.hide, b.resize) = (open, hide, resize);
     Ok(status)
@@ -199,6 +204,16 @@ pub fn set_tray_open(app: &App, item: MenuItem<Wry>) {
     app.state::<Hotkeys>().0.lock().unwrap().tray_open = Some(item);
 }
 
+/// The "Open Crest" item in the interface language (lib.rs `tray_texts`).
+pub fn set_open_text(app: &AppHandle, text: String) {
+    let state = app.state::<Hotkeys>();
+    let mut b = state.0.lock().unwrap();
+    b.open_text = text;
+    if let Some(item) = &b.tray_open {
+        let _ = item.set_text(label_text(&b.open_text, &b.open_label));
+    }
+}
+
 /// At start: credentials copied from the old prefix, crash log, the default open shortcut.
 pub fn init(app: &App) {
     if let Ok(dir) = crate::portable::app_data_dir(app.handle()) {
@@ -211,12 +226,15 @@ pub fn init(app: &App) {
     // If another app owns the shortcut, Crest still runs, just without it.
     let mut open = None;
     let _ = bind(app.handle(), DEFAULT_OPEN, &mut open);
-    app.state::<Hotkeys>().0.lock().unwrap().open = open;
+    let state = app.state::<Hotkeys>();
+    let mut b = state.0.lock().unwrap();
+    b.open = open;
+    b.open_label = DEFAULT_OPEN.into();
 }
 
 /// The tray's "Open Crest" text before the frontend has sent the saved shortcut.
 pub fn default_open_label() -> String {
-    label_text(DEFAULT_OPEN)
+    label_text("", DEFAULT_OPEN)
 }
 
 static LOG_DIR: OnceLock<PathBuf> = OnceLock::new();

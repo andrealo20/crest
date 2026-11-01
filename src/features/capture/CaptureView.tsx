@@ -306,7 +306,7 @@ function Card({ file, details, onDeleted }: { file: CaptureFile; details?: Captu
           </span>
         )}
         {video && details?.durationMs != null && (
-          <span className="tabular absolute right-1.5 bottom-1.5 rounded-[6px] bg-black/60 px-1.5 text-caption text-white">{formatElapsed(details.durationMs)}</span>
+          <span className="tabular absolute end-1.5 bottom-1.5 rounded-[6px] bg-black/60 px-1.5 text-caption text-white">{formatElapsed(details.durationMs)}</span>
         )}
       </button>
       <div className="px-2 pt-1.5 pb-1">

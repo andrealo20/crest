@@ -155,7 +155,7 @@ export function ClipboardView() {
                 selected={previewId === item.id}
                 onClick={() => (item.thumbnail && !hidden ? setPreviewId((p) => (p === item.id ? null : item.id)) : void copy(item.id))}
               />
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              <div className="absolute top-2 end-2 flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                 {item.thumbnail && !hidden && <CardButton label={t("Kopieren")} icon={Copy} onClick={() => void copy(item.id)} />}
                 <CardButton label={t("Entfernen")} icon={X} onClick={() => clipboard.remove(item.id)} />
               </div>
@@ -265,7 +265,7 @@ function Card(props: { item: ClipItem; code: boolean; now: number; hidden: boole
     <button
       onClick={props.onClick}
       title={hidden ? t("Ausgeblendet") : isImage ? t("Vorschau") : item.text}
-      className={`pressable pressable-fill relative flex size-full flex-col justify-between overflow-hidden rounded-[14px] bg-fill-1 p-3 text-left ${
+      className={`pressable pressable-fill relative flex size-full flex-col justify-between overflow-hidden rounded-[14px] bg-fill-1 p-3 text-start ${
         props.selected ? "ring-2 ring-label ring-inset" : ""
       }`}
     >

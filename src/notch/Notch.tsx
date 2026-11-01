@@ -291,8 +291,8 @@ export function Notch() {
         onWheel={onWheel}
       >
         <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge} thin={lineShape}>
-          {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes). */}
-          <div data-theme-ink className="contents" style={closedInk}>
+          {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes), and their order on screen in any language. */}
+          <div data-theme-ink dir="ltr" className="contents" style={closedInk}>
             {/* Laid out at their designed size and drawn at the content scale, from the edge (the column from its centre). */}
             <div className="absolute inset-0" style={{ transform: `scale(${scale})`, transformOrigin: side ? "50% 50%" : "50% 0" }}>
               <AnimatePresence>
@@ -373,7 +373,7 @@ function Header({ title, onDragStart }: { title: string; onDragStart: (e: React.
   const isPinned = pinned.use();
   return (
     // Empty header space = drag handle.
-    <div data-drag-handle onPointerDown={onDragStart} className="flex shrink-0 items-center justify-between gap-3 pr-3 pl-5" style={{ height: HEADER_HEIGHT + 4 }}>
+    <div data-drag-handle onPointerDown={onDragStart} className="flex shrink-0 items-center justify-between gap-3 ps-5 pe-3" style={{ height: HEADER_HEIGHT + 4 }}>
       <div className="relative min-w-0 flex-1">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.h2

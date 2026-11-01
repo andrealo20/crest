@@ -85,11 +85,11 @@ export function ModelDetails({ state }: { state: { report: TokenReport | null; l
       <div className={`${COLS} border-b border-separator pb-1 text-caption text-label-3`}>
         <span>{t("Modell")}</span>
         {["Eingabe", "Cache schreiben", "Cache lesen", "Ausgabe", "Tokens"].map((h) => (
-          <span key={h} className="truncate text-right" title={t(h)}>
+          <span key={h} className="truncate text-end" title={t(h)}>
             {t(h)}
           </span>
         ))}
-        <span className="text-right">{t("Kosten · USD")}</span>
+        <span className="text-end">{t("Kosten · USD")}</span>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none]">
@@ -135,7 +135,7 @@ export function ModelDetails({ state }: { state: { report: TokenReport | null; l
 
 function Line({ totals: x, label, onCost, strong }: { totals: Totals; label: ReactNode; onCost?: () => void; strong?: boolean }) {
   const n = (v: number) => (
-    <span className="truncate text-right" title={v.toLocaleString(locale())}>
+    <span className="truncate text-end" title={v.toLocaleString(locale())}>
       {formatTokens(v)}
     </span>
   );
@@ -148,12 +148,12 @@ function Line({ totals: x, label, onCost, strong }: { totals: Totals; label: Rea
       {n(x.output)}
       {n(x.tokens)}
       {onCost ? (
-        <button className="group flex items-center justify-end gap-1 text-right font-semibold text-label hover:text-link" title={t("Preis festlegen")} onClick={onCost}>
+        <button className="group flex items-center justify-end gap-1 text-end font-semibold text-label hover:text-link" title={t("Preis festlegen")} onClick={onCost}>
           <PencilSimple size={10} weight="bold" className="opacity-0 transition-opacity group-hover:opacity-100" />
           {formatCost(x)}
         </button>
       ) : (
-        <span className="text-right font-semibold">{formatCost(x)}</span>
+        <span className="text-end font-semibold">{formatCost(x)}</span>
       )}
     </div>
   );
@@ -187,7 +187,7 @@ function PriceEditor({ row, manual, onDone }: { row: ModelRow; manual: Record<st
           <TextField width="w-14" value={values[f.key]} placeholder={f.key === "input" || f.key === "output" ? "0" : t("auto")} onChange={(v) => setValues((cur) => ({ ...cur, [f.key]: v }))} />
         </label>
       ))}
-      <div className="ml-auto flex gap-1">
+      <div className="ms-auto flex gap-1">
         {manual[key] && (
           <Button
             onClick={() => {

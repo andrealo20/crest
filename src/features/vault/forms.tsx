@@ -116,22 +116,22 @@ export function PasswordForm(props: {
           <Slider value={opts.length} min={8} max={64} onChange={(length) => setOpts({ length })} label={t("Länge")} />
         </div>
         <span className="tabular w-4 text-label-2">{opts.length}</span>
-        <span className="ml-2">{t("Ziffern")}</span>
+        <span className="ms-2">{t("Ziffern")}</span>
         <Switch checked={opts.digits} onChange={(digits) => setOpts({ digits })} label={t("Ziffern")} />
-        <span className="ml-1">{t("Symbole")}</span>
+        <span className="ms-1">{t("Symbole")}</span>
         <Switch checked={opts.symbols} onChange={(symbols) => setOpts({ symbols })} label={t("Symbole")} />
       </div>
 
       <div className="mt-auto flex items-center gap-2">
         {password && (
-          <div className="flex items-center gap-2 pl-1 text-caption text-label-3">
+          <div className="flex items-center gap-2 ps-1 text-caption text-label-3">
             <div className="w-14">
               <Meter percent={Math.min(100, (bits / 100) * 100)} height={4} color={bits >= 80 ? "var(--color-green)" : bits >= 55 ? "var(--color-orange)" : "var(--color-red)"} />
             </div>
             {strength}
           </div>
         )}
-        <div className="ml-auto flex gap-2">
+        <div className="ms-auto flex gap-2">
           <Button onClick={props.onDone}>{t("Abbrechen")}</Button>
           <Button primary disabled={!canSave} onClick={save}>
             {props.item ? t("Sichern") : t("Hinzufügen")}

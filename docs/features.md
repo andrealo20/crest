@@ -253,7 +253,7 @@ Details, ready-made hooks for Claude Code and Codex, and how notifications are r
 
 ## Settings
 
-Settings are grouped into General, Display, Window, Tools, Timer, AI, Connections, Themes and Notices. There you can reorder (drag) or hide tools, pick the monitor and the screen edge, set what the notch does over full-screen and maximized windows, record shortcuts, and enable autostart. The interface is in English.
+Settings are grouped into General, Display, Window, Tools, Timer, AI, Connections, Themes and Notices. There you can reorder (drag) or hide tools, pick the monitor and the screen edge, set what the notch does over full-screen and maximized windows, record shortcuts, and enable autostart. Language, in General, is System (the Windows language, or English when Crest does not have it) or one of English, Simplified Chinese, Spanish, Hindi, Arabic, French, Portuguese (Brazil), Russian, Japanese, German and Italian; it switches at once, tray menu included, and numbers and dates follow it. In Arabic the panel reads right to left, while the closed notch, the sliders, the song's time bar and key combinations keep their left to right order.
 
 <p align="center"><img src="media/features/settings-tools.png" alt="Settings, Tools: the tools in their order with switches, and their options" width="560" /></p>
 

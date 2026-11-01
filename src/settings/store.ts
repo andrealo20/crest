@@ -1,4 +1,5 @@
 import { createStore } from "../lib/store";
+import { isLanguage, type LanguageSetting } from "../i18n/core";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
 import { normalizeLook, type TimerLook } from "../features/timer/looks";
@@ -70,7 +71,8 @@ export interface Settings {
   /** Discord call in the notch (local RPC, on = Discord tool enabled). The client secret is stored with the secrets. */
   discord: { clientId: string };
   alarm: { sound: AlarmSound; volume: number; duration: AlarmDuration };
-  language: "de" | "en";
+  /** Interface language: "system" follows Windows (English when it is not one of src/i18n/core.ts). */
+  lang: LanguageSetting;
   /** Temperature and clock format; picked from the Windows region on first start. */
   units: { temp: "c" | "f"; clock: "24" | "12" };
   /**
@@ -186,7 +188,7 @@ const defaults: Settings = {
   privacyDots: false,
   discord: { clientId: "" },
   alarm: { sound: "chime", volume: 0.7, duration: 5 },
-  language: "en",
+  lang: "system",
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
@@ -247,7 +249,7 @@ export const firstRun = (() => {
 export const settings = createStore<Settings>(defaults, { persist: "settings" });
 
 // Fill in settings from older versions: new fields + append new tools.
-settings.set((s) => {
+settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
   const known = new Set<string>(TOOL_IDS);
   const tools = (s.tools ?? []).filter((t) => known.has(t.id));
   for (const id of TOOL_IDS) {
@@ -259,7 +261,8 @@ settings.set((s) => {
   return {
     ...defaults,
     ...s,
-    language: "en", // English only; the field stays for older saved settings
+    // The old `language` was forced to English, never a choice: those settings start from the system language.
+    lang: s.lang === "system" || isLanguage(s.lang) ? s.lang : "system",
     tools,
     trading: { ...defaults.trading, ...s.trading },
     usage: { ...defaults.usage, ...s.usage },

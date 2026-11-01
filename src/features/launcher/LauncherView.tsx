@@ -210,7 +210,7 @@ function Picker({ favorites }: { favorites: Favorite[] }) {
                 key={a.id}
                 aria-pressed={on}
                 onClick={() => updateSettings((s) => ({ launcher: { ...s.launcher, favorites: toggleFavorite(s.launcher.favorites ?? [], a) } }))}
-                className="flex h-9 w-full items-center gap-2.5 px-3 text-left hover:bg-fill-2"
+                className="flex h-9 w-full items-center gap-2.5 px-3 text-start hover:bg-fill-2"
               >
                 <AppIcon src={icons[a.id]} size={20} />
                 <span className="min-w-0 flex-1 truncate text-body text-label">{a.name}</span>

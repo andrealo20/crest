@@ -1,52 +1,72 @@
 import { en } from "./en";
+import { createStore, type Store } from "../lib/store";
+import { backendText, localeFor, resolveLanguage, translate, type Dict, type Language, type LanguageSetting } from "./core";
+
+export { LANGUAGES, LANGUAGE_NAMES, type Language, type LanguageSetting } from "./core";
 
 /*
- * Translation: the interface is English only. The German text lives directly in the
- * code as an internal id; `en.json` provides the English text shown to everyone.
- * Missing entries fall back to the id.
+ * Translation: the German text lives directly in the code as an internal id; `en.json`
+ * holds the English text and `<code>.json` the other languages (German needs entries only
+ * where the id is not the text to show). A missing entry falls back to English, then to the id.
  * Placeholders: t("vor {n} Min.", { n: 5 }).
  */
-export type Language = "de" | "en";
 
-/** Always English; the saved `language` setting is kept only for compatibility. */
+// Every language but English is a chunk of its own, loaded when chosen.
+const loaders = import.meta.glob<Dict>(["./*.json", "!./en.json"], { import: "default" });
+
+let dict: Dict = en;
+let fallback: Dict | null = null;
+
+/** The language in use. The roots re-render on a change (`language.use()`), so t() runs again everywhere. */
+export const language = createStore<Language>("en");
+
 export function lang(): Language {
-  return "en";
+  return language.get();
 }
 
 export function t(de: string, vars?: Record<string, string | number>): string {
-  let s = en[de] ?? de;
-  if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
-  return s;
+  return translate(de, vars, dict, fallback);
 }
 
 /** Locale for Intl (numbers, dates, weekdays). */
 export function locale(): string {
-  return "en-GB";
+  return localeFor(language.get(), navigator.language);
 }
 
-/** Error texts from Rust (AI chat, files, sign-ins) arrive in German; translate them by pattern. */
-const backendPatterns: [RegExp, string][] = [
-  [/^Kein Modell eingetragen$/, "No model set"],
-  [/^Base-URL muss mit https:\/\/ beginnen$/, "Base URL must start with https://"],
-  [/^Unbekannter Anbieter: (.*)$/, "Unknown provider: $1"],
-  [/^Schlüssel abgelehnt \((\d+)\): (.*)$/s, "Key rejected ($1): $2"],
-  [/^Nicht gefunden \(404\): Base-URL oder Modell prüfen\. (.*)$/s, "Not found (404): check base URL or model. $1"],
-  [/^Limit erreicht \(429\), kurz warten$/, "Rate limit reached (429), wait a moment"],
-  [/^Fehler (\d+): (.*)$/s, "Error $1: $2"],
-  [/^Datei nicht mehr vorhanden$/, "File no longer exists"],
-  [/^Dateien nicht mehr vorhanden$/, "Files no longer exist"],
-  [/^Client-Secret fehlt$/, "Client secret missing"],
-  [/^Keine Verbindung$/, "No connection"],
-  [/^Keine Verbindung: (.*)$/s, "No connection: $1"],
-  [/^Kein Token$/, "No token received"],
-  [/^Kein Code$/, "No code received"],
-  [/^Token abgelehnt$/, "Token rejected"],
-  [/^Abgelehnt$/, "Declined"],
-  [/^Im Portal http:\/\/localhost als Redirect eintragen$/, "Add http://localhost as a redirect in the developer portal"],
-  [/^Von Windows ausgeschaltet\. Crest im Task-Manager unter Autostart-Apps einschalten$/, "Turned off in Windows. Switch Crest on in Task Manager under Startup apps"],
-];
-
+/** Error texts from Rust arrive in German; translated like any other id. */
 export function tBackend(msg: string): string {
-  for (const [re, en] of backendPatterns) if (re.test(msg)) return msg.replace(re, en);
-  return msg;
+  return backendText(msg, t);
+}
+
+let ticket = 0;
+
+/** Loads the language the setting asks for, then switches `lang`, `dir` and every t() over to it. */
+export async function applyLanguage(setting: LanguageSetting): Promise<void> {
+  const next = resolveLanguage(setting, navigator.language);
+  const mine = ++ticket;
+  let loaded: Dict = en;
+  if (next !== "en") {
+    try {
+      loaded = (await loaders[`./${next}.json`]?.()) ?? {};
+    } catch {
+      loaded = {}; // A chunk that fails to load leaves the English fallback.
+    }
+  }
+  if (mine !== ticket) return; // A later choice won meanwhile.
+  dict = loaded;
+  fallback = next === "en" || next === "de" ? null : en;
+  document.documentElement.lang = next;
+  document.documentElement.dir = next === "ar" ? "rtl" : "ltr";
+  language.set(next);
+}
+
+/** Follows the saved setting: now (resolves once the dictionary is in) and on every change of it. */
+export function startLanguage(settings: Pick<Store<{ lang: LanguageSetting }>, "get" | "subscribe">): Promise<void> {
+  let last = settings.get().lang;
+  settings.subscribe(() => {
+    if (settings.get().lang === last) return;
+    last = settings.get().lang;
+    void applyLanguage(last);
+  });
+  return applyLanguage(last);
 }

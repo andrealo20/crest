@@ -65,7 +65,7 @@ export function NoticesView() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2">
                       <span className="truncate text-caption text-label-3">{n.appName}</span>
-                      <span className="ml-auto shrink-0 tabular text-caption text-label-4">{shortTime(n.at, now, s.units.clock, t)}</span>
+                      <span className="ms-auto shrink-0 tabular text-caption text-label-4">{shortTime(n.at, now, s.units.clock, t)}</span>
                     </div>
                     {presenting ? (
                       <div className="text-body text-label-3">{t("Ausgeblendet")}</div>

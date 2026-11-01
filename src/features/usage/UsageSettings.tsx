@@ -91,7 +91,7 @@ export function UsageSettings() {
                   dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
                 }`}
               >
-                <span title={t("Ziehen oder Alt+Pfeil hoch/runter zum Verschieben")} className="-ml-1 shrink-0">
+                <span title={t("Ziehen oder Alt+Pfeil hoch/runter zum Verschieben")} className="-ms-1 shrink-0">
                   <DotsSixVertical size={13} weight="bold" className="text-label-4 transition-colors group-hover:text-label-3" />
                 </span>
                 <BrandLogo id={id} size={14} className={`shrink-0 ${on ? "text-label-2" : "text-label-4"}`} />

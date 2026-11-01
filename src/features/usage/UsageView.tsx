@@ -209,7 +209,7 @@ function WindowRow({ w, now }: { w: UsageWindow; now: number }) {
         <span className="truncate text-label-2">{label}</span>
         <span className="tabular font-semibold text-label">{Math.round(used)} %</span>
       </div>
-      <div className="relative h-[5px] overflow-hidden rounded-full bg-fill-2">
+      <div className="relative h-[5px] overflow-hidden rounded-full bg-fill-2 rtl:-scale-x-100">
         <motion.div
           className="absolute inset-0 rounded-full"
           style={{ backgroundColor: fill }}

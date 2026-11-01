@@ -29,6 +29,8 @@ import { screen, startWindowBehavior } from "./features/window/store";
 import { startCapture } from "./features/capture/store";
 import { showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
+import { language, startLanguage, t } from "./i18n";
+import { setTrayTexts } from "./platform/native";
 
 if (showcase) startShowcase();
 
@@ -88,7 +90,11 @@ const syncClipboardMode = () => {
 syncClipboardMode();
 settings.subscribe(syncClipboardMode);
 
-document.documentElement.lang = "en";
+// The tray menu is Rust's; its texts follow the language from here.
+language.subscribe(() =>
+  setTrayTexts({ open: t("Crest öffnen"), settings: t("Einstellungen …"), focus: t("Fokus-Modus"), autostart: t("Mit Windows starten"), quit: t("Crest beenden") }),
+);
+const languageReady = startLanguage(settings);
 
 // The notch isn't a web page: no browser context menu (except in text fields for
 // cut/paste) and in the app no browser shortcuts like reload or print.
@@ -102,12 +108,23 @@ if (isNative) {
   });
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    {/* reducedMotion="user": Motion respects the Windows "Animation effects" setting. */}
+/** Re-renders everything when the language changes, so every t() runs again (no remount: open tools keep their state). */
+function App() {
+  language.use();
+  return (
+    // reducedMotion="user": Motion respects the Windows "Animation effects" setting.
     <MotionConfig reducedMotion="user">
       {!isNative && <DesktopMock />}
       <Notch />
     </MotionConfig>
-  </StrictMode>,
+  );
+}
+
+// The first frame waits for the dictionary, so it is never English for a moment.
+void languageReady.then(() =>
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  ),
 );

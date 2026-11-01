@@ -42,6 +42,8 @@ export function TerminalView() {
       </HeaderActions>
       {/* No click bubbling: a triple click selects a line here, on the notch it would toggle focus mode. */}
       <div
+        // A shell is left to right in any language.
+        dir="ltr"
         className="min-h-0 flex-1 rounded-[12px] bg-fill-1 py-2 pl-3 pr-1"
         onPointerDown={() => {
           keyboardFocus(true);

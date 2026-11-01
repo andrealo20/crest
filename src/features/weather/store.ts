@@ -76,7 +76,7 @@ export interface Place {
 
 /** Location search (Open-Meteo geocoding). */
 export async function searchPlaces(q: string): Promise<Place[]> {
-  const r = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=4&language=${lang()}`)).json();
+  const r = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=4&language=${lang().slice(0, 2)}`)).json();
   return (r.results ?? []).map((p: { name: string; admin1?: string; country?: string; latitude: number; longitude: number }) => ({
     name: p.name,
     detail: [p.admin1, p.country].filter(Boolean).join(", "),

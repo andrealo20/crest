@@ -164,7 +164,7 @@ function SetupView() {
           ) : (
             <motion.div
               key="chips"
-              className="absolute top-0 right-0 flex gap-1"
+              className="absolute top-0 end-0 flex gap-1"
               initial={{ opacity: 0, filter: "blur(4px)" }}
               animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
               exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
@@ -240,7 +240,7 @@ function MinutesInput(props: { initial: number; tint: string; onDone: (minutes: 
 
   return (
     <motion.form
-      className="absolute top-0 right-0 flex items-center gap-1.5"
+      className="absolute top-0 end-0 flex items-center gap-1.5"
       initial={{ opacity: 0, filter: "blur(4px)" }}
       animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
       exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
@@ -249,7 +249,7 @@ function MinutesInput(props: { initial: number; tint: string; onDone: (minutes: 
         if (valid) props.onDone(minutes);
       }}
     >
-      <div className="flex h-6 items-center gap-1 rounded-full bg-fill-2 pr-2.5 pl-2.5">
+      <div className="flex h-6 items-center gap-1 rounded-full bg-fill-2 pe-2.5 ps-2.5">
         <input
           ref={ref}
           value={value}
@@ -266,7 +266,7 @@ function MinutesInput(props: { initial: number; tint: string; onDone: (minutes: 
           onBlur={(e) => {
             if (!e.currentTarget.form?.contains(e.relatedTarget as Node)) props.onDone(null);
           }}
-          className="tabular w-7 bg-transparent text-right text-caption font-semibold text-label outline-none"
+          className="tabular w-7 bg-transparent text-end text-caption font-semibold text-label outline-none"
         />
         <span className="text-caption text-label-3">min</span>
       </div>

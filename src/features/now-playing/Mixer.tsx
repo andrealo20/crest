@@ -166,7 +166,7 @@ function MuteButton(props: { icon: string | null; level: number; muted: boolean;
           <AnimatePresence>
             {props.muted && (
               <motion.span
-                className="absolute -right-0.5 -bottom-0.5 flex size-3.5 items-center justify-center rounded-full bg-notch text-red"
+                className="absolute -end-0.5 -bottom-0.5 flex size-3.5 items-center justify-center rounded-full bg-notch text-red"
                 initial={{ opacity: 0, transform: "scale(0.9)" }}
                 animate={{ opacity: 1, transform: "scale(1)" }}
                 exit={{ opacity: 0, transform: "scale(0.9)" }}
@@ -261,7 +261,7 @@ function Row({ index, item, onHold }: { index: number; item: Item; onHold: (on: 
       <MuteButton icon={item.icon} level={item.level} muted={item.muted} label={item.name} onToggle={() => item.set({ muted: !item.muted })} />
       <span className={`w-32 shrink-0 truncate text-footnote transition-colors duration-200 ${item.playing ? "font-medium text-label" : "text-label-2"}`}>{item.name}</span>
       <LevelBar className="min-w-0 flex-1" value={item.level} muted={item.muted} label={item.name} onHold={onHold} onChange={(v) => item.set({ level: v })} />
-      <span className="tabular w-8 shrink-0 text-right text-caption font-medium text-label-3">{Math.round(shown * 100)}</span>
+      <span className="tabular w-8 shrink-0 text-end text-caption font-medium text-label-3">{Math.round(shown * 100)}</span>
     </motion.div>
   );
 }

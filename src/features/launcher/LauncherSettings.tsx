@@ -61,7 +61,7 @@ export function LauncherSettings() {
                 dragging === f.id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
               }`}
             >
-              <DotsSixVertical size={13} weight="bold" className="-ml-1 text-label-4 transition-colors group-hover:text-label-3" />
+              <DotsSixVertical size={13} weight="bold" className="-ms-1 text-label-4 transition-colors group-hover:text-label-3" />
               <AppIcon src={icons[f.id]} size={16} />
               <span className="min-w-0 flex-1 truncate text-body text-label select-none">{f.name}</span>
               {status[i]?.label && <span className={`tabular text-caption ${status[i].taken ? "text-red line-through" : "text-label-3"}`}>{status[i].label}</span>}

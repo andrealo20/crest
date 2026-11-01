@@ -67,7 +67,7 @@ export function NowPlayingView() {
         <button
           onClick={() => void media.openSource()}
           title={source ? t("In {app} öffnen", { app: source }) : t("App öffnen")}
-          className="group/source pressable flex min-w-0 flex-1 items-center gap-3 rounded-[12px] text-left"
+          className="group/source pressable flex min-w-0 flex-1 items-center gap-3 rounded-[12px] text-start"
         >
           <Artwork np={np} />
           <div className="relative min-w-0 flex-1">
@@ -223,7 +223,8 @@ function Progress({ np }: { np: NowPlaying }) {
   };
 
   return (
-    <div className="mt-3.5 flex items-center gap-2.5">
+    // Time runs left to right on the bar in any language, as on every player.
+    <div dir="ltr" className="mt-3.5 flex items-center gap-2.5">
       <span className={`tabular w-9 text-caption font-medium transition-colors duration-150 ${scrub !== null ? "text-label" : "text-label-3"}`}>
         {format(pos)}
       </span>
@@ -253,7 +254,7 @@ function Progress({ np }: { np: NowPlaying }) {
           />
         </div>
       </div>
-      <span className={`tabular w-9 text-right text-caption font-medium transition-colors duration-150 ${scrub !== null ? "text-label" : "text-label-3"}`}>
+      <span className={`tabular w-9 text-end text-caption font-medium transition-colors duration-150 ${scrub !== null ? "text-label" : "text-label-3"}`}>
         -{format(np.duration - pos)}
       </span>
     </div>
@@ -265,7 +266,8 @@ function Controls({ np }: { np: NowPlaying }) {
   // Either one offered: both slots stay, so play/pause keeps the centre.
   const modes = np.shuffle !== null || np.repeat !== null;
   return (
-    <div className={`flex items-center justify-center ${modes ? "gap-4" : "gap-6"}`}>
+    // Transport keys keep their order in any language, like the time bar above.
+    <div dir="ltr" className={`flex items-center justify-center ${modes ? "gap-4" : "gap-6"}`}>
       {modes && (
         <ModeButton label={t("Zufallswiedergabe")} active={!!np.shuffle} offered={np.shuffle !== null} onClick={media.toggleShuffle}>
           <Shuffle size={16} weight="bold" />

@@ -199,13 +199,13 @@ export function ShelfView() {
     <div className="relative flex h-full flex-col px-4 pt-1 pb-2" {...dropHandlers}>
       <HeaderActions>
         {failed !== null && (
-          <span role="alert" title={failed} className="mr-1 text-caption text-red">
+          <span role="alert" title={failed} className="me-1 text-caption text-red">
             {t("Ziehen fehlgeschlagen")}
           </span>
         )}
         {picked > 0 ? (
           <>
-            <span className="tabular mr-1 text-caption text-label-2">{t("{n} ausgewählt", { n: picked })}</span>
+            <span className="tabular me-1 text-caption text-label-2">{t("{n} ausgewählt", { n: picked })}</span>
             <HeaderButton label={copied === "picked" ? t("Kopiert") : t("Auswahl kopieren")} onClick={() => void copyKeys(sel.keys, "picked")}>
               {copied === "picked" ? <Check size={14} weight="bold" /> : <Copy size={14} weight="bold" />}
             </HeaderButton>
@@ -218,7 +218,7 @@ export function ShelfView() {
           </>
         ) : (
           <>
-            <span className="tabular mr-1 text-caption text-label-3">
+            <span className="tabular me-1 text-caption text-label-3">
               {items.length} {items.length === 1 ? t("Eintrag") : t("Einträge")}
             </span>
             <HeaderButton label={selecting ? t("Auswählen beenden") : t("Auswählen")} active={selecting} onClick={() => (selecting ? clearSelection() : setSelecting(true))}>
@@ -267,7 +267,7 @@ export function ShelfView() {
                 />
                 {(selecting || picked > 0) && (
                   <span
-                    className={`pointer-events-none absolute top-1.5 left-1.5 flex size-5 items-center justify-center rounded-full backdrop-blur-md ${
+                    className={`pointer-events-none absolute top-1.5 start-1.5 flex size-5 items-center justify-center rounded-full backdrop-blur-md ${
                       on ? "bg-label text-notch" : "bg-fill-3 text-transparent"
                     }`}
                   >
@@ -278,7 +278,7 @@ export function ShelfView() {
                   data-remove
                   aria-label={t("Entfernen")}
                   onClick={() => shelf.set((l) => removeKeys(l, [key]))}
-                  className="pressable absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-fill-3 text-label-2 opacity-0 backdrop-blur-md group-hover:opacity-100 hover:text-label"
+                  className="pressable absolute top-1.5 end-1.5 flex size-5 items-center justify-center rounded-full bg-fill-3 text-label-2 opacity-0 backdrop-blur-md group-hover:opacity-100 hover:text-label"
                 >
                   <X size={10} weight="bold" />
                 </button>
@@ -348,7 +348,7 @@ function FileCard({ item, copied, onCopy }: { item: FileItem; copied: boolean; o
 function TextCard({ item, copied, onCopy }: { item: TextItem; copied: boolean; onCopy: () => void }) {
   return (
     <div className="relative flex size-full flex-col overflow-hidden rounded-[14px] bg-fill-1">
-      <button onClick={onCopy} title={t("Klicken zum Kopieren")} className="pressable flex min-h-0 flex-1 items-start overflow-hidden px-2.5 pt-2.5 text-left">
+      <button onClick={onCopy} title={t("Klicken zum Kopieren")} className="pressable flex min-h-0 flex-1 items-start overflow-hidden px-2.5 pt-2.5 text-start">
         <p className="line-clamp-6 text-caption break-words whitespace-pre-wrap text-label-2">{item.text}</p>
       </button>
       <div className="flex items-center justify-between px-2 pt-1.5 pb-1">

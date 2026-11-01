@@ -94,7 +94,7 @@ function Current({ data, name, auto, onChangePlace }: { data: Forecast; name: st
         </button>
         <div className="text-caption text-label-3">{text}</div>
       </div>
-      <div className="ml-auto flex flex-col items-end gap-0.5 text-caption text-label-3">
+      <div className="ms-auto flex flex-col items-end gap-0.5 text-caption text-label-3">
         <span>{t("gefühlt {n}", { n: formatTemp(data.current.feels) })}</span>
         <span className="flex items-center gap-1"><Wind size={11} weight="bold" /> {formatWind(data.current.wind)}</span>
         {today && today.rain > 0 && <span className="flex items-center gap-1"><Drop size={11} weight="fill" /> {today.rain} %</span>}
@@ -169,7 +169,7 @@ export function PlaceSearch({ onDone, canCancel, compact = false }: { onDone: ()
               choosePlace(p);
               onDone();
             }}
-            className="flex h-8 items-center gap-2 rounded-[8px] px-3 text-left hover:bg-fill-1"
+            className="flex h-8 items-center gap-2 rounded-[8px] px-3 text-start hover:bg-fill-1"
           >
             <MapPin size={12} weight="fill" className="text-label-3" />
             <span className="text-footnote text-label">{p.name}</span>

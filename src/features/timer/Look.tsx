@@ -49,7 +49,7 @@ function Clean(p: LookProps) {
       </span>
       <div className="relative flex-1 overflow-hidden rounded-full bg-fill-2" style={{ height: Math.max(3, p.h * 0.11) }}>
         <motion.div
-          className="absolute inset-0 origin-left rounded-full"
+          className="absolute inset-0 origin-left rounded-full rtl:origin-right"
           style={{ backgroundColor: p.tint }}
           initial={false}
           animate={{ transform: `scaleX(${progressOf(p.remaining, p.duration)})` }}

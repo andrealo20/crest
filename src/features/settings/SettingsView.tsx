@@ -78,7 +78,7 @@ import { SizeSettings } from "../../notch/SizeSettings";
 import { PortableNote } from "../portable/PortableNote";
 import { between, changelog, markSeen, useUnseen } from "../../lib/changelog";
 import { privacy, togglePresentation, usePresenting } from "../privacy/store";
-import { locale, t, tBackend } from "../../i18n";
+import { LANGUAGE_NAMES, LANGUAGES, locale, t, tBackend, type LanguageSetting } from "../../i18n";
 import { ThemeSettings } from "../themes/ThemeSettings";
 
 type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices";
@@ -156,7 +156,7 @@ export function SettingsView() {
               key={p.id}
               onClick={() => setPage(p.id)}
               aria-current={active ? "page" : undefined}
-              className={`pressable relative flex h-8 items-center gap-2 rounded-[8px] px-2.5 text-left text-body transition-colors duration-150 ${
+              className={`pressable relative flex h-8 items-center gap-2 rounded-[8px] px-2.5 text-start text-body transition-colors duration-150 ${
                 active ? "text-label" : "text-label-3 hover:text-label-2"
               }`}
             >
@@ -272,7 +272,7 @@ function Updates() {
             <Row label={t("Version {v} verfügbar", { v: u.version })} hint={t("Lädt, installiert und startet neu")}>
               {u.phase === "downloading" ? (
                 <div className="h-1.5 w-28 overflow-hidden rounded-full bg-fill-2">
-                  <div className="h-full origin-left rounded-full bg-label transition-transform duration-150 ease-linear" style={{ transform: `scaleX(${u.progress})` }} />
+                  <div className="h-full origin-left rtl:origin-right rounded-full bg-label transition-transform duration-150 ease-linear" style={{ transform: `scaleX(${u.progress})` }} />
                 </div>
               ) : (
                 <Button primary onClick={() => void installUpdate()}>
@@ -391,7 +391,7 @@ function ChangelogList({ entries, fresh }: { entries: ChangelogEntry[]; fresh?: 
           <div className="flex items-baseline gap-1.5 text-caption">
             <span className="tabular font-semibold text-label">{e.version}</span>
             {fresh?.has(e.version) && <span className="font-medium text-link">{t("Neu")}</span>}
-            <span className="ml-auto text-label-3">{date.format(new Date(`${e.date}T12:00:00`))}</span>
+            <span className="ms-auto text-label-3">{date.format(new Date(`${e.date}T12:00:00`))}</span>
           </div>
           <ul className="mt-1 flex flex-col gap-0.5">
             {e.items.map((item, j) => (
@@ -516,7 +516,8 @@ export function ShortcutRow() {
         )
       }
     >
-      <span className="flex items-center gap-1 text-caption text-label-2">
+      {/* Key combinations read left to right in any language. */}
+      <span dir="ltr" className="flex items-center gap-1 text-caption text-label-2">
         <Keyboard size={13} weight="bold" className="text-label-3" />
         {keycaps(keys).map(keyText).map((k) => (
           <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">{k}</kbd>
@@ -536,6 +537,14 @@ function General() {
 
   return (
     <Group>
+      <Row label={t("Sprache")}>
+        <Select<LanguageSetting>
+          width="w-40"
+          value={s.lang}
+          onChange={(lang) => updateSettings({ lang })}
+          options={[{ value: "system", label: t("Systemsprache") }, ...LANGUAGES.map((l) => ({ value: l, label: LANGUAGE_NAMES[l] }))]}
+        />
+      </Row>
       <Row label={t("Uhrzeit")}>
         <Segmented
           id="clock-format"
@@ -782,7 +791,7 @@ function ClosedParts() {
                 dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
               }`}
             >
-              <DotsSixVertical size={13} weight="bold" className="-ml-1 text-label-4 transition-colors group-hover:text-label-3" />
+              <DotsSixVertical size={13} weight="bold" className="-ms-1 text-label-4 transition-colors group-hover:text-label-3" />
               <I size={15} weight="bold" className={on ? "text-label-2" : "text-label-4"} />
               <span className={`flex-1 text-body select-none ${on ? "text-label" : "text-label-3"}`}>{t(label)}</span>
               <div onPointerDown={(e) => e.stopPropagation()} className="flex items-center gap-3">
@@ -923,7 +932,7 @@ function Alarm() {
       <Row label={t("Lautstärke")}>
         <div className="flex w-52 items-center gap-2">
           <Slider label={t("Lautstärke")} value={Math.round(a.volume * 100)} min={5} max={100} step={5} onChange={(v) => set({ volume: v / 100 })} />
-          <span className="tabular w-8 text-right text-caption text-label-2">{Math.round(a.volume * 100)}</span>
+          <span className="tabular w-8 text-end text-caption text-label-2">{Math.round(a.volume * 100)}</span>
         </div>
       </Row>
       <Row label={t("Dauer")} hint={t("Wie lange der Alarm klingelt")}>
@@ -1045,7 +1054,7 @@ function Tools() {
                 dragging === tool.id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
               }`}
             >
-              <DotsSixVertical size={13} weight="bold" className="-ml-1 text-label-4 transition-colors group-hover:text-label-3" />
+              <DotsSixVertical size={13} weight="bold" className="-ms-1 text-label-4 transition-colors group-hover:text-label-3" />
               <tab.icon size={15} weight="bold" className={tool.enabled ? "text-label-2" : "text-label-4"} />
               <span className={`flex-1 text-body select-none ${tool.enabled ? "text-label" : "text-label-3"}`}>{t(tab.label)}</span>
               <div onPointerDown={(e) => e.stopPropagation()}>

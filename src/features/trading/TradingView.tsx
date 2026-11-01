@@ -55,7 +55,7 @@ export function TradingView() {
 
   const actions = (
     <HeaderActions>
-      {env === "demo" && accounts.some((a) => a.id === "t212") && <span className="mr-1 rounded-full bg-fill-2 px-1.5 text-caption text-label-2">{t("Demo")}</span>}
+      {env === "demo" && accounts.some((a) => a.id === "t212") && <span className="me-1 rounded-full bg-fill-2 px-1.5 text-caption text-label-2">{t("Demo")}</span>}
       {state?.total && <Segmented id="trading-range" size="sm" value={r} onChange={range.set} options={ranges.map((o) => ({ ...o, label: t(o.label) }))} />}
       <HeaderButton label={updatedAt ? t("Aktualisiert {ago}", { ago: formatAgo(Date.now() - updatedAt) }) : t("Aktualisieren")} onClick={() => void refresh()}>
         <motion.span className="flex" animate={{ rotate: loading ? 360 : 0 }} transition={loading ? spin : { duration: 0 }}>
@@ -137,8 +137,8 @@ function Overview(props: { totals: Totals; history: History | null; today: DayCh
 
 function BackLink({ name, onBack }: { name: string; onBack: () => void }) {
   return (
-    <button onClick={onBack} className="pressable -ml-1 flex items-center gap-0.5 rounded-[6px] px-1 text-caption font-medium text-label-3 hover:text-label-2">
-      <CaretLeft size={11} weight="bold" />
+    <button onClick={onBack} className="pressable -ms-1 flex items-center gap-0.5 rounded-[6px] px-1 text-caption font-medium text-label-3 hover:text-label-2">
+      <CaretLeft size={11} weight="bold" className="rtl:-scale-x-100" />
       {t("Alle Konten")} <span className="text-label-2">· {name}</span>
     </button>
   );
@@ -167,7 +167,7 @@ function Notice({ state, failed }: { state: AccountState[]; failed: string[] }) 
       <span className="line-clamp-2">{text}</span>
     </>
   );
-  const style = "mt-1.5 flex items-start gap-1 text-left text-caption text-label-3";
+  const style = "mt-1.5 flex items-start gap-1 text-start text-caption text-label-3";
   // Only the key problems lead somewhere (the settings).
   return warn || errors.length || noLedger ? (
     <button onClick={() => navigate("settings", "trading")} className={style}>
@@ -191,7 +191,7 @@ function AccountRow({ account: a, index, money, onOpen }: { account: AccountStat
     <motion.button
       disabled={!a.error && !s}
       onClick={a.error ? () => navigate("settings", "trading") : onOpen}
-      className="pressable flex h-10 w-full items-center gap-3 border-b border-separator px-1 text-left last:border-0"
+      className="pressable flex h-10 w-full items-center gap-3 border-b border-separator px-1 text-start last:border-0"
       initial={{ opacity: 0, transform: "translateY(4px)" }}
       animate={{ opacity: 1, transform: "translateY(0px)" }}
       transition={{ ...content.enter, delay: 0.03 * index }}
@@ -201,13 +201,13 @@ function AccountRow({ account: a, index, money, onOpen }: { account: AccountStat
         <div className={`truncate text-caption ${a.error ? "text-red" : "text-label-3"}`}>{sub}</div>
       </div>
       {s && (
-        <div className="text-right">
+        <div className="text-end">
           <div className="tabular text-footnote text-label">{money(s.value)}</div>
           <div className={`tabular text-caption ${tone(pnl)}`}>{s.invested > 0 ? money(pnl, { signed: true }) : "–"}</div>
         </div>
       )}
       {s && <span className={`tabular w-[68px] rounded-[6px] py-0.5 text-center text-caption font-semibold ${pill(pnl)}`}>{pct !== null ? formatPercent(pct) : "–"}</span>}
-      <CaretRight size={11} weight="bold" className="shrink-0 text-label-4" />
+      <CaretRight size={11} weight="bold" className="shrink-0 text-label-4 rtl:-scale-x-100" />
     </motion.button>
   );
 }
@@ -234,7 +234,7 @@ function Positions({ account, money, hidden }: { account: AccountState; money: M
               <div className="truncate text-footnote font-semibold text-label">{p.symbol}</div>
               <div className="truncate text-caption text-label-3">{priceDate ? t("Kurs vom {date}", { date: new Date(priceDate).toLocaleDateString(locale(), { day: "numeric", month: "short" }) }) : p.name === "unknown-asset" ? t("Unbekannter Wert") : p.name}</div>
             </div>
-            <div className="text-right">
+            <div className="text-end">
               <div className="tabular text-footnote text-label">{p.value !== null ? money(p.value) : t("Kein Kurs")}</div>
               <div className={`tabular text-caption ${tone(p.pnl ?? 0)}`}>{p.pnl !== null ? (p.approx ? "≈ " : "") + money(p.pnl, { signed: true }) : "–"}</div>
             </div>
@@ -302,7 +302,7 @@ function Chart({ series, money, rangeLabel }: { series: number[]; money: (v: num
     return (
       <div className="flex h-[74px] w-[210px] shrink-0 flex-col justify-end gap-1.5">
         <div className="h-px w-full border-t border-dashed border-fill-3" />
-        <span className="text-right text-caption text-label-3">{t("Verlauf entsteht – ab jetzt wird gespeichert")}</span>
+        <span className="text-end text-caption text-label-3">{t("Verlauf entsteht – ab jetzt wird gespeichert")}</span>
       </div>
     );
   }

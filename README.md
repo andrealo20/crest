@@ -98,6 +98,8 @@ Also in the notch: a read-only calendar agenda from ICS links (Google, Outlook, 
 
 A short first-run setup picks a preset (Music, Productivity, AI or your own tools), the closed look and edge, and shows how to open the notch; Settings → General runs it again.
 
+Crest speaks 11 languages (English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German, Italian) and follows the Windows language unless you pick one in Settings → General.
+
 Every feature in detail, with setup steps for each integration: [docs/features.md](docs/features.md).
 
 ## Install

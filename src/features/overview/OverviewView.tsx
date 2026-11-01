@@ -71,11 +71,11 @@ function Header() {
       <div>
         <div className="tabular text-[34px] leading-none font-semibold tracking-[-0.03em] text-label">
           {time}
-          {period && <span className="ml-1 text-title font-semibold tracking-normal text-label-3">{period}</span>}
+          {period && <span className="ms-1 text-title font-semibold tracking-normal text-label-3">{period}</span>}
         </div>
         <div className="mt-1 text-footnote text-label-3">{date}</div>
       </div>
-      <button onClick={() => navigate("weather")} className="pressable flex flex-col items-end text-right" title={t("Wetter öffnen")}>
+      <button onClick={() => navigate("weather")} className="pressable flex flex-col items-end text-end" title={t("Wetter öffnen")}>
         <AnimatePresence mode="popLayout" initial={false}>
           {weather && forecast && forecast !== "error" ? (
             <motion.div
@@ -148,7 +148,7 @@ function Activity() {
           <motion.button
             key={item.key}
             onClick={() => navigate(item.tab)}
-            className="pressable pressable-wide pressable-fill absolute inset-0 flex items-center gap-2.5 px-2.5 text-left"
+            className="pressable pressable-wide pressable-fill absolute inset-0 flex items-center gap-2.5 px-2.5 text-start"
             initial={{ opacity: 0, filter: "blur(4px)" }}
             animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
             exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
@@ -158,7 +158,7 @@ function Activity() {
               <span className="block truncate text-footnote font-medium text-label">{item.title}</span>
               <span className="block truncate text-caption text-label-3">{item.detail}</span>
             </span>
-            {item.trailing && <span className="shrink-0 pr-1">{item.trailing}</span>}
+            {item.trailing && <span className="shrink-0 pe-1">{item.trailing}</span>}
           </motion.button>
         ) : (
           <motion.div
@@ -208,7 +208,7 @@ function FocusTile() {
       >
         <Moon size={14} weight="fill" />
       </motion.span>
-      <span className="min-w-0 text-left">
+      <span className="min-w-0 text-start">
         <span className="block truncate text-footnote font-semibold">{label}</span>
         <span className={`block text-caption ${active ? "text-black/55" : "text-label-3"}`}>{active ? t("An") : t("Aus")}</span>
       </span>
@@ -240,7 +240,7 @@ function VolumeTile() {
   const Icon = vol?.muted || level === 0 ? SpeakerSimpleSlash : level < 0.34 ? SpeakerNone : level < 0.67 ? SpeakerLow : SpeakerHigh;
 
   return (
-    <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[12px] bg-fill-1 pr-3 pl-1.5">
+    <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[12px] bg-fill-1 pe-3 ps-1.5">
       <button
         aria-label={vol?.muted ? t("Stummschaltung aufheben") : t("Stumm")}
         disabled={!vol}
@@ -287,7 +287,7 @@ function VolumeTile() {
           transition={dragging.current ? { duration: 0 } : springs.snappy}
         />
       </div>
-      <span className="tabular w-8 shrink-0 text-right text-caption font-semibold text-label-2">{vol ? Math.round(level * 100) : "–"}</span>
+      <span className="tabular w-8 shrink-0 text-end text-caption font-semibold text-label-2">{vol ? Math.round(level * 100) : "–"}</span>
     </div>
   );
 }

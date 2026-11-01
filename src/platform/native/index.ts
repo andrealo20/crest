@@ -66,6 +66,11 @@ export function syncFocusTray(on: boolean) {
   if (isNative) void invoke("tray_focus", { on });
 }
 
+/** The tray menu's texts in the interface language (Rust starts in English). */
+export function setTrayTexts(texts: { open: string; settings: string; focus: string; autostart: string; quit: string }) {
+  if (isNative) void invoke("tray_texts", { texts });
+}
+
 /** Focus mode switched from the tray menu. */
 export function onFocusFromTray(handler: (on: boolean) => void): () => void {
   if (!isNative) return () => {};

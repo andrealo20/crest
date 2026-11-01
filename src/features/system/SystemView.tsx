@@ -140,7 +140,7 @@ export function SystemView() {
 
       <div className="relative flex w-[236px] shrink-0 flex-col gap-2">
         <div className="rounded-[14px] bg-fill-1 pb-1" onPointerEnter={() => holdProcesses.set(true)} onPointerLeave={() => holdProcesses.set(false)}>
-          <div className="flex h-8 items-center justify-between pr-1.5 pl-3">
+          <div className="flex h-8 items-center justify-between pe-1.5 ps-3">
             <span className="text-caption font-medium tracking-wide text-label-3 uppercase">{t("Prozesse")}</span>
             <Segmented
               id="system-sort"
@@ -164,13 +164,13 @@ export function SystemView() {
                   <HardDrives size={13} weight="bold" className="shrink-0 text-label-3" />
                   <span className="tabular w-[46px] shrink-0 truncate text-footnote font-medium text-label">{d.letters}</span>
                   <span className="relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-fill-2">
-                    <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${share}%`, background: tone(ofShare(share)) }} />
+                    <span className="absolute inset-y-0 start-0 rounded-full" style={{ width: `${share}%`, background: tone(ofShare(share)) }} />
                   </span>
                   <span className="tabular shrink-0 text-caption text-label-3">
                     {sz.used}/{sz.total} {sz.unit}
                   </span>
                   {d.temp !== null && (
-                    <span className="tabular w-7 shrink-0 text-right text-caption font-medium" style={{ color: tone(d.tempLevel) }}>
+                    <span className="tabular w-7 shrink-0 text-end text-caption font-medium" style={{ color: tone(d.tempLevel) }}>
                       {degrees(d.temp)}°
                     </span>
                   )}
@@ -210,7 +210,7 @@ function Row(props: {
   const click = props.onClick;
   return (
     <motion.div
-      className={`block w-full px-3 text-left ${click ? "pressable cursor-pointer" : ""}`}
+      className={`block w-full px-3 text-start ${click ? "pressable cursor-pointer" : ""}`}
       onClick={click}
       role={click ? "button" : undefined}
       tabIndex={click ? 0 : undefined}
@@ -240,11 +240,11 @@ function Row(props: {
           {props.badge && <span className="shrink-0 rounded-[4px] bg-fill-2 px-1 text-[10px] text-label-2">{props.badge}</span>}
         </span>
         {props.values ? <Trend values={props.values} second={props.second} max={props.max ?? 100} color={color} tick={props.tick} /> : <span className="flex-1" />}
-        <span className="tabular w-[58px] shrink-0 text-right text-footnote font-semibold transition-colors duration-300" style={{ color }}>
+        <span className="tabular w-[58px] shrink-0 text-end text-footnote font-semibold transition-colors duration-300" style={{ color }}>
           {props.value}
         </span>
       </div>
-      {props.children && <div className="-mt-1 pb-1.5 pl-[87px]">{props.children}</div>}
+      {props.children && <div className="-mt-1 pb-1.5 ps-[87px]">{props.children}</div>}
     </motion.div>
   );
 }
@@ -257,7 +257,7 @@ function CoreColumns({ cores, tone }: { cores: { usage: number; kind: number }[]
     <div className="flex h-[16px] items-end gap-2" aria-hidden>
       {kinds.map((k) => (
         <div key={k} className="flex h-full min-w-0 items-end gap-[2px]">
-          {letter(k) && <span className="mr-0.5 self-center text-[9px] font-semibold text-label-4">{letter(k)}</span>}
+          {letter(k) && <span className="me-0.5 self-center text-[9px] font-semibold text-label-4">{letter(k)}</span>}
           {cores
             .filter((c) => c.kind === k)
             .map((c, n) => (
@@ -277,8 +277,8 @@ function MemoryBar(p: { used: number; cached: number; total: number; commit: num
   return (
     <div className="flex h-[16px] items-center gap-2">
       <span className="relative h-1.5 w-[90px] shrink-0 overflow-hidden rounded-full bg-fill-2">
-        <span className="absolute inset-y-0 left-0" style={{ width: `${used}%`, background: p.color }} />
-        <span className="absolute inset-y-0" style={{ left: `${used}%`, width: `${cached}%`, background: p.color, opacity: 0.35 }} />
+        <span className="absolute inset-y-0 start-0" style={{ width: `${used}%`, background: p.color }} />
+        <span className="absolute inset-y-0" style={{ insetInlineStart: `${used}%`, width: `${cached}%`, background: p.color, opacity: 0.35 }} />
       </span>
       <span className="tabular truncate text-[10px] text-label-3">
         {p.level > 0 && (
@@ -330,11 +330,11 @@ function AppIcon({ path, size }: { path: string | null; size: number }) {
 
 function ProcessRow({ proc, value, onClick }: { proc: ProcReading; value: string; onClick: () => void }) {
   return (
-    <motion.button layout="position" transition={{ duration: 0.25 }} onClick={onClick} className="pressable flex h-[24px] w-full items-center gap-2 px-3 text-left hover:bg-fill-2">
+    <motion.button layout="position" transition={{ duration: 0.25 }} onClick={onClick} className="pressable flex h-[24px] w-full items-center gap-2 px-3 text-start hover:bg-fill-2">
       <AppIcon path={proc.path} size={14} />
       <span className="min-w-0 flex-1 truncate text-caption text-label-2">{proc.name}</span>
       {proc.count > 1 && <span className="tabular shrink-0 text-[10px] text-label-4">{proc.count}</span>}
-      <span className="tabular w-[40px] shrink-0 text-right text-caption font-medium text-label">{value}</span>
+      <span className="tabular w-[40px] shrink-0 text-end text-caption font-medium text-label">{value}</span>
     </motion.button>
   );
 }

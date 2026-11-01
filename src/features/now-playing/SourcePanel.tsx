@@ -72,7 +72,7 @@ export function SourcePanel({ np }: { np: NowPlaying }) {
               role="option"
               aria-selected={row.checked}
               onClick={() => setMusic({ pinned: row.appId })}
-              className="pressable flex w-full items-center gap-2.5 rounded-[10px] px-2 text-left hover:bg-fill-1"
+              className="pressable flex w-full items-center gap-2.5 rounded-[10px] px-2 text-start hover:bg-fill-1"
               style={{ height: MIXER_ROW }}
             >
               <span className={`size-1.5 shrink-0 rounded-full ${row.isPlaying ? "bg-accent" : "bg-label-4"} ${row.appId ? "" : "opacity-0"}`} />

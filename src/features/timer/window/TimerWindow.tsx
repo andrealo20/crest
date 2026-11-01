@@ -52,7 +52,7 @@ export function TimerWindow() {
   return (
     <div className="h-full p-1.5">
       <div
-        className="group flex h-full items-center gap-3 rounded-[20px] bg-notch pr-2.5 pl-4 ring-1 ring-fill-2"
+        className="group flex h-full items-center gap-3 rounded-[20px] bg-notch pe-2.5 ps-4 ring-1 ring-fill-2"
         onMouseDown={(e) => {
           if (e.button === 0 && isNative && !(e.target as Element).closest("button")) void getCurrentWindow().startDragging();
         }}

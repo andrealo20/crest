@@ -1,6 +1,6 @@
 // Checks translations: every t("…") string needs an entry in src/i18n/en.json, and German
-// text outside of t() is flagged. `npm run i18n` (--fix adds missing entries as "TODO"
-// and sorts alphabetically; nothing is deleted).
+// text outside of t() is flagged; the other dictionaries are counted per language.
+// `npm run i18n` (--fix adds missing entries as "TODO" and sorts alphabetically; nothing is deleted).
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -48,6 +48,16 @@ console.log(`Missing in en.json (${missing.length}):\n  ${missing.join("\n  ")}`
 console.log(`\nGerman without t() (${suspicious.length}):\n  ${suspicious.join("\n  ")}`);
 // Usually used indirectly (label lists that only go through t() at render time).
 if (process.argv.includes("--unused")) console.log(`\nNot found via t() directly (${unused.length}):\n  ${unused.join("\n  ")}`);
+
+// The other languages: keys of en.json they lack (they fall back to English) and keys en.json no longer has.
+// Informational until every dictionary is filled; German is the ids, de.json only holds corrections.
+console.log("\nOther languages (missing / not in en.json):");
+for (const f of readdirSync(join(root, "i18n")).filter((f) => f.endsWith(".json") && f !== "en.json").sort()) {
+  const other = JSON.parse(readFileSync(join(root, "i18n", f), "utf8"));
+  const lacking = f === "de.json" ? [] : Object.keys(dict).filter((k) => !other[k]);
+  const stale = Object.keys(other).filter((k) => dict[k] === undefined);
+  console.log(`  ${f.replace(".json", "").padEnd(6)} ${String(lacking.length).padStart(5)} / ${stale.length}`);
+}
 
 if (fix) {
   const next = {};

@@ -79,7 +79,7 @@ function SizeRow(props: { label: string; hint?: string; value: number; min: numb
     <Row label={props.label} hint={props.hint}>
       <div className="flex w-52 items-center gap-2">
         <Slider label={props.label} value={shown} min={props.min} max={max} step={step} onChange={props.onChange} />
-        <span className="tabular w-14 shrink-0 text-right text-caption text-label-2">{shown} px</span>
+        <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{shown} px</span>
       </div>
     </Row>
   );

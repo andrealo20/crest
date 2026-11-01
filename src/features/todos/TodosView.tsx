@@ -109,7 +109,7 @@ function useMinute(): number {
 function Projects({ projects, active, tasks, ringing }: { projects: Project[]; active: string; tasks: Task[]; ringing: Set<string> }) {
   const [adding, setAdding] = useState(false);
   return (
-    <nav className="-ml-1 flex w-[150px] shrink-0 flex-col">
+    <nav className="-ms-1 flex w-[150px] shrink-0 flex-col">
       <div className="flex-1 overflow-y-auto [scrollbar-width:none]">
         {projects.map((p) => (
           <ProjectRow
@@ -159,7 +159,7 @@ function ProjectRow(props: { project: Project; active: boolean; ringing: boolean
         onDoubleClick={() => setRenaming(true)}
         aria-current={active ? "true" : undefined}
         title={t("Doppelklick zum Umbenennen")}
-        className={`pressable relative flex w-full flex-col rounded-[8px] px-2 py-1 text-left ${active ? "text-label" : "text-label-3 hover:text-label-2"}`}
+        className={`pressable relative flex w-full flex-col rounded-[8px] px-2 py-1 text-start ${active ? "text-label" : "text-label-3 hover:text-label-2"}`}
       >
         {active && <motion.span layoutId="todo-project" className="absolute inset-0 rounded-[8px] bg-fill-2" transition={springs.snappy} />}
         <span className="relative flex w-full items-center gap-1.5">
@@ -184,7 +184,7 @@ function ProjectRow(props: { project: Project; active: boolean; ringing: boolean
           aria-label={confirm ? t("Projekt mit Aufgaben löschen") : t("Projekt löschen")}
           title={confirm ? t("Projekt mit Aufgaben löschen") : t("Projekt löschen")}
           onClick={() => (confirm ? todoActions.removeProject(project.id) : setConfirm(true))}
-          className={`pressable absolute top-1 right-1 flex h-[18px] items-center justify-center rounded-full px-1 text-caption ${
+          className={`pressable absolute top-1 end-1 flex h-[18px] items-center justify-center rounded-full px-1 text-caption ${
             confirm ? "bg-red text-black opacity-100" : "text-label-4 opacity-0 group-hover:opacity-100 hover:text-label-2"
           }`}
         >
@@ -343,7 +343,7 @@ function TaskDetails({ task, onClose }: { task: Task; onClose: () => void }) {
     onClose();
   };
   return (
-    <div className="flex h-[30px] items-center gap-2 pl-7">
+    <div className="flex h-[30px] items-center gap-2 ps-7">
       <div className="flex items-center gap-1" role="radiogroup" aria-label={t("Farbe")}>
         {[null, ...TASK_COLORS].map((c) => (
           <button

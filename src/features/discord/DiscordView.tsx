@@ -139,7 +139,7 @@ function Members({ call }: { call: DiscordCall }) {
           <AnimatePresence>
             {m.muted && (
               <motion.span
-                className="absolute -right-0.5 -bottom-0.5 flex size-3.5 items-center justify-center rounded-full bg-notch"
+                className="absolute -end-0.5 -bottom-0.5 flex size-3.5 items-center justify-center rounded-full bg-notch"
                 initial={{ opacity: 0, transform: "scale(0.9)" }}
                 animate={{ opacity: 1, transform: "scale(1)" }}
                 exit={{ opacity: 0, transform: "scale(0.9)" }}
@@ -151,7 +151,7 @@ function Members({ call }: { call: DiscordCall }) {
           </AnimatePresence>
         </motion.div>
       ))}
-      {rest > 0 && <span className="ml-0.5 text-caption font-medium text-label-3">+{rest}</span>}
+      {rest > 0 && <span className="ms-0.5 text-caption font-medium text-label-3">+{rest}</span>}
     </div>
   );
 }
