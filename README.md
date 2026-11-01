@@ -9,6 +9,11 @@
 </p>
 
 <p align="center">
+  <a href="README.md"><img src="https://img.shields.io/badge/English-README-7B61FF?style=for-the-badge" alt="English README" /></a>
+  <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-README-E0559E?style=for-the-badge" alt="简体中文 README" /></a>
+</p>
+
+<p align="center">
   <a href="https://apps.microsoft.com/detail/9N2KXJ2924KS?referrer=appbadge&mode=full">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/media/store/get-it-from-microsoft-light.svg">
