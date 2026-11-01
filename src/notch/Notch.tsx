@@ -55,7 +55,11 @@ export function Notch() {
   // Line as the normal closed look: hover and click work as usual, but nothing shows
   // while closed but the song's progress. Only an urgent notice opens it into the notch, until answered or for its time:
   // a finished timer, a due to-do reminder (the user asked to be told at that time), a running recording (its stop button stays in reach) or a status alert.
-  const urgent = timer.use().finished || dueTasks.use().length > 0 || recording.use().phase !== "idle";
+  // Each store hook runs on every render: chained with || a finished timer skipped the other two and broke the hook order.
+  const timerFinished = timer.use().finished;
+  const tasksDue = dueTasks.use().length > 0;
+  const recordingOn = recording.use().phase !== "idle";
+  const urgent = timerFinished || tasksDue || recordingOn;
   const statusOn = statusAlert.use() !== null;
   const idleLine = !focus && idleStyle === "line";
   const alert = idleLine && (urgent || statusOn);
