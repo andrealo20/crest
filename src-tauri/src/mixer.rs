@@ -140,7 +140,12 @@ pub async fn mixer_list(media: State<'_, MediaState>, cache: State<'_, MixerStat
             let (level, muted) = unsafe { (e.volume.GetMasterVolume().unwrap_or(1.0), e.volume.GetMute().is_ok_and(|m| m.as_bool())) };
             // Several sessions of one program: one row, the loudest unmuted level wins.
             if let Some(row) = rows.iter_mut().find(|r| r.id == id) {
-                row.level = row.level.max(level);
+                // Rows so far all muted: the first audible session replaces their level; all muted: the loudest.
+                if !muted && row.muted {
+                    row.level = level;
+                } else if muted == row.muted {
+                    row.level = row.level.max(level);
+                }
                 row.muted &= muted;
                 continue;
             }
