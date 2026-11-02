@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createStore } from "../../lib/store";
 import { ArrowsLeftRight } from "@phosphor-icons/react";
 import { Select } from "../../ui/controls";
 import { locale, t } from "../../i18n";
@@ -24,11 +25,16 @@ function label(code: string): string {
   }
 }
 
+/** The last pair of currencies: the panel opens on it again. */
+const lastPair = createStore<[string, string] | null>(null, { persist: "convert-currency" });
+
 export function CurrencyPanel() {
   const base = effectiveBase(settings.use().trading.base);
   const [rates, setRates] = useState<Rates | null>(null);
   const [offline, setOffline] = useState(false);
-  const [[from, to], setPair] = useState<[string, string]>(() => [base, base === "EUR" ? "USD" : "EUR"]);
+  const saved = lastPair.use();
+  const [from, to] = Array.isArray(saved) && saved.length === 2 && saved.every((c) => /^[A-Z]{3}$/.test(c)) ? saved : [base, base === "EUR" ? "USD" : "EUR"];
+  const setPair = (p: [string, string]) => lastPair.set(p);
   const [input, setInput] = useState("100");
 
   useEffect(() => {

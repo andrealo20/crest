@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createStore } from "../../lib/store";
 import { ArrowsLeftRight } from "@phosphor-icons/react";
 import { Segmented, Select } from "../../ui/controls";
 import { locale, t } from "../../i18n";
@@ -87,9 +88,17 @@ function format(n: number): string {
   return n.toLocaleString(locale(), { maximumFractionDigits: abs >= 1000 ? 2 : abs >= 1 ? 4 : 6 });
 }
 
+/** The last category, and the last pair of units in each: the panel opens on them again. */
+const last = createStore<{ cat: Category; pairs: Partial<Record<Category, [string, string]>> }>({ cat: "length", pairs: {} }, { persist: "convert-units" });
+
 export function UnitsPanel() {
-  const [cat, setCat] = useState<Category>("length");
-  const [[from, to], setPair] = useState(defaults.length);
+  const saved = last.use();
+  // Saved by an older version, or a unit since removed: the defaults.
+  const cat: Category = saved?.cat in units ? saved.cat : "length";
+  const pair = saved?.pairs?.[cat];
+  const [from, to] = Array.isArray(pair) && pair.every((id) => units[cat].some((u) => u.id === id)) ? pair : defaults[cat];
+  const setCat = (c: Category) => last.set((s) => ({ ...s, cat: c }));
+  const setPair = (p: [string, string]) => last.set((s) => ({ cat, pairs: { ...s.pairs, [cat]: p } }));
   const [input, setInput] = useState("100");
 
   const value = parseAmount(input);
@@ -102,10 +111,7 @@ export function UnitsPanel() {
         id="units-cat"
         size="sm"
         value={cat}
-        onChange={(c) => {
-          setCat(c);
-          setPair(defaults[c]);
-        }}
+        onChange={setCat}
         options={[
           { value: "length", label: t("Länge") },
           { value: "mass", label: t("Gewicht") },
