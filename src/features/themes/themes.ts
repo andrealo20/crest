@@ -117,6 +117,54 @@ export const BUILT_IN_THEMES: readonly ThemeFile[] = [
     { background: "#011627", foreground: "#d6deeb", secondary: "#a1b3c8", tertiary: "#6e8da7", accent: "#82aaff", warning: "#ecc48d", critical: "#ef5350", success: "#addb67", elevated: "#0b253a" },
     { author: "Sarah Drasner", license: "MIT", homepage: "https://github.com/sdras/night-owl-vscode-theme" },
   ),
+  builtIn(
+    "catppuccin-mocha",
+    "Catppuccin Mocha",
+    { background: "#181825", foreground: "#cdd6f4", secondary: "#bac2de", tertiary: "#7f849c", accent: "#cba6f7", link: "#89b4fa", warning: "#f9e2af", critical: "#f38ba8", success: "#a6e3a1", elevated: "#1e1e2e" },
+    { author: "Catppuccin", license: "MIT", homepage: "https://github.com/catppuccin/catppuccin" },
+  ),
+  builtIn(
+    "catppuccin-latte",
+    "Catppuccin Latte",
+    { background: "#e6e9ef", foreground: "#484b64", secondary: "#5c5f77", tertiary: "#6c6f85", accent: "#8839ef", link: "#1e66f5", warning: "#935d13", critical: "#d00f39", success: "#3d9829", elevated: "#eff1f5" },
+    { author: "Catppuccin", license: "MIT", homepage: "https://github.com/catppuccin/catppuccin" },
+  ),
+  builtIn(
+    "nord",
+    "Nord",
+    { background: "#2e3440", foreground: "#eceff4", secondary: "#d8dee9", tertiary: "#7b88a1", accent: "#88c0d0", link: "#81a1c1", warning: "#ebcb8b", critical: "#cf888f", success: "#a3be8c", elevated: "#3b4252" },
+    { author: "Sven Greb", license: "MIT", homepage: "https://github.com/nordtheme/nord" },
+  ),
+  builtIn(
+    "rose-pine",
+    "Rosé Pine",
+    { background: "#191724", foreground: "#e0def4", secondary: "#9390ad", tertiary: "#6e6a86", accent: "#ebbcba", link: "#c4a7e7", warning: "#f6c177", critical: "#eb6f92", success: "#9ccfd8", elevated: "#1f1d2e" },
+    { author: "Rosé Pine", license: "MIT", homepage: "https://github.com/rose-pine/rose-pine-theme" },
+  ),
+  builtIn(
+    "rose-pine-dawn",
+    "Rosé Pine Dawn",
+    { background: "#faf4ed", foreground: "#534f74", secondary: "#6a6683", tertiary: "#918c9f", accent: "#d2726e", link: "#286983", warning: "#9f6310", critical: "#ad546e", success: "#56949f", elevated: "#fffaf3" },
+    { author: "Rosé Pine", license: "MIT", homepage: "https://github.com/rose-pine/rose-pine-theme" },
+  ),
+  builtIn(
+    "gruvbox-dark",
+    "Gruvbox Dark",
+    { background: "#282828", foreground: "#ebdbb2", secondary: "#d5c4a1", tertiary: "#a89984", accent: "#fe8019", link: "#83a598", warning: "#fabd2f", critical: "#fb533f", success: "#b8bb26", elevated: "#32302f" },
+    { author: "Pavel Pertsev", license: "MIT", homepage: "https://github.com/gruvbox-community/gruvbox" },
+  ),
+  builtIn(
+    "solarized-light",
+    "Solarized Light",
+    { background: "#fdf6e3", foreground: "#3f4e53", secondary: "#586c73", tertiary: "#7d8d8d", accent: "#268bd2", link: "#6c71c4", warning: "#8f6c00", critical: "#da2925", success: "#859800", elevated: "#eee8d5" },
+    { author: "Ethan Schoonover", license: "MIT", homepage: "https://github.com/altercation/solarized" },
+  ),
+  builtIn(
+    "everforest",
+    "Everforest",
+    { background: "#2d353b", foreground: "#dacfb7", secondary: "#a7b2a9", tertiary: "#859289", accent: "#a7c080", link: "#7fbbb3", warning: "#dbbc7f", critical: "#e67e80", success: "#83c092", elevated: "#343f44" },
+    { author: "sainnhe", license: "MIT", homepage: "https://github.com/sainnhe/everforest" },
+  ),
 ];
 
 export const isBuiltIn = (id: string) => BUILT_IN_THEMES.some((t) => t.id === id);

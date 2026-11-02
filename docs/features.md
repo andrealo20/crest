@@ -200,7 +200,7 @@ The vault is off by default; turn it on under **Settings → Tools**.
 
 ## Themes
 
-- Seven built-in panel themes (Dark, Light, One Dark Pro, GitHub Dark, GitHub Light, Dracula and Night Owl) under **Settings → Themes**.
+- Fifteen built-in panel themes (Dark, Light, One Dark Pro, GitHub Dark, GitHub Light, Dracula, Night Owl, Catppuccin Mocha, Catppuccin Latte, Nord, Rosé Pine, Rosé Pine Dawn, Gruvbox Dark, Solarized Light and Everforest) under **Settings → Themes**.
 - The editor changes background, foreground, accent and the warning colours with a colour picker and shows each change on the panel at once.
 - Save the result as your own theme, export and import themes as JSON files, or switch between a day and a night theme by time.
 - The closed notch stays black unless a theme opts in to colour it.

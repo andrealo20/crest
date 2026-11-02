@@ -26,7 +26,23 @@ test("every built-in theme passes the readability rules as written", () => {
   for (const t of BUILT_IN_THEMES) assert.deepEqual(resolveTheme(t).adjustments, [], t.id);
   assert.deepEqual(
     BUILT_IN_THEMES.map((t) => t.id),
-    ["dark", "light", "one-dark-pro", "github-dark", "github-light", "dracula", "night-owl"],
+    [
+      "dark",
+      "light",
+      "one-dark-pro",
+      "github-dark",
+      "github-light",
+      "dracula",
+      "night-owl",
+      "catppuccin-mocha",
+      "catppuccin-latte",
+      "nord",
+      "rose-pine",
+      "rose-pine-dawn",
+      "gruvbox-dark",
+      "solarized-light",
+      "everforest",
+    ],
   );
 });
 

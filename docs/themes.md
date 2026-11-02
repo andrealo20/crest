@@ -2,7 +2,7 @@
 
 A theme colours the open panel: its background, text, menus, accents and the warning and critical colours. Pick one under **Settings › Themes**. The closed notch stays black in every theme, so it still blends into the screen edge; a theme can opt in to colour it too.
 
-Built in: Dark (the default), Light, One Dark Pro, GitHub Dark, GitHub Light, Dracula and Night Owl. The last five use the colours of their VS Code themes under the MIT License; the notices are in [`licenses/theme-palettes-MIT.txt`](../licenses/theme-palettes-MIT.txt).
+Built in: Dark (the default), Light, One Dark Pro, GitHub Dark, GitHub Light, Dracula, Night Owl, Catppuccin Mocha, Catppuccin Latte, Nord, Rosé Pine, Rosé Pine Dawn, Gruvbox Dark, Solarized Light and Everforest. All but the first two use the colours of their original palettes under the MIT License, with the few that missed a contrast minimum moved just far enough to pass; the notices are in [`licenses/theme-palettes-MIT.txt`](../licenses/theme-palettes-MIT.txt).
 
 ## Changing colours
 

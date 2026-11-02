@@ -1,4 +1,5 @@
-The built-in themes One Dark Pro, GitHub Dark, GitHub Light, Dracula and Night Owl
+The built-in themes One Dark Pro, GitHub Dark, GitHub Light, Dracula, Night Owl, Catppuccin Mocha,
+Catppuccin Latte, Nord, Rosé Pine, Rosé Pine Dawn, Gruvbox Dark, Solarized Light and Everforest
 (src/features/themes/themes.ts) use colours from these projects under the MIT License.
 
 One Dark Pro
@@ -16,6 +17,30 @@ Copyright (c) 2016 Dracula Theme
 Night Owl for Visual Studio Code
 https://github.com/sdras/night-owl-vscode-theme
 Copyright (c) 2018 Sarah Drasner
+
+Catppuccin
+https://github.com/catppuccin/catppuccin
+Copyright (c) 2021 Catppuccin
+
+Nord
+https://github.com/nordtheme/nord
+Copyright (c) 2016-present Sven Greb <development@svengreb.de> (https://www.svengreb.de)
+
+Rosé Pine
+https://github.com/rose-pine/rose-pine-theme
+Copyright (c) 2023 Rosé Pine
+
+Gruvbox
+https://github.com/gruvbox-community/gruvbox
+Copyright (c) 2018 Pavel Pertsev
+
+Solarized
+https://github.com/altercation/solarized
+Copyright (c) 2011 Ethan Schoonover
+
+Everforest
+https://github.com/sainnhe/everforest
+Copyright (c) 2019 sainnhe
 
 MIT License
 
