@@ -205,6 +205,11 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 last_ignore = Some(ignore);
             }
             if last_inside != Some(inside) {
+                // Where the pointer came in, in the page's px: the page saw no pointermove while the window let it through,
+                // and the part under it decides the tool the hover opens (Notch.tsx).
+                if inside {
+                    let _ = window.emit("notch://hover-at", (x, y));
+                }
                 let _ = window.emit("notch://hover", inside);
                 last_inside = Some(inside);
             }

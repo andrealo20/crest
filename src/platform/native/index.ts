@@ -25,6 +25,13 @@ export function onNativeHover(handler: (inside: boolean) => void): () => void {
   return () => void off.then((f) => f());
 }
 
+/** Where the pointer entered the hit zone, in the page's px; sent just before the hover. */
+export function onNativeHoverAt(handler: (x: number, y: number) => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen<[number, number]>("notch://hover-at", (e) => handler(e.payload[0], e.payload[1]));
+  return () => void off.then((f) => f());
+}
+
 /** Window lost focus (click into another app). */
 export function onNativeBlur(handler: () => void): () => void {
   if (!isNative) return () => {};

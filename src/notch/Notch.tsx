@@ -3,7 +3,7 @@ import { AnimatePresence, animate, frame, motion, useMotionValue, type MotionVal
 import { GearSix, PushPin, Selection } from "@phosphor-icons/react";
 import { content, springs } from "../design/motion";
 import { livePosition, useNowPlaying } from "../platform/media";
-import { isNative, keyboardFocus, onNativeBlur, onNativeHover, onShortcut, onTrayOpen, setHitRect, setMemoryLow } from "../platform/native";
+import { isNative, keyboardFocus, onNativeBlur, onNativeHover, onNativeHoverAt, onShortcut, onTrayOpen, setHitRect, setMemoryLow } from "../platform/native";
 import { PrivacyDots } from "../features/privacy/PrivacyDots";
 import { FOCUS_CLICKS, focusMode, setFocusMode } from "./focus";
 import { dragArea, edgeOf, useDragToMove, viewLine, windowLength, windowY } from "./drag";
@@ -109,6 +109,10 @@ export function Notch() {
     const tool = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.closest("[data-open]"))?.closest("[data-open]")?.getAttribute("data-open");
     return tool && visible.some((t) => t.id === tool) ? tool : null;
   };
+  // Natively the page sees no pointermove until the window stops letting the pointer through, after the hover: Rust says where it came in.
+  const partTargetRef = useRef(partTarget);
+  partTargetRef.current = partTarget;
+  useEffect(() => onNativeHoverAt((x, y) => (pointed.current = { tool: partTargetRef.current({ clientX: x, clientY: y }), at: Date.now() })), []);
   useLayoutEffect(() => {
     if (status === "open" && prevStatus.current !== "open") {
       const resumed = Date.now() - closedAt.current < RESUME_MS;
