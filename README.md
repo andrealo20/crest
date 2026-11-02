@@ -15,7 +15,7 @@
       <img src="docs/media/store/get-it-from-microsoft-dark.svg" width="161" height="44" alt="Get it from Microsoft">
     </picture>
   </a>
-  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="docs/media/badges/platforms.svg" width="178" height="44" alt="Platforms: Windows, Windows on Arm, macOS"></a>
+  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="docs/media/badges/platform-logos.svg" width="178" height="44" alt="Platforms: Windows, Windows on Arm, macOS"></a>
 </p>
 
 <p align="center">
