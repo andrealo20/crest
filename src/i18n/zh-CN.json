@@ -1167,5 +1167,11 @@
  "Skript-Anzeigen (crest-notify)": "脚本组件 (crest-notify)",
  "Nächster Titel": "下一首",
  "Vorheriger Titel": "上一首",
- "Dateien": "文件"
+ "Dateien": "文件",
+ "Crest {v} · Neuerungen": "Crest {v} · 新功能",
+ "Crest {v} verfügbar": "Crest {v} 可用",
+ "Neu in Crest {v}": "Crest {v} 新功能",
+ "Crest {v} ist verfügbar": "Crest {v} 已发布",
+ "Crest ist kostenlos, ohne Werbung, und wird von einer Person entwickelt. Wenn es dir gefällt, kannst du es unterstützen.": "Crest 免费、无广告，由一个人开发。如果你喜欢，可以支持它。",
+ "Auf GitHub unterstützen": "在 GitHub 上支持"
 }

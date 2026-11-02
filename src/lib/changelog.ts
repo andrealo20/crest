@@ -7,7 +7,7 @@ import { update } from "./update";
 /*
  * "What's new": the changelog ships with the app (src/changelog.json). After an update,
  * every version since the last one you saw is new (skipped updates included) and a dot
- * on the gear points to it. Nothing pops up by itself.
+ * on the gear and a line in the closed notch (features/whatsnew) point to it. Nothing opens by itself.
  */
 export const changelog: ChangelogEntry[] = bundled;
 

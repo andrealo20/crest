@@ -1167,5 +1167,11 @@
  "Skript-Anzeigen (crest-notify)": "Éléments de script (crest-notify)",
  "Nächster Titel": "Piste suivante",
  "Vorheriger Titel": "Piste précédente",
- "Dateien": "Fichiers"
+ "Dateien": "Fichiers",
+ "Crest {v} · Neuerungen": "Crest {v} · Nouveautés",
+ "Crest {v} verfügbar": "Crest {v} disponible",
+ "Neu in Crest {v}": "Nouveautés de Crest {v}",
+ "Crest {v} ist verfügbar": "Crest {v} est disponible",
+ "Crest ist kostenlos, ohne Werbung, und wird von einer Person entwickelt. Wenn es dir gefällt, kannst du es unterstützen.": "Crest est gratuit, sans publicité, et développé par une seule personne. Si vous l'appréciez, vous pouvez le soutenir.",
+ "Auf GitHub unterstützen": "Soutenir sur GitHub"
 }

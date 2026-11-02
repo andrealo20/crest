@@ -319,6 +319,8 @@ Crest keeps its settings and data apart from L4-Notchbar, so both can be install
 
 **Crash log.** If Crest crashes, panics and uncaught interface errors are appended to `crash.log` in `%LOCALAPPDATA%\io.github.andrealo20.crest\logs` (installer), or in `data\logs` next to Crest.exe (portable). Past 512 KB it is renamed to `crash.old.log` and a new one starts. The file stays on your PC; attach it to a bug report if you like.
 
+**What's new.** After an update, a line in the closed notch says what version you are on now; when the daily check finds a new version (not in the Store build, which the Store updates), the line says it is available. A click opens a page with the changes, a short note on supporting the project with a GitHub Sponsors button, and for a new version an Update now button. The ✕ hides the line for that version, and a fresh install shows nothing.
+
 **Copy diagnostics.** Settings, General, Updates has Copy diagnostics, which puts a short plain-text block on the clipboard for a bug report: the app version and build (installer, portable or Store), the Windows edition and build, the app's and the PC's architecture, the number of monitors and their scale, the panel scale, the enabled tools, the closed style and edge, and the codes of current errors (update check, GitHub, FPS, Discord). It never includes your user name, the PC's name, file paths, keys, tokens, account names or your location; an error that is not one of Crest's own codes shows as `other`.
 
 ## Keys and the vault

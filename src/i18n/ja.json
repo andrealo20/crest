@@ -1167,5 +1167,11 @@
  "Skript-Anzeigen (crest-notify)": "スクリプトのパーツ (crest-notify)",
  "Nächster Titel": "次の曲",
  "Vorheriger Titel": "前の曲",
- "Dateien": "ファイル"
+ "Dateien": "ファイル",
+ "Crest {v} · Neuerungen": "Crest {v} · 新機能",
+ "Crest {v} verfügbar": "Crest {v} が利用可能",
+ "Neu in Crest {v}": "Crest {v} の新機能",
+ "Crest {v} ist verfügbar": "Crest {v} が利用可能です",
+ "Crest ist kostenlos, ohne Werbung, und wird von einer Person entwickelt. Wenn es dir gefällt, kannst du es unterstützen.": "Crest は無料で広告もなく、一人で開発しています。気に入ったら、ぜひ支援してください。",
+ "Auf GitHub unterstützen": "GitHub で支援する"
 }
