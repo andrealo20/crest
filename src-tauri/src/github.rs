@@ -51,7 +51,7 @@ pub fn github_open_profile(user: String) -> Result<(), String> {
     if !valid_user(user) {
         return Err("not-found".into());
     }
-    std::process::Command::new("explorer").arg(format!("https://github.com/{user}")).spawn().map(|_| ()).map_err(|e| e.to_string())
+    crate::opener().arg(format!("https://github.com/{user}")).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

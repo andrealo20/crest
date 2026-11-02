@@ -96,7 +96,7 @@ pub fn sibling(exe: &Path, suffix: &str) -> PathBuf {
 /// Creates the notch window from tauri.conf.json ("create": false there), with the portable data folder for WebView2 when there is one.
 pub fn create_window(app: &App) -> tauri::Result<WebviewWindow> {
     let config = app.config().app.windows.iter().find(|w| w.label == "notch").cloned().expect("window 'notch' missing");
-    let mut builder = WebviewWindowBuilder::from_config(app.handle(), &config)?;
+    let mut builder = WebviewWindowBuilder::from_config(app.handle(), &config)?.on_navigation(crate::own_page);
     if let Some(dir) = data_dir() {
         builder = builder.data_directory(dir);
     }
@@ -217,7 +217,7 @@ pub async fn portable_install(app: AppHandle) -> Result<bool, String> {
     }
     let exe = exe().ok_or("no executable path")?;
     if !copy().is_some_and(|c| c.writable) {
-        return Command::new("explorer").arg(DOWNLOAD_PAGE).spawn().map(|_| true).map_err(|e| e.to_string());
+        return crate::opener().arg(DOWNLOAD_PAGE).spawn().map(|_| true).map_err(|e| e.to_string());
     }
     let update = app.updater_builder().target(TARGET).build().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?;
     let Some(update) = update else { return Err("no update".into()) };

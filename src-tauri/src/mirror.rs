@@ -223,7 +223,7 @@ fn create(app: &AppHandle, label: &str) -> tauri::Result<WebviewWindow> {
     let mut config = app.config().app.windows.iter().find(|w| w.label == TEMPLATE).cloned().ok_or(tauri::Error::WindowNotFound)?;
     config.label = label.to_string();
     // The same WebView2 folder and arguments as the notch, so the mirror joins its browser process (portable.rs).
-    let mut builder = WebviewWindowBuilder::from_config(app, &config)?;
+    let mut builder = WebviewWindowBuilder::from_config(app, &config)?.on_navigation(crate::own_page);
     if let Some(dir) = crate::portable::data_dir() {
         builder = builder.data_directory(dir);
     }

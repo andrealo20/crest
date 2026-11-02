@@ -72,7 +72,18 @@ export function startDropListener() {
     depth = Math.max(0, depth - 1);
     if (depth === 0) drop.set((s) => ({ ...s, dragging: false }));
   });
-  window.addEventListener("dragover", (e) => hasFiles(e) && e.preventDefault());
+  window.addEventListener("dragover", (e) => {
+    if (hasFiles(e)) return e.preventDefault();
+    // A link or text outside a zone that takes it (the Shelf's own handlers come first): WebView2 would open it in the
+    // notch itself. Refused here, so the cursor shows it can't be dropped.
+    if (!e.defaultPrevented) {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+    }
+  });
+  window.addEventListener("drop", (e) => {
+    if (!hasFiles(e)) e.preventDefault();
+  });
   window.addEventListener("drop", (e) => {
     if (!hasFiles(e)) return;
     e.preventDefault();

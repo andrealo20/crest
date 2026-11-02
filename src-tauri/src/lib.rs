@@ -104,6 +104,40 @@ pub(crate) fn write_atomic(path: &std::path::Path, bytes: &[u8]) -> std::io::Res
     std::fs::rename(&tmp, path)
 }
 
+/// Crest's windows only ever show its own pages: a dropped link or a script must not navigate one elsewhere, above all
+/// not to a plugin page, which as the top frame would get the app's commands. Plugins run in their iframe (on Windows
+/// this check only sees the top frame; on a Mac it sees frames too, where plugins don't load anyway).
+pub(crate) fn own_page(url: &tauri::Url) -> bool {
+    match url.scheme() {
+        "tauri" | "about" => true,
+        "http" | "https" => url.host_str() == Some("tauri.localhost") || (cfg!(debug_assertions) && url.host_str() == Some("localhost")),
+        _ => false,
+    }
+}
+
+/// The notch window may call every command; the timer and the mirror windows only what they need. Tauri lets every
+/// local window call every app command (the capabilities only cover plugins and core), so a bug in one of them would
+/// otherwise reach the vault or the terminal.
+fn command_allowed(window: &str, command: &str) -> bool {
+    match window {
+        "notch" => true,
+        "timer" => command == "timer_window_close",
+        w if w.starts_with("mirror-") => command == "mirror_picture",
+        _ => false,
+    }
+}
+
+/// Opens files, folders and links: Explorer on Windows, by its full path, since a bare "explorer" is looked up next
+/// to crest.exe first, and a portable copy's folder may be one other users can write to. `open` on a Mac.
+pub(crate) fn opener() -> std::process::Command {
+    if cfg!(windows) {
+        let root = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+        std::process::Command::new(std::path::Path::new(&root).join("explorer.exe"))
+    } else {
+        std::process::Command::new("open")
+    }
+}
+
 /// For main.rs: elevated "Unlock FPS" call (see fps::fps_unlock).
 #[cfg(windows)]
 pub fn fps_elevated_unlock(sid: &str) -> i32 {
@@ -161,7 +195,8 @@ pub fn run() {
             let webview = ctx.webview_label().to_string();
             tauri::async_runtime::spawn_blocking(move || responder.respond(plugins::protocol(&app, &webview, &request)));
         })
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler({
+            let commands: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
             hit_test::set_hit_rect,
             hit_test::set_pinned,
             hit_test::set_passthrough,
@@ -364,7 +399,15 @@ pub fn run() {
             capture::capture_details,
             #[cfg(windows)]
             capture::capture_delete,
-        ])
+            ];
+            move |invoke| {
+                if !command_allowed(invoke.message.webview_ref().label(), invoke.message.command()) {
+                    invoke.resolver.reject("not-allowed");
+                    return true;
+                }
+                commands(invoke)
+            }
+        })
         .setup(move |app| {
             // A menu bar app: no Dock icon, like skipTaskbar on Windows.
             #[cfg(target_os = "macos")]
@@ -517,7 +560,7 @@ fn native_machine() -> Option<&'static str> {
 /// Opens the GitHub Sponsors page in the default browser. The address is fixed here, so the interface cannot open anything else.
 #[tauri::command]
 fn open_sponsors() -> Result<(), String> {
-    std::process::Command::new(if cfg!(windows) { "explorer" } else { "open" }).arg("https://github.com/sponsors/andrealo20").spawn().map(|_| ()).map_err(|e| e.to_string())
+    opener().arg("https://github.com/sponsors/andrealo20").spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Enables autostart on the very first launch; after that the tray check and settings decide.
@@ -664,5 +707,23 @@ mod tests {
         if cfg!(target_arch = "aarch64") {
             assert_eq!(native, Some("aarch64"));
         }
+    }
+
+    #[test]
+    fn only_the_notch_reaches_every_command() {
+        use super::command_allowed as ok;
+        assert!(ok("notch", "vault_reveal") && ok("notch", "terminal_write"));
+        assert!(ok("timer", "timer_window_close") && !ok("timer", "terminal_write") && !ok("timer", "open_path"));
+        assert!(ok("mirror-1", "mirror_picture") && !ok("mirror-1", "vault_reveal"));
+        assert!(!ok("plugin", "secret_set") && !ok("", "mirror_picture"));
+    }
+
+    #[test]
+    fn windows_stay_on_crests_own_pages() {
+        let ok = |u: &str| super::own_page(&u.parse().unwrap());
+        assert!(ok("http://tauri.localhost/index.html") && ok("tauri://localhost/") && ok("about:blank"));
+        // A plugin page or a website dropped as a link.
+        assert!(!ok("http://crestplugin.localhost/hello/index.html"));
+        assert!(!ok("https://example.com/") && !ok("file:///C:/Windows/") && !ok("http://tauri.localhost.example.com/"));
     }
 }
