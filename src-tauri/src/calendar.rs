@@ -1,5 +1,5 @@
 //! Calendar, read-only: events from ICS links (Google, Outlook, iCloud "secret address" links, any webcal URL) and CalDAV
-//! accounts, for a window from yesterday to two weeks ahead. The ICS link and the CalDAV app password live in Credential
+//! accounts, for a window from two months back to about three months ahead (DAYS_BACK, DAYS_AHEAD). The ICS link and the CalDAV app password live in Credential
 //! Manager as `calendar.<source id>`; the settings only hold the CalDAV server and user name.
 //! The last good result per source is kept in memory and in `calendar-cache.json` in the app data folder, so the agenda
 //! shows offline; a source that fails keeps its cached events and reports its error.
