@@ -33,6 +33,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, Manager, State};
 
+use crate::now_ms;
+
 /// Minimum interval between real queries per provider.
 fn cache_for(id: &str) -> Duration {
     match id {
@@ -336,12 +338,29 @@ async fn fetch_codex_live() -> Result<Provider, Fail> {
     Ok(Provider { plan: body["plan_type"].as_str().map(capitalize), windows, ..Provider::new("codex") })
 }
 
+/// Codex writes its limits with every turn, so they are near the end; the sessions themselves grow to 100 MB.
+const SESSION_TAIL_BYTES: u64 = 2 * 1024 * 1024;
+
+/// The last `max` bytes of a file as text, starting at a whole line.
+fn read_tail(path: &std::path::Path, max: u64) -> Option<String> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = std::fs::File::open(path).ok()?;
+    let len = file.metadata().ok()?.len();
+    let start = len.saturating_sub(max);
+    file.seek(SeekFrom::Start(start)).ok()?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes).ok()?;
+    let text = String::from_utf8_lossy(&bytes);
+    // Cut mid-file: the first line is a piece of one.
+    Some(if start == 0 { text.into_owned() } else { text.split_once('\n').map_or("", |(_, rest)| rest).to_string() })
+}
+
 fn codex_from_sessions() -> Option<Provider> {
     let sessions = home().join(".codex").join("sessions");
     // Newest first by file name (contains the timestamp); mtime is unreliable
     // because Codex rewrites old files when resuming.
     for file in newest_files(&sessions, 15) {
-        let Ok(text) = std::fs::read_to_string(&file) else { continue };
+        let Some(text) = read_tail(&file, SESSION_TAIL_BYTES) else { continue };
         for line in text.lines().rev() {
             if !line.contains("\"rate_limits\":{") {
                 continue;
@@ -745,10 +764,6 @@ fn home() -> PathBuf {
     std::env::var_os("USERPROFILE").map(PathBuf::from).unwrap_or_default()
 }
 
-fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
-}
-
 fn capitalize(s: &str) -> String {
     let mut c = s.chars();
     c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
@@ -786,8 +801,18 @@ fn parse_iso_ms(s: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{find_jwt_after, next_utc, parse_agy_usage, parse_deepseek, parse_iso_ms, parse_openrouter, parse_retry_after, parse_zai};
+    use super::{find_jwt_after, next_utc, parse_agy_usage, parse_deepseek, parse_iso_ms, parse_openrouter, parse_retry_after, parse_zai, read_tail};
     use serde_json::json;
+
+    #[test]
+    fn tail_starts_at_a_whole_line() {
+        let path = std::env::temp_dir().join(format!("crest-tail-test-{}.jsonl", std::process::id()));
+        std::fs::write(&path, "first line\nsecond line\nthird\n").unwrap();
+        assert_eq!(read_tail(&path, 1000).unwrap(), "first line\nsecond line\nthird\n");
+        // 15 bytes from the end fall inside "second line": that piece is dropped.
+        assert_eq!(read_tail(&path, 15).unwrap(), "third\n");
+        let _ = std::fs::remove_file(&path);
+    }
 
     #[test]
     fn retry_after() {
