@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://apps.microsoft.com/detail/9N2KXJ2924KS?referrer=appbadge&mode=full"><img src="docs/media/store/get-it-from-microsoft-dark.svg" width="161" height="44" alt="Get it from Microsoft"></a>
-  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="docs/media/badges/platforms-white.svg" width="161" height="44" alt="Platforms: Windows, Windows on Arm, macOS"></a>
+  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="docs/media/badges/platforms-store.svg" width="161" height="44" alt="Platforms: Windows, Windows on Arm, macOS"></a>
 </p>
 
 <p align="center">
