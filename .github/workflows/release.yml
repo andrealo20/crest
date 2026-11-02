@@ -74,7 +74,7 @@ jobs:
     env:
       # Every tauri-action run (these two and the Mac job's) passes the same body: the release keeps the one it was created
       # with, and latest.json takes its notes from the run that writes it last.
-      RELEASE_BODY: |
+      RELEASE_BODY: &release_body |
         **Install:** download `Crest_${{ needs.check.outputs.version }}_x64-setup.exe` below and run it. No admin rights or developer tools needed. On a Windows on ARM PC (Snapdragon and other ARM64 laptops), take `Crest_${{ needs.check.outputs.version }}_arm64-setup.exe` instead.
         Already installed? The app offers this version under **Settings → General → Updates**.
 
@@ -96,13 +96,22 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           targets: x86_64-pc-windows-msvc,aarch64-pc-windows-msvc
-      - uses: swatinem/rust-cache@v2
+      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: src-tauri
       - run: npm ci
+      - name: Test
+        shell: pwsh
+        run: |
+          npm test
+          if ($LASTEXITCODE) { exit 1 }
+          cd src-tauri
+          cargo test --lib
+          if ($LASTEXITCODE) { exit 1 }
       # crest-notify ships in the portable zips (scripts/portable-package.ps1): a missing exe must stop the run before
       # tauri-action publishes anything. Building it for arm64 here also compiles the app's library and every dependency
       # for arm64, so a cross-compile problem stops the run before the x64 release is out.
@@ -116,7 +125,7 @@ jobs:
             if (-not (Test-Path "target/$target/release/crest-notify.exe")) { Write-Error "target/$target/release/crest-notify.exe is missing"; exit 1 }
           }
       - name: Installer x64
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -130,7 +139,7 @@ jobs:
           releaseBody: ${{ env.RELEASE_BODY }}
       # latest.json gains windows-aarch64 and windows-aarch64-nsis next to the x64 entries.
       - name: Installer arm64
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -178,32 +187,18 @@ jobs:
     if: needs.check.outputs.release == 'true'
     runs-on: macos-latest
     env:
-      RELEASE_BODY: |
-        **Install:** download `Crest_${{ needs.check.outputs.version }}_x64-setup.exe` below and run it. No admin rights or developer tools needed. On a Windows on ARM PC (Snapdragon and other ARM64 laptops), take `Crest_${{ needs.check.outputs.version }}_arm64-setup.exe` instead.
-        Already installed? The app offers this version under **Settings → General → Updates**.
-
-        **Portable:** `Crest-${{ needs.check.outputs.version }}-Portable-x64.zip` (or `-Portable-arm64.zip` on ARM) needs no install: unzip it anywhere you can write to and run Crest.exe. It keeps its data in a `data` folder next to it and updates itself in place.
-
-        **Mac:** `Crest_${{ needs.check.outputs.version }}_aarch64.dmg` for Apple silicon (M1 and later), `Crest_${{ needs.check.outputs.version }}_x64.dmg` for Intel. Drag Crest to Applications. The app is not notarized yet: on first launch macOS refuses it, then **System Settings → Privacy & Security → Open Anyway**. Some tools are Windows-only for now and don't show on a Mac.
-
-        **Checksums:** `SHA256SUMS` lists the SHA-256 of every file of this release. Check a download with `sha256sum -c SHA256SUMS --ignore-missing`, or in PowerShell compare `Get-FileHash <file>` with its line.
-
-        Windows SmartScreen may warn because the installer is not code-signed yet: **More info → Run anyway**.
-
-        ${{ needs.check.outputs.highlights }}
-
-        ### Changes
-        ${{ needs.check.outputs.notes }}
+      RELEASE_BODY: *release_body
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           targets: aarch64-apple-darwin,x86_64-apple-darwin
-      - uses: swatinem/rust-cache@v2
+      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: src-tauri
       - run: npm ci
@@ -212,7 +207,7 @@ jobs:
         working-directory: src-tauri
         run: cargo test --lib
       - name: Disk image Apple silicon
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -225,7 +220,7 @@ jobs:
           prerelease: true
           releaseBody: ${{ env.RELEASE_BODY }}
       - name: Disk image Intel
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
