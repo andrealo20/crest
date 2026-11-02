@@ -337,17 +337,8 @@ export function manualAccount(list: ManualHolding[]): Account {
   };
 }
 
-/** Parses a number typed with either decimal separator ("1.234,5", "1,234.5", "0,5"). */
-export function parseAmount(text: string): number | null {
-  let s = text.trim().replace(/[\s']/g, "");
-  if (!s) return null;
-  const comma = s.lastIndexOf(",");
-  const dot = s.lastIndexOf(".");
-  if (comma > dot) s = s.replace(/\./g, "").replace(",", ".");
-  else s = s.replace(/,/g, "");
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}
+/** Typed amounts read as in the converter, so "1,000" is a thousand in both. */
+export { parseAmount } from "../convert/parse.ts";
 
 // ---------- History ----------
 

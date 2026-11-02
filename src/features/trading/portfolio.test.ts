@@ -145,6 +145,8 @@ test("amounts typed with either separator", () => {
   assert.equal(parseAmount("1.234,5"), 1234.5);
   assert.equal(parseAmount("1,234.5"), 1234.5);
   assert.equal(parseAmount("0,5"), 0.5);
+  // The converter's rule: a lone comma before three digits groups thousands. Read as 1 before, a holding was 1000x too small.
+  assert.equal(parseAmount("1,000"), 1000);
   assert.equal(parseAmount(" 12 "), 12);
   assert.equal(parseAmount(""), null);
   assert.equal(parseAmount("abc"), null);
