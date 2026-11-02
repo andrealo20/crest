@@ -15,6 +15,7 @@
       <img src="docs/media/store/get-it-from-microsoft-dark.svg" width="161" height="44" alt="从 Microsoft 获取">
     </picture>
   </a>
+  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="docs/media/badges/platforms.svg" width="327" height="44" alt="平台：Windows、Windows on Arm、macOS"></a>
 </p>
 
 <p align="center">
@@ -22,9 +23,8 @@
   <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=for-the-badge&label=release&color=7B61FF&logo=github&logoColor=white" alt="最新版本" /></a>
   <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=for-the-badge&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="总下载量" /></a>
   <a href="https://github.com/andrealo20/crest/stargazers"><img src="https://img.shields.io/github/stars/andrealo20/crest?style=for-the-badge&color=E3B341&logo=github&logoColor=white" alt="GitHub 星标" /></a>
-  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="docs/media/badges/platforms.svg" alt="平台：Windows、Windows on Arm、macOS" /></a>
   <a href="src/i18n"><img src="https://img.shields.io/badge/languages-EN%20%C2%B7%20ZH%20%C2%B7%20ES%20%C2%B7%20HI%20%C2%B7%20AR%20%C2%B7%20FR%20%C2%B7%20PT%20%C2%B7%20RU%20%C2%B7%20JA%20%C2%B7%20DE%20%C2%B7%20IT-FF9A4D?style=for-the-badge&logo=googletranslate&logoColor=white" alt="语言：英语、简体中文、西班牙语、印地语、阿拉伯语、法语、葡萄牙语、俄语、日语、德语、意大利语" /></a>
-  <a href="https://github.com/sponsors/andrealo20"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-A42E2B?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="在 GitHub 上赞助" /></a>
+  <a href="https://github.com/sponsors/andrealo20"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-0078D4?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="在 GitHub 上赞助" /></a>
 </p>
 
 <p align="center">
