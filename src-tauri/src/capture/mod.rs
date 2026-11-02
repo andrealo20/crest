@@ -1,6 +1,6 @@
 //! Capture: screenshots and screen recordings.
 //!
-//! Screenshots land in Pictures\Crest\Screenshots as PNG and on the clipboard;
+//! Screenshots land in Windows' Screenshots folder as PNG and on the clipboard;
 //! recordings in Videos\Crest\Recordings as MP4. While either is taken, Crest's own
 //! window is excluded from capture (WDA_EXCLUDEFROMCAPTURE), and only then.
 //! Recording state goes to the frontend as `capture://state`.
@@ -22,7 +22,7 @@ use windows::Win32::Foundation::{HWND, LPARAM, PROPERTYKEY, RECT, SIZE};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::Media::MediaFoundation::{MFCreateSourceReaderFromURL, MFShutdown, MFStartup, MFSTARTUP_FULL, MF_VERSION};
-use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_MULTITHREADED};
+use windows::Win32::System::Com::{CoInitializeEx, CoTaskMemFree, COINIT_APARTMENTTHREADED, COINIT_MULTITHREADED};
 use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
 use windows::Win32::System::SystemInformation::GetLocalTime;
 use windows::Win32::UI::HiDpi::{SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
@@ -81,7 +81,18 @@ fn stamp() -> Stamp {
     Stamp { year: t.wYear, month: t.wMonth, day: t.wDay, hour: t.wHour, minute: t.wMinute, second: t.wSecond }
 }
 
-fn screenshots_dir(app: &AppHandle) -> Option<PathBuf> {
+/// Windows' own Screenshots folder (Pictures\Screenshots, where Win+PrtScn saves), wherever it was moved to.
+fn screenshots_dir() -> Option<PathBuf> {
+    unsafe {
+        let p = SHGetKnownFolderPath(&FOLDERID_Screenshots, KF_FLAG_CREATE, None).ok()?;
+        let dir = p.to_string().ok().map(PathBuf::from);
+        CoTaskMemFree(Some(p.0 as _));
+        dir
+    }
+}
+
+/// Where screenshots went up to 0.3.2; still listed so older ones don't vanish from Recent.
+fn old_screenshots_dir(app: &AppHandle) -> Option<PathBuf> {
     Some(app.path().picture_dir().ok()?.join("Crest").join("Screenshots"))
 }
 
@@ -231,7 +242,7 @@ pub struct Shot {
 #[tauri::command]
 pub async fn capture_shot(mode: String, monitor: Option<String>, app: AppHandle, window: WebviewWindow) -> Result<Option<Shot>, String> {
     let own = own_hwnd(&window);
-    let dir = screenshots_dir(&app).ok_or("no-folder")?;
+    let dir = screenshots_dir().ok_or("no-folder")?;
     tauri::async_runtime::spawn_blocking(move || {
         let recording = app.state::<CaptureState>().busy();
         if !recording {
@@ -486,7 +497,7 @@ pub struct CaptureFile {
 #[tauri::command]
 pub fn capture_list(app: AppHandle) -> Vec<CaptureFile> {
     let mut out = Vec::new();
-    for (dir, kind, ext) in [(screenshots_dir(&app), "shot", "png"), (recordings_dir(&app), "video", "mp4")] {
+    for (dir, kind, ext) in [(screenshots_dir(), "shot", "png"), (old_screenshots_dir(&app), "shot", "png"), (recordings_dir(&app), "video", "mp4")] {
         let Some(entries) = dir.and_then(|d| std::fs::read_dir(d).ok()) else { continue };
         for e in entries.flatten() {
             let p = e.path();
@@ -580,7 +591,7 @@ unsafe fn bitmap_thumb(bmp: HBITMAP) -> Option<String> {
 pub fn capture_delete(path: String, app: AppHandle) -> Result<(), String> {
     let p = Path::new(&path);
     let parent = p.parent().and_then(|d| d.canonicalize().ok());
-    let inside = [screenshots_dir(&app), recordings_dir(&app)].into_iter().flatten().filter_map(|d| d.canonicalize().ok()).any(|d| Some(&d) == parent.as_ref());
+    let inside = [screenshots_dir(), old_screenshots_dir(&app), recordings_dir(&app)].into_iter().flatten().filter_map(|d| d.canonicalize().ok()).any(|d| Some(&d) == parent.as_ref());
     let ext_ok = p.extension().is_some_and(|x| x.eq_ignore_ascii_case("png") || x.eq_ignore_ascii_case("mp4"));
     if !inside || !ext_ok || !p.is_file() {
         return Err("not-capture".into());

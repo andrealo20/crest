@@ -10,7 +10,7 @@ Crest is a free, open-source Windows app by Andrea Loroni. It has no account, no
 - API keys and other secrets, in the Windows Credential Manager under "Crest/…". They are never written to a plain file. Calendar links and CalDAV app passwords are kept there too, as "Crest/calendar.…".
 - The events of your calendars from two months back to about three months ahead (titles, places and times), the span the month view can show, in `calendar-cache.json` in the app's data folder, so the agenda shows offline. Removing a calendar drops its events from the file at the next refresh.
 - The vault (passwords and 2FA codes, off by default), in one file encrypted with Windows DPAPI and readable only under your Windows account. With Windows Hello turned on it is additionally sealed with a TPM-backed key.
-- Screenshots and recordings you take, in *Pictures\Crest\Screenshots* and *Videos\Crest\Recordings*.
+- Screenshots and recordings you take, in *Pictures\Screenshots* and *Videos\Crest\Recordings*.
 - Plugins you install, in the `plugins` folder of the app's data folder, and the data of those that keep any, in `plugin-data`.
 - A crash log (`crash.log` in the `logs` folder), written only when the app crashes or hits an uncaught error. It is not sent anywhere.
 

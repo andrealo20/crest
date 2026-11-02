@@ -121,7 +121,7 @@ The volume and brightness HUD is a status alert too: when the volume or mute cha
 
 ## Capture
 
-- **Screenshots** of all screens, one screen or a region you drag, saved as PNG in *Pictures\Crest\Screenshots* and copied to the clipboard, optionally onto the Shelf too.
+- **Screenshots** of all screens, one screen or a region you drag, saved as PNG in Windows' *Screenshots* folder (Pictures\Screenshots, with the ones Win+PrtScn takes) and copied to the clipboard, optionally onto the Shelf too.
 - **Recordings** of a screen or a window to MP4 in *Videos\Crest\Recordings*, at 30 or 60 fps, with system audio and the microphone if you want them.
 - While it records, the closed notch shows the time with pause and stop buttons.
 - Crest keeps itself out of its own screenshots and recordings; other apps that record or share the screen still see it.

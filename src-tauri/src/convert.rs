@@ -85,7 +85,15 @@ pub async fn file_preview(path: String) -> Option<String> {
 #[tauri::command]
 pub fn reveal_file(path: String) -> Result<(), String> {
     #[cfg(windows)]
-    let opened = crate::opener().arg(format!("/select,{path}")).spawn();
+    let opened = {
+        use std::os::windows::process::CommandExt;
+        if path.contains('"') {
+            return Err("bad-path".into());
+        }
+        // Explorer only reads /select,"path"; std quotes the whole argument when the name has a space,
+        // and Explorer then falls back to opening Documents.
+        crate::opener().raw_arg(format!("/select,\"{path}\"")).spawn()
+    };
     #[cfg(not(windows))]
     let opened = Command::new("open").arg("-R").arg(&path).spawn();
     opened.map(|_| ()).map_err(|e| e.to_string())
