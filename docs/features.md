@@ -33,6 +33,10 @@ Notch and capsule show a row of parts, centred and in the order you choose:
 
 Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel.
 
+A click on a part opens its tool: the readings open Hardware, the AI rings AI Usage, the cover, title and equalizer the music, the timer and the clock the Timer, the next event the Calendar and script parts Notices. With **Open: Hover** the part under the pointer when the notch opens decides the same way. Anywhere else, or when that tool is off, the notch opens as usual.
+
+**Adjust on the notch**, next to the size in **Settings → Display**, closes the panel and puts the closed notch, capsule or line in a resize mode: drag its ends to change the width (both sides move) and its far side to change the height, double-click a grip for the default, and finish with **Done** or Esc. It neither opens nor moves meanwhile, and the sliders in the settings keep working too.
+
 <p align="center"><img src="media/features/closed-notch.png" alt="The closed notch with coloured icons: a running timer, the AI quota ring, CPU, RAM and GPU load, download and upload, power draw, battery, temperature, the clock and today's GitHub contributions" width="820" /></p>
 <p align="center"><img src="media/features/settings-closed-notch.png" alt="Settings, Display: the closed row's parts with switches, the system load readings and the quota alerts" width="560" /></p>
 
@@ -96,7 +100,7 @@ The volume and brightness HUD is a status alert too: when the volume or mute cha
 - **Shelf** is a parking spot for files. Drop them onto the notch or press Ctrl + V, then open, copy or reveal them later.
 - **Scratchpad** is a code pad with syntax colouring for JavaScript, TypeScript, Rust and Python, or plain text. Each language keeps its own draft, saved as you type.
 - **Water** logs what you drink against a daily goal (2 L unless you change it), with an hourly chart. Reminders are optional: every hour, or the interval you pick, between the times you set.
-- **Converter** handles units (length, weight, temperature, volume, speed) and currencies at the European Central Bank's reference rates, about 30 currencies updated every working day. Any two currencies convert through your portfolio's base currency, which is also the default.
+- **Converter** handles units (length, weight, temperature, volume, speed) and currencies at the European Central Bank's reference rates, about 30 currencies updated every working day. Any two currencies convert through your portfolio's base currency, which is also the default. It opens on the units and currencies you used last.
 
 <p align="center"><img src="media/features/timer.png" alt="Timer: a 25 minute focus countdown in big pixel digits, with presets and controls" width="520" /></p>
 

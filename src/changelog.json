@@ -1,5 +1,32 @@
 [
   {
+    "version": "0.3.2",
+    "date": "2026-11-02",
+    "items": [
+      {
+        "en": "Eight new themes: Catppuccin Mocha and Latte, Nord, Rosé Pine and Dawn, Gruvbox Dark, Solarized Light and Everforest"
+      },
+      {
+        "en": "A click or a hover on a part of the closed notch opens its tool"
+      },
+      {
+        "en": "Resize the closed notch, capsule or line on the notch itself, from Settings, Display"
+      },
+      {
+        "en": "A notice in the closed notch for a new version and what it changed"
+      },
+      {
+        "en": "The converter opens on the units and currencies used last"
+      },
+      {
+        "en": "The weather keeps the last forecast when the service is down"
+      },
+      {
+        "en": "Security and reliability fixes for the vault, plugins, Ask, Discord and Crest's windows"
+      }
+    ]
+  },
+  {
     "version": "0.3.1",
     "date": "2026-11-02",
     "items": [
