@@ -1,5 +1,26 @@
 [
   {
+    "version": "0.3.1",
+    "date": "2026-11-02",
+    "items": [
+      {
+        "en": "A month in the Calendar, with a dot for each calendar on days with events"
+      },
+      {
+        "en": "The Overview clock in any of the timer looks"
+      },
+      {
+        "en": "The Bluetooth notice for every device, with its battery, and headphones found behind audio offload drivers"
+      },
+      {
+        "en": "Opening the notch and switching tools without the panel blur, for smoother frames"
+      },
+      {
+        "en": "A first preview for Macs with Apple silicon and Intel"
+      }
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-11-01",
     "items": [
