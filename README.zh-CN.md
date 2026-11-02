@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://apps.microsoft.com/detail/9N2KXJ2924KS?referrer=appbadge&mode=full"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/store/get-it-from-microsoft-light.svg"><img src="docs/media/store/get-it-from-microsoft-dark.svg" width="161" height="44" alt="从 Microsoft 获取"></picture></a>
-  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="docs/media/badges/platforms-store-size.svg" width="161" height="44" alt="平台：Windows、Windows on Arm、macOS"></a>
+  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="docs/media/badges/platforms-indigo.svg" width="161" height="44" alt="平台：Windows、Windows on Arm、macOS"></a>
 </p>
 
 <p align="center">
