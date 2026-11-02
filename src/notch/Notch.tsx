@@ -339,7 +339,7 @@ export function Notch() {
                 animate={{ opacity: 1, transform: "translateY(0px)", transition: content.enter }}
                 exit={{ opacity: 0, transform: "translateY(-4px)", transition: content.exit }}
               >
-                <Header title={t(tab.label)} onDragStart={drag.onPointerDown} />
+                <Header title={t(tab.label)} />
                 <div className="relative min-h-0 flex-1 overflow-clip">
                   <AnimatePresence mode="popLayout" initial={false}>
                     <motion.div
@@ -389,11 +389,11 @@ function LineProgress({ along }: { along: "x" | "y" }) {
 }
 
 /** Header: tool title on the left, actions + pin on the right. The middle (camera) stays free. */
-function Header({ title, onDragStart }: { title: string; onDragStart: (e: React.PointerEvent) => void }) {
+function Header({ title }: { title: string }) {
   const isPinned = pinned.use();
   return (
-    // Empty header space = drag handle.
-    <div data-drag-handle onPointerDown={onDragStart} className="flex shrink-0 items-center justify-between gap-3 ps-5 pe-3" style={{ height: HEADER_HEIGHT + 4 }}>
+    // Empty header space = drag handle; the hit zone around it starts the drag (one handler, or two drags would run).
+    <div data-drag-handle className="flex shrink-0 items-center justify-between gap-3 ps-5 pe-3" style={{ height: HEADER_HEIGHT + 4 }}>
       <div className="relative min-w-0 flex-1">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.h2
