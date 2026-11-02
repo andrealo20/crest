@@ -12,7 +12,7 @@ mod windows_zones;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use jiff::tz::TimeZone;
 use jiff::Timestamp;
@@ -21,6 +21,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, State};
 
+use crate::{net_error, now_ms};
+
 pub use ics::Event;
 
 /// Fresh enough for a normal poll, and the least time between two forced refreshes.
@@ -28,6 +30,9 @@ const CACHE: Duration = Duration::from_secs(10 * 60);
 const MIN_FORCED: Duration = Duration::from_secs(20);
 const MAX_SOURCES: usize = 20;
 const MAX_ICS_BYTES: usize = 20 * 1024 * 1024;
+/// One source, all its requests included: a CalDAV account makes several, each with its own timeout, and the cache
+/// stays locked while the sources are fetched.
+const SOURCE_DEADLINE: Duration = Duration::from_secs(30);
 // The month view goes back one month and ahead two: the window covers them whatever today is.
 const DAYS_BACK: i64 = 62;
 const DAYS_AHEAD: i64 = 100;
@@ -98,12 +103,20 @@ struct Cache {
 #[derive(Default)]
 pub struct CalendarState(tokio::sync::Mutex<Cache>);
 
-fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
-}
-
-fn net_error(e: reqwest::Error) -> String {
-    if e.is_timeout() || e.is_connect() { "offline" } else { "failed" }.into()
+/// The body as text, at most `max` bytes. Content-Length is missing on chunked replies, so the bytes are counted as
+/// they arrive instead of buffering a huge reply first.
+async fn read_capped(mut r: reqwest::Response, max: usize) -> Result<String, String> {
+    if r.content_length().is_some_and(|n| n as usize > max) {
+        return Err("too-large".into());
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = r.chunk().await.map_err(net_error)? {
+        if body.len() + chunk.len() > max {
+            return Err("too-large".into());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(String::from_utf8_lossy(&body).into_owned())
 }
 
 fn check_status(status: reqwest::StatusCode) -> Result<(), String> {
@@ -178,13 +191,7 @@ async fn fetch(src: &Source, secret: &str, key: &str, local: &TimeZone, (from, t
         let url = web_url(secret)?;
         let r = client.get(url.clone()).header("Accept", "text/calendar, */*").send().await.map_err(net_error)?;
         check_status(r.status())?;
-        if r.content_length().is_some_and(|n| n as usize > MAX_ICS_BYTES) {
-            return Err("too-large".into());
-        }
-        let text = r.text().await.map_err(net_error)?;
-        if text.len() > MAX_ICS_BYTES {
-            return Err("too-large".into());
-        }
+        let text = read_capped(r, MAX_ICS_BYTES).await?;
         let (meta, list) = ics::events(&[&text], &src.id, from, to, local).ok_or("parse")?;
         let name = [src.name.trim(), meta.name.as_str(), url.host_str().unwrap_or("")].into_iter().find(|n| !n.is_empty()).unwrap_or("").to_string();
         let color = if own_color.is_empty() { meta.color } else { own_color };
@@ -242,7 +249,7 @@ pub async fn calendar_fetch(app: AppHandle, sources: Vec<Source>, force: bool, s
         let cached = cache.entries.get(&src.id).filter(|e| e.key == *key).cloned();
         let result = match secret {
             None => Err("no-key".to_string()),
-            Some(secret) => fetch(src, secret, key, &local, span).await,
+            Some(secret) => tokio::time::timeout(SOURCE_DEADLINE, fetch(src, secret, key, &local, span)).await.unwrap_or_else(|_| Err("offline".into())),
         };
         let (entry, error) = match result {
             Ok(e) => (Some(e), None),

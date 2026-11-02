@@ -220,13 +220,7 @@ async fn request(client: &reqwest::Client, method: &str, url: &Url, depth: &str,
         at = join(&at, next)?;
     };
     super::check_status(r.status())?;
-    if r.content_length().is_some_and(|n| n as usize > MAX_BYTES) {
-        return Err("too-large".into());
-    }
-    let text = r.text().await.map_err(super::net_error)?;
-    if text.len() > MAX_BYTES {
-        return Err("too-large".into());
-    }
+    let text = super::read_capped(r, MAX_BYTES).await?;
     Ok((at, multistatus(&text)))
 }
 
