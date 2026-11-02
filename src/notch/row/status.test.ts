@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { btAlert, levelAlert, mergeSeed, netAlert, osdHidden, powerAlert } from "./status.ts";
+import { btAlert, btIcon, levelAlert, mergeSeed, netAlert, osdHidden, powerAlert } from "./status.ts";
 
 const tr = (k: string, v: Record<string, string | number> = {}) => k.replace(/\{(\w+)\}/g, (_, x) => String(v[x]));
 const s = (ac: boolean, percent: number | null, battery = true) => ({ ac, percent, battery });
@@ -57,24 +57,41 @@ test("net", () => {
   assert.equal(netAlert(true, true, tr), null);
 });
 test("bt", () => {
-  assert.equal(btAlert({ name: "Buds", connected: true, battery: 80 }, tr)?.text, "Buds · 80 %");
-  assert.equal(btAlert({ name: "Buds", connected: true, battery: null }, tr)?.text, "Buds");
-  assert.equal(btAlert({ name: "Buds", connected: false, battery: null }, tr)?.text, "Buds · Getrennt");
-  assert.equal(btAlert({ name: "  ", connected: true, battery: 50 }, tr), null);
-  assert.equal(btAlert({ name: "", connected: false, battery: null }, tr), null);
+  const bt = (name: string, connected: boolean, battery: number | null, categories = ["Audio.Headphone"]) => btAlert({ name, connected, battery, categories }, tr);
+  assert.equal(bt("Buds", true, 80)?.text, "Buds · 80 %");
+  assert.equal(bt("Buds", true, null)?.text, "Buds");
+  assert.equal(bt("Buds", false, null)?.text, "Buds · Getrennt");
+  assert.equal(bt("  ", true, 50), null);
+  assert.equal(bt("", false, null), null);
+  // The icon follows the device, also when it leaves.
+  assert.equal(bt("Mouse", false, null, ["Input.Mouse"])?.icon, "mouse");
+});
+test("bt: icon by Windows' device categories", () => {
+  assert.equal(btIcon(["Audio.Headphone"]), "headphones");
+  // A headset is not taken for a phone.
+  assert.equal(btIcon(["Communication.Headset.Bluetooth"]), "headphones");
+  assert.equal(btIcon(["Audio.Speaker"]), "speaker-hifi");
+  assert.equal(btIcon(["Input.Mouse"]), "mouse");
+  assert.equal(btIcon(["Input.Keyboard"]), "keyboard");
+  assert.equal(btIcon(["Input.Gaming"]), "gamepad");
+  assert.equal(btIcon(["Input.Gaming.Gamepad"]), "gamepad");
+  assert.equal(btIcon(["Communication.Phone"]), "phone");
+  assert.equal(btIcon(["Wearable.Watch"]), "watch");
+  assert.equal(btIcon(["Other"]), "bluetooth");
+  assert.equal(btIcon([]), "bluetooth");
 });
 
 test("seed: fills only what is still unknown", () => {
-  const none = { power: null, online: null, headsets: new Set<string>() };
+  const none = { power: null, online: null, devices: new Set<string>() };
   // A partial seed (registration still running), then the complete one.
-  const partial = mergeSeed(none, { power: s(true, 64), online: null, headsets: [] });
-  const full = mergeSeed(partial, { power: s(true, 64), online: true, headsets: ["Buds"] });
-  assert.deepEqual(full, { power: s(true, 64), online: true, headsets: new Set(["Buds"]) });
+  const partial = mergeSeed(none, { power: s(true, 64), online: null, devices: [] });
+  const full = mergeSeed(partial, { power: s(true, 64), online: true, devices: ["Buds"] });
+  assert.deepEqual(full, { power: s(true, 64), online: true, devices: new Set(["Buds"]) });
   // An event before any seed stays; a seed after an event does not overwrite it.
-  const evented = mergeSeed({ power: s(false, 40), online: false, headsets: new Set<string>() }, { power: s(true, 64), online: true, headsets: [] });
+  const evented = mergeSeed({ power: s(false, 40), online: false, devices: new Set<string>() }, { power: s(true, 64), online: true, devices: [] });
   assert.deepEqual([evented.power, evented.online], [s(false, 40), false]);
-  // Headsets are the union of what is known and what the seed lists.
-  assert.deepEqual(mergeSeed({ ...none, headsets: new Set(["A"]) }, { power: null, online: null, headsets: ["A", "B"] }).headsets, new Set(["A", "B"]));
+  // Devices are the union of what is known and what the seed lists.
+  assert.deepEqual(mergeSeed({ ...none, devices: new Set(["A"]) }, { power: null, online: null, devices: ["A", "B"] }).devices, new Set(["A", "B"]));
 });
 
 test("level: volume icon, bar and text", () => {

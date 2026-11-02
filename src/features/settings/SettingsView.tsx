@@ -609,7 +609,7 @@ function General() {
 const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string][] = [
   ["power", "Ladegerät und Akku", "Beim Ein- und Ausstecken, Akku bei 20 und 10 %"],
   ["net", "Netzwerk", "Wenn das Internet wegfällt und zurückkommt"],
-  ["bt", "Bluetooth-Kopfhörer", "Beim Verbinden oder Trennen, mit Akku, wenn sie ihn melden"],
+  ["bt", "Bluetooth-Geräte", "Beim Verbinden oder Trennen, mit Akku, wenn das Gerät ihn meldet"],
   ["volume", "Lautstärke", "Mit Pegel, wenn sich die Lautstärke oder Stummschaltung ändert"],
   ["brightness", "Helligkeit", "Eingebauter Bildschirm sofort, externe Monitore über DDC/CI alle 2 Sekunden"],
   ["hideOsd", "Windows-Anzeige ausblenden", "Blendet die Lautstärke- und Helligkeitsanzeige von Windows aus, solange Crest läuft; braucht Lautstärke und Helligkeit"],

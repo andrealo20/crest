@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isNative } from "./native";
-import type { LevelEvent, PowerState } from "../notch/row/status";
+import type { BluetoothEvent, LevelEvent, PowerState } from "../notch/row/status";
 import type { LaunchPlan, ShellInfo } from "../features/terminal/shell";
 import type { TokenReport } from "../features/usage/tokens";
 import type { BatteryRaw } from "../features/system/battery";
@@ -489,10 +489,9 @@ export const display = {
 
 // ---------- Status alerts (sysevents.rs) ----------
 
-export interface HeadsetEvent { name: string; connected: boolean; battery: number | null }
 /** State at start, so what is already true (charger in, headphones on) does not alert. */
-export interface StatusSeed { power: PowerState | null; online: boolean | null; headsets: string[] }
-export interface StatusHandlers { seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: HeadsetEvent): void; level(e: LevelEvent): void }
+export interface StatusSeed { power: PowerState | null; online: boolean | null; devices: string[] }
+export interface StatusHandlers { seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: BluetoothEvent): void; level(e: LevelEvent): void }
 
 export const status = {
   seed: (): Promise<StatusSeed> => (isNative ? invoke<StatusSeed>("status_seed") : Promise.resolve(mockStatus.seed())),
@@ -502,7 +501,7 @@ export const status = {
       listen<StatusSeed>("status://seed", (e) => h.seed(e.payload)),
       listen<PowerState>("status://power", (e) => h.power(e.payload)),
       listen<{ online: boolean }>("status://net", (e) => h.net(e.payload.online)),
-      listen<HeadsetEvent>("status://bt", (e) => h.bt(e.payload)),
+      listen<BluetoothEvent>("status://bt", (e) => h.bt(e.payload)),
       listen<LevelEvent>("status://level", (e) => h.level(e.payload)),
     ];
     return () => offs.forEach((off) => void off.then((f) => f()));
@@ -513,12 +512,14 @@ export const status = {
   },
 };
 
+const MOCK_BT = ["Audio.Headphone", "Input.Mouse", "Input.Keyboard", "Input.Gaming.Gamepad", "Audio.Speaker", "Communication.Phone", "Wearable.Watch", "Other"];
+
 /** Browser: each dev button toggles one source. Unplugging drops the mock percent by 9, so the low tones show too. */
 export const mockStatus = (() => {
-  let power: PowerState = { ac: true, percent: 64, battery: true }, online = true, buds = false, volume = 40, bright = 70;
+  let power: PowerState = { ac: true, percent: 64, battery: true }, online = true, buds = false, volume = 40, bright = 70, kind = 0;
   const listeners = new Set<StatusHandlers>();
   return {
-    seed: (): StatusSeed => ({ power, online, headsets: buds ? ["Buds"] : [] }),
+    seed: (): StatusSeed => ({ power, online, devices: buds ? ["Buds"] : [] }),
     subscribe(h: StatusHandlers) {
       listeners.add(h);
       return () => void listeners.delete(h);
@@ -532,9 +533,12 @@ export const mockStatus = (() => {
       online = !online;
       listeners.forEach((h) => h.net(online));
     },
-    headphones() {
+    /** Each connect is the next kind of device, so every icon shows. */
+    bluetooth() {
       buds = !buds;
-      listeners.forEach((h) => h.bt({ name: "Buds", connected: buds, battery: buds ? 80 : null }));
+      const categories = [MOCK_BT[kind % MOCK_BT.length]];
+      if (!buds) kind++;
+      listeners.forEach((h) => h.bt({ name: "Buds", connected: buds, battery: buds ? 80 : null, categories }));
     },
     /** Steps up by 12 and wraps; past the top it shows muted once. */
     volume() {

@@ -1,9 +1,9 @@
-// Rules for the closed notch's status alerts (power, network, headphones, the volume and brightness HUD): which transition deserves a short message. Pure; `tr` is passed in so this stays free of i18n.
+// Rules for the closed notch's status alerts (power, network, Bluetooth devices, the volume and brightness HUD): which transition deserves a short message. Pure; `tr` is passed in so this stays free of i18n.
 
 export interface PowerState { ac: boolean; percent: number | null; battery: boolean }
 export interface StatusAlert {
   kind: "power" | "net" | "bt" | "volume" | "brightness";
-  icon: "plug" | "battery" | "wifi" | "wifi-off" | "headphones" | "speaker-high" | "speaker-low" | "speaker-none" | "speaker-x" | "sun" | "sun-dim";
+  icon: "plug" | "battery" | "wifi" | "wifi-off" | "headphones" | "speaker-hifi" | "mouse" | "keyboard" | "gamepad" | "phone" | "watch" | "bluetooth" | "speaker-high" | "speaker-low" | "speaker-none" | "speaker-x" | "sun" | "sun-dim";
   text: string;
   tone: "normal" | "warning" | "critical";
   /** 0..100, drawn as a level bar (volume and brightness only). */
@@ -33,15 +33,15 @@ export function powerAlert(prev: PowerState | null, next: PowerState, low: LowBa
   return fresh && level && p !== null ? { kind: "power", icon: "battery", text: tr("Akku {p} %", { p }), tone: level } : null;
 }
 
-/** What the alerts compare against: `null` (or no headsets) until a seed or an event says otherwise. */
-export interface StatusKnown { power: PowerState | null; online: boolean | null; headsets: Set<string> }
+/** What the alerts compare against: `null` (or no devices) until a seed or an event says otherwise. */
+export interface StatusKnown { power: PowerState | null; online: boolean | null; devices: Set<string> }
 
 /**
  * Merges a seed (the command or the event, in either order, partial or complete) into what is known: it fills only the
  * fields still unknown, so a later, fuller seed completes an early partial one and never overwrites what an event set.
  */
-export function mergeSeed(known: StatusKnown, seed: { power: PowerState | null; online: boolean | null; headsets: readonly string[] }): StatusKnown {
-  return { power: known.power ?? seed.power, online: known.online ?? seed.online, headsets: new Set([...known.headsets, ...seed.headsets]) };
+export function mergeSeed(known: StatusKnown, seed: { power: PowerState | null; online: boolean | null; devices: readonly string[] }): StatusKnown {
+  return { power: known.power ?? seed.power, online: known.online ?? seed.online, devices: new Set([...known.devices, ...seed.devices]) };
 }
 
 /** Only a change of state; the first reading (`prev` null) is silent. */
@@ -50,12 +50,27 @@ export function netAlert(prev: boolean | null, next: boolean, tr: Tr): StatusAle
   return { kind: "net", icon: next ? "wifi" : "wifi-off", text: tr(next ? "Online" : "Offline"), tone: "normal" };
 }
 
-/** A headset without a name says nothing useful, so it does not alert. */
-export function btAlert(event: { name: string; connected: boolean; battery: number | null }, tr: Tr): StatusAlert | null {
+/** A Bluetooth device connecting or leaving (sysevents.rs); `categories` are Windows' device categories, such as "Audio.Headphone" or "Input.Mouse". */
+export interface BluetoothEvent { name: string; connected: boolean; battery: number | null; categories: string[] }
+
+/** First match wins, so headphones and headsets are not taken for a phone. */
+const BT_ICONS: [RegExp, StatusAlert["icon"]][] = [
+  [/headphone|headset/, "headphones"], [/speaker/, "speaker-hifi"], [/mouse/, "mouse"], [/keyboard/, "keyboard"],
+  [/gam|joystick/, "gamepad"], [/phone/, "phone"], [/watch|wearable/, "watch"],
+];
+
+/** The icon for a device by its categories; one Crest does not know shows the Bluetooth mark. */
+export function btIcon(categories: readonly string[]): StatusAlert["icon"] {
+  const c = categories.join(" ").toLowerCase();
+  return BT_ICONS.find(([re]) => re.test(c))?.[1] ?? "bluetooth";
+}
+
+/** A device without a name says nothing useful, so it does not alert. */
+export function btAlert(event: BluetoothEvent, tr: Tr): StatusAlert | null {
   const name = event.name.trim();
   if (!name) return null;
   const text = !event.connected ? tr("{n} · Getrennt", { n: name }) : event.battery === null ? name : tr("{n} · {p} %", { n: name, p: event.battery });
-  return { kind: "bt", icon: "headphones", text, tone: "normal" };
+  return { kind: "bt", icon: btIcon(event.categories), text, tone: "normal" };
 }
 
 /** A volume or brightness reading from sysevents.rs and brightness.rs, which already drop repeats, Crest's own changes and the start. */
