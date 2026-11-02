@@ -62,34 +62,34 @@ A notch at the edge of your Windows or Mac screen that opens on hover, click or 
   </tr>
   <tr>
     <td valign="top"><img src="docs/media/features/timer.png" alt="Timer: a 25 minute focus countdown in big pixel digits" /><br /><b>Timer</b>: focus and break presets in big pixel digits</td>
-    <td valign="top"><img src="docs/media/features/todos.png" alt="To-dos with projects" /><br /><b>To-dos</b>: projects, due times and reminders</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/note.png" alt="A quick note with a word count" /><br /><b>Notes</b>: a quick note, saved as you type</td>
-    <td valign="top"><img src="docs/media/features/clipboard.png" alt="Clipboard history with filters" /><br /><b>Clipboard</b>: text, links, images and files, never written to disk</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/shelf.png" alt="Shelf: drop files or text here" /><br /><b>Shelf</b>: a parking spot for files, dropped or pasted</td>
-    <td valign="top"><img src="docs/media/features/scratchpad.png" alt="Code scratchpad with a language picker" /><br /><b>Scratchpad</b>: code with syntax colouring, one draft per language</td>
-  </tr>
-  <tr>
     <td valign="top"><img src="docs/media/features/converter.png" alt="Converter for units and currencies" /><br /><b>Converter</b>: units, and currencies at the ECB rates</td>
+  </tr>
+  <tr>
     <td valign="top"><img src="docs/media/features/capture.png" alt="Capture: screenshots, recording settings and the list of captures" /><br /><b>Capture</b>: screenshots and recordings with system audio and mic</td>
-  </tr>
-  <tr>
     <td valign="top"><img src="docs/media/features/terminal.png" alt="A PowerShell prompt inside the open notch" /><br /><b>Terminal</b>: PowerShell or Command Prompt inside the notch</td>
+  </tr>
+  <tr>
     <td valign="top"><img src="docs/media/features/hardware.png" alt="Hardware: CPU, RAM, GPU, power, battery and ping with history" /><br /><b>Hardware</b>: CPU, GPU, RAM, network, power, temperatures and FPS</td>
-  </tr>
-  <tr>
     <td valign="top"><img src="docs/media/features/launcher.png" alt="Launcher with pinned apps" /><br /><b>Launcher</b>: your pinned apps, one click away</td>
+  </tr>
+  <tr>
     <td valign="top"><img src="docs/media/features/github.png" alt="GitHub contribution calendar and streaks" /><br /><b>GitHub</b>: contribution calendar, today's count and streaks</td>
-  </tr>
-  <tr>
     <td valign="top"><img src="docs/media/features/ask.png" alt="Ask: a chat box with quick actions" /><br /><b>Ask</b>: chat with the AI provider you choose, with your own key</td>
-    <td valign="top"><img src="docs/media/features/portfolio.png" alt="Portfolio: total value, profit and positions" /><br /><b>Portfolio</b>: several brokers in one currency, read only</td>
   </tr>
   <tr>
+    <td valign="top"><img src="docs/media/features/portfolio.png" alt="Portfolio: total value, profit and positions" /><br /><b>Portfolio</b>: several brokers in one currency, read only</td>
     <td valign="top"><img src="docs/media/features/weather.png" alt="Weather: current conditions and a 7-day forecast" /><br /><b>Weather</b>: current conditions and a 7-day forecast</td>
+  </tr>
+  <tr>
+    <td valign="top"><img src="docs/media/features/todos.png" alt="To-dos with projects" /><br /><b>To-dos</b>: projects, due times and reminders</td>
+    <td valign="top"><img src="docs/media/features/note.png" alt="A quick note with a word count" /><br /><b>Notes</b>: a quick note, saved as you type</td>
+  </tr>
+  <tr>
+    <td valign="top"><img src="docs/media/features/clipboard.png" alt="Clipboard history with filters" /><br /><b>Clipboard</b>: text, links, images and files, never written to disk</td>
+    <td valign="top"><img src="docs/media/features/shelf.png" alt="Shelf: drop files or text here" /><br /><b>Shelf</b>: a parking spot for files, dropped or pasted</td>
+  </tr>
+  <tr>
+    <td valign="top"><img src="docs/media/features/scratchpad.png" alt="Code scratchpad with a language picker" /><br /><b>Scratchpad</b>: code with syntax colouring, one draft per language</td>
     <td valign="top"><img src="docs/media/features/settings-themes.png" alt="Settings, Themes: theme previews and the day and night switch" /><br /><b>Themes</b>: seven built in, an editor and a day and night switch</td>
   </tr>
   <tr>

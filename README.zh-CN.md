@@ -62,34 +62,34 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
   </tr>
   <tr>
     <td valign="top"><img src="docs/media/features/timer.png" alt="计时器：25 分钟专注倒计时，大号像素数字" /><br /><b>计时器</b>：专注和休息预设，大号像素数字</td>
-    <td valign="top"><img src="docs/media/features/todos.png" alt="带项目的待办" /><br /><b>待办</b>：项目、截止时间和提醒</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/note.png" alt="带字数统计的速记" /><br /><b>笔记</b>：随手记，边写边保存</td>
-    <td valign="top"><img src="docs/media/features/clipboard.png" alt="带筛选的剪贴板历史" /><br /><b>剪贴板</b>：文本、链接、图片和文件，从不写入磁盘</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/shelf.png" alt="暂存架：把文件或文本放在这里" /><br /><b>暂存架</b>：拖入或粘贴的文件的临时停放处</td>
-    <td valign="top"><img src="docs/media/features/scratchpad.png" alt="带语言选择的代码草稿" /><br /><b>草稿本</b>：带语法高亮的代码，每种语言一份草稿</td>
-  </tr>
-  <tr>
     <td valign="top"><img src="docs/media/features/converter.png" alt="单位和货币转换器" /><br /><b>转换器</b>：单位换算，以及按欧洲央行汇率换算货币</td>
+  </tr>
+  <tr>
     <td valign="top"><img src="docs/media/features/capture.png" alt="截图录屏：截图、录制设置和文件列表" /><br /><b>截图录屏</b>：截图和录屏，可录系统声音和麦克风</td>
-  </tr>
-  <tr>
     <td valign="top"><img src="docs/media/features/terminal.png" alt="展开的刘海里的 PowerShell 提示符" /><br /><b>终端</b>：刘海里的 PowerShell 或命令提示符</td>
+  </tr>
+  <tr>
     <td valign="top"><img src="docs/media/features/hardware.png" alt="硬件：CPU、内存、GPU、功耗、电池和延迟，带历史曲线" /><br /><b>硬件</b>：CPU、GPU、内存、网络、功耗、温度和 FPS</td>
-  </tr>
-  <tr>
     <td valign="top"><img src="docs/media/features/launcher.png" alt="固定了应用的启动器" /><br /><b>启动器</b>：固定的应用，一键打开</td>
+  </tr>
+  <tr>
     <td valign="top"><img src="docs/media/features/github.png" alt="GitHub 贡献日历和连续天数" /><br /><b>GitHub</b>：贡献日历、今天的贡献数和连续天数</td>
-  </tr>
-  <tr>
     <td valign="top"><img src="docs/media/features/ask.png" alt="提问：带快捷操作的对话框" /><br /><b>提问</b>：用你自己的密钥和你选择的 AI 服务对话</td>
-    <td valign="top"><img src="docs/media/features/portfolio.png" alt="投资组合：总值、盈亏和持仓" /><br /><b>投资组合</b>：多个券商合并成一种货币，只读</td>
   </tr>
   <tr>
+    <td valign="top"><img src="docs/media/features/portfolio.png" alt="投资组合：总值、盈亏和持仓" /><br /><b>投资组合</b>：多个券商合并成一种货币，只读</td>
     <td valign="top"><img src="docs/media/features/weather.png" alt="天气：当前天气和 7 天预报" /><br /><b>天气</b>：当前天气和 7 天预报</td>
+  </tr>
+  <tr>
+    <td valign="top"><img src="docs/media/features/todos.png" alt="带项目的待办" /><br /><b>待办</b>：项目、截止时间和提醒</td>
+    <td valign="top"><img src="docs/media/features/note.png" alt="带字数统计的速记" /><br /><b>笔记</b>：随手记，边写边保存</td>
+  </tr>
+  <tr>
+    <td valign="top"><img src="docs/media/features/clipboard.png" alt="带筛选的剪贴板历史" /><br /><b>剪贴板</b>：文本、链接、图片和文件，从不写入磁盘</td>
+    <td valign="top"><img src="docs/media/features/shelf.png" alt="暂存架：把文件或文本放在这里" /><br /><b>暂存架</b>：拖入或粘贴的文件的临时停放处</td>
+  </tr>
+  <tr>
+    <td valign="top"><img src="docs/media/features/scratchpad.png" alt="带语言选择的代码草稿" /><br /><b>草稿本</b>：带语法高亮的代码，每种语言一份草稿</td>
     <td valign="top"><img src="docs/media/features/settings-themes.png" alt="设置，主题：主题预览和日夜切换" /><br /><b>主题</b>：内置七款，带编辑器和日夜切换</td>
   </tr>
   <tr>
