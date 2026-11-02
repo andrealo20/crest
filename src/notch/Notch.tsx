@@ -334,9 +334,10 @@ export function Notch() {
                 className={`absolute flex flex-col ${PANEL_ANCHOR[edge]}`}
                 style={{ width: size.w, height: size.h, ...(side ? { marginTop: -size.h / 2 } : { marginLeft: -size.w / 2 }) }}
                 // No scale here: scaling re-rasterizes the small dock icons at shifting subpixels every frame, which reads as jitter (issue #3).
-                initial={{ opacity: 0, transform: "translateY(-6px)", filter: "blur(6px)" }}
-                animate={{ opacity: 1, transform: "translateY(0px)", filter: "blur(0px)", transition: content.enter }}
-                exit={{ opacity: 0, transform: "translateY(-4px)", filter: "blur(4px)", transition: content.exit }}
+                // No blur either: blurring the whole panel cost a 50-70 ms frame on every open in WebView2 at 200 %.
+                initial={{ opacity: 0, transform: "translateY(-6px)" }}
+                animate={{ opacity: 1, transform: "translateY(0px)", transition: content.enter }}
+                exit={{ opacity: 0, transform: "translateY(-4px)", transition: content.exit }}
               >
                 <Header title={t(tab.label)} onDragStart={drag.onPointerDown} />
                 <div className="relative min-h-0 flex-1 overflow-clip">
@@ -344,9 +345,10 @@ export function Notch() {
                     <motion.div
                       key={tab.id}
                       className="absolute inset-0"
-                      initial={{ opacity: 0, filter: "blur(4px)" }}
-                      animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
-                      exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+                      // A plain crossfade: a blur over a whole tool dropped a frame on most switches.
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1, transition: content.enter }}
+                      exit={{ opacity: 0, transition: content.exit }}
                     >
                       <ToolScope.Provider value={tab.id}>
                         <tab.View />
