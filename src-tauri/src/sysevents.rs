@@ -144,8 +144,10 @@ fn run(app: AppHandle) {
             .ok();
         let paired = Paired::default();
         let _watcher = bt_watch(h, paired.clone());
-        // `None` until the watcher's first burst (every paired device, at once) has settled: that reading is the baseline, not a change.
+        // `None` until the watcher has listed every paired device (which can take 30 s, in bursts) and that has settled:
+        // that reading is the baseline, not a change.
         let mut connected: Option<HashMap<String, BtDevice>> = None;
+        let mut enumerated = false;
 
         let volume_client: IAudioEndpointVolumeCallback = VolumeWatch(h).into();
         let mut volume = devices.as_ref().and_then(|d| watch_volume(d, &volume_client));
@@ -178,6 +180,7 @@ fn run(app: AppHandle) {
                     }
                 }
                 WM_BT => {
+                    enumerated |= msg.wParam.0 == 1;
                     SetTimer(Some(hwnd), BT_TIMER, BT_SETTLE_MS, None);
                 }
                 WM_TIMER if msg.wParam.0 == BT_TIMER => {
@@ -197,7 +200,9 @@ fn run(app: AppHandle) {
                         }
                     }
                     seed().devices = now.values().map(|d| d.name.clone()).collect();
-                    connected = Some(now);
+                    if enumerated {
+                        connected = Some(now);
+                    }
                 }
                 WM_VOL => {
                     let now = (msg.wParam.0.min(100) as u8, msg.lParam.0 & 1 != 0);
@@ -312,8 +317,9 @@ fn lock(paired: &Paired) -> MutexGuard<'_, HashMap<String, DeviceInformation>> {
 
 /// Keeps `paired` current and wakes the loop on every change; the loop reads it once the burst is over. Kept for the app's lifetime.
 fn bt_watch(h: isize, paired: Paired) -> Option<DeviceWatcher> {
-    let wake = move || unsafe {
-        let _ = PostMessageW(Some(HWND(h as _)), WM_BT, WPARAM(0), LPARAM(0));
+    // wParam 1: the first enumeration of the paired devices is complete.
+    let wake = move |done: usize| unsafe {
+        let _ = PostMessageW(Some(HWND(h as _)), WM_BT, WPARAM(done), LPARAM(0));
     };
     let (added, updated) = (paired.clone(), paired.clone());
     DeviceInformation::CreateWatcherWithKindAqsFilterAndAdditionalProperties(&BT_PAIRED.into(), &bt_props(), DeviceInformationKind::AssociationEndpoint)
@@ -322,7 +328,7 @@ fn bt_watch(h: isize, paired: Paired) -> Option<DeviceWatcher> {
                 if let Some(info) = info.as_ref() {
                     lock(&added).insert(info.Id()?.to_string(), info.clone());
                 }
-                Ok(wake())
+                Ok(wake(0))
             }))?;
             w.Updated(&TypedEventHandler::new(move |_, update: Ref<DeviceInformationUpdate>| {
                 if let Some(update) = update.as_ref() {
@@ -330,14 +336,15 @@ fn bt_watch(h: isize, paired: Paired) -> Option<DeviceWatcher> {
                         info.Update(update)?;
                     }
                 }
-                Ok(wake())
+                Ok(wake(0))
             }))?;
             w.Removed(&TypedEventHandler::new(move |_, update: Ref<DeviceInformationUpdate>| {
                 if let Some(update) = update.as_ref() {
                     lock(&paired).remove(&update.Id()?.to_string());
                 }
-                Ok(wake())
+                Ok(wake(0))
             }))?;
+            w.EnumerationCompleted(&TypedEventHandler::new(move |_, _| Ok(wake(1))))?;
             w.Start()?;
             Ok(w)
         })
