@@ -5,7 +5,7 @@
 <h1 align="center">Crest</h1>
 
 <p align="center">
-  <b>Windows 屏幕顶部的灵动岛。</b>
+  <b>屏幕顶部的灵动岛，支持 Windows 和 macOS。</b>
 </p>
 
 <p align="center">
@@ -22,6 +22,7 @@
   <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=for-the-badge&label=release&color=7B61FF&logo=github&logoColor=white" alt="最新版本" /></a>
   <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=for-the-badge&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="总下载量" /></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgxMS40djExLjRIMHpNMTIuNiAwSDI0djExLjRIMTIuNnpNMCAxMi42aDExLjRWMjRIMHpNMTIuNiAxMi42SDI0VjI0SDEyLjZ6Ii8%2BPC9zdmc%2B" alt="平台：Windows 10 和 11" />
+  <img src="https://img.shields.io/badge/macOS-12%2B%20preview-555555?style=for-the-badge&logo=apple&logoColor=white" alt="平台：macOS 12 及更高版本，预览版" />
   <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/badge/arch-x64%20%7C%20ARM64-0091BD?style=for-the-badge&logo=arm&logoColor=white" alt="架构：x64 和 ARM64" /></a>
   <img src="https://img.shields.io/badge/languages-EN%20%C2%B7%20ZH%20%C2%B7%20ES%20%C2%B7%20HI%20%C2%B7%20AR%20%C2%B7%20FR%20%C2%B7%20PT%20%C2%B7%20RU%20%C2%B7%20JA%20%C2%B7%20DE%20%C2%B7%20IT-FF9A4D?style=for-the-badge&logo=googletranslate&logoColor=white" alt="语言：英语、简体中文、西班牙语、印地语、阿拉伯语、法语、葡萄牙语、俄语、日语、德语、意大利语" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-A42E2B?style=for-the-badge&logo=gnu&logoColor=white" alt="许可证：GPL-3.0" /></a>
@@ -46,7 +47,7 @@ https://github.com/user-attachments/assets/fe651427-10df-4261-8687-0e4ab1705914
 
 ## 这是什么
 
-Crest 是 Windows 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具。免费且开源。
+Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具。免费且开源。
 
 <p align="center"><img src="docs/media/tour.gif" alt="Crest 依次展示概览、带歌词的正在播放、计时器、剪贴板、提问、转换器、AI 用量、硬件、终端、GitHub、截图录屏、设置、主题和语言设置" width="800" /></p>
 
@@ -107,7 +108,7 @@ Crest 是 Windows 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + A
 
 首次运行时，一个简短的引导会帮你选择预设（音乐、效率、AI 或自选工具）、收起时的外观和所在边缘，并演示如何打开刘海；在 设置 → 常规 中可以再次运行。
 
-Crest 支持 11 种语言（英语、简体中文、西班牙语、印地语、从右到左显示的阿拉伯语、法语、葡萄牙语、俄语、日语、德语、意大利语），默认跟随 Windows 的语言，也可以在 设置 → 常规 中自选。
+Crest 支持 11 种语言（英语、简体中文、西班牙语、印地语、从右到左显示的阿拉伯语、法语、葡萄牙语、俄语、日语、德语、意大利语），默认跟随系统语言，也可以在 设置 → 常规 中自选。
 
 有多台显示器时，刘海可以固定在你选择的那台上，随鼠标在显示器之间移动，或者在每台显示器上都显示一个收起的刘海，在你触碰的那台上展开。
 
@@ -118,14 +119,15 @@ Crest 支持 11 种语言（英语、简体中文、西班牙语、印地语、�
 - **Microsoft Store：** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS)，由 Microsoft 签名，并由应用商店自动更新。
 - **安装程序：** 从[最新版本](https://github.com/andrealo20/crest/releases/latest)下载 `Crest_x.y.z_x64-setup.exe`（Windows on ARM 电脑请下载 `Crest_x.y.z_arm64-setup.exe`）并运行。它只为当前用户安装。安装程序暂未进行代码签名，首次运行时 SmartScreen 可能会提示：点击 **更多信息 → 仍要运行**。
 - **便携版：** 把 `Crest-x.y.z-Portable-x64.zip`（或 `-Portable-arm64.zip`）解压到任意可写的位置，运行 `Crest.exe`。不会安装任何东西。
+- **Mac（预览版）：** Apple 芯片请下载 `Crest_x.y.z_aarch64.dmg`，Intel 请下载 `Crest_x.y.z_x64.dmg`，然后把 Crest 拖到“应用程序”文件夹。应用暂未经过公证，首次打开时 macOS 会拒绝运行：请打开 **系统设置 → 隐私与安全性 → 仍要打开**。文件架、硬件、Discord、保险库、终端、启动器、通知和录制目前只支持 Windows，在 Mac 上不会显示。
 
 每个版本都附带 `SHA256SUMS` 文件，列出每个下载文件的 SHA-256，可以用 `sha256sum -c SHA256SUMS --ignore-missing` 或 `Get-FileHash` 校验。
 
-需要 Windows 11 或 Windows 10，64 位（x64 或 ARM64）。
+需要 Windows 11 或 Windows 10，64 位（x64 或 ARM64），或 macOS 12 及更高版本，Apple 芯片或 Intel（预览版）。
 
 ## 数据只留在你的电脑上
 
-不需要账户，没有统计分析，没有跟踪。设置和数据保存在你的电脑上，密钥存放在 Windows 凭据管理器里，Crest 只为你开启的服务联网。哪些内容会经过网络、什么时候：[PRIVACY.md](PRIVACY.md)（英文）。
+不需要账户，没有统计分析，没有跟踪。设置和数据保存在你的电脑上，密钥存放在 Windows 凭据管理器里（Mac 上是钥匙串），Crest 只为你开启的服务联网。哪些内容会经过网络、什么时候：[PRIVACY.md](PRIVACY.md)（英文）。
 
 ## 支持这个项目
 

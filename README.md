@@ -5,7 +5,7 @@
 <h1 align="center">Crest</h1>
 
 <p align="center">
-  <b>A Dynamic Island for the top of your Windows screen.</b>
+  <b>A Dynamic Island for the top of your screen, on Windows and macOS.</b>
 </p>
 
 <p align="center">
@@ -22,6 +22,7 @@
   <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=for-the-badge&label=release&color=7B61FF&logo=github&logoColor=white" alt="Latest release" /></a>
   <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=for-the-badge&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="Total downloads" /></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgxMS40djExLjRIMHpNMTIuNiAwSDI0djExLjRIMTIuNnpNMCAxMi42aDExLjRWMjRIMHpNMTIuNiAxMi42SDI0VjI0SDEyLjZ6Ii8%2BPC9zdmc%2B" alt="Platform: Windows 10 and 11" />
+  <img src="https://img.shields.io/badge/macOS-12%2B%20preview-555555?style=for-the-badge&logo=apple&logoColor=white" alt="Platform: macOS 12 and later, preview" />
   <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/badge/arch-x64%20%7C%20ARM64-0091BD?style=for-the-badge&logo=arm&logoColor=white" alt="Architectures: x64 and ARM64" /></a>
   <img src="https://img.shields.io/badge/languages-EN%20%C2%B7%20ZH%20%C2%B7%20ES%20%C2%B7%20HI%20%C2%B7%20AR%20%C2%B7%20FR%20%C2%B7%20PT%20%C2%B7%20RU%20%C2%B7%20JA%20%C2%B7%20DE%20%C2%B7%20IT-FF9A4D?style=for-the-badge&logo=googletranslate&logoColor=white" alt="Languages: English, Simplified Chinese, Spanish, Hindi, Arabic, French, Portuguese, Russian, Japanese, German, Italian" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-A42E2B?style=for-the-badge&logo=gnu&logoColor=white" alt="License: GPL-3.0" /></a>
@@ -46,7 +47,7 @@ https://github.com/user-attachments/assets/fe651427-10df-4261-8687-0e4ab1705914
 
 ## What it is
 
-A notch at the edge of your Windows screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day. Free and open source.
+A notch at the edge of your Windows or Mac screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day. Free and open source.
 
 <p align="center"><img src="docs/media/tour.gif" alt="Crest going through Overview, Now Playing with lyrics, Timer, Clipboard, Ask, Converter, AI Usage, Hardware, Terminal, GitHub, Capture, Settings, Themes and the language setting" width="800" /></p>
 
@@ -107,7 +108,7 @@ Plugins add your own tools: a folder of HTML, CSS and JavaScript with a `crest-p
 
 A short first-run setup picks a preset (Music, Productivity, AI or your own tools), the closed look and edge, and shows how to open the notch; Settings → General runs it again.
 
-Crest speaks 11 languages (English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German, Italian) and follows the Windows language unless you pick one in Settings → General.
+Crest speaks 11 languages (English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German, Italian) and follows the system language unless you pick one in Settings → General.
 
 With more than one monitor the notch stays on the one you pick, follows the pointer from monitor to monitor, or shows a closed notch on every monitor that opens where you touch it.
 
@@ -118,14 +119,15 @@ Every feature in detail, with setup steps for each integration: [docs/features.m
 - **Microsoft Store:** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS), signed by Microsoft and kept up to date by the Store.
 - **Installer:** download `Crest_x.y.z_x64-setup.exe` (or `Crest_x.y.z_arm64-setup.exe` on a Windows on ARM PC) from the [latest release](https://github.com/andrealo20/crest/releases/latest) and run it. It installs for your user only. The installer is not code-signed yet, so SmartScreen may warn on first launch: click **More info → Run anyway**.
 - **Portable:** unzip `Crest-x.y.z-Portable-x64.zip` (or `-Portable-arm64.zip`) anywhere you can write to and run `Crest.exe`. Nothing is installed.
+- **Mac (preview):** download `Crest_x.y.z_aarch64.dmg` for Apple silicon or `Crest_x.y.z_x64.dmg` for Intel and drag Crest to Applications. The app is not notarized yet, so macOS refuses it on first launch: open **System Settings → Privacy & Security → Open Anyway**. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices and Capture are Windows-only for now and don't show on a Mac.
 
 Every release has a `SHA256SUMS` file with the SHA-256 of each download, to check with `sha256sum -c SHA256SUMS --ignore-missing` or `Get-FileHash`.
 
-Windows 11 or Windows 10, 64-bit (x64 or ARM64).
+Windows 11 or Windows 10, 64-bit (x64 or ARM64), or macOS 12 or later on Apple silicon or Intel (preview).
 
 ## Your data stays on your PC
 
-No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager, and Crest only goes online for the services you turn on. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
+No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Crest only goes online for the services you turn on. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
 
 ## Support the project
 
