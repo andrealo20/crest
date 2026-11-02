@@ -20,6 +20,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -131,6 +132,17 @@ pub struct VaultState {
     pending: Mutex<Option<Pending>>,
     /// Windows Hello key, only while unlocked.
     hello_key: Mutex<Option<[u8; 32]>>,
+    /// A Hello setup is waiting for its prompt. A second one would replace the TPM key the first sealed with.
+    enabling: AtomicBool,
+}
+
+/// Clears `enabling` on every way out of `vault_hello_enable`.
+struct Enabling<'a>(&'a AtomicBool);
+
+impl Drop for Enabling<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
 }
 
 // ---------- File + DPAPI ----------
@@ -171,7 +183,12 @@ fn unprotect(cipher: &[u8]) -> Result<Vec<u8>, String> {
 
 fn load(app: &AppHandle) -> Result<Data, String> {
     let path = path(app)?;
-    let Ok(cipher) = std::fs::read(&path) else { return Ok(Data::default()) };
+    // Only a missing file is an empty vault: a locked or offline one must not be saved over.
+    let cipher = match std::fs::read(&path) {
+        Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Data::default()),
+        Err(_) => return Err("unreadable".into()),
+    };
     let plain = unprotect(&cipher)?;
     serde_json::from_slice(&plain).map_err(|_| "unreadable".to_string())
 }
@@ -591,6 +608,11 @@ pub async fn vault_hello_unlock(app: AppHandle, state: State<'_, VaultState>) ->
 /// Turns Windows Hello on. Needs the PIN unlock first; creates the TPM key (prompt).
 #[tauri::command]
 pub async fn vault_hello_enable(app: AppHandle, state: State<'_, VaultState>) -> Result<(), String> {
+    // A second click while the prompt is up: the first call finishes the job.
+    if state.enabling.swap(true, Ordering::SeqCst) {
+        return Ok(());
+    }
+    let _enabling = Enabling(&state.enabling);
     {
         let _guard = state.lock.lock().unwrap();
         let data = load(&app)?;
@@ -609,6 +631,9 @@ pub async fn vault_hello_enable(app: AppHandle, state: State<'_, VaultState>) ->
         .map_err(|e| e.to_string())??;
     let _guard = state.lock.lock().unwrap();
     let mut data = load(&app)?;
+    if data.hello.is_some() {
+        return Ok(());
+    }
     data.hello = Some(Hello { challenge: base64::engine::general_purpose::STANDARD.encode(&challenge), sealed: String::new() });
     data.key = Some(key);
     save(&app, &data)?;
