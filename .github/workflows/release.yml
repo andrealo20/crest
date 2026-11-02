@@ -42,6 +42,8 @@ jobs:
             if [ "$(gh release view "v$version" -R "$GITHUB_REPOSITORY" --json isPrerelease -q .isPrerelease)" = "true" ]; then
               echo "Release v$version is incomplete, building it again."
               gh release delete "v$version" -R "$GITHUB_REPOSITORY" --cleanup-tag --yes
+              # The checkout fetched the tag before it went: drop it here too, or the notes below would start from it.
+              git tag -d "v$version"
             else
               echo "Release v$version already exists, nothing to do."
               echo "release=false" >> "$GITHUB_OUTPUT"
