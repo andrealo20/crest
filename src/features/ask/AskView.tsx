@@ -83,9 +83,9 @@ export function AskView() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg === "no-key" ? t("Kein API-Schlüssel für {p} – in den Einstellungen eintragen.", { p: providerInfo[provider].label }) : tBackend(msg));
-      // Remove the empty reply bubble again.
-      chat.set((m) => (m.at(-1)?.content === "" ? m.slice(0, -1) : m));
     } finally {
+      // An empty reply bubble (an error, or Stop before any text) would go out with the next question, which providers refuse.
+      chat.set((m) => (m.at(-1)?.content === "" ? m.slice(0, -1) : m));
       setStreaming(false);
     }
   };
