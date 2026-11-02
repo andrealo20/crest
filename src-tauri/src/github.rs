@@ -6,10 +6,12 @@
 //! Errors: no-user, not-found, token-rejected, rate-limited, offline, parse, failed.
 
 use std::sync::Mutex;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
+
+use crate::{net_error, now_ms};
 
 const CACHE: Duration = Duration::from_secs(3600);
 /// A forced refresh still waits this long after the last fetch.
@@ -87,14 +89,6 @@ pub async fn github_contributions(user: String, force: bool, state: State<'_, Gi
     };
     *state.0.lock().unwrap() = Some((user, Instant::now(), data.clone()));
     Ok(data)
-}
-
-fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
-}
-
-fn net_error(e: reqwest::Error) -> String {
-    if e.is_timeout() || e.is_connect() { "offline" } else { "failed" }.into()
 }
 
 fn status_error(status: reqwest::StatusCode) -> String {

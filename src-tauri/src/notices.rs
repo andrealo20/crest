@@ -19,6 +19,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer, ServerOptions};
 use tokio::sync::watch;
 
+use crate::now_ms;
 use crate::notify_wire::{self, Frame, RateLimiter, Reply};
 
 const POLL: Duration = Duration::from_secs(5);
@@ -468,10 +469,6 @@ fn logo(display: &windows::ApplicationModel::AppDisplayInfo) -> Option<String> {
         _ => "image/png",
     };
     Some(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
-}
-
-fn now_ms() -> u64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
 }
 
 /// The event log subscription. Its callback runs on a thread of the log service and only queues triggers.

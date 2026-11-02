@@ -84,6 +84,26 @@ use windows::Win32::Foundation::HWND;
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
 
+/// Milliseconds since 1970 (0 if the clock is before it).
+pub(crate) fn now_ms() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+}
+
+/// A failed request as the frontend's error codes.
+pub(crate) fn net_error(e: reqwest::Error) -> String {
+    if e.is_timeout() || e.is_connect() { "offline" } else { "failed" }.into()
+}
+
+/// Temp file, flushed to disk, then renamed: a crash or a power cut leaves the old file whole.
+pub(crate) fn write_atomic(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let tmp = path.with_extension("tmp");
+    let mut file = std::fs::File::create(&tmp)?;
+    file.write_all(bytes)?;
+    file.sync_all()?;
+    std::fs::rename(&tmp, path)
+}
+
 /// For main.rs: elevated "Unlock FPS" call (see fps::fps_unlock).
 #[cfg(windows)]
 pub fn fps_elevated_unlock(sid: &str) -> i32 {

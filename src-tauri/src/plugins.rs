@@ -246,13 +246,16 @@ pub fn plugins_storage(id: String, op: storage::Op, app: AppHandle, state: State
     let _one_at_a_time = state.storage.lock().unwrap();
     let dir = data_dir(&app, &id)?;
     let file = dir.join("storage.json");
-    let mut map: Map<String, Value> = fs::read(&file).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+    // Only a missing file is empty storage: one that can't be read or parsed must not be replaced by the next set.
+    let mut map: Map<String, Value> = match fs::read(&file) {
+        Ok(bytes) => serde_json::from_slice(&bytes).map_err(|_| "storage-unreadable")?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Map::new(),
+        Err(_) => return Err("storage-unreadable".into()),
+    };
     let (result, changed) = storage::apply(&mut map, op)?;
     if changed {
         fs::create_dir_all(&dir).map_err(|_| "write")?;
-        let tmp = dir.join("storage.json.tmp");
-        fs::write(&tmp, serde_json::to_vec(&map).map_err(|_| "write")?).map_err(|_| "write")?;
-        fs::rename(&tmp, &file).map_err(|_| "write")?;
+        crate::write_atomic(&file, &serde_json::to_vec(&map).map_err(|_| "write")?).map_err(|_| "write")?;
     }
     Ok(result)
 }

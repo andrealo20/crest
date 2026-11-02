@@ -28,6 +28,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, State};
 
+use crate::now_ms;
 use crate::secrets;
 pub use prices::Rates;
 
@@ -263,10 +264,6 @@ pub async fn send_json<T: for<'de> Deserialize<'de>>(req: reqwest::RequestBuilde
     }
 }
 
-pub fn now_ms() -> u64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
-}
-
 pub fn num(s: &str) -> f64 {
     s.trim().parse().unwrap_or(0.0)
 }
@@ -370,14 +367,8 @@ fn read_stored<T: serde::de::DeserializeOwned + Default>(path: &PathBuf) -> Opti
     }
 }
 
-/// Temp file, flushed to disk, then renamed: a crash or power cut leaves the old file whole.
 fn write_stored(path: &PathBuf, value: &impl Serialize) -> std::io::Result<()> {
-    use std::io::Write;
-    let tmp = path.with_extension("tmp");
-    let mut file = std::fs::File::create(&tmp)?;
-    file.write_all(&serde_json::to_vec(value)?)?;
-    file.sync_all()?;
-    std::fs::rename(&tmp, path)
+    crate::write_atomic(path, &serde_json::to_vec(value)?)
 }
 
 /// Adds an intraday point (at most every 2 min, otherwise the last one is replaced).

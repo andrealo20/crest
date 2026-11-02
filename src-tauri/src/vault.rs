@@ -213,7 +213,7 @@ fn load_full(app: &AppHandle, state: &VaultState) -> Result<Data, String> {
     Ok(data)
 }
 
-/// Atomic: temp file, then rename, so a crash never leaves half a vault.
+/// Atomic and flushed: a crash or a power cut never leaves half a vault.
 /// With Windows Hello the secrets are resealed (if opened) and never written in the clear.
 fn save(app: &AppHandle, data: &Data) -> Result<(), String> {
     let path = path(app)?;
@@ -229,9 +229,7 @@ fn save(app: &AppHandle, data: &Data) -> Result<(), String> {
     }
     let plain = serde_json::to_vec(&out).map_err(|e| e.to_string())?;
     let cipher = protect(&plain)?;
-    let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, cipher).map_err(|e| e.to_string())?;
-    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())
+    crate::write_atomic(&path, &cipher).map_err(|e| e.to_string())
 }
 
 fn now_secs() -> u64 {
