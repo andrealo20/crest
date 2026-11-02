@@ -15,20 +15,20 @@
       <img src="docs/media/store/get-it-from-microsoft-dark.svg" width="161" height="44" alt="Get it from Microsoft">
     </picture>
   </a>
-  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="docs/media/badges/platform-logos.svg" width="178" height="44" alt="Platforms: Windows, Windows on Arm, macOS"></a>
+  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="docs/media/badges/platforms-rounded.svg" width="178" height="44" alt="Platforms: Windows, Windows on Arm, macOS"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/andrealo20/crest/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/andrealo20/crest/release.yml?style=for-the-badge&label=build&logo=githubactions&logoColor=white" alt="Release build status" /></a>
-  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=for-the-badge&label=release&color=7B61FF&logo=github&logoColor=white" alt="Latest release" /></a>
-  <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=for-the-badge&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="Total downloads" /></a>
-  <a href="https://github.com/andrealo20/crest/stargazers"><img src="https://img.shields.io/github/stars/andrealo20/crest?style=for-the-badge&color=E3B341&logo=github&logoColor=white" alt="GitHub stars" /></a>
-  <a href="src/i18n"><img src="https://img.shields.io/badge/languages-EN%20%C2%B7%20ZH%20%C2%B7%20ES%20%C2%B7%20HI%20%C2%B7%20AR%20%C2%B7%20FR%20%C2%B7%20PT%20%C2%B7%20RU%20%C2%B7%20JA%20%C2%B7%20DE%20%C2%B7%20IT-D9480F?style=for-the-badge&logo=googletranslate&logoColor=white" alt="Languages: English, Simplified Chinese, Spanish, Hindi, Arabic, French, Portuguese, Russian, Japanese, German, Italian" /></a>
-  <a href="https://github.com/sponsors/andrealo20"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-E0559E?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" /></a>
+  <a href="https://github.com/andrealo20/crest/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/andrealo20/crest/release.yml?style=flat&label=build&logo=githubactions&logoColor=white" alt="Release build status" /></a>
+  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=flat&label=release&color=7B61FF&logo=github&logoColor=white" alt="Latest release" /></a>
+  <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=flat&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="Total downloads" /></a>
+  <a href="https://github.com/andrealo20/crest/stargazers"><img src="https://img.shields.io/github/stars/andrealo20/crest?style=flat&color=E3B341&logo=github&logoColor=white" alt="GitHub stars" /></a>
+  <a href="src/i18n"><img src="https://img.shields.io/badge/languages-EN%20%C2%B7%20ZH%20%C2%B7%20ES%20%C2%B7%20HI%20%C2%B7%20AR%20%C2%B7%20FR%20%C2%B7%20PT%20%C2%B7%20RU%20%C2%B7%20JA%20%C2%B7%20DE%20%C2%B7%20IT-D9480F?style=flat&logo=googletranslate&logoColor=white" alt="Languages: English, Simplified Chinese, Spanish, Hindi, Arabic, French, Portuguese, Russian, Japanese, German, Italian" /></a>
+  <a href="https://github.com/sponsors/andrealo20"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-E0559E?style=flat&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" /></a>
 </p>
 
 <p align="center">
-  <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/README-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-0078D4?style=for-the-badge" alt="简体中文 README" /></a>
+  <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/README-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-0078D4?style=flat" alt="简体中文 README" /></a>
 </p>
 
 <p align="center">
