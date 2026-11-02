@@ -90,7 +90,7 @@ pub async fn stream_chat(
         "openrouter" => "https://openrouter.ai/api/v1/chat/completions".to_string(),
         "custom" => {
             let base = config.base_url.as_deref().unwrap_or("").trim().trim_end_matches('/');
-            if !(base.starts_with("https://") || base.starts_with("http://localhost") || base.starts_with("http://127.0.0.1")) {
+            if !custom_base_ok(base) {
                 return Err("Base-URL muss mit https:// beginnen".into());
             }
             format!("{base}/chat/completions")
@@ -196,4 +196,29 @@ fn http_error(status: u16, body: &str) -> String {
 fn short(s: &str) -> String {
     let s = s.trim();
     if s.chars().count() > 160 { format!("{}…", s.chars().take(160).collect::<String>()) } else { s.to_string() }
+}
+
+/// A custom endpoint gets the API key: https, or plain http only to this computer.
+fn custom_base_ok(base: &str) -> bool {
+    let Ok(url) = reqwest::Url::parse(base) else { return false };
+    match url.scheme() {
+        "https" => true,
+        "http" => matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]")),
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::custom_base_ok;
+
+    #[test]
+    fn custom_base_url_needs_https_or_this_computer() {
+        for ok in ["https://api.example.com/v1", "http://localhost:11434/v1", "http://127.0.0.1:8080", "http://[::1]:1234/v1"] {
+            assert!(custom_base_ok(ok), "{ok}");
+        }
+        for bad in ["http://localhost.example.com/v1", "http://localhost@evil.example/v1", "http://127.0.0.1.nip.io", "http://api.example.com", "ftp://localhost", "localhost:11434", ""] {
+            assert!(!custom_base_ok(bad), "{bad}");
+        }
+    }
 }
