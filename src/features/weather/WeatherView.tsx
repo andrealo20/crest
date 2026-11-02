@@ -4,7 +4,7 @@ import { CircleNotch, Drop, MagnifyingGlass, MapPin, NavigationArrow, Wind } fro
 import { content, fade, spin } from "../../design/motion";
 import { settings } from "../../settings/store";
 import { Skeleton } from "../../ui/controls";
-import { formatTemp, formatWind } from "../../lib/format";
+import { formatAgo, formatTemp, formatWind } from "../../lib/format";
 import { locale, t } from "../../i18n";
 import { choosePlace, describe, detectPlace, loadForecast, searchPlaces, type Forecast, type Place } from "./store";
 
@@ -92,7 +92,8 @@ function Current({ data, name, auto, onChangePlace }: { data: Forecast; name: st
         <button onClick={onChangePlace} className="flex items-center gap-1 text-footnote font-medium text-label hover:text-label-2" title={t("Ort ändern")}>
           {auto ? <NavigationArrow size={11} weight="fill" /> : <MapPin size={11} weight="fill" />} {name}
         </button>
-        <div className="text-caption text-label-3">{text}</div>
+        {/* The saved forecast, when Open-Meteo didn't answer: says how old it is. */}
+        <div className="text-caption text-label-3">{data.savedAt ? `${text} · ${formatAgo(Date.now() - data.savedAt)}` : text}</div>
       </div>
       <div className="ms-auto flex flex-col items-end gap-0.5 text-caption text-label-3">
         <span>{t("gefühlt {n}", { n: formatTemp(data.current.feels) })}</span>
