@@ -14,7 +14,9 @@ export const plugins = createStore<PluginManifest[]>([]);
 export const install = createStore<{ phase: "idle" | "busy" | "confirm"; staged: StagedPlugin | null; error: string | null }>({ phase: "idle", staged: null, error: null });
 
 export async function refreshPlugins() {
-  const list = await pluginApi.list().catch(() => [] as PluginManifest[]);
+  // A failed read is not "no plugins": syncing on it would drop every plugin tool and add them back switched off.
+  const list = await pluginApi.list().catch(() => null);
+  if (!list) return;
   plugins.set(list);
   const ids = new Set(list.map((m) => toolId(m.id)));
   const tools = settings.get().tools;
