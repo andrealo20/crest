@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Mutex;
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use arboard::{Clipboard, ImageData};
 use base64::Engine;
@@ -27,6 +27,8 @@ use windows::Win32::System::DataExchange::{
 #[cfg(windows)]
 use windows::Win32::System::Memory::{GlobalLock, GlobalSize, GlobalUnlock};
 
+use crate::now_ms;
+
 // The Win32 name on a Mac too, so the call sites below are the same on both.
 #[cfg(target_os = "macos")]
 #[allow(non_snake_case)]
@@ -37,6 +39,8 @@ unsafe fn GetClipboardSequenceNumber() -> u32 {
 const MAX_ITEMS: usize = 40;
 /// Only the newest images are kept (stored as PNG, a screenshot is roughly 0.5–3 MB).
 const MAX_IMAGES: usize = 8;
+/// Texts above this (a whole log file) are not kept: 40 of them would sit in memory for days.
+const MAX_TEXT_BYTES: usize = 2 * 1024 * 1024;
 const THUMB_SIZE: u32 = 240;
 const PREVIEW_CHARS: usize = 400;
 const POLL: Duration = Duration::from_millis(300);
@@ -376,13 +380,19 @@ fn read_content() -> Option<Option<Content>> {
         }
     }
     let text = clipboard.get_text().ok().filter(|t| !t.trim().is_empty());
-    let image = clipboard.get_image().ok();
+    if text.as_ref().is_some_and(|t| t.len() > MAX_TEXT_BYTES) {
+        return Some(None);
+    }
+    // Browsers often add the image URL as text on "Copy image", so the image wins.
+    // Office adds an image of the cells to text, so text wins there, and that image is not even decoded.
+    let image = match &text {
+        Some(t) if !is_url(t.trim()) => None,
+        _ => clipboard.get_image().ok(),
+    };
 
     Some(match (text, image) {
-        // Browsers often add the image URL as text on "Copy image", so the image wins.
-        // Office adds an image of the cells to text, so text wins there.
-        (Some(t), Some(img)) if is_url(t.trim()) => StoredImage::new(img).map(Content::Image),
-        (Some(t), _) => Some(Content::Text(t)),
+        (Some(_), Some(img)) => StoredImage::new(img).map(Content::Image),
+        (Some(t), None) => Some(Content::Text(t)),
         (None, Some(img)) => StoredImage::new(img).map(Content::Image),
         (None, None) => None,
     })
@@ -391,7 +401,7 @@ fn read_content() -> Option<Option<Content>> {
 /// Text only (no files, no image is read or encoded).
 fn read_text() -> Option<Option<Content>> {
     let mut clipboard = Clipboard::new().ok()?;
-    Some(clipboard.get_text().ok().filter(|t| !t.trim().is_empty()).map(Content::Text))
+    Some(clipboard.get_text().ok().filter(|t| !t.trim().is_empty() && t.len() <= MAX_TEXT_BYTES).map(Content::Text))
 }
 
 fn is_url(text: &str) -> bool {
@@ -497,10 +507,6 @@ fn items(state: &ClipboardState) -> Vec<ClipItem> {
 
 fn emit(app: &AppHandle, state: &ClipboardState) {
     let _ = app.emit("clipboard://update", items(state));
-}
-
-fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
 }
 
 #[cfg(test)]
