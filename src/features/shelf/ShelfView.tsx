@@ -29,6 +29,7 @@ import { addFiles, addText, dragPayload, isText, keyOf, normalizeItems, removeKe
 import { NONE, clickSelect, dragKeys, prune, type Selection } from "./selection";
 import { t } from "../../i18n";
 import { usePresenting } from "../privacy/store";
+import { Redacted } from "../../ui/controls";
 
 /*
  * Shelf: put files on the notch and later open them with one click, show them in Explorer,
@@ -79,6 +80,8 @@ const isTextDrag = (e: DragEvent) => {
 
 export function ShelfView() {
   const items = shelf.use();
+  // Shared or recorded screen: text cards show no text, not even to a screen reader's label.
+  const presenting = usePresenting();
   const { dragging, dropped } = drop.use();
   const out = draggingOut.use();
   const [copied, setCopied] = useState<string | null>(null);
@@ -253,10 +256,10 @@ export function ShelfView() {
                 onClickCapture={(e) => onClickCapture(e, key)}
                 role="option"
                 aria-selected={on}
-                aria-label={isText(item) ? item.text.slice(0, 80) : item.name}
+                aria-label={isText(item) ? (presenting ? t("Text") : item.text.slice(0, 80)) : item.name}
               >
                 {isText(item) ? (
-                  <TextCard item={item} copied={copied === key} onCopy={() => void copyKeys([key], key)} />
+                  <TextCard item={item} hidden={presenting} copied={copied === key} onCopy={() => void copyKeys([key], key)} />
                 ) : (
                   <FileCard item={item} copied={copied === key} onCopy={() => void copyKeys([key], key)} />
                 )}
@@ -345,11 +348,11 @@ function FileCard({ item, copied, onCopy }: { item: FileItem; copied: boolean; o
 }
 
 /** A kept snippet: click copies it, dragging it out gives the text. */
-function TextCard({ item, copied, onCopy }: { item: TextItem; copied: boolean; onCopy: () => void }) {
+function TextCard({ item, hidden, copied, onCopy }: { item: TextItem; hidden: boolean; copied: boolean; onCopy: () => void }) {
   return (
     <div className="relative flex size-full flex-col overflow-hidden rounded-[14px] bg-fill-1">
       <button onClick={onCopy} title={t("Klicken zum Kopieren")} className="pressable flex min-h-0 flex-1 items-start overflow-hidden px-2.5 pt-2.5 text-start">
-        <p className="line-clamp-6 text-caption break-words whitespace-pre-wrap text-label-2">{item.text}</p>
+        {hidden ? <Redacted lines={4} /> : <p className="line-clamp-6 text-caption break-words whitespace-pre-wrap text-label-2">{item.text}</p>}
       </button>
       <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
         <span className="flex items-center gap-1 text-caption text-label-3">
