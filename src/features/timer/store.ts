@@ -85,6 +85,8 @@ export const timerActions = {
 
 // Watch for the end (one place for the whole app): one timeout at `endsAt`, no
 // polling while nothing runs.
+/** An end older than this was missed (app closed, PC asleep): no alarm for it. */
+const STALE_MS = 2 * 60_000;
 let ringTimeout: number | undefined;
 let endTimeout: number | undefined;
 let scheduledFor: number | null = null;
@@ -92,9 +94,11 @@ let scheduledFor: number | null = null;
 function checkEnd() {
   const s = timer.get();
   if (s.endsAt !== null && remainingOf(s) <= 0) {
+    timer.set((t) => ({ ...t, remaining: 0, endsAt: null, finished: true }));
+    // Ended while Crest was closed or the PC slept: finished, but no alarm at the next login (as with reminders).
+    if (Date.now() - s.endsAt > STALE_MS) return;
     const { sound, volume, duration: ring } = settings.get().alarm;
     playAlarm(sound, volume, ring);
-    timer.set((t) => ({ ...t, remaining: 0, endsAt: null, finished: true }));
     ringing.set(true);
     window.clearTimeout(ringTimeout);
     // Same length as in playAlarm ("until stopped" = at most 2 min).
