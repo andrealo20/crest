@@ -24,6 +24,16 @@ use crate::secrets;
 
 const SCOPES: [&str; 4] = ["rpc", "rpc.voice.read", "rpc.voice.write", "identify"];
 const RETRY: Duration = Duration::from_secs(5);
+const MAX_FRAME: usize = 1 << 20;
+
+/// Stops the frame reader when the session ends, so the pipe closes with it.
+struct AbortOnDrop(tauri::async_runtime::JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
 const TOKEN_URL: &str = "https://discord.com/api/oauth2/token";
 /// Redirect the app needs in the developer portal: without it, Discord kept asking for
 /// permission in a loop (issue #2). The token exchange tries without it first, then with it.
@@ -115,13 +125,20 @@ async fn run(app: AppHandle, generation: u64, client_id: String, mut actions: mp
             tokio::time::sleep(RETRY).await;
             continue;
         };
-        let mut session = Session::new(app.clone(), generation, client_id.clone(), pipe);
-        if let Err(e) = session.serve(&mut actions).await {
+        let (reader, writer) = tokio::io::split(pipe);
+        let mut session = Session::new(app.clone(), generation, client_id.clone(), writer);
+        if let Err(e) = session.serve(reader, &mut actions).await {
             if !current(&app, generation) {
                 return;
             }
             let status = if e == "closed" { "no-client" } else { "error" };
+            // Discord closed or we're offline: try again. Anything else (consent refused, wrong secret) would
+            // only repeat itself, the consent dialog every few seconds; it waits for the settings to change.
+            let retry = e == "closed" || e == "Keine Verbindung";
             publish(&app, Snapshot { status: status.into(), error: (e != "closed").then_some(e), call: None });
+            if !retry {
+                return;
+            }
         }
         tokio::time::sleep(RETRY).await;
     }
@@ -140,7 +157,6 @@ struct Session {
     app: AppHandle,
     generation: u64,
     client_id: String,
-    reader: ReadHalf<NamedPipeClient>,
     writer: WriteHalf<NamedPipeClient>,
     nonce: u64,
     me: Option<String>,
@@ -156,13 +172,11 @@ struct Session {
 type Res<T> = Result<T, String>;
 
 impl Session {
-    fn new(app: AppHandle, generation: u64, client_id: String, pipe: NamedPipeClient) -> Self {
-        let (reader, writer) = tokio::io::split(pipe);
+    fn new(app: AppHandle, generation: u64, client_id: String, writer: WriteHalf<NamedPipeClient>) -> Self {
         Self {
             app,
             generation,
             client_id,
-            reader,
             writer,
             nonce: 0,
             me: None,
@@ -175,15 +189,27 @@ impl Session {
         }
     }
 
-    async fn serve(&mut self, actions: &mut mpsc::UnboundedReceiver<String>) -> Res<()> {
+    async fn serve(&mut self, mut reader: ReadHalf<NamedPipeClient>, actions: &mut mpsc::UnboundedReceiver<String>) -> Res<()> {
         self.write(0, json!({ "v": 1, "client_id": self.client_id })).await?;
+        // Frames are read in their own task: read_exact cancelled by the select below halfway through a body
+        // would leave the next read starting mid-frame.
+        let (frames_tx, mut frames) = mpsc::channel(16);
+        let _reading = AbortOnDrop(tauri::async_runtime::spawn(async move {
+            loop {
+                let frame = read_frame(&mut reader).await;
+                let end = frame.is_err();
+                if frames_tx.send(frame).await.is_err() || end {
+                    return;
+                }
+            }
+        }));
         loop {
             if !current(&self.app, self.generation) {
                 return Ok(());
             }
             tokio::select! {
-                frame = read_frame(&mut self.reader) => {
-                    let (op, msg) = frame?;
+                frame = frames.recv() => {
+                    let (op, msg) = frame.unwrap_or_else(|| Err("closed".into()))?;
                     match op {
                         1 => self.on_message(msg).await?,
                         2 => return Err(msg["message"].as_str().unwrap_or("closed").to_string()),
@@ -418,6 +444,10 @@ async fn read_frame(reader: &mut ReadHalf<NamedPipeClient>) -> Res<(u32, Value)>
     reader.read_exact(&mut head).await.map_err(|_| "closed".to_string())?;
     let op = u32::from_le_bytes(head[..4].try_into().unwrap());
     let len = u32::from_le_bytes(head[4..].try_into().unwrap()) as usize;
+    // Discord's frames are a few KB; a huge length means a broken stream or a stranger on the pipe.
+    if len > MAX_FRAME {
+        return Err("closed".into());
+    }
     let mut body = vec![0u8; len];
     reader.read_exact(&mut body).await.map_err(|_| "closed".to_string())?;
     Ok((op, serde_json::from_slice(&body).unwrap_or_default()))
