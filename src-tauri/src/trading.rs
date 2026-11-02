@@ -361,9 +361,29 @@ fn seed(target: &PathBuf, legacy: &PathBuf) {
     }
 }
 
+/// Reads a stored file. `None` when it exists but can't be read or parsed: then it must not be written over.
+fn read_stored<T: serde::de::DeserializeOwned + Default>(path: &PathBuf) -> Option<T> {
+    match std::fs::read(path) {
+        Ok(bytes) => serde_json::from_slice(&bytes).ok(),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Some(T::default()),
+        Err(_) => None,
+    }
+}
+
+/// Temp file, flushed to disk, then renamed: a crash or power cut leaves the old file whole.
+fn write_stored(path: &PathBuf, value: &impl Serialize) -> std::io::Result<()> {
+    use std::io::Write;
+    let tmp = path.with_extension("tmp");
+    let mut file = std::fs::File::create(&tmp)?;
+    file.write_all(&serde_json::to_vec(value)?)?;
+    file.sync_all()?;
+    std::fs::rename(&tmp, path)
+}
+
 /// Adds an intraday point (at most every 2 min, otherwise the last one is replaced).
 fn record_point(path: &PathBuf, today: &str, point: Point) -> Vec<Point> {
-    let mut day: Intraday = std::fs::read(path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+    // Only today's points: a broken file is simply started again.
+    let mut day: Intraday = read_stored(path).unwrap_or_default();
     if day.date != today {
         day = Intraday { date: today.to_string(), points: vec![] };
     }
@@ -375,13 +395,14 @@ fn record_point(path: &PathBuf, today: &str, point: Point) -> Vec<Point> {
     } else {
         day.points.push(point);
     }
-    let _ = std::fs::write(path, serde_json::to_vec(&day).unwrap_or_default());
+    let _ = write_stored(path, &day);
     day.points
 }
 
 /// Stores today's value (overwrites the day's entry) and returns the history.
 fn record_snapshot(path: &PathBuf, snapshot: Snapshot) -> Vec<Snapshot> {
-    let mut history: Vec<Snapshot> = std::fs::read(path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+    // The brokers have no value history to fetch again: an unreadable file is left alone.
+    let Some(mut history) = read_stored::<Vec<Snapshot>>(path) else { return vec![snapshot] };
     match history.last_mut() {
         Some(last) if last.date == snapshot.date => *last = snapshot,
         _ => history.push(snapshot),
@@ -389,6 +410,34 @@ fn record_snapshot(path: &PathBuf, snapshot: Snapshot) -> Vec<Snapshot> {
     if history.len() > KEEP_DAYS {
         history.drain(..history.len() - KEEP_DAYS);
     }
-    let _ = std::fs::write(path, serde_json::to_vec(&history).unwrap_or_default());
+    let _ = write_stored(path, &history);
     history
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn day(date: &str) -> Snapshot {
+        Snapshot { date: date.into(), value: 100.0, invested: 90.0, pnl: 10.0, no_cost: 0.0 }
+    }
+
+    #[test]
+    fn history_survives_a_cut_file_and_appends_to_a_good_one() {
+        let dir = std::env::temp_dir().join(format!("crest-history-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("history.json");
+
+        // Missing: starts the history.
+        assert_eq!(record_snapshot(&path, day("2026-11-01")).len(), 1);
+        assert_eq!(record_snapshot(&path, day("2026-11-02")).len(), 2);
+        assert_eq!(record_snapshot(&path, day("2026-11-02")).len(), 2);
+
+        // Cut short by a crash: left as it is, not replaced by today alone.
+        let cut = br#"[{"date":"2026-11-01","value":100"#;
+        std::fs::write(&path, cut).unwrap();
+        assert_eq!(record_snapshot(&path, day("2026-11-03")).len(), 1);
+        assert_eq!(std::fs::read(&path).unwrap(), cut);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
