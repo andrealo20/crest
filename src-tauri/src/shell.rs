@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use tauri::menu::MenuItem;
 use tauri::{App, AppHandle, Emitter, Manager, State, Wry};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutEvent, ShortcutState};
+#[cfg(windows)]
 use windows::Win32::System::SystemInformation::GetLocalTime;
 
 use crate::display;
@@ -176,7 +177,11 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
         )
     };
     if let Some(app_id) = launch {
+        // Only the launcher binds these, and it is Windows-only.
+        #[cfg(windows)]
         crate::launcher::launch_from_key(app, app_id);
+        #[cfg(not(windows))]
+        let _ = app_id;
     } else if open {
         display::unhide(app);
         let _ = app.emit("notch://shortcut", ());
@@ -268,18 +273,12 @@ fn write_entry(dir: &Path, text: &str) -> std::io::Result<()> {
     if std::fs::metadata(&path).is_ok_and(|m| m.len() > LOG_MAX) {
         std::fs::rename(&path, dir.join("crash.old.log"))?;
     }
-    let t = unsafe { GetLocalTime() };
     let mut file = std::fs::OpenOptions::new().create(true).append(true).open(path)?;
-    writeln!(
-        file,
-        "[{:04}-{:02}-{:02} {:02}:{:02}:{:02}] Crest {} {}",
-        t.wYear,
-        t.wMonth,
-        t.wDay,
-        t.wHour,
-        t.wMinute,
-        t.wSecond,
-        env!("CARGO_PKG_VERSION"),
-        text.trim_end()
-    )
+    #[cfg(windows)]
+    let t = unsafe { GetLocalTime() };
+    #[cfg(windows)]
+    let stamp = format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
+    #[cfg(not(windows))]
+    let stamp = jiff::Zoned::now().strftime("%Y-%m-%d %H:%M:%S").to_string();
+    writeln!(file, "[{stamp}] Crest {} {}", env!("CARGO_PKG_VERSION"), text.trim_end())
 }

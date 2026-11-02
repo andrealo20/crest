@@ -1,7 +1,8 @@
 name: Release
 
 # Pushing a new version (src-tauri/tauri.conf.json) to main publishes a release: signed installers and portable zips for
-# x64 and arm64, their .sig files, latest.json for the in-app updater and, uploaded last, SHA256SUMS over all of them.
+# Windows x64 and arm64, disk images for Macs with Apple silicon and Intel, their .sig files, latest.json for the in-app
+# updater and, uploaded last, SHA256SUMS over all of them.
 # Pushes without a version bump only run the check and stop.
 on:
   push:
@@ -63,12 +64,15 @@ jobs:
     if: needs.check.outputs.release == 'true'
     runs-on: windows-latest
     env:
-      # Both tauri-action runs pass the same body: latest.json takes its notes from the run that writes it last.
+      # Every tauri-action run (these two and the Mac job's) passes the same body: the release keeps the one it was created
+      # with, and latest.json takes its notes from the run that writes it last.
       RELEASE_BODY: |
         **Install:** download `Crest_${{ needs.check.outputs.version }}_x64-setup.exe` below and run it. No admin rights or developer tools needed. On a Windows on ARM PC (Snapdragon and other ARM64 laptops), take `Crest_${{ needs.check.outputs.version }}_arm64-setup.exe` instead.
         Already installed? The app offers this version under **Settings → General → Updates**.
 
         **Portable:** `Crest-${{ needs.check.outputs.version }}-Portable-x64.zip` (or `-Portable-arm64.zip` on ARM) needs no install: unzip it anywhere you can write to and run Crest.exe. It keeps its data in a `data` folder next to it and updates itself in place.
+
+        **Mac:** `Crest_${{ needs.check.outputs.version }}_aarch64.dmg` for Apple silicon (M1 and later), `Crest_${{ needs.check.outputs.version }}_x64.dmg` for Intel. Drag Crest to Applications. The app is not notarized yet: on first launch macOS refuses it, then **System Settings → Privacy & Security → Open Anyway**. Some tools are Windows-only for now and don't show on a Mac.
 
         **Checksums:** `SHA256SUMS` lists the SHA-256 of every file of this release. Check a download with `sha256sum -c SHA256SUMS --ignore-missing`, or in PowerShell compare `Get-FileHash <file>` with its line.
 
@@ -159,9 +163,76 @@ jobs:
           gh release upload $tag latest.json --clobber
           if ($LASTEXITCODE) { exit 1 }
 
+  # The Mac version, after the Windows one so the two never write latest.json at the same time: a .dmg and the updater's
+  # .app.tar.gz for Apple silicon, then for Intel (cross-compiled on the arm64 runner). Not signed or notarized yet.
+  macos:
+    needs: [check, build]
+    if: needs.check.outputs.release == 'true'
+    runs-on: macos-latest
+    env:
+      RELEASE_BODY: |
+        **Install:** download `Crest_${{ needs.check.outputs.version }}_x64-setup.exe` below and run it. No admin rights or developer tools needed. On a Windows on ARM PC (Snapdragon and other ARM64 laptops), take `Crest_${{ needs.check.outputs.version }}_arm64-setup.exe` instead.
+        Already installed? The app offers this version under **Settings → General → Updates**.
+
+        **Portable:** `Crest-${{ needs.check.outputs.version }}-Portable-x64.zip` (or `-Portable-arm64.zip` on ARM) needs no install: unzip it anywhere you can write to and run Crest.exe. It keeps its data in a `data` folder next to it and updates itself in place.
+
+        **Mac:** `Crest_${{ needs.check.outputs.version }}_aarch64.dmg` for Apple silicon (M1 and later), `Crest_${{ needs.check.outputs.version }}_x64.dmg` for Intel. Drag Crest to Applications. The app is not notarized yet: on first launch macOS refuses it, then **System Settings → Privacy & Security → Open Anyway**. Some tools are Windows-only for now and don't show on a Mac.
+
+        **Checksums:** `SHA256SUMS` lists the SHA-256 of every file of this release. Check a download with `sha256sum -c SHA256SUMS --ignore-missing`, or in PowerShell compare `Get-FileHash <file>` with its line.
+
+        Windows SmartScreen may warn because the installer is not code-signed yet: **More info → Run anyway**.
+
+        ${{ needs.check.outputs.highlights }}
+
+        ### Changes
+        ${{ needs.check.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      # The Mac code (src-tauri/src/macos/) only compiles here; its tests run before anything is published.
+      - name: Test
+        working-directory: src-tauri
+        run: cargo test --lib
+      - name: Disk image Apple silicon
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          args: --target aarch64-apple-darwin
+          tagName: v__VERSION__
+          releaseName: Crest v__VERSION__
+          releaseDraft: false
+          prerelease: false
+          releaseBody: ${{ env.RELEASE_BODY }}
+      - name: Disk image Intel
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          args: --target x86_64-apple-darwin
+          tagName: v__VERSION__
+          releaseName: Crest v__VERSION__
+          releaseDraft: false
+          prerelease: false
+          releaseBody: ${{ env.RELEASE_BODY }}
+
   # Last, once every other asset is in place: SHA256SUMS over all of them, in the format `sha256sum -c` reads.
   checksums:
-    needs: [check, build]
+    needs: [check, build, macos]
     runs-on: ubuntu-latest
     steps:
       - env:
@@ -178,7 +249,10 @@ jobs:
           for f in "Crest_${VERSION}_x64-setup.exe" "Crest_${VERSION}_arm64-setup.exe" "Crest-${VERSION}-Portable-x64.zip" "Crest-${VERSION}-Portable-arm64.zip"; do
             if [ ! -s "$f" ] || [ ! -s "$f.sig" ]; then echo "::error::$f or $f.sig is missing from the release"; exit 1; fi
           done
-          for k in windows-x86_64 windows-x86_64-nsis windows-x86_64-portable windows-aarch64 windows-aarch64-nsis windows-aarch64-portable; do
+          for f in "Crest_${VERSION}_aarch64.dmg" "Crest_${VERSION}_x64.dmg"; do
+            if [ ! -s "$f" ]; then echo "::error::$f is missing from the release"; exit 1; fi
+          done
+          for k in windows-x86_64 windows-x86_64-nsis windows-x86_64-portable windows-aarch64 windows-aarch64-nsis windows-aarch64-portable darwin-aarch64 darwin-x86_64; do
             jq -e --arg k "$k" '.platforms[$k].url and .platforms[$k].signature' latest.json >/dev/null || { echo "::error::latest.json has no $k entry"; exit 1; }
           done
           sha256sum -- * > ../SHA256SUMS

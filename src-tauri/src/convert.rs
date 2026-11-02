@@ -56,7 +56,7 @@ pub fn open_path(path: String) -> Result<(), String> {
         return Err("Datei nicht mehr vorhanden".into());
     }
     // `explorer <file>` opens it with the associated app, without a console window.
-    Command::new("explorer").arg(&path).spawn().map(|_| ()).map_err(|e| e.to_string())
+    Command::new(if cfg!(windows) { "explorer" } else { "open" }).arg(&path).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Puts files on the clipboard (Ctrl+V in Explorer pastes them).
@@ -84,7 +84,11 @@ pub async fn file_preview(path: String) -> Option<String> {
 /// Shows the file selected in Explorer.
 #[tauri::command]
 pub fn reveal_file(path: String) -> Result<(), String> {
-    Command::new("explorer").arg(format!("/select,{path}")).spawn().map(|_| ()).map_err(|e| e.to_string())
+    #[cfg(windows)]
+    let opened = Command::new("explorer").arg(format!("/select,{path}")).spawn();
+    #[cfg(not(windows))]
+    let opened = Command::new("open").arg("-R").arg(&path).spawn();
+    opened.map(|_| ()).map_err(|e| e.to_string())
 }
 
 #[cfg(windows)]

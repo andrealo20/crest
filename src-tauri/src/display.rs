@@ -20,27 +20,42 @@
 
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU8, Ordering};
 use std::sync::Mutex;
+#[cfg(windows)]
 use std::thread;
+#[cfg(windows)]
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, State, WebviewWindow};
+#[cfg(windows)]
+use tauri::Emitter;
+use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition, State, WebviewWindow};
+#[cfg(windows)]
 use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+#[cfg(windows)]
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS};
+#[cfg(windows)]
 use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, HMONITOR, MONITORINFO, MONITOR_DEFAULTTONEAREST};
+#[cfg(windows)]
 use windows::Win32::System::Threading::GetCurrentProcessId;
+#[cfg(windows)]
 use windows::Win32::UI::Shell::{SHQueryUserNotificationState, QUNS_RUNNING_D3D_FULL_SCREEN};
+#[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetDesktopWindow, GetForegroundWindow, GetShellWindow, GetWindow, GetWindowLongPtrW, GetWindowRect,
     GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SetWindowPos, GWL_EXSTYLE, GWL_STYLE, GW_OWNER,
     HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
+#[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::FindWindowExW;
+#[cfg(windows)]
 use windows::core::{w, PCWSTR};
 
 use crate::hit_test::HitState;
-use crate::screen_policy::{self, Behavior, Context, Rules};
+#[cfg(windows)]
+use crate::screen_policy::Context;
+use crate::screen_policy::{self, Behavior, Rules};
 
+#[cfg(windows)]
 const POLL: Duration = Duration::from_millis(400);
 
 #[derive(Default)]
@@ -234,9 +249,12 @@ pub fn display_raise(app: AppHandle) {
         sync(&app);
     }
     let Some(window) = app.get_webview_window("notch") else { return };
+    #[cfg(windows)]
     if let Ok(hwnd) = window.hwnd() {
         let _ = unsafe { SetWindowPos(hwnd, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
     }
+    #[cfg(target_os = "macos")]
+    crate::macos::raise(&window);
 }
 
 #[derive(Serialize)]
@@ -246,6 +264,7 @@ pub struct RunningApp {
 }
 
 /// Apps with a visible window, for adding an app rule. Each executable once.
+#[cfg(windows)]
 #[tauri::command]
 pub async fn display_apps() -> Vec<RunningApp> {
     let own = unsafe { GetCurrentProcessId() };
@@ -268,6 +287,13 @@ pub async fn display_apps() -> Vec<RunningApp> {
     }
     apps.sort_by_key(|a| a.name.to_lowercase());
     apps
+}
+
+/// App rules need the foreground window's app, which the Mac does not read yet: nothing to pick from.
+#[cfg(not(windows))]
+#[tauri::command]
+pub async fn display_apps() -> Vec<RunningApp> {
+    Vec::new()
 }
 
 /// Hide hotkey: hides Crest, or shows it again.
@@ -323,6 +349,8 @@ fn sync(app: &AppHandle) {
     } else {
         let _ = window.show();
         let _ = window.set_always_on_top(true);
+        #[cfg(target_os = "macos")]
+        crate::macos::raise(&window);
         // Let the click-through state be set again after show() (the poll caches the old one).
         app.state::<HitState>().refresh();
     }
@@ -409,6 +437,7 @@ impl Placement<'_> {
     }
 }
 
+#[cfg(windows)]
 pub fn spawn(app: AppHandle, window: WebviewWindow) {
     thread::spawn(move || {
         let Ok(own) = window.hwnd() else { return };
@@ -478,6 +507,7 @@ fn behavior_from(v: u8) -> Behavior {
     }
 }
 
+#[cfg(windows)]
 /// One window as the rules see it.
 struct Seen {
     context: Context,
@@ -485,12 +515,14 @@ struct Seen {
     path: String,
 }
 
+#[cfg(windows)]
 impl Seen {
     fn desktop() -> Seen {
         Seen { context: Context::Desktop, name: String::new(), path: String::new() }
     }
 }
 
+#[cfg(windows)]
 /// The last window's app, so the executable is read once per window instead of every poll.
 #[derive(Default)]
 struct Known {
@@ -500,6 +532,7 @@ struct Known {
     path: String,
 }
 
+#[cfg(windows)]
 impl Known {
     fn describe(&mut self, hwnd: HWND, pid: u32) -> (String, String) {
         if self.hwnd != hwnd.0 as isize || self.pid != pid {
@@ -510,6 +543,7 @@ impl Known {
     }
 }
 
+#[cfg(windows)]
 fn read_foreground(hwnd: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) -> Seen {
     if hwnd.is_invalid() || hwnd == own || !candidate(hwnd) || unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) } != monitor {
         return Seen::desktop();
@@ -526,6 +560,7 @@ fn read_foreground(hwnd: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) 
     Seen { context, name, path }
 }
 
+#[cfg(windows)]
 /// A maximized or frameless full-monitor window on our monitor behind the foreground one (a browser left
 /// maximized behind another app, a borderless game in the background). Skips tool and cloaked windows
 /// (other virtual desktops) and our own.
@@ -554,6 +589,7 @@ fn read_background(foreground: HWND, own: HWND, monitor: HMONITOR, known: &mut K
     None
 }
 
+#[cfg(windows)]
 /// Visible, not minimized, not cloaked, not the desktop or taskbar.
 fn candidate(hwnd: HWND) -> bool {
     unsafe {
@@ -566,6 +602,7 @@ fn candidate(hwnd: HWND) -> bool {
     }
 }
 
+#[cfg(windows)]
 fn top_windows() -> Vec<HWND> {
     unsafe extern "system" fn collect(hwnd: HWND, list: LPARAM) -> windows::core::BOOL {
         (*(list.0 as *mut Vec<HWND>)).push(hwnd);
@@ -576,12 +613,14 @@ fn top_windows() -> Vec<HWND> {
     list
 }
 
+#[cfg(windows)]
 fn window_pid(hwnd: HWND) -> u32 {
     let mut pid = 0u32;
     unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
     pid
 }
 
+#[cfg(windows)]
 /// The app behind a window: a UWP app's frame belongs to ApplicationFrameHost, its CoreWindow child to the app.
 fn app_pid(hwnd: HWND) -> u32 {
     if class_name(hwnd) == "ApplicationFrameWindow" {
@@ -594,26 +633,31 @@ fn app_pid(hwnd: HWND) -> u32 {
     window_pid(hwnd)
 }
 
+#[cfg(windows)]
 fn has_ex_style(hwnd: HWND, bits: u32) -> bool {
     unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 & bits != 0 }
 }
 
+#[cfg(windows)]
 fn class_name(hwnd: HWND) -> String {
     let mut buf = [0u16; 64];
     let len = unsafe { GetClassNameW(hwnd, &mut buf) }.max(0) as usize;
     String::from_utf16_lossy(&buf[..len])
 }
 
+#[cfg(windows)]
 /// "C:\…\Game.exe" → "Game".
 fn exe_name(path: &str) -> String {
     let file = path.rsplit(['\\', '/']).next().unwrap_or(path);
     file.strip_suffix(".exe").or_else(|| file.strip_suffix(".EXE")).unwrap_or(file).to_string()
 }
 
+#[cfg(windows)]
 fn has_caption(hwnd: HWND) -> bool {
     unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) as u32 & WS_CAPTION.0 != 0 }
 }
 
+#[cfg(windows)]
 /// The visible frame (without the invisible resize borders), else the window rect.
 fn frame_rect(hwnd: HWND) -> RECT {
     let mut rect = RECT::default();
@@ -625,16 +669,19 @@ fn frame_rect(hwnd: HWND) -> RECT {
     rect
 }
 
+#[cfg(windows)]
 fn monitor_rect(monitor: HMONITOR) -> Option<RECT> {
     let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
     unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool().then_some(info.rcMonitor)
 }
 
+#[cfg(windows)]
 /// Covers the whole monitor, give or take 2 px.
 fn covers(r: RECT, m: RECT) -> bool {
     r.left <= m.left + 2 && r.top <= m.top + 2 && r.right >= m.right - 2 && r.bottom >= m.bottom - 2
 }
 
+#[cfg(windows)]
 /// Desktop and taskbar never count as fullscreen.
 fn is_desktop(hwnd: HWND) -> bool {
     if unsafe { hwnd == GetDesktopWindow() || hwnd == GetShellWindow() } {

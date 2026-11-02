@@ -408,6 +408,7 @@ fn run_agy() -> Result<String, Fail> {
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null());
+            #[cfg(windows)]
             crate::convert::hide_console(&mut cmd);
             cmd.spawn().ok()
         })

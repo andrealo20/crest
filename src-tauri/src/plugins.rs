@@ -27,7 +27,9 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use tauri::http::{header, Response, StatusCode};
-use tauri::{AppHandle, State, WebviewWindow};
+#[cfg(windows)]
+use tauri::WebviewWindow;
+use tauri::{AppHandle, State};
 
 pub use manifest::Manifest;
 
@@ -109,6 +111,7 @@ pub fn plugins_list(app: AppHandle) -> Vec<Manifest> {
 }
 
 /// Shows the system's folder or file picker over the notch; the chosen path, None when cancelled.
+#[cfg(windows)]
 #[tauri::command]
 pub async fn plugins_pick(zip: bool, window: WebviewWindow) -> Option<String> {
     let owner = window.hwnd().ok()?.0 as isize;
@@ -120,6 +123,17 @@ pub async fn plugins_pick(zip: bool, window: WebviewWindow) -> Option<String> {
     rx.await.ok().flatten()
 }
 
+/// The same with AppKit's picker, through AppleScript; cancelling ends osascript with an error.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+pub async fn plugins_pick(zip: bool) -> Option<String> {
+    let script = if zip { "POSIX path of (choose file of type {\"zip\"})" } else { "POSIX path of (choose folder)" };
+    let out = tauri::async_runtime::spawn_blocking(move || std::process::Command::new("osascript").arg("-e").arg(script).output()).await.ok()?.ok()?;
+    let path = String::from_utf8(out.stdout).ok()?.trim_end().to_string();
+    (out.status.success() && !path.is_empty()).then_some(path)
+}
+
+#[cfg(windows)]
 fn pick(zip: bool, owner: isize) -> Option<String> {
     use windows::core::w;
     use windows::Win32::Foundation::HWND;

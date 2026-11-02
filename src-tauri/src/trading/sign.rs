@@ -103,6 +103,7 @@ pub fn random_hex(len: usize) -> Result<String, String> {
     Ok(hex(&buf))
 }
 
+#[cfg(windows)]
 mod cng {
     use super::{EcKey, Wiped};
     use windows::Win32::Security::Cryptography::{
@@ -162,10 +163,26 @@ mod cng {
     }
 }
 
+/// On a Mac: random numbers from the system, no P-256 signing yet (Coinbase is the only provider that needs it).
+#[cfg(not(windows))]
+mod cng {
+    use super::EcKey;
+    use std::io::Read;
+
+    pub fn sign_p256(_: &EcKey, _: &[u8]) -> Result<Vec<u8>, String> {
+        Err("unsupported".into())
+    }
+
+    pub fn random(buf: &mut [u8]) -> Result<(), String> {
+        std::fs::File::open("/dev/urandom").and_then(|mut f| f.read_exact(buf)).map_err(|e| format!("network:no random numbers ({e})"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[cfg(windows)]
     fn unhex(s: &str) -> Vec<u8> {
         (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
     }
@@ -196,6 +213,7 @@ mod tests {
     /// RFC 6979 A.2.5 (P-256, SHA-256, message "sample"): the documented signature must verify
     /// with the documented key, which checks the key blob layout handed to CNG.
     #[test]
+    #[cfg(windows)]
     fn p256_rfc6979_vector_verifies() {
         let mut key = EcKey { d: [0; 32], x: [0; 32], y: [0; 32] };
         key.d.copy_from_slice(&unhex("C9AFA9D845BA75166B5C215767B1D6934E50C3DB36E89B127B8A622B120F6721"));
@@ -225,6 +243,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn coinbase_jwt_has_documented_claims_and_verifies() {
         let jwt = coinbase_jwt("organizations/o/apiKeys/k", TEST_PEM, "GET api.coinbase.com/api/v3/brokerage/accounts", 1_700_000_000, "abc").unwrap();
         let parts: Vec<&str> = jwt.split('.').collect();

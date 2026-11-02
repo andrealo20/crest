@@ -18,7 +18,9 @@ store = []
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+# macos-private-api: a transparent window on a Mac (WKWebView's private API). Tauri 2 only checks it against
+# tauri.conf.json (macOSPrivateApi); no code depends on it, so it changes nothing on Windows.
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-autostart = "2"
@@ -46,6 +48,14 @@ rqrr = { version = "0.10", default-features = false }
 aes-gcm = "0.10"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+
+# macOS (src/macos/): Keychain for the API keys; AppKit for the window level above the menu bar, the frontmost app and
+# the pasteboard. All of them are already in the tree through tauri and native-tls.
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSString"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSPasteboard", "NSResponder", "NSRunningApplication", "NSWindow", "NSWorkspace"] }
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"

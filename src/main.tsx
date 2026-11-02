@@ -4,7 +4,7 @@ import { MotionConfig } from "motion/react";
 import "./styles/global.css";
 import { Notch } from "./notch/Notch";
 import { DesktopMock } from "./dev/DesktopMock";
-import { isNative } from "./platform/native";
+import { isMac, isNative } from "./platform/native";
 import { startDropListener } from "./platform/drop";
 import { clipboard } from "./platform/clipboard";
 import { settings } from "./settings/store";
@@ -95,7 +95,7 @@ settings.subscribe(syncClipboardMode);
 
 // The tray menu is Rust's; its texts follow the language from here.
 language.subscribe(() =>
-  setTrayTexts({ open: t("Crest öffnen"), settings: t("Einstellungen …"), focus: t("Fokus-Modus"), autostart: t("Mit Windows starten"), quit: t("Crest beenden") }),
+  setTrayTexts({ open: t("Crest öffnen"), settings: t("Einstellungen …"), focus: t("Fokus-Modus"), autostart: isMac ? t("Bei der Anmeldung öffnen") : t("Mit Windows starten"), quit: t("Crest beenden") }),
 );
 const languageReady = startLanguage(settings);
 

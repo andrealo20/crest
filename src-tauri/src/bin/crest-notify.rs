@@ -9,15 +9,21 @@
 //! Exit codes: 0 delivered, 1 usage error, 2 rejected (invalid or rate limited), 3 Crest not running, notices off,
 //! or no answer in time. `run` returns the command's own exit code.
 
+#[cfg(windows)]
 #[path = "../notify_wire.rs"]
 mod notify_wire;
 
+#[cfg(windows)]
 use std::io::{Read, Write};
+#[cfg(windows)]
 use std::process::ExitCode;
+#[cfg(windows)]
 use std::time::{Duration, Instant};
 
+#[cfg(windows)]
 use notify_wire::{Reply, Request};
 
+#[cfg(windows)]
 const USAGE: &str = "Usage:
   crest-notify <title> [-b|--body <text>] [-s|--source <name>] [-r|--replace <key>] [-p|--progress <0-100>]
   crest-notify run [-s <name>] [-r <key>] -- <command> [args...]
@@ -38,8 +44,10 @@ Exit codes: 0 delivered, 1 usage error, 2 rejected, 3 Crest not running or notic
 `run` returns the command's exit code. A command Windows cannot start directly (a .cmd
 script such as npm) is run through cmd /d /c, which parses & | ^ < > in its arguments.";
 
+#[cfg(windows)]
 static QUIET: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+#[cfg(windows)]
 /// eprintln unless --quiet.
 macro_rules! say {
     ($($t:tt)*) => {
@@ -49,11 +57,13 @@ macro_rules! say {
     };
 }
 
+#[cfg(windows)]
 /// --quiet among crest-notify's own options (a -q after `--` belongs to the command).
 fn is_quiet(args: &[String]) -> bool {
     args.iter().take_while(|a| *a != "--").any(|a| a == "-q" || a == "--quiet")
 }
 
+#[cfg(windows)]
 #[derive(Debug, PartialEq)]
 enum Command {
     Help,
@@ -62,6 +72,7 @@ enum Command {
     Run(Request, Vec<String>),
 }
 
+#[cfg(windows)]
 fn parse_args(args: &[String]) -> Result<Command, String> {
     let mut r = Request::default();
     let mut words: Vec<String> = Vec::new();
@@ -121,6 +132,7 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
     Ok(Command::Send(r, json))
 }
 
+#[cfg(windows)]
 fn progress(v: &str) -> Result<f64, String> {
     match v.parse::<f64>() {
         Ok(p) if p.is_finite() && (0.0..=100.0).contains(&p) => Ok(p),
@@ -128,6 +140,7 @@ fn progress(v: &str) -> Result<f64, String> {
     }
 }
 
+#[cfg(windows)]
 /// `part <id> [text] [options]`: the words after the id are the text. Crest checks the values again.
 fn parse_part(args: &[String]) -> Result<Command, String> {
     let mut p = notify_wire::Part::default();
@@ -178,6 +191,7 @@ fn parse_part(args: &[String]) -> Result<Command, String> {
     Ok(Command::Send(Request { part: Some(p), source, ..Default::default() }, None))
 }
 
+#[cfg(windows)]
 /// The --json value: the text itself, or standard input for "-" (a hook writes its event there and closes it).
 fn read_json(spec: &str) -> Option<String> {
     if spec != "-" {
@@ -188,6 +202,7 @@ fn read_json(spec: &str) -> Option<String> {
     Some(text)
 }
 
+#[cfg(windows)]
 /// The message in an agent hook's event: `message`, `last-assistant-message` or `last_assistant_message`. None when
 /// there is none of them, so the --body given as a fallback stays.
 fn body_from_json(text: &str) -> Option<String> {
@@ -197,6 +212,7 @@ fn body_from_json(text: &str) -> Option<String> {
         .find_map(|k| value.get(k).and_then(|v| v.as_str()).map(str::trim).filter(|s| !s.is_empty()).map(str::to_string))
 }
 
+#[cfg(windows)]
 #[derive(Debug, PartialEq)]
 enum Server {
     Ours,
@@ -206,6 +222,7 @@ enum Server {
     Unverified,
 }
 
+#[cfg(windows)]
 /// Who runs the server end of the pipe. Another account could create the pipe name first (pipe names are shared by
 /// the whole machine), and its notices would go to that account.
 fn server_owner(pipe: &std::fs::File) -> Server {
@@ -220,6 +237,7 @@ fn server_owner(pipe: &std::fs::File) -> Server {
     judge(&server, &own)
 }
 
+#[cfg(windows)]
 /// Ours when the user matches and the server's integrity level is not below ours.
 fn judge(server: &(String, u32), own: &(String, u32)) -> Server {
     if server.0 == own.0 && server.1 >= own.1 {
@@ -229,6 +247,7 @@ fn judge(server: &(String, u32), own: &(String, u32)) -> Server {
     }
 }
 
+#[cfg(windows)]
 /// Sends one request and waits for the reply; the exit code for the outcome.
 fn send(request: &Request) -> u8 {
     let Some(line) = notify_wire::encode(request) else {
@@ -316,6 +335,7 @@ fn send(request: &Request) -> u8 {
     }
 }
 
+#[cfg(windows)]
 fn run(mut request: Request, command: Vec<String>) -> ExitCode {
     let started = Instant::now();
     let mut status = std::process::Command::new(&command[0]).args(&command[1..]).status();
@@ -339,6 +359,14 @@ fn run(mut request: Request, command: Vec<String>) -> ExitCode {
     std::process::exit(code)
 }
 
+/// The notice pipe and its peer check are Windows-only for now; on a Mac this binary only says so.
+#[cfg(not(windows))]
+fn main() -> std::process::ExitCode {
+    eprintln!("crest-notify: not available on this system yet");
+    std::process::ExitCode::FAILURE
+}
+
+#[cfg(windows)]
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let quiet = is_quiet(&args);
@@ -352,6 +380,7 @@ fn main() -> ExitCode {
     }
 }
 
+#[cfg(windows)]
 fn outcome(args: &[String]) -> ExitCode {
     match parse_args(args) {
         Ok(Command::Help) => {
@@ -376,7 +405,7 @@ fn outcome(args: &[String]) -> ExitCode {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod tests {
     use super::*;
 

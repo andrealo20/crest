@@ -1,7 +1,7 @@
 //! Clipboard history.
 //!
-//! A thread polls `GetClipboardSequenceNumber` (cheap, no window needed) and reads the
-//! content on every change. Password manager content is skipped.
+//! A thread polls `GetClipboardSequenceNumber` (cheap, no window needed; on a Mac the pasteboard's change count) and
+//! reads the content on every change. Password manager content is skipped.
 //! History lives in memory only and is empty after a restart (privacy).
 
 use std::io::Cursor;
@@ -15,13 +15,24 @@ use arboard::{Clipboard, ImageData};
 use base64::Engine;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
+#[cfg(windows)]
 use windows::core::w;
+#[cfg(windows)]
 use windows::Win32::Foundation::HGLOBAL;
+#[cfg(windows)]
 use windows::Win32::System::DataExchange::{
     CloseClipboard, GetClipboardData, GetClipboardSequenceNumber, IsClipboardFormatAvailable, OpenClipboard,
     RegisterClipboardFormatW,
 };
+#[cfg(windows)]
 use windows::Win32::System::Memory::{GlobalLock, GlobalSize, GlobalUnlock};
+
+// The Win32 name on a Mac too, so the call sites below are the same on both.
+#[cfg(target_os = "macos")]
+#[allow(non_snake_case)]
+unsafe fn GetClipboardSequenceNumber() -> u32 {
+    crate::macos::pasteboard_change_count()
+}
 
 const MAX_ITEMS: usize = 40;
 /// Only the newest images are kept (stored as PNG, a screenshot is roughly 0.5–3 MB).
@@ -241,15 +252,21 @@ pub async fn clipboard_paste_files() -> Result<Vec<String>, String> {
 }
 
 fn pictures_dir() -> PathBuf {
-    let home = std::env::var_os("USERPROFILE").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
+    let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
     home.join("Pictures")
 }
 
 /// "2026-10-04 22-41-03" in local time (for file names).
+#[cfg(windows)]
 fn local_stamp() -> String {
     use windows::Win32::System::SystemInformation::GetLocalTime;
     let t = unsafe { GetLocalTime() };
     format!("{:04}-{:02}-{:02} {:02}-{:02}-{:02}", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond)
+}
+
+#[cfg(not(windows))]
+fn local_stamp() -> String {
+    jiff::Zoned::now().strftime("%Y-%m-%d %H-%M-%S").to_string()
 }
 
 pub fn spawn(app: AppHandle) {
@@ -288,6 +305,7 @@ pub fn spawn(app: AppHandle) {
 
 /// Formats password managers (KeePass, 1Password, Bitwarden …) use to mark content
 /// as "don't record".
+#[cfg(windows)]
 struct PrivateFormats {
     /// Presence alone means: don't record.
     exclude: [u32; 2],
@@ -295,6 +313,7 @@ struct PrivateFormats {
     can_include: u32,
 }
 
+#[cfg(windows)]
 impl PrivateFormats {
     fn register() -> Self {
         unsafe {
@@ -317,6 +336,22 @@ impl PrivateFormats {
     }
 }
 
+/// On a Mac the marks are pasteboard types, read on each change (macos/mod.rs).
+#[cfg(target_os = "macos")]
+struct PrivateFormats;
+
+#[cfg(target_os = "macos")]
+impl PrivateFormats {
+    fn register() -> Self {
+        PrivateFormats
+    }
+
+    fn is_private(&self) -> bool {
+        crate::macos::pasteboard_is_private()
+    }
+}
+
+#[cfg(windows)]
 fn read_dword(format: u32) -> Option<u32> {
     unsafe {
         OpenClipboard(None).ok()?;

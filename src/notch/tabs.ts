@@ -55,6 +55,10 @@ import { CaptureView } from "../features/capture/CaptureView";
 import { SetupView } from "../features/setup/SetupView";
 import { Camera } from "@phosphor-icons/react";
 import { pluginTab } from "../features/plugins/tabs";
+import { isMac } from "../platform/native";
+
+/** Tools built on Windows APIs with no Mac version yet (src-tauri/src/macos/); a Mac doesn't list them. */
+const WINDOWS_ONLY = new Set(["shelf", "system", "discord", "vault", "terminal", "launcher", "notices", "capture"]);
 
 /**
  * Registry of all tools in the open notch. New tool = new entry here
@@ -106,7 +110,7 @@ export const tabs: NotchTab[] = [
   { id: "calendar", label: "Kalender", icon: CalendarBlank, size: { w: 560, h: 340 }, View: CalendarView },
   { id: "notices", label: "Mitteilungen", icon: BellSimple, size: { w: 560, h: 320 }, View: NoticesView },
   { id: "capture", label: "Erfassen", icon: Camera, size: { w: 620, h: 336 }, View: CaptureView },
-];
+].filter((t) => !isMac || !WINDOWS_ONLY.has(t.id));
 
 /** Settings: reached via the gear, not in the tool bar. */
 export const settingsTab: NotchTab = { id: "settings", label: "Einstellungen", icon: GearSix, size: { w: 660, h: 460 }, View: SettingsView };

@@ -1,60 +1,97 @@
 pub mod ai;
+#[cfg(windows)]
 mod audio;
+#[cfg(windows)]
 mod brightness;
 mod calendar;
+#[cfg(windows)]
 mod capture;
 mod clipboard;
+#[cfg(windows)]
 mod controls;
 pub mod convert;
+#[cfg(windows)]
 mod discord;
+// On a Mac these keep parts only Windows reads yet (screen rules, mirrors, the launcher keys).
+#[cfg_attr(not(windows), allow(dead_code))]
 mod display;
+#[cfg(windows)]
 mod drop;
+#[cfg(windows)]
 mod fps;
 mod github;
 mod hit_test;
+#[cfg(windows)]
 mod loopback;
 mod lyrics;
+#[cfg(windows)]
 mod launcher;
+#[cfg(windows)]
 mod media;
+#[cfg(windows)]
 mod media_pick;
+#[cfg(windows)]
 mod memory;
+#[cfg(windows)]
 mod mirror;
+#[cfg(windows)]
 mod mixer;
+#[cfg(windows)]
 mod notices;
 mod notify_wire;
+#[cfg(windows)]
 mod osd;
 mod plugins;
 pub mod portable;
+#[cfg(windows)]
 mod privacy;
 mod romanize;
+#[cfg_attr(not(windows), allow(dead_code))]
 mod screen_policy;
 pub mod secrets;
+#[cfg(windows)]
 mod shelf;
+#[cfg_attr(not(windows), allow(dead_code))]
 mod shell;
 mod startup;
+#[cfg(windows)]
 mod system;
+#[cfg(windows)]
 mod sysevents;
 mod timer_window;
+#[cfg(windows)]
 mod terminal;
 mod themes;
 mod trading;
 pub mod usage;
+#[cfg(windows)]
 mod vault;
+
+// The Mac's own versions of what the shared modules call into (src/macos/); the other Windows modules have no Mac
+// counterpart yet and their tools are hidden there.
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(target_os = "macos")]
+use macos::{audio, media, mirror};
 
 use std::sync::Mutex;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{App, AppHandle, Emitter, Manager, State, WebviewWindow};
+#[cfg(windows)]
 use windows::Win32::Foundation::HWND;
+#[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
 
 /// For main.rs: elevated "Unlock FPS" call (see fps::fps_unlock).
+#[cfg(windows)]
 pub fn fps_elevated_unlock(sid: &str) -> i32 {
     fps::elevated_unlock(sid)
 }
 
 /// For main.rs: the process that puts the Windows volume and brightness indicator back after Crest (see osd.rs).
+#[cfg(windows)]
 pub fn osd_guard(pid: &str) -> i32 {
     osd::guard(pid)
 }
@@ -69,6 +106,17 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         // Updates: signed installers from GitHub, only on click in the settings.
         .plugin(tauri_plugin_updater::Builder::new().build());
+    #[cfg(windows)]
+    let builder = builder
+        .manage(mixer::MixerState::default())
+        .manage(system::SystemState::default())
+        .manage(mirror::MirrorState::default())
+        .manage(discord::DiscordState::default())
+        .manage(vault::VaultState::default())
+        .manage(terminal::TerminalState::default())
+        .manage(launcher::LauncherState::default())
+        .manage(notices::NoticesState::default())
+        .manage(capture::CaptureState::default());
     builder
         .plugin(tauri_plugin_process::init())
         // Shortcuts are set in the settings (shell.rs).
@@ -76,7 +124,6 @@ pub fn run() {
         .manage(shell::Hotkeys::default())
         .manage(hit_test::HitState::default())
         .manage(media::MediaState::default())
-        .manage(mixer::MixerState::default())
         .manage(clipboard::ClipboardState::default())
         .manage(FocusState::default())
         .manage(TrayItems::default())
@@ -84,17 +131,9 @@ pub fn run() {
         .manage(ai::AiState::default())
         .manage(trading::TradingState::default())
         .manage(usage::UsageState::default())
-        .manage(system::SystemState::default())
         .manage(display::DisplayState::default())
-        .manage(mirror::MirrorState::default())
-        .manage(discord::DiscordState::default())
-        .manage(vault::VaultState::default())
-        .manage(terminal::TerminalState::default())
-        .manage(launcher::LauncherState::default())
         .manage(github::GithubState::default())
         .manage(calendar::CalendarState::default())
-        .manage(notices::NoticesState::default())
-        .manage(capture::CaptureState::default())
         .manage(plugins::PluginsState::default())
         // Plugin pages, each only from its own folder (plugins.rs).
         .register_asynchronous_uri_scheme_protocol(plugins::SCHEME, |ctx, request, responder| {
@@ -111,6 +150,7 @@ pub fn run() {
             media::media_pin,
             media::media_sources,
             media::media_lyrics,
+            #[cfg(windows)]
             memory::memory_low,
             clipboard::clipboard_list,
             clipboard::clipboard_mode,
@@ -132,9 +172,13 @@ pub fn run() {
             trading::portfolio_forget,
             usage::usage_fetch,
             usage::usage_tokens,
+            #[cfg(windows)]
             system::system_stats,
+            #[cfg(windows)]
             sysevents::status_seed,
+            #[cfg(windows)]
             sysevents::status_configure,
+            #[cfg(windows)]
             system::system_icon,
             convert::convert_probe,
             convert::reveal_file,
@@ -146,65 +190,117 @@ pub fn run() {
             display::display_screen,
             display::display_raise,
             display::display_apps,
+            #[cfg(windows)]
             mirror::display_cursor_monitor,
+            #[cfg(windows)]
             mirror::mirror_picture,
+            #[cfg(windows)]
             mirror::mirror_picture_set,
             shell::hotkeys_apply,
             shell::crash_log,
+            #[cfg(windows)]
             fps::gaming_fps,
+            #[cfg(windows)]
             fps::fps_unlock,
+            #[cfg(windows)]
             controls::volume_get,
+            #[cfg(windows)]
             controls::volume_set,
+            #[cfg(windows)]
             mixer::mixer_list,
+            #[cfg(windows)]
             mixer::mixer_set,
+            #[cfg(windows)]
             mixer::media_open_source,
             tray_focus,
             tray_texts,
+            #[cfg(windows)]
             controls::focus_get,
+            #[cfg(windows)]
             controls::focus_set,
+            #[cfg(windows)]
             privacy::privacy_state,
+            #[cfg(windows)]
             discord::discord_configure,
+            #[cfg(windows)]
             discord::discord_action,
+            #[cfg(windows)]
             discord::discord_state,
+            #[cfg(windows)]
             vault::vault_status,
+            #[cfg(windows)]
             vault::vault_setup,
+            #[cfg(windows)]
             vault::vault_unlock,
+            #[cfg(windows)]
             vault::vault_lock,
+            #[cfg(windows)]
             vault::vault_save_password,
+            #[cfg(windows)]
             vault::vault_add_totp,
+            #[cfg(windows)]
             vault::vault_delete,
+            #[cfg(windows)]
             vault::vault_reveal,
+            #[cfg(windows)]
             vault::vault_copy,
+            #[cfg(windows)]
             vault::vault_codes,
+            #[cfg(windows)]
             vault::vault_options,
+            #[cfg(windows)]
             vault::vault_change_pin,
+            #[cfg(windows)]
             vault::vault_reset,
+            #[cfg(windows)]
             vault::vault_scan,
+            #[cfg(windows)]
             vault::vault_hello_supported,
+            #[cfg(windows)]
             vault::vault_hello_unlock,
+            #[cfg(windows)]
             vault::vault_hello_enable,
+            #[cfg(windows)]
             vault::vault_hello_disable,
             autostart_get,
             autostart_set,
             build_info,
             diagnostics_info,
             open_sponsors,
+            #[cfg(target_os = "macos")]
+            macos::memory_low,
+            #[cfg(target_os = "macos")]
+            macos::status_configure,
+            #[cfg(target_os = "macos")]
+            macos::privacy_state,
             timer_window::timer_window_open,
             timer_window::timer_window_close,
+            #[cfg(windows)]
             shelf::shelf_drag_out,
+            #[cfg(windows)]
             shelf::shelf_clipboard_text,
+            #[cfg(windows)]
             terminal::terminal_info,
+            #[cfg(windows)]
             terminal::terminal_start,
+            #[cfg(windows)]
             terminal::terminal_write,
+            #[cfg(windows)]
             terminal::terminal_resize,
+            #[cfg(windows)]
             terminal::terminal_kill,
+            #[cfg(windows)]
             terminal::terminal_clipboard_text,
             themes::themes_folder,
             themes::themes_read,
             themes::themes_write,
+            #[cfg(windows)]
             launcher::launcher_apps,
+            #[cfg(windows)]
             launcher::launcher_icons,
+            #[cfg(windows)]
             launcher::launcher_open,
+            #[cfg(windows)]
             launcher::launcher_shortcuts,
             github::github_contributions,
             github::github_open_profile,
@@ -214,8 +310,11 @@ pub fn run() {
             romanize::lyrics_dict_status,
             romanize::lyrics_dict_download,
             romanize::lyrics_dict_remove,
+            #[cfg(windows)]
             notices::notices_configure,
+            #[cfg(windows)]
             notices::notices_status,
+            #[cfg(windows)]
             notices::notices_request_access,
             plugins::plugins_list,
             plugins::plugins_pick,
@@ -228,33 +327,53 @@ pub fn run() {
             portable::portable_info,
             portable::portable_check,
             portable::portable_install,
+            #[cfg(windows)]
             capture::capture_sources,
+            #[cfg(windows)]
             capture::capture_shot,
+            #[cfg(windows)]
             capture::capture_state,
+            #[cfg(windows)]
             capture::capture_start,
+            #[cfg(windows)]
             capture::capture_pause,
+            #[cfg(windows)]
             capture::capture_stop,
+            #[cfg(windows)]
             capture::capture_list,
+            #[cfg(windows)]
             capture::capture_details,
+            #[cfg(windows)]
             capture::capture_delete,
         ])
         .setup(move |app| {
+            // A menu bar app: no Dock icon, like skipTaskbar on Windows.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             shell::init(app);
             let window = portable::create_window(app)?;
             display::place(&window, &app.state::<display::DisplayState>())?;
             window.show()?;
+            #[cfg(target_os = "macos")]
+            macos::raise(&window);
             // Only after show(): this fails on a window that was never shown.
             window.set_ignore_cursor_events(true)?;
+            #[cfg(windows)]
             drop::install(&window);
             hit_test::spawn(app.handle().clone(), window.clone());
+            #[cfg(windows)]
             display::spawn(app.handle().clone(), window);
+            #[cfg(windows)]
             mirror::spawn(app.handle().clone());
             media::spawn(app.handle().clone());
             clipboard::spawn(app.handle().clone());
             audio::spawn(app.handle().clone(), &app.state::<audio::AudioState>());
+            #[cfg(windows)]
             sysevents::spawn(app.handle().clone());
+            #[cfg(windows)]
             brightness::spawn(app.handle().clone());
             // A run that ended without restoring the Windows indicator (and whose guard was ended with it) is cleaned up here.
+            #[cfg(windows)]
             osd::restore();
 
             enable_autostart_once(app.handle());
@@ -265,10 +384,13 @@ pub fn run() {
         .expect("failed to start Crest")
         .run(|app, event| {
             // A recording still running when Crest quits is finished, so the file is complete.
+            #[cfg(windows)]
             if let tauri::RunEvent::Exit = event {
                 capture::finish_on_exit(app);
                 osd::set(false);
             }
+            #[cfg(not(windows))]
+            let _ = (app, event);
         });
 }
 
@@ -278,6 +400,7 @@ struct FocusState(Mutex<isize>);
 
 /// Opened via shortcut → take focus (for Esc/typing).
 /// Closed → give focus back to the previous app, otherwise typing goes nowhere.
+#[cfg(windows)]
 #[tauri::command]
 fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusState>) {
     let Ok(own) = window.hwnd() else { return };
@@ -297,6 +420,28 @@ fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusStat
         *previous = 0;
     }
     // Sent when the notch closes: a "hide" rule takes over again.
+    display::closed(window.app_handle());
+}
+
+/// The same on a Mac, with the frontmost app's process id in place of the foreground window.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusState>) {
+    let own = std::process::id() as isize;
+    let foreground = macos::frontmost_pid() as isize;
+    let mut previous = state.0.lock().unwrap();
+
+    if focus {
+        if foreground != own {
+            *previous = foreground;
+        }
+        let _ = window.set_focus();
+        return;
+    }
+    if foreground == own && *previous != 0 {
+        macos::activate_pid(*previous as i32);
+        *previous = 0;
+    }
     display::closed(window.app_handle());
 }
 
@@ -331,6 +476,7 @@ fn diagnostics_info(window: tauri::WebviewWindow) -> serde_json::Value {
 }
 
 /// The PC's own architecture, which GetSystemInfo hides from an emulated process.
+#[cfg(windows)]
 fn native_machine() -> Option<&'static str> {
     use windows::Win32::System::SystemInformation::{IMAGE_FILE_MACHINE, IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_ARM64};
     use windows::Win32::System::Threading::{GetCurrentProcess, IsWow64Process2};
@@ -343,10 +489,16 @@ fn native_machine() -> Option<&'static str> {
     }
 }
 
+/// Not read on a Mac yet (a Rosetta process would need sysctl.proc_translated).
+#[cfg(not(windows))]
+fn native_machine() -> Option<&'static str> {
+    None
+}
+
 /// Opens the GitHub Sponsors page in the default browser. The address is fixed here, so the interface cannot open anything else.
 #[tauri::command]
 fn open_sponsors() -> Result<(), String> {
-    std::process::Command::new("explorer").arg("https://github.com/sponsors/andrealo20").spawn().map(|_| ()).map_err(|e| e.to_string())
+    std::process::Command::new(if cfg!(windows) { "explorer" } else { "open" }).arg("https://github.com/sponsors/andrealo20").spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Enables autostart on the very first launch; after that the tray check and settings decide.
@@ -409,6 +561,7 @@ fn tray_texts(texts: TrayTexts, app: AppHandle, state: State<'_, TrayItems>) {
 /// Dark tray menu to match the notch instead of the light default.
 /// uxtheme only exports this by ordinal: SetPreferredAppMode = 135, FlushMenuThemes = 136
 /// (Windows 10 1903+). If missing, the menu just stays light.
+#[cfg(windows)]
 fn dark_menus() {
     use windows::core::{w, PCSTR};
     use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
@@ -429,6 +582,7 @@ fn dark_menus() {
 /// Without a taskbar entry, the tray is where you open, configure and quit.
 /// Left click opens the notch, right click shows the menu.
 fn build_tray(app: &App) -> tauri::Result<()> {
+    #[cfg(windows)]
     dark_menus();
     let enabled = startup::is_enabled(app.handle());
     // Open has its shortcut right-aligned via tab, like Windows menus.
@@ -481,7 +635,7 @@ fn build_tray(app: &App) -> tauri::Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod tests {
     #[test]
     fn native_machine_is_known_and_matches_a_native_build() {

@@ -83,6 +83,7 @@ import { PortableNote } from "../portable/PortableNote";
 import { between, changelog, markSeen, useUnseen } from "../../lib/changelog";
 import { privacy, togglePresentation, usePresenting } from "../privacy/store";
 import { LANGUAGE_NAMES, LANGUAGES, locale, t, tBackend, type LanguageSetting } from "../../i18n";
+import { isMac } from "../../platform/native";
 import { ThemeSettings } from "../themes/ThemeSettings";
 
 type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins";
@@ -538,6 +539,7 @@ export function ShortcutRow() {
 function General() {
   const s = settings.use();
   const [auto, setAuto] = useState<boolean | null>(null);
+  const autostartLabel = isMac ? t("Bei der Anmeldung öffnen") : t("Mit Windows starten");
   const [autoError, setAutoError] = useState<string | null>(null);
   useEffect(() => {
     void autostart.get().then(setAuto);
@@ -579,10 +581,10 @@ function General() {
           ]}
         />
       </Row>
-      <Row label={t("Mit Windows starten")} hint={autoError ?? undefined}>
+      <Row label={autostartLabel} hint={autoError ?? undefined}>
         {auto !== null && (
           <Switch
-            label={t("Mit Windows starten")}
+            label={autostartLabel}
             checked={auto}
             onChange={(v) => {
               setAuto(v);

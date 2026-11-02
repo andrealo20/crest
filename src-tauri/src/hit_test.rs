@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 
 use serde::Deserialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
+#[cfg(windows)]
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
 
 /// Hit zone in CSS px, relative to the window's top-left corner.
@@ -148,7 +149,10 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             let x = (cursor.x - origin.x as f64) / scale;
             let y = (cursor.y - origin.y as f64) / scale;
             let rect = *state.rect.lock().unwrap();
+            #[cfg(windows)]
             let dragging = unsafe { GetAsyncKeyState(VK_LBUTTON.0 as i32) } as u16 & 0x8000 != 0;
+            #[cfg(target_os = "macos")]
+            let dragging = crate::macos::left_button_down();
             let passthrough = state.passthrough.load(Ordering::Relaxed);
             // Edge distance to the hit zone; a held button keeps the fast poll (drags,
             // triple click in focus mode).

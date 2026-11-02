@@ -5,6 +5,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 /** Is the frontend running in the Tauri app (rather than a regular browser)? */
 export const isNative = "__TAURI_INTERNALS__" in window;
 
+/** The app on a Mac, where the tools built on Windows APIs are hidden (src/notch/tabs.ts). */
+export const isMac = isNative && navigator.userAgent.includes("Mac");
+
 /** Reports the hit zone in CSS px relative to the window to Rust (click-through). */
 export function setHitRect(rect: { x: number; y: number; w: number; h: number }) {
   if (isNative) void invoke("set_hit_rect", { rect });

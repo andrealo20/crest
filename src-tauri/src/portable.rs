@@ -120,6 +120,7 @@ pub fn after_update(args: &[String]) {
     }
 }
 
+#[cfg(windows)]
 fn wait_for_exit(pid: u32) {
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Threading::{OpenProcess, WaitForSingleObject, INFINITE, PROCESS_SYNCHRONIZE};
@@ -131,6 +132,10 @@ fn wait_for_exit(pid: u32) {
         }
     }
 }
+
+/// A Mac copy is never portable, so nothing starts it with `--after-update`.
+#[cfg(not(windows))]
+fn wait_for_exit(_: u32) {}
 
 fn can_write(dir: &Path) -> bool {
     let probe = dir.join(".crest-write-test");

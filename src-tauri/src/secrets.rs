@@ -1,4 +1,4 @@
-//! API keys in Windows Credential Manager.
+//! API keys in Windows Credential Manager (on a Mac in the login Keychain, service "Crest", account "Crest/<name>").
 //!
 //! The frontend can only set, delete and check whether a key exists. Only Rust can
 //! read them (for HTTP calls), so no secret ever reaches the WebView.
@@ -9,7 +9,9 @@
 
 use std::path::Path;
 
+#[cfg(windows)]
 use windows::core::{HSTRING, PWSTR};
+#[cfg(windows)]
 use windows::Win32::Security::Credentials::{
     CredDeleteW, CredFree, CredReadW, CredWriteW, CREDENTIALW, CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC,
 };
@@ -39,6 +41,7 @@ fn legacy_target_name(name: &str) -> Result<String, String> {
     target_name(name).map(|_| format!("{LEGACY_PREFIX}{name}"))
 }
 
+#[cfg(windows)]
 fn read_target(target: &str) -> Option<String> {
     let target = HSTRING::from(target);
     unsafe {
@@ -51,6 +54,7 @@ fn read_target(target: &str) -> Option<String> {
     }
 }
 
+#[cfg(windows)]
 fn write_target(target: &str, value: &str) -> Result<(), String> {
     let mut blob = value.as_bytes().to_vec();
     let mut target_w: Vec<u16> = target.encode_utf16().chain(Some(0)).collect();
@@ -63,6 +67,31 @@ fn write_target(target: &str, value: &str) -> Result<(), String> {
         ..Default::default()
     };
     unsafe { CredWriteW(&cred, 0) }.map_err(|e| e.message())
+}
+
+#[cfg(windows)]
+fn delete_target(target: &str) {
+    let target = HSTRING::from(target);
+    // Not existing isn't an error.
+    let _ = unsafe { CredDeleteW(&target, CRED_TYPE_GENERIC, None) };
+}
+
+#[cfg(target_os = "macos")]
+const SERVICE: &str = "Crest";
+
+#[cfg(target_os = "macos")]
+fn read_target(target: &str) -> Option<String> {
+    String::from_utf8(security_framework::passwords::get_generic_password(SERVICE, target).ok()?).ok()
+}
+
+#[cfg(target_os = "macos")]
+fn write_target(target: &str, value: &str) -> Result<(), String> {
+    security_framework::passwords::set_generic_password(SERVICE, target, value.as_bytes()).map_err(|e| e.to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn delete_target(target: &str) {
+    let _ = security_framework::passwords::delete_generic_password(SERVICE, target);
 }
 
 pub fn read(name: &str) -> Option<String> {
@@ -104,9 +133,7 @@ pub fn secret_set(name: String, value: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn secret_delete(name: String) -> Result<(), String> {
-    let target = HSTRING::from(target_name(&name)?);
-    // Not existing isn't an error.
-    let _ = unsafe { CredDeleteW(&target, CRED_TYPE_GENERIC, None) };
+    delete_target(&target_name(&name)?);
     Ok(())
 }
 

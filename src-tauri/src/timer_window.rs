@@ -25,6 +25,7 @@ pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, app: AppHandle) -
         .and_then(|b| b.build())
         .map_err(|e| e.to_string())?;
     // Opened during a recording or screenshot: left out of it like the notch.
+    #[cfg(windows)]
     crate::capture::exclude_if_capturing(&app);
 
     let saved = x.zip(y).filter(|&(x, y)| on_screen(&window, x, y));
