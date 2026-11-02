@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Ask a question or share an idea
+    url: https://github.com/andrealo20/crest/discussions
+    about: Questions, ideas and plugins go to Discussions; issues are for bugs and concrete requests.
   - name: Support Crest on GitHub Sponsors
     url: https://github.com/sponsors/andrealo20
     about: Crest is free. Voluntary donations help keep it going.
