@@ -184,7 +184,6 @@ pub fn run() {
             ai::ai_chat,
             ai::ai_cancel,
             secrets::secret_set,
-            secrets::secret_delete,
             secrets::secret_has,
             trading::portfolio_fetch,
             trading::portfolio_prices,

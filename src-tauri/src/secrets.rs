@@ -131,7 +131,7 @@ pub fn secret_set(name: String, value: String) -> Result<(), String> {
     write_target(&target, value)
 }
 
-#[tauri::command]
+/// Not a command: the webview deletes by setting an empty value.
 pub fn secret_delete(name: String) -> Result<(), String> {
     delete_target(&target_name(&name)?);
     Ok(())
