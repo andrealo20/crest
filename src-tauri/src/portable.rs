@@ -255,6 +255,8 @@ pub async fn portable_install(app: AppHandle) -> Result<bool, String> {
 mod tests {
     use super::*;
 
+    // Windows paths: the portable copy only exists on Windows.
+    #[cfg(windows)]
     #[test]
     fn data_next_to_the_exe_only_when_portable_and_writable() {
         let dir = Path::new(r"D:\Tools\Crest");

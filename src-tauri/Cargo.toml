@@ -36,8 +36,8 @@ sysinfo = "0.39"
 tokio = { version = "1", features = ["net", "io-util", "sync", "time", "macros"] }
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 quick-xml = "0.42.0"
-# Calendar: IANA time zones (bundled database on Windows) and the system zone.
-jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-bundle-platform"] }
+# Calendar: IANA time zones (bundled database on Windows, /usr/share/zoneinfo on a Mac) and the system zone.
+jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-bundle-platform", "tzdb-zoneinfo"] }
 # KRC lyrics (Kugou) are zlib streams; already in the tree through zip.
 flate2 = "1"
 pinyin = { version = "0.11", default-features = false, features = ["with_tone"] }
