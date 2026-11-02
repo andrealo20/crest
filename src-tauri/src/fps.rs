@@ -282,7 +282,7 @@ mod unlock {
     };
     use windows::Win32::Security::Authorization::{ConvertSidToStringSidW, ConvertStringSidToSidW};
     use windows::Win32::Security::{
-        CheckTokenMembership, GetTokenInformation, LookupAccountSidW, TokenUser, PSID, SID_NAME_USE, TOKEN_QUERY, TOKEN_USER,
+        CheckTokenMembership, GetTokenInformation, LookupAccountSidW, SidTypeUser, TokenUser, PSID, SID_NAME_USE, TOKEN_QUERY, TOKEN_USER,
     };
     use windows::Win32::System::Diagnostics::Etw::{StartTraceW, CONTROLTRACE_HANDLE};
     use windows::Win32::System::Threading::{GetCurrentProcess, GetExitCodeProcess, OpenProcessToken, WaitForSingleObject, INFINITE};
@@ -404,12 +404,26 @@ mod unlock {
         }
     }
 
+    unsafe fn is_user_account(psid: PSID) -> bool {
+        let (mut name, mut domain) = ([0u16; 256], [0u16; 256]);
+        let (mut name_len, mut domain_len) = (name.len() as u32, domain.len() as u32);
+        let mut kind = SID_NAME_USE::default();
+        LookupAccountSidW(PCWSTR::null(), psid, Some(PWSTR(name.as_mut_ptr())), &mut name_len, Some(PWSTR(domain.as_mut_ptr())), &mut domain_len, &mut kind).is_ok()
+            && kind == SidTypeUser
+    }
+
     /// In the elevated process: add the account to "Performance Log Users".
     pub fn grant(sid: &str) -> i32 {
         let Some(group) = log_users_name() else { return 2 };
         unsafe {
             let mut psid = PSID::default();
             if ConvertStringSidToSidW(PCWSTR(wide(sid).as_ptr()), &mut psid).is_err() {
+                return 2;
+            }
+            // Only a user account: anyone can start crest.exe --fps-unlock, and a group such as Everyone would give
+            // the whole PC the right to trace other programs.
+            if !is_user_account(psid) {
+                let _ = LocalFree(Some(HLOCAL(psid.0)));
                 return 2;
             }
             let entry = LOCALGROUP_MEMBERS_INFO_0 { lgrmi0_sid: psid };
