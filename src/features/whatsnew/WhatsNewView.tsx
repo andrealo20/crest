@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Heart } from "@phosphor-icons/react";
 import { between, changelog, useUnseen } from "../../lib/changelog";
-import { installUpdate, update } from "../../lib/update";
+import { checkForUpdate, installUpdate, update } from "../../lib/update";
 import { openSponsors } from "../../platform/services";
 import { t } from "../../i18n";
 import { Button } from "../../ui/controls";
@@ -26,9 +26,12 @@ export function WhatsNewView() {
     if (news) dismissWhatsNew(news);
   }, [news]);
 
-  const available = news?.kind === "available" && (u.phase === "available" || u.phase === "downloading");
-  const entries = available ? (u.notes && u.current && u.version ? between(u.notes, u.current, u.version) : []) : installed;
-  const version = available ? u.version : (news?.version ?? u.current);
+  // The offer stays the page's subject even if the download fails or a check runs meanwhile; only the button follows the phase.
+  const available = news?.kind === "available";
+  const entries = available ? (u.notes && u.current ? between(u.notes, u.current, news.version) : []) : installed;
+  const version = news?.version ?? u.current;
+  // Left by closing, the page must not come back with this notice when the notch opens on it again.
+  useEffect(() => () => opened.set(null), []);
 
   return (
     <div className="flex h-full flex-col px-4 pt-1 pb-3">
@@ -46,9 +49,14 @@ export function WhatsNewView() {
         {available &&
           (u.phase === "downloading" ? (
             <span className="tabular shrink-0 text-footnote text-label-2">{t("Wird geladen … {n} %", { n: Math.round(u.progress * 100) })}</span>
-          ) : (
+          ) : u.phase === "available" ? (
             <Button primary onClick={() => void installUpdate()}>
               {t("Jetzt aktualisieren")}
+            </Button>
+          ) : (
+            // A failed download, or a check under way: the offer has to be found again before it installs.
+            <Button primary disabled={u.phase === "checking"} onClick={() => void checkForUpdate()}>
+              {t("Erneut versuchen")}
             </Button>
           ))}
       </div>
