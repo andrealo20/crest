@@ -9,7 +9,7 @@
 //! so registering it is silent too; changes Crest makes itself carry `controls::OWN_CHANGE` and are skipped.
 
 use std::collections::HashMap;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 
 use serde::Serialize;
@@ -24,8 +24,8 @@ use windows::Win32::Media::Audio::Endpoints::{IAudioEndpointVolume, IAudioEndpoi
 use windows::Win32::Media::Audio::{
     eConsole, eRender, EDataFlow, ERole, IMMDeviceEnumerator, AUDIO_VOLUME_NOTIFICATION_DATA, IMMNotificationClient, IMMNotificationClient_Impl, MMDeviceEnumerator, DEVICE_STATE,
 };
-use windows::core::{Array, Interface, HSTRING};
-use windows::Devices::Enumeration::{DeviceInformation, DeviceInformationKind, DeviceWatcher};
+use windows::core::{Array, Interface, Ref, HSTRING};
+use windows::Devices::Enumeration::{DeviceInformation, DeviceInformationKind, DeviceInformationUpdate, DeviceWatcher};
 use windows_collections::IIterable;
 use windows::Foundation::{IPropertyValue, TypedEventHandler};
 use windows::Networking::Connectivity::{NetworkConnectivityLevel, NetworkInformation, NetworkStatusChangedEventHandler};
@@ -142,10 +142,10 @@ fn run(app: AppHandle) {
             .and_then(|d| d.RegisterEndpointNotificationCallback(&client).map(|()| d))
             .inspect_err(|e| eprintln!("sysevents: audio endpoint notification failed: {e}"))
             .ok();
-        // Started before the first scan, so a device that connects in between is not missed.
-        let _watcher = bt_watch(h);
-        let mut connected = bluetooth().unwrap_or_default();
-        seed().devices = connected.values().map(|d| d.name.clone()).collect();
+        let paired = Paired::default();
+        let _watcher = bt_watch(h, paired.clone());
+        // `None` until the watcher's first burst (every paired device, at once) has settled: that reading is the baseline, not a change.
+        let mut connected: Option<HashMap<String, BtDevice>> = None;
 
         let volume_client: IAudioEndpointVolumeCallback = VolumeWatch(h).into();
         let mut volume = devices.as_ref().and_then(|d| watch_volume(d, &volume_client));
@@ -182,21 +182,22 @@ fn run(app: AppHandle) {
                 }
                 WM_TIMER if msg.wParam.0 == BT_TIMER => {
                     let _ = KillTimer(Some(hwnd), BT_TIMER);
-                    // A failed scan says nothing about the devices: it must not read as all of them leaving.
-                    let Some(now) = bluetooth() else { continue };
-                    for (id, d) in &now {
-                        if !connected.contains_key(id) {
-                            let battery = battery(&d.address, d.container);
-                            let _ = app.emit("status://bt", serde_json::json!({ "name": d.name, "connected": true, "battery": battery, "categories": d.categories }));
+                    let now = bluetooth(&paired);
+                    if let Some(before) = &connected {
+                        for (id, d) in &now {
+                            if !before.contains_key(id) {
+                                let battery = battery(&d.address, d.container);
+                                let _ = app.emit("status://bt", serde_json::json!({ "name": d.name, "connected": true, "battery": battery, "categories": d.categories }));
+                            }
+                        }
+                        for (id, d) in before {
+                            if !now.contains_key(id) {
+                                let _ = app.emit("status://bt", serde_json::json!({ "name": d.name, "connected": false, "battery": null, "categories": d.categories }));
+                            }
                         }
                     }
-                    for (id, d) in &connected {
-                        if !now.contains_key(id) {
-                            let _ = app.emit("status://bt", serde_json::json!({ "name": d.name, "connected": false, "battery": null, "categories": d.categories }));
-                        }
-                    }
-                    connected = now;
-                    seed().devices = connected.values().map(|d| d.name.clone()).collect();
+                    seed().devices = now.values().map(|d| d.name.clone()).collect();
+                    connected = Some(now);
                 }
                 WM_VOL => {
                     let now = (msg.wParam.0.min(100) as u8, msg.lParam.0 & 1 != 0);
@@ -301,16 +302,42 @@ fn bt_props() -> IIterable<HSTRING> {
     IIterable::from([BT_CONNECTED, BT_CATEGORY, BT_ADDRESS, BT_CONTAINER].map(HSTRING::from).to_vec())
 }
 
-/// Wakes the loop on every change of a paired device; the loop scans once the burst is over. Kept for the app's lifetime.
-fn bt_watch(h: isize) -> Option<DeviceWatcher> {
+/// The paired devices as the watcher reported them, by association endpoint id. Kept from its events because a fresh
+/// query (FindAllAsync) runs the whole enumeration and takes 30 s, while the watcher reports each change at once.
+type Paired = Arc<Mutex<HashMap<String, DeviceInformation>>>;
+
+fn lock(paired: &Paired) -> MutexGuard<'_, HashMap<String, DeviceInformation>> {
+    paired.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Keeps `paired` current and wakes the loop on every change; the loop reads it once the burst is over. Kept for the app's lifetime.
+fn bt_watch(h: isize, paired: Paired) -> Option<DeviceWatcher> {
     let wake = move || unsafe {
         let _ = PostMessageW(Some(HWND(h as _)), WM_BT, WPARAM(0), LPARAM(0));
     };
+    let (added, updated) = (paired.clone(), paired.clone());
     DeviceInformation::CreateWatcherWithKindAqsFilterAndAdditionalProperties(&BT_PAIRED.into(), &bt_props(), DeviceInformationKind::AssociationEndpoint)
         .and_then(|w| {
-            w.Added(&TypedEventHandler::new(move |_, _| Ok(wake())))?;
-            w.Updated(&TypedEventHandler::new(move |_, _| Ok(wake())))?;
-            w.Removed(&TypedEventHandler::new(move |_, _| Ok(wake())))?;
+            w.Added(&TypedEventHandler::new(move |_, info: Ref<DeviceInformation>| {
+                if let Some(info) = info.as_ref() {
+                    lock(&added).insert(info.Id()?.to_string(), info.clone());
+                }
+                Ok(wake())
+            }))?;
+            w.Updated(&TypedEventHandler::new(move |_, update: Ref<DeviceInformationUpdate>| {
+                if let Some(update) = update.as_ref() {
+                    if let Some(info) = lock(&updated).get(&update.Id()?.to_string()) {
+                        info.Update(update)?;
+                    }
+                }
+                Ok(wake())
+            }))?;
+            w.Removed(&TypedEventHandler::new(move |_, update: Ref<DeviceInformationUpdate>| {
+                if let Some(update) = update.as_ref() {
+                    lock(&paired).remove(&update.Id()?.to_string());
+                }
+                Ok(wake())
+            }))?;
             w.Start()?;
             Ok(w)
         })
@@ -318,13 +345,9 @@ fn bt_watch(h: isize) -> Option<DeviceWatcher> {
         .ok()
 }
 
-/// The paired devices connected now, by association endpoint id; `None` when Windows could not list them.
-fn bluetooth() -> Option<HashMap<String, BtDevice>> {
-    let list = DeviceInformation::FindAllAsyncWithKindAqsFilterAndAdditionalProperties(&BT_PAIRED.into(), &bt_props(), DeviceInformationKind::AssociationEndpoint)
-        .and_then(|op| op.join())
-        .inspect_err(|e| eprintln!("sysevents: bluetooth scan failed: {e}"))
-        .ok()?;
-    let found = list.into_iter().filter_map(|d| {
+/// The paired devices connected now, by association endpoint id.
+fn bluetooth(paired: &Paired) -> HashMap<String, BtDevice> {
+    lock(paired).iter().filter_map(|(id, d)| {
         let props = d.Properties().ok()?;
         let value = |key: &str| props.Lookup(&key.into()).ok().and_then(|v| v.cast::<IPropertyValue>().ok());
         if !value(BT_CONNECTED)?.GetBoolean().ok()? {
@@ -338,9 +361,9 @@ fn bluetooth() -> Option<HashMap<String, BtDevice>> {
         };
         let address = value(BT_ADDRESS).and_then(|v| v.GetString().ok()).map(|a| a.to_string()).unwrap_or_default();
         let container = value(BT_CONTAINER).and_then(|v| v.GetGuid().ok());
-        Some((d.Id().ok()?.to_string(), BtDevice { name, categories, address, container }))
-    });
-    Some(found.collect())
+        Some((id.clone(), BtDevice { name, categories, address, container }))
+    })
+    .collect()
 }
 
 /// Battery from the device's Bluetooth nodes, found by its address in the instance id or by its container; read once at
