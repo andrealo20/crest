@@ -124,6 +124,16 @@ function VaultContent() {
         <Skeleton className="h-10 w-full" />
       </div>
     );
+  } else if (status.busy) {
+    key = "busy";
+    body = (
+      <Empty
+        icon={WarningCircle}
+        title={t("Tresor gerade belegt")}
+        text={t("Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.")}
+        action={<Button onClick={() => void refreshVault()}>{t("Erneut versuchen")}</Button>}
+      />
+    );
   } else if (status.unreadable) {
     key = "unreadable";
     body = <Unreadable />;

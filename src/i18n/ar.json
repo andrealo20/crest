@@ -1173,5 +1173,7 @@
  "Neu in Crest {v}": "الجديد في Crest {v}",
  "Crest {v} ist verfügbar": "Crest {v} متاح الآن",
  "Crest ist kostenlos, ohne Werbung, und wird von einer Person entwickelt. Wenn es dir gefällt, kannst du es unterstützen.": "Crest مجاني وبلا إعلانات، ويطوّره شخص واحد. إن أعجبك، يمكنك دعمه.",
- "Auf GitHub unterstützen": "ادعم على GitHub"
+ "Auf GitHub unterstützen": "ادعم على GitHub",
+ "Tresor gerade belegt": "الخزنة قيد الاستخدام",
+ "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "يقرأ برنامج آخر الملف الآن. أعد المحاولة بعد قليل."
 }

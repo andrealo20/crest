@@ -1173,5 +1173,7 @@
  "Neu in Crest {v}": "Novedades de Crest {v}",
  "Crest {v} ist verfügbar": "Crest {v} está disponible",
  "Crest ist kostenlos, ohne Werbung, und wird von einer Person entwickelt. Wenn es dir gefällt, kannst du es unterstützen.": "Crest es gratis, no tiene anuncios y lo hace una sola persona. Si te gusta, puedes apoyarlo.",
- "Auf GitHub unterstützen": "Apoyar en GitHub"
+ "Auf GitHub unterstützen": "Apoyar en GitHub",
+ "Tresor gerade belegt": "Caja fuerte en uso",
+ "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "Otro programa está leyendo el archivo. Vuelve a intentarlo en un momento."
 }

@@ -1173,5 +1173,7 @@
  "Neu in Crest {v}": "New in Crest {v}",
  "Crest {v} ist verfügbar": "Crest {v} is available",
  "Crest ist kostenlos, ohne Werbung, und wird von einer Person entwickelt. Wenn es dir gefällt, kannst du es unterstützen.": "Crest is free, has no ads and is made by one person. If you like it, you can support it.",
- "Auf GitHub unterstützen": "Support on GitHub"
+ "Auf GitHub unterstützen": "Support on GitHub",
+ "Tresor gerade belegt": "Vault in use",
+ "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "Another program is reading the file. Try again in a moment."
 }

@@ -1173,5 +1173,7 @@
  "Neu in Crest {v}": "Crest {v} में नया",
  "Crest {v} ist verfügbar": "Crest {v} उपलब्ध है",
  "Crest ist kostenlos, ohne Werbung, und wird von einer Person entwickelt. Wenn es dir gefällt, kannst du es unterstützen.": "Crest मुफ़्त है, इसमें विज्ञापन नहीं हैं, और इसे एक ही व्यक्ति बनाता है। अगर आपको पसंद आए, तो आप इसका समर्थन कर सकते हैं।",
- "Auf GitHub unterstützen": "GitHub पर समर्थन करें"
+ "Auf GitHub unterstützen": "GitHub पर समर्थन करें",
+ "Tresor gerade belegt": "तिजोरी उपयोग में है",
+ "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "कोई दूसरा प्रोग्राम फ़ाइल पढ़ रहा है। थोड़ी देर में फिर कोशिश करें।"
 }

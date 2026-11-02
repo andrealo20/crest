@@ -25,6 +25,8 @@ export function errorText(code: string): string {
       return t("Windows-Hello-Schlüssel fehlt");
     case "unreadable":
       return t("Tresor nicht lesbar");
+    case "busy":
+      return t("Tresor gerade belegt");
     default:
       return code;
   }

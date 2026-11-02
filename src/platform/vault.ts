@@ -10,7 +10,7 @@ import { showcase } from "../dev/showcase-data";
  * 2FA codes and, after the PIN, a password to show.
  *
  * Error codes: locked, wrong:<left>, lockout:<secs>, no-pin, pin-format, missing,
- * secret, not-otp, no-image, no-qr, no-scan, unreadable.
+ * secret, not-otp, no-image, no-qr, no-scan, unreadable, busy.
  */
 
 export type VaultKind = "password" | "totp";
@@ -30,6 +30,8 @@ export interface VaultStatus {
   pinTotp: boolean;
   lockedFor: number;
   unreadable: boolean;
+  /** Another program holds the file for a moment: try again; not damaged, never offer a reset for it. */
+  busy: boolean;
   /** Windows Hello unlocks instead of the PIN (and seals the secrets). */
   hello: boolean;
   items: VaultItem[];
@@ -154,6 +156,7 @@ const mock = (() => {
       pinTotp,
       lockedFor: Math.max(0, lockedUntil - now()),
       unreadable: false,
+      busy: false,
       hello,
       items: items.map(({ secret: _, ...i }) => i),
     }),

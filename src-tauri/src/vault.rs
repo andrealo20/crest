@@ -183,11 +183,19 @@ fn unprotect(cipher: &[u8]) -> Result<Vec<u8>, String> {
 
 fn load(app: &AppHandle) -> Result<Data, String> {
     let path = path(app)?;
-    // Only a missing file is an empty vault: a locked or offline one must not be saved over.
-    let cipher = match std::fs::read(&path) {
-        Ok(c) => c,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Data::default()),
-        Err(_) => return Err("unreadable".into()),
+    // Only a missing file is an empty vault: a locked or offline one must not be saved over. Antivirus, backup and
+    // sync tools hold the file for a moment, so a failed read is retried, then reported as busy, not as damaged.
+    let mut tries = 0;
+    let cipher = loop {
+        match std::fs::read(&path) {
+            Ok(c) => break c,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Data::default()),
+            Err(_) if tries < 2 => {
+                tries += 1;
+                thread::sleep(Duration::from_millis(100));
+            }
+            Err(_) => return Err("busy".into()),
+        }
     };
     let plain = unprotect(&cipher)?;
     serde_json::from_slice(&plain).map_err(|_| "unreadable".to_string())
@@ -293,6 +301,8 @@ pub struct Status {
     locked_for: u64,
     /// The file exists but can't be decrypted (other Windows user, damaged).
     unreadable: bool,
+    /// Another program holds the file right now: try again, nothing is wrong with it.
+    busy: bool,
     /// Windows Hello unlocks instead of the PIN.
     hello: bool,
     items: Vec<ItemInfo>,
@@ -310,6 +320,7 @@ pub fn vault_status(app: AppHandle, state: State<'_, VaultState>) -> Status {
             pin_totp: data.pin_totp,
             locked_for: data.locked_until.saturating_sub(now_secs()),
             unreadable: false,
+            busy: false,
             hello: data.hello.is_some(),
             items: data
                 .items
@@ -317,7 +328,7 @@ pub fn vault_status(app: AppHandle, state: State<'_, VaultState>) -> Status {
                 .map(|i| ItemInfo { id: i.id.clone(), kind: i.kind, name: i.name.clone(), username: i.username.clone(), period: i.otp.period })
                 .collect(),
         },
-        Err(_) => Status { has_pin: false, unlocked: false, pin_passwords: true, pin_totp: true, locked_for: 0, unreadable: true, hello: false, items: Vec::new() },
+        Err(e) => Status { has_pin: false, unlocked: false, pin_passwords: true, pin_totp: true, locked_for: 0, unreadable: e != "busy", busy: e == "busy", hello: false, items: Vec::new() },
     }
 }
 

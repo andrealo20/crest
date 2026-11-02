@@ -1173,5 +1173,7 @@
  "Neu in Crest {v}": "Crest {v} 新功能",
  "Crest {v} ist verfügbar": "Crest {v} 已发布",
  "Crest ist kostenlos, ohne Werbung, und wird von einer Person entwickelt. Wenn es dir gefällt, kannst du es unterstützen.": "Crest 免费、无广告，由一个人开发。如果你喜欢，可以支持它。",
- "Auf GitHub unterstützen": "在 GitHub 上支持"
+ "Auf GitHub unterstützen": "在 GitHub 上支持",
+ "Tresor gerade belegt": "保险库正被占用",
+ "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "另一个程序正在读取该文件。请稍后重试。"
 }
