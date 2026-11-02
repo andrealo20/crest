@@ -89,3 +89,28 @@ export function windowAlong(size: ClosedSize, style: "notch" | "capsule" | "line
   const room = Number.isFinite(span) && span > 0 ? Math.min(span, widest) : widest;
   return Math.max(WINDOW.along, Math.ceil(room - 1e-9) + WINDOW.along - ROW.maxSurface);
 }
+
+/** A grip of the resize mode (ClosedResize.tsx): the two ends of the shape, or its far side from the edge. */
+export type ClosedGrip = "start" | "end" | "depth";
+
+/** The sizes each closed style's grips change: the ends its width (the line's length), the far side its height (the line's thickness). */
+const GRIP_KEYS = { notch: ["notchWidth", "notchHeight"], capsule: ["capsuleWidth", "capsuleHeight"], line: ["lineLength", "lineThickness"] } as const;
+
+/**
+ * The size a resize drag sets. `along` and `depth` are the drag in the notch's frame (edge.ts deltaFromScreen), in page px: the ends move
+ * apart by twice the drag, as the shape stays centred, and the far side moves with it. Held to the limits, the width also to `widest`
+ * (the monitor), in whole px, the thickness in half px.
+ */
+export function resizeClosed(start: ClosedSize, style: "notch" | "capsule" | "line", grip: ClosedGrip, along: number, depth: number, widest: number): Partial<ClosedSize> {
+  const [width, height] = GRIP_KEYS[style];
+  if (grip === "depth") return { [height]: height === "lineThickness" ? roundThickness(start.lineThickness + depth) : fit(Math.round(start[height] + depth), LIMITS[height], start[height]) };
+  const [lo, hi] = LIMITS[width];
+  const grown = start[width] + (grip === "start" ? -along : along) * 2;
+  return { [width]: Math.round(Math.max(lo, Math.min(hi, widest, grown))) };
+}
+
+/** The size a double click on a grip goes back to. */
+export function defaultClosed(style: "notch" | "capsule" | "line", grip: ClosedGrip): Partial<ClosedSize> {
+  const key = GRIP_KEYS[style][grip === "depth" ? 1 : 0];
+  return { [key]: CLOSED_SIZE_DEFAULTS[key] };
+}

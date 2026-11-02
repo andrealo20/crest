@@ -13,7 +13,7 @@ import { useGamingLive } from "../../features/system/gaming";
 import { usage } from "../../features/usage/store";
 import { Dots, dotsWidth, usePrivacyDots } from "../../features/privacy/PrivacyDots";
 import { naturalWidth, planVisible, type PlacedPart, type RowItem } from "./layout";
-import { trackCaption } from "./parts";
+import { partTool, trackCaption } from "./parts";
 import { useRowVisible } from "./visibility";
 import { fontEpoch, measureText } from "./measure";
 import { Carousel } from "./Carousel";
@@ -134,7 +134,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
         <motion.div key={chosen} className="absolute inset-y-0 left-1/2 w-0" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: fade }} exit={{ opacity: 0, transition: fade }}>
           <AnimatePresence initial={false}>
             {plan.parts.map((p) => (
-              <Slot key={p.id} x={p.left - width / 2} width={p.width}>
+              <Slot key={p.id} x={p.left - width / 2} width={p.width} tool={partTool(p.id)}>
                 {parts.find((x) => x.item.id === p.id)!.draw(p)}
               </Slot>
             ))}
@@ -145,12 +145,16 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   );
 }
 
-/** A part's room. It grows in from 0.82 with the opacity going as the square of its progress, and shrinks out the same way. */
-function Slot({ x, width, children }: { x: number; width: number; children: ReactNode }) {
+/**
+ * A part's room. It grows in from 0.82 with the opacity going as the square of its progress, and shrinks out the same way.
+ * `tool`: the tool a click or a hover over it opens (Notch.tsx reads data-open).
+ */
+function Slot({ x, width, tool, children }: { x: number; width: number; tool: string | null; children: ReactNode }) {
   const scale = useMotionValue(1);
   const opacity = useTransform(scale, (v) => Math.max(0, (v - 0.82) / 0.18) ** 2);
   return (
     <motion.div
+      data-open={tool ?? undefined}
       className="absolute inset-y-0 flex items-center justify-center"
       style={{ scale, opacity }}
       initial={{ scale: 0.82, x, width }}

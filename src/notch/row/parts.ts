@@ -37,3 +37,32 @@ export function normalizeClosed(saved: unknown): ClosedSettings {
 
 /** "title · artist"; with only one of them, just that one. */
 export const trackCaption = (title: string, artist: string) => [title.trim(), artist.trim()].filter(Boolean).join(" · ");
+
+/**
+ * The tool a part of the closed row opens, with a click or with the hover that opens the notch over it: the cover, the title,
+ * a lyric line and the equalizer open the music, the timer and the clock the timer, and so on. null: the notch opens as usual.
+ */
+export function partTool(part: string): string | null {
+  switch (part) {
+    case "cover":
+    case "lyric":
+    case "title":
+    case "equalizer":
+      return "media";
+    case "timer":
+    case "clock":
+      return "timer";
+    case "rings":
+      return "usage";
+    case "readings":
+      return "system";
+    case "script":
+      return "notices";
+    case "discord":
+    case "github":
+    case "calendar":
+      return part;
+    default:
+      return null;
+  }
+}

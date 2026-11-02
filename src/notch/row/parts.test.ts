@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CLOSED_DEFAULTS, PART_IDS, normalizeClosed, trackCaption } from "./parts.ts";
+import { CLOSED_DEFAULTS, PART_IDS, normalizeClosed, partTool, trackCaption } from "./parts.ts";
 
 test("defaults and upgrade", () => {
   assert.deepEqual(normalizeClosed(undefined), CLOSED_DEFAULTS);
@@ -49,4 +49,12 @@ test("caption", () => {
   assert.equal(trackCaption("", "Lumen Coast"), "Lumen Coast");
   assert.equal(trackCaption(" ", " "), "");
   assert.equal(trackCaption("  Paper Sky ", " Lumen Coast  "), "Paper Sky · Lumen Coast");
+});
+
+test("each part of the closed row opens its tool", () => {
+  for (const [part, tool] of [["cover", "media"], ["title", "media"], ["lyric", "media"], ["equalizer", "media"], ["timer", "timer"], ["clock", "timer"], ["rings", "usage"], ["readings", "system"], ["discord", "discord"], ["github", "github"], ["calendar", "calendar"], ["script", "notices"]] as const)
+    assert.equal(partTool(part), tool, part);
+  // The privacy dots have no tool of their own; every part id has an answer.
+  assert.equal(partTool("privacy"), null);
+  for (const id of PART_IDS) assert.notEqual(partTool(id), null, id);
 });

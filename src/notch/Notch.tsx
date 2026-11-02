@@ -28,6 +28,7 @@ import { toPageCss } from "../features/window/panelSize";
 import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
 import { sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
+import { ClosedResize, ClosedResizeBar, closedEdit, closedLive } from "./ClosedResize";
 import { drop, takeDropped } from "../platform/drop";
 import { settings } from "../settings/store";
 import { useUnseen } from "../lib/changelog";
@@ -44,16 +45,24 @@ import { plugins } from "../features/plugins/store";
 
 /** If the notch was closed at most this long, it reopens on the last used tool. */
 const RESUME_MS = 60_000;
+const NOOP = () => {};
+/** A part seen under the pointer this recently still decides the tool a hover opens (natively the page may miss the pointer leaving). */
+const POINTED_MS = 1500;
 /** Closed this long → lower WebView2's memory target. */
 const MEMORY_LOW_AFTER_MS = 20_000;
 
 export function Notch() {
   const { status, open, close, dismiss, toggle, onPointerEnter, onPointerLeave } = useNotchState();
   const focus = focusMode.use();
-  const { tools: toolSettings, display: displaySettings, behavior, closedSize: sizes } = settings.use();
+  const { tools: toolSettings, display: displaySettings, behavior, closedSize: savedSizes } = settings.use();
+  // Resize mode (ClosedResize.tsx): the closed shape shows grips instead of its parts and neither opens nor moves; a grip's drag draws at once.
+  const editing = closedEdit.use();
+  const liveSize = closedLive.use();
+  const sizes = liveSize ? { ...savedSizes, ...liveSize } : savedSizes;
   // Window rules (display.rs): "line" turns the closed look into the idle line, "hide" means Rust hid the window.
   const screenBehavior = screen.use();
-  const idleStyle = effectiveIdleStyle(displaySettings.idleStyle, screenBehavior);
+  // The resize mode changes the chosen look, not the line a window rule turned it into for now.
+  const idleStyle = editing ? displaySettings.idleStyle : effectiveIdleStyle(displaySettings.idleStyle, screenBehavior);
   // Focus mode as a line: no live activity, no dots, only the thin strip at the edge.
   const line = focus && displaySettings.focusStyle === "line";
   // Line as the normal closed look: hover and click work as usual, but nothing shows
@@ -90,10 +99,21 @@ export function Notch() {
   const closedAt = useRef(0);
   // A target tool from the tray (settings entry) or a clicked notice takes priority over the live activity.
   const trayTab = useRef<string | null>(null);
+  // The closed-row part last under the pointer: the hover that opens the notch over it opens its tool.
+  const pointed = useRef<{ tool: string | null; at: number }>({ tool: null, at: 0 });
+  /**
+   * The tool of the closed-row part at a point (data-open, CompactRow), when that tool is in the tool bar. Every element there is looked
+   * at, not only the top one: the panel fading out after a close still lies over the row for a moment.
+   */
+  const partTarget = (e: { clientX: number; clientY: number }) => {
+    const tool = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.closest("[data-open]"))?.closest("[data-open]")?.getAttribute("data-open");
+    return tool && visible.some((t) => t.id === tool) ? tool : null;
+  };
   useLayoutEffect(() => {
     if (status === "open" && prevStatus.current !== "open") {
       const resumed = Date.now() - closedAt.current < RESUME_MS;
-      const target = trayTab.current ?? takeOpenTarget();
+      const hovered = Date.now() - pointed.current.at < POINTED_MS ? pointed.current.tool : null;
+      const target = trayTab.current ?? takeOpenTarget() ?? hovered;
       if (target) navigate(target);
       // A fresh install opens on the setup until it is finished or skipped.
       else if (!settings.get().setup.done) navigate(setupTab.id);
@@ -118,7 +138,7 @@ export function Notch() {
   const surface = style === "capsule" ? "capsule" : "notch";
   // The row is on screen closed or peeking, not as a line, not in focus mode, not while Rust hides the window for a window rule.
   const hiddenForFullscreen = screenBehavior === "hide";
-  const showRow = status !== "open" && !line && !idleLine && !focus && !hiddenForFullscreen;
+  const showRow = status !== "open" && !line && !idleLine && !focus && !hiddenForFullscreen && !editing;
   // Content width of the closed row, as it last reported it (kept while open, so closing goes straight to it).
   const [rowWidth, setRowWidth] = useState(0);
   // Notices cover the row; on the idle line and in dimmed focus mode only urgent ones show (timer, reminder, and on the line a status alert). While one shows the shape takes its width.
@@ -128,9 +148,9 @@ export function Notch() {
   const edge = edgeOf(style, drag.dock);
   const side = across(edge);
   const noticeTime = status !== "open" && (showRow || alert || (urgent && !line && !hiddenForFullscreen));
-  const showNotices = !side && noticeTime;
+  const showNotices = !side && noticeTime && !editing;
   // On the idle line or dimmed, only an urgent notice brings the column up: its icon alone, so the shape always has something to click.
-  const showColumn = side && noticeTime;
+  const showColumn = side && noticeTime && !editing;
   const [noticeWidth, setNoticeWidth] = useState<number | null>(null);
   const notice = showNotices ? noticeWidth : null;
   // The chosen size (collapsed.ts): the content is drawn at the height over its designed 30, the width is a minimum the content widens,
@@ -159,7 +179,7 @@ export function Notch() {
   const shape = lineShape
     ? lineGeometry(Math.min(sizes.lineLength, span), sizes.lineThickness, sizes.lineTop > 0, !line && status === "peek")
     : shapeFor(status, surface, closedW, closedH, size, !bridged, sideSize);
-  const tightHit = lineShape;
+  const tightHit = lineShape && !editing;
   // On a side edge the open panel reaches across the screen as far as the page is wide.
   const sticky = useStickyHitZone(status, side ? size.w : size.h, edge);
   const transition = useTransitionFor(status, shape);
@@ -186,7 +206,11 @@ export function Notch() {
     };
   }, [dismiss]);
 
-  useNativeBridge(hitRef, topValue, onPointerEnter, onPointerLeave, edge);
+  useNativeBridge(hitRef, topValue, editing ? NOOP : onPointerEnter, onPointerLeave, edge);
+  // Starting the resize mode from the settings closes the panel onto the closed shape it changes.
+  useEffect(() => {
+    if (editing) close();
+  }, [editing, close]);
 
   // Focus mode on → notch closes, no more hover.
   useEffect(() => {
@@ -195,9 +219,13 @@ export function Notch() {
 
   // Three quick clicks toggle focus mode (in the browser also off; natively Rust counts).
   const onClick = (e: React.MouseEvent) => {
-    if (drag.moved()) return;
+    if (drag.moved() || editing) return;
     if (e.detail >= FOCUS_CLICKS && !isInteractive(e.target)) return setFocusMode(!focus);
-    if (!focus && status !== "open") open();
+    if (focus || status === "open") return;
+    // A click on a part of the closed row opens its tool (a click elsewhere, as usual).
+    const part = partTarget(e);
+    if (part) openOn(part);
+    else open();
   };
 
   /** Opens on `tab` (null = as usual). */
@@ -210,7 +238,7 @@ export function Notch() {
 
   // Right click on the notch opens the settings; text fields keep their menu.
   const onContextMenu = (e: React.MouseEvent) => {
-    if (!behavior.rightClickSettings || focus || isTextField(e.target) || drag.moved()) return;
+    if (!behavior.rightClickSettings || focus || editing || isTextField(e.target) || drag.moved()) return;
     openOn(settingsTab.id);
   };
 
@@ -294,14 +322,21 @@ export function Notch() {
         data-notch-hit
         // The line is meant to stay out of the way: only a hair of extra hit zone, so
         // the cursor has to be on it (the normal notch gets the generous Fitts margin).
-        className={`pointer-events-auto ${tightHit ? "px-1 pb-1" : "px-4 pb-3"}`}
+        // In resize mode the zone reaches below the shape, over its size and the Done button.
+        className={`pointer-events-auto relative ${tightHit ? "px-1 pb-1" : editing ? "px-6 pb-12" : "px-4 pb-3"}`}
         // Bridged, the strip up to the screen edge is part of the zone (pushing the pointer up opens it); floating, only the capsule is (CollapsedHover.cs).
         style={{ minHeight: sticky.minHeight, cursor: drag.dragging ? "grabbing" : undefined, paddingTop: bridged ? topValue : 0, marginTop: bridged ? 0 : topValue }}
-        onPointerMove={sticky.onPointerMove}
-        onPointerDown={focus ? undefined : drag.onPointerDown}
+        onPointerMove={(e) => {
+          sticky.onPointerMove(e);
+          if (status !== "open") pointed.current = { tool: partTarget(e), at: Date.now() };
+        }}
+        onPointerDown={focus || editing ? undefined : drag.onPointerDown}
         // In Tauri, hover comes from the Rust poll (useNativeBridge), not the DOM.
-        onPointerEnter={isNative || focus ? undefined : onPointerEnter}
-        onPointerLeave={isNative || focus ? undefined : onPointerLeave}
+        onPointerEnter={isNative || focus || editing ? undefined : onPointerEnter}
+        onPointerLeave={() => {
+          pointed.current = { tool: null, at: 0 };
+          if (!isNative && !focus) onPointerLeave();
+        }}
         onClick={onClick}
         onContextMenu={onContextMenu}
         onWheel={onWheel}
@@ -323,6 +358,7 @@ export function Notch() {
             </div>
             {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress along={side ? "y" : "x"} />}
           </div>
+          {editing && status !== "open" && <ClosedResize style={style} edge={edge} widest={span} />}
           {/* Open they stand in the header. */}
           {status === "open" && !line && !idleLine && <PrivacyDots />}
 
@@ -363,6 +399,7 @@ export function Notch() {
             )}
           </AnimatePresence>
         </NotchShape>
+        {editing && status !== "open" && <ClosedResizeBar style={style} edge={edge} />}
       </motion.div>
     </div>
   );

@@ -9,6 +9,7 @@ import { pauseRecording, recording, stopRecording } from "../../features/capture
 import { elapsedAt, formatElapsed } from "../../features/capture/clock";
 import { statusAlert } from "../../features/status/store";
 import { topNotice } from "./notices";
+import { partTool } from "./parts";
 import { popping } from "../../features/notices/store";
 import { AppIcon } from "../../features/notices/NoticePop";
 import { dueTasks } from "../../features/todos/store";
@@ -228,7 +229,7 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
       exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
     >
       {shown.map((l, i) => (
-        <div key={l.id} className="absolute inset-x-0 flex items-center justify-center" style={{ top: tops[i], height: l.h }}>
+        <div key={l.id} data-open={partTool(l.id.startsWith("reading-") ? "readings" : l.id.split("-")[0]) ?? undefined} className="absolute inset-x-0 flex items-center justify-center" style={{ top: tops[i], height: l.h }}>
           {l.draw()}
         </div>
       ))}

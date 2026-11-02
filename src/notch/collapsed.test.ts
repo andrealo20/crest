@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CLOSED_SIZE_DEFAULTS, contentScale, fitCapsuleTop, normalizeClosedSize, roundThickness, sideLength, windowAlong, type ClosedSize } from "./collapsed.ts";
+import { CLOSED_SIZE_DEFAULTS, contentScale, defaultClosed, fitCapsuleTop, normalizeClosedSize, resizeClosed, roundThickness, sideLength, windowAlong, type ClosedSize } from "./collapsed.ts";
 import { closedGeometry, lineGeometry, peekGeometry } from "./geometry.ts";
 import { rowRoom, surfaceWidth } from "./row/layout.ts";
 import { COLUMN_ROOM, columnRoom, columnSurface } from "./column.ts";
@@ -117,4 +117,17 @@ test("extreme sizes on small monitors stay finite, not negative and on the monit
       for (const style of ["notch", "capsule", "line"] as const) assert.ok(Number.isFinite(windowAlong(s, style, false, span)) && windowAlong(s, style, true, span) >= 760);
     }
   }
+});
+
+test("resize grips: the ends widen both sides, the far side sets the height, held to the limits and the monitor", () => {
+  const s = CLOSED_SIZE_DEFAULTS;
+  assert.deepEqual(resizeClosed(s, "notch", "end", 10, 0, 1920), { notchWidth: s.notchWidth + 20 });
+  assert.deepEqual(resizeClosed(s, "notch", "start", -10, 0, 1920), { notchWidth: s.notchWidth + 20 });
+  assert.deepEqual(resizeClosed(s, "notch", "end", -500, 0, 1920), { notchWidth: 72 });
+  assert.deepEqual(resizeClosed(s, "capsule", "end", 2000, 0, 1920), { capsuleWidth: 1920 });
+  assert.deepEqual(resizeClosed(s, "notch", "depth", 0, 6.4, 1920), { notchHeight: 36 });
+  assert.deepEqual(resizeClosed(s, "notch", "depth", 0, 100, 1920), { notchHeight: 60 });
+  assert.deepEqual(resizeClosed(s, "line", "depth", 0, 1.3, 1920), { lineThickness: 6.5 });
+  assert.deepEqual(resizeClosed(s, "line", "end", 5, 0, 1920), { lineLength: 160 });
+  assert.deepEqual(defaultClosed("capsule", "depth"), { capsuleHeight: 30 });
 });
