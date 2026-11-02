@@ -1,9 +1,9 @@
 //! System status for the closed notch's alerts: charger and battery, internet,
-//! Bluetooth headphones, and the volume of the default output device for the HUD (brightness is in brightness.rs).
+//! Bluetooth devices, and the volume of the default output device for the HUD (brightness is in brightness.rs).
 //!
 //! One thread with a message-only window. Power settings arrive as WM_POWERBROADCAST and are
-//! handled in the GetMessageW loop, so the thread sleeps at idle. The network and audio
-//! endpoint callbacks only post to the same loop; the network is settled with a window timer. Each source registers on its own:
+//! handled in the GetMessageW loop, so the thread sleeps at idle. The network, Bluetooth and audio
+//! endpoint callbacks only post to the same loop; the network and Bluetooth are settled with window timers. Each source registers on its own:
 //! a failure is logged and leaves only that source off. What a source reads at registration goes
 //! into the seed (`status://seed`, `status_seed`), never into a change event. The volume callback only fires on a change,
 //! so registering it is silent too; changes Crest makes itself carry `controls::OWN_CHANGE` and are skipped.
@@ -22,13 +22,15 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
 use windows::Win32::Devices::Properties::{DEVPKEY_Device_ContainerId, DEVPROPTYPE, DEVPROP_TYPE_BYTE, DEVPROP_TYPE_GUID};
 use windows::Win32::Media::Audio::Endpoints::{IAudioEndpointVolume, IAudioEndpointVolumeCallback, IAudioEndpointVolumeCallback_Impl};
 use windows::Win32::Media::Audio::{
-    eConsole, eRender, EDataFlow, ERole, IMMDeviceEnumerator, AUDIO_VOLUME_NOTIFICATION_DATA, IMMNotificationClient, IMMNotificationClient_Impl, MMDeviceEnumerator, DEVICE_STATE, DEVICE_STATE_ACTIVE,
+    eConsole, eRender, EDataFlow, ERole, IMMDeviceEnumerator, AUDIO_VOLUME_NOTIFICATION_DATA, IMMNotificationClient, IMMNotificationClient_Impl, MMDeviceEnumerator, DEVICE_STATE,
 };
-use windows::Win32::System::Com::StructuredStorage::{PropVariantToGUID, PropVariantToStringAlloc};
-use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
+use windows::core::{Array, Interface, HSTRING};
+use windows::Devices::Enumeration::{DeviceInformation, DeviceInformationKind, DeviceWatcher};
+use windows_collections::IIterable;
+use windows::Foundation::{IPropertyValue, TypedEventHandler};
 use windows::Networking::Connectivity::{NetworkConnectivityLevel, NetworkInformation, NetworkStatusChangedEventHandler};
 use windows::Win32::Foundation::{DEVPROPKEY, HANDLE, HWND, LPARAM, LRESULT, PROPERTYKEY, WPARAM};
-use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ};
+use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Power::{GetSystemPowerStatus, RegisterPowerSettingNotification, SYSTEM_POWER_STATUS};
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -39,13 +41,15 @@ use windows::Win32::UI::WindowsAndMessaging::{
 // Not in the enabled features; values from winnt.h.
 const GUID_ACDC_POWER_SOURCE: GUID = GUID::from_u128(0x5d3e9a59_e9d5_4b00_a6bd_ff34ff516548);
 const GUID_BATTERY_PERCENTAGE_REMAINING: GUID = GUID::from_u128(0xa7ad8041_b45a_4cae_87a3_eecbb468a9e1);
-// Endpoint properties (functiondiscoverykeys_devpkey.h).
-const PKEY_DEVICE_FRIENDLY_NAME: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0xa45c254e_df1c_4efd_8020_67d146a850e0), pid: 14 };
-const PKEY_DEVICE_ENUMERATOR_NAME: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0xa45c254e_df1c_4efd_8020_67d146a850e0), pid: 24 };
-const PKEY_DEVICE_INTERFACE_FRIENDLY_NAME: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0x026e516e_b814_414b_83cd_856d6fef4822), pid: 2 };
-const PKEY_DEVICE_CONTAINER_ID: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0x8c7ed206_3f8a_4827_b3ab_ae9e1faefc6c), pid: 2 };
-/// Battery level Windows takes from the hands-free indicators; not in the crate.
+/// Battery level Windows takes from the hands-free indicators or the LE battery service; not in the crate.
 const DEVPKEY_BLUETOOTH_BATTERY: DEVPROPKEY = DEVPROPKEY { fmtid: GUID::from_u128(0x104ea319_6ee2_4701_bd47_8ddbf425bbe5), pid: 2 };
+/// Paired Bluetooth and Bluetooth LE devices, as Settings lists them. Audio endpoints cannot tell them apart: with an
+/// offload driver (AMD's) their enumerator is the driver's GUID, not BTHENUM, and mice or controllers have none.
+const BT_PAIRED: &str = r#"System.Devices.Aep.IsPaired:=System.StructuredQueryType.Boolean#True AND (System.Devices.Aep.ProtocolId:="{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}" OR System.Devices.Aep.ProtocolId:="{bb7bb05e-5972-42b5-94fc-76eaa7084d49}")"#;
+const BT_CONNECTED: &str = "System.Devices.Aep.IsConnected";
+const BT_CATEGORY: &str = "System.Devices.Aep.Category";
+const BT_ADDRESS: &str = "System.Devices.Aep.DeviceAddress";
+const BT_CONTAINER: &str = "System.Devices.Aep.ContainerId";
 
 /// WM_POWERBROADCAST is sent straight to the window procedure; it reposts this to reach the loop.
 const WM_POWER: u32 = WM_APP + 1;
@@ -54,8 +58,11 @@ const WM_NET: u32 = WM_APP + 2;
 /// Network changes come in bursts (VPN, vSwitch, DHCP); only a state stable this long is sent.
 const NET_TIMER: usize = 1;
 const NET_SETTLE_MS: u32 = 2000;
-/// Posted from the audio service thread on endpoint changes.
+/// Posted from the WinRT threadpool on every change of a paired Bluetooth device.
 const WM_BT: u32 = WM_APP + 3;
+/// A connection comes as a burst of updates, and the battery level lands a moment after it; one scan after the last.
+const BT_TIMER: usize = 2;
+const BT_SETTLE_MS: u32 = 1000;
 /// Posted from the audio service thread on a volume or mute change: wParam the level in percent, lParam bit 0 muted, bit 1 Crest's own.
 const WM_VOL: u32 = WM_APP + 4;
 /// The default output device changed: the volume callback moves to the new one.
@@ -75,10 +82,11 @@ pub struct Power {
 pub struct Seed {
     power: Option<Power>,
     online: Option<bool>,
-    headsets: Vec<String>,
+    /// Names of the Bluetooth devices connected now.
+    devices: Vec<String>,
 }
 
-static SEED: Mutex<Seed> = Mutex::new(Seed { power: None, online: None, headsets: Vec::new() });
+static SEED: Mutex<Seed> = Mutex::new(Seed { power: None, online: None, devices: Vec::new() });
 
 /// A panic elsewhere must not take the alerts down with it: the seed stays readable.
 fn seed() -> MutexGuard<'static, Seed> {
@@ -134,8 +142,10 @@ fn run(app: AppHandle) {
             .and_then(|d| d.RegisterEndpointNotificationCallback(&client).map(|()| d))
             .inspect_err(|e| eprintln!("sysevents: audio endpoint notification failed: {e}"))
             .ok();
-        let mut groups = devices.as_ref().map(headsets).unwrap_or_default();
-        seed().headsets = groups.values().cloned().collect();
+        // Started before the first scan, so a device that connects in between is not missed.
+        let _watcher = bt_watch(h);
+        let mut connected = bluetooth().unwrap_or_default();
+        seed().devices = connected.values().map(|d| d.name.clone()).collect();
 
         let volume_client: IAudioEndpointVolumeCallback = VolumeWatch(h).into();
         let mut volume = devices.as_ref().and_then(|d| watch_volume(d, &volume_client));
@@ -168,20 +178,25 @@ fn run(app: AppHandle) {
                     }
                 }
                 WM_BT => {
-                    let Some(devices) = &devices else { continue };
-                    let now = headsets(devices);
-                    for (container, name) in &now {
-                        if !groups.contains_key(container) {
-                            let _ = app.emit("status://bt", serde_json::json!({ "name": name, "connected": true, "battery": battery(*container) }));
+                    SetTimer(Some(hwnd), BT_TIMER, BT_SETTLE_MS, None);
+                }
+                WM_TIMER if msg.wParam.0 == BT_TIMER => {
+                    let _ = KillTimer(Some(hwnd), BT_TIMER);
+                    // A failed scan says nothing about the devices: it must not read as all of them leaving.
+                    let Some(now) = bluetooth() else { continue };
+                    for (id, d) in &now {
+                        if !connected.contains_key(id) {
+                            let battery = battery(&d.address, d.container);
+                            let _ = app.emit("status://bt", serde_json::json!({ "name": d.name, "connected": true, "battery": battery, "categories": d.categories }));
                         }
                     }
-                    for (container, name) in &groups {
-                        if !now.contains_key(container) {
-                            let _ = app.emit("status://bt", serde_json::json!({ "name": name, "connected": false, "battery": null }));
+                    for (id, d) in &connected {
+                        if !now.contains_key(id) {
+                            let _ = app.emit("status://bt", serde_json::json!({ "name": d.name, "connected": false, "battery": null, "categories": d.categories }));
                         }
                     }
-                    groups = now;
-                    seed().headsets = groups.values().cloned().collect();
+                    connected = now;
+                    seed().devices = connected.values().map(|d| d.name.clone()).collect();
                 }
                 WM_VOL => {
                     let now = (msg.wParam.0.min(100) as u8, msg.lParam.0 & 1 != 0);
@@ -245,27 +260,18 @@ fn online() -> bool {
         .is_ok_and(|level| level == NetworkConnectivityLevel::InternetAccess)
 }
 
-/// Runs on an audio service thread: it only wakes the loop, which rescans the endpoints.
+/// Runs on an audio service thread: it only tells the loop that the default output changed.
 #[implement(IMMNotificationClient)]
 struct Endpoints(isize);
 
-impl Endpoints {
-    fn wake(&self) {
-        let _ = unsafe { PostMessageW(Some(HWND(self.0 as _)), WM_BT, WPARAM(0), LPARAM(0)) };
-    }
-}
-
 impl IMMNotificationClient_Impl for Endpoints_Impl {
     fn OnDeviceStateChanged(&self, _: &PCWSTR, _: DEVICE_STATE) -> windows::core::Result<()> {
-        self.wake();
         Ok(())
     }
-    // A new endpoint becomes active through OnDeviceStateChanged.
     fn OnDeviceAdded(&self, _: &PCWSTR) -> windows::core::Result<()> {
         Ok(())
     }
     fn OnDeviceRemoved(&self, _: &PCWSTR) -> windows::core::Result<()> {
-        self.wake();
         Ok(())
     }
     // The volume keys and the taskbar act on the console role of the default output.
@@ -280,55 +286,69 @@ impl IMMNotificationClient_Impl for Endpoints_Impl {
     }
 }
 
-/// Active Bluetooth render endpoints by container ID, so the A2DP and hands-free endpoints of one
-/// headset count once.
-fn headsets(devices: &IMMDeviceEnumerator) -> HashMap<GUID, String> {
-    let mut found = HashMap::new();
-    unsafe {
-        let Ok(list) = devices.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE) else { return found };
-        for i in 0..list.GetCount().unwrap_or(0) {
-            let Ok(store) = list.Item(i).and_then(|d| d.OpenPropertyStore(STGM_READ)) else { continue };
-            let Some(enumerator) = prop_string(&store, &PKEY_DEVICE_ENUMERATOR_NAME) else { continue };
-            let a2dp = enumerator.eq_ignore_ascii_case("BTHENUM");
-            if !a2dp && !enumerator.eq_ignore_ascii_case("BTHHFENUM") {
-                continue;
-            }
-            let Some(container) = prop_guid(&store, &PKEY_DEVICE_CONTAINER_ID) else { continue };
-            let name = prop_string(&store, &PKEY_DEVICE_INTERFACE_FRIENDLY_NAME).or_else(|| prop_string(&store, &PKEY_DEVICE_FRIENDLY_NAME));
-            let Some(name) = name else { continue };
-            // The A2DP endpoint carries the plain device name; hands-free adds a suffix.
-            if a2dp || !found.contains_key(&container) {
-                found.insert(container, name);
-            }
+/// A connected Bluetooth device, as the association endpoint describes it.
+struct BtDevice {
+    name: String,
+    /// Windows' device categories ("Audio.Headphone", "Input.Mouse"), for the icon.
+    categories: Vec<String>,
+    /// "c0:e5:79:36:e7:c6".
+    address: String,
+    /// Missing on some LE devices.
+    container: Option<GUID>,
+}
+
+fn bt_props() -> IIterable<HSTRING> {
+    IIterable::from([BT_CONNECTED, BT_CATEGORY, BT_ADDRESS, BT_CONTAINER].map(HSTRING::from).to_vec())
+}
+
+/// Wakes the loop on every change of a paired device; the loop scans once the burst is over. Kept for the app's lifetime.
+fn bt_watch(h: isize) -> Option<DeviceWatcher> {
+    let wake = move || unsafe {
+        let _ = PostMessageW(Some(HWND(h as _)), WM_BT, WPARAM(0), LPARAM(0));
+    };
+    DeviceInformation::CreateWatcherWithKindAqsFilterAndAdditionalProperties(&BT_PAIRED.into(), &bt_props(), DeviceInformationKind::AssociationEndpoint)
+        .and_then(|w| {
+            w.Added(&TypedEventHandler::new(move |_, _| Ok(wake())))?;
+            w.Updated(&TypedEventHandler::new(move |_, _| Ok(wake())))?;
+            w.Removed(&TypedEventHandler::new(move |_, _| Ok(wake())))?;
+            w.Start()?;
+            Ok(w)
+        })
+        .inspect_err(|e| eprintln!("sysevents: bluetooth watcher failed: {e}"))
+        .ok()
+}
+
+/// The paired devices connected now, by association endpoint id; `None` when Windows could not list them.
+fn bluetooth() -> Option<HashMap<String, BtDevice>> {
+    let list = DeviceInformation::FindAllAsyncWithKindAqsFilterAndAdditionalProperties(&BT_PAIRED.into(), &bt_props(), DeviceInformationKind::AssociationEndpoint)
+        .and_then(|op| op.join())
+        .inspect_err(|e| eprintln!("sysevents: bluetooth scan failed: {e}"))
+        .ok()?;
+    let found = list.into_iter().filter_map(|d| {
+        let props = d.Properties().ok()?;
+        let value = |key: &str| props.Lookup(&key.into()).ok().and_then(|v| v.cast::<IPropertyValue>().ok());
+        if !value(BT_CONNECTED)?.GetBoolean().ok()? {
+            return None;
         }
-    }
-    found
+        let name = d.Name().ok()?.to_string();
+        let mut categories = Array::<HSTRING>::new();
+        let categories = match value(BT_CATEGORY) {
+            Some(v) if v.GetStringArray(&mut categories).is_ok() => categories.iter().map(|c| c.to_string()).collect(),
+            _ => Vec::new(),
+        };
+        let address = value(BT_ADDRESS).and_then(|v| v.GetString().ok()).map(|a| a.to_string()).unwrap_or_default();
+        let container = value(BT_CONTAINER).and_then(|v| v.GetGuid().ok());
+        Some((d.Id().ok()?.to_string(), BtDevice { name, categories, address, container }))
+    });
+    Some(found.collect())
 }
 
-unsafe fn prop_string(store: &IPropertyStore, key: &PROPERTYKEY) -> Option<String> {
-    unsafe {
-        let value = store.GetValue(key).ok()?;
-        let text = PropVariantToStringAlloc(&value).ok().and_then(|p| {
-            let text = p.to_string().ok();
-            CoTaskMemFree(Some(p.0 as _));
-            text
-        });
-        text.filter(|t| !t.is_empty())
-    }
-}
-
-unsafe fn prop_guid(store: &IPropertyStore, key: &PROPERTYKEY) -> Option<GUID> {
-    unsafe {
-        let value = store.GetValue(key).ok()?;
-        PropVariantToGUID(&value).ok()
-    }
-}
-
-/// Battery from the Bluetooth device nodes of the headset's container, read once at connection;
-/// `None` when the headset does not report it.
-fn battery(container: GUID) -> Option<u8> {
+/// Battery from the device's Bluetooth nodes, found by its address in the instance id or by its container; read once at
+/// connection, `None` when the device does not report it.
+fn battery(address: &str, container: Option<GUID>) -> Option<u8> {
+    let address = address.replace(':', "").to_ascii_uppercase();
     let flags = CM_GETIDLIST_FILTER_ENUMERATOR | CM_GETIDLIST_FILTER_PRESENT;
-    for enumerator in [w!("BTHENUM"), w!("BTHHFENUM")] {
+    for enumerator in [w!("BTHENUM"), w!("BTHHFENUM"), w!("BTHLE")] {
         unsafe {
             let mut len = 0;
             if CM_Get_Device_ID_List_SizeW(&mut len, enumerator, flags) != CR_SUCCESS {
@@ -339,12 +359,13 @@ fn battery(container: GUID) -> Option<u8> {
                 continue;
             }
             for id in ids.split(|&c| c == 0).filter(|id| !id.is_empty()) {
+                let by_address = address.len() == 12 && String::from_utf16_lossy(id).to_ascii_uppercase().contains(&address);
                 let id: Vec<u16> = id.iter().copied().chain([0]).collect();
                 let mut node = 0;
                 if CM_Locate_DevNodeW(&mut node, PCWSTR(id.as_ptr()), CM_LOCATE_DEVNODE_NORMAL) != CR_SUCCESS {
                     continue;
                 }
-                if node_prop::<GUID>(node, &DEVPKEY_Device_ContainerId, DEVPROP_TYPE_GUID) != Some(container) {
+                if !by_address && (container.is_none() || node_prop::<GUID>(node, &DEVPKEY_Device_ContainerId, DEVPROP_TYPE_GUID) != container) {
                     continue;
                 }
                 if let Some(level) = node_prop::<u8>(node, &DEVPKEY_BLUETOOTH_BATTERY, DEVPROP_TYPE_BYTE) {

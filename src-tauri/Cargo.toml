@@ -51,6 +51,8 @@ tauri-plugin-process = "2"
 webview2-com = "0.39"
 # Already in the tree through `windows`; #[implement] expands to `::windows_core` paths.
 windows-core = "0.62"
+# Also in the tree through `windows`, which does not re-export IIterable.
+windows-collections = "0.3"
 windows = { version = "0.62", features = [
   "Foundation",
   "Foundation_Collections",
@@ -102,6 +104,7 @@ windows = { version = "0.62", features = [
   "Win32_System_IO",
   "Win32_System_ProcessStatus",
   "Win32_NetworkManagement_Ndis",
+  "Devices_Enumeration",
   "Devices_Power",
   "System_Power",
   "ApplicationModel",

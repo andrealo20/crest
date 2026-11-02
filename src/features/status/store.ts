@@ -17,8 +17,8 @@ export function startStatusWatch() {
   started = true;
   let power: PowerState | null = null, online: boolean | null = null, hide = 0;
   const low: LowBattery = { warned20: false, warned10: false };
-  // Headsets connected now: one already there (from the seed) does not alert when reported again.
-  let headsets = new Set<string>();
+  // Bluetooth devices connected now: one already there (from the seed) does not alert when reported again.
+  let devices = new Set<string>();
   const show = (alert: StatusAlert | null, on: boolean) => {
     // Not in focus mode nor over a fullscreen app; dropped rather than kept for later.
     if (!alert || !on || focusMode.get() || fullscreen.get()) return;
@@ -29,7 +29,7 @@ export function startStatusWatch() {
   // The command and the event may both deliver it, and the command can return a partial one while sysevents.rs still registers.
   const seed = (s: StatusSeed) => {
     if (s.power && !power) powerAlert(null, s.power, low, t);
-    ({ power, online, headsets } = mergeSeed({ power, online, headsets }, s));
+    ({ power, online, devices } = mergeSeed({ power, online, devices }, s));
   };
   status.on({
     seed,
@@ -44,9 +44,9 @@ export function startStatusWatch() {
       show(alert, settings.get().closed.statusAlerts.net);
     },
     bt: (e) => {
-      const known = headsets.has(e.name);
-      if (e.connected) headsets.add(e.name);
-      else headsets.delete(e.name);
+      const known = devices.has(e.name);
+      if (e.connected) devices.add(e.name);
+      else devices.delete(e.name);
       if (e.connected && known) return;
       show(btAlert(e, t), settings.get().closed.statusAlerts.bt);
     },
