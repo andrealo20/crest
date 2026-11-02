@@ -36,7 +36,7 @@
   <a href="https://github.com/andrealo20/crest/issues/new/choose"><b>Suggest an idea</b></a>
 </p>
 
-https://github.com/user-attachments/assets/fe651427-10df-4261-8687-0e4ab1705914
+https://github.com/user-attachments/assets/1cb54e83-0392-4dde-bf79-10e9ed400e3b
 
 ## What it is
 
