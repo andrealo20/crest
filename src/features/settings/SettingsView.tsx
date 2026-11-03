@@ -60,6 +60,7 @@ import { fps } from "../system/gaming";
 import { PlaceSearch } from "../weather/WeatherView";
 import { VaultSettings } from "../vault/VaultSettings";
 import { ClockLookSettings, TimerLookSettings } from "../timer/LookSettings";
+import { focusSounds, type FocusSound } from "../timer/focusSound";
 import { ProductivitySettings } from "../water/WaterSettings";
 import { TerminalSettings } from "../terminal/TerminalSettings";
 import { MusicSettings } from "../now-playing/MusicSettings";
@@ -217,6 +218,7 @@ export function SettingsView() {
             {page === "timer" && (
               <>
                 <Alarm />
+                <FocusSoundSettings />
                 <TimerLookSettings />
                 <ClockLookSettings />
               </>
@@ -943,6 +945,25 @@ function Alarm() {
       </Row>
       <Row label={t("Dauer")} hint={t("Wie lange der Alarm klingelt")}>
         <Segmented id="alarm-duration" size="sm" value={String(a.duration)} onChange={(v) => set({ duration: Number(v) as AlarmDuration })} options={durations.map((o) => ({ ...o, label: t(o.label) }))} />
+      </Row>
+    </Group>
+  );
+}
+
+/** Timer: background sound while a focus timer runs, and its volume. */
+function FocusSoundSettings() {
+  const { focusSound, focusVolume } = settings.use().timer;
+  const set = (patch: Partial<{ focusSound: FocusSound; focusVolume: number }>) => updateSettings((cur) => ({ timer: { ...cur.timer, ...patch } }));
+  return (
+    <Group id="settings-focus-sound">
+      <Row label={t("Fokus-Klang")} hint={t("Spielt, solange ein Fokus-Timer läuft")}>
+        <Select width="w-44" value={focusSound} onChange={(v) => set({ focusSound: v })} options={focusSounds.map((o) => ({ ...o, label: t(o.label) }))} />
+      </Row>
+      <Row label={t("Lautstärke")}>
+        <div className="flex w-52 items-center gap-2">
+          <Slider label={t("Lautstärke")} value={Math.round(focusVolume * 100)} min={5} max={100} step={5} onChange={(v) => set({ focusVolume: v / 100 })} />
+          <span className="tabular w-8 text-end text-caption text-label-2">{Math.round(focusVolume * 100)}</span>
+        </div>
       </Row>
     </Group>
   );

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, ArrowCounterClockwise, Check, CheckCircle, Pause, PencilSimple, PictureInPicture, Play, SpeakerSimpleSlash, X } from "@phosphor-icons/react";
+import { AlarmIcon, ArrowCounterClockwise, Check, CheckCircle, Pause, PencilSimple, PictureInPicture, Play, SpeakerSimpleHigh, SpeakerSimpleSlash, X } from "@phosphor-icons/react";
 import { content, pulse, springs } from "../../design/motion";
 import {
   MAX_MINUTES,
   MIN_MINUTES,
+  focusMuted,
   formatClock,
   presets,
   ringing,
@@ -33,20 +34,30 @@ export function TimerView() {
   const s = timer.use();
   return (
     <>
-      {isNative && <DetachButton />}
+      <TimerHeader />
       {s.finished ? <FinishedView /> : <SetupView />}
     </>
   );
 }
 
-/** Pops the timer into its own small always-on-top window, or takes it back. */
-function DetachButton() {
+/** Mutes the focus sound for now, and pops the timer into its own small always-on-top window, or takes it back. */
+function TimerHeader() {
   const open = detached.use();
+  const sound = settings.use().timer.focusSound;
+  const muted = focusMuted.use();
+  if (!isNative && sound === "off") return null;
   return (
     <HeaderActions>
-      <HeaderButton label={open ? t("Timer-Fenster schließen") : t("Timer abdocken")} active={open} onClick={toggleDetached}>
-        <PictureInPicture size={14} weight="bold" />
-      </HeaderButton>
+      {sound !== "off" && (
+        <HeaderButton label={muted ? t("Fokus-Klang einschalten") : t("Fokus-Klang stummschalten")} onClick={() => focusMuted.set(!muted)}>
+          {muted ? <SpeakerSimpleSlash size={14} weight="bold" /> : <SpeakerSimpleHigh size={14} weight="bold" />}
+        </HeaderButton>
+      )}
+      {isNative && (
+        <HeaderButton label={open ? t("Timer-Fenster schließen") : t("Timer abdocken")} active={open} onClick={toggleDetached}>
+          <PictureInPicture size={14} weight="bold" />
+        </HeaderButton>
+      )}
     </HeaderActions>
   );
 }
