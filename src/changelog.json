@@ -7,6 +7,9 @@
         "en": "Coloured icons across the app, an option in Settings, Themes, readable on every theme"
       },
       {
+        "en": "Timer and clock colours, and five new looks: Flip, Nixie, Ring, LCD and Analog"
+      },
+      {
         "en": "Answer a coding agent's permission request from the notch, through crest-notify ask"
       },
       {
@@ -44,6 +47,9 @@
       },
       {
         "en": "Each process's CPU share in percent in Hardware"
+      },
+      {
+        "en": "Windows notices open their app on a click, and leave the notification centre when deleted"
       }
     ]
   },
