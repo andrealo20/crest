@@ -292,9 +292,30 @@ pub async fn calendar_fetch(app: AppHandle, sources: Vec<Source>, force: bool, s
     Ok(data)
 }
 
+/// An https link with a host and no user name, as parsed (and re-encoded) by Url.
+fn https_link(raw: &str) -> Option<Url> {
+    Url::parse(raw.trim()).ok().filter(|u| u.scheme() == "https" && u.host_str().is_some() && u.username().is_empty() && u.password().is_none())
+}
+
+/// Opens an event's meeting link in the default browser. Only https, so the page cannot start a program or open a file.
+#[tauri::command]
+pub fn calendar_open_link(url: String) -> Result<(), String> {
+    let url = https_link(&url).ok_or("bad-url")?;
+    crate::opener().arg(url.as_str()).spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_https_links_open() {
+        assert_eq!(https_link(" https://meet.google.com/abc-defg-hij ").unwrap().as_str(), "https://meet.google.com/abc-defg-hij");
+        assert!(https_link("http://zoom.us/j/1").is_none());
+        assert!(https_link("file:///C:/Windows/System32/cmd.exe").is_none());
+        assert!(https_link("ms-settings:").is_none());
+        assert!(https_link("https://user@zoom.us/j/1").is_none());
+    }
 
     #[test]
     fn webcal_links_become_https() {

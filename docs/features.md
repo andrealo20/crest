@@ -156,6 +156,7 @@ The volume and brightness HUD is a status alert too: when the volume or mute cha
 - Sources are ICS links (the secret iCal address from Google Calendar, Outlook or iCloud, or any `webcal://` link) and CalDAV accounts (Nextcloud, Fastmail, iCloud, Radicale and others). It only reads; nothing is ever written back.
 - Recurring events are expanded in their own time zone (daily, weekly, monthly and yearly rules with intervals, counts, end dates and weekdays), with skipped and moved instances. Time zones can be IANA names, Windows names (Outlook) or ones defined in the file.
 - A notice in the closed notch 5 or 10 minutes before an event, and an optional **Next event** part that shows the title and time once an event is within 30 minutes to 8 hours.
+- An event with a Google Meet, Zoom, Teams or Webex link in its URL, place or description gets a **Join** button in the agenda and in its notice, which opens the meeting in your browser and hides the notice.
 - The last good result is kept on disk, so the agenda still shows offline; a calendar that fails keeps its last events and shows the error in the settings.
 
 ## AI chat and usage

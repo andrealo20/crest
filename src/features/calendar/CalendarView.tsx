@@ -9,8 +9,8 @@ import type { CalendarEvent } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { Button, Empty, Skeleton } from "../../ui/controls";
 import { locale, t } from "../../i18n";
-import { agenda, dayLabel, monthGrid, startOfDay } from "./model";
-import { calendar, refreshCalendar, useCalendarViewer } from "./store";
+import { agenda, dayLabel, meetingLink, monthGrid, startOfDay } from "./model";
+import { calendar, joinMeeting, refreshCalendar, useCalendarViewer } from "./store";
 
 const DAYS = 7;
 
@@ -125,6 +125,7 @@ export function CalendarView() {
               {d.events.length === 0 && <div className="py-1 text-footnote text-label-4">{t("Keine Termine")}</div>}
               {d.events.map((e) => {
                 const past = e.end <= now && !(e.end === e.start && e.start > now);
+                const link = past ? null : meetingLink(e);
                 return (
                   <div key={`${d.day}:${e.id}`} className={`flex items-center gap-2.5 py-[3px] ${past ? "opacity-45" : ""}`} title={names.get(e.calendar)}>
                     <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: colors.get(e.calendar) || "var(--color-link)" }} />
@@ -133,6 +134,11 @@ export function CalendarView() {
                       {e.title || t("(Ohne Titel)")}
                       {e.location && <span className="text-label-3"> · {e.location}</span>}
                     </span>
+                    {link && (
+                      <button className="pressable pressable-fill shrink-0 rounded-full bg-fill-2 px-2.5 py-0.5 text-caption font-medium text-label" title={new URL(link).hostname} onClick={() => joinMeeting(e.id, link)}>
+                        {t("Beitreten")}
+                      </button>
+                    )}
                   </div>
                 );
               })}

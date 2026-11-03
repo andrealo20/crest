@@ -987,6 +987,9 @@ export interface CalendarEvent {
   calendar: string;
   title: string;
   location: string;
+  /** The ICS URL and DESCRIPTION (capped), where meetingLink looks for a link to join. */
+  url: string;
+  description: string;
   /** Epoch ms; an all-day event runs from local midnight to local midnight, end exclusive. */
   start: number;
   end: number;
@@ -1018,8 +1021,19 @@ export function fetchCalendar(sources: CalendarSourceIn[], force: boolean): Prom
     [1, "Mum's birthday", "", at(2, 0), at(3, 0), true],
     [0, "Release 0.3", "", at(3, 14), at(3, 15), false],
   ];
-  const events = calendars.length ? sample.map(([i, title, location, start, end, allDay], n) => ({ id: `s${n}`, calendar: c(i), title, location, start, end, allDay })) : [];
+  const events = calendars.length
+    ? sample.map(([i, title, location, start, end, allDay], n) => {
+        const description = n === 0 || n === 4 ? "Join with Google Meet: https://meet.google.com/abc-defg-hij" : "";
+        return { id: `s${n}`, calendar: c(i), title, location, url: "", description, start, end, allDay };
+      })
+    : [];
   return new Promise((r) => setTimeout(() => r({ calendars, events, sources: sources.map((s) => ({ id: s.id, error: null, fetchedAt: Date.now() })), fetchedAt: Date.now() }), 300));
+}
+
+/** An event's meeting link in the default browser; Rust opens https links only. */
+export function openMeetingLink(url: string) {
+  if (isNative) void invoke("calendar_open_link", { url });
+  else window.open(url, "_blank", "noopener");
 }
 
 // ---------- Live notices (src-tauri/src/notices.rs) ----------

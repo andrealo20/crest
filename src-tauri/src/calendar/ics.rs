@@ -16,6 +16,11 @@ use super::windows_zones::WINDOWS_TO_IANA;
 /// Events kept per calendar and occurrences per series, so a huge or broken file stays small.
 const MAX_EVENTS: usize = 3000;
 const MAX_OCCURRENCES: usize = 500;
+/// Characters kept of the text fields, which every instance of a series repeats in the result and the cache file.
+/// Teams, Zoom and Meet invitations put their link within the first few thousand characters of the description.
+const MAX_LOCATION: usize = 500;
+const MAX_URL: usize = 2000;
+const MAX_DESCRIPTION: usize = 4000;
 
 #[derive(Debug)]
 pub struct Prop {
@@ -315,6 +320,11 @@ pub struct Event {
     pub calendar: String,
     pub title: String,
     pub location: String,
+    /// URL and DESCRIPTION, where the Join button looks for a meeting link. Missing in older cache files.
+    #[serde(default)]
+    pub url: String,
+    #[serde(default)]
+    pub description: String,
     /// Epoch milliseconds; an all-day event runs from local midnight to local midnight (end exclusive).
     pub start: i64,
     pub end: i64,
@@ -429,7 +439,10 @@ fn series(e: &Comp, ctx: &Ctx, calendar: &str, from: Timestamp, to: Timestamp, m
     }
     let excluded: HashSet<i64> = ctx.instants(e, "EXDATE").iter().filter_map(|w| w.timestamp()).map(|t| t.as_second()).collect();
     let uid = e.text("UID");
-    let (title, location) = (e.text("SUMMARY"), e.text("LOCATION"));
+    let (title, location) = (e.text("SUMMARY"), capped(e.text("LOCATION"), MAX_LOCATION));
+    // URL is a URI value, not text: no escapes to undo.
+    let url = capped(e.prop("URL").map(|p| p.value.trim().to_string()).unwrap_or_default(), MAX_URL);
+    let description = capped(e.text("DESCRIPTION"), MAX_DESCRIPTION);
     starts.sort();
     starts.dedup();
     for local in starts {
@@ -454,11 +467,21 @@ fn series(e: &Comp, ctx: &Ctx, calendar: &str, from: Timestamp, to: Timestamp, m
             calendar: calendar.to_string(),
             title: title.clone(),
             location: location.clone(),
+            url: url.clone(),
+            description: description.clone(),
             start: s.as_millisecond(),
             end: end_ts.as_millisecond(),
             all_day: start.all_day,
         });
     }
+}
+
+/// At most `max` characters.
+fn capped(mut s: String, max: usize) -> String {
+    if let Some((i, _)) = s.char_indices().nth(max) {
+        s.truncate(i);
+    }
+    s
 }
 
 #[cfg(test)]
@@ -589,6 +612,17 @@ mod tests {
         let got = read(&cal(body), &berlin());
         assert_eq!(got.iter().map(|e| e.0.as_str()).collect::<Vec<_>>(), ["trip", "birthday"]);
         assert_eq!(got[1].1, "2026-11-19T23:00:00Z");
+    }
+
+    #[test]
+    fn url_and_description_capped() {
+        let long = "ä".repeat(MAX_DESCRIPTION + 10);
+        let body = format!("BEGIN:VEVENT\r\nUID:m\r\nSUMMARY:call\r\nURL:https://meet.google.com/abc-defg-hij\r\nDESCRIPTION:Join\\, then {long}\r\nDTSTART:20261102T090000Z\r\nEND:VEVENT\r\n");
+        let (_, list) = events(&[&cal(&body)], "c", ts("2026-11-01T00:00:00Z"), ts("2026-12-01T00:00:00Z"), &berlin()).unwrap();
+        assert_eq!(list[0].url, "https://meet.google.com/abc-defg-hij");
+        assert!(list[0].description.starts_with("Join, then ä"));
+        assert_eq!(list[0].description.chars().count(), MAX_DESCRIPTION);
+        assert_eq!(capped("abc".into(), 5), "abc");
     }
 
     #[test]

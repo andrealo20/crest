@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
-import { fetchCalendar, type CalendarData, type CalendarEvent } from "../../platform/services";
+import { fetchCalendar, openMeetingLink, type CalendarData, type CalendarEvent } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { dueEvent, nextChange, nextEvent } from "./model";
 
@@ -38,6 +38,12 @@ export function refreshCalendar(force = false): Promise<void> {
 export function dismissCalendarNotice(id: string) {
   dismissed.add(id);
   schedule();
+}
+
+/** Opens the event's meeting link (from meetingLink) and hides its notice: once joined, it has done its job. */
+export function joinMeeting(id: string, link: string) {
+  openMeetingLink(link);
+  dismissCalendarNotice(id);
 }
 
 // One timeout to the next moment the notice or the part changes (at most a minute, for standby and clock changes).
