@@ -398,7 +398,8 @@ type MenuPos = {
 
 export function Select<T extends string>(props: {
   value: T;
-  options: { value: T; label: string }[];
+  /** `font`: the label drawn in that font family (a font picker shows each font as itself). */
+  options: { value: T; label: string; font?: string }[];
   onChange: (v: T) => void;
   width?: string;
   /** Own trigger: its content, look and name, and a menu width of its own when the trigger is small. */
@@ -480,7 +481,9 @@ export function Select<T extends string>(props: {
           onClick={() => setOpen((o) => !o)}
           className="pressable pressable-fill flex h-7 w-full items-center justify-between gap-1 rounded-[8px] bg-fill-2 px-2 text-footnote text-label"
         >
-          <span className="truncate">{current?.label}</span>
+          <span className="truncate" style={current?.font ? { fontFamily: current.font } : undefined}>
+            {current?.label}
+          </span>
           <CaretUpDown
             size={11}
             weight="bold"
@@ -530,7 +533,9 @@ export function Select<T extends string>(props: {
                     o.value === props.value ? "text-label" : "text-label-2"
                   }`}
                 >
-                  <span className="truncate">{o.label}</span>
+                  <span className="truncate" style={o.font ? { fontFamily: o.font } : undefined}>
+                    {o.label}
+                  </span>
                 </button>
               ))}
             </motion.div>

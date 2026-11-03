@@ -64,7 +64,7 @@ export type FontId = keyof typeof FONTS;
 export const FONT_NAMES: Record<FontId, string> = {
   inter: "Inter", segoe: "Segoe UI", bahnschrift: "Bahnschrift", calibri: "Calibri", candara: "Candara", corbel: "Corbel",
   verdana: "Verdana", tahoma: "Tahoma", trebuchet: "Trebuchet MS", georgia: "Georgia", sitka: "Sitka", constantia: "Constantia",
-  consolas: "Consolas", cascadia: "Cascadia Code", comic: "Comic Sans MS", inkfree: "Ink Free",
+  consolas: "Consolas", cascadia: "Cascadia", comic: "Comic Sans MS", inkfree: "Ink Free",
 };
 
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
