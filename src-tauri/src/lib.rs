@@ -370,6 +370,8 @@ pub fn run() {
             notices::notices_status,
             #[cfg(windows)]
             notices::notices_request_access,
+            #[cfg(windows)]
+            notices::notices_answer,
             plugins::plugins_list,
             plugins::plugins_pick,
             plugins::plugins_stage,

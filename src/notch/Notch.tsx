@@ -39,6 +39,7 @@ import { holdOpen, pinned, togglePin, useNotchState, type NotchStatus } from "./
 import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
 import { dueTasks } from "../features/todos/store";
+import { asks } from "../features/notices/store";
 import { refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/store";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
@@ -72,7 +73,9 @@ export function Notch() {
   const timerFinished = timer.use().finished;
   const tasksDue = dueTasks.use().length > 0;
   const recordingOn = recording.use().phase !== "idle";
-  const urgent = timerFinished || tasksDue || recordingOn;
+  // A crest-notify ask: a coding agent waits on the answer.
+  const asking = asks.use().length > 0;
+  const urgent = timerFinished || tasksDue || recordingOn || asking;
   const statusOn = statusAlert.use() !== null;
   const idleLine = !focus && idleStyle === "line";
   const alert = idleLine && (urgent || statusOn);

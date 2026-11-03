@@ -48,6 +48,7 @@ Notices appear over the row, one at a time:
 
 - a running recording, with its time and pause and stop buttons, until it ends;
 - a finished timer, until you dismiss it;
+- a question from `crest-notify ask`, with a button per option, until you answer it or its time runs out (also on the idle line and in focus mode);
 - a screenshot or recording just saved, for 4 seconds, with a thumbnail; click it to open the file;
 - a status alert (see below);
 - a live notice from Windows or `crest-notify`, for 6 seconds;
@@ -220,8 +221,9 @@ Details: [themes.md](themes.md).
 - Presentation mode, a full-screen app, Windows focus or Do Not Disturb, and an optional daily quiet window keep them in the history without popping up.
 - Scripts, builds and coding agents can send their own notices with `crest-notify`, including `crest-notify run -- <command>` for the exit code and duration.
 - `crest-notify part` sets a custom part of the closed row (icon, text up to 48 characters, progress, a tool to open on click, an optional time to live); turn on **Script parts (crest-notify)** among the closed-row parts.
+- `crest-notify ask` shows a question with up to four buttons (by default **Allow**, **Always allow** and **Deny**) and prints the one you click, so a coding agent's permission request can be answered from the notch. It stays until answered or its time runs out (2 minutes by default), and with no answer the caller falls back to its terminal prompt.
 
-Details, ready-made hooks for Claude Code and Codex, and how notifications are read: [notices.md](notices.md).
+Details, ready-made hooks for Claude Code and Codex (including a permission hook that uses `ask`), and how notifications are read: [notices.md](notices.md).
 
 ## Plugins
 

@@ -5,9 +5,11 @@
 //!   crest-notify run -- cargo test
 //!   crest-notify part build "Compiling" -i build -p 40 -o terminal
 //!   crest-notify part build --clear
+//!   crest-notify ask --title "Run command?" --body "cargo test" -s Agent
 //!
 //! Exit codes: 0 delivered, 1 usage error, 2 rejected (invalid or rate limited), 3 Crest not running, notices off,
-//! or no answer in time. `run` returns the command's own exit code.
+//! or no answer in time. `run` returns the command's own exit code. `ask` prints the chosen option id and exits 0,
+//! or exits 4 when no choice was made (timed out, closed, Crest quit).
 
 #[cfg(windows)]
 #[path = "../notify_wire.rs"]
@@ -29,6 +31,7 @@ const USAGE: &str = "Usage:
   crest-notify run [-s <name>] [-r <key>] -- <command> [args...]
   crest-notify part <id> [text] [-i|--icon <name>] [-p|--progress <0-100>] [-o|--open <tool>] [-t|--ttl <seconds>]
   crest-notify part <id> --clear
+  crest-notify ask [--title] <text> [-b|--body <text>] [-s|--source <name>] [-o|--options <ids>] [-t|--timeout <seconds>]
 
   -j, --json <text|->  take the body from an agent hook's JSON (\"message\" or
                        \"last-assistant-message\"); - reads it from standard input.
@@ -40,7 +43,10 @@ Sends a notice to Crest. The same --replace key updates the notice shown before.
 `part` sets a custom part of the closed notch (at most 48 characters; the same id updates it):
 --icon is one of Crest's icon names (docs/plugins.md), --open the tool or plugin:<id> a click opens,
 --ttl removes it after that many seconds (at most a day). Crest shows four such parts at most.
-Exit codes: 0 delivered, 1 usage error, 2 rejected, 3 Crest not running or notices off.
+`ask` shows a question with one button per option (--options, default allow,always,deny; at most
+four ids of a-z, 0-9 and -) and waits --timeout seconds (default 120, at most 600) for a click.
+It prints the chosen id; with no choice it prints nothing and exits 4. --quiet keeps its exit code.
+Exit codes: 0 delivered, 1 usage error, 2 rejected, 3 Crest not running or notices off, 4 no choice.
 `run` returns the command's exit code. A command Windows cannot start directly (a .cmd
 script such as npm) is run through cmd /d /c, which parses & | ^ < > in its arguments.";
 
@@ -70,6 +76,7 @@ enum Command {
     /// The request and a --json value ("-" = standard input) to take the body from.
     Send(Request, Option<String>),
     Run(Request, Vec<String>),
+    Ask(Request),
 }
 
 #[cfg(windows)]
@@ -88,6 +95,7 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
             "-q" | "--quiet" => {}
             "run" if i == 0 => run = true,
             "part" if i == 0 => return parse_part(&args[1..]),
+            "ask" if i == 0 => return parse_ask(&args[1..]),
             "--" if run => {
                 let command: Vec<String> = args[i + 1..].to_vec();
                 if command.is_empty() {
@@ -192,6 +200,66 @@ fn parse_part(args: &[String]) -> Result<Command, String> {
 }
 
 #[cfg(windows)]
+/// `ask [title words] [options]`. The options are checked here too, so a typo fails before anything shows.
+fn parse_ask(args: &[String]) -> Result<Command, String> {
+    let mut r = Request::default();
+    let mut options = "allow,always,deny".to_string();
+    let mut timeout = 120u64;
+    let mut words: Vec<String> = Vec::new();
+    let mut i = 0;
+    let value = |i: usize, flag: &str| args.get(i + 1).cloned().ok_or_else(|| format!("{flag} needs a value"));
+    while i < args.len() {
+        let a = args[i].as_str();
+        match a {
+            "-h" | "--help" => return Ok(Command::Help),
+            "-q" | "--quiet" => {}
+            "--title" => {
+                r.title = Some(value(i, a)?);
+                i += 1;
+            }
+            "-b" | "--body" => {
+                r.body = Some(value(i, a)?);
+                i += 1;
+            }
+            "-s" | "--source" => {
+                r.source = Some(value(i, a)?);
+                i += 1;
+            }
+            "-o" | "--options" => {
+                options = value(i, a)?;
+                i += 1;
+            }
+            "-t" | "--timeout" => {
+                timeout = value(i, a)?.parse().map_err(|_| "timeout must be a whole number of seconds".to_string())?;
+                i += 1;
+            }
+            _ if a.starts_with('-') && a.len() > 1 => return Err(format!("unknown option {a}")),
+            _ => words.push(a.to_string()),
+        }
+        i += 1;
+    }
+    if !words.is_empty() {
+        let joined = words.join(" ");
+        r.title = Some(r.title.map_or(joined.clone(), |t| format!("{t} {joined}")));
+    }
+    if r.title.is_none() && r.body.is_none() {
+        return Err("ask needs a --title or --body".into());
+    }
+    let options: Vec<String> = options.split(',').map(|o| o.trim().to_string()).collect();
+    if let Some(bad) = options.iter().find(|o| !notify_wire::option_ok(o)) {
+        return Err(format!("option id \"{bad}\" must be 1 to {} characters of a-z, 0-9 and -", notify_wire::MAX_FIELD));
+    }
+    if options.len() > notify_wire::MAX_ASK_OPTIONS || options.iter().enumerate().any(|(i, o)| options[..i].contains(o)) {
+        return Err(format!("at most {} different options", notify_wire::MAX_ASK_OPTIONS));
+    }
+    if !(1..=notify_wire::MAX_ASK_TIMEOUT).contains(&timeout) {
+        return Err(format!("timeout must be 1 to {} seconds", notify_wire::MAX_ASK_TIMEOUT));
+    }
+    r.ask = Some(notify_wire::Ask { options, timeout });
+    Ok(Command::Ask(r))
+}
+
+#[cfg(windows)]
 /// The --json value: the text itself, or standard input for "-" (a hook writes its event there and closes it).
 fn read_json(spec: &str) -> Option<String> {
     if spec != "-" {
@@ -250,13 +318,75 @@ fn judge(server: &(String, u32), own: &(String, u32)) -> Server {
 #[cfg(windows)]
 /// Sends one request and waits for the reply; the exit code for the outcome.
 fn send(request: &Request) -> u8 {
+    match exchange(request, Duration::from_secs(3)) {
+        Ok(Some(reply)) => verdict(reply),
+        Ok(None) => {
+            say!("crest-notify: Crest did not answer");
+            3
+        }
+        Err(code) => code,
+    }
+}
+
+#[cfg(windows)]
+/// Asks a question and waits up to its timeout; prints the chosen option id. 4 when no choice was made.
+fn ask(request: &Request) -> u8 {
+    let ask = request.ask.as_ref().expect("an ask request");
+    match exchange(request, Duration::from_secs(ask.timeout)) {
+        Ok(Some(Reply { result, choice: Some(c), .. })) if result == "answered" && ask.options.contains(&c) => {
+            println!("{c}");
+            0
+        }
+        // "accepted": an older Crest showed it as a plain notice.
+        Ok(Some(r)) if r.result == "unanswered" || r.result == "accepted" => {
+            say!("crest-notify: no choice was made");
+            4
+        }
+        Ok(Some(r)) => verdict(r),
+        Ok(None) => {
+            say!("crest-notify: no choice was made in time");
+            4
+        }
+        Err(code) => code,
+    }
+}
+
+#[cfg(windows)]
+/// The exit code for a reply to a notice.
+fn verdict(reply: Reply) -> u8 {
+    match reply.result.as_str() {
+        "accepted" => 0,
+        "limited" => {
+            say!("crest-notify: too many notices, try again in a few seconds");
+            2
+        }
+        "rejected" => {
+            let why = reply.reason.unwrap_or_default();
+            say!("crest-notify: notice rejected ({why})");
+            2
+        }
+        "off" => {
+            say!("crest-notify: live notices are off in Crest");
+            3
+        }
+        _ => {
+            say!("crest-notify: unexpected answer from Crest");
+            3
+        }
+    }
+}
+
+#[cfg(windows)]
+/// Connects, checks the server, writes the request and waits up to `wait` for one reply line. Ok(None) when none
+/// came (no answer in time, or Crest closed the channel); Err with the exit code when it could not be sent.
+fn exchange(request: &Request, wait: Duration) -> Result<Option<Reply>, u8> {
     let Some(line) = notify_wire::encode(request) else {
         say!("crest-notify: the notice is larger than 64 KB");
-        return 1;
+        return Err(1);
     };
     let Some((session, sid)) = notify_wire::identity() else {
         say!("crest-notify: cannot read the current user");
-        return 3;
+        return Err(3);
     };
     let name = notify_wire::pipe_name(session, &sid);
     // The server opens the next instance right after taking a client; a busy pipe (error 231) only waits a moment.
@@ -270,7 +400,7 @@ fn send(request: &Request) -> u8 {
             Err(e) if e.raw_os_error() == Some(231) && Instant::now() < deadline => std::thread::sleep(Duration::from_millis(50)),
             Err(_) => {
                 say!("crest-notify: Crest is not running, or live notices are off");
-                return 3;
+                return Err(3);
             }
         }
     };
@@ -278,16 +408,16 @@ fn send(request: &Request) -> u8 {
         Server::Ours => {}
         Server::Foreign => {
             say!("crest-notify: the notice channel is not Crest's (another user or a lower integrity level); nothing was sent");
-            return 3;
+            return Err(3);
         }
         Server::Unverified => {
             say!("crest-notify: Crest could not be verified at the other end of the channel; nothing was sent");
-            return 3;
+            return Err(3);
         }
     }
     if pipe.write_all(&line).and_then(|_| pipe.flush()).is_err() {
         say!("crest-notify: Crest closed the connection");
-        return 3;
+        return Err(3);
     }
     // Read on a thread so a Crest that hangs cannot hold the caller (a hook, a build script) for long.
     let (tx, rx) = std::sync::mpsc::channel();
@@ -305,34 +435,11 @@ fn send(request: &Request) -> u8 {
         }
         let _ = tx.send(buf);
     });
-    let Ok(buf) = rx.recv_timeout(Duration::from_secs(3)) else {
-        say!("crest-notify: Crest did not answer in time");
-        return 3;
-    };
-    let reply = match notify_wire::take_line(&buf) {
+    let Ok(buf) = rx.recv_timeout(wait) else { return Ok(None) };
+    Ok(match notify_wire::take_line(&buf) {
         notify_wire::Frame::Line(l) => serde_json::from_slice::<Reply>(&l).ok(),
         _ => None,
-    };
-    match reply.as_ref().map(|r| r.result.as_str()) {
-        Some("accepted") => 0,
-        Some("limited") => {
-            say!("crest-notify: too many notices, try again in a few seconds");
-            2
-        }
-        Some("rejected") => {
-            let why = reply.and_then(|r| r.reason).unwrap_or_default();
-            say!("crest-notify: notice rejected ({why})");
-            2
-        }
-        Some("off") => {
-            say!("crest-notify: live notices are off in Crest");
-            3
-        }
-        _ => {
-            say!("crest-notify: unexpected answer from Crest");
-            3
-        }
-    }
+    })
 }
 
 #[cfg(windows)]
@@ -371,9 +478,9 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let quiet = is_quiet(&args);
     QUIET.store(quiet, std::sync::atomic::Ordering::Relaxed);
-    // A hook that fails can stop or warn its agent; --quiet never does.
+    // A hook that fails can stop or warn its agent; --quiet never does. An ask keeps its code: it is the answer.
     let code = outcome(&args);
-    if quiet {
+    if quiet && args.first().map(String::as_str) != Some("ask") {
         ExitCode::SUCCESS
     } else {
         code
@@ -398,6 +505,7 @@ fn outcome(args: &[String]) -> ExitCode {
             ExitCode::from(send(&r))
         }
         Ok(Command::Run(r, command)) => run(r, command),
+        Ok(Command::Ask(r)) => ExitCode::from(ask(&r)),
         Err(e) => {
             say!("crest-notify: {e}\n\n{USAGE}");
             ExitCode::from(1)
@@ -482,6 +590,32 @@ mod tests {
         assert!(parse_args(&args(&["part", "build", "x", "-p", "200"])).is_err());
         // Only as the first word.
         assert!(matches!(parse_args(&args(&["Build", "part"])), Ok(Command::Send(r, None)) if r.part.is_none()));
+    }
+
+    #[test]
+    fn ask_args() {
+        let Ok(Command::Ask(r)) = parse_args(&args(&["ask", "--title", "Run command?", "-b", "cargo test", "-s", "Agent"])) else { panic!() };
+        assert_eq!((r.title.as_deref(), r.body.as_deref(), r.source.as_deref()), (Some("Run command?"), Some("cargo test"), Some("Agent")));
+        assert_eq!(r.ask.unwrap(), notify_wire::Ask { options: args(&["allow", "always", "deny"]), timeout: 120 });
+        let Ok(Command::Ask(r)) = parse_args(&args(&["ask", "Deploy", "now?", "-o", "yes, no", "-t", "600", "-q"])) else { panic!() };
+        assert_eq!(r.title.as_deref(), Some("Deploy now?"));
+        assert_eq!(r.ask.unwrap(), notify_wire::Ask { options: args(&["yes", "no"]), timeout: 600 });
+        assert!(matches!(parse_args(&args(&["ask", "-b", "only a body"])), Ok(Command::Ask(_))));
+        assert!(parse_args(&args(&["ask"])).is_err());
+        assert!(parse_args(&args(&["ask", "q", "-t", "0"])).is_err());
+        assert!(parse_args(&args(&["ask", "q", "-t", "601"])).is_err());
+        assert!(parse_args(&args(&["ask", "q", "-t", "soon"])).is_err());
+        assert!(parse_args(&args(&["ask", "q", "-o", "Allow"])).is_err());
+        assert!(parse_args(&args(&["ask", "q", "-o", "a,,b"])).is_err());
+        assert!(parse_args(&args(&["ask", "q", "-o", "a,b,c,d,e"])).is_err());
+        assert!(parse_args(&args(&["ask", "q", "-o", "a,a"])).is_err());
+        assert!(parse_args(&args(&["ask", "q", "--json", "-"])).is_err());
+        // Only as the first word.
+        assert!(matches!(parse_args(&args(&["Please", "ask"])), Ok(Command::Send(r, None)) if r.ask.is_none()));
+        // What the CLI builds, Crest accepts.
+        let Ok(Command::Ask(r)) = parse_args(&args(&["ask", "q", "-o", "a,b-2,c,d"])) else { panic!() };
+        let line = notify_wire::encode(&r).unwrap();
+        assert_eq!(notify_wire::parse(&line[..line.len() - 1]).unwrap(), r);
     }
 
     #[test]

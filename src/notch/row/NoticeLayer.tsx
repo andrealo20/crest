@@ -30,7 +30,8 @@ import { fontEpoch, measureText } from "./measure";
 import { Marquee } from "./Marquee";
 import { NOTICE_BUTTON as REC_BUTTON, NoticeButton, useNoticeHover } from "./NoticeButton";
 import { Ring } from "./parts/Rings";
-import { popping } from "../../features/notices/store";
+import { asks, popping } from "../../features/notices/store";
+import { askNotice } from "../../features/notices/AskNotice";
 import { noticePop } from "../../features/notices/NoticePop";
 import { usePresenting } from "../../features/privacy/store";
 
@@ -120,6 +121,7 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
   const track = useTrackCaption(!closed.parts.title);
   const status = statusAlert.use();
   const pop = popping.use();
+  const ask = asks.use()[0];
   const due = dueTasks.use();
   const drink = waterDue.use();
   const meeting = calendarDue.use();
@@ -134,6 +136,8 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
   const kind = topNotice({
     recording: rec.phase !== "idle",
     timer: finished,
+    // A question shows on the idle line too: a coding agent waits on it.
+    ask: !!ask,
     saved: !urgentOnly && !!shot && !presenting,
     status: !!status,
     notice: !urgentOnly && !!pop,
@@ -247,6 +251,8 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
         <span className={`truncate text-footnote font-medium ${bar ? "tabular" : ""}`} style={{ width: textW }}>{status.text}</span>
       </span>
     );
+  } else if (kind === "ask" && ask) {
+    ({ width, key, body } = askNotice(ask, max));
   } else if (kind === "notice" && pop) {
     ({ width, key, body } = noticePop(pop, max));
   } else if (kind === "quota" && rise) {
