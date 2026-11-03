@@ -522,6 +522,24 @@ export const status = {
   },
 };
 
+// ---------- Downloads in progress (downloads.rs) ----------
+
+/** A partial file in the Downloads folder: `name` is "" until Chrome names it, `speed` in bytes per second. */
+export interface DownloadProgress { name: string; size: number; speed: number }
+export interface DownloadFinished { name: string; path: string }
+
+export const downloadWatch = {
+  /** Rust watches the Downloads folder only while `on`. */
+  configure: (on: boolean) => {
+    if (isNative) void invoke("downloads_configure", { on });
+  },
+  on: (progress: (list: DownloadProgress[]) => void, finished: (d: DownloadFinished) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const offs = [listen<DownloadProgress[]>("downloads://progress", (e) => progress(e.payload)), listen<DownloadFinished>("downloads://finished", (e) => finished(e.payload))];
+    return () => offs.forEach((off) => void off.then((f) => f()));
+  },
+};
+
 const MOCK_BT = ["Audio.Headphone", "Input.Mouse", "Input.Keyboard", "Input.Gaming.Gamepad", "Audio.Speaker", "Communication.Phone", "Wearable.Watch", "Other"];
 
 /** Browser: each dev button toggles one source. Unplugging drops the mock percent by 9, so the low tones show too. */

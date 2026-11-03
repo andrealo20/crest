@@ -30,6 +30,8 @@ import { scriptParts } from "../../features/notices/store";
 import { Coffee } from "@phosphor-icons/react";
 import { t } from "../../i18n";
 import { awake } from "../../features/overview/store";
+import { DownloadsPart, downloadsCaption, downloadsWidth } from "./parts/DownloadsPart";
+import { downloads } from "../../features/downloads/store";
 
 /** True while `on`, and for `ms` after it turns off: GSMTC reports a short pause on seek and track change. */
 export function useHeld(on: boolean, ms: number): boolean {
@@ -64,6 +66,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   const gh = useGithubToday();
   const next = useNextEvent();
   const scripted = scriptParts.use();
+  const dl = downloads.use();
   const [hovered, setHovered] = useState(false);
   // The title stays while paused, like the cover; it only scrolls while playing.
   const music = s.music;
@@ -92,6 +95,10 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
     else if (id === "github" && gh) fixed(id, githubWidth(gh.count), () => <GithubPart count={gh.count} level={gh.level} />);
     else if (id === "calendar" && next) fixed(id, nextEventWidth(next.text), () => <NextEventPart text={next.text} color={next.color} />);
     else if (id === "script" && scripted.length) fixed(id, scriptPartsWidth(scripted), () => <ScriptParts parts={scripted} />);
+    else if (id === "downloads" && dl.length) {
+      const caption = downloadsCaption(dl);
+      fixed(id, downloadsWidth(caption), () => <DownloadsPart list={dl} caption={caption} />);
+    }
     else if (id === "clock") fixed(id, clockWidth(closed.clockSeconds, s.units.clock === "12"), () => <Clock seconds={closed.clockSeconds} h12={s.units.clock === "12"} paused={covered} />);
     else if (id === "title" && caption) {
       const text = measureText(caption);

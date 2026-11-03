@@ -27,12 +27,13 @@ test("track gate", () => {
 });
 
 test("priority", () => {
-  const none = { recording: false, timer: false, ask: false, saved: false, status: false, notice: false, quota: false, track: false, calendar: false, reminder: false, water: false, whatsnew: false };
-  const all = { recording: true, timer: true, ask: true, saved: true, status: true, notice: true, quota: true, track: true, calendar: true, reminder: true, water: true, whatsnew: true };
+  const none = { recording: false, timer: false, ask: false, saved: false, download: false, status: false, notice: false, quota: false, track: false, calendar: false, reminder: false, water: false, whatsnew: false };
+  const all = { recording: true, timer: true, ask: true, saved: true, download: true, status: true, notice: true, quota: true, track: true, calendar: true, reminder: true, water: true, whatsnew: true };
   assert.equal(topNotice(all), "recording");
   assert.equal(topNotice({ ...all, recording: false }), "timer");
   assert.equal(topNotice({ ...all, recording: false, timer: false }), "ask");
   assert.equal(topNotice({ ...all, recording: false, timer: false, ask: false }), "saved");
+  assert.equal(topNotice({ ...all, recording: false, timer: false, ask: false, saved: false }), "download");
   assert.equal(topNotice({ ...none, timer: true, status: true, notice: true, quota: true, track: true, reminder: true, water: true }), "timer");
   assert.equal(topNotice({ ...none, status: true, notice: true, quota: true, track: true, reminder: true }), "status");
   assert.equal(topNotice({ ...none, notice: true, quota: true, track: true, reminder: true }), "notice");

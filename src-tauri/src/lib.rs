@@ -17,6 +17,9 @@ mod discord;
 // On a Mac these keep parts only Windows reads yet (screen rules, mirrors, the launcher keys).
 #[cfg_attr(not(windows), allow(dead_code))]
 mod display;
+// Only Windows watches the folder yet; the Mac keeps the command as a no-op.
+#[cfg_attr(not(windows), allow(dead_code))]
+mod downloads;
 #[cfg(windows)]
 mod drop;
 #[cfg(windows)]
@@ -243,6 +246,7 @@ pub fn run() {
             convert::open_path,
             convert::copy_files,
             convert::file_preview,
+            downloads::downloads_configure,
             display::display_monitors,
             display::display_apply,
             display::display_screen,

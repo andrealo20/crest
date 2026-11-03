@@ -27,6 +27,7 @@ import { startGithub } from "./features/github/store";
 import { startCalendar } from "./features/calendar/store";
 import { screen, startWindowBehavior } from "./features/window/store";
 import { startCapture } from "./features/capture/store";
+import { startDownloads } from "./features/downloads/store";
 import { startPlugins } from "./features/plugins/store";
 import { showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
@@ -54,6 +55,7 @@ startGithub();
 startCalendar();
 startWindowBehavior();
 startCapture();
+startDownloads();
 startPlugins();
 
 // Send display settings (monitor, fullscreen, offset, window top, gaming) to Rust on start and on every change.

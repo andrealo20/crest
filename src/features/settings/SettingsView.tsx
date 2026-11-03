@@ -9,6 +9,7 @@ import {
   CheckCircle,
   Clock,
   Cpu,
+  DownloadSimple,
   GithubLogo,
   DotsSixVertical,
   Keyboard,
@@ -792,6 +793,9 @@ function Display() {
       <Row label={t("Hinweis bei Kontingent 70 und 90 %")} hint={t("Braucht den Teil AI-Nutzung")}>
         <Switch label={t("Hinweis bei Kontingent 70 und 90 %")} checked={s.closed.quotaAlerts} onChange={(quotaAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, quotaAlerts } }))} />
       </Row>
+      <Row label={t("Hinweis bei fertigem Download")} hint={t("Mit Im Ordner zeigen und Zur Ablage, nicht in den Ruhezeiten")}>
+        <Switch label={t("Hinweis bei fertigem Download")} checked={s.closed.downloadAlerts} onChange={(downloadAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, downloadAlerts } }))} />
+      </Row>
       <Row label={t("Statusmeldungen")} />
       {statusAlerts.map(([k, label, hint]) => (
         <Row key={k} label={t(label)} hint={t(hint)}>
@@ -896,6 +900,7 @@ const partInfo: Record<PartId, { label: string; icon: Icon; hue: Hue }> = {
   github: { label: "GitHub heute", icon: GithubLogo, hue: "violet" },
   calendar: { label: "Nächster Termin", icon: CalendarBlank, hue: "red" },
   script: { label: "Skript-Anzeigen (crest-notify)", icon: TerminalWindow, hue: "slate" },
+  downloads: { label: "Downloads", icon: DownloadSimple, hue: "teal" },
 };
 
 /** Small labelled switch for a part's own options, next to its main switch. */
