@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CaretDown, Coffee, Eye, EyeSlash, Moon, MusicNoteSimple, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleSlash, Timer } from "@phosphor-icons/react";
+import { CaretDown, Check, Coffee, Eye, EyeSlash, Headphones, Moon, MusicNoteSimple, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleHigh, SpeakerSimpleSlash, Timer } from "@phosphor-icons/react";
 import { DiscordLogo } from "../../ui/brands";
 import { content, springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
+import { requestSize } from "../../notch/size";
+import { findTab } from "../../notch/tabs";
 import { togglePresentation, usePresenting } from "../privacy/store";
 import { useNowPlaying } from "../../platform/media";
-import { systemControls, type FocusState, type VolumeState } from "../../platform/services";
+import { systemControls, type AudioOutput, type FocusState, type VolumeState } from "../../platform/services";
+import { MIXER_MAX_ROWS, MIXER_ROW } from "../now-playing/Mixer";
+import { outputIcon } from "./outputs";
 import { useDiscordCall } from "../discord/store";
 import { Equalizer } from "../now-playing/Equalizer";
 import { ARTWORK_LAYOUT_ID } from "../now-playing/NowPlayingView";
@@ -36,6 +40,29 @@ import { awake, startAwake, stopAwake } from "./store";
 export function OverviewView() {
   const presenting = usePresenting();
   const quotes = settings.use().productivity.quotes;
+
+  // Playback devices: read when Overview shows and each time the list opens, so one plugged in meanwhile shows up.
+  const [outputs, setOutputs] = useState<AudioOutput[]>([]);
+  const [outputsOpen, setOutputsOpen] = useState(false);
+  const loadOutputs = () => void systemControls.outputs().then(setOutputs).catch(() => setOutputs([]));
+  useEffect(loadOutputs, []);
+  const choice = outputs.length > 1;
+  const listOpen = outputsOpen && choice;
+  const pickOutput = (id: string) => {
+    setOutputsOpen(false);
+    setOutputs((list) => list.map((o) => ({ ...o, default: o.id === id })));
+    void systemControls.setOutput(id).catch(() => {}).finally(loadOutputs);
+  };
+
+  // The open list grows the notch by its rows, like the player menu in Now Playing.
+  const extra = listOpen ? Math.min(MIXER_MAX_ROWS, outputs.length) * MIXER_ROW + 14 : 0;
+  useEffect(() => {
+    if (!extra) return requestSize("overview", null);
+    const base = findTab("overview")!.size;
+    requestSize("overview", { w: base.w, h: base.h + extra });
+  }, [extra, quotes]);
+  useEffect(() => () => requestSize("overview", null), []);
+
   return (
     <div className="flex h-full flex-col gap-2.5 px-4 pt-1 pb-3">
       <HeaderActions>
@@ -48,8 +75,16 @@ export function OverviewView() {
       <div className="flex gap-2">
         <FocusTile />
         <AwakeTile />
-        <VolumeTile />
+        <VolumeTile
+          device={choice ? (outputs.find((o) => o.default)?.name ?? "") : null}
+          open={listOpen}
+          onDevices={() => {
+            if (!outputsOpen) loadOutputs();
+            setOutputsOpen(!outputsOpen);
+          }}
+        />
       </div>
+      {listOpen && <OutputList outputs={outputs} onPick={pickOutput} />}
       {quotes && <QuoteLine />}
     </div>
   );
@@ -275,8 +310,49 @@ function AwakeTile() {
   );
 }
 
-/** Thick volume slider like Control Center: drag anywhere, icon = mute. */
-function VolumeTile() {
+const OUTPUT_ICONS = { headphones: Headphones, "speaker-hifi": SpeakerHifi, speaker: SpeakerSimpleHigh };
+
+function OutputIcon({ name, className }: { name: string; className?: string }) {
+  const Icon = OUTPUT_ICONS[outputIcon(name)];
+  return <Icon size={15} weight="fill" className={className} />;
+}
+
+/** The active playback devices; picking one makes it the Windows default. */
+function OutputList({ outputs, onPick }: { outputs: AudioOutput[]; onPick: (id: string) => void }) {
+  return (
+    <motion.div
+      className="flex shrink-0 flex-col"
+      initial={{ opacity: 0, filter: "blur(4px)" }}
+      animate={{ opacity: 1, filter: "blur(0px)", transition: { ...content.enter, delay: 0.06 } }}
+    >
+      <div className="mx-0.5 mb-[3px] h-px bg-separator" />
+      <div
+        role="listbox"
+        aria-label={t("Ausgabegerät")}
+        className="-mx-1 overflow-y-auto px-1 [scrollbar-width:none]"
+        style={{ maxHeight: MIXER_MAX_ROWS * MIXER_ROW }}
+      >
+        {outputs.map((o) => (
+          <button
+            key={o.id}
+            role="option"
+            aria-selected={o.default}
+            onClick={() => onPick(o.id)}
+            className="pressable flex w-full items-center gap-2.5 rounded-[10px] px-2 text-start hover:bg-fill-1"
+            style={{ height: MIXER_ROW }}
+          >
+            <OutputIcon name={o.name} className={`shrink-0 ${o.default ? "text-label" : "text-label-3"}`} />
+            <span className={`min-w-0 flex-1 truncate text-footnote ${o.default ? "font-medium text-label" : "text-label-2"}`}>{o.name}</span>
+            {o.default && <Check size={13} weight="bold" className="shrink-0 text-label" />}
+          </button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+/** Thick volume slider like Control Center: drag anywhere, icon = mute. `device` is the default output's name, null with nothing to choose from. */
+function VolumeTile({ device, open, onDevices }: { device: string | null; open: boolean; onDevices: () => void }) {
   const [vol, setVol] = useState<VolumeState | null>(null);
   const dragging = useRef(false);
   const track = useRef<HTMLDivElement>(null);
@@ -347,6 +423,19 @@ function VolumeTile() {
         />
       </div>
       <span className="tabular w-8 shrink-0 text-end text-caption font-semibold text-label-2">{vol ? Math.round(level * 100) : "–"}</span>
+      {device !== null && (
+        <button
+          aria-label={t("Ausgabegerät")}
+          aria-expanded={open}
+          title={device || t("Ausgabegerät")}
+          onClick={onDevices}
+          className={`pressable -me-1.5 flex size-7 shrink-0 items-center justify-center rounded-full transition-colors duration-150 ${
+            open ? "bg-fill-2 text-label" : "text-label-2 hover:text-label"
+          }`}
+        >
+          <OutputIcon name={device} />
+        </button>
+      )}
     </div>
   );
 }

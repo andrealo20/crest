@@ -86,7 +86,7 @@ Caps Lock and Num Lock show the same way: switching either key says "Caps Lock o
 
 ## Overview, weather and Discord
 
-- **Overview** is a small control center: time, weather, what is playing right now, Windows focus, keep awake and a volume slider.
+- **Overview** is a small control center: time, weather, what is playing right now, Windows focus, keep awake and a volume slider. With more than one playback device, the button at the end of the slider lists them and makes the one you pick the Windows default.
 - **Keep awake** stops the PC and the display from going to sleep. A tap keeps them awake until you turn it off; the arrow on the card picks 30 minutes, 1 hour or 2 hours instead, and the card shows the time left. A timed one ends by itself. While it is on, a small cup shows in the closed notch. It always starts off when Crest starts, and Crest lets the PC sleep again when it quits.
 - **Weather** gives current conditions and a 7-day forecast through Open-Meteo. No API key needed.
 - **Discord** shows your current voice call with speaking members and buttons for mute, deafen and hang up. In the closed notch, a green equalizer plays while someone talks.
