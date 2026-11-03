@@ -60,7 +60,7 @@ export function SystemView() {
   return (
     <div className="flex h-full gap-2 px-4 pt-1 pb-2">
       <div className="min-w-0 flex-1 divide-y divide-separator rounded-[14px] bg-fill-1">
-        <Row i={i++} tick={st.tick} icon={Cpu} hue="blue" label="CPU" detail={join(cpuDetail)} temp={st.cpuTemp !== null ? { c: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp) } : null} tone={tone} values={st.history.cpu} max={100} value={`${Math.round(s.cpu)} %`} level={ofShare(s.cpu)}>
+        <Row i={i++} tick={st.tick} icon={Cpu} hue="red" label="CPU" detail={join(cpuDetail)} temp={st.cpuTemp !== null ? { c: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp) } : null} tone={tone} values={st.history.cpu} max={100} value={`${Math.round(s.cpu)} %`} level={ofShare(s.cpu)}>
           {cores > 0 && <CoreColumns cores={s.cores} tone={tone} />}
         </Row>
         <Row i={i++} tick={st.tick} icon={RamIcon} hue="violet" label="RAM" detail={`${gb(s.memUsed)} / ${gb(s.memTotal)} GB`} tone={tone} values={st.history.mem} max={100} value={`${Math.round(mem)} %`} level={memLevel}>

@@ -21,7 +21,7 @@ const DIAL = 16, DIAL_GAP = 3, GLYPH = 11, MARK = 6;
 const LETTER: Partial<Record<ReadingId, string>> = { cpu: "C", ram: "M", gpu: "G" };
 /** Settings, Tools, Hardware, "Coloured icons". Tuned for the black closed notch; a theme that paints the closed notch keeps its own ink. */
 const ICON_COLORS: Partial<Record<ReadingId, string>> = {
-  cpu: "#4c9aff", ram: "#a78bfa", gpu: "#34d399", down: "#22d3ee", up: "#f472b6", power: "#fbbf24", battery: "#4ade80", temp: "#fb923c",
+  cpu: "#f87171", ram: "#a78bfa", gpu: "#34d399", down: "#22d3ee", up: "#f472b6", power: "#fbbf24", battery: "#4ade80", temp: "#fb923c",
 };
 const GLYPHS: Partial<Record<ReadingId, Icon>> = { down: ArrowDown, up: ArrowUp, power: Lightning, temp: Thermometer };
 
