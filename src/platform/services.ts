@@ -1366,6 +1366,8 @@ const mockSources: CaptureSource[] = [
   { id: "monitor:\\\\.\\DISPLAY1", kind: "monitor", name: "\\\\.\\DISPLAY1", width: 2560, height: 1440, primary: true },
   { id: "monitor:\\\\.\\DISPLAY2", kind: "monitor", name: "\\\\.\\DISPLAY2", width: 1920, height: 1080, primary: false },
   { id: "window:1", kind: "window", name: "Visual Studio Code", width: 1600, height: 1000, primary: false },
+  // A long browser title: the source menu must keep it on one line.
+  { id: "window:2", kind: "window", name: "andrealo20/crest: Crest Island (preview). A notch at the screen edge with music and synced lyrics, live notices, timers - Google Chrome", width: 1600, height: 1000, primary: false },
 ];
 
 export const capture = {

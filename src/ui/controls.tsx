@@ -524,11 +524,13 @@ export function Select<T extends string>(props: {
                     props.onChange(o.value);
                     setOpen(false);
                   }}
-                  className={`flex h-7 w-full items-center rounded-[6px] px-2 text-start text-footnote hover:bg-fill-2 ${
+                  // A row is one line: a long window title is cut, and shown whole on hover.
+                  title={o.label}
+                  className={`flex h-7 w-full min-w-0 items-center rounded-[6px] px-2 text-start text-footnote hover:bg-fill-2 ${
                     o.value === props.value ? "text-label" : "text-label-2"
                   }`}
                 >
-                  {o.label}
+                  <span className="truncate">{o.label}</span>
                 </button>
               ))}
             </motion.div>
