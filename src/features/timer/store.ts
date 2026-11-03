@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createStore } from "../../lib/store";
 import { playAlarm, stopAlarm } from "../../lib/sound";
 import { settings } from "../../settings/store";
+import { focusSoundFor, setFocusSound } from "./focusSound";
 
 export type TimerMode = "focus" | "break";
 
@@ -35,6 +36,9 @@ export const timer = createStore<TimerState>(initial, { persist: "timer" });
 
 /** Is the alarm ringing right now? Not persisted, nothing rings after a restart. */
 export const ringing = createStore(false);
+
+/** Focus sound muted from the Timer tool until Crest restarts; the setting stays as it is. */
+export const focusMuted = createStore(false);
 
 export function remainingOf(s: TimerState, now = Date.now()): number {
   if (s.endsAt === null) return s.remaining;
@@ -129,6 +133,15 @@ if (!isTimerWindow) {
   timer.subscribe(() => {
     if (!timer.get().finished && ringing.get()) timerActions.silence();
   });
+  // A timer still running from before Crest started stays silent until it is started again.
+  const bootEndsAt = timer.get().endsAt;
+  const syncFocusSound = () => {
+    const { focusSound, focusVolume } = settings.get().timer;
+    setFocusSound(focusSoundFor(timer.get(), focusSound, focusMuted.get(), bootEndsAt), focusVolume);
+  };
+  timer.subscribe(syncFocusSound);
+  settings.subscribe(syncFocusSound);
+  focusMuted.subscribe(syncFocusSound);
 }
 
 // Both windows share the persisted state: adopt what the other window wrote. Writing the same

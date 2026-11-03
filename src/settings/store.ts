@@ -3,6 +3,7 @@ import { isLanguage, type LanguageSetting } from "../i18n/core";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
 import { normalizeClockLook, normalizeLook, type ClockLook, type TimerLook } from "../features/timer/looks";
+import { normalizeFocusSound, type FocusSound } from "../features/timer/focusSound";
 import { WATER_DEFAULTS, normalizeWater, type WaterConfig } from "../features/water/water";
 import { normalizeCards, USAGE_CARDS_DEFAULTS, type UsageCards } from "../features/usage/cards";
 import { THEME_DEFAULTS, normalizeThemeSettings, type ThemeSettings } from "../features/themes/themes";
@@ -85,8 +86,8 @@ export interface Settings {
   presentation: { manual: boolean; auto: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
-  /** Look of the big countdown in the Timer tool and the detached timer window. */
-  timer: { look: TimerLook; clockLook: ClockLook };
+  /** Look of the big countdown in the Timer tool and the detached timer window; background sound while a focus timer runs, volume 0 to 1. */
+  timer: { look: TimerLook; clockLook: ClockLook; focusSound: FocusSound; focusVolume: number };
   /** To-do reminders (sound), the water reminder and the quote line in Overview. */
   productivity: { reminderSound: boolean; quotes: boolean; water: WaterConfig };
   /** Terminal tool: shell, font size in px, start folder ("" = home), end the shell when the notch closes. */
@@ -195,7 +196,7 @@ const defaults: Settings = {
   units: regionUnits(),
   presentation: { manual: false, auto: true },
   updates: { auto: true },
-  timer: { look: "clean", clockLook: "standard" },
+  timer: { look: "clean", clockLook: "standard", focusSound: "off", focusVolume: 0.3 },
   productivity: { reminderSound: true, quotes: false, water: WATER_DEFAULTS },
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
   music: {
@@ -279,7 +280,13 @@ settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
     units: { ...defaults.units, ...s.units },
     presentation: { ...defaults.presentation, ...s.presentation },
     updates: { ...defaults.updates, ...s.updates },
-    timer: { look: normalizeLook(s.timer?.look), clockLook: normalizeClockLook(s.timer?.clockLook) },
+    timer: {
+      ...defaults.timer,
+      ...s.timer,
+      look: normalizeLook(s.timer?.look),
+      clockLook: normalizeClockLook(s.timer?.clockLook),
+      focusSound: normalizeFocusSound(s.timer?.focusSound),
+    },
     productivity: { ...defaults.productivity, ...s.productivity, water: normalizeWater(s.productivity?.water) },
     terminal: { ...defaults.terminal, ...s.terminal },
     music: { ...defaults.music, ...s.music, lyricSources: normalizeSources(s.music?.lyricSources) },

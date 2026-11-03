@@ -94,7 +94,7 @@ The volume and brightness HUD is a status alert too: when the volume or mute cha
 
 ## Productivity tools
 
-- **Timer** with focus and break presets, custom durations, six alarm sounds and a running countdown in the closed notch. An expired timer stays visible until you dismiss it.
+- **Timer** with focus and break presets, custom durations, six alarm sounds and a running countdown in the closed notch. An expired timer stays visible until you dismiss it. A focus timer can play a background sound while it runs (white, pink or brown noise, rain or waves, generated on the fly without audio files), which fades in at the start and out when the timer ends, pauses or resets; the speaker button in the Timer mutes it until Crest restarts.
 - **To-dos** and **notes** live on your machine and need no account. A to-do can have a due time; when it comes, an alarm sounds (unless you turn the sound off) and the to-do shows in the closed notch until you snooze it or mark it done.
 - **Clipboard** keeps a history of text, links, images and files, with filters and previews. Password managers are excluded on purpose, and nothing is written to disk.
 - **Shelf** is a parking spot for files. Drop them onto the notch or press Ctrl + V, then open, copy or reveal them later.
