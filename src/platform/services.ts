@@ -774,6 +774,36 @@ export const systemControls = {
   },
 };
 
+// ---------- Keep awake and power plans (src-tauri/src/power.rs) ----------
+
+/** Keeps the PC and the display awake for `minutes` (null = until turned off), or lets them sleep again. */
+export function keepAwake(on: boolean, minutes: number | null): Promise<void> {
+  return isNative ? invoke("keep_awake_set", { on, minutes }) : Promise.resolve();
+}
+
+export interface PowerPlans {
+  plans: { id: string; name: string }[];
+  active: string | null;
+}
+
+const mockPlans: PowerPlans = {
+  plans: [
+    { id: "381b4222-f694-41f0-9685-ff5bb260df2e", name: "Balanced" },
+    { id: "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c", name: "High performance" },
+    { id: "a1841308-3541-4fab-bc81-f71556f20b4a", name: "Power saver" },
+  ],
+  active: "381b4222-f694-41f0-9685-ff5bb260df2e",
+};
+
+export const powerPlans = {
+  list: (): Promise<PowerPlans> => (isNative ? invoke<PowerPlans>("power_plans") : Promise.resolve({ ...mockPlans })),
+  set: (id: string): Promise<PowerPlans> => {
+    if (isNative) return invoke<PowerPlans>("power_plan_set", { id });
+    mockPlans.active = id;
+    return Promise.resolve({ ...mockPlans });
+  },
+};
+
 // ---------- Detached timer window (src-tauri/src/timer_window.rs) ----------
 
 /** Opens the small always-on-top timer window at a saved position (physical px), if it is still on a monitor. */

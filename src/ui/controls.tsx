@@ -401,6 +401,8 @@ export function Select<T extends string>(props: {
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
   width?: string;
+  /** Own trigger: its content, look and name, and a menu width of its own when the trigger is small. */
+  trigger?: { content: ReactNode; className: string; label: string; menuWidth?: number };
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -422,9 +424,10 @@ export function Select<T extends string>(props: {
     const above = trigger.top - minY - MENU_GAP;
     const up = below < wanted && above > below;
     const room = up ? above : below;
+    const width = props.trigger?.menuWidth ?? trigger.width;
     setPos({
-      left: trigger.left,
-      width: trigger.width,
+      left: Math.max(MENU_EDGE, Math.min(trigger.left, window.innerWidth - MENU_EDGE - width)),
+      width,
       up,
       maxHeight: Math.max(MENU_ROW + 8, Math.min(wanted, room)),
       ...(up
@@ -462,17 +465,29 @@ export function Select<T extends string>(props: {
   const current = props.options.find((o) => o.value === props.value);
   return (
     <div ref={ref} className={`relative ${props.width ?? "w-28"}`}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="pressable pressable-fill flex h-7 w-full items-center justify-between gap-1 rounded-[8px] bg-fill-2 px-2 text-footnote text-label"
-      >
-        <span className="truncate">{current?.label}</span>
-        <CaretUpDown
-          size={11}
-          weight="bold"
-          className="shrink-0 text-label-3"
-        />
-      </button>
+      {props.trigger ? (
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-label={props.trigger.label}
+          aria-expanded={open}
+          title={props.trigger.label}
+          className={props.trigger.className}
+        >
+          {props.trigger.content}
+        </button>
+      ) : (
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="pressable pressable-fill flex h-7 w-full items-center justify-between gap-1 rounded-[8px] bg-fill-2 px-2 text-footnote text-label"
+        >
+          <span className="truncate">{current?.label}</span>
+          <CaretUpDown
+            size={11}
+            weight="bold"
+            className="shrink-0 text-label-3"
+          />
+        </button>
+      )}
       {createPortal(
         <AnimatePresence>
           {open && pos && (

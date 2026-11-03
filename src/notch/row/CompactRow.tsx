@@ -27,6 +27,9 @@ import { GithubPart, githubWidth, useGithubToday } from "./parts/GithubPart";
 import { NextEventPart, nextEventWidth, useNextEvent } from "./parts/NextEventPart";
 import { ScriptParts, scriptPartsWidth } from "./parts/ScriptPart";
 import { scriptParts } from "../../features/notices/store";
+import { Coffee } from "@phosphor-icons/react";
+import { t } from "../../i18n";
+import { awake } from "../../features/overview/store";
 
 /** True while `on`, and for `ms` after it turns off: GSMTC reports a short pause on seek and track change. */
 export function useHeld(on: boolean, ms: number): boolean {
@@ -57,6 +60,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   const rings = ringProviders(usage.use().providers);
   const readings = useReadings(closed, useGamingLive());
   const dots = usePrivacyDots();
+  const awakeOn = !!awake.use();
   const gh = useGithubToday();
   const next = useNextEvent();
   const scripted = scriptParts.use();
@@ -107,6 +111,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
       });
     }
   }
+  if (awakeOn) fixed("awake", 13, () => <Coffee size={13} weight="fill" className="text-label-2" aria-label={t("PC bleibt wach")} />);
   if (dots.length) fixed("privacy", dotsWidth(dots.length), () => <Dots dots={dots} />);
 
   const items = parts.map((p) => p.item);

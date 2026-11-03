@@ -1,11 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AppWindow, ArrowDown, ArrowsDownUp, ArrowUp, BatteryHigh, Cpu, HardDrives, Lightning, WifiHigh, X, type Icon } from "@phosphor-icons/react";
+import { AppWindow, ArrowDown, ArrowsDownUp, ArrowUp, BatteryHigh, CaretDown, Cpu, HardDrives, Lightning, WifiHigh, X, type Icon } from "@phosphor-icons/react";
 import { GpuIcon, RamIcon } from "../../ui/icons";
-import { Segmented } from "../../ui/controls";
+import { Segmented, Select } from "../../ui/controls";
 import { content, fade } from "../../design/motion";
 import { t } from "../../i18n";
-import { revealFile, systemIcon, type ProcReading } from "../../platform/services";
+import { powerPlans, revealFile, systemIcon, type PowerPlans, type ProcReading } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { batteryLevel, healthLevel } from "./battery";
 import { compactRate, driveSizes, duration, ghz, gigabytes, processMemory, processShare, rate, watts } from "./format";
@@ -22,7 +22,7 @@ import { useHue, type Hue } from "../themes/hues";
  *   │   ███████░░░░ cache 6.2 · commit 21 / 37 GB   │ …                        │
  *   │ ▦ GPU   RTX 4070 Ti · 3D · 54 °C     _╱╲   31%│ Drives                   │
  *   │ ⇅ Net   ↓ 12.3 MB/s ↑ 340 KB/s       ╱‾╲  12M │ C:  Samsung 990  ▓▓░ 41° │
- *   │ ϟ Power Estimate · CPU 20 W          ‾╲_  38 W│                          │
+ *   │ ϟ Power Estimate · CPU 20 W [Plan ⌄] ‾╲_  38 W│                          │
  *   │ ▭ Bat.  2 h 40 min left · 88 %             66%│                          │
  *   │ ◠ Ping  1.1.1.1                      ___ 14 ms│                          │
  *   └───────────────────────────────────────────────┴──────────────────────────┘
@@ -34,6 +34,8 @@ export function SystemView() {
   const st = system.use();
   const { colors, sort } = settings.use().system;
   const [detail, setDetail] = useState<ProcReading | null>(null);
+  const [plans, setPlans] = useState<PowerPlans | null>(null);
+  useEffect(() => void powerPlans.list().then(setPlans).catch(() => {}), []);
   // Closed with the pointer still over the list: the next opening ranks freely again.
   useEffect(() => () => holdProcesses.set(false), []);
   const driveColor = useHue("orange");
@@ -55,6 +57,28 @@ export function SystemView() {
     const n = nextGpu(gpus, g);
     if (n) updateSettings((cur) => ({ system: { ...cur.system, gpu: n.name, gpuIndex: n.index } }));
   };
+
+  // Many PCs only have Balanced: then there is nothing to switch.
+  const planName = plans?.plans.find((x) => x.id === plans.active)?.name ?? t("Energiesparplan");
+  const plan = plans && plans.plans.length > 1 && (
+    <Select
+      width="shrink-0"
+      value={plans.active ?? ""}
+      options={plans.plans.map((x) => ({ value: x.id, label: x.name }))}
+      onChange={(id) => void powerPlans.set(id).then(setPlans).catch(() => {})}
+      trigger={{
+        label: `${t("Energiesparplan")} · ${planName}`,
+        menuWidth: 180,
+        className: "pressable flex max-w-[84px] items-center gap-0.5 rounded-[4px] bg-fill-2 px-1 text-[10px] text-label-2 hover:text-label",
+        content: (
+          <>
+            <span className="truncate">{planName}</span>
+            <CaretDown size={8} weight="bold" className="shrink-0" />
+          </>
+        ),
+      }}
+    />
+  );
 
   let i = 0;
   return (
@@ -98,18 +122,19 @@ export function SystemView() {
             level={ofRate(Math.max(net.down, net.up))}
           />
         )}
-        {p && (
+        {(p || plan) && (
           <Row
             i={i++}
             tick={st.tick}
             icon={Lightning}
             hue="amber"
             label={t("Leistung")}
-            detail={join([t(p.source === "meter" ? "Gemessen" : p.source === "battery" ? "Akku-Entladung" : "Schätzung"), p.cpu !== null ? `CPU ${watts(p.cpu)} W` : null, p.gpu !== null ? `GPU ${watts(p.gpu)} W` : null])}
+            detail={p ? join([t(p.source === "meter" ? "Gemessen" : p.source === "battery" ? "Akku-Entladung" : "Schätzung"), p.cpu !== null ? `CPU ${watts(p.cpu)} W` : null, p.gpu !== null ? `GPU ${watts(p.gpu)} W` : null]) : ""}
+            control={plan}
             tone={tone}
-            values={st.history.power}
+            values={p ? st.history.power : undefined}
             max={Math.max(30, ...st.history.power.filter(Number.isFinite))}
-            value={`${p.estimate ? "~" : ""}${watts(p.watts)} W`}
+            value={p ? `${p.estimate ? "~" : ""}${watts(p.watts)} W` : "-"}
             level={0}
           />
         )}
@@ -212,6 +237,8 @@ function Row(props: {
   level: Level;
   onClick?: () => void;
   badge?: string;
+  /** A small control after the detail, such as the power plan. */
+  control?: ReactNode;
   children?: ReactNode;
 }) {
   const I = props.icon;
@@ -248,6 +275,7 @@ function Row(props: {
             </span>
           )}
           {props.badge && <span className="shrink-0 rounded-[4px] bg-fill-2 px-1 text-[10px] text-label-2">{props.badge}</span>}
+          {props.control}
         </span>
         {props.values ? <Trend values={props.values} second={props.second} max={props.max ?? 100} color={color} tick={props.tick} /> : <span className="flex-1" />}
         <span className="tabular w-[58px] shrink-0 text-end text-footnote font-semibold transition-colors duration-300" style={{ color }}>
