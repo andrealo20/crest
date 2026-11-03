@@ -340,6 +340,7 @@ pub fn run() {
             diagnostics_info,
             open_sponsors,
             open_store_review,
+            open_bug_report,
             #[cfg(target_os = "macos")]
             macos::memory_low,
             #[cfg(target_os = "macos")]
@@ -594,6 +595,13 @@ fn native_machine() -> Option<&'static str> {
 #[tauri::command]
 fn open_sponsors() -> Result<(), String> {
     opener().arg("https://github.com/sponsors/andrealo20").spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// The bug report form on GitHub, with this version already filled in (issue forms take field ids as query parameters).
+#[tauri::command]
+fn open_bug_report() -> Result<(), String> {
+    let url = concat!("https://github.com/andrealo20/crest/issues/new?template=bug_report.yml&version=", env!("CARGO_PKG_VERSION"));
+    opener().arg(url).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Crest's rating page in the Microsoft Store app; the buttons that call it show in the Store build only.

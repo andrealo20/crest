@@ -21,6 +21,7 @@ import {
   Play,
   Plugs,
   PuzzlePiece,
+  Bug,
   TerminalWindow,
   SlidersHorizontal,
   Sparkle,
@@ -42,6 +43,7 @@ import {
   build,
   display,
   openSponsors,
+  openBugReport,
   openStoreReview,
   portable,
   secrets,
@@ -271,6 +273,15 @@ export function SettingsView() {
             </button>
           );
         })}
+        {/* Not a page: opens GitHub's form, with this version filled in. */}
+        <button
+          onClick={openBugReport}
+          title={t("Öffnet das Formular auf GitHub, mit deiner Crest-Version schon eingetragen")}
+          className="pressable relative flex h-8 items-center gap-2 rounded-[8px] px-2.5 text-start text-body text-label-3 transition-colors duration-150 hover:text-label-2"
+        >
+          <Bug size={15} weight="bold" className="relative shrink-0" style={iconColors ? { color: hueVar("rose") } : undefined} />
+          <span className="relative truncate">{t("Fehler melden")}</span>
+        </button>
       </nav>
       {/* Ref on the stable container: popLayout doesn't pass refs to the child. */}
       <div ref={scroller} className="relative min-w-0 flex-1">

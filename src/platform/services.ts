@@ -301,6 +301,12 @@ export function openSponsors() {
   else window.open("https://github.com/sponsors/andrealo20", "_blank");
 }
 
+/** GitHub's bug report form, with Crest's version filled in (src-tauri lib.rs). */
+export function openBugReport() {
+  if (isNative) void invoke("open_bug_report");
+  else window.open("https://github.com/andrealo20/crest/issues/new?template=bug_report.yml", "_blank");
+}
+
 /** Crest's rating page in the Microsoft Store app (Store build only). */
 export function openStoreReview() {
   if (isNative) void invoke("open_store_review");
