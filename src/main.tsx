@@ -7,7 +7,8 @@ import { DesktopMock } from "./dev/DesktopMock";
 import { isMac, isNative } from "./platform/native";
 import { startDropListener } from "./platform/drop";
 import { clipboard } from "./platform/clipboard";
-import { settings } from "./settings/store";
+import { firstRun, settings } from "./settings/store";
+import { storageCheck } from "./platform/services";
 import { applyDisplay, placementKey } from "./notch/drag";
 import { focusMode, startFocusMode } from "./notch/focus";
 import { monitor, monitors, reloadMonitor, startMonitorWatch } from "./notch/monitor";
@@ -35,6 +36,8 @@ import { language, startLanguage, t } from "./i18n";
 import { setTrayTexts } from "./platform/native";
 
 if (showcase) startShowcase();
+
+void storageCheck(firstRun, t("Crest konnte deine Einstellungen nicht lesen. Beende Crest über das Symbol im Infobereich und öffne es wieder, bevor du etwas änderst: dann sind sie zurück."));
 
 startDropListener();
 startFocusMode();

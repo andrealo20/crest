@@ -61,6 +61,7 @@ mod shelf;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod shell;
 mod startup;
+mod storage_guard;
 #[cfg(windows)]
 mod system;
 #[cfg(windows)]
@@ -336,6 +337,7 @@ pub fn run() {
             vault::vault_hello_disable,
             autostart_get,
             autostart_set,
+            storage_guard::storage_check,
             build_info,
             diagnostics_info,
             open_sponsors,

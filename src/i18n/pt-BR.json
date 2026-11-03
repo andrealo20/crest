@@ -1198,6 +1198,7 @@
  "Crest öffnen": "Abrir o Crest",
  "Einstellungen …": "Configurações …",
  "Crest beenden": "Sair do Crest",
+ "Crest konnte deine Einstellungen nicht lesen. Beende Crest über das Symbol im Infobereich und öffne es wieder, bevor du etwas änderst: dann sind sie zurück.": "O Crest não conseguiu ler suas configurações. Feche o Crest pelo ícone na bandeja e abra de novo antes de mudar qualquer coisa: elas vão voltar.",
  "Plugins": "Plugins",
  "Plugin hinzufügen": "Adicionar um plugin",
  "Noch kein Plugin": "Nenhum plugin ainda",

@@ -1198,6 +1198,7 @@
  "Crest öffnen": "Crest खोलें",
  "Einstellungen …": "सेटिंग्स …",
  "Crest beenden": "Crest से बाहर निकलें",
+ "Crest konnte deine Einstellungen nicht lesen. Beende Crest über das Symbol im Infobereich und öffne es wieder, bevor du etwas änderst: dann sind sie zurück.": "Crest आपकी सेटिंग्स नहीं पढ़ सका। कुछ भी बदलने से पहले ट्रे आइकन से Crest बंद करें और फिर से खोलें: सेटिंग्स वापस आ जाएँगी।",
  "Plugins": "प्लगइन",
  "Plugin hinzufügen": "प्लगइन जोड़ें",
  "Noch kein Plugin": "अभी तक कोई प्लगइन नहीं",

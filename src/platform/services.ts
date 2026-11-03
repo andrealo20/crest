@@ -424,6 +424,10 @@ export const autostart = {
   set: (enabled: boolean): Promise<void> => (isNative ? invoke("autostart_set", { enabled }) : Promise.resolve()),
 };
 
+/** Startup check that the WebView opened the real localStorage; may restart Crest once (src-tauri/src/storage_guard.rs). */
+export const storageCheck = (empty: boolean, message: string): Promise<void> =>
+  isNative ? invoke("storage_check", { empty, message }) : Promise.resolve();
+
 // ---------- Display ----------
 
 /** The closed notch as markup (mirror.rs Picture): the page's theme variables, and the `data:` images by index (null = unchanged). */
