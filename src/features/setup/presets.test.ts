@@ -31,15 +31,15 @@ test("each preset switches exactly its tools and parts", () => {
   const base = fresh();
   const music = applyPreset(base, "music", base);
   assert.deepEqual(enabled(music), ["overview", "media", "timer"]);
-  assert.deepEqual(partsOn(music), ["timer", "title", "equalizer"]);
+  assert.deepEqual(partsOn(music), ["timer", "title", "equalizer", "downloads"]);
   assert.equal(music.music.titleLyrics, true);
   const prod = applyPreset(base, "productivity", base);
   assert.deepEqual(enabled(prod), ["overview", "timer", "todos", "notes", "clipboard", "shelf", "convert", "weather"]);
-  assert.deepEqual(partsOn(prod), ["timer", "equalizer"]);
+  assert.deepEqual(partsOn(prod), ["timer", "equalizer", "downloads"]);
   assert.equal(prod.music.titleLyrics, false);
   const ai = applyPreset(base, "ai", base);
   assert.deepEqual(enabled(ai), ["overview", "ask", "usage", "terminal"]);
-  assert.deepEqual(partsOn(ai), ["rings", "equalizer"]);
+  assert.deepEqual(partsOn(ai), ["rings", "equalizer", "downloads"]);
 });
 
 test("order and other options survive, custom undoes a preset", () => {

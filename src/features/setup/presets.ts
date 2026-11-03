@@ -7,9 +7,9 @@ export type PresetFields = Pick<Settings, "tools" | "closed" | "music">;
 
 /** Overview stays on in each: it is the start page. Every other tool and part not listed goes off. */
 export const PRESETS: Record<Exclude<PresetId, "custom">, { tools: string[]; parts: PartId[] }> = {
-  music: { tools: ["overview", "media", "timer"], parts: ["title", "equalizer", "timer"] },
-  productivity: { tools: ["overview", "timer", "todos", "notes", "clipboard", "shelf", "convert", "weather"], parts: ["timer", "equalizer"] },
-  ai: { tools: ["overview", "ask", "usage", "terminal"], parts: ["rings", "equalizer"] },
+  music: { tools: ["overview", "media", "timer"], parts: ["title", "equalizer", "timer", "downloads"] },
+  productivity: { tools: ["overview", "timer", "todos", "notes", "clipboard", "shelf", "convert", "weather"], parts: ["timer", "equalizer", "downloads"] },
+  ai: { tools: ["overview", "ask", "usage", "terminal"], parts: ["rings", "equalizer", "downloads"] },
 };
 
 /**

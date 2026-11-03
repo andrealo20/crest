@@ -29,16 +29,19 @@ Notch and capsule show a row of parts, centred and in the order you choose:
 - song title (or the current lyric line);
 - hardware readings: CPU, RAM and GPU, plus network, power, battery and temperature if you turn them on;
 - equalizer, clock (with seconds if you like), today's GitHub contributions and your next calendar event;
-- parts your scripts set with `crest-notify part`: an icon, a short text and a progress bar, which can open a tool or plugin on click.
+- parts your scripts set with `crest-notify part`: an icon, a short text and a progress bar, which can open a tool or plugin on click;
+- downloads in progress, while a browser is downloading something.
 
 Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel.
 
-A click on a part opens its tool: the readings open Hardware, the AI rings AI Usage, the cover, title and equalizer the music, the timer and the clock the Timer, the next event the Calendar and script parts Notices. With **Open: Hover** the part under the pointer when the notch opens decides the same way. Anywhere else, or when that tool is off, the notch opens as usual.
+A click on a part opens its tool: the readings open Hardware, the AI rings AI Usage, the cover, title and equalizer the music, the timer and the clock the Timer, the next event the Calendar, script parts Notices and downloads the Shelf. With **Open: Hover** the part under the pointer when the notch opens decides the same way. Anywhere else, or when that tool is off, the notch opens as usual.
 
 **Adjust on the notch**, next to the size in **Settings → Display**, closes the panel and puts the closed notch, capsule or line in a resize mode: drag its ends to change the width (both sides move) and its far side to change the height, double-click a grip for the default, and finish with **Done** or Esc. It neither opens nor moves meanwhile, and the sliders in the settings keep working too.
 
 <p align="center"><img src="media/features/closed-notch.png" alt="The closed notch with coloured icons: a running timer, the AI quota ring, CPU, RAM and GPU load, download and upload, power draw, battery, temperature, the clock and today's GitHub contributions" width="820" /></p>
 <p align="center"><img src="media/features/settings-closed-notch.png" alt="Settings, Display: the closed row's parts with switches, the system load readings and the quota alerts" width="560" /></p>
+
+**Downloads** (on by default) shows while a browser downloads into your Downloads folder: a download icon, the size so far and the speed averaged over the last 3 seconds, like "124 MB · 8.2 MB/s", with the count in front when there are several. Browsers give no reliable total size, so there is no percentage. Crest spots the partial files browsers write (`.crdownload` for Chrome and Edge, `.part` for Firefox, `.download` and `.partial`) through Windows' change notifications for that folder, not its subfolders, and reads their sizes once a second only while one exists. When a download finishes, a notice says "Downloaded report.pdf" with **Show in folder** and **Add to Shelf**; a cancelled one just disappears. The notice stays quiet during the notices' quiet hours and in presentation mode, and has its own switch in **Settings → Display**. With both the part and the notice off, Crest stops watching the folder.
 
 **Privacy dots** turn green when the microphone or camera is in use and red while the screen is being recorded, like on an iPhone.
 
@@ -49,6 +52,7 @@ Notices appear over the row, one at a time:
 - a running recording, with its time and pause and stop buttons, until it ends;
 - a finished timer, until you dismiss it;
 - a screenshot or recording just saved, for 4 seconds, with a thumbnail; click it to open the file;
+- a finished download, for 6 seconds, with buttons to show it in its folder or add it to the Shelf;
 - a status alert (see below);
 - a live notice from Windows or `crest-notify`, for 6 seconds;
 - a quota alert at 70% and 90%, for 5 seconds (it needs the AI quota rings turned on);

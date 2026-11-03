@@ -1,19 +1,19 @@
 // Settings model of the closed notch's row: which parts show and in what order. Pure, so the saved shape can be repaired (and tested) without the app around it.
 
-export const PART_IDS = ["timer", "discord", "rings", "title", "readings", "equalizer", "clock", "github", "calendar", "script"] as const;
+export const PART_IDS = ["timer", "discord", "rings", "title", "readings", "equalizer", "clock", "github", "calendar", "script", "downloads"] as const;
 export type PartId = (typeof PART_IDS)[number];
 /** Readings of the closed row; net, power, battery and temp are opt-in. */
 export const READING_KEYS = ["cpu", "ram", "gpu", "net", "power", "battery", "temp"] as const;
 export type ReadingKey = (typeof READING_KEYS)[number];
-export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; statusAlerts: StatusAlerts }
+export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; downloadAlerts: boolean; statusAlerts: StatusAlerts }
 /** `hideOsd` is not an alert: it hides the Windows volume and brightness indicator while Crest shows its own (status.ts osdHidden). */
 export interface StatusAlerts { power: boolean; net: boolean; bt: boolean; volume: boolean; brightness: boolean; lock: boolean; hideOsd: boolean }
 
 export const CLOSED_DEFAULTS: ClosedSettings = {
   order: [...PART_IDS],
-  parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, calendar: false, script: false },
+  parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, calendar: false, script: false, downloads: true },
   readings: { cpu: true, ram: true, gpu: true, net: false, power: false, battery: false, temp: false },
-  clockSeconds: false, lineProgress: true, quotaAlerts: true,
+  clockSeconds: false, lineProgress: true, quotaAlerts: true, downloadAlerts: true,
   statusAlerts: { power: true, net: true, bt: true, volume: true, brightness: true, lock: true, hideOsd: false },
 };
 
@@ -31,6 +31,7 @@ export function normalizeClosed(saved: unknown): ClosedSettings {
     parts: Object.fromEntries(PART_IDS.map((id) => [id, bool(parts[id], d.parts[id])])) as Record<PartId, boolean>,
     readings: Object.fromEntries(READING_KEYS.map((k) => [k, bool(readings[k], d.readings[k])])) as Record<ReadingKey, boolean>,
     clockSeconds: bool(s.clockSeconds, d.clockSeconds), lineProgress: bool(s.lineProgress, d.lineProgress), quotaAlerts: bool(s.quotaAlerts, d.quotaAlerts),
+    downloadAlerts: bool(s.downloadAlerts, d.downloadAlerts),
     statusAlerts: Object.fromEntries(Object.entries(d.statusAlerts).map(([k, v]) => [k, bool(alerts[k], v)])) as unknown as StatusAlerts,
   };
 }
@@ -58,6 +59,8 @@ export function partTool(part: string): string | null {
       return "system";
     case "script":
       return "notices";
+    case "downloads":
+      return "shelf";
     case "discord":
     case "github":
     case "calendar":

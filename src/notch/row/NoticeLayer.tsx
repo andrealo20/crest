@@ -33,6 +33,8 @@ import { Ring } from "./parts/Rings";
 import { popping } from "../../features/notices/store";
 import { noticePop } from "../../features/notices/NoticePop";
 import { usePresenting } from "../../features/privacy/store";
+import { finishedDownload } from "../../features/downloads/store";
+import { downloadNotice } from "../../features/downloads/DownloadNotice";
 
 const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76, REC_DOT = 8, THUMB_W = 28, LEVEL_BAR = 56;
 const STATUS_ICON: Record<StatusAlert["icon"], Icon> = {
@@ -128,6 +130,7 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
   const recRunning = rec.phase === "recording";
   useSecondTick(recRunning, rec.at);
   const shot = useSaved();
+  const download = finishedDownload.use();
   // The thumbnail can show anything that was on screen: not while presenting.
   const presenting = usePresenting();
   // On the idle line and in focus mode only what cannot wait: a recording, the finished timer, a status alert (its store already skips focus mode) and a due reminder.
@@ -135,6 +138,7 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
     recording: rec.phase !== "idle",
     timer: finished,
     saved: !urgentOnly && !!shot && !presenting,
+    download: !urgentOnly && !!download,
     status: !!status,
     notice: !urgentOnly && !!pop,
     quota: !urgentOnly && !!rise && closed.quotaAlerts,
@@ -196,6 +200,8 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
         <span className="whitespace-nowrap text-footnote font-medium">{label}</span>
       </button>
     );
+  } else if (kind === "download" && download) {
+    ({ width, key, body } = downloadNotice(download));
   } else if (kind === "timer") {
     const label = t("Abgelaufen");
     width = ICON + GAP + measureText(label);
