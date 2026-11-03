@@ -5,7 +5,8 @@
 //! Where that is not possible (older Windows, a player without its own audio session)
 //! it falls back to WASAPI loopback of the default output device, which delivers
 //! everything that is playing. An FFT over the latest samples gives 4 frequency bands,
-//! sent as `audio://levels` (0..1).
+//! sent as `audio://levels` (0..1), and 12 thinner ones for the Spectrum and Wave looks,
+//! sent as `audio://spectrum`. Tauri only hands an event to a webview that listens for it.
 //!
 //! Only runs while the frontend asks for it (music playing, equalizer visible).
 //! Nothing is stored or recorded; samples only live in the ring buffer.
@@ -30,6 +31,9 @@ const FFT_SIZE: usize = 1024;
 const TICK: Duration = Duration::from_millis(25);
 /// Bass on the left, treble on the right, log-spaced (Hz).
 const BANDS: [(f32, f32); 4] = [(40.0, 160.0), (160.0, 600.0), (600.0, 2400.0), (2400.0, 9000.0)];
+/// Bands of `audio://spectrum`, log-spaced between these frequencies (Hz).
+const SPECTRUM: usize = 12;
+const SPECTRUM_HZ: (f32, f32) = (50.0, 12_000.0);
 /// Fast attack, slower release, like an analog meter.
 const ATTACK: f32 = 0.55;
 const RELEASE: f32 = 0.18;
@@ -52,6 +56,28 @@ fn shown_app(app: &AppHandle) -> String {
 
 fn default_output() -> Option<cpal::DeviceId> {
     cpal::default_host().default_output_device().and_then(|d| d.id().ok())
+}
+
+/// FFT bin edges of the spectrum bands, each band at least one bin wide (the lowest ones are narrower than a bin).
+fn spectrum_edges(bin_hz: f32) -> [usize; SPECTRUM + 1] {
+    let (lo, hi) = SPECTRUM_HZ;
+    let mut edges = [0usize; SPECTRUM + 1];
+    for k in 0..=SPECTRUM {
+        let hz = lo * (hi / lo).powf(k as f32 / SPECTRUM as f32);
+        let bin = ((hz / bin_hz).round() as usize).clamp(1, FFT_SIZE / 2);
+        edges[k] = if k == 0 { bin } else { bin.max(edges[k - 1] + 1) };
+    }
+    edges
+}
+
+/// One band: mean magnitude of its bins, auto gain against the band's recent peak, meter smoothing.
+fn meter(bins: &[Complex<f32>], peak: &mut f32, level: &mut f32) {
+    let energy = bins.iter().map(|c| c.norm()).sum::<f32>() / bins.len().max(1) as f32;
+    *peak = energy.max(*peak * 0.996).max(1e-3);
+    // Below the noise floor counts as silence.
+    let target = if energy < 2e-3 { 0.0 } else { (energy / *peak).powf(0.8).min(1.0) };
+    let k = if target > *level { ATTACK } else { RELEASE };
+    *level += (target - *level) * k;
 }
 
 fn push(ring: &mut VecDeque<f32>, mono: &mut dyn Iterator<Item = f32>) {
@@ -101,6 +127,8 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
         let mut levels = [0.0f32; 4];
         // Auto gain per band so quiet and loud songs move the bars equally.
         let mut peaks = [1e-3f32; 4];
+        let mut spectrum = [0.0f32; SPECTRUM];
+        let mut spectrum_peaks = [1e-3f32; SPECTRUM];
         let mut sample_rate = 48_000.0f32;
 
         loop {
@@ -111,7 +139,9 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                 if capture.take().is_some() {
                     samples.lock().unwrap().clear();
                     levels = [0.0; 4];
+                    spectrum = [0.0; SPECTRUM];
                     let _ = app.emit("audio://levels", levels);
+                    let _ = app.emit("audio://spectrum", spectrum);
                 }
                 // Sleep until `audio_levels(true)` instead of waking 40×/s. The timeout
                 // only guards against a missed unpark (turned on before `worker` was set).
@@ -198,15 +228,14 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
             let bin_hz = sample_rate / FFT_SIZE as f32;
             for (band, &(lo, hi)) in BANDS.iter().enumerate() {
                 let (from, to) = ((lo / bin_hz) as usize, ((hi / bin_hz) as usize).min(FFT_SIZE / 2));
-                let energy: f32 = buffer[from..to.max(from + 1)].iter().map(|c| c.norm()).sum::<f32>() / (to - from).max(1) as f32;
-
-                peaks[band] = energy.max(peaks[band] * 0.996).max(1e-3);
-                // Below the noise floor counts as silence.
-                let target = if energy < 2e-3 { 0.0 } else { (energy / peaks[band]).powf(0.8).min(1.0) };
-                let k = if target > levels[band] { ATTACK } else { RELEASE };
-                levels[band] += (target - levels[band]) * k;
+                meter(&buffer[from..to.max(from + 1)], &mut peaks[band], &mut levels[band]);
+            }
+            let edges = spectrum_edges(bin_hz);
+            for band in 0..SPECTRUM {
+                meter(&buffer[edges[band]..edges[band + 1]], &mut spectrum_peaks[band], &mut spectrum[band]);
             }
             let _ = app.emit("audio://levels", levels);
+            let _ = app.emit("audio://spectrum", spectrum);
         }
     });
     *state.worker.lock().unwrap() = Some(handle.thread().clone());
@@ -245,4 +274,35 @@ fn open(samples: Arc<Mutex<VecDeque<f32>>>, failed: Arc<AtomicBool>) -> Option<(
     .ok()?;
     stream.play().ok()?;
     Some((stream, rate, id))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spectrum_bands_are_distinct_and_in_range() {
+        for rate in [44_100.0f32, 48_000.0, 96_000.0, 8_000.0] {
+            let edges = spectrum_edges(rate / FFT_SIZE as f32);
+            assert!(edges[0] >= 1, "no DC bin");
+            assert!(edges.windows(2).all(|w| w[1] > w[0]), "{rate}: {edges:?}");
+            assert!(edges[SPECTRUM] <= FFT_SIZE, "{rate}: {edges:?}");
+        }
+        // 48 kHz: 50 Hz is the first bin, 12 kHz bin 256.
+        let edges = spectrum_edges(48_000.0 / FFT_SIZE as f32);
+        assert_eq!((edges[0], edges[SPECTRUM]), (1, 256));
+    }
+
+    #[test]
+    fn meter_rises_fast_and_falls_to_silence() {
+        let loud = vec![Complex::new(1.0f32, 0.0); 4];
+        let (mut peak, mut level) = (1e-3f32, 0.0f32);
+        meter(&loud, &mut peak, &mut level);
+        assert!((level - ATTACK).abs() < 1e-6);
+        let quiet = vec![Complex::new(0.0f32, 0.0); 4];
+        for _ in 0..60 {
+            meter(&quiet, &mut peak, &mut level);
+        }
+        assert!(level < 1e-3);
+    }
 }

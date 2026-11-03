@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
-import { audioLevelsAvailable, subscribeLevels, type Levels } from "../../platform/audio";
+import { audioLevelsAvailable, subscribeLevels, subscribeSpectrum } from "../../platform/audio";
+import { wavePath } from "./shapes";
 
 /*
- * Four bars in the accent color, bass on the left, treble on the right.
+ * Four bars in the accent color, bass on the left, treble on the right. The Music tool can
+ * also show 12 thinner bars (Spectrum) or a line through those 12 bands (Wave).
  *
  * One animation loop for every state, so nothing ever switches hard:
  * - Playing + real levels (WASAPI loopback, ~40 values/s): bars follow the sound.
@@ -34,11 +36,21 @@ function synthetic(i: number, t: number): number {
   return 0.5 + 0.32 * a + 0.18 * b;
 }
 
-/** `tint` = Tailwind background class for the bars (Discord: green instead of accent). */
-export function Equalizer({ playing, height = 12, tint = "bg-accent" }: { playing: boolean; height?: number; tint?: string }) {
+export type EqualizerLook = "bars" | "spectrum" | "wave";
+const SPECTRUM_BANDS = 12;
+const WAVE_WIDTH = 28;
+const WAVE_STROKE = 1.75;
+
+/**
+ * `tint` = Tailwind background class for the bars (Discord: green instead of accent).
+ * `look` is read once: give the element a `key` that changes with it.
+ */
+export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "bars" }: { playing: boolean; height?: number; tint?: string; look?: EqualizerLook }) {
+  const count = look === "bars" ? 4 : SPECTRUM_BANDS;
   const bars = useRef<(HTMLSpanElement | null)[]>([]);
+  const wave = useRef<SVGPathElement>(null);
   const playingRef = useRef(playing);
-  const levels = useRef<{ values: Levels; at: number } | null>(null);
+  const levels = useRef<{ values: readonly number[]; at: number } | null>(null);
   const wake = useRef<() => void>(() => {});
 
   // Apply pause with a slight delay (flicker on seek), start immediately.
@@ -60,9 +72,10 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent" }: { playin
   useEffect(() => {
     if (!audioLevelsAvailable) return;
     if (playing) {
-      off.current ??= subscribeLevels((values) => {
+      const store = (values: readonly number[]) => {
         levels.current = { values, at: performance.now() };
-      });
+      };
+      off.current ??= look === "bars" ? subscribeLevels(store) : subscribeSpectrum(store);
       return;
     }
     const id = window.setTimeout(() => {
@@ -70,7 +83,7 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent" }: { playin
       off.current = null;
     }, RELEASE_CAPTURE_MS);
     return () => window.clearTimeout(id);
-  }, [playing]);
+  }, [playing, look]);
   useEffect(
     () => () => {
       off.current?.();
@@ -81,7 +94,7 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent" }: { playin
 
   // Animation loop: runs while something moves, sleeps when paused and settled.
   useEffect(() => {
-    const value = [IDLE, IDLE, IDLE, IDLE];
+    const value = Array<number>(count).fill(IDLE);
     let frame = 0;
     let last = performance.now();
     let quiet = 0;
@@ -103,7 +116,7 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent" }: { playin
       const breathe = Math.min(1, Math.max(0, (quiet - 0.15) / 0.35));
 
       let settled = true;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < count; i++) {
         let target: number;
         let tau: number;
         if (!playingRef.current) {
@@ -120,6 +133,7 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent" }: { playin
         const bar = bars.current[i];
         if (bar) bar.style.transform = `scaleY(${value[i].toFixed(3)})`;
       }
+      wave.current?.setAttribute("d", wavePath(value, WAVE_WIDTH, height, WAVE_STROKE / 2 + 0.25));
 
       frame = playingRef.current || !settled ? requestAnimationFrame(tick) : 0;
     };
@@ -134,17 +148,34 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent" }: { playin
       cancelAnimationFrame(frame);
       wake.current = () => {};
     };
-  }, []);
+  }, [count, height]);
 
+  if (look === "wave")
+    return (
+      <svg width={WAVE_WIDTH} height={height} className="overflow-visible" aria-hidden>
+        <path
+          ref={wave}
+          d={wavePath(Array<number>(count).fill(IDLE), WAVE_WIDTH, height, WAVE_STROKE / 2 + 0.25)}
+          fill="none"
+          // The tint's colour token directly: Tailwind would not see a stroke class built from it at runtime.
+          stroke={`var(--color-${tint.replace(/^bg-/, "")})`}
+          strokeWidth={WAVE_STROKE}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ transition: "stroke 400ms ease" }}
+        />
+      </svg>
+    );
+  // Spectrum: thinner bars, scaled from the middle like the four, so it reads as one family.
   return (
-    <div className="flex items-center gap-[2px]" style={{ height }} aria-hidden>
-      {[0, 1, 2, 3].map((i) => (
+    <div className={`flex items-center ${look === "bars" ? "gap-[2px]" : "gap-[1px]"}`} style={{ height }} aria-hidden>
+      {Array.from({ length: count }, (_, i) => (
         <span
           key={i}
           ref={(el) => {
             bars.current[i] = el;
           }}
-          className={`h-full w-[2.5px] rounded-full ${tint}`}
+          className={`h-full rounded-full ${look === "bars" ? "w-[2.5px]" : "w-[1.5px]"} ${tint}`}
           style={{ transform: `scaleY(${IDLE})`, transition: "background-color 400ms ease" }}
         />
       ))}

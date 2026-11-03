@@ -69,6 +69,7 @@ Caps Lock and Num Lock show the same way: switching either key says "Caps Lock o
 
 - **Now Playing** controls anything with a Windows media session (Spotify, browser players and so on) and shows cover, title, progress and a live equalizer.
 - The equalizer is driven by the playing app's own audio, so a notification or a call doesn't move it (on Windows builds before 20348 it follows the whole output).
+- **Equalizer style** (Bars, Spectrum with 12 thin bars, or Wave) and **Progress bar** (Line, or Wavy, which moves while a song plays and goes flat on pause) in **Settings → Display → Music** change the Music tool; the closed row keeps its four bars.
 - Shuffle and repeat appear when the app offers them.
 - With several players open, the name left of the controls picks one and pins it; Automatic follows whatever plays.
 - **Synced lyrics**: the microphone button opens them under the controls, scrolling along with the song. Click a line to jump there.
