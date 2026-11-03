@@ -23,7 +23,8 @@ test("broken values fall back, valid ones stay", () => {
 test("hotkeys: missing open takes the default, an empty one stays unset, invalid ones are dropped", () => {
   assert.equal(normalizeWindow({}).hotkeys.open, "Ctrl+Alt+Space");
   assert.equal(normalizeWindow({ hotkeys: { open: "" } }).hotkeys.open, "");
-  assert.deepEqual(normalizeWindow({ hotkeys: { open: "KeyK", hide: "ctrl+alt+KeyH", resize: "Alt+Arrows" } }).hotkeys, { open: "", hide: "Ctrl+Alt+KeyH", resize: "" });
+  assert.deepEqual(normalizeWindow({ hotkeys: { open: "KeyK", hide: "ctrl+alt+KeyH", resize: "Alt+Arrows" } }).hotkeys, { open: "", hide: "Ctrl+Alt+KeyH", resize: "", find: "Ctrl+Alt+KeyF" });
+  assert.equal(normalizeWindow({ hotkeys: { find: "" } }).hotkeys.find, "");
 });
 
 test("app rules: keys, duplicates, follow values and the cap", () => {

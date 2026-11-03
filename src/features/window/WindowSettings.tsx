@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLineUp, X } from "@phosphor-icons/react";
+import { isMac } from "../../platform/native";
 import { windowShell, type RunningApp } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { tabs, settingsTab } from "../../notch/tabs";
@@ -163,11 +164,12 @@ function AppRules() {
   );
 }
 
-const hotkeyLabel: Record<HotkeyKind, string> = { open: "Öffnen und schließen", hide: "Crest aus- und einblenden", resize: "Größe ändern" };
+const hotkeyLabel: Record<HotkeyKind, string> = { open: "Öffnen und schließen", hide: "Crest aus- und einblenden", resize: "Größe ändern", find: "Auf dem Bildschirm suchen" };
 const hotkeyHint: Record<HotkeyKind, string> = {
   open: "Öffnet und schließt die Notch von überall",
   hide: "Blendet Crest aus, bis du es wieder drückst",
   resize: "Mit Alt, einer weiteren Taste und den Pfeiltasten: ←/→ Breite, ↑/↓ Höhe des offenen Tools",
+  find: "Liest den Text auf allen Bildschirmen und öffnet die Suche darin",
 };
 const recordErrors: Record<RecordError, string> = {
   "need-modifier": "Buchstaben und Ziffern brauchen Strg, Alt oder Win; F1 bis F24 gehen allein",
@@ -182,6 +184,7 @@ function Shortcuts() {
       <HotkeyRow kind="open" />
       <HotkeyRow kind="hide" />
       <HotkeyRow kind="resize" />
+      {!isMac && <HotkeyRow kind="find" />}
     </Group>
   );
 }

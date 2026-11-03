@@ -13,6 +13,7 @@ import {
   GearSix,
   Gift,
   HandWaving,
+  MagnifyingGlass,
   GithubLogo,
   RocketLaunch,
   SquaresFour,
@@ -58,6 +59,7 @@ import { SetupView } from "../features/setup/SetupView";
 import { WhatsNewView } from "../features/whatsnew/WhatsNewView";
 import { Camera, VideoCamera } from "@phosphor-icons/react";
 import { CameraView } from "../features/camera/CameraView";
+import { FindView } from "../features/find/FindView";
 import { pluginTab } from "../features/plugins/tabs";
 import { isMac } from "../platform/native";
 
@@ -130,7 +132,10 @@ export const setupTab: NotchTab = { id: "setup", label: "Einrichtung", icon: Han
 /** What's new: opened from its notice in the closed notch (src/features/whatsnew/). Not in the tool bar. */
 export const whatsNewTab: NotchTab = { id: "whatsnew", label: "Neuerungen", icon: Gift, size: { w: 560, h: 360 }, View: WhatsNewView };
 
-export const pageTabs = [settingsTab, setupTab, whatsNewTab];
+/** Find on screen: opened by its shortcut (Settings, Window), reads the screens with OCR (src/features/find/). */
+export const findOnScreenTab: NotchTab = { id: "find", label: "Auf dem Bildschirm suchen", icon: MagnifyingGlass, size: { w: 600, h: 320 }, View: FindView };
+
+export const pageTabs = [settingsTab, setupTab, whatsNewTab, findOnScreenTab];
 
 /** A built-in tool, a page, or an installed plugin (`plugin:<id>`). */
 export function findTab(id: string): NotchTab | undefined {

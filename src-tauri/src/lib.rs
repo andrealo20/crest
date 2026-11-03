@@ -421,6 +421,10 @@ pub fn run() {
             capture::capture_details,
             #[cfg(windows)]
             capture::capture_delete,
+            #[cfg(windows)]
+            capture::find::find_scan,
+            #[cfg(windows)]
+            capture::find::find_highlight,
             ];
             move |invoke| {
                 if !command_allowed(invoke.message.webview_ref().label(), invoke.message.command()) {

@@ -18,6 +18,8 @@ The clipboard history and the history of live notices are kept in memory only an
 
 The Camera tool (off by default) shows the camera picture only on your screen, while the tool is open. It never records, saves or sends it.
 
+Find on screen reads your screens with Windows' own text recognition, on your PC: the screen copies are dropped as soon as they are read, and the text stays in memory until the page closes. Nothing is saved or sent.
+
 To remove your data, delete those folders (or the portable folder) and the "Crest/…" entries in the Credential Manager.
 
 ## Which network requests it makes, and when

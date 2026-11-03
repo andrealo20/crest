@@ -1,4 +1,5 @@
 import { createStore } from "../../lib/store";
+import { isMac } from "../../platform/native";
 import { windowShell, type HotkeyState, type ScreenBehavior } from "../../platform/services";
 import { settings, updateSettings, type Settings } from "../../settings/store";
 import { conflicts, label, launcherKeys, normalize, type HotkeyKind } from "./hotkeys";
@@ -13,7 +14,7 @@ export function effectiveIdleStyle(idle: Settings["display"]["idleStyle"], behav
 }
 
 /** Each shortcut's state for the settings; "duplicate" = an earlier Crest shortcut has the combination. */
-export const hotkeyStatus = createStore<Record<HotkeyKind, HotkeyState | "duplicate">>({ open: "active", hide: "unset", resize: "unset" });
+export const hotkeyStatus = createStore<Record<HotkeyKind, HotkeyState | "duplicate">>({ open: "active", hide: "unset", resize: "unset", find: "unset" });
 
 export function updateBehavior(patch: Partial<WindowSettings> | ((b: WindowSettings) => Partial<WindowSettings>)) {
   updateSettings((s) => ({ behavior: { ...s.behavior, ...(typeof patch === "function" ? patch(s.behavior) : patch) } }));
@@ -39,19 +40,21 @@ export function takenByLauncher(s: Settings = settings.get()): string[] {
 /** Registers the saved shortcuts in Rust; a duplicate is not sent, so it can't take the other one's place. */
 function applyHotkeys() {
   const h = settings.get().behavior.hotkeys, launcher = takenByLauncher();
-  const key = `${paused}|${h.open}|${h.hide}|${h.resize}|${launcher.join()}`;
+  const key = `${paused}|${h.open}|${h.hide}|${h.resize}|${h.find}|${launcher.join()}`;
   if (key === lastHotkeys) return;
   lastHotkeys = key;
   const clash = conflicts(h, launcher);
   const send = (k: HotkeyKind) => (paused || clash[k] ? "" : normalize(k, h[k]));
-  const config = { open: send("open"), hide: send("hide"), resize: send("resize"), openLabel: label(h.open) };
+  // Find on screen reads the screens with Windows' OCR: no Mac version yet.
+  const config = { open: send("open"), hide: send("hide"), resize: send("resize"), find: isMac ? "" : send("find"), openLabel: label(h.open) };
   const wasPaused = paused;
   // One registration at a time: Rust swaps the whole set.
   applying = applying
     .then(() => windowShell.applyHotkeys(config))
     .then((r) => {
       if (wasPaused) return;
-      hotkeyStatus.set({ open: clash.open ? "duplicate" : r.open, hide: clash.hide ? "duplicate" : r.hide, resize: clash.resize ? "duplicate" : r.resize });
+      const status = (k: HotkeyKind) => (clash[k] ? "duplicate" : r[k]);
+      hotkeyStatus.set({ open: status("open"), hide: status("hide"), resize: status("resize"), find: status("find") });
     })
     .catch(() => {});
 }
