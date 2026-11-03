@@ -34,6 +34,8 @@ export interface ThemeSettings {
   schedule: { on: boolean; day: string; night: string; dayStart: string; nightStart: string };
   /** Tool bar, settings pages, weather and closed-row readings with icons in colours of their own (hues.ts). */
   iconColors: boolean;
+  /** The open panel takes a soft glow of the cover colour while a song shows (themes.css, [data-ambience]). */
+  coverTint: boolean;
 }
 
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
@@ -467,6 +469,7 @@ export const THEME_DEFAULTS: ThemeSettings = {
   custom: [],
   schedule: { on: false, day: "light", night: "dark", dayStart: "07:00", nightStart: "19:00" },
   iconColors: false,
+  coverTint: false,
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -497,5 +500,6 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
       nightStart: time(sc.nightStart, d.nightStart),
     },
     iconColors: typeof s.iconColors === "boolean" ? s.iconColors : legacyIconColors,
+    coverTint: s.coverTint === true,
   };
 }

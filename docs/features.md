@@ -208,6 +208,7 @@ The vault is off by default; turn it on under **Settings → Tools**.
 - The editor changes background, foreground, accent and the warning colours with a colour picker and shows each change on the panel at once.
 - Save the result as your own theme, export and import themes as JSON files, or switch between a day and a night theme by time.
 - The closed notch stays black unless a theme opts in to colour it.
+- Tint from the album art (off by default) gives the open panel a soft glow of the cover's colour from the top while a song shows, fading between songs and behind the content, so text keeps the theme's contrast.
 
 <p align="center"><img src="media/features/settings-themes.png" alt="Settings, Themes: previews of the built-in themes and the day and night switch" width="560" /></p>
 

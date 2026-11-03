@@ -55,7 +55,7 @@ const MEMORY_LOW_AFTER_MS = 20_000;
 export function Notch() {
   const { status, open, close, dismiss, toggle, onPointerEnter, onPointerLeave } = useNotchState();
   const focus = focusMode.use();
-  const { tools: toolSettings, display: displaySettings, behavior, closedSize: savedSizes } = settings.use();
+  const { tools: toolSettings, display: displaySettings, behavior, closedSize: savedSizes, themes } = settings.use();
   // Resize mode (ClosedResize.tsx): the closed shape shows grips instead of its parts and neither opens nor moves; a grip's drag draws at once.
   const editing = closedEdit.use();
   const liveSize = closedLive.use();
@@ -91,6 +91,7 @@ export function Notch() {
   const live = useLiveActivity();
   const accent = useThemedAccent(np?.accent);
   const closedInk = useClosedInk(np?.accent);
+  const tinted = themes.coverTint && !!np?.artwork;
 
   // Like the Dynamic Island: opening jumps to the running activity's tool,
   // but only after a pause. Closed briefly (copying a key, grabbing a file) → you
@@ -372,7 +373,7 @@ export function Notch() {
               <motion.div
                 key="open"
                 // Anchored at the edge it hangs from, so it stays put while the shape grows from there.
-                className={`absolute flex flex-col ${PANEL_ANCHOR[edge]}`}
+                className={`absolute isolate flex flex-col ${PANEL_ANCHOR[edge]}`}
                 style={{ width: size.w, height: size.h, ...(side ? { marginTop: -size.h / 2 } : { marginLeft: -size.w / 2 }) }}
                 // No scale here: scaling re-rasterizes the small dock icons at shifting subpixels every frame, which reads as jitter (issue #3).
                 // No blur either: blurring the whole panel cost a 50-70 ms frame on every open in WebView2 at 200 %.
@@ -380,6 +381,8 @@ export function Notch() {
                 animate={{ opacity: 1, transform: "translateY(0px)", transition: content.enter }}
                 exit={{ opacity: 0, transform: "translateY(-4px)", transition: content.exit }}
               >
+                {/* Below the content (-z-10 in the panel's own stacking context), so it never sits over text. */}
+                <div aria-hidden data-ambience={tinted ? "on" : "off"} className="pointer-events-none absolute inset-0 -z-10" style={tinted ? { ["--ambience" as string]: accent } : undefined} />
                 <Header title={t(tab.label)} />
                 <div className="relative min-h-0 flex-1 overflow-clip">
                   <AnimatePresence mode="popLayout" initial={false}>

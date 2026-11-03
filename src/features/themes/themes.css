@@ -42,6 +42,19 @@
     --color-black 500ms ease;
 }
 
+/*
+ * The cover tint (Settings, Themes): a glow of the cover colour from the panel's top, behind the
+ * content, so text keeps the theme's contrast. Only opacity and a registered colour move, no blur.
+ */
+@property --ambience { syntax: "<color>"; inherits: false; initial-value: transparent; }
+[data-ambience] {
+  opacity: 0;
+  background: radial-gradient(120% 90% at 50% 0%, var(--ambience), transparent 70%);
+  transition: opacity 600ms ease, --ambience 600ms ease;
+}
+[data-ambience="on"] { opacity: 0.14; }
+:root[data-theme="light"] [data-ambience="on"] { opacity: 0.1; }
+
 /* The notch's own colour: black closed, the theme's background open (NotchShape.tsx). */
 [data-notch-shape] {
   transition: --shape 300ms var(--ease-out);
@@ -49,7 +62,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root,
-  [data-notch-shape] {
+  [data-notch-shape],
+  [data-ambience] {
     transition: none;
   }
 }
@@ -61,6 +75,9 @@
  * low share. !important beats the inline theme on <html>, the closed row and the accent.
  */
 @media (forced-colors: active) {
+  [data-ambience] {
+    display: none;
+  }
   :root,
   [data-theme-ink],
   [style*="--accent"] {

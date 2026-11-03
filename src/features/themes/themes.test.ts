@@ -198,6 +198,12 @@ test("coloured icons: off by default, the old Hardware switch carries over until
   assert.equal(normalizeThemeSettings({ iconColors: "yes" }).iconColors, false);
 });
 
+test("cover tint: off by default, on only when saved as true", () => {
+  assert.equal(normalizeThemeSettings({}).coverTint, false);
+  assert.equal(normalizeThemeSettings({ coverTint: true }).coverTint, true);
+  assert.equal(normalizeThemeSettings({ coverTint: "true" }).coverTint, false);
+});
+
 test("over keeps the pop-up colours opaque", () => {
   for (const t of BUILT_IN_THEMES) assert.equal(parseColor(resolveTheme(t).vars["--color-elevated"])!.a, 1);
   assert.equal(over(parseColor("#00000000")!, parseColor("#123456")!).r, 0x12);

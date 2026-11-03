@@ -125,6 +125,13 @@ function ThemeChoice() {
           onChange={(iconColors) => updateSettings((cur) => ({ themes: { ...cur.themes, iconColors } }))}
         />
       </Row>
+      <Row label={t("Tönung vom Albumcover")} hint={t("Das offene Panel nimmt leicht die Farbe des laufenden Songs an")}>
+        <Switch
+          label={t("Tönung vom Albumcover")}
+          checked={themes.coverTint}
+          onChange={(coverTint) => updateSettings((cur) => ({ themes: { ...cur.themes, coverTint } }))}
+        />
+      </Row>
     </Group>
   );
 }
