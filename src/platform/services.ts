@@ -1378,6 +1378,22 @@ const mockSources: CaptureSource[] = [
   { id: "window:2", kind: "window", name: "andrealo20/crest: Crest Island (preview). A notch at the screen edge with music and synced lyrics, live notices, timers - Google Chrome", width: 1600, height: 1000, primary: false },
 ];
 
+/** Showcase only: three captures for the Capture gallery, drawn as small desktops so no real screen shows. */
+function showcaseCaptures(): CaptureFile[] {
+  const now = Date.now();
+  return [
+    { path: "C:/Users/demo/Videos/Captures/Crest 1.mp4", name: "Crest 1.mp4", kind: "video", size: 48_600_000, modified: now - 3 * 60_000 },
+    { path: "C:/Users/demo/Pictures/Screenshots/Crest 2.png", name: "Crest 2.png", kind: "shot", size: 1_120_000, modified: now - 40 * 60_000 },
+    { path: "C:/Users/demo/Pictures/Screenshots/Crest 3.png", name: "Crest 3.png", kind: "shot", size: 2_040_000, modified: now - 26 * 3_600_000 },
+  ];
+}
+
+function showcaseThumb(path: string): string | null {
+  const hue = path.endsWith("1.mp4") ? ["#3c7bff", "#0b1a4a"] : path.endsWith("2.png") ? ["#ff7ac6", "#2a0b3a"] : ["#ffd27a", "#3a1206"];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${hue[0]}"/><stop offset="1" stop-color="${hue[1]}"/></linearGradient></defs><rect width="320" height="180" fill="url(#g)"/><rect x="40" y="30" width="240" height="120" rx="8" fill="#1e1e22" opacity="0.92"/><rect x="40" y="30" width="240" height="14" rx="4" fill="#2c2c32"/><rect x="56" y="58" width="120" height="8" rx="4" fill="#ffffff" opacity="0.5"/><rect x="56" y="74" width="180" height="6" rx="3" fill="#ffffff" opacity="0.25"/><rect x="56" y="86" width="150" height="6" rx="3" fill="#ffffff" opacity="0.25"/><rect x="0" y="168" width="320" height="12" fill="#1c1c1c" opacity="0.9"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 export const capture = {
   sources: (): Promise<CaptureSource[]> => (isNative ? invoke<CaptureSource[]>("capture_sources") : Promise.resolve(mockSources)),
   /** null when the region pick was cancelled. */
@@ -1388,8 +1404,9 @@ export const capture = {
     isNative ? invoke("capture_start", { source, fps, mic, system, border }) : Promise.resolve(),
   pause: (paused: boolean): Promise<void> => (isNative ? invoke("capture_pause", { paused }) : Promise.resolve()),
   stop: (): Promise<void> => (isNative ? invoke("capture_stop") : Promise.resolve()),
-  list: (): Promise<CaptureFile[]> => (isNative ? invoke<CaptureFile[]>("capture_list") : Promise.resolve([])),
-  details: (paths: string[]): Promise<CaptureDetails[]> => (isNative ? invoke<CaptureDetails[]>("capture_details", { paths }) : Promise.resolve([])),
+  list: (): Promise<CaptureFile[]> => (isNative ? invoke<CaptureFile[]>("capture_list") : Promise.resolve(showcase ? showcaseCaptures() : [])),
+  details: (paths: string[]): Promise<CaptureDetails[]> =>
+    isNative ? invoke<CaptureDetails[]>("capture_details", { paths }) : Promise.resolve(paths.map((path) => ({ path, thumb: showcaseThumb(path), durationMs: path.endsWith(".mp4") ? 42_000 : null }))),
   remove: (path: string): Promise<void> => (isNative ? invoke("capture_delete", { path }) : Promise.resolve()),
   /** Find on screen: every monitor read with OCR, nothing saved. Rejects with "timeout", "no-ocr" or "failed". */
   findScan: (): Promise<FoundLine[]> => (isNative ? invoke<FoundLine[]>("find_scan") : new Promise((done) => setTimeout(() => done(mockFound), 600))),
