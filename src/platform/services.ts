@@ -9,6 +9,7 @@ import type { BatteryRaw } from "../features/system/battery";
 import type { DrivesRaw } from "../features/system/storage";
 import type { RulesPayload } from "../features/window/model";
 import type { PartMessage } from "../features/notices/scriptParts";
+import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
 import bundledChangelog from "../changelog.json";
 import { showcase, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
@@ -1144,7 +1145,34 @@ export const noticeSource = {
     const off = listen<PartMessage>("notices://part", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
+  /** `crest-notify ask`: a question waiting for a click. In the browser `mockAsk` stands in. */
+  onAsk: (handler: (a: Ask) => void): (() => void) => {
+    if (!isNative) {
+      mockAskHandlers.add(handler);
+      return () => void mockAskHandlers.delete(handler);
+    }
+    const off = listen<Ask>("notices://ask", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** The asker hung up or its time ran out. */
+  onAskClosed: (handler: (id: number) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<number>("notices://ask-closed", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** One of the question's option ids, or null for no choice. */
+  answer: (id: number, choice: string | null) => {
+    if (isNative) void invoke("notices_answer", { id, choice });
+    else console.info("ask", id, "answered", choice);
+  },
 };
+
+const mockAskHandlers = new Set<(a: Ask) => void>();
+let mockAskId = 0;
+export function mockAsk(a: Partial<Ask> = {}) {
+  const full: Ask = { id: ++mockAskId, appId: "cli:agent", appName: "Agent", title: "Run command?", body: "cargo test", options: ["allow", "always", "deny"], at: Date.now(), ...a };
+  mockAskHandlers.forEach((h) => h(full));
+}
 
 const mockPartHandlers = new Set<(p: PartMessage) => void>();
 export function mockPart(p: Partial<PartMessage> & { id: string }) {

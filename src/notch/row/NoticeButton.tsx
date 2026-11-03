@@ -27,15 +27,18 @@ export function useNoticeHover() {
 /** Diameter in CSS px, for the notice width. */
 export const NOTICE_BUTTON = 22;
 
-/** A small round button in a closed-notch notice: acts without opening the notch. */
-export function NoticeButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+/** Side padding of a button that shows its label as text (`wide`). */
+export const NOTICE_BUTTON_PAD = 8;
+
+/** A small round button in a closed-notch notice: acts without opening the notch. `wide` shows `children` as a text pill. */
+export function NoticeButton({ label, onClick, children, wide }: { label: string; onClick: () => void; children: ReactNode; wide?: boolean }) {
   const hover = useNoticeHover();
   return (
     <button
       aria-label={label}
       title={label}
       className="pressable pointer-events-auto flex shrink-0 items-center justify-center rounded-full bg-fill-2 text-label hover:bg-fill-3"
-      style={{ width: NOTICE_BUTTON, height: NOTICE_BUTTON }}
+      style={wide ? { height: NOTICE_BUTTON, paddingInline: NOTICE_BUTTON_PAD } : { width: NOTICE_BUTTON, height: NOTICE_BUTTON }}
       onPointerEnter={hover.onPointerEnter}
       onPointerLeave={hover.onPointerLeave}
       onClick={(e) => {

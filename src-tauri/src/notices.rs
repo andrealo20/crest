@@ -45,6 +45,7 @@ pub struct NoticesState {
     on: Mutex<(bool, bool)>,
     status: Mutex<Status>,
     limiter: Arc<Mutex<RateLimiter>>,
+    asks: Arc<Mutex<Asks>>,
 }
 
 impl Default for NoticesState {
@@ -57,6 +58,7 @@ impl Default for NoticesState {
             on: Mutex::new((false, false)),
             status: Mutex::new(Status::default()),
             limiter: Arc::new(Mutex::new(RateLimiter::new())),
+            asks: Arc::default(),
         }
     }
 }
@@ -113,17 +115,80 @@ pub struct PartIn {
     clear: bool,
 }
 
+/// A question from `crest-notify ask` (`notices://ask`); answered with notices_answer.
+#[derive(Clone, Serialize, Default, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AskIn {
+    id: u64,
+    app_id: String,
+    app_name: String,
+    title: String,
+    body: String,
+    options: Vec<String>,
+    at: u64,
+}
+
 /// What one crest-notify request delivers.
 enum Delivery {
     Notice(NoticeIn),
     Part(PartIn),
+    Ask(AskIn),
+    /// The asker hung up or its time ran out: the question leaves the notch (`notices://ask-closed`).
+    AskClosed(u64),
 }
 
 fn deliver(app: &AppHandle, d: Delivery) {
     let _ = match d {
         Delivery::Notice(n) => app.emit("notices://in", n),
         Delivery::Part(p) => app.emit("notices://part", p),
+        Delivery::Ask(a) => app.emit("notices://ask", a),
+        Delivery::AskClosed(id) => app.emit("notices://ask-closed", id),
     };
+}
+
+/// Questions held open beyond this are refused, so pending asks never take every pipe instance from plain notices.
+const MAX_ASKS: usize = 8;
+
+/// Open questions by id, each with its options and the channel its connection waits on. Dropping a sender answers
+/// "no choice".
+#[derive(Default)]
+struct Asks {
+    next: u64,
+    pending: std::collections::BTreeMap<u64, (Vec<String>, tokio::sync::oneshot::Sender<Option<String>>)>,
+}
+
+impl Asks {
+    fn add(&mut self, options: Vec<String>) -> Option<(u64, tokio::sync::oneshot::Receiver<Option<String>>)> {
+        if self.pending.len() >= MAX_ASKS {
+            return None;
+        }
+        self.next += 1;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.pending.insert(self.next, (options, tx));
+        Some((self.next, rx))
+    }
+
+    /// Answers and removes a question. The webview may only pick one of its options; None is "no choice". False when the
+    /// question is gone or the choice was not offered (the question then stays).
+    fn answer(&mut self, id: u64, choice: Option<String>) -> bool {
+        match self.pending.get(&id) {
+            Some((options, _)) if choice.as_ref().is_none_or(|c| options.contains(c)) => {}
+            _ => return false,
+        }
+        let (_, tx) = self.pending.remove(&id).expect("checked above");
+        tx.send(choice).is_ok()
+    }
+
+    /// True when it was still open.
+    fn remove(&mut self, id: u64) -> bool {
+        self.pending.remove(&id).is_some()
+    }
+}
+
+/// The user clicked an option (or closed the question: `choice` None).
+#[tauri::command]
+pub fn notices_answer(id: u64, choice: Option<String>, state: State<'_, NoticesState>) -> bool {
+    state.asks.lock().unwrap().answer(id, choice)
 }
 
 /// Switches the two sources. Called by the frontend on start and on every settings change.
@@ -148,6 +213,8 @@ pub fn notices_configure(windows: bool, pipe: bool, app: AppHandle, state: State
         if pipe {
             tauri::async_runtime::spawn(pipe_server(app.clone(), generation));
         } else {
+            // Open questions are answered "no choice" at once instead of keeping their callers waiting.
+            state.asks.lock().unwrap().pending.clear();
             set_status(&app, |s| (s.pipe, s.pipe_failed) = (false, false));
         }
     }
@@ -651,7 +718,8 @@ async fn pipe_server(app: AppHandle, generation: u64) {
     let state = app.state::<NoticesState>();
     let mut changed = state.pipe_gen.subscribe();
     let limiter = state.limiter.clone();
-    let stopped = |rx: &watch::Receiver<u64>| *rx.borrow() != generation;
+    let asks = state.asks.clone();
+    let stopped =|rx: &watch::Receiver<u64>| *rx.borrow() != generation;
     let failed = |app: &AppHandle| set_status(app, |s| (s.pipe, s.pipe_failed) = (false, true));
     let Some((session, sid)) = notify_wire::identity() else { return failed(&app) };
     let Some(descriptor) = Descriptor::for_user(&sid) else { return failed(&app) };
@@ -699,8 +767,9 @@ async fn pipe_server(app: AppHandle, generation: u64) {
                 server = create_pipe(&name, &descriptor, false).ok();
                 let app = app.clone();
                 let limiter = limiter.clone();
+                let asks = asks.clone();
                 tauri::async_runtime::spawn(async move {
-                    serve(client, session, limiter, move |d| deliver(&app, d)).await;
+                    serve(client, session, limiter, asks, move |d| deliver(&app, d)).await;
                     drop(permit);
                 });
             }
@@ -725,9 +794,9 @@ fn client_session(pipe: &NamedPipeServer) -> Option<u32> {
     Some(id)
 }
 
-/// One client: one request line, one reply line, within two seconds. A client from another logon session of the same
-/// user (a second sign-in, a service) is refused.
-async fn serve(mut pipe: NamedPipeServer, session: u32, limiter: Arc<Mutex<RateLimiter>>, emit: impl FnOnce(Delivery)) {
+/// One client: one request line, one reply line, within two seconds (an ask's reply waits for the user). A client from
+/// another logon session of the same user (a second sign-in, a service) is refused.
+async fn serve(mut pipe: NamedPipeServer, session: u32, limiter: Arc<Mutex<RateLimiter>>, asks: Arc<Mutex<Asks>>, emit: impl Fn(Delivery)) {
     if client_session(&pipe) != Some(session) {
         return;
     }
@@ -755,6 +824,7 @@ async fn serve(mut pipe: NamedPipeServer, session: u32, limiter: Arc<Mutex<RateL
             emit(Delivery::Part(PartIn { id: p.id, source, text: p.text, icon: p.icon, progress: p.progress, open: p.open, ttl: p.ttl, clear: p.clear }));
             Reply::new("accepted", None)
         }
+        Ok(r) if r.ask.is_some() => wait_for_answer(&mut pipe, r, &asks, &emit).await,
         Ok(r) => {
             let name = r.source.clone().unwrap_or_else(|| "crest-notify".into());
             let notice = NoticeIn {
@@ -781,6 +851,38 @@ async fn serve(mut pipe: NamedPipeServer, session: u32, limiter: Arc<Mutex<RateL
     }
     // Disconnecting would discard a reply the client has not read yet; wait (briefly) for it to hang up instead.
     let _ = tokio::time::timeout(Duration::from_secs(1), pipe.read(&mut [0u8; 1])).await;
+}
+
+/// Shows a question and holds the connection until the user answers, the asker hangs up or the time runs out.
+async fn wait_for_answer(pipe: &mut NamedPipeServer, r: notify_wire::Request, asks: &Mutex<Asks>, emit: &impl Fn(Delivery)) -> Reply {
+    let ask = r.ask.expect("an ask");
+    let added = asks.lock().unwrap().add(ask.options.clone());
+    let Some((id, answered)) = added else { return Reply::new("limited", Some("too-many-asks")) };
+    let name = r.source.unwrap_or_else(|| "crest-notify".into());
+    emit(Delivery::Ask(AskIn {
+        id,
+        app_id: format!("cli:{}", name.to_lowercase()),
+        app_name: name,
+        title: r.title.unwrap_or_default(),
+        body: r.body.unwrap_or_default(),
+        options: ask.options,
+        at: now_ms(),
+    }));
+    // The client waits exactly its timeout; a little more here only frees a connection whose client hung.
+    let mut byte = [0u8; 1];
+    let choice = tokio::select! {
+        a = answered => a.ok().flatten(),
+        _ = pipe.read(&mut byte) => None,
+        _ = tokio::time::sleep(Duration::from_secs(ask.timeout + 5)) => None,
+    };
+    let still_open = asks.lock().unwrap().remove(id);
+    if still_open {
+        emit(Delivery::AskClosed(id));
+    }
+    match choice {
+        Some(c) => Reply { choice: Some(c), ..Reply::new("answered", None) },
+        None => Reply::new("unanswered", None),
+    }
 }
 
 #[cfg(test)]
@@ -814,28 +916,55 @@ mod tests {
         assert!(!query(None).contains("UserID"));
     }
 
-    /// A real pipe with the user-only descriptor: a second first instance is refused, one request gets one reply.
     #[test]
-    fn pipe_round_trip() {
+    fn ask_queue() {
+        let mut asks = Asks::default();
+        let opts = |o: &[&str]| o.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let (a, mut ra) = asks.add(opts(&["allow", "deny"])).unwrap();
+        let (b, mut rb) = asks.add(opts(&["yes"])).unwrap();
+        assert!(a < b, "ids rise, so the oldest sorts first");
+        // Only an offered option answers; the question stays open otherwise.
+        assert!(!asks.answer(a, Some("always".into())));
+        assert!(ra.try_recv().is_err() && asks.pending.contains_key(&a));
+        assert!(asks.answer(a, Some("deny".into())));
+        assert_eq!(ra.try_recv().unwrap(), Some("deny".into()));
+        assert!(!asks.answer(a, Some("deny".into())), "answered once");
+        // Closed without a choice.
+        assert!(asks.answer(b, None));
+        assert_eq!(rb.try_recv().unwrap(), None);
+        assert!(!asks.remove(b));
+        // A full queue refuses; clearing it drops the senders, which reads as "no choice" on the other side.
+        let mut waiting: Vec<_> = (0..MAX_ASKS).map(|_| asks.add(opts(&["a"])).unwrap().1).collect();
+        assert!(asks.add(opts(&["a"])).is_none());
+        asks.pending.clear();
+        assert!(waiting.iter_mut().all(|rx| rx.try_recv().is_err()));
+        assert!(asks.add(opts(&["a"])).is_some());
+        // The asker gone: answering fails, removing reports it was open.
+        let (c, rc) = asks.add(opts(&["a"])).unwrap();
+        drop(rc);
+        assert!(!asks.answer(c, Some("a".into())));
+        let (d, _rd) = asks.add(opts(&["a"])).unwrap();
+        assert!(asks.remove(d));
+    }
+
+    /// Serves one request line on a real pipe with the user-only descriptor and returns the reply line. `emit` gets the
+    /// deliveries and the shared questions, to answer them as the webview would.
+    fn round_trip(request: &'static [u8], emit: impl Fn(Delivery, &Mutex<Asks>) + Send + Sync + 'static) -> String {
         use std::io::{BufRead, Write};
         let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
         let (session, sid) = notify_wire::identity().expect("identity");
-        let name = format!("{}-test-{}", notify_wire::pipe_name(session, &sid), std::process::id());
+        static N: AtomicU64 = AtomicU64::new(0);
+        let name = format!("{}-test-{}-{}", notify_wire::pipe_name(session, &sid), std::process::id(), N.fetch_add(1, Ordering::SeqCst));
         let descriptor = Descriptor::for_user(&sid).expect("descriptor");
-        let got = Arc::new(Mutex::new(Vec::<NoticeIn>::new()));
         let limiter = Arc::new(Mutex::new(RateLimiter::new()));
+        let asks = Arc::new(Mutex::new(Asks::default()));
         rt.block_on(async {
             let server = create_pipe(&name, &descriptor, true).expect("first instance");
             assert!(create_pipe(&name, &descriptor, true).is_err(), "a second first instance must fail");
-            let sink = got.clone();
             let task = tokio::spawn(async move {
                 server.connect().await.unwrap();
-                serve(server, session, limiter, move |d| {
-                    if let Delivery::Notice(n) = d {
-                        sink.lock().unwrap().push(n)
-                    }
-                })
-                .await;
+                let shared = asks.clone();
+                serve(server, session, limiter, asks, move |d| emit(d, &shared)).await;
             });
             let client_name = name.clone();
             let reply = tokio::task::spawn_blocking(move || {
@@ -846,7 +975,7 @@ mod tests {
                 let mut pid = 0u32;
                 unsafe { windows::Win32::System::Pipes::GetNamedPipeServerProcessId(windows::Win32::Foundation::HANDLE(pipe.as_raw_handle()), &mut pid) }.unwrap();
                 assert_eq!(notify_wire::pid_token(pid), notify_wire::own_token());
-                pipe.write_all(b"{\"title\":\"Build\",\"source\":\"CI\",\"progress\":40}\n").unwrap();
+                pipe.write_all(request).unwrap();
                 let mut out = String::new();
                 std::io::BufReader::new(pipe).read_line(&mut out).unwrap();
                 out
@@ -854,10 +983,48 @@ mod tests {
             .await
             .unwrap();
             task.await.unwrap();
-            assert_eq!(reply.trim(), r#"{"result":"accepted"}"#);
+            reply.trim().to_string()
+        })
+    }
+
+    #[test]
+    fn pipe_round_trip() {
+        let got = Arc::new(Mutex::new(Vec::<NoticeIn>::new()));
+        let sink = got.clone();
+        let reply = round_trip(b"{\"title\":\"Build\",\"source\":\"CI\",\"progress\":40}\n", move |d, _| {
+            if let Delivery::Notice(n) = d {
+                sink.lock().unwrap().push(n)
+            }
         });
+        assert_eq!(reply, r#"{"result":"accepted"}"#);
         let got = got.lock().unwrap();
         assert_eq!(got.len(), 1);
         assert_eq!((got[0].app_id.as_str(), got[0].title.as_str(), got[0].progress), ("cli:ci", "Build", Some(40.0)));
+    }
+
+    /// An ask holds the connection until the webview answers; the answer comes back as the reply.
+    #[test]
+    fn pipe_ask() {
+        let shown = Arc::new(Mutex::new(Vec::<AskIn>::new()));
+        let sink = shown.clone();
+        let request = b"{\"title\":\"Bash\",\"body\":\"cargo test\",\"source\":\"Agent\",\"ask\":{\"options\":[\"allow\",\"always\",\"deny\"],\"timeout\":30}}\n";
+        let reply = round_trip(request, move |d, asks| match d {
+            Delivery::Ask(a) => {
+                assert!(asks.lock().unwrap().answer(a.id, Some("always".into())));
+                sink.lock().unwrap().push(a);
+            }
+            Delivery::AskClosed(_) => panic!("an answered ask is not closed again"),
+            _ => {}
+        });
+        assert_eq!(reply, r#"{"result":"answered","choice":"always"}"#);
+        let shown = shown.lock().unwrap();
+        assert_eq!((shown[0].app_id.as_str(), shown[0].title.as_str(), shown[0].options.len()), ("cli:agent", "Bash", 3));
+        // Closed without a choice.
+        let closed = round_trip(request, |d, asks| {
+            if let Delivery::Ask(a) = d {
+                asks.lock().unwrap().answer(a.id, None);
+            }
+        });
+        assert_eq!(closed, r#"{"result":"unanswered"}"#);
     }
 }

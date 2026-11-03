@@ -4,8 +4,9 @@ import { settings, updateSettings } from "../../settings/store";
 import { presentingNow, privacy } from "../privacy/store";
 import { fullscreen } from "../system/gaming";
 import { addNotice, removeApp, removeNotice, type Notice } from "./history";
-import { rememberApp, route, setRule, type NoticeRule } from "./rules";
+import { rememberApp, route, ruleFor, setRule, type NoticeRule } from "./rules";
 import { applyPart, livePart, nextExpiry, type PartMessage, type ScriptPart } from "./scriptParts";
+import { addAsk, removeAsk, type Ask } from "./asks";
 
 /*
  * Live notices: every notice from Rust (`notices://in`) goes through the app's rule, quiet hours and presentation
@@ -44,6 +45,28 @@ function schedulePrune() {
     scriptParts.set((list) => list.filter(livePart(Date.now())));
     schedulePrune();
   }, Math.max(0, at - Date.now()) + 50);
+}
+
+/** Questions from `crest-notify ask`, oldest first; the first one shows in the closed notch until answered. */
+export const asks = createStore<Ask[]>([]);
+
+/*
+ * An ask is work the user started, so quiet hours, focus and full screen do not hold it back, and it stays until
+ * answered. It is not kept in the history. Off for its source, or while presenting (its text could be a command on a
+ * shared screen), it is answered "no choice" at once, so the caller falls back to its own prompt without waiting.
+ */
+function receiveAsk(a: Ask) {
+  const s = settings.get().notices;
+  if (!s.enabled || ruleFor(s.rules, a.appId) === "hide" || presentingNow()) return noticeSource.answer(a.id, null);
+  const apps = rememberApp(s.apps, a.appId, a.appName);
+  if (apps !== s.apps) updateSettings((cur) => ({ notices: { ...cur.notices, apps } }));
+  asks.set((list) => addAsk(list, a));
+}
+
+/** A click on an option, or null when the question was closed without one. */
+export function answerAsk(id: number, choice: string | null) {
+  asks.set((list) => removeAsk(list, id));
+  noticeSource.answer(id, choice);
 }
 
 /** A notice from a plugin that may show them; it goes through the same rules, quiet hours and history. */
@@ -122,9 +145,14 @@ export function startNotices() {
   noticeSource.onNotice(receive);
   noticeSource.onStatus((s) => sourceStatus.set(s));
   noticeSource.onPart(receivePart);
+  noticeSource.onAsk(receiveAsk);
+  noticeSource.onAskClosed((id) => asks.set((list) => removeAsk(list, id)));
   refreshStatus();
-  // A notice on screen goes as soon as presentation mode starts or an app goes fullscreen.
-  const hideWhenPresenting = () => (presentingNow() || fullscreen.get()) && popping.get() && dismissPop();
+  // A notice on screen goes as soon as presentation mode starts or an app goes fullscreen; open questions go when presenting starts.
+  const hideWhenPresenting = () => {
+    if ((presentingNow() || fullscreen.get()) && popping.get()) dismissPop();
+    if (presentingNow()) asks.get().forEach((a) => answerAsk(a.id, null));
+  };
   privacy.subscribe(hideWhenPresenting);
   settings.subscribe(hideWhenPresenting);
   fullscreen.subscribe(hideWhenPresenting);
@@ -138,7 +166,11 @@ export function startNotices() {
     noticeSource.configure(enabled && windows, enabled && cli);
     // Switched off: nothing of what was read stays on screen or in memory.
     if (!enabled) clearHistory();
-    if (!(enabled && cli)) scriptParts.set([]);
+    // Rust answers the open questions "no choice" when the channel closes.
+    if (!(enabled && cli)) {
+      scriptParts.set([]);
+      asks.set([]);
+    }
   };
   apply();
   settings.subscribe(apply);

@@ -15,6 +15,9 @@ pub const RATE_WINDOW_MS: u64 = 10_000;
 pub const MAX_PART_TEXT: usize = 48;
 pub const MAX_PART_ID: usize = 32;
 pub const MAX_PART_TTL: u64 = 24 * 60 * 60;
+/// `crest-notify ask`: buttons per question and the longest wait for an answer, in seconds.
+pub const MAX_ASK_OPTIONS: usize = 4;
+pub const MAX_ASK_TIMEOUT: u64 = 600;
 
 /// Icons a custom part or a plugin may name; drawn from Crest's own set (src/features/plugins/icons.tsx), never loaded from outside.
 pub const ICONS: &[&str] = &[
@@ -49,6 +52,17 @@ pub struct Request {
     /// `crest-notify part`: sets or clears a custom closed-row part instead of sending a notice.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub part: Option<Part>,
+    /// `crest-notify ask`: a question with buttons; the reply waits for the user's choice.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ask: Option<Ask>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Ask {
+    /// Option ids in button order, each one of [a-z0-9-].
+    pub options: Vec<String>,
+    /// Seconds Crest keeps the question before answering "no choice".
+    pub timeout: u64,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -75,16 +89,35 @@ pub struct Part {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Reply {
-    /// accepted | rejected | limited | off
+    /// accepted | rejected | limited | off, and for an ask answered | unanswered
     pub result: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// The option id the user picked (`answered`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub choice: Option<String>,
 }
 
 impl Reply {
     pub fn new(result: &str, reason: Option<&str>) -> Self {
-        Reply { result: result.into(), reason: reason.map(Into::into) }
+        Reply { result: result.into(), reason: reason.map(Into::into), choice: None }
     }
+}
+
+/// An option id: 1 to MAX_FIELD of a-z, 0-9 and -.
+pub fn option_ok(id: &str) -> bool {
+    (1..=MAX_FIELD).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
+fn check_ask(a: &Ask) -> Result<(), &'static str> {
+    let unique = a.options.iter().enumerate().all(|(i, o)| !a.options[..i].contains(o));
+    if !(1..=MAX_ASK_OPTIONS).contains(&a.options.len()) || !unique || !a.options.iter().all(|o| option_ok(o)) {
+        return Err("ask-options");
+    }
+    if !(1..=MAX_ASK_TIMEOUT).contains(&a.timeout) {
+        return Err("ask-timeout");
+    }
+    Ok(())
 }
 
 /// The request as one line, or None when it would not fit in a frame.
@@ -126,6 +159,9 @@ pub fn parse(line: &[u8]) -> Result<Request, &'static str> {
     if let Some(part) = r.part.take() {
         r.part = Some(check_part(part)?);
         return Ok(r);
+    }
+    if let Some(a) = &r.ask {
+        check_ask(a)?;
     }
     if r.title.is_none() && r.body.is_none() && r.command.is_none() {
         return Err("empty");
@@ -345,6 +381,27 @@ mod tests {
         let req = Request { part: Some(Part { id: "x".into(), text: Some("y".into()), ..Default::default() }), ..Default::default() };
         let line = encode(&req).unwrap();
         assert_eq!(parse(&line[..line.len() - 1]).unwrap(), req);
+    }
+
+    #[test]
+    fn asks() {
+        let r = parse(br#"{"title":"Bash","body":"cargo test","ask":{"options":["allow","always","deny"],"timeout":120}}"#).unwrap();
+        assert_eq!(r.ask.unwrap(), Ask { options: vec!["allow".into(), "always".into(), "deny".into()], timeout: 120 });
+        let ask = |options: &str, timeout: u64| parse(format!(r#"{{"title":"t","ask":{{"options":{options},"timeout":{timeout}}}}}"#).as_bytes());
+        assert!(ask(r#"["yes-2"]"#, 600).is_ok());
+        assert_eq!(ask("[]", 10), Err("ask-options"));
+        assert_eq!(ask(r#"["a","b","c","d","e"]"#, 10), Err("ask-options"));
+        assert_eq!(ask(r#"["a","a"]"#, 10), Err("ask-options"));
+        assert_eq!(ask(r#"["Allow"]"#, 10), Err("ask-options"));
+        assert_eq!(ask(r#"["a b"]"#, 10), Err("ask-options"));
+        assert_eq!(ask(&format!(r#"["{}"]"#, "a".repeat(MAX_FIELD + 1)), 10), Err("ask-options"));
+        assert_eq!(ask(r#"["a"]"#, 0), Err("ask-timeout"));
+        assert_eq!(ask(r#"["a"]"#, 601), Err("ask-timeout"));
+        // A question needs words.
+        assert_eq!(parse(br#"{"ask":{"options":["a"],"timeout":5}}"#), Err("empty"));
+        assert!(option_ok("always-allow") && !option_ok("") && !option_ok("é"));
+        let reply: Reply = serde_json::from_str(r#"{"result":"answered","choice":"deny"}"#).unwrap();
+        assert_eq!(reply.choice.as_deref(), Some("deny"));
     }
 
     #[test]
