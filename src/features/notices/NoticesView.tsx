@@ -8,6 +8,7 @@ import { settings } from "../../settings/store";
 import { Button, Empty } from "../../ui/controls";
 import { usePresenting } from "../privacy/store";
 import { t } from "../../i18n";
+import { noticeSource } from "../../platform/services";
 import { noticeText, shortTime } from "./format";
 import { AppIcon, ProgressRing } from "./NoticePop";
 import { clearHistory, deleteNotice, dismissPop, history, setAppRule, setNoticesEnabled } from "./store";
@@ -58,7 +59,15 @@ export function NoticesView() {
                 transition={springs.snappy}
                 className="group overflow-hidden"
               >
-                <div className="flex items-start gap-2.5 rounded-[10px] px-2 py-1.5 hover:bg-fill-1">
+                {/* A Windows notice opens its app, as a click on the toast would; crest-notify ones have no app to open. */}
+                <div
+                  className={`flex items-start gap-2.5 rounded-[10px] px-2 py-1.5 hover:bg-fill-1 ${n.source === "windows" ? "cursor-pointer" : ""}`}
+                  role={n.source === "windows" ? "button" : undefined}
+                  tabIndex={n.source === "windows" ? 0 : undefined}
+                  title={n.source === "windows" ? t("{app} öffnen", { app: n.appName }) : undefined}
+                  onClick={n.source === "windows" ? () => noticeSource.openApp(n.appId) : undefined}
+                  onKeyDown={n.source === "windows" ? (e) => e.key === "Enter" && noticeSource.openApp(n.appId) : undefined}
+                >
                   <div className="pt-0.5">
                     <AppIcon n={n} size={20} />
                   </div>
@@ -107,7 +116,10 @@ function RowButton(props: { label: string; onClick: () => void; children: React.
     <button
       aria-label={props.label}
       title={props.label}
-      onClick={props.onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        props.onClick();
+      }}
       className="pressable flex size-6 items-center justify-center rounded-full text-label-3 hover:bg-fill-2 hover:text-label"
     >
       {props.children}

@@ -967,6 +967,7 @@
  "Einschalten": "Включить",
  "Mitteilungs-Einstellungen": "Настройки уведомлений",
  "Keine Mitteilungen": "Нет уведомлений",
+ "{app} öffnen": "Открыть {app}",
  "Neue Mitteilungen erscheinen hier und bleiben bis zum Beenden von Crest.": "Новые уведомления появляются здесь и хранятся до выхода из Crest.",
  "Stumm: nur hier anzeigen": "Без звука: показывать только здесь",
  "Von dieser App ausblenden": "Отключить для этого приложения",

@@ -967,6 +967,7 @@
  "Einschalten": "Turn on",
  "Mitteilungs-Einstellungen": "Notice settings",
  "Keine Mitteilungen": "No notices",
+ "{app} öffnen": "Open {app}",
  "Neue Mitteilungen erscheinen hier und bleiben bis zum Beenden von Crest.": "New notices appear here and stay until Crest quits.",
  "Stumm: nur hier anzeigen": "Mute: show only here",
  "Von dieser App ausblenden": "Turn off for this app",

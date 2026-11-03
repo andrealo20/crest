@@ -99,6 +99,8 @@ pub struct NoticeIn {
     exit_code: Option<i32>,
     duration_ms: Option<u64>,
     command: Option<String>,
+    /// The id Windows gave the toast, so deleting it in Crest can remove it from the notification centre too.
+    windows_id: Option<u32>,
 }
 
 /// A custom closed-row part set or cleared by `crest-notify part` (`notices://part`); the frontend keeps the list.
@@ -511,8 +513,40 @@ fn read_toast(
         body,
         icon,
         at,
+        windows_id: n.Id().ok(),
         ..Default::default()
     })
+}
+
+/// Deleting Windows notices in Crest removes them from the Windows notification centre too.
+#[cfg(windows)]
+#[tauri::command]
+pub fn notices_remove_windows(ids: Vec<u32>) {
+    let Ok(listener) = windows::UI::Notifications::Management::UserNotificationListener::Current() else { return };
+    for id in ids {
+        let _ = listener.RemoveNotification(id);
+    }
+}
+
+/// Opens the app a Windows notice came from by its AppUserModelID, as the Start menu does (the listener cannot
+/// press the toast itself, so the app opens on its own start page).
+#[cfg(windows)]
+#[tauri::command]
+pub fn notices_open_app(app_id: String) -> Result<(), String> {
+    if !valid_app_id(&app_id) {
+        return Err("not an app id".into());
+    }
+    crate::opener().arg(format!("shell:AppsFolder\\{app_id}")).spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// AppUserModelIDs are package family names with "!App", or for desktop apps a name or a known-folder path such as
+/// "{6D809377-...}\App\app.exe": letters, digits and a few separators, never quotes or a way up the tree.
+#[cfg(windows)]
+fn valid_app_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 512
+        && !id.contains("..")
+        && id.chars().all(|c| c.is_ascii_alphanumeric() || "._-!{}\\ ".contains(c))
 }
 
 fn logo(display: &windows::ApplicationModel::AppDisplayInfo) -> Option<String> {
@@ -840,6 +874,7 @@ async fn serve(mut pipe: NamedPipeServer, session: u32, limiter: Arc<Mutex<RateL
                 exit_code: r.exit_code,
                 duration_ms: r.duration_ms,
                 command: r.command,
+                windows_id: None,
             };
             emit(Delivery::Notice(notice));
             Reply::new("accepted", None)
@@ -888,6 +923,18 @@ async fn wait_for_answer(pipe: &mut NamedPipeServer, r: notify_wire::Request, as
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn app_ids() {
+        assert!(valid_app_id("Microsoft.WindowsTerminal_8wekyb3d8bbwe!App"));
+        assert!(valid_app_id(r"{6D809377-6AF0-444B-8957-A3773F02200E}\Mozilla Firefox\firefox.exe"));
+        assert!(valid_app_id("Chrome"));
+        assert!(!valid_app_id(""));
+        assert!(!valid_app_id("app\" --evil"));
+        assert!(!valid_app_id(r"..\..\Windows\System32\cmd.exe"));
+        assert!(!valid_app_id("a&calc"));
+    }
 
     #[test]
     fn triggers() {

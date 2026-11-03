@@ -967,6 +967,7 @@
  "Einschalten": "开启",
  "Mitteilungs-Einstellungen": "通知设置",
  "Keine Mitteilungen": "没有通知",
+ "{app} öffnen": "打开 {app}",
  "Neue Mitteilungen erscheinen hier und bleiben bis zum Beenden von Crest.": "新通知会显示在这里，保留到 Crest 退出。",
  "Stumm: nur hier anzeigen": "静音：仅在此显示",
  "Von dieser App ausblenden": "关闭此应用的通知",

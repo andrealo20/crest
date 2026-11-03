@@ -103,12 +103,17 @@ export function dismissPop() {
   popping.set(null);
 }
 
+/** Ids Windows gave these notices' toasts, for removing them from the notification centre too. */
+const windowsIds = (list: Notice[]) => list.flatMap((n) => (n.source === "windows" && typeof n.windowsId === "number" ? [n.windowsId] : []));
+
 export function deleteNotice(id: string) {
+  noticeSource.removeWindows(windowsIds(history.get().filter((n) => n.id === id)));
   history.set((list) => removeNotice(list, id));
   if (popping.get()?.id === id) dismissPop();
 }
 
 export function clearHistory() {
+  noticeSource.removeWindows(windowsIds(history.get()));
   history.set([]);
   dismissPop();
 }

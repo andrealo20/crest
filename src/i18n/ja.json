@@ -967,6 +967,7 @@
  "Einschalten": "オンにする",
  "Mitteilungs-Einstellungen": "通知の設定",
  "Keine Mitteilungen": "通知はありません",
+ "{app} öffnen": "{app} を開く",
  "Neue Mitteilungen erscheinen hier und bleiben bis zum Beenden von Crest.": "新しい通知がここに表示され、Crest を終了するまで残ります。",
  "Stumm: nur hier anzeigen": "ミュート: ここにだけ表示",
  "Von dieser App ausblenden": "このアプリの通知をオフ",

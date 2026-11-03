@@ -1141,6 +1141,14 @@ export const noticeSource = {
   /** The access now, or "request-failed" when Windows refused the request itself. */
   requestAccess: (): Promise<NoticeSourceStatus["access"] | "request-failed"> =>
     isNative ? invoke<NoticeSourceStatus["access"] | "request-failed">("notices_request_access") : Promise.resolve("allowed"),
+  /** Removes these toasts from the Windows notification centre. */
+  removeWindows: (ids: number[]) => {
+    if (isNative && ids.length) void invoke("notices_remove_windows", { ids });
+  },
+  /** Opens the app a Windows notice came from, on its start page. */
+  openApp: (appId: string) => {
+    if (isNative) void invoke("notices_open_app", { appId }).catch(() => {});
+  },
   onNotice: (handler: (n: IncomingNotice) => void): (() => void) => {
     if (!isNative) {
       mockNoticeHandlers.add(handler);

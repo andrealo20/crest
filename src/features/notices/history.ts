@@ -19,6 +19,8 @@ export interface Notice {
   exitCode?: number | null;
   durationMs?: number | null;
   command?: string | null;
+  /** The id Windows gave the toast: deleting the notice here removes it from the notification centre too. */
+  windowsId?: number | null;
 }
 
 export const HISTORY = { max: 100, maxAgeMs: 24 * 60 * 60 * 1000 } as const;

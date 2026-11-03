@@ -392,6 +392,10 @@ pub fn run() {
             notices::notices_request_access,
             #[cfg(windows)]
             notices::notices_answer,
+            #[cfg(windows)]
+            notices::notices_remove_windows,
+            #[cfg(windows)]
+            notices::notices_open_app,
             plugins::plugins_list,
             plugins::plugins_pick,
             plugins::plugins_stage,
