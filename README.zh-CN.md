@@ -14,7 +14,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/andrealo20/crest/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/andrealo20/crest/release.yml?style=flat&label=build&logo=githubactions&logoColor=white" alt="发布构建状态" /></a>
   <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=flat&label=release&color=7B61FF&logo=github&logoColor=white" alt="最新版本" /></a>
   <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=flat&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="总下载量" /></a>
   <a href="https://github.com/andrealo20/crest/stargazers"><img src="https://img.shields.io/github/stars/andrealo20/crest?style=flat&color=FFD700&logo=github&logoColor=white" alt="GitHub 星标" /></a>
