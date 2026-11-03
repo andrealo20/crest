@@ -171,6 +171,7 @@ The volume and brightness HUD is a status alert too: when the volume or mute cha
 
 - **Hardware** shows live CPU, RAM, GPU, VRAM, network, power draw, battery, temperatures, ping, the busiest processes and your drives, with history that keeps recording while the notch is closed.
 - Readings your PC cannot give (a battery on a desktop, a missing sensor) are left out.
+- Many PCs give Windows no CPU temperature, so while HWiNFO or LibreHardwareMonitor runs, Crest reads CPU and GPU temperature and power from it and Hardware names it as the source (in the power row, or when you point at a temperature). In HWiNFO, turn on **Shared Memory Support** in its settings (the free version switches it off after 12 hours); LibreHardwareMonitor only needs to be running.
 - **Gaming mode** adds FPS to the readings in the closed notch, always or only while a fullscreen app runs. FPS works for DirectX, OpenGL and Vulkan games.
 - Windows only allows FPS readings for members of the *Performance Log Users* group: click **Settings → Display → Unlock FPS** once, confirm the Windows prompt, then sign out and back in. A lock icon in the notch means this step is still missing.
 

@@ -58,7 +58,7 @@ export function SystemView() {
   return (
     <div className="flex h-full gap-2 px-4 pt-1 pb-2">
       <div className="min-w-0 flex-1 divide-y divide-separator rounded-[14px] bg-fill-1">
-        <Row i={i++} tick={st.tick} icon={Cpu} label="CPU" detail={join(cpuDetail)} temp={st.cpuTemp !== null ? { c: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp) } : null} tone={tone} values={st.history.cpu} max={100} value={`${Math.round(s.cpu)} %`} level={ofShare(s.cpu)}>
+        <Row i={i++} tick={st.tick} icon={Cpu} label="CPU" detail={join(cpuDetail)} temp={st.cpuTemp !== null ? { c: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp), from: st.cpuTempFrom } : null} tone={tone} values={st.history.cpu} max={100} value={`${Math.round(s.cpu)} %`} level={ofShare(s.cpu)}>
           {cores > 0 && <CoreColumns cores={s.cores} tone={tone} />}
         </Row>
         <Row i={i++} tick={st.tick} icon={RamIcon} label="RAM" detail={`${gb(s.memUsed)} / ${gb(s.memTotal)} GB`} tone={tone} values={st.history.mem} max={100} value={`${Math.round(mem)} %`} level={memLevel}>
@@ -70,7 +70,7 @@ export function SystemView() {
           icon={GpuIcon}
           label="GPU"
           detail={join(gpuDetail)}
-          temp={st.gpuTemp !== null ? { c: st.gpuTemp, level: tempLevel("gpu", st.gpuTemp) } : null}
+          temp={st.gpuTemp !== null ? { c: st.gpuTemp, level: tempLevel("gpu", st.gpuTemp), from: st.gpuTempFrom } : null}
           tone={tone}
           values={st.history.gpu}
           max={100}
@@ -100,7 +100,7 @@ export function SystemView() {
             tick={st.tick}
             icon={Lightning}
             label={t("Leistung")}
-            detail={join([t(p.source === "meter" ? "Gemessen" : p.source === "battery" ? "Akku-Entladung" : "Schätzung"), p.cpu !== null ? `CPU ${watts(p.cpu)} W` : null, p.gpu !== null ? `GPU ${watts(p.gpu)} W` : null])}
+            detail={join([p.source === "parts" && p.via ? p.via : t(p.source === "meter" ? "Gemessen" : p.source === "battery" ? "Akku-Entladung" : "Schätzung"), p.cpu !== null ? `CPU ${watts(p.cpu)} W` : null, p.gpu !== null ? `GPU ${watts(p.gpu)} W` : null])}
             tone={tone}
             values={st.history.power}
             max={Math.max(30, ...st.history.power.filter(Number.isFinite))}
@@ -193,7 +193,8 @@ function Row(props: {
   icon: Icon;
   label: string;
   detail: ReactNode;
-  temp?: { c: number; level: Level } | null;
+  /** `from`: the program that gave it, shown on hover. */
+  temp?: { c: number; level: Level; from?: string | null } | null;
   health?: { text: string; color: string } | null;
   tone: (l: Level) => string;
   values?: number[];
@@ -228,7 +229,7 @@ function Row(props: {
             {props.detail}
           </span>
           {props.temp && (
-            <span className="shrink-0 font-medium" style={{ color: props.tone(props.temp.level) }}>
+            <span className="shrink-0 font-medium" style={{ color: props.tone(props.temp.level) }} title={props.temp.from ?? undefined}>
               {degrees(props.temp.c)} °C
             </span>
           )}
