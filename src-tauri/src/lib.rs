@@ -360,6 +360,7 @@ pub fn run() {
             github::github_contributions,
             github::github_open_profile,
             calendar::calendar_fetch,
+            calendar::calendar_open_link,
             lyrics::lyrics_fetch,
             romanize::lyrics_romanize,
             romanize::lyrics_dict_status,

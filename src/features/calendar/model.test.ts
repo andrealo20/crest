@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CALENDAR_DEFAULTS, PALETTE, agenda, dayLabel, dueEvent, linkHost, newSourceId, nextChange, nextColor, monthGrid, nextEvent, normalizeCalendar } from "./model.ts";
+import { CALENDAR_DEFAULTS, PALETTE, agenda, dayLabel, dueEvent, linkHost, meetingLink, newSourceId, nextChange, nextColor, monthGrid, nextEvent, normalizeCalendar } from "./model.ts";
 
 const at = (d: number, h = 0, m = 0) => new Date(2026, 10, d, h, m).getTime(); // November 2026
 const ev = (id: string, start: number, end: number, allDay = false) => ({ id, start, end, allDay });
@@ -114,4 +114,36 @@ test("month grid: six weeks from the first weekday, calendars per day", () => {
   assert.deepEqual(cell(5).calendars, ["work"]);
   assert.deepEqual(cell(6).calendars, ["work"]);
   assert.deepEqual(cell(7).calendars, []);
+});
+
+test("meeting links from the URL, location or description", () => {
+  const meet = "Join with Google Meet: https://meet.google.com/abc-defg-hij\nOr dial: (US) +1 650-555-0100 PIN: 123456#\n\nLearn more about Meet at: https://support.google.com/a/users/answer/9282720";
+  assert.equal(meetingLink({ description: meet }), "https://meet.google.com/abc-defg-hij");
+
+  const zoom = "Hi there,\n\nYou are invited to a scheduled Zoom meeting.\n\nJoin Zoom Meeting\nhttps://us02web.zoom.us/j/81234567890?pwd=aBcDeFgHiJkLmNoP.1\n\nMeeting ID: 812 3456 7890";
+  assert.equal(meetingLink({ description: zoom }), "https://us02web.zoom.us/j/81234567890?pwd=aBcDeFgHiJkLmNoP.1");
+  assert.equal(meetingLink({ location: "https://zoom.us/my/andrea." }), "https://zoom.us/my/andrea");
+  assert.equal(meetingLink({ location: "https://zoom.us/j/81234567890" }), "https://zoom.us/j/81234567890");
+
+  const teams =
+    "________________________________________________________________________________\nMicrosoft Teams meeting\nJoin on your computer, mobile app or room device\nClick here to join the meeting<https://teams.microsoft.com/l/meetup-join/19%3ameeting_NzQ5ZGM%40thread.v2/0?context=%7b%22Tid%22%3a%22a1b2%22%7d>\nMeeting ID: 312 456 789 012\nPasscode: aB3cD4\nDownload Teams<https://www.microsoft.com/en-us/microsoft-teams/download-app> | Join on the web<https://www.microsoft.com/microsoft-teams/join-a-meeting>";
+  assert.equal(meetingLink({ description: teams }), "https://teams.microsoft.com/l/meetup-join/19%3ameeting_NzQ5ZGM%40thread.v2/0?context=%7b%22Tid%22%3a%22a1b2%22%7d");
+  assert.equal(meetingLink({ description: "Join: https://teams.live.com/meet/9381234567890?p=AbCdEf), thanks" }), "https://teams.live.com/meet/9381234567890?p=AbCdEf");
+
+  const webex = "When it's time, join the Webex meeting here.\n\nJoin meeting <https://acme.webex.com/acme/j.php?MTID=m1a2b3c4d5e6f>\n\nMeeting number (access code): 2634 123 4567";
+  assert.equal(meetingLink({ description: webex }), "https://acme.webex.com/acme/j.php?MTID=m1a2b3c4d5e6f");
+
+  // The URL field wins over the description, the location over the description.
+  assert.equal(meetingLink({ url: "https://meet.google.com/url-from-ics", description: meet }), "https://meet.google.com/url-from-ics");
+  assert.equal(meetingLink({ url: "https://example.com/agenda", location: "Room 4 / https://meet.google.com/xyz-abcd-efg", description: zoom }), "https://meet.google.com/xyz-abcd-efg");
+
+  // Negatives: plain http, lookalike hosts, other paths on the bare Zoom domain, user names, no link at all.
+  assert.equal(meetingLink({ description: "http://meet.google.com/abc-defg-hij" }), null);
+  assert.equal(meetingLink({ description: "https://meet.google.com.evil.example/abc-defg-hij" }), null);
+  assert.equal(meetingLink({ description: "https://zoom.us.example.com/j/81234567890" }), null);
+  assert.equal(meetingLink({ description: "https://evilzoom.us/j/81234567890 https://teams.microsoft.com.example/l/x" }), null);
+  assert.equal(meetingLink({ description: "https://zoom.us/signin" }), null);
+  assert.equal(meetingLink({ description: "https://meet.google.com@evil.example/abc" }), null);
+  assert.equal(meetingLink({ url: "", location: "Café Central", description: "Bring the slides" }), null);
+  assert.equal(meetingLink({}), null);
 });

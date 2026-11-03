@@ -163,6 +163,33 @@ export function nextChange(events: CalendarEventLike[], now: number, leads: numb
   return next;
 }
 
+/** Hosts of the meeting services the Join button opens; anything else (and every lookalike) is no meeting. */
+function isMeeting(u: URL): boolean {
+  const h = u.hostname;
+  if (h === "meet.google.com" || h === "teams.microsoft.com" || h === "teams.live.com") return true;
+  if (h.endsWith(".zoom.us") || h.endsWith(".webex.com")) return true;
+  // The bare domain also serves sign-in and marketing pages: only its meeting paths.
+  return h === "zoom.us" && /^\/(j|my)\//.test(u.pathname);
+}
+
+/**
+ * The first https link to a Google Meet, Zoom, Teams or Webex meeting in the event's URL, location or description, or null.
+ * Angle brackets and quotes end a link (Outlook writes "Join<https://...>"); trailing punctuation is not part of it.
+ */
+export function meetingLink(e: { url?: string; location?: string; description?: string }): string | null {
+  for (const text of [e.url, e.location, e.description]) {
+    for (const [raw] of (text ?? "").matchAll(/https:\/\/[^\s<>"']+/gi)) {
+      try {
+        const u = new URL(raw.replace(/[.,;:!?)\]}*]+$/, ""));
+        if (!u.username && !u.password && isMeeting(u)) return u.href;
+      } catch {
+        // Not a URL after all: try the next one.
+      }
+    }
+  }
+  return null;
+}
+
 /** "Today", "Tomorrow" or the weekday and date, for a day header. `labels` are the translated words. */
 export function dayLabel(day: number, now: number, labels: { today: string; tomorrow: string }, format: (d: Date) => string): string {
   const today = startOfDay(now);
