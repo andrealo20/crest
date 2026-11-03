@@ -23,23 +23,45 @@ pub struct Privacy {
     screen: bool,
 }
 
+/// Crest's own entries: its exe path as the consent store spells it (`\` as `#`) and, in the Store build, its
+/// package family. Never counted, so the Camera tool does not light the camera dot while the user looks at themself.
+struct Own {
+    exe: Option<String>,
+    family: Option<String>,
+}
+
+impl Own {
+    fn get() -> &'static Own {
+        static OWN: std::sync::OnceLock<Own> = std::sync::OnceLock::new();
+        OWN.get_or_init(|| Own {
+            exe: std::env::current_exe().ok().map(|p| p.to_string_lossy().replace('\\', "#").to_lowercase()),
+            // Fails outside a package, which is every build but the Store one.
+            family: windows::ApplicationModel::Package::Current().and_then(|p| p.Id()).and_then(|id| id.FamilyName()).ok().map(|f| f.to_string().to_lowercase()),
+        })
+    }
+
+    /// `name`: a subkey of `NonPackaged` (an exe path) or of the capability itself (a package family).
+    fn is(&self, name: &str, non_packaged: bool) -> bool {
+        let mine = if non_packaged { &self.exe } else { &self.family };
+        mine.as_deref() == Some(name.to_lowercase().as_str())
+    }
+}
+
 #[tauri::command]
 pub fn privacy_state() -> Privacy {
-    let own = std::env::current_exe().ok().map(|p| p.to_string_lossy().replace('\\', "#").to_lowercase());
-    let busy = |cap: &str| in_use(&format!(r"{BASE}\{cap}"), own.as_deref());
+    let busy = |cap: &str| in_use(&format!(r"{BASE}\{cap}"), Own::get());
     Privacy { mic: busy("microphone"), camera: busy("webcam"), screen: busy("graphicsCaptureProgrammatic") }
 }
 
 /// Is any app under `path` (or `path\NonPackaged`) active right now?
-fn in_use(path: &str, own: Option<&str>) -> bool {
+fn in_use(path: &str, own: &Own) -> bool {
     let Some(key) = open(HKEY_CURRENT_USER, path) else { return false };
     let mut active = false;
     for name in subkeys(key) {
         let Some(sub) = open(key, &name) else { continue };
         if name == "NonPackaged" {
-            // Never count our own exe (the equalizer uses loopback, not the mic, but just in case).
-            active |= subkeys(sub).iter().filter(|n| Some(n.to_lowercase().as_str()) != own).any(|n| open(sub, n).is_some_and(|k| running_close(k)));
-        } else {
+            active |= subkeys(sub).iter().filter(|n| !own.is(n, true)).any(|n| open(sub, n).is_some_and(|k| running_close(k)));
+        } else if !own.is(&name, false) {
             active |= running(sub);
         }
         close(sub);
@@ -96,4 +118,22 @@ fn qword(key: HKEY, name: &str) -> Option<u64> {
     let name = HSTRING::from(name);
     let status = unsafe { RegQueryValueExW(key, PCWSTR(name.as_ptr()), None, None, Some(&mut value as *mut u64 as *mut u8), Some(&mut size)) };
     (status == ERROR_SUCCESS).then_some(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Own;
+
+    #[test]
+    fn own_entries_are_skipped() {
+        let own = Own { exe: Some(r"c:#program files#crest#crest.exe".into()), family: Some("andrealo20.crest_abc123".into()) };
+        assert!(own.is(r"C:#Program Files#Crest#crest.exe", true));
+        assert!(own.is("AndreaLo20.Crest_abc123", false));
+        // The exe path only counts under NonPackaged, the family only beside it.
+        assert!(!own.is(r"C:#Program Files#Crest#crest.exe", false));
+        assert!(!own.is("AndreaLo20.Crest_abc123", true));
+        assert!(!own.is(r"C:#Program Files#Zoom#bin#Zoom.exe", true));
+        assert!(!own.is("Microsoft.WindowsCamera_8wekyb3d8bbwe", false));
+        assert!(!Own { exe: None, family: None }.is("", false));
+    }
 }

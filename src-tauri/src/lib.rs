@@ -5,6 +5,8 @@ mod audio;
 mod brightness;
 mod calendar;
 #[cfg(windows)]
+mod camera;
+#[cfg(windows)]
 mod capture;
 mod clipboard;
 #[cfg(windows)]
@@ -422,6 +424,8 @@ pub fn run() {
             window.set_ignore_cursor_events(true)?;
             #[cfg(windows)]
             drop::install(&window);
+            #[cfg(windows)]
+            camera::install(&window);
             hit_test::spawn(app.handle().clone(), window.clone());
             #[cfg(windows)]
             display::spawn(app.handle().clone(), window);

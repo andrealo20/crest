@@ -16,6 +16,8 @@ Crest is a free, open-source Windows app by Andrea Loroni. It has no account, no
 
 The clipboard history and the history of live notices are kept in memory only and are gone when Crest quits.
 
+The Camera tool (off by default) shows the camera picture only on your screen, while the tool is open. It never records, saves or sends it.
+
 To remove your data, delete those folders (or the portable folder) and the "Crest/…" entries in the Credential Manager.
 
 ## Which network requests it makes, and when

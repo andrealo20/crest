@@ -26,7 +26,6 @@ use std::thread;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-#[cfg(windows)]
 use tauri::Emitter;
 use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition, State, WebviewWindow};
 #[cfg(windows)]
@@ -339,6 +338,8 @@ fn sync(app: &AppHandle) {
         return;
     }
     crate::mirror::wake(app);
+    // Hiding the window does not hide the page, so the Camera tool learns it here.
+    let _ = app.emit("notch://hidden", hide);
     // The timer window exists only while it is open (timer_window.rs destroys it on close).
     if let Some(timer) = app.get_webview_window("timer") {
         let _ = if hide { timer.hide() } else { timer.show() };

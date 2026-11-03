@@ -8,7 +8,7 @@ import { PRESETS, applyPreset, matchPreset, type PresetFields } from "./presets.
 // store.ts touches localStorage on import, so its tool ids are read from the source.
 const storeSrc = readFileSync(join(import.meta.dirname, "../../settings/store.ts"), "utf8");
 const TOOL_IDS = [...storeSrc.match(/TOOL_IDS = \[([\s\S]*?)\]/)![1].matchAll(/"(\w+)"/g)].map((m) => m[1]);
-const DEFAULT_OFF = ["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "notices"];
+const DEFAULT_OFF = ["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "notices", "camera"];
 
 const fresh = (): PresetFields => ({
   tools: TOOL_IDS.map((id) => ({ id, enabled: !DEFAULT_OFF.includes(id) })),
