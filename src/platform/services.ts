@@ -1226,6 +1226,12 @@ export const windowShell = {
     const off = listen<ScreenBehavior>("notch://screen", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
+  /** The window was hidden (hide shortcut or a rule) or shown again; the notch may stay open meanwhile. */
+  onHidden: (handler: (hidden: boolean) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<boolean>("notch://hidden", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** Shows Crest if the hide shortcut hid it and puts it above other always-on-top windows. */
   raise: () => {
     if (isNative) void invoke("display_raise");

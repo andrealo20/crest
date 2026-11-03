@@ -136,6 +136,10 @@ Caps Lock and Num Lock show the same way: switching either key says "Caps Lock o
 
 <p align="center"><img src="media/features/capture.png" alt="Capture: screenshot and region buttons, recording settings and the list of captures with thumbnails" width="520" /></p>
 
+## Camera
+
+A mirror for checking your hair and the light before a call, off by default. The tool shows the webcam picture, mirrored unless you turn that off in its header, and with several cameras a menu there picks one, which Crest remembers. The camera is on only while the tool is on screen: switching tools, closing the notch or hiding Crest turns it off. The picture is never recorded, saved or sent, and Crest's own use does not light the camera privacy dot. If Windows blocks the camera, the tool says where to allow it (Settings, Privacy & security, Camera), and it tells you when another app is holding the camera.
+
 ## Terminal
 
 - Runs PowerShell 7, Windows PowerShell or Command Prompt inside the notch, with a start folder and font size of your choice.

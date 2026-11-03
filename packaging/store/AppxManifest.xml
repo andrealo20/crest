@@ -57,5 +57,6 @@
   <Capabilities>
     <uap3:Capability Name="userNotificationListener" />
     <rescap:Capability Name="runFullTrust" />
+    <DeviceCapability Name="webcam" />
   </Capabilities>
 </Package>

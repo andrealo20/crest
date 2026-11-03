@@ -56,12 +56,13 @@ import { CalendarView } from "../features/calendar/CalendarView";
 import { CaptureView } from "../features/capture/CaptureView";
 import { SetupView } from "../features/setup/SetupView";
 import { WhatsNewView } from "../features/whatsnew/WhatsNewView";
-import { Camera } from "@phosphor-icons/react";
+import { Camera, VideoCamera } from "@phosphor-icons/react";
+import { CameraView } from "../features/camera/CameraView";
 import { pluginTab } from "../features/plugins/tabs";
 import { isMac } from "../platform/native";
 
 /** Tools built on Windows APIs with no Mac version yet (src-tauri/src/macos/); a Mac doesn't list them. */
-const WINDOWS_ONLY = new Set(["shelf", "system", "discord", "vault", "terminal", "launcher", "notices", "capture"]);
+const WINDOWS_ONLY = new Set(["shelf", "system", "discord", "vault", "terminal", "launcher", "notices", "capture", "camera"]);
 
 /**
  * Registry of all tools in the open notch. New tool = new entry here
@@ -116,6 +117,7 @@ export const tabs: NotchTab[] = ([
   { id: "calendar", hue: "red", label: "Kalender", icon: CalendarBlank, size: { w: 560, h: 340 }, View: CalendarView },
   { id: "notices", hue: "amber", label: "Mitteilungen", icon: BellSimple, size: { w: 560, h: 320 }, View: NoticesView },
   { id: "capture", hue: "cyan", label: "Erfassen", icon: Camera, size: { w: 620, h: 336 }, View: CaptureView },
+  { id: "camera", hue: "pink", label: "Kamera", icon: VideoCamera, size: { w: 520, h: 330 }, View: CameraView },
 ] satisfies NotchTab[]).filter((t) => !isMac || !WINDOWS_ONLY.has(t.id));
 
 /** Settings: reached via the gear, not in the tool bar. */
