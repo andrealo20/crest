@@ -1,10 +1,12 @@
 import { settings } from "../../settings/store";
+import type { Hue } from "./themes";
+
+export type { Hue };
 
 /**
- * Icon colours for "Coloured icons" (Settings, Themes): the tool bar, the settings pages and the weather.
- * Each hue is a CSS variable in themes.css, a shade darker on light themes so it still reads there.
+ * Icon colours for "Coloured icons" (Settings, Themes): the tool bar, the settings pages, the weather and the Hardware tool.
+ * Each hue is a CSS variable the active theme sets (HUE_PALETTE in themes.ts), held to 3:1 on its backgrounds.
  */
-export type Hue = "red" | "orange" | "amber" | "yellow" | "lime" | "green" | "emerald" | "teal" | "cyan" | "sky" | "blue" | "indigo" | "violet" | "purple" | "pink" | "rose" | "slate";
 
 export const hueVar = (hue: Hue) => `var(--hue-${hue})`;
 

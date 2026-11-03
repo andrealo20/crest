@@ -263,8 +263,38 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     "--theme-accent": formatColor(colors.accent),
     "--notch-closed": closedNotch ? formatColor(bg) : "#000000",
   };
+  // Coloured icons sit on the panel, the elevated cards, the Hardware rows and the active dock pill.
+  const hueGrounds = needs(GRAPHIC, bg, elevated, fill1, over(fill[2], bg));
+  for (const [hue, [onDark, onLight]] of Object.entries(HUE_PALETTE)) {
+    vars[`--hue-${hue}`] = formatColor(ensureContrast(parseColor(dark ? onDark : onLight)!, hueGrounds));
+  }
   return { id: file.id, dark, vars, colors, adjustments, closedNotch };
 }
+
+/** Coloured icons (Settings, Themes; hues.ts): a bright shade for dark themes and a darker one for light themes, then held to 3:1 like every other colour. */
+export const HUE_PALETTE = {
+  red: ["#f87171", "#dc2626"],
+  orange: ["#fb923c", "#ea580c"],
+  amber: ["#fbbf24", "#d97706"],
+  yellow: ["#facc15", "#ca8a04"],
+  lime: ["#a3e635", "#65a30d"],
+  green: ["#4ade80", "#16a34a"],
+  emerald: ["#34d399", "#059669"],
+  teal: ["#2dd4bf", "#0d9488"],
+  cyan: ["#22d3ee", "#0891b2"],
+  sky: ["#38bdf8", "#0284c7"],
+  blue: ["#60a5fa", "#2563eb"],
+  indigo: ["#818cf8", "#4f46e5"],
+  violet: ["#a78bfa", "#7c3aed"],
+  purple: ["#c084fc", "#9333ea"],
+  pink: ["#f472b6", "#db2777"],
+  rose: ["#fb7185", "#e11d48"],
+  slate: ["#a8b3c4", "#64748b"],
+} as const;
+export type Hue = keyof typeof HUE_PALETTE;
+
+/** Before 0.3.3 a Hardware switch coloured only the closed-row readings; saved settings that had it on keep coloured icons. */
+export const legacyIconColors = (system: unknown) => typeof system === "object" && system !== null && (system as { iconColors?: unknown }).iconColors === true;
 
 /** The cover colour as the open panel draws it: held to 3:1 on the background, unchanged where it already passes. */
 export function readableAccent(raw: string, theme: ResolvedTheme): string {

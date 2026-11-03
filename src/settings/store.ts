@@ -5,7 +5,7 @@ import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/
 import { normalizeClockLook, normalizeLook, type ClockLook, type TimerLook } from "../features/timer/looks";
 import { WATER_DEFAULTS, normalizeWater, type WaterConfig } from "../features/water/water";
 import { normalizeCards, USAGE_CARDS_DEFAULTS, type UsageCards } from "../features/usage/cards";
-import { THEME_DEFAULTS, normalizeThemeSettings, type ThemeSettings } from "../features/themes/themes";
+import { THEME_DEFAULTS, legacyIconColors, normalizeThemeSettings, type ThemeSettings } from "../features/themes/themes";
 import type { ColorScheme } from "../features/system/levels";
 import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
 import { NOTICE_DEFAULTS, normalizeNotices, type NoticeSettings } from "../features/notices/rules";
@@ -283,7 +283,7 @@ settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
     terminal: { ...defaults.terminal, ...s.terminal },
     music: { ...defaults.music, ...s.music, lyricSources: normalizeSources(s.music?.lyricSources) },
     // Coloured icons moved from Hardware (closed-row readings only) to Themes (the whole app).
-    themes: normalizeThemeSettings(s.themes, (s.system as { iconColors?: unknown } | undefined)?.iconColors === true),
+    themes: normalizeThemeSettings(s.themes, legacyIconColors(s.system)),
     system: (({ iconColors: _moved, ...rest }: Partial<Settings["system"]> & { iconColors?: unknown }) => ({ ...defaults.system, ...rest }))(s.system ?? {}),
     // Only an explicit opt-in turns the keys on; an older saved `shortcuts: true` does not.
     launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true },

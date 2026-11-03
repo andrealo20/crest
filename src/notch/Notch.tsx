@@ -501,8 +501,8 @@ function DockButton(props: { label: string; icon: NotchTab["icon"]; hue?: Hue; a
       aria-label={props.label}
       title={props.label}
       onClick={props.onClick}
-      className={`pressable relative flex h-9 w-[42px] min-w-0 shrink items-center justify-center rounded-[12px] transition-[color,opacity] duration-150 ${
-        props.active ? "text-label" : color ? "opacity-75 hover:opacity-100" : "text-label-2 hover:text-label"
+      className={`pressable relative flex h-9 w-[42px] min-w-0 shrink items-center justify-center rounded-[12px] transition-colors duration-150 ${
+        props.active ? "text-label" : color ? "" : "text-label-2 hover:text-label"
       }`}
       style={color ? { color } : undefined}
     >

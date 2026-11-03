@@ -744,17 +744,17 @@ function ShapePreview({ d }: { d: string }) {
   );
 }
 
-const partInfo: Record<PartId, { label: string; icon: Icon }> = {
-  timer: { label: "Timer", icon: Timer },
-  discord: { label: "Discord", icon: DiscordLogo },
-  rings: { label: "AI-Nutzung", icon: ChartDonut },
-  title: { label: "Songtitel", icon: MusicNote },
-  readings: { label: "Auslastung", icon: Cpu },
-  equalizer: { label: "Equalizer", icon: Waveform },
-  clock: { label: "Uhrzeit", icon: Clock },
-  github: { label: "GitHub heute", icon: GithubLogo },
-  calendar: { label: "Nächster Termin", icon: CalendarBlank },
-  script: { label: "Skript-Anzeigen (crest-notify)", icon: TerminalWindow },
+const partInfo: Record<PartId, { label: string; icon: Icon; hue: Hue }> = {
+  timer: { label: "Timer", icon: Timer, hue: "orange" },
+  discord: { label: "Discord", icon: DiscordLogo, hue: "indigo" },
+  rings: { label: "AI-Nutzung", icon: ChartDonut, hue: "purple" },
+  title: { label: "Songtitel", icon: MusicNote, hue: "pink" },
+  readings: { label: "Auslastung", icon: Cpu, hue: "red" },
+  equalizer: { label: "Equalizer", icon: Waveform, hue: "pink" },
+  clock: { label: "Uhrzeit", icon: Clock, hue: "blue" },
+  github: { label: "GitHub heute", icon: GithubLogo, hue: "violet" },
+  calendar: { label: "Nächster Termin", icon: CalendarBlank, hue: "red" },
+  script: { label: "Skript-Anzeigen (crest-notify)", icon: TerminalWindow, hue: "slate" },
 };
 
 /** Small labelled switch for a part's own options, next to its main switch. */
@@ -774,13 +774,14 @@ function ClosedParts() {
   const setClosed = (patch: (cur: ClosedSettings) => Partial<ClosedSettings>) => updateSettings((cur) => ({ closed: { ...cur.closed, ...patch(cur.closed) } }));
   // Only these always show; battery, power and temperature can be missing, so they cannot keep the part alone.
   const readingsOn = (["cpu", "ram", "gpu"] as const).filter((k) => c.readings[k]).length;
+  const iconColors = useIconColors();
 
   return (
     <div>
       <Row label={t("Inhalt")} hint={t("Gilt für Notch und Kapsel, zum Sortieren ziehen")} />
       <Reorder.Group as="div" axis="y" values={c.order} onReorder={(order: PartId[]) => setClosed(() => ({ order }))} className="divide-y divide-separator">
         {c.order.map((id) => {
-          const { label, icon: I } = partInfo[id];
+          const { label, icon: I, hue } = partInfo[id];
           const on = c.parts[id];
           return (
             <Reorder.Item
@@ -796,7 +797,7 @@ function ClosedParts() {
               }`}
             >
               <DotsSixVertical size={13} weight="bold" className="-ms-1 text-label-4 transition-colors group-hover:text-label-3" />
-              <I size={15} weight="bold" className={on ? "text-label-2" : "text-label-4"} />
+              <I size={15} weight="bold" className={on && iconColors ? "" : on ? "text-label-2" : "text-label-4"} style={on && iconColors ? { color: hueVar(hue) } : undefined} />
               <span className={`flex-1 text-body select-none ${on ? "text-label" : "text-label-3"}`}>{t(label)}</span>
               <div onPointerDown={(e) => e.stopPropagation()} className="flex items-center gap-3">
                 {on && id === "readings" &&

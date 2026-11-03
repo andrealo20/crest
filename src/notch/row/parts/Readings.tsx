@@ -99,7 +99,7 @@ export function ReadingView({ reading }: { reading: Reading }) {
         {id === "fps" ? (
           <span className="text-caption font-medium text-label-3">FPS</span>
         ) : LETTER[id] ? (
-          <Dial letter={LETTER[id]} value={value ?? 0} />
+          <Dial letter={LETTER[id]} value={value ?? 0} arc={iconColor ? color : undefined} />
         ) : id === "battery" ? (
           <BatteryGlyph value={value ?? 0} />
         ) : G ? (
@@ -122,14 +122,15 @@ export function ReadingView({ reading }: { reading: Reading }) {
   );
 }
 
-function Dial({ letter, value }: { letter: string; value: number }) {
+/** `arc`: the value's colour when the icon has a colour of its own, so a red CPU letter never reads as high load. */
+function Dial({ letter, value, arc }: { letter: string; value: number; arc?: string }) {
   const v = Math.min(100, Math.max(0, value)) * 0.75;
   return (
     <svg width={DIAL} height={DIAL} viewBox="0 0 16 16" className="shrink-0" aria-hidden>
       {/* 270 degrees from bottom left round to bottom right, the gap at the bottom. */}
       <g transform="rotate(135 8 8)" fill="none" strokeWidth="2" strokeLinecap="round">
         <circle cx="8" cy="8" r="7" stroke="currentColor" strokeOpacity={0.25} pathLength={100} strokeDasharray="75 100" />
-        {v > 0 && <circle cx="8" cy="8" r="7" stroke="currentColor" pathLength={100} strokeDasharray={`${v} 100`} />}
+        {v > 0 && <circle cx="8" cy="8" r="7" stroke={arc ?? "currentColor"} pathLength={100} strokeDasharray={`${v} 100`} />}
       </g>
       <text x="8" y="8.5" textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="700" fill="currentColor">
         {letter}
