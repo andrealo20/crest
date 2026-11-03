@@ -15,6 +15,7 @@ import {
   type TimerMode,
 } from "./store";
 import { Look } from "./Look";
+import { modeTint } from "./looks";
 import { detached, toggleDetached } from "./detach";
 import { settings } from "../../settings/store";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -71,8 +72,8 @@ function TimerHeader() {
 function FinishedView() {
   const s = timer.use();
   const ring = ringing.use();
-  const look = settings.use().timer.look;
-  const tint = s.mode === "focus" ? "var(--color-orange)" : "var(--color-green)";
+  const { look, color } = settings.use().timer;
+  const tint = modeTint(s.mode, color);
   return (
     <motion.div
       className="flex h-full flex-col justify-between px-5 pt-1 pb-2"
@@ -128,7 +129,7 @@ function SetupView() {
   // Only the HUD shows tenths; the other looks change once a second.
   const remaining = useRemaining(look === "hud");
   const running = s.endsAt !== null;
-  const tint = s.mode === "focus" ? "var(--color-orange)" : "var(--color-green)";
+  const tint = modeTint(s.mode, settings.use().timer.color);
   const [editing, setEditing] = useState(false);
   const clockRef = useRef<HTMLDivElement>(null);
 

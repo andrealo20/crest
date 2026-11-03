@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { SEGMENTS, clockText, litCells, lookText, pixelMatrix, progressOf, terminalBar, zenParts, type TimerLook } from "./looks";
+import { SEGMENTS, clockText, handAngles, litCells, lookText, pixelMatrix, progressOf, slicePath, terminalBar, timeWidth, zenParts, type TimerLook } from "./looks";
 import type { TimerMode } from "./store";
 import { locale, t } from "../../i18n";
 import { settings } from "../../settings/store";
@@ -37,6 +37,16 @@ export function Look(props: LookProps) {
       return <Zen {...props} />;
     case "hud":
       return <Hud {...props} />;
+    case "flip":
+      return <Flip {...props} />;
+    case "nixie":
+      return <Nixie {...props} />;
+    case "ring":
+      return <Ring {...props} />;
+    case "lcd":
+      return <Lcd {...props} />;
+    case "analog":
+      return <Analog {...props} />;
     default:
       return <Clean {...props} />;
   }
@@ -146,9 +156,8 @@ const SEGMENT_RECTS: Record<string, [number, number, number, number]> = {
   g: [1.6, 8, 6.8, 2],
 };
 
-/** Retro clock: glowing seven segment digits over their unlit ghosts, a blinking colon, mode and percent like an LCD. */
-function Retro(p: LookProps) {
-  const text = mainText(p, "retro");
+/** Seven segment digits with their unlit ghosts; the colon blinks while running. `ink` fills the lit segments. */
+function SegmentDigits({ text, height, running, ink, ghost, glow }: { text: string; height: number; running: boolean; ink: string; ghost: number; glow: boolean }) {
   let x = 0;
   const parts = [...text].map((c) => {
     const at = x;
@@ -156,44 +165,45 @@ function Retro(p: LookProps) {
     return { c, at };
   });
   const width = x - 3;
-  const height = p.h * 0.86;
+  return (
+    <svg width={((width + 2) / 20) * height} height={height} viewBox={`-1 -1 ${width + 2} 20`} className="shrink-0" role="img" aria-label={text}>
+      <g transform="skewX(-6) translate(1.5 0)">
+        {parts.map(({ c, at }, i) =>
+          c === ":" ? (
+            <g key={i} className={running ? "look-blink" : undefined} fill={ink}>
+              <circle cx={at + 1.5} cy={5.5} r={1.3} />
+              <circle cx={at + 1.5} cy={12.5} r={1.3} />
+            </g>
+          ) : (
+            <g key={i} transform={`translate(${at} 0)`}>
+              {Object.entries(SEGMENT_RECTS).map(([seg, [sx, sy, sw, sh]]) => {
+                const on = SEGMENTS[c]?.includes(seg);
+                return <rect key={seg} x={sx} y={sy} width={sw} height={sh} rx={1} fill={ink} opacity={on ? 1 : ghost} className={on && glow ? "look-glow" : undefined} />;
+              })}
+            </g>
+          ),
+        )}
+      </g>
+    </svg>
+  );
+}
+
+/** Mode (or weekday) and percent beside a look, small and spaced like an instrument label. */
+function Side({ p, mono = false }: { p: LookProps; mono?: boolean }) {
+  return (
+    <div className={`flex min-w-0 flex-col leading-tight font-semibold tracking-[0.12em] uppercase ${mono ? "look-mono" : ""}`} style={{ fontSize: Math.max(8, p.h * 0.21), color: p.tint }}>
+      <span className="truncate">{caption(p)}</span>
+      <span className="tabular opacity-50">{percent(p)}%</span>
+    </div>
+  );
+}
+
+/** Retro clock: glowing seven segment digits over their unlit ghosts, a blinking colon, mode and percent like an LCD. */
+function Retro(p: LookProps) {
   return (
     <div className="flex min-w-0 flex-1 items-center" style={{ gap: p.h * 0.3, color: p.tint }}>
-      <svg width={((width + 2) / 20) * height} height={height} viewBox={`-1 -1 ${width + 2} 20`} className="shrink-0" role="img" aria-label={text}>
-        <g transform="skewX(-6) translate(1.5 0)">
-          {parts.map(({ c, at }, i) =>
-            c === ":" ? (
-              <g key={i} className={p.running ? "look-blink" : undefined} fill="currentColor">
-                <circle cx={at + 1.5} cy={5.5} r={1.3} />
-                <circle cx={at + 1.5} cy={12.5} r={1.3} />
-              </g>
-            ) : (
-              <g key={i} transform={`translate(${at} 0)`}>
-                {Object.entries(SEGMENT_RECTS).map(([seg, [sx, sy, sw, sh]]) => {
-                  const on = SEGMENTS[c]?.includes(seg);
-                  return (
-                    <rect
-                      key={seg}
-                      x={sx}
-                      y={sy}
-                      width={sw}
-                      height={sh}
-                      rx={1}
-                      fill="currentColor"
-                      opacity={on ? 1 : 0.08}
-                      className={on ? "look-glow" : undefined}
-                    />
-                  );
-                })}
-              </g>
-            ),
-          )}
-        </g>
-      </svg>
-      <div className="look-mono flex min-w-0 flex-col leading-tight font-semibold tracking-[0.12em] uppercase" style={{ fontSize: Math.max(8, p.h * 0.21) }}>
-        <span className="truncate">{caption(p)}</span>
-        <span className="tabular opacity-50">{percent(p)}%</span>
-      </div>
+      <SegmentDigits text={mainText(p, "retro")} height={p.h * 0.86} running={p.running} ink="currentColor" ghost={0.08} glow />
+      <Side p={p} mono />
     </div>
   );
 }
@@ -307,6 +317,146 @@ function Hud(p: LookProps) {
         <span className="truncate">{caption(p)}</span>
         <span className="tabular opacity-50">{String(percent(p)).padStart(3, "0")}%</span>
       </div>
+    </div>
+  );
+}
+
+/** Flip clock: each digit on its own card with a seam across the middle; a new digit flips down into place. */
+function Flip(p: LookProps) {
+  const text = mainText(p, "flip");
+  const size = p.h * 0.62;
+  return (
+    <div className="flex min-w-0 flex-1 items-center" style={{ gap: p.h * 0.3 }}>
+      <div className="flex shrink-0 items-center" style={{ gap: p.h * 0.06 }} role="img" aria-label={text}>
+        {[...text].map((c, i) =>
+          c === ":" ? (
+            <span key={i} className="leading-none font-semibold opacity-60" style={{ color: p.tint, fontSize: size }}>
+              :
+            </span>
+          ) : (
+            <span key={i} className="relative flex items-center justify-center overflow-hidden rounded-[5px] bg-fill-2" style={{ width: size * 0.78, height: p.h * 0.86, perspective: 200 }}>
+              <motion.span
+                key={c}
+                className="tabular leading-none font-semibold"
+                style={{ color: p.tint, fontSize: size }}
+                initial={{ rotateX: -90, opacity: 0 }}
+                animate={{ rotateX: 0, opacity: 1 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+              >
+                {c}
+              </motion.span>
+              <span className="absolute inset-x-0 top-1/2 h-px bg-black/45" />
+            </span>
+          ),
+        )}
+      </div>
+      <Side p={p} />
+    </div>
+  );
+}
+
+/** Nixie tubes: thin glowing numerals, each in its own glass with the ghost of an 8 behind it. */
+function Nixie(p: LookProps) {
+  const text = mainText(p, "nixie");
+  const fs = p.h * 0.78;
+  return (
+    <div className="flex min-w-0 flex-1 items-center" style={{ gap: p.h * 0.3, color: p.tint }}>
+      <div className="flex shrink-0 items-center" style={{ gap: p.h * 0.05 }} role="img" aria-label={text}>
+        {[...text].map((c, i) =>
+          c === ":" ? (
+            <span key={i} className="look-nixie leading-none" style={{ fontSize: fs * 0.7 }}>
+              ·
+            </span>
+          ) : (
+            <span key={i} className="look-tube relative flex items-center justify-center" style={{ width: fs * 0.64, height: p.h * 0.94 }}>
+              <span className="absolute leading-none opacity-[0.08]" style={{ fontSize: fs, fontWeight: 300 }}>
+                8
+              </span>
+              <span className="look-nixie relative leading-none" style={{ fontSize: fs, fontWeight: 300 }}>
+                {c}
+              </span>
+            </span>
+          ),
+        )}
+      </div>
+      <Side p={p} />
+    </div>
+  );
+}
+
+/** Ring: the time inside a capsule whose outline drains as the time runs out. */
+function Ring(p: LookProps) {
+  const text = mainText(p, "ring");
+  const fs = p.h * 0.52;
+  const h = p.h * 0.86;
+  const w = Math.round(timeWidth(text) * fs + h * 0.9);
+  const left = 1 - progressOf(p.remaining, p.duration);
+  const stroke = Math.max(2, p.h * 0.07);
+  const box = { x: stroke / 2, y: stroke / 2, width: w - stroke, height: h - stroke, rx: (h - stroke) / 2 };
+  return (
+    <div className="flex min-w-0 flex-1 items-center" style={{ gap: p.h * 0.3 }}>
+      <div className="relative flex shrink-0 items-center justify-center" style={{ width: w, height: h }}>
+        <svg width={w} height={h} className="absolute inset-0" aria-hidden>
+          <rect {...box} fill="none" stroke="var(--color-fill-2)" strokeWidth={stroke} />
+          <rect
+            {...box}
+            fill="none"
+            stroke={p.tint}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            pathLength={100}
+            strokeDasharray={`${left * 100} 100`}
+            className="look-fade"
+            style={{ transitionProperty: "stroke-dasharray" }}
+          />
+        </svg>
+        <span className="tabular relative leading-none font-semibold tracking-[-0.02em]" style={{ color: p.tint, fontSize: fs }}>
+          {text}
+        </span>
+      </div>
+      <Side p={p} />
+    </div>
+  );
+}
+
+/** LCD: dark segment digits on a pale display tinted with the colour, the unlit segments faintly visible, like a pocket calculator. */
+function Lcd(p: LookProps) {
+  return (
+    <div className="flex min-w-0 flex-1 items-center" style={{ gap: p.h * 0.3 }}>
+      <div className="look-lcd shrink-0 rounded-[6px]" style={{ ["--lcd" as string]: p.tint, padding: `${p.h * 0.1}px ${p.h * 0.16}px` }}>
+        <SegmentDigits text={mainText(p, "lcd")} height={p.h * 0.62} running={p.running} ink="#1d2414" ghost={0.1} glow={false} />
+      </div>
+      <Side p={p} mono />
+    </div>
+  );
+}
+
+/** Analog: as a clock, hands on a dial; as a timer, the slice of time still left closing towards 12. */
+function Analog(p: LookProps) {
+  const size = p.h * 0.9;
+  const hands = p.clock ? handAngles(p.clock.text) : null;
+  const left = 1 - progressOf(p.remaining, p.duration);
+  return (
+    <div className="flex min-w-0 flex-1 items-center" style={{ gap: p.h * 0.3 }}>
+      <svg width={size} height={size} viewBox="-20 -20 40 40" className="shrink-0" style={{ color: p.tint }} aria-hidden>
+        <circle r={18.5} fill="none" stroke="var(--color-fill-2)" strokeWidth={1.2} />
+        {Array.from({ length: 12 }, (_, i) => (
+          <line key={i} y1={-15.5} y2={i % 3 ? -16.8 : -17.6} stroke="var(--color-label-3)" strokeWidth={i % 3 ? 0.8 : 1.4} strokeLinecap="round" transform={`rotate(${i * 30})`} />
+        ))}
+        {hands ? (
+          <>
+            <line y2={-9} stroke="var(--color-label)" strokeWidth={2.4} strokeLinecap="round" transform={`rotate(${hands.hour})`} />
+            <line y2={-14} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" transform={`rotate(${hands.minute})`} />
+            <circle r={1.8} fill="currentColor" />
+          </>
+        ) : (
+          <path d={slicePath(left, 14)} fill="currentColor" opacity={0.9} />
+        )}
+      </svg>
+      <span className="tabular shrink-0 leading-none font-semibold tracking-[-0.03em]" style={{ color: p.tint, fontSize: p.h * 0.6 }}>
+        {mainText(p, "analog")}
+      </span>
+      <Side p={p} />
     </div>
   );
 }

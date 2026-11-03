@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SEGMENTS, TIMER_LOOKS, clockText, litCells, lookText, normalizeClockLook, normalizeLook, pixelMatrix, progressOf, terminalBar, zenParts } from "./looks.ts";
+import { SEGMENTS, TIMER_LOOKS, clockText, handAngles, litCells, lookText, lookTint, normalizeClockLook, normalizeLook, normalizeLookColor, pixelMatrix, progressOf, slicePath, terminalBar, timeWidth, zenParts } from "./looks.ts";
 
 test("text per look", () => {
   assert.equal(lookText("clean", 1500), "25:00");
@@ -80,4 +80,29 @@ test("clock text and clock look", () => {
   assert.equal(normalizeClockLook("pixel"), "pixel");
   assert.equal(normalizeClockLook(undefined), "standard");
   assert.equal(normalizeClockLook("standard"), "standard");
+});
+
+test("new looks: LCD reads like the retro clock, the others like the clean one", () => {
+  assert.equal(lookText("lcd", 3900), "1:05:00");
+  assert.equal(lookText("flip", 1499), "24:59");
+  assert.ok(TIMER_LOOKS.includes("analog"));
+});
+
+test("colours: orange keeps the theme's warning colour, unknown values fall back", () => {
+  assert.equal(lookTint("orange"), "var(--color-orange)");
+  assert.equal(lookTint("blue"), "var(--hue-blue)");
+  assert.equal(lookTint("white"), "var(--color-label)");
+  assert.equal(normalizeLookColor("purple-ish", "orange"), "orange");
+  assert.equal(normalizeLookColor("teal", "white"), "teal");
+});
+
+test("analog hands and the slice of time left", () => {
+  assert.deepEqual(handAngles("3:00"), { hour: 90, minute: 0 });
+  assert.deepEqual(handAngles("12:30"), { hour: 15, minute: 180 });
+  assert.equal(handAngles("noon"), null);
+  assert.equal(slicePath(0, 10), "");
+  assert.match(slicePath(1, 10), /^M0,-10A10,10 0 1 1 0,10/);
+  assert.equal(slicePath(0.25, 10), "M0,0L0,-10A10,10 0 0 1 10,0Z");
+  assert.match(slicePath(0.75, 10), / 0 1 1 -10,/);
+  assert.ok(Math.abs(timeWidth("24:59") - 2.7) < 1e-9);
 });

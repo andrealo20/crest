@@ -9,6 +9,7 @@ import { isNative } from "../../../platform/native";
 import { timer, timerActions, useRemaining } from "../store";
 import { POS_KEY } from "../detach";
 import { Look } from "../Look";
+import { modeTint } from "../looks";
 import { t } from "../../../i18n";
 
 /*
@@ -23,7 +24,7 @@ export function TimerWindow() {
   const look = timerSettings.look;
   const remaining = useRemaining(look === "hud");
   const running = s.endsAt !== null;
-  const tint = s.mode === "focus" ? "var(--color-orange)" : "var(--color-green)";
+  const tint = modeTint(s.mode, timerSettings.color);
 
   // Finished: pulse about as long as the alarm rings (same rule as in store.ts), then stay dimmed.
   // Ringing itself lives in the notch window only.

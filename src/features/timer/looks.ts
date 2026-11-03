@@ -3,7 +3,7 @@
  * (looks.test.ts) and shared by the Timer tool, the detached window and the settings preview.
  */
 
-export const TIMER_LOOKS = ["clean", "pixel", "dots", "retro", "terminal", "zen", "hud"] as const;
+export const TIMER_LOOKS = ["clean", "pixel", "dots", "retro", "terminal", "zen", "hud", "flip", "nixie", "ring", "lcd", "analog"] as const;
 export type TimerLook = (typeof TIMER_LOOKS)[number];
 
 /** German id for t(), English in en.json. */
@@ -15,10 +15,51 @@ export const lookLabels: Record<TimerLook, string> = {
   terminal: "Fokus-Terminal",
   zen: "Zen",
   hud: "Cyber-HUD",
+  flip: "Klappzahlen",
+  nixie: "Nixie",
+  ring: "Ring",
+  lcd: "LCD",
+  analog: "Analog",
 };
 
 export function normalizeLook(v: unknown): TimerLook {
   return TIMER_LOOKS.includes(v as TimerLook) ? (v as TimerLook) : "clean";
+}
+
+/** Colours of the focus timer and of the clock (Settings, Timer); a break stays green. */
+export const LOOK_COLORS = ["orange", "red", "amber", "yellow", "green", "teal", "sky", "blue", "indigo", "violet", "pink", "accent", "white"] as const;
+export type LookColor = (typeof LOOK_COLORS)[number];
+
+/** German id for t(), English in en.json. */
+export const lookColorLabels: Record<LookColor, string> = {
+  orange: "Orange",
+  red: "Rot",
+  amber: "Bernstein",
+  yellow: "Gelb",
+  green: "Grün",
+  teal: "Türkis",
+  sky: "Himmelblau",
+  blue: "Blau",
+  indigo: "Indigo",
+  violet: "Violett",
+  pink: "Pink",
+  accent: "Theme-Akzent",
+  white: "Weiß",
+};
+
+/** The CSS colour: orange is the theme's warning colour, as before; the rest are the coloured-icon hues held to 3:1 by the theme. */
+export function lookTint(c: LookColor): string {
+  if (c === "orange") return "var(--color-orange)";
+  if (c === "accent") return "var(--theme-accent)";
+  if (c === "white") return "var(--color-label)";
+  return `var(--hue-${c})`;
+}
+
+/** A focus timer in its chosen colour, a break in green. */
+export const modeTint = (mode: string, color: LookColor) => (mode === "focus" ? lookTint(color) : "var(--color-green)");
+
+export function normalizeLookColor(v: unknown, fallback: LookColor): LookColor {
+  return LOOK_COLORS.includes(v as LookColor) ? (v as LookColor) : fallback;
 }
 
 /** The Overview clock: its usual text ("standard") or one of the timer looks. */
@@ -56,6 +97,7 @@ export function lookText(look: TimerLook, seconds: number): string {
   const sec = s % 60;
   switch (look) {
     case "retro":
+    case "lcd":
       return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
     case "terminal":
       return `${pad(h)}:${pad(m)}:${pad(sec)}`;
@@ -83,6 +125,29 @@ export function zenParts(seconds: number): { value: number; unit: "min" | "s" } 
 export function litCells(remaining: number, duration: number, cells: number): number {
   if (remaining <= 0 || duration <= 0) return 0;
   return Math.min(cells, Math.max(1, Math.ceil((remaining / duration) * cells - 1e-9)));
+}
+
+/** Width of a time like "24:59" in em of a tabular font: digits about 0.6 em, separators 0.3 em. For the Ring look's capsule. */
+export function timeWidth(text: string): number {
+  return [...text].reduce((w, c) => w + (/\d/.test(c) ? 0.6 : 0.3), 0);
+}
+
+/** Analog clock: hand angles in degrees from 12 o'clock for "H:MM" or "HH:MM"; null for anything else. */
+export function handAngles(text: string): { hour: number; minute: number } | null {
+  const m = /^(\d{1,2}):(\d{2})/.exec(text);
+  if (!m) return null;
+  const minutes = Number(m[2]);
+  return { hour: ((Number(m[1]) % 12) + minutes / 60) * 30, minute: minutes * 6 };
+}
+
+/** Analog timer: the slice of time still left, from 12 o'clock clockwise, as an SVG path around (0, 0). */
+export function slicePath(left: number, r: number): string {
+  if (left <= 0) return "";
+  if (left >= 1) return `M0,${-r}A${r},${r} 0 1 1 0,${r}A${r},${r} 0 1 1 0,${-r}Z`;
+  const a = left * 2 * Math.PI;
+  const x = +(r * Math.sin(a)).toFixed(3);
+  const y = +(-r * Math.cos(a)).toFixed(3);
+  return `M0,0L0,${-r}A${r},${r} 0 ${left > 0.5 ? 1 : 0} 1 ${x},${y}Z`;
 }
 
 /** Terminal progress bar of the elapsed time, ASCII so every monospace font lines it up. */
