@@ -81,7 +81,7 @@ The volume and brightness HUD is a status alert too: when the volume or mute cha
 
 ## Overview, weather and Discord
 
-- **Overview** is a small control center: time, weather, what is playing right now, Windows focus and a volume slider.
+- **Overview** is a small control center: time, weather, what is playing right now, Windows focus and a volume slider. With more than one playback device, the button at the end of the slider lists them and makes the one you pick the Windows default.
 - **Weather** gives current conditions and a 7-day forecast through Open-Meteo. No API key needed.
 - **Discord** shows your current voice call with speaking members and buttons for mute, deafen and hang up. In the closed notch, a green equalizer plays while someone talks.
 

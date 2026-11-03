@@ -698,7 +698,19 @@ export interface FocusState {
   kind: "focus" | "dnd";
 }
 
+/** One active playback device (src-tauri/src/controls.rs). */
+export interface AudioOutput {
+  id: string;
+  name: string;
+  /** The device the volume slider controls. */
+  default: boolean;
+}
+
 const mockVolume: VolumeState = { level: 0.42, muted: false };
+const mockOutputs: AudioOutput[] = [
+  { id: "speakers", name: "Speakers (Realtek(R) Audio)", default: true },
+  { id: "headphones", name: "Headphones (WH-1000XM5)", default: false },
+];
 const mockFocus: FocusState = { active: false, kind: "focus" };
 
 /** One program in the volume mixer (all its audio sessions together). */
@@ -759,6 +771,12 @@ export const systemControls = {
     if (isNative) return invoke<VolumeState>("volume_set", patch);
     Object.assign(mockVolume, patch, patch.level !== undefined && patch.level > 0 && patch.muted === undefined ? { muted: false } : {});
     return Promise.resolve({ ...mockVolume });
+  },
+  outputs: (): Promise<AudioOutput[]> => (isNative ? invoke<AudioOutput[]>("audio_outputs") : Promise.resolve(mockOutputs.map((o) => ({ ...o })))),
+  setOutput: (id: string): Promise<void> => {
+    if (isNative) return invoke("audio_set_output", { id });
+    mockOutputs.forEach((o) => (o.default = o.id === id));
+    return Promise.resolve();
   },
   focus: (): Promise<FocusState> => (isNative ? invoke<FocusState>("focus_get") : Promise.resolve({ ...mockFocus })),
   setFocus: (active: boolean): Promise<FocusState> => {

@@ -261,6 +261,10 @@ pub fn run() {
             #[cfg(windows)]
             controls::volume_set,
             #[cfg(windows)]
+            controls::audio_outputs,
+            #[cfg(windows)]
+            controls::audio_set_output,
+            #[cfg(windows)]
             mixer::mixer_list,
             #[cfg(windows)]
             mixer::mixer_set,
