@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Eye, EyeSlash, Moon, MusicNoteSimple, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleSlash, Timer } from "@phosphor-icons/react";
+import { CaretDown, Coffee, Eye, EyeSlash, Moon, MusicNoteSimple, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleSlash, Timer } from "@phosphor-icons/react";
 import { DiscordLogo } from "../../ui/brands";
 import { content, springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -18,6 +18,9 @@ import { settings } from "../../settings/store";
 import { formatTemp, formatTimeParts } from "../../lib/format";
 import { locale, t } from "../../i18n";
 import { QuoteLine } from "../quotes/QuoteLine";
+import { Select } from "../../ui/controls";
+import { AWAKE_MINUTES, awakeLeft, awakeOn, formatLeft } from "./awake";
+import { awake, startAwake, stopAwake } from "./store";
 
 /*
  *   14:32                                    ☀ 18°
@@ -25,7 +28,7 @@ import { QuoteLine } from "../quotes/QuoteLine";
  *   ┌──────────────────────────────────────────────┐
  *   │ ▣ Song – Artist                        ▮▮▮▮  │   ← what's playing (click opens the tool)
  *   └──────────────────────────────────────────────┘
- *   [☾ Focus  ]  [🔊 ━━━━━━━━━━━━━━━━━━━━━━━  42 %]
+ *   [☾ Focus  ]  [☕ Keep awake ⌄]  [🔊 ━━━━━━━  42 %]
  *
  * Like Control Center: an overview plus the two toggles you need all the time.
  */
@@ -43,6 +46,7 @@ export function OverviewView() {
       <Activity />
       <div className="flex gap-2">
         <FocusTile />
+        <AwakeTile />
         <VolumeTile />
       </div>
       {quotes && <QuoteLine />}
@@ -221,6 +225,52 @@ function FocusTile() {
         <span className={`block text-caption ${active ? "text-black/55" : "text-label-3"}`}>{active ? t("An") : t("Aus")}</span>
       </span>
     </button>
+  );
+}
+
+/** Keeps the PC and the display awake. A tap is until turned off; the caret picks a duration, shown as the time left. */
+function AwakeTile() {
+  const a = awake.use();
+  const now = useNow().getTime();
+  const active = awakeOn(a, now);
+  const left = awakeLeft(a, now);
+  const mode = !active ? "off" : a?.minutes == null ? "on" : String(a.minutes);
+  const options = [
+    ...AWAKE_MINUTES.map((m) => ({ value: String(m), label: m < 60 ? t("{n} Min.", { n: m }) : t("{n} Std.", { n: m / 60 }) })),
+    { value: "on", label: t("Bis zum Ausschalten") },
+    { value: "off", label: t("Aus") },
+  ];
+
+  return (
+    <div className={`flex h-10 w-[150px] shrink-0 items-center rounded-[12px] transition-colors duration-200 ${active ? "bg-label text-black" : "bg-fill-1 text-label"}`}>
+      <button aria-pressed={active} onClick={() => (active ? stopAwake() : startAwake(null))} className="pressable flex h-full min-w-0 flex-1 items-center gap-2.5 ps-2.5">
+        <motion.span
+          className={`flex size-6 shrink-0 items-center justify-center rounded-full ${active ? "bg-black/10" : "bg-fill-2"}`}
+          animate={{ rotate: active ? 0 : -30 }}
+          transition={springs.snappy}
+        >
+          <Coffee size={14} weight="fill" />
+        </motion.span>
+        <span className="min-w-0 text-start">
+          <span className="block truncate text-footnote font-semibold">{t("Wach halten")}</span>
+          <span className={`tabular block truncate text-caption ${active ? "text-black/55" : "text-label-3"}`}>
+            {!active ? t("Aus") : left === null ? t("An") : t("noch {time}", { time: formatLeft(left) })}
+          </span>
+        </span>
+      </button>
+      <Select
+        width="shrink-0 pe-1"
+        value={mode}
+        options={options}
+        onChange={(v) => (v === "off" ? stopAwake() : startAwake(v === "on" ? null : Number(v)))}
+        trigger={{
+          label: t("Dauer wählen"),
+          menuWidth: 150,
+          className: `pressable flex size-6 items-center justify-center rounded-full ${active ? "text-black/55 hover:text-black" : "text-label-3 hover:text-label"}`,
+          content: <CaretDown size={11} weight="bold" />,
+        }}
+      />
+    </div>
   );
 }
 

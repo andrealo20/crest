@@ -58,6 +58,8 @@ export function partTool(part: string): string | null {
       return "system";
     case "script":
       return "notices";
+    case "awake":
+      return "overview";
     case "discord":
     case "github":
     case "calendar":

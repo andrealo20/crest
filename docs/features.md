@@ -40,6 +40,8 @@ A click on a part opens its tool: the readings open Hardware, the AI rings AI Us
 <p align="center"><img src="media/features/closed-notch.png" alt="The closed notch with coloured icons: a running timer, the AI quota ring, CPU, RAM and GPU load, download and upload, power draw, battery, temperature, the clock and today's GitHub contributions" width="820" /></p>
 <p align="center"><img src="media/features/settings-closed-notch.png" alt="Settings, Display: the closed row's parts with switches, the system load readings and the quota alerts" width="560" /></p>
 
+A small cup at the end of the row means keep awake is on (see Overview).
+
 **Privacy dots** turn green when the microphone or camera is in use and red while the screen is being recorded, like on an iPhone.
 
 ## Notices
@@ -81,7 +83,8 @@ The volume and brightness HUD is a status alert too: when the volume or mute cha
 
 ## Overview, weather and Discord
 
-- **Overview** is a small control center: time, weather, what is playing right now, Windows focus and a volume slider.
+- **Overview** is a small control center: time, weather, what is playing right now, Windows focus, keep awake and a volume slider.
+- **Keep awake** stops the PC and the display from going to sleep. A tap keeps them awake until you turn it off; the arrow on the card picks 30 minutes, 1 hour or 2 hours instead, and the card shows the time left. A timed one ends by itself. While it is on, a small cup shows in the closed notch. It always starts off when Crest starts, and Crest lets the PC sleep again when it quits.
 - **Weather** gives current conditions and a 7-day forecast through Open-Meteo. No API key needed.
 - **Discord** shows your current voice call with speaking members and buttons for mute, deafen and hang up. In the closed notch, a green equalizer plays while someone talks.
 
@@ -171,6 +174,7 @@ The volume and brightness HUD is a status alert too: when the volume or mute cha
 
 - **Hardware** shows live CPU, RAM, GPU, VRAM, network, power draw, battery, temperatures, ping, the busiest processes and your drives, with history that keeps recording while the notch is closed.
 - Readings your PC cannot give (a battery on a desktop, a missing sensor) are left out.
+- The **Power** row has a small menu with the Windows power plans: pick one to switch to it. It only shows when the PC has more than one plan; many Windows 11 PCs only have Balanced.
 - **Gaming mode** adds FPS to the readings in the closed notch, always or only while a fullscreen app runs. FPS works for DirectX, OpenGL and Vulkan games.
 - Windows only allows FPS readings for members of the *Performance Log Users* group: click **Settings → Display → Unlock FPS** once, confirm the Windows prompt, then sign out and back in. A lock icon in the notch means this step is still missing.
 

@@ -52,7 +52,7 @@ test("caption", () => {
 });
 
 test("each part of the closed row opens its tool", () => {
-  for (const [part, tool] of [["cover", "media"], ["title", "media"], ["lyric", "media"], ["equalizer", "media"], ["timer", "timer"], ["clock", "timer"], ["rings", "usage"], ["readings", "system"], ["discord", "discord"], ["github", "github"], ["calendar", "calendar"], ["script", "notices"]] as const)
+  for (const [part, tool] of [["cover", "media"], ["title", "media"], ["lyric", "media"], ["equalizer", "media"], ["timer", "timer"], ["clock", "timer"], ["rings", "usage"], ["readings", "system"], ["discord", "discord"], ["github", "github"], ["calendar", "calendar"], ["script", "notices"], ["awake", "overview"]] as const)
     assert.equal(partTool(part), tool, part);
   // The privacy dots have no tool of their own; every part id has an answer.
   assert.equal(partTool("privacy"), null);

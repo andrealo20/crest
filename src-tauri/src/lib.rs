@@ -44,6 +44,8 @@ mod osd;
 mod plugins;
 pub mod portable;
 #[cfg(windows)]
+mod power;
+#[cfg(windows)]
 mod privacy;
 mod romanize;
 #[cfg_attr(not(windows), allow(dead_code))]
@@ -273,6 +275,12 @@ pub fn run() {
             #[cfg(windows)]
             controls::focus_set,
             #[cfg(windows)]
+            power::keep_awake_set,
+            #[cfg(windows)]
+            power::power_plans,
+            #[cfg(windows)]
+            power::power_plan_set,
+            #[cfg(windows)]
             privacy::privacy_state,
             #[cfg(windows)]
             discord::discord_configure,
@@ -450,6 +458,7 @@ pub fn run() {
             if let tauri::RunEvent::Exit = event {
                 capture::finish_on_exit(app);
                 osd::set(false);
+                power::keep_awake_stop();
             }
             #[cfg(not(windows))]
             let _ = (app, event);

@@ -1,7 +1,7 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck/MainWindow.CompactColumn.cs.
 import { useLayoutEffect, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { AlarmIcon, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, CheckCircle, DeviceMobile, GameController, Headphones, Keyboard, Mouse, Pause, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Watch, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
+import { AlarmIcon, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, CheckCircle, Coffee, DeviceMobile, GameController, Headphones, Keyboard, Mouse, Pause, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Watch, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
 import { content, pulse } from "../../design/motion";
 import { t } from "../../i18n";
 import { ringing, timerActions, useSecondTick } from "../../features/timer/store";
@@ -25,6 +25,7 @@ import { useDiscordCall } from "../../features/discord/store";
 import { useGamingLive } from "../../features/system/gaming";
 import { usage } from "../../features/usage/store";
 import { Dots, dotsWidth, usePrivacyDots } from "../../features/privacy/PrivacyDots";
+import { awake } from "../../features/overview/store";
 import { COLUMN, columnWidth, fitLines, ringLines, stack } from "../column";
 import { useHeld } from "./CompactRow";
 import { NOTICE_BUTTON, NoticeButton, useNoticeHover } from "./NoticeButton";
@@ -171,6 +172,7 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
   const rings = ringProviders(usage.use().providers);
   const readings = useReadings(closed, useGamingLive());
   const dots = usePrivacyDots();
+  const awakeOn = !!awake.use();
   const h12 = s.units.clock === "12";
 
   const fixed: Line[] = [];
@@ -191,6 +193,7 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
       for (const r of readings) readingLines.push({ id: `reading-${r.id}`, w: readingWidth(r.id), h: 16, draw: () => <ReadingView reading={r} /> });
     }
   }
+  if (awakeOn) fixed.push({ id: "awake", w: 13, h: 13, draw: () => <Coffee size={13} weight="fill" className="text-label-2" aria-label={t("PC bleibt wach")} /> });
   if (dots.length) fixed.push({ id: "privacy", w: dotsWidth(dots.length), h: 8, draw: () => <Dots dots={dots} /> });
 
   const width = columnWidth([notice?.w ?? 0, ...(parts ? [...fixed.map((l) => l.w), rings.length ? RING : 0] : [])], parts ? readingLines.map((l) => l.w) : []);
