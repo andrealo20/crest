@@ -321,6 +321,7 @@ pub fn run() {
             build_info,
             diagnostics_info,
             open_sponsors,
+            open_store_review,
             #[cfg(target_os = "macos")]
             macos::memory_low,
             #[cfg(target_os = "macos")]
@@ -561,6 +562,12 @@ fn native_machine() -> Option<&'static str> {
 #[tauri::command]
 fn open_sponsors() -> Result<(), String> {
     opener().arg("https://github.com/sponsors/andrealo20").spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Crest's rating page in the Microsoft Store app; the buttons that call it show in the Store build only.
+#[tauri::command]
+fn open_store_review() -> Result<(), String> {
+    opener().arg("ms-windows-store://review/?ProductId=9N2KXJ2924KS").spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Enables autostart on the very first launch; after that the tray check and settings decide.

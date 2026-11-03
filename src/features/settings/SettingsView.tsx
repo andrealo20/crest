@@ -40,6 +40,7 @@ import {
   build,
   display,
   openSponsors,
+  openStoreReview,
   portable,
   secrets,
   systemDiagnostics,
@@ -376,11 +377,17 @@ function DiagnosticsRow() {
 }
 
 function Support() {
+  const { store } = update.use();
   return (
     <Group title={t("Unterstützen")} id="settings-support">
       <Row label={t("Crest unterstützen")} hint={t("Kostenlos und ohne Werbung. Spenden über GitHub Sponsors sind freiwillig")}>
         <Button onClick={openSponsors}>{t("Sponsern")}</Button>
       </Row>
+      {store && (
+        <Row label={t("Crest bewerten")} hint={t("Eine Bewertung im Microsoft Store hilft anderen, Crest zu finden")}>
+          <Button onClick={openStoreReview}>{t("Bewerten")}</Button>
+        </Row>
+      )}
     </Group>
   );
 }

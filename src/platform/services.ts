@@ -297,6 +297,11 @@ export function openSponsors() {
   else window.open("https://github.com/sponsors/andrealo20", "_blank");
 }
 
+/** Crest's rating page in the Microsoft Store app (Store build only). */
+export function openStoreReview() {
+  if (isNative) void invoke("open_store_review");
+}
+
 /** Puts files on the clipboard (Ctrl+V in Explorer pastes them). */
 export function copyFiles(paths: string[]): Promise<void> {
   return isNative ? invoke("copy_files", { paths }) : Promise.resolve();

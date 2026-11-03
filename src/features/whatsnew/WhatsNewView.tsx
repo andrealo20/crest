@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Heart } from "@phosphor-icons/react";
+import { Heart, Star } from "@phosphor-icons/react";
 import { between, changelog, useUnseen } from "../../lib/changelog";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
-import { openSponsors } from "../../platform/services";
+import { openSponsors, openStoreReview } from "../../platform/services";
 import { t } from "../../i18n";
 import { Button } from "../../ui/controls";
 import { ChangelogList } from "./ChangelogList";
@@ -43,6 +43,11 @@ export function WhatsNewView() {
       </div>
       <div className="mx-3 flex items-center gap-3 border-t border-separator pt-3">
         <p className="min-w-0 flex-1 text-caption text-label-3">{t("Crest ist kostenlos, ohne Werbung, und wird von einer Person entwickelt. Wenn es dir gefällt, kannst du es unterstützen.")}</p>
+        {u.store && (
+          <Button icon={Star} onClick={openStoreReview}>
+            {t("Crest bewerten")}
+          </Button>
+        )}
         <Button icon={Heart} primary={!available} onClick={openSponsors}>
           {t("Auf GitHub unterstützen")}
         </Button>
