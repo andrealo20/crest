@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, CheckCircle, DeviceMobile, FilmStrip, GameController, Headphones, Keyboard, Mouse, Pause, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Watch, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
+import { AlarmIcon, ArrowFatLineUp, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, CheckCircle, DeviceMobile, FilmStrip, GameController, Headphones, Keyboard, Mouse, NumberSquareOne, Pause, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Watch, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
 import { pauseRecording, recording, saved, stopRecording, type Saved } from "../../features/capture/store";
 import { elapsedAt, formatElapsed } from "../../features/capture/clock";
 import { openFile } from "../../platform/services";
@@ -38,7 +38,7 @@ const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76, REC_DOT = 8, THUMB_W =
 const STATUS_ICON: Record<StatusAlert["icon"], Icon> = {
   plug: Plug, battery: BatteryHigh, wifi: WifiHigh, "wifi-off": WifiSlash, headphones: Headphones,
   "speaker-hifi": SpeakerHifi, mouse: Mouse, keyboard: Keyboard, gamepad: GameController, phone: DeviceMobile, watch: Watch, bluetooth: Bluetooth,
-  "speaker-high": SpeakerHigh, "speaker-low": SpeakerLow, "speaker-none": SpeakerNone, "speaker-x": SpeakerX, sun: Sun, "sun-dim": SunDim,
+  "speaker-high": SpeakerHigh, "speaker-low": SpeakerLow, "speaker-none": SpeakerNone, "speaker-x": SpeakerX, sun: Sun, "sun-dim": SunDim, "caps-lock": ArrowFatLineUp, "num-lock": NumberSquareOne,
 };
 const TONE = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" } as const;
 

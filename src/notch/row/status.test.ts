@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { btAlert, btIcon, levelAlert, mergeSeed, netAlert, osdHidden, powerAlert } from "./status.ts";
+import { btAlert, btIcon, levelAlert, lockAlert, mergeSeed, netAlert, osdHidden, powerAlert } from "./status.ts";
 
 const tr = (k: string, v: Record<string, string | number> = {}) => k.replace(/\{(\w+)\}/g, (_, x) => String(v[x]));
 const s = (ac: boolean, percent: number | null, battery = true) => ({ ac, percent, battery });
@@ -119,4 +119,12 @@ test("osd: hidden only while the HUD replaces both and can show", () => {
   assert.equal(osdHidden({ ...on, volume: false }, false, false), false);
   assert.equal(osdHidden(on, true, false), false);
   assert.equal(osdHidden(on, false, true), false);
+});
+test("lock: Caps Lock and Num Lock", () => {
+  assert.deepEqual(lockAlert({ key: "caps", on: true }, tr), { kind: "lock", icon: "caps-lock", text: "Feststelltaste an", tone: "normal" });
+  assert.equal(lockAlert({ key: "caps", on: false }, tr).text, "Feststelltaste aus");
+  assert.deepEqual(lockAlert({ key: "num", on: true }, tr), { kind: "lock", icon: "num-lock", text: "Num-Taste an", tone: "normal" });
+  assert.equal(lockAlert({ key: "num", on: false }, tr).text, "Num-Taste aus");
+  // No level bar: the alert is only the icon and the text.
+  assert.equal(lockAlert({ key: "num", on: true }, tr).level, undefined);
 });

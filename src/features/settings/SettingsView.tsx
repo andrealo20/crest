@@ -582,6 +582,7 @@ const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string][] = [
   ["bt", "Bluetooth-Geräte", "Beim Verbinden oder Trennen, mit Akku, wenn das Gerät ihn meldet"],
   ["volume", "Lautstärke", "Mit Pegel, wenn sich die Lautstärke oder Stummschaltung ändert"],
   ["brightness", "Helligkeit", "Eingebauter Bildschirm sofort, externe Monitore über DDC/CI alle 2 Sekunden"],
+  ["lock", "Feststell- und Num-Taste", "Wenn die Feststelltaste oder die Num-Taste umgeschaltet wird"],
   ["hideOsd", "Windows-Anzeige ausblenden", "Blendet die Lautstärke- und Helligkeitsanzeige von Windows aus, solange Crest läuft; braucht Lautstärke und Helligkeit"],
 ];
 

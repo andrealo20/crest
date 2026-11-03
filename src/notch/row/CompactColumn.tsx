@@ -1,7 +1,7 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck/MainWindow.CompactColumn.cs.
 import { useLayoutEffect, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { AlarmIcon, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, CheckCircle, DeviceMobile, GameController, Headphones, Keyboard, Mouse, Pause, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Watch, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
+import { AlarmIcon, ArrowFatLineUp, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, CheckCircle, DeviceMobile, GameController, Headphones, Keyboard, Mouse, NumberSquareOne, Pause, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Watch, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
 import { content, pulse } from "../../design/motion";
 import { t } from "../../i18n";
 import { ringing, timerActions, useSecondTick } from "../../features/timer/store";
@@ -45,7 +45,7 @@ const REC_STACK = 8 + 14 + 2 * NOTICE_BUTTON + 3 * 4;
 const STATUS_ICON: Record<StatusAlert["icon"], Icon> = {
   plug: Plug, battery: BatteryHigh, wifi: WifiHigh, "wifi-off": WifiSlash, headphones: Headphones,
   "speaker-hifi": SpeakerHifi, mouse: Mouse, keyboard: Keyboard, gamepad: GameController, phone: DeviceMobile, watch: Watch, bluetooth: Bluetooth,
-  "speaker-high": SpeakerHigh, "speaker-low": SpeakerLow, "speaker-none": SpeakerNone, "speaker-x": SpeakerX, sun: Sun, "sun-dim": SunDim,
+  "speaker-high": SpeakerHigh, "speaker-low": SpeakerLow, "speaker-none": SpeakerNone, "speaker-x": SpeakerX, sun: Sun, "sun-dim": SunDim, "caps-lock": ArrowFatLineUp, "num-lock": NumberSquareOne,
 };
 /** The HUD's level bar under the icon: 3 high, 4 below the icon. */
 const LEVEL_H = 3, LEVEL_GAP = 4;
