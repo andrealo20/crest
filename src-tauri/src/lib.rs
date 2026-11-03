@@ -60,8 +60,8 @@ pub mod secrets;
 mod shelf;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod shell;
+mod kv;
 mod startup;
-mod storage_guard;
 #[cfg(windows)]
 mod system;
 #[cfg(windows)]
@@ -161,7 +161,8 @@ pub fn osd_guard(pid: &str) -> i32 {
 pub fn run() {
     let builder = tauri::Builder::default()
         // A second launch doesn't open a second notch; it opens the settings of this one.
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| shell::second_launch(app)));
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| shell::second_launch(app)))
+        .manage(kv::KvState::default());
     // The Store build starts with Windows through its package (startup.rs) and only the Store may update it.
     #[cfg(not(feature = "store"))]
     let builder = builder
@@ -337,7 +338,8 @@ pub fn run() {
             vault::vault_hello_disable,
             autostart_get,
             autostart_set,
-            storage_guard::storage_check,
+            kv::kv_load,
+            kv::kv_set,
             build_info,
             diagnostics_info,
             open_sponsors,

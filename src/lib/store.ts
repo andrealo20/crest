@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { saveKey } from "../platform/kv";
 
 export interface Store<T> {
   get(): T;
@@ -9,7 +10,7 @@ export interface Store<T> {
 
 /**
  * Minimal global store. With `persist` the state is mirrored to localStorage
- * (in Tauri the WebView profile persists).
+ * and, in the notch, to Crest's own file (platform/kv.ts).
  */
 export function createStore<T>(initial: T, options: { persist?: string } = {}): Store<T> {
   const key = options.persist && `notch:${options.persist}`;
@@ -28,7 +29,11 @@ export function createStore<T>(initial: T, options: { persist?: string } = {}): 
     get: () => state,
     set(next) {
       state = typeof next === "function" ? (next as (prev: T) => T)(state) : next;
-      if (key) localStorage.setItem(key, JSON.stringify(state));
+      if (key) {
+        const raw = JSON.stringify(state);
+        localStorage.setItem(key, raw);
+        saveKey(key, raw);
+      }
       listeners.forEach((l) => l());
     },
     subscribe(listener) {

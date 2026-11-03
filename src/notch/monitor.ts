@@ -42,7 +42,7 @@ export function reloadMonitor() {
   void display.monitors().then((all) => {
     // A newer choice is already loading.
     if (wantedMonitor() !== name) return;
-    // The notch's monitor first: main.tsx places it as soon as either changes.
+    // The notch's monitor first: app.tsx places it as soon as either changes.
     monitor.set(all.find((m) => m.name === name) ?? all.find((m) => m.primary) ?? null);
     monitors.set(all);
     follow();
