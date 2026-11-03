@@ -96,6 +96,7 @@ export interface Settings {
    * shows only cover and line while synced lyrics play; the player shown whatever else plays (media app ID, null = automatic).
    * Lyrics: the sources in the order they are asked; word-by-word highlighting where the source times words; the source's
    * translation; a translation through the Ask provider for songs without one; romanisation of Japanese, Chinese and Korean.
+   * Looks of the equalizer and the progress bar in the Music tool (the closed row keeps its four bars).
    */
   music: {
     lyricsOpen: boolean;
@@ -107,6 +108,8 @@ export interface Settings {
     lyricTranslation: boolean;
     lyricAskTranslation: boolean;
     lyricRoman: boolean;
+    eqStyle: "bars" | "spectrum" | "wave";
+    progressStyle: "line" | "wavy";
   };
   /** Panel theme, custom themes and the day and night switch (src/features/themes). */
   themes: ThemeSettings;
@@ -208,6 +211,8 @@ const defaults: Settings = {
     lyricTranslation: true,
     lyricAskTranslation: false,
     lyricRoman: false,
+    eqStyle: "bars",
+    progressStyle: "line",
   },
   themes: THEME_DEFAULTS,
   system: { colors: "calm", iconColors: false, gpu: "", gpuIndex: 0, sort: "cpu" },

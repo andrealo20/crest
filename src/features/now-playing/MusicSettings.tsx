@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { CaretUp } from "@phosphor-icons/react";
 import { settings } from "../../settings/store";
 import { isNative } from "../../platform/native";
-import { Button, Group, Row, Switch } from "../../ui/controls";
+import { Button, Group, Row, Segmented, Switch } from "../../ui/controls";
 import { providerInfo } from "../ask/providers";
 import { sourceName } from "./sources";
 import { LYRIC_SOURCES } from "./lyricSources";
@@ -16,7 +16,7 @@ const TERMS: Record<string, string> = {
   netease: "Inoffizielle API ohne Konto; Übersetzungen und Lautschrift",
 };
 
-/** Settings > Display > Music: lyrics in the closed notch, undoing a pinned player, and the lyrics sources and extras. */
+/** Settings > Display > Music: lyrics in the closed notch, the equalizer and progress bar looks, undoing a pinned player, and the lyrics sources and extras. */
 export function MusicSettings() {
   const s = settings.use();
   const music = s.music;
@@ -27,6 +27,29 @@ export function MusicSettings() {
       <Group title={t("Musik")} id="settings-music">
         <Row label={t("Songtext in der geschlossenen Notch")} hint={t("Zeigt beim Abspielen nur Cover und die aktuelle Zeile, die Notch passt sich jeder Zeile an")}>
           <Switch label={t("Songtext in der geschlossenen Notch")} checked={music.notchLyrics} onChange={(notchLyrics) => setMusic({ notchLyrics })} />
+        </Row>
+        <Row label={t("Equalizer-Stil")} hint={t("Im Musik-Tool; die geschlossene Notch behält ihre vier Balken")}>
+          <Segmented
+            id="music-eq-style"
+            value={music.eqStyle}
+            options={[
+              { value: "bars", label: t("Balken") },
+              { value: "spectrum", label: t("Spektrum") },
+              { value: "wave", label: t("Welle") },
+            ]}
+            onChange={(eqStyle) => setMusic({ eqStyle })}
+          />
+        </Row>
+        <Row label={t("Fortschrittsbalken")} hint={t("Wellig schwingt beim Abspielen und wird bei Pause flach")}>
+          <Segmented
+            id="music-progress-style"
+            value={music.progressStyle}
+            options={[
+              { value: "line", label: t("Linie") },
+              { value: "wavy", label: t("Wellig") },
+            ]}
+            onChange={(progressStyle) => setMusic({ progressStyle })}
+          />
         </Row>
         {music.pinned && (
           <Row label={t("Angehefteter Player")} hint={t("{app} bleibt in der Notch, auch wenn eine andere App spielt", { app: sourceName(music.pinned) })}>

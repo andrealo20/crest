@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useAnimationFrame, useMotionValue, useTransform } from "motion/react";
+import { AnimatePresence, motion, useAnimationFrame, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { ArrowUpRight, MicrophoneStage, MusicNoteSimple, Pause, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward } from "@phosphor-icons/react";
 import { artwork as artworkSwap, content, springs } from "../../design/motion";
 import { useSmoothArtwork } from "./artwork";
@@ -13,6 +13,7 @@ import { LYRICS_PANEL, LyricsPanel } from "./LyricsPanel";
 import { SourcePanel, SourceToggle, sourcePanelRows } from "./SourcePanel";
 import { offersSources } from "./sources";
 import { setMusic } from "./music";
+import { sinePath } from "./shapes";
 import { settings } from "../../settings/store";
 import { t } from "../../i18n";
 
@@ -84,9 +85,9 @@ export function NowPlayingView() {
             </AnimatePresence>
           </div>
         </button>
-        <Equalizer playing={np.isPlaying} height={16} />
+        <Equalizer key={music.eqStyle} playing={np.isPlaying} height={16} look={music.eqStyle} />
       </div>
-      <Progress np={np} />
+      <Progress np={np} wavy={music.progressStyle === "wavy"} />
       <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <div className="flex min-w-0 justify-start">
           <SourceToggle np={np} open={shown === "sources"} onToggle={() => toggle("sources")} />
@@ -171,12 +172,16 @@ function Artwork({ np }: { np: NowPlaying }) {
   );
 }
 
+/** Wavy progress, in px: like the iOS 16 lock screen. The wave travels while playing and flattens when paused. */
+const WAVY = { amp: 3, wavelength: 22, speed: 4, settle: 0.25, inset: 3 };
+
 /**
  * Progress + seeking. Drag or click to jump; while grabbed the bar gets thicker and
  * brighter and the times show the target (like Apple Music).
  * The seek only happens on release, one seek per gesture.
+ * `wavy`: the played part is a sine instead of a straight bar; seeking stays the same.
  */
-function Progress({ np }: { np: NowPlaying }) {
+function Progress({ np, wavy }: { np: NowPlaying; wavy: boolean }) {
   const track = useRef<HTMLDivElement>(null);
   // Target position (0..1) while dragging; ref for the frame loop, state for the times.
   const scrubRef = useRef<number | null>(null);
@@ -190,7 +195,33 @@ function Progress({ np }: { np: NowPlaying }) {
     return scrubRef.current ?? (n.duration > 0 ? livePosition(n) / n.duration : 0);
   };
   const progress = useMotionValue(ratio());
-  useAnimationFrame(() => progress.set(ratio()));
+  // Wavy: track width, wave state and the last drawn state, so a paused, settled wave writes nothing.
+  const width = useRef(0);
+  const played = useRef<SVGPathElement>(null);
+  const rest = useRef<SVGPathElement>(null);
+  const wave = useRef({ amp: np.isPlaying ? 1 : 0, phase: 0, drawn: "" });
+  const reduced = useReducedMotion();
+  useAnimationFrame((_, delta) => {
+    progress.set(ratio());
+    const w = width.current - 2 * WAVY.inset;
+    if (!wavy || w <= 0 || !played.current || !rest.current) return;
+    const s = wave.current;
+    const target = npRef.current.isPlaying ? 1 : 0;
+    const dt = Math.min(0.05, delta / 1000);
+    // Reduced motion: a still wave, no travel and no glide to flat.
+    if (reduced) s.amp = target;
+    else {
+      s.amp += (target - s.amp) * (1 - Math.exp(-dt / WAVY.settle));
+      if (Math.abs(target - s.amp) < 0.002) s.amp = target;
+      if (target) s.phase = (s.phase - dt * WAVY.speed) % (2 * Math.PI);
+    }
+    const x = progress.get() * w;
+    const key = `${w} ${x.toFixed(2)} ${s.amp.toFixed(3)} ${s.phase.toFixed(3)}`;
+    if (key === s.drawn) return;
+    s.drawn = key;
+    played.current.setAttribute("d", sinePath(x, 8, WAVY.amp * s.amp, WAVY.wavelength, s.phase));
+    rest.current.setAttribute("d", `M${x.toFixed(2)} 8H${w}`);
+  });
   // Translate instead of stretch: no distorted round end, no raster artifacts while seeking.
   const transform = useTransform(progress, (p) => `translateX(${((p - 1) * 100).toFixed(3)}%)`);
 
@@ -200,8 +231,19 @@ function Progress({ np }: { np: NowPlaying }) {
     return () => clearInterval(id);
   }, []);
 
+  const hasTrack = np.duration > 0;
+  useEffect(() => {
+    const el = track.current;
+    if (!wavy || !el) return;
+    const ro = new ResizeObserver(() => {
+      width.current = el.clientWidth;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [wavy, hasTrack]);
+
   // Unknown duration (live stream): keep the row as a placeholder so nothing jumps.
-  if (np.duration <= 0) return <div className="mt-3.5 h-[14px]" />;
+  if (!hasTrack) return <div className="mt-3.5 h-[14px]" />;
 
   const pos = scrub !== null ? scrub * np.duration : livePosition(np);
   const active = scrub !== null || (hover && np.canSeek);
@@ -245,14 +287,29 @@ function Progress({ np }: { np: NowPlaying }) {
         onPointerCancel={() => end(false)}
         onLostPointerCapture={() => end(true)}
       >
-        <div
-          className={`relative w-full overflow-hidden rounded-full bg-fill-2 transition-[height] duration-150 ease-out ${active ? "h-[9px]" : "h-[5px]"}`}
-        >
-          <motion.div
-            className={`absolute inset-0 rounded-full transition-colors duration-150 ${active ? "bg-label" : "bg-label-2"}`}
-            style={{ transform }}
-          />
-        </div>
+        {wavy ? (
+          <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden>
+            <g
+              transform={`translate(${WAVY.inset} 0)`}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`transition-[stroke-width] duration-150 ease-out ${active ? "stroke-[5px]" : "stroke-[3.5px]"}`}
+            >
+              <path ref={rest} className="stroke-fill-2" />
+              <path ref={played} className={`transition-[stroke] duration-150 ${active ? "stroke-label" : "stroke-label-2"}`} />
+            </g>
+          </svg>
+        ) : (
+          <div
+            className={`relative w-full overflow-hidden rounded-full bg-fill-2 transition-[height] duration-150 ease-out ${active ? "h-[9px]" : "h-[5px]"}`}
+          >
+            <motion.div
+              className={`absolute inset-0 rounded-full transition-colors duration-150 ${active ? "bg-label" : "bg-label-2"}`}
+              style={{ transform }}
+            />
+          </div>
+        )}
       </div>
       <span className={`tabular w-9 text-end text-caption font-medium transition-colors duration-150 ${scrub !== null ? "text-label" : "text-label-3"}`}>
         -{format(np.duration - pos)}
