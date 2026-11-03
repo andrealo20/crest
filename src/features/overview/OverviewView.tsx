@@ -18,6 +18,7 @@ import { ARTWORK_LAYOUT_ID } from "../now-playing/NowPlayingView";
 import { formatClock, timer, useRemaining } from "../timer/store";
 import { Look, clockFace } from "../timer/Look";
 import { describe, useForecast } from "../weather/store";
+import { useHue } from "../themes/hues";
 import { WeatherIcon } from "../weather/WeatherView";
 import { settings } from "../../settings/store";
 import { formatTemp, formatTimeParts } from "../../lib/format";
@@ -235,6 +236,7 @@ function FocusTile() {
     return () => clearInterval(id);
   }, []);
   const active = !!focus?.active;
+  const hue = useHue("indigo");
   const label = focus?.kind === "dnd" ? t("Nicht stören") : t("Fokus");
 
   return (
@@ -254,7 +256,7 @@ function FocusTile() {
         animate={{ rotate: active ? 0 : -30 }}
         transition={springs.snappy}
       >
-        <Moon size={14} weight="fill" />
+        <Moon size={14} weight="fill" style={!active && hue ? { color: hue } : undefined} />
       </motion.span>
       <span className="min-w-0 text-start">
         <span className="block truncate text-footnote font-semibold">{label}</span>
@@ -269,6 +271,7 @@ function AwakeTile() {
   const a = awake.use();
   const now = useNow().getTime();
   const active = awakeOn(a, now);
+  const hue = useHue("amber");
   const left = awakeLeft(a, now);
   const mode = !active ? "off" : a?.minutes == null ? "on" : String(a.minutes);
   const options = [
@@ -285,7 +288,7 @@ function AwakeTile() {
           animate={{ rotate: active ? 0 : -30 }}
           transition={springs.snappy}
         >
-          <Coffee size={14} weight="fill" />
+          <Coffee size={14} weight="fill" style={!active && hue ? { color: hue } : undefined} />
         </motion.span>
         <span className="min-w-0 text-start">
           <span className="block truncate text-footnote font-semibold">{t("Wach halten")}</span>
@@ -353,6 +356,8 @@ function OutputList({ outputs, onPick }: { outputs: AudioOutput[]; onPick: (id: 
 
 /** Thick volume slider like Control Center: drag anywhere, icon = mute. `device` is the default output's name, null with nothing to choose from. */
 function VolumeTile({ device, open, onDevices }: { device: string | null; open: boolean; onDevices: () => void }) {
+  const speakerHue = useHue("sky");
+  const outputHue = useHue("teal");
   const [vol, setVol] = useState<VolumeState | null>(null);
   const dragging = useRef(false);
   const track = useRef<HTMLDivElement>(null);
@@ -381,6 +386,7 @@ function VolumeTile({ device, open, onDevices }: { device: string | null; open: 
         disabled={!vol}
         onClick={() => vol && void systemControls.setVolume({ muted: !vol.muted }).then(setVol)}
         className={`pressable flex size-7 shrink-0 items-center justify-center rounded-full ${vol?.muted ? "text-red" : "text-label-2 hover:text-label"}`}
+        style={!vol?.muted && speakerHue ? { color: speakerHue } : undefined}
       >
         <Icon size={15} weight="fill" />
       </button>
@@ -432,6 +438,7 @@ function VolumeTile({ device, open, onDevices }: { device: string | null; open: 
           className={`pressable -me-1.5 flex size-7 shrink-0 items-center justify-center rounded-full transition-colors duration-150 ${
             open ? "bg-fill-2 text-label" : "text-label-2 hover:text-label"
           }`}
+          style={!open && outputHue ? { color: outputHue } : undefined}
         >
           <OutputIcon name={device} />
         </button>
