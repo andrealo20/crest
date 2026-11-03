@@ -1,5 +1,53 @@
 [
   {
+    "version": "0.3.3",
+    "date": "2026-11-03",
+    "items": [
+      {
+        "en": "Coloured icons across the app, an option in Settings, Themes, readable on every theme"
+      },
+      {
+        "en": "Answer a coding agent's permission request from the notch, through crest-notify ask"
+      },
+      {
+        "en": "Join online meetings from the calendar and from the notice before an event"
+      },
+      {
+        "en": "Pick the audio output from the volume tile in Overview"
+      },
+      {
+        "en": "Keep awake in Overview, and the Windows power plan in Hardware"
+      },
+      {
+        "en": "Caps Lock and Num Lock in the notch, like the volume"
+      },
+      {
+        "en": "Focus sounds while the timer runs: white, pink and brown noise, rain and waves"
+      },
+      {
+        "en": "Search in Settings"
+      },
+      {
+        "en": "Temperatures and power from HWiNFO or LibreHardwareMonitor when one of them runs"
+      },
+      {
+        "en": "Spectrum and Wave equalizers, a wavy progress bar and a tint from the album art"
+      },
+      {
+        "en": "A Camera tool to check yourself before a call"
+      },
+      {
+        "en": "Find text on any screen with Ctrl+Alt+F"
+      },
+      {
+        "en": "Downloads in progress in the closed notch"
+      },
+      {
+        "en": "Each process's CPU share in percent in Hardware"
+      }
+    ]
+  },
+  {
     "version": "0.3.2",
     "date": "2026-11-02",
     "items": [

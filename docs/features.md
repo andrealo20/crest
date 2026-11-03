@@ -77,6 +77,7 @@ Caps Lock and Num Lock show the same way: switching either key says "Caps Lock o
 - The equalizer is driven by the playing app's own audio, so a notification or a call doesn't move it (on Windows builds before 20348 it follows the whole output).
 - **Equalizer style** (Bars, Spectrum with 12 thin bars, or Wave) and **Progress bar** (Line, or Wavy, which moves while a song plays and goes flat on pause) in **Settings → Display → Music** change the Music tool; the closed row keeps its four bars.
 - Shuffle and repeat appear when the app offers them.
+- The mixer, opened next to the playback controls, lists every app that plays sound, with its own volume slider and mute, like the Windows volume mixer.
 - With several players open, the name left of the controls picks one and pins it; Automatic follows whatever plays.
 - **Synced lyrics**: the microphone button opens them under the controls, scrolling along with the song. Click a line to jump there.
 - **Lyrics sources** in **Settings → Display → Lyrics**, asked from top to bottom until one has the song: LRCLIB (open community database, on by default), Kugou and NetEase Cloud Music (unofficial APIs without an account, off by default). The arrow moves a source up.
@@ -226,6 +227,7 @@ The vault is off by default; turn it on under **Settings → Tools**.
 - The editor changes background, foreground, accent and the warning colours with a colour picker and shows each change on the panel at once.
 - Save the result as your own theme, export and import themes as JSON files, or switch between a day and a night theme by time.
 - The closed notch stays black unless a theme opts in to colour it.
+- **Coloured icons** (off by default) gives each tool in the tool bar, each Settings page, the weather, the Overview tiles, the Hardware rows and the closed-row readings a colour of its own. The colours are worked out for the active theme so they keep at least 3:1 contrast, on light and custom themes too.
 - Tint from the album art (off by default) gives the open panel a soft glow of the cover's colour from the top while a song shows, fading between songs and behind the content, so text keeps the theme's contrast.
 
 <p align="center"><img src="media/features/settings-themes.png" alt="Settings, Themes: previews of the built-in themes and the day and night switch" width="560" /></p>
