@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, Reorder } from "motion/react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { AnimatePresence, LayoutGroup, motion, Reorder } from "motion/react";
 import {
   AppWindow,
   ArrowsInLineHorizontal,
@@ -13,6 +13,7 @@ import {
   DotsSixVertical,
   Keyboard,
   LockSimple,
+  MagnifyingGlass,
   Monitor,
   MusicNote,
   Palette,
@@ -49,6 +50,7 @@ import {
   type SecretName,
 } from "../../platform/services";
 import { diagnosticsText } from "./diagnostics";
+import { searchSettings, type SearchEntry } from "./search";
 import { github } from "../github/store";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
 import { DiscordLogo } from "../../ui/brands";
@@ -83,7 +85,7 @@ import { SizeSettings } from "../../notch/SizeSettings";
 import { PortableNote } from "../portable/PortableNote";
 import { between, changelog, markSeen, useUnseen } from "../../lib/changelog";
 import { privacy, togglePresentation, usePresenting } from "../privacy/store";
-import { LANGUAGE_NAMES, LANGUAGES, t, tBackend, type LanguageSetting } from "../../i18n";
+import { english, LANGUAGE_NAMES, LANGUAGES, t, tBackend, type LanguageSetting } from "../../i18n";
 import { ChangelogList } from "../whatsnew/ChangelogList";
 import { isMac } from "../../platform/native";
 import { ThemeSettings } from "../themes/ThemeSettings";
@@ -132,6 +134,32 @@ const sectionPage: Record<string, PageId> = {
 /** Last open page survives closing/opening the notch (the component is rebuilt). */
 let savedPage: PageId = "general";
 
+type Hit = SearchEntry & { page: PageId; groupId: string };
+
+const textOf = (el: Element | null | undefined) => el?.textContent?.trim() ?? "";
+/** The Row whose label and group a hit names, inside `root`. */
+const findRow = (root: Element, h: Hit) =>
+  [...root.querySelectorAll<HTMLElement>("[data-row]")].find((r) => textOf(r.querySelector("[data-row-label]")) === h.label && (r.closest("section")?.id ?? "") === h.groupId);
+
+/** Every Row of the pages rendered under `root` (one `data-page` wrapper each), with its group's title and the English texts. */
+function readRows(root: HTMLElement): Hit[] {
+  const seen = new Set<string>();
+  return [...root.querySelectorAll<HTMLElement>("[data-page]")].flatMap((pageEl) =>
+    [...pageEl.querySelectorAll("[data-row]")].flatMap((row) => {
+      const page = pageEl.dataset.page as PageId;
+      const section = row.closest("section");
+      const groupId = section?.id ?? "";
+      const label = textOf(row.querySelector("[data-row-label]"));
+      const key = `${page}|${groupId}|${label}`;
+      if (!label || seen.has(key)) return [];
+      seen.add(key);
+      const hint = textOf(row.querySelector("[data-row-hint]"));
+      const group = textOf(section?.querySelector(":scope > h3"));
+      return [{ page, groupId, label, hint, group, en: { label: english(label), hint: english(hint), group: english(group) } }];
+    }),
+  );
+}
+
 /**
  * Settings like macOS: categories on the left, only their content on the right.
  * Other tools jump straight to their section via `navigate("settings", "<section>")`.
@@ -145,6 +173,50 @@ export function SettingsView() {
     savedPage = p;
     setPageState(p);
   };
+  const [query, setQuery] = useState("");
+  const [rows, setRows] = useState<Hit[]>([]);
+  const [target, setTarget] = useState<Hit | null>(null);
+  const field = useRef<HTMLInputElement>(null);
+  const hidden = useRef<HTMLDivElement>(null);
+  const searching = query.trim() !== "";
+  const results = searching ? searchSettings(rows, query) : [];
+
+  // The index is the real pages, rendered hidden while searching and read again on every keystroke, so it never goes stale.
+  useLayoutEffect(() => {
+    if (searching && hidden.current) setRows(readRows(hidden.current));
+  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "f") return;
+      e.preventDefault();
+      field.current?.focus();
+      field.current?.select();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const openHit = (h: Hit) => {
+    setQuery("");
+    setPage(h.page);
+    setTarget(h);
+  };
+
+  useEffect(() => {
+    if (!target) return;
+    // Like the deep link below: the row only exists after the page switch.
+    const id = window.setTimeout(() => {
+      const box = scroller.current;
+      const row = box && findRow(box, target);
+      if (!row) return;
+      const group = row.closest("section");
+      const fits = !!group && row.getBoundingClientRect().bottom - group.getBoundingClientRect().top <= box.clientHeight;
+      (fits ? group : row).scrollIntoView({ behavior: "smooth", block: fits ? "start" : "center" });
+      row.animate([{ backgroundColor: "var(--color-fill-3)" }, { backgroundColor: "var(--color-fill-3)", offset: 0.4 }, { backgroundColor: "transparent" }], { duration: 1600, easing: "ease-out" });
+    }, 120);
+    return () => window.clearTimeout(id);
+  }, [target]);
 
   useEffect(() => {
     if (!section || !sectionPage[section]) return;
@@ -160,12 +232,33 @@ export function SettingsView() {
   return (
     <div className="flex h-full gap-3 px-4 pt-1 pb-3">
       <nav className="flex w-[136px] shrink-0 flex-col gap-0.5">
+        <label className="mb-1 flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] bg-fill-1 px-2 text-label-3 focus-within:bg-fill-2">
+          <MagnifyingGlass size={12} weight="bold" className="shrink-0" />
+          <input
+            ref={field}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Escape" || !query) return;
+              // Esc clears first; only an empty field lets it through to close the notch.
+              e.stopPropagation();
+              setQuery("");
+            }}
+            placeholder={t("Suchen")}
+            aria-label={t("Suchen")}
+            spellCheck={false}
+            className="min-w-0 flex-1 bg-transparent text-footnote text-label outline-none placeholder:text-label-4"
+          />
+        </label>
         {pages.map((p) => {
-          const active = p.id === page;
+          const active = p.id === page && !searching;
           return (
             <button
               key={p.id}
-              onClick={() => setPage(p.id)}
+              onClick={() => {
+                setQuery("");
+                setPage(p.id);
+              }}
               aria-current={active ? "page" : undefined}
               className={`pressable relative flex h-8 items-center gap-2 rounded-[8px] px-2.5 text-start text-body transition-colors duration-150 ${
                 active ? "text-label" : "text-label-3 hover:text-label-2"
@@ -182,70 +275,115 @@ export function SettingsView() {
       <div ref={scroller} className="relative min-w-0 flex-1">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
-            key={page}
+            key={searching ? "search" : page}
             className="absolute inset-0 flex flex-col gap-4 overflow-y-auto pb-6 [scrollbar-width:none]"
             style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 28px), transparent)" }}
             initial={{ opacity: 0, filter: "blur(4px)" }}
             animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
             exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
           >
-            {page === "general" && (
-              <>
-                <General />
-                <Weather />
-                <Updates />
-                <Support />
-              </>
-            )}
-            {page === "display" && (
-              <>
-                <Display />
-                <MusicSettings />
-                <Presentation />
-              </>
-            )}
-            {page === "window" && <WindowSettings />}
-            {page === "tools" && (
-              <>
-                <Tools />
-                <SystemSettings />
-                <VaultSettings />
-                <ProductivitySettings />
-                <TerminalSettings />
-                <LauncherSettings />
-              </>
-            )}
-            {page === "timer" && (
-              <>
-                <Alarm />
-                <FocusSoundSettings />
-                <TimerLookSettings />
-                <ClockLookSettings />
-              </>
-            )}
-            {page === "notices" && <NoticesSettings />}
-            {page === "plugins" && <PluginSettings />}
-            {page === "ai" && (
-              <>
-                <Ask />
-                <UsageSettings />
-                <KeysNote />
-              </>
-            )}
-            {page === "accounts" && (
-              <>
-                <Discord />
-                <TradingSettings />
-                <GithubSettings />
-                <CalendarSettings />
-                <KeysNote />
-              </>
-            )}
-            {page === "themes" && <ThemeSettings />}
+            {searching ? <SearchResults hits={results} onOpen={openHit} /> : <PageContent page={page} />}
           </motion.div>
         </AnimatePresence>
       </div>
+      {searching && (
+        // Every page, never shown: only read for the index. The LayoutGroup keeps their layoutIds apart from the visible ones.
+        <div ref={hidden} hidden inert>
+          <LayoutGroup id="settings-search">
+            {pages.map((p) => (
+              <div key={p.id} data-page={p.id}>
+                <PageContent page={p.id} />
+              </div>
+            ))}
+          </LayoutGroup>
+        </div>
+      )}
     </div>
+  );
+}
+
+function SearchResults({ hits, onOpen }: { hits: Hit[]; onOpen: (h: Hit) => void }) {
+  if (!hits.length) return <div className="px-3 pt-2 text-caption text-label-3">{t("Nichts gefunden")}</div>;
+  return (
+    <div className="flex flex-col divide-y divide-separator overflow-hidden rounded-[12px] bg-fill-1">
+      {hits.map((h) => {
+        const pageName = t(pages.find((p) => p.id === h.page)!.label);
+        return (
+          <button
+            key={`${h.page}|${h.groupId}|${h.label}`}
+            onClick={() => onOpen(h)}
+            className="flex min-h-9 flex-col items-stretch px-3 py-1.5 text-start outline-none hover:bg-fill-2 focus-visible:bg-fill-2"
+          >
+            <span className="flex items-baseline justify-between gap-3">
+              <span className="truncate text-body text-label">{h.label}</span>
+              <span className="shrink-0 text-caption text-label-4">{[...new Set([pageName, h.group])].filter(Boolean).join(" · ")}</span>
+            </span>
+            {h.hint && <span className="text-caption text-label-3">{h.hint}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** One settings page's groups; also rendered hidden for the search index. */
+function PageContent({ page }: { page: PageId }) {
+  return (
+    <>
+      {page === "general" && (
+        <>
+          <General />
+          <Weather />
+          <Updates />
+          <Support />
+        </>
+      )}
+      {page === "display" && (
+        <>
+          <Display />
+          <MusicSettings />
+          <Presentation />
+        </>
+      )}
+      {page === "window" && <WindowSettings />}
+      {page === "tools" && (
+        <>
+          <Tools />
+          <SystemSettings />
+          <VaultSettings />
+          <ProductivitySettings />
+          <TerminalSettings />
+          <LauncherSettings />
+        </>
+      )}
+      {page === "timer" && (
+        <>
+          <Alarm />
+          <FocusSoundSettings />
+          <TimerLookSettings />
+          <ClockLookSettings />
+        </>
+      )}
+      {page === "notices" && <NoticesSettings />}
+      {page === "plugins" && <PluginSettings />}
+      {page === "ai" && (
+        <>
+          <Ask />
+          <UsageSettings />
+          <KeysNote />
+        </>
+      )}
+      {page === "accounts" && (
+        <>
+          <Discord />
+          <TradingSettings />
+          <GithubSettings />
+          <CalendarSettings />
+          <KeysNote />
+        </>
+      )}
+      {page === "themes" && <ThemeSettings />}
+    </>
   );
 }
 

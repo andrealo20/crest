@@ -28,6 +28,15 @@ export function t(de: string, vars?: Record<string, string | number>): string {
   return translate(de, vars, dict, fallback);
 }
 
+let reverse: { from: Dict; ids: Map<string, string> } | null = null;
+
+/** The English text of something t() showed in the current language, or "" when it is no entry (texts with placeholders). */
+export function english(shown: string): string {
+  if (language.get() === "en") return shown;
+  if (reverse?.from !== dict) reverse = { from: dict, ids: new Map(Object.entries(dict).map(([id, s]) => [s, id])) };
+  return en[reverse.ids.get(shown) ?? shown] ?? "";
+}
+
 /** Locale for Intl (numbers, dates, weekdays). */
 export function locale(): string {
   return localeFor(language.get(), navigator.language);
