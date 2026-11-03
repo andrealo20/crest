@@ -7,7 +7,7 @@
 
 use std::collections::VecDeque;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Rect {
     pub x: i32,
     pub y: i32,
@@ -45,6 +45,18 @@ pub fn drag_rect(a: (i32, i32), b: (i32, i32), bounds: Rect, min: i32) -> Option
 pub fn to_bitmap(r: Rect, screen: Rect) -> Option<Rect> {
     let r = intersect(r, screen)?;
     Some(Rect { x: r.x - screen.x, y: r.y - screen.y, ..r })
+}
+
+/// Find on screen: one OCR line on screen, from its words' boxes (x, y, w, h in the pixels of `monitor`'s
+/// capture), with a margin of 4 px at 100 % scale, kept on the monitor. None for a line without words.
+pub fn line_rect(words: &[(f32, f32, f32, f32)], monitor: Rect, scale: f32) -> Option<Rect> {
+    let x0 = words.iter().map(|w| w.0).reduce(f32::min)?.floor() as i32;
+    let y0 = words.iter().map(|w| w.1).reduce(f32::min)?.floor() as i32;
+    let x1 = words.iter().map(|w| w.0 + w.2).reduce(f32::max)?.ceil() as i32;
+    let y1 = words.iter().map(|w| w.1 + w.3).reduce(f32::max)?.ceil() as i32;
+    let pad = (4.0 * scale).round() as i32;
+    let r = Rect { x: monitor.x + x0 - pad, y: monitor.y + y0 - pad, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad };
+    intersect(r, monitor)
 }
 
 /// H.264 4:2:0 needs even sizes: rounds down, at least 2.
@@ -282,6 +294,17 @@ mod tests {
         assert_eq!(to_bitmap(primary, screen), Some(Rect { x: 3840, y: 400, w: 1920, h: 1080 }));
         assert_eq!(to_bitmap(Rect { x: 9000, ..primary }, screen), None);
         assert_eq!(intersect(R, primary), None);
+    }
+
+    #[test]
+    fn ocr_line_to_screen() {
+        // Two words on a 150 % monitor left of the primary: union, rounded outward, 6 px margin, moved to the monitor.
+        let left = Rect { x: -1920, y: 0, w: 1920, h: 1080 };
+        assert_eq!(line_rect(&[(10.4, 20.6, 30.0, 10.0), (50.0, 18.0, 20.0, 14.0)], left, 1.5), Some(Rect { x: -1916, y: 12, w: 72, h: 26 }));
+        // At a corner the margin stays on the monitor; 100 % gives 4 px.
+        let primary = Rect { x: 0, y: 0, w: 1920, h: 1080 };
+        assert_eq!(line_rect(&[(0.0, 0.0, 5.0, 5.0)], primary, 1.0), Some(Rect { x: 0, y: 0, w: 9, h: 9 }));
+        assert_eq!(line_rect(&[], primary, 1.0), None);
     }
 
     #[test]

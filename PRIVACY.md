@@ -16,6 +16,8 @@ Crest is a free, open-source Windows app by Andrea Loroni. It has no account, no
 
 The clipboard history and the history of live notices are kept in memory only and are gone when Crest quits.
 
+Find on screen reads your screens with Windows' own text recognition, on your PC: the screen copies are dropped as soon as they are read, and the text stays in memory until the page closes. Nothing is saved or sent.
+
 To remove your data, delete those folders (or the portable folder) and the "Crest/…" entries in the Credential Manager.
 
 ## Which network requests it makes, and when

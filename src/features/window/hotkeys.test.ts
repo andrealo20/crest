@@ -43,14 +43,16 @@ test("recording a key press", () => {
 });
 
 test("conflicts: the later shortcut yields to the earlier one", () => {
-  assert.deepEqual(conflicts({ open: "Ctrl+Alt+Space", hide: "alt+ctrl+Space", resize: "" }), { open: null, hide: "open", resize: null });
+  assert.deepEqual(conflicts({ open: "Ctrl+Alt+Space", hide: "alt+ctrl+Space", resize: "", find: "" }), { open: null, hide: "open", resize: null, find: null });
   // One arrow of the resize shortcut taken is enough.
-  assert.deepEqual(conflicts({ open: "Ctrl+Alt+ArrowLeft", hide: "", resize: "Ctrl+Alt+Arrows" }), { open: null, hide: null, resize: "open" });
+  assert.deepEqual(conflicts({ open: "Ctrl+Alt+ArrowLeft", hide: "", resize: "Ctrl+Alt+Arrows", find: "" }), { open: null, hide: null, resize: "open", find: null });
+  // Find on screen comes last.
+  assert.deepEqual(conflicts({ open: "", hide: "Ctrl+Alt+KeyF", resize: "", find: "Ctrl+Alt+KeyF" }), { open: null, hide: null, resize: null, find: "hide" });
   // Invalid or unset ones collide with nothing.
-  assert.deepEqual(conflicts({ open: "", hide: "", resize: "" }), { open: null, hide: null, resize: null });
-  assert.deepEqual(conflicts({ open: "KeyK", hide: "KeyK", resize: "" }), { open: null, hide: null, resize: null });
+  assert.deepEqual(conflicts({ open: "", hide: "", resize: "", find: "" }), { open: null, hide: null, resize: null, find: null });
+  assert.deepEqual(conflicts({ open: "KeyK", hide: "KeyK", resize: "", find: "" }), { open: null, hide: null, resize: null, find: null });
   // The launcher's Alt+N keys, while on, come first.
-  assert.deepEqual(conflicts({ open: "Alt+Digit2", hide: "Alt+Digit5", resize: "" }, launcherKeys(3)), { open: "launcher", hide: null, resize: null });
+  assert.deepEqual(conflicts({ open: "Alt+Digit2", hide: "Alt+Digit5", resize: "", find: "" }, launcherKeys(3)), { open: "launcher", hide: null, resize: null, find: null });
   assert.deepEqual(launcherKeys(9), ["Alt+Digit1", "Alt+Digit2", "Alt+Digit3", "Alt+Digit4", "Alt+Digit5", "Alt+Digit6"]);
 });
 

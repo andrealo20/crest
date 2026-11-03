@@ -20,7 +20,7 @@ use super::math::{drag_rect, intersect, Rect};
 
 /// A 32-bit top-down bitmap selected into its own memory DC.
 pub struct Dib {
-    dc: HDC,
+    pub(super) dc: HDC,
     bmp: HBITMAP,
     old: HGDIOBJ,
     bits: *mut u8,

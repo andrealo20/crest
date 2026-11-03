@@ -34,7 +34,8 @@ import { settings } from "../settings/store";
 import { useUnseen } from "../lib/changelog";
 import { nav, navigate, openOn, takeOpenTarget } from "./nav";
 import { update } from "../lib/update";
-import { findTab, pageTabs, settingsTab, setupTab, tabs, type NotchTab } from "./tabs";
+import { findOnScreenTab, findTab, pageTabs, settingsTab, setupTab, tabs, type NotchTab } from "./tabs";
+import { scanScreens } from "../features/find/store";
 import { holdOpen, pinned, togglePin, useNotchState, type NotchStatus } from "./useNotchState";
 import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
@@ -267,6 +268,16 @@ export function Notch() {
         keyboardFocus(true);
       }),
     [open, status],
+  );
+  // Find on screen: opening the page reads the screens; pressed again while it is open, it reads them again.
+  useEffect(
+    () =>
+      windowShell.onFindKey(() => {
+        if (status === "open" && tab.id === findOnScreenTab.id) scanScreens();
+        else openOn(findOnScreenTab.id);
+        keyboardFocus(true);
+      }),
+    [open, status, tab],
   );
   // Resize shortcut: each arrow press resizes the open tool; while closed the first press opens it.
   useEffect(

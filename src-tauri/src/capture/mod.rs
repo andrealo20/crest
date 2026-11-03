@@ -3,9 +3,11 @@
 //! Screenshots land in Windows' Screenshots folder as PNG and on the clipboard;
 //! recordings in Videos\Crest\Recordings as MP4. While either is taken, Crest's own
 //! window is excluded from capture (WDA_EXCLUDEFROMCAPTURE), and only then.
-//! Recording state goes to the frontend as `capture://state`.
+//! Recording state goes to the frontend as `capture://state`. Find on screen (find.rs)
+//! reads the screens with OCR from in-memory copies.
 
 mod audio;
+pub(crate) mod find;
 mod math;
 mod record;
 mod shot;

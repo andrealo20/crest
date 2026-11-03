@@ -1118,7 +1118,7 @@ export interface RunningApp {
 }
 /** in-use: another program holds the combination. */
 export type HotkeyState = "unset" | "active" | "in-use" | "invalid";
-export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState };
+export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState; find: HotkeyState };
 
 export const windowShell = {
   screen: (): Promise<ScreenBehavior> => (isNative ? invoke<ScreenBehavior>("display_screen") : Promise.resolve("normal")),
@@ -1138,10 +1138,16 @@ export const windowShell = {
           { name: "chrome", path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
           { name: "vlc", path: "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe" },
         ]),
-  applyHotkeys: (config: { open: string; hide: string; resize: string; openLabel: string }): Promise<HotkeyStates> =>
+  applyHotkeys: (config: { open: string; hide: string; resize: string; find: string; openLabel: string }): Promise<HotkeyStates> =>
     isNative
       ? invoke<HotkeyStates>("hotkeys_apply", { config })
-      : Promise.resolve({ open: config.open ? "active" : "unset", hide: config.hide ? "active" : "unset", resize: config.resize ? "active" : "unset" }),
+      : Promise.resolve({ open: config.open ? "active" : "unset", hide: config.hide ? "active" : "unset", resize: config.resize ? "active" : "unset", find: config.find ? "active" : "unset" }),
+  /** The Find on screen shortcut. */
+  onFindKey: (handler: () => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen("notch://find", handler);
+    return () => void off.then((f) => f());
+  },
   /** The resize shortcut: one arrow press. */
   onResizeKey: (handler: (dir: "left" | "right" | "up" | "down") => void): (() => void) => {
     if (!isNative) return () => {};
@@ -1219,6 +1225,20 @@ export interface CaptureDetails {
   durationMs: number | null;
 }
 
+/** A line Find on screen read (capture/find.rs); `rect` in physical pixels of the virtual screen. */
+export interface FoundLine {
+  text: string;
+  /** Index in the Capture tool's monitor order (primary first). */
+  monitor: number;
+  rect: { x: number; y: number; w: number; h: number };
+}
+
+const mockFound: FoundLine[] = [
+  { text: "Quarterly report: revenue up 12 %", monitor: 0, rect: { x: 120, y: 200, w: 420, h: 30 } },
+  { text: "Café opening hours 8:00 to 18:00", monitor: 0, rect: { x: 120, y: 260, w: 380, h: 30 } },
+  { text: "Invoice number 2026-1104", monitor: 1, rect: { x: 2700, y: 140, w: 300, h: 28 } },
+];
+
 const mockSources: CaptureSource[] = [
   { id: "monitor:\\\\.\\DISPLAY1", kind: "monitor", name: "\\\\.\\DISPLAY1", width: 2560, height: 1440, primary: true },
   { id: "monitor:\\\\.\\DISPLAY2", kind: "monitor", name: "\\\\.\\DISPLAY2", width: 1920, height: 1080, primary: false },
@@ -1238,6 +1258,12 @@ export const capture = {
   list: (): Promise<CaptureFile[]> => (isNative ? invoke<CaptureFile[]>("capture_list") : Promise.resolve([])),
   details: (paths: string[]): Promise<CaptureDetails[]> => (isNative ? invoke<CaptureDetails[]>("capture_details", { paths }) : Promise.resolve([])),
   remove: (path: string): Promise<void> => (isNative ? invoke("capture_delete", { path }) : Promise.resolve()),
+  /** Find on screen: every monitor read with OCR, nothing saved. Rejects with "timeout", "no-ocr" or "failed". */
+  findScan: (): Promise<FoundLine[]> => (isNative ? invoke<FoundLine[]>("find_scan") : new Promise((done) => setTimeout(() => done(mockFound), 600))),
+  /** A frame around a found line on screen for two seconds. */
+  findHighlight: (rect: FoundLine["rect"]) => {
+    if (isNative) void invoke("find_highlight", { rect });
+  },
   /** Recording state from Rust: start, pause, resume, end. */
   onState: (handler: (s: CaptureRecState) => void): (() => void) => {
     if (!isNative) return () => {};

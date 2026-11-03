@@ -42,7 +42,7 @@ export type RulesPayload = WindowSettings["rules"] & { apps: AppRule[] };
 export const WINDOW_DEFAULTS: WindowSettings = {
   rules: { maximized: "normal", borderless: "normal", exclusive: "normal", background: true },
   apps: [],
-  hotkeys: { open: "Ctrl+Alt+Space", hide: "", resize: "" },
+  hotkeys: { open: "Ctrl+Alt+Space", hide: "", resize: "", find: "Ctrl+Alt+KeyF" },
   sizes: {},
   scale: 100,
   closeDelay: "fast",
@@ -113,6 +113,7 @@ export function normalizeWindow(saved: unknown, legacyVisibility?: string): Wind
       open: typeof h.open === "string" ? normalize("open", h.open) : d.hotkeys.open,
       hide: normalize("hide", text(h.hide)),
       resize: normalize("resize", text(h.resize)),
+      find: typeof h.find === "string" ? normalize("find", h.find) : d.hotkeys.find,
     },
     sizes: normalizeSizes(s.sizes),
     scale: fitScale(s.scale),
