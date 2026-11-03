@@ -29,7 +29,7 @@ import {
   themesFolder,
   undoEdit,
 } from "./store";
-import { BUILT_IN_THEMES, EDITOR_KEYS, findTheme, isBuiltIn, resolveTheme, type Adjustment, type ThemeFile, type ThemeKey } from "./themes";
+import { BUILT_IN_THEMES, EDITOR_KEYS, FONT_NAMES, findTheme, isBuiltIn, resolveTheme, type Adjustment, type FontId, type ThemeFile, type ThemeKey } from "./themes";
 
 /** Settings → Themes: the theme, day and night, the colour editor and theme files. */
 export function ThemeSettings() {
@@ -118,6 +118,13 @@ function ThemeChoice() {
           </Button>
         </Row>
       )}
+      <Row label={t("Schrift")} hint={t("Für die ganze App. Terminal und Timer behalten ihre Schrift")}>
+        <Select
+          value={themes.font}
+          options={(Object.keys(FONT_NAMES) as FontId[]).map((value) => ({ value, label: FONT_NAMES[value] }))}
+          onChange={(font) => updateSettings((cur) => ({ themes: { ...cur.themes, font } }))}
+        />
+      </Row>
       <Row label={t("Farbige Symbole")} hint={t("Werkzeugleiste, Einstellungen, Wetter und Werte der geschlossenen Notch in eigenen Farben")}>
         <Switch
           label={t("Farbige Symbole")}

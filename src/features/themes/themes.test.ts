@@ -202,6 +202,10 @@ test("cover tint: off by default, on only when saved as true", () => {
   assert.equal(normalizeThemeSettings({}).coverTint, false);
   assert.equal(normalizeThemeSettings({ coverTint: true }).coverTint, true);
   assert.equal(normalizeThemeSettings({ coverTint: "true" }).coverTint, false);
+  assert.equal(normalizeThemeSettings({}).font, "inter");
+  assert.equal(normalizeThemeSettings({ font: "georgia" }).font, "georgia");
+  assert.equal(normalizeThemeSettings({ font: "Papyrus" }).font, "inter");
+  assert.equal(normalizeThemeSettings({ font: "toString" }).font, "inter");
 });
 
 test("over keeps the pop-up colours opaque", () => {

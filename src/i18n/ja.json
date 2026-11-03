@@ -825,6 +825,8 @@
  "Nacht ab": "夜の開始",
  "Farben": "色",
  "Farbige Symbole": "カラーアイコン",
+ "Schrift": "フォント",
+ "Für die ganze App. Terminal und Timer behalten ihre Schrift": "アプリ全体に適用されます。ターミナルとタイマーは独自のフォントのままです",
  "Werkzeugleiste, Einstellungen, Wetter und Werte der geschlossenen Notch in eigenen Farben": "ツールバー、設定、天気、閉じたノッチの数値をそれぞれの色で表示",
  "Tönung vom Albumcover": "アルバムアートの色合い",
  "Das offene Panel nimmt leicht die Farbe des laufenden Songs an": "開いたパネルが再生中の曲の色をほんのりまといます",

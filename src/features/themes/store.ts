@@ -4,8 +4,10 @@ import { themeFiles } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { activeThemeId, chooseTheme, nextChange } from "./daynight";
 import { record, startHistory, undo, type History } from "./history";
+import { setRowFamily } from "../../notch/row/measure";
 import {
   BUILT_IN_THEMES,
+  FONTS,
   THEME_DEFAULTS,
   findTheme,
   importThemes,
@@ -73,11 +75,22 @@ export function refreshTheme() {
   scheduleNext();
 }
 
+let lastFont = "";
+function applyFont() {
+  const family = FONTS[settings.get().themes.font];
+  if (family === lastFont) return;
+  lastFont = family;
+  document.documentElement.style.setProperty("--font-sans", family);
+  setRowFamily(family);
+}
+
 export function startThemes() {
   apply();
+  applyFont();
   scheduleNext();
   settings.subscribe(() => {
     apply();
+    applyFont();
     scheduleNext();
   });
   draft.subscribe(apply);

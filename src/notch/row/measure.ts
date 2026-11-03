@@ -1,12 +1,12 @@
 import { createStore } from "../../lib/store";
+import { FONTS } from "../../features/themes/themes";
 
 // Text widths for the closed row, from a canvas (no layout pass). Not a pure module: it needs the DOM.
 
-const FAMILY = '"Inter Variable", "Segoe UI Variable Text", system-ui, sans-serif';
-/** text-footnote font-medium, the row's text. */
-export const ROW_FONT = `500 12px ${FAMILY}`;
+/** text-footnote font-medium, the row's text (live bindings: setRowFamily changes them). */
+export let ROW_FONT = `500 12px ${FONTS.inter}`;
 /** text-caption font-medium, the FPS label. */
-export const CAPTION_FONT = `500 11px ${FAMILY}`;
+export let CAPTION_FONT = `500 11px ${FONTS.inter}`;
 
 const cache = new Map<string, number>();
 let ctx: CanvasRenderingContext2D | null = null;
@@ -17,6 +17,14 @@ document.fonts?.addEventListener("loadingdone", () => {
   cache.clear();
   fontEpoch.set((n) => n + 1);
 });
+
+/** The font chosen in Themes: widths measured before were taken with the old one. */
+export function setRowFamily(family: string) {
+  ROW_FONT = `500 12px ${family}`;
+  CAPTION_FONT = `500 11px ${family}`;
+  cache.clear();
+  fontEpoch.set((n) => n + 1);
+}
 
 /** Width in CSS px, rounded up so a reserved box never clips its text. */
 export function measureText(text: string, font = ROW_FONT): number {

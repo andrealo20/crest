@@ -36,7 +36,36 @@ export interface ThemeSettings {
   iconColors: boolean;
   /** The open panel takes a soft glow of the cover colour while a song shows (themes.css, [data-ambience]). */
   coverTint: boolean;
+  /** The whole app's font (FONTS), set as --font-sans; the terminal and the timer looks keep their monospace. */
+  font: FontId;
 }
+
+/** Inter ships with Crest, the others with Windows; each falls back to a font of the same kind where it is missing (a Mac). */
+export const FONTS = {
+  inter: '"Inter Variable", "Segoe UI Variable Text", system-ui, sans-serif',
+  segoe: '"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif',
+  bahnschrift: 'Bahnschrift, "Segoe UI", system-ui, sans-serif',
+  calibri: 'Calibri, "Segoe UI", system-ui, sans-serif',
+  candara: 'Candara, "Segoe UI", system-ui, sans-serif',
+  corbel: 'Corbel, "Segoe UI", system-ui, sans-serif',
+  verdana: 'Verdana, "Segoe UI", system-ui, sans-serif',
+  tahoma: 'Tahoma, "Segoe UI", system-ui, sans-serif',
+  trebuchet: '"Trebuchet MS", "Segoe UI", system-ui, sans-serif',
+  georgia: 'Georgia, "Times New Roman", serif',
+  sitka: '"Sitka Text", Georgia, serif',
+  constantia: 'Constantia, Georgia, serif',
+  consolas: 'Consolas, ui-monospace, monospace',
+  cascadia: '"Cascadia Code", Consolas, ui-monospace, monospace',
+  comic: '"Comic Sans MS", "Segoe UI", sans-serif',
+  inkfree: '"Ink Free", "Segoe Print", cursive',
+} as const;
+export type FontId = keyof typeof FONTS;
+/** Names in the menu: font names, never translated. */
+export const FONT_NAMES: Record<FontId, string> = {
+  inter: "Inter", segoe: "Segoe UI", bahnschrift: "Bahnschrift", calibri: "Calibri", candara: "Candara", corbel: "Corbel",
+  verdana: "Verdana", tahoma: "Tahoma", trebuchet: "Trebuchet MS", georgia: "Georgia", sitka: "Sitka", constantia: "Constantia",
+  consolas: "Consolas", cascadia: "Cascadia Code", comic: "Comic Sans MS", inkfree: "Ink Free",
+};
 
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
 /** Tertiary text (hints, inactive icons): Crest's own dark tertiary, white at 34 %, is 2.9:1 on black. */
@@ -470,6 +499,7 @@ export const THEME_DEFAULTS: ThemeSettings = {
   schedule: { on: false, day: "light", night: "dark", dayStart: "07:00", nightStart: "19:00" },
   iconColors: false,
   coverTint: false,
+  font: "inter",
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -501,5 +531,6 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     },
     iconColors: typeof s.iconColors === "boolean" ? s.iconColors : legacyIconColors,
     coverTint: s.coverTint === true,
+    font: typeof s.font === "string" && Object.hasOwn(FONTS, s.font) ? s.font : THEME_DEFAULTS.font,
   };
 }
