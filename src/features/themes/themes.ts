@@ -40,31 +40,31 @@ export interface ThemeSettings {
   font: FontId;
 }
 
-/** Inter ships with Crest, the others with Windows; each falls back to a font of the same kind where it is missing (a Mac). */
+/** Inter ships with Crest, the others with Windows itself (not Office); the second name is a Mac font of the same kind. */
 export const FONTS = {
   inter: '"Inter Variable", "Segoe UI Variable Text", system-ui, sans-serif',
   segoe: '"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif',
-  bahnschrift: 'Bahnschrift, "Segoe UI", system-ui, sans-serif',
-  calibri: 'Calibri, "Segoe UI", system-ui, sans-serif',
-  candara: 'Candara, "Segoe UI", system-ui, sans-serif',
-  corbel: 'Corbel, "Segoe UI", system-ui, sans-serif',
-  verdana: 'Verdana, "Segoe UI", system-ui, sans-serif',
-  tahoma: 'Tahoma, "Segoe UI", system-ui, sans-serif',
-  trebuchet: '"Trebuchet MS", "Segoe UI", system-ui, sans-serif',
+  bahnschrift: 'Bahnschrift, "DIN Alternate", system-ui, sans-serif',
+  franklin: '"Franklin Gothic Medium", "Avenir Next Condensed", "Arial Narrow", system-ui, sans-serif',
+  impact: 'Impact, "Arial Black", system-ui, sans-serif',
   georgia: 'Georgia, "Times New Roman", serif',
-  sitka: '"Sitka Text", Georgia, serif',
-  constantia: 'Constantia, Georgia, serif',
-  consolas: 'Consolas, ui-monospace, monospace',
-  cascadia: '"Cascadia Code", Consolas, ui-monospace, monospace',
+  sitka: '"Sitka Text", "Iowan Old Style", Georgia, serif',
+  palatino: '"Palatino Linotype", Palatino, Georgia, serif',
+  cascadia: '"Cascadia Code", Consolas, "SF Mono", Menlo, ui-monospace, monospace',
+  courier: '"Courier New", Courier, monospace',
   comic: '"Comic Sans MS", "Segoe UI", sans-serif',
-  inkfree: '"Ink Free", "Segoe Print", cursive',
+  inkfree: '"Ink Free", "Marker Felt", cursive',
+  print: '"Segoe Print", "Chalkboard SE", cursive',
+  script: '"Segoe Script", "Snell Roundhand", cursive',
+  mvboli: '"MV Boli", Noteworthy, cursive',
+  gabriola: 'Gabriola, "Apple Chancery", cursive',
 } as const;
 export type FontId = keyof typeof FONTS;
 /** Names in the menu: font names, never translated. */
 export const FONT_NAMES: Record<FontId, string> = {
-  inter: "Inter", segoe: "Segoe UI", bahnschrift: "Bahnschrift", calibri: "Calibri", candara: "Candara", corbel: "Corbel",
-  verdana: "Verdana", tahoma: "Tahoma", trebuchet: "Trebuchet MS", georgia: "Georgia", sitka: "Sitka", constantia: "Constantia",
-  consolas: "Consolas", cascadia: "Cascadia", comic: "Comic Sans MS", inkfree: "Ink Free",
+  inter: "Inter", segoe: "Segoe UI", bahnschrift: "Bahnschrift", franklin: "Franklin Gothic", impact: "Impact", georgia: "Georgia",
+  sitka: "Sitka", palatino: "Palatino", cascadia: "Cascadia", courier: "Courier New", comic: "Comic Sans MS", inkfree: "Ink Free",
+  print: "Segoe Print", script: "Segoe Script", mvboli: "MV Boli", gabriola: "Gabriola",
 };
 
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
