@@ -44,29 +44,6 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 
 <p align="center"><img src="docs/media/tour.gif" alt="Crest 依次展示概览、带歌词的正在播放、计时器、剪贴板、提问、转换器、AI 用量、硬件、终端、GitHub、截图录屏、设置、主题和语言设置" width="800" /></p>
 
-## 0.3.3 新功能
-
-<table>
-  <tr>
-    <td width="50%" valign="top"><img src="docs/media/features/coloured-icons.png" alt="彩色图标的概览，带保持唤醒卡片和音量卡片上的音频输出按钮" /><br /><b>彩色图标</b>遍布整个应用；概览新增保持唤醒，音量卡片上可以切换音频输出</td>
-    <td width="50%" valign="top"><img src="docs/media/features/timer-looks.png" alt="设置，计时器：一排颜色和十二种计时器样式" /><br /><b>计时器样式</b>：新增翻页、辉光管、圆环、液晶和指针五种，颜色可选，计时器和概览时钟都适用</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/now-playing-styles.png" alt="正在播放：频谱均衡器、波浪进度条和专辑封面色调" /><br /><b>音乐</b>：频谱和波形均衡器、波浪进度条，以及取自专辑封面的柔和色调</td>
-    <td valign="top"><img src="docs/media/features/calendar-join.png" alt="日历议程中带有 Google Meet 链接的活动显示加入按钮" /><br /><b>加入</b> Google Meet、Zoom、Teams 和 Webex 会议，在议程和活动前的提醒中都可以</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/find-on-screen.png" alt="屏幕查找：搜索框和在第二个显示器上找到的一行文字" /><br /><b>屏幕查找</b>：Ctrl + Alt + F 用 Windows 自带的文字识别读取所有屏幕，全部在本机完成</td>
-    <td valign="top"><img src="docs/media/features/settings-search.png" alt="设置搜索显示与 volume 匹配的选项" /><br /><b>设置搜索</b>：Ctrl + F 查找任何选项，用你的语言或英语都可以</td>
-  </tr>
-</table>
-
-<p align="center"><img src="docs/media/features/permission-ask.png" alt="收起的刘海询问是否运行编程代理的命令，带允许、始终允许和拒绝" width="550" /><br />编程代理的<b>权限请求</b>，在刘海中用 <code>crest-notify ask</code> 回答（<a href="docs/notices.md">现成的钩子</a>）</p>
-
-<p align="center"><img src="docs/media/features/downloads.png" alt="收起的刘海显示下载：1.2 GB，18.6 MB/s" width="318" />&nbsp;&nbsp;&nbsp;<img src="docs/media/features/caps-lock.png" alt="收起的刘海显示大写锁定已开启" width="236" /><br />收起的刘海中显示<b>下载进度</b>，以及<b>大写锁定</b>和数字锁定</p>
-
-此外：通话前照镜子用的相机工具、计时器运行时的专注音效、来自 HWiNFO 或 LibreHardwareMonitor 的温度和功耗、硬件中的 Windows 电源计划和每个进程的 CPU 占比，以及点击即可打开对应应用、删除时同时从通知中心移除的 Windows 通知。详情见[更新说明](docs/releases/v0.3.3.md)。
-
 ## 功能
 
 <p align="center"><img src="docs/media/features/closed-notch.png" alt="真实桌面上收起的刘海，图标带颜色：正在运行的计时器、AI 额度圆环、CPU、内存和 GPU 负载、下载和上传、功耗、电池、温度、时钟和今天的 GitHub 贡献" width="820" /><br /><b>收起的刘海</b>：封面、计时器、歌名或歌词、AI 额度、CPU、内存、GPU、网络、功耗、电池、温度、时钟和 GitHub 排成一行，放不下时轮流显示。可以是刘海、胶囊或细线，放在屏幕任意一边，大小由你决定，每个图标也可以有自己的颜色。</p>
@@ -129,6 +106,29 @@ Crest 支持 11 种语言（英语、简体中文、西班牙语、印地语、�
 有多台显示器时，刘海可以固定在你选择的那台上，随鼠标在显示器之间移动，或者在每台显示器上都显示一个收起的刘海，在你触碰的那台上展开。
 
 每项功能的详细说明以及各项集成的设置步骤：[docs/features.md](docs/features.md)（英文）。
+
+## 0.3.3 新功能
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/media/features/coloured-icons.png" alt="彩色图标的概览，带保持唤醒卡片和音量卡片上的音频输出按钮" /><br /><b>彩色图标</b>遍布整个应用；概览新增保持唤醒，音量卡片上可以切换音频输出</td>
+    <td width="50%" valign="top"><img src="docs/media/features/timer-looks.png" alt="设置，计时器：一排颜色和十二种计时器样式" /><br /><b>计时器样式</b>：新增翻页、辉光管、圆环、液晶和指针五种，颜色可选，计时器和概览时钟都适用</td>
+  </tr>
+  <tr>
+    <td valign="top"><img src="docs/media/features/now-playing-styles.png" alt="正在播放：频谱均衡器、波浪进度条和专辑封面色调" /><br /><b>音乐</b>：频谱和波形均衡器、波浪进度条，以及取自专辑封面的柔和色调</td>
+    <td valign="top"><img src="docs/media/features/calendar-join.png" alt="日历议程中带有 Google Meet 链接的活动显示加入按钮" /><br /><b>加入</b> Google Meet、Zoom、Teams 和 Webex 会议，在议程和活动前的提醒中都可以</td>
+  </tr>
+  <tr>
+    <td valign="top"><img src="docs/media/features/find-on-screen.png" alt="屏幕查找：搜索框和在第二个显示器上找到的一行文字" /><br /><b>屏幕查找</b>：Ctrl + Alt + F 用 Windows 自带的文字识别读取所有屏幕，全部在本机完成</td>
+    <td valign="top"><img src="docs/media/features/settings-search.png" alt="设置搜索显示与 volume 匹配的选项" /><br /><b>设置搜索</b>：Ctrl + F 查找任何选项，用你的语言或英语都可以</td>
+  </tr>
+</table>
+
+<p align="center"><img src="docs/media/features/permission-ask.png" alt="收起的刘海询问是否运行编程代理的命令，带允许、始终允许和拒绝" width="550" /><br />编程代理的<b>权限请求</b>，在刘海中用 <code>crest-notify ask</code> 回答（<a href="docs/notices.md">现成的钩子</a>）</p>
+
+<p align="center"><img src="docs/media/features/downloads.png" alt="收起的刘海显示下载：1.2 GB，18.6 MB/s" width="318" />&nbsp;&nbsp;&nbsp;<img src="docs/media/features/caps-lock.png" alt="收起的刘海显示大写锁定已开启" width="236" /><br />收起的刘海中显示<b>下载进度</b>，以及<b>大写锁定</b>和数字锁定</p>
+
+此外：通话前照镜子用的相机工具、计时器运行时的专注音效、来自 HWiNFO 或 LibreHardwareMonitor 的温度和功耗、硬件中的 Windows 电源计划和每个进程的 CPU 占比，以及点击即可打开对应应用、删除时同时从通知中心移除的 Windows 通知。详情见[更新说明](docs/releases/v0.3.3.md)。
 
 ## 安装
 
