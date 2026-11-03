@@ -134,7 +134,23 @@ fn command_allowed(window: &str, command: &str) -> bool {
     }
 }
 
-/// Opens files, folders and links: Explorer on Windows, by its full path, since a bare "explorer" is looked up next
+/// Opens a web or store link in its default handler. Not through Explorer: it reads an address with `?a=1&b=2` as
+/// something else and opens Documents instead.
+pub(crate) fn open_url(url: &str) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use windows::core::{w, HSTRING, PCWSTR};
+        use windows::Win32::UI::Shell::ShellExecuteW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        // Above 32 is success (the old HINSTANCE convention).
+        let ok = unsafe { ShellExecuteW(None, w!("open"), &HSTRING::from(url), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL) }.0 as isize > 32;
+        if ok { Ok(()) } else { Err("open-failed".into()) }
+    }
+    #[cfg(not(windows))]
+    opener().arg(url).spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Opens files and folders: Explorer on Windows, by its full path, since a bare "explorer" is looked up next
 /// to crest.exe first, and a portable copy's folder may be one other users can write to. `open` on a Mac.
 pub(crate) fn opener() -> std::process::Command {
     if cfg!(windows) {
@@ -594,20 +610,20 @@ fn native_machine() -> Option<&'static str> {
 /// Opens the GitHub Sponsors page in the default browser. The address is fixed here, so the interface cannot open anything else.
 #[tauri::command]
 fn open_sponsors() -> Result<(), String> {
-    opener().arg("https://github.com/sponsors/andrealo20").spawn().map(|_| ()).map_err(|e| e.to_string())
+    open_url("https://github.com/sponsors/andrealo20")
 }
 
 /// The bug report form on GitHub, with this version already filled in (issue forms take field ids as query parameters).
 #[tauri::command]
 fn open_bug_report() -> Result<(), String> {
     let url = concat!("https://github.com/andrealo20/crest/issues/new?template=bug_report.yml&version=", env!("CARGO_PKG_VERSION"));
-    opener().arg(url).spawn().map(|_| ()).map_err(|e| e.to_string())
+    open_url(url)
 }
 
 /// Crest's rating page in the Microsoft Store app; the buttons that call it show in the Store build only.
 #[tauri::command]
 fn open_store_review() -> Result<(), String> {
-    opener().arg("ms-windows-store://review/?ProductId=9N2KXJ2924KS").spawn().map(|_| ()).map_err(|e| e.to_string())
+    open_url("ms-windows-store://review/?ProductId=9N2KXJ2924KS")
 }
 
 /// Enables autostart on the very first launch; after that the tray check and settings decide.

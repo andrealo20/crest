@@ -51,7 +51,7 @@ pub fn github_open_profile(user: String) -> Result<(), String> {
     if !valid_user(user) {
         return Err("not-found".into());
     }
-    crate::opener().arg(format!("https://github.com/{user}")).spawn().map(|_| ()).map_err(|e| e.to_string())
+    crate::open_url(&format!("https://github.com/{user}"))
 }
 
 #[tauri::command]

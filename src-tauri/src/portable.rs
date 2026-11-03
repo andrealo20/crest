@@ -217,7 +217,7 @@ pub async fn portable_install(app: AppHandle) -> Result<bool, String> {
     }
     let exe = exe().ok_or("no executable path")?;
     if !copy().is_some_and(|c| c.writable) {
-        return crate::opener().arg(DOWNLOAD_PAGE).spawn().map(|_| true).map_err(|e| e.to_string());
+        return crate::open_url(DOWNLOAD_PAGE).map(|_| true);
     }
     let update = app.updater_builder().target(TARGET).build().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?;
     let Some(update) = update else { return Err("no update".into()) };

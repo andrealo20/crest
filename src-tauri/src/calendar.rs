@@ -301,7 +301,7 @@ fn https_link(raw: &str) -> Option<Url> {
 #[tauri::command]
 pub fn calendar_open_link(url: String) -> Result<(), String> {
     let url = https_link(&url).ok_or("bad-url")?;
-    crate::opener().arg(url.as_str()).spawn().map(|_| ()).map_err(|e| e.to_string())
+    crate::open_url(url.as_str())
 }
 
 #[cfg(test)]
