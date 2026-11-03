@@ -49,11 +49,12 @@
 @property --ambience { syntax: "<color>"; inherits: false; initial-value: transparent; }
 [data-ambience] {
   opacity: 0;
-  background: radial-gradient(120% 90% at 50% 0%, var(--ambience), transparent 70%);
+  background: radial-gradient(140% 110% at 50% 0%, var(--ambience), transparent 75%);
   transition: opacity 600ms ease, --ambience 600ms ease;
 }
-[data-ambience="on"] { opacity: 0.14; }
-:root[data-theme="light"] [data-ambience="on"] { opacity: 0.1; }
+/* Strong enough to read as the song's colour on a real, often dark cover; text keeps its contrast on top of it. */
+[data-ambience="on"] { opacity: 0.32; }
+:root[data-theme="light"] [data-ambience="on"] { opacity: 0.2; }
 
 /* The notch's own colour: black closed, the theme's background open (NotchShape.tsx). */
 [data-notch-shape] {
