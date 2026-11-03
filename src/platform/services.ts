@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isNative } from "./native";
-import type { BluetoothEvent, LevelEvent, PowerState } from "../notch/row/status";
+import type { BluetoothEvent, LevelEvent, LockEvent, PowerState } from "../notch/row/status";
 import type { LaunchPlan, ShellInfo } from "../features/terminal/shell";
 import type { TokenReport } from "../features/usage/tokens";
 import type { BatteryRaw } from "../features/system/battery";
@@ -496,7 +496,7 @@ export const display = {
 
 /** State at start, so what is already true (charger in, headphones on) does not alert. */
 export interface StatusSeed { power: PowerState | null; online: boolean | null; devices: string[] }
-export interface StatusHandlers { seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: BluetoothEvent): void; level(e: LevelEvent): void }
+export interface StatusHandlers { seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: BluetoothEvent): void; level(e: LevelEvent): void; lock(e: LockEvent): void }
 
 export const status = {
   seed: (): Promise<StatusSeed> => (isNative ? invoke<StatusSeed>("status_seed") : Promise.resolve(mockStatus.seed())),
@@ -508,11 +508,12 @@ export const status = {
       listen<{ online: boolean }>("status://net", (e) => h.net(e.payload.online)),
       listen<BluetoothEvent>("status://bt", (e) => h.bt(e.payload)),
       listen<LevelEvent>("status://level", (e) => h.level(e.payload)),
+      listen<LockEvent>("status://lock", (e) => h.lock(e.payload)),
     ];
     return () => offs.forEach((off) => void off.then((f) => f()));
   },
-  /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `hideOsd`: hide the Windows indicator (status.ts osdHidden). */
-  configure: (c: { ddc: boolean; hideOsd: boolean }) => {
+  /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `hideOsd`: hide the Windows indicator (status.ts osdHidden). */
+  configure: (c: { ddc: boolean; locks: boolean; hideOsd: boolean }) => {
     if (isNative) void invoke("status_configure", c);
   },
 };

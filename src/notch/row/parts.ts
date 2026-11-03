@@ -7,14 +7,14 @@ export const READING_KEYS = ["cpu", "ram", "gpu", "net", "power", "battery", "te
 export type ReadingKey = (typeof READING_KEYS)[number];
 export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; statusAlerts: StatusAlerts }
 /** `hideOsd` is not an alert: it hides the Windows volume and brightness indicator while Crest shows its own (status.ts osdHidden). */
-export interface StatusAlerts { power: boolean; net: boolean; bt: boolean; volume: boolean; brightness: boolean; hideOsd: boolean }
+export interface StatusAlerts { power: boolean; net: boolean; bt: boolean; volume: boolean; brightness: boolean; lock: boolean; hideOsd: boolean }
 
 export const CLOSED_DEFAULTS: ClosedSettings = {
   order: [...PART_IDS],
   parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, calendar: false, script: false },
   readings: { cpu: true, ram: true, gpu: true, net: false, power: false, battery: false, temp: false },
   clockSeconds: false, lineProgress: true, quotaAlerts: true,
-  statusAlerts: { power: true, net: true, bt: true, volume: true, brightness: true, hideOsd: false },
+  statusAlerts: { power: true, net: true, bt: true, volume: true, brightness: true, lock: true, hideOsd: false },
 };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);

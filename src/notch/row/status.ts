@@ -1,9 +1,9 @@
-// Rules for the closed notch's status alerts (power, network, Bluetooth devices, the volume and brightness HUD): which transition deserves a short message. Pure; `tr` is passed in so this stays free of i18n.
+// Rules for the closed notch's status alerts (power, network, Bluetooth devices, the volume and brightness HUD, Caps Lock and Num Lock): which transition deserves a short message. Pure; `tr` is passed in so this stays free of i18n.
 
 export interface PowerState { ac: boolean; percent: number | null; battery: boolean }
 export interface StatusAlert {
-  kind: "power" | "net" | "bt" | "volume" | "brightness";
-  icon: "plug" | "battery" | "wifi" | "wifi-off" | "headphones" | "speaker-hifi" | "mouse" | "keyboard" | "gamepad" | "phone" | "watch" | "bluetooth" | "speaker-high" | "speaker-low" | "speaker-none" | "speaker-x" | "sun" | "sun-dim";
+  kind: "power" | "net" | "bt" | "volume" | "brightness" | "lock";
+  icon: "plug" | "battery" | "wifi" | "wifi-off" | "headphones" | "speaker-hifi" | "mouse" | "keyboard" | "gamepad" | "phone" | "watch" | "bluetooth" | "speaker-high" | "speaker-low" | "speaker-none" | "speaker-x" | "sun" | "sun-dim" | "caps-lock" | "num-lock";
   text: string;
   tone: "normal" | "warning" | "critical";
   /** 0..100, drawn as a level bar (volume and brightness only). */
@@ -82,6 +82,14 @@ export function levelAlert(e: LevelEvent, tr: Tr): StatusAlert {
   if (e.kind === "brightness") return { kind: "brightness", icon: p < 50 ? "sun-dim" : "sun", text: tr("{p} %", { p }), tone: "normal", level: p };
   const icon = e.muted ? "speaker-x" : p === 0 ? "speaker-none" : p < 50 ? "speaker-low" : "speaker-high";
   return { kind: "volume", icon, text: e.muted ? tr("Stummgeschaltet") : tr("{p} %", { p }), tone: "normal", level: p };
+}
+
+/** A Caps Lock or Num Lock toggle from sysevents.rs, which sends only changes, never the state at start. */
+export interface LockEvent { key: "caps" | "num"; on: boolean }
+
+export function lockAlert(e: LockEvent, tr: Tr): StatusAlert {
+  const text = e.key === "caps" ? tr(e.on ? "Feststelltaste an" : "Feststelltaste aus") : tr(e.on ? "Num-Taste an" : "Num-Taste aus");
+  return { kind: "lock", icon: e.key === "caps" ? "caps-lock" : "num-lock", text, tone: "normal" };
 }
 
 /**

@@ -7,10 +7,13 @@
 //! a failure is logged and leaves only that source off. What a source reads at registration goes
 //! into the seed (`status://seed`, `status_seed`), never into a change event. The volume callback only fires on a change,
 //! so registering it is silent too; changes Crest makes itself carry `controls::OWN_CHANGE` and are skipped.
+//! Caps Lock and Num Lock have no change event short of a keyboard hook, so a small thread reads them every `LOCK_POLL` while their alert is on.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
+use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
@@ -32,6 +35,7 @@ use windows::Networking::Connectivity::{NetworkConnectivityLevel, NetworkInforma
 use windows::Win32::Foundation::{DEVPROPKEY, HANDLE, HWND, LPARAM, LRESULT, PROPERTYKEY, WPARAM};
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CAPITAL, VK_NUMLOCK};
 use windows::Win32::System::Power::{GetSystemPowerStatus, RegisterPowerSettingNotification, SYSTEM_POWER_STATUS};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, KillTimer, PostMessageW, RegisterClassW, SetTimer, DEVICE_NOTIFY_WINDOW_HANDLE,
@@ -461,12 +465,52 @@ pub fn emit_level(app: &AppHandle, kind: &str, level: u8, muted: bool) {
     crate::osd::after_change();
 }
 
-/// From the settings: external monitors are read over DDC/CI only while the Brightness alert is on, and the Windows indicator is
-/// hidden only while the frontend says Crest's HUD replaces it.
+/// From the settings: external monitors are read over DDC/CI only while the Brightness alert is on, Caps Lock and Num Lock only
+/// while theirs is, and the Windows indicator is hidden only while the frontend says Crest's HUD replaces it.
 #[tauri::command]
-pub fn status_configure(ddc: bool, hide_osd: bool) {
+pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, hide_osd: bool) {
     crate::brightness::set_ddc(ddc);
+    watch_locks(&app, locks);
     crate::osd::set(hide_osd);
+}
+
+const LOCK_POLL: Duration = Duration::from_millis(150);
+static LOCKS_ON: AtomicBool = AtomicBool::new(false);
+/// Bumped on every switch; a polling thread runs while the number is still its own, so turning off ends it.
+static LOCKS_RUN: AtomicUsize = AtomicUsize::new(0);
+
+/// Caps Lock and Num Lock, toggled on or not.
+type Locks = (bool, bool);
+
+fn locks() -> Locks {
+    // The low bit is the toggle state.
+    unsafe { (GetKeyState(VK_CAPITAL.0 as i32) & 1 != 0, GetKeyState(VK_NUMLOCK.0 as i32) & 1 != 0) }
+}
+
+fn watch_locks(app: &AppHandle, on: bool) {
+    if LOCKS_ON.swap(on, Ordering::SeqCst) == on {
+        return;
+    }
+    let run = LOCKS_RUN.fetch_add(1, Ordering::SeqCst) + 1;
+    if !on {
+        return;
+    }
+    let app = app.clone();
+    thread::spawn(move || {
+        let mut last = None;
+        while LOCKS_RUN.load(Ordering::SeqCst) == run {
+            for (key, on) in lock_changes(&mut last, locks()) {
+                let _ = app.emit("status://lock", serde_json::json!({ "key": key, "on": on }));
+            }
+            thread::sleep(LOCK_POLL);
+        }
+    });
+}
+
+/// The keys whose state differs from the last reading; the first reading is the baseline, so starting never alerts.
+fn lock_changes(last: &mut Option<Locks>, now: Locks) -> Vec<(&'static str, bool)> {
+    let Some(before) = last.replace(now) else { return Vec::new() };
+    [("caps", before.0, now.0), ("num", before.1, now.1)].into_iter().filter(|(_, was, is)| was != is).map(|(key, _, is)| (key, is)).collect()
 }
 
 #[cfg(test)]
@@ -491,5 +535,15 @@ mod tests {
         assert!(volume_changed(&mut last, (40, true)));
         assert!(volume_changed(&mut last, (42, true)));
         assert_eq!(last, Some((42, true)));
+    }
+
+    #[test]
+    fn lock_changes_skip_the_first_reading_and_repeats() {
+        let mut last = None;
+        assert!(lock_changes(&mut last, (false, true)).is_empty());
+        assert!(lock_changes(&mut last, (false, true)).is_empty());
+        assert_eq!(lock_changes(&mut last, (true, true)), vec![("caps", true)]);
+        assert_eq!(lock_changes(&mut last, (false, false)), vec![("caps", false), ("num", false)]);
+        assert_eq!(last, Some((false, false)));
     }
 }
