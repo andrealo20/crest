@@ -29,6 +29,9 @@ export interface SystemState {
   /** CPU from a thermal zone that moves (frozen-sensor guard), GPU of the adapter shown; °C. */
   cpuTemp: number | null;
   gpuTemp: number | null;
+  /** The program a temperature came from (HWiNFO, LibreHardwareMonitor); null for Windows' own sensors. */
+  cpuTempFrom: string | null;
+  gpuTempFrom: string | null;
   power: PowerSample | null;
   battery: BatterySample | null;
   drives: Drive[];
@@ -58,6 +61,8 @@ export const system = createStore<SystemState>({
   net: null,
   cpuTemp: null,
   gpuTemp: null,
+  cpuTempFrom: null,
+  gpuTempFrom: null,
   power: null,
   battery: null,
   drives: [],
@@ -103,11 +108,16 @@ function poll(ms: number) {
     const netSample: NetSample = { at: raw.at, net: raw.net };
     const net = want.net ? netRates(lastNet, netSample) : null;
     lastNet = want.net ? netSample : null;
-    const cpuTemp = want.temps ? (zones.choose(raw.zones, raw.at / 1000)?.celsius ?? null) : null;
-    const nv = gpu ? raw.nvml.find((n) => n.name.includes(gpu.name) || gpu.name.includes(n.name)) : undefined;
-    const gpuTemp = want.temps ? plausible(gpu?.temp ?? nv?.temp ?? null) : null;
+    const zone = want.temps ? (zones.choose(raw.zones, raw.at / 1000)?.celsius ?? null) : null;
+    const same = (n: { name: string }) => gpu != null && n.name !== "" && (n.name.includes(gpu.name) || gpu.name.includes(n.name));
+    const nv = raw.nvml.find(same);
+    // HWiNFO or LibreHardwareMonitor, while one runs, before Windows' own sensors.
+    const ext = raw.external, extGpu = ext?.gpus.find(same);
+    const extCpuTemp = want.temps ? plausible(ext?.cpuTemp) : null, extGpuTemp = want.temps ? plausible(extGpu?.temp) : null;
+    const cpuTemp = extCpuTemp ?? zone;
+    const gpuTemp = want.temps ? (extGpuTemp ?? plausible(gpu?.temp ?? nv?.temp ?? null)) : null;
     const battery = want.battery ? buildBattery(raw.battery) : null;
-    const power = want.power ? resolvePower({ energy: raw.energy, meter: raw.meter, battery: discharge(battery, raw.battery?.ac ?? null), gpus: raw.nvml.map((n) => n.watts) }) : null;
+    const power = want.power ? resolvePower({ energy: raw.energy, meter: raw.meter, battery: discharge(battery, raw.battery?.ac ?? null), gpus: raw.nvml.map((n) => n.watts), external: ext && { source: ext.source, cpu: ext.cpuWatts, gpu: extGpu?.watts ?? null } }) : null;
 
     let processes: SystemState["processes"] = null;
     if (raw.processes) {
@@ -139,6 +149,8 @@ function poll(ms: number) {
         net: want.net ? (net ?? cur.net) : null,
         cpuTemp,
         gpuTemp,
+        cpuTempFrom: ext && extCpuTemp !== null ? ext.source : null,
+        gpuTempFrom: ext && extGpuTemp !== null ? ext.source : null,
         power,
         battery,
         drives: raw.drives ? groupDrives(raw.drives) : cur.drives,

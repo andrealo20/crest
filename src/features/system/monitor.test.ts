@@ -143,7 +143,9 @@ test("power source order", () => {
   assert.equal(fromCounters([["RAPL_Package0_PSYS", 30000]], []).system, 30);
   assert.equal(fromCounters([["BATT", 5000]], [["ACPI", 42000]]).system, 42, "the ACPI meter stands for the system meter");
   const parts = { energy: [["RAPL_Package0_PKG", 20000]] as [string, number][], meter: [], battery: null, gpus: [120] };
-  assert.deepEqual(resolvePower(parts), { watts: 140, source: "parts", estimate: true, cpu: 20, gpu: 120 });
+  assert.deepEqual(resolvePower(parts), { watts: 140, source: "parts", estimate: true, cpu: 20, gpu: 120, via: null });
+  assert.deepEqual(resolvePower({ ...parts, external: { source: "HWiNFO", cpu: 45, gpu: null } }), { watts: 165, source: "parts", estimate: true, cpu: 45, gpu: 120, via: "HWiNFO" }, "HWiNFO's CPU figure beats RAPL");
+  assert.equal(resolvePower({ ...parts, external: { source: "HWiNFO", cpu: null, gpu: null } })?.via, null, "no figure, no credit");
   assert.equal(resolvePower({ ...parts, battery: 18 })?.source, "battery");
   assert.equal(resolvePower({ ...parts, battery: 18, meter: [["ACPI", 50000]] })?.source, "meter");
   assert.equal(resolvePower({ energy: [], meter: [], battery: 0.2, gpus: [null] }), null);

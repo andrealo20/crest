@@ -10,9 +10,10 @@
 //!   VRAM from "GPU Adapter Memory(*)\Dedicated Usage", sizes and names from DXGI.
 //! - CPU: sysinfo per core, core kinds from the CPU set efficiency class, frequency from "Processor Information".
 //! - Network: cumulative byte counters of the hardware interfaces (GetIfTable2); the page computes the rate.
-//! - Temperatures, power, battery and drives: see `hw`.
+//! - Temperatures, power, battery and drives: see `hw`; from HWiNFO or LibreHardwareMonitor when one runs: see `external`.
 //! - Ping: ICMP echo to 1.1.1.1 on its own thread (every 2 s, only while polled).
 
+mod external;
 mod hw;
 
 use std::collections::HashMap;
@@ -77,6 +78,7 @@ struct Probe {
     processes_at: Option<Instant>,
     names: HashMap<String, String>,
     hw: hw::Hardware,
+    external: external::External,
     ping: Arc<Ping>,
 }
 
@@ -118,6 +120,7 @@ impl Default for SystemState {
             processes_at: None,
             names: HashMap::new(),
             hw: hw::Hardware::new(),
+            external: external::External::default(),
             ping,
         }));
         spawn_process_sweeper(probe.clone());
@@ -186,6 +189,8 @@ pub struct Stats {
     energy: Vec<(String, f64)>,
     meter: Vec<(String, f64)>,
     nvml: Vec<hw::NvmlGpu>,
+    /// CPU and GPU temperature and power from HWiNFO or LibreHardwareMonitor.
+    external: Option<external::Reading>,
     battery: Option<hw::BatteryRaw>,
     drives: Option<hw::Drives>,
     processes: Option<Vec<Proc>>,
@@ -272,6 +277,7 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
     let zones = if want.temps { p.zones() } else { Vec::new() };
     let (energy, meter) = if want.power { p.meters() } else { (Vec::new(), Vec::new()) };
     let nvml = if want.temps || want.power { p.hw.nvml() } else { Vec::new() };
+    let external = if want.temps || want.power { p.external.read() } else { None };
     let battery = if want.battery || want.power { p.hw.battery() } else { None };
     let drives = if full { p.hw.drives() } else { None };
     let processes = if full { Some(p.read_processes()) } else { None };
@@ -302,6 +308,7 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
         energy,
         meter,
         nvml,
+        external,
         battery,
         drives,
         processes,

@@ -4,11 +4,13 @@
 //      Meter). Measured. Few machines have one.
 //   2. battery: what the battery supplies while the machine runs on it, which is everything the machine draws. Measured.
 //   3. parts: the CPU package (RAPL), memory where it has a meter, and NVIDIA boards (NVML). A sum of what can be read,
-//      without display, drives, fans and the power supply's losses, so it is always marked as an estimate.
+//      without display, drives, fans and the power supply's losses, so it is always marked as an estimate. CPU and GPU
+//      figures from HWiNFO or LibreHardwareMonitor, while one runs, replace Crest's own.
 //   4. none: no reading, and the tool hides the row.
 
 export type PowerSource = "meter" | "battery" | "parts";
-export interface PowerSample { watts: number; source: PowerSource; estimate: boolean; cpu: number | null; gpu: number | null }
+/** `via`: the program that gave the CPU or GPU figure, if one did. */
+export interface PowerSample { watts: number; source: PowerSource; estimate: boolean; cpu: number | null; gpu: number | null; via: string | null }
 
 /** A figure under this is a meter at rest or a battery at its threshold; above the ceiling a broken counter. */
 export const METER_FLOOR = 1, BATTERY_FLOOR = 0.5, CEILING = 2000;
@@ -42,14 +44,18 @@ export interface PowerInputs {
   battery: number | null;
   /** NVIDIA boards' power in watts. */
   gpus: (number | null)[];
+  /** CPU package and shown GPU's watts from HWiNFO or LibreHardwareMonitor. */
+  external?: { source: string; cpu: number | null; gpu: number | null } | null;
 }
 
 export function resolvePower(inputs: PowerInputs): PowerSample | null {
   const c = fromCounters(inputs.energy, inputs.meter);
-  const cpu = ok(c.cpu) ? c.cpu : null;
+  const ext = inputs.external;
+  const extCpu = ext && ok(ext.cpu) ? ext.cpu : null, extGpu = ext && ok(ext.gpu) ? ext.gpu : null;
   const gpuParts = inputs.gpus.filter(ok);
-  const gpu = gpuParts.length ? gpuParts.reduce((a, b) => a + b, 0) : null;
-  const parts = { cpu, gpu };
+  const cpu = extCpu ?? (ok(c.cpu) ? c.cpu : null);
+  const gpu = extGpu ?? (gpuParts.length ? gpuParts.reduce((a, b) => a + b, 0) : null);
+  const parts = { cpu, gpu, via: ext && (extCpu !== null || extGpu !== null) ? ext.source : null };
   if (ok(c.system) && c.system >= METER_FLOOR) return { watts: c.system, source: "meter", estimate: false, ...parts };
   if (ok(inputs.battery) && inputs.battery >= BATTERY_FLOOR) return { watts: inputs.battery, source: "battery", estimate: false, ...parts };
   const memory = ok(c.memory) && c.memory > 0 ? c.memory : null;

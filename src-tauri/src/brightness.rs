@@ -47,7 +47,7 @@ fn run(app: AppHandle) {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
     }
-    let services = unsafe { wmi() }.inspect_err(|e| eprintln!("brightness: WMI failed: {e}")).ok();
+    let services = unsafe { wmi(r"ROOT\WMI") }.inspect_err(|e| eprintln!("brightness: WMI failed: {e}")).ok();
     let mut panel = services.as_ref().and_then(|s| unsafe { first_u8(&query(s, "SELECT CurrentBrightness FROM WmiMonitorBrightness", false).ok()?, w!("CurrentBrightness")) });
     let mut events = services.as_ref().and_then(|s| unsafe { query(s, "SELECT * FROM WmiMonitorBrightnessEvent", true) }.inspect_err(|e| eprintln!("brightness: panel events failed: {e}")).ok());
     let mut external: HashMap<(isize, usize), u8> = HashMap::new();
@@ -88,11 +88,11 @@ fn run(app: AppHandle) {
     }
 }
 
-unsafe fn wmi() -> windows::core::Result<IWbemServices> {
+pub(crate) unsafe fn wmi(namespace: &str) -> windows::core::Result<IWbemServices> {
     unsafe {
         let locator: IWbemLocator = CoCreateInstance(&WbemLocator, None, CLSCTX_INPROC_SERVER)?;
         let empty = BSTR::new();
-        let services = locator.ConnectServer(&BSTR::from(r"ROOT\WMI"), &empty, &empty, &empty, 0, &empty, None)?;
+        let services = locator.ConnectServer(&BSTR::from(namespace), &empty, &empty, &empty, 0, &empty, None)?;
         // Without impersonation WMI can refuse the query when the process never set its COM security.
         blanket(&services)?;
         Ok(services)
@@ -103,7 +103,7 @@ unsafe fn blanket(proxy: impl windows::core::Param<windows::core::IUnknown>) -> 
     unsafe { CoSetProxyBlanket(proxy, AUTHN_WINNT, AUTHZ_NONE, PCWSTR::null(), RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, None, EOAC_NONE) }
 }
 
-unsafe fn query(services: &IWbemServices, wql: &str, notification: bool) -> windows::core::Result<IEnumWbemClassObject> {
+pub(crate) unsafe fn query(services: &IWbemServices, wql: &str, notification: bool) -> windows::core::Result<IEnumWbemClassObject> {
     unsafe {
         let flags = WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY;
         let (lang, wql) = (BSTR::from("WQL"), BSTR::from(wql));

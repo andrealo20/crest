@@ -180,6 +180,8 @@ export interface SystemStats {
   energy: [string, number][];
   meter: [string, number][];
   nvml: { name: string; watts: number | null; temp: number | null }[];
+  /** From HWiNFO or LibreHardwareMonitor while one of them runs; `source` is the program's name. */
+  external: { source: string; cpuTemp: number | null; cpuWatts: number | null; gpus: { name: string; temp: number | null; watts: number | null }[] } | null;
   battery: BatteryRaw | null;
   drives: DrivesRaw | null;
   processes: ProcReading[] | null;
@@ -220,6 +222,7 @@ export function fetchSystem(full: boolean, withGpu = false, want?: SystemWant): 
     energy: all.power ? [["RAPL_Package0_PKG", 20000 + mock.cpu * 600]] : [],
     meter: [],
     nvml: all.power ? [{ name: "NVIDIA GeForce RTX 4070 Ti", watts: 40 + mock.gpu * 2, temp: 55 }] : [],
+    external: null,
     battery: all.battery ? { status: 1, rateMw: -14000, remainingMwh: 41000, fullMwh: 62000, designMwh: 70000, ac: false, percent: 66, lifeSecs: null, saver: false } : null,
     drives: full
       ? {
