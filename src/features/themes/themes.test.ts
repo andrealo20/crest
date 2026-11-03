@@ -191,6 +191,13 @@ test("settings normalisation", () => {
   assert.equal(findTheme("gone", s.custom).id, "dark");
 });
 
+test("coloured icons: off by default, the old Hardware switch carries over until the theme setting is saved", () => {
+  assert.equal(normalizeThemeSettings({}).iconColors, false);
+  assert.equal(normalizeThemeSettings({}, true).iconColors, true);
+  assert.equal(normalizeThemeSettings({ iconColors: false }, true).iconColors, false);
+  assert.equal(normalizeThemeSettings({ iconColors: "yes" }).iconColors, false);
+});
+
 test("over keeps the pop-up colours opaque", () => {
   for (const t of BUILT_IN_THEMES) assert.equal(parseColor(resolveTheme(t).vars["--color-elevated"])!.a, 1);
   assert.equal(over(parseColor("#00000000")!, parseColor("#123456")!).r, 0x12);

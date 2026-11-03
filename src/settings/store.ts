@@ -111,8 +111,7 @@ export interface Settings {
   /** Panel theme, custom themes and the day and night switch (src/features/themes). */
   themes: ThemeSettings;
   /** Hardware tool: colours of the readings, the GPU shown (adapter name, "" = automatic: the busiest; index among adapters of that name), process ranking. */
-  /** `iconColors`: each closed-row reading's icon in a colour of its own (Readings.tsx); the numbers keep `colors`. */
-  system: { colors: ColorScheme; iconColors: boolean; gpu: string; gpuIndex: number; sort: "cpu" | "mem" };
+  system: { colors: ColorScheme; gpu: string; gpuIndex: number; sort: "cpu" | "mem" };
   /**
    * App launcher: pinned apps, `null` until the first app list arrives, which pins the detected
    * AI apps once. `hotkeys`: the first six on Alt+1 to Alt+6, opt-in (other apps lose those keys).
@@ -210,7 +209,7 @@ const defaults: Settings = {
     lyricRoman: false,
   },
   themes: THEME_DEFAULTS,
-  system: { colors: "calm", iconColors: false, gpu: "", gpuIndex: 0, sort: "cpu" },
+  system: { colors: "calm", gpu: "", gpuIndex: 0, sort: "cpu" },
   launcher: { favorites: null, hotkeys: false },
   github: { user: "" },
   calendar: CALENDAR_DEFAULTS,
@@ -283,8 +282,9 @@ settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
     productivity: { ...defaults.productivity, ...s.productivity, water: normalizeWater(s.productivity?.water) },
     terminal: { ...defaults.terminal, ...s.terminal },
     music: { ...defaults.music, ...s.music, lyricSources: normalizeSources(s.music?.lyricSources) },
-    themes: normalizeThemeSettings(s.themes),
-    system: { ...defaults.system, ...s.system },
+    // Coloured icons moved from Hardware (closed-row readings only) to Themes (the whole app).
+    themes: normalizeThemeSettings(s.themes, (s.system as { iconColors?: unknown } | undefined)?.iconColors === true),
+    system: (({ iconColors: _moved, ...rest }: Partial<Settings["system"]> & { iconColors?: unknown }) => ({ ...defaults.system, ...rest }))(s.system ?? {}),
     // Only an explicit opt-in turns the keys on; an older saved `shortcuts: true` does not.
     launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true },
     github: { ...defaults.github, ...s.github },

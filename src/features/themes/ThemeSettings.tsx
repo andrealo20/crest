@@ -118,6 +118,13 @@ function ThemeChoice() {
           </Button>
         </Row>
       )}
+      <Row label={t("Farbige Symbole")} hint={t("Werkzeugleiste, Einstellungen, Wetter und Werte der geschlossenen Notch in eigenen Farben")}>
+        <Switch
+          label={t("Farbige Symbole")}
+          checked={themes.iconColors}
+          onChange={(iconColors) => updateSettings((cur) => ({ themes: { ...cur.themes, iconColors } }))}
+        />
+      </Row>
     </Group>
   );
 }

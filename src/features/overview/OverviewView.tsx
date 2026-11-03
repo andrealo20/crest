@@ -14,6 +14,7 @@ import { ARTWORK_LAYOUT_ID } from "../now-playing/NowPlayingView";
 import { formatClock, timer, useRemaining } from "../timer/store";
 import { Look, clockFace } from "../timer/Look";
 import { describe, useForecast } from "../weather/store";
+import { WeatherIcon } from "../weather/WeatherView";
 import { settings } from "../../settings/store";
 import { formatTemp, formatTimeParts } from "../../lib/format";
 import { locale, t } from "../../i18n";
@@ -92,7 +93,7 @@ function Header() {
               initial={{ opacity: 0, filter: "blur(4px)" }}
               animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
             >
-              <weather.icon size={22} weight="fill" className="text-label" />
+              <WeatherIcon icon={weather.icon} hue={weather.hue} size={22} className="text-label" />
               <span className="tabular text-[22px] leading-none font-semibold tracking-[-0.02em] text-label">{formatTemp(forecast.current.temp)}</span>
             </motion.div>
           ) : (

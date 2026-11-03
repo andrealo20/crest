@@ -32,6 +32,8 @@ export interface ThemeSettings {
   custom: ThemeFile[];
   /** Day and night: two themes switched by the local clock. */
   schedule: { on: boolean; day: string; night: string; dayStart: string; nightStart: string };
+  /** Tool bar, settings pages, weather and closed-row readings with icons in colours of their own (hues.ts). */
+  iconColors: boolean;
 }
 
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
@@ -434,12 +436,16 @@ export const THEME_DEFAULTS: ThemeSettings = {
   id: DEFAULT_THEME,
   custom: [],
   schedule: { on: false, day: "light", night: "dark", dayStart: "07:00", nightStart: "19:00" },
+  iconColors: false,
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-/** Saved settings from any version: invalid custom themes and duplicate ids dropped, times checked. */
-export function normalizeThemeSettings(raw: unknown): ThemeSettings {
+/**
+ * Saved settings from any version: invalid custom themes and duplicate ids dropped, times checked.
+ * `legacyIconColors`: the Hardware switch that coloured only the closed-row readings before 0.3.3, kept if it was on.
+ */
+export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): ThemeSettings {
   const s = (typeof raw === "object" && raw !== null ? raw : {}) as Partial<ThemeSettings>;
   const custom: ThemeFile[] = [];
   for (const t of Array.isArray(s.custom) ? s.custom : []) {
@@ -460,5 +466,6 @@ export function normalizeThemeSettings(raw: unknown): ThemeSettings {
       dayStart: time(sc.dayStart, d.dayStart),
       nightStart: time(sc.nightStart, d.nightStart),
     },
+    iconColors: typeof s.iconColors === "boolean" ? s.iconColors : legacyIconColors,
   };
 }

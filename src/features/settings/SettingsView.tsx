@@ -86,20 +86,21 @@ import { LANGUAGE_NAMES, LANGUAGES, t, tBackend, type LanguageSetting } from "..
 import { ChangelogList } from "../whatsnew/ChangelogList";
 import { isMac } from "../../platform/native";
 import { ThemeSettings } from "../themes/ThemeSettings";
+import { hueVar, useIconColors, type Hue } from "../themes/hues";
 
 type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins";
 
-const pages: { id: PageId; label: string; icon: Icon }[] = [
-  { id: "general", label: "Allgemein", icon: SlidersHorizontal },
-  { id: "display", label: "Darstellung", icon: Monitor },
-  { id: "window", label: "Fenster", icon: AppWindow },
-  { id: "tools", label: "Tools", icon: SquaresFour },
-  { id: "timer", label: "Timer", icon: Timer },
-  { id: "ai", label: "AI", icon: Sparkle },
-  { id: "accounts", label: "Verbindungen", icon: Plugs },
-  { id: "themes", label: "Themen", icon: Palette },
-  { id: "notices", label: "Mitteilungen", icon: BellSimple },
-  { id: "plugins", label: "Plugins", icon: PuzzlePiece },
+const pages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
+  { id: "general", label: "Allgemein", icon: SlidersHorizontal, hue: "slate" },
+  { id: "display", label: "Darstellung", icon: Monitor, hue: "blue" },
+  { id: "window", label: "Fenster", icon: AppWindow, hue: "indigo" },
+  { id: "tools", label: "Tools", icon: SquaresFour, hue: "orange" },
+  { id: "timer", label: "Timer", icon: Timer, hue: "amber" },
+  { id: "ai", label: "AI", icon: Sparkle, hue: "violet" },
+  { id: "accounts", label: "Verbindungen", icon: Plugs, hue: "teal" },
+  { id: "themes", label: "Themen", icon: Palette, hue: "pink" },
+  { id: "notices", label: "Mitteilungen", icon: BellSimple, hue: "red" },
+  { id: "plugins", label: "Plugins", icon: PuzzlePiece, hue: "green" },
 ];
 
 /** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. */
@@ -137,6 +138,7 @@ let savedPage: PageId = "general";
 export function SettingsView() {
   const { section } = nav.use();
   const [page, setPageState] = useState<PageId>(() => (section && sectionPage[section]) || savedPage);
+  const iconColors = useIconColors();
   const scroller = useRef<HTMLDivElement>(null);
   const setPage = (p: PageId) => {
     savedPage = p;
@@ -169,7 +171,7 @@ export function SettingsView() {
               }`}
             >
               {active && <motion.span layoutId="settings-page" className="absolute inset-0 rounded-[8px] bg-fill-2" transition={springs.snappy} />}
-              <p.icon size={15} weight={active ? "fill" : "bold"} className="relative shrink-0" />
+              <p.icon size={15} weight={active ? "fill" : "bold"} className="relative shrink-0" style={iconColors ? { color: hueVar(p.hue) } : undefined} />
               <span className="relative truncate">{t(p.label)}</span>
             </button>
           );

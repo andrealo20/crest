@@ -22,6 +22,18 @@
 @property --color-black { syntax: "<color>"; inherits: true; initial-value: #000; }
 @property --shape { syntax: "<color>"; inherits: true; initial-value: #000; }
 
+/* Coloured icons (hues.ts): bright on dark themes, a shade darker on light ones. */
+:root {
+  --hue-red: #f87171; --hue-orange: #fb923c; --hue-amber: #fbbf24; --hue-yellow: #facc15; --hue-lime: #a3e635; --hue-green: #4ade80;
+  --hue-emerald: #34d399; --hue-teal: #2dd4bf; --hue-cyan: #22d3ee; --hue-sky: #38bdf8; --hue-blue: #60a5fa; --hue-indigo: #818cf8;
+  --hue-violet: #a78bfa; --hue-purple: #c084fc; --hue-pink: #f472b6; --hue-rose: #fb7185; --hue-slate: #a8b3c4;
+}
+:root[data-theme="light"] {
+  --hue-red: #dc2626; --hue-orange: #ea580c; --hue-amber: #d97706; --hue-yellow: #ca8a04; --hue-lime: #65a30d; --hue-green: #16a34a;
+  --hue-emerald: #059669; --hue-teal: #0d9488; --hue-cyan: #0891b2; --hue-sky: #0284c7; --hue-blue: #2563eb; --hue-indigo: #4f46e5;
+  --hue-violet: #7c3aed; --hue-purple: #9333ea; --hue-pink: #db2777; --hue-rose: #e11d48; --hue-slate: #64748b;
+}
+
 :root {
   transition:
     --color-notch 500ms ease,

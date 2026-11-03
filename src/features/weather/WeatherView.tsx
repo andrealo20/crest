@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CircleNotch, Drop, MagnifyingGlass, MapPin, NavigationArrow, Wind } from "@phosphor-icons/react";
+import { CircleNotch, Drop, MagnifyingGlass, MapPin, NavigationArrow, Wind, type Icon } from "@phosphor-icons/react";
+import { useHue, type Hue } from "../themes/hues";
 import { content, fade, spin } from "../../design/motion";
 import { settings } from "../../settings/store";
 import { Skeleton } from "../../ui/controls";
@@ -63,11 +64,11 @@ export function WeatherView() {
             <Current data={data} name={place.name} auto={!!place.auto} onChangePlace={() => setSearching(true)} />
             <div className="grid grid-cols-7 gap-1">
               {data.daily.map((d, i) => {
-                const { icon: I, text } = describe(d.code);
+                const { icon: I, text, hue } = describe(d.code);
                 return (
                   <div key={d.date} className={`flex flex-col items-center gap-1 rounded-[10px] py-1.5 ${i === 0 ? "bg-fill-1" : ""}`} title={text}>
                     <span className="text-caption text-label-3">{i === 0 ? t("Heute") : weekday().format(new Date(`${d.date}T12:00:00`)).replace(".", "")}</span>
-                    <I size={18} weight="fill" className="text-label-2" />
+                    <WeatherIcon icon={I} hue={hue} size={18} className="text-label-2" />
                     <span className="tabular text-caption font-semibold text-label">{formatTemp(d.max)}</span>
                     <span className="tabular -mt-1 text-caption text-label-3">{formatTemp(d.min)}</span>
                   </div>
@@ -81,12 +82,18 @@ export function WeatherView() {
   );
 }
 
+/** A weather glyph, in its own colour while coloured icons are on (sun amber, rain blue …), else in `className`'s. */
+export function WeatherIcon({ icon: I, hue, size, className }: { icon: Icon; hue: Hue; size: number; className: string }) {
+  const color = useHue(hue);
+  return <I size={size} weight="fill" className={color ? undefined : className} style={color ? { color } : undefined} />;
+}
+
 function Current({ data, name, auto, onChangePlace }: { data: Forecast; name: string; auto: boolean; onChangePlace: () => void }) {
-  const { icon: I, text } = describe(data.current.code, data.current.day);
+  const { icon: I, text, hue } = describe(data.current.code, data.current.day);
   const today = data.daily[0];
   return (
     <div className="flex items-center gap-3">
-      <I size={38} weight="fill" className="text-label" />
+      <WeatherIcon icon={I} hue={hue} size={38} className="text-label" />
       <span className="tabular text-[34px] leading-none font-semibold tracking-[-0.03em]">{formatTemp(data.current.temp)}</span>
       <div className="min-w-0">
         <button onClick={onChangePlace} className="flex items-center gap-1 text-footnote font-medium text-label hover:text-label-2" title={t("Ort ändern")}>

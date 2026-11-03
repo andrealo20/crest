@@ -26,6 +26,7 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import { DepotIcon } from "../ui/icons";
+import type { Hue } from "../features/themes/hues";
 import { DiscordLogo } from "../ui/brands";
 import { OverviewView } from "../features/overview/OverviewView";
 import { NowPlayingView } from "../features/now-playing/NowPlayingView";
@@ -75,13 +76,16 @@ export interface NotchTab {
   id: string;
   label: string;
   icon: Icon;
+  /** Its colour in the tool bar while coloured icons are on (Settings, Themes); plugins have none. */
+  hue?: Hue;
   size: { w: number; h: number };
   View: ComponentType;
 }
 
-export const tabs: NotchTab[] = [
+export const tabs: NotchTab[] = ([
   {
     id: "overview",
+    hue: "blue",
     label: "Übersicht",
     icon: SquaresFour,
     // Taller while the quote line is on; read on every render, so the shape follows the setting.
@@ -90,29 +94,29 @@ export const tabs: NotchTab[] = [
     },
     View: OverviewView,
   },
-  { id: "media", label: "Wiedergabe", icon: MusicNotesSimple, size: { w: 520, h: 232 }, View: NowPlayingView },
-  { id: "timer", label: "Timer", icon: Timer, size: { w: 520, h: 192 }, View: TimerView },
-  { id: "todos", label: "To-Dos", icon: CheckCircle, size: { w: 600, h: 276 }, View: TodosView },
-  { id: "notes", label: "Notiz", icon: NotePencil, size: { w: 520, h: 260 }, View: NotesView },
-  { id: "clipboard", label: "Zwischenablage", icon: ClipboardText, size: { w: 600, h: 236 }, View: ClipboardView },
-  { id: "shelf", label: "Ablage", icon: Tray, size: { w: 560, h: 236 }, View: ShelfView },
-  { id: "ask", label: "Ask", icon: Sparkle, size: { w: 560, h: 440 }, View: AskView },
-  { id: "convert", label: "Converter", icon: ArrowsLeftRight, size: { w: 520, h: 210 }, View: ConvertView },
-  { id: "trading", label: "Depot", icon: DepotIcon, size: { w: 560, h: 380 }, View: TradingView },
-  { id: "usage", label: "AI-Nutzung", icon: Gauge, size: { w: 600, h: 320 }, View: UsageView },
-  { id: "weather", label: "Wetter", icon: CloudSun, size: { w: 520, h: 250 }, View: WeatherView },
-  { id: "system", label: "Hardware", icon: Cpu, size: { w: 720, h: 380 }, View: SystemView },
-  { id: "discord", label: "Discord", icon: DiscordLogo, size: { w: 520, h: 210 }, View: DiscordView },
-  { id: "vault", label: "Tresor", icon: Vault, size: { w: 560, h: 324 }, View: VaultView },
-  { id: "water", label: "Wasser", icon: Drop, size: { w: 520, h: 236 }, View: WaterView },
-  { id: "scratchpad", label: "Code-Notizblock", icon: Code, size: { w: 600, h: 320 }, View: ScratchpadView },
-  { id: "terminal", label: "Terminal", icon: TerminalWindow, size: { w: 720, h: 460 }, View: TerminalView },
-  { id: "launcher", label: "Launcher", icon: RocketLaunch, size: { w: 520, h: 210 }, View: LauncherView },
-  { id: "github", label: "GitHub", icon: GithubLogo, size: { w: 520, h: 236 }, View: GithubView },
-  { id: "calendar", label: "Kalender", icon: CalendarBlank, size: { w: 560, h: 340 }, View: CalendarView },
-  { id: "notices", label: "Mitteilungen", icon: BellSimple, size: { w: 560, h: 320 }, View: NoticesView },
-  { id: "capture", label: "Erfassen", icon: Camera, size: { w: 620, h: 336 }, View: CaptureView },
-].filter((t) => !isMac || !WINDOWS_ONLY.has(t.id));
+  { id: "media", hue: "pink", label: "Wiedergabe", icon: MusicNotesSimple, size: { w: 520, h: 232 }, View: NowPlayingView },
+  { id: "timer", hue: "orange", label: "Timer", icon: Timer, size: { w: 520, h: 192 }, View: TimerView },
+  { id: "todos", hue: "green", label: "To-Dos", icon: CheckCircle, size: { w: 600, h: 276 }, View: TodosView },
+  { id: "notes", hue: "yellow", label: "Notiz", icon: NotePencil, size: { w: 520, h: 260 }, View: NotesView },
+  { id: "clipboard", hue: "teal", label: "Zwischenablage", icon: ClipboardText, size: { w: 600, h: 236 }, View: ClipboardView },
+  { id: "shelf", hue: "amber", label: "Ablage", icon: Tray, size: { w: 560, h: 236 }, View: ShelfView },
+  { id: "ask", hue: "violet", label: "Ask", icon: Sparkle, size: { w: 560, h: 440 }, View: AskView },
+  { id: "convert", hue: "rose", label: "Converter", icon: ArrowsLeftRight, size: { w: 520, h: 210 }, View: ConvertView },
+  { id: "trading", hue: "emerald", label: "Depot", icon: DepotIcon, size: { w: 560, h: 380 }, View: TradingView },
+  { id: "usage", hue: "purple", label: "AI-Nutzung", icon: Gauge, size: { w: 600, h: 320 }, View: UsageView },
+  { id: "weather", hue: "sky", label: "Wetter", icon: CloudSun, size: { w: 520, h: 250 }, View: WeatherView },
+  { id: "system", hue: "red", label: "Hardware", icon: Cpu, size: { w: 720, h: 380 }, View: SystemView },
+  { id: "discord", hue: "indigo", label: "Discord", icon: DiscordLogo, size: { w: 520, h: 210 }, View: DiscordView },
+  { id: "vault", hue: "slate", label: "Tresor", icon: Vault, size: { w: 560, h: 324 }, View: VaultView },
+  { id: "water", hue: "cyan", label: "Wasser", icon: Drop, size: { w: 520, h: 236 }, View: WaterView },
+  { id: "scratchpad", hue: "lime", label: "Code-Notizblock", icon: Code, size: { w: 600, h: 320 }, View: ScratchpadView },
+  { id: "terminal", hue: "slate", label: "Terminal", icon: TerminalWindow, size: { w: 720, h: 460 }, View: TerminalView },
+  { id: "launcher", hue: "orange", label: "Launcher", icon: RocketLaunch, size: { w: 520, h: 210 }, View: LauncherView },
+  { id: "github", hue: "violet", label: "GitHub", icon: GithubLogo, size: { w: 520, h: 236 }, View: GithubView },
+  { id: "calendar", hue: "red", label: "Kalender", icon: CalendarBlank, size: { w: 560, h: 340 }, View: CalendarView },
+  { id: "notices", hue: "amber", label: "Mitteilungen", icon: BellSimple, size: { w: 560, h: 320 }, View: NoticesView },
+  { id: "capture", hue: "cyan", label: "Erfassen", icon: Camera, size: { w: 620, h: 336 }, View: CaptureView },
+] satisfies NotchTab[]).filter((t) => !isMac || !WINDOWS_ONLY.has(t.id));
 
 /** Settings: reached via the gear, not in the tool bar. */
 export const settingsTab: NotchTab = { id: "settings", label: "Einstellungen", icon: GearSix, size: { w: 660, h: 460 }, View: SettingsView };

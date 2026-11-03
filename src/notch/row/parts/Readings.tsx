@@ -86,10 +86,11 @@ function spoken(r: Reading): string | undefined {
 /** A dial open at the bottom with its letter, then the number; FPS as a word, the others with a small glyph. */
 export function ReadingView({ reading }: { reading: Reading }) {
   const { id, value, level, source } = reading;
-  const sys = settings.use().system;
+  const { system: sys, themes: { iconColors } } = settings.use();
   const themedNotch = !!activeTheme.use().closedNotch;
   const color = id === "fps" ? "var(--color-label)" : schemeColor(sys.colors, level);
-  const iconColor = sys.iconColors && !themedNotch ? ICON_COLORS[id] : undefined;
+  // Fixed colours, not the theme's hues: the closed notch stays black on light themes too.
+  const iconColor = iconColors && !themedNotch ? ICON_COLORS[id] : undefined;
   const G = GLYPHS[id];
   const label = spoken(reading);
   return (

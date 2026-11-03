@@ -13,6 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import { settings, updateSettings } from "../../settings/store";
 import { lang, t } from "../../i18n";
+import type { Hue } from "../themes/hues";
 import { createStore } from "../../lib/store";
 import { savedForecast, type SavedForecast } from "./stale";
 
@@ -29,15 +30,15 @@ export interface Forecast {
 }
 
 /** WMO weather codes → icon + text. */
-export function describe(code: number, day = true): { icon: Icon; text: string } {
-  if (code === 0) return { icon: day ? Sun : Moon, text: t("Klar") };
-  if (code <= 2) return { icon: day ? CloudSun : CloudMoon, text: t(code === 1 ? "Überwiegend klar" : "Teils bewölkt") };
-  if (code === 3) return { icon: Cloud, text: t("Bedeckt") };
-  if (code <= 48) return { icon: CloudFog, text: t("Nebel") };
-  if (code <= 57) return { icon: CloudRain, text: t("Nieselregen") };
-  if (code <= 67 || (code >= 80 && code <= 82)) return { icon: CloudRain, text: t("Regen") };
-  if (code <= 77 || code === 85 || code === 86) return { icon: CloudSnow, text: t("Schnee") };
-  return { icon: CloudLightning, text: t("Gewitter") };
+export function describe(code: number, day = true): { icon: Icon; text: string; hue: Hue } {
+  if (code === 0) return { icon: day ? Sun : Moon, text: t("Klar"), hue: day ? "amber" : "slate" };
+  if (code <= 2) return { icon: day ? CloudSun : CloudMoon, text: t(code === 1 ? "Überwiegend klar" : "Teils bewölkt"), hue: day ? "amber" : "slate" };
+  if (code === 3) return { icon: Cloud, text: t("Bedeckt"), hue: "slate" };
+  if (code <= 48) return { icon: CloudFog, text: t("Nebel"), hue: "slate" };
+  if (code <= 57) return { icon: CloudRain, text: t("Nieselregen"), hue: "sky" };
+  if (code <= 67 || (code >= 80 && code <= 82)) return { icon: CloudRain, text: t("Regen"), hue: "blue" };
+  if (code <= 77 || code === 85 || code === 86) return { icon: CloudSnow, text: t("Schnee"), hue: "cyan" };
+  return { icon: CloudLightning, text: t("Gewitter"), hue: "violet" };
 }
 
 const cache = new Map<string, { at: number; data: Forecast }>();

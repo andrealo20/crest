@@ -40,6 +40,7 @@ import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
 import { dueTasks } from "../features/todos/store";
 import { refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/store";
+import { useHue, type Hue } from "../features/themes/hues";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
 
@@ -477,7 +478,7 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
     <div className="flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
       <div className="flex h-10 max-w-full items-center gap-0.5 rounded-[14px] bg-fill-2 p-0.5">
         {tabs.map((tab) => (
-          <DockButton key={tab.id} label={t(tab.label)} icon={tab.icon} active={tab.id === activeId} onClick={() => navigate(tab.id)} />
+          <DockButton key={tab.id} label={t(tab.label)} icon={tab.icon} hue={tab.hue} active={tab.id === activeId} onClick={() => navigate(tab.id)} />
         ))}
         <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-separator" />
         <DockButton
@@ -492,16 +493,18 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
   );
 }
 
-function DockButton(props: { label: string; icon: NotchTab["icon"]; active: boolean; onClick: () => void; badge?: boolean }) {
+function DockButton(props: { label: string; icon: NotchTab["icon"]; hue?: Hue; active: boolean; onClick: () => void; badge?: boolean }) {
   const I = props.icon;
+  const color = useHue(props.hue);
   return (
     <button
       aria-label={props.label}
       title={props.label}
       onClick={props.onClick}
-      className={`pressable relative flex h-9 w-[42px] min-w-0 shrink items-center justify-center rounded-[12px] transition-colors duration-150 ${
-        props.active ? "text-label" : "text-label-2 hover:text-label"
+      className={`pressable relative flex h-9 w-[42px] min-w-0 shrink items-center justify-center rounded-[12px] transition-[color,opacity] duration-150 ${
+        props.active ? "text-label" : color ? "opacity-75 hover:opacity-100" : "text-label-2 hover:text-label"
       }`}
+      style={color ? { color } : undefined}
     >
       {/* The current tool: a brighter pill with a mark under the icon, sliding from tool to tool. */}
       {props.active && (
