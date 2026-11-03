@@ -21,3 +21,4 @@ src-tauri/target-shared
 .agent-notes/
 src-tauri/target-dbg
 src-tauri/target-store
+/target-shared
