@@ -12,6 +12,7 @@ import { compactRate, driveSizes, duration, ghz, gigabytes, processMemory, proce
 import { memoryLevel, nextGpu, ofRate, ofShare, schemeColor, type Level } from "./levels";
 import { tempLevel, degrees } from "./temps";
 import { HISTORY, holdProcesses, system, useSystemShown } from "./store";
+import { useHue, type Hue } from "../themes/hues";
 
 /*
  *   ┌───────────────────────────────────────────────┬──────────────────────────┐
@@ -35,6 +36,7 @@ export function SystemView() {
   const [detail, setDetail] = useState<ProcReading | null>(null);
   // Closed with the pointer still over the list: the next opening ranks freely again.
   useEffect(() => () => holdProcesses.set(false), []);
+  const driveColor = useHue("orange");
   const s = st.stats;
   if (!s) return null;
   const tone = (l: Level) => schemeColor(colors, l);
@@ -58,16 +60,17 @@ export function SystemView() {
   return (
     <div className="flex h-full gap-2 px-4 pt-1 pb-2">
       <div className="min-w-0 flex-1 divide-y divide-separator rounded-[14px] bg-fill-1">
-        <Row i={i++} tick={st.tick} icon={Cpu} label="CPU" detail={join(cpuDetail)} temp={st.cpuTemp !== null ? { c: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp) } : null} tone={tone} values={st.history.cpu} max={100} value={`${Math.round(s.cpu)} %`} level={ofShare(s.cpu)}>
+        <Row i={i++} tick={st.tick} icon={Cpu} hue="blue" label="CPU" detail={join(cpuDetail)} temp={st.cpuTemp !== null ? { c: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp) } : null} tone={tone} values={st.history.cpu} max={100} value={`${Math.round(s.cpu)} %`} level={ofShare(s.cpu)}>
           {cores > 0 && <CoreColumns cores={s.cores} tone={tone} />}
         </Row>
-        <Row i={i++} tick={st.tick} icon={RamIcon} label="RAM" detail={`${gb(s.memUsed)} / ${gb(s.memTotal)} GB`} tone={tone} values={st.history.mem} max={100} value={`${Math.round(mem)} %`} level={memLevel}>
+        <Row i={i++} tick={st.tick} icon={RamIcon} hue="violet" label="RAM" detail={`${gb(s.memUsed)} / ${gb(s.memTotal)} GB`} tone={tone} values={st.history.mem} max={100} value={`${Math.round(mem)} %`} level={memLevel}>
           {s.memTotal > 0 && s.memCommitLimit > 0 && <MemoryBar used={s.memUsed} cached={s.memCached} total={s.memTotal} commit={s.memCommit} limit={s.memCommitLimit} level={memLevel} color={tone(memLevel)} />}
         </Row>
         <Row
           i={i++}
           tick={st.tick}
           icon={GpuIcon}
+          hue="emerald"
           label="GPU"
           detail={join(gpuDetail)}
           temp={st.gpuTemp !== null ? { c: st.gpuTemp, level: tempLevel("gpu", st.gpuTemp) } : null}
@@ -84,6 +87,7 @@ export function SystemView() {
             i={i++}
             tick={st.tick}
             icon={ArrowsDownUp}
+            hue="cyan"
             label={t("Netz")}
             detail={<NetDetail down={net.down} up={net.up} />}
             tone={tone}
@@ -99,6 +103,7 @@ export function SystemView() {
             i={i++}
             tick={st.tick}
             icon={Lightning}
+            hue="amber"
             label={t("Leistung")}
             detail={join([t(p.source === "meter" ? "Gemessen" : p.source === "battery" ? "Akku-Entladung" : "Schätzung"), p.cpu !== null ? `CPU ${watts(p.cpu)} W` : null, p.gpu !== null ? `GPU ${watts(p.gpu)} W` : null])}
             tone={tone}
@@ -113,6 +118,7 @@ export function SystemView() {
             i={i++}
             tick={st.tick}
             icon={BatteryHigh}
+            hue="green"
             label={t("Akku")}
             detail={join([
               b.state === "charging" ? (b.toFull !== null ? `${t("Voll in")} ${duration(b.toFull)}` : t("Lädt")) : b.state === "discharging" ? (b.left !== null ? `${duration(b.left)} ${t("übrig")}` : t("Entlädt")) : b.state === "full" ? t("Voll") : t("Angeschlossen"),
@@ -128,6 +134,7 @@ export function SystemView() {
           i={i++}
           tick={st.tick}
           icon={WifiHigh}
+          hue="sky"
           label="Ping"
           detail="1.1.1.1"
           tone={tone}
@@ -161,7 +168,7 @@ export function SystemView() {
               const sz = driveSizes(d.used, d.total), share = d.total ? (d.used / d.total) * 100 : 0;
               return (
                 <div key={d.key} className="flex h-7 items-center gap-2 px-3" title={d.model}>
-                  <HardDrives size={13} weight="bold" className="shrink-0 text-label-3" />
+                  <HardDrives size={13} weight="bold" className={`shrink-0 ${driveColor ? "" : "text-label-3"}`} style={driveColor ? { color: driveColor } : undefined} />
                   <span className="tabular w-[46px] shrink-0 truncate text-footnote font-medium text-label">{d.letters}</span>
                   <span className="relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-fill-2">
                     <span className="absolute inset-y-0 start-0 rounded-full" style={{ width: `${share}%`, background: tone(ofShare(share)) }} />
@@ -191,6 +198,8 @@ function Row(props: {
   i: number;
   tick: number;
   icon: Icon;
+  /** The icon's colour while coloured icons are on (Settings, Themes). */
+  hue: Hue;
   label: string;
   detail: ReactNode;
   temp?: { c: number; level: Level } | null;
@@ -207,6 +216,7 @@ function Row(props: {
 }) {
   const I = props.icon;
   const color = props.tone(props.level);
+  const iconColor = useHue(props.hue);
   const click = props.onClick;
   return (
     <motion.div
@@ -221,7 +231,7 @@ function Row(props: {
       transition={{ ...content.enter, delay: 0.03 * props.i }}
     >
       <div className="flex h-[32px] items-center gap-3">
-        <I size={15} weight="bold" className="shrink-0 text-label-3" />
+        <I size={15} weight="bold" className={`shrink-0 ${iconColor ? "" : "text-label-3"}`} style={iconColor ? { color: iconColor } : undefined} />
         <span className="w-12 shrink-0 text-footnote font-medium text-label">{props.label}</span>
         <span className="tabular flex w-[170px] shrink-0 items-center gap-1.5 truncate text-caption text-label-3">
           <span className="truncate" title={typeof props.detail === "string" ? props.detail : undefined}>
