@@ -158,7 +158,7 @@ export function SystemView() {
             />
           </div>
           {procs.map((proc) => (
-            <ProcessRow key={proc.id} proc={proc} value={sort === "mem" ? processMemory(proc.mem) : processShare(proc.cpu, cores || navigator.hardwareConcurrency)} onClick={() => setDetail(proc)} />
+            <ProcessRow key={proc.id} proc={proc} value={sort === "mem" ? processMemory(proc.mem) : `${processShare(proc.cpu, cores || navigator.hardwareConcurrency)} %`} onClick={() => setDetail(proc)} />
           ))}
           {!procs.length && <div className="px-3 py-2 text-caption text-label-3">{t("Wird gelesen …")}</div>}
         </div>
@@ -344,7 +344,7 @@ function ProcessRow({ proc, value, onClick }: { proc: ProcReading; value: string
       <AppIcon path={proc.path} size={14} />
       <span className="min-w-0 flex-1 truncate text-caption text-label-2">{proc.name}</span>
       {proc.count > 1 && <span className="tabular shrink-0 text-[10px] text-label-4">{proc.count}</span>}
-      <span className="tabular w-[40px] shrink-0 text-end text-caption font-medium text-label">{value}</span>
+      <span className="tabular w-[46px] shrink-0 text-end text-caption font-medium text-label">{value}</span>
     </motion.button>
   );
 }
