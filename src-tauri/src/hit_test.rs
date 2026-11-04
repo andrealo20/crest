@@ -6,6 +6,9 @@
 //! The `notch://hover` event replaces pointerenter/leave, because a click-through
 //! WebView no longer gets mouse events.
 //!
+//! The pet's nest beside the notch has a zone of its own: the window takes the pointer there too, without the
+//! notch's hover, and `notch://pet-hover` says when the pointer comes onto it and leaves.
+//!
 //! Focus mode (`passthrough`): the window stays click-through even over the notch,
 //! so clicks reach the app below (e.g. browser tabs). Three quick clicks on the notch
 //! emit `notch://focus-exit`; only the mouse button is watched for that.
@@ -58,6 +61,8 @@ const DRAG_START: f64 = 6.0;
 #[derive(Default)]
 pub struct HitState {
     rect: Mutex<HitRect>,
+    /// The pet's nest, while it shows.
+    pet: Mutex<Option<HitRect>>,
     /// While true (e.g. typing), the window stays clickable.
     pinned: Mutex<bool>,
     /// Set after show(): reapply click-through on the next poll.
@@ -96,6 +101,11 @@ pub fn set_hit_rect(rect: HitRect, state: State<'_, HitState>) {
 }
 
 #[tauri::command]
+pub fn set_pet_rect(rect: Option<HitRect>, state: State<'_, HitState>) {
+    *state.pet.lock().unwrap() = rect;
+}
+
+#[tauri::command]
 pub fn set_passthrough(on: bool, state: State<'_, HitState>) {
     state.passthrough.store(on, Ordering::Relaxed);
 }
@@ -120,6 +130,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
     thread::spawn(move || {
         // `None` forces a defined state on the first pass.
         let mut last_inside: Option<bool> = None;
+        let mut last_on_pet = false;
         let mut last_ignore: Option<bool> = None;
         let mut was_down = false;
         // Where the current press started; None = button up or the press began near the notch.
@@ -164,7 +175,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             // triple click in focus mode).
             let dx = (rect.x - x).max(x - (rect.x + rect.w)).max(0.0);
             let dy = (rect.y - y).max(y - (rect.y + rect.h)).max(0.0);
-            far = !dragging && !was_down && dx.hypot(dy) > FAR;
+            far = !dragging && !was_down && dx.hypot(dy) > FAR && state.pet.lock().unwrap().is_none();
 
             if passthrough {
                 // Only count clicks (button edges), never swallow them.
@@ -203,7 +214,12 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             was_down = dragging;
 
             let inside = if drag_active { rect.grown(state.edge.load(Ordering::Relaxed)) } else { rect }.contains(x, y);
-            let ignore = !inside && !*state.pinned.lock().unwrap();
+            let on_pet = !inside && state.pet.lock().unwrap().is_some_and(|p| p.contains(x, y));
+            let ignore = !inside && !on_pet && !*state.pinned.lock().unwrap();
+            if on_pet != last_on_pet {
+                let _ = window.emit("notch://pet-hover", on_pet);
+                last_on_pet = on_pet;
+            }
 
             // Only call on change: every call goes through the event loop.
             if last_ignore != Some(ignore) {

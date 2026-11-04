@@ -13,6 +13,18 @@ export function setHitRect(rect: { x: number; y: number; w: number; h: number })
   if (isNative) void invoke("set_hit_rect", { rect });
 }
 
+/** The pet's nest as a second zone that takes the pointer (null: no nest), in the same px as setHitRect. */
+export function setPetRect(rect: { x: number; y: number; w: number; h: number } | null) {
+  if (isNative) void invoke("set_pet_rect", { rect });
+}
+
+/** The pointer came onto the nest or left it; from the Rust poll, since the page sees no pointerleave once the window lets it through. */
+export function onPetHover(handler: (inside: boolean) => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen<boolean>("notch://pet-hover", (e) => handler(e.payload));
+  return () => void off.then((f) => f());
+}
+
 /** Keeps the window clickable even when the cursor is outside (e.g. while typing). */
 export function setPinned(pinned: boolean) {
   if (isNative) void invoke("set_pinned", { pinned });

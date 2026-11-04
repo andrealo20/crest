@@ -223,6 +223,7 @@ pub fn run() {
         .invoke_handler({
             let commands: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
             hit_test::set_hit_rect,
+            hit_test::set_pet_rect,
             hit_test::set_pinned,
             hit_test::set_passthrough,
             media::media_get,

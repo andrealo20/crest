@@ -199,10 +199,10 @@ export function Notch() {
   const sticky = useStickyHitZone(status, side ? size.w : size.h, edge);
   const transition = useTransitionFor(status, shape);
   const topValue = useSpringTop(top, transition, drag.dragging);
-  // The pet's nest stands beside the closed shape, its top a little below the shape's (the shape starts at topValue when bridged).
+  // The pet's nest stands beside the closed shape, its top a little below the shape's (topValue: as padding or margin, the shape's top).
   const pet = closedSettings.pet;
   const nestShown = !!pet.id && status !== "open" && !lineShape && !hiddenForFullscreen && !editing && !focus;
-  const nestTop = useTransform(topValue, (v) => (bridged ? v : 0) + 4);
+  const nestTop = useTransform(topValue, (v) => v + 4);
 
   // "Follow the cursor" and "All monitors" (monitor.ts) move the notch only while it is closed, not dragged and not recording.
   const busy = status !== "closed" || drag.dragging || recordingOn;
@@ -432,11 +432,13 @@ export function Notch() {
             )}
           </AnimatePresence>
         </NotchShape>
-        <AnimatePresence>
-          {nestShown && pet.id && <Nest key="nest" pet={{ ...pet, id: pet.id }} edge={edge} top={nestTop} notice={notice !== null} hovered={status === "peek"} />}
-        </AnimatePresence>
+
         {editing && status !== "open" && <ClosedResizeBar style={style} edge={edge} />}
       </motion.div>
+      {/* The pet's nest, beside the shape and outside its hit zone. */}
+      <AnimatePresence>
+        {nestShown && pet.id && <Nest key="nest" pet={{ ...pet, id: pet.id }} edge={edge} top={nestTop} shapeWidth={shape.w} notice={notice !== null} hovered={status === "peek"} />}
+      </AnimatePresence>
     </div>
   );
 }

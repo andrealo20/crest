@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { motion, type MotionValue } from "motion/react";
+import { frame, motion, type MotionValue } from "motion/react";
 import { springs } from "../../design/motion";
 import { useNowPlaying } from "../../platform/media";
 import { system } from "../../features/system/store";
@@ -7,6 +7,7 @@ import { finishedDownload } from "../../features/downloads/store";
 import { saved } from "../../features/capture/store";
 import { todos } from "../../features/todos/store";
 import { uprightCss, type Edge } from "../edge";
+import { onPetHover, setPetRect } from "../../platform/native";
 import type { PetId, PetSettings } from "../row/parts";
 import { petMarkup } from "./art";
 import "./pet.css";
@@ -15,7 +16,7 @@ import "./pet.css";
  * The nest: a small island of its own beside the closed notch with the chosen pet, at its own size. Every pet does the same
  * things: it bobs to the music, runs with the CPU load (faster as it rises), hops at a notice, cheers when something is done
  * (a finished download, a saved capture, a to-do ticked), waves while the pointer is on the notch, and falls asleep after
- * SLEEP_MS with none of that. The pointer passes through it: the nest only shows.
+ * SLEEP_MS with none of that. A click makes it bigger until the pointer leaves.
  */
 
 /** Designed size of the nest; the chosen size scales it (a transform, so no layout pass). */
@@ -78,28 +79,60 @@ export function PetArt({ id, mood, pace, size, paused }: { id: PetId; mood: PetM
   );
 }
 
+/** Gap between the shape's side and the nest. */
+const NEST_GAP = 6;
+/** A click makes the pet this much bigger, until the pointer leaves it. */
+const ZOOM = 1.5;
+
 /**
- * The nest beside the closed shape, inside the notch's hit wrapper: `top` follows the shape's top as it springs, the side
- * is the chosen one. On the bottom and side edges the frame turns the wrapper, so the nest's content is turned back upright.
+ * The nest beside the closed shape, in the notch's wrapper (outside its hit zone, so the pointer on the pet doesn't open the
+ * notch): `top` follows the shape's top as it springs, `shapeWidth` puts it beside the shape on the chosen side. No backdrop:
+ * the pet stands on its own shadow. On the bottom and side edges the frame turns the wrapper, so the pet is turned back upright.
+ * Natively the nest reports its own zone to Rust, which makes the window take the pointer there and says when it leaves.
  */
-export function Nest({ pet, edge, top, notice, hovered }: { pet: PetSettings & { id: PetId }; edge: Edge; top: MotionValue<number>; notice: boolean; hovered: boolean }) {
+export function Nest({ pet, edge, top, shapeWidth, notice, hovered }: { pet: PetSettings & { id: PetId }; edge: Edge; top: MotionValue<number>; shapeWidth: number; notice: boolean; hovered: boolean }) {
   const { mood, pace } = usePetMood(notice, hovered);
   const right = pet.side === "right";
+  const [big, setBig] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const report = () => {
+    const r = ref.current?.getBoundingClientRect();
+    if (r) setPetRect({ x: r.x, y: r.y, w: r.width, h: r.height });
+  };
+  useEffect(() => {
+    report();
+    const offTop = top.on("change", () => frame.postRender(report));
+    const offHover = onPetHover((inside) => !inside && setBig(false));
+    return () => {
+      offTop();
+      offHover();
+      setPetRect(null);
+    };
+    // report reads the element each time; it needs no dependencies of its own.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [top]);
+  const scale = (pet.size / NEST_BOX) * (big ? ZOOM : 1);
+  const x = right ? shapeWidth / 2 + NEST_GAP : -(shapeWidth / 2 + NEST_GAP + NEST_BOX);
   return (
     <motion.div
+      ref={ref}
       aria-hidden
-      className="pointer-events-none absolute"
-      style={{ top, [right ? "left" : "right"]: "calc(100% - 8px)", width: NEST_BOX, height: NEST_BOX, transformOrigin: right ? "0% 0%" : "100% 0%" }}
-      initial={{ opacity: 0, scale: 0.6 }}
-      animate={{ opacity: 1, scale: pet.size / NEST_BOX }}
+      className="pointer-events-auto absolute left-1/2 cursor-pointer"
+      style={{ top, width: NEST_BOX, height: NEST_BOX, transformOrigin: right ? "0% 0%" : "100% 0%" }}
+      initial={{ opacity: 0, scale: 0.6, x }}
+      animate={{ opacity: 1, scale, x }}
       exit={{ opacity: 0, scale: 0.6, transition: { duration: 0.18 } }}
       transition={springs.snappy}
+      onUpdate={() => frame.postRender(report)}
+      onClick={(e) => {
+        // Its own click: the notch neither opens nor closes.
+        e.stopPropagation();
+        setBig(true);
+      }}
+      onPointerLeave={() => setBig(false)}
     >
-      <div
-        className="grid size-full place-items-center rounded-full bg-(--shape) shadow-[0_8px_22px_rgb(0_0_0/0.45)]"
-        style={{ transform: uprightCss(edge), backgroundImage: "radial-gradient(60% 60% at 50% 38%, rgb(255 255 255 / 0.09), transparent 80%)" }}
-      >
-        <PetArt id={pet.id} mood={mood} pace={pace} size={NEST_BOX - 2} />
+      <div className="grid size-full place-items-center" style={{ transform: uprightCss(edge) }}>
+        <PetArt id={pet.id} mood={mood} pace={pace} size={NEST_BOX} />
       </div>
     </motion.div>
   );
