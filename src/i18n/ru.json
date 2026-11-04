@@ -576,6 +576,7 @@
  "Datei konnte nicht gespeichert werden": "Не удалось сохранить файл",
  "Keine Aufnahme von Crest": "Это не снимок Crest",
  "Löschen fehlgeschlagen": "Не удалось удалить",
+ "Für Aufnahmen fehlt das Media Feature Pack von Windows": "Для записи нужен Media Feature Pack для Windows",
  "Aufnahme gestoppt: Bild oder Encoder ausgefallen": "Запись остановлена: сбой захвата или кодировщика",
  "Aufnahme vorzeitig beendet, das Aufgenommene ist gespeichert": "Запись прервалась раньше времени, записанное сохранено",
  "Gelben Aufnahmerahmen ausblenden": "Скрыть жёлтую рамку записи",

@@ -576,6 +576,7 @@
  "Datei konnte nicht gespeichert werden": "تعذّر حفظ الملف",
  "Keine Aufnahme von Crest": "ليست لقطة من Crest",
  "Löschen fehlgeschlagen": "فشل الحذف",
+ "Für Aufnahmen fehlt das Media Feature Pack von Windows": "يحتاج التسجيل إلى حزمة Media Feature Pack لنظام Windows",
  "Aufnahme gestoppt: Bild oder Encoder ausgefallen": "توقف التسجيل: فشل الالتقاط أو المرمّز",
  "Aufnahme vorzeitig beendet, das Aufgenommene ist gespeichert": "انتهى التسجيل مبكرًا؛ وحُفظ ما سُجّل",
  "Gelben Aufnahmerahmen ausblenden": "إخفاء إطار التسجيل الأصفر",

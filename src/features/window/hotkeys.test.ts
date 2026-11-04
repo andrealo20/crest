@@ -34,6 +34,10 @@ test("the resize shortcut needs Alt and one more modifier", () => {
 test("recording a key press", () => {
   assert.equal(record("open", key("ControlLeft", { ctrlKey: true })), null);
   assert.deepEqual(record("open", key("KeyK", { ctrlKey: true, altKey: true })), { text: "Ctrl+Alt+KeyK" });
+  // German layout: the key in the US Y place types z. Windows saves what was typed, a Mac the place.
+  assert.deepEqual(record("open", key("KeyY", { key: "z", ctrlKey: true, altKey: true }), true), { text: "Ctrl+Alt+KeyZ" });
+  assert.deepEqual(record("open", key("KeyY", { key: "z", ctrlKey: true, altKey: true })), { text: "Ctrl+Alt+KeyY" });
+  assert.deepEqual(record("open", key("Digit1", { key: "&", ctrlKey: true, altKey: true }), true), { text: "Ctrl+Alt+Digit1" });
   assert.deepEqual(record("open", key("KeyK")), { error: "need-modifier" });
   assert.deepEqual(record("open", key("F5")), { text: "F5" });
   assert.deepEqual(record("hide", key("IntlRo", { ctrlKey: true })), { error: "unsupported-key" });

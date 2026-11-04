@@ -248,7 +248,7 @@ function FocusTile() {
         setFocus((f) => f && { ...f, active: !active });
         void systemControls.setFocus(!active).then(setFocus).catch(() => systemControls.focus().then(setFocus));
       }}
-      className={`pressable flex h-10 w-[150px] shrink-0 items-center gap-2.5 rounded-[12px] px-2.5 transition-colors duration-200 disabled:opacity-40 ${
+      className={`pressable flex h-10 min-w-[150px] shrink-0 items-center gap-2.5 rounded-[12px] px-2.5 transition-colors duration-200 disabled:opacity-40 ${
         active ? "bg-label text-black" : "bg-fill-1 text-label"
       }`}
     >
@@ -282,7 +282,7 @@ function AwakeTile() {
   ];
 
   return (
-    <div className={`flex h-10 w-[150px] shrink-0 items-center rounded-[12px] transition-colors duration-200 ${active ? "bg-label text-black" : "bg-fill-1 text-label"}`}>
+    <div className={`flex h-10 min-w-[150px] shrink-0 items-center rounded-[12px] transition-colors duration-200 ${active ? "bg-label text-black" : "bg-fill-1 text-label"}`}>
       <button aria-pressed={active} onClick={() => (active ? stopAwake() : startAwake(null))} className="pressable flex h-full min-w-0 flex-1 items-center gap-2.5 ps-2.5">
         <motion.span
           className={`flex size-6 shrink-0 items-center justify-center rounded-full ${active ? "bg-black/10" : "bg-fill-2"}`}
@@ -393,6 +393,8 @@ function VolumeTile({ device, open, onDevices }: { device: string | null; open: 
       </button>
       <div
         ref={track}
+        // Filled from the left in every language: the pointer math reads from the left.
+        dir="ltr"
         role="slider"
         tabIndex={0}
         aria-label={t("Lautstärke")}

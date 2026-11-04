@@ -1,5 +1,13 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter/opsz.css";
+
+/* Inter's digits and colon, for fonts whose digits differ in width (themes.ts FONTS): timers and readings must not jitter. */
+@font-face {
+  font-family: "Crest Digits";
+  src: url("../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  unicode-range: U+0030-003A;
+}
 @import "./tokens.css";
 
 /* Registered so the accent crossfades on track change instead of jumping. */

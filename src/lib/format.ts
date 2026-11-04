@@ -84,8 +84,8 @@ export function formatTimeParts(date: Date | number): { time: string; period: st
   return { time, period: period.toUpperCase() };
 }
 
-/** "14:32" or "2:32 PM" */
+/** "14:32" or "2:32 PM", with the day period where the language puts it (午後2:32 in Japanese). */
 export function formatTime(date: Date | number): string {
-  const { time, period } = formatTimeParts(date);
-  return period ? `${time} ${period}` : time;
+  const h12 = settings.get().units.clock === "12";
+  return new Intl.DateTimeFormat(locale(), { hour: h12 ? "numeric" : "2-digit", minute: "2-digit", hour12: h12 }).format(date);
 }

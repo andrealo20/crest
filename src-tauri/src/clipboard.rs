@@ -233,10 +233,12 @@ pub async fn clipboard_preview(id: u64, state: State<'_, ClipboardState>) -> Res
 }
 
 /// Ctrl+V in Shelf/Converter: files from the clipboard as paths. A copied image
-/// (screenshot) is saved as PNG under Pictures/Notch and that path is returned.
+/// (screenshot) is saved as PNG under Pictures/Crest and that path is returned.
 #[tauri::command]
-pub async fn clipboard_paste_files() -> Result<Vec<String>, String> {
-    tauri::async_runtime::spawn_blocking(|| {
+pub async fn clipboard_paste_files(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    // The Pictures known folder: moved by the user or by OneDrive backup, it is not always ~/Pictures.
+    let pictures = tauri::Manager::path(&app).picture_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
         let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
         if let Ok(files) = clipboard.get().file_list() {
             if !files.is_empty() {
@@ -245,7 +247,7 @@ pub async fn clipboard_paste_files() -> Result<Vec<String>, String> {
         }
         let Ok(img) = clipboard.get_image() else { return Ok(vec![]) };
         let rgba = image::RgbaImage::from_raw(img.width as u32, img.height as u32, img.bytes.into_owned()).ok_or("Cannot read image")?;
-        let dir = pictures_dir().join("Crest");
+        let dir = pictures.join("Crest");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         let path = dir.join(format!("Pasted {}.png", local_stamp()));
         rgba.save(&path).map_err(|e| e.to_string())?;
@@ -253,11 +255,6 @@ pub async fn clipboard_paste_files() -> Result<Vec<String>, String> {
     })
     .await
     .map_err(|e| e.to_string())?
-}
-
-fn pictures_dir() -> PathBuf {
-    let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
-    home.join("Pictures")
 }
 
 /// "2026-10-04 22-41-03" in local time (for file names).

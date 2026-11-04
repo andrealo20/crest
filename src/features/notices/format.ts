@@ -14,22 +14,22 @@ export function duration(ms: number): string {
   return rm ? `${h} h ${rm} min` : `${h} h`;
 }
 
-function clock(d: Date, format: "24" | "12"): string {
-  const h = d.getHours(), mm = String(d.getMinutes()).padStart(2, "0");
-  return format === "24" ? `${String(h).padStart(2, "0")}:${mm}` : `${h % 12 || 12}:${mm} ${h < 12 ? "am" : "pm"}`;
+/** In the app's language: where the day period goes and how it is written differ (午後1:30, 1:30 pm, 1:30 PM). */
+function clock(d: Date, format: "24" | "12", loc: string): string {
+  return new Intl.DateTimeFormat(loc, { hour: format === "24" ? "2-digit" : "numeric", minute: "2-digit", hour12: format === "12" }).format(d);
 }
 
-/** "Now", "5 min", the clock time today, "Yesterday 14:05" before that. */
-export function shortTime(at: number, now: number, format: "24" | "12", tr: Tr): string {
+/** "Now", "5 min", the clock time today, "Yesterday 14:05" before that, then the day and month in the order of `loc`. */
+export function shortTime(at: number, now: number, format: "24" | "12", tr: Tr, loc = "en-GB"): string {
   const ago = now - at;
   if (ago < 60_000) return tr("Jetzt");
   if (ago < 60 * 60_000) return tr("{n} Min.", { n: Math.floor(ago / 60_000) });
   const d = new Date(at), today = new Date(now);
-  if (d.toDateString() === today.toDateString()) return clock(d, format);
+  if (d.toDateString() === today.toDateString()) return clock(d, format, loc);
   const yesterday = new Date(now);
   yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return tr("Gestern {t}", { t: clock(d, format) });
-  return `${d.getDate()}/${d.getMonth() + 1} ${clock(d, format)}`;
+  if (d.toDateString() === yesterday.toDateString()) return tr("Gestern {t}", { t: clock(d, format, loc) });
+  return `${new Intl.DateTimeFormat(loc, { day: "numeric", month: "numeric" }).format(d)} ${clock(d, format, loc)}`;
 }
 
 /** The text under a notice's title: its body, or for `crest-notify run` the result. */

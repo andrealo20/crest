@@ -341,6 +341,8 @@ export function Slider(props: {
   return (
     <div
       ref={track}
+      // Filled from the left in every language, like the music scrubber: the pointer math reads from the left too.
+      dir="ltr"
       role="slider"
       tabIndex={0}
       aria-label={props.label}

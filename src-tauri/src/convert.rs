@@ -55,8 +55,8 @@ pub fn open_path(path: String) -> Result<(), String> {
     if !Path::new(&path).exists() {
         return Err("Datei nicht mehr vorhanden".into());
     }
-    // `explorer <file>` opens it with the associated app, without a console window.
-    crate::opener().arg(&path).spawn().map(|_| ()).map_err(|e| e.to_string())
+    // The associated app; not through `explorer <file>`, which splits a name with a comma.
+    crate::open_url(&path)
 }
 
 /// Puts files on the clipboard (Ctrl+V in Explorer pastes them).

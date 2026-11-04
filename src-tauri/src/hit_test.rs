@@ -18,7 +18,9 @@ use std::time::{Duration, Instant};
 use serde::Deserialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 #[cfg(windows)]
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON};
+#[cfg(windows)]
+use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_SWAPBUTTON};
 
 /// Hit zone in CSS px, relative to the window's top-left corner.
 #[derive(Clone, Copy, Default, Deserialize)]
@@ -150,7 +152,9 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             let y = (cursor.y - origin.y as f64) / scale;
             let rect = *state.rect.lock().unwrap();
             #[cfg(windows)]
-            let dragging = unsafe { GetAsyncKeyState(VK_LBUTTON.0 as i32) } as u16 & 0x8000 != 0;
+            // GetAsyncKeyState reads the physical buttons: a left-handed mouse has its primary button on the right.
+            let primary = if unsafe { GetSystemMetrics(SM_SWAPBUTTON) } != 0 { VK_RBUTTON } else { VK_LBUTTON };
+            let dragging = unsafe { GetAsyncKeyState(primary.0 as i32) } as u16 & 0x8000 != 0;
             #[cfg(target_os = "macos")]
             let dragging = crate::macos::left_button_down();
             let passthrough = state.passthrough.load(Ordering::Relaxed);

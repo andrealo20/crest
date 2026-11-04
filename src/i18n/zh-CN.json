@@ -576,6 +576,7 @@
  "Datei konnte nicht gespeichert werden": "无法保存文件",
  "Keine Aufnahme von Crest": "不是 Crest 截取的文件",
  "Löschen fehlgeschlagen": "删除失败",
+ "Für Aufnahmen fehlt das Media Feature Pack von Windows": "录制需要 Windows 的 Media Feature Pack",
  "Aufnahme gestoppt: Bild oder Encoder ausgefallen": "录制已停止：画面捕获或编码器出错",
  "Aufnahme vorzeitig beendet, das Aufgenommene ist gespeichert": "录制提前结束，已录制的内容已保存",
  "Gelben Aufnahmerahmen ausblenden": "隐藏黄色录制边框",

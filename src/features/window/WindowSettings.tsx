@@ -222,7 +222,7 @@ function HotkeyRow({ kind }: { kind: HotkeyKind }) {
       setError(null);
       return stop();
     }
-    const r = record(kind, e.nativeEvent);
+    const r = record(kind, e.nativeEvent, !isMac);
     if (!r) return;
     if ("error" in r) return setError(r.error);
     save(r.text);

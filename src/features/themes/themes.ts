@@ -40,7 +40,8 @@ export interface ThemeSettings {
   font: FontId;
 }
 
-/** Inter ships with Crest, the others with Windows itself (not Office); the second name is a Mac font of the same kind. */
+/** Inter ships with Crest, the others with Windows itself (not Office); the second name is a Mac font of the same kind. Fonts whose digits differ in width
+ *  take Inter's digits first ("Crest Digits", global.css). */
 export const FONTS = {
   inter: '"Inter Variable", "Segoe UI Variable Text", system-ui, sans-serif',
   segoe: '"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif',
@@ -53,11 +54,11 @@ export const FONTS = {
   cascadia: '"Cascadia Code", Consolas, "SF Mono", Menlo, ui-monospace, monospace',
   courier: '"Courier New", Courier, monospace',
   comic: '"Comic Sans MS", "Segoe UI", sans-serif',
-  inkfree: '"Ink Free", "Marker Felt", cursive',
+  inkfree: '"Crest Digits", "Ink Free", "Marker Felt", cursive',
   print: '"Segoe Print", "Chalkboard SE", cursive',
   script: '"Segoe Script", "Snell Roundhand", cursive',
-  mvboli: '"MV Boli", Noteworthy, cursive',
-  gabriola: 'Gabriola, "Apple Chancery", cursive',
+  mvboli: '"Crest Digits", "MV Boli", Noteworthy, cursive',
+  gabriola: '"Crest Digits", Gabriola, "Apple Chancery", cursive',
 } as const;
 export type FontId = keyof typeof FONTS;
 /** Names in the menu: font names, never translated. */

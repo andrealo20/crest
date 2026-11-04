@@ -129,7 +129,7 @@ export function CalendarView() {
                 return (
                   <div key={`${d.day}:${e.id}`} className={`flex items-center gap-2.5 py-[3px] ${past ? "opacity-45" : ""}`} title={names.get(e.calendar)}>
                     <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: colors.get(e.calendar) || "var(--color-link)" }} />
-                    <span className="tabular w-[104px] shrink-0 text-footnote text-label-3">{eventTime(e)}</span>
+                    <span className="tabular min-w-[104px] shrink-0 whitespace-nowrap text-footnote text-label-3">{eventTime(e)}</span>
                     <span className="min-w-0 flex-1 truncate text-footnote text-label">
                       {e.title || t("(Ohne Titel)")}
                       {e.location && <span className="text-label-3"> · {e.location}</span>}

@@ -104,6 +104,8 @@ export function LevelBar(props: { value: number; muted: boolean; label: string; 
   return (
     <div
       ref={track}
+      // Filled from the left in every language: the pointer math reads from the left.
+      dir="ltr"
       role="slider"
       tabIndex={0}
       aria-label={props.label}

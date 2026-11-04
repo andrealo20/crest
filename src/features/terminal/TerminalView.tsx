@@ -44,7 +44,8 @@ export function TerminalView() {
       <div
         // A shell is left to right in any language.
         dir="ltr"
-        className="min-h-0 flex-1 rounded-[12px] bg-fill-1 py-2 pl-3 pr-1"
+        // Dark in every theme: the shell's colours (session.ts) are made for a dark ground.
+        className="min-h-0 flex-1 rounded-[12px] bg-[#1c1c1e] py-2 pl-3 pr-1"
         onPointerDown={() => {
           keyboardFocus(true);
           focusTerminal();

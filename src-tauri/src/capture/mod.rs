@@ -14,7 +14,7 @@ mod shot;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::UNIX_EPOCH;
 
 use serde::Serialize;
@@ -25,6 +25,7 @@ use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::Media::MediaFoundation::{MFCreateSourceReaderFromURL, MFShutdown, MFStartup, MFSTARTUP_FULL, MF_VERSION};
 use windows::Win32::System::Com::{CoInitializeEx, CoTaskMemFree, COINIT_APARTMENTTHREADED, COINIT_MULTITHREADED};
+use windows::Win32::System::LibraryLoader::{LoadLibraryExW, LOAD_LIBRARY_SEARCH_SYSTEM32};
 use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
 use windows::Win32::System::SystemInformation::GetLocalTime;
 use windows::Win32::UI::HiDpi::{SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
@@ -356,6 +357,9 @@ fn begin(app: &AppHandle, source: &str, fps: u32, mic: bool, system: bool, borde
     } else {
         return Err("unknown-source".into());
     };
+    if !media_foundation() {
+        return Err("no-media".into());
+    }
     let path = new_file(dir, "Recording", "mp4")?;
     unsafe { MFStartup(MF_VERSION, MFSTARTUP_FULL) }.map_err(|_| "failed")?;
     exclude(app, true);
@@ -526,6 +530,16 @@ pub struct Details {
     path: String,
     thumb: Option<String>,
     duration_ms: Option<u64>,
+}
+
+/// Media Foundation, delay-loaded (build.rs), is missing on Windows N editions without the Media Feature Pack, and a call into a
+/// missing delay-loaded DLL ends the process: recording asks here first. The modules stay loaded for the delay-load to use.
+fn media_foundation() -> bool {
+    static FOUND: OnceLock<bool> = OnceLock::new();
+    *FOUND.get_or_init(|| unsafe {
+        LoadLibraryExW(windows::core::w!("mfplat.dll"), None, LOAD_LIBRARY_SEARCH_SYSTEM32).is_ok()
+            && LoadLibraryExW(windows::core::w!("mfreadwrite.dll"), None, LOAD_LIBRARY_SEARCH_SYSTEM32).is_ok()
+    })
 }
 
 /// System.Media.Duration, in 100 ns.

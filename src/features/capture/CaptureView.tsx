@@ -75,7 +75,7 @@ export function CaptureView() {
       </HeaderActions>
 
       <div className="flex items-center gap-2">
-        <span className="w-[84px] shrink-0 text-footnote text-label-2">{t("Bildschirmfoto")}</span>
+        <span className="min-w-[84px] shrink-0 whitespace-nowrap text-footnote text-label-2">{t("Bildschirmfoto")}</span>
         {monitors.length > 1 && (
           <Select
             value={shotTarget}
@@ -93,7 +93,7 @@ export function CaptureView() {
       </div>
 
       <div className="flex h-7 items-center gap-2">
-        <span className="w-[84px] shrink-0 text-footnote text-label-2">{t("Video")}</span>
+        <span className="min-w-[84px] shrink-0 whitespace-nowrap text-footnote text-label-2">{t("Video")}</span>
         {idle ? (
           <>
             <Select
@@ -138,6 +138,7 @@ function errorText(code: string, fallback: string): string {
     "save-failed": t("Datei konnte nicht gespeichert werden"),
     "not-capture": t("Keine Aufnahme von Crest"),
     "delete-failed": t("Löschen fehlgeschlagen"),
+    "no-media": t("Für Aufnahmen fehlt das Media Feature Pack von Windows"),
   };
   return known[code] ?? fallback;
 }
@@ -300,13 +301,13 @@ function Card({ file, details, onDeleted }: { file: CaptureFile; details?: Captu
         {thumb ? <img src={thumb} alt="" draggable={false} className="absolute inset-0 size-full object-cover" /> : <I size={28} weight="duotone" className="text-label-2" />}
         {video && (
           <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <span className="flex size-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-md">
+            <span className="flex size-8 items-center justify-center rounded-full bg-black/55 text-label backdrop-blur-md">
               <Play size={14} weight="fill" />
             </span>
           </span>
         )}
         {video && details?.durationMs != null && (
-          <span className="tabular absolute end-1.5 bottom-1.5 rounded-[6px] bg-black/60 px-1.5 text-caption text-white">{formatElapsed(details.durationMs)}</span>
+          <span className="tabular absolute end-1.5 bottom-1.5 rounded-[6px] bg-black/60 px-1.5 text-caption text-label">{formatElapsed(details.durationMs)}</span>
         )}
       </button>
       <div className="px-2 pt-1.5 pb-1">

@@ -576,6 +576,7 @@
  "Datei konnte nicht gespeichert werden": "Impossible d'enregistrer le fichier",
  "Keine Aufnahme von Crest": "Ce n'est pas une capture de Crest",
  "Löschen fehlgeschlagen": "Échec de la suppression",
+ "Für Aufnahmen fehlt das Media Feature Pack von Windows": "L'enregistrement nécessite le Media Feature Pack de Windows",
  "Aufnahme gestoppt: Bild oder Encoder ausgefallen": "Enregistrement arrêté : la capture ou l'encodeur a échoué",
  "Aufnahme vorzeitig beendet, das Aufgenommene ist gespeichert": "L'enregistrement s'est arrêté plus tôt ; ce qui a été enregistré est sauvegardé",
  "Gelben Aufnahmerahmen ausblenden": "Masquer le cadre d'enregistrement jaune",

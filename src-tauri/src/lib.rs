@@ -134,8 +134,8 @@ fn command_allowed(window: &str, command: &str) -> bool {
     }
 }
 
-/// Opens a web or store link in its default handler. Not through Explorer: it reads an address with `?a=1&b=2` as
-/// something else and opens Documents instead.
+/// Opens a web or store link, or a file, in its default handler. Not through Explorer: it reads an address with `?a=1&b=2`
+/// or a file name with a comma as something else and opens Documents instead.
 pub(crate) fn open_url(url: &str) -> Result<(), String> {
     #[cfg(windows)]
     {

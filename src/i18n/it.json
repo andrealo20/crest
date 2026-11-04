@@ -576,6 +576,7 @@
  "Datei konnte nicht gespeichert werden": "Impossibile salvare il file",
  "Keine Aufnahme von Crest": "Non è una cattura di Crest",
  "Löschen fehlgeschlagen": "Eliminazione non riuscita",
+ "Für Aufnahmen fehlt das Media Feature Pack von Windows": "Per registrare serve il Media Feature Pack di Windows",
  "Aufnahme gestoppt: Bild oder Encoder ausgefallen": "Registrazione interrotta: errore nella cattura o nel codificatore",
  "Aufnahme vorzeitig beendet, das Aufgenommene ist gespeichert": "La registrazione si è interrotta prima; quanto registrato è salvato",
  "Gelben Aufnahmerahmen ausblenden": "Nascondi la cornice gialla di registrazione",

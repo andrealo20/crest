@@ -92,7 +92,8 @@ export function ClipboardView() {
     const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
       e.preventDefault();
-      el.scrollLeft += e.deltaY;
+      // Right to left, scrollLeft runs from 0 down to negative values.
+      el.scrollLeft += getComputedStyle(el).direction === "rtl" ? -e.deltaY : e.deltaY;
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);

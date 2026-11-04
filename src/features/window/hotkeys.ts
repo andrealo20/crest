@@ -114,6 +114,8 @@ export function conflicts(h: Record<HotkeyKind, string>, launcher: string[] = []
 
 export interface KeyLike {
   code: string;
+  /** The character the layout gives the key (KeyboardEvent.key). */
+  key?: string;
   ctrlKey: boolean;
   altKey: boolean;
   shiftKey: boolean;
@@ -126,7 +128,9 @@ export type RecordError = "need-modifier" | "resize-modifiers" | "resize-arrow" 
  * A key press while recording: the saved text, an error to show, or null while only modifiers are held.
  * For the resize shortcut any arrow key stands for all four.
  */
-export function record(kind: HotkeyKind, e: KeyLike): { text: string } | { error: RecordError } | null {
+/** `byLayout`: the platform registers a shortcut by the key the layout puts there (Windows RegisterHotKey), so a letter is saved as
+ *  the letter typed, not as its US position: Ctrl+Alt+Z on a German keyboard is KeyZ, not KeyY. A Mac registers positions. */
+export function record(kind: HotkeyKind, e: KeyLike, byLayout = false): { text: string } | { error: RecordError } | null {
   if (/^(Control|Alt|Shift|Meta|OS)(Left|Right)?$/.test(e.code)) return null;
   const mods = MODS.filter((m) => (m === "Ctrl" ? e.ctrlKey : m === "Alt" ? e.altKey : m === "Shift" ? e.shiftKey : e.metaKey));
   if (kind === "resize") {
@@ -135,7 +139,7 @@ export function record(kind: HotkeyKind, e: KeyLike): { text: string } | { error
     return { text: format({ mods, key: ARROWS }) };
   }
   if (!isKeyCode(e.code)) return { error: "unsupported-key" };
-  const p = { mods, key: e.code };
+  const p = { mods, key: byLayout && /^[a-z]$/i.test(e.key ?? "") ? `Key${e.key!.toUpperCase()}` : e.code };
   return allowedPlain(p) ? { text: format(p) } : { error: "need-modifier" };
 }
 

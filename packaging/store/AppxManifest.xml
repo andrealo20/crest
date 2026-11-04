@@ -58,5 +58,7 @@
     <uap3:Capability Name="userNotificationListener" />
     <rescap:Capability Name="runFullTrust" />
     <DeviceCapability Name="webcam" />
+    <!-- Recording with the microphone (capture/audio.rs): a packaged app gets no mic without it. -->
+    <DeviceCapability Name="microphone" />
   </Capabilities>
 </Package>

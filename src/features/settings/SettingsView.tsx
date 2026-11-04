@@ -277,10 +277,11 @@ export function SettingsView() {
         <button
           onClick={openBugReport}
           title={t("Öffnet das Formular auf GitHub, mit deiner Crest-Version schon eingetragen")}
-          className="pressable relative flex h-8 items-center gap-2 rounded-[8px] px-2.5 text-start text-body text-label-3 transition-colors duration-150 hover:text-label-2"
+          className="pressable relative flex min-h-8 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body text-label-3 transition-colors duration-150 hover:text-label-2"
         >
           <Bug size={15} weight="bold" className="relative shrink-0" style={iconColors ? { color: hueVar("rose") } : undefined} />
-          <span className="relative truncate">{t("Fehler melden")}</span>
+          {/* Longer in some languages than the pages' names: it wraps rather than being cut. */}
+          <span className="relative leading-tight">{t("Fehler melden")}</span>
         </button>
       </nav>
       {/* Ref on the stable container: popLayout doesn't pass refs to the child. */}

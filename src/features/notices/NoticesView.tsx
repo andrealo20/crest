@@ -7,7 +7,7 @@ import { navigate } from "../../notch/nav";
 import { settings } from "../../settings/store";
 import { Button, Empty } from "../../ui/controls";
 import { usePresenting } from "../privacy/store";
-import { t } from "../../i18n";
+import { locale, t } from "../../i18n";
 import { noticeSource } from "../../platform/services";
 import { noticeText, shortTime } from "./format";
 import { AppIcon, ProgressRing } from "./NoticePop";
@@ -74,7 +74,7 @@ export function NoticesView() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2">
                       <span className="truncate text-caption text-label-3">{n.appName}</span>
-                      <span className="ms-auto shrink-0 tabular text-caption text-label-4">{shortTime(n.at, now, s.units.clock, t)}</span>
+                      <span className="ms-auto shrink-0 tabular text-caption text-label-4">{shortTime(n.at, now, s.units.clock, t, locale())}</span>
                     </div>
                     {presenting ? (
                       <div className="text-body text-label-3">{t("Ausgeblendet")}</div>

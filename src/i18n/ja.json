@@ -576,6 +576,7 @@
  "Datei konnte nicht gespeichert werden": "ファイルを保存できませんでした",
  "Keine Aufnahme von Crest": "Crest のキャプチャではありません",
  "Löschen fehlgeschlagen": "削除に失敗しました",
+ "Für Aufnahmen fehlt das Media Feature Pack von Windows": "録画には Windows の Media Feature Pack が必要です",
  "Aufnahme gestoppt: Bild oder Encoder ausgefallen": "録画が停止しました: キャプチャまたはエンコーダーでエラー",
  "Aufnahme vorzeitig beendet, das Aufgenommene ist gespeichert": "録画が途中で終了しました。録画済みの部分は保存されています",
  "Gelben Aufnahmerahmen ausblenden": "黄色の録画枠を非表示",

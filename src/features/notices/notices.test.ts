@@ -101,6 +101,10 @@ test("words", () => {
   assert.equal(shortTime(day, day + 3 * 3600_000, "24", tr), "14:05");
   assert.equal(shortTime(day, day + 3 * 3600_000, "12", tr), "2:05 pm");
   assert.equal(shortTime(day, new Date(2026, 10, 1, 9).getTime(), "24", tr), 'Gestern {t} {"t":"14:05"}');
+  // Older: day and month in the language's order, and its own day period.
+  const older = new Date(2026, 10, 5, 9).getTime();
+  assert.equal(shortTime(day, older, "24", tr, "en-GB"), `${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "numeric" }).format(day)} 14:05`);
+  assert.match(shortTime(day, day + 3 * 3600_000, "12", tr, "ja"), /^午後/);
   assert.equal(noticeText(n({ exitCode: 0, durationMs: 1500 }), tr), 'Fertig nach {d} {"d":"2 s"}');
   assert.equal(noticeText(n({ exitCode: 2, durationMs: 100 }), tr), 'Fehlgeschlagen (Code {c}) nach {d} {"c":2,"d":"100 ms"}');
   assert.equal(popLine(n({ title: "Mail", body: "Hello\nmore" }), tr), "Mail · Hello");

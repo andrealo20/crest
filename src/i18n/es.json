@@ -576,6 +576,7 @@
  "Datei konnte nicht gespeichert werden": "No se pudo guardar el archivo",
  "Keine Aufnahme von Crest": "No es una captura de Crest",
  "Löschen fehlgeschlagen": "Error al eliminar",
+ "Für Aufnahmen fehlt das Media Feature Pack von Windows": "Para grabar hace falta el Media Feature Pack de Windows",
  "Aufnahme gestoppt: Bild oder Encoder ausgefallen": "Grabación detenida: falló la captura o el codificador",
  "Aufnahme vorzeitig beendet, das Aufgenommene ist gespeichert": "La grabación terminó antes de tiempo; lo grabado se ha guardado",
  "Gelben Aufnahmerahmen ausblenden": "Ocultar el marco amarillo de grabación",
