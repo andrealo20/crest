@@ -173,3 +173,13 @@ Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Wi
 [GPL-3.0](LICENSE). You may use, study, change and share this project, also commercially, but any version you distribute must stay open source under the same license and keep the copyright notices.
 
 Crest is a fork of L4-Notchbar 1.6.0. The source code of every release, including the Microsoft Store builds, is in this repository: each release has a version tag that points to the exact code it was built from.
+
+## Star history
+
+<a href="https://www.star-history.com/#andrealo20/crest&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=andrealo20/crest&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=andrealo20/crest&type=Date" />
+    <img alt="Star history of Crest" src="https://api.star-history.com/svg?repos=andrealo20/crest&type=Date" />
+  </picture>
+</a>

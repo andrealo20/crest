@@ -161,3 +161,13 @@ Crest 是 Andrea Loroni 的独立应用，与 Apple、OmniNotch 和 Microsoft �
 [GPL-3.0](LICENSE)。你可以使用、研究、修改和分享这个项目，包括商业用途，但你分发的任何版本都必须以相同的许可证保持开源，并保留版权声明。
 
 Crest 是 L4-Notchbar 1.6.0 的分叉。每个版本（包括 Microsoft Store 版本）的源代码都在这个仓库里：每个版本都有一个版本标签，指向构建它的确切代码。
+
+## Star 历史
+
+<a href="https://www.star-history.com/#andrealo20/crest&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=andrealo20/crest&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=andrealo20/crest&type=Date" />
+    <img alt="Star history of Crest" src="https://api.star-history.com/svg?repos=andrealo20/crest&type=Date" />
+  </picture>
+</a>
