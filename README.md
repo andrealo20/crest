@@ -106,28 +106,20 @@ With more than one monitor the notch stays on the one you pick, follows the poin
 
 Every feature in detail, with setup steps for each integration: [docs/features.md](docs/features.md).
 
-## New in 0.3.3
+## New in 0.4.0
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="docs/media/features/coloured-icons.png" alt="Overview with coloured icons, a Keep awake tile and the audio output button on the volume tile" /><br /><b>Coloured icons</b> across the app, and an Overview with Keep awake and the audio output on the volume tile</td>
-    <td width="50%" valign="top"><img src="docs/media/features/timer-looks.png" alt="Settings, Timer: a row of colours and twelve timer looks, including Flip, Nixie, Ring, LCD and Analog" /><br /><b>Timer looks</b>: Flip, Nixie, Ring, LCD and Analog join the seven there were, in the colour you pick, for the timer and the Overview clock</td>
+    <td width="50%" valign="top"><img src="docs/media/features/recorder.png" alt="The Recorder tool: microphone and system audio switches, a Record button and three recordings with their length and size" /><br /><b>Recorder</b>: sound only, from the microphone, the system audio or both, so a call keeps every voice. M4A files in Music, off until you turn it on in Settings, Tools</td>
+    <td width="50%" valign="top"><img src="docs/media/features/brightness.png" alt="Overview with a brightness slider below the focus, keep awake and volume tiles" /><br /><b>Brightness</b> of the screen the notch is on, from Overview: external monitors over DDC/CI and a laptop's own screen</td>
   </tr>
   <tr>
-    <td valign="top"><img src="docs/media/features/now-playing-styles.png" alt="Now Playing with a Spectrum equalizer, a wavy progress bar and a tint from the album art" /><br /><b>Music</b>: Spectrum and Wave equalizers, a wavy progress bar and a soft tint from the album art</td>
-    <td valign="top"><img src="docs/media/features/calendar-join.png" alt="Calendar agenda with a Join button on an event with a Google Meet link" /><br /><b>Join</b> Google Meet, Zoom, Teams and Webex calls from the agenda and from the notice before the event</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/find-on-screen.png" alt="Find on screen: a search field and a matching line found on the second display" /><br /><b>Find on screen</b>: Ctrl + Alt + F reads every screen with Windows' own text recognition, on your PC</td>
-    <td valign="top"><img src="docs/media/features/settings-search.png" alt="Settings search showing the options that match volume" /><br /><b>Search in Settings</b>: Ctrl + F finds any option, in your language or in English</td>
+    <td valign="top"><img src="docs/media/features/ai-usage-renew.png" alt="AI usage with a dimmed Claude card that says its sign-in expired, a Renew in the terminal link and the time of the last reading" /><br /><b>AI usage</b> says when a reading is out of date and dims it; an expired sign-in renews from Crest's terminal in one click</td>
+    <td valign="top"><img src="docs/media/features/bottom-edge.png" alt="The open notch on the bottom edge above the taskbar, with the font menu open in Settings, Themes, each font shown in its own face" /><br /><b>Fonts</b> for the whole app, sixteen of them, and menus that open upright with the notch on the bottom or a side edge (0.3.4). <b>Report a bug</b> sits below Plugins</td>
   </tr>
 </table>
 
-<p align="center"><img src="docs/media/features/permission-ask.png" alt="The closed notch asking whether to run a coding agent's shell command, with Allow, Always allow and Deny" width="550" /><br /><b>Permission requests</b> from coding agents, answered in the notch with <code>crest-notify ask</code> (<a href="docs/notices.md">ready-made hook</a>)</p>
-
-<p align="center"><img src="docs/media/features/downloads.png" alt="The closed notch showing a download: 1.2 GB at 18.6 MB/s" width="318" />&nbsp;&nbsp;&nbsp;<img src="docs/media/features/caps-lock.png" alt="The closed notch showing Caps Lock on" width="236" /><br /><b>Downloads</b> in progress and <b>Caps Lock</b> and Num Lock in the closed notch</p>
-
-Also new: a Camera tool to check yourself before a call, focus sounds while the timer runs, temperatures and power from HWiNFO or LibreHardwareMonitor, the Windows power plan and each process's CPU share in Hardware, and Windows notices that open their app on a click and leave the notification centre when you delete them. All the details: [release notes](docs/releases/v0.3.3.md).
+Also new: a click on a notice opens what it is about (What's new, the recording, AI usage or Now Playing), and 0.3.4 fixed light themes, longer translations, Arabic, links with parameters, non-US keyboards, left-handed mice and Windows N editions. All the details: [0.4.0](docs/releases/v0.4.0.md) and [0.3.4](docs/releases/v0.3.4.md) release notes.
 
 ## Install
 

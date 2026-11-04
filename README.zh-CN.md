@@ -106,28 +106,20 @@ Crest 支持 11 种语言（英语、简体中文、西班牙语、印地语、�
 
 每项功能的详细说明以及各项集成的设置步骤：[docs/features.md](docs/features.md)（英文）。
 
-## 0.3.3 新功能
+## 0.4.0 新功能
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="docs/media/features/coloured-icons.png" alt="彩色图标的概览，带保持唤醒卡片和音量卡片上的音频输出按钮" /><br /><b>彩色图标</b>遍布整个应用；概览新增保持唤醒，音量卡片上可以切换音频输出</td>
-    <td width="50%" valign="top"><img src="docs/media/features/timer-looks.png" alt="设置，计时器：一排颜色和十二种计时器样式" /><br /><b>计时器样式</b>：新增翻页、辉光管、圆环、液晶和指针五种，颜色可选，计时器和概览时钟都适用</td>
+    <td width="50%" valign="top"><img src="docs/media/features/recorder.png" alt="录音机工具：麦克风和系统声音开关、录制按钮，以及三段带时长和大小的录音" /><br /><b>录音机</b>：只录声音，来自麦克风、系统声音或两者，通话中每个人的声音都会录下。M4A 文件保存在“音乐”中，默认关闭，在“设置 → 工具”中开启</td>
+    <td width="50%" valign="top"><img src="docs/media/features/brightness.png" alt="概览中专注、保持唤醒和音量卡片下方的亮度滑块" /><br />在概览中调节刘海所在屏幕的<b>亮度</b>：外接显示器通过 DDC/CI，笔记本自带屏幕也可以</td>
   </tr>
   <tr>
-    <td valign="top"><img src="docs/media/features/now-playing-styles.png" alt="正在播放：频谱均衡器、波浪进度条和专辑封面色调" /><br /><b>音乐</b>：频谱和波形均衡器、波浪进度条，以及取自专辑封面的柔和色调</td>
-    <td valign="top"><img src="docs/media/features/calendar-join.png" alt="日历议程中带有 Google Meet 链接的活动显示加入按钮" /><br /><b>加入</b> Google Meet、Zoom、Teams 和 Webex 会议，在议程和活动前的提醒中都可以</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/find-on-screen.png" alt="屏幕查找：搜索框和在第二个显示器上找到的一行文字" /><br /><b>屏幕查找</b>：Ctrl + Alt + F 用 Windows 自带的文字识别读取所有屏幕，全部在本机完成</td>
-    <td valign="top"><img src="docs/media/features/settings-search.png" alt="设置搜索显示与 volume 匹配的选项" /><br /><b>设置搜索</b>：Ctrl + F 查找任何选项，用你的语言或英语都可以</td>
+    <td valign="top"><img src="docs/media/features/ai-usage-renew.png" alt="AI 用量：变暗的 Claude 卡片显示登录已过期，带“在终端中续期”链接和上次读取的时间" /><br /><b>AI 用量</b>会说明读数何时过期并将其变暗；过期的登录可在 Crest 的终端中一键续期</td>
+    <td valign="top"><img src="docs/media/features/bottom-edge.png" alt="位于任务栏上方屏幕底边的展开刘海，设置的主题页中打开了字体菜单，每种字体都以自身字形显示" /><br />整个应用可选十六种<b>字体</b>；刘海在底边或侧边时菜单也能正向打开（0.3.4）。<b>报告问题</b>位于插件下方</td>
   </tr>
 </table>
 
-<p align="center"><img src="docs/media/features/permission-ask.png" alt="收起的刘海询问是否运行编程代理的命令，带允许、始终允许和拒绝" width="550" /><br />编程代理的<b>权限请求</b>，在刘海中用 <code>crest-notify ask</code> 回答（<a href="docs/notices.md">现成的钩子</a>）</p>
-
-<p align="center"><img src="docs/media/features/downloads.png" alt="收起的刘海显示下载：1.2 GB，18.6 MB/s" width="318" />&nbsp;&nbsp;&nbsp;<img src="docs/media/features/caps-lock.png" alt="收起的刘海显示大写锁定已开启" width="236" /><br />收起的刘海中显示<b>下载进度</b>，以及<b>大写锁定</b>和数字锁定</p>
-
-此外：通话前照镜子用的相机工具、计时器运行时的专注音效、来自 HWiNFO 或 LibreHardwareMonitor 的温度和功耗、硬件中的 Windows 电源计划和每个进程的 CPU 占比，以及点击即可打开对应应用、删除时同时从通知中心移除的 Windows 通知。详情见[更新说明](docs/releases/v0.3.3.md)。
+此外：点击通知会打开它所说的内容（新功能、录制、AI 用量或正在播放）；0.3.4 还修复了浅色主题、较长的翻译、阿拉伯语、带参数的链接、非美式键盘、左手鼠标和 Windows N 版本的问题。详情见 [0.4.0](docs/releases/v0.4.0.md) 和 [0.3.4](docs/releases/v0.3.4.md) 的更新说明。
 
 ## 安装
 
