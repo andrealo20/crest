@@ -308,9 +308,11 @@ unsafe fn panel_set(services: &IWbemServices, name: &str, percent: u8) -> window
         let mut input = None;
         class.GetMethod(w!("WmiSetBrightness"), 0, &mut input, std::ptr::null_mut())?;
         let params = input.ok_or_else(windows::core::Error::empty)?.SpawnInstance(0)?;
-        params.Put(w!("Timeout"), 0, &VARIANT::from(0u32), 0)?;
+        // WMI takes a uint32 as VT_I4 (a VT_UI4 is a type mismatch, 0x80041005); a uint8 as VT_UI1.
+        params.Put(w!("Timeout"), 0, &VARIANT::from(0i32), 0)?;
         params.Put(w!("Brightness"), 0, &VARIANT::from(percent), 0)?;
-        let path = BSTR::from(format!("WmiMonitorBrightnessMethods.InstanceName='{}'", wql_escape(name)));
+        // An object path takes the key in double quotes (WQL above takes single ones).
+        let path = BSTR::from(format!(r#"WmiMonitorBrightnessMethods.InstanceName="{}""#, name.replace('\\', r"\\").replace('"', r#"\""#)));
         services.ExecMethod(&path, &BSTR::from("WmiSetBrightness"), Default::default(), None, &params, None, None)
     }
 }
