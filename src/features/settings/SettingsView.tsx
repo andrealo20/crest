@@ -7,6 +7,7 @@ import {
   CalendarBlank,
   ChartDonut,
   CloudSun,
+  PawPrint,
   CheckCircle,
   Clock,
   Cpu,
@@ -59,7 +60,8 @@ import { github } from "../github/store";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
 import { DiscordLogo } from "../../ui/brands";
 import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
-import type { ClosedSettings, PartId } from "../../notch/row/parts";
+import { PET_IDS, type ClosedSettings, type PartId, type PetId } from "../../notch/row/parts";
+import { PET_NAMES } from "../../notch/row/parts/Pet";
 import { effortLevels, providerInfo } from "../ask/providers";
 import { discordState, reconnectDiscord } from "../discord/store";
 import { fps } from "../system/gaming";
@@ -915,6 +917,7 @@ const partInfo: Record<PartId, { label: string; icon: Icon; hue: Hue }> = {
   script: { label: "Skript-Anzeigen (crest-notify)", icon: TerminalWindow, hue: "slate" },
   downloads: { label: "Downloads", icon: DownloadSimple, hue: "teal" },
   weather: { label: "Wetter", icon: CloudSun, hue: "sky" },
+  pet: { label: "Haustier", icon: PawPrint, hue: "orange" },
 };
 
 /** Small labelled switch for a part's own options, next to its main switch. */
@@ -972,6 +975,9 @@ function ClosedParts() {
                   ))}
                 {on && id === "clock" && <SubSwitch label={t("Sekunden")} checked={c.clockSeconds} onChange={(clockSeconds) => setClosed(() => ({ clockSeconds }))} />}
                 {on && id === "title" && <SubSwitch label={t("Songtext")} checked={music.titleLyrics} onChange={(titleLyrics) => setMusic({ titleLyrics })} />}
+                {on && id === "pet" && (
+                  <Select value={c.pet} width="w-32" options={PET_IDS.map((p) => ({ value: p, label: t(PET_NAMES[p]) }))} onChange={(pet) => setClosed(() => ({ pet: pet as PetId }))} />
+                )}
                 <Switch label={t(label)} checked={on} onChange={(v) => setClosed((cur) => ({ parts: { ...cur.parts, [id]: v } }))} />
               </div>
             </Reorder.Item>
