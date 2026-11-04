@@ -151,10 +151,12 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             let x = (cursor.x - origin.x as f64) / scale;
             let y = (cursor.y - origin.y as f64) / scale;
             let rect = *state.rect.lock().unwrap();
-            #[cfg(windows)]
             // GetAsyncKeyState reads the physical buttons: a left-handed mouse has its primary button on the right.
-            let primary = if unsafe { GetSystemMetrics(SM_SWAPBUTTON) } != 0 { VK_RBUTTON } else { VK_LBUTTON };
-            let dragging = unsafe { GetAsyncKeyState(primary.0 as i32) } as u16 & 0x8000 != 0;
+            #[cfg(windows)]
+            let dragging = unsafe {
+                let primary = if GetSystemMetrics(SM_SWAPBUTTON) != 0 { VK_RBUTTON } else { VK_LBUTTON };
+                GetAsyncKeyState(primary.0 as i32) as u16 & 0x8000 != 0
+            };
             #[cfg(target_os = "macos")]
             let dragging = crate::macos::left_button_down();
             let passthrough = state.passthrough.load(Ordering::Relaxed);
