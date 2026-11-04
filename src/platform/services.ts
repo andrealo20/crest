@@ -918,8 +918,17 @@ export interface PhoneShare {
   ttl: number;
 }
 
-export function phoneShareStart(paths: string[]): Promise<PhoneShare> {
-  return isNative ? invoke<PhoneShare>("phone_share_start", { paths }) : Promise.reject(new Error("Only in the app"));
+/** The words of the page the phone opens, in the app's language. */
+export interface PhonePageText {
+  lang: string;
+  title: string;
+  count: string;
+  hint: string;
+  footer: string;
+}
+
+export function phoneShareStart(paths: string[], text: PhonePageText): Promise<PhoneShare> {
+  return isNative ? invoke<PhoneShare>("phone_share_start", { paths, text }) : Promise.reject(new Error("Only in the app"));
 }
 
 /** Stops the share at `url` (a newer one keeps running). */

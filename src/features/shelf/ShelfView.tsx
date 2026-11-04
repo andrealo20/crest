@@ -28,7 +28,7 @@ import { HeaderActions, HeaderButton } from "../../notch/header";
 import { clipboardText, copyFiles, filePreview, openFile, phoneShareStart, phoneShareStop, probeFiles, revealFile, shelfDragOut, type FileKind, type PhoneShare } from "../../platform/services";
 import { addFiles, addText, dragPayload, isText, keyOf, normalizeItems, removeKeys, type FileItem, type ShelfItem, type TextItem } from "./model";
 import { NONE, clickSelect, dragKeys, prune, type Selection } from "./selection";
-import { t } from "../../i18n";
+import { lang, t } from "../../i18n";
 import { usePresenting } from "../privacy/store";
 import { HUE_PALETTE } from "../themes/themes";
 import { Redacted } from "../../ui/controls";
@@ -128,7 +128,15 @@ export function ShelfView() {
   const sendToPhone = (keys: string[]) => {
     const { paths } = dragPayload(items, keys);
     if (!paths.length) return;
-    void phoneShareStart(paths)
+    const n = paths.length;
+    const text = {
+      lang: lang(),
+      title: t("Bereit zum Herunterladen"),
+      count: n === 1 ? `1 ${t("Datei")}` : t("{n} Dateien", { n }),
+      hint: t("Tippe auf eine Datei, um sie zu speichern."),
+      footer: t("Direkt von deinem Computer über das WLAN, ohne Cloud."),
+    };
+    void phoneShareStart(paths, text)
       .then((s) => setShare({ ...s, files: paths.length }))
       .catch((e: unknown) => fail(t("Senden fehlgeschlagen"), e));
   };
