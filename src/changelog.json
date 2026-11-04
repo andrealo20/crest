@@ -1,5 +1,47 @@
 [
   {
+    "version": "0.3.4",
+    "date": "2026-11-04",
+    "items": [
+      {
+        "en": "Choose the app's font in Settings, Themes: sixteen fonts, each shown as itself in the menu"
+      },
+      {
+        "en": "Report a bug from Settings, with your Crest version already filled in"
+      },
+      {
+        "en": "Menus in Settings open upright with the notch on the bottom or a side edge"
+      },
+      {
+        "en": "On a side edge the open panel slides along the edge again, and the resize grips and Done button are in reach"
+      },
+      {
+        "en": "Calendar Join buttons and other links with parameters open the browser again"
+      },
+      {
+        "en": "Light themes: the terminal and the video badges in Capture are readable"
+      },
+      {
+        "en": "Longer translations fit in Overview, Capture, the calendar and Hardware"
+      },
+      {
+        "en": "Arabic: sliders, level bars and the clipboard row scroll the right way"
+      },
+      {
+        "en": "Crest starts on Windows N editions without the Media Feature Pack"
+      },
+      {
+        "en": "Shortcuts recorded on non-US keyboards fire on the key you pressed"
+      },
+      {
+        "en": "Left-handed mouse, a Pictures folder moved by OneDrive and file names with commas now work"
+      },
+      {
+        "en": "Store version: the microphone is recorded"
+      }
+    ]
+  },
+  {
     "version": "0.3.3",
     "date": "2026-11-03",
     "items": [
