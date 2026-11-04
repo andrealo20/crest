@@ -132,6 +132,8 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   const chosen = `${closed.order.filter((id) => closed.parts[id]).join()}|${Object.values(closed.readings).join()}|${closed.clockSeconds}`;
   return (
     <motion.div
+      // Faded out under a notice: no longer a target for a click or a hover (Notch.tsx partTarget).
+      data-covered={covered ? "" : undefined}
       className="absolute top-0 left-1/2 h-[30px]"
       style={{ width, marginLeft: -width / 2 }}
       initial={{ opacity: 0, filter: "blur(4px)" }}

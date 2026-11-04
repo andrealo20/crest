@@ -109,10 +109,12 @@ export function Notch() {
   const pointed = useRef<{ tool: string | null; at: number }>({ tool: null, at: 0 });
   /**
    * The tool of the closed-row part at a point (data-open, CompactRow), when that tool is in the tool bar. Every element there is looked
-   * at, not only the top one: the panel fading out after a close still lies over the row for a moment.
+   * at, not only the top one: the panel fading out after a close still lies over the row for a moment. A row covered by a notice is
+   * skipped: a click on the notice is the notice's own (What's new opens its page, not the Hardware readings under it).
    */
   const partTarget = (e: { clientX: number; clientY: number }) => {
-    const tool = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.closest("[data-open]"))?.closest("[data-open]")?.getAttribute("data-open");
+    const part = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.closest("[data-open]") && !el.closest("[data-covered]"));
+    const tool = part?.closest("[data-open]")?.getAttribute("data-open");
     return tool && visible.some((t) => t.id === tool) ? tool : null;
   };
   // Natively the page sees no pointermove until the window stops letting the pointer through, after the hover: Rust says where it came in.
