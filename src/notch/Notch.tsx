@@ -206,7 +206,9 @@ export function Notch() {
   const hitRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
-      if (!hitRef.current?.contains(e.target as Node)) dismiss();
+      const target = e.target as Element;
+      // A select menu is portaled into the body (controls.tsx) but belongs to the notch.
+      if (!hitRef.current?.contains(target) && !target.closest?.("[data-notch-menu]")) dismiss();
     };
     window.addEventListener("pointerdown", onDown);
     const offBlur = onNativeBlur(dismiss);

@@ -378,9 +378,10 @@ export function Slider(props: {
 
 /** Compact select menu (instead of a native <select>, which looks foreign on Windows). */
 /*
- * The menu is portaled into the notch's hit zone (`data-notch-hit`) so overflow
- * containers don't clip it while it still counts as "inside" (outside-click close,
- * hit rect). It opens toward the side with more room and stays inside the notch.
+ * The menu is portaled into the body so overflow containers don't clip it, and so the
+ * notch's frame on a bottom or side edge (edge.ts) neither turns it nor moves its fixed
+ * position. `data-notch-menu` keeps a click in it inside the notch (Notch.tsx). It opens
+ * toward the side with more room and stays inside the notch's hit zone.
  */
 const MENU_ROW = 28;
 const MENU_MAX = 160;
@@ -462,7 +463,6 @@ export function Select<T extends string>(props: {
     };
   }, [open]);
 
-  const host = ref.current?.closest("[data-notch-hit]") ?? document.body;
   const current = props.options.find((o) => o.value === props.value);
   return (
     <div ref={ref} className={`relative ${props.width ?? "w-28"}`}>
@@ -496,6 +496,7 @@ export function Select<T extends string>(props: {
           {open && pos && (
             <motion.div
               ref={menu}
+              data-notch-menu
               className="pointer-events-auto fixed z-[60] overflow-y-auto rounded-[10px] bg-elevated p-1 shadow-[0_10px_30px_rgb(0_0_0/0.6)] ring-1 ring-separator [scrollbar-width:none]"
               style={{
                 left: pos.left,
@@ -541,7 +542,7 @@ export function Select<T extends string>(props: {
             </motion.div>
           )}
         </AnimatePresence>,
-        host,
+        document.body,
       )}
     </div>
   );
