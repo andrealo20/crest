@@ -741,6 +741,7 @@ export interface AudioOutput {
 }
 
 const mockVolume: VolumeState = { level: 0.42, muted: false };
+const mockBrightness = { percent: 64 };
 const mockOutputs: AudioOutput[] = [
   { id: "speakers", name: "Speakers (Realtek(R) Audio)", default: true },
   { id: "headphones", name: "Headphones (WH-1000XM5)", default: false },
@@ -805,6 +806,14 @@ export const systemControls = {
     if (isNative) return invoke<VolumeState>("volume_set", patch);
     Object.assign(mockVolume, patch, patch.level !== undefined && patch.level > 0 && patch.muted === undefined ? { muted: false } : {});
     return Promise.resolve({ ...mockVolume });
+  },
+  /** The notch's monitor, 0..100; null when Crest can't set it (src-tauri brightness.rs, macos/brightness.rs). */
+  brightness: (): Promise<number | null> =>
+    isNative ? invoke<number | null>("brightness_get").catch(() => null) : Promise.resolve(mockBrightness.percent),
+  setBrightness: (percent: number): Promise<void> => {
+    if (isNative) return invoke<void>("brightness_set", { percent: Math.round(percent) });
+    mockBrightness.percent = Math.round(percent);
+    return Promise.resolve();
   },
   outputs: (): Promise<AudioOutput[]> => (isNative ? invoke<AudioOutput[]>("audio_outputs") : Promise.resolve(mockOutputs.map((o) => ({ ...o })))),
   setOutput: (id: string): Promise<void> => {

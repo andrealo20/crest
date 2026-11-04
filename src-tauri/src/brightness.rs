@@ -5,20 +5,25 @@
 //! - External monitors: DDC/CI has no change event, so while the Brightness alert is on they are read every `POLL`, each
 //!   monitor's first reading being its baseline. A monitor that does not answer three times in a row is left alone.
 //!
-//! Crest never sets the brightness, so every reported change came from somewhere else.
+//! - The Overview's slider sets the notch's monitor: DDC/CI for an external one, WMI's WmiSetBrightness for a laptop panel. For a
+//!   moment after that, changes are taken as the new baseline, so the closed notch doesn't announce what the slider just did.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use tauri::AppHandle;
 use windows::core::{w, BOOL, BSTR, PCWSTR};
 use windows::Win32::Devices::Display::{
-    DestroyPhysicalMonitors, GetMonitorBrightness, GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR, PHYSICAL_MONITOR,
+    DestroyPhysicalMonitors, GetMonitorBrightness, GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR, SetMonitorBrightness,
+    PHYSICAL_MONITOR,
 };
-use windows::Win32::Foundation::{LPARAM, RECT, TRUE};
-use windows::Win32::Graphics::Gdi::{EnumDisplayMonitors, HDC, HMONITOR};
+use windows::Win32::Foundation::{HANDLE, HWND, LPARAM, RECT, TRUE};
+use windows::Win32::Graphics::Gdi::{
+    EnumDisplayDevicesW, EnumDisplayMonitors, GetMonitorInfoW, MonitorFromWindow, DISPLAY_DEVICEW, HDC, HMONITOR, MONITORINFOEXW, MONITOR_DEFAULTTONEAREST,
+};
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoSetProxyBlanket, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, EOAC_NONE, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE,
 };
@@ -34,6 +39,14 @@ const AUTHN_WINNT: u32 = 10;
 const AUTHZ_NONE: u32 = 0;
 
 static DDC: AtomicBool = AtomicBool::new(false);
+/// Until when a change counts as the slider's own (brightness_set), not as news for the closed notch.
+static QUIET_UNTIL: Mutex<Option<Instant>> = Mutex::new(None);
+/// How long after the slider a change stays its own: the panel's WMI event and the next DDC poll come within it.
+const QUIET: Duration = Duration::from_millis(2500);
+
+fn quiet() -> bool {
+    QUIET_UNTIL.lock().unwrap().is_some_and(|until| Instant::now() < until)
+}
 
 pub fn set_ddc(on: bool) {
     DDC.store(on, Ordering::Relaxed);
@@ -59,7 +72,9 @@ fn run(app: AppHandle) {
             Some(e) => match unsafe { next_level(e, wait) } {
                 Ok(Some(level)) if panel != Some(level) => {
                     panel = Some(level);
-                    crate::sysevents::emit_level(&app, "brightness", level, false);
+                    if !quiet() {
+                        crate::sysevents::emit_level(&app, "brightness", level, false);
+                    }
                 }
                 Ok(_) => {}
                 // WMI went away (service restart): the panel stays silent rather than spinning on the error.
@@ -80,7 +95,7 @@ fn run(app: AppHandle) {
         }
         let now = unsafe { external_levels(&mut fails) };
         for (key, level) in &now {
-            if external.get(key).is_some_and(|before| before != level) {
+            if !quiet() && external.get(key).is_some_and(|before| before != level) {
                 crate::sysevents::emit_level(&app, "brightness", *level, false);
             }
         }
@@ -185,6 +200,183 @@ unsafe extern "system" fn each(monitor: HMONITOR, _: HDC, _: *mut RECT, list: LP
     TRUE
 }
 
+/// What the slider sets: the notch's monitor over DDC/CI, or its laptop panel through WMI.
+enum Target {
+    Ddc(HMONITOR),
+    Panel(IWbemServices, String),
+}
+
+/// The monitor the notch window is on.
+fn notch_monitor(window: &tauri::WebviewWindow) -> Option<isize> {
+    let hwnd = window.hwnd().ok()?;
+    Some(unsafe { MonitorFromWindow(HWND(hwnd.0), MONITOR_DEFAULTTONEAREST) }.0 as isize)
+}
+
+/// Runs `job` on a thread of its own with COM, off the command thread (a DDC/CI call can take a tenth of a second).
+async fn on_com_thread<T: Send + 'static>(job: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        }
+        job()
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// The slider's level for the notch's monitor, None when it can't be set from here (no DDC/CI, not a panel WMI knows).
+#[tauri::command]
+pub async fn brightness_get(window: tauri::WebviewWindow) -> Option<u8> {
+    let monitor = notch_monitor(&window)?;
+    on_com_thread(move || unsafe { target(HMONITOR(monitor as _)).and_then(|t| level(&t)) }).await.ok().flatten()
+}
+
+/// Sets the notch's monitor to `percent`.
+#[tauri::command]
+pub async fn brightness_set(window: tauri::WebviewWindow, percent: u8) -> Result<(), String> {
+    let monitor = notch_monitor(&window).ok_or("no-monitor")?;
+    let percent = percent.min(100);
+    *QUIET_UNTIL.lock().unwrap() = Some(Instant::now() + QUIET);
+    let done = on_com_thread(move || unsafe { target(HMONITOR(monitor as _)).is_some_and(|t| set(&t, percent)) }).await?;
+    // Counted again from the end: a slow DDC/CI write must not let its own change through.
+    *QUIET_UNTIL.lock().unwrap() = Some(Instant::now() + QUIET);
+    if done {
+        Ok(())
+    } else {
+        Err("unsupported".into())
+    }
+}
+
+unsafe fn target(monitor: HMONITOR) -> Option<Target> {
+    unsafe {
+        if physical(monitor, |list| list.iter().any(|m| ddc_reading(m.hPhysicalMonitor).is_some())).unwrap_or(false) {
+            return Some(Target::Ddc(monitor));
+        }
+        let code = hardware_code(monitor)?;
+        let services = wmi(r"ROOT\WMI").ok()?;
+        let list = query(&services, "SELECT InstanceName FROM WmiMonitorBrightness", false).ok()?;
+        loop {
+            let mut objects: [Option<IWbemClassObject>; 1] = [None];
+            let mut returned = 0;
+            if list.Next(-1, &mut objects, &mut returned).is_err() || returned == 0 {
+                return None;
+            }
+            let Some(name) = objects[0].as_ref().and_then(|o| prop_string(o, w!("InstanceName"))) else { continue };
+            if same_hardware(&name, &code) {
+                return Some(Target::Panel(services, name));
+            }
+        }
+    }
+}
+
+unsafe fn level(target: &Target) -> Option<u8> {
+    unsafe {
+        match target {
+            Target::Ddc(monitor) => physical(*monitor, |list| list.iter().find_map(|m| ddc_reading(m.hPhysicalMonitor))).flatten().and_then(|(min, cur, max)| ddc_percent(min, cur, max)),
+            Target::Panel(services, name) => {
+                let wql = format!("SELECT CurrentBrightness FROM WmiMonitorBrightness WHERE InstanceName='{}'", wql_escape(name));
+                first_u8(&query(services, &wql, false).ok()?, w!("CurrentBrightness"))
+            }
+        }
+    }
+}
+
+unsafe fn set(target: &Target, percent: u8) -> bool {
+    unsafe {
+        match target {
+            Target::Ddc(monitor) => physical(*monitor, |list| {
+                let mut any = false;
+                for m in list {
+                    if let Some((min, _, max)) = ddc_reading(m.hPhysicalMonitor) {
+                        any |= SetMonitorBrightness(m.hPhysicalMonitor, ddc_value(min, max, percent)) != 0;
+                    }
+                }
+                any
+            })
+            .unwrap_or(false),
+            Target::Panel(services, name) => panel_set(services, name, percent).is_ok(),
+        }
+    }
+}
+
+/// WmiMonitorBrightnessMethods.WmiSetBrightness(Timeout 0, Brightness) on the panel's instance.
+unsafe fn panel_set(services: &IWbemServices, name: &str, percent: u8) -> windows::core::Result<()> {
+    unsafe {
+        let mut class = None;
+        services.GetObject(&BSTR::from("WmiMonitorBrightnessMethods"), Default::default(), None, Some(&mut class), None)?;
+        let class = class.ok_or_else(windows::core::Error::empty)?;
+        let mut input = None;
+        class.GetMethod(w!("WmiSetBrightness"), 0, &mut input, std::ptr::null_mut())?;
+        let params = input.ok_or_else(windows::core::Error::empty)?.SpawnInstance(0)?;
+        params.Put(w!("Timeout"), 0, &VARIANT::from(0u32), 0)?;
+        params.Put(w!("Brightness"), 0, &VARIANT::from(percent), 0)?;
+        let path = BSTR::from(format!("WmiMonitorBrightnessMethods.InstanceName='{}'", wql_escape(name)));
+        services.ExecMethod(&path, &BSTR::from("WmiSetBrightness"), Default::default(), None, &params, None, None)
+    }
+}
+
+/// Runs `f` on the monitor's physical monitors and releases them; None when it has none.
+unsafe fn physical<T>(monitor: HMONITOR, f: impl FnOnce(&[PHYSICAL_MONITOR]) -> T) -> Option<T> {
+    unsafe {
+        let mut count = 0;
+        if GetNumberOfPhysicalMonitorsFromHMONITOR(monitor, &mut count).is_err() || count == 0 {
+            return None;
+        }
+        let mut list = vec![PHYSICAL_MONITOR::default(); count as usize];
+        GetPhysicalMonitorsFromHMONITOR(monitor, &mut list).ok()?;
+        let out = f(&list);
+        let _ = DestroyPhysicalMonitors(&list);
+        Some(out)
+    }
+}
+
+unsafe fn ddc_reading(handle: HANDLE) -> Option<(u32, u32, u32)> {
+    let (mut min, mut cur, mut max) = (0, 0, 0);
+    (unsafe { GetMonitorBrightness(handle, &mut min, &mut cur, &mut max) } != 0 && max > min).then_some((min, cur, max))
+}
+
+/// The monitor's hardware code ("BOE0812"): the second part of its device id, `MONITOR\BOE0812\{...}\0001`.
+unsafe fn hardware_code(monitor: HMONITOR) -> Option<String> {
+    unsafe {
+        let mut info = MONITORINFOEXW::default();
+        info.monitorInfo.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
+        if !GetMonitorInfoW(monitor, &mut info.monitorInfo).as_bool() {
+            return None;
+        }
+        let mut device = DISPLAY_DEVICEW { cb: std::mem::size_of::<DISPLAY_DEVICEW>() as u32, ..Default::default() };
+        if !EnumDisplayDevicesW(PCWSTR(info.szDevice.as_ptr()), 0, &mut device, 0).as_bool() {
+            return None;
+        }
+        let end = device.DeviceID.iter().position(|&c| c == 0).unwrap_or(device.DeviceID.len());
+        String::from_utf16_lossy(&device.DeviceID[..end]).split('\\').nth(1).filter(|c| !c.is_empty()).map(str::to_owned)
+    }
+}
+
+/// A WMI monitor instance (`DISPLAY\BOE0812\4&2b...&UID8388688_0`) belongs to the monitor with that hardware code.
+fn same_hardware(instance: &str, code: &str) -> bool {
+    instance.split('\\').nth(1).is_some_and(|c| c.eq_ignore_ascii_case(code))
+}
+
+/// A value inside single quotes in WQL or an object path: backslash and quote escaped.
+fn wql_escape(s: &str) -> String {
+    s.replace('\\', r"\\").replace('\'', r"\'")
+}
+
+unsafe fn prop_string(object: &IWbemClassObject, name: PCWSTR) -> Option<String> {
+    unsafe {
+        let mut value = VARIANT::default();
+        object.Get(name, 0, &mut value, None, None).ok()?;
+        let text = BSTR::try_from(&value).ok().map(|b| b.to_string());
+        let _ = VariantClear(&mut value);
+        text.filter(|t| !t.is_empty())
+    }
+}
+
+/// A slider percent on the monitor's own DDC/CI scale.
+fn ddc_value(min: u32, max: u32, percent: u8) -> u32 {
+    min + ((max - min) as f64 * percent.min(100) as f64 / 100.0).round() as u32
+}
+
 /// A DDC/CI reading on the monitor's own scale (often 0..100, not always) as a percent.
 fn ddc_percent(min: u32, current: u32, max: u32) -> Option<u8> {
     if max <= min {
@@ -207,5 +399,25 @@ mod tests {
         assert_eq!(ddc_percent(0, 300, 100), Some(100));
         assert_eq!(ddc_percent(50, 50, 50), None);
         assert_eq!(ddc_percent(80, 10, 20), None);
+    }
+
+    #[test]
+    fn slider_percent_goes_back_to_the_monitor_scale() {
+        assert_eq!(ddc_value(0, 100, 70), 70);
+        assert_eq!(ddc_value(0, 255, 50), 128);
+        assert_eq!(ddc_value(20, 120, 0), 20);
+        assert_eq!(ddc_value(0, 100, 250), 100);
+        for p in [0, 33, 50, 99, 100] {
+            assert_eq!(ddc_percent(0, ddc_value(0, 255, p), 255), Some(p));
+        }
+    }
+
+    #[test]
+    fn a_wmi_panel_matches_its_monitor_by_hardware_code() {
+        assert!(same_hardware(r"DISPLAY\BOE0812\4&2b7f1d2&0&UID8388688_0", "BOE0812"));
+        assert!(same_hardware(r"DISPLAY\boe0812\x_0", "BOE0812"));
+        assert!(!same_hardware(r"DISPLAY\LGD06B9\x_0", "BOE0812"));
+        assert!(!same_hardware("garbage", "BOE0812"));
+        assert_eq!(wql_escape(r"DISPLAY\A'B"), r"DISPLAY\\A\'B");
     }
 }

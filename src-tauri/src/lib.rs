@@ -357,6 +357,14 @@ pub fn run() {
             open_sponsors,
             open_store_review,
             open_bug_report,
+            #[cfg(windows)]
+            brightness::brightness_get,
+            #[cfg(windows)]
+            brightness::brightness_set,
+            #[cfg(target_os = "macos")]
+            macos::brightness::brightness_get,
+            #[cfg(target_os = "macos")]
+            macos::brightness::brightness_set,
             #[cfg(target_os = "macos")]
             macos::memory_low,
             #[cfg(target_os = "macos")]

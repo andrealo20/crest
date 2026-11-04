@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CaretDown, Check, Coffee, Eye, EyeSlash, Headphones, Moon, MusicNoteSimple, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleHigh, SpeakerSimpleSlash, Timer } from "@phosphor-icons/react";
+import { CaretDown, Check, Coffee, Eye, EyeSlash, Headphones, Moon, MusicNoteSimple, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleHigh, SpeakerSimpleSlash, Sun, SunDim, Timer } from "@phosphor-icons/react";
 import { DiscordLogo } from "../../ui/brands";
 import { content, springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -56,8 +56,18 @@ export function OverviewView() {
     void systemControls.setOutput(id).catch(() => {}).finally(loadOutputs);
   };
 
-  // The open list grows the notch by its rows, like the player menu in Now Playing.
-  const extra = listOpen ? Math.min(MIXER_MAX_ROWS, outputs.length) * MIXER_ROW + 14 : 0;
+  // The notch's monitor brightness: the row shows only where Crest can set it, read every few seconds (keys, other apps).
+  const [bright, setBright] = useState<number | null>(null);
+  const brightBusy = useRef(false);
+  useEffect(() => {
+    const load = () => !brightBusy.current && void systemControls.brightness().then((v) => !brightBusy.current && setBright(v));
+    load();
+    const id = setInterval(load, 3000);
+    return () => clearInterval(id);
+  }, []);
+
+  // The open list grows the notch by its rows, like the player menu in Now Playing; the brightness row by its height and gap.
+  const extra = (listOpen ? Math.min(MIXER_MAX_ROWS, outputs.length) * MIXER_ROW + 14 : 0) + (bright !== null ? BRIGHTNESS_ROW : 0);
   useEffect(() => {
     if (!extra) return requestSize("overview", null);
     const base = findTab("overview")!.size;
@@ -87,6 +97,7 @@ export function OverviewView() {
         />
       </div>
       {listOpen && <OutputList outputs={outputs} onPick={pickOutput} />}
+      {bright !== null && <BrightnessTile level={bright} busy={brightBusy} onLevel={setBright} />}
       {quotes && <QuoteLine />}
     </div>
   );
@@ -356,6 +367,79 @@ function OutputList({ outputs, onPick }: { outputs: AudioOutput[]; onPick: (id: 
 }
 
 /** Thick volume slider like Control Center: drag anywhere, icon = mute. `device` is the default output's name, null with nothing to choose from. */
+/** A tile (h-10) and the gap above it (gap-2.5). */
+const BRIGHTNESS_ROW = 50;
+
+/** The notch's monitor brightness, 0..100. A drag sends one write at a time and then the latest level: DDC/CI answers slowly. */
+function BrightnessTile({ level, busy, onLevel }: { level: number; busy: { current: boolean }; onLevel: (percent: number) => void }) {
+  const sunHue = useHue("amber");
+  const track = useRef<HTMLDivElement>(null);
+  const sending = useRef(false);
+  const next = useRef<number | null>(null);
+  const push = (percent: number) => {
+    next.current = percent;
+    if (sending.current) return;
+    sending.current = true;
+    const run = () => {
+      const value = next.current;
+      next.current = null;
+      if (value === null) return void (sending.current = false);
+      void systemControls.setBrightness(value).catch(() => {}).finally(run);
+    };
+    run();
+  };
+  const set = (percent: number) => {
+    const p = Math.round(Math.min(100, Math.max(0, percent)));
+    onLevel(p);
+    push(p);
+  };
+  const at = (clientX: number) => {
+    const r = track.current!.getBoundingClientRect();
+    return ((clientX - r.left) / r.width) * 100;
+  };
+  const Icon = level < 50 ? SunDim : Sun;
+
+  return (
+    <div className="flex h-10 items-center gap-2 rounded-[12px] bg-fill-1 pe-3 ps-1.5">
+      <span className="flex size-7 shrink-0 items-center justify-center text-label-2" style={sunHue ? { color: sunHue } : undefined}>
+        <Icon size={15} weight="fill" />
+      </span>
+      <div
+        ref={track}
+        // Filled from the left in every language, like the volume.
+        dir="ltr"
+        role="slider"
+        tabIndex={0}
+        aria-label={t("Helligkeit")}
+        aria-valuenow={level}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        className="relative h-6 min-w-0 flex-1 cursor-pointer touch-none overflow-hidden rounded-full bg-fill-2 outline-none"
+        onPointerDown={(e) => {
+          busy.current = true;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          set(at(e.clientX));
+        }}
+        onPointerMove={(e) => e.currentTarget.hasPointerCapture(e.pointerId) && set(at(e.clientX))}
+        onPointerUp={() => (busy.current = false)}
+        onPointerCancel={() => (busy.current = false)}
+        onWheel={(e) => set(level + (e.deltaY < 0 ? 2 : -2))}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowRight" || e.key === "ArrowLeft") set(level + (e.key === "ArrowRight" ? 5 : -5));
+        }}
+      >
+        <motion.div
+          className="absolute inset-0 origin-left rounded-full bg-label"
+          initial={false}
+          animate={{ transform: `scaleX(${level / 100})` }}
+          transition={busy.current ? { duration: 0 } : springs.snappy}
+        />
+      </div>
+      <span className="tabular w-8 shrink-0 text-end text-caption font-semibold text-label-2">{level}</span>
+    </div>
+  );
+}
+
 function VolumeTile({ device, open, onDevices }: { device: string | null; open: boolean; onDevices: () => void }) {
   const speakerHue = useHue("sky");
   const outputHue = useHue("teal");
