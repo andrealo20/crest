@@ -6,6 +6,7 @@ import { formatAgo, formatIn } from "../../lib/format";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
 import { requestSize } from "../../notch/size";
+import { findTab } from "../../notch/tabs";
 import type { UsageBalance, UsageId, UsageProvider, UsageWindow } from "../../platform/services";
 import { isMac, isNative } from "../../platform/native";
 import { settings } from "../../settings/store";
@@ -19,6 +20,9 @@ import { refreshTokens, refreshUsage, usage, useTokens, useUsageViewer } from ".
 import { formatAmount, formatCost, formatTokens } from "./format";
 import { dayStart, totals, type Totals } from "./tokens";
 import { usePresenting } from "../privacy/store";
+
+/** What a stale card adds: its reason on up to two lines and the renew link. */
+const STALE_ROWS = 56;
 
 const windowLabels: Record<string, string> = {
   session: "Session",
@@ -92,9 +96,13 @@ export function UsageView() {
     return () => clearInterval(id);
   }, []);
 
+  // A card kept from an old reading adds its reason and the renew link above its time: the panel grows by them.
+  const stale = providers.some((p) => p.error && (p.windows?.length || p.balances?.length));
   useEffect(() => {
-    requestSize("usage", page === "models" ? { w: 700, h: 430 } : feet ? { w: 600, h: 356 } : null);
-  }, [page, feet]);
+    const grow = stale ? STALE_ROWS : 0;
+    const base = findTab("usage")!.size;
+    requestSize("usage", page === "models" ? { w: 700, h: 430 } : feet ? { w: 600, h: 356 + grow } : grow ? { w: base.w, h: base.h + grow } : null);
+  }, [page, feet, stale]);
   useEffect(() => () => requestSize("usage", null), []);
 
   const actions = (
@@ -199,7 +207,7 @@ export function UsageView() {
                   {/* Starting claude once renews its sign-in, which Crest then reads (Windows: Crest's terminal is Windows only). */}
                   {p.error === "claude-expired" && terminalShown && (
                     <button
-                      className="mb-1 text-link hover:underline"
+                      className="mb-1 block text-link hover:underline"
                       onClick={() => {
                         runInTerminal("claude");
                         navigate("terminal");
