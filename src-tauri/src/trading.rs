@@ -16,7 +16,7 @@ mod etoro;
 mod ibkr;
 mod kraken;
 mod prices;
-mod sign;
+pub(crate) mod sign;
 mod t212;
 
 use std::collections::HashMap;

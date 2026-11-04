@@ -909,6 +909,24 @@ export function shelfDragOut(paths: string[], text: string | null): Promise<void
   return isNative ? invoke("shelf_drag_out", { paths, text }) : Promise.resolve();
 }
 
+/** Files served to a phone on the same network (src-tauri/src/phone_share.rs); `qr` is an SVG path in a `size` box. */
+export interface PhoneShare {
+  url: string;
+  qr: string;
+  size: number;
+  /** Seconds until it stops by itself. */
+  ttl: number;
+}
+
+export function phoneShareStart(paths: string[]): Promise<PhoneShare> {
+  return isNative ? invoke<PhoneShare>("phone_share_start", { paths }) : Promise.reject(new Error("Only in the app"));
+}
+
+/** Stops the share at `url` (a newer one keeps running). */
+export function phoneShareStop(url: string) {
+  if (isNative) void invoke("phone_share_stop", { url });
+}
+
 /** Text on the clipboard ("" if none). */
 export function clipboardText(): Promise<string> {
   if (isNative) return invoke<string>("shelf_clipboard_text").catch(() => "");

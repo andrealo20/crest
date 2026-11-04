@@ -6,6 +6,7 @@ import {
   CheckSquare,
   ClipboardText,
   Copy,
+  DeviceMobile,
   File,
   FileAudio,
   FileText,
@@ -24,11 +25,12 @@ import { createStore } from "../../lib/store";
 import { formatBytes } from "../../lib/format";
 import { drop, pasteFiles, takeDropped, usePasteFiles } from "../../platform/drop";
 import { HeaderActions, HeaderButton } from "../../notch/header";
-import { clipboardText, copyFiles, filePreview, openFile, probeFiles, revealFile, shelfDragOut, type FileKind } from "../../platform/services";
+import { clipboardText, copyFiles, filePreview, openFile, phoneShareStart, phoneShareStop, probeFiles, revealFile, shelfDragOut, type FileKind, type PhoneShare } from "../../platform/services";
 import { addFiles, addText, dragPayload, isText, keyOf, normalizeItems, removeKeys, type FileItem, type ShelfItem, type TextItem } from "./model";
 import { NONE, clickSelect, dragKeys, prune, type Selection } from "./selection";
 import { t } from "../../i18n";
 import { usePresenting } from "../privacy/store";
+import { HUE_PALETTE } from "../themes/themes";
 import { Redacted } from "../../ui/controls";
 
 /*
@@ -42,6 +44,9 @@ import { Redacted } from "../../ui/controls";
  *
  * Select several: Ctrl+click, Shift+click or the select button; then drag, copy or remove
  * them together.
+ *
+ * Send to phone: the picked files (or all of them) behind a QR code, served on the local network
+ * until it is stopped, the shelf closes or ten minutes pass (phone_share.rs).
  */
 const shelf = createStore<ShelfItem[]>([], { persist: "shelf" });
 shelf.set(normalizeItems);
@@ -88,8 +93,9 @@ export function ShelfView() {
   const [nothing, setNothing] = useState(false);
   const [textOver, setTextOver] = useState(false);
   const [selecting, setSelecting] = useState(false);
-  /** Last drag out error (e.g. the files are gone), shown briefly in the header. */
-  const [failed, setFailed] = useState<string | null>(null);
+  /** Last drag out or send error (e.g. the files are gone), shown briefly in the header. */
+  const [failed, setFailed] = useState<{ label: string; detail: string } | null>(null);
+  const [share, setShare] = useState<(PhoneShare & { files: number }) | null>(null);
   const [rawSel, setSel] = useState<Selection>(NONE);
   const order = items.map(keyOf);
   const sel = prune(rawSel, order);
@@ -103,6 +109,30 @@ export function ShelfView() {
     // A file dragged out and dropped back on the notch is already here and keeps its place.
     if (paths?.length) addToShelf(paths);
   }, [dropped]);
+
+  const fail = (label: string, e: unknown) => {
+    setFailed({ label, detail: String(e) });
+    setTimeout(() => setFailed(null), 2400);
+  };
+
+  // A share lives as long as its panel: closing it, a new share or leaving the shelf stops it.
+  useEffect(() => {
+    if (!share) return;
+    const id = setTimeout(() => setShare(null), share.ttl * 1000);
+    return () => {
+      clearTimeout(id);
+      phoneShareStop(share.url);
+    };
+  }, [share]);
+
+  const sendToPhone = (keys: string[]) => {
+    const { paths } = dragPayload(items, keys);
+    if (!paths.length) return;
+    void phoneShareStart(paths)
+      .then((s) => setShare({ ...s, files: paths.length }))
+      .catch((e: unknown) => fail(t("Senden fehlgeschlagen"), e));
+  };
+  const hasFiles = (keys: string[]) => dragPayload(items, keys).paths.length > 0;
 
   const flashCopied = (key: string) => {
     setCopied(key);
@@ -136,10 +166,7 @@ export function ShelfView() {
     if (!paths.length && text === null) return;
     draggingOut.set(true);
     void shelfDragOut(paths, text)
-      .catch((e: unknown) => {
-        setFailed(String(e));
-        setTimeout(() => setFailed(null), 2400);
-      })
+      .catch((e: unknown) => fail(t("Ziehen fehlgeschlagen"), e))
       // The drop back on the notch reaches the page a moment after the drag ends.
       .finally(() => setTimeout(() => draggingOut.set(false), 500));
   };
@@ -202,8 +229,8 @@ export function ShelfView() {
     <div className="relative flex h-full flex-col px-4 pt-1 pb-2" {...dropHandlers}>
       <HeaderActions>
         {failed !== null && (
-          <span role="alert" title={failed} className="me-1 text-caption text-red">
-            {t("Ziehen fehlgeschlagen")}
+          <span role="alert" title={failed.detail} className="me-1 text-caption text-red">
+            {failed.label}
           </span>
         )}
         {picked > 0 ? (
@@ -212,6 +239,9 @@ export function ShelfView() {
             <HeaderButton label={copied === "picked" ? t("Kopiert") : t("Auswahl kopieren")} onClick={() => void copyKeys(sel.keys, "picked")}>
               {copied === "picked" ? <Check size={14} weight="bold" /> : <Copy size={14} weight="bold" />}
             </HeaderButton>
+            {hasFiles(sel.keys) && (
+              <PhoneButton onClick={() => sendToPhone(sel.keys)} />
+            )}
             <HeaderButton label={t("Auswahl entfernen")} onClick={() => shelf.set((l) => removeKeys(l, sel.keys))}>
               <Trash size={14} weight="bold" />
             </HeaderButton>
@@ -230,6 +260,9 @@ export function ShelfView() {
             <HeaderButton label={copied === "all" ? t("Kopiert") : t("Alle kopieren")} onClick={() => void copyKeys(order, "all")}>
               {copied === "all" ? <Check size={14} weight="bold" /> : <Copy size={14} weight="bold" />}
             </HeaderButton>
+            {hasFiles(order) && (
+              <PhoneButton onClick={() => sendToPhone(order)} />
+            )}
             <HeaderButton label={t("Ablage leeren")} onClick={() => shelf.set([])}>
               <Trash size={14} weight="bold" />
             </HeaderButton>
@@ -290,6 +323,7 @@ export function ShelfView() {
           })}
         </AnimatePresence>
       </div>
+      <AnimatePresence>{share && <PhonePanel share={share} onStop={() => setShare(null)} />}</AnimatePresence>
       <AnimatePresence>
         {over && (
           <motion.div
@@ -304,6 +338,51 @@ export function ShelfView() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+/** Send to phone, in the shelf's own colour and with its name: the one action here worth finding at a glance. */
+function PhoneButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="pressable me-1 flex h-7 items-center gap-1.5 rounded-full px-3 text-caption font-semibold text-black transition-[filter] duration-150 hover:brightness-110"
+      style={{ background: HUE_PALETTE.amber[0] }}
+    >
+      <DeviceMobile size={14} weight="bold" />
+      {t("Aufs Handy senden")}
+    </button>
+  );
+}
+
+/** The QR to scan with the phone, over the cards. Hidden while the screen is shared: anyone watching could scan it. */
+function PhonePanel({ share, onStop }: { share: PhoneShare & { files: number }; onStop: () => void }) {
+  const hidden = usePresenting();
+  return (
+    <motion.div
+      className="absolute inset-x-4 top-1 bottom-2 z-10 flex items-center gap-4 rounded-[14px] bg-notch p-3 ring-1 ring-fill-2 ring-inset"
+      initial={{ opacity: 0, transform: "scale(0.97)" }}
+      animate={{ opacity: 1, transform: "scale(1)" }}
+      exit={{ opacity: 0, transform: "scale(0.99)", transition: fade }}
+      transition={springs.snappy}
+    >
+      {hidden ? (
+        <div className="grid size-[150px] shrink-0 place-items-center rounded-[10px] bg-fill-2 p-3 text-center text-caption text-label-3">{t("Im Präsentationsmodus ausgeblendet")}</div>
+      ) : (
+        <svg viewBox={`0 0 ${share.size} ${share.size}`} shapeRendering="crispEdges" role="img" aria-label={t("QR-Code")} className="size-[150px] shrink-0 rounded-[10px] bg-white">
+          <path d={share.qr} fill="#000" />
+        </svg>
+      )}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <p className="text-body font-semibold text-label">{t("Mit dem Handy scannen")}</p>
+        <p className="text-caption text-label-2">{share.files === 1 ? `1 ${t("Datei")}` : t("{n} Dateien", { n: share.files })}</p>
+        <p className="text-caption text-label-3">{t("Handy und Computer müssen im selben WLAN sein. Endet nach {n} Minuten.", { n: Math.round(share.ttl / 60) })}</p>
+        {!hidden && <p className="truncate text-caption text-label-3 tabular" title={share.url}>{share.url.replace(/^http:\/\//, "")}</p>}
+        <button onClick={onStop} className="pressable mt-1 self-start rounded-full bg-fill-2 px-3 py-1 text-caption font-medium text-label hover:bg-fill-3">
+          {t("Stopp")}
+        </button>
+      </div>
+    </motion.div>
   );
 }
 

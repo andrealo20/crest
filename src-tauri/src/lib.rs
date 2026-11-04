@@ -54,6 +54,7 @@ pub mod portable;
 mod power;
 #[cfg(windows)]
 mod privacy;
+mod phone_share;
 mod romanize;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod screen_policy;
@@ -390,6 +391,8 @@ pub fn run() {
             macos::status_configure,
             #[cfg(target_os = "macos")]
             macos::privacy_state,
+            phone_share::phone_share_start,
+            phone_share::phone_share_stop,
             timer_window::timer_window_open,
             timer_window::timer_window_close,
             #[cfg(windows)]
