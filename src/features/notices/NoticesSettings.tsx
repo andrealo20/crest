@@ -85,7 +85,8 @@ export function NoticesSettings() {
         <Group title={t("Apps")}>
           {apps.length === 0 && <Row label={t("Noch keine")} hint={t("Apps erscheinen hier mit ihrer ersten Mitteilung")} />}
           {apps.map(([id, name]) => (
-            <Row key={id} label={name} hint={id === name.toLowerCase() ? undefined : id}>
+            // The Windows app id only as a tooltip: as a second line it cluttered the list and long ids ran under the buttons (issue #4).
+            <Row key={id} label={<span title={id}>{name}</span>}>
               <Segmented
                 id={`notice-rule-${id}`}
                 size="sm"

@@ -261,7 +261,8 @@ function Row(props: {
       <div className="flex h-[32px] items-center gap-3">
         <I size={15} weight="bold" className={`shrink-0 ${iconColor ? "" : "text-label-3"}`} style={iconColor ? { color: iconColor } : undefined} />
         <span className="w-16 shrink-0 text-footnote font-medium text-label">{props.label}</span>
-        <span className="tabular flex w-[170px] shrink-0 items-center gap-1.5 truncate text-caption text-label-3">
+        {/* Shrinks before the value does: in a narrow panel the detail truncates instead of pushing the value out (issue #5). */}
+        <span className="tabular flex w-[170px] min-w-0 items-center gap-1.5 truncate text-caption text-label-3">
           <span className="truncate" title={typeof props.detail === "string" ? props.detail : undefined}>
             {props.detail}
           </span>

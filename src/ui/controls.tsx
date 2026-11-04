@@ -144,7 +144,7 @@ export function Row({
     <div data-row className="flex min-h-9 items-center justify-between gap-3 px-3 py-1.5">
       <div className="min-w-0">
         <div data-row-label className="truncate text-body text-label">{label}</div>
-        {hint && <div data-row-hint className="text-caption text-label-3">{hint}</div>}
+        {hint && <div data-row-hint className="text-caption text-label-3 [overflow-wrap:anywhere]">{hint}</div>}
       </div>
       {children}
     </div>
