@@ -748,6 +748,15 @@ const mockOutputs: AudioOutput[] = [
 ];
 const mockFocus: FocusState = { active: false, kind: "focus" };
 
+/** Overview's quick controls (src-tauri quick.rs, macos/quick.rs): null when the PC has no such radio. */
+export interface QuickState {
+  wifi: boolean | null;
+  bluetooth: boolean | null;
+  dark: boolean;
+}
+export type PowerAction = "lock" | "sleep" | "restart" | "shutdown";
+const mockQuick: QuickState = { wifi: true, bluetooth: true, dark: true };
+
 /** One program in the volume mixer (all its audio sessions together). */
 export interface AppVolume {
   /** Lowercase exe name, e.g. "spotify.exe". */
@@ -815,6 +824,19 @@ export const systemControls = {
     mockBrightness.percent = Math.round(percent);
     return Promise.resolve();
   },
+  quick: (): Promise<QuickState | null> => (isNative ? invoke<QuickState>("quick_get").catch(() => null) : Promise.resolve({ ...mockQuick })),
+  /** Rejects with "denied" (Windows' privacy settings), "none" (no such radio) or "settings" (the Store build opened Settings instead). */
+  setRadio: (kind: "wifi" | "bluetooth", on: boolean): Promise<void> => {
+    if (isNative) return invoke("quick_radio", { kind, on });
+    mockQuick[kind] = on;
+    return Promise.resolve();
+  },
+  setDark: (on: boolean): Promise<void> => {
+    if (isNative) return invoke("quick_dark", { on });
+    mockQuick.dark = on;
+    return Promise.resolve();
+  },
+  power: (action: PowerAction): Promise<void> => (isNative ? invoke("quick_power", { action }) : Promise.resolve()),
   outputs: (): Promise<AudioOutput[]> => (isNative ? invoke<AudioOutput[]>("audio_outputs") : Promise.resolve(mockOutputs.map((o) => ({ ...o })))),
   setOutput: (id: string): Promise<void> => {
     if (isNative) return invoke("audio_set_output", { id });

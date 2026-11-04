@@ -58,6 +58,8 @@
     <uap3:Capability Name="userNotificationListener" />
     <rescap:Capability Name="runFullTrust" />
     <DeviceCapability Name="webcam" />
+    <!-- Wi-Fi and Bluetooth on and off from Overview (quick.rs). -->
+    <DeviceCapability Name="radios" />
     <!-- Recording with the microphone (capture/audio.rs): a packaged app gets no mic without it. -->
     <DeviceCapability Name="microphone" />
   </Capabilities>

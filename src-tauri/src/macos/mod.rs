@@ -6,6 +6,7 @@ pub mod audio;
 pub mod brightness;
 pub mod media;
 pub mod mirror;
+pub mod quick;
 
 use objc2_app_kit::{
     NSApplicationActivationOptions, NSPasteboard, NSRunningApplication, NSStatusWindowLevel, NSWindow, NSWindowCollectionBehavior, NSWorkspace,

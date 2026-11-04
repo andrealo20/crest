@@ -101,6 +101,9 @@ windows = { version = "0.62", features = [
   "Win32_UI_Shell",
   "Win32_UI_Shell_PropertiesSystem",
   "Win32_System_Power",
+  # Overview quick controls (quick.rs).
+  "Win32_System_Shutdown",
+  "Devices_Radios",
   "Win32_System_SystemInformation",
   "Win32_System_DataExchange",
   "Win32_System_Memory",

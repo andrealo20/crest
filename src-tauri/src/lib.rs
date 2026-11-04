@@ -11,6 +11,8 @@ mod capture;
 mod clipboard;
 #[cfg(windows)]
 mod controls;
+#[cfg(windows)]
+mod quick;
 pub mod convert;
 #[cfg(windows)]
 mod discord;
@@ -365,6 +367,22 @@ pub fn run() {
             macos::brightness::brightness_get,
             #[cfg(target_os = "macos")]
             macos::brightness::brightness_set,
+            #[cfg(windows)]
+            quick::quick_get,
+            #[cfg(windows)]
+            quick::quick_radio,
+            #[cfg(windows)]
+            quick::quick_dark,
+            #[cfg(windows)]
+            quick::quick_power,
+            #[cfg(target_os = "macos")]
+            macos::quick::quick_get,
+            #[cfg(target_os = "macos")]
+            macos::quick::quick_radio,
+            #[cfg(target_os = "macos")]
+            macos::quick::quick_dark,
+            #[cfg(target_os = "macos")]
+            macos::quick::quick_power,
             #[cfg(target_os = "macos")]
             macos::memory_low,
             #[cfg(target_os = "macos")]

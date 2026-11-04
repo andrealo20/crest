@@ -27,6 +27,7 @@ import { locale, t } from "../../i18n";
 import { QuoteLine } from "../quotes/QuoteLine";
 import { Select } from "../../ui/controls";
 import { AWAKE_MINUTES, awakeLeft, awakeOn, formatLeft } from "./awake";
+import { CONTROLS_ROW, QuickControls, useQuick } from "./QuickControls";
 import { awake, startAwake, stopAwake } from "./store";
 
 /*
@@ -78,7 +79,8 @@ export function OverviewView() {
   }, []);
 
   // The open list grows the notch by its rows, like the player menu in Now Playing; the brightness row by its height and gap.
-  const extra = (listOpen ? Math.min(MIXER_MAX_ROWS, outputs.length) * MIXER_ROW + 14 : 0) + (bright !== null ? BRIGHTNESS_ROW : 0);
+  const [quick, reloadQuick] = useQuick();
+  const extra = (listOpen ? Math.min(MIXER_MAX_ROWS, outputs.length) * MIXER_ROW + 14 : 0) + (bright !== null ? BRIGHTNESS_ROW : 0) + (quick ? CONTROLS_ROW : 0);
   useEffect(() => {
     if (!extra) return requestSize("overview", null);
     const base = findTab("overview")!.size;
@@ -109,6 +111,7 @@ export function OverviewView() {
       </div>
       {listOpen && <OutputList outputs={outputs} onPick={pickOutput} />}
       {bright !== null && <BrightnessTile level={bright} busy={brightBusy} hold={brightHold} onLevel={setBright} />}
+      {quick && <QuickControls state={quick} reload={reloadQuick} />}
       {quotes && <QuoteLine />}
     </div>
   );
