@@ -178,13 +178,20 @@ export function UsageView() {
               </div>
             ) : (
               <>
-                <div className="flex flex-col gap-2">
+                {/* Kept from the last good answer: dimmed while it can't be refreshed (a 429 pause clears itself, so it stays). */}
+                <div className={`flex flex-col gap-2 transition-opacity duration-200 ${p.error && p.error !== "rate-limited" ? "opacity-50" : ""}`}>
                   {p.windows.map((w) => (
                     <WindowRow key={w.kind} w={w} now={now} />
                   ))}
                   {p.balances?.map((b) => <BalanceRow key={b.kind + b.currency} b={b} />)}
                 </div>
-                <div className="mt-auto pt-2 text-caption text-label-4" title={status}>
+                <div className="mt-auto pt-2 text-caption text-label-4">
+                  {status && (
+                    <div className="mb-0.5 flex items-start gap-1 text-label-3">
+                      <WarningCircle size={12} weight="bold" className="mt-px shrink-0" />
+                      <span>{status}</span>
+                    </div>
+                  )}
                   {p.error ? t("Stand {ago}", { ago: formatAgo(now - p.updatedAt!) }) : formatAgo(now - p.updatedAt!)}
                 </div>
               </>
