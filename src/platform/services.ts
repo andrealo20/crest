@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { isNative } from "./native";
+import { isMac, isNative } from "./native";
 import type { BluetoothEvent, LevelEvent, LockEvent, PowerState } from "../notch/row/status";
 import type { LaunchPlan, ShellInfo } from "../features/terminal/shell";
 import type { TokenReport } from "../features/usage/tokens";
@@ -1209,6 +1209,11 @@ export const noticeSource = {
   removeWindows: (ids: number[]) => {
     if (isNative && ids.length) void invoke("notices_remove_windows", { ids });
   },
+  /**
+   * Turns Windows' own banners off (or back on) for these apps; their notices still reach Crest (banners.rs).
+   * Rejects with "settings" in the Store build, which opened Windows' notification settings instead.
+   */
+  banners: (hide: boolean, apps: string[]): Promise<void> => (isNative && !isMac ? invoke("notices_banners", { hide, apps }) : Promise.resolve()),
   /** Opens the app a Windows notice came from, on its start page. */
   openApp: (appId: string) => {
     if (isNative) void invoke("notices_open_app", { appId }).catch(() => {});

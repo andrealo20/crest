@@ -82,7 +82,11 @@ function ingest(input: IncomingNotice, focus: boolean) {
   const s = settings.get().notices;
   if (!s.enabled) return;
   const apps = rememberApp(s.apps, input.appId, input.appName);
-  if (apps !== s.apps) updateSettings((cur) => ({ notices: { ...cur.notices, apps } }));
+  if (apps !== s.apps) {
+    updateSettings((cur) => ({ notices: { ...cur.notices, apps } }));
+    // A new app: its first notice already had its Windows banner, the next ones only pop up here.
+    if (bannersHidden && input.source === "windows") void noticeSource.banners(true, [input.appId]).catch(() => {});
+  }
   const d = new Date();
   const where = route(input.appId, s, { presenting: presentingNow(), now: d.getHours() * 60 + d.getMinutes(), fullscreen: fullscreen.get(), focus });
   if (where === "drop") return;
@@ -91,6 +95,24 @@ function ingest(input: IncomingNotice, focus: boolean) {
   // The newest notice takes the closed notch; an update with the same replace key refreshes it there.
   if (where === "pop") pop(n);
 }
+
+/*
+ * Windows' banners stay off only while Crest pops the notices up itself: turning off live notices or the Windows
+ * source brings them back, so nothing is left without any banner. banners.rs marks what it turned off.
+ */
+let bannersHidden: boolean | null = null;
+function syncBanners() {
+  const n = settings.get().notices;
+  const hide = n.enabled && n.windows && n.hideBanners;
+  if (hide === bannersHidden) return;
+  bannersHidden = hide;
+  void noticeSource.banners(hide, Object.keys(n.apps)).catch((e: unknown) => {
+    // The Store build cannot change Windows' settings and opened them for the user instead: the switch goes back off.
+    if (hide && String(e) === "settings") updateSettings((cur) => ({ notices: { ...cur.notices, hideBanners: false } }));
+  });
+}
+settings.subscribe(syncBanners);
+syncBanners();
 
 function pop(n: Notice) {
   popping.set(n);

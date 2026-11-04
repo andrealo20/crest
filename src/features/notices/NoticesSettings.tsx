@@ -51,6 +51,11 @@ export function NoticesSettings() {
                 <Switch label={t("Windows-Mitteilungen")} checked={n.windows} onChange={(windows) => patch(() => ({ windows }))} />
               </div>
             </Row>
+            {n.windows && (
+              <Row label={t("Windows-Banner ausblenden")} hint={t("Mitteilungen erscheinen nur in Crest und bleiben in der Mitteilungszentrale von Windows")}>
+                <Switch label={t("Windows-Banner ausblenden")} checked={n.hideBanners} onChange={(hideBanners) => patch(() => ({ hideBanners }))} />
+              </Row>
+            )}
             <Row label="crest-notify" hint={
                 !n.cli ? t("Für Skripte und Agent-Hooks")
                 : status.pipe ? t("Bereit · für Skripte und Agent-Hooks")

@@ -2,6 +2,8 @@ pub mod ai;
 #[cfg(windows)]
 mod audio;
 #[cfg(windows)]
+mod banners;
+#[cfg(windows)]
 mod brightness;
 mod calendar;
 #[cfg(windows)]
@@ -395,6 +397,8 @@ pub fn run() {
             phone_share::phone_share_stop,
             timer_window::timer_window_open,
             timer_window::timer_window_close,
+            #[cfg(windows)]
+            banners::notices_banners,
             #[cfg(windows)]
             shelf::shelf_drag_out,
             #[cfg(windows)]

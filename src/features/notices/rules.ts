@@ -10,6 +10,8 @@ export interface NoticeSettings {
   /** Sources: Windows toast notifications and crest-notify. */
   windows: boolean;
   cli: boolean;
+  /** Windows' own banners off for the apps seen, so a notice pops up only in the notch. */
+  hideBanners: boolean;
   /** A daily window ("HH:MM", may cross midnight) in which notices only go to the history, as in presentation mode. */
   quiet: { on: boolean; from: string; to: string };
   /** Keyed by lower-case app id. */
@@ -22,6 +24,7 @@ export const NOTICE_DEFAULTS: NoticeSettings = {
   enabled: false,
   windows: true,
   cli: true,
+  hideBanners: false,
   quiet: { on: false, from: "22:00", to: "07:00" },
   rules: {},
   apps: {},
@@ -55,6 +58,7 @@ export function normalizeNotices(saved: unknown): NoticeSettings {
     enabled: bool(s.enabled, d.enabled),
     windows: bool(s.windows, d.windows),
     cli: bool(s.cli, d.cli),
+    hideBanners: bool(s.hideBanners, d.hideBanners),
     quiet: { on: bool(q.on, d.quiet.on), from: time(q.from, d.quiet.from), to: time(q.to, d.quiet.to) },
     rules,
     apps,

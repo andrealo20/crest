@@ -60,6 +60,10 @@ test("normalizing saved settings", () => {
   assert.deepEqual(s.quiet, { on: true, from: "22:00", to: "06:30" });
   assert.deepEqual(s.rules, { a: "mute" });
   assert.deepEqual(s.apps, { a: "Alpha" });
+  // Off unless saved as true: a broken value never hides Windows' banners.
+  assert.equal(s.hideBanners, false);
+  assert.equal(normalizeNotices({ hideBanners: true }).hideBanners, true);
+  assert.equal(normalizeNotices({ hideBanners: "yes" }).hideBanners, false);
 });
 
 test("apps seen", () => {
