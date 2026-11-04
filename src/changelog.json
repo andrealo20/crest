@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.4.0",
+    "date": "2026-11-04",
+    "items": [
+      {
+        "en": "Recorder: record sound only from the microphone, the system audio or both, for calls too. Off by default, turn it on in Settings, Tools"
+      },
+      {
+        "en": "Set the brightness of the notch screen from Overview, on external monitors and a laptop screen"
+      },
+      {
+        "en": "AI usage says when a reading is out of date and can renew an expired sign-in in Crest's terminal"
+      },
+      {
+        "en": "A click on a notice opens what it is about: What's new, the recording, AI usage or Now Playing"
+      }
+    ]
+  },
+  {
     "version": "0.3.4",
     "date": "2026-11-04",
     "items": [
