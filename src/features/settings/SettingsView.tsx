@@ -7,7 +7,6 @@ import {
   CalendarBlank,
   ChartDonut,
   CloudSun,
-  PawPrint,
   CheckCircle,
   Clock,
   Cpu,
@@ -60,8 +59,9 @@ import { github } from "../github/store";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
 import { DiscordLogo } from "../../ui/brands";
 import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
-import { PET_IDS, type ClosedSettings, type PartId, type PetId } from "../../notch/row/parts";
-import { PET_NAMES } from "../../notch/row/parts/Pet";
+import { PET_IDS, PET_SIZE, type ClosedSettings, type PartId, type PetId } from "../../notch/row/parts";
+import { PetArt } from "../../notch/pet/Nest";
+import { PET_NAMES } from "../../notch/pet/art";
 import { effortLevels, providerInfo } from "../ask/providers";
 import { discordState, reconnectDiscord } from "../discord/store";
 import { fps } from "../system/gaming";
@@ -802,6 +802,7 @@ function Display() {
       <ClosedStyle />
       <SizeSettings />
       <ClosedParts />
+      <PetSettingsRows />
       <Row label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>
         <Switch label={t("Fortschritt auf der Linie")} checked={s.closed.lineProgress} onChange={(lineProgress) => updateSettings((cur) => ({ closed: { ...cur.closed, lineProgress } }))} />
       </Row>
@@ -917,7 +918,6 @@ const partInfo: Record<PartId, { label: string; icon: Icon; hue: Hue }> = {
   script: { label: "Skript-Anzeigen (crest-notify)", icon: TerminalWindow, hue: "slate" },
   downloads: { label: "Downloads", icon: DownloadSimple, hue: "teal" },
   weather: { label: "Wetter", icon: CloudSun, hue: "sky" },
-  pet: { label: "Haustier", icon: PawPrint, hue: "orange" },
 };
 
 /** Small labelled switch for a part's own options, next to its main switch. */
@@ -931,6 +931,40 @@ function SubSwitch({ label, checked, onChange }: { label: string; checked: boole
 }
 
 /** Parts of the closed row (notch and capsule share them): drag to reorder, switch on/off. Same pattern as `Tools()`. */
+/** The nest beside the closed notch: which pet (or none), its size, independent of the notch's, and the side it sits on. */
+function PetSettingsRows() {
+  const pet = settings.use().closed.pet;
+  const setPet = (patch: Partial<ClosedSettings["pet"]>) => updateSettings((cur) => ({ closed: { ...cur.closed, pet: { ...cur.closed.pet, ...patch } } }));
+  return (
+    <>
+      <Row label={t("Haustier")} hint={t("Neben der Notch: tanzt zur Musik, rennt mit der CPU, freut sich über Erledigtes und schläft, wenn nichts los ist")}>
+        <div className="flex items-center gap-2">
+          {pet.id && <PetArt id={pet.id} mood="idle" pace=".5s" size={30} />}
+          <Select
+            value={pet.id ?? "none"}
+            width="w-48"
+            options={[{ value: "none", label: t("Aus") }, ...PET_IDS.map((p) => ({ value: p, label: t(PET_NAMES[p]) }))]}
+            onChange={(v) => setPet({ id: v === "none" ? null : (v as PetId) })}
+          />
+        </div>
+      </Row>
+      {pet.id && (
+        <>
+          <Row label={t("Größe des Haustiers")} hint={t("Unabhängig von der Größe der Notch")}>
+            <div className="flex w-52 items-center gap-2">
+              <Slider label={t("Größe des Haustiers")} value={pet.size} min={PET_SIZE.min} max={PET_SIZE.max} step={2} onChange={(size) => setPet({ size })} />
+              <span className="tabular w-8 text-end text-caption text-label-2">{pet.size}</span>
+            </div>
+          </Row>
+          <Row label={t("Seite")}>
+            <Segmented id="pet-side" size="sm" value={pet.side} options={[{ value: "left", label: t("Linke Seite") }, { value: "right", label: t("Rechte Seite") }]} onChange={(side) => setPet({ side })} />
+          </Row>
+        </>
+      )}
+    </>
+  );
+}
+
 function ClosedParts() {
   const { closed: c, music } = settings.use();
   const [dragging, setDragging] = useState<PartId | null>(null);
@@ -975,9 +1009,6 @@ function ClosedParts() {
                   ))}
                 {on && id === "clock" && <SubSwitch label={t("Sekunden")} checked={c.clockSeconds} onChange={(clockSeconds) => setClosed(() => ({ clockSeconds }))} />}
                 {on && id === "title" && <SubSwitch label={t("Songtext")} checked={music.titleLyrics} onChange={(titleLyrics) => setMusic({ titleLyrics })} />}
-                {on && id === "pet" && (
-                  <Select value={c.pet} width="w-32" options={PET_IDS.map((p) => ({ value: p, label: t(PET_NAMES[p]) }))} onChange={(pet) => setClosed(() => ({ pet: pet as PetId }))} />
-                )}
                 <Switch label={t(label)} checked={on} onChange={(v) => setClosed((cur) => ({ parts: { ...cur.parts, [id]: v } }))} />
               </div>
             </Reorder.Item>

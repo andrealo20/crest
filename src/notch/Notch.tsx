@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { AnimatePresence, animate, frame, motion, useMotionValue, type MotionValue, type Transition } from "motion/react";
+import { AnimatePresence, animate, frame, motion, useMotionValue, useTransform, type MotionValue, type Transition } from "motion/react";
 import { GearSix, PushPin, Selection } from "@phosphor-icons/react";
 import { content, springs } from "../design/motion";
 import { livePosition, useNowPlaying } from "../platform/media";
@@ -11,6 +11,7 @@ import { useLiveActivity } from "./live";
 import { CompactRow } from "./row/CompactRow";
 import { CompactColumn } from "./row/CompactColumn";
 import { NoticeLayer } from "./row/NoticeLayer";
+import { Nest } from "./pet/Nest";
 import { statusAlert } from "../features/status/store";
 import { effectiveIdleStyle, screen } from "../features/window/store";
 import { ResizeHandles, stepToolSize, useToolSize, wheelTaken } from "../features/window/panel";
@@ -57,7 +58,7 @@ const MEMORY_LOW_AFTER_MS = 20_000;
 export function Notch() {
   const { status, open, close, dismiss, toggle, onPointerEnter, onPointerLeave } = useNotchState();
   const focus = focusMode.use();
-  const { tools: toolSettings, display: displaySettings, behavior, closedSize: savedSizes, themes } = settings.use();
+  const { tools: toolSettings, display: displaySettings, behavior, closedSize: savedSizes, themes, closed: closedSettings } = settings.use();
   // Resize mode (ClosedResize.tsx): the closed shape shows grips instead of its parts and neither opens nor moves; a grip's drag draws at once.
   const editing = closedEdit.use();
   const liveSize = closedLive.use();
@@ -198,6 +199,10 @@ export function Notch() {
   const sticky = useStickyHitZone(status, side ? size.w : size.h, edge);
   const transition = useTransitionFor(status, shape);
   const topValue = useSpringTop(top, transition, drag.dragging);
+  // The pet's nest stands beside the closed shape, its top a little below the shape's (the shape starts at topValue when bridged).
+  const pet = closedSettings.pet;
+  const nestShown = !!pet.id && status !== "open" && !lineShape && !hiddenForFullscreen && !editing && !focus;
+  const nestTop = useTransform(topValue, (v) => (bridged ? v : 0) + 4);
 
   // "Follow the cursor" and "All monitors" (monitor.ts) move the notch only while it is closed, not dragged and not recording.
   const busy = status !== "closed" || drag.dragging || recordingOn;
@@ -427,6 +432,9 @@ export function Notch() {
             )}
           </AnimatePresence>
         </NotchShape>
+        <AnimatePresence>
+          {nestShown && pet.id && <Nest key="nest" pet={{ ...pet, id: pet.id }} edge={edge} top={nestTop} notice={notice !== null} hovered={status === "peek"} />}
+        </AnimatePresence>
         {editing && status !== "open" && <ClosedResizeBar style={style} edge={edge} />}
       </motion.div>
     </div>

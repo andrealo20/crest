@@ -173,7 +173,8 @@ function poll(ms: number) {
 
 function wanted(): boolean {
   const s = settings.get();
-  return s.tools.some((x) => x.id === "system" && x.enabled) || s.gaming.mode !== "off" || (s.closed.parts.readings && rowVisible.get());
+  // The nest's pet runs with the CPU load, so it reads the background rhythm too.
+  return s.tools.some((x) => x.id === "system" && x.enabled) || s.gaming.mode !== "off" || ((s.closed.parts.readings || s.closed.pet.id !== null) && rowVisible.get());
 }
 
 function rhythm(): number {

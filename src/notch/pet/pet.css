@@ -1,0 +1,152 @@
+/* The nest's pet (art.ts draws it, Nest.tsx picks the state). Transform and opacity only, so the compositor runs the motion. */
+.pet { overflow: visible; }
+.pet * { transform-box: fill-box; }
+.pet .rig { transform-origin: 50% 100%; }
+.pet .body { transform-origin: 50% 100%; }
+.pet .head { transform-origin: 50% 90%; }
+.pet .arm-l { transform-origin: 85% 12%; }
+.pet .arm-r { transform-origin: 15% 12%; }
+.pet .leg-l, .pet .leg-r { transform-origin: 50% 8%; }
+.pet .tail { transform-origin: 0% 90%; }
+.pet .ear-l { transform-origin: 80% 10%; }
+.pet .ear-r { transform-origin: 20% 10%; }
+.pet .flicker { transform-origin: 50% 100%; animation: pet-flicker 1.2s ease-in-out infinite; }
+.pet .flicker.b { animation-duration: .9s; animation-direction: reverse; }
+.pet .bulb { transform-origin: 50% 50%; animation: pet-glow 1.8s ease-in-out infinite; }
+.pet .lids { transform-origin: 50% 50%; transform: scaleY(0); }
+.pet .shadow { transform-origin: 50% 50%; }
+.pet .fx > * { opacity: 0; }
+.pet .mouth > * { opacity: 0; }
+.pet .mouth .m-smile { opacity: 1; }
+.pet .eyes-happy { opacity: 0; }
+@keyframes pet-flicker { 0%, 100% { transform: scale(1, 1) skewX(0); } 30% { transform: scale(.94, 1.07) skewX(-3deg); } 65% { transform: scale(1.05, .95) skewX(3deg); } }
+@keyframes pet-glow { 50% { transform: scale(1.18); opacity: .75; } }
+
+/* Idle */
+.pet.idle .rig { animation: pet-breathe 3.4s ease-in-out infinite; }
+.pet.idle .head { animation: pet-look 7s ease-in-out infinite; }
+.pet.idle .tail, .pet.wave .tail { animation: pet-tail 2.8s ease-in-out infinite; }
+.pet.idle .ear-l, .pet.wave .ear-l { animation: pet-ear 3.4s ease-in-out infinite; }
+.pet.idle .ear-r, .pet.wave .ear-r { animation: pet-ear-r 3.4s ease-in-out infinite; }
+.pet.idle .lids, .pet.music .lids, .pet.run .lids, .pet.wave .lids { animation: pet-blink 4.4s infinite; }
+@keyframes pet-breathe { 50% { transform: scale(1.02, .98); } }
+@keyframes pet-look { 0%, 40%, 100% { transform: rotate(0); } 50%, 62% { transform: rotate(-6deg); } 72%, 84% { transform: rotate(5deg); } }
+@keyframes pet-tail { 50% { transform: rotate(16deg); } }
+@keyframes pet-ear { 50% { transform: rotate(5deg); } }
+@keyframes pet-ear-r { 50% { transform: rotate(-5deg); } }
+@keyframes pet-blink { 0%, 93%, 100% { transform: scaleY(0); } 96% { transform: scaleY(1); } }
+
+/* Music */
+.pet.music .rig { animation: pet-sway .5s ease-in-out infinite alternate; }
+.pet.music .head { animation: pet-nod .5s ease-in-out infinite alternate; }
+.pet.music .arm-l { animation: pet-arm-up .5s ease-in-out infinite alternate; }
+.pet.music .arm-r { animation: pet-arm-up-r .5s ease-in-out infinite alternate-reverse; }
+.pet.music .leg-l { animation: pet-step .5s ease-in-out infinite alternate; }
+.pet.music .leg-r { animation: pet-step .5s ease-in-out infinite alternate-reverse; }
+.pet.music .tail { animation: pet-tail .5s ease-in-out infinite alternate; }
+.pet.music .ear-l { animation: pet-ear .5s ease-in-out infinite alternate; }
+.pet.music .ear-r { animation: pet-ear-r .5s ease-in-out infinite alternate; }
+.pet.music .fx .note { animation: pet-float-up 1.6s ease-out infinite; }
+.pet.music .fx .note.b { animation-delay: .8s; }
+.pet.music .mouth .m-smile { opacity: 0; }
+.pet.music .mouth .m-open { opacity: 1; }
+@keyframes pet-sway { from { transform: rotate(-6deg); } to { transform: rotate(6deg) translateY(-2px); } }
+@keyframes pet-nod { from { transform: rotate(4deg); } to { transform: rotate(-4deg) translateY(1px); } }
+@keyframes pet-arm-up { from { transform: rotate(-10deg); } to { transform: rotate(115deg); } }
+@keyframes pet-arm-up-r { from { transform: rotate(10deg); } to { transform: rotate(-115deg); } }
+@keyframes pet-step { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+@keyframes pet-float-up { 0% { opacity: 0; transform: translate(0, 0) scale(.6); } 25% { opacity: 1; } 100% { opacity: 0; transform: translate(8px, -22px) scale(1.1); } }
+
+/*
+ * Run (CPU load): a stride. Two contacts a cycle, so the body dips and rises twice; the passing leg bends and lifts, the arms
+ * pump against the legs, the head counters the bob, dust comes off each contact. --pace is one stride.
+ */
+.pet.run .rig { animation: pet-run-body var(--pace, .5s) linear infinite; }
+.pet.run .head { animation: pet-run-head var(--pace, .5s) linear infinite; }
+.pet.run .leg-l { animation: pet-run-leg var(--pace, .5s) linear infinite; }
+.pet.run .leg-r { animation: pet-run-leg var(--pace, .5s) linear infinite; animation-delay: calc(var(--pace, .5s) / -2); }
+.pet.run .arm-l { animation: pet-run-arm var(--pace, .5s) linear infinite; animation-delay: calc(var(--pace, .5s) / -2); }
+.pet.run .arm-r { animation: pet-run-arm-r var(--pace, .5s) linear infinite; }
+.pet.run .tail { animation: pet-run-tail calc(var(--pace, .5s) / 2) ease-in-out infinite alternate; }
+.pet.run .ear-l { animation: pet-run-ear calc(var(--pace, .5s) / 2) ease-in-out infinite alternate; }
+.pet.run .ear-r { animation: pet-run-ear-r calc(var(--pace, .5s) / 2) ease-in-out infinite alternate; }
+.pet.run .shadow { animation: pet-shadow calc(var(--pace, .5s) / 2) ease-in-out infinite; }
+.pet.run .fx .dust { animation: pet-dust var(--pace, .5s) ease-out infinite; }
+.pet.run .fx .dust.b { animation-delay: calc(var(--pace, .5s) / -2); }
+.pet.run .fx .speed { animation: pet-speed calc(var(--pace, .5s) * 1.2) linear infinite; }
+.pet.run .fx .speed.b { animation-delay: calc(var(--pace, .5s) * -.6); }
+.pet.run .fx .speed.c { animation-delay: calc(var(--pace, .5s) * -.3); }
+.pet.run .mouth .m-smile { opacity: 0; }
+.pet.run .mouth .m-open { opacity: 1; }
+@keyframes pet-run-body {
+  0%, 50%, 100% { transform: rotate(7deg) translateY(1.5px) scale(1.04, .95); }
+  12%, 62% { transform: rotate(7deg) translateY(0) scale(1, 1); }
+  25%, 75% { transform: rotate(7deg) translateY(-3.5px) scale(.97, 1.04); }
+  40%, 90% { transform: rotate(7deg) translateY(-1px) scale(1, 1); }
+}
+@keyframes pet-run-head { 0%, 50%, 100% { transform: rotate(-4deg) translateY(1px); } 25%, 75% { transform: rotate(-2deg) translateY(-.5px); } }
+@keyframes pet-run-leg {
+  0%, 100% { transform: rotate(-38deg) translateY(0) scaleY(1); }
+  30% { transform: rotate(10deg) translateY(-4px) scaleY(.72); }
+  50% { transform: rotate(38deg) translateY(-1px) scaleY(.9); }
+  65% { transform: rotate(30deg) translateY(0) scaleY(1); }
+}
+@keyframes pet-run-arm { 0%, 100% { transform: rotate(-55deg); } 50% { transform: rotate(45deg); } }
+@keyframes pet-run-arm-r { 0%, 100% { transform: rotate(55deg); } 50% { transform: rotate(-45deg); } }
+@keyframes pet-run-tail { from { transform: rotate(-12deg); } to { transform: rotate(22deg); } }
+@keyframes pet-run-ear { from { transform: rotate(-4deg); } to { transform: rotate(18deg); } }
+@keyframes pet-run-ear-r { from { transform: rotate(4deg); } to { transform: rotate(-12deg); } }
+@keyframes pet-shadow { 0%, 100% { transform: scale(1); opacity: .5; } 50% { transform: scale(.8); opacity: .35; } }
+@keyframes pet-dust { 0% { opacity: 0; transform: translate(0, 0) scale(.4); } 10% { opacity: .85; } 60% { opacity: 0; transform: translate(-12px, -4px) scale(1.25); } 100% { opacity: 0; } }
+@keyframes pet-speed { 0% { opacity: 0; transform: translateX(8px) scaleX(.4); } 25% { opacity: .9; transform: translateX(0) scaleX(1); } 100% { opacity: 0; transform: translateX(-16px) scaleX(.6); } }
+
+/* A notice */
+.pet.alert .rig { animation: pet-hop .7s cubic-bezier(.34, 1.36, .64, 1) infinite; }
+.pet.alert .shadow { animation: pet-shadow .7s ease-in-out infinite; }
+.pet.alert .arm-l { transform: rotate(40deg); }
+.pet.alert .arm-r { transform: rotate(-40deg); }
+.pet.alert .ear-l { transform: rotate(-10deg); }
+.pet.alert .ear-r { transform: rotate(10deg); }
+.pet.alert .fx .bang { animation: pet-bang .7s ease-out infinite; }
+.pet.alert .mouth .m-smile { opacity: 0; }
+.pet.alert .mouth .m-o { opacity: 1; }
+@keyframes pet-hop { 0%, 100% { transform: translateY(0) scale(1, 1); } 15% { transform: translateY(0) scale(1.08, .9); } 45% { transform: translateY(-10px) scale(.95, 1.06); } 75% { transform: translateY(0) scale(1.05, .95); } }
+@keyframes pet-bang { 0% { opacity: 0; transform: scale(.4); } 35%, 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+
+/* Something done */
+.pet.cheer .rig { animation: pet-hop .9s cubic-bezier(.34, 1.36, .64, 1) infinite; }
+.pet.cheer .shadow { animation: pet-shadow .9s ease-in-out infinite; }
+.pet.cheer .arm-l { animation: pet-cheer-l .45s ease-in-out infinite alternate; }
+.pet.cheer .arm-r { animation: pet-cheer-r .45s ease-in-out infinite alternate; }
+.pet.cheer .fx .spark { animation: pet-spark 1.2s ease-out infinite; }
+.pet.cheer .fx .spark.b { animation-delay: .4s; }
+.pet.cheer .fx .spark.c { animation-delay: .8s; }
+.pet.cheer .mouth .m-smile { opacity: 0; }
+.pet.cheer .mouth .m-open { opacity: 1; }
+.pet.cheer .eyes-open { opacity: 0; }
+.pet.cheer .eyes-happy { opacity: 1; }
+@keyframes pet-cheer-l { from { transform: rotate(115deg); } to { transform: rotate(145deg); } }
+@keyframes pet-cheer-r { from { transform: rotate(-115deg); } to { transform: rotate(-145deg); } }
+@keyframes pet-spark { 0% { opacity: 0; transform: scale(.2) rotate(0); } 30% { opacity: 1; transform: scale(1) rotate(40deg); } 100% { opacity: 0; transform: scale(.6) rotate(90deg); } }
+
+/* The pointer on the notch */
+.pet.wave .rig { animation: pet-breathe 3.4s ease-in-out infinite; }
+.pet.wave .head { transform: rotate(-8deg) translateY(-1px); }
+.pet.wave .arm-r { animation: pet-wave-arm .6s ease-in-out infinite alternate; }
+.pet.wave .pupils { transform: translate(1px, -1.5px); }
+@keyframes pet-wave-arm { from { transform: rotate(-120deg); } to { transform: rotate(-160deg); } }
+
+/* Asleep */
+.pet.sleep .rig { animation: pet-breathe 5.5s ease-in-out infinite; }
+.pet.sleep .head { transform: rotate(8deg) translateY(2px); }
+.pet.sleep .lids { transform: scaleY(1); }
+.pet.sleep .mouth .m-smile { opacity: 0; }
+.pet.sleep .mouth .m-sleep { opacity: 1; }
+.pet.sleep .fx .z { animation: pet-float-up 2.6s ease-out infinite; }
+.pet.sleep .fx .z.b { animation-delay: 1.3s; }
+.pet.sleep .flicker { animation-duration: 3s; }
+
+.pet.paused * { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  .pet * { animation: none !important; }
+}

@@ -1,24 +1,27 @@
 // Settings model of the closed notch's row: which parts show and in what order. Pure, so the saved shape can be repaired (and tested) without the app around it.
 
-export const PART_IDS = ["timer", "discord", "rings", "title", "readings", "equalizer", "clock", "github", "calendar", "script", "downloads", "weather", "pet"] as const;
+export const PART_IDS = ["timer", "discord", "rings", "title", "readings", "equalizer", "clock", "github", "calendar", "script", "downloads", "weather"] as const;
 export type PartId = (typeof PART_IDS)[number];
 /** Readings of the closed row; net, power, battery and temp are opt-in. */
 export const READING_KEYS = ["cpu", "ram", "gpu", "net", "power", "battery", "temp"] as const;
 export type ReadingKey = (typeof READING_KEYS)[number];
-/** The pets the Pet part can show (parts/Pet.tsx draws them). */
-export const PET_IDS = ["cat", "dog", "robot", "jelly", "slime", "flame"] as const;
+/** The pets the nest beside the notch can show (src/notch/pet/art.ts draws them). */
+export const PET_IDS = ["cat", "cocker", "monkey", "sloth", "samurai", "robot", "flame", "zombie"] as const;
 export type PetId = (typeof PET_IDS)[number];
-export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; downloadAlerts: boolean; statusAlerts: StatusAlerts; pet: PetId }
+/** The nest: which pet (null: none), its size in CSS px, independent of the notch's, and the side of the notch it sits on. */
+export interface PetSettings { id: PetId | null; size: number; side: "left" | "right" }
+export const PET_SIZE = { min: 32, max: 96, default: 48 } as const;
+export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; downloadAlerts: boolean; statusAlerts: StatusAlerts; pet: PetSettings }
 /** `hideOsd` is not an alert: it hides the Windows volume and brightness indicator while Crest shows its own (status.ts osdHidden). */
 export interface StatusAlerts { power: boolean; net: boolean; bt: boolean; volume: boolean; brightness: boolean; lock: boolean; hideOsd: boolean }
 
 export const CLOSED_DEFAULTS: ClosedSettings = {
   order: [...PART_IDS],
-  parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, calendar: false, script: false, downloads: true, weather: false, pet: false },
+  parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, calendar: false, script: false, downloads: true, weather: false },
   readings: { cpu: true, ram: true, gpu: true, net: false, power: false, battery: false, temp: false },
   clockSeconds: false, lineProgress: true, quotaAlerts: true, downloadAlerts: true,
   statusAlerts: { power: true, net: true, bt: true, volume: true, brightness: true, lock: true, hideOsd: false },
-  pet: "cat",
+  pet: { id: null, size: PET_SIZE.default, side: "right" },
 };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -37,8 +40,15 @@ export function normalizeClosed(saved: unknown): ClosedSettings {
     clockSeconds: bool(s.clockSeconds, d.clockSeconds), lineProgress: bool(s.lineProgress, d.lineProgress), quotaAlerts: bool(s.quotaAlerts, d.quotaAlerts),
     downloadAlerts: bool(s.downloadAlerts, d.downloadAlerts),
     statusAlerts: Object.fromEntries(Object.entries(d.statusAlerts).map(([k, v]) => [k, bool(alerts[k], v)])) as unknown as StatusAlerts,
-    pet: PET_IDS.includes(s.pet as PetId) ? (s.pet as PetId) : d.pet,
+    pet: normalizePet(s.pet),
   };
+}
+
+/** A saved pet setting as a valid one: an unknown pet is none, the size kept within PET_SIZE, the side left or right. */
+export function normalizePet(saved: unknown): PetSettings {
+  const p = isObj(saved) ? saved : {}, d = CLOSED_DEFAULTS.pet;
+  const size = typeof p.size === "number" && Number.isFinite(p.size) ? Math.round(Math.min(PET_SIZE.max, Math.max(PET_SIZE.min, p.size))) : d.size;
+  return { id: PET_IDS.includes(p.id as PetId) ? (p.id as PetId) : null, size, side: p.side === "left" ? "left" : "right" };
 }
 
 /** "title · artist"; with only one of them, just that one. */
@@ -65,7 +75,6 @@ export function partTool(part: string): string | null {
     case "script":
       return "notices";
     case "awake":
-    case "pet":
       return "overview";
     case "downloads":
       return "shelf";
