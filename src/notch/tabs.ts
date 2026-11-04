@@ -108,7 +108,7 @@ export const tabs: NotchTab[] = ([
   { id: "convert", hue: "rose", label: "Converter", icon: ArrowsLeftRight, size: { w: 520, h: 210 }, View: ConvertView },
   { id: "trading", hue: "emerald", label: "Depot", icon: DepotIcon, size: { w: 560, h: 380 }, View: TradingView },
   { id: "usage", hue: "purple", label: "AI-Nutzung", icon: Gauge, size: { w: 600, h: 320 }, View: UsageView },
-  { id: "weather", hue: "sky", label: "Wetter", icon: CloudSun, size: { w: 520, h: 250 }, View: WeatherView },
+  { id: "weather", hue: "sky", label: "Wetter", icon: CloudSun, size: { w: 640, h: 330 }, View: WeatherView },
   { id: "system", hue: "red", label: "Hardware", icon: Cpu, size: { w: 720, h: 380 }, View: SystemView },
   { id: "discord", hue: "indigo", label: "Discord", icon: DiscordLogo, size: { w: 520, h: 210 }, View: DiscordView },
   { id: "vault", hue: "slate", label: "Tresor", icon: Vault, size: { w: 560, h: 324 }, View: VaultView },

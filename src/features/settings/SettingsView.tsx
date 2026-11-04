@@ -6,6 +6,7 @@ import {
   BellSimple,
   CalendarBlank,
   ChartDonut,
+  CloudSun,
   CheckCircle,
   Clock,
   Cpu,
@@ -913,6 +914,7 @@ const partInfo: Record<PartId, { label: string; icon: Icon; hue: Hue }> = {
   calendar: { label: "Nächster Termin", icon: CalendarBlank, hue: "red" },
   script: { label: "Skript-Anzeigen (crest-notify)", icon: TerminalWindow, hue: "slate" },
   downloads: { label: "Downloads", icon: DownloadSimple, hue: "teal" },
+  weather: { label: "Wetter", icon: CloudSun, hue: "sky" },
 };
 
 /** Small labelled switch for a part's own options, next to its main switch. */

@@ -1,21 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CircleNotch, Drop, MagnifyingGlass, MapPin, NavigationArrow, Wind, type Icon } from "@phosphor-icons/react";
+import { CircleNotch, Drop, MagnifyingGlass, MapPin, NavigationArrow, SunHorizon, Umbrella, Wind, type Icon } from "@phosphor-icons/react";
 import { useHue, type Hue } from "../themes/hues";
 import { content, fade, spin } from "../../design/motion";
 import { settings } from "../../settings/store";
 import { Skeleton } from "../../ui/controls";
-import { formatAgo, formatTemp, formatWind } from "../../lib/format";
+import { formatAgo, formatTemp, formatTime, formatWind } from "../../lib/format";
 import { locale, t } from "../../i18n";
 import { choosePlace, describe, detectPlace, loadForecast, searchPlaces, type Forecast, type Place } from "./store";
 
 /*
  * Weather via Open-Meteo (data and location detection: ./store.ts).
  *
- *   ☀ 22°   Vienna · Cloudy         feels 21° · Wind 7 km/h
- *   Mo  Tu  We  Th  Fr  Sa  Su
- *   ☁   ☀   🌧  …
- *   18° 21° 15°
+ *   ┌ Vienna ──────┐  Now 16:00 17:00 …   (the next hours)
+ *   │ ☀ 22°        │  Today ☀ 12° ━━━━━━  22°
+ *   │ Cloudy       │  Thu   🌧  9° ━━━━    17°  3 mm
+ *   │ wind · hum … │  …                          (the week)
+ *   └──────────────┘
  */
 const weekday = () => new Intl.DateTimeFormat(locale(), { weekday: "short" });
 
@@ -44,7 +45,7 @@ export function WeatherView() {
   }, [place]);
 
   return (
-    <div className="relative flex h-full flex-col px-5 pt-1 pb-2">
+    <div className="relative flex h-full flex-col px-4 pt-1 pb-3">
       <AnimatePresence mode="popLayout" initial={false}>
         {searching || (!place && detectFailed) ? (
           <motion.div key="search" className="h-full" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: content.enter }} exit={{ opacity: 0, transition: content.exit }}>
@@ -60,20 +61,11 @@ export function WeatherView() {
             <Skeleton className="h-20 w-full" />
           </motion.div>
         ) : (
-          <motion.div key="data" className="flex h-full flex-col justify-between" initial={{ opacity: 0, filter: "blur(4px)" }} animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}>
-            <Current data={data} name={place.name} auto={!!place.auto} onChangePlace={() => setSearching(true)} />
-            <div className="grid grid-cols-7 gap-1">
-              {data.daily.map((d, i) => {
-                const { icon: I, text, hue } = describe(d.code);
-                return (
-                  <div key={d.date} className={`flex flex-col items-center gap-1 rounded-[10px] py-1.5 ${i === 0 ? "bg-fill-1" : ""}`} title={text}>
-                    <span className="text-caption text-label-3">{i === 0 ? t("Heute") : weekday().format(new Date(`${d.date}T12:00:00`)).replace(".", "")}</span>
-                    <WeatherIcon icon={I} hue={hue} size={18} className="text-label-2" />
-                    <span className="tabular text-caption font-semibold text-label">{formatTemp(d.max)}</span>
-                    <span className="tabular -mt-1 text-caption text-label-3">{formatTemp(d.min)}</span>
-                  </div>
-                );
-              })}
+          <motion.div key="data" className="flex h-full gap-2" initial={{ opacity: 0, filter: "blur(4px)" }} animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}>
+            <Now data={data} name={place.name} auto={!!place.auto} onChangePlace={() => setSearching(true)} />
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <Hours data={data} />
+              <Week data={data} />
             </div>
           </motion.div>
         )}
@@ -88,25 +80,133 @@ export function WeatherIcon({ icon: I, hue, size, className }: { icon: Icon; hue
   return <I size={size} weight="fill" className={color ? undefined : className} style={color ? { color } : undefined} />;
 }
 
-function Current({ data, name, auto, onChangePlace }: { data: Forecast; name: string; auto: boolean; onChangePlace: () => void }) {
-  const { icon: I, text, hue } = describe(data.current.code, data.current.day);
+/** Behind the current weather, a sky like it: clear by day, cloud, rain, snow, a storm, or night. */
+function sky(code: number, day: boolean): string {
+  if (!day) return "linear-gradient(160deg, #1d2450 0%, #2c3a6e 100%)";
+  if (code === 0 || code <= 2) return "linear-gradient(160deg, #2f6fb5 0%, #5b9bd8 100%)";
+  if (code === 3 || code <= 48) return "linear-gradient(160deg, #4a5869 0%, #6f7f92 100%)";
+  if (code <= 67 || (code >= 80 && code <= 82)) return "linear-gradient(160deg, #2d4561 0%, #4a6a8c 100%)";
+  if (code <= 77 || code === 85 || code === 86) return "linear-gradient(160deg, #5f7a99 0%, #93abc4 100%)";
+  return "linear-gradient(160deg, #362c5c 0%, #5a4688 100%)";
+}
+
+/** The weather now over its sky: place, icon and temperature, what it is like, then wind, humidity, rain today and the sun. */
+function Now({ data, name, auto, onChangePlace }: { data: Forecast; name: string; auto: boolean; onChangePlace: () => void }) {
+  const { icon: I, text } = describe(data.current.code, data.current.day);
   const today = data.daily[0];
+  const c = data.current;
   return (
-    <div className="flex items-center gap-3">
-      <WeatherIcon icon={I} hue={hue} size={38} className="text-label" />
-      <span className="tabular text-[34px] leading-none font-semibold tracking-[-0.03em]">{formatTemp(data.current.temp)}</span>
-      <div className="min-w-0">
-        <button onClick={onChangePlace} className="flex items-center gap-1 text-footnote font-medium text-label hover:text-label-2" title={t("Ort ändern")}>
-          {auto ? <NavigationArrow size={11} weight="fill" /> : <MapPin size={11} weight="fill" />} {name}
-        </button>
-        {/* The saved forecast, when Open-Meteo didn't answer: says how old it is. */}
-        <div className="text-caption text-label-3">{data.savedAt ? `${text} · ${formatAgo(Date.now() - data.savedAt)}` : text}</div>
+    <div className="flex w-[212px] shrink-0 flex-col rounded-[16px] p-3 text-white" style={{ background: sky(c.code, c.day) }}>
+      <button onClick={onChangePlace} className="flex min-w-0 items-center gap-1 self-start text-footnote font-semibold hover:opacity-80" title={t("Ort ändern")}>
+        {auto ? <NavigationArrow size={11} weight="fill" /> : <MapPin size={11} weight="fill" />}
+        <span className="truncate">{name}</span>
+      </button>
+      <div className="mt-1 flex items-center gap-2">
+        <I size={40} weight="fill" />
+        <span className="tabular text-[38px] leading-none font-semibold tracking-[-0.03em]">{formatTemp(c.temp)}</span>
       </div>
-      <div className="ms-auto flex flex-col items-end gap-0.5 text-caption text-label-3">
-        <span>{t("gefühlt {n}", { n: formatTemp(data.current.feels) })}</span>
-        <span className="flex items-center gap-1"><Wind size={11} weight="bold" /> {formatWind(data.current.wind)}</span>
-        {today && today.rain > 0 && <span className="flex items-center gap-1"><Drop size={11} weight="fill" /> {today.rain} %</span>}
+      <div className="mt-1 truncate text-footnote font-semibold">{text}</div>
+      {/* The saved forecast, when Open-Meteo didn't answer: says how old it is. */}
+      <div className="truncate text-caption text-white/75">
+        {data.savedAt ? formatAgo(Date.now() - data.savedAt) : t("gefühlt {n}", { n: formatTemp(c.feels) })}
+        {today && ` · ${formatTemp(today.min)}…${formatTemp(today.max)}`}
       </div>
+      <div className="mt-auto flex gap-1.5">
+        <Chip title={t("Wind")}>
+          <Wind size={12} weight="bold" />
+          {formatWind(c.wind)}
+          {/* Where the wind blows to: the arrow points away from where it comes from. */}
+          {c.windDir !== undefined && <NavigationArrow size={10} weight="fill" style={{ transform: `rotate(${c.windDir + 180 - 45}deg)` }} />}
+        </Chip>
+        {c.humidity !== undefined && (
+          <Chip title={t("Luftfeuchtigkeit")}>
+            <Drop size={12} weight="fill" />
+            {Math.round(c.humidity)} %
+          </Chip>
+        )}
+        {today?.mm !== undefined && (
+          <Chip title={t("Niederschlag")}>
+            <Umbrella size={12} weight="fill" />
+            {mm(today.mm)}
+          </Chip>
+        )}
+      </div>
+      {today?.sunrise && today.sunset && (
+        <div className="mt-1.5 flex gap-3 text-caption text-white/80">
+          <span className="flex items-center gap-1" title={t("Sonnenaufgang")}>
+            <SunHorizon size={12} weight="fill" /> {formatTime(new Date(today.sunrise))}
+          </span>
+          <span className="flex items-center gap-1" title={t("Sonnenuntergang")}>
+            <SunHorizon size={12} weight="regular" /> {formatTime(new Date(today.sunset))}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Chip({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <span className="tabular flex min-w-0 items-center gap-1 rounded-[8px] bg-white/15 px-1.5 py-1 text-caption font-semibold whitespace-nowrap" title={title}>
+      {children}
+    </span>
+  );
+}
+
+const mm = (v: number) => `${v >= 10 ? Math.round(v) : Math.round(v * 10) / 10} mm`;
+
+/** The next eight hours, from now: time, icon and temperature. Older saved hours are left out. */
+function Hours({ data }: { data: Forecast }) {
+  const from = Date.now() - 60 * 60_000;
+  const hours = (data.hourly ?? []).filter((h) => new Date(h.time).getTime() > from).slice(0, 8);
+  if (hours.length === 0) return null;
+  return (
+    <div className="grid shrink-0 rounded-[14px] bg-fill-1 px-1 py-1.5" style={{ gridTemplateColumns: `repeat(${hours.length}, minmax(0, 1fr))` }}>
+      {hours.map((h, i) => {
+        const { icon: I, text, hue } = describe(h.code, h.day);
+        return (
+          <div key={h.time} className="flex flex-col items-center gap-1" title={h.rain > 0 ? `${text} · ${h.rain} %` : text}>
+            <span className="text-caption text-label-3">{i === 0 ? t("Jetzt") : formatTime(new Date(h.time)).replace(/:00(?=\D|$)/, "")}</span>
+            <WeatherIcon icon={I} hue={hue} size={18} className="text-label-2" />
+            <span className="tabular text-caption font-semibold text-label">{formatTemp(h.temp)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A temperature as a colour: blue in the cold, teal, yellow, orange in the heat. */
+function heat(celsius: number): string {
+  const hue = Math.max(15, Math.min(215, 215 - (celsius + 5) * 5.5));
+  return `hsl(${hue} 85% 62%)`;
+}
+
+/** The week: day, icon, low, a bar from the low to the high on the week's own scale, high, and the rain. */
+function Week({ data }: { data: Forecast }) {
+  const lo = Math.min(...data.daily.map((d) => d.min)), hi = Math.max(...data.daily.map((d) => d.max));
+  const span = Math.max(1, hi - lo);
+  return (
+    <div className="flex min-h-0 flex-1 flex-col justify-between rounded-[14px] bg-fill-1 px-3 py-1.5">
+      {data.daily.map((d, i) => {
+        const { icon: I, text, hue } = describe(d.code);
+        const left = ((d.min - lo) / span) * 100, width = Math.max(4, ((d.max - d.min) / span) * 100);
+        return (
+          <div key={d.date} className="flex h-5 items-center gap-2" title={text}>
+            <span className={`w-11 shrink-0 truncate text-caption ${i === 0 ? "font-semibold text-label" : "text-label-2"}`}>
+              {i === 0 ? t("Heute") : weekday().format(new Date(`${d.date}T12:00:00`)).replace(".", "")}
+            </span>
+            <WeatherIcon icon={I} hue={hue} size={14} className="shrink-0 text-label-2" />
+            <span className="tabular w-8 shrink-0 text-end text-caption text-label-3">{formatTemp(d.min)}</span>
+            {/* Filled from the left in every language, like the other bars. */}
+            <span dir="ltr" className="relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-fill-2">
+              <span className="absolute inset-y-0 rounded-full" style={{ left: `${left}%`, width: `${width}%`, background: `linear-gradient(90deg, ${heat(d.min)}, ${heat(d.max)})` }} />
+            </span>
+            <span className="tabular w-8 shrink-0 text-caption font-semibold text-label">{formatTemp(d.max)}</span>
+            <span className="tabular w-12 shrink-0 text-end text-caption text-link">{d.mm ? mm(d.mm) : ""}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

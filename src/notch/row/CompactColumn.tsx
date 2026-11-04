@@ -38,6 +38,7 @@ import { Clock, clockWidth } from "./parts/Clock";
 import { TimerPart, timerWidth } from "./parts/TimerPart";
 import { DISCORD_WIDTH, DiscordPart } from "./parts/DiscordPart";
 import { GithubPart, githubWidth, useGithubToday } from "./parts/GithubPart";
+import { WeatherPart, useWeatherNow, weatherWidth } from "./parts/WeatherPart";
 
 interface Line { id: string; w: number; h: number; draw: () => ReactNode }
 
@@ -168,6 +169,7 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
   const notice = useNoticeLine(!parts);
   const gh = useGithubToday();
   const s = settings.use(), closed = s.closed;
+  const weather = useWeatherNow(parts && closed.parts.weather);
   const np = useNowPlaying();
   const playing = useHeld(!!np?.isPlaying, RELEASE_CAPTURE_MS);
   const running = timer.use().endsAt !== null;
@@ -188,6 +190,7 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
     else if (id === "discord" && call) fixed.push({ id, w: DISCORD_WIDTH, h: 20, draw: () => <DiscordPart call={call} paused={false} /> });
     else if (id === "equalizer" && np && playing) fixed.push({ id, w: 16, h: 16, draw: () => <Equalizer playing={np.isPlaying} /> });
     else if (id === "github" && gh) fixed.push({ id, w: githubWidth(gh.count), h: 16, draw: () => <GithubPart count={gh.count} level={gh.level} /> });
+    else if (id === "weather" && weather) fixed.push({ id, w: weatherWidth(weather.temp), h: 16, draw: () => <WeatherPart now={weather} /> });
     else if (id === "clock") fixed.push({ id, w: clockWidth(closed.clockSeconds, h12), h: 16, draw: () => <Clock seconds={closed.clockSeconds} h12={h12} paused={false} /> });
     else if (id === "rings" && rings.length) ringsAt = fixed.length;
     else if (id === "readings" && readings.length) {

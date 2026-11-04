@@ -24,6 +24,7 @@ import { Clock, clockWidth } from "./parts/Clock";
 import { TimerPart, timerWidth } from "./parts/TimerPart";
 import { DISCORD_WIDTH, DiscordPart } from "./parts/DiscordPart";
 import { GithubPart, githubWidth, useGithubToday } from "./parts/GithubPart";
+import { WeatherPart, useWeatherNow, weatherWidth } from "./parts/WeatherPart";
 import { NextEventPart, nextEventWidth, useNextEvent } from "./parts/NextEventPart";
 import { ScriptParts, scriptPartsWidth } from "./parts/ScriptPart";
 import { scriptParts } from "../../features/notices/store";
@@ -64,6 +65,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   const dots = usePrivacyDots();
   const awakeOn = !!awake.use();
   const gh = useGithubToday();
+  const weather = useWeatherNow(closed.parts.weather);
   const next = useNextEvent();
   const scripted = scriptParts.use();
   const dl = downloads.use();
@@ -93,6 +95,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
     else if (id === "discord" && call) fixed(id, DISCORD_WIDTH, () => <DiscordPart call={call} paused={covered} />);
     else if (id === "equalizer" && np && playing) fixed(id, 16, () => <Equalizer playing={np.isPlaying && !covered} />);
     else if (id === "github" && gh) fixed(id, githubWidth(gh.count), () => <GithubPart count={gh.count} level={gh.level} />);
+    else if (id === "weather" && weather) fixed(id, weatherWidth(weather.temp), () => <WeatherPart now={weather} />);
     else if (id === "calendar" && next) fixed(id, nextEventWidth(next.text), () => <NextEventPart text={next.text} color={next.color} />);
     else if (id === "script" && scripted.length) fixed(id, scriptPartsWidth(scripted), () => <ScriptParts parts={scripted} />);
     else if (id === "downloads" && dl.length) {

@@ -23,8 +23,12 @@ import { savedForecast, type SavedForecast } from "./stale";
  * a location you pick yourself stays.
  */
 export interface Forecast {
-  current: { temp: number; feels: number; code: number; wind: number; day: boolean };
-  daily: { date: string; code: number; max: number; min: number; rain: number }[];
+  /** humidity, windDir and precip are missing from forecasts saved before 0.5 (lastGood). */
+  current: { temp: number; feels: number; code: number; wind: number; day: boolean; humidity?: number; windDir?: number; precip?: number };
+  /** rain: chance in %; mm: amount; sunrise and sunset as local "2026-11-04T07:12". */
+  daily: { date: string; code: number; max: number; min: number; rain: number; mm?: number; sunrise?: string; sunset?: string }[];
+  /** The next hours from the current one, local "2026-11-04T15:00". */
+  hourly?: { time: string; temp: number; code: number; day: boolean; rain: number }[];
   /** Set when Open-Meteo failed and this is the last forecast fetched (stale.ts): when it was fetched. */
   savedAt?: number;
 }
@@ -66,8 +70,9 @@ export async function loadForecast(lat: number, lon: number): Promise<Forecast> 
 async function fetchForecast(lat: number, lon: number): Promise<Forecast> {
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-    "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,is_day" +
-    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=7";
+    "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,precipitation,is_day" +
+    "&hourly=temperature_2m,weather_code,is_day,precipitation_probability&forecast_hours=24" +
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset&timezone=auto&forecast_days=7";
   const res = await fetch(url);
   // A 503 ("The service is overloaded") still has a JSON body, without the forecast.
   if (!res.ok) throw new Error(`open-meteo ${res.status}`);
@@ -79,13 +84,26 @@ async function fetchForecast(lat: number, lon: number): Promise<Forecast> {
       code: r.current.weather_code,
       wind: r.current.wind_speed_10m,
       day: r.current.is_day === 1,
+      humidity: r.current.relative_humidity_2m,
+      windDir: r.current.wind_direction_10m,
+      precip: r.current.precipitation,
     },
+    hourly: r.hourly.time.map((time: string, i: number) => ({
+      time,
+      temp: r.hourly.temperature_2m[i],
+      code: r.hourly.weather_code[i],
+      day: r.hourly.is_day[i] === 1,
+      rain: r.hourly.precipitation_probability[i] ?? 0,
+    })),
     daily: r.daily.time.map((date: string, i: number) => ({
       date,
       code: r.daily.weather_code[i],
       max: r.daily.temperature_2m_max[i],
       min: r.daily.temperature_2m_min[i],
       rain: r.daily.precipitation_probability_max[i] ?? 0,
+      mm: r.daily.precipitation_sum[i] ?? 0,
+      sunrise: r.daily.sunrise[i],
+      sunset: r.daily.sunset[i],
     })),
   };
 }
@@ -150,23 +168,28 @@ export function detectPlace(force = false): Promise<boolean> {
   return detecting;
 }
 
-/** Forecast for the set location; null while loading or without a location, "error" on failure. */
-export function useForecast(): Forecast | null | "error" {
+/** Forecast for the set location; null while loading or without a location, "error" on failure. `everyMs`: read again that often (the closed row's part stays mounted for hours). */
+export function useForecast(everyMs = 0, on = true): Forecast | null | "error" {
   const place = settings.use().weather;
   const [data, setData] = useState<Forecast | null | "error">(null);
   useEffect(() => {
-    if (!place) void detectPlace();
-  }, [place]);
+    if (!place && on) void detectPlace();
+  }, [place, on]);
   useEffect(() => {
-    if (!place) return;
+    if (!place || !on) return;
     let alive = true;
-    loadForecast(place.lat, place.lon)
-      .then((d) => alive && setData(d))
-      .catch(() => alive && setData("error"));
+    const load = () =>
+      loadForecast(place.lat, place.lon)
+        .then((d) => alive && setData(d))
+        // A later failure keeps the reading there is.
+        .catch(() => alive && setData((cur) => (cur && cur !== "error" ? cur : "error")));
+    void load();
+    const id = everyMs ? window.setInterval(load, everyMs) : 0;
     return () => {
       alive = false;
+      window.clearInterval(id);
     };
-  }, [place?.lat, place?.lon]);
+  }, [place?.lat, place?.lon, everyMs, on]);
   return place ? data : null;
 }
 
