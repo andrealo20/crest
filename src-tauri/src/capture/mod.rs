@@ -1,8 +1,9 @@
-//! Capture: screenshots and screen recordings.
+//! Capture: screenshots, screen recordings and audio-only recordings (the Recorder tool).
 //!
 //! Screenshots land in Windows' Screenshots folder as PNG and on the clipboard;
-//! recordings in Videos\Crest\Recordings as MP4. While either is taken, Crest's own
-//! window is excluded from capture (WDA_EXCLUDEFROMCAPTURE), and only then.
+//! recordings in Videos\Crest\Recordings as MP4, audio-only ones in Music\Crest\Recordings as M4A.
+//! While a screenshot or screen recording is taken, Crest's own window is excluded from capture
+//! (WDA_EXCLUDEFROMCAPTURE), and only then.
 //! Recording state goes to the frontend as `capture://state`. Find on screen (find.rs)
 //! reads the screens with OCR from in-memory copies.
 
@@ -11,6 +12,7 @@ pub(crate) mod find;
 mod math;
 mod record;
 mod shot;
+mod voice;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -42,18 +44,46 @@ pub struct CaptureState {
     starting: AtomicBool,
     /// A recording is being finished (audio flushed, file written).
     stopping: AtomicBool,
+    /// A screen recording keeps Crest's windows out of capture, from its setup to its end.
+    screen: AtomicBool,
 }
 
 impl CaptureState {
     fn busy(&self) -> bool {
         self.starting.load(Ordering::SeqCst) || self.rec.lock().unwrap().is_some()
     }
+
+    /// Crest's windows are already out of capture: a screenshot need not take them out and put them back.
+    fn excluded(&self) -> bool {
+        self.screen.load(Ordering::SeqCst)
+    }
+}
+
+enum Media {
+    Screen(record::Recorder),
+    Voice(Arc<voice::Shared>),
 }
 
 struct Recording {
-    recorder: record::Recorder,
+    media: Media,
     audio: Option<audio::AudioCapture>,
     path: PathBuf,
+}
+
+impl Recording {
+    fn clock(&self) -> &Mutex<math::Clock> {
+        match &self.media {
+            Media::Screen(r) => &r.shared.clock,
+            Media::Voice(v) => &v.clock,
+        }
+    }
+
+    fn resume(&self, now: i64) {
+        match &self.media {
+            Media::Screen(r) => r.shared.resume(now),
+            Media::Voice(v) => v.clock.lock().unwrap().resume(now),
+        }
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -67,6 +97,8 @@ pub struct RecState {
     /// Inputs that could not be opened ("system", "mic"), why a recording stopped on its own
     /// ("video": capture or encoder failed), or that writing the file failed ("save").
     failed: Vec<&'static str>,
+    /// Sound only (the Recorder tool), not the screen.
+    audio: bool,
 }
 
 /// QPC now in 100 ns, the clock frames and audio packets are stamped with.
@@ -103,6 +135,10 @@ fn recordings_dir(app: &AppHandle) -> Option<PathBuf> {
     Some(app.path().video_dir().ok()?.join("Crest").join("Recordings"))
 }
 
+fn audio_dir(app: &AppHandle) -> Option<PathBuf> {
+    Some(app.path().audio_dir().ok()?.join("Crest").join("Recordings"))
+}
+
 /// A free file name in `dir` (created if missing).
 /// Errors that reach the frontend are short codes it translates (CaptureView).
 fn new_file(dir: &Path, prefix: &str, ext: &str) -> Result<PathBuf, String> {
@@ -112,7 +148,7 @@ fn new_file(dir: &Path, prefix: &str, ext: &str) -> Result<PathBuf, String> {
 
 /// For a Crest window opened while a recording runs (the floating timer): exclude it too.
 pub(crate) fn exclude_if_capturing(app: &AppHandle) {
-    if app.state::<CaptureState>().busy() {
+    if app.state::<CaptureState>().excluded() {
         exclude(app, true);
     }
 }
@@ -247,7 +283,7 @@ pub async fn capture_shot(mode: String, monitor: Option<String>, app: AppHandle,
     let own = own_hwnd(&window);
     let dir = screenshots_dir().ok_or("no-folder")?;
     tauri::async_runtime::spawn_blocking(move || {
-        let recording = app.state::<CaptureState>().busy();
+        let recording = app.state::<CaptureState>().excluded();
         if !recording {
             exclude(&app, true);
             // Let the compositor drop the windows from the next frame.
@@ -313,10 +349,10 @@ fn emit(app: &AppHandle, s: RecState) {
 
 fn current(state: &CaptureState) -> RecState {
     match state.rec.lock().unwrap().as_ref() {
-        None => RecState { phase: "idle", elapsed_ms: 0, path: None, failed: vec![] },
+        None => RecState { phase: "idle", elapsed_ms: 0, path: None, failed: vec![], audio: false },
         Some(r) => {
-            let clock = r.recorder.shared.clock.lock().unwrap();
-            RecState { phase: if clock.paused() { "paused" } else { "recording" }, elapsed_ms: clock.elapsed(now()) / 10_000, path: None, failed: vec![] }
+            let clock = r.clock().lock().unwrap();
+            RecState { phase: if clock.paused() { "paused" } else { "recording" }, elapsed_ms: clock.elapsed(now()) / 10_000, path: None, failed: vec![], audio: matches!(r.media, Media::Voice(_)) }
         }
     }
 }
@@ -326,10 +362,10 @@ pub fn capture_state(app: AppHandle) -> RecState {
     current(&app.state::<CaptureState>())
 }
 
-/// `source`: an id from `capture_sources`. `border`: keep Windows' yellow capture frame.
+/// `source`: an id from `capture_sources`, or "audio" for sound only. `border`: keep Windows' yellow capture frame.
 #[tauri::command]
 pub async fn capture_start(source: String, fps: u32, mic: bool, system: bool, border: bool, app: AppHandle) -> Result<(), String> {
-    let dir = recordings_dir(&app).ok_or("no-folder")?;
+    let dir = if source == "audio" { audio_dir(&app) } else { recordings_dir(&app) }.ok_or("no-folder")?;
     if app.state::<CaptureState>().busy() || app.state::<CaptureState>().starting.swap(true, Ordering::SeqCst) {
         return Err("busy".into());
     }
@@ -343,6 +379,9 @@ fn begin(app: &AppHandle, source: &str, fps: u32, mic: bool, system: bool, borde
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
+    if source == "audio" {
+        return begin_voice(app, mic, system, dir);
     }
     let target = if let Some(name) = source.strip_prefix("monitor:") {
         let list = monitors();
@@ -362,6 +401,7 @@ fn begin(app: &AppHandle, source: &str, fps: u32, mic: bool, system: bool, borde
     }
     let path = new_file(dir, "Recording", "mp4")?;
     unsafe { MFStartup(MF_VERSION, MFSTARTUP_FULL) }.map_err(|_| "failed")?;
+    app.state::<CaptureState>().screen.store(true, Ordering::SeqCst);
     exclude(app, true);
     let fps = if fps >= 60 { 60 } else { 30 };
     // Opening the audio takes about half a second; it runs while the encoder starts.
@@ -380,6 +420,7 @@ fn begin(app: &AppHandle, source: &str, fps: u32, mic: bool, system: bool, borde
     let recorder = match record::start(target, &path, fps, mic || system, border, now, on_end) {
         Ok(r) => r,
         Err(_) => {
+            app.state::<CaptureState>().screen.store(false, Ordering::SeqCst);
             exclude(app, false);
             drop(opening.join());
             let _ = std::fs::remove_file(&path);
@@ -391,8 +432,35 @@ fn begin(app: &AppHandle, source: &str, fps: u32, mic: bool, system: bool, borde
     };
     let (inputs, failed) = opening.join().unwrap_or_default();
     let audio = recorder.has_audio.then(|| audio::start(recorder.shared.clone(), inputs, now));
-    *app.state::<CaptureState>().rec.lock().unwrap() = Some(Recording { recorder, audio, path });
-    emit(app, RecState { phase: "recording", elapsed_ms: 0, path: None, failed });
+    *app.state::<CaptureState>().rec.lock().unwrap() = Some(Recording { media: Media::Screen(recorder), audio, path });
+    emit(app, RecState { phase: "recording", elapsed_ms: 0, path: None, failed, audio: false });
+    Ok(())
+}
+
+/// Sound only, into an M4A. Crest's windows stay visible to other capture: nothing of the screen is taken.
+fn begin_voice(app: &AppHandle, mic: bool, system: bool, dir: &Path) -> Result<(), String> {
+    if !media_foundation() {
+        return Err("no-media".into());
+    }
+    let (inputs, failed) = audio::open_inputs(system, mic);
+    if inputs.is_empty() {
+        return Err(if mic && !system { "no-mic" } else { "no-audio" }.into());
+    }
+    let path = new_file(dir, "Recording", "m4a")?;
+    unsafe { MFStartup(MF_VERSION, MFSTARTUP_FULL) }.map_err(|_| "failed")?;
+    let shared = match voice::start(&path, now()) {
+        Ok(s) => s,
+        Err(_) => {
+            let _ = std::fs::remove_file(&path);
+            unsafe {
+                let _ = MFShutdown();
+            }
+            return Err("failed".into());
+        }
+    };
+    let audio = Some(audio::start(shared.clone(), inputs, now));
+    *app.state::<CaptureState>().rec.lock().unwrap() = Some(Recording { media: Media::Voice(shared), audio, path });
+    emit(app, RecState { phase: "recording", elapsed_ms: 0, path: None, failed, audio: true });
     Ok(())
 }
 
@@ -403,9 +471,9 @@ pub async fn capture_pause(paused: bool, app: AppHandle) {
         let state = app.state::<CaptureState>();
         if let Some(r) = state.rec.lock().unwrap().as_ref() {
             if paused {
-                r.recorder.shared.clock.lock().unwrap().pause(now());
+                r.clock().lock().unwrap().pause(now());
             } else {
-                r.recorder.shared.resume(now());
+                r.resume(now());
             }
         }
         emit(&app, current(&state));
@@ -460,11 +528,15 @@ fn end(app: &AppHandle, why: Option<&'static str>, restore: bool) {
         state.stopping.store(true, Ordering::SeqCst);
         r
     };
-    let elapsed = r.recorder.shared.clock.lock().unwrap().elapsed(now()) / 10_000;
+    let elapsed = r.clock().lock().unwrap().elapsed(now()) / 10_000;
     if let Some(a) = r.audio {
         a.stop();
     }
-    let finished = r.recorder.stop().is_ok();
+    let screen = matches!(r.media, Media::Screen(_));
+    let finished = match r.media {
+        Media::Screen(recorder) => recorder.stop().is_ok(),
+        Media::Voice(v) => v.stop().is_ok(),
+    };
     // Checked after `stop`, which releases the writer and with it the file.
     // Fragmented MP4 still plays when it could not be finished: kept then ("partial"), removed only when unreadable ("save").
     let playable = finished || unsafe { MFCreateSourceReaderFromURL(&HSTRING::from(r.path.as_path()), None) }.is_ok();
@@ -477,12 +549,15 @@ fn end(app: &AppHandle, why: Option<&'static str>, restore: bool) {
     let problem = if !playable { Some("save") } else if !finished { Some("partial") } else { None };
     let failed = why.into_iter().chain(problem).collect();
     let path = playable.then(|| r.path.to_string_lossy().into_owned());
-    emit(app, RecState { phase: "idle", elapsed_ms: elapsed, path, failed });
+    emit(app, RecState { phase: "idle", elapsed_ms: elapsed, path, failed, audio: !screen });
     state.stopping.store(false, Ordering::SeqCst);
     // Last, after the file work and the flag: window handles go through the main thread, which may
     // be waiting for this stop on quit (finish_on_exit).
-    if restore {
-        exclude(app, false);
+    if screen {
+        state.screen.store(false, Ordering::SeqCst);
+        if restore {
+            exclude(app, false);
+        }
     }
 }
 
@@ -493,7 +568,7 @@ fn end(app: &AppHandle, why: Option<&'static str>, restore: bool) {
 pub struct CaptureFile {
     path: String,
     name: String,
-    /// shot | video
+    /// shot | video | audio
     kind: &'static str,
     size: u64,
     /// ms since 1970
@@ -503,7 +578,7 @@ pub struct CaptureFile {
 #[tauri::command]
 pub fn capture_list(app: AppHandle) -> Vec<CaptureFile> {
     let mut out = Vec::new();
-    for (dir, kind, ext) in [(screenshots_dir(), "shot", "png"), (old_screenshots_dir(&app), "shot", "png"), (recordings_dir(&app), "video", "mp4")] {
+    for (dir, kind, ext) in [(screenshots_dir(), "shot", "png"), (old_screenshots_dir(&app), "shot", "png"), (recordings_dir(&app), "video", "mp4"), (audio_dir(&app), "audio", "m4a")] {
         let Some(entries) = dir.and_then(|d| std::fs::read_dir(d).ok()) else { continue };
         for e in entries.flatten() {
             let p = e.path();
@@ -602,13 +677,13 @@ unsafe fn bitmap_thumb(bmp: HBITMAP) -> Option<String> {
     }
 }
 
-/// Moves a capture to the Recycle Bin. Only files in the two capture folders.
+/// Moves a capture to the Recycle Bin. Only files in the capture folders.
 #[tauri::command]
 pub fn capture_delete(path: String, app: AppHandle) -> Result<(), String> {
     let p = Path::new(&path);
     let parent = p.parent().and_then(|d| d.canonicalize().ok());
-    let inside = [screenshots_dir(), old_screenshots_dir(&app), recordings_dir(&app)].into_iter().flatten().filter_map(|d| d.canonicalize().ok()).any(|d| Some(&d) == parent.as_ref());
-    let ext_ok = p.extension().is_some_and(|x| x.eq_ignore_ascii_case("png") || x.eq_ignore_ascii_case("mp4"));
+    let inside = [screenshots_dir(), old_screenshots_dir(&app), recordings_dir(&app), audio_dir(&app)].into_iter().flatten().filter_map(|d| d.canonicalize().ok()).any(|d| Some(&d) == parent.as_ref());
+    let ext_ok = p.extension().is_some_and(|x| ["png", "mp4", "m4a"].iter().any(|e| x.eq_ignore_ascii_case(e)));
     if !inside || !ext_ok || !p.is_file() {
         return Err("not-capture".into());
     }
@@ -663,6 +738,33 @@ mod live {
         audio.stop();
         drop(recorder);
         assert_eq!(streams(&path), 2);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    /// Two seconds of system audio into an M4A, with a half-second pause left out.
+    #[test]
+    #[ignore]
+    fn records_a_playable_m4a() {
+        init();
+        let path = std::env::temp_dir().join("crest-capture-voice.m4a");
+        let _ = std::fs::remove_file(&path);
+        let (inputs, failed) = audio::open_inputs(true, false);
+        assert!(failed.is_empty(), "{failed:?}");
+        let shared = voice::start(&path, now()).unwrap();
+        let audio = audio::start(shared.clone(), inputs, now);
+        std::thread::sleep(std::time::Duration::from_millis(1000));
+        shared.clock.lock().unwrap().pause(now());
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        shared.clock.lock().unwrap().resume(now());
+        std::thread::sleep(std::time::Duration::from_millis(1000));
+        audio.stop();
+        shared.stop().unwrap();
+        assert_eq!(streams(&path), 1);
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        }
+        let ms = details(path.to_string_lossy().into_owned()).duration_ms.unwrap_or(0);
+        assert!((1900..=2300).contains(&ms), "{ms}");
         std::fs::remove_file(&path).unwrap();
     }
 

@@ -11,10 +11,10 @@ import type { RecClock } from "./clock";
  * tells the library to reload.
  */
 
-export const recording = createStore<RecClock & { failed: string[] }>({ phase: "idle", elapsedMs: 0, at: 0, failed: [] });
+export const recording = createStore<RecClock & { failed: string[]; audio: boolean }>({ phase: "idle", elapsedMs: 0, at: 0, failed: [], audio: false });
 
 export interface Saved {
-  kind: "shot" | "video";
+  kind: "shot" | "video" | "audio";
   path: string;
   thumb: string | null;
   /** Date.now() when saved, so a second save in a row shows again. */
@@ -25,9 +25,9 @@ export const saved = createStore<Saved | null>(null);
 export const libraryEpoch = createStore(0);
 
 function apply(s: CaptureRecState) {
-  recording.set({ phase: s.phase, elapsedMs: s.elapsedMs, at: Date.now(), failed: s.failed });
+  recording.set({ phase: s.phase, elapsedMs: s.elapsedMs, at: Date.now(), failed: s.failed, audio: s.audio });
   if (s.phase === "idle" && s.path) {
-    if (!s.failed.includes("save")) saved.set({ kind: "video", path: s.path, thumb: null, at: Date.now() });
+    if (!s.failed.includes("save")) saved.set({ kind: s.audio ? "audio" : "video", path: s.path, thumb: null, at: Date.now() });
     libraryEpoch.set((n) => n + 1);
   }
 }
@@ -49,18 +49,18 @@ export async function takeShot(mode: "all" | "monitor" | "region", monitor: stri
 export async function startRecording(source: string, fps: number, mic: boolean, system: boolean, border: boolean) {
   await capture.start(source, fps, mic, system, border);
   // In the browser there is no Rust to report back.
-  if (!isNative) apply({ phase: "recording", elapsedMs: 0, path: null, failed: [] });
+  if (!isNative) apply({ phase: "recording", elapsedMs: 0, path: null, failed: [], audio: source === "audio" });
 }
 
 export function pauseRecording(paused: boolean) {
   void capture.pause(paused);
   if (!isNative) {
     const r = recording.get();
-    apply({ phase: paused ? "paused" : "recording", elapsedMs: r.elapsedMs + (r.phase === "recording" ? Date.now() - r.at : 0), path: null, failed: [] });
+    apply({ phase: paused ? "paused" : "recording", elapsedMs: r.elapsedMs + (r.phase === "recording" ? Date.now() - r.at : 0), path: null, failed: [], audio: r.audio });
   }
 }
 
 export function stopRecording() {
   void capture.stop();
-  if (!isNative) apply({ phase: "idle", elapsedMs: 0, path: null, failed: [] });
+  if (!isNative) apply({ phase: "idle", elapsedMs: 0, path: null, failed: [], audio: recording.get().audio });
 }

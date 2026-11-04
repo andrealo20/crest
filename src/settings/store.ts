@@ -137,6 +137,8 @@ export interface Settings {
    * screenshots also go on the Shelf, and whether Windows' yellow frame marks what is recorded.
    */
   capture: { shotTarget: string; source: string | null; fps: 30 | 60; mic: boolean; system: boolean; shelf: boolean; border: boolean };
+  /** Recorder tool: which inputs a sound-only recording takes, and whether its note on consent was read. */
+  recorder: { mic: boolean; system: boolean; noted: boolean };
   /** Camera tool: the camera picked by its deviceId ("" = the first one) and whether the picture is mirrored. */
   camera: { deviceId: string; mirror: boolean };
   /** First-run setup (src/features/setup) finished or skipped. Settings saved without the field come from an older version, which counts as done. */
@@ -168,10 +170,11 @@ export const TOOL_IDS = [
   "calendar",
   "notices",
   "capture",
+  "recorder",
   "camera",
 ] as const;
 
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "calendar", "notices", "camera"]);
+const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "calendar", "notices", "recorder", "camera"]);
 
 const defaults: Settings = {
   openMode: "hover",
@@ -226,6 +229,7 @@ const defaults: Settings = {
   behavior: WINDOW_DEFAULTS,
   dock: DOCK_DEFAULTS,
   capture: { shotTarget: "all", source: null, fps: 30, mic: false, system: true, shelf: false, border: true },
+  recorder: { mic: true, system: true, noted: false },
   camera: { deviceId: "", mirror: true },
   setup: { done: false },
 };
@@ -308,6 +312,7 @@ settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
     github: { ...defaults.github, ...s.github },
     calendar: normalizeCalendar(s.calendar),
     capture: { ...defaults.capture, ...s.capture },
+    recorder: { ...defaults.recorder, ...s.recorder },
     camera: { ...defaults.camera, ...s.camera },
     closed: normalizeClosed(s.closed),
     closedSize: normalizeClosedSize(s.closedSize),

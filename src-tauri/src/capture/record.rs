@@ -279,23 +279,66 @@ impl Shared {
     pub fn write_audio(&self, time: i64, samples: &[i16]) -> Result<()> {
         let w = self.writer.lock().unwrap();
         let (Some(stream), Some(sink), false) = (w.audio, w.sink.as_ref(), w.done) else { return Ok(()) };
-        if samples.is_empty() {
-            return Ok(());
-        }
-        unsafe {
-            let bytes = std::mem::size_of_val(samples) as u32;
-            let buffer = MFCreateMemoryBuffer(bytes)?;
-            let mut ptr = std::ptr::null_mut();
-            buffer.Lock(&mut ptr, None, None)?;
-            std::ptr::copy_nonoverlapping(samples.as_ptr() as *const u8, ptr, bytes as usize);
-            buffer.Unlock()?;
-            buffer.SetCurrentLength(bytes)?;
-            let sample = MFCreateSample()?;
-            sample.AddBuffer(&buffer)?;
-            sample.SetSampleTime(time)?;
-            sample.SetSampleDuration(super::math::to_time((samples.len() / AUDIO_CHANNELS as usize) as i64, AUDIO_RATE as i64))?;
-            sink.WriteSample(stream, &sample)
-        }
+        unsafe { write_pcm(sink, stream, time, samples) }
+    }
+}
+
+impl super::audio::AudioSink for Shared {
+    fn clock(&self) -> &Mutex<Clock> {
+        &self.clock
+    }
+    fn write_audio(&self, time: i64, samples: &[i16]) -> Result<()> {
+        Shared::write_audio(self, time, samples)
+    }
+    fn tick(&self, media: i64) {
+        Shared::tick(self, media)
+    }
+}
+
+/// Interleaved 16-bit stereo PCM at media time `time` into the writer's audio `stream` (screen recordings and voice.rs).
+pub(super) unsafe fn write_pcm(sink: &IMFSinkWriter, stream: u32, time: i64, samples: &[i16]) -> Result<()> {
+    if samples.is_empty() {
+        return Ok(());
+    }
+    unsafe {
+        let bytes = std::mem::size_of_val(samples) as u32;
+        let buffer = MFCreateMemoryBuffer(bytes)?;
+        let mut ptr = std::ptr::null_mut();
+        buffer.Lock(&mut ptr, None, None)?;
+        std::ptr::copy_nonoverlapping(samples.as_ptr() as *const u8, ptr, bytes as usize);
+        buffer.Unlock()?;
+        buffer.SetCurrentLength(bytes)?;
+        let sample = MFCreateSample()?;
+        sample.AddBuffer(&buffer)?;
+        sample.SetSampleTime(time)?;
+        sample.SetSampleDuration(super::math::to_time((samples.len() / AUDIO_CHANNELS as usize) as i64, AUDIO_RATE as i64))?;
+        sink.WriteSample(stream, &sample)
+    }
+}
+
+/// An AAC stream (192 kbit/s, 48 kHz stereo) fed with 16-bit PCM, added to `sink` before it begins writing.
+pub(super) unsafe fn add_audio_stream(sink: &IMFSinkWriter) -> Result<u32> {
+    unsafe {
+        let block = AUDIO_CHANNELS * 2;
+        let out = MFCreateMediaType()?;
+        out.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Audio)?;
+        out.SetGUID(&MF_MT_SUBTYPE, &MFAudioFormat_AAC)?;
+        out.SetUINT32(&MF_MT_AUDIO_BITS_PER_SAMPLE, 16)?;
+        out.SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, AUDIO_RATE)?;
+        out.SetUINT32(&MF_MT_AUDIO_NUM_CHANNELS, AUDIO_CHANNELS)?;
+        // 192 kbit/s, one of the four rates the AAC encoder accepts.
+        out.SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 24_000)?;
+        let stream = sink.AddStream(&out)?;
+        let input = MFCreateMediaType()?;
+        input.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Audio)?;
+        input.SetGUID(&MF_MT_SUBTYPE, &MFAudioFormat_PCM)?;
+        input.SetUINT32(&MF_MT_AUDIO_BITS_PER_SAMPLE, 16)?;
+        input.SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, AUDIO_RATE)?;
+        input.SetUINT32(&MF_MT_AUDIO_NUM_CHANNELS, AUDIO_CHANNELS)?;
+        input.SetUINT32(&MF_MT_AUDIO_BLOCK_ALIGNMENT, block)?;
+        input.SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, AUDIO_RATE * block)?;
+        sink.SetInputMediaType(stream, &input, None)?;
+        Ok(stream)
     }
 }
 
@@ -454,30 +497,7 @@ unsafe fn open_sink(path: &Path, (w, h): (u32, u32), fps: u32, audio: bool, mana
         input.SetUINT32(&MF_MT_DEFAULT_STRIDE, w * 4)?;
         sink.SetInputMediaType(video, &input, None)?;
 
-        let audio = if audio {
-            let block = AUDIO_CHANNELS * 2;
-            let out = MFCreateMediaType()?;
-            out.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Audio)?;
-            out.SetGUID(&MF_MT_SUBTYPE, &MFAudioFormat_AAC)?;
-            out.SetUINT32(&MF_MT_AUDIO_BITS_PER_SAMPLE, 16)?;
-            out.SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, AUDIO_RATE)?;
-            out.SetUINT32(&MF_MT_AUDIO_NUM_CHANNELS, AUDIO_CHANNELS)?;
-            // 192 kbit/s, one of the four rates the AAC encoder accepts.
-            out.SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 24_000)?;
-            let stream = sink.AddStream(&out)?;
-            let input = MFCreateMediaType()?;
-            input.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Audio)?;
-            input.SetGUID(&MF_MT_SUBTYPE, &MFAudioFormat_PCM)?;
-            input.SetUINT32(&MF_MT_AUDIO_BITS_PER_SAMPLE, 16)?;
-            input.SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, AUDIO_RATE)?;
-            input.SetUINT32(&MF_MT_AUDIO_NUM_CHANNELS, AUDIO_CHANNELS)?;
-            input.SetUINT32(&MF_MT_AUDIO_BLOCK_ALIGNMENT, block)?;
-            input.SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, AUDIO_RATE * block)?;
-            sink.SetInputMediaType(stream, &input, None)?;
-            Some(stream)
-        } else {
-            None
-        };
+        let audio = if audio { Some(add_audio_stream(&sink)?) } else { None };
         sink.BeginWriting()?;
         Ok((sink, video, audio))
     }

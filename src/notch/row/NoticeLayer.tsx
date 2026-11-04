@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, ArrowFatLineUp, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, CheckCircle, DeviceMobile, FilmStrip, GameController, Headphones, Keyboard, Mouse, NumberSquareOne, Pause, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Watch, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
+import { AlarmIcon, ArrowFatLineUp, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, CheckCircle, DeviceMobile, FilmStrip, GameController, Headphones, Keyboard, Mouse, NumberSquareOne, Pause, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Watch, Waveform, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
 import { pauseRecording, recording, saved, stopRecording, type Saved } from "../../features/capture/store";
 import { elapsedAt, formatElapsed } from "../../features/capture/clock";
 import { openFile } from "../../platform/services";
@@ -179,7 +179,7 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
       </span>
     );
   } else if (kind === "saved" && shot) {
-    const label = shot.kind === "shot" ? t("Bildschirmfoto gespeichert") : t("Aufnahme gespeichert");
+    const label = shot.kind === "shot" ? t("Bildschirmfoto gespeichert") : shot.kind === "audio" ? t("Tonaufnahme gespeichert") : t("Aufnahme gespeichert");
     width = (shot.thumb ? THUMB_W : ICON) + GAP + measureText(label);
     key = `saved:${shot.at}`;
     body = (
@@ -198,6 +198,8 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
       >
         {shot.thumb ? (
           <img src={shot.thumb} alt="" draggable={false} className="h-[18px] rounded-[4px] object-cover" style={{ width: THUMB_W }} />
+        ) : shot.kind === "audio" ? (
+          <Waveform size={ICON} weight="fill" />
         ) : (
           <FilmStrip size={ICON} weight="fill" />
         )}

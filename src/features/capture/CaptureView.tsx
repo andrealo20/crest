@@ -94,7 +94,7 @@ export function CaptureView() {
 
       <div className="flex h-7 items-center gap-2">
         <span className="min-w-[84px] shrink-0 whitespace-nowrap text-footnote text-label-2">{t("Video")}</span>
-        {idle ? (
+        {idle || rec.audio ? (
           <>
             <Select
               value={source}
@@ -105,7 +105,7 @@ export function CaptureView() {
             <Segmented id="capture-fps" size="sm" value={String(cfg.fps)} options={[{ value: "30", label: "30" }, { value: "60", label: "60" }]} onChange={(v) => setCapture({ fps: v === "60" ? 60 : 30 })} />
             <Toggle on={cfg.mic} icons={[Microphone, MicrophoneSlash]} labels={[t("Mit Mikrofon"), t("Ohne Mikrofon")]} onChange={(mic) => setCapture({ mic })} />
             <Toggle on={cfg.system} icons={[SpeakerHigh, SpeakerSlash]} labels={[t("Mit Systemton"), t("Ohne Systemton")]} onChange={(system) => setCapture({ system })} />
-            <Button icon={Record} primary disabled={busy || !source} onClick={record}>
+            <Button icon={Record} primary disabled={busy || !source || !idle} onClick={record}>
               {starting ? t("Startet …") : t("Aufzeichnen")}
             </Button>
           </>
@@ -128,7 +128,7 @@ export function CaptureView() {
 }
 
 /** Rust sends short codes (src-tauri/src/capture); anything unknown gets the action's own message. */
-function errorText(code: string, fallback: string): string {
+export function errorText(code: string, fallback: string): string {
   const known: Record<string, string> = {
     busy: t("Es läuft schon eine Aufnahme"),
     "window-closed": t("Das Fenster ist geschlossen"),
@@ -139,11 +139,13 @@ function errorText(code: string, fallback: string): string {
     "not-capture": t("Keine Aufnahme von Crest"),
     "delete-failed": t("Löschen fehlgeschlagen"),
     "no-media": t("Für Aufnahmen fehlt das Media Feature Pack von Windows"),
+    "no-mic": t("Mikrofon nicht verfügbar"),
+    "no-audio": t("Kein Ton verfügbar"),
   };
   return known[code] ?? fallback;
 }
 
-function failureText(failed: string[]): string | null {
+export function failureText(failed: string[]): string | null {
   if (failed.includes("save")) return t("Die Aufnahme konnte nicht gespeichert werden");
   if (failed.includes("video")) return t("Aufnahme gestoppt: Bild oder Encoder ausgefallen");
   if (failed.includes("partial")) return t("Aufnahme vorzeitig beendet, das Aufgenommene ist gespeichert");
@@ -152,7 +154,7 @@ function failureText(failed: string[]): string | null {
 }
 
 /** Elapsed time with pause/resume and stop, in place of the recording options. */
-function Running() {
+export function Running() {
   const rec = recording.use();
   const running = rec.phase === "recording";
   useSecondTick(running, rec.at);
@@ -174,7 +176,7 @@ function Running() {
   );
 }
 
-function Toggle(props: { on: boolean; icons: [Icon, Icon]; labels: [string, string]; onChange: (on: boolean) => void }) {
+export function Toggle(props: { on: boolean; icons: [Icon, Icon]; labels: [string, string]; onChange: (on: boolean) => void }) {
   const I = props.on ? props.icons[0] : props.icons[1];
   const label = props.on ? props.labels[0] : props.labels[1];
   return (
@@ -196,8 +198,8 @@ function Toggle(props: { on: boolean; icons: [Icon, Icon]; labels: [string, stri
 const LIBRARY_MAX = 60;
 
 /** Thumbnails and durations by path and modification time, kept while the app runs. */
-const detailCache = new Map<string, CaptureDetails>();
-const cacheKey = (f: CaptureFile) => `${f.path}|${f.modified}`;
+export const detailCache = new Map<string, CaptureDetails>();
+export const cacheKey = (f: CaptureFile) => `${f.path}|${f.modified}`;
 
 function Library() {
   const epoch = libraryEpoch.use();
@@ -211,7 +213,8 @@ function Library() {
     return () => void (alive = false);
   }, [epoch]);
 
-  const shown = files.filter((f) => filter === "all" || f.kind === filter).slice(0, LIBRARY_MAX);
+  // Sound-only recordings are the Recorder tool's.
+  const shown = files.filter((f) => f.kind !== "audio" && (filter === "all" || f.kind === filter)).slice(0, LIBRARY_MAX);
 
   // Details only for the cards on screen: the newest of the chosen filter.
   const missingKey = shown.filter((f) => !detailCache.has(cacheKey(f))).map(cacheKey).join("\n");
@@ -269,7 +272,7 @@ function Library() {
   );
 }
 
-function when(ms: number): string {
+export function when(ms: number): string {
   const d = new Date(ms);
   const today = new Date().toDateString() === d.toDateString();
   const day = today ? t("Heute") : new Intl.DateTimeFormat(locale(), { day: "numeric", month: "short" }).format(d);
@@ -281,19 +284,7 @@ function Card({ file, details, onDeleted }: { file: CaptureFile; details?: Captu
   const I = video ? FilmStrip : ImageSquare;
   // A thumbnail can show anything that was on screen: only the icon while presenting.
   const thumb = usePresenting() ? null : details?.thumb;
-  // Delete takes a second click within a few seconds.
-  const [armed, setArmed] = useState(false);
-  const disarm = useRef(0);
-  useEffect(() => () => window.clearTimeout(disarm.current), []);
-  const onDelete = () => {
-    if (!armed) {
-      setArmed(true);
-      disarm.current = window.setTimeout(() => setArmed(false), 3000);
-      return;
-    }
-    window.clearTimeout(disarm.current);
-    void capture.remove(file.path).then(onDeleted, () => setArmed(false));
-  };
+  const [armed, onDelete] = useDelete(file.path, onDeleted);
 
   return (
     <div className="relative flex size-full flex-col overflow-hidden rounded-[14px] bg-fill-1">
@@ -324,7 +315,24 @@ function Card({ file, details, onDeleted }: { file: CaptureFile; details?: Captu
   );
 }
 
-function IconBtn({ label, icon: I, onClick, danger }: { label: string; icon: Icon; onClick: () => void; danger?: boolean }) {
+/** Delete takes a second click within a few seconds: [armed, click]. */
+export function useDelete(path: string, onDeleted: () => void): [boolean, () => void] {
+  const [armed, setArmed] = useState(false);
+  const disarm = useRef(0);
+  useEffect(() => () => window.clearTimeout(disarm.current), []);
+  const onDelete = () => {
+    if (!armed) {
+      setArmed(true);
+      disarm.current = window.setTimeout(() => setArmed(false), 3000);
+      return;
+    }
+    window.clearTimeout(disarm.current);
+    void capture.remove(path).then(onDeleted, () => setArmed(false));
+  };
+  return [armed, onDelete];
+}
+
+export function IconBtn({ label, icon: I, onClick, danger }: { label: string; icon: Icon; onClick: () => void; danger?: boolean }) {
   return (
     <button aria-label={label} title={label} onClick={onClick} className={`pressable flex size-5 items-center justify-center ${danger ? "text-red" : "text-label-3 hover:text-label"}`}>
       <I size={12} weight={danger ? "fill" : "bold"} />

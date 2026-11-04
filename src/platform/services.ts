@@ -1355,12 +1355,14 @@ export interface CaptureRecState {
   path: string | null;
   /** Inputs that could not be opened ("system", "mic"), or "save" when writing the file failed. */
   failed: string[];
+  /** Sound only (the Recorder tool), not the screen. */
+  audio: boolean;
 }
 
 export interface CaptureFile {
   path: string;
   name: string;
-  kind: "shot" | "video";
+  kind: "shot" | "video" | "audio";
   size: number;
   modified: number;
 }
@@ -1400,6 +1402,7 @@ function showcaseCaptures(): CaptureFile[] {
     { path: "C:/Users/demo/Videos/Captures/Crest 1.mp4", name: "Crest 1.mp4", kind: "video", size: 48_600_000, modified: now - 3 * 60_000 },
     { path: "C:/Users/demo/Pictures/Screenshots/Crest 2.png", name: "Crest 2.png", kind: "shot", size: 1_120_000, modified: now - 40 * 60_000 },
     { path: "C:/Users/demo/Pictures/Screenshots/Crest 3.png", name: "Crest 3.png", kind: "shot", size: 2_040_000, modified: now - 26 * 3_600_000 },
+    { path: "C:/Users/demo/Music/Crest/Recordings/Recording 4.m4a", name: "Recording 4.m4a", kind: "audio", size: 1_010_000, modified: now - 90 * 60_000 },
   ];
 }
 
@@ -1414,14 +1417,14 @@ export const capture = {
   /** null when the region pick was cancelled. */
   shot: (mode: "all" | "monitor" | "region", monitor: string | null): Promise<CaptureShot | null> =>
     isNative ? invoke<CaptureShot | null>("capture_shot", { mode, monitor }) : Promise.resolve(null),
-  state: (): Promise<CaptureRecState> => (isNative ? invoke<CaptureRecState>("capture_state") : Promise.resolve({ phase: "idle", elapsedMs: 0, path: null, failed: [] })),
+  state: (): Promise<CaptureRecState> => (isNative ? invoke<CaptureRecState>("capture_state") : Promise.resolve({ phase: "idle", elapsedMs: 0, path: null, failed: [], audio: false })),
   start: (source: string, fps: number, mic: boolean, system: boolean, border: boolean): Promise<void> =>
     isNative ? invoke("capture_start", { source, fps, mic, system, border }) : Promise.resolve(),
   pause: (paused: boolean): Promise<void> => (isNative ? invoke("capture_pause", { paused }) : Promise.resolve()),
   stop: (): Promise<void> => (isNative ? invoke("capture_stop") : Promise.resolve()),
   list: (): Promise<CaptureFile[]> => (isNative ? invoke<CaptureFile[]>("capture_list") : Promise.resolve(showcase ? showcaseCaptures() : [])),
   details: (paths: string[]): Promise<CaptureDetails[]> =>
-    isNative ? invoke<CaptureDetails[]>("capture_details", { paths }) : Promise.resolve(paths.map((path) => ({ path, thumb: showcaseThumb(path), durationMs: path.endsWith(".mp4") ? 42_000 : null }))),
+    isNative ? invoke<CaptureDetails[]>("capture_details", { paths }) : Promise.resolve(paths.map((path) => ({ path, thumb: showcaseThumb(path), durationMs: path.endsWith(".mp4") || path.endsWith(".m4a") ? 42_000 : null }))),
   remove: (path: string): Promise<void> => (isNative ? invoke("capture_delete", { path }) : Promise.resolve()),
   /** Find on screen: every monitor read with OCR, nothing saved. Rejects with "timeout", "no-ocr" or "failed". */
   findScan: (): Promise<FoundLine[]> => (isNative ? invoke<FoundLine[]>("find_scan") : new Promise((done) => setTimeout(() => done(mockFound), 600))),

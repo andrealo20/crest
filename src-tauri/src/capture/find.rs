@@ -57,7 +57,7 @@ fn scan(app: &AppHandle) -> std::result::Result<Vec<FoundLine>, String> {
     }
     let engine = engine().map_err(|_| "no-ocr")?;
     let list = monitors();
-    let recording = app.state::<CaptureState>().busy();
+    let recording = app.state::<CaptureState>().excluded();
     if !recording {
         exclude(app, true);
         // Let the compositor drop the windows from the next frame.

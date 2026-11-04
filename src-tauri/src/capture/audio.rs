@@ -1,5 +1,5 @@
-//! Audio for recordings: system audio (WASAPI loopback of the default output) and the
-//! default microphone, mixed into one stereo track.
+//! Audio for recordings (a screen recording's track, or an audio-only one): system audio (WASAPI loopback of the default
+//! output) and the default microphone, mixed into one stereo track.
 //!
 //! Both are opened in shared mode asking Windows for 48 kHz stereo 16-bit
 //! (AUTOCONVERTPCM), so no resampling happens here. Every packet carries the QPC time
@@ -8,7 +8,7 @@
 //! When Windows drops an input (default device changed, unplugged), it is opened again.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -16,13 +16,23 @@ use windows::core::Result;
 use windows::Win32::Media::Audio::*;
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
 
-use super::math::{to_frames, to_time, Mixer};
-use super::record::{Shared, AUDIO_CHANNELS, AUDIO_RATE};
+use super::math::{to_frames, to_time, Clock, Mixer};
+use super::record::{AUDIO_CHANNELS, AUDIO_RATE};
 
 const TICK: Duration = Duration::from_millis(10);
 const RETRY: Duration = Duration::from_millis(500);
 /// How far writing trails the clock (100 ns): above the usual device latency plus a tick.
 const DELAY: i64 = 1_500_000;
+
+/// Where the mixed track goes: a screen recording (record.rs) or an audio-only one (voice.rs).
+pub trait AudioSink: Send + Sync + 'static {
+    /// The pause clock: packet times become media times through it.
+    fn clock(&self) -> &Mutex<Clock>;
+    /// Interleaved 16-bit stereo PCM at media time `time`.
+    fn write_audio(&self, time: i64, samples: &[i16]) -> Result<()>;
+    /// Every tick with the media time written up to; a screen recording keeps a still video stream moving with it.
+    fn tick(&self, _media: i64) {}
+}
 
 pub struct Input {
     client: IAudioClient,
@@ -59,7 +69,7 @@ pub fn open_inputs(system: bool, mic: bool) -> (Vec<Input>, Failed) {
 }
 
 /// Starts the thread that reads the inputs and writes the mixed track.
-pub fn start(shared: Arc<Shared>, inputs: Vec<Input>, now: fn() -> i64) -> AudioCapture {
+pub fn start<S: AudioSink>(shared: Arc<S>, inputs: Vec<Input>, now: fn() -> i64) -> AudioCapture {
     let stop = Arc::new(AtomicBool::new(false));
     let flag = stop.clone();
     let thread = thread::spawn(move || {
@@ -67,7 +77,7 @@ pub fn start(shared: Arc<Shared>, inputs: Vec<Input>, now: fn() -> i64) -> Audio
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         }
         let mut slots: Vec<Slot> = inputs.into_iter().map(|i| Slot { loopback: i.loopback, input: Some(i), retry: Instant::now() }).collect();
-        run(&shared, &mut slots, &flag, now);
+        run(&*shared, &mut slots, &flag, now);
         for i in slots.into_iter().filter_map(|s| s.input) {
             let _ = unsafe { i.client.Stop() };
         }
@@ -119,7 +129,7 @@ struct Slot {
     retry: Instant,
 }
 
-fn run(shared: &Shared, slots: &mut [Slot], stop: &AtomicBool, now: fn() -> i64) {
+fn run<S: AudioSink>(shared: &S, slots: &mut [Slot], stop: &AtomicBool, now: fn() -> i64) {
     let rate = AUDIO_RATE as i64;
     let mut mixer = Mixer::new(slots.len(), rate);
     loop {
@@ -140,7 +150,7 @@ fn run(shared: &Shared, slots: &mut [Slot], stop: &AtomicBool, now: fn() -> i64)
             }
         }
         // At the end everything up to now goes out, without the delay.
-        let elapsed = shared.clock.lock().unwrap().elapsed(now()) - if last { 0 } else { DELAY };
+        let elapsed = shared.clock().lock().unwrap().elapsed(now()) - if last { 0 } else { DELAY };
         let (from, samples) = mixer.take(to_frames(elapsed.max(0), rate));
         let _ = shared.write_audio(to_time(from, rate), &samples);
         shared.tick(elapsed.max(0));
@@ -150,7 +160,7 @@ fn run(shared: &Shared, slots: &mut [Slot], stop: &AtomicBool, now: fn() -> i64)
     }
 }
 
-fn drain(shared: &Shared, input: &Input, index: usize, mixer: &mut Mixer) -> Result<()> {
+fn drain<S: AudioSink>(shared: &S, input: &Input, index: usize, mixer: &mut Mixer) -> Result<()> {
     let rate = AUDIO_RATE as i64;
     unsafe {
         while input.capture.GetNextPacketSize()? > 0 {
@@ -160,7 +170,7 @@ fn drain(shared: &Shared, input: &Input, index: usize, mixer: &mut Mixer) -> Res
             let silent = flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 != 0 || data.is_null();
             let lost = flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY.0 as u32 != 0;
             // Packets from inside a pause have no media time and are dropped.
-            if let Some(t) = shared.clock.lock().unwrap().media(qpc as i64) {
+            if let Some(t) = shared.clock().lock().unwrap().media(qpc as i64) {
                 if silent {
                     mixer.add(index, to_frames(t, rate), &vec![0; n], lost);
                 } else {
