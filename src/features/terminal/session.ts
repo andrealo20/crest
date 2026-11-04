@@ -171,6 +171,19 @@ export function focusTerminal() {
   term?.focus();
 }
 
+/** A command asked for before the shell ran (runInTerminal): sent once it does, even if a start was replaced meanwhile. */
+let pending = "";
+
+/** Types `command` and Enter into the shell, starting one if none runs. The caller opens the Terminal tool to show it. */
+export function runInTerminal(command: string) {
+  // Enter as the shell gets it from a key press (a CR typed into a template literal would turn into LF).
+  const line = command + "\r";
+  const state = sessionState.get();
+  if (state === "running") return void send(line);
+  pending += line;
+  if (state !== "starting") void start();
+}
+
 /** Starts a new shell, replacing a running one. */
 export async function start() {
   const { term } = await ensureTerminal();
@@ -190,7 +203,9 @@ export async function start() {
     await pty.start(plan, term.cols, term.rows, (m) => onMessage(id, m));
     if (id === generation) {
       sessionState.set("running");
-      void send("");
+      const command = pending;
+      pending = "";
+      void send(command);
     }
     // Ended while it was starting (a newer start replaces it in Rust by itself).
     else if (sessionState.get() === "idle") pty.kill();

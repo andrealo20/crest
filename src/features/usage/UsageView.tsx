@@ -7,7 +7,9 @@ import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
 import { requestSize } from "../../notch/size";
 import type { UsageBalance, UsageId, UsageProvider, UsageWindow } from "../../platform/services";
+import { isMac, isNative } from "../../platform/native";
 import { settings } from "../../settings/store";
+import { runInTerminal } from "../terminal/session";
 import { BrandLogo, brandName } from "../../ui/brands";
 import { Button, Empty, Skeleton } from "../../ui/controls";
 import { t } from "../../i18n";
@@ -74,6 +76,8 @@ const TOKEN_TOOL: Partial<Record<UsageId, "claude" | "codex">> = { claude: "clau
 export function UsageView() {
   useUsageViewer();
   const s = settings.use();
+  // Crest's terminal: Windows only, and only while the tool is in the tool bar.
+  const terminalShown = isNative && !isMac && s.tools.some((x) => x.id === "terminal" && x.enabled);
   const ids = shownIds(s.aiUsage.order, s.usage);
   const { providers, loading, updatedAt } = usage.use();
   const [page, setPage] = useState<"cards" | "models">("cards");
@@ -191,6 +195,18 @@ export function UsageView() {
                       <WarningCircle size={12} weight="bold" className="mt-px shrink-0" />
                       <span>{status}</span>
                     </div>
+                  )}
+                  {/* Starting claude once renews its sign-in, which Crest then reads (Windows: Crest's terminal is Windows only). */}
+                  {p.error === "claude-expired" && terminalShown && (
+                    <button
+                      className="mb-1 text-link hover:underline"
+                      onClick={() => {
+                        runInTerminal("claude");
+                        navigate("terminal");
+                      }}
+                    >
+                      {t("Im Terminal erneuern")}
+                    </button>
                   )}
                   {p.error ? t("Stand {ago}", { ago: formatAgo(now - p.updatedAt!) }) : formatAgo(now - p.updatedAt!)}
                 </div>
