@@ -61,7 +61,8 @@ export function CaptureView() {
     void run(() => startRecording(source, cfg.fps, cfg.mic, cfg.system, cfg.border), t("Aufnahme konnte nicht starten")).finally(() => setStarting(false));
   };
 
-  const warning = error ?? failureText(rec.failed);
+  // A sound-only recording is the Recorder's: here it only says why Record waits.
+  const warning = error ?? (rec.audio ? (idle ? null : t("Es läuft schon eine Aufnahme")) : failureText(rec.failed));
 
   return (
     <div className="flex h-full flex-col gap-2 px-4 pt-1 pb-2">

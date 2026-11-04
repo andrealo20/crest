@@ -49,8 +49,9 @@ pub struct CaptureState {
 }
 
 impl CaptureState {
+    /// Also while one is finishing: its slot is empty by then, and a new start would race its last `idle` and its exclusion.
     fn busy(&self) -> bool {
-        self.starting.load(Ordering::SeqCst) || self.rec.lock().unwrap().is_some()
+        self.starting.load(Ordering::SeqCst) || self.stopping.load(Ordering::SeqCst) || self.rec.lock().unwrap().is_some()
     }
 
     /// Crest's windows are already out of capture: a screenshot need not take them out and put them back.

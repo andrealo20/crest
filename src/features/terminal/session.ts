@@ -180,7 +180,8 @@ export function runInTerminal(command: string) {
   const line = command + "\r";
   const state = sessionState.get();
   if (state === "running") return void send(line);
-  pending += line;
+  // A second click before the shell runs would type it twice.
+  if (!pending.includes(line)) pending += line;
   if (state !== "starting") void start();
 }
 
@@ -212,6 +213,8 @@ export async function start() {
   } catch (e) {
     info = null;
     if (id !== generation) return;
+    // Not typed into a shell started much later by Enter.
+    pending = "";
     sessionState.set("exited");
     term.write(`\r\n\x1b[31m${t("Shell konnte nicht starten: {error}", { error: String(e) })}\x1b[0m\r\n${t("Enter versucht es noch einmal.")}\r\n`);
   }
@@ -227,6 +230,7 @@ function onMessage(id: number, m: TerminalMessage) {
 /** Ends the shell and clears the screen; the next open starts a fresh one. */
 export function endSession() {
   if (sessionState.get() === "idle") return;
+  pending = "";
   generation++;
   pty.kill();
   term?.reset();

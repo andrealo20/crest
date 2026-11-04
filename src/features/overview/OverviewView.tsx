@@ -59,8 +59,19 @@ export function OverviewView() {
   // The notch's monitor brightness: the row shows only where Crest can set it, read every few seconds (keys, other apps).
   const [bright, setBright] = useState<number | null>(null);
   const brightBusy = useRef(false);
+  // Until when a reading would undo the slider: writes still going out, or just landed.
+  const brightHold = useRef(0);
+  const brightMisses = useRef(0);
   useEffect(() => {
-    const load = () => !brightBusy.current && void systemControls.brightness().then((v) => !brightBusy.current && setBright(v));
+    const quiet = () => brightBusy.current || Date.now() < brightHold.current;
+    const load = () =>
+      !quiet() &&
+      void systemControls.brightness().then((v) => {
+        if (quiet()) return;
+        // DDC/CI misses a read now and then: the row goes only after three in a row.
+        brightMisses.current = v === null ? brightMisses.current + 1 : 0;
+        if (v !== null || brightMisses.current >= 3) setBright(v);
+      });
     load();
     const id = setInterval(load, 3000);
     return () => clearInterval(id);
@@ -97,7 +108,7 @@ export function OverviewView() {
         />
       </div>
       {listOpen && <OutputList outputs={outputs} onPick={pickOutput} />}
-      {bright !== null && <BrightnessTile level={bright} busy={brightBusy} onLevel={setBright} />}
+      {bright !== null && <BrightnessTile level={bright} busy={brightBusy} hold={brightHold} onLevel={setBright} />}
       {quotes && <QuoteLine />}
     </div>
   );
@@ -371,19 +382,25 @@ function OutputList({ outputs, onPick }: { outputs: AudioOutput[]; onPick: (id: 
 const BRIGHTNESS_ROW = 50;
 
 /** The notch's monitor brightness, 0..100. A drag sends one write at a time and then the latest level: DDC/CI answers slowly. */
-function BrightnessTile({ level, busy, onLevel }: { level: number; busy: { current: boolean }; onLevel: (percent: number) => void }) {
+/** `busy`: a drag is under way. `hold`: until when the parent's poll must not overwrite the level (writes in flight, plus a second). */
+function BrightnessTile({ level, busy, hold, onLevel }: { level: number; busy: { current: boolean }; hold: { current: number }; onLevel: (percent: number) => void }) {
   const sunHue = useHue("amber");
   const track = useRef<HTMLDivElement>(null);
   const sending = useRef(false);
   const next = useRef<number | null>(null);
   const push = (percent: number) => {
     next.current = percent;
+    hold.current = Infinity;
     if (sending.current) return;
     sending.current = true;
     const run = () => {
       const value = next.current;
       next.current = null;
-      if (value === null) return void (sending.current = false);
+      if (value === null) {
+        sending.current = false;
+        hold.current = Date.now() + 1000;
+        return;
+      }
       void systemControls.setBrightness(value).catch(() => {}).finally(run);
     };
     run();

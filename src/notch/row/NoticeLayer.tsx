@@ -159,8 +159,9 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
     // Measured with zeros so the width only changes when a digit is added, not every second.
     width = REC_DOT + GAP + measureText(label.replace(/\d/g, "0")) + GAP + 2 * REC_BUTTON + 4;
     key = "recording";
+    // A click or hover on the notice opens the tool that records (data-open, as the row's parts), its buttons excepted.
     body = (
-      <span className="flex h-full items-center" style={{ gap: GAP }}>
+      <span className="pointer-events-auto flex h-full items-center" style={{ gap: GAP }} data-open={rec.audio ? "recorder" : "capture"}>
         <motion.span
           className="shrink-0 rounded-full bg-red"
           style={{ width: REC_DOT, height: REC_DOT }}
@@ -271,7 +272,7 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
     width = QUOTA_RING + nameW + 2 * GAP + Math.min(textW, room);
     key = `quota:${rise.provider}:${rise.kind}:${used}`;
     body = (
-      <span className="flex h-full items-center" style={{ gap: GAP }}>
+      <span className="pointer-events-auto flex h-full items-center" style={{ gap: GAP }} data-open="usage">
         <Ring id={rise.provider as UsageId} value={used} size={QUOTA_RING} />
         <span className="truncate text-footnote font-medium text-label" style={{ width: nameW }}>{name}</span>
         <Marquee text={text} textWidth={textW} width={Math.min(textW, room)} paused={false} once />
@@ -281,7 +282,11 @@ export function NoticeLayer({ max, scale, onWidth, urgentOnly }: { max: number; 
     const textW = measureText(track);
     width = Math.min(textW, max);
     key = `track:${track}`;
-    body = <Marquee text={track} textWidth={textW} width={width} paused={false} once />;
+    body = (
+      <span className="pointer-events-auto flex h-full items-center" data-open="media">
+        <Marquee text={track} textWidth={textW} width={width} paused={false} once />
+      </span>
+    );
   } else if (kind === "calendar" && meeting) ({ width, key, body } = calendarNotice(meeting));
   else if (kind === "reminder") ({ width, key, body } = reminderNotice(due));
   else if (kind === "water") ({ width, key, body } = waterNotice(productivity.water.goalMl));

@@ -93,9 +93,11 @@ fn run(app: AppHandle) {
             external.clear();
             continue;
         }
+        // Taken before the poll, which can outlast the quiet window on slow monitors and still read the slider's own change.
+        let quiet = quiet();
         let now = unsafe { external_levels(&mut fails) };
         for (key, level) in &now {
-            if !quiet() && external.get(key).is_some_and(|before| before != level) {
+            if !quiet && external.get(key).is_some_and(|before| before != level) {
                 crate::sysevents::emit_level(&app, "brightness", *level, false);
             }
         }
@@ -200,12 +202,6 @@ unsafe extern "system" fn each(monitor: HMONITOR, _: HDC, _: *mut RECT, list: LP
     TRUE
 }
 
-/// What the slider sets: the notch's monitor over DDC/CI, or its laptop panel through WMI.
-enum Target {
-    Ddc(HMONITOR),
-    Panel(IWbemServices, String),
-}
-
 /// The monitor the notch window is on.
 fn notch_monitor(window: &tauri::WebviewWindow) -> Option<isize> {
     let hwnd = window.hwnd().ok()?;
@@ -224,11 +220,17 @@ async fn on_com_thread<T: Send + 'static>(job: impl FnOnce() -> T + Send + 'stat
     .map_err(|e| e.to_string())
 }
 
-/// The slider's level for the notch's monitor, None when it can't be set from here (no DDC/CI, not a panel WMI knows).
+/// The slider's level for the notch's monitor: over DDC/CI, else its laptop panel through WMI; None when it can't be set from here.
 #[tauri::command]
 pub async fn brightness_get(window: tauri::WebviewWindow) -> Option<u8> {
     let monitor = notch_monitor(&window)?;
-    on_com_thread(move || unsafe { target(HMONITOR(monitor as _)).and_then(|t| level(&t)) }).await.ok().flatten()
+    on_com_thread(move || unsafe {
+        let monitor = HMONITOR(monitor as _);
+        ddc_level(monitor).or_else(|| panel(monitor).and_then(|(services, name)| panel_level(&services, &name)))
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 /// Sets the notch's monitor to `percent`.
@@ -237,7 +239,14 @@ pub async fn brightness_set(window: tauri::WebviewWindow, percent: u8) -> Result
     let monitor = notch_monitor(&window).ok_or("no-monitor")?;
     let percent = percent.min(100);
     *QUIET_UNTIL.lock().unwrap() = Some(Instant::now() + QUIET);
-    let done = on_com_thread(move || unsafe { target(HMONITOR(monitor as _)).is_some_and(|t| set(&t, percent)) }).await?;
+    let done = on_com_thread(move || unsafe {
+        let monitor = HMONITOR(monitor as _);
+        match ddc_set(monitor, percent) {
+            Some(done) => done,
+            None => panel(monitor).is_some_and(|(services, name)| panel_set(&services, &name, percent).is_ok()),
+        }
+    })
+    .await?;
     // Counted again from the end: a slow DDC/CI write must not let its own change through.
     *QUIET_UNTIL.lock().unwrap() = Some(Instant::now() + QUIET);
     if done {
@@ -247,11 +256,41 @@ pub async fn brightness_set(window: tauri::WebviewWindow, percent: u8) -> Result
     }
 }
 
-unsafe fn target(monitor: HMONITOR) -> Option<Target> {
+/// One DDC/CI reading, asked again after the 50 ms a monitor may need between two commands (the slider writes back to back).
+unsafe fn ddc_answer(handle: HANDLE) -> Option<(u32, u32, u32)> {
     unsafe {
-        if physical(monitor, |list| list.iter().any(|m| ddc_reading(m.hPhysicalMonitor).is_some())).unwrap_or(false) {
-            return Some(Target::Ddc(monitor));
-        }
+        ddc_reading(handle).or_else(|| {
+            thread::sleep(Duration::from_millis(50));
+            ddc_reading(handle)
+        })
+    }
+}
+
+/// The level of the first physical monitor that answers over DDC/CI.
+unsafe fn ddc_level(monitor: HMONITOR) -> Option<u8> {
+    unsafe { physical(monitor, |list| list.iter().find_map(|m| ddc_answer(m.hPhysicalMonitor))).flatten().and_then(|(min, cur, max)| ddc_percent(min, cur, max)) }
+}
+
+/// Sets every physical monitor that answers over DDC/CI, one reading each for its scale. None when none answers.
+unsafe fn ddc_set(monitor: HMONITOR, percent: u8) -> Option<bool> {
+    unsafe {
+        physical(monitor, |list| {
+            let (mut answered, mut done) = (false, false);
+            for m in list {
+                if let Some((min, _, max)) = ddc_answer(m.hPhysicalMonitor) {
+                    answered = true;
+                    done |= SetMonitorBrightness(m.hPhysicalMonitor, ddc_value(min, max, percent)) != 0;
+                }
+            }
+            answered.then_some(done)
+        })
+        .flatten()
+    }
+}
+
+/// The laptop panel WMI knows for this monitor, matched by hardware code.
+unsafe fn panel(monitor: HMONITOR) -> Option<(IWbemServices, String)> {
+    unsafe {
         let code = hardware_code(monitor)?;
         let services = wmi(r"ROOT\WMI").ok()?;
         let list = query(&services, "SELECT InstanceName FROM WmiMonitorBrightness", false).ok()?;
@@ -263,39 +302,16 @@ unsafe fn target(monitor: HMONITOR) -> Option<Target> {
             }
             let Some(name) = objects[0].as_ref().and_then(|o| prop_string(o, w!("InstanceName"))) else { continue };
             if same_hardware(&name, &code) {
-                return Some(Target::Panel(services, name));
+                return Some((services, name));
             }
         }
     }
 }
 
-unsafe fn level(target: &Target) -> Option<u8> {
+unsafe fn panel_level(services: &IWbemServices, name: &str) -> Option<u8> {
     unsafe {
-        match target {
-            Target::Ddc(monitor) => physical(*monitor, |list| list.iter().find_map(|m| ddc_reading(m.hPhysicalMonitor))).flatten().and_then(|(min, cur, max)| ddc_percent(min, cur, max)),
-            Target::Panel(services, name) => {
-                let wql = format!("SELECT CurrentBrightness FROM WmiMonitorBrightness WHERE InstanceName='{}'", wql_escape(name));
-                first_u8(&query(services, &wql, false).ok()?, w!("CurrentBrightness"))
-            }
-        }
-    }
-}
-
-unsafe fn set(target: &Target, percent: u8) -> bool {
-    unsafe {
-        match target {
-            Target::Ddc(monitor) => physical(*monitor, |list| {
-                let mut any = false;
-                for m in list {
-                    if let Some((min, _, max)) = ddc_reading(m.hPhysicalMonitor) {
-                        any |= SetMonitorBrightness(m.hPhysicalMonitor, ddc_value(min, max, percent)) != 0;
-                    }
-                }
-                any
-            })
-            .unwrap_or(false),
-            Target::Panel(services, name) => panel_set(services, name, percent).is_ok(),
-        }
+        let wql = format!("SELECT CurrentBrightness FROM WmiMonitorBrightness WHERE InstanceName='{}'", wql_escape(name));
+        first_u8(&query(services, &wql, false).ok()?, w!("CurrentBrightness"))
     }
 }
 
