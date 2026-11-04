@@ -42,11 +42,14 @@ export function Dots({ dots }: { dots: ("red" | "green")[] }) {
   );
 }
 
-/** The open notch: the dots a bit right of the imagined camera in the middle, clear of the header's title and buttons. Closed, the row shows them at its end. */
-export function PrivacyDots() {
+/** The open notch: the dots a bit right of the imagined camera in the middle, clear of the header's title and buttons. Closed, the row shows them at its end.
+ *  `centered`: in the middle of the shape (the dimmed column on a side edge is too narrow for the offset). */
+export function PrivacyDots({ centered = false }: { centered?: boolean }) {
   const dots = usePrivacyDots();
   return (
-    <div className="pointer-events-none absolute top-0 left-1/2 ml-[24px] flex h-[30px] items-center">
+    <div
+      className={`pointer-events-none absolute flex items-center ${centered ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" : "top-0 left-1/2 ml-[24px] h-[30px]"}`}
+    >
       <Dots dots={dots} />
     </div>
   );

@@ -134,7 +134,9 @@ export function useDragToMove(status: NotchStatus, shape: () => { w: number; h: 
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== id) return;
       // Open, the notch only slides along its edge (by the header), so moving across neither starts a drag nor changes the edge.
-      const dx = ev.screenX - x, dy = capsule || status !== "open" ? ev.screenY - sy : 0;
+      // Across is screen y on the top and bottom edges and screen x on the sides.
+      const pinned = !capsule && status === "open";
+      const dx = pinned && across(edge0) ? 0 : ev.screenX - x, dy = pinned && !across(edge0) ? 0 : ev.screenY - sy;
       if (!moved.current && Math.max(Math.abs(dx), Math.abs(dy)) < THRESHOLD) return;
       if (!moved.current) {
         moved.current = true;

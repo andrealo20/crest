@@ -345,7 +345,7 @@ export function Notch() {
         // The line is meant to stay out of the way: only a hair of extra hit zone, so
         // the cursor has to be on it (the normal notch gets the generous Fitts margin).
         // In resize mode the zone reaches below the shape, over its size and the Done button.
-        className={`pointer-events-auto relative ${tightHit ? "px-1 pb-1" : editing ? "px-6 pb-12" : "px-4 pb-3"}`}
+        className={`pointer-events-auto relative ${tightHit ? "px-1 pb-1" : editing ? (side ? "px-6 pb-28" : "px-6 pb-12") : "px-4 pb-3"}`}
         // Bridged, the strip up to the screen edge is part of the zone (pushing the pointer up opens it); floating, only the capsule is (CollapsedHover.cs).
         style={{ minHeight: sticky.minHeight, cursor: drag.dragging ? "grabbing" : undefined, paddingTop: bridged ? topValue : 0, marginTop: bridged ? 0 : topValue }}
         onPointerMove={(e) => {
@@ -376,7 +376,7 @@ export function Notch() {
               {/* The notch's insets are the larger ones, so a notice fits either surface. */}
               <AnimatePresence>{showNotices && <NoticeLayer key="notices" max={rowRoom("notch", scale, span)} scale={scale} onWidth={setNoticeWidth} urgentOnly={!showRow} />}</AnimatePresence>
               {/* Closed, the dots are the row's last part; dimmed for focus there is no row, so they stand on their own. */}
-              {focus && status !== "open" && !line && <PrivacyDots />}
+              {focus && status !== "open" && !line && <PrivacyDots centered={side} />}
             </div>
             {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress along={side ? "y" : "x"} />}
           </div>
@@ -393,9 +393,9 @@ export function Notch() {
                 style={{ width: size.w, height: size.h, ...(side ? { marginTop: -size.h / 2 } : { marginLeft: -size.w / 2 }) }}
                 // No scale here: scaling re-rasterizes the small dock icons at shifting subpixels every frame, which reads as jitter (issue #3).
                 // No blur either: blurring the whole panel cost a 50-70 ms frame on every open in WebView2 at 200 %.
-                initial={{ opacity: 0, transform: "translateY(-6px)" }}
-                animate={{ opacity: 1, transform: "translateY(0px)", transition: content.enter }}
-                exit={{ opacity: 0, transform: "translateY(-4px)", transition: content.exit }}
+                initial={{ opacity: 0, transform: SLIDE_IN[edge] }}
+                animate={{ opacity: 1, transform: "translate(0px, 0px)", transition: content.enter }}
+                exit={{ opacity: 0, transform: SLIDE_OUT[edge], transition: content.exit }}
               >
                 {/* Below the content (-z-10 in the panel's own stacking context), so it never sits over text. */}
                 <div aria-hidden data-ambience={tinted ? "on" : "off"} className="pointer-events-none absolute inset-0 -z-10" style={tinted ? { ["--ambience" as string]: accent } : undefined} />
@@ -431,6 +431,9 @@ export function Notch() {
 
 /** Where the open panel sits in the upright shape, per edge. */
 const PANEL_ANCHOR: Record<Edge, string> = { top: "top-0 left-1/2", bottom: "bottom-0 left-1/2", left: "left-0 top-1/2", right: "right-0 top-1/2" };
+/** The panel comes out of its edge and goes back into it (upright, i.e. screen, axes). */
+const SLIDE_IN: Record<Edge, string> = { top: "translate(0px, -6px)", bottom: "translate(0px, 6px)", left: "translate(-6px, 0px)", right: "translate(6px, 0px)" };
+const SLIDE_OUT: Record<Edge, string> = { top: "translate(0px, -4px)", bottom: "translate(0px, 4px)", left: "translate(-4px, 0px)", right: "translate(4px, 0px)" };
 
 /** The song's progress along the idle line, as thick as the line: moved once a second with a 1 s linear transition, only while playing. `along`: the upright axis the edge runs on. */
 function LineProgress({ along }: { along: "x" | "y" }) {

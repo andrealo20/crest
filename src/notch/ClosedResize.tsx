@@ -3,7 +3,7 @@ import { Check } from "@phosphor-icons/react";
 import { createStore } from "../lib/store";
 import { settings, updateSettings } from "../settings/store";
 import { t } from "../i18n";
-import { defaultClosed, resizeClosed, type ClosedGrip, type ClosedSize } from "./collapsed";
+import { CLOSED_SIZE_DEFAULTS, defaultClosed, resizeClosed, sideLength, type ClosedGrip, type ClosedSize } from "./collapsed";
 import { across, deltaFromScreen, uprightCss, type Edge } from "./edge";
 
 /**
@@ -14,11 +14,17 @@ export const closedEdit = createStore(false);
 /** The sizes while a grip is dragged, drawn at once; saved on release like the sliders' values. */
 export const closedLive = createStore<Partial<ClosedSize> | null>(null);
 
-const GRIPS: { grip: ClosedGrip; className: string; bar: string }[] = [
-  { grip: "start", className: "inset-y-0 -left-2 w-4", bar: "h-3/5 min-h-2 w-1" },
-  { grip: "end", className: "inset-y-0 -right-2 w-4", bar: "h-3/5 min-h-2 w-1" },
-  { grip: "depth", className: "inset-x-3 -bottom-2 h-4", bar: "w-1/3 min-w-3 h-1" },
-];
+// The grips sit inside the upright content, so their places are screen sides: the ends along the edge, the depth grip on the far side.
+const ACROSS_X = { className: "inset-y-0 w-4", bar: "h-3/5 min-h-2 w-1" }, ACROSS_Y = { className: "inset-x-0 h-4", bar: "w-3/5 min-w-2 h-1" };
+const DEPTH_X = { className: "inset-y-3 w-4", bar: "h-1/3 min-h-3 w-1" }, DEPTH_Y = { className: "inset-x-3 h-4", bar: "w-1/3 min-w-3 h-1" };
+const GRIPS: Record<Edge, { grip: ClosedGrip; className: string; bar: string }[]> = {
+  top: [{ grip: "start", ...ACROSS_X, className: `${ACROSS_X.className} -left-2` }, { grip: "end", ...ACROSS_X, className: `${ACROSS_X.className} -right-2` }, { grip: "depth", ...DEPTH_Y, className: `${DEPTH_Y.className} -bottom-2` }],
+  bottom: [{ grip: "start", ...ACROSS_X, className: `${ACROSS_X.className} -left-2` }, { grip: "end", ...ACROSS_X, className: `${ACROSS_X.className} -right-2` }, { grip: "depth", ...DEPTH_Y, className: `${DEPTH_Y.className} -top-2` }],
+  left: [{ grip: "start", ...ACROSS_Y, className: `${ACROSS_Y.className} -top-2` }, { grip: "end", ...ACROSS_Y, className: `${ACROSS_Y.className} -bottom-2` }, { grip: "depth", ...DEPTH_X, className: `${DEPTH_X.className} -right-2` }],
+  right: [{ grip: "start", ...ACROSS_Y, className: `${ACROSS_Y.className} -top-2` }, { grip: "end", ...ACROSS_Y, className: `${ACROSS_Y.className} -bottom-2` }, { grip: "depth", ...DEPTH_X, className: `${DEPTH_X.className} -left-2` }],
+};
+/** On a side edge the notch is a column sideLength(width) long, shorter than the width it stands for: a drag along it counts that much more. */
+const COLUMN_STRETCH = CLOSED_SIZE_DEFAULTS.notchWidth / sideLength(CLOSED_SIZE_DEFAULTS.notchWidth);
 
 /** The grips, inside the closed shape; `widest` is the monitor along the edge, the most a width can take. */
 export function ClosedResize({ style, edge, widest }: { style: "notch" | "capsule" | "line"; edge: Edge; widest: number }) {
@@ -45,7 +51,8 @@ export function ClosedResize({ style, edge, widest }: { style: "notch" | "capsul
       if (ev.pointerId !== pointer) return;
       // The notch on the bottom or a side edge is drawn turned: the drag is taken in its own frame (along its edge, away from it).
       const d = deltaFromScreen(edge, ev.clientX - x0, ev.clientY - y0);
-      current = resizeClosed(start, style, grip, d.x, d.y, widest);
+      const along = style === "notch" && across(edge) ? d.x * COLUMN_STRETCH : d.x;
+      current = resizeClosed(start, style, grip, along, d.y, widest);
       closedLive.set(current);
     };
     const onUp = (ev: PointerEvent) => ev.pointerId === pointer && end.current?.();
@@ -68,7 +75,7 @@ export function ClosedResize({ style, edge, widest }: { style: "notch" | "capsul
   const sideways = across(edge);
   return (
     <>
-      {GRIPS.map((g) => (
+      {GRIPS[edge].map((g) => (
         <div
           key={g.grip}
           data-no-drag
@@ -94,9 +101,10 @@ export function ClosedResizeBar({ style, edge }: { style: "notch" | "capsule" | 
   const [w, h] = style === "line" ? [now.lineLength, now.lineThickness] : style === "capsule" ? [now.capsuleWidth, now.capsuleHeight] : [now.notchWidth, now.notchHeight];
   return (
     <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 justify-center">
-      <div className="flex items-center gap-2 whitespace-nowrap" style={{ transform: uprightCss(edge) }}>
-        <span className="tabular rounded-full bg-black/80 px-2 py-0.5 text-caption text-white">{`${w} × ${h} px`}</span>
-        <button data-no-drag className="pressable flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 text-caption font-medium text-black" onClick={() => closedEdit.set(false)}>
+      {/* On a side edge the turned bar would run away from the edge, past the hit zone: stacked, its long side runs along it. */}
+      <div className={`flex items-center gap-2 whitespace-nowrap ${across(edge) ? "flex-col" : ""}`} style={{ transform: uprightCss(edge) }}>
+        <span className="tabular rounded-full bg-black/80 px-2 py-0.5 text-caption text-label">{`${w} × ${h} px`}</span>
+        <button data-no-drag className="pressable flex items-center gap-1 rounded-full bg-label px-2.5 py-0.5 text-caption font-medium text-black" onClick={() => closedEdit.set(false)}>
           <Check size={11} weight="bold" />
           {t("Fertig")}
         </button>
