@@ -163,14 +163,16 @@ export function Notch() {
   const showNotices = !side && noticeTime && !editing;
   // On the idle line or dimmed, only an urgent notice brings the column up: its icon alone, so the shape always has something to click.
   const showColumn = side && noticeTime && !editing;
-  const [noticeWidth, setNoticeWidth] = useState<number | null>(null);
-  const notice = showNotices ? noticeWidth : null;
+  const [noticeSize, setNoticeSize] = useState<{ width: number; height: number } | null>(null);
+  const notice = showNotices ? noticeSize : null;
   // The chosen size (collapsed.ts): the content is drawn at the height over its designed 30, the width is a minimum the content widens,
   // and the monitor along the edge only narrows what is drawn. On a side edge the height is the column's depth, the width its length.
   monitor.use(); // the span, windowY and the bridge read the monitor's size and work area
   const area = dragArea(), span = side ? area.height : area.width;
   const closedH = surface === "capsule" ? sizes.capsuleHeight : sizes.notchHeight, scale = contentScale(closedH);
-  const closedW = surfaceWidth(surface, notice ?? (showRow || status === "open" ? rowWidth : 0), surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span);
+  const closedW = surfaceWidth(surface, notice?.width ?? (showRow || status === "open" ? rowWidth : 0), surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span);
+  // A notice card (NoticeCard.tsx) is taller than the row: the closed shape grows to it, drawn at the same content scale.
+  const shapeH = notice ? Math.max(closedH, notice.height * scale) : closedH;
   const [column, setColumn] = useState({ length: 0, width: 0 });
   const columnShows = showColumn || status === "open";
   const sideSize = side ? columnSurface(columnShows ? column.length : 0, columnShows ? column.width : 0, scale, sideLength(sizes.notchWidth), span) : null;
@@ -190,7 +192,7 @@ export function Notch() {
 
   const shape = lineShape
     ? lineGeometry(Math.min(sizes.lineLength, span), sizes.lineThickness, sizes.lineTop > 0, !line && status === "peek")
-    : shapeFor(status, surface, closedW, closedH, size, !bridged, sideSize);
+    : shapeFor(status, surface, closedW, shapeH, size, !bridged, sideSize);
   const tightHit = lineShape && !editing;
   // On a side edge the open panel reaches across the screen as far as the page is wide.
   const sticky = useStickyHitZone(status, side ? size.w : size.h, edge);
@@ -376,7 +378,7 @@ export function Notch() {
                   : showRow && <CompactRow key="row" room={rowRoom(surface, scale, span)} scale={scale} covered={notice !== null} onWidth={setRowWidth} />}
               </AnimatePresence>
               {/* The notch's insets are the larger ones, so a notice fits either surface. */}
-              <AnimatePresence>{showNotices && <NoticeLayer key="notices" max={rowRoom("notch", scale, span)} scale={scale} onWidth={setNoticeWidth} urgentOnly={!showRow} />}</AnimatePresence>
+              <AnimatePresence>{showNotices && <NoticeLayer key="notices" max={rowRoom("notch", scale, span)} scale={scale} onSize={setNoticeSize} urgentOnly={!showRow} />}</AnimatePresence>
               {/* Closed, the dots are the row's last part; dimmed for focus there is no row, so they stand on their own. */}
               {focus && status !== "open" && !line && <PrivacyDots centered={side} />}
             </div>

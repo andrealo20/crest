@@ -2,6 +2,9 @@ import { navigate } from "../notch/nav";
 import { media } from "../platform/media";
 import { mockDiscord, mockPrivacy, secrets } from "../platform/services";
 import { settings, updateSettings } from "../settings/store";
+import { asks, popping } from "../features/notices/store";
+import { saved } from "../features/capture/store";
+import { finishedDownload } from "../features/downloads/store";
 
 /** Tools in the dock during the showcase, in this order. */
 const SHOWCASE_TOOLS = ["overview", "media", "discord", "trading", "ask", "convert", "clipboard", "vault", "timer", "weather", "shelf"];
@@ -37,6 +40,8 @@ export function startShowcase() {
       },
       navigate,
       settings,
+      // The notice stores, so a capture script can show each kind of notice in the closed notch.
+      notices: { popping, asks, saved, finishedDownload },
     },
   });
 }

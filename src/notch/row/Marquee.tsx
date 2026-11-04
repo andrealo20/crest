@@ -4,7 +4,7 @@ import { marqueeCycle } from "./cycles";
 import { useCycle } from "./Carousel";
 
 /** Text wider than its room scrolls to its end and back, three laps (one with `once`), then rests at its start. Remount it to start over. */
-export function Marquee({ text, textWidth, width, paused, once }: { text: string; textWidth: number; width: number; paused: boolean; once?: boolean }) {
+export function Marquee({ text, textWidth, width, paused, once, className = "text-footnote font-medium text-label" }: { text: string; textWidth: number; width: number; paused: boolean; once?: boolean; className?: string }) {
   const overflow = textWidth - width;
   const cycle = useMemo(() => {
     if (overflow <= 0.5) return null;
@@ -14,7 +14,7 @@ export function Marquee({ text, textWidth, width, paused, once }: { text: string
   const { x } = useCycle(cycle, paused, cycle?.done);
   return (
     <div className="flex h-full items-center overflow-clip" style={{ width }}>
-      <motion.span className="shrink-0 whitespace-nowrap text-footnote font-medium text-label" style={{ x }}>
+      <motion.span className={`shrink-0 whitespace-nowrap ${className}`} style={{ x }}>
         {text}
       </motion.span>
     </div>

@@ -1,36 +1,34 @@
 import type { ReactNode } from "react";
 import { Check, Checks, Prohibit, X } from "@phosphor-icons/react";
 import { t } from "../../i18n";
-import { Marquee } from "../../notch/row/Marquee";
 import { measureText } from "../../notch/row/measure";
 import { NOTICE_BUTTON as BUTTON, NOTICE_BUTTON_PAD as PAD, NoticeButton } from "../../notch/row/NoticeButton";
-import { AppIcon } from "./NoticePop";
+import { noticeCard } from "../../notch/row/NoticeCard";
+import { AppIcon, brandAccent } from "./NoticePop";
 import { optionLabel, type Ask } from "./asks";
 import { answerAsk } from "./store";
 
-const ICON = 16, GAP = 6, BUTTON_GAP = 4, NAME_MAX = 76, LABEL_MAX = 110;
-/** The question's text gets at least this much, however many buttons there are. */
-const TEXT_MIN = 80;
+const ICON = 16, LOGO = 32, BUTTON_GAP = 4, LABEL_MAX = 110;
 
 // The whole body on one line: a command is allowed as a whole, so none of its lines may stay hidden.
 const askLine = (a: Ask) => [a.title, a.body.split("\n").map((l) => l.trim()).filter(Boolean).join(" ")].filter(Boolean).join(" · ");
 
-/** A question in the closed notch: logo, source, the text scrolling, one button per option, and close (no choice). */
-export function askNotice(a: Ask, max: number): { width: number; key: string; body: ReactNode } {
-  const text = askLine(a), labels = a.options.map((o) => optionLabel(o, t));
-  const nameW = Math.min(NAME_MAX, measureText(a.appName)), textW = measureText(text);
+/** A question in the closed notch as a card: the logo, the source, the text scrolling three laps, one button per option, and close (no choice). */
+export function askNotice(a: Ask, max: number) {
+  const labels = a.options.map((o) => optionLabel(o, t));
   const buttons = labels.reduce((w, l) => w + Math.min(LABEL_MAX, measureText(l)) + 2 * PAD + BUTTON_GAP, 0) + BUTTON;
-  const fixed = ICON + GAP + nameW + GAP + GAP + buttons;
-  const room = Math.max(TEXT_MIN, max - fixed);
-  return {
-    width: fixed + Math.min(textW, room),
-    key: `ask:${a.id}`,
-    body: (
-      <span className="flex h-full items-center" style={{ gap: GAP }}>
-        <AppIcon n={a} size={ICON} />
-        <span className="truncate text-footnote font-medium text-label-2" style={{ width: nameW }}>{a.appName}</span>
-        {/* Three laps, not `once`: the command has to be read before it is allowed. */}
-        <Marquee text={text} textWidth={textW} width={Math.min(textW, room)} paused={false} />
+  return noticeCard(
+    {
+      key: `ask:${a.id}`,
+      image: <AppIcon n={a} size={LOGO} rounded />,
+      hue: "amber",
+      color: brandAccent(a.appName),
+      title: a.appName,
+      text: askLine(a),
+      // Three laps: the command has to be read before it is allowed.
+      read: true,
+      actionsWidth: buttons,
+      actions: (
         <span className="flex" style={{ gap: BUTTON_GAP }}>
           {a.options.map((o, i) => (
             <NoticeButton key={o} wide label={labels[i]} onClick={() => answerAsk(a.id, o)}>
@@ -41,9 +39,10 @@ export function askNotice(a: Ask, max: number): { width: number; key: string; bo
             <X size={12} weight="bold" />
           </NoticeButton>
         </span>
-      </span>
-    ),
-  };
+      ),
+    },
+    max,
+  );
 }
 
 function OptionIcon({ id, label }: { id: string; label: string }) {

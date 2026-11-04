@@ -38,6 +38,12 @@ export function BrandLogo({ id, size = 14, className }: { id: BrandId; size?: nu
   );
 }
 
+/** The brand an app name belongs to ("Claude Code" is Claude), for notices that come without a logo of their own (crest-notify). */
+export function brandFor(appName: string): Exclude<BrandId, "grok"> | null {
+  const name = appName.toLowerCase();
+  return (Object.keys(brandColor) as Exclude<BrandId, "grok">[]).find((id) => name.includes(id) || name.includes(brandName[id].toLowerCase())) ?? null;
+}
+
 /** Real Discord mark (official simple-icons path), Phosphor-compatible for <Empty icon={DiscordLogo} />. */
 export const DiscordLogo: Icon = forwardRef<SVGSVGElement, IconProps>(
   ({ size = 22, className }, ref) => (

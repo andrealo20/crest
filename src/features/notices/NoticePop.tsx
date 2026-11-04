@@ -1,19 +1,27 @@
-import type { ReactNode } from "react";
 import { t } from "../../i18n";
-import { Marquee } from "../../notch/row/Marquee";
-import { measureText } from "../../notch/row/measure";
-import { popLine } from "./format";
+import { noticeCard } from "../../notch/row/NoticeCard";
+import { BrandLogo, brandColor, brandFor } from "../../ui/brands";
+import { noticeText } from "./format";
 import type { Notice } from "./history";
 
-const ICON = 16, GAP = 6, NAME_MAX = 76, RING = 14;
+const LOGO = 32, RING = 18;
 
 /** The app's logo, or its initial when Windows gave none (crest-notify, desktop programs without a logo). */
-export function AppIcon({ n, size }: { n: Pick<Notice, "icon" | "appName">; size: number }) {
-  if (n.icon) return <img src={n.icon} alt="" width={size} height={size} className="shrink-0 rounded-[4px] object-contain" draggable={false} />;
+export function AppIcon({ n, size, rounded }: { n: Pick<Notice, "icon" | "appName">; size: number; rounded?: boolean }) {
+  const corner = rounded ? "rounded-[8px]" : "rounded-[4px]";
+  if (n.icon) return <img src={n.icon} alt="" width={size} height={size} className={`shrink-0 ${corner} object-contain`} draggable={false} />;
+  // A coding agent's question (crest-notify) has no logo of its own: its brand's, in the brand's colour.
+  const brand = brandFor(n.appName);
+  if (brand)
+    return (
+      <span aria-hidden className={`flex shrink-0 items-center justify-center ${corner}`} style={{ width: size, height: size, color: brandColor[brand], background: `color-mix(in srgb, ${brandColor[brand]} 18%, transparent)` }}>
+        <BrandLogo id={brand} size={Math.round(size * 0.6)} />
+      </span>
+    );
   return (
     <span
       aria-hidden
-      className="flex shrink-0 items-center justify-center rounded-[4px] bg-fill-3 font-semibold text-label-2"
+      className={`flex shrink-0 items-center justify-center ${corner} bg-fill-3 font-semibold text-label-2`}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.6) }}
     >
       {(n.appName.trim()[0] ?? "?").toUpperCase()}
@@ -31,24 +39,28 @@ export function ProgressRing({ value, size }: { value: number; size: number }) {
   );
 }
 
-/** Content of a notice in the closed notch: logo, app name, then title and text scrolling once. `max` is the widest it may be. */
-export function noticePop(n: Notice, max: number): { width: number; key: string; body: ReactNode } {
-  const text = popLine(n, t);
+/** A notice in the closed notch as a card: the app's logo, the title (or the app's name) and the first line of the text, a ring while it reports progress. */
+export function noticePop(n: Notice, max: number) {
+  const first = noticeText(n, t).split("\n")[0].trim();
   const ring = n.progress !== null && n.progress !== undefined;
-  const nameW = Math.min(NAME_MAX, measureText(n.appName)), textW = measureText(text);
-  const fixed = ICON + GAP + nameW + GAP + (ring ? RING + GAP : 0);
-  const room = Math.max(0, max - fixed);
-  return {
-    width: fixed + Math.min(textW, room),
-    // A progress update keeps the key, so it changes in place instead of fading out and in.
-    key: `notice:${n.replace ? `${n.appId}:${n.replace}` : n.id}`,
-    body: (
-      <span className="flex h-full items-center" style={{ gap: GAP }}>
-        <AppIcon n={n} size={ICON} />
-        <span className="truncate text-footnote font-medium text-label-2" style={{ width: nameW }}>{n.appName}</span>
-        <Marquee key={text} text={text} textWidth={textW} width={Math.min(textW, room)} paused={false} once />
-        {ring && <ProgressRing value={n.progress ?? 0} size={RING} />}
-      </span>
-    ),
-  };
+  return noticeCard(
+    {
+      // A progress update keeps the key, so it changes in place instead of fading out and in.
+      key: `notice:${n.replace ? `${n.appId}:${n.replace}` : n.id}`,
+      image: <AppIcon n={n} size={LOGO} rounded />,
+      hue: "blue",
+      color: brandAccent(n.appName),
+      title: n.title || n.appName,
+      text: n.title ? first || n.appName : first,
+      actions: ring ? <ProgressRing value={n.progress ?? 0} size={RING} /> : undefined,
+      actionsWidth: RING,
+    },
+    max,
+  );
+}
+
+/** A brand's own colour for a notice's accent line, when the app is one Crest knows. */
+export function brandAccent(appName: string): string | undefined {
+  const brand = brandFor(appName);
+  return brand ? brandColor[brand] : undefined;
 }
