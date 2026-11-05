@@ -1235,11 +1235,12 @@ export function fetchCalendar(sources: CalendarSourceIn[], force: boolean): Prom
     ? [
         [0, "Design review", "Room 4", soon(25), soon(85), false],
         [1, "Lunch with Sam", "Café Central", at(1, 12, 30), at(1, 13, 30), false],
-        [0, "Standup", "", at(0, 9, 30), at(0, 9, 45), false],
+        // Already over, so its reminder never covers the notices the page shows.
+        [0, "Standup", "", soon(-180), soon(-165), false],
         [1, "Dentist", "", at(1, 8, 15), at(1, 9), false],
         [0, "Sprint planning", "", at(1, 10), at(1, 11, 30), false],
         [1, "Mum's birthday", "", at(2, 0), at(3, 0), true],
-        [0, "Release 0.5", "", at(3, 14), at(3, 15), false],
+        [0, "Release 1.0", "", at(3, 14), at(3, 15), false],
       ]
     : [
         [0, "Standup", "", at(0, 9, 30), at(0, 9, 45), false],

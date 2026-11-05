@@ -211,7 +211,7 @@ export const CHAPTERS: Chapter[] = [
       "Shut, Crest is a notch, a capsule or a thin line, on any screen edge. The row shows what you pick, centred: the cover, a running timer, the song title or the lyric line, AI quota rings, CPU, RAM and GPU, network, power, battery, temperature, the clock, today's GitHub count and your next event. When the parts do not fit, the row turns like a carousel, and a click on a part opens its tool.",
     controls: ["styles", "edges"],
     start: "close",
-    note: "The capsule always stays on the top edge. Hover the notch, or tap it, to open it again.",
+    note: "The capsule always stays on the top edge. Click or tap the notch to open it again.",
     image: { src: "img/closed-notch.png", alt: "The closed notch with a running timer, the AI quota ring, CPU, RAM and GPU load, download and upload, power draw, battery, temperature, the clock and today's GitHub contributions", w: 1222, h: 56 },
   },
   {

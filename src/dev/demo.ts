@@ -76,6 +76,8 @@ const post = (msg: Record<string, unknown>) => {
 const pick = <T>(list: T[], i: number): T => list[i % list.length];
 
 export function startDemo() {
+  // The site's icon, one folder up; otherwise the browser asks the host's root for /favicon.ico.
+  document.head.append(Object.assign(document.createElement("link"), { rel: "icon", type: "image/svg+xml", href: "../crest-icon.svg" }));
   const lang: Language = isLanguage(params.get("lang")) ? (params.get("lang") as Language) : "en";
 
   updateSettings((s): Partial<Settings> => ({

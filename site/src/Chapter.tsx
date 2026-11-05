@@ -53,7 +53,7 @@ export function ChapterCard({ chapter: c, active, tool, state, patch, send, setT
       className={`chapter rise${seen ? " in" : ""}${active ? " is-active" : ""}${more ? " is-more" : ""}`}
       aria-labelledby={`${c.id}-title`}
       style={{ ["--hue" as string]: HUE[c.hue] }}
-      onClickCapture={(e) => { if ((e.target as HTMLElement).closest("button")) onUse(); }}
+      onClickCapture={(e) => { if ((e.target as HTMLElement).closest("button:not(.read-more)")) onUse(); }}
     >
       <h2 id={`${c.id}-title`}>{c.title}</h2>
       <p className="body" id={`${c.id}-body`}>{c.text}</p>
