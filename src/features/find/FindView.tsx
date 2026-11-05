@@ -43,7 +43,7 @@ export function FindView() {
     void navigator.clipboard.writeText(text).then(() => {
       setCopied(i);
       window.setTimeout(() => setCopied((c) => (c === i ? null : c)), 1200);
-    });
+    }, () => {}); // A denied clipboard shows no "copied".
   };
 
   const status =

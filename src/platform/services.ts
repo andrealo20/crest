@@ -570,7 +570,7 @@ export const downloadWatch = {
 
 const mockDownloadHandlers = new Set<{ progress: (list: DownloadProgress[]) => void; finished: (d: DownloadFinished) => void }>();
 
-/** Browser: a download that runs for three seconds, then finishes (the demo's "download" notice). */
+/** Browser: a download that runs for three seconds, then finishes (the demo's "download" notice). Returns a way to call it off. */
 export function mockDownload(name = "Crest-report.pdf") {
   const each = (f: (h: { progress: (list: DownloadProgress[]) => void; finished: (d: DownloadFinished) => void }) => void) => mockDownloadHandlers.forEach(f);
   let size = 0;
@@ -578,11 +578,16 @@ export function mockDownload(name = "Crest-report.pdf") {
     size += 9_000_000 + Math.random() * 3_000_000;
     each((h) => h.progress([{ name: `${name}.crdownload`, size, speed: 9_500_000 + Math.random() * 1_500_000 }]));
   }, 500);
-  window.setTimeout(() => {
+  const end = window.setTimeout(() => {
     window.clearInterval(id);
     each((h) => h.progress([]));
     each((h) => h.finished({ name, path: `C:/Users/demo/Downloads/${name}` }));
   }, 3200);
+  return () => {
+    window.clearInterval(id);
+    window.clearTimeout(end);
+    each((h) => h.progress([]));
+  };
 }
 
 const MOCK_BT = ["Audio.Headphone", "Input.Mouse", "Input.Keyboard", "Input.Gaming.Gamepad", "Audio.Speaker", "Communication.Phone", "Wearable.Watch", "Other"];
@@ -1287,7 +1292,7 @@ export const noticeSource = {
     if (isNative) void invoke("notices_configure", { windows, pipe });
   },
   status: (): Promise<NoticeSourceStatus> =>
-    isNative ? invoke<NoticeSourceStatus>("notices_status") : Promise.resolve({ access: "allowed", mode: "off", pipe: false, pipeFailed: false }),
+    isNative ? invoke<NoticeSourceStatus>("notices_status") : Promise.resolve({ access: "allowed", mode: demo ? "event-log" : "off", pipe: demo, pipeFailed: false }),
   /** The access now, or "request-failed" when Windows refused the request itself. */
   requestAccess: (): Promise<NoticeSourceStatus["access"] | "request-failed"> =>
     isNative ? invoke<NoticeSourceStatus["access"] | "request-failed">("notices_request_access") : Promise.resolve("allowed"),

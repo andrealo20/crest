@@ -1,5 +1,5 @@
-import { sampleAvatar } from "./showcase-data";
 import { demoOpen } from "../platform/native";
+import { bare, sampleAvatar } from "./showcase-data";
 import { media } from "../platform/media";
 import { mockAsk, mockDiscord, mockDownload, mockNotice, mockPrivacy, mockStatus, demoOffer, secrets } from "../platform/services";
 import { settings, updateSettings, type Settings } from "../settings/store";
@@ -22,6 +22,9 @@ import { calendar, calendarDue } from "../features/calendar/store";
 import { usage } from "../features/usage/store";
 import { recording, startRecording, stopRecording, takeShot } from "../features/capture/store";
 import { checkForUpdate, update } from "../lib/update";
+import { setFocusMode } from "../notch/focus";
+import { QUOTA } from "../notch/row/notices";
+import { PET_IDS } from "../notch/row/parts";
 
 /*
  * The try-it demo of the project page (Crest's real frontend, built for the web: `vite build --mode demo`, or `?demo`).
@@ -30,7 +33,10 @@ import { checkForUpdate, update } from "../lib/update";
  *
  * Contract with the host page (all messages carry `crest: "demo"`):
  *
- * URL: ?tool=<id> opens on a tool, ?lang=<code> (default en), ?bare drops the fake desktop (transparent page), ?open starts open.
+ * URL: ?tool=<id> opens on a tool, ?lang=<code> (default en), ?open starts open, ?bare drops the fake desktop (transparent page,
+ * for the host page's stage). Bare, the notch opens on a click and stays open until a click outside it or a "close" command (the
+ * mouse leaving the frame must not empty the stage); otherwise hover opens it, as in the app. Touch always works like bare.
+ * Not bare, a phone gets the page scale that fits the open panel, and the fake desktop has a "Back to the site" link.
  *
  * Host -> demo (postMessage on the iframe's window):
  *   { cmd: "navigate", tool }   open the notch on a tool (a tool id, or settings | setup | whatsnew | find)
@@ -39,13 +45,15 @@ import { checkForUpdate, update } from "../lib/update";
  *                               water calendar quota live song whatsnew recording
  *   { cmd: "play" } { cmd: "pause" }
  *   { cmd: "lang", code } { cmd: "style", style: notch | capsule | line } { cmd: "edge", edge: top | bottom | left | right }
- *   { cmd: "theme", id } { cmd: "pet", on }
+ *   { cmd: "theme", id } { cmd: "pet", on, kind? }   kind: cat cocker monkey sloth samurai robot flame zombie (omitted: keep, else cat)
+ * Every command first undoes what would hide its result: focus mode, presentation mode, quiet hours, and notices still showing.
  *
  * Demo -> host (postMessage on the parent):
  *   { event: "ready", tools: [{ id, label, hue }] }   the tools in the dock (sent again when the language changes)
  *   { event: "tool", tool }    the visible tool changed
  *   { event: "open", open }    the notch opened or closed
  *   { event: "size", w, h }    the notch's outer size in CSS px (follows its spring)
+ *   { event: "state", lang, theme, style, edge, pet }   after "ready" and on every change, from any source (pet: kind id or null)
  */
 
 const params = new URLSearchParams(location.search);
@@ -58,6 +66,8 @@ const DEMO_TOOLS = [
 
 /** A finger has no hover: the notch opens on a tap, and an open one stays until a tap outside. */
 const coarse = matchMedia("(pointer: coarse)").matches;
+/** Same for the host page's stage: the mouse leaves the frame all the time, and the stage must not go empty. */
+const pinOpen = coarse || bare;
 
 const post = (msg: Record<string, unknown>) => {
   if (window.parent !== window) window.parent.postMessage({ crest: "demo", ...msg }, "*");
@@ -70,7 +80,7 @@ export function startDemo() {
 
   updateSettings((s): Partial<Settings> => ({
     lang,
-    openMode: coarse ? "click" : "hover",
+    openMode: pinOpen ? "click" : "hover",
     hoverDelay: "normal",
     setup: { done: true },
     tools: [...DEMO_TOOLS.map((id) => ({ id, enabled: true })), ...s.tools.filter((x) => !DEMO_TOOLS.includes(x.id)).map((x) => ({ ...x, enabled: x.id.startsWith("plugin:") }))],
@@ -124,12 +134,17 @@ export function startDemo() {
 
   window.addEventListener("message", onMessage);
   watchFrame();
-  nav.subscribe(() => post({ event: "tool", tool: nav.get().tabId }));
+  fitNarrowScreens();
+  window.visualViewport?.addEventListener("resize", fitNarrowScreens);
+  nav.subscribe(() => (post({ event: "tool", tool: nav.get().tabId }), fitNarrowScreens()));
   const ready = sendReadyOnChange();
+  const state = sendStateOnChange();
   settings.subscribe(ready);
+  settings.subscribe(state);
   language.subscribe(ready);
+  language.subscribe(state);
   plugins.subscribe(() => post({ event: "ready", tools: toolList() }));
-  setTimeout(() => post({ event: "ready", tools: toolList() }), 0);
+  setTimeout(() => (post({ event: "ready", tools: toolList() }), state(true)), 0);
   if (params.has("open") || params.has("tool")) demoOpen(params.get("tool"));
 }
 
@@ -155,6 +170,34 @@ function sendReadyOnChange() {
   };
 }
 
+/** Language, theme, closed style, edge and pet, so the page's chips follow what the visitor changes in Settings. */
+function sendStateOnChange() {
+  let last = "";
+  return (force?: boolean) => {
+    const s = settings.get();
+    const state = { lang: language.get(), theme: s.themes.id, style: s.display.idleStyle, edge: s.dock.edge, pet: s.closed.pet.id };
+    const key = JSON.stringify(state);
+    if (key === last && force !== true) return;
+    last = key;
+    post({ event: "state", ...state });
+  };
+}
+
+/**
+ * A phone in the full-screen demo (not bare): the browser's own page scale fits the panel of the open tool, 520 px at least
+ * (the closed row too). A pinch or an element zoom would put getBoundingClientRect and fixed positions in different units.
+ */
+function fitNarrowScreens() {
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+  const vv = window.visualViewport;
+  if (bare || !meta || !vv) return;
+  const needed = notchOpen ? Math.max(520, findTab(nav.get().tabId)?.size.w ?? 0) : 520;
+  // The screen's width in CSS px, whatever the page scale or a pinch.
+  const device = Math.round(vv.width * vv.scale);
+  const content = device >= needed ? "width=device-width, initial-scale=1.0" : `width=${needed}`;
+  if (meta.content !== content) meta.content = content;
+}
+
 // ---------- Commands ----------
 
 const STYLES = ["notch", "capsule", "line"] as const;
@@ -163,6 +206,9 @@ const EDGES = ["top", "bottom", "left", "right"] as const;
 function onMessage(e: MessageEvent) {
   const m = e.data as { crest?: string; cmd?: string; [k: string]: unknown } | null;
   if (!m || m.crest !== "demo" || e.source !== window.parent) return;
+  // A running recording stays unless the command is a notice (its button toggles it).
+  undoStates();
+  clearNotices(m.cmd === "notice" ? String(m.kind) : "recording");
   switch (m.cmd) {
     case "navigate": {
       const id = String(m.tool);
@@ -189,24 +235,30 @@ function onMessage(e: MessageEvent) {
       return void ((EDGES as readonly unknown[]).includes(m.edge) && updateSettings((s) => ({ dock: { ...s.dock, edge: m.edge as (typeof EDGES)[number] } })));
     case "theme":
       return void (BUILT_IN_THEMES.some((x) => x.id === m.id) && updateSettings((s) => ({ themes: { ...s.themes, id: String(m.id) } })));
-    case "pet":
-      return void updateSettings((s) => ({ closed: { ...s.closed, pet: { ...s.closed.pet, id: m.on ? "cat" : null } } }));
+    case "pet": {
+      const kind = PET_IDS.find((x) => x === m.kind);
+      return void updateSettings((s) => ({ closed: { ...s.closed, pet: { ...s.closed.pet, id: m.on ? (kind ?? s.closed.pet.id ?? "cat") : null } } }));
+    }
   }
 }
 
 let step = 0;
+let notchOpen = false;
+/** What a notice still has pending: the download that has not finished, the title part that is off for the song notice, the quota card. */
+let stopDownload = () => {};
+let titleBack: { timer: number; was: boolean } | null = null;
+let quotaBack: number | undefined;
 
 /** One notice of each kind, as the app would show it. They go through the same stores as the real ones. */
 function notice(kind: string) {
   step++;
-  clearNotices(kind);
   switch (kind) {
     case "timer":
       return timer.set((s) => ({ ...s, endsAt: null, remaining: 0, finished: true }));
     case "ask":
       return void mockAsk({ title: "Run command?", body: "npm test", appName: "Agent" });
     case "download":
-      return mockDownload(pick(["Crest-report.pdf", "holiday-photos.zip", "installer.exe"], step));
+      return void (stopDownload = mockDownload(pick(["Crest-report.pdf", "holiday-photos.zip", "installer.exe"], step)));
     case "capture":
       return void takeShot("all", null);
     case "status-unplug":
@@ -248,7 +300,8 @@ function notice(kind: string) {
       updateSettings((s) => ({ closed: { ...s.closed, parts: { ...s.closed.parts, title: false } } }));
       if (!media.get()?.isPlaying) media.toggle();
       media.next();
-      return void setTimeout(() => updateSettings((s) => ({ closed: { ...s.closed, parts: { ...s.closed.parts, title: was } } })), 6000);
+      titleBack = { was, timer: window.setTimeout(restoreTitle, 6000) };
+      return;
     }
     case "whatsnew":
       demoOffer.on = true;
@@ -256,6 +309,15 @@ function notice(kind: string) {
       return void checkForUpdate();
     case "recording":
       return void (recording.get().phase === "idle" ? startRecording("monitor:primary", 30, false, true, true) : stopRecording());
+  }
+}
+
+/** Focus mode, presentation mode and quiet hours keep notices and clicks away; a visitor who tried them would see nothing happen. */
+function undoStates() {
+  setFocusMode(false);
+  const { presentation, notices } = settings.get();
+  if (presentation.manual || notices.quiet.on) {
+    updateSettings((s) => ({ presentation: { ...s.presentation, manual: false }, notices: { ...s.notices, quiet: { ...s.notices.quiet, on: false } } }));
   }
 }
 
@@ -270,9 +332,26 @@ function clearNotices(kind: string) {
   demoOffer.on = false;
   update.set((s) => (s.phase === "available" ? { ...s, phase: "current", version: null } : s));
   dismissPop();
+  stopDownload();
   dismissDownload();
   saved.set(null);
   statusAlert.set(null);
+  restoreTitle();
+  // The quota card is kept by the row for 5 s on its own; with the alerts off for that time it goes now.
+  window.clearTimeout(quotaBack);
+  const alerts = (on: boolean) => updateSettings((s) => ({ closed: { ...s.closed, quotaAlerts: on } }));
+  if (kind === "quota") return alerts(true);
+  alerts(false);
+  quotaBack = window.setTimeout(() => alerts(true), QUOTA.showMs);
+}
+
+/** The title part comes back (the new-song caption only shows while it is off). */
+function restoreTitle() {
+  if (!titleBack) return;
+  window.clearTimeout(titleBack.timer);
+  const { was } = titleBack;
+  titleBack = null;
+  updateSettings((s) => ({ closed: { ...s.closed, parts: { ...s.closed.parts, title: was } } }));
 }
 
 /** Each call pushes the next quota over a level; the next poll puts the readings back. */
@@ -297,8 +376,10 @@ function seedNotices() {
     n(2, "Messages", "Mira", "The build is green. Ship it!", 17),
     n(3, "Calendar", "Design review in 10 minutes", "Room 4", 52),
     n(4, "Photos", "Memories", "Your trip to Lisbon, two years ago", 140),
-    { ...n(5, "crest-notify", "cargo test finished", "Exit code 0", 190), source: "cli" as const, exitCode: 0, durationMs: 41_000, command: "cargo test" },
+    { ...n(5, "crest-notify", "cargo test finished", "Exit code 0", 190), appId: "cli:crest-notify", source: "cli" as const, exitCode: 0, durationMs: 41_000, command: "cargo test" },
   ]);
+  // The apps page lists the apps seen, as the first notice of each would have added them.
+  updateSettings((s) => ({ notices: { ...s.notices, apps: Object.fromEntries(history.get().map((x) => [x.appId, x.appName])) } }));
 }
 
 // ---------- What the host page hears ----------
@@ -332,16 +413,17 @@ function watchFrame() {
     }
     const now = !!document.querySelector("[data-drag-handle]");
     if (now === open) return;
-    open = now;
+    open = notchOpen = now;
     post({ event: "open", open });
-    // Touch: the notch stays open until a tap outside, since a lifted finger counts as leaving.
-    if (open && coarse) pinned.set(true);
+    fitNarrowScreens();
+    // Touch and the host page's stage: the notch stays open until a click outside, since a lifted finger or a mouse that left the frame counts as leaving.
+    if (open && pinOpen) pinned.set(true);
     post({ event: "tool", tool: nav.get().tabId });
   };
   new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
   scan();
-  // A tap outside the open notch closes it (a mouse leaves by itself).
-  if (coarse) {
+  // A tap or click outside the open notch closes it (a mouse leaves by itself, except bare).
+  if (pinOpen) {
     window.addEventListener("pointerdown", (e) => {
       const target = e.target as Element;
       if (open && !target.closest?.("[data-notch-hit], [data-notch-menu]")) window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));

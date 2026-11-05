@@ -74,6 +74,8 @@ export function DesktopMock() {
         style={{ background: light ? "rgb(243 243 243 / 0.8)" : "rgb(28 28 28 / 0.8)" }}
       >
         {clean && <WindowsLogo />}
+        {/* The demo on its own page (not the project page's stage): the way back. */}
+        {demo && <a href="../" className="absolute inset-y-0 left-0 flex items-center px-4 text-xs text-white/80 underline underline-offset-2 hover:text-white">Back to the site</a>}
       </div>
     </div>
     {/* Outside the desktop's stacking context so it can sit above the notch. */}
