@@ -19,7 +19,7 @@ use std::time::UNIX_EPOCH;
 
 use serde::{Deserialize, Serialize};
 
-use super::{home, now_ms, parse_iso_ms};
+use super::{claude_dir, codex_dir, now_ms, parse_iso_ms};
 
 /// Days of history kept. The model page offers up to 30 local days; one more covers time zones.
 pub const SCAN_DAYS: u64 = 31;
@@ -173,9 +173,8 @@ pub fn report(cache: &mut Cache, disk: Option<&Path>) -> TokenReport {
             load(cache, path);
         }
     }
-    let home = home();
-    let claude = [home.join(".claude").join("projects")];
-    let codex = [home.join(".codex").join("sessions"), home.join(".codex").join("archived_sessions")];
+    let claude = [claude_dir().join("projects")];
+    let codex = [codex_dir().join("sessions"), codex_dir().join("archived_sessions")];
     let (report, parsed) = scan(cache, &claude, &codex, now_ms());
     if parsed {
         if let Some(path) = disk {

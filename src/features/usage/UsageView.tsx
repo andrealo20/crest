@@ -43,7 +43,7 @@ export function windowLabel(kind: string): string {
 }
 
 export const usageError: Record<string, string> = {
-  "not-found": "Nicht auf diesem PC gefunden",
+  "not-found": "Nicht auf diesem Gerät gefunden",
   "not-signed-in": "Nicht angemeldet",
   expired: "Anmeldung abgelaufen – App kurz öffnen",
   "claude-expired": "Anmeldung abgelaufen: einmal claude im Terminal starten",
@@ -52,6 +52,16 @@ export const usageError: Record<string, string> = {
   "rate-limited": "Gerade gedrosselt – nächster Versuch in ein paar Minuten",
   offline: "Keine Verbindung",
   failed: "Abruf fehlgeschlagen",
+};
+
+/**
+ * What a "not found" card needs, per tool: Crest reads the command line tools' sign-in, and people often have only the
+ * desktop app (issue #9). Antigravity's app is read while it runs, so opening it is enough.
+ */
+const notFoundHint: Partial<Record<UsageId, string>> = {
+  claude: "Braucht Claude Code im Terminal, die Desktop-App hat eine eigene Anmeldung",
+  codex: "Braucht die Codex-CLI. Die Grenzen des ChatGPT-Chats lassen sich nicht abrufen",
+  gemini: "Antigravity öffnen oder die agy-CLI installieren",
 };
 
 const balanceLabels: Record<string, string> = {
@@ -159,7 +169,8 @@ export function UsageView() {
         const tool = TOKEN_TOOL[p.id];
         const logs = tool && tok.report?.tools.find((x) => x.id === tool);
         const hasData = !!p.windows?.length || !!p.balances?.length;
-        const status = p.error ? (p.error === "rate-limited" && p.retryAt ? t("Gedrosselt, nächster Versuch {in}", { in: formatIn(p.retryAt - now) }) : t(usageError[p.error] ?? p.error)) : undefined;
+        const hint = p.error === "not-found" ? notFoundHint[p.id] : undefined;
+        const status = p.error ? (p.error === "rate-limited" && p.retryAt ? t("Gedrosselt, nächster Versuch {in}", { in: formatIn(p.retryAt - now) }) : t(hint ?? usageError[p.error] ?? p.error)) : undefined;
         return (
           <motion.div
             key={p.id}

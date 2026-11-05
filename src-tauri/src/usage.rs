@@ -266,7 +266,7 @@ fn parse_retry_after(value: &str, now: u64) -> Option<u64> {
 // ---------- Claude ----------
 
 async fn fetch_claude() -> Result<Provider, Fail> {
-    let creds = read_json(&home().join(".claude").join(".credentials.json")).ok_or("not-found")?;
+    let creds = read_json(&claude_dir().join(".credentials.json")).or_else(claude_keychain).ok_or("not-found")?;
     let oauth = &creds["claudeAiOauth"];
     let token = oauth["accessToken"].as_str().ok_or("not-signed-in")?;
     // The file is refreshed only by the Claude Code CLI; the desktop app keeps its own sign-in, so the card says to run the CLI.
@@ -311,7 +311,7 @@ async fn fetch_codex() -> Result<Provider, Fail> {
 }
 
 async fn fetch_codex_live() -> Result<Provider, Fail> {
-    let auth = read_json(&home().join(".codex").join("auth.json")).ok_or("not-found")?;
+    let auth = read_json(&codex_dir().join("auth.json")).ok_or("not-found")?;
     let tokens = &auth["tokens"];
     let token = tokens["access_token"].as_str().ok_or("not-signed-in")?;
     let mut req = client()?.get("https://chatgpt.com/backend-api/wham/usage").bearer_auth(token).header("User-Agent", "codex_cli_rs");
@@ -356,7 +356,7 @@ fn read_tail(path: &std::path::Path, max: u64) -> Option<String> {
 }
 
 fn codex_from_sessions() -> Option<Provider> {
-    let sessions = home().join(".codex").join("sessions");
+    let sessions = codex_dir().join("sessions");
     // Newest first by file name (contains the timestamp); mtime is unreliable
     // because Codex rewrites old files when resuming.
     for file in newest_files(&sessions, 15) {
@@ -404,9 +404,92 @@ fn window_kind(minutes: u64) -> &'static str {
 
 // ---------- Antigravity ----------
 
+/// The running Antigravity app first: it answers at once, and many people have the app but not the `agy` CLI.
+/// The CLI is the fallback when the app is closed.
 async fn fetch_gemini() -> Result<Provider, Fail> {
+    if let Some(app) = tauri::async_runtime::spawn_blocking(antigravity_app).await.ok().flatten() {
+        if let Ok(provider) = fetch_antigravity_app(&app).await {
+            return Ok(provider);
+        }
+    }
     let stdout = tauri::async_runtime::spawn_blocking(run_agy).await.map_err(|_| Fail::new("failed"))??;
     Ok(Provider { windows: parse_agy_usage(&stdout)?, ..Provider::new("gemini") })
+}
+
+/// Where the running Antigravity app's language server answers: the HTTP port it logs when it starts and the CSRF
+/// token it was started with. It is the app's own local API (the editor talks to it the same way), so nothing leaves
+/// the computer, and the token is only ever sent back to that port.
+struct AntigravityApp {
+    port: u16,
+    token: String,
+}
+
+fn antigravity_app() -> Option<AntigravityApp> {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet).with_cmd(UpdateKind::OnlyIfNotSet));
+    let token = sys
+        .processes()
+        .values()
+        .filter(|p| p.name().to_string_lossy().starts_with("language_server"))
+        .filter(|p| p.exe().is_some_and(|e| e.to_string_lossy().to_lowercase().contains("antigravity")))
+        .find_map(|p| csrf_token(p.cmd()))?;
+    let log = app_data()?.join("Antigravity").join("logs").join("language_server.log");
+    let port = read_tail(&log, 64 * 1024).and_then(|text| logged_http_port(&text))?;
+    Some(AntigravityApp { port, token })
+}
+
+/// `--csrf_token X` or `--csrf_token=X` among a process's arguments.
+fn csrf_token(args: &[std::ffi::OsString]) -> Option<String> {
+    let args: Vec<String> = args.iter().map(|a| a.to_string_lossy().into_owned()).collect();
+    args.iter().enumerate().find_map(|(i, a)| match a.strip_prefix("--csrf_token") {
+        Some("") => args.get(i + 1).cloned(),
+        Some(rest) => rest.strip_prefix('=').map(String::from),
+        None => None,
+    })
+    .filter(|t| !t.is_empty())
+}
+
+/// The last "listening on random port at N for HTTP" line of the language server's log (not the HTTPS one).
+fn logged_http_port(log: &str) -> Option<u16> {
+    log.lines().rev().find_map(|line| {
+        let rest = line.split("random port at ").nth(1)?;
+        let (port, kind) = rest.split_once(' ')?;
+        (kind.trim() == "for HTTP").then(|| port.parse().ok()).flatten()
+    })
+}
+
+async fn fetch_antigravity_app(app: &AntigravityApp) -> Result<Provider, Fail> {
+    // Local only: no system proxy in between.
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(5)).no_proxy().build().map_err(|_| Fail::new("failed"))?;
+    let call = |rpc: &str| {
+        client
+            .post(format!("http://127.0.0.1:{}/exa.language_server_pb.LanguageServerService/{rpc}", app.port))
+            .header("Content-Type", "application/json")
+            .header("Connect-Protocol-Version", "1")
+            .header("x-codeium-csrf-token", &app.token)
+            .body("{}")
+            .send()
+    };
+    let res = call("RetrieveUserQuotaSummary").await.map_err(|_| Fail::new("offline"))?;
+    check(&res)?;
+    let body: Value = res.json().await.map_err(|_| Fail::new("failed"))?;
+    let windows = quota_windows(&body["response"]["groups"])?;
+    // The plan's name ("Google AI Pro") is extra: without it the limits still show.
+    let plan = match call("GetUserStatus").await {
+        Ok(res) if res.status().is_success() => res.json::<Value>().await.ok().and_then(|s| s["userStatus"]["userTier"]["name"].as_str().map(String::from)),
+        _ => None,
+    };
+    Ok(Provider { plan, windows, ..Provider::new("gemini") })
+}
+
+/// Where apps keep their data: %APPDATA% on Windows, Application Support on a Mac.
+fn app_data() -> Option<PathBuf> {
+    if cfg!(windows) {
+        std::env::var_os("APPDATA").map(PathBuf::from)
+    } else {
+        Some(home().join("Library").join("Application Support"))
+    }
 }
 
 /// Runs the CLI's own `/usage` and returns what it prints. `agy` from PATH, otherwise
@@ -416,9 +499,13 @@ fn run_agy() -> Result<String, Fail> {
     use std::process::{Command, Stdio};
 
     let installed = std::env::var_os("LOCALAPPDATA").map(|dir| PathBuf::from(dir).join("agy").join("bin").join("agy.exe"));
+    // A Mac app opened from the Finder has no shell PATH: also where Homebrew and installers put the CLI.
+    let mac: &[&str] = if cfg!(target_os = "macos") { &["/opt/homebrew/bin/agy", "/usr/local/bin/agy"] } else { &[] };
     let mut child = [Some(PathBuf::from("agy")), installed]
         .into_iter()
         .flatten()
+        .chain(mac.iter().map(PathBuf::from))
+        .chain(cfg!(target_os = "macos").then(|| home().join(".local").join("bin").join("agy")))
         .find_map(|exe| {
             let mut cmd = Command::new(exe);
             cmd.args(["-p", "/usage", "--output-format", "json", "--print-timeout", "30s"])
@@ -455,31 +542,39 @@ fn run_agy() -> Result<String, Fail> {
     reader.join().map_err(|_| Fail::new("failed"))
 }
 
-/// Output of `agy -p /usage --output-format json` → limit windows. Antigravity has two
-/// groups with a 5-hour and a weekly limit each: Gemini models keep the plain kinds,
-/// the other one (Claude and GPT, bucket IDs "3p-…") gets the "-3p" suffix.
+/// Output of `agy -p /usage --output-format json` → limit windows.
 fn parse_agy_usage(stdout: &str) -> Result<Vec<Window>, Fail> {
     let body: Value = serde_json::from_str(stdout.trim()).map_err(|_| Fail::new("failed"))?;
     if body["status"] != "SUCCESS" {
         return Err("failed".into());
     }
-    let mut windows: Vec<Window> = body["command"]["data"]["groups"]
+    quota_windows(&body["command"]["data"]["groups"])
+}
+
+/// Antigravity's quota groups → limit windows, from the CLI (snake_case) or the app (camelCase). Two groups have a
+/// 5-hour and a weekly limit each: Gemini models keep the plain kinds, the other one (Claude and GPT, bucket IDs
+/// "3p-…") gets the "-3p" suffix. Smaller groups, such as one model's own weekly limit, are left out: one row per kind.
+fn quota_windows(groups: &Value) -> Result<Vec<Window>, Fail> {
+    let field = |bucket: &Value, snake: &str, camel: &str| bucket.get(snake).or_else(|| bucket.get(camel)).cloned().unwrap_or(Value::Null);
+    let mut windows: Vec<Window> = groups
         .as_array()
         .into_iter()
         .flatten()
         .flat_map(|group| group["buckets"].as_array().into_iter().flatten())
         .filter_map(|bucket| {
-            let remaining = bucket["remaining_fraction"].as_f64()?;
+            let resets_at = field(bucket, "reset_time", "resetTime").as_str().and_then(parse_iso_ms);
+            // The app's JSON leaves out a fraction of 0 (an exhausted limit), which still has its reset time.
+            let remaining = field(bucket, "remaining_fraction", "remainingFraction").as_f64().or(resets_at.map(|_| 0.0))?;
             let (kind, secs) = match bucket["window"].as_str()? {
                 "5h" => ("session", 5 * 3600),
                 "weekly" => ("weekly", 7 * 86_400),
                 _ => return None,
             };
-            let gemini = bucket["id"].as_str().is_some_and(|id| id.starts_with("gemini"));
+            let gemini = field(bucket, "id", "bucketId").as_str().is_some_and(|id| id.starts_with("gemini"));
             Some(Window {
                 kind: if gemini { kind.into() } else { format!("{kind}-3p") },
                 used_percent: ((1.0 - remaining) * 100.0).clamp(0.0, 100.0),
-                resets_at: bucket["reset_time"].as_str().and_then(parse_iso_ms),
+                resets_at,
                 window_secs: Some(secs),
             })
         })
@@ -496,8 +591,7 @@ fn parse_agy_usage(stdout: &str) -> Result<Vec<Window>, Fail> {
 // ---------- Cursor ----------
 
 async fn fetch_cursor() -> Result<Provider, Fail> {
-    let appdata = std::env::var_os("APPDATA").map(PathBuf::from).ok_or("not-found")?;
-    let db = appdata.join("Cursor").join("User").join("globalStorage").join("state.vscdb");
+    let db = app_data().ok_or("not-found")?.join("Cursor").join("User").join("globalStorage").join("state.vscdb");
     let bytes = std::fs::read(&db).map_err(|_| Fail::new("not-found"))?;
     let jwt = find_jwt_after(&bytes, b"cursorAuth/accessToken").ok_or("not-signed-in")?;
     // "sub" in the token = "auth0|user_…" → user ID for the query and cookie.
@@ -731,6 +825,19 @@ fn save_disk_cache(app: &AppHandle, state: &UsageState) {
 
 // ---------- Helpers ----------
 
+/// On a Mac, Claude Code keeps its sign-in in the Keychain ("Claude Code-credentials", the same JSON as the file on
+/// Windows). macOS asks once whether Crest may read it.
+#[cfg(target_os = "macos")]
+fn claude_keychain() -> Option<Value> {
+    let user = std::env::var("USER").ok()?;
+    serde_json::from_slice(&security_framework::passwords::get_generic_password("Claude Code-credentials", &user).ok()?).ok()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn claude_keychain() -> Option<Value> {
+    None
+}
+
 fn read_json(path: &Path) -> Option<Value> {
     std::fs::read(path).ok().and_then(|b| serde_json::from_slice(&b).ok())
 }
@@ -760,8 +867,24 @@ fn newest_files(root: &Path, limit: usize) -> Vec<PathBuf> {
     out
 }
 
+/// The user's home: USERPROFILE on Windows, HOME on a Mac (which has no USERPROFILE, so every tool read as missing).
 fn home() -> PathBuf {
-    std::env::var_os("USERPROFILE").map(PathBuf::from).unwrap_or_default()
+    std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from).unwrap_or_default()
+}
+
+/// A folder a tool lets its users move with an environment variable, as the tools themselves resolve it.
+fn tool_dir(var: &str, default: &str) -> PathBuf {
+    std::env::var_os(var).filter(|v| !v.is_empty()).map(PathBuf::from).unwrap_or_else(|| home().join(default))
+}
+
+/// Claude Code's folder: `CLAUDE_CONFIG_DIR`, else `~/.claude`.
+fn claude_dir() -> PathBuf {
+    tool_dir("CLAUDE_CONFIG_DIR", ".claude")
+}
+
+/// Codex CLI's folder: `CODEX_HOME`, else `~/.codex`.
+fn codex_dir() -> PathBuf {
+    tool_dir("CODEX_HOME", ".codex")
 }
 
 fn capitalize(s: &str) -> String {
@@ -801,7 +924,7 @@ fn parse_iso_ms(s: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{find_jwt_after, next_utc, parse_agy_usage, parse_deepseek, parse_iso_ms, parse_openrouter, parse_retry_after, parse_zai, read_tail};
+    use super::{csrf_token, find_jwt_after, logged_http_port, quota_windows, next_utc, parse_agy_usage, parse_deepseek, parse_iso_ms, parse_openrouter, parse_retry_after, parse_zai, read_tail};
     use serde_json::json;
 
     #[test]
@@ -913,6 +1036,40 @@ mod tests {
         assert_eq!(code("not json"), Err("failed".into()));
         assert_eq!(code(r#"{"conversation_id":"","status":"ERROR","response":"not signed in"}"#), Err("failed".into()));
         assert_eq!(code(r#"{"status":"SUCCESS","command":{"name":"usage","data":{"groups":[]}}}"#), Err("failed".into()));
+    }
+
+    /// The Antigravity app's RetrieveUserQuotaSummary (shape of 2.29.0): camelCase, a used-up limit without its
+    /// fraction, and a third group with one model's own weekly limit, which stays out.
+    #[test]
+    fn antigravity_app_quota() {
+        let body = json!({"response": {"groups": [
+            {"displayName": "Gemini Models", "buckets": [
+                {"bucketId": "gemini-weekly", "window": "weekly", "remainingFraction": 0.5, "resetTime": "2026-11-12T18:25:44Z"},
+                {"bucketId": "gemini-5h", "window": "5h", "resetTime": "2026-11-05T23:25:44Z"}]},
+            {"displayName": "Claude and GPT models", "buckets": [
+                {"bucketId": "3p-weekly", "window": "weekly", "remainingFraction": 1, "resetTime": "2026-11-12T18:25:44Z"},
+                {"bucketId": "3p-5h", "window": "5h", "remainingFraction": 0.9, "resetTime": "2026-11-05T23:25:44Z"}]},
+            {"displayName": "Gemini 4 Argon", "buckets": [
+                {"bucketId": "gemini-argon-wtu-weekly", "window": "weekly", "remainingFraction": 0.96, "resetTime": "2026-11-10T17:52:04Z"}]}
+        ]}});
+        let windows = quota_windows(&body["response"]["groups"]).map_err(|e| e.code).unwrap();
+        let got: Vec<_> = windows.iter().map(|w| (w.kind.as_str(), w.used_percent.round(), w.resets_at.is_some())).collect();
+        assert_eq!(got, [("session", 100.0, true), ("weekly", 50.0, true), ("session-3p", 10.0, true), ("weekly-3p", 0.0, true)]);
+    }
+
+    #[test]
+    fn antigravity_app_discovery() {
+        let args = |a: &[&str]| a.iter().map(std::ffi::OsString::from).collect::<Vec<_>>();
+        assert_eq!(csrf_token(&args(&["ls.exe", "--https_server_port", "0", "--csrf_token", "abc-1"])).as_deref(), Some("abc-1"));
+        assert_eq!(csrf_token(&args(&["ls.exe", "--csrf_token=xyz"])).as_deref(), Some("xyz"));
+        assert_eq!(csrf_token(&args(&["ls.exe", "--csrf_token"])), None);
+        let log = "I1105 18:23:15 server.go:746] Language server listening on random port at 53712 for HTTPS (gRPC)\n\
+                   I1105 18:23:15 server.go:754] Language server listening on random port at 53713 for HTTP\n\
+                   I1105 18:25:01 server.go:746] Language server listening on random port at 50637 for HTTPS (gRPC)\n\
+                   I1105 18:25:01 server.go:754] Language server listening on random port at 50638 for HTTP\n\
+                   I1105 18:25:02 other.go:1] unrelated";
+        assert_eq!(logged_http_port(log), Some(50638));
+        assert_eq!(logged_http_port("nothing here"), None);
     }
 
     #[test]
