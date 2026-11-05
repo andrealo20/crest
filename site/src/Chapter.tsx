@@ -1,13 +1,15 @@
 import { useRef, useState } from "react";
-import { motion } from "motion/react";
-import { GearSix, HandWaving, Gift, Pause, Play, PawPrint } from "@phosphor-icons/react";
-import { type Chapter, EDGES, HUE, LANGS, NOTICES, STYLES, THEMES, TOOLS } from "./data";
-import type { DemoMessage } from "./demo";
+import { GearSix, HandWaving, Gift, Pause, Play } from "./icons";
+import { type Chapter, EDGES, HUE, LANGS, NOTICES, PETS, STYLES, THEMES, TOOLS } from "./data";
+import type { DemoMessage, DemoState } from "./demo";
+import { useRise } from "./rise";
 
 interface Props {
   chapter: Chapter;
   active: boolean;
   tool: string;
+  state: DemoState;
+  patch: (p: Partial<DemoState>) => void;
   send: (m: DemoMessage) => void;
   setTool: (t: string) => void;
   onUse: () => void;
@@ -19,18 +21,22 @@ const isLight = (hex: string) => {
   return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 > 150;
 };
 
-export function ChapterCard({ chapter: c, active, tool, send, setTool, onUse }: Props) {
-  const [style, setStyle] = useState("notch");
-  const [edge, setEdge] = useState("top");
-  const [theme, setTheme] = useState("dark");
-  const [lang, setLang] = useState("en");
-  const [pet, setPet] = useState<boolean | null>(null);
+export function ChapterCard({ chapter: c, active, tool, state, patch, send, setTool, onUse }: Props) {
   const [notice, setNotice] = useState("");
+  // On a narrow screen the text is cut to a few lines until the visitor asks for the rest (CSS decides when it applies).
+  const [more, setMore] = useState(false);
+  const [rise, seen] = useRise<HTMLElement>();
   const timer = useRef<number | undefined>(undefined);
 
   const go = (id: string) => {
     setTool(id);
     send({ cmd: "navigate", tool: id });
+  };
+  // Play and Pause only show on Now Playing, so the visitor is taken there first.
+  const playback = (cmd: "play" | "pause") => {
+    setTool("media");
+    send({ cmd: "navigate", tool: "media" });
+    send({ cmd });
   };
   const fire = (kind: string) => {
     setNotice(kind);
@@ -40,20 +46,20 @@ export function ChapterCard({ chapter: c, active, tool, send, setTool, onUse }: 
   };
 
   return (
-    <motion.article
+    <article
+      ref={rise}
       id={c.id}
       data-chapter={c.id}
-      className={`chapter${active ? " is-active" : ""}`}
+      className={`chapter rise${seen ? " in" : ""}${active ? " is-active" : ""}${more ? " is-more" : ""}`}
       aria-labelledby={`${c.id}-title`}
       style={{ ["--hue" as string]: HUE[c.hue] }}
       onClickCapture={(e) => { if ((e.target as HTMLElement).closest("button")) onUse(); }}
-      initial={{ opacity: 0.5, y: 18 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "0px 0px -8% 0px" }}
-      transition={{ type: "spring", visualDuration: 0.5, bounce: 0.12 }}
     >
       <h2 id={`${c.id}-title`}>{c.title}</h2>
-      <p className="body">{c.text}</p>
+      <p className="body" id={`${c.id}-body`}>{c.text}</p>
+      <button type="button" className="read-more" aria-expanded={more} aria-controls={`${c.id}-body`} onClick={() => setMore(!more)}>
+        {more ? "Show less" : "Read more"}
+      </button>
       {c.next && <p className="next">{c.next}</p>}
 
       {c.image && <img className="shot" src={c.image.src} alt={c.image.alt} width={c.image.w} height={c.image.h} loading="lazy" decoding="async" />}
@@ -61,7 +67,7 @@ export function ChapterCard({ chapter: c, active, tool, send, setTool, onUse }: 
       {c.controls?.includes("styles") && (
         <Group label="Closed look">
           {STYLES.map((s) => (
-            <button key={s.id} className="chip" aria-pressed={style === s.id} onClick={() => { setStyle(s.id); send({ cmd: "style", style: s.id }); send({ cmd: "close" }); }}>
+            <button key={s.id} className="chip" aria-pressed={state.style === s.id} onClick={() => { patch({ style: s.id }); send({ cmd: "style", style: s.id }); send({ cmd: "close" }); }}>
               {s.label}
             </button>
           ))}
@@ -70,7 +76,7 @@ export function ChapterCard({ chapter: c, active, tool, send, setTool, onUse }: 
       {c.controls?.includes("edges") && (
         <Group label="Screen edge">
           {EDGES.map((s) => (
-            <button key={s.id} className="chip" aria-pressed={edge === s.id} onClick={() => { setEdge(s.id); send({ cmd: "edge", edge: s.id }); send({ cmd: "close" }); }}>
+            <button key={s.id} className="chip" aria-pressed={state.edge === s.id} onClick={() => { patch({ edge: s.id }); send({ cmd: "edge", edge: s.id }); send({ cmd: "close" }); }}>
               {s.label}
             </button>
           ))}
@@ -87,8 +93,8 @@ export function ChapterCard({ chapter: c, active, tool, send, setTool, onUse }: 
       )}
       {c.controls?.includes("play") && (
         <Group label="Playback">
-          <button className="chip" onClick={() => send({ cmd: "play" })}><Play size={18} weight="fill" aria-hidden="true" /> Play</button>
-          <button className="chip" onClick={() => send({ cmd: "pause" })}><Pause size={18} weight="fill" aria-hidden="true" /> Pause</button>
+          <button className="chip" onClick={() => playback("play")}><Play size={18} weight="fill" aria-hidden="true" /> Play</button>
+          <button className="chip" onClick={() => playback("pause")}><Pause size={18} weight="fill" aria-hidden="true" /> Pause</button>
         </Group>
       )}
       {c.controls?.includes("themes") && (
@@ -97,9 +103,9 @@ export function ChapterCard({ chapter: c, active, tool, send, setTool, onUse }: 
             <button
               key={id}
               className="chip theme-chip"
-              aria-pressed={theme === id}
+              aria-pressed={state.theme === id}
               style={{ background: bg, color: isLight(bg) ? "#111" : "#fff" }}
-              onClick={() => { setTheme(id); send({ cmd: "theme", id }); send({ cmd: "navigate", tool: "overview" }); setTool("overview"); }}
+              onClick={() => { patch({ theme: id }); send({ cmd: "theme", id }); send({ cmd: "navigate", tool: "overview" }); setTool("overview"); }}
             >
               <span className="swatch" style={{ background: accent }} aria-hidden="true" />
               {name}
@@ -110,7 +116,7 @@ export function ChapterCard({ chapter: c, active, tool, send, setTool, onUse }: 
       {c.controls?.includes("langs") && (
         <Group label="Language">
           {LANGS.map((l) => (
-            <button key={l.code} className="chip" lang={l.code} aria-pressed={lang === l.code} onClick={() => { setLang(l.code); send({ cmd: "lang", code: l.code }); }}>
+            <button key={l.code} className="chip" lang={l.code} aria-pressed={state.lang === l.code} onClick={() => { patch({ lang: l.code }); send({ cmd: "lang", code: l.code }); send({ cmd: "open" }); }}>
               {l.label}
             </button>
           ))}
@@ -118,10 +124,12 @@ export function ChapterCard({ chapter: c, active, tool, send, setTool, onUse }: 
       )}
       {c.controls?.includes("pets") && (
         <Group label="Pets">
-          <button className="chip" aria-pressed={pet === true} onClick={() => { setPet(true); send({ cmd: "close" }); send({ cmd: "pet", on: true }); }}>
-            <PawPrint size={18} weight="fill" aria-hidden="true" /> Show a pet
-          </button>
-          <button className="chip" aria-pressed={pet === false} onClick={() => { setPet(false); send({ cmd: "pet", on: false }); }}>
+          {PETS.map((p) => (
+            <button key={p.id} className="chip" aria-pressed={state.pet === p.id} onClick={() => { patch({ pet: p.id }); send({ cmd: "close" }); send({ cmd: "pet", on: true, kind: p.id }); }}>
+              {p.label}
+            </button>
+          ))}
+          <button className="chip" aria-pressed={state.pet === null} onClick={() => { patch({ pet: null }); send({ cmd: "pet", on: false }); }}>
             No pet
           </button>
         </Group>
@@ -148,7 +156,7 @@ export function ChapterCard({ chapter: c, active, tool, send, setTool, onUse }: 
         </Group>
       )}
       {c.note && <p className="note">{c.note}</p>}
-    </motion.article>
+    </article>
   );
 }
 

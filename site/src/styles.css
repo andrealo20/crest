@@ -319,6 +319,7 @@ h1 {
 /* The stage: sticky beside the chapters on a wide screen, pinned on top of them on a narrow one. */
 .stage-col {
   margin-top: 8px;
+  position: relative;
 }
 /* One column: the stage comes straight after the introduction, the tool bar under it. */
 .lede {
@@ -352,11 +353,42 @@ h1 {
   top: 0;
   transform-origin: 0 0;
 }
+.canvas.glide {
+  transition: transform 300ms var(--ease);
+}
 .canvas iframe {
   display: block;
   border: 0;
   background: transparent;
 }
+/* Shown while the notch is closed, so the stage never looks empty. */
+.stage-hint {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 32px);
+  min-height: 44px;
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: #000;
+  color: #fff;
+  font-size: var(--step-small);
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  cursor: pointer;
+}
+.stage-hint:hover {
+  background: #1d1d22;
+}
+
+.skip-demo:focus {
+  top: 12px;
+  left: 12px;
+}
+
 .stage-bar {
   display: flex;
   align-items: center;
@@ -493,6 +525,43 @@ h1 {
   height: 14px;
   border-radius: 50%;
   flex: none;
+}
+
+.read-more {
+  display: none;
+  align-self: flex-start;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fill-1);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.read-more:hover {
+  background: var(--fill-2);
+}
+
+/* The scroll reveal: CSS only, once per part. */
+.rise {
+  opacity: 0.5;
+  transform: translateY(20px);
+  transition:
+    opacity 500ms var(--ease),
+    transform 500ms var(--ease);
+}
+.rise.in {
+  opacity: 1;
+  transform: none;
+}
+.chapter.rise {
+  transition:
+    opacity 500ms var(--ease),
+    transform 500ms var(--ease),
+    background-color 240ms ease;
 }
 
 .more {
@@ -912,7 +981,44 @@ details p {
   }
 }
 
+/* Below the two-column layout the page is one long column: chapter text is cut to three lines until asked for. */
+@media (max-width: 999px) {
+  .chapter:not(.is-more) .body {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .chapter:not(.is-more) .shot {
+    display: none;
+  }
+  .read-more {
+    display: inline-flex;
+  }
+  .stage-bar {
+    padding-top: 12px;
+  }
+  .stage-full {
+    width: 100%;
+    justify-content: center;
+    min-height: 54px;
+    border-radius: 999px;
+    background: #000;
+    color: #fff;
+    font-weight: 650;
+    font-size: var(--step-body);
+    text-decoration: none;
+  }
+}
+
 @media (max-width: 640px) {
+  .chapters {
+    gap: 14px;
+  }
+  .chapter {
+    padding: 20px;
+    gap: 14px;
+  }
   .nav nav a:not(.btn) {
     display: none;
   }
@@ -942,6 +1048,9 @@ details p {
   .btn,
   .btn:hover,
   .btn:active,
+  .rise,
+  .chapter.rise,
+  .canvas.glide,
   .tb:hover,
   .tb:active,
   .chip:active,

@@ -16,7 +16,11 @@ export type DemoMessage =
   | { cmd: "style"; style: string }
   | { cmd: "edge"; edge: string }
   | { cmd: "theme"; id: string }
-  | { cmd: "pet"; on: boolean };
+  | { cmd: "pet"; on: boolean; kind?: string };
+
+/** What the demo reports about itself (event "state"), however it changed: a page command or the visitor in Settings. */
+export interface DemoState { lang: string; theme: string; style: string; edge: string; pet: string | null }
+const START: DemoState = { lang: "en", theme: "dark", style: "notch", edge: "top", pet: null };
 
 /** The postMessage contract with the demo (see the notes of the demo mode in src/dev/demo.ts). */
 export function useDemo() {
@@ -26,6 +30,8 @@ export function useDemo() {
   const [tool, setTool] = useState("overview");
   const [open, setOpen] = useState(true);
   const [isReady, setIsReady] = useState(false);
+  const [state, setState] = useState<DemoState>(START);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
 
   const post = (m: DemoMessage) => frame.current?.contentWindow?.postMessage({ crest: "demo", ...m }, "*");
 
@@ -37,7 +43,7 @@ export function useDemo() {
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.source !== frame.current?.contentWindow) return;
-      const d = e.data as { crest?: string; event?: string; tool?: string; open?: boolean };
+      const d = e.data as Partial<DemoState> & { crest?: string; event?: string; tool?: string; open?: boolean; w?: number; h?: number };
       if (d?.crest !== "demo") return;
       if (d.event === "ready") {
         ready.current = true;
@@ -46,6 +52,16 @@ export function useDemo() {
         queue.current = [];
       } else if (d.event === "tool" && d.tool) setTool(d.tool);
       else if (d.event === "open") setOpen(!!d.open);
+      else if (d.event === "size" && d.w && d.h) setSize({ w: d.w, h: d.h });
+      else if (d.event === "state") {
+        setState((s) => ({
+          lang: d.lang ?? s.lang,
+          theme: d.theme ?? s.theme,
+          style: d.style ?? s.style,
+          edge: d.edge ?? s.edge,
+          pet: d.pet === undefined ? s.pet : d.pet,
+        }));
+      }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
@@ -61,5 +77,8 @@ export function useDemo() {
     }, 2500);
   }, []);
 
-  return { frame, send, tool, open, ready: isReady, setTool, onLoad };
+  /** The chips show a press at once; the demo's "state" event then confirms it, or corrects it. */
+  const patch = useCallback((p: Partial<DemoState>) => setState((s) => ({ ...s, ...p })), []);
+
+  return { frame, send, tool, open, ready: isReady, setTool, onLoad, state, patch, size };
 }

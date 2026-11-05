@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { MotionConfig } from "motion/react";
 import { CHAPTERS, HUE, LOGO, TOOLS, TOOL_BAR } from "./data";
 import { useDemo } from "./demo";
 import { Stage, Wash } from "./Stage";
@@ -26,6 +25,9 @@ export default function App() {
     root.current?.querySelectorAll("[data-chapter]").forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, []);
+
+  // A closed notch shows no tool, so no tool button is pressed.
+  const shown = demo.open ? demo.tool : "";
 
   const chapter = CHAPTERS.find((c) => c.id === active);
   useEffect(() => {
@@ -60,7 +62,6 @@ export default function App() {
   };
 
   return (
-    <MotionConfig reducedMotion="user">
       <div id="top" ref={root}>
         <a className="skip" href="#overview">Skip to the demo controls</a>
         <main>
@@ -73,7 +74,7 @@ export default function App() {
             <div className="lede">
               <Rise>
                 <p className="lead">
-                  Crest is a free, open source Dynamic Island for Windows and macOS. The notch beside this text is the real app, running here on sample data. Open it and try every tool.
+                  Crest is a free, open source Dynamic Island for Windows and macOS. The notch on this page is the real app, running here on sample data. Open it and try every tool.
                 </p>
               </Rise>
               <Rise i={1} className="actions">
@@ -89,7 +90,7 @@ export default function App() {
                     const t = TOOLS[id];
                     const Icon = t.icon;
                     return (
-                      <button key={id} className="tb" aria-label={t.label} aria-pressed={demo.tool === id} title={t.label} onClick={() => jump(id)}>
+                      <button key={id} className="tb" aria-label={t.label} aria-pressed={shown === id} title={t.label} onClick={() => jump(id)}>
                         <Icon size={22} weight="bold" style={{ color: HUE[t.hue] }} aria-hidden="true" />
                       </button>
                     );
@@ -99,12 +100,13 @@ export default function App() {
             </div>
 
             <aside className="stage-col" aria-label="Live demo" ref={stageCol}>
-              <Stage frame={demo.frame} tool={demo.tool} open={demo.open} onLoad={demo.onLoad} />
+              <a className="skip skip-demo" href="#chapters">Skip the demo and go to the chapters</a>
+              <Stage frame={demo.frame} tool={demo.tool} open={demo.open} size={demo.size} edge={demo.state.edge} pet={demo.state.pet !== null} onLoad={demo.onLoad} onOpen={() => demo.send({ cmd: "open" })} />
             </aside>
 
-            <div className="chapters">
+            <div className="chapters" id="chapters">
               {CHAPTERS.map((c) => (
-                <ChapterCard key={c.id} chapter={c} active={active === c.id} tool={demo.tool} send={demo.send} setTool={demo.setTool} onUse={showStage} />
+                <ChapterCard key={c.id} chapter={c} active={active === c.id} tool={shown} state={demo.state} patch={demo.patch} send={demo.send} setTool={demo.setTool} onUse={showStage} />
               ))}
               <p className="more">
                 Every feature in detail, with setup steps for each integration, is in the <a href={`${REPO}/blob/main/docs/features.md`}>feature guide</a>.
@@ -122,6 +124,5 @@ export default function App() {
           <p className="noscript"><Mark size={20} animate={false} /> The live demo needs JavaScript. Crest itself is on GitHub: {REPO}</p>
         </noscript>
       </div>
-    </MotionConfig>
   );
 }

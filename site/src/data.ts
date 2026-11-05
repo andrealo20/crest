@@ -1,4 +1,4 @@
-import type { Icon } from "@phosphor-icons/react";
+import type { Icon } from "./icons";
 import {
   ArrowsLeftRight,
   BellSimple,
@@ -26,7 +26,7 @@ import {
   Vault,
   VideoCamera,
   Waveform,
-} from "@phosphor-icons/react";
+} from "./icons";
 
 /** Colours of the logo, from assets/logo/crest-icon.svg. */
 export const LOGO = { yellow: "#ffc75f", orange: "#ff9a4d", red: "#ff6b6b", pink: "#e0559e", purple: "#7b61ff" } as const;
@@ -149,6 +149,18 @@ export const THEMES: [string, string, string, string][] = [
   ["everforest", "Everforest", "#2d353b", "#a7c080"],
 ];
 
+/** The eight pets (PET_IDS in src/notch/row/parts.ts). */
+export const PETS: { id: string; label: string }[] = [
+  { id: "cat", label: "Black cat" },
+  { id: "cocker", label: "Cocker spaniel" },
+  { id: "monkey", label: "Monkey" },
+  { id: "sloth", label: "Sloth" },
+  { id: "samurai", label: "Samurai" },
+  { id: "robot", label: "Robot" },
+  { id: "flame", label: "Flame" },
+  { id: "zombie", label: "Zombie" },
+];
+
 export const LANGS: { code: string; label: string }[] = [
   { code: "en", label: "English" },
   { code: "zh-CN", label: "简体中文" },
@@ -170,7 +182,7 @@ export interface Chapter {
   hue: HueName;
   title: string;
   text: string;
-  /** Written for the 1.0.0 features on main. */
+  /** Written for the features coming in 1.0.0 (on main, not in the 0.4.0 release). */
   next?: string;
   tools?: string[];
   controls?: Control[];
@@ -187,7 +199,7 @@ export const CHAPTERS: Chapter[] = [
     title: "Overview and weather",
     text:
       "Overview is a small control centre: the time, the weather, the song playing, Windows focus, keep awake, a volume slider and the brightness of the screen the notch is on. Weather adds the current conditions and a 7-day forecast from Open-Meteo, with no key to enter.",
-    next: "In 1.0: quick controls in Overview, a detailed weather tab and the weather in the closed notch.",
+    next: "Coming in 1.0: quick controls in Overview, a fuller weather tab with an hourly strip and the 7 days, and the weather in the closed notch.",
     tools: ["overview", "weather"],
     start: "overview",
   },
@@ -208,7 +220,7 @@ export const CHAPTERS: Chapter[] = [
     title: "Notices",
     text:
       "Notices drop over the closed row, one at a time: a finished timer, a question from a script, a saved screenshot, a download, the charger, the battery, the network, Bluetooth headphones, the volume and brightness HUD, Caps Lock, a Discord call, a due to-do, the water reminder, an event about to start, a quota alert, a new song. A running recording outranks the rest. Press one to see it.",
-    next: "In 1.0: coloured notice cards.",
+    next: "Coming in 1.0: coloured notice cards.",
     controls: ["notices"],
     tools: ["notices"],
     start: "close",
@@ -240,7 +252,7 @@ export const CHAPTERS: Chapter[] = [
     title: "Clipboard, Shelf, Converter, Launcher",
     text:
       "The clipboard keeps text, links, images and files with filters, never writes them to disk and skips password managers. The Shelf parks files you drop or paste. The Converter handles units and about 30 currencies at the European Central Bank rates. The Launcher starts your pinned apps, and the first six also answer to Alt + 1 to Alt + 6.",
-    next: "In 1.0: send Shelf files to a phone on the same network by scanning a QR code.",
+    next: "Coming in 1.0: send Shelf files to a phone on the same network by scanning a QR code.",
     tools: ["clipboard", "shelf", "convert", "launcher"],
     start: "clipboard",
   },
@@ -299,8 +311,8 @@ export const CHAPTERS: Chapter[] = [
     hue: "indigo",
     title: "Your language, pets and settings",
     text:
-      "Crest speaks eleven languages, Arabic read right to left, and switches at once. A short first-run setup picks a preset (Music, Productivity, AI or your own), the closed look and the edge. Settings has a search field (Ctrl + F) that finds a setting by name, description or group. Pets live in a nest beside the notch.",
-    next: "In 1.0: eight cartoon pets in a nest beside the notch.",
+      "Crest speaks eleven languages, Arabic read right to left, and switches at once. A short first-run setup picks a preset (Music, Productivity, AI or your own), the closed look and the edge. Settings has a search field (Ctrl + F) that finds a setting by name, description or group.",
+    next: "Coming in 1.0: eight cartoon pets that live in a nest beside the notch.",
     controls: ["langs", "pets", "pages"],
     start: "settings",
     note: "In Settings, press Ctrl + F to search.",
@@ -339,7 +351,7 @@ export const PLUGIN_JSON = `{
 
 export const FAQ: { tab: string; q: string; a: string }[] = [
   { tab: "Price", q: "Is Crest free?", a: "Yes. No ads, no paid tier, no account. It is open source under the GPL-3.0 licence, and the code of every release, Store builds included, is in the repository." },
-  { tab: "Demo", q: "Is the demo the real app?", a: "It is the real interface, built for the web and filled with sample data. Anything that needs your PC (hardware readings, the camera, your files, Windows notifications) is simulated here, so the demo shows how it looks and moves, not your own data." },
+  { tab: "Demo", q: "Is the demo the real app?", a: "It is the real interface, built for the web and filled with sample data. Anything that needs your PC (hardware readings, the camera, your files, Windows notifications) is simulated here, so the demo shows how it looks and moves, not your own data. It runs the version in development, so it also shows what the page marks as coming in 1.0, which the 0.4.0 download does not have yet." },
   { tab: "Systems", q: "What does it run on?", a: "Windows 11 and Windows 10, on x64 and on ARM, and macOS 12 or later on Apple silicon and Intel as a preview. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder and Camera are Windows-only for now and do not show on a Mac." },
   { tab: "Network", q: "What does it send over the network?", a: "Nothing goes to the developer. Crest only goes online for the services you turn on, such as the weather, currency rates, lyrics or your AI provider, and straight from your PC to them. The full table is in the privacy policy." },
   { tab: "Store", q: "Microsoft Store or GitHub?", a: "The Store build is signed by Microsoft and updated by the Store. The installer and the portable zip on GitHub are not code-signed yet, so SmartScreen may warn on first launch: choose More info, then Run anyway." },

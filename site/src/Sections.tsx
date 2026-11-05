@@ -1,26 +1,19 @@
 import { useEffect, useState } from "react";
-import { motion } from "motion/react";
-import { ArrowUpRight, GithubLogo } from "@phosphor-icons/react";
+import { useRise } from "./rise";
+import { ArrowUpRight, GithubLogo } from "./icons";
 import { FAQ, HUE, LOGO, NOTIFY_ASK, NOTIFY_CODE, NOTIFY_PART, PLUGIN_JSON } from "./data";
 
 export const REPO = "https://github.com/andrealo20/crest";
 export const RELEASES = "https://github.com/andrealo20/crest/releases/latest";
 export const STORE = "https://apps.microsoft.com/detail/9N2KXJ2924KS";
 
-const spring = { type: "spring", visualDuration: 0.5, bounce: 0.1 } as const;
-
 /** A part of a section that rises into place once, `i` steps after its neighbours. */
 export function Rise({ children, i = 0, className }: { children: React.ReactNode; i?: number; className?: string }) {
+  const [ref, seen] = useRise<HTMLDivElement>();
   return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0.5, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "0px 0px -8% 0px" }}
-      transition={{ ...spring, delay: i * 0.07 }}
-    >
+    <div ref={ref} className={`rise${seen ? " in" : ""}${className ? ` ${className}` : ""}`} style={{ transitionDelay: `${i * 70}ms` }}>
       {children}
-    </motion.div>
+    </div>
   );
 }
 
