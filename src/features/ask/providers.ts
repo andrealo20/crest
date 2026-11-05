@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isNative } from "../../platform/native";
 import type { AskEffort, AskProvider, AskProviderConfig } from "../../settings/store";
-import { showcase, showcaseAnswer } from "../../dev/showcase-data";
+import { demo, showcase, showcaseAnswer } from "../../dev/showcase-data";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -56,11 +56,11 @@ export async function streamChat(
 
 async function demoStream(messages: ChatMessage[], onDelta: (text: string) => void, signal: AbortSignal) {
   const last = messages.at(-1)?.content ?? "";
-  const reply = showcase ? showcaseAnswer : `Browser-Vorschau: In der App antwortet hier das eingestellte Modell auf „${last.slice(0, 120)}“.`;
-  if (showcase) await new Promise((r) => setTimeout(r, 380));
+  const reply = demo ? (await import("../../dev/demo-data")).demoAnswer(last) : showcase ? showcaseAnswer : `Browser-Vorschau: In der App antwortet hier das eingestellte Modell auf „${last.slice(0, 120)}“.`;
+  if (showcase || demo) await new Promise((r) => setTimeout(r, 380));
   for (const chunk of reply.match(/\S+\s*/g) ?? []) {
     if (signal.aborted) return;
-    await new Promise((r) => setTimeout(r, showcase ? 34 : 25 + Math.random() * 35));
+    await new Promise((r) => setTimeout(r, showcase || demo ? 34 : 25 + Math.random() * 35));
     onDelta(chunk);
   }
 }

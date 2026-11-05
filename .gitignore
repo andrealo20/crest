@@ -22,3 +22,7 @@ src-tauri/target-shared
 src-tauri/target-dbg
 src-tauri/target-store
 /target-shared
+dist-site
+
+# Design skill working files, kept local
+.taste-skill/

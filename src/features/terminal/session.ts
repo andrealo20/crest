@@ -131,7 +131,7 @@ function onKey(e: KeyboardEvent): boolean {
 
 function copySelection() {
   const text = term?.getSelection();
-  if (text) void navigator.clipboard.writeText(text);
+  if (text) void navigator.clipboard.writeText(text).catch(() => {});
   term?.clearSelection();
 }
 

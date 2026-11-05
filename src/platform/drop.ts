@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { createStore } from "../lib/store";
 import { isNative } from "./native";
+import { demo } from "../dev/showcase-data";
 
 /*
  * Quick drop: drag files from Explorer onto the notch.
@@ -14,6 +15,17 @@ import { isNative } from "./native";
  * the Shelf takes and then clears.
  */
 export const drop = createStore<{ dragging: boolean; dropped: string[] | null }>({ dragging: false, dropped: null });
+
+/** Demo: the files the visitor dropped or pasted, by the made-up path the Shelf shows. They stay in this page's memory. */
+export const demoFiles = new Map<string, File>();
+/** Demo: the text of the last paste, which the Shelf reads like the clipboard (the page may not read the real one). */
+export const demoPaste = { text: "" };
+
+const demoPath = (f: File) => {
+  const path = `C:\\Users\\demo\\Downloads\\${f.name}`;
+  demoFiles.set(path, f);
+  return path;
+};
 
 export function takeDropped(): string[] | null {
   const paths = drop.get().dropped;
@@ -37,6 +49,21 @@ export async function pasteFiles(): Promise<boolean> {
 /** Ctrl+V outside text fields → `pasteFiles`. For the Shelf. */
 export function usePasteFiles(onEmpty?: () => void) {
   useEffect(() => {
+    // Demo: Ctrl+V brings the visitor's real clipboard (a copied file or screenshot) through the paste event.
+    if (demo) {
+      const onPaste = (e: ClipboardEvent) => {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+        const files = [...(e.clipboardData?.files ?? [])];
+        e.preventDefault();
+        if (files.length) drop.set({ dragging: false, dropped: files.map(demoPath) });
+        else {
+          demoPaste.text = e.clipboardData?.getData("text/plain") ?? "";
+          onEmpty?.();
+        }
+      };
+      window.addEventListener("paste", onPaste);
+      return () => window.removeEventListener("paste", onPaste);
+    }
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey && e.key.toLowerCase() === "v")) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -95,6 +122,6 @@ export function startDropListener() {
       webview.postMessageWithAdditionalObjects("notch-drop", files);
       return;
     }
-    drop.set({ dragging: false, dropped: files.map((f) => `C:\\Users\\Demo\\Downloads\\${f.name}`) });
+    drop.set({ dragging: false, dropped: files.map(demoPath) });
   });
 }

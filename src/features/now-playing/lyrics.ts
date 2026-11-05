@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { livePosition, media, type NowPlaying } from "../../platform/media";
 import { isNative } from "../../platform/native";
+import { demo } from "../../dev/showcase-data";
 import { settings } from "../../settings/store";
 import { streamChat } from "../ask/providers";
 import { LEAD, cacheKey, foundOf, lineAt, lookupAllowed, lyricsOf, pickRecord, searchTerms, untilNext, withExtra, type Found, type LrclibRecord, type LyricLine, type Lyrics } from "./lrc";
@@ -72,6 +73,8 @@ async function fromLrclib(title: string, artist: string, duration: number): Prom
 
 function fromSource(id: LyricSourceId, title: string, artist: string, duration: number): Promise<Found | null> {
   const q = searchTerms(title, artist);
+  // Demo: the made-up songs come with their lyrics; no source is asked.
+  if (demo) return import("../../dev/demo-data").then((m) => m.demoLyrics(q.title));
   if (id === "lrclib") return fromLrclib(q.title, q.artist, duration);
   // The other sources are asked from Rust; the browser preview has none.
   return isNative ? invoke<Found | null>("lyrics_fetch", { source: id, title: q.title, artist: q.artist, duration }) : Promise.resolve(null);

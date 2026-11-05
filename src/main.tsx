@@ -29,12 +29,14 @@ import { screen, startWindowBehavior } from "./features/window/store";
 import { startCapture } from "./features/capture/store";
 import { startDownloads } from "./features/downloads/store";
 import { startPlugins } from "./features/plugins/store";
-import { showcase } from "./dev/showcase-data";
+import { demo, showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
+import { startDemo } from "./dev/demo";
 import { language, startLanguage, t } from "./i18n";
 import { setTrayTexts } from "./platform/native";
 
 if (showcase) startShowcase();
+if (demo) startDemo();
 
 startDropListener();
 startFocusMode();

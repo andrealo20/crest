@@ -1,4 +1,6 @@
 import { useSyncExternalStore } from "react";
+// First of everything that reads localStorage: the demo swaps it for memory before any store loads.
+import "../dev/demoStorage";
 
 export interface Store<T> {
   get(): T;

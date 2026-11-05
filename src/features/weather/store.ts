@@ -16,6 +16,7 @@ import { lang, t } from "../../i18n";
 import type { Hue } from "../themes/hues";
 import { createStore } from "../../lib/store";
 import { savedForecast, type SavedForecast } from "./stale";
+import { demo } from "../../dev/showcase-data";
 
 /*
  * Weather data via Open-Meteo (free, no key). Used by the weather tool and the
@@ -68,6 +69,8 @@ export async function loadForecast(lat: number, lon: number): Promise<Forecast> 
 }
 
 async function fetchForecast(lat: number, lon: number): Promise<Forecast> {
+  // Demo: a made-up week; nothing is asked from Open-Meteo.
+  if (demo) return import("../../dev/demo-data").then((m) => m.demoForecast(lat, lon));
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,precipitation,is_day" +
@@ -117,6 +120,7 @@ export interface Place {
 
 /** Location search (Open-Meteo geocoding). */
 export async function searchPlaces(q: string): Promise<Place[]> {
+  if (demo) return import("../../dev/demo-data").then((m) => m.searchDemoPlaces(q));
   const r = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=4&language=${lang().slice(0, 2)}`)).json();
   return (r.results ?? []).map((p: { name: string; admin1?: string; country?: string; latitude: number; longitude: number }) => ({
     name: p.name,
@@ -133,6 +137,8 @@ export function choosePlace(p: Place) {
 
 /** Approximate location from the IP (city level). Two keyless services, the second as fallback. */
 async function placeFromIp(): Promise<{ name: string; lat: number; lon: number } | null> {
+  // Demo: no IP lookup; a fixed place.
+  if (demo) return { name: "Amsterdam", lat: 52.37, lon: 4.89 };
   const sources = ["https://get.geojs.io/v1/ip/geo.json", "https://ipwho.is/"];
   for (const url of sources) {
     try {

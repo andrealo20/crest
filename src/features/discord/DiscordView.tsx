@@ -5,7 +5,8 @@ import { content, springs } from "../../design/motion";
 import { t, tBackend } from "../../i18n";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
-import { discord, type DiscordCall } from "../../platform/services";
+import { discord, mockDiscord, type DiscordCall } from "../../platform/services";
+import { demo } from "../../dev/showcase-data";
 import { Button, Empty } from "../../ui/controls";
 import { discordState } from "./store";
 
@@ -55,7 +56,14 @@ export function DiscordView() {
                 ? t("Discord fragt einmal nach, ob die Notch deinen Sprachstatus sehen darf.")
                 : s.error ? tBackend(s.error) : undefined
           }
-          action={s.status === "no-config" ? <Button onClick={() => navigate("settings", "discord")}>{t("Einrichten")}</Button> : undefined}
+          action={
+            s.status === "no-config" ? (
+              <Button onClick={() => navigate("settings", "discord")}>{t("Einrichten")}</Button>
+            ) : demo && ready ? (
+              // Demo only: there is no Discord to join a call in, so a sample one starts here.
+              <Button onClick={() => mockDiscord.toggleCall()}>Start a sample call</Button>
+            ) : undefined
+          }
         />
       </>
     );

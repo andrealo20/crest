@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isNative } from "./native";
 import { secrets, type SecretName } from "./services";
-import { showcase, showcaseCash, showcaseDayChange, showcasePositions, showcaseRealized } from "../dev/showcase-data";
+import { demo, sample, showcaseCash, showcaseDayChange, showcasePositions, showcaseRealized } from "../dev/showcase-data";
 import type { Account, History, Rates } from "../features/trading/portfolio";
 
 /*
@@ -60,7 +60,7 @@ const mockKeys: Record<string, SecretName> = {
 const none = { price: null, priceCurrency: null, value: null, cost: null, currency: null };
 
 async function mockAccount(provider: string): Promise<Account> {
-  await new Promise((r) => setTimeout(r, showcase ? 160 : 450));
+  await new Promise((r) => setTimeout(r, sample ? 160 : 450));
   const key = mockKeys[provider];
   if (!key || !(await secrets.has(key))) throw "no-key";
   const base = { trades: [], realized: null, partial: false, warning: null };
@@ -127,7 +127,7 @@ function mockRates(base: string): Rates {
 function mockHistory(entries: RecordEntry[]): Record<string, History> {
   const out: Record<string, History> = {};
   for (const e of entries) {
-    const change = showcase && e.scope === "all" ? showcaseDayChange : e.value * 0.009;
+    const change = sample && e.scope === "all" ? showcaseDayChange : e.value * 0.009;
     const yesterday = e.pnl - change;
     const history = [];
     for (let i = 30; i >= 0; i--) {
@@ -142,7 +142,7 @@ function mockHistory(entries: RecordEntry[]): Record<string, History> {
     const steps = Math.max(2, Math.floor((Date.now() - start.getTime()) / 120_000));
     const intraday = Array.from({ length: steps }, (_, i) => {
       const f = i / (steps - 1);
-      const p = i === steps - 1 ? e.pnl : yesterday + change * f + Math.sin(i * 0.8) * change * 0.15 * (1 - f) - Math.sin(f * Math.PI) * change * 0.2;
+      const p = i === steps - 1 ? e.pnl : yesterday + change * f + Math.sin(i * (demo ? 0.12 : 0.8)) * change * 0.15 * (1 - f) - Math.sin(f * Math.PI) * change * 0.2;
       return { t: start.getTime() + i * 120_000, value: e.value - e.pnl + p, pnl: p, noCost: e.noCost };
     });
     out[e.scope] = { history, intraday };

@@ -150,8 +150,14 @@ export function ShelfView() {
   const copyKeys = async (keys: string[], flashKey: string) => {
     const { paths, text } = dragPayload(items, keys);
     if (paths.length) await copyFiles(paths);
-    else if (text !== null) await navigator.clipboard.writeText(text);
-    else return;
+    else if (text !== null) {
+      // A denied clipboard shows no "copied".
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        return;
+      }
+    } else return;
     flashCopied(flashKey);
   };
 

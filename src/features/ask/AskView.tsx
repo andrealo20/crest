@@ -232,9 +232,11 @@ function Bubble({ message, streaming }: { message: ChatMessage; streaming: boole
           <button
             aria-label={t("Kopieren")}
             onClick={() => {
-              void navigator.clipboard.writeText(message.content);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1200);
+              // A denied clipboard shows no "copied".
+              void navigator.clipboard.writeText(message.content).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1200);
+              }, () => {});
             }}
             className="pressable mt-1 flex items-center gap-1 text-caption text-label-4 opacity-0 group-hover:opacity-100 hover:text-label-2"
           >

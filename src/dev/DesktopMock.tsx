@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { media, useNowPlaying } from "../platform/media";
 import { mockApps, mockDiscord, mockPrivacy, mockStatus } from "../platform/services";
-import { showcase } from "./showcase-data";
+import { bare, demo, showcase } from "./showcase-data";
 
 /** Mixer: the playing app moves to the next one in the list (tests the reorder). */
 function switchSource() {
@@ -16,6 +16,9 @@ function switchSource() {
 export function DesktopMock() {
   const [light, setLight] = useState(false);
   const np = useNowPlaying();
+  // The demo shows the clean desktop of the showcase, without the dev buttons.
+  const clean = showcase || demo;
+  if (bare) return null;
 
   return (
     <>
@@ -23,7 +26,7 @@ export function DesktopMock() {
       className="fixed inset-0"
       style={{
         // Showcase: brighter at the top so the black notch reads clearly in captures.
-        background: showcase
+        background: clean
           ? "radial-gradient(60% 55% at 50% 0%, #6d8cff 0%, rgb(109 140 255 / 0) 72%), radial-gradient(70% 70% at 88% 105%, #8a4dff 0%, rgb(138 77 255 / 0) 62%), linear-gradient(180deg, #2a3c9e 0%, #121a5c 55%, #080c2a 100%)"
           : light
           ? "radial-gradient(120% 90% at 70% 110%, #9fc3ff 0%, #dbe7ff 45%, #f3f6fb 80%)"
@@ -32,7 +35,7 @@ export function DesktopMock() {
       }}
     >
       {/* A maximized window so the notch sits over real content (not in the showcase: clean desktop). */}
-      {!showcase && <div
+      {!clean && <div
         className="absolute inset-x-[12%] top-[14%] bottom-[18%] overflow-hidden rounded-lg shadow-2xl"
         style={{ background: light ? "#ffffff" : "#202020", color: light ? "#111" : "#eee" }}
       >
@@ -50,7 +53,7 @@ export function DesktopMock() {
       </div>}
 
       {/* Dev panel */}
-      {!showcase && <div className="fixed right-4 bottom-16 z-10 flex gap-2 rounded-xl bg-black/60 p-2 text-xs text-white backdrop-blur">
+      {!clean && <div className="fixed right-4 bottom-16 z-10 flex gap-2 rounded-xl bg-black/60 p-2 text-xs text-white backdrop-blur">
         <DevButton onClick={media.toggle}>{np?.isPlaying ? "Pause" : "Play"}</DevButton>
         <DevButton onClick={media.next}>Next song</DevButton>
         <DevButton onClick={switchSource}>Switch source</DevButton>
@@ -70,7 +73,9 @@ export function DesktopMock() {
         className="fixed inset-x-0 bottom-0 h-12 backdrop-blur-xl"
         style={{ background: light ? "rgb(243 243 243 / 0.8)" : "rgb(28 28 28 / 0.8)" }}
       >
-        {showcase && <WindowsLogo />}
+        {clean && <WindowsLogo />}
+        {/* The demo on its own page (not the project page's stage): the way back. */}
+        {demo && <a href="../" className="absolute inset-y-0 left-0 flex items-center px-4 text-xs text-white/80 underline underline-offset-2 hover:text-white">Back to the site</a>}
       </div>
     </div>
     {/* Outside the desktop's stacking context so it can sit above the notch. */}

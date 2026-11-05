@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { FileZip, FolderOpen, PuzzlePiece, X } from "@phosphor-icons/react";
 import { isNative } from "../../platform/native";
+import { demo } from "../../dev/showcase-data";
 import type { StagedPlugin } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { Button, Group, Row, Switch } from "../../ui/controls";
@@ -60,7 +61,7 @@ export function PluginSettings() {
   const [removing, setRemoving] = useState<string | null>(null);
   useEffect(() => void refreshPlugins(), []);
 
-  if (!isNative) {
+  if (!isNative && !demo) {
     return (
       <Group title={t("Plugins")} id="settings-plugins">
         <Row label={t("Plugins laufen nur in der App")} />
