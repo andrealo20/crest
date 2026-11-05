@@ -1,6 +1,7 @@
 import { createStore } from "../../lib/store";
 import { capture, type CaptureRecState } from "../../platform/services";
 import { isNative } from "../../platform/native";
+import { demo } from "../../dev/showcase-data";
 import { settings } from "../../settings/store";
 import { addToShelf } from "../shelf/ShelfView";
 import type { RecClock } from "./clock";
@@ -62,5 +63,6 @@ export function pauseRecording(paused: boolean) {
 
 export function stopRecording() {
   void capture.stop();
-  if (!isNative) apply({ phase: "idle", elapsedMs: 0, path: null, failed: [], audio: recording.get().audio });
+  // Demo: the finished recording joins the list and shows its "saved" notice.
+  if (!isNative) apply({ phase: "idle", elapsedMs: 0, path: demo ? capture.finishSample(recording.get().audio) : null, failed: [], audio: recording.get().audio });
 }

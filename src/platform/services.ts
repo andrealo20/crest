@@ -12,7 +12,8 @@ import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
 import bundledChangelog from "../changelog.json";
-import { showcase, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
+import { demo, photo, sample, sampleAvatar, screenshot, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
+import { demoFiles, demoPaste } from "./drop";
 
 /*
  * Bridges to the Rust services (src-tauri/src/*.rs). In the browser they return
@@ -282,7 +283,7 @@ export function probeFiles(paths: string[]): Promise<{ files: DroppedFile[] }> {
             : /^(xlsx|xlsm|xls|ods|csv|tsv)$/.test(ext)
               ? "table"
               : "other";
-    return { path: p, name, kind, ext, size: (showcase && showcaseFileSizes[name]) || 1_400_000 + name.length * 91_000 };
+    return { path: p, name, kind, ext, size: demoFiles.get(p)?.size ?? (sample ? showcaseFileSizes[name] : undefined) ?? 1_400_000 + name.length * 91_000 };
   });
   return Promise.resolve({ files });
 }
@@ -292,7 +293,11 @@ export function revealFile(path: string) {
 }
 
 export function openFile(path: string): Promise<void> {
-  return isNative ? invoke("open_path", { path }) : Promise.resolve();
+  if (isNative) return invoke("open_path", { path });
+  // Demo: a file the visitor dropped opens from their own browser memory; the sample files have nothing to open.
+  const file = demoFiles.get(path);
+  if (file && /^(image|text|application\/pdf)/.test(file.type)) window.open(URL.createObjectURL(file), "_blank", "noopener");
+  return Promise.resolve();
 }
 
 /** GitHub Sponsors in the default browser. */
@@ -318,7 +323,15 @@ export function copyFiles(paths: string[]): Promise<void> {
 }
 
 export function filePreview(path: string): Promise<string | null> {
-  return isNative ? invoke<string | null>("file_preview", { path }) : Promise.resolve(null);
+  if (isNative) return invoke<string | null>("file_preview", { path });
+  const file = demoFiles.get(path);
+  if (demo) return Promise.resolve(file?.type.startsWith("image/") ? URL.createObjectURL(file) : /\.png$/i.test(path) ? samplePicture(path) : null);
+  return Promise.resolve(null);
+}
+
+/** Demo: a picture for the sample images on the Shelf, drawn here so nothing is fetched. */
+function samplePicture(path: string): string {
+  return /banner|dusk/i.test(path) ? photo(640, 360) : screenshot(640, 360);
 }
 
 // ---------- Updates ----------
@@ -361,14 +374,19 @@ export interface ChangelogEntry {
 
 /** In the browser, `?update` in the URL fakes an update for testing. */
 const mockUpdate: UpdateHandle = {
-  version: "1.3.0",
+  version: demo ? "0.5.0" : "1.3.0",
   install: async (onProgress) => {
     for (let i = 1; i <= 20; i++) {
       await new Promise((r) => setTimeout(r, 120));
       onProgress(i / 20);
     }
+    // The app restarts after an update; the demo starts over the same way.
+    if (demo) location.reload();
   },
 };
+
+/** Demo: the "what's new" notice offers an update (src/dev/demo.ts). */
+export const demoOffer = { on: false };
 
 export const updater = {
   current: async (): Promise<string> => {
@@ -379,7 +397,7 @@ export const updater = {
   },
   /** Fetches the signed latest.json from the newest GitHub release. null = up to date. */
   check: async (): Promise<UpdateHandle | null> => {
-    if (!isNative) return new URLSearchParams(location.search).has("update") ? mockUpdate : null;
+    if (!isNative) return demoOffer.on || new URLSearchParams(location.search).has("update") ? mockUpdate : null;
     if ((await portable.info()).portable) return portableUpdate();
     const { check } = await import("@tauri-apps/plugin-updater");
     const found = await check();
@@ -410,7 +428,7 @@ export const updater = {
  */
 export async function fetchChangelog(version: string): Promise<ChangelogEntry[] | null> {
   if (!isNative) {
-    const mock = { en: "Example: something new in the upcoming version" };
+    const mock = { en: demo ? "An example entry: this is where a release lists what changed." : "Example: something new in the upcoming version" };
     return [{ version, date: new Date().toISOString().slice(0, 10), items: [mock, mock] }, ...bundledChangelog];
   }
   try {
@@ -540,17 +558,38 @@ export const downloadWatch = {
     if (isNative) void invoke("downloads_configure", { on });
   },
   on: (progress: (list: DownloadProgress[]) => void, finished: (d: DownloadFinished) => void): (() => void) => {
-    if (!isNative) return () => {};
+    if (!isNative) {
+      const h = { progress, finished };
+      mockDownloadHandlers.add(h);
+      return () => void mockDownloadHandlers.delete(h);
+    }
     const offs = [listen<DownloadProgress[]>("downloads://progress", (e) => progress(e.payload)), listen<DownloadFinished>("downloads://finished", (e) => finished(e.payload))];
     return () => offs.forEach((off) => void off.then((f) => f()));
   },
 };
 
+const mockDownloadHandlers = new Set<{ progress: (list: DownloadProgress[]) => void; finished: (d: DownloadFinished) => void }>();
+
+/** Browser: a download that runs for three seconds, then finishes (the demo's "download" notice). */
+export function mockDownload(name = "Crest-report.pdf") {
+  const each = (f: (h: { progress: (list: DownloadProgress[]) => void; finished: (d: DownloadFinished) => void }) => void) => mockDownloadHandlers.forEach(f);
+  let size = 0;
+  const id = window.setInterval(() => {
+    size += 9_000_000 + Math.random() * 3_000_000;
+    each((h) => h.progress([{ name: `${name}.crdownload`, size, speed: 9_500_000 + Math.random() * 1_500_000 }]));
+  }, 500);
+  window.setTimeout(() => {
+    window.clearInterval(id);
+    each((h) => h.progress([]));
+    each((h) => h.finished({ name, path: `C:/Users/demo/Downloads/${name}` }));
+  }, 3200);
+}
+
 const MOCK_BT = ["Audio.Headphone", "Input.Mouse", "Input.Keyboard", "Input.Gaming.Gamepad", "Audio.Speaker", "Communication.Phone", "Wearable.Watch", "Other"];
 
 /** Browser: each dev button toggles one source. Unplugging drops the mock percent by 9, so the low tones show too. */
 export const mockStatus = (() => {
-  let power: PowerState = { ac: true, percent: 64, battery: true }, online = true, buds = false, volume = 40, bright = 70, kind = 0;
+  let power: PowerState = { ac: true, percent: 64, battery: true }, online = true, buds = false, volume = 40, bright = 70, kind = 0, caps = false;
   const listeners = new Set<StatusHandlers>();
   return {
     seed: (): StatusSeed => ({ power, online, devices: buds ? ["Buds"] : [] }),
@@ -582,6 +621,11 @@ export const mockStatus = (() => {
     brightness() {
       bright = bright >= 100 ? 10 : Math.min(100, bright + 15);
       listeners.forEach((h) => h.level({ kind: "brightness", level: bright, muted: false }));
+    },
+    /** Caps Lock flips on and off with each call. */
+    capsLock() {
+      caps = !caps;
+      listeners.forEach((h) => h.lock({ key: "caps", on: caps }));
     },
   };
 })();
@@ -664,7 +708,8 @@ export const discord = {
 
 /** Browser: a sample call, started/ended from the dev panel. */
 export const mockDiscord = (() => {
-  const avatar = (n: number) => `https://cdn.discordapp.com/embed/avatars/${n}.png`;
+  // The demo draws its own avatars: nothing is fetched from Discord's servers.
+  const avatar = (n: number, name = "") => (demo ? sampleAvatar(name, n) : `https://cdn.discordapp.com/embed/avatars/${n}.png`);
   let state: DiscordSnapshot = { status: "ready", error: null, call: null };
   const listeners = new Set<(s: DiscordSnapshot) => void>();
   const emit = () => listeners.forEach((l) => l(state));
@@ -684,14 +729,14 @@ export const mockDiscord = (() => {
       if (state.call) return set(null);
       set({
         channelId: "1",
-        channelName: showcase ? showcaseCall.channelName : "Zocken",
-        guildName: showcase ? showcaseCall.guildName : "Die Runde",
+        channelName: sample ? showcaseCall.channelName : "Zocken",
+        guildName: sample ? showcaseCall.guildName : "Die Runde",
         guildIcon: null,
         mute: false,
         deaf: false,
         speaking: false,
-        members: showcase
-          ? showcaseCall.members.map((m) => ({ id: m.id, name: m.name, avatar: avatar(m.avatar), speaking: false, muted: m.id === "3" }))
+        members: sample
+          ? showcaseCall.members.map((m) => ({ id: m.id, name: m.name, avatar: avatar(m.avatar, m.name), speaking: false, muted: m.id === "3" }))
           : [
               { id: "1", name: "Du", avatar: avatar(0), speaking: false, muted: false },
               { id: "2", name: "Mara", avatar: avatar(1), speaking: false, muted: false },
@@ -704,7 +749,7 @@ export const mockDiscord = (() => {
       talk = setInterval(() => {
         if (!state.call) return;
         i++;
-        const who = (showcase ? ["2", "4", "2", "1"] : ["1", "2", "4", ""])[i % 4];
+        const who = (sample ? ["2", "4", "2", "1"] : ["1", "2", "4", ""])[i % 4];
         set({ ...state.call, speaking: who === "1" && !state.call.mute, members: state.call.members.map((m) => ({ ...m, speaking: m.id === who && !m.muted && !(m.id === "1" && state.call!.mute) })) });
       }, 1400);
     },
@@ -928,7 +973,26 @@ export interface PhonePageText {
 }
 
 export function phoneShareStart(paths: string[], text: PhonePageText): Promise<PhoneShare> {
-  return isNative ? invoke<PhoneShare>("phone_share_start", { paths, text }) : Promise.reject(new Error("Only in the app"));
+  if (isNative) return invoke<PhoneShare>("phone_share_start", { paths, text });
+  // Demo: a stand-in code that looks like the real one but opens nothing; the app serves the files on the local network.
+  return demo ? Promise.resolve({ url: "demo only: the app shows a real link here", qr: demoQr(), size: 29, ttl: 600 }) : Promise.reject(new Error("Only in the app"));
+}
+
+/** A QR-like pattern (three finder squares and fixed noise) as one SVG path in a 29 unit box. */
+function demoQr(): string {
+  const n = 29;
+  const finder = (x: number, y: number) => x === 0 || x === 6 || y === 0 || y === 6 || (x >= 2 && x <= 4 && y >= 2 && y <= 4);
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  let path = "";
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const inFinder = (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7);
+      const on = inFinder ? finder(x < 7 ? x : x - (n - 7), y < 7 ? y : y - (n - 7)) : rnd() < 0.48;
+      if (on) path += `M${x} ${y}h1v1h-1z`;
+    }
+  }
+  return path;
 }
 
 /** Stops the share at `url` (a newer one keeps running). */
@@ -939,6 +1003,11 @@ export function phoneShareStop(url: string) {
 /** Text on the clipboard ("" if none). */
 export function clipboardText(): Promise<string> {
   if (isNative) return invoke<string>("shelf_clipboard_text").catch(() => "");
+  if (demo && demoPaste.text) {
+    const text = demoPaste.text;
+    demoPaste.text = "";
+    return Promise.resolve(text);
+  }
   return navigator.clipboard.readText().catch(() => "");
 }
 // ---------- Terminal ----------
@@ -952,19 +1021,22 @@ export const terminal = {
       ? invoke<ShellInfo>("terminal_info")
       : Promise.resolve({ pwsh: null, powershell: "powershell.exe", cmd: "cmd.exe", home: "C:\\Users\\you", buildNumber: 0 }),
   start: (plan: LaunchPlan, cols: number, rows: number, onOutput: (m: TerminalMessage) => void): Promise<void> => {
+    if (demo) return import("../dev/demo-shell").then((m) => void (demoShell = m.createShell(onOutput)).start());
     if (!isNative) return Promise.resolve(mockShell.start(onOutput));
     const channel = new Channel<TerminalMessage>();
     channel.onmessage = onOutput;
     return invoke("terminal_start", { ...plan, cols, rows, onOutput: channel });
   },
-  write: (data: string): Promise<void> => (isNative ? invoke<void>("terminal_write", { data }).catch(() => {}) : Promise.resolve(mockShell.write(data))),
+  write: (data: string): Promise<void> => (isNative ? invoke<void>("terminal_write", { data }).catch(() => {}) : Promise.resolve(demoShell ? demoShell.write(data) : mockShell.write(data))),
   resize: (cols: number, rows: number) => {
     if (isNative) void invoke("terminal_resize", { cols, rows });
   },
-  kill: () => (isNative ? void invoke("terminal_kill") : mockShell.kill()),
+  kill: () => (isNative ? void invoke("terminal_kill") : (demoShell?.stop(), (demoShell = null), mockShell.kill())),
   clipboardText: (): Promise<string | null> =>
     isNative ? invoke<string | null>("terminal_clipboard_text") : navigator.clipboard.readText().catch(() => null),
 };
+
+let demoShell: { write(data: string): void; stop(): void } | null = null;
 
 /** Browser: a fake prompt that echoes what you type, so the tool can be designed without the app. */
 const mockShell = (() => {
@@ -1152,17 +1224,29 @@ export function fetchCalendar(sources: CalendarSourceIn[], force: boolean): Prom
   const at = (d: number, h: number, m = 0) => day.getTime() + d * 86_400_000 + (h * 60 + m) * 60_000;
   const calendars = sources.map((s) => ({ id: s.id, source: s.id, name: s.name || "Calendar", color: s.color || "#419cff" }));
   const c = (i: number) => calendars[i % Math.max(1, calendars.length)]?.id ?? "";
-  const sample: [number, string, string, number, number, boolean][] = [
-    [0, "Standup", "", at(0, 9, 30), at(0, 9, 45), false],
-    [1, "Lunch with Sam", "Café Central", at(0, 12, 30), at(0, 13, 30), false],
-    [0, "Design review", "Room 4", at(0, 16), at(0, 17), false],
-    [1, "Dentist", "", at(1, 8, 15), at(1, 9), false],
-    [0, "Sprint planning", "", at(1, 10), at(1, 11, 30), false],
-    [1, "Mum's birthday", "", at(2, 0), at(3, 0), true],
-    [0, "Release 0.3", "", at(3, 14), at(3, 15), false],
-  ];
+  // Demo: times from now on, so there is always an event coming up (the first and the fifth have a link to join).
+  const soon = (min: number) => Date.now() + min * 60_000;
+  const list: [number, string, string, number, number, boolean][] = demo
+    ? [
+        [0, "Design review", "Room 4", soon(25), soon(85), false],
+        [1, "Lunch with Sam", "Café Central", at(1, 12, 30), at(1, 13, 30), false],
+        [0, "Standup", "", at(0, 9, 30), at(0, 9, 45), false],
+        [1, "Dentist", "", at(1, 8, 15), at(1, 9), false],
+        [0, "Sprint planning", "", at(1, 10), at(1, 11, 30), false],
+        [1, "Mum's birthday", "", at(2, 0), at(3, 0), true],
+        [0, "Release 0.5", "", at(3, 14), at(3, 15), false],
+      ]
+    : [
+        [0, "Standup", "", at(0, 9, 30), at(0, 9, 45), false],
+        [1, "Lunch with Sam", "Café Central", at(0, 12, 30), at(0, 13, 30), false],
+        [0, "Design review", "Room 4", at(0, 16), at(0, 17), false],
+        [1, "Dentist", "", at(1, 8, 15), at(1, 9), false],
+        [0, "Sprint planning", "", at(1, 10), at(1, 11, 30), false],
+        [1, "Mum's birthday", "", at(2, 0), at(3, 0), true],
+        [0, "Release 0.3", "", at(3, 14), at(3, 15), false],
+      ];
   const events = calendars.length
-    ? sample.map(([i, title, location, start, end, allDay], n) => {
+    ? list.map(([i, title, location, start, end, allDay], n) => {
         const description = n === 0 || n === 4 ? "Join with Google Meet: https://meet.google.com/abc-defg-hij" : "";
         return { id: `s${n}`, calendar: c(i), title, location, url: "", description, start, end, allDay };
       })
@@ -1173,6 +1257,8 @@ export function fetchCalendar(sources: CalendarSourceIn[], force: boolean): Prom
 /** An event's meeting link in the default browser; Rust opens https links only. */
 export function openMeetingLink(url: string) {
   if (isNative) void invoke("calendar_open_link", { url });
+  // Demo: the sample link goes nowhere; a notice says what the app would have done.
+  else if (demo) mockNotice({ appName: "Crest demo", title: "Meeting link", body: `The app opens ${url} in your browser.` });
   else window.open(url, "_blank", "noopener");
 }
 
@@ -1253,15 +1339,18 @@ export const noticeSource = {
   /** One of the question's option ids, or null for no choice. */
   answer: (id: number, choice: string | null) => {
     if (isNative) void invoke("notices_answer", { id, choice });
-    else console.info("ask", id, "answered", choice);
+    else askAnswers.get(id)?.(choice), askAnswers.delete(id);
   },
 };
 
 const mockAskHandlers = new Set<(a: Ask) => void>();
 let mockAskId = 0;
-export function mockAsk(a: Partial<Ask> = {}) {
+/** Demo: who waits for the click on a question (the terminal's `crest-notify ask`). */
+export const askAnswers = new Map<number, (choice: string | null) => void>();
+export function mockAsk(a: Partial<Ask> = {}): number {
   const full: Ask = { id: ++mockAskId, appId: "cli:agent", appName: "Agent", title: "Run command?", body: "cargo test", options: ["allow", "always", "deny"], at: Date.now(), ...a };
   mockAskHandlers.forEach((h) => h(full));
+  return full.id;
 }
 
 const mockPartHandlers = new Set<(p: PartMessage) => void>();
@@ -1284,17 +1373,45 @@ export interface PluginResponse { status: number; contentType: string; body: str
 
 const notInBrowser = () => Promise.reject("not-native");
 
+/**
+ * Demo: the sample plugin (examples/plugins/hello-crest) is installed in memory. Removing it and picking a folder
+ * again shows the real install screen with its permissions; the plugin's data and its one request are made up here.
+ */
+const demoPlugins = (() => {
+  let installed = demo;
+  const data = new Map<string, unknown>();
+  const manifest = () => import("../../examples/plugins/hello-crest/crest-plugin.json").then((m) => m.default as PluginManifest);
+  return {
+    list: () => (installed ? manifest().then((m) => [m]) : Promise.resolve([])),
+    pick: () => Promise.resolve("hello-crest"),
+    stage: (): Promise<StagedPlugin> => manifest().then((m) => ({ token: "demo", manifest: m, replaces: null })),
+    commit: () => manifest().then((m) => ((installed = true), m)),
+    remove: () => ((installed = false), data.clear(), Promise.resolve()),
+    storage: (op: StorageOp): Promise<unknown> => {
+      if (op.op === "keys") return Promise.resolve([...data.keys()]);
+      if (op.op === "get") return Promise.resolve(data.get(op.key) ?? null);
+      if (op.op === "set") data.set(op.key, op.value);
+      else data.delete(op.key);
+      return Promise.resolve(null);
+    },
+    fetch: (): Promise<PluginResponse> => {
+      const lines = ["Keep it logically awesome.", "Design for failure.", "Half measures are as bad as nothing at all.", "Favor focus over features."];
+      return Promise.resolve({ status: 200, contentType: "text/plain", body: lines[Math.floor(Math.random() * lines.length)] });
+    },
+  };
+})();
+
 /** Install, list and remove plugins, and run what their pages ask for (src/features/plugins/PluginView.tsx). */
 export const pluginApi = {
-  list: (): Promise<PluginManifest[]> => (isNative ? invoke<PluginManifest[]>("plugins_list") : Promise.resolve([])),
+  list: (): Promise<PluginManifest[]> => (isNative ? invoke<PluginManifest[]>("plugins_list") : demo ? demoPlugins.list() : Promise.resolve([])),
   /** The system's folder or .zip picker; null when cancelled. */
-  pick: (zip: boolean): Promise<string | null> => (isNative ? invoke<string | null>("plugins_pick", { zip }) : Promise.resolve(null)),
-  stage: (path: string): Promise<StagedPlugin> => (isNative ? invoke<StagedPlugin>("plugins_stage", { path }) : notInBrowser()),
-  commit: (token: string): Promise<PluginManifest> => (isNative ? invoke<PluginManifest>("plugins_commit", { token }) : notInBrowser()),
+  pick: (zip: boolean): Promise<string | null> => (isNative ? invoke<string | null>("plugins_pick", { zip }) : demo ? demoPlugins.pick() : Promise.resolve(null)),
+  stage: (path: string): Promise<StagedPlugin> => (isNative ? invoke<StagedPlugin>("plugins_stage", { path }) : demo ? demoPlugins.stage() : notInBrowser()),
+  commit: (token: string): Promise<PluginManifest> => (isNative ? invoke<PluginManifest>("plugins_commit", { token }) : demo ? demoPlugins.commit() : notInBrowser()),
   discard: (token: string): Promise<void> => (isNative ? invoke("plugins_discard", { token }) : Promise.resolve()),
-  remove: (id: string): Promise<void> => (isNative ? invoke("plugins_remove", { id }) : notInBrowser()),
-  storage: (id: string, op: StorageOp): Promise<unknown> => (isNative ? invoke("plugins_storage", { id, op }) : notInBrowser()),
-  fetch: (id: string, request: PluginFetch): Promise<PluginResponse> => (isNative ? invoke<PluginResponse>("plugins_fetch", { id, request }) : notInBrowser()),
+  remove: (id: string): Promise<void> => (isNative ? invoke("plugins_remove", { id }) : demo ? demoPlugins.remove() : notInBrowser()),
+  storage: (id: string, op: StorageOp): Promise<unknown> => (isNative ? invoke("plugins_storage", { id, op }) : demo ? demoPlugins.storage(op) : notInBrowser()),
+  fetch: (id: string, request: PluginFetch): Promise<PluginResponse> => (isNative ? invoke<PluginResponse>("plugins_fetch", { id, request }) : demo ? demoPlugins.fetch() : notInBrowser()),
 };
 
 // ---------- Window behaviour (display.rs, shell.rs) ----------
@@ -1461,22 +1578,57 @@ function showcaseThumb(path: string): string | null {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+/** Sample and demo: what the Capture tool lists, newest first. A screenshot or recording taken in the demo is added. */
+const sampleLibrary: CaptureFile[] = sample ? showcaseCaptures() : [];
+const sampleThumbs = new Map<string, string>();
+const sampleLengths = new Map<string, number>();
+let sampleStarted = 0;
+let sampleCount = 4;
+
+/** A demo capture appears in the list with a picture drawn here; nothing is read from the visitor's screen. */
+function addSample(kind: CaptureFile["kind"], length = 0): CaptureFile {
+  const n = ++sampleCount;
+  const ext = kind === "shot" ? "png" : kind === "video" ? "mp4" : "m4a";
+  const dir = kind === "shot" ? "Pictures/Screenshots" : kind === "video" ? "Videos/Captures" : "Music/Crest/Recordings";
+  const file: CaptureFile = { path: `C:/Users/demo/${dir}/${kind === "audio" ? "Recording" : "Crest"} ${n}.${ext}`, name: `${kind === "audio" ? "Recording" : "Crest"} ${n}.${ext}`, kind, size: kind === "shot" ? 1_300_000 : Math.max(120_000, length * 16_000), modified: Date.now() };
+  if (kind !== "audio") sampleThumbs.set(file.path, n % 2 ? screenshot(320, 180) : photo(320, 180));
+  if (length) sampleLengths.set(file.path, length);
+  sampleLibrary.unshift(file);
+  return file;
+}
+
 export const capture = {
   sources: (): Promise<CaptureSource[]> => (isNative ? invoke<CaptureSource[]>("capture_sources") : Promise.resolve(mockSources)),
   /** null when the region pick was cancelled. */
-  shot: (mode: "all" | "monitor" | "region", monitor: string | null): Promise<CaptureShot | null> =>
-    isNative ? invoke<CaptureShot | null>("capture_shot", { mode, monitor }) : Promise.resolve(null),
+  shot: (mode: "all" | "monitor" | "region", monitor: string | null): Promise<CaptureShot | null> => {
+    if (isNative) return invoke<CaptureShot | null>("capture_shot", { mode, monitor });
+    if (!demo) return Promise.resolve(null);
+    const f = addSample("shot");
+    return Promise.resolve({ path: f.path, name: f.name, thumb: sampleThumbs.get(f.path) ?? null, width: 2560, height: 1440 });
+  },
   state: (): Promise<CaptureRecState> => (isNative ? invoke<CaptureRecState>("capture_state") : Promise.resolve({ phase: "idle", elapsedMs: 0, path: null, failed: [], audio: false })),
-  start: (source: string, fps: number, mic: boolean, system: boolean, border: boolean): Promise<void> =>
-    isNative ? invoke("capture_start", { source, fps, mic, system, border }) : Promise.resolve(),
+  start: (source: string, fps: number, mic: boolean, system: boolean, border: boolean): Promise<void> => {
+    if (!isNative) sampleStarted = Date.now();
+    return isNative ? invoke("capture_start", { source, fps, mic, system, border }) : Promise.resolve();
+  },
+  /** Demo: the recording that just ended joins the list; returns its path for the "saved" notice. */
+  finishSample: (audio: boolean): string => addSample(audio ? "audio" : "video", Math.max(2, Math.round((Date.now() - sampleStarted) / 1000))).path,
   pause: (paused: boolean): Promise<void> => (isNative ? invoke("capture_pause", { paused }) : Promise.resolve()),
   stop: (): Promise<void> => (isNative ? invoke("capture_stop") : Promise.resolve()),
-  list: (): Promise<CaptureFile[]> => (isNative ? invoke<CaptureFile[]>("capture_list") : Promise.resolve(showcase ? showcaseCaptures() : [])),
+  list: (): Promise<CaptureFile[]> => (isNative ? invoke<CaptureFile[]>("capture_list") : Promise.resolve([...sampleLibrary])),
   details: (paths: string[]): Promise<CaptureDetails[]> =>
-    isNative ? invoke<CaptureDetails[]>("capture_details", { paths }) : Promise.resolve(paths.map((path) => ({ path, thumb: showcaseThumb(path), durationMs: path.endsWith(".mp4") || path.endsWith(".m4a") ? 42_000 : null }))),
-  remove: (path: string): Promise<void> => (isNative ? invoke("capture_delete", { path }) : Promise.resolve()),
+    isNative
+      ? invoke<CaptureDetails[]>("capture_details", { paths })
+      : Promise.resolve(paths.map((path) => ({ path, thumb: sampleThumbs.get(path) ?? showcaseThumb(path), durationMs: sampleLengths.has(path) ? sampleLengths.get(path)! * 1000 : path.endsWith(".mp4") || path.endsWith(".m4a") ? 42_000 : null }))),
+  remove: (path: string): Promise<void> => {
+    if (isNative) return invoke("capture_delete", { path });
+    const i = sampleLibrary.findIndex((f) => f.path === path);
+    if (i >= 0) sampleLibrary.splice(i, 1);
+    return Promise.resolve();
+  },
   /** Find on screen: every monitor read with OCR, nothing saved. Rejects with "timeout", "no-ocr" or "failed". */
-  findScan: (): Promise<FoundLine[]> => (isNative ? invoke<FoundLine[]>("find_scan") : new Promise((done) => setTimeout(() => done(mockFound), 600))),
+  findScan: (): Promise<FoundLine[]> =>
+    isNative ? invoke<FoundLine[]>("find_scan") : demo ? import("../dev/demo-data").then((m) => new Promise<FoundLine[]>((done) => setTimeout(() => done(m.FOUND_LINES), 700))) : new Promise((done) => setTimeout(() => done(mockFound), 600)),
   /** A frame around a found line on screen for two seconds. */
   findHighlight: (rect: FoundLine["rect"]) => {
     if (isNative) void invoke("find_highlight", { rect });

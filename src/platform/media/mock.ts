@@ -1,6 +1,6 @@
 import type { MediaSource, NowPlaying } from "./types";
 import { livePosition } from "./types";
-import { showcase, showcaseStartPosition, showcaseTracks } from "../../dev/showcase-data";
+import { demo, demoTracks, showcase, showcaseStartPosition, showcaseTracks } from "../../dev/showcase-data";
 
 // Generated SVG covers so the prototype needs no external images.
 function cover(a: string, b: string, c: string): string {
@@ -42,7 +42,7 @@ const defaultTracks: Track[] = [
   },
 ];
 
-const tracks = showcase ? showcaseTracks : defaultTracks;
+const tracks = demo ? demoTracks : showcase ? showcaseTracks : defaultTracks;
 
 export function createMockMedia(): MediaSource {
   let index = 0;
@@ -50,7 +50,10 @@ export function createMockMedia(): MediaSource {
   const extra = { appId: "Chrome", title: "Lo-fi beats to study to", artist: "Lofi Girl", isPlaying: false };
   const session = { appId: "Spotify.exe", shuffle: false, repeat: "none" as const, sources: [{ appId: "Spotify.exe", isPlaying: true }, extra] };
   // Showcase starts paused, so the video can open on an idle notch.
-  let state: NowPlaying = showcase
+  // The demo plays from a point where the first lyric lines are on.
+  let state: NowPlaying = demo
+    ? { ...tracks[0], ...session, isPlaying: true, position: showcaseStartPosition, canSeek: true, updatedAt: performance.now() }
+    : showcase
     ? { ...tracks[0], ...session, isPlaying: false, position: showcaseStartPosition, canSeek: true, updatedAt: performance.now() }
     : { ...tracks[0], ...session, isPlaying: true, position: 42, canSeek: true, updatedAt: performance.now() };
   const listeners = new Set<() => void>();

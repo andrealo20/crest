@@ -5,6 +5,7 @@ import { windowShell } from "../../platform/services";
 import { settings, updateSettings, type Settings } from "../../settings/store";
 import { Empty, Select } from "../../ui/controls";
 import { t } from "../../i18n";
+import { demo } from "../../dev/showcase-data";
 import { cameraProblem, type CameraProblem } from "./problem";
 
 const setCamera = (patch: Partial<Settings["camera"]>) => updateSettings((s) => ({ camera: { ...s.camera, ...patch } }));
@@ -96,7 +97,7 @@ export function CameraView() {
 function ProblemNote({ problem }: { problem: CameraProblem }) {
   if (problem === "none") return <Empty icon={VideoCameraSlash} title={t("Keine Kamera gefunden")} />;
   if (problem === "denied")
-    return <Empty icon={VideoCameraSlash} title={t("Kein Zugriff auf die Kamera")} text={t("In den Windows-Einstellungen unter Datenschutz und Sicherheit, Kamera erlauben")} />;
+    return <Empty icon={VideoCameraSlash} title={t("Kein Zugriff auf die Kamera")} text={demo ? "Allow the camera for this page in your browser. The picture stays on your device." : t("In den Windows-Einstellungen unter Datenschutz und Sicherheit, Kamera erlauben")} />;
   if (problem === "busy") return <Empty icon={VideoCamera} title={t("Kamera belegt")} text={t("Eine andere App benutzt die Kamera gerade")} />;
   return <Empty icon={VideoCameraSlash} title={t("Kamera nicht verfügbar")} />;
 }

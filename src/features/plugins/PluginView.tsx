@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PuzzlePiece } from "@phosphor-icons/react";
 import { isNative } from "../../platform/native";
+import { demo } from "../../dev/showcase-data";
 import { pluginApi } from "../../platform/services";
 import { requestSize, sizeOverride } from "../../notch/size";
 import { activeTheme } from "../themes/store";
@@ -73,6 +74,11 @@ function handler(m: PluginManifest) {
  */
 export function PluginView({ manifest }: { manifest: PluginManifest }) {
   const frame = useRef<HTMLIFrameElement>(null);
+  // Demo: the sample plugin's files are inlined into the frame, there is no folder to serve them from.
+  const [page, setPage] = useState<string | null>(null);
+  useEffect(() => {
+    if (demo) void import("../../dev/demo-plugin").then((m) => m.pluginPage()).then(setPage);
+  }, []);
 
   useEffect(() => {
     const el = frame.current;
@@ -98,13 +104,14 @@ export function PluginView({ manifest }: { manifest: PluginManifest }) {
       offTheme();
       if (sizeOverride.get()?.tabId === tool) requestSize(tool, null);
     };
-  }, [manifest]);
+  }, [manifest, page]);
 
-  if (!isNative) return <Empty icon={PuzzlePiece} title={t("Plugins laufen nur in der App")} />;
+  if (!isNative && !demo) return <Empty icon={PuzzlePiece} title={t("Plugins laufen nur in der App")} />;
+  if (demo && page === null) return null;
   return (
     <iframe
       ref={frame}
-      src={pageUrl(manifest)}
+      {...(demo ? { srcDoc: page ?? "" } : { src: pageUrl(manifest) })}
       sandbox="allow-scripts"
       referrerPolicy="no-referrer"
       title={manifest.name}

@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isNative } from "../native";
-import { showcase, showcaseClips } from "../../dev/showcase-data";
+import { sample, showcaseClips } from "../../dev/showcase-data";
 
 export interface ClipItem {
   id: number;
@@ -64,7 +64,7 @@ function createNative(): ClipboardSource {
 // Sample data for the browser prototype.
 function createMock(): ClipboardSource {
   const now = Date.now();
-  let items: ClipItem[] = showcase ? showcaseClips.map(({ age, ...c }) => ({ ...c, copiedAt: now - age })) : [
+  let items: ClipItem[] = sample ? showcaseClips.map(({ age, ...c }) => ({ ...c, copiedAt: now - age })) : [
     { id: 7, kind: "image", text: "1600 × 1000", thumbnail: demoImage(1600, 1000), folders: 0, copiedAt: now - 5_000 },
     { id: 8, kind: "image", text: "900 × 1400", thumbnail: demoImage(900, 1400), folders: 0, copiedAt: now - 60_000 },
     { id: 1, kind: "link", text: "https://github.com/Lakr233/NotchDrop", thumbnail: null, folders: 0, copiedAt: now - 20_000 },

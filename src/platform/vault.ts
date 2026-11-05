@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { createStore } from "../lib/store";
 import { isNative, keyboardFocus } from "./native";
 import { holdOpen } from "../notch/useNotchState";
-import { showcase } from "../dev/showcase-data";
+import { demo, sample, showcase } from "../dev/showcase-data";
 
 /*
  * Bridge to the vault (src-tauri/src/vault.rs). Rust holds the file (DPAPI),
@@ -115,7 +115,7 @@ interface MockItem extends VaultItem {
 }
 
 const mock = (() => {
-  let pin: string | null = showcase ? "1234" : null;
+  let pin: string | null = sample ? "1234" : null;
   let unlocked = false;
   let pinPasswords = true;
   let pinTotp = true;
@@ -123,7 +123,17 @@ const mock = (() => {
   let lockedUntil = 0;
   let pending: { issuer: string; account: string } | null = null;
   let hello = false;
-  let items: MockItem[] = showcase
+  let items: MockItem[] = demo
+    ? [
+        { id: "p1", kind: "password", name: "GitHub", username: "alex@example.com", secret: "vR7#kq2Lw9!mZt4x", period: 30 },
+        { id: "p2", kind: "password", name: "Figma", username: "alex@example.com", secret: "t9Pz!4mKc2#Vw8sa", period: 30 },
+        { id: "p3", kind: "password", name: "Notion", username: "alex@example.com", secret: "Hm3$wQ7xLp2!dZ9e", period: 30 },
+        { id: "p4", kind: "password", name: "Router", username: "admin", secret: "Ys6!pT2vRk9#Lq4n", period: 30 },
+        { id: "t1", kind: "totp", name: "GitHub", username: "alex@example.com", secret: "", period: 30 },
+        { id: "t2", kind: "totp", name: "Google", username: "alex@example.com", secret: "", period: 30 },
+        { id: "t3", kind: "totp", name: "Cloudflare", username: "alex@example.com", secret: "", period: 30 },
+      ]
+    : showcase
     ? [
         { id: "p1", kind: "password", name: "GitHub", username: "linus@hey.com", secret: "vR7#kq2Lw9!mZt4x", period: 30 },
         { id: "p2", kind: "password", name: "Steam", username: "l4_player", secret: "Gq8&nWb3sX!e2Ru", period: 30 },
@@ -259,7 +269,7 @@ const mock = (() => {
           lockedUntil = 0;
           break;
         case "vault_scan":
-          pending = { issuer: "GitHub", account: "linus@hey.com" };
+          pending = { issuer: "GitHub", account: demo ? "alex@example.com" : "linus@hey.com" };
           return pending as T;
       }
       return undefined as T;

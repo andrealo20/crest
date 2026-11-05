@@ -4,6 +4,7 @@ import { LockSimple, ShieldCheck } from "@phosphor-icons/react";
 import { content, shake, springs } from "../../design/motion";
 import { keyboardFocus } from "../../platform/native";
 import { t } from "../../i18n";
+import { demo } from "../../dev/showcase-data";
 
 /**
  * Four-dot PIN entry. Digits come from a hidden field (keyboard, numpad), so the
@@ -125,7 +126,11 @@ export function PinEntry(props: {
         ) : error ? (
           <span className="text-red">{error}</span>
         ) : (
-          <span className="text-label-4">{t("Ziffern eintippen")}</span>
+          <span className="text-label-4">
+            {t("Ziffern eintippen")}
+            {/* Demo only: the sample vault's PIN, so a visitor can get in. */}
+            {demo && !props.setup && <span className="text-label-2"> · Demo PIN 1234</span>}
+          </span>
         )}
       </div>
 

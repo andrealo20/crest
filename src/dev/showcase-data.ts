@@ -7,7 +7,16 @@ import { isNative } from "../platform/native";
  */
 export const showcase = !isNative && new URLSearchParams(location.search).has("showcase");
 
-function cover(a: string, b: string, c: string): string {
+/** Browser only: the try-it demo on the project page (src/dev/demo.ts), from `npm run site:build` or `?demo`. */
+export const demo = !isNative && (import.meta.env.MODE === "demo" || new URLSearchParams(location.search).has("demo"));
+
+/** Showcase or demo: the believable sample data instead of the plain mocks. */
+export const sample = showcase || demo;
+
+/** `?bare` in the demo: no fake desktop, so the host page draws the stage behind the notch. */
+export const bare = demo && new URLSearchParams(location.search).has("bare");
+
+export function cover(a: string, b: string, c: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
     <defs>
       <radialGradient id="g" cx="28%" cy="22%" r="95%">
@@ -26,6 +35,20 @@ export const showcaseTracks = [
   { title: "Midnight City", artist: "M83", artwork: cover("#ff8ad8", "#7b3fe4", "#140833"), accent: "#d58bff", duration: 243 },
   { title: "Tadow", artist: "Masego, FKJ", artwork: cover("#ffd27a", "#e8642c", "#3a1206"), accent: "#ff9f5a", duration: 301 },
 ];
+
+/** The demo's tracks: made up, so the lyrics in src/dev/demo-data.ts are our own. */
+export const demoTracks = [
+  { title: "Neon Harbour", artist: "Lumen Drift", artwork: cover("#ff8ad8", "#7b3fe4", "#140833"), accent: "#d58bff", duration: 214 },
+  { title: "Slow Orange", artist: "Marlo Vey", artwork: cover("#ffd27a", "#e8642c", "#3a1206"), accent: "#ff9f5a", duration: 187 },
+  { title: "Papel y Luz", artist: "Kita Moru", artwork: cover("#7affd8", "#1f8fa8", "#04202a"), accent: "#5ce1e6", duration: 232 },
+];
+
+/** A round initial on a colour, for avatars the demo must not fetch from anywhere. */
+export function sampleAvatar(name: string, n = 0): string {
+  const hue = [235, 150, 20, 330, 190, 280][n % 6];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="hsl(${hue} 55% 48%)"/><text x="32" y="43" font-size="30" font-family="sans-serif" fill="#fff" text-anchor="middle">${name.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 1).toUpperCase() || "?"}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
 
 /** Where the first track starts (seconds). */
 export const showcaseStartPosition = 72;
@@ -75,7 +98,7 @@ export const showcaseCall = {
 
 // ---------- Clipboard ----------
 
-function screenshot(w: number, h: number): string {
+export function screenshot(w: number, h: number): string {
   // A desktop screenshot in miniature: wallpaper, a window and a notch.
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">
     <defs><radialGradient id="g" cx="62%" cy="115%" r="95%"><stop offset="0" stop-color="#3c7bff"/><stop offset="0.35" stop-color="#1d3fa6"/><stop offset="0.7" stop-color="#0b1a4a"/><stop offset="1" stop-color="#050a1c"/></radialGradient></defs>
@@ -90,7 +113,7 @@ function screenshot(w: number, h: number): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-function photo(w: number, h: number): string {
+export function photo(w: number, h: number): string {
   // A dusk landscape: warm sky, sun, layered hills.
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">
     <defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2a6e"/><stop offset="0.45" stop-color="#c2417a"/><stop offset="0.75" stop-color="#ff9a5a"/><stop offset="1" stop-color="#ffd27a"/></linearGradient></defs>

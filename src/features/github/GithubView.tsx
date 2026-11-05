@@ -6,6 +6,7 @@ import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
 import { localDate, openGithubProfile } from "../../platform/services";
 import { settings } from "../../settings/store";
+import { demo, sampleAvatar } from "../../dev/showcase-data";
 import { Button, Empty, Skeleton } from "../../ui/controls";
 import { locale, t } from "../../i18n";
 import { shade, streaks, todayCount, weekColumns, type Day } from "./contributions";
@@ -93,7 +94,7 @@ export function GithubView() {
         >
           {/* GitHub redirects /<user>.png to the avatar; Rust only returns names that pass valid_user. */}
           <img
-            src={`https://github.com/${data.user}.png?size=64`}
+            src={demo ? sampleAvatar(data.user, 4) : `https://github.com/${data.user}.png?size=64`}
             alt=""
             className="size-5 shrink-0 rounded-full bg-fill-2"
             onError={(e) => (e.currentTarget.style.display = "none")}

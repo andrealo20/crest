@@ -58,9 +58,24 @@ export function onShortcut(handler: () => void): () => void {
   return () => void off.then((f) => f());
 }
 
+const trayHandlers = new Set<(tab: string | null) => void>();
+
+/** Browser demo: the host page opens the notch the way the tray does (src/dev/demo.ts). */
+export const demoOpen = (tab: string | null) => (trayHandlers.size ? trayHandlers.forEach((h) => h(tab)) : (waiting = { tab }));
+let waiting: { tab: string | null } | null = null;
+
 /** Tray: left click / "Open" (tab = null) or "Settings" (tab = "settings"). */
 export function onTrayOpen(handler: (tab: string | null) => void): () => void {
-  if (!isNative) return () => {};
+  if (!isNative) {
+    trayHandlers.add(handler);
+    // An open asked for before the notch was there (the demo's first message) happens now.
+    if (waiting) {
+      const tab = waiting.tab;
+      waiting = null;
+      queueMicrotask(() => handler(tab));
+    }
+    return () => void trayHandlers.delete(handler);
+  }
   const off = listen<string | null>("notch://open", (e) => handler(e.payload));
   return () => void off.then((f) => f());
 }
