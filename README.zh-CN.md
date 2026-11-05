@@ -36,14 +36,10 @@
 </p>
 
 <p align="center">
-  <a href="https://andrealo20.github.io/crest/"><b>在浏览器里试用所有工具，无需安装</b></a>
+  <a href="https://andrealo20.github.io/crest/"><img src="https://img.shields.io/badge/%E5%9C%A8%E6%B5%8F%E8%A7%88%E5%99%A8%E4%B8%AD-%E8%AF%95%E7%94%A8-FFC75F?style=for-the-badge&labelColor=0F1015" alt="在浏览器中试用 Crest" /></a>
 </p>
 
 https://github.com/user-attachments/assets/9763d3c0-d17e-4fb4-8d0d-dfa104ea5fb8
-
-<p align="center">
-  <a href="https://andrealo20.github.io/crest/"><img src="https://img.shields.io/badge/%E5%9C%A8%E6%B5%8F%E8%A7%88%E5%99%A8%E4%B8%AD-%E8%AF%95%E7%94%A8-FFC75F?style=for-the-badge&labelColor=0F1015" alt="在浏览器中试用 Crest" /></a>
-</p>
 
 ## 这是什么
 

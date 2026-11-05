@@ -36,14 +36,10 @@
 </p>
 
 <p align="center">
-  <a href="https://andrealo20.github.io/crest/"><b>Try every tool in your browser, nothing to install</b></a>
+  <a href="https://andrealo20.github.io/crest/"><img src="https://img.shields.io/badge/try%20it-in%20your%20browser-FFC75F?style=for-the-badge&labelColor=0F1015" alt="Try Crest in your browser" /></a>
 </p>
 
 https://github.com/user-attachments/assets/9763d3c0-d17e-4fb4-8d0d-dfa104ea5fb8
-
-<p align="center">
-  <a href="https://andrealo20.github.io/crest/"><img src="https://img.shields.io/badge/try%20it-in%20your%20browser-FFC75F?style=for-the-badge&labelColor=0F1015" alt="Try Crest in your browser" /></a>
-</p>
 
 ## What it is
 
