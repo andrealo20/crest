@@ -1,0 +1,62 @@
+name: Mac smoke test
+
+# Run by hand from the Actions tab. Builds Crest for Apple silicon, starts it on the runner's desktop and keeps
+# screenshots of what it shows (first launch, the closed notch, Settings, the open notch) with its log, as an artifact.
+# Nothing is signed or published. The runner has no real user, so permission prompts may show in the screenshots.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      # The .app only: no updater archive, which would need the signing key.
+      - name: Build
+        run: npx tauri build --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
+      - name: Run and capture
+        run: |
+          set -x
+          mkdir -p smoke
+          app=src-tauri/target/release/bundle/macos/Crest.app
+          bin="$app/Contents/MacOS/$(defaults read "$PWD/$app/Contents/Info" CFBundleExecutable)"
+          shot() { screencapture -x "smoke/$1.png" || echo "screencapture failed for $1"; }
+          read -r w h < <(osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>/dev/null | awk -F', ' '{print $3, $4}') || true
+          w=${w:-1920}
+          echo "screen width $w"
+          shot 00-desktop
+          "$bin" > smoke/crest.log 2>&1 &
+          sleep 20
+          shot 01-first-launch
+          sleep 10
+          shot 02-closed-notch
+          # A second launch hands over to the running Crest, which opens Settings (shell.rs second_launch).
+          "$bin" >> smoke/crest.log 2>&1 || true
+          sleep 6
+          shot 03-settings
+          # A click on the notch, if the runner lets a script move the mouse.
+          brew install cliclick > /dev/null 2>&1 && cliclick "c:$((w / 2)),6" || echo "no scripted clicks"
+          sleep 4
+          shot 04-after-click
+          ps -axo pid,rss,%cpu,command | grep -i '[c]rest' | tee smoke/processes.txt
+          log show --last 10m --predicate 'process CONTAINS[c] "crest"' --style compact > smoke/system.log 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mac-smoke
+          path: smoke/
