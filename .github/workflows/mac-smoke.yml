@@ -1,7 +1,8 @@
 name: Mac smoke test
 
 # Run by hand from the Actions tab. Builds Crest for Apple silicon, starts it on the runner's desktop and keeps
-# screenshots of what it shows (first launch, the closed notch, Settings, the open notch) with its log, as an artifact.
+# screenshots of what it shows (first launch, the closed notch, Settings, Setup and each of the first nine tools) with
+# its log, as an artifact.
 # Nothing is signed or published. The runner has no real user, so permission prompts may show in the screenshots.
 on:
   workflow_dispatch:
@@ -53,6 +54,19 @@ jobs:
           brew install cliclick > /dev/null 2>&1 && cliclick "c:$((w / 2)),6" || echo "no scripted clicks"
           sleep 4
           shot 04-after-click
+          # Skip the first-run Setup (where it showed in the first run of this workflow, on the runner's 1024x768 screen).
+          cliclick "c:252,331" || true
+          sleep 3
+          shot 05-after-setup
+          # Each tool in turn: a second launch opens the notch with keyboard focus, keys 1 to 9 pick the tools in the bar
+          # (Notch.tsx). The pointer waits over the panel so the notch does not close on its own.
+          for i in 1 2 3 4 5 6 7 8 9; do
+            "$bin" >> smoke/crest.log 2>&1 || true
+            sleep 2
+            cliclick "m:$((w / 2)),150" "t:$i" || true
+            sleep 3
+            shot "tool-$i"
+          done
           ps -axo pid,rss,%cpu,command | grep -i '[c]rest' | tee smoke/processes.txt
           log show --last 10m --predicate 'process CONTAINS[c] "crest"' --style compact > smoke/system.log 2>&1 || true
       - uses: actions/upload-artifact@v4
