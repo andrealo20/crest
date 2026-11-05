@@ -62,6 +62,11 @@ pub fn capture(app_id: &str) -> Option<ProcessCapture> {
     process_of(app_id).and_then(ProcessCapture::start)
 }
 
+/// Is `pid` still a process of the media app? Asks the process only, no audio device, so it is cheap to ask often.
+pub fn still_running(pid: u32, app_id: &str) -> bool {
+    process_path(pid).is_some_and(|path| matches(app_id, &file_name(&path)))
+}
+
 /// Process ID of the audio session that belongs to the media app ID, a playing one first.
 /// Looks at every active output device, not only the default one.
 pub fn process_of(app_id: &str) -> Option<u32> {

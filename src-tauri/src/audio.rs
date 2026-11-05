@@ -39,8 +39,11 @@ const ATTACK: f32 = 0.55;
 const RELEASE: f32 = 0.18;
 /// How often the shown app and the output device are checked.
 const CHECK: Duration = Duration::from_secs(2);
-/// How often a system-wide capture tries to become a player-only one again.
+/// How often a system-wide capture tries to become a player-only one again: from RETRY, doubling after each miss up
+/// to RETRY_MAX. Every try opens an audio client on the output, and doing that every few seconds while music plays
+/// is the likeliest cause of the dropouts on Bluetooth reported in issue #7.
 const RETRY: Duration = Duration::from_secs(5);
+const RETRY_MAX: Duration = Duration::from_secs(120);
 
 /// What the equalizer listens to.
 enum Capture {
@@ -118,6 +121,7 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
         let mut player_app = String::new();
         let mut last_check = Instant::now();
         let mut last_try = Instant::now();
+        let mut retry = RETRY;
 
         let fft = FftPlanner::<f32>::new().plan_fft_forward(FFT_SIZE);
         let window: Vec<f32> = (0..FFT_SIZE)
@@ -158,10 +162,15 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                 let shown = shown_app(&app);
                 let mut upgrade = false;
                 match &capture {
-                    Some(Capture::Player(c)) => reopen = shown != player_app || loopback::process_of(&player_app) != Some(c.pid),
+                    // Only whether the player's process is still there: walking every output's sessions each time
+                    // woke every endpoint, a Bluetooth headset's hands-free one included, while the music played.
+                    Some(Capture::Player(c)) => reopen = shown != player_app || !loopback::still_running(c.pid, &player_app),
                     Some(Capture::System { device, .. }) => {
                         reopen = *device != default_output();
-                        upgrade = !reopen && loopback::supported() && (shown != player_app || last_try.elapsed() > RETRY);
+                        if shown != player_app {
+                            retry = RETRY;
+                        }
+                        upgrade = !reopen && loopback::supported() && (shown != player_app || last_try.elapsed() > retry);
                     }
                     None => {}
                 }
@@ -172,6 +181,9 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                         capture = Some(Capture::Player(player));
                         sample_rate = loopback::RATE as f32;
                         samples.lock().unwrap().clear();
+                        retry = RETRY;
+                    } else {
+                        retry = (retry * 2).min(RETRY_MAX);
                     }
                 }
             }
