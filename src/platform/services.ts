@@ -22,7 +22,7 @@ import { demoFiles, demoPaste } from "./drop";
 
 // ---------- Secrets (Credential Manager) ----------
 
-export type SecretName = "t212.key" | "t212.secret" | "ai.anthropic" | "ai.openai" | "ai.openrouter" | "ai.custom" | "discord.secret" | "usage.deepseek" | "usage.zai" | "github.token" | PortfolioSecret | CalendarSecret;
+export type SecretName = "t212.key" | "t212.secret" | "ai.anthropic" | "ai.openai" | "ai.openrouter" | "ai.custom" | "discord.secret" | "usage.deepseek" | "usage.zai" | "usage.claude-web" | "github.token" | PortfolioSecret | CalendarSecret;
 
 /** A calendar source's ICS link or CalDAV app password (src-tauri/src/calendar.rs). */
 export type CalendarSecret = `calendar.${string}`;

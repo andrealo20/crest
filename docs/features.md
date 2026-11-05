@@ -301,7 +301,9 @@ Every integration is optional. Tools you don't connect simply stay out of your w
 
 **Ask (AI chat).** Under **AI**, choose a provider (Claude, ChatGPT, OpenRouter or a custom endpoint) and paste your API key. For a custom endpoint, enter the base URL (usually ending in `/v1`) and a model ID. The reasoning effort is set there too.
 
-**AI usage.** Nothing to enter. If you are signed in to Claude Code, the Codex CLI, the Antigravity CLI (`agy`) or Cursor on this PC, Crest reads their existing local login and shows your limits. For Antigravity it asks the CLI itself and never touches its login.
+**AI usage.** Nothing to enter. If you are signed in to Claude Code, the Codex CLI or Cursor on this device, Crest reads their existing local login and shows your limits. For Antigravity it asks the open Antigravity app over its local connection, or the `agy` CLI when the app is closed, and never touches its login. The ChatGPT card shows your plan's Codex limits: ChatGPT's own chat limits can't be read anywhere.
+
+If you use the Claude desktop app but not Claude Code, the desktop app's sign-in can't be read while it runs. Paste your claude.ai session key instead, under **AI** once the Claude card is on: in a browser signed in to claude.ai, open the developer tools, then Application (Storage in Firefox) → Cookies → `https://claude.ai`, and copy the value of `sessionKey`. It gives access to your claude.ai account, so it stays in Credential Manager (the Keychain on a Mac) and is only ever sent to claude.ai. This uses the same page claude.ai shows under Settings → Usage, which is not a documented API and may change.
 
 OpenRouter, DeepSeek and Z.ai need an API key, entered under **AI** once the card is switched on (OpenRouter uses the same key as Ask). Token cost is estimated at the API list price of each model; for models the built-in table does not know, click the cost on the models page and set a price by hand. With a subscription the figure is what the same tokens would cost on the API, not what you pay. After a rate limit (HTTP 429) a source pauses for 2 to 30 minutes, or as long as the service asks, and keeps showing its last reading.
 

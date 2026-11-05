@@ -12,17 +12,25 @@ import { NAME_MAX } from "./cards";
 import { refreshUsage } from "./store";
 
 const hints: Record<UsageId, string> = {
-  claude: "Über die Anmeldung von Claude Code",
+  claude: "Über Claude Code oder den Sitzungsschlüssel von claude.ai",
   codex: "Über die Anmeldung der Codex CLI",
-  gemini: "Über die Anmeldung der Antigravity CLI",
+  gemini: "Über die Antigravity-App oder die agy-CLI",
   cursor: "Über die Anmeldung der Cursor-App",
   openrouter: "Guthaben und Ausgaben, mit API-Schlüssel",
   deepseek: "Kontostand, mit API-Schlüssel",
   zai: "Limits des Coding-Plans, mit API-Schlüssel",
 };
 
-/** Key sources and their Credential Manager entry; OpenRouter shares the AI chat's key. */
-const keys: Partial<Record<UsageId, SecretName>> = { openrouter: "ai.openrouter", deepseek: "usage.deepseek", zai: "usage.zai" };
+/**
+ * Key sources and their Credential Manager entry; OpenRouter shares the AI chat's key. Claude's is optional: the
+ * claude.ai session key, for people with only the desktop app (usage.rs `fetch_claude_web`).
+ */
+const keys: Partial<Record<UsageId, SecretName>> = { claude: "usage.claude-web", openrouter: "ai.openrouter", deepseek: "usage.deepseek", zai: "usage.zai" };
+
+const keyHints: Partial<Record<UsageId, string>> = {
+  claude: "Nur ohne Claude Code: der Cookie sessionKey von claude.ai. Er gibt Zugriff auf dein Konto und bleibt auf diesem Gerät",
+  openrouter: "Derselbe Schlüssel wie im AI-Chat",
+};
 
 /** The AI usage cards: drag (or Alt+arrows) to reorder, switch to add or remove, pencil to rename. Keys for the API-key sources below. */
 export function UsageSettings() {
@@ -146,7 +154,7 @@ export function UsageSettings() {
         <Group title={t("Schlüssel für die AI-Nutzung")}>
           {keyed.map((id) => (
             // Saving a key asks the source again at once, so an old "no key" or "key rejected" does not linger.
-            <SecretRow key={id} name={keys[id]!} label={names[id] || brandName[id]} hint={id === "openrouter" ? t("Derselbe Schlüssel wie im AI-Chat") : undefined} onSaved={() => void refreshUsage()} />
+            <SecretRow key={id} name={keys[id]!} label={names[id] || brandName[id]} hint={keyHints[id] && t(keyHints[id])} onSaved={() => void refreshUsage()} />
           ))}
         </Group>
       )}

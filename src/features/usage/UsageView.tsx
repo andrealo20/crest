@@ -59,7 +59,7 @@ export const usageError: Record<string, string> = {
  * desktop app (issue #9). Antigravity's app is read while it runs, so opening it is enough.
  */
 const notFoundHint: Partial<Record<UsageId, string>> = {
-  claude: "Braucht Claude Code im Terminal, die Desktop-App hat eine eigene Anmeldung",
+  claude: "Braucht Claude Code im Terminal oder den Sitzungsschlüssel von claude.ai in den Einstellungen",
   codex: "Braucht die Codex-CLI. Die Grenzen des ChatGPT-Chats lassen sich nicht abrufen",
   gemini: "Antigravity öffnen oder die agy-CLI installieren",
 };

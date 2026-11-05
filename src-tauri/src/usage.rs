@@ -65,6 +65,7 @@ fn key_name(id: &str) -> Option<&'static str> {
         "openrouter" => Some("ai.openrouter"),
         "deepseek" => Some("usage.deepseek"),
         "zai" => Some("usage.zai"),
+        "claude" => Some(CLAUDE_WEB_KEY),
         _ => None,
     }
 }
@@ -265,7 +266,7 @@ fn parse_retry_after(value: &str, now: u64) -> Option<u64> {
 
 // ---------- Claude ----------
 
-async fn fetch_claude() -> Result<Provider, Fail> {
+async fn fetch_claude_cli() -> Result<Provider, Fail> {
     let creds = read_json(&claude_dir().join(".credentials.json")).or_else(claude_keychain).ok_or("not-found")?;
     let oauth = &creds["claudeAiOauth"];
     let token = oauth["accessToken"].as_str().ok_or("not-signed-in")?;
@@ -284,8 +285,12 @@ async fn fetch_claude() -> Result<Provider, Fail> {
         .map_err(|_| Fail::new("offline"))?;
     check(&res).map_err(|e| if e.code == "expired" { Fail::new("claude-expired") } else { e })?;
     let body: Value = res.json().await.map_err(|_| Fail::new("failed"))?;
+    Ok(Provider { plan, windows: claude_windows(&body), ..Provider::new("claude") })
+}
 
-    let windows = [("five_hour", "session", 5 * 3600), ("seven_day", "weekly", 7 * 86_400), ("seven_day_opus", "weekly-opus", 7 * 86_400), ("seven_day_sonnet", "weekly-sonnet", 7 * 86_400)]
+/// Claude's limit windows, the same fields from the CLI's endpoint and from claude.ai's own.
+fn claude_windows(body: &Value) -> Vec<Window> {
+    [("five_hour", "session", 5 * 3600), ("seven_day", "weekly", 7 * 86_400), ("seven_day_opus", "weekly-opus", 7 * 86_400), ("seven_day_sonnet", "weekly-sonnet", 7 * 86_400)]
         .iter()
         .filter_map(|(field, kind, secs)| {
             let w = body.get(*field)?;
@@ -296,8 +301,70 @@ async fn fetch_claude() -> Result<Provider, Fail> {
                 window_secs: Some(*secs),
             })
         })
-        .collect();
-    Ok(Provider { plan, windows, ..Provider::new("claude") })
+        .collect()
+}
+
+/// Where the claude.ai session key pasted in Settings lives (Credential Manager or Keychain).
+const CLAUDE_WEB_KEY: &str = "usage.claude-web";
+
+/// The CLI's sign-in first. Without it, the claude.ai session key from Settings, for people who only use the desktop
+/// app: its sign-in sits in a cookie file the app keeps locked while it runs, so Crest can't read it (issue #9).
+async fn fetch_claude() -> Result<Provider, Fail> {
+    match fetch_claude_cli().await {
+        Err(e) if matches!(e.code.as_str(), "not-found" | "not-signed-in" | "claude-expired") => match crate::secrets::read(CLAUDE_WEB_KEY) {
+            Some(key) if !key.trim().is_empty() => fetch_claude_web(key.trim()).await,
+            _ => Err(e),
+        },
+        other => other,
+    }
+}
+
+/// claude.ai's own usage page with the session key: the organizations, then the usage of the one with a chat plan.
+/// Not a documented API, so it may change; a rejected key reads as "bad-key" and points to Settings.
+async fn fetch_claude_web(key: &str) -> Result<Provider, Fail> {
+    let client = client()?;
+    let get = |url: String| {
+        client
+            .get(url)
+            .header("Cookie", format!("sessionKey={key}"))
+            .header("Accept", "application/json")
+            // claude.ai turns away requests without a browser's User-Agent.
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+            .send()
+    };
+    let res = get("https://claude.ai/api/organizations".into()).await.map_err(|_| Fail::new("offline"))?;
+    check_key(&res)?;
+    let orgs: Value = res.json().await.map_err(|_| Fail::new("failed"))?;
+    let org = claude_org(&orgs).ok_or("failed")?;
+    let uuid = org["uuid"].as_str().ok_or("failed")?;
+    let res = get(format!("https://claude.ai/api/organizations/{uuid}/usage")).await.map_err(|_| Fail::new("offline"))?;
+    check_key(&res)?;
+    let body: Value = res.json().await.map_err(|_| Fail::new("failed"))?;
+    let windows = claude_windows(&body);
+    if windows.is_empty() {
+        return Err("failed".into());
+    }
+    Ok(Provider { plan: claude_web_plan(org), windows, ..Provider::new("claude") })
+}
+
+/// The organization with a chat plan (a personal account has exactly one), else the first.
+fn claude_org(orgs: &Value) -> Option<&Value> {
+    let all = orgs.as_array()?;
+    let chat = |o: &&Value| o["capabilities"].as_array().is_some_and(|c| c.iter().any(|x| x == "chat"));
+    all.iter().find(chat).or(all.first())
+}
+
+/// "Max" or "Pro" from the organization's capabilities, as the plan badge.
+fn claude_web_plan(org: &Value) -> Option<String> {
+    let caps = org["capabilities"].as_array()?;
+    let has = |name: &str| caps.iter().any(|c| c == name);
+    if has("claude_max") {
+        Some("Max".into())
+    } else if has("claude_pro") {
+        Some("Pro".into())
+    } else {
+        None
+    }
 }
 
 // ---------- ChatGPT (Codex) ----------
@@ -924,7 +991,7 @@ fn parse_iso_ms(s: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{csrf_token, find_jwt_after, logged_http_port, quota_windows, next_utc, parse_agy_usage, parse_deepseek, parse_iso_ms, parse_openrouter, parse_retry_after, parse_zai, read_tail};
+    use super::{claude_org, claude_web_plan, claude_windows, csrf_token, find_jwt_after, logged_http_port, quota_windows, next_utc, parse_agy_usage, parse_deepseek, parse_iso_ms, parse_openrouter, parse_retry_after, parse_zai, read_tail};
     use serde_json::json;
 
     #[test]
@@ -1055,6 +1122,24 @@ mod tests {
         let windows = quota_windows(&body["response"]["groups"]).map_err(|e| e.code).unwrap();
         let got: Vec<_> = windows.iter().map(|w| (w.kind.as_str(), w.used_percent.round(), w.resets_at.is_some())).collect();
         assert_eq!(got, [("session", 100.0, true), ("weekly", 50.0, true), ("session-3p", 10.0, true), ("weekly-3p", 0.0, true)]);
+    }
+
+    /// claude.ai's organizations and usage, as the web page gets them: the chat organization and its plan, and the
+    /// same windows as the CLI's endpoint.
+    #[test]
+    fn claude_web() {
+        let orgs = json!([
+            {"uuid": "api-org", "capabilities": ["api"]},
+            {"uuid": "me", "capabilities": ["chat", "claude_max"]}
+        ]);
+        let org = claude_org(&orgs).unwrap();
+        assert_eq!(org["uuid"], "me");
+        assert_eq!(claude_web_plan(org).as_deref(), Some("Max"));
+        assert_eq!(claude_org(&json!([{"uuid": "only"}])).unwrap()["uuid"], "only");
+        assert!(claude_org(&json!([])).is_none());
+        let usage = json!({"five_hour": {"utilization": 12.0, "resets_at": "2026-11-05T23:00:00Z"}, "seven_day": {"utilization": 40.0, "resets_at": null}, "seven_day_opus": null});
+        let got: Vec<_> = claude_windows(&usage).iter().map(|w| (w.kind.clone(), w.used_percent, w.resets_at.is_some())).collect();
+        assert_eq!(got, [("session".to_string(), 12.0, true), ("weekly".to_string(), 40.0, false)]);
     }
 
     #[test]
