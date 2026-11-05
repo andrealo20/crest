@@ -303,25 +303,25 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
   return { id: file.id, dark, vars, colors, adjustments, closedNotch };
 }
 
-/** Coloured icons (Settings, Themes; hues.ts): a bright shade for dark themes and a darker one for light themes, then held to 3:1 like every other colour. */
+/** Coloured icons (Settings, Themes; hues.ts), in risograph ink colours: a bright shade for dark themes and a darker one for light themes, then held to 3:1 like every other colour. */
 export const HUE_PALETTE = {
-  red: ["#f87171", "#dc2626"],
-  orange: ["#fb923c", "#ea580c"],
-  amber: ["#fbbf24", "#d97706"],
-  yellow: ["#facc15", "#ca8a04"],
-  lime: ["#a3e635", "#65a30d"],
-  green: ["#4ade80", "#16a34a"],
-  emerald: ["#34d399", "#059669"],
-  teal: ["#2dd4bf", "#0d9488"],
-  cyan: ["#22d3ee", "#0891b2"],
-  sky: ["#38bdf8", "#0284c7"],
-  blue: ["#60a5fa", "#2563eb"],
-  indigo: ["#818cf8", "#4f46e5"],
-  violet: ["#a78bfa", "#7c3aed"],
-  purple: ["#c084fc", "#9333ea"],
-  pink: ["#f472b6", "#db2777"],
-  rose: ["#fb7185", "#e11d48"],
-  slate: ["#a8b3c4", "#64748b"],
+  red: ["#ff665e", "#cc3433"],
+  orange: ["#ff7c2f", "#ba5001"],
+  amber: ["#ffb511", "#996a00"],
+  yellow: ["#ffe800", "#827601"],
+  lime: ["#bfe03a", "#6a7f01"],
+  green: ["#00c26a", "#038b4b"],
+  emerald: ["#00b38f", "#00896d"],
+  teal: ["#00a6a6", "#098585"],
+  cyan: ["#3ec7ff", "#067fa9"],
+  sky: ["#4fa8ff", "#1277ca"],
+  blue: ["#3d7bff", "#2d69eb"],
+  indigo: ["#6b6bff", "#5e5bed"],
+  violet: ["#9d7aff", "#7c56d7"],
+  purple: ["#c069ff", "#993fd4"],
+  pink: ["#ff48b0", "#cd0387"],
+  rose: ["#ff5c87", "#cc285e"],
+  slate: ["#9aa3ad", "#6d757f"],
 } as const;
 export type Hue = keyof typeof HUE_PALETTE;
 
