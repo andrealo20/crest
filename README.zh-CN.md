@@ -35,6 +35,10 @@
   <a href="https://github.com/andrealo20/crest/issues/new/choose"><b>提建议</b></a>
 </p>
 
+<p align="center">
+  <a href="https://andrealo20.github.io/crest/"><b>在浏览器里试用所有工具，无需安装</b></a>
+</p>
+
 https://github.com/user-attachments/assets/9763d3c0-d17e-4fb4-8d0d-dfa104ea5fb8
 
 <p align="center">
