@@ -97,7 +97,8 @@ pub async fn quick_radio(kind: String, on: bool) -> Result<(), String> {
 
 /// Dark or light for apps and for Windows itself, as Settings sets them. The Store package's registry writes land in its own
 /// copy of the user's hive, which Windows does not read for the theme: there it opens Settings, Colours, and says "settings".
-#[tauri::command]
+// `async`: runs off the main thread; the broadcast waits on every top-level window.
+#[tauri::command(async)]
 pub fn quick_dark(on: bool) -> Result<(), String> {
     if cfg!(feature = "store") {
         crate::open_url("ms-settings:colors")?;
@@ -115,7 +116,7 @@ pub fn quick_dark(on: bool) -> Result<(), String> {
 }
 
 /// "lock", "sleep", "restart" or "shutdown". The frontend asks for a second click before the last three.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn quick_power(action: String) -> Result<(), String> {
     use windows::Win32::System::Power::SetSuspendState;
     use windows::Win32::System::Shutdown::LockWorkStation;
