@@ -134,7 +134,8 @@ function useRequests() {
           // not a URL
         }
       }
-      setSeen({ count: entries.length, others: [...others] });
+      // The same numbers keep the same state, so nothing renders.
+      setSeen((s) => (s.count === entries.length && s.others.join() === [...others].join() ? s : { count: entries.length, others: [...others] }));
     };
     read();
     const id = window.setInterval(read, 2500);

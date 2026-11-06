@@ -264,7 +264,7 @@ export const CHAPTERS: Chapter[] = [
       "Screenshots of every screen, one screen or a region. Recordings of a screen or a window at 30 or 60 fps with system audio and the microphone. A sound-only Recorder that keeps every voice of a call. A mirror to check the light before a meeting, and Find on screen, which reads the text on all your screens with Windows' own recognition and lets you search it. Crest keeps itself out of its own captures.",
     tools: ["capture", "recorder", "camera", "find"],
     start: "capture",
-    note: "The demo shows the panels. Your camera, screen and microphone are never touched here.",
+    note: "The demo shows the panels. Your screen and microphone are never touched here. The Camera tool asks your browser for the camera only when you open it, and the picture stays on your device.",
     image: { src: "img/find-on-screen.png", alt: "Find on screen searching for the word invoice and highlighting the line that contains it", w: 1200, h: 640 },
   },
   {
@@ -351,7 +351,7 @@ export const PLUGIN_JSON = `{
 
 export const FAQ: { tab: string; q: string; a: string }[] = [
   { tab: "Price", q: "Is Crest free?", a: "Yes. No ads, no paid tier, no account. It is open source under the GPL-3.0 licence, and the code of every release, Store builds included, is in the repository." },
-  { tab: "Demo", q: "Is the demo the real app?", a: "It is the real interface, built for the web and filled with sample data. Anything that needs your PC (hardware readings, the camera, your files, Windows notifications) is simulated here, so the demo shows how it looks and moves, not your own data. It runs the version in development, so it also shows what the page marks as coming in 1.0, which the 0.4.0 download does not have yet." },
+  { tab: "Demo", q: "Is the demo the real app?", a: "It is the real interface, built for the web and filled with sample data. Anything that needs your PC (hardware readings, your files, Windows notifications) is simulated here, so the demo shows how it looks and moves, not your own data. It runs the version in development, so it also shows what the page marks as coming in 1.0, which the 0.4.0 download does not have yet." },
   { tab: "Systems", q: "What does it run on?", a: "Windows 11 and Windows 10, on x64 and on ARM, and macOS 12 or later on Apple silicon and Intel as a preview. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder and Camera are Windows-only for now and do not show on a Mac." },
   { tab: "Network", q: "What does it send over the network?", a: "Nothing goes to the developer. Crest only goes online for the services you turn on, such as the weather, currency rates, lyrics or your AI provider, and straight from your PC to them. The full table is in the privacy policy." },
   { tab: "Store", q: "Microsoft Store or GitHub?", a: "The Store build is signed by Microsoft and updated by the Store. The installer and the portable zip on GitHub are not code-signed yet, so SmartScreen may warn on first launch: choose More info, then Run anyway." },

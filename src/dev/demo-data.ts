@@ -1,6 +1,7 @@
 import type { Found } from "../features/now-playing/lrc";
 import type { Forecast, Place } from "../features/weather/store";
 import { t } from "../i18n";
+import { hasFixedWords } from "./asked";
 
 /*
  * Sample data for the try-it demo (src/dev/demo.ts). Loaded on demand, so it never reaches the app.
@@ -171,8 +172,8 @@ export const FOUND_LINES = [
 /** Canned answers, picked by a word in the question; the demo calls no model. */
 export function demoAnswer(question: string): string {
   const q = question.toLowerCase();
-  // The quick buttons send their prompt in the UI language, so they are matched by the start of that text.
-  const asked = (key: string) => q.startsWith(t(key).split("{")[0].trim().toLowerCase());
+  // The quick buttons send their prompt in the UI language, so they are matched by its fixed words.
+  const asked = (key: string) => hasFixedWords(question, t(key));
   if (asked("Fasse kurz zusammen: {x}") || /summar/.test(q)) return "In short:\n\nCrest puts music, timers, notes and more in the notch, one hover away.\n\nDemo answer: in the app this comes from your own model.";
   if (asked("Formuliere klarer um: {x}") || /(rephrase|rewrite|polish)/.test(q)) return "A clearer version:\n\nCrest keeps your tools one hover away: music, timers, notes and more, without another window.\n\nDemo answer: in the app this comes from your own model.";
   if (asked("Übersetze auf {lang}: {x}") || /(translate|übersetz|traduc)/.test(q)) return "Here is a translation:\n\n\"The notch is a small place for big things.\"\n\nThis is a demo answer: in the app Ask sends your question to the model you set up, with your own key.";
