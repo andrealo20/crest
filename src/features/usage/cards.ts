@@ -13,9 +13,13 @@ export interface UsageCards {
   names: Partial<Record<UsageId, string>>;
   /** Prices set by hand, by normalised model id, USD per million tokens. */
   prices: Record<string, Prices>;
+  /** The pace line under each bar (forecast.ts). On by default: it is only text. */
+  forecast: boolean;
+  /** A notice in the closed notch when a limit that stood high resets (reset.ts). Off by default. */
+  notifyReset: boolean;
 }
 
-export const USAGE_CARDS_DEFAULTS: UsageCards = { order: [...USAGE_IDS], names: {}, prices: {} };
+export const USAGE_CARDS_DEFAULTS: UsageCards = { order: [...USAGE_IDS], names: {}, prices: {}, forecast: true, notifyReset: false };
 
 export const NAME_MAX = 32;
 
@@ -30,7 +34,7 @@ export function normalizeCards(saved: Partial<UsageCards> | null | undefined): U
   }
   const prices: UsageCards["prices"] = {};
   for (const [model, p] of Object.entries(saved?.prices ?? {})) if (model.trim() && validPrices(p)) prices[normalizeModel(model)] = p;
-  return { order, names, prices };
+  return { order, names, prices, forecast: saved?.forecast !== false, notifyReset: saved?.notifyReset === true };
 }
 
 /** The enabled sources in card order. */

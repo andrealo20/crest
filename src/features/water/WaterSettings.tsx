@@ -1,6 +1,7 @@
 import { settings, updateSettings } from "../../settings/store";
 import { Group, Row, Segmented, Select, Switch } from "../../ui/controls";
-import { t } from "../../i18n";
+import { lang, t } from "../../i18n";
+import { DATE_LANGUAGES } from "../todos/dates";
 import { formatMinutes } from "./water";
 import { waterActions } from "./store";
 import { formatMl } from "./format";
@@ -26,6 +27,11 @@ export function ProductivitySettings() {
         <Row label={t("Ton bei Erinnerungen")} hint={toolOn("todos") ? t("Der Alarm-Ton des Timers, einmal") : t("Braucht das Tool To-Dos")}>
           <Switch label={t("Ton bei Erinnerungen")} checked={p.reminderSound} onChange={(reminderSound) => set({ reminderSound })} />
         </Row>
+        {DATE_LANGUAGES.includes(lang()) && (
+          <Row label={t("Datum in neuen Aufgaben erkennen")} hint={toolOn("todos") ? t("Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie") : t("Braucht das Tool To-Dos")}>
+            <Switch label={t("Datum in neuen Aufgaben erkennen")} checked={p.nlDates} onChange={(nlDates) => set({ nlDates })} />
+          </Row>
+        )}
         <Row label={t("Zitat in der Übersicht")} hint={t("Eine kurze Zeile für die schweren Stunden")}>
           <Switch label={t("Zitat in der Übersicht")} checked={p.quotes} onChange={(quotes) => set({ quotes })} />
         </Row>

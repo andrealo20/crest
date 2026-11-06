@@ -70,6 +70,7 @@ import { VaultSettings } from "../vault/VaultSettings";
 import { ClockLookSettings, TimerLookSettings } from "../timer/LookSettings";
 import { focusSounds, type FocusSound } from "../timer/focusSound";
 import { ProductivitySettings } from "../water/WaterSettings";
+import { BreaksSettings } from "../breaks/BreaksSettings";
 import { TerminalSettings } from "../terminal/TerminalSettings";
 import { MusicSettings } from "../now-playing/MusicSettings";
 import { setMusic } from "../now-playing/music";
@@ -96,7 +97,9 @@ import { english, LANGUAGE_NAMES, LANGUAGES, t, tBackend, type LanguageSetting }
 import { ChangelogList } from "../whatsnew/ChangelogList";
 import { isMac } from "../../platform/native";
 import { ThemeSettings } from "../themes/ThemeSettings";
+import { HideFromSharingRow } from "../meeting/HideFromSharingRow";
 import { hueVar, useIconColors, type Hue } from "../themes/hues";
+import { ClipboardSettings } from "../clipboard/ClipboardSettings";
 
 type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins";
 
@@ -390,6 +393,7 @@ function PageContent({ page }: { page: PageId }) {
           <ProductivitySettings />
           {findTab("terminal") && <TerminalSettings />}
           {findTab("launcher") && <LauncherSettings />}
+          <ClipboardSettings />
         </>
       )}
       {page === "timer" && (
@@ -398,6 +402,7 @@ function PageContent({ page }: { page: PageId }) {
           <FocusSoundSettings />
           <TimerLookSettings />
           <ClockLookSettings />
+          <BreaksSettings />
         </>
       )}
       {page === "notices" && <NoticesSettings />}
@@ -774,6 +779,7 @@ const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string][] = [
   ["volume", "Lautstärke", "Mit Pegel, wenn sich die Lautstärke oder Stummschaltung ändert"],
   ["brightness", "Helligkeit", "Eingebauter Bildschirm sofort, externe Monitore über DDC/CI alle 2 Sekunden"],
   ["lock", "Feststell- und Num-Taste", "Wenn die Feststelltaste oder die Num-Taste umgeschaltet wird"],
+  ["mic", "Mikrofon", "Wenn das Tastenkürzel das Mikrofon stumm- oder wieder einschaltet"],
   ["hideOsd", "Windows-Anzeige ausblenden", "Blendet die Lautstärke- und Helligkeitsanzeige von Windows aus, solange Crest läuft; braucht Lautstärke und Helligkeit"],
 ];
 
@@ -1110,6 +1116,7 @@ function Presentation() {
       {auto && recording && !presenting && (
         <Row label={t("Für diese Aufnahme aus")} hint={t("Schaltet sich bei der nächsten wieder ein")} />
       )}
+      <HideFromSharingRow />
     </Group>
   );
 }

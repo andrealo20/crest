@@ -1,5 +1,35 @@
 [
   {
+    "version": "1.0.0",
+    "date": "2026-11-06",
+    "items": [
+      {
+        "en": "Six new tools, off until you turn them on in Settings, Tools: Calc, Clocks, Colour, Habits, Prompter and Agents"
+      },
+      {
+        "en": "Break reminders: an eye break every 20 minutes and a longer one every hour of real computer time"
+      },
+      {
+        "en": "Send Shelf files to your phone with a QR code, over your local network only"
+      },
+      {
+        "en": "Translate lyrics offline, and show the translated or romanised line in the closed notch"
+      },
+      {
+        "en": "AI usage shows where each limit is heading and can tell you when one resets"
+      },
+      {
+        "en": "Copy one-time codes from notices, decode chips in the Clipboard and dates typed into new to-dos"
+      },
+      {
+        "en": "Hide Crest from screen sharing, a microphone mute and a list of listening ports in Hardware"
+      },
+      {
+        "en": "More than 150 fixes from a full review on Windows and the Mac, including a crash on wake from standby"
+      }
+    ]
+  },
+  {
     "version": "0.4.0",
     "date": "2026-11-04",
     "items": [

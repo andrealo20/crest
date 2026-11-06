@@ -53,7 +53,7 @@ const cache = new Map<string, { at: number; data: Forecast }>();
 const lastGood = createStore<SavedForecast<Forecast> | null>(null, { persist: "weather-last" });
 
 /** The forecast already read for this place, if any: a view that mounts again starts from it instead of empty. */
-function peekForecast(lat: number, lon: number): Forecast | null {
+export function peekForecast(lat: number, lon: number): Forecast | null {
   return cache.get(`${lat},${lon}`)?.data ?? null;
 }
 

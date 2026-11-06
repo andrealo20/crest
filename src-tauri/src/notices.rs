@@ -539,6 +539,23 @@ pub fn notices_open_app(app_id: String) -> Result<(), String> {
     crate::opener().arg(format!("shell:AppsFolder\\{app_id}")).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
+/// Copies the one-time code of a notice the way the Vault copies a secret: marked so no clipboard history takes it
+/// (Crest's, Win+V, the cloud), and emptied after 30 s unless something else was copied since (vault.rs).
+#[cfg(windows)]
+#[tauri::command]
+pub fn notices_copy_code(code: String) -> Result<(), String> {
+    if !valid_code(&code) {
+        return Err("not a code".into());
+    }
+    crate::vault::copy_private(&code, true)
+}
+
+/// The webview sends only what its detector found: 4 to 8 digits. Nothing else goes on the clipboard from here.
+#[cfg(windows)]
+fn valid_code(code: &str) -> bool {
+    (4..=8).contains(&code.len()) && code.bytes().all(|b| b.is_ascii_digit())
+}
+
 /// AppUserModelIDs are package family names with "!App", or for desktop apps a name or a known-folder path such as
 /// "{6D809377-...}\App\app.exe" ("Notepad++" and the like too): letters, digits and a few separators, never quotes, & or a way up the tree.
 #[cfg(windows)]
@@ -935,6 +952,14 @@ mod tests {
         assert!(!valid_app_id("app\" --evil"));
         assert!(!valid_app_id(r"..\..\Windows\System32\cmd.exe"));
         assert!(!valid_app_id("a&calc"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn codes() {
+        assert!(valid_code("1234") && valid_code("482913") && valid_code("12345678"));
+        assert!(!valid_code("") && !valid_code("123") && !valid_code("123456789"));
+        assert!(!valid_code("123 456") && !valid_code("12-3456") && !valid_code("12345a") && !valid_code("١٢٣٤٥٦"));
     }
 
     #[test]

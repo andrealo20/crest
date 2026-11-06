@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, ArrowFatLineUp, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, CheckCircle, DeviceMobile, FilmStrip, GameController, Headphones, Keyboard, Mouse, NumberSquareOne, Pause, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Watch, Waveform, WifiHigh, WifiSlash, ArrowSquareOut, ImageSquare, type Icon } from "@phosphor-icons/react";
+import { AlarmIcon, ArrowFatLineUp, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, CheckCircle, DeviceMobile, FilmStrip, GameController, Headphones, Keyboard, Microphone, MicrophoneSlash, Mouse, NumberSquareOne, Pause, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Watch, Waveform, WifiHigh, WifiSlash, ArrowSquareOut, ImageSquare, type Icon } from "@phosphor-icons/react";
 import { pauseRecording, recording, saved, stopRecording, type Saved } from "../../features/capture/store";
 import { elapsedAt, formatElapsed } from "../../features/capture/clock";
 import { openFile } from "../../platform/services";
@@ -17,6 +17,8 @@ import { dueTasks } from "../../features/todos/store";
 import { reminderNotice } from "../../features/todos/ReminderNotice";
 import { waterDue } from "../../features/water/store";
 import { waterNotice } from "../../features/water/WaterNotice";
+import { breakShown } from "../../features/breaks/store";
+import { breaksNotice } from "../../features/breaks/BreakNotice";
 import { calendarDue } from "../../features/calendar/store";
 import { calendarNotice } from "../../features/calendar/CalendarNotice";
 import { useWhatsNew } from "../../features/whatsnew/store";
@@ -34,7 +36,8 @@ import { Ring } from "./parts/Rings";
 import { asks, popping } from "../../features/notices/store";
 import { askNotice } from "../../features/notices/AskNotice";
 import { noticePop } from "../../features/notices/NoticePop";
-import { usePresenting } from "../../features/privacy/store";
+import { presentingNow, usePresenting } from "../../features/privacy/store";
+import { detectReset, newResetTracker, resetAlertAllowed } from "../../features/usage/reset";
 import { finishedDownload } from "../../features/downloads/store";
 import { downloadNotice } from "../../features/downloads/DownloadNotice";
 import { noticeCard } from "./NoticeCard";
@@ -45,7 +48,7 @@ const CARD_IN = { opacity: { duration: 0.25, delay: 0.08 }, transform: { type: "
 const STATUS_ICON: Record<StatusAlert["icon"], Icon> = {
   plug: Plug, battery: BatteryHigh, wifi: WifiHigh, "wifi-off": WifiSlash, headphones: Headphones,
   "speaker-hifi": SpeakerHifi, mouse: Mouse, keyboard: Keyboard, gamepad: GameController, phone: DeviceMobile, watch: Watch, bluetooth: Bluetooth,
-  "speaker-high": SpeakerHigh, "speaker-low": SpeakerLow, "speaker-none": SpeakerNone, "speaker-x": SpeakerX, sun: Sun, "sun-dim": SunDim, "caps-lock": ArrowFatLineUp, "num-lock": NumberSquareOne,
+  "speaker-high": SpeakerHigh, "speaker-low": SpeakerLow, "speaker-none": SpeakerNone, "speaker-x": SpeakerX, sun: Sun, "sun-dim": SunDim, "caps-lock": ArrowFatLineUp, "num-lock": NumberSquareOne, microphone: Microphone, "microphone-slash": MicrophoneSlash,
 };
 const TONE = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" } as const;
 
@@ -63,15 +66,21 @@ function useSaved(): Saved | null {
   return shown;
 }
 
-/** The last quota level rise, for QUOTA.showMs. The tracker seeds on the first answer seen, so mounting at 95% does not alert. */
+/**
+ * The last quota level rise, or a limit that reset (when the setting is on, outside quiet hours and presentation mode), for QUOTA.showMs.
+ * The trackers seed on the first answer seen, so mounting at 95% does not alert.
+ */
 function useQuotaRise(): QuotaRise | null {
   const { providers, updatedAt } = usage.use();
-  const tracker = useRef(newQuotaTracker());
+  const tracker = useRef(newQuotaTracker()), resets = useRef(newResetTracker());
   const [rise, setRise] = useState<QuotaRise | null>(null);
   useEffect(() => {
     if (updatedAt === null) return;
-    const r = detectRise(tracker.current, providers);
-    if (r) setRise(r);
+    // Both always run, so each record stays current; a rise outranks a reset.
+    const r = detectRise(tracker.current, providers), z = detectReset(resets.current, providers, Date.now());
+    const s = settings.get();
+    const next = r ?? (z && resetAlertAllowed(s.aiUsage.notifyReset, presentingNow(), s.notices.quiet, new Date()) ? z : null);
+    if (next) setRise(next);
   }, [providers, updatedAt]);
   // A new rise is a new object, so it starts its own 5 s.
   useEffect(() => {
@@ -129,6 +138,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
   const ask = asks.use()[0];
   const due = dueTasks.use();
   const drink = waterDue.use();
+  const brk = breakShown.use();
   const meeting = calendarDue.use();
   const news = useWhatsNew();
   const rec = recording.use();
@@ -148,10 +158,11 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
     download: !urgentOnly && !!download && !presenting,
     status: !!status,
     notice: !urgentOnly && !!pop,
-    quota: !urgentOnly && !!rise && closed.quotaAlerts,
+    quota: !urgentOnly && !!rise && (closed.quotaAlerts || !!rise.reset),
     track: !urgentOnly && !!track,
     calendar: !urgentOnly && !!meeting,
     reminder: due.length > 0,
+    breaks: !urgentOnly && !!brk,
     water: !urgentOnly && drink,
     whatsnew: !urgentOnly && !!news,
   });
@@ -268,7 +279,8 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
   } else if (kind === "quota" && rise) {
     const used = Math.round(Math.min(100, Math.max(0, rise.used)));
     const name = brandName[rise.provider as UsageId] ?? rise.provider;
-    const text = [t("{w} {p}% genutzt", { w: windowLabel(rise.kind), p: used }), rise.resetsAt !== null ? formatIn(rise.resetsAt - Date.now()) : ""].filter(Boolean).join(" · ");
+    const w = windowLabel(rise.kind);
+    const text = rise.reset ? t("{w} zurückgesetzt", { w }) : [t("{w} {p}% genutzt", { w, p: used }), rise.resetsAt !== null ? formatIn(rise.resetsAt - Date.now()) : ""].filter(Boolean).join(" · ");
     const nameW = Math.min(NAME_MAX, measureText(name)), textW = measureText(text), room = max - QUOTA_RING - nameW - 2 * GAP;
     width = QUOTA_RING + nameW + 2 * GAP + Math.min(textW, room);
     key = `quota:${rise.provider}:${rise.kind}:${used}`;
@@ -290,6 +302,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
     );
   } else if (kind === "calendar" && meeting) ({ width, height, key, body } = calendarNotice(meeting, max));
   else if (kind === "reminder") ({ width, height, key, body } = reminderNotice(due, max));
+  else if (kind === "breaks" && brk) ({ width, height, key, body } = breaksNotice(brk, max));
   else if (kind === "water") ({ width, height, key, body } = waterNotice(productivity.water.goalMl, max));
   else if (kind === "whatsnew" && news) ({ width, height, key, body } = whatsNewNotice(news, max));
   const card = height > ROW_H;

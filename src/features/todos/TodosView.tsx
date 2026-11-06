@@ -10,6 +10,7 @@ import { DEFAULT_PROJECT, TASK_COLORS, nextTask, sortTasks, type Project, type T
 import { dayDiff, defaultDay, dueAt, parseTime } from "./schedule";
 import { dueTasks, todoActions, todos } from "./store";
 import { colorVar } from "./colors";
+import { DateChip, useDraftDate } from "./DraftDate";
 
 /*
  *  ┌ Projects ───────┐ ┌ + New task ─────────────── 3 open ┐
@@ -29,6 +30,7 @@ export function TodosView() {
   const open = mine.filter((x) => !x.done).length;
   const ringing = new Set(due.map((x) => x.id));
   const now = useMinute();
+  const date = useDraftDate(draft, now);
   // Opened for a reminder: show the project it belongs to.
   useEffect(() => {
     const first = dueTasks.get()[0];
@@ -38,7 +40,8 @@ export function TodosView() {
   const add = () => {
     const text = draft.trim();
     if (!text) return;
-    todoActions.add(text);
+    const task = date.apply(text);
+    todoActions.add(task.text, task.due);
     setDraft("");
   };
 
@@ -70,6 +73,7 @@ export function TodosView() {
           />
           <span className="tabular text-caption text-label-3">{t("{n} offen", { n: open })}</span>
         </form>
+        <DateChip date={date} now={now} />
 
         <div className="-mx-1 mt-1.5 flex-1 overflow-y-auto px-1 [scrollbar-width:none]">
           {mine.length === 0 && <div className="flex h-full items-center justify-center text-body text-label-3">{t("Nichts offen")}</div>}

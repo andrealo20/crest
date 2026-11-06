@@ -13,6 +13,7 @@ import { memoryLevel, nextGpu, ofRate, ofShare, schemeColor, type Level } from "
 import { tempLevel, degrees } from "./temps";
 import { HISTORY, holdProcesses, system, useSystemShown } from "./store";
 import { useHue, type Hue } from "../themes/hues";
+import { PortsEntry } from "../ports/PortsPanel";
 
 /*
  *   ┌───────────────────────────────────────────────┬──────────────────────────┐
@@ -213,6 +214,7 @@ export function SystemView() {
         )}
         <AnimatePresence>{detail && <ProcessCard key="card" proc={st.processes?.cpu.find((x) => x.id === detail.id) ?? detail} cores={cores} onClose={() => setDetail(null)} />}</AnimatePresence>
       </div>
+      <PortsEntry />
     </div>
   );
 }

@@ -9,7 +9,11 @@ import { Button, Empty } from "../../ui/controls";
 import { usePresenting } from "../privacy/store";
 import { locale, t } from "../../i18n";
 import { noticeSource } from "../../platform/services";
+import { CopyCodePill } from "./CopyCode";
+import { isMac } from "../../platform/native";
 import { noticeText, shortTime } from "./format";
+import type { Notice } from "./history";
+import { noticeCode } from "./otp";
 import { AppIcon, ProgressRing } from "./NoticePop";
 import { clearHistory, deleteNotice, dismissPop, history, setAppRule, setNoticesEnabled } from "./store";
 
@@ -91,6 +95,7 @@ export function NoticesView() {
                       <>
                         {n.title && <div className="truncate text-body font-medium text-label">{n.title}</div>}
                         {noticeText(n, t) && <div className="line-clamp-2 text-caption whitespace-pre-line text-label-2">{noticeText(n, t)}</div>}
+                        {s.notices.copyCodes && <CodeButton n={n} />}
                       </>
                     )}
                   </div>
@@ -118,6 +123,13 @@ export function NoticesView() {
       )}
     </div>
   );
+}
+
+/** Copy code under a notice that holds a one-time code. */
+function CodeButton({ n }: { n: Notice }) {
+  // The copy command only exists on Windows (notices.rs), so a Mac, which only has plugin notices, never offers the button.
+  const code = isMac ? null : noticeCode(n);
+  return code ? <CopyCodePill code={code} /> : null;
 }
 
 function RowButton(props: { label: string; onClick: () => void; children: React.ReactNode }) {

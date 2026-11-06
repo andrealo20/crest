@@ -31,6 +31,7 @@ import { Redacted, Segmented } from "../../ui/controls";
 import { usePresenting } from "../privacy/store";
 import { t } from "../../i18n";
 import { isCode } from "./code";
+import { ClipChip, ClipDecodePane } from "./ClipChip";
 
 const kindIcon: Record<ClipItem["kind"], Icon> = {
   text: TextAa,
@@ -78,8 +79,9 @@ export function ClipboardView() {
           filter === "code" ? code.has(i.id) : filter === "text" ? i.kind === "text" && !code.has(i.id) : i.kind === filter || (filter === "image" && !!i.thumbnail),
         );
   const hidden = usePresenting();
+  // previewId also holds the entry whose decoded view is open (ClipChip); only images have a large preview.
   // An entry whose preview cannot be built is copied directly, as a click on a card without a preview does.
-  const preview = usePreview(hidden ? null : previewId, (id) => {
+  const preview = usePreview(hidden || !all.find((i) => i.id === previewId)?.thumbnail ? null : previewId, (id) => {
     setPreviewId(null);
     void copy(id);
   });
@@ -168,6 +170,7 @@ export function ClipboardView() {
                 {item.thumbnail && !hidden && <CardButton label={t("Kopieren")} icon={Copy} onClick={() => void copy(item.id)} />}
                 <CardButton label={t("Entfernen")} icon={X} onClick={() => clipboard.remove(item.id)} />
               </div>
+              <ClipChip item={item} open={previewId === item.id} onToggle={() => setPreviewId((p) => (p === item.id ? null : item.id))} />
             </motion.div>
           ))}
         </AnimatePresence>
@@ -178,6 +181,7 @@ export function ClipboardView() {
           <PreviewPane key="preview" preview={preview} onCopy={() => void copy(previewId)} onClose={() => setPreviewId(null)} />
         )}
       </AnimatePresence>
+      <ClipDecodePane id={previewId} onClose={() => setPreviewId(null)} />
     </div>
   );
 }

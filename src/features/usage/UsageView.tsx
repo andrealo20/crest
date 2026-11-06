@@ -16,6 +16,7 @@ import { Button, Empty, Skeleton } from "../../ui/controls";
 import { t } from "../../i18n";
 import { shownIds } from "./cards";
 import { ModelDetails } from "./ModelDetails";
+import { PaceLine, usePaceGrow } from "./PaceLine";
 import { refreshTokens, refreshUsage, usage, useTokens, useUsageViewer } from "./store";
 import { formatAmount, formatCost, formatTokens } from "./format";
 import { dayStart, totals, type Totals } from "./tokens";
@@ -108,11 +109,13 @@ export function UsageView() {
 
   // A card kept from an old reading adds its reason and the renew link above its time: the panel grows by them.
   const stale = providers.some((p) => p.error && (p.windows?.length || p.balances?.length));
+  // The pace lines under the bars (PaceLine.tsx) make the panel taller the same way.
+  const paceGrow = usePaceGrow(providers, now);
   useEffect(() => {
-    const grow = stale ? STALE_ROWS : 0;
+    const grow = (stale ? STALE_ROWS : 0) + paceGrow;
     const base = findTab("usage")!.size;
     requestSize("usage", page === "models" ? { w: 700, h: 430 } : feet ? { w: 600, h: 356 + grow } : grow ? { w: base.w, h: base.h + grow } : null);
-  }, [page, feet, stale]);
+  }, [page, feet, stale, paceGrow]);
   useEffect(() => () => requestSize("usage", null), []);
 
   const actions = (
@@ -204,7 +207,10 @@ export function UsageView() {
                 {/* Kept from the last good answer: dimmed while it can't be refreshed (a 429 pause clears itself, so it stays). */}
                 <div className={`flex flex-col gap-2 transition-opacity duration-200 ${p.error && p.error !== "rate-limited" ? "opacity-50" : ""}`}>
                   {p.windows.map((w) => (
-                    <WindowRow key={w.kind} w={w} now={now} />
+                    <div key={w.kind}>
+                      <WindowRow w={w} now={now} />
+                      <PaceLine w={w} now={now} readAt={p.updatedAt!} error={p.error} />
+                    </div>
                   ))}
                   {p.balances?.map((b) => <BalanceRow key={b.kind + b.currency} b={b} />)}
                 </div>

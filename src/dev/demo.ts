@@ -41,7 +41,7 @@ import { PET_IDS } from "../notch/row/parts";
  * Host -> demo (postMessage on the iframe's window):
  *   { cmd: "navigate", tool }   open the notch on a tool (a tool id, or settings | setup | whatsnew | find)
  *   { cmd: "open" } { cmd: "close" }
- *   { cmd: "notice", kind }     timer ask download capture status-unplug status-bt volume brightness capslock call todo
+ *   { cmd: "notice", kind }     timer ask download capture status-unplug status-bt volume brightness capslock mic call todo
  *                               water calendar quota live song whatsnew recording
  *   { cmd: "play" } { cmd: "pause" }
  *   { cmd: "lang", code } { cmd: "style", style: notch | capsule | line } { cmd: "edge", edge: top | bottom | left | right }
@@ -297,6 +297,8 @@ function notice(kind: string) {
       return mockStatus.brightness();
     case "capslock":
       return mockStatus.capsLock();
+    case "mic":
+      return mockStatus.mic();
     case "call":
       if (mockDiscord.get().call) return;
       return mockDiscord.toggleCall();
@@ -316,6 +318,7 @@ function notice(kind: string) {
         { appId: "app:mail", appName: "Mail", title: "Sam", body: "Lunch at 12:30? I booked the corner table.", icon: sampleAvatar("Mail", 2) },
         { appId: "app:chat", appName: "Messages", title: "Mira", body: "The build is green. Ship it!", icon: sampleAvatar("Messages", 1) },
         { appId: "app:cal", appName: "Calendar", title: "Dentist tomorrow", body: "8:15, Dr. Jansen", icon: sampleAvatar("Calendar", 3) },
+        { appId: "app:bank", appName: "Bank", title: "Acme Bank", body: "Your verification code is 482913. Never share it.", icon: sampleAvatar("Bank", 4) },
       ];
       return mockNotice({ source: "windows", ...pick(from, step) });
     }

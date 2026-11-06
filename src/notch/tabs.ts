@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import {
   ArrowsLeftRight,
   BellSimple,
+  Calculator,
   CalendarBlank,
   CheckCircle,
   ClipboardText,
@@ -61,6 +62,17 @@ import { Camera, VideoCamera, Waveform } from "@phosphor-icons/react";
 import { RecorderView } from "../features/recorder/RecorderView";
 import { CameraView } from "../features/camera/CameraView";
 import { FindView } from "../features/find/FindView";
+import { CalendarCheck } from "@phosphor-icons/react";
+import { HabitsView } from "../features/habits/HabitsView";
+import { ColourView } from "../features/colour/ColourView";
+import { Eyedropper } from "@phosphor-icons/react";
+import { GlobeHemisphereWest } from "@phosphor-icons/react";
+import { ClocksView } from "../features/clocks/ClocksView";
+import { Scroll } from "@phosphor-icons/react";
+import { TeleprompterView } from "../features/teleprompter/TeleprompterView";
+import { Robot } from "@phosphor-icons/react";
+import { AgentsView } from "../features/agents/AgentsView";
+import { CalcView } from "../features/calc/CalcView";
 import { pluginTab } from "../features/plugins/tabs";
 import { isMac } from "../platform/native";
 
@@ -122,6 +134,12 @@ export const tabs: NotchTab[] = ([
   { id: "capture", hue: "cyan", label: "Erfassen", icon: Camera, size: { w: 620, h: 336 }, View: CaptureView },
   { id: "recorder", hue: "rose", label: "Rekorder", icon: Waveform, size: { w: 520, h: 280 }, View: RecorderView },
   { id: "camera", hue: "pink", label: "Kamera", icon: VideoCamera, size: { w: 520, h: 330 }, View: CameraView },
+  { id: "habits", hue: "teal", label: "Gewohnheiten", icon: CalendarCheck, size: { w: 520, h: 260 }, View: HabitsView },
+  { id: "colour", hue: "purple", label: "Farbe", icon: Eyedropper, size: { w: 620, h: 420 }, View: ColourView },
+  { id: "clocks", hue: "indigo", label: "Uhren", icon: GlobeHemisphereWest, size: { w: 620, h: 372 }, View: ClocksView },
+  { id: "teleprompter", hue: "amber", label: "Prompter", icon: Scroll, size: { w: 560, h: 340 }, View: TeleprompterView },
+  { id: "agents", hue: "indigo", label: "Agents", icon: Robot, size: { w: 560, h: 320 }, View: AgentsView },
+  { id: "calc", hue: "indigo", label: "Rechner", icon: Calculator, size: { w: 600, h: 320 }, View: CalcView },
 ] satisfies NotchTab[]).filter((t) => !isMac || !WINDOWS_ONLY.has(t.id));
 
 /** Settings: reached via the gear, not in the tool bar. */

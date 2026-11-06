@@ -22,6 +22,20 @@ export function holdOpen(on: boolean) {
 }
 
 /*
+ * After work done away from the notch (a colour picked elsewhere on the screen) the result should stay in view, and a
+ * click in the dock that switches to a narrower or shorter tool can leave the pointer outside the new panel: the notch
+ * does not close on its own until the pointer has been over it again. A click elsewhere still closes it.
+ */
+let awaitVisit = false;
+export function stayUntilVisit() {
+  awaitVisit = true;
+}
+/** The pointer moved over the notch. */
+export function visited() {
+  awaitVisit = false;
+}
+
+/*
  * Pin (top right): the notch stays open even when the cursor leaves or another
  * app takes focus, e.g. to drag files from Explorer or copy a key from the
  * browser. Unlike `holdOpen`, the window stays click-through outside the notch.
@@ -38,6 +52,9 @@ export function togglePin() {
  * must not open the notch then, or the button would vanish before the click. Cleared when the pointer leaves.
  */
 export const noticeHover = createStore(false);
+
+/** The notch is open: the closed row and its notices (a break, say) are not on screen. */
+export const notchOpen = createStore(false);
 
 /**
  * Notch state machine:
@@ -61,6 +78,7 @@ export function useNotchState() {
   const setStatus = useCallback((s: NotchStatus) => {
     statusRef.current = s;
     setStatusState(s);
+    if (notchOpen.get() !== (s === "open")) notchOpen.set(s === "open");
   }, []);
 
   const later = useCallback(
@@ -81,6 +99,7 @@ export function useNotchState() {
 
   const close = useCallback(() => {
     window.clearTimeout(timer.current);
+    awaitVisit = false;
     pinned.set(false);
     setStatus("closed");
   }, [setStatus]);
@@ -89,6 +108,7 @@ export function useNotchState() {
     // Held (dragging, Windows Hello dialog in front) counts like pinned.
     if (pinned.get() || holds.get() > 0) return;
     window.clearTimeout(timer.current);
+    awaitVisit = false;
     setStatus("closed");
   }, [setStatus]);
 
@@ -104,6 +124,7 @@ export function useNotchState() {
 
   const onPointerEnter = useCallback(() => {
     hovering.current = true;
+    awaitVisit = false;
     window.clearTimeout(timer.current);
     if (statusRef.current === "closed") {
       setStatus("peek");
@@ -165,7 +186,7 @@ export function useNotchState() {
 }
 
 function mayAutoClose(): boolean {
-  return !pinned.get() && holds.get() === 0 && !isEditing();
+  return !pinned.get() && holds.get() === 0 && !awaitVisit && !isEditing();
 }
 
 function isEditing(): boolean {

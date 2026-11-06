@@ -84,14 +84,15 @@ export interface Settings {
   /**
    * Presentation mode: hides clipboard previews, balances and the vault while sharing
    * the screen. `manual` = switched on by hand, `auto` = on while a recording is detected.
+   * `hideFromCapture`: Crest's windows stay out of other apps' screen sharing and recordings (src-tauri sharing.rs), off by default.
    */
-  presentation: { manual: boolean; auto: boolean };
+  presentation: { manual: boolean; auto: boolean; hideFromCapture: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
   updates: { auto: boolean };
   /** Look of the big countdown in the Timer tool and the detached timer window; background sound while a focus timer runs, volume 0 to 1. */
   timer: { look: TimerLook; clockLook: ClockLook; color: LookColor; clockColor: LookColor; focusSound: FocusSound; focusVolume: number };
-  /** To-do reminders (sound), the water reminder and the quote line in Overview. */
-  productivity: { reminderSound: boolean; quotes: boolean; water: WaterConfig };
+  /** To-do reminders (sound), dates in plain words in the new-task field, the water reminder and the quote line in Overview. */
+  productivity: { reminderSound: boolean; nlDates: boolean; quotes: boolean; water: WaterConfig };
   /** Terminal tool: shell, font size in px, start folder ("" = home), end the shell when the notch closes. */
   terminal: { shell: "pwsh" | "powershell" | "cmd"; fontSize: number; startDir: string; endOnClose: boolean };
   /**
@@ -152,6 +153,8 @@ export interface Settings {
   camera: { deviceId: string; mirror: boolean };
   /** First-run setup (src/features/setup) finished or skipped. Settings saved without the field come from an older version, which counts as done. */
   setup: { done: boolean };
+  /** Clipboard tool: the small chip that decodes a JWT, Unix time, Base64, UUID, JSON, colour or tracking link on an entry. Only visual, on by default. */
+  clipChips: boolean;
 }
 
 const defaults: Settings = {
@@ -180,10 +183,10 @@ const defaults: Settings = {
   alarm: { sound: "chime", volume: 0.7, duration: 5 },
   lang: "system",
   units: regionUnits(),
-  presentation: { manual: false, auto: true },
+  presentation: { manual: false, auto: true, hideFromCapture: false },
   updates: { auto: true },
   timer: { look: "clean", clockLook: "standard", color: "orange", clockColor: "white", focusSound: "off", focusVolume: 0.3 },
-  productivity: { reminderSound: true, quotes: false, water: WATER_DEFAULTS },
+  productivity: { reminderSound: true, nlDates: true, quotes: false, water: WATER_DEFAULTS },
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
   music: {
     lyricsOpen: false,
@@ -213,6 +216,7 @@ const defaults: Settings = {
   recorder: { mic: true, system: true, noted: false },
   camera: { deviceId: "", mirror: true },
   setup: { done: false },
+  clipChips: true,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */

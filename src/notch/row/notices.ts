@@ -7,7 +7,8 @@ export const TRACK = { armMs: 5000, showMs: 4000 } as const;
 
 export function quotaLevel(used: number): 0 | 1 | 2 { return used >= QUOTA.critical ? 2 : used >= QUOTA.warning ? 1 : 0; }
 
-export interface QuotaRise { provider: string; kind: string; used: number; resetsAt: number | null }
+/** `reset`: the window began again (features/usage/reset.ts); `used` and `resetsAt` are then those of the new one. */
+export interface QuotaRise { provider: string; kind: string; used: number; resetsAt: number | null; reset?: true }
 export interface QuotaTracker { seeded: boolean; levels: Map<string, number> }
 export function newQuotaTracker(): QuotaTracker { return { seeded: false, levels: new Map() }; }
 
@@ -42,6 +43,6 @@ export const SAVED = { showMs: 4000 } as const;
 // Transient notices (status, live notice, quota, track) rank above the persistent ones (an event about to start, reminder, water): they would expire unseen, while a reminder comes back after them.
 // A question from crest-notify ask comes right after the timer: a coding agent waits on it.
 // A new version or what it changed waits the longest: it is news, never urgent.
-export type NoticeKind = "recording" | "timer" | "ask" | "saved" | "download" | "status" | "notice" | "quota" | "track" | "calendar" | "reminder" | "water" | "whatsnew";
-const ORDER: NoticeKind[] = ["recording", "timer", "ask", "saved", "download", "status", "notice", "quota", "track", "calendar", "reminder", "water", "whatsnew"];
+export type NoticeKind = "recording" | "timer" | "ask" | "saved" | "download" | "status" | "notice" | "quota" | "track" | "calendar" | "reminder" | "breaks" | "water" | "whatsnew";
+const ORDER: NoticeKind[] = ["recording", "timer", "ask", "saved", "download", "status", "notice", "quota", "track", "calendar", "reminder", "breaks", "water", "whatsnew"];
 export function topNotice(active: Record<NoticeKind, boolean>): NoticeKind | null { return ORDER.find((k) => active[k]) ?? null; }

@@ -43,87 +43,96 @@ https://github.com/user-attachments/assets/9763d3c0-d17e-4fb4-8d0d-dfa104ea5fb8
 
 ## What it is
 
-A notch at the edge of your Windows or Mac screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day. Free and open source.
+A notch at the edge of your Windows or Mac screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day: about thirty of them, each one on or off as you like. Free and open source, no account, nothing to pay.
 
-<p align="center"><img src="docs/media/tour.gif" alt="Crest going through Overview, Now Playing with lyrics, Timer, Clipboard, Ask, Converter, AI Usage, Hardware, Terminal, GitHub, Capture, Settings, Themes and the language setting" width="800" /></p>
+The video above shows them in under two minutes, and [the demo on the project page](https://andrealo20.github.io/crest/) lets you try every tool in your browser before you install anything.
+
+<p align="center"><img src="docs/media/features/closed-capsule.png" alt="The closed capsule at the top of the screen: the cover of the song playing, a focus timer, the AI quota ring, CPU, RAM and GPU load, the clock and the weather" width="760" /></p>
+
+Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, RAM and GPU, the network, the battery, the clock, the weather, the next meeting. When something happens it turns into a card for a few seconds, then goes back.
+
+<p align="center">
+  <img src="docs/media/features/notice-code.png" alt="A notice from a bank app in the closed notch with a one-time code and a Copy code button" width="560" /><br />
+  <img src="docs/media/features/notice-break.png" alt="A break reminder in the closed notch: look 20 feet away for 20 seconds, with Skip and Snooze buttons" width="560" /><br />
+  <img src="docs/media/features/downloads.png" alt="Three downloads in progress in the closed notch, 1.2 GB at 18.6 MB/s" width="318" />
+  <img src="docs/media/features/caps-lock.png" alt="Caps Lock on, shown for a moment in the closed notch" width="236" />
+</p>
 
 ## Features
 
-<p align="center"><img src="docs/media/features/closed-notch.png" alt="The closed notch on a real desktop with coloured icons: a running timer, the AI quota ring, CPU, RAM and GPU load, download and upload, power draw, battery, temperature, the clock and today's GitHub contributions" width="820" /><br /><b>The closed notch</b>: cover, timer, title or lyrics, AI quota, CPU, RAM, GPU, network, power, battery, temperature, clock and GitHub in one row, rotating when it doesn't fit. A notch, a capsule or a line, on any screen edge and in the size you choose, with a colour for each icon if you want one.</p>
+Every tool below lives in the same notch. Pick yours in **Settings → Tools** and drag them into the order you like; the rest stays out of the way. The full guide, with the setup steps of each integration, is in [docs/features.md](docs/features.md).
 
-<table>
-  <tr>
-    <td width="50%" valign="top"><img src="docs/media/features/now-playing.png" alt="Now Playing with cover, controls and synced lyrics" /><br /><b>Now Playing</b>: any player, with a live equalizer and synced lyrics, word by word where the source times words, with translation and romanisation for Japanese, Chinese and Korean</td>
-    <td width="50%" valign="top"><img src="docs/media/features/overview.png" alt="Overview: time, weather, the song playing, focus and volume" /><br /><b>Overview</b>: time, weather, the song playing, focus and volume</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/timer.png" alt="Timer: a 25 minute focus countdown in big pixel digits" /><br /><b>Timer</b>: focus and break presets in big pixel digits</td>
-    <td valign="top"><img src="docs/media/features/converter.png" alt="Converter for units and currencies" /><br /><b>Converter</b>: units, and currencies at the ECB rates</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/capture.png" alt="Capture: screenshots, recording settings and the list of captures" /><br /><b>Capture</b>: screenshots and recordings with system audio and mic</td>
-    <td valign="top"><img src="docs/media/features/terminal.png" alt="A PowerShell prompt inside the open notch" /><br /><b>Terminal</b>: PowerShell or Command Prompt inside the notch</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/hardware.png" alt="Hardware: CPU, RAM, GPU, power, battery and ping with history" /><br /><b>Hardware</b>: CPU, GPU, RAM, network, power, temperatures and FPS</td>
-    <td valign="top"><img src="docs/media/features/launcher.png" alt="Launcher with pinned apps" /><br /><b>Launcher</b>: your pinned apps, one click away</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/github.png" alt="GitHub contribution calendar and streaks" /><br /><b>GitHub</b>: contribution calendar, today's count and streaks</td>
-    <td valign="top"><img src="docs/media/features/ask.png" alt="Ask: a chat box with quick actions" /><br /><b>Ask</b>: chat with the AI provider you choose, with your own key</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/portfolio.png" alt="Portfolio: total value, profit and positions" /><br /><b>Portfolio</b>: several brokers in one currency, read only</td>
-    <td valign="top"><img src="docs/media/features/weather.png" alt="Weather: current conditions and a 7-day forecast" /><br /><b>Weather</b>: current conditions and a 7-day forecast</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/todos.png" alt="To-dos with projects" /><br /><b>To-dos</b>: projects, due times and reminders</td>
-    <td valign="top"><img src="docs/media/features/note.png" alt="A quick note with a word count" /><br /><b>Notes</b>: a quick note, saved as you type</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/clipboard.png" alt="Clipboard history with filters" /><br /><b>Clipboard</b>: text, links, images and files, never written to disk</td>
-    <td valign="top"><img src="docs/media/features/shelf.png" alt="Shelf: drop files or text here" /><br /><b>Shelf</b>: a parking spot for files, dropped or pasted</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/scratchpad.png" alt="Code scratchpad with a language picker" /><br /><b>Scratchpad</b>: code with syntax colouring, one draft per language</td>
-    <td valign="top"><img src="docs/media/features/settings-themes.png" alt="Settings, Themes: theme previews and the day and night switch" /><br /><b>Themes</b>: fifteen built in, an editor, coloured icons and a day and night switch</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/settings-closed-notch.png" alt="Settings, Display: the parts of the closed row with switches" /><br /><b>The closed row</b>: pick and order what it shows</td>
-    <td valign="top"><img src="docs/media/features/settings-window.png" alt="Settings, Window: rules for full-screen and maximized windows" /><br /><b>Window rules</b>: keep, shrink to a line or hide over full-screen apps</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/settings-general.png" alt="Settings, General: open on hover or click, delays, autostart and the shortcut" /><br /><b>General</b>: hover or click, delays, autostart and your shortcut</td>
-    <td valign="top"><img src="docs/media/features/settings-tools.png" alt="Settings, Tools: the tools in order with switches" /><br /><b>Tools</b>: reorder, hide and tune every tool</td>
-  </tr>
-</table>
+### The closed notch
 
-Also in the notch: a read-only calendar agenda from ICS links (Google, Outlook, iCloud) or CalDAV, with a notice before each event and the next event in the closed row, a password and 2FA vault, Windows notifications with a history page, `crest-notify` for scripts and builds, status alerts with a volume and brightness HUD, your Discord call and privacy dots for the mic, camera and screen recording.
+- **Three looks**: a notch that hugs the edge, a capsule you drag to any height, or a thin line with the song's progress. On the top, bottom, left or right edge, in the size you choose.
+- **The row** shows the parts you pick, in your order, rotating when they don't fit: cover, timer, title or the current lyric line, AI quota rings, CPU, RAM, GPU, network, power, battery, temperature, clock, GitHub, weather, the next event, downloads, and parts your own scripts set.
+- **Notices** take the row for a moment: a finished timer, a due to-do, a meeting about to start, a download or screenshot just saved, a quota alert, the charger, Bluetooth, the internet, Caps Lock, volume and brightness.
+- **Privacy dots** turn green while the microphone or camera is in use and red while the screen is recorded.
+- **A pet** in a nest beside the notch, if you want one: it dances to the music and runs faster the busier the CPU is.
 
-Plugins add your own tools: a folder of HTML, CSS and JavaScript with a `crest-plugin.json`, installed from **Settings → Plugins**, running sandboxed with only the network addresses and storage it declares ([docs/plugins.md](docs/plugins.md)). Scripts can also put their own parts in the closed row with `crest-notify part`.
+### Music
 
-A short first-run setup picks a preset (Music, Productivity, AI or your own tools), the closed look and edge, and shows how to open the notch; Settings → General runs it again.
+- **Now Playing** controls any player with a Windows media session, with cover, progress and a live equalizer.
+- **Synced lyrics** from LRCLIB, Kugou and NetEase, word by word where the source times words, also in the closed notch.
+- **Translation and romanisation**: the source's translation, or one made on your PC with the offline models Firefox uses, into the language you pick. Japanese, Chinese and Korean in Latin letters.
+- **Discord**: your voice call with who is talking, and buttons to mute, deafen and hang up.
 
-Crest speaks 11 languages (English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German, Italian) and follows the system language unless you pick one in Settings → General.
+### Time and focus
 
-With more than one monitor the notch stays on the one you pick, follows the pointer from monitor to monitor, or shows a closed notch on every monitor that opens where you touch it.
+- **Timer** with focus and break presets, six alarm sounds, a background sound for focus and a dozen looks, from pixel digits to a flip clock.
+- **Clocks** for up to 12 cities, with a slider that moves the time a day either way, and sunrise, sunset, golden hour and the moon.
+- **Break reminders**: every 20 minutes for the eyes and every hour for a real break, counted from the time you actually spend at the computer. They wait during presentations, full-screen apps and Do Not Disturb.
+- **Habits** with five weeks of dots and a streak that forgives the odd missed day.
+- **Calendar** from ICS links (Google, Outlook, iCloud) or CalDAV, with a notice before each event and a join button for online meetings.
+- **Water** against a daily goal, with reminders between the hours you set.
 
-Every feature in detail, with setup steps for each integration: [docs/features.md](docs/features.md).
+### Writing and files
 
-## New in 0.4.0
+- **To-dos** with projects, due times and reminders. Type "call Marco tomorrow 9am" and the task gets the time (in English and Italian).
+- **Notes** saved as you type, and a **Scratchpad** with syntax colouring for code.
+- **Clipboard** history of text, links, images and files, never written to disk. Small chips decode a JWT, a Unix time, Base64, JSON or a link full of tracking.
+- **Shelf** to park files by dropping them on the notch, and **Send to phone**: scan a QR code and the phone downloads them from your PC over your own network.
+- **Prompter**: a teleprompter that scrolls your script at the speed you set, with a mirror mode.
 
-<table>
-  <tr>
-    <td width="50%" valign="top"><img src="docs/media/features/recorder.png" alt="The Recorder tool: microphone and system audio switches, a Record button and three recordings with their length and size" /><br /><b>Recorder</b>: sound only, from the microphone, the system audio or both, so a call keeps every voice. M4A files in Music, off until you turn it on in Settings, Tools</td>
-    <td width="50%" valign="top"><img src="docs/media/features/brightness.png" alt="Overview with a brightness slider below the focus, keep awake and volume tiles" /><br /><b>Brightness</b> of the screen the notch is on, from Overview: external monitors over DDC/CI and a laptop's own screen</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/ai-usage-renew.png" alt="AI usage with a dimmed Claude card that says its sign-in expired, a Renew in the terminal link and the time of the last reading" /><br /><b>AI usage</b> says when a reading is out of date and dims it; an expired sign-in renews from Crest's terminal in one click</td>
-    <td valign="top"><img src="docs/media/features/bottom-edge.png" alt="The open notch on the bottom edge above the taskbar, with the font menu open in Settings, Themes, each font shown in its own face" /><br /><b>Fonts</b> for the whole app, sixteen of them, and menus that open upright with the notch on the bottom or a side edge (0.3.4). <b>Report a bug</b> sits below Plugins</td>
-  </tr>
-</table>
+### Everyday tools
 
-Also new: a click on a notice opens what it is about (What's new, the recording, AI usage or Now Playing), and 0.3.4 fixed light themes, longer translations, Arabic, links with parameters, non-US keyboards, left-handed mice and Windows N editions. All the details: [0.4.0](docs/releases/v0.4.0.md) and [0.3.4](docs/releases/v0.3.4.md) release notes.
+- **Overview**: time, weather, the song playing, focus, keep awake, volume, brightness, and quick switches for Wi-Fi, Bluetooth, the dark theme and the microphone.
+- **Calc**: a notebook calculator that reads units, dates, percentages, currencies and variables.
+- **Converter** for units, and currencies at the European Central Bank's rates.
+- **Colour**: pick a colour anywhere on the screen, copy it as HEX, RGB, HSL or OKLCH, check its contrast and see its harmonies.
+- **Weather** now, hour by hour and for the week, from Open-Meteo.
+- **Portfolio**: your brokers in one currency, read only.
+
+### For developers
+
+- **Terminal**: PowerShell or Command Prompt inside the notch.
+- **Hardware**: CPU, GPU, RAM, network, power, temperatures, the busiest processes and FPS in games, plus the ports your PC listens on and the program behind each one.
+- **AI usage**: your limits for Claude, ChatGPT, Antigravity, Cursor and more, with a line that says where each one is heading and an optional notice when it resets.
+- **Ask**: a chat with the AI provider you choose, with your own key.
+- **Agents**: the Claude Code sessions running on your PC, what each one waits for, and the command to resume it.
+- **GitHub** contribution calendar and streaks, and a **Launcher** for your pinned apps.
+- **crest-notify** lets scripts and builds send notices, ask a question with buttons, or put their own part in the closed row.
+
+### Capture
+
+- **Screenshots** of every screen, one screen or a region, and **recordings** with system audio and the microphone.
+- **Recorder** for sound only, from the microphone, the system audio or both.
+- **Camera** as a mirror before a call, and **Find on screen**, which reads the text on every screen and searches it.
+
+### Notices and privacy
+
+- **Windows notifications** in the notch, with a history page, and a **Copy code** button when one holds a one-time code. Windows' own banners can be turned off, so each notification shows once.
+- **Vault** for passwords and 2FA codes, behind a PIN or Windows Hello, never in the clipboard history.
+- **Presentation mode** hides the clipboard, balances, the vault and your captures while you share the screen, and **Hide Crest from screen sharing** keeps every Crest window out of Teams, Zoom, Discord and OBS.
+
+### Make it yours
+
+- **Themes**: fifteen built in, an editor, sixteen fonts, coloured icons and a day and night switch.
+- **Window rules** for full-screen apps and games, any **monitor** or all of them, and every panel resized to taste.
+- **11 languages**: English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German and Italian.
+- **Plugins**: your own tools in HTML, CSS and JavaScript, sandboxed ([docs/plugins.md](docs/plugins.md)).
+
+What changed in each version is in the [release notes](docs/releases).
 
 ## Install
 

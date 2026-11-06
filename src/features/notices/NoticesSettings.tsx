@@ -67,6 +67,9 @@ export function NoticesSettings() {
               }>
               <Switch label="crest-notify" checked={n.cli} onChange={(cli) => patch(() => ({ cli }))} />
             </Row>
+            <Row label={t("Kopier-Knopf für Einmalcodes")} hint={t("Erscheint, wenn eine Mitteilung einen Code enthält. Die Kopie bleibt aus dem Verlauf der Zwischenablage und wird nach 30 s geleert.")}>
+              <Switch label={t("Kopier-Knopf für Einmalcodes")} checked={n.copyCodes} onChange={(copyCodes) => patch(() => ({ copyCodes }))} />
+            </Row>
           </>
         )}
       </Group>

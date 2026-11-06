@@ -1,3 +1,4 @@
+mod agents;
 pub mod ai;
 #[cfg(windows)]
 mod audio;
@@ -30,6 +31,7 @@ mod drop;
 mod fps;
 mod github;
 mod hit_test;
+mod idle;
 #[cfg(windows)]
 mod loopback;
 mod lyrics;
@@ -52,6 +54,7 @@ mod notify_wire;
 mod osd;
 mod plugins;
 pub mod portable;
+mod ports;
 #[cfg(windows)]
 mod power;
 #[cfg(windows)]
@@ -80,6 +83,8 @@ mod trading;
 pub mod usage;
 #[cfg(windows)]
 mod vault;
+mod mic;
+mod sharing;
 
 // The Mac's own versions of what the shared modules call into (src/macos/); the other Windows modules have no Mac
 // counterpart yet and their tools are hidden there.
@@ -243,6 +248,7 @@ pub fn run() {
             hit_test::set_pet_rect,
             hit_test::set_pinned,
             hit_test::set_passthrough,
+            idle::idle_seconds,
             media::media_get,
             media::media_control,
             media::media_pin,
@@ -257,6 +263,7 @@ pub fn run() {
             clipboard::clipboard_clear,
             clipboard::clipboard_preview,
             clipboard::clipboard_paste_files,
+            clipboard::clipboard_text,
             keyboard_focus,
             audio::audio_levels,
             ai::ai_chat,
@@ -466,6 +473,8 @@ pub fn run() {
             notices::notices_remove_windows,
             #[cfg(windows)]
             notices::notices_open_app,
+            #[cfg(windows)]
+            notices::notices_copy_code,
             plugins::plugins_list,
             plugins::plugins_pick,
             plugins::plugins_stage,
@@ -477,6 +486,9 @@ pub fn run() {
             portable::portable_info,
             portable::portable_check,
             portable::portable_install,
+            ports::ports_list,
+            ports::ports_end,
+            ports::ports_open,
             #[cfg(windows)]
             capture::capture_sources,
             #[cfg(windows)]
@@ -499,6 +511,9 @@ pub fn run() {
             capture::find::find_scan,
             #[cfg(windows)]
             capture::find::find_highlight,
+            agents::agents_list,
+            mic::mic_mute,
+            sharing::sharing_hide,
             ];
             move |invoke| {
                 if !command_allowed(invoke.message.webview_ref().label(), invoke.message.command()) {

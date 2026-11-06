@@ -43,87 +43,96 @@ https://github.com/user-attachments/assets/9763d3c0-d17e-4fb4-8d0d-dfa104ea5fb8
 
 ## 这是什么
 
-Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具。免费且开源。
+Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具：大约三十个，每个都可以随意开关。免费、开源，无需账号，也不用付费。
 
-<p align="center"><img src="docs/media/tour.gif" alt="Crest 依次展示概览、带歌词的正在播放、计时器、剪贴板、提问、转换器、AI 用量、硬件、终端、GitHub、截图录屏、设置、主题和语言设置" width="800" /></p>
+上面的视频用不到两分钟展示了它们，[项目主页上的演示](https://andrealo20.github.io/crest/)让你在安装之前就能在浏览器里试用每一个工具。
+
+<p align="center"><img src="docs/media/features/closed-capsule.png" alt="屏幕顶部收起的胶囊：正在播放的歌曲封面、专注计时器、AI 额度环、CPU、内存和 GPU 负载、时钟和天气" width="760" /></p>
+
+收起时，Crest 只是一行：歌曲、正在运行的计时器、你的 AI 额度、CPU、内存和 GPU、网络、电池、时钟、天气、下一个会议。有事发生时，它会变成一张卡片停留几秒，然后恢复原样。
+
+<p align="center">
+  <img src="docs/media/features/notice-code.png" alt="收起的刘海里来自银行应用的通知，带有一次性验证码和“复制验证码”按钮" width="560" /><br />
+  <img src="docs/media/features/notice-break.png" alt="收起的刘海里的休息提醒：看向 20 英尺外 20 秒，带“跳过”和“稍后提醒”按钮" width="560" /><br />
+  <img src="docs/media/features/downloads.png" alt="收起的刘海里正在进行的三个下载，1.2 GB，18.6 MB/s" width="318" />
+  <img src="docs/media/features/caps-lock.png" alt="收起的刘海里短暂显示“大写锁定已开启”" width="236" />
+</p>
 
 ## 功能
 
-<p align="center"><img src="docs/media/features/closed-notch.png" alt="真实桌面上收起的刘海，图标带颜色：正在运行的计时器、AI 额度圆环、CPU、内存和 GPU 负载、下载和上传、功耗、电池、温度、时钟和今天的 GitHub 贡献" width="820" /><br /><b>收起的刘海</b>：封面、计时器、歌名或歌词、AI 额度、CPU、内存、GPU、网络、功耗、电池、温度、时钟和 GitHub 排成一行，放不下时轮流显示。可以是刘海、胶囊或细线，放在屏幕任意一边，大小由你决定，每个图标也可以有自己的颜色。</p>
+下面的每个工具都在同一个刘海里。在 **设置 → 工具** 中选择你要的工具，拖动排成你喜欢的顺序，其余的不会打扰你。完整指南以及每项集成的设置步骤见 [docs/features.md](docs/features.md)（英文）。
 
-<table>
-  <tr>
-    <td width="50%" valign="top"><img src="docs/media/features/now-playing.png" alt="正在播放：封面、控制按钮和同步歌词" /><br /><b>正在播放</b>：支持任何播放器，带实时均衡器和同步歌词；歌词源有逐字时间时逐字显示，日文、中文和韩文歌词可翻译并显示罗马音或拼音</td>
-    <td width="50%" valign="top"><img src="docs/media/features/overview.png" alt="概览：时间、天气、正在播放的歌曲、专注和音量" /><br /><b>概览</b>：时间、天气、正在播放的歌曲、专注和音量</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/timer.png" alt="计时器：25 分钟专注倒计时，大号像素数字" /><br /><b>计时器</b>：专注和休息预设，大号像素数字</td>
-    <td valign="top"><img src="docs/media/features/converter.png" alt="单位和货币转换器" /><br /><b>转换器</b>：单位换算，以及按欧洲央行汇率换算货币</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/capture.png" alt="截图录屏：截图、录制设置和文件列表" /><br /><b>截图录屏</b>：截图和录屏，可录系统声音和麦克风</td>
-    <td valign="top"><img src="docs/media/features/terminal.png" alt="展开的刘海里的 PowerShell 提示符" /><br /><b>终端</b>：刘海里的 PowerShell 或命令提示符</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/hardware.png" alt="硬件：CPU、内存、GPU、功耗、电池和延迟，带历史曲线" /><br /><b>硬件</b>：CPU、GPU、内存、网络、功耗、温度和 FPS</td>
-    <td valign="top"><img src="docs/media/features/launcher.png" alt="固定了应用的启动器" /><br /><b>启动器</b>：固定的应用，一键打开</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/github.png" alt="GitHub 贡献日历和连续天数" /><br /><b>GitHub</b>：贡献日历、今天的贡献数和连续天数</td>
-    <td valign="top"><img src="docs/media/features/ask.png" alt="提问：带快捷操作的对话框" /><br /><b>提问</b>：用你自己的密钥和你选择的 AI 服务对话</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/portfolio.png" alt="投资组合：总值、盈亏和持仓" /><br /><b>投资组合</b>：多个券商合并成一种货币，只读</td>
-    <td valign="top"><img src="docs/media/features/weather.png" alt="天气：当前天气和 7 天预报" /><br /><b>天气</b>：当前天气和 7 天预报</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/todos.png" alt="带项目的待办" /><br /><b>待办</b>：项目、截止时间和提醒</td>
-    <td valign="top"><img src="docs/media/features/note.png" alt="带字数统计的速记" /><br /><b>笔记</b>：随手记，边写边保存</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/clipboard.png" alt="带筛选的剪贴板历史" /><br /><b>剪贴板</b>：文本、链接、图片和文件，从不写入磁盘</td>
-    <td valign="top"><img src="docs/media/features/shelf.png" alt="暂存架：把文件或文本放在这里" /><br /><b>暂存架</b>：拖入或粘贴的文件的临时停放处</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/scratchpad.png" alt="带语言选择的代码草稿" /><br /><b>草稿本</b>：带语法高亮的代码，每种语言一份草稿</td>
-    <td valign="top"><img src="docs/media/features/settings-themes.png" alt="设置，主题：主题预览和日夜切换" /><br /><b>主题</b>：内置十五款，带编辑器、彩色图标和日夜切换</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/settings-closed-notch.png" alt="设置，显示：收起状态一行里各项的开关" /><br /><b>收起的一行</b>：选择显示哪些内容以及顺序</td>
-    <td valign="top"><img src="docs/media/features/settings-window.png" alt="设置，窗口：全屏和最大化窗口的规则" /><br /><b>窗口规则</b>：在全屏应用上方保持、缩成细线或隐藏</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/settings-general.png" alt="设置，常规：悬停或点击打开、延迟、开机启动和快捷键" /><br /><b>常规</b>：悬停或点击、延迟、开机启动和快捷键</td>
-    <td valign="top"><img src="docs/media/features/settings-tools.png" alt="设置，工具：按顺序排列的工具和开关" /><br /><b>工具</b>：重新排序、隐藏和调整每个工具</td>
-  </tr>
-</table>
+### 收起的刘海
 
-刘海里还有：来自 ICS 链接（Google、Outlook、iCloud）或 CalDAV 的只读日程，每个日程开始前提醒，下一个日程显示在收起的一行里；密码和两步验证保险库；Windows 通知及历史页面；供脚本和构建使用的 `crest-notify`；带音量和亮度提示的状态提醒；你的 Discord 通话；以及麦克风、摄像头和录屏的隐私指示点。
+- **三种样式**：贴住屏幕边缘的刘海、可以拖到任意高度的胶囊，或显示歌曲进度的细线。可放在上、下、左、右任一边缘，大小由你决定。
+- **这一行**按你选择的顺序显示你挑选的部分，放不下时轮流显示：封面、计时器、歌名或当前歌词、AI 额度环、CPU、内存、GPU、网络、功耗、电池、温度、时钟、GitHub、天气、下一个日程、下载，以及你自己的脚本设置的部分。
+- **通知**会短暂占用这一行：计时结束、待办到期、会议即将开始、刚保存的下载或截图、额度提醒、充电器、蓝牙、网络、大写锁定、音量和亮度。
+- **隐私圆点**在麦克风或摄像头使用时变绿，屏幕被录制时变红。
+- **宠物**住在刘海旁边的小窝里（如果你想要）：随音乐跳舞，CPU 越忙跑得越快。
 
-插件可以添加你自己的工具：一个包含 HTML、CSS、JavaScript 和 `crest-plugin.json` 的文件夹，在 **设置 → 插件** 中安装，在沙盒里运行，只能访问它声明的网络地址和存储（[docs/plugins.md](docs/plugins.md)）。脚本也可以用 `crest-notify part` 把自己的内容放进收起的一行。
+### 音乐
 
-首次运行时，一个简短的引导会帮你选择预设（音乐、效率、AI 或自选工具）、收起时的外观和所在边缘，并演示如何打开刘海；在 设置 → 常规 中可以再次运行。
+- **正在播放**可以控制任何支持 Windows 媒体会话的播放器，显示封面、进度和实时均衡器。
+- **同步歌词**来自 LRCLIB、酷狗和网易云音乐，来源按字计时时逐字高亮，收起的刘海里也能显示。
+- **翻译和罗马音**：使用来源自带的翻译，或用 Firefox 使用的离线模型在你的电脑上翻译成你选择的语言。日语、中文和韩语可以显示拉丁字母。
+- **Discord**：你的语音通话、正在说话的人，以及静音、拒听和挂断按钮。
 
-Crest 支持 11 种语言（英语、简体中文、西班牙语、印地语、从右到左显示的阿拉伯语、法语、葡萄牙语、俄语、日语、德语、意大利语），默认跟随系统语言，也可以在 设置 → 常规 中自选。
+### 时间与专注
 
-有多台显示器时，刘海可以固定在你选择的那台上，随鼠标在显示器之间移动，或者在每台显示器上都显示一个收起的刘海，在你触碰的那台上展开。
+- **计时器**带专注和休息预设、六种提示音、专注时的背景音，以及十几种样式，从像素数字到翻页时钟。
+- **世界时钟**最多 12 个城市，拖动滑块可把时间前后移动一天，并显示日出、日落、黄金时刻和月相。
+- **休息提醒**：每 20 分钟提醒你休息眼睛，每小时提醒你真正休息一下，按你实际使用电脑的时间计算。演示、全屏应用和勿扰模式期间会等待。
+- **习惯**显示五周的打卡圆点，偶尔漏掉一天也不会中断连续记录。
+- **日历**来自 ICS 链接（Google、Outlook、iCloud）或 CalDAV，每个日程开始前提醒，在线会议有加入按钮。
+- **喝水**按每日目标记录，在你设定的时间段内提醒。
 
-每项功能的详细说明以及各项集成的设置步骤：[docs/features.md](docs/features.md)（英文）。
+### 写作与文件
 
-## 0.4.0 新功能
+- **待办**带项目、截止时间和提醒。输入 "call Marco tomorrow 9am"，任务就会带上时间（支持英语和意大利语）。
+- **笔记**边写边保存，**代码草稿本**带语法高亮。
+- **剪贴板**保存文本、链接、图片和文件的历史，从不写入磁盘。小标签可以解码 JWT、Unix 时间戳、Base64、JSON 或满是跟踪参数的链接。
+- **暂存架**：把文件拖到刘海上暂存；**发送到手机**：扫描二维码，手机就能通过你自己的网络从电脑下载这些文件。
+- **提词器**按你设定的速度滚动讲稿，还有镜像模式。
 
-<table>
-  <tr>
-    <td width="50%" valign="top"><img src="docs/media/features/recorder.png" alt="录音机工具：麦克风和系统声音开关、录制按钮，以及三段带时长和大小的录音" /><br /><b>录音机</b>：只录声音，来自麦克风、系统声音或两者，通话中每个人的声音都会录下。M4A 文件保存在“音乐”中，默认关闭，在“设置 → 工具”中开启</td>
-    <td width="50%" valign="top"><img src="docs/media/features/brightness.png" alt="概览中专注、保持唤醒和音量卡片下方的亮度滑块" /><br />在概览中调节刘海所在屏幕的<b>亮度</b>：外接显示器通过 DDC/CI，笔记本自带屏幕也可以</td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/media/features/ai-usage-renew.png" alt="AI 用量：变暗的 Claude 卡片显示登录已过期，带“在终端中续期”链接和上次读取的时间" /><br /><b>AI 用量</b>会说明读数何时过期并将其变暗；过期的登录可在 Crest 的终端中一键续期</td>
-    <td valign="top"><img src="docs/media/features/bottom-edge.png" alt="位于任务栏上方屏幕底边的展开刘海，设置的主题页中打开了字体菜单，每种字体都以自身字形显示" /><br />整个应用可选十六种<b>字体</b>；刘海在底边或侧边时菜单也能正向打开（0.3.4）。<b>报告问题</b>位于插件下方</td>
-  </tr>
-</table>
+### 日常工具
 
-此外：点击通知会打开它所说的内容（新功能、录制、AI 用量或正在播放）；0.3.4 还修复了浅色主题、较长的翻译、阿拉伯语、带参数的链接、非美式键盘、左手鼠标和 Windows N 版本的问题。详情见 [0.4.0](docs/releases/v0.4.0.md) 和 [0.3.4](docs/releases/v0.3.4.md) 的更新说明。
+- **概览**：时间、天气、正在播放的歌曲、专注、保持唤醒、音量、亮度，以及 Wi-Fi、蓝牙、深色主题和麦克风的快捷开关。
+- **计算器**：笔记本式计算器，能识别单位、日期、百分比、货币和变量。
+- **转换器**用于单位换算，货币按欧洲中央银行的汇率换算。
+- **取色**：从屏幕任意位置取色，复制为 HEX、RGB、HSL 或 OKLCH，检查对比度并查看配色方案。
+- **天气**：当前天气、逐小时和一周预报，数据来自 Open-Meteo。
+- **投资组合**：把多个券商的资产换算成一种货币显示，只读。
+
+### 开发者工具
+
+- **终端**：刘海里的 PowerShell 或命令提示符。
+- **硬件**：CPU、GPU、内存、网络、功耗、温度、最忙的进程和游戏帧率，还有电脑正在监听的端口以及对应的程序。
+- **AI 用量**：Claude、ChatGPT、Antigravity、Cursor 等的额度，附带一行预测每项额度的走向，额度重置时可选择通知你。
+- **提问**：用你自己的密钥与你选择的 AI 服务对话。
+- **Agents**：电脑上正在运行的 Claude Code 会话、每个会话在等什么，以及恢复它的命令。
+- **GitHub** 贡献日历和连续天数，以及固定应用的**启动器**。
+- **crest-notify** 让脚本和构建发送通知、用按钮提问，或在收起的一行里放入自己的部分。
+
+### 截图与录制
+
+- **截图**可截取所有屏幕、单个屏幕或一个区域，**录屏**可带系统声音和麦克风。
+- **录音机**只录声音，来自麦克风、系统声音或两者。
+- **摄像头**在通话前当镜子用；**屏幕查找**识别所有屏幕上的文字并进行搜索。
+
+### 通知与隐私
+
+- **Windows 通知**显示在刘海里，带历史页面；通知里有一次性验证码时会出现**复制验证码**按钮。可以关闭 Windows 自己的横幅，让每条通知只出现一次。
+- **保险库**保存密码和两步验证码，用 PIN 或 Windows Hello 保护，从不进入剪贴板历史。
+- **演示模式**在你共享屏幕时隐藏剪贴板、余额、保险库和你的截图录屏；**在屏幕共享中隐藏 Crest** 让 Teams、Zoom、Discord 和 OBS 都看不到任何 Crest 窗口。
+
+### 个性化
+
+- **主题**：十五个内置主题、主题编辑器、十六种字体、彩色图标和昼夜切换。
+- 全屏应用和游戏的**窗口规则**，可放在任意**显示器**或所有显示器上，每个面板的大小都可以调整。
+- **11 种语言**：英语、简体中文、西班牙语、印地语、从右到左的阿拉伯语、法语、葡萄牙语、俄语、日语、德语和意大利语。
+- **插件**：用 HTML、CSS 和 JavaScript 编写你自己的工具，在沙盒中运行（[docs/plugins.md](docs/plugins.md)）。
+
+每个版本的变化见[发布说明](docs/releases)（英文）。
 
 ## 安装
 

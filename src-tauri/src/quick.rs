@@ -21,6 +21,8 @@ pub struct Quick {
     wifi: Option<bool>,
     bluetooth: Option<bool>,
     dark: bool,
+    /// The default microphone is muted; None: no microphone (mic.rs).
+    mic_muted: Option<bool>,
 }
 
 fn kind_of(name: &str) -> Option<RadioKind> {
@@ -69,7 +71,7 @@ pub async fn quick_get() -> Result<Quick, String> {
     blocking(|| {
         // One read of the list for both radios.
         let list = radios().unwrap_or_default();
-        Quick { wifi: radio_on(&list, RadioKind::WiFi), bluetooth: radio_on(&list, RadioKind::Bluetooth), dark: dark() }
+        Quick { wifi: radio_on(&list, RadioKind::WiFi), bluetooth: radio_on(&list, RadioKind::Bluetooth), dark: dark(), mic_muted: crate::mic::muted() }
     })
     .await
 }

@@ -169,7 +169,7 @@ function AppRules() {
   );
 }
 
-const hotkeyLabel: Record<HotkeyKind, string> = { open: "Öffnen und schließen", hide: "Crest aus- und einblenden", resize: "Größe ändern", find: "Auf dem Bildschirm suchen" };
+const hotkeyLabel: Record<HotkeyKind, string> = { open: "Öffnen und schließen", hide: "Crest aus- und einblenden", resize: "Größe ändern", find: "Auf dem Bildschirm suchen", mic: "Mikrofon stummschalten" };
 const hotkeyHint: Record<HotkeyKind, string> = {
   open: "Öffnet und schließt die Notch von überall",
   hide: "Blendet Crest aus, bis du es wieder drückst",
@@ -177,6 +177,7 @@ const hotkeyHint: Record<HotkeyKind, string> = {
     ? "Mit Option, einer weiteren Taste und den Pfeiltasten: ←/→ Breite, ↑/↓ Höhe des offenen Tools"
     : "Mit Alt, einer weiteren Taste und den Pfeiltasten: ←/→ Breite, ↑/↓ Höhe des offenen Tools",
   find: "Liest den Text auf allen Bildschirmen und öffnet die Suche darin",
+  mic: "Schaltet das Standard-Mikrofon stumm und wieder ein, von überall",
 };
 const recordErrors: Record<RecordError, string> = {
   "need-modifier": isMac ? "Buchstaben und Ziffern brauchen Ctrl, Option oder Cmd; F1 bis F24 gehen allein" : "Buchstaben und Ziffern brauchen Strg, Alt oder Win; F1 bis F24 gehen allein",
@@ -192,6 +193,7 @@ function Shortcuts() {
       <HotkeyRow kind="hide" />
       <HotkeyRow kind="resize" />
       {!isMac && <HotkeyRow kind="find" />}
+      <HotkeyRow kind="mic" />
     </Group>
   );
 }

@@ -29,6 +29,8 @@ interface ClipboardSource {
   get(): ClipItem[];
   /** Large image preview (images and copied image files). */
   preview(id: number): Promise<ClipPreview | null>;
+  /** The whole text of a text or link entry (the list holds only the start), null for others and above 100 KB. For the decode chips. */
+  text(id: number): Promise<string | null>;
   subscribe(listener: () => void): () => void;
   copy(id: number): Promise<void>;
   remove(id: number): void;
@@ -55,6 +57,7 @@ function createNative(): ClipboardSource {
     },
     copy: (id) => invoke("clipboard_copy", { id }),
     preview: (id) => invoke<ClipPreview | null>("clipboard_preview", { id }),
+    text: (id) => invoke<string | null>("clipboard_text", { id }),
     remove: (id) => void invoke("clipboard_delete", { id }),
     clear: () => void invoke("clipboard_clear"),
     mode: (mode) => void invoke("clipboard_mode", { mode }),
@@ -73,6 +76,14 @@ function createMock(): ClipboardSource {
     { id: 4, kind: "files", text: "Projekte", thumbnail: null, folders: 1, copiedAt: now - 1_800_000 },
     { id: 5, kind: "text", text: "SpringVector3NaturalMotionAnimation", thumbnail: null, folders: 0, copiedAt: now - 3_600_000 },
     { id: 6, kind: "text", text: "npm run tauri dev", thumbnail: null, folders: 0, copiedAt: now - 7_200_000 },
+    // Things the decode chips recognise.
+    { id: 9, kind: "text", text: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE3MDAwMDAwMDB9.sig", thumbnail: null, folders: 0, copiedAt: now - 9_000_000 },
+    { id: 10, kind: "text", text: "1700000000", thumbnail: null, folders: 0, copiedAt: now - 9_100_000 },
+    { id: 11, kind: "text", text: "SGVsbG8gV29ybGQsIHRoaXMgaXMgQmFzZTY0Lg==", thumbnail: null, folders: 0, copiedAt: now - 9_200_000 },
+    { id: 12, kind: "text", text: "550e8400-e29b-41d4-a716-446655440000", thumbnail: null, folders: 0, copiedAt: now - 9_300_000 },
+    { id: 13, kind: "text", text: '{"name":"crest","tools":["clipboard","timer"],"id":9007199254740993}', thumbnail: null, folders: 0, copiedAt: now - 9_400_000 },
+    { id: 14, kind: "text", text: "#ff8800", thumbnail: null, folders: 0, copiedAt: now - 9_500_000 },
+    { id: 15, kind: "link", text: "https://example.com/page?utm_source=news&utm_medium=email&id=7", thumbnail: null, folders: 0, copiedAt: now - 9_600_000 },
   ];
   const listeners = new Set<() => void>();
   const set = (next: ClipItem[]) => {
@@ -93,6 +104,10 @@ function createMock(): ClipboardSource {
       const item = items.find((i) => i.id === id);
       const [w, h] = item?.text.split(" × ").map(Number) ?? [];
       return item?.thumbnail && w ? { src: item.thumbnail, width: w, height: h } : null;
+    },
+    async text(id) {
+      const item = items.find((i) => i.id === id);
+      return item && (item.kind === "text" || item.kind === "link") ? item.text : null;
     },
     remove: (id) => set(items.filter((i) => i.id !== id)),
     clear: () => set([]),
