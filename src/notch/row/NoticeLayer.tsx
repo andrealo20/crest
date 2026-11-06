@@ -240,7 +240,9 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
     const I = status.icon === "battery" && status.tone !== "normal" ? (status.tone === "critical" ? BatteryWarning : BatteryLow) : STATUS_ICON[status.icon];
     // The volume and brightness HUD adds a level bar; its text keeps the width of "100 %", so the notch holds still while the level moves.
     const bar = status.level === undefined ? 0 : LEVEL_BAR + GAP;
-    const textW = Math.min(Math.max(measureText(status.text), bar && measureText(t("{p} %", { p: 100 }))), max - ICON - GAP - bar);
+    // Its digits are tabular, each as wide as an 8, which the canvas does not know.
+    const tab = (text: string) => (bar ? text.replace(/\d/g, "8") : text);
+    const textW = Math.min(Math.max(measureText(tab(status.text)), bar && measureText(tab(t("{p} %", { p: 100 })))), max - ICON - GAP - bar);
     width = ICON + GAP + bar + textW;
     // One key per kind: a newer alert of the same kind swaps its text in place instead of cross-fading.
     key = `status:${status.kind}`;
@@ -298,7 +300,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
   useEffect(() => () => onSize(null), [onSize]);
 
   return (
-    <motion.div className="pointer-events-none absolute inset-0" exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}>
+    <motion.div className="pointer-events-none absolute inset-0" exit={{ opacity: 0, transition: content.exit }}>
       <AnimatePresence>
         {kind && (
           <motion.div
@@ -306,9 +308,9 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
             className="absolute top-0 left-1/2 flex items-center justify-center"
             style={{ width, height, marginLeft: -width / 2 }}
             // A card waits for the notch to grow, then comes in from a little smaller with a soft overshoot.
-            initial={card ? { opacity: 0, transform: "scale(0.94)" } : { opacity: 0, filter: "blur(4px)" }}
-            animate={card ? { opacity: 1, transform: "scale(1)", transition: CARD_IN } : { opacity: 1, filter: "blur(0px)", transition: content.enter }}
-            exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+            initial={card ? { opacity: 0, transform: "scale(0.94)" } : { opacity: 0 }}
+            animate={card ? { opacity: 1, transform: "scale(1)", transition: CARD_IN } : { opacity: 1, transition: content.enter }}
+            exit={{ opacity: 0, transition: content.exit }}
           >
             {body}
           </motion.div>
