@@ -42,7 +42,9 @@ test("the locale keeps the system's region for the same language", () => {
   assert.equal(localeFor("en", "en-US"), "en-US");
   assert.equal(localeFor("en", "de-DE"), "en-GB");
   assert.equal(localeFor("zh-CN", "zh-TW"), "zh-CN");
-  assert.equal(localeFor("ar", undefined), "ar");
+  assert.equal(localeFor("ar", undefined), "ar-u-nu-latn");
+  assert.equal(new Intl.NumberFormat(localeFor("ar", "ar-EG")).format(1234.5), "1,234.5");
+  assert.equal(localeFor("ar", "ar-SA-u-nu-arab"), "ar-SA-u-nu-latn");
   for (const l of LANGUAGES) assert.doesNotThrow(() => new Intl.NumberFormat(localeFor(l, "")));
 });
 

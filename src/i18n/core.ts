@@ -61,9 +61,10 @@ export function resolveLanguage(setting: unknown, systemTag: string | undefined)
   return languageOf(systemTag ?? "") ?? "en";
 }
 
-/** The Intl locale: the system's own when it is the same language (es-MX keeps Mexican formats), otherwise the language's default. */
+/** The Intl locale: the system's own when it is the same language (es-MX keeps Mexican formats), otherwise the language's default. Arabic keeps Latin digits, like the numbers t() and the clock write. */
 export function localeFor(lang: Language, systemTag: string | undefined): string {
-  return systemTag && languageOf(systemTag) === lang ? systemTag : LOCALES[lang];
+  const tag = systemTag && languageOf(systemTag) === lang ? systemTag : LOCALES[lang];
+  return lang === "ar" ? new Intl.Locale(tag, { numberingSystem: "latn" }).toString() : tag;
 }
 
 /** One entry: the language's text, else the fallback's (English), else the German id. Empty entries count as missing. */
