@@ -54,10 +54,12 @@ export function fit(stageW: number, size: Props["size"], edge: string, pet: bool
   const h = Math.round(stageW * NARROW_RATIO);
   const left = edge === "left" ? 0 : PAD;
   const right = edge === "right" ? 0 : pet && edge !== "left" ? NEST : PAD;
-  const scale = Math.min(stageW / (nw + left + right), h / (nh + 2 * PAD), 1.2);
+  // On a side edge the nest stands below the column (the default side runs down the edge).
+  const below = pet && (edge === "left" || edge === "right") ? NEST : 0;
+  const scale = Math.min(stageW / (nw + left + right), h / (nh + below + 2 * PAD), 1.2);
   const notchX = edge === "left" ? 0 : edge === "right" ? IW - nw : (IW - nw) / 2;
   const view = h / scale;
-  const y = edge === "bottom" ? IH - view : edge === "top" ? 0 : IH / 2 - view / 2;
+  const y = edge === "bottom" ? IH - view : edge === "top" ? 0 : (IH + below - view) / 2;
   return { scale, x: Math.max(0, Math.min(IW - stageW / scale, notchX - left)), y: Math.max(0, Math.min(IH - view, y)), h };
 }
 
@@ -82,7 +84,7 @@ export function Stage({ frame, tool, open, size, edge, pet, onLoad, onOpen }: Pr
   }, []);
 
   const f = fit(width, size, edge, pet);
-  const label = TOOLS[tool]?.label ?? (tool === "settings" ? "Settings" : tool === "setup" ? "Setup" : tool === "whatsnew" ? "What's new" : tool);
+  const label = TOOLS[tool]?.label ?? (tool === "settings" ? "Settings" : tool === "setup" ? "Setup" : tool === "whatsnew" ? "What's new" : tool === "plugin:hello-crest" ? "Hello Crest" : tool);
 
   return (
     <div className="stage">
@@ -98,6 +100,7 @@ export function Stage({ frame, tool, open, size, edge, pet, onLoad, onOpen }: Pr
             width={IW}
             height={IH}
             allow="clipboard-write; camera"
+            loading="lazy"
             onLoad={onLoad}
           />
         </div>
@@ -108,7 +111,7 @@ export function Stage({ frame, tool, open, size, edge, pet, onLoad, onOpen }: Pr
         )}
       </div>
       <div className="stage-bar">
-        <p className="stage-now" aria-live="polite">
+        <p className="stage-now">
           <span className="dot" aria-hidden="true" />
           {open ? `Showing ${label}` : "Closed notch"}
         </p>
