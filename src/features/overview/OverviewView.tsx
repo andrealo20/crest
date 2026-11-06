@@ -83,13 +83,13 @@ export function OverviewView() {
         const every = brightMisses.current >= 3 ? 30_000 : 3000;
         if (every !== period) {
           period = every;
-          clearInterval(id);
-          id = setInterval(load, every);
+          window.clearInterval(id);
+          id = window.setInterval(load, every);
         }
       });
     load();
-    id = setInterval(load, period);
-    return () => clearInterval(id);
+    id = window.setInterval(load, period);
+    return () => window.clearInterval(id);
   }, []);
 
   // The open list grows the notch by its rows, like the player menu in Now Playing; the brightness row by its height and gap.

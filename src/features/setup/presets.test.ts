@@ -15,7 +15,7 @@ const partsOn = (s: PresetFields) => PART_IDS.filter((k) => s.closed.parts[k]);
 test("presets name only known tools and parts", () => {
   assert.ok(TOOL_IDS.length > 10);
   for (const p of Object.values(PRESETS)) {
-    for (const id of p.tools) assert.ok(TOOL_IDS.includes(id), id);
+    for (const id of p.tools) assert.ok((TOOL_IDS as readonly string[]).includes(id), id);
     for (const id of p.parts) assert.ok(PART_IDS.includes(id), id);
     assert.ok(p.tools.length > 0);
   }
