@@ -133,7 +133,7 @@ function Recordings() {
 }
 
 function Row({ file, durationMs, onDeleted }: { file: CaptureFile; durationMs: number | null; onDeleted: () => void }) {
-  const [armed, onDelete] = useDelete(file.path, onDeleted);
+  const [armed, onDelete, deleteError] = useDelete(file.path, onDeleted);
   return (
     <div className="flex h-9 items-center gap-2 rounded-[10px] bg-fill-1 ps-1 pe-2">
       <button
@@ -143,8 +143,8 @@ function Row({ file, durationMs, onDeleted }: { file: CaptureFile; durationMs: n
       >
         <Play size={12} weight="fill" />
       </button>
-      <span className="min-w-0 flex-1 truncate text-footnote font-medium text-label" title={file.name}>
-        {when(file.modified)}
+      <span className={`min-w-0 flex-1 truncate text-footnote font-medium ${deleteError ? "text-red" : "text-label"}`} title={file.name}>
+        {deleteError ?? when(file.modified)}
       </span>
       {durationMs != null && <span className="tabular text-caption text-label-2">{formatElapsed(durationMs)}</span>}
       <span className="tabular w-14 text-end text-caption text-label-3">{formatBytes(file.size, 0)}</span>
