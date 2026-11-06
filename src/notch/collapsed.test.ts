@@ -96,6 +96,14 @@ test("the window grows along its edge only for a wider closed surface, at most t
   assert.equal(windowAlong(tall, "notch", false, Number.NaN), 1460);
 });
 
+test("a pet adds its nest to each side of the widest shape, a bigger pet more", () => {
+  assert.equal(windowAlong(d, "notch", false, 1920, 0), 760);
+  // 700 + 2 * (8 + 20 + 48 * 1.5)
+  assert.equal(windowAlong(d, "notch", false, 1920, 48), 900);
+  assert.equal(windowAlong(d, "notch", false, 1920, 96), 1044);
+  assert.equal(windowAlong(d, "notch", false, 600, 48), 800);
+});
+
 test("extreme sizes on small monitors stay finite, not negative and on the monitor", () => {
   const extremes = [
     { notchWidth: 72, notchHeight: 60, capsuleWidth: 48, capsuleHeight: 60, lineLength: 24, lineThickness: 8, lineTop: 16 },

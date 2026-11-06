@@ -8,7 +8,7 @@ import { saved } from "../../features/capture/store";
 import { todos } from "../../features/todos/store";
 import { uprightCss, type Edge } from "../edge";
 import { keyboardFocus, onPetHover, setPetRect } from "../../platform/native";
-import type { PetId, PetSettings } from "../row/parts";
+import { NEST_GAP, NEST_ZOOM, type PetId, type PetSettings } from "../row/parts";
 import { petMarkup } from "./art";
 import "./pet.css";
 
@@ -21,7 +21,9 @@ import "./pet.css";
 
 /** Designed size of the nest; the chosen size scales it (a transform, so no layout pass). */
 export const NEST_BOX = 48;
-const SLEEP_MS = 5 * 60_000, CHEER_MS = 2600, RUN_FROM = 30;
+const SLEEP_MS = 5 * 60_000, CHEER_MS = 2600, ALERT_MS = 4000, RUN_FROM = 30;
+/** The nest comes in after the closing panel has mostly folded away. */
+const ENTER_DELAY = 0.2;
 
 export type PetMood = "idle" | "music" | "run" | "alert" | "cheer" | "wave" | "sleep";
 
@@ -50,7 +52,20 @@ function useCheer(): boolean {
   return on;
 }
 
-export function usePetMood(notice: boolean, hovered: boolean): { mood: PetMood; pace: string } {
+/** True for `ms` after `on` turns true: a recording or a question stays on for long, the pet only jumps at it. */
+function useBriefly(on: boolean, ms: number): boolean {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    setShown(on);
+    if (!on) return;
+    const id = window.setTimeout(() => setShown(false), ms);
+    return () => window.clearTimeout(id);
+  }, [on, ms]);
+  return shown;
+}
+
+export function usePetMood(noticeOn: boolean, hovered: boolean): { mood: PetMood; pace: string } {
+  const notice = useBriefly(noticeOn, ALERT_MS);
   const playing = !!useNowPlaying()?.isPlaying;
   const cpu = system.use().stats?.cpu ?? 0;
   const cheer = useCheer();
@@ -80,11 +95,6 @@ export function PetArt({ id, mood, pace, size, paused }: { id: PetId; mood: PetM
     />
   );
 }
-
-/** Gap between the shape's side and the nest. */
-const NEST_GAP = 6;
-/** A click makes the pet this much bigger, until the pointer leaves it. */
-const ZOOM = 1.5;
 
 /**
  * The nest beside the closed shape, in the notch's wrapper (outside its hit zone, so the pointer on the pet doesn't open the
@@ -123,7 +133,7 @@ export function Nest({ pet, edge, top, shapeWidth, shapeTransition, notice, hove
     // report reads the element each time; it needs no dependencies of its own.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [top, edge]);
-  const scale = (pet.size / NEST_BOX) * (big ? ZOOM : 1);
+  const scale = (pet.size / NEST_BOX) * (big ? NEST_ZOOM : 1);
   const x = right ? shapeWidth / 2 + NEST_GAP : -(shapeWidth / 2 + NEST_GAP + NEST_BOX);
   return (
     <motion.div
@@ -134,7 +144,7 @@ export function Nest({ pet, edge, top, shapeWidth, shapeTransition, notice, hove
       initial={{ opacity: 0, scale: 0.6, x }}
       animate={{ opacity: 1, scale, x }}
       exit={{ opacity: 0, scale: 0.6, transition: { duration: 0.18 } }}
-      transition={{ ...springs.snappy, x: shapeTransition }}
+      transition={{ default: springs.snappy, x: shapeTransition, opacity: { ...springs.snappy, delay: ENTER_DELAY } }}
       onUpdate={() => frame.postRender(report)}
       onClick={(e) => {
         // Its own click: the notch neither opens nor closes.

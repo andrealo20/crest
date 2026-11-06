@@ -11,6 +11,10 @@ export type PetId = (typeof PET_IDS)[number];
 /** The nest: which pet (null: none), its size in CSS px, independent of the notch's, and the side of the notch it sits on. */
 export interface PetSettings { id: PetId | null; size: number; side: "left" | "right" }
 export const PET_SIZE = { min: 32, max: 96, default: 48 } as const;
+/** The nest stands this far from the shape's side: past the hit zone's padding (16), so the pointer on the pet never counts as on the notch. */
+export const NEST_GAP = 20;
+/** A click makes the pet this much bigger, until the pointer leaves it. */
+export const NEST_ZOOM = 1.5;
 export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; downloadAlerts: boolean; statusAlerts: StatusAlerts; pet: PetSettings }
 /** `hideOsd` is not an alert: it hides the Windows volume and brightness indicator while Crest shows its own (status.ts osdHidden). */
 export interface StatusAlerts { power: boolean; net: boolean; bt: boolean; volume: boolean; brightness: boolean; lock: boolean; hideOsd: boolean }

@@ -286,6 +286,7 @@ pub fn run() {
             display::display_monitors,
             display::display_apply,
             display::display_screen,
+            display::display_fullscreen,
             display::display_raise,
             display::display_apps,
             #[cfg(windows)]
@@ -526,7 +527,6 @@ pub fn run() {
             hit_test::spawn(app.handle().clone(), window.clone());
             #[cfg(windows)]
             display::spawn(app.handle().clone(), window);
-            #[cfg(windows)]
             mirror::spawn(app.handle().clone());
             media::spawn(app.handle().clone());
             clipboard::spawn(app.handle().clone());

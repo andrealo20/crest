@@ -71,7 +71,7 @@ export function noticeCard(spec: CardSpec, max: number): { width: number; height
             </span>
           )}
           <span className="flex min-w-0 flex-col justify-center" style={{ width: column }}>
-            <span className="truncate text-footnote font-semibold text-label">{spec.title}</span>
+            <span dir="auto" className="truncate text-footnote font-semibold text-label">{spec.title}</span>
             {spec.text && <CardText text={spec.text} textWidth={textW} width={column} read={!!spec.read} />}
           </span>
         </button>
