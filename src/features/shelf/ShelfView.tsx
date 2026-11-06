@@ -457,7 +457,7 @@ function PhonePanel({ share, onStop }: { share: PhoneShare & { paths: string[] }
         <p className="text-caption text-label-2">{share.paths.length === 1 ? `1 ${t("Datei")}` : t("{n} Dateien", { n: share.paths.length })}</p>
         <p className="text-caption text-label-3">{t("Handy und Computer müssen im selben WLAN sein. Endet nach {n} Minuten.", { n: Math.round(share.ttl / 60) })}</p>
         <p className="text-caption text-label-3">{t("Klappt es nicht? VPN, Firewall oder Gast-WLAN prüfen.")}</p>
-        {!hidden && <p className="truncate text-caption text-label-3 tabular" title={share.url}>{share.url.replace(/^http:\/\//, "")}</p>}
+        {!hidden && <p className="truncate text-caption text-label-3 tabular" title={share.url}>{share.url.replace(/^http:\/\//, "") || t("Nur in der App")}</p>}
         <button onClick={onStop} className="pressable mt-1 self-start rounded-full bg-fill-2 px-3 py-1 text-caption font-medium text-label hover:bg-fill-3">
           {t("Stopp")}
         </button>

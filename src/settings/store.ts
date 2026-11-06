@@ -1,4 +1,5 @@
-import { createStore } from "../lib/store";
+import { createStore, setAside } from "../lib/store";
+import { isMac } from "../platform/native";
 import { isLanguage, type LanguageSetting } from "../i18n/core";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
@@ -15,6 +16,7 @@ import { DOCK_DEFAULTS, normalizeDock, type Dock } from "../notch/edge";
 import { normalizeMonitorMode, type MonitorMode } from "../notch/follow";
 import { CALENDAR_DEFAULTS, normalizeCalendar, type CalendarSettings } from "../features/calendar/model";
 import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
+import { DEFAULT_OFF, TOOL_IDS } from "./tools";
 import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
@@ -152,37 +154,6 @@ export interface Settings {
   setup: { done: boolean };
 }
 
-/** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
-export const TOOL_IDS = [
-  "overview",
-  "media",
-  "timer",
-  "todos",
-  "notes",
-  "clipboard",
-  "shelf",
-  "ask",
-  "convert",
-  "trading",
-  "usage",
-  "weather",
-  "system",
-  "discord",
-  "vault",
-  "water",
-  "scratchpad",
-  "terminal",
-  "launcher",
-  "github",
-  "calendar",
-  "notices",
-  "capture",
-  "recorder",
-  "camera",
-] as const;
-
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "calendar", "notices", "recorder", "camera"]);
-
 const defaults: Settings = {
   openMode: "hover",
   hoverDelay: "normal",
@@ -275,7 +246,15 @@ export const firstRun = (() => {
 export const settings = createStore<Settings>(defaults, { persist: "settings" });
 
 // Fill in settings from older versions: new fields + append new tools.
-settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
+try {
+  settings.set(migrate);
+} catch {
+  // A saved value of the wrong shape must not stop the app from loading: keep it aside and start from the defaults.
+  setAside("notch:settings", localStorage.getItem("notch:settings"));
+  settings.set(defaults);
+}
+
+function migrate({ language: _old, ...s }: Settings & { language?: unknown }): Settings {
   const known = new Set<string>(TOOL_IDS);
   // Plugin tools stay; src/features/plugins/store.ts drops those no longer installed once it has read the list.
   const tools = (s.tools ?? []).filter((t) => known.has(t.id) || /^plugin:[a-z0-9-]{3,32}$/.test(t.id));
@@ -294,8 +273,8 @@ settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
     trading: { ...defaults.trading, ...s.trading },
     usage: { ...defaults.usage, ...s.usage },
     aiUsage: normalizeCards(s.aiUsage),
-    // A saved y that is not a finite number (null, a string) would place the capsule nowhere.
-    display: { ...defaults.display, ...s.display, y: fitCapsuleTop(s.display?.y), monitorMode: normalizeMonitorMode(s.display?.monitorMode) },
+    // A saved y that is not a finite number (null, a string) would place the capsule nowhere; a Mac has no Follow or All modes (an older build offered them).
+    display: { ...defaults.display, ...s.display, y: fitCapsuleTop(s.display?.y), monitorMode: isMac ? "chosen" : normalizeMonitorMode(s.display?.monitorMode) },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },
     alarm: { ...defaults.alarm, ...s.alarm },
@@ -333,7 +312,7 @@ settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
     // Only a fresh install starts from the defaults (done: false); settings saved by 0.2.x have no `setup` and never see it.
     setup: { done: s.setup ? s.setup.done === true : true },
   };
-});
+}
 
 /** Migrates the old shape ({ provider: "demo", model }) and adds missing providers. */
 function migrateAsk(old: Partial<Settings["ask"]> | undefined): Settings["ask"] {

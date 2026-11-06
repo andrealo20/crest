@@ -69,7 +69,7 @@ const WINDOWS_ONLY = new Set(["shelf", "system", "discord", "vault", "terminal",
 
 /**
  * Registry of all tools in the open notch. New tool = new entry here
- * + ID in `TOOL_IDS` (src/settings/store.ts). Visibility and order
+ * + ID in `TOOL_IDS` (src/settings/tools.ts). Visibility and order
  * are up to the user in the settings.
  *
  * `size` is the open notch size for this tool (incl. header and dock);

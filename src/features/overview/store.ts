@@ -1,4 +1,5 @@
 import { createStore } from "../../lib/store";
+import { isMac } from "../../platform/native";
 import { keepAwake } from "../../platform/services";
 import { awakeStart, type Awake } from "./awake";
 
@@ -19,8 +20,8 @@ export function startAwake(minutes: number | null) {
 export function stopAwake() {
   window.clearTimeout(ends);
   awake.set(null);
-  void keepAwake(false, null).catch(() => {});
+  if (!isMac) void keepAwake(false, null).catch(() => {});
 }
 
 // A reloaded page starts off, so the backend must too.
-void keepAwake(false, null).catch(() => {});
+if (!isMac) void keepAwake(false, null).catch(() => {});

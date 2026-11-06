@@ -12,6 +12,11 @@
   try { delete Navigator.prototype.clipboard; } catch { /* not there */ }
   try { Object.defineProperty(Document.prototype, "execCommand", { value: () => false, writable: false, configurable: false }); } catch { /* not there */ }
   for (const type of ["copy", "cut", "paste"]) window.addEventListener(type, (e) => e.stopImmediatePropagation(), true);
+  // The frame is not a browser page either: no context menu, and none of the shortcuts main.tsx blocks (reload, print, save, view source).
+  window.addEventListener("contextmenu", (e) => e.preventDefault(), true);
+  window.addEventListener("keydown", (e) => {
+    if (["F5", "F7", "F12"].includes(e.key) || (e.ctrlKey && ["r", "p", "f", "g", "j", "u", "s"].includes(e.key.toLowerCase()))) e.preventDefault();
+  }, true);
   // A nested frame would bring fresh copies of what was removed: frames are taken away as soon as they appear.
   for (const C of [window.HTMLIFrameElement, window.HTMLFrameElement, window.HTMLObjectElement, window.HTMLEmbedElement]) {
     for (const p of ["contentWindow", "contentDocument"]) {

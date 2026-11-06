@@ -20,6 +20,7 @@ export function NotesView() {
     <div className="flex h-full flex-col px-4 pt-1 pb-1">
       <textarea
         value={value}
+        maxLength={1_000_000}
         autoFocus
         dir="auto"
         placeholder={t("Schnelle Notiz …")}

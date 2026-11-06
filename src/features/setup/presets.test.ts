@@ -1,17 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { CLOSED_DEFAULTS, PART_IDS } from "../../notch/row/parts.ts";
+import { DEFAULT_OFF, TOOL_IDS } from "../../settings/tools.ts";
 import { PRESETS, applyPreset, matchPreset, type PresetFields } from "./presets.ts";
 
-// store.ts touches localStorage on import, so its tool ids are read from the source.
-const storeSrc = readFileSync(join(import.meta.dirname, "../../settings/store.ts"), "utf8");
-const TOOL_IDS = [...storeSrc.match(/TOOL_IDS = \[([\s\S]*?)\]/)![1].matchAll(/"(\w+)"/g)].map((m) => m[1]);
-const DEFAULT_OFF = ["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "notices", "recorder", "camera"];
-
 const fresh = (): PresetFields => ({
-  tools: TOOL_IDS.map((id) => ({ id, enabled: !DEFAULT_OFF.includes(id) })),
+  tools: TOOL_IDS.map((id) => ({ id, enabled: !DEFAULT_OFF.has(id) })),
   closed: CLOSED_DEFAULTS,
   music: { lyricsOpen: false, titleLyrics: false, notchLyrics: false, pinned: null } as PresetFields["music"],
 });

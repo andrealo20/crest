@@ -124,6 +124,7 @@ export function ScratchpadView() {
           <textarea
             ref={area}
             value={text}
+            maxLength={200_000}
             onChange={(e) => edit(e.target.value)}
             onKeyDown={onKeyDown}
             spellCheck={false}

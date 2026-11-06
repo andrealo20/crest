@@ -59,6 +59,8 @@ objc2-foundation = { version = "0.3", default-features = false, features = ["std
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSPasteboard", "NSResponder", "NSRunningApplication", "NSWindow", "NSWorkspace"] }
 
 [target.'cfg(windows)'.dependencies]
+# Already in the tree through the autostart plugin; startup.rs sets its Windows mode to the current user.
+auto-launch = "0.6"
 webview2-com = "0.39"
 # Already in the tree through `windows`; #[implement] expands to `::windows_core` paths.
 windows-core = "0.62"

@@ -45,11 +45,11 @@ export function windowLabel(kind: string): string {
 export const usageError: Record<string, string> = {
   "not-found": "Nicht auf diesem Gerät gefunden",
   "not-signed-in": "Nicht angemeldet",
-  expired: "Anmeldung abgelaufen – App kurz öffnen",
+  expired: "Anmeldung abgelaufen, App kurz öffnen",
   "claude-expired": "Anmeldung abgelaufen: einmal claude im Terminal starten",
   "no-key": "Noch kein API-Schlüssel",
   "bad-key": "Schlüssel abgelehnt, in den Einstellungen prüfen",
-  "rate-limited": "Gerade gedrosselt – nächster Versuch in ein paar Minuten",
+  "rate-limited": "Gerade gedrosselt, nächster Versuch in ein paar Minuten",
   offline: "Keine Verbindung",
   failed: "Abruf fehlgeschlagen",
 };

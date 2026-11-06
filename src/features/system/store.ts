@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
+import { isMac } from "../../platform/native";
 import { rowVisible } from "../../notch/row/visibility";
 import { fetchSystem, type GpuReading, type ProcReading, type SystemStats, type SystemWant } from "../../platform/services";
 import { settings } from "../../settings/store";
@@ -172,6 +173,8 @@ function poll(ms: number) {
 }
 
 function wanted(): boolean {
+  // system_stats has no Mac backend.
+  if (isMac) return false;
   const s = settings.get();
   // The nest's pet runs with the CPU load, so it reads the background rhythm too.
   return s.tools.some((x) => x.id === "system" && x.enabled) || s.gaming.mode !== "off" || ((s.closed.parts.readings || s.closed.pet.id !== null) && rowVisible.get());

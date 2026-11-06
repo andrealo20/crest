@@ -303,13 +303,13 @@ export function openFile(path: string): Promise<void> {
 /** GitHub Sponsors in the default browser. */
 export function openSponsors() {
   if (isNative) void invoke("open_sponsors");
-  else window.open("https://github.com/sponsors/andrealo20", "_blank");
+  else window.open("https://github.com/sponsors/andrealo20", "_blank", "noopener");
 }
 
 /** GitHub's bug report form, with Crest's version filled in (src-tauri lib.rs). */
 export function openBugReport() {
   if (isNative) void invoke("open_bug_report");
-  else window.open("https://github.com/andrealo20/crest/issues/new?template=bug_report.yml", "_blank");
+  else window.open("https://github.com/andrealo20/crest/issues/new?template=bug_report.yml", "_blank", "noopener");
 }
 
 /** Crest's rating page in the Microsoft Store app (Store build only). */
@@ -473,8 +473,8 @@ export const display = {
     isNative
       ? invoke<MonitorInfo[]>("display_monitors")
       : Promise.resolve([
-          { name: "\\.\DISPLAY1", primary: true, width: 2560, height: 1440, workTop: 0, workHeight: 1440 - 48, workLeft: 0, workWidth: 2560 },
-          { name: "\\.\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48, workLeft: 0, workWidth: 1920 },
+          { name: "\\\\.\\DISPLAY1", primary: true, width: 2560, height: 1440, workTop: 0, workHeight: 1440 - 48, workLeft: 0, workWidth: 2560 },
+          { name: "\\\\.\\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48, workLeft: 0, workWidth: 1920 },
         ]),
   /**
    * `y`: window top in CSS px below the monitor's top edge (default 0); `rules`: screen_policy.rs Rules; `zoom`: panel scale (1 or 1.5).
@@ -986,10 +986,10 @@ export interface PhonePageText {
 export function phoneShareStart(paths: string[], text: PhonePageText): Promise<PhoneShare> {
   if (isNative) return invoke<PhoneShare>("phone_share_start", { paths, text });
   // Demo: a stand-in code that looks like the real one but opens nothing; the app serves the files on the local network.
-  return demo ? Promise.resolve({ url: "demo only: the app shows a real link here", qr: demoQr(), size: 29, ttl: 600 }) : Promise.reject(new Error("Only in the app"));
+  return demo ? Promise.resolve({ url: "", qr: demoQr(), size: 37, ttl: 600 }) : Promise.reject(new Error("Only in the app"));
 }
 
-/** A QR-like pattern (three finder squares and fixed noise) as one SVG path in a 29 unit box. */
+/** A QR-like pattern (three finder squares and fixed noise) as one SVG path in a 37 unit box: 29 modules and the 4 of quiet zone, like phone_share.rs. */
 function demoQr(): string {
   const n = 29;
   const finder = (x: number, y: number) => x === 0 || x === 6 || y === 0 || y === 6 || (x >= 2 && x <= 4 && y >= 2 && y <= 4);
@@ -1000,7 +1000,7 @@ function demoQr(): string {
     for (let x = 0; x < n; x++) {
       const inFinder = (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7);
       const on = inFinder ? finder(x < 7 ? x : x - (n - 7), y < 7 ? y : y - (n - 7)) : rnd() < 0.48;
-      if (on) path += `M${x} ${y}h1v1h-1z`;
+      if (on) path += `M${x + 4} ${y + 4}h1v1h-1z`;
     }
   }
   return path;
@@ -1177,7 +1177,7 @@ export interface GithubContributions {
 /** The user's profile on github.com in the browser; Rust refuses anything that is not a valid login, and there is nothing to show for it. */
 export function openGithubProfile(user: string) {
   if (isNative) invoke("github_open_profile", { user }).catch(() => {});
-  else window.open(`https://github.com/${encodeURIComponent(user)}`, "_blank");
+  else window.open(`https://github.com/${encodeURIComponent(user)}`, "_blank", "noopener");
 }
 
 /** Errors from Rust: no-user, not-found, rate-limited, offline, parse, failed. `force` skips the hour's cache (once a minute at most). */
@@ -1234,7 +1234,7 @@ export interface CalendarData {
   fetchedAt: number;
 }
 
-/** Events from yesterday to two weeks ahead; `force` skips Rust's ten minutes' cache. */
+/** Events from about two months back to three ahead; `force` skips Rust's ten minutes' cache. */
 export function fetchCalendar(sources: CalendarSourceIn[], force: boolean): Promise<CalendarData> {
   if (isNative) return invoke<CalendarData>("calendar_fetch", { sources, force });
   const day = new Date();

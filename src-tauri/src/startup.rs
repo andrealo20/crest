@@ -1,20 +1,52 @@
-//! Start with Windows, for the settings switch and the tray check alike. The GitHub build writes the Run key through
-//! the autostart plugin; the Store build (feature `store`) uses its package's startup task (packaging/store/
-//! AppxManifest.xml), which Windows lists under Task Manager, Startup apps, where the user has the last word.
+//! Start with Windows, for the settings switch and the tray check alike. The GitHub build writes the user's Run key
+//! (a Mac uses the autostart plugin's login item); the Store build (feature `store`) uses its package's startup task
+//! (packaging/store/AppxManifest.xml), which Windows lists under Task Manager, Startup apps, where the user has the
+//! last word.
 
 use tauri::AppHandle;
 
-#[cfg(not(feature = "store"))]
+#[cfg(not(windows))]
 pub fn is_enabled(app: &AppHandle) -> bool {
     use tauri_plugin_autostart::ManagerExt;
     app.autolaunch().is_enabled().unwrap_or(false)
 }
 
-#[cfg(not(feature = "store"))]
+#[cfg(not(windows))]
 pub fn set(app: &AppHandle, enabled: bool) -> Result<(), String> {
     use tauri_plugin_autostart::ManagerExt;
     let manager = app.autolaunch();
     if enabled { manager.enable() } else { manager.disable() }.map_err(|e| e.to_string())
+}
+
+/// The plugin's Windows mode writes the Run key under HKLM when Crest runs elevated, and a normal session can never remove that again.
+#[cfg(all(windows, not(feature = "store")))]
+fn run_key(app: &AppHandle) -> Result<auto_launch::AutoLaunch, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    auto_launch::AutoLaunchBuilder::new()
+        .set_app_name(&app.package_info().name)
+        .set_app_path(&exe.display().to_string())
+        .set_windows_enable_mode(auto_launch::WindowsEnableMode::CurrentUser)
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+/// Shown (translated) when an entry for all users, written by an elevated Crest, stays after switching off.
+#[cfg(all(windows, not(feature = "store")))]
+const ALL_USERS: &str = "Der Eintrag gilt für alle Benutzer. Crest als Administrator starten und hier ausschalten";
+
+#[cfg(all(windows, not(feature = "store")))]
+pub fn is_enabled(app: &AppHandle) -> bool {
+    run_key(app).and_then(|k| k.is_enabled().map_err(|e| e.to_string())).unwrap_or(false)
+}
+
+#[cfg(all(windows, not(feature = "store")))]
+pub fn set(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    let key = run_key(app)?;
+    if enabled { key.enable() } else { key.disable() }.map_err(|e| e.to_string())?;
+    if !enabled && key.is_enabled().unwrap_or(false) {
+        return Err(ALL_USERS.into());
+    }
+    Ok(())
 }
 
 #[cfg(feature = "store")]

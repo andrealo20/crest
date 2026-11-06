@@ -32,7 +32,7 @@ export function WindowSettings() {
   return (
     <>
       <Rules />
-      <AppRules />
+      {!isMac && <AppRules />}
       <Shortcuts />
       <Panel />
       <Mouse />
@@ -45,21 +45,26 @@ function Rules() {
   const r = s.behavior.rules;
   const gaming = s.gaming.mode !== "off";
   return (
-    <Group title={t("Wenn ein Fenster den Bildschirm füllt")} id="settings-window">
-      {CONTEXTS.map((c) => (
-        <Row key={c} label={t(contextLabel[c])} hint={gaming && c !== "maximized" ? t("Der Gaming-Modus hält Crest hier sichtbar") : t(contextHint[c])}>
-          <Segmented
-            id={`rule-${c}`}
-            size="sm"
-            value={r[c]}
-            onChange={(v) => updateBehavior((b) => ({ rules: { ...b.rules, [c]: v } }))}
-            options={behaviorOptions()}
-          />
-        </Row>
-      ))}
-      <Row label={t("Auch Fenster dahinter prüfen")} hint={t("Ein maximiertes oder randloses Fenster hinter dem aktiven zählt auch")}>
-        <Switch label={t("Auch Fenster dahinter prüfen")} checked={r.background} onChange={(background) => updateBehavior((b) => ({ rules: { ...b.rules, background } }))} />
-      </Row>
+    <Group title={isMac ? undefined : t("Wenn ein Fenster den Bildschirm füllt")} id="settings-window">
+      {/* The window watcher behind the rules is Windows only. */}
+      {!isMac && (
+        <>
+          {CONTEXTS.map((c) => (
+            <Row key={c} label={t(contextLabel[c])} hint={gaming && c !== "maximized" ? t("Der Gaming-Modus hält Crest hier sichtbar") : t(contextHint[c])}>
+              <Segmented
+                id={`rule-${c}`}
+                size="sm"
+                value={r[c]}
+                onChange={(v) => updateBehavior((b) => ({ rules: { ...b.rules, [c]: v } }))}
+                options={behaviorOptions()}
+              />
+            </Row>
+          ))}
+          <Row label={t("Auch Fenster dahinter prüfen")} hint={t("Ein maximiertes oder randloses Fenster hinter dem aktiven zählt auch")}>
+            <Switch label={t("Auch Fenster dahinter prüfen")} checked={r.background} onChange={(background) => updateBehavior((b) => ({ rules: { ...b.rules, background } }))} />
+          </Row>
+        </>
+      )}
       <Row label={t("Nach vorne holen")} hint={t("Wenn ein anderes Fenster über Crest liegt")}>
         <Button icon={ArrowLineUp} onClick={windowShell.raise}>
           {t("Jetzt")}
@@ -119,7 +124,7 @@ function AppRules() {
       <Row label={t("Laufende App")} hint={apps.length === 0 ? t("Eigene Regeln für eine App, nach ihrer .exe") : undefined}>
         <div className="flex items-center gap-2">
           <Select<string>
-            width="w-40"
+            width="w-44"
             value={pick}
             onChange={setPick}
             options={[{ value: "", label: t("App wählen …") }, ...choices.map((a) => ({ value: a.path, label: a.name }))]}

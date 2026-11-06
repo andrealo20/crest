@@ -140,11 +140,12 @@ export function demoForecast(lat: number, lon: number): Forecast {
       sunset: `${day(d)}T16:${pad(48 - i)}`,
     };
   });
+  const swing = (h: number) => Math.sin(((h - 9) / 24) * Math.PI * 2) * 2.5;
   const hourly = Array.from({ length: 24 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + i);
     const h = d.getHours();
     const isDay = h >= 8 && h < 17;
-    return { time: hour(d), temp: Math.round((base + Math.sin(((h - 9) / 24) * Math.PI * 2) * 2.5) * 10) / 10, code: i > 6 && i < 11 ? 61 : 3, day: isDay, rain: i > 6 && i < 11 ? 55 : 15 };
+    return { time: hour(d), temp: Math.round((base + swing(h) - swing(now.getHours())) * 10) / 10, code: i > 6 && i < 11 ? 61 : 3, day: isDay, rain: i > 6 && i < 11 ? 55 : 15 };
   });
   const h = now.getHours();
   return {

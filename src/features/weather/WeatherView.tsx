@@ -197,7 +197,7 @@ function Week({ data }: { data: Forecast }) {
               </span>
               <span className="tabular w-8 shrink-0 text-caption font-semibold text-label">{formatTemp(d.max)}</span>
             </span>
-            <span dir="ltr" className="tabular min-w-10 text-end text-caption text-link">{d.mm ? mm(d.mm) : ""}</span>
+            <span dir="ltr" className="tabular w-12 shrink-0 text-end text-caption text-link">{d.mm !== undefined && d.mm >= 0.05 ? mm(d.mm) : ""}</span>
           </div>
         );
       })}
