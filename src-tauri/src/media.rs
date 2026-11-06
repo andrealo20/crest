@@ -5,9 +5,8 @@
 //! and emits `media://update` when something changes.
 //! Polling instead of WinRT events: more robust when sessions switch, negligible cost.
 //!
-//! - The manager is requested fresh on every poll. A long-lived one goes stale when
-//!   an app recreates its session (Spotify closed to the tray, reopened), and then
-//!   keeps reporting the old status and position.
+//! - The manager is requested once and reused (a new one per poll is a cross-process round trip),
+//!   and requested again when it stops answering (an Explorer restart).
 //! - Which session is shown: see media_pick.rs (a pinned app, else a playing one,
 //!   else the app shown before).
 //! - Controls go to the shown app, not to whatever Windows considers current.
@@ -59,6 +58,8 @@ pub struct NowPlaying {
     repeat: Option<&'static str>,
     /// Every session, in Windows' order.
     sources: Vec<Source>,
+    /// Only in the event: the cover is the one of the previous event, so it is left out (see `lean`).
+    artwork_same: bool,
 }
 
 /// Last emitted state and when it was emitted; the pinned app ID; lyrics on screen (see `media_lyrics`).
@@ -174,9 +175,8 @@ pub async fn media_sources() -> Result<Vec<SourceInfo>, String> {
 }
 
 const POLL: Duration = Duration::from_millis(400);
-/// How long after a track change the cover keeps being re-read, so a late one replaces
-/// whatever Windows showed first.
-const ARTWORK_SETTLE: Duration = Duration::from_secs(10);
+/// When, after a track change, the cover is read again (once each), so a late one replaces whatever Windows showed first.
+const ARTWORK_RETRY_AT: [Duration; 4] = [Duration::from_secs(1), Duration::from_secs(3), Duration::from_secs(6), Duration::from_secs(10)];
 /// Drift beyond which a position counts as a seek and is sent again.
 const SEEK_THRESHOLD: f64 = 1.5;
 /// How often the position is sent anyway while lyrics are on screen.
@@ -186,7 +186,7 @@ pub fn spawn(app: AppHandle) {
     thread::spawn(move || {
         let mut last: Option<NowPlaying> = None;
         let mut last_sent_at = SystemTime::now();
-        let mut artwork = Artwork { key: String::new(), since: Instant::now(), data: None };
+        let mut artwork = Artwork { key: String::new(), since: Instant::now(), data: None, tries: 0 };
         // Requested once and reused: a new manager per poll is a cross-process
         // round trip every 400 ms. Dropped (and requested again) on an error.
         let mut manager: Option<SessionManager> = None;
@@ -220,7 +220,7 @@ pub fn spawn(app: AppHandle) {
             if resync || changed(&last, &current, last_sent_at) {
                 last_sent_at = SystemTime::now();
                 *app.state::<MediaState>().0.lock().unwrap() = current.clone().map(|np| (np, last_sent_at));
-                let _ = app.emit("media://update", &current);
+                let _ = app.emit("media://update", &lean(&last, &current));
                 last = current;
             }
             thread::sleep(POLL);
@@ -279,11 +279,20 @@ fn pick(manager: &SessionManager, shown: (&str, &str), pinned: Option<&str>) -> 
     (chosen, unique)
 }
 
-/// Cover of the shown track: reloaded on a track change and for a while after it.
+/// Cover of the shown track: reloaded on a track change and at the ARTWORK_RETRY_AT times after it.
 struct Artwork {
     key: String,
     since: Instant,
     data: Option<String>,
+    tries: usize,
+}
+
+/// The state as the page gets it: a cover equal to the last sent one stays out of the event, it can be megabytes.
+fn lean(last: &Option<NowPlaying>, current: &Option<NowPlaying>) -> Option<NowPlaying> {
+    current.clone().map(|np| match last {
+        Some(l) if l.artwork == np.artwork => NowPlaying { artwork: None, artwork_same: true, ..np },
+        _ => np,
+    })
 }
 
 fn read(session: &Session, artwork: &mut Artwork) -> windows::core::Result<NowPlaying> {
@@ -296,10 +305,12 @@ fn read(session: &Session, artwork: &mut Artwork) -> windows::core::Result<NowPl
     if artwork.key != key {
         artwork.key = key;
         artwork.since = Instant::now();
+        artwork.tries = 0;
         artwork.data = props.Thumbnail().ok().and_then(|t| load_thumbnail(&t).ok());
-    } else if artwork.data.is_none() || artwork.since.elapsed() < ARTWORK_SETTLE {
+    } else if ARTWORK_RETRY_AT.get(artwork.tries).is_some_and(|at| artwork.since.elapsed() >= *at) {
         // Some apps deliver the cover shortly after the title, and until then
         // Windows may still hand out the previous track's cover (Spotifast).
+        artwork.tries += 1;
         artwork.data = props.Thumbnail().ok().and_then(|t| load_thumbnail(&t).ok());
     }
 
@@ -333,7 +344,7 @@ fn read(session: &Session, artwork: &mut Artwork) -> windows::core::Result<NowPl
         position = position.clamp(0.0, duration);
     }
 
-    Ok(NowPlaying { title, artist, artwork: artwork.data.clone(), is_playing, position, duration, can_seek, app_id, shuffle, repeat, sources: Vec::new() })
+    Ok(NowPlaying { title, artist, artwork: artwork.data.clone(), is_playing, position, duration, can_seek, app_id, shuffle, repeat, sources: Vec::new(), artwork_same: false })
 }
 
 fn load_thumbnail(reference: &windows::Storage::Streams::IRandomAccessStreamReference) -> windows::core::Result<String> {
@@ -391,4 +402,36 @@ fn now_filetime() -> i64 {
     const EPOCH_DIFF_SECS: i64 = 11_644_473_600;
     let since_unix = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
     (since_unix.as_secs() as i64 + EPOCH_DIFF_SECS) * 10_000_000 + since_unix.subsec_nanos() as i64 / 100
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn playing(cover: Option<&str>) -> Option<NowPlaying> {
+        Some(NowPlaying {
+            title: "Song".into(),
+            artist: "Artist".into(),
+            artwork: cover.map(String::from),
+            is_playing: true,
+            position: 1.0,
+            duration: 100.0,
+            can_seek: true,
+            app_id: "Spotify.exe".into(),
+            shuffle: None,
+            repeat: None,
+            sources: Vec::new(),
+            artwork_same: false,
+        })
+    }
+
+    #[test]
+    fn a_cover_is_sent_once() {
+        let (a, b) = (playing(Some("cover-a")), playing(Some("cover-b")));
+        assert_eq!(lean(&None, &a).unwrap().artwork.as_deref(), Some("cover-a"));
+        let same = lean(&a, &a).unwrap();
+        assert!(same.artwork.is_none() && same.artwork_same);
+        assert_eq!(lean(&a, &b).unwrap().artwork.as_deref(), Some("cover-b"));
+        assert!(lean(&a, &None).is_none());
+    }
 }

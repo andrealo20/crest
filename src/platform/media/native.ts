@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { accentFrom } from "../../lib/accent";
+import { isMac } from "../native";
 import type { MediaSource, NowPlaying, RepeatMode, SourceInfo } from "./types";
 
 /** Shape of the data from Rust (src-tauri/src/media.rs). */
@@ -16,6 +17,8 @@ interface NativeNowPlaying {
   shuffle: boolean | null;
   repeat: RepeatMode | null;
   sources: { appId: string; isPlaying: boolean }[];
+  /** The cover is left out because it is the one of the previous event. */
+  artworkSame?: boolean;
 }
 
 function livePositionOf(np: NowPlaying): number {
@@ -37,6 +40,11 @@ export function createNativeMedia(): MediaSource {
   let lastRaw: NativeNowPlaying | null = null;
 
   const apply = (np: NativeNowPlaying | null) => {
+    if (np?.artworkSame) {
+      // Nothing to take the cover from yet (an event before the first answer): ask for the whole state.
+      if (!lastRaw) return void invoke<NativeNowPlaying | null>("media_get").then(apply);
+      np = { ...np, artwork: lastRaw.artwork, artworkSame: false };
+    }
     lastRaw = np;
     if (np && state && performance.now() < seekGuardUntil && np.title === state.title) {
       np = { ...np, position: livePositionOf(state) };
@@ -117,7 +125,9 @@ export function createNativeMedia(): MediaSource {
       control("shuffle", undefined, on);
     },
     cycleRepeat() {
-      if (state?.repeat) optimistic({ repeat: state.repeat === "none" ? "list" : state.repeat === "list" ? "track" : "none" });
+      // Spotify on a Mac has repeat on or off, no single track.
+      const twoStates = isMac && state?.appId === "Spotify";
+      if (state?.repeat) optimistic({ repeat: state.repeat === "none" ? "list" : state.repeat === "list" && !twoStates ? "track" : "none" });
       control("repeat");
     },
     pin: (appId) => void invoke("media_pin", { appId }),
