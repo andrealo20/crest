@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { btAlert, btIcon, levelAlert, lockAlert, mergeSeed, netAlert, osdHidden, powerAlert } from "./status.ts";
+import { btAlert, btIcon, levelAlert, lockAlert, mergeSeed, netAlert, osdArmed, osdHidden, powerAlert } from "./status.ts";
 
 const tr = (k: string, v: Record<string, string | number> = {}) => k.replace(/\{(\w+)\}/g, (_, x) => String(v[x]));
-const s = (ac: boolean, percent: number | null, battery = true) => ({ ac, percent, battery });
+const s = (ac: boolean, percent: number | null, battery = true, charging = ac) => ({ ac, percent, battery, charging });
 
 test("power", () => {
   const low = { warned20: false, warned10: false };
@@ -14,6 +14,9 @@ test("power", () => {
   assert.equal(powerAlert(s(false, 20), s(false, 19), low, tr), null);
   assert.equal(powerAlert(s(false, 11), s(false, 10), low, tr)?.tone, "critical");
   assert.equal(powerAlert(s(false, 10), s(true, 10), low, tr)?.text, "Lädt · 10 %");
+  // Plugged in but not taking charge (full, or a charge limit): it does not say it is charging.
+  assert.equal(powerAlert(s(false, 100), s(true, 100, true, false), low, tr)?.text, "Am Netzteil · 100 %");
+  assert.equal(powerAlert(s(false, null), s(true, null, true, false), low, tr)?.text, "Am Netzteil");
   assert.deepEqual(low, { warned20: false, warned10: false });
   assert.equal(powerAlert(s(true, 50, false), s(false, 50, false), low, tr), null);
 });
@@ -121,6 +124,9 @@ test("osd: hidden only while the HUD replaces both and can show", () => {
   assert.equal(osdHidden({ ...on, volume: false }, false, false), false);
   assert.equal(osdHidden(on, true, false), false);
   assert.equal(osdHidden(on, false, true), false);
+  // Focus mode or a fullscreen app only pause it: the option stays in force, so the process that restores the indicator stays too.
+  assert.equal(osdArmed(on), true);
+  assert.equal(osdArmed({ ...on, volume: false }), false);
 });
 test("lock: Caps Lock and Num Lock", () => {
   assert.deepEqual(lockAlert({ key: "caps", on: true }, tr), { kind: "lock", icon: "caps-lock", text: "Feststelltaste an", tone: "normal" });

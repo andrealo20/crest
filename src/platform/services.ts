@@ -540,8 +540,9 @@ export const status = {
     ];
     return () => offs.forEach((off) => void off.then((f) => f()));
   },
-  /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `hideOsd`: hide the Windows indicator (status.ts osdHidden). */
-  configure: (c: { ddc: boolean; locks: boolean; hideOsd: boolean }) => {
+  /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `bt`, `volume`: keep the Bluetooth watcher and the volume callback;
+   *  `hideOsd`: hide the Windows indicator now (status.ts osdHidden); `osdArmed`: the option is in force, also while it is not hiding. */
+  configure: (c: { ddc: boolean; locks: boolean; bt: boolean; volume: boolean; hideOsd: boolean; osdArmed: boolean }) => {
     if (isNative) void invoke("status_configure", c);
   },
 };
@@ -594,7 +595,7 @@ const MOCK_BT = ["Audio.Headphone", "Input.Mouse", "Input.Keyboard", "Input.Gami
 
 /** Browser: each dev button toggles one source. Unplugging drops the mock percent by 9, so the low tones show too. */
 export const mockStatus = (() => {
-  let power: PowerState = { ac: true, percent: 64, battery: true }, online = true, buds = false, volume = 40, bright = 70, kind = 0, caps = false;
+  let power: PowerState = { ac: true, percent: 64, battery: true, charging: true }, online = true, buds = false, volume = 40, bright = 70, kind = 0, caps = false;
   const listeners = new Set<StatusHandlers>();
   return {
     seed: (): StatusSeed => ({ power, online, devices: buds ? ["Buds"] : [] }),
@@ -604,7 +605,7 @@ export const mockStatus = (() => {
     },
     unplug() {
       const percent = power.ac ? (power.percent! > 10 ? power.percent! - 9 : 64) : power.percent;
-      power = { ac: !power.ac, percent, battery: true };
+      power = { ac: !power.ac, percent, battery: true, charging: !power.ac };
       listeners.forEach((h) => h.power(power));
     },
     offline() {

@@ -5,7 +5,7 @@ import { focusMode } from "../../notch/focus";
 import { fullscreen } from "../system/gaming";
 import { presentingNow } from "../privacy/store";
 import { t } from "../../i18n";
-import { STATUS, btAlert, levelAlert, lockAlert, netAlert, osdHidden, powerAlert, mergeSeed, type LowBattery, type PowerState, type StatusAlert } from "../../notch/row/status";
+import { STATUS, btAlert, levelAlert, lockAlert, netAlert, osdArmed, osdHidden, powerAlert, mergeSeed, type LowBattery, type PowerState, type StatusAlert } from "../../notch/row/status";
 
 /** The status alert on screen, for STATUS.showMs; a new one replaces it. */
 export const statusAlert = createStore<StatusAlert | null>(null);
@@ -64,7 +64,9 @@ export function startStatusWatch() {
   let sent = "";
   const configure = () => {
     const alerts = settings.get().closed.statusAlerts;
-    const c = { ddc: alerts.brightness, locks: alerts.lock, hideOsd: osdHidden(alerts, focusMode.get(), fullscreen.get()) };
+    const quiet = focusMode.get() || fullscreen.get();
+    // Alerts are dropped while quiet, so the key poll rests too; Bluetooth and volume run while their own alerts are on.
+    const c = { ddc: alerts.brightness, locks: alerts.lock && !quiet, bt: alerts.bt, volume: alerts.volume, hideOsd: osdHidden(alerts, focusMode.get(), fullscreen.get()), osdArmed: osdArmed(alerts) };
     if (JSON.stringify(c) === sent) return;
     sent = JSON.stringify(c);
     status.configure(c);

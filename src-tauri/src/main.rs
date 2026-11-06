@@ -11,6 +11,12 @@ fn main() {
         crest_lib::restore_banners();
         std::process::exit(0);
     }
+    // Run by the installer and the uninstaller before they close Crest (src-tauri/windows/hooks.nsh).
+    #[cfg(windows)]
+    if args.get(1).is_some_and(|a| a == "--restore-osd") {
+        crest_lib::restore_osd();
+        std::process::exit(0);
+    }
     #[cfg(windows)]
     if let [_, flag, value] = args.as_slice() {
         if flag == "--fps-unlock" {
