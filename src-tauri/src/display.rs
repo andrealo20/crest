@@ -181,20 +181,38 @@ pub struct MonitorInfo {
     work_width: f64,
 }
 
+/// The name each monitor goes by, in the order given. A Mac names a display by its model, so two of one model share a name:
+/// the later one (by position, left to right) gets a number, and the first keeps the plain name it was saved under.
+/// `monitors`: name, x and y of each.
+fn unique_names(monitors: &[(String, i32, i32)]) -> Vec<String> {
+    let mut order: Vec<usize> = (0..monitors.len()).collect();
+    order.sort_by_key(|&i| (monitors[i].1, monitors[i].2));
+    let mut names = vec![String::new(); monitors.len()];
+    for (at, &i) in order.iter().enumerate() {
+        let same = order[..at].iter().filter(|&&j| monitors[j].0 == monitors[i].0).count();
+        names[i] = if same == 0 { monitors[i].0.clone() } else { format!("{} ({})", monitors[i].0, same + 1) };
+    }
+    names
+}
+
+/// The monitors with the name `unique_names` gives each.
+fn named_monitors(window: &WebviewWindow) -> Vec<(String, tauri::Monitor)> {
+    let monitors = window.available_monitors().unwrap_or_default();
+    let keys: Vec<_> = monitors.iter().map(|m| (m.name().cloned().unwrap_or_default(), m.position().x, m.position().y)).collect();
+    unique_names(&keys).into_iter().zip(monitors).collect()
+}
+
 #[tauri::command]
 pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -> Vec<MonitorInfo> {
     let zoom = state.config.lock().unwrap().zoom;
-    let primary = window.primary_monitor().ok().flatten().and_then(|m| m.name().cloned());
-    window
-        .available_monitors()
-        .unwrap_or_default()
+    let primary = window.primary_monitor().ok().flatten().map(|m| *m.position());
+    named_monitors(&window)
         .into_iter()
-        .map(|m| {
-            let name = m.name().cloned().unwrap_or_default();
+        .map(|(name, m)| {
             let scale = m.scale_factor() * zoom;
             let wa = m.work_area();
             MonitorInfo {
-                primary: primary.as_deref() == Some(name.as_str()),
+                primary: primary == Some(*m.position()),
                 width: (m.size().width as f64 / scale) as u32,
                 height: (m.size().height as f64 / scale) as u32,
                 work_top: (wa.position.y - m.position().y) as f64 / scale,
@@ -374,9 +392,8 @@ impl DisplayState {
 pub(crate) fn put(window: &WebviewWindow, wanted: Option<&str>, c: &Config, line: f64, y: f64) -> tauri::Result<()> {
     let (offset, zoom, edge, along) = (c.offset, c.zoom, c.edge.as_str(), fit_along(c.along));
     let side = edge == "left" || edge == "right";
-    let monitors = window.available_monitors()?;
     let monitor = wanted
-        .and_then(|name| monitors.into_iter().find(|m| m.name().map(String::as_str) == Some(name)))
+        .and_then(|name| named_monitors(window).into_iter().find(|(n, _)| n == name).map(|(_, m)| m))
         .or(window.primary_monitor()?);
     let Some(monitor) = monitor else { return Ok(()) };
     // Set twice: when moving to a monitor with different scaling, the window size
@@ -697,6 +714,15 @@ fn is_desktop(hwnd: HWND) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn monitors_of_one_model_get_distinct_names_and_the_first_keeps_its_own() {
+        let named = |list: &[(&str, i32, i32)]| unique_names(&list.iter().map(|(n, x, y)| (n.to_string(), *x, *y)).collect::<Vec<_>>());
+        assert_eq!(named(&[("Monitor #1", 0, 0), ("Monitor #2", 1920, 0)]), ["Monitor #1", "Monitor #2"]);
+        // The order given is kept; the numbering follows the position, left to right.
+        assert_eq!(named(&[("Monitor #7", 2560, 0), ("Monitor #7", 0, 0), ("Monitor #7", -2560, 0)]), ["Monitor #7 (3)", "Monitor #7 (2)", "Monitor #7"]);
+        assert!(named(&[]).is_empty());
+    }
 
     /// 1920 x 1080 at 100, 125 and 150 % Windows scaling, panel scale 1 and 1.5, on every edge, hanging from the screen edge,
     /// with the usual window and one lengthened for a wide closed notch.

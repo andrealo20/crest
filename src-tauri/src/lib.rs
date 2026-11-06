@@ -520,7 +520,6 @@ pub fn run() {
             hit_test::spawn(app.handle().clone(), window.clone());
             #[cfg(windows)]
             display::spawn(app.handle().clone(), window);
-            #[cfg(windows)]
             mirror::spawn(app.handle().clone());
             media::spawn(app.handle().clone());
             clipboard::spawn(app.handle().clone());
