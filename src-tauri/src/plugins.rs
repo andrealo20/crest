@@ -10,8 +10,8 @@
 //! that allows no network at all. Everything else goes through postMessage to Crest's frontend
 //! (src/features/plugins), which checks each message and calls the commands here: storage scoped to the plugin and
 //! capped, and fetch over https to the domains the manifest declares, checked again here, resolved to public
-//! addresses only and limited in size and time. Tauri's own bridge is injected into the main frame only, so a plugin
-//! page cannot call a command directly.
+//! addresses only and limited in size and time. Tauri's own bridge is meant for the main frame only (on Windows its script can also reach a
+//! subframe); a plugin page still cannot call a command, as the CSP allows no connections.
 
 mod bundle;
 mod manifest;
@@ -197,8 +197,10 @@ pub fn plugins_commit(token: String, app: AppHandle, state: State<'_, PluginsSta
     let target = root.join(&manifest.id);
     let old = root.join(format!(".old-{}", self::token()));
     let had_old = target.exists();
-    if had_old {
-        fs::rename(&target, &old).map_err(|_| "in-use")?;
+    if had_old && fs::rename(&target, &old).is_err() {
+        // Still staged, so Install can be pressed again.
+        state.staged.lock().unwrap().insert(token, (staged, manifest));
+        return Err("in-use".into());
     }
     if fs::rename(&staged, &target).is_err() {
         if had_old {
@@ -458,23 +460,21 @@ pub fn protocol(app: &AppHandle, webview: &str, request: &tauri::http::Request<V
         Some((_, ct, body)) => (StatusCode::OK, ct, body),
         None => (StatusCode::NOT_FOUND, "text/plain; charset=utf-8", b"Not found".to_vec()),
     };
-    let mut r = Response::builder()
+    Response::builder()
         .status(status)
         .header(header::CONTENT_TYPE, ct)
         .header(header::CONTENT_SECURITY_POLICY, csp(&id))
         .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
+        // Module scripts, fonts and masks load in cors mode from the page's opaque origin.
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "null")
         .header(header::REFERRER_POLICY, "no-referrer")
         .header(header::CACHE_CONTROL, "no-store")
         .header("X-DNS-Prefetch-Control", "off")
         .header(
             "Permissions-Policy",
             "camera=(), microphone=(), geolocation=(), clipboard-read=(), clipboard-write=(), display-capture=(), usb=(), serial=(), hid=(), bluetooth=(), payment=(), fullscreen=()",
-        );
-    // Module scripts load in cors mode from the page's opaque origin.
-    if ct.starts_with("text/javascript") {
-        r = r.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "null");
-    }
-    r.body(body).unwrap_or_else(|_| Response::new(Vec::new()))
+        )
+        .body(body).unwrap_or_else(|_| Response::new(Vec::new()))
 }
 
 #[cfg(test)]
