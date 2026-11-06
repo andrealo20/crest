@@ -1,8 +1,10 @@
 import { createStore } from "../../lib/store";
-import { noticeSource, systemControls, type IncomingNotice, type NoticeSourceStatus } from "../../platform/services";
+import { noticeSource, systemControls, windowShell, type IncomingNotice, type NoticeSourceStatus } from "../../platform/services";
+import { focusMode } from "../../notch/focus";
 import { settings, updateSettings } from "../../settings/store";
 import { presentingNow, privacy } from "../privacy/store";
 import { fullscreen } from "../system/gaming";
+import { screen } from "../window/store";
 import { addNotice, removeApp, removeNotice, type Notice } from "./history";
 import { rememberApp, route, ruleFor, setRule, type NoticeRule } from "./rules";
 import { applyPart, livePart, nextExpiry, type PartMessage, type ScriptPart } from "./scriptParts";
@@ -52,12 +54,16 @@ export const asks = createStore<Ask[]>([]);
 
 /*
  * An ask is work the user started, so quiet hours, focus and full screen do not hold it back, and it stays until
- * answered. It is not kept in the history. Off for its source, or while presenting (its text could be a command on a
- * shared screen), it is answered "no choice" at once, so the caller falls back to its own prompt without waiting.
+ * answered. It is not kept in the history. Off for its source, while presenting (its text could be a command on a
+ * shared screen), or when nothing can show it (focus mode as a line, the window hidden by a rule or the shortcut),
+ * it is answered "no choice" at once, so the caller falls back to its own prompt without waiting.
  */
+let windowHidden = false;
+
 function receiveAsk(a: Ask) {
   const s = settings.get().notices;
-  if (!s.enabled || ruleFor(s.rules, a.appId) === "hide" || presentingNow()) return noticeSource.answer(a.id, null);
+  const unseen = windowHidden || screen.get() === "hide" || (focusMode.get() && settings.get().display.focusStyle === "line");
+  if (!s.enabled || ruleFor(s.rules, a.appId) === "hide" || presentingNow() || unseen) return noticeSource.answer(a.id, null);
   const apps = rememberApp(s.apps, a.appId, a.appName);
   if (apps !== s.apps) updateSettings((cur) => ({ notices: { ...cur.notices, apps } }));
   asks.set((list) => addAsk(list, a));
@@ -84,6 +90,7 @@ function ingest(input: IncomingNotice, focus: boolean) {
   const apps = rememberApp(s.apps, input.appId, input.appName);
   // A new app: its first notice already had its Windows banner, the next ones only pop up here (syncBanners).
   if (apps !== s.apps) updateSettings((cur) => ({ notices: { ...cur.notices, apps } }));
+  else if (input.source === "windows") syncBanners(true);
   const d = new Date();
   const where = route(input.appId, s, { presenting: presentingNow(), now: d.getHours() * 60 + d.getMinutes(), fullscreen: fullscreen.get(), focus });
   if (where === "drop") return;
@@ -100,7 +107,7 @@ function ingest(input: IncomingNotice, focus: boolean) {
  */
 let bannersKey: string | null = null;
 let statusSeen = false;
-function syncBanners() {
+function syncBanners(again = false) {
   const n = settings.get().notices, st = sourceStatus.get();
   const wanted = n.enabled && n.windows && n.hideBanners;
   // Before the first status, or while the source is still starting, its state is unknown: wait rather than give the
@@ -109,14 +116,15 @@ function syncBanners() {
   const hide = wanted && st.access === "allowed" && st.mode !== "failed";
   const apps = hide ? Object.keys(n.apps).filter((a) => ruleFor(n.rules, a) === "show") : [];
   const key = `${hide}|${apps.join("\n")}`;
-  if (key === bannersKey) return;
+  // `again`: an app Windows gave a fresh key (reinstalled, reset) is hidden again; Rust skips the ones already hidden.
+  if (key === bannersKey && !(again && hide)) return;
   bannersKey = key;
   void noticeSource.banners(hide, apps).catch((e: unknown) => {
     // The Store build cannot change Windows' settings and opened them for the user instead: the switch goes back off.
     if (hide && String(e) === "settings") updateSettings((cur) => ({ notices: { ...cur.notices, hideBanners: false } }));
   });
 }
-settings.subscribe(syncBanners);
+settings.subscribe(() => syncBanners());
 sourceStatus.subscribe(() => {
   statusSeen = true;
   syncBanners();
@@ -183,6 +191,7 @@ export function startNotices() {
   noticeSource.onPart(receivePart);
   noticeSource.onAsk(receiveAsk);
   noticeSource.onAskClosed((id) => asks.set((list) => removeAsk(list, id)));
+  windowShell.onHidden((hidden) => (windowHidden = hidden));
   refreshStatus();
   // A notice on screen goes as soon as presentation mode starts or an app goes fullscreen; open questions go when presenting starts.
   const hideWhenPresenting = () => {
@@ -200,8 +209,11 @@ export function startNotices() {
     if (key === last) return;
     last = key;
     noticeSource.configure(enabled && windows, enabled && cli);
-    // Switched off: nothing of what was read stays on screen or in memory.
-    if (!enabled) clearHistory();
+    // Switched off: nothing of what was read stays on screen or in memory, but the action centre is left alone.
+    if (!enabled) {
+      history.set([]);
+      dismissPop();
+    }
     // Rust answers the open questions "no choice" when the channel closes.
     if (!(enabled && cli)) {
       scriptParts.set([]);
