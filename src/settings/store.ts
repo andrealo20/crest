@@ -88,8 +88,8 @@ export interface Settings {
   updates: { auto: boolean };
   /** Look of the big countdown in the Timer tool and the detached timer window; background sound while a focus timer runs, volume 0 to 1. */
   timer: { look: TimerLook; clockLook: ClockLook; color: LookColor; clockColor: LookColor; focusSound: FocusSound; focusVolume: number };
-  /** To-do reminders (sound), the water reminder and the quote line in Overview. */
-  productivity: { reminderSound: boolean; quotes: boolean; water: WaterConfig };
+  /** To-do reminders (sound), dates in plain words in the new-task field, the water reminder and the quote line in Overview. */
+  productivity: { reminderSound: boolean; nlDates: boolean; quotes: boolean; water: WaterConfig };
   /** Terminal tool: shell, font size in px, start folder ("" = home), end the shell when the notch closes. */
   terminal: { shell: "pwsh" | "powershell" | "cmd"; fontSize: number; startDir: string; endOnClose: boolean };
   /**
@@ -212,7 +212,7 @@ const defaults: Settings = {
   presentation: { manual: false, auto: true },
   updates: { auto: true },
   timer: { look: "clean", clockLook: "standard", color: "orange", clockColor: "white", focusSound: "off", focusVolume: 0.3 },
-  productivity: { reminderSound: true, quotes: false, water: WATER_DEFAULTS },
+  productivity: { reminderSound: true, nlDates: true, quotes: false, water: WATER_DEFAULTS },
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
   music: {
     lyricsOpen: false,

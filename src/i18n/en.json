@@ -1318,5 +1318,9 @@
  "Auf GitHub unterstützen": "Support on GitHub",
  "Tresor gerade belegt": "Vault in use",
  "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "Another program is reading the file. Try again in a moment.",
- "Auf der Notch anpassen": "Adjust on the notch"
+ "Auf der Notch anpassen": "Adjust on the notch",
+ "Fällig {when}": "Due {when}",
+ "Datum verwerfen": "Dismiss date",
+ "Datum in neuen Aufgaben erkennen": "Understand dates in new tasks",
+ "Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie": "Shows a due time under the field; Enter applies it"
 }

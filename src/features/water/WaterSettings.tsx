@@ -26,6 +26,9 @@ export function ProductivitySettings() {
         <Row label={t("Ton bei Erinnerungen")} hint={toolOn("todos") ? t("Der Alarm-Ton des Timers, einmal") : t("Braucht das Tool To-Dos")}>
           <Switch label={t("Ton bei Erinnerungen")} checked={p.reminderSound} onChange={(reminderSound) => set({ reminderSound })} />
         </Row>
+        <Row label={t("Datum in neuen Aufgaben erkennen")} hint={toolOn("todos") ? t("Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie") : t("Braucht das Tool To-Dos")}>
+          <Switch label={t("Datum in neuen Aufgaben erkennen")} checked={p.nlDates} onChange={(nlDates) => set({ nlDates })} />
+        </Row>
         <Row label={t("Zitat in der Übersicht")} hint={t("Eine kurze Zeile für die schweren Stunden")}>
           <Switch label={t("Zitat in der Übersicht")} checked={p.quotes} onChange={(quotes) => set({ quotes })} />
         </Row>

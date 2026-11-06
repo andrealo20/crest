@@ -1318,5 +1318,9 @@
  "Auf GitHub unterstützen": "Sostieni su GitHub",
  "Tresor gerade belegt": "Cassaforte occupata",
  "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "Un altro programma sta leggendo il file. Riprova tra un attimo.",
- "Auf der Notch anpassen": "Regola sulla notch"
+ "Auf der Notch anpassen": "Regola sulla notch",
+ "Fällig {when}": "Scade {when}",
+ "Datum verwerfen": "Ignora la data",
+ "Datum in neuen Aufgaben erkennen": "Riconosci le date nelle nuove attività",
+ "Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie": "Mostra una scadenza sotto il campo; Invio la applica"
 }
