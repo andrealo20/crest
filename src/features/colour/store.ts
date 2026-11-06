@@ -1,5 +1,5 @@
 import { createStore } from "../../lib/store";
-import { holdOpen } from "../../notch/useNotchState";
+import { holdOpen, stayUntilVisit } from "../../notch/useNotchState";
 import { formatHex, normaliseColourState, parseColour, remember, type ColourState } from "./colour";
 
 /** The colour on show, the second colour of the contrast check and the last 12 chosen (localStorage, nothing leaves the PC). */
@@ -56,7 +56,11 @@ export async function pickFromScreen(target: "current" | "other") {
   try {
     const { sRGBHex } = await new EyeDropper().open({ signal: cancel.signal });
     const picked = cancel.signal.aborted ? null : parseColour(sRGBHex);
-    if (picked) (target === "current" ? colourActions.choose : colourActions.setOther)(formatHex(picked));
+    if (picked) {
+      (target === "current" ? colourActions.choose : colourActions.setOther)(formatHex(picked));
+      // The pointer is wherever the colour was: keep the notch open to show it.
+      stayUntilVisit();
+    }
   } catch (e) {
     // Esc and the timer are not errors; anything else (no eyedropper in this WebView, no user gesture) is told.
     if (!(e instanceof DOMException && e.name === "AbortError")) picking.set((p) => ({ ...p, failed: true }));

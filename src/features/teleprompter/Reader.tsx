@@ -342,11 +342,11 @@ export function Reader({ words, focus, onEdit }: { words: number; focus: boolean
         >
           {phase === "paused" ? <Play size={14} weight="fill" /> : <Pause size={14} weight="fill" />}
         </button>
-        <span className="tabular w-14 shrink-0 text-caption text-label-3">{t("noch {time}", { time: formatClock(left) })}</span>
+        <span className="tabular min-w-14 shrink-0 text-caption whitespace-nowrap text-label-3">{t("noch {time}", { time: formatClock(left) })}</span>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Gauge size={14} aria-hidden className="shrink-0 text-label-3" />
           <Slider value={wpm} min={WPM.min} max={WPM.max} step={WPM.step} label={t("Tempo")} onChange={(v) => setPrompter({ wpm: v })} />
-          <span className="tabular w-12 shrink-0 text-end text-caption text-label-2">{t("{n} WPM", { n: wpm })}</span>
+          <span className="tabular min-w-[4.5rem] shrink-0 text-end text-caption whitespace-nowrap text-label-2">{t("{n} WPM", { n: wpm })}</span>
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <TextAa size={14} aria-hidden className="shrink-0 text-label-3" />

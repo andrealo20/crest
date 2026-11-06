@@ -37,7 +37,7 @@ import { nav, navigate, openOn, takeOpenTarget } from "./nav";
 import { update } from "../lib/update";
 import { findOnScreenTab, findTab, pageTabs, settingsTab, setupTab, tabs, type NotchTab } from "./tabs";
 import { scanScreens } from "../features/find/store";
-import { holdOpen, pinned, togglePin, useNotchState, type NotchStatus } from "./useNotchState";
+import { holdOpen, pinned, stayUntilVisit, togglePin, useNotchState, visited, type NotchStatus } from "./useNotchState";
 import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
 import { dueTasks } from "../features/todos/store";
@@ -370,6 +370,7 @@ export function Notch() {
         // Bridged, the strip up to the screen edge is part of the zone (pushing the pointer up opens it); floating, only the capsule is (CollapsedHover.cs).
         style={{ minHeight: sticky.minHeight, cursor: drag.dragging ? "grabbing" : undefined, paddingTop: bridged ? topValue : 0, marginTop: bridged ? 0 : topValue }}
         onPointerMove={(e) => {
+          visited();
           sticky.onPointerMove(e);
           if (status !== "open") pointed.current = { tool: partTarget(e), at: Date.now() };
         }}
@@ -524,24 +525,65 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
   const unseen = useUnseen().length > 0;
   const badge = updateReady || unseen;
 
-  // A strip of its own: buttons share its width up to 42 px each and never go below 24 px (WCAG target size), so a crowded dock scrolls.
+  // A strip of its own: buttons share its width up to 42 px each and never go below 24 px (WCAG target size), so a crowded dock
+  // scrolls. The gear stays outside the scrolling part, always in reach, and a fade marks the side with more tools.
+  const strip = useRef<HTMLDivElement>(null);
+  const more = useScrollEdges(strip);
+  const fade = more.start || more.end ? `linear-gradient(90deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
   return (
     <div className="flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
-      <div className="flex h-10 max-w-full items-center gap-0.5 overflow-x-auto rounded-[14px] bg-fill-2 p-0.5 [scrollbar-width:none]">
-        {tabs.map((tab) => (
-          <DockButton key={tab.id} label={t(tab.label)} icon={tab.icon} hue={tab.hue} active={tab.id === activeId} onClick={() => navigate(tab.id)} />
-        ))}
+      <div className="flex h-10 max-w-full items-center rounded-[14px] bg-fill-2 p-0.5">
+        <div ref={strip} className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]" style={{ maskImage: fade, WebkitMaskImage: fade }}>
+          {tabs.map((tab) => (
+            <DockButton key={tab.id} label={t(tab.label)} icon={tab.icon} hue={tab.hue} active={tab.id === activeId} onClick={() => switchTo(tab.id)} />
+          ))}
+        </div>
         <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-separator" />
         <DockButton
           label={t(settingsTab.label)}
           icon={GearSix}
           active={inSettings}
           badge={badge}
-          onClick={() => (inSettings ? navigate(lastTool.current ?? tabs[0].id) : navigate(settingsTab.id, badge ? "updates" : null))}
+          onClick={() => {
+            stayUntilVisit();
+            if (inSettings) navigate(lastTool.current ?? tabs[0].id);
+            else navigate(settingsTab.id, badge ? "updates" : null);
+          }}
         />
       </div>
     </div>
   );
+}
+
+/** A tool picked in the dock: the new panel may be smaller and leave the pointer outside it, which must not close the notch. */
+function switchTo(id: string) {
+  stayUntilVisit();
+  navigate(id);
+}
+
+/** Whether a horizontal strip has more to scroll to at its start and its end (either direction of writing). */
+function useScrollEdges(ref: RefObject<HTMLDivElement | null>) {
+  const [edges, setEdges] = useState({ start: false, end: false });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const read = () => {
+      // Right to left, scrollLeft runs from 0 down to negative values.
+      const pos = Math.abs(el.scrollLeft);
+      const room = el.scrollWidth - el.clientWidth;
+      const next = { start: pos > 1, end: room - pos > 1 };
+      setEdges((cur) => (cur.start === next.start && cur.end === next.end ? cur : next));
+    };
+    read();
+    el.addEventListener("scroll", read, { passive: true });
+    const size = new ResizeObserver(read);
+    size.observe(el);
+    return () => {
+      el.removeEventListener("scroll", read);
+      size.disconnect();
+    };
+  }, [ref]);
+  return edges;
 }
 
 function DockButton(props: { label: string; icon: NotchTab["icon"]; hue?: Hue; active: boolean; onClick: () => void; badge?: boolean }) {

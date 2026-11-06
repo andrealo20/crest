@@ -121,7 +121,7 @@ function HabitRow({ habit, today, onEdit }: { habit: Habit; today: number; onEdi
         })}
       </div>
 
-      <div role="img" className="flex w-[50px] shrink-0 flex-col items-end" aria-label={t("Serie {n}, beste {best}", { n: current, best })}>
+      <div role="img" className="flex min-w-[50px] shrink-0 flex-col items-end whitespace-nowrap" aria-label={t("Serie {n}, beste {best}", { n: current, best })}>
         <span className={`tabular flex items-center gap-0.5 text-body font-semibold ${current > 0 ? "text-label" : "text-label-3"}`}>
           <Flame size={12} weight="fill" style={current > 0 ? { color } : undefined} aria-hidden />
           {current}
