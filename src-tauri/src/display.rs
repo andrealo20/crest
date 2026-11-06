@@ -448,6 +448,10 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
         let (mut front, mut behind, mut aside) = (Known::default(), Known::default(), Known::default());
         loop {
             thread::sleep(POLL);
+            // Screen off or suspending (standby.rs): the windows and monitors are not read until it is back.
+            if crate::standby::asleep() {
+                continue;
+            }
             let state = app.state::<DisplayState>();
             let (rules, gaming, mirrors) = {
                 let c = state.config.lock().unwrap();

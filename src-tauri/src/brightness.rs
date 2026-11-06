@@ -17,10 +17,12 @@ use std::time::{Duration, Instant};
 use tauri::AppHandle;
 use windows::core::{w, BOOL, BSTR, PCWSTR};
 use windows::Win32::Devices::Display::{
-    DestroyPhysicalMonitors, GetMonitorBrightness, GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR, SetMonitorBrightness,
-    PHYSICAL_MONITOR,
+    DestroyPhysicalMonitors, DisplayConfigGetDeviceInfo, GetDisplayConfigBufferSizes, GetMonitorBrightness, GetNumberOfPhysicalMonitorsFromHMONITOR,
+    GetPhysicalMonitorsFromHMONITOR, QueryDisplayConfig, SetMonitorBrightness, DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME, DISPLAYCONFIG_MODE_INFO,
+    DISPLAYCONFIG_OUTPUT_TECHNOLOGY_DISPLAYPORT_EMBEDDED, DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INTERNAL, DISPLAYCONFIG_OUTPUT_TECHNOLOGY_UDI_EMBEDDED,
+    DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_SOURCE_DEVICE_NAME, DISPLAYCONFIG_VIDEO_OUTPUT_TECHNOLOGY, PHYSICAL_MONITOR, QDC_ONLY_ACTIVE_PATHS,
 };
-use windows::Win32::Foundation::{HANDLE, HWND, LPARAM, RECT, TRUE};
+use windows::Win32::Foundation::{ERROR_SUCCESS, HANDLE, HWND, LPARAM, RECT, TRUE};
 use windows::Win32::Graphics::Gdi::{
     EnumDisplayDevicesW, EnumDisplayMonitors, GetMonitorInfoW, MonitorFromWindow, DISPLAY_DEVICEW, HDC, HMONITOR, MONITORINFOEXW, MONITOR_DEFAULTTONEAREST,
 };
@@ -89,7 +91,9 @@ fn run(app: AppHandle) {
             continue;
         }
         next_poll = Instant::now() + POLL;
-        if !DDC.load(Ordering::Relaxed) {
+        // Off, or the screen is off or just came back (standby.rs): no DDC/CI while the graphics driver powers the
+        // outputs down or up. The first reading after it becomes the new baseline, so waking never alerts.
+        if !DDC.load(Ordering::Relaxed) || crate::standby::settling() {
             external.clear();
             continue;
         }
@@ -168,6 +172,10 @@ unsafe fn external_levels(fails: &mut HashMap<(isize, usize), u8>) -> HashMap<(i
     unsafe {
         let _ = EnumDisplayMonitors(None, None, Some(each), LPARAM(&mut monitors as *mut _ as isize));
         for monitor in monitors {
+            // Never the laptop's own panel: it is read through WMI above.
+            if is_panel(monitor) {
+                continue;
+            }
             let mut count = 0;
             if GetNumberOfPhysicalMonitorsFromHMONITOR(monitor, &mut count).is_err() || count == 0 {
                 continue;
@@ -226,7 +234,8 @@ pub async fn brightness_get(window: tauri::WebviewWindow) -> Option<u8> {
     let monitor = notch_monitor(&window)?;
     on_com_thread(move || unsafe {
         let monitor = HMONITOR(monitor as _);
-        ddc_level(monitor).or_else(|| panel(monitor).and_then(|(services, name)| panel_level(&services, &name)))
+        let ddc = if is_panel(monitor) { None } else { ddc_level(monitor) };
+        ddc.or_else(|| panel(monitor).and_then(|(services, name)| panel_level(&services, &name)))
     })
     .await
     .ok()
@@ -241,7 +250,7 @@ pub async fn brightness_set(window: tauri::WebviewWindow, percent: u8) -> Result
     *QUIET_UNTIL.lock().unwrap() = Some(Instant::now() + QUIET);
     let done = on_com_thread(move || unsafe {
         let monitor = HMONITOR(monitor as _);
-        match ddc_set(monitor, percent) {
+        match if is_panel(monitor) { None } else { ddc_set(monitor, percent) } {
             Some(done) => done,
             None => panel(monitor).is_some_and(|(services, name)| panel_set(&services, &name, percent).is_ok()),
         }
@@ -286,6 +295,57 @@ unsafe fn ddc_set(monitor: HMONITOR, percent: u8) -> Option<bool> {
         })
         .flatten()
     }
+}
+
+/// A laptop's own panel: internal, embedded DisplayPort (eDP) or embedded UDI.
+fn embedded(tech: DISPLAYCONFIG_VIDEO_OUTPUT_TECHNOLOGY) -> bool {
+    tech == DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INTERNAL || tech == DISPLAYCONFIG_OUTPUT_TECHNOLOGY_DISPLAYPORT_EMBEDDED || tech == DISPLAYCONFIG_OUTPUT_TECHNOLOGY_UDI_EMBEDDED
+}
+
+/// Whether a monitor shows a laptop's own panel, from the output technology of its display paths. DDC/CI there runs
+/// over the panel's AUX channel, the one the graphics driver uses to power the panel off on lid close and standby, and
+/// a read in that moment can hang the driver (DRIVER_POWER_STATE_FAILURE): such a panel is only ever read and set
+/// through WMI. A monitor duplicated onto the panel counts as the panel; one whose paths can't be read counts as a
+/// panel too, so in doubt no DDC/CI is sent.
+unsafe fn is_panel(monitor: HMONITOR) -> bool {
+    unsafe {
+        let mut info = MONITORINFOEXW::default();
+        info.monitorInfo.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
+        if !GetMonitorInfoW(monitor, &mut info.monitorInfo).as_bool() {
+            return true;
+        }
+        let (mut path_count, mut mode_count) = (0u32, 0u32);
+        if GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &mut path_count, &mut mode_count) != ERROR_SUCCESS {
+            return true;
+        }
+        let mut paths = vec![DISPLAYCONFIG_PATH_INFO::default(); path_count as usize];
+        let mut modes = vec![DISPLAYCONFIG_MODE_INFO::default(); mode_count as usize];
+        if QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &mut path_count, paths.as_mut_ptr(), &mut mode_count, modes.as_mut_ptr(), None) != ERROR_SUCCESS {
+            return true;
+        }
+        let device = &info.szDevice[..info.szDevice.iter().position(|&c| c == 0).unwrap_or(info.szDevice.len())];
+        let mut techs = Vec::new();
+        for path in &paths[..path_count as usize] {
+            let mut source = DISPLAYCONFIG_SOURCE_DEVICE_NAME::default();
+            source.header.r#type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+            source.header.size = std::mem::size_of::<DISPLAYCONFIG_SOURCE_DEVICE_NAME>() as u32;
+            source.header.adapterId = path.sourceInfo.adapterId;
+            source.header.id = path.sourceInfo.id;
+            if DisplayConfigGetDeviceInfo(&mut source.header) != 0 {
+                continue;
+            }
+            let name = &source.viewGdiDeviceName;
+            if name[..name.iter().position(|&c| c == 0).unwrap_or(name.len())] == *device {
+                techs.push(path.targetInfo.outputTechnology);
+            }
+        }
+        shows_panel(&techs)
+    }
+}
+
+/// The paths of one monitor: none found (unknown) or any of them embedded makes it a panel.
+fn shows_panel(techs: &[DISPLAYCONFIG_VIDEO_OUTPUT_TECHNOLOGY]) -> bool {
+    techs.is_empty() || techs.iter().any(|&t| embedded(t))
 }
 
 /// The laptop panel WMI knows for this monitor, matched by hardware code.
@@ -407,6 +467,32 @@ fn ddc_percent(min: u32, current: u32, max: u32) -> Option<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Laptop panels never get DDC/CI; external outputs do; in doubt (no path found) a monitor counts as a panel.
+    #[test]
+    fn panels_are_told_from_external_monitors() {
+        use windows::Win32::Devices::Display::{DISPLAYCONFIG_OUTPUT_TECHNOLOGY_DISPLAYPORT_EXTERNAL, DISPLAYCONFIG_OUTPUT_TECHNOLOGY_HDMI};
+        let (int, edp, udi) = (DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INTERNAL, DISPLAYCONFIG_OUTPUT_TECHNOLOGY_DISPLAYPORT_EMBEDDED, DISPLAYCONFIG_OUTPUT_TECHNOLOGY_UDI_EMBEDDED);
+        let (hdmi, dp) = (DISPLAYCONFIG_OUTPUT_TECHNOLOGY_HDMI, DISPLAYCONFIG_OUTPUT_TECHNOLOGY_DISPLAYPORT_EXTERNAL);
+        assert!(shows_panel(&[edp]) && shows_panel(&[int]) && shows_panel(&[udi]));
+        assert!(!shows_panel(&[hdmi]) && !shows_panel(&[dp]));
+        // Duplicated onto the panel: still the panel.
+        assert!(shows_panel(&[hdmi, edp]));
+        assert!(shows_panel(&[]));
+    }
+
+    /// Live: prints each monitor and whether it counts as a panel (a laptop's own screen must).
+    #[test]
+    #[ignore]
+    fn panels_live() {
+        let mut monitors: Vec<HMONITOR> = Vec::new();
+        unsafe {
+            let _ = EnumDisplayMonitors(None, None, Some(each), LPARAM(&mut monitors as *mut _ as isize));
+            for m in monitors {
+                println!("{:?} code {:?} panel {}", m.0, hardware_code(m), is_panel(m));
+            }
+        }
+    }
 
     #[test]
     fn ddc_percent_maps_the_monitor_scale() {

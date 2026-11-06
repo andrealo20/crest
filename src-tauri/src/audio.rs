@@ -138,8 +138,8 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
         loop {
             thread::sleep(TICK);
 
-            if !enabled.load(Ordering::Relaxed) {
-                // Off: close the capture and drop the bars to zero.
+            // Off, or the screen is off (standby.rs): close the capture and drop the bars to zero.
+            if !enabled.load(Ordering::Relaxed) || crate::standby::asleep() {
                 if capture.take().is_some() {
                     samples.lock().unwrap().clear();
                     levels = [0.0; 4];

@@ -58,6 +58,7 @@ mod power;
 mod privacy;
 mod phone_share;
 mod romanize;
+mod standby;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod screen_policy;
 pub mod secrets;

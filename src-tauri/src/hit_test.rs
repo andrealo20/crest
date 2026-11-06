@@ -146,8 +146,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             if state.refresh.swap(false, Ordering::Relaxed) {
                 last_ignore = None;
             }
-            // Hidden by a rule or the hotkey: nothing to hit; show() sets `refresh` again.
-            if crate::display::is_hidden(&app) {
+            // Hidden by a rule or the hotkey, or the screen is off (standby.rs): nothing to hit; show() sets `refresh` again.
+            if crate::display::is_hidden(&app) || crate::standby::asleep() {
                 far = true;
                 continue;
             }

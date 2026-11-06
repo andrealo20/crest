@@ -36,15 +36,17 @@ use windows::Win32::Foundation::{DEVPROPKEY, HANDLE, HWND, LPARAM, LRESULT, PROP
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CAPITAL, VK_NUMLOCK};
-use windows::Win32::System::Power::{GetSystemPowerStatus, RegisterPowerSettingNotification, SYSTEM_POWER_STATUS};
+use windows::Win32::System::Power::{GetSystemPowerStatus, RegisterPowerSettingNotification, RegisterSuspendResumeNotification, POWERBROADCAST_SETTING, SYSTEM_POWER_STATUS};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, KillTimer, PostMessageW, RegisterClassW, SetTimer, DEVICE_NOTIFY_WINDOW_HANDLE,
-    HWND_MESSAGE, MSG, PBT_POWERSETTINGCHANGE, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_POWERBROADCAST, WM_TIMER, WNDCLASSW,
+    HWND_MESSAGE, MSG, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND, PBT_POWERSETTINGCHANGE, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_POWERBROADCAST, WM_TIMER, WNDCLASSW,
 };
 
 // Not in the enabled features; values from winnt.h.
 const GUID_ACDC_POWER_SOURCE: GUID = GUID::from_u128(0x5d3e9a59_e9d5_4b00_a6bd_ff34ff516548);
 const GUID_BATTERY_PERCENTAGE_REMAINING: GUID = GUID::from_u128(0xa7ad8041_b45a_4cae_87a3_eecbb468a9e1);
+/// The console display: 0 off, 1 on, 2 dimmed (standby.rs).
+const GUID_CONSOLE_DISPLAY_STATE: GUID = GUID::from_u128(0x6fe69556_704a_47a0_8f24_c28d936fda47);
 /// Battery level Windows takes from the hands-free indicators or the LE battery service; not in the crate.
 const DEVPKEY_BLUETOOTH_BATTERY: DEVPROPKEY = DEVPROPKEY { fmtid: GUID::from_u128(0x104ea319_6ee2_4701_bd47_8ddbf425bbe5), pid: 2 };
 /// Paired Bluetooth and Bluetooth LE devices, as Settings lists them. Audio endpoints cannot tell them apart: with an
@@ -128,6 +130,14 @@ fn run(app: AppHandle) {
         });
         if power_on {
             seed().power = power();
+        }
+        // The screen going off and the system suspending pause the pollers (standby.rs). Registering sends the
+        // display's current state at once.
+        if let Err(e) = RegisterPowerSettingNotification(HANDLE(hwnd.0), &GUID_CONSOLE_DISPLAY_STATE, DEVICE_NOTIFY_WINDOW_HANDLE) {
+            eprintln!("sysevents: display state notification failed: {e}");
+        }
+        if let Err(e) = RegisterSuspendResumeNotification(HANDLE(hwnd.0), DEVICE_NOTIFY_WINDOW_HANDLE) {
+            eprintln!("sysevents: suspend notification failed: {e}");
         }
 
         let h = hwnd.0 as isize;
@@ -247,8 +257,23 @@ unsafe fn window() -> Option<HWND> {
 
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     unsafe {
-        if msg == WM_POWERBROADCAST && wparam.0 as u32 == PBT_POWERSETTINGCHANGE {
-            let _ = PostMessageW(Some(hwnd), WM_POWER, WPARAM(0), LPARAM(0));
+        if msg == WM_POWERBROADCAST {
+            match wparam.0 as u32 {
+                PBT_POWERSETTINGCHANGE => {
+                    // The setting is only readable during this call. The display state is handled here at once, so the
+                    // pollers stop before the drivers power down; the others go through the loop.
+                    let setting = lparam.0 as *const POWERBROADCAST_SETTING;
+                    if !setting.is_null() && (*setting).PowerSetting == GUID_CONSOLE_DISPLAY_STATE && (*setting).DataLength >= 4 {
+                        let state = std::ptr::read_unaligned((*setting).Data.as_ptr() as *const u32);
+                        crate::standby::set_display(state != 0);
+                    } else {
+                        let _ = PostMessageW(Some(hwnd), WM_POWER, WPARAM(0), LPARAM(0));
+                    }
+                }
+                PBT_APMSUSPEND => crate::standby::set_suspended(true),
+                PBT_APMRESUMEAUTOMATIC | PBT_APMRESUMESUSPEND => crate::standby::set_suspended(false),
+                _ => {}
+            }
             return LRESULT(1);
         }
         DefWindowProcW(hwnd, msg, wparam, lparam)
@@ -499,6 +524,10 @@ fn watch_locks(app: &AppHandle, on: bool) {
     thread::spawn(move || {
         let mut last = None;
         while LOCKS_RUN.load(Ordering::SeqCst) == run {
+            if crate::standby::asleep() {
+                thread::sleep(LOCK_POLL);
+                continue;
+            }
             for (key, on) in lock_changes(&mut last, locks()) {
                 let _ = app.emit("status://lock", serde_json::json!({ "key": key, "on": on }));
             }

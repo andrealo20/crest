@@ -232,6 +232,11 @@ pub struct Proc {
 
 #[tauri::command]
 pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>, state: State<'_, SystemState>) -> Result<Stats, String> {
+    // Screen off or suspending (standby.rs): no GPU, sensor or drive queries while the drivers power down. The page
+    // skips a failed poll and asks again on its next tick.
+    if crate::standby::asleep() {
+        return Err("asleep".into());
+    }
     let mut guard = lock(&state.0);
     let p = &mut *guard;
     let want = if full { Want { net: true, temps: true, power: true, battery: true } } else { want.unwrap_or_default() };

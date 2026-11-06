@@ -192,6 +192,11 @@ pub fn spawn(app: AppHandle) {
         let mut manager: Option<SessionManager> = None;
 
         loop {
+            // Screen off or suspending (standby.rs): no calls into the media service until it is back.
+            if crate::standby::asleep() {
+                thread::sleep(POLL);
+                continue;
+            }
             if manager.is_none() {
                 manager = SessionManager::RequestAsync().and_then(|op| op.join()).ok();
             }
