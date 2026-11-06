@@ -44,8 +44,9 @@ const WAVE_STROKE = 1.75;
 /**
  * `tint` = Tailwind background class for the bars (Discord: green instead of accent).
  * `look` is read once: give the element a `key` that changes with it.
+ * `levels` false: no capture of the player's audio, only the synthetic motion (Discord's speaking indicator).
  */
-export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "bars" }: { playing: boolean; height?: number; tint?: string; look?: EqualizerLook }) {
+export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "bars", levels: follow = true }: { playing: boolean; height?: number; tint?: string; look?: EqualizerLook; levels?: boolean }) {
   const count = look === "bars" ? 4 : SPECTRUM_BANDS;
   const bars = useRef<(HTMLSpanElement | null)[]>([]);
   const wave = useRef<SVGPathElement>(null);
@@ -70,7 +71,7 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
   // Subscribe to real levels; unsubscribe with a delay after pausing.
   const off = useRef<(() => void) | null>(null);
   useEffect(() => {
-    if (!audioLevelsAvailable) return;
+    if (!audioLevelsAvailable || !follow) return;
     if (playing) {
       const store = (values: readonly number[]) => {
         levels.current = { values, at: performance.now() };
@@ -83,7 +84,7 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
       off.current = null;
     }, RELEASE_CAPTURE_MS);
     return () => window.clearTimeout(id);
-  }, [playing, look]);
+  }, [playing, look, follow]);
   useEffect(
     () => () => {
       off.current?.();
