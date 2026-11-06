@@ -10,6 +10,7 @@ import { usePresenting } from "../privacy/store";
 import { locale, t } from "../../i18n";
 import { noticeSource } from "../../platform/services";
 import { CopyCodePill } from "./CopyCode";
+import { isMac } from "../../platform/native";
 import { noticeText, shortTime } from "./format";
 import type { Notice } from "./history";
 import { noticeCode } from "./otp";
@@ -126,7 +127,8 @@ export function NoticesView() {
 
 /** Copy code under a notice that holds a one-time code. */
 function CodeButton({ n }: { n: Notice }) {
-  const code = noticeCode(n);
+  // The copy command only exists on Windows (notices.rs), so a Mac, which only has plugin notices, never offers the button.
+  const code = isMac ? null : noticeCode(n);
   return code ? <CopyCodePill code={code} /> : null;
 }
 
