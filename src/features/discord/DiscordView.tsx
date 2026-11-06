@@ -61,7 +61,7 @@ export function DiscordView() {
               <Button onClick={() => navigate("settings", "discord")}>{t("Einrichten")}</Button>
             ) : demo && ready ? (
               // Demo only: there is no Discord to join a call in, so a sample one starts here.
-              <Button onClick={() => mockDiscord.toggleCall()}>Start a sample call</Button>
+              <Button onClick={() => mockDiscord.toggleCall()}>{t("Beispielanruf starten")}</Button>
             ) : undefined
           }
         />

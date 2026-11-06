@@ -21,6 +21,8 @@ use super::record::{AUDIO_CHANNELS, AUDIO_RATE};
 
 const TICK: Duration = Duration::from_millis(10);
 const RETRY: Duration = Duration::from_millis(500);
+/// A lost input that stays unavailable is tried less and less often, down to this.
+const RETRY_MAX: Duration = Duration::from_secs(10);
 /// How far writing trails the clock (100 ns): above the usual device latency plus a tick.
 const DELAY: i64 = 1_500_000;
 
@@ -37,7 +39,6 @@ pub trait AudioSink: Send + Sync + 'static {
 pub struct Input {
     client: IAudioClient,
     capture: IAudioCaptureClient,
-    loopback: bool,
 }
 
 // Opened in the multithreaded apartment, so usable from the audio thread.
@@ -53,30 +54,31 @@ pub type Failed = Vec<&'static str>;
 
 /// Opens and starts the inputs. Done before the video starts: opening takes a few hundred
 /// ms, and packets from before the clock's start are dropped anyway. Needs COM (MTA) on this thread.
-pub fn open_inputs(system: bool, mic: bool) -> (Vec<Input>, Failed) {
+/// One slot per requested input; one that did not open is tried again while recording (a headset mic can lag).
+pub fn open_inputs(system: bool, mic: bool) -> (Vec<Slot>, Failed) {
     let mut inputs = Vec::new();
     let mut failed = Vec::new();
     for (wanted, loopback, name) in [(system, true, "system"), (mic, false, "mic")] {
         if !wanted {
             continue;
         }
-        match unsafe { open(loopback) } {
-            Ok(i) => inputs.push(i),
-            Err(_) => failed.push(name),
+        let input = unsafe { open_new(loopback) }.ok();
+        if input.is_none() {
+            failed.push(name);
         }
+        inputs.push(Slot { loopback, input, wait: RETRY, retry: Instant::now() + RETRY });
     }
     (inputs, failed)
 }
 
 /// Starts the thread that reads the inputs and writes the mixed track.
-pub fn start<S: AudioSink>(shared: Arc<S>, inputs: Vec<Input>, now: fn() -> i64) -> AudioCapture {
+pub fn start<S: AudioSink>(shared: Arc<S>, mut slots: Vec<Slot>, now: fn() -> i64) -> AudioCapture {
     let stop = Arc::new(AtomicBool::new(false));
     let flag = stop.clone();
     let thread = thread::spawn(move || {
         unsafe {
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         }
-        let mut slots: Vec<Slot> = inputs.into_iter().map(|i| Slot { loopback: i.loopback, input: Some(i), retry: Instant::now() }).collect();
         run(&*shared, &mut slots, &flag, now);
         for i in slots.into_iter().filter_map(|s| s.input) {
             let _ = unsafe { i.client.Stop() };
@@ -95,9 +97,12 @@ impl AudioCapture {
     }
 }
 
-unsafe fn open(loopback: bool) -> Result<Input> {
+unsafe fn open_new(loopback: bool) -> Result<Input> {
+    unsafe { open(&CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?, loopback) }
+}
+
+unsafe fn open(devices: &IMMDeviceEnumerator, loopback: bool) -> Result<Input> {
     unsafe {
-        let devices: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
         let device = devices.GetDefaultAudioEndpoint(if loopback { eRender } else { eCapture }, eConsole)?;
         let client: IAudioClient = device.Activate(CLSCTX_ALL, None)?;
         let block = (AUDIO_CHANNELS * 2) as u16;
@@ -118,20 +123,24 @@ unsafe fn open(loopback: bool) -> Result<Input> {
         client.Initialize(AUDCLNT_SHAREMODE_SHARED, flags, 2_000_000, 0, &format, None)?;
         let capture: IAudioCaptureClient = client.GetService()?;
         client.Start()?;
-        Ok(Input { client, capture, loopback })
+        Ok(Input { client, capture })
     }
 }
 
 /// An input and how to get it back when Windows drops it.
-struct Slot {
+pub struct Slot {
     input: Option<Input>,
     loopback: bool,
+    /// Pause before the next try; doubles on each failure.
+    wait: Duration,
     retry: Instant,
 }
 
 fn run<S: AudioSink>(shared: &S, slots: &mut [Slot], stop: &AtomicBool, now: fn() -> i64) {
     let rate = AUDIO_RATE as i64;
     let mut mixer = Mixer::new(slots.len(), rate);
+    // One enumerator for every retry.
+    let mut devices: Option<IMMDeviceEnumerator> = None;
     loop {
         let last = stop.load(Ordering::Relaxed);
         if !last {
@@ -139,14 +148,18 @@ fn run<S: AudioSink>(shared: &S, slots: &mut [Slot], stop: &AtomicBool, now: fn(
         }
         for (i, slot) in slots.iter_mut().enumerate() {
             // The default device changed or went away (AUDCLNT_E_DEVICE_INVALIDATED and the like):
-            // open the new default, retrying twice a second until there is one.
+            // open the new default, retrying until there is one (twice a second at first, then less often).
             let failed = slot.input.as_ref().is_some_and(|input| drain(shared, input, i, &mut mixer).is_err());
             if failed {
                 slot.input = None;
             }
             if slot.input.is_none() && Instant::now() >= slot.retry {
-                slot.input = unsafe { open(slot.loopback) }.ok();
-                slot.retry = Instant::now() + RETRY;
+                if devices.is_none() {
+                    devices = unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL) }.ok();
+                }
+                slot.input = devices.as_ref().and_then(|d| unsafe { open(d, slot.loopback) }.ok());
+                slot.wait = if slot.input.is_some() { RETRY } else { (slot.wait * 2).min(RETRY_MAX) };
+                slot.retry = Instant::now() + slot.wait;
             }
         }
         // At the end everything up to now goes out, without the delay.

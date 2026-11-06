@@ -7,7 +7,7 @@ use std::sync::Once;
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use windows::core::{h, w, Result};
 use windows::Globalization::Language;
 use windows::Graphics::Imaging::{BitmapAlphaMode, BitmapPixelFormat, SoftwareBitmap};
@@ -21,7 +21,7 @@ use windows::Win32::UI::HiDpi::{GetDpiForMonitor, SetThreadDpiAwarenessContext, 
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 use super::math::{intersect, line_rect, Rect};
-use super::{exclude, monitors, shot, CaptureState};
+use super::{monitors, shot, Hold};
 
 /// OCR of a few screens takes about a second; past this the page says so instead of waiting.
 const TIMEOUT: Duration = Duration::from_secs(15);
@@ -57,16 +57,10 @@ fn scan(app: &AppHandle) -> std::result::Result<Vec<FoundLine>, String> {
     }
     let engine = engine().map_err(|_| "no-ocr")?;
     let list = monitors();
-    let recording = app.state::<CaptureState>().excluded();
-    if !recording {
-        exclude(app, true);
-        // Let the compositor drop the windows from the next frame.
-        std::thread::sleep(Duration::from_millis(60));
-    }
-    let shots: Vec<_> = list.iter().map(|m| shot::grab(m.rect)).collect();
-    if !recording {
-        exclude(app, false);
-    }
+    let shots: Vec<_> = {
+        let _hold = Hold::new(app);
+        list.iter().map(|m| shot::grab(m.rect)).collect()
+    };
     let mut out = Vec::new();
     for (i, (m, dib)) in list.iter().zip(shots).enumerate() {
         let Ok(dib) = dib else { continue };

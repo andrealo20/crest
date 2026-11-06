@@ -184,7 +184,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
       </span>
     );
   } else if (kind === "saved" && shot) {
-    const label = shot.kind === "shot" ? t("Bildschirmfoto gespeichert") : shot.kind === "audio" ? t("Tonaufnahme gespeichert") : t("Aufnahme gespeichert");
+    const label = shot.cut ? t("Aufnahme vorzeitig beendet") : shot.kind === "shot" ? t("Bildschirmfoto gespeichert") : shot.kind === "audio" ? t("Tonaufnahme gespeichert") : t("Aufnahme gespeichert");
     const Icon = shot.kind === "audio" ? Waveform : shot.kind === "shot" ? ImageSquare : FilmStrip;
     ({ width, height, key, body } = noticeCard(
       {
@@ -192,7 +192,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
         image: shot.thumb ? <img src={shot.thumb} alt="" draggable={false} className="shrink-0 rounded-[6px] object-cover" style={{ width: THUMB_W, height: THUMB_H }} /> : undefined,
         imageWidth: shot.thumb ? THUMB_W : undefined,
         icon: <Icon size={16} weight="fill" />,
-        hue: "cyan",
+        hue: shot.cut ? "orange" : "cyan",
         title: label,
         text: shot.path.split(/[\\/]/).pop(),
         // The card opens the tool that took it, its button the file itself.

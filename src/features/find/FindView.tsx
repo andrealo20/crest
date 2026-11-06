@@ -3,12 +3,14 @@ import { Crosshair, MagnifyingGlass } from "@phosphor-icons/react";
 import { capture } from "../../platform/services";
 import { Button, Skeleton, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
+import { usePresenting } from "../privacy/store";
 import { matchLine, queryWords } from "./match";
 import { forgetScreens, found, scanScreens } from "./store";
 
 const MAX_RESULTS = 60;
 
 const errors: Record<string, string> = {
+  presenting: "Im Präsentationsmodus ausgeblendet",
   timeout: "Das Lesen hat zu lange gedauert",
   "no-ocr": "Windows hat keine Texterkennung für deine Sprachen",
 };
@@ -22,11 +24,12 @@ export function FindView() {
   const f = found.use();
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState<number | null>(null);
-  // The text lives only while the page is open.
+  const presenting = usePresenting();
+  // The text lives only while the page is open; presentation mode switching on or off reads again.
   useEffect(() => {
     scanScreens();
     return forgetScreens;
-  }, []);
+  }, [presenting]);
 
   const words = useMemo(() => queryWords(query), [query]);
   const results = useMemo(() => {
