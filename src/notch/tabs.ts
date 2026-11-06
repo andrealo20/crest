@@ -63,6 +63,8 @@ import { CameraView } from "../features/camera/CameraView";
 import { FindView } from "../features/find/FindView";
 import { CalendarCheck } from "@phosphor-icons/react";
 import { HabitsView } from "../features/habits/HabitsView";
+import { ColourView } from "../features/colour/ColourView";
+import { Eyedropper } from "@phosphor-icons/react";
 import { pluginTab } from "../features/plugins/tabs";
 import { isMac } from "../platform/native";
 
@@ -125,6 +127,7 @@ export const tabs: NotchTab[] = ([
   { id: "recorder", hue: "rose", label: "Rekorder", icon: Waveform, size: { w: 520, h: 280 }, View: RecorderView },
   { id: "camera", hue: "pink", label: "Kamera", icon: VideoCamera, size: { w: 520, h: 330 }, View: CameraView },
   { id: "habits", hue: "teal", label: "Gewohnheiten", icon: CalendarCheck, size: { w: 520, h: 260 }, View: HabitsView },
+  { id: "colour", hue: "purple", label: "Farbe", icon: Eyedropper, size: { w: 620, h: 420 }, View: ColourView },
 ] satisfies NotchTab[]).filter((t) => !isMac || !WINDOWS_ONLY.has(t.id));
 
 /** Settings: reached via the gear, not in the tool bar. */
