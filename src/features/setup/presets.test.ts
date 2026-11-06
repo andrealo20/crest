@@ -13,7 +13,7 @@ const DEFAULT_OFF = ["system", "discord", "trading", "vault", "water", "scratchp
 const fresh = (): PresetFields => ({
   tools: TOOL_IDS.map((id) => ({ id, enabled: !DEFAULT_OFF.includes(id) })),
   closed: CLOSED_DEFAULTS,
-  music: { lyricsOpen: false, titleLyrics: false, notchLyrics: false, pinned: null },
+  music: { lyricsOpen: false, titleLyrics: false, notchLyrics: false, pinned: null } as PresetFields["music"],
 });
 const enabled = (s: PresetFields) => s.tools.filter((t) => t.enabled).map((t) => t.id);
 const partsOn = (s: PresetFields) => PART_IDS.filter((k) => s.closed.parts[k]);
