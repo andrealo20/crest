@@ -1,4 +1,5 @@
 import { createStore } from "../lib/store";
+import { isNative } from "../platform/native";
 import { display, type MonitorInfo } from "../platform/services";
 import { settings } from "../settings/store";
 import { followTarget } from "./follow";
@@ -32,6 +33,12 @@ export function monitorMetrics(): { width: number; height: number; workTop: numb
   if (m) return { width: m.width, height: m.height, workTop: m.workTop, workHeight: m.workHeight, workLeft: m.workLeft, workWidth: m.workWidth };
   const height = window.screen.height;
   return { width: window.screen.width, height, workTop: 0, workHeight: height - 48, workLeft: 0, workWidth: window.screen.width };
+}
+
+/** The room along an edge for the closed notch: its monitor's `own`, and with "All monitors" no more than the narrowest one's, since the copies draw the same width. */
+export function sharedSpan(own: number, side: boolean): number {
+  if (!isNative || settings.get().display.monitorMode !== "all") return own;
+  return Math.min(own, ...monitors.get().map((m) => (side ? m.height : m.width)));
 }
 
 let loaded: string | null | undefined;

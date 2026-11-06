@@ -765,7 +765,8 @@ function Display() {
 
   return (
     <Group id="settings-display">
-      {monitors.length > 1 && (
+      {/* Also with one monitor while "follow" or "all" is saved (a laptop undocked), or it could not be changed back. */}
+      {(monitors.length > 1 || d.monitorMode !== "chosen") && (
         <Row
           label={t("Monitor")}
           hint={d.monitorMode === "follow" ? t("Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger") : d.monitorMode === "all" ? t("Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst") : undefined}

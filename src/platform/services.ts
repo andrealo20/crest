@@ -451,7 +451,7 @@ export const autostart = {
 // ---------- Display ----------
 
 /** The closed notch as markup (mirror.rs Picture): the page's theme variables, and the `data:` images by index (null = unchanged). */
-export interface MirrorPicture { html: string; root: string; theme: string; images: string[] | null }
+export interface MirrorPicture { html: string; root: string; theme: string; lang: string; dir: string; images: string[] | null }
 
 export interface MonitorInfo {
   name: string;
@@ -512,6 +512,7 @@ export const display = {
   mirror: (picture: MirrorPicture, rect: { x: number; y: number; w: number; h: number }) => {
     if (isNative) void invoke("mirror_picture_set", { picture, rect });
   },
+  fullscreen: (): Promise<boolean> => (isNative ? invoke<boolean>("display_fullscreen") : Promise.resolve(false)),
   /** true while an app covers the notch's monitor in fullscreen. */
   onFullscreen: (handler: (on: boolean) => void): (() => void) => {
     if (!isNative) return () => {};

@@ -8,6 +8,8 @@ export const fullscreen = createStore(false);
 
 export function startGamingWatch() {
   display.onFullscreen((on) => fullscreen.set(on));
+  // Crest may start under a fullscreen app, whose event came before the listener.
+  void display.fullscreen().then((on) => on && fullscreen.set(on));
 }
 
 /** Gaming mode is live: always, or while an app is fullscreen. */

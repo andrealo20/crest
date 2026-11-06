@@ -2,6 +2,7 @@ import { useEffect, type RefObject } from "react";
 import { isNative } from "../platform/native";
 import { display } from "../platform/services";
 import { settings } from "../settings/store";
+import { monitors } from "./monitor";
 
 /*
  * "All monitors": the other monitors show a copy of the closed notch (src-tauri/src/mirror.rs, page mirror.html). This window
@@ -26,23 +27,26 @@ export function picture(root: Element): { html: string; images: string[] } {
 
 /** Sends the closed notch under `root` to the copies while `closed` (closed, not peeking, and not changed by a window rule). */
 export function useMirror(root: RefObject<HTMLElement | null>, closed: boolean) {
-  const all = settings.use().display.monitorMode === "all";
+  // Nothing to draw for with one monitor (a laptop undocked while "All monitors" is saved).
+  const several = monitors.use().length > 1;
+  const all = settings.use().display.monitorMode === "all" && several;
   useEffect(() => {
     if (!isNative || !all || !closed) return;
     let last = "";
     let sent: string[] | null = null;
     const take = () => {
       const el = root.current, hit = el?.querySelector("[data-notch-hit]");
-      if (!el || !hit) return;
+      // The panel still fading out is not the closed notch.
+      if (!el || !hit || el.querySelector("[data-open-panel]")) return;
       const { html, images } = picture(el);
-      const doc = document.documentElement, css = doc.style.cssText, theme = doc.dataset.theme ?? "";
+      const doc = document.documentElement, css = doc.style.cssText, theme = doc.dataset.theme ?? "", { lang, dir } = doc;
       const same = sent !== null && images.length === sent.length && images.every((src, i) => src === sent![i]);
-      const key = `${theme}|${css}|${html}`;
+      const key = `${theme}|${lang}|${dir}|${css}|${html}`;
       if (key === last && same) return;
       last = key;
       sent = images;
       const r = hit.getBoundingClientRect();
-      display.mirror({ html, root: css, theme, images: same ? null : images }, { x: r.x, y: r.y, w: r.width, h: r.height });
+      display.mirror({ html, root: css, theme, lang, dir, images: same ? null : images }, { x: r.x, y: r.y, w: r.width, h: r.height });
     };
     take();
     const id = window.setInterval(take, EVERY_MS);

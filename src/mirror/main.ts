@@ -1,4 +1,7 @@
 import "../styles/global.css";
+// The copy draws the notch's markup, whose pet, theme and notch-shape rules live in these sheets.
+import "../features/themes/themes.css";
+import "../notch/pet/pet.css";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { MirrorPicture } from "../platform/services";
@@ -17,9 +20,15 @@ function show(p: MirrorPicture) {
   const doc = document.documentElement;
   doc.style.cssText = p.root;
   if (p.theme) doc.dataset.theme = p.theme;
+  doc.lang = p.lang;
+  doc.dir = p.dir;
   if (p.images) images = p.images;
   // Markup the notch window serialized from its own DOM (text and attributes come escaped), shown under the same CSP.
   root.innerHTML = p.html;
+  bindImages();
+}
+
+function bindImages() {
   for (const img of root.querySelectorAll<HTMLImageElement>("img[data-mirror-img]")) {
     const src = images[Number(img.dataset.mirrorImg)];
     if (src) img.src = src;
@@ -33,4 +42,9 @@ void listen<MirrorPicture>("mirror://picture", (e) => {
 // The picture sent before this page loaded; a newer one may already be here.
 void invoke<MirrorPicture>("mirror_picture").then((p) => {
   if (!fresh && p.html) show(p);
+  // Images go once: an event that came first without them leaves the covers to this answer.
+  else if (fresh && !images.length && p.images) {
+    images = p.images;
+    bindImages();
+  }
 });
