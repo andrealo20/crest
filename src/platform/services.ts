@@ -374,7 +374,7 @@ export interface ChangelogEntry {
 
 /** In the browser, `?update` in the URL fakes an update for testing. */
 const mockUpdate: UpdateHandle = {
-  version: demo ? "0.5.0" : "1.3.0",
+  version: demo ? "1.0.0" : "1.3.0",
   install: async (onProgress) => {
     for (let i = 1; i <= 20; i++) {
       await new Promise((r) => setTimeout(r, 120));
@@ -428,8 +428,10 @@ export const updater = {
  */
 export async function fetchChangelog(version: string): Promise<ChangelogEntry[] | null> {
   if (!isNative) {
-    const mock = { en: demo ? "An example entry: this is where a release lists what changed." : "Example: something new in the upcoming version" };
-    return [{ version, date: new Date().toISOString().slice(0, 10), items: [mock, mock] }, ...bundledChangelog];
+    const items = demo
+      ? [{ en: "Quick controls in Overview and a fuller weather tab with the 7 days." }, { en: "Eight cartoon pets that live in a nest beside the notch." }]
+      : Array(2).fill({ en: "Example: something new in the upcoming version" });
+    return [{ version, date: new Date().toISOString().slice(0, 10), items }, ...bundledChangelog];
   }
   try {
     const r = await fetch(`https://raw.githubusercontent.com/andrealo20/crest/v${version}/src/changelog.json`, {

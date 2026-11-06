@@ -113,6 +113,13 @@ function VaultContent() {
     return () => window.clearTimeout(id);
   }, [notice]);
 
+  /** Opens the add form; with Windows Hello saving needs an unlock, so ask first or the filled form would be lost to the prompt. */
+  const add = () => {
+    const open = async () => setScreen(kind === "password" ? { kind: "password", item: null, password: "" } : { kind: "totp" });
+    if (status?.hello && !status.unlocked) setPrompt(() => open);
+    else void open();
+  };
+
   let body: ReactNode;
   let key: string;
   if (!status) {
@@ -195,7 +202,7 @@ function VaultContent() {
         unlocked={status.unlocked}
         codesNeedPin={status.pinTotp}
         run={run}
-        onAdd={() => setScreen(kind === "password" ? { kind: "password", item: null, password: "" } : { kind: "totp" })}
+        onAdd={add}
         onEdit={(item) => void run(async () => setScreen({ kind: "password", item, password: await vault.reveal(item.id) }))}
       />
     );
@@ -215,7 +222,7 @@ function VaultContent() {
           </HeaderButton>
           <HeaderButton
             label={kind === "password" ? t("Passwort hinzufügen") : t("2FA hinzufügen")}
-            onClick={() => setScreen(kind === "password" ? { kind: "password", item: null, password: "" } : { kind: "totp" })}
+            onClick={add}
           >
             <Plus size={14} weight="bold" />
           </HeaderButton>
@@ -390,10 +397,18 @@ function Row(props: { index: number; children: ReactNode; onClick?: () => void; 
   return (
     <motion.div
       role={props.onClick ? "button" : undefined}
+      tabIndex={props.onClick ? 0 : undefined}
       aria-label={props.label}
       onClick={props.onClick}
+      onKeyDown={(e) => {
+        // Only the row itself: Enter on one of its icon buttons must not copy.
+        if (props.onClick && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          props.onClick();
+        }
+      }}
       initial={{ opacity: 0, transform: "translateY(4px)" }}
-      animate={{ opacity: 1, transform: "translateY(0px)", transition: { ...content.enter, delay: 0.05 + props.index * 0.035 } }}
+      animate={{ opacity: 1, transform: "translateY(0px)", transition: { ...content.enter, delay: 0.05 + Math.min(props.index, 8) * 0.035 } }}
       className={`group flex h-11 items-center gap-2.5 rounded-[10px] px-2 hover:bg-fill-1 ${props.onClick ? "pressable cursor-pointer" : ""}`}
     >
       {props.children}
@@ -525,8 +540,11 @@ function Codes(props: { items: VaultItem[]; show: boolean; run: (a: () => Promis
         setCodes({ list, at });
         const next = Math.min(...list.map((c) => c.remaining), 30);
         timer = window.setTimeout(load, next * 1000 + 60);
-      } catch {
-        if (!cancelled) setCodes(null);
+      } catch (e) {
+        if (cancelled) return;
+        setCodes(null);
+        // A busy file clears by itself; "locked" needs the PIN, a retry would only fail again.
+        if (vaultError(e) !== "locked") timer = window.setTimeout(load, 2000);
       }
     };
     void load();
