@@ -13,9 +13,11 @@ const format = (name: string, make: () => Intl.NumberFormat) => {
 /** "1.2M", "830K". */
 export const formatTokens = (n: number) => format("tokens", () => new Intl.NumberFormat(locale(), { notation: "compact", maximumFractionDigits: 1 })).format(n);
 
-/** "$3.40", "¥42.15": the short symbol, since the currency is clear from the card. */
+/** "$3.40", "¥42.15": the short symbol, since the currency is clear from the card. Isolated left to right, or Arabic flips symbol and number. */
 export const formatAmount = (n: number, currency = "USD") =>
-  format(currency, () => new Intl.NumberFormat(locale(), { style: "currency", currency, currencyDisplay: "narrowSymbol", minimumFractionDigits: 2, maximumFractionDigits: 2 })).format(n);
+  "\u2066" +
+  format(currency, () => new Intl.NumberFormat(locale(), { style: "currency", currency, currencyDisplay: "narrowSymbol", minimumFractionDigits: 2, maximumFractionDigits: 2 })).format(n) +
+  "\u2069";
 
 /** "$3.40", "$3.40+" when some models have no price, "no price" when none has. */
 export function formatCost(x: Totals): string {
