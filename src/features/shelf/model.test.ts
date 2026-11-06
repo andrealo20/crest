@@ -12,7 +12,7 @@ test("old saved items stay, broken ones go", () => {
 });
 
 test("saved files without a known kind or a size get safe values", () => {
-  const [a, b] = normalizeItems([{ path: "C:\a", name: "a" }, { ...file("C:\b"), kind: "image", addedAt: 1 }]) as { kind: string; size: number }[];
+  const [a, b] = normalizeItems([{ path: "C:\\a", name: "a" }, { ...file("C:\\b"), kind: "image", addedAt: 1 }]) as { kind: string; size: number }[];
   assert.deepEqual([a.kind, a.size], ["other", 0]);
   assert.deepEqual([b.kind, b.size], ["image", 1]);
 });

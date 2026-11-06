@@ -14,7 +14,6 @@ import {
   FolderOpen,
   ImageSquare,
   Table,
-  TextT,
   Trash,
   Tray,
   X,
@@ -519,10 +518,7 @@ function TextCard({ item, hidden, copied, onCopy }: { item: TextItem; hidden: bo
         {hidden ? <Redacted lines={4} /> : <p className="line-clamp-6 text-caption break-words whitespace-pre-wrap text-label-2">{item.text}</p>}
       </button>
       <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
-        <span className="flex min-w-0 items-center gap-1 text-caption text-label-3">
-          <TextT size={12} weight="bold" className="shrink-0" />
-          <span className="tabular truncate">{item.text.length === 1 ? t("1 Zeichen") : t("{n} Zeichen", { n: item.text.length })}</span>
-        </span>
+        <span className="tabular min-w-0 truncate text-caption text-label-3">{item.text.length === 1 ? t("1 Zeichen") : t("{n} Zeichen", { n: item.text.length })}</span>
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={copied ? "done" : "copy"}
