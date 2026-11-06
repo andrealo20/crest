@@ -4,14 +4,14 @@ import type { Notice } from "./history";
 type Tr = (de: string, vars?: Record<string, string | number>) => string;
 
 /** 850 ms, 12 s, 1 min 12 s, 2 h 5 min. */
-export function duration(ms: number): string {
-  if (ms < 1000) return `${Math.max(0, Math.round(ms))} ms`;
+export function duration(ms: number, tr: Tr): string {
+  if (ms < 1000) return tr("{n} ms", { n: Math.max(0, Math.round(ms)) });
   const s = Math.round(ms / 1000);
-  if (s < 60) return `${s} s`;
+  if (s < 60) return tr("{n} Sek.", { n: s });
   const m = Math.floor(s / 60), rs = s % 60;
-  if (m < 60) return rs ? `${m} min ${rs} s` : `${m} min`;
+  if (m < 60) return rs ? `${tr("{n} Min.", { n: m })} ${tr("{n} Sek.", { n: rs })}` : tr("{n} Min.", { n: m });
   const h = Math.floor(m / 60), rm = m % 60;
-  return rm ? `${h} h ${rm} min` : `${h} h`;
+  return rm ? `${tr("{n} Std.", { n: h })} ${tr("{n} Min.", { n: rm })}` : tr("{n} Std.", { n: h });
 }
 
 /** In the app's language: where the day period goes and how it is written differ (午後1:30, 1:30 pm, 1:30 PM). */
@@ -35,7 +35,7 @@ export function shortTime(at: number, now: number, format: "24" | "12", tr: Tr, 
 /** The text under a notice's title: its body, or for `crest-notify run` the result. */
 export function noticeText(n: Notice, tr: Tr): string {
   if (n.exitCode === undefined || n.exitCode === null) return n.body;
-  const took = duration(n.durationMs ?? 0);
+  const took = duration(n.durationMs ?? 0, tr);
   return n.exitCode === 0 ? tr("Fertig nach {d}", { d: took }) : tr("Fehlgeschlagen (Code {c}) nach {d}", { c: n.exitCode, d: took });
 }
 

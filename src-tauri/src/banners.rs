@@ -4,6 +4,8 @@
 //! switch in Settings). With it at 0 the notification still goes to the notification centre, which is where Crest
 //! reads it. Crest marks every banner it turns off with `CrestHidBanner`, so turning them back on restores only
 //! those and leaves the banners the user switched off alone. Only apps Windows already has a key for are touched.
+//! A banner the user turns on in Windows and off again stays marked and comes back with the others: the value alone
+//! cannot tell it from the one Crest wrote.
 //! They come back when Crest exits (lib.rs) and when it is uninstalled (`windows/hooks.nsh`); after a crash, at the
 //! next start.
 //!
@@ -30,16 +32,21 @@ pub fn notices_banners(hide: bool, apps: Vec<String>) -> Result<(), String> {
         }
         return Err("settings".into());
     }
+    set_banners(SETTINGS, hide, apps)
+}
+
+/// `notices_banners` below the registry key `root` (the tests use a key of their own).
+fn set_banners(root: &str, hide: bool, apps: Vec<String>) -> Result<(), String> {
     let apps: Vec<String> = if hide { apps.into_iter().filter(|a| plain(a)).collect() } else { Vec::new() };
-    for sub in marked() {
+    for sub in marked(root) {
         if !apps.iter().any(|a| a.eq_ignore_ascii_case(&sub)) {
-            unmark(&sub);
+            unmark(root, &sub);
         }
     }
     // One key Windows refuses (a locked system app) does not keep the others visible; the first error is reported.
     let mut first = Ok(());
     for app in &apps {
-        let key = HSTRING::from(format!(r"{SETTINGS}\{app}"));
+        let key = HSTRING::from(format!(r"{root}\{app}"));
         // The banner is on unless the value says 0; one the user already turned off is not ours to mark.
         if exists(&key) && read(&key, BANNER) != Some(0) {
             // Mark first: a mark without ShowBanner = 0 only restores Windows' default.
@@ -55,12 +62,16 @@ pub fn notices_banners(hide: bool, apps: Vec<String>) -> Result<(), String> {
 /// Every banner Crest hid comes back: on exit, and from the uninstaller (`crest.exe --restore-banners`).
 pub fn restore() {
     if !cfg!(feature = "store") {
-        marked().iter().for_each(|sub| unmark(sub));
+        restore_in(SETTINGS);
     }
 }
 
-fn unmark(sub: &str) {
-    let key = HSTRING::from(format!(r"{SETTINGS}\{sub}"));
+fn restore_in(root: &str) {
+    marked(root).iter().for_each(|sub| unmark(root, sub));
+}
+
+fn unmark(root: &str, sub: &str) {
+    let key = HSTRING::from(format!(r"{root}\{sub}"));
     // No ShowBanner is Windows' default: banners on.
     unsafe {
         let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, &key, BANNER);
@@ -96,18 +107,18 @@ fn write(key: &HSTRING, name: PCWSTR, value: u32) -> Result<(), String> {
 }
 
 /// Apps below Settings whose banner Crest turned off, nested ids (`{GUID}\App\app.exe`) included.
-fn marked() -> Vec<String> {
+fn marked(root: &str) -> Vec<String> {
     let mut out = Vec::new();
-    scan("", 0, &mut out);
+    scan(root, "", 0, &mut out);
     out
 }
 
 /// A desktop app's id is a few keys deep (`{GUID}\App\app.exe` is three); the scan stops below this.
 const MAX_DEPTH: u32 = 6;
 
-fn scan(prefix: &str, depth: u32, out: &mut Vec<String>) {
+fn scan(base: &str, prefix: &str, depth: u32, out: &mut Vec<String>) {
     let mut root = HKEY::default();
-    let path = if prefix.is_empty() { SETTINGS.to_string() } else { format!(r"{SETTINGS}\{prefix}") };
+    let path = if prefix.is_empty() { base.to_string() } else { format!(r"{base}\{prefix}") };
     if unsafe { RegOpenKeyExW(HKEY_CURRENT_USER, &HSTRING::from(path), Some(0), KEY_READ, &mut root) } != ERROR_SUCCESS {
         return;
     }
@@ -127,11 +138,11 @@ fn scan(prefix: &str, depth: u32, out: &mut Vec<String>) {
         let _ = RegCloseKey(root);
     }
     for sub in subs {
-        if read(&HSTRING::from(format!(r"{SETTINGS}\{sub}")), MARK) == Some(1) {
+        if read(&HSTRING::from(format!(r"{base}\{sub}")), MARK) == Some(1) {
             out.push(sub.clone());
         }
         if depth + 1 < MAX_DEPTH {
-            scan(&sub, depth + 1, out);
+            scan(base, &sub, depth + 1, out);
         }
     }
 }
@@ -148,25 +159,55 @@ mod tests {
         assert!(!plain("") && !plain("\\Root") && !plain("a\\\\b") && !plain("a\\"));
     }
 
-    /// Live: hides and restores the banners of two made-up apps under the real key (one nested like a desktop app's id),
-    /// then removes them. It also gives back every other banner Crest hid on this PC.
-    #[test]
-    #[ignore]
-    fn hides_and_restores_a_banner() {
-        let (app, nested) = ("Crest.BannerTest", r"Crest.BannerTest\App\app.exe");
-        let keys = [app, nested].map(|a| HSTRING::from(format!(r"{SETTINGS}\{a}")));
-        keys.iter().for_each(|k| write(k, w!("Enabled"), 1).unwrap());
-        notices_banners(true, vec![app.into(), nested.into()]).unwrap();
-        keys.iter().for_each(|k| assert_eq!((read(k, BANNER), read(k, MARK)), (Some(0), Some(1))));
-        // Out of the list: its banner comes back, the other stays hidden.
-        notices_banners(true, vec![nested.into()]).unwrap();
-        assert_eq!((read(&keys[0], BANNER), read(&keys[0], MARK)), (None, None));
-        assert_eq!(read(&keys[1], MARK), Some(1));
-        // The exit and uninstall path finds the nested key by the scan alone.
-        restore();
-        keys.iter().for_each(|k| assert_eq!((read(k, BANNER), read(k, MARK)), (None, None)));
-        unsafe {
-            let _ = windows::Win32::System::Registry::RegDeleteTreeW(HKEY_CURRENT_USER, &keys[0]);
+    /// A registry key of its own for a test, removed with it (also when an assert fails).
+    struct TestRoot(String);
+
+    impl TestRoot {
+        fn new(name: &str) -> Self {
+            TestRoot(format!(r"Software\Crest-test-{}-{name}", std::process::id()))
         }
+
+        fn settings(&self) -> String {
+            format!(r"{}\Settings", self.0)
+        }
+
+        fn key(&self, app: &str) -> HSTRING {
+            HSTRING::from(format!(r"{}\{app}", self.settings()))
+        }
+    }
+
+    impl Drop for TestRoot {
+        fn drop(&mut self) {
+            unsafe {
+                let _ = windows::Win32::System::Registry::RegDeleteTreeW(HKEY_CURRENT_USER, &HSTRING::from(self.0.as_str()));
+            }
+        }
+    }
+
+    /// Hides and restores the banners of made-up apps below a key of the test's own (one nested like a desktop app's id).
+    #[test]
+    fn hides_and_restores_banners() {
+        let root = TestRoot::new("banners");
+        let (app, nested, off) = ("Crest.BannerTest", r"Crest.BannerTest\App\app.exe", "Crest.UserOff");
+        let [k_app, k_nested, k_off] = [app, nested, off].map(|a| root.key(a));
+        for k in [&k_app, &k_nested, &k_off] {
+            write(k, w!("Enabled"), 1).unwrap();
+        }
+        // The user switched this one off in Windows: it is not Crest's to mark or to give back.
+        write(&k_off, BANNER, 0).unwrap();
+        set_banners(&root.settings(), true, vec![app.into(), nested.into(), off.into()]).unwrap();
+        for k in [&k_app, &k_nested] {
+            assert_eq!((read(k, BANNER), read(k, MARK)), (Some(0), Some(1)));
+        }
+        assert_eq!((read(&k_off, BANNER), read(&k_off, MARK)), (Some(0), None));
+        // Out of the list: its banner comes back, the other stays hidden.
+        set_banners(&root.settings(), true, vec![nested.into()]).unwrap();
+        assert_eq!((read(&k_app, BANNER), read(&k_app, MARK)), (None, None));
+        assert_eq!(read(&k_nested, MARK), Some(1));
+        // The exit and uninstall path finds the nested key by the scan alone.
+        assert_eq!(marked(&root.settings()), vec![nested.to_string()]);
+        restore_in(&root.settings());
+        assert_eq!((read(&k_nested, BANNER), read(&k_nested, MARK)), (None, None));
+        assert_eq!(read(&k_off, BANNER), Some(0));
     }
 }

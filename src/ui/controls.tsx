@@ -186,6 +186,9 @@ export function TextField(props: {
   /** Shows a secret from outside (e.g. right after generating a password). */
   revealed?: boolean;
   autoFocus?: boolean;
+  /** Red outline, for a value that is not accepted. */
+  invalid?: boolean;
+  onBlur?: () => void;
 }) {
   const [reveal, setReveal] = useState(false);
   useEffect(() => {
@@ -193,7 +196,7 @@ export function TextField(props: {
   }, [props.revealed]);
   return (
     <div
-      className={`flex h-7 items-center gap-1 rounded-[8px] bg-fill-2 px-2 ${props.width ?? "w-44"}`}
+      className={`flex h-7 items-center gap-1 rounded-[8px] bg-fill-2 px-2 ${props.width ?? "w-44"} ${props.invalid ? "ring-1 ring-red" : ""}`}
     >
       <input
         value={props.value}
@@ -208,6 +211,7 @@ export function TextField(props: {
           }
         }}
         onChange={(e) => props.onChange(e.target.value)}
+        onBlur={props.onBlur}
         onKeyDown={(e) => e.key === "Enter" && props.onSubmit?.()}
         className="min-w-0 flex-1 bg-transparent text-footnote text-label outline-none placeholder:text-label-4"
       />

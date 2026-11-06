@@ -9,6 +9,9 @@ import { fromCounters, resolvePower } from "./power.ts";
 import { batteryLevel, buildBattery, discharge, healthLevel, type BatteryRaw } from "./battery.ts";
 import { groupDrives } from "./storage.ts";
 
+// English units for the German ids, as en.json has them.
+const tr = (de: string, v?: Record<string, string | number>) => de.replace("{n}", String(v?.n)).replace("Min.", "min").replace("Std.", "h");
+
 test("rates from cumulative counters", () => {
   assert.equal(rate(1000, 3000, 2), 1000);
   assert.equal(rate(3000, 1000, 2), null, "a counter that went backwards gives no rate");
@@ -38,10 +41,10 @@ test("formatting", () => {
   assert.equal(processShare(250, 16), "16", "250 % of one core on 16 threads");
   assert.equal(processShare(20, 16), "1.3");
   assert.equal(processShare(5000, 4), "100");
-  assert.equal(duration(0.4), "< 1 min");
-  assert.equal(duration(12), "12 min");
-  assert.equal(duration(192), "3 h 12 min");
-  assert.equal(duration(120), "2 h");
+  assert.equal(duration(0.4, tr), "< 1 min");
+  assert.equal(duration(12, tr), "12 min");
+  assert.equal(duration(192, tr), "3 h 12 min");
+  assert.equal(duration(120, tr), "2 h");
   assert.deepEqual(driveSizes(212 * 1024 ** 3, 477 * 1024 ** 3), { used: "212", total: "477", unit: "GB" });
   assert.deepEqual(driveSizes(400 * 1024 ** 3, 1800 * 1024 ** 3), { used: "0.4", total: "1.8", unit: "TB" });
 });

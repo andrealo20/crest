@@ -356,13 +356,23 @@ fn ask(request: &Request) -> u8 {
 fn verdict(reply: Reply) -> u8 {
     match reply.result.as_str() {
         "accepted" => 0,
+        "limited" if reply.reason.as_deref() == Some("too-many-asks") => {
+            say!("crest-notify: too many questions are waiting in Crest, answer or close one first");
+            2
+        }
         "limited" => {
             say!("crest-notify: too many notices, try again in a few seconds");
             2
         }
         "rejected" => {
             let why = reply.reason.unwrap_or_default();
-            say!("crest-notify: notice rejected ({why})");
+            let text = match why.as_str() {
+                "part-id" => "the part id must be 1 to 32 characters of a-z, 0-9, - and _",
+                "ask-options" => "the options must be 1 to 4 distinct ids of a-z, 0-9 and -",
+                "ask-timeout" => "the timeout must be 1 to 600 seconds",
+                _ => why.as_str(),
+            };
+            say!("crest-notify: notice rejected ({text})");
             2
         }
         "off" => {
@@ -443,12 +453,13 @@ fn exchange(request: &Request, wait: Duration) -> Result<Option<Reply>, u8> {
 }
 
 #[cfg(windows)]
-fn run(mut request: Request, command: Vec<String>) -> ExitCode {
+// `command` is the text shown in the notice, `raw` the same arguments as Windows gave them.
+fn run(mut request: Request, command: &[String], raw: &[std::ffi::OsString]) -> ExitCode {
     let started = Instant::now();
-    let mut status = std::process::Command::new(&command[0]).args(&command[1..]).status();
+    let mut status = std::process::Command::new(&raw[0]).args(&raw[1..]).status();
     // Windows only finds .exe files this way; npm, yarn and other .cmd scripts need cmd.
     if matches!(&status, Err(e) if e.kind() == std::io::ErrorKind::NotFound) {
-        status = std::process::Command::new("cmd").args(["/d", "/c"]).args(&command).status();
+        status = std::process::Command::new("cmd").args(["/d", "/c"]).args(raw).status();
     }
     let (code, failed_to_start) = match status {
         Ok(s) => (s.code().unwrap_or(1), false),
@@ -475,11 +486,13 @@ fn main() -> std::process::ExitCode {
 
 #[cfg(windows)]
 fn main() -> ExitCode {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    // args_os: an argument that is not valid Unicode must not panic; `run` hands such arguments to its command as they are.
+    let raw: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    let args: Vec<String> = raw.iter().map(|a| a.to_string_lossy().into_owned()).collect();
     let quiet = is_quiet(&args);
     QUIET.store(quiet, std::sync::atomic::Ordering::Relaxed);
     // A hook that fails can stop or warn its agent; --quiet never does. An ask keeps its code: it is the answer.
-    let code = outcome(&args);
+    let code = outcome(&args, &raw);
     if quiet && args.first().map(String::as_str) != Some("ask") {
         ExitCode::SUCCESS
     } else {
@@ -488,7 +501,7 @@ fn main() -> ExitCode {
 }
 
 #[cfg(windows)]
-fn outcome(args: &[String]) -> ExitCode {
+fn outcome(args: &[String], raw: &[std::ffi::OsString]) -> ExitCode {
     match parse_args(args) {
         Ok(Command::Help) => {
             println!("{USAGE}");
@@ -504,7 +517,7 @@ fn outcome(args: &[String]) -> ExitCode {
             }
             ExitCode::from(send(&r))
         }
-        Ok(Command::Run(r, command)) => run(r, command),
+        Ok(Command::Run(r, command)) => run(r, &command, &raw[raw.len() - command.len()..]),
         Ok(Command::Ask(r)) => ExitCode::from(ask(&r)),
         Err(e) => {
             say!("crest-notify: {e}\n\n{USAGE}");

@@ -49,7 +49,7 @@ function OptionIcon({ id, label }: { id: string; label: string }) {
   if (id === "allow") return <Check size={12} weight="bold" />;
   if (id === "always") return <Checks size={12} weight="bold" />;
   if (id === "deny") return <Prohibit size={12} weight="bold" />;
-  return <span className="text-caption font-semibold">{label.slice(0, 1).toUpperCase()}</span>;
+  return <span className="text-caption font-semibold">{Array.from(label)[0]?.toUpperCase()}</span>;
 }
 
 /** The column on a side edge has no room for text: the logo, then round buttons whose labels show as tooltips. */
