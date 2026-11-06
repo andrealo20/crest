@@ -611,8 +611,13 @@ fn autostart_get(app: AppHandle) -> bool {
 }
 
 #[tauri::command]
-fn autostart_set(enabled: bool, app: AppHandle) -> Result<(), String> {
-    startup::set(&app, enabled)
+fn autostart_set(enabled: bool, app: AppHandle, state: State<'_, TrayItems>) -> Result<(), String> {
+    let result = startup::set(&app, enabled);
+    // The tray check shows the real state, also when the switch was refused.
+    if let Some(tray) = state.0.lock().unwrap().as_ref() {
+        let _ = tray.autostart.set_checked(startup::is_enabled(&app));
+    }
+    result
 }
 
 /// Which build runs: the Microsoft Store one leaves updates to the Store.
@@ -679,6 +684,16 @@ fn enable_autostart_once(app: &AppHandle) {
     // A portable copy writes nothing outside its folder unless asked to (tray or settings); in the Store build the user turns it on.
     if portable::is_portable() || cfg!(feature = "store") {
         return;
+    }
+    // The login item stores the running binary's path: one run from a dmg or Downloads would leave it dead after the move.
+    #[cfg(target_os = "macos")]
+    {
+        let home = std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join("Applications"));
+        let installed = std::env::current_exe()
+            .is_ok_and(|p| p.starts_with("/Applications") || home.is_some_and(|h| p.starts_with(h)));
+        if !installed {
+            return;
+        }
     }
     let Ok(dir) = crate::portable::app_data_dir(app) else { return };
     let marker = dir.join("autostart-initialized");
