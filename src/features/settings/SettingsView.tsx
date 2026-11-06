@@ -99,7 +99,7 @@ import { hueVar, useIconColors, type Hue } from "../themes/hues";
 
 type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins";
 
-const pages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
+const allPages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
   { id: "general", label: "Allgemein", icon: SlidersHorizontal, hue: "slate" },
   { id: "display", label: "Darstellung", icon: Monitor, hue: "blue" },
   { id: "window", label: "Fenster", icon: AppWindow, hue: "indigo" },
@@ -111,6 +111,8 @@ const pages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
   { id: "notices", label: "Mitteilungen", icon: BellSimple, hue: "red" },
   { id: "plugins", label: "Plugins", icon: PuzzlePiece, hue: "green" },
 ];
+// Plugin pages are served over http://crestplugin.localhost, which only works on Windows.
+const pages = allPages.filter((p) => !(isMac && p.id === "plugins"));
 
 /** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. */
 const sectionPage: Record<string, PageId> = {

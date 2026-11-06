@@ -132,6 +132,17 @@ test("ids", () => {
   assert.equal(normalizeId(undefined), "");
   assert.equal(uniqueId("Dark", new Set(["dark", "dark-2"])), "dark-3");
   assert.equal(uniqueId("", new Set()), "theme");
+  // Names Windows reserves for devices get a suffix, so the file can be written.
+  assert.equal(normalizeId("Nul"), "nul-theme");
+  assert.equal(normalizeId("com1.x"), "com1-theme.x");
+  assert.equal(normalizeId("console"), "console");
+  assert.equal(normalizeId("com0"), "com0");
+});
+
+test("a name without latin letters still makes an id", () => {
+  assert.equal(validateTheme({ name: "ダーク", colors: {} }).theme?.id, "theme");
+  assert.equal(validateTheme({ id: "", name: "Mine", colors: {} }).theme?.id, "mine");
+  assert.equal(validateTheme({ name: "", colors: {} }).theme, null);
 });
 
 test("theme file validation", () => {

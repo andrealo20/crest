@@ -621,20 +621,29 @@ impl Pdh {
         unsafe {
             let (mut size, mut count) = (0u32, 0u32);
             PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &mut size, &mut count, None);
-            if size == 0 {
-                return Vec::new();
+            // Instances (GPU engines per process) come and go between the calls: some room extra, and a second try
+            // with the size Windows then asks for (PDH_MORE_DATA).
+            for _ in 0..2 {
+                if size == 0 {
+                    return Vec::new();
+                }
+                // Aligned as u64; holds the items followed by the instance names.
+                let mut buf = vec![0u64; (size as usize + size as usize / 4).div_ceil(8)];
+                size = (buf.len() * 8) as u32;
+                let items = buf.as_mut_ptr() as *mut PDH_FMT_COUNTERVALUE_ITEM_W;
+                match PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &mut size, &mut count, Some(items)) {
+                    0 => {
+                        return std::slice::from_raw_parts(items, count as usize)
+                            .iter()
+                            .filter(|i| i.FmtValue.CStatus == 0)
+                            .map(|i| (i.szName.to_string().unwrap_or_default(), i.FmtValue.Anonymous.doubleValue))
+                            .collect();
+                    }
+                    0x800007D2 => {}
+                    _ => break,
+                }
             }
-            // Aligned as u64; holds the items followed by the instance names.
-            let mut buf = vec![0u64; (size as usize).div_ceil(8)];
-            let items = buf.as_mut_ptr() as *mut PDH_FMT_COUNTERVALUE_ITEM_W;
-            if PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &mut size, &mut count, Some(items)) != 0 {
-                return Vec::new();
-            }
-            std::slice::from_raw_parts(items, count as usize)
-                .iter()
-                .filter(|i| i.FmtValue.CStatus == 0)
-                .map(|i| (i.szName.to_string().unwrap_or_default(), i.FmtValue.Anonymous.doubleValue))
-                .collect()
+            Vec::new()
         }
     }
 

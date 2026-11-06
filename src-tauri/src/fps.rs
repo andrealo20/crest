@@ -74,7 +74,7 @@ pub struct Fps {
     error: Option<&'static str>,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn gaming_fps() -> Fps {
     let mut c = counter().lock().unwrap();
     c.wanted_at = Some(Instant::now());

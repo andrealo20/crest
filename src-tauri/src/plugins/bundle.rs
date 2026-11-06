@@ -305,7 +305,7 @@ mod tests {
         assert_eq!((b.manifest.id.as_str(), b.manifest.permissions.network.as_slice()), ("hello-crest", &["api.github.com".to_string()][..]));
     }
 
-    /// A junction (no rights needed to make one) inside the folder pointing out of it refuses the plugin.
+    /// A junction (no rights needed to make one) or a symlink inside the folder pointing out of it refuses the plugin.
     #[test]
     fn folder_junction_refused() {
         let src = scratch("junction");
@@ -314,11 +314,13 @@ mod tests {
         fs::write(src.join(MANIFEST), MANIFEST_JSON).unwrap();
         fs::write(src.join("index.html"), "x").unwrap();
         let link = src.join("assets");
+        #[cfg(windows)]
         let made = std::process::Command::new("cmd").args(["/d", "/c", "mklink", "/J"]).arg(&link).arg(&outside).output().is_ok_and(|o| o.status.success());
-        if made {
-            assert!(from_dir(&src).is_err_and(|e| e.starts_with("symlink")), "junction followed");
-            assert!(from_dir(&link).is_err_and(|e| e == "symlink"), "a junction as the folder itself");
-        }
+        #[cfg(unix)]
+        let made = std::os::unix::fs::symlink(&outside, &link).is_ok();
+        assert!(made, "link not created");
+        assert!(from_dir(&src).is_err_and(|e| e.starts_with("symlink")), "link followed");
+        assert!(from_dir(&link).is_err_and(|e| e == "symlink"), "a link as the folder itself");
         let _ = fs::remove_dir(&link);
         let _ = fs::remove_dir_all(&src);
         let _ = fs::remove_dir_all(&outside);

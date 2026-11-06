@@ -1427,7 +1427,7 @@ const demoPlugins = (() => {
 
 /** Install, list and remove plugins, and run what their pages ask for (src/features/plugins/PluginView.tsx). */
 export const pluginApi = {
-  list: (): Promise<PluginManifest[]> => (isNative ? invoke<PluginManifest[]>("plugins_list") : demo ? demoPlugins.list() : Promise.resolve([])),
+  list: (): Promise<PluginManifest[]> => (isMac ? Promise.resolve([]) : isNative ? invoke<PluginManifest[]>("plugins_list") : demo ? demoPlugins.list() : Promise.resolve([])),
   /** The system's folder or .zip picker; null when cancelled. */
   pick: (zip: boolean): Promise<string | null> => (isNative ? invoke<string | null>("plugins_pick", { zip }) : demo ? demoPlugins.pick() : Promise.resolve(null)),
   stage: (path: string): Promise<StagedPlugin> => (isNative ? invoke<StagedPlugin>("plugins_stage", { path }) : demo ? demoPlugins.stage() : notInBrowser()),

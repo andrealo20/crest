@@ -278,7 +278,7 @@ function Stat({ label, value, sub, tone: t }: { label: string; value: string; su
       <div className="text-caption text-label-3">{label}</div>
       <div className={`tabular flex items-baseline gap-1 text-footnote font-semibold ${t === undefined ? "text-label" : tone(t)}`}>
         <span className="truncate">{value}</span>
-        {sub && <span className="shrink-0 text-caption font-medium opacity-80">{sub}</span>}
+        {sub && <span className="shrink-0 text-caption font-medium">{sub}</span>}
       </div>
     </div>
   );

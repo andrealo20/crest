@@ -247,6 +247,8 @@ Details, ready-made hooks for Claude Code and Codex (including a permission hook
 
 ## Plugins
 
+Windows only for now; on a Mac the Plugins page is hidden.
+
 - A plugin is a small HTML, CSS and JavaScript widget in a folder with a `crest-plugin.json`. Install one from a folder or a `.zip` in **Settings → Plugins**; it becomes a tool with its own icon in the tool bar.
 - Before installing, Crest shows what the plugin asks for: the addresses it may fetch from, its own storage, and notices in the closed notch. Nothing else is possible: no files, keys, vault, clipboard, settings or other plugins.
 - Plugin pages run in a sandboxed frame that cannot reach the network itself; Crest fetches for them, only over https and only from the hosts they declared.

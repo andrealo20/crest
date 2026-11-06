@@ -9,7 +9,7 @@ import { LYRIC_SOURCES } from "./lyricSources";
 import { setMusic } from "./music";
 import { OFFLINE_SOURCES, OFFLINE_TARGETS, pairsFor, targetOf } from "./offline";
 import { downloadPairs, hasPair, offlineStatus, removePair } from "./offlineEngine";
-import { lang, t } from "../../i18n";
+import { lang, locale, t } from "../../i18n";
 
 const TERMS: Record<string, string> = {
   lrclib: "Offene Community-Datenbank, freie API ohne Schlüssel",
@@ -185,7 +185,7 @@ function KanjiDictionary() {
       .catch(() => setError(cmd === "lyrics_dict_remove" ? "remove" : "download"))
       .finally(() => setBusy(false));
   };
-  const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
+  const mb = (n: number) => (n / 1024 / 1024).toLocaleString(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const hint = error
     ? error === "remove" ? t("Löschen fehlgeschlagen") : t("Download fehlgeschlagen, später noch einmal versuchen")
     : size
