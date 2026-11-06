@@ -1,5 +1,6 @@
 import { createStore } from "../../lib/store";
 import { capture, type FoundLine } from "../../platform/services";
+import { presentingNow } from "../privacy/store";
 
 export type FindState = { phase: "idle" | "reading" | "ready" | "error"; lines: FoundLine[]; error: string | null };
 
@@ -11,6 +12,8 @@ let run = 0;
 /** Reads every screen again; an older read that finishes late is ignored. */
 export function scanScreens() {
   const id = ++run;
+  // Other screens may not be the shared ones, so presentation mode reads nothing.
+  if (presentingNow()) return found.set({ phase: "error", lines: [], error: "presenting" });
   found.set({ phase: "reading", lines: [], error: null });
   capture
     .findScan()
