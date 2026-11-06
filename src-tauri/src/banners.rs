@@ -24,6 +24,9 @@ const MARK: PCWSTR = w!("CrestHidBanner");
 /// Not `hide`: every banner Crest hid comes back.
 #[tauri::command(async)]
 pub fn notices_banners(hide: bool, apps: Vec<String>) -> Result<(), String> {
+    // Off the main thread two changes could overlap; one at a time keeps the marks right.
+    static BUSY: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _busy = BUSY.lock().unwrap_or_else(|e| e.into_inner());
     if cfg!(feature = "store") {
         if hide {
             crate::open_url("ms-settings:notifications")?;
