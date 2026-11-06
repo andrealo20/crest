@@ -10,6 +10,7 @@ import { formatTime } from "../../lib/format";
 import { locale, t } from "../../i18n";
 import { Button, Slider } from "../../ui/controls";
 import { useHue } from "../themes/hues";
+import { peekForecast } from "../weather/store";
 import { moonPhase, sunDay, type MoonPhaseName } from "./astro";
 import { clockActions, clocks } from "./store";
 import { MAX_ZONES, allZones, cityName, dayDelta, formatClock, formatDiff, formatUtc, isDay, localZone, regionName, searchZones, wallTime, zoneOffset } from "./zones";
@@ -241,12 +242,17 @@ function moonPath(fraction: number, waxing: boolean, r: number): string {
 /** Sunrise, sunset and golden hour at the weather location (no new request: the place is the one Weather already has) and the moon, which looks the same from anywhere. */
 function Sky({ now, place }: { now: number; place: { name: string; lat: number; lon: number } | null }) {
   const moon = moonPhase(now);
-  const d = new Date(now);
-  const from = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const to = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
   const located = place && Number.isFinite(place.lat) && Number.isFinite(place.lon) ? place : null;
+  // The times are the place's own, as the Weather tool shows them: its UTC offset from the last forecast read for it. Without
+  // one yet they are this PC's, which is the same unless the place is in another time zone.
+  const forecast = located ? peekForecast(located.lat, located.lon) : null;
+  const shift = forecast?.offset !== undefined ? forecast.offset * 1000 + new Date(now).getTimezoneOffset() * 60_000 : 0;
+  const d = new Date(now + shift);
+  const from = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - shift;
+  const to = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime() - shift;
+  const clock = (ms: number) => formatTime(ms + shift);
   const sun = useMemo(() => (located ? sunDay(from, to, located.lat, located.lon) : null), [from, to, located?.lat, located?.lon]);
-  const range = (r: [number, number] | null) => (r ? t("{from} bis {to}", { from: formatTime(r[0]), to: formatTime(r[1]) }) : "");
+  const range = (r: [number, number] | null) => (r ? t("{from} bis {to}", { from: clock(r[0]), to: clock(r[1]) }) : "");
   const golden = sun ? [sun.goldenMorning, sun.goldenEvening].filter((r) => r !== null) : [];
   return (
     <div className="flex w-[196px] shrink-0 flex-col gap-2.5 overflow-y-auto rounded-[14px] bg-fill-1 p-3">
@@ -260,8 +266,8 @@ function Sky({ now, place }: { now: number; place: { name: string; lat: number; 
             <p className="text-footnote text-label-2">{sun.polar === "day" ? t("Heute geht die Sonne nicht unter") : t("Heute geht die Sonne nicht auf")}</p>
           ) : (
             <div className="grid grid-cols-2 gap-2">
-              <Stat label={t("Sonnenaufgang")} value={sun.sunrise === null ? "" : formatTime(sun.sunrise)} />
-              <Stat label={t("Sonnenuntergang")} value={sun.sunset === null ? "" : formatTime(sun.sunset)} />
+              <Stat label={t("Sonnenaufgang")} value={sun.sunrise === null ? "" : clock(sun.sunrise)} />
+              <Stat label={t("Sonnenuntergang")} value={sun.sunset === null ? "" : clock(sun.sunset)} />
             </div>
           )}
           {golden.length > 0 && (

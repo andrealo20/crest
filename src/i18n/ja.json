@@ -1507,7 +1507,7 @@
  "ca. {time} bei {n} WPM": "{n} WPM で約 {time}",
  "{n} von {max} Zeichen": "{n} / {max} 文字",
  "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "スペース: 再生/一時停止 · 矢印: 移動 · + と -: 速度",
- "Fällig {when}": "期限 {when}",
+ "Fällig: {when}": "期限：{when}",
  "Datum verwerfen": "日付を無視",
  "Datum in neuen Aufgaben erkennen": "新しいタスクの日付を認識",
  "Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie": "入力欄の下に期限を表示します。Enter キーで適用",

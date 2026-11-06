@@ -1507,7 +1507,7 @@
  "ca. {time} bei {n} WPM": "Environ {time} à {n} mots/min",
  "{n} von {max} Zeichen": "{n} caractères sur {max}",
  "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "Espace : lecture ou pause · Flèches : se déplacer · + et - : vitesse",
- "Fällig {when}": "Échéance {when}",
+ "Fällig: {when}": "Échéance : {when}",
  "Datum verwerfen": "Ignorer la date",
  "Datum in neuen Aufgaben erkennen": "Reconnaître les dates dans les nouvelles tâches",
  "Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie": "Affiche une échéance sous le champ ; Entrée l'applique",

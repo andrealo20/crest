@@ -1507,7 +1507,7 @@
  "ca. {time} bei {n} WPM": "نحو {time} عند {n} WPM",
  "{n} von {max} Zeichen": "{n} من {max} حرفًا",
  "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "المسافة: تشغيل أو إيقاف مؤقت · الأسهم: تنقّل · + و -: السرعة",
- "Fällig {when}": "الاستحقاق {when}",
+ "Fällig: {when}": "الاستحقاق: {when}",
  "Datum verwerfen": "تجاهل التاريخ",
  "Datum in neuen Aufgaben erkennen": "التعرّف على التاريخ في المهام الجديدة",
  "Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie": "يعرض موعد الاستحقاق تحت الحقل، وEnter يعتمده",

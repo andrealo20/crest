@@ -1507,7 +1507,7 @@
  "ca. {time} bei {n} WPM": "Cerca de {time} a {n} WPM",
  "{n} von {max} Zeichen": "{n} de {max} caracteres",
  "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "Espaço: iniciar ou pausar · Setas: pular · + e -: velocidade",
- "Fällig {when}": "Vence {when}",
+ "Fällig: {when}": "Vence: {when}",
  "Datum verwerfen": "Descartar data",
  "Datum in neuen Aufgaben erkennen": "Reconhecer datas em novas tarefas",
  "Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie": "Mostra um prazo sob o campo; Enter o aplica",

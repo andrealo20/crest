@@ -1507,7 +1507,7 @@
  "ca. {time} bei {n} WPM": "Circa {time} a {n} ppm",
  "{n} von {max} Zeichen": "{n} di {max} caratteri",
  "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "Spazio: avvia o pausa · Frecce: sposta · + e -: velocità",
- "Fällig {when}": "Scade {when}",
+ "Fällig: {when}": "Scadenza: {when}",
  "Datum verwerfen": "Ignora la data",
  "Datum in neuen Aufgaben erkennen": "Riconosci le date nelle nuove attività",
  "Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie": "Mostra una scadenza sotto il campo; Invio la applica",

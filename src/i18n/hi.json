@@ -1507,7 +1507,7 @@
  "ca. {time} bei {n} WPM": "{n} WPM पर लगभग {time}",
  "{n} von {max} Zeichen": "{max} में से {n} अक्षर",
  "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "स्पेस: चलाएँ या रोकें · तीर: आगे-पीछे · + और -: गति",
- "Fällig {when}": "देय {when}",
+ "Fällig: {when}": "देय: {when}",
  "Datum verwerfen": "तारीख़ हटाएँ",
  "Datum in neuen Aufgaben erkennen": "नए कार्यों में तारीख़ पहचानें",
  "Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie": "फ़ील्ड के नीचे देय समय दिखाता है; Enter से लागू होता है",

@@ -1507,7 +1507,7 @@
  "ca. {time} bei {n} WPM": "Около {time} при {n} WPM",
  "{n} von {max} Zeichen": "Символов: {n} из {max}",
  "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "Пробел: старт или пауза · Стрелки: перемотка · + и -: скорость",
- "Fällig {when}": "Срок: {when}",
+ "Fällig: {when}": "Срок: {when}",
  "Datum verwerfen": "Отклонить дату",
  "Datum in neuen Aufgaben erkennen": "Распознавать даты в новых задачах",
  "Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie": "Показывает срок под полем; Enter применяет его",

@@ -1507,7 +1507,7 @@
  "ca. {time} bei {n} WPM": "{n} WPM 下约 {time}",
  "{n} von {max} Zeichen": "{n}/{max} 字符",
  "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "空格：开始或暂停 · 方向键：跳转 · + 和 -：速度",
- "Fällig {when}": "到期：{when}",
+ "Fällig: {when}": "到期：{when}",
  "Datum verwerfen": "忽略日期",
  "Datum in neuen Aufgaben erkennen": "识别新任务中的日期",
  "Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie": "在输入框下方显示到期时间，按 Enter 采用",

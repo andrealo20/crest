@@ -62,7 +62,7 @@ export function DateChip({ date, now }: { date: ReturnType<typeof useDraftDate>;
             <div className="flex ps-1 pt-1.5">
               <span className="inline-flex h-5 items-center gap-1 rounded-full bg-fill-1 ps-2 pe-0.5 text-caption text-label-2">
                 <Clock size={11} weight="bold" />
-                <span className="tabular">{t("Fällig {when}", { when: dueWhen(found.due, now) })}</span>
+                <span className="tabular">{t("Fällig: {when}", { when: dueWhen(found.due, now) })}</span>
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()} // keeps the cursor in the field
