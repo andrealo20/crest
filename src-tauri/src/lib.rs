@@ -54,6 +54,7 @@ mod notify_wire;
 mod osd;
 mod plugins;
 pub mod portable;
+mod ports;
 #[cfg(windows)]
 mod power;
 #[cfg(windows)]
@@ -477,6 +478,9 @@ pub fn run() {
             portable::portable_info,
             portable::portable_check,
             portable::portable_install,
+            ports::ports_list,
+            ports::ports_end,
+            ports::ports_open,
             #[cfg(windows)]
             capture::capture_sources,
             #[cfg(windows)]

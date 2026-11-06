@@ -1523,5 +1523,22 @@
  "Schaltet das Standard-Mikrofon stumm und wieder ein, von überall": "Mutes and unmutes the default microphone, from anywhere",
  "Crest vor Bildschirmfreigabe und Aufnahmen verbergen": "Hide Crest from screen sharing and recordings",
  "Andere Apps zeigen Crest nicht mehr; eine App, die tief im System aufnimmt, sieht es trotzdem": "Other apps no longer show Crest. An app that captures at a low level can still see it.",
- "Andere Apps zeigen Crest nicht mehr; ab macOS 15 ignorieren manche Freigabe-Apps das, und eine App, die tief im System aufnimmt, sieht es trotzdem": "Other apps no longer show Crest. From macOS 15 some sharing apps ignore this, and an app that captures at a low level can still see it."
+ "Andere Apps zeigen Crest nicht mehr; ab macOS 15 ignorieren manche Freigabe-Apps das, und eine App, die tief im System aufnimmt, sieht es trotzdem": "Other apps no longer show Crest. From macOS 15 some sharing apps ignore this, and an app that captures at a low level can still see it.",
+ "Offene Ports": "Listening ports",
+ "Keine offenen Ports": "No listening ports",
+ "Gerade wartet kein Programm auf eingehende TCP-Verbindungen.": "No program is waiting for incoming TCP connections right now.",
+ "Ports konnten nicht gelesen werden": "Couldn't read the ports",
+ "Adresse": "Address",
+ "Prozess": "Process",
+ "Nur auf diesem PC": "This PC only",
+ "Im Netzwerk erreichbar": "Reachable from the network",
+ "localhost:{port} kopieren": "Copy localhost:{port}",
+ "localhost:{port} im Browser öffnen": "Open localhost:{port} in the browser",
+ "Prozess beenden": "End process",
+ "Bestätigen": "Confirm",
+ "{action}, Port {port}": "{action}, port {port}",
+ "Nur eigene Programme lassen sich beenden": "Only your own programs can be ended",
+ "Beendet": "Ended",
+ "Verweigert": "Denied",
+ "Schon beendet": "Already closed"
 }

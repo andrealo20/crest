@@ -1523,5 +1523,22 @@
  "Schaltet das Standard-Mikrofon stumm und wieder ein, von überall": "Silenzia e riattiva il microfono predefinito, da qualsiasi app",
  "Crest vor Bildschirmfreigabe und Aufnahmen verbergen": "Nascondi Crest dalla condivisione dello schermo e dalle registrazioni",
  "Andere Apps zeigen Crest nicht mehr; eine App, die tief im System aufnimmt, sieht es trotzdem": "Le altre app non mostrano più Crest. Un'app che cattura a basso livello può ancora vederlo.",
- "Andere Apps zeigen Crest nicht mehr; ab macOS 15 ignorieren manche Freigabe-Apps das, und eine App, die tief im System aufnimmt, sieht es trotzdem": "Le altre app non mostrano più Crest. Da macOS 15 alcune app di condivisione lo ignorano, e un'app che cattura a basso livello può ancora vederlo."
+ "Andere Apps zeigen Crest nicht mehr; ab macOS 15 ignorieren manche Freigabe-Apps das, und eine App, die tief im System aufnimmt, sieht es trotzdem": "Le altre app non mostrano più Crest. Da macOS 15 alcune app di condivisione lo ignorano, e un'app che cattura a basso livello può ancora vederlo.",
+ "Offene Ports": "Porte in ascolto",
+ "Keine offenen Ports": "Nessuna porta in ascolto",
+ "Gerade wartet kein Programm auf eingehende TCP-Verbindungen.": "Nessun programma è in attesa di connessioni TCP in ingresso.",
+ "Ports konnten nicht gelesen werden": "Impossibile leggere le porte",
+ "Adresse": "Indirizzo",
+ "Prozess": "Processo",
+ "Nur auf diesem PC": "Solo questo PC",
+ "Im Netzwerk erreichbar": "Raggiungibile dalla rete",
+ "localhost:{port} kopieren": "Copia localhost:{port}",
+ "localhost:{port} im Browser öffnen": "Apri localhost:{port} nel browser",
+ "Prozess beenden": "Termina processo",
+ "Bestätigen": "Conferma",
+ "{action}, Port {port}": "{action}, porta {port}",
+ "Nur eigene Programme lassen sich beenden": "Si possono terminare solo i propri programmi",
+ "Beendet": "Terminato",
+ "Verweigert": "Negato",
+ "Schon beendet": "Già chiuso"
 }
