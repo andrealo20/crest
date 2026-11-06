@@ -26,7 +26,7 @@ import { formatBytes } from "../../lib/format";
 import { drop, pasteFiles, takeDropped, usePasteFiles } from "../../platform/drop";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { holdOpen } from "../../notch/useNotchState";
-import { clipboardText, copyFiles, filePreview, openFile, phoneShareStart, phoneShareStop, probeFiles, revealFile, shelfDragOut, type FileKind, type PhoneShare } from "../../platform/services";
+import { clipboardText, copyFiles, filePreview, openFile, onPhoneShareLost, phoneShareStart, phoneShareStop, probeFiles, revealFile, shelfDragOut, type FileKind, type PhoneShare } from "../../platform/services";
 import { addFiles, addText, dragPayload, isText, keyOf, normalizeItems, removeKeys, type FileItem, type ShelfItem, type TextItem } from "./model";
 import { NONE, clickSelect, dragKeys, prune, type Selection } from "./selection";
 import { lang, t, tBackend } from "../../i18n";
@@ -160,6 +160,15 @@ export function ShelfView() {
       holdOpen(false);
       phoneShareStop(share.url);
     };
+  }, [share]);
+
+  useEffect(() => {
+    if (!share) return;
+    return onPhoneShareLost((url) => {
+      if (url !== share.url) return;
+      setShare(null);
+      fail(t("Netzwerk gewechselt, bitte neu senden"));
+    });
   }, [share]);
 
   // Nothing shared is left on the shelf (cleared or removed): stop serving it.
@@ -360,7 +369,7 @@ export function ShelfView() {
                 onClickCapture={(e) => onClickCapture(e, key)}
                 role="option"
                 aria-selected={on}
-                aria-label={isText(item) ? (presenting ? t("Text") : item.text.slice(0, 80)) : item.name}
+                aria-label={isText(item) ? (presenting ? t("Text") : item.text.slice(0, 80)) : presenting ? t("Datei") : item.name}
               >
                 {isText(item) ? (
                   <TextCard item={item} hidden={presenting} copied={copied === key} onCopy={() => void copyKeys([key], key)} />
@@ -417,7 +426,7 @@ function PhoneButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="pressable me-1 flex h-7 items-center gap-1.5 rounded-full px-3 text-caption font-semibold text-black transition-opacity duration-150 hover:opacity-85"
+      className="pressable me-1 flex h-7 items-center gap-1.5 rounded-full px-3 text-caption font-semibold text-[#000] transition-opacity duration-150 hover:opacity-85"
       style={{ background: HUE_PALETTE.amber[0] }}
     >
       <DeviceMobile size={14} weight="bold" />
@@ -438,9 +447,9 @@ function PhonePanel({ share, onStop }: { share: PhoneShare & { paths: string[] }
       transition={springs.snappy}
     >
       {hidden ? (
-        <div className="grid size-[150px] shrink-0 place-items-center rounded-[10px] bg-fill-2 p-3 text-center text-caption text-label-3">{t("Im Präsentationsmodus ausgeblendet")}</div>
+        <div className="grid h-full max-h-[150px] shrink-0 aspect-square place-items-center rounded-[10px] bg-fill-2 p-3 text-center text-caption text-label-3">{t("Im Präsentationsmodus ausgeblendet")}</div>
       ) : (
-        <svg viewBox={`0 0 ${share.size} ${share.size}`} shapeRendering="crispEdges" role="img" aria-label={t("QR-Code")} className="size-[150px] shrink-0 rounded-[10px] bg-white">
+        <svg viewBox={`0 0 ${share.size} ${share.size}`} shapeRendering="crispEdges" role="img" aria-label={t("QR-Code")} className="h-full max-h-[150px] shrink-0 aspect-square rounded-[10px] bg-white">
           <path d={share.qr} fill="#000" />
         </svg>
       )}
@@ -467,6 +476,8 @@ function FileCard({ item, copied, onCopy, onFail }: { item: FileItem; copied: bo
   const I = kindIcon[item.kind];
   const hidden = usePresenting();
   const open = () => void openFile(item.path).catch(onFail);
+  // A file name can be private: not while presenting.
+  const name = hidden ? t("Datei") : item.name;
   // Not while presenting: the picture isn't shown then.
   useEffect(() => {
     if (item.kind === "image" && !hidden) void previewOf(item).then(setPreview);
@@ -476,7 +487,7 @@ function FileCard({ item, copied, onCopy, onFail }: { item: FileItem; copied: bo
     <div className="relative flex size-full flex-col overflow-hidden rounded-[14px] bg-fill-1">
       <button
         onClick={open}
-        title={t("{name} öffnen", { name: item.name })}
+        title={t("{name} öffnen", { name })}
         className="pressable relative flex min-h-0 flex-1 items-center justify-center overflow-hidden"
       >
         {preview && !hidden ? (
@@ -486,7 +497,7 @@ function FileCard({ item, copied, onCopy, onFail }: { item: FileItem; copied: bo
         )}
       </button>
       <div className="px-2 pt-1.5 pb-1">
-        <p className="truncate text-caption font-medium text-label" title={item.name}>{item.name}</p>
+        <p className="truncate text-caption font-medium text-label" title={name}>{name}</p>
         <div className="flex items-center justify-between">
           <span className="tabular text-caption text-label-3">{formatBytes(item.size, 0)}</span>
           <span className="flex opacity-0 transition-opacity duration-150 group-hover:opacity-100">
@@ -508,9 +519,9 @@ function TextCard({ item, hidden, copied, onCopy }: { item: TextItem; hidden: bo
         {hidden ? <Redacted lines={4} /> : <p className="line-clamp-6 text-caption break-words whitespace-pre-wrap text-label-2">{item.text}</p>}
       </button>
       <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
-        <span className="flex items-center gap-1 text-caption text-label-3">
-          <TextT size={12} weight="bold" />
-          <span className="tabular">{item.text.length === 1 ? t("1 Zeichen") : t("{n} Zeichen", { n: item.text.length })}</span>
+        <span className="flex min-w-0 items-center gap-1 text-caption text-label-3">
+          <TextT size={12} weight="bold" className="shrink-0" />
+          <span className="tabular truncate">{item.text.length === 1 ? t("1 Zeichen") : t("{n} Zeichen", { n: item.text.length })}</span>
         </span>
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span

@@ -16,10 +16,13 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
 
 const LIFETIME: Duration = Duration::from_secs(10 * 60);
 /// Request line and headers; anything longer is not a phone browser asking for a file.
 const MAX_HEAD: u64 = 16 * 1024;
+/// How often the share checks that its address is still the computer's.
+const NETWORK_CHECK: Duration = Duration::from_secs(3);
 /// All of the head has to arrive within this, however slowly it drips in.
 const HEAD_TIMEOUT: Duration = Duration::from_secs(10);
 /// Connections served at once, over all shares; another host on the network cannot use up the threads.
@@ -70,7 +73,7 @@ struct Share {
 
 // async: is_file() on an unreachable network drive can stall for a long time, not on the main thread.
 #[tauri::command(async)]
-pub fn phone_share_start(paths: Vec<String>, text: PageText) -> Result<ShareInfo, String> {
+pub fn phone_share_start(paths: Vec<String>, text: PageText, app: AppHandle) -> Result<ShareInfo, String> {
     let files: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).filter(|p| p.is_file()).collect();
     if files.is_empty() {
         return Err("Dateien nicht mehr vorhanden".into());
@@ -87,8 +90,28 @@ pub fn phone_share_start(paths: Vec<String>, text: PageText) -> Result<ShareInfo
         old.store(true, Ordering::Relaxed);
     }
     let share = Share { token, files, text, from: std::env::var("COMPUTERNAME").ok().filter(|n| !n.is_empty()) };
+    let watched = stop.clone();
+    let lost = url.clone();
     thread::spawn(move || serve(listener, share, stop, LIFETIME));
+    thread::spawn(move || watch_address(ip, &watched, &lost, &app));
     Ok(ShareInfo { url, qr, size, ttl: LIFETIME.as_secs() })
+}
+
+/// Ends the share and tells the page when the address in its QR code is no longer one of this computer's
+/// (another network, or back from sleep): a phone could not reach it any more.
+fn watch_address(ip: IpAddr, stop: &AtomicBool, url: &str, app: &AppHandle) {
+    let end = Instant::now() + LIFETIME;
+    while Instant::now() < end {
+        thread::sleep(NETWORK_CHECK);
+        if stop.load(Ordering::Relaxed) {
+            return;
+        }
+        if !lan_addresses().contains(&ip) {
+            stop.store(true, Ordering::Relaxed);
+            let _ = app.emit("notch://phone-share-lost", url);
+            return;
+        }
+    }
 }
 
 /// Stops the share at `url`; a newer one keeps running.
@@ -436,12 +459,35 @@ fn bytes(n: u64) -> String {
 mod tests {
     use super::*;
 
-    fn get(port: u16, path: &str) -> String {
+    fn request(port: u16, method: &str, path: &str) -> String {
         let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
-        write!(s, "GET {path} HTTP/1.1\r\nHost: x\r\nUser-Agent: test\r\n\r\n").unwrap();
-        let mut out = String::new();
-        s.read_to_string(&mut out).unwrap();
-        out
+        write!(s, "{method} {path} HTTP/1.1\r\nHost: x\r\nUser-Agent: test\r\n\r\n").unwrap();
+        let mut out = Vec::new();
+        s.read_to_end(&mut out).unwrap();
+        String::from_utf8_lossy(&out).into_owned()
+    }
+
+    fn get(port: u16, path: &str) -> String {
+        request(port, "GET", path)
+    }
+
+    fn start(files: Vec<PathBuf>, lifetime: Duration) -> (u16, Arc<AtomicBool>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let stop = Arc::new(AtomicBool::new(false));
+        let s = stop.clone();
+        let text = PageText { lang: "it".into(), title: "1 <file>".into(), ..Default::default() };
+        let share = Share { token: "abc".into(), files, text, from: Some("PC".into()) };
+        thread::spawn(move || serve(listener, share, s, lifetime));
+        (port, stop)
+    }
+
+    /// The server leaves its port within 2 s of being told to stop or running out of time.
+    fn closes(port: u16) -> bool {
+        (0..20).any(|_| {
+            thread::sleep(Duration::from_millis(100));
+            TcpStream::connect(("127.0.0.1", port)).is_err()
+        })
     }
 
     #[test]
@@ -450,13 +496,9 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("nota & 1 è.txt");
         std::fs::write(&file, "ciao").unwrap();
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let port = listener.local_addr().unwrap().port();
-        let stop = Arc::new(AtomicBool::new(false));
-        let s = stop.clone();
-        let text = PageText { lang: "it".into(), title: "1 <file>".into(), ..Default::default() };
-        let share = Share { token: "abc".into(), files: vec![file], text, from: Some("PC".into()) };
-        thread::spawn(move || serve(listener, share, s, LIFETIME));
+        let picture = dir.join("pic.png");
+        std::fs::write(&picture, "png").unwrap();
+        let (port, stop) = start(vec![file, picture], LIFETIME);
 
         let page = get(port, "/abc");
         assert!(page.starts_with("HTTP/1.1 200"));
@@ -466,14 +508,27 @@ mod tests {
         assert!(get(port, "/abc/0?view").contains("Content-Disposition: attachment"));
         let body = get(port, "/abc/0");
         assert!(body.contains("filename*=UTF-8''nota%20%26%201%20%C3%A8.txt") && body.ends_with("\r\n\r\nciao"));
-        assert!(get(port, "/abc/1").starts_with("HTTP/1.1 404"));
+        // An image's `?view` is shown in place, with its own type, and HEAD sends no body.
+        let view = get(port, "/abc/1?view");
+        assert!(view.contains("Content-Disposition: inline") && view.contains("Content-Type: image/png") && view.ends_with("\r\n\r\npng"));
+        let head = request(port, "HEAD", "/abc/1");
+        assert!(head.contains("Content-Length: 3") && head.ends_with("\r\n\r\n"));
+        assert!(request(port, "POST", "/abc/0").starts_with("HTTP/1.1 405"));
+        assert!(get(port, "/abc/2").starts_with("HTTP/1.1 404"));
         assert!(get(port, "/abd/0").starts_with("HTTP/1.1 404"));
         assert!(get(port, "/abc/../0").starts_with("HTTP/1.1 404"));
 
         stop.store(true, Ordering::Relaxed);
-        thread::sleep(Duration::from_millis(300));
-        assert!(TcpStream::connect(("127.0.0.1", port)).is_err());
+        let gone = closes(port);
         let _ = std::fs::remove_dir_all(dir);
+        assert!(gone);
+    }
+
+    #[test]
+    fn a_share_ends_after_its_lifetime() {
+        let (port, _stop) = start(vec![], Duration::from_millis(1500));
+        assert!(get(port, "/abc").starts_with("HTTP/1.1 200"));
+        assert!(closes(port));
     }
 
     #[test]
@@ -515,7 +570,18 @@ mod tests {
 
     #[test]
     fn qr_has_modules_and_quiet_zone() {
-        let (path, size) = qr_path("http://192.168.1.20:51234/0123456789abcdef0123456789abcdef").unwrap();
+        let url = "http://192.168.1.20:51234/0123456789abcdef0123456789abcdef";
+        let (path, size) = qr_path(url).unwrap();
         assert!(size > 8 && path.starts_with("M4,4"));
+        // Draw the path the way the page does, 4 px a module, and read it back.
+        let (side, scale) = (size as usize, 4);
+        let mut dark = vec![false; side * side];
+        for m in path.split('M').skip(1) {
+            let (x, y) = m.split_once('h').unwrap().0.split_once(',').unwrap();
+            dark[y.parse::<usize>().unwrap() * side + x.parse::<usize>().unwrap()] = true;
+        }
+        let mut image = rqrr::PreparedImage::prepare_from_greyscale(side * scale, side * scale, |x, y| if dark[y / scale * side + x / scale] { 0 } else { 255 });
+        let grids = image.detect_grids();
+        assert_eq!(grids.first().and_then(|g| g.decode().ok()).map(|(_, text)| text).as_deref(), Some(url));
     }
 }

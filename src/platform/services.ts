@@ -1007,6 +1007,13 @@ export function phoneShareStop(url: string) {
   if (isNative) void invoke("phone_share_stop", { url });
 }
 
+/** The share at `url` ended because the computer left the network its QR code points to. */
+export function onPhoneShareLost(handler: (url: string) => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen<string>("notch://phone-share-lost", (e) => handler(e.payload));
+  return () => void off.then((f) => f());
+}
+
 /** Text on the clipboard ("" if none). */
 export function clipboardText(): Promise<string> {
   if (isNative) return invoke<string>("shelf_clipboard_text").catch(() => "");
