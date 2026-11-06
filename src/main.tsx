@@ -9,6 +9,7 @@ import { startDropListener } from "./platform/drop";
 import { clipboard } from "./platform/clipboard";
 import { settings } from "./settings/store";
 import { applyDisplay, placementKey } from "./notch/drag";
+import { closedLive } from "./notch/ClosedResize";
 import { focusMode, startFocusMode } from "./notch/focus";
 import { monitor, monitors, reloadMonitor, startMonitorWatch } from "./notch/monitor";
 import { startSystemPolling } from "./features/system/store";
@@ -87,6 +88,7 @@ settings.subscribe(syncDisplay);
 monitor.subscribe(syncDisplay);
 monitors.subscribe(syncDisplay);
 focusMode.subscribe(syncDisplay);
+closedLive.subscribe(syncDisplay);
 screen.subscribe(syncDisplay);
 
 // Clipboard history only records what an enabled tool uses (Ask: the latest text).

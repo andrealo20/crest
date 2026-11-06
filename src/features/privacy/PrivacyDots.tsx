@@ -28,7 +28,8 @@ export function Dots({ dots }: { dots: ("red" | "green")[] }) {
           <motion.span
             key={color}
             className="privacy-dot shrink-0 rounded-full"
-            title={color === "red" ? t("Bildschirm wird aufgenommen") : t("Mikrofon oder Kamera aktiv")}
+            role="status"
+            aria-label={color === "red" ? t("Bildschirm wird aufgenommen") : t("Mikrofon oder Kamera aktiv")}
             data-pulse={color === "green" && call?.speaking ? true : undefined}
             style={{ width: DOT, height: DOT, backgroundColor: `var(--color-${color})`, ["--dot" as string]: `var(--color-${color})` }}
             initial={{ opacity: 0, transform: "scale(0.9)" }}
@@ -43,12 +44,14 @@ export function Dots({ dots }: { dots: ("red" | "green")[] }) {
 }
 
 /** The open notch: the dots a bit right of the imagined camera in the middle, clear of the header's title and buttons. Closed, the row shows them at its end.
- *  `centered`: in the middle of the shape (the dimmed column on a side edge is too narrow for the offset). */
-export function PrivacyDots({ centered = false }: { centered?: boolean }) {
+ *  `centered`: in the middle of the shape (the dimmed column on a side edge is too narrow for the offset).
+ *  `beside`: their centre, in px right of the shape's middle, where a notice card covers the row's own dots. */
+export function PrivacyDots({ centered = false, beside }: { centered?: boolean; beside?: number }) {
   const dots = usePrivacyDots();
   return (
     <div
-      className={`pointer-events-none absolute flex items-center ${centered ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" : "top-0 left-1/2 ml-[24px] h-[30px]"}`}
+      className={`pointer-events-none absolute flex items-center ${centered ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" : beside !== undefined ? "top-0 left-1/2 h-[30px] -translate-x-1/2" : "top-0 left-1/2 ml-[24px] h-[30px]"}`}
+      style={beside !== undefined && !centered ? { marginLeft: beside } : undefined}
     >
       <Dots dots={dots} />
     </div>

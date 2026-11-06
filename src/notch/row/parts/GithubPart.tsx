@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { shade, todayCount } from "../../../features/github/contributions";
 import { github } from "../../../features/github/store";
 import { localDate } from "../../../platform/services";
@@ -7,8 +8,15 @@ import { t } from "../../../i18n";
 /** Today's count and shade once the calendar has loaded (the GitHub store polls while the part is on screen). */
 export function useGithubToday(): { count: number; level: number } | null {
   const { data } = github.use();
+  const [today, setToday] = useState(() => localDate(new Date()));
+  // The poll is hourly and the row stays up: moves on at local midnight, not an hour later.
+  useEffect(() => {
+    const next = new Date();
+    next.setHours(24, 0, 1, 0);
+    const id = window.setTimeout(() => setToday(localDate(new Date())), next.getTime() - Date.now());
+    return () => window.clearTimeout(id);
+  }, [today]);
   if (!data) return null;
-  const today = localDate(new Date());
   return { count: todayCount(data.days, today), level: data.days.find((d) => d.date === today)?.level ?? 0 };
 }
 

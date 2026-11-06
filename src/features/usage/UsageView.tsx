@@ -46,11 +46,11 @@ export function windowLabel(kind: string): string {
 export const usageError: Record<string, string> = {
   "not-found": "Nicht auf diesem Gerät gefunden",
   "not-signed-in": "Nicht angemeldet",
-  expired: "Anmeldung abgelaufen – App kurz öffnen",
+  expired: "Anmeldung abgelaufen, App kurz öffnen",
   "claude-expired": "Anmeldung abgelaufen: einmal claude im Terminal starten",
   "no-key": "Noch kein API-Schlüssel",
   "bad-key": "Schlüssel abgelehnt, in den Einstellungen prüfen",
-  "rate-limited": "Gerade gedrosselt – nächster Versuch in ein paar Minuten",
+  "rate-limited": "Gerade gedrosselt, nächster Versuch in ein paar Minuten",
   offline: "Keine Verbindung",
   failed: "Abruf fehlgeschlagen",
 };
@@ -266,9 +266,10 @@ function WindowRow({ w, now }: { w: UsageWindow; now: number }) {
           transition={springs.morph}
         />
       </div>
-      <div className="tabular mt-1 flex justify-between gap-2 text-label-3">
-        <span className="truncate" title={t("Setzt sich zurück")}>{w.resetsAt ? formatIn(w.resetsAt - now) : ""}</span>
-        <span className={`shrink-0 whitespace-nowrap ${used >= 90 ? "text-red" : ""}`}>{t("{n} % übrig", { n: Math.round(100 - used) })}</span>
+      {/* Wraps instead of cutting the reset time off: in Russian or German the two do not fit side by side. */}
+      <div className="tabular mt-1 flex flex-wrap justify-between gap-x-2 text-label-3">
+        <span title={t("Setzt sich zurück")}>{w.resetsAt ? formatIn(w.resetsAt - now) : ""}</span>
+        <span className={`ms-auto whitespace-nowrap ${used >= 90 ? "text-red" : ""}`}>{t("{n} % übrig", { n: Math.round(100 - used) })}</span>
       </div>
     </div>
   );
@@ -306,7 +307,7 @@ function TokenFoot({ found, failed, today, week }: { found: boolean | null; fail
       ) : (
         ([[t("Heute"), today!], [t("7 Tage"), week!]] as const).map(([label, x]) => (
           <div key={label} className="tabular grid grid-cols-[auto_1fr_auto] items-baseline gap-2 leading-[18px]">
-            <span className="w-11 text-label-3">{label}</span>
+            <span className="min-w-11 text-label-3">{label}</span>
             <span className="text-label-2">{formatTokens(x.tokens)}</span>
             <span className="font-semibold text-label">{formatCost(x)}</span>
           </div>

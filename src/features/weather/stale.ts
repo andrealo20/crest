@@ -8,6 +8,12 @@ export interface SavedForecast<T> {
 /** Older than this the current conditions say too little: the view shows its error instead. */
 export const SAVED_FOR_MS = 24 * 60 * 60_000;
 
+/** A saved forecast older than this no longer passes for the weather now in the closed row and the overview. */
+export const STALE_AFTER_MS = 2 * 60 * 60_000;
+
+/** Whether a forecast (with `savedAt` when it came from disk) is too old to show as the current weather. */
+export const isStale = (savedAt: number | undefined, now: number) => savedAt !== undefined && now - savedAt > STALE_AFTER_MS;
+
 /**
  * The saved forecast for this place, marked with when it was fetched and without the days already past
  * (`today` as YYYY-MM-DD); null when there is none, it is for another place, or it is too old.

@@ -5,8 +5,10 @@ import { FONTS } from "../../features/themes/themes";
 
 /** text-footnote font-medium, the row's text (live bindings: setRowFamily changes them). */
 export let ROW_FONT = `500 12px ${FONTS.inter}`;
-/** text-caption font-medium, the FPS label. */
+/** text-caption font-medium, the FPS label and a card's text. */
 export let CAPTION_FONT = `500 11px ${FONTS.inter}`;
+/** text-caption's letter-spacing (0.01em of 11 px), which the canvas leaves out. */
+const CAPTION_SPACING = 0.11;
 
 const cache = new Map<string, number>();
 let ctx: CanvasRenderingContext2D | null = null;
@@ -34,7 +36,7 @@ export function measureText(text: string, font = ROW_FONT): number {
     ctx ??= document.createElement("canvas").getContext("2d");
     if (!ctx) return 0;
     ctx.font = font;
-    w = Math.ceil(ctx.measureText(text).width);
+    w = Math.ceil(ctx.measureText(text).width + (font === CAPTION_FONT ? CAPTION_SPACING * text.length : 0));
     // One entry per song title over a long session; start over rather than grow without end.
     if (cache.size > 500) cache.clear();
     cache.set(key, w);

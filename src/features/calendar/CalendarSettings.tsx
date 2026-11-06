@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus, X } from "@phosphor-icons/react";
+import { isMac } from "../../platform/native";
 import { secrets } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, Row, Segmented, Select, Switch, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
-import { HORIZONS, PALETTE, linkHost, newSourceId, nextColor, type CalendarSettings as Config, type CalendarSource } from "./model";
+import { HORIZONS, MAX_SOURCES, PALETTE, linkHost, newSourceId, nextColor, type CalendarSettings as Config, type CalendarSource } from "./model";
 import { calendar } from "./store";
 import { calendarError } from "./CalendarView";
 
@@ -56,7 +57,7 @@ export function CalendarSettings() {
         <SourceForm draft={draft} onChange={setDraft} onDone={() => setDraft(null)} />
       ) : (
         <Row label={c.sources.length ? "" : t("Noch kein Kalender")} hint={c.sources.length ? undefined : t("Nur lesen: Crest ändert keine Termine")}>
-          <Button icon={Plus} onClick={() => setDraft({ id: null, kind: "ics", name: "", color: nextColor(c.sources), url: "", user: "", secret: "" })}>
+          <Button icon={Plus} disabled={c.sources.length >= MAX_SOURCES} onClick={() => setDraft({ id: null, kind: "ics", name: "", color: nextColor(c.sources), url: "", user: "", secret: "" })}>
             {t("Kalender hinzufügen")}
           </Button>
         </Row>
@@ -96,13 +97,21 @@ function SourceForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
   // A new source needs its secret; an edited one keeps the stored one when the field stays empty.
   const valid = d.kind === "ics" ? (isNew ? !!linkHost(d.secret) : !d.secret.trim() || !!linkHost(d.secret)) : !!linkHost(d.url) && !!d.user.trim() && (!isNew || !!d.secret.trim());
 
+  // A second Enter or click while the secret is being stored would add the source twice.
+  const saving = useRef(false);
   const save = async () => {
-    if (!valid) return;
+    if (!valid || saving.current) return;
+    saving.current = true;
     const sources = settings.get().calendar.sources;
     const id = d.id ?? newSourceId(sources.map((s) => s.id));
     const before = sources.find((s) => s.id === id);
     // The secret first: the settings change starts a fetch, which reads it.
-    if (d.secret.trim()) await secrets.set(`calendar.${id}`, d.secret.trim());
+    try {
+      if (d.secret.trim()) await secrets.set(`calendar.${id}`, d.secret.trim());
+    } catch (e) {
+      saving.current = false;
+      throw e;
+    }
     const host = d.kind === "ics" ? (d.secret.trim() ? linkHost(d.secret) : (before?.host ?? "")) : "";
     const source: CalendarSource = { id, kind: d.kind, name: d.name.trim(), color: d.color, url: d.kind === "caldav" ? d.url.trim() : "", user: d.kind === "caldav" ? d.user.trim() : "", host };
     setCalendar((cur) => ({ sources: before ? cur.sources.map((s) => (s.id === id ? source : s)) : [...cur.sources, source] }));
@@ -128,7 +137,7 @@ function SourceForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
       {d.kind === "ics" ? (
         <Row
           label={t("Link")}
-          hint={t("Die geheime iCal-Adresse aus Google, Outlook oder iCloud; liegt in der Anmeldeinformationsverwaltung")}
+          hint={isMac ? t("Die geheime iCal-Adresse aus Google, Outlook oder iCloud; liegt im Schlüsselbund") : t("Die geheime iCal-Adresse aus Google, Outlook oder iCloud; liegt in der Anmeldeinformationsverwaltung")}
         >
           <TextField secret value={d.secret} onChange={(secret) => set({ secret })} placeholder={isNew ? "webcal://…" : t("Gespeichert")} width="w-52" onSubmit={() => void save()} autoFocus />
         </Row>
@@ -140,7 +149,7 @@ function SourceForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
           <Row label={t("Nutzername")}>
             <TextField value={d.user} onChange={(user) => set({ user })} width="w-52" />
           </Row>
-          <Row label={t("App-Passwort")} hint={t("Ein App-Passwort, nicht das Konto-Passwort; liegt in der Anmeldeinformationsverwaltung")}>
+          <Row label={t("App-Passwort")} hint={isMac ? t("Ein App-Passwort, nicht das Konto-Passwort; liegt im Schlüsselbund") : t("Ein App-Passwort, nicht das Konto-Passwort; liegt in der Anmeldeinformationsverwaltung")}>
             <TextField secret value={d.secret} onChange={(secret) => set({ secret })} placeholder={isNew ? "" : t("Gespeichert")} width="w-52" onSubmit={() => void save()} />
           </Row>
         </>

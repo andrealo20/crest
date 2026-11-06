@@ -86,7 +86,7 @@ export function GithubView() {
       animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
     >
       {actions}
-      <div className="flex items-baseline gap-5 text-caption text-label-3">
+      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 text-caption text-label-3">
         <button
           title={t("Auf GitHub öffnen")}
           onClick={() => openGithubProfile(data.user)}

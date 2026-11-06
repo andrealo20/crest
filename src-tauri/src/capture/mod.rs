@@ -15,7 +15,7 @@ mod shot;
 mod voice;
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::UNIX_EPOCH;
 
@@ -46,6 +46,8 @@ pub struct CaptureState {
     stopping: AtomicBool,
     /// A screen recording keeps Crest's windows out of capture, from its setup to its end.
     screen: AtomicBool,
+    /// Screenshots and Find reads under way, each keeping Crest's windows out of capture.
+    holds: AtomicUsize,
 }
 
 impl CaptureState {
@@ -57,6 +59,32 @@ impl CaptureState {
     /// Crest's windows are already out of capture: a screenshot need not take them out and put them back.
     fn excluded(&self) -> bool {
         self.screen.load(Ordering::SeqCst)
+    }
+}
+
+/// Keeps Crest's windows out of capture while a screenshot or a Find read grabs the screens.
+/// The last one to drop puts them back, unless a recording still needs them out.
+struct Hold<'a>(&'a AppHandle);
+
+impl<'a> Hold<'a> {
+    fn new(app: &'a AppHandle) -> Self {
+        let state = app.state::<CaptureState>();
+        state.holds.fetch_add(1, Ordering::SeqCst);
+        if !state.excluded() {
+            exclude(app, true);
+            // Let the compositor drop the windows from the next frame.
+            std::thread::sleep(std::time::Duration::from_millis(60));
+        }
+        Hold(app)
+    }
+}
+
+impl Drop for Hold<'_> {
+    fn drop(&mut self) {
+        let state = self.0.state::<CaptureState>();
+        if state.holds.fetch_sub(1, Ordering::SeqCst) == 1 && !state.excluded() {
+            exclude(self.0, false);
+        }
     }
 }
 
@@ -96,7 +124,7 @@ pub struct RecState {
     /// The finished file, once, when a recording ends.
     path: Option<String>,
     /// Inputs that could not be opened ("system", "mic"), why a recording stopped on its own
-    /// ("video": capture or encoder failed), or that writing the file failed ("save").
+    /// ("video": capture or encoder failed, "disk": no space left), or that writing the file failed ("save").
     failed: Vec<&'static str>,
     /// Sound only (the Recorder tool), not the screen.
     audio: bool,
@@ -299,17 +327,8 @@ pub async fn capture_shot(mode: String, monitor: Option<String>, app: AppHandle,
     let own = own_hwnd(&window);
     let dir = screenshots_dir().ok_or("no-folder")?;
     tauri::async_runtime::spawn_blocking(move || {
-        let recording = app.state::<CaptureState>().excluded();
-        if !recording {
-            exclude(&app, true);
-            // Let the compositor drop the windows from the next frame.
-            std::thread::sleep(std::time::Duration::from_millis(60));
-        }
-        let result = take_shot(&mode, monitor.as_deref(), &dir, own);
-        if !recording {
-            exclude(&app, false);
-        }
-        result
+        let _hold = Hold::new(&app);
+        take_shot(&mode, monitor.as_deref(), &dir, own)
     })
     .await
     .map_err(|_| "failed".to_string())?
@@ -459,7 +478,7 @@ fn begin_voice(app: &AppHandle, mic: bool, system: bool, dir: &Path) -> Result<(
         return Err("no-media".into());
     }
     let (inputs, failed) = audio::open_inputs(system, mic);
-    if inputs.is_empty() {
+    if failed.len() == usize::from(mic) + usize::from(system) {
         return Err(if mic && !system { "no-mic" } else { "no-audio" }.into());
     }
     let path = new_file(dir, "Recording", "m4a")?;
@@ -485,14 +504,23 @@ fn begin_voice(app: &AppHandle, mic: bool, system: bool, dir: &Path) -> Result<(
 pub async fn capture_pause(paused: bool, app: AppHandle) {
     let _ = tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<CaptureState>();
-        if let Some(r) = state.rec.lock().unwrap().as_ref() {
-            if paused {
-                r.clock().lock().unwrap().pause(now());
-            } else {
-                r.resume(now());
-            }
+        let live = state
+            .rec
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|r| {
+                if paused {
+                    r.clock().lock().unwrap().pause(now());
+                } else {
+                    r.resume(now());
+                }
+            })
+            .is_some();
+        // An empty slot means a stop is under way: it sends the final state itself.
+        if live {
+            emit(&app, current(&state));
         }
-        emit(&app, current(&state));
     })
     .await;
 }
@@ -591,7 +619,7 @@ pub struct CaptureFile {
     modified: u64,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn capture_list(app: AppHandle) -> Vec<CaptureFile> {
     let mut out = Vec::new();
     for (dir, kind, ext) in [(screenshots_dir(), "shot", "png"), (old_screenshots_dir(&app), "shot", "png"), (recordings_dir(&app), "video", "mp4"), (audio_dir(&app), "audio", "m4a")] {
@@ -693,8 +721,9 @@ unsafe fn bitmap_thumb(bmp: HBITMAP) -> Option<String> {
     }
 }
 
-/// Moves a capture to the Recycle Bin. Only files in the capture folders.
-#[tauri::command]
+/// Moves a capture to the Recycle Bin. Only files in the capture folders. A file too big for the bin
+/// asks Windows' permission to be deleted for good ("cancelled" when refused).
+#[tauri::command(async)]
 pub fn capture_delete(path: String, app: AppHandle) -> Result<(), String> {
     let p = Path::new(&path);
     let parent = p.parent().and_then(|d| d.canonicalize().ok());
@@ -708,11 +737,14 @@ pub fn capture_delete(path: String, app: AppHandle) -> Result<(), String> {
     let mut op = SHFILEOPSTRUCTW {
         wFunc: FO_DELETE,
         pFrom: PCWSTR(from.as_ptr()),
-        fFlags: (FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI).0 as u16,
+        fFlags: (FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_WANTNUKEWARNING | FOF_SILENT | FOF_NOERRORUI).0 as u16,
         ..Default::default()
     };
     match unsafe { SHFileOperationW(&mut op) } {
+        0 if op.fAnyOperationsAborted.as_bool() => Err("cancelled".into()),
         0 => Ok(()),
+        // DE_OPCANCELLED: the shell can report a refusal this way too.
+        0x75 => Err("cancelled".into()),
         _ => Err("delete-failed".into()),
     }
 }

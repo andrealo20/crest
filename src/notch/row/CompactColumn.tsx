@@ -32,7 +32,7 @@ import { useHeld } from "./CompactRow";
 import { NOTICE_BUTTON, NoticeButton, useNoticeHover } from "./NoticeButton";
 import { useRowVisible } from "./visibility";
 import { CAPTION_FONT, fontEpoch, measureText } from "./measure";
-import { RING, Ring, ringProviders, ringValue } from "./parts/Rings";
+import { RING, Ring, ringLabel, ringProviders, ringValue } from "./parts/Rings";
 import { ReadingView, readingWidth, useReadings } from "./parts/Readings";
 import { Clock, clockWidth } from "./parts/Clock";
 import { TimerPart, timerWidth } from "./parts/TimerPart";
@@ -138,7 +138,12 @@ function useNoticeLine(urgentOnly: boolean): Line | null {
         ),
       };
     }
-    return line(`notice-${status.kind}-${status.icon}`, () => <I size={NOTICE_ICON} weight="fill" style={{ color: TONE[status.tone] }} />);
+    // Only the icon fits: the text goes in the tooltip and for screen readers, a key switched off or a device that left is dimmed.
+    return line(`notice-${status.kind}-${status.icon}${status.off ? "-off" : ""}`, () => (
+      <span className="flex" role="img" aria-label={status.text} title={status.text} style={{ color: TONE[status.tone], opacity: status.off ? 0.45 : 1 }}>
+        <I size={NOTICE_ICON} weight="fill" />
+      </span>
+    ));
   }
   if (kind === "notice" && pop) return line(`notice-pop-${pop.id}`, () => <AppIcon n={pop} size={NOTICE_ICON} />);
   if (kind === "reminder") {
@@ -160,10 +165,10 @@ function useNoticeLine(urgentOnly: boolean): Line | null {
  * the cover first and the privacy dots last, under the notice line if there is one. The song title is left out: a scrolling title does
  * not fit across a column, and neither does a lyric line, the next event or the downloads, so the title's lyric mode and the lyrics-only notch keep the column as it is.
  * Lines that do not fit in the longest notch are dropped from the end. `parts` false (the idle line or dimmed focus mode, opened only by
- * an urgent notice) shows the notice line alone and keeps the row's polling off. Reports its length and width; the shape is that plus
+ * an urgent notice) shows the notice line alone and keeps the row's polling off. Reports its length and width, and whether a notice line shows; the shape is that plus
  * its insets and pads. Drawn at the content scale like the row (Notch.tsx): `room` is the longest it gets at its designed size.
  */
-export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: number; onSize: (size: { length: number; width: number }) => void }) {
+export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: number; onSize: (size: { length: number; width: number; notice: boolean }) => void }) {
   useRowVisible(parts);
   fontEpoch.use();
   const notice = useNoticeLine(!parts);
@@ -190,7 +195,7 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
     else if (id === "discord" && call) fixed.push({ id, w: DISCORD_WIDTH, h: 20, draw: () => <DiscordPart call={call} paused={false} /> });
     else if (id === "equalizer" && np && playing) fixed.push({ id, w: 16, h: 16, draw: () => <Equalizer playing={np.isPlaying} /> });
     else if (id === "github" && gh) fixed.push({ id, w: githubWidth(gh.count), h: 16, draw: () => <GithubPart count={gh.count} level={gh.level} /> });
-    else if (id === "weather" && weather) fixed.push({ id, w: weatherWidth(weather.temp), h: 16, draw: () => <WeatherPart now={weather} /> });
+    else if (id === "weather" && weather) fixed.push({ id, w: weatherWidth(), h: 16, draw: () => <WeatherPart now={weather} /> });
     else if (id === "clock") fixed.push({ id, w: clockWidth(closed.clockSeconds, h12), h: 16, draw: () => <Clock seconds={closed.clockSeconds} h12={h12} paused={false} /> });
     else if (id === "rings" && rings.length) ringsAt = fixed.length;
     else if (id === "readings" && readings.length) {
@@ -212,7 +217,7 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
       h: RING,
       draw: () => (
         <span className="flex items-center" style={{ gap: COLUMN.ringGap }}>
-          {slice.map((r) => <Ring key={r.id} id={r.id} value={ringValue(r)} />)}
+          {slice.map((r) => <Ring key={r.id} id={r.id} value={ringValue(r)} label={ringLabel(r)} />)}
         </span>
       ),
     };
@@ -227,15 +232,16 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
 
   const shown = all.slice(0, fitLines(all.map((l) => l.h), COLUMN.gap, room));
   const { tops, length } = stack(shown.map((l) => l.h), COLUMN.gap);
-  useLayoutEffect(() => onSize({ length, width }), [length, width, onSize]);
+  const noticed = !!notice;
+  useLayoutEffect(() => onSize({ length, width, notice: noticed }), [length, width, noticed, onSize]);
 
   return (
     <motion.div
       className="absolute top-1/2 left-1/2"
       style={{ width, height: length, marginLeft: -width / 2, marginTop: -length / 2 }}
-      initial={{ opacity: 0, filter: "blur(4px)" }}
-      animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
-      exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1, transition: content.enter }}
+      exit={{ opacity: 0, transition: content.exit }}
     >
       {shown.map((l, i) => (
         <div key={l.id} data-open={partTool(l.id.startsWith("reading-") ? "readings" : l.id.split("-")[0]) ?? undefined} className="absolute inset-x-0 flex items-center justify-center" style={{ top: tops[i], height: l.h }}>

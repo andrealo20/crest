@@ -22,7 +22,9 @@ export const demoFiles = new Map<string, File>();
 export const demoPaste = { text: "" };
 
 const demoPath = (f: File) => {
-  const path = `C:\\Users\\demo\\Downloads\\${f.name}`;
+  // Two files with one name get different folders, like two real paths, so the second doesn't replace the first.
+  let path = `C:\\Users\\demo\\Downloads\\${f.name}`;
+  for (let n = 2; demoFiles.has(path); n++) path = `C:\\Users\\demo\\Downloads ${n}\\${f.name}`;
   demoFiles.set(path, f);
   return path;
 };

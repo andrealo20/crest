@@ -31,7 +31,7 @@ export function LauncherSettings() {
             ? t("Von einer anderen App belegt: {keys}. Diese App dort umstellen oder hier die Reihenfolge ändern.", { keys: taken.join(", ") })
             : resting
               ? t("Alt+1 bis Alt+6 ruhen, solange ein Spiel oder eine Vollbild-App läuft")
-              : `${t("Startet die ersten sechs Apps aus jedem Programm.")} ${t(HOTKEY_HINT)}.`
+              : `${t("Startet die ersten sechs Apps aus jedem Programm.")} ${t(HOTKEY_HINT)}`
         }
       >
         <Switch label={t("Alt+1 bis Alt+6")} checked={l.hotkeys} onChange={(hotkeys) => set({ hotkeys })} />

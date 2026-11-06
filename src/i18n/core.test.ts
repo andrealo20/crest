@@ -42,7 +42,9 @@ test("the locale keeps the system's region for the same language", () => {
   assert.equal(localeFor("en", "en-US"), "en-US");
   assert.equal(localeFor("en", "de-DE"), "en-GB");
   assert.equal(localeFor("zh-CN", "zh-TW"), "zh-CN");
-  assert.equal(localeFor("ar", undefined), "ar");
+  assert.equal(localeFor("ar", undefined), "ar-u-nu-latn");
+  assert.equal(new Intl.NumberFormat(localeFor("ar", "ar-EG")).format(1234.5), "1,234.5");
+  assert.equal(localeFor("ar", "ar-SA-u-nu-arab"), "ar-SA-u-nu-latn");
   for (const l of LANGUAGES) assert.doesNotThrow(() => new Intl.NumberFormat(localeFor(l, "")));
 });
 
@@ -89,4 +91,16 @@ test("en.json has every Rust error text the patterns know", () => {
     ["Kein Modell eingetragen", "No model set"],
     ["Von Windows ausgeschaltet. Crest im Task-Manager unter Autostart-Apps einschalten", "Turned off in Windows. Switch Crest on in Task Manager under Startup apps"],
   ]) assert.equal(backendText(msg, tEn), want);
+});
+
+test("every dictionary has the keys and placeholders of en.json", () => {
+  const read = (l: string) => JSON.parse(readFileSync(new URL(`./${l}.json`, import.meta.url), "utf8")) as Dict;
+  const en = read("en");
+  const holes = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join();
+  for (const l of LANGUAGES.filter((l) => l !== "de" && l !== "en")) {
+    const d = read(l);
+    assert.deepEqual(Object.keys(en).filter((k) => !d[k]), [], `${l} lacks keys`);
+    assert.deepEqual(Object.keys(d).filter((k) => en[k] === undefined), [], `${l} has keys en.json does not`);
+    assert.deepEqual(Object.keys(d).filter((k) => holes(d[k]) !== holes(en[k])), [], `${l} changes placeholders`);
+  }
 });

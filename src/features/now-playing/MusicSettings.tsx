@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { CaretUp } from "@phosphor-icons/react";
 import { settings } from "../../settings/store";
-import { isNative } from "../../platform/native";
+import { isMac, isNative } from "../../platform/native";
 import { Button, Group, Row, Segmented, Select, Switch } from "../../ui/controls";
 import { sourceName } from "./sources";
 import { LYRIC_SOURCES } from "./lyricSources";
 import { setMusic } from "./music";
 import { OFFLINE_SOURCES, OFFLINE_TARGETS, pairsFor, targetOf } from "./offline";
 import { downloadPairs, hasPair, offlineStatus, removePair } from "./offlineEngine";
-import { lang, t } from "../../i18n";
+import { lang, locale, t } from "../../i18n";
 
 const TERMS: Record<string, string> = {
   lrclib: "Offene Community-Datenbank, freie API ohne Schlüssel",
@@ -39,18 +39,21 @@ export function MusicSettings() {
             <Switch label={t("Lautschrift in der geschlossenen Notch")} checked={music.closedRoman} onChange={(closedRoman) => setMusic({ closedRoman })} />
           </Row>
         )}
-        <Row label={t("Equalizer-Stil")} hint={t("Im Musik-Tool; die geschlossene Notch behält ihre vier Balken")}>
-          <Segmented
-            id="music-eq-style"
-            value={music.eqStyle}
-            options={[
-              { value: "bars", label: t("Balken") },
-              { value: "spectrum", label: t("Spektrum") },
-              { value: "wave", label: t("Welle") },
-            ]}
-            onChange={(eqStyle) => setMusic({ eqStyle })}
-          />
-        </Row>
+        {/* The Mac sends no audio levels, so the looks would only move on their own. */}
+        {!isMac && (
+          <Row label={t("Equalizer-Stil")} hint={t("Im Musik-Tool; die geschlossene Notch behält ihre vier Balken")}>
+            <Segmented
+              id="music-eq-style"
+              value={music.eqStyle}
+              options={[
+                { value: "bars", label: t("Balken") },
+                { value: "spectrum", label: t("Spektrum") },
+                { value: "wave", label: t("Welle") },
+              ]}
+              onChange={(eqStyle) => setMusic({ eqStyle })}
+            />
+          </Row>
+        )}
         <Row label={t("Fortschrittsbalken")} hint={t("Wellig schwingt beim Abspielen und wird bei Pause flach")}>
           <Segmented
             id="music-progress-style"
@@ -101,7 +104,7 @@ export function MusicSettings() {
           </Row>
         )}
         {music.lyricTranslation && music.offlineTranslation && <OfflineLanguages />}
-        <Row label={t("Lautschrift")} hint={t("Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, offline; von der Quelle, wenn sie eine hat")}>
+        <Row label={t("Lautschrift")} hint={t("Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, offline; von der Quelle, wenn sie eine hat. Chinesisch wird Zeichen für Zeichen gelesen, manche Wörter klingen anders.")}>
           <Switch label={t("Lautschrift")} checked={music.lyricRoman} onChange={(lyricRoman) => setMusic({ lyricRoman })} />
         </Row>
         {music.lyricRoman && <KanjiDictionary />}
@@ -170,21 +173,21 @@ function OfflineLanguages() {
 function KanjiDictionary() {
   const [size, setSize] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<"download" | "remove" | null>(null);
   useEffect(() => {
     if (isNative) void invoke<number>("lyrics_dict_status").then(setSize).catch(() => setSize(0));
   }, []);
   const run = (cmd: "lyrics_dict_download" | "lyrics_dict_remove") => {
     setBusy(true);
-    setError(false);
+    setError(null);
     invoke<number | null>(cmd)
       .then((n) => setSize(n ?? 0))
-      .catch(() => setError(true))
+      .catch(() => setError(cmd === "lyrics_dict_remove" ? "remove" : "download"))
       .finally(() => setBusy(false));
   };
-  const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
+  const mb = (n: number) => (n / 1024 / 1024).toLocaleString(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const hint = error
-    ? t("Download fehlgeschlagen, später noch einmal versuchen")
+    ? error === "remove" ? t("Löschen fehlgeschlagen") : t("Download fehlgeschlagen, später noch einmal versuchen")
     : size
       ? t("Installiert, {mb} MB im App-Datenordner. Lesungen nach Wörterbuch, nicht immer wie gesungen.", { mb: mb(size) })
       : t("Ohne Wörterbuch bekommen nur Kana Lautschrift. JMdict (EDRDG, CC BY-SA 4.0): 1,4 MB Download von GitHub, etwa 0,7 MB auf der Festplatte.");

@@ -2,7 +2,7 @@
 //!
 //! Listens only to the shown player: process loopback of its process tree
 //! (loopback.rs), so a notification sound or a video call doesn't move the bars.
-//! Where that is not possible (older Windows, a player without its own audio session)
+//! Where that is not possible (older Windows, a player that matches no process)
 //! it falls back to WASAPI loopback of the default output device, which delivers
 //! everything that is playing. An FFT over the latest samples gives 4 frequency bands,
 //! sent as `audio://levels` (0..1), and 12 thinner ones for the Spectrum and Wave looks,
@@ -44,6 +44,8 @@ const CHECK: Duration = Duration::from_secs(2);
 /// is the likeliest cause of the dropouts on Bluetooth reported in issue #7.
 const RETRY: Duration = Duration::from_secs(5);
 const RETRY_MAX: Duration = Duration::from_secs(120);
+/// An unchanged reading is still sent this often: the page counts levels older than 400 ms as gone.
+const KEEP_ALIVE: Duration = Duration::from_millis(300);
 
 /// What the equalizer listens to.
 enum Capture {
@@ -55,6 +57,11 @@ enum Capture {
 
 fn shown_app(app: &AppHandle) -> String {
     app.state::<MediaState>().shown().map(|(id, _)| id).unwrap_or_default()
+}
+
+/// Rounded to 1/1000, so a level fading to silence reaches exactly zero and stops changing.
+fn settle<const N: usize>(values: [f32; N]) -> [f32; N] {
+    values.map(|v| (v * 1000.0).round() / 1000.0)
 }
 
 fn default_output() -> Option<cpal::DeviceId> {
@@ -122,6 +129,12 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
         let mut last_check = Instant::now();
         let mut last_try = Instant::now();
         let mut retry = RETRY;
+        // While no capture can be opened (or a stream keeps failing) it is tried again later and later, not every second.
+        let mut open_retry_at = Instant::now();
+        let mut open_wait = RETRY;
+        // The last readings sent and when.
+        let mut sent = ([0.0f32; 4], [0.0f32; SPECTRUM]);
+        let mut sent_at = Instant::now();
 
         let fft = FftPlanner::<f32>::new().plan_fft_forward(FFT_SIZE);
         let window: Vec<f32> = (0..FFT_SIZE)
@@ -146,7 +159,12 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                     spectrum = [0.0; SPECTRUM];
                     let _ = app.emit("audio://levels", levels);
                     let _ = app.emit("audio://spectrum", spectrum);
+                    sent = (levels, spectrum);
+                    sent_at = Instant::now();
                 }
+                // Turned on again: a fresh start, not the rest of an old back-off.
+                open_retry_at = Instant::now();
+                open_wait = RETRY;
                 // Sleep until `audio_levels(true)` instead of waking 40×/s. The timeout
                 // only guards against a missed unpark (turned on before `worker` was set).
                 thread::park_timeout(Duration::from_secs(1));
@@ -156,7 +174,8 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
             // Another app shown, the player restarted (new process), headphones plugged in
             // (system capture) or an error: reconnect. A system capture also keeps trying
             // to become a player-only one, and is only replaced once that works.
-            let mut reopen = failed.swap(false, Ordering::Relaxed);
+            let waiting = Instant::now() < open_retry_at;
+            let mut reopen = !waiting && failed.swap(false, Ordering::Relaxed);
             if !reopen && last_check.elapsed() > CHECK {
                 last_check = Instant::now();
                 let shown = shown_app(&app);
@@ -171,6 +190,11 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                             retry = RETRY;
                         }
                         upgrade = !reopen && loopback::supported() && (shown != player_app || last_try.elapsed() > retry);
+                    }
+                    // Nothing open: another app shown is worth a new try at once.
+                    None if shown != player_app => {
+                        open_retry_at = Instant::now();
+                        open_wait = RETRY;
                     }
                     None => {}
                 }
@@ -187,7 +211,7 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                     }
                 }
             }
-            if capture.is_none() || reopen {
+            if (capture.is_none() && !waiting) || reopen {
                 drop(capture.take()); // close the old stream before opening a new one
                 samples.lock().unwrap().clear();
                 player_app = shown_app(&app);
@@ -203,15 +227,25 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                     }),
                 };
                 if capture.is_none() {
-                    thread::sleep(Duration::from_secs(1));
-                    continue;
+                    open_retry_at = Instant::now() + open_wait;
+                    open_wait = (open_wait * 2).min(RETRY_MAX);
+                } else {
+                    open_wait = RETRY;
                 }
+            }
+            if capture.is_none() {
+                thread::sleep(Duration::from_secs(1));
+                continue;
             }
             if let Some(Capture::Player(player)) = &capture {
                 let mut ring = samples.lock().unwrap();
                 if !player.drain(&mut |mono| push(&mut ring, mono)) {
                     // A stream that keeps failing would otherwise be reopened 40 times a second.
                     failed.store(true, Ordering::Relaxed);
+                    if !waiting {
+                        open_retry_at = Instant::now() + open_wait;
+                        open_wait = (open_wait * 2).min(RETRY_MAX);
+                    }
                     drop(ring);
                     thread::sleep(Duration::from_secs(1));
                     continue;
@@ -246,8 +280,13 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
             for band in 0..SPECTRUM {
                 meter(&buffer[edges[band]..edges[band + 1]], &mut spectrum_peaks[band], &mut spectrum[band]);
             }
-            let _ = app.emit("audio://levels", levels);
-            let _ = app.emit("audio://spectrum", spectrum);
+            let now = (settle(levels), settle(spectrum));
+            if now != sent || sent_at.elapsed() > KEEP_ALIVE {
+                let _ = app.emit("audio://levels", now.0);
+                let _ = app.emit("audio://spectrum", now.1);
+                sent = now;
+                sent_at = Instant::now();
+            }
         }
     });
     *state.worker.lock().unwrap() = Some(handle.thread().clone());

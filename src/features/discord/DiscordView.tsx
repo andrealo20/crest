@@ -61,7 +61,7 @@ export function DiscordView() {
               <Button onClick={() => navigate("settings", "discord")}>{t("Einrichten")}</Button>
             ) : demo && ready ? (
               // Demo only: there is no Discord to join a call in, so a sample one starts here.
-              <Button onClick={() => mockDiscord.toggleCall()}>Start a sample call</Button>
+              <Button onClick={() => mockDiscord.toggleCall()}>{t("Beispielanruf starten")}</Button>
             ) : undefined
           }
         />
@@ -105,11 +105,15 @@ export function DiscordView() {
 /** Server icon; initials without one (like Discord itself). */
 export function GuildIcon({ call, size }: { call: DiscordCall; size: number }) {
   const name = call.guildName ?? call.channelName;
-  const initials = name
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 3);
+  // By code point, so an emoji is not cut in half.
+  const initials = Array.from(
+    name
+      .split(/\s+/)
+      .map((w) => Array.from(w)[0] ?? "")
+      .join(""),
+  )
+    .slice(0, 3)
+    .join("");
   const radius = size * 0.3;
   if (call.guildIcon) return <img src={call.guildIcon} alt="" draggable={false} className="shrink-0 object-cover" style={{ width: size, height: size, borderRadius: radius }} />;
   return (

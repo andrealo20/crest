@@ -174,12 +174,16 @@ mod watch {
     use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_OBJECT_0, WAIT_TIMEOUT};
     use windows::Win32::Storage::FileSystem::*;
     use windows::Win32::System::Com::CoTaskMemFree;
-    use windows::Win32::System::Threading::{CreateEventW, ResetEvent, SetEvent, WaitForMultipleObjects, INFINITE};
+    use windows::Win32::System::Threading::{CreateEventW, ResetEvent, SetEvent, WaitForMultipleObjects, WaitForSingleObject, INFINITE};
     use windows::Win32::System::IO::{CancelIoEx, GetOverlappedResult, OVERLAPPED};
     use windows::Win32::UI::Shell::{FOLDERID_Downloads, SHGetKnownFolderPath, KF_FLAG_DEFAULT};
 
     /// Sizes are read this often while a download runs.
     const TICK_MS: u64 = 1000;
+    /// A partial file found at start that was not written for this long is not a running download.
+    const STALE: std::time::Duration = std::time::Duration::from_secs(30);
+    /// The wait before the watcher starts again after it failed.
+    const RETRY_MS: u32 = 5000;
 
     /// A handle closed when the last owner lets go.
     struct Owned(HANDLE);
@@ -233,7 +237,13 @@ mod watch {
     }
 
     fn run(app: AppHandle, stop: Arc<Owned>) {
-        watch(&app, &stop);
+        // A failed watch (folder moved, read error) is retried until the stop event is set.
+        loop {
+            watch(&app, &stop);
+            if unsafe { WaitForSingleObject(stop.0, RETRY_MS) } == WAIT_OBJECT_0 {
+                break;
+            }
+        }
         // Started again later only if a new configure finds no watcher.
         let mut current = STOP.lock().unwrap_or_else(|e| e.into_inner());
         if current.as_ref().is_some_and(|s| Arc::ptr_eq(s, &stop)) {
@@ -251,9 +261,10 @@ mod watch {
         let ready = Owned(h);
 
         let mut tracker = Tracker::default();
-        // Downloads that were already running.
+        // Downloads that were already running; a partial file untouched for a while is a leftover of an interrupted one.
         for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
-            if let Some(name) = entry.file_name().to_str() {
+            let fresh = entry.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|age| age < STALE);
+            if let Some(name) = entry.file_name().to_str().filter(|_| fresh) {
                 tracker.added(name);
             }
         }

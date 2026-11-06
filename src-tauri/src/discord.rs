@@ -121,6 +121,9 @@ async fn run(app: AppHandle, generation: u64, client_id: String, mut actions: mp
     while current(&app, generation) {
         publish(&app, Snapshot { status: "connecting".into(), ..Default::default() });
         let Some(pipe) = connect().await else {
+            if !current(&app, generation) {
+                return;
+            }
             publish(&app, Snapshot { status: "no-client".into(), ..Default::default() });
             tokio::time::sleep(RETRY).await;
             continue;
@@ -317,8 +320,11 @@ impl Session {
     /// Refreshes the stored token, otherwise asks once in Discord.
     async fn login(&mut self) -> Res<()> {
         if let Some(refresh) = secrets::read("discord.token") {
-            if let Ok(token) = self.exchange(&[("grant_type", "refresh_token"), ("refresh_token", &refresh)]).await {
-                return self.command("AUTHENTICATE", json!({ "access_token": token }), None).await;
+            match self.exchange(&[("grant_type", "refresh_token"), ("refresh_token", &refresh)]).await {
+                Ok(token) => return self.command("AUTHENTICATE", json!({ "access_token": token }), None).await,
+                // Offline is not a refusal: run() retries, instead of asking for consent again.
+                Err(e) if e == "Keine Verbindung" => return Err(e),
+                Err(_) => {}
             }
         }
         self.authorize().await
@@ -404,6 +410,10 @@ impl Session {
     }
 
     fn publish(&self) {
+        // A session replaced by discord_configure must not bring back a call after the tool was turned off.
+        if !current(&self.app, self.generation) {
+            return;
+        }
         let call = self.call.clone().map(|mut c| {
             c.mute = self.mute;
             c.deaf = self.deaf;

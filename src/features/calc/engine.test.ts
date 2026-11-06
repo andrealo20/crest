@@ -533,8 +533,8 @@ test("errors name their cause", () => {
   ]);
   // Never a number that is not a number.
   for (const line of ["1/0", "0/0", "1e999", "10^400", "sqrt(-1)", "log(0)", "(-8)^0.5", "1e308*10", "tan(90 deg)"]) {
-    const r = evaluate(line, { now: NOW, money }).lines[0];
-    assert.equal(r.kind, "error", line);
+    const first: { kind: string } = evaluate(line, { now: NOW, money }).lines[0];
+    assert.equal(first.kind, "error", line);
   }
 });
 

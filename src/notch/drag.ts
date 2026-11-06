@@ -7,9 +7,10 @@ import { toPageCss, toSaved } from "../features/window/panelSize";
 import { capsuleY, snapCapsule, windowYFor } from "./capsule";
 import { across, alongOf, anchorAt, edgeLine, frameFor, nearestEdge, pointToScreen, pointerIn, span, type Dock, type Edge, type Work } from "./edge";
 import { windowAlong } from "./collapsed";
+import { closedLive } from "./ClosedResize";
 import { focusMode } from "./focus";
 import { spotFor } from "./follow";
-import { monitorMetrics, monitors, placedMonitor, reloadMonitor } from "./monitor";
+import { monitorMetrics, monitors, placedMonitor, reloadMonitor, sharedSpan } from "./monitor";
 import { holdOpen, type NotchStatus } from "./useNotchState";
 
 /** Below this distance it's a click, not a drag. */
@@ -48,7 +49,8 @@ export function windowY(y = pageCss(settings.get().display.y)): number {
 /** The window's length along its edge for the closed sizes (collapsed.ts) on the notch's monitor, in CSS px; `stale` as in applyDisplay. */
 export function windowLength(dock = settings.get().dock, stale = 1): number {
   const s = settings.get(), m = monitorMetrics(), style = shownStyle(s), side = across(edgeOf(style, dock));
-  return windowAlong(s.closedSize, style, side, (side ? m.height : m.width) / stale);
+  const pet = s.closed.pet;
+  return windowAlong({ ...s.closedSize, ...closedLive.get() }, style, side, sharedSpan(side ? m.height : m.width, side) / stale, pet.id ? pet.size : 0);
 }
 
 /** What Rust places the window by, beyond the saved display settings; for noticing changes. With "all" every monitor counts. */

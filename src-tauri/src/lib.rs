@@ -185,6 +185,12 @@ pub fn osd_guard(pid: &str) -> i32 {
     osd::guard(pid)
 }
 
+/// For main.rs: the installer and the uninstaller put the Windows volume and brightness indicator back before they close Crest and its guard (see osd.rs).
+#[cfg(windows)]
+pub fn restore_osd() {
+    osd::restore()
+}
+
 /// For main.rs: the uninstaller gives back the Windows banners Crest turned off (see banners.rs).
 #[cfg(windows)]
 pub fn restore_banners() {
@@ -287,6 +293,7 @@ pub fn run() {
             display::display_monitors,
             display::display_apply,
             display::display_screen,
+            display::display_fullscreen,
             display::display_raise,
             display::display_apps,
             #[cfg(windows)]
@@ -535,7 +542,6 @@ pub fn run() {
             hit_test::spawn(app.handle().clone(), window.clone());
             #[cfg(windows)]
             display::spawn(app.handle().clone(), window);
-            #[cfg(windows)]
             mirror::spawn(app.handle().clone());
             media::spawn(app.handle().clone());
             clipboard::spawn(app.handle().clone());
@@ -559,10 +565,11 @@ pub fn run() {
             #[cfg(windows)]
             if let tauri::RunEvent::Exit = event {
                 capture::finish_on_exit(app);
-                osd::set(false);
+                osd::set(false, false);
                 power::keep_awake_stop();
                 // Nothing pops notices up once Crest is gone; the next start hides the banners again.
                 banners::restore();
+                vault::clear_on_exit();
             }
             #[cfg(not(windows))]
             let _ = (app, event);
@@ -620,14 +627,38 @@ fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusStat
     display::closed(window.app_handle());
 }
 
+/// The pointer came onto the pet: its click activates the window, so note the app it takes the keyboard from;
+/// the frontend then calls keyboard_focus(false) to give it back.
+#[cfg(windows)]
+fn remember_foreground(window: &WebviewWindow) {
+    let Ok(own) = window.hwnd() else { return };
+    let foreground = unsafe { GetForegroundWindow() }.0 as isize;
+    if foreground != own.0 as isize {
+        *window.state::<FocusState>().0.lock().unwrap() = foreground;
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn remember_foreground(window: &WebviewWindow) {
+    let foreground = macos::frontmost_pid() as isize;
+    if foreground != std::process::id() as isize {
+        *window.state::<FocusState>().0.lock().unwrap() = foreground;
+    }
+}
+
 #[tauri::command]
 fn autostart_get(app: AppHandle) -> bool {
     startup::is_enabled(&app)
 }
 
 #[tauri::command]
-fn autostart_set(enabled: bool, app: AppHandle) -> Result<(), String> {
-    startup::set(&app, enabled)
+fn autostart_set(enabled: bool, app: AppHandle, state: State<'_, TrayItems>) -> Result<(), String> {
+    let result = startup::set(&app, enabled);
+    // The tray check shows the real state, also when the switch was refused.
+    if let Some(tray) = state.0.lock().unwrap().as_ref() {
+        let _ = tray.autostart.set_checked(startup::is_enabled(&app));
+    }
+    result
 }
 
 /// Which build runs: the Microsoft Store one leaves updates to the Store.
@@ -694,6 +725,16 @@ fn enable_autostart_once(app: &AppHandle) {
     // A portable copy writes nothing outside its folder unless asked to (tray or settings); in the Store build the user turns it on.
     if portable::is_portable() || cfg!(feature = "store") {
         return;
+    }
+    // The login item stores the running binary's path: one run from a dmg or Downloads would leave it dead after the move.
+    #[cfg(target_os = "macos")]
+    {
+        let home = std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join("Applications"));
+        let installed = std::env::current_exe()
+            .is_ok_and(|p| p.starts_with("/Applications") || home.is_some_and(|h| p.starts_with(h)));
+        if !installed {
+            return;
+        }
     }
     let Ok(dir) = crate::portable::app_data_dir(app) else { return };
     let marker = dir.join("autostart-initialized");

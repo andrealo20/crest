@@ -288,8 +288,8 @@ export function probeFiles(paths: string[]): Promise<{ files: DroppedFile[] }> {
   return Promise.resolve({ files });
 }
 
-export function revealFile(path: string) {
-  if (isNative) void invoke("reveal_file", { path });
+export function revealFile(path: string): Promise<void> {
+  return isNative ? invoke("reveal_file", { path }) : Promise.resolve();
 }
 
 export function openFile(path: string): Promise<void> {
@@ -303,13 +303,13 @@ export function openFile(path: string): Promise<void> {
 /** GitHub Sponsors in the default browser. */
 export function openSponsors() {
   if (isNative) void invoke("open_sponsors");
-  else window.open("https://github.com/sponsors/andrealo20", "_blank");
+  else window.open("https://github.com/sponsors/andrealo20", "_blank", "noopener");
 }
 
 /** GitHub's bug report form, with Crest's version filled in (src-tauri lib.rs). */
 export function openBugReport() {
   if (isNative) void invoke("open_bug_report");
-  else window.open("https://github.com/andrealo20/crest/issues/new?template=bug_report.yml", "_blank");
+  else window.open("https://github.com/andrealo20/crest/issues/new?template=bug_report.yml", "_blank", "noopener");
 }
 
 /** Crest's rating page in the Microsoft Store app (Store build only). */
@@ -374,7 +374,7 @@ export interface ChangelogEntry {
 
 /** In the browser, `?update` in the URL fakes an update for testing. */
 const mockUpdate: UpdateHandle = {
-  version: demo ? "0.5.0" : "1.3.0",
+  version: demo ? "1.0.0" : "1.3.0",
   install: async (onProgress) => {
     for (let i = 1; i <= 20; i++) {
       await new Promise((r) => setTimeout(r, 120));
@@ -428,8 +428,10 @@ export const updater = {
  */
 export async function fetchChangelog(version: string): Promise<ChangelogEntry[] | null> {
   if (!isNative) {
-    const mock = { en: demo ? "An example entry: this is where a release lists what changed." : "Example: something new in the upcoming version" };
-    return [{ version, date: new Date().toISOString().slice(0, 10), items: [mock, mock] }, ...bundledChangelog];
+    const items = demo
+      ? [{ en: "Quick controls in Overview and a fuller weather tab with the 7 days." }, { en: "Eight cartoon pets that live in a nest beside the notch." }]
+      : Array(2).fill({ en: "Example: something new in the upcoming version" });
+    return [{ version, date: new Date().toISOString().slice(0, 10), items }, ...bundledChangelog];
   }
   try {
     const r = await fetch(`https://raw.githubusercontent.com/andrealo20/crest/v${version}/src/changelog.json`, {
@@ -451,7 +453,7 @@ export const autostart = {
 // ---------- Display ----------
 
 /** The closed notch as markup (mirror.rs Picture): the page's theme variables, and the `data:` images by index (null = unchanged). */
-export interface MirrorPicture { html: string; root: string; theme: string; images: string[] | null }
+export interface MirrorPicture { html: string; root: string; theme: string; lang: string; dir: string; images: string[] | null }
 
 export interface MonitorInfo {
   name: string;
@@ -471,8 +473,8 @@ export const display = {
     isNative
       ? invoke<MonitorInfo[]>("display_monitors")
       : Promise.resolve([
-          { name: "\\.\DISPLAY1", primary: true, width: 2560, height: 1440, workTop: 0, workHeight: 1440 - 48, workLeft: 0, workWidth: 2560 },
-          { name: "\\.\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48, workLeft: 0, workWidth: 1920 },
+          { name: "\\\\.\\DISPLAY1", primary: true, width: 2560, height: 1440, workTop: 0, workHeight: 1440 - 48, workLeft: 0, workWidth: 2560 },
+          { name: "\\\\.\\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48, workLeft: 0, workWidth: 1920 },
         ]),
   /**
    * `y`: window top in CSS px below the monitor's top edge (default 0); `rules`: screen_policy.rs Rules; `zoom`: panel scale (1 or 1.5).
@@ -512,6 +514,7 @@ export const display = {
   mirror: (picture: MirrorPicture, rect: { x: number; y: number; w: number; h: number }) => {
     if (isNative) void invoke("mirror_picture_set", { picture, rect });
   },
+  fullscreen: (): Promise<boolean> => (isNative ? invoke<boolean>("display_fullscreen") : Promise.resolve(false)),
   /** true while an app covers the notch's monitor in fullscreen. */
   onFullscreen: (handler: (on: boolean) => void): (() => void) => {
     if (!isNative) return () => {};
@@ -541,8 +544,9 @@ export const status = {
     ];
     return () => offs.forEach((off) => void off.then((f) => f()));
   },
-  /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `hideOsd`: hide the Windows indicator (status.ts osdHidden). */
-  configure: (c: { ddc: boolean; locks: boolean; hideOsd: boolean }) => {
+  /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `bt`, `volume`: keep the Bluetooth watcher and the volume callback;
+   *  `hideOsd`: hide the Windows indicator now (status.ts osdHidden); `osdArmed`: the option is in force, also while it is not hiding. */
+  configure: (c: { ddc: boolean; locks: boolean; bt: boolean; volume: boolean; hideOsd: boolean; osdArmed: boolean }) => {
     if (isNative) void invoke("status_configure", c);
   },
 };
@@ -595,7 +599,7 @@ const MOCK_BT = ["Audio.Headphone", "Input.Mouse", "Input.Keyboard", "Input.Gami
 
 /** Browser: each dev button toggles one source. Unplugging drops the mock percent by 9, so the low tones show too. */
 export const mockStatus = (() => {
-  let power: PowerState = { ac: true, percent: 64, battery: true }, online = true, buds = false, volume = 40, bright = 70, kind = 0, caps = false;
+  let power: PowerState = { ac: true, percent: 64, battery: true, charging: true }, online = true, buds = false, volume = 40, bright = 70, kind = 0, caps = false;
   const listeners = new Set<StatusHandlers>();
   return {
     seed: (): StatusSeed => ({ power, online, devices: buds ? ["Buds"] : [] }),
@@ -605,7 +609,7 @@ export const mockStatus = (() => {
     },
     unplug() {
       const percent = power.ac ? (power.percent! > 10 ? power.percent! - 9 : 64) : power.percent;
-      power = { ac: !power.ac, percent, battery: true };
+      power = { ac: !power.ac, percent, battery: true, charging: !power.ac };
       listeners.forEach((h) => h.power(power));
     },
     offline() {
@@ -991,6 +995,8 @@ export interface PhoneShare {
 /** The words of the page the phone opens, in the app's language. */
 export interface PhonePageText {
   lang: string;
+  /** "rtl" or "ltr". */
+  dir: string;
   title: string;
   count: string;
   hint: string;
@@ -1000,10 +1006,10 @@ export interface PhonePageText {
 export function phoneShareStart(paths: string[], text: PhonePageText): Promise<PhoneShare> {
   if (isNative) return invoke<PhoneShare>("phone_share_start", { paths, text });
   // Demo: a stand-in code that looks like the real one but opens nothing; the app serves the files on the local network.
-  return demo ? Promise.resolve({ url: "demo only: the app shows a real link here", qr: demoQr(), size: 29, ttl: 600 }) : Promise.reject(new Error("Only in the app"));
+  return demo ? Promise.resolve({ url: "", qr: demoQr(), size: 37, ttl: 600 }) : Promise.reject(new Error("Only in the app"));
 }
 
-/** A QR-like pattern (three finder squares and fixed noise) as one SVG path in a 29 unit box. */
+/** A QR-like pattern (three finder squares and fixed noise) as one SVG path in a 37 unit box: 29 modules and the 4 of quiet zone, like phone_share.rs. */
 function demoQr(): string {
   const n = 29;
   const finder = (x: number, y: number) => x === 0 || x === 6 || y === 0 || y === 6 || (x >= 2 && x <= 4 && y >= 2 && y <= 4);
@@ -1014,7 +1020,7 @@ function demoQr(): string {
     for (let x = 0; x < n; x++) {
       const inFinder = (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7);
       const on = inFinder ? finder(x < 7 ? x : x - (n - 7), y < 7 ? y : y - (n - 7)) : rnd() < 0.48;
-      if (on) path += `M${x} ${y}h1v1h-1z`;
+      if (on) path += `M${x + 4} ${y + 4}h1v1h-1z`;
     }
   }
   return path;
@@ -1023,6 +1029,13 @@ function demoQr(): string {
 /** Stops the share at `url` (a newer one keeps running). */
 export function phoneShareStop(url: string) {
   if (isNative) void invoke("phone_share_stop", { url });
+}
+
+/** The share at `url` ended because the computer left the network its QR code points to. */
+export function onPhoneShareLost(handler: (url: string) => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen<string>("notch://phone-share-lost", (e) => handler(e.payload));
+  return () => void off.then((f) => f());
 }
 
 /** Text on the clipboard ("" if none). */
@@ -1155,10 +1168,10 @@ export const launcher = {
   open: (id: string): Promise<void> => (isNative ? invoke("launcher_open", { id }) : Promise.resolve()),
   /** Registers Alt+1.. for these ids; per slot whether Windows gave the key. */
   shortcuts: (ids: string[]): Promise<boolean[]> => (isNative ? invoke<boolean[]>("launcher_shortcuts", { ids }) : Promise.resolve(ids.map((_, i) => i !== 2))),
-  /** A hotkey was pressed for an app that is no longer installed (payload: its id). */
-  onMissing: (handler: (id: string) => void): (() => void) => {
+  /** A hotkey was pressed for an app that did not start (code as in `open`). */
+  onMissing: (handler: (id: string, code: string) => void): (() => void) => {
     if (!isNative) return () => {};
-    const off = listen<string>("launcher://missing", (e) => handler(e.payload));
+    const off = listen<{ id: string; code: string }>("launcher://missing", (e) => handler(e.payload.id, e.payload.code));
     return () => void off.then((f) => f());
   },
 };
@@ -1184,7 +1197,7 @@ export interface GithubContributions {
 /** The user's profile on github.com in the browser; Rust refuses anything that is not a valid login, and there is nothing to show for it. */
 export function openGithubProfile(user: string) {
   if (isNative) invoke("github_open_profile", { user }).catch(() => {});
-  else window.open(`https://github.com/${encodeURIComponent(user)}`, "_blank");
+  else window.open(`https://github.com/${encodeURIComponent(user)}`, "_blank", "noopener");
 }
 
 /** Errors from Rust: no-user, not-found, rate-limited, offline, parse, failed. `force` skips the hour's cache (once a minute at most). */
@@ -1241,7 +1254,7 @@ export interface CalendarData {
   fetchedAt: number;
 }
 
-/** Events from yesterday to two weeks ahead; `force` skips Rust's ten minutes' cache. */
+/** Events from about two months back to three ahead; `force` skips Rust's ten minutes' cache. */
 export function fetchCalendar(sources: CalendarSourceIn[], force: boolean): Promise<CalendarData> {
   if (isNative) return invoke<CalendarData>("calendar_fetch", { sources, force });
   const day = new Date();
@@ -1281,8 +1294,8 @@ export function fetchCalendar(sources: CalendarSourceIn[], force: boolean): Prom
 }
 
 /** An event's meeting link in the default browser; Rust opens https links only. */
-export function openMeetingLink(url: string) {
-  if (isNative) void invoke("calendar_open_link", { url });
+export async function openMeetingLink(url: string): Promise<void> {
+  if (isNative) await invoke("calendar_open_link", { url });
   // Demo: the sample link goes nowhere; a notice says what the app would have done.
   else if (demo) mockNotice({ appName: "Crest demo", title: "Meeting link", body: `The app opens ${url} in your browser.` });
   else window.open(url, "_blank", "noopener");
@@ -1436,7 +1449,7 @@ const demoPlugins = (() => {
 
 /** Install, list and remove plugins, and run what their pages ask for (src/features/plugins/PluginView.tsx). */
 export const pluginApi = {
-  list: (): Promise<PluginManifest[]> => (isNative ? invoke<PluginManifest[]>("plugins_list") : demo ? demoPlugins.list() : Promise.resolve([])),
+  list: (): Promise<PluginManifest[]> => (isMac ? Promise.resolve([]) : isNative ? invoke<PluginManifest[]>("plugins_list") : demo ? demoPlugins.list() : Promise.resolve([])),
   /** The system's folder or .zip picker; null when cancelled. */
   pick: (zip: boolean): Promise<string | null> => (isNative ? invoke<string | null>("plugins_pick", { zip }) : demo ? demoPlugins.pick() : Promise.resolve(null)),
   stage: (path: string): Promise<StagedPlugin> => (isNative ? invoke<StagedPlugin>("plugins_stage", { path }) : demo ? demoPlugins.stage() : notInBrowser()),

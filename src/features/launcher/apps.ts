@@ -36,8 +36,8 @@ const AI_APPS: { key: string; match: RegExp }[] = [
   { key: "msty", match: /^msty\b/i },
 ];
 
-/** Start menu clutter: uninstallers, readme and help links. */
-const JUNK = /\b(uninstall|uninstaller|readme|release notes|help|documentation|website)\b/i;
+/** Start menu clutter: uninstallers, readme and help links ("Uninstall X", "X Help"); apps like "Help Scout" stay. */
+const JUNK = /^(uninstall|uninstaller|readme|release notes)\b|\b(uninstall|uninstaller|readme|release notes|help|documentation|website)$/i;
 
 /** The AI app this entry is, or null. */
 export function aiKey(app: { name: string }): string | null {
@@ -46,7 +46,7 @@ export function aiKey(app: { name: string }): string | null {
   return AI_APPS.find((a) => a.match.test(name))?.key ?? null;
 }
 
-const norm = (name: string) => name.trim().toLowerCase();
+const norm = (name: string) => name.trim().toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
 
 /**
  * Start entries (without clutter, sorted by name), plus App Paths entries that are AI apps

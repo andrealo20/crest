@@ -97,7 +97,7 @@ pub async fn fetch(client: &reqwest::Client, app: &AppHandle) -> Result<Account,
         _ => {}
     }
     if let Some(p) = &path {
-        let _ = std::fs::write(p, serde_json::to_vec(&cache).unwrap_or_default());
+        let _ = crate::write_atomic(p, &serde_json::to_vec(&cache).unwrap_or_default());
     }
 
     Ok(Account { holdings, trades: trades(cache.entries.values()), partial: !cache.complete, ..Default::default() })
@@ -185,9 +185,11 @@ const LEGACY: &[&str] = &[
     "ZJPY", "ZAUD",
 ];
 
-/// "XXBT" → "BTC", "ZEUR" → "EUR", "DOT.S" → "DOT", "ETH2.S" → "ETH", "USDC.M" → "USDC".
+/// "XXBT" → "BTC", "ZEUR" → "EUR", "DOT.S" → "DOT", "DOT28.S" → "DOT", "ETH2.S" → "ETH", "USDC.M" → "USDC".
 pub fn asset(code: &str) -> String {
     let base = code.split('.').next().unwrap_or(code);
+    // Bonded staking adds the lock length ("DOT28.S").
+    let base = if base.len() < code.len() { base.trim_end_matches(|c: char| c.is_ascii_digit()) } else { base };
     let base = if LEGACY.contains(&base) { &base[1..] } else { base };
     match base {
         "XBT" => "BTC",
@@ -223,6 +225,8 @@ mod tests {
         assert_eq!(asset("XETH"), "ETH");
         assert_eq!(asset("ETH2.S"), "ETH");
         assert_eq!(asset("DOT.S"), "DOT");
+        assert_eq!(asset("DOT28.S"), "DOT");
+        assert_eq!(asset("KSM07.S"), "KSM");
         assert_eq!(asset("XXDG"), "DOGE");
         assert_eq!(asset("XTZ"), "XTZ");
         assert_eq!(asset("ZRX"), "ZRX");

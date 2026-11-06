@@ -69,7 +69,12 @@ function startCrashLog() {
     log(`${e.message} at ${e.filename}:${e.lineno}:${e.colno}\n${e.error?.stack ?? ""}`);
   });
   // Only the first line: a rejected value can carry a whole response body.
-  window.addEventListener("unhandledrejection", (e) => log(`unhandled rejection: ${String(e.reason).split("\n")[0]}`));
+  window.addEventListener("unhandledrejection", (e) => {
+    const reason = String(e.reason).split("\n")[0];
+    // A Mac has no handler for the Windows-only commands, which some stores call at start: expected, not worth a crash.log line.
+    if (isMac && /^Command \S+ not found$/.test(reason)) return;
+    log(`unhandled rejection: ${reason}`);
+  });
 }
 
 export function startWindowBehavior() {

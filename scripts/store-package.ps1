@@ -36,6 +36,24 @@ function Invoke-Tool([string]$File) {
     if ($LASTEXITCODE) { throw "$(Split-Path -Leaf $File) failed ($LASTEXITCODE)" }
 }
 
+# The 512 px icon at $Size px as a PNG, for the scale and target-size variants Windows picks by screen scale (a 44 px tile on a 200% screen is blurry).
+function Save-Icon([Drawing.Image]$Icon, [int]$Size, [string]$Path) {
+    $bitmap = [Drawing.Bitmap]::new($Size, $Size)
+    try {
+        $graphics = [Drawing.Graphics]::FromImage($bitmap)
+        try {
+            $graphics.InterpolationMode = 'HighQualityBicubic'
+            $graphics.SmoothingMode = 'HighQuality'
+            $graphics.PixelOffsetMode = 'HighQuality'
+            $graphics.DrawImage($Icon, 0, 0, $Size, $Size)
+        }
+        finally { $graphics.Dispose() }
+        $bitmap.Save($Path, [Drawing.Imaging.ImageFormat]::Png)
+    }
+    finally { $bitmap.Dispose() }
+}
+Add-Type -AssemblyName System.Drawing
+
 $version = (Get-Content -Raw (Join-Path $root 'src-tauri\tauri.conf.json') | ConvertFrom-Json).version
 $storeVersion = Get-StoreVersion $version
 
@@ -74,6 +92,20 @@ function New-StorePackage([string]$PackageArch) {
     foreach ($logo in 'Square44x44Logo', 'Square71x71Logo', 'Square150x150Logo', 'StoreLogo') {
         Copy-Item -LiteralPath (Join-Path $root "src-tauri\icons\$logo.png") -Destination $stage
     }
+    Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $stage
+    Copy-Item -LiteralPath (Join-Path $root 'licenses') -Destination $stage -Recurse
+    $icon = [Drawing.Image]::FromFile((Join-Path $root 'src-tauri\icons\icon.png'))
+    try {
+        foreach ($variant in @{ 'Square44x44Logo.scale-200' = 88; 'Square44x44Logo.scale-400' = 176; 'Square71x71Logo.scale-200' = 142; 'Square150x150Logo.scale-200' = 300; 'StoreLogo.scale-200' = 100 }.GetEnumerator()) {
+            Save-Icon $icon $variant.Value (Join-Path $stage "$($variant.Key).png")
+        }
+        # The app list and taskbar icons; the unplated ones come without the colored plate Windows puts behind a tile.
+        foreach ($size in 16, 24, 32, 48, 256) {
+            Save-Icon $icon $size (Join-Path $stage "Square44x44Logo.targetsize-$size.png")
+            Save-Icon $icon $size (Join-Path $stage "Square44x44Logo.targetsize-${size}_altform-unplated.png")
+        }
+    }
+    finally { $icon.Dispose() }
     $manifest = (Get-Content -Raw (Join-Path $root 'packaging\store\AppxManifest.xml')).Replace('{version}', $storeVersion).Replace('{arch}', $PackageArch)
     [IO.File]::WriteAllText((Join-Path $stage 'AppxManifest.xml'), $manifest, [Text.UTF8Encoding]::new($false))
 

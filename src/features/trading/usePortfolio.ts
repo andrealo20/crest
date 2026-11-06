@@ -95,7 +95,8 @@ export function usePortfolio() {
         const summaries = list.map((a) => ({ ...a, summary: a.account ? summarize(a.account, usable) : null }));
         const ok = summaries.flatMap((a) => (a.summary ? [a.summary] : []));
         const total = ok.length ? addTotals(ok) : null;
-        const usableSummary = (s: Summary | null) => s && !s.partial && !s.missing.length;
+        // A price missing while every source answered is a symbol none knows (it stays out of the total each time); only a failed source makes a dip.
+        const usableSummary = (s: Summary | null) => s && !s.partial && (!s.missing.length || !usable.failed.length);
         const complete = summaries.every((a) => !a.loading && !a.error && usableSummary(a.summary));
 
         if (final) {
@@ -137,8 +138,8 @@ export function usePortfolio() {
             if (id === "t212" && adoptBase(currency) && currency?.toUpperCase() !== base) adopted = true;
           } catch (e) {
             const error = String(e);
-            // A rate limit while data is on screen keeps the last data.
-            if (!(error === "rate" && slot.account)) {
+            // A rate limit or a statement still being prepared keeps the last data on screen.
+            if (!((error === "rate" || error === "pending") && slot.account)) {
               slot.account = null;
               slot.error = error;
             }

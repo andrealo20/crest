@@ -148,6 +148,7 @@ export function errorText(code: string, fallback: string): string {
 
 export function failureText(failed: string[]): string | null {
   if (failed.includes("save")) return t("Die Aufnahme konnte nicht gespeichert werden");
+  if (failed.includes("disk")) return t("Aufnahme gestoppt: Speicher voll");
   if (failed.includes("video")) return t("Aufnahme gestoppt: Bild oder Encoder ausgefallen");
   if (failed.includes("partial")) return t("Aufnahme vorzeitig beendet, das Aufgenommene ist gespeichert");
   const parts = [failed.includes("system") && t("Systemton nicht verfügbar"), failed.includes("mic") && t("Mikrofon nicht verfügbar")].filter(Boolean);
@@ -285,7 +286,7 @@ function Card({ file, details, onDeleted }: { file: CaptureFile; details?: Captu
   const I = video ? FilmStrip : ImageSquare;
   // A thumbnail can show anything that was on screen: only the icon while presenting.
   const thumb = usePresenting() ? null : details?.thumb;
-  const [armed, onDelete] = useDelete(file.path, onDeleted);
+  const [armed, onDelete, deleteError] = useDelete(file.path, onDeleted);
 
   return (
     <div className="relative flex size-full flex-col overflow-hidden rounded-[14px] bg-fill-1">
@@ -305,8 +306,8 @@ function Card({ file, details, onDeleted }: { file: CaptureFile; details?: Captu
       <div className="px-2 pt-1.5 pb-1">
         <p className="truncate text-caption font-medium text-label" title={file.name}>{when(file.modified)}</p>
         <div className="flex items-center justify-between">
-          <span className="tabular text-caption text-label-3">{formatBytes(file.size, 0)}</span>
-          <span className={`flex transition-opacity duration-150 group-hover:opacity-100 ${armed ? "opacity-100" : "opacity-0"}`}>
+          {deleteError ? <span className="min-w-0 truncate text-caption text-red" title={deleteError}>{deleteError}</span> : <span className="tabular text-caption text-label-3">{formatBytes(file.size, 0)}</span>}
+          <span className={`flex transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100 ${armed ? "opacity-100" : "opacity-0"}`}>
             <IconBtn label={t("Im Explorer zeigen")} icon={FolderOpen} onClick={() => revealFile(file.path)} />
             <IconBtn label={armed ? t("Zum Löschen erneut klicken") : t("Löschen")} icon={Trash} danger={armed} onClick={onDelete} />
           </span>
@@ -317,20 +318,26 @@ function Card({ file, details, onDeleted }: { file: CaptureFile; details?: Captu
 }
 
 /** Delete takes a second click within a few seconds: [armed, click]. */
-export function useDelete(path: string, onDeleted: () => void): [boolean, () => void] {
+export function useDelete(path: string, onDeleted: () => void): [boolean, () => void, string | null] {
   const [armed, setArmed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const disarm = useRef(0);
   useEffect(() => () => window.clearTimeout(disarm.current), []);
   const onDelete = () => {
     if (!armed) {
+      setError(null);
       setArmed(true);
       disarm.current = window.setTimeout(() => setArmed(false), 3000);
       return;
     }
     window.clearTimeout(disarm.current);
-    void capture.remove(path).then(onDeleted, () => setArmed(false));
+    void capture.remove(path).then(onDeleted, (e: unknown) => {
+      setArmed(false);
+      // "cancelled": the user refused Windows' question about a file too big for the Recycle Bin.
+      if (String(e) !== "cancelled") setError(errorText(String(e), t("Löschen fehlgeschlagen")));
+    });
   };
-  return [armed, onDelete];
+  return [armed, onDelete, error];
 }
 
 export function IconBtn({ label, icon: I, onClick, danger }: { label: string; icon: Icon; onClick: () => void; danger?: boolean }) {

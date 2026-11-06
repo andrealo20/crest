@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { CaretUpDown, Eye, EyeSlash, type Icon } from "@phosphor-icons/react";
 import { popover, springs } from "../design/motion";
 import { t } from "../i18n";
+import { sliderKey } from "./sliderKey";
 
 /*
  * Shared controls. Every tool uses these instead of its own variants, so sizes,
@@ -186,6 +187,9 @@ export function TextField(props: {
   /** Shows a secret from outside (e.g. right after generating a password). */
   revealed?: boolean;
   autoFocus?: boolean;
+  /** Red outline, for a value that is not accepted. */
+  invalid?: boolean;
+  onBlur?: () => void;
 }) {
   const [reveal, setReveal] = useState(false);
   useEffect(() => {
@@ -193,7 +197,7 @@ export function TextField(props: {
   }, [props.revealed]);
   return (
     <div
-      className={`flex h-7 items-center gap-1 rounded-[8px] bg-fill-2 px-2 ${props.width ?? "w-44"}`}
+      className={`flex h-7 items-center gap-1 rounded-[8px] bg-fill-2 px-2 ${props.width ?? "w-44"} ${props.invalid ? "ring-1 ring-red" : ""}`}
     >
       <input
         value={props.value}
@@ -208,6 +212,7 @@ export function TextField(props: {
           }
         }}
         onChange={(e) => props.onChange(e.target.value)}
+        onBlur={props.onBlur}
         onKeyDown={(e) => e.key === "Enter" && props.onSubmit?.()}
         className="min-w-0 flex-1 bg-transparent text-footnote text-label outline-none placeholder:text-label-4"
       />
@@ -318,7 +323,7 @@ export function Redacted({ lines = 2, className = "" }: { lines?: number; classN
   );
 }
 
-/** Slider. Drags via pointer capture; arrow keys ±step. */
+/** Slider. Drags via pointer capture; arrow keys ±step, Home and End. */
 export function Slider(props: {
   value: number;
   min: number;
@@ -349,7 +354,7 @@ export function Slider(props: {
       aria-valuenow={props.value}
       aria-valuemin={props.min}
       aria-valuemax={props.max}
-      className="relative flex h-5 w-full cursor-pointer touch-none items-center outline-none"
+      className="relative flex h-5 w-full cursor-pointer touch-none items-center rounded-full outline-none focus-visible:ring-1 focus-visible:ring-label-3"
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId);
         set(e.clientX);
@@ -358,10 +363,10 @@ export function Slider(props: {
         e.currentTarget.hasPointerCapture(e.pointerId) && set(e.clientX)
       }
       onKeyDown={(e) => {
-        if (e.key === "ArrowRight")
-          props.onChange(Math.min(props.max, props.value + step));
-        if (e.key === "ArrowLeft")
-          props.onChange(Math.max(props.min, props.value - step));
+        const to = sliderKey(e.key, props.value, step, props.min, props.max);
+        if (to === undefined) return;
+        e.preventDefault();
+        props.onChange(to);
       }}
     >
       <div className="relative h-1 w-full overflow-hidden rounded-full bg-fill-2">
@@ -553,6 +558,6 @@ export function Select<T extends string>(props: {
 /** Calm loading placeholder (pulsing area instead of a spinner). */
 export function Skeleton({ className = "" }: { className?: string }) {
   return (
-    <div className={`animate-pulse rounded-[8px] bg-fill-1 ${className}`} />
+    <div className={`motion-safe:animate-pulse rounded-[8px] bg-fill-1 ${className}`} />
   );
 }

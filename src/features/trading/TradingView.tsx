@@ -185,7 +185,7 @@ function AccountRow({ account: a, index, money, onOpen }: { account: AccountStat
   const sub = a.error
     ? errorLine(a.error)
     : s
-      ? t("{n} Positionen", { n: s.lines.length }) + (s.cash > 0.005 ? ` · ${t("Cash")} ${money(s.cash)}` : "")
+      ? (s.lines.length === 1 ? `1 ${t("Position")}` : t("{n} Positionen", { n: s.lines.length })) + (s.cash > 0.005 ? ` · ${t("Cash")} ${money(s.cash)}` : "")
       : t("Wird geladen …");
   return (
     <motion.button
@@ -223,16 +223,16 @@ function Positions({ account, money, hidden }: { account: AccountState; money: M
         const priceDate = account.id === "manual" && p.kind === "stock" ? manual.find((m) => m.symbol.toUpperCase() === p.symbol)?.priceDate : null;
         return (
           <motion.div
-            key={p.symbol}
+            key={`${p.symbol}-${i}`}
             className="flex h-10 items-center gap-3 border-b border-separator px-1 last:border-0"
             initial={{ opacity: 0, transform: "translateY(4px)" }}
             animate={{ opacity: 1, transform: "translateY(0px)" }}
-            transition={{ ...content.enter, delay: 0.03 * i }}
+            transition={{ ...content.enter, delay: 0.03 * Math.min(i, 8) }}
             title={hidden ? undefined : tooltip(p, money)}
           >
             <div className="min-w-0 flex-1">
               <div className="truncate text-footnote font-semibold text-label">{p.symbol}</div>
-              <div className="truncate text-caption text-label-3">{priceDate ? t("Kurs vom {date}", { date: new Date(priceDate).toLocaleDateString(locale(), { day: "numeric", month: "short" }) }) : p.name === "unknown-asset" ? t("Unbekannter Wert") : p.name}</div>
+              <div className="truncate text-caption text-label-3">{priceDate ? t("Kurs vom {date}", { date: new Date(`${priceDate}T00:00`).toLocaleDateString(locale(), { day: "numeric", month: "short" }) }) : p.name === "unknown-asset" ? t("Unbekannter Wert") : p.name}</div>
             </div>
             <div className="text-end">
               <div className="tabular text-footnote text-label">{p.value !== null ? money(p.value) : t("Kein Kurs")}</div>
@@ -278,7 +278,7 @@ function Stat({ label, value, sub, tone: t }: { label: string; value: string; su
       <div className="text-caption text-label-3">{label}</div>
       <div className={`tabular flex items-baseline gap-1 text-footnote font-semibold ${t === undefined ? "text-label" : tone(t)}`}>
         <span className="truncate">{value}</span>
-        {sub && <span className="shrink-0 text-caption font-medium opacity-80">{sub}</span>}
+        {sub && <span className="shrink-0 text-caption font-medium">{sub}</span>}
       </div>
     </div>
   );
@@ -302,7 +302,7 @@ function Chart({ series, money, rangeLabel }: { series: number[]; money: (v: num
     return (
       <div className="flex h-[74px] w-[210px] shrink-0 flex-col justify-end gap-1.5">
         <div className="h-px w-full border-t border-dashed border-fill-3" />
-        <span className="text-end text-caption text-label-3">{t("Verlauf entsteht – ab jetzt wird gespeichert")}</span>
+        <span className="text-end text-caption text-label-3">{t("Verlauf entsteht, ab jetzt wird gespeichert")}</span>
       </div>
     );
   }
@@ -373,10 +373,11 @@ function LoadingState() {
 
 const errorText: Record<string, string> = {
   "no-key": "Schlüssel fehlt.",
-  unauthorized: "Schlüssel ungültig – bitte neu eintragen.",
+  unauthorized: "Schlüssel ungültig, bitte neu eintragen.",
   forbidden: "Dem Schlüssel fehlen Leserechte, siehe Einstellungen.",
   "bad-key": "Privater Schlüssel nicht lesbar. Nötig ist ein ECDSA-Schlüssel im PEM-Format.",
   rate: "Zu viele Abfragen, gleich wieder.",
+  pending: "Der Bericht ist noch in Arbeit. Bitte später erneut laden.",
 };
 
 /** Short text for an error code from Rust. */
@@ -388,7 +389,7 @@ function errorLine(code: string): string {
 }
 
 function ErrorState({ name, code, onRetry }: { name: string; code: string; onRetry: () => void }) {
-  const isKey = code in errorText && code !== "rate";
+  const isKey = code in errorText && code !== "rate" && code !== "pending";
   return (
     <Empty
       icon={isKey ? Key : WarningCircle}

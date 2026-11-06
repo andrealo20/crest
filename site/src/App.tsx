@@ -3,7 +3,7 @@ import { CHAPTERS, HUE, LOGO, TOOLS, TOOL_BAR } from "./data";
 import { useDemo } from "./demo";
 import { Stage, Wash } from "./Stage";
 import { ChapterCard } from "./Chapter";
-import { Faq, Footer, Install, Make, Mark, Nav, Privacy, REPO, Rise } from "./Sections";
+import { Faq, Footer, Install, Make, Nav, Privacy, REPO, Rise } from "./Sections";
 
 export default function App() {
   const demo = useDemo();
@@ -23,7 +23,11 @@ export default function App() {
       { rootMargin: "-42% 0px -50% 0px" },
     );
     root.current?.querySelectorAll("[data-chapter]").forEach((el) => io.observe(el));
-    return () => io.disconnect();
+    // Back at the headline, the page has its first colour again.
+    const top = new IntersectionObserver(([e]) => e.isIntersecting && setActive(null), { threshold: 1 });
+    const h1 = root.current?.querySelector("h1");
+    if (h1) top.observe(h1);
+    return () => (io.disconnect(), top.disconnect());
   }, []);
 
   // A closed notch shows no tool, so no tool button is pressed.
@@ -83,6 +87,11 @@ export default function App() {
               </Rise>
             </div>
 
+            <aside className="stage-col" aria-label="Live demo" ref={stageCol}>
+              <a className="skip skip-demo" href="#chapters">Skip the demo and go to the chapters</a>
+              <Stage frame={demo.frame} tool={demo.tool} open={demo.open} size={demo.size} edge={demo.state.edge} pet={demo.state.pet !== null} onLoad={demo.onLoad} onOpen={() => demo.send({ cmd: "open" })} />
+            </aside>
+
             <div className="intro">
               <Rise i={2}>
                 <div className="toolbar" role="group" aria-label="Jump the demo to a tool">
@@ -98,11 +107,6 @@ export default function App() {
                 </div>
               </Rise>
             </div>
-
-            <aside className="stage-col" aria-label="Live demo" ref={stageCol}>
-              <a className="skip skip-demo" href="#chapters">Skip the demo and go to the chapters</a>
-              <Stage frame={demo.frame} tool={demo.tool} open={demo.open} size={demo.size} edge={demo.state.edge} pet={demo.state.pet !== null} onLoad={demo.onLoad} onOpen={() => demo.send({ cmd: "open" })} />
-            </aside>
 
             <div className="chapters" id="chapters">
               {CHAPTERS.map((c) => (
@@ -120,9 +124,6 @@ export default function App() {
           <Faq />
         </main>
         <Footer />
-        <noscript>
-          <p className="noscript"><Mark size={20} animate={false} /> The live demo needs JavaScript. Crest itself is on GitHub: {REPO}</p>
-        </noscript>
       </div>
   );
 }

@@ -18,6 +18,8 @@ export interface Saved {
   kind: "shot" | "video" | "audio";
   path: string;
   thumb: string | null;
+  /** The recording ended early (an error): what was saved is cut short. */
+  cut?: boolean;
   /** Date.now() when saved, so a second save in a row shows again. */
   at: number;
 }
@@ -28,7 +30,7 @@ export const libraryEpoch = createStore(0);
 function apply(s: CaptureRecState) {
   recording.set({ phase: s.phase, elapsedMs: s.elapsedMs, at: Date.now(), failed: s.failed, audio: s.audio });
   if (s.phase === "idle" && s.path) {
-    if (!s.failed.includes("save")) saved.set({ kind: s.audio ? "audio" : "video", path: s.path, thumb: null, at: Date.now() });
+    if (!s.failed.includes("save")) saved.set({ kind: s.audio ? "audio" : "video", path: s.path, thumb: null, cut: s.failed.some((f) => f === "video" || f === "disk" || f === "partial"), at: Date.now() });
     libraryEpoch.set((n) => n + 1);
   }
 }

@@ -104,7 +104,7 @@ export function PluginSettings() {
           );
         })}
         {state.phase === "confirm" && state.staged ? (
-          <Confirm staged={state.staged} />
+          <Confirm staged={state.staged} error={state.error} />
         ) : (
           <Row
             label={list.length ? t("Plugin hinzufügen") : t("Noch kein Plugin")}
@@ -125,7 +125,7 @@ export function PluginSettings() {
 }
 
 /** What the plugin is and may do, before anything is installed. */
-function Confirm({ staged }: { staged: StagedPlugin }) {
+function Confirm({ staged, error }: { staged: StagedPlugin; error: string | null }) {
   const m = staged.manifest;
   const p = m.permissions;
   const I = iconFor(m.icon) ?? PuzzlePiece;
@@ -139,8 +139,8 @@ function Confirm({ staged }: { staged: StagedPlugin }) {
           {m.author && ` · ${m.author}`}
         </span>
       </div>
-      {m.description && <p className="text-caption text-label-2">{m.description}</p>}
-      <ul className="flex flex-col gap-0.5 text-caption text-label-2">
+      {m.description && <p className="text-caption text-label-2 [overflow-wrap:anywhere]">{m.description}</p>}
+      <ul className="flex flex-col gap-0.5 text-caption text-label-2 [overflow-wrap:anywhere]">
         {p.network.length > 0 ? (
           <li>{t("Darf diese Adressen abrufen: {list}", { list: p.network.join(", ") })}</li>
         ) : (
@@ -150,6 +150,7 @@ function Confirm({ staged }: { staged: StagedPlugin }) {
         {p.notices && <li>{t("Darf Mitteilungen in der Notch zeigen")}</li>}
         {staged.replaces && <li className="text-orange">{t("Ersetzt die installierte Version {v}, die Daten bleiben", { v: staged.replaces })}</li>}
       </ul>
+      {error && <p className="text-caption text-orange">{errorText(error)}</p>}
       <div className="flex justify-end gap-1.5">
         <Button onClick={cancelInstall}>{t("Abbrechen")}</Button>
         <Button primary onClick={() => void confirmInstall()}>{t("Installieren")}</Button>

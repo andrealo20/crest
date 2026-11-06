@@ -109,7 +109,7 @@ const FACTS: [string, string][] = [
   ["Your keys", "In the Windows Credential Manager (the Keychain on a Mac), never in a plain file."],
   ["The vault", "Encrypted with Windows DPAPI under your account, and sealed again with a key from your PC's security chip when Windows Hello is on."],
   ["The clipboard", "History is kept in memory only. Password managers are left out on purpose."],
-  ["The network", "Crest goes online only for the services you turn on: weather, currency rates, lyrics, your AI provider. Each request goes straight from your PC to that service."],
+  ["The network", "On by default: the weather in Overview, the daily update check and the AI usage rings. Currency rates, lyrics, your AI provider and the rest only after you set them up. Each request goes straight from your PC to that service."],
 ];
 
 /** What this page and the demo frame inside it have fetched so far, read from the browser's own resource timings. */
@@ -134,7 +134,8 @@ function useRequests() {
           // not a URL
         }
       }
-      setSeen({ count: entries.length, others: [...others] });
+      // The same numbers keep the same state, so nothing renders.
+      setSeen((s) => (s.count === entries.length && s.others.join() === [...others].join() ? s : { count: entries.length, others: [...others] }));
     };
     read();
     const id = window.setInterval(read, 2500);

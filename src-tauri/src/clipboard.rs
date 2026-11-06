@@ -46,7 +46,8 @@ const PREVIEW_CHARS: usize = 400;
 const POLL: Duration = Duration::from_millis(300);
 /// Larger image files are not loaded for a preview.
 const MAX_THUMB_FILE_BYTES: u64 = 40 * 1024 * 1024;
-const IMAGE_EXTENSIONS: [&str; 7] = ["png", "jpg", "jpeg", "webp", "gif", "bmp", "ico"];
+/// Larger images (in pixels) are not kept: their RGBA copy and PNG encoding would take hundreds of MB.
+const MAX_IMAGE_PIXELS: usize = 64_000_000;
 
 enum Content {
     Text(String),
@@ -65,6 +66,9 @@ struct StoredImage {
 
 impl StoredImage {
     fn new(img: ImageData<'_>) -> Option<Self> {
+        if img.width.saturating_mul(img.height) > MAX_IMAGE_PIXELS {
+            return None;
+        }
         let rgba = image::RgbaImage::from_raw(img.width as u32, img.height as u32, img.bytes.into_owned())?;
         let thumbnail = thumbnail(&rgba)?;
         let mut png = Vec::new();
@@ -255,15 +259,28 @@ pub async fn clipboard_paste_files(app: tauri::AppHandle) -> Result<Vec<String>,
     tauri::async_runtime::spawn_blocking(move || {
         let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
         if let Ok(files) = clipboard.get().file_list() {
+            // The Shelf takes files only, so a copied folder counts as nothing to paste (and not as a silent success).
+            let files: Vec<_> = files.iter().filter(|p| p.is_file()).collect();
             if !files.is_empty() {
                 return Ok(files.iter().map(|p| p.display().to_string()).collect());
             }
+        }
+        // Like the history: Office adds an image of the cells to text, so copied text wins and becomes a text card.
+        if clipboard.get_text().is_ok_and(|t| !t.trim().is_empty() && !is_url(t.trim())) {
+            return Ok(vec![]);
         }
         let Ok(img) = clipboard.get_image() else { return Ok(vec![]) };
         let rgba = image::RgbaImage::from_raw(img.width as u32, img.height as u32, img.bytes.into_owned()).ok_or("Cannot read image")?;
         let dir = pictures.join("Crest");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let path = dir.join(format!("Pasted {}.png", local_stamp()));
+        let stamp = local_stamp();
+        let mut path = dir.join(format!("Pasted {stamp}.png"));
+        for n in 2.. {
+            if !path.exists() {
+                break;
+            }
+            path = dir.join(format!("Pasted {stamp} ({n}).png"));
+        }
         rgba.save(&path).map_err(|e| e.to_string())?;
         Ok(vec![path.display().to_string()])
     })
@@ -300,12 +317,12 @@ pub fn spawn(app: AppHandle) {
 
             let mode = state.mode.load(Ordering::Relaxed);
             // Another app may hold the clipboard briefly; try again next round.
-            let content = if mode == MODE_OFF || formats.is_private() {
-                Some(None)
-            } else if mode == MODE_TEXT {
-                read_text()
-            } else {
-                read_content()
+            let private = if mode == MODE_OFF { Some(true) } else { formats.is_private() };
+            let content = match private {
+                None => None,
+                Some(true) => Some(None),
+                Some(false) if mode == MODE_TEXT => read_text(),
+                Some(false) => read_content(),
             };
             let Some(content) = content else { continue };
             *state.last_seq.lock().unwrap() = seq;
@@ -342,12 +359,16 @@ impl PrivateFormats {
         }
     }
 
-    fn is_private(&self) -> bool {
+    /// `None` = the clipboard is held by another app right now (retry).
+    fn is_private(&self) -> Option<bool> {
         let available = |f: u32| f != 0 && unsafe { IsClipboardFormatAvailable(f) }.is_ok();
         if self.exclude.iter().any(|&f| available(f)) {
-            return true;
+            return Some(true);
         }
-        available(self.can_include) && read_dword(self.can_include) == Some(0)
+        if !available(self.can_include) {
+            return Some(false);
+        }
+        Some(read_dword(self.can_include)? == Some(0))
     }
 }
 
@@ -361,13 +382,14 @@ impl PrivateFormats {
         PrivateFormats
     }
 
-    fn is_private(&self) -> bool {
-        crate::macos::pasteboard_is_private()
+    fn is_private(&self) -> Option<bool> {
+        Some(crate::macos::pasteboard_is_private())
     }
 }
 
+/// `None` = the clipboard could not be opened; `Some(None)` = the format holds no DWORD.
 #[cfg(windows)]
-fn read_dword(format: u32) -> Option<u32> {
+fn read_dword(format: u32) -> Option<Option<u32>> {
     unsafe {
         OpenClipboard(None).ok()?;
         let value = GetClipboardData(format).ok().and_then(|handle| {
@@ -378,7 +400,7 @@ fn read_dword(format: u32) -> Option<u32> {
             value
         });
         let _ = CloseClipboard();
-        value
+        Some(value)
     }
 }
 
@@ -421,10 +443,9 @@ fn is_url(text: &str) -> bool {
 }
 
 fn add(state: &ClipboardState, content: Content) {
-    let mut entries = state.entries.lock().unwrap();
-
     // Same text copied again: move the existing entry to the top.
     if let Content::Text(new) = &content {
+        let mut entries = state.entries.lock().unwrap();
         if let Some(i) = entries.iter().position(|e| matches!(&e.content, Content::Text(t) if t == new)) {
             let mut entry = entries.remove(i);
             entry.item.copied_at = now_ms();
@@ -438,7 +459,9 @@ fn add(state: &ClipboardState, content: Content) {
         *next += 1;
         *next
     };
+    // Outside the lock: a file thumbnail decodes an image and would block the history commands.
     let Some(item) = describe(id, &content) else { return };
+    let mut entries = state.entries.lock().unwrap();
     entries.insert(0, Entry { id, content, item });
 
     let mut images = 0;
@@ -493,12 +516,23 @@ fn describe(id: u64, content: &Content) -> Option<ClipItem> {
 pub fn is_image_file(path: &Path) -> bool {
     path.extension()
         .map(|e| e.to_string_lossy().to_lowercase())
-        .is_some_and(|e| IMAGE_EXTENSIONS.contains(&e.as_str()))
+        .is_some_and(|e| crate::convert::IMAGE_IN.contains(&e.as_str()))
 }
 
 pub fn file_thumbnail(path: &Path) -> Option<String> {
-    if std::fs::metadata(path).ok()?.len() > MAX_THUMB_FILE_BYTES {
+    let meta = std::fs::metadata(path).ok()?;
+    if meta.len() > MAX_THUMB_FILE_BYTES {
         return None;
+    }
+    // Decoding a cloud-only file would download it.
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const OFFLINE: u32 = 0x1000;
+        const RECALL_ON_DATA_ACCESS: u32 = 0x40_0000;
+        if meta.file_attributes() & (OFFLINE | RECALL_ON_DATA_ACCESS) != 0 {
+            return None;
+        }
     }
     thumbnail(&image::open(path).ok()?.to_rgba8())
 }

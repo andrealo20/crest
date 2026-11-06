@@ -5,12 +5,11 @@
 //! only for a player that is running, so none is ever launched) and emits `media://update` like media.rs does on Windows.
 //! The first question to each player makes macOS ask for the Automation permission.
 
-use std::collections::HashMap;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use base64::Engine;
 use serde::Serialize;
@@ -20,6 +19,11 @@ use tauri::{AppHandle, Emitter, Manager, State};
 /// The players asked, by process name, which is also their AppleScript name and the app id the frontend sees.
 const PLAYERS: [&str; 2] = ["Spotify", "Music"];
 const POLL: Duration = Duration::from_secs(1);
+/// The poll while nothing plays; a command from the page wakes it at once.
+const IDLE_POLL: Duration = Duration::from_secs(3);
+/// A failed cover download is tried again after this long.
+const COVER_RETRY: Duration = Duration::from_secs(30);
+const COVER_TIMEOUT: Duration = Duration::from_secs(5);
 /// Drift beyond which a position counts as a seek and is sent again (as on Windows).
 const SEEK_THRESHOLD: f64 = 1.5;
 const LYRICS_RESYNC: Duration = Duration::from_secs(5);
@@ -46,11 +50,20 @@ pub struct NowPlaying {
     shuffle: Option<bool>,
     repeat: Option<&'static str>,
     sources: Vec<Source>,
+    /// Only in the event: the cover is the one of the previous event, so it is left out (see `lean`).
+    artwork_same: bool,
 }
 
-/// Last emitted state and when; the pinned app; lyrics on screen.
+/// Last emitted state and when; the pinned app; lyrics on screen; the polling thread.
 #[derive(Default)]
-pub struct MediaState(Mutex<Option<(NowPlaying, SystemTime)>>, Mutex<Option<String>>, AtomicBool);
+pub struct MediaState(Mutex<Option<(NowPlaying, SystemTime)>>, Mutex<Option<String>>, AtomicBool, Mutex<Option<thread::Thread>>);
+
+/// Polls now instead of after the idle wait.
+fn wake(state: &MediaState) {
+    if let Some(poller) = state.3.lock().unwrap().as_ref() {
+        poller.unpark();
+    }
+}
 
 #[tauri::command]
 pub fn media_get(state: State<'_, MediaState>) -> Option<NowPlaying> {
@@ -81,7 +94,9 @@ pub async fn media_control(state: State<'_, MediaState>, action: String, positio
         _ => return Ok(()),
     };
     let script = format!("tell application \"{app}\"\n{command}\nend tell");
-    tauri::async_runtime::spawn_blocking(move || run(&script).map(|_| ())).await.map_err(|e| e.to_string())?
+    let done = tauri::async_runtime::spawn_blocking(move || run(&script).map(|_| ())).await.map_err(|e| e.to_string())?;
+    wake(&state);
+    done
 }
 
 #[tauri::command]
@@ -92,6 +107,7 @@ pub fn media_lyrics(on: bool, state: State<'_, MediaState>) {
 #[tauri::command]
 pub fn media_pin(app_id: Option<String>, state: State<'_, MediaState>) {
     *state.1.lock().unwrap() = app_id.filter(|id| !id.is_empty());
+    wake(&state);
 }
 
 #[derive(Serialize)]
@@ -193,22 +209,39 @@ fn pick(tracks: &[Track], shown: Option<&str>, pinned: Option<&str>) -> Option<u
         .or(if tracks.is_empty() { None } else { Some(0) })
 }
 
+/// The cover of the shown track: its link, the data URL once fetched, and when a try failed.
+#[derive(Default)]
+struct Cover {
+    url: String,
+    data: Option<String>,
+    failed: Option<Instant>,
+}
+
 /// Spotify gives the cover as a link; the page may only show data URLs, so it is fetched once per link.
-fn artwork(url: &str, cache: &mut HashMap<String, Option<String>>) -> Option<String> {
+/// A failed try is repeated only after COVER_RETRY, and never waits longer than COVER_TIMEOUT.
+fn artwork(url: &str, cover: &mut Cover) -> Option<String> {
     if !url.starts_with("https://") {
         return None;
     }
-    if let Some(hit) = cache.get(url) {
-        return hit.clone();
+    if cover.url == url && (cover.data.is_some() || cover.failed.is_some_and(|at| at.elapsed() < COVER_RETRY)) {
+        return cover.data.clone();
     }
     let fetched = tauri::async_runtime::block_on(async {
-        let bytes = reqwest::get(url).await.ok()?.error_for_status().ok()?.bytes().await.ok()?;
+        let client = reqwest::Client::builder().timeout(COVER_TIMEOUT).build().ok()?;
+        let bytes = client.get(url).send().await.ok()?.error_for_status().ok()?.bytes().await.ok()?;
         Some(format!("data:image/jpeg;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
     });
     // One cover is enough to keep: a new track replaces it.
-    cache.clear();
-    cache.insert(url.to_string(), fetched.clone());
-    fetched
+    *cover = Cover { url: url.to_string(), failed: fetched.is_none().then(Instant::now), data: fetched };
+    cover.data.clone()
+}
+
+/// The state as the page gets it: a cover equal to the last sent one stays out of the event, it can be megabytes.
+fn lean(last: &Option<NowPlaying>, current: &Option<NowPlaying>) -> Option<NowPlaying> {
+    current.clone().map(|np| match last {
+        Some(l) if l.artwork == np.artwork => NowPlaying { artwork: None, artwork_same: true, ..np },
+        _ => np,
+    })
 }
 
 fn changed(last: &Option<NowPlaying>, current: &Option<NowPlaying>, last_sent_at: SystemTime) -> bool {
@@ -227,10 +260,11 @@ fn changed(last: &Option<NowPlaying>, current: &Option<NowPlaying>, last_sent_at
 }
 
 pub fn spawn(app: AppHandle) {
-    thread::spawn(move || {
+    let managed = app.clone();
+    let poller = thread::spawn(move || {
         let mut last: Option<NowPlaying> = None;
         let mut last_sent_at = SystemTime::now();
-        let mut covers = HashMap::new();
+        let mut cover = Cover::default();
         loop {
             let tracks: Vec<Track> = running().into_iter().filter_map(read).collect();
             let state = app.state::<MediaState>();
@@ -242,7 +276,7 @@ pub fn spawn(app: AppHandle) {
                 NowPlaying {
                     title: t.title.clone(),
                     artist: t.artist.clone(),
-                    artwork: artwork(&t.artwork_url, &mut covers),
+                    artwork: artwork(&t.artwork_url, &mut cover),
                     is_playing: t.playing,
                     position: t.position,
                     duration: t.duration,
@@ -251,6 +285,7 @@ pub fn spawn(app: AppHandle) {
                     shuffle: Some(t.shuffle),
                     repeat: Some(t.repeat),
                     sources,
+                    artwork_same: false,
                 }
             });
             let resync = state.2.load(Ordering::Relaxed)
@@ -259,12 +294,13 @@ pub fn spawn(app: AppHandle) {
             if resync || changed(&last, &current, last_sent_at) {
                 last_sent_at = SystemTime::now();
                 *state.0.lock().unwrap() = current.clone().map(|np| (np, last_sent_at));
-                let _ = app.emit("media://update", &current);
+                let _ = app.emit("media://update", &lean(&last, &current));
                 last = current;
             }
-            thread::sleep(POLL);
+            thread::park_timeout(if last.as_ref().is_some_and(|np| np.is_playing) { POLL } else { IDLE_POLL });
         }
     });
+    *managed.state::<MediaState>().3.lock().unwrap() = Some(poller.thread().clone());
 }
 
 #[cfg(test)]

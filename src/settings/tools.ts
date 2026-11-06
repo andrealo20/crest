@@ -1,0 +1,37 @@
+/** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
+export const TOOL_IDS = [
+  "overview",
+  "media",
+  "timer",
+  "todos",
+  "notes",
+  "clipboard",
+  "shelf",
+  "ask",
+  "convert",
+  "trading",
+  "usage",
+  "weather",
+  "system",
+  "discord",
+  "vault",
+  "water",
+  "scratchpad",
+  "terminal",
+  "launcher",
+  "github",
+  "calendar",
+  "notices",
+  "capture",
+  "recorder",
+  "camera",
+  "habits",
+  "colour",
+  "clocks",
+  "teleprompter",
+  "agents",
+  "calc",
+] as const;
+
+/** The tools that start switched off on a fresh install. */
+export const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "calendar", "notices", "recorder", "camera", "habits", "colour", "clocks", "teleprompter", "agents", "calc"]);

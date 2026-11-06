@@ -5,10 +5,11 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
   xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:uap11="http://schemas.microsoft.com/appx/manifest/uap/windows10/11"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap3 uap5 desktop desktop4 rescap">
+  IgnorableNamespaces="uap uap3 uap5 uap11 desktop desktop4 rescap">
 
   <Identity Name="andrealo.CrestIsland" Publisher="CN=6324E174-874E-4AF4-BEFF-97AD455C0AFD" Version="{version}" ProcessorArchitecture="{arch}" />
 
@@ -23,7 +24,18 @@
   </Dependencies>
 
   <Resources>
+    <!-- The interface languages (src/i18n); the first is the default. -->
     <Resource Language="en-us" />
+    <Resource Language="zh-hans" />
+    <Resource Language="es" />
+    <Resource Language="hi" />
+    <Resource Language="ar" />
+    <Resource Language="fr" />
+    <Resource Language="pt-br" />
+    <Resource Language="ru" />
+    <Resource Language="ja" />
+    <Resource Language="de" />
+    <Resource Language="it" />
   </Resources>
 
   <Applications>
@@ -62,5 +74,7 @@
     <DeviceCapability Name="radios" />
     <!-- Recording with the microphone (capture/audio.rs): a packaged app gets no mic without it. -->
     <DeviceCapability Name="microphone" />
+    <!-- Hiding the yellow capture border while recording (capture/record.rs): a packaged app is refused without it. -->
+    <uap11:Capability Name="graphicsCaptureWithoutBorder" />
   </Capabilities>
 </Package>

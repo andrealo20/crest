@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
-import { animate, motion, useMotionValue } from "motion/react";
+import { animate, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { glideCycle, planTurn, type Cycle } from "./cycles";
 import type { CarouselWindow } from "./layout";
 
 /**
  * Runs a cycle as two motion values (shift and opacity). Rests are a setTimeout; only the moving stretches are a Motion
  * animation, of the cycle's own time, so the curve stays the one in cycles.ts. Paused, it freezes where it is and later
- * goes on from there. A new cycle starts from 0. `done` (the title's laps) ends it at its start.
+ * goes on from there. A new cycle starts from 0. `done` (the title's laps) ends it at its start. With reduced motion there is no cycle: it stays at its start.
  */
-export function useCycle(cycle: Cycle | null, paused: boolean, done?: (played: number) => boolean) {
+export function useCycle(wanted: Cycle | null, paused: boolean, done?: (played: number) => boolean) {
+  const cycle = useReducedMotion() ? null : wanted;
   const x = useMotionValue(0), opacity = useMotionValue(1), time = useMotionValue(0);
   const played = useRef(0), last = useRef(cycle);
   if (last.current !== cycle) {

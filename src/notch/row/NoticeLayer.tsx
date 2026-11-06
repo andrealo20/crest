@@ -146,7 +146,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
   useSecondTick(recRunning, rec.at);
   const shot = useSaved();
   const download = finishedDownload.use();
-  // The thumbnail can show anything that was on screen: not while presenting.
+  // The thumbnail can show anything that was on screen, and a file name can be private: not while presenting.
   const presenting = usePresenting();
   // On the idle line and in focus mode only what cannot wait: a recording, the finished timer, a status alert (its store already skips focus mode) and a due reminder.
   const kind = topNotice({
@@ -155,7 +155,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
     // A question shows on the idle line too: a coding agent waits on it.
     ask: !!ask,
     saved: !urgentOnly && !!shot && !presenting,
-    download: !urgentOnly && !!download,
+    download: !urgentOnly && !!download && !presenting,
     status: !!status,
     notice: !urgentOnly && !!pop,
     quota: !urgentOnly && !!rise && (closed.quotaAlerts || !!rise.reset),
@@ -195,7 +195,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
       </span>
     );
   } else if (kind === "saved" && shot) {
-    const label = shot.kind === "shot" ? t("Bildschirmfoto gespeichert") : shot.kind === "audio" ? t("Tonaufnahme gespeichert") : t("Aufnahme gespeichert");
+    const label = shot.cut ? t("Aufnahme vorzeitig beendet") : shot.kind === "shot" ? t("Bildschirmfoto gespeichert") : shot.kind === "audio" ? t("Tonaufnahme gespeichert") : t("Aufnahme gespeichert");
     const Icon = shot.kind === "audio" ? Waveform : shot.kind === "shot" ? ImageSquare : FilmStrip;
     ({ width, height, key, body } = noticeCard(
       {
@@ -203,7 +203,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
         image: shot.thumb ? <img src={shot.thumb} alt="" draggable={false} className="shrink-0 rounded-[6px] object-cover" style={{ width: THUMB_W, height: THUMB_H }} /> : undefined,
         imageWidth: shot.thumb ? THUMB_W : undefined,
         icon: <Icon size={16} weight="fill" />,
-        hue: "cyan",
+        hue: shot.cut ? "orange" : "cyan",
         title: label,
         text: shot.path.split(/[\\/]/).pop(),
         // The card opens the tool that took it, its button the file itself.
@@ -251,7 +251,9 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
     const I = status.icon === "battery" && status.tone !== "normal" ? (status.tone === "critical" ? BatteryWarning : BatteryLow) : STATUS_ICON[status.icon];
     // The volume and brightness HUD adds a level bar; its text keeps the width of "100 %", so the notch holds still while the level moves.
     const bar = status.level === undefined ? 0 : LEVEL_BAR + GAP;
-    const textW = Math.min(Math.max(measureText(status.text), bar && measureText(t("{p} %", { p: 100 }))), max - ICON - GAP - bar);
+    // Its digits are tabular, each as wide as an 8, which the canvas does not know.
+    const tab = (text: string) => (bar ? text.replace(/\d/g, "8") : text);
+    const textW = Math.min(Math.max(measureText(tab(status.text)), bar && measureText(tab(t("{p} %", { p: 100 })))), max - ICON - GAP - bar);
     width = ICON + GAP + bar + textW;
     // One key per kind: a newer alert of the same kind swaps its text in place instead of cross-fading.
     key = `status:${status.kind}`;
@@ -261,13 +263,13 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
         {status.level !== undefined && (
           <span className="h-1 shrink-0 overflow-hidden rounded-full bg-fill-3" style={{ width: LEVEL_BAR }}>
             <span
-              className="block h-full rounded-full transition-[width] duration-150 ease-out"
+              className="block h-full origin-left rounded-full transition-transform duration-150 ease-out rtl:origin-right"
               // Muted keeps the level, greyed, as Windows shows it.
-              style={{ width: `${status.level}%`, background: status.icon === "speaker-x" ? "var(--color-label-3)" : "currentColor" }}
+              style={{ transform: `scaleX(${status.level / 100})`, background: status.icon === "speaker-x" ? "var(--color-label-3)" : "currentColor" }}
             />
           </span>
         )}
-        <span className={`truncate text-footnote font-medium ${bar ? "tabular" : ""}`} style={{ width: textW }}>{status.text}</span>
+        <span dir="auto" className={`truncate text-footnote font-medium ${bar ? "tabular" : ""}`} style={{ width: textW }}>{status.text}</span>
       </span>
     );
   } else if (kind === "ask" && ask) {
@@ -311,7 +313,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
   useEffect(() => () => onSize(null), [onSize]);
 
   return (
-    <motion.div className="pointer-events-none absolute inset-0" exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}>
+    <motion.div className="pointer-events-none absolute inset-0" exit={{ opacity: 0, transition: content.exit }}>
       <AnimatePresence>
         {kind && (
           <motion.div
@@ -319,9 +321,9 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
             className="absolute top-0 left-1/2 flex items-center justify-center"
             style={{ width, height, marginLeft: -width / 2 }}
             // A card waits for the notch to grow, then comes in from a little smaller with a soft overshoot.
-            initial={card ? { opacity: 0, transform: "scale(0.94)" } : { opacity: 0, filter: "blur(4px)" }}
-            animate={card ? { opacity: 1, transform: "scale(1)", transition: CARD_IN } : { opacity: 1, filter: "blur(0px)", transition: content.enter }}
-            exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+            initial={card ? { opacity: 0, transform: "scale(0.94)" } : { opacity: 0 }}
+            animate={card ? { opacity: 1, transform: "scale(1)", transition: CARD_IN } : { opacity: 1, transition: content.enter }}
+            exit={{ opacity: 0, transition: content.exit }}
           >
             {body}
           </motion.div>

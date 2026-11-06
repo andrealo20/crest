@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { content } from "../../design/motion";
 import { createStore } from "../../lib/store";
-import { t } from "../../i18n";
+import { locale, t } from "../../i18n";
 
 const note = createStore("", { persist: "note" });
 
@@ -11,7 +11,8 @@ export function NotesView() {
   const value = note.use();
   const [saved, setSaved] = useState(false);
   const timer = useRef<number | undefined>(undefined);
-  const words = value.trim() ? value.trim().split(/\s+/).length : 0;
+  // Segmenter, not a split on spaces: Japanese and Chinese have none.
+  const words = useMemo(() => [...new Intl.Segmenter(locale(), { granularity: "word" }).segment(value)].filter((s) => s.isWordLike).length, [value]);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
@@ -19,7 +20,9 @@ export function NotesView() {
     <div className="flex h-full flex-col px-4 pt-1 pb-1">
       <textarea
         value={value}
+        maxLength={1_000_000}
         autoFocus
+        dir="auto"
         placeholder={t("Schnelle Notiz …")}
         onChange={(e) => {
           note.set(e.target.value);

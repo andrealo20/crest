@@ -37,7 +37,7 @@ export function SizeSettings() {
   return (
     <>
       <Row label={t("Größe")} hint={style === "line" ? undefined : t("Der Inhalt wächst mit der Höhe, für mehr Inhalt wird sie von selbst breiter")}>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           {/* The panel closes onto the closed shape, which shows grips until Done (ClosedResize.tsx). */}
           <Button onClick={() => closedEdit.set(true)}>{t("Auf der Notch anpassen")}</Button>
           <Button disabled={isDefault} onClick={reset}>

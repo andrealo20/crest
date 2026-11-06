@@ -3,7 +3,7 @@ import { AnimatePresence, animate, frame, motion, useMotionValue, useTransform, 
 import { GearSix, PushPin, Selection } from "@phosphor-icons/react";
 import { content, springs } from "../design/motion";
 import { livePosition, useNowPlaying } from "../platform/media";
-import { isNative, keyboardFocus, onNativeBlur, onNativeHover, onNativeHoverAt, onShortcut, onTrayOpen, setHitRect, setMemoryLow } from "../platform/native";
+import { isNative, keyboardFocus, onNativeBlur, onNativeHover, onNativeHoverAt, onShortcut, onTrayOpen, setHitRect, setMemoryLow, setPassthrough } from "../platform/native";
 import { PrivacyDots } from "../features/privacy/PrivacyDots";
 import { FOCUS_CLICKS, focusMode, setFocusMode } from "./focus";
 import { dragArea, edgeOf, useDragToMove, viewLine, windowLength, windowY } from "./drag";
@@ -22,10 +22,10 @@ import { across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
 import { columnRoom, columnSurface } from "./column";
 import { capsuleY, hasBridge, panelTop, windowYFor } from "./capsule";
 import { contentScale, sideLength } from "./collapsed";
-import { monitor, monitorMetrics, notchBusy } from "./monitor";
+import { monitor, monitorMetrics, monitors, notchBusy, sharedSpan } from "./monitor";
 import { useMirror } from "./mirror";
-import { rowRoom, surfaceWidth } from "./row/layout";
-import { toPageCss } from "../features/window/panelSize";
+import { ROW, rowRoom, surfaceWidth } from "./row/layout";
+import { limits, toPageCss } from "../features/window/panelSize";
 import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
 import { sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
@@ -54,6 +54,8 @@ const NOOP = () => {};
 const POINTED_MS = 1500;
 /** Closed this long → lower WebView2's memory target. */
 const MEMORY_LOW_AFTER_MS = 20_000;
+/** After a drag ends without files, the native drop's paths may still be on their way for this long. */
+const DROP_WAIT_MS = 500;
 
 export function Notch() {
   const { status, open, close, dismiss, toggle, onPointerEnter, onPointerLeave } = useNotchState();
@@ -143,7 +145,8 @@ export function Notch() {
   const toolSize = useToolSize(tab.id, tab.size);
   // A tool's own runtime request (e.g. the clipboard's image preview) wins over the dragged size.
   const overridden = override?.tabId === tab.id;
-  const size = overridden ? override : toolSize;
+  // Held to the monitor like a saved size is.
+  const size = overridden ? { w: override.w, h: Math.min(override.h, limits(tab.size, monitorMetrics().height).maxH) } : toolSize;
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
@@ -169,12 +172,13 @@ export function Notch() {
   // The chosen size (collapsed.ts): the content is drawn at the height over its designed 30, the width is a minimum the content widens,
   // and the monitor along the edge only narrows what is drawn. On a side edge the height is the column's depth, the width its length.
   monitor.use(); // the span, windowY and the bridge read the monitor's size and work area
-  const area = dragArea(), span = side ? area.height : area.width;
+  monitors.use(); // with "All monitors" the span is the narrowest one's
+  const area = dragArea(), span = sharedSpan(side ? area.height : area.width, side);
   const closedH = surface === "capsule" ? sizes.capsuleHeight : sizes.notchHeight, scale = contentScale(closedH);
   const closedW = surfaceWidth(surface, notice?.width ?? (showRow || status === "open" ? rowWidth : 0), surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span);
   // A notice card (NoticeCard.tsx) is taller than the row: the closed shape grows to it, drawn at the same content scale.
   const shapeH = notice ? Math.max(closedH, notice.height * scale) : closedH;
-  const [column, setColumn] = useState({ length: 0, width: 0 });
+  const [column, setColumn] = useState({ length: 0, width: 0, notice: false });
   const columnShows = showColumn || status === "open";
   const sideSize = side ? columnSurface(columnShows ? column.length : 0, columnShows ? column.width : 0, scale, sideLength(sizes.notchWidth), span) : null;
 
@@ -186,9 +190,9 @@ export function Notch() {
   const winTop = isNative ? windowY(capY) : windowYFor(style, capY, window.innerHeight, workTop);
   const capsuleTop = style === "capsule" ? capY - winTop : 0;
   const lineShape = line || (lineIdle && status !== "open");
-  // Open, a bridged capsule hangs from the edge like the notch; a floating one opens from its top, moved up as far as the panel needs.
+  // Open, a bridged capsule hangs from the edge like the notch; a floating one opens from its top, moved up as far as the panel needs (a notice card the same, so it stays in the window).
   // The line's distance from the edge is a place on the screen, saved at 100 % like display.y.
-  const shapeTop = status !== "open" ? (lineShape ? toPageCss(sizes.lineTop, behavior.scale) : capsuleTop) : bridged ? 0 : panelTop(capsuleTop, size.h);
+  const shapeTop = status !== "open" ? (lineShape ? toPageCss(sizes.lineTop, behavior.scale) : notice ? panelTop(capsuleTop, shapeH) : capsuleTop) : bridged ? 0 : panelTop(capsuleTop, size.h);
   const top = (isNative ? 0 : winTop) + shapeTop;
 
   const shape = lineShape
@@ -227,7 +231,12 @@ export function Notch() {
     };
   }, [dismiss]);
 
-  useNativeBridge(hitRef, topValue, editing ? NOOP : onPointerEnter, onPointerLeave, edge);
+  // Hover stays off in focus mode (a card there takes the pointer, see below) and while a question waits, or the card would vanish under the pointer.
+  // Open, the enter still has to run: it cancels the close timer a leave started.
+  const hoverOff = editing || focus || (asking && status !== "open");
+  useNativeBridge(hitRef, topValue, hoverOff ? NOOP : onPointerEnter, onPointerLeave, edge);
+  // Focus mode is click-through, except while a card with buttons shows (a question, a finished timer, a reminder, the recording): its buttons need the pointer.
+  useEffect(() => setPassthrough(focus && !noticeTime), [focus, noticeTime]);
   // Starting the resize mode from the settings closes the panel onto the closed shape it changes.
   useEffect(() => {
     if (editing) close();
@@ -302,9 +311,9 @@ export function Notch() {
         if (status !== "open") {
           open();
           keyboardFocus(true);
-        } else if (!overridden && edge === "top") stepToolSize(tab.id, tab.size, dir);
+        } else if (!overridden) stepToolSize(tab.id, tab.size, dir);
       }),
-    [open, status, tab, overridden, edge],
+    [open, status, tab, overridden],
   );
   useEffect(() => {
     if (status === "closed") keyboardFocus(false);
@@ -326,7 +335,10 @@ export function Notch() {
     const onKey = (e: KeyboardEvent) => {
       if (isTextField(e.target) || e.ctrlKey || e.altKey || e.metaKey) return;
       const tab = visible[Number(e.key) - 1];
-      if (tab) navigate(tab.id);
+      if (!tab) return;
+      // Else the digit lands in the field the new tool focuses.
+      e.preventDefault();
+      navigate(tab.id);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -363,7 +375,7 @@ export function Notch() {
         }}
         onPointerDown={focus || editing ? undefined : drag.onPointerDown}
         // In Tauri, hover comes from the Rust poll (useNativeBridge), not the DOM.
-        onPointerEnter={isNative || focus || editing ? undefined : onPointerEnter}
+        onPointerEnter={isNative || hoverOff ? undefined : onPointerEnter}
         onPointerLeave={() => {
           pointed.current = { tool: null, at: 0 };
           if (!isNative && !focus) onPointerLeave();
@@ -384,8 +396,10 @@ export function Notch() {
               </AnimatePresence>
               {/* The notch's insets are the larger ones, so a notice fits either surface. */}
               <AnimatePresence>{showNotices && <NoticeLayer key="notices" max={rowRoom("notch", scale, span)} scale={scale} onSize={setNoticeSize} urgentOnly={!showRow} />}</AnimatePresence>
-              {/* Closed, the dots are the row's last part; dimmed for focus there is no row, so they stand on their own. */}
-              {focus && status !== "open" && !line && <PrivacyDots centered={side} />}
+              {/* Closed, the dots are the row's last part; dimmed for focus there is no row, and under a notice the row is faded out, so they stand on their own (beside the notice, in the shape's inset). */}
+              {(focus || (showRow && notice)) && status !== "open" && !line && (
+                <PrivacyDots centered={side} beside={!focus && notice ? notice.width / 2 + (surface === "capsule" ? ROW.insetCapsule : ROW.insetNotch) / 2 : undefined} />
+              )}
             </div>
             {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress along={side ? "y" : "x"} />}
           </div>
@@ -397,6 +411,7 @@ export function Notch() {
             {status === "open" && (
               <motion.div
                 key="open"
+                data-open-panel
                 // Anchored at the edge it hangs from, so it stays put while the shape grows from there.
                 className={`absolute isolate flex flex-col ${PANEL_ANCHOR[edge]}`}
                 style={{ width: size.w, height: size.h, ...(side ? { marginTop: -size.h / 2 } : { marginLeft: -size.w / 2 }) }}
@@ -437,7 +452,7 @@ export function Notch() {
       </motion.div>
       {/* The pet's nest, beside the shape and outside its hit zone. */}
       <AnimatePresence>
-        {nestShown && pet.id && <Nest key="nest" pet={{ ...pet, id: pet.id }} edge={edge} top={nestTop} shapeWidth={shape.w} notice={notice !== null} hovered={status === "peek"} />}
+        {nestShown && pet.id && <Nest key="nest" pet={{ ...pet, id: pet.id }} edge={edge} top={nestTop} shapeWidth={shape.w} shapeTransition={transition} notice={notice !== null || (showColumn && column.notice)} hovered={status === "peek"} />}
       </AnimatePresence>
     </div>
   );
@@ -509,10 +524,10 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
   const unseen = useUnseen().length > 0;
   const badge = updateReady || unseen;
 
-  // A strip of its own: buttons share its width up to 42 px each, so a narrow panel squeezes them evenly.
+  // A strip of its own: buttons share its width up to 42 px each and never go below 24 px (WCAG target size), so a crowded dock scrolls.
   return (
     <div className="flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
-      <div className="flex h-10 max-w-full items-center gap-0.5 rounded-[14px] bg-fill-2 p-0.5">
+      <div className="flex h-10 max-w-full items-center gap-0.5 overflow-x-auto rounded-[14px] bg-fill-2 p-0.5 [scrollbar-width:none]">
         {tabs.map((tab) => (
           <DockButton key={tab.id} label={t(tab.label)} icon={tab.icon} hue={tab.hue} active={tab.id === activeId} onClick={() => navigate(tab.id)} />
         ))}
@@ -532,12 +547,18 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
 function DockButton(props: { label: string; icon: NotchTab["icon"]; hue?: Hue; active: boolean; onClick: () => void; badge?: boolean }) {
   const I = props.icon;
   const color = useHue(props.hue);
+  const ref = useRef<HTMLButtonElement>(null);
+  // A key shortcut can pick a tool scrolled out of the dock's view.
+  useEffect(() => {
+    if (props.active) ref.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [props.active]);
   return (
     <button
+      ref={ref}
       aria-label={props.label}
       title={props.label}
       onClick={props.onClick}
-      className={`pressable relative flex h-9 w-[42px] min-w-0 shrink items-center justify-center rounded-[12px] transition-colors duration-150 ${
+      className={`pressable relative flex h-9 w-[42px] min-w-6 shrink items-center justify-center rounded-[12px] transition-colors duration-150 ${
         props.active ? "text-label" : color ? "" : "text-label-2 hover:text-label"
       }`}
       style={color ? { color } : undefined}
@@ -645,12 +666,15 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
   const holding = useRef(false);
   const statusRef = useRef(status);
   statusRef.current = status;
+  // A native drop sets dragging false before its paths arrive (platform/drop.ts), so closing waits a moment for them.
+  const closing = useRef(0);
 
   useEffect(
-    () =>
-      drop.subscribe(() => {
+    () => {
+      const off = drop.subscribe(() => {
         const { dragging, dropped } = drop.get();
-        if (!settings.get().tools.some((t) => t.id === "shelf" && t.enabled)) {
+        if (dragging || dropped) window.clearTimeout(closing.current);
+        if (!findTab("shelf") || !settings.get().tools.some((t) => t.id === "shelf" && t.enabled)) {
           if (dropped) takeDropped();
           return;
         }
@@ -666,10 +690,12 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
           // Drag over: dropped → stay open, cancelled → close again.
           holding.current = false;
           holdOpen(false);
-          if (!dropped && openedByDrag.current) dismiss();
+          if (!dropped && openedByDrag.current) closing.current = window.setTimeout(dismiss, DROP_WAIT_MS);
           openedByDrag.current = false;
         }
-      }),
+      });
+      return off;
+    },
     [open, dismiss],
   );
 }
@@ -725,7 +751,7 @@ function useNativeBridge(
 }
 
 function isInteractive(el: EventTarget | null): boolean {
-  return el instanceof Element && !!el.closest("button, input, textarea, a, [role=slider]");
+  return el instanceof Element && !!el.closest("button, input, textarea, a, [role=slider], [role=button], [role=radio], [role=switch], [role=option], [role=tab], [data-no-drag]");
 }
 
 function isTextField(el: EventTarget | null): boolean {

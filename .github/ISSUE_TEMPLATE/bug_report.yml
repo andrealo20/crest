@@ -7,13 +7,13 @@ body:
       value: |
         Thanks for taking the time to report this. Please search the open issues first, in case it is already known.
 
-        If Crest crashed, the crash log helps a lot. It is `crash.log` in `%LOCALAPPDATA%\io.github.andrealo20.crest\logs` for the installed app, or in `data\logs` next to Crest.exe for the portable build (see "Crash log" in the README). Check it for anything private before you attach it.
+        If Crest crashed, the crash log helps a lot. It is `crash.log` in `%LOCALAPPDATA%\io.github.andrealo20.crest\logs` for the installed app, in `data\logs` next to Crest.exe for the portable build, or in `~/Library/Logs/io.github.andrealo20.crest` on a Mac (see [Crash log](https://github.com/andrealo20/crest/blob/main/docs/features.md#install-in-detail)). Check it for anything private before you attach it.
   - type: input
-    id: windows
+    id: system
     attributes:
-      label: Windows version
-      description: Press Win + R, type `winver` and copy the line with the version and build.
-      placeholder: Windows 11 24H2, build 26100.2314
+      label: System version
+      description: On Windows press Win + R, type `winver` and copy the line with the version and build. On a Mac, Apple menu → About This Mac, and say whether it is Apple silicon or Intel.
+      placeholder: Windows 11 24H2, build 26100.2314, or macOS 15.1 on Apple silicon
     validations:
       required: true
   - type: input
@@ -32,6 +32,7 @@ body:
         - Microsoft Store
         - Installer from GitHub Releases
         - Portable zip
+        - macOS disk image (.dmg)
         - Built from source
     validations:
       required: true

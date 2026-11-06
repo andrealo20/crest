@@ -5,6 +5,7 @@ import { content, shake, springs } from "../../design/motion";
 import { keyboardFocus } from "../../platform/native";
 import { t } from "../../i18n";
 import { demo } from "../../dev/showcase-data";
+import { errorText } from "./errors";
 
 /**
  * Four-dot PIN entry. Digits come from a hidden field (keyboard, numpad), so the
@@ -43,6 +44,10 @@ export function PinEntry(props: {
     keyboardFocus(true);
     input.current?.focus({ preventScroll: true });
   }, [props.title]);
+  // A disabled field drops the focus: take it back once typing is allowed again.
+  useEffect(() => {
+    if (!busy && wait <= 0) input.current?.focus({ preventScroll: true });
+  }, [busy, wait]);
 
   const submit = async (value: string) => {
     setBusy(true);
@@ -55,7 +60,6 @@ export function PinEntry(props: {
       setWait(err.lockedFor);
     } else setError(err);
     void animate(dots.current, { transform: shake.keyframes }, shake.transition);
-    input.current?.focus({ preventScroll: true });
   };
 
   const locked = wait > 0;
@@ -129,7 +133,7 @@ export function PinEntry(props: {
           <span className="text-label-4">
             {t("Ziffern eintippen")}
             {/* Demo only: the sample vault's PIN, so a visitor can get in. */}
-            {demo && !props.setup && <span className="text-label-2"> · Demo PIN 1234</span>}
+            {demo && !props.setup && <span className="text-label-2"> · {t("Demo-PIN {pin}", { pin: "1234" })}</span>}
           </span>
         )}
       </div>
@@ -152,5 +156,5 @@ export function unlockResult(code: string): PinResult {
   const [kind, n] = code.split(":");
   if (kind === "wrong") return Number(n) === 1 ? t("Falscher PIN · noch 1 Versuch") : t("Falscher PIN · noch {n} Versuche", { n });
   if (kind === "lockout") return { lockedFor: Number(n) };
-  return t("Tresor nicht lesbar");
+  return code === "busy" ? errorText(code) : t("Tresor nicht lesbar");
 }

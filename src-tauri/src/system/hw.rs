@@ -42,11 +42,12 @@ impl Hardware {
     }
 
     /// Fills `temp` for the adapters that may be asked: all on a desktop, only busy ones on a battery machine (an idle
-    /// discrete GPU in a hybrid laptop stays asleep).
+    /// discrete GPU in a hybrid laptop stays asleep; a lone adapter has none to wake, and without counters nothing is busy).
     pub fn gpu_temps(&mut self, gpus: &mut [GpuReading]) {
         let now = Instant::now();
+        let lone = gpus.len() == 1;
         for g in gpus {
-            if self.has_battery && g.usage.is_none_or(|u| u <= 0.0) {
+            if self.has_battery && !lone && g.usage.is_none_or(|u| u <= 0.0) {
                 continue;
             }
             let sensor = self.gpu.entry(g.key.clone()).or_default();

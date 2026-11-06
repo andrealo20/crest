@@ -126,6 +126,7 @@ export interface Basis {
  *   removes the average cost of the coins sold and realizes proceeds minus that cost.
  * - Two coin legs (one down, one up): the cost basis moves from the sold coin to the bought one.
  * - Sells of coins no trade bought, and trades in a currency without a rate, are skipped and counted.
+ *   A sell larger than the known position realizes only the share of the proceeds that position explains.
  */
 export function averageCost(trades: Trade[], rates: Rates): { basis: Record<string, Basis>; realized: number; skipped: number } {
   const basis: Record<string, Basis> = {};
@@ -164,9 +165,11 @@ export function averageCost(trades: Trade[], rates: Rates): { basis: Record<stri
         p.quantity += c.net;
         p.cost += Math.max(0, -fiatNet);
       } else {
+        const known = basis[c.asset]?.quantity ?? 0;
         const out = take(c.asset, -c.net);
         if (out === null) skipped++;
-        else realized += fiatNet - out;
+        // Coins that arrived without a trade (deposits) have no cost: only the share of the proceeds they explain counts.
+        else realized += fiatNet * Math.min(1, known / -c.net) - out;
       }
     } else if (coins.length === 2 && fiat.length === 0) {
       const sold = coins.find((l) => l.net < 0);

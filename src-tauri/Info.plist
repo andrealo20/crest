@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
   <key>NSAppleEventsUsageDescription</key>
-  <string>Crest reads the track playing in Spotify or Music and sends play, pause and skip to them.</string>
+  <string>Crest reads the track playing in Spotify or Music and sends play, pause and skip to them. From Overview it also asks System Events to switch the dark theme, restart or shut down the Mac.</string>
 </dict>
 </plist>

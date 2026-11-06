@@ -52,10 +52,13 @@ export async function confirmInstall() {
   try {
     const m = await pluginApi.commit(staged.token);
     await refreshPlugins();
-    setPluginEnabled(m.id, true);
+    // An update keeps the on/off choice.
+    if (!staged.replaces) setPluginEnabled(m.id, true);
     install.set({ phase: "idle", staged: null, error: null });
   } catch (e) {
-    install.set({ phase: "idle", staged: null, error: String(e) });
+    const error = String(e);
+    // The staged copy is kept when the installed one is busy, so the confirmation stays open.
+    install.set(error === "in-use" ? { phase: "confirm", staged, error } : { phase: "idle", staged: null, error });
   }
 }
 

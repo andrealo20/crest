@@ -1,6 +1,7 @@
 // Rules for the closed notch's status alerts (power, network, Bluetooth devices, the volume and brightness HUD, Caps Lock and Num Lock, the microphone mute): which transition deserves a short message. Pure; `tr` is passed in so this stays free of i18n.
 
-export interface PowerState { ac: boolean; percent: number | null; battery: boolean }
+/** `charging`: taking charge now; the charger can be in while a full battery or a charge limit leaves it false. */
+export interface PowerState { ac: boolean; percent: number | null; battery: boolean; charging: boolean }
 export interface StatusAlert {
   kind: "power" | "net" | "bt" | "volume" | "brightness" | "lock" | "mic";
   icon: "plug" | "battery" | "wifi" | "wifi-off" | "headphones" | "speaker-hifi" | "mouse" | "keyboard" | "gamepad" | "phone" | "watch" | "bluetooth" | "speaker-high" | "speaker-low" | "speaker-none" | "speaker-x" | "sun" | "sun-dim" | "caps-lock" | "num-lock" | "microphone" | "microphone-slash";
@@ -8,6 +9,8 @@ export interface StatusAlert {
   tone: "normal" | "warning" | "critical";
   /** 0..100, drawn as a level bar (volume and brightness only). */
   level?: number;
+  /** A key switched off or a device that left: the side edge, which shows only the icon, draws it dimmed. */
+  off?: boolean;
 }
 /** Which low-battery levels already fired in this discharge. */
 export interface LowBattery { warned20: boolean; warned10: boolean }
@@ -28,7 +31,7 @@ export function powerAlert(prev: PowerState | null, next: PowerState, low: LowBa
   if (level) { low.warned20 = true; low.warned10 ||= level === "critical"; }
   if (!prev) return null;
   if (prev.ac !== next.ac) return next.ac
-    ? { kind: "power", icon: "plug", text: p === null ? tr("Lädt") : tr("Lädt · {p} %", { p }), tone: "normal" }
+    ? { kind: "power", icon: "plug", text: next.charging ? (p === null ? tr("Lädt") : tr("Lädt · {p} %", { p })) : p === null ? tr("Am Netzteil") : tr("Am Netzteil · {p} %", { p }), tone: "normal" }
     : { kind: "power", icon: "battery", text: p === null ? tr("Am Akku") : tr("Akku · {p} %", { p }), tone: level ?? "normal" };
   return fresh && level && p !== null ? { kind: "power", icon: "battery", text: tr("Akku {p} %", { p }), tone: level } : null;
 }
@@ -70,7 +73,7 @@ export function btAlert(event: BluetoothEvent, tr: Tr): StatusAlert | null {
   const name = event.name.trim();
   if (!name) return null;
   const text = !event.connected ? tr("{n} · Getrennt", { n: name }) : event.battery === null ? name : tr("{n} · {p} %", { n: name, p: event.battery });
-  return { kind: "bt", icon: btIcon(event.categories), text, tone: "normal" };
+  return { kind: "bt", icon: btIcon(event.categories), text, tone: "normal", ...(event.connected ? {} : { off: true }) };
 }
 
 /** A volume or brightness reading from sysevents.rs and brightness.rs, which already drop repeats, Crest's own changes and the start. */
@@ -89,7 +92,7 @@ export interface LockEvent { key: "caps" | "num"; on: boolean }
 
 export function lockAlert(e: LockEvent, tr: Tr): StatusAlert {
   const text = e.key === "caps" ? tr(e.on ? "Feststelltaste an" : "Feststelltaste aus") : tr(e.on ? "Num-Taste an" : "Num-Taste aus");
-  return { kind: "lock", icon: e.key === "caps" ? "caps-lock" : "num-lock", text, tone: "normal" };
+  return { kind: "lock", icon: e.key === "caps" ? "caps-lock" : "num-lock", text, tone: "normal", ...(e.on ? {} : { off: true }) };
 }
 
 /** The microphone shortcut flipped the mute (mic.rs). */
@@ -99,10 +102,12 @@ export function micAlert(e: MicEvent, tr: Tr): StatusAlert {
   return { kind: "mic", icon: e.muted ? "microphone-slash" : "microphone", text: tr(e.muted ? "Mikrofon ist stumm" : "Mikrofon ist an"), tone: "normal" };
 }
 
-/**
- * Whether the Windows indicator is hidden: only while Crest's HUD stands in for both volume and brightness (Windows draws them in
- * one flyout) and can show, so not in focus mode nor over a fullscreen app, where status alerts are dropped.
- */
-export function osdHidden(alerts: { volume: boolean; brightness: boolean; hideOsd: boolean }, focus: boolean, fullscreen: boolean): boolean {
-  return alerts.hideOsd && alerts.volume && alerts.brightness && !focus && !fullscreen;
+type OsdAlerts = { volume: boolean; brightness: boolean; hideOsd: boolean };
+
+/** Whether the option to hide the Windows indicator is in force: Crest's HUD stands in for both volume and brightness (Windows draws them in one flyout). */
+export const osdArmed = (alerts: OsdAlerts): boolean => alerts.hideOsd && alerts.volume && alerts.brightness;
+
+/** Whether the Windows indicator is hidden now: the option is in force and Crest's HUD can show, so not in focus mode nor over a fullscreen app, where status alerts are dropped. */
+export function osdHidden(alerts: OsdAlerts, focus: boolean, fullscreen: boolean): boolean {
+  return osdArmed(alerts) && !focus && !fullscreen;
 }

@@ -18,7 +18,7 @@ import { useRowVisible } from "./visibility";
 import { fontEpoch, measureText } from "./measure";
 import { Carousel } from "./Carousel";
 import { Marquee } from "./Marquee";
-import { RING, RING_GAP, Ring, ringProviders, ringValue } from "./parts/Rings";
+import { RING, RING_GAP, Ring, ringLabel, ringProviders, ringValue } from "./parts/Rings";
 import { READING_GAP, ReadingView, readingWidth, useReadings } from "./parts/Readings";
 import { Clock, clockWidth } from "./parts/Clock";
 import { TimerPart, timerWidth } from "./parts/TimerPart";
@@ -43,6 +43,24 @@ export function useHeld(on: boolean, ms: number): boolean {
     return () => window.clearTimeout(id);
   }, [on, ms]);
   return on || held;
+}
+
+/** The line the row last showed, kept across the remount that comes with each close. */
+let lastLine: { song: string; line: string | null } | null = null;
+
+/** The lyrics take a moment to come back after a remount; for that moment the row keeps the line it had, instead of showing the title and then jumping to the line. */
+function useRememberedLyric(np: { title?: string; artist?: string } | null, live: string | null): string | null {
+  const song = np ? `${np.title}\n${np.artist}` : "";
+  const [warm, setWarm] = useState(true);
+  useEffect(() => {
+    const id = window.setTimeout(() => setWarm(false), 800);
+    return () => window.clearTimeout(id);
+  }, []);
+  const held = warm && live === null && lastLine?.song === song ? lastLine.line : null;
+  useEffect(() => {
+    if (live !== null || !warm) lastLine = { song, line: live };
+  }, [song, live, warm]);
+  return live ?? held;
 }
 
 /**
@@ -72,7 +90,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   const [hovered, setHovered] = useState(false);
   // The title stays while paused, like the cover; it only scrolls while playing.
   const music = s.music;
-  const lyric = useLyricLine(np, (closed.parts.title && music.titleLyrics) || music.notchLyrics, { roman: music.closedRoman === true, translation: music.closedTranslation === true });
+  const lyric = useRememberedLyric(np, useLyricLine(np, (closed.parts.title && music.titleLyrics) || music.notchLyrics, { roman: music.closedRoman === true, translation: music.closedTranslation === true }));
   // Lyric mode of the title part: the current line, the title before the first line, in gaps and without lyrics.
   const titleLyric = music.titleLyrics && lyric;
   const caption = titleLyric ? lyric : np ? trackCaption(np.title ?? "", np.artist ?? "") : "";
@@ -95,7 +113,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
     else if (id === "discord" && call) fixed(id, DISCORD_WIDTH, () => <DiscordPart call={call} paused={covered} />);
     else if (id === "equalizer" && np && playing) fixed(id, 16, () => <Equalizer playing={np.isPlaying && !covered} />);
     else if (id === "github" && gh) fixed(id, githubWidth(gh.count), () => <GithubPart count={gh.count} level={gh.level} />);
-    else if (id === "weather" && weather) fixed(id, weatherWidth(weather.temp), () => <WeatherPart now={weather} />);
+    else if (id === "weather" && weather) fixed(id, weatherWidth(), () => <WeatherPart now={weather} />);
     else if (id === "calendar" && next) fixed(id, nextEventWidth(next.text), () => <NextEventPart text={next.text} color={next.color} />);
     else if (id === "script" && scripted.length) fixed(id, scriptPartsWidth(scripted), () => <ScriptParts parts={scripted} />);
     else if (id === "downloads" && dl.length) {
@@ -111,7 +129,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
     } else if (id === "rings" && rings.length) {
       parts.push({
         item: { id, kind: "carousel", items: rings.map(() => RING), gap: RING_GAP },
-        draw: (p) => <Carousel items={rings.map((r) => <Ring key={r.id} id={r.id} value={ringValue(r)} />)} gap={RING_GAP} window={p.window!} width={p.width} paused={hovered || covered} />,
+        draw: (p) => <Carousel items={rings.map((r) => <Ring key={r.id} id={r.id} value={ringValue(r)} label={ringLabel(r)} />)} gap={RING_GAP} window={p.window!} width={p.width} paused={hovered || covered} />,
       });
     } else if (id === "readings" && readings.length) {
       // useReadings already leaves the part out when it is off and gaming is not forcing it on.
@@ -139,10 +157,10 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
       data-covered={covered ? "" : undefined}
       className="absolute top-0 left-1/2 h-[30px]"
       style={{ width, marginLeft: -width / 2 }}
-      initial={{ opacity: 0, filter: "blur(4px)" }}
+      initial={{ opacity: 0 }}
       // Under a notice the row only fades out: it stays mounted, so its polling goes on, but its cycles, clock and equalizers rest.
-      animate={covered ? { opacity: 0, filter: "blur(4px)", transition: content.exit } : { opacity: 1, filter: "blur(0px)", transition: content.enter }}
-      exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+      animate={covered ? { opacity: 0, transition: content.exit } : { opacity: 1, transition: content.enter }}
+      exit={{ opacity: 0, transition: content.exit }}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
     >
@@ -151,7 +169,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
         <motion.div key={chosen} className="absolute inset-y-0 left-1/2 w-0" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: fade }} exit={{ opacity: 0, transition: fade }}>
           <AnimatePresence initial={false}>
             {plan.parts.map((p) => (
-              <Slot key={p.id} x={p.left - width / 2} width={p.width} tool={partTool(p.id)}>
+              <Slot key={p.id} x={p.left + p.width / 2 - width / 2} width={p.width} tool={partTool(p.id)}>
                 {parts.find((x) => x.item.id === p.id)!.draw(p)}
               </Slot>
             ))}
@@ -164,6 +182,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
 
 /**
  * A part's room. It grows in from 0.82 with the opacity going as the square of its progress, and shrinks out the same way.
+ * `x` is its centre: the spring moves that, and the width changes at once around it, so no layout runs per frame.
  * `tool`: the tool a click or a hover over it opens (Notch.tsx reads data-open).
  */
 function Slot({ x, width, tool, children }: { x: number; width: number; tool: string | null; children: ReactNode }) {
@@ -173,9 +192,9 @@ function Slot({ x, width, tool, children }: { x: number; width: number; tool: st
     <motion.div
       data-open={tool ?? undefined}
       className="absolute inset-y-0 flex items-center justify-center"
-      style={{ scale, opacity }}
-      initial={{ scale: 0.82, x, width }}
-      animate={{ scale: 1, x, width }}
+      style={{ scale, opacity, width, marginLeft: -width / 2 }}
+      initial={{ scale: 0.82, x }}
+      animate={{ scale: 1, x }}
       exit={{ scale: 0.82 }}
       transition={{ ...springs.morph, scale: springs.snappy }}
     >

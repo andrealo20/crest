@@ -147,7 +147,7 @@ export function SystemView() {
             hue="green"
             label={t("Akku")}
             detail={join([
-              b.state === "charging" ? (b.toFull !== null ? `${t("Voll in")} ${duration(b.toFull)}` : t("Lädt")) : b.state === "discharging" ? (b.left !== null ? `${duration(b.left)} ${t("übrig")}` : t("Entlädt")) : b.state === "full" ? t("Voll") : t("Angeschlossen"),
+              b.state === "charging" ? (b.toFull !== null ? t("Voll in {time}", { time: duration(b.toFull, t) }) : t("Lädt")) : b.state === "discharging" ? (b.left !== null ? t("{time} übrig", { time: duration(b.left, t) }) : t("Entlädt")) : b.state === "full" ? t("Voll") : t("Angeschlossen"),
               b.saver ? t("Energiesparen") : null,
             ])}
             health={b.health !== null ? { text: `${t("Zustand")} ${Math.round(b.health * 100)} %`, color: tone(healthLevel(b.health)) } : null}
@@ -263,18 +263,18 @@ function Row(props: {
       <div className="flex h-[32px] items-center gap-3">
         <I size={15} weight="bold" className={`shrink-0 ${iconColor ? "" : "text-label-3"}`} style={iconColor ? { color: iconColor } : undefined} />
         <span className="w-16 shrink-0 text-footnote font-medium text-label">{props.label}</span>
-        {/* Shrinks before the value does: in a narrow panel the detail truncates instead of pushing the value out (issue #5). */}
-        <span className="tabular flex w-[170px] min-w-0 items-center gap-1.5 truncate text-caption text-label-3">
-          <span className="truncate" title={typeof props.detail === "string" ? props.detail : undefined}>
+        {/* Room for a CPU model name; shrinks before the value does: in a narrow panel the detail truncates instead of pushing the value out (issue #5). */}
+        <span className="tabular flex min-w-0 flex-[0_1_300px] items-center gap-1.5 truncate text-caption text-label-3">
+          <span className="tabular truncate" title={typeof props.detail === "string" ? props.detail : undefined}>
             {props.detail}
           </span>
           {props.temp && (
-            <span className="shrink-0 font-medium" style={{ color: props.tone(props.temp.level) }} title={props.temp.from ?? undefined}>
+            <span dir="ltr" className="tabular shrink-0 font-medium" style={{ color: props.tone(props.temp.level) }} title={props.temp.from ?? undefined}>
               {degrees(props.temp.c)} °C
             </span>
           )}
           {props.health && (
-            <span className="shrink-0 font-medium" style={{ color: props.health.color }}>
+            <span className="tabular shrink-0 font-medium" style={{ color: props.health.color }}>
               {props.health.text}
             </span>
           )}
@@ -304,7 +304,7 @@ function CoreColumns({ cores, tone }: { cores: { usage: number; kind: number }[]
             .filter((c) => c.kind === k)
             .map((c, n) => (
               <span key={n} className="relative h-full w-[4px] overflow-hidden rounded-[1.5px] bg-fill-2">
-                <span className="absolute inset-x-0 bottom-0 rounded-[1.5px] transition-[height] duration-500" style={{ height: `${Math.max(6, Math.min(100, c.usage))}%`, background: tone(ofShare(c.usage)) }} />
+                <span className="absolute inset-0 rounded-[1.5px] transition-transform duration-500" style={{ transform: `translateY(${100 - Math.max(6, Math.min(100, c.usage))}%)`, background: tone(ofShare(c.usage)) }} />
               </span>
             ))}
         </div>

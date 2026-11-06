@@ -18,7 +18,7 @@ const MAX_FILES: usize = 100;
 pub struct ThemeFileText {
     file: String,
     text: Option<String>,
-    /// English, like the other backend error texts.
+    /// A German key for the frontend's t() (src/i18n), as themes.ts uses.
     error: Option<String>,
 }
 
@@ -51,12 +51,12 @@ pub async fn themes_read(app: AppHandle) -> Result<Vec<ThemeFileText>, String> {
             let file = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             let too_big = fs::metadata(&path).map(|m| m.len() > MAX_BYTES).unwrap_or(false);
             if too_big {
-                return ThemeFileText { file, text: None, error: Some("File larger than 64 KB".into()) };
+                return ThemeFileText { file, text: None, error: Some("Datei größer als 64 KB".into()) };
             }
             match fs::read_to_string(&path) {
                 // A BOM from Notepad would break JSON.parse.
                 Ok(text) => ThemeFileText { file, text: Some(text.trim_start_matches('\u{feff}').to_string()), error: None },
-                Err(_) => ThemeFileText { file, text: None, error: Some("Cannot read file".into()) },
+                Err(_) => ThemeFileText { file, text: None, error: Some("Datei nicht lesbar".into()) },
             }
         })
         .collect();
@@ -75,9 +75,9 @@ pub async fn themes_read(app: AppHandle) -> Result<Vec<ThemeFileText>, String> {
 #[tauri::command]
 pub async fn themes_write(app: AppHandle, id: String, text: String) -> Result<String, String> {
     if text.len() as u64 > MAX_BYTES {
-        return Err("File larger than 64 KB".into());
+        return Err("Datei größer als 64 KB".into());
     }
-    let name = safe_name(&id).ok_or("Invalid theme id")?;
+    let name = safe_name(&id).ok_or("Ungültige Theme-ID")?;
     let path = folder(&app)?.join(format!("{name}.json"));
     fs::write(&path, text).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().into_owned())

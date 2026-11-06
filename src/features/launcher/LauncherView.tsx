@@ -100,14 +100,14 @@ function Footer() {
       >
         {t("Alt+1 bis Alt+6 nutzen")}
       </button>
-      <span className="min-w-0 truncate text-caption text-label-3" title={t(HOTKEY_HINT)}>
+      <span className="min-w-0 line-clamp-2 text-caption text-label-3" title={t(HOTKEY_HINT)}>
         {t(HOTKEY_HINT)}
       </span>
     </div>
   );
 }
 
-export const HOTKEY_HINT = "Solange an, fehlen diese Tasten anderen Apps wie VS Code, JetBrains oder Office";
+export const HOTKEY_HINT = "Solange an, fehlen diese Tasten anderen Apps wie VS Code, JetBrains oder Office.";
 
 function Grid({ favorites, status, onAdd }: { favorites: Favorite[]; status: SlotStatus[]; onAdd: () => void }) {
   const icons = useIcons(favorites.map((f) => f.id));

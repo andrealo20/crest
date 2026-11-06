@@ -75,11 +75,11 @@ const text = ({ id, value: v, estimate }: Reading) => {
   return `${Math.round(v)}%`;
 };
 
-/** What a screen reader says for the readings that have no dial letter of their own. */
+/** What a screen reader says for a reading; FPS has its word on screen. */
 function spoken(r: Reading): string | undefined {
   const name =
     r.id === "down" ? t("Download") : r.id === "up" ? t("Upload") : r.id === "power" ? t("Leistung") : r.id === "battery" ? t("Akku")
-    : r.id === "temp" ? t(r.source === "gpu" ? "GPU-Temperatur" : "CPU-Temperatur") : null;
+    : r.id === "temp" ? t(r.source === "gpu" ? "GPU-Temperatur" : "CPU-Temperatur") : r.id === "cpu" || r.id === "ram" || r.id === "gpu" ? r.id.toUpperCase() : null;
   return name === null ? undefined : `${name} ${text(r)}`;
 }
 

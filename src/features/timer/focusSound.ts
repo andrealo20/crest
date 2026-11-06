@@ -117,7 +117,11 @@ export function setFocusSound(sound: FocusSound, volume: number) {
   if (playing) {
     const { src, gain } = playing;
     rampTo(gain, 0, FADE_OUT_S);
-    src.onended = () => gain.disconnect();
+    src.onended = () => {
+      gain.disconnect();
+      // An idle running context keeps WebView2's output stream open on the device.
+      if (!playing) void ctx?.suspend();
+    };
     src.stop(gain.context.currentTime + FADE_OUT_S + 0.05);
     playing = null;
   }

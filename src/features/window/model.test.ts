@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { altGrRisk } from "./hotkeys.ts";
 import { MAX_APP_RULES, WINDOW_DEFAULTS, addRule, cycle, exeName, newRule, normalizeWindow, ruleKey } from "./model.ts";
 
 test("without a saved group the rules follow the old visibility setting", () => {
@@ -23,7 +24,7 @@ test("broken values fall back, valid ones stay", () => {
 test("hotkeys: missing open takes the default, an empty one stays unset, invalid ones are dropped", () => {
   assert.equal(normalizeWindow({}).hotkeys.open, "Ctrl+Alt+Space");
   assert.equal(normalizeWindow({ hotkeys: { open: "" } }).hotkeys.open, "");
-  assert.deepEqual(normalizeWindow({ hotkeys: { open: "KeyK", hide: "ctrl+alt+KeyH", resize: "Alt+Arrows" } }).hotkeys, { open: "", hide: "Ctrl+Alt+KeyH", resize: "", find: "Ctrl+Alt+KeyF", mic: "" });
+  assert.deepEqual(normalizeWindow({ hotkeys: { open: "KeyK", hide: "ctrl+alt+KeyH", resize: "Alt+Arrows" } }).hotkeys, { open: "", hide: "Ctrl+Alt+KeyH", resize: "", find: "Ctrl+Alt+Shift+KeyF", mic: "" });
   assert.equal(normalizeWindow({ hotkeys: { find: "" } }).hotkeys.find, "");
   // The microphone mute starts unset, keeps a good combination and drops a bare letter.
   assert.equal(normalizeWindow({}).hotkeys.mic, "");
@@ -50,4 +51,8 @@ test("cycling tools wraps and skips when there is nothing to switch to", () => {
   assert.equal(cycle(["a", "b", "c"], "a", -1), "c");
   assert.equal(cycle(["a", "b"], "settings", 1), "a");
   assert.equal(cycle(["a"], "a", 1), null);
+});
+
+test("no default shortcut is one an AltGr layout would type with", () => {
+  for (const kind of ["open", "hide", "resize", "find"] as const) assert.equal(altGrRisk(kind, WINDOW_DEFAULTS.hotkeys[kind]), false, kind);
 });

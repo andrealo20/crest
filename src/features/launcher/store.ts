@@ -84,6 +84,6 @@ export function startLauncher() {
   syncShortcuts();
   settings.subscribe(syncShortcuts);
   fullscreen.subscribe(syncShortcuts);
-  // A hotkey whose app is gone: Rust opens the notch on this tool, the message says why.
-  launcher.onMissing((id) => showLaunchError(id, "not-found"));
+  // A hotkey whose app did not start: Rust opens the notch on this tool, the message says why.
+  launcher.onMissing(showLaunchError);
 }

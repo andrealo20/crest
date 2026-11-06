@@ -66,6 +66,7 @@ export function AskView() {
     const prompt = text.trim();
     if (!prompt || streaming) return;
     setDraft("");
+    if (input.current) input.current.style.height = "auto";
     setError(null);
     const history: ChatMessage[] = [...chat.get(), { role: "user", content: prompt }];
     chat.set([...history, { role: "assistant", content: "" }]);
@@ -82,7 +83,7 @@ export function AskView() {
       }, abort.current.signal);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setError(msg === "no-key" ? t("Kein API-Schlüssel für {p} – in den Einstellungen eintragen.", { p: providerInfo[provider].label }) : tBackend(msg));
+      setError(msg === "no-key" ? t("Kein API-Schlüssel für {p}, in den Einstellungen eintragen.", { p: t(providerInfo[provider].label) }) : tBackend(msg));
     } finally {
       // An empty reply bubble (an error, or Stop before any text) would go out with the next question, which providers refuse.
       chat.set((m) => (m.at(-1)?.content === "" ? m.slice(0, -1) : m));
@@ -93,7 +94,7 @@ export function AskView() {
   const runQuick = (q: (typeof quick)[number]) => {
     const latest = clipboard.get().find((c) => c.kind === "text" || c.kind === "link");
     if (!latest) {
-      setError(t("Zuerst einen Text kopieren – die Schnellaktionen arbeiten mit der Zwischenablage."));
+      setError(t("Zuerst einen Text kopieren. Die Schnellaktionen arbeiten mit der Zwischenablage."));
       return;
     }
     void send(q.prompt(latest.text));
@@ -107,7 +108,7 @@ export function AskView() {
           title={t("Modell in den Einstellungen ändern")}
           className="me-1 max-w-40 truncate text-caption text-label-3 hover:text-label-2"
         >
-          {config.model || providerInfo[provider].label}
+          {config.model || t(providerInfo[provider].label)}
         </button>
         <HeaderButton
           label={t("Chat leeren")}
@@ -184,7 +185,8 @@ export function AskView() {
             e.target.style.height = `${Math.min(e.target.scrollHeight, 54)}px`;
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            // Enter that confirms an IME conversion (keyCode 229 in Safari) is not a send.
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
               e.preventDefault();
               void send(draft);
             }
@@ -222,12 +224,12 @@ function Bubble({ message, streaming }: { message: ChatMessage; streaming: boole
       transition={content.enter}
     >
       <div
-        className={`relative max-w-[85%] text-body whitespace-pre-wrap ${
+        className={`relative max-w-[85%] text-body whitespace-pre-wrap [overflow-wrap:anywhere] ${
           user ? "rounded-[14px] rounded-ee-[4px] bg-fill-2 px-3 py-1.5 text-label" : "px-1 text-label-2"
         }`}
       >
         {message.content}
-        {streaming && <span className="ms-0.5 inline-block h-3.5 w-[2px] translate-y-[2px] animate-pulse bg-label-2" />}
+        {streaming && <span className="ms-0.5 inline-block h-3.5 w-[2px] translate-y-[2px] motion-safe:animate-pulse bg-label-2" />}
         {!user && !streaming && message.content && (
           <button
             aria-label={t("Kopieren")}
@@ -238,7 +240,7 @@ function Bubble({ message, streaming }: { message: ChatMessage; streaming: boole
                 setTimeout(() => setCopied(false), 1200);
               }, () => {});
             }}
-            className="pressable mt-1 flex items-center gap-1 text-caption text-label-4 opacity-0 group-hover:opacity-100 hover:text-label-2"
+            className="pressable mt-1 flex items-center gap-1 text-caption text-label-4 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-label-2"
           >
             {copied ? <Check size={11} weight="bold" /> : <Copy size={11} weight="bold" />} {copied ? t("Kopiert") : t("Kopieren")}
           </button>

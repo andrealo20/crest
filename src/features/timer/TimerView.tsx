@@ -77,8 +77,8 @@ function FinishedView() {
   return (
     <motion.div
       className="flex h-full flex-col justify-between px-5 pt-1 pb-2"
-      initial={{ opacity: 0, filter: "blur(4px)" }}
-      animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1, transition: content.enter }}
     >
       <div className="flex h-7 items-center gap-2 text-footnote font-semibold" style={{ color: tint }}>
         {ring ? (
@@ -154,6 +154,7 @@ function SetupView() {
     <div className="flex h-full flex-col justify-between px-5 pt-1 pb-2">
       <div className="flex h-7 items-center justify-between">
         <Segmented
+          disabled={running}
           value={s.mode}
           onChange={(m) => {
             setEditing(false);
@@ -185,7 +186,10 @@ function SetupView() {
                 <button
                   key={d}
                   onClick={() => timerActions.select(s.mode, d)}
-                  className={`pressable pressable-fill tabular h-6 min-w-7 rounded-full px-2.5 text-caption font-medium ${
+                  disabled={running}
+                  aria-label={t("{n} Min.", { n: d / 60 })}
+                  aria-pressed={d === s.duration}
+                  className={`pressable pressable-fill tabular h-6 min-w-7 rounded-full px-2.5 text-caption font-medium disabled:opacity-40 ${
                     d === s.duration ? "bg-fill-2 text-label" : "text-label-3"
                   }`}
                 >
@@ -280,7 +284,7 @@ function MinutesInput(props: { initial: number; tint: string; onDone: (minutes: 
           }}
           className="tabular w-7 bg-transparent text-end text-caption font-semibold text-label outline-none"
         />
-        <span className="text-caption text-label-3">min</span>
+        <span className="text-caption text-label-3">{t("min")}</span>
       </div>
       <button
         type="submit"
@@ -295,14 +299,15 @@ function MinutesInput(props: { initial: number; tint: string; onDone: (minutes: 
   );
 }
 
-function Segmented({ value, onChange }: { value: TimerMode; onChange: (m: TimerMode) => void }) {
+function Segmented({ value, onChange, disabled }: { value: TimerMode; onChange: (m: TimerMode) => void; disabled?: boolean }) {
   return (
     <div className="flex rounded-full bg-fill-1 p-0.5">
       {(Object.keys(modeLabel) as TimerMode[]).map((m) => (
         <button
           key={m}
           onClick={() => onChange(m)}
-          className={`relative h-6 rounded-full px-3 text-caption font-medium transition-colors duration-150 ${
+          disabled={disabled}
+          className={`relative h-6 rounded-full px-3 text-caption font-medium transition-colors duration-150 disabled:opacity-40 ${
             m === value ? "text-label" : "text-label-3 hover:text-label-2"
           }`}
         >

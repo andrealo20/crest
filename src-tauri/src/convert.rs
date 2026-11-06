@@ -6,7 +6,7 @@ use std::process::Command;
 
 use serde::Serialize;
 
-const IMAGE_IN: &[&str] = &["png", "jpg", "jpeg", "webp", "bmp", "gif", "ico", "tif", "tiff", "dds", "tga"];
+pub(crate) const IMAGE_IN: &[&str] = &["png", "jpg", "jpeg", "webp", "bmp", "gif", "ico", "tif", "tiff", "dds", "tga"];
 const AUDIO_IN: &[&str] = &["mp3", "wav", "flac", "m4a", "aac", "ogg", "opus", "wma"];
 const VIDEO_IN: &[&str] = &["mp4", "mov", "mkv", "avi", "webm", "wmv", "m4v"];
 const DOC_IN: &[&str] = &["txt", "md", "markdown", "html", "htm", "pdf", "docx"];
@@ -29,7 +29,8 @@ pub struct Probe {
     files: Vec<FileInfo>,
 }
 
-#[tauri::command]
+// async: a file on an unreachable network drive can stall a stat for a long time, not on the main thread.
+#[tauri::command(async)]
 pub fn convert_probe(paths: Vec<String>) -> Probe {
     let files = paths
         .into_iter()
@@ -60,7 +61,7 @@ pub fn open_path(path: String) -> Result<(), String> {
 }
 
 /// Puts files on the clipboard (Ctrl+V in Explorer pastes them).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn copy_files(paths: Vec<String>) -> Result<(), String> {
     let files: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).filter(|p| p.exists()).collect();
     if files.is_empty() {
@@ -82,8 +83,12 @@ pub async fn file_preview(path: String) -> Option<String> {
 }
 
 /// Shows the file selected in Explorer.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn reveal_file(path: String) -> Result<(), String> {
+    // Explorer opens Documents for a path it cannot find.
+    if !Path::new(&path).exists() {
+        return Err("Datei nicht mehr vorhanden".into());
+    }
     #[cfg(windows)]
     let opened = {
         use std::os::windows::process::CommandExt;

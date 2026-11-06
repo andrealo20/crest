@@ -42,7 +42,7 @@ export type RulesPayload = WindowSettings["rules"] & { apps: AppRule[] };
 export const WINDOW_DEFAULTS: WindowSettings = {
   rules: { maximized: "normal", borderless: "normal", exclusive: "normal", background: true },
   apps: [],
-  hotkeys: { open: "Ctrl+Alt+Space", hide: "", resize: "", find: "Ctrl+Alt+KeyF", mic: "" },
+  hotkeys: { open: "Ctrl+Alt+Space", hide: "", resize: "", find: "Ctrl+Alt+Shift+KeyF", mic: "" },
   sizes: {},
   scale: 100,
   closeDelay: "fast",

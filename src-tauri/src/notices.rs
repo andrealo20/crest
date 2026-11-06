@@ -557,13 +557,13 @@ fn valid_code(code: &str) -> bool {
 }
 
 /// AppUserModelIDs are package family names with "!App", or for desktop apps a name or a known-folder path such as
-/// "{6D809377-...}\App\app.exe": letters, digits and a few separators, never quotes or a way up the tree.
+/// "{6D809377-...}\App\app.exe" ("Notepad++" and the like too): letters, digits and a few separators, never quotes, & or a way up the tree.
 #[cfg(windows)]
 fn valid_app_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 512
         && !id.contains("..")
-        && id.chars().all(|c| c.is_ascii_alphanumeric() || "._-!{}\\ ".contains(c))
+        && id.chars().all(|c| c.is_ascii_alphanumeric() || "._-!{}\\ +()@#=".contains(c))
 }
 
 fn logo(display: &windows::ApplicationModel::AppDisplayInfo) -> Option<String> {
@@ -947,6 +947,7 @@ mod tests {
         assert!(valid_app_id("Microsoft.WindowsTerminal_8wekyb3d8bbwe!App"));
         assert!(valid_app_id(r"{6D809377-6AF0-444B-8957-A3773F02200E}\Mozilla Firefox\firefox.exe"));
         assert!(valid_app_id("Chrome"));
+        assert!(valid_app_id(r"{6D809377-6AF0-444B-8957-A3773F02200E}\Notepad++\notepad++.exe"));
         assert!(!valid_app_id(""));
         assert!(!valid_app_id("app\" --evil"));
         assert!(!valid_app_id(r"..\..\Windows\System32\cmd.exe"));

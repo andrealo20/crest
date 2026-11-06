@@ -22,7 +22,10 @@ fn output(cmd: &str, args: &[&str]) -> Option<String> {
 
 /// The Wi-Fi interface ("en0" on most Macs), from the list of hardware ports.
 fn wifi_device() -> Option<String> {
-    let ports = output("/usr/sbin/networksetup", &["-listallhardwareports"])?;
+    wifi_port(&output("/usr/sbin/networksetup", &["-listallhardwareports"])?)
+}
+
+fn wifi_port(ports: &str) -> Option<String> {
     let mut lines = ports.lines();
     while let Some(line) = lines.next() {
         if line.trim() == "Hardware Port: Wi-Fi" || line.trim() == "Hardware Port: AirPort" {
@@ -68,12 +71,13 @@ pub async fn quick_radio(kind: String, on: bool) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
-#[tauri::command]
+// `async`: runs off the main thread; osascript waits for the user at the permission prompt.
+#[tauri::command(async)]
 pub fn quick_dark(on: bool) -> Result<(), String> {
     osascript(&format!("tell application \"System Events\" to tell appearance preferences to set dark mode to {on}"))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn quick_power(action: String) -> Result<(), String> {
     match action.as_str() {
         "lock" => output("/usr/bin/pmset", &["displaysleepnow"]).map(drop).ok_or_else(|| "failed".into()),
@@ -81,5 +85,31 @@ pub fn quick_power(action: String) -> Result<(), String> {
         "restart" => osascript("tell application \"System Events\" to restart"),
         "shutdown" => osascript("tell application \"System Events\" to shut down"),
         _ => Err("unknown".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finds_the_wifi_device_among_the_hardware_ports() {
+        let ports = "Hardware Port: Ethernet
+Device: en5
+Ethernet Address: aa
+
+Hardware Port: Wi-Fi
+Device: en0
+Ethernet Address: bb
+";
+        assert_eq!(wifi_port(ports).as_deref(), Some("en0"));
+        assert_eq!(wifi_port("Hardware Port: AirPort
+Device: en1
+").as_deref(), Some("en1"));
+        assert_eq!(wifi_port("Hardware Port: Ethernet
+Device: en5
+"), None);
+        // The Wi-Fi line is the last one: no device follows.
+        assert_eq!(wifi_port("Hardware Port: Wi-Fi"), None);
     }
 }

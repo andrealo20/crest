@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowClockwise, CalendarBlank, CaretLeft, CaretRight, SlidersHorizontal, WarningCircle } from "@phosphor-icons/react";
+import { ArrowClockwise, CalendarBlank, CaretLeft, CaretRight, SlidersHorizontal, VideoCamera, WarningCircle } from "@phosphor-icons/react";
 import { content, spin } from "../../design/motion";
 import { formatAgo, formatTime } from "../../lib/format";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -20,7 +20,8 @@ export const calendarError: Record<string, string> = {
   "bad-url": "Adresse ungültig",
   auth: "Anmeldung abgelehnt",
   "not-found": "Kalender nicht gefunden",
-  offline: "Keine Verbindung",
+  // reqwest reports a refused certificate as a failed connection too, so the text names both.
+  offline: "Server nicht erreichbar oder Zertifikat ungültig",
   "too-large": "Kalender zu groß",
   parse: "Kalender nicht lesbar",
   "no-calendars": "Keine Kalender im Konto",
@@ -46,6 +47,12 @@ export function CalendarView() {
   const { data, error, loading } = calendar.use();
   // The day the list starts from, picked in the month; null is today (so it moves on at midnight).
   const [picked, setPicked] = useState<number | null>(null);
+  // Past events fade, the footer age and "today" follow the clock while the view stays open.
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const actions = (
     <HeaderActions>
@@ -90,7 +97,6 @@ export function CalendarView() {
     );
   }
 
-  const now = Date.now();
   const colors = new Map(data.calendars.map((c) => [c.id, c.color]));
   const names = new Map(data.calendars.map((c) => [c.id, c.name]));
   const from = picked ?? startOfDay(now);
@@ -127,16 +133,16 @@ export function CalendarView() {
                 const past = e.end <= now && !(e.end === e.start && e.start > now);
                 const link = past ? null : meetingLink(e);
                 return (
-                  <div key={`${d.day}:${e.id}`} className={`flex items-center gap-2.5 py-[3px] ${past ? "opacity-45" : ""}`} title={names.get(e.calendar)}>
-                    <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: colors.get(e.calendar) || "var(--color-link)" }} />
+                  <div key={`${d.day}:${e.id}`} className="flex items-center gap-2.5 py-[3px]" title={names.get(e.calendar)}>
+                    <span className={`h-4 w-[3px] shrink-0 rounded-full ${past ? "opacity-45" : ""}`} style={{ background: colors.get(e.calendar) || "var(--color-link)" }} />
                     <span className="tabular min-w-[104px] shrink-0 whitespace-nowrap text-footnote text-label-3">{eventTime(e)}</span>
-                    <span className="min-w-0 flex-1 truncate text-footnote text-label">
+                    <span dir="auto" className={`min-w-0 flex-1 truncate text-footnote ${past ? "text-label-2" : "text-label"}`}>
                       {e.title || t("(Ohne Titel)")}
                       {e.location && <span className="text-label-3"> · {e.location}</span>}
                     </span>
                     {link && (
-                      <button className="pressable pressable-fill shrink-0 rounded-full bg-fill-2 px-2.5 py-0.5 text-caption font-medium text-label" title={new URL(link).hostname} onClick={() => joinMeeting(e.id, link)}>
-                        {t("Beitreten")}
+                      <button aria-label={t("Beitreten")} className="pressable pressable-fill flex size-6 shrink-0 items-center justify-center rounded-full bg-fill-2 text-label" title={`${t("Beitreten")} · ${new URL(link).hostname}`} onClick={() => joinMeeting(e.id, link)}>
+                        <VideoCamera size={13} weight="fill" />
                       </button>
                     )}
                   </div>
@@ -177,6 +183,7 @@ function Month(p: { events: CalendarEvent[]; colors: Map<string, string>; now: n
   const anchor = new Date(today);
   anchor.setDate(1);
   anchor.setMonth(anchor.getMonth() + shift);
+  const title = anchor.toLocaleDateString(locale(), { month: "long", year: "numeric" });
   const cells = monthGrid(p.events, anchor.getTime(), firstWeekday());
   const step = (by: number) => setShift((s) => Math.min(2, Math.max(-1, s + by)));
   const arrow = "pressable rounded-full p-1 text-label-3 hover:text-label-2 disabled:opacity-30";
@@ -187,14 +194,14 @@ function Month(p: { events: CalendarEvent[]; colors: Map<string, string>; now: n
           <CaretLeft size={12} weight="bold" className="rtl:-scale-x-100" />
         </button>
         <button
-          className="pressable text-footnote font-semibold text-label capitalize"
+          className="pressable text-footnote font-semibold text-label"
           title={t("Heute")}
           onClick={() => {
             setShift(0);
             p.onPick(today);
           }}
         >
-          {anchor.toLocaleDateString(locale(), { month: "long", year: "numeric" })}
+          {title.charAt(0).toLocaleUpperCase(locale()) + title.slice(1)}
         </button>
         <button className={arrow} aria-label={t("Weiter")} disabled={shift >= 2} onClick={() => step(1)}>
           <CaretRight size={12} weight="bold" className="rtl:-scale-x-100" />

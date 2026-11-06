@@ -2,15 +2,16 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { CaretDown, Check, Coffee, Eye, EyeSlash, Headphones, Moon, MusicNoteSimple, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleHigh, SpeakerSimpleSlash, Sun, SunDim, Timer } from "@phosphor-icons/react";
 import { DiscordLogo } from "../../ui/brands";
+import { isMac } from "../../platform/native";
 import { content, springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
-import { requestSize } from "../../notch/size";
+import { MAX_SIZE, requestSize } from "../../notch/size";
 import { findTab } from "../../notch/tabs";
 import { togglePresentation, usePresenting } from "../privacy/store";
 import { useNowPlaying } from "../../platform/media";
 import { systemControls, type AudioOutput, type FocusState, type VolumeState } from "../../platform/services";
-import { MIXER_MAX_ROWS, MIXER_ROW } from "../now-playing/Mixer";
+import { MIXER_MAX_ROWS, MIXER_ROW, sendSystemVolume } from "../now-playing/Mixer";
 import { outputIcon } from "./outputs";
 import { useDiscordCall } from "../discord/store";
 import { Equalizer } from "../now-playing/Equalizer";
@@ -19,13 +20,15 @@ import { formatClock, timer, useRemaining } from "../timer/store";
 import { Look, clockFace } from "../timer/Look";
 import { lookTint } from "../timer/looks";
 import { describe, useForecast } from "../weather/store";
+import { isStale } from "../weather/stale";
 import { useHue } from "../themes/hues";
 import { WeatherIcon } from "../weather/WeatherView";
 import { settings } from "../../settings/store";
-import { formatTemp, formatTimeParts } from "../../lib/format";
+import { formatAgo, formatTemp, formatTimeParts } from "../../lib/format";
 import { locale, t } from "../../i18n";
 import { QuoteLine } from "../quotes/QuoteLine";
 import { Select } from "../../ui/controls";
+import { sliderKey } from "../../ui/sliderKey";
 import { AWAKE_MINUTES, awakeLeft, awakeOn, formatLeft } from "./awake";
 import { CONTROLS_ROW, QuickControls, useQuick } from "./QuickControls";
 import { awake, startAwake, stopAwake } from "./store";
@@ -48,7 +51,9 @@ export function OverviewView() {
   const [outputs, setOutputs] = useState<AudioOutput[]>([]);
   const [outputsOpen, setOutputsOpen] = useState(false);
   const loadOutputs = () => void systemControls.outputs().then(setOutputs).catch(() => setOutputs([]));
-  useEffect(loadOutputs, []);
+  useEffect(() => {
+    if (!isMac) loadOutputs();
+  }, []);
   const choice = outputs.length > 1;
   const listOpen = outputsOpen && choice;
   const pickOutput = (id: string) => {
@@ -65,6 +70,8 @@ export function OverviewView() {
   const brightMisses = useRef(0);
   useEffect(() => {
     const quiet = () => brightBusy.current || Date.now() < brightHold.current;
+    let period = 3000;
+    let id = 0;
     const load = () =>
       !quiet() &&
       void systemControls.brightness().then((v) => {
@@ -72,15 +79,25 @@ export function OverviewView() {
         // DDC/CI misses a read now and then: the row goes only after three in a row.
         brightMisses.current = v === null ? brightMisses.current + 1 : 0;
         if (v !== null || brightMisses.current >= 3) setBright(v);
+        // With nothing to set, look again only now and then (another monitor may take the notch).
+        const every = brightMisses.current >= 3 ? 30_000 : 3000;
+        if (every !== period) {
+          period = every;
+          window.clearInterval(id);
+          id = window.setInterval(load, every);
+        }
       });
     load();
-    const id = setInterval(load, 3000);
-    return () => clearInterval(id);
+    id = window.setInterval(load, period);
+    return () => window.clearInterval(id);
   }, []);
 
   // The open list grows the notch by its rows, like the player menu in Now Playing; the brightness row by its height and gap.
   const [quick, reloadQuick] = useQuick();
-  const extra = (listOpen ? Math.min(MIXER_MAX_ROWS, outputs.length) * MIXER_ROW + 14 : 0) + (bright !== null ? BRIGHTNESS_ROW : 0) + (quick ? CONTROLS_ROW : 0);
+  // The list gets the rows left under the window's maximum (it scrolls past them).
+  const others = (bright !== null ? BRIGHTNESS_ROW : 0) + (quick ? CONTROLS_ROW : 0);
+  const rows = listOpen ? Math.max(1, Math.min(MIXER_MAX_ROWS, outputs.length, Math.floor((MAX_SIZE.h - findTab("overview")!.size.h - others - 14) / MIXER_ROW))) : 0;
+  const extra = (rows ? rows * MIXER_ROW + 14 : 0) + others;
   useEffect(() => {
     if (!extra) return requestSize("overview", null);
     const base = findTab("overview")!.size;
@@ -97,19 +114,22 @@ export function OverviewView() {
       </HeaderActions>
       <Header />
       <Activity />
-      <div className="flex gap-2">
-        <FocusTile />
-        <AwakeTile />
-        <VolumeTile
-          device={choice ? (outputs.find((o) => o.default)?.name ?? "") : null}
-          open={listOpen}
-          onDevices={() => {
-            if (!outputsOpen) loadOutputs();
-            setOutputsOpen(!outputsOpen);
-          }}
-        />
-      </div>
-      {listOpen && <OutputList outputs={outputs} onPick={pickOutput} />}
+      {/* Focus, keep awake and volume have no backend on a Mac yet. */}
+      {!isMac && (
+        <div className="flex gap-2">
+          <FocusTile />
+          <AwakeTile />
+          <VolumeTile
+            device={choice ? (outputs.find((o) => o.default)?.name ?? "") : null}
+            open={listOpen}
+            onDevices={() => {
+              if (!outputsOpen) loadOutputs();
+              setOutputsOpen(!outputsOpen);
+            }}
+          />
+        </div>
+      )}
+      {listOpen && <OutputList outputs={outputs} rows={rows} onPick={pickOutput} />}
       {bright !== null && <BrightnessTile level={bright} busy={brightBusy} hold={brightHold} onLevel={setBright} />}
       {quick && <QuickControls state={quick} reload={reloadQuick} />}
       {quotes && <QuoteLine />}
@@ -131,6 +151,8 @@ function Header() {
   const forecast = useForecast();
   const place = settings.use().weather;
   const weather = forecast && forecast !== "error" ? describe(forecast.current.code, forecast.current.day) : null;
+  // A forecast saved hours ago says how old it is, as in the weather tool.
+  const old = forecast && forecast !== "error" && forecast.savedAt && isStale(forecast.savedAt, Date.now()) ? formatAgo(Date.now() - forecast.savedAt) : null;
   const { clockLook, clockColor } = settings.use().timer;
   const { time, period } = formatTimeParts(now);
   const date = new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long" }).format(now);
@@ -167,7 +189,7 @@ function Header() {
           )}
         </AnimatePresence>
         <div className="mt-1 max-w-[220px] truncate text-footnote text-label-3">
-          {place ? `${place.name}${weather ? ` · ${weather.text}` : ""}` : t("Ort wird erkannt …")}
+          {place ? `${place.name}${weather ? ` · ${old ?? weather.text}` : ""}` : t("Ort wird erkannt …")}
         </div>
       </button>
     </div>
@@ -198,7 +220,7 @@ function Activity() {
       icon: <DiscordLogo size={18} weight="fill" className="text-label" />,
       title: call.channelName,
       detail: [call.guildName, t(call.members.length === 1 ? "{n} Person" : "{n} Personen", { n: call.members.length })].filter(Boolean).join(" · "),
-      trailing: <Equalizer playing={call.members.some((m) => m.speaking)} tint="bg-green" />,
+      trailing: <Equalizer playing={call.members.some((m) => m.speaking)} tint="bg-green" levels={false} />,
     };
   } else if (np) {
     item = {
@@ -347,7 +369,7 @@ function OutputIcon({ name, className }: { name: string; className?: string }) {
 }
 
 /** The active playback devices; picking one makes it the Windows default. */
-function OutputList({ outputs, onPick }: { outputs: AudioOutput[]; onPick: (id: string) => void }) {
+function OutputList({ outputs, rows, onPick }: { outputs: AudioOutput[]; rows: number; onPick: (id: string) => void }) {
   return (
     <motion.div
       className="flex shrink-0 flex-col"
@@ -359,7 +381,7 @@ function OutputList({ outputs, onPick }: { outputs: AudioOutput[]; onPick: (id: 
         role="listbox"
         aria-label={t("Ausgabegerät")}
         className="-mx-1 overflow-y-auto px-1 [scrollbar-width:none]"
-        style={{ maxHeight: MIXER_MAX_ROWS * MIXER_ROW }}
+        style={{ maxHeight: rows * MIXER_ROW }}
       >
         {outputs.map((o) => (
           <button
@@ -432,9 +454,10 @@ function BrightnessTile({ level, busy, hold, onLevel }: { level: number; busy: {
         tabIndex={0}
         aria-label={t("Helligkeit")}
         aria-valuenow={level}
+        aria-valuetext={`${level} %`}
         aria-valuemin={0}
         aria-valuemax={100}
-        className="relative h-6 min-w-0 flex-1 cursor-pointer touch-none overflow-hidden rounded-full bg-fill-2 outline-none"
+        className="relative h-6 min-w-0 flex-1 cursor-pointer touch-none overflow-hidden rounded-full bg-fill-2 outline-none focus-visible:ring-1 focus-visible:ring-label-3"
         onPointerDown={(e) => {
           busy.current = true;
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -445,7 +468,10 @@ function BrightnessTile({ level, busy, hold, onLevel }: { level: number; busy: {
         onPointerCancel={() => (busy.current = false)}
         onWheel={(e) => set(level + (e.deltaY < 0 ? 2 : -2))}
         onKeyDown={(e) => {
-          if (e.key === "ArrowRight" || e.key === "ArrowLeft") set(level + (e.key === "ArrowRight" ? 5 : -5));
+          const to = sliderKey(e.key, level, 5, 0, 100);
+          if (to === undefined) return;
+          e.preventDefault();
+          set(to);
         }}
       >
         <motion.div
@@ -470,17 +496,21 @@ function VolumeTile({ device, open, onDevices }: { device: string | null; open: 
   useEffect(() => {
     const load = () => !dragging.current && void systemControls.volume().then(setVol).catch(() => {});
     load();
-    // Keyboard volume keys or taskbar → follow them.
-    const id = setInterval(load, 1000);
+    // Keyboard volume keys or taskbar → follow them. Each read opens the audio endpoint, so not every second.
+    const id = setInterval(load, 3000);
     return () => clearInterval(id);
   }, []);
 
   const level = vol ? (vol.muted ? 0 : vol.level) : 0;
+  const change = (raw: number) => {
+    const l = Math.round(Math.min(1, Math.max(0, raw)) * 100) / 100;
+    if (vol && !vol.muted && vol.level === l) return;
+    setVol({ level: l, muted: false });
+    sendSystemVolume("", { level: l });
+  };
   const set = (clientX: number) => {
     const r = track.current!.getBoundingClientRect();
-    const l = Math.round(Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * 100) / 100;
-    setVol({ level: l, muted: false });
-    void systemControls.setVolume({ level: l });
+    change((clientX - r.left) / r.width);
   };
   const Icon = vol?.muted || level === 0 ? SpeakerSimpleSlash : level < 0.34 ? SpeakerNone : level < 0.67 ? SpeakerLow : SpeakerHigh;
 
@@ -489,7 +519,7 @@ function VolumeTile({ device, open, onDevices }: { device: string | null; open: 
       <button
         aria-label={vol?.muted ? t("Stummschaltung aufheben") : t("Stumm")}
         disabled={!vol}
-        onClick={() => vol && void systemControls.setVolume({ muted: !vol.muted }).then(setVol)}
+        onClick={() => vol && void systemControls.setVolume({ muted: !vol.muted }).then(setVol).catch(() => {})}
         className={`pressable flex size-7 shrink-0 items-center justify-center rounded-full ${vol?.muted ? "text-red" : "text-label-2 hover:text-label"}`}
         style={!vol?.muted && speakerHue ? { color: speakerHue } : undefined}
       >
@@ -503,9 +533,10 @@ function VolumeTile({ device, open, onDevices }: { device: string | null; open: 
         tabIndex={0}
         aria-label={t("Lautstärke")}
         aria-valuenow={Math.round(level * 100)}
+        aria-valuetext={`${Math.round(level * 100)} %`}
         aria-valuemin={0}
         aria-valuemax={100}
-        className="relative h-6 min-w-0 flex-1 cursor-pointer touch-none overflow-hidden rounded-full bg-fill-2 outline-none"
+        className="relative h-6 min-w-0 flex-1 cursor-pointer touch-none overflow-hidden rounded-full bg-fill-2 outline-none focus-visible:ring-1 focus-visible:ring-label-3"
         onPointerDown={(e) => {
           if (!vol) return;
           dragging.current = true;
@@ -515,17 +546,12 @@ function VolumeTile({ device, open, onDevices }: { device: string | null; open: 
         onPointerMove={(e) => e.currentTarget.hasPointerCapture(e.pointerId) && set(e.clientX)}
         onPointerUp={() => (dragging.current = false)}
         onPointerCancel={() => (dragging.current = false)}
-        onWheel={(e) => {
-          if (!vol) return;
-          const l = Math.min(1, Math.max(0, level + (e.deltaY < 0 ? 0.02 : -0.02)));
-          setVol({ level: l, muted: false });
-          void systemControls.setVolume({ level: l });
-        }}
+        onWheel={(e) => vol && change(level + (e.deltaY < 0 ? 0.02 : -0.02))}
         onKeyDown={(e) => {
-          if (!vol || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
-          const l = Math.min(1, Math.max(0, level + (e.key === "ArrowRight" ? 0.05 : -0.05)));
-          setVol({ level: l, muted: false });
-          void systemControls.setVolume({ level: l });
+          const to = sliderKey(e.key, level, 0.05, 0, 1);
+          if (!vol || to === undefined) return;
+          e.preventDefault();
+          change(to);
         }}
       >
         <motion.div

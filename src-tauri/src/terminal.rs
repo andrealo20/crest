@@ -133,6 +133,28 @@ fn windows_build() -> u32 {
     String::from_utf16_lossy(&buf[..bytes as usize / 2]).trim_end_matches('\0').parse().unwrap_or(0)
 }
 
+/// `%NAME%` replaced by its value, as cmd does; a name that is not set stays as typed.
+fn expand_env(s: &str) -> String {
+    let mut out = String::new();
+    let mut rest = s;
+    while let Some(i) = rest.find('%') {
+        out.push_str(&rest[..i]);
+        let after = &rest[i + 1..];
+        match after.find('%').and_then(|j| std::env::var(&after[..j]).ok().map(|v| (j, v))) {
+            Some((j, value)) => {
+                out.push_str(&value);
+                rest = &after[j + 1..];
+            }
+            None => {
+                out.push('%');
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 fn size(cols: u16, rows: u16) -> COORD {
     COORD { X: cols.clamp(2, 1000) as i16, Y: rows.clamp(2, 1000) as i16 }
 }
@@ -150,7 +172,8 @@ pub async fn terminal_start(
     app: AppHandle,
     state: State<'_, TerminalState>,
 ) -> Result<(), String> {
-    let exe = shell_exe(&shell).ok_or("Shell not found")?;
+    let exe = shell_exe(&shell).ok_or("Shell nicht gefunden")?;
+    let cwd = expand_env(&cwd);
     let cwd = if Path::new(&cwd).is_dir() { PathBuf::from(cwd) } else { home() };
     let (pty, output) = spawn(&exe, &command_line, &cwd, size(cols, rows)).map_err(|e| e.message())?;
     let pty = Arc::new(pty);
@@ -344,4 +367,18 @@ pub fn terminal_kill(state: State<'_, TerminalState>) {
 #[tauri::command]
 pub fn terminal_clipboard_text() -> Option<String> {
     arboard::Clipboard::new().and_then(|mut c| c.get_text()).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::expand_env;
+
+    #[test]
+    fn start_folder_expands_variables() {
+        std::env::set_var("CREST_TEST_DIR", r"C:\Work");
+        assert_eq!(expand_env(r"%CREST_TEST_DIR%\src"), r"C:\Work\src");
+        assert_eq!(expand_env(r"%CREST_NOT_SET%\src"), r"%CREST_NOT_SET%\src");
+        assert_eq!(expand_env("50%"), "50%");
+        assert_eq!(expand_env(r"D:\a b"), r"D:\a b");
+    }
 }

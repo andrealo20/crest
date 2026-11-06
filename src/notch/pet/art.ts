@@ -34,7 +34,8 @@ const P: Record<PetId, Palette> = {
 
 const ln = (c: Palette, w = 1.6) => `stroke="${c.line}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
 
-function eyes(c: Palette, { y = 33, gap = 11, rx = 5.2, ry = 6, brows = 0, lazy = false } = {}): string {
+/** `skin` is the colour the eyelids close in: the face the eyes sit on. */
+function eyes(c: Palette, { y = 33, gap = 11, rx = 5.2, ry = 6, brows = 0, lazy = false, skin = c.base } = {}): string {
   const xs = [40 - gap / 2, 40 + gap / 2];
   const one = (x: number, i: number) => {
     const sx = lazy && i === 1 ? 0.82 : 1;
@@ -43,7 +44,7 @@ function eyes(c: Palette, { y = 33, gap = 11, rx = 5.2, ry = 6, brows = 0, lazy 
     <ellipse cx="${x + 0.8}" cy="${y + 0.9}" rx="${rx * 0.36 * sx}" ry="${ry * 0.42 * sx}" fill="#0b0b12"/>
     <circle cx="${x - rx * 0.26}" cy="${y - ry * 0.32}" r="${rx * 0.27 * sx}" fill="#fff"/><circle cx="${x + rx * 0.32}" cy="${y + ry * 0.36}" r="${rx * 0.11}" fill="#fff"/></g>`;
   };
-  const lid = (x: number) => `<path d="M${x - rx - 0.6} ${y} a${rx + 0.6} ${ry + 0.6} 0 0 1 ${2 * rx + 1.2} 0 a${rx + 0.6} ${ry * 0.5} 0 0 1 ${-(2 * rx + 1.2)} 0 Z" fill="${c.base}" ${ln(c)}/>`;
+  const lid = (x: number) => `<ellipse cx="${x}" cy="${y}" rx="${rx + 0.8}" ry="${ry + 0.8}" fill="${skin}"/><path d="M${x - rx} ${y - 0.5} q${rx} ${ry * 0.9} ${2 * rx} 0" fill="none" ${ln(c, 1.8)}/>`;
   const happy = (x: number) => `<path d="M${x - rx} ${y + 1} q${rx} ${-ry * 1.1} ${2 * rx} 0" fill="none" ${ln(c, 2.2)}/>`;
   const brow = brows
     ? `<path d="M${xs[0] - rx} ${y - ry - 2.5 - brows} q${rx} -2 ${2 * rx} ${brows * 0.5}" fill="none" ${ln(c, 1.8)}/><path d="M${xs[1] + rx} ${y - ry - 2.5 - brows} q${-rx} -2 ${-2 * rx} ${brows * 0.5}" fill="none" ${ln(c, 1.8)}/>`
@@ -154,7 +155,7 @@ const art: Record<PetId, (c: Palette) => Parts> = {
       <g class="ear-r"><circle cx="61.5" cy="32" r="6.5" fill="${c.base}" ${ln(c)}/><circle cx="61.5" cy="32" r="3.6" fill="${c.belly}"/></g>
       ${shaded(c, HEAD, "monkey-h")}
       <path d="M26 34 C26 24 33 23 40 27 C47 23 54 24 54 34 C54 42 47 46 40 46 C33 46 26 42 26 34 Z" fill="${c.belly}" ${ln(c)}/>
-      ${eyes(c, { y: 32, gap: 10.5, rx: 4.6, ry: 5.2 })}${cheeks(c, 39)}
+      ${eyes(c, { y: 32, gap: 10.5, rx: 4.6, ry: 5.2, skin: c.belly })}${cheeks(c, 39)}
       <path d="M38 37.5 h4" stroke="${c.line}" stroke-width="1.4" stroke-linecap="round"/>${mouth(c, 41)}
       <path d="M34 15 q6 -4 12 0" fill="none" ${ln(c, 1.4)}/>`,
   }),
@@ -166,7 +167,7 @@ const art: Record<PetId, (c: Palette) => Parts> = {
     head: `${shaded(c, HEAD, "sloth-h")}
       <path d="M24 33 C24 24 31 21 40 21 C49 21 56 24 56 33 C56 42 49 47 40 47 C31 47 24 42 24 33 Z" fill="${c.belly}" ${ln(c)}/>
       <path d="M26.5 33.5 C27 28 33.5 27.5 35 32 C34.5 37 28 38 26.5 33.5 Z M53.5 33.5 C53 28 46.5 27.5 45 32 C45.5 37 52 38 53.5 33.5 Z" fill="#6b5034"/>
-      ${eyes(c, { y: 32.6, gap: 13, rx: 3.6, ry: 4 })}
+      ${eyes(c, { y: 32.6, gap: 13, rx: 3.6, ry: 4, skin: "#6b5034" })}
       <ellipse cx="40" cy="38" rx="3" ry="2" fill="#3d2f1f"/><ellipse cx="39.2" cy="37.4" rx="1" ry=".5" fill="#fff" opacity=".6"/>${mouth(c, 42)}`,
   }),
   samurai: (c) => {
@@ -190,7 +191,7 @@ const art: Record<PetId, (c: Palette) => Parts> = {
       head: `<path d="M14 30 C14 36 18 42 24 44 L26 36 Z M66 30 C66 36 62 42 56 44 L54 36 Z" fill="${k.base}" ${ln(c, 1.3)}/>
         <path d="M15.5 34 l9 3 M17.5 39 l7.5 2 M64.5 34 l-9 3 M62.5 39 l-7.5 2" stroke="#d23a35" stroke-width="1.1"/>
         ${shaded(skin, "M23 34 C23 25 30 21 40 21 C50 21 57 25 57 34 C57 43 50 48 40 48 C30 48 23 43 23 34 Z", "samurai-f")}
-        ${eyes(c, { y: 35, gap: 11, rx: 4.2, ry: 4.8 })}
+        ${eyes(c, { y: 35, gap: 11, rx: 4.2, ry: 4.8, skin: skin.base })}
         <path d="M30.5 28.5 l7.5 3 M49.5 28.5 l-7.5 3" stroke="${c.line}" stroke-width="2.6" stroke-linecap="round"/>
         ${cheeks(c, 41.5)}${mouth(c, 44)}
         ${shaded(k, "M15 31 C15 14 26 8 40 8 C54 8 65 14 65 31 C58 26.5 49 25 40 25 C31 25 22 26.5 15 31 Z", "samurai-h")}
@@ -229,7 +230,7 @@ const art: Record<PetId, (c: Palette) => Parts> = {
       legs: legs(c, { leg: "#8a3a14", paw: "#5a2208" }),
       head: `<g class="flicker">${shaded({ ...c, rim: "#fff3b0" }, OUTER, "flame-o")}</g>
         <g class="flicker b"><path d="${INNER}" fill="${c.belly}"/><path d="${INNER}" fill="none" stroke="#fff6c8" stroke-width="1.2" opacity=".6"/></g>
-        ${eyes(c, { y: 41, gap: 10, rx: 3.8, ry: 4.4 })}${cheeks({ ...c, accent: "#ff5f4a" }, 47)}${mouth(c, 50)}`,
+        ${eyes(c, { y: 41, gap: 10, rx: 3.8, ry: 4.4, skin: c.belly })}${cheeks({ ...c, accent: "#ff5f4a" }, 47)}${mouth(c, 50)}`,
     };
   },
   zombie: (c) => ({

@@ -47,7 +47,8 @@ impl Own {
     }
 }
 
-#[tauri::command]
+// async: the registry walk runs off the main thread, which animates the notch.
+#[tauri::command(async)]
 pub fn privacy_state() -> Privacy {
     let busy = |cap: &str| in_use(&format!(r"{BASE}\{cap}"), Own::get());
     Privacy { mic: busy("microphone"), camera: busy("webcam"), screen: busy("graphicsCaptureProgrammatic") }

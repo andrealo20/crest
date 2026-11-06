@@ -3,7 +3,7 @@ import { ArrowLineUp, X } from "@phosphor-icons/react";
 import { isMac } from "../../platform/native";
 import { windowShell, type RunningApp } from "../../platform/services";
 import { settings } from "../../settings/store";
-import { tabs, settingsTab } from "../../notch/tabs";
+import { tabs, settingsTab, findTab, type NotchTab } from "../../notch/tabs";
 import { Button, Group, Row, Segmented, Select, Switch, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
 import { altGrRisk, conflicts, keycaps, record, type HotkeyKind, type RecordError } from "./hotkeys";
@@ -32,7 +32,7 @@ export function WindowSettings() {
   return (
     <>
       <Rules />
-      <AppRules />
+      {!isMac && <AppRules />}
       <Shortcuts />
       <Panel />
       <Mouse />
@@ -45,21 +45,26 @@ function Rules() {
   const r = s.behavior.rules;
   const gaming = s.gaming.mode !== "off";
   return (
-    <Group title={t("Wenn ein Fenster den Bildschirm füllt")} id="settings-window">
-      {CONTEXTS.map((c) => (
-        <Row key={c} label={t(contextLabel[c])} hint={gaming && c !== "maximized" ? t("Der Gaming-Modus hält Crest hier sichtbar") : t(contextHint[c])}>
-          <Segmented
-            id={`rule-${c}`}
-            size="sm"
-            value={r[c]}
-            onChange={(v) => updateBehavior((b) => ({ rules: { ...b.rules, [c]: v } }))}
-            options={behaviorOptions()}
-          />
-        </Row>
-      ))}
-      <Row label={t("Auch Fenster dahinter prüfen")} hint={t("Ein maximiertes oder randloses Fenster hinter dem aktiven zählt auch")}>
-        <Switch label={t("Auch Fenster dahinter prüfen")} checked={r.background} onChange={(background) => updateBehavior((b) => ({ rules: { ...b.rules, background } }))} />
-      </Row>
+    <Group title={isMac ? undefined : t("Wenn ein Fenster den Bildschirm füllt")} id="settings-window">
+      {/* The window watcher behind the rules is Windows only. */}
+      {!isMac && (
+        <>
+          {CONTEXTS.map((c) => (
+            <Row key={c} label={t(contextLabel[c])} hint={gaming && c !== "maximized" ? t("Der Gaming-Modus hält Crest hier sichtbar") : t(contextHint[c])}>
+              <Segmented
+                id={`rule-${c}`}
+                size="sm"
+                value={r[c]}
+                onChange={(v) => updateBehavior((b) => ({ rules: { ...b.rules, [c]: v } }))}
+                options={behaviorOptions()}
+              />
+            </Row>
+          ))}
+          <Row label={t("Auch Fenster dahinter prüfen")} hint={t("Ein maximiertes oder randloses Fenster hinter dem aktiven zählt auch")}>
+            <Switch label={t("Auch Fenster dahinter prüfen")} checked={r.background} onChange={(background) => updateBehavior((b) => ({ rules: { ...b.rules, background } }))} />
+          </Row>
+        </>
+      )}
       <Row label={t("Nach vorne holen")} hint={t("Wenn ein anderes Fenster über Crest liegt")}>
         <Button icon={ArrowLineUp} onClick={windowShell.raise}>
           {t("Jetzt")}
@@ -119,7 +124,7 @@ function AppRules() {
       <Row label={t("Laufende App")} hint={apps.length === 0 ? t("Eigene Regeln für eine App, nach ihrer .exe") : undefined}>
         <div className="flex items-center gap-2">
           <Select<string>
-            width="w-40"
+            width="w-44"
             value={pick}
             onChange={setPick}
             options={[{ value: "", label: t("App wählen …") }, ...choices.map((a) => ({ value: a.path, label: a.name }))]}
@@ -168,13 +173,15 @@ const hotkeyLabel: Record<HotkeyKind, string> = { open: "Öffnen und schließen"
 const hotkeyHint: Record<HotkeyKind, string> = {
   open: "Öffnet und schließt die Notch von überall",
   hide: "Blendet Crest aus, bis du es wieder drückst",
-  resize: "Mit Alt, einer weiteren Taste und den Pfeiltasten: ←/→ Breite, ↑/↓ Höhe des offenen Tools",
+  resize: isMac
+    ? "Mit Option, einer weiteren Taste und den Pfeiltasten: ←/→ Breite, ↑/↓ Höhe des offenen Tools"
+    : "Mit Alt, einer weiteren Taste und den Pfeiltasten: ←/→ Breite, ↑/↓ Höhe des offenen Tools",
   find: "Liest den Text auf allen Bildschirmen und öffnet die Suche darin",
   mic: "Schaltet das Standard-Mikrofon stumm und wieder ein, von überall",
 };
 const recordErrors: Record<RecordError, string> = {
-  "need-modifier": "Buchstaben und Ziffern brauchen Strg, Alt oder Win; F1 bis F24 gehen allein",
-  "resize-modifiers": "Alt und eine weitere Taste (Strg, Umschalt oder Win) halten",
+  "need-modifier": isMac ? "Buchstaben und Ziffern brauchen Ctrl, Option oder Cmd; F1 bis F24 gehen allein" : "Buchstaben und Ziffern brauchen Strg, Alt oder Win; F1 bis F24 gehen allein",
+  "resize-modifiers": isMac ? "Option und eine weitere Taste (Ctrl, Umschalt oder Cmd) halten" : "Alt und eine weitere Taste (Strg, Umschalt oder Win) halten",
   "resize-arrow": "Halte die Tasten und drücke eine Pfeiltaste",
   "unsupported-key": "Diese Taste geht nicht als Tastenkürzel",
 };
@@ -191,8 +198,9 @@ function Shortcuts() {
   );
 }
 
-/** A keycap in the interface language: Ctrl is "Strg" and Space "Leertaste" in German. */
-export const keyText = (k: string) => (k === "Ctrl" ? t("Strg") : k === "Space" ? t("Leertaste") : k === "Alt" ? t("Alt") : k);
+/** A keycap in the interface language: Ctrl is "Strg" and Space "Leertaste" in German; on a Mac the Win key is Cmd and Alt is Option. */
+export const keyText = (k: string) =>
+  k === "Space" ? t("Leertaste") : isMac ? (k === "Win" ? "Cmd" : k === "Alt" ? "Option" : k) : k === "Ctrl" ? t("Strg") : k === "Alt" ? t("Alt") : k;
 
 /** Click the box, press the combination. Esc cancels, Backspace clears. */
 function HotkeyRow({ kind }: { kind: HotkeyKind }) {
@@ -203,7 +211,8 @@ function HotkeyRow({ kind }: { kind: HotkeyKind }) {
   const box = useRef<HTMLButtonElement>(null);
   const value = hotkeys[kind];
   const clash = conflicts(hotkeys, takenByLauncher(s))[kind];
-  const altGr = altGrRisk(kind, value);
+  // AltGr is a Windows and Linux key; a Mac types its characters with Option alone.
+  const altGr = !isMac && altGrRisk(kind, value);
 
   const stop = () => {
     setRecording(false);
@@ -263,7 +272,7 @@ function HotkeyRow({ kind }: { kind: HotkeyKind }) {
           onKeyDown={onKeyDown}
           // Key combinations read left to right in any language.
           dir="ltr"
-          className={`pressable flex h-7 min-w-24 items-center justify-center gap-1 rounded-[8px] px-2 text-caption outline-none ${
+          className={`pressable flex h-7 min-w-24 items-center justify-center gap-1 rounded-[8px] px-2 text-caption outline-none focus-visible:ring-1 focus-visible:ring-label-3 ${
             recording ? "bg-fill-3 text-label ring-1 ring-label-3" : "bg-fill-2 text-label-2"
           }`}
         >
@@ -290,8 +299,10 @@ function HotkeyRow({ kind }: { kind: HotkeyKind }) {
 }
 
 function Panel() {
-  const b = settings.use().behavior;
-  const all = [...tabs, settingsTab];
+  const { behavior: b, tools } = settings.use();
+  // The installed plugins' tools count too: those enabled and those with a saved size.
+  const plugins = [...tools.map((x) => x.id), ...Object.keys(b.sizes)].filter((id) => id.startsWith("plugin:")).map(findTab);
+  const all = [...new Map([...tabs, settingsTab, ...plugins].filter((x): x is NotchTab => !!x).map((x) => [x.id, x])).values()];
   const defs = Object.fromEntries(all.map((tab) => [tab.id, tab.size]));
   const quick = currentQuick(defs, b.sizes);
   return (

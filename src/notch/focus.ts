@@ -1,12 +1,12 @@
 import { createStore } from "../lib/store";
-import { onFocusExit, onFocusFromTray, setPassthrough, syncFocusTray } from "../platform/native";
+import { onFocusExit, onFocusFromTray, syncFocusTray } from "../platform/native";
 
 /*
  * Focus mode: the notch stays visible but fully click-through, so clicks reach the
  * app below (e.g. browser tabs at the very top). Look per setting: half transparent,
  * or shrunk to a thin line at the edge (display.focusStyle).
  * In and out: three quick clicks on the notch, the settings or the tray menu.
- * Natively Rust counts the clicks, because the window no longer gets any.
+ * Natively Rust counts the clicks, because the window no longer gets any (except under a card with buttons, Notch.tsx).
  */
 export const focusMode = createStore(false, { persist: "focus-mode" });
 
@@ -22,11 +22,8 @@ let started = false;
 export function startFocusMode() {
   if (started) return;
   started = true;
-  // One source of truth: every change (clicks, settings, tray) reaches Rust and the tray check.
-  const apply = () => {
-    setPassthrough(focusMode.get());
-    syncFocusTray(focusMode.get());
-  };
+  // One source of truth: every change (clicks, settings, tray) reaches the tray check; Notch.tsx sets the click-through.
+  const apply = () => syncFocusTray(focusMode.get());
   apply();
   focusMode.subscribe(apply);
   onFocusExit(() => setFocusMode(false));

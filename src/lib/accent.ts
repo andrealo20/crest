@@ -4,6 +4,8 @@
  * so the color reads well on black.
  */
 const FALLBACK = "#ffffff";
+// Keys are whole data URLs, so only the last few covers are kept.
+const CACHE_MAX = 8;
 const cache = new Map<string, string>();
 
 export async function accentFrom(src: string | null): Promise<string> {
@@ -41,6 +43,7 @@ export async function accentFrom(src: string | null): Promise<string> {
   // Almost gray covers → neutral white instead of a muddy color.
   const color = s < 0.12 ? FALLBACK : hsl(h, Math.min(1, s * 1.15 + 0.1), Math.min(0.72, Math.max(0.6, l)));
   cache.set(src, color);
+  if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value!);
   return color;
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowClockwise, Bluetooth, Lock, Microphone, MicrophoneSlash, Moon, Power, WifiHigh, MoonStars, type Icon } from "@phosphor-icons/react";
+import { ArrowClockwise, Bed, Bluetooth, Lock, Microphone, MicrophoneSlash, Power, WifiHigh, MoonStars, type Icon } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { systemControls, type PowerAction, type QuickState } from "../../platform/services";
 import { HUE_PALETTE } from "../themes/themes";
@@ -15,6 +15,15 @@ import { t } from "../../i18n";
 /** The row (h-11) and the gap above it (gap-2.5), for Overview's size. */
 export const CONTROLS_ROW = 54;
 const ARM_MS = 3000;
+const NOTE_MS = 4000;
+
+/** What a rejected command says, by the codes of services.ts and quick.rs. */
+function failure(e: unknown): string {
+  const code = String(e);
+  if (code === "denied") return t("Vom System nicht erlaubt");
+  if (code === "settings") return t("In den Windows-Einstellungen ändern");
+  return t("Das hat nicht geklappt");
+}
 
 /** The controls' state, read while Overview shows (a key or the quick settings may change them); null until read or where none exist. */
 export function useQuick(): [QuickState | null, () => void] {
@@ -34,32 +43,51 @@ export function useQuick(): [QuickState | null, () => void] {
 }
 
 export function QuickControls({ state, reload }: { state: QuickState; reload: () => void }) {
-  const toggle = (job: Promise<void>) => void job.catch(() => {}).finally(reload);
+  // A switch is off limits while its command runs (a radio can take a second or two), so a second click cannot repeat it.
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const noteTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(noteTimer.current), []);
+  const fail = (e: unknown) => {
+    setNote(failure(e));
+    window.clearTimeout(noteTimer.current);
+    noteTimer.current = window.setTimeout(() => setNote(null), NOTE_MS);
+  };
+  const toggle = (job: Promise<void>) => {
+    setBusy(true);
+    void job.catch(fail).finally(() => {
+      setBusy(false);
+      reload();
+    });
+  };
   return (
     <div className="flex h-11 shrink-0 items-center gap-1.5 rounded-[12px] bg-fill-1 px-1.5">
-      {state.wifi !== null && <Switch icon={WifiHigh} hue="blue" label={t("WLAN")} on={state.wifi} onToggle={() => toggle(systemControls.setRadio("wifi", !state.wifi))} />}
-      {state.bluetooth !== null && <Switch icon={Bluetooth} hue="indigo" label={t("Bluetooth")} on={state.bluetooth} onToggle={() => toggle(systemControls.setRadio("bluetooth", !state.bluetooth))} />}
-      <Switch icon={MoonStars} hue="violet" label={t("Dunkles Design")} on={state.dark} onToggle={() => toggle(systemControls.setDark(!state.dark))} />
+      {state.wifi !== null && <Switch icon={WifiHigh} hue="blue" label={t("WLAN")} on={state.wifi} busy={busy} onToggle={() => toggle(systemControls.setRadio("wifi", !state.wifi))} />}
+      {state.bluetooth !== null && <Switch icon={Bluetooth} hue="indigo" label={t("Bluetooth")} on={state.bluetooth} busy={busy} onToggle={() => toggle(systemControls.setRadio("bluetooth", !state.bluetooth))} />}
+      <Switch icon={MoonStars} hue="violet" label={t("Dunkles Design")} on={state.dark} busy={busy} onToggle={() => toggle(systemControls.setDark(!state.dark))} />
       {/* Lit while muted, like the mute button of a call. */}
-      {state.micMuted !== null && <Switch icon={state.micMuted ? MicrophoneSlash : Microphone} hue="red" label={t("Mikrofon stummschalten")} on={state.micMuted} onToggle={() => toggle(systemControls.setMicMuted(!state.micMuted))} />}
-      {/* Switches on one end, the power actions on the other. */}
-      <span className="flex-1" />
-      <PowerButton icon={Lock} label={t("Sperren")} action="lock" />
-      <PowerButton icon={Moon} label={t("Energie sparen")} action="sleep" confirm />
-      <PowerButton icon={ArrowClockwise} label={t("Neu starten")} action="restart" confirm />
-      <PowerButton icon={Power} label={t("Herunterfahren")} action="shutdown" confirm />
+      {state.micMuted !== null && <Switch icon={state.micMuted ? MicrophoneSlash : Microphone} hue="red" label={t("Mikrofon stummschalten")} on={state.micMuted} busy={busy} onToggle={() => toggle(systemControls.setMicMuted(!state.micMuted))} />}
+      {/* Switches on one end, the power actions on the other; between them, what went wrong. */}
+      <span role="status" className="min-w-0 flex-1 truncate ps-1 text-caption text-label-3">
+        {note}
+      </span>
+      <PowerButton icon={Lock} label={t("Sperren")} action="lock" onError={fail} />
+      <PowerButton icon={Bed} label={t("Energie sparen")} action="sleep" confirm onError={fail} />
+      <PowerButton icon={ArrowClockwise} label={t("Neu starten")} action="restart" confirm onError={fail} />
+      <PowerButton icon={Power} label={t("Herunterfahren")} action="shutdown" confirm onError={fail} />
     </div>
   );
 }
 
-function Switch({ icon: I, hue, label, on, onToggle }: { icon: Icon; hue: Hue; label: string; on: boolean; onToggle: () => void }) {
+function Switch({ icon: I, hue, label, on, busy, onToggle }: { icon: Icon; hue: Hue; label: string; on: boolean; busy: boolean; onToggle: () => void }) {
   return (
     <button
       aria-label={label}
       aria-pressed={on}
       title={label}
+      disabled={busy}
       onClick={onToggle}
-      className={`pressable flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-200 ${on ? "text-white" : "bg-fill-2 text-label-2 hover:text-label"}`}
+      className={`pressable flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-200 disabled:opacity-60 ${on ? "text-white" : "bg-fill-2 text-label-2 hover:text-label"}`}
       style={on ? { background: HUE_PALETTE[hue][1] } : undefined}
     >
       <I size={15} weight={on ? "fill" : "bold"} />
@@ -68,7 +96,7 @@ function Switch({ icon: I, hue, label, on, onToggle }: { icon: Icon; hue: Hue; l
 }
 
 /** Lock runs at once; the others arm on the first click (a red ring) and run on the second, or disarm after ARM_MS. */
-function PowerButton({ icon: I, label, action, confirm }: { icon: Icon; label: string; action: PowerAction; confirm?: boolean }) {
+function PowerButton({ icon: I, label, action, confirm, onError }: { icon: Icon; label: string; action: PowerAction; confirm?: boolean; onError: (e: unknown) => void }) {
   const [armed, setArmed] = useState(false);
   const disarm = useRef(0);
   useEffect(() => () => window.clearTimeout(disarm.current), []);
@@ -80,9 +108,10 @@ function PowerButton({ icon: I, label, action, confirm }: { icon: Icon; label: s
     }
     window.clearTimeout(disarm.current);
     setArmed(false);
-    void systemControls.power(action).catch(() => {});
+    void systemControls.power(action).catch(onError);
   };
-  const tip = armed ? t("Zum Bestätigen erneut klicken") : label;
+  // Keeps the action's name: two armed buttons must not read alike.
+  const tip = armed ? `${label}: ${t("Zum Bestätigen erneut klicken")}` : label;
   return (
     <button
       aria-label={tip}

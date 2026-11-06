@@ -67,6 +67,8 @@ pub fn parse(bytes: &[u8]) -> Result<Manifest, String> {
     if bytes.len() > MAX_MANIFEST {
         return Err("manifest-size".into());
     }
+    // PowerShell 5.1 and older editors save UTF-8 with a BOM, which serde_json refuses.
+    let bytes = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(bytes);
     let m: Manifest = serde_json::from_slice(bytes).map_err(|_| "manifest-json".to_string())?;
     check(&m)?;
     Ok(m)
@@ -264,6 +266,13 @@ mod tests {
         })
         .unwrap();
         assert_eq!((m.icon.as_str(), m.permissions.clone()), ("puzzle", Permissions::default()));
+    }
+
+    #[test]
+    fn manifest_with_bom() {
+        let mut bytes = vec![0xEF, 0xBB, 0xBF];
+        bytes.extend(serde_json::to_vec(&sample()).unwrap());
+        assert_eq!(parse(&bytes).unwrap().id, "hello-crest");
     }
 
     #[test]

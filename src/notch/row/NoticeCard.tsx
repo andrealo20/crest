@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { HUE_PALETTE } from "../../features/themes/themes";
 import type { Hue } from "../../features/themes/hues";
@@ -40,6 +40,16 @@ export function tintOf(hue: Hue): string {
   return HUE_PALETTE[hue][0];
 }
 
+/** The scrolling line: it stops under the pointer, and a text to be read has its whole text as a tooltip. */
+function CardText({ text, textWidth, width, read }: { text: string; textWidth: number; width: number; read: boolean }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <span className="h-[15px]" title={read ? text : undefined} onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}>
+      <Marquee text={text} textWidth={textWidth} width={width} paused={hovered} once={!read} className="text-caption font-medium text-label-2" />
+    </span>
+  );
+}
+
 export function noticeCard(spec: CardSpec, max: number): { width: number; height: number; key: string; body: ReactNode } {
   const lead = spec.image ? (spec.imageWidth ?? ICON_BOX) : ICON_BOX;
   const actions = spec.actions ? GAP + (spec.actionsWidth ?? 0) : 0;
@@ -61,12 +71,8 @@ export function noticeCard(spec: CardSpec, max: number): { width: number; height
             </span>
           )}
           <span className="flex min-w-0 flex-col justify-center" style={{ width: column }}>
-            <span className="truncate text-footnote font-semibold text-label">{spec.title}</span>
-            {spec.text && (
-              <span className="h-[15px]">
-                <Marquee text={spec.text} textWidth={textW} width={column} paused={false} once={!spec.read} className="text-caption font-medium text-label-2" />
-              </span>
-            )}
+            <span dir="auto" className="truncate text-footnote font-semibold text-label">{spec.title}</span>
+            {spec.text && <CardText text={spec.text} textWidth={textW} width={column} read={!!spec.read} />}
           </span>
         </button>
         {spec.actions && <span className="flex shrink-0 items-center gap-1.5">{spec.actions}</span>}

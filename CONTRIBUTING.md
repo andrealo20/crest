@@ -1,6 +1,6 @@
 # Contributing to Crest
 
-Bug reports, ideas and pull requests are welcome. For anything larger than a small fix, open an issue first so we can agree on the approach. Before a pull request, run `npm run typecheck`, `npm test`, `npm run i18n` and `cargo test`, and keep interface text in English. Contributions are released under the GPL-3.0, like the rest of the project.
+Bug reports, ideas and pull requests are welcome. For anything larger than a small fix, open an issue first so we can agree on the approach. Before a pull request, run `npm run typecheck`, `npm test`, `npm run i18n` and `cargo test`. Interface text goes through `t()` with the German text as its id; the English text goes in `src/i18n/en.json` and the other languages in their own file in that folder. Contributions are released under the GPL-3.0, like the rest of the project.
 
 ## Build from source
 
@@ -17,9 +17,10 @@ Prerequisites:
 npm install
 npm run dev        # browser with a fake desktop, ?slow=4 slows animations for tuning
 npm run tauri dev  # the real app, run it in PowerShell
+npm run site:dev   # the project page; its demo is the app served by npm run dev, which must be running
 npm test           # frontend tests
 npm run typecheck  # before every commit
-npm run i18n       # finds missing English strings (add --fix for TODO entries)
+npm run i18n       # finds German text outside t() and ids missing from en.json (add --fix for TODO entries)
 cd src-tauri && cargo test   # backend tests
 ```
 
@@ -54,13 +55,15 @@ The Store build never updates itself: the updater plugin is not loaded, and Sett
 
 ### Releasing
 
-Releases are built by GitHub Actions (`.github/workflows/release.yml`). Bump the version, commit and push:
+Releases are built by GitHub Actions (`.github/workflows/release.yml`). First write the notes: an entry for the version at the top of `src/changelog.json` (the app's What's new screen), `docs/releases/v0.2.0.md` (shown on the release page) and, for a feature release, the README's "New in" section. Then bump the version, commit and push; the bump refuses to run while the changelog entry or the release notes file is missing:
 
 ```bash
 npm run bump 0.2.0
 git commit -am "Release 0.2.0"
 git push
 ```
+
+In the release that ships what the project page marks "Coming in", remove those `next` notes from `site/src/data.ts` and rewrite the FAQ answer about the demo, which names the download version.
 
 The workflow builds the signed installers and portable zips for x64 and arm64 (arm64 cross-compiled on the x64 runner) and publishes release `v0.2.0` with them, their signatures and `latest.json`, which installed apps and portable copies use to offer the update. A last job adds `SHA256SUMS` with the SHA-256 of every file of the release. Pushes without a version bump don't create a release. The signing key lives in the repository secret `TAURI_SIGNING_PRIVATE_KEY`.
 

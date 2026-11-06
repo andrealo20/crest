@@ -90,7 +90,7 @@ const MODES = {
     accent: "#0066cc",
     warning: "#9c6a00",
     critical: "#d1343b",
-    success: "#248a3d",
+    success: "#23843b",
     yellow: "#8a6d00",
     alpha: { secondary: 0.68, tertiary: 0.56, label4: 0.3, fill1: 0.04, fill2: 0.07, fill3: 0.12, separator: 0.1 },
   },
@@ -118,7 +118,7 @@ export const BUILT_IN_THEMES: readonly ThemeFile[] = [
     accent: "#0066cc",
     warning: "#9c6a00",
     critical: "#d1343b",
-    success: "#248a3d",
+    success: "#23843b",
     elevated: "#ffffff",
   }),
   builtIn(
@@ -160,7 +160,7 @@ export const BUILT_IN_THEMES: readonly ThemeFile[] = [
   builtIn(
     "catppuccin-latte",
     "Catppuccin Latte",
-    { background: "#e6e9ef", foreground: "#484b64", secondary: "#5c5f77", tertiary: "#6c6f85", accent: "#8839ef", link: "#1e66f5", warning: "#935d13", critical: "#d00f39", success: "#3d9829", elevated: "#eff1f5" },
+    { background: "#e6e9ef", foreground: "#484b64", secondary: "#5c5f77", tertiary: "#6c6f85", accent: "#8839ef", link: "#1e66f5", warning: "#935d13", critical: "#d00f39", success: "#307821", elevated: "#eff1f5" },
     { author: "Catppuccin", license: "MIT", homepage: "https://github.com/catppuccin/catppuccin" },
   ),
   builtIn(
@@ -178,7 +178,7 @@ export const BUILT_IN_THEMES: readonly ThemeFile[] = [
   builtIn(
     "rose-pine-dawn",
     "Rosé Pine Dawn",
-    { background: "#faf4ed", foreground: "#534f74", secondary: "#6a6683", tertiary: "#918c9f", accent: "#d2726e", link: "#286983", warning: "#9f6310", critical: "#ad546e", success: "#56949f", elevated: "#fffaf3" },
+    { background: "#faf4ed", foreground: "#534f74", secondary: "#6a6683", tertiary: "#918c9f", accent: "#d2726e", link: "#286983", warning: "#9f6310", critical: "#ad546e", success: "#467881", elevated: "#fffaf3" },
     { author: "Rosé Pine", license: "MIT", homepage: "https://github.com/rose-pine/rose-pine-theme" },
   ),
   builtIn(
@@ -190,7 +190,7 @@ export const BUILT_IN_THEMES: readonly ThemeFile[] = [
   builtIn(
     "solarized-light",
     "Solarized Light",
-    { background: "#fdf6e3", foreground: "#3f4e53", secondary: "#586c73", tertiary: "#7d8d8d", accent: "#268bd2", link: "#6c71c4", warning: "#8f6c00", critical: "#da2925", success: "#859800", elevated: "#eee8d5" },
+    { background: "#fdf6e3", foreground: "#3f4e53", secondary: "#586c73", tertiary: "#7d8d8d", accent: "#268bd2", link: "#6c71c4", warning: "#8f6c00", critical: "#da2925", success: "#697800", elevated: "#eee8d5" },
     { author: "Ethan Schoonover", license: "MIT", homepage: "https://github.com/altercation/solarized" },
   ),
   builtIn(
@@ -267,7 +267,7 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     link: ensure("link", pick("link", accent), needs(GRAPHIC, bg, elevated)),
     warning: ensure("warning", pick("warning", mode.warning), needs(TEXT, bg)),
     critical: ensure("critical", pick("critical", mode.critical), needs(TEXT, bg)),
-    success: ensure("success", pick("success", mode.success), needs(GRAPHIC, bg)),
+    success: ensure("success", pick("success", mode.success), needs(TEXT, bg)),
   };
   const yellow = ensure("yellow", parseColor(mode.yellow)!, needs(GRAPHIC, bg));
   // Ink on label-coloured fills and on scrims (Tailwind's `black`): whichever of black and white reads better on the foreground.
@@ -377,7 +377,9 @@ export function normalizeId(id: unknown): string {
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/\.{2,}/g, ".")
-    .replace(/^[-.]+|[-.]+$/g, "");
+    .replace(/^[-.]+|[-.]+$/g, "")
+    // A name Windows reserves for a device cannot be a file (themes.rs safe_name).
+    .replace(/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?=\.|$)/, "$1-theme");
   return text.slice(0, 64).replace(/[-.]+$/, "");
 }
 
@@ -407,7 +409,8 @@ export function validateTheme(input: unknown): ThemeCheck {
     problems.push(typeof o.format === "number" && o.format > 1 ? { key: "Format {n} ist neuer als diese Version von Crest", vars: { n: o.format } } : { key: "Unbekanntes Format" });
   }
   const name = typeof o.name === "string" ? o.name.trim().slice(0, 60) : "";
-  const id = normalizeId(o.id ?? name);
+  // A name with no a-z0-9 at all (ダーク, Тёмная) still has an id.
+  const id = normalizeId(o.id || name) || (name ? "theme" : "");
   if (!id) problems.push({ key: "Name oder ID fehlt" });
   const colors: ThemeFile["colors"] = {};
   if (typeof o.colors !== "object" || o.colors === null || Array.isArray(o.colors)) problems.push({ key: "„colors“ fehlt oder ist kein Objekt" });

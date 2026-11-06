@@ -31,6 +31,8 @@ export interface CalendarSettings {
   horizonMin: number;
 }
 
+/** Rust refuses more sources than this, for all of them at once. */
+export const MAX_SOURCES = 20;
 export const HORIZONS = [30, 60, 120, 240, 480] as const;
 export const PALETTE = ["#419cff", "#30d158", "#ff9f0a", "#ff453a", "#bf5af2", "#ffd60a", "#64d2ff", "#ff375f"] as const;
 export const CALENDAR_DEFAULTS: CalendarSettings = { sources: [], notice: true, noticeMin: 10, horizonMin: 60 };
@@ -49,7 +51,7 @@ export function normalizeCalendar(saved: unknown): CalendarSettings {
     seen.add(id);
     const color = /^#[0-9a-f]{6}$/i.test(str(x.color)) ? str(x.color) : PALETTE[seen.size % PALETTE.length];
     return [{ id, kind: x.kind, name: str(x.name), color, url: str(x.url), user: str(x.user), host: str(x.host) }];
-  });
+  }).slice(0, MAX_SOURCES);
   return {
     sources,
     notice: typeof s.notice === "boolean" ? s.notice : CALENDAR_DEFAULTS.notice,
@@ -71,10 +73,11 @@ export function nextColor(sources: { color: string }[]): string {
   return PALETTE.find((c) => !sources.some((s) => s.color.toLowerCase() === c)) ?? PALETTE[sources.length % PALETTE.length];
 }
 
-/** The host of an ICS link (webcal included), for its label; "" when it is not a link. */
+/** The host of a link (webcal included, a bare host read as https like Rust does), for its label; "" when it is not a link. */
 export function linkHost(link: string): string {
   try {
-    return new URL(link.trim().replace(/^webcals?:\/\//i, "https://")).host;
+    const url = link.trim().replace(/^webcals?:\/\//i, "https://");
+    return new URL(url.includes("://") ? url : `https://${url}`).host;
   } catch {
     return "";
   }

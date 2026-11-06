@@ -24,7 +24,7 @@ test("every hue reads at 3:1 on every built-in theme: panel, cards, Hardware row
 });
 
 test("a mid-grey custom background still gets readable hues", () => {
-  const r = resolveTheme({ id: "grey", name: "Grey", colors: { background: "#8a8a8a" } });
+  const r = resolveTheme({ format: 1, id: "grey", name: "Grey", colors: { background: "#8a8a8a" } });
   for (const hue of HUES) assert.ok(contrast(parseColor(r.vars[`--hue-${hue}`])!, r.colors.background) >= GRAPHIC - 0.01, hue);
 });
 

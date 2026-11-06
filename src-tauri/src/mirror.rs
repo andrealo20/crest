@@ -12,7 +12,7 @@
 //! copy of the closed notch. The notch window sends that copy (`mirror_picture_set`, src/notch/mirror.ts) while it is
 //! closed; it is kept here for mirrors that start later and passed on as `mirror://picture`. Hovering a mirror moves the
 //! notch onto it, where it opens as usual, and the mirror moves to the monitor the notch left. The mirrors hide with the
-//! hide hotkey, and each one on its own where the foreground window on its monitor calls for a hiding or line rule.
+//! hide hotkey, and each one on its own where a window on its monitor calls for a hiding or line rule.
 //!
 //! The thread also notices monitors being added, removed, rescaled or getting another taskbar (once a second): it places
 //! the notch again and emits `notch://monitors`, which makes the frontend read them again.
@@ -46,6 +46,9 @@ pub struct Picture {
     html: String,
     root: String,
     theme: String,
+    /// The page's `lang` and `dir`, which pick the CJK glyphs and the direction of what is drawn.
+    lang: String,
+    dir: String,
     /// The pictures' `data:` sources by index; None = as last sent.
     images: Option<Vec<String>>,
 }
@@ -90,6 +93,22 @@ pub fn wake(app: &AppHandle) {
     }
 }
 
+/// The monitor (HMONITOR) of every mirror window, shown or not.
+pub fn monitors(app: &AppHandle) -> Vec<isize> {
+    let windows = app.webview_windows();
+    let hwnds = windows.iter().filter(|(label, _)| label.starts_with("mirror-")).filter_map(|(_, w)| w.hwnd().ok());
+    hwnds.map(|h| unsafe { MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST) }.0 as isize).collect()
+}
+
+/// "Raise now": the shown mirrors go back on top of the topmost windows too.
+pub fn raise(app: &AppHandle) {
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("mirror-") && window.is_visible().unwrap_or(false) {
+            display::raise_topmost(&window);
+        }
+    }
+}
+
 pub fn spawn(app: AppHandle) {
     let (tx, rx) = channel();
     *app.state::<MirrorState>().wake.lock().unwrap() = Some(tx);
@@ -111,15 +130,20 @@ fn run(app: AppHandle, rx: Receiver<()>) {
     let mut screens = String::new();
     let mut checked = Instant::now();
     let mut foreground = 0isize;
+    let mut dirty = false;
     loop {
         let mode = app.state::<DisplayState>().config().mode;
         let active = mode == "follow" || mode == "all";
-        let mut dirty = match rx.recv_timeout(if active { TICK } else { IDLE }) {
-            Ok(()) => true,
-            Err(RecvTimeoutError::Timeout) => false,
+        match rx.recv_timeout(if active { TICK } else { IDLE }) {
+            Ok(()) => dirty = true,
+            Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => return,
-        };
+        }
         while rx.try_recv().is_ok() {}
+        // Screen off or suspending (standby.rs): no monitor, window or pointer reads until it is back; a change that came meanwhile waits.
+        if crate::standby::asleep() {
+            continue;
+        }
 
         if checked.elapsed() >= IDLE || screens.is_empty() {
             checked = Instant::now();
@@ -138,10 +162,10 @@ fn run(app: AppHandle, rx: Receiver<()>) {
         if front != foreground {
             foreground = front;
             for m in mirrors.iter().filter(|m| m.shown) {
-                let _ = m.window.set_always_on_top(true);
+                display::raise_topmost(&m.window);
             }
         }
-        if dirty {
+        if std::mem::take(&mut dirty) {
             sync(&app, &mut mirrors);
         }
 
@@ -185,7 +209,7 @@ fn sync(app: &AppHandle, mirrors: &mut Vec<Mirror>) {
         }
     }
     let hidden = display::user_hidden(app);
-    let block = display.mirror_block.load(std::sync::atomic::Ordering::Relaxed);
+    let blocked = display.mirror_block.lock().unwrap().clone();
     for (i, spot) in spots.iter().enumerate() {
         if i == mirrors.len() {
             match create(app, &format!("{TEMPLATE}-{i}")) {
@@ -204,12 +228,12 @@ fn sync(app: &AppHandle, mirrors: &mut Vec<Mirror>) {
         m.monitor = spot.monitor.clone();
         let _ = display::put(&m.window, Some(&spot.monitor), &config, spot.line, spot.y);
         let on = m.window.hwnd().map(|h| unsafe { MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST) }.0 as isize).unwrap_or(0);
-        let show = !hidden && (block == 0 || on != block);
+        let show = !hidden && !blocked.contains(&on);
         if show != m.shown {
             m.shown = show;
             if show {
                 let _ = m.window.show();
-                let _ = m.window.set_always_on_top(true);
+                display::raise_topmost(&m.window);
                 // Only after show(): it fails on a window that was never shown. Clicks always go through; hover is read here.
                 let _ = m.window.set_ignore_cursor_events(true);
             } else {

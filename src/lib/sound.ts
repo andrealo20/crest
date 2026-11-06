@@ -105,6 +105,8 @@ export function playAlarm(sound: AlarmSound, volume: number, duration: AlarmDura
     }
   }
 
+  // An idle running context keeps WebView2's output stream open on the device.
+  const settle = () => stopCurrent === null && void c.suspend();
   const stop = () => {
     // Fade out softly instead of cutting off.
     master.gain.cancelScheduledValues(c.currentTime);
@@ -118,11 +120,16 @@ export function playAlarm(sound: AlarmSound, volume: number, duration: AlarmDura
         }
       });
       master.disconnect();
+      settle();
     }, 300);
     if (stopCurrent === stop) stopCurrent = null;
   };
   stopCurrent = stop;
-  window.setTimeout(() => stopCurrent === stop && (stopCurrent = null), (repeats * length + 2) * 1000);
+  window.setTimeout(() => {
+    if (stopCurrent !== stop) return;
+    stopCurrent = null;
+    settle();
+  }, (repeats * length + 2) * 1000);
   return stop;
 }
 

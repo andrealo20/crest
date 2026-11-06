@@ -4,6 +4,7 @@
 // capsule's distance from the edge (display.y) and the line's are places on the screen, saved at 100 % (panelSize.ts toPageCss). Pure.
 
 import { ROW } from "./row/layout.ts";
+import { NEST_GAP, NEST_ZOOM } from "./row/parts.ts";
 import { COLUMN } from "./column.ts";
 import { WINDOW } from "./edge.ts";
 
@@ -78,16 +79,21 @@ export const contentScale = (height: number) => (Number.isFinite(height) && heig
 /** On a side edge the notch stands as a column along the edge: its shortest length follows the width, the column's own minimum (120) at the default width. */
 export const sideLength = (notchWidth: number) => (COLUMN.minLength * notchWidth) / CLOSED_SIZE_DEFAULTS.notchWidth;
 
+/** How far the peeking shape grows on each side (geometry.ts peekGeometry). */
+const PEEK_GROW = 8;
+
 /**
  * The window's length along its edge: WINDOW.along, or longer when the widest the closed surface can get needs it, with the room the default
  * keeps around its widest (700) for the hover nudge and the hit zone. That widest is the larger of the saved width and the content's widest
  * at its scale, at most the monitor's `span`. The line opens into the notch for an urgent notice, so it takes the notch's sizes.
+ * `pet`: the nest's size (0: none); the widest shape, its hover nudge and the pet at its biggest (a click) have to fit on each side.
  */
-export function windowAlong(size: ClosedSize, style: "notch" | "capsule" | "line", side: boolean, span: number): number {
+export function windowAlong(size: ClosedSize, style: "notch" | "capsule" | "line", side: boolean, span: number, pet = 0): number {
   const capsule = style === "capsule" && !side, k = contentScale(capsule ? size.capsuleHeight : size.notchHeight);
   const widest = side ? Math.max(sideLength(size.notchWidth), COLUMN.maxLength * k) : Math.max(capsule ? size.capsuleWidth : size.notchWidth, ROW.maxSurface * k);
   const room = Number.isFinite(span) && span > 0 ? Math.min(span, widest) : widest;
-  return Math.max(WINDOW.along, Math.ceil(room - 1e-9) + WINDOW.along - ROW.maxSurface);
+  const nest = pet > 0 ? Math.ceil(room - 1e-9) + 2 * (PEEK_GROW + NEST_GAP + pet * NEST_ZOOM) : 0;
+  return Math.max(WINDOW.along, Math.ceil(room - 1e-9) + WINDOW.along - ROW.maxSurface, nest);
 }
 
 /** A grip of the resize mode (ClosedResize.tsx): the two ends of the shape, or its far side from the edge. */

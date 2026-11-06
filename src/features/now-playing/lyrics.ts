@@ -34,8 +34,9 @@ const cache = createLyricsCache(
 const pending = new Map<string, Promise<Lyrics | null>>();
 /** After a 429, nothing is asked until then. */
 let blockedUntil = 0;
-/** Cleared if a request only goes through without the custom header (a refused CORS preflight). */
+/** Cleared once requests have twice only gone through without the custom header (a refused CORS preflight). */
 let identify = true;
+let headerless = 0;
 
 class Unavailable extends Error {}
 
@@ -50,7 +51,8 @@ async function ask(path: "get" | "search", params: Record<string, string>): Prom
     // fetch reports a refused preflight as a TypeError, like being offline; one try without the header tells them apart.
     if (!(e instanceof TypeError) || !identify) throw e;
     r = await send(false);
-    identify = false;
+    // One lost connection must not stop Crest from introducing itself to LRCLIB.
+    if (++headerless >= 2) identify = false;
   }
   if (r.status === 404) return null;
   if (r.status === 429) {

@@ -40,8 +40,9 @@ export function BrandLogo({ id, size = 14, className }: { id: BrandId; size?: nu
 
 /** The brand an app name belongs to ("Claude Code" is Claude), for notices that come without a logo of their own (crest-notify). */
 export function brandFor(appName: string): Exclude<BrandId, "grok"> | null {
-  const name = appName.toLowerCase();
-  return (Object.keys(brandColor) as Exclude<BrandId, "grok">[]).find((id) => name.includes(id) || name.includes(brandName[id].toLowerCase())) ?? null;
+  // Whole words only, so "Pizzaiolo" is not Z.ai.
+  const words = appName.toLowerCase().split(/[^a-z0-9.]+/);
+  return (Object.keys(brandColor) as Exclude<BrandId, "grok">[]).find((id) => words.includes(id) || words.includes(brandName[id].toLowerCase())) ?? null;
 }
 
 /** Real Discord mark (official simple-icons path), Phosphor-compatible for <Empty icon={DiscordLogo} />. */

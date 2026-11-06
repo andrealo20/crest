@@ -1,5 +1,7 @@
 # Plugins
 
+Plugins work on Windows. On a Mac they are not available yet and the Plugins page is hidden.
+
 A plugin is a small web page that Crest shows as a tool in the open notch, with its own icon in the tool bar. It is plain HTML, CSS and JavaScript in a folder, with a `crest-plugin.json` that says what it is and what it may do. Crest runs it isolated from everything else: it cannot read your files, keys, vault, clipboard, settings or other plugins, and it can reach the network only through Crest, only to the addresses it declares.
 
 A working example is in [`examples/plugins/hello-crest`](../examples/plugins/hello-crest): a countdown kept in the plugin's storage and a line from GitHub's zen endpoint.
@@ -61,7 +63,7 @@ Files may be `html`, `js`, `mjs`, `css`, `json`, `svg`, `png`, `jpg`, `jpeg`, `g
 
 The page runs in a frame with an opaque origin and a strict content security policy:
 
-- scripts, styles, images, fonts and media only from the plugin's own folder (relative paths work), plus `data:` and `blob:` images; inline styles are allowed, inline scripts, `eval` and inline event handlers (`onclick="…"`) are not;
+- scripts, styles, images and fonts only from the plugin's own folder (relative paths work), plus `data:` and `blob:` images; audio and video only as `data:` or `blob:`, since sound and video files are not accepted in the folder; inline styles are allowed, inline scripts, `eval` and inline event handlers (`onclick="…"`) are not;
 - no `fetch`, XHR, WebSocket, EventSource or beacon, no images from other hosts, no forms, frames, workers, pop-ups or navigation away;
 - no cookies, `localStorage` or IndexedDB (an opaque origin has none): use the storage below;
 - WebRTC and the clipboard are removed from the page.
@@ -99,7 +101,7 @@ await crest.resize(560, 300);               // returns the size it got
 | `storage.*` | `storage: true` | Keys 1 to 128 characters; a value up to 32 KB as JSON; 256 keys and 256 KB in all |
 | `fetch` | the URL's host in `network` | `https` on the default port, the host exactly as declared (no subdomains), no IP addresses, no user name in the URL; GET, POST, PUT, PATCH or DELETE; up to 16 headers (not `Cookie`, `Host`, `Origin`, `Referer`, `Proxy-*`, `Sec-*` and other connection headers); a body up to 64 KB; the answer up to 1 MB within 15 seconds; redirects are not followed; 4 requests at a time |
 | `notify` | `notices: true` | A title up to 80 characters and a text up to 300; 3 a minute. It goes through the rules of **Settings → Notices** like any other notice, and needs live notices on |
-| `resize` | nothing | The panel's size within the bounds of `size` |
+| `resize` | nothing | The panel's size, within the general limits (320 to 740 wide, 160 to 540 high); `size` is only where it starts |
 
 ### The messages underneath
 
@@ -113,7 +115,7 @@ parent.postMessage({ crest: 1, id: 7, type: "storage.get", key: "count" }, "*");
 
 ## Security model
 
-- **Isolation.** The page runs in an `<iframe sandbox="allow-scripts">`, without `allow-same-origin`, so its origin is opaque: it cannot read Crest's window, storage or cookies. Tauri's command bridge is only injected into Crest's own page, never into frames. Crest answers a message only when it comes from that plugin's own frame, and only for the plugin that frame was opened for.
+- **Isolation.** The page runs in an `<iframe sandbox="allow-scripts">`, without `allow-same-origin`, so its origin is opaque: it cannot read Crest's window, storage or cookies. Tauri's command bridge belongs to Crest's own page; on Windows its script can also be added to a frame, but a plugin cannot use it, because its policy allows no connections and the command handler only receives messages from the top document. Crest answers a message only when it comes from that plugin's own frame, and only for the plugin that frame was opened for.
 - **Its own files only.** The pages come from a protocol of their own (`crestplugin`) that serves a file only from the plugin's installed folder, only to Crest's own window, after checking every path name again. Each response carries a content security policy with `connect-src 'none'`, `default-src 'none'` and the plugin's folder as the only source of scripts, styles and images, plus `sandbox allow-scripts`, and Crest's own window lets frames load only from that protocol, so a page cannot navigate its frame elsewhere. DNS prefetching is off for plugin pages.
 - **Network through Crest.** `fetch` runs in Crest's Rust side. The URL is checked against the declared hosts again there; the host name is resolved and every address must be public (no loopback, private network, link-local, carrier NAT or reserved range, including IPv4 inside IPv6), and the connection is pinned to those addresses so a name that changes its answer cannot reach your router or a local service. No proxy, cookies, credentials or redirects.
 - **Install checks.** The manifest is parsed strictly. A folder with a symbolic link or junction anywhere is refused, and every file must still be inside the folder once resolved. In a `.zip`, names with `..`, a root, a drive, a backslash or a reserved Windows name are refused, links are refused, and sizes are counted on what is actually unpacked. Two names that differ only in case are refused. Files are written to a staging folder and moved into place only after you confirm.
