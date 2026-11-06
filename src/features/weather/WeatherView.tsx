@@ -7,7 +7,7 @@ import { settings } from "../../settings/store";
 import { Skeleton } from "../../ui/controls";
 import { formatAgo, formatTemp, formatTime, formatWind } from "../../lib/format";
 import { locale, t } from "../../i18n";
-import { choosePlace, describe, detectPlace, loadForecast, searchPlaces, type Forecast, type Place } from "./store";
+import { choosePlace, describe, detectPlace, searchPlaces, useForecast, type Forecast, type Place } from "./store";
 
 /*
  * Weather via Open-Meteo (data and location detection: ./store.ts).
@@ -22,26 +22,13 @@ const weekday = () => new Intl.DateTimeFormat(locale(), { weekday: "short" });
 
 export function WeatherView() {
   const place = settings.use().weather;
-  const [data, setData] = useState<Forecast | null>(null);
-  const [error, setError] = useState(false);
+  const data = useForecast();
   const [searching, setSearching] = useState(false);
   const [detectFailed, setDetectFailed] = useState(false);
 
   // First start without a location: detect via IP; if that fails, show the search.
   useEffect(() => {
     if (!place) void detectPlace().then((ok) => setDetectFailed(!ok));
-  }, [place]);
-
-  useEffect(() => {
-    if (!place) return;
-    let alive = true;
-    setError(false);
-    loadForecast(place.lat, place.lon)
-      .then((d) => alive && setData(d))
-      .catch(() => alive && setError(true));
-    return () => {
-      alive = false;
-    };
   }, [place]);
 
   return (
@@ -51,7 +38,7 @@ export function WeatherView() {
           <motion.div key="search" className="h-full" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: content.enter }} exit={{ opacity: 0, transition: content.exit }}>
             <PlaceSearch onDone={() => setSearching(false)} canCancel={!!place} />
           </motion.div>
-        ) : error ? (
+        ) : data === "error" ? (
           <motion.div key="error" className="flex h-full items-center justify-center text-body text-label-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={fade}>
             {t("Wetter gerade nicht erreichbar")}
           </motion.div>
@@ -62,7 +49,7 @@ export function WeatherView() {
           </motion.div>
         ) : (
           <motion.div key="data" className="flex h-full gap-2" initial={{ opacity: 0, filter: "blur(4px)" }} animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}>
-            <Now data={data} name={place.name} auto={!!place.auto} onChangePlace={() => setSearching(true)} />
+            <Now data={data} name={place.name} detail={place.detail} auto={!!place.auto} onChangePlace={() => setSearching(true)} />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <Hours data={data} />
               <Week data={data} />
@@ -91,13 +78,13 @@ function sky(code: number, day: boolean): string {
 }
 
 /** The weather now over its sky: place, icon and temperature, what it is like, then wind, humidity, rain today and the sun. */
-function Now({ data, name, auto, onChangePlace }: { data: Forecast; name: string; auto: boolean; onChangePlace: () => void }) {
+function Now({ data, name, detail, auto, onChangePlace }: { data: Forecast; name: string; detail?: string; auto: boolean; onChangePlace: () => void }) {
   const { icon: I, text } = describe(data.current.code, data.current.day);
   const today = data.daily[0];
   const c = data.current;
   return (
     <div className="flex w-[212px] shrink-0 flex-col rounded-[16px] p-3 text-white" style={{ background: sky(c.code, c.day) }}>
-      <button onClick={onChangePlace} className="flex min-w-0 items-center gap-1 self-start text-footnote font-semibold hover:opacity-80" title={t("Ort ändern")}>
+      <button onClick={onChangePlace} className="flex min-w-0 items-center gap-1 self-start text-footnote font-semibold hover:opacity-80" title={detail ? `${detail} · ${t("Ort ändern")}` : t("Ort ändern")}>
         {auto ? <NavigationArrow size={11} weight="fill" /> : <MapPin size={11} weight="fill" />}
         <span className="truncate">{name}</span>
       </button>
@@ -115,8 +102,8 @@ function Now({ data, name, auto, onChangePlace }: { data: Forecast; name: string
         <Chip title={t("Wind")}>
           <Wind size={12} weight="bold" />
           {formatWind(c.wind)}
-          {/* Where the wind blows to: the arrow points away from where it comes from. */}
-          {c.windDir !== undefined && <NavigationArrow size={10} weight="fill" style={{ transform: `rotate(${c.windDir + 180 - 45}deg)` }} />}
+          {/* Where the wind blows to: the arrow points away from where it comes from; the icon itself points north-west. */}
+          {c.windDir !== undefined && <NavigationArrow size={10} weight="fill" style={{ transform: `rotate(${c.windDir - 135}deg)` }} />}
         </Chip>
         {c.humidity !== undefined && (
           <Chip title={t("Luftfeuchtigkeit")}>
@@ -131,7 +118,8 @@ function Now({ data, name, auto, onChangePlace }: { data: Forecast; name: string
           </Chip>
         )}
       </div>
-      {today?.sunrise && today.sunset && (
+      {/* Polar night and midnight sun: Open-Meteo gives the same instant for both. */}
+      {today?.sunrise && today.sunset && today.sunrise !== today.sunset && (
         <div className="mt-1.5 flex gap-3 text-caption text-white/80">
           <span className="flex items-center gap-1" title={t("Sonnenaufgang")}>
             <SunHorizon size={12} weight="fill" /> {formatTime(new Date(today.sunrise))}
@@ -216,20 +204,28 @@ export function PlaceSearch({ onDone, canCancel, compact = false }: { onDone: ()
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Place[]>([]);
   const [locating, setLocating] = useState(false);
+  // What to say when the list is empty: the search found nothing, or could not ask.
+  const [note, setNote] = useState<string | null>(null);
 
   // Debounce the search so not every keystroke sends a request.
   useEffect(() => {
     const q = query.trim();
+    setNote(null);
     if (q.length < 2) {
       setResults([]);
       return;
     }
+    // A slow answer to an earlier query must not replace the current one.
+    let alive = true;
     const id = setTimeout(() => {
       searchPlaces(q)
-        .then(setResults)
-        .catch(() => setResults([]));
+        .then((r) => alive && (setResults(r), setNote(r.length ? null : t("Nichts gefunden"))))
+        .catch(() => alive && (setResults([]), setNote(t("Keine Verbindung"))));
     }, 250);
-    return () => clearTimeout(id);
+    return () => {
+      alive = false;
+      clearTimeout(id);
+    };
   }, [query]);
 
   return (
@@ -248,9 +244,11 @@ export function PlaceSearch({ onDone, canCancel, compact = false }: { onDone: ()
           aria-label={t("Automatisch per IP")}
           onClick={() => {
             setLocating(true);
+            setNote(null);
             void detectPlace(true).then((ok) => {
               setLocating(false);
               if (ok) onDone();
+              else setNote(t("Keine Verbindung"));
             });
           }}
           className="pressable flex size-6 items-center justify-center text-label-3 hover:text-label"
@@ -280,10 +278,11 @@ export function PlaceSearch({ onDone, canCancel, compact = false }: { onDone: ()
             className="flex h-8 items-center gap-2 rounded-[8px] px-3 text-start hover:bg-fill-1"
           >
             <MapPin size={12} weight="fill" className="text-label-3" />
-            <span className="text-footnote text-label">{p.name}</span>
+            <span className="truncate text-footnote text-label">{p.name}</span>
             <span className="truncate text-caption text-label-3">{p.detail}</span>
           </button>
         ))}
+        {note && <span className="px-3 pt-2 text-caption text-label-3">{note}</span>}
         {!compact && query.trim().length < 2 && <span className="px-3 pt-2 text-caption text-label-3">{t("Für welchen Ort soll das Wetter angezeigt werden?")}</span>}
       </div>
     </div>
