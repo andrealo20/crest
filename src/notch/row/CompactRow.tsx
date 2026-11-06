@@ -50,8 +50,7 @@ let lastLine: { song: string; line: string | null } | null = null;
 
 /** The lyrics take a moment to come back after a remount; for that moment the row keeps the line it had, instead of showing the title and then jumping to the line. */
 function useRememberedLyric(np: { title?: string; artist?: string } | null, live: string | null): string | null {
-  const song = np ? `${np.title}
-${np.artist}` : "";
+  const song = np ? `${np.title}\n${np.artist}` : "";
   const [warm, setWarm] = useState(true);
   useEffect(() => {
     const id = window.setTimeout(() => setWarm(false), 800);

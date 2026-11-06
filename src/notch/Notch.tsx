@@ -479,9 +479,9 @@ function Header({ title }: { title: string }) {
           <motion.h2
             key={title}
             className="truncate text-title font-semibold"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: content.enter }}
-            exit={{ opacity: 0, transition: content.exit }}
+            initial={{ opacity: 0, filter: "blur(4px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
+            exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
           >
             {title}
           </motion.h2>

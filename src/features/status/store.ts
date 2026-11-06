@@ -66,6 +66,8 @@ export function startStatusWatch() {
     const alerts = settings.get().closed.statusAlerts;
     const quiet = focusMode.get() || fullscreen.get();
     // Alerts are dropped while quiet, so the key poll rests too; Bluetooth and volume run while their own alerts are on.
+    // Off, the watcher forgets the devices; the next scan is a new baseline, so the ones remembered here would hide a reconnect.
+    if (!alerts.bt) devices.clear();
     const c = { ddc: alerts.brightness, locks: alerts.lock && !quiet, bt: alerts.bt, volume: alerts.volume, hideOsd: osdHidden(alerts, focusMode.get(), fullscreen.get()), osdArmed: osdArmed(alerts) };
     if (JSON.stringify(c) === sent) return;
     sent = JSON.stringify(c);

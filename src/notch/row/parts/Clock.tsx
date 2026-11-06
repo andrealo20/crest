@@ -10,7 +10,9 @@ const format = (seconds: boolean, h12: boolean) =>
 /** Fixed room: a two-digit hour, and the wider of the morning and the evening on a 12 h clock. */
 export function clockWidth(seconds: boolean, h12: boolean): number {
   const f = format(seconds, h12);
-  return Math.max(...[10, 22].map((h) => measureText(f.format(new Date(2000, 0, 1, h, 8, 8)))));
+  // Digits are tabular, each as wide as an 8 (in the language's own numerals), which the canvas does not know.
+  const eight = f.format(new Date(2000, 0, 1, 8, 8, 8)).match(/\p{Nd}/gu)!.at(-1)!;
+  return Math.max(...[10, 22].map((h) => measureText(f.format(new Date(2000, 0, 1, h, 8, 8)).replace(/\p{Nd}/gu, eight))));
 }
 
 /** Re-renders once a minute, 50 ms after it turns. */
