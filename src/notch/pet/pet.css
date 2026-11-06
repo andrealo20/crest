@@ -1,4 +1,4 @@
-/* The nest's pet (art.ts draws it, Nest.tsx picks the state). Transform and opacity only, so the compositor runs the motion. */
+/* The nest's pet (art.ts draws it, Nest.tsx picks the state). Transform and opacity only; a sleeping pet is paused (Nest.tsx). */
 .pet { overflow: visible; }
 .pet * { transform-box: fill-box; }
 .pet .rig { transform-origin: 50% 100%; }
@@ -147,6 +147,8 @@
 .pet.sleep .flicker { animation-duration: 3s; }
 
 .pet.paused * { animation-play-state: paused !important; }
+/* Paused at their first frame the Zs would be invisible: they stand still instead. */
+.pet.paused .fx .z { animation: none; opacity: .85; }
 @media (prefers-reduced-motion: reduce) {
   .pet * { animation: none !important; }
 }
