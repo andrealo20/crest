@@ -7,7 +7,7 @@ export interface WaterConfig {
   remind: boolean;
   bottleMl: number;
   goalMl: number;
-  /** Reminder hours as minutes after local midnight; `from > to` runs past midnight. */
+  /** Reminder hours as minutes after local midnight; `from >= to` runs past midnight (equal = all day). */
   from: number;
   to: number;
   everyMin: number;
@@ -67,14 +67,14 @@ export function hourly(log: Drink[], now: number, cfg: Pick<WaterConfig, "from" 
   const byHour = new Map<number, number>();
   for (const d of log) if (d.at >= start && d.at < end) byHour.set(new Date(d.at).getHours(), (byHour.get(new Date(d.at).getHours()) ?? 0) + d.ml);
   let lo = Math.floor(cfg.from / 60), hi = Math.floor(cfg.to / 60);
-  if (cfg.from > cfg.to) [lo, hi] = [0, 23];
+  if (cfg.from >= cfg.to) [lo, hi] = [0, 23];
   for (const h of byHour.keys()) [lo, hi] = [Math.min(lo, h), Math.max(hi, h)];
   return Array.from({ length: hi - lo + 1 }, (_, i) => ({ hour: lo + i, ml: byHour.get(lo + i) ?? 0 }));
 }
 
 /** The reminder windows around `t`: yesterday's (it may run past midnight), today's and tomorrow's, as [start, end]. */
 function windows(t: number, cfg: WaterConfig): [number, number][] {
-  const span = cfg.from > cfg.to ? 1 : 0;
+  const span = cfg.from >= cfg.to ? 1 : 0;
   return [-1, 0, 1, 2].map((d) => [wallClock(t, d, cfg.from), wallClock(t, d + span, cfg.to)]);
 }
 
