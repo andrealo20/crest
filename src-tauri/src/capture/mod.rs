@@ -728,6 +728,8 @@ pub fn capture_delete(path: String, app: AppHandle) -> Result<(), String> {
     match unsafe { SHFileOperationW(&mut op) } {
         0 if op.fAnyOperationsAborted.as_bool() => Err("cancelled".into()),
         0 => Ok(()),
+        // DE_OPCANCELLED: the shell can report a refusal this way too.
+        0x75 => Err("cancelled".into()),
         _ => Err("delete-failed".into()),
     }
 }
