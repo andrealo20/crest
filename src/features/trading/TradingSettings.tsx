@@ -81,6 +81,7 @@ function ProviderRow({ provider: p }: { provider: ProviderInfo }) {
               <SecretRow key={f.secret} name={f.secret} label={t(f.label)} hint={f.hint && t(f.hint)} onSaved={check} />
             ))}
             <div className="px-3 py-2 text-caption text-label-3">{t(p.help)}</div>
+            {connected && <div className="px-3 pb-2 text-caption text-label-3">{t("Wer den Schlüssel löscht, löscht auch Verlauf und geladene Daten dieses Kontos.")}</div>}
           </motion.div>
         )}
       </AnimatePresence>

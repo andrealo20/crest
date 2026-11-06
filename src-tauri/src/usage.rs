@@ -4,8 +4,8 @@
 //!
 //! - Claude (Claude Code): `api.anthropic.com/api/oauth/usage` with the OAuth token from
 //!   `~/.claude/.credentials.json`. Strictly rate-limited → 5 min cache, pause after 429
-//!   (Retry-After, at least 10 min). The last good result is kept on disk so a restart
-//!   doesn't query right away and never shows an empty error.
+//!   (Retry-After, at least 30 s; 2 min growing to 30 without one). The last good result is kept
+//!   on disk so a restart doesn't query right away and never shows an empty error.
 //! - ChatGPT (Codex CLI): live `chatgpt.com/backend-api/wham/usage` with `~/.codex/auth.json`,
 //!   fallback: last `rate_limits` entry in `~/.codex/sessions/**.jsonl`.
 //! - Antigravity (`agy` CLI): asks the CLI itself (`agy -p /usage --output-format json`,
@@ -25,7 +25,7 @@ mod logs;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use base64::Engine;
@@ -53,6 +53,8 @@ pub struct UsageState {
     loaded: Mutex<bool>,
     /// 429 pause per provider.
     backoff: Mutex<HashMap<String, backoff::Backoff>>,
+    /// One real query at a time per provider: a second call waits and then finds the cache filled.
+    inflight: Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
     /// Parsed session logs (only filled once the AI usage tool asked for tokens).
     logs: Mutex<logs::Cache>,
     /// Hash of the API key each key source was last asked with (memory only, never logged).
@@ -124,73 +126,91 @@ pub struct Window {
 #[tauri::command]
 pub async fn usage_fetch(providers: Vec<String>, app: AppHandle, state: State<'_, UsageState>) -> Result<Vec<Provider>, String> {
     load_disk_cache(&app, &state);
+    // Side by side, so a slow provider (the agy CLI) does not hold the others back.
+    let tasks: Vec<_> = providers
+        .into_iter()
+        .filter(|id| PROVIDERS.contains(&id.as_str()))
+        .map(|id| {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move { usage_one(&id, &app.state::<UsageState>()).await })
+        })
+        .collect();
     let mut out = Vec::new();
     // The cache file is written only when a stored entry changed, not on every poll answered from memory.
     let mut changed = false;
-    for id in providers {
-        if !PROVIDERS.contains(&id.as_str()) {
-            continue;
+    for task in tasks {
+        if let Ok((provider, stored)) = task.await {
+            out.push(provider);
+            changed |= stored;
         }
-        let cached = state.cache.lock().unwrap().get(&id).cloned();
-        // A key saved or removed since the last answer: ask again now, whatever the cache or a pause says.
-        let key_now = key_name(&id).map(|name| logs::fnv(crate::secrets::read(name).unwrap_or_default().as_bytes()));
-        let key_changed = key_now.is_some() && state.keys.lock().unwrap().get(&id).is_some_and(|old| Some(*old) != key_now);
-        if key_changed {
-            state.backoff.lock().unwrap().remove(&id);
-        }
-        let paused = state.backoff.lock().unwrap().get_mut(&id).and_then(|b| b.retry_at(now_ms()));
-        if let Some((next_at, p)) = cached.as_ref().filter(|_| !key_changed) {
-            if paused.is_some() || now_ms() < *next_at {
-                out.push(p.clone());
-                continue;
-            }
-        }
-        let result = match id.as_str() {
-            "claude" => fetch_claude().await,
-            "codex" => fetch_codex().await,
-            "gemini" => fetch_gemini().await,
-            "cursor" => fetch_cursor().await,
-            "openrouter" => fetch_openrouter().await,
-            "deepseek" => fetch_deepseek().await,
-            _ => fetch_zai().await,
-        };
-        let now = now_ms();
-        // A 429 starts or grows the pause; any other answer ends it.
-        let retry_at = {
-            let mut all = state.backoff.lock().unwrap();
-            let b = all.entry(id.clone()).or_default();
-            match &result {
-                Err(Fail { code, retry_after, .. }) if code == "rate-limited" => Some(b.fail(now, *retry_after, jitter())),
-                _ => {
-                    b.reset();
-                    None
-                }
-            }
-        };
-        let mut provider = match (result, cached) {
-            (Ok(p), _) => p,
-            // Error → keep the last good result, just note the error.
-            (Err(e), Some((_, mut old))) if old.has_data() => {
-                old.error = Some(e.code);
-                old
-            }
-            (Err(e), _) => Provider { error: Some(e.code), ..Provider::new(&id) },
-        };
-        provider.retry_at = retry_at;
-        if let Some(k) = key_now {
-            state.keys.lock().unwrap().insert(id.clone(), k);
-        }
-        // A missing key costs no request to check, so it is asked again on the next poll.
-        let next_at = if provider.error.as_deref() == Some("no-key") { now } else { retry_at.unwrap_or(0).max(now + cache_for(&id).as_millis() as u64) };
-        state.cache.lock().unwrap().insert(id, (next_at, provider.clone()));
-        // Only entries with data are stored. "no-key" is asked again on every poll without a request, so it leaves the file as it is.
-        changed |= provider.has_data() && provider.error.as_deref() != Some("no-key");
-        out.push(provider);
     }
     if changed {
         save_disk_cache(&app, &state);
     }
     Ok(out)
+}
+
+/// One provider's answer, and whether a stored entry changed.
+async fn usage_one(id: &str, state: &UsageState) -> (Provider, bool) {
+    let gate = state.inflight.lock().unwrap().entry(id.to_string()).or_default().clone();
+    let _running = gate.lock().await;
+    let id = id.to_string();
+    let cached = state.cache.lock().unwrap().get(&id).cloned();
+    // A key saved or removed since the last answer: ask again now, whatever the cache or a pause says.
+    let key_now = key_name(&id).map(|name| logs::fnv(crate::secrets::read(name).unwrap_or_default().as_bytes()));
+    let key_changed = key_now.is_some() && state.keys.lock().unwrap().get(&id).is_some_and(|old| Some(*old) != key_now);
+    if key_changed {
+        state.backoff.lock().unwrap().remove(&id);
+    }
+    let paused = state.backoff.lock().unwrap().get_mut(&id).and_then(|b| b.retry_at(now_ms()));
+    if let Some((next_at, p)) = cached.as_ref().filter(|_| !key_changed) {
+        if paused.is_some() || now_ms() < *next_at {
+            return (p.clone(), false);
+        }
+    }
+    let result = match id.as_str() {
+        "claude" => fetch_claude().await,
+        "codex" => fetch_codex().await,
+        "gemini" => fetch_gemini().await,
+        "cursor" => fetch_cursor().await,
+        "openrouter" => fetch_openrouter().await,
+        "deepseek" => fetch_deepseek().await,
+        _ => fetch_zai().await,
+    };
+    let now = now_ms();
+    // A 429 starts or grows the pause; any other answer ends it.
+    let retry_at = {
+        let mut all = state.backoff.lock().unwrap();
+        let b = all.entry(id.clone()).or_default();
+        match &result {
+            Err(Fail { code, retry_after, .. }) if code == "rate-limited" => Some(b.fail(now, *retry_after, jitter())),
+            _ => {
+                b.reset();
+                None
+            }
+        }
+    };
+    let mut provider = match (result, cached) {
+        (Ok(p), _) => p,
+        // Error → keep the last good result, just note the error.
+        (Err(e), Some((_, mut old))) if old.has_data() => {
+            old.error = Some(e.code);
+            old
+        }
+        // Nothing kept: what the failed provider could still show.
+        (Err(Fail { code, data: Some(p), .. }), _) => Provider { error: Some(code), ..*p },
+        (Err(e), _) => Provider { error: Some(e.code), ..Provider::new(&id) },
+    };
+    provider.retry_at = retry_at;
+    if let Some(k) = key_now {
+        state.keys.lock().unwrap().insert(id.clone(), k);
+    }
+    // A missing key costs no request to check, so it is asked again on the next poll.
+    let next_at = if provider.error.as_deref() == Some("no-key") { now } else { retry_at.unwrap_or(0).max(now + cache_for(&id).as_millis() as u64) };
+    state.cache.lock().unwrap().insert(id, (next_at, provider.clone()));
+    // Only entries with data are stored. "no-key" is asked again on every poll without a request, so it leaves the file as it is.
+    let stored = provider.has_data() && provider.error.as_deref() != Some("no-key");
+    (provider, stored)
 }
 
 /// Token counts per model from the local Claude Code and Codex logs (last 31 days).
@@ -210,11 +230,13 @@ struct Fail {
     code: String,
     /// What the server's Retry-After said, in ms (after a 429).
     retry_after: Option<u64>,
+    /// What can still be shown while this failure stands (the Codex session files after a 429).
+    data: Option<Box<Provider>>,
 }
 
 impl Fail {
     fn new(code: &str) -> Self {
-        Self { code: code.into(), retry_after: None }
+        Self { code: code.into(), retry_after: None, data: None }
     }
 }
 
@@ -240,7 +262,7 @@ fn check(res: &reqwest::Response) -> Result<(), Fail> {
         401 | 403 => Err(Fail::new("expired")),
         429 => {
             let retry_after = res.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(|v| parse_retry_after(v, now_ms()));
-            Err(Fail { code: "rate-limited".into(), retry_after })
+            Err(Fail { code: "rate-limited".into(), retry_after, data: None })
         }
         _ => Err(Fail::new("failed")),
     }
@@ -372,6 +394,11 @@ fn claude_web_plan(org: &Value) -> Option<String> {
 async fn fetch_codex() -> Result<Provider, Fail> {
     match fetch_codex_live().await {
         Ok(p) => Ok(p),
+        // A 429 must still start the pause, so the session files only ride along as what to show meanwhile.
+        Err(mut live) if live.code == "rate-limited" => {
+            live.data = codex_from_sessions().map(Box::new);
+            Err(live)
+        }
         // Live failed (old CLI, offline) → last state from the session files.
         Err(live) => codex_from_sessions().ok_or(live),
     }
@@ -659,8 +686,10 @@ fn quota_windows(groups: &Value) -> Result<Vec<Window>, Fail> {
 
 async fn fetch_cursor() -> Result<Provider, Fail> {
     let db = app_data().ok_or("not-found")?.join("Cursor").join("User").join("globalStorage").join("state.vscdb");
-    let bytes = std::fs::read(&db).map_err(|_| Fail::new("not-found"))?;
-    let jwt = find_jwt_after(&bytes, b"cursorAuth/accessToken").ok_or("not-signed-in")?;
+    if !db.is_file() {
+        return Err(Fail::new("not-found"));
+    }
+    let jwt = tauri::async_runtime::spawn_blocking(move || find_jwt_in_file(&db, b"cursorAuth/accessToken")).await.ok().flatten().ok_or("not-signed-in")?;
     // "sub" in the token = "auth0|user_…" → user ID for the query and cookie.
     let payload = jwt.split('.').nth(1).and_then(|p| base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(p).ok()).ok_or("not-signed-in")?;
     let claims: Value = serde_json::from_slice(&payload).map_err(|_| Fail::new("not-signed-in"))?;
@@ -693,6 +722,41 @@ async fn fetch_cursor() -> Result<Provider, Fail> {
     }
     Ok(Provider { windows, ..Provider::new("cursor") })
 }
+
+/// `find_jwt_after` over a file read in blocks: Cursor's database also holds the chat history and can be huge.
+fn find_jwt_in_file(path: &Path, key: &[u8]) -> Option<String> {
+    use std::io::Read;
+    /// What follows a key: a few bytes of gap and the token.
+    const ROOM: usize = 4096;
+    let mut file = std::fs::File::open(path).ok()?;
+    let mut block = vec![0u8; JWT_BLOCK];
+    let mut buf: Vec<u8> = Vec::new();
+    loop {
+        let n = file.read(&mut block).ok()?;
+        let eof = n == 0;
+        buf.extend_from_slice(&block[..n]);
+        let mut from = 0;
+        // A key cut off at the end of the buffer is found again with the next block.
+        let mut keep = buf.len().saturating_sub(key.len() - 1);
+        while let Some(pos) = buf[from..].windows(key.len()).position(|w| w == key) {
+            let start = from + pos;
+            if !eof && buf.len() < start + key.len() + ROOM {
+                keep = start;
+                break;
+            }
+            if let Some(jwt) = find_jwt_after(&buf[start..(start + key.len() + ROOM).min(buf.len())], key) {
+                return Some(jwt);
+            }
+            from = start + key.len();
+        }
+        if eof {
+            return None;
+        }
+        buf.drain(..keep);
+    }
+}
+
+const JWT_BLOCK: usize = 1 << 20;
 
 /// First JWT ("eyJ…") after `key` in a binary file (Cursor's SQLite file, without SQLite).
 fn find_jwt_after(bytes: &[u8], key: &[u8]) -> Option<String> {
@@ -887,7 +951,7 @@ fn save_disk_cache(app: &AppHandle, state: &UsageState) {
     let cache = state.cache.lock().unwrap();
     // Only store real data, not bare errors.
     let keep: HashMap<&String, &(u64, Provider)> = cache.iter().filter(|(_, (_, p))| p.has_data()).collect();
-    let _ = std::fs::write(path, serde_json::to_vec(&keep).unwrap_or_default());
+    let _ = crate::write_atomic(&path, &serde_json::to_vec(&keep).unwrap_or_default());
 }
 
 // ---------- Helpers ----------
@@ -991,7 +1055,7 @@ fn parse_iso_ms(s: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{claude_org, claude_web_plan, claude_windows, csrf_token, find_jwt_after, logged_http_port, quota_windows, next_utc, parse_agy_usage, parse_deepseek, parse_iso_ms, parse_openrouter, parse_retry_after, parse_zai, read_tail};
+    use super::{claude_org, claude_web_plan, claude_windows, csrf_token, find_jwt_after, find_jwt_in_file, logged_http_port, quota_windows, next_utc, parse_agy_usage, parse_deepseek, parse_iso_ms, parse_openrouter, parse_retry_after, parse_zai, read_tail};
     use serde_json::json;
 
     #[test]
@@ -1169,6 +1233,22 @@ mod tests {
     fn jwt_scan() {
         let db = b"\x00\x01cursorAuth/accessToken\x07\x12eyJhbGc.eyJzdWIiOiJ4In0.sig-_x\x00more";
         assert_eq!(find_jwt_after(db, b"cursorAuth/accessToken").as_deref(), Some("eyJhbGc.eyJzdWIiOiJ4In0.sig-_x"));
+    }
+
+    #[test]
+    fn jwt_scan_in_a_file_across_blocks() {
+        let key = b"cursorAuth/accessToken";
+        let path = std::env::temp_dir().join(format!("crest-jwt-scan-{}.bin", std::process::id()));
+        // The key straddles the first block boundary, an unrelated key comes before it.
+        let mut db = vec![0u8; super::JWT_BLOCK - 10];
+        db[100..100 + key.len()].copy_from_slice(key);
+        db.extend_from_slice(key);
+        db.extend_from_slice(b"\x07\x12eyJhbGc.eyJzdWIiOiJ4In0.sig-_x\x00more");
+        std::fs::write(&path, &db).unwrap();
+        let found = find_jwt_in_file(&path, key);
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(found.as_deref(), Some("eyJhbGc.eyJzdWIiOiJ4In0.sig-_x"));
+        assert!(find_jwt_in_file(&path, key).is_none());
     }
 }
 

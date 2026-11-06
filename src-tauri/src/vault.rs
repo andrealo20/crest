@@ -20,7 +20,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -518,8 +518,11 @@ pub struct Code {
 #[tauri::command]
 pub fn vault_codes(app: AppHandle, state: State<'_, VaultState>) -> Result<Vec<Code>, String> {
     let _guard = state.lock.lock().unwrap();
+    // The view polls this: only the user's own actions may slide the idle timer, or an open view never relocks.
+    let deadline = *state.unlocked_until.lock().unwrap();
     let data = load_full(&app, &state)?;
     require(&state, data.pin_totp)?;
+    *state.unlocked_until.lock().unwrap() = deadline;
     let now = now_secs();
     data.items
         .iter()
@@ -576,12 +579,14 @@ pub struct Scan {
     account: String,
 }
 
-/// Reads a QR code from the clipboard (screenshot or copied image file).
+/// Reads a QR code from the clipboard (screenshot or copied image file) and empties it after a valid code.
 /// Errors: "no-image", "no-qr", "not-otp".
 #[tauri::command]
 pub async fn vault_scan(state: State<'_, VaultState>) -> Result<Scan, String> {
-    let text = tauri::async_runtime::spawn_blocking(scan_clipboard).await.map_err(|e| e.to_string())??;
+    let (text, seq) = tauri::async_runtime::spawn_blocking(scan_clipboard).await.map_err(|e| e.to_string())??;
     let (secret, otp, issuer, account) = parse_otpauth(&text).ok_or("not-otp")?;
+    // The screenshot holds the seed in the clear: it must not stay in the clipboard or its histories.
+    thread::spawn(move || clear_if_unchanged(seq));
     *state.pending.lock().unwrap() = Some(Pending { secret, otp });
     Ok(Scan { issuer, account })
 }
@@ -827,7 +832,7 @@ fn parse_otpauth(url: &str) -> Option<(String, Otp, String, String)> {
         return None;
     }
     let (label, query) = rest.split_once('?').unwrap_or((rest, ""));
-    let label = percent_decode(label);
+    let label = percent_decode(label, false);
     let (label_issuer, account) = match label.split_once(':') {
         Some((i, a)) => (i.trim().to_string(), a.trim().to_string()),
         None => (String::new(), label.trim().to_string()),
@@ -836,7 +841,7 @@ fn parse_otpauth(url: &str) -> Option<(String, Otp, String, String)> {
     let (mut secret, mut issuer) = (None, None);
     for pair in query.split('&') {
         let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
-        let v = percent_decode(v);
+        let v = percent_decode(v, true);
         match k.to_ascii_lowercase().as_str() {
             "secret" => secret = normalize_secret(&v),
             "issuer" => issuer = Some(v.trim().to_string()),
@@ -852,7 +857,8 @@ fn parse_otpauth(url: &str) -> Option<(String, Otp, String, String)> {
     Some((secret?, otp, issuer.filter(|i| !i.is_empty()).unwrap_or(label_issuer), account))
 }
 
-fn percent_decode(s: &str) -> String {
+/// `plus`: '+' is a space (query values), in a path it is a literal plus.
+fn percent_decode(s: &str, plus: bool) -> String {
     let hex = |b: u8| (b as char).to_digit(16).map(|d| d as u8);
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
@@ -865,7 +871,7 @@ fn percent_decode(s: &str) -> String {
                 continue;
             }
         }
-        out.push(if bytes[i] == b'+' { b' ' } else { bytes[i] });
+        out.push(if plus && bytes[i] == b'+' { b' ' } else { bytes[i] });
         i += 1;
     }
     String::from_utf8_lossy(&out).into_owned()
@@ -873,7 +879,9 @@ fn percent_decode(s: &str) -> String {
 
 // ---------- QR from the clipboard ----------
 
-fn scan_clipboard() -> Result<String, String> {
+/// The QR text and the clipboard sequence number it was read at.
+fn scan_clipboard() -> Result<(String, u32), String> {
+    let seq = unsafe { GetClipboardSequenceNumber() };
     let mut clipboard = arboard::Clipboard::new().map_err(|_| "no-image")?;
     let (w, h, luma) = if let Ok(img) = clipboard.get_image() {
         let luma: Vec<u8> = img
@@ -892,7 +900,7 @@ fn scan_clipboard() -> Result<String, String> {
     prepared
         .detect_grids()
         .into_iter()
-        .find_map(|grid| grid.decode().ok().map(|(_, text)| text))
+        .find_map(|grid| grid.decode().ok().map(|(_, text)| (text, seq)))
         .ok_or_else(|| "no-qr".into())
 }
 
@@ -927,18 +935,41 @@ fn copy_private(text: &str, clear: bool) -> Result<(), String> {
     }
     if clear {
         let seq = unsafe { GetClipboardSequenceNumber() };
+        SECRET_SEQ.store(seq, Ordering::Relaxed);
         thread::spawn(move || {
             thread::sleep(CLEAR_AFTER);
-            // Only if nothing new was copied in between.
-            if unsafe { GetClipboardSequenceNumber() } == seq && unsafe { OpenClipboard(None) }.is_ok() {
-                unsafe {
-                    let _ = EmptyClipboard();
-                    let _ = CloseClipboard();
-                }
-            }
+            clear_if_unchanged(seq);
         });
     }
     Ok(())
+}
+
+/// Sequence number of the last secret copied, for the clear when Crest quits (0: none).
+static SECRET_SEQ: AtomicU32 = AtomicU32::new(0);
+
+/// Empties the clipboard if nothing new was copied since `seq`. A clipboard manager can hold it open for a moment: retries.
+fn clear_if_unchanged(seq: u32) {
+    for _ in 0..10 {
+        if unsafe { GetClipboardSequenceNumber() } != seq {
+            return;
+        }
+        if unsafe { OpenClipboard(None) }.is_ok() {
+            unsafe {
+                let _ = EmptyClipboard();
+                let _ = CloseClipboard();
+            }
+            return;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// On quit the 30 s timer dies with the process: clear a copied secret now.
+pub fn clear_on_exit() {
+    let seq = SECRET_SEQ.swap(0, Ordering::Relaxed);
+    if seq != 0 {
+        clear_if_unchanged(seq);
+    }
 }
 
 fn bytes_of(wide: &[u16]) -> &[u8] {
@@ -1003,6 +1034,8 @@ mod tests {
         assert_eq!(otp, Otp::default());
         assert_eq!(issuer, "ACME Co");
         assert_eq!(account, "john.doe@email.com");
+        let (_, _, issuer, plus) = parse_otpauth("otpauth://totp/Example:mario+lavoro@gmail.com?secret=HXDMVJECJJWSRB3H&issuer=A+B").unwrap();
+        assert_eq!((issuer.as_str(), plus.as_str()), ("A B", "mario+lavoro@gmail.com"));
         assert!(parse_otpauth("otpauth://hotp/x?secret=HXDMVJECJJWSRB3H").is_none());
         assert!(parse_input("jbsw y3dp ehpk 3pxp").is_ok());
         assert!(parse_input("not a key!").is_err());

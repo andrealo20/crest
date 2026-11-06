@@ -1308,13 +1308,21 @@ export function SecretRow({ name, label, hint, onSaved }: { name: SecretName; la
   const [stored, setStored] = useState(false);
   const [value, setValue] = useState("");
   const [saved, setSaved] = useState(false);
+  const [confirm, setConfirm] = useState(false);
 
   useEffect(() => {
     setValue("");
     void secrets.has(name).then(setStored);
   }, [name]);
 
+  useEffect(() => {
+    if (!confirm) return;
+    const id = window.setTimeout(() => setConfirm(false), 3000);
+    return () => window.clearTimeout(id);
+  }, [confirm]);
+
   const save = async () => {
+    setConfirm(false);
     await secrets.set(name, value);
     setStored(!!value.trim());
     setValue("");
@@ -1333,10 +1341,10 @@ export function SecretRow({ name, label, hint, onSaved }: { name: SecretName; la
             </motion.span>
           )}
         </AnimatePresence>
-        <TextField secret value={value} onChange={setValue} onSubmit={() => void save()} placeholder={stored ? t("Gespeichert") : t("Einfügen")} width="w-40" />
+        <TextField secret value={value} onChange={setValue} onSubmit={() => value && void save()} placeholder={stored ? t("Gespeichert") : t("Einfügen")} width="w-40" />
         {(value || stored) && (
-          <Button onClick={() => void save()} disabled={!value && !stored}>
-            {value ? t("Sichern") : t("Löschen")}
+          <Button onClick={() => (value || confirm ? void save() : setConfirm(true))} disabled={!value && !stored}>
+            {value ? t("Sichern") : confirm ? t("Wirklich löschen?") : t("Löschen")}
           </Button>
         )}
       </div>

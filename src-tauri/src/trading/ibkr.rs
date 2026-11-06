@@ -37,7 +37,7 @@ pub async fn fetch(client: &reqwest::Client) -> Result<Account, String> {
         }
         tokio::time::sleep(Duration::from_millis(1500 + 500 * attempt)).await;
     }
-    Err("rate".into())
+    Err("pending".into())
 }
 
 /// Tokens, query ids and reference codes are digits; anything else is dropped from the URL.
