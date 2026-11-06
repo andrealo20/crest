@@ -66,7 +66,16 @@ export function NoticesView() {
                   tabIndex={n.source === "windows" ? 0 : undefined}
                   title={n.source === "windows" ? t("{app} öffnen", { app: n.appName }) : undefined}
                   onClick={n.source === "windows" ? () => noticeSource.openApp(n.appId) : undefined}
-                  onKeyDown={n.source === "windows" ? (e) => e.key === "Enter" && noticeSource.openApp(n.appId) : undefined}
+                  onKeyDown={
+                    n.source === "windows"
+                      ? (e) => {
+                          // Keys on the buttons inside the row are theirs.
+                          if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+                          e.preventDefault();
+                          noticeSource.openApp(n.appId);
+                        }
+                      : undefined
+                  }
                 >
                   <div className="pt-0.5">
                     <AppIcon n={n} size={20} />

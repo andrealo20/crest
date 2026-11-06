@@ -1,4 +1,6 @@
 import { t } from "../../i18n";
+import { openOn } from "../../notch/nav";
+import { isMac } from "../../platform/native";
 import { noticeCard } from "../../notch/row/NoticeCard";
 import { BrandLogo, brandColor, brandFor } from "../../ui/brands";
 import { noticeText } from "./format";
@@ -24,7 +26,7 @@ export function AppIcon({ n, size, rounded }: { n: Pick<Notice, "icon" | "appNam
       className={`flex shrink-0 items-center justify-center ${corner} bg-fill-3 font-semibold text-label-2`}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.6) }}
     >
-      {(n.appName.trim()[0] ?? "?").toUpperCase()}
+      {(Array.from(n.appName.trim())[0] ?? "?").toUpperCase()}
     </span>
   );
 }
@@ -51,6 +53,8 @@ export function noticePop(n: Notice, max: number) {
       hue: "blue",
       color: brandAccent(n.appName),
       title: n.title || n.appName,
+      // The Notices page is a Windows tool; a plugin's notice on a Mac has none to open.
+      onOpen: isMac ? undefined : () => openOn("notices"),
       text: n.title ? first || n.appName : first,
       actions: ring ? <ProgressRing value={n.progress ?? 0} size={RING} /> : undefined,
       actionsWidth: RING,
