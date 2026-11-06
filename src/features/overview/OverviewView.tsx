@@ -10,7 +10,7 @@ import { findTab } from "../../notch/tabs";
 import { togglePresentation, usePresenting } from "../privacy/store";
 import { useNowPlaying } from "../../platform/media";
 import { systemControls, type AudioOutput, type FocusState, type VolumeState } from "../../platform/services";
-import { MIXER_MAX_ROWS, MIXER_ROW } from "../now-playing/Mixer";
+import { MIXER_MAX_ROWS, MIXER_ROW, sendSystemVolume } from "../now-playing/Mixer";
 import { outputIcon } from "./outputs";
 import { useDiscordCall } from "../discord/store";
 import { Equalizer } from "../now-playing/Equalizer";
@@ -198,7 +198,7 @@ function Activity() {
       icon: <DiscordLogo size={18} weight="fill" className="text-label" />,
       title: call.channelName,
       detail: [call.guildName, t(call.members.length === 1 ? "{n} Person" : "{n} Personen", { n: call.members.length })].filter(Boolean).join(" · "),
-      trailing: <Equalizer playing={call.members.some((m) => m.speaking)} tint="bg-green" />,
+      trailing: <Equalizer playing={call.members.some((m) => m.speaking)} tint="bg-green" levels={false} />,
     };
   } else if (np) {
     item = {
@@ -480,7 +480,7 @@ function VolumeTile({ device, open, onDevices }: { device: string | null; open: 
     const r = track.current!.getBoundingClientRect();
     const l = Math.round(Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * 100) / 100;
     setVol({ level: l, muted: false });
-    void systemControls.setVolume({ level: l });
+    sendSystemVolume("", { level: l });
   };
   const Icon = vol?.muted || level === 0 ? SpeakerSimpleSlash : level < 0.34 ? SpeakerNone : level < 0.67 ? SpeakerLow : SpeakerHigh;
 

@@ -9,17 +9,17 @@
 use std::sync::{mpsc, OnceLock};
 use std::time::Duration;
 
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
 use windows::core::{implement, w, Interface, IUnknown, Ref, HRESULT};
 use windows::Win32::System::Registry::{RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ};
 use windows::Win32::Media::Audio::{
-    eRender, ActivateAudioInterfaceAsync, AudioSessionStateActive, IActivateAudioInterfaceAsyncOperation, IActivateAudioInterfaceCompletionHandler,
-    IActivateAudioInterfaceCompletionHandler_Impl, IAudioCaptureClient, IAudioClient, IAudioSessionControl2, IAudioSessionManager2, IMMDeviceEnumerator,
-    MMDeviceEnumerator, AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM, AUDCLNT_STREAMFLAGS_LOOPBACK,
-    AUDIOCLIENT_ACTIVATION_PARAMS, AUDIOCLIENT_ACTIVATION_PARAMS_0, AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK, AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS,
-    DEVICE_STATE_ACTIVE, PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE, VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, WAVEFORMATEX, WAVE_FORMAT_PCM,
+    ActivateAudioInterfaceAsync, IActivateAudioInterfaceAsyncOperation, IActivateAudioInterfaceCompletionHandler,
+    IActivateAudioInterfaceCompletionHandler_Impl, IAudioCaptureClient, IAudioClient, AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_SHARED,
+    AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM, AUDCLNT_STREAMFLAGS_LOOPBACK, AUDIOCLIENT_ACTIVATION_PARAMS, AUDIOCLIENT_ACTIVATION_PARAMS_0,
+    AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK, AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS, PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE, VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, WAVEFORMATEX, WAVE_FORMAT_PCM,
 };
 use windows::Win32::System::Com::StructuredStorage::{PROPVARIANT, PROPVARIANT_0, PROPVARIANT_0_0, PROPVARIANT_0_0_0};
-use windows::Win32::System::Com::{CoCreateInstance, BLOB, CLSCTX_ALL};
+use windows::Win32::System::Com::BLOB;
 use windows::Win32::System::Variant::VT_BLOB;
 
 use crate::mixer::{file_name, matches, process_path};
@@ -67,34 +67,26 @@ pub fn still_running(pid: u32, app_id: &str) -> bool {
     process_path(pid).is_some_and(|path| matches(app_id, &file_name(&path)))
 }
 
-/// Process ID of the audio session that belongs to the media app ID, a playing one first.
-/// Looks at every active output device, not only the default one.
+/// The process of the media app ID that starts its process tree, which the capture takes whole.
+/// Read from the process list: no audio device is touched, so a Bluetooth headset's hands-free endpoint is left alone.
 pub fn process_of(app_id: &str) -> Option<u32> {
     if app_id.is_empty() {
         return None;
     }
-    unsafe {
-        let devices: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
-        let list = devices.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE).ok()?;
-        let mut idle = None;
-        for d in 0..list.GetCount().unwrap_or(0) {
-            let Ok(device) = list.Item(d) else { continue };
-            let Ok(manager) = device.Activate::<IAudioSessionManager2>(CLSCTX_ALL, None) else { continue };
-            let Ok(sessions) = manager.GetSessionEnumerator() else { continue };
-            for i in 0..sessions.GetCount().unwrap_or(0) {
-                let Some(control) = sessions.GetSession(i).ok().and_then(|c| c.cast::<IAudioSessionControl2>().ok()) else { continue };
-                let Some(pid) = control.GetProcessId().ok().filter(|&p| p != 0) else { continue };
-                if !process_path(pid).is_some_and(|path| matches(app_id, &file_name(&path))) {
-                    continue;
-                }
-                if control.GetState().is_ok_and(|s| s == AudioSessionStateActive) {
-                    return Some(pid);
-                }
-                idle.get_or_insert(pid);
-            }
-        }
-        idle
-    }
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    let ours: Vec<(u32, Option<u32>)> = sys
+        .processes()
+        .values()
+        .filter(|p| matches(app_id, &file_name(&p.name().to_string_lossy())))
+        .map(|p| (p.pid().as_u32(), p.parent().map(|parent| parent.as_u32())))
+        .collect();
+    root(&ours)
+}
+
+/// The oldest of the (process, parent) pairs whose parent is not itself one of them.
+fn root(procs: &[(u32, Option<u32>)]) -> Option<u32> {
+    procs.iter().filter(|(_, parent)| !parent.is_some_and(|p| procs.iter().any(|(pid, _)| *pid == p))).map(|(pid, _)| *pid).min()
 }
 
 /// Signals when the activation is done; the result is read on the calling thread.
@@ -208,5 +200,19 @@ impl Drop for ProcessCapture {
         unsafe {
             let _ = self.client.Stop();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_root_is_the_process_whose_parent_is_not_the_app() {
+        // Spotify: a main process (parent: explorer) and two children.
+        assert_eq!(root(&[(300, Some(100)), (200, Some(300)), (250, Some(300))]), Some(300));
+        // A parent that is gone is no parent.
+        assert_eq!(root(&[(300, Some(7)), (200, None)]), Some(200));
+        assert_eq!(root(&[]), None);
     }
 }

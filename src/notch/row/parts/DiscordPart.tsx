@@ -17,7 +17,7 @@ export function DiscordPart({ call, paused }: { call: DiscordCall; paused: boole
         ) : call.mute ? (
           <MicrophoneSlash size={15} weight="fill" className="text-red" />
         ) : (
-          <Equalizer playing={!paused && (call.speaking || call.members.some((m) => m.speaking))} tint="bg-green" />
+          <Equalizer playing={!paused && (call.speaking || call.members.some((m) => m.speaking))} tint="bg-green" levels={false} />
         )}
       </span>
     </span>

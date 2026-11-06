@@ -10,7 +10,7 @@
 //!   title has the track); packaged apps without a window are activated by their app
 //!   ID, desktop apps without one (closed to the tray) are started again.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use base64::Engine;
@@ -64,14 +64,32 @@ struct Entry {
     volume: ISimpleAudioVolume,
 }
 
-fn sessions() -> windows::core::Result<Vec<Entry>> {
+/// `own` and every process below it, from (process, parent) pairs.
+fn tree_of(own: u32, parents: &[(u32, u32)]) -> HashSet<u32> {
+    let mut tree = HashSet::from([own]);
+    // Not in order: a child can be listed before its parent.
+    while parents.iter().any(|(pid, parent)| tree.contains(parent) && tree.insert(*pid)) {}
+    tree
+}
+
+/// Crest and its child processes: WebView2 plays Crest's own sounds (alarm, focus sound) from one of them.
+fn own_tree() -> HashSet<u32> {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    let parents: Vec<(u32, u32)> = sys.processes().values().filter_map(|p| Some((p.pid().as_u32(), p.parent()?.as_u32()))).collect();
+    tree_of(unsafe { GetCurrentProcessId() }, &parents)
+}
+
+/// `hide_own`: leave out Crest's own sessions (the list); setting a level never needs them.
+fn sessions(hide_own: bool) -> windows::core::Result<Vec<Entry>> {
     unsafe {
         // Own thread per call (spawn_blocking) → MTA; "already initialized" is fine.
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         let devices: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
         let manager: IAudioSessionManager2 = devices.GetDefaultAudioEndpoint(eRender, eConsole)?.Activate(CLSCTX_ALL, None)?;
         let list = manager.GetSessionEnumerator()?;
-        let own = GetCurrentProcessId();
+        let own = if hide_own { own_tree() } else { HashSet::new() };
         let mut out = Vec::new();
         for i in 0..list.GetCount()? {
             let Ok(control) = list.GetSession(i) else { continue };
@@ -84,7 +102,7 @@ fn sessions() -> windows::core::Result<Vec<Entry>> {
                 continue;
             }
             let Ok(pid) = control.GetProcessId() else { continue };
-            if pid == 0 || pid == own {
+            if pid == 0 || own.contains(&pid) {
                 continue;
             }
             let Some(exe_path) = process_path(pid) else { continue };
@@ -135,7 +153,7 @@ pub async fn mixer_list(media: State<'_, MediaState>, cache: State<'_, MixerStat
     let (rows, fresh) = tauri::async_runtime::spawn_blocking(move || -> windows::core::Result<_> {
         let mut rows: Vec<AppVolume> = Vec::new();
         let mut fresh = HashMap::new();
-        for e in sessions()? {
+        for e in sessions(true)? {
             let id = file_name(&e.exe_path);
             let (level, muted) = unsafe { (e.volume.GetMasterVolume().unwrap_or(1.0), e.volume.GetMute().is_ok_and(|m| m.as_bool())) };
             // Several sessions of one program: one row, the loudest unmuted level wins.
@@ -169,7 +187,7 @@ pub async fn mixer_list(media: State<'_, MediaState>, cache: State<'_, MixerStat
 #[tauri::command]
 pub async fn mixer_set(id: String, level: Option<f32>, muted: Option<bool>) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || -> windows::core::Result<()> {
-        for e in sessions()?.into_iter().filter(|e| file_name(&e.exe_path) == id) {
+        for e in sessions(false)?.into_iter().filter(|e| file_name(&e.exe_path) == id) {
             unsafe {
                 if let Some(l) = level {
                     e.volume.SetMasterVolume(l.clamp(0.0, 1.0), std::ptr::null())?;
@@ -384,5 +402,17 @@ fn bring_to_front(hwnd: HWND) -> bool {
         };
         SendInput(&[alt(Default::default()), alt(KEYEVENTF_KEYUP)], std::mem::size_of::<INPUT>() as i32);
         SetForegroundWindow(hwnd).as_bool()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_tree_holds_children_and_grandchildren() {
+        // Listed child first, as a process list can be.
+        let tree = tree_of(10, &[(30, 20), (20, 10), (40, 99), (11, 1)]);
+        assert_eq!(tree, HashSet::from([10, 20, 30]));
     }
 }
