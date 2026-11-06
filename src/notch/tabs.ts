@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import {
   ArrowsLeftRight,
   BellSimple,
+  Calculator,
   CalendarBlank,
   CheckCircle,
   ClipboardText,
@@ -71,6 +72,7 @@ import { Scroll } from "@phosphor-icons/react";
 import { TeleprompterView } from "../features/teleprompter/TeleprompterView";
 import { Robot } from "@phosphor-icons/react";
 import { AgentsView } from "../features/agents/AgentsView";
+import { CalcView } from "../features/calc/CalcView";
 import { pluginTab } from "../features/plugins/tabs";
 import { isMac } from "../platform/native";
 
@@ -137,6 +139,7 @@ export const tabs: NotchTab[] = ([
   { id: "clocks", hue: "indigo", label: "Uhren", icon: GlobeHemisphereWest, size: { w: 620, h: 372 }, View: ClocksView },
   { id: "teleprompter", hue: "amber", label: "Prompter", icon: Scroll, size: { w: 560, h: 340 }, View: TeleprompterView },
   { id: "agents", hue: "indigo", label: "Agents", icon: Robot, size: { w: 560, h: 320 }, View: AgentsView },
+  { id: "calc", hue: "indigo", label: "Rechner", icon: Calculator, size: { w: 600, h: 320 }, View: CalcView },
 ] satisfies NotchTab[]).filter((t) => !isMac || !WINDOWS_ONLY.has(t.id));
 
 /** Settings: reached via the gear, not in the tool bar. */
