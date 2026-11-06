@@ -164,11 +164,14 @@ export function naturalWidth(items: RowItem[]): number {
   return width;
 }
 
-/** Drops what does not fit (equalizer, then cover, then clock), gives the carousels what the title and gaps leave, then spreads it all. */
+/** Parts of a fixed width, the first to go when the row is too narrow; the title and carousels shrink instead. */
+const DROP_ORDER = ["equalizer", "cover", "clock", "github", "weather", "downloads", "calendar", "script"];
+
+/** Drops what does not fit (in DROP_ORDER), gives the carousels what the title and gaps leave, then spreads it all. */
 export function planRow(items: RowItem[], contentWidth: number, dpi: number): RowPlan {
   const dropped: string[] = [];
   let row = items;
-  for (const id of ["equalizer", "cover", "clock"]) {
+  for (const id of DROP_ORDER) {
     if (requiredWidth(row) <= contentWidth + EPS) break;
     if (!row.some((it) => it.id === id)) continue;
     row = row.filter((it) => it.id !== id);

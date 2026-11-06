@@ -91,3 +91,12 @@ test("plan visible drops a carousel with no whole item and its gap", () => {
   assert.deepEqual(plan.parts.map((p) => [p.id, p.left]), [["timer", 5]]);
   assert.deepEqual(planVisible(items, 700, 1), planRow(items, 700, 1));
 });
+test("plan row drops wide fixed parts until the rest fits, never running past the row", () => {
+  const items: RowItem[] = [
+    { id: "cover", kind: "fixed", width: 20 }, { id: "timer", kind: "fixed", width: 66 }, { id: "script", kind: "fixed", width: 766 }, { id: "privacy", kind: "fixed", width: 30 },
+  ];
+  const plan = planRow(items, 644, 1);
+  assert.deepEqual(plan.dropped, ["cover", "script"]);
+  assert.deepEqual(plan.parts.map((p) => p.id), ["timer", "privacy"]);
+  assert.ok(plan.parts[plan.parts.length - 1].left + plan.parts[plan.parts.length - 1].width <= 644);
+});
