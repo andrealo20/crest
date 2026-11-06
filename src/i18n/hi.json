@@ -532,6 +532,8 @@
  "Zeigt, wie weit das Lied ist, solange Musik läuft": "संगीत चलने के दौरान दिखाता है कि गाना कितना आगे है",
  "Erfassen": "कैप्चर",
  "Kamera": "कैमरा",
+ "Übersetzung in der geschlossenen Notch": "बंद नॉच में अनुवाद",
+ "Songs mit Übersetzung zeigen dort die übersetzte Zeile statt des Originals": "अनुवाद वाले गाने वहाँ मूल की जगह अनूदित पंक्ति दिखाते हैं",
  "Lautschrift in der geschlossenen Notch": "बंद नॉच में रोमन लिपि",
  "Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben statt der Zeile": "जापानी, चीनी और कोरियाई पंक्ति की जगह लैटिन अक्षरों में",
  "Über Claude Code oder den Sitzungsschlüssel von claude.ai": "Claude Code या claude.ai की सेशन कुंजी से",

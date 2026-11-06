@@ -29,6 +29,11 @@ export function MusicSettings() {
           <Switch label={t("Songtext in der geschlossenen Notch")} checked={music.notchLyrics} onChange={(notchLyrics) => setMusic({ notchLyrics })} />
         </Row>
         {(music.notchLyrics || music.titleLyrics) && (
+          <Row label={t("Übersetzung in der geschlossenen Notch")} hint={t("Songs mit Übersetzung zeigen dort die übersetzte Zeile statt des Originals")}>
+            <Switch label={t("Übersetzung in der geschlossenen Notch")} checked={music.closedTranslation} onChange={(closedTranslation) => setMusic({ closedTranslation })} />
+          </Row>
+        )}
+        {(music.notchLyrics || music.titleLyrics) && (
           <Row label={t("Lautschrift in der geschlossenen Notch")} hint={t("Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben statt der Zeile")}>
             <Switch label={t("Lautschrift in der geschlossenen Notch")} checked={music.closedRoman} onChange={(closedRoman) => setMusic({ closedRoman })} />
           </Row>

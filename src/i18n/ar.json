@@ -532,6 +532,8 @@
  "Zeigt, wie weit das Lied ist, solange Musik läuft": "يعرض مدى تقدّم الأغنية أثناء تشغيل الموسيقى",
  "Erfassen": "الالتقاط",
  "Kamera": "الكاميرا",
+ "Übersetzung in der geschlossenen Notch": "الترجمة في الشق المغلق",
+ "Songs mit Übersetzung zeigen dort die übersetzte Zeile statt des Originals": "تعرض الأغاني المترجمة هناك السطر المترجم بدل الأصلي",
  "Lautschrift in der geschlossenen Notch": "الكتابة بالحروف اللاتينية في الشق المغلق",
  "Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben statt der Zeile": "اليابانية والصينية والكورية بحروف لاتينية بدل السطر",
  "Über Claude Code oder den Sitzungsschlüssel von claude.ai": "عبر Claude Code أو مفتاح جلسة claude.ai",

@@ -532,6 +532,8 @@
  "Zeigt, wie weit das Lied ist, solange Musik läuft": "Показывает, сколько трека прошло, пока играет музыка",
  "Erfassen": "Захват",
  "Kamera": "Камера",
+ "Übersetzung in der geschlossenen Notch": "Перевод в закрытом вырезе",
+ "Songs mit Übersetzung zeigen dort die übersetzte Zeile statt des Originals": "Песни с переводом показывают там переведённую строку вместо оригинала",
  "Lautschrift in der geschlossenen Notch": "Латиница в закрытом вырезе",
  "Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben statt der Zeile": "Японский, китайский и корейский латиницей вместо строки",
  "Über Claude Code oder den Sitzungsschlüssel von claude.ai": "Через Claude Code или ключ сеанса claude.ai",

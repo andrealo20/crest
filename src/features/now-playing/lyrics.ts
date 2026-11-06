@@ -188,14 +188,18 @@ export function useLyricIndex(lines: { time: number }[] | null | undefined, np: 
 }
 
 /**
- * Text of the current line; null before the first line, in a gap, or without lyrics. With `roman` the line comes in
- * Latin letters where it has a romanisation, otherwise as sung.
+ * Text of the current line; null before the first line, in a gap, or without lyrics. With `show.translation` the line
+ * comes translated where the song has a translation (from its source, or from Ask when that is on in Settings), with
+ * `show.roman` in Latin letters where it has a romanisation; otherwise as sung.
  */
-export function useLyricLine(np: NowPlaying | null, enabled: boolean, roman = false): string | null {
+export function useLyricLine(np: NowPlaying | null, enabled: boolean, show: { roman: boolean; translation: boolean } = { roman: false, translation: false }): string | null {
+  const music = settings.use().music;
   const plain = linesOf(useLyrics(np, enabled));
-  const lines = useRomanized(plain, enabled && roman);
+  // As in the lyrics panel: translation first, so a romanisation arriving later does not restart the request.
+  const translated = useAskTranslation(np, plain, enabled && show.translation && music.lyricTranslation && music.lyricAskTranslation);
+  const lines = useRomanized(translated, enabled && show.roman);
   const i = useLyricIndex(lines, np);
-  return closedLine(lines && i >= 0 ? lines[i] : null, roman);
+  return closedLine(lines && i >= 0 ? lines[i] : null, show);
 }
 
 const CJK = /[ぁ-ゖァ-ヺ㐀-䶿一-鿿가-힣]/;

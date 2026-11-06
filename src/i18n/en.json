@@ -532,6 +532,8 @@
  "Zeigt, wie weit das Lied ist, solange Musik läuft": "Shows how far the song is while music plays",
  "Erfassen": "Capture",
  "Kamera": "Camera",
+ "Übersetzung in der geschlossenen Notch": "Translation in the closed notch",
+ "Songs mit Übersetzung zeigen dort die übersetzte Zeile statt des Originals": "Songs with a translation show the translated line there instead of the original",
  "Lautschrift in der geschlossenen Notch": "Romanisation in the closed notch",
  "Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben statt der Zeile": "Japanese, Chinese and Korean in Latin letters instead of the line",
  "Über Claude Code oder den Sitzungsschlüssel von claude.ai": "Via Claude Code or your claude.ai session key",

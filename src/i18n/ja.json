@@ -532,6 +532,8 @@
  "Zeigt, wie weit das Lied ist, solange Musik läuft": "音楽の再生中に曲の進行状況を表示",
  "Erfassen": "キャプチャ",
  "Kamera": "カメラ",
+ "Übersetzung in der geschlossenen Notch": "閉じたノッチに訳を表示",
+ "Songs mit Übersetzung zeigen dort die übersetzte Zeile statt des Originals": "訳のある曲は原文の代わりに訳した行を表示します",
  "Lautschrift in der geschlossenen Notch": "閉じたノッチのローマ字表記",
  "Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben statt der Zeile": "日本語・中国語・韓国語を歌詞の代わりにローマ字で表示",
  "Über Claude Code oder den Sitzungsschlüssel von claude.ai": "Claude Code または claude.ai のセッションキーから",
