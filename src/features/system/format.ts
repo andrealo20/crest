@@ -53,12 +53,12 @@ export function processShare(percentOfOneCore: number, cores: number): string {
 export const gigabytes = (bytes: number) => one(finite(bytes) / 1024 ** 3);
 
 /** A time in the two largest units that apply: "3 h 12 min", "12 min", "< 1 min". */
-export function duration(minutes: number): string {
+export function duration(minutes: number, tr: (de: string, vars?: Record<string, string | number>) => string): string {
   const m = Math.round(finite(minutes));
-  if (m < 1) return "< 1 min";
-  if (m < 60) return `${m} min`;
+  if (m < 1) return tr("< 1 Min.");
+  if (m < 60) return tr("{n} Min.", { n: m });
   const h = Math.floor(m / 60), rest = m % 60;
-  return rest === 0 ? `${h} h` : `${h} h ${rest} min`;
+  return rest === 0 ? tr("{n} Std.", { n: h }) : `${tr("{n} Std.", { n: h })} ${tr("{n} Min.", { n: rest })}`;
 }
 
 /** A drive's figures in one unit chosen by its size: whole GB from 10 GB, or TB with one decimal from 1000 GB. */

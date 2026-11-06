@@ -95,10 +95,13 @@ test("history: replace key, age and cap", () => {
 });
 
 test("words", () => {
-  assert.equal(duration(850), "850 ms");
-  assert.equal(duration(12_400), "12 s");
-  assert.equal(duration(72_000), "1 min 12 s");
-  assert.equal(duration(3 * 3600_000 + 5 * 60_000), "3 h 5 min");
+  // English for the German ids, as en.json has them.
+  const en = (de: string, vars?: Record<string, string | number>) =>
+    de.replace(/\{(\w+)\}/g, (_, k: string) => String(vars?.[k])).replace("Min.", "min").replace("Std.", "h").replace("Sek.", "s");
+  assert.equal(duration(850, en), "850 ms");
+  assert.equal(duration(12_400, en), "12 s");
+  assert.equal(duration(72_000, en), "1 min 12 s");
+  assert.equal(duration(3 * 3600_000 + 5 * 60_000, en), "3 h 5 min");
   const day = new Date(2026, 9, 31, 14, 5).getTime();
   assert.equal(shortTime(day, day + 30_000, "24", tr), "Jetzt");
   assert.equal(shortTime(day, day + 5 * 60_000, "24", tr), '{n} Min. {"n":5}');
@@ -109,8 +112,8 @@ test("words", () => {
   const older = new Date(2026, 10, 5, 9).getTime();
   assert.equal(shortTime(day, older, "24", tr, "en-GB"), `${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "numeric" }).format(day)} 14:05`);
   assert.match(shortTime(day, day + 3 * 3600_000, "12", tr, "ja"), /^午後/);
-  assert.equal(noticeText(n({ exitCode: 0, durationMs: 1500 }), tr), 'Fertig nach {d} {"d":"2 s"}');
-  assert.equal(noticeText(n({ exitCode: 2, durationMs: 100 }), tr), 'Fehlgeschlagen (Code {c}) nach {d} {"c":2,"d":"100 ms"}');
+  assert.equal(noticeText(n({ exitCode: 0, durationMs: 1500 }), en), "Fertig nach 2 s");
+  assert.equal(noticeText(n({ exitCode: 2, durationMs: 100 }), en), "Fehlgeschlagen (Code 2) nach 100 ms");
   assert.equal(popLine(n({ title: "Mail", body: "Hello\nmore" }), tr), "Mail · Hello");
   assert.equal(popLine(n({ title: "", body: "Only" }), tr), "Only");
 });

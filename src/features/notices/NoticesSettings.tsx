@@ -111,12 +111,12 @@ export function NoticesSettings() {
   );
 }
 
-/** "HH:MM"; saved only once it reads as a time. */
+/** "HH:MM"; saved only once it reads as a time, outlined red until then and back to the saved time on leaving. */
 function TimeField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [draft, setDraft] = useState(value);
   const save = (v: string) => {
     setDraft(v);
     if (minutes(v) !== null) onChange(v.trim().padStart(5, "0"));
   };
-  return <TextField value={draft} onChange={save} placeholder="22:00" width="w-14" />;
+  return <TextField value={draft} onChange={save} onBlur={() => setDraft(value)} invalid={minutes(draft) === null} placeholder="22:00" width="w-14" />;
 }

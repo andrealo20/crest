@@ -146,7 +146,7 @@ export function SystemView() {
             hue="green"
             label={t("Akku")}
             detail={join([
-              b.state === "charging" ? (b.toFull !== null ? `${t("Voll in")} ${duration(b.toFull)}` : t("Lädt")) : b.state === "discharging" ? (b.left !== null ? `${duration(b.left)} ${t("übrig")}` : t("Entlädt")) : b.state === "full" ? t("Voll") : t("Angeschlossen"),
+              b.state === "charging" ? (b.toFull !== null ? `${t("Voll in")} ${duration(b.toFull, t)}` : t("Lädt")) : b.state === "discharging" ? (b.left !== null ? `${duration(b.left, t)} ${t("übrig")}` : t("Entlädt")) : b.state === "full" ? t("Voll") : t("Angeschlossen"),
               b.saver ? t("Energiesparen") : null,
             ])}
             health={b.health !== null ? { text: `${t("Zustand")} ${Math.round(b.health * 100)} %`, color: tone(healthLevel(b.health)) } : null}
