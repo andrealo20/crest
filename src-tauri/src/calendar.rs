@@ -133,7 +133,8 @@ fn valid_id(id: &str) -> bool {
     !id.is_empty() && id.len() <= 24 && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
 }
 
-/// `webcal://` and `webcals://` are https; only http and https are fetched.
+/// `webcal://` and `webcals://` are https; only https is fetched (the password and the secret link travel in it), or
+/// plain http to this computer.
 fn web_url(raw: &str) -> Result<Url, String> {
     let raw = raw.trim();
     let lower = raw.to_ascii_lowercase();
@@ -145,7 +146,12 @@ fn web_url(raw: &str) -> Result<Url, String> {
         raw.to_string()
     };
     let url = Url::parse(&fixed).map_err(|_| "bad-url".to_string())?;
-    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+    let ok = match url.scheme() {
+        "https" => url.host_str().is_some(),
+        "http" => matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]")),
+        _ => false,
+    };
+    if !ok {
         return Err("bad-url".into());
     }
     Ok(url)
@@ -295,8 +301,13 @@ pub async fn calendar_fetch(app: AppHandle, sources: Vec<Source>, force: bool, s
         if cache.entries.is_empty() {
             let _ = std::fs::remove_file(p);
         } else if let Ok(json) = serde_json::to_vec(&cache.entries) {
-            let _ = p.parent().map(std::fs::create_dir_all);
-            let _ = std::fs::write(p, json);
+            let p = p.clone();
+            // Off the async thread, and whole or not at all: a half-written cache would be dropped at the next start.
+            let _ = tokio::task::spawn_blocking(move || {
+                let _ = p.parent().map(std::fs::create_dir_all);
+                crate::write_atomic(&p, &json)
+            })
+            .await;
         }
     }
     let from_ms = span.0.as_millisecond();
@@ -342,6 +353,15 @@ mod tests {
         assert_eq!(web_url("calendar.google.com/calendar/ical/x/basic.ics").unwrap().host_str(), Some("calendar.google.com"));
         assert!(web_url("file:///C:/x.ics").is_err());
         assert!(web_url("javascript:alert(1)").is_err());
+    }
+
+    #[test]
+    fn plain_http_only_to_this_computer() {
+        assert!(web_url("http://localhost:8080/dav").is_ok());
+        assert!(web_url("http://127.0.0.1/x.ics").is_ok());
+        assert!(web_url("http://nextcloud.lan/remote.php/dav").is_err());
+        assert!(web_url("http://localhost.example.com/x").is_err());
+        assert!(web_url("http://localhost@evil.example/x").is_err());
     }
 
     #[test]
