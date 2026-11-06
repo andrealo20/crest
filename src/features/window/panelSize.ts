@@ -52,17 +52,21 @@ export function quickSize(def: Size, q: QuickSize, monitorH?: number): Size {
   return clampSize({ w: def.w * f, h: def.h * f }, limits(def, monitorH));
 }
 
-/** The quick size every tool is at, or null when sizes were dragged by hand. No saved sizes = standard. */
+/**
+ * The quick size every tool is at, or null when sizes were dragged by hand. No saved sizes = standard. A saved size that
+ * is no quick size of its tool's current default (the default changed since) is left out, so an update does not unselect the choice.
+ */
 export function currentQuick(defs: Record<string, Size>, saved: Record<string, Size>): QuickSize | null {
   const ids = Object.keys(defs);
-  for (const q of Object.keys(QUICK_FACTOR) as QuickSize[]) {
-    const all = ids.every((id) => {
-      const s = saved[id];
-      if (!s) return q === "standard";
-      const want = quickSize(defs[id], q);
-      return s.w === want.w && s.h === want.h;
-    });
-    if (all) return q;
+  const qs = Object.keys(QUICK_FACTOR) as QuickSize[];
+  const is = (id: string, q: QuickSize) => {
+    const want = quickSize(defs[id], q);
+    return saved[id].w === want.w && saved[id].h === want.h;
+  };
+  const set = ids.filter((id) => saved[id]);
+  for (const q of qs) {
+    const all = ids.every((id) => (saved[id] ? is(id, q) || !qs.some((o) => is(id, o)) : q === "standard"));
+    if (all && (!set.length || set.some((id) => is(id, q)))) return q;
   }
   return null;
 }

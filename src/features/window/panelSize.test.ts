@@ -31,6 +31,9 @@ test("quick sizes and which one is set", () => {
   assert.equal(currentQuick(defs, {}), "standard");
   assert.equal(currentQuick(defs, { a: quickSize(def, "spacious"), b: quickSize(defs.b, "spacious") }), "spacious");
   assert.equal(currentQuick(defs, { a: { w: 500, h: 250 } }), null);
+  // b saved the compact size of an older default: the choice stays on compact.
+  assert.equal(currentQuick(defs, { a: quickSize(def, "compact"), b: { w: 400, h: 200 } }), "compact");
+  assert.equal(currentQuick(defs, { a: quickSize(def, "compact") }), null);
 });
 
 test("dragging an edge keeps the panel centred", () => {
