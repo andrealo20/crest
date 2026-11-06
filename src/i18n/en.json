@@ -1401,5 +1401,13 @@
  "Heute geht die Sonne nicht unter": "The sun does not set today",
  "Heute geht die Sonne nicht auf": "The sun does not rise today",
  "Goldene Stunde": "Golden hour",
- "Lege deinen Ort in den Einstellungen unter Wetter fest, dann kommen Sonnenaufgang, Sonnenuntergang und die Goldene Stunde dazu.": "Set your location under Weather in Settings to add sunrise, sunset and golden hour."
+ "Lege deinen Ort in den Einstellungen unter Wetter fest, dann kommen Sonnenaufgang, Sonnenuntergang und die Goldene Stunde dazu.": "Set your location under Weather in Settings to add sunrise, sunset and golden hour.",
+ "In diesem Tempo ist das Limit gegen {time} erreicht": "At this pace you reach the limit around {time}",
+ "Im Tempo bei {p} % zum Zurücksetzen": "On pace for {p}% at reset",
+ "{w} zurückgesetzt": "{w} reset",
+ "Kontingent-Prognose": "Quota forecast",
+ "Prognose unter den Balken": "Forecast under the bars",
+ "Zeigt, wann das Limit im aktuellen Tempo erreicht wäre": "Shows when you would reach the limit at your current pace",
+ "Hinweis, wenn ein Limit zurückgesetzt wird": "Notify when a limit resets",
+ "Braucht den Teil AI-Nutzung, nicht in den Ruhezeiten": "Needs the AI Usage part, not during quiet hours"
 }

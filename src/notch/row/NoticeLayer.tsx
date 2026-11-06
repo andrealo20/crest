@@ -34,7 +34,8 @@ import { Ring } from "./parts/Rings";
 import { asks, popping } from "../../features/notices/store";
 import { askNotice } from "../../features/notices/AskNotice";
 import { noticePop } from "../../features/notices/NoticePop";
-import { usePresenting } from "../../features/privacy/store";
+import { presentingNow, usePresenting } from "../../features/privacy/store";
+import { detectReset, newResetTracker, resetAlertAllowed } from "../../features/usage/reset";
 import { finishedDownload } from "../../features/downloads/store";
 import { downloadNotice } from "../../features/downloads/DownloadNotice";
 import { noticeCard } from "./NoticeCard";
@@ -63,15 +64,21 @@ function useSaved(): Saved | null {
   return shown;
 }
 
-/** The last quota level rise, for QUOTA.showMs. The tracker seeds on the first answer seen, so mounting at 95% does not alert. */
+/**
+ * The last quota level rise, or a limit that reset (when the setting is on, outside quiet hours and presentation mode), for QUOTA.showMs.
+ * The trackers seed on the first answer seen, so mounting at 95% does not alert.
+ */
 function useQuotaRise(): QuotaRise | null {
   const { providers, updatedAt } = usage.use();
-  const tracker = useRef(newQuotaTracker());
+  const tracker = useRef(newQuotaTracker()), resets = useRef(newResetTracker());
   const [rise, setRise] = useState<QuotaRise | null>(null);
   useEffect(() => {
     if (updatedAt === null) return;
-    const r = detectRise(tracker.current, providers);
-    if (r) setRise(r);
+    // Both always run, so each record stays current; a rise outranks a reset.
+    const r = detectRise(tracker.current, providers), z = detectReset(resets.current, providers, Date.now());
+    const s = settings.get();
+    const next = r ?? (z && resetAlertAllowed(s.aiUsage.notifyReset, presentingNow(), s.notices.quiet, new Date()) ? z : null);
+    if (next) setRise(next);
   }, [providers, updatedAt]);
   // A new rise is a new object, so it starts its own 5 s.
   useEffect(() => {
@@ -148,7 +155,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
     download: !urgentOnly && !!download,
     status: !!status,
     notice: !urgentOnly && !!pop,
-    quota: !urgentOnly && !!rise && closed.quotaAlerts,
+    quota: !urgentOnly && !!rise && (closed.quotaAlerts || !!rise.reset),
     track: !urgentOnly && !!track,
     calendar: !urgentOnly && !!meeting,
     reminder: due.length > 0,
@@ -266,7 +273,8 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
   } else if (kind === "quota" && rise) {
     const used = Math.round(Math.min(100, Math.max(0, rise.used)));
     const name = brandName[rise.provider as UsageId] ?? rise.provider;
-    const text = [t("{w} {p}% genutzt", { w: windowLabel(rise.kind), p: used }), rise.resetsAt !== null ? formatIn(rise.resetsAt - Date.now()) : ""].filter(Boolean).join(" · ");
+    const w = windowLabel(rise.kind);
+    const text = rise.reset ? t("{w} zurückgesetzt", { w }) : [t("{w} {p}% genutzt", { w, p: used }), rise.resetsAt !== null ? formatIn(rise.resetsAt - Date.now()) : ""].filter(Boolean).join(" · ");
     const nameW = Math.min(NAME_MAX, measureText(name)), textW = measureText(text), room = max - QUOTA_RING - nameW - 2 * GAP;
     width = QUOTA_RING + nameW + 2 * GAP + Math.min(textW, room);
     key = `quota:${rise.provider}:${rise.kind}:${used}`;

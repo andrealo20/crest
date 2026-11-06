@@ -1401,5 +1401,13 @@
  "Heute geht die Sonne nicht unter": "Oggi il sole non tramonta",
  "Heute geht die Sonne nicht auf": "Oggi il sole non sorge",
  "Goldene Stunde": "Ora d'oro",
- "Lege deinen Ort in den Einstellungen unter Wetter fest, dann kommen Sonnenaufgang, Sonnenuntergang und die Goldene Stunde dazu.": "Imposta la tua posizione in Impostazioni, sotto Meteo, per vedere alba, tramonto e ora d'oro."
+ "Lege deinen Ort in den Einstellungen unter Wetter fest, dann kommen Sonnenaufgang, Sonnenuntergang und die Goldene Stunde dazu.": "Imposta la tua posizione in Impostazioni, sotto Meteo, per vedere alba, tramonto e ora d'oro.",
+ "In diesem Tempo ist das Limit gegen {time} erreicht": "Di questo passo raggiungi il limite, circa {time}",
+ "Im Tempo bei {p} % zum Zurücksetzen": "Di questo passo arrivi al {p}% all'azzeramento",
+ "{w} zurückgesetzt": "{w}: limite azzerato",
+ "Kontingent-Prognose": "Previsione della quota",
+ "Prognose unter den Balken": "Previsione sotto le barre",
+ "Zeigt, wann das Limit im aktuellen Tempo erreicht wäre": "Mostra quando raggiungeresti il limite al ritmo attuale",
+ "Hinweis, wenn ein Limit zurückgesetzt wird": "Avviso quando un limite si azzera",
+ "Braucht den Teil AI-Nutzung, nicht in den Ruhezeiten": "Richiede l'elemento Uso IA, non durante le ore di silenzio"
 }

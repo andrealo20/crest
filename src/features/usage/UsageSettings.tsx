@@ -9,6 +9,7 @@ import { Group, Row, Switch, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
 import { SecretRow } from "../settings/SettingsView";
 import { NAME_MAX } from "./cards";
+import { ForecastSettings } from "./ForecastSettings";
 import { refreshUsage } from "./store";
 
 const hints: Record<UsageId, string> = {
@@ -158,6 +159,7 @@ export function UsageSettings() {
           ))}
         </Group>
       )}
+      <ForecastSettings />
     </>
   );
 }

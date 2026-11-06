@@ -7,7 +7,8 @@ export const TRACK = { armMs: 5000, showMs: 4000 } as const;
 
 export function quotaLevel(used: number): 0 | 1 | 2 { return used >= QUOTA.critical ? 2 : used >= QUOTA.warning ? 1 : 0; }
 
-export interface QuotaRise { provider: string; kind: string; used: number; resetsAt: number | null }
+/** `reset`: the window began again (features/usage/reset.ts); `used` and `resetsAt` are then those of the new one. */
+export interface QuotaRise { provider: string; kind: string; used: number; resetsAt: number | null; reset?: true }
 export interface QuotaTracker { seeded: boolean; levels: Map<string, number> }
 export function newQuotaTracker(): QuotaTracker { return { seeded: false, levels: new Map() }; }
 
