@@ -32,6 +32,8 @@ export interface Forecast {
   hourly?: { time: string; temp: number; code: number; day: boolean; rain: number }[];
   /** Set when Open-Meteo failed and this is the last forecast fetched (stale.ts): when it was fetched. */
   savedAt?: number;
+  /** The place's UTC offset in seconds; missing from forecasts saved before 0.5 (lastGood). */
+  offset?: number;
 }
 
 /** WMO weather codes → icon + text. */
@@ -86,6 +88,7 @@ async function fetchForecast(lat: number, lon: number): Promise<Forecast> {
   if (!res.ok) throw new Error(`open-meteo ${res.status}`);
   const r = await res.json();
   return {
+    offset: r.utc_offset_seconds,
     current: {
       temp: r.current.temperature_2m,
       feels: r.current.apparent_temperature,
