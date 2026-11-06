@@ -99,7 +99,7 @@ export function UnitsPanel() {
   const pair = saved?.pairs?.[cat];
   const [from, to] = Array.isArray(pair) && pair.length === 2 && pair.every((id) => units[cat].some((u) => u.id === id)) ? pair : defaults[cat];
   const setCat = (c: Category) => last.set((s) => ({ ...s, cat: c }));
-  const setPair = (p: [string, string]) => last.set((s) => ({ cat, pairs: { ...s.pairs, [cat]: p } }));
+  const setPair = (p: [string, string]) => last.set((s) => ({ cat, pairs: { ...s?.pairs, [cat]: p } }));
   const [input, setInput] = useState("100");
 
   const value = parseAmount(input, locale());
