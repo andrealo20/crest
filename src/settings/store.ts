@@ -107,7 +107,6 @@ export interface Settings {
     lyricSources: LyricSourceSetting[];
     lyricWords: boolean;
     lyricTranslation: boolean;
-    lyricAskTranslation: boolean;
     lyricRoman: boolean;
     /** The closed notch's lyric line in Latin letters instead of as sung, where it has a romanisation (issue #10). */
     closedRoman: boolean;
@@ -219,7 +218,6 @@ const defaults: Settings = {
     lyricSources: LYRIC_SOURCE_DEFAULTS,
     lyricWords: true,
     lyricTranslation: true,
-    lyricAskTranslation: false,
     lyricRoman: false,
     closedRoman: false,
     closedTranslation: false,

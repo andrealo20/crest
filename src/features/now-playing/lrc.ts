@@ -191,7 +191,8 @@ export function lyricsOf(found: Found | null): Lyrics {
 }
 
 /**
- * The closed notch's text for a lyric line: translated with `translation`, in Latin letters with `roman`, else as sung.
+ * The closed notch's text for a lyric line: translated with `translation` (where the source has a translation), in
+ * Latin letters with `roman`, else as sung.
  * The translation wins when both are on and the line has one. A line without either (a song with no translation, a
  * Latin-script song, or before the answer came) stays as sung; a gap gives null.
  */

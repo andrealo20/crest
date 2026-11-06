@@ -4,11 +4,9 @@ import { livePosition, media, type NowPlaying } from "../../platform/media";
 import { isNative } from "../../platform/native";
 import { demo } from "../../dev/showcase-data";
 import { settings } from "../../settings/store";
-import { streamChat } from "../ask/providers";
-import { LEAD, cacheKey, closedLine, foundOf, lineAt, lookupAllowed, lyricsOf, pickRecord, searchTerms, untilNext, withExtra, type Found, type LrclibRecord, type LyricLine, type Lyrics } from "./lrc";
+import { LEAD, cacheKey, closedLine, foundOf, lineAt, lookupAllowed, lyricsOf, pickRecord, searchTerms, untilNext, type Found, type LrclibRecord, type LyricLine, type Lyrics } from "./lrc";
 import { createLyricsCache, type CacheEntry } from "./lyricsCache";
 import { enabledSources, firstFound, type LyricSourceId } from "./lyricSources";
-import { parseTranslation, translationLrc, translationPrompt } from "./translate";
 
 /*
  * Synced lyrics from the sources the user turned on, in their order (lyricSources.ts): LRCLIB (lrclib.net, free, no key)
@@ -189,15 +187,11 @@ export function useLyricIndex(lines: { time: number }[] | null | undefined, np: 
 
 /**
  * Text of the current line; null before the first line, in a gap, or without lyrics. With `show.translation` the line
- * comes translated where the song has a translation (from its source, or from Ask when that is on in Settings), with
- * `show.roman` in Latin letters where it has a romanisation; otherwise as sung.
+ * comes translated where its source has a translation, with `show.roman` in Latin letters where it has a
+ * romanisation; otherwise as sung.
  */
 export function useLyricLine(np: NowPlaying | null, enabled: boolean, show: { roman: boolean; translation: boolean } = { roman: false, translation: false }): string | null {
-  const music = settings.use().music;
-  const plain = linesOf(useLyrics(np, enabled));
-  // As in the lyrics panel: translation first, so a romanisation arriving later does not restart the request.
-  const translated = useAskTranslation(np, plain, enabled && show.translation && music.lyricTranslation && music.lyricAskTranslation);
-  const lines = useRomanized(translated, enabled && show.roman);
+  const lines = useRomanized(linesOf(useLyrics(np, enabled)), enabled && show.roman);
   const i = useLyricIndex(lines, np);
   return closedLine(lines && i >= 0 ? lines[i] : null, show);
 }
@@ -217,48 +211,5 @@ export function useRomanized(lines: LyricLine[] | null, on: boolean): LyricLine[
       alive = false;
     };
   }, [lines, on]);
-  return made?.from === lines ? made.lines : lines;
-}
-
-/** Longest lyrics sent for a translation; longer texts are left alone to keep the request small. */
-const MAX_TRANSLATE_CHARS = 6000;
-
-/** The user's language, in English, for the prompt. */
-function targetLanguage(): string {
-  try {
-    return new Intl.DisplayNames(["en"], { type: "language" }).of(navigator.language) ?? "English";
-  } catch {
-    return "English";
-  }
-}
-
-/**
- * The lines with a translation from the Ask provider while `on`, for songs whose source has none. One request per song
- * and language; the answer is kept in the lyrics cache.
- */
-export function useAskTranslation(np: NowPlaying | null, lines: LyricLine[] | null, on: boolean): LyricLine[] | null {
-  const ask = settings.use().ask;
-  const [made, setMade] = useState<{ from: LyricLine[]; lines: LyricLine[] } | null>(null);
-  useEffect(() => {
-    if (!on || !np || !lines || lines.some((l) => l.translation)) return;
-    const texts = lines.map((l) => l.text);
-    if (!texts.some(Boolean) || texts.join("\n").length > MAX_TRANSLATE_CHARS) return;
-    const language = targetLanguage();
-    const key = `ask:${language}\n${cacheKey(np.title, np.artist, np.duration)}`;
-    const known = cache.get(key);
-    if (known) return setMade({ from: lines, lines: withExtra(lines, known.translation, "translation") });
-    const abort = new AbortController();
-    let reply = "";
-    streamChat(ask.provider, ask.configs[ask.provider], [{ role: "user", content: translationPrompt(texts, language) }], (d) => (reply += d), abort.signal)
-      .then(() => {
-        if (abort.signal.aborted) return;
-        const translation = translationLrc(lines, parseTranslation(reply, texts.length));
-        if (!translation) return;
-        cache.set(key, { lrc: null, instrumental: false, translation, at: Date.now() });
-        setMade({ from: lines, lines: withExtra(lines, translation, "translation") });
-      })
-      .catch(() => {});
-    return () => abort.abort();
-  }, [lines, on, ask.provider]);
   return made?.from === lines ? made.lines : lines;
 }

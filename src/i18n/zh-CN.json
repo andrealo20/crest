@@ -808,8 +808,6 @@
  "Hebt die gesungenen Wörter hervor, wenn die Quelle jedes Wort timt (meist Kugou)": "如果来源为每个字提供时间轴（多为酷狗），会随演唱高亮歌词",
  "Übersetzung": "翻译",
  "Eine Zeile unter jeder Zeile, wenn die Quelle eine Übersetzung hat": "如果来源提供翻译，在每行下方显示译文",
- "Mit Ask übersetzen": "用 Ask 翻译",
- "Songs ohne Übersetzung gehen einmal an {p} mit deinem Schlüssel; die Antwort bleibt pro Song gespeichert": "没有翻译的歌曲会用你的密钥发送给 {p} 一次；结果按歌曲保存",
  "Lautschrift": "罗马音",
  "Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, offline; von der Quelle, wenn sie eine hat": "离线将日语、中文和韩语转为拉丁字母；来源提供时优先使用来源",
  "Kanji-Wörterbuch": "汉字词典",

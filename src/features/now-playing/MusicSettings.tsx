@@ -4,7 +4,6 @@ import { CaretUp } from "@phosphor-icons/react";
 import { settings } from "../../settings/store";
 import { isNative } from "../../platform/native";
 import { Button, Group, Row, Segmented, Switch } from "../../ui/controls";
-import { providerInfo } from "../ask/providers";
 import { sourceName } from "./sources";
 import { LYRIC_SOURCES } from "./lyricSources";
 import { setMusic } from "./music";
@@ -94,14 +93,6 @@ export function MusicSettings() {
         <Row label={t("Übersetzung")} hint={t("Eine Zeile unter jeder Zeile, wenn die Quelle eine Übersetzung hat")}>
           <Switch label={t("Übersetzung")} checked={music.lyricTranslation} onChange={(lyricTranslation) => setMusic({ lyricTranslation })} />
         </Row>
-        {music.lyricTranslation && (
-          <Row
-            label={t("Mit Ask übersetzen")}
-            hint={t("Songs ohne Übersetzung gehen einmal an {p} mit deinem Schlüssel; die Antwort bleibt pro Song gespeichert", { p: providerInfo[s.ask.provider].label })}
-          >
-            <Switch label={t("Mit Ask übersetzen")} checked={music.lyricAskTranslation} onChange={(lyricAskTranslation) => setMusic({ lyricAskTranslation })} />
-          </Row>
-        )}
         <Row label={t("Lautschrift")} hint={t("Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, offline; von der Quelle, wenn sie eine hat")}>
           <Switch label={t("Lautschrift")} checked={music.lyricRoman} onChange={(lyricRoman) => setMusic({ lyricRoman })} />
         </Row>

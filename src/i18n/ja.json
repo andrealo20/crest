@@ -808,8 +808,6 @@
  "Hebt die gesungenen Wörter hervor, wenn die Quelle jedes Wort timt (meist Kugou)": "ソースが単語ごとのタイミングを持つ場合（主に Kugou）、歌われている単語を強調表示",
  "Übersetzung": "翻訳",
  "Eine Zeile unter jeder Zeile, wenn die Quelle eine Übersetzung hat": "ソースに翻訳がある場合、各行の下に表示",
- "Mit Ask übersetzen": "Ask で翻訳",
- "Songs ohne Übersetzung gehen einmal an {p} mit deinem Schlüssel; die Antwort bleibt pro Song gespeichert": "翻訳のない曲は、あなたのキーで {p} に一度だけ送信され、結果は曲ごとに保存されます",
  "Lautschrift": "ローマ字",
  "Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, offline; von der Quelle, wenn sie eine hat": "日本語、中国語、韓国語をオフラインでローマ字に変換。ソースにあればそれを使用",
  "Kanji-Wörterbuch": "漢字辞書",

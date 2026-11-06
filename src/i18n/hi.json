@@ -808,8 +808,6 @@
  "Hebt die gesungenen Wörter hervor, wenn die Quelle jedes Wort timt (meist Kugou)": "जब स्रोत हर शब्द का समय देता है (ज़्यादातर Kugou), तो गाए जा रहे शब्दों को हाइलाइट करता है",
  "Übersetzung": "अनुवाद",
  "Eine Zeile unter jeder Zeile, wenn die Quelle eine Übersetzung hat": "जब स्रोत के पास अनुवाद हो, तो हर पंक्ति के नीचे एक पंक्ति",
- "Mit Ask übersetzen": "Ask से अनुवाद करें",
- "Songs ohne Übersetzung gehen einmal an {p} mit deinem Schlüssel; die Antwort bleibt pro Song gespeichert": "बिना अनुवाद वाले गाने एक बार आपकी कुंजी के साथ {p} को भेजे जाते हैं; जवाब हर गाने के लिए सहेजा जाता है",
  "Lautschrift": "रोमनीकरण",
  "Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, offline; von der Quelle, wenn sie eine hat": "जापानी, चीनी और कोरियाई लैटिन अक्षरों में, ऑफ़लाइन; स्रोत के पास हो तो उसी से",
  "Kanji-Wörterbuch": "कांजी शब्दकोश",

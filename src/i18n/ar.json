@@ -808,8 +808,6 @@
  "Hebt die gesungenen Wörter hervor, wenn die Quelle jedes Wort timt (meist Kugou)": "يُبرز الكلمات أثناء غنائها عندما يوقّت المصدر كل كلمة (غالبًا Kugou)",
  "Übersetzung": "الترجمة",
  "Eine Zeile unter jeder Zeile, wenn die Quelle eine Übersetzung hat": "سطر تحت كل سطر عندما يحتوي المصدر على ترجمة",
- "Mit Ask übersetzen": "الترجمة باستخدام Ask",
- "Songs ohne Übersetzung gehen einmal an {p} mit deinem Schlüssel; die Antwort bleibt pro Song gespeichert": "تُرسَل الأغاني بلا ترجمة إلى {p} مرة واحدة بمفتاحك؛ ويُحفظ الرد لكل أغنية",
  "Lautschrift": "الكتابة اللاتينية",
  "Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, offline; von der Quelle, wenn sie eine hat": "اليابانية والصينية والكورية بحروف لاتينية، دون اتصال؛ من المصدر إن توفرت فيه",
  "Kanji-Wörterbuch": "قاموس الكانجي",

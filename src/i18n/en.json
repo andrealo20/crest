@@ -808,8 +808,6 @@
  "Hebt die gesungenen Wörter hervor, wenn die Quelle jedes Wort timt (meist Kugou)": "Lights up the words as they are sung when the source times each word (mostly Kugou)",
  "Übersetzung": "Translation",
  "Eine Zeile unter jeder Zeile, wenn die Quelle eine Übersetzung hat": "A line under each line when the source has a translation",
- "Mit Ask übersetzen": "Translate with Ask",
- "Songs ohne Übersetzung gehen einmal an {p} mit deinem Schlüssel; die Antwort bleibt pro Song gespeichert": "Songs without a translation go to {p} once, with your key; the answer is kept per song",
  "Lautschrift": "Romanisation",
  "Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, offline; von der Quelle, wenn sie eine hat": "Japanese, Chinese and Korean in Latin letters, offline; from the source when it has them",
  "Kanji-Wörterbuch": "Kanji dictionary",

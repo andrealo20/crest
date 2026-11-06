@@ -808,8 +808,6 @@
  "Hebt die gesungenen Wörter hervor, wenn die Quelle jedes Wort timt (meist Kugou)": "Met en valeur les mots au fil du chant quand la source synchronise chaque mot (surtout Kugou)",
  "Übersetzung": "Traduction",
  "Eine Zeile unter jeder Zeile, wenn die Quelle eine Übersetzung hat": "Une ligne sous chaque ligne quand la source a une traduction",
- "Mit Ask übersetzen": "Traduire avec Ask",
- "Songs ohne Übersetzung gehen einmal an {p} mit deinem Schlüssel; die Antwort bleibt pro Song gespeichert": "Les morceaux sans traduction sont envoyés une fois à {p} avec votre clé ; la réponse est conservée pour chaque morceau",
  "Lautschrift": "Romanisation",
  "Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, offline; von der Quelle, wenn sie eine hat": "Japonais, chinois et coréen en lettres latines, hors ligne ; fournis par la source quand elle en a",
  "Kanji-Wörterbuch": "Dictionnaire de kanji",
