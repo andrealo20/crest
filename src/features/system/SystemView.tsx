@@ -267,7 +267,7 @@ function Row(props: {
             {props.detail}
           </span>
           {props.temp && (
-            <span className="shrink-0 font-medium" style={{ color: props.tone(props.temp.level) }} title={props.temp.from ?? undefined}>
+            <span dir="ltr" className="shrink-0 font-medium" style={{ color: props.tone(props.temp.level) }} title={props.temp.from ?? undefined}>
               {degrees(props.temp.c)} °C
             </span>
           )}

@@ -177,6 +177,9 @@ fn run(app: AppHandle) {
                     // Only this thread writes the seed, and the lock is not held across emit.
                     let now = power();
                     if now.is_some() && seed().power != now {
+                        if seed().power.zip(now).is_some_and(|(before, now)| before.ac != now.ac) {
+                            crate::brightness::power_switched();
+                        }
                         seed().power = now;
                         let _ = app.emit("status://power", now);
                     }

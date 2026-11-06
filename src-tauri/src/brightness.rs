@@ -3,7 +3,7 @@
 //! - Built-in panel: WMI's `WmiMonitorBrightnessEvent` (root\WMI), read semi-synchronously on this thread, so nothing calls
 //!   back into the process. The panel's level at the start is the baseline: only a different one is reported.
 //! - External monitors: DDC/CI has no change event, so while the Brightness alert is on they are read every `POLL`, each
-//!   monitor's first reading being its baseline. A monitor that does not answer three times in a row is left alone.
+//!   monitor's first reading being its baseline. A monitor that does not answer three times in a row is left alone for a minute.
 //!
 //! - The Overview's slider sets the notch's monitor: DDC/CI for an external one, WMI's WmiSetBrightness for a laptop panel. For a
 //!   moment after that, changes are taken as the new baseline, so the closed notch doesn't announce what the slider just did.
@@ -36,6 +36,8 @@ use windows::Win32::System::Wmi::{IEnumWbemClassObject, IWbemClassObject, IWbemL
 const POLL: Duration = Duration::from_secs(2);
 /// Failed reads in a row after which a monitor counts as without DDC/CI.
 const GIVE_UP: u8 = 3;
+/// How long a monitor that gave up is left alone: it may have been asleep, or unplugged and back.
+const RETRY: Duration = Duration::from_secs(60);
 // RPC_C_AUTHN_WINNT and RPC_C_AUTHZ_NONE (Win32_System_Rpc is not enabled).
 const AUTHN_WINNT: u32 = 10;
 const AUTHZ_NONE: u32 = 0;
@@ -48,6 +50,11 @@ const QUIET: Duration = Duration::from_millis(2500);
 
 fn quiet() -> bool {
     QUIET_UNTIL.lock().unwrap().is_some_and(|until| Instant::now() < until)
+}
+
+/// The charger was plugged or unplugged: the power plan moves the panel's brightness with it, and the HUD would cover that alert.
+pub fn power_switched() {
+    *QUIET_UNTIL.lock().unwrap() = Some(Instant::now() + QUIET);
 }
 
 pub fn set_ddc(on: bool) {
@@ -68,6 +75,7 @@ fn run(app: AppHandle) {
     let mut external: HashMap<(isize, usize), u8> = HashMap::new();
     let mut fails: HashMap<(isize, usize), u8> = HashMap::new();
     let mut next_poll = Instant::now() + POLL;
+    let mut retry_at = Instant::now() + RETRY;
     loop {
         let wait = next_poll.saturating_duration_since(Instant::now());
         match &events {
@@ -95,10 +103,15 @@ fn run(app: AppHandle) {
         // outputs down or up. The first reading after it becomes the new baseline, so waking never alerts.
         if !DDC.load(Ordering::Relaxed) || crate::standby::settling() {
             external.clear();
+            fails.clear();
             continue;
         }
         // Taken before the poll, which can outlast the quiet window on slow monitors and still read the slider's own change.
         let quiet = quiet();
+        if Instant::now() >= retry_at {
+            fails.clear();
+            retry_at = Instant::now() + RETRY;
+        }
         let now = unsafe { external_levels(&mut fails) };
         for (key, level) in &now {
             if !quiet && external.get(key).is_some_and(|before| before != level) {

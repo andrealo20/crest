@@ -32,6 +32,8 @@ export interface Forecast {
   hourly?: { time: string; temp: number; code: number; day: boolean; rain: number }[];
   /** Set when Open-Meteo failed and this is the last forecast fetched (stale.ts): when it was fetched. */
   savedAt?: number;
+  /** The place's UTC offset in seconds; missing from forecasts saved before 0.5 (lastGood). */
+  offset?: number;
 }
 
 /** WMO weather codes → icon + text. */
@@ -49,6 +51,11 @@ export function describe(code: number, day = true): { icon: Icon; text: string; 
 const cache = new Map<string, { at: number; data: Forecast }>();
 /** Survives a restart, unlike `cache`: Open-Meteo answers 503 now and then, and an empty card says less than an older forecast. */
 const lastGood = createStore<SavedForecast<Forecast> | null>(null, { persist: "weather-last" });
+
+/** The forecast already read for this place, if any: a view that mounts again starts from it instead of empty. */
+function peekForecast(lat: number, lon: number): Forecast | null {
+  return cache.get(`${lat},${lon}`)?.data ?? null;
+}
 
 export async function loadForecast(lat: number, lon: number): Promise<Forecast> {
   const key = `${lat},${lon}`;
@@ -76,11 +83,12 @@ async function fetchForecast(lat: number, lon: number): Promise<Forecast> {
     "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,precipitation,is_day" +
     "&hourly=temperature_2m,weather_code,is_day,precipitation_probability&forecast_hours=24" +
     "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset&timezone=auto&forecast_days=7";
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
   // A 503 ("The service is overloaded") still has a JSON body, without the forecast.
   if (!res.ok) throw new Error(`open-meteo ${res.status}`);
   const r = await res.json();
   return {
+    offset: r.utc_offset_seconds,
     current: {
       temp: r.current.temperature_2m,
       feels: r.current.apparent_temperature,
@@ -121,7 +129,8 @@ export interface Place {
 /** Location search (Open-Meteo geocoding). */
 export async function searchPlaces(q: string): Promise<Place[]> {
   if (demo) return import("../../dev/demo-data").then((m) => m.searchDemoPlaces(q));
-  const r = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=4&language=${lang().slice(0, 2)}`)).json();
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=4&language=${lang().slice(0, 2)}`;
+  const r = await (await fetch(url, { signal: AbortSignal.timeout(10_000) })).json();
   return (r.results ?? []).map((p: { name: string; admin1?: string; country?: string; latitude: number; longitude: number }) => ({
     name: p.name,
     detail: [p.admin1, p.country].filter(Boolean).join(", "),
@@ -132,7 +141,7 @@ export async function searchPlaces(q: string): Promise<Place[]> {
 
 /** Location picked by hand → stays fixed, no more IP detection. */
 export function choosePlace(p: Place) {
-  updateSettings({ weather: { name: p.name, lat: p.lat, lon: p.lon, auto: false } });
+  updateSettings({ weather: { name: p.name, detail: p.detail, lat: p.lat, lon: p.lon, auto: false } });
 }
 
 /** Approximate location from the IP (city level). Two keyless services, the second as fallback. */
@@ -165,7 +174,11 @@ export function detectPlace(force = false): Promise<boolean> {
   if (detecting && !force) return detecting;
   detecting = placeFromIp().then((p) => {
     const cur = settings.get().weather;
-    if (!p) return !!cur;
+    if (!p) {
+      // Next call tries again, instead of staying failed until a restart.
+      detecting = null;
+      return !force && !!cur;
+    }
     // Don't overwrite if the user has picked one in the meantime.
     if (!force && cur && !cur.auto) return true;
     updateSettings({ weather: { ...p, auto: true } });
@@ -177,26 +190,50 @@ export function detectPlace(force = false): Promise<boolean> {
 /** Forecast for the set location; null while loading or without a location, "error" on failure. `everyMs`: read again that often (the closed row's part stays mounted for hours). */
 export function useForecast(everyMs = 0, on = true): Forecast | null | "error" {
   const place = settings.use().weather;
-  const [data, setData] = useState<Forecast | null | "error">(null);
+  const key = place ? `${place.lat},${place.lon}` : "";
+  // Tagged with its place, so a reading of the previous place is never shown under the new one.
+  const [got, setGot] = useState<{ key: string; v: Forecast | "error" } | null>(() => {
+    const d = place && peekForecast(place.lat, place.lon);
+    return d ? { key, v: d } : null;
+  });
   useEffect(() => {
-    if (!place && on) void detectPlace();
+    if (place || !on) return;
+    const detect = () => void detectPlace();
+    detect();
+    window.addEventListener("online", detect);
+    return () => window.removeEventListener("online", detect);
   }, [place, on]);
   useEffect(() => {
     if (!place || !on) return;
     let alive = true;
-    const load = () =>
-      loadForecast(place.lat, place.lon)
-        .then((d) => alive && setData(d))
-        // A later failure keeps the reading there is.
-        .catch(() => alive && setData((cur) => (cur && cur !== "error" ? cur : "error")));
+    let retry = 0;
+    const load = () => {
+      window.clearTimeout(retry);
+      return loadForecast(place.lat, place.lon)
+        .then((v) => {
+          if (!alive) return;
+          setGot({ key, v });
+          // The saved forecast stands in for a failed read: try again soon too.
+          if (v.savedAt) retry = window.setTimeout(load, 30_000);
+        })
+        .catch(() => {
+          if (!alive) return;
+          // A later failure keeps the reading there is for this place; try again soon.
+          setGot((cur) => (cur && cur.key === key && cur.v !== "error" ? cur : { key, v: "error" }));
+          retry = window.setTimeout(load, 30_000);
+        });
+    };
     void load();
     const id = everyMs ? window.setInterval(load, everyMs) : 0;
+    window.addEventListener("online", load);
     return () => {
       alive = false;
       window.clearInterval(id);
+      window.clearTimeout(retry);
+      window.removeEventListener("online", load);
     };
   }, [place?.lat, place?.lon, everyMs, on]);
-  return place ? data : null;
+  return got && got.key === key ? got.v : null;
 }
 
 // On start, only when the weather shows somewhere (its tool or the Overview header): first run or "automatic"

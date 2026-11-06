@@ -6,6 +6,7 @@ import { holdOpen } from "../../notch/useNotchState";
 import { isMac } from "../../platform/native";
 import { mixer, systemControls, type AppVolume, type VolumeState } from "../../platform/services";
 import { t } from "../../i18n";
+import { sliderKey } from "../../ui/sliderKey";
 
 /*
  * Volume per app (issue #4), like the Windows volume mixer:
@@ -110,7 +111,7 @@ function speakerIcon(level: number, muted: boolean) {
 
 /**
  * Volume bar in the style of the progress bar: grabbing makes it thicker and brighter.
- * Wheel ±2 % (Shift ±10 %), arrow keys ±5 %.
+ * Wheel ±2 % (Shift ±10 %), arrow keys ±5 %, Home and End.
  */
 export function LevelBar(props: { value: number; muted: boolean; label: string; onChange: (v: number) => void; onHold: (on: boolean) => void; className?: string }) {
   const track = useRef<HTMLDivElement>(null);
@@ -140,9 +141,10 @@ export function LevelBar(props: { value: number; muted: boolean; label: string; 
       tabIndex={0}
       aria-label={props.label}
       aria-valuenow={Math.round(level * 100)}
+      aria-valuetext={`${Math.round(level * 100)} %`}
       aria-valuemin={0}
       aria-valuemax={100}
-      className={`relative flex h-4 cursor-pointer touch-none items-center outline-none ${props.className ?? ""}`}
+      className={`relative flex h-4 cursor-pointer touch-none items-center rounded-full outline-none focus-visible:ring-1 focus-visible:ring-label-3 ${props.className ?? ""}`}
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
       onPointerDown={(e) => {
@@ -153,14 +155,20 @@ export function LevelBar(props: { value: number; muted: boolean; label: string; 
         holdOpen(true);
         props.onChange(at(e.clientX));
       }}
-      onPointerMove={(e) => grab && props.onChange(at(e.clientX))}
+      onPointerMove={(e) => {
+        if (!grab) return;
+        const v = at(e.clientX);
+        if (v !== level) props.onChange(v);
+      }}
       onPointerUp={release}
       onPointerCancel={release}
       onLostPointerCapture={release}
       onWheel={(e) => step((e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 0.1 : 0.02))}
       onKeyDown={(e) => {
-        if (e.key === "ArrowRight" || e.key === "ArrowUp") step(0.05);
-        if (e.key === "ArrowLeft" || e.key === "ArrowDown") step(-0.05);
+        const to = sliderKey(e.key, level, 0.05, 0, 1);
+        if (to === undefined) return;
+        e.preventDefault();
+        props.onChange(Math.round(to * 100) / 100);
       }}
     >
       <div className={`relative w-full overflow-hidden rounded-full bg-fill-2 transition-[height] duration-150 ease-out ${active ? "h-[9px]" : "h-[5px]"}`}>

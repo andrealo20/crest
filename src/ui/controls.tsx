@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { CaretUpDown, Eye, EyeSlash, type Icon } from "@phosphor-icons/react";
 import { popover, springs } from "../design/motion";
 import { t } from "../i18n";
+import { sliderKey } from "./sliderKey";
 
 /*
  * Shared controls. Every tool uses these instead of its own variants, so sizes,
@@ -322,7 +323,7 @@ export function Redacted({ lines = 2, className = "" }: { lines?: number; classN
   );
 }
 
-/** Slider. Drags via pointer capture; arrow keys ±step. */
+/** Slider. Drags via pointer capture; arrow keys ±step, Home and End. */
 export function Slider(props: {
   value: number;
   min: number;
@@ -353,7 +354,7 @@ export function Slider(props: {
       aria-valuenow={props.value}
       aria-valuemin={props.min}
       aria-valuemax={props.max}
-      className="relative flex h-5 w-full cursor-pointer touch-none items-center outline-none"
+      className="relative flex h-5 w-full cursor-pointer touch-none items-center rounded-full outline-none focus-visible:ring-1 focus-visible:ring-label-3"
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId);
         set(e.clientX);
@@ -362,10 +363,10 @@ export function Slider(props: {
         e.currentTarget.hasPointerCapture(e.pointerId) && set(e.clientX)
       }
       onKeyDown={(e) => {
-        if (e.key === "ArrowRight")
-          props.onChange(Math.min(props.max, props.value + step));
-        if (e.key === "ArrowLeft")
-          props.onChange(Math.max(props.min, props.value - step));
+        const to = sliderKey(e.key, props.value, step, props.min, props.max);
+        if (to === undefined) return;
+        e.preventDefault();
+        props.onChange(to);
       }}
     >
       <div className="relative h-1 w-full overflow-hidden rounded-full bg-fill-2">

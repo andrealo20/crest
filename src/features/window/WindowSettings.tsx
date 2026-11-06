@@ -261,7 +261,7 @@ function HotkeyRow({ kind }: { kind: HotkeyKind }) {
           onKeyDown={onKeyDown}
           // Key combinations read left to right in any language.
           dir="ltr"
-          className={`pressable flex h-7 min-w-24 items-center justify-center gap-1 rounded-[8px] px-2 text-caption outline-none ${
+          className={`pressable flex h-7 min-w-24 items-center justify-center gap-1 rounded-[8px] px-2 text-caption outline-none focus-visible:ring-1 focus-visible:ring-label-3 ${
             recording ? "bg-fill-3 text-label ring-1 ring-label-3" : "bg-fill-2 text-label-2"
           }`}
         >

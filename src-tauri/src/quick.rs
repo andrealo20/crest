@@ -31,13 +31,18 @@ fn kind_of(name: &str) -> Option<RadioKind> {
     }
 }
 
-fn radio(kind: RadioKind) -> windows::core::Result<Option<Radio>> {
-    let list = Radio::GetRadiosAsync()?.join()?;
-    Ok(list.into_iter().find(|r| r.Kind().is_ok_and(|k| k == kind)))
+fn radios() -> windows::core::Result<Vec<Radio>> {
+    Ok(Radio::GetRadiosAsync()?.join()?.into_iter().collect())
 }
 
-fn radio_on(kind: RadioKind) -> Option<bool> {
-    radio(kind).ok().flatten().and_then(|r| r.State().ok()).map(|s| s == RadioState::On)
+fn of_kind(list: &[Radio], kind: RadioKind) -> impl Iterator<Item = &Radio> {
+    list.iter().filter(move |r| r.Kind().is_ok_and(|k| k == kind))
+}
+
+/// On when any radio of that kind is (a USB adapter next to the built-in one); None when there is none.
+fn radio_on(list: &[Radio], kind: RadioKind) -> Option<bool> {
+    let states: Vec<_> = of_kind(list, kind).filter_map(|r| r.State().ok()).collect();
+    (!states.is_empty()).then(|| states.contains(&RadioState::On))
 }
 
 fn dark() -> bool {
@@ -61,7 +66,12 @@ async fn blocking<T: Send + 'static>(job: impl FnOnce() -> T + Send + 'static) -
 
 #[tauri::command]
 pub async fn quick_get() -> Result<Quick, String> {
-    blocking(|| Quick { wifi: radio_on(RadioKind::WiFi), bluetooth: radio_on(RadioKind::Bluetooth), dark: dark() }).await
+    blocking(|| {
+        // One read of the list for both radios.
+        let list = radios().unwrap_or_default();
+        Quick { wifi: radio_on(&list, RadioKind::WiFi), bluetooth: radio_on(&list, RadioKind::Bluetooth), dark: dark() }
+    })
+    .await
 }
 
 /// Turns a radio ("wifi", "bluetooth") on or off. "denied": Windows' privacy settings keep apps from it.
@@ -72,18 +82,23 @@ pub async fn quick_radio(kind: String, on: bool) -> Result<(), String> {
         if Radio::RequestAccessAsync().and_then(|a| a.join()).map_err(|e| e.to_string())? != RadioAccessStatus::Allowed {
             return Err("denied".into());
         }
-        let r = radio(kind).map_err(|e| e.to_string())?.ok_or("none")?;
-        match r.SetStateAsync(if on { RadioState::On } else { RadioState::Off }).and_then(|a| a.join()).map_err(|e| e.to_string())? {
-            RadioAccessStatus::Allowed => Ok(()),
-            _ => Err("denied".into()),
+        let list = radios().map_err(|e| e.to_string())?;
+        let mut found = false;
+        for r in of_kind(&list, kind) {
+            found = true;
+            if r.SetStateAsync(if on { RadioState::On } else { RadioState::Off }).and_then(|a| a.join()).map_err(|e| e.to_string())? != RadioAccessStatus::Allowed {
+                return Err("denied".into());
+            }
         }
+        if found { Ok(()) } else { Err("none".into()) }
     })
     .await?
 }
 
 /// Dark or light for apps and for Windows itself, as Settings sets them. The Store package's registry writes land in its own
 /// copy of the user's hive, which Windows does not read for the theme: there it opens Settings, Colours, and says "settings".
-#[tauri::command]
+// `async`: runs off the main thread; the broadcast waits on every top-level window.
+#[tauri::command(async)]
 pub fn quick_dark(on: bool) -> Result<(), String> {
     if cfg!(feature = "store") {
         crate::open_url("ms-settings:colors")?;
@@ -101,7 +116,7 @@ pub fn quick_dark(on: bool) -> Result<(), String> {
 }
 
 /// "lock", "sleep", "restart" or "shutdown". The frontend asks for a second click before the last three.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn quick_power(action: String) -> Result<(), String> {
     use windows::Win32::System::Power::SetSuspendState;
     use windows::Win32::System::Shutdown::LockWorkStation;
@@ -135,6 +150,7 @@ mod live {
         unsafe {
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         }
-        eprintln!("wifi {:?} bluetooth {:?} dark {}", radio_on(RadioKind::WiFi), radio_on(RadioKind::Bluetooth), dark());
+        let list = radios().unwrap_or_default();
+        eprintln!("wifi {:?} bluetooth {:?} dark {}", radio_on(&list, RadioKind::WiFi), radio_on(&list, RadioKind::Bluetooth), dark());
     }
 }

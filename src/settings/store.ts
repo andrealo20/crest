@@ -41,7 +41,7 @@ export interface Settings {
   aiUsage: UsageCards;
   ask: { provider: AskProvider; configs: Record<AskProvider, AskProviderConfig> };
   /** `auto` = detected via IP (again on every start); a picked location stays. */
-  weather: { name: string; lat: number; lon: number; auto?: boolean } | null;
+  weather: { name: string; detail?: string; lat: number; lon: number; auto?: boolean } | null;
   /**
    * Display: always on top or hidden in fullscreen; monitor name (null = primary);
    * `offset` = horizontal offset from the center in CSS px (set by dragging).

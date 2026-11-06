@@ -66,12 +66,13 @@ pub async fn quick_radio(kind: String, on: bool) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
-#[tauri::command]
+// `async`: runs off the main thread; osascript waits for the user at the permission prompt.
+#[tauri::command(async)]
 pub fn quick_dark(on: bool) -> Result<(), String> {
     osascript(&format!("tell application \"System Events\" to tell appearance preferences to set dark mode to {on}"))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn quick_power(action: String) -> Result<(), String> {
     match action.as_str() {
         "lock" => output("/usr/bin/pmset", &["displaysleepnow"]).map(drop).ok_or_else(|| "failed".into()),
