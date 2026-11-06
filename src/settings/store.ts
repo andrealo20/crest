@@ -1,4 +1,5 @@
 import { createStore, setAside } from "../lib/store";
+import { isMac } from "../platform/native";
 import { isLanguage, type LanguageSetting } from "../i18n/core";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
@@ -272,8 +273,8 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     trading: { ...defaults.trading, ...s.trading },
     usage: { ...defaults.usage, ...s.usage },
     aiUsage: normalizeCards(s.aiUsage),
-    // A saved y that is not a finite number (null, a string) would place the capsule nowhere.
-    display: { ...defaults.display, ...s.display, y: fitCapsuleTop(s.display?.y), monitorMode: normalizeMonitorMode(s.display?.monitorMode) },
+    // A saved y that is not a finite number (null, a string) would place the capsule nowhere; a Mac has no Follow or All modes (an older build offered them).
+    display: { ...defaults.display, ...s.display, y: fitCapsuleTop(s.display?.y), monitorMode: isMac ? "chosen" : normalizeMonitorMode(s.display?.monitorMode) },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },
     alarm: { ...defaults.alarm, ...s.alarm },
