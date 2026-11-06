@@ -14,7 +14,7 @@ export function effectiveIdleStyle(idle: Settings["display"]["idleStyle"], behav
 }
 
 /** Each shortcut's state for the settings; "duplicate" = an earlier Crest shortcut has the combination. */
-export const hotkeyStatus = createStore<Record<HotkeyKind, HotkeyState | "duplicate">>({ open: "active", hide: "unset", resize: "unset", find: "unset" });
+export const hotkeyStatus = createStore<Record<HotkeyKind, HotkeyState | "duplicate">>({ open: "active", hide: "unset", resize: "unset", find: "unset", mic: "unset" });
 
 export function updateBehavior(patch: Partial<WindowSettings> | ((b: WindowSettings) => Partial<WindowSettings>)) {
   updateSettings((s) => ({ behavior: { ...s.behavior, ...(typeof patch === "function" ? patch(s.behavior) : patch) } }));
@@ -40,13 +40,13 @@ export function takenByLauncher(s: Settings = settings.get()): string[] {
 /** Registers the saved shortcuts in Rust; a duplicate is not sent, so it can't take the other one's place. */
 function applyHotkeys() {
   const h = settings.get().behavior.hotkeys, launcher = takenByLauncher();
-  const key = `${paused}|${h.open}|${h.hide}|${h.resize}|${h.find}|${launcher.join()}`;
+  const key = `${paused}|${h.open}|${h.hide}|${h.resize}|${h.find}|${h.mic}|${launcher.join()}`;
   if (key === lastHotkeys) return;
   lastHotkeys = key;
   const clash = conflicts(h, launcher);
   const send = (k: HotkeyKind) => (paused || clash[k] ? "" : normalize(k, h[k]));
   // Find on screen reads the screens with Windows' OCR: no Mac version yet.
-  const config = { open: send("open"), hide: send("hide"), resize: send("resize"), find: isMac ? "" : send("find"), openLabel: label(h.open) };
+  const config = { open: send("open"), hide: send("hide"), resize: send("resize"), find: isMac ? "" : send("find"), mic: send("mic"), openLabel: label(h.open) };
   const wasPaused = paused;
   // One registration at a time: Rust swaps the whole set.
   applying = applying
@@ -54,7 +54,7 @@ function applyHotkeys() {
     .then((r) => {
       if (wasPaused) return;
       const status = (k: HotkeyKind) => (clash[k] ? "duplicate" : r[k]);
-      hotkeyStatus.set({ open: status("open"), hide: status("hide"), resize: status("resize"), find: status("find") });
+      hotkeyStatus.set({ open: status("open"), hide: status("hide"), resize: status("resize"), find: status("find"), mic: status("mic") });
     })
     .catch(() => {});
 }

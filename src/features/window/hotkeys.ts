@@ -3,8 +3,8 @@
 // ("KeyK", "Digit1", "F9", "Space"), joined by "+". The resize shortcut is its modifiers and "Arrows": the four arrow keys.
 // Pure (no DOM): parsing, recording from a key event, labels and conflicts. src-tauri/src/shell.rs registers them.
 
-export type HotkeyKind = "open" | "hide" | "resize" | "find";
-export const HOTKEY_KINDS: HotkeyKind[] = ["open", "hide", "resize", "find"];
+export type HotkeyKind = "open" | "hide" | "resize" | "find" | "mic";
+export const HOTKEY_KINDS: HotkeyKind[] = ["open", "hide", "resize", "find", "mic"];
 
 const MODS = ["Ctrl", "Alt", "Shift", "Win"] as const;
 export type Mod = (typeof MODS)[number];
@@ -97,11 +97,11 @@ export function combinations(kind: HotkeyKind, text: string): string[] {
 export const launcherKeys = (count: number): string[] => Array.from({ length: Math.min(6, Math.max(0, count)) }, (_, i) => `Alt+Digit${i + 1}`);
 
 /**
- * Which earlier shortcut each one collides with (order: open, hide, resize, find), or "launcher" for the launcher's Alt+N keys
+ * Which earlier shortcut each one collides with (order: open, hide, resize, find, mic), or "launcher" for the launcher's Alt+N keys
  * (`launcher`, while they are switched on); the later one yields and is not registered. Unset or invalid shortcuts collide with nothing.
  */
 export function conflicts(h: Record<HotkeyKind, string>, launcher: string[] = []): Record<HotkeyKind, HotkeyKind | "launcher" | null> {
-  const out: Record<HotkeyKind, HotkeyKind | "launcher" | null> = { open: null, hide: null, resize: null, find: null };
+  const out: Record<HotkeyKind, HotkeyKind | "launcher" | null> = { open: null, hide: null, resize: null, find: null, mic: null };
   const taken: { kind: HotkeyKind | "launcher"; combos: string[] }[] = [{ kind: "launcher", combos: launcher }];
   for (const kind of HOTKEY_KINDS) {
     const combos = combinations(kind, h[kind]);

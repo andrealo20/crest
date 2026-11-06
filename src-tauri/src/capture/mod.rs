@@ -3,7 +3,7 @@
 //! Screenshots land in Windows' Screenshots folder as PNG and on the clipboard;
 //! recordings in Videos\Crest\Recordings as MP4, audio-only ones in Music\Crest\Recordings as M4A.
 //! While a screenshot or screen recording is taken, Crest's own window is excluded from capture
-//! (WDA_EXCLUDEFROMCAPTURE), and only then.
+//! (WDA_EXCLUDEFROMCAPTURE), and only then, unless "Hide Crest from screen sharing" is on (sharing.rs): then it stays out.
 //! Recording state goes to the frontend as `capture://state`. Find on screen (find.rs)
 //! reads the screens with OCR from in-memory copies.
 
@@ -147,19 +147,34 @@ fn new_file(dir: &Path, prefix: &str, ext: &str) -> Result<PathBuf, String> {
     Ok(dir.join(file_name(prefix, ext, stamp(), |n| dir.join(n).exists())))
 }
 
-/// For a Crest window opened while a recording runs (the floating timer): exclude it too.
+/// For a Crest window opened while a recording runs or while Crest is hidden from screen sharing (the floating timer, a copy
+/// on another monitor): exclude it too.
 pub(crate) fn exclude_if_capturing(app: &AppHandle) {
-    if app.state::<CaptureState>().excluded() {
+    if app.state::<CaptureState>().excluded() || crate::sharing::hidden() {
         exclude(app, true);
     }
 }
 
-/// Every Crest window (the notch, the floating timer, ...) in or out of captures.
+/// Every Crest window (the notch, the floating timer, ...) in or out of captures. "Out" ends at the user's choice
+/// (sharing.rs): with Hide Crest from screen sharing on, putting the windows back leaves them excluded.
 fn exclude(app: &AppHandle, on: bool) {
+    let flag = affinity(on, crate::sharing::hidden());
     for w in app.webview_windows().values() {
         if let Ok(hwnd) = w.hwnd() {
-            let _ = unsafe { SetWindowDisplayAffinity(hwnd, if on { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }) };
+            let _ = unsafe { SetWindowDisplayAffinity(hwnd, flag) };
         }
+    }
+}
+
+/// Out of captures when asked to be (a screenshot, a recording) or when the user chose to hide Crest from screen sharing.
+fn affinity(on: bool, hidden: bool) -> WINDOW_DISPLAY_AFFINITY {
+    if on || hidden { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }
+}
+
+/// The setting changed (sharing.rs). A recording of Crest's own keeps the windows out until it ends, whatever the setting says.
+pub(crate) fn set_hidden(app: &AppHandle, on: bool) {
+    if !app.state::<CaptureState>().excluded() {
+        exclude(app, on);
     }
 }
 
@@ -699,6 +714,20 @@ pub fn capture_delete(path: String, app: AppHandle) -> Result<(), String> {
     match unsafe { SHFileOperationW(&mut op) } {
         0 => Ok(()),
         _ => Err("delete-failed".into()),
+    }
+}
+
+#[cfg(test)]
+mod affinity_tests {
+    use super::*;
+
+    #[test]
+    fn a_capture_gives_the_windows_back_to_the_users_choice() {
+        assert_eq!(affinity(true, false), WDA_EXCLUDEFROMCAPTURE);
+        assert_eq!(affinity(false, false), WDA_NONE);
+        // Hide Crest from screen sharing on: the end of a screenshot or a recording leaves the windows out.
+        assert_eq!(affinity(false, true), WDA_EXCLUDEFROMCAPTURE);
+        assert_eq!(affinity(true, true), WDA_EXCLUDEFROMCAPTURE);
     }
 }
 

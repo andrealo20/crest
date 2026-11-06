@@ -23,8 +23,12 @@ test("broken values fall back, valid ones stay", () => {
 test("hotkeys: missing open takes the default, an empty one stays unset, invalid ones are dropped", () => {
   assert.equal(normalizeWindow({}).hotkeys.open, "Ctrl+Alt+Space");
   assert.equal(normalizeWindow({ hotkeys: { open: "" } }).hotkeys.open, "");
-  assert.deepEqual(normalizeWindow({ hotkeys: { open: "KeyK", hide: "ctrl+alt+KeyH", resize: "Alt+Arrows" } }).hotkeys, { open: "", hide: "Ctrl+Alt+KeyH", resize: "", find: "Ctrl+Alt+KeyF" });
+  assert.deepEqual(normalizeWindow({ hotkeys: { open: "KeyK", hide: "ctrl+alt+KeyH", resize: "Alt+Arrows" } }).hotkeys, { open: "", hide: "Ctrl+Alt+KeyH", resize: "", find: "Ctrl+Alt+KeyF", mic: "" });
   assert.equal(normalizeWindow({ hotkeys: { find: "" } }).hotkeys.find, "");
+  // The microphone mute starts unset, keeps a good combination and drops a bare letter.
+  assert.equal(normalizeWindow({}).hotkeys.mic, "");
+  assert.equal(normalizeWindow({ hotkeys: { mic: "alt+shift+KeyM" } }).hotkeys.mic, "Alt+Shift+KeyM");
+  assert.equal(normalizeWindow({ hotkeys: { mic: "KeyM" } }).hotkeys.mic, "");
 });
 
 test("app rules: keys, duplicates, follow values and the cap", () => {

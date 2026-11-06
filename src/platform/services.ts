@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isMac, isNative } from "./native";
-import type { BluetoothEvent, LevelEvent, LockEvent, PowerState } from "../notch/row/status";
+import type { BluetoothEvent, LevelEvent, LockEvent, MicEvent, PowerState } from "../notch/row/status";
 import type { LaunchPlan, ShellInfo } from "../features/terminal/shell";
 import type { TokenReport } from "../features/usage/tokens";
 import type { BatteryRaw } from "../features/system/battery";
@@ -524,7 +524,7 @@ export const display = {
 
 /** State at start, so what is already true (charger in, headphones on) does not alert. */
 export interface StatusSeed { power: PowerState | null; online: boolean | null; devices: string[] }
-export interface StatusHandlers { seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: BluetoothEvent): void; level(e: LevelEvent): void; lock(e: LockEvent): void }
+export interface StatusHandlers { seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: BluetoothEvent): void; level(e: LevelEvent): void; lock(e: LockEvent): void; mic(e: MicEvent): void }
 
 export const status = {
   seed: (): Promise<StatusSeed> => (isNative ? invoke<StatusSeed>("status_seed") : Promise.resolve(mockStatus.seed())),
@@ -537,6 +537,7 @@ export const status = {
       listen<BluetoothEvent>("status://bt", (e) => h.bt(e.payload)),
       listen<LevelEvent>("status://level", (e) => h.level(e.payload)),
       listen<LockEvent>("status://lock", (e) => h.lock(e.payload)),
+      listen<MicEvent>("status://mic", (e) => h.mic(e.payload)),
     ];
     return () => offs.forEach((off) => void off.then((f) => f()));
   },
@@ -631,6 +632,11 @@ export const mockStatus = (() => {
     capsLock() {
       caps = !caps;
       listeners.forEach((h) => h.lock({ key: "caps", on: caps }));
+    },
+    /** The microphone shortcut: flips the mute (Overview's switch follows) and says it. */
+    mic() {
+      mockQuick.micMuted = !mockQuick.micMuted;
+      listeners.forEach((h) => h.mic({ muted: mockQuick.micMuted === true }));
     },
   };
 })();
@@ -803,9 +809,11 @@ export interface QuickState {
   wifi: boolean | null;
   bluetooth: boolean | null;
   dark: boolean;
+  /** The default microphone is muted; null when the PC has no microphone (mic.rs). */
+  micMuted: boolean | null;
 }
 export type PowerAction = "lock" | "sleep" | "restart" | "shutdown";
-const mockQuick: QuickState = { wifi: true, bluetooth: true, dark: true };
+const mockQuick: QuickState = { wifi: true, bluetooth: true, dark: true, micMuted: false };
 
 /** One program in the volume mixer (all its audio sessions together). */
 export interface AppVolume {
@@ -885,6 +893,18 @@ export const systemControls = {
     if (isNative) return invoke("quick_dark", { on });
     mockQuick.dark = on;
     return Promise.resolve();
+  },
+  /** Mutes or unmutes the default microphone; rejects with "none" without one. */
+  setMicMuted: (on: boolean): Promise<void> => {
+    if (isNative) return invoke("mic_mute", { on });
+    mockQuick.micMuted = on;
+    return Promise.resolve();
+  },
+  /** The microphone shortcut was pressed and flipped the mute (mic.rs). In the browser the next reading picks it up. */
+  onMic: (handler: () => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen("status://mic", handler);
+    return () => void off.then((f) => f());
   },
   power: (action: PowerAction): Promise<void> => (isNative ? invoke("quick_power", { action }) : Promise.resolve()),
   outputs: (): Promise<AudioOutput[]> => (isNative ? invoke<AudioOutput[]>("audio_outputs") : Promise.resolve(mockOutputs.map((o) => ({ ...o })))),
@@ -1437,7 +1457,7 @@ export interface RunningApp {
 }
 /** in-use: another program holds the combination. */
 export type HotkeyState = "unset" | "active" | "in-use" | "invalid";
-export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState; find: HotkeyState };
+export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState; find: HotkeyState; mic: HotkeyState };
 
 export const windowShell = {
   screen: (): Promise<ScreenBehavior> => (isNative ? invoke<ScreenBehavior>("display_screen") : Promise.resolve("normal")),
@@ -1445,6 +1465,10 @@ export const windowShell = {
     if (!isNative) return () => {};
     const off = listen<ScreenBehavior>("notch://screen", (e) => handler(e.payload));
     return () => void off.then((f) => f());
+  },
+  /** Keeps Crest's windows out of other apps' screen sharing and recordings (sharing.rs). */
+  hideFromCapture: (on: boolean) => {
+    if (isNative) void invoke("sharing_hide", { on }).catch(() => {});
   },
   /** The window was hidden (hide shortcut or a rule) or shown again; the notch may stay open meanwhile. */
   onHidden: (handler: (hidden: boolean) => void): (() => void) => {
@@ -1463,10 +1487,10 @@ export const windowShell = {
           { name: "chrome", path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
           { name: "vlc", path: "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe" },
         ]),
-  applyHotkeys: (config: { open: string; hide: string; resize: string; find: string; openLabel: string }): Promise<HotkeyStates> =>
+  applyHotkeys: (config: { open: string; hide: string; resize: string; find: string; mic: string; openLabel: string }): Promise<HotkeyStates> =>
     isNative
       ? invoke<HotkeyStates>("hotkeys_apply", { config })
-      : Promise.resolve({ open: config.open ? "active" : "unset", hide: config.hide ? "active" : "unset", resize: config.resize ? "active" : "unset", find: config.find ? "active" : "unset" }),
+      : Promise.resolve({ open: config.open ? "active" : "unset", hide: config.hide ? "active" : "unset", resize: config.resize ? "active" : "unset", find: config.find ? "active" : "unset", mic: config.mic ? "active" : "unset" }),
   /** The Find on screen shortcut. */
   onFindKey: (handler: () => void): (() => void) => {
     if (!isNative) return () => {};

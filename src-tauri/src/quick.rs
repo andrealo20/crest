@@ -21,6 +21,8 @@ pub struct Quick {
     wifi: Option<bool>,
     bluetooth: Option<bool>,
     dark: bool,
+    /// The default microphone is muted; None: no microphone (mic.rs).
+    mic_muted: Option<bool>,
 }
 
 fn kind_of(name: &str) -> Option<RadioKind> {
@@ -61,7 +63,7 @@ async fn blocking<T: Send + 'static>(job: impl FnOnce() -> T + Send + 'static) -
 
 #[tauri::command]
 pub async fn quick_get() -> Result<Quick, String> {
-    blocking(|| Quick { wifi: radio_on(RadioKind::WiFi), bluetooth: radio_on(RadioKind::Bluetooth), dark: dark() }).await
+    blocking(|| Quick { wifi: radio_on(RadioKind::WiFi), bluetooth: radio_on(RadioKind::Bluetooth), dark: dark(), mic_muted: crate::mic::muted() }).await
 }
 
 /// Turns a radio ("wifi", "bluetooth") on or off. "denied": Windows' privacy settings keep apps from it.

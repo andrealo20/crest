@@ -13,14 +13,14 @@ export interface PetSettings { id: PetId | null; size: number; side: "left" | "r
 export const PET_SIZE = { min: 32, max: 96, default: 48 } as const;
 export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; downloadAlerts: boolean; statusAlerts: StatusAlerts; pet: PetSettings }
 /** `hideOsd` is not an alert: it hides the Windows volume and brightness indicator while Crest shows its own (status.ts osdHidden). */
-export interface StatusAlerts { power: boolean; net: boolean; bt: boolean; volume: boolean; brightness: boolean; lock: boolean; hideOsd: boolean }
+export interface StatusAlerts { power: boolean; net: boolean; bt: boolean; volume: boolean; brightness: boolean; lock: boolean; hideOsd: boolean; mic: boolean }
 
 export const CLOSED_DEFAULTS: ClosedSettings = {
   order: [...PART_IDS],
   parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, calendar: false, script: false, downloads: true, weather: false },
   readings: { cpu: true, ram: true, gpu: true, net: false, power: false, battery: false, temp: false },
   clockSeconds: false, lineProgress: true, quotaAlerts: true, downloadAlerts: true,
-  statusAlerts: { power: true, net: true, bt: true, volume: true, brightness: true, lock: true, hideOsd: false },
+  statusAlerts: { power: true, net: true, bt: true, volume: true, brightness: true, lock: true, hideOsd: false, mic: true },
   pet: { id: null, size: PET_SIZE.default, side: "right" },
 };
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowClockwise, Bluetooth, Lock, Moon, Power, WifiHigh, MoonStars, type Icon } from "@phosphor-icons/react";
+import { ArrowClockwise, Bluetooth, Lock, Microphone, MicrophoneSlash, Moon, Power, WifiHigh, MoonStars, type Icon } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { systemControls, type PowerAction, type QuickState } from "../../platform/services";
 import { HUE_PALETTE } from "../themes/themes";
@@ -8,8 +8,8 @@ import type { Hue } from "../themes/hues";
 import { t } from "../../i18n";
 
 /*
- * Overview's quick controls, like the quick settings: Wi-Fi, Bluetooth and the dark theme as switches, then lock, sleep,
- * restart and shut down. The last three take a second click within a few seconds. A radio the PC lacks is left out.
+ * Overview's quick controls, like the quick settings: Wi-Fi, Bluetooth, the dark theme and the microphone mute as switches, then
+ * lock, sleep, restart and shut down. The last three take a second click within a few seconds. A radio or a microphone the PC lacks is left out.
  */
 
 /** The row (h-11) and the gap above it (gap-2.5), for Overview's size. */
@@ -23,7 +23,12 @@ export function useQuick(): [QuickState | null, () => void] {
   useEffect(() => {
     load.current();
     const id = setInterval(load.current, 4000);
-    return () => clearInterval(id);
+    // The microphone shortcut changes the mute from outside the page.
+    const off = systemControls.onMic(load.current);
+    return () => {
+      clearInterval(id);
+      off();
+    };
   }, []);
   return [state, load.current];
 }
@@ -35,6 +40,8 @@ export function QuickControls({ state, reload }: { state: QuickState; reload: ()
       {state.wifi !== null && <Switch icon={WifiHigh} hue="blue" label={t("WLAN")} on={state.wifi} onToggle={() => toggle(systemControls.setRadio("wifi", !state.wifi))} />}
       {state.bluetooth !== null && <Switch icon={Bluetooth} hue="indigo" label={t("Bluetooth")} on={state.bluetooth} onToggle={() => toggle(systemControls.setRadio("bluetooth", !state.bluetooth))} />}
       <Switch icon={MoonStars} hue="violet" label={t("Dunkles Design")} on={state.dark} onToggle={() => toggle(systemControls.setDark(!state.dark))} />
+      {/* Lit while muted, like the mute button of a call. */}
+      {state.micMuted !== null && <Switch icon={state.micMuted ? MicrophoneSlash : Microphone} hue="red" label={t("Mikrofon stummschalten")} on={state.micMuted} onToggle={() => toggle(systemControls.setMicMuted(!state.micMuted))} />}
       {/* Switches on one end, the power actions on the other. */}
       <span className="flex-1" />
       <PowerButton icon={Lock} label={t("Sperren")} action="lock" />

@@ -1514,5 +1514,14 @@
  "Zu einem Datum eine Zeit addieren, z. B. 3 days": "Add a time to a date, like 3 days",
  "until und since brauchen ein Datum": "until and since need a date",
  "Mehr als {n} Zeilen": "More than {n} lines",
- "Das ließ sich nicht berechnen": "Could not work this out"
+ "Das ließ sich nicht berechnen": "Could not work this out",
+ "Mikrofon": "Microphone",
+ "Wenn das Tastenkürzel das Mikrofon stumm- oder wieder einschaltet": "When the microphone shortcut mutes or unmutes it",
+ "Mikrofon ist stumm": "Microphone muted",
+ "Mikrofon ist an": "Microphone on",
+ "Mikrofon stummschalten": "Mute microphone",
+ "Schaltet das Standard-Mikrofon stumm und wieder ein, von überall": "Mutes and unmutes the default microphone, from anywhere",
+ "Crest vor Bildschirmfreigabe und Aufnahmen verbergen": "Hide Crest from screen sharing and recordings",
+ "Andere Apps zeigen Crest nicht mehr; eine App, die tief im System aufnimmt, sieht es trotzdem": "Other apps no longer show Crest. An app that captures at a low level can still see it.",
+ "Andere Apps zeigen Crest nicht mehr; ab macOS 15 ignorieren manche Freigabe-Apps das, und eine App, die tief im System aufnimmt, sieht es trotzdem": "Other apps no longer show Crest. From macOS 15 some sharing apps ignore this, and an app that captures at a low level can still see it."
 }
