@@ -244,7 +244,7 @@ function TaskRow({ task, now, ringing, editing, onEdit }: { task: Task; now: num
       layout="position"
       transition={springs.snappy}
       initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: editing ? 62 : 32 }}
+      animate={{ opacity: 1, height: editing ? 66 : 32 }}
       exit={{ opacity: 0, height: 0, transition: { duration: 0.15 } }}
       className={`group overflow-hidden rounded-[10px] px-2 ${editing ? "bg-fill-1" : "hover:bg-fill-1"}`}
     >
