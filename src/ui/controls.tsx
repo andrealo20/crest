@@ -553,6 +553,6 @@ export function Select<T extends string>(props: {
 /** Calm loading placeholder (pulsing area instead of a spinner). */
 export function Skeleton({ className = "" }: { className?: string }) {
   return (
-    <div className={`animate-pulse rounded-[8px] bg-fill-1 ${className}`} />
+    <div className={`motion-safe:animate-pulse rounded-[8px] bg-fill-1 ${className}`} />
   );
 }

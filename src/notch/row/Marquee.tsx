@@ -14,7 +14,7 @@ export function Marquee({ text, textWidth, width, paused, once, className = "tex
   const { x } = useCycle(cycle, paused, cycle?.done);
   return (
     <div className="flex h-full items-center overflow-clip" style={{ width }}>
-      <motion.span className={`shrink-0 whitespace-nowrap ${className}`} style={{ x }}>
+      <motion.span className={`shrink-0 whitespace-nowrap ${className}`} style={{ x }} title={overflow > 0.5 ? text : undefined}>
         {text}
       </motion.span>
     </div>

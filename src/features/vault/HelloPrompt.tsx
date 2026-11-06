@@ -44,7 +44,7 @@ export function HelloPrompt(props: { onUnlocked: () => Promise<void>; onCancel: 
       exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
     >
       {!props.compact && (
-        <div className={`flex size-10 items-center justify-center rounded-full bg-fill-2 ${waiting ? "animate-pulse text-label" : "text-label-2"}`}>
+        <div className={`flex size-10 items-center justify-center rounded-full bg-fill-2 ${waiting ? "motion-safe:animate-pulse text-label" : "text-label-2"}`}>
           <Fingerprint size={20} weight="bold" />
         </div>
       )}
