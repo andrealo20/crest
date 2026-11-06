@@ -24,8 +24,8 @@ const ENGINE_SHA256: &str = "a3a89d9ad0a4ed8f27bf3e403701b23f5709816f6376438503f
 const ENGINE_SIZE: u64 = 4_960_506;
 /// No model file is near this; a larger size in the catalog is not downloaded.
 const MAX_FILE: u64 = 200 * 1024 * 1024;
-/// The files of a pair, as the worker asks for them.
-const KINDS: [&str; 3] = ["model", "lex", "vocab"];
+/// The files a pair can have: a model, a shortlist, and one vocabulary or a source and a target one.
+const KINDS: [&str; 5] = ["model", "lex", "vocab", "srcvocab", "trgvocab"];
 
 fn root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(crate::portable::app_data_dir(app).map_err(|e| e.to_string())?.join("translation"))
@@ -34,6 +34,21 @@ fn root(app: &AppHandle) -> Result<PathBuf, String> {
 /// A language code as the catalog writes it ("ja", "zh_hant"): nothing that could leave the folder.
 fn code_ok(code: &str) -> bool {
     (2..=8).contains(&code.len()) && code.bytes().all(|b| b.is_ascii_lowercase() || b == b'_')
+}
+
+/// The catalog's code for a language: Chinese is "zh-Hans" there.
+fn catalog_code(code: &str) -> &str {
+    if code == "zh" {
+        "zh-Hans"
+    } else {
+        code
+    }
+}
+
+/// Whether a pair's folder holds a whole set: model, shortlist and its vocabulary or vocabularies.
+fn complete(names: &[&str]) -> bool {
+    let has = |n: &str| names.contains(&n);
+    has("model") && has("lex") && (has("vocab") || (has("srcvocab") && has("trgvocab")))
 }
 
 fn pair_dir(app: &AppHandle, from: &str, to: &str) -> Result<PathBuf, String> {
@@ -47,8 +62,8 @@ fn pair_dir(app: &AppHandle, from: &str, to: &str) -> Result<PathBuf, String> {
 pub struct Status {
     /// The engine is downloaded.
     engine: bool,
-    /// Downloaded pairs ("ja-en") and their size on disk in bytes.
-    pairs: Vec<(String, u64)>,
+    /// Downloaded pairs ("ja-en"), their size on disk in bytes, and whether the vocabulary comes as two files.
+    pairs: Vec<(String, u64, bool)>,
 }
 
 #[tauri::command]
@@ -62,8 +77,9 @@ pub fn translate_status(app: AppHandle) -> Status {
         .filter(|e| e.path().is_dir())
         .filter_map(|e| {
             let dir = e.path();
-            let sizes: Option<Vec<u64>> = KINDS.iter().map(|k| std::fs::metadata(dir.join(k)).ok().map(|m| m.len())).collect();
-            Some((e.file_name().to_string_lossy().into_owned(), sizes?.iter().sum()))
+            let present: Vec<(&str, u64)> = KINDS.iter().filter_map(|k| std::fs::metadata(dir.join(k)).ok().map(|m| (*k, m.len()))).collect();
+            let names: Vec<&str> = present.iter().map(|(k, _)| *k).collect();
+            complete(&names).then(|| (e.file_name().to_string_lossy().into_owned(), present.iter().map(|(_, n)| n).sum(), !names.contains(&"vocab")))
         })
         .collect();
     Status { engine, pairs }
@@ -105,14 +121,16 @@ fn version_key(v: &str) -> (Vec<u32>, bool) {
     (num.split('.').map(|p| p.parse().unwrap_or(0)).collect(), !pre)
 }
 
-/// The model, shortlist and vocabulary of the newest desktop version of a pair, or None when one is missing.
+/// The files of the newest desktop version of a pair, or None when that version is not a whole set.
 fn pick(records: &[Record], from: &str, to: &str) -> Option<Vec<(&'static str, Attachment)>> {
+    let (from, to) = (catalog_code(from), catalog_code(to));
     let mine: Vec<&Record> = records.iter().filter(|r| r.from_lang == from && r.to_lang == to && for_desktop(r.filter_expression.as_deref())).collect();
     let newest = mine.iter().map(|r| version_key(&r.version)).max()?;
-    KINDS
+    let files: Vec<(&'static str, Attachment)> = KINDS
         .iter()
-        .map(|kind| mine.iter().find(|r| version_key(&r.version) == newest && r.file_type == *kind).map(|r| (*kind, r.attachment.clone())))
-        .collect()
+        .filter_map(|kind| mine.iter().find(|r| version_key(&r.version) == newest && r.file_type == *kind).map(|r| (*kind, r.attachment.clone())))
+        .collect();
+    complete(&files.iter().map(|(k, _)| *k).collect::<Vec<_>>()).then_some(files)
 }
 
 async fn fetch(client: &reqwest::Client, location: &str, sha256: &str, size: u64) -> Result<Vec<u8>, String> {
@@ -153,6 +171,8 @@ pub async fn translate_download(from: String, to: String, app: AppHandle) -> Res
     }
     let catalog: Catalog = client.get(CATALOG).send().await.map_err(|_| "unavailable")?.json().await.map_err(|_| "unavailable")?;
     let files = pick(&catalog.data, &from, &to).ok_or("no-model")?;
+    // A new version can bring other files: the old set goes first.
+    let _ = std::fs::remove_dir_all(&dir);
     let mut total = 0;
     for (kind, a) in files {
         write(&dir.join(kind), &fetch(&client, &a.location, &a.hash, a.size).await?)?;
@@ -169,7 +189,7 @@ pub fn translate_remove(from: String, to: String, app: AppHandle) -> Result<(), 
     }
 }
 
-/// One file for the worker, as raw bytes: "engine", or a pair's "model", "lex" or "vocab".
+/// One file for the worker, as raw bytes: "engine", or one of a pair's files (`KINDS`).
 #[tauri::command]
 pub async fn translate_file(pair: Option<String>, kind: String, app: AppHandle) -> Result<tauri::ipc::Response, String> {
     let path = match pair {
@@ -206,7 +226,7 @@ mod tests {
         let desktop = "env.appinfo.OS != 'Android' || env.channel != 'release'";
         let nightly = "env.channel == 'default' || env.channel == 'nightly'";
         let mut records = Vec::new();
-        for kind in KINDS {
+        for kind in ["model", "lex", "vocab"] {
             records.push(rec("ja", "en", kind, "2.1", android, &format!("android-{kind}")));
             records.push(rec("ja", "en", kind, "2.0", desktop, &format!("desktop-{kind}")));
             records.push(rec("ja", "en", kind, "2.0a1", nightly, &format!("nightly-{kind}")));
@@ -215,6 +235,12 @@ mod tests {
         }
         let got: Vec<String> = pick(&records, "ja", "en").unwrap().into_iter().map(|(_, a)| a.location).collect();
         assert_eq!(got, ["desktop-model", "desktop-lex", "desktop-vocab"]);
+        // Two vocabularies instead of one, and Chinese under its catalog code.
+        for kind in ["model", "lex", "srcvocab", "trgvocab"] {
+            records.push(rec("en", "zh-Hans", kind, "2.2", "", &format!("zh-{kind}")));
+        }
+        let got: Vec<&str> = pick(&records, "en", "zh").unwrap().into_iter().map(|(k, _)| k).collect();
+        assert_eq!(got, ["model", "lex", "srcvocab", "trgvocab"]);
         assert!(pick(&records, "ko", "en").is_none());
         // A version with a file missing gives nothing.
         records.retain(|r| !(r.to_lang == "it" && r.file_type == "lex"));

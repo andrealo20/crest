@@ -3,11 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { CaretUp } from "@phosphor-icons/react";
 import { settings } from "../../settings/store";
 import { isNative } from "../../platform/native";
-import { Button, Group, Row, Segmented, Switch } from "../../ui/controls";
+import { Button, Group, Row, Segmented, Select, Switch } from "../../ui/controls";
 import { sourceName } from "./sources";
 import { LYRIC_SOURCES } from "./lyricSources";
 import { setMusic } from "./music";
-import { OFFLINE_SOURCES, modelCode, pairsFor } from "./offline";
+import { OFFLINE_SOURCES, OFFLINE_TARGETS, pairsFor, targetOf } from "./offline";
 import { downloadPairs, hasPair, offlineStatus, removePair } from "./offlineEngine";
 import { lang, t } from "../../i18n";
 
@@ -116,14 +116,26 @@ export function MusicSettings() {
  */
 function OfflineLanguages() {
   const status = offlineStatus.use();
-  const target = modelCode(lang());
+  const picked = settings.use().music.offlineTarget;
+  const target = targetOf(picked, lang());
   const [busy, setBusy] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const names = new Intl.DisplayNames([lang()], { type: "language" });
   const mb = (bytes: number) => Math.round(bytes / 1024 / 1024);
   const sizeOf = (pairs: [string, string][]) => pairs.reduce((sum, [f, to]) => sum + (status.pairs.find(([p]) => p === `${f}-${to}`)?.[1] ?? 0), 0);
+  const nameOf = (code: string) => {
+    const name = names.of(code) ?? code;
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  };
   return (
     <>
+      <Row label={t("Übersetzen in")} hint={t("Die Sprachen unten werden in diese übersetzt")}>
+        <Select
+          value={(OFFLINE_TARGETS as readonly string[]).includes(picked) ? picked : ""}
+          options={[{ value: "", label: t("Sprache von Crest ({name})", { name: nameOf(targetOf("", lang())) }) }, ...OFFLINE_TARGETS.map((code) => ({ value: code, label: nameOf(code) }))]}
+          onChange={(offlineTarget) => setMusic({ offlineTarget })}
+        />
+      </Row>
       {OFFLINE_SOURCES.filter((code) => code !== target).map((code) => {
         const pairs = pairsFor(code, target);
         const own = pairs[0];
@@ -140,9 +152,8 @@ function OfflineLanguages() {
             : ready
               ? t("Installiert, {mb} MB", { mb: mb(sizeOf(pairs)) })
               : t("Download von 40 bis 70 MB");
-        const label = names.of(code) ?? code;
         return (
-          <Row key={code} label={label.charAt(0).toUpperCase() + label.slice(1)} hint={hint}>
+          <Row key={code} label={nameOf(code)} hint={hint}>
             {isNative && (
               <Button disabled={busy !== null} onClick={() => run(ready ? removePair(own) : downloadPairs(pairs))}>
                 {ready ? t("Entfernen") : t("Laden")}

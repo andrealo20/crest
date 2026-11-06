@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { detectLanguage, modelCode, pairsFor, translationLrc } from "./offline.ts";
+import { detectLanguage, modelCode, pairsFor, targetOf, translationLrc } from "./offline.ts";
 
 test("models go through English unless one side is English", () => {
   assert.deepEqual(pairsFor("ja", "it"), [["ja", "en"], ["en", "it"]]);
@@ -9,6 +9,10 @@ test("models go through English unless one side is English", () => {
   assert.deepEqual(pairsFor("it", "it"), []);
   assert.equal(modelCode("pt-BR"), "pt");
   assert.equal(modelCode("zh-CN"), "zh");
+  // The picked language, else Crest's own.
+  assert.equal(targetOf("ja", "it"), "ja");
+  assert.equal(targetOf("", "pt-BR"), "pt");
+  assert.equal(targetOf("xx", "it"), "it");
 });
 
 test("a song's language from its script or its common words", () => {

@@ -11,8 +11,8 @@ const IDLE_MS = 30_000;
 
 export interface OfflineStatus {
   engine: boolean;
-  /** Downloaded pairs ("ja-en") and their size in bytes. */
-  pairs: [string, number][];
+  /** Downloaded pairs ("ja-en"), their size in bytes, and whether the vocabulary comes as two files. */
+  pairs: [string, number, boolean][];
 }
 
 export const offlineStatus = createStore<OfflineStatus>({ engine: false, pairs: [] });
@@ -66,8 +66,10 @@ export async function translateOffline(pairs: [string, string][], lines: string[
     pairs.map(async ([from, to]) => {
       const key = `${from}-${to}`;
       if (!fresh && inWorker.has(key)) return { from, to };
-      const [model, lex, vocab] = await Promise.all([file(key, "model"), file(key, "lex"), file(key, "vocab")]);
-      return { from, to, model, lex, vocab };
+      const split = offlineStatus.get().pairs.find(([p]) => p === key)?.[2] ?? false;
+      const kinds = ["model", "lex", ...(split ? ["srcvocab", "trgvocab"] : ["vocab"])];
+      const files = await Promise.all(kinds.map((kind) => file(key, kind)));
+      return { from, to, ...Object.fromEntries(kinds.map((kind, i) => [kind, files[i]])) };
     }),
   );
   if (!worker) {
@@ -82,7 +84,7 @@ export async function translateOffline(pairs: [string, string][], lines: string[
   }
   for (const [from, to] of pairs) inWorker.add(`${from}-${to}`);
   const id = nextId++;
-  const transfer = [wasm, ...models.flatMap((m) => [m.model, m.lex, m.vocab])].filter((b): b is ArrayBuffer => b instanceof ArrayBuffer);
+  const transfer = [wasm, ...models.flatMap((m) => Object.values(m))].filter((b): b is ArrayBuffer => b instanceof ArrayBuffer);
   const result = new Promise<string[]>((resolve, reject) => waiting.set(id, { resolve, reject }));
   worker.postMessage({ id, wasm, models, lines }, transfer);
   try {

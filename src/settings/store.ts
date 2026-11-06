@@ -114,6 +114,8 @@ export interface Settings {
     closedTranslation: boolean;
     /** Lyrics translated on this computer into Crest's language, with downloaded models (offline.ts). */
     offlineTranslation: boolean;
+    /** The language to translate into ("" = Crest's own, offline.ts `targetOf`). */
+    offlineTarget: string;
     eqStyle: "bars" | "spectrum" | "wave";
     progressStyle: "line" | "wavy";
   };
@@ -224,6 +226,7 @@ const defaults: Settings = {
     closedRoman: false,
     closedTranslation: false,
     offlineTranslation: false,
+    offlineTarget: "",
     eqStyle: "bars",
     progressStyle: "line",
   },

@@ -2,12 +2,12 @@
 // with Mozilla's models, off the page's thread. Set up as Firefox's own translations worker does
 // (toolkit/components/translations/content/translations-engine.worker.js, MPL-2.0).
 //
-// In:  { id, wasm, models: [{ from, to, model, lex, vocab }], lines }  (one model, or two through English)
+// In:  { id, wasm, models: [{ from, to, model, lex, vocab } or { ..., srcvocab, trgvocab }], lines }  (one model, or two through English)
 // Out: { id, lines } with one translation per line, or { id, error }
 /* global loadBergamot */
 importScripts("bergamot-translator.js");
 
-const ALIGN = { model: 256, lex: 64, vocab: 64 };
+const ALIGN = { model: 256, lex: 64, vocab: 64, srcvocab: 64, trgvocab: 64 };
 let bergamot = null;
 const loaded = new Map();
 
@@ -28,13 +28,19 @@ function model(b, m) {
   const key = `${m.from}-${m.to}`;
   if (loaded.has(key)) return loaded.get(key);
   const mem = {};
-  for (const kind of ["model", "lex", "vocab"]) {
+  for (const kind of ["model", "lex", "vocab", "srcvocab", "trgvocab"]) {
+    if (!m[kind]) continue;
     const bytes = new Uint8Array(m[kind]);
     mem[kind] = new b.AlignedMemory(bytes.byteLength, ALIGN[kind]);
     mem[kind].getByteArrayView().set(bytes);
   }
   const vocabs = new b.AlignedMemoryList();
-  vocabs.push_back(mem.vocab);
+  // One shared vocabulary, or one for each side.
+  if (mem.vocab) vocabs.push_back(mem.vocab);
+  else {
+    vocabs.push_back(mem.srcvocab);
+    vocabs.push_back(mem.trgvocab);
+  }
   const config = Object.entries({
     "beam-size": "1",
     normalize: "1.0",

@@ -8,7 +8,7 @@ import { LEAD, cacheKey, closedLine, foundOf, lineAt, lookupAllowed, lyricsOf, p
 import { createLyricsCache, type CacheEntry } from "./lyricsCache";
 import { enabledSources, firstFound, type LyricSourceId } from "./lyricSources";
 import { lang } from "../../i18n";
-import { detectLanguage, modelCode, pairsFor, translationLrc } from "./offline";
+import { detectLanguage, pairsFor, targetOf, translationLrc } from "./offline";
 import { hasPair, offlineStatus, translateOffline } from "./offlineEngine";
 
 /*
@@ -214,7 +214,7 @@ const translating = new Map<string, Promise<string | null>>();
  */
 export function useOfflineTranslation(np: NowPlaying | null, lines: LyricLine[] | null, on: boolean): LyricLine[] | null {
   const status = offlineStatus.use();
-  const target = modelCode(lang());
+  const target = targetOf(settings.use().music.offlineTarget, lang());
   const [made, setMade] = useState<{ from: LyricLine[]; lines: LyricLine[] } | null>(null);
   useEffect(() => {
     if (!on || !np || !lines || !status.engine) return;
