@@ -164,7 +164,7 @@ export function ClipboardView() {
                 selected={previewId === item.id}
                 onClick={() => (item.thumbnail && !hidden ? setPreviewId((p) => (p === item.id ? null : item.id)) : void copy(item.id))}
               />
-              <div className="absolute top-2 end-2 flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              <div className="absolute top-2 end-2 flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
                 {item.thumbnail && !hidden && <CardButton label={t("Kopieren")} icon={Copy} onClick={() => void copy(item.id)} />}
                 <CardButton label={t("Entfernen")} icon={X} onClick={() => clipboard.remove(item.id)} />
               </div>

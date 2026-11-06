@@ -6,7 +6,7 @@ import { HeaderActions, HeaderButton } from "../../notch/header";
 import { Segmented } from "../../ui/controls";
 import { formatTime } from "../../lib/format";
 import { locale, t } from "../../i18n";
-import { TASK_COLORS, nextTask, sortTasks, type Project, type Task, type TaskColor } from "./model";
+import { DEFAULT_PROJECT, TASK_COLORS, nextTask, sortTasks, type Project, type Task, type TaskColor } from "./model";
 import { dayDiff, defaultDay, dueAt, parseTime } from "./schedule";
 import { dueTasks, todoActions, todos } from "./store";
 import { colorVar } from "./colors";
@@ -72,7 +72,7 @@ export function TodosView() {
         </form>
 
         <div className="-mx-1 mt-1.5 flex-1 overflow-y-auto px-1 [scrollbar-width:none]">
-          {mine.length === 0 && <div className="flex h-full items-center justify-center text-body text-label-3">{t("Alles erledigt")}</div>}
+          {mine.length === 0 && <div className="flex h-full items-center justify-center text-body text-label-3">{t("Nichts offen")}</div>}
           <AnimatePresence initial={false}>
             {mine.map((task) => (
               <TaskRow
@@ -142,6 +142,9 @@ function Projects({ projects, active, tasks, ringing }: { projects: Project[]; a
   );
 }
 
+/** The built-in first project is stored in English; show it in the interface language until it is renamed. */
+const projectName = (p: Project) => (p.id === DEFAULT_PROJECT.id && p.name === DEFAULT_PROJECT.name ? t("Persönlich") : p.name);
+
 function ProjectRow(props: { project: Project; active: boolean; ringing: boolean; open: number; next: Task | null; deletable: boolean }) {
   const { project, active, ringing, open, next, deletable } = props;
   const [renaming, setRenaming] = useState(false);
@@ -165,14 +168,14 @@ function ProjectRow(props: { project: Project; active: boolean; ringing: boolean
         <span className="relative flex w-full items-center gap-1.5">
           {renaming ? (
             <NameInput
-              initial={project.name}
+              initial={projectName(project)}
               onDone={(name) => {
                 setRenaming(false);
                 if (name) todoActions.renameProject(project.id, name);
               }}
             />
           ) : (
-            <span className="min-w-0 flex-1 truncate text-body font-medium">{project.name}</span>
+            <span className="min-w-0 flex-1 truncate text-body font-medium">{projectName(project)}</span>
           )}
           {ringing && <AlarmIcon size={11} weight="fill" className="shrink-0 text-orange" aria-label={t("Zeit ist um")} />}
           {!renaming && <span className={`tabular text-caption text-label-3 ${deletable ? "group-hover:opacity-0" : ""}`}>{open || ""}</span>}
@@ -185,7 +188,7 @@ function ProjectRow(props: { project: Project; active: boolean; ringing: boolean
           title={confirm ? t("Projekt mit Aufgaben löschen") : t("Projekt löschen")}
           onClick={() => (confirm ? todoActions.removeProject(project.id) : setConfirm(true))}
           className={`pressable absolute top-1 end-1 flex h-[18px] items-center justify-center rounded-full px-1 text-caption ${
-            confirm ? "bg-red text-black opacity-100" : "text-label-4 opacity-0 group-hover:opacity-100 hover:text-label-2"
+            confirm ? "bg-red text-black opacity-100" : "text-label-4 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-label-2"
           }`}
         >
           {confirm ? t("Löschen?") : <X size={11} weight="bold" />}
@@ -276,6 +279,7 @@ function TaskRow({ task, now, ringing, editing, onEdit }: { task: Task; now: num
           />
         ) : (
           <span
+            dir="auto"
             onDoubleClick={() => setRenaming(true)}
             title={task.text}
             className={`min-w-0 flex-1 truncate text-body transition-colors duration-200 ${task.done ? "text-label-3 line-through" : "text-label"}`}
@@ -299,21 +303,21 @@ function TaskRow({ task, now, ringing, editing, onEdit }: { task: Task; now: num
           aria-label={t("Zeit und Farbe")}
           title={t("Zeit und Farbe")}
           onClick={onEdit}
-          className={`pressable flex size-6 items-center justify-center ${editing ? "text-label" : "text-label-4 opacity-0 group-hover:opacity-100 hover:text-label-2"}`}
+          className={`pressable flex size-6 items-center justify-center ${editing ? "text-label" : "text-label-4 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-label-2"}`}
         >
           <Clock size={14} weight="bold" />
         </button>
         <button
           aria-label={t("Markieren")}
           onClick={() => todoActions.patch(task.id, { starred: !task.starred })}
-          className={`pressable flex size-6 items-center justify-center ${task.starred ? "text-yellow" : "text-label-4 opacity-0 group-hover:opacity-100"}`}
+          className={`pressable flex size-6 items-center justify-center ${task.starred ? "text-yellow" : "text-label-4 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`}
         >
           <Star size={14} weight={task.starred ? "fill" : "bold"} />
         </button>
         <button
           aria-label={t("Löschen")}
           onClick={() => todoActions.remove(task.id)}
-          className="pressable flex size-6 items-center justify-center text-label-4 opacity-0 group-hover:opacity-100 hover:text-label-2"
+          className="pressable flex size-6 items-center justify-center text-label-4 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-label-2"
         >
           <X size={13} weight="bold" />
         </button>
@@ -323,10 +327,13 @@ function TaskRow({ task, now, ringing, editing, onEdit }: { task: Task; now: num
   );
 }
 
+/** "14:30" in every language and clock setting, so parseTime always reads it back. */
+const clock24 = (at: number) => `${new Date(at).getHours()}:${String(new Date(at).getMinutes()).padStart(2, "0")}`;
+
 /** Second line of an open row: colour, due time (typed) and day. */
 function TaskDetails({ task, onClose }: { task: Task; onClose: () => void }) {
   const now = Date.now();
-  const [time, setTime] = useState(task.due !== null ? formatTime(task.due) : "");
+  const [time, setTime] = useState(task.due !== null ? clock24(task.due) : "");
   const parsed = parseTime(time);
   // null = automatic: today while the typed time is still ahead, else tomorrow. Only a saved "tomorrow" that
   // automatic would read as today (tomorrow 15:00, now 14:00) is kept as a choice; anything else, including a

@@ -119,9 +119,10 @@ function scheduleEnd() {
   endTimeout = window.setTimeout(() => {
     scheduledFor = null;
     checkEnd();
-    // Woke too early (clock change): try again.
+    // Woke too early (clock change) or capped: try again.
     scheduleEnd();
-  }, Math.max(0, endsAt - Date.now()));
+    // At most a minute at a time, so a sleep cannot delay the end by its length.
+  }, Math.min(60_000, Math.max(0, endsAt - Date.now())));
 }
 /** The detached timer window (timer.html) shows and controls the timer, but only the notch window rings. */
 export const isTimerWindow = location.pathname.endsWith("/timer.html");

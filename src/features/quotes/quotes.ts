@@ -15,7 +15,7 @@ export const QUOTES: Quote[] = [
   { text: "Lost time is never found again.", author: "Benjamin Franklin", source: "Poor Richard's Almanack" },
   { text: "Well done is better than well said.", author: "Benjamin Franklin", source: "Poor Richard's Almanack" },
   { text: "The superior man is modest in his speech, but exceeds in his actions.", author: "Confucius", source: "Analects XIV, tr. James Legge" },
-  { text: "A journey of a thousand miles begins with a single step.", author: "Lao Tzu", source: "Tao Te Ching 64" },
+  { text: "The journey of a thousand li commenced with a single step.", author: "Lao Tzu", source: "Tao Te Ching 64, tr. James Legge" },
 ];
 
 /** The quote for a day (same all day, a different one tomorrow), moved on by `skip` presses of Next. */

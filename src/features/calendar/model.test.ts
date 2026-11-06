@@ -38,6 +38,7 @@ test("source ids, colours and link hosts", () => {
   assert.equal(nextColor([{ color: PALETTE[0] }]), PALETTE[1]);
   assert.equal(linkHost("webcal://p52-caldav.icloud.com/published/2/x"), "p52-caldav.icloud.com");
   assert.equal(linkHost("https://outlook.office365.com/owa/calendar/a/b/calendar.ics"), "outlook.office365.com");
+  assert.equal(linkHost("caldav.fastmail.com"), "caldav.fastmail.com");
   assert.equal(linkHost("not a link"), "");
 });
 

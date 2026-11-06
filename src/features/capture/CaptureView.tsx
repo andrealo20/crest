@@ -307,7 +307,7 @@ function Card({ file, details, onDeleted }: { file: CaptureFile; details?: Captu
         <p className="truncate text-caption font-medium text-label" title={file.name}>{when(file.modified)}</p>
         <div className="flex items-center justify-between">
           {deleteError ? <span className="min-w-0 truncate text-caption text-red" title={deleteError}>{deleteError}</span> : <span className="tabular text-caption text-label-3">{formatBytes(file.size, 0)}</span>}
-          <span className={`flex transition-opacity duration-150 group-hover:opacity-100 ${armed ? "opacity-100" : "opacity-0"}`}>
+          <span className={`flex transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100 ${armed ? "opacity-100" : "opacity-0"}`}>
             <IconBtn label={t("Im Explorer zeigen")} icon={FolderOpen} onClick={() => revealFile(file.path)} />
             <IconBtn label={armed ? t("Zum Löschen erneut klicken") : t("Löschen")} icon={Trash} danger={armed} onClick={onDelete} />
           </span>

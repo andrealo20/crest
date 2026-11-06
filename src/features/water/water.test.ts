@@ -67,6 +67,12 @@ test("window past midnight", () => {
   assert.equal(nextWaterAlert(at(31, 23), at(31, 22, 10), night, []), at(31, 23, 10));
 });
 
+test("equal from and to is the whole day", () => {
+  const all = { ...cfg, from: 9 * 60, to: 9 * 60 };
+  assert.equal(nextWaterAlert(at(31, 14), at(31, 14), all, []), at(31, 15));
+  assert.equal(hourly([], at(31, 18), all).length, 24);
+});
+
 test("goal reached before midnight: the window's tail after midnight stays quiet", () => {
   const night = { ...cfg, from: 22 * 60, to: 2 * 60 };
   const full = [{ at: at(31, 23), ml: 2000 }];

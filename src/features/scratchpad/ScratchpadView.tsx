@@ -22,6 +22,8 @@ const colors: Record<TokenKind, string | undefined> = {
 /** The draft taken by the last Clear, for one undo; kept while the notch closes, dropped on the next edit. */
 let cleared: { lang: Language; text: string } | null = null;
 
+const COLOR_LIMIT = 100_000;
+
 // Same metrics on the textarea and the coloured copy below it, or the caret drifts.
 const TEXT = "font-mono text-[12px] leading-[18px] [tab-size:4] whitespace-pre";
 
@@ -36,7 +38,8 @@ export function ScratchpadView() {
   const [, redraw] = useState(0);
   const canUndo = !text && cleared?.lang === lang;
   const area = useRef<HTMLTextAreaElement>(null);
-  const tokens = useMemo(() => tokenize(text, lang), [text, lang]);
+  // Past this size, one plain span: tens of thousands of coloured spans would make typing lag.
+  const tokens = useMemo(() => (text.length > COLOR_LIMIT ? [{ kind: "plain" as const, text }] : tokenize(text, lang)), [text, lang]);
   const lines = text.split("\n").length;
   const setText = (v: string) => pad.set((s) => ({ ...s, texts: { ...s.texts, [s.lang]: v } }));
 
@@ -85,7 +88,8 @@ export function ScratchpadView() {
     } else {
       const block = value.slice(lineStart, b);
       const next = e.shiftKey ? block.replace(new RegExp(`^ {1,${ind.length}}`, "gm"), "") : block.replace(/^/gm, ind);
-      el.setRangeText(next, lineStart, b, "select");
+      // An empty selection stays a caret (after the text that was kept).
+      el.setRangeText(next, lineStart, b, a === b ? "end" : "select");
     }
     edit(el.value);
   };

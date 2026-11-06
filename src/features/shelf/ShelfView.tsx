@@ -393,7 +393,7 @@ export function ShelfView() {
                   data-remove
                   aria-label={t("Entfernen")}
                   onClick={() => shelf.set((l) => removeKeys(l, [key]))}
-                  className="pressable absolute top-1.5 end-1.5 flex size-5 items-center justify-center rounded-full bg-fill-3 text-label-2 opacity-0 backdrop-blur-md group-hover:opacity-100 hover:text-label"
+                  className="pressable absolute top-1.5 end-1.5 flex size-5 items-center justify-center rounded-full bg-fill-3 text-label-2 opacity-0 backdrop-blur-md group-hover:opacity-100 focus-visible:opacity-100 hover:text-label"
                 >
                   <X size={10} weight="bold" />
                 </button>
@@ -499,7 +499,7 @@ function FileCard({ item, copied, onCopy, onFail }: { item: FileItem; copied: bo
         <p className="truncate text-caption font-medium text-label" title={name}>{name}</p>
         <div className="flex items-center justify-between">
           <span className="tabular text-caption text-label-3">{formatBytes(item.size, 0)}</span>
-          <span className="flex opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          <span className="flex opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
             <IconBtn label={t("Im Explorer zeigen")} icon={FolderOpen} onClick={() => void revealFile(item.path).catch(onFail)} />
             <IconBtn label={copied ? t("Kopiert") : t("Kopieren")} icon={copied ? Check : Copy} onClick={onCopy} />
             <IconBtn label={t("Öffnen")} icon={ArrowSquareOut} onClick={open} />
@@ -522,7 +522,7 @@ function TextCard({ item, hidden, copied, onCopy }: { item: TextItem; hidden: bo
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={copied ? "done" : "copy"}
-            className={`flex ${copied ? "text-green" : "text-label-3 opacity-0 group-hover:opacity-100"}`}
+            className={`flex ${copied ? "text-green" : "text-label-3 opacity-0 group-hover:opacity-100 focus-within:opacity-100"}`}
             initial={{ opacity: 0, transform: "scale(0.6)" }}
             animate={{ opacity: 1, transform: "scale(1)" }}
             exit={{ opacity: 0, transform: "scale(0.6)" }}

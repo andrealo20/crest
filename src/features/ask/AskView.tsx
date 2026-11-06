@@ -240,7 +240,7 @@ function Bubble({ message, streaming }: { message: ChatMessage; streaming: boole
                 setTimeout(() => setCopied(false), 1200);
               }, () => {});
             }}
-            className="pressable mt-1 flex items-center gap-1 text-caption text-label-4 opacity-0 group-hover:opacity-100 hover:text-label-2"
+            className="pressable mt-1 flex items-center gap-1 text-caption text-label-4 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-label-2"
           >
             {copied ? <Check size={11} weight="bold" /> : <Copy size={11} weight="bold" />} {copied ? t("Kopiert") : t("Kopieren")}
           </button>
