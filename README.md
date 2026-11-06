@@ -130,7 +130,7 @@ Also new: a click on a notice opens what it is about (What's new, the recording,
 - **Microsoft Store:** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS), signed by Microsoft and kept up to date by the Store.
 - **Installer:** download `Crest_x.y.z_x64-setup.exe` (or `Crest_x.y.z_arm64-setup.exe` on a Windows on ARM PC) from the [latest release](https://github.com/andrealo20/crest/releases/latest) and run it. It installs for your user only. The installer is not code-signed yet, so SmartScreen may warn on first launch: click **More info → Run anyway**.
 - **Portable:** unzip `Crest-x.y.z-Portable-x64.zip` (or `-Portable-arm64.zip`) anywhere you can write to and run `Crest.exe`. Nothing is installed.
-- **Mac (preview):** download `Crest_x.y.z_aarch64.dmg` for Apple silicon or `Crest_x.y.z_x64.dmg` for Intel and drag Crest to Applications. The app is not notarized yet, so macOS refuses it on first launch: open **System Settings → Privacy & Security → Open Anyway**. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture and Plugins are Windows-only for now and don't show on a Mac.
+- **Mac (preview):** download `Crest_x.y.z_aarch64.dmg` for Apple silicon or `Crest_x.y.z_x64.dmg` for Intel and drag Crest to Applications. The app is not notarized yet, so macOS refuses it on first launch: open **System Settings → Privacy & Security → Open Anyway**. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder, Camera and Plugins are Windows-only for now and don't show on a Mac, and Find on screen has no shortcut there.
 
 Every release has a `SHA256SUMS` file with the SHA-256 of each download, to check with `sha256sum -c SHA256SUMS --ignore-missing` or `Get-FileHash`.
 
@@ -138,7 +138,7 @@ Windows 11 or Windows 10, 64-bit (x64 or ARM64), or macOS 12 or later on Apple s
 
 ## Your data stays on your PC
 
-No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Crest only goes online for the services you turn on. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
+No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Crest goes online by itself only for the weather in Overview, the daily update check and the AI usage rings of the services you are signed in to; everything else waits until you set it up. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
 
 ## Support the project
 
@@ -161,6 +161,8 @@ Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Wi
 - The text is set in [Inter](https://github.com/rsms/inter) (SIL Open Font License 1.1, [licenses/Inter-OFL.txt](licenses/Inter-OFL.txt)), bundled through Fontsource.
 - The icons are [Phosphor](https://github.com/phosphor-icons/react) (MIT, [licenses/Phosphor-MIT.txt](licenses/Phosphor-MIT.txt)).
 - The calendar maps Windows time zone names to IANA names with the table from [jiff](https://github.com/BurntSushi/jiff) (MIT, [licenses/jiff-LICENSE](licenses/jiff-LICENSE)), which also supplies the time zone database.
+- The QR code that sends Shelf files to a phone comes from [qrcodegen](https://www.nayuki.io/page/qr-code-generator-library) by Project Nayuki (MIT, [licenses/qrcodegen-MIT.txt](licenses/qrcodegen-MIT.txt)).
+- Weather data is by [Open-Meteo.com](https://open-meteo.com/), under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the installers, the Store package and the portable zip carry the licence texts in `LICENSE` and `licenses/`.
 - The design follows Apple's Dynamic Island and the macOS app OmniNotch. Crest is not affiliated with Apple or OmniNotch.
 - Crest is an independent app by Andrea Loroni. It is not made, sponsored or endorsed by Microsoft.
 

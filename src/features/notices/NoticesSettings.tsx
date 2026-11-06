@@ -37,7 +37,7 @@ export function NoticesSettings() {
     : status.access === "denied" ? t("In Windows abgelehnt: Einstellungen › Datenschutz und Sicherheit › Benachrichtigungen")
     : status.access === "unavailable" ? t("Auf diesem Windows nicht verfügbar")
     : n.enabled && n.windows ? t(modeText[status.mode] ?? status.mode)
-    : t("Liest Titel und Text der Mitteilungen anderer Apps, ändert nichts");
+    : t("Liest Titel und Text der Mitteilungen anderer Apps, entfernt sie nur, wenn du sie in Crest löschst");
 
   return (
     <>

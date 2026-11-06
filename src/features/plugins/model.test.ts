@@ -54,7 +54,7 @@ test("fields are checked", () => {
 
 test("permissions", () => {
   const m: PluginManifest = { id: "a-b", name: "A", version: "1.0.0", author: "", description: "", icon: "puzzle", entry: "index.html", size: { w: 400, h: 300 }, permissions: { network: [], storage: false, notices: false } };
-  const req = (o: Record<string, unknown>) => { const p = msg(o); assert.equal(p.kind, "ok"); return (p as { req: never }).req; };
+  const req = (o: Record<string, unknown>) => { const p = msg(o); assert.ok(p.kind === "ok"); return p.req; };
   assert.equal(permitted(req({ type: "hello" }), m), true);
   assert.equal(permitted(req({ type: "storage.keys" }), m), false);
   assert.equal(permitted(req({ type: "fetch", url: "https://x" }), m), false);

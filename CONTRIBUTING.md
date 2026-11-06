@@ -1,6 +1,6 @@
 # Contributing to Crest
 
-Bug reports, ideas and pull requests are welcome. For anything larger than a small fix, open an issue first so we can agree on the approach. Before a pull request, run `npm run typecheck`, `npm test`, `npm run i18n` and `cargo test`, and keep interface text in English. Contributions are released under the GPL-3.0, like the rest of the project.
+Bug reports, ideas and pull requests are welcome. For anything larger than a small fix, open an issue first so we can agree on the approach. Before a pull request, run `npm run typecheck`, `npm test`, `npm run i18n` and `cargo test`. Interface text goes through `t()` with the German text as its id; the English text goes in `src/i18n/en.json` and the other languages in their own file in that folder. Contributions are released under the GPL-3.0, like the rest of the project.
 
 ## Build from source
 
@@ -20,7 +20,7 @@ npm run tauri dev  # the real app, run it in PowerShell
 npm run site:dev   # the project page; its demo is the app served by npm run dev, which must be running
 npm test           # frontend tests
 npm run typecheck  # before every commit
-npm run i18n       # finds missing English strings (add --fix for TODO entries)
+npm run i18n       # finds German text outside t() and ids missing from en.json (add --fix for TODO entries)
 cd src-tauri && cargo test   # backend tests
 ```
 
@@ -55,7 +55,7 @@ The Store build never updates itself: the updater plugin is not loaded, and Sett
 
 ### Releasing
 
-Releases are built by GitHub Actions (`.github/workflows/release.yml`). Bump the version, commit and push:
+Releases are built by GitHub Actions (`.github/workflows/release.yml`). First write the notes: an entry for the version at the top of `src/changelog.json` (the app's What's new screen), `docs/releases/v0.2.0.md` (shown on the release page) and, for a feature release, the README's "New in" section. Then bump the version, commit and push; the bump refuses to run while the changelog entry or the release notes file is missing:
 
 ```bash
 npm run bump 0.2.0

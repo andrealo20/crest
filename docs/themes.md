@@ -20,7 +20,7 @@ With a Windows contrast theme on, Crest uses the system colours whatever theme i
 
 ## Theme files
 
-A theme is a JSON file. **Export** writes the theme on screen (the unsaved colours too, while editing) to `%APPDATA%\io.github.andrealo20.crest\themes\<id>.json`. **Import** reads every `.json` file in that folder (**Open folder** opens it, at most 100 files are read) and adds the valid ones to your themes. It never replaces a theme: a file equal to one you have is skipped, and a different file with the id of one of yours comes in beside it as `<id>-2`, so an old export cannot undo later edits. An export of a built-in theme is skipped; a file that reuses a built-in id with other colours is refused. Each file that cannot be used is listed with the reason.
+A theme is a JSON file. **Export** writes the theme on screen (the unsaved colours too, while editing) to `%APPDATA%\io.github.andrealo20.crest\themes\<id>.json` (in a portable copy that is `data\themes` next to `Crest.exe`, on a Mac `~/Library/Application Support/io.github.andrealo20.crest/themes`). **Import** reads every `.json` file in that folder (**Open folder** opens it, at most 100 files are read) and adds the valid ones to your themes. It never replaces a theme: a file equal to one you have is skipped, and a different file with the id of one of yours comes in beside it as `<id>-2`, so an old export cannot undo later edits. An export of a built-in theme is skipped; a file that reuses a built-in id with other colours is refused. Each file that cannot be used is listed with the reason.
 
 ```json
 {

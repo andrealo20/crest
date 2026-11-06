@@ -91,6 +91,10 @@
       "icons/128x128.png",
       "icons/icon.ico"
     ],
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../licenses/": "licenses/"
+    },
     "createUpdaterArtifacts": true,
     "windows": {
       "nsis": {

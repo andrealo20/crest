@@ -21,7 +21,7 @@ If Windows answers **Allow access** without showing a prompt (it may do that for
 
 The first reading after starting is a baseline: what is already in the action centre is not shown again.
 
-Crest only reads. The one thing it removes from the action centre is a notice you delete yourself on the Notices page (**Delete**, **Clear all**); turning live notices off leaves the action centre as it is. It never dismisses or changes a notification, never opens links from a notification, and changes other apps' notification settings only with the switch that hides Windows' banners.
+Crest reads, and changes things only when you ask. Deleting a notice on the Notices page (one, or **Clear all**) also removes it from the action centre. A click on a Windows notice opens the app it came from, on its start page, never a link inside the notification. With **Hide Windows banners** on, Crest turns off *Show notification banners* for the apps it shows (`ShowBanner` under `HKCU\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\<app>`), so a notification pops up once, in the notch, and still lands in the action centre. Each banner it hid is marked with `CrestHidBanner`, and only those come back when you turn the switch off, when Crest quits or when it is uninstalled (after a crash, at the next start); banners you had switched off yourself stay off. The Microsoft Store build cannot write these settings and opens Windows' notification settings instead. Crest never dismisses a notification by itself.
 
 Other ways were considered and left out. Reading Windows' notification database file (`wpndatabase.db`) depends on an undocumented format that changes between Windows builds and on a file the notification service keeps locked. Registering Crest as a package only to receive the event would need Developer Mode or a signed package.
 
@@ -192,6 +192,7 @@ If `crest-notify` is not on your `PATH`, put the full path in its place, for exa
 ## Privacy
 
 - Everything happens on this PC. No notification, title or text is sent anywhere.
+- Crest changes other apps' notification settings only through **Hide Windows banners**, and undoes it on exit (see above).
 - The history is kept in memory only, at most 100 notices and 24 hours, and is gone when Crest quits or live notices are switched off. Notification texts are never written to disk. The settings keep the names and ids of the apps that sent notices, so their rules can be set.
 - App logos come from Windows; nothing is downloaded.
 - The crest-notify channel is a named pipe that only your Windows account can open: its access list grants your user and nobody else, connections from other computers are refused, clients from another sign-in session are refused, and the pipe name includes your session and user id. Crest only opens the channel when no other program holds that name; if one does, the settings say the channel could not be opened. On its side, crest-notify sends nothing unless it can check that the program at the other end of the pipe runs under your account and at least at its own integrity level (so a sandboxed low-integrity program cannot pose as Crest), and it connects for identification only, so that program could not act as you even if it were someone else's.

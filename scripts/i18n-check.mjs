@@ -29,6 +29,8 @@ for (const file of files) {
   if (file.includes(`${join("i18n", "")}`) || file.includes(`${join("dev", "")}`)) continue;
   const text = readFileSync(file, "utf8");
   for (const m of text.matchAll(callRe)) used.add(m[2].replace(/\\(["'`\\])/g, "$1"));
+  // A regex on "ß" and the test fixtures are not interface text.
+  if (/\.test\.tsx?$/.test(file) || file.endsWith(join("settings", "search.ts"))) continue;
   text.split("\n").forEach((line, i) => {
     const code = line.replace(/\/\/.*$/, "").trim();
     if (code.startsWith("*") || code.startsWith("/*")) return;
@@ -50,13 +52,18 @@ console.log(`\nGerman without t() (${suspicious.length}):\n  ${suspicious.join("
 if (process.argv.includes("--unused")) console.log(`\nNot found via t() directly (${unused.length}):\n  ${unused.join("\n  ")}`);
 
 // The other languages: keys of en.json they lack (they fall back to English) and keys en.json no longer has.
-// Informational until every dictionary is filled; German is the ids, de.json only holds corrections.
-console.log("\nOther languages (missing / not in en.json):");
+// Any gap fails the check; German is the ids, de.json only holds corrections.
+// A translation must keep the {placeholders} of the English text.
+const holes = (s) => (s.match(/\{\w+\}/g) ?? []).sort().join();
+let broken = 0;
+console.log("\nOther languages (missing / not in en.json / wrong placeholders):");
 for (const f of readdirSync(join(root, "i18n")).filter((f) => f.endsWith(".json") && f !== "en.json").sort()) {
   const other = JSON.parse(readFileSync(join(root, "i18n", f), "utf8"));
   const lacking = f === "de.json" ? [] : Object.keys(dict).filter((k) => !other[k]);
   const stale = Object.keys(other).filter((k) => dict[k] === undefined);
-  console.log(`  ${f.replace(".json", "").padEnd(6)} ${String(lacking.length).padStart(5)} / ${stale.length}`);
+  const wrong = f === "de.json" ? [] : Object.keys(other).filter((k) => dict[k] !== undefined && other[k] && holes(other[k]) !== holes(dict[k]));
+  broken += lacking.length + stale.length + wrong.length;
+  console.log(`  ${f.replace(".json", "").padEnd(6)} ${String(lacking.length).padStart(5)} / ${stale.length} / ${wrong.length}`);
 }
 
 if (fix) {
@@ -66,4 +73,4 @@ if (fix) {
   writeFileSync(dictPath, JSON.stringify(next, null, 1) + "\n");
   console.log("\nen.json updated.");
 }
-process.exitCode = missing.length > 0 ? 1 : 0;
+process.exitCode = missing.length > 0 || broken > 0 ? 1 : 0;

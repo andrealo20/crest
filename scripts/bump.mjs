@@ -1,10 +1,20 @@
 // Sets the app version everywhere it lives: `npm run bump 1.2.0`.
 // Commit and push afterwards; the release workflow builds and publishes it.
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 const version = process.argv[2];
 if (!/^\d+\.\d+\.\d+$/.test(version ?? "")) {
   console.error("Usage: npm run bump <major.minor.patch>");
+  process.exit(1);
+}
+
+// The notes come first: the app's What's new screen and the release page read them.
+if (!JSON.parse(readFileSync("src/changelog.json", "utf8")).some((e) => e.version === version)) {
+  console.error(`src/changelog.json has no entry for ${version}: write it first.`);
+  process.exit(1);
+}
+if (!existsSync(`docs/releases/v${version}.md`)) {
+  console.error(`docs/releases/v${version}.md is missing: write the release notes first.`);
   process.exit(1);
 }
 
@@ -16,6 +26,7 @@ const edit = (path, pattern, replacement) => {
 
 edit("package.json", /("version":\s*")[^"]+(")/, `$1${version}$2`);
 edit("src-tauri/tauri.conf.json", /("version":\s*")[^"]+(")/, `$1${version}$2`);
+edit("package-lock.json", /("name":\s*"crest",\s*"version":\s*")[^"]+(")/g, `$1${version}$2`);
 edit("src-tauri/Cargo.toml", /^(version\s*=\s*")[^"]+(")/m, `$1${version}$2`);
 edit("src-tauri/Cargo.lock", /(name = "crest"\r?\nversion = ")[^"]+(")/, `$1${version}$2`);
 

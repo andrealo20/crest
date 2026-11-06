@@ -8,7 +8,7 @@ import "./looks.css";
 
 /*
  * The big countdown in the chosen look. Fills the width it gets; `h` is the height in px
- * (44 in the notch, 52 in the detached window, 24 in the settings preview), every size
+ * (44 in the notch, 40 in the detached window, 20 in the settings preview), every size
  * derives from it. Animations only while `running`; looks.css stops them for reduced motion.
  */
 export interface LookProps {

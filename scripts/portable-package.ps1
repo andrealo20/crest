@@ -47,6 +47,12 @@ $zip = [IO.Compression.ZipFile]::Open([IO.Path]::GetFullPath($Destination), [IO.
 try {
     [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, (Resolve-Path -LiteralPath $Exe).Path, "$Folder/Crest.exe", [IO.Compression.CompressionLevel]::Optimal)
     [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, (Resolve-Path -LiteralPath $Notify).Path, "$Folder/crest-notify.exe", [IO.Compression.CompressionLevel]::Optimal)
+    # The licence texts the GPL and the bundled fonts and libraries ask to travel with a copy.
+    $root = Split-Path -Parent $PSScriptRoot
+    foreach ($file in @(Get-Item -LiteralPath (Join-Path $root 'LICENSE')) + @(Get-ChildItem -LiteralPath (Join-Path $root 'licenses') -File)) {
+        $name = if ($file.Name -eq 'LICENSE') { 'LICENSE' } else { "licenses/$($file.Name)" }
+        [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $file.FullName, "$Folder/$name", [IO.Compression.CompressionLevel]::Optimal)
+    }
     foreach ($entry in @(@{ Name = 'Crest.portable'; Text = $marker }, @{ Name = 'README-portable.txt'; Text = $readme -replace "`r?`n", "`r`n" })) {
         $writer = [IO.StreamWriter]::new($zip.CreateEntry("$Folder/$($entry.Name)").Open(), [Text.UTF8Encoding]::new($false))
         try { $writer.Write($entry.Text) } finally { $writer.Dispose() }
