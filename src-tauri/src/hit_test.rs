@@ -39,6 +39,13 @@ impl HitRect {
         x >= self.x && x <= self.x + self.w && y >= self.y && y <= self.y + self.h
     }
 
+    /// Distance from the point to the zone's edge; 0 inside.
+    fn distance(&self, x: f64, y: f64) -> f64 {
+        let dx = (self.x - x).max(x - (self.x + self.w)).max(0.0);
+        let dy = (self.y - y).max(y - (self.y + self.h)).max(0.0);
+        dx.hypot(dy)
+    }
+
     /// Larger zone while something is dragged towards the notch, so files are easier
     /// to drop onto the small closed notch (quick drop).
     /// Grows into the screen from the edge the notch hangs from (0 top, 1 bottom, 2 left, 3 right) and along it both ways.
@@ -173,9 +180,9 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             let passthrough = state.passthrough.load(Ordering::Relaxed);
             // Edge distance to the hit zone; a held button keeps the fast poll (drags,
             // triple click in focus mode).
-            let dx = (rect.x - x).max(x - (rect.x + rect.w)).max(0.0);
-            let dy = (rect.y - y).max(y - (rect.y + rect.h)).max(0.0);
-            far = !dragging && !was_down && dx.hypot(dy) > FAR && state.pet.lock().unwrap().is_none();
+            let pet = *state.pet.lock().unwrap();
+            let near = rect.distance(x, y).min(pet.map_or(f64::INFINITY, |p| p.distance(x, y)));
+            far = !dragging && !was_down && near > FAR;
 
             if passthrough {
                 // Only count clicks (button edges), never swallow them.
@@ -214,7 +221,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             was_down = dragging;
 
             let inside = if drag_active { rect.grown(state.edge.load(Ordering::Relaxed)) } else { rect }.contains(x, y);
-            let on_pet = !inside && state.pet.lock().unwrap().is_some_and(|p| p.contains(x, y));
+            let on_pet = !inside && pet.is_some_and(|p| p.contains(x, y));
             let ignore = !inside && !on_pet && !*state.pinned.lock().unwrap();
             if on_pet != last_on_pet {
                 let _ = window.emit("notch://pet-hover", on_pet);
@@ -237,4 +244,30 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const R: HitRect = HitRect { x: 10.0, y: 0.0, w: 100.0, h: 30.0 };
+
+    #[test]
+    fn contains_includes_the_edges() {
+        assert!(R.contains(10.0, 0.0) && R.contains(110.0, 30.0) && R.contains(50.0, 15.0));
+        assert!(!R.contains(9.9, 15.0) && !R.contains(50.0, 30.1));
+    }
+
+    #[test]
+    fn empty_rect_holds_only_its_point() {
+        let r = HitRect::default();
+        assert!(r.contains(0.0, 0.0) && !r.contains(0.1, 0.0));
+    }
+
+    #[test]
+    fn distance_is_zero_inside_and_euclidean_outside_the_corner() {
+        assert_eq!(R.distance(50.0, 15.0), 0.0);
+        assert_eq!(R.distance(0.0, 15.0), 10.0);
+        assert_eq!(R.distance(113.0, 34.0), 5.0);
+    }
 }
