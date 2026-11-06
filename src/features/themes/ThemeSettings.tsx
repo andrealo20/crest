@@ -358,7 +358,9 @@ function ThemeFiles() {
                     <span>
                       {r.added.length + r.unchanged + r.failed.length === 0
                         ? t("Keine .json-Dateien im Ordner")
-                        : t("{n} importiert, {u} schon vorhanden {names}", { n: r.added.length, u: r.unchanged, names })}
+                        : names
+                          ? t("{n} importiert ({names}), {u} schon vorhanden", { n: r.added.length, u: r.unchanged, names })
+                          : t("{n} importiert, {u} schon vorhanden", { n: r.added.length, u: r.unchanged })}
                     </span>
                     {r.failed.map((f) => (
                       <span key={f.file} className="text-orange">
