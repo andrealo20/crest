@@ -27,7 +27,7 @@ export function Segmented<T extends string>(props: {
 }) {
   const h = props.size === "sm" ? "h-5 px-2" : "h-6 px-3";
   return (
-    <div className="flex shrink-0 rounded-full bg-fill-1 p-0.5">
+    <div id={props.id} className="flex shrink-0 rounded-full bg-fill-1 p-0.5">
       {props.options.map((o) => {
         const active = o.value === props.value;
         return (

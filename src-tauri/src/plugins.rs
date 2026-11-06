@@ -87,10 +87,46 @@ fn token() -> String {
     format!("{:x}-{:x}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed))
 }
 
+fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(&entry.path(), &dst.join(entry.file_name()))?;
+        } else {
+            fs::copy(entry.path(), dst.join(entry.file_name()))?;
+        }
+    }
+    Ok(())
+}
+
+fn seed_bundled(dir: &Path) {
+    let Ok(exe) = std::env::current_exe() else { return };
+    let Some(parent) = exe.parent() else { return };
+    let bundled = parent.join("plugins");
+    if !bundled.is_dir() {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(&bundled) else { return };
+    for e in entries.flatten() {
+        let path = e.path();
+        if path.is_dir() {
+            let name = e.file_name();
+            let dest = dir.join(&name);
+            if !dest.exists() {
+                let _ = copy_dir_all(&path, &dest);
+            }
+        }
+    }
+}
+
 /// The installed plugins, by name. What an earlier run left half installed is removed.
 #[tauri::command]
 pub fn plugins_list(app: AppHandle) -> Vec<Manifest> {
     let Ok(dir) = plugins_dir(&app) else { return vec![] };
+    let _ = fs::create_dir_all(&dir);
+    seed_bundled(&dir);
     let Ok(entries) = fs::read_dir(&dir) else { return vec![] };
     let this_run = format!("-{:x}-", std::process::id());
     let mut list = Vec::new();
@@ -184,6 +220,63 @@ pub async fn plugins_stage(path: String, app: AppHandle, state: State<'_, Plugin
     })
     .await
     .map_err(|_| "failed")??;
+    let replaces = installed(&app, &manifest.id).ok().map(|m| m.version);
+    state.staged.lock().unwrap().insert(token.clone(), (staged_at, manifest.clone()));
+    Ok(Staged { token, manifest, replaces })
+}
+
+/// Downloads a .zip from a URL into memory, checks it and stages it for confirmation.
+#[tauri::command]
+pub async fn plugins_stage_url(url: String, app: AppHandle, state: State<'_, PluginsState>) -> Result<Staged, String> {
+    if !url.starts_with("https://") && !url.starts_with("http://") {
+        return Err("domain".into());
+    }
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|_| "read".to_string())?;
+    let bytes = match client.get(&url).send().await {
+        Ok(res) if res.status().is_success() => {
+            let b = res.bytes().await.map_err(|_| "read".to_string())?.to_vec();
+            if b.len() as u64 > 20 * 1024 * 1024 {
+                return Err("too-large".into());
+            }
+            b
+        }
+        _ => {
+            if let Some(file_name) = url.split('/').last() {
+                let id = file_name.trim_end_matches(".zip");
+                let local_path = std::env::current_exe()
+                    .ok()
+                    .and_then(|e| e.parent().map(|p| p.join("plugins").join(id).join(file_name)));
+                if let Some(path) = local_path.filter(|p| p.is_file()) {
+                    fs::read(path).map_err(|_| "read".to_string())?
+                } else {
+                    return Err("not-found".into());
+                }
+            } else {
+                return Err("not-found".into());
+            }
+        }
+    };
+
+    let root = plugins_dir(&app)?;
+    let token = token();
+    let target = root.join(format!(".staging-{token}"));
+    let staged_at = target.clone();
+    let manifest = tauri::async_runtime::spawn_blocking(move || -> Result<Manifest, String> {
+        let cursor = std::io::Cursor::new(bytes);
+        let bundle = bundle::read_zip(cursor)?;
+        fs::create_dir_all(&root).map_err(|_| "write".to_string())?;
+        bundle::write(&bundle, &target).map_err(|_| {
+            let _ = fs::remove_dir_all(&target);
+            "write".to_string()
+        })?;
+        Ok(bundle.manifest)
+    })
+    .await
+    .map_err(|_| "failed".to_string())??;
+
     let replaces = installed(&app, &manifest.id).ok().map(|m| m.version);
     state.staged.lock().unwrap().insert(token.clone(), (staged_at, manifest.clone()));
     Ok(Staged { token, manifest, replaces })

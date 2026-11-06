@@ -8,5 +8,9 @@ export function pluginPage(): string {
   return html
     .replace('<link rel="stylesheet" href="style.css" />', () => `<style>${css}</style>`)
     .replace('<script src="app.js"></script>', () => `<script>${app}</script>`)
-    .replace("<!doctype html>", () => `<!doctype html><script>${sdk}</script>`);
+    .replace(/<!doctype html>/i, () => `<!doctype html><script>${sdk}</script>`);
+}
+
+export function getPluginPage(_id?: string): string {
+  return pluginPage();
 }

@@ -32,6 +32,7 @@ import { startCapture } from "./features/capture/store";
 import { startDownloads } from "./features/downloads/store";
 import { startPlugins } from "./features/plugins/store";
 import { startMeeting } from "./features/meeting/store";
+import { BackgroundRunner } from "./features/plugins/BackgroundRunner";
 import { demo, showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
 import { startDemo } from "./dev/demo";
@@ -105,7 +106,7 @@ settings.subscribe(syncClipboardMode);
 
 // The tray menu is Rust's; its texts follow the language from here.
 language.subscribe(() =>
-  setTrayTexts({ open: t("Crest öffnen"), settings: t("Einstellungen …"), focus: t("Fokus-Modus"), autostart: isMac ? t("Bei der Anmeldung öffnen") : t("Mit Windows starten"), quit: t("Crest beenden") }),
+  setTrayTexts({ open: t("Crest Ã¶ffnen"), settings: t("Einstellungen â€¦"), focus: t("Fokus-Modus"), autostart: isMac ? t("Bei der Anmeldung Ã¶ffnen") : t("Mit Windows starten"), quit: t("Crest beenden") }),
 );
 const languageReady = startLanguage(settings);
 
@@ -129,6 +130,7 @@ function App() {
     <MotionConfig reducedMotion="user">
       {!isNative && <DesktopMock />}
       <Notch />
+      <BackgroundRunner />
     </MotionConfig>
   );
 }

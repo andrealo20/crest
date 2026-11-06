@@ -63,6 +63,9 @@ export const trackCaption = (title: string, artist: string) => [title.trim(), ar
  * a lyric line and the equalizer open the music, the timer and the clock the timer, and so on. null: the notch opens as usual.
  */
 export function partTool(part: string): string | null {
+  if (part.startsWith("plugin-pill:")) {
+    return `plugin:${part.slice(12)}`;
+  }
   switch (part) {
     case "cover":
     case "lyric":

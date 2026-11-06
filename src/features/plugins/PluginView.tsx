@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { PuzzlePiece } from "@phosphor-icons/react";
 import { isNative } from "../../platform/native";
-import { demo } from "../../dev/showcase-data";
 import { pluginApi } from "../../platform/services";
 import { requestSize, sizeOverride } from "../../notch/size";
 import { activeTheme } from "../themes/store";
 import { receivePluginNotice } from "../notices/store";
-import { lang, t } from "../../i18n";
-import { Empty } from "../../ui/controls";
+import { lang } from "../../i18n";
 import { API, allowNotice, clampSize, pageUrl, parseRequest, permitted, plainText, toolId, type PluginManifest, type PluginRequest } from "./model";
+import { setPluginPill, clearPluginPill } from "./store";
 
 /** The theme tokens a page gets: Crest's colour variables by their short name, and the font. */
 const TOKENS = ["accent", "label", "label-2", "label-3", "label-4", "fill-1", "fill-2", "fill-3", "separator", "elevated", "notch", "link", "green", "orange", "red", "yellow"];
@@ -24,7 +22,7 @@ function themeTokens(): Record<string, string> {
 const MAX_FETCHES = 4;
 
 /** Answers one checked request. Errors are short codes the page gets as the message of a rejected promise. */
-function handler(m: PluginManifest) {
+export function handler(m: PluginManifest) {
   const notices: number[] = [];
   let fetching = 0;
   return async (req: PluginRequest): Promise<unknown> => {
@@ -63,6 +61,15 @@ function handler(m: PluginManifest) {
         requestSize(toolId(m.id), size);
         return size;
       }
+      case "pill.set": {
+        const text = req.text ? plainText(req.text) : undefined;
+        setPluginPill(m.id, { text, icon: req.icon, color: req.color });
+        return null;
+      }
+      case "pill.clear": {
+        clearPluginPill(m.id);
+        return null;
+      }
     }
   };
 }
@@ -74,11 +81,11 @@ function handler(m: PluginManifest) {
  */
 export function PluginView({ manifest }: { manifest: PluginManifest }) {
   const frame = useRef<HTMLIFrameElement>(null);
-  // Demo: the sample plugin's files are inlined into the frame, there is no folder to serve them from.
+  // Demo / browser preview: the sample plugin's files are inlined into the frame, there is no folder to serve them from.
   const [page, setPage] = useState<string | null>(null);
   useEffect(() => {
-    if (demo) void import("../../dev/demo-plugin").then((m) => m.pluginPage()).then(setPage);
-  }, []);
+    if (!isNative) void import("../../dev/demo-plugin").then((m) => m.getPluginPage(manifest.id)).then(setPage);
+  }, [manifest.id]);
 
   useEffect(() => {
     const el = frame.current;
@@ -106,12 +113,11 @@ export function PluginView({ manifest }: { manifest: PluginManifest }) {
     };
   }, [manifest, page]);
 
-  if (!isNative && !demo) return <Empty icon={PuzzlePiece} title={t("Plugins laufen nur in der App")} />;
-  if (demo && page === null) return null;
+  if (!isNative && page === null) return null;
   return (
     <iframe
       ref={frame}
-      {...(demo ? { srcDoc: page ?? "" } : { src: pageUrl(manifest) })}
+      {...(!isNative ? { srcDoc: page ?? "" } : { src: pageUrl(manifest) })}
       sandbox="allow-scripts"
       referrerPolicy="no-referrer"
       title={manifest.name}

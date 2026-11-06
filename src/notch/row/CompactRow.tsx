@@ -33,6 +33,9 @@ import { t } from "../../i18n";
 import { awake } from "../../features/overview/store";
 import { DownloadsPart, downloadsCaption, downloadsWidth } from "./parts/DownloadsPart";
 import { downloads } from "../../features/downloads/store";
+import { pluginPills } from "../../features/plugins/store";
+import { iconFor } from "../../features/plugins/icons";
+import { toolId } from "../../features/plugins/model";
 
 /** True while `on`, and for `ms` after it turns off: GSMTC reports a short pause on seek and track change. */
 export function useHeld(on: boolean, ms: number): boolean {
@@ -141,6 +144,24 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   }
   if (awakeOn) fixed("awake", 13, () => <Coffee size={13} weight="fill" className="text-label-2" aria-label={t("PC bleibt wach")} />);
   if (dots.length) fixed("privacy", dotsWidth(dots.length), () => <Dots dots={dots} />);
+
+  const pills = pluginPills.use();
+  for (const [id, pill] of Object.entries(pills)) {
+    if (!pill.text && !pill.icon) continue;
+    const isToolOn = s.tools.some((x) => x.id === toolId(id) && x.enabled);
+    if (!isToolOn) continue;
+    const I = pill.icon ? iconFor(pill.icon) : null;
+    const textW = pill.text ? measureText(pill.text) : 0;
+    const iconW = I ? 14 : 0;
+    const gap = I && pill.text ? 4 : 0;
+    const totalW = iconW + textW + gap;
+    fixed(`plugin-pill:${id}`, totalW, () => (
+      <span className="flex items-center gap-1 text-caption font-medium shrink-0" style={pill.color ? { color: pill.color } : undefined}>
+        {I && <I size={13} weight="bold" className="shrink-0" />}
+        {pill.text && <span>{pill.text}</span>}
+      </span>
+    ));
+  }
 
   const items = parts.map((p) => p.item);
   // Device pixels per px of the row as drawn; an even number of them, so the centred row starts on a whole one.

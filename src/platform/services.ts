@@ -1417,8 +1417,6 @@ export type StorageOp = { op: "get" | "remove"; key: string } | { op: "set"; key
 export interface PluginFetch { url: string; method?: string; headers?: Record<string, string>; body?: string }
 export interface PluginResponse { status: number; contentType: string; body: string }
 
-const notInBrowser = () => Promise.reject("not-native");
-
 /**
  * Demo: the sample plugin (examples/plugins/hello-crest) is installed in memory. Removing it and picking a folder
  * again shows the real install screen with its permissions; the plugin's data and its one request are made up here.
@@ -1431,6 +1429,7 @@ const demoPlugins = (() => {
     list: () => (installed ? manifest().then((m) => [m]) : Promise.resolve([])),
     pick: () => Promise.resolve("hello-crest"),
     stage: (): Promise<StagedPlugin> => manifest().then((m) => ({ token: "demo", manifest: m, replaces: null })),
+    stageUrl: (_url: string): Promise<StagedPlugin> => manifest().then((m) => ({ token: "demo", manifest: m, replaces: null })),
     commit: () => manifest().then((m) => ((installed = true), m)),
     remove: () => ((installed = false), data.clear(), Promise.resolve()),
     storage: (op: StorageOp): Promise<unknown> => {
@@ -1440,7 +1439,7 @@ const demoPlugins = (() => {
       else data.delete(op.key);
       return Promise.resolve(null);
     },
-    fetch: (): Promise<PluginResponse> => {
+    fetch: (_req?: PluginFetch): Promise<PluginResponse> => {
       const lines = ["Keep it logically awesome.", "Design for failure.", "Half measures are as bad as nothing at all.", "Favor focus over features."];
       return Promise.resolve({ status: 200, contentType: "text/plain", body: lines[Math.floor(Math.random() * lines.length)] });
     },
@@ -1451,13 +1450,14 @@ const demoPlugins = (() => {
 export const pluginApi = {
   list: (): Promise<PluginManifest[]> => (isMac ? Promise.resolve([]) : isNative ? invoke<PluginManifest[]>("plugins_list") : demo ? demoPlugins.list() : Promise.resolve([])),
   /** The system's folder or .zip picker; null when cancelled. */
-  pick: (zip: boolean): Promise<string | null> => (isNative ? invoke<string | null>("plugins_pick", { zip }) : demo ? demoPlugins.pick() : Promise.resolve(null)),
-  stage: (path: string): Promise<StagedPlugin> => (isNative ? invoke<StagedPlugin>("plugins_stage", { path }) : demo ? demoPlugins.stage() : notInBrowser()),
-  commit: (token: string): Promise<PluginManifest> => (isNative ? invoke<PluginManifest>("plugins_commit", { token }) : demo ? demoPlugins.commit() : notInBrowser()),
+  pick: (zip: boolean): Promise<string | null> => (isNative ? invoke<string | null>("plugins_pick", { zip }) : demoPlugins.pick()),
+  stage: (path: string): Promise<StagedPlugin> => (isNative ? invoke<StagedPlugin>("plugins_stage", { path }) : demoPlugins.stage()),
+  stageUrl: (url: string): Promise<StagedPlugin> => (isNative ? invoke<StagedPlugin>("plugins_stage_url", { url }) : demoPlugins.stageUrl(url)),
+  commit: (token: string): Promise<PluginManifest> => (isNative ? invoke<PluginManifest>("plugins_commit", { token }) : demoPlugins.commit()),
   discard: (token: string): Promise<void> => (isNative ? invoke("plugins_discard", { token }) : Promise.resolve()),
-  remove: (id: string): Promise<void> => (isNative ? invoke("plugins_remove", { id }) : demo ? demoPlugins.remove() : notInBrowser()),
-  storage: (id: string, op: StorageOp): Promise<unknown> => (isNative ? invoke("plugins_storage", { id, op }) : demo ? demoPlugins.storage(op) : notInBrowser()),
-  fetch: (id: string, request: PluginFetch): Promise<PluginResponse> => (isNative ? invoke<PluginResponse>("plugins_fetch", { id, request }) : demo ? demoPlugins.fetch() : notInBrowser()),
+  remove: (id: string): Promise<void> => (isNative ? invoke("plugins_remove", { id }) : demoPlugins.remove()),
+  storage: (id: string, op: StorageOp): Promise<unknown> => (isNative ? invoke("plugins_storage", { id, op }) : demoPlugins.storage(op)),
+  fetch: (id: string, request: PluginFetch): Promise<PluginResponse> => (isNative ? invoke<PluginResponse>("plugins_fetch", { id, request }) : demoPlugins.fetch(request)),
 };
 
 // ---------- Window behaviour (display.rs, shell.rs) ----------

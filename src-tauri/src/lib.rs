@@ -478,6 +478,7 @@ pub fn run() {
             plugins::plugins_list,
             plugins::plugins_pick,
             plugins::plugins_stage,
+            plugins::plugins_stage_url,
             plugins::plugins_commit,
             plugins::plugins_discard,
             plugins::plugins_remove,
