@@ -1318,5 +1318,18 @@
  "Auf GitHub unterstützen": "Sostieni su GitHub",
  "Tresor gerade belegt": "Cassaforte occupata",
  "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "Un altro programma sta leggendo il file. Riprova tra un attimo.",
- "Auf der Notch anpassen": "Regola sulla notch"
+ "Auf der Notch anpassen": "Regola sulla notch",
+ "Prompter": "Prompter",
+ "Skript": "Copione",
+ "Skript hier einfügen oder schreiben, wird lokal gespeichert": "Incolla o scrivi qui il copione, viene salvato su questo computer",
+ "Lesen": "Leggi",
+ "Von vorn": "Ricomincia",
+ "Läuft": "In scorrimento",
+ "Pausiert": "In pausa",
+ "Ende erreicht": "Fine raggiunta",
+ "noch {time}": "ancora {time}",
+ "{n} WPM": "{n} ppm",
+ "ca. {time} bei {n} WPM": "Circa {time} a {n} ppm",
+ "{n} von {max} Zeichen": "{n} di {max} caratteri",
+ "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "Spazio: avvia o pausa · Frecce: sposta · + e -: velocità"
 }

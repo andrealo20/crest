@@ -1318,5 +1318,18 @@
  "Auf GitHub unterstützen": "Support on GitHub",
  "Tresor gerade belegt": "Vault in use",
  "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "Another program is reading the file. Try again in a moment.",
- "Auf der Notch anpassen": "Adjust on the notch"
+ "Auf der Notch anpassen": "Adjust on the notch",
+ "Prompter": "Prompter",
+ "Skript": "Script",
+ "Skript hier einfügen oder schreiben, wird lokal gespeichert": "Paste or write your script here, it is saved on this computer",
+ "Lesen": "Read",
+ "Von vorn": "Restart",
+ "Läuft": "Playing",
+ "Pausiert": "Paused",
+ "Ende erreicht": "End reached",
+ "noch {time}": "{time} left",
+ "{n} WPM": "{n} WPM",
+ "ca. {time} bei {n} WPM": "About {time} at {n} WPM",
+ "{n} von {max} Zeichen": "{n} of {max} characters",
+ "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "Space: play or pause · Arrows: move · + and -: speed"
 }

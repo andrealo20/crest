@@ -61,6 +61,8 @@ import { Camera, VideoCamera, Waveform } from "@phosphor-icons/react";
 import { RecorderView } from "../features/recorder/RecorderView";
 import { CameraView } from "../features/camera/CameraView";
 import { FindView } from "../features/find/FindView";
+import { Scroll } from "@phosphor-icons/react";
+import { TeleprompterView } from "../features/teleprompter/TeleprompterView";
 import { pluginTab } from "../features/plugins/tabs";
 import { isMac } from "../platform/native";
 
@@ -122,6 +124,7 @@ export const tabs: NotchTab[] = ([
   { id: "capture", hue: "cyan", label: "Erfassen", icon: Camera, size: { w: 620, h: 336 }, View: CaptureView },
   { id: "recorder", hue: "rose", label: "Rekorder", icon: Waveform, size: { w: 520, h: 280 }, View: RecorderView },
   { id: "camera", hue: "pink", label: "Kamera", icon: VideoCamera, size: { w: 520, h: 330 }, View: CameraView },
+  { id: "teleprompter", hue: "amber", label: "Prompter", icon: Scroll, size: { w: 560, h: 340 }, View: TeleprompterView },
 ] satisfies NotchTab[]).filter((t) => !isMac || !WINDOWS_ONLY.has(t.id));
 
 /** Settings: reached via the gear, not in the tool bar. */
