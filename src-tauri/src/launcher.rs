@@ -234,9 +234,9 @@ pub fn launch_from_key(app: &AppHandle, id: String) {
     let app = app.clone();
     // Off the main thread: the first launch may have to read the app list.
     std::thread::spawn(move || {
-        if open(&app.state::<LauncherState>(), id.clone()) == Err("not-found".into()) {
+        if let Err(code) = open(&app.state::<LauncherState>(), id.clone()) {
             // The frontend names the app; open the notch so the message is seen.
-            let _ = app.emit("launcher://missing", id);
+            let _ = app.emit("launcher://missing", serde_json::json!({ "id": id, "code": code }));
             crate::shell::open(&app, Some("launcher"));
         }
     });

@@ -33,6 +33,12 @@ test("merge keeps start entries and adds AI apps only found in App Paths", () =>
   );
 });
 
+test("clutter is told by its position, accents do not matter in search", () => {
+  const list = mergeApps([start("Help Scout"), start("Uninstall Foo"), start("Foo Readme"), start("Café Timer")]);
+  assert.deepEqual(list.map((a) => a.name), ["Café Timer", "Help Scout"]);
+  assert.deepEqual(searchApps(list, "cafe").map((a) => a.name), ["Café Timer"]);
+});
+
 test("detect one entry per app", () => {
   const apps = mergeApps([start("ChatGPT"), start("ChatGPT Classic", "x"), start("Gemini"), start("Paint")]);
   assert.deepEqual(detectAi(apps).map((a) => a.name), ["ChatGPT", "Gemini"]);
