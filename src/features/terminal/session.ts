@@ -3,7 +3,7 @@ import type { FitAddon } from "@xterm/addon-fit";
 import { createStore } from "../../lib/store";
 import { terminal as pty, type TerminalMessage } from "../../platform/services";
 import { settings } from "../../settings/store";
-import { t } from "../../i18n";
+import { t, tBackend } from "../../i18n";
 import { launchPlan } from "./shell";
 import { createResizer } from "./resize";
 
@@ -219,7 +219,7 @@ export async function start() {
     // Not typed into a shell started much later by Enter.
     pending = "";
     sessionState.set("exited");
-    term.write(`\r\n\x1b[31m${t("Shell konnte nicht starten: {error}", { error: String(e) })}\x1b[0m\r\n${t("Enter versucht es noch einmal.")}\r\n`);
+    term.write(`\r\n\x1b[31m${t("Shell konnte nicht starten: {error}", { error: tBackend(String(e)) })}\x1b[0m\r\n${t("Enter versucht es noch einmal.")}\r\n`);
   }
 }
 

@@ -28,7 +28,9 @@ export const isText = (i: ShelfItem): i is TextItem => i.type === "text";
 /** Stable key: the path for files, the id for text. */
 export const keyOf = (i: ShelfItem): string => (isText(i) ? i.id : i.path);
 
-/** Saved list from localStorage: drops broken entries, keeps old file items as they are. */
+const KINDS: readonly string[] = ["image", "audio", "video", "document", "table", "other"];
+
+/** Saved list from localStorage: drops broken entries, gives file items an unknown kind or size a safe value. */
 export function normalizeItems(raw: unknown): ShelfItem[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -37,6 +39,12 @@ export function normalizeItems(raw: unknown): ShelfItem[] {
       const o = i as Record<string, unknown>;
       if (o.type === "text") return typeof o.id === "string" && typeof o.text === "string";
       return typeof o.path === "string" && typeof o.name === "string";
+    })
+    .map((i) => {
+      if (isText(i)) return i;
+      const kind = KINDS.includes(i.kind) ? i.kind : "other";
+      const size = typeof i.size === "number" ? i.size : 0;
+      return kind === i.kind && size === i.size ? i : { ...i, kind, size };
     })
     .slice(0, MAX_ITEMS);
 }

@@ -288,8 +288,8 @@ export function probeFiles(paths: string[]): Promise<{ files: DroppedFile[] }> {
   return Promise.resolve({ files });
 }
 
-export function revealFile(path: string) {
-  if (isNative) void invoke("reveal_file", { path });
+export function revealFile(path: string): Promise<void> {
+  return isNative ? invoke("reveal_file", { path }) : Promise.resolve();
 }
 
 export function openFile(path: string): Promise<void> {
@@ -973,6 +973,8 @@ export interface PhoneShare {
 /** The words of the page the phone opens, in the app's language. */
 export interface PhonePageText {
   lang: string;
+  /** "rtl" or "ltr". */
+  dir: string;
   title: string;
   count: string;
   hint: string;
@@ -1005,6 +1007,13 @@ function demoQr(): string {
 /** Stops the share at `url` (a newer one keeps running). */
 export function phoneShareStop(url: string) {
   if (isNative) void invoke("phone_share_stop", { url });
+}
+
+/** The share at `url` ended because the computer left the network its QR code points to. */
+export function onPhoneShareLost(handler: (url: string) => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen<string>("notch://phone-share-lost", (e) => handler(e.payload));
+  return () => void off.then((f) => f());
 }
 
 /** Text on the clipboard ("" if none). */

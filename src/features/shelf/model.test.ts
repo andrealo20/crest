@@ -11,6 +11,12 @@ test("old saved items stay, broken ones go", () => {
   assert.deepEqual(normalizeItems("nope"), []);
 });
 
+test("saved files without a known kind or a size get safe values", () => {
+  const [a, b] = normalizeItems([{ path: "C:\\a", name: "a" }, { ...file("C:\\b"), kind: "image", addedAt: 1 }]) as { kind: string; size: number }[];
+  assert.deepEqual([a.kind, a.size], ["other", 0]);
+  assert.deepEqual([b.kind, b.size], ["image", 1]);
+});
+
 test("files: new ones in front, known ones keep their place", () => {
   let list: ShelfItem[] = addFiles([], [file("C:\\a"), file("C:\\b")], 1);
   assert.deepEqual(list.map(keyOf), ["C:\\a", "C:\\b"]);

@@ -136,7 +136,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
   useSecondTick(recRunning, rec.at);
   const shot = useSaved();
   const download = finishedDownload.use();
-  // The thumbnail can show anything that was on screen: not while presenting.
+  // The thumbnail can show anything that was on screen, and a file name can be private: not while presenting.
   const presenting = usePresenting();
   // On the idle line and in focus mode only what cannot wait: a recording, the finished timer, a status alert (its store already skips focus mode) and a due reminder.
   const kind = topNotice({
@@ -145,7 +145,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
     // A question shows on the idle line too: a coding agent waits on it.
     ask: !!ask,
     saved: !urgentOnly && !!shot && !presenting,
-    download: !urgentOnly && !!download,
+    download: !urgentOnly && !!download && !presenting,
     status: !!status,
     notice: !urgentOnly && !!pop,
     quota: !urgentOnly && !!rise && closed.quotaAlerts,
