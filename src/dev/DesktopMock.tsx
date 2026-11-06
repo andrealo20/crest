@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { media, useNowPlaying } from "../platform/media";
+import { demoOpen } from "../platform/native";
 import { mockApps, mockDiscord, mockPrivacy, mockStatus } from "../platform/services";
 import { bare, demo, showcase } from "./showcase-data";
 
@@ -68,6 +69,14 @@ export function DesktopMock() {
         <DevButton onClick={() => setLight((l) => !l)}>{light ? "Dark" : "Light"}</DevButton>
       </div>}
 
+      {/* The demo on its own page: the notch opens on hover, and this is the way in without a mouse. */}
+      {demo && (
+        <div className="absolute inset-x-0 top-28 flex flex-col items-center gap-3 text-center text-sm text-white">
+          <p className="opacity-80">Point at the notch to open it.</p>
+          <DevButton onClick={() => demoOpen(null)}>Open the notch</DevButton>
+        </div>
+      )}
+
       {/* Fake taskbar */}
       <div
         className="fixed inset-x-0 bottom-0 h-12 backdrop-blur-xl"
@@ -75,7 +84,7 @@ export function DesktopMock() {
       >
         {clean && <WindowsLogo />}
         {/* The demo on its own page (not the project page's stage): the way back. */}
-        {demo && <a href="../" className="absolute inset-y-0 left-0 flex items-center px-4 text-xs text-white/80 underline underline-offset-2 hover:text-white">Back to the site</a>}
+        {demo && <a href="../" className="absolute inset-y-0 left-0 flex items-center px-4 text-sm pointer-coarse:text-xl text-white/80 underline underline-offset-2 hover:text-white">Back to the site</a>}
       </div>
     </div>
     {/* Outside the desktop's stacking context so it can sit above the notch. */}
