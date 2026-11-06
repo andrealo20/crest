@@ -1,3 +1,4 @@
+mod agents;
 pub mod ai;
 #[cfg(windows)]
 mod audio;
@@ -494,6 +495,7 @@ pub fn run() {
             capture::find::find_scan,
             #[cfg(windows)]
             capture::find::find_highlight,
+            agents::agents_list,
             ];
             move |invoke| {
                 if !command_allowed(invoke.message.webview_ref().label(), invoke.message.command()) {
