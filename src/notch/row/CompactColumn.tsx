@@ -160,10 +160,10 @@ function useNoticeLine(urgentOnly: boolean): Line | null {
  * the cover first and the privacy dots last, under the notice line if there is one. The song title is left out: a scrolling title does
  * not fit across a column, and neither does a lyric line, the next event or the downloads, so the title's lyric mode and the lyrics-only notch keep the column as it is.
  * Lines that do not fit in the longest notch are dropped from the end. `parts` false (the idle line or dimmed focus mode, opened only by
- * an urgent notice) shows the notice line alone and keeps the row's polling off. Reports its length and width; the shape is that plus
+ * an urgent notice) shows the notice line alone and keeps the row's polling off. Reports its length and width, and whether a notice line shows; the shape is that plus
  * its insets and pads. Drawn at the content scale like the row (Notch.tsx): `room` is the longest it gets at its designed size.
  */
-export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: number; onSize: (size: { length: number; width: number }) => void }) {
+export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: number; onSize: (size: { length: number; width: number; notice: boolean }) => void }) {
   useRowVisible(parts);
   fontEpoch.use();
   const notice = useNoticeLine(!parts);
@@ -227,7 +227,8 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
 
   const shown = all.slice(0, fitLines(all.map((l) => l.h), COLUMN.gap, room));
   const { tops, length } = stack(shown.map((l) => l.h), COLUMN.gap);
-  useLayoutEffect(() => onSize({ length, width }), [length, width, onSize]);
+  const noticed = !!notice;
+  useLayoutEffect(() => onSize({ length, width, notice: noticed }), [length, width, noticed, onSize]);
 
   return (
     <motion.div

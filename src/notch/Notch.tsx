@@ -25,7 +25,7 @@ import { contentScale, sideLength } from "./collapsed";
 import { monitor, monitorMetrics, notchBusy } from "./monitor";
 import { useMirror } from "./mirror";
 import { rowRoom, surfaceWidth } from "./row/layout";
-import { toPageCss } from "../features/window/panelSize";
+import { limits, toPageCss } from "../features/window/panelSize";
 import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
 import { sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
@@ -54,6 +54,8 @@ const NOOP = () => {};
 const POINTED_MS = 1500;
 /** Closed this long → lower WebView2's memory target. */
 const MEMORY_LOW_AFTER_MS = 20_000;
+/** After a drag ends without files, the native drop's paths may still be on their way for this long. */
+const DROP_WAIT_MS = 500;
 
 export function Notch() {
   const { status, open, close, dismiss, toggle, onPointerEnter, onPointerLeave } = useNotchState();
@@ -143,7 +145,8 @@ export function Notch() {
   const toolSize = useToolSize(tab.id, tab.size);
   // A tool's own runtime request (e.g. the clipboard's image preview) wins over the dragged size.
   const overridden = override?.tabId === tab.id;
-  const size = overridden ? override : toolSize;
+  // Held to the monitor like a saved size is.
+  const size = overridden ? { w: override.w, h: Math.min(override.h, limits(tab.size, monitorMetrics().height).maxH) } : toolSize;
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
@@ -174,7 +177,7 @@ export function Notch() {
   const closedW = surfaceWidth(surface, notice?.width ?? (showRow || status === "open" ? rowWidth : 0), surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span);
   // A notice card (NoticeCard.tsx) is taller than the row: the closed shape grows to it, drawn at the same content scale.
   const shapeH = notice ? Math.max(closedH, notice.height * scale) : closedH;
-  const [column, setColumn] = useState({ length: 0, width: 0 });
+  const [column, setColumn] = useState({ length: 0, width: 0, notice: false });
   const columnShows = showColumn || status === "open";
   const sideSize = side ? columnSurface(columnShows ? column.length : 0, columnShows ? column.width : 0, scale, sideLength(sizes.notchWidth), span) : null;
 
@@ -302,9 +305,9 @@ export function Notch() {
         if (status !== "open") {
           open();
           keyboardFocus(true);
-        } else if (!overridden && edge === "top") stepToolSize(tab.id, tab.size, dir);
+        } else if (!overridden) stepToolSize(tab.id, tab.size, dir);
       }),
-    [open, status, tab, overridden, edge],
+    [open, status, tab, overridden],
   );
   useEffect(() => {
     if (status === "closed") keyboardFocus(false);
@@ -437,7 +440,7 @@ export function Notch() {
       </motion.div>
       {/* The pet's nest, beside the shape and outside its hit zone. */}
       <AnimatePresence>
-        {nestShown && pet.id && <Nest key="nest" pet={{ ...pet, id: pet.id }} edge={edge} top={nestTop} shapeWidth={shape.w} notice={notice !== null} hovered={status === "peek"} />}
+        {nestShown && pet.id && <Nest key="nest" pet={{ ...pet, id: pet.id }} edge={edge} top={nestTop} shapeWidth={shape.w} notice={notice !== null || (showColumn && column.notice)} hovered={status === "peek"} />}
       </AnimatePresence>
     </div>
   );
@@ -645,11 +648,14 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
   const holding = useRef(false);
   const statusRef = useRef(status);
   statusRef.current = status;
+  // A native drop sets dragging false before its paths arrive (platform/drop.ts), so closing waits a moment for them.
+  const closing = useRef(0);
 
   useEffect(
-    () =>
-      drop.subscribe(() => {
+    () => {
+      const off = drop.subscribe(() => {
         const { dragging, dropped } = drop.get();
+        if (dragging || dropped) window.clearTimeout(closing.current);
         if (!settings.get().tools.some((t) => t.id === "shelf" && t.enabled)) {
           if (dropped) takeDropped();
           return;
@@ -666,10 +672,12 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
           // Drag over: dropped → stay open, cancelled → close again.
           holding.current = false;
           holdOpen(false);
-          if (!dropped && openedByDrag.current) dismiss();
+          if (!dropped && openedByDrag.current) closing.current = window.setTimeout(dismiss, DROP_WAIT_MS);
           openedByDrag.current = false;
         }
-      }),
+      });
+      return off;
+    },
     [open, dismiss],
   );
 }
@@ -725,7 +733,7 @@ function useNativeBridge(
 }
 
 function isInteractive(el: EventTarget | null): boolean {
-  return el instanceof Element && !!el.closest("button, input, textarea, a, [role=slider]");
+  return el instanceof Element && !!el.closest("button, input, textarea, a, [role=slider], [role=button], [role=radio], [role=switch], [role=option], [role=tab], [data-no-drag]");
 }
 
 function isTextField(el: EventTarget | null): boolean {
