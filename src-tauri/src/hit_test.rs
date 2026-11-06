@@ -216,6 +216,9 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             let inside = if drag_active { rect.grown(state.edge.load(Ordering::Relaxed)) } else { rect }.contains(x, y);
             let on_pet = !inside && state.pet.lock().unwrap().is_some_and(|p| p.contains(x, y));
             let ignore = !inside && !on_pet && !*state.pinned.lock().unwrap();
+            if on_pet && !last_on_pet {
+                crate::remember_foreground(&window);
+            }
             if on_pet != last_on_pet {
                 let _ = window.emit("notch://pet-hover", on_pet);
                 last_on_pet = on_pet;

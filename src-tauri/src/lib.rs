@@ -605,6 +605,25 @@ fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusStat
     display::closed(window.app_handle());
 }
 
+/// The pointer came onto the pet: its click activates the window, so note the app it takes the keyboard from;
+/// the frontend then calls keyboard_focus(false) to give it back.
+#[cfg(windows)]
+fn remember_foreground(window: &WebviewWindow) {
+    let Ok(own) = window.hwnd() else { return };
+    let foreground = unsafe { GetForegroundWindow() }.0 as isize;
+    if foreground != own.0 as isize {
+        *window.state::<FocusState>().0.lock().unwrap() = foreground;
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn remember_foreground(window: &WebviewWindow) {
+    let foreground = macos::frontmost_pid() as isize;
+    if foreground != std::process::id() as isize {
+        *window.state::<FocusState>().0.lock().unwrap() = foreground;
+    }
+}
+
 #[tauri::command]
 fn autostart_get(app: AppHandle) -> bool {
     startup::is_enabled(&app)

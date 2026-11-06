@@ -1,4 +1,4 @@
-/* The nest's pet (art.ts draws it, Nest.tsx picks the state). Transform and opacity only, so the compositor runs the motion. */
+/* The nest's pet (art.ts draws it, Nest.tsx picks the state). Transform and opacity only; a sleeping pet is paused (Nest.tsx). */
 .pet { overflow: visible; }
 .pet * { transform-box: fill-box; }
 .pet .rig { transform-origin: 50% 100%; }
