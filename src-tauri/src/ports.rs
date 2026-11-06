@@ -49,8 +49,9 @@ fn inside(path: &str, dir: &str) -> bool {
 }
 
 /// Whether the sheet may end this process: the user's own, not the system, not Crest, not a Windows component.
+/// With a Windows folder to check against, a program whose path is unknown cannot be shown to be outside it: no.
 fn may_end(pid: u32, own: u32, mine: bool, path: Option<&str>, windows_dir: &str) -> bool {
-    mine && !system_pid(pid) && pid != own && !path.is_some_and(|p| inside(p, windows_dir))
+    mine && !system_pid(pid) && pid != own && !path.is_some_and(|p| inside(p, windows_dir)) && (path.is_some() || windows_dir.is_empty())
 }
 
 /// A page can open http://localhost:PORT for loopback and wildcard listeners only: those answer on localhost.
@@ -480,6 +481,9 @@ mod tests {
         // The user's own program, also one whose folder only starts like the Windows folder.
         assert!(may_end(200, 100, true, Some(r"C:\Users\me\node.exe"), dir));
         assert!(may_end(200, 100, true, Some(r"C:\Windows.old\tool.exe"), dir));
+        // A path that cannot be read cannot be shown to be outside the Windows folder: not endable there. A Mac has no
+        // such folder (empty) and never has a path.
+        assert!(!may_end(200, 100, true, None, dir));
         assert!(may_end(200, 100, true, None, ""));
     }
 

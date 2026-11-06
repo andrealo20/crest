@@ -220,6 +220,52 @@ test("a break that a presentation interrupts goes off the screen and stays due",
   assert.equal(suspend(fresh()).shown, null);
 });
 
+/**
+ * The poll as store.ts runs it when a persistent notice (a reminder, an event, a question, a finished timer, a recording) can cover the
+ * card: that is `blocked` for a break about to start, and `suspend` for one already on screen. Returns each break that came on screen.
+ */
+function runCovered(s: BreakState, from: number, to: number, covered: (t: number) => boolean, step = 15 * SEC) {
+  const shown: number[] = [];
+  for (let t = from; t <= to; t += step) {
+    const before = s.shown;
+    s = advance(s, t, 0, on);
+    s = covered(t) ? suspend(s) : start(s, t, on, false);
+    if (s.shown && s.shown !== before && !shown.includes(s.shown.startedAt)) shown.push(s.shown.startedAt);
+  }
+  return { s, shown };
+}
+
+test("a break that comes due under a notice that covers it is not taken: it stays due and shows once the notice is gone", () => {
+  // A reminder rings from minute 19 to minute 24; the eye break falls due at 20.
+  const covered = (t: number) => t >= 19 * MIN && t < 24 * MIN;
+  let { s, shown } = runCovered(fresh(), 0, 23 * MIN + 45 * SEC, covered);
+  assert.deepEqual(shown, []);
+  assert.equal(s.shown, null);
+  assert.equal(dueKind(s, on), "micro");
+  assert.ok(s.sinceBreak >= 23 * MIN); // nothing counted as a break meanwhile
+  ({ s, shown } = runCovered(s, 24 * MIN, 24 * MIN + 2 * MIN, covered));
+  assert.deepEqual(shown, [24 * MIN]); // once, with its whole time
+  // It ran its 20 seconds and counted as taken then, not before.
+  assert.equal(s.shown, null);
+  assert.ok(s.sinceBreak < 2 * MIN);
+  assert.equal(dueKind(s, on), null);
+});
+
+test("a break on screen steps back when a notice takes the row, and is not lost: it shows again in full afterwards", () => {
+  // The break starts at 20:00; a question arrives at 20:15 and is answered at 21:00.
+  const covered = (t: number) => t >= 20 * MIN + 15 * SEC && t < 21 * MIN;
+  let { s, shown } = runCovered(fresh(), 0, 20 * MIN + 15 * SEC, covered);
+  assert.deepEqual(shown, [20 * MIN]);
+  assert.equal(s.shown, null); // taken off the screen, not run out under the notice
+  // Past the original end (20:20) and still covered: it did not count as taken.
+  ({ s, shown } = runCovered(s, 20 * MIN + 30 * SEC, 21 * MIN - 15 * SEC, covered));
+  assert.deepEqual(shown, []);
+  assert.equal(dueKind(s, on), "micro");
+  ({ s, shown } = runCovered(s, 21 * MIN, 21 * MIN + 45 * SEC, covered));
+  assert.deepEqual(shown, [21 * MIN]);
+  assert.equal(dueKind(s, on), null);
+});
+
 test("changing the intervals is read at once", () => {
   const s = run(fresh(), 0, 10 * MIN);
   assert.equal(dueKind(s, { ...on, microEveryMin: 10 }), "micro");

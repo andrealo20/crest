@@ -186,6 +186,10 @@ pub(crate) fn exclude_if_capturing(app: &AppHandle) {
 /// Every Crest window (the notch, the floating timer, ...) in or out of captures. "Out" ends at the user's choice
 /// (sharing.rs): with Hide Crest from screen sharing on, putting the windows back leaves them excluded.
 fn exclude(app: &AppHandle, on: bool) {
+    // One pass at a time, with the flag read inside it: a pass that started earlier cannot put back an outdated flag
+    // over the user's latest choice (the end of a screenshot against the Hide Crest switch).
+    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+    let _one = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     let flag = affinity(on, crate::sharing::hidden());
     for w in app.webview_windows().values() {
         if let Ok(hwnd) = w.hwnd() {

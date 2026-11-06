@@ -332,6 +332,7 @@ test("hashes, keys and ids are not decoded", () => {
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // sha256
     "5547294", "2b29f26bd07a48622986f7e5a1a54ac0e79d3261",
   ];
+  // Provider keys (Stripe, GitHub, AWS, Slack, Google) are put together from pieces: written out whole, a secret scanner takes them for real ones.
   const keys = [
     "sk_" + "live_4eC39HqLyjWDarjtT1zdp7dc", "ghp_" + "16C7e42F292c6912E7710c838347Ae178B4a", "AKIA" + "IOSFODNN7EXAMPLE",
     "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "xoxb" + "-1234-5678-abcdefghijkl", "AIza" + "SyDaGmWKa4JsXZ-HjGw7ISLn_3namBGewQe",
@@ -406,7 +407,7 @@ test("prose, code and ordinary one-liners get no chip", () => {
     "Hi Dina,\n\nThanks for the update. I'll send the report tomorrow.\n\nBest,\nAndrea",
     "npm run tauri dev", "git commit -m \"Fix the build\"", "const x = 1;", "items.filter((x) => x.done)", "SELECT id, name FROM users WHERE active = 1",
     "<div className=\"row\">", "x = foo(bar)", "fn main() {\n    println!(\"hi\");\n}", "def add(a, b):\n    return a + b",
-    "SpringVector3NaturalMotionAnimation", "C:\\Users\\andre\\Documents\\file.txt", "/usr/local/bin/node", "john.doe@example.com", "+39 333 123 4567",
+    "SpringVector3NaturalMotionAnimation", "C:\\Users\\me\\Documents\\file.txt", "/usr/local/bin/node", "john.doe@example.com", "+39 333 123 4567",
     "10 Downing Street\nLondon\nSW1A 2AA", "3.14159", "1,234.56", "2026-11-06", "2026-11-06T12:00:00Z", "12:30", "v1.2.3", "1.2.3.4", "Bearer", "Bearer token",
     "Bearer abc.def.ghi", "eyJ", "eyJ.eyJ.eyJ", "https://github.com/microsoft/windows-rs", "ok", "😀", "😀😀😀😀😀😀😀😀",
   ];

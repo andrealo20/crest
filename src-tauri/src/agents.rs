@@ -44,9 +44,8 @@ fn list() -> Result<String, &'static str> {
         return Err("busy");
     }
     let _busy = Busy;
-    let var = |name: &str| std::env::var_os(name).map(PathBuf::from);
-    let home = var(if cfg!(windows) { "USERPROFILE" } else { "HOME" });
-    let found = candidates(std::env::var_os("PATH").as_deref(), home.as_deref(), var("APPDATA").as_deref());
+    let appdata = std::env::var_os("APPDATA").map(PathBuf::from);
+    let found = candidates(std::env::var_os("PATH").as_deref(), home().as_deref(), appdata.as_deref());
     for exe in found.iter().filter(|p| p.is_file()) {
         match run(exe, &ARGS, TIMEOUT, MAX_OUTPUT) {
             // Listed but not startable (no right to run it): the next candidate may be the working one.
@@ -55,6 +54,11 @@ fn list() -> Result<String, &'static str> {
         }
     }
     Err("not-found")
+}
+
+/// The user's home folder, the same on Windows and a Mac.
+fn home() -> Option<PathBuf> {
+    std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from)
 }
 
 /// Where `claude` may be, in the order a shell finds it: PATH first, then the folders the installers use. Those cover a
@@ -178,12 +182,12 @@ fn is_too_old(stderr: &str) -> bool {
 fn run(exe: &Path, args: &[&str], timeout: Duration, cap: usize) -> Result<String, &'static str> {
     let mut cmd = Command::new(exe);
     // On Windows std starts a .cmd shim through cmd.exe and escapes its arguments itself; ours are fixed.
-    cmd.args(args)
-        // Claude Code treats the working folder as a project; keep it out of Crest's.
-        .current_dir(std::env::temp_dir())
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    cmd.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    // Claude Code treats the working folder as a project, and cmd.exe looks there first for a bare command (the `node` of
+    // an npm shim): the user's home, which other users cannot write to, not Temp. Without a home the folder is Crest's own.
+    if let Some(home) = home() {
+        cmd.current_dir(home);
+    }
     #[cfg(windows)]
     crate::convert::hide_console(&mut cmd);
     // A Mac app opened from the Finder has no shell PATH, which a node script's `env node` needs.

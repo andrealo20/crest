@@ -52,16 +52,32 @@ mod sys {
 
 #[cfg(not(windows))]
 mod sys {
-    use std::process::Command;
+    use std::process::{Command, Stdio};
     use std::sync::atomic::{AtomicU8, Ordering};
+    use std::time::{Duration, Instant};
 
     use super::{level_from, restore_level};
 
     /// The input level before Crest set it to 0; 0 = none remembered.
     static BEFORE: AtomicU8 = AtomicU8::new(0);
 
+    /// coreaudiod can stop answering (after sleep, a Bluetooth device changing): osascript is ended then, so Overview's
+    /// 4-second read never piles up waiting processes.
+    const LIMIT: Duration = Duration::from_secs(2);
+
     fn osascript(script: &str) -> Option<String> {
-        let out = Command::new("/usr/bin/osascript").args(["-e", script]).output().ok()?;
+        let mut child = Command::new("/usr/bin/osascript").args(["-e", script]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
+        let started = Instant::now();
+        // The answer is a number or nothing, far below the pipe's size: it can wait there until the process has ended.
+        while child.try_wait().ok()?.is_none() {
+            if started.elapsed() > LIMIT {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let out = child.wait_with_output().ok()?;
         out.status.success().then(|| String::from_utf8_lossy(&out.stdout).into_owned())
     }
 
