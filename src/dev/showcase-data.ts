@@ -7,8 +7,8 @@ import { isNative } from "../platform/native";
  */
 export const showcase = !isNative && new URLSearchParams(location.search).has("showcase");
 
-/** Browser only: the try-it demo on the project page (src/dev/demo.ts), from `npm run site:build` or `?demo`. */
-export const demo = !isNative && (import.meta.env.MODE === "demo" || new URLSearchParams(location.search).has("demo"));
+/** Browser only: the try-it demo on the project page (src/dev/demo.ts), from `npm run site:build` or `?demo` in dev. Both are build constants, so the app's build drops the demo. */
+export const demo = (import.meta.env.MODE === "demo" || (import.meta.env.DEV && new URLSearchParams(location.search).has("demo"))) && !isNative;
 
 /** Showcase or demo: the believable sample data instead of the plain mocks. */
 export const sample = showcase || demo;

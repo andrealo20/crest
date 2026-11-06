@@ -15,6 +15,7 @@ import { DOCK_DEFAULTS, normalizeDock, type Dock } from "../notch/edge";
 import { normalizeMonitorMode, type MonitorMode } from "../notch/follow";
 import { CALENDAR_DEFAULTS, normalizeCalendar, type CalendarSettings } from "../features/calendar/model";
 import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
+import { DEFAULT_OFF, TOOL_IDS } from "./tools";
 import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
@@ -151,37 +152,6 @@ export interface Settings {
   /** First-run setup (src/features/setup) finished or skipped. Settings saved without the field come from an older version, which counts as done. */
   setup: { done: boolean };
 }
-
-/** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
-export const TOOL_IDS = [
-  "overview",
-  "media",
-  "timer",
-  "todos",
-  "notes",
-  "clipboard",
-  "shelf",
-  "ask",
-  "convert",
-  "trading",
-  "usage",
-  "weather",
-  "system",
-  "discord",
-  "vault",
-  "water",
-  "scratchpad",
-  "terminal",
-  "launcher",
-  "github",
-  "calendar",
-  "notices",
-  "capture",
-  "recorder",
-  "camera",
-] as const;
-
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "calendar", "notices", "recorder", "camera"]);
 
 const defaults: Settings = {
   openMode: "hover",
