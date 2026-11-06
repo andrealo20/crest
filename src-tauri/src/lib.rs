@@ -251,6 +251,7 @@ pub fn run() {
             clipboard::clipboard_clear,
             clipboard::clipboard_preview,
             clipboard::clipboard_paste_files,
+            clipboard::clipboard_text,
             keyboard_focus,
             audio::audio_levels,
             ai::ai_chat,

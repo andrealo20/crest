@@ -96,6 +96,7 @@ import { ChangelogList } from "../whatsnew/ChangelogList";
 import { isMac } from "../../platform/native";
 import { ThemeSettings } from "../themes/ThemeSettings";
 import { hueVar, useIconColors, type Hue } from "../themes/hues";
+import { ClipboardSettings } from "../clipboard/ClipboardSettings";
 
 type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins";
 
@@ -370,6 +371,7 @@ function PageContent({ page }: { page: PageId }) {
           <ProductivitySettings />
           <TerminalSettings />
           <LauncherSettings />
+          <ClipboardSettings />
         </>
       )}
       {page === "timer" && (

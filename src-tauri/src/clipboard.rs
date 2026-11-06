@@ -232,6 +232,20 @@ pub async fn clipboard_preview(id: u64, state: State<'_, ClipboardState>) -> Res
     .map_err(|e| e.to_string())
 }
 
+/// Texts above this are not handed out for decoding (src/features/clipboard/decode.ts looks at 100 KB at most).
+const MAX_DECODE_BYTES: usize = 100_000;
+
+/// The whole text of a text or link entry, for the decode chips: the list only carries the first `PREVIEW_CHARS`
+/// characters. None for other entries, entries that are gone and texts over `MAX_DECODE_BYTES`.
+#[tauri::command]
+pub fn clipboard_text(id: u64, state: State<'_, ClipboardState>) -> Option<String> {
+    let entries = state.entries.lock().unwrap();
+    match &entries.iter().find(|e| e.id == id)?.content {
+        Content::Text(t) if t.len() <= MAX_DECODE_BYTES => Some(t.trim().to_string()),
+        _ => None,
+    }
+}
+
 /// Ctrl+V in Shelf/Converter: files from the clipboard as paths. A copied image
 /// (screenshot) is saved as PNG under Pictures/Crest and that path is returned.
 #[tauri::command]
