@@ -6,7 +6,7 @@ use std::process::Command;
 
 use serde::Serialize;
 
-const IMAGE_IN: &[&str] = &["png", "jpg", "jpeg", "webp", "bmp", "gif", "ico", "tif", "tiff", "dds", "tga"];
+pub(crate) const IMAGE_IN: &[&str] = &["png", "jpg", "jpeg", "webp", "bmp", "gif", "ico", "tif", "tiff", "dds", "tga"];
 const AUDIO_IN: &[&str] = &["mp3", "wav", "flac", "m4a", "aac", "ogg", "opus", "wma"];
 const VIDEO_IN: &[&str] = &["mp4", "mov", "mkv", "avi", "webm", "wmv", "m4v"];
 const DOC_IN: &[&str] = &["txt", "md", "markdown", "html", "htm", "pdf", "docx"];
