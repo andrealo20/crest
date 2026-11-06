@@ -1,3 +1,4 @@
+import { isMac } from "../../platform/native";
 import type { SecretName } from "../../platform/services";
 
 /*
@@ -5,7 +6,8 @@ import type { SecretName } from "../../platform/services";
  * where shown). Every help text says which read-only rights to give the key; Crest never
  * calls an order, transfer or withdrawal endpoint.
  *
- * Not offered: Degiro, Trade Republic, Scalable Capital (no official API).
+ * Not offered: Degiro, Trade Republic, Scalable Capital (no official API). Coinbase signs with
+ * Windows CNG (trading/sign.rs), so it is hidden on a Mac.
  */
 
 export type ProviderId = "t212" | "kraken" | "coinbase" | "binance" | "bitpanda" | "etoro" | "ibkr";
@@ -18,7 +20,7 @@ export interface ProviderInfo {
   help: string;
 }
 
-export const providers: ProviderInfo[] = [
+const all: ProviderInfo[] = [
   {
     id: "t212",
     name: "Trading 212",
@@ -81,4 +83,6 @@ export const providers: ProviderInfo[] = [
   },
 ];
 
-export const providerName = (id: string): string => (id === "manual" ? "Manuell" : (providers.find((p) => p.id === id)?.name ?? id));
+export const providers = all.filter((p) => !(isMac && p.id === "coinbase"));
+
+export const providerName = (id: string): string => (id === "manual" ? "Manuell" : (all.find((p) => p.id === id)?.name ?? id));
