@@ -137,9 +137,9 @@ function ManualHoldings() {
 
 function ManualForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d: Draft) => void; onDone: () => void }) {
   const set = (patch: Partial<Draft>) => onChange({ ...d, ...patch });
-  const quantity = parseAmount(d.quantity);
-  const cost = d.cost.trim() ? parseAmount(d.cost) : null;
-  const price = d.price.trim() ? parseAmount(d.price) : null;
+  const quantity = parseAmount(d.quantity, locale());
+  const cost = d.cost.trim() ? parseAmount(d.cost, locale()) : null;
+  const price = d.price.trim() ? parseAmount(d.price, locale()) : null;
   const symbol = d.symbol.trim().toUpperCase();
   const valid =
     /^[A-Z0-9.\-]{1,15}$/.test(symbol) &&

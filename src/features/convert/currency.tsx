@@ -15,11 +15,13 @@ import { parseAmount } from "./parse";
  * asked for in the portfolio's base currency, so both share one cache, and any two others cross through that base.
  */
 
-let names: Intl.DisplayNames | null = null;
+// Per language, so a language change shows the new names.
+const names = new Map<string, Intl.DisplayNames>();
 function label(code: string): string {
   try {
-    names ??= new Intl.DisplayNames(locale(), { type: "currency" });
-    return `${code} · ${names.of(code)}`;
+    const lang = locale();
+    if (!names.has(lang)) names.set(lang, new Intl.DisplayNames(lang, { type: "currency" }));
+    return `${code} · ${names.get(lang)!.of(code)}`;
   } catch {
     return code;
   }
@@ -32,6 +34,7 @@ export function CurrencyPanel() {
   const base = effectiveBase(settings.use().trading.base);
   const [rates, setRates] = useState<Rates | null>(null);
   const [offline, setOffline] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const saved = lastPair.use();
   const [from, to] = Array.isArray(saved) && saved.length === 2 && saved.every((c) => /^[A-Z]{3}$/.test(c)) ? saved : [base, base === "EUR" ? "USD" : "EUR"];
   const setPair = (p: [string, string]) => lastPair.set(p);
@@ -39,23 +42,31 @@ export function CurrencyPanel() {
 
   useEffect(() => {
     let live = true;
+    let retry = 0;
+    // Offline: ask again after a while, so a start without network does not need the tool reopened.
+    const failed = () => {
+      setOffline(true);
+      retry = window.setTimeout(() => setAttempt((a) => a + 1), 20_000);
+    };
     // Any currency other than the base makes Rust fetch the rates, and the answer holds all of them.
     fetchRates(base, [], ["EUR", "USD"]).then(
       (r) => {
         if (!live) return;
         setRates(r);
-        setOffline(r.failed.includes("frankfurter"));
+        if (r.failed.includes("frankfurter")) failed();
+        else setOffline(false);
       },
-      () => live && setOffline(true),
+      () => live && failed(),
     );
     return () => {
       live = false;
+      window.clearTimeout(retry);
     };
-  }, [base]);
+  }, [base, attempt]);
 
   const known = rates && Object.keys(rates.fx).length > 0 ? rates : null;
   const options = (known ? currencies(known) : [...BASES]).map((c) => ({ value: c, label: label(c) }));
-  const value = parseAmount(input);
+  const value = parseAmount(input, locale());
   const result = !known || value === null ? null : convertMoney(value, from, to, known);
   const day = known?.date ? new Date(`${known.date}T12:00:00`).toLocaleDateString(locale(), { day: "numeric", month: "short" }) : null;
 

@@ -1083,9 +1083,9 @@ function Discord() {
 
 const durations: { value: string; label: string }[] = [
   { value: "0", label: "1×" },
-  { value: "5", label: "5 s" },
-  { value: "15", label: "15 s" },
-  { value: "30", label: "30 s" },
+  { value: "5", label: "{n} s" },
+  { value: "15", label: "{n} s" },
+  { value: "30", label: "{n} s" },
   { value: "-1", label: "Bis Stopp" },
 ];
 
@@ -1138,7 +1138,7 @@ function Alarm() {
         </div>
       </Row>
       <Row label={t("Dauer")} hint={t("Wie lange der Alarm klingelt")}>
-        <Segmented id="alarm-duration" size="sm" value={String(a.duration)} onChange={(v) => set({ duration: Number(v) as AlarmDuration })} options={durations.map((o) => ({ ...o, label: t(o.label) }))} />
+        <Segmented id="alarm-duration" size="sm" value={String(a.duration)} onChange={(v) => set({ duration: Number(v) as AlarmDuration })} options={durations.map((o) => ({ ...o, label: t(o.label, { n: o.value }) }))} />
       </Row>
     </Group>
   );

@@ -85,7 +85,8 @@ export function convertUnit(cat: Category, value: number, from: string, to: stri
 function format(n: number): string {
   if (!Number.isFinite(n)) return "–";
   const abs = Math.abs(n);
-  return n.toLocaleString(locale(), { maximumFractionDigits: abs >= 1000 ? 2 : abs >= 1 ? 4 : 6 });
+  // Below 1 the significant digits count, so 0.0000123 does not round to 0.
+  return n.toLocaleString(locale(), abs >= 1 ? { maximumFractionDigits: abs >= 1000 ? 2 : 4 } : { maximumSignificantDigits: 4 });
 }
 
 /** The last category, and the last pair of units in each: the panel opens on them again. */
@@ -96,12 +97,12 @@ export function UnitsPanel() {
   // Saved by an older version, or a unit since removed: the defaults.
   const cat: Category = saved?.cat in units ? saved.cat : "length";
   const pair = saved?.pairs?.[cat];
-  const [from, to] = Array.isArray(pair) && pair.every((id) => units[cat].some((u) => u.id === id)) ? pair : defaults[cat];
+  const [from, to] = Array.isArray(pair) && pair.length === 2 && pair.every((id) => units[cat].some((u) => u.id === id)) ? pair : defaults[cat];
   const setCat = (c: Category) => last.set((s) => ({ ...s, cat: c }));
   const setPair = (p: [string, string]) => last.set((s) => ({ cat, pairs: { ...s.pairs, [cat]: p } }));
   const [input, setInput] = useState("100");
 
-  const value = parseAmount(input);
+  const value = parseAmount(input, locale());
   const result = value === null ? null : convertUnit(cat, value, from, to);
   const options = units[cat].map((u) => ({ value: u.id, label: t(u.label) }));
 
@@ -125,6 +126,7 @@ export function UnitsPanel() {
           <input
             value={input}
             inputMode="decimal"
+            aria-label={t("Betrag")}
             onChange={(e) => setInput(e.target.value.replace(/[^\d.,-]/g, ""))}
             className="tabular w-full bg-transparent text-[22px] leading-7 font-semibold tracking-[-0.02em] text-label outline-none"
           />
