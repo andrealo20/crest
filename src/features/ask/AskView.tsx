@@ -66,6 +66,7 @@ export function AskView() {
     const prompt = text.trim();
     if (!prompt || streaming) return;
     setDraft("");
+    if (input.current) input.current.style.height = "auto";
     setError(null);
     const history: ChatMessage[] = [...chat.get(), { role: "user", content: prompt }];
     chat.set([...history, { role: "assistant", content: "" }]);
@@ -184,7 +185,8 @@ export function AskView() {
             e.target.style.height = `${Math.min(e.target.scrollHeight, 54)}px`;
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            // Enter that confirms an IME conversion (keyCode 229 in Safari) is not a send.
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
               e.preventDefault();
               void send(draft);
             }
@@ -222,7 +224,7 @@ function Bubble({ message, streaming }: { message: ChatMessage; streaming: boole
       transition={content.enter}
     >
       <div
-        className={`relative max-w-[85%] text-body whitespace-pre-wrap ${
+        className={`relative max-w-[85%] text-body whitespace-pre-wrap [overflow-wrap:anywhere] ${
           user ? "rounded-[14px] rounded-ee-[4px] bg-fill-2 px-3 py-1.5 text-label" : "px-1 text-label-2"
         }`}
       >

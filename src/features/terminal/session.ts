@@ -4,7 +4,7 @@ import { createStore } from "../../lib/store";
 import { terminal as pty, type TerminalMessage } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { t } from "../../i18n";
-import { launchPlan, type ShellInfo } from "./shell";
+import { launchPlan } from "./shell";
 import { createResizer } from "./resize";
 
 /*
@@ -51,7 +51,8 @@ let host: HTMLDivElement | null = null;
 let opened = false;
 /** Bumped per session, so messages from a replaced one are dropped. */
 let generation = 0;
-let info: Promise<ShellInfo> | null = null;
+/** Counts attaches, so only the latest detach takes the host out. */
+let attached = 0;
 let watching = false;
 
 const resizer = createResizer((cols, rows) => pty.resize(cols, rows));
@@ -138,6 +139,7 @@ function copySelection() {
 /** Puts the terminal into `container` and starts the shell if none runs. Resolves to the detach function. */
 export async function attachTerminal(container: HTMLElement): Promise<() => void> {
   const { term, fit, host } = await ensureTerminal();
+  const mine = ++attached;
   container.appendChild(host);
   // xterm measures its font on open, so it opens once it is in the document.
   if (!opened) {
@@ -160,6 +162,8 @@ export async function attachTerminal(container: HTMLElement): Promise<() => void
     ro.disconnect();
     offFont();
     resizer.flush();
+    // A newer attach to the same container (StrictMode remounts, a quick reopen) keeps the host and the focus.
+    if (mine !== attached) return;
     // Blur first: a focused textarea holds the notch open, and removal alone does not always fire focusout.
     term.blur();
     // A newer view may already hold the host (quick close and reopen).
@@ -193,8 +197,8 @@ export async function start() {
   sessionState.set("starting");
   watchTool();
   try {
-    info ??= pty.info();
-    const shells = await info;
+    // Read at every start: the settings view reads it on every open too.
+    const shells = await pty.info();
     const plan = launchPlan(settings.get().terminal, shells);
     if (id !== generation) return;
     // Lets xterm handle ConPTY's reflow and line wrapping the way this Windows build does it.
@@ -211,7 +215,6 @@ export async function start() {
     // Ended while it was starting (a newer start replaces it in Rust by itself).
     else if (sessionState.get() === "idle") pty.kill();
   } catch (e) {
-    info = null;
     if (id !== generation) return;
     // Not typed into a shell started much later by Enter.
     pending = "";

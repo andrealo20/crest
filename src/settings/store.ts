@@ -18,7 +18,7 @@ import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSi
 import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
-export type AskEffort = "low" | "medium" | "high" | "xhigh";
+export type AskEffort = "off" | "low" | "medium" | "high" | "xhigh";
 
 export interface AskProviderConfig {
   model: string;
@@ -194,9 +194,9 @@ const defaults: Settings = {
     provider: "custom",
     configs: {
       openrouter: { model: "", effort: "medium", baseUrl: "" },
-      openai: { model: "", effort: "medium", baseUrl: "" },
+      openai: { model: "", effort: "off", baseUrl: "" },
       anthropic: { model: "claude-opus-5-5", effort: "medium", baseUrl: "" },
-      custom: { model: "", effort: "medium", baseUrl: "" },
+      custom: { model: "", effort: "off", baseUrl: "" },
     },
   },
   weather: null,

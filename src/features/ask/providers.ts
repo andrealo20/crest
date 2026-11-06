@@ -17,6 +17,7 @@ export const providerInfo: Record<AskProvider, { label: string; modelHint: strin
 };
 
 export const effortLevels: { value: AskEffort; label: string }[] = [
+  { value: "off", label: "Off" },
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
   { value: "high", label: "High" },
@@ -44,6 +45,8 @@ export async function streamChat(
   });
   const onAbort = () => void invoke("ai_cancel", { id });
   signal.addEventListener("abort", onAbort);
+  // Stop pressed while the listener was being set up.
+  if (signal.aborted) onAbort();
   try {
     await invoke("ai_chat", { id, config: { provider, ...config }, messages });
   } catch (e) {

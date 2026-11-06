@@ -13,7 +13,8 @@ use tauri::State;
 
 use crate::{net_error, now_ms};
 
-const CACHE: Duration = Duration::from_secs(3600);
+// A little under the hourly poll in the frontend (the timestamp is taken after the request), so each poll refetches.
+const CACHE: Duration = Duration::from_secs(3500);
 /// A forced refresh still waits this long after the last fetch.
 const MIN_FORCED: Duration = Duration::from_secs(60);
 
