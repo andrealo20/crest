@@ -5,6 +5,12 @@ fn main() {
     // Elevated helper call from "Unlock FPS": grant rights and exit. Must run
     // before run(), otherwise single-instance would hand it to the running app.
     let args: Vec<String> = std::env::args().collect();
+    // Run by the uninstaller (src-tauri/windows/hooks.nsh).
+    #[cfg(windows)]
+    if args.get(1).is_some_and(|a| a == "--restore-banners") {
+        crest_lib::restore_banners();
+        std::process::exit(0);
+    }
     #[cfg(windows)]
     if let [_, flag, value] = args.as_slice() {
         if flag == "--fps-unlock" {

@@ -180,6 +180,12 @@ pub fn osd_guard(pid: &str) -> i32 {
     osd::guard(pid)
 }
 
+/// For main.rs: the uninstaller gives back the Windows banners Crest turned off (see banners.rs).
+#[cfg(windows)]
+pub fn restore_banners() {
+    banners::restore()
+}
+
 pub fn run() {
     let builder = tauri::Builder::default()
         // A second launch doesn't open a second notch; it opens the settings of this one.
@@ -540,6 +546,8 @@ pub fn run() {
                 capture::finish_on_exit(app);
                 osd::set(false);
                 power::keep_awake_stop();
+                // Nothing pops notices up once Crest is gone; the next start hides the banners again.
+                banners::restore();
             }
             #[cfg(not(windows))]
             let _ = (app, event);

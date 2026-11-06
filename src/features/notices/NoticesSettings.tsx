@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, Row, Segmented, Switch, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
+import { update } from "../../lib/update";
 import { minutes, ruleFor, type NoticeRule, type NoticeSettings } from "./rules";
 import { refreshStatus, requestAccess, requestFailed, setAppRule, setNoticesEnabled, sourceStatus } from "./store";
 
@@ -25,6 +26,7 @@ export function NoticesSettings() {
   const n = settings.use().notices;
   const status = sourceStatus.use();
   const failed = requestFailed.use();
+  const store = update.use().store;
   const apps = Object.entries(n.apps).sort((a, b) => a[1].localeCompare(b[1]));
   // Access may have changed in Windows Settings while Crest ran.
   useEffect(refreshStatus, []);
@@ -51,7 +53,8 @@ export function NoticesSettings() {
                 <Switch label={t("Windows-Mitteilungen")} checked={n.windows} onChange={(windows) => patch(() => ({ windows }))} />
               </div>
             </Row>
-            {n.windows && (
+            {/* The Store build cannot change Windows' settings (banners.rs). */}
+            {n.windows && !store && (
               <Row label={t("Windows-Banner ausblenden")} hint={t("Mitteilungen erscheinen nur in Crest und bleiben in der Mitteilungszentrale von Windows")}>
                 <Switch label={t("Windows-Banner ausblenden")} checked={n.hideBanners} onChange={(hideBanners) => patch(() => ({ hideBanners }))} />
               </Row>
