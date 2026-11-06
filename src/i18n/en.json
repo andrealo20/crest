@@ -1318,5 +1318,8 @@
  "Auf GitHub unterstützen": "Support on GitHub",
  "Tresor gerade belegt": "Vault in use",
  "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "Another program is reading the file. Try again in a moment.",
- "Auf der Notch anpassen": "Adjust on the notch"
+ "Auf der Notch anpassen": "Adjust on the notch",
+ "Code kopieren": "Copy code",
+ "Kopier-Knopf für Einmalcodes": "Copy button for one-time codes",
+ "Erscheint, wenn eine Mitteilung einen Code enthält. Die Kopie bleibt aus dem Verlauf der Zwischenablage und wird nach 30 s geleert.": "Shows when a notice contains a code. The copy stays out of the clipboard history and is cleared after 30 s."
 }

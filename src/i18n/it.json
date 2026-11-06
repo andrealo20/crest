@@ -1318,5 +1318,8 @@
  "Auf GitHub unterstützen": "Sostieni su GitHub",
  "Tresor gerade belegt": "Cassaforte occupata",
  "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "Un altro programma sta leggendo il file. Riprova tra un attimo.",
- "Auf der Notch anpassen": "Regola sulla notch"
+ "Auf der Notch anpassen": "Regola sulla notch",
+ "Code kopieren": "Copia codice",
+ "Kopier-Knopf für Einmalcodes": "Pulsante Copia per i codici monouso",
+ "Erscheint, wenn eine Mitteilung einen Code enthält. Die Kopie bleibt aus dem Verlauf der Zwischenablage und wird nach 30 s geleert.": "Compare quando un avviso contiene un codice. La copia non entra nella cronologia degli appunti e viene svuotata dopo 30 s."
 }
