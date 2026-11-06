@@ -1,5 +1,5 @@
 import { useEffect, type RefObject } from "react";
-import { isNative } from "../platform/native";
+import { isMac, isNative } from "../platform/native";
 import { display } from "../platform/services";
 import { settings } from "../settings/store";
 
@@ -28,7 +28,7 @@ export function picture(root: Element): { html: string; images: string[] } {
 export function useMirror(root: RefObject<HTMLElement | null>, closed: boolean) {
   const all = settings.use().display.monitorMode === "all";
   useEffect(() => {
-    if (!isNative || !all || !closed) return;
+    if (!isNative || isMac || !all || !closed) return;
     let last = "";
     let sent: string[] | null = null;
     const take = () => {

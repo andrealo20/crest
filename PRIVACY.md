@@ -7,7 +7,7 @@ Crest is a free, open-source Windows app by Andrea Loroni. It has no account, no
 ## What Crest keeps on your PC
 
 - Settings, to-dos, notes, timer presets, themes, the lyrics cache and the other tool data, in the app's data folders under your Windows profile (`%APPDATA%\io.github.andrealo20.crest` and `%LOCALAPPDATA%\io.github.andrealo20.crest`), or in the `data` folder next to Crest.exe for the portable build.
-- API keys and other secrets, in the Windows Credential Manager under "Crest/…". They are never written to a plain file. Calendar links and CalDAV app passwords are kept there too, as "Crest/calendar.…".
+- API keys and other secrets, in the Windows Credential Manager (the Keychain on a Mac) under "Crest/…". They are never written to a plain file. Calendar links and CalDAV app passwords are kept there too, as "Crest/calendar.…".
 - The events of your calendars from two months back to about three months ahead (titles, places and times), the span the month view can show, in `calendar-cache.json` in the app's data folder, so the agenda shows offline. Removing a calendar drops its events from the file at the next refresh.
 - The vault (passwords and 2FA codes, off by default), in one file encrypted with Windows DPAPI and readable only under your Windows account. With Windows Hello turned on it is additionally sealed with a TPM-backed key.
 - Screenshots and recordings you take, in *Pictures\Screenshots* and *Videos\Crest\Recordings*.
@@ -20,7 +20,7 @@ The Camera tool (off by default) shows the camera picture only on your screen, w
 
 Find on screen reads your screens with Windows' own text recognition, on your PC: the screen copies are dropped as soon as they are read, and the text stays in memory until the page closes. Nothing is saved or sent.
 
-To remove your data, delete those folders (or the portable folder) and the "Crest/…" entries in the Credential Manager.
+To remove your data, delete those folders (or the portable folder) and the "Crest/…" entries in the Credential Manager (the Keychain on a Mac).
 
 ## Which network requests it makes, and when
 

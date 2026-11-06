@@ -25,7 +25,7 @@ export function useFpsPolling(active = true) {
   useEffect(() => {
     if (!active) return;
     let alive = true;
-    const load = () => void fetchFps().then((r) => alive && fps.set({ value: r.fps, error: r.error }));
+    const load = () => void fetchFps().then((r) => alive && fps.set({ value: r.fps, error: r.error })).catch(() => {});
     load();
     const id = setInterval(load, 1000);
     return () => {
