@@ -302,7 +302,7 @@ function CoreColumns({ cores, tone }: { cores: { usage: number; kind: number }[]
             .filter((c) => c.kind === k)
             .map((c, n) => (
               <span key={n} className="relative h-full w-[4px] overflow-hidden rounded-[1.5px] bg-fill-2">
-                <span className="absolute inset-x-0 bottom-0 rounded-[1.5px] transition-[height] duration-500" style={{ height: `${Math.max(6, Math.min(100, c.usage))}%`, background: tone(ofShare(c.usage)) }} />
+                <span className="absolute inset-0 rounded-[1.5px] transition-transform duration-500" style={{ transform: `translateY(${100 - Math.max(6, Math.min(100, c.usage))}%)`, background: tone(ofShare(c.usage)) }} />
               </span>
             ))}
         </div>

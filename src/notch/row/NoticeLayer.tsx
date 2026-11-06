@@ -250,9 +250,9 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
         {status.level !== undefined && (
           <span className="h-1 shrink-0 overflow-hidden rounded-full bg-fill-3" style={{ width: LEVEL_BAR }}>
             <span
-              className="block h-full rounded-full transition-[width] duration-150 ease-out"
+              className="block h-full origin-left rounded-full transition-transform duration-150 ease-out rtl:origin-right"
               // Muted keeps the level, greyed, as Windows shows it.
-              style={{ width: `${status.level}%`, background: status.icon === "speaker-x" ? "var(--color-label-3)" : "currentColor" }}
+              style={{ transform: `scaleX(${status.level / 100})`, background: status.icon === "speaker-x" ? "var(--color-label-3)" : "currentColor" }}
             />
           </span>
         )}
