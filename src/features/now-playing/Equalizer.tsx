@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useReducedMotion } from "motion/react";
 import { audioLevelsAvailable, subscribeLevels, subscribeSpectrum } from "../../platform/audio";
 import { wavePath } from "./shapes";
 
@@ -11,11 +12,14 @@ import { wavePath } from "./shapes";
  * - Silence on track change or seek: gentle "breathing" instead of dropping to zero.
  * - In the browser or without levels: the same soft motion, synthetic.
  * - Paused: bars glide to a calm, even height.
+ * - Reduced motion: no capture and no loop, the bars just stand at a middle height while playing.
  * Values go straight to `transform` (no React render per frame) and are smoothed per
  * frame over time: fast attack, slower release, like an analog meter.
  */
 const MIN = 0.2;
 const IDLE = 0.24;
+/** Reduced motion: the bars' height while playing. */
+const STILL = 0.6;
 /** Smoothing time constants (s). */
 const ATTACK = 0.045;
 const RELEASE = 0.14;
@@ -53,6 +57,7 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
   const playingRef = useRef(playing);
   const levels = useRef<{ values: readonly number[]; at: number } | null>(null);
   const wake = useRef<() => void>(() => {});
+  const still = !!useReducedMotion();
 
   // Apply pause with a slight delay (flicker on seek), start immediately.
   useEffect(() => {
@@ -72,7 +77,7 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
   const off = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (!audioLevelsAvailable || !follow) return;
-    if (playing) {
+    if (playing && !still) {
       const store = (values: readonly number[]) => {
         levels.current = { values, at: performance.now() };
       };
@@ -84,7 +89,7 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
       off.current = null;
     }, RELEASE_CAPTURE_MS);
     return () => window.clearTimeout(id);
-  }, [playing, look, follow]);
+  }, [playing, look, follow, still]);
   useEffect(
     () => () => {
       off.current?.();
@@ -120,8 +125,8 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
       for (let i = 0; i < count; i++) {
         let target: number;
         let tau: number;
-        if (!playingRef.current) {
-          target = IDLE;
+        if (!playingRef.current || still) {
+          target = playingRef.current ? STILL : IDLE;
           tau = SETTLE;
         } else {
           const real = live ? MIN + (1 - MIN) * live[i] : 0;
@@ -136,7 +141,7 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
       }
       wave.current?.setAttribute("d", wavePath(value, WAVE_WIDTH, height, WAVE_STROKE / 2 + 0.25));
 
-      frame = playingRef.current || !settled ? requestAnimationFrame(tick) : 0;
+      frame = (playingRef.current && !still) || !settled ? requestAnimationFrame(tick) : 0;
     };
 
     wake.current = () => {
@@ -149,7 +154,7 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
       cancelAnimationFrame(frame);
       wake.current = () => {};
     };
-  }, [count, height]);
+  }, [count, height, still]);
 
   if (look === "wave")
     return (

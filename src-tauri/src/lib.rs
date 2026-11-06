@@ -180,6 +180,12 @@ pub fn osd_guard(pid: &str) -> i32 {
     osd::guard(pid)
 }
 
+/// For main.rs: the installer and the uninstaller put the Windows volume and brightness indicator back before they close Crest and its guard (see osd.rs).
+#[cfg(windows)]
+pub fn restore_osd() {
+    osd::restore()
+}
+
 /// For main.rs: the uninstaller gives back the Windows banners Crest turned off (see banners.rs).
 #[cfg(windows)]
 pub fn restore_banners() {
@@ -544,7 +550,7 @@ pub fn run() {
             #[cfg(windows)]
             if let tauri::RunEvent::Exit = event {
                 capture::finish_on_exit(app);
-                osd::set(false);
+                osd::set(false, false);
                 power::keep_awake_stop();
                 // Nothing pops notices up once Crest is gone; the next start hides the banners again.
                 banners::restore();

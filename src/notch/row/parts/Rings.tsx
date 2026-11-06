@@ -1,4 +1,4 @@
-import { brandColor } from "../../../ui/brands";
+import { brandColor, brandName } from "../../../ui/brands";
 import type { UsageId, UsageProvider } from "../../../platform/services";
 
 export const RING = 12, RING_GAP = 8;
@@ -9,10 +9,13 @@ export const ringProviders = (providers: UsageProvider[]) => providers.filter((p
 /** The fullest window, 0..100. */
 export const ringValue = (p: UsageProvider) => Math.min(100, Math.max(0, ...p.windows.map((w) => w.usedPercent)));
 
-/** One quota (0..100) as a ring in the provider's colour, 12 px in the row, filling counter-clockwise from the top; no letter (three of them start with C). */
-export function Ring({ id, value: v, size = RING }: { id: UsageId; value: number; size?: number }) {
+/** What a screen reader says for a ring in the row. */
+export const ringLabel = (p: UsageProvider) => `${brandName[p.id]} ${Math.round(ringValue(p))}%`;
+
+/** One quota (0..100) as a ring in the provider's colour, 12 px in the row, filling counter-clockwise from the top; no letter (three of them start with C). `label`: its name for a screen reader, when no text beside it says it. */
+export function Ring({ id, value: v, size = RING, label }: { id: UsageId; value: number; size?: number; label?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 12 12" className="shrink-0 text-label" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 12 12" className="shrink-0 text-label" role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
       <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeOpacity={0.25} strokeWidth="2" />
       {v > 0 && (
         <circle

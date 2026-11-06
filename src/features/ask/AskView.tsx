@@ -229,7 +229,7 @@ function Bubble({ message, streaming }: { message: ChatMessage; streaming: boole
         }`}
       >
         {message.content}
-        {streaming && <span className="ms-0.5 inline-block h-3.5 w-[2px] translate-y-[2px] animate-pulse bg-label-2" />}
+        {streaming && <span className="ms-0.5 inline-block h-3.5 w-[2px] translate-y-[2px] motion-safe:animate-pulse bg-label-2" />}
         {!user && !streaming && message.content && (
           <button
             aria-label={t("Kopieren")}

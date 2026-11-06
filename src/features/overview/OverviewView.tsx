@@ -19,10 +19,11 @@ import { formatClock, timer, useRemaining } from "../timer/store";
 import { Look, clockFace } from "../timer/Look";
 import { lookTint } from "../timer/looks";
 import { describe, useForecast } from "../weather/store";
+import { isStale } from "../weather/stale";
 import { useHue } from "../themes/hues";
 import { WeatherIcon } from "../weather/WeatherView";
 import { settings } from "../../settings/store";
-import { formatTemp, formatTimeParts } from "../../lib/format";
+import { formatAgo, formatTemp, formatTimeParts } from "../../lib/format";
 import { locale, t } from "../../i18n";
 import { QuoteLine } from "../quotes/QuoteLine";
 import { Select } from "../../ui/controls";
@@ -144,6 +145,8 @@ function Header() {
   const forecast = useForecast();
   const place = settings.use().weather;
   const weather = forecast && forecast !== "error" ? describe(forecast.current.code, forecast.current.day) : null;
+  // A forecast saved hours ago says how old it is, as in the weather tool.
+  const old = forecast && forecast !== "error" && forecast.savedAt && isStale(forecast.savedAt, Date.now()) ? formatAgo(Date.now() - forecast.savedAt) : null;
   const { clockLook, clockColor } = settings.use().timer;
   const { time, period } = formatTimeParts(now);
   const date = new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long" }).format(now);
@@ -180,7 +183,7 @@ function Header() {
           )}
         </AnimatePresence>
         <div className="mt-1 max-w-[220px] truncate text-footnote text-label-3">
-          {place ? `${place.name}${weather ? ` · ${weather.text}` : ""}` : t("Ort wird erkannt …")}
+          {place ? `${place.name}${weather ? ` · ${old ?? weather.text}` : ""}` : t("Ort wird erkannt …")}
         </div>
       </button>
     </div>

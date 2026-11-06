@@ -41,8 +41,9 @@ static SCAN: Mutex<()> = Mutex::new(());
 static LAST_CHANGE: AtomicU64 = AtomicU64::new(0);
 static BURST: AtomicBool = AtomicBool::new(false);
 
-/// Turns hiding on (starting the guard first) or off (restoring everything, then stopping the guard).
-pub fn set(hide: bool) {
+/// Turns hiding on (starting the guard first) or off (restoring everything, then stopping the guard unless `armed`: the option
+/// is still on and hiding resumes soon, as when a fullscreen app ends, so the guard process is kept rather than started again).
+pub fn set(hide: bool, armed: bool) {
     let mut guard = GUARD.lock().unwrap_or_else(|e| e.into_inner());
     if hide {
         if guard.as_mut().is_none_or(|c| !matches!(c.try_wait(), Ok(None))) {
@@ -52,9 +53,11 @@ pub fn set(hide: bool) {
     } else {
         HIDE.store(false, Ordering::SeqCst);
         restore();
-        if let Some(mut child) = guard.take() {
-            let _ = child.kill();
-            let _ = child.wait();
+        if !armed {
+            if let Some(mut child) = guard.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
         }
     }
 }
@@ -90,7 +93,7 @@ pub fn after_change() {
     let alive = GUARD.lock().unwrap_or_else(|e| e.into_inner()).as_mut().is_some_and(|c| matches!(c.try_wait(), Ok(None)));
     if !alive {
         BURST.store(false, Ordering::SeqCst);
-        set(false);
+        set(false, false);
         return;
     }
     thread::spawn(|| loop {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SAVED_FOR_MS, savedForecast } from "./stale.ts";
+import { SAVED_FOR_MS, STALE_AFTER_MS, isStale, savedForecast } from "./stale.ts";
 
 const HOUR = 60 * 60_000;
 const data = { current: { temp: 12 }, daily: [{ date: "2026-11-01" }, { date: "2026-11-02" }, { date: "2026-11-03" }] };
@@ -12,4 +12,10 @@ test("the saved forecast stands in for a failed fetch: same place, not too old, 
   assert.equal(savedForecast(null, "51.47,-0.36", saved.at, "2026-11-02"), null);
   assert.equal(savedForecast(saved, "48.85,2.35", saved.at, "2026-11-02"), null);
   assert.equal(savedForecast(saved, "51.47,-0.36", saved.at + SAVED_FOR_MS + 1, "2026-11-02"), null);
+});
+
+test("a forecast fetched just now or a few minutes ago is current, a saved one from hours ago is not", () => {
+  assert.equal(isStale(undefined, 5 * HOUR), false);
+  assert.equal(isStale(1_000_000, 1_000_000 + STALE_AFTER_MS), false);
+  assert.equal(isStale(1_000_000, 1_000_000 + STALE_AFTER_MS + 1), true);
 });

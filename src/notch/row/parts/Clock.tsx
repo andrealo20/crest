@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { useSecondTick } from "../../../features/timer/store";
+import { locale } from "../../../i18n";
 import { measureText } from "../measure";
 
-const pad2 = (n: number) => String(n).padStart(2, "0");
+/** The time as the language writes it, with its own digits and day period. */
+const format = (seconds: boolean, h12: boolean) =>
+  new Intl.DateTimeFormat(locale(), { hour: h12 ? "numeric" : "2-digit", minute: "2-digit", ...(seconds ? { second: "2-digit" } : {}), hourCycle: h12 ? "h12" : "h23" });
 
-/** Fixed room: every digit as wide as an 8, and the wider of AM and PM on a 12 h clock. */
+/** Fixed room: a two-digit hour, and the wider of the morning and the evening on a 12 h clock. */
 export function clockWidth(seconds: boolean, h12: boolean): number {
-  const base = seconds ? "88:88:88" : "88:88";
-  return h12 ? Math.max(measureText(`${base} AM`), measureText(`${base} PM`)) : measureText(base);
+  const f = format(seconds, h12);
+  // Digits are tabular, each as wide as an 8 (in the language's own numerals), which the canvas does not know.
+  const eight = f.format(new Date(2000, 0, 1, 8, 8, 8)).match(/\p{Nd}/gu)!.at(-1)!;
+  return Math.max(...[10, 22].map((h) => measureText(f.format(new Date(2000, 0, 1, h, 8, 8)).replace(/\p{Nd}/gu, eight))));
 }
 
 /** Re-renders once a minute, 50 ms after it turns. */
@@ -30,8 +35,7 @@ function useMinuteTick(active: boolean): number {
 /** `paused` (under a notice) stops the ticking; it catches up on the first tick after. */
 export function Clock({ seconds, h12, paused }: { seconds: boolean; h12: boolean; paused: boolean }) {
   const minute = useMinuteTick(!seconds && !paused), second = useSecondTick(seconds && !paused);
-  const d = new Date(seconds ? second : minute), h = d.getHours();
-  const time = `${h12 ? h % 12 || 12 : pad2(h)}:${pad2(d.getMinutes())}${seconds ? `:${pad2(d.getSeconds())}` : ""}${h12 ? (h < 12 ? " AM" : " PM") : ""}`;
+  const time = format(seconds, h12).format(seconds ? second : minute);
   return (
     <span className="tabular block whitespace-nowrap text-center text-footnote font-medium text-label" style={{ width: clockWidth(seconds, h12) }}>
       {time}

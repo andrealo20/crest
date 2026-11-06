@@ -24,7 +24,7 @@ import { capsuleY, hasBridge, panelTop, windowYFor } from "./capsule";
 import { contentScale, sideLength } from "./collapsed";
 import { monitor, monitorMetrics, notchBusy } from "./monitor";
 import { useMirror } from "./mirror";
-import { rowRoom, surfaceWidth } from "./row/layout";
+import { ROW, rowRoom, surfaceWidth } from "./row/layout";
 import { toPageCss } from "../features/window/panelSize";
 import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
 import { sizeOverride } from "./size";
@@ -384,8 +384,10 @@ export function Notch() {
               </AnimatePresence>
               {/* The notch's insets are the larger ones, so a notice fits either surface. */}
               <AnimatePresence>{showNotices && <NoticeLayer key="notices" max={rowRoom("notch", scale, span)} scale={scale} onSize={setNoticeSize} urgentOnly={!showRow} />}</AnimatePresence>
-              {/* Closed, the dots are the row's last part; dimmed for focus there is no row, so they stand on their own. */}
-              {focus && status !== "open" && !line && <PrivacyDots centered={side} />}
+              {/* Closed, the dots are the row's last part; dimmed for focus there is no row, and under a notice the row is faded out, so they stand on their own (beside the notice, in the shape's inset). */}
+              {(focus || (showRow && notice)) && status !== "open" && !line && (
+                <PrivacyDots centered={side} beside={!focus && notice ? notice.width / 2 + (surface === "capsule" ? ROW.insetCapsule : ROW.insetNotch) / 2 : undefined} />
+              )}
             </div>
             {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress along={side ? "y" : "x"} />}
           </div>

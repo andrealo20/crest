@@ -7,10 +7,11 @@
 //! a failure is logged and leaves only that source off. What a source reads at registration goes
 //! into the seed (`status://seed`, `status_seed`), never into a change event. The volume callback only fires on a change,
 //! so registering it is silent too; changes Crest makes itself carry `controls::OWN_CHANGE` and are skipped.
-//! Caps Lock and Num Lock have no change event short of a keyboard hook, so a small thread reads them every `LOCK_POLL` while their alert is on.
+//! Caps Lock and Num Lock have no change event short of a keyboard hook, so a small thread reads them every `LOCK_POLL` while their alert is on and can show.
+//! The Bluetooth watcher and the volume callback run only while their alerts are on (`status_configure`).
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
@@ -73,6 +74,14 @@ const BT_SETTLE_MS: u32 = 1000;
 const WM_VOL: u32 = WM_APP + 4;
 /// The default output device changed: the volume callback moves to the new one.
 const WM_VOLDEV: u32 = WM_APP + 5;
+/// `status_configure` switched the Bluetooth or the volume source; the loop reads `SOURCES`.
+const WM_SOURCES: u32 = WM_APP + 6;
+const SRC_BT: usize = 1;
+const SRC_VOLUME: usize = 2;
+/// The sources the settings want on; both until the frontend says otherwise.
+static SOURCES: AtomicUsize = AtomicUsize::new(SRC_BT | SRC_VOLUME);
+/// The loop's window, 0 until it exists.
+static LOOP: AtomicIsize = AtomicIsize::new(0);
 
 #[derive(Serialize, Clone, Copy, PartialEq)]
 pub struct Power {
@@ -80,6 +89,8 @@ pub struct Power {
     percent: Option<u8>,
     /// False on PCs without a battery.
     battery: bool,
+    /// Taking charge now; false on a full battery or under a charge limit, though the charger is in.
+    charging: bool,
 }
 
 /// Current state of each source, `null` while a source is off. Kept up to date after the
@@ -117,6 +128,8 @@ fn run(app: AppHandle) {
             let _ = app.emit("status://seed", status_seed());
             return;
         };
+        LOOP.store(hwnd.0 as isize, Ordering::SeqCst);
+        let sources = SOURCES.load(Ordering::SeqCst);
 
         // Registering sends the current value at once; it matches the seed, so it emits nothing.
         let power_on = [GUID_ACDC_POWER_SOURCE, GUID_BATTERY_PERCENTAGE_REMAINING].iter().fold(false, |on, guid| {
@@ -157,14 +170,15 @@ fn run(app: AppHandle) {
             .inspect_err(|e| eprintln!("sysevents: audio endpoint notification failed: {e}"))
             .ok();
         let paired = Paired::default();
-        let _watcher = bt_watch(h, paired.clone());
+        let mut watcher = (sources & SRC_BT != 0).then(|| bt_watch(h, paired.clone())).flatten();
         // `None` until the watcher has listed every paired device (which can take 30 s, in bursts) and that has settled:
         // that reading is the baseline, not a change.
         let mut connected: Option<HashMap<String, BtDevice>> = None;
         let mut enumerated = false;
 
         let volume_client: IAudioEndpointVolumeCallback = VolumeWatch(h).into();
-        let mut volume = devices.as_ref().and_then(|d| watch_volume(d, &volume_client));
+        let mut volume_on = sources & SRC_VOLUME != 0;
+        let mut volume = devices.as_ref().filter(|_| volume_on).and_then(|d| watch_volume(d, &volume_client));
         let mut last_volume = volume.as_ref().map(|v| v.1);
 
         let _ = app.emit("status://seed", status_seed());
@@ -196,7 +210,7 @@ fn run(app: AppHandle) {
                         let _ = app.emit("status://net", serde_json::json!({ "online": now }));
                     }
                 }
-                WM_BT => {
+                WM_BT if watcher.is_some() => {
                     enumerated |= msg.wParam.0 == 1;
                     SetTimer(Some(hwnd), BT_TIMER, BT_SETTLE_MS, None);
                 }
@@ -221,19 +235,52 @@ fn run(app: AppHandle) {
                         connected = Some(now);
                     }
                 }
-                WM_VOL => {
+                WM_VOL if volume_on => {
                     let now = (msg.wParam.0.min(100) as u8, msg.lParam.0 & 1 != 0);
+                    let own = msg.lParam.0 & 2 != 0;
+                    // Windows may bring its flyout up for a key that changes nothing (the level already at an end): hide that one too.
+                    if !own {
+                        crate::osd::after_change();
+                    }
                     // Crest's own change still moves the baseline, so the next outside change compares against it.
-                    if volume_changed(&mut last_volume, now) && msg.lParam.0 & 2 == 0 {
+                    if volume_changed(&mut last_volume, now) && !own {
                         emit_level(&app, "volume", now.0, now.1);
                     }
                 }
-                WM_VOLDEV => {
+                WM_VOLDEV if volume_on => {
                     if let Some((endpoint, _)) = &volume {
                         let _ = endpoint.UnregisterControlChangeNotify(&volume_client);
                     }
                     volume = devices.as_ref().and_then(|d| watch_volume(d, &volume_client));
                     last_volume = volume.as_ref().map(|v| v.1);
+                }
+                WM_SOURCES => {
+                    let sources = SOURCES.load(Ordering::SeqCst);
+                    if (sources & SRC_BT != 0) != watcher.is_some() {
+                        if sources & SRC_BT != 0 {
+                            watcher = bt_watch(h, paired.clone());
+                        } else {
+                            if let Some(w) = watcher.take() {
+                                let _ = w.Stop();
+                            }
+                            let _ = KillTimer(Some(hwnd), BT_TIMER);
+                            lock(&paired).clear();
+                            seed().devices.clear();
+                        }
+                        // The next full scan is a new baseline, not a change.
+                        connected = None;
+                        enumerated = false;
+                    }
+                    if (sources & SRC_VOLUME != 0) != volume_on {
+                        volume_on = !volume_on;
+                        if let Some((endpoint, _)) = volume.take() {
+                            let _ = endpoint.UnregisterControlChangeNotify(&volume_client);
+                        }
+                        if volume_on {
+                            volume = devices.as_ref().and_then(|d| watch_volume(d, &volume_client));
+                        }
+                        last_volume = volume.as_ref().map(|v| v.1);
+                    }
                 }
                 _ => {
                     DispatchMessageW(&msg);
@@ -288,7 +335,7 @@ fn power() -> Option<Power> {
     unsafe { GetSystemPowerStatus(&mut s) }.ok()?;
     // 128 = no system battery; 255 = unknown percent.
     let battery = s.BatteryFlag & 128 == 0;
-    Some(Power { ac: s.ACLineStatus == 1, percent: (battery && s.BatteryLifePercent <= 100).then_some(s.BatteryLifePercent), battery })
+    Some(Power { ac: s.ACLineStatus == 1, percent: (battery && s.BatteryLifePercent <= 100).then_some(s.BatteryLifePercent), battery, charging: s.BatteryFlag & 8 != 0 })
 }
 
 /// No internet profile (cable out, Wi-Fi off) counts as offline.
@@ -494,12 +541,18 @@ pub fn emit_level(app: &AppHandle, kind: &str, level: u8, muted: bool) {
 }
 
 /// From the settings: external monitors are read over DDC/CI only while the Brightness alert is on, Caps Lock and Num Lock only
-/// while theirs is, and the Windows indicator is hidden only while the frontend says Crest's HUD replaces it.
+/// while theirs is on and can show, the Bluetooth watcher and the volume callback only while their alerts are, and the Windows
+/// indicator is hidden only while the frontend says Crest's HUD replaces it (`osd_armed`: the option is on, even if it is not hiding just now).
 #[tauri::command]
-pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, hide_osd: bool) {
+pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, bt: bool, volume: bool, hide_osd: bool, osd_armed: bool) {
     crate::brightness::set_ddc(ddc);
     watch_locks(&app, locks);
-    crate::osd::set(hide_osd);
+    crate::osd::set(hide_osd, osd_armed);
+    SOURCES.store(if bt { SRC_BT } else { 0 } | if volume { SRC_VOLUME } else { 0 }, Ordering::SeqCst);
+    let h = LOOP.load(Ordering::SeqCst);
+    if h != 0 {
+        let _ = unsafe { PostMessageW(Some(HWND(h as _)), WM_SOURCES, WPARAM(0), LPARAM(0)) };
+    }
 }
 
 const LOCK_POLL: Duration = Duration::from_millis(150);
