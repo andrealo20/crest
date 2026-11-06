@@ -548,6 +548,7 @@ pub fn run() {
                 power::keep_awake_stop();
                 // Nothing pops notices up once Crest is gone; the next start hides the banners again.
                 banners::restore();
+                vault::clear_on_exit();
             }
             #[cfg(not(windows))]
             let _ = (app, event);
