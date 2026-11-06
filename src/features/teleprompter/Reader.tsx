@@ -186,7 +186,8 @@ export function Reader({ words, focus, onEdit }: { words: number; focus: boolean
 
   const lineH = size * LINE;
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    // A slider has used the arrow, Home or End key already.
+    if (e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey) return;
     // A button or field keeps its own Space.
     const own = (e.target as Element).closest("button, input, textarea, select");
     const view = stage.current?.clientHeight ?? 0;

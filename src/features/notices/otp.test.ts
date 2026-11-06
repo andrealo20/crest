@@ -207,3 +207,17 @@ test("line breaks and tabs between keyword and digits", () => {
     ["Verification code\t482913", "482913"],
   ]);
 });
+
+test("an amount or another number next to a keyword is not the code", () => {
+  found([
+    ["Your OTP for txn of Rs 5000 is 482913", "482913"],
+    ["Your OTP for txn of Rs. 5000 is 482913", "482913"],
+    ["OTP for INR 5000 at Amazon is 482913", "482913"],
+  ]);
+  none([
+    "Verify your account. Order total 1299",
+    "Authentication failed for user 10234",
+    "Room 4521, verified check-in",
+    "Your PIN was changed on 12/03/2026 at 1530",
+  ]);
+});

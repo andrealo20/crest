@@ -52,20 +52,23 @@ export const isActive = (h: Pick<Habit, "days" | "since">, day: number, today: n
  * - A ticked day adds 1.
  * - Today, not ticked yet, is still open: it adds nothing and breaks nothing.
  * - A missed day (own day before today, not ticked) breaks the streak, unless at most ONE other miss lies in the 7
- *   calendar days before it. Then it is forgiven: it adds nothing and the streak goes on. Every earlier miss counts
- *   in that window, forgiven or not, so a third miss within a week always breaks.
+ *   own days before it (a week for a daily habit, seven weeks for a weekly one). Then it is forgiven: it adds nothing
+ *   and the streak goes on. Every earlier miss counts in that window, forgiven or not, so a third miss within it always
+ *   breaks. Counting own days, not calendar days, keeps a habit of one or two days a week from being forgiven forever.
  * `best` is the longest run in the kept history (two years). Ticks after today (the clock moved back) are ignored.
  */
 export function streaks(h: Habit, today: number): { current: number; best: number } {
   const done = new Set(h.done);
-  let run = 0, best = 0, last = -Infinity, before = -Infinity; // the last two misses
+  // `k` counts the habit's own days; the last two misses are kept as such counts.
+  let run = 0, best = 0, k = 0, last = -Infinity, before = -Infinity;
   for (let d = Math.max(Math.min(h.since, today), today - KEEP_DAYS + 1); d <= today; d++) {
     if (!h.days.includes(weekday(d))) continue;
+    k++;
     if (done.has(d)) best = Math.max(best, ++run);
     else if (d < today) {
-      if (before >= d - 7) run = 0; // two misses in the 7 days before this one
+      if (before >= k - 7) run = 0; // two misses in the 7 own days before this one
       before = last;
-      last = d;
+      last = k;
     }
   }
   return { current: run, best };

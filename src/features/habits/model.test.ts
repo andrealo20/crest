@@ -204,3 +204,12 @@ test("saved data is repaired", () => {
   const many = { habits: Array.from({ length: 30 }, (_, i) => ({ id: `h${i}`, name: `H${i}` })) };
   assert.equal(normalizeHabits(many, T).habits.length, MAX_HABITS);
 });
+
+test("a weekly habit loses its streak when it is missed week after week", () => {
+  const days = [weekday(T)]; // the same weekday as today, once a week
+  const since = T - 7 * 20;
+  // Ticked on its first day, then missed every week until today: the third miss within seven own days breaks it.
+  assert.equal(run({ days, since, done: [since] }).current, 0);
+  // Two misses in a row are forgiven, as for a daily habit.
+  assert.equal(run({ days, since: T - 21, done: [T - 21] }).current, 1);
+});

@@ -239,6 +239,14 @@ fn run(exe: &Path, args: &[&str], timeout: Duration, cap: usize) -> Result<Strin
     while !(out_reader.is_finished() && err_reader.is_finished()) && Instant::now() < until {
         thread::sleep(Duration::from_millis(10));
     }
+    // A process that still holds this run's pipes after the CLI has exited is a leftover of the run; ending the job closes
+    // the pipes, or both readers would wait for it, and a poll every few seconds would add two such threads each time.
+    #[cfg(windows)]
+    if !(out_reader.is_finished() && err_reader.is_finished()) {
+        if let Some(job) = &running.job {
+            job.kill();
+        }
+    }
     if out.over.load(Ordering::SeqCst) {
         return Err("too-big");
     }

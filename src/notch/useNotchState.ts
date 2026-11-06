@@ -39,6 +39,9 @@ export function togglePin() {
  */
 export const noticeHover = createStore(false);
 
+/** The notch is open: the closed row and its notices (a break, say) are not on screen. */
+export const notchOpen = createStore(false);
+
 /**
  * Notch state machine:
  *
@@ -61,6 +64,7 @@ export function useNotchState() {
   const setStatus = useCallback((s: NotchStatus) => {
     statusRef.current = s;
     setStatusState(s);
+    if (notchOpen.get() !== (s === "open")) notchOpen.set(s === "open");
   }, []);
 
   const later = useCallback(

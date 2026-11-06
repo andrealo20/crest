@@ -136,6 +136,25 @@ fn parse_lsof(text: &str, my_uid: Option<u32>, own: u32) -> Vec<Listener> {
     finish(out)
 }
 
+/// A Mac program that is part of macOS (ControlCenter for AirPlay, rapportd, sharingd): ending one drops AirPlay or
+/// Handoff until launchd starts it again. `/usr/local` is the user's own.
+#[cfg(any(target_os = "macos", test))]
+fn mac_system(path: &str) -> bool {
+    ["/System/", "/bin/", "/sbin/", "/Library/Apple/"].iter().any(|d| path.starts_with(d)) || (path.starts_with("/usr/") && !path.starts_with("/usr/local/"))
+}
+
+/// Output of `ps -o pid=,comm=`: "  512 /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter" per line.
+#[cfg(any(target_os = "macos", test))]
+fn parse_ps(text: &str) -> std::collections::HashMap<u32, String> {
+    text.lines()
+        .filter_map(|line| {
+            let (pid, path) = line.trim().split_once(char::is_whitespace)?;
+            Some((pid.parse().ok()?, path.trim().to_string()))
+        })
+        .filter(|(_, path): &(u32, String)| path.starts_with('/'))
+        .collect()
+}
+
 #[cfg(windows)]
 mod win {
     use std::collections::HashMap;
@@ -341,7 +360,15 @@ mod mac {
     pub fn read() -> Result<Vec<Listener>, String> {
         // +c 0: the whole command name instead of the first nine characters.
         let text = run("/usr/sbin/lsof", &["+c", "0", "-nP", "-iTCP", "-sTCP:LISTEN", "-F", "pcutn"], LSOF_LIMIT).ok_or("lsof-failed")?;
-        Ok(parse_lsof(&text, my_uid(), std::process::id()))
+        let mut all = parse_lsof(&text, my_uid(), std::process::id());
+        // The paths, so a part of macOS is never offered for ending; a program whose path is unknown is not either.
+        let pids: Vec<String> = all.iter().filter(|l| l.can_end).map(|l| l.pid.to_string()).collect();
+        let paths = if pids.is_empty() { Default::default() } else { run("/bin/ps", &["-o", "pid=,comm=", "-p", &pids.join(",")], Duration::from_secs(2)).map(|t| parse_ps(&t)).unwrap_or_default() };
+        for l in &mut all {
+            l.path = paths.get(&l.pid).cloned();
+            l.can_end = l.can_end && l.path.as_deref().is_some_and(|p| !mac_system(p));
+        }
+        Ok(all)
     }
 
     pub fn end(pid: u32, port: u16) -> Result<End, String> {
@@ -551,5 +578,16 @@ mod tests {
         child.wait().unwrap();
         // Same listener again: it is gone.
         assert_eq!(platform::end(pid, port).unwrap(), End::Gone);
+    }
+
+    #[test]
+    fn mac_system_programs_are_not_offered() {
+        let paths = parse_ps("  512 /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter\n 9001 /usr/local/bin/node\n 77 /usr/libexec/rapportd\n 88 node\n");
+        assert_eq!(paths.len(), 3);
+        assert!(mac_system(&paths[&512]));
+        assert!(mac_system(&paths[&77]));
+        assert!(!mac_system(&paths[&9001]));
+        assert!(!mac_system("/Applications/Docker.app/Contents/MacOS/com.docker.backend"));
+        assert!(!mac_system("/Users/me/.cargo/bin/server"));
     }
 }

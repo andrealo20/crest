@@ -175,7 +175,15 @@ function ZonePicker({ taken, now, onDone }: { taken: string[]; now: number; onDo
   const zones = useMemo(allZones, []);
   const hits = useMemo(() => searchZones(query, zones), [query, zones]);
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <div
+      className="flex min-h-0 flex-1 flex-col gap-2"
+      // Escape closes the search, not the notch.
+      onKeyDown={(e) => {
+        if (e.key !== "Escape") return;
+        e.stopPropagation();
+        onDone();
+      }}
+    >
       <div className="flex h-9 shrink-0 items-center gap-2 rounded-[12px] bg-fill-1 px-3">
         <MagnifyingGlass size={14} weight="bold" className="text-label-3" />
         <input

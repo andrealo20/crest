@@ -22,7 +22,7 @@ mod sys {
     /// The default microphone for apps and the one for calls, usually the same device. None when the PC has none.
     fn endpoints() -> Vec<IAudioEndpointVolume> {
         unsafe {
-            // Own thread per call (spawn_blocking) → MTA; "already initialized" is fine.
+            // A blocking-pool thread, reused across calls: MTA, and "already initialized" on a reused one is fine.
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
             let Ok(devices) = CoCreateInstance::<_, IMMDeviceEnumerator>(&MMDeviceEnumerator, None, CLSCTX_ALL) else { return Vec::new() };
             [eConsole, eCommunications]

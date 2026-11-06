@@ -132,7 +132,7 @@ function PortsSheet({ onClose }: { onClose: () => void }) {
             <span className={`${COLUMNS.icon} shrink-0`} />
             <span role="columnheader" aria-sort={dir === "asc" ? "ascending" : "descending"} className={`${COLUMNS.port} shrink-0`}>
               <button onClick={() => setDir((d) => (d === "asc" ? "desc" : "asc"))} className="pressable flex items-center gap-0.5 hover:text-label-2">
-                Port
+                {t("Port")}
                 {dir === "asc" ? <CaretUp size={9} weight="bold" /> : <CaretDown size={9} weight="bold" />}
               </button>
             </span>

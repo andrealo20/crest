@@ -44,12 +44,13 @@ const SHORT_KEYWORDS = new RegExp(bounded("OTP|TOTP|PIN|TAN|2FA|MFA"), "gu");
 const FILLER = `(?:[\\s.:-]*(?:no|nr|nº|num${L}*|number|id|n°))?`;
 const NOT_BEFORE_NUMBER = new RegExp(
   "(?:" +
-    bounded("orders?|invoices?|tracking|track|parcel|shipment|package|ref|reference|tickets?|booking|reservation|receipt|account|acct|iban|card|case|tel|phone|call|fax|mobile|cell|ordine|pedido|commande|bestellung|telefon|teléfono|telefono|téléphone|fattura|factura|facture|rechnung|заказ|телефон") +
+    bounded("totals?|amount|users?|rooms?|at|orders?|invoices?|tracking|track|parcel|shipment|package|ref|reference|tickets?|booking|reservation|receipt|account|acct|iban|card|case|tel|phone|call|fax|mobile|cell|ordine|pedido|commande|bestellung|telefon|teléfono|telefono|téléphone|fattura|factura|facture|rechnung|заказ|телефон") +
     "|订单|訂單|电话|電話|注文|주문|전화|رقم" +
     ")" + FILLER + "[\\s.:#№°：-]*$",
   "iu",
 );
-const SIGN_BEFORE = /[#№$€£¥₹₩₽+]\s?$|[nN]°\s?$/u;
+// A currency written as a word in front of the amount too, as Indian bank messages do ("Rs 5000", "INR 5000").
+const SIGN_BEFORE = /[#№$€£¥₹₩₽+]\s?$|[nN]°\s?$|(?<![\p{L}])(?:rs\.?|inr|usd|eur|gbp|aed|sar)\s?$/iu;
 const CURRENCY_AFTER = /^\s?(?:[%‰$€£¥₹₩₽°]|(?:usd|eur|gbp|jpy|cny|rmb|rub|inr|brl|chf|cad|aud|krw|mxn)(?![\p{L}])|(?:euros?|dollars?|pounds?|yen|rupees?|reais|dólares|рубл\p{L}*|руб)(?![\p{L}])|元|块|円|원)/iu;
 
 interface Digits {

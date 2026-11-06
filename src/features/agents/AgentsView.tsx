@@ -169,7 +169,7 @@ function Row({ s, now, wait, copied, onCopy }: { s: AgentSession; now: number; w
   const details = [s.phase === "waiting" ? reasonText(s) : "", waitText, KIND[s.kind] ? t(KIND[s.kind]) : s.kind].filter(Boolean).join(" · ");
   const copyLabel = copied === null ? t("Befehl zum Fortsetzen kopieren") : copied ? t("Kopiert") : t("Kopieren fehlgeschlagen");
   return (
-    <li className="flex shrink-0 items-center gap-2.5 rounded-md bg-fill-1 py-1.5 pr-1.5 pl-2.5">
+    <li className="flex shrink-0 items-center gap-2.5 rounded-md bg-fill-1 py-1.5 pe-1.5 ps-2.5">
       <span className={`size-2 shrink-0 rounded-full ${tone.dot}`} aria-hidden />
       <span className={`w-24 shrink-0 truncate text-caption font-medium ${tone.text}`} title={phaseText(s)}>
         {phaseText(s)}

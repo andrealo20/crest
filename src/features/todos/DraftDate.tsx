@@ -3,9 +3,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { Clock, X } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { formatTime } from "../../lib/format";
-import { locale, t } from "../../i18n";
+import { lang, locale, t } from "../../i18n";
 import { settings } from "../../settings/store";
-import { parseDate } from "./dates";
+import { DATE_LANGUAGES, parseDate } from "./dates";
 import { dayDiff } from "./schedule";
 
 /**
@@ -14,7 +14,7 @@ import { dayDiff } from "./schedule";
  * only if the chip is still there when the task is added. Dismissed, the task is exactly what was typed.
  */
 export function useDraftDate(draft: string, now: number) {
-  const on = settings.use().productivity.nlDates !== false;
+  const on = settings.use().productivity.nlDates !== false && DATE_LANGUAGES.includes(lang());
   const [dismissed, setDismissed] = useState("");
   const found = useMemo(() => (on ? parseDate(draft, now) : null), [on, draft, now]);
   // A new task starts without dismissals.
@@ -52,11 +52,12 @@ export function DateChip({ date, now }: { date: ReturnType<typeof useDraftDate>;
         {found && (
           <motion.div
             key="date-chip"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 26 }}
-            exit={{ opacity: 0, height: 0, transition: { duration: 0.15 } }}
+            // Only opacity and a short slide: animating the height would lay the list out again on every frame.
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, transition: { duration: 0.1 } }}
             transition={springs.snappy}
-            className="overflow-hidden"
+            className="h-[26px]"
           >
             <div className="flex ps-1 pt-1.5">
               <span className="inline-flex h-5 items-center gap-1 rounded-full bg-fill-1 ps-2 pe-0.5 text-caption text-label-2">

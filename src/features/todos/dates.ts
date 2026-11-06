@@ -92,6 +92,9 @@ const DAY_WORDS = lex<{ n: number; part?: Part }>({
   oggi: { n: 0 }, domani: { n: 1 }, dopodomani: { n: 2 }, stasera: { n: 0, part: "evening" }, stamattina: { n: 0, part: "morning" }, domattina: { n: 1, part: "morning" },
 });
 const PARTS = lex<Part>({ morning: "morning", afternoon: "afternoon", evening: "evening", night: "evening", mattina: "morning", mattino: "morning", pomeriggio: "afternoon", sera: "evening" });
+/** The interface languages whose words the parser knows; in the others "le 12" or "mar 5" would be misread, so it stays off. */
+export const DATE_LANGUAGES: readonly string[] = ["en", "it"];
+
 const WORD_TIMES = lex({ noon: 12, midday: 12, mezzogiorno: 12, midnight: 0, mezzanotte: 0, "all'una": 1 });
 const MERIDIEM = lex({ am: 0, pm: 1, "a.m": 0, "a.m.": 0, "p.m": 1, "p.m.": 1 });
 const NEXT = words("next", "prossimo", "prossima");
@@ -316,6 +319,8 @@ function resolve(date: DateSpec | null, time: TimeSpec | null, now: number): num
     h = time.h;
     m = time.m;
     if (!time.mer && h >= 1 && h <= 11 && (part === "afternoon" || part === "evening")) h += 12;
+    // A bare early hour is the afternoon one: "call mum at 5" is 17:00, not 05:00. "at 05:00" or "5am" stays early.
+    else if (time.bare && !part && h >= 1 && h <= 7) h += 12;
   } else if (part) h = PART_HOUR[part];
   if (!date) return dueAt(now, defaultDay(now, h, m), h, m);
 

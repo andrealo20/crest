@@ -203,9 +203,11 @@ fn affinity(on: bool, hidden: bool) -> WINDOW_DISPLAY_AFFINITY {
     if on || hidden { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }
 }
 
-/// The setting changed (sharing.rs). A recording of Crest's own keeps the windows out until it ends, whatever the setting says.
+/// The setting changed (sharing.rs). A recording or a screenshot of Crest's own keeps the windows out until it ends, whatever
+/// the setting says; the last Hold puts the setting back when it drops.
 pub(crate) fn set_hidden(app: &AppHandle, on: bool) {
-    if !app.state::<CaptureState>().excluded() {
+    let state = app.state::<CaptureState>();
+    if !state.excluded() && state.holds.load(Ordering::SeqCst) == 0 {
         exclude(app, on);
     }
 }

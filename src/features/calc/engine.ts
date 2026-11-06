@@ -85,6 +85,8 @@ function readNumber(rest: string, inCall: boolean): [number, number] | null {
   let m: RegExpExecArray | null;
   // Inside f(…) a comma separates arguments, so "max(1,200)" is two numbers.
   if (!inCall) {
+    // A leading zero never starts a group: "0,125" is a decimal.
+    if ((m = /^0,\d+(?!\d)/.exec(rest))) return [m[0].length, Number(m[0].replace(",", "."))];
     if ((m = /^\d{1,3}(?:,\d{3})+(?:\.\d+)?(?!\d)/.exec(rest))) return [m[0].length, Number(m[0].replaceAll(",", ""))];
     if ((m = /^\d{1,3}(?:\.\d{3})+,\d+(?!\d)/.exec(rest))) return [m[0].length, Number(m[0].replaceAll(".", "").replace(",", "."))];
     if ((m = /^\d{1,3}(?:\.\d{3}){2,}(?!\d)/.exec(rest))) return [m[0].length, Number(m[0].replaceAll(".", ""))];

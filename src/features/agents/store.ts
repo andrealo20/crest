@@ -1,10 +1,11 @@
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
+import { windowShell } from "../../platform/services";
 import { fetchAgentsText } from "./api";
 import { parseAgents, trackWaits, type AgentSession, type Waits } from "./sessions";
 
 /** The next reading starts this long after the last one ended, so two never overlap. */
-const POLL_MS = 5_000;
+const POLL_MS = 10_000;
 /** With these there is nothing to read until something changes on the PC; the refresh button tries again. */
 const GIVE_UP = new Set(["not-found", "too-old"]);
 
@@ -61,8 +62,11 @@ export function refreshAgents(): Promise<void> {
   return inFlight;
 }
 
+/** The window is hidden (the hide shortcut or an app rule) while the notch is still open on this tool. */
+let hidden = false;
+
 function schedule() {
-  if (viewers === 0 || timer) return;
+  if (viewers === 0 || hidden || timer) return;
   timer = setTimeout(() => {
     timer = null;
     void poll();
@@ -70,7 +74,7 @@ function schedule() {
 }
 
 async function poll() {
-  if (viewers === 0) return;
+  if (viewers === 0 || hidden) return;
   await refreshAgents();
   const { error } = agents.get();
   if (!error || !GIVE_UP.has(error)) schedule();
@@ -83,11 +87,19 @@ export function refreshAgentsNow() {
   void poll();
 }
 
-/** For the Agents view: it reads every 5 seconds while mounted (the notch is open on this tool), never otherwise. */
+/** For the Agents view: it reads every 10 seconds while mounted (the notch is open on this tool), never otherwise. */
 export function useAgentsViewer() {
   useEffect(() => {
     if (viewers++ === 0) void poll();
+    const off = windowShell.onHidden((h) => {
+      hidden = h;
+      if (h && timer) {
+        clearTimeout(timer);
+        timer = null;
+      } else if (!h) schedule();
+    });
     return () => {
+      off();
       if (--viewers === 0 && timer) {
         clearTimeout(timer);
         timer = null;

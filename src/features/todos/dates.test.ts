@@ -223,7 +223,13 @@ test("a bare hour alone only counts at the end of the sentence", () => {
   // With a day in the text it is clearly a time.
   assert.equal(due("tomorrow at 9 call Marco", NOW), at(2026, 11, 5, 9));
   assert.equal(title("tomorrow at 9 call Marco"), "call Marco");
-  assert.equal(due("at 5 tomorrow", NOW), at(2026, 11, 5, 5));
+  // A bare early hour is the afternoon one; with minutes or am it stays early.
+  assert.equal(due("at 5 tomorrow", NOW), at(2026, 11, 5, 17));
+  assert.equal(due("call mum at 5", NOW), at(2026, 11, 4, 17));
+  assert.equal(due("meeting at 3 on friday", NOW), at(2026, 11, 6, 15));
+  assert.equal(due("at 5am tomorrow", NOW), at(2026, 11, 5, 5));
+  assert.equal(due("at 05:00 tomorrow", NOW), at(2026, 11, 5, 5));
+  assert.equal(due("tomorrow at 8", NOW), at(2026, 11, 5, 8));
 });
 
 test("tonight, evening, afternoon, morning", () => {
@@ -608,7 +614,7 @@ test("time before date, and a date with a lead that is not a date", () => {
     ["at 5pm on friday", at(2026, 11, 6, 17)],
     ["alle 17 venerdì", at(2026, 11, 6, 17)],
     ["17:30 il 3 dicembre", at(2026, 12, 3, 17, 30)],
-    ["at 5 tomorrow", at(2026, 11, 5, 5)],
+    ["at 5 tomorrow", at(2026, 11, 5, 17)],
     ["call tomorrow 5", at(2026, 11, 5, 9)],
   ]);
   assert.equal(title("call tomorrow 5"), "call 5");
