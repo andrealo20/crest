@@ -8,7 +8,6 @@ import { system } from "./store";
 const schemeLabel: Record<ColorScheme, string> = { calm: "Ruhig", traffic: "Ampel", accent: "Akzent" };
 
 const extras: { key: ReadingKey; label: string; hint: string }[] = [
-  { key: "net", label: "Netzwerk", hint: "Download und Upload" },
   { key: "power", label: "Leistung", hint: "Ganzer PC; geschätzt, wenn kein Messgerät da ist" },
   { key: "battery", label: "Akku", hint: "Nur bei Laptops" },
   { key: "temp", label: "Temperatur", hint: "CPU, sonst GPU; erscheint, sobald ein Sensor antwortet" },
@@ -19,7 +18,7 @@ export function SystemSettings() {
   const s = settings.use();
   const gpus = system.use().stats?.gpus ?? [];
   const set = (patch: Partial<typeof s.system>) => updateSettings((cur) => ({ system: { ...cur.system, ...patch } }));
-  // These can come and go with the hardware; the part stays non-empty through CPU, RAM or GPU (Display, Content).
+  // These can come and go with the hardware; the part stays non-empty through CPU, RAM, GPU or the network (Display, Content).
   const setReading = (key: ReadingKey, on: boolean) => updateSettings((cur) => ({ closed: { ...cur.closed, readings: { ...cur.closed.readings, [key]: on } } }));
 
   return (

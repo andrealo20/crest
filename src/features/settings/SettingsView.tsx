@@ -969,8 +969,10 @@ function ClosedParts() {
   const { closed: c, music } = settings.use();
   const [dragging, setDragging] = useState<PartId | null>(null);
   const setClosed = (patch: (cur: ClosedSettings) => Partial<ClosedSettings>) => updateSettings((cur) => ({ closed: { ...cur.closed, ...patch(cur.closed) } }));
-  // Only these always show; battery, power and temperature can be missing, so they cannot keep the part alone.
-  const readingsOn = (["cpu", "ram", "gpu"] as const).filter((k) => c.readings[k]).length;
+  // Only these always show; battery, power and temperature can be missing, so they cannot keep the part alone. The network
+  // counts too, so the part can show only the download and upload speed (issue #11).
+  const mainReadings = ["cpu", "ram", "gpu", "net"] as const;
+  const readingsOn = mainReadings.filter((k) => c.readings[k]).length;
   const iconColors = useIconColors();
 
   return (
@@ -998,7 +1000,7 @@ function ClosedParts() {
               <span className={`flex-1 text-body select-none ${on ? "text-label" : "text-label-3"}`}>{t(label)}</span>
               <div onPointerDown={(e) => e.stopPropagation()} className="flex items-center gap-3">
                 {on && id === "readings" &&
-                  (["cpu", "ram", "gpu"] as const).map((k) => (
+                  mainReadings.map((k) => (
                     <SubSwitch
                       key={k}
                       label={k.toUpperCase()}
