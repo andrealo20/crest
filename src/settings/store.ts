@@ -182,9 +182,10 @@ export const TOOL_IDS = [
   "habits",
   "colour",
   "clocks",
+  "teleprompter",
 ] as const;
 
-const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "calendar", "notices", "recorder", "camera", "habits", "colour", "clocks"]);
+const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "calendar", "notices", "recorder", "camera", "habits", "colour", "clocks", "teleprompter"]);
 
 const defaults: Settings = {
   openMode: "hover",

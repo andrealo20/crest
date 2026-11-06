@@ -1409,5 +1409,17 @@
  "Prognose unter den Balken": "Forecast under the bars",
  "Zeigt, wann das Limit im aktuellen Tempo erreicht wäre": "Shows when you would reach the limit at your current pace",
  "Hinweis, wenn ein Limit zurückgesetzt wird": "Notify when a limit resets",
- "Braucht den Teil AI-Nutzung, nicht in den Ruhezeiten": "Needs the AI Usage part, not during quiet hours"
+ "Braucht den Teil AI-Nutzung, nicht in den Ruhezeiten": "Needs the AI Usage part, not during quiet hours",
+ "Prompter": "Prompter",
+ "Skript": "Script",
+ "Skript hier einfügen oder schreiben, wird lokal gespeichert": "Paste or write your script here, it is saved on this computer",
+ "Lesen": "Read",
+ "Von vorn": "Restart",
+ "Läuft": "Playing",
+ "Pausiert": "Paused",
+ "Ende erreicht": "End reached",
+ "{n} WPM": "{n} WPM",
+ "ca. {time} bei {n} WPM": "About {time} at {n} WPM",
+ "{n} von {max} Zeichen": "{n} of {max} characters",
+ "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "Space: play or pause · Arrows: move · + and -: speed"
 }
