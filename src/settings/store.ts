@@ -151,6 +151,8 @@ export interface Settings {
   camera: { deviceId: string; mirror: boolean };
   /** First-run setup (src/features/setup) finished or skipped. Settings saved without the field come from an older version, which counts as done. */
   setup: { done: boolean };
+  /** Clipboard tool: the small chip that decodes a JWT, Unix time, Base64, UUID, JSON, colour or tracking link on an entry. Only visual, on by default. */
+  clipChips: boolean;
 }
 
 /** All tool IDs in default order. Must match `src/notch/tabs.ts`. */
@@ -249,6 +251,7 @@ const defaults: Settings = {
   recorder: { mic: true, system: true, noted: false },
   camera: { deviceId: "", mirror: true },
   setup: { done: false },
+  clipChips: true,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
