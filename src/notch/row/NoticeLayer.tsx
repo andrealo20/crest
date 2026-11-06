@@ -256,7 +256,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
             />
           </span>
         )}
-        <span className={`truncate text-footnote font-medium ${bar ? "tabular" : ""}`} style={{ width: textW }}>{status.text}</span>
+        <span dir="auto" className={`truncate text-footnote font-medium ${bar ? "tabular" : ""}`} style={{ width: textW }}>{status.text}</span>
       </span>
     );
   } else if (kind === "ask" && ask) {
