@@ -15,7 +15,9 @@ export const calendarDue = createStore<CalendarEvent | null>(null);
 /** The next event within the part's horizon (only while the part is on). */
 export const calendarNext = createStore<CalendarEvent | null>(null);
 
-const dismissed = new Set<string>();
+/** Closed notices survive a restart (stored ids are pruned to the agenda's events on each close). */
+const dismissedIds = createStore<string[]>([], { persist: "calendar-dismissed" });
+const dismissed = new Set(dismissedIds.get());
 let latest = 0;
 
 const toolOn = () => settings.get().tools.some((t) => t.id === "calendar" && t.enabled);
@@ -37,13 +39,15 @@ export function refreshCalendar(force = false): Promise<void> {
 /** Hides the notice for this event. */
 export function dismissCalendarNotice(id: string) {
   dismissed.add(id);
+  const known = new Set((calendar.get().data?.events ?? []).map((e) => e.id));
+  dismissedIds.set([...dismissed].filter((i) => i === id || known.has(i)));
   schedule();
 }
 
-/** Opens the event's meeting link (from meetingLink) and hides its notice: once joined, it has done its job. */
+/** Opens the event's meeting link (from meetingLink) and hides its notice once it opened: it has done its job. */
 export function joinMeeting(id: string, link: string) {
-  openMeetingLink(link);
-  dismissCalendarNotice(id);
+  // On failure the notice stays, so the button can be pressed again.
+  openMeetingLink(link).then(() => dismissCalendarNotice(id), () => {});
 }
 
 // One timeout to the next moment the notice or the part changes (at most a minute, for standby and clock changes).

@@ -1261,8 +1261,8 @@ export function fetchCalendar(sources: CalendarSourceIn[], force: boolean): Prom
 }
 
 /** An event's meeting link in the default browser; Rust opens https links only. */
-export function openMeetingLink(url: string) {
-  if (isNative) void invoke("calendar_open_link", { url });
+export async function openMeetingLink(url: string): Promise<void> {
+  if (isNative) await invoke("calendar_open_link", { url });
   // Demo: the sample link goes nowhere; a notice says what the app would have done.
   else if (demo) mockNotice({ appName: "Crest demo", title: "Meeting link", body: `The app opens ${url} in your browser.` });
   else window.open(url, "_blank", "noopener");
