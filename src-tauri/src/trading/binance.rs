@@ -57,13 +57,20 @@ pub async fn fetch(client: &reqwest::Client) -> Result<Account, String> {
     };
 
     let account: ApiAccount = send_json(signed("/api/v3/account", "omitZeroBalances=true")).await.map_err(binance_error)?;
-    let holdings = account
-        .balances
-        .into_iter()
-        .map(|b| (b.asset, num(&b.free) + num(&b.locked)))
-        .filter(|(_, q)| q.abs() > 1e-12)
-        .map(|(asset, q)| Holding::balance(&asset, q))
-        .collect();
+    // Earn receipts (LDBNB) are the coin itself, so they are priced and added up as that coin.
+    let mut sums: Vec<(String, f64)> = Vec::new();
+    for b in account.balances {
+        let q = num(&b.free) + num(&b.locked);
+        if q.abs() <= 1e-12 {
+            continue;
+        }
+        let asset = underlying(&b.asset);
+        match sums.iter_mut().find(|(a, _)| *a == asset) {
+            Some(sum) => sum.1 += q,
+            None => sums.push((asset.to_string(), q)),
+        }
+    }
+    let holdings = sums.into_iter().map(|(asset, q)| Holding::balance(&asset, q)).collect();
 
     let warning = match send_json::<Restrictions>(signed("/sapi/v1/account/apiRestrictions", "")).await {
         Ok(r)
@@ -87,5 +94,26 @@ fn binance_error(e: String) -> String {
         "unauthorized".into()
     } else {
         e
+    }
+}
+
+/// "LDBNB" → "BNB": the flexible Earn receipt prefix. Three letters ("LDO", Lido) are a coin of their own.
+fn underlying(asset: &str) -> &str {
+    match asset.strip_prefix("LD") {
+        Some(coin) if coin.len() >= 2 => coin,
+        _ => asset,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::underlying;
+
+    #[test]
+    fn earn_receipts_map_to_their_coin() {
+        assert_eq!(underlying("LDUSDT"), "USDT");
+        assert_eq!(underlying("LDBNB"), "BNB");
+        assert_eq!(underlying("LDO"), "LDO");
+        assert_eq!(underlying("BNB"), "BNB");
     }
 }

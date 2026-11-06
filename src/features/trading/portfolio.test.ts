@@ -57,6 +57,14 @@ test("average cost: buys, partial sell, realized", () => {
   assert.equal(r.skipped, 0);
 });
 
+test("average cost: a sell above the known position realizes only that share", () => {
+  // 0.5 BTC bought for 10,000, 0.5 more arrived by deposit, then 1 BTC sold for 40,000.
+  const r = averageCost([trade(1, ["EUR", -10_000], ["BTC", 0.5]), trade(2, ["BTC", -1], ["EUR", 40_000])], rates);
+  near(r.realized, 10_000);
+  assert.equal(r.skipped, 0);
+  near(r.basis.BTC.quantity, 0);
+});
+
 test("average cost: a coin swap moves the cost basis", () => {
   const r = averageCost([trade(1, ["EUR", -1_000], ["USDT", 1_000]), trade(2, ["USDT", -400], ["ETH", 0.2])], rates);
   near(r.basis.USDT.cost, 600);

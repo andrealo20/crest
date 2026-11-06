@@ -223,16 +223,16 @@ function Positions({ account, money, hidden }: { account: AccountState; money: M
         const priceDate = account.id === "manual" && p.kind === "stock" ? manual.find((m) => m.symbol.toUpperCase() === p.symbol)?.priceDate : null;
         return (
           <motion.div
-            key={p.symbol}
+            key={`${p.symbol}-${i}`}
             className="flex h-10 items-center gap-3 border-b border-separator px-1 last:border-0"
             initial={{ opacity: 0, transform: "translateY(4px)" }}
             animate={{ opacity: 1, transform: "translateY(0px)" }}
-            transition={{ ...content.enter, delay: 0.03 * i }}
+            transition={{ ...content.enter, delay: 0.03 * Math.min(i, 8) }}
             title={hidden ? undefined : tooltip(p, money)}
           >
             <div className="min-w-0 flex-1">
               <div className="truncate text-footnote font-semibold text-label">{p.symbol}</div>
-              <div className="truncate text-caption text-label-3">{priceDate ? t("Kurs vom {date}", { date: new Date(priceDate).toLocaleDateString(locale(), { day: "numeric", month: "short" }) }) : p.name === "unknown-asset" ? t("Unbekannter Wert") : p.name}</div>
+              <div className="truncate text-caption text-label-3">{priceDate ? t("Kurs vom {date}", { date: new Date(`${priceDate}T00:00`).toLocaleDateString(locale(), { day: "numeric", month: "short" }) }) : p.name === "unknown-asset" ? t("Unbekannter Wert") : p.name}</div>
             </div>
             <div className="text-end">
               <div className="tabular text-footnote text-label">{p.value !== null ? money(p.value) : t("Kein Kurs")}</div>
@@ -377,6 +377,7 @@ const errorText: Record<string, string> = {
   forbidden: "Dem Schlüssel fehlen Leserechte, siehe Einstellungen.",
   "bad-key": "Privater Schlüssel nicht lesbar. Nötig ist ein ECDSA-Schlüssel im PEM-Format.",
   rate: "Zu viele Abfragen, gleich wieder.",
+  pending: "Der Bericht ist noch in Arbeit. Bitte später erneut laden.",
 };
 
 /** Short text for an error code from Rust. */
@@ -388,7 +389,7 @@ function errorLine(code: string): string {
 }
 
 function ErrorState({ name, code, onRetry }: { name: string; code: string; onRetry: () => void }) {
-  const isKey = code in errorText && code !== "rate";
+  const isKey = code in errorText && code !== "rate" && code !== "pending";
   return (
     <Empty
       icon={isKey ? Key : WarningCircle}
