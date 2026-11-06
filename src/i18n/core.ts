@@ -83,6 +83,8 @@ const backendPatterns: [RegExp, string][] = [
   [/^Nicht gefunden \(404\): Base-URL oder Modell prüfen\. (.*)$/s, "Nicht gefunden (404): Base-URL oder Modell prüfen. {text}"],
   [/^Fehler (\d+): (.*)$/s, "Fehler {code}: {text}"],
   [/^Keine Verbindung: (.*)$/s, "Keine Verbindung: {text}"],
+  [/^Verbindung abgebrochen: (.*)$/s, "Verbindung abgebrochen: {text}"],
+  [/^Limit erreicht \(429\): (.*)$/s, "Limit erreicht (429): {text}"],
 ];
 
 export function backendText(msg: string, t: (id: string, vars?: Record<string, string>) => string): string {

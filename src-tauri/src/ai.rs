@@ -38,7 +38,7 @@ pub struct ChatConfig {
     pub provider: String,
     pub base_url: Option<String>,
     pub model: String,
-    /// low | medium | high | xhigh
+    /// low | medium | high | xhigh | off (or empty: no parameter, for models that do not reason)
     pub effort: Option<String>,
 }
 
@@ -81,7 +81,7 @@ pub async fn stream_chat(
     if model.is_empty() {
         return Err("Kein Modell eingetragen".into());
     }
-    let effort = config.effort.as_deref().filter(|e| !e.is_empty());
+    let effort = config.effort.as_deref().filter(|e| !matches!(*e, "" | "off"));
     let anthropic = config.provider == "anthropic";
 
     let url = match config.provider.as_str() {
@@ -140,44 +140,99 @@ pub async fn stream_chat(
         req.json(&body)
     };
 
-    let mut res = request.send().await.map_err(|e| format!("Keine Verbindung: {}", short(&e.to_string())))?;
+    let Some(sent) = or_cancel(request.send(), &cancelled).await else { return Ok(()) };
+    let mut res = sent.map_err(|e| format!("Keine Verbindung: {}", short(&e.to_string())))?;
     if !res.status().is_success() {
         let status = res.status().as_u16();
         let text = res.text().await.unwrap_or_default();
         return Err(http_error(status, &text));
     }
 
-    // Read SSE line by line; a chunk can end mid-line.
-    let mut buffer = String::new();
-    while let Some(chunk) = res.chunk().await.map_err(|e| format!("Verbindung abgebrochen: {}", short(&e.to_string())))? {
-        if cancelled() {
-            return Ok(());
+    // Read SSE line by line; a chunk can end mid-line or mid-character, so only whole lines are decoded.
+    let mut buffer: Vec<u8> = Vec::new();
+    // Lines that are not SSE: a provider that ignored `stream` answers with one JSON body.
+    let mut plain: Vec<u8> = Vec::new();
+    let mut got_text = false;
+    'read: loop {
+        let Some(chunk) = or_cancel(res.chunk(), &cancelled).await else { return Ok(()) };
+        let last = match chunk.map_err(|e| format!("Verbindung abgebrochen: {}", short(&e.to_string())))? {
+            Some(chunk) => {
+                buffer.extend_from_slice(&chunk);
+                false
+            }
+            None => {
+                // The last event may come without its newline.
+                buffer.push(b'\n');
+                true
+            }
+        };
+        while let Some(pos) = buffer.iter().position(|&b| b == b'\n') {
+            let line = String::from_utf8_lossy(&buffer[..pos]).into_owned();
+            buffer.drain(..=pos);
+            if sse_line(&line, anthropic, &mut on_delta, &mut got_text, &mut plain)? {
+                break 'read;
+            }
         }
-        buffer.push_str(&String::from_utf8_lossy(&chunk));
-        while let Some(pos) = buffer.find('\n') {
-            let line: String = buffer.drain(..=pos).collect();
-            let Some(data) = line.trim().strip_prefix("data:") else { continue };
-            let data = data.trim();
-            if data == "[DONE]" {
-                return Ok(());
-            }
-            let Ok(event) = serde_json::from_str::<Value>(data) else { continue };
-            if let Some(err) = event.get("error") {
-                return Err(err["message"].as_str().unwrap_or("Provider error").to_string());
-            }
-            let text = if anthropic {
-                (event["type"] == "content_block_delta" && event["delta"]["type"] == "text_delta")
-                    .then(|| event["delta"]["text"].as_str())
-                    .flatten()
-            } else {
-                event["choices"][0]["delta"]["content"].as_str()
-            };
-            if let Some(t) = text.filter(|t| !t.is_empty()) {
-                on_delta(t);
-            }
+        if last {
+            break;
+        }
+    }
+    if !got_text {
+        let body: Value = serde_json::from_slice(&plain).unwrap_or_default();
+        if let Some(err) = body.get("error") {
+            return Err(err["message"].as_str().unwrap_or("Fehler vom Anbieter").to_string());
+        }
+        let text = if anthropic { &body["content"][0]["text"] } else { &body["choices"][0]["message"]["content"] };
+        match text.as_str().filter(|t| !t.is_empty()) {
+            Some(t) => on_delta(t),
+            None => return Err("Leere Antwort".into()),
         }
     }
     Ok(())
+}
+
+/// One SSE line. `Ok(true)`: the stream is finished.
+fn sse_line(line: &str, anthropic: bool, on_delta: &mut impl FnMut(&str), got_text: &mut bool, plain: &mut Vec<u8>) -> Result<bool, String> {
+    let line = line.trim();
+    let Some(data) = line.strip_prefix("data:") else {
+        if !line.is_empty() && !line.starts_with(':') && !line.starts_with("event:") {
+            plain.extend_from_slice(line.as_bytes());
+        }
+        return Ok(false);
+    };
+    let data = data.trim();
+    if data == "[DONE]" {
+        return Ok(true);
+    }
+    let Ok(event) = serde_json::from_str::<Value>(data) else { return Ok(false) };
+    if let Some(err) = event.get("error") {
+        return Err(err["message"].as_str().unwrap_or("Fehler vom Anbieter").to_string());
+    }
+    let text = if anthropic {
+        (event["type"] == "content_block_delta" && event["delta"]["type"] == "text_delta")
+            .then(|| event["delta"]["text"].as_str())
+            .flatten()
+    } else {
+        event["choices"][0]["delta"]["content"].as_str()
+    };
+    if let Some(t) = text.filter(|t| !t.is_empty()) {
+        *got_text = true;
+        on_delta(t);
+    }
+    Ok(false)
+}
+
+/// Awaits `fut`, but gives up (`None`) within 200 ms of a cancel, also while the provider is silent.
+async fn or_cancel<T>(fut: impl std::future::Future<Output = T>, cancelled: &impl Fn() -> bool) -> Option<T> {
+    tokio::pin!(fut);
+    loop {
+        if cancelled() {
+            return None;
+        }
+        if let Ok(v) = tokio::time::timeout(Duration::from_millis(200), &mut fut).await {
+            return Some(v);
+        }
+    }
 }
 
 fn http_error(status: u16, body: &str) -> String {
@@ -188,7 +243,7 @@ fn http_error(status: u16, body: &str) -> String {
     match status {
         401 | 403 => format!("Schlüssel abgelehnt ({status}): {}", short(&detail)),
         404 => format!("Nicht gefunden (404): Base-URL oder Modell prüfen. {}", short(&detail)),
-        429 => "Limit erreicht (429), kurz warten".into(),
+        429 => format!("Limit erreicht (429): {}", short(&detail)),
         _ => format!("Fehler {status}: {}", short(&detail)),
     }
 }
@@ -210,7 +265,32 @@ fn custom_base_ok(base: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::custom_base_ok;
+    use super::{custom_base_ok, or_cancel, sse_line};
+    use std::time::Duration;
+
+    #[test]
+    fn sse_lines_give_text_errors_and_the_end() {
+        let (mut out, mut got, mut plain) = (String::new(), false, Vec::new());
+        let mut run = |line: &str, anthropic: bool| sse_line(line, anthropic, &mut |t| out.push_str(t), &mut got, &mut plain);
+        assert_eq!(run(r#"data: {"choices":[{"delta":{"content":"Hi"}}]}"#, false), Ok(false));
+        assert_eq!(run(r#"data: {"type":"content_block_delta","delta":{"type":"text_delta","text":" there"}}"#, true), Ok(false));
+        assert_eq!(run(": keep-alive", false), Ok(false));
+        assert_eq!(run("event: ping", true), Ok(false));
+        assert_eq!(run(r#"data: {"error":{"message":"overloaded"}}"#, false), Err("overloaded".into()));
+        assert_eq!(run("data: [DONE]", false), Ok(true));
+        assert_eq!(run(r#"{"choices":[]}"#, false), Ok(false));
+        assert_eq!(out, "Hi there");
+        assert!(got);
+        assert_eq!(plain, br#"{"choices":[]}"#);
+    }
+
+    #[test]
+    fn a_cancel_ends_a_silent_wait() {
+        let r = tauri::async_runtime::block_on(or_cancel(std::future::pending::<()>(), &|| true));
+        assert!(r.is_none());
+        let r = tauri::async_runtime::block_on(or_cancel(async { tokio::time::sleep(Duration::from_millis(250)).await; 7 }, &|| false));
+        assert_eq!(r, Some(7));
+    }
 
     #[test]
     fn custom_base_url_needs_https_or_this_computer() {
