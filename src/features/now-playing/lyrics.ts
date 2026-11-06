@@ -189,11 +189,11 @@ export function useLyricIndex(lines: { time: number }[] | null | undefined, np: 
 
 /**
  * Text of the current line; null before the first line, in a gap, or without lyrics. With `roman` the line comes in
- * Latin letters instead ("roman") or after the original ("both"), where it has a romanisation; otherwise as sung.
+ * Latin letters where it has a romanisation, otherwise as sung.
  */
-export function useLyricLine(np: NowPlaying | null, enabled: boolean, roman: "off" | "roman" | "both" = "off"): string | null {
+export function useLyricLine(np: NowPlaying | null, enabled: boolean, roman = false): string | null {
   const plain = linesOf(useLyrics(np, enabled));
-  const lines = useRomanized(plain, enabled && (roman === "roman" || roman === "both"));
+  const lines = useRomanized(plain, enabled && roman);
   const i = useLyricIndex(lines, np);
   return closedLine(lines && i >= 0 ? lines[i] : null, roman);
 }

@@ -191,12 +191,10 @@ export function lyricsOf(found: Found | null): Lyrics {
 }
 
 /**
- * The closed notch's text for a lyric line: as sung, in Latin letters ("roman") or both on one line ("both"). A line
- * without a romanisation (a Latin-script song, or before Rust answered) stays as sung; a gap gives null.
+ * The closed notch's text for a lyric line: as sung, or in Latin letters with `roman`. A line without a romanisation
+ * (a Latin-script song, or before Rust answered) stays as sung; a gap gives null.
  */
-export function closedLine(line: LyricLine | null, roman: string): string | null {
+export function closedLine(line: LyricLine | null, roman: boolean): string | null {
   if (!line?.text) return null;
-  if (line.roman && roman === "roman") return line.roman;
-  if (line.roman && roman === "both") return `${line.text} · ${line.roman}`;
-  return line.text;
+  return (roman && line.roman) || line.text;
 }

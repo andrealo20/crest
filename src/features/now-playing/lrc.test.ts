@@ -119,13 +119,12 @@ test("translation and romanisation go on the line with the same stamp", () => {
   assert.equal(withExtra(plain, "no stamps", "translation"), plain);
 });
 
-test("the closed notch shows the line as sung, romanised, or both", () => {
+test("the closed notch shows the line as sung or romanised", () => {
   const line = { time: 1, text: "夜に駆ける", roman: "yoru ni kakeru" };
-  assert.equal(closedLine(line, "off"), "夜に駆ける");
-  assert.equal(closedLine(line, "roman"), "yoru ni kakeru");
-  assert.equal(closedLine(line, "both"), "夜に駆ける · yoru ni kakeru");
+  assert.equal(closedLine(line, false), "夜に駆ける");
+  assert.equal(closedLine(line, true), "yoru ni kakeru");
   // No romanisation (yet): the line as sung; a gap or no line: nothing.
-  assert.equal(closedLine({ time: 1, text: "Hello" }, "roman"), "Hello");
-  assert.equal(closedLine({ time: 1, text: "" }, "both"), null);
-  assert.equal(closedLine(null, "roman"), null);
+  assert.equal(closedLine({ time: 1, text: "Hello" }, true), "Hello");
+  assert.equal(closedLine({ time: 1, text: "" }, true), null);
+  assert.equal(closedLine(null, true), null);
 });
