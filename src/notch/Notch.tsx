@@ -232,7 +232,8 @@ export function Notch() {
   }, [dismiss]);
 
   // Hover stays off in focus mode (a card there takes the pointer, see below) and while a question waits, or the card would vanish under the pointer.
-  const hoverOff = editing || focus || asking;
+  // Open, the enter still has to run: it cancels the close timer a leave started.
+  const hoverOff = editing || focus || (asking && status !== "open");
   useNativeBridge(hitRef, topValue, hoverOff ? NOOP : onPointerEnter, onPointerLeave, edge);
   // Focus mode is click-through, except while a card with buttons shows (a question, a finished timer, a reminder, the recording): its buttons need the pointer.
   useEffect(() => setPassthrough(focus && !noticeTime), [focus, noticeTime]);
