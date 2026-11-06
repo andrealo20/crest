@@ -384,10 +384,12 @@ pub fn events(texts: &[&str], calendar: &str, from: Timestamp, to: Timestamp, lo
             }
         }
         for e in vevents {
-            if out.len() >= MAX_EVENTS {
-                break;
-            }
             series(e, &ctx, calendar, from, to, moved.get(&e.text("UID")), &mut out);
+            // Every event is read, so one near the end of a big feed is not lost; only the earliest MAX_EVENTS are held.
+            if out.len() > 2 * MAX_EVENTS {
+                out.sort_by_key(|e| (e.start, e.end));
+                out.truncate(MAX_EVENTS);
+            }
         }
     }
     out.sort_by_key(|e| (e.start, e.end));

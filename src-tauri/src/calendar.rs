@@ -201,14 +201,32 @@ async fn fetch(src: &Source, secret: &str, key: &str, local: &TimeZone, (from, t
         let url = web_url(&src.url)?;
         let auth = caldav::Auth { user: src.user.trim(), pass: secret };
         let fmt = |t: Timestamp| t.strftime("%Y%m%dT%H%M%SZ").to_string();
+        // One calendar the account cannot read (shared with fewer rights, a broken event) does not hide the others;
+        // the source fails only when none could be read.
+        let mut failed = None;
         for cal in caldav::discover(client, &url, &auth).await? {
             let id = format!("{}/{}", src.id, hash([cal.href.as_str()]));
-            let texts = caldav::events(client, &cal.href, &auth, &fmt(from), &fmt(to)).await?;
-            let refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
-            // An empty calendar returns no data at all, which is not a parse error.
-            let list = if refs.is_empty() { vec![] } else { ics::events(&refs, &id, from, to, local).ok_or("parse")?.1 };
-            calendars.push(CalendarInfo { id, source: src.id.clone(), name: cal.name, color: if cal.color.is_empty() { own_color.clone() } else { cal.color } });
-            events.extend(list);
+            let list = match caldav::events(client, &cal.href, &auth, &fmt(from), &fmt(to)).await {
+                // An empty calendar returns no data at all, which is not a parse error.
+                Ok(texts) if texts.is_empty() => Ok(vec![]),
+                Ok(texts) => {
+                    let refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
+                    ics::events(&refs, &id, from, to, local).map(|r| r.1).ok_or_else(|| "parse".to_string())
+                }
+                Err(e) => Err(e),
+            };
+            match list {
+                Ok(list) => {
+                    calendars.push(CalendarInfo { id, source: src.id.clone(), name: cal.name, color: if cal.color.is_empty() { own_color.clone() } else { cal.color } });
+                    events.extend(list);
+                }
+                Err(e) => {
+                    failed.get_or_insert(e);
+                }
+            }
+        }
+        if let (true, Some(e)) = (calendars.is_empty(), failed) {
+            return Err(e);
         }
     }
     Ok(Entry { key: key.to_string(), fetched_at: now_ms(), calendars, events })

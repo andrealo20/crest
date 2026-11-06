@@ -49,6 +49,10 @@ pub fn parse(value: &str, until: impl Fn(&str) -> Option<DateTime>) -> Option<Ru
     let mut freq = None;
     let list = |v: &str| -> Option<Vec<i32>> { v.split(',').map(|n| n.trim().trim_start_matches('+').parse::<i32>().ok()).collect() };
     for part in value.split(';') {
+        // Some clients end the rule with a ';'.
+        if part.trim().is_empty() {
+            continue;
+        }
         let (key, v) = part.split_once('=')?;
         let v = v.trim();
         match key.trim().to_ascii_uppercase().as_str() {
@@ -67,7 +71,8 @@ pub fn parse(value: &str, until: impl Fn(&str) -> Option<DateTime>) -> Option<Ru
             "BYDAY" => {
                 for d in v.split(',') {
                     let d = d.trim().to_ascii_uppercase();
-                    if d.len() < 2 {
+                    // Not ASCII: split_at below would cut a character in two and panic.
+                    if d.len() < 2 || !d.is_ascii() {
                         return None;
                     }
                     let (n, code) = d.split_at(d.len() - 2);
@@ -370,5 +375,15 @@ mod tests {
     fn a_daily_rule_from_years_ago_still_reaches_today() {
         let out = run("FREQ=DAILY", datetime(2012, 3, 1, 7, 0, 0, 0), datetime(2026, 11, 1, 0, 0, 0, 0), datetime(2026, 11, 3, 0, 0, 0, 0));
         assert_eq!(days(&out), ["2026-11-01", "2026-11-02"]);
+    }
+
+    #[test]
+    fn odd_rules_from_real_feeds() {
+        // A BYDAY that is not ASCII is refused instead of cutting a character in two.
+        assert!(parse("FREQ=WEEKLY;BYDAY=éa", |_| None).is_none());
+        assert!(parse("FREQ=WEEKLY;BYDAY=1ü", |_| None).is_none());
+        // A trailing ';' keeps the rule.
+        let out = run("FREQ=WEEKLY;BYDAY=MO;", datetime(2026, 11, 2, 9, 0, 0, 0), datetime(2026, 11, 1, 0, 0, 0, 0), datetime(2026, 11, 17, 0, 0, 0, 0));
+        assert_eq!(days(&out), ["2026-11-02", "2026-11-09", "2026-11-16"]);
     }
 }
