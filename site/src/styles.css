@@ -87,9 +87,11 @@ button {
   color: inherit;
 }
 
+/* Two rings, so the focus shows on black, white and yellow alike. */
 :focus-visible {
-  outline: 3px solid currentColor;
+  outline: 3px solid #fff;
   outline-offset: 3px;
+  box-shadow: 0 0 0 3px #000;
 }
 
 ::selection {
@@ -320,19 +322,6 @@ h1 {
 .stage-col {
   margin-top: 8px;
   position: relative;
-}
-/* One column: the stage comes straight after the introduction, the tool bar under it. */
-.lede {
-  order: 2;
-}
-.stage-col {
-  order: 3;
-}
-.intro {
-  order: 4;
-}
-.chapters {
-  order: 5;
 }
 .stage {
   position: relative;
