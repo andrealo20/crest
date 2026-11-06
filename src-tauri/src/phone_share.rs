@@ -10,7 +10,7 @@
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{IpAddr, TcpListener, TcpStream, UdpSocket};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -20,6 +20,11 @@ use serde::{Deserialize, Serialize};
 const LIFETIME: Duration = Duration::from_secs(10 * 60);
 /// Request line and headers; anything longer is not a phone browser asking for a file.
 const MAX_HEAD: u64 = 16 * 1024;
+/// All of the head has to arrive within this, however slowly it drips in.
+const HEAD_TIMEOUT: Duration = Duration::from_secs(10);
+/// Connections served at once, over all shares; another host on the network cannot use up the threads.
+const MAX_CONNECTIONS: usize = 16;
+static ACTIVE: AtomicUsize = AtomicUsize::new(0);
 
 /// The running share: its url (its identity for phone_share_stop) and its stop flag.
 static CURRENT: Mutex<Option<(String, Arc<AtomicBool>)>> = Mutex::new(None);
@@ -37,11 +42,22 @@ pub struct ShareInfo {
 #[derive(Deserialize, Default)]
 pub struct PageText {
     lang: String,
+    /// "rtl" or "ltr".
+    dir: String,
     title: String,
     /// "3 files", in front of the total size.
     count: String,
     hint: String,
     footer: String,
+}
+
+/// One connection's place in ACTIVE, given back when its thread ends.
+struct Slot;
+
+impl Drop for Slot {
+    fn drop(&mut self) {
+        ACTIVE.fetch_sub(1, Ordering::Relaxed);
+    }
 }
 
 struct Share {
@@ -52,13 +68,14 @@ struct Share {
     from: Option<String>,
 }
 
-#[tauri::command]
+// async: is_file() on an unreachable network drive can stall for a long time, not on the main thread.
+#[tauri::command(async)]
 pub fn phone_share_start(paths: Vec<String>, text: PageText) -> Result<ShareInfo, String> {
     let files: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).filter(|p| p.is_file()).collect();
     if files.is_empty() {
-        return Err("Files no longer exist".into());
+        return Err("Dateien nicht mehr vorhanden".into());
     }
-    let ip = lan_ip().ok_or("No network")?;
+    let ip = lan_ip().ok_or("Kein lokales Netzwerk gefunden")?;
     // Bound to the LAN address only, not every interface.
     let listener = TcpListener::bind((ip, 0)).map_err(|e| e.to_string())?;
     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
@@ -85,14 +102,69 @@ pub fn phone_share_stop(url: String) {
     }
 }
 
-/// The address other devices reach this computer on: the source address of the default route. Connecting a
-/// UDP socket sends nothing.
-/// shortcut: with a VPN as the default route this is the VPN's address; pick the interface by hand if users hit it.
+/// The address a phone on the same network reaches this computer on: the one the default route leaves from when it
+/// is a private address of a real LAN adapter, otherwise the first such address. None behind a VPN-only or public link.
 fn lan_ip() -> Option<IpAddr> {
+    let route = route_ip();
+    let lan = lan_addresses();
+    lan.iter().copied().find(|ip| Some(*ip) == route).or_else(|| lan.first().copied())
+}
+
+/// The source address of the default route. Connecting a UDP socket sends nothing.
+fn route_ip() -> Option<IpAddr> {
     let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
     socket.connect("192.0.2.1:9").ok()?;
-    let ip = socket.local_addr().ok()?.ip();
-    (!ip.is_loopback() && !ip.is_unspecified()).then_some(ip)
+    Some(socket.local_addr().ok()?.ip())
+}
+
+/// Private IPv4 addresses of the Wi-Fi adapters, and of the Ethernet ones that have a gateway, that are up. A VPN
+/// or other tunnel, a virtual switch (WSL, Hyper-V) and a public address never qualify: the phone cannot reach them.
+#[cfg(windows)]
+fn lan_addresses() -> Vec<IpAddr> {
+    use windows::Win32::NetworkManagement::IpHelper::{
+        GetAdaptersAddresses, GAA_FLAG_INCLUDE_GATEWAYS, GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_DNS_SERVER, GAA_FLAG_SKIP_MULTICAST, IP_ADAPTER_ADDRESSES_LH,
+    };
+    use windows::Win32::NetworkManagement::Ndis::IfOperStatusUp;
+    use windows::Win32::Networking::WinSock::{AF_INET, SOCKADDR_IN};
+    const IF_ETHERNET: u32 = 6;
+    const IF_WIFI: u32 = 71;
+    let flags = GAA_FLAG_INCLUDE_GATEWAYS | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER;
+    let mut found = Vec::new();
+    let mut size = 0u32;
+    unsafe {
+        // The first call only reports the size needed. u64 units keep the buffer aligned for the structs.
+        GetAdaptersAddresses(AF_INET.0 as u32, flags, None, None, &mut size);
+        let mut buf = vec![0u64; (size as usize).div_ceil(8)];
+        let first = buf.as_mut_ptr() as *mut IP_ADAPTER_ADDRESSES_LH;
+        if GetAdaptersAddresses(AF_INET.0 as u32, flags, None, Some(first), &mut size) != 0 {
+            return found;
+        }
+        let mut adapter = first;
+        while !adapter.is_null() {
+            let a = &*adapter;
+            if a.OperStatus == IfOperStatusUp && (a.IfType == IF_WIFI || (a.IfType == IF_ETHERNET && !a.FirstGatewayAddress.is_null())) {
+                let mut unicast = a.FirstUnicastAddress;
+                while !unicast.is_null() {
+                    let addr = (*unicast).Address.lpSockaddr;
+                    if !addr.is_null() && (*addr).sa_family == AF_INET {
+                        let ip = std::net::Ipv4Addr::from((*(addr as *const SOCKADDR_IN)).sin_addr.S_un.S_addr.to_ne_bytes());
+                        if ip.is_private() {
+                            found.push(IpAddr::V4(ip));
+                        }
+                    }
+                    unicast = (*unicast).Next;
+                }
+            }
+            adapter = a.Next;
+        }
+    }
+    found
+}
+
+/// shortcut: no adapter list off Windows (the shelf is Windows only), just the default route's address when it is private.
+#[cfg(not(windows))]
+fn lan_addresses() -> Vec<IpAddr> {
+    route_ip().filter(|ip| matches!(ip, IpAddr::V4(v4) if v4.is_private())).into_iter().collect()
 }
 
 fn qr_path(text: &str) -> Result<(String, i32), String> {
@@ -119,24 +191,44 @@ fn serve(listener: TcpListener, share: Share, stop: Arc<AtomicBool>, lifetime: D
     while !stop.load(Ordering::Relaxed) && Instant::now() < end {
         match listener.accept() {
             Ok((stream, _)) => {
+                if ACTIVE.fetch_add(1, Ordering::Relaxed) >= MAX_CONNECTIONS {
+                    ACTIVE.fetch_sub(1, Ordering::Relaxed);
+                    continue;
+                }
                 let share = share.clone();
                 thread::spawn(move || {
+                    let _slot = Slot;
                     let _ = handle(stream, &share);
                 });
             }
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => thread::sleep(Duration::from_millis(100)),
+            // A client that left before it was accepted (browsers open spare connections) is no reason to stop.
+            Err(e) if matches!(e.kind(), io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionAborted | io::ErrorKind::Interrupted) => {}
             Err(_) => return,
         }
+    }
+}
+
+/// Reads from the stream until the deadline, however the bytes are spread out: the read timeout alone restarts with every byte.
+struct Deadline<'a>(&'a TcpStream, Instant);
+
+impl Read for Deadline<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let left = self.1.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return Err(io::ErrorKind::TimedOut.into());
+        }
+        self.0.set_read_timeout(Some(left))?;
+        (&*self.0).read(buf)
     }
 }
 
 fn handle(mut stream: TcpStream, share: &Share) -> io::Result<()> {
     // Accepted sockets inherit non-blocking on Windows.
     stream.set_nonblocking(false)?;
-    stream.set_read_timeout(Some(Duration::from_secs(10)))?;
     stream.set_write_timeout(Some(Duration::from_secs(60)))?;
     // Read the whole head: closing with unread bytes resets the connection and can cut the response short.
-    let mut reader = BufReader::new((&stream).take(MAX_HEAD));
+    let mut reader = BufReader::new(Deadline(&stream, Instant::now() + HEAD_TIMEOUT).take(MAX_HEAD));
     let mut request = String::new();
     reader.read_line(&mut request)?;
     let mut line = String::new();
@@ -203,7 +295,7 @@ const THUMB_MAX: u64 = 20 << 20;
 
 const STYLE: &str = r#"
 :root{color-scheme:dark light;--bg:#0b0b0e;--card:#15161b;--line:rgba(255,255,255,.07);--text:#f5f5f7;--dim:#8d8f99;--amber:#ffc75f;--on:#1d1406}
-@media (prefers-color-scheme:light){:root{--bg:#f3f3f6;--card:#fff;--line:rgba(0,0,0,.07);--text:#111216;--dim:#6b6e78;--amber:#f5b73f}.tile{color:color-mix(in srgb,var(--k) 72%,#000)}}
+@media (prefers-color-scheme:light){:root{--bg:#f3f3f6;--card:#fff;--line:rgba(0,0,0,.07);--text:#111216;--dim:#6b6e78;--amber:#f5b73f}}
 *{box-sizing:border-box;margin:0}
 html{background:var(--bg)}
 body{min-height:100vh;color:var(--text);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased;
@@ -223,6 +315,7 @@ h1{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
 .tile{width:56px;height:56px;flex:none;border-radius:14px;display:grid;place-items:center;overflow:hidden;font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--k);background:var(--kb)}
 .tile img{width:100%;height:100%;object-fit:cover}
 .tile svg{width:24px;height:24px}
+@media (prefers-color-scheme:light){.tile{color:color-mix(in srgb,var(--k) 72%,#000)}}
 .info{flex:1;min-width:0}
 .name{font-size:15px;font-weight:600;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .size{font-size:13px;color:var(--dim);margin-top:3px}
@@ -236,7 +329,7 @@ footer svg{width:14px;height:14px;flex:none}
 "#;
 
 const DOWN: &str = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10.5l5 5 5-5M5.5 20h13"/></svg>"#;
-const LOCK: &str = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9.5" rx="2.5"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3"/></svg>"#;
+const WIFI: &str = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2.5 9a14 14 0 0 1 19 0M5.8 12.5a9.5 9.5 0 0 1 12.4 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r=".6" fill="currentColor"/></svg>"#;
 const FILE: &str = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>"#;
 
 /// The MIME type of an image the phone's browser can show, by extension.
@@ -299,12 +392,13 @@ fn page(share: &Share) -> String {
     let text = &share.text;
     let from = share.from.as_deref().map(|f| format!("<p class=\"from\">{}</p>", escape(f))).unwrap_or_default();
     format!(
-        "<!doctype html><html lang=\"{lang}\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">\
+        "<!doctype html><html lang=\"{lang}\" dir=\"{dir}\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">\
 <meta name=\"theme-color\" content=\"#0b0b0e\" media=\"(prefers-color-scheme: dark)\"><meta name=\"theme-color\" content=\"#f3f3f6\" media=\"(prefers-color-scheme: light)\">\
 <link rel=\"icon\" href=\"data:image/svg+xml,{icon}\"><title>{title} · Crest</title><style>{STYLE}</style></head><body><main>\
 <header>{LOGO}<div>{from}<h1>{title}</h1><p class=\"total\">{count} · {total}</p></div></header>\
-<div class=\"list\">{rows}</div><p class=\"hint\">{hint}</p><footer>{LOCK}<span>{footer}</span></footer></main></body></html>",
+<div class=\"list\">{rows}</div><p class=\"hint\">{hint}</p><footer>{WIFI}<span>{footer}</span></footer></main></body></html>",
         lang = escape(&text.lang),
+        dir = if text.dir == "rtl" { "rtl" } else { "ltr" },
         icon = percent(LOGO),
         title = escape(&text.title),
         count = escape(&text.count),
@@ -367,7 +461,7 @@ mod tests {
         let page = get(port, "/abc");
         assert!(page.starts_with("HTTP/1.1 200"));
         assert!(page.contains("nota &amp; 1 è.txt") && page.contains("href=\"/abc/0\""));
-        assert!(page.contains("<h1>1 &lt;file&gt;</h1>") && page.contains("lang=\"it\"") && page.contains(">TXT</span>"));
+        assert!(page.contains("<h1>1 &lt;file&gt;</h1>") && page.contains("lang=\"it\" dir=\"ltr\"") && page.contains(">TXT</span>"));
         // Not an image: `?view` still downloads it.
         assert!(get(port, "/abc/0?view").contains("Content-Disposition: attachment"));
         let body = get(port, "/abc/0");
@@ -380,6 +474,43 @@ mod tests {
         thread::sleep(Duration::from_millis(300));
         assert!(TcpStream::connect(("127.0.0.1", port)).is_err());
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn page_follows_the_text_direction_and_keeps_the_light_tile_colour() {
+        let text = PageText { dir: "rtl".into(), ..Default::default() };
+        let share = Share { token: "abc".into(), files: vec![], text, from: None };
+        assert!(page(&share).contains("dir=\"rtl\""));
+        // The light theme's tile colour only wins when it comes after the base rule.
+        assert!(STYLE.find("color:var(--k)").unwrap() < STYLE.find("color-mix").unwrap());
+    }
+
+    #[test]
+    fn a_slow_head_runs_out_of_time() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (server, _) = listener.accept().unwrap();
+        // One byte every 100 ms and never a newline: each read alone would succeed.
+        thread::spawn(move || {
+            for _ in 0..30 {
+                if client.write_all(b"x").is_err() {
+                    return;
+                }
+                thread::sleep(Duration::from_millis(100));
+            }
+        });
+        let start = Instant::now();
+        let mut line = String::new();
+        assert!(BufReader::new(Deadline(&server, start + Duration::from_millis(400))).read_line(&mut line).is_err());
+        assert!(start.elapsed() < Duration::from_secs(2));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn lan_addresses_are_private_ipv4() {
+        for ip in lan_addresses() {
+            assert!(matches!(ip, IpAddr::V4(v4) if v4.is_private()), "{ip}");
+        }
     }
 
     #[test]

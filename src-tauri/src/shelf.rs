@@ -66,7 +66,7 @@ unsafe fn files_object(paths: &[String]) -> Result<IDataObject, String> {
         }
     }
     if pidls.is_empty() {
-        return Err("Files no longer exist".into());
+        return Err("Dateien nicht mehr vorhanden".into());
     }
     // Absolute ID lists under the desktop (the empty list), so files from different folders work together.
     let desktop = ITEMIDLIST::default();
@@ -85,7 +85,7 @@ unsafe fn text_object(text: &str) -> Result<IDataObject, String> {
     let ptr = GlobalLock(global) as *mut u16;
     if ptr.is_null() {
         let _ = GlobalFree(Some(global));
-        return Err("Out of memory".into());
+        return Err("Zu wenig Arbeitsspeicher".into());
     }
     std::ptr::copy_nonoverlapping(wide.as_ptr(), ptr, wide.len());
     let _ = GlobalUnlock(global);

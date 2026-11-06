@@ -150,7 +150,7 @@ pub async fn terminal_start(
     app: AppHandle,
     state: State<'_, TerminalState>,
 ) -> Result<(), String> {
-    let exe = shell_exe(&shell).ok_or("Shell not found")?;
+    let exe = shell_exe(&shell).ok_or("Shell nicht gefunden")?;
     let cwd = if Path::new(&cwd).is_dir() { PathBuf::from(cwd) } else { home() };
     let (pty, output) = spawn(&exe, &command_line, &cwd, size(cols, rows)).map_err(|e| e.message())?;
     let pty = Arc::new(pty);
