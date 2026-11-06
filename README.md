@@ -45,7 +45,7 @@ https://github.com/user-attachments/assets/9763d3c0-d17e-4fb4-8d0d-dfa104ea5fb8
 
 A notch at the edge of your Windows or Mac screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day: about thirty of them, each one on or off as you like. Free and open source, no account, nothing to pay.
 
-The video above shows them in a minute and a half, and [the demo on the project page](https://andrealo20.github.io/crest/) lets you try every tool in your browser before you install anything.
+The video above shows them in under two minutes, and [the demo on the project page](https://andrealo20.github.io/crest/) lets you try every tool in your browser before you install anything.
 
 <p align="center"><img src="docs/media/features/closed-capsule.png" alt="The closed capsule at the top of the screen: the cover of the song playing, a focus timer, the AI quota ring, CPU, RAM and GPU load, the clock and the weather" width="760" /></p>
 
