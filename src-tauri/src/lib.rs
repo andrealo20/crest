@@ -80,6 +80,8 @@ mod trading;
 pub mod usage;
 #[cfg(windows)]
 mod vault;
+mod mic;
+mod sharing;
 
 // The Mac's own versions of what the shared modules call into (src/macos/); the other Windows modules have no Mac
 // counterpart yet and their tools are hidden there.
@@ -492,6 +494,8 @@ pub fn run() {
             capture::find::find_scan,
             #[cfg(windows)]
             capture::find::find_highlight,
+            mic::mic_mute,
+            sharing::sharing_hide,
             ];
             move |invoke| {
                 if !command_allowed(invoke.message.webview_ref().label(), invoke.message.command()) {

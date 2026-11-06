@@ -41,7 +41,7 @@ import { PET_IDS } from "../notch/row/parts";
  * Host -> demo (postMessage on the iframe's window):
  *   { cmd: "navigate", tool }   open the notch on a tool (a tool id, or settings | setup | whatsnew | find)
  *   { cmd: "open" } { cmd: "close" }
- *   { cmd: "notice", kind }     timer ask download capture status-unplug status-bt volume brightness capslock call todo
+ *   { cmd: "notice", kind }     timer ask download capture status-unplug status-bt volume brightness capslock mic call todo
  *                               water calendar quota live song whatsnew recording
  *   { cmd: "play" } { cmd: "pause" }
  *   { cmd: "lang", code } { cmd: "style", style: notch | capsule | line } { cmd: "edge", edge: top | bottom | left | right }
@@ -273,6 +273,8 @@ function notice(kind: string) {
       return mockStatus.brightness();
     case "capslock":
       return mockStatus.capsLock();
+    case "mic":
+      return mockStatus.mic();
     case "call":
       if (mockDiscord.get().call) return;
       mockPrivacy.mic = true;

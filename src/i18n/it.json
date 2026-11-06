@@ -1318,5 +1318,14 @@
  "Auf GitHub unterstützen": "Sostieni su GitHub",
  "Tresor gerade belegt": "Cassaforte occupata",
  "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "Un altro programma sta leggendo il file. Riprova tra un attimo.",
- "Auf der Notch anpassen": "Regola sulla notch"
+ "Auf der Notch anpassen": "Regola sulla notch",
+ "Mikrofon": "Microfono",
+ "Wenn das Tastenkürzel das Mikrofon stumm- oder wieder einschaltet": "Quando la scorciatoia silenzia o riattiva il microfono",
+ "Mikrofon ist stumm": "Microfono silenziato",
+ "Mikrofon ist an": "Microfono attivo",
+ "Mikrofon stummschalten": "Silenzia il microfono",
+ "Schaltet das Standard-Mikrofon stumm und wieder ein, von überall": "Silenzia e riattiva il microfono predefinito, da qualsiasi app",
+ "Crest vor Bildschirmfreigabe und Aufnahmen verbergen": "Nascondi Crest dalla condivisione dello schermo e dalle registrazioni",
+ "Andere Apps zeigen Crest nicht mehr; eine App, die tief im System aufnimmt, sieht es trotzdem": "Le altre app non mostrano più Crest. Un'app che cattura a basso livello può ancora vederlo.",
+ "Andere Apps zeigen Crest nicht mehr; ab macOS 15 ignorieren manche Freigabe-Apps das, und eine App, die tief im System aufnimmt, sieht es trotzdem": "Le altre app non mostrano più Crest. Da macOS 15 alcune app di condivisione lo ignorano, e un'app che cattura a basso livello può ancora vederlo."
 }

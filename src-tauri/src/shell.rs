@@ -4,7 +4,7 @@
 //! Shortcuts arrive from the settings as "Ctrl+Alt+Shift+Win+<KeyboardEvent.code>"; the resize
 //! shortcut as "<modifiers>+Arrows", registered as four shortcuts. The frontend checks the
 //! combinations and duplicates (src/features/window/hotkeys.ts); here a failed registration
-//! means another program holds the combination.
+//! means another program holds the combination. The microphone mute (mic.rs) is one more of them, unset until the user records it.
 //!
 //! Crash log: panics and uncaught frontend errors are appended to crash.log in the app's log folder
 //! (%LOCALAPPDATA%\io.github.andrealo20.crest\logs, or data\logs in a portable copy), rolled to crash.old.log past 512 KB.
@@ -36,6 +36,8 @@ struct Bound {
     hide: Option<Shortcut>,
     resize: Vec<(Shortcut, &'static str)>,
     find: Option<Shortcut>,
+    /// The microphone mute (mic.rs).
+    mic: Option<Shortcut>,
     /// The launcher's Alt+N keys and the app id each opens.
     launch: Vec<(Shortcut, String)>,
     /// The tray's "Open Crest" item, which shows the open shortcut.
@@ -52,6 +54,9 @@ pub struct HotkeyConfig {
     hide: String,
     resize: String,
     find: String,
+    /// Optional; older saved settings and frontends do not send it.
+    #[serde(default)]
+    mic: String,
     /// The open shortcut as the tray shows it ("Ctrl+Alt+Space").
     open_label: String,
 }
@@ -62,6 +67,7 @@ pub struct HotkeyStatus {
     hide: &'static str,
     resize: &'static str,
     find: &'static str,
+    mic: &'static str,
 }
 
 /// The saved text in the plugin's spelling ("Win" is "Super" there); None for an unknown key.
@@ -109,26 +115,27 @@ fn bind_arrows(app: &AppHandle, text: &str, slots: &mut Vec<(Shortcut, &'static 
 pub async fn hotkeys_apply(config: HotkeyConfig, app: AppHandle, state: State<'_, Hotkeys>) -> Result<HotkeyStatus, String> {
     // Not locked while registering: that waits for the main thread, where the shortcut handler locks too.
     // Only Crest's own keys are taken out; the launcher's stay as they are (`bind_launch`).
-    let (open, hide, resize, find) = {
+    let (open, hide, resize, find, mic) = {
         let mut b = state.0.lock().unwrap();
-        (b.open.take(), b.hide.take(), std::mem::take(&mut b.resize), b.find.take())
+        (b.open.take(), b.hide.take(), std::mem::take(&mut b.resize), b.find.take(), b.mic.take())
     };
-    for s in open.into_iter().chain(hide).chain(find).chain(resize.into_iter().map(|(s, _)| s)) {
+    for s in open.into_iter().chain(hide).chain(find).chain(mic).chain(resize.into_iter().map(|(s, _)| s)) {
         let _ = app.global_shortcut().unregister(s);
     }
-    let (mut open, mut hide, mut resize, mut find) = (None, None, Vec::new(), None);
+    let (mut open, mut hide, mut resize, mut find, mut mic) = (None, None, Vec::new(), None, None);
     let status = HotkeyStatus {
         open: bind(&app, &config.open, &mut open),
         hide: bind(&app, &config.hide, &mut hide),
         resize: bind_arrows(&app, &config.resize, &mut resize),
         find: bind(&app, &config.find, &mut find),
+        mic: bind(&app, &config.mic, &mut mic),
     };
     let mut b = state.0.lock().unwrap();
     b.open_label = if open.is_some() { config.open_label } else { String::new() };
     if let Some(item) = &b.tray_open {
         let _ = item.set_text(label_text(&b.open_text, &b.open_label));
     }
-    (b.open, b.hide, b.resize, b.find) = (open, hide, resize, find);
+    (b.open, b.hide, b.resize, b.find, b.mic) = (open, hide, resize, find, mic);
     Ok(status)
 }
 
@@ -145,6 +152,7 @@ pub fn bind_launch(app: &AppHandle, keys: Vec<(Shortcut, String)>) -> Vec<bool> 
         old.extend(b.open.take_if(taken));
         old.extend(b.hide.take_if(taken));
         old.extend(b.find.take_if(taken));
+        old.extend(b.mic.take_if(taken));
         old
     };
     for s in old {
@@ -171,7 +179,7 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
         return;
     }
     let id = shortcut.id();
-    let (open, hide, resize, find, launch) = {
+    let (open, hide, resize, find, mic, launch) = {
         let b = app.state::<Hotkeys>();
         let b = b.0.lock().unwrap();
         (
@@ -179,6 +187,7 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
             b.hide.is_some_and(|s| s.id() == id),
             b.resize.iter().find(|(s, _)| s.id() == id).map(|(_, d)| *d),
             b.find.is_some_and(|s| s.id() == id),
+            b.mic.is_some_and(|s| s.id() == id),
             b.launch.iter().find(|(s, _)| s.id() == id).map(|(_, app_id)| app_id.clone()),
         )
     };
@@ -200,6 +209,10 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
         // The page reads the screens (capture/find.rs) once it is open.
         display::unhide(app);
         let _ = app.emit("notch://find", ());
+    } else if mic {
+        // COM or a child process: not on the thread that handles the key.
+        let app = app.clone();
+        std::thread::spawn(move || crate::mic::toggle(&app));
     }
 }
 
