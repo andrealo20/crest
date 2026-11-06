@@ -14,13 +14,13 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use windows::core::{factory, Interface, Result, HSTRING};
+use windows::core::{factory, Interface, Result, HRESULT, HSTRING};
 use windows::Foundation::TypedEventHandler;
 use windows::Graphics::Capture::{Direct3D11CaptureFramePool, GraphicsCaptureAccess, GraphicsCaptureAccessKind, GraphicsCaptureItem, GraphicsCaptureSession};
 use windows::Graphics::DirectX::Direct3D11::IDirect3DDevice;
 use windows::Graphics::DirectX::DirectXPixelFormat;
 use windows::Security::Authorization::AppCapabilityAccess::AppCapabilityAccessStatus;
-use windows::Win32::Foundation::{E_FAIL, E_POINTER, HMODULE, HWND};
+use windows::Win32::Foundation::{ERROR_DISK_FULL, ERROR_HANDLE_DISK_FULL, E_FAIL, E_POINTER, HMODULE, HWND};
 use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP};
 use windows::Win32::Graphics::Direct3D11::*;
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC};
@@ -83,7 +83,7 @@ pub struct Recorder {
 unsafe impl Send for Recorder {}
 
 /// Called once when the recording has to end on its own: None when the window or monitor
-/// went away, Some("video") when capturing or encoding failed. Runs on a system thread.
+/// went away, Some("video") when capturing or encoding failed, Some("disk") when the disk is full. Runs on a system thread.
 pub type OnEnd = Arc<dyn Fn(Option<&'static str>) + Send + Sync>;
 
 /// A COM out-parameter that came back empty although the call succeeded.
@@ -178,8 +178,8 @@ pub fn start(source: Source, path: &Path, fps: u32, audio: bool, border: bool, n
                 });
                 // Device lost, encoder error: stop and say why, instead of recording nothing.
                 // No frame waiting comes back as an error with a success code: not a failure.
-                if result.is_err_and(|e| e.code().is_err()) {
-                    end(Some("video"));
+                if let Some(e) = result.err().filter(|e| e.code().is_err()) {
+                    end(Some(end_reason(e.code())));
                 }
             }
             Ok(())
@@ -202,6 +202,15 @@ pub fn start(source: Source, path: &Path, fps: u32, audio: bool, border: bool, n
         *shared.clock.lock().unwrap() = Clock::new(now());
         session.StartCapture()?;
         Ok(Recorder { session, pool, item, shared, has_audio: audio_stream.is_some(), gpu })
+    }
+}
+
+/// Why a failed frame ends the recording: a full disk is told apart from a lost device or encoder.
+fn end_reason(code: HRESULT) -> &'static str {
+    if code == ERROR_DISK_FULL.to_hresult() || code == ERROR_HANDLE_DISK_FULL.to_hresult() {
+        "disk"
+    } else {
+        "video"
     }
 }
 
@@ -500,5 +509,17 @@ unsafe fn open_sink(path: &Path, (w, h): (u32, u32), fps: u32, audio: bool, mana
         let audio = if audio { Some(add_audio_stream(&sink)?) } else { None };
         sink.BeginWriting()?;
         Ok((sink, video, audio))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn full_disk_is_told_apart() {
+        assert_eq!(end_reason(ERROR_DISK_FULL.to_hresult()), "disk");
+        assert_eq!(end_reason(ERROR_HANDLE_DISK_FULL.to_hresult()), "disk");
+        assert_eq!(end_reason(E_FAIL), "video");
     }
 }
