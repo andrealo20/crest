@@ -210,7 +210,12 @@ export function useForecast(everyMs = 0, on = true): Forecast | null | "error" {
     const load = () => {
       window.clearTimeout(retry);
       return loadForecast(place.lat, place.lon)
-        .then((v) => alive && setGot({ key, v }))
+        .then((v) => {
+          if (!alive) return;
+          setGot({ key, v });
+          // The saved forecast stands in for a failed read: try again soon too.
+          if (v.savedAt) retry = window.setTimeout(load, 30_000);
+        })
         .catch(() => {
           if (!alive) return;
           // A later failure keeps the reading there is for this place; try again soon.

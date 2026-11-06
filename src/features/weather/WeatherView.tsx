@@ -251,7 +251,8 @@ export function PlaceSearch({ onDone, canCancel, compact = false }: { onDone: ()
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && results[0]) pick(results[0]);
+            // Enter that ends an IME composition (Japanese, Chinese) is not a pick.
+            if (e.key === "Enter" && results[0] && !e.nativeEvent.isComposing) pick(results[0]);
             else if (e.key === "ArrowDown") list.current?.querySelector("button")?.focus();
             else return;
             e.preventDefault();
