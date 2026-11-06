@@ -60,8 +60,8 @@ export interface MixerData {
   hold: (on: boolean) => void;
 }
 
-/** `polling`: refresh every few seconds (the list is open); otherwise it is read once, for the playing app's name. Nothing on a Mac, which has no mixer. */
-export function useMixer(polling: boolean): MixerData {
+/** `polling`: refresh every few seconds (the list is open); otherwise it is read once, and again when `player` changes, for the playing app's name. Nothing on a Mac, which has no mixer. */
+export function useMixer(polling: boolean, player?: string): MixerData {
   const [apps, setApps] = useState<AppVolume[]>([]);
   const [system, setSystem] = useState<VolumeState | null>(null);
   const held = useRef(0);
@@ -80,7 +80,7 @@ export function useMixer(polling: boolean): MixerData {
       alive = false;
       clearInterval(id);
     };
-  }, [polling]);
+  }, [polling, player]);
 
   const unmute = (patch: { level?: number; muted?: boolean }) =>
     patch.level !== undefined && patch.level > 0 && patch.muted === undefined ? { ...patch, muted: false } : patch;

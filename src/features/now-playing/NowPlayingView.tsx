@@ -38,7 +38,7 @@ export function NowPlayingView() {
     if ((p === "lyrics") !== music.lyricsOpen) setMusic({ lyricsOpen: p === "lyrics" });
   };
   const toggle = (p: Panel) => setPanel(panel === p ? null : p);
-  const mix = useMixer(panel === "mixer");
+  const mix = useMixer(panel === "mixer", np?.appId);
   const source = mix.source?.name;
   // The player menu closes for good when the choice goes away (a player quit), so it doesn't pop up again later.
   const noChoice = panel === "sources" && !!np && !offersSources(np.sources, music.pinned);
