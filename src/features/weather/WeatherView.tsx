@@ -153,7 +153,7 @@ function Chip({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-const mm = (v: number) => `${v >= 10 ? Math.round(v) : Math.round(v * 10) / 10} mm`;
+const mm = (v: number) => `${(v >= 10 ? Math.round(v) : Math.round(v * 10) / 10).toLocaleString(locale())} mm`;
 
 /** The next eight hours, from now: time, icon and temperature. Older saved hours are left out. */
 function Hours({ data }: { data: Forecast }) {

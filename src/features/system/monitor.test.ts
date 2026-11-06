@@ -202,3 +202,14 @@ test("drives: internal only, grouped by physical drive", () => {
   assert.equal(drives[1].letters, "S:");
   assert.equal(groupDrives(null).length, 0);
 });
+
+test("decimals follow the app language", () => {
+  const g = globalThis as { document?: unknown };
+  g.document = { documentElement: { lang: "it" } };
+  try {
+    assert.equal(ghz(4210), "4,21");
+    assert.equal(watts(38.24), "38,2");
+  } finally {
+    delete g.document;
+  }
+});
