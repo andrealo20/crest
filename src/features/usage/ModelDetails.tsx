@@ -123,8 +123,8 @@ export function ModelDetails({ state }: { state: { report: TokenReport | null; l
         {[
           t("API-Listenpreise, geschätzt aus den Protokollen auf diesem PC"),
           tools.has("codex") ? t("Neuere GPT-Modelle brauchen einen eigenen Preis") : "",
-          t("{n} Dateien", { n: files }),
-          unreadable > 0 ? t("{n} Zeilen nicht lesbar", { n: unreadable }) : "",
+          files === 1 ? `1 ${t("Datei")}` : t("{n} Dateien", { n: files }),
+          unreadable > 0 ? (unreadable === 1 ? t("1 Zeile nicht lesbar") : t("{n} Zeilen nicht lesbar", { n: unreadable })) : "",
         ]
           .filter(Boolean)
           .join(" · ")}

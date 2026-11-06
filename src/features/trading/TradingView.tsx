@@ -185,7 +185,7 @@ function AccountRow({ account: a, index, money, onOpen }: { account: AccountStat
   const sub = a.error
     ? errorLine(a.error)
     : s
-      ? t("{n} Positionen", { n: s.lines.length }) + (s.cash > 0.005 ? ` · ${t("Cash")} ${money(s.cash)}` : "")
+      ? (s.lines.length === 1 ? `1 ${t("Position")}` : t("{n} Positionen", { n: s.lines.length })) + (s.cash > 0.005 ? ` · ${t("Cash")} ${money(s.cash)}` : "")
       : t("Wird geladen …");
   return (
     <motion.button

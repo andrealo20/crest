@@ -25,10 +25,11 @@ import { createStore } from "../../lib/store";
 import { formatBytes } from "../../lib/format";
 import { drop, pasteFiles, takeDropped, usePasteFiles } from "../../platform/drop";
 import { HeaderActions, HeaderButton } from "../../notch/header";
+import { holdOpen } from "../../notch/useNotchState";
 import { clipboardText, copyFiles, filePreview, openFile, phoneShareStart, phoneShareStop, probeFiles, revealFile, shelfDragOut, type FileKind, type PhoneShare } from "../../platform/services";
 import { addFiles, addText, dragPayload, isText, keyOf, normalizeItems, removeKeys, type FileItem, type ShelfItem, type TextItem } from "./model";
 import { NONE, clickSelect, dragKeys, prune, type Selection } from "./selection";
-import { lang, t } from "../../i18n";
+import { lang, t, tBackend } from "../../i18n";
 import { usePresenting } from "../privacy/store";
 import { HUE_PALETTE } from "../themes/themes";
 import { Redacted } from "../../ui/controls";
@@ -46,7 +47,8 @@ import { Redacted } from "../../ui/controls";
  * them together.
  *
  * Send to phone: the picked files (or all of them) behind a QR code, served on the local network
- * until it is stopped, the shelf closes or ten minutes pass (phone_share.rs).
+ * until it is stopped, the shelf closes or ten minutes pass (phone_share.rs). The notch stays
+ * open meanwhile, so the link does not vanish while the phone is out.
  */
 const shelf = createStore<ShelfItem[]>([], { persist: "shelf" });
 shelf.set(normalizeItems);
@@ -60,6 +62,36 @@ const DRAG_START = 6;
 /** Puts files at the front of the Shelf (also used by Capture for new screenshots). */
 export function addToShelf(paths: string[]) {
   void probeFiles(paths).then(({ files }) => shelf.set((list) => addFiles(list, files, Date.now())));
+}
+
+/** Thumbnails by file and size: the shelf is rebuilt on every opening, decoding a photo each time is slow. */
+const previews = new Map<string, Promise<string | null>>();
+const PREVIEWS_AT_ONCE = 2;
+let decoding = 0;
+const waiting: (() => void)[] = [];
+
+function previewOf(item: FileItem): Promise<string | null> {
+  const key = `${item.path}|${item.size}`;
+  let p = previews.get(key);
+  if (!p) {
+    const turn = new Promise<void>((go) => {
+      const start = () => {
+        decoding++;
+        go();
+      };
+      if (decoding < PREVIEWS_AT_ONCE) start();
+      else waiting.push(start);
+    });
+    p = turn
+      .then(() => filePreview(item.path))
+      .catch(() => null)
+      .finally(() => {
+        decoding--;
+        waiting.shift()?.();
+      });
+    previews.set(key, p);
+  }
+  return p;
 }
 
 const kindIcon: Record<FileKind, Icon> = { image: ImageSquare, audio: FileAudio, video: FileVideo, document: FileText, table: Table, other: File };
@@ -94,8 +126,9 @@ export function ShelfView() {
   const [textOver, setTextOver] = useState(false);
   const [selecting, setSelecting] = useState(false);
   /** Last drag out or send error (e.g. the files are gone), shown briefly in the header. */
-  const [failed, setFailed] = useState<{ label: string; detail: string } | null>(null);
-  const [share, setShare] = useState<(PhoneShare & { files: number }) | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const failTimer = useRef<number | undefined>(undefined);
+  const [share, setShare] = useState<(PhoneShare & { paths: string[] }) | null>(null);
   const [rawSel, setSel] = useState<Selection>(NONE);
   const order = items.map(keyOf);
   const sel = prune(rawSel, order);
@@ -110,35 +143,54 @@ export function ShelfView() {
     if (paths?.length) addToShelf(paths);
   }, [dropped]);
 
-  const fail = (label: string, e: unknown) => {
-    setFailed({ label, detail: String(e) });
-    setTimeout(() => setFailed(null), 2400);
+  const fail = (e: unknown, label?: string) => {
+    const reason = tBackend(String(e));
+    setFailed(label ? `${label}: ${reason}` : reason);
+    window.clearTimeout(failTimer.current);
+    failTimer.current = window.setTimeout(() => setFailed(null), 4000);
   };
 
   // A share lives as long as its panel: closing it, a new share or leaving the shelf stops it.
   useEffect(() => {
     if (!share) return;
+    holdOpen(true);
     const id = setTimeout(() => setShare(null), share.ttl * 1000);
     return () => {
       clearTimeout(id);
+      holdOpen(false);
       phoneShareStop(share.url);
     };
   }, [share]);
 
+  // Nothing shared is left on the shelf (cleared or removed): stop serving it.
+  useEffect(() => {
+    if (share && !share.paths.some((p) => order.includes(p))) setShare(null);
+  }, [items]);
+
+  // Items that left the shelf are forgotten, or putting one back would show it picked.
+  useEffect(() => {
+    if (sel !== rawSel) setSel(sel);
+  }, [sel, rawSel]);
+
   const sendToPhone = (keys: string[]) => {
     const { paths } = dragPayload(items, keys);
     if (!paths.length) return;
-    const n = paths.length;
-    const text = {
-      lang: lang(),
-      title: t("Bereit zum Herunterladen"),
-      count: n === 1 ? `1 ${t("Datei")}` : t("{n} Dateien", { n }),
-      hint: t("Tippe auf eine Datei, um sie zu speichern."),
-      footer: t("Direkt von deinem Computer über das WLAN, ohne Cloud."),
-    };
-    void phoneShareStart(paths, text)
-      .then((s) => setShare({ ...s, files: paths.length }))
-      .catch((e: unknown) => fail(t("Senden fehlgeschlagen"), e));
+    // Only files that still exist are served, so only those are counted.
+    void probeFiles(paths)
+      .then(({ files }) => {
+        const found = files.map((f) => f.path);
+        const n = found.length;
+        const text = {
+          lang: lang(),
+          dir: document.documentElement.dir,
+          title: t("Bereit zum Herunterladen"),
+          count: n === 1 ? `1 ${t("Datei")}` : t("{n} Dateien", { n }),
+          hint: t("Tippe auf eine Datei, um sie zu speichern."),
+          footer: t("Direkt von deinem Computer über das WLAN, ohne Cloud."),
+        };
+        return phoneShareStart(found, text).then((s) => setShare({ ...s, paths: found }));
+      })
+      .catch((e: unknown) => fail(e, t("Senden fehlgeschlagen")));
   };
   const hasFiles = (keys: string[]) => dragPayload(items, keys).paths.length > 0;
 
@@ -149,8 +201,13 @@ export function ShelfView() {
 
   const copyKeys = async (keys: string[], flashKey: string) => {
     const { paths, text } = dragPayload(items, keys);
-    if (paths.length) await copyFiles(paths);
-    else if (text !== null) {
+    if (paths.length) {
+      try {
+        await copyFiles(paths);
+      } catch (e) {
+        return fail(e);
+      }
+    } else if (text !== null) {
       // A denied clipboard shows no "copied".
       try {
         await navigator.clipboard.writeText(text);
@@ -180,7 +237,7 @@ export function ShelfView() {
     if (!paths.length && text === null) return;
     draggingOut.set(true);
     void shelfDragOut(paths, text)
-      .catch((e: unknown) => fail(t("Ziehen fehlgeschlagen"), e))
+      .catch((e: unknown) => fail(e, t("Ziehen fehlgeschlagen")))
       // The drop back on the notch reaches the page a moment after the drag ends.
       .finally(() => setTimeout(() => draggingOut.set(false), 500));
   };
@@ -243,8 +300,8 @@ export function ShelfView() {
     <div className="relative flex h-full flex-col px-4 pt-1 pb-2" {...dropHandlers}>
       <HeaderActions>
         {failed !== null && (
-          <span role="alert" title={failed.detail} className="me-1 text-caption text-red">
-            {failed.label}
+          <span role="alert" title={failed} className="me-1 max-w-52 truncate text-caption text-red">
+            {failed}
           </span>
         )}
         {picked > 0 ? (
@@ -308,7 +365,7 @@ export function ShelfView() {
                 {isText(item) ? (
                   <TextCard item={item} hidden={presenting} copied={copied === key} onCopy={() => void copyKeys([key], key)} />
                 ) : (
-                  <FileCard item={item} copied={copied === key} onCopy={() => void copyKeys([key], key)} />
+                  <FileCard item={item} copied={copied === key} onCopy={() => void copyKeys([key], key)} onFail={fail} />
                 )}
                 <span
                   className={`pointer-events-none absolute inset-0 rounded-[14px] ring-2 transition-opacity duration-150 ring-inset ${
@@ -360,7 +417,7 @@ function PhoneButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="pressable me-1 flex h-7 items-center gap-1.5 rounded-full px-3 text-caption font-semibold text-black transition-[filter] duration-150 hover:brightness-110"
+      className="pressable me-1 flex h-7 items-center gap-1.5 rounded-full px-3 text-caption font-semibold text-black transition-opacity duration-150 hover:opacity-85"
       style={{ background: HUE_PALETTE.amber[0] }}
     >
       <DeviceMobile size={14} weight="bold" />
@@ -370,7 +427,7 @@ function PhoneButton({ onClick }: { onClick: () => void }) {
 }
 
 /** The QR to scan with the phone, over the cards. Hidden while the screen is shared: anyone watching could scan it. */
-function PhonePanel({ share, onStop }: { share: PhoneShare & { files: number }; onStop: () => void }) {
+function PhonePanel({ share, onStop }: { share: PhoneShare & { paths: string[] }; onStop: () => void }) {
   const hidden = usePresenting();
   return (
     <motion.div
@@ -389,8 +446,9 @@ function PhonePanel({ share, onStop }: { share: PhoneShare & { files: number }; 
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-body font-semibold text-label">{t("Mit dem Handy scannen")}</p>
-        <p className="text-caption text-label-2">{share.files === 1 ? `1 ${t("Datei")}` : t("{n} Dateien", { n: share.files })}</p>
+        <p className="text-caption text-label-2">{share.paths.length === 1 ? `1 ${t("Datei")}` : t("{n} Dateien", { n: share.paths.length })}</p>
         <p className="text-caption text-label-3">{t("Handy und Computer müssen im selben WLAN sein. Endet nach {n} Minuten.", { n: Math.round(share.ttl / 60) })}</p>
+        <p className="text-caption text-label-3">{t("Klappt es nicht? VPN, Firewall oder Gast-WLAN prüfen.")}</p>
         {!hidden && <p className="truncate text-caption text-label-3 tabular" title={share.url}>{share.url.replace(/^http:\/\//, "")}</p>}
         <button onClick={onStop} className="pressable mt-1 self-start rounded-full bg-fill-2 px-3 py-1 text-caption font-medium text-label hover:bg-fill-3">
           {t("Stopp")}
@@ -404,18 +462,20 @@ async function pasteAny(): Promise<boolean> {
   return (await pasteFiles()) || (await pasteTextFallback());
 }
 
-function FileCard({ item, copied, onCopy }: { item: FileItem; copied: boolean; onCopy: () => void }) {
+function FileCard({ item, copied, onCopy, onFail }: { item: FileItem; copied: boolean; onCopy: () => void; onFail: (e: unknown) => void }) {
   const [preview, setPreview] = useState<string | null>(null);
   const I = kindIcon[item.kind];
   const hidden = usePresenting();
+  const open = () => void openFile(item.path).catch(onFail);
+  // Not while presenting: the picture isn't shown then.
   useEffect(() => {
-    if (item.kind === "image") void filePreview(item.path).then(setPreview);
-  }, [item.path, item.kind]);
+    if (item.kind === "image" && !hidden) void previewOf(item).then(setPreview);
+  }, [item.path, item.kind, hidden]);
 
   return (
     <div className="relative flex size-full flex-col overflow-hidden rounded-[14px] bg-fill-1">
       <button
-        onClick={() => void openFile(item.path)}
+        onClick={open}
         title={t("{name} öffnen", { name: item.name })}
         className="pressable relative flex min-h-0 flex-1 items-center justify-center overflow-hidden"
       >
@@ -430,9 +490,9 @@ function FileCard({ item, copied, onCopy }: { item: FileItem; copied: boolean; o
         <div className="flex items-center justify-between">
           <span className="tabular text-caption text-label-3">{formatBytes(item.size, 0)}</span>
           <span className="flex opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <IconBtn label={t("Im Explorer zeigen")} icon={FolderOpen} onClick={() => revealFile(item.path)} />
+            <IconBtn label={t("Im Explorer zeigen")} icon={FolderOpen} onClick={() => void revealFile(item.path).catch(onFail)} />
             <IconBtn label={copied ? t("Kopiert") : t("Kopieren")} icon={copied ? Check : Copy} onClick={onCopy} />
-            <IconBtn label={t("Öffnen")} icon={ArrowSquareOut} onClick={() => void openFile(item.path)} />
+            <IconBtn label={t("Öffnen")} icon={ArrowSquareOut} onClick={open} />
           </span>
         </div>
       </div>
@@ -450,7 +510,7 @@ function TextCard({ item, hidden, copied, onCopy }: { item: TextItem; hidden: bo
       <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
         <span className="flex items-center gap-1 text-caption text-label-3">
           <TextT size={12} weight="bold" />
-          <span className="tabular">{t("{n} Zeichen", { n: item.text.length })}</span>
+          <span className="tabular">{item.text.length === 1 ? t("1 Zeichen") : t("{n} Zeichen", { n: item.text.length })}</span>
         </span>
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
