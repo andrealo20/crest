@@ -1,4 +1,4 @@
-import { createStore } from "../lib/store";
+import { createStore, setAside } from "../lib/store";
 import { isLanguage, type LanguageSetting } from "../i18n/core";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
@@ -275,7 +275,15 @@ export const firstRun = (() => {
 export const settings = createStore<Settings>(defaults, { persist: "settings" });
 
 // Fill in settings from older versions: new fields + append new tools.
-settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
+try {
+  settings.set(migrate);
+} catch {
+  // A saved value of the wrong shape must not stop the app from loading: keep it aside and start from the defaults.
+  setAside("notch:settings", localStorage.getItem("notch:settings"));
+  settings.set(defaults);
+}
+
+function migrate({ language: _old, ...s }: Settings & { language?: unknown }): Settings {
   const known = new Set<string>(TOOL_IDS);
   // Plugin tools stay; src/features/plugins/store.ts drops those no longer installed once it has read the list.
   const tools = (s.tools ?? []).filter((t) => known.has(t.id) || /^plugin:[a-z0-9-]{3,32}$/.test(t.id));
@@ -333,7 +341,7 @@ settings.set(({ language: _old, ...s }: Settings & { language?: unknown }) => {
     // Only a fresh install starts from the defaults (done: false); settings saved by 0.2.x have no `setup` and never see it.
     setup: { done: s.setup ? s.setup.done === true : true },
   };
-});
+}
 
 /** Migrates the old shape ({ provider: "demo", model }) and adds missing providers. */
 function migrateAsk(old: Partial<Settings["ask"]> | undefined): Settings["ask"] {
