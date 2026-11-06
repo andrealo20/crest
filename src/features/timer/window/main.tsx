@@ -5,6 +5,7 @@ import "../../../styles/global.css";
 import { settings, type Settings } from "../../../settings/store";
 import { TimerWindow } from "./TimerWindow";
 import { language, startLanguage } from "../../../i18n";
+import { startThemes } from "../../themes/store";
 
 /*
  * Entry of the detached timer window (timer.html). Loads only the timer, its settings and
@@ -20,6 +21,9 @@ window.addEventListener("storage", (e) => {
     // Broken entry: keep the current settings.
   }
 });
+
+// The timer's colours and the font come from the theme variables.
+startThemes();
 
 // A window, not a web page: no browser menu, reload or print.
 window.addEventListener("contextmenu", (e) => e.preventDefault());
