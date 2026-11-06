@@ -5,6 +5,8 @@ import { content, springs } from "../../design/motion";
 import { holdOpen } from "../../notch/useNotchState";
 import { mixer, systemControls, type AppVolume, type VolumeState } from "../../platform/services";
 import { t } from "../../i18n";
+import { sliderKey } from "../../ui/sliderKey";
+import { lastWins } from "../../lib/lastWins";
 
 /*
  * Volume per app (issue #4), like the Windows volume mixer:
@@ -31,6 +33,10 @@ export interface MixerData {
   /** Pause polling while a slider is held, so it doesn't jump back. */
   hold: (on: boolean) => void;
 }
+
+/** A drag makes many writes and each opens the audio endpoint: one at a time per target, the newest last, and a failed one (no device) is dropped. */
+const sendSystem = lastWins((patch: { level?: number; muted?: boolean }) => systemControls.setVolume(patch));
+const sendApp = new Map<string, (patch: { level?: number; muted?: boolean }) => void>();
 
 export function useMixer(): MixerData {
   const [apps, setApps] = useState<AppVolume[]>([]);
@@ -61,11 +67,12 @@ export function useMixer(): MixerData {
     source: apps.find((a) => a.media) ?? null,
     setApp(id, patch) {
       setApps((list) => list.map((a) => (a.id === id ? { ...a, ...unmute(patch) } : a)));
-      void mixer.set(id, patch);
+      if (!sendApp.has(id)) sendApp.set(id, lastWins((p) => mixer.set(id, p)));
+      sendApp.get(id)!(patch);
     },
     setSystem(patch) {
       setSystem((v) => (v ? { ...v, ...unmute(patch) } : v));
-      void systemControls.setVolume(patch);
+      sendSystem(patch);
     },
     hold(on) {
       held.current = Math.max(0, held.current + (on ? 1 : -1));
@@ -80,7 +87,7 @@ function speakerIcon(level: number, muted: boolean) {
 
 /**
  * Volume bar in the style of the progress bar: grabbing makes it thicker and brighter.
- * Wheel ±2 % (Shift ±10 %), arrow keys ±5 %.
+ * Wheel ±2 % (Shift ±10 %), arrow keys ±5 %, Home and End.
  */
 export function LevelBar(props: { value: number; muted: boolean; label: string; onChange: (v: number) => void; onHold: (on: boolean) => void; className?: string }) {
   const track = useRef<HTMLDivElement>(null);
@@ -110,9 +117,10 @@ export function LevelBar(props: { value: number; muted: boolean; label: string; 
       tabIndex={0}
       aria-label={props.label}
       aria-valuenow={Math.round(level * 100)}
+      aria-valuetext={`${Math.round(level * 100)} %`}
       aria-valuemin={0}
       aria-valuemax={100}
-      className={`relative flex h-4 cursor-pointer touch-none items-center outline-none ${props.className ?? ""}`}
+      className={`relative flex h-4 cursor-pointer touch-none items-center rounded-full outline-none focus-visible:ring-1 focus-visible:ring-label-3 ${props.className ?? ""}`}
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
       onPointerDown={(e) => {
@@ -123,14 +131,20 @@ export function LevelBar(props: { value: number; muted: boolean; label: string; 
         holdOpen(true);
         props.onChange(at(e.clientX));
       }}
-      onPointerMove={(e) => grab && props.onChange(at(e.clientX))}
+      onPointerMove={(e) => {
+        if (!grab) return;
+        const v = at(e.clientX);
+        if (v !== level) props.onChange(v);
+      }}
       onPointerUp={release}
       onPointerCancel={release}
       onLostPointerCapture={release}
       onWheel={(e) => step((e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 0.1 : 0.02))}
       onKeyDown={(e) => {
-        if (e.key === "ArrowRight" || e.key === "ArrowUp") step(0.05);
-        if (e.key === "ArrowLeft" || e.key === "ArrowDown") step(-0.05);
+        const to = sliderKey(e.key, level, 0.05, 0, 1);
+        if (to === undefined) return;
+        e.preventDefault();
+        props.onChange(Math.round(to * 100) / 100);
       }}
     >
       <div className={`relative w-full overflow-hidden rounded-full bg-fill-2 transition-[height] duration-150 ease-out ${active ? "h-[9px]" : "h-[5px]"}`}>

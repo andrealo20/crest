@@ -26,6 +26,8 @@ import { formatTemp, formatTimeParts } from "../../lib/format";
 import { locale, t } from "../../i18n";
 import { QuoteLine } from "../quotes/QuoteLine";
 import { Select } from "../../ui/controls";
+import { sliderKey } from "../../ui/sliderKey";
+import { lastWins } from "../../lib/lastWins";
 import { AWAKE_MINUTES, awakeLeft, awakeOn, formatLeft } from "./awake";
 import { CONTROLS_ROW, QuickControls, useQuick } from "./QuickControls";
 import { awake, startAwake, stopAwake } from "./store";
@@ -444,9 +446,10 @@ function BrightnessTile({ level, busy, hold, onLevel }: { level: number; busy: {
         tabIndex={0}
         aria-label={t("Helligkeit")}
         aria-valuenow={level}
+        aria-valuetext={`${level} %`}
         aria-valuemin={0}
         aria-valuemax={100}
-        className="relative h-6 min-w-0 flex-1 cursor-pointer touch-none overflow-hidden rounded-full bg-fill-2 outline-none"
+        className="relative h-6 min-w-0 flex-1 cursor-pointer touch-none overflow-hidden rounded-full bg-fill-2 outline-none focus-visible:ring-1 focus-visible:ring-label-3"
         onPointerDown={(e) => {
           busy.current = true;
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -457,7 +460,10 @@ function BrightnessTile({ level, busy, hold, onLevel }: { level: number; busy: {
         onPointerCancel={() => (busy.current = false)}
         onWheel={(e) => set(level + (e.deltaY < 0 ? 2 : -2))}
         onKeyDown={(e) => {
-          if (e.key === "ArrowRight" || e.key === "ArrowLeft") set(level + (e.key === "ArrowRight" ? 5 : -5));
+          const to = sliderKey(e.key, level, 5, 0, 100);
+          if (to === undefined) return;
+          e.preventDefault();
+          set(to);
         }}
       >
         <motion.div
@@ -472,6 +478,9 @@ function BrightnessTile({ level, busy, hold, onLevel }: { level: number; busy: {
   );
 }
 
+/** Writes the system volume one at a time, the newest value last: a drag makes many events and each write opens the audio endpoint. */
+const sendVolume = lastWins((patch: { level?: number; muted?: boolean }) => systemControls.setVolume(patch));
+
 function VolumeTile({ device, open, onDevices }: { device: string | null; open: boolean; onDevices: () => void }) {
   const speakerHue = useHue("sky");
   const outputHue = useHue("teal");
@@ -482,17 +491,21 @@ function VolumeTile({ device, open, onDevices }: { device: string | null; open: 
   useEffect(() => {
     const load = () => !dragging.current && void systemControls.volume().then(setVol).catch(() => {});
     load();
-    // Keyboard volume keys or taskbar → follow them.
-    const id = setInterval(load, 1000);
+    // Keyboard volume keys or taskbar → follow them. Each read opens the audio endpoint, so not every second.
+    const id = setInterval(load, 3000);
     return () => clearInterval(id);
   }, []);
 
   const level = vol ? (vol.muted ? 0 : vol.level) : 0;
+  const change = (raw: number) => {
+    const l = Math.round(Math.min(1, Math.max(0, raw)) * 100) / 100;
+    if (vol && !vol.muted && vol.level === l) return;
+    setVol({ level: l, muted: false });
+    sendVolume({ level: l });
+  };
   const set = (clientX: number) => {
     const r = track.current!.getBoundingClientRect();
-    const l = Math.round(Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * 100) / 100;
-    setVol({ level: l, muted: false });
-    void systemControls.setVolume({ level: l });
+    change((clientX - r.left) / r.width);
   };
   const Icon = vol?.muted || level === 0 ? SpeakerSimpleSlash : level < 0.34 ? SpeakerNone : level < 0.67 ? SpeakerLow : SpeakerHigh;
 
@@ -501,7 +514,7 @@ function VolumeTile({ device, open, onDevices }: { device: string | null; open: 
       <button
         aria-label={vol?.muted ? t("Stummschaltung aufheben") : t("Stumm")}
         disabled={!vol}
-        onClick={() => vol && void systemControls.setVolume({ muted: !vol.muted }).then(setVol)}
+        onClick={() => vol && void systemControls.setVolume({ muted: !vol.muted }).then(setVol).catch(() => {})}
         className={`pressable flex size-7 shrink-0 items-center justify-center rounded-full ${vol?.muted ? "text-red" : "text-label-2 hover:text-label"}`}
         style={!vol?.muted && speakerHue ? { color: speakerHue } : undefined}
       >
@@ -515,9 +528,10 @@ function VolumeTile({ device, open, onDevices }: { device: string | null; open: 
         tabIndex={0}
         aria-label={t("Lautstärke")}
         aria-valuenow={Math.round(level * 100)}
+        aria-valuetext={`${Math.round(level * 100)} %`}
         aria-valuemin={0}
         aria-valuemax={100}
-        className="relative h-6 min-w-0 flex-1 cursor-pointer touch-none overflow-hidden rounded-full bg-fill-2 outline-none"
+        className="relative h-6 min-w-0 flex-1 cursor-pointer touch-none overflow-hidden rounded-full bg-fill-2 outline-none focus-visible:ring-1 focus-visible:ring-label-3"
         onPointerDown={(e) => {
           if (!vol) return;
           dragging.current = true;
@@ -527,17 +541,12 @@ function VolumeTile({ device, open, onDevices }: { device: string | null; open: 
         onPointerMove={(e) => e.currentTarget.hasPointerCapture(e.pointerId) && set(e.clientX)}
         onPointerUp={() => (dragging.current = false)}
         onPointerCancel={() => (dragging.current = false)}
-        onWheel={(e) => {
-          if (!vol) return;
-          const l = Math.min(1, Math.max(0, level + (e.deltaY < 0 ? 0.02 : -0.02)));
-          setVol({ level: l, muted: false });
-          void systemControls.setVolume({ level: l });
-        }}
+        onWheel={(e) => vol && change(level + (e.deltaY < 0 ? 0.02 : -0.02))}
         onKeyDown={(e) => {
-          if (!vol || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
-          const l = Math.min(1, Math.max(0, level + (e.key === "ArrowRight" ? 0.05 : -0.05)));
-          setVol({ level: l, muted: false });
-          void systemControls.setVolume({ level: l });
+          const to = sliderKey(e.key, level, 0.05, 0, 1);
+          if (!vol || to === undefined) return;
+          e.preventDefault();
+          change(to);
         }}
       >
         <motion.div
