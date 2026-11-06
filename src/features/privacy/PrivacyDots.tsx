@@ -28,7 +28,8 @@ export function Dots({ dots }: { dots: ("red" | "green")[] }) {
           <motion.span
             key={color}
             className="privacy-dot shrink-0 rounded-full"
-            title={color === "red" ? t("Bildschirm wird aufgenommen") : t("Mikrofon oder Kamera aktiv")}
+            role="status"
+            aria-label={color === "red" ? t("Bildschirm wird aufgenommen") : t("Mikrofon oder Kamera aktiv")}
             data-pulse={color === "green" && call?.speaking ? true : undefined}
             style={{ width: DOT, height: DOT, backgroundColor: `var(--color-${color})`, ["--dot" as string]: `var(--color-${color})` }}
             initial={{ opacity: 0, transform: "scale(0.9)" }}
