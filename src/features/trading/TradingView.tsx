@@ -302,7 +302,7 @@ function Chart({ series, money, rangeLabel }: { series: number[]; money: (v: num
     return (
       <div className="flex h-[74px] w-[210px] shrink-0 flex-col justify-end gap-1.5">
         <div className="h-px w-full border-t border-dashed border-fill-3" />
-        <span className="text-end text-caption text-label-3">{t("Verlauf entsteht – ab jetzt wird gespeichert")}</span>
+        <span className="text-end text-caption text-label-3">{t("Verlauf entsteht, ab jetzt wird gespeichert")}</span>
       </div>
     );
   }
@@ -373,7 +373,7 @@ function LoadingState() {
 
 const errorText: Record<string, string> = {
   "no-key": "Schlüssel fehlt.",
-  unauthorized: "Schlüssel ungültig – bitte neu eintragen.",
+  unauthorized: "Schlüssel ungültig, bitte neu eintragen.",
   forbidden: "Dem Schlüssel fehlen Leserechte, siehe Einstellungen.",
   "bad-key": "Privater Schlüssel nicht lesbar. Nötig ist ein ECDSA-Schlüssel im PEM-Format.",
   rate: "Zu viele Abfragen, gleich wieder.",

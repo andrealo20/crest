@@ -31,6 +31,9 @@ import {
 } from "./store";
 import { BUILT_IN_THEMES, EDITOR_KEYS, FONTS, FONT_NAMES, findTheme, isBuiltIn, resolveTheme, type Adjustment, type FontId, type ThemeFile, type ThemeKey } from "./themes";
 
+/** The two plain built-ins are named after their look; the ported editor themes keep their own names. */
+const themeName = (theme: ThemeFile) => (!isBuiltIn(theme.id) ? theme.name : theme.id === "dark" ? t("Dunkel") : theme.id === "light" ? t("Hell") : theme.name);
+
 /** Settings → Themes: the theme, day and night, the colour editor and theme files. */
 export function ThemeSettings() {
   return (
@@ -82,7 +85,7 @@ function ThemeChoice() {
           label={t("Theme")}
           value={current.id}
           onChange={choose}
-          options={list.map((theme) => ({ value: theme.id, label: theme.name, preview: <ThemePreview theme={theme} /> }))}
+          options={list.map((theme) => ({ value: theme.id, label: themeName(theme), preview: <ThemePreview theme={theme} /> }))}
         />
       </div>
       {pending && (
@@ -103,9 +106,9 @@ function ThemeChoice() {
         </Row>
       )}
       {isBuiltIn(current.id) ? (
-        current.author && <Row label={current.name} hint={t("Farben von {author}, {license}-Lizenz", { author: current.author, license: current.license ?? "" })} />
+        current.author && <Row label={themeName(current)} hint={t("Farben von {author}, {license}-Lizenz", { author: current.author, license: current.license ?? "" })} />
       ) : (
-        <Row label={current.name} hint={t("Eigenes Theme")}>
+        <Row label={themeName(current)} hint={t("Eigenes Theme")}>
           <Button
             onClick={() => {
               if (!confirmDelete) return setConfirmDelete(true);
@@ -164,7 +167,7 @@ function DayNight() {
   activeTheme.use(); // the "now" hint follows the change
   const s = themes.schedule;
   const set = (patch: Partial<typeof s>) => updateSettings((x) => ({ themes: { ...x.themes, schedule: { ...x.themes.schedule, ...patch } } }));
-  const options = allThemes().map((theme) => ({ value: theme.id, label: theme.name }));
+  const options = allThemes().map((theme) => ({ value: theme.id, label: themeName(theme) }));
   // formatTime follows the 12 or 24 hour setting.
   const times = HALF_HOURS.map((v) => ({ value: v, label: formatTime(new Date(2000, 0, 1, Number(v.slice(0, 2)), Number(v.slice(3)))) }));
 
@@ -217,7 +220,7 @@ function ThemeEditor() {
         <Row label={t("Farben anpassen")} hint={t("Beginnt beim aktuellen Theme, jede Änderung ist sofort zu sehen")}>
           <Button
             onClick={() => {
-              startEditing(t("{name} (eigenes)", { name: savedTheme().name }));
+              startEditing(t("{name} (eigenes)", { name: themeName(savedTheme()) }));
               setOpen(null);
             }}
           >

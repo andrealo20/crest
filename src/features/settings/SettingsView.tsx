@@ -86,6 +86,7 @@ import { TradingSettings } from "../trading/TradingSettings";
 import { detectPlace } from "../weather/store";
 import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
+import { across } from "../../notch/edge";
 import { EdgeSettings } from "../../notch/EdgeSettings";
 import { SizeSettings } from "../../notch/SizeSettings";
 import { PortableNote } from "../portable/PortableNote";
@@ -99,7 +100,7 @@ import { hueVar, useIconColors, type Hue } from "../themes/hues";
 
 type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins";
 
-const pages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
+const allPages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
   { id: "general", label: "Allgemein", icon: SlidersHorizontal, hue: "slate" },
   { id: "display", label: "Darstellung", icon: Monitor, hue: "blue" },
   { id: "window", label: "Fenster", icon: AppWindow, hue: "indigo" },
@@ -111,6 +112,9 @@ const pages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
   { id: "notices", label: "Mitteilungen", icon: BellSimple, hue: "red" },
   { id: "plugins", label: "Plugins", icon: PuzzlePiece, hue: "green" },
 ];
+
+// Live notices have no Mac version (the tool is in WINDOWS_ONLY, src/notch/tabs.ts).
+const pages = allPages.filter((p) => !(isMac && p.id === "notices"));
 
 /** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. */
 const sectionPage: Record<string, PageId> = {
@@ -191,6 +195,22 @@ export function SettingsView() {
   useLayoutEffect(() => {
     if (searching && hidden.current) setRows(readRows(hidden.current));
   }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Rows that wait for data (monitors, vault, plugins) join the hidden pages after the first read.
+  useEffect(() => {
+    const root = hidden.current;
+    if (!searching || !root) return;
+    let frame = 0;
+    const observer = new MutationObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setRows(readRows(root)));
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [searching]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -294,9 +314,9 @@ export function SettingsView() {
             key={searching ? "search" : page}
             className="absolute inset-0 flex flex-col gap-4 overflow-y-auto pb-6 [scrollbar-width:none]"
             style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 28px), transparent)" }}
-            initial={{ opacity: 0, filter: "blur(4px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
-            exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: content.enter }}
+            exit={{ opacity: 0, transition: content.exit }}
           >
             {searching ? <SearchResults hits={results} onOpen={openHit} /> : <PageContent page={page} />}
           </motion.div>
@@ -366,10 +386,10 @@ function PageContent({ page }: { page: PageId }) {
         <>
           <Tools />
           {!isMac && <SystemSettings />}
-          <VaultSettings />
+          {findTab("vault") && <VaultSettings />}
           <ProductivitySettings />
-          <TerminalSettings />
-          <LauncherSettings />
+          {findTab("terminal") && <TerminalSettings />}
+          {findTab("launcher") && <LauncherSettings />}
         </>
       )}
       {page === "timer" && (
@@ -391,7 +411,7 @@ function PageContent({ page }: { page: PageId }) {
       )}
       {page === "accounts" && (
         <>
-          <Discord />
+          {findTab("discord") && <Discord />}
           <TradingSettings />
           <GithubSettings />
           <CalendarSettings />
@@ -416,9 +436,9 @@ function Updates() {
     idle: undefined,
     checking: t("Suche …"),
     current: t("Du hast die neueste Version"),
-    available: t("Neue Version gefunden"),
+    available: u.installFailed ? t("Download fehlgeschlagen, später noch einmal versuchen") : t("Neue Version gefunden"),
     downloading: t("Wird geladen … {n} %", { n: Math.round(u.progress * 100) }),
-    error: t("Prüfung fehlgeschlagen – später erneut versuchen"),
+    error: t("Prüfung fehlgeschlagen, später erneut versuchen"),
   }[u.phase];
   const upcoming = u.notes && u.version && u.current ? between(u.notes, u.current, u.version) : [];
 
@@ -478,7 +498,7 @@ function Updates() {
         )}
       </AnimatePresence>
       {!u.store && (
-        <Row label={t("Automatisch suchen")} hint={t("Einmal täglich, anonym bei GitHub – ohne deine Daten")}>
+        <Row label={t("Automatisch suchen")} hint={t("Einmal täglich, anonym bei GitHub, ohne deine Daten")}>
           <Switch label={t("Automatisch suchen")} checked={auto} onChange={(on) => updateSettings({ updates: { auto: on } })} />
         </Row>
       )}
@@ -570,7 +590,7 @@ function Ask() {
           size="sm"
           value={s.ask.provider}
           onChange={(provider) => updateSettings({ ask: { ...s.ask, provider } })}
-          options={(Object.keys(providerInfo) as AskProvider[]).map((p) => ({ value: p, label: providerInfo[p].label }))}
+          options={(Object.keys(providerInfo) as AskProvider[]).map((p) => ({ value: p, label: t(providerInfo[p].label) }))}
         />
       </Row>
       {s.ask.provider === "custom" && (
@@ -592,13 +612,13 @@ function Ask() {
           width="w-52"
         />
       </Row>
-      <Row label="Effort" hint={t("Wie gründlich das Modell nachdenkt")}>
+      <Row label={t("Denkaufwand")} hint={t("Wie gründlich das Modell nachdenkt")}>
         <Segmented
           id="ask-effort-settings"
           size="sm"
           value={s.ask.configs[s.ask.provider].effort}
           onChange={(effort) => updateAsk(s.ask.provider, { effort })}
-          options={effortLevels}
+          options={effortLevels.map((e) => ({ ...e, label: t(e.label) }))}
         />
       </Row>
     </Group>
@@ -653,7 +673,9 @@ export function ShortcutRow() {
     <Row
       label={t("Tastenkürzel")}
       hint={
-        openKey === "in-use" ? (
+        !keys ? (
+          t("Nicht gesetzt; festlegen unter Fenster")
+        ) : openKey === "in-use" ? (
           <span className="text-orange">{t("Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv; ändern unter Fenster")}</span>
         ) : (
           t("Öffnet und schließt die Notch von überall; ändern unter Fenster")
@@ -663,9 +685,13 @@ export function ShortcutRow() {
       {/* Key combinations read left to right in any language. */}
       <span dir="ltr" className="flex items-center gap-1 text-caption text-label-2">
         <Keyboard size={13} weight="bold" className="text-label-3" />
-        {keycaps(keys).map(keyText).map((k) => (
-          <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">{k}</kbd>
-        ))}
+        {keys ? (
+          keycaps(keys).map(keyText).map((k) => (
+            <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">{k}</kbd>
+          ))
+        ) : (
+          t("Nicht gesetzt")
+        )}
       </span>
     </Row>
   );
@@ -773,7 +799,7 @@ function Display() {
           hint={d.monitorMode === "follow" ? t("Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger") : d.monitorMode === "all" ? t("Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst") : undefined}
         >
           <Select
-            width="w-52"
+            width="w-56"
             value={d.monitorMode !== "chosen" ? d.monitorMode : (d.monitor ?? monitors.find((m) => m.primary)?.name ?? monitors[0].name)}
             onChange={(value) =>
               updateSettings((cur) => ({
@@ -810,16 +836,21 @@ function Display() {
       <Row label={t("Hinweis bei Kontingent 70 und 90 %")} hint={t("Braucht den Teil AI-Nutzung")}>
         <Switch label={t("Hinweis bei Kontingent 70 und 90 %")} checked={s.closed.quotaAlerts} onChange={(quotaAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, quotaAlerts } }))} />
       </Row>
-      <Row label={t("Hinweis bei fertigem Download")} hint={t("Mit Im Ordner zeigen und Zur Ablage, nicht in den Ruhezeiten")}>
-        <Switch label={t("Hinweis bei fertigem Download")} checked={s.closed.downloadAlerts} onChange={(downloadAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, downloadAlerts } }))} />
-      </Row>
-      <Row label={t("Statusmeldungen")} />
-      {statusAlerts.map(([k, label, hint]) => (
-        <Row key={k} label={t(label)} hint={t(hint)}>
-          <Switch label={t(label)} checked={s.closed.statusAlerts[k]} onChange={(v) => updateSettings((cur) => ({ closed: { ...cur.closed, statusAlerts: { ...cur.closed.statusAlerts, [k]: v } } }))} />
-        </Row>
-      ))}
-      <Row label={t("Fokus-Modus")} hint={t("Klicks gehen durch. 3× schnell auf die Notch klicken schaltet um – oder im Tray-Menü.")}>
+      {/* The download watcher and the status events (power, network, Bluetooth, volume, brightness, lock keys) have no Mac backend. */}
+      {!isMac && (
+        <>
+          <Row label={t("Hinweis bei fertigem Download")} hint={t("Mit Im Ordner zeigen und Zur Ablage, nicht in den Ruhezeiten")}>
+            <Switch label={t("Hinweis bei fertigem Download")} checked={s.closed.downloadAlerts} onChange={(downloadAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, downloadAlerts } }))} />
+          </Row>
+          <Row label={t("Statusmeldungen")} />
+          {statusAlerts.map(([k, label, hint]) => (
+            <Row key={k} label={t(label)} hint={t(hint)}>
+              <Switch label={t(label)} checked={s.closed.statusAlerts[k]} onChange={(v) => updateSettings((cur) => ({ closed: { ...cur.closed, statusAlerts: { ...cur.closed.statusAlerts, [k]: v } } }))} />
+            </Row>
+          ))}
+        </>
+      )}
+      <Row label={t("Fokus-Modus")} hint={t("Klicks gehen durch. 3× schnell auf die Notch klicken schaltet um, oder im Tray-Menü.")}>
         <Switch label={t("Fokus-Modus")} checked={focus} onChange={setFocusMode} />
       </Row>
       <Row
@@ -858,7 +889,7 @@ function Display() {
           </Row>
           {fpsError === "no-admin" && <FpsUnlockRow />}
           {fpsError === "relogin" && (
-            <Row label={t("FPS freischalten")} hint={t("Fertig – einmal ab- und wieder anmelden, dann laufen die FPS")}>
+            <Row label={t("FPS freischalten")} hint={t("Fertig: einmal ab- und wieder anmelden, dann laufen die FPS")}>
               <SignOut size={18} weight="bold" className="text-orange" />
             </Row>
           )}
@@ -941,11 +972,14 @@ function SubSwitch({ label, checked, onChange }: { label: string; checked: boole
 
 /** The nest beside the closed notch: which pet (or none), its size, independent of the notch's, and the side it sits on. */
 function PetSettingsRows() {
-  const pet = settings.use().closed.pet;
+  const { closed: { pet }, dock } = settings.use();
   const setPet = (patch: Partial<ClosedSettings["pet"]>) => updateSettings((cur) => ({ closed: { ...cur.closed, pet: { ...cur.closed.pet, ...patch } } }));
   return (
     <>
-      <Row label={t("Haustier")} hint={t("Neben der Notch: tanzt zur Musik, rennt mit der CPU, freut sich über Erledigtes und schläft, wenn nichts los ist")}>
+      <Row
+        label={t("Haustier")}
+        hint={isMac ? t("Neben der Notch: tanzt zur Musik, freut sich über Erledigtes und schläft, wenn nichts los ist") : t("Neben der Notch: tanzt zur Musik, rennt mit der CPU, freut sich über Erledigtes und schläft, wenn nichts los ist")}
+      >
         <div className="flex items-center gap-2">
           {pet.id && <PetArt id={pet.id} mood="idle" pace=".5s" size={30} />}
           <Select
@@ -965,7 +999,7 @@ function PetSettingsRows() {
             </div>
           </Row>
           <Row label={t("Seite")}>
-            <Segmented id="pet-side" size="sm" value={pet.side} options={[{ value: "left", label: t("Linke Seite") }, { value: "right", label: t("Rechte Seite") }]} onChange={(side) => setPet({ side })} />
+            <Segmented id="pet-side" size="sm" value={pet.side} options={across(dock.edge) ? [{ value: "left", label: t("Oben") }, { value: "right", label: t("Unten") }] : [{ value: "left", label: t("Linke Seite") }, { value: "right", label: t("Rechte Seite") }]} onChange={(side) => setPet({ side })} />
           </Row>
         </>
       )}
@@ -973,12 +1007,16 @@ function PetSettingsRows() {
   );
 }
 
+/** Closed-row parts fed by Windows-only code (hardware readings, the Discord tool, the download watcher). */
+const NO_MAC_PARTS = new Set<PartId>(["readings", "discord", "downloads"]);
+
 /** Parts of the closed row (notch and capsule share them): drag to reorder, switch on/off. Same pattern as `Tools()`. */
 function ClosedParts() {
   const { closed: c, music, tools, notices, github } = settings.use();
   const [dragging, setDragging] = useState<PartId | null>(null);
   const setClosed = (patch: (cur: ClosedSettings) => Partial<ClosedSettings>) => updateSettings((cur) => ({ closed: { ...cur.closed, ...patch(cur.closed) } }));
   // Only these always show; battery, power and temperature can be missing, so they cannot keep the part alone.
+  const shown = c.order.filter((id) => !(isMac && NO_MAC_PARTS.has(id)));
   const readingsOn = (["cpu", "ram", "gpu"] as const).filter((k) => c.readings[k]).length;
   const iconColors = useIconColors();
   // What a part shows nothing without; the part itself says so while it is on.
@@ -991,8 +1029,15 @@ function ClosedParts() {
   return (
     <div>
       <Row label={t("Inhalt")} hint={t("Gilt für Notch und Kapsel, zum Sortieren ziehen")} />
-      <Reorder.Group as="div" axis="y" values={c.order} onReorder={(order: PartId[]) => setClosed(() => ({ order }))} className="divide-y divide-separator">
-        {c.order.filter((id) => !(isMac && id === "readings")).map((id) => {
+      {/* Parts a Mac does not show keep their place at the end of the order. */}
+      <Reorder.Group
+        as="div"
+        axis="y"
+        values={shown}
+        onReorder={(order: PartId[]) => setClosed((cur) => ({ order: [...order, ...cur.order.filter((id) => !order.includes(id))] }))}
+        className="divide-y divide-separator"
+      >
+        {shown.map((id) => {
           const { label, icon: I, hue } = partInfo[id];
           const on = c.parts[id];
           return (
@@ -1046,12 +1091,12 @@ function Presentation() {
     <Group title={t("Präsentationsmodus")} id="settings-presentation">
       <Row
         label={t("Präsentationsmodus")}
-        hint={presenting && !manual ? t("Aktiv – Bildschirmaufnahme erkannt") : t("Blendet Zwischenablage, Kontostände, Tresor, Aufnahmen und Ablage aus")}
+        hint={presenting && !manual ? t("Aktiv, Bildschirmaufnahme erkannt") : t("Blendet Zwischenablage, Kontostände, Tresor, Aufnahmen und Ablage aus")}
       >
         <Switch label={t("Präsentationsmodus")} checked={presenting} onChange={togglePresentation} />
       </Row>
       {!isMac && (
-        <Row label={t("Bei Bildschirmaufnahme")} hint={t("Teams, Discord, OBS … – schaltet sich danach wieder ab")}>
+        <Row label={t("Bei Bildschirmaufnahme")} hint={t("Teams, Discord, OBS … schaltet sich danach wieder ab")}>
           <Switch
             label={t("Bei Bildschirmaufnahme")}
             checked={auto}
@@ -1067,7 +1112,7 @@ function Presentation() {
 }
 
 const discordStatus: Record<string, string> = {
-  off: "Aus – Tool „Discord“ einschalten",
+  off: "Aus, Tool „Discord“ einschalten",
   "no-config": "Client-ID und Secret fehlen",
   "no-client": "Discord läuft nicht",
   connecting: "Verbinde …",
@@ -1191,10 +1236,10 @@ function FpsUnlockRow() {
   const hint = {
     idle: t("Einmalige Windows-Abfrage, danach nie wieder Administratorrechte"),
     busy: t("Bitte die Windows-Abfrage bestätigen …"),
-    ok: t("Freigeschaltet – die FPS laufen"),
-    relogin: t("Fertig – einmal ab- und wieder anmelden, dann laufen die FPS"),
+    ok: t("Freigeschaltet, die FPS laufen"),
+    relogin: t("Fertig: einmal ab- und wieder anmelden, dann laufen die FPS"),
     cancelled: t("Abgebrochen"),
-    failed: t("Hat nicht geklappt – Crest einmal als Administrator starten"),
+    failed: t("Hat nicht geklappt, Crest einmal als Administrator starten"),
   }[state];
   return (
     <Row label={t("FPS freischalten")} hint={hint}>
@@ -1271,7 +1316,8 @@ function Tools() {
   const s = settings.use();
   // Plugin tools are listed once their list has been read.
   plugins.use();
-  const enabledCount = s.tools.filter((x) => x.enabled).length;
+  // Only tools this platform lists count: one hidden on a Mac cannot be the one that stays on.
+  const enabledCount = s.tools.filter((x) => x.enabled && findTab(x.id)).length;
   const [dragging, setDragging] = useState<string | null>(null);
 
   return (

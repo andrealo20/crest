@@ -9,18 +9,19 @@ export interface ChatMessage {
   content: string;
 }
 
+/** `label`s are ids for t(), like `modelHint`. */
 export const providerInfo: Record<AskProvider, { label: string; modelHint: string }> = {
   openrouter: { label: "OpenRouter", modelHint: "z. B. anthropic/claude-opus-5-5" },
   openai: { label: "ChatGPT", modelHint: "Modell-ID von OpenAI" },
   anthropic: { label: "Claude", modelHint: "claude-opus-5-5" },
-  custom: { label: "Custom", modelHint: "z. B. grok-4.7" },
+  custom: { label: "Eigene", modelHint: "z. B. grok-4.7" },
 };
 
 export const effortLevels: { value: AskEffort; label: string }[] = [
-  { value: "low", label: "Low" },
+  { value: "low", label: "Niedrig" },
   { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-  { value: "xhigh", label: "XHigh" },
+  { value: "high", label: "Hoch" },
+  { value: "xhigh", label: "Sehr hoch" },
 ];
 
 /**

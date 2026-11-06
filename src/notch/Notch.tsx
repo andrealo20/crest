@@ -650,7 +650,7 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
     () =>
       drop.subscribe(() => {
         const { dragging, dropped } = drop.get();
-        if (!settings.get().tools.some((t) => t.id === "shelf" && t.enabled)) {
+        if (!findTab("shelf") || !settings.get().tools.some((t) => t.id === "shelf" && t.enabled)) {
           if (dropped) takeDropped();
           return;
         }

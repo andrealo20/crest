@@ -82,7 +82,7 @@ export function AskView() {
       }, abort.current.signal);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setError(msg === "no-key" ? t("Kein API-Schlüssel für {p} – in den Einstellungen eintragen.", { p: providerInfo[provider].label }) : tBackend(msg));
+      setError(msg === "no-key" ? t("Kein API-Schlüssel für {p}, in den Einstellungen eintragen.", { p: t(providerInfo[provider].label) }) : tBackend(msg));
     } finally {
       // An empty reply bubble (an error, or Stop before any text) would go out with the next question, which providers refuse.
       chat.set((m) => (m.at(-1)?.content === "" ? m.slice(0, -1) : m));
@@ -93,7 +93,7 @@ export function AskView() {
   const runQuick = (q: (typeof quick)[number]) => {
     const latest = clipboard.get().find((c) => c.kind === "text" || c.kind === "link");
     if (!latest) {
-      setError(t("Zuerst einen Text kopieren – die Schnellaktionen arbeiten mit der Zwischenablage."));
+      setError(t("Zuerst einen Text kopieren. Die Schnellaktionen arbeiten mit der Zwischenablage."));
       return;
     }
     void send(q.prompt(latest.text));
@@ -107,7 +107,7 @@ export function AskView() {
           title={t("Modell in den Einstellungen ändern")}
           className="me-1 max-w-40 truncate text-caption text-label-3 hover:text-label-2"
         >
-          {config.model || providerInfo[provider].label}
+          {config.model || t(providerInfo[provider].label)}
         </button>
         <HeaderButton
           label={t("Chat leeren")}

@@ -21,7 +21,9 @@ export const update = createStore<{
   notes: ChangelogEntry[] | null;
   /** The Microsoft Store build: the Store updates it, so there is nothing to check here. */
   store: boolean;
-}>({ current: null, phase: "idle", version: null, progress: 0, checkedAt: null, notes: null, store: false });
+  /** The last download or install failed; the update stays on offer. */
+  installFailed: boolean;
+}>({ current: null, phase: "idle", version: null, progress: 0, checkedAt: null, notes: null, store: false, installFailed: false });
 
 let found: UpdateHandle | null = null;
 
@@ -35,7 +37,7 @@ export async function checkForUpdate() {
     found = await updater.check();
     const version = found?.version ?? null;
     const known = update.get();
-    update.set((s) => ({ ...s, phase: found ? "available" : "current", version, checkedAt: Date.now(), notes: version === known.version ? s.notes : null }));
+    update.set((s) => ({ ...s, phase: found ? "available" : "current", installFailed: false, version, checkedAt: Date.now(), notes: version === known.version ? s.notes : null }));
     if (version && (version !== known.version || !known.notes)) {
       void fetchChangelog(version).then((notes) => update.get().version === version && update.set((s) => ({ ...s, notes })));
     }
@@ -47,12 +49,12 @@ export async function checkForUpdate() {
 
 export async function installUpdate() {
   if (!found || update.get().phase !== "available") return;
-  update.set((s) => ({ ...s, phase: "downloading", progress: 0 }));
+  update.set((s) => ({ ...s, phase: "downloading", progress: 0, installFailed: false }));
   try {
     // A portable copy in a folder it can't write only opened the download page: the update stays on offer.
     if ((await found.install((progress) => update.set((s) => ({ ...s, progress })))) === "page") update.set((s) => ({ ...s, phase: "available" }));
   } catch {
-    update.set((s) => ({ ...s, phase: "error" }));
+    update.set((s) => ({ ...s, phase: "available", installFailed: true }));
   }
 }
 

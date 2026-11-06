@@ -47,6 +47,7 @@ export function SystemSettings() {
       {gpus.length > 1 && (
         <Row label="GPU" hint={t("Auch per Klick auf die GPU-Zeile im Tool")}>
           <Select
+            width="w-36"
             value={s.system.gpu ? `${s.system.gpuIndex}#${s.system.gpu}` : ""}
             onChange={(v) => {
               const at = v.indexOf("#");
