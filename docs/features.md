@@ -28,13 +28,13 @@ Notch and capsule show a row of parts, centred and in the order you choose:
 - AI quota rings (one colour per provider);
 - song title (or the current lyric line);
 - hardware readings: CPU, RAM and GPU, plus network, power, battery and temperature if you turn them on;
-- equalizer, clock (with seconds if you like), today's GitHub contributions and your next calendar event;
+- equalizer, clock (with seconds if you like), today's GitHub contributions, today's weather and your next calendar event;
 - parts your scripts set with `crest-notify part`: an icon, a short text and a progress bar, which can open a tool or plugin on click;
 - downloads in progress, while a browser is downloading something.
 
 Turn each part on or off and drag to reorder them in **Settings → Display**. When the parts do not fit, the row rotates through them like a carousel.
 
-A click on a part opens its tool: the readings open Hardware, the AI rings AI Usage, the cover, title and equalizer the music, the timer and the clock the Timer, the next event the Calendar, script parts Notices and downloads the Shelf. With **Open: Hover** the part under the pointer when the notch opens decides the same way. Anywhere else, or when that tool is off, the notch opens as usual.
+A click on a part opens its tool: the readings open Hardware, the AI rings AI Usage, the cover, title and equalizer the music, the timer and the clock the Timer, the next event the Calendar, the weather the Weather tool, script parts Notices and downloads the Shelf. With **Open: Hover** the part under the pointer when the notch opens decides the same way. Anywhere else, or when that tool is off, the notch opens as usual.
 
 **Adjust on the notch**, next to the size in **Settings → Display**, closes the panel and puts the closed notch, capsule or line in a resize mode: drag its ends to change the width (both sides move) and its far side to change the height, double-click a grip for the default, and finish with **Done** or Esc. It neither opens nor moves meanwhile, and the sliders in the settings keep working too.
 
@@ -42,6 +42,8 @@ A click on a part opens its tool: the readings open Hardware, the AI rings AI Us
 <p align="center"><img src="media/features/settings-closed-notch.png" alt="Settings, Display: the closed row's parts with switches, the system load readings and the quota alerts" width="560" /></p>
 
 A small cup at the end of the row means keep awake is on (see Overview).
+
+**Pet** (off by default, under **Settings → Display**) puts a small animal in a nest beside the closed notch: a black cat, a black cocker spaniel, a monkey, a sloth, a samurai, a robot, a flame or a zombie. It dances while music plays, runs faster the busier the CPU is, waves when the pointer is on the notch, reacts to a notice, cheers when something is finished (a download, a capture, a ticked to-do) and falls asleep when nothing happens. You set its size, independent of the notch's, and the side of the notch it sits on.
 **Downloads** (on by default) shows while a browser downloads into your Downloads folder: a download icon, the size so far and the speed averaged over the last 3 seconds, like "124 MB · 8.2 MB/s", with the count in front when there are several. Browsers give no reliable total size, so there is no percentage. Crest spots the partial files browsers write (`.crdownload` for Chrome and Edge, `.part` for Firefox, `.download` and `.partial`) through Windows' change notifications for that folder, not its subfolders, and reads their sizes once a second only while one exists. When a download finishes, a notice says "Downloaded report.pdf" with **Show in folder** and **Add to Shelf**; a cancelled one just disappears. The notice stays quiet during the notices' quiet hours and in presentation mode, and has its own switch in **Settings → Display**. With both the part and the notice off, Crest stops watching the folder.
 
 **Privacy dots** turn green when the microphone or camera is in use and red while the screen is being recorded, like on an iPhone.
@@ -64,6 +66,8 @@ Notices appear over the row, one at a time:
 - the water reminder, with buttons to log a drink or wait for the next one.
 
 A running recording outranks every other notice, so its stop button stays in reach.
+
+Most of them are cards: the icon in a circle tinted with the notice's colour (a live notice from an app keeps its logo), a title, a line of text, buttons on the right and a line of the same colour along the bottom edge. The notch grows for a card and shrinks back when it goes.
 
 Status alerts show briefly when you plug in or unplug the charger, when the battery reaches 20% and 10%, when the internet drops or comes back, and when Bluetooth headphones connect or disconnect. Turn each one off in **Settings → Display**.
 
@@ -92,8 +96,9 @@ Caps Lock and Num Lock show the same way: switching either key says "Caps Lock o
 ## Overview, weather and Discord
 
 - **Overview** is a small control center: time, weather, what is playing right now, Windows focus, keep awake and a volume slider. With more than one playback device, the button at the end of the slider lists them and makes the one you pick the Windows default.
+- **Quick controls** sit in a row at the bottom of Overview: switches for Wi-Fi, Bluetooth (a radio the PC lacks is left out; there is no Bluetooth switch on a Mac) and the dark theme, then buttons to lock, sleep, restart and shut down. Sleep, restart and shut down ask for a second click within 3 seconds, the button turns red meanwhile. Restart and shut down start at once, so save your work first.
 - **Keep awake** stops the PC and the display from going to sleep. A tap keeps them awake until you turn it off; the arrow on the card picks 30 minutes, 1 hour or 2 hours instead, and the card shows the time left. A timed one ends by itself. While it is on, a small cup shows in the closed notch. It always starts off when Crest starts, and Crest lets the PC sleep again when it quits.
-- **Weather** gives current conditions and a 7-day forecast through Open-Meteo. No API key needed.
+- **Weather** gives current conditions, the next eight hours in a strip (time, icon, temperature, with the chance of rain on hover) and a 7-day forecast through Open-Meteo.com (CC BY 4.0). No API key needed. Today's weather can also be a part of the closed row (off by default, under **Settings → Display**).
 - **Discord** shows your current voice call with speaking members and buttons for mute, deafen and hang up. In the closed notch, a green equalizer plays while someone talks.
 
 <table>
@@ -105,12 +110,12 @@ Caps Lock and Num Lock show the same way: switching either key says "Caps Lock o
 
 ## Productivity tools
 
-- **Timer** with focus and break presets, custom durations, six alarm sounds and a running countdown in the closed notch. An expired timer stays visible until you dismiss it. A focus timer can play a background sound while it runs (white, pink or brown noise, rain or waves, generated on the fly without audio files), which fades in at the start and out when the timer ends, pauses or resets; the speaker button in the Timer mutes it until Crest restarts.
+- **Timer** with focus and break presets, custom durations, six alarm sounds and a running countdown in the closed notch. An expired timer stays visible until you dismiss it. A focus timer can play a background sound while it runs (white, pink or brown noise, rain or waves, generated on the fly without audio files), which fades in at the start and out when the timer ends, pauses or resets; the speaker button in the Timer mutes it until Crest restarts. The countdown comes in 12 looks and a colour you pick in **Settings → Timer**, and the button in the Timer's header pops it out into a small window that stays above other windows.
 - **To-dos** and **notes** live on your machine and need no account. A to-do can have a due time; when it comes, an alarm sounds (unless you turn the sound off) and the to-do shows in the closed notch until you snooze it or mark it done.
 - **Clipboard** keeps a history of text, links, images and files, with filters and previews. Password managers are excluded on purpose, and nothing is written to disk.
-- **Shelf** is a parking spot for files. Drop them onto the notch or press Ctrl + V, then open, copy or reveal them later.
+- **Shelf** is a parking spot for files. Drop them onto the notch or press Ctrl + V, then open, copy or reveal them later. **Send to phone** shows a QR code for the picked files (or all of them): scan it and the phone's browser lists them and downloads them straight from the PC. It works on the local network only, over plain HTTP (the bytes are not encrypted on the Wi-Fi, and the link holds a random token), for one share at a time, and stops after 10 minutes, when the Shelf closes or when you stop it; a download already running finishes.
 - **Scratchpad** is a code pad with syntax colouring for JavaScript, TypeScript, Rust and Python, or plain text. Each language keeps its own draft, saved as you type.
-- **Water** logs what you drink against a daily goal (2 L unless you change it), with an hourly chart. Reminders are optional: every hour, or the interval you pick, between the times you set.
+- **Water** logs what you drink against a daily goal (2 L unless you change it), with an hourly chart. Reminders are optional: every hour, or the interval you pick, between the times you set. **Quote in Overview** (in the Water settings) adds a one-line quote to Overview, with a button for another.
 - **Converter** handles units (length, weight, temperature, volume, speed) and currencies at the European Central Bank's reference rates, about 30 currencies updated every working day. Any two currencies convert through your portfolio's base currency, which is also the default. It opens on the units and currencies you used last.
 
 <p align="center"><img src="media/features/timer.png" alt="Timer: a 25 minute focus countdown in big pixel digits, with presets and controls" width="520" /></p>
@@ -238,6 +243,7 @@ Details: [themes.md](themes.md).
 
 - Turn on **Settings → Notices** and Windows notifications from any app show in the closed notch for 6 seconds, with the app's logo, name, title and text, and land on a **Notices** page in the open notch.
 - Each app can be shown, muted (history only) or turned off.
+- **Hide Windows banners** (in the same settings, off by default; not in the Microsoft Store build) turns off Windows' own pop-up for the apps Crest shows, so a notification appears once, in the notch, and stays in the action centre. Crest gives the banners back when you switch it off, when it quits and when it is uninstalled.
 - Presentation mode, a full-screen app, Windows focus or Do Not Disturb, and an optional daily quiet window keep them in the history without popping up.
 - Scripts, builds and coding agents can send their own notices with `crest-notify`, including `crest-notify run -- <command>` for the exit code and duration.
 - `crest-notify part` sets a custom part of the closed row (icon, text up to 48 characters, progress, a tool to open on click, an optional time to live); turn on **Script parts (crest-notify)** among the closed-row parts.
@@ -258,7 +264,7 @@ Format, API, limits and the security model: [plugins.md](plugins.md).
 
 - **Any screen edge.** **Screen edge** in **Settings → Display** hangs the notch and the line from the top, bottom, left or right edge, from the screen's edge or from the taskbar's. Dragging the closed notch towards another edge moves it there. The capsule stays on the top.
 - **More monitors.** **Monitor** in **Settings → Display** (shown with two or more monitors) puts the notch on one monitor, or picks **Follow the cursor** or **All monitors**. Following, the closed notch moves to the monitor the pointer has stayed on for about a third of a second, so crossing a screen edge does not move it; it never moves while open, peeking, dragged or recording. With All monitors every other monitor shows a copy of the closed notch, updated a few times a second; hovering it brings the notch there, where it opens as usual, and the copy moves to the monitor the notch left. The edge, the anchor and the offset are the same everywhere, each monitor with its own size, scale and taskbar, and monitors plugged in or out are picked up within a second. A copy hides with the hide shortcut, and on its own while the app in front on its monitor calls for the line or hiding under the window rules. Each copy is one more WebView2 window, about 70 MB more memory.
-- On the left and right edges the parts stand in a column, and a notice shows as one icon: a finished timer (click to dismiss), a status alert, a live notice's app logo or a due to-do (click to open the To-dos).
+- On the left and right edges the parts stand in a column, without the song title, the next event, script parts and downloads, and a notice shows as one icon: a finished timer (click to dismiss), a status alert, a live notice's app logo or a due to-do (click to open the To-dos).
 - **Screen and app rules.** **Settings → Window** chooses what Crest does while a maximized window, a borderless full-screen app or an exclusive full-screen game covers its monitor: keep its look, turn into the line, or hide. It can also check the windows behind the one in front. Rules per app, picked from the running apps or typed, override these.
 - **Panel size and scale.** Drag the open panel's sides, bottom or bottom corners to size each tool (double click resets), or pick Compact, Standard or Spacious for all of them. The whole notch can be shown at 100 % or 150 %.
 
@@ -348,6 +354,8 @@ Crest keeps its settings and data apart from L4-Notchbar, so both can be install
 **Crash log.** If Crest crashes, panics and uncaught interface errors are appended to `crash.log` in `%LOCALAPPDATA%\io.github.andrealo20.crest\logs` (installer), or in `data\logs` next to Crest.exe (portable). Past 512 KB it is renamed to `crash.old.log` and a new one starts. The file stays on your PC; attach it to a bug report if you like.
 
 **What's new.** After an update, a line in the closed notch says what version you are on now; when the daily check finds a new version (not in the Store build, which the Store updates), the line says it is available. A click opens a page with the changes, a short note on supporting the project with a GitHub Sponsors button, and for a new version an Update now button. The ✕ hides the line for that version, and a fresh install shows nothing.
+
+**Mac.** The `.dmg` is a preview and not notarized (see the README). Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder and Camera are not there, Find on screen has no shortcut, and the Overview quick controls have no Bluetooth switch. The crash log is `crash.log` in `~/Library/Logs/io.github.andrealo20.crest`.
 
 **Copy diagnostics.** Settings, General, Updates has Copy diagnostics, which puts a short plain-text block on the clipboard for a bug report: the app version and build (installer, portable or Store), the Windows edition and build, the app's and the PC's architecture, the number of monitors and their scale, the panel scale, the enabled tools, the closed style and edge, and the codes of current errors (update check, GitHub, FPS, Discord). It never includes your user name, the PC's name, file paths, keys, tokens, account names or your location; an error that is not one of Crest's own codes shows as `other`.
 
