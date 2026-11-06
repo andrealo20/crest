@@ -17,6 +17,7 @@ Prerequisites:
 npm install
 npm run dev        # browser with a fake desktop, ?slow=4 slows animations for tuning
 npm run tauri dev  # the real app, run it in PowerShell
+npm run site:dev   # the project page; its demo is the app served by npm run dev, which must be running
 npm test           # frontend tests
 npm run typecheck  # before every commit
 npm run i18n       # finds missing English strings (add --fix for TODO entries)
@@ -61,6 +62,8 @@ npm run bump 0.2.0
 git commit -am "Release 0.2.0"
 git push
 ```
+
+In the release that ships what the project page marks "Coming in", remove those `next` notes from `site/src/data.ts` and rewrite the FAQ answer about the demo, which names the download version.
 
 The workflow builds the signed installers and portable zips for x64 and arm64 (arm64 cross-compiled on the x64 runner) and publishes release `v0.2.0` with them, their signatures and `latest.json`, which installed apps and portable copies use to offer the update. A last job adds `SHA256SUMS` with the SHA-256 of every file of the release. Pushes without a version bump don't create a release. The signing key lives in the repository secret `TAURI_SIGNING_PRIVATE_KEY`.
 
