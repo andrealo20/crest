@@ -72,7 +72,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   const [hovered, setHovered] = useState(false);
   // The title stays while paused, like the cover; it only scrolls while playing.
   const music = s.music;
-  const lyric = useLyricLine(np, (closed.parts.title && music.titleLyrics) || music.notchLyrics);
+  const lyric = useLyricLine(np, (closed.parts.title && music.titleLyrics) || music.notchLyrics, music.closedRoman);
   // Lyric mode of the title part: the current line, the title before the first line, in gaps and without lyrics.
   const titleLyric = music.titleLyrics && lyric;
   const caption = titleLyric ? lyric : np ? trackCaption(np.title ?? "", np.artist ?? "") : "";

@@ -5,7 +5,7 @@ import { isNative } from "../../platform/native";
 import { demo } from "../../dev/showcase-data";
 import { settings } from "../../settings/store";
 import { streamChat } from "../ask/providers";
-import { LEAD, cacheKey, foundOf, lineAt, lookupAllowed, lyricsOf, pickRecord, searchTerms, untilNext, withExtra, type Found, type LrclibRecord, type LyricLine, type Lyrics } from "./lrc";
+import { LEAD, cacheKey, closedLine, foundOf, lineAt, lookupAllowed, lyricsOf, pickRecord, searchTerms, untilNext, withExtra, type Found, type LrclibRecord, type LyricLine, type Lyrics } from "./lrc";
 import { createLyricsCache, type CacheEntry } from "./lyricsCache";
 import { enabledSources, firstFound, type LyricSourceId } from "./lyricSources";
 import { parseTranslation, translationLrc, translationPrompt } from "./translate";
@@ -187,11 +187,15 @@ export function useLyricIndex(lines: { time: number }[] | null | undefined, np: 
   return index;
 }
 
-/** Text of the current line; null before the first line, in a gap, or without lyrics. */
-export function useLyricLine(np: NowPlaying | null, enabled: boolean): string | null {
-  const lines = linesOf(useLyrics(np, enabled));
+/**
+ * Text of the current line; null before the first line, in a gap, or without lyrics. With `roman` the line comes in
+ * Latin letters instead ("roman") or after the original ("both"), where it has a romanisation; otherwise as sung.
+ */
+export function useLyricLine(np: NowPlaying | null, enabled: boolean, roman: "off" | "roman" | "both" = "off"): string | null {
+  const plain = linesOf(useLyrics(np, enabled));
+  const lines = useRomanized(plain, enabled && (roman === "roman" || roman === "both"));
   const i = useLyricIndex(lines, np);
-  return (lines && i >= 0 && lines[i].text) || null;
+  return closedLine(lines && i >= 0 ? lines[i] : null, roman);
 }
 
 const CJK = /[ぁ-ゖァ-ヺ㐀-䶿一-鿿가-힣]/;

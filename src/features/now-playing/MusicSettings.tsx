@@ -28,6 +28,20 @@ export function MusicSettings() {
         <Row label={t("Songtext in der geschlossenen Notch")} hint={t("Zeigt beim Abspielen nur Cover und die aktuelle Zeile, die Notch passt sich jeder Zeile an")}>
           <Switch label={t("Songtext in der geschlossenen Notch")} checked={music.notchLyrics} onChange={(notchLyrics) => setMusic({ notchLyrics })} />
         </Row>
+        {(music.notchLyrics || music.titleLyrics) && (
+          <Row label={t("Lautschrift in der geschlossenen Notch")} hint={t("Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, statt oder neben der Zeile")}>
+            <Segmented
+              id="music-closed-roman"
+              value={music.closedRoman}
+              options={[
+                { value: "off", label: t("Aus") },
+                { value: "roman", label: t("Nur Lautschrift") },
+                { value: "both", label: t("Beide") },
+              ]}
+              onChange={(closedRoman) => setMusic({ closedRoman })}
+            />
+          </Row>
+        )}
         <Row label={t("Equalizer-Stil")} hint={t("Im Musik-Tool; die geschlossene Notch behält ihre vier Balken")}>
           <Segmented
             id="music-eq-style"

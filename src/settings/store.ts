@@ -109,6 +109,8 @@ export interface Settings {
     lyricTranslation: boolean;
     lyricAskTranslation: boolean;
     lyricRoman: boolean;
+    /** The lyric line in the closed notch: as sung, in Latin letters, or both (issue #10). */
+    closedRoman: "off" | "roman" | "both";
     eqStyle: "bars" | "spectrum" | "wave";
     progressStyle: "line" | "wavy";
   };
@@ -217,6 +219,7 @@ const defaults: Settings = {
     lyricTranslation: true,
     lyricAskTranslation: false,
     lyricRoman: false,
+    closedRoman: "off",
     eqStyle: "bars",
     progressStyle: "line",
   },

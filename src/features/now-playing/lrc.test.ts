@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cacheKey, foundOf, lineAt, lookupAllowed, lyricsOf, parseLrc, pickRecord, searchTerms, untilNext, withExtra } from "./lrc.ts";
+import { cacheKey, closedLine, foundOf, lineAt, lookupAllowed, lyricsOf, parseLrc, pickRecord, searchTerms, untilNext, withExtra } from "./lrc.ts";
 
 test("parses stamps, repeats, offset and tags", () => {
   const lines = parseLrc("[ar:Someone]\n[ti:Song]\n[00:12.50]First\r\n[00:05.00][01:02.3]Chorus  again\n[00:20.000]\nno stamp\n[1:03:5]x");
@@ -117,4 +117,15 @@ test("translation and romanisation go on the line with the same stamp", () => {
   const plain = [{ time: 1, text: "a" }];
   assert.equal(withExtra(plain, null, "translation"), plain);
   assert.equal(withExtra(plain, "no stamps", "translation"), plain);
+});
+
+test("the closed notch shows the line as sung, romanised, or both", () => {
+  const line = { time: 1, text: "夜に駆ける", roman: "yoru ni kakeru" };
+  assert.equal(closedLine(line, "off"), "夜に駆ける");
+  assert.equal(closedLine(line, "roman"), "yoru ni kakeru");
+  assert.equal(closedLine(line, "both"), "夜に駆ける · yoru ni kakeru");
+  // No romanisation (yet): the line as sung; a gap or no line: nothing.
+  assert.equal(closedLine({ time: 1, text: "Hello" }, "roman"), "Hello");
+  assert.equal(closedLine({ time: 1, text: "" }, "both"), null);
+  assert.equal(closedLine(null, "roman"), null);
 });
