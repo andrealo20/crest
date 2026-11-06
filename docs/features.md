@@ -137,7 +137,7 @@ Caps Lock and Num Lock show the same way: switching either key says "Caps Lock o
 - While it records, the closed notch shows the time with pause and stop buttons.
 - Crest keeps itself out of its own screenshots and recordings; other apps that record or share the screen still see it.
 - The tool lists what you took, with thumbnails and lengths; a deleted capture goes to the Recycle Bin.
-- **Find on screen** (Ctrl+Alt+F, changeable in **Settings → Window**) reads the text on every screen with Windows' own text recognition, in your Windows languages or else English, and opens a search over it. Each result shows its line and screen; a click copies the line, the crosshair draws a frame around it on screen for two seconds. The screens are read in memory only, nothing is saved, and the text is gone when the page closes.
+- **Find on screen** (Ctrl+Alt+Shift+F, changeable in **Settings → Window**) reads the text on every screen with Windows' own text recognition, in your Windows languages or else English, and opens a search over it. Each result shows its line and screen; a click copies the line, the crosshair draws a frame around it on screen for two seconds. The screens are read in memory only, nothing is saved, and the text is gone when the page closes.
 
 <p align="center"><img src="media/features/capture.png" alt="Capture: screenshot and region buttons, recording settings and the list of captures with thumbnails" width="520" /></p>
 

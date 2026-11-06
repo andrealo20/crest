@@ -41,7 +41,7 @@ export function diagnosticsText(d: Diagnostics): string {
   const lines = [
     "Crest diagnostics",
     `App: ${d.version} (${d.build}, ${d.arch})`,
-    `Windows: ${d.os ?? "unknown"}, build ${d.osBuild ?? "unknown"}, PC ${d.machine ?? "unknown"}`,
+    `OS: ${d.os ?? "unknown"}, build ${d.osBuild ?? "unknown"}, PC ${d.machine ?? "unknown"}`,
     `Monitors: ${d.scales.length} (${d.scales.map(percent).join(", ") || "none"})`,
     `Panel scale: ${d.panelScale} %`,
     `Tools: ${d.tools.join(", ") || "none"}`,
