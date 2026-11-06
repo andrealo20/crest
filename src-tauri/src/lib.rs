@@ -280,6 +280,7 @@ pub fn run() {
             display::display_monitors,
             display::display_apply,
             display::display_screen,
+            display::display_fullscreen,
             display::display_raise,
             display::display_apps,
             #[cfg(windows)]

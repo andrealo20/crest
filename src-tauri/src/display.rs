@@ -18,7 +18,7 @@
 //! `mode` "follow" or "all" (mirror.rs): the frontend picks `monitor` from where the pointer is, and with "all" sends a `spot`
 //! (line and window top) for every monitor, where mirror.rs places a closed-only copy of the notch.
 
-use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Mutex;
 #[cfg(windows)]
 use std::thread;
@@ -70,8 +70,10 @@ pub struct DisplayState {
     hidden: AtomicBool,
     /// Last behaviour the rules called for (Behavior as u8), for `display_screen`.
     behavior: AtomicU8,
-    /// The monitor (HMONITOR) of another screen whose foreground window the rules keep the notch off, so its mirror hides; 0 = none.
-    pub(crate) mirror_block: AtomicIsize,
+    /// An app covers the notch's monitor in fullscreen right now, for `display_fullscreen`.
+    fullscreen: AtomicBool,
+    /// The monitors (HMONITOR) of other screens where a window calls for hiding or the line, so their mirrors hide.
+    pub(crate) mirror_block: Mutex<Vec<isize>>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -258,6 +260,12 @@ pub fn display_screen(state: State<'_, DisplayState>) -> &'static str {
     behavior_from(state.behavior.load(Ordering::Relaxed)).as_str()
 }
 
+/// Whether an app covers the notch's monitor in fullscreen right now, for the frontend's start (the event may have come before it listened).
+#[tauri::command]
+pub fn display_fullscreen(state: State<'_, DisplayState>) -> bool {
+    state.fullscreen.load(Ordering::Relaxed)
+}
+
 /// "Raise now": shows Crest if the hide hotkey hid it and puts it on top of the topmost windows.
 #[tauri::command]
 pub fn display_raise(app: AppHandle) {
@@ -267,11 +275,20 @@ pub fn display_raise(app: AppHandle) {
     }
     let Some(window) = app.get_webview_window("notch") else { return };
     #[cfg(windows)]
-    if let Ok(hwnd) = window.hwnd() {
-        let _ = unsafe { SetWindowPos(hwnd, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+    {
+        raise_topmost(&window);
+        crate::mirror::raise(&app);
     }
     #[cfg(target_os = "macos")]
     crate::macos::raise(&window);
+}
+
+/// Puts the window on top of the other topmost windows. `set_always_on_top(true)` does nothing on a window that is already topmost.
+#[cfg(windows)]
+pub(crate) fn raise_topmost(window: &WebviewWindow) {
+    if let Ok(hwnd) = window.hwnd() {
+        let _ = unsafe { SetWindowPos(hwnd, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+    }
 }
 
 #[derive(Serialize)]
@@ -367,9 +384,13 @@ fn sync(app: &AppHandle) {
         let _ = window.hide();
     } else {
         let _ = window.show();
-        let _ = window.set_always_on_top(true);
+        #[cfg(windows)]
+        raise_topmost(&window);
         #[cfg(target_os = "macos")]
-        crate::macos::raise(&window);
+        {
+            let _ = window.set_always_on_top(true);
+            crate::macos::raise(&window);
+        }
         // Let the click-through state be set again after show() (the poll caches the old one).
         app.state::<HitState>().refresh();
     }
@@ -462,7 +483,9 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
         let mut last_fullscreen = false;
         let mut last_behavior: Option<Behavior> = None;
         let mut last_foreground = HWND::default();
-        let (mut front, mut behind, mut aside) = (Known::default(), Known::default(), Known::default());
+        let (mut front, mut behind) = (Known::default(), Known::default());
+        // What each other monitor's window was last known as: its frontmost window and the one behind it.
+        let mut aside: std::collections::HashMap<isize, (Known, Known)> = Default::default();
         loop {
             thread::sleep(POLL);
             // Screen off or suspending (standby.rs): the windows and monitors are not read until it is back.
@@ -485,6 +508,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             let fullscreen = fg.context.is_fullscreen();
             if fullscreen != last_fullscreen {
                 last_fullscreen = fullscreen;
+                state.fullscreen.store(fullscreen, Ordering::Relaxed);
                 let _ = app.emit("notch://fullscreen", fullscreen);
             }
             let behavior = screen_policy::decide(
@@ -500,21 +524,26 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 let _ = app.emit("notch://screen", behavior.as_str());
                 sync(&app);
             }
-            // With mirrors, the foreground window on another monitor answers for the mirror there (only it, not the windows behind it).
-            let elsewhere = unsafe { MonitorFromWindow(foreground, MONITOR_DEFAULTTONEAREST) };
-            let block = if mirrors && elsewhere != monitor {
-                let seen = read_foreground(foreground, own, elsewhere, &mut aside);
-                let rule = screen_policy::decide(&rules, (seen.context, &seen.name, &seen.path), None, gaming);
-                if rule == Behavior::Normal { 0 } else { elsewhere.0 as isize }
-            } else {
-                0
-            };
-            if state.mirror_block.swap(block, Ordering::Relaxed) != block {
+            // With mirrors, the windows on another monitor answer for the mirror there, read like the notch's own screen.
+            let mut block = Vec::new();
+            if mirrors {
+                for m in crate::mirror::monitors(&app).into_iter().filter(|&m| m != monitor.0 as isize) {
+                    let (near, far) = aside.entry(m).or_default();
+                    let elsewhere = HMONITOR(m as *mut _);
+                    let seen = read_foreground(foreground, own, elsewhere, near);
+                    let back = (rules.background_matters() && seen.context == Context::Desktop).then(|| read_background(foreground, own, elsewhere, far)).flatten();
+                    let rule = screen_policy::decide(&rules, (seen.context, &seen.name, &seen.path), back.as_ref().map(|b| (b.context, b.name.as_str(), b.path.as_str())), gaming);
+                    if rule != Behavior::Normal {
+                        block.push(m);
+                    }
+                }
+            }
+            if std::mem::replace(&mut *state.mirror_block.lock().unwrap(), block.clone()) != block {
                 crate::mirror::wake(&app);
             }
             // New foreground window: reapply "on top" in case it covered us.
             if !state.hidden.load(Ordering::Relaxed) && foreground != last_foreground {
-                let _ = window.set_always_on_top(true);
+                raise_topmost(&window);
             }
             last_foreground = foreground;
         }
