@@ -203,7 +203,7 @@ function Week({ data }: { data: Forecast }) {
               <span className="absolute inset-y-0 rounded-full" style={{ left: `${left}%`, width: `${width}%`, background: `linear-gradient(90deg, ${heat(d.min)}, ${heat(d.max)})` }} />
             </span>
             <span className="tabular w-8 shrink-0 text-caption font-semibold text-label">{formatTemp(d.max)}</span>
-            <span className="tabular w-12 shrink-0 text-end text-caption text-link">{d.mm ? mm(d.mm) : ""}</span>
+            <span className="tabular w-12 shrink-0 text-end text-caption text-link">{d.mm !== undefined && d.mm >= 0.05 ? mm(d.mm) : ""}</span>
           </div>
         );
       })}

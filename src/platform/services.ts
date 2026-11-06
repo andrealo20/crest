@@ -980,7 +980,7 @@ export interface PhonePageText {
 export function phoneShareStart(paths: string[], text: PhonePageText): Promise<PhoneShare> {
   if (isNative) return invoke<PhoneShare>("phone_share_start", { paths, text });
   // Demo: a stand-in code that looks like the real one but opens nothing; the app serves the files on the local network.
-  return demo ? Promise.resolve({ url: "demo only: the app shows a real link here", qr: demoQr(), size: 29, ttl: 600 }) : Promise.reject(new Error("Only in the app"));
+  return demo ? Promise.resolve({ url: "", qr: demoQr(), size: 29, ttl: 600 }) : Promise.reject(new Error("Only in the app"));
 }
 
 /** A QR-like pattern (three finder squares and fixed noise) as one SVG path in a 29 unit box. */
@@ -1221,7 +1221,7 @@ export interface CalendarData {
   fetchedAt: number;
 }
 
-/** Events from yesterday to two weeks ahead; `force` skips Rust's ten minutes' cache. */
+/** Events from about two months back to three ahead; `force` skips Rust's ten minutes' cache. */
 export function fetchCalendar(sources: CalendarSourceIn[], force: boolean): Promise<CalendarData> {
   if (isNative) return invoke<CalendarData>("calendar_fetch", { sources, force });
   const day = new Date();

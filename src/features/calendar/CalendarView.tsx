@@ -20,7 +20,8 @@ export const calendarError: Record<string, string> = {
   "bad-url": "Adresse ungültig",
   auth: "Anmeldung abgelehnt",
   "not-found": "Kalender nicht gefunden",
-  offline: "Keine Verbindung",
+  // reqwest reports a refused certificate as a failed connection too, so the text names both.
+  offline: "Server nicht erreichbar oder Zertifikat ungültig",
   "too-large": "Kalender zu groß",
   parse: "Kalender nicht lesbar",
   "no-calendars": "Keine Kalender im Konto",
