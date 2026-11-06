@@ -22,7 +22,7 @@ const MARK: PCWSTR = w!("CrestHidBanner");
 
 /// `hide`: banners off for exactly `apps`; an app Crest hid before that is no longer in the list gets its banner back.
 /// Not `hide`: every banner Crest hid comes back.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn notices_banners(hide: bool, apps: Vec<String>) -> Result<(), String> {
     if cfg!(feature = "store") {
         if hide {

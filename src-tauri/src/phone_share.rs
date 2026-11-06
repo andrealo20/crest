@@ -52,7 +52,7 @@ struct Share {
     from: Option<String>,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn phone_share_start(paths: Vec<String>, text: PageText) -> Result<ShareInfo, String> {
     let files: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).filter(|p| p.is_file()).collect();
     if files.is_empty() {
