@@ -5,7 +5,7 @@ import { DiscordLogo } from "../../ui/brands";
 import { content, springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
-import { requestSize } from "../../notch/size";
+import { MAX_SIZE, requestSize } from "../../notch/size";
 import { findTab } from "../../notch/tabs";
 import { togglePresentation, usePresenting } from "../privacy/store";
 import { useNowPlaying } from "../../platform/media";
@@ -65,6 +65,8 @@ export function OverviewView() {
   const brightMisses = useRef(0);
   useEffect(() => {
     const quiet = () => brightBusy.current || Date.now() < brightHold.current;
+    let period = 3000;
+    let id = 0;
     const load = () =>
       !quiet() &&
       void systemControls.brightness().then((v) => {
@@ -72,15 +74,25 @@ export function OverviewView() {
         // DDC/CI misses a read now and then: the row goes only after three in a row.
         brightMisses.current = v === null ? brightMisses.current + 1 : 0;
         if (v !== null || brightMisses.current >= 3) setBright(v);
+        // With nothing to set, look again only now and then (another monitor may take the notch).
+        const every = brightMisses.current >= 3 ? 30_000 : 3000;
+        if (every !== period) {
+          period = every;
+          clearInterval(id);
+          id = setInterval(load, every);
+        }
       });
     load();
-    const id = setInterval(load, 3000);
+    id = setInterval(load, period);
     return () => clearInterval(id);
   }, []);
 
   // The open list grows the notch by its rows, like the player menu in Now Playing; the brightness row by its height and gap.
   const [quick, reloadQuick] = useQuick();
-  const extra = (listOpen ? Math.min(MIXER_MAX_ROWS, outputs.length) * MIXER_ROW + 14 : 0) + (bright !== null ? BRIGHTNESS_ROW : 0) + (quick ? CONTROLS_ROW : 0);
+  // The list gets the rows left under the window's maximum (it scrolls past them).
+  const others = (bright !== null ? BRIGHTNESS_ROW : 0) + (quick ? CONTROLS_ROW : 0);
+  const rows = listOpen ? Math.max(1, Math.min(MIXER_MAX_ROWS, outputs.length, Math.floor((MAX_SIZE.h - findTab("overview")!.size.h - others - 14) / MIXER_ROW))) : 0;
+  const extra = (rows ? rows * MIXER_ROW + 14 : 0) + others;
   useEffect(() => {
     if (!extra) return requestSize("overview", null);
     const base = findTab("overview")!.size;
@@ -109,7 +121,7 @@ export function OverviewView() {
           }}
         />
       </div>
-      {listOpen && <OutputList outputs={outputs} onPick={pickOutput} />}
+      {listOpen && <OutputList outputs={outputs} rows={rows} onPick={pickOutput} />}
       {bright !== null && <BrightnessTile level={bright} busy={brightBusy} hold={brightHold} onLevel={setBright} />}
       {quick && <QuickControls state={quick} reload={reloadQuick} />}
       {quotes && <QuoteLine />}
@@ -347,7 +359,7 @@ function OutputIcon({ name, className }: { name: string; className?: string }) {
 }
 
 /** The active playback devices; picking one makes it the Windows default. */
-function OutputList({ outputs, onPick }: { outputs: AudioOutput[]; onPick: (id: string) => void }) {
+function OutputList({ outputs, rows, onPick }: { outputs: AudioOutput[]; rows: number; onPick: (id: string) => void }) {
   return (
     <motion.div
       className="flex shrink-0 flex-col"
@@ -359,7 +371,7 @@ function OutputList({ outputs, onPick }: { outputs: AudioOutput[]; onPick: (id: 
         role="listbox"
         aria-label={t("Ausgabegerät")}
         className="-mx-1 overflow-y-auto px-1 [scrollbar-width:none]"
-        style={{ maxHeight: MIXER_MAX_ROWS * MIXER_ROW }}
+        style={{ maxHeight: rows * MIXER_ROW }}
       >
         {outputs.map((o) => (
           <button
