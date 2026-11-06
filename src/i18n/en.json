@@ -1318,5 +1318,13 @@
  "Auf GitHub unterstützen": "Support on GitHub",
  "Tresor gerade belegt": "Vault in use",
  "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "Another program is reading the file. Try again in a moment.",
- "Auf der Notch anpassen": "Adjust on the notch"
+ "Auf der Notch anpassen": "Adjust on the notch",
+ "In diesem Tempo ist das Limit gegen {time} erreicht": "At this pace you reach the limit around {time}",
+ "Im Tempo bei {p} % zum Zurücksetzen": "On pace for {p}% at reset",
+ "{w} zurückgesetzt": "{w} reset",
+ "Kontingent-Prognose": "Quota forecast",
+ "Prognose unter den Balken": "Forecast under the bars",
+ "Zeigt, wann das Limit im aktuellen Tempo erreicht wäre": "Shows when you would reach the limit at your current pace",
+ "Hinweis, wenn ein Limit zurückgesetzt wird": "Notify when a limit resets",
+ "Braucht den Teil AI-Nutzung, nicht in den Ruhezeiten": "Needs the AI Usage part, not during quiet hours"
 }

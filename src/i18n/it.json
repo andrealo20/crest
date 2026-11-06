@@ -1318,5 +1318,13 @@
  "Auf GitHub unterstützen": "Sostieni su GitHub",
  "Tresor gerade belegt": "Cassaforte occupata",
  "Ein anderes Programm liest die Datei gerade. Gleich noch einmal versuchen.": "Un altro programma sta leggendo il file. Riprova tra un attimo.",
- "Auf der Notch anpassen": "Regola sulla notch"
+ "Auf der Notch anpassen": "Regola sulla notch",
+ "In diesem Tempo ist das Limit gegen {time} erreicht": "Di questo passo raggiungi il limite, circa {time}",
+ "Im Tempo bei {p} % zum Zurücksetzen": "Di questo passo arrivi al {p}% all'azzeramento",
+ "{w} zurückgesetzt": "{w}: limite azzerato",
+ "Kontingent-Prognose": "Previsione della quota",
+ "Prognose unter den Balken": "Previsione sotto le barre",
+ "Zeigt, wann das Limit im aktuellen Tempo erreicht wäre": "Mostra quando raggiungeresti il limite al ritmo attuale",
+ "Hinweis, wenn ein Limit zurückgesetzt wird": "Avviso quando un limite si azzera",
+ "Braucht den Teil AI-Nutzung, nicht in den Ruhezeiten": "Richiede l'elemento Uso IA, non durante le ore di silenzio"
 }
