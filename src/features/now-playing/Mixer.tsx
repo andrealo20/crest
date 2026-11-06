@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { CaretDown, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleSlash } from "@phosphor-icons/react";
 import { content, springs } from "../../design/motion";
 import { holdOpen } from "../../notch/useNotchState";
+import { isMac } from "../../platform/native";
 import { mixer, systemControls, type AppVolume, type VolumeState } from "../../platform/services";
 import { t } from "../../i18n";
 
@@ -21,6 +22,33 @@ const POLL_MS = 1500;
 export const MIXER_ROW = 34;
 export const MIXER_MAX_ROWS = 5;
 
+type VolumePatch = { level?: number; muted?: boolean };
+
+/** A drag fires on every pointer move: this sends at most one call per 50 ms per key, in order, and always ends with the last value. */
+function throttle(send: (key: string, patch: VolumePatch) => unknown) {
+  const slots = new Map<string, { last: number; pending: VolumePatch | null; timer: number }>();
+  return (key: string, patch: VolumePatch) => {
+    const slot = slots.get(key) ?? { last: 0, pending: null, timer: 0 };
+    slots.set(key, slot);
+    slot.pending = { ...slot.pending, ...patch };
+    if (slot.timer) return;
+    const flush = () => {
+      slot.timer = 0;
+      slot.last = Date.now();
+      const p = slot.pending;
+      slot.pending = null;
+      if (p) void send(key, p);
+    };
+    const wait = slot.last + 50 - Date.now();
+    if (wait <= 0) flush();
+    else slot.timer = window.setTimeout(flush, wait);
+  };
+}
+
+const sendApp = throttle((id, patch) => mixer.set(id, patch));
+/** The system volume, throttled the same way (also used by the overview's slider). */
+export const sendSystemVolume = throttle((_, patch) => systemControls.setVolume(patch));
+
 export interface MixerData {
   apps: AppVolume[];
   system: VolumeState | null;
@@ -32,12 +60,14 @@ export interface MixerData {
   hold: (on: boolean) => void;
 }
 
-export function useMixer(): MixerData {
+/** `polling`: refresh every few seconds (the list is open); otherwise it is read once, for the playing app's name. Nothing on a Mac, which has no mixer. */
+export function useMixer(polling: boolean): MixerData {
   const [apps, setApps] = useState<AppVolume[]>([]);
   const [system, setSystem] = useState<VolumeState | null>(null);
   const held = useRef(0);
 
   useEffect(() => {
+    if (isMac) return;
     let alive = true;
     const load = () => {
       if (held.current > 0) return;
@@ -45,12 +75,12 @@ export function useMixer(): MixerData {
       void systemControls.volume().then((v) => alive && held.current === 0 && setSystem(v)).catch(() => {});
     };
     load();
-    const id = setInterval(load, POLL_MS);
+    const id = polling ? setInterval(load, POLL_MS) : undefined;
     return () => {
       alive = false;
       clearInterval(id);
     };
-  }, []);
+  }, [polling]);
 
   const unmute = (patch: { level?: number; muted?: boolean }) =>
     patch.level !== undefined && patch.level > 0 && patch.muted === undefined ? { ...patch, muted: false } : patch;
@@ -61,11 +91,11 @@ export function useMixer(): MixerData {
     source: apps.find((a) => a.media) ?? null,
     setApp(id, patch) {
       setApps((list) => list.map((a) => (a.id === id ? { ...a, ...unmute(patch) } : a)));
-      void mixer.set(id, patch);
+      sendApp(id, patch);
     },
     setSystem(patch) {
       setSystem((v) => (v ? { ...v, ...unmute(patch) } : v));
-      void systemControls.setVolume(patch);
+      sendSystemVolume("", patch);
     },
     hold(on) {
       held.current = Math.max(0, held.current + (on ? 1 : -1));
@@ -151,7 +181,7 @@ function MuteButton(props: { icon: string | null; level: number; muted: boolean;
   const Speaker = speakerIcon(props.level, props.muted);
   return (
     <button
-      aria-label={props.muted ? t("Stummschaltung aufheben") : t("Stumm")}
+      aria-label={props.muted ? t("Stummschaltung von {app} aufheben", { app: props.label }) : t("{app} stummschalten", { app: props.label })}
       title={props.label}
       onClick={props.onToggle}
       className="pressable relative flex size-7 shrink-0 items-center justify-center rounded-full"

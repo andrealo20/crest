@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useAnimationFrame, useMotionValue, useReducedMotion, useTransform } from "motion/react";
+import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { ArrowUpRight, MicrophoneStage, MusicNoteSimple, Pause, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward } from "@phosphor-icons/react";
 import { artwork as artworkSwap, content, springs } from "../../design/motion";
 import { useSmoothArtwork } from "./artwork";
 import { livePosition, media, useNowPlaying, type NowPlaying } from "../../platform/media";
 import { holdOpen } from "../../notch/useNotchState";
+import { isMac } from "../../platform/native";
 import { requestSize } from "../../notch/size";
 import { findTab } from "../../notch/tabs";
 import { MIXER_MAX_ROWS, MIXER_ROW, MixerList, MixerToggle, useMixer } from "./Mixer";
@@ -29,7 +30,6 @@ type Panel = "mixer" | "sources" | "lyrics" | null;
  */
 export function NowPlayingView() {
   const np = useNowPlaying();
-  const mix = useMixer();
   const music = settings.use().music;
   // The lyrics stay open from one visit to the next; the other panels close with the notch.
   const [panel, setPanelState] = useState<Panel>(() => (music.lyricsOpen ? "lyrics" : null));
@@ -38,6 +38,7 @@ export function NowPlayingView() {
     if ((p === "lyrics") !== music.lyricsOpen) setMusic({ lyricsOpen: p === "lyrics" });
   };
   const toggle = (p: Panel) => setPanel(panel === p ? null : p);
+  const mix = useMixer(panel === "mixer");
   const source = mix.source?.name;
   // The player menu closes for good when the choice goes away (a player quit), so it doesn't pop up again later.
   const noChoice = panel === "sources" && !!np && !offersSources(np.sources, music.pinned);
@@ -67,7 +68,9 @@ export function NowPlayingView() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => void media.openSource()}
-          title={source ? t("In {app} öffnen", { app: source }) : t("App öffnen")}
+          // Opening the playing app is Windows only.
+          disabled={isMac}
+          title={isMac ? undefined : source ? t("In {app} öffnen", { app: source }) : t("App öffnen")}
           className="group/source pressable flex min-w-0 flex-1 items-center gap-3 rounded-[12px] text-start"
         >
           <Artwork np={np} />
@@ -105,7 +108,7 @@ export function NowPlayingView() {
           >
             <MicrophoneStage size={14} weight="bold" />
           </button>
-          <MixerToggle open={shown === "mixer"} onToggle={() => toggle("mixer")} />
+          {!isMac && <MixerToggle open={shown === "mixer"} onToggle={() => toggle("mixer")} />}
         </div>
       </div>
       <AnimatePresence mode="popLayout">
@@ -164,9 +167,11 @@ function Artwork({ np }: { np: NowPlaying }) {
           transition={{ duration: 0.25 }}
         />
         {/* Hover: hint that a click opens the app. */}
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[12px] bg-black/45 text-label opacity-0 transition-opacity duration-150 group-hover/source:opacity-100">
-          <ArrowUpRight size={20} weight="bold" />
-        </span>
+        {!isMac && (
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[12px] bg-black/45 text-label opacity-0 transition-opacity duration-150 group-hover/source:opacity-100">
+            <ArrowUpRight size={20} weight="bold" />
+          </span>
+        )}
       </motion.div>
     </motion.div>
   );
@@ -201,10 +206,12 @@ function Progress({ np, wavy }: { np: NowPlaying; wavy: boolean }) {
   const rest = useRef<SVGPathElement>(null);
   const wave = useRef({ amp: np.isPlaying ? 1 : 0, phase: 0, drawn: "" });
   const reduced = useReducedMotion();
-  useAnimationFrame((_, delta) => {
+  // One frame of the bar and the wave; false once nothing moves any more, so a paused bar costs no frames.
+  const step = (delta: number): boolean => {
     progress.set(ratio());
+    const busy = npRef.current.isPlaying || scrubRef.current !== null;
     const w = width.current - 2 * WAVY.inset;
-    if (!wavy || w <= 0 || !played.current || !rest.current) return;
+    if (!wavy || w <= 0 || !played.current || !rest.current) return busy;
     const s = wave.current;
     const target = npRef.current.isPlaying ? 1 : 0;
     const dt = Math.min(0.05, delta / 1000);
@@ -217,19 +224,44 @@ function Progress({ np, wavy }: { np: NowPlaying; wavy: boolean }) {
     }
     const x = progress.get() * w;
     const key = `${w} ${x.toFixed(2)} ${s.amp.toFixed(3)} ${s.phase.toFixed(3)}`;
-    if (key === s.drawn) return;
-    s.drawn = key;
-    played.current.setAttribute("d", sinePath(x, 8, WAVY.amp * s.amp, WAVY.wavelength, s.phase));
-    rest.current.setAttribute("d", `M${x.toFixed(2)} 8H${w}`);
-  });
+    if (key !== s.drawn) {
+      s.drawn = key;
+      played.current.setAttribute("d", sinePath(x, 8, WAVY.amp * s.amp, WAVY.wavelength, s.phase));
+      rest.current.setAttribute("d", `M${x.toFixed(2)} 8H${w}`);
+    }
+    return busy || s.amp !== target;
+  };
+  const wake = useRef(() => {});
+  // Runs again on every new state (a seek, a pause, a drag) and stops itself when settled.
+  const dragging = scrub !== null;
+  useEffect(() => {
+    let id = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      id = step(now - last) ? requestAnimationFrame(tick) : 0;
+      last = now;
+    };
+    wake.current = () => {
+      if (id) return;
+      last = performance.now();
+      id = requestAnimationFrame(tick);
+    };
+    wake.current();
+    return () => {
+      cancelAnimationFrame(id);
+      wake.current = () => {};
+    };
+  }, [np, dragging, wavy, reduced]);
   // Translate instead of stretch: no distorted round end, no raster artifacts while seeking.
   const transform = useTransform(progress, (p) => `translateX(${((p - 1) * 100).toFixed(3)}%)`);
 
+  // The times only move while playing.
   const [, tick] = useState(0);
   useEffect(() => {
+    if (!np.isPlaying) return;
     const id = setInterval(() => tick((n) => n + 1), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [np.isPlaying]);
 
   const hasTrack = np.duration > 0;
   useEffect(() => {
@@ -237,6 +269,7 @@ function Progress({ np, wavy }: { np: NowPlaying; wavy: boolean }) {
     if (!wavy || !el) return;
     const ro = new ResizeObserver(() => {
       width.current = el.clientWidth;
+      wake.current();
     });
     ro.observe(el);
     return () => ro.disconnect();
