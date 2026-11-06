@@ -61,6 +61,8 @@ test("bt", () => {
   assert.equal(bt("Buds", true, 80)?.text, "Buds · 80 %");
   assert.equal(bt("Buds", true, null)?.text, "Buds");
   assert.equal(bt("Buds", false, null)?.text, "Buds · Getrennt");
+  assert.equal(bt("Buds", false, null)?.off, true);
+  assert.equal(bt("Buds", true, null)?.off, undefined);
   assert.equal(bt("  ", true, 50), null);
   assert.equal(bt("", false, null), null);
   // The icon follows the device, also when it leaves.
@@ -123,6 +125,8 @@ test("osd: hidden only while the HUD replaces both and can show", () => {
 test("lock: Caps Lock and Num Lock", () => {
   assert.deepEqual(lockAlert({ key: "caps", on: true }, tr), { kind: "lock", icon: "caps-lock", text: "Feststelltaste an", tone: "normal" });
   assert.equal(lockAlert({ key: "caps", on: false }, tr).text, "Feststelltaste aus");
+  // Off differs from on beyond the text, for the side edge's icon.
+  assert.equal(lockAlert({ key: "caps", on: false }, tr).off, true);
   assert.deepEqual(lockAlert({ key: "num", on: true }, tr), { kind: "lock", icon: "num-lock", text: "Num-Taste an", tone: "normal" });
   assert.equal(lockAlert({ key: "num", on: false }, tr).text, "Num-Taste aus");
   // No level bar: the alert is only the icon and the text.

@@ -8,6 +8,8 @@ export interface StatusAlert {
   tone: "normal" | "warning" | "critical";
   /** 0..100, drawn as a level bar (volume and brightness only). */
   level?: number;
+  /** A key switched off or a device that left: the side edge, which shows only the icon, draws it dimmed. */
+  off?: boolean;
 }
 /** Which low-battery levels already fired in this discharge. */
 export interface LowBattery { warned20: boolean; warned10: boolean }
@@ -70,7 +72,7 @@ export function btAlert(event: BluetoothEvent, tr: Tr): StatusAlert | null {
   const name = event.name.trim();
   if (!name) return null;
   const text = !event.connected ? tr("{n} · Getrennt", { n: name }) : event.battery === null ? name : tr("{n} · {p} %", { n: name, p: event.battery });
-  return { kind: "bt", icon: btIcon(event.categories), text, tone: "normal" };
+  return { kind: "bt", icon: btIcon(event.categories), text, tone: "normal", ...(event.connected ? {} : { off: true }) };
 }
 
 /** A volume or brightness reading from sysevents.rs and brightness.rs, which already drop repeats, Crest's own changes and the start. */
@@ -89,7 +91,7 @@ export interface LockEvent { key: "caps" | "num"; on: boolean }
 
 export function lockAlert(e: LockEvent, tr: Tr): StatusAlert {
   const text = e.key === "caps" ? tr(e.on ? "Feststelltaste an" : "Feststelltaste aus") : tr(e.on ? "Num-Taste an" : "Num-Taste aus");
-  return { kind: "lock", icon: e.key === "caps" ? "caps-lock" : "num-lock", text, tone: "normal" };
+  return { kind: "lock", icon: e.key === "caps" ? "caps-lock" : "num-lock", text, tone: "normal", ...(e.on ? {} : { off: true }) };
 }
 
 /**
