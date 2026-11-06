@@ -1421,5 +1421,9 @@
  "{n} WPM": "{n} WPM",
  "ca. {time} bei {n} WPM": "About {time} at {n} WPM",
  "{n} von {max} Zeichen": "{n} of {max} characters",
- "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "Space: play or pause · Arrows: move · + and -: speed"
+ "Leertaste: Start oder Pause · Pfeile: springen · + und -: Tempo": "Space: play or pause · Arrows: move · + and -: speed",
+ "Fällig {when}": "Due {when}",
+ "Datum verwerfen": "Dismiss date",
+ "Datum in neuen Aufgaben erkennen": "Understand dates in new tasks",
+ "Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie": "Shows a due time under the field; Enter applies it"
 }
