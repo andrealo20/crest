@@ -1137,10 +1137,10 @@ export const launcher = {
   open: (id: string): Promise<void> => (isNative ? invoke("launcher_open", { id }) : Promise.resolve()),
   /** Registers Alt+1.. for these ids; per slot whether Windows gave the key. */
   shortcuts: (ids: string[]): Promise<boolean[]> => (isNative ? invoke<boolean[]>("launcher_shortcuts", { ids }) : Promise.resolve(ids.map((_, i) => i !== 2))),
-  /** A hotkey was pressed for an app that is no longer installed (payload: its id). */
-  onMissing: (handler: (id: string) => void): (() => void) => {
+  /** A hotkey was pressed for an app that did not start (code as in `open`). */
+  onMissing: (handler: (id: string, code: string) => void): (() => void) => {
     if (!isNative) return () => {};
-    const off = listen<string>("launcher://missing", (e) => handler(e.payload));
+    const off = listen<{ id: string; code: string }>("launcher://missing", (e) => handler(e.payload.id, e.payload.code));
     return () => void off.then((f) => f());
   },
 };

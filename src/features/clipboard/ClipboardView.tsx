@@ -78,7 +78,11 @@ export function ClipboardView() {
           filter === "code" ? code.has(i.id) : filter === "text" ? i.kind === "text" && !code.has(i.id) : i.kind === filter || (filter === "image" && !!i.thumbnail),
         );
   const hidden = usePresenting();
-  const preview = usePreview(hidden ? null : previewId);
+  // An entry whose preview cannot be built is copied directly, as a click on a card without a preview does.
+  const preview = usePreview(hidden ? null : previewId, (id) => {
+    setPreviewId(null);
+    void copy(id);
+  });
 
   // Drop the preview when its entry disappears or the presentation mode starts.
   useEffect(() => {
@@ -100,7 +104,11 @@ export function ClipboardView() {
   }, [all.length === 0]);
 
   const copy = async (id: number) => {
-    await clipboard.copy(id);
+    try {
+      await clipboard.copy(id);
+    } catch {
+      return;
+    }
     setCopied(id);
     scroller.current?.scrollTo({ left: 0, behavior: "smooth" });
     window.setTimeout(() => setCopied((c) => (c === id ? null : c)), 1200);
@@ -191,7 +199,7 @@ function CardButton({ label, icon: I, onClick }: { label: string; icon: Icon; on
  * Loads the large preview and tells the notch the right height:
  * the image as large as its aspect ratio allows, at most PREVIEW_MAX_H tall.
  */
-function usePreview(id: number | null): LoadedPreview | null {
+function usePreview(id: number | null, onFail: (id: number) => void): LoadedPreview | null {
   const [data, setData] = useState<LoadedPreview | null>(null);
   useEffect(() => {
     if (id === null) {
@@ -201,7 +209,13 @@ function usePreview(id: number | null): LoadedPreview | null {
     }
     let alive = true;
     void clipboard.preview(id).then((p) => {
-      if (!alive || !p) return;
+      if (!alive) return;
+      if (!p) {
+        setData(null);
+        requestSize("clipboard", null);
+        onFail(id);
+        return;
+      }
       const base = findTab("clipboard")!.size;
       // As tall as possible without growing past the window.
       const h = Math.min(PREVIEW_MAX_H, MAX_SIZE.h - base.h - PREVIEW_CHROME, ((base.w - 32) * p.height) / p.width);
@@ -324,12 +338,12 @@ function Body({ item, code }: { item: ClipItem; code: boolean }) {
       return (
         <div className="relative min-w-0">
           <p className="truncate text-footnote font-semibold text-link">{host}</p>
-          {rest && <p className="line-clamp-2 text-caption text-label-3 [overflow-wrap:anywhere]">{rest}</p>}
+          {rest && <p dir="ltr" className="line-clamp-2 text-caption text-label-3 [overflow-wrap:anywhere]">{rest}</p>}
         </div>
       );
     }
     default:
-      if (code) return <p className="relative line-clamp-4 font-mono text-[11px] leading-[14px] whitespace-pre text-label-2">{item.text}</p>;
+      if (code) return <p dir="ltr" className="relative line-clamp-4 font-mono text-[11px] leading-[14px] whitespace-pre text-label-2">{item.text}</p>;
       return <p className="relative line-clamp-3 text-footnote text-label-2 [overflow-wrap:anywhere]">{item.text}</p>;
   }
 }

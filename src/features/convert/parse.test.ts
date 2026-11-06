@@ -20,6 +20,15 @@ test("thousands separators", () => {
   assert.equal(parseAmount("1 000"), 1000);
 });
 
+test("a lone mark before three digits follows the language's decimal mark", () => {
+  assert.equal(parseAmount("1,250", "de"), 1.25);
+  assert.equal(parseAmount("1.250", "de"), 1250);
+  assert.equal(parseAmount("0.500", "de"), 0.5);
+  assert.equal(parseAmount("1.250", "en"), 1.25);
+  assert.equal(parseAmount("1,250", "en"), 1250);
+  assert.equal(parseAmount("1.250,5", "de"), 1250.5);
+});
+
 test("nothing to read gives null", () => {
   assert.equal(parseAmount(""), null);
   assert.equal(parseAmount("  "), null);

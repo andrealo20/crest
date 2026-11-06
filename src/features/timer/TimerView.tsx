@@ -280,7 +280,7 @@ function MinutesInput(props: { initial: number; tint: string; onDone: (minutes: 
           }}
           className="tabular w-7 bg-transparent text-end text-caption font-semibold text-label outline-none"
         />
-        <span className="text-caption text-label-3">min</span>
+        <span className="text-caption text-label-3">{t("min")}</span>
       </div>
       <button
         type="submit"
