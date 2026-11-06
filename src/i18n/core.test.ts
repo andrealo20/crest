@@ -92,3 +92,15 @@ test("en.json has every Rust error text the patterns know", () => {
     ["Von Windows ausgeschaltet. Crest im Task-Manager unter Autostart-Apps einschalten", "Turned off in Windows. Switch Crest on in Task Manager under Startup apps"],
   ]) assert.equal(backendText(msg, tEn), want);
 });
+
+test("every dictionary has the keys and placeholders of en.json", () => {
+  const read = (l: string) => JSON.parse(readFileSync(new URL(`./${l}.json`, import.meta.url), "utf8")) as Dict;
+  const en = read("en");
+  const holes = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join();
+  for (const l of LANGUAGES.filter((l) => l !== "de" && l !== "en")) {
+    const d = read(l);
+    assert.deepEqual(Object.keys(en).filter((k) => !d[k]), [], `${l} lacks keys`);
+    assert.deepEqual(Object.keys(d).filter((k) => en[k] === undefined), [], `${l} has keys en.json does not`);
+    assert.deepEqual(Object.keys(d).filter((k) => holes(d[k]) !== holes(en[k])), [], `${l} changes placeholders`);
+  }
+});
