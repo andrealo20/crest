@@ -3,7 +3,7 @@ import { FlipHorizontal, VideoCamera, VideoCameraSlash } from "@phosphor-icons/r
 import { HeaderActions, HeaderButton, activeTool } from "../../notch/header";
 import { windowShell } from "../../platform/services";
 import { settings, updateSettings, type Settings } from "../../settings/store";
-import { Empty, Select } from "../../ui/controls";
+import { Button, Empty, Select } from "../../ui/controls";
 import { t } from "../../i18n";
 import { demo } from "../../dev/showcase-data";
 import { cameraProblem, type CameraProblem } from "./problem";
@@ -21,6 +21,8 @@ export function CameraView() {
   const [hidden, setHidden] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
   const [problem, setProblem] = useState<CameraProblem | null>(null);
+  // Bumped by "Try again" to open the camera once more.
+  const [attempt, setAttempt] = useState(0);
   const [cams, setCams] = useState<MediaDeviceInfo[]>([]);
   const on = onScreen && !hidden;
 
@@ -54,7 +56,7 @@ export function CameraView() {
       if (stream) stop(stream);
       if (video.current) video.current.srcObject = null;
     };
-  }, [on, cfg.deviceId]);
+  }, [on, cfg.deviceId, attempt]);
 
   const current = cams.some((c) => c.deviceId === cfg.deviceId) ? cfg.deviceId : (cams[0]?.deviceId ?? "");
 
@@ -86,7 +88,7 @@ export function CameraView() {
         />
         {problem && (
           <div className="absolute inset-0">
-            <ProblemNote problem={problem} />
+            <ProblemNote problem={problem} onRetry={() => setAttempt((n) => n + 1)} />
           </div>
         )}
       </div>
@@ -94,10 +96,11 @@ export function CameraView() {
   );
 }
 
-function ProblemNote({ problem }: { problem: CameraProblem }) {
-  if (problem === "none") return <Empty icon={VideoCameraSlash} title={t("Keine Kamera gefunden")} />;
+function ProblemNote({ problem, onRetry }: { problem: CameraProblem; onRetry: () => void }) {
+  const retry = <Button onClick={onRetry}>{t("Erneut versuchen")}</Button>;
+  if (problem === "none") return <Empty icon={VideoCameraSlash} title={t("Keine Kamera gefunden")} action={retry} />;
   if (problem === "denied")
-    return <Empty icon={VideoCameraSlash} title={t("Kein Zugriff auf die Kamera")} text={demo ? "Allow the camera for this page in your browser. The picture stays on your device." : t("In den Windows-Einstellungen unter Datenschutz und Sicherheit, Kamera erlauben")} />;
-  if (problem === "busy") return <Empty icon={VideoCamera} title={t("Kamera belegt")} text={t("Eine andere App benutzt die Kamera gerade")} />;
-  return <Empty icon={VideoCameraSlash} title={t("Kamera nicht verfügbar")} />;
+    return <Empty icon={VideoCameraSlash} title={t("Kein Zugriff auf die Kamera")} text={demo ? t("Erlaube die Kamera für diese Seite im Browser. Das Bild bleibt auf deinem Gerät.") : t("In den Windows-Einstellungen unter Datenschutz und Sicherheit, Kamera erlauben")} action={retry} />;
+  if (problem === "busy") return <Empty icon={VideoCamera} title={t("Kamera belegt")} text={t("Eine andere App benutzt die Kamera gerade")} action={retry} />;
+  return <Empty icon={VideoCameraSlash} title={t("Kamera nicht verfügbar")} action={retry} />;
 }
