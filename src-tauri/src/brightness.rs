@@ -52,6 +52,11 @@ fn quiet() -> bool {
     QUIET_UNTIL.lock().unwrap().is_some_and(|until| Instant::now() < until)
 }
 
+/// The charger was plugged or unplugged: the power plan moves the panel's brightness with it, and the HUD would cover that alert.
+pub fn power_switched() {
+    *QUIET_UNTIL.lock().unwrap() = Some(Instant::now() + QUIET);
+}
+
 pub fn set_ddc(on: bool) {
     DDC.store(on, Ordering::Relaxed);
 }
