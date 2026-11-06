@@ -64,6 +64,10 @@ test("normalizing saved settings", () => {
   assert.equal(s.hideBanners, false);
   assert.equal(normalizeNotices({ hideBanners: true }).hideBanners, true);
   assert.equal(normalizeNotices({ hideBanners: "yes" }).hideBanners, false);
+  // The Copy code button is on unless saved as off.
+  assert.equal(normalizeNotices({ enabled: true }).copyCodes, true);
+  assert.equal(normalizeNotices({ copyCodes: false }).copyCodes, false);
+  assert.equal(normalizeNotices({ copyCodes: "no" }).copyCodes, true);
 });
 
 test("apps seen", () => {

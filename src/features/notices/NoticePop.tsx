@@ -1,8 +1,11 @@
 import { t } from "../../i18n";
 import { noticeCard } from "../../notch/row/NoticeCard";
+import { settings } from "../../settings/store";
 import { BrandLogo, brandColor, brandFor } from "../../ui/brands";
+import { CopyCodeButton, copyCodeWidth } from "./CopyCode";
 import { noticeText } from "./format";
 import type { Notice } from "./history";
+import { noticeCode } from "./otp";
 
 const LOGO = 32, RING = 18;
 
@@ -39,10 +42,12 @@ export function ProgressRing({ value, size }: { value: number; size: number }) {
   );
 }
 
-/** A notice in the closed notch as a card: the app's logo, the title (or the app's name) and the first line of the text, a ring while it reports progress. */
+/** A notice in the closed notch as a card: the app's logo, the title (or the app's name) and the first line of the text, a ring while it reports progress, a Copy code button when the text holds a one-time code. */
 export function noticePop(n: Notice, max: number) {
   const first = noticeText(n, t).split("\n")[0].trim();
   const ring = n.progress !== null && n.progress !== undefined;
+  // The pop is dismissed when presentation mode starts, so the code is never offered while the text is hidden.
+  const code = !ring && settings.get().notices.copyCodes ? noticeCode(n) : null;
   return noticeCard(
     {
       // A progress update keeps the key, so it changes in place instead of fading out and in.
@@ -52,8 +57,8 @@ export function noticePop(n: Notice, max: number) {
       color: brandAccent(n.appName),
       title: n.title || n.appName,
       text: n.title ? first || n.appName : first,
-      actions: ring ? <ProgressRing value={n.progress ?? 0} size={RING} /> : undefined,
-      actionsWidth: RING,
+      actions: ring ? <ProgressRing value={n.progress ?? 0} size={RING} /> : code ? <CopyCodeButton code={code} /> : undefined,
+      actionsWidth: code ? copyCodeWidth() : RING,
     },
     max,
   );

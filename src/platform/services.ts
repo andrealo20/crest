@@ -1310,6 +1310,8 @@ export const noticeSource = {
   openApp: (appId: string) => {
     if (isNative) void invoke("notices_open_app", { appId }).catch(() => {});
   },
+  /** A notice's one-time code on the clipboard, kept out of every clipboard history and emptied after 30 s unless something else was copied (the Vault's way). The browser has only the plain clipboard. */
+  copyCode: (code: string): Promise<void> => (isNative ? invoke<void>("notices_copy_code", { code }) : navigator.clipboard.writeText(code)),
   onNotice: (handler: (n: IncomingNotice) => void): (() => void) => {
     if (!isNative) {
       mockNoticeHandlers.add(handler);

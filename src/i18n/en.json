@@ -1337,5 +1337,8 @@
  "Gewohnheit mit Verlauf löschen": "Delete the habit with its history",
  "Tage": "Days",
  "Abhaken, wenn das Wasserziel erreicht ist": "Tick when the water goal is reached",
- "Wird von selbst abgehakt, nicht von Hand": "Ticks itself, not by hand"
+ "Wird von selbst abgehakt, nicht von Hand": "Ticks itself, not by hand",
+ "Code kopieren": "Copy code",
+ "Kopier-Knopf für Einmalcodes": "Copy button for one-time codes",
+ "Erscheint, wenn eine Mitteilung einen Code enthält. Die Kopie bleibt aus dem Verlauf der Zwischenablage und wird nach 30 s geleert.": "Shows when a notice contains a code. The copy stays out of the clipboard history and is cleared after 30 s."
 }

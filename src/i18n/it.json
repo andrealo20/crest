@@ -1337,5 +1337,8 @@
  "Gewohnheit mit Verlauf löschen": "Elimina l'abitudine con la sua cronologia",
  "Tage": "Giorni",
  "Abhaken, wenn das Wasserziel erreicht ist": "Segna quando l'obiettivo dell'acqua è raggiunto",
- "Wird von selbst abgehakt, nicht von Hand": "Si segna da solo, non a mano"
+ "Wird von selbst abgehakt, nicht von Hand": "Si segna da solo, non a mano",
+ "Code kopieren": "Copia codice",
+ "Kopier-Knopf für Einmalcodes": "Pulsante Copia per i codici monouso",
+ "Erscheint, wenn eine Mitteilung einen Code enthält. Die Kopie bleibt aus dem Verlauf der Zwischenablage und wird nach 30 s geleert.": "Compare quando un avviso contiene un codice. La copia non entra nella cronologia degli appunti e viene svuotata dopo 30 s."
 }

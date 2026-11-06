@@ -899,7 +899,7 @@ fn scan_clipboard() -> Result<String, String> {
 // ---------- Private clipboard ----------
 
 /// Writes text and marks it so clipboard histories skip it (KeePass/1Password convention).
-fn copy_private(text: &str, clear: bool) -> Result<(), String> {
+pub(crate) fn copy_private(text: &str, clear: bool) -> Result<(), String> {
     unsafe {
         let mut opened = false;
         for _ in 0..10 {

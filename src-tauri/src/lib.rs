@@ -459,6 +459,8 @@ pub fn run() {
             notices::notices_remove_windows,
             #[cfg(windows)]
             notices::notices_open_app,
+            #[cfg(windows)]
+            notices::notices_copy_code,
             plugins::plugins_list,
             plugins::plugins_pick,
             plugins::plugins_stage,
