@@ -69,6 +69,9 @@ jobs:
           done
           ps -axo pid,rss,%cpu,command | grep -i '[c]rest' | tee smoke/processes.txt
           log show --last 10m --predicate 'process CONTAINS[c] "crest"' --style compact > smoke/system.log 2>&1 || true
+          # The run only counts as good if Crest survived all of the above.
+          pgrep -f 'Crest.app/Contents/MacOS' > /dev/null || { echo '::error::Crest is not running any more'; exit 1; }
+          if grep -q panicked smoke/crest.log; then echo '::error::Crest panicked'; grep panicked smoke/crest.log; exit 1; fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
