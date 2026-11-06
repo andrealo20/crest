@@ -7,7 +7,9 @@ import { Button, Group, Row, Segmented, Switch } from "../../ui/controls";
 import { sourceName } from "./sources";
 import { LYRIC_SOURCES } from "./lyricSources";
 import { setMusic } from "./music";
-import { t } from "../../i18n";
+import { OFFLINE_SOURCES, modelCode, pairsFor } from "./offline";
+import { downloadPairs, hasPair, offlineStatus, removePair } from "./offlineEngine";
+import { lang, t } from "../../i18n";
 
 const TERMS: Record<string, string> = {
   lrclib: "Offene Community-Datenbank, freie API ohne Schlüssel",
@@ -93,11 +95,62 @@ export function MusicSettings() {
         <Row label={t("Übersetzung")} hint={t("Eine Zeile unter jeder Zeile, wenn die Quelle eine Übersetzung hat")}>
           <Switch label={t("Übersetzung")} checked={music.lyricTranslation} onChange={(lyricTranslation) => setMusic({ lyricTranslation })} />
         </Row>
+        {music.lyricTranslation && (
+          <Row label={t("Offline übersetzen")} hint={t("Übersetzt Songs auf diesem Gerät in die Sprache von Crest, mit den Modellen von Mozilla, die auch Firefox nutzt. Nichts verlässt den PC.")}>
+            <Switch label={t("Offline übersetzen")} checked={music.offlineTranslation} onChange={(offlineTranslation) => setMusic({ offlineTranslation })} />
+          </Row>
+        )}
+        {music.lyricTranslation && music.offlineTranslation && <OfflineLanguages />}
         <Row label={t("Lautschrift")} hint={t("Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, offline; von der Quelle, wenn sie eine hat")}>
           <Switch label={t("Lautschrift")} checked={music.lyricRoman} onChange={(lyricRoman) => setMusic({ lyricRoman })} />
         </Row>
         {music.lyricRoman && <KanjiDictionary />}
       </Group>
+    </>
+  );
+}
+
+/**
+ * The languages songs can be translated from: each downloads its model to English and, once, the one from English to
+ * Crest's language (src-tauri/src/translate.rs). Removing a language keeps the shared one.
+ */
+function OfflineLanguages() {
+  const status = offlineStatus.use();
+  const target = modelCode(lang());
+  const [busy, setBusy] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const names = new Intl.DisplayNames([lang()], { type: "language" });
+  const mb = (bytes: number) => Math.round(bytes / 1024 / 1024);
+  const sizeOf = (pairs: [string, string][]) => pairs.reduce((sum, [f, to]) => sum + (status.pairs.find(([p]) => p === `${f}-${to}`)?.[1] ?? 0), 0);
+  return (
+    <>
+      {OFFLINE_SOURCES.filter((code) => code !== target).map((code) => {
+        const pairs = pairsFor(code, target);
+        const own = pairs[0];
+        const ready = pairs.every((p) => hasPair(status, p)) && status.engine;
+        const run = (job: Promise<void>) => {
+          setBusy(code);
+          setFailed(null);
+          job.catch(() => setFailed(code)).finally(() => setBusy(null));
+        };
+        const hint = failed === code
+          ? t("Download fehlgeschlagen, später noch einmal versuchen")
+          : busy === code
+            ? t("Wird geladen …")
+            : ready
+              ? t("Installiert, {mb} MB", { mb: mb(sizeOf(pairs)) })
+              : t("Download von 40 bis 70 MB");
+        const label = names.of(code) ?? code;
+        return (
+          <Row key={code} label={label.charAt(0).toUpperCase() + label.slice(1)} hint={hint}>
+            {isNative && (
+              <Button disabled={busy !== null} onClick={() => run(ready ? removePair(own) : downloadPairs(pairs))}>
+                {ready ? t("Entfernen") : t("Laden")}
+              </Button>
+            )}
+          </Row>
+        );
+      })}
     </>
   );
 }

@@ -112,6 +112,8 @@ export interface Settings {
     closedRoman: boolean;
     /** The closed notch's lyric line translated instead of as sung, where the song has a translation. */
     closedTranslation: boolean;
+    /** Lyrics translated on this computer into Crest's language, with downloaded models (offline.ts). */
+    offlineTranslation: boolean;
     eqStyle: "bars" | "spectrum" | "wave";
     progressStyle: "line" | "wavy";
   };
@@ -221,6 +223,7 @@ const defaults: Settings = {
     lyricRoman: false,
     closedRoman: false,
     closedTranslation: false,
+    offlineTranslation: false,
     eqStyle: "bars",
     progressStyle: "line",
   },

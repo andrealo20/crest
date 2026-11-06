@@ -4,9 +4,12 @@ import { livePosition, media, type NowPlaying } from "../../platform/media";
 import { isNative } from "../../platform/native";
 import { demo } from "../../dev/showcase-data";
 import { settings } from "../../settings/store";
-import { LEAD, cacheKey, closedLine, foundOf, lineAt, lookupAllowed, lyricsOf, pickRecord, searchTerms, untilNext, type Found, type LrclibRecord, type LyricLine, type Lyrics } from "./lrc";
+import { LEAD, cacheKey, closedLine, foundOf, lineAt, lookupAllowed, lyricsOf, pickRecord, searchTerms, untilNext, withExtra, type Found, type LrclibRecord, type LyricLine, type Lyrics } from "./lrc";
 import { createLyricsCache, type CacheEntry } from "./lyricsCache";
 import { enabledSources, firstFound, type LyricSourceId } from "./lyricSources";
+import { lang } from "../../i18n";
+import { detectLanguage, modelCode, pairsFor, translationLrc } from "./offline";
+import { hasPair, offlineStatus, translateOffline } from "./offlineEngine";
 
 /*
  * Synced lyrics from the sources the user turned on, in their order (lyricSources.ts): LRCLIB (lrclib.net, free, no key)
@@ -191,7 +194,9 @@ export function useLyricIndex(lines: { time: number }[] | null | undefined, np: 
  * romanisation; otherwise as sung.
  */
 export function useLyricLine(np: NowPlaying | null, enabled: boolean, show: { roman: boolean; translation: boolean } = { roman: false, translation: false }): string | null {
-  const lines = useRomanized(linesOf(useLyrics(np, enabled)), enabled && show.roman);
+  const offline = settings.use().music.offlineTranslation === true;
+  const translated = useOfflineTranslation(np, linesOf(useLyrics(np, enabled)), enabled && show.translation && offline);
+  const lines = useRomanized(translated, enabled && show.roman);
   const i = useLyricIndex(lines, np);
   return closedLine(lines && i >= 0 ? lines[i] : null, show);
 }
@@ -199,6 +204,52 @@ export function useLyricLine(np: NowPlaying | null, enabled: boolean, show: { ro
 const CJK = /[ぁ-ゖァ-ヺ㐀-䶿一-鿿가-힣]/;
 
 /** The lines with romanisation (from the source, else made in Rust for Japanese, Chinese and Korean) while `on`. */
+/** Songs being translated, by cache key: the panel and the closed notch asking at once share one run. */
+const translating = new Map<string, Promise<string | null>>();
+
+/**
+ * The lines translated on this computer into Crest's language while `on`, when the song's language has its models
+ * downloaded (Settings, Music). The translation replaces the source's own, which is mostly in Chinese. Each song is
+ * translated once: the answer is kept in the lyrics cache, and a run started is finished even if the lyrics close.
+ */
+export function useOfflineTranslation(np: NowPlaying | null, lines: LyricLine[] | null, on: boolean): LyricLine[] | null {
+  const status = offlineStatus.use();
+  const target = modelCode(lang());
+  const [made, setMade] = useState<{ from: LyricLine[]; lines: LyricLine[] } | null>(null);
+  useEffect(() => {
+    if (!on || !np || !lines || !status.engine) return;
+    const texts = lines.map((l) => l.text);
+    const from = detectLanguage(texts);
+    const pairs = from ? pairsFor(from, target) : [];
+    if (pairs.length === 0 || !pairs.every((p) => hasPair(status, p))) return;
+    const key = `offline:${target}\n${cacheKey(np.title, np.artist, np.duration)}`;
+    const apply = (lrc: string | null) => lrc && setMade({ from: lines, lines: withExtra(lines.map(({ translation: _, ...l }) => l), lrc, "translation") });
+    const known = cache.get(key);
+    if (known) return void apply(known.translation ?? null);
+    let alive = true;
+    let run = translating.get(key);
+    if (!run) {
+      const filled = texts.map((t, i) => [t.trim(), i] as const).filter(([t]) => t);
+      run = translateOffline(pairs, filled.map(([t]) => t))
+        .then((out) => {
+          const byLine: (string | null)[] = texts.map(() => null);
+          filled.forEach(([, i], k) => (byLine[i] = out[k] || null));
+          const lrc = translationLrc(lines, byLine);
+          if (lrc) cache.set(key, { lrc: null, instrumental: false, translation: lrc, at: Date.now() });
+          return lrc;
+        })
+        .catch(() => null)
+        .finally(() => translating.delete(key));
+      translating.set(key, run);
+    }
+    void run.then((lrc) => alive && apply(lrc));
+    return () => {
+      alive = false;
+    };
+  }, [lines, on, target, status]);
+  return made?.from === lines ? made.lines : lines;
+}
+
 export function useRomanized(lines: LyricLine[] | null, on: boolean): LyricLine[] | null {
   const [made, setMade] = useState<{ from: LyricLine[]; lines: LyricLine[] } | null>(null);
   useEffect(() => {

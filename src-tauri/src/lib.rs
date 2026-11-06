@@ -59,6 +59,7 @@ mod privacy;
 mod phone_share;
 mod romanize;
 mod standby;
+mod translate;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod screen_policy;
 pub mod secrets;
@@ -394,6 +395,10 @@ pub fn run() {
             macos::status_configure,
             #[cfg(target_os = "macos")]
             macos::privacy_state,
+            translate::translate_status,
+            translate::translate_download,
+            translate::translate_remove,
+            translate::translate_file,
             phone_share::phone_share_start,
             phone_share::phone_share_stop,
             timer_window::timer_window_open,

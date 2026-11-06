@@ -4,7 +4,7 @@ import { MicrophoneStage } from "@phosphor-icons/react";
 import { content } from "../../design/motion";
 import { media, type NowPlaying } from "../../platform/media";
 import { settings } from "../../settings/store";
-import { linesOf, useLyricIndex, useLyrics, useRomanized } from "./lyrics";
+import { linesOf, useLyricIndex, useLyrics, useOfflineTranslation, useRomanized } from "./lyrics";
 import type { LyricWord } from "./lrc";
 import { t } from "../../i18n";
 
@@ -21,7 +21,8 @@ const HOLD_SCROLL_MS = 3000;
 export function LyricsPanel({ np }: { np: NowPlaying }) {
   const music = settings.use().music;
   const state = useLyrics(np, true);
-  const lines = useRomanized(linesOf(state), music.lyricRoman);
+  // Translation first: a romanisation arriving later must not restart it.
+  const lines = useRomanized(useOfflineTranslation(np, linesOf(state), music.lyricTranslation && music.offlineTranslation === true), music.lyricRoman);
   const index = useLyricIndex(lines, np);
   const list = useRef<HTMLDivElement>(null);
   const userScrolledAt = useRef(0);
