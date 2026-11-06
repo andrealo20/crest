@@ -147,6 +147,8 @@
 .pet.sleep .flicker { animation-duration: 3s; }
 
 .pet.paused * { animation-play-state: paused !important; }
+/* Paused at their first frame the Zs would be invisible: they stand still instead. */
+.pet.paused .fx .z { animation: none; opacity: .85; }
 @media (prefers-reduced-motion: reduce) {
   .pet * { animation: none !important; }
 }
