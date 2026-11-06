@@ -148,7 +148,7 @@ function Row({ file, durationMs, onDeleted }: { file: CaptureFile; durationMs: n
       </span>
       {durationMs != null && <span className="tabular text-caption text-label-2">{formatElapsed(durationMs)}</span>}
       <span className="tabular w-14 text-end text-caption text-label-3">{formatBytes(file.size, 0)}</span>
-      <span className={`flex transition-opacity duration-150 group-hover:opacity-100 ${armed ? "opacity-100" : "opacity-0"}`}>
+      <span className={`flex transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100 ${armed ? "opacity-100" : "opacity-0"}`}>
         <IconBtn label={t("Im Explorer zeigen")} icon={FolderOpen} onClick={() => revealFile(file.path)} />
         <IconBtn label={armed ? t("Zum Löschen erneut klicken") : t("Löschen")} icon={Trash} danger={armed} onClick={onDelete} />
       </span>
