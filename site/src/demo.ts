@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Where the embedded app lives: the app's own dev server while developing, the built copy in ./demo/ otherwise. */
-export const DEMO_ORIGIN = import.meta.env.DEV ? "http://localhost:1430/" : "./demo/";
+export const DEMO_ORIGIN = import.meta.env.DEV ? "http://localhost:1420/" : "./demo/";
 export const DEMO_SRC = `${DEMO_ORIGIN}?demo&bare&open&tool=overview`;
 export const DEMO_FULL = `${DEMO_ORIGIN}?demo`;
+const DEMO_HOST = new URL(DEMO_ORIGIN, location.href).origin;
 
 export type DemoMessage =
   | { cmd: "navigate"; tool: string }
@@ -33,7 +34,7 @@ export function useDemo() {
   const [state, setState] = useState<DemoState>(START);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
 
-  const post = (m: DemoMessage) => frame.current?.contentWindow?.postMessage({ crest: "demo", ...m }, "*");
+  const post = (m: DemoMessage) => frame.current?.contentWindow?.postMessage({ crest: "demo", ...m }, DEMO_HOST);
 
   const send = useCallback((m: DemoMessage) => {
     if (ready.current) post(m);
@@ -42,7 +43,7 @@ export function useDemo() {
 
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
-      if (e.source !== frame.current?.contentWindow) return;
+      if (e.source !== frame.current?.contentWindow || e.origin !== DEMO_HOST) return;
       const d = e.data as Partial<DemoState> & { crest?: string; event?: string; tool?: string; open?: boolean; w?: number; h?: number };
       if (d?.crest !== "demo") return;
       if (d.event === "ready") {

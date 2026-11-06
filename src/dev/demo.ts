@@ -69,8 +69,11 @@ const coarse = matchMedia("(pointer: coarse)").matches;
 /** Same for the host page's stage: the mouse leaves the frame all the time, and the stage must not go empty. */
 const pinOpen = coarse || bare;
 
+/** The host page is served from the same origin once built; in development it is the site's own dev server. */
+const hostOrigin = import.meta.env.DEV ? "*" : location.origin;
+
 const post = (msg: Record<string, unknown>) => {
-  if (window.parent !== window) window.parent.postMessage({ crest: "demo", ...msg }, "*");
+  if (window.parent !== window) window.parent.postMessage({ crest: "demo", ...msg }, hostOrigin);
 };
 
 const pick = <T>(list: T[], i: number): T => list[i % list.length];
@@ -104,10 +107,12 @@ export function startDemo() {
       ...s.launcher,
       favorites: ["Claude", "ChatGPT", "Cursor", "Spotify", "Terminal", "Notepad"].map((name) => ({ id: `shell:AppsFolder\\${name}`, name })),
     },
+    // The focus timer below may end in a forgotten tab: silently.
+    alarm: { ...s.alarm, volume: 0 },
     music: { ...s.music, titleLyrics: true },
     closed: {
       ...s.closed,
-      parts: { ...s.closed.parts, timer: true, discord: true, rings: true, title: true, readings: true, equalizer: true, clock: true, github: true, calendar: true, script: true, downloads: true, weather: false },
+      parts: { ...s.closed.parts, timer: true, discord: true, rings: true, title: true, readings: true, equalizer: true, clock: true, github: true, calendar: true, script: true, downloads: true, weather: true },
       readings: { ...s.closed.readings, cpu: true, ram: true, gpu: true },
     },
   }));
@@ -134,6 +139,11 @@ export function startDemo() {
     document.head.append(style);
   }
 
+  // The microphone dot follows the call.
+  mockDiscord.subscribe((d) => (mockPrivacy.mic = !!d.call));
+
+  if (bare) pauseOffscreen();
+
   window.addEventListener("message", onMessage);
   watchFrame();
   fitNarrowScreens();
@@ -148,6 +158,20 @@ export function startDemo() {
   plugins.subscribe(() => post({ event: "ready", tools: toolList() }));
   setTimeout(() => (post({ event: "ready", tools: toolList() }), state(true)), 0);
   if (params.has("open") || params.has("tool")) demoOpen(params.get("tool"));
+}
+
+/** Scrolled out of the host page's view, the music (and the equalizer on it) stops; it goes on when the stage is back. */
+function pauseOffscreen() {
+  let paused = false;
+  new IntersectionObserver(([e]) => {
+    if (!e.isIntersecting && media.get()?.isPlaying) {
+      paused = true;
+      media.toggle();
+    } else if (e.isIntersecting && paused) {
+      paused = false;
+      if (!media.get()?.isPlaying) media.toggle();
+    }
+  }).observe(document.documentElement);
 }
 
 /** What the page shows in its own list of tools. */
@@ -207,7 +231,7 @@ const EDGES = ["top", "bottom", "left", "right"] as const;
 
 function onMessage(e: MessageEvent) {
   const m = e.data as { crest?: string; cmd?: string; [k: string]: unknown } | null;
-  if (!m || m.crest !== "demo" || e.source !== window.parent) return;
+  if (!m || m.crest !== "demo" || e.source !== window.parent || (hostOrigin !== "*" && e.origin !== hostOrigin)) return;
   // A running recording stays unless the command is a notice (its button toggles it).
   undoStates();
   clearNotices(m.cmd === "notice" ? String(m.kind) : "recording");
@@ -275,7 +299,6 @@ function notice(kind: string) {
       return mockStatus.capsLock();
     case "call":
       if (mockDiscord.get().call) return;
-      mockPrivacy.mic = true;
       return mockDiscord.toggleCall();
     case "todo":
       return todoActions.add("Call the dentist", Date.now() - 1000);
