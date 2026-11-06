@@ -69,7 +69,7 @@ A running recording outranks every other notice, so its stop button stays in rea
 
 Most of them are cards: the icon in a circle tinted with the notice's colour (a live notice from an app keeps its logo), a title, a line of text, buttons on the right and a line of the same colour along the bottom edge. The notch grows for a card and shrinks back when it goes.
 
-Status alerts show briefly when you plug in or unplug the charger, when the battery reaches 20% and 10%, when the internet drops or comes back, and when Bluetooth headphones connect or disconnect. Turn each one off in **Settings → Display**.
+Status alerts show briefly when you plug in or unplug the charger, when the battery reaches 20% and 10%, when the internet drops or comes back, and when a paired Bluetooth device (headphones, mouse, keyboard, controller and so on) connects or disconnects. Turn each one off in **Settings → Display**.
 
 The volume and brightness HUD is a status alert too: when the volume or mute changes (keys, the mixer, any app) or the brightness changes, the closed notch shows an icon, a level bar and the percent for a moment, also on the line style, which opens for it. Changes made in Crest itself do not show it. The built-in screen reports its brightness at once; external monitors are read over DDC/CI every 2 seconds while the Brightness alert is on, and only those that support it. **Hide the Windows indicator** (off by default, needs Volume and Brightness on) keeps the Windows volume and brightness flyout invisible while Crest runs and while its HUD can show (not in focus mode or over a fullscreen app). Windows gets it back when you turn the option off or quit Crest, and a small helper process restores it if Crest crashes or is ended from Task Manager.
 
@@ -290,14 +290,14 @@ Format, API, limits and the security model: [plugins.md](plugins.md).
 | Open or close | Hover, click or **Ctrl + Alt + Space** (choose the trigger in settings) |
 | Switch tools | Tool bar at the bottom of the open notch |
 | Settings | Gear icon at the end of the tool bar, or **Settings …** in the tray menu |
-| Tray icon | Left click opens the notch, right click shows the menu (open, settings, autostart, quit) |
+| Tray icon | Left click opens the notch, right click shows the menu (open, settings, focus mode, autostart, quit) |
 | Move the notch | Drag it along its edge, closed or by its header; drag the closed notch towards another edge to move it there. "Reset to center" is in settings |
 | Focus mode | Click the notch three times quickly. It turns half transparent and clicks pass through. Three more clicks bring it back |
 | Add files | Drag them onto the notch, or paste with Ctrl + V |
 
 ## Settings
 
-Settings are grouped into General, Display, Window, Tools, Timer, AI, Connections, Themes and Notices. The search field above the pages (**Ctrl + F**) finds a setting by its name, its description or its group, in the interface language or in English, and a click opens its page with the setting highlighted. There you can reorder (drag) or hide tools, pick the monitor and the screen edge, set what the notch does over full-screen and maximized windows, record shortcuts, and enable autostart. Language, in General, is System (the Windows language, or English when Crest does not have it) or one of English, Simplified Chinese, Spanish, Hindi, Arabic, French, Portuguese (Brazil), Russian, Japanese, German and Italian; it switches at once, tray menu included, and numbers and dates follow it. In Arabic the panel reads right to left, while the closed notch, the sliders, the song's time bar and key combinations keep their left to right order.
+Settings are grouped into General, Display, Window, Tools, Timer, AI, Connections, Themes, Notices and Plugins. The search field above the pages (**Ctrl + F**) finds a setting by its name, its description or its group, in the interface language or in English, and a click opens its page with the setting highlighted. There you can reorder (drag) or hide tools, pick the monitor and the screen edge, set what the notch does over full-screen and maximized windows, record shortcuts, and enable autostart. Language, in General, is System (the Windows language, or English when Crest does not have it) or one of English, Simplified Chinese, Spanish, Hindi, Arabic, French, Portuguese (Brazil), Russian, Japanese, German and Italian; it switches at once, tray menu included, and numbers and dates follow it. In Arabic the panel reads right to left, while the closed notch, the sliders, the song's time bar and key combinations keep their left to right order.
 
 <p align="center"><img src="media/features/settings-tools.png" alt="Settings, Tools: the tools in their order with switches, and their options" width="560" /></p>
 
@@ -349,13 +349,13 @@ The installer is not code-signed yet, so Windows SmartScreen may warn on first l
 
 Crest keeps its settings and data apart from L4-Notchbar, so both can be installed at the same time.
 
-**Requirements.** Windows 11 or Windows 10, 64-bit, on an x64 or ARM64 PC. Built and tested on Windows 11; Windows 10 should work but is untested. Crest uses WebView2; if it is missing, the installer fetches it automatically.
+**Requirements.** Windows 11 or Windows 10, 64-bit, on an x64 or ARM64 PC, or macOS 12 or later (preview). Built and tested on Windows 11; Windows 10 should work but is untested. Crest uses WebView2; if it is missing, the installer fetches it automatically.
 
 **Crash log.** If Crest crashes, panics and uncaught interface errors are appended to `crash.log` in `%LOCALAPPDATA%\io.github.andrealo20.crest\logs` (installer), or in `data\logs` next to Crest.exe (portable). Past 512 KB it is renamed to `crash.old.log` and a new one starts. The file stays on your PC; attach it to a bug report if you like.
 
 **What's new.** After an update, a line in the closed notch says what version you are on now; when the daily check finds a new version (not in the Store build, which the Store updates), the line says it is available. A click opens a page with the changes, a short note on supporting the project with a GitHub Sponsors button, and for a new version an Update now button. The ✕ hides the line for that version, and a fresh install shows nothing.
 
-**Mac.** The `.dmg` is a preview and not notarized (see the README). Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder and Camera are not there, Find on screen has no shortcut, and the Overview quick controls have no Bluetooth switch. The crash log is `crash.log` in `~/Library/Logs/io.github.andrealo20.crest`.
+**Mac.** The `.dmg` is a preview and not notarized: drag Crest to Applications, and if macOS refuses it on first launch, use System Settings → Privacy & Security → Open Anyway. Keys are in the Keychain and settings in `~/Library/Application Support/io.github.andrealo20.crest`. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder and Camera are not there, Find on screen has no shortcut, and the Overview quick controls have no Bluetooth switch. The crash log is `crash.log` in `~/Library/Logs/io.github.andrealo20.crest`.
 
 **Copy diagnostics.** Settings, General, Updates has Copy diagnostics, which puts a short plain-text block on the clipboard for a bug report: the app version and build (installer, portable or Store), the Windows edition and build, the app's and the PC's architecture, the number of monitors and their scale, the panel scale, the enabled tools, the closed style and edge, and the codes of current errors (update check, GitHub, FPS, Discord). It never includes your user name, the PC's name, file paths, keys, tokens, account names or your location; an error that is not one of Crest's own codes shows as `other`.
 
