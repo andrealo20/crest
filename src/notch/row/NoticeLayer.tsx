@@ -17,6 +17,8 @@ import { dueTasks } from "../../features/todos/store";
 import { reminderNotice } from "../../features/todos/ReminderNotice";
 import { waterDue } from "../../features/water/store";
 import { waterNotice } from "../../features/water/WaterNotice";
+import { breakShown } from "../../features/breaks/store";
+import { breaksNotice } from "../../features/breaks/BreakNotice";
 import { calendarDue } from "../../features/calendar/store";
 import { calendarNotice } from "../../features/calendar/CalendarNotice";
 import { useWhatsNew } from "../../features/whatsnew/store";
@@ -136,6 +138,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
   const ask = asks.use()[0];
   const due = dueTasks.use();
   const drink = waterDue.use();
+  const brk = breakShown.use();
   const meeting = calendarDue.use();
   const news = useWhatsNew();
   const rec = recording.use();
@@ -159,6 +162,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
     track: !urgentOnly && !!track,
     calendar: !urgentOnly && !!meeting,
     reminder: due.length > 0,
+    breaks: !urgentOnly && !!brk,
     water: !urgentOnly && drink,
     whatsnew: !urgentOnly && !!news,
   });
@@ -296,6 +300,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
     );
   } else if (kind === "calendar" && meeting) ({ width, height, key, body } = calendarNotice(meeting, max));
   else if (kind === "reminder") ({ width, height, key, body } = reminderNotice(due, max));
+  else if (kind === "breaks" && brk) ({ width, height, key, body } = breaksNotice(brk, max));
   else if (kind === "water") ({ width, height, key, body } = waterNotice(productivity.water.goalMl, max));
   else if (kind === "whatsnew" && news) ({ width, height, key, body } = whatsNewNotice(news, max));
   const card = height > ROW_H;

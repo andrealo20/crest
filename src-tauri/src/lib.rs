@@ -31,6 +31,7 @@ mod drop;
 mod fps;
 mod github;
 mod hit_test;
+mod idle;
 #[cfg(windows)]
 mod loopback;
 mod lyrics;
@@ -238,6 +239,7 @@ pub fn run() {
             hit_test::set_pet_rect,
             hit_test::set_pinned,
             hit_test::set_passthrough,
+            idle::idle_seconds,
             media::media_get,
             media::media_control,
             media::media_pin,

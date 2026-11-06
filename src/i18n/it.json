@@ -1458,5 +1458,21 @@
  "Claude Code hat nicht rechtzeitig geantwortet": "Claude Code non ha risposto in tempo",
  "Die Antwort von Claude Code ist zu groß": "La risposta di Claude Code è troppo grande",
  "Claude Code hat einen Fehler gemeldet": "Claude Code ha segnalato un errore",
- "Agents": "Agents"
+ "Agents": "Agents",
+ "Pausen": "Pause",
+ "Pausen-Erinnerungen": "Promemoria delle pause",
+ "Eine Karte in der geschlossenen Notch, still bei Präsentationen, Vollbild und Bitte nicht stören": "Una scheda nella notch chiusa. Resta in silenzio durante presentazioni, schermo intero e Non disturbare",
+ "Kurze Pause alle": "Pausa breve ogni",
+ "20 Sekunden in die Ferne schauen": "Guarda lontano per 20 secondi",
+ "Lange Pause alle": "Pausa lunga ogni",
+ "Dauer der langen Pause": "Durata della pausa lunga",
+ "Schau auf etwas in 6 Metern Entfernung": "Guarda qualcosa a 6 metri di distanza",
+ "Lass die Augen kurz ausruhen": "Riposa un momento gli occhi",
+ "Zeit für eine Pause": "È ora di una pausa",
+ "5 Min. später": "Rimanda di 5 min",
+ "Arme und Schultern strecken": "Stira le braccia e le spalle",
+ "Ein Glas Wasser trinken": "Bevi un bicchiere d'acqua",
+ "Aus dem Fenster schauen": "Guarda fuori dalla finestra",
+ "Ein paar Schritte gehen": "Fai due passi",
+ "Aufstehen und die Beine strecken": "Alzati e stira le gambe"
 }

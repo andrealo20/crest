@@ -70,7 +70,7 @@ function useNoticeLine(urgentOnly: boolean): Line | null {
   const rec = recording.use();
   const recRunning = rec.phase === "recording";
   useSecondTick(recRunning, rec.at);
-  const kind = topNotice({ recording: rec.phase !== "idle", timer: finished, ask: !!ask, saved: false, download: false, status: !!status, notice: !urgentOnly && !!pop, quota: false, track: false, calendar: false, reminder: due.length > 0, water: false, whatsnew: false });
+  const kind = topNotice({ recording: rec.phase !== "idle", timer: finished, ask: !!ask, saved: false, download: false, status: !!status, notice: !urgentOnly && !!pop, quota: false, track: false, calendar: false, reminder: due.length > 0, breaks: false, water: false, whatsnew: false });
   const line = (id: string, draw: () => ReactNode): Line => ({ id, w: NOTICE_ICON, h: 20, draw });
   if (kind === "recording") {
     // Stacked: dot, time, pause or resume, stop. The width is the time's, measured with zeros so it only changes with a new digit.

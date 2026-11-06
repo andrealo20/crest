@@ -70,6 +70,7 @@ import { VaultSettings } from "../vault/VaultSettings";
 import { ClockLookSettings, TimerLookSettings } from "../timer/LookSettings";
 import { focusSounds, type FocusSound } from "../timer/focusSound";
 import { ProductivitySettings } from "../water/WaterSettings";
+import { BreaksSettings } from "../breaks/BreaksSettings";
 import { TerminalSettings } from "../terminal/TerminalSettings";
 import { MusicSettings } from "../now-playing/MusicSettings";
 import { setMusic } from "../now-playing/music";
@@ -378,6 +379,7 @@ function PageContent({ page }: { page: PageId }) {
           <FocusSoundSettings />
           <TimerLookSettings />
           <ClockLookSettings />
+          <BreaksSettings />
         </>
       )}
       {page === "notices" && <NoticesSettings />}
