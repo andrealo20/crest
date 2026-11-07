@@ -22,7 +22,7 @@ import {
 import { fade, springs } from "../../design/motion";
 import { createStore } from "../../lib/store";
 import { formatBytes } from "../../lib/format";
-import { drop, pasteFiles, takeDropped, usePasteFiles } from "../../platform/drop";
+import { draggingOut, drop, pasteFiles, takeDropped, usePasteFiles } from "../../platform/drop";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { holdOpen } from "../../notch/useNotchState";
 import { clipboardText, copyFiles, filePreview, openFile, onPhoneShareLost, phoneShareStart, phoneShareStop, probeFiles, revealFile, shelfDragOut, type FileKind, type PhoneShare } from "../../platform/services";
@@ -51,9 +51,6 @@ import { Redacted } from "../../ui/controls";
  */
 const shelf = createStore<ShelfItem[]>([], { persist: "shelf" });
 shelf.set(normalizeItems);
-
-/** A drag out of the shelf is running: its own drop overlay and drops back stay quiet. */
-const draggingOut = createStore(false);
 
 /** Movement in px before a press on a card becomes a drag. */
 const DRAG_START = 6;

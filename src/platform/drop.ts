@@ -16,6 +16,13 @@ import { demo } from "../dev/showcase-data";
  */
 export const drop = createStore<{ dragging: boolean; dropped: string[] | null }>({ dragging: false, dropped: null });
 
+/**
+ * A drag out of the shelf is running: its own drop overlay and drops back stay quiet, and it doesn't count as a quick
+ * drop. Counted, it held the notch open, which kept the whole window clickable and swallowed the drop into the app
+ * below the panel (issue #22).
+ */
+export const draggingOut = createStore(false);
+
 /** Demo: the files the visitor dropped or pasted, by the made-up path the Shelf shows. They stay in this page's memory. */
 export const demoFiles = new Map<string, File>();
 /** Demo: the text of the last paste, which the Shelf reads like the clipboard (the page may not read the real one). */
@@ -91,13 +98,15 @@ export function startDropListener() {
   // HTML5 drag. Only files count, not selected text.
   let depth = 0;
   const hasFiles = (e: DragEvent) => e.dataTransfer?.types.includes("Files");
+  // Enter and leave skip the same drags, so the depth stays balanced.
+  const quickDrop = (e: DragEvent) => hasFiles(e) && !draggingOut.get();
   window.addEventListener("dragenter", (e) => {
-    if (!hasFiles(e)) return;
+    if (!quickDrop(e)) return;
     depth++;
     drop.set((s) => ({ ...s, dragging: true }));
   });
   window.addEventListener("dragleave", (e) => {
-    if (!hasFiles(e)) return;
+    if (!quickDrop(e)) return;
     depth = Math.max(0, depth - 1);
     if (depth === 0) drop.set((s) => ({ ...s, dragging: false }));
   });

@@ -133,7 +133,57 @@ const FAR: f64 = 160.0;
 const EXIT_CLICKS: u32 = 3;
 const CLICK_GAP: Duration = Duration::from_millis(450);
 
+/// The cursor relative to the window's top-left corner in physical px, and the window's scale.
+///
+/// On Windows straight from the system, as tao reads them: Tauri's getters wait for the main thread, and a drag out of
+/// the Shelf holds that thread in the modal OLE loop until the drop. The poll stood still, the window kept the pointer
+/// over its whole area and swallowed drops meant for the app below the panel (issue #22).
+#[cfg(windows)]
+fn geometry(hwnd: isize) -> Option<(f64, f64, f64)> {
+    use windows::Win32::Foundation::{HWND, POINT, RECT};
+    use windows::Win32::UI::HiDpi::GetDpiForWindow;
+    use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetWindowRect};
+    let hwnd = HWND(hwnd as _);
+    let (mut cursor, mut rect) = (POINT::default(), RECT::default());
+    unsafe {
+        GetCursorPos(&mut cursor).ok()?;
+        GetWindowRect(hwnd, &mut rect).ok()?;
+        let dpi = GetDpiForWindow(hwnd);
+        (dpi > 0).then(|| ((cursor.x - rect.left) as f64, (cursor.y - rect.top) as f64, dpi as f64 / 96.0))
+    }
+}
+
+/// The click-through bits tao sets for `set_ignore_cursor_events`, written from here. tao posts that change to the main
+/// thread too, and the modal OLE loop of a drag out doesn't run it until the drop; a style set from another thread only
+/// waits for the window thread to take WM_STYLECHANGING, which that loop does deliver. tao's own call still follows, so
+/// its flags stay in step and its next style write keeps the same bits.
+#[cfg(windows)]
+fn set_click_through(hwnd: isize, on: bool) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_LAYERED, WS_EX_TRANSPARENT};
+    let hwnd = HWND(hwnd as _);
+    let bits = (WS_EX_TRANSPARENT | WS_EX_LAYERED).0 as isize;
+    unsafe {
+        let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        let next = if on { style | bits } else { style & !bits };
+        if next != style {
+            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, next);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn geometry(window: &WebviewWindow) -> Option<(f64, f64, f64)> {
+    let (Ok(cursor), Ok(origin), Ok(scale)) = (window.cursor_position(), window.outer_position(), window.scale_factor()) else {
+        return None;
+    };
+    Some((cursor.x - origin.x as f64, cursor.y - origin.y as f64, scale))
+}
+
 pub fn spawn(app: AppHandle, window: WebviewWindow) {
+    // Taken here on the main thread; the poll must not ask it again (see geometry).
+    #[cfg(windows)]
+    let Ok(hwnd) = window.hwnd().map(|h| h.0 as isize) else { return };
     thread::spawn(move || {
         // `None` forces a defined state on the first pass.
         let mut last_inside: Option<bool> = None;
@@ -158,16 +208,16 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 far = true;
                 continue;
             }
-            let (Ok(cursor), Ok(origin), Ok(scale)) =
-                (window.cursor_position(), window.outer_position(), window.scale_factor())
-            else {
-                continue;
-            };
+            #[cfg(windows)]
+            let geometry = geometry(hwnd);
+            #[cfg(not(windows))]
+            let geometry = geometry(&window);
+            let Some((dx, dy, scale)) = geometry else { continue };
 
             // The hit rect is in the zoomed page's CSS px.
             let scale = scale * state.zoom();
-            let x = (cursor.x - origin.x as f64) / scale;
-            let y = (cursor.y - origin.y as f64) / scale;
+            let x = dx / scale;
+            let y = dy / scale;
             let rect = *state.rect.lock().unwrap();
             // GetAsyncKeyState reads the physical buttons: a left-handed mouse has its primary button on the right.
             #[cfg(windows)]
@@ -233,6 +283,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
 
             // Only call on change: every call goes through the event loop.
             if last_ignore != Some(ignore) {
+                #[cfg(windows)]
+                set_click_through(hwnd, ignore);
                 let _ = window.set_ignore_cursor_events(ignore);
                 last_ignore = Some(ignore);
             }
