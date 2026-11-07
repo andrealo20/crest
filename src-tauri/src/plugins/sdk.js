@@ -72,6 +72,10 @@
     fetch: (url, init = {}) => call("fetch", clean({ url, method: init.method, headers: init.headers, body: init.body })),
     notify: (title, body) => call("notify", clean({ title, body })),
     resize: (w, h) => call("resize", { w, h }),
+    pill: Object.freeze({
+      set: (data) => call("pill.set", clean(data ?? {})),
+      clear: () => call("pill.clear"),
+    }),
     /** "theme": new theme tokens when Crest's theme changes. Returns a function that stops listening. */
     on(event, fn) {
       if (!listeners.has(event)) listeners.set(event, new Set());
