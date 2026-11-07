@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { createStore } from "../../lib/store";
 import { holdOpen } from "../../notch/useNotchState";
 import { monitor, monitorMetrics } from "../../notch/monitor";
+import { viewZoom } from "../../notch/viewZoom";
 import { settings } from "../../settings/store";
 import { t } from "../../i18n";
 import { dragSize, limits, sizeFor, stepSize, type Direction, type Edge, type Size } from "./panelSize";
@@ -63,7 +64,8 @@ export function ResizeHandles({ id, def, size }: { id: string; def: Size; size: 
     let current = start;
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointer) return;
-      current = dragSize(start, edge, ev.clientX - x0, ev.clientY - y0, lim);
+      const z = viewZoom();
+      current = dragSize(start, edge, (ev.clientX - x0) / z, (ev.clientY - y0) / z, lim);
       live.set({ tabId: id, ...current });
     };
     const onUp = (ev: PointerEvent) => ev.pointerId === pointer && end.current?.();

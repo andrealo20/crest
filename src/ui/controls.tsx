@@ -402,6 +402,7 @@ type MenuPos = {
   bottom?: number;
   up: boolean;
   maxHeight: number;
+  zoom: number;
 };
 
 export function Select<T extends string>(props: {
@@ -433,15 +434,19 @@ export function Select<T extends string>(props: {
     const above = trigger.top - minY - MENU_GAP;
     const up = below < wanted && above > below;
     const room = up ? above : below;
-    const width = props.trigger?.menuWidth ?? trigger.width;
+    // The list is portaled out of the notch's layer, which the browser demo draws with CSS zoom (src/notch/viewZoom.ts):
+    // it takes the trigger's zoom, and the measured px (unzoomed) are divided by it. Natively it is 1.
+    const z = (ref.current as { currentCSSZoom?: number } | null)?.currentCSSZoom ?? 1;
+    const width = props.trigger?.menuWidth ? props.trigger.menuWidth * z : trigger.width;
     setPos({
-      left: Math.max(MENU_EDGE, Math.min(trigger.left, window.innerWidth - MENU_EDGE - width)),
-      width,
+      left: Math.max(MENU_EDGE, Math.min(trigger.left, window.innerWidth - MENU_EDGE - width)) / z,
+      width: width / z,
       up,
-      maxHeight: Math.max(MENU_ROW + 8, Math.min(wanted, room)),
+      zoom: z,
+      maxHeight: Math.max(MENU_ROW + 8, Math.min(wanted, room)) / z,
       ...(up
-        ? { bottom: window.innerHeight - trigger.top + MENU_GAP }
-        : { top: trigger.bottom + MENU_GAP }),
+        ? { bottom: (window.innerHeight - trigger.top + MENU_GAP) / z }
+        : { top: (trigger.bottom + MENU_GAP) / z }),
     });
   };
 
@@ -511,6 +516,7 @@ export function Select<T extends string>(props: {
                 top: pos.top,
                 bottom: pos.bottom,
                 maxHeight: pos.maxHeight,
+                zoom: pos.zoom !== 1 ? pos.zoom : undefined,
                 transformOrigin: pos.up ? "50% 100%" : "50% 0",
               }}
               initial={{

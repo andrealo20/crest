@@ -5,6 +5,7 @@ import { settings, updateSettings } from "../settings/store";
 import { t } from "../i18n";
 import { CLOSED_SIZE_DEFAULTS, defaultClosed, resizeClosed, sideLength, type ClosedGrip, type ClosedSize } from "./collapsed";
 import { across, deltaFromScreen, uprightCss, type Edge } from "./edge";
+import { viewZoom } from "./viewZoom";
 
 /**
  * Resize mode of the closed notch (Settings, Display, Adjust on the notch): grips on its two ends and its far side, its size and a
@@ -50,7 +51,8 @@ export function ClosedResize({ style, edge, widest }: { style: "notch" | "capsul
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointer) return;
       // The notch on the bottom or a side edge is drawn turned: the drag is taken in its own frame (along its edge, away from it).
-      const d = deltaFromScreen(edge, ev.clientX - x0, ev.clientY - y0);
+      const z = viewZoom();
+      const d = deltaFromScreen(edge, (ev.clientX - x0) / z, (ev.clientY - y0) / z);
       const along = style === "notch" && across(edge) ? d.x * COLUMN_STRETCH : d.x;
       current = resizeClosed(start, style, grip, along, d.y, widest);
       closedLive.set(current);

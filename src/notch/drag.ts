@@ -11,6 +11,7 @@ import { closedLive } from "./ClosedResize";
 import { focusMode } from "./focus";
 import { spotFor } from "./follow";
 import { monitorMetrics, monitors, placedMonitor, reloadMonitor, sharedSpan } from "./monitor";
+import { viewZoom } from "./viewZoom";
 import { holdOpen, type NotchStatus } from "./useNotchState";
 
 /** Below this distance it's a click, not a drag. */
@@ -88,7 +89,9 @@ export function applyDisplay(offset = pageCss(settings.get().display.offset), y?
 /** The area the notch is dragged in: the monitor, in the browser the viewport with DesktopMock's 48 px taskbar. */
 export function dragArea(): Metrics {
   if (isNative) return monitorMetrics();
-  return { width: window.innerWidth, height: window.innerHeight, workTop: 0, workHeight: window.innerHeight - 48, workLeft: 0, workWidth: window.innerWidth };
+  // The viewport in the zoomed layer's px; DesktopMock's taskbar is not zoomed.
+  const z = viewZoom(), width = window.innerWidth / z, height = window.innerHeight / z;
+  return { width, height, workTop: 0, workHeight: height - 48 / z, workLeft: 0, workWidth: width };
 }
 
 /** The dock's frame line in the browser view, where the viewport stands in for the monitor. */
@@ -130,7 +133,9 @@ export function useDragToMove(status: NotchStatus, shape: () => { w: number; h: 
     // Where the pointer is on the monitor: the notch's place on its edge plus the pointer's place in the hit zone, which hangs from the edge.
     const m0 = dragArea(), work0 = workOf(m0), edge0 = from.dock.edge;
     const hit = document.querySelector("[data-notch-hit]")?.getBoundingClientRect();
-    const rel = hit ? pointerIn(edge0, hit, e.clientX, e.clientY) : { depth: 0, along: 0 };
+    const z = viewZoom();
+    const raw = hit ? pointerIn(edge0, hit, e.clientX, e.clientY) : { depth: 0, along: 0 };
+    const rel = { depth: raw.depth / z, along: raw.along / z };
     const grab = pointToScreen(frameFor(edge0, from.dock.anchor, m0.width, m0.height, work0), span(edge0, m0.width, m0.height) / 2 + from.offset + rel.along, rel.depth);
 
     const onMove = (ev: PointerEvent) => {
@@ -138,7 +143,7 @@ export function useDragToMove(status: NotchStatus, shape: () => { w: number; h: 
       // Open, the notch only slides along its edge (by the header), so moving across neither starts a drag nor changes the edge.
       // Across is screen y on the top and bottom edges and screen x on the sides.
       const pinned = !capsule && status === "open";
-      const dx = pinned && across(edge0) ? 0 : ev.screenX - x, dy = pinned && !across(edge0) ? 0 : ev.screenY - sy;
+      const dx = pinned && across(edge0) ? 0 : (ev.screenX - x) / z, dy = pinned && !across(edge0) ? 0 : (ev.screenY - sy) / z;
       if (!moved.current && Math.max(Math.abs(dx), Math.abs(dy)) < THRESHOLD) return;
       if (!moved.current) {
         moved.current = true;

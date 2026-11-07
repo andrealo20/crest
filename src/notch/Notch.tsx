@@ -46,6 +46,7 @@ import { refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/
 import { useHue, type Hue } from "../features/themes/hues";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
+import { viewZoom } from "./viewZoom";
 
 /** If the notch was closed at most this long, it reopens on the last used tool. */
 const RESUME_MS = 60_000;
@@ -185,9 +186,10 @@ export function Notch() {
   // Natively the window sits at windowY and the capsule drag.y below the monitor's top; in the browser the
   // viewport stands in for the monitor and the window is only imagined, so the same rules place the panel.
   const workTop = monitorMetrics().workTop;
-  const capY = capsuleY(drag.y, sizes.capsuleHeight, isNative ? monitorMetrics().height : window.innerHeight);
+  const viewH = window.innerHeight / viewZoom(), viewW = window.innerWidth / viewZoom();
+  const capY = capsuleY(drag.y, sizes.capsuleHeight, isNative ? monitorMetrics().height : viewH);
   const bridged = hasBridge(style, capY, workTop);
-  const winTop = isNative ? windowY(capY) : windowYFor(style, capY, window.innerHeight, workTop);
+  const winTop = isNative ? windowY(capY) : windowYFor(style, capY, viewH, workTop);
   const capsuleTop = style === "capsule" ? capY - winTop : 0;
   const lineShape = line || (lineIdle && status !== "open");
   // Open, a bridged capsule hangs from the edge like the notch; a floating one opens from its top, moved up as far as the panel needs (a notice card the same, so it stays in the window).
@@ -356,7 +358,9 @@ export function Notch() {
         ["--accent" as string]: accent,
         opacity: focus && !line ? 0.5 : 1,
         transform: frame ? [frame, slide].filter(Boolean).join(" ") : slide,
-        ...(frame && { right: "auto", width: isNative ? windowLength(drag.dock) : side ? window.innerHeight : window.innerWidth, transformOrigin: "0 0" }),
+        ...(frame && { right: "auto", width: isNative ? windowLength(drag.dock) : side ? viewH : viewW, transformOrigin: "0 0" }),
+        // In the browser the layer stands in for the window Rust zooms natively.
+        ...(!isNative && behavior.scale !== 100 && { zoom: behavior.scale / 100 }),
       }}
     >
       {/* Hit zone: bigger than the visible shape (Fitts) and flush with the top edge, unless the capsule floats. */}
