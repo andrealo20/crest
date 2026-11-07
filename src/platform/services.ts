@@ -477,7 +477,7 @@ export const display = {
           { name: "\\\\.\\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48, workLeft: 0, workWidth: 1920 },
         ]),
   /**
-   * `y`: window top in CSS px below the monitor's top edge (default 0); `rules`: screen_policy.rs Rules; `zoom`: panel scale (1 or 1.5).
+   * `y`: window top in CSS px below the monitor's top edge (default 0); `rules`: screen_policy.rs Rules; `zoom`: panel scale (0.8 to 2, panelSize.ts PANEL_SCALES).
    * `edge` and `line`: the screen edge the window hangs from and where (CSS px from the monitor's top or left); `y` is used on top.
    * `along`: the window's length along that edge in CSS px, at least 760 (src/notch/collapsed.ts windowAlong).
    * `mode`: the Monitor setting's "follow" or "all"; with "all", `spots` holds `line` and `y` for every monitor, where mirror.rs puts a copy.

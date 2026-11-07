@@ -8,7 +8,7 @@ import { Button, Group, Row, Segmented, Select, Switch, TextField } from "../../
 import { t } from "../../i18n";
 import { altGrRisk, conflicts, keycaps, record, type HotkeyKind, type RecordError } from "./hotkeys";
 import { CONTEXTS, MAX_APP_RULES, addRule, newRule, ruleKey, type AppRule, type Behavior, type ScreenContext } from "./model";
-import { currentQuick, quickSize, type QuickSize } from "./panelSize";
+import { PANEL_SCALES, currentQuick, quickSize, stepScale, type QuickSize } from "./panelSize";
 import { hotkeyStatus, pauseHotkeys, takenByLauncher, updateBehavior } from "./store";
 
 const contextLabel: Record<ScreenContext, string> = {
@@ -324,16 +324,18 @@ function Panel() {
         />
       </Row>
       <Row label={t("Skalierung")} hint={t("Zeichnet Crest größer, wie eine höhere Windows-Skalierung nur für Crest")}>
-        <Segmented<"100" | "150">
-          id="panel-scale"
-          size="sm"
-          value={String(b.scale) as "100" | "150"}
-          onChange={(v) => updateBehavior({ scale: v === "150" ? 150 : 100 })}
-          options={[
-            { value: "100", label: "100 %" },
-            { value: "150", label: "150 %" },
-          ]}
-        />
+        {/* Steps instead of a slider: the scale redraws the whole page, so a dragged thumb would move under the pointer. */}
+        <div id="panel-scale" className="flex shrink-0 items-center gap-2">
+          <Button disabled={b.scale === PANEL_SCALES[0]} onClick={() => updateBehavior({ scale: stepScale(b.scale, -1) })}>
+            −
+          </Button>
+          <span className="tabular w-12 text-center text-footnote text-label" aria-live="polite">
+            {b.scale} %
+          </span>
+          <Button disabled={b.scale === PANEL_SCALES[PANEL_SCALES.length - 1]} onClick={() => updateBehavior({ scale: stepScale(b.scale, 1) })}>
+            +
+          </Button>
+        </div>
       </Row>
     </Group>
   );

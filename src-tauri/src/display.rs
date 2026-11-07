@@ -99,7 +99,7 @@ pub struct Config {
     /// A malformed rule is skipped instead of failing the whole call.
     #[serde(default, deserialize_with = "screen_policy::lenient_rules")]
     rules: Rules,
-    /// Panel scale: 1.0 or 1.5.
+    /// Panel scale, 0.8 to 2.0 (fit_zoom).
     #[serde(default = "one")]
     pub(crate) zoom: f64,
     /// Screen edge the window hangs from: "top" (default), "bottom", "left" or "right" (src/notch/edge.ts).
@@ -143,13 +143,9 @@ impl Default for Config {
     }
 }
 
-/// Only the two scales the settings offer; anything else is 100 %.
+/// Only the scales the settings offer (src/features/window/panelSize.ts PANEL_SCALES); anything else is 100 %.
 fn fit_zoom(z: f64) -> f64 {
-    if (z - 1.5).abs() < 0.01 {
-        1.5
-    } else {
-        1.0
-    }
+    [0.8, 0.9, 1.1, 1.25, 1.5, 1.75, 2.0].into_iter().find(|s| (z - s).abs() < 0.01).unwrap_or(1.0)
 }
 
 /// The window's logical size at 100 %: as on top (tauri.conf.json), and on a side edge as deep as long so the widest panel fits across.
@@ -753,15 +749,25 @@ mod tests {
         assert!(named(&[]).is_empty());
     }
 
-    /// 1920 x 1080 at 100, 125 and 150 % Windows scaling, panel scale 1 and 1.5, on every edge, hanging from the screen edge,
+    /// 1920 x 1080 at 100, 125 and 150 % Windows scaling, panel scale from 0.8 to 2, on every edge, hanging from the screen edge,
     /// with the usual window and one lengthened for a wide closed notch.
+    #[test]
+    fn only_the_offered_panel_scales_are_kept() {
+        assert_eq!(fit_zoom(1.25), 1.25);
+        assert_eq!(fit_zoom(0.8), 0.8);
+        assert_eq!(fit_zoom(2.0), 2.0);
+        assert_eq!(fit_zoom(1.3), 1.0);
+        assert_eq!(fit_zoom(f64::NAN), 1.0);
+        assert_eq!(fit_zoom(5.0), 1.0);
+    }
+
     #[test]
     fn the_notch_stays_on_its_edge_and_centred_even_when_the_window_is_larger_than_the_monitor() {
         let (mw, mh) = (1920, 1080);
         for wanted in [0.0, 1400.0] {
             let length = fit_along(wanted);
             for dpi in [1.0, 1.25, 1.5] {
-                for zoom in [1.0, 1.5] {
+                for zoom in [0.8, 1.0, 1.25, 1.5, 2.0] {
                     let scale = dpi * zoom;
                     for edge in ["top", "bottom", "left", "right"] {
                         let side = edge == "left" || edge == "right";

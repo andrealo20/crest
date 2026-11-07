@@ -86,10 +86,18 @@ export function stepSize(s: Size, dir: Direction, l: Limits, step = 20): Size {
   return clampSize({ w: s.w + dw, h: s.h + dh }, l);
 }
 
-export type PanelScale = 100 | 150;
-/** Only the two scales the settings offer; anything else is 100 %. */
+/** The panel scales the settings step through, in %; display.rs fit_zoom accepts the same list. */
+export const PANEL_SCALES = [80, 90, 100, 110, 125, 150, 175, 200] as const;
+export type PanelScale = (typeof PANEL_SCALES)[number];
+/** Only the scales the settings offer; anything else is 100 %. */
 export function fitScale(v: unknown): PanelScale {
-  return v === 150 ? 150 : 100;
+  return PANEL_SCALES.find((s) => s === v) ?? 100;
+}
+
+/** The next scale up (+1) or down (-1) from the current one, stopping at either end. */
+export function stepScale(current: number, dir: 1 | -1): PanelScale {
+  const i = PANEL_SCALES.indexOf(fitScale(current));
+  return PANEL_SCALES[Math.min(PANEL_SCALES.length - 1, Math.max(0, i + dir))];
 }
 
 /*

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PANEL_MAX, clampSize, currentQuick, dragSize, fitScale, limits, normalizeSizes, quickSize, sizeFor, stepSize, toPageCss, toSaved } from "./panelSize.ts";
+import { PANEL_MAX, clampSize, currentQuick, dragSize, fitScale, limits, normalizeSizes, quickSize, sizeFor, stepScale, stepSize, toPageCss, toSaved } from "./panelSize.ts";
 
 const def = { w: 520, h: 250 };
 
@@ -69,7 +69,14 @@ test("positions survive scale round trips exactly and keep their device pixels",
 
 test("scale and saved sizes are repaired", () => {
   assert.equal(fitScale(150), 150);
-  assert.equal(fitScale(125), 100);
+  assert.equal(fitScale(125), 125);
+  assert.equal(fitScale(80), 80);
+  assert.equal(fitScale(130), 100);
+  assert.equal(stepScale(100, 1), 110);
+  assert.equal(stepScale(150, -1), 125);
+  assert.equal(stepScale(200, 1), 200);
+  assert.equal(stepScale(80, -1), 80);
+  assert.equal(stepScale(133, 1), 110);
   assert.equal(fitScale("150"), 100);
   assert.deepEqual(normalizeSizes({ a: { w: 500.4, h: 200 }, b: { w: -1, h: 2 }, c: null, d: { w: "x", h: 1 } }), { a: { w: 500, h: 200 } });
   assert.deepEqual(normalizeSizes(null), {});
