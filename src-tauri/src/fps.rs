@@ -78,14 +78,11 @@ pub struct Fps {
 pub fn gaming_fps() -> Fps {
     let mut c = counter().lock().unwrap();
     c.wanted_at = Some(Instant::now());
-    if c.error.is_some() && c.error_at.is_none_or(|t| t.elapsed() > RETRY) {
-        c.error = None;
-    }
-    if !c.running && c.error.is_none() {
-        c.running = true;
-        c.since = Some(Instant::now());
+    if begin_attempt(&mut c) {
         thread::spawn(run);
-        return Fps { fps: None, error: None };
+        // The last error stays until this attempt settles: cleared now, the unlock row in the settings vanished for a
+        // moment on every retry and the rows under it jumped (issue #17).
+        return Fps { fps: None, error: c.error };
     }
     if let Some(error) = c.error {
         return Fps { fps: None, error: Some(error) };
@@ -107,6 +104,16 @@ pub fn gaming_fps() -> Fps {
     };
     c.last = Some((pid, fps));
     Fps { fps: (fps > 0.0).then_some(fps), error: None }
+}
+
+/// Starts a counting attempt when none runs and there is no error, or the last one is old enough to retry.
+fn begin_attempt(c: &mut Counter) -> bool {
+    if c.running || (c.error.is_some() && c.error_at.is_some_and(|t| t.elapsed() <= RETRY)) {
+        return false;
+    }
+    c.running = true;
+    c.since = Some(Instant::now());
+    true
 }
 
 fn foreground_pid() -> u32 {
@@ -198,6 +205,8 @@ fn run() {
         stop_session(&name);
         return fail("failed");
     }
+    // Counting works now, so an error kept from an earlier attempt is over.
+    counter().lock().unwrap().error = None;
 
     // Watchdog: stop the session when nobody polls, so ProcessTrace returns.
     let watch_name = name.clone();
@@ -443,5 +452,21 @@ mod unlock {
             stop_session(&name);
         }
         ok
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_retry_keeps_the_last_error_until_it_settles() {
+        let mut c = Counter { error: Some("no-admin"), error_at: Some(Instant::now()), ..Default::default() };
+        assert!(!begin_attempt(&mut c), "a fresh error waits for RETRY");
+
+        c.error_at = Instant::now().checked_sub(RETRY + Duration::from_secs(1));
+        assert!(begin_attempt(&mut c));
+        assert_eq!(c.error, Some("no-admin"), "the settings row must not vanish while the retry runs");
+        assert!(!begin_attempt(&mut c), "one attempt at a time");
     }
 }
