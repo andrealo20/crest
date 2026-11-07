@@ -113,6 +113,8 @@ export interface Settings {
     lyricRoman: boolean;
     /** The closed notch's lyric line in Latin letters instead of as sung, where it has a romanisation (issue #10). */
     closedRoman: boolean;
+    /** The Music tool's whole panel shows the cover behind it, blurred and darkened (NowPlayingView CoverBackdrop). */
+    coverBackground: boolean;
     /** The closed notch's lyric line translated instead of as sung, where the song has a translation. */
     closedTranslation: boolean;
     /** Lyrics translated on this computer into Crest's language, with downloaded models (offline.ts). */
@@ -198,6 +200,7 @@ const defaults: Settings = {
     lyricTranslation: true,
     lyricRoman: false,
     closedRoman: false,
+    coverBackground: false,
     closedTranslation: false,
     offlineTranslation: false,
     offlineTarget: "",

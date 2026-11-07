@@ -8,8 +8,11 @@ import { linesOf, useLyricIndex, useLyrics, useOfflineTranslation, useRomanized 
 import type { LyricWord } from "./lrc";
 import { t } from "../../i18n";
 
-/** Height the panel adds to the notch (separator included). */
-export const LYRICS_PANEL = 136;
+/**
+ * Height the panel adds to the notch (separator included): room for the sung line with the one before and after it in
+ * full, more when a romanisation or translation sits under each line.
+ */
+export const lyricsPanel = (subLines: boolean) => (subLines ? 236 : 176);
 /** After the wheel moves the list, it stays where the user put it this long. */
 const HOLD_SCROLL_MS = 3000;
 
@@ -30,7 +33,7 @@ export function LyricsPanel({ np }: { np: NowPlaying }) {
   useEffect(() => {
     const el = list.current;
     if (!el || performance.now() - userScrolledAt.current < HOLD_SCROLL_MS) return;
-    const row = el.children[Math.max(0, index)] as HTMLElement | undefined;
+    const row = el.querySelectorAll("button")[Math.max(0, index)] as HTMLElement | undefined;
     if (row) el.scrollTo({ top: row.offsetTop - (el.clientHeight - row.offsetHeight) / 2, behavior: "smooth" });
   }, [index, lines]);
 
@@ -57,26 +60,33 @@ export function LyricsPanel({ np }: { np: NowPlaying }) {
           {message}
         </div>
       ) : (
-        <div
-          ref={list}
-          className="relative min-h-0 flex-1 overflow-y-auto py-10 [scrollbar-width:none]"
-          style={{ maskImage: "linear-gradient(180deg, transparent, #000 28%, #000 72%, transparent)" }}
-          onWheel={() => (userScrolledAt.current = performance.now())}
-        >
-          {lines!.map((line, i) => (
-            <button
-              key={i}
-              disabled={!np.canSeek}
-              onClick={() => media.seek(line.time)}
-              className={`block w-full px-2 py-[3px] text-center text-body font-semibold leading-snug transition-colors duration-300 enabled:cursor-pointer ${
-                i === index ? "text-label" : "text-label-4 enabled:hover:text-label-2"
-              }`}
-            >
-              {i === index && line.words && music.lyricWords ? <SungWords words={line.words} np={np} /> : line.text || "•••"}
-              {music.lyricRoman && line.roman && <span className="block text-footnote font-medium opacity-70">{line.roman}</span>}
-              {music.lyricTranslation && line.translation && <span className="block text-footnote font-medium opacity-70">{line.translation}</span>}
-            </button>
-          ))}
+        // A size container, so the spacers can be half its height: the first and last lines can then sit in the middle too.
+        <div className="relative min-h-0 flex-1 [container-type:size]">
+          <div
+            ref={list}
+            className="absolute inset-0 overflow-y-auto [scrollbar-width:none]"
+            // Only the outer edges fade, so the lines before and after the sung one stay fully visible.
+            style={{ maskImage: "linear-gradient(180deg, transparent, #000 14%, #000 86%, transparent)" }}
+            onWheel={() => (userScrolledAt.current = performance.now())}
+          >
+            <div aria-hidden className="h-[calc(50cqh-14px)]" />
+            {lines!.map((line, i) => (
+              <button
+                key={i}
+                disabled={!np.canSeek}
+                onClick={() => media.seek(line.time)}
+                className={`block w-full px-2 py-[3px] text-center text-body font-semibold leading-snug transition-colors duration-300 enabled:cursor-pointer ${
+                  // The lines just before and after the sung one stay readable; the rest step back.
+                  i === index ? "text-label" : Math.abs(i - index) === 1 ? "text-label-3 enabled:hover:text-label-2" : "text-label-4 enabled:hover:text-label-2"
+                }`}
+              >
+                {i === index && line.words && music.lyricWords ? <SungWords words={line.words} np={np} /> : line.text || "•••"}
+                {music.lyricRoman && line.roman && <span className="block text-footnote font-medium opacity-70">{line.roman}</span>}
+                {music.lyricTranslation && line.translation && <span className="block text-footnote font-medium opacity-70">{line.translation}</span>}
+              </button>
+            ))}
+            <div aria-hidden className="h-[calc(50cqh-14px)]" />
+          </div>
         </div>
       )}
     </motion.div>

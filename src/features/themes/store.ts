@@ -29,6 +29,8 @@ import "./themes.css";
 export const draft = createStore<History<ThemeFile> | null>(null);
 
 const DARK = resolveTheme(BUILT_IN_THEMES[0]);
+/** The Dark theme's tokens, for light text over a dark picture whatever the theme (the Music tool's cover backdrop). */
+export const darkInk = (): Record<string, string> => DARK.vars;
 /** The theme on screen now (the draft while editing). */
 export const activeTheme = createStore<ResolvedTheme>(DARK);
 

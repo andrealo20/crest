@@ -26,6 +26,9 @@ export function MusicSettings() {
   return (
     <>
       <Group title={t("Musik")} id="settings-music">
+        <Row label={t("Cover als Hintergrund")} hint={t("Zeigt das Albumcover verschwommen hinter dem ganzen Musik-Fenster")}>
+          <Switch label={t("Cover als Hintergrund")} checked={music.coverBackground} onChange={(coverBackground) => setMusic({ coverBackground })} />
+        </Row>
         <Row label={t("Songtext in der geschlossenen Notch")} hint={t("Zeigt beim Abspielen nur Cover und die aktuelle Zeile, die Notch passt sich jeder Zeile an")}>
           <Switch label={t("Songtext in der geschlossenen Notch")} checked={music.notchLyrics} onChange={(notchLyrics) => setMusic({ notchLyrics })} />
         </Row>

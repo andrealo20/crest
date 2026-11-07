@@ -18,3 +18,15 @@ export function requestSize(tabId: string, size: { w: number; h: number } | null
     size ? { tabId, w: Math.min(MAX_SIZE.w, Math.round(size.w)), h: Math.min(MAX_SIZE.h, Math.round(size.h)) } : null,
   );
 }
+
+/*
+ * A tool can also grow by some height below what the user sized it to (the Music tool's lyrics, mixer or player list).
+ * Unlike sizeOverride the user's size stays the base: the grips still resize it, and the extra rides on top.
+ */
+export const sizeExtra = createStore<{ tabId: string; h: number } | null>(null);
+
+/** 0 drops only `tabId`'s own request, as requestSize does. */
+export function requestExtra(tabId: string, h: number) {
+  if (h > 0) sizeExtra.set({ tabId, h: Math.round(h) });
+  else if (sizeExtra.get()?.tabId === tabId) sizeExtra.set(null);
+}

@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
-import { ArrowUpRight, MicrophoneStage, MusicNoteSimple, Pause, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward } from "@phosphor-icons/react";
+import { ArrowUpRight, ImageSquare, MicrophoneStage, MusicNoteSimple, Pause, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward } from "@phosphor-icons/react";
 import { artwork as artworkSwap, content, springs } from "../../design/motion";
-import { useSmoothArtwork } from "./artwork";
+import { useSmoothArtwork, useTinyArtwork } from "./artwork";
+import { coverBackdrop } from "./CoverBackdrop";
+import { coverSize } from "./coverSize";
+import { useToolSize } from "../window/panel";
 import { livePosition, media, useNowPlaying, type NowPlaying } from "../../platform/media";
 import { holdOpen } from "../../notch/useNotchState";
 import { isMac } from "../../platform/native";
-import { requestSize } from "../../notch/size";
+import { requestExtra } from "../../notch/size";
+import { HeaderActions, HeaderButton } from "../../notch/header";
 import { findTab } from "../../notch/tabs";
 import { MIXER_MAX_ROWS, MIXER_ROW, MixerList, MixerToggle, useMixer } from "./Mixer";
 import { Equalizer } from "./Equalizer";
-import { LYRICS_PANEL, LyricsPanel } from "./LyricsPanel";
+import { LyricsPanel, lyricsPanel } from "./LyricsPanel";
 import { SourcePanel, SourceToggle, sourcePanelRows } from "./SourcePanel";
 import { offersSources } from "./sources";
 import { setMusic } from "./music";
@@ -47,24 +51,34 @@ export function NowPlayingView() {
   }, [noChoice]);
   const shown = noChoice ? null : panel;
 
+  // The cover grows with the height the user gave the tool; a lyrics or mixer panel below doesn't count.
+  const cover = coverSize(useToolSize("media", findTab("media")!.size).h);
+  // Behind the whole panel (Notch.tsx draws it): the cover, tiny and stretched, while the switch is on.
+  const smooth = useSmoothArtwork(np?.artwork ?? null);
+  const backdrop = useTinyArtwork(music.coverBackground ? smooth : null);
+  useEffect(() => coverBackdrop.set(backdrop), [backdrop]);
+  useEffect(() => () => coverBackdrop.set(null), []);
+
   // A panel grows the notch by its rows (at most MIXER_MAX_ROWS, then it scrolls).
   const mixerRows = Math.min(MIXER_MAX_ROWS, (mix.system ? 1 : 0) + Math.max(1, mix.apps.length));
   const extra = !np ? 0
     : shown === "mixer" ? mixerRows * MIXER_ROW + 14
     : shown === "sources" ? sourcePanelRows(np, music.pinned) * MIXER_ROW + 14
-    : shown === "lyrics" ? LYRICS_PANEL
+    : shown === "lyrics" ? lyricsPanel(music.lyricRoman || music.lyricTranslation)
     : 0;
-  useEffect(() => {
-    if (!extra) return requestSize("media", null);
-    const base = findTab("media")!.size;
-    requestSize("media", { w: base.w, h: base.h + extra });
-  }, [extra]);
-  useEffect(() => () => requestSize("media", null), []);
+  // On top of the size the user gave the tool, so the grips keep working while a panel is open.
+  useEffect(() => requestExtra("media", extra), [extra]);
+  useEffect(() => () => requestExtra("media", 0), []);
 
   if (!np) return <Empty />;
 
   return (
     <div className="flex h-full flex-col px-5 pt-1 pb-2">
+      <HeaderActions>
+        <HeaderButton label={t("Cover als Hintergrund")} active={music.coverBackground} onClick={() => setMusic({ coverBackground: !music.coverBackground })}>
+          <ImageSquare size={14} weight="bold" />
+        </HeaderButton>
+      </HeaderActions>
       <div className="flex items-center gap-3">
         <button
           onClick={() => void media.openSource()}
@@ -73,7 +87,7 @@ export function NowPlayingView() {
           title={isMac ? undefined : source ? t("In {app} öffnen", { app: source }) : t("App öffnen")}
           className="group/source pressable flex min-w-0 flex-1 items-center gap-3 rounded-[12px] text-start"
         >
-          <Artwork np={np} />
+          <Artwork np={np} size={cover} />
           <div className="relative min-w-0 flex-1">
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.div
@@ -123,14 +137,14 @@ export function NowPlayingView() {
 /** Shared with the overview: clicking the activity flies the cover here. */
 export const ARTWORK_LAYOUT_ID = "now-playing-artwork";
 
-function Artwork({ np }: { np: NowPlaying }) {
+function Artwork({ np, size }: { np: NowPlaying; size: number }) {
   const artwork = useSmoothArtwork(np.artwork);
   return (
     // Outer wrapper flies (layout), inner one scales on pause; separate so they don't fight over transform.
-    <motion.div layoutId={ARTWORK_LAYOUT_ID} transition={springs.morph} className="size-14 shrink-0">
+    <motion.div layoutId={ARTWORK_LAYOUT_ID} transition={springs.morph} className="shrink-0" style={{ width: size, height: size }}>
       {/* Paused: the cover shrinks back slightly and dims, like Apple Music. */}
       <motion.div
-        className="relative size-14 shrink-0"
+        className="relative size-full shrink-0"
         initial={false}
         animate={{ transform: np.isPlaying ? "scale(1)" : "scale(0.9)" }}
         transition={springs.snappy}
