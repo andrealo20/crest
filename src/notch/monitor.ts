@@ -3,6 +3,7 @@ import { isNative } from "../platform/native";
 import { display, type MonitorInfo } from "../platform/services";
 import { settings } from "../settings/store";
 import { followTarget } from "./follow";
+import { viewZoom } from "./viewZoom";
 
 /** The monitor the notch sits on (the chosen one, else the primary, as display.rs picks it; with "follow" or "all" the one it moved to); null until loaded. */
 export const monitor = createStore<MonitorInfo | null>(null);
@@ -27,8 +28,15 @@ export function placedMonitor(): string | null {
   return d.monitorMode === "chosen" ? d.monitor : (monitor.get()?.name ?? d.monitor);
 }
 
-/** Size and work area of that monitor in CSS px; before it loads, the screen with a 48 px taskbar at the bottom. */
+/**
+ * Size and work area of that monitor in CSS px; before it loads, the screen with a 48 px taskbar at the bottom. In the browser the
+ * viewport stands in for it, in the px of the notch's zoomed layer, with DesktopMock's 48 px taskbar (not zoomed) at the bottom.
+ */
 export function monitorMetrics(): { width: number; height: number; workTop: number; workHeight: number; workLeft: number; workWidth: number } {
+  if (!isNative) {
+    const z = viewZoom(), width = window.innerWidth / z, height = window.innerHeight / z;
+    return { width, height, workTop: 0, workHeight: height - 48 / z, workLeft: 0, workWidth: width };
+  }
   const m = monitor.get();
   if (m) return { width: m.width, height: m.height, workTop: m.workTop, workHeight: m.workHeight, workLeft: m.workLeft, workWidth: m.workWidth };
   const height = window.screen.height;

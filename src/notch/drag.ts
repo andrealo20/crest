@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { isNative } from "../platform/native";
 import { display } from "../platform/services";
 import { settings, updateSettings } from "../settings/store";
 import { effectiveIdleStyle } from "../features/window/store";
@@ -88,10 +87,7 @@ export function applyDisplay(offset = pageCss(settings.get().display.offset), y?
 
 /** The area the notch is dragged in: the monitor, in the browser the viewport with DesktopMock's 48 px taskbar. */
 export function dragArea(): Metrics {
-  if (isNative) return monitorMetrics();
-  // The viewport in the zoomed layer's px; DesktopMock's taskbar is not zoomed.
-  const z = viewZoom(), width = window.innerWidth / z, height = window.innerHeight / z;
-  return { width, height, workTop: 0, workHeight: height - 48 / z, workLeft: 0, workWidth: width };
+  return monitorMetrics();
 }
 
 /** The dock's frame line in the browser view, where the viewport stands in for the monitor. */

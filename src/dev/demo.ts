@@ -150,6 +150,7 @@ export function startDemo() {
   fitNarrowScreens();
   window.visualViewport?.addEventListener("resize", fitNarrowScreens);
   nav.subscribe(() => (post({ event: "tool", tool: nav.get().tabId }), fitNarrowScreens()));
+  settings.subscribe(fitNarrowScreens);
   const ready = sendReadyOnChange();
   const state = sendStateOnChange();
   settings.subscribe(ready);
