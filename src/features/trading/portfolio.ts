@@ -1,7 +1,7 @@
 /*
  * Portfolio maths, pure: currency conversion, average cost from trades, values and P&L per
  * account and in total. The Rust providers deliver accounts in the shape below; prices come
- * from `Rates` (CoinGecko for coins, ECB rates for currencies).
+ * from `Rates` (CoinGecko for coins, central bank reference rates for currencies).
  *
  * Rules:
  * - A holding's value is the provider's value when it gives one, else quantity × price.
@@ -59,8 +59,8 @@ export interface Rates {
   crypto: Record<string, number>;
   /** Units of a currency per one `base`. */
   fx: Record<string, number>;
-  /** The ECB day `fx` is from ("2026-10-31"); null until rates arrived once. */
-  date?: string | null;
+  /** The day each rate in `fx` is from ("2026-10-31"): the banks behind them publish on different days. */
+  dates?: Record<string, string>;
   failed: string[];
 }
 

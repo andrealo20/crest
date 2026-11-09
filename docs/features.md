@@ -139,7 +139,7 @@ Caps Lock and Num Lock show the same way: switching either key says "Caps Lock o
   </tr>
   <tr>
     <td><img src="media/features/scratchpad.png" alt="Code scratchpad with a language picker" /></td>
-    <td><img src="media/features/converter.png" alt="Converter: an amount in pounds converted to euros at the ECB rates" /></td>
+    <td><img src="media/features/converter.png" alt="Converter: an amount in pounds converted to euros at the reference rates" /></td>
   </tr>
 </table>
 

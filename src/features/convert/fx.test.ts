@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { convertMoney, currencies } from "./fx.ts";
 import type { Rates } from "../trading/portfolio.ts";
 
-/** ECB style: units per one GBP. */
+/** Reference rate style: units per one GBP. */
 const rates: Rates = { base: "GBP", crypto: {}, fx: { EUR: 1.16, USD: 1.36, JPY: 205 }, failed: [] };
 
 const near = (actual: number | null, expected: number) => assert.ok(actual !== null && Math.abs(actual - expected) < 1e-9, `${actual} is not ${expected}`);

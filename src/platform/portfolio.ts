@@ -118,7 +118,7 @@ function mockRates(base: string): Rates {
     base,
     crypto: Object.fromEntries(Object.entries(coinsEur).map(([k, v]) => [k, v * b])),
     fx: Object.fromEntries(Object.entries(eur).map(([k, v]) => [k, v / b])),
-    date: "2026-10-30",
+    dates: Object.fromEntries(Object.keys(eur).map((k) => [k, "2026-10-30"])),
     failed: [],
   };
 }

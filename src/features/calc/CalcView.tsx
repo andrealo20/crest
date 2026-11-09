@@ -26,7 +26,7 @@ const ROW = 18;
 /** The sheet's own top and bottom padding (py-2). */
 const PAD = 8;
 
-/** Exchange rates are asked for only once a line names a currency, from the ECB source the Converter uses, and reused for half an hour. */
+/** Exchange rates are asked for only once a line names a currency, from the source the Converter uses, and reused for half an hour. */
 const rateCache: { rates: Rates | null; at: number } = { rates: null, at: 0 };
 
 function useRates(wanted: boolean) {

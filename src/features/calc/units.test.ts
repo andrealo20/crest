@@ -83,9 +83,9 @@ test("a conversion and its way back meet", () => {
   }
 });
 
-test("only currencies the ECB publishes can be named", () => {
-  for (const c of ["EUR", "USD", "GBP", "JPY", "CHF", "SEK"]) assert.ok(CURRENCIES.has(c));
-  assert.ok(!CURRENCIES.has("BTC"));
+test("only currencies the Converter has rates for can be named", () => {
+  for (const c of ["EUR", "USD", "GBP", "JPY", "CHF", "SEK", "VND"]) assert.ok(CURRENCIES.has(c));
+  assert.ok(!CURRENCIES.has("BTC") && !CURRENCIES.has("XAU"), "coins and metals are not currencies");
   assert.ok(!CURRENCIES.has("eur"), "codes are kept in capitals; the engine upper-cases what was typed");
   for (const c of CURRENCIES) assert.match(c, /^[A-Z]{3}$/);
 });

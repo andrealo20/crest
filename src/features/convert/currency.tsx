@@ -11,7 +11,7 @@ import { convertMoney, currencies } from "./fx";
 import { parseAmount } from "./parse";
 
 /*
- * Currencies at the ECB reference rates (Frankfurter, the portfolio's source; Rust caches them for a minute). They are
+ * Currencies at the central banks' reference rates (Frankfurter, the portfolio's source; Rust caches them for a minute). They are
  * asked for in the portfolio's base currency, so both share one cache, and any two others cross through that base.
  */
 
@@ -68,7 +68,9 @@ export function CurrencyPanel() {
   const options = (known ? currencies(known) : [...BASES]).map((c) => ({ value: c, label: label(c) }));
   const value = parseAmount(input, locale());
   const result = !known || value === null ? null : convertMoney(value, from, to, known);
-  const day = known?.date ? new Date(`${known.date}T12:00:00`).toLocaleDateString(locale(), { day: "numeric", month: "short" }) : null;
+  // The older day of the pair's two rates (the base has none, it is 1); the newest of all for base to base.
+  const pairDay = [from, to].map((c) => known?.dates?.[c]).filter((d): d is string => !!d).sort()[0] ?? Object.values(known?.dates ?? {}).sort().at(-1);
+  const day = pairDay ? new Date(`${pairDay}T12:00:00`).toLocaleDateString(locale(), { day: "numeric", month: "short" }) : null;
 
   return (
     <div className="flex h-full flex-col gap-3">
@@ -98,7 +100,7 @@ export function CurrencyPanel() {
         </div>
       </div>
       <div className="text-caption text-label-3">
-        {day ? t("EZB-Referenzkurse vom {date}", { date: day }) : offline ? t("Keine Verbindung") : t("Kurse werden geladen …")}
+        {day ? t("Referenzkurse vom {date}", { date: day }) : offline ? t("Keine Verbindung") : t("Kurse werden geladen …")}
         {day && offline && ` · ${t("Keine Verbindung")}`}
       </div>
     </div>

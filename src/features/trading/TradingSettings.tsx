@@ -27,7 +27,7 @@ export function TradingSettings() {
         </Row>
         <div className="flex items-start gap-1.5 px-3 py-2 text-caption text-label-3">
           <LockSimple size={11} weight="bold" className="mt-0.5 shrink-0" />
-          {t("Crest liest nur: keine Orders, keine Überweisungen. Jeden Schlüssel nur mit Leserechten erstellen. Kurse: CoinGecko und EZB-Referenzkurse.")}
+          {t("Crest liest nur: keine Orders, keine Überweisungen. Jeden Schlüssel nur mit Leserechten erstellen. Kurse: CoinGecko und Referenzkurse der Zentralbanken.")}
         </div>
         {providers.map((p) => (
           <ProviderRow key={p.id} provider={p} />

@@ -1,7 +1,7 @@
 import { toBase, type Rates } from "../trading/portfolio.ts";
 
 /**
- * `amount` of `from` in `to`. ECB rates are units per one base, so two other currencies cross through the base;
+ * `amount` of `from` in `to`. Reference rates are units per one base, so two other currencies cross through the base;
  * null when either has no rate.
  */
 export function convertMoney(amount: number, from: string, to: string, rates: Rates): number | null {
