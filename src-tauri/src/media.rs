@@ -186,7 +186,7 @@ pub fn spawn(app: AppHandle) {
     thread::spawn(move || {
         let mut last: Option<NowPlaying> = None;
         let mut last_sent_at = SystemTime::now();
-        let mut artwork = Artwork { key: String::new(), since: Instant::now(), data: None, tries: 0 };
+        let mut artwork = Artwork { key: String::new(), since: Instant::now(), data: None, tries: 0, changed_at: None };
         // Requested once and reused: a new manager per poll is a cross-process
         // round trip every 400 ms. Dropped (and requested again) on an error.
         let mut manager: Option<SessionManager> = None;
@@ -285,6 +285,8 @@ struct Artwork {
     since: Instant,
     data: Option<String>,
     tries: usize,
+    /// When the app moved on to this track (FILETIME), while the timeline Windows holds may still be the last one's.
+    changed_at: Option<i64>,
 }
 
 /// The state as the page gets it: a cover equal to the last sent one stays out of the event, it can be megabytes.
@@ -303,6 +305,8 @@ fn read(session: &Session, artwork: &mut Artwork) -> windows::core::Result<NowPl
 
     let key = format!("{app_id}\u{1}{title}\u{1}{artist}");
     if artwork.key != key {
+        // Only a new track in the same player: on Crest's first look or a switch of player the timeline is that track's.
+        artwork.changed_at = artwork.key.starts_with(&format!("{app_id}\u{1}")).then(now_filetime);
         artwork.key = key;
         artwork.since = Instant::now();
         artwork.tries = 0;
@@ -329,15 +333,25 @@ fn read(session: &Session, artwork: &mut Artwork) -> windows::core::Result<NowPl
         _ => "none",
     });
     let timeline = session.GetTimelineProperties()?;
-    let duration = ticks_to_secs(timeline.EndTime()?.Duration - timeline.StartTime()?.Duration);
+    let mut duration = ticks_to_secs(timeline.EndTime()?.Duration - timeline.StartTime()?.Duration);
     let mut position = ticks_to_secs(timeline.Position()?.Duration);
+    let updated = timeline.LastUpdatedTime()?.UniversalTime;
 
     // GSMTC reports the position only sporadically, so extrapolate to now.
     if is_playing {
-        let updated = timeline.LastUpdatedTime()?.UniversalTime;
         let elapsed = ticks_to_secs(now_filetime() - updated);
         if updated > 0 && (0.0..86_400.0).contains(&elapsed) {
             position += elapsed;
+        }
+    }
+    if let Some(at) = artwork.changed_at {
+        if updated >= at {
+            artwork.changed_at = None;
+        } else if past_end(position, duration) {
+            // Some players move on without a new timeline: the last track's ran out, so the new one showed at its
+            // end, lyrics too (issue #26). Counted from the change instead, length unknown until the app reports.
+            // shortcut: keeps counting through a pause in that gap, fine while the app reports again within seconds.
+            (position, duration) = (ticks_to_secs(now_filetime() - at), 0.0);
         }
     }
     if duration > 0.0 {
@@ -392,6 +406,11 @@ fn changed(last: &Option<NowPlaying>, current: &Option<NowPlaying>, last_sent_at
     }
 }
 
+/// A timeline that ran out: after a track change in the same player, it is the previous track's.
+fn past_end(position: f64, duration: f64) -> bool {
+    duration > 0.0 && position >= duration - 1.0
+}
+
 /// WinRT times are 100 ns ticks.
 fn ticks_to_secs(ticks: i64) -> f64 {
     ticks as f64 / 10_000_000.0
@@ -433,5 +452,12 @@ mod tests {
         assert!(same.artwork.is_none() && same.artwork_same);
         assert_eq!(lean(&a, &b).unwrap().artwork.as_deref(), Some("cover-b"));
         assert!(lean(&a, &None).is_none());
+    }
+
+    #[test]
+    fn only_a_timeline_that_ran_out_counts_as_the_last_tracks() {
+        assert!(past_end(212.0, 147.0) && past_end(146.5, 147.0));
+        assert!(!past_end(0.3, 147.0), "a fresh timeline posted just before the title");
+        assert!(!past_end(30.0, 0.0), "a stream has no end");
     }
 }
