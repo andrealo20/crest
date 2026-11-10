@@ -91,8 +91,16 @@ function withWords(lines: Line[]): string {
 const plain = (lines: Line[]) => lines.map(([t, text]) => `${stamp(t)}${text}`).join("\n");
 const translated = (lines: Line[]) => lines.map(([t, , tr]) => `${stamp(t)}${tr ?? ""}`).join("\n");
 
-/** What the lyric sources would have answered, by song title; word timing on the first, a translation on the third. */
+/**
+ * Lyrics of the real song in the demo, from a synced .lrc file its owner adds as src/dev/lyrics/let-it-happen.lrc (file name:
+ * the title in lower case, words joined by "-"). With no file, the song simply has no lyrics.
+ */
+const lyricFiles = import.meta.glob("./lyrics/*.lrc", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
+
+/** What the lyric sources would have answered, by song title; word timing on the first made-up song, a translation on the third. */
 export function demoLyrics(title: string): Found | null {
+  const file = lyricFiles[`./lyrics/${title.toLowerCase().replace(/\s+/g, "-")}.lrc`];
+  if (file) return { lrc: file, instrumental: false };
   if (title === "Neon Harbour") return { lrc: withWords(NEON_HARBOUR), instrumental: false };
   if (title === "Slow Orange") return { lrc: plain(SLOW_ORANGE), instrumental: false };
   if (title === "Papel y Luz") return { lrc: plain(PAPEL_Y_LUZ), instrumental: false, translation: translated(PAPEL_Y_LUZ) };
