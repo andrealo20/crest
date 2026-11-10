@@ -159,6 +159,8 @@ export interface Settings {
   setup: { done: boolean };
   /** Clipboard tool: the small chip that decodes a JWT, Unix time, Base64, UUID, JSON, colour or tracking link on an entry. Only visual, on by default. */
   clipChips: boolean;
+  /** Clipboard tool: a click on an entry also pastes it into the app that had the keyboard before the notch opened (clipboard.rs). Off by default: it changes what a click does. */
+  clipPaste: boolean;
 }
 
 const defaults: Settings = {
@@ -222,6 +224,7 @@ const defaults: Settings = {
   camera: { deviceId: "", mirror: true },
   setup: { done: false },
   clipChips: true,
+  clipPaste: false,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */

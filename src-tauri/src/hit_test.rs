@@ -273,7 +273,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             let inside = if drag_active { rect.grown(state.edge.load(Ordering::Relaxed)) } else { rect }.contains(x, y);
             let on_pet = !inside && pet.is_some_and(|p| p.contains(x, y));
             let ignore = !inside && !on_pet && !*state.pinned.lock().unwrap();
-            if on_pet && !last_on_pet {
+            if (on_pet && !last_on_pet) || (inside && last_inside != Some(true)) {
                 crate::remember_foreground(&window);
             }
             if on_pet != last_on_pet {
