@@ -26,6 +26,8 @@ import { setFocusMode } from "../notch/focus";
 import { QUOTA } from "../notch/row/notices";
 import { PET_IDS } from "../notch/row/parts";
 import { viewZoom } from "../notch/viewZoom";
+import { PANEL_SCALES } from "../features/window/panelSize";
+import { normalizeSearch } from "../features/overview/search";
 
 /*
  * The try-it demo of the project page (Crest's real frontend, built for the web: `vite build --mode demo`, or `?demo`).
@@ -47,6 +49,9 @@ import { viewZoom } from "../notch/viewZoom";
  *   { cmd: "play" } { cmd: "pause" }
  *   { cmd: "lang", code } { cmd: "style", style: notch | capsule | line } { cmd: "edge", edge: top | bottom | left | right }
  *   { cmd: "theme", id } { cmd: "pet", on, kind? }   kind: cat cocker monkey sloth samurai robot flame zombie (omitted: keep, else cat)
+ *   { cmd: "scale", value }      panel scale in %, one of PANEL_SCALES
+ *   { cmd: "cover", on }         the Music tool's cover behind the whole panel
+ *   { cmd: "search", engine }    Overview's web search line: google | bing | duckduckgo | brave | off
  * Every command first undoes what would hide its result: focus mode, presentation mode, quiet hours, and notices still showing.
  *
  * Demo -> host (postMessage on the parent):
@@ -54,7 +59,7 @@ import { viewZoom } from "../notch/viewZoom";
  *   { event: "tool", tool }    the visible tool changed
  *   { event: "open", open }    the notch opened or closed
  *   { event: "size", w, h }    the notch's outer size in CSS px (follows its spring)
- *   { event: "state", lang, theme, style, edge, pet }   after "ready" and on every change, from any source (pet: kind id or null)
+ *   { event: "state", lang, theme, style, edge, pet, scale, cover, search }   after "ready" and on every change, from any source (pet: kind id or null)
  */
 
 const params = new URLSearchParams(location.search);
@@ -198,12 +203,15 @@ function sendReadyOnChange() {
   };
 }
 
-/** Language, theme, closed style, edge and pet, so the page's chips follow what the visitor changes in Settings. */
+/** Language, theme, closed style, edge, pet and the 1.1 settings the page shows, so the page's chips follow what the visitor changes in Settings. */
 function sendStateOnChange() {
   let last = "";
   return (force?: boolean) => {
     const s = settings.get();
-    const state = { lang: language.get(), theme: s.themes.id, style: s.display.idleStyle, edge: s.dock.edge, pet: s.closed.pet.id };
+    const state = {
+      lang: language.get(), theme: s.themes.id, style: s.display.idleStyle, edge: s.dock.edge, pet: s.closed.pet.id,
+      scale: s.behavior.scale, cover: s.music.coverBackground, search: s.productivity.search,
+    };
     const key = JSON.stringify(state);
     if (key === last && force !== true) return;
     last = key;
@@ -267,6 +275,12 @@ function onMessage(e: MessageEvent) {
       const kind = PET_IDS.find((x) => x === m.kind);
       return void updateSettings((s) => ({ closed: { ...s.closed, pet: { ...s.closed.pet, id: m.on ? (kind ?? s.closed.pet.id ?? "cat") : null } } }));
     }
+    case "scale":
+      return void ((PANEL_SCALES as readonly unknown[]).includes(m.value) && updateSettings((s) => ({ behavior: { ...s.behavior, scale: m.value as (typeof PANEL_SCALES)[number] } })));
+    case "cover":
+      return void updateSettings((s) => ({ music: { ...s.music, coverBackground: m.on === true } }));
+    case "search":
+      return void updateSettings((s) => ({ productivity: { ...s.productivity, search: normalizeSearch(m.engine) } }));
   }
 }
 
