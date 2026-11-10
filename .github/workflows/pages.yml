@@ -1,7 +1,8 @@
 name: Site
 
-# Builds the website (site/) and the in-browser demo of the app, and publishes them on Cloudflare Pages (crestisland.app).
-# Needs two repository secrets: CLOUDFLARE_API_TOKEN (a token with Cloudflare Pages: Edit only) and CLOUDFLARE_ACCOUNT_ID.
+# Builds and tests the website (site/) and the in-browser demo of the app, and publishes them on Cloudflare Pages
+# (crestisland.app) once two repository secrets exist: CLOUDFLARE_API_TOKEN (a token with Cloudflare Pages: Edit only) and
+# CLOUDFLARE_ACCOUNT_ID. Without them the site is checked here and published from a PC with the same wrangler command.
 on:
   push:
     branches: [main]
@@ -18,9 +19,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: site
-      url: https://crestisland.app
+    env:
+      CAN_PUBLISH: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -34,6 +34,7 @@ jobs:
       - name: Refuse the Turnstile test key
         run: "! grep -rl '1x00000000000000000000AA' dist-site"
       - name: Publish on Cloudflare Pages
+        if: env.CAN_PUBLISH == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
