@@ -102,6 +102,9 @@ export function startDemo() {
     usage: { ...s.usage, cursor: true },
     github: { user: "andrealo20" },
     privacyDots: true,
+    // Every tool in its own colour, the way the website shows them, and the timer in its pixel look.
+    themes: { ...s.themes, iconColors: true },
+    timer: { ...s.timer, look: "pixel" },
     notices: { ...s.notices, enabled: true, windows: true, cli: true },
     calendar: {
       ...s.calendar,
@@ -119,7 +122,7 @@ export function startDemo() {
     music: { ...s.music, titleLyrics: true },
     closed: {
       ...s.closed,
-      parts: { ...s.closed.parts, timer: true, discord: true, rings: true, title: false, readings: true, equalizer: true, clock: true, github: false, calendar: true, script: true, downloads: true, weather: true },
+      parts: { ...s.closed.parts, timer: true, discord: true, rings: true, title: false, readings: true, equalizer: true, clock: true, github: false, calendar: false, script: true, downloads: true, weather: true },
       readings: { ...s.closed.readings, cpu: true, ram: true, gpu: true },
     },
   }));

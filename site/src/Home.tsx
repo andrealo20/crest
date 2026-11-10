@@ -223,7 +223,7 @@ function Closed() {
         <p className="lead">A running timer, the song or its lyric line, AI quota rings, CPU, RAM and GPU, the network, power, battery, temperature, the clock and today's GitHub count. Notices drop over the row and leave by themselves.</p>
       </Rise>
       <Rise i={2} className="closed-strip">
-        <img src={img} width={732} height={42} alt="The closed notch with the cover, a running timer, AI quota rings, CPU, the equalizer, the clock, the next event and the weather" />
+        <img src={img} width={732} height={42} alt="The closed notch with the cover, a running timer, AI quota rings, CPU, memory and GPU, the equalizer, the clock and the weather" />
       </Rise>
       <Rise i={3}>
         <a className="textlink" href="/try/#closed">Change its look and edge in the demo <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
