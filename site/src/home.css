@@ -109,7 +109,7 @@ div.notch {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  background: var(--y);
+  background: #9d7aff;
   color: #000;
   overflow: hidden;
 }
