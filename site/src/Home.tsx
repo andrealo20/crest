@@ -106,7 +106,7 @@ function LiveNotch() {
   );
 }
 
-/** Once the first screen's bar has scrolled away, the logo and the two buttons stay at the top, each on a ground of its own so they read on every colour. */
+/** Once the first screen's bar has scrolled away, a black bar with the logo and the two buttons stays at the top of the page. */
 function StickyBar() {
   const [show, setShow] = useState(false);
   useEffect(() => {

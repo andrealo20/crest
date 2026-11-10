@@ -514,31 +514,29 @@ div.notch {
 
 /* ---------- The bar that stays at the top ---------- */
 
+/* One black bar across the page, so nothing of the sections shows between its parts. */
 .sticky-bar {
   position: fixed;
-  top: 12px;
-  left: var(--m);
-  right: var(--m);
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 30;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  pointer-events: none;
-}
-.sticky-bar > * {
-  pointer-events: auto;
+  gap: 16px;
+  padding: 10px var(--m);
+  background: #000;
+  color: #fff;
 }
 .sticky-brand {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  padding: 5px 18px 5px 6px;
-  border-radius: 999px;
-  background: #fff;
-  color: #000;
+  color: #fff;
   font-weight: 800;
-  font-size: 18px;
+  font-size: 19px;
   letter-spacing: -0.02em;
   text-decoration: none;
 }
@@ -546,7 +544,7 @@ div.notch {
   display: flex;
   gap: 8px;
 }
-/* A white ring keeps the black button visible over the black sections. */
 .sticky-get {
-  box-shadow: 0 0 0 2px #fff;
+  background: #7b61ff;
+  color: #000;
 }
