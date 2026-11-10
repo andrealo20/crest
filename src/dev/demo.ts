@@ -22,7 +22,6 @@ import { calendar, calendarDue } from "../features/calendar/store";
 import { usage } from "../features/usage/store";
 import { recording, startRecording, stopRecording, takeShot } from "../features/capture/store";
 import { checkForUpdate, update } from "../lib/update";
-import { setFocusMode } from "../notch/focus";
 import { QUOTA } from "../notch/row/notices";
 import { PART_IDS, PET_IDS } from "../notch/row/parts";
 import { viewZoom } from "../notch/viewZoom";
@@ -55,7 +54,7 @@ import { TIMER_LOOKS } from "../features/timer/looks";
  *   { cmd: "cover", on }         the Music tool's cover behind the whole panel
  *   { cmd: "search", engine }    Overview's web search line: google | bing | duckduckgo | brave | off
  *   { cmd: "look", look }        the timer's look, one of TIMER_LOOKS
- * Every command first undoes what would hide its result: focus mode, presentation mode, quiet hours, and notices still showing.
+ * Every command first undoes what would hide its result: presentation mode, quiet hours, and notices still showing.
  *
  * Demo -> host (postMessage on the parent):
  *   { event: "ready", tools: [{ id, label, hue }] }   the tools in the dock (sent again when the language changes)
@@ -366,9 +365,8 @@ function notice(kind: string) {
   }
 }
 
-/** Focus mode, presentation mode and quiet hours keep notices and clicks away; a visitor who tried them would see nothing happen. */
+/** Presentation mode and quiet hours keep notices away; a visitor who tried them would see nothing happen. */
 function undoStates() {
-  setFocusMode(false);
   const { presentation, notices } = settings.get();
   if (presentation.manual || notices.quiet.on) {
     updateSettings((s) => ({ presentation: { ...s.presentation, manual: false }, notices: { ...s.notices, quiet: { ...s.notices.quiet, on: false } } }));

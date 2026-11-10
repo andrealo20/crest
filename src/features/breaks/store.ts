@@ -1,7 +1,6 @@
 import { createStore } from "../../lib/store";
 import { settings } from "../../settings/store";
 import { systemControls } from "../../platform/services";
-import { focusMode } from "../../notch/focus";
 import { across } from "../../notch/edge";
 import { notchOpen } from "../../notch/useNotchState";
 import { closedEdit } from "../../notch/ClosedResize";
@@ -57,7 +56,6 @@ function held(): boolean {
     notchOpen.get() ||
     closedEdit.get() ||
     fullscreen.get() ||
-    focusMode.get() ||
     // A window rule that hides the notch or turns it into the line, or the line as the closed look.
     screen.get() !== "normal" ||
     display.idleStyle === "line" ||
@@ -130,6 +128,6 @@ export function startBreaks() {
   const hide = () => {
     if (state.shown && held()) apply(suspend(state));
   };
-  [notchOpen, closedEdit, fullscreen, privacy, focusMode, screen, settings, recording, timer, asks, calendarDue, dueTasks].forEach((s) => s.subscribe(hide));
+  [notchOpen, closedEdit, fullscreen, privacy, screen, settings, recording, timer, asks, calendarDue, dueTasks].forEach((s) => s.subscribe(hide));
   if (breaksConfig.get().on) configure();
 }

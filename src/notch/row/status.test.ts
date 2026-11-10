@@ -118,13 +118,12 @@ test("level: brightness and out of range readings", () => {
 });
 test("osd: hidden only while the HUD replaces both and can show", () => {
   const on = { volume: true, brightness: true, hideOsd: true };
-  assert.equal(osdHidden(on, false, false), true);
-  assert.equal(osdHidden({ ...on, hideOsd: false }, false, false), false);
-  assert.equal(osdHidden({ ...on, brightness: false }, false, false), false);
-  assert.equal(osdHidden({ ...on, volume: false }, false, false), false);
-  assert.equal(osdHidden(on, true, false), false);
-  assert.equal(osdHidden(on, false, true), false);
-  // Focus mode or a fullscreen app only pause it: the option stays in force, so the process that restores the indicator stays too.
+  assert.equal(osdHidden(on, false), true);
+  assert.equal(osdHidden({ ...on, hideOsd: false }, false), false);
+  assert.equal(osdHidden({ ...on, brightness: false }, false), false);
+  assert.equal(osdHidden({ ...on, volume: false }, false), false);
+  assert.equal(osdHidden(on, true), false);
+  // A fullscreen app only pauses it: the option stays in force, so the process that restores the indicator stays too.
   assert.equal(osdArmed(on), true);
   assert.equal(osdArmed({ ...on, volume: false }), false);
 });

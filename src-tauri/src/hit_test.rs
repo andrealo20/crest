@@ -8,15 +8,11 @@
 //!
 //! The pet's nest beside the notch has a zone of its own: the window takes the pointer there too, without the
 //! notch's hover, and `notch://pet-hover` says when the pointer comes onto it and leaves.
-//!
-//! Focus mode (`passthrough`): the window stays click-through even over the notch,
-//! so clicks reach the app below (e.g. browser tabs). Three quick clicks on the notch
-//! emit `notch://focus-exit`; only the mouse button is watched for that.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 use std::sync::Mutex;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde::Deserialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
@@ -74,8 +70,6 @@ pub struct HitState {
     pinned: Mutex<bool>,
     /// Set after show(): reapply click-through on the next poll.
     refresh: AtomicBool,
-    /// Focus mode: always click-through, no hover.
-    passthrough: AtomicBool,
     /// Panel scale (the page's zoom) as f64 bits; 0 = 1.0.
     zoom: AtomicU64,
     /// The screen edge the notch hangs from, for the drop zone (see HitRect::grown).
@@ -113,11 +107,6 @@ pub fn set_pet_rect(rect: Option<HitRect>, state: State<'_, HitState>) {
 }
 
 #[tauri::command]
-pub fn set_passthrough(on: bool, state: State<'_, HitState>) {
-    state.passthrough.store(on, Ordering::Relaxed);
-}
-
-#[tauri::command]
 pub fn set_pinned(pinned: bool, state: State<'_, HitState>) {
     *state.pinned.lock().unwrap() = pinned;
 }
@@ -129,9 +118,6 @@ const POLL: Duration = Duration::from_millis(16);
 /// the next poll near the notch is fast again.
 const POLL_FAR: Duration = Duration::from_millis(50);
 const FAR: f64 = 160.0;
-/// Leaving focus mode: this many clicks on the notch, each at most `CLICK_GAP` apart.
-const EXIT_CLICKS: u32 = 3;
-const CLICK_GAP: Duration = Duration::from_millis(450);
 
 /// The cursor relative to the window's top-left corner in physical px, and the window's scale.
 ///
@@ -193,7 +179,6 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
         // Where the current press started; None = button up or the press began near the notch.
         let mut drag_from: Option<(f64, f64)> = None;
         let mut drag_active = false;
-        let (mut clicks, mut last_click) = (0u32, Instant::now());
         let mut far = false;
 
         loop {
@@ -227,34 +212,11 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             };
             #[cfg(target_os = "macos")]
             let dragging = crate::macos::left_button_down();
-            let passthrough = state.passthrough.load(Ordering::Relaxed);
-            // Edge distance to the hit zone; a held button keeps the fast poll (drags,
-            // triple click in focus mode).
+            // Edge distance to the hit zone; a held button keeps the fast poll (drags).
             let pet = *state.pet.lock().unwrap();
             let near = rect.distance(x, y).min(pet.map_or(f64::INFINITY, |p| p.distance(x, y)));
             far = !dragging && !was_down && near > FAR;
 
-            if passthrough {
-                // Only count clicks (button edges), never swallow them.
-                if dragging && !was_down && rect.contains(x, y) {
-                    clicks = if last_click.elapsed() <= CLICK_GAP { clicks + 1 } else { 1 };
-                    last_click = Instant::now();
-                    if clicks >= EXIT_CLICKS {
-                        clicks = 0;
-                        let _ = window.emit("notch://focus-exit", ());
-                    }
-                }
-                was_down = dragging;
-                if last_ignore != Some(true) {
-                    let _ = window.set_ignore_cursor_events(true);
-                    last_ignore = Some(true);
-                }
-                if last_inside != Some(false) {
-                    let _ = window.emit("notch://hover", false);
-                    last_inside = Some(false);
-                }
-                continue;
-            }
             // Grow the zone only for a real drag that started away from the notch (a file
             // from Explorer). A plain click right below the notch must reach the app
             // underneath; growing on every press swallowed those clicks (issue #7).

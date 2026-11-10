@@ -1,6 +1,5 @@
 import { createStore } from "../../lib/store";
 import { noticeSource, systemControls, windowShell, type IncomingNotice, type NoticeSourceStatus } from "../../platform/services";
-import { focusMode } from "../../notch/focus";
 import { settings, updateSettings } from "../../settings/store";
 import { presentingNow, privacy } from "../privacy/store";
 import { fullscreen } from "../system/gaming";
@@ -55,14 +54,14 @@ export const asks = createStore<Ask[]>([]);
 /*
  * An ask is work the user started, so quiet hours, focus and full screen do not hold it back, and it stays until
  * answered. It is not kept in the history. Off for its source, while presenting (its text could be a command on a
- * shared screen), or when nothing can show it (focus mode as a line, the window hidden by a rule or the shortcut),
+ * shared screen), or when nothing can show it (the window hidden by a rule or the shortcut),
  * it is answered "no choice" at once, so the caller falls back to its own prompt without waiting.
  */
 let windowHidden = false;
 
 function receiveAsk(a: Ask) {
   const s = settings.get().notices;
-  const unseen = windowHidden || screen.get() === "hide" || (focusMode.get() && settings.get().display.focusStyle === "line");
+  const unseen = windowHidden || screen.get() === "hide";
   if (!s.enabled || ruleFor(s.rules, a.appId) === "hide" || presentingNow() || unseen) return noticeSource.answer(a.id, null);
   const apps = rememberApp(s.apps, a.appId, a.appName);
   if (apps !== s.apps) updateSettings((cur) => ({ notices: { ...cur.notices, apps } }));

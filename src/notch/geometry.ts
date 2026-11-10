@@ -26,7 +26,7 @@ export const DOCK_HEIGHT = 46;
 export const PADDING = 16;
 
 /**
- * The line (the idle style, or focus mode's thin strip at the edge, just enough to find it again), `w` long and `h` thick: hanging from the
+ * The line (the idle style: a thin strip at the edge, just enough to find it again), `w` long and `h` thick: hanging from the
  * edge with ears, or round all over when `floating` away from it. Hovered it stays a line, just a touch bigger, then opens straight away.
  */
 export function lineGeometry(w: number, h: number, floating: boolean, peek: boolean): NotchGeometry {

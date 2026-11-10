@@ -1,7 +1,6 @@
 import { createStore } from "../../lib/store";
 import { status, type StatusSeed } from "../../platform/services";
 import { settings } from "../../settings/store";
-import { focusMode } from "../../notch/focus";
 import { fullscreen } from "../system/gaming";
 import { presentingNow } from "../privacy/store";
 import { t } from "../../i18n";
@@ -20,10 +19,10 @@ export function startStatusWatch() {
   const low: LowBattery = { warned20: false, warned10: false };
   // Bluetooth devices connected now: one already there (from the seed) does not alert when reported again.
   let devices = new Set<string>();
-  // Whether the alert went on screen. Not in focus mode nor over a fullscreen app; dropped rather than kept for later.
+  // Whether the alert went on screen. Not over a fullscreen app; dropped rather than kept for later.
   // Not a device name while presenting or sharing the screen, as with a download's file name.
   const show = (alert: StatusAlert | null, on: boolean): boolean => {
-    if (!alert || !on || focusMode.get() || fullscreen.get() || (alert.kind === "bt" && presentingNow())) return false;
+    if (!alert || !on || fullscreen.get() || (alert.kind === "bt" && presentingNow())) return false;
     statusAlert.set(alert);
     clearTimeout(hide);
     hide = window.setTimeout(() => statusAlert.set(null), STATUS.showMs);
@@ -41,7 +40,7 @@ export function startStatusWatch() {
       const alert = powerAlert(power, next, low, t);
       power = next;
       const on = settings.get().closed.statusAlerts.power;
-      // A low-battery warning dropped for focus mode or a fullscreen app is not used up: the next reading gives it again.
+      // A low-battery warning dropped for a fullscreen app is not used up: the next reading gives it again.
       if (!show(alert, on) && on && alert && alert.tone !== "normal") Object.assign(low, before);
     },
     net: (next) => {
@@ -65,17 +64,16 @@ export function startStatusWatch() {
   let sent = "";
   const configure = () => {
     const alerts = settings.get().closed.statusAlerts;
-    const quiet = focusMode.get() || fullscreen.get();
+    const quiet = fullscreen.get();
     // Alerts are dropped while quiet, so the key poll rests too; Bluetooth and volume run while their own alerts are on.
     // Off, the watcher forgets the devices; the next scan is a new baseline, so the ones remembered here would hide a reconnect.
     if (!alerts.bt) devices.clear();
-    const c = { ddc: alerts.brightness, locks: alerts.lock && !quiet, bt: alerts.bt, volume: alerts.volume, hideOsd: osdHidden(alerts, focusMode.get(), fullscreen.get()), osdArmed: osdArmed(alerts) };
+    const c = { ddc: alerts.brightness, locks: alerts.lock && !quiet, bt: alerts.bt, volume: alerts.volume, hideOsd: osdHidden(alerts, fullscreen.get()), osdArmed: osdArmed(alerts) };
     if (JSON.stringify(c) === sent) return;
     sent = JSON.stringify(c);
     status.configure(c);
   };
   settings.subscribe(configure);
-  focusMode.subscribe(configure);
   fullscreen.subscribe(configure);
   configure();
 }

@@ -99,7 +99,7 @@ use std::sync::Mutex;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{App, AppHandle, Emitter, Manager, State, WebviewWindow};
+use tauri::{App, AppHandle, Manager, State, WebviewWindow};
 #[cfg(windows)]
 use windows::Win32::Foundation::HWND;
 #[cfg(windows)]
@@ -249,7 +249,6 @@ pub fn run() {
             hit_test::set_hit_rect,
             hit_test::set_pet_rect,
             hit_test::set_pinned,
-            hit_test::set_passthrough,
             idle::idle_seconds,
             media::media_get,
             media::media_control,
@@ -325,7 +324,6 @@ pub fn run() {
             mixer::mixer_set,
             #[cfg(windows)]
             mixer::media_open_source,
-            tray_focus,
             tray_texts,
             #[cfg(windows)]
             controls::focus_get,
@@ -806,24 +804,14 @@ struct TrayItems(Mutex<Option<Tray>>);
 
 struct Tray {
     settings: MenuItem<tauri::Wry>,
-    focus: CheckMenuItem<tauri::Wry>,
     autostart: CheckMenuItem<tauri::Wry>,
     quit: MenuItem<tauri::Wry>,
-}
-
-/// The frontend owns focus mode; the tray check only mirrors it.
-#[tauri::command]
-fn tray_focus(on: bool, state: State<'_, TrayItems>) {
-    if let Some(tray) = state.0.lock().unwrap().as_ref() {
-        let _ = tray.focus.set_checked(on);
-    }
 }
 
 #[derive(serde::Deserialize)]
 struct TrayTexts {
     open: String,
     settings: String,
-    focus: String,
     autostart: String,
     quit: String,
 }
@@ -833,7 +821,6 @@ struct TrayTexts {
 fn tray_texts(texts: TrayTexts, app: AppHandle, state: State<'_, TrayItems>) {
     if let Some(tray) = state.0.lock().unwrap().as_ref() {
         let _ = tray.settings.set_text(texts.settings);
-        let _ = tray.focus.set_text(texts.focus);
         let _ = tray.autostart.set_text(texts.autostart);
         let _ = tray.quit.set_text(texts.quit);
     }
@@ -871,19 +858,16 @@ fn build_tray(app: &App) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", shell::default_open_label(), true, None::<&str>)?;
     shell::set_tray_open(app, open.clone());
     let settings = MenuItem::with_id(app, "settings", "Settings …", true, None::<&str>)?;
-    // The real state follows right after start (the frontend calls tray_focus).
-    let focus = CheckMenuItem::with_id(app, "focus", "Focus mode", true, false, None::<&str>)?;
     let autostart = CheckMenuItem::with_id(app, "autostart", "Start with Windows", true, enabled, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Crest", true, None::<&str>)?;
     *app.state::<TrayItems>().0.lock().unwrap() =
-        Some(Tray { settings: settings.clone(), focus: focus.clone(), autostart: autostart.clone(), quit: quit.clone() });
+        Some(Tray { settings: settings.clone(), autostart: autostart.clone(), quit: quit.clone() });
     let menu = Menu::with_items(
         app,
-        &[&open, &settings, &PredefinedMenuItem::separator(app)?, &focus, &autostart, &PredefinedMenuItem::separator(app)?, &quit],
+        &[&open, &settings, &PredefinedMenuItem::separator(app)?, &autostart, &PredefinedMenuItem::separator(app)?, &quit],
     )?;
 
     let autostart_item = autostart.clone();
-    let focus_item = focus.clone();
     TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
         .tooltip("Crest")
@@ -898,11 +882,6 @@ fn build_tray(app: &App) -> tauri::Result<()> {
             "open" => shell::open(app, None),
             "settings" => shell::open(app, Some("settings")),
             "quit" => app.exit(0),
-            "focus" => {
-                // The click already toggled the check; the frontend applies it and mirrors it back.
-                let on = focus_item.is_checked().unwrap_or(false);
-                let _ = app.emit("notch://focus-set", on);
-            }
             "autostart" => {
                 // The check item toggles itself on click; read the new state.
                 let on = autostart_item.is_checked().unwrap_or(false);

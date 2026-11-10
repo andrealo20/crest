@@ -56,10 +56,8 @@ export interface Settings {
     /** "chosen": on `monitor`; "follow": where the pointer is while closed; "all": a closed copy on every other monitor (src/notch/monitor.ts). */
     monitorMode: MonitorMode;
     offset: number;
-    /** Focus mode look: half transparent (as before) or shrunk to a thin line at the edge. */
-    focusStyle: "dim" | "line";
     /**
-     * Closed look outside focus mode: the notch, the floating capsule, or a thin line (no
+     * Closed look: the notch, the floating capsule, or a thin line (no
      * music etc.; only a finished timer opens it into the notch until dismissed). Hover and
      * click work as usual.
      */
@@ -180,7 +178,7 @@ const defaults: Settings = {
     },
   },
   weather: null,
-  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5 },
+  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, idleStyle: "notch", y: 5 },
   closed: CLOSED_DEFAULTS,
   closedSize: CLOSED_SIZE_DEFAULTS,
   gaming: { mode: "off" },

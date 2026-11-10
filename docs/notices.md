@@ -32,7 +32,7 @@ Other ways were considered and left out. Reading Windows' notification database 
 - **Every day**: a daily quiet window, for example 22:00 to 07:00, works the same way.
 - **Full screen and focus**: while an app fills the notch's screen, or Windows focus or Do Not Disturb is on, notices also go to the history only.
 
-In the closed notch a finished timer and status alerts come first, then notices, then quota alerts and new songs. Notices do not show on the line look or in focus mode; they still go to the history.
+In the closed notch a finished timer and status alerts come first, then notices, then quota alerts and new songs. Notices do not show on the line look; they still go to the history.
 
 ## crest-notify
 
@@ -108,7 +108,7 @@ allow
 | `-t`, `--timeout <seconds>` | How long it waits, 1 to 600, default 120 |
 | `-q`, `--quiet` | Prints no error messages; unlike for notices, the exit code stays, since it is the answer |
 
-The question stays until you answer it: a click on an option answers, the close button answers "no choice". Several questions wait in turn, oldest first. A question shows over the other notices (only a recording and a finished timer come first), also on the idle line and in dimmed focus mode. Quiet hours, focus, Do Not Disturb and full-screen apps do not hold it back, since you started the work that asks. It plays no sound and is not kept in the history. When its source is set to **Off**, presentation mode is on, focus mode is set to the line, or Crest is hidden (by a window rule or the hide shortcut), Crest answers "no choice" at once instead of showing it, so the caller does not wait. On the left and right edges it shows as the app's logo with round buttons; their names show as tooltips.
+The question stays until you answer it: a click on an option answers, the close button answers "no choice". Several questions wait in turn, oldest first. A question shows over the other notices (only a recording and a finished timer come first), also on the idle line. Quiet hours, focus, Do Not Disturb and full-screen apps do not hold it back, since you started the work that asks. It plays no sound and is not kept in the history. When its source is set to **Off**, presentation mode is on, or Crest is hidden (by a window rule or the hide shortcut), Crest answers "no choice" at once instead of showing it, so the caller does not wait. On the left and right edges it shows as the app's logo with round buttons; their names show as tooltips.
 
 Exit codes: 0 an option was picked (its id is on standard output), 1 usage error, 2 rejected (malformed, too many notices, or more than 8 questions open at once), 3 Crest is not running, live notices or crest-notify are off, or the channel belongs to another account, 4 no choice: the time ran out, you closed the question, Crest quit or its notices were switched off, or the Crest running is too old to ask. In every case but 0 nothing is printed on standard output, so a script can fall back to its usual prompt.
 

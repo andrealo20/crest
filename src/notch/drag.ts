@@ -7,7 +7,6 @@ import { capsuleY, snapCapsule, windowYFor } from "./capsule";
 import { across, alongOf, anchorAt, edgeLine, frameFor, nearestEdge, pointToScreen, pointerIn, span, type Dock, type Edge, type Work } from "./edge";
 import { windowAlong } from "./collapsed";
 import { closedLive } from "./ClosedResize";
-import { focusMode } from "./focus";
 import { spotFor } from "./follow";
 import { monitorMetrics, monitors, placedMonitor, reloadMonitor, sharedSpan } from "./monitor";
 import { viewZoom } from "./viewZoom";
@@ -23,9 +22,9 @@ const pageCss = (saved: number) => toPageCss(saved, settings.get().behavior.scal
 
 type Style = "notch" | "capsule" | "line";
 
-/** The closed look on screen: the focus line overrides the idle style, a window rule may turn it into the line. */
+/** The closed look on screen: the idle style, which a window rule may turn into the line. */
 export function shownStyle(s = settings.get()): Style {
-  return focusMode.get() && s.display.focusStyle === "line" ? "line" : effectiveIdleStyle(s.display.idleStyle);
+  return effectiveIdleStyle(s.display.idleStyle);
 }
 
 /** The edge in use: the notch and the line hang from the chosen one, the capsule always floats on the top frame. */
