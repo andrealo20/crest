@@ -1554,6 +1554,22 @@ export const screenColour = {
   pick: (): Promise<string | null> => (isNative ? invoke<string | null>("colour_pick") : Promise.resolve(null)),
 };
 
+// ---------- Backup ----------
+
+/** Backup files (backup.rs): errors are short codes ("too-big", "unreadable", "write", "no-folder"). Native only. */
+export const backupFiles = {
+  /** Writes a new file into Documents/Crest/Backups; its path. */
+  save: (text: string, beforeRestore: boolean): Promise<string> =>
+    isNative ? invoke<string>("backup_save", { text, beforeRestore }) : Promise.reject(new Error("unsupported")),
+  /** The text of the backup file the user picks; null when cancelled. */
+  open: (): Promise<string | null> => (isNative ? invoke<string | null>("backup_open") : Promise.resolve(null)),
+  /** Restarts Crest, which applies a pending restore before anything reads the saved data. */
+  restart: async () => {
+    const { relaunch } = await import("@tauri-apps/plugin-process");
+    await relaunch();
+  },
+};
+
 // ---------- Portable ----------
 
 /** A portable copy (Crest.portable next to the exe) keeps its data beside it and updates itself in place (portable.rs). */

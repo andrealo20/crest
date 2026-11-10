@@ -2,6 +2,7 @@ mod agents;
 pub mod ai;
 #[cfg(windows)]
 mod audio;
+mod backup;
 #[cfg(windows)]
 mod banners;
 #[cfg(windows)]
@@ -52,6 +53,7 @@ mod notices;
 mod notify_wire;
 #[cfg(windows)]
 mod osd;
+mod picker;
 mod plugins;
 pub mod portable;
 mod ports;
@@ -475,6 +477,8 @@ pub fn run() {
             notices::notices_open_app,
             #[cfg(windows)]
             notices::notices_copy_code,
+            backup::backup_save,
+            backup::backup_open,
             plugins::plugins_list,
             plugins::plugins_pick,
             plugins::plugins_stage,

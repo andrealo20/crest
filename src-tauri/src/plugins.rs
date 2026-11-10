@@ -27,10 +27,9 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use tauri::http::{header, Response, StatusCode};
-#[cfg(windows)]
-use tauri::WebviewWindow;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, State, WebviewWindow};
 
+use crate::picker::Pick;
 pub use manifest::Manifest;
 
 pub const SCHEME: &str = "crestplugin";
@@ -110,57 +109,11 @@ pub fn plugins_list(app: AppHandle) -> Vec<Manifest> {
     list
 }
 
-/// Shows the system's folder or file picker over the notch; the chosen path, None when cancelled.
-#[cfg(windows)]
+/// Shows the system's folder or .zip picker over the notch; the chosen path, None when cancelled.
 #[tauri::command]
 pub async fn plugins_pick(zip: bool, window: WebviewWindow) -> Option<String> {
-    let owner = window.hwnd().ok()?.0 as isize;
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    // The dialog needs a thread of its own in a single-threaded COM apartment.
-    std::thread::spawn(move || {
-        let _ = tx.send(pick(zip, owner));
-    });
-    rx.await.ok().flatten()
-}
-
-/// The same with AppKit's picker, through AppleScript; cancelling ends osascript with an error.
-#[cfg(target_os = "macos")]
-#[tauri::command]
-pub async fn plugins_pick(zip: bool) -> Option<String> {
-    let script = if zip { "POSIX path of (choose file of type {\"zip\"})" } else { "POSIX path of (choose folder)" };
-    let out = tauri::async_runtime::spawn_blocking(move || std::process::Command::new("osascript").arg("-e").arg(script).output()).await.ok()?.ok()?;
-    let path = String::from_utf8(out.stdout).ok()?.trim_end().to_string();
-    (out.status.success() && !path.is_empty()).then_some(path)
-}
-
-#[cfg(windows)]
-fn pick(zip: bool, owner: isize) -> Option<String> {
-    use windows::core::w;
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
-    use windows::Win32::UI::Shell::Common::COMDLG_FILTERSPEC;
-    use windows::Win32::UI::Shell::{FileOpenDialog, IFileOpenDialog, FOS_FORCEFILESYSTEM, FOS_PICKFOLDERS, SIGDN_FILESYSPATH};
-    unsafe {
-        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
-        let result = (|| {
-            let dialog: IFileOpenDialog = CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER).ok()?;
-            let mut options = dialog.GetOptions().ok()? | FOS_FORCEFILESYSTEM;
-            if zip {
-                dialog.SetFileTypes(&[COMDLG_FILTERSPEC { pszName: w!("Crest plugin (*.zip)"), pszSpec: w!("*.zip") }]).ok()?;
-            } else {
-                options |= FOS_PICKFOLDERS;
-            }
-            dialog.SetOptions(options).ok()?;
-            // Cancelling returns an error.
-            dialog.Show(Some(HWND(owner as *mut _))).ok()?;
-            let path = dialog.GetResult().ok()?.GetDisplayName(SIGDN_FILESYSPATH).ok()?;
-            let text = path.to_string().ok();
-            CoTaskMemFree(Some(path.0 as _));
-            text
-        })();
-        CoUninitialize();
-        result
-    }
+    let what = if zip { Pick::File { name: "Crest plugin", ext: "zip", dir: None } } else { Pick::Folder };
+    crate::picker::pick(what, &window).await
 }
 
 /// Reads a folder or .zip, checks it and writes it to a staging folder; nothing is installed yet. The settings page

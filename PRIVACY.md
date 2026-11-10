@@ -11,6 +11,7 @@ Crest is a free, open-source Windows and Mac app by Andrea Loroni. It has no acc
 - The events of your calendars from two months back to about three months ahead (titles, places and times), the span the month view can show, in `calendar-cache.json` in the app's data folder, so the agenda shows offline. Removing a calendar drops its events from the file at the next refresh.
 - The vault (passwords and 2FA codes, off by default), in one file encrypted with Windows DPAPI and readable only under your Windows account. With Windows Hello turned on it is additionally sealed with a TPM-backed key.
 - Screenshots and recordings you take, in *Pictures\Screenshots* and *Videos\Crest\Recordings*; audio-only recordings of the Recorder tool (off by default; the microphone, the system audio or both, only while you record) in *Music\Crest\Recordings*. They stay on the PC.
+- Backups you make (Settings, General), in *Documents\Crest\Backups* (*~/Documents/Crest/Backups* on a Mac): your settings, notes, to-dos and the tools' data as plain JSON, without keys, passwords, calendar links or the vault. Crest sends them nowhere; a Documents folder that OneDrive or iCloud Drive syncs takes them along.
 - Plugins you install, in the `plugins` folder of the app's data folder, and the data of those that keep any, in `plugin-data`.
 - A crash log (`crash.log` in the `logs` folder), written only when the app crashes or hits an uncaught error. It is not sent anywhere.
 

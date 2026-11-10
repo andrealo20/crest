@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from "react";
 // First of everything that reads localStorage: the demo swaps it for memory before any store loads.
 import "../dev/demoStorage";
+// Then a restore from a backup, if one waits, so every store loads the restored data.
+import "./restorePending";
 
 export interface Store<T> {
   get(): T;

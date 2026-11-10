@@ -53,6 +53,7 @@ import {
   type MonitorInfo,
   type SecretName,
 } from "../../platform/services";
+import { BackupSettings } from "./BackupSettings";
 import { diagnosticsText } from "./diagnostics";
 import { searchSettings, type SearchEntry } from "./search";
 import { github } from "../github/store";
@@ -374,6 +375,7 @@ function PageContent({ page }: { page: PageId }) {
           <General />
           <Weather />
           <Updates />
+          <BackupSettings />
           <Support />
         </>
       )}
