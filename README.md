@@ -112,7 +112,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 
 - **Overview**: time, weather, the song playing, focus, keep awake, volume, brightness, and quick switches for Wi-Fi, Bluetooth, the dark theme and the microphone.
 - **Calc**: a notebook calculator that reads units, dates, percentages, currencies and variables.
-- **Converter** for units, and currencies at the European Central Bank's rates.
+- **Converter** for units, and about 160 currencies at central bank reference rates.
 - **Colour**: pick a colour anywhere on the screen, copy it as HEX, RGB, HSL or OKLCH, check its contrast and see its harmonies.
 - **Weather** now, hour by hour and for the week, from Open-Meteo.
 - **Portfolio**: your brokers in one currency, read only.
