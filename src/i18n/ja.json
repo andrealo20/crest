@@ -91,6 +91,7 @@
  "fl oz (US)": "液量オンス（米）",
  "Fokus-Klang": "集中サウンド",
  "Freigeschaltet, die FPS laufen": "有効にしました。FPS が動作しています",
+ "Für einen Server auf diesem Computer wie LM Studio oder Ollama nicht nötig": "LM Studio や Ollama など、このコンピューター上のサーバーには不要です",
  "Gerade gedrosselt, nächster Versuch in ein paar Minuten": "現在制限されています。数分後に再試行します",
  "Gespeichert als {name}": "{name} として保存しました",
  "Hat nicht geklappt, Crest einmal als Administrator starten": "うまくいきませんでした。Crest を一度管理者として起動してください",

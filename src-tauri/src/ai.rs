@@ -6,8 +6,9 @@
 //! - `anthropic`: Claude Messages API (SSE), effort as `output_config.effort`.
 //!
 //! The key comes from Credential Manager (`ai.<provider>`) and only leaves Rust in the
-//! Authorization header. Chunks go to the frontend as `ai://delta`; `ai_cancel` stops
-//! a running stream.
+//! Authorization header. A custom endpoint on this computer (LM Studio, Ollama) may have none:
+//! the request then goes without the header. Chunks go to the frontend as `ai://delta`;
+//! `ai_cancel` stops a running stream.
 
 use std::collections::HashSet;
 use std::sync::Mutex;
@@ -55,7 +56,12 @@ struct Delta<'a> {
 
 #[tauri::command]
 pub async fn ai_chat(id: String, config: ChatConfig, messages: Vec<Msg>, app: AppHandle, state: State<'_, AiState>) -> Result<(), String> {
-    let key = secrets::read(&format!("ai.{}", config.provider)).ok_or("no-key")?;
+    let key = match secrets::read(&format!("ai.{}", config.provider)) {
+        Some(key) => key,
+        // A server on this computer usually asks for no key.
+        None if config.provider == "custom" && config.base_url.as_deref().is_some_and(|b| on_this_computer(b.trim())) => String::new(),
+        None => return Err("no-key".into()),
+    };
     let result = stream_chat(&config, &key, &messages, |text| {
         let _ = app.emit("ai://delta", Delta { id: &id, text });
     }, || state.cancelled.lock().unwrap().contains(&id))
@@ -133,7 +139,10 @@ pub async fn stream_chat(
                 body["reasoning_effort"] = json!(e);
             }
         }
-        let mut req = client.post(&url).bearer_auth(key);
+        let mut req = client.post(&url);
+        if !key.is_empty() {
+            req = req.bearer_auth(key);
+        }
         if config.provider == "openrouter" {
             req = req.header("X-Title", "Crest");
         }
@@ -258,15 +267,72 @@ fn custom_base_ok(base: &str) -> bool {
     let Ok(url) = reqwest::Url::parse(base) else { return false };
     match url.scheme() {
         "https" => true,
-        "http" => matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]")),
+        "http" => on_this_computer(base),
         _ => false,
     }
 }
 
+/// The address is this computer's own (LM Studio, Ollama and the like).
+fn on_this_computer(base: &str) -> bool {
+    reqwest::Url::parse(base).is_ok_and(|url| matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]")))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{custom_base_ok, or_cancel, sse_line};
+    use super::{custom_base_ok, on_this_computer, or_cancel, sse_line, stream_chat, ChatConfig, Msg};
     use std::time::Duration;
+
+    /// One request to a server on this computer: the request as it arrived (lower case), answered with an SSE "ok".
+    fn serve_once() -> (u16, std::thread::JoinHandle<String>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let (mut request, mut buf) = (Vec::new(), [0u8; 4096]);
+            // The headers, then as much body as they announce.
+            loop {
+                let n = stream.read(&mut buf).unwrap();
+                request.extend_from_slice(&buf[..n]);
+                let text = String::from_utf8_lossy(&request).to_lowercase();
+                if let Some(end) = text.find("\r\n\r\n") {
+                    let length = text.lines().find_map(|l| l.strip_prefix("content-length:")).and_then(|v| v.trim().parse::<usize>().ok()).unwrap_or(0);
+                    if request.len() >= end + 4 + length {
+                        break;
+                    }
+                }
+                if n == 0 {
+                    break;
+                }
+            }
+            let body = "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\ndata: [DONE]\n\n";
+            let _ = write!(stream, "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len());
+            String::from_utf8_lossy(&request).to_lowercase()
+        });
+        (port, server)
+    }
+
+    #[test]
+    fn a_server_on_this_computer_needs_no_key() {
+        for key in ["", "secret"] {
+            let (port, server) = serve_once();
+            let config = ChatConfig { provider: "custom".into(), base_url: Some(format!("http://127.0.0.1:{port}/v1")), model: "local".into(), effort: None };
+            let mut out = String::new();
+            let hi = [Msg { role: "user".into(), content: "hi".into() }];
+            let result = tauri::async_runtime::block_on(stream_chat(&config, key, &hi, |t| out.push_str(t), || false));
+            assert_eq!((result, out.as_str()), (Ok(()), "ok"));
+            let request = server.join().unwrap();
+            assert!(request.starts_with("post /v1/chat/completions "), "{request}");
+            // Without a key no Authorization header at all, not an empty "Bearer".
+            assert_eq!(request.contains("\r\nauthorization:"), !key.is_empty(), "{request}");
+        }
+        for local in ["http://localhost:11434/v1", "https://127.0.0.1:1234/v1", "http://[::1]:8080"] {
+            assert!(on_this_computer(local), "{local}");
+        }
+        for remote in ["https://api.example.com/v1", "http://localhost.example.com/v1", "http://localhost@evil.example/v1", ""] {
+            assert!(!on_this_computer(remote), "{remote}");
+        }
+    }
 
     #[test]
     fn sse_lines_give_text_errors_and_the_end() {

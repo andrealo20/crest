@@ -610,7 +610,11 @@ function Ask() {
           />
         </Row>
       )}
-      <SecretRow name={`ai.${s.ask.provider}` as SecretName} label={t("API-Schlüssel")} />
+      <SecretRow
+        name={`ai.${s.ask.provider}` as SecretName}
+        label={t("API-Schlüssel")}
+        hint={s.ask.provider === "custom" ? t("Für einen Server auf diesem Computer wie LM Studio oder Ollama nicht nötig") : undefined}
+      />
       <Row label={t("Modell")} hint={s.ask.provider === "openrouter" ? t("Modell-ID von openrouter.ai/models") : undefined}>
         <TextField
           value={s.ask.configs[s.ask.provider].model}

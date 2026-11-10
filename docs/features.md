@@ -220,7 +220,7 @@ World clocks, off by default. Turn them on in **Settings → Tools**.
 
 ## AI chat and usage
 
-- **Ask** is a chat with Claude, ChatGPT, OpenRouter or any OpenAI-compatible endpoint, with streaming and adjustable reasoning effort.
+- **Ask** is a chat with Claude, ChatGPT, OpenRouter or any OpenAI-compatible endpoint, with streaming and adjustable reasoning effort. A local model through LM Studio or Ollama works without a key (see Setting up the integrations).
 - **AI usage** shows your subscription limits for Claude, ChatGPT, Antigravity, Cursor and the Z.ai coding plan, and credits and balances for OpenRouter and DeepSeek.
 - It also shows the tokens and cost of Claude Code and Codex today and over 7 days, read from their local logs. A models page breaks tokens and cost down per model for today, 7 or 30 days.
 - Cards can be reordered, renamed, added and removed.
@@ -361,7 +361,7 @@ Settings are grouped into General, Display, Window, Tools, Timer, AI, Connection
 
 Every integration is optional. Tools you don't connect simply stay out of your way.
 
-**Ask (AI chat).** Under **AI**, choose a provider (Claude, ChatGPT, OpenRouter or a custom endpoint) and paste your API key. For a custom endpoint, enter the base URL (usually ending in `/v1`) and a model ID. The reasoning effort is set there too.
+**Ask (AI chat).** Under **AI**, choose a provider (Claude, ChatGPT, OpenRouter or a custom endpoint) and paste your API key. For a custom endpoint, enter the base URL (usually ending in `/v1`) and a model ID. A model that runs on this computer needs no key and no account: start the local server of LM Studio (`http://localhost:1234/v1`) or Ollama (`http://localhost:11434/v1`), choose the custom endpoint, enter that address and the model's ID, and leave the key empty. The reasoning effort is set there too.
 
 **AI usage.** Nothing to enter. If you are signed in to Claude Code, the Codex CLI or Cursor on this device, Crest reads their existing local login and shows your limits. For Antigravity it asks the open Antigravity app over its local connection, or the `agy` CLI when the app is closed, and never touches its login. The ChatGPT card shows your plan's Codex limits: ChatGPT's own chat limits can't be read anywhere.
 

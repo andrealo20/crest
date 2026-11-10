@@ -91,6 +91,7 @@
  "fl oz (US)": "液量盎司（美制）",
  "Fokus-Klang": "专注音效",
  "Freigeschaltet, die FPS laufen": "已解锁，FPS 正在运行",
+ "Für einen Server auf diesem Computer wie LM Studio oder Ollama nicht nötig": "本机上的服务器（如 LM Studio 或 Ollama）无需密钥",
  "Gerade gedrosselt, nächster Versuch in ein paar Minuten": "目前被限流，几分钟后再试",
  "Gespeichert als {name}": "已保存为 {name}",
  "Hat nicht geklappt, Crest einmal als Administrator starten": "未成功，请以管理员身份启动一次 Crest",

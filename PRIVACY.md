@@ -32,7 +32,7 @@ Every request goes straight from your PC to the service named here. On by defaul
 | Feature | Sent to | When |
 | --- | --- | --- |
 | AI usage | api.anthropic.com, chatgpt.com, cursor.com (with your existing local login for each), openrouter.ai, api.deepseek.com, api.z.ai (with the key you entered); the `agy` CLI on your PC asks Google for Antigravity | While the quota rings show or the tool is open, at most every 2 to 5 minutes, and only for services you are signed in to or have a key for |
-| Ask (AI chat) | The provider you chose: api.anthropic.com, api.openai.com, openrouter.ai or your own endpoint | Only when you send a message |
+| Ask (AI chat) | The provider you chose: api.anthropic.com, api.openai.com, openrouter.ai or your own endpoint (a local server such as LM Studio or Ollama keeps the messages on your PC) | Only when you send a message |
 | Portfolio | Each broker you set up, plus api.coingecko.com (coin symbols) and api.frankfurter.dev (currency codes) | After you set up an account |
 | Converter (currencies) | api.frankfurter.dev (the European Central Bank's reference rates, no personal data) | When you open the Currency tab, at most once a minute |
 | Calc (currencies) | api.frankfurter.dev (the European Central Bank's reference rates, no personal data; what you type in the sheet is not sent) | Only when a line names a currency; the rates are then kept for 30 minutes |
