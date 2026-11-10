@@ -51,12 +51,27 @@ aes-gcm = "0.10"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
-# macOS (src/macos/): Keychain for the API keys; AppKit for the window level above the menu bar, the frontmost app and
-# the pasteboard. All of them are already in the tree through tauri and native-tls.
+# macOS (src/macos/): Keychain for the API keys; AppKit for the window level above the menu bar, the frontmost app,
+# the pasteboard and the colour sampler (with block2 for its handler). All of them are already in the tree through tauri
+# and native-tls.
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3"
+block2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSString"] }
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSPasteboard", "NSResponder", "NSRunningApplication", "NSWindow", "NSWorkspace"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+  "std",
+  "libc",
+  "block2",
+  "objc2-core-foundation",
+  "NSColor",
+  "NSColorSampler",
+  "NSColorSpace",
+  "NSPasteboard",
+  "NSResponder",
+  "NSRunningApplication",
+  "NSWindow",
+  "NSWorkspace",
+] }
 
 [target.'cfg(windows)'.dependencies]
 # Already in the tree through the autostart plugin; startup.rs sets its Windows mode to the current user.

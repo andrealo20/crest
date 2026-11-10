@@ -511,6 +511,10 @@ pub fn run() {
             capture::find::find_scan,
             #[cfg(windows)]
             capture::find::find_highlight,
+            #[cfg(windows)]
+            capture::eyedropper::colour_pick,
+            #[cfg(target_os = "macos")]
+            macos::colour::colour_pick,
             agents::agents_list,
             mic::mic_mute,
             sharing::sharing_hide,

@@ -8,6 +8,7 @@
 //! reads the screens with OCR from in-memory copies.
 
 mod audio;
+pub(crate) mod eyedropper;
 pub(crate) mod find;
 mod math;
 mod record;

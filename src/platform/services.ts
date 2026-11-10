@@ -1544,6 +1544,16 @@ export const windowShell = {
     if (isNative) void invoke("crash_log", { text });
   },
 };
+// ---------- Colour ----------
+
+/**
+ * The Colour tool's pick from the screen: Crest's own eyedropper on Windows (capture/eyedropper.rs), AppKit's colour sampler on
+ * a Mac (macos/colour.rs). "#rrggbb", or null when cancelled. Not in the browser, which has its own (src/features/colour/store.ts).
+ */
+export const screenColour = {
+  pick: (): Promise<string | null> => (isNative ? invoke<string | null>("colour_pick") : Promise.resolve(null)),
+};
+
 // ---------- Portable ----------
 
 /** A portable copy (Crest.portable next to the exe) keeps its data beside it and updates itself in place (portable.rs). */

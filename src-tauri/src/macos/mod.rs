@@ -4,6 +4,7 @@
 
 pub mod audio;
 pub mod brightness;
+pub mod colour;
 pub mod media;
 pub mod mirror;
 pub mod quick;

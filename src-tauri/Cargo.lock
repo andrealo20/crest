@@ -770,6 +770,7 @@ dependencies = [
  "arboard",
  "auto-launch",
  "base64 0.22.1",
+ "block2",
  "cpal",
  "flate2",
  "hmac",

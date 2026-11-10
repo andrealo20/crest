@@ -59,6 +59,58 @@ pub fn line_rect(words: &[(f32, f32, f32, f32)], monitor: Rect, scale: f32) -> O
     intersect(r, monitor)
 }
 
+/// The eyedropper's loupe shows this many screen pixels a side, the one a click takes in the middle.
+pub const LOUPE_SPAN: i32 = 15;
+
+/// Where the eyedropper draws around the pixel at `(x, y)` on a monitor at `scale` (DPI / 96), in the same coordinates.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Loupe {
+    /// Physical pixels per screen pixel: 8 at 100 %.
+    pub cell: i32,
+    /// The magnified square, its middle cell over the pixel.
+    pub frame: Rect,
+    /// The hex value's box, as wide as the square: under it, or over it where the monitor ends below; kept on the monitor sideways.
+    pub label: Rect,
+}
+
+impl Loupe {
+    pub fn new(x: i32, y: i32, scale: f32, monitor: Rect) -> Loupe {
+        let px = |v: f32| (v * scale).round() as i32;
+        let cell = px(8.0).max(4);
+        let side = LOUPE_SPAN * cell;
+        let half = LOUPE_SPAN / 2 * cell + cell / 2;
+        let frame = Rect { x: x - half, y: y - half, w: side, h: side };
+        let (gap, h) = (px(6.0), px(26.0));
+        let below = frame.bottom() + gap;
+        let y = if below + h <= monitor.bottom() { below } else { frame.y - gap - h };
+        let x = frame.x.clamp(monitor.x, (monitor.right() - side).max(monitor.x));
+        Loupe { cell, frame, label: Rect { x, y, w: side, h } }
+    }
+
+    /// All it paints, its borders included: what to repaint when it moves.
+    pub fn bounds(&self) -> Rect {
+        const BORDER: i32 = 3;
+        let (x, y) = (self.frame.x.min(self.label.x) - BORDER, self.frame.y.min(self.label.y) - BORDER);
+        let right = self.frame.right().max(self.label.right()) + BORDER;
+        let bottom = self.frame.bottom().max(self.label.bottom()) + BORDER;
+        Rect { x, y, w: right - x, h: bottom - y }
+    }
+}
+
+/// The red, green and blue of the pixel at `(x, y)` in BGRA rows of `width` pixels; None outside them.
+pub fn pixel_at(bgra: &[u8], width: i32, x: i32, y: i32) -> Option<[u8; 3]> {
+    if x < 0 || y < 0 || x >= width {
+        return None;
+    }
+    let i = (y as usize * width as usize + x as usize) * 4;
+    bgra.get(i..i + 3).map(|p| [p[2], p[1], p[0]])
+}
+
+/// "#rrggbb", as the browser's eyedropper gives it.
+pub fn hex([r, g, b]: [u8; 3]) -> String {
+    format!("#{r:02x}{g:02x}{b:02x}")
+}
+
 /// H.264 4:2:0 needs even sizes: rounds down, at least 2.
 pub fn even_size(w: u32, h: u32) -> (u32, u32) {
     ((w & !1).max(2), (h & !1).max(2))
@@ -305,6 +357,37 @@ mod tests {
         let primary = Rect { x: 0, y: 0, w: 1920, h: 1080 };
         assert_eq!(line_rect(&[(0.0, 0.0, 5.0, 5.0)], primary, 1.0), Some(Rect { x: 0, y: 0, w: 9, h: 9 }));
         assert_eq!(line_rect(&[], primary, 1.0), None);
+    }
+
+    #[test]
+    fn loupe_centres_the_pixel_and_keeps_its_label_on_the_monitor() {
+        let primary = Rect { x: 0, y: 0, w: 1920, h: 1080 };
+        let l = Loupe::new(960, 540, 1.0, primary);
+        assert_eq!((l.cell, l.frame), (8, Rect { x: 900, y: 480, w: 120, h: 120 }));
+        // The middle cell covers the pixel.
+        let mid = l.frame.x + LOUPE_SPAN / 2 * l.cell;
+        assert!(mid <= 960 && 960 < mid + l.cell);
+        assert_eq!(l.label, Rect { x: 900, y: 606, w: 120, h: 26 });
+        assert_eq!(l.bounds(), Rect { x: 897, y: 477, w: 126, h: 158 });
+        // Near the bottom the label goes over the square; at the left edge it stays on the monitor.
+        assert_eq!(Loupe::new(3, 1075, 1.0, primary).label, Rect { x: 0, y: 983, w: 120, h: 26 });
+        // A 150 % monitor left of the primary: bigger cells, negative coordinates.
+        let left = Rect { x: -1920, y: 0, w: 1920, h: 1080 };
+        let l = Loupe::new(-1000, 500, 1.5, left);
+        assert_eq!((l.cell, l.frame, l.label), (12, Rect { x: -1090, y: 410, w: 180, h: 180 }, Rect { x: -1090, y: 599, w: 180, h: 39 }));
+        // At the right edge of the left monitor the label stays on it, not on the primary.
+        assert_eq!(Loupe::new(-2, 500, 1.5, left).label.right(), 0);
+    }
+
+    #[test]
+    fn pixels_and_hex() {
+        // Two pixels in one row, BGRA.
+        let row = [0x10, 0x20, 0x30, 255, 1, 2, 3, 255];
+        assert_eq!(pixel_at(&row, 2, 0, 0).map(hex), Some("#302010".to_string()));
+        assert_eq!(pixel_at(&row, 2, 1, 0).map(hex), Some("#030201".to_string()));
+        assert_eq!(pixel_at(&row, 2, 2, 0), None);
+        assert_eq!(pixel_at(&row, 2, 0, 1), None);
+        assert_eq!(pixel_at(&row, 2, -1, 0), None);
     }
 
     #[test]
