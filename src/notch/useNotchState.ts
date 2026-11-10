@@ -22,17 +22,22 @@ export function holdOpen(on: boolean) {
 }
 
 /*
- * After work done away from the notch (a colour picked elsewhere on the screen) the result should stay in view, and a
- * click in the dock that switches to a narrower or shorter tool can leave the pointer outside the new panel: the notch
- * does not close on its own until the pointer has been over it again. A click elsewhere still closes it.
+ * After work done away from the notch (a colour picked elsewhere on the screen) the result should stay in view, and
+ * switching to a narrower or shorter tool (the dock, the wheel, a link in a tool) can leave the pointer outside the new
+ * panel: the notch does not close on its own until the pointer has been over it again. A click elsewhere still closes
+ * it. Moves while the panel is still resizing do not count, as the old, bigger panel is under the pointer then (#29).
  */
 let awaitVisit = false;
+let awaitFrom = 0;
+/** springs.morph (0.36 s) and the tail of its bounce. */
+const SETTLE_MS = 500;
 export function stayUntilVisit() {
   awaitVisit = true;
+  awaitFrom = performance.now();
 }
 /** The pointer moved over the notch. */
 export function visited() {
-  awaitVisit = false;
+  if (performance.now() - awaitFrom >= SETTLE_MS) awaitVisit = false;
 }
 
 /*
@@ -124,7 +129,7 @@ export function useNotchState() {
 
   const onPointerEnter = useCallback(() => {
     hovering.current = true;
-    awaitVisit = false;
+    visited();
     window.clearTimeout(timer.current);
     if (statusRef.current === "closed") {
       setStatus("peek");

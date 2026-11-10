@@ -37,7 +37,7 @@ import { nav, navigate, openOn, takeOpenTarget } from "./nav";
 import { update } from "../lib/update";
 import { findOnScreenTab, findTab, pageTabs, settingsTab, setupTab, tabs, type NotchTab } from "./tabs";
 import { scanScreens } from "../features/find/store";
-import { holdOpen, pinned, stayUntilVisit, togglePin, useNotchState, visited, type NotchStatus } from "./useNotchState";
+import { holdOpen, pinned, togglePin, useNotchState, visited, type NotchStatus } from "./useNotchState";
 import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
 import { dueTasks } from "../features/todos/store";
@@ -558,7 +558,7 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
       <div className="flex h-10 max-w-full items-center rounded-[14px] bg-fill-2 p-0.5">
         <div ref={strip} className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]" style={{ maskImage: fade, WebkitMaskImage: fade }}>
           {tabs.map((tab) => (
-            <DockButton key={tab.id} label={t(tab.label)} icon={tab.icon} hue={tab.hue} active={tab.id === activeId} onClick={() => switchTo(tab.id)} />
+            <DockButton key={tab.id} label={t(tab.label)} icon={tab.icon} hue={tab.hue} active={tab.id === activeId} onClick={() => navigate(tab.id)} />
           ))}
         </div>
         <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-separator" />
@@ -568,7 +568,6 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
           active={inSettings}
           badge={badge}
           onClick={() => {
-            stayUntilVisit();
             if (inSettings) navigate(lastTool.current ?? tabs[0].id);
             else navigate(settingsTab.id, badge ? "updates" : null);
           }}
@@ -576,12 +575,6 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
       </div>
     </div>
   );
-}
-
-/** A tool picked in the dock: the new panel may be smaller and leave the pointer outside it, which must not close the notch. */
-function switchTo(id: string) {
-  stayUntilVisit();
-  navigate(id);
 }
 
 /** Whether a horizontal strip has more to scroll to at its start and its end (either direction of writing). */

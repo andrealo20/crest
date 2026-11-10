@@ -1,4 +1,5 @@
 import { createStore } from "../lib/store";
+import { notchOpen, stayUntilVisit } from "./useNotchState";
 
 /**
  * Which tool is open? Global so tools can link to each other
@@ -8,6 +9,8 @@ import { createStore } from "../lib/store";
 export const nav = createStore<{ tabId: string; section: string | null }>({ tabId: "media", section: null });
 
 export function navigate(tabId: string, section: string | null = null) {
+  // Open, another tool may be smaller and leave the pointer outside it: that must not close the notch (#29).
+  if (notchOpen.get() && nav.get().tabId !== tabId) stayUntilVisit();
   nav.set({ tabId, section });
 }
 
