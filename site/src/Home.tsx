@@ -4,6 +4,7 @@ import { HUE, LOGO, TOOLS, TOOL_BAR } from "./data";
 import { ArrowUpRight } from "./icons";
 import { News } from "./News";
 import { Notch, type Shot } from "./Notch";
+import { PixelReveal } from "./PixelReveal";
 import { DEMO_ORIGIN } from "./demo";
 import { RELEASE } from "./release";
 import { Faq, Footer, Install, Make, Nav, Privacy, Rise } from "./Sections";
@@ -105,7 +106,6 @@ function LiveNotch() {
 /** First screen: the real notch hangs from the top edge, above a large headline. */
 function Hero() {
   const reduce = useReducedMotion();
-  const words = ["A", "notch", "for", "your", "screen."];
   return (
     <section className="hero" aria-labelledby="hero-title">
       <div className="hero-notch">
@@ -113,15 +113,9 @@ function Hero() {
       </div>
       <Nav />
       <div className="hero-copy">
-        <h1 id="hero-title" className="hero-title">
-          {words.map((w, i) => (
-            <span key={w} className="word">
-              <motion.span initial={reduce ? false : { y: "105%" }} animate={{ y: 0 }} transition={{ type: "spring", visualDuration: 0.7, bounce: 0.12, delay: 0.15 + i * 0.07 }}>
-                {w}
-              </motion.span>
-            </span>
-          ))}
-        </h1>
+        <PixelReveal>
+          <h1 id="hero-title" className="hero-title">A notch for your screen.</h1>
+        </PixelReveal>
         <motion.div className="hero-side" initial={reduce ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}>
           <p className="lead">
             Crest is a free, open source Dynamic Island for Windows and macOS. The notch at the top of this page is the real app: point at it, or tap it on a phone, and use every tool.
