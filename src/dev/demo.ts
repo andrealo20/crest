@@ -39,6 +39,7 @@ import { normalizeSearch } from "../features/overview/search";
  * URL: ?tool=<id> opens on a tool, ?lang=<code> (default en), ?open starts open, ?bare drops the fake desktop (transparent page,
  * for the host page's stage). Bare, the notch opens on a click and stays open until a click outside it or a "close" command (the
  * mouse leaving the frame must not empty the stage); otherwise hover opens it, as in the app. Touch always works like bare.
+ * ?hover keeps bare's transparent page but opens on hover and closes when the mouse leaves, exactly as in the app (the home page).
  * Not bare, a phone gets the page scale that fits the open panel, and the fake desktop has a "Back to the site" link.
  *
  * Host -> demo (postMessage on the iframe's window):
@@ -72,8 +73,8 @@ const DEMO_TOOLS = [
 
 /** A finger has no hover: the notch opens on a tap, and an open one stays until a tap outside. */
 const coarse = matchMedia("(pointer: coarse)").matches;
-/** Same for the host page's stage: the mouse leaves the frame all the time, and the stage must not go empty. */
-const pinOpen = coarse || bare;
+/** Same for the host page's stage: the mouse leaves the frame all the time, and the stage must not go empty. ?hover asks for the app's own hover. */
+const pinOpen = coarse || (bare && !params.has("hover"));
 
 /** The host page is served from the same origin once built; in development it is the site's own dev server. */
 const hostOrigin = import.meta.env.DEV ? "*" : location.origin;
@@ -118,7 +119,7 @@ export function startDemo() {
     music: { ...s.music, titleLyrics: true },
     closed: {
       ...s.closed,
-      parts: { ...s.closed.parts, timer: true, discord: true, rings: true, title: true, readings: true, equalizer: true, clock: true, github: true, calendar: true, script: true, downloads: true, weather: true },
+      parts: { ...s.closed.parts, timer: true, discord: true, rings: true, title: false, readings: true, equalizer: true, clock: true, github: false, calendar: true, script: true, downloads: true, weather: true },
       readings: { ...s.closed.readings, cpu: true, ram: true, gpu: true },
     },
   }));

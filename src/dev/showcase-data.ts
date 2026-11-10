@@ -36,8 +36,12 @@ export const showcaseTracks = [
   { title: "Tadow", artist: "Masego, FKJ", artwork: cover("#ffd27a", "#e8642c", "#3a1206"), accent: "#ff9f5a", duration: 301 },
 ];
 
-/** The demo's tracks: made up, so the lyrics in src/dev/demo-data.ts are our own. */
+/**
+ * The demo's tracks. The first is a real song, named only: its lyrics are not ours to show, so it has none here and its cover is
+ * drawn. The others are made up, so the lyrics in src/dev/demo-data.ts are our own.
+ */
 export const demoTracks = [
+  { title: "Let It Happen", artist: "Tame Impala", artwork: cover("#ff9a6b", "#a23cff", "#1a0630"), accent: "#c58bff", duration: 467 },
   { title: "Neon Harbour", artist: "Lumen Drift", artwork: cover("#ff8ad8", "#7b3fe4", "#140833"), accent: "#d58bff", duration: 214 },
   { title: "Slow Orange", artist: "Marlo Vey", artwork: cover("#ffd27a", "#e8642c", "#3a1206"), accent: "#ff9f5a", duration: 187 },
   { title: "Papel y Luz", artist: "Kita Moru", artwork: cover("#7affd8", "#1f8fa8", "#04202a"), accent: "#5ce1e6", duration: 232 },
