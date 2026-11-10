@@ -1,5 +1,35 @@
 [
   {
+    "version": "1.1.0",
+    "date": "2026-11-10",
+    "items": [
+      {
+        "en": "A shortcut of its own for any tool, which opens the notch straight on it from anywhere"
+      },
+      {
+        "en": "Paste directly from the Clipboard history into the app you were in, like Win + V. Off by default"
+      },
+      {
+        "en": "Crest's own eyedropper, right on every monitor whatever its scaling, and the system's colour sampler on the Mac"
+      },
+      {
+        "en": "Back up settings, notes, to-dos and the tools' data to a file, and restore them on this PC or another one"
+      },
+      {
+        "en": "Web search from Overview, and Ask with a model on your PC through LM Studio or Ollama, without a key"
+      },
+      {
+        "en": "Panel scale from 80 to 200 percent, and the album cover behind the whole panel in Now Playing"
+      },
+      {
+        "en": "About 160 currencies in the Converter and Calc, the Vietnamese dong among them"
+      },
+      {
+        "en": "Fixes for drags out of the Shelf, an invisible banner window that caught the pointer, and new tracks that started at their end"
+      }
+    ]
+  },
+  {
     "version": "1.0.0",
     "date": "2026-11-06",
     "items": [
