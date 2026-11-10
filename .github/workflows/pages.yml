@@ -1,24 +1,26 @@
-name: Pages
+name: Site
 
-# Builds the project page (site/) and the in-browser demo of the app, and publishes them on GitHub Pages.
+# Builds the website (site/) and the in-browser demo of the app, and publishes them on Cloudflare Pages (crestisland.app).
+# Needs two repository secrets: CLOUDFLARE_API_TOKEN (a token with Cloudflare Pages: Edit only) and CLOUDFLARE_ACCOUNT_ID.
 on:
   push:
     branches: [main]
-    paths: ["site/**", "src/**", "src-tauri/src/plugins/sdk.js", "examples/plugins/**", "public/**", "index.html", "timer.html", "mirror.html", "package.json", "package-lock.json", "tsconfig*.json", "vite.config.ts", ".github/workflows/pages.yml"]
+    paths: ["site/**", "src/**", "src-tauri/src/plugins/sdk.js", "examples/plugins/**", "public/**", "index.html", "timer.html", "mirror.html", "PRIVACY.md", "assets/logo/**", "docs/media/features/**", "package.json", "package-lock.json", "tsconfig*.json", "vite.config.ts", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: site
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: site
+      url: https://crestisland.app
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -26,17 +28,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run site:test
       - run: npm run site:build
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
-        with:
-          path: dist-site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+      # Cloudflare's always-pass Turnstile key must never reach the live form (site/src/feedback.ts).
+      - name: Refuse the Turnstile test key
+        run: "! grep -rl '1x00000000000000000000AA' dist-site"
+      - name: Publish on Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        # From an empty folder, so wrangler does not mistake the repository for a Worker project.
+        run: |
+          mkdir -p "$RUNNER_TEMP/deploy" && cd "$RUNNER_TEMP/deploy"
+          npx --yes wrangler@4.160.0 pages deploy "$GITHUB_WORKSPACE/dist-site" --project-name crest-island --branch main --commit-dirty=true
