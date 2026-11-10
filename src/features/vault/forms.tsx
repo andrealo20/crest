@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowsClockwise, Check, ClipboardText, QrCode, Trash } from "@phosphor-icons/react";
+import { ArrowsClockwise, Check, ClipboardText, Copy, QrCode, Trash } from "@phosphor-icons/react";
 import { content } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { Button, Group, Meter, Row, Slider, Switch, TextField } from "../../ui/controls";
@@ -14,6 +14,8 @@ import { t } from "../../i18n";
 const generator = createStore<GeneratorOptions>({ length: 20, digits: true, symbols: true }, { persist: "vault-generator" });
 
 const FIELD = "w-[300px]";
+/** How long the copy button shows its check, as long as the list's "copied" line. */
+const COPIED_MS = 1400;
 
 // ---------- Password ----------
 
@@ -28,6 +30,7 @@ export function PasswordForm(props: {
   const [password, setPassword] = useState(props.password);
   const [generated, setGenerated] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [copied, setCopied] = useState(false);
   const opts = generator.use();
 
   const generate = (o: GeneratorOptions = opts) => {
@@ -46,6 +49,19 @@ export function PasswordForm(props: {
     const id = window.setTimeout(() => setConfirmDelete(false), 3000);
     return () => window.clearTimeout(id);
   }, [confirmDelete]);
+
+  useEffect(() => {
+    if (!copied) return;
+    const id = window.setTimeout(() => setCopied(false), COPIED_MS);
+    return () => window.clearTimeout(id);
+  }, [copied]);
+
+  // What the field shows, saved or just generated, out of every clipboard history like the list's copy.
+  const copy = () =>
+    void props.run(async () => {
+      await vault.copyText(password);
+      setCopied(true);
+    });
 
   const canSave = name.trim() !== "" && password !== "";
   const save = () =>
@@ -95,9 +111,18 @@ export function PasswordForm(props: {
               secret
               revealed={generated}
               placeholder={t("Eingeben oder erzeugen")}
-              width="w-[266px]"
+              width="w-[234px]"
               onSubmit={save}
             />
+            <button
+              aria-label={copied ? t("Passwort kopiert · wird in 30 s geleert") : t("Passwort kopieren")}
+              title={copied ? t("Passwort kopiert · wird in 30 s geleert") : t("Passwort kopieren")}
+              onClick={copy}
+              disabled={!password}
+              className="pressable pressable-fill flex size-7 items-center justify-center rounded-full bg-fill-2 text-label-2 hover:text-label disabled:opacity-35"
+            >
+              {copied ? <Check size={13} weight="bold" className="text-green" /> : <Copy size={13} weight="bold" />}
+            </button>
             <button
               aria-label={t("Passwort erzeugen")}
               title={t("Passwort erzeugen")}

@@ -362,6 +362,8 @@ pub fn run() {
             #[cfg(windows)]
             vault::vault_copy,
             #[cfg(windows)]
+            vault::vault_copy_text,
+            #[cfg(windows)]
             vault::vault_codes,
             #[cfg(windows)]
             vault::vault_options,

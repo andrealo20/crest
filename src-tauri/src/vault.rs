@@ -505,6 +505,16 @@ pub fn vault_copy(id: String, field: String, app: AppHandle, state: State<'_, Va
     copy_private(&text, clear)
 }
 
+/// The password in the open form, which may not be saved yet (a generated one): copied the same private way, and
+/// emptied after 30 s. It is already in the page, so nothing new leaves the vault and no PIN is asked.
+#[tauri::command]
+pub fn vault_copy_text(text: String) -> Result<(), String> {
+    if text.is_empty() {
+        return Err("empty".into());
+    }
+    copy_private(&text, true)
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Code {

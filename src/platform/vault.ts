@@ -68,6 +68,8 @@ export const vault = {
   remove: (id: string) => call<void>("vault_delete", { id }),
   reveal: (id: string) => call<string>("vault_reveal", { id }, false),
   copy: (id: string, field: "username" | "password" | "code") => call<void>("vault_copy", { id, field }, false),
+  /** The password field's text, saved or not, the same private way as `copy`. */
+  copyText: (text: string) => call<void>("vault_copy_text", { text }, false),
   codes: () => call<VaultCode[]>("vault_codes", {}, false),
   options: (pinPasswords: boolean, pinTotp: boolean) => call<void>("vault_options", { pinPasswords, pinTotp }),
   changePin: (pin: string) => call<void>("vault_change_pin", { pin }),
