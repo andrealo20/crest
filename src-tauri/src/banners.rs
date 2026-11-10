@@ -29,6 +29,8 @@ pub fn notices_banners(hide: bool, apps: Vec<String>) -> Result<(), String> {
     // Off the main thread two changes could overlap; one at a time keeps the marks right.
     static BUSY: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _busy = BUSY.lock().unwrap_or_else(|e| e.into_inner());
+    // The Store build's banners go off in Settings, which leaves the same empty window behind.
+    empty_banner::watch(hide);
     if cfg!(feature = "store") {
         if hide {
             crate::open_url("ms-settings:notifications")?;
@@ -64,6 +66,7 @@ fn set_banners(root: &str, hide: bool, apps: Vec<String>) -> Result<(), String> 
 
 /// Every banner Crest hid comes back: on exit, and from the uninstaller (`crest.exe --restore-banners`).
 pub fn restore() {
+    empty_banner::release();
     if !cfg!(feature = "store") {
         restore_in(SETTINGS);
     }
@@ -147,6 +150,101 @@ fn scan(base: &str, prefix: &str, depth: u32, out: &mut Vec<String>) {
         if depth + 1 < MAX_DEPTH {
             scan(base, &sub, depth + 1, out);
         }
+    }
+}
+
+/// With an app's banner off, Windows still uncloaks its banner window for a few seconds on every notification of that
+/// app, with nothing drawn in it: an invisible strip above the tray that takes clicks and keeps an auto-hidden taskbar
+/// down (issue #23). While banners are hidden, that window lets the pointer through whenever it is empty. Windows uses
+/// the same window for real banners, which grow it and get their clicks back on the next pass.
+mod empty_banner {
+    use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
+    use std::sync::Once;
+    use std::thread;
+    use std::time::Duration;
+
+    use windows::core::{w, PCWSTR};
+    use windows::Win32::Foundation::{HWND, RECT};
+    use windows::Win32::UI::HiDpi::GetDpiForWindow;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        FindWindowExW, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId, IsWindow, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_LAYERED,
+        WS_EX_TRANSPARENT,
+    };
+
+    static HIDING: AtomicBool = AtomicBool::new(false);
+    /// The banner window once found; it lives as long as the shell does.
+    static WINDOW: AtomicIsize = AtomicIsize::new(0);
+    /// Both bits: transparent alone still takes the pointer.
+    const PASS: isize = (WS_EX_TRANSPARENT.0 | WS_EX_LAYERED.0) as isize;
+    /// Height in px at 100 % up to which the window shows nothing (31 when uncloaked, 0 while hidden); a banner is taller.
+    const EMPTY_MAX: i32 = 48;
+    /// Narrower is another shell window (Windows Shell Experience Host is 1 x 1); the banner window is 396 wide.
+    const WIDTH_MIN: i32 = 200;
+
+    pub fn watch(hide: bool) {
+        static STARTED: Once = Once::new();
+        HIDING.store(hide, Ordering::Relaxed);
+        if hide {
+            STARTED.call_once(|| {
+                thread::spawn(|| loop {
+                    thread::sleep(Duration::from_millis(250));
+                    pass(HIDING.load(Ordering::Relaxed));
+                });
+            });
+        }
+    }
+
+    /// Windows' own style back: on exit, a real banner must stay clickable without Crest.
+    pub fn release() {
+        HIDING.store(false, Ordering::Relaxed);
+        pass(false);
+    }
+
+    fn pass(on: bool) {
+        // Nothing to give back to a window Crest never touched.
+        if !on && WINDOW.load(Ordering::Relaxed) == 0 {
+            return;
+        }
+        let Some(hwnd) = window() else { return };
+        let Some((width, height)) = size(hwnd) else { return };
+        let empty = width >= WIDTH_MIN && height <= EMPTY_MAX;
+        unsafe {
+            let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+            let next = if on && empty { style | PASS } else { style & !PASS };
+            if next != style {
+                SetWindowLongPtrW(hwnd, GWL_EXSTYLE, next);
+            }
+        }
+    }
+
+    /// The shell's banner window. Its title is in the system's language, so it is told by owner and shape instead:
+    /// a CoreWindow of ShellExperienceHost as wide as a banner and no taller than an empty one (Notification Centre is
+    /// as tall as the screen).
+    fn window() -> Option<HWND> {
+        let known = HWND(WINDOW.load(Ordering::Relaxed) as _);
+        if !known.is_invalid() && unsafe { IsWindow(Some(known)) }.as_bool() {
+            return Some(known);
+        }
+        let mut after = None;
+        while let Ok(hwnd) = unsafe { FindWindowExW(None, after, w!("Windows.UI.Core.CoreWindow"), PCWSTR::null()) } {
+            after = Some(hwnd);
+            let mut pid = 0u32;
+            unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
+            let shell = crate::mixer::process_path(pid).is_some_and(|p| crate::mixer::file_name(&p) == "shellexperiencehost.exe");
+            if shell && size(hwnd).is_some_and(|(w, h)| w >= WIDTH_MIN && h <= EMPTY_MAX) {
+                WINDOW.store(hwnd.0 as isize, Ordering::Relaxed);
+                return Some(hwnd);
+            }
+        }
+        None
+    }
+
+    /// Width and height in px at 100 %.
+    fn size(hwnd: HWND) -> Option<(i32, i32)> {
+        let mut rect = RECT::default();
+        unsafe { GetWindowRect(hwnd, &mut rect) }.ok()?;
+        let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96) as i32;
+        Some(((rect.right - rect.left) * 96 / dpi, (rect.bottom - rect.top) * 96 / dpi))
     }
 }
 
