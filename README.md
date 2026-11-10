@@ -26,6 +26,8 @@
 </p>
 
 <p align="center">
+  <a href="https://crestisland.app/"><b>Website</b></a>
+  &nbsp;·&nbsp;
   <a href="https://github.com/andrealo20/crest/releases/latest"><b>Download</b></a>
   &nbsp;·&nbsp;
   <a href="#features"><b>Features</b></a>
@@ -36,7 +38,7 @@
 </p>
 
 <p align="center">
-  <a href="https://andrealo20.github.io/crest/"><img src="https://img.shields.io/badge/try%20it-in%20your%20browser-FFC75F?style=for-the-badge&labelColor=0F1015" alt="Try Crest in your browser" /></a>
+  <a href="https://crestisland.app/try/"><img src="https://img.shields.io/badge/try%20it-in%20your%20browser-FFC75F?style=for-the-badge&labelColor=0F1015" alt="Try Crest in your browser" /></a>
 </p>
 
 https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
@@ -45,7 +47,7 @@ https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
 
 A notch at the edge of your Windows or Mac screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day: about thirty of them, each one on or off as you like. Free and open source, no account, nothing to pay.
 
-The video above shows them in under two minutes, and [the demo on the project page](https://andrealo20.github.io/crest/) lets you try every tool in your browser before you install anything.
+The video above shows them in under two minutes, and [the demo on the project page](https://crestisland.app/try/) lets you try every tool in your browser before you install anything.
 
 <p align="center"><img src="docs/media/features/closed-capsule.png" alt="The closed capsule at the top of the screen: the cover of the song playing, a focus timer, the AI quota ring, CPU, RAM and GPU load, the clock and the weather" width="760" /></p>
 
@@ -71,6 +73,19 @@ While a song plays it can show the lyric line instead of the title. It asks befo
   <img src="docs/media/features/closed-unplug.png" alt="The charger unplugged, running on battery at 55%" width="236" />
   <img src="docs/media/features/closed-timer.png" alt="A timer that has finished, marked Done" width="236" />
 </p>
+
+## What's new in 1.1.0
+
+- **A shortcut for any tool**: Settings → Window → Open a tool directly gives a tool its own shortcut, which opens the notch on that tool from anywhere.
+- **Paste directly** from the Clipboard history into the app you were in, like Win + V. It is off by default, in Settings → Tools → Clipboard.
+- **Crest's own eyedropper** in Colour: a loupe over a still picture of all your monitors, right on each one whatever its scaling. On a Mac the system's colour sampler does the same.
+- **Backup and restore** in Settings → General: your settings, notes, to-dos and every tool's data in one file, to restore on this PC or another one. Keys, passwords and the vault stay out of it.
+- **Web search** in Overview with Google, Bing, DuckDuckGo or Brave Search, off by default.
+- **Ask** works with a model on your own PC through LM Studio or Ollama, with no key and no account.
+- **Panel scale** from 80 to 200 percent, the album cover behind the whole Now Playing panel, and about 160 currencies in the Converter and Calc.
+- **Fixes** for drags out of the Shelf, an invisible banner window that caught the pointer, lyrics that jumped to the end of a new song, and the Unlock FPS row, which jumped while the FPS counter retried.
+
+The [1.1.0 release](https://github.com/andrealo20/crest/releases/tag/v1.1.0) has the downloads and the full notes, with the issue behind each change.
 
 ## Features
 
@@ -122,7 +137,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 - **Terminal**: PowerShell or Command Prompt inside the notch.
 - **Hardware**: CPU, GPU, RAM, network, power, temperatures, the busiest processes and FPS in games, plus the ports your PC listens on and the program behind each one.
 - **AI usage**: your limits for Claude, ChatGPT, Antigravity, Cursor and more, with a line that says where each one is heading and an optional notice when it resets.
-- **Ask**: a chat with the AI provider you choose, with your own key.
+- **Ask**: a chat with the AI provider you choose, with your own key, or with a model on your PC through LM Studio or Ollama.
 - **Agents**: the Claude Code sessions running on your PC, what each one waits for, and the command to resume it.
 - **GitHub** contribution calendar and streaks, and a **Launcher** for your pinned apps.
 - **crest-notify** lets scripts and builds send notices, ask a question with buttons, or put their own part in the closed row.
