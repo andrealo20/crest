@@ -193,10 +193,10 @@ function Story() {
   const ref = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const fit = useFit(stage, 640);
-  // The panel keeps clear of the tool's large icon below it (home.css): about half the screen's height at most.
-  const [maxH, setMaxH] = useState(() => window.innerHeight * 0.5);
+  // The panel keeps clear of the tool's large icon below it and of the top bar (home.css).
+  const [maxH, setMaxH] = useState(() => window.innerHeight * 0.5 - 64);
   useEffect(() => {
-    const onResize = () => setMaxH(window.innerHeight * 0.5);
+    const onResize = () => setMaxH(window.innerHeight * 0.5 - 64);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);

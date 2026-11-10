@@ -226,11 +226,12 @@ div.notch {
   display: grid;
   grid-template-rows: auto 1fr auto;
 }
+/* The notch hangs from the bottom of the black bar that stays at the top (.sticky-bar, 64 px), not from under it. */
 .story-stage {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 0 16px;
+  padding: 64px 16px 0;
 }
 .story-plain {
   display: block;
