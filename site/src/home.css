@@ -232,6 +232,10 @@ div.notch {
   align-items: flex-start;
   padding: 0 16px;
 }
+.story-plain {
+  display: block;
+  height: auto;
+}
 .story-copy {
   grid-area: 3 / 1;
   align-self: end;

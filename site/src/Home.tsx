@@ -15,7 +15,8 @@ const files = import.meta.glob("./shots/*.png", { eager: true, query: "?url", im
 const shot = (name: string, w: number, h: number, alt: string): Shot => ({ src: files[`./shots/${name}.png`], w, h, alt });
 
 /** The scroll story: each step opens the notch on one tool and turns the page its colour. */
-const STEPS: { tool: string; chapter: string; title: string; text: string; shot: Shot }[] = [
+/** `plain`: a picture of the closed notch with what sits beside it, shown as it is instead of inside an open notch. */
+const STEPS: { tool: string; chapter: string; title: string; text: string; shot: Shot; plain?: true }[] = [
   { tool: "media", chapter: "music", title: "Your music, with the words", text: "Any player with a Windows media session, a live equalizer, a mixer for every app and synced lyrics that light up word by word.", shot: shot("media", 520, 232, "Crest open on Now Playing, with the cover, the progress bar and the controls") },
   { tool: "overview", chapter: "overview", title: "The day at a glance", text: "The time, the weather, the song, focus, keep awake, volume and the brightness of this screen, in one panel.", shot: shot("overview", 520, 356, "Overview with the time, the weather and quick controls") },
   { tool: "weather", chapter: "overview", title: "The weather, hour by hour", text: "Current conditions, an hourly strip and seven days from Open-Meteo, with no key and no account.", shot: shot("weather", 640, 330, "The Weather tool with the hours ahead and seven days") },
@@ -28,6 +29,7 @@ const STEPS: { tool: string; chapter: string; title: string; text: string; shot:
   { tool: "system", chapter: "system", title: "What your PC is doing", text: "CPU, GPU, memory, network, power, temperatures and the busiest processes, with history while the notch is shut.", shot: shot("system", 720, 380, "Hardware with graphs for every part of the PC") },
   { tool: "github", chapter: "system", title: "Your GitHub streak", text: "The contribution calendar of any public user for the last 36 weeks, with today's count and the longest streak.", shot: shot("github", 520, 236, "GitHub contributions for 36 weeks with the current and longest streak") },
   { tool: "trading", chapter: "life", title: "Every broker, one total", text: "Trading 212, Kraken, Coinbase and more, added up in one currency with keys that can only read.", shot: shot("trading", 560, 380, "The Portfolio adding up two brokers in euros") },
+  { tool: "pet", chapter: "yours", title: "A pet by the notch", text: "Eight cartoon pets can live in a nest beside the closed notch. The black cat dances while music plays, runs faster when the CPU is busy, waves when you point at the notch and cheers when a download finishes.", shot: shot("pet", 632, 58, "The closed notch with a black cartoon cat sitting in its nest beside it"), plain: true },
 ];
 
 /** Width the open notch may take: the column it sits in, less the margins. */
@@ -187,7 +189,11 @@ function Story() {
         <Wash color={hue} />
         <h2 id="story-title" className="sr-only">What Crest opens into</h2>
         <div className="story-stage" ref={stage}>
-          <Notch shot={s.shot} open maxW={fit} maxH={maxH} />
+          {s.plain ? (
+            <motion.img key={s.tool} className="story-plain" src={s.shot.src} alt={s.shot.alt} width={s.shot.w} height={s.shot.h} style={{ width: `min(100%, ${s.shot.w * 2}px)` }} initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }} />
+          ) : (
+            <Notch shot={s.shot} open maxW={fit} maxH={maxH} />
+          )}
         </div>
         <AnimatePresence initial={false}>
           <motion.div key={s.tool} className="story-icon" aria-hidden="true" initial={{ opacity: 0, scale: 0.6, rotate: -18 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} exit={{ opacity: 0, scale: 1.2, rotate: 12 }} transition={{ type: "spring", visualDuration: 0.5, bounce: 0.3 }}>

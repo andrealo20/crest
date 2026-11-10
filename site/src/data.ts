@@ -4,6 +4,7 @@ import {
   BellSimple,
   Calculator,
   Camera,
+  Cat,
   CalendarBlank,
   CalendarCheck,
   ChartLineUp,
@@ -100,6 +101,7 @@ export const TOOLS: Record<string, Tool> = {
   habits: { id: "habits", label: "Habits", icon: CalendarCheck, hue: "teal" },
   teleprompter: { id: "teleprompter", label: "Prompter", icon: Scroll, hue: "amber" },
   agents: { id: "agents", label: "Agents", icon: Robot, hue: "indigo" },
+  pet: { id: "pet", label: "Pets", icon: Cat, hue: "lime" },
 };
 
 /** The order of the real tool bar. */

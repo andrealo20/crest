@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef } from "react";
 
-/** Side of one pixel, in CSS px, and how long the whole reveal takes. */
-const CELL = 11;
+/** How long the whole reveal takes. */
 const DURATION = 2200;
 
 /**
@@ -35,6 +34,8 @@ export function PixelReveal({ children, delay = 150 }: { children: React.ReactNo
     ctx.fillStyle = ground;
     ctx.fillRect(0, 0, width, height);
 
+    // Pixels of 18 px on a computer and 12 on a phone.
+    const CELL = window.innerWidth < 760 ? 12 : 18;
     const cols = Math.ceil(width / CELL);
     const rows = Math.ceil(height / CELL);
     const cells: { x: number; y: number; at: number }[] = [];
