@@ -168,6 +168,13 @@ function Story() {
   const ref = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const fit = useFit(stage, 640);
+  // The panel keeps clear of the tool's large icon below it (home.css): about half the screen's height at most.
+  const [maxH, setMaxH] = useState(() => window.innerHeight * 0.5);
+  useEffect(() => {
+    const onResize = () => setMaxH(window.innerHeight * 0.5);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
   const [step, setStep] = useState(0);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
   useMotionValueEvent(scrollYProgress, "change", (p) => setStep(Math.min(STEPS.length - 1, Math.max(0, Math.floor(p * STEPS.length)))));
@@ -182,7 +189,7 @@ function Story() {
         <Wash color={hue} />
         <h2 id="story-title" className="sr-only">What Crest opens into</h2>
         <div className="story-stage" ref={stage}>
-          <Notch shot={s.shot} open maxW={fit} />
+          <Notch shot={s.shot} open maxW={fit} maxH={maxH} />
         </div>
         <AnimatePresence initial={false}>
           <motion.div key={s.tool} className="story-icon" aria-hidden="true" initial={{ opacity: 0, scale: 0.6, rotate: -18 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} exit={{ opacity: 0, scale: 1.2, rotate: 12 }} transition={{ type: "spring", visualDuration: 0.5, bounce: 0.3 }}>

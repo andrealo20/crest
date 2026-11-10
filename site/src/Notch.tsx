@@ -33,11 +33,11 @@ const Ear = ({ side }: { side: "left" | "right" }) => (
 
 /**
  * Crest's notch, moved by the app's own springs: closed it shows a row (cover, time, equalizer); open it grows into the
- * panel of `shot`, scaled to fit `maxW`. Changing `shot` while open morphs from one panel to the next.
+ * panel of `shot`, scaled to fit `maxW` and `maxH`. Changing `shot` while open morphs from one panel to the next.
  */
-export function Notch({ shot, open, maxW, onToggle, label }: { shot: Shot | null; open: boolean; maxW: number; onToggle?: () => void; label?: string }) {
+export function Notch({ shot, open, maxW, maxH = Infinity, onToggle, label }: { shot: Shot | null; open: boolean; maxW: number; maxH?: number; onToggle?: () => void; label?: string }) {
   const time = useClock();
-  const scale = shot ? Math.min(1.25, maxW / shot.w) : 1;
+  const scale = shot ? Math.min(1.25, maxW / shot.w, maxH / shot.h) : 1;
   const size = open && shot ? { w: Math.round(shot.w * scale), h: Math.round(shot.h * scale) } : CLOSED;
   const radius = open ? RADIUS * scale : 18;
 
