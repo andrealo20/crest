@@ -37,6 +37,12 @@ export function removeNotice(list: Notice[], id: string): Notice[] {
   return list.filter((n) => n.id !== id);
 }
 
+/** Drops the Windows notices whose toasts left the notification centre; the same list when none of them is here. */
+export function removeToasts(list: Notice[], ids: number[]): Notice[] {
+  const kept = list.filter((n) => !(n.source === "windows" && typeof n.windowsId === "number" && ids.includes(n.windowsId)));
+  return kept.length === list.length ? list : kept;
+}
+
 /** Drops everything from one app (after it was set to hide). */
 export function removeApp(list: Notice[], appId: string): Notice[] {
   const key = appId.toLowerCase();

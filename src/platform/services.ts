@@ -1381,6 +1381,12 @@ export const noticeSource = {
     const off = listen<Ask>("notices://ask", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
+  /** Ids of Windows toasts that left the notification centre: their app withdrew them, or they were cleared there. */
+  onToastsGone: (handler: (ids: number[]) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<number[]>("notices://gone", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** The asker hung up or its time ran out. */
   onAskClosed: (handler: (id: number) => void): (() => void) => {
     if (!isNative) return () => {};

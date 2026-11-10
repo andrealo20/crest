@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { NOTICE_DEFAULTS, MAX_APPS, inQuiet, minutes, normalizeNotices, rememberApp, route, ruleFor, setRule } from "./rules.ts";
-import { HISTORY, addNotice, removeApp, type Notice } from "./history.ts";
+import { HISTORY, addNotice, removeApp, removeToasts, type Notice } from "./history.ts";
 import { duration, noticeText, popLine, shortTime } from "./format.ts";
 
 const tr = (de: string, vars?: Record<string, string | number>) => (vars ? `${de} ${JSON.stringify(vars)}` : de);
@@ -96,6 +96,13 @@ test("history: replace key, age and cap", () => {
   assert.equal(big.length, HISTORY.max);
   assert.equal(big[0].id, `${HISTORY.max + 9}`);
   assert.deepEqual(removeApp(list, "other").map((x) => x.id), ["5"]);
+});
+
+test("history: toasts that left the notification centre go, the rest stay (issue #30)", () => {
+  const list = [n({ id: "a", windowsId: 7 }), n({ id: "b", windowsId: 8 }), n({ id: "c", source: "cli" }), n({ id: "d", windowsId: null })];
+  assert.deepEqual(removeToasts(list, [7, 99]).map((x) => x.id), ["b", "c", "d"]);
+  // Nothing of ours went: the same list, so the history does not draw again.
+  assert.equal(removeToasts(list, [99]), list);
 });
 
 test("words", () => {

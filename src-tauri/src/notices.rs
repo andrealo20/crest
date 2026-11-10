@@ -3,9 +3,10 @@
 //!
 //! Windows raises `UserNotificationListener`'s change event only for packaged apps, but its reading calls work for a
 //! desktop program. The push notification service writes an entry to its event log for every toast delivered to this
-//! user, with the toast's id and app id; Crest subscribes to that log and reads the one toast it names. Nothing is
-//! changed or removed in the action centre. When the log is turned off or the subscription fails, the list is read
-//! every POLL instead. Both sources send `notices://in`; rules, quiet hours and history live in the frontend.
+//! user, with the toast's id and app id; Crest subscribes to that log and reads the one toast it names. A toast its app
+//! withdraws, or a clear in the notification centre, is in the log too, and sends `notices://gone` with the ids that left.
+//! When the log is turned off or the subscription fails, the list is read every POLL instead. Both sources send
+//! `notices://in`; rules, quiet hours and history live in the frontend.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -28,6 +29,9 @@ const COALESCE: Duration = Duration::from_millis(100);
 const CHANNEL: &str = "Microsoft-Windows-PushNotification-Platform/Operational";
 const DELIVERED: u32 = 3052;
 const SUBMITTED: u32 = 3053;
+/// An app withdrew one of its toasts, named by its id: a chat app does this once the message was read in it.
+const CANCELED: u32 = 3054;
+/// Toasts were cleared (by the user in the notification centre, or by their app); the entry does not say which.
 const CLEARED: u32 = 3055;
 /// Notifications Crest itself might raise (the identifier in tauri.conf.json).
 const OWN_APP: &str = "io.github.andrealo20.crest";
@@ -297,6 +301,8 @@ fn set_status(app: &AppHandle, change: impl FnOnce(&mut Status)) {
 enum Trigger {
     /// Read this toast and check it belongs to this app.
     Read(u32, String),
+    /// This toast left the notification centre: it leaves Crest too.
+    Gone(u32),
     /// An entry without a usable id: compare the whole list with the known ids.
     Full,
     Ignore,
@@ -307,13 +313,21 @@ enum Trigger {
 }
 
 /// What one log entry asks for. A delivered toast is read directly only when both its id and app id are there, so an
-/// entry never leads to showing another app's toast. A clear (3055) does not say which toast went and needs nothing here.
+/// entry never leads to showing another app's toast. A withdrawn toast needs only its id: the frontend drops just the
+/// notice that showed it. A clear, or a withdrawal without an id, is found by reading the list again.
 fn trigger(event_id: u32, kind: Option<&str>, app_id: Option<&str>, tracking: Option<u32>) -> Trigger {
+    let tracking = tracking.filter(|&id| id > 0);
+    if event_id == CANCELED {
+        return tracking.map_or(Trigger::Full, Trigger::Gone);
+    }
+    if event_id == CLEARED {
+        return Trigger::Full;
+    }
     let toast = event_id == DELIVERED || (event_id == SUBMITTED && kind.is_some_and(|k| k.eq_ignore_ascii_case("toast")));
-    if event_id == CLEARED || !toast {
+    if !toast {
         return Trigger::Ignore;
     }
-    match (tracking.filter(|&id| id > 0), app_id.map(str::trim).filter(|a| !a.is_empty())) {
+    match (tracking, app_id.map(str::trim).filter(|a| !a.is_empty())) {
         (Some(id), Some(app)) => Trigger::Read(id, app.to_string()),
         _ => Trigger::Full,
     }
@@ -328,7 +342,7 @@ fn query(sid: Option<&str>) -> String {
         }
         _ => String::new(),
     };
-    format!("*[System[(EventID={DELIVERED}){user}] or (System[EventID={SUBMITTED}{user}] and EventData[Data[@Name='NotificationType']='toast'])]")
+    format!("*[System[(EventID={DELIVERED} or EventID={CANCELED} or EventID={CLEARED}){user}] or (System[EventID={SUBMITTED}{user}] and EventData[Data[@Name='NotificationType']='toast'])]")
 }
 
 fn current(app: &AppHandle, generation: u64) -> bool {
@@ -414,6 +428,8 @@ fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx
         }
 
         let mut full = subscription.is_none() || batch.contains(&Trigger::Full);
+        // Toasts their app withdrew go at once; the ones a clear took are found by the reading below.
+        let mut gone: Vec<u32> = batch.iter().filter_map(|t| if let Trigger::Gone(id) = t { Some(*id) } else { None }).collect();
         if !full {
             for t in batch {
                 let Trigger::Read(id, app_id) = t else { continue };
@@ -433,19 +449,27 @@ fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx
                 std::thread::sleep(Duration::from_millis(500));
             }
         }
-        // The log never says which toasts were cleared; a long session prunes the set with one reading.
+        // A clear never says which toasts went, and a long session prunes the set: one reading answers both.
         if full || known.len() > 1000 {
-            let Ok(list) = read_all(&listener) else { continue };
-            let ids: HashSet<u32> = list.iter().filter_map(|n| n.Id().ok()).collect();
-            if full {
-                for n in &list {
-                    if n.Id().is_ok_and(|id| !known.contains(&id)) {
-                        emit_toast(&app, n, None, &mut icons);
+            if let Ok(list) = read_all(&listener) {
+                let ids: HashSet<u32> = list.iter().filter_map(|n| n.Id().ok()).collect();
+                if full {
+                    for n in &list {
+                        if n.Id().is_ok_and(|id| !known.contains(&id)) {
+                            emit_toast(&app, n, None, &mut icons);
+                        }
                     }
                 }
+                // What left the notification centre since the last reading leaves Crest too, and the set stays its size.
+                gone.extend(known.difference(&ids));
+                known = ids;
             }
-            // Removed toasts leave the set, so it stays the size of the action centre.
-            known = ids;
+        }
+        if !gone.is_empty() {
+            for id in &gone {
+                known.remove(id);
+            }
+            let _ = app.emit("notices://gone", gone);
         }
     }
 }
@@ -970,7 +994,12 @@ mod tests {
         assert_eq!(trigger(DELIVERED, None, None, Some(7)), Trigger::Full);
         assert_eq!(trigger(DELIVERED, None, Some("a"), Some(0)), Trigger::Full);
         assert_eq!(trigger(DELIVERED, None, Some("a"), None), Trigger::Full);
-        assert_eq!(trigger(CLEARED, None, Some("a"), Some(7)), Trigger::Ignore);
+        // An app withdrew its toast (issue #30): no reading needed, its id is enough.
+        assert_eq!(trigger(CANCELED, None, Some("a"), Some(7)), Trigger::Gone(7));
+        assert_eq!(trigger(CANCELED, None, None, Some(7)), Trigger::Gone(7));
+        assert_eq!(trigger(CANCELED, None, Some("a"), None), Trigger::Full);
+        // A clear does not say which toasts went: the list read again does.
+        assert_eq!(trigger(CLEARED, None, None, None), Trigger::Full);
         assert_eq!(trigger(1, None, Some("a"), Some(7)), Trigger::Ignore);
         // An id past i32::MAX arrives negative from the log and is taken back bit for bit.
         assert_eq!(trigger(DELIVERED, None, Some("a"), Some(-5i32 as u32)), Trigger::Read(4294967291, "a".into()));
@@ -985,6 +1014,7 @@ mod tests {
     #[test]
     fn queries() {
         assert!(query(Some("S-1-5-21-1-2")).contains("Security[@UserID='S-1-5-21-1-2']"));
+        assert!(query(None).contains("EventID=3054") && query(None).contains("EventID=3055"));
         assert!(!query(Some("S-1-5' or '1'='1")).contains("UserID"));
         assert!(!query(None).contains("UserID"));
     }

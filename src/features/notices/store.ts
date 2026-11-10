@@ -5,7 +5,7 @@ import { settings, updateSettings } from "../../settings/store";
 import { presentingNow, privacy } from "../privacy/store";
 import { fullscreen } from "../system/gaming";
 import { screen } from "../window/store";
-import { addNotice, removeApp, removeNotice, type Notice } from "./history";
+import { addNotice, removeApp, removeNotice, removeToasts, type Notice } from "./history";
 import { rememberApp, route, ruleFor, setRule, type NoticeRule } from "./rules";
 import { applyPart, livePart, nextExpiry, type PartMessage, type ScriptPart } from "./scriptParts";
 import { addAsk, removeAsk, type Ask } from "./asks";
@@ -151,6 +151,21 @@ export function deleteNotice(id: string) {
   if (popping.get()?.id === id) dismissPop();
 }
 
+/*
+ * The other way round: a toast that left the notification centre leaves Crest too, say once its app withdrew it
+ * because the message was read there (issue #30). In the queue, so a toast withdrawn right after it came in is not
+ * added back by the notice still on its way.
+ */
+function forgetToasts(ids: number[]) {
+  queue = queue
+    .then(() => {
+      history.set((list) => removeToasts(list, ids));
+      const shown = popping.get();
+      if (shown && !history.get().includes(shown)) dismissPop();
+    })
+    .catch(console.error);
+}
+
 export function clearHistory() {
   noticeSource.removeWindows(windowsIds(history.get()));
   history.set([]);
@@ -187,6 +202,7 @@ export function startNotices() {
   if (started) return;
   started = true;
   noticeSource.onNotice(receive);
+  noticeSource.onToastsGone(forgetToasts);
   noticeSource.onStatus((s) => sourceStatus.set(s));
   noticeSource.onPart(receivePart);
   noticeSource.onAsk(receiveAsk);
