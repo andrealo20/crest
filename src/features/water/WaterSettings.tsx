@@ -5,13 +5,14 @@ import { DATE_LANGUAGES } from "../todos/dates";
 import { formatMinutes } from "./water";
 import { waterActions } from "./store";
 import { formatMl } from "./format";
+import { SEARCH_ENGINES, type SearchSetting } from "../overview/search";
 
 const BOTTLES = [250, 330, 500, 750, 1000];
 const GOALS = [1500, 2000, 2500, 3000];
 const EVERY = [30, 45, 60, 90, 120];
 const HOURS = Array.from({ length: 24 }, (_, h) => ({ value: String(h * 60), label: formatMinutes(h * 60) }));
 
-/** Settings → Tools: to-do reminders, the Overview quote and the water reminder. */
+/** Settings → Tools: to-do reminders, the Overview quote and search line, and the water reminder. */
 export function ProductivitySettings() {
   const s = settings.use();
   const p = s.productivity;
@@ -34,6 +35,14 @@ export function ProductivitySettings() {
         )}
         <Row label={t("Zitat in der Übersicht")} hint={t("Eine kurze Zeile für die schweren Stunden")}>
           <Switch label={t("Zitat in der Übersicht")} checked={p.quotes} onChange={(quotes) => set({ quotes })} />
+        </Row>
+        <Row label={t("Websuche in der Übersicht")} hint={t("Ein Feld, das im Standardbrowser sucht")}>
+          <Select<SearchSetting>
+            width="w-36"
+            value={p.search}
+            onChange={(search) => set({ search })}
+            options={[{ value: "off", label: t("Aus") }, ...SEARCH_ENGINES.map((e) => ({ value: e.id, label: e.name }))]}
+          />
         </Row>
       </Group>
       <Group id="settings-water" title={t("Wasser")}>

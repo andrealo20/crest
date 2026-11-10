@@ -386,6 +386,7 @@ pub fn run() {
             diagnostics_info,
             open_sponsors,
             open_store_review,
+            web_search,
             open_bug_report,
             #[cfg(windows)]
             brightness::brightness_get,
@@ -728,6 +729,30 @@ fn open_store_review() -> Result<(), String> {
     open_url("ms-windows-store://review/?ProductId=9N2KXJ2924KS")
 }
 
+/// The search engines of Overview's search line, by the id the settings save.
+const SEARCH_ENGINES: [(&str, &str); 4] = [
+    ("google", "https://www.google.com/search"),
+    ("bing", "https://www.bing.com/search"),
+    ("duckduckgo", "https://duckduckgo.com/"),
+    ("brave", "https://search.brave.com/search"),
+];
+
+/// The results page for `query` on `engine`; None for an unknown engine or an empty or very long query.
+fn search_url(engine: &str, query: &str) -> Option<String> {
+    let query = query.trim();
+    if query.is_empty() || query.chars().count() > 2000 {
+        return None;
+    }
+    let (_, base) = SEARCH_ENGINES.iter().find(|(id, _)| *id == engine)?;
+    reqwest::Url::parse_with_params(base, &[("q", query)]).ok().map(String::from)
+}
+
+/// Overview's search line: the results in the default browser. The addresses are fixed here, so the interface opens nothing else.
+#[tauri::command]
+fn web_search(engine: String, query: String) -> Result<(), String> {
+    open_url(&search_url(&engine, &query).ok_or("bad-search")?)
+}
+
 /// Enables autostart on the very first launch; after that the tray check and settings decide.
 fn enable_autostart_once(app: &AppHandle) {
     // A portable copy writes nothing outside its folder unless asked to (tray or settings); in the Store build the user turns it on.
@@ -891,6 +916,19 @@ mod tests {
         assert!(ok("timer", "timer_window_close") && !ok("timer", "terminal_write") && !ok("timer", "open_path"));
         assert!(ok("mirror-1", "mirror_picture") && !ok("mirror-1", "vault_reveal"));
         assert!(!ok("plugin", "secret_set") && !ok("", "mirror_picture"));
+    }
+
+    #[test]
+    fn web_search_opens_only_the_known_engines() {
+        use super::search_url as url;
+        assert_eq!(url("google", "  rust tauri "), Some("https://www.google.com/search?q=rust+tauri".into()));
+        // The query stays one parameter, whatever it holds.
+        assert_eq!(url("duckduckgo", "a&b=c #1"), Some("https://duckduckgo.com/?q=a%26b%3Dc+%231".into()));
+        assert_eq!(url("brave", "caffè"), Some("https://search.brave.com/search?q=caff%C3%A8".into()));
+        assert_eq!(url("bing", "x"), Some("https://www.bing.com/search?q=x".into()));
+        assert_eq!(url("evil", "x"), None);
+        assert_eq!(url("google", "   "), None);
+        assert_eq!(url("google", &"x".repeat(2001)), None);
     }
 
     #[test]

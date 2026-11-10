@@ -27,6 +27,7 @@ import { settings } from "../../settings/store";
 import { formatAgo, formatTemp, formatTimeParts } from "../../lib/format";
 import { locale, t } from "../../i18n";
 import { QuoteLine } from "../quotes/QuoteLine";
+import { SearchLine } from "./SearchLine";
 import { Select } from "../../ui/controls";
 import { sliderKey } from "../../ui/sliderKey";
 import { AWAKE_MINUTES, awakeLeft, awakeOn, formatLeft } from "./awake";
@@ -45,7 +46,7 @@ import { awake, startAwake, stopAwake } from "./store";
  */
 export function OverviewView() {
   const presenting = usePresenting();
-  const quotes = settings.use().productivity.quotes;
+  const { quotes, search } = settings.use().productivity;
 
   // Playback devices: read when Overview shows and each time the list opens, so one plugged in meanwhile shows up.
   const [outputs, setOutputs] = useState<AudioOutput[]>([]);
@@ -102,7 +103,7 @@ export function OverviewView() {
     if (!extra) return requestSize("overview", null);
     const base = findTab("overview")!.size;
     requestSize("overview", { w: base.w, h: base.h + extra });
-  }, [extra, quotes]);
+  }, [extra, quotes, search]);
   useEffect(() => () => requestSize("overview", null), []);
 
   return (
@@ -133,6 +134,7 @@ export function OverviewView() {
       {bright !== null && <BrightnessTile level={bright} busy={brightBusy} hold={brightHold} onLevel={setBright} />}
       {quick && <QuickControls state={quick} reload={reloadQuick} />}
       {quotes && <QuoteLine />}
+      {search !== "off" && <SearchLine engine={search} />}
     </div>
   );
 }

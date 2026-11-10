@@ -49,6 +49,8 @@ Every request goes straight from your PC to the service named here. On by defaul
 
 Send to phone (Shelf) serves the files you picked on your PC's Wi-Fi or Ethernet address for 10 minutes, behind a random link that the QR code holds; nothing goes through a server of anyone else, and the files travel unencrypted over your network. The first time, Windows Defender Firewall asks whether Crest may use private networks: allow it, or the phone cannot connect. Windows keeps that rule after the 10 minutes and after Crest is uninstalled; remove it under Windows Security, Firewall & network protection, Allow an app through firewall (if you cancelled the prompt, the same page lets you allow Crest).
 
+The web search in Overview (off by default) makes no request itself: Enter opens the results page of the engine you chose in your default browser, which sends the query to that engine.
+
 Live notices read other apps' Windows notifications on your PC, after you allow it, and never send them anywhere. `crest-notify` talks to Crest over a local named pipe and makes no network request.
 
 Plugins you install can contact only the hosts they declare, which Crest lists before you confirm the install; their pages cannot reach the network themselves, and Crest refuses requests to other hosts, to IP addresses and to addresses on your PC or local network. Plugins cannot read your files, keys, vault, clipboard, settings or other plugins. A plugin with storage keeps its data in the `plugin-data` folder of Crest's data folder, removed with the plugin. No plugin is installed by default.

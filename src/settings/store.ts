@@ -18,6 +18,7 @@ import { CALENDAR_DEFAULTS, normalizeCalendar, type CalendarSettings } from "../
 import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
 import { DEFAULT_OFF, TOOL_IDS } from "./tools";
 import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
+import { normalizeSearch, type SearchSetting } from "../features/overview/search";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "off" | "low" | "medium" | "high" | "xhigh";
@@ -92,7 +93,8 @@ export interface Settings {
   /** Look of the big countdown in the Timer tool and the detached timer window; background sound while a focus timer runs, volume 0 to 1. */
   timer: { look: TimerLook; clockLook: ClockLook; color: LookColor; clockColor: LookColor; focusSound: FocusSound; focusVolume: number };
   /** To-do reminders (sound), dates in plain words in the new-task field, the water reminder and the quote line in Overview. */
-  productivity: { reminderSound: boolean; nlDates: boolean; quotes: boolean; water: WaterConfig };
+  /** `search`: Overview's web search line and its engine, or "off". */
+  productivity: { reminderSound: boolean; nlDates: boolean; quotes: boolean; search: SearchSetting; water: WaterConfig };
   /** Terminal tool: shell, font size in px, start folder ("" = home), end the shell when the notch closes. */
   terminal: { shell: "pwsh" | "powershell" | "cmd"; fontSize: number; startDir: string; endOnClose: boolean };
   /**
@@ -188,7 +190,7 @@ const defaults: Settings = {
   presentation: { manual: false, auto: true, hideFromCapture: false },
   updates: { auto: true },
   timer: { look: "clean", clockLook: "standard", color: "orange", clockColor: "white", focusSound: "off", focusVolume: 0.3 },
-  productivity: { reminderSound: true, nlDates: true, quotes: false, water: WATER_DEFAULTS },
+  productivity: { reminderSound: true, nlDates: true, quotes: false, search: "off", water: WATER_DEFAULTS },
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
   music: {
     lyricsOpen: false,
@@ -297,7 +299,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
       clockColor: normalizeLookColor(s.timer?.clockColor, "white"),
       focusSound: normalizeFocusSound(s.timer?.focusSound),
     },
-    productivity: { ...defaults.productivity, ...s.productivity, water: normalizeWater(s.productivity?.water) },
+    productivity: { ...defaults.productivity, ...s.productivity, search: normalizeSearch(s.productivity?.search), water: normalizeWater(s.productivity?.water) },
     terminal: { ...defaults.terminal, ...s.terminal },
     music: { ...defaults.music, ...s.music, lyricSources: normalizeSources(s.music?.lyricSources) },
     // Coloured icons moved from Hardware (closed-row readings only) to Themes (the whole app).
