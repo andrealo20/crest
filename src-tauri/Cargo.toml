@@ -1,6 +1,6 @@
 [package]
 name = "crest"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
 # src/bin/crest-notify.rs is a second binary; `cargo run` and the app mean this one.
@@ -52,12 +52,12 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
 # macOS (src/macos/): Keychain for the API keys; AppKit for the window level above the menu bar, the frontmost app,
-# the pasteboard and the colour sampler (with block2 for its handler). All of them are already in the tree through tauri
-# and native-tls.
+# the pasteboard and the colour sampler (with block2 for its handler); a Foundation dictionary for the Accessibility
+# check a paste needs. All of them are already in the tree through tauri and native-tls.
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3"
 block2 = "0.6"
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSString"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSDictionary", "NSObject", "NSString", "NSValue"] }
 objc2-app-kit = { version = "0.3", default-features = false, features = [
   "std",
   "libc",

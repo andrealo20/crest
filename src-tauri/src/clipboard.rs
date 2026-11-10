@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Mutex;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use arboard::{Clipboard, ImageData};
 use base64::Engine;
@@ -26,6 +26,10 @@ use windows::Win32::System::DataExchange::{
 };
 #[cfg(windows)]
 use windows::Win32::System::Memory::{GlobalLock, GlobalSize, GlobalUnlock};
+#[cfg(windows)]
+use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VK_CONTROL, VK_V};
+#[cfg(windows)]
+use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 
 use crate::now_ms;
 
@@ -178,6 +182,62 @@ pub fn clipboard_copy(id: u64, app: AppHandle, state: State<'_, ClipboardState>)
     }
     emit(&app, &state);
     Ok(())
+}
+
+/// Like `clipboard_copy`, then pastes the entry into the app that had the keyboard before the notch opened, as Win+V does.
+/// False when there is no such app, or a Mac has not allowed Crest to press keys: the entry is then only copied.
+#[tauri::command]
+pub fn clipboard_paste(id: u64, app: AppHandle, state: State<'_, ClipboardState>) -> Result<bool, String> {
+    clipboard_copy(id, app.clone(), state)?;
+    #[cfg(target_os = "macos")]
+    if !crate::macos::may_press_keys() {
+        return Ok(false);
+    }
+    let Some(target) = crate::return_keyboard(&app) else { return Ok(false) };
+    // Off the main thread: a Mac brings the app forward only once that thread runs again.
+    thread::spawn(move || {
+        #[cfg(windows)]
+        let front = || unsafe { GetForegroundWindow() }.0 as isize;
+        #[cfg(target_os = "macos")]
+        let front = || crate::macos::frontmost_pid() as isize;
+        // Pressed only once the app is in front, or the keys would land in whatever is.
+        if wait_for(Duration::from_millis(500), || front() == target) {
+            press_paste();
+        }
+    });
+    Ok(true)
+}
+
+/// Polls `ready` every 10 ms for up to `limit`: whether it held in time.
+fn wait_for(limit: Duration, mut ready: impl FnMut() -> bool) -> bool {
+    let end = Instant::now() + limit;
+    loop {
+        if ready() {
+            return true;
+        }
+        if Instant::now() >= end {
+            return false;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+#[cfg(windows)]
+fn press_paste() {
+    unsafe { SendInput(&ctrl_v(), std::mem::size_of::<INPUT>() as i32) };
+}
+
+#[cfg(target_os = "macos")]
+use crate::macos::press_paste;
+
+/// Ctrl+V as four key events. Virtual keys, so the keyboard layout doesn't matter.
+#[cfg(windows)]
+fn ctrl_v() -> [INPUT; 4] {
+    let key = |vk, flags| INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 { ki: KEYBDINPUT { wVk: vk, dwFlags: flags, ..Default::default() } },
+    };
+    [key(VK_CONTROL, Default::default()), key(VK_V, Default::default()), key(VK_V, KEYEVENTF_KEYUP), key(VK_CONTROL, KEYEVENTF_KEYUP)]
 }
 
 #[tauri::command]
@@ -591,5 +651,30 @@ mod tests {
         assert!(back == shot, "pixels changed");
         assert!(stored.png.len() * 5 < raw, "not compressed enough");
         assert!(stored.thumbnail.starts_with("data:image/png;base64,"));
+    }
+
+    #[test]
+    fn wait_for_stops_once_ready() {
+        let mut polls = 0;
+        assert!(wait_for(Duration::from_secs(5), || {
+            polls += 1;
+            polls == 3
+        }));
+        assert_eq!(polls, 3);
+    }
+
+    #[test]
+    fn wait_for_gives_up_after_the_limit() {
+        let started = std::time::Instant::now();
+        assert!(!wait_for(Duration::from_millis(60), || false));
+        assert!(started.elapsed() >= Duration::from_millis(60));
+    }
+
+    /// V let go before Ctrl: the other way round the app sees a plain "v" typed.
+    #[cfg(windows)]
+    #[test]
+    fn ctrl_v_lets_go_of_v_before_ctrl() {
+        let keys: Vec<_> = ctrl_v().iter().map(|i| unsafe { (i.Anonymous.ki.wVk, i.Anonymous.ki.dwFlags.contains(KEYEVENTF_KEYUP)) }).collect();
+        assert_eq!(keys, [(VK_CONTROL, false), (VK_V, false), (VK_V, true), (VK_CONTROL, true)]);
     }
 }

@@ -26,6 +26,8 @@
 </p>
 
 <p align="center">
+  <a href="https://crestisland.app/"><b>网站</b></a>
+  &nbsp;·&nbsp;
   <a href="https://github.com/andrealo20/crest/releases/latest"><b>下载</b></a>
   &nbsp;·&nbsp;
   <a href="#功能"><b>功能</b></a>
@@ -36,7 +38,7 @@
 </p>
 
 <p align="center">
-  <a href="https://andrealo20.github.io/crest/"><img src="https://img.shields.io/badge/%E5%9C%A8%E6%B5%8F%E8%A7%88%E5%99%A8%E4%B8%AD-%E8%AF%95%E7%94%A8-FFC75F?style=for-the-badge&labelColor=0F1015" alt="在浏览器中试用 Crest" /></a>
+  <a href="https://crestisland.app/try/"><img src="https://img.shields.io/badge/%E5%9C%A8%E6%B5%8F%E8%A7%88%E5%99%A8%E4%B8%AD-%E8%AF%95%E7%94%A8-FFC75F?style=for-the-badge&labelColor=0F1015" alt="在浏览器中试用 Crest" /></a>
 </p>
 
 https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
@@ -45,7 +47,7 @@ https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
 
 Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具：大约三十个，每个都可以随意开关。免费、开源，无需账号，也不用付费。
 
-上面的视频用不到两分钟展示了它们，[项目主页上的演示](https://andrealo20.github.io/crest/)让你在安装之前就能在浏览器里试用每一个工具。
+上面的视频用不到两分钟展示了它们，[项目主页上的演示](https://crestisland.app/try/)让你在安装之前就能在浏览器里试用每一个工具。
 
 <p align="center"><img src="docs/media/features/closed-capsule.png" alt="屏幕顶部收起的胶囊：正在播放的歌曲封面、专注计时器、AI 额度环、CPU、内存和 GPU 负载、时钟和天气" width="760" /></p>
 
@@ -71,6 +73,19 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
   <img src="docs/media/features/closed-unplug.png" alt="拔掉充电器，使用电池，电量 55%" width="236" />
   <img src="docs/media/features/closed-timer.png" alt="结束的计时器，显示“完成”" width="236" />
 </p>
+
+## 1.1.0 新功能
+
+- **每个工具的快捷键**：在 **设置 → 窗口 → 直接打开工具** 中为任意工具设置快捷键，在任何地方按下都会直接打开刘海并进入该工具。
+- **直接粘贴**：把剪贴板历史中的内容直接粘贴到你刚才所在的应用，就像 Win + V。默认关闭，在 **设置 → 工具 → 剪贴板** 中开启。
+- **Crest 自带的取色器**：“取色”会在所有显示器的静止画面上显示放大镜，无论缩放比例如何，每台显示器上都准确。在 Mac 上由系统的取色器完成。
+- **备份与恢复**：在 **设置 → 常规** 中把设置、笔记、待办和每个工具的数据保存到一个文件，可以在这台或另一台电脑上恢复。密钥、密码和保险库不会写入这个文件。
+- **网页搜索**：在概览中用 Google、Bing、DuckDuckGo 或 Brave Search 搜索，默认关闭。
+- **提问**可以通过 LM Studio 或 Ollama 使用你电脑上的模型，无需密钥和账号。
+- **面板缩放**从 80% 到 200%，正在播放可以把专辑封面铺满整个面板，转换器和计算器支持约 160 种货币。
+- **修复**：从暂存架拖出的内容会丢失、一个隐形的横幅窗口会拦截指针、新歌曲的歌词会跳到结尾，以及“解锁 FPS”一行会在帧率计数器重试时跳动。
+
+[1.1.0 版本](https://github.com/andrealo20/crest/releases/tag/v1.1.0)页面提供下载和完整的发布说明（英文），并列出每项改动对应的 issue。
 
 ## 功能
 
@@ -112,7 +127,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 
 - **概览**：时间、天气、正在播放的歌曲、专注、保持唤醒、音量、亮度，以及 Wi-Fi、蓝牙、深色主题和麦克风的快捷开关。
 - **计算器**：笔记本式计算器，能识别单位、日期、百分比、货币和变量。
-- **转换器**用于单位换算，货币按欧洲中央银行的汇率换算。
+- **转换器**用于单位换算，以及按各国中央银行参考汇率换算约 160 种货币。
 - **取色**：从屏幕任意位置取色，复制为 HEX、RGB、HSL 或 OKLCH，检查对比度并查看配色方案。
 - **天气**：当前天气、逐小时和一周预报，数据来自 Open-Meteo。
 - **投资组合**：把多个券商的资产换算成一种货币显示，只读。
@@ -122,7 +137,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 - **终端**：刘海里的 PowerShell 或命令提示符。
 - **硬件**：CPU、GPU、内存、网络、功耗、温度、最忙的进程和游戏帧率，还有电脑正在监听的端口以及对应的程序。
 - **AI 用量**：Claude、ChatGPT、Antigravity、Cursor 等的额度，附带一行预测每项额度的走向，额度重置时可选择通知你。
-- **提问**：用你自己的密钥与你选择的 AI 服务对话。
+- **提问**：用你自己的密钥与你选择的 AI 服务对话，或通过 LM Studio 或 Ollama 使用你电脑上的模型。
 - **Agents**：电脑上正在运行的 Claude Code 会话、每个会话在等什么，以及恢复它的命令。
 - **GitHub** 贡献日历和连续天数，以及固定应用的**启动器**。
 - **crest-notify** 让脚本和构建发送通知、用按钮提问，或在收起的一行里放入自己的部分。

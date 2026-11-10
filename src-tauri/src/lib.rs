@@ -103,7 +103,7 @@ use tauri::{App, AppHandle, Emitter, Manager, State, WebviewWindow};
 #[cfg(windows)]
 use windows::Win32::Foundation::HWND;
 #[cfg(windows)]
-use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
+use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, IsWindow, SetForegroundWindow};
 
 /// Milliseconds since 1970 (0 if the clock is before it).
 pub(crate) fn now_ms() -> u64 {
@@ -261,6 +261,7 @@ pub fn run() {
             clipboard::clipboard_list,
             clipboard::clipboard_mode,
             clipboard::clipboard_copy,
+            clipboard::clipboard_paste,
             clipboard::clipboard_delete,
             clipboard::clipboard_clear,
             clipboard::clipboard_preview,
@@ -636,14 +637,33 @@ fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusStat
     display::closed(window.app_handle());
 }
 
-/// The pointer came onto the pet: its click activates the window, so note the app it takes the keyboard from;
-/// the frontend then calls keyboard_focus(false) to give it back.
+/// A paste from the clipboard history (clipboard.rs): gives the keyboard back to the app that had it before the notch
+/// opened, as closing the notch does. Returns that app's window, or None when there is none (0, or closed since).
+#[cfg(windows)]
+pub(crate) fn return_keyboard(app: &AppHandle) -> Option<isize> {
+    let previous = std::mem::take(&mut *app.state::<FocusState>().0.lock().unwrap());
+    let window = HWND(previous as *mut _);
+    (previous != 0 && unsafe { IsWindow(Some(window)) }.as_bool() && unsafe { SetForegroundWindow(window) }.as_bool()).then_some(previous)
+}
+
+/// The same on a Mac, with the app's process id.
+#[cfg(target_os = "macos")]
+pub(crate) fn return_keyboard(app: &AppHandle) -> Option<isize> {
+    let previous = std::mem::take(&mut *app.state::<FocusState>().0.lock().unwrap());
+    (previous != 0 && macos::activate_pid(previous as i32)).then_some(previous)
+}
+
+/// The pointer came onto the notch or the pet: a click there activates the window, so note the app it takes the keyboard
+/// from; closing the notch gives it back (keyboard_focus) and a paste goes there. By process: `hwnd()` waits for the main
+/// thread, which the poll in hit_test.rs must not do.
 #[cfg(windows)]
 fn remember_foreground(window: &WebviewWindow) {
-    let Ok(own) = window.hwnd() else { return };
-    let foreground = unsafe { GetForegroundWindow() }.0 as isize;
-    if foreground != own.0 as isize {
-        *window.state::<FocusState>().0.lock().unwrap() = foreground;
+    use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
+    let foreground = unsafe { GetForegroundWindow() };
+    let mut pid = 0;
+    unsafe { GetWindowThreadProcessId(foreground, Some(&mut pid)) };
+    if pid != 0 && pid != std::process::id() {
+        *window.state::<FocusState>().0.lock().unwrap() = foreground.0 as isize;
     }
 }
 

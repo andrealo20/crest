@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowsOutSimple,
   Check,
+  ClipboardText,
   Code,
   Copy,
   File,
@@ -28,8 +29,10 @@ import { MAX_SIZE, requestSize } from "../../notch/size";
 import { findTab } from "../../notch/tabs";
 import { clipboard, useClipboard, type ClipItem, type ClipPreview } from "../../platform/clipboard";
 import { Redacted, Segmented } from "../../ui/controls";
+import { settings } from "../../settings/store";
 import { usePresenting } from "../privacy/store";
 import { t } from "../../i18n";
+import { clickAction } from "./click";
 import { isCode } from "./code";
 import { ClipChip, ClipDecodePane } from "./ClipChip";
 
@@ -60,11 +63,12 @@ type LoadedPreview = ClipPreview & { w: number; h: number };
 
 /**
  * History as a horizontal card row, newest on the left. The wheel scrolls sideways,
- * edges fade out. Click copies back, × removes.
+ * edges fade out. Click copies back (with Paste directly on, also pastes), × removes.
  * Images: click opens a large preview; the notch grows down smoothly for it.
  */
 export function ClipboardView() {
   const all = useClipboard();
+  const pasteOn = settings.use().clipPaste === true;
   const now = useNow(30_000);
   const scroller = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState<number | null>(null);
@@ -80,10 +84,10 @@ export function ClipboardView() {
         );
   const hidden = usePresenting();
   // previewId also holds the entry whose decoded view is open (ClipChip); only images have a large preview.
-  // An entry whose preview cannot be built is copied directly, as a click on a card without a preview does.
+  // An entry whose preview cannot be built is copied (or pasted) directly, as a click on a card without a preview is.
   const preview = usePreview(hidden || !all.find((i) => i.id === previewId)?.thumbnail ? null : previewId, (id) => {
     setPreviewId(null);
-    void copy(id);
+    void pick(id, pasteOn);
   });
 
   // Drop the preview when its entry disappears or the presentation mode starts.
@@ -105,12 +109,16 @@ export function ClipboardView() {
     return () => el.removeEventListener("wheel", onWheel);
   }, [all.length === 0]);
 
-  const copy = async (id: number) => {
+  const pick = async (id: number, paste: boolean) => {
+    let pasted = false;
     try {
-      await clipboard.copy(id);
+      if (paste) pasted = await clipboard.paste(id);
+      else await clipboard.copy(id);
     } catch {
       return;
     }
+    // The app it went to has the keyboard back, so the notch is closing; "Copied" shows when it was only copied.
+    if (pasted) return;
     setCopied(id);
     scroller.current?.scrollTo({ left: 0, behavior: "smooth" });
     window.setTimeout(() => setCopied((c) => (c === id ? null : c)), 1200);
@@ -164,10 +172,16 @@ export function ClipboardView() {
                 hidden={hidden}
                 copied={copied === item.id}
                 selected={previewId === item.id}
-                onClick={() => (item.thumbnail && !hidden ? setPreviewId((p) => (p === item.id ? null : item.id)) : void copy(item.id))}
+                onClick={() => {
+                  const action = clickAction(item, { paste: pasteOn, hidden });
+                  if (action === "preview") setPreviewId((p) => (p === item.id ? null : item.id));
+                  else void pick(item.id, action === "paste");
+                }}
               />
               <div className="absolute top-2 end-2 flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-                {item.thumbnail && !hidden && <CardButton label={t("Kopieren")} icon={Copy} onClick={() => void copy(item.id)} />}
+                {item.thumbnail && !hidden && (
+                  <CardButton label={pasteOn ? t("Einfügen") : t("Kopieren")} icon={pasteOn ? ClipboardText : Copy} onClick={() => void pick(item.id, pasteOn)} />
+                )}
                 <CardButton label={t("Entfernen")} icon={X} onClick={() => clipboard.remove(item.id)} />
               </div>
               <ClipChip item={item} open={previewId === item.id} onToggle={() => setPreviewId((p) => (p === item.id ? null : item.id))} />
@@ -178,7 +192,7 @@ export function ClipboardView() {
 
       <AnimatePresence>
         {previewId !== null && preview && (
-          <PreviewPane key="preview" preview={preview} onCopy={() => void copy(previewId)} onClose={() => setPreviewId(null)} />
+          <PreviewPane key="preview" preview={preview} paste={pasteOn} onPick={() => void pick(previewId, pasteOn)} onClose={() => setPreviewId(null)} />
         )}
       </AnimatePresence>
       <ClipDecodePane id={previewId} onClose={() => setPreviewId(null)} />
@@ -234,7 +248,7 @@ function usePreview(id: number | null, onFail: (id: number) => void): LoadedPrev
   return data;
 }
 
-function PreviewPane({ preview, onCopy, onClose }: { preview: LoadedPreview; onCopy: () => void; onClose: () => void }) {
+function PreviewPane({ preview, paste, onPick, onClose }: { preview: LoadedPreview; paste: boolean; onPick: () => void; onClose: () => void }) {
   return (
     <motion.div
       className="flex min-h-0 flex-1 flex-col items-center gap-1.5 px-4 pt-2.5"
@@ -262,8 +276,8 @@ function PreviewPane({ preview, onCopy, onClose }: { preview: LoadedPreview; onC
           <ArrowsOutSimple size={11} weight="bold" /> {preview.width} × {preview.height}
         </span>
         <div className="flex gap-0.5">
-          <HeaderButton label={t("Kopieren")} onClick={onCopy}>
-            <Copy size={13} weight="bold" />
+          <HeaderButton label={paste ? t("Einfügen") : t("Kopieren")} onClick={onPick}>
+            {paste ? <ClipboardText size={13} weight="bold" /> : <Copy size={13} weight="bold" />}
           </HeaderButton>
           <HeaderButton label={t("Vorschau schließen")} onClick={onClose}>
             <X size={13} weight="bold" />

@@ -33,6 +33,8 @@ interface ClipboardSource {
   text(id: number): Promise<string | null>;
   subscribe(listener: () => void): () => void;
   copy(id: number): Promise<void>;
+  /** Copies, then pastes into the app that had the keyboard before the notch opened. False: there was none (or a Mac has not allowed Crest to press keys), so it is only copied. */
+  paste(id: number): Promise<boolean>;
   remove(id: number): void;
   clear(): void;
   /** What gets recorded (from the enabled tools); drops entries the mode doesn't keep. */
@@ -56,6 +58,7 @@ function createNative(): ClipboardSource {
       return () => listeners.delete(listener);
     },
     copy: (id) => invoke("clipboard_copy", { id }),
+    paste: (id) => invoke<boolean>("clipboard_paste", { id }),
     preview: (id) => invoke<ClipPreview | null>("clipboard_preview", { id }),
     text: (id) => invoke<string | null>("clipboard_text", { id }),
     remove: (id) => void invoke("clipboard_delete", { id }),
@@ -90,16 +93,19 @@ function createMock(): ClipboardSource {
     items = next;
     listeners.forEach((l) => l());
   };
+  const copy = async (id: number) => {
+    const item = items.find((i) => i.id === id);
+    if (item) set([{ ...item, copiedAt: Date.now() }, ...items.filter((i) => i.id !== id)]);
+  };
   return {
     get: () => items,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    async copy(id) {
-      const item = items.find((i) => i.id === id);
-      if (item) set([{ ...item, copiedAt: Date.now() }, ...items.filter((i) => i.id !== id)]);
-    },
+    copy,
+    // Nowhere to paste in the browser: only copied.
+    paste: (id) => copy(id).then(() => false),
     async preview(id) {
       const item = items.find((i) => i.id === id);
       const [w, h] = item?.text.split(" × ").map(Number) ?? [];
