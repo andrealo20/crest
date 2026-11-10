@@ -511,3 +511,42 @@ div.notch {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+/* ---------- The bar that stays at the top ---------- */
+
+.sticky-bar {
+  position: fixed;
+  top: 12px;
+  left: var(--m);
+  right: var(--m);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.sticky-bar > * {
+  pointer-events: auto;
+}
+.sticky-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 5px 18px 5px 6px;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+.sticky-actions {
+  display: flex;
+  gap: 8px;
+}
+/* A white ring keeps the black button visible over the black sections. */
+.sticky-get {
+  box-shadow: 0 0 0 2px #fff;
+}

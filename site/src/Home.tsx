@@ -7,7 +7,8 @@ import { Notch, type Shot } from "./Notch";
 import { PixelReveal } from "./PixelReveal";
 import { DEMO_ORIGIN } from "./demo";
 import { RELEASE } from "./release";
-import { Faq, Footer, Install, Make, Nav, Privacy, Rise } from "./Sections";
+import { Faq, Footer, Install, Make, Mark, Nav, Privacy, Rise } from "./Sections";
+import { springs } from "../../src/design/motion";
 import { Wash } from "./Stage";
 
 // The demo's own panels, captured at 2x from the build (the closed row at 3x), so they stay sharp at any size the page shows them.
@@ -102,6 +103,30 @@ function LiveNotch() {
       style={style}
       allow="clipboard-write"
     />
+  );
+}
+
+/** Once the first screen's bar has scrolled away, the logo and the two buttons stay at the top, each on a ground of its own so they read on every colour. */
+function StickyBar() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const nav = document.querySelector(".hero .nav");
+    if (!nav) return;
+    const io = new IntersectionObserver(([e]) => setShow(!e.isIntersecting));
+    io.observe(nav);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <motion.div className="sticky-bar" initial={false} animate={{ y: show ? 0 : -96, opacity: show ? 1 : 0 }} transition={show ? springs.open : springs.close} inert={!show} aria-hidden={!show}>
+      <a className="sticky-brand" href="/" aria-label="Crest, home">
+        <Mark size={30} animate={false} />
+        <span>Crest</span>
+      </a>
+      <div className="sticky-actions">
+        <a className="btn btn-small btn-light" href="/try/">Try it</a>
+        <a className="btn btn-small sticky-get" href="#install">Get Crest</a>
+      </div>
+    </motion.div>
   );
 }
 
@@ -327,6 +352,7 @@ export default function Home() {
   return (
     <div id="top" style={{ ["--y" as string]: LOGO.yellow }}>
       <a className="skip" href="#band-title">Skip to the content</a>
+      <StickyBar />
       <main>
         <Hero />
         <ToolBand />
