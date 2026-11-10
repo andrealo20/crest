@@ -36,7 +36,7 @@
 </p>
 
 <p align="center">
-  <a href="https://andrealo20.github.io/crest/"><img src="https://img.shields.io/badge/%E5%9C%A8%E6%B5%8F%E8%A7%88%E5%99%A8%E4%B8%AD-%E8%AF%95%E7%94%A8-FFC75F?style=for-the-badge&labelColor=0F1015" alt="在浏览器中试用 Crest" /></a>
+  <a href="https://crestisland.app/"><img src="https://img.shields.io/badge/%E5%9C%A8%E6%B5%8F%E8%A7%88%E5%99%A8%E4%B8%AD-%E8%AF%95%E7%94%A8-FFC75F?style=for-the-badge&labelColor=0F1015" alt="在浏览器中试用 Crest" /></a>
 </p>
 
 https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
@@ -45,7 +45,7 @@ https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
 
 Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具：大约三十个，每个都可以随意开关。免费、开源，无需账号，也不用付费。
 
-上面的视频用不到两分钟展示了它们，[项目主页上的演示](https://andrealo20.github.io/crest/)让你在安装之前就能在浏览器里试用每一个工具。
+上面的视频用不到两分钟展示了它们，[项目主页上的演示](https://crestisland.app/)让你在安装之前就能在浏览器里试用每一个工具。
 
 <p align="center"><img src="docs/media/features/closed-capsule.png" alt="屏幕顶部收起的胶囊：正在播放的歌曲封面、专注计时器、AI 额度环、CPU、内存和 GPU 负载、时钟和天气" width="760" /></p>
 
