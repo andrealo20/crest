@@ -24,10 +24,11 @@ import { recording, startRecording, stopRecording, takeShot } from "../features/
 import { checkForUpdate, update } from "../lib/update";
 import { setFocusMode } from "../notch/focus";
 import { QUOTA } from "../notch/row/notices";
-import { PET_IDS } from "../notch/row/parts";
+import { PART_IDS, PET_IDS } from "../notch/row/parts";
 import { viewZoom } from "../notch/viewZoom";
 import { PANEL_SCALES } from "../features/window/panelSize";
 import { normalizeSearch } from "../features/overview/search";
+import { TIMER_LOOKS } from "../features/timer/looks";
 
 /*
  * The try-it demo of the project page (Crest's real frontend, built for the web: `vite build --mode demo`, or `?demo`).
@@ -53,6 +54,7 @@ import { normalizeSearch } from "../features/overview/search";
  *   { cmd: "scale", value }      panel scale in %, one of PANEL_SCALES
  *   { cmd: "cover", on }         the Music tool's cover behind the whole panel
  *   { cmd: "search", engine }    Overview's web search line: google | bing | duckduckgo | brave | off
+ *   { cmd: "look", look }        the timer's look, one of TIMER_LOOKS
  * Every command first undoes what would hide its result: focus mode, presentation mode, quiet hours, and notices still showing.
  *
  * Demo -> host (postMessage on the parent):
@@ -119,9 +121,11 @@ export function startDemo() {
     },
     // The focus timer below may end in a forgotten tab: silently.
     alarm: { ...s.alarm, volume: 0 },
-    music: { ...s.music, titleLyrics: true },
+    music: { ...s.music, titleLyrics: true, coverBackground: true },
     closed: {
       ...s.closed,
+      // The equalizer right after the cover, so the song reads as one group.
+      order: ["equalizer", ...PART_IDS.filter((id) => id !== "equalizer")],
       parts: { ...s.closed.parts, timer: true, discord: true, rings: true, title: false, readings: true, equalizer: true, clock: true, github: false, calendar: false, script: true, downloads: true, weather: true },
       readings: { ...s.closed.readings, cpu: true, ram: true, gpu: true },
     },
@@ -283,6 +287,8 @@ function onMessage(e: MessageEvent) {
       return void ((PANEL_SCALES as readonly unknown[]).includes(m.value) && updateSettings((s) => ({ behavior: { ...s.behavior, scale: m.value as (typeof PANEL_SCALES)[number] } })));
     case "cover":
       return void updateSettings((s) => ({ music: { ...s.music, coverBackground: m.on === true } }));
+    case "look":
+      return void ((TIMER_LOOKS as readonly unknown[]).includes(m.look) && updateSettings((s) => ({ timer: { ...s.timer, look: m.look as (typeof TIMER_LOOKS)[number] } })));
     case "search":
       return void updateSettings((s) => ({ productivity: { ...s.productivity, search: normalizeSearch(m.engine) } }));
   }
