@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { springs } from "../../src/design/motion";
 
-/** A panel as the app draws it: one of the README's 1x screenshots (docs/media/features), with its size. */
+/** A panel as the app draws it: a picture of the demo's panel (site/src/shots), with its size in CSS px. */
 export interface Shot {
   src: string;
   w: number;
@@ -13,8 +13,6 @@ export interface Shot {
 const CLOSED = { w: 236, h: 36 };
 /** Bottom corners of the open panel, in screenshot px (the app's panel radius). */
 const RADIUS = 26;
-/** The screenshots carry a few px of desktop below and beside the panel: the notch clips them off. */
-const TRIM = { x: 3, bottom: 10 };
 
 /** The time, as the closed row shows it. */
 function useClock() {
@@ -40,7 +38,7 @@ const Ear = ({ side }: { side: "left" | "right" }) => (
 export function Notch({ shot, open, maxW, onToggle, label }: { shot: Shot | null; open: boolean; maxW: number; onToggle?: () => void; label?: string }) {
   const time = useClock();
   const scale = shot ? Math.min(1.25, maxW / shot.w) : 1;
-  const size = open && shot ? { w: Math.round((shot.w - 2 * TRIM.x) * scale), h: Math.round((shot.h - TRIM.bottom) * scale) } : CLOSED;
+  const size = open && shot ? { w: Math.round(shot.w * scale), h: Math.round(shot.h * scale) } : CLOSED;
   const radius = open ? RADIUS * scale : 18;
 
   const body = (

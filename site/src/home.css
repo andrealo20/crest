@@ -113,10 +113,28 @@ div.notch {
   color: #000;
   overflow: hidden;
 }
+.hero {
+  padding-top: 56px;
+}
 .hero-notch {
-  display: flex;
-  justify-content: center;
-  z-index: 2;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  line-height: 0;
+}
+.live-notch {
+  display: block;
+  border: 0;
+  background: transparent;
+  color-scheme: normal;
+  width: min(900px, 100vw);
+  height: 64px;
+}
+.live-notch.is-open {
+  width: min(900px, 100vw);
+  height: 600px;
 }
 .hero-copy {
   margin-top: auto;
@@ -271,28 +289,25 @@ div.notch {
 .closed-strip img {
   display: block;
   width: 100%;
-  max-width: 1400px;
+  max-width: 1460px;
   height: auto;
-}
-.closed-strip img {
-  border-radius: 999px;
 }
 
 @media (min-width: 1000px) {
   .hero {
-    padding-top: calc(var(--notch-h) + 8px);
+    padding-top: 0;
+  }
+  .live-notch {
+    width: min(900px, calc(100vw - 640px));
+  }
+  .live-notch.is-open {
+    width: min(900px, 100vw);
   }
   .hero .nav {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-  }
-  .hero-notch {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
   }
   .hero-copy {
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
@@ -344,9 +359,6 @@ div.notch {
 @media (max-width: 999px) {
   .hero .nav {
     order: -1;
-  }
-  .hero-notch {
-    order: -2;
   }
 }
 
