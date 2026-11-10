@@ -217,6 +217,93 @@ function Story() {
   );
 }
 
+/** The looks, as the demo draws them: themes on a band that slides with the scroll, then timer looks and closed looks. */
+const THEME_SHOTS: [string, string][] = [["dark", "Dark"], ["light", "Light"], ["dracula", "Dracula"], ["nord", "Nord"], ["catppuccin-latte", "Catppuccin Latte"], ["gruvbox-dark", "Gruvbox Dark"]];
+const LOOK_SHOTS: [string, string][] = [["pixel", "Pixel"], ["flip", "Flip"], ["nixie", "Nixie"], ["lcd", "LCD"], ["analog", "Analog"], ["ring", "Ring"]];
+const STYLE_SHOTS: [string, string, number, number][] = [["notch", "Notch", 554, 42], ["capsule", "Capsule", 528, 47], ["line", "Line", 158, 9]];
+
+/** How many choices there are, counted from the app's own lists (themes.ts, looks.ts, parts.ts, panelSize.ts, i18n). */
+const COUNTS: { n: string; what: string; hue: string }[] = [
+  { n: "15", what: "themes, plus an editor for your own and a switch between a day and a night theme", hue: HUE.purple },
+  { n: "12", what: "timer looks in 13 colours, and the clock in any of them", hue: HUE.orange },
+  { n: "3", what: "closed looks, the notch, the capsule and the line, on any of 4 screen edges", hue: HUE.lime },
+  { n: "8", what: "panel scales, from 80 to 200 percent", hue: HUE.sky },
+  { n: "12", what: "parts and 7 readings to choose for the closed row, in the order you like", hue: HUE.teal },
+  { n: "30+", what: "tools to turn on, turn off and reorder, each with a shortcut of its own", hue: HUE.yellow },
+  { n: "11", what: "languages, Arabic read right to left", hue: HUE.pink },
+  { n: "8", what: "cartoon pets for a nest beside the notch", hue: HUE.rose },
+];
+
+function Custom() {
+  const band = useRef<HTMLDivElement>(null);
+  const reduce = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: band, offset: ["start end", "end start"] });
+  const x = useTransform(scrollYProgress, [0, 1], reduce ? ["0%", "0%"] : ["6%", "-46%"]);
+  return (
+    <section className="custom" aria-labelledby="custom-title">
+      <div className="custom-head">
+        <Rise><h2 id="custom-title">Make it yours</h2></Rise>
+        <Rise i={1}><p className="lead">Dozens of choices in Settings, from the colours to the shape of the notch, all saved on your PC. Every picture here is the app with one of them changed.</p></Rise>
+      </div>
+
+      <div className="custom-themes" ref={band}>
+        <Rise><h3>Fifteen themes</h3></Rise>
+        <motion.ul className="theme-row" style={{ x }}>
+          {THEME_SHOTS.map(([id, name]) => (
+            <li key={id}>
+              <img src={files[`./shots/theme-${id}.png`]} width={520} height={356} alt={`Overview in the ${name} theme`} loading="lazy" decoding="async" />
+              <p>{name}</p>
+            </li>
+          ))}
+        </motion.ul>
+      </div>
+
+      <div className="custom-split">
+        <div className="custom-looks">
+          <Rise><h3>Twelve timer looks</h3></Rise>
+          <Rise i={1}>
+          <ul className="look-grid">
+            {LOOK_SHOTS.map(([id, name]) => (
+              <li key={id}>
+                  <img src={files[`./shots/look-${id}.png`]} width={520} height={192} alt={`The Timer in its ${name} look`} loading="lazy" decoding="async" />
+                  <p>{name}</p>
+                </li>
+            ))}
+          </ul>
+          </Rise>
+        </div>
+        <div className="custom-styles">
+          <Rise><h3>Notch, capsule or line</h3></Rise>
+          <Rise i={1}>
+          <ul>
+            {STYLE_SHOTS.map(([id, name, w, h]) => (
+              <li key={id}>
+                  <img src={files[`./shots/style-${id}.png`]} width={w} height={h} alt={`The closed ${name.toLowerCase()}`} loading="lazy" decoding="async" />
+                  <p>{name}</p>
+                </li>
+            ))}
+          </ul>
+          </Rise>
+        </div>
+      </div>
+
+      <Rise>
+      <ul className="counts">
+        {COUNTS.map((c) => (
+          <li key={c.what}>
+              <span className="count-n" style={{ color: c.hue }}>{c.n}</span>
+              <span className="count-what">{c.what}</span>
+            </li>
+        ))}
+      </ul>
+      </Rise>
+      <Rise>
+        <a className="textlink" href="/try/#themes">Change the theme, the look and the language in the demo <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
+      </Rise>
+    </section>
+  );
+}
+
 /** Shut, the notch keeps working: the real closed row, large. */
 function Closed() {
   const img = files["./shots/closed.png"];
@@ -244,6 +331,7 @@ export default function Home() {
         <Hero />
         <ToolBand />
         <Story />
+        <Custom />
         <Closed />
         <News release={RELEASE} />
         <Make />
