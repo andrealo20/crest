@@ -2,7 +2,7 @@ import { createStore } from "../../lib/store";
 import { isMac } from "../../platform/native";
 import { windowShell, type HotkeyState, type ScreenBehavior } from "../../platform/services";
 import { settings, updateSettings, type Settings } from "../../settings/store";
-import { conflicts, label, launcherKeys, normalize, type HotkeyKind } from "./hotkeys";
+import { conflicts, label, launcherKeys, normalize, toolConflicts, type HotkeyKind } from "./hotkeys";
 import type { WindowSettings } from "./model";
 
 /** What the window rules call for right now (display.rs): the line is drawn here, hiding happens in Rust. */
@@ -15,6 +15,8 @@ export function effectiveIdleStyle(idle: Settings["display"]["idleStyle"], behav
 
 /** Each shortcut's state for the settings; "duplicate" = an earlier Crest shortcut has the combination. */
 export const hotkeyStatus = createStore<Record<HotkeyKind, HotkeyState | "duplicate">>({ open: "active", hide: "unset", resize: "unset", find: "unset", mic: "unset" });
+/** The same for the tools' own shortcuts, by tool id; a tool that is off has none registered and no entry. */
+export const toolHotkeyStatus = createStore<Record<string, HotkeyState | "duplicate">>({});
 
 export function updateBehavior(patch: Partial<WindowSettings> | ((b: WindowSettings) => Partial<WindowSettings>)) {
   updateSettings((s) => ({ behavior: { ...s.behavior, ...(typeof patch === "function" ? patch(s.behavior) : patch) } }));
@@ -37,16 +39,35 @@ export function takenByLauncher(s: Settings = settings.get()): string[] {
   return launcherKeys(on ? (s.launcher.favorites?.length ?? 0) : 0);
 }
 
+/** Crest's shortcuts as they can be registered: Find on screen reads the screens with Windows' OCR and has no Mac version yet. */
+export function usableHotkeys(s: Settings = settings.get()): Record<HotkeyKind, string> {
+  return isMac ? { ...s.behavior.hotkeys, find: "" } : s.behavior.hotkeys;
+}
+
+/** The tools' own shortcuts that can work now, `[tool id, shortcut]`: tools that are on, in dock order. */
+export function activeToolHotkeys(s: Settings = settings.get()): [string, string][] {
+  const keys = s.behavior.toolHotkeys;
+  return s.tools.filter((x) => x.enabled && keys[x.id]).map((x) => [x.id, keys[x.id]]);
+}
+
 /** Registers the saved shortcuts in Rust; a duplicate is not sent, so it can't take the other one's place. */
 function applyHotkeys() {
-  const h = settings.get().behavior.hotkeys, launcher = takenByLauncher();
-  const key = `${paused}|${h.open}|${h.hide}|${h.resize}|${h.find}|${h.mic}|${launcher.join()}`;
+  const h = usableHotkeys(), launcher = takenByLauncher(), tools = activeToolHotkeys();
+  const key = `${paused}|${h.open}|${h.hide}|${h.resize}|${h.find}|${h.mic}|${launcher.join()}|${JSON.stringify(tools)}`;
   if (key === lastHotkeys) return;
   lastHotkeys = key;
   const clash = conflicts(h, launcher);
+  const toolClash = toolConflicts(h, tools, launcher);
   const send = (k: HotkeyKind) => (paused || clash[k] ? "" : normalize(k, h[k]));
-  // Find on screen reads the screens with Windows' OCR: no Mac version yet.
-  const config = { open: send("open"), hide: send("hide"), resize: send("resize"), find: isMac ? "" : send("find"), mic: send("mic"), openLabel: label(h.open) };
+  const config = {
+    open: send("open"),
+    hide: send("hide"),
+    resize: send("resize"),
+    find: send("find"),
+    mic: send("mic"),
+    tools: paused ? [] : tools.filter(([id]) => !toolClash[id]).map(([id, keys]) => ({ id, keys })),
+    openLabel: label(h.open),
+  };
   const wasPaused = paused;
   // One registration at a time: Rust swaps the whole set.
   applying = applying
@@ -55,6 +76,7 @@ function applyHotkeys() {
       if (wasPaused) return;
       const status = (k: HotkeyKind) => (clash[k] ? "duplicate" : r[k]);
       hotkeyStatus.set({ open: status("open"), hide: status("hide"), resize: status("resize"), find: status("find"), mic: status("mic") });
+      toolHotkeyStatus.set(Object.fromEntries(tools.map(([id]) => [id, toolClash[id] ? "duplicate" : (r.tools?.[id] ?? "unset")])));
     })
     .catch(() => {});
 }

@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLineUp, X } from "@phosphor-icons/react";
+import { ArrowLineUp, Plus, X } from "@phosphor-icons/react";
 import { isMac } from "../../platform/native";
-import { windowShell, type RunningApp } from "../../platform/services";
+import { windowShell, type HotkeyState, type RunningApp } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { tabs, settingsTab, findTab, type NotchTab } from "../../notch/tabs";
 import { Button, Group, Row, Segmented, Select, Switch, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
-import { altGrRisk, conflicts, keycaps, record, type HotkeyKind, type RecordError } from "./hotkeys";
+import { altGrRisk, conflicts, keycaps, record, toolConflicts, type Holder, type HotkeyKind, type RecordError } from "./hotkeys";
 import { CONTEXTS, MAX_APP_RULES, addRule, newRule, ruleKey, type AppRule, type Behavior, type ScreenContext } from "./model";
 import { PANEL_SCALES, currentQuick, quickSize, stepScale, type QuickSize } from "./panelSize";
-import { hotkeyStatus, pauseHotkeys, takenByLauncher, updateBehavior } from "./store";
+import { activeToolHotkeys, hotkeyStatus, pauseHotkeys, takenByLauncher, toolHotkeyStatus, updateBehavior, usableHotkeys } from "./store";
 
 const contextLabel: Record<ScreenContext, string> = {
   maximized: "Maximiertes Fenster",
@@ -194,6 +194,7 @@ function Shortcuts() {
       <HotkeyRow kind="resize" />
       {!isMac && <HotkeyRow kind="find" />}
       <HotkeyRow kind="mic" />
+      <ToolHotkeys />
     </Group>
   );
 }
@@ -202,23 +203,30 @@ function Shortcuts() {
 export const keyText = (k: string) =>
   k === "Space" ? t("Leertaste") : isMac ? (k === "Win" ? "Cmd" : k === "Alt" ? "Option" : k) : k === "Ctrl" ? t("Strg") : k === "Alt" ? t("Alt") : k;
 
-/** Click the box, press the combination. Esc cancels, Backspace clears. */
-function HotkeyRow({ kind }: { kind: HotkeyKind }) {
-  const s = settings.use(), hotkeys = s.behavior.hotkeys;
-  const status = hotkeyStatus.use()[kind];
+const toolName = (id: string) => {
+  const tab = findTab(id);
+  return tab ? t(tab.label) : id;
+};
+
+/** What already holds a combination, as the settings name it. */
+const holderName = (h: Holder) => (h === "launcher" ? t("Launcher") : h.startsWith("tool:") ? toolName(h.slice(5)) : t(hotkeyLabel[h as HotkeyKind]));
+
+/** Recording into a shortcut box: click it, press the combination. Esc cancels, Backspace or Delete clears. `onStop` follows every end. */
+function useRecorder(kind: HotkeyKind, save: (text: string) => void, onStop?: () => void) {
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<RecordError | null>(null);
   const box = useRef<HTMLButtonElement>(null);
-  const value = hotkeys[kind];
-  const clash = conflicts(hotkeys, takenByLauncher(s))[kind];
-  // AltGr is a Windows and Linux key; a Mac types its characters with Option alone.
-  const altGr = !isMac && altGrRisk(kind, value);
-
   const stop = () => {
     setRecording(false);
     pauseHotkeys(false);
+    onStop?.();
   };
-  const save = (text: string) => updateBehavior((b) => ({ hotkeys: { ...b.hotkeys, [kind]: text } }));
+  const start = () => {
+    setError(null);
+    setRecording(true);
+    pauseHotkeys(true);
+    box.current?.focus();
+  };
   // A recorder left open (the panel closed) must not keep the shortcuts off.
   useEffect(() => () => pauseHotkeys(false), []);
 
@@ -240,60 +248,156 @@ function HotkeyRow({ kind }: { kind: HotkeyKind }) {
     setError(null);
     stop();
   };
+  return { recording, error, box, start, stop, onKeyDown };
+}
 
-  const hint = error
-    ? t(recordErrors[error])
-    : clash
-      ? t("Schon belegt von „{name}“, bitte eine andere Kombination", { name: clash === "launcher" ? t("Launcher") : t(hotkeyLabel[clash]) })
-      : status === "in-use"
-        ? t("Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv")
-        : status === "invalid"
-          ? t("Nicht erkannt, bitte neu aufnehmen")
-          : altGr
-            ? t("Strg+Alt ist auf vielen Tastaturen AltGr und tippt dann z. B. @ oder €; besser Umschalt oder Win dazunehmen")
-            : t(hotkeyHint[kind]);
-  const warn = !!error || !!clash || status === "in-use" || status === "invalid" || altGr;
+/** The hint under a shortcut: what went wrong first, else `fallback`. Orange when something is wrong. */
+function shortcutHint(r: { error: RecordError | null; clash: Holder | null; status?: HotkeyState | "duplicate"; altGr: boolean; off?: boolean }, fallback: string) {
+  const text = r.error
+    ? t(recordErrors[r.error])
+    : r.clash
+      ? t("Schon belegt von „{name}“, bitte eine andere Kombination", { name: holderName(r.clash) })
+      : r.off
+        ? t("Das Tool ist aus; das Tastenkürzel wirkt, sobald du es einschaltest")
+        : r.status === "in-use"
+          ? t("Ein anderes Programm nutzt diese Kombination, sie ist nicht aktiv")
+          : r.status === "invalid"
+            ? t("Nicht erkannt, bitte neu aufnehmen")
+            : r.altGr
+              ? t("Strg+Alt ist auf vielen Tastaturen AltGr und tippt dann z. B. @ oder €; besser Umschalt oder Win dazunehmen")
+              : fallback;
+  const warn = !!r.error || !!r.clash || !!r.off || r.status === "in-use" || r.status === "invalid" || r.altGr;
+  return <span className={warn ? "text-orange" : undefined}>{text}</span>;
+}
+
+/** The box that shows and records a combination, and the button that clears it. */
+function ShortcutBox({ rec, value, name, onClear }: { rec: ReturnType<typeof useRecorder>; value: string; name: string; onClear: () => void }) {
   const caps = keycaps(value, t("Pfeiltasten")).map(keyText);
-
   return (
-    <Row label={t(hotkeyLabel[kind])} hint={<span className={warn ? "text-orange" : undefined}>{hint}</span>}>
-      <div className="flex shrink-0 items-center gap-1">
-        <button
-          ref={box}
-          data-no-drag
-          aria-label={t("Tastenkürzel für „{name}“ aufnehmen", { name: t(hotkeyLabel[kind]) })}
-          onClick={() => {
-            setError(null);
-            setRecording(true);
-            pauseHotkeys(true);
-            box.current?.focus();
-          }}
-          onBlur={() => recording && stop()}
-          onKeyDown={onKeyDown}
-          // Key combinations read left to right in any language.
-          dir="ltr"
-          className={`pressable flex h-7 min-w-24 items-center justify-center gap-1 rounded-[8px] px-2 text-caption outline-none focus-visible:ring-1 focus-visible:ring-label-3 ${
-            recording ? "bg-fill-3 text-label ring-1 ring-label-3" : "bg-fill-2 text-label-2"
-          }`}
-        >
-          {recording ? (
-            t("Kombination drücken …")
-          ) : caps.length ? (
-            caps.map((k, i) => (
-              <kbd key={i} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">
-                {k}
-              </kbd>
-            ))
-          ) : (
-            <span className="text-label-3">{t("Nicht gesetzt")}</span>
-          )}
-        </button>
-        {value && !recording && (
-          <button aria-label={t("Tastenkürzel entfernen")} title={t("Tastenkürzel entfernen")} className="pressable p-1 text-label-3 hover:text-label-2" onClick={() => save("")}>
-            <X size={12} weight="bold" />
-          </button>
+    <div className="flex shrink-0 items-center gap-1">
+      <button
+        ref={rec.box}
+        data-no-drag
+        aria-label={t("Tastenkürzel für „{name}“ aufnehmen", { name })}
+        onClick={rec.start}
+        onBlur={() => rec.recording && rec.stop()}
+        onKeyDown={rec.onKeyDown}
+        // Key combinations read left to right in any language.
+        dir="ltr"
+        className={`pressable flex h-7 min-w-24 items-center justify-center gap-1 rounded-[8px] px-2 text-caption outline-none focus-visible:ring-1 focus-visible:ring-label-3 ${
+          rec.recording ? "bg-fill-3 text-label ring-1 ring-label-3" : "bg-fill-2 text-label-2"
+        }`}
+      >
+        {rec.recording ? (
+          t("Kombination drücken …")
+        ) : caps.length ? (
+          caps.map((k, i) => (
+            <kbd key={i} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">
+              {k}
+            </kbd>
+          ))
+        ) : (
+          <span className="text-label-3">{t("Nicht gesetzt")}</span>
         )}
-      </div>
+      </button>
+      {value && !rec.recording && (
+        <button aria-label={t("Tastenkürzel entfernen")} title={t("Tastenkürzel entfernen")} className="pressable p-1 text-label-3 hover:text-label-2" onClick={onClear}>
+          <X size={12} weight="bold" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function HotkeyRow({ kind }: { kind: HotkeyKind }) {
+  const s = settings.use();
+  const status = hotkeyStatus.use()[kind];
+  const value = s.behavior.hotkeys[kind];
+  const save = (text: string) => updateBehavior((b) => ({ hotkeys: { ...b.hotkeys, [kind]: text } }));
+  const rec = useRecorder(kind, save);
+  const clash = conflicts(usableHotkeys(s), takenByLauncher(s))[kind];
+  // AltGr is a Windows and Linux key; a Mac types its characters with Option alone.
+  const altGr = !isMac && altGrRisk(kind, value);
+  return (
+    <Row label={t(hotkeyLabel[kind])} hint={shortcutHint({ error: rec.error, clash, status, altGr }, t(hotkeyHint[kind]))}>
+      <ShortcutBox rec={rec} value={value} name={t(hotkeyLabel[kind])} onClear={() => save("")} />
+    </Row>
+  );
+}
+
+/**
+ * The tools' own shortcuts: one row per tool that has one, in dock order, and a menu that adds a tool. A tool picked there
+ * gets its row at once, recording; pressed nothing (Esc, a click elsewhere), the row goes again.
+ */
+function ToolHotkeys() {
+  const s = settings.use();
+  const [adding, setAdding] = useState<string | null>(null);
+  const saved = s.behavior.toolHotkeys;
+  // Tools in the dock that exist here (a removed plugin's shortcut stays saved but has no row).
+  const known = s.tools.filter((x) => findTab(x.id));
+  const rows = known.filter((x) => saved[x.id] || x.id === adding).map((x) => x.id);
+  const free = known.filter((x) => x.enabled && !saved[x.id] && x.id !== adding);
+  return (
+    <>
+      {rows.map((id) => (
+        <ToolHotkeyRow key={id} id={id} adding={id === adding} onStop={() => setAdding(null)} />
+      ))}
+      {free.length > 0 && (
+        <Row label={t("Tool direkt öffnen")} hint={t("Ein eigenes Tastenkürzel öffnet die Notch gleich auf einem Tool")}>
+          <Select<string>
+            value=""
+            options={free.map((x) => ({ value: x.id, label: toolName(x.id) }))}
+            onChange={setAdding}
+            trigger={{
+              label: t("Tool für ein Tastenkürzel wählen"),
+              menuWidth: 200,
+              className: "pressable pressable-fill flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-fill-2 px-3 text-footnote font-medium text-label",
+              content: (
+                <>
+                  <Plus size={12} weight="bold" />
+                  {t("Tool wählen")}
+                </>
+              ),
+            }}
+          />
+        </Row>
+      )}
+    </>
+  );
+}
+
+function ToolHotkeyRow({ id, adding, onStop }: { id: string; adding: boolean; onStop: () => void }) {
+  const s = settings.use();
+  const status = toolHotkeyStatus.use()[id];
+  const value = s.behavior.toolHotkeys[id] ?? "";
+  const save = (text: string) =>
+    updateBehavior((b) => {
+      const next = { ...b.toolHotkeys };
+      if (text) next[id] = text;
+      else delete next[id];
+      return { toolHotkeys: next };
+    });
+  const rec = useRecorder("open", save, onStop);
+  // Added from the menu: straight into recording.
+  useEffect(() => {
+    if (adding) rec.start();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const off = !s.tools.some((x) => x.id === id && x.enabled);
+  const clash = off ? null : (toolConflicts(usableHotkeys(s), activeToolHotkeys(s), takenByLauncher(s))[id] ?? null);
+  const altGr = !isMac && altGrRisk("open", value);
+  const tab = findTab(id);
+  const name = toolName(id);
+  return (
+    <Row
+      label={
+        <span className="flex items-center gap-1.5">
+          {tab && <tab.icon size={13} weight="bold" className="shrink-0 text-label-2" />}
+          {name}
+        </span>
+      }
+      hint={shortcutHint({ error: rec.error, clash, status, altGr, off }, t("Öffnet die Notch auf diesem Tool; noch einmal gedrückt, schließt sie"))}
+    >
+      <ShortcutBox rec={rec} value={value} name={name} onClear={() => save("")} />
     </Row>
   );
 }

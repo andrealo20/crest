@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { altGrRisk } from "./hotkeys.ts";
-import { MAX_APP_RULES, WINDOW_DEFAULTS, addRule, cycle, exeName, newRule, normalizeWindow, ruleKey } from "./model.ts";
+import { MAX_APP_RULES, MAX_TOOL_HOTKEYS, WINDOW_DEFAULTS, addRule, cycle, exeName, newRule, normalizeWindow, ruleKey } from "./model.ts";
 
 test("without a saved group the rules follow the old visibility setting", () => {
   assert.deepEqual(normalizeWindow(undefined).rules, WINDOW_DEFAULTS.rules);
@@ -30,6 +30,17 @@ test("hotkeys: missing open takes the default, an empty one stays unset, invalid
   assert.equal(normalizeWindow({}).hotkeys.mic, "");
   assert.equal(normalizeWindow({ hotkeys: { mic: "alt+shift+KeyM" } }).hotkeys.mic, "Alt+Shift+KeyM");
   assert.equal(normalizeWindow({ hotkeys: { mic: "KeyM" } }).hotkeys.mic, "");
+});
+
+test("tool shortcuts keep usable combinations by tool id and drop the rest", () => {
+  assert.deepEqual(normalizeWindow({}).toolHotkeys, {});
+  assert.deepEqual(normalizeWindow({ toolHotkeys: [] }).toolHotkeys, {});
+  assert.deepEqual(
+    normalizeWindow({ toolHotkeys: { clipboard: "alt+ctrl+KeyV", shelf: "KeyS", notes: 5, "plugin:clock": "F9", "": "Ctrl+Alt+KeyX", todos: "Ctrl+Alt+Arrows" } }).toolHotkeys,
+    { clipboard: "Ctrl+Alt+KeyV", "plugin:clock": "F9" },
+  );
+  const many = Object.fromEntries(Array.from({ length: MAX_TOOL_HOTKEYS + 5 }, (_, i) => [`plugin:p${i}`, "F1"]));
+  assert.equal(Object.keys(normalizeWindow({ toolHotkeys: many }).toolHotkeys).length, MAX_TOOL_HOTKEYS);
 });
 
 test("app rules: keys, duplicates, follow values and the cap", () => {

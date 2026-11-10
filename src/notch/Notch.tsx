@@ -312,6 +312,16 @@ export function Notch() {
       }),
     [open, status, tab],
   );
+  // A tool's own shortcut: opens the notch on that tool, switches to it while open, and closes the notch when it already shows.
+  useEffect(
+    () =>
+      windowShell.onToolKey((id) => {
+        if (status === "open" && tab.id === id) return close();
+        openOn(id);
+        keyboardFocus(true);
+      }),
+    [open, close, status, tab],
+  );
   // Resize shortcut: each arrow press resizes the open tool; while closed the first press opens it.
   useEffect(
     () =>

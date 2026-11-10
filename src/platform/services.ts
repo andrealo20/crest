@@ -1470,7 +1470,18 @@ export interface RunningApp {
 }
 /** in-use: another program holds the combination. */
 export type HotkeyState = "unset" | "active" | "in-use" | "invalid";
-export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState; find: HotkeyState; mic: HotkeyState };
+/** `tools`: each tool shortcut sent, by tool id (an older backend leaves it out). */
+export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState; find: HotkeyState; mic: HotkeyState; tools?: Record<string, HotkeyState> };
+export interface HotkeyConfig {
+  open: string;
+  hide: string;
+  resize: string;
+  find: string;
+  mic: string;
+  /** The tools' own shortcuts: each opens the notch on its tool (shell.rs). */
+  tools: { id: string; keys: string }[];
+  openLabel: string;
+}
 
 export const windowShell = {
   screen: (): Promise<ScreenBehavior> => (isNative ? invoke<ScreenBehavior>("display_screen") : Promise.resolve("normal")),
@@ -1500,14 +1511,27 @@ export const windowShell = {
           { name: "chrome", path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
           { name: "vlc", path: "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe" },
         ]),
-  applyHotkeys: (config: { open: string; hide: string; resize: string; find: string; mic: string; openLabel: string }): Promise<HotkeyStates> =>
+  applyHotkeys: (config: HotkeyConfig): Promise<HotkeyStates> =>
     isNative
       ? invoke<HotkeyStates>("hotkeys_apply", { config })
-      : Promise.resolve({ open: config.open ? "active" : "unset", hide: config.hide ? "active" : "unset", resize: config.resize ? "active" : "unset", find: config.find ? "active" : "unset", mic: config.mic ? "active" : "unset" }),
+      : Promise.resolve({
+          open: config.open ? "active" : "unset",
+          hide: config.hide ? "active" : "unset",
+          resize: config.resize ? "active" : "unset",
+          find: config.find ? "active" : "unset",
+          mic: config.mic ? "active" : "unset",
+          tools: Object.fromEntries(config.tools.map((x) => [x.id, "active" as const])),
+        }),
   /** The Find on screen shortcut. */
   onFindKey: (handler: () => void): (() => void) => {
     if (!isNative) return () => {};
     const off = listen("notch://find", handler);
+    return () => void off.then((f) => f());
+  },
+  /** A tool's own shortcut: the tool id it opens. */
+  onToolKey: (handler: (id: string) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<string>("notch://tool", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
   /** The resize shortcut: one arrow press. */

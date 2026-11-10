@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { altGrRisk, combinations, conflicts, launcherKeys, keycaps, label, normalize, parse, record, type KeyLike } from "./hotkeys.ts";
+import { altGrRisk, combinations, conflicts, launcherKeys, keycaps, label, normalize, parse, record, toolConflicts, type KeyLike } from "./hotkeys.ts";
 
 const key = (code: string, mods: Partial<KeyLike> = {}): KeyLike => ({ code, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
 
@@ -59,6 +59,27 @@ test("conflicts: the later shortcut yields to the earlier one", () => {
   // The launcher's Alt+N keys, while on, come first.
   assert.deepEqual(conflicts({ open: "Alt+Digit2", hide: "Alt+Digit5", resize: "", find: "", mic: "Alt+Digit1" }, launcherKeys(3)), { open: "launcher", hide: null, resize: null, find: null, mic: "launcher" });
   assert.deepEqual(launcherKeys(9), ["Alt+Digit1", "Alt+Digit2", "Alt+Digit3", "Alt+Digit4", "Alt+Digit5", "Alt+Digit6"]);
+});
+
+test("tool shortcuts yield to Crest's own, the launcher's and an earlier tool's", () => {
+  const own = { open: "Ctrl+Alt+Space", hide: "", resize: "Ctrl+Alt+Arrows", find: "Ctrl+Alt+Shift+KeyF", mic: "" };
+  assert.deepEqual(
+    toolConflicts(own, [
+      ["clipboard", "Ctrl+Alt+KeyV"],
+      ["shelf", "ctrl+alt+Space"],
+      ["notes", "Ctrl+Alt+ArrowUp"],
+      ["todos", "Ctrl+Alt+KeyV"],
+      ["timer", "Alt+Digit1"],
+    ], launcherKeys(2)),
+    { clipboard: null, shelf: "open", notes: "resize", todos: "tool:clipboard", timer: "launcher" },
+  );
+  // A tool follows the open shortcut's rules: a letter alone is no shortcut, so it collides with nothing.
+  assert.deepEqual(toolConflicts(own, [["clipboard", "KeyV"], ["shelf", "KeyV"]]), { clipboard: null, shelf: null });
+  // Crest's own shortcuts never yield to a tool's.
+  assert.deepEqual(conflicts({ ...own, hide: "Ctrl+Alt+KeyV" }), { open: null, hide: null, resize: null, find: null, mic: null });
+  assert.deepEqual(toolConflicts({ ...own, hide: "Ctrl+Alt+KeyV" }, [["clipboard", "Ctrl+Alt+KeyV"]]), { clipboard: "hide" });
+  // A tool whose shortcut yielded holds nothing, so a later tool with another clash points at the real holder.
+  assert.deepEqual(toolConflicts(own, [["shelf", "Ctrl+Alt+Space"], ["notes", "Ctrl+Alt+Space"]]), { shelf: "open", notes: "open" });
 });
 
 test("Ctrl+Alt with a character key warns about AltGr", () => {

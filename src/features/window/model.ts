@@ -26,6 +26,8 @@ export interface WindowSettings {
   rules: Record<ScreenContext, Behavior> & { background: boolean };
   apps: AppRule[];
   hotkeys: Record<HotkeyKind, string>;
+  /** A shortcut per tool id that opens the notch on that tool; tools without one are not listed. */
+  toolHotkeys: Record<string, string>;
   /** Open size per tool id, dragged at the panel's edges; missing = the tool's default. */
   sizes: Record<string, Size>;
   scale: PanelScale;
@@ -43,6 +45,7 @@ export const WINDOW_DEFAULTS: WindowSettings = {
   rules: { maximized: "normal", borderless: "normal", exclusive: "normal", background: true },
   apps: [],
   hotkeys: { open: "Ctrl+Alt+Space", hide: "", resize: "", find: "Ctrl+Alt+Shift+KeyF", mic: "" },
+  toolHotkeys: {},
   sizes: {},
   scale: 100,
   closeDelay: "fast",
@@ -55,6 +58,20 @@ const behavior = (v: unknown, fallback: Behavior): Behavior => (BEHAVIORS.includ
 const follow = (v: unknown): Behavior | null => (BEHAVIORS.includes(v as Behavior) ? (v as Behavior) : null);
 const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+/** More tool shortcuts than this are dropped when saved settings are read. */
+export const MAX_TOOL_HOTKEYS = 64;
+
+/** Tool ids with a usable shortcut (the open shortcut's rules); anything else is left out. */
+function toolHotkeys(saved: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!saved || typeof saved !== "object" || Array.isArray(saved)) return out;
+  for (const [id, keys] of Object.entries(saved)) {
+    const text = typeof keys === "string" ? normalize("open", keys) : "";
+    if (text && id.length > 0 && id.length <= 200 && Object.keys(out).length < MAX_TOOL_HOTKEYS) out[id] = text;
+  }
+  return out;
+}
 
 /** "C:\Games\Foo.exe" → "Foo". */
 export function exeName(path: string): string {
@@ -116,6 +133,7 @@ export function normalizeWindow(saved: unknown, legacyVisibility?: string): Wind
       find: typeof h.find === "string" ? normalize("find", h.find) : d.hotkeys.find,
       mic: normalize("mic", text(h.mic)),
     },
+    toolHotkeys: toolHotkeys(s.toolHotkeys),
     sizes: normalizeSizes(s.sizes),
     scale: fitScale(s.scale),
     closeDelay: (Object.keys(closeDelayMs) as CloseDelay[]).includes(s.closeDelay as CloseDelay) ? (s.closeDelay as CloseDelay) : d.closeDelay,

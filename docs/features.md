@@ -325,7 +325,8 @@ Format, API, limits and the security model: [plugins.md](plugins.md).
 ## Shortcuts
 
 - Opening and closing, hiding and showing Crest, resizing the panel with the arrow keys, Find on screen and muting the microphone each take a shortcut you record in **Settings → Window**. Opening and Find on screen start with one; the others stay empty until you record theirs.
-- Crest tells you when another program or the launcher's Alt keys already use it.
+- Any tool in the dock can have a shortcut of its own: **Open a tool directly**, under the shortcuts, adds one (the Clipboard, the Shelf, a plugin's tool and so on). It opens the notch on that tool from anywhere, switches to it while the notch shows another, and closes the notch when that tool is already showing. It follows the open shortcut's rules, and a tool that is off keeps its shortcut but only listens to it once it is on again.
+- Crest tells you when another program, the launcher's Alt keys, one of Crest's shortcuts or another tool's already use it.
 - Opening Crest on purpose (shortcut, tray, a second launch) shows it even while a rule hides it, until it closes again.
 - Right click on the notch opens the settings, and the mouse wheel switches tools.
 
