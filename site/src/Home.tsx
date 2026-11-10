@@ -17,12 +17,16 @@ const shot = (name: string, w: number, h: number, alt: string): Shot => ({ src: 
 const STEPS: { tool: string; chapter: string; title: string; text: string; shot: Shot }[] = [
   { tool: "media", chapter: "music", title: "Your music, with the words", text: "Any player with a Windows media session, a live equalizer, a mixer for every app and synced lyrics that light up word by word.", shot: shot("media", 520, 232, "Crest open on Now Playing, with the cover, the progress bar and the controls") },
   { tool: "overview", chapter: "overview", title: "The day at a glance", text: "The time, the weather, the song, focus, keep awake, volume and the brightness of this screen, in one panel.", shot: shot("overview", 520, 356, "Overview with the time, the weather and quick controls") },
+  { tool: "weather", chapter: "overview", title: "The weather, hour by hour", text: "Current conditions, an hourly strip and seven days from Open-Meteo, with no key and no account.", shot: shot("weather", 640, 330, "The Weather tool with the hours ahead and seven days") },
   { tool: "timer", chapter: "focus", title: "Focus, then a break", text: "A focus timer with break presets, rain or noise behind it and a countdown that stays in the closed notch.", shot: shot("timer", 520, 192, "The Timer counting down a focus session") },
   { tool: "todos", chapter: "focus", title: "To-dos that ring", text: "Projects, due times and a reminder when one is due. Notes, a water log and a scratchpad sit next to them.", shot: shot("todos", 600, 276, "To-dos with projects and due times") },
   { tool: "clipboard", chapter: "clipboard", title: "Everything you copied", text: "Text, links, images and files, kept in memory only, with password managers left out on purpose.", shot: shot("clipboard", 600, 236, "The clipboard history") },
+  { tool: "shelf", chapter: "clipboard", title: "Files to your phone", text: "Drop files on the Shelf and send them to your phone with a QR code, over your own Wi-Fi and nobody else's server.", shot: shot("shelf", 560, 236, "The Shelf showing a QR code to send four files to a phone") },
   { tool: "convert", chapter: "clipboard", title: "Units and 160 currencies", text: "Length, weight, temperature and the rates of the central banks, which Calc understands too.", shot: shot("convert", 520, 210, "The Converter turning pounds into euros") },
   { tool: "ask", chapter: "ai", title: "Ask, with your key or none", text: "Claude, ChatGPT, OpenRouter, or a model on your own PC through LM Studio or Ollama.", shot: shot("ask", 560, 440, "Ask, a chat inside the notch") },
   { tool: "system", chapter: "system", title: "What your PC is doing", text: "CPU, GPU, memory, network, power, temperatures and the busiest processes, with history while the notch is shut.", shot: shot("system", 720, 380, "Hardware with graphs for every part of the PC") },
+  { tool: "github", chapter: "system", title: "Your GitHub streak", text: "The contribution calendar of any public user for the last 36 weeks, with today's count and the longest streak.", shot: shot("github", 520, 236, "GitHub contributions for 36 weeks with the current and longest streak") },
+  { tool: "trading", chapter: "life", title: "Every broker, one total", text: "Trading 212, Kraken, Coinbase and more, added up in one currency with keys that can only read.", shot: shot("trading", 560, 380, "The Portfolio adding up two brokers in euros") },
 ];
 
 /** Width the open notch may take: the column it sits in, less the margins. */
@@ -184,7 +188,7 @@ function Story() {
   const Icon = TOOLS[s.tool].icon;
 
   return (
-    <section ref={ref} className="story" style={{ height: `${STEPS.length * 85}svh` }} aria-labelledby="story-title">
+    <section ref={ref} className="story" style={{ height: `${STEPS.length * 70}svh` }} aria-labelledby="story-title">
       <div className="story-pin" style={{ color: "#000" }}>
         <Wash color={hue} />
         <h2 id="story-title" className="sr-only">What Crest opens into</h2>
