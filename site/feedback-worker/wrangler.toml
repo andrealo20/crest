@@ -1,0 +1,19 @@
+# The Worker behind the site's Report a problem form. Deploy from this folder: npx wrangler deploy
+# Two secrets stay out of this file, and out of the repository:
+#   npx wrangler secret put TURNSTILE_SECRET   the secret key of the site's Turnstile widget
+#   npx wrangler secret put FEEDBACK_TO        the address that gets the reports, verified in Email Routing
+name = "crest-feedback"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+routes = [
+  { pattern = "crestisland.app/api/feedback", zone_name = "crestisland.app" },
+  { pattern = "www.crestisland.app/api/feedback", zone_name = "crestisland.app" },
+]
+# Only those routes: no *.workers.dev address and no preview addresses, which would skip the zone's rules
+workers_dev = false
+preview_urls = false
+
+# Email Routing must be on for crestisland.app. With no destination_address here, the Worker can send to any verified
+# destination of the account, and FEEDBACK_TO picks which.
+[[send_email]]
+name = "EMAIL"
