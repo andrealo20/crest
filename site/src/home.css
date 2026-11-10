@@ -1,0 +1,358 @@
+/*
+ * The home page: a yellow first screen with the real notch hanging from its top edge, a band of every tool that slides
+ * with the scroll, and a pinned story where the notch opens on one tool after another and the page takes its colour.
+ * Transform and opacity only, except the notch's own size, which springs like the app's.
+ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- The notch ---------- */
+
+.notch-wrap {
+  position: relative;
+  display: inline-block;
+}
+.notch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: #000;
+  color: #fff;
+  cursor: pointer;
+}
+div.notch {
+  cursor: default;
+}
+.ear {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+}
+.ear-left {
+  left: -14px;
+}
+.ear-right {
+  right: -14px;
+}
+.notch-shot {
+  display: block;
+  max-width: none;
+  align-self: start;
+  grid-area: 1 / 1;
+}
+.notch-row {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  width: 100%;
+}
+.notch-cover {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--p);
+}
+.notch-time {
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  margin-right: auto;
+}
+.notch-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.notch-bars i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--p);
+  transform-origin: bottom;
+  animation: bar 900ms ease-in-out infinite alternate;
+}
+.notch-bars i:nth-child(2) {
+  animation-duration: 640ms;
+}
+.notch-bars i:nth-child(3) {
+  animation-duration: 1100ms;
+}
+.notch-bars i:nth-child(4) {
+  animation-duration: 760ms;
+}
+@keyframes bar {
+  from {
+    transform: scaleY(0.25);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* ---------- First screen ---------- */
+
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background: var(--y);
+  color: #000;
+  overflow: hidden;
+}
+.hero-notch {
+  display: flex;
+  justify-content: center;
+  z-index: 2;
+}
+.hero-copy {
+  margin-top: auto;
+  padding: clamp(32px, 6vw, 72px) var(--m) clamp(28px, 4vw, 56px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px var(--m);
+  align-items: end;
+}
+.hero-title {
+  font-size: clamp(60px, 11.6vw, 210px);
+  line-height: 0.86;
+  letter-spacing: -0.055em;
+  font-weight: 800;
+  padding: 0;
+  max-width: none;
+}
+.word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: 0.06em;
+  margin-right: 0.2em;
+}
+.word > span {
+  display: inline-block;
+}
+.hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.btn-ghost {
+  background: #fff;
+  color: #000;
+}
+
+/* ---------- Every tool, sliding ---------- */
+
+.band {
+  background: #000;
+  color: var(--label);
+  padding: var(--gap-section) 0;
+  overflow: hidden;
+}
+.band-head {
+  padding: 0 var(--m);
+  margin-bottom: clamp(36px, 5vw, 72px);
+}
+.band-head h2 {
+  font-size: var(--step-display);
+  line-height: 0.96;
+  letter-spacing: -0.045em;
+  font-weight: 800;
+}
+.band-row {
+  display: flex;
+  gap: 12px;
+  width: max-content;
+  margin-bottom: 12px;
+  will-change: transform;
+}
+.band-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  height: clamp(60px, 6vw, 88px);
+  padding: 0 clamp(22px, 2.4vw, 34px);
+  border-radius: 999px;
+  color: #000;
+  font-size: clamp(20px, 2vw, 30px);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+/* ---------- The pinned story ---------- */
+
+.story {
+  position: relative;
+}
+.story-pin {
+  grid-template-columns: minmax(0, 1fr);
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+.story-stage {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 16px;
+}
+.story-copy {
+  grid-area: 3 / 1;
+  align-self: end;
+  padding: 0 var(--m) clamp(40px, 6vh, 72px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  max-width: 40em;
+}
+.story-copy h3 {
+  font-size: var(--step-display);
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  font-weight: 800;
+  margin-bottom: 14px;
+  max-width: 11em;
+}
+.story-icon {
+  grid-area: 2 / 1;
+  align-self: center;
+  padding-left: var(--m);
+  color: #000;
+  line-height: 0;
+}
+.story-icon svg {
+  width: clamp(96px, 28vw, 150px);
+  height: auto;
+}
+.story-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 8px;
+  background: #000;
+  transform-origin: left;
+}
+
+/* ---------- The closed row ---------- */
+
+.closed-sec {
+  background: var(--p);
+  color: #000;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.closed-sec .lead {
+  max-width: 40em;
+}
+.closed-strip {
+  margin: clamp(24px, 4vw, 56px) 0;
+}
+.closed-strip img {
+  display: block;
+  width: 100%;
+  max-width: 1400px;
+  height: auto;
+}
+.closed-strip img {
+  border-radius: 999px;
+}
+
+@media (min-width: 1000px) {
+  .hero {
+    padding-top: calc(var(--notch-h) + 8px);
+  }
+  .hero .nav {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+  .hero-notch {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .hero-copy {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+  .hero-title {
+    grid-column: 1 / -1;
+  }
+  .hero-side {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--m);
+  }
+  .story-icon {
+    padding: 0;
+    position: absolute;
+    right: var(--m);
+    bottom: clamp(32px, 6vh, 64px);
+    color: #000;
+    line-height: 0;
+    z-index: -1;
+    opacity: 0.9;
+  }
+  .story-icon svg {
+    width: clamp(180px, 22vw, 330px);
+    height: auto;
+  }
+  .story-pin {
+    grid-template-rows: 100svh;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+  .story-stage {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .story-copy {
+    grid-area: 1 / 1;
+  }
+}
+
+@media (min-width: 1000px) {
+  /* The open notch takes the middle of the bar: the home keeps only its two buttons up there. */
+  .hero .nav nav a.nav-link {
+    display: none;
+  }
+}
+
+@media (max-width: 999px) {
+  .hero .nav {
+    order: -1;
+  }
+  .hero-notch {
+    order: -2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notch-bars i {
+    animation: none;
+    transform: scaleY(0.6);
+  }
+}

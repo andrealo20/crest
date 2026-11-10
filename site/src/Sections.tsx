@@ -52,10 +52,10 @@ export function Nav() {
         <span>Crest</span>
       </a>
       <nav aria-label="Main">
-        <a className="nav-try" href="/#overview">Try it</a>
-        <a href="/whats-new/">What's new</a>
-        <a className="nav-plugins" href="/#plugins">Plugins</a>
-        <a className="nav-privacy" href="/privacy/">Privacy</a>
+        <a className="nav-link nav-new" href="/whats-new/">What's new</a>
+        <a className="nav-link nav-plugins" href="/#plugins">Plugins</a>
+        <a className="nav-link nav-privacy" href="/privacy/">Privacy</a>
+        <a className="btn btn-small btn-light nav-try" href="/try/">Try it</a>
         <a className="btn btn-small" href="/#install">Get Crest</a>
       </nav>
     </header>

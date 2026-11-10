@@ -1011,8 +1011,8 @@ details p {
   .nav nav a:not(.btn) {
     display: none;
   }
-  .nav nav a.nav-try {
-    display: inline-flex !important;
+  .nav nav {
+    gap: 8px;
   }
   .small-links {
     grid-template-columns: minmax(0, 1fr);

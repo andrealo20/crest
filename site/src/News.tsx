@@ -3,7 +3,7 @@ import { HIGHLIGHTS } from "./release";
 import { Rise } from "./Sections";
 
 /** The latest release, one row per highlight: the title in its colour, what it does, and where the demo shows it. */
-export function Highlights({ base = "" }: { base?: string }) {
+export function Highlights({ base = "/try/" }: { base?: string }) {
   return (
     <ul className="highlights">
       {HIGHLIGHTS.map((h, i) => (

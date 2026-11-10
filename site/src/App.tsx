@@ -3,8 +3,7 @@ import { CHAPTERS, HUE, LOGO, TOOLS, TOOL_BAR } from "./data";
 import { useDemo } from "./demo";
 import { Stage, Wash } from "./Stage";
 import { ChapterCard } from "./Chapter";
-import { Faq, Footer, Install, Make, Nav, Privacy, REPO, Rise } from "./Sections";
-import { News } from "./News";
+import { Footer, Nav, REPO, Rise } from "./Sections";
 import { RELEASE } from "./release";
 
 export default function App() {
@@ -75,16 +74,16 @@ export default function App() {
           <Wash color={color} />
           <Nav />
           <div className="bench-grid">
-            <h1>A notch for your screen. Try it.</h1>
+            <h1>Try every tool, right here.</h1>
 
             <div className="lede">
               <Rise>
                 <p className="lead">
-                  Crest is a free, open source Dynamic Island for Windows and macOS. The notch on this page is the real app, running here on sample data. Open it and try every tool, including <a href="#new">what version {RELEASE} added</a>.
+                  Crest is a free, open source Dynamic Island for Windows and macOS. The notch on this page is the real app, running here on sample data. Open it and try every tool, including what version {RELEASE} added.
                 </p>
               </Rise>
               <Rise i={1} className="actions">
-                <a className="btn" href="#install">Get Crest</a>
+                <a className="btn" href="/#install">Get Crest</a>
                 <a className="textlink" href="#overview">Try each tool, one by one</a>
               </Rise>
             </div>
@@ -120,11 +119,6 @@ export default function App() {
             </div>
           </div>
         </section>
-          <News release={RELEASE} />
-          <Make />
-          <Privacy />
-          <Install />
-          <Faq />
         </main>
         <Footer />
       </div>

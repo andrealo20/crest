@@ -12,7 +12,7 @@ function WhatsNew() {
     <Page color="#ff48b0" title="What's new" lead={<>What Crest {RELEASE} brings, then every version since the first one, as the app's own What's new page lists them.</>}>
       <section className="sec news news-page" aria-labelledby="release-title">
         <Rise><h2 id="release-title">Crest {RELEASE}</h2></Rise>
-        <Highlights base="/" />
+        <Highlights />
         <Rise className="fixes">
           <h3>Also fixed</h3>
           <ul>

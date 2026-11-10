@@ -19,6 +19,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         home: page("index.html"),
+        try: page("try/index.html"),
         whatsNew: page("whats-new/index.html"),
         privacy: page("privacy/index.html"),
         press: page("press/index.html"),
