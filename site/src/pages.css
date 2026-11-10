@@ -1,0 +1,397 @@
+/*
+ * The parts added for 1.1: the release on the home page, and the pages beyond it (What's new, Privacy, Press kit,
+ * Report a problem, the 404). Same tokens as styles.css: whole fields of colour, black and ink grounds, Inter.
+ */
+
+.lead a {
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+}
+
+/* ---------- New in the release: one row per highlight ---------- */
+
+.news {
+  background: #000;
+  color: var(--label);
+}
+.news-head {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: clamp(40px, 5vw, 80px);
+}
+.news-more .textlink {
+  color: var(--y);
+}
+.highlights {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(36px, 4vw, 56px);
+}
+.highlight {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px var(--m);
+}
+.highlight h3 {
+  font-size: var(--step-sub);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  color: var(--hue);
+  max-width: 14em;
+}
+.highlight-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.highlight-body p {
+  max-width: 38em;
+}
+.highlight .textlink {
+  color: var(--hue);
+}
+
+/* ---------- Pages beyond the home page ---------- */
+
+.page-head {
+  color: #000;
+  padding-bottom: clamp(48px, 7vw, 112px);
+}
+.page-title {
+  padding: 0 var(--m);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.page-title .lead {
+  max-width: 36em;
+}
+.page-body {
+  background: var(--ink);
+  color: var(--label);
+}
+.page-body .sec {
+  padding-top: clamp(64px, 8vw, 128px);
+  padding-bottom: clamp(64px, 8vw, 128px);
+}
+.page-body .sec + .sec {
+  padding-top: 0;
+}
+.page-body a:not(.btn) {
+  text-underline-offset: 4px;
+}
+.page-body h2 {
+  margin-bottom: clamp(24px, 3vw, 40px);
+}
+
+/* Running text: the policy and the press notes. */
+.prose {
+  max-width: 54em;
+}
+.prose p,
+.prose ul {
+  margin-bottom: 18px;
+  max-width: 44em;
+}
+.prose .lead {
+  margin-bottom: 28px;
+}
+.prose ul {
+  padding-left: 1.2em;
+  list-style: disc;
+}
+.prose li {
+  margin-bottom: 8px;
+}
+.prose h2 {
+  font-size: var(--step-head);
+  margin-top: clamp(40px, 5vw, 72px);
+}
+.prose h2:first-child {
+  margin-top: 0;
+}
+.prose code {
+  background: var(--fill-1);
+  border-radius: 6px;
+  padding: 1px 6px;
+  overflow-wrap: anywhere;
+}
+.policy .source {
+  margin-top: 32px;
+  color: var(--label-2);
+}
+.table {
+  overflow-x: auto;
+  margin: 8px 0 28px;
+  border-radius: 16px;
+  background: var(--fill-1);
+}
+table {
+  border-collapse: collapse;
+  min-width: 720px;
+  font-size: var(--step-small);
+}
+th,
+td {
+  text-align: left;
+  vertical-align: top;
+  padding: 14px 18px;
+}
+th {
+  font-weight: 700;
+  background: var(--fill-1);
+}
+tbody tr + tr td {
+  border-top: 1px solid var(--fill-2);
+}
+
+/* What's new: the fixes, then every version. */
+.fixes {
+  margin-top: clamp(48px, 6vw, 88px);
+  background: var(--fill-1);
+  border-radius: var(--radius);
+  padding: clamp(22px, 2.4vw, 34px);
+}
+.fixes h3,
+.version h3 {
+  font-size: var(--step-lead);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+.fixes ul,
+.version ul {
+  list-style: disc;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 44em;
+}
+.versions {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(36px, 4vw, 56px);
+}
+.version {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px var(--m);
+}
+.version-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.version-head h3 {
+  font-size: var(--step-sub);
+  color: var(--y);
+  margin: 0;
+}
+.version-head p {
+  color: var(--label-2);
+}
+.version-head .textlink {
+  color: var(--y);
+}
+
+/* Press kit */
+.press-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px var(--m);
+  margin-top: 36px;
+}
+.press-facts dt {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.press-facts a,
+.logo-grid a,
+.page-body .textlink {
+  color: var(--y);
+}
+.logo-grid,
+.shot-grid {
+  display: grid;
+  gap: 20px var(--m);
+  margin-top: 28px;
+}
+.logo-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.logo-grid li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 24px;
+}
+.logo-grid li.on-dark {
+  background: #000;
+}
+.logo-grid li:not(.on-dark) a {
+  color: #000;
+}
+.logo-grid img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+.shot-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.shot-grid img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  background: #000;
+  transition: transform 180ms var(--ease);
+}
+.shot-grid a:hover img {
+  transform: scale(1.015);
+}
+.shot-grid p {
+  margin-top: 8px;
+  font-size: var(--step-small);
+  color: var(--label-2);
+}
+
+/* Report a problem */
+.report {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 26px;
+  max-width: 44em;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.field label {
+  font-weight: 700;
+  font-size: var(--step-lead);
+  letter-spacing: -0.01em;
+}
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px var(--m);
+  width: 100%;
+}
+.hint,
+.small,
+.status {
+  font-size: var(--step-small);
+  color: var(--label-2);
+}
+.status:empty {
+  display: none;
+}
+.error {
+  color: #ff9b94;
+  font-weight: 600;
+}
+.report input:not([type="file"]),
+.report textarea {
+  font: inherit;
+  color: #fff;
+  background: var(--fill-1);
+  border: 2px solid var(--fill-2);
+  border-radius: 14px;
+  padding: 12px 16px;
+  width: 100%;
+  min-height: 52px;
+}
+.report textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+.report input:focus-visible,
+.report textarea:focus-visible {
+  border-color: #fff;
+}
+.report [aria-invalid="true"] {
+  border-color: #ff9b94;
+}
+.report input[type="file"] {
+  font: inherit;
+  font-size: var(--step-small);
+}
+.report input[type="file"]::file-selector-button {
+  font: inherit;
+  font-weight: 650;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 18px;
+  margin-right: 12px;
+  background: #fff;
+  color: #000;
+  cursor: pointer;
+}
+.report .btn {
+  background: var(--y);
+  color: #000;
+  border: 0;
+  cursor: pointer;
+}
+.report .btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.turnstile:empty {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .logo-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .shot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .field-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .press-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1000px) {
+  .news-head {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .highlight,
+  .version {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+  .shot-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .press-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shot-grid img,
+  .shot-grid a:hover img {
+    transform: none;
+    transition: none;
+  }
+}

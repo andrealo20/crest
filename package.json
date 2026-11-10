@@ -15,6 +15,7 @@
     "tauri": "tauri",
     "site:dev": "vite --config site/vite.config.ts",
     "site:build": "vite build --config site/vite.config.ts && vite build --mode demo --base ./ --outDir dist-site/demo",
+    "site:test": "node --test \"site/src/*.test.ts\" \"site/feedback-worker/test/*.test.mjs\"",
     "site:preview": "vite preview --config site/vite.config.ts --port 4180 --strictPort"
   },
   "dependencies": {

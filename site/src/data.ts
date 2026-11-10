@@ -2,8 +2,10 @@ import type { Icon } from "./icons";
 import {
   ArrowsLeftRight,
   BellSimple,
+  Calculator,
   Camera,
   CalendarBlank,
+  CalendarCheck,
   ChartLineUp,
   CheckCircle,
   ClipboardText,
@@ -12,12 +14,16 @@ import {
   Cpu,
   DiscordLogo,
   Drop,
+  Eyedropper,
   Gauge,
   GithubLogo,
+  GlobeHemisphereWest,
   MagnifyingGlass,
   MusicNotesSimple,
   NotePencil,
+  Robot,
   RocketLaunch,
+  Scroll,
   SquaresFour,
   Sparkle,
   TerminalWindow,
@@ -88,6 +94,12 @@ export const TOOLS: Record<string, Tool> = {
   vault: { id: "vault", label: "Vault", icon: Vault, hue: "slate" },
   discord: { id: "discord", label: "Discord", icon: DiscordLogo, hue: "indigo" },
   notices: { id: "notices", label: "Notices page", icon: BellSimple, hue: "amber" },
+  calc: { id: "calc", label: "Calc", icon: Calculator, hue: "indigo" },
+  clocks: { id: "clocks", label: "Clocks", icon: GlobeHemisphereWest, hue: "indigo" },
+  colour: { id: "colour", label: "Colour", icon: Eyedropper, hue: "purple" },
+  habits: { id: "habits", label: "Habits", icon: CalendarCheck, hue: "teal" },
+  teleprompter: { id: "teleprompter", label: "Prompter", icon: Scroll, hue: "amber" },
+  agents: { id: "agents", label: "Agents", icon: Robot, hue: "indigo" },
 };
 
 /** The order of the real tool bar. */
@@ -115,6 +127,18 @@ export const NOTICES: { kind: string; label: string }[] = [
   { kind: "live", label: "App notification" },
   { kind: "song", label: "New song" },
   { kind: "whatsnew", label: "What's new" },
+];
+
+/** Some of the panel scales the app offers (PANEL_SCALES in src/features/window/panelSize.ts). */
+export const SCALES = [80, 100, 125, 150, 200];
+
+/** Overview's search engines (src/features/overview/search.ts). */
+export const ENGINES = [
+  { id: "off", label: "Off" },
+  { id: "google", label: "Google" },
+  { id: "bing", label: "Bing" },
+  { id: "duckduckgo", label: "DuckDuckGo" },
+  { id: "brave", label: "Brave Search" },
 ];
 
 export const STYLES = [
@@ -175,14 +199,14 @@ export const LANGS: { code: string; label: string }[] = [
   { code: "it", label: "Italiano" },
 ];
 
-export type Control = "tools" | "styles" | "edges" | "notices" | "themes" | "langs" | "pets" | "pages" | "play";
+export type Control = "tools" | "styles" | "edges" | "notices" | "themes" | "langs" | "pets" | "pages" | "play" | "scale" | "cover" | "search";
 
 export interface Chapter {
   id: string;
   hue: HueName;
   title: string;
   text: string;
-  /** Written for the features coming in 1.0.0 (on main, not in the 0.4.0 release). */
+  /** What the latest release added to the chapter, shown in its hue. */
   next?: string;
   tools?: string[];
   controls?: Control[];
@@ -199,8 +223,9 @@ export const CHAPTERS: Chapter[] = [
     title: "Overview and weather",
     text:
       "Overview is a small control centre: the time, the weather, the song playing, Windows focus, keep awake, a volume slider and the brightness of the screen the notch is on. Weather adds the current conditions and a 7-day forecast from Open-Meteo, with no key to enter.",
-    next: "Coming in 1.0: quick controls in Overview, a fuller weather tab with an hourly strip and the 7 days, and the weather in the closed notch.",
+    next: "New in 1.1: a web search line at the bottom of Overview, with Google, Bing, DuckDuckGo or Brave Search.",
     tools: ["overview", "weather"],
+    controls: ["search"],
     start: "overview",
   },
   {
@@ -212,7 +237,7 @@ export const CHAPTERS: Chapter[] = [
     controls: ["styles", "edges"],
     start: "close",
     note: "The capsule always stays on the top edge. Click or tap the notch to open it again.",
-    image: { src: "img/closed-notch.png", alt: "The closed notch with a running timer, the AI quota ring, CPU, RAM and GPU load, download and upload, power draw, battery, temperature, the clock and today's GitHub contributions", w: 1222, h: 56 },
+    image: { src: "/img/closed-notch.png", alt: "The closed notch with a running timer, the AI quota ring, CPU, RAM and GPU load, download and upload, power draw, battery, temperature, the clock and today's GitHub contributions", w: 1222, h: 56 },
   },
   {
     id: "notices",
@@ -220,7 +245,6 @@ export const CHAPTERS: Chapter[] = [
     title: "Notices",
     text:
       "Notices drop over the closed row, one at a time: a finished timer, a question from a script, a saved screenshot, a download, the charger, the battery, the network, Bluetooth headphones, the volume and brightness HUD, Caps Lock, a Discord call, a due to-do, the water reminder, an event about to start, a quota alert, a new song. A running recording outranks the rest. Press one to see it.",
-    next: "Coming in 1.0: coloured notice cards.",
     controls: ["notices"],
     tools: ["notices"],
     start: "close",
@@ -231,10 +255,11 @@ export const CHAPTERS: Chapter[] = [
     title: "Music and lyrics",
     text:
       "Now Playing controls any player with a Windows media session. It has a live equalizer, a wavy or straight progress bar, shuffle and repeat, a mixer with a volume slider for every app, and synced lyrics that light up word by word when the source times them. Lyrics can be translated, and romanised for Japanese, Chinese and Korean.",
+    next: "New in 1.1: the cover can fill the whole panel, blurred and darkened behind the controls.",
     tools: ["media"],
-    controls: ["play"],
+    controls: ["play", "cover"],
     start: "media",
-    image: { src: "img/now-playing-styles.png", alt: "Now Playing with a cover, a wavy progress bar and the playback controls", w: 1040, h: 464 },
+    image: { src: "/img/now-playing-styles.png", alt: "Now Playing with a cover, a wavy progress bar and the playback controls", w: 1040, h: 464 },
   },
   {
     id: "focus",
@@ -244,15 +269,15 @@ export const CHAPTERS: Chapter[] = [
       "A focus timer with break presets, six alarm sounds, optional rain or noise in the background and a countdown in the closed notch. To-dos with projects and due times that ring. A note saved as you type. A water log against a daily goal. A scratchpad with syntax colouring and one draft per language. All of it stays on your machine, with no account.",
     tools: ["timer", "todos", "notes", "water", "scratchpad"],
     start: "timer",
-    image: { src: "img/timer-looks.png", alt: "The Timer tool in three looks, with big pixel digits", w: 1200, h: 434 },
+    image: { src: "/img/timer-looks.png", alt: "The Timer tool in three looks, with big pixel digits", w: 1200, h: 434 },
   },
   {
     id: "clipboard",
     hue: "teal",
     title: "Clipboard, Shelf, Converter, Launcher",
     text:
-      "The clipboard keeps text, links, images and files with filters, never writes them to disk and skips password managers. The Shelf parks files you drop or paste. The Converter handles units and about 30 currencies at the European Central Bank rates. The Launcher starts your pinned apps, and the first six also answer to Alt + 1 to Alt + 6.",
-    next: "Coming in 1.0: send Shelf files to a phone on the same network by scanning a QR code.",
+      "The clipboard keeps text, links, images and files with filters, never writes them to disk and skips password managers. The Shelf parks files you drop or paste. The Converter handles units and about 160 currencies, at the reference rates of the central banks. The Launcher starts your pinned apps, and the first six also answer to Alt + 1 to Alt + 6.",
+    next: "New in 1.1: the Converter grows from 30 currencies to about 160, the dong among them.",
     tools: ["clipboard", "shelf", "convert", "launcher"],
     start: "clipboard",
   },
@@ -265,17 +290,18 @@ export const CHAPTERS: Chapter[] = [
     tools: ["capture", "recorder", "camera", "find"],
     start: "capture",
     note: "The demo shows the panels. Your screen and microphone are never touched here. The Camera tool asks your browser for the camera only when you open it, and the picture stays on your device.",
-    image: { src: "img/find-on-screen.png", alt: "Find on screen searching for the word invoice and highlighting the line that contains it", w: 1200, h: 640 },
+    image: { src: "/img/find-on-screen.png", alt: "Find on screen searching for the word invoice and highlighting the line that contains it", w: 1200, h: 640 },
   },
   {
     id: "ai",
     hue: "violet",
     title: "Ask and AI usage",
     text:
-      "Ask is a chat with Claude, ChatGPT, OpenRouter or any OpenAI-compatible endpoint, with streaming and adjustable reasoning effort, using your own key. AI usage shows your subscription limits and balances in one place, plus the tokens and cost of your local coding agents today and over a week, with a page per model. A reading that is out of date is dimmed, and an expired sign-in renews from Crest's terminal in one click.",
+      "Ask is a chat with Claude, ChatGPT, OpenRouter or any OpenAI-compatible endpoint, with streaming and adjustable reasoning effort, using your own key, or with a model on this computer (LM Studio, Ollama) and no key at all. AI usage shows your subscription limits and balances in one place, plus the tokens and cost of your local coding agents today and over a week, with a page per model. A reading that is out of date is dimmed, and an expired sign-in renews from Crest's terminal in one click.",
+    next: "New in 1.1: a local server needs no made-up key any more, and the request leaves without an Authorization header.",
     tools: ["ask", "usage"],
     start: "ask",
-    image: { src: "img/ai-usage-renew.png", alt: "AI usage with a dimmed card whose sign-in expired and a Renew in the terminal link", w: 1200, h: 640 },
+    image: { src: "/img/ai-usage-renew.png", alt: "AI usage with a dimmed card whose sign-in expired and a Renew in the terminal link", w: 1200, h: 640 },
   },
   {
     id: "system",
@@ -288,6 +314,17 @@ export const CHAPTERS: Chapter[] = [
     note: "The readings in the demo are sample values.",
   },
   {
+    id: "extras",
+    hue: "indigo",
+    title: "Calc, Clocks, Colour, Habits, Prompter, Agents",
+    text:
+      "Six tools that wait in Settings, Tools until you turn them on. Calc is a notebook calculator that reads units, percentages, dates and money. Clocks lines up the time in up to 12 cities, with a slider to find an hour that suits everyone, plus sunrise, sunset and the moon. Colour picks a colour from the screen and checks its contrast. Habits keeps up to 20 streaks. Prompter scrolls a script at the speed you read. Agents lists the coding agent sessions running on your PC and shows which one is waiting for you.",
+    next: "New in 1.1: Colour has its own eyedropper with a loupe, which stays on the pointer on every monitor and works on the Mac too.",
+    tools: ["calc", "clocks", "colour", "habits", "teleprompter", "agents"],
+    start: "calc",
+    note: "The demo uses your browser's eyedropper; the app uses its own.",
+  },
+  {
     id: "life",
     hue: "emerald",
     title: "Calendar, portfolio, vault, Discord",
@@ -295,7 +332,7 @@ export const CHAPTERS: Chapter[] = [
       "A read-only agenda from ICS links or CalDAV, with a notice before each event and a Join button for Meet, Zoom, Teams and Webex. A portfolio that adds several brokers into one currency and only ever reads. A vault for passwords and 2FA codes behind a PIN, encrypted on your PC. Your Discord voice call with mute, deafen and hang up.",
     tools: ["calendar", "trading", "vault", "discord"],
     start: "calendar",
-    image: { src: "img/calendar-join.png", alt: "The Calendar agenda with a Join button on an event", w: 1200, h: 640 },
+    image: { src: "/img/calendar-join.png", alt: "The Calendar agenda with a Join button on an event", w: 1200, h: 640 },
   },
   {
     id: "themes",
@@ -311,12 +348,12 @@ export const CHAPTERS: Chapter[] = [
     hue: "indigo",
     title: "Your language, pets and settings",
     text:
-      "Crest speaks eleven languages, Arabic read right to left, and switches at once. A short first-run setup picks a preset (Music, Productivity, AI or your own), the closed look and the edge. Settings has a search field (Ctrl + F) that finds a setting by name, description or group.",
-    next: "Coming in 1.0: eight cartoon pets that live in a nest beside the notch.",
-    controls: ["langs", "pets", "pages"],
+      "Crest speaks eleven languages, Arabic read right to left, and switches at once. A short first-run setup picks a preset (Music, Productivity, AI or your own), the closed look and the edge. Settings has a search field (Ctrl + F) that finds a setting by name, description or group. Eight cartoon pets can live in a nest beside the notch.",
+    next: "New in 1.1: the panel scales from 80 to 200 percent, every tool can have a shortcut of its own, and a backup in Documents brings everything back.",
+    controls: ["scale", "langs", "pets", "pages"],
     start: "settings",
     note: "In Settings, press Ctrl + F to search.",
-    image: { src: "img/settings-search.png", alt: "Settings search finding a setting by its name", w: 1200, h: 800 },
+    image: { src: "/img/settings-search.png", alt: "Settings search finding a setting by its name", w: 1200, h: 800 },
   },
 ];
 
@@ -351,7 +388,7 @@ export const PLUGIN_JSON = `{
 
 export const FAQ: { tab: string; q: string; a: string }[] = [
   { tab: "Price", q: "Is Crest free?", a: "Yes. No ads, no paid tier, no account. It is open source under the GPL-3.0 licence, and the code of every release, Store builds included, is in the repository." },
-  { tab: "Demo", q: "Is the demo the real app?", a: "It is the real interface, built for the web and filled with sample data. Anything that needs your PC (hardware readings, your files, Windows notifications) is simulated here, so the demo shows how it looks and moves, not your own data. It runs the version in development, so it also shows what the page marks as coming in 1.0, which the 0.4.0 download does not have yet." },
+  { tab: "Demo", q: "Is the demo the real app?", a: "It is the real interface, built for the web and filled with sample data. Anything that needs your PC (hardware readings, your files, Windows notifications) is simulated here, so the demo shows how it looks and moves, not your own data. It is built from the newest code, so now and then it shows a change before the next release has it." },
   { tab: "Systems", q: "What does it run on?", a: "Windows 11 and Windows 10, on x64 and on ARM, and macOS 12 or later on Apple silicon and Intel as a preview. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder and Camera are Windows-only for now and do not show on a Mac." },
   { tab: "Network", q: "What does it send over the network?", a: "Nothing goes to the developer. Crest only goes online for the services you turn on, such as the weather, currency rates, lyrics or your AI provider, and straight from your PC to them. The full table is in the privacy policy." },
   { tab: "Store", q: "Microsoft Store or GitHub?", a: "The Store build is signed by Microsoft and updated by the Store. The installer and the portable zip on GitHub are not code-signed yet, so SmartScreen may warn on first launch: choose More info, then Run anyway." },

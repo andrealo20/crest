@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { GearSix, HandWaving, Gift, Pause, Play } from "./icons";
-import { type Chapter, EDGES, HUE, LANGS, NOTICES, PETS, STYLES, THEMES, TOOLS } from "./data";
+import { type Chapter, EDGES, ENGINES, HUE, LANGS, NOTICES, PETS, SCALES, STYLES, THEMES, TOOLS } from "./data";
 import type { DemoMessage, DemoState } from "./demo";
 import { useRise } from "./rise";
 
@@ -95,6 +95,33 @@ export function ChapterCard({ chapter: c, active, tool, state, patch, send, setT
         <Group label="Playback">
           <button className="chip" onClick={() => playback("play")}><Play size={18} weight="fill" aria-hidden="true" /> Play</button>
           <button className="chip" onClick={() => playback("pause")}><Pause size={18} weight="fill" aria-hidden="true" /> Pause</button>
+        </Group>
+      )}
+      {c.controls?.includes("cover") && (
+        <Group label="Cover behind the panel">
+          {[true, false].map((on) => (
+            <button key={String(on)} className="chip" aria-pressed={state.cover === on} onClick={() => { patch({ cover: on }); go("media"); send({ cmd: "cover", on }); }}>
+              {on ? "On" : "Off"}
+            </button>
+          ))}
+        </Group>
+      )}
+      {c.controls?.includes("search") && (
+        <Group label="Web search line">
+          {ENGINES.map((e) => (
+            <button key={e.id} className="chip" aria-pressed={state.search === e.id} onClick={() => { patch({ search: e.id }); go("overview"); send({ cmd: "search", engine: e.id }); }}>
+              {e.label}
+            </button>
+          ))}
+        </Group>
+      )}
+      {c.controls?.includes("scale") && (
+        <Group label="Panel scale">
+          {SCALES.map((v) => (
+            <button key={v} className="chip" aria-pressed={state.scale === v} onClick={() => { patch({ scale: v }); send({ cmd: "scale", value: v }); send({ cmd: "open" }); }}>
+              {v} %
+            </button>
+          ))}
         </Group>
       )}
       {c.controls?.includes("themes") && (

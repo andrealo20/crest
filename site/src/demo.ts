@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Where the embedded app lives: the app's own dev server while developing, the built copy in ./demo/ otherwise. */
-export const DEMO_ORIGIN = import.meta.env.DEV ? "http://localhost:1420/" : "./demo/";
+export const DEMO_ORIGIN = import.meta.env.DEV ? "http://localhost:1420/" : "/demo/";
 export const DEMO_SRC = `${DEMO_ORIGIN}?demo&bare&open&tool=overview`;
 export const DEMO_FULL = `${DEMO_ORIGIN}?demo`;
 const DEMO_HOST = new URL(DEMO_ORIGIN, location.href).origin;
@@ -17,11 +17,14 @@ export type DemoMessage =
   | { cmd: "style"; style: string }
   | { cmd: "edge"; edge: string }
   | { cmd: "theme"; id: string }
-  | { cmd: "pet"; on: boolean; kind?: string };
+  | { cmd: "pet"; on: boolean; kind?: string }
+  | { cmd: "scale"; value: number }
+  | { cmd: "cover"; on: boolean }
+  | { cmd: "search"; engine: string };
 
 /** What the demo reports about itself (event "state"), however it changed: a page command or the visitor in Settings. */
-export interface DemoState { lang: string; theme: string; style: string; edge: string; pet: string | null }
-const START: DemoState = { lang: "en", theme: "dark", style: "notch", edge: "top", pet: null };
+export interface DemoState { lang: string; theme: string; style: string; edge: string; pet: string | null; scale: number; cover: boolean; search: string }
+const START: DemoState = { lang: "en", theme: "dark", style: "notch", edge: "top", pet: null, scale: 100, cover: false, search: "off" };
 
 /** The postMessage contract with the demo (see the notes of the demo mode in src/dev/demo.ts). */
 export function useDemo() {
@@ -61,6 +64,9 @@ export function useDemo() {
           style: d.style ?? s.style,
           edge: d.edge ?? s.edge,
           pet: d.pet === undefined ? s.pet : d.pet,
+          scale: d.scale ?? s.scale,
+          cover: d.cover ?? s.cover,
+          search: d.search ?? s.search,
         }));
       }
     };

@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { useRise } from "./rise";
 import { ArrowUpRight, GithubLogo } from "./icons";
 import { FAQ, HUE, LOGO, NOTIFY_ASK, NOTIFY_CODE, NOTIFY_PART, PLUGIN_JSON } from "./data";
+import { RELEASE } from "./release";
 
 export const REPO = "https://github.com/andrealo20/crest";
 export const RELEASES = "https://github.com/andrealo20/crest/releases/latest";
 export const STORE = "https://apps.microsoft.com/detail/9N2KXJ2924KS";
+export const SITE = "https://crestisland.app";
+export const SUPPORT = "support@crestisland.app";
 
 /** A part of a section that rises into place once, `i` steps after its neighbours. */
 export function Rise({ children, i = 0, className }: { children: React.ReactNode; i?: number; className?: string }) {
@@ -44,16 +47,16 @@ export function Mark({ size = 40, animate = true }: { size?: number; animate?: b
 export function Nav() {
   return (
     <header className="nav">
-      <a className="brand" href="#top" aria-label="Crest, back to the top">
+      <a className="brand" href="/" aria-label="Crest, home">
         <Mark size={40} />
         <span>Crest</span>
       </a>
       <nav aria-label="Main">
-        <a href="#overview">Try it</a>
-        <a href="#notify">Scripts</a>
-        <a href="#plugins">Plugins</a>
-        <a href="#privacy">Privacy</a>
-        <a className="btn btn-small" href="#install">Get Crest</a>
+        <a className="nav-try" href="/#overview">Try it</a>
+        <a href="/whats-new/">What's new</a>
+        <a className="nav-plugins" href="/#plugins">Plugins</a>
+        <a className="nav-privacy" href="/privacy/">Privacy</a>
+        <a className="btn btn-small" href="/#install">Get Crest</a>
       </nav>
     </header>
   );
@@ -162,7 +165,7 @@ export function Privacy() {
               ? `files fetched by this page and its demo so far, every one from ${location.host}. Nothing else was contacted.`
               : `files fetched so far, including from ${seen.others.join(", ")}.`}
           </p>
-          <a className="textlink" href={`${REPO}/blob/main/PRIVACY.md`}>What Crest itself sends over the network, and when <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
+          <a className="textlink" href="/privacy/">What Crest itself sends over the network, and when <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
         </Rise>
       </div>
       <dl className="facts">
@@ -201,7 +204,7 @@ export function Install() {
             <p className="lead">Free and open source, for Windows 11 and 10 on x64 and ARM, and for macOS as a preview. Every release lists a SHA-256 checksum for each download.</p>
           </Rise>
           <Rise i={2}>
-            <a className="badge" href={STORE}><img src="img/get-it-from-microsoft-dark.svg" width={161} height={44} alt="Get it from Microsoft" /></a>
+            <a className="badge" href={STORE}><img src="/img/get-it-from-microsoft-dark.svg" width={161} height={44} alt="Get it from Microsoft" /></a>
           </Rise>
           <Rise i={3}>
             <p className="body">Crest uses WebView2, and the installer fetches it if it is missing. Settings and data stay in your user profile, or in a folder next to the portable copy. Every API key stays in the Credential Manager of that PC.</p>
@@ -262,11 +265,15 @@ export function Footer() {
         <div className="places">
           <a href={REPO}><GithubLogo size={30} weight="fill" aria-hidden="true" /> Source on GitHub</a>
           <a href={`${REPO}/issues/new/choose`}>Suggest an idea</a>
+          <a href="/feedback/">Report a problem</a>
           <a href="https://github.com/sponsors/andrealo20">Sponsor the project</a>
         </div>
         <div className="small-links">
           <a href={`${REPO}/blob/main/docs/features.md`}>Every feature, in detail</a>
-          <a href={`${REPO}/blob/main/PRIVACY.md`}>Privacy policy</a>
+          <a href="/whats-new/">What's new in {RELEASE}</a>
+          <a href="/privacy/">Privacy policy</a>
+          <a href="/press/">Press kit</a>
+          <a href={`mailto:${SUPPORT}`}>{SUPPORT}</a>
           <a href={`${REPO}/blob/main/LICENSE`}>GPL-3.0 licence</a>
           <a href={`${REPO}/blob/main/CONTRIBUTING.md`}>Contributing</a>
           <a href={`${REPO}/releases`}>All releases</a>

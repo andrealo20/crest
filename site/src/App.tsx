@@ -4,6 +4,8 @@ import { useDemo } from "./demo";
 import { Stage, Wash } from "./Stage";
 import { ChapterCard } from "./Chapter";
 import { Faq, Footer, Install, Make, Nav, Privacy, REPO, Rise } from "./Sections";
+import { News } from "./News";
+import { RELEASE } from "./release";
 
 export default function App() {
   const demo = useDemo();
@@ -78,7 +80,7 @@ export default function App() {
             <div className="lede">
               <Rise>
                 <p className="lead">
-                  Crest is a free, open source Dynamic Island for Windows and macOS. The notch on this page is the real app, running here on sample data. Open it and try every tool.
+                  Crest is a free, open source Dynamic Island for Windows and macOS. The notch on this page is the real app, running here on sample data. Open it and try every tool, including <a href="#new">what version {RELEASE} added</a>.
                 </p>
               </Rise>
               <Rise i={1} className="actions">
@@ -118,6 +120,7 @@ export default function App() {
             </div>
           </div>
         </section>
+          <News release={RELEASE} />
           <Make />
           <Privacy />
           <Install />

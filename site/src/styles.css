@@ -1011,7 +1011,7 @@ details p {
   .nav nav a:not(.btn) {
     display: none;
   }
-  .nav nav a[href="#overview"] {
+  .nav nav a.nav-try {
     display: inline-flex !important;
   }
   .small-links {
