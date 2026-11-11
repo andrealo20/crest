@@ -578,7 +578,12 @@ function Header({ title, ink }: { title: string; ink?: Record<string, string> })
   const reduced = useReducedMotion();
   return (
     // Empty header space = drag handle; the hit zone around it starts the drag (one handler, or two drags would run).
-    <div data-drag-handle className="flex shrink-0 items-center justify-between gap-3 ps-5 pe-3" style={{ height: HEADER_HEIGHT + 4, ...ink, ...(!reduced && { transition: INK_FADE }) }}>
+    // The title's colour is body's, worked out from the theme's label: set again here so the ink (the brow's, the cover's) reaches it.
+    <div
+      data-drag-handle
+      className="flex shrink-0 items-center justify-between gap-3 ps-5 pe-3"
+      style={{ height: HEADER_HEIGHT + 4, color: "var(--color-label)", ...ink, ...(!reduced && { transition: INK_FADE }) }}
+    >
       <div className="relative min-w-0 flex-1">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.h2
