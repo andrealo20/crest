@@ -56,7 +56,7 @@ export function noticePop(n: Notice, max: number) {
       key: `notice:${n.replace ? `${n.appId}:${n.replace}` : n.id}`,
       image: <AppIcon n={n} size={LOGO} rounded />,
       hue: "blue",
-      color: brandAccent(n.appName),
+      plain: true,
       title: n.title || n.appName,
       // The Notices page is a Windows tool; a plugin's notice on a Mac has none to open.
       onOpen: isMac ? undefined : () => openOn("notices"),
@@ -68,7 +68,7 @@ export function noticePop(n: Notice, max: number) {
   );
 }
 
-/** A brand's own colour for a notice's accent line, when the app is one Crest knows. */
+/** A brand's own colour for a question's accent line (AskNotice), when the app is one Crest knows. */
 export function brandAccent(appName: string): string | undefined {
   const brand = brandFor(appName);
   return brand ? brandColor[brand] : undefined;
