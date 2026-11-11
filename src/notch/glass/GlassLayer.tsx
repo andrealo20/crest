@@ -9,7 +9,7 @@ import { DOCK_HEIGHT, HEADER_HEIGHT, type NotchGeometry } from "../geometry";
 import { viewZoom } from "../viewZoom";
 import { GLASS, canvasBox, lodFor, parseTint, shapeUniform, textureMap, type SnapshotMeta } from "./params";
 import { DOWN_FS, MAIN_FS, program } from "./shader";
-import { dropSnapshot, glassBroken, setGlassRenderer } from "./snapshot";
+import { dropSnapshot, glassBroken, setGlassRenderer, snapshot } from "./snapshot";
 
 export type GlassMode = "off" | "armed" | "shown";
 
@@ -247,7 +247,9 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     canvas.removeEventListener("webglcontextlost", onLost);
     canvas.removeEventListener("webglcontextrestored", onRestored);
     setGlassRenderer(null);
-    dropSnapshot();
+    // A copy on screen goes with the texture. One still on its way stays: StrictMode runs this right after mounting, after the panel
+    // asked for one (Glass turned on with the panel open), and mounts again before it comes.
+    if (snapshot.get().ready) dropSnapshot();
     free();
     if (gpu) {
       gl.deleteProgram(gpu.down.p);
