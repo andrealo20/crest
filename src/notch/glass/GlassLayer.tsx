@@ -184,6 +184,8 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     }
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, 0);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, levels - 1);
+    // Detached, or the framebuffer would keep the texture, and the copy in it, alive after free().
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   };
 

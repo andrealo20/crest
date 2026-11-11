@@ -43,7 +43,8 @@ export function requestSnapshot(keep = false) {
     (code: unknown) => {
       // A rejection of an older request ("stale" among them) leaves the newer one alone.
       if (snapshot.get().seq !== seq) return;
-      giveUp(seq);
+      // Refused (transparency off, a remote session...): a copy kept on screen until this one came goes too.
+      dropSnapshot();
       if (import.meta.env.DEV) console.debug("glass", code);
     },
   );
@@ -56,7 +57,9 @@ function giveUp(seq: number) {
 
 /** Drops the copy: one on its way is released unused, and the texture goes, so no pixels of other apps stay in memory. */
 export function dropSnapshot() {
-  snapshot.set((s) => ({ ...s, seq: s.seq + 1, ready: false, pending: false }));
+  const s = snapshot.get();
+  // Nothing there (Glass off, or dropped already): no change, so the notch does not render again for it.
+  if (s.ready || s.pending) snapshot.set({ ...s, seq: s.seq + 1, ready: false, pending: false });
   renderer?.free();
 }
 

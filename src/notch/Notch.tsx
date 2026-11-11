@@ -184,10 +184,13 @@ export function Notch() {
   const sharing = privacy.use().screen;
   const presenting = presentingMode || sharing;
   const gaming = useGamingLive();
+  // The hide shortcut (or a rule) hides the window and may leave the panel open meanwhile.
+  const [windowHidden, setWindowHidden] = useState(false);
+  useEffect(() => windowShell.onHidden(setWindowHidden), []);
   const allowed = glassAllowed({
     on: themes.glass, windows: !isMac, hangsFromTop: glassShape, webgl: !broken,
     forcedColors: forcedColors.use(), contrastMore: contrastMore.use(), reducedTransparency: reducedTransparency.use(),
-    saver: powerState.use()?.saver === true, fullscreen: fullscreen.use() || gaming, hidden: hiddenForFullscreen,
+    saver: powerState.use()?.saver === true, fullscreen: fullscreen.use() || gaming, hidden: hiddenForFullscreen || windowHidden,
     presenting, cover: backdrop, dragging: drag.dragging, editing,
   });
   const shot = snapshot.use();
@@ -363,10 +366,11 @@ export function Notch() {
     return () => window.clearTimeout(id);
   }, [status]);
 
-  // The glass's copy of the screen goes at once when presenting or moving: the full veil covers the panel until --shape is opaque.
+  // The glass's copy of the screen goes at once when presenting, moving or hidden: the full veil covers the panel until --shape is
+  // opaque. Hidden, a new copy comes when the window shows again.
   useEffect(() => {
-    if (presenting || drag.dragging) dropSnapshot();
-  }, [presenting, drag.dragging]);
+    if (presenting || drag.dragging || windowHidden) dropSnapshot();
+  }, [presenting, drag.dragging, windowHidden]);
   // Moved, rescaled or on another monitor while open: the copy no longer lies under the window. Before the effect below, so a drag's
   // release asks once.
   const place = `${placementKey()}|${displaySettings.offset}|${behavior.scale}`;
@@ -394,12 +398,17 @@ export function Notch() {
     const now = snapshot.get();
     if (status === "open" && allowed && now.ready && !now.pending && Date.now() - now.takenAt > SNAPSHOT_STALE_MS) requestSnapshot(true);
   }, [status]);
-  // Dropped once the close has played out, under the opaque --shape by then; a copy still on its way is not loaded at all.
-  useEffect(() => {
+  // Dropped once the close has played out, under the opaque --shape by then; a copy still on its way is not loaded at all. Opened
+  // again before that, the copy goes at once: it belongs to the last opening (PRIVACY.md), and this one asks for its own. A layout
+  // effect, so the panel that opens again never paints over that copy.
+  useLayoutEffect(() => {
     if (status !== "closed") return;
     if (snapshot.get().pending) return dropSnapshot();
     const id = window.setTimeout(dropSnapshot, CLOSE_SETTLE_MS);
-    return () => window.clearTimeout(id);
+    return () => {
+      window.clearTimeout(id);
+      dropSnapshot();
+    };
   }, [status]);
 
   // 1–9 switches tools while open and not typing.
