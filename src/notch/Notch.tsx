@@ -40,7 +40,7 @@ import { holdOpen, pinned, togglePin, useNotchState, visited, type NotchStatus }
 import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
 import { dueTasks } from "../features/todos/store";
-import { asks } from "../features/notices/store";
+import { asks, popping } from "../features/notices/store";
 import { refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/store";
 import { useHue, type Hue } from "../features/themes/hues";
 import { recording } from "../features/capture/store";
@@ -72,7 +72,8 @@ export function Notch() {
   const idleStyle = editing ? displaySettings.idleStyle : effectiveIdleStyle(displaySettings.idleStyle, screenBehavior);
   // Line as the normal closed look: hover and click work as usual, but nothing shows
   // while closed but the song's progress. Only an urgent notice opens it into the notch, until answered or for its time:
-  // a finished timer, a due to-do reminder (the user asked to be told at that time), a running recording (its stop button stays in reach) or a status alert.
+  // a finished timer, a due to-do reminder (the user asked to be told at that time), a running recording (its stop button stays in reach), a status alert,
+  // or an app's notice popping up, for its few seconds (issue #31). Do Not Disturb, quiet hours or presenting send that one to the history instead.
   // Each store hook runs on every render: chained with || a finished timer skipped the other two and broke the hook order.
   const timerFinished = timer.use().finished;
   const tasksDue = dueTasks.use().length > 0;
@@ -81,8 +82,9 @@ export function Notch() {
   const asking = asks.use().length > 0;
   const urgent = timerFinished || tasksDue || recordingOn || asking;
   const statusOn = statusAlert.use() !== null;
+  const popped = popping.use() !== null;
   const idleLine = idleStyle === "line";
-  const alert = idleLine && (urgent || statusOn);
+  const alert = idleLine && (urgent || statusOn || popped);
   // Plugin tools exist once their list has been read.
   plugins.use();
   const visible = toolSettings.filter((t) => t.enabled).map((t) => findTab(t.id)).filter((t): t is NotchTab => !!t);

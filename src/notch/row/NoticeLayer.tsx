@@ -122,7 +122,7 @@ function useTrackCaption(on: boolean): string | null {
  * (charger, network, headphones, the volume and brightness HUD), a live notice from Windows or crest-notify (features/notices), a quota that crossed a level,
  * a new track while the title part is off, an event about to start, a due to-do, the water reminder or a new version.
  * Reports its content size while one shows, null otherwise; the shape takes that width, and a card's height. Mounted with the row, and on the idle line
- * while a finished timer, a recording, a status alert or a due to-do opens it into the notch (`urgentOnly`).
+ * while a finished timer, a recording, a status alert, an app's notice or a due to-do opens it into the notch (`urgentOnly`: the others wait).
  * Drawn `scale` times its designed size like the row; `max` is the widest it gets at that size.
  */
 export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; scale: number; onSize: (content: { width: number; height: number } | null) => void; urgentOnly: boolean }) {
@@ -148,7 +148,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
   const download = finishedDownload.use();
   // The thumbnail can show anything that was on screen, and a file name can be private: not while presenting.
   const presenting = usePresenting();
-  // On the idle line only what cannot wait: a recording, the finished timer, a status alert and a due reminder.
+  // On the idle line only what cannot wait: a recording, the finished timer, a status alert, an app's notice and a due reminder.
   const kind = topNotice({
     recording: rec.phase !== "idle",
     timer: finished,
@@ -157,7 +157,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
     saved: !urgentOnly && !!shot && !presenting,
     download: !urgentOnly && !!download && !presenting,
     status: !!status,
-    notice: !urgentOnly && !!pop,
+    notice: !!pop,
     quota: !urgentOnly && !!rise && (closed.quotaAlerts || !!rise.reset),
     track: !urgentOnly && !!track,
     calendar: !urgentOnly && !!meeting,

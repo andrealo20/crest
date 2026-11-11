@@ -57,9 +57,9 @@ const TONE: Record<StatusAlert["tone"], string> = { normal: "var(--color-label)"
 /**
  * The notice as an icon on its own line (the notice text is too wide for a column), by the same priority as NoticeLayer: a finished
  * timer's alarm, which dismisses it (after a running recording: its dot, time, pause and stop); the status alert's icon; a live notice's app logo; a due to-do's alarm, which opens the To-dos.
- * `urgentOnly` (the idle line) leaves out the live notice, as on top. Saved, download, quota, track, calendar and water notices stay off the column.
+ * On the idle line it shows the same ones, a live notice included, as on top. Saved, download, quota, track, calendar and water notices stay off the column.
  */
-function useNoticeLine(urgentOnly: boolean): Line | null {
+function useNoticeLine(): Line | null {
   const finished = timer.use().finished;
   const ring = ringing.use();
   const timerHover = useNoticeHover();
@@ -70,7 +70,7 @@ function useNoticeLine(urgentOnly: boolean): Line | null {
   const rec = recording.use();
   const recRunning = rec.phase === "recording";
   useSecondTick(recRunning, rec.at);
-  const kind = topNotice({ recording: rec.phase !== "idle", timer: finished, ask: !!ask, saved: false, download: false, status: !!status, notice: !urgentOnly && !!pop, quota: false, track: false, calendar: false, reminder: due.length > 0, breaks: false, water: false, whatsnew: false });
+  const kind = topNotice({ recording: rec.phase !== "idle", timer: finished, ask: !!ask, saved: false, download: false, status: !!status, notice: !!pop, quota: false, track: false, calendar: false, reminder: due.length > 0, breaks: false, water: false, whatsnew: false });
   const line = (id: string, draw: () => ReactNode): Line => ({ id, w: NOTICE_ICON, h: 20, draw });
   if (kind === "recording") {
     // Stacked: dot, time, pause or resume, stop. The width is the time's, measured with zeros so it only changes with a new digit.
@@ -171,7 +171,7 @@ function useNoticeLine(urgentOnly: boolean): Line | null {
 export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: number; onSize: (size: { length: number; width: number; notice: boolean }) => void }) {
   useRowVisible(parts);
   fontEpoch.use();
-  const notice = useNoticeLine(!parts);
+  const notice = useNoticeLine();
   const gh = useGithubToday();
   const s = settings.use(), closed = s.closed;
   const weather = useWeatherNow(parts && closed.parts.weather);
