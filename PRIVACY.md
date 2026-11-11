@@ -1,6 +1,6 @@
 # Crest privacy policy
 
-Last updated: 6 November 2026.
+Last updated: 11 November 2026.
 
 Crest is a free, open-source Windows and Mac app by Andrea Loroni. It has no account, no server of its own, no analytics and no tracking. Nothing is sent to the developer.
 
@@ -31,7 +31,7 @@ Every request goes straight from your PC to the service named here. On by defaul
 
 | Feature | Sent to | When |
 | --- | --- | --- |
-| AI usage | api.anthropic.com, chatgpt.com, cursor.com (with your existing local login for each), openrouter.ai, api.deepseek.com, api.z.ai (with the key you entered); the `agy` CLI on your PC asks Google for Antigravity | While the quota rings show or the tool is open, at most every 2 to 5 minutes, and only for services you are signed in to or have a key for |
+| AI usage | api.anthropic.com, chatgpt.com, cursor.com (with your existing local login for each), claude.ai (with the session key you pasted), openrouter.ai, api.deepseek.com, api.z.ai (with the key you entered); the `agy` CLI on your PC asks Google for Antigravity | While the quota rings show or the tool is open, at most every 2 to 5 minutes, and only for services you are signed in to or have a key for |
 | Ask (AI chat) | The provider you chose: api.anthropic.com, api.openai.com, openrouter.ai or your own endpoint (a local server such as LM Studio or Ollama keeps the messages on your PC) | Only when you send a message |
 | Portfolio | Each broker you set up, plus api.coingecko.com (coin symbols) and api.frankfurter.dev (currency codes) | After you set up an account |
 | Converter (currencies) | api.frankfurter.dev (reference rates of the European Central Bank and other central banks, no personal data) | When you open the Currency tab, at most once a minute |
@@ -46,6 +46,8 @@ Every request goes straight from your PC to the service named here. On by defaul
 | Kanji dictionary | github.com and release-assets.githubusercontent.com (a fixed JMdict release, anonymous) | Only when you press **Download** under Romanisation |
 | Updates | github.com and raw.githubusercontent.com (anonymous) | Once a day; can be turned off in **Settings → General → Updates** |
 | Plugins | Only the hosts each plugin you install declares in its `crest-plugin.json`, over https, with whatever the plugin sends them | When the plugin's tool is open and it asks; Crest shows these hosts before you install it |
+
+For Claude, AI usage reads the sign-in that Claude Code keeps in `~/.claude/.credentials.json`. On Windows, once that sign-in has expired, it reads the one the Claude desktop app keeps in its own folder, decrypting it on your PC as the app itself does, with the key Windows keeps for your account (DPAPI). Crest only reads these sign-ins: it never renews, changes or saves them, and sends them only to api.anthropic.com to ask for your usage. A claude.ai session key you paste instead stays in the Credential Manager (the Keychain on a Mac) and is sent only to claude.ai.
 
 Send to phone (Shelf) serves the files you picked on your PC's Wi-Fi or Ethernet address for 10 minutes, behind a random link that the QR code holds; nothing goes through a server of anyone else, and the files travel unencrypted over your network. The first time, Windows Defender Firewall asks whether Crest may use private networks: allow it, or the phone cannot connect. Windows keeps that rule after the 10 minutes and after Crest is uninstalled; remove it under Windows Security, Firewall & network protection, Allow an app through firewall (if you cancelled the prompt, the same page lets you allow Crest).
 
