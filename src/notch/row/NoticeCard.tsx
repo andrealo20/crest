@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { HUE_PALETTE } from "../../features/themes/themes";
 import type { Hue } from "../../features/themes/hues";
@@ -38,8 +38,8 @@ export interface CardSpec {
   read?: boolean;
   actions?: ReactNode;
   actionsWidth?: number;
-  /** A click on the icon or the text. Not stopped, so the notch also opens. */
-  onOpen?: () => void;
+  /** A click on the icon or the text. Not stopped, so the notch also opens, unless the handler stops it (it opens an app instead). */
+  onOpen?: (e: MouseEvent) => void;
   /** No colour line along the bottom edge: an app's notice, whose icon already says where it comes from (issue #31). */
   plain?: boolean;
 }

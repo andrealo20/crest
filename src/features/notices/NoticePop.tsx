@@ -1,6 +1,7 @@
 import { t } from "../../i18n";
 import { openOn } from "../../notch/nav";
 import { isMac } from "../../platform/native";
+import { noticeSource } from "../../platform/services";
 import { ICON_BOX, noticeCard } from "../../notch/row/NoticeCard";
 import { settings } from "../../settings/store";
 import { BrandLogo, brandColor, brandFor } from "../../ui/brands";
@@ -8,6 +9,7 @@ import { CopyCodeButton, copyCodeWidth } from "./CopyCode";
 import { noticeText } from "./format";
 import type { Notice } from "./history";
 import { noticeCode } from "./otp";
+import { dismissPop } from "./store";
 
 const LOGO = ICON_BOX, RING = 18;
 
@@ -58,8 +60,18 @@ export function noticePop(n: Notice, max: number) {
       hue: "blue",
       plain: true,
       title: n.title || n.appName,
-      // The Notices page is a Windows tool; a plugin's notice on a Mac has none to open.
-      onOpen: isMac ? undefined : () => openOn("notices"),
+      // A Windows notice opens its app and goes, as a click on its toast would: the notch stays closed (issue #34).
+      // crest-notify has no app, so its notices open the Notices page; that page is a Windows tool, so a plugin's notice on a Mac opens nothing.
+      onOpen:
+        n.source === "windows"
+          ? (e) => {
+              e.stopPropagation();
+              noticeSource.openApp(n.appId);
+              dismissPop();
+            }
+          : isMac
+            ? undefined
+            : () => openOn("notices"),
       text: n.title ? first || n.appName : first,
       actions: ring ? <ProgressRing value={n.progress ?? 0} size={RING} /> : code ? <CopyCodeButton code={code} /> : undefined,
       actionsWidth: code ? copyCodeWidth() : RING,
