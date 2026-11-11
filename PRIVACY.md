@@ -27,7 +27,7 @@ To remove your data, delete those folders (or the portable folder) and the "Cres
 
 ## Which network requests it makes, and when
 
-Every request goes straight from your PC to the service named here. On by default are the AI usage rings, the weather in Overview and the daily update check. Everything else makes no request until you set it up or turn it on.
+Every request goes straight from your PC to the service named here. On by default are the AI usage rings, the weather in Overview and the update check every 4 hours. Everything else makes no request until you set it up or turn it on.
 
 | Feature | Sent to | When |
 | --- | --- | --- |
@@ -44,7 +44,7 @@ Every request goes straight from your PC to the service named here. On by defaul
 | Lyrics | The sources you turned on in **Settings → Display → Lyrics**, in their order, each with the title, artist and length of the song: lrclib.net (on by default), lyrics.kugou.com (Kugou) and music.163.com (NetEase Cloud Music), both unofficial APIs and off by default | While the lyrics panel is open or a lyrics option of the closed notch is on, for songs up to 20 minutes; each answer is cached |
 | Lyrics translation | firefox.settings.services.mozilla.com, firefox-settings-attachments.cdn.mozilla.net (Mozilla's translation engine and models, anonymous; the lyrics are translated on your PC and never sent) | Only when you download the engine and a language's models for **Translate offline** |
 | Kanji dictionary | github.com and release-assets.githubusercontent.com (a fixed JMdict release, anonymous) | Only when you press **Download** under Romanisation |
-| Updates | github.com and raw.githubusercontent.com (anonymous) | Once a day; can be turned off in **Settings → General → Updates** |
+| Updates | github.com and raw.githubusercontent.com (anonymous) | 15 seconds after Crest starts, then every 4 hours; can be turned off in **Settings → General → Updates** |
 | Plugins | Only the hosts each plugin you install declares in its `crest-plugin.json`, over https, with whatever the plugin sends them | When the plugin's tool is open and it asks; Crest shows these hosts before you install it |
 
 For Claude, AI usage reads the sign-in that Claude Code keeps in `~/.claude/.credentials.json`. On Windows, once that sign-in has expired, it reads the one the Claude desktop app keeps in its own folder, decrypting it on your PC as the app itself does, with the key Windows keeps for your account (DPAPI). Crest only reads these sign-ins: it never renews, changes or saves them, and sends them only to api.anthropic.com to ask for your usage. A claude.ai session key you paste instead stays in the Credential Manager (the Keychain on a Mac) and is sent only to claude.ai.

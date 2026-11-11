@@ -504,7 +504,7 @@ function Updates() {
         )}
       </AnimatePresence>
       {!u.store && (
-        <Row label={t("Automatisch suchen")} hint={t("Einmal täglich, anonym bei GitHub, ohne deine Daten")}>
+        <Row label={t("Automatisch suchen")} hint={t("Alle 4 Stunden, anonym bei GitHub, ohne deine Daten")}>
           <Switch label={t("Automatisch suchen")} checked={auto} onChange={(on) => updateSettings({ updates: { auto: on } })} />
         </Row>
       )}

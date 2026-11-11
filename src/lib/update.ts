@@ -58,13 +58,14 @@ export async function installUpdate() {
   }
 }
 
-const DAY = 24 * 60 * 60 * 1000;
+/** A new version shows within hours; each check is one latest.json of a few KB, so this costs next to nothing. */
+const EVERY = 4 * 60 * 60 * 1000;
 
-/** On start (slightly delayed to keep startup fast) and daily after that, if allowed. */
+/** On start (slightly delayed to keep startup fast) and every 4 hours after that, if allowed. */
 export function startUpdateWatch() {
   void updater.current().then((current) => update.set((s) => ({ ...s, current })));
   void build.info().then(({ store }) => update.set((s) => ({ ...s, store })));
   const auto = () => settings.get().updates.auto && void checkForUpdate();
   setTimeout(auto, 15_000);
-  setInterval(auto, DAY);
+  setInterval(auto, EVERY);
 }

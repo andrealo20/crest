@@ -112,7 +112,7 @@ const FACTS: [string, string][] = [
   ["Your keys", "In the Windows Credential Manager (the Keychain on a Mac), never in a plain file."],
   ["The vault", "Encrypted with Windows DPAPI under your account, and sealed again with a key from your PC's security chip when Windows Hello is on."],
   ["The clipboard", "History is kept in memory only. Password managers are left out on purpose."],
-  ["The network", "On by default: the weather in Overview, the daily update check and the AI usage rings. Currency rates, lyrics, your AI provider and the rest only after you set them up. Each request goes straight from your PC to that service."],
+  ["The network", "On by default: the weather in Overview, the update check every 4 hours and the AI usage rings. Currency rates, lyrics, your AI provider and the rest only after you set them up. Each request goes straight from your PC to that service."],
 ];
 
 /** What this page and the demo frame inside it have fetched so far, read from the browser's own resource timings. */
