@@ -48,6 +48,8 @@ const GUID_ACDC_POWER_SOURCE: GUID = GUID::from_u128(0x5d3e9a59_e9d5_4b00_a6bd_f
 const GUID_BATTERY_PERCENTAGE_REMAINING: GUID = GUID::from_u128(0xa7ad8041_b45a_4cae_87a3_eecbb468a9e1);
 /// The console display: 0 off, 1 on, 2 dimmed (standby.rs).
 const GUID_CONSOLE_DISPLAY_STATE: GUID = GUID::from_u128(0x6fe69556_704a_47a0_8f24_c28d936fda47);
+/// Battery saver or Energy saver switched on or off.
+const GUID_POWER_SAVING_STATUS: GUID = GUID::from_u128(0xe00958c0_c213_4ace_ac77_fecced2eeea5);
 /// Battery level Windows takes from the hands-free indicators or the LE battery service; not in the crate.
 const DEVPKEY_BLUETOOTH_BATTERY: DEVPROPKEY = DEVPROPKEY { fmtid: GUID::from_u128(0x104ea319_6ee2_4701_bd47_8ddbf425bbe5), pid: 2 };
 /// Paired Bluetooth and Bluetooth LE devices, as Settings lists them. Audio endpoints cannot tell them apart: with an
@@ -91,6 +93,8 @@ pub struct Power {
     battery: bool,
     /// Taking charge now; false on a full battery or under a charge limit, though the charger is in.
     charging: bool,
+    /// Battery saver or Energy saver is on: Windows turns transparency off, and the glass (src/notch/glass) follows.
+    saver: bool,
 }
 
 /// Current state of each source, `null` while a source is off. Kept up to date after the
@@ -132,7 +136,7 @@ fn run(app: AppHandle) {
         let sources = SOURCES.load(Ordering::SeqCst);
 
         // Registering sends the current value at once; it matches the seed, so it emits nothing.
-        let power_on = [GUID_ACDC_POWER_SOURCE, GUID_BATTERY_PERCENTAGE_REMAINING].iter().fold(false, |on, guid| {
+        let power_on = [GUID_ACDC_POWER_SOURCE, GUID_BATTERY_PERCENTAGE_REMAINING, GUID_POWER_SAVING_STATUS].iter().fold(false, |on, guid| {
             match RegisterPowerSettingNotification(HANDLE(hwnd.0), guid, DEVICE_NOTIFY_WINDOW_HANDLE) {
                 Ok(_) => true,
                 Err(e) => {
@@ -335,7 +339,13 @@ fn power() -> Option<Power> {
     unsafe { GetSystemPowerStatus(&mut s) }.ok()?;
     // 128 = no system battery; 255 = unknown percent.
     let battery = s.BatteryFlag & 128 == 0;
-    Some(Power { ac: s.ACLineStatus == 1, percent: (battery && s.BatteryLifePercent <= 100).then_some(s.BatteryLifePercent), battery, charging: s.BatteryFlag & 8 != 0 })
+    Some(Power {
+        ac: s.ACLineStatus == 1,
+        percent: (battery && s.BatteryLifePercent <= 100).then_some(s.BatteryLifePercent),
+        battery,
+        charging: s.BatteryFlag & 8 != 0,
+        saver: s.SystemStatusFlag & 1 != 0,
+    })
 }
 
 /// No internet profile (cable out, Wi-Fi off) counts as offline.
@@ -620,6 +630,12 @@ mod tests {
         assert!(volume_changed(&mut last, (40, true)));
         assert!(volume_changed(&mut last, (42, true)));
         assert_eq!(last, Some((42, true)));
+    }
+
+    #[test]
+    fn power_carries_the_saver_to_the_page() {
+        let sent = serde_json::to_value(Power { ac: true, percent: Some(50), battery: true, charging: false, saver: true }).unwrap();
+        assert_eq!(sent["saver"], true);
     }
 
     #[test]

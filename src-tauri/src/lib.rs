@@ -527,6 +527,8 @@ pub fn run() {
             capture::find::find_highlight,
             #[cfg(windows)]
             capture::eyedropper::colour_pick,
+            #[cfg(windows)]
+            capture::backdrop::glass_backdrop,
             #[cfg(target_os = "macos")]
             macos::colour::colour_pick,
             agents::agents_list,
