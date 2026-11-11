@@ -1,18 +1,20 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { AnimatePresence, animate, frame, motion, useMotionValue, useTransform, type MotionValue, type Transition } from "motion/react";
+import { AnimatePresence, animate, frame, motion, useMotionValue, useReducedMotion, useTransform, type MotionValue, type Transition } from "motion/react";
 import { GearSix, PushPin } from "@phosphor-icons/react";
 import { content, springs } from "../design/motion";
 import { livePosition, useNowPlaying } from "../platform/media";
-import { isNative, keyboardFocus, onNativeBlur, onNativeHover, onNativeHoverAt, onShortcut, onTrayOpen, setHitRect, setMemoryLow } from "../platform/native";
+import { isMac, isNative, keyboardFocus, onNativeBlur, onNativeHover, onNativeHoverAt, onShortcut, onTrayOpen, setHitRect, setMemoryLow } from "../platform/native";
 import { PrivacyDots, usePrivacyDots } from "../features/privacy/PrivacyDots";
-import { dragArea, edgeOf, useDragToMove, viewLine, windowLength, windowY } from "./drag";
+import { privacy, usePresenting } from "../features/privacy/store";
+import { fullscreen, useGamingLive } from "../features/system/gaming";
+import { dragArea, edgeOf, placementKey, useDragToMove, viewLine, windowLength, windowY } from "./drag";
 import { useLiveActivity } from "./live";
 import { CompactRow } from "./row/CompactRow";
 import { CompactColumn } from "./row/CompactColumn";
 import { NoticeLayer } from "./row/NoticeLayer";
 import { CARD_H, CARD_INSET } from "./row/NoticeCard";
 import { Nest } from "./pet/Nest";
-import { statusAlert } from "../features/status/store";
+import { powerState, statusAlert } from "../features/status/store";
 import { effectiveIdleStyle, screen } from "../features/window/store";
 import { ResizeHandles, stepToolSize, useToolSize, wheelTaken } from "../features/window/panel";
 import { cycle } from "../features/window/model";
@@ -29,9 +31,12 @@ import { limits, toPageCss } from "../features/window/panelSize";
 import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
 import { sizeExtra, sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
+import type { GlassMode } from "./glass/GlassLayer";
+import { CLOSE_SETTLE_MS, SNAPSHOT_STALE_MS, glassAllowed, snapshotLead } from "./glass/params";
+import { contrastMore, dropSnapshot, glassBroken, reducedTransparency, requestSnapshot, snapshot } from "./glass/snapshot";
 import { ClosedResize, ClosedResizeBar, closedEdit, closedLive } from "./ClosedResize";
 import { drop, takeDropped } from "../platform/drop";
-import { settings } from "../settings/store";
+import { hoverDelayMs, settings } from "../settings/store";
 import { useUnseen } from "../lib/changelog";
 import { nav, navigate, openOn, takeOpenTarget } from "./nav";
 import { update } from "../lib/update";
@@ -42,7 +47,7 @@ import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
 import { dueTasks } from "../features/todos/store";
 import { asks, popping } from "../features/notices/store";
-import { refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/store";
+import { forcedColors, refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/store";
 import { useHue, type Hue } from "../features/themes/hues";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
@@ -169,6 +174,25 @@ export function Notch() {
   // The edge it hangs from (the capsule floats on the top frame); on a side edge the row stands as a column, which shows notices as an icon line.
   const edge = edgeOf(idleStyle, drag.dock);
   const side = across(edge);
+  // Glass (src/notch/glass): Windows, the open panel hanging from the top edge, from the notch or the line at the edge. The layer stays
+  // mounted while the setting is on, whatever the shape: remounting it would build its context again (37-65 ms) on every change.
+  const glassShape = edge === "top" && surface === "notch" && !(idleLine && sizes.lineTop > 0);
+  const broken = glassBroken.use();
+  const armed = themes.glass && !isMac && !broken;
+  // Each store hook runs on every render, as for `urgent` above.
+  const presentingMode = usePresenting();
+  const sharing = privacy.use().screen;
+  const presenting = presentingMode || sharing;
+  const gaming = useGamingLive();
+  const allowed = glassAllowed({
+    on: themes.glass, windows: !isMac, hangsFromTop: glassShape, webgl: !broken,
+    forcedColors: forcedColors.use(), contrastMore: contrastMore.use(), reducedTransparency: reducedTransparency.use(),
+    saver: powerState.use()?.saver === true, fullscreen: fullscreen.use() || gaming, hidden: hiddenForFullscreen,
+    presenting, cover: backdrop, dragging: drag.dragging, editing,
+  });
+  const shot = snapshot.use();
+  const glass: GlassMode = !armed ? "off" : allowed && shot.ready && status !== "peek" ? "shown" : "armed";
+  const reduced = useReducedMotion();
   const noticeTime = status !== "open" && (showRow || alert);
   const showNotices = !side && noticeTime && !editing;
   // On the idle line, only an urgent notice brings the column up: its icon alone, so the shape always has something to click.
@@ -339,6 +363,45 @@ export function Notch() {
     return () => window.clearTimeout(id);
   }, [status]);
 
+  // The glass's copy of the screen goes at once when presenting or moving: the full veil covers the panel until --shape is opaque.
+  useEffect(() => {
+    if (presenting || drag.dragging) dropSnapshot();
+  }, [presenting, drag.dragging]);
+  // Moved, rescaled or on another monitor while open: the copy no longer lies under the window. Before the effect below, so a drag's
+  // release asks once.
+  const place = `${placementKey()}|${displaySettings.offset}|${behavior.scale}`;
+  const lastPlace = useRef(place);
+  useEffect(() => {
+    if (lastPlace.current === place) return;
+    lastPlace.current = place;
+    dropSnapshot();
+    if (status === "open" && allowed) requestSnapshot();
+  }, [place, status, allowed]);
+  // A fresh copy for every opening, asked for ahead of the hover delay (the shortcut opens without a peek); none while something
+  // turns the glass off.
+  useEffect(() => {
+    if (!allowed) return;
+    if (status === "peek") {
+      const s = settings.get();
+      const id = window.setTimeout(() => requestSnapshot(), snapshotLead(s.openMode, hoverDelayMs[s.hoverDelay]));
+      return () => window.clearTimeout(id);
+    }
+    const now = snapshot.get();
+    if (status === "open" && !now.ready && !now.pending) requestSnapshot();
+  }, [status, allowed]);
+  // At the opening only, not when a block ends: a copy from long before (a long peek in click mode) is taken again, the old one showing meanwhile.
+  useEffect(() => {
+    const now = snapshot.get();
+    if (status === "open" && allowed && now.ready && !now.pending && Date.now() - now.takenAt > SNAPSHOT_STALE_MS) requestSnapshot(true);
+  }, [status]);
+  // Dropped once the close has played out, under the opaque --shape by then; a copy still on its way is not loaded at all.
+  useEffect(() => {
+    if (status !== "closed") return;
+    if (snapshot.get().pending) return dropSnapshot();
+    const id = window.setTimeout(dropSnapshot, CLOSE_SETTLE_MS);
+    return () => window.clearTimeout(id);
+  }, [status]);
+
   // 1–9 switches tools while open and not typing.
   useEffect(() => {
     if (status !== "open") return;
@@ -396,7 +459,7 @@ export function Notch() {
         onContextMenu={onContextMenu}
         onWheel={onWheel}
       >
-        <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge} thin={lineShape}>
+        <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge} thin={lineShape} glass={glass}>
           {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes), and their order on screen in any language. */}
           <div data-theme-ink dir="ltr" className="contents" style={closedInk}>
             {/* Laid out at their designed size and drawn at the content scale, from the edge (the column from its centre). */}
@@ -424,18 +487,27 @@ export function Notch() {
                 data-open-panel
                 // Anchored at the edge it hangs from, so it stays put while the shape grows from there.
                 className={`absolute isolate flex flex-col ${PANEL_ANCHOR[edge]}`}
-                style={{ width: size.w, height: size.h, ...(side ? { marginTop: -size.h / 2 } : { marginLeft: -size.w / 2 }), ...(backdrop && darkInk()) }}
+                style={{
+                  width: size.w,
+                  height: size.h,
+                  ...(side ? { marginTop: -size.h / 2 } : { marginLeft: -size.w / 2 }),
+                  ...(glass === "shown" && GLASS_STATUS),
+                  ...(glass !== "off" && !reduced && { transition: GLASS_STATUS_FADE }),
+                  ...(backdrop && darkInk()),
+                }}
                 // No scale here: scaling re-rasterizes the small dock icons at shifting subpixels every frame, which reads as jitter (issue #3).
                 // No blur either: blurring the whole panel cost a 50-70 ms frame on every open in WebView2 at 200 %.
                 initial={{ opacity: 0, transform: SLIDE_IN[edge] }}
                 animate={{ opacity: 1, transform: "translate(0px, 0px)", transition: content.enter }}
                 exit={{ opacity: 0, transform: SLIDE_OUT[edge], transition: content.exit }}
               >
-                {/* Below the content (-z-10 in the panel's own stacking context), so it never sits over text. */}
-                <div aria-hidden data-ambience={tinted ? "on" : "off"} className="pointer-events-none absolute inset-0 -z-10" style={tinted ? { ["--ambience" as string]: accent } : undefined} />
+                {/* Below the content (-z-10 in the panel's own stacking context), so it never sits over text. Off over the glass: the veil is
+                    worked out without it, and the cover's colour on top would take text below its minimum. */}
+                <div aria-hidden data-ambience={tinted && glass !== "shown" ? "on" : "off"} className="pointer-events-none absolute inset-0 -z-10" style={tinted ? { ["--ambience" as string]: accent } : undefined} />
                 {/* The Music tool's cover behind the whole panel; while it shows, the panel takes the Dark theme's light text. */}
                 <CoverBackdrop />
-                <Header title={t(tab.label)} />
+                {/* Over the glass the header sits on the closed notch's colour (the brow, shader.ts), so it takes the closed notch's ink. */}
+                <Header title={t(tab.label)} ink={glass === "shown" ? closedInk : undefined} />
                 <div className="relative min-h-0 flex-1 overflow-clip">
                   <AnimatePresence mode="popLayout" initial={false}>
                     <motion.div
@@ -476,6 +548,12 @@ const PANEL_ANCHOR: Record<Edge, string> = { top: "top-0 left-1/2", bottom: "bot
 /** The panel comes out of its edge and goes back into it (upright, i.e. screen, axes). */
 const SLIDE_IN: Record<Edge, string> = { top: "translate(0px, -6px)", bottom: "translate(0px, 6px)", left: "translate(-6px, 0px)", right: "translate(6px, 0px)" };
 const SLIDE_OUT: Record<Edge, string> = { top: "translate(0px, -4px)", bottom: "translate(0px, 4px)", left: "translate(-4px, 0px)", right: "translate(4px, 0px)" };
+/** Over the glass, status text takes the colours themes.ts holds to 4.5:1 over the veil on any backdrop. */
+const GLASS_STATUS = { "--color-orange": "var(--glass-orange)", "--color-red": "var(--glass-red)", "--color-green": "var(--glass-green)" };
+/** With --shape's fade, so text changes colour along with the background under it. */
+const GLASS_STATUS_FADE = "--color-orange 300ms var(--ease-out), --color-red 300ms var(--ease-out), --color-green 300ms var(--ease-out)";
+/** The header's ink changes with the brow under it as the glass comes and goes; the accent keeps global.css's fade. */
+const INK_FADE = "--color-label 300ms var(--ease-out), --color-label-2 300ms var(--ease-out), --color-label-3 300ms var(--ease-out), --accent 500ms ease";
 
 /** The song's progress along the idle line, as thick as the line: moved once a second with a 1 s linear transition, only while playing. `along`: the upright axis the edge runs on. */
 function LineProgress({ along }: { along: "x" | "y" }) {
@@ -495,11 +573,12 @@ function LineProgress({ along }: { along: "x" | "y" }) {
 }
 
 /** Header: tool title on the left, actions + pin on the right. The middle (camera) stays free. */
-function Header({ title }: { title: string }) {
+function Header({ title, ink }: { title: string; ink?: Record<string, string> }) {
   const isPinned = pinned.use();
+  const reduced = useReducedMotion();
   return (
     // Empty header space = drag handle; the hit zone around it starts the drag (one handler, or two drags would run).
-    <div data-drag-handle className="flex shrink-0 items-center justify-between gap-3 ps-5 pe-3" style={{ height: HEADER_HEIGHT + 4 }}>
+    <div data-drag-handle className="flex shrink-0 items-center justify-between gap-3 ps-5 pe-3" style={{ height: HEADER_HEIGHT + 4, ...ink, ...(!reduced && { transition: INK_FADE }) }}>
       <div className="relative min-w-0 flex-1">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.h2

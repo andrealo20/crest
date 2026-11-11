@@ -93,6 +93,34 @@ export function setMemoryLow(low: boolean) {
   if (isNative) void invoke("memory_low", { low });
 }
 
+/** A copy of the screen behind the window for the glass (capture/backdrop.rs); it comes back as a shared buffer, see onSharedBuffer. */
+export function glassBackdrop(seq: number): Promise<void> {
+  return isNative ? invoke("glass_backdrop", { seq }) : Promise.reject(new Error("not native"));
+}
+
+interface SharedBufferEvent { additionalData: unknown; getBuffer(): ArrayBuffer }
+interface SharedBufferHost {
+  addEventListener(type: "sharedbufferreceived", listener: (e: SharedBufferEvent) => void): void;
+  removeEventListener(type: "sharedbufferreceived", listener: (e: SharedBufferEvent) => void): void;
+  releaseBuffer(buffer: ArrayBuffer): void;
+}
+
+/** WebView2's shared buffers: `use` gets the buffer's description and its bytes, and the buffer is released right after. */
+export function onSharedBuffer(use: (meta: unknown, data: ArrayBuffer) => void): () => void {
+  const host = (window as unknown as { chrome?: { webview?: SharedBufferHost } }).chrome?.webview;
+  if (!host) return () => {};
+  const listener = (e: SharedBufferEvent) => {
+    const data = e.getBuffer();
+    try {
+      use(e.additionalData, data);
+    } finally {
+      host.releaseBuffer(data);
+    }
+  };
+  host.addEventListener("sharedbufferreceived", listener);
+  return () => host.removeEventListener("sharedbufferreceived", listener);
+}
+
 /** The tray menu's texts in the interface language (Rust starts in English). */
 export function setTrayTexts(texts: { open: string; settings: string; autostart: string; quit: string }) {
   if (isNative) void invoke("tray_texts", { texts });

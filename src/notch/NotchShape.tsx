@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { animate, motion, useMotionValue, useTransform, type Transition } from "motion/react";
 import type { NotchGeometry } from "./geometry";
 import { across, uprightCss, type Edge } from "./edge";
+import { GlassLayer, type GlassMode } from "./glass/GlassLayer";
 
 interface Props {
   geometry: NotchGeometry;
@@ -12,6 +13,8 @@ interface Props {
   edge?: Edge;
   /** The line: nothing is centred across it, so its thickness takes whole device pixels instead of an even number, and half px steps show. */
   thin?: boolean;
+  /** The open panel as glass (src/notch/glass): armed, the canvas waits; shown, it draws and --shape clears to let it through. */
+  glass?: GlassMode;
   children?: ReactNode;
 }
 
@@ -24,7 +27,7 @@ interface Props {
  * re-render per frame. Animations are interruptible and keep their velocity
  * (important when hovering in and out quickly).
  */
-export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, children }: Props) {
+export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, glass = "off", children }: Props) {
   const w = useMotionValue(geometry.w);
   const h = useMotionValue(geometry.h);
   const r = useMotionValue(geometry.r);
@@ -61,9 +64,12 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", thin 
     <motion.div
       data-notch-shape
       className="relative"
-      // The theme's background open; closed black, unless the theme opts in (--notch-closed). Crossfades (themes.css).
-      style={{ width: wPx, height: hPx, ["--shape" as string]: elevated ? "var(--color-notch)" : "var(--notch-closed)" }}
+      // The theme's background open; closed black, unless the theme opts in (--notch-closed). Crossfades (themes.css), which lets the
+      // glass in when it shows and covers it again on the way out.
+      style={{ width: wPx, height: hPx, ["--shape" as string]: elevated ? (glass === "shown" ? "transparent" : "var(--color-notch)") : "var(--notch-closed)" }}
     >
+      {/* Under the ears and the shadow like the shape's own colour, so its ears crossfade with --shape too. */}
+      {glass !== "off" && <GlassLayer mode={glass} w={wPx} h={hPx} r={r} ear={ear} target={geometry} />}
       <motion.span
         aria-hidden
         className="absolute top-0"
