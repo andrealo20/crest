@@ -113,7 +113,7 @@ pub fn terminal_info() -> ShellInfo {
 }
 
 /// CurrentBuildNumber from the registry; GetVersionEx would report the manifest's version instead.
-fn windows_build() -> u32 {
+pub(crate) fn windows_build() -> u32 {
     let mut buf = [0u16; 32];
     let mut bytes = std::mem::size_of_val(&buf) as u32;
     let found = unsafe {

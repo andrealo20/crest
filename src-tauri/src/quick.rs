@@ -12,7 +12,7 @@ use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 use windows::Win32::System::Registry::{RegGetValueW, RegSetKeyValueW, HKEY_CURRENT_USER, REG_DWORD, RRF_RT_REG_DWORD};
 use windows::Win32::UI::WindowsAndMessaging::{SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE};
 
-const PERSONALIZE: windows::core::PCWSTR = w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+pub(crate) const PERSONALIZE: windows::core::PCWSTR = w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
