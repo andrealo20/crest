@@ -6,28 +6,67 @@
 //! those and leaves the banners the user switched off alone. Only apps Windows already has a key for are touched.
 //! A banner the user turns on in Windows and off again stays marked and comes back with the others: the value alone
 //! cannot tell it from the one Crest wrote.
-//! They come back when Crest exits (lib.rs) and when it is uninstalled (`windows/hooks.nsh`); after a crash, at the
+//!
+//! Windows' notification sound goes the same way while Crest plays its own (issue #31): `SoundFile` in the same key is
+//! the "Play a sound" switch, with no value Windows' sound and an empty one silence. Crest marks what it empties with
+//! `CrestMutedSound`; a sound the user already turned off or replaced with a file of their own is left alone.
+//!
+//! Both come back when Crest exits (lib.rs) and when it is uninstalled (`windows/hooks.nsh`); after a crash, at the
 //! next start.
 //!
-//! The Store build's registry writes are virtualized and would not reach Windows: it opens Settings › Notifications
-//! instead and answers "settings".
+//! The Store build's registry writes are virtualized and would not reach Windows: for banners it opens Settings ›
+//! Notifications instead and answers "settings"; its sound row tells the user to turn Windows' sound off there.
 
 use windows::core::{w, HSTRING, PCWSTR, PWSTR};
 use windows::Win32::Foundation::{ERROR_MORE_DATA, ERROR_SUCCESS};
 use windows::Win32::System::Registry::{
-    RegCloseKey, RegDeleteKeyValueW, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW, RegSetKeyValueW, HKEY, HKEY_CURRENT_USER, KEY_READ, REG_DWORD, RRF_RT_REG_DWORD,
+    RegCloseKey, RegDeleteKeyValueW, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW, RegSetKeyValueW, HKEY, HKEY_CURRENT_USER, KEY_READ, REG_DWORD, REG_SZ,
+    RRF_RT_ANY, RRF_RT_REG_DWORD,
 };
 
 const SETTINGS: &str = r"Software\Microsoft\Windows\CurrentVersion\Notifications\Settings";
 const BANNER: PCWSTR = w!("ShowBanner");
 const MARK: PCWSTR = w!("CrestHidBanner");
+const SOUND: PCWSTR = w!("SoundFile");
+const SOUND_MARK: PCWSTR = w!("CrestMutedSound");
+
+/// A per-app setting Crest turns off for the apps whose notices it shows: the value Windows reads, Crest's mark on what
+/// it changed, whether the app still has Windows' default (one the user set is not Crest's to mark), and turning it off.
+struct Switch {
+    value: PCWSTR,
+    mark: PCWSTR,
+    at_default: fn(&HSTRING) -> bool,
+    turn_off: fn(&HSTRING) -> Result<(), String>,
+}
+
+const BANNERS: Switch = Switch { value: BANNER, mark: MARK, at_default: banner_on, turn_off: banner_off };
+const SOUNDS: Switch = Switch { value: SOUND, mark: SOUND_MARK, at_default: sound_default, turn_off: sound_off };
+
+/// The banner is on unless the value says 0.
+fn banner_on(key: &HSTRING) -> bool {
+    read(key, BANNER) != Some(0)
+}
+
+fn banner_off(key: &HSTRING) -> Result<(), String> {
+    write(key, BANNER, 0)
+}
+
+/// No value at all is Windows' own sound; an empty one (silence) or a path (the user's own sound) was set by the user.
+fn sound_default(key: &HSTRING) -> bool {
+    !has(key, SOUND)
+}
+
+fn sound_off(key: &HSTRING) -> Result<(), String> {
+    write_text(key, SOUND, "")
+}
+
+/// Off the main thread two changes could overlap; one at a time keeps the marks right.
+static BUSY: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// `hide`: banners off for exactly `apps`; an app Crest hid before that is no longer in the list gets its banner back.
 /// Not `hide`: every banner Crest hid comes back.
 #[tauri::command(async)]
 pub fn notices_banners(hide: bool, apps: Vec<String>) -> Result<(), String> {
-    // Off the main thread two changes could overlap; one at a time keeps the marks right.
-    static BUSY: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _busy = BUSY.lock().unwrap_or_else(|e| e.into_inner());
     // The Store build's banners go off in Settings, which leaves the same empty window behind.
     empty_banner::watch(hide);
@@ -37,25 +76,35 @@ pub fn notices_banners(hide: bool, apps: Vec<String>) -> Result<(), String> {
         }
         return Err("settings".into());
     }
-    set_banners(SETTINGS, hide, apps)
+    set(SETTINGS, &BANNERS, hide, apps)
 }
 
-/// `notices_banners` below the registry key `root` (the tests use a key of their own).
-fn set_banners(root: &str, hide: bool, apps: Vec<String>) -> Result<(), String> {
-    let apps: Vec<String> = if hide { apps.into_iter().filter(|a| plain(a)).collect() } else { Vec::new() };
-    for sub in marked(root) {
+/// `mute`: Windows' sound off for exactly `apps`, which Crest plays its own sound for; the others get it back.
+/// Not `mute`: every sound Crest muted comes back.
+#[tauri::command(async)]
+pub fn notices_sounds(mute: bool, apps: Vec<String>) -> Result<(), String> {
+    let _busy = BUSY.lock().unwrap_or_else(|e| e.into_inner());
+    if cfg!(feature = "store") {
+        return Err("store".into());
+    }
+    set(SETTINGS, &SOUNDS, mute, apps)
+}
+
+/// One switch off for exactly `apps` below the registry key `root` (the tests use a key of their own).
+fn set(root: &str, s: &Switch, off: bool, apps: Vec<String>) -> Result<(), String> {
+    let apps: Vec<String> = if off { apps.into_iter().filter(|a| plain(a)).collect() } else { Vec::new() };
+    for sub in marked(root, s.mark) {
         if !apps.iter().any(|a| a.eq_ignore_ascii_case(&sub)) {
-            unmark(root, &sub);
+            unmark(root, &sub, s);
         }
     }
-    // One key Windows refuses (a locked system app) does not keep the others visible; the first error is reported.
+    // One key Windows refuses (a locked system app) does not keep the others; the first error is reported.
     let mut first = Ok(());
     for app in &apps {
         let key = HSTRING::from(format!(r"{root}\{app}"));
-        // The banner is on unless the value says 0; one the user already turned off is not ours to mark.
-        if exists(&key) && read(&key, BANNER) != Some(0) {
-            // Mark first: a mark without ShowBanner = 0 only restores Windows' default.
-            let done = write(&key, MARK, 1).and_then(|()| write(&key, BANNER, 0));
+        if exists(&key) && (s.at_default)(&key) {
+            // Mark first: a mark without the value only restores Windows' default.
+            let done = write(&key, s.mark, 1).and_then(|()| (s.turn_off)(&key));
             if first.is_ok() {
                 first = done;
             }
@@ -64,7 +113,7 @@ fn set_banners(root: &str, hide: bool, apps: Vec<String>) -> Result<(), String> 
     first
 }
 
-/// Every banner Crest hid comes back: on exit, and from the uninstaller (`crest.exe --restore-banners`).
+/// Every banner and sound Crest turned off comes back: on exit, and from the uninstaller (`crest.exe --restore-banners`).
 pub fn restore() {
     empty_banner::release();
     if !cfg!(feature = "store") {
@@ -73,15 +122,17 @@ pub fn restore() {
 }
 
 fn restore_in(root: &str) {
-    marked(root).iter().for_each(|sub| unmark(root, sub));
+    for s in [&BANNERS, &SOUNDS] {
+        marked(root, s.mark).iter().for_each(|sub| unmark(root, sub, s));
+    }
 }
 
-fn unmark(root: &str, sub: &str) {
+fn unmark(root: &str, sub: &str, s: &Switch) {
     let key = HSTRING::from(format!(r"{root}\{sub}"));
-    // No ShowBanner is Windows' default: banners on.
+    // No value is Windows' default: banners on, its own sound.
     unsafe {
-        let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, &key, BANNER);
-        let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, &key, MARK);
+        let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, &key, s.value);
+        let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, &key, s.mark);
     }
 }
 
@@ -112,17 +163,27 @@ fn write(key: &HSTRING, name: PCWSTR, value: u32) -> Result<(), String> {
     unsafe { RegSetKeyValueW(HKEY_CURRENT_USER, key, name, REG_DWORD.0, Some(&value as *const u32 as *const _), 4) }.ok().map_err(|e| e.to_string())
 }
 
-/// Apps below Settings whose banner Crest turned off, nested ids (`{GUID}\App\app.exe`) included.
-fn marked(root: &str) -> Vec<String> {
+/// Whether the value is there at all, whatever its type.
+fn has(key: &HSTRING, name: PCWSTR) -> bool {
+    (unsafe { RegGetValueW(HKEY_CURRENT_USER, key, name, RRF_RT_ANY, None, None, None) }) == ERROR_SUCCESS
+}
+
+fn write_text(key: &HSTRING, name: PCWSTR, value: &str) -> Result<(), String> {
+    let wide: Vec<u16> = value.encode_utf16().chain([0]).collect();
+    unsafe { RegSetKeyValueW(HKEY_CURRENT_USER, key, name, REG_SZ.0, Some(wide.as_ptr().cast()), (wide.len() * 2) as u32) }.ok().map_err(|e| e.to_string())
+}
+
+/// Apps below Settings that carry Crest's `mark`, nested ids (`{GUID}\App\app.exe`) included.
+fn marked(root: &str, mark: PCWSTR) -> Vec<String> {
     let mut out = Vec::new();
-    scan(root, "", 0, &mut out);
+    scan(root, "", 0, mark, &mut out);
     out
 }
 
 /// A desktop app's id is a few keys deep (`{GUID}\App\app.exe` is three); the scan stops below this.
 const MAX_DEPTH: u32 = 6;
 
-fn scan(base: &str, prefix: &str, depth: u32, out: &mut Vec<String>) {
+fn scan(base: &str, prefix: &str, depth: u32, mark: PCWSTR, out: &mut Vec<String>) {
     let mut root = HKEY::default();
     let path = if prefix.is_empty() { base.to_string() } else { format!(r"{base}\{prefix}") };
     if unsafe { RegOpenKeyExW(HKEY_CURRENT_USER, &HSTRING::from(path), Some(0), KEY_READ, &mut root) } != ERROR_SUCCESS {
@@ -144,11 +205,11 @@ fn scan(base: &str, prefix: &str, depth: u32, out: &mut Vec<String>) {
         let _ = RegCloseKey(root);
     }
     for sub in subs {
-        if read(&HSTRING::from(format!(r"{base}\{sub}")), MARK) == Some(1) {
+        if read(&HSTRING::from(format!(r"{base}\{sub}")), mark) == Some(1) {
             out.push(sub.clone());
         }
         if depth + 1 < MAX_DEPTH {
-            scan(base, &sub, depth + 1, out);
+            scan(base, &sub, depth + 1, mark, out);
         }
     }
 }
@@ -296,19 +357,49 @@ mod tests {
         }
         // The user switched this one off in Windows: it is not Crest's to mark or to give back.
         write(&k_off, BANNER, 0).unwrap();
-        set_banners(&root.settings(), true, vec![app.into(), nested.into(), off.into()]).unwrap();
+        set(&root.settings(), &BANNERS, true, vec![app.into(), nested.into(), off.into()]).unwrap();
         for k in [&k_app, &k_nested] {
             assert_eq!((read(k, BANNER), read(k, MARK)), (Some(0), Some(1)));
         }
         assert_eq!((read(&k_off, BANNER), read(&k_off, MARK)), (Some(0), None));
         // Out of the list: its banner comes back, the other stays hidden.
-        set_banners(&root.settings(), true, vec![nested.into()]).unwrap();
+        set(&root.settings(), &BANNERS, true, vec![nested.into()]).unwrap();
         assert_eq!((read(&k_app, BANNER), read(&k_app, MARK)), (None, None));
         assert_eq!(read(&k_nested, MARK), Some(1));
         // The exit and uninstall path finds the nested key by the scan alone.
-        assert_eq!(marked(&root.settings()), vec![nested.to_string()]);
+        assert_eq!(marked(&root.settings(), MARK), vec![nested.to_string()]);
         restore_in(&root.settings());
         assert_eq!((read(&k_nested, BANNER), read(&k_nested, MARK)), (None, None));
         assert_eq!(read(&k_off, BANNER), Some(0));
+    }
+
+    fn text(key: &HSTRING, name: PCWSTR) -> Option<String> {
+        use windows::Win32::System::Registry::RRF_RT_REG_SZ;
+        let (mut buf, mut size) = ([0u16; 260], 520u32);
+        let ok = unsafe { RegGetValueW(HKEY_CURRENT_USER, key, name, RRF_RT_REG_SZ, None, Some(buf.as_mut_ptr().cast()), Some(&mut size)) } == ERROR_SUCCESS;
+        ok.then(|| String::from_utf16_lossy(&buf[..(size as usize / 2).saturating_sub(1)]))
+    }
+
+    /// Mutes Windows' sound for made-up apps and gives it back; sounds the user set are left as they are (issue #31).
+    #[test]
+    fn mutes_and_restores_sounds() {
+        let root = TestRoot::new("sounds");
+        let (app, silent, own) = ("Crest.SoundTest", "Crest.UserSilent", "Crest.UserSound");
+        let [k_app, k_silent, k_own] = [app, silent, own].map(|a| root.key(a));
+        for k in [&k_app, &k_silent, &k_own] {
+            write(k, w!("Enabled"), 1).unwrap();
+        }
+        write_text(&k_silent, SOUND, "").unwrap();
+        write_text(&k_own, SOUND, r"C:\Sounds\ping.wav").unwrap();
+        set(&root.settings(), &SOUNDS, true, vec![app.into(), silent.into(), own.into()]).unwrap();
+        assert_eq!((text(&k_app, SOUND), read(&k_app, SOUND_MARK)), (Some(String::new()), Some(1)));
+        assert_eq!((text(&k_silent, SOUND), read(&k_silent, SOUND_MARK)), (Some(String::new()), None));
+        assert_eq!((text(&k_own, SOUND), read(&k_own, SOUND_MARK)), (Some(r"C:\Sounds\ping.wav".into()), None));
+        // The banner switch does not see the sound's mark, and the exit path restores both.
+        assert!(marked(&root.settings(), MARK).is_empty());
+        restore_in(&root.settings());
+        assert_eq!((has(&k_app, SOUND), read(&k_app, SOUND_MARK)), (false, None));
+        assert_eq!(text(&k_own, SOUND), Some(r"C:\Sounds\ping.wav".into()));
+        assert_eq!(text(&k_silent, SOUND), Some(String::new()));
     }
 }

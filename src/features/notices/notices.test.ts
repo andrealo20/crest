@@ -68,6 +68,14 @@ test("normalizing saved settings", () => {
   assert.equal(normalizeNotices({ enabled: true }).copyCodes, true);
   assert.equal(normalizeNotices({ copyCodes: false }).copyCodes, false);
   assert.equal(normalizeNotices({ copyCodes: "no" }).copyCodes, true);
+  // Crest's own sound is off unless one of its sounds or the file was saved; a broken value never mutes Windows (#31).
+  assert.equal(normalizeNotices({ enabled: true }).sound, "off");
+  assert.deepEqual(
+    [normalizeNotices({ sound: "balloon" }).sound, normalizeNotices({ sound: "file" }).sound, normalizeNotices({ sound: "loud" }).sound],
+    ["balloon", "file", "off"],
+  );
+  assert.equal(normalizeNotices({ soundFile: "Ping.mp3" }).soundFile, "Ping.mp3");
+  assert.equal(normalizeNotices({ soundFile: 7 }).soundFile, "");
 });
 
 test("apps seen", () => {

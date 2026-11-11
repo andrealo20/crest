@@ -5,11 +5,11 @@ use std::path::PathBuf;
 
 use tauri::WebviewWindow;
 
-/// What the picker asks for: a folder, or a file of one type (the type's name in the dialog and its extension), shown
+/// What the picker asks for: a folder, or a file of one kind (the kind's name in the dialog and its extensions), shown
 /// first in `dir` when there is one (else where the system's picker was last).
 pub enum Pick {
     Folder,
-    File { name: &'static str, ext: &'static str, dir: Option<PathBuf> },
+    File { name: &'static str, exts: &'static [&'static str], dir: Option<PathBuf> },
 }
 
 /// The chosen path, None when cancelled.
@@ -40,9 +40,10 @@ fn applescript(what: Pick) -> String {
     let quoted = |s: &str| format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""));
     match what {
         Pick::Folder => "POSIX path of (choose folder)".to_string(),
-        Pick::File { ext, dir, .. } => {
+        Pick::File { exts, dir, .. } => {
             let start = dir.map(|d| format!(" default location (POSIX file {})", quoted(&d.to_string_lossy()))).unwrap_or_default();
-            format!("POSIX path of (choose file of type {{{}}}{start})", quoted(ext))
+            let types = exts.iter().map(|e| quoted(e)).collect::<Vec<_>>().join(", ");
+            format!("POSIX path of (choose file of type {{{types}}}{start})")
         }
     }
 }
@@ -58,7 +59,10 @@ fn dialog(what: Pick, owner: isize) -> Option<String> {
     // The filter's texts, alive until the dialog is gone.
     let (filter, dir) = match what {
         Pick::Folder => (None, None),
-        Pick::File { name, ext, dir } => (Some((HSTRING::from(format!("{name} (*.{ext})")), HSTRING::from(format!("*.{ext}")))), dir),
+        Pick::File { name, exts, dir } => {
+            let spec = exts.iter().map(|e| format!("*.{e}")).collect::<Vec<_>>().join(";");
+            (Some((HSTRING::from(format!("{name} ({spec})")), HSTRING::from(spec))), dir)
+        }
     };
     unsafe {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
@@ -95,10 +99,11 @@ mod tests {
     #[test]
     fn mac_scripts_quote_the_folder() {
         assert_eq!(applescript(Pick::Folder), "POSIX path of (choose folder)");
-        assert_eq!(applescript(Pick::File { name: "Crest plugin", ext: "zip", dir: None }), r#"POSIX path of (choose file of type {"zip"})"#);
+        assert_eq!(applescript(Pick::File { name: "Crest plugin", exts: &["zip"], dir: None }), r#"POSIX path of (choose file of type {"zip"})"#);
+        assert_eq!(applescript(Pick::File { name: "Audio", exts: &["mp3", "wav"], dir: None }), r#"POSIX path of (choose file of type {"mp3", "wav"})"#);
         let dir = Some(PathBuf::from(r#"/Users/a "b"/Documents/Crest/Backups"#));
         assert_eq!(
-            applescript(Pick::File { name: "Crest backup", ext: "json", dir }),
+            applescript(Pick::File { name: "Crest backup", exts: &["json"], dir }),
             r#"POSIX path of (choose file of type {"json"} default location (POSIX file "/Users/a \"b\"/Documents/Crest/Backups"))"#
         );
     }

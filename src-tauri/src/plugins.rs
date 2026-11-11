@@ -112,7 +112,7 @@ pub fn plugins_list(app: AppHandle) -> Vec<Manifest> {
 /// Shows the system's folder or .zip picker over the notch; the chosen path, None when cancelled.
 #[tauri::command]
 pub async fn plugins_pick(zip: bool, window: WebviewWindow) -> Option<String> {
-    let what = if zip { Pick::File { name: "Crest plugin", ext: "zip", dir: None } } else { Pick::Folder };
+    let what = if zip { Pick::File { name: "Crest plugin", exts: &["zip"], dir: None } } else { Pick::Folder };
     crate::picker::pick(what, &window).await
 }
 

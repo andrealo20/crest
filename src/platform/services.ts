@@ -1344,6 +1344,12 @@ export const noticeSource = {
    * Rejects with "settings" in the Store build, which opened Windows' notification settings instead.
    */
   banners: (hide: boolean, apps: string[]): Promise<void> => (isNative && !isMac ? invoke("notices_banners", { hide, apps }) : Promise.resolve()),
+  /** Windows' own notification sound off for these apps while Crest plays its own (banners.rs); rejects in the Store build. */
+  sounds: (mute: boolean, apps: string[]): Promise<void> => (isNative && !isMac ? invoke("notices_sounds", { mute, apps }) : Promise.resolve()),
+  /** Asks for a sound file and keeps a copy in Crest's data folder; its name, or null when cancelled. Rejects with "format" or "size". */
+  pickSound: (): Promise<string | null> => (isNative && !isMac ? invoke<string | null>("notices_sound_pick") : Promise.resolve(null)),
+  /** The kept sound file's bytes; rejects with "none" when there is no copy. */
+  readSound: (): Promise<ArrayBuffer> => (isNative && !isMac ? invoke<ArrayBuffer>("notices_sound_read") : Promise.reject(new Error("none"))),
   /** Opens the app a Windows notice came from, on its start page. */
   openApp: (appId: string) => {
     if (isNative) void invoke("notices_open_app", { appId }).catch(() => {});

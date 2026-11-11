@@ -60,7 +60,7 @@ fn create(dir: &Path, base: &str) -> std::io::Result<(PathBuf, File)> {
 #[tauri::command]
 pub async fn backup_open(app: AppHandle, window: WebviewWindow) -> Result<Option<String>, String> {
     let dir = folder(&app).ok().filter(|d| d.is_dir());
-    let Some(path) = picker::pick(Pick::File { name: "Crest backup", ext: "json", dir }, &window).await else { return Ok(None) };
+    let Some(path) = picker::pick(Pick::File { name: "Crest backup", exts: &["json"], dir }, &window).await else { return Ok(None) };
     tauri::async_runtime::spawn_blocking(move || read(Path::new(&path)).map(Some)).await.map_err(|_| "unreadable".to_string())?
 }
 

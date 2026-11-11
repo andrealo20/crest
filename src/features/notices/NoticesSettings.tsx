@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { settings, updateSettings } from "../../settings/store";
-import { Button, Group, Row, Segmented, Switch, TextField } from "../../ui/controls";
+import { Button, Group, Row, Segmented, Select, Switch, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
 import { update } from "../../lib/update";
-import { minutes, ruleFor, type NoticeRule, type NoticeSettings } from "./rules";
-import { refreshStatus, requestAccess, requestFailed, setAppRule, setNoticesEnabled, sourceStatus } from "./store";
+import { noticeSounds } from "../../lib/sound";
+import { minutes, ruleFor, type NoticeRule, type NoticeSettings, type NoticeSoundSetting } from "./rules";
+import { pickSoundFile, playNoticeSound, refreshStatus, requestAccess, requestFailed, setAppRule, setNoticesEnabled, soundFileError, sourceStatus } from "./store";
 
 const modeText: Record<string, string> = {
   "event-log": "Aktiv · liest jede neue Mitteilung, sobald Windows sie meldet",
@@ -27,6 +28,7 @@ export function NoticesSettings() {
   const status = sourceStatus.use();
   const failed = requestFailed.use();
   const store = update.use().store;
+  const fileError = soundFileError.use();
   const apps = Object.entries(n.apps).sort((a, b) => a[1].localeCompare(b[1]));
   // Access may have changed in Windows Settings while Crest ran.
   useEffect(refreshStatus, []);
@@ -57,6 +59,48 @@ export function NoticesSettings() {
             {n.windows && !store && (
               <Row label={t("Windows-Banner ausblenden")} hint={t("Mitteilungen erscheinen nur in Crest und bleiben in der Mitteilungszentrale von Windows")}>
                 <Switch label={t("Windows-Banner ausblenden")} checked={n.hideBanners} onChange={(hideBanners) => patch(() => ({ hideBanners }))} />
+              </Row>
+            )}
+            {/* Crest's own sound with the card (issue #31); the Store build cannot mute Windows' (banners.rs). */}
+            <Row
+              label={t("Ton")}
+              hint={
+                store
+                  ? t("Spielt, wenn eine Mitteilung in der Notch erscheint. Den Windows-Ton schaltest du in den Windows-Einstellungen unter Benachrichtigungen aus.")
+                  : t("Spielt, wenn eine Mitteilung in der Notch erscheint. Für diese Apps bleibt der Windows-Ton aus, solange Crest läuft.")
+              }
+            >
+              <div className="flex items-center gap-2">
+                {n.sound !== "off" && <Button onClick={() => playNoticeSound()}>{t("Probehören")}</Button>}
+                <Select<NoticeSoundSetting>
+                  width="w-36"
+                  value={n.sound}
+                  // The first time, "own file" opens the picker; cancelled, the sound stays as it was.
+                  onChange={(sound) => {
+                    soundFileError.set(null);
+                    if (sound === "file" && !n.soundFile) void pickSoundFile();
+                    else patch(() => ({ sound }));
+                  }}
+                  options={[
+                    { value: "off", label: t("Aus") },
+                    ...noticeSounds.map((s) => ({ value: s.value, label: t(s.label) })),
+                    { value: "file", label: t("Eigene Datei") },
+                  ]}
+                />
+              </div>
+            </Row>
+            {/* Also after a refused first pick, which leaves the sound as it was, so the reason shows. */}
+            {(n.sound === "file" || fileError !== null) && (
+              <Row
+                label={t("Tondatei")}
+                hint={
+                  fileError === "format" ? t("Diese Datei kann Crest nicht abspielen: MP3, WAV, OGG, M4A oder FLAC")
+                  : fileError === "size" ? t("Die Datei ist größer als 5 MB")
+                  : fileError ? t("Die Datei konnte nicht kopiert werden")
+                  : n.soundFile || t("Keine Datei gewählt")
+                }
+              >
+                <Button onClick={() => void pickSoundFile()}>{t("Datei wählen …")}</Button>
               </Row>
             )}
             <Row label="crest-notify" hint={

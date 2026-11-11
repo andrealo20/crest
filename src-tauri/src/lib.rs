@@ -49,6 +49,8 @@ mod mirror;
 #[cfg(windows)]
 mod mixer;
 #[cfg(windows)]
+mod notice_sound;
+#[cfg(windows)]
 mod notices;
 mod notify_wire;
 #[cfg(windows)]
@@ -429,6 +431,12 @@ pub fn run() {
             timer_window::timer_window_close,
             #[cfg(windows)]
             banners::notices_banners,
+            #[cfg(windows)]
+            banners::notices_sounds,
+            #[cfg(windows)]
+            notice_sound::notices_sound_pick,
+            #[cfg(windows)]
+            notice_sound::notices_sound_read,
             #[cfg(windows)]
             shelf::shelf_drag_out,
             #[cfg(windows)]

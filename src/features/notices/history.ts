@@ -25,7 +25,8 @@ export interface Notice {
 
 export const HISTORY = { max: 100, maxAgeMs: 24 * 60 * 60 * 1000 } as const;
 
-const sameKey = (a: Notice, b: Notice) => !!a.replace && a.replace === b.replace && a.appId === b.appId;
+/** `b` updates `a` in place: the same app and replace key. */
+export const sameKey = (a: Notice, b: Notice) => !!a.replace && a.replace === b.replace && a.appId === b.appId;
 
 /** Adds `n` on top. An entry with the same app and replace key goes; entries past the age or count limit go. */
 export function addNotice(list: Notice[], n: Notice, now: number): Notice[] {

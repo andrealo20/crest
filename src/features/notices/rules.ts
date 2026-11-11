@@ -1,4 +1,8 @@
 // Which notices pop up in the closed notch, which only go to the history, which are dropped. Pure.
+import { noticeSounds, type NoticeSound } from "../../lib/sound.ts";
+
+/** Crest's own sound for a notice that pops up: off, one of its sounds, or the user's file. */
+export type NoticeSoundSetting = "off" | NoticeSound | "file";
 
 /** show: pops up; mute: history only; hide: dropped. */
 export type NoticeRule = "show" | "mute" | "hide";
@@ -14,6 +18,10 @@ export interface NoticeSettings {
   hideBanners: boolean;
   /** A notice with a one-time code shows a Copy code button (otp.ts). It only shows when there is a code, so it is on by default. */
   copyCodes: boolean;
+  /** Crest's own sound when a notice pops up; Windows' sound is muted for those apps meanwhile (banners.rs). */
+  sound: NoticeSoundSetting;
+  /** The picked file's own name, for the settings; the copy is in Crest's data folder (notice_sound.rs). */
+  soundFile: string;
   /** A daily window ("HH:MM", may cross midnight) in which notices only go to the history, as in presentation mode. */
   quiet: { on: boolean; from: string; to: string };
   /** Keyed by lower-case app id. */
@@ -28,6 +36,8 @@ export const NOTICE_DEFAULTS: NoticeSettings = {
   cli: true,
   hideBanners: false,
   copyCodes: true,
+  sound: "off",
+  soundFile: "",
   quiet: { on: false, from: "22:00", to: "07:00" },
   rules: {},
   apps: {},
@@ -37,6 +47,7 @@ export const NOTICE_DEFAULTS: NoticeSettings = {
 export const MAX_APPS = 100;
 
 const RULES: readonly NoticeRule[] = ["show", "mute", "hide"];
+const SOUNDS: readonly string[] = ["off", ...noticeSounds.map((s) => s.value), "file"];
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const bool = (v: unknown, d: boolean) => (typeof v === "boolean" ? v : d);
 
@@ -63,6 +74,8 @@ export function normalizeNotices(saved: unknown): NoticeSettings {
     cli: bool(s.cli, d.cli),
     hideBanners: bool(s.hideBanners, d.hideBanners),
     copyCodes: bool(s.copyCodes, d.copyCodes),
+    sound: SOUNDS.includes(s.sound as string) ? (s.sound as NoticeSoundSetting) : d.sound,
+    soundFile: typeof s.soundFile === "string" ? s.soundFile.slice(0, 260) : d.soundFile,
     quiet: { on: bool(q.on, d.quiet.on), from: time(q.from, d.quiet.from), to: time(q.to, d.quiet.to) },
     rules,
     apps,
