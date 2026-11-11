@@ -65,8 +65,10 @@ jobs:
           range=${previous:+$previous..HEAD}
           {
             echo "notes<<EOF"
-            # Without the version bump commits and README touch-ups, and each subject once.
-            git log --no-merges --pretty='- %s' $range | grep -vE '^- (Merge|Update README|Release [0-9]|Notes for [0-9])' | awk '!seen[$0]++' || true
+            # Without the version bump commits and README touch-ups, and each subject once. Commits that touch only the
+            # website, its browser demo, the workflows or the READMEs are not changes to the app.
+            git log --no-merges --pretty='- %s' $range -- . ':(exclude)site' ':(exclude)src/dev' ':(exclude).github' ':(exclude)README.md' ':(exclude)README.zh-CN.md' |
+              grep -vE '^- (Merge|Update README|Release [0-9]|Notes for [0-9])' | awk '!seen[$0]++' || true
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
