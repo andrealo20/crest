@@ -235,6 +235,12 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     themeUntil = performance.now() + THEME_FADE_MS;
     frame.render(draw);
   });
+  // And at the crossfade's end, whenever that is: in a window that draws late (hidden, busy) the reads above can all fall before it,
+  // and the glass would keep the last theme's veil under this theme's text.
+  const onFaded = (e: TransitionEvent) => {
+    if (e.target === document.documentElement && e.propertyName.startsWith("--glass") && readTokens()) frame.render(draw);
+  };
+  document.documentElement.addEventListener("transitionend", onFaded);
   canvas.addEventListener("webglcontextlost", onLost);
   canvas.addEventListener("webglcontextrestored", onRestored);
   setGlassRenderer({ upload, free });
@@ -242,6 +248,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
   const stop = () => {
     offs.forEach((off) => off());
     offTheme();
+    document.documentElement.removeEventListener("transitionend", onFaded);
     cancelFrame(draw);
     window.clearTimeout(coverTimer);
     canvas.removeEventListener("webglcontextlost", onLost);
