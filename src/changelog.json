@@ -1,5 +1,29 @@
 [
   {
+    "version": "1.1.1",
+    "date": "2026-11-11",
+    "items": [
+      {
+        "en": "A sound of Crest's own when a notice pops up: ten short ones or a file of yours, with Windows' sound off for those apps"
+      },
+      {
+        "en": "The app's own icon on notices from desktop programs like Chrome and Discord, larger on the Notices page"
+      },
+      {
+        "en": "A notice you read in its app, like a WhatsApp message, leaves Crest too"
+      },
+      {
+        "en": "Switching to a smaller tool no longer closes the notch"
+      },
+      {
+        "en": "A Copy button in the Vault's password form"
+      },
+      {
+        "en": "Focus mode is gone: three quick clicks on the notch no longer make it half transparent"
+      }
+    ]
+  },
+  {
     "version": "1.1.0",
     "date": "2026-11-10",
     "items": [
