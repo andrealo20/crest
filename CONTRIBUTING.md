@@ -6,6 +6,8 @@ Bug reports, ideas and pull requests are welcome. For anything larger than a sma
 
 Built with **Tauri 2, React 19, TypeScript, Motion and Tailwind 4**. The app uses WebView2 instead of bundling Chromium, which keeps the release build at a few megabytes. Animations stay smooth because the window itself never resizes. Only the content inside it moves.
 
+Motion uses the springs in `src/design/motion.ts` and moves transform and opacity where it can. Nothing large is blurred with CSS: a blur over the whole panel cost a 50-70 ms frame on every open in WebView2 at 200%. The glass (`src/notch/glass`) is the one exception: it blurs each copy of the screen once, into the mip levels of a WebGL texture (1-2 ms), and each frame only reads them, in about 0.1 ms of GPU; its canvas is sized at the start of a transition, never per frame.
+
 Prerequisites:
 
 - Node.js 24. Node 22 or newer builds the app; `npm test` runs the TypeScript test files directly, which needs Node 22.18 or later.

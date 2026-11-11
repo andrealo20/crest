@@ -1,7 +1,7 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck.Core/PanelThemes.cs, PanelThemes.Build.cs,
 // PanelThemes.Derive.cs and Themes/*.json (the palettes of One Dark Pro, GitHub, Dracula and Night Owl, all MIT, see docs/themes.md).
 
-import { BLACK, WHITE, contrast, ensureContrast, formatColor, isDark, mix, over, parseColor, toHex, withAlpha, type ContrastNeed, type Rgba } from "./color.ts";
+import { BLACK, WHITE, contrast, ensureContrast, formatColor, isDark, luminance, mix, over, parseColor, toHex, withAlpha, type ContrastNeed, type Rgba } from "./color.ts";
 
 /**
  * Panel themes. A theme names a few colours (THEME_KEYS); the rest of Crest's tokens follow from
@@ -36,6 +36,8 @@ export interface ThemeSettings {
   iconColors: boolean;
   /** The open panel takes a soft glow of the cover colour while a song shows (themes.css, [data-ambience]). */
   coverTint: boolean;
+  /** The open panel drawn as glass over a copy of the screen behind it (Windows, src/notch/glass); resolveTheme gives its --glass-* tokens. */
+  glass: boolean;
   /** The whole app's font (FONTS), set as --font-sans; the terminal and the timer looks keep their monospace. */
   font: FontId;
 }
@@ -71,6 +73,8 @@ export const FONT_NAMES: Record<FontId, string> = {
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
 /** Tertiary text (hints, inactive icons): Crest's own dark tertiary, white at 34 %, is 2.9:1 on black. */
 export const TERTIARY = 2.8;
+/** The glass's veil in the bands along the panel's sides, where Crest writes nothing: 35 %, the dimming Apple asks for under clear glass over bright content. */
+export const GLASS_EDGE = 0.35;
 export const MAX_FILE_BYTES = 64 * 1024;
 export const DEFAULT_THEME = "dark";
 
@@ -269,6 +273,10 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     critical: ensure("critical", pick("critical", mode.critical), needs(TEXT, bg)),
     success: ensure("success", pick("success", mode.success), needs(TEXT, bg)),
   };
+  const veil = withAlpha(bg, glassVeil(bg, [[colors.foreground, STRONG_TEXT], [colors.secondary, TEXT], [colors.tertiary, TERTIARY]]));
+  // The veil holds the three text levels only: under the glass, status text gets colours of its own, held to 4.5:1 over the veil's
+  // darkest and lightest ends (Dark's red would drop to 3.4:1 over white), so neither the veil nor the panel's colours have to move.
+  const glassStatus = (c: Rgba) => formatColor(ensureContrast(c, needs(TEXT, over(veil, BLACK), over(veil, WHITE))));
   const yellow = ensure("yellow", parseColor(mode.yellow)!, needs(GRAPHIC, bg));
   // Ink on label-coloured fills and on scrims (Tailwind's `black`): whichever of black and white reads better on the foreground.
   const label = over(colors.foreground, bg);
@@ -294,6 +302,12 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     "--color-black": formatColor(onLabel),
     "--theme-accent": formatColor(colors.accent),
     "--notch-closed": closedNotch ? formatColor(bg) : "#000000",
+    "--glass-tint": formatColor(veil),
+    "--glass-tint-edge": formatColor(withAlpha(bg, Math.min(GLASS_EDGE, veil.a))),
+    "--glass-rim": dark ? "rgb(255 255 255 / 0.7)" : "rgb(255 255 255 / 0.9)",
+    "--glass-orange": glassStatus(colors.warning),
+    "--glass-red": glassStatus(colors.critical),
+    "--glass-green": glassStatus(colors.success),
   };
   // Coloured icons sit on the panel, the elevated cards, the Hardware rows and the active dock pill.
   const hueGrounds = needs(GRAPHIC, bg, elevated, fill1, over(fill[2], bg));
@@ -301,6 +315,20 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     vars[`--hue-${hue}`] = formatColor(ensureContrast(parseColor(dark ? onDark : onLight)!, hueGrounds));
   }
   return { id: file.id, dark, vars, colors, adjustments, closedNotch };
+}
+
+/**
+ * The glass lays the panel's background over the screen as a veil (src/notch/glass): the least opacity, in hundredths, at which every
+ * text keeps its minimum over any backdrop. Grey backdrops from black to white span every luminance the veil can sit on; a text that
+ * stays on one side of the veiled backdrop at both ends is at its worst at one of them, and one that changes side meets 1:1 in between.
+ */
+export function glassVeil(background: Rgba, texts: readonly (readonly [Rgba, number])[]): number {
+  const side = (t: Rgba, under: Rgba) => Math.sign(luminance(over(t, under)) - luminance(under));
+  for (let i = 0; i <= 100; i++) {
+    const veil = withAlpha(background, i / 100), low = over(veil, BLACK), high = over(veil, WHITE);
+    if (texts.every(([t, min]) => contrast(t, low) >= min && contrast(t, high) >= min && side(t, low) === side(t, high))) return i / 100;
+  }
+  return 1;
 }
 
 /** Coloured icons (Settings, Themes; hues.ts), in risograph ink colours: a bright shade for dark themes and a darker one for light themes, then held to 3:1 like every other colour. */
@@ -503,6 +531,7 @@ export const THEME_DEFAULTS: ThemeSettings = {
   schedule: { on: false, day: "light", night: "dark", dayStart: "07:00", nightStart: "19:00" },
   iconColors: false,
   coverTint: false,
+  glass: false,
   font: "inter",
 };
 
@@ -535,6 +564,7 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     },
     iconColors: typeof s.iconColors === "boolean" ? s.iconColors : legacyIconColors,
     coverTint: s.coverTint === true,
+    glass: s.glass === true,
     font: typeof s.font === "string" && Object.hasOwn(FONTS, s.font) ? s.font : THEME_DEFAULTS.font,
   };
 }

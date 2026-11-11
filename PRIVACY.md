@@ -23,6 +23,8 @@ The Camera tool (off by default) shows the camera picture only on your screen, w
 
 Find on screen reads your screens with Windows' own text recognition, on your PC: the screen copies are dropped as soon as they are read, and the text stays in memory until the page closes. Nothing is saved or sent.
 
+Glass (Settings, Themes; off by default, Windows only) copies the part of the screen under Crest's window into memory to draw the open panel as glass: when the pointer rests on the notch (also when it then leaves without opening the panel) or a shortcut opens the panel, again when the panel opens more than 2 seconds after that copy, and again if the notch is moved while the panel is open. The copy is never saved or sent and never shown in a later opening; it is dropped when the panel closes or the pointer leaves the notch, and when presentation mode starts. While the panel stays open the copy is kept, also while the glass is hidden for a moment, so the glass keeps showing what was behind it when the panel opened, also in a screenshot or a screen share started meanwhile. While it copies, Crest's notch is left out of other apps' screenshots and screen shares for one or two frames.
+
 To remove your data, delete those folders (or the portable folder) and the "Crest/…" entries in the Credential Manager (the Keychain on a Mac).
 
 ## Which network requests it makes, and when
