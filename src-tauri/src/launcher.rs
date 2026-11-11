@@ -57,7 +57,7 @@ pub struct LauncherState {
 
 /// Runs COM work on its own STA thread: shell extensions expect one, and the async runtime's
 /// threads are initialised as MTA elsewhere in the app.
-fn on_sta<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> Option<T> {
+pub(crate) fn on_sta<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> Option<T> {
     std::thread::spawn(move || unsafe {
         let init = CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE).is_ok();
         let out = f();
@@ -243,7 +243,7 @@ pub fn launch_from_key(app: &AppHandle, id: String) {
 }
 
 /// The entry's icon as a PNG data URL (works for `shell:AppsFolder\…` ids and exe paths).
-fn icon_png(id: &str) -> Option<String> {
+pub(crate) fn icon_png(id: &str) -> Option<String> {
     unsafe {
         let factory: IShellItemImageFactory = SHCreateItemFromParsingName(&HSTRING::from(id), None).ok()?;
         let bitmap = factory.GetImage(SIZE { cx: ICON_PX, cy: ICON_PX }, SIIGBF_ICONONLY).ok()?;

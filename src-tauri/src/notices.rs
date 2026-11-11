@@ -528,7 +528,7 @@ fn read_toast(
     }
     // DateTime counts 100 ns steps since 1601.
     let at = n.CreationTime().map(|t| ((t.UniversalTime - 116_444_736_000_000_000).max(0) / 10_000) as u64).unwrap_or_else(|_| now_ms());
-    let icon = icons.entry(app_id.clone()).or_insert_with(|| display.as_ref().and_then(logo)).clone();
+    let icon = icons.entry(app_id.clone()).or_insert_with(|| display.as_ref().and_then(logo).or_else(|| start_icon(&app_id))).clone();
     Some(NoticeIn {
         source: "windows",
         app_name: notify_wire::clean(Some(app_name), notify_wire::MAX_FIELD, false).unwrap_or_default(),
@@ -611,6 +611,16 @@ fn logo(display: &windows::ApplicationModel::AppDisplayInfo) -> Option<String> {
         _ => "image/png",
     };
     Some(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
+/// Desktop programs (Chrome, Discord and the like) often give no logo above. The Start menu has an icon for every app
+/// id a toast can come from, the one Windows shows for them too (issue #31). Read on an STA thread, once per app.
+fn start_icon(app_id: &str) -> Option<String> {
+    if !valid_app_id(app_id) {
+        return None;
+    }
+    let id = format!(r"shell:AppsFolder\{app_id}");
+    crate::launcher::on_sta(move || crate::launcher::icon_png(&id)).flatten()
 }
 
 /// The event log subscription. Its callback runs on a thread of the log service and only queues triggers.

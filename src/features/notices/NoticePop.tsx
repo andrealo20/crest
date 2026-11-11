@@ -11,7 +11,7 @@ import { noticeCode } from "./otp";
 
 const LOGO = 32, RING = 18;
 
-/** The app's logo, or its initial when Windows gave none (crest-notify, desktop programs without a logo). */
+/** The app's logo (or its Start menu icon), or its initial when there is neither (crest-notify, an app Start does not list). */
 export function AppIcon({ n, size, rounded }: { n: Pick<Notice, "icon" | "appName">; size: number; rounded?: boolean }) {
   const corner = rounded ? "rounded-[8px]" : "rounded-[4px]";
   if (n.icon) return <img src={n.icon} alt="" width={size} height={size} className={`shrink-0 ${corner} object-contain`} draggable={false} />;
