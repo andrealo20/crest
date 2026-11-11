@@ -381,18 +381,7 @@ function Controls({ np }: { np: NowPlaying }) {
         <SkipBack size={20} weight="fill" />
       </IconButton>
       <IconButton label={playing ? t("Pause") : t("Abspielen")} onClick={media.toggle}>
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span
-            key={playing ? "pause" : "play"}
-            className="flex"
-            initial={{ opacity: 0, transform: "scale(0.6)", filter: "blur(3px)" }}
-            animate={{ opacity: 1, transform: "scale(1)", filter: "blur(0px)" }}
-            exit={{ opacity: 0, transform: "scale(0.6)", filter: "blur(3px)" }}
-            transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-          >
-            {playing ? <Pause size={26} weight="fill" /> : <Play size={26} weight="fill" />}
-          </motion.span>
-        </AnimatePresence>
+        <PlayPauseIcon playing={playing} size={26} />
       </IconButton>
       <IconButton label={t("Nächster Titel")} onClick={media.next}>
         <SkipForward size={20} weight="fill" />
@@ -408,6 +397,24 @@ function Controls({ np }: { np: NowPlaying }) {
         </ModeButton>
       )}
     </div>
+  );
+}
+
+/** Pause while playing, play while paused, swapped with a quick scale (here and in the Overview's row). */
+export function PlayPauseIcon({ playing, size }: { playing: boolean; size: number }) {
+  return (
+    <AnimatePresence mode="popLayout" initial={false}>
+      <motion.span
+        key={playing ? "pause" : "play"}
+        className="flex"
+        initial={{ opacity: 0, transform: "scale(0.6)", filter: "blur(3px)" }}
+        animate={{ opacity: 1, transform: "scale(1)", filter: "blur(0px)" }}
+        exit={{ opacity: 0, transform: "scale(0.6)", filter: "blur(3px)" }}
+        transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+      >
+        {playing ? <Pause size={size} weight="fill" /> : <Play size={size} weight="fill" />}
+      </motion.span>
+    </AnimatePresence>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CaretDown, Check, Coffee, Eye, EyeSlash, Headphones, Moon, MusicNoteSimple, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleHigh, SpeakerSimpleSlash, Sun, SunDim, Timer } from "@phosphor-icons/react";
+import { CaretDown, Check, Coffee, Eye, EyeSlash, Headphones, Moon, MusicNoteSimple, SkipForward, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleHigh, SpeakerSimpleSlash, Sun, SunDim, Timer } from "@phosphor-icons/react";
 import { DiscordLogo } from "../../ui/brands";
 import { isMac } from "../../platform/native";
 import { content, springs } from "../../design/motion";
@@ -9,13 +9,13 @@ import { navigate } from "../../notch/nav";
 import { MAX_SIZE, requestSize } from "../../notch/size";
 import { findTab } from "../../notch/tabs";
 import { togglePresentation, usePresenting } from "../privacy/store";
-import { useNowPlaying } from "../../platform/media";
+import { media, useNowPlaying } from "../../platform/media";
 import { systemControls, type AudioOutput, type FocusState, type VolumeState } from "../../platform/services";
 import { MIXER_MAX_ROWS, MIXER_ROW, sendSystemVolume } from "../now-playing/Mixer";
 import { outputIcon } from "./outputs";
 import { useDiscordCall } from "../discord/store";
 import { Equalizer } from "../now-playing/Equalizer";
-import { ARTWORK_LAYOUT_ID } from "../now-playing/NowPlayingView";
+import { ARTWORK_LAYOUT_ID, PlayPauseIcon } from "../now-playing/NowPlayingView";
 import { formatClock, timer, useRemaining } from "../timer/store";
 import { Look, clockFace } from "../timer/Look";
 import { lookTint } from "../timer/looks";
@@ -38,7 +38,7 @@ import { awake, startAwake, stopAwake } from "./store";
  *   14:32                                    ☀ 18°
  *   Sunday, 5 October                Vienna · Clear
  *   ┌──────────────────────────────────────────────┐
- *   │ ▣ Song – Artist                        ▮▮▮▮  │   ← what's playing (click opens the tool)
+ *   │ ▣ Song · Artist                      ||  >|  │   ← what's playing (click opens the tool; music has play/pause and next)
  *   └──────────────────────────────────────────────┘
  *   [☾ Focus  ]  [☕ Keep awake ⌄]  [🔊 ━━━━━━━  42 %]
  *
@@ -198,6 +198,8 @@ function Header() {
   );
 }
 
+const ROW_CONTROL = "pressable pressable-fill flex size-8 items-center justify-center rounded-full text-label";
+
 /** What's running, in the same priority as the closed notch: timer, call, music. */
 function Activity() {
   const np = useNowPlaying();
@@ -206,7 +208,7 @@ function Activity() {
   const remaining = useRemaining();
   const timerLive = tm.endsAt !== null || tm.finished;
 
-  let item: { key: string; tab: string; icon: ReactNode; title: string; detail: string; trailing?: ReactNode } | null = null;
+  let item: { key: string; tab: string; icon: ReactNode; title: string; detail: string; trailing?: ReactNode; controls?: ReactNode } | null = null;
   if (timerLive) {
     item = {
       key: "timer",
@@ -236,7 +238,17 @@ function Activity() {
       ),
       title: np.title,
       detail: np.artist,
-      trailing: <Equalizer playing={np.isPlaying} />,
+      // Play/pause and next on the row itself, like the music in Control Center (issue #35); the icon says whether it plays.
+      controls: (
+        <>
+          <button aria-label={np.isPlaying ? t("Pause") : t("Abspielen")} title={np.isPlaying ? t("Pause") : t("Abspielen")} onClick={media.toggle} className={ROW_CONTROL}>
+            <PlayPauseIcon playing={np.isPlaying} size={16} />
+          </button>
+          <button aria-label={t("Nächster Titel")} title={t("Nächster Titel")} onClick={media.next} className={ROW_CONTROL}>
+            <SkipForward size={16} weight="fill" />
+          </button>
+        </>
+      ),
     };
   }
 
@@ -244,21 +256,34 @@ function Activity() {
     <div className="relative h-11 overflow-hidden rounded-[12px] bg-fill-1">
       <AnimatePresence mode="popLayout" initial={false}>
         {item ? (
-          <motion.button
+          <motion.div
             key={item.key}
-            onClick={() => navigate(item.tab)}
-            className="pressable pressable-wide pressable-fill absolute inset-0 flex items-center gap-2.5 px-2.5 text-start"
+            className="absolute inset-0"
             initial={{ opacity: 0, filter: "blur(4px)" }}
             animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
             exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
           >
-            <span className="flex size-7 shrink-0 items-center justify-center">{item.icon}</span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-footnote font-medium text-label">{item.title}</span>
-              <span className="block truncate text-caption text-label-3">{item.detail}</span>
-            </span>
-            {item.trailing && <span className="shrink-0 pe-1">{item.trailing}</span>}
-          </motion.button>
+            <button
+              onClick={() => navigate(item.tab)}
+              className={`pressable pressable-wide pressable-fill absolute inset-0 flex items-center gap-2.5 ps-2.5 text-start ${item.controls ? "pe-20" : "pe-2.5"}`}
+            >
+              <span className="flex size-7 shrink-0 items-center justify-center">{item.icon}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-footnote font-medium text-label">{item.title}</span>
+                <span className="block truncate text-caption text-label-3">{item.detail}</span>
+              </span>
+              {item.trailing && <span className="shrink-0 pe-1">{item.trailing}</span>}
+            </button>
+            {/* Over the row's end, not inside it (no button in a button), so the row keeps its whole fill. The end follows the
+                language; the inner box keeps play before next in any language, like the transport in Now Playing. */}
+            {item.controls && (
+              <div className="absolute inset-y-0 end-1.5 flex items-center">
+                <div dir="ltr" className="flex items-center gap-0.5">
+                  {item.controls}
+                </div>
+              </div>
+            )}
+          </motion.div>
         ) : (
           <motion.div
             key="idle"

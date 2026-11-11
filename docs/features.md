@@ -98,7 +98,7 @@ Caps Lock and Num Lock show the same way: switching either key says "Caps Lock o
 
 ## Overview, weather and Discord
 
-- **Overview** is a small control center: time, weather, what is playing right now, Windows focus, keep awake and a volume slider. With more than one playback device, the button at the end of the slider lists them and makes the one you pick the Windows default.
+- **Overview** is a small control center: time, weather, what is playing right now (a song with play/pause and next buttons), Windows focus, keep awake and a volume slider. With more than one playback device, the button at the end of the slider lists them and makes the one you pick the Windows default.
 - **Quick controls** sit in a row at the bottom of Overview: switches for Wi-Fi, Bluetooth (a radio the PC lacks is left out; there is no Bluetooth switch on a Mac), the dark theme and the microphone mute, then buttons to lock, sleep, restart and shut down. Sleep, restart and shut down ask for a second click within 3 seconds, the button turns red meanwhile. Restart and shut down start at once, so save your work first.
 - **Web search** (off by default) adds a search field at the bottom of Overview. Pick the engine under **Settings → Tools**, in To-Dos and Overview: Google, Bing, DuckDuckGo or Brave Search. Enter opens the results in your default browser and empties the field.
 - **Keep awake** stops the PC and the display from going to sleep. A tap keeps them awake until you turn it off; the arrow on the card picks 30 minutes, 1 hour or 2 hours instead, and the card shows the time left. A timed one ends by itself. While it is on, a small cup shows in the closed notch. It always starts off when Crest starts, and Crest lets the PC sleep again when it quits.
