@@ -1,11 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { contrast, over, parseColor } from "./color.ts";
+import { BLACK, WHITE, contrast, over, parseColor, withAlpha, type Rgba } from "./color.ts";
 import {
   BUILT_IN_THEMES,
+  GLASS_EDGE,
+  STRONG_TEXT,
+  TERTIARY,
+  TEXT,
   THEME_DEFAULTS,
   findTheme,
+  glassVeil,
   importThemes,
   normalizeId,
   normalizeThemeSettings,
@@ -16,6 +21,7 @@ import {
   themeToText,
   uniqueId,
   validateTheme,
+  type ResolvedTheme,
   type ThemeFile,
 } from "./themes.ts";
 
@@ -222,4 +228,72 @@ test("cover tint: off by default, on only when saved as true", () => {
 test("over keeps the pop-up colours opaque", () => {
   for (const t of BUILT_IN_THEMES) assert.equal(parseColor(resolveTheme(t).vars["--color-elevated"])!.a, 1);
   assert.equal(over(parseColor("#00000000")!, parseColor("#123456")!).r, 0x12);
+});
+
+test("glass: off by default, on only when saved as true", () => {
+  assert.equal(normalizeThemeSettings({}).glass, false);
+  assert.equal(normalizeThemeSettings({ glass: true }).glass, true);
+  assert.equal(normalizeThemeSettings({ glass: "true" }).glass, false);
+});
+
+const veilOf = (t: ThemeFile) => parseColor(resolveTheme(t).vars["--glass-tint"])!;
+const GLASS_STATUS = ["--glass-orange", "--glass-red", "--glass-green"];
+
+test("glass veil: the least share of the background that keeps every text level over any backdrop", () => {
+  // Text over the veil: the theme's three levels and the status colours drawn under the glass.
+  const levels = (r: ResolvedTheme): [Rgba, number][] => [
+    [r.colors.foreground, STRONG_TEXT],
+    [r.colors.secondary, TEXT],
+    [r.colors.tertiary, TERTIARY],
+    ...GLASS_STATUS.map((v): [Rgba, number] => [parseColor(r.vars[v])!, TEXT]),
+  ];
+  // Every opacity in hundredths over every uniform grey.
+  const brute = (bg: Rgba, texts: [Rgba, number][]) => {
+    for (let i = 0; i <= 100; i++) {
+      const veil = withAlpha(bg, i / 100);
+      const passes = (g: number) => texts.every(([c, min]) => contrast(c, over(veil, { r: g, g, b: g, a: 1 })) >= min);
+      if (Array.from({ length: 256 }, (_, g) => g).every(passes)) return i / 100;
+    }
+    return 1;
+  };
+  // docs/themes.md quotes Dark, Light and the opaque ones; a theme that changes colours changes its row.
+  const table: Record<string, number> = {
+    dark: 0.78, light: 0.8, "one-dark-pro": 0.86, "github-dark": 0.87, "github-light": 0.87, dracula: 0.83, "night-owl": 0.8, "catppuccin-mocha": 0.83,
+    "catppuccin-latte": 1, nord: 0.93, "rose-pine": 0.93, "rose-pine-dawn": 1, "gruvbox-dark": 0.87, "solarized-light": 0.95, everforest: 0.96,
+  };
+  assert.deepEqual(Object.keys(table), BUILT_IN_THEMES.map((t) => t.id));
+  for (const t of BUILT_IN_THEMES) {
+    const r = resolveTheme(t);
+    const veil = glassVeil(r.colors.background, levels(r));
+    assert.equal(veil, brute(r.colors.background, levels(r)), t.id);
+    assert.equal(veil, table[t.id], t.id);
+    assert.equal(veilOf(t).a, veil, t.id);
+  }
+});
+
+test("glass tokens", () => {
+  assert.equal(resolveTheme(dark).vars["--glass-tint"], "rgb(0 0 0 / 0.78)");
+  assert.equal(resolveTheme(dark).vars["--glass-tint-edge"], "rgb(0 0 0 / 0.35)");
+  assert.equal(resolveTheme(light).vars["--glass-tint"], "rgb(250 250 252 / 0.8)");
+  assert.equal(resolveTheme(findTheme("catppuccin-latte", [])).vars["--glass-tint"], "#e6e9ef");
+  for (const t of BUILT_IN_THEMES) {
+    const v = resolveTheme(t).vars;
+    const edge = parseColor(v["--glass-tint-edge"])!.a;
+    assert.ok(edge <= GLASS_EDGE && edge <= parseColor(v["--glass-tint"])!.a, t.id);
+    assert.ok(parseColor(v["--glass-rim"]), t.id);
+  }
+});
+
+test("glass status colours keep 4.5:1 over the veil on black and on white", () => {
+  for (const t of BUILT_IN_THEMES) {
+    const veil = veilOf(t);
+    const v = resolveTheme(t).vars;
+    for (const name of GLASS_STATUS) {
+      const c = parseColor(v[name])!;
+      for (const under of [BLACK, WHITE]) assert.ok(contrast(c, over(veil, under)) >= TEXT, `${t.id} ${name} over ${under === BLACK ? "black" : "white"}`);
+    }
+  }
+  // Where the veil is opaque the panel's own colours are already right.
+  const latte = resolveTheme(findTheme("catppuccin-latte", [])).vars;
+  assert.deepEqual(GLASS_STATUS.map((n) => latte[n]), [latte["--color-orange"], latte["--color-red"], latte["--color-green"]]);
 });

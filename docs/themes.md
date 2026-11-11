@@ -40,7 +40,7 @@ A theme is a JSON file. **Export** writes the theme on screen (the unsaved colou
 
 | Key | Use | Minimum contrast |
 | --- | --- | --- |
-| `background` | The open panel; always drawn opaque | |
+| `background` | The open panel: opaque, or the veil over the glass when **Glass** is on (see below) | |
 | `foreground` | Titles and main text | 7:1 on the background and menus |
 | `secondary` | Labels | 4.5:1 |
 | `tertiary` | Hints and small notes | 2.8:1 (Dark's own is 2.9:1) |
@@ -56,3 +56,13 @@ Every colour is optional; what a file leaves out follows from the background (da
 ## Readability
 
 A theme decides how the panel looks, never whether it can be read. Each colour is checked against the backgrounds it is drawn on (the panel, the menus and the button fills). One that misses its minimum is made lighter or darker along its own hue, whichever needs the smaller change, just far enough to pass; a colour that passes is used as written. The editor lists every change it made. The colour taken from the album cover gets the same check against the panel's background, so it stays visible on a light theme. Every built-in theme passes as written.
+
+## Glass
+
+**Settings › Themes › Glass** (off by default, Windows only for now) draws the open panel as glass: the screen behind it shows through, bent along the sides, blurred in the middle, with a light rim. It works while the open panel hangs from the top edge of the screen, from the notch or from the line at the edge; a capsule, the other edges and the Mac keep the opaque panel.
+
+The glass shows a copy of the screen taken as the panel opens, so a video or a page scrolling behind it stays still. Crest copies the area under its window when the pointer rests on the notch (also when it then leaves without opening the panel) or a shortcut opens the panel, again when the panel opens more than 2 seconds after that copy, and again if the notch is moved while the panel is open. The copy stays in memory until the panel closes. Nothing is saved or sent ([PRIVACY.md](../PRIVACY.md)).
+
+The theme still decides the text. Under the content the panel keeps the theme's background as a veil, at the least opacity at which titles, labels and hints keep their minimum over any backdrop, white or black: 78% for Dark, 80% for Light, more for themes whose text is close to its minimum (Catppuccin Latte and Rosé Pine Dawn stay opaque). On buttons and other fills text can come out a little below its minimum. Under the glass the warning, error and success colours are moved just far enough to keep 4.5:1 over the veil. Only the 16 px bands along the sides, where nothing is written, go down to 35%. The strip at the top keeps the closed notch's colour, so the open panel still hangs from it, and its title takes the closed notch's ink. The album-art tint is left out while the glass shows.
+
+Glass turns itself off with a Windows contrast theme, with transparency effects off or energy saver on, in a remote session, in presentation mode, over a fullscreen app or in gaming mode, while the album cover fills the panel, while the notch is dragged, and on a PC that runs WebGL only in software. It needs Windows 10 version 2004 or later.
