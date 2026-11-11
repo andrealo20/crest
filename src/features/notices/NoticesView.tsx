@@ -81,8 +81,9 @@ export function NoticesView() {
                       : undefined
                   }
                 >
+                  {/* As tall as the app's name and the title beside it, so the app is seen at a glance. */}
                   <div className="pt-0.5">
-                    <AppIcon n={n} size={20} />
+                    <AppIcon n={n} size={36} rounded />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2">
