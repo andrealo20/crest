@@ -3,7 +3,8 @@
 //! back or shared.
 //!
 //! - Claude (Claude Code): `api.anthropic.com/api/oauth/usage` with the OAuth token from
-//!   `~/.claude/.credentials.json`. Strictly rate-limited → 5 min cache, pause after 429
+//!   `~/.claude/.credentials.json`, or, once that has expired, with the Claude desktop app's own sign-in (Windows),
+//!   which the app renews while in use. Neither is ever renewed here. Strictly rate-limited → 5 min cache, pause after 429
 //!   (Retry-After, at least 30 s; 2 min growing to 30 without one). The last good result is kept
 //!   on disk so a restart doesn't query right away and never shows an empty error.
 //! - ChatGPT (Codex CLI): live `chatgpt.com/backend-api/wham/usage` with `~/.codex/auth.json`,
@@ -292,12 +293,15 @@ async fn fetch_claude_cli() -> Result<Provider, Fail> {
     let creds = read_json(&claude_dir().join(".credentials.json")).or_else(claude_keychain).ok_or("not-found")?;
     let oauth = &creds["claudeAiOauth"];
     let token = oauth["accessToken"].as_str().ok_or("not-signed-in")?;
-    // The file is refreshed only by the Claude Code CLI; the desktop app keeps its own sign-in, so the card says to run the CLI.
+    // The file is refreshed only by the Claude Code CLI; the desktop app keeps its own sign-in (fetch_claude tries it next).
     if oauth["expiresAt"].as_u64().is_some_and(|exp| exp < now_ms()) {
         return Err("claude-expired".into());
     }
-    let plan = oauth["subscriptionType"].as_str().map(capitalize);
+    claude_oauth_usage(token, oauth["subscriptionType"].as_str().map(capitalize)).await
+}
 
+/// The plan limits for an OAuth token of Claude Code or of the desktop app (the same endpoint takes both).
+async fn claude_oauth_usage(token: &str, plan: Option<String>) -> Result<Provider, Fail> {
     let res = client()?
         .get("https://api.anthropic.com/api/oauth/usage")
         .bearer_auth(token)
@@ -329,16 +333,108 @@ fn claude_windows(body: &Value) -> Vec<Window> {
 /// Where the claude.ai session key pasted in Settings lives (Credential Manager or Keychain).
 const CLAUDE_WEB_KEY: &str = "usage.claude-web";
 
-/// The CLI's sign-in first. Without it, the claude.ai session key from Settings, for people who only use the desktop
-/// app: its sign-in sits in a cookie file the app keeps locked while it runs, so Crest can't read it (issue #9).
+/// The CLI's sign-in first. Without a valid one, the desktop app's (Windows), which the app renews by itself while in
+/// use, then the claude.ai session key from Settings. No sign-in is ever renewed or written here: a renewal would spend a
+/// refresh token the CLI or the app still holds and sign it out.
 async fn fetch_claude() -> Result<Provider, Fail> {
     match fetch_claude_cli().await {
-        Err(e) if matches!(e.code.as_str(), "not-found" | "not-signed-in" | "claude-expired") => match crate::secrets::read(CLAUDE_WEB_KEY) {
-            Some(key) if !key.trim().is_empty() => fetch_claude_web(key.trim()).await,
-            _ => Err(e),
-        },
+        Err(e) if matches!(e.code.as_str(), "not-found" | "not-signed-in" | "claude-expired") => {
+            if let Some((token, plan)) = claude_desktop_token() {
+                match claude_oauth_usage(&token, plan).await {
+                    Err(d) if d.code == "claude-expired" => {}
+                    other => return other,
+                }
+            }
+            match crate::secrets::read(CLAUDE_WEB_KEY) {
+                Some(key) if !key.trim().is_empty() => fetch_claude_web(key.trim()).await,
+                _ => Err(e),
+            }
+        }
         other => other,
     }
+}
+
+/// The Claude desktop app's sign-in: `oauth:tokenCacheV2` in its config.json, sealed with the key in its Local State
+/// (wrapped with DPAPI for this user, as every Electron app on Windows does). Read only, the newest profile first.
+#[cfg(windows)]
+fn claude_desktop_token() -> Option<(String, Option<String>)> {
+    use windows::Win32::Foundation::{LocalFree, HLOCAL};
+    use windows::Win32::Security::Cryptography::{CryptUnprotectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB};
+    let unprotect = |data: &[u8]| -> Option<Vec<u8>> {
+        let input = CRYPT_INTEGER_BLOB { cbData: data.len() as u32, pbData: data.as_ptr() as *mut u8 };
+        let mut out = CRYPT_INTEGER_BLOB::default();
+        unsafe {
+            CryptUnprotectData(&input, None, None, None, None, CRYPTPROTECT_UI_FORBIDDEN, &mut out).ok()?;
+            let bytes = std::slice::from_raw_parts(out.pbData, out.cbData as usize).to_vec();
+            let _ = LocalFree(Some(HLOCAL(out.pbData as *mut _)));
+            Some(bytes)
+        }
+    };
+    let b64 = base64::engine::general_purpose::STANDARD;
+    let now = now_ms();
+    claude_desktop_profiles().iter().find_map(|dir| {
+        let config = read_json(&dir.join("config.json"))?;
+        // V2 is the one the app keeps current, cleared entries after a sign-out included.
+        let sealed = config.get("oauth:tokenCacheV2").or_else(|| config.get("oauth:tokenCache"))?.as_str()?;
+        let state = read_json(&dir.join("Local State"))?;
+        let wrapped = b64.decode(state["os_crypt"]["encrypted_key"].as_str()?).ok()?;
+        let key = unprotect(wrapped.strip_prefix(b"DPAPI")?)?;
+        let cache = serde_json::from_slice(&open_chromium_secret(&key, &b64.decode(sealed).ok()?)?).ok()?;
+        desktop_token(&cache, config["lastKnownAccountUuid"].as_str().unwrap_or(""), now)
+    })
+}
+
+/// The Mac app seals its sign-in with a Keychain key ("Claude Safe Storage"); reading that asks the user, so it isn't.
+#[cfg(not(windows))]
+fn claude_desktop_token() -> Option<(String, Option<String>)> {
+    None
+}
+
+/// Where the desktop app keeps its profile: the classic install, the Store package, and the newer Claude-Data folders.
+#[cfg(windows)]
+fn claude_desktop_profiles() -> Vec<PathBuf> {
+    let env = |v: &str| std::env::var_os(v).map(PathBuf::from).unwrap_or_default();
+    let (roaming, local) = (env("APPDATA"), env("LOCALAPPDATA"));
+    let subdirs = |dir: PathBuf| std::fs::read_dir(dir).map(|r| r.flatten().map(|e| e.path()).collect::<Vec<_>>()).unwrap_or_default();
+    let mut dirs = vec![roaming.join("Claude")];
+    for package in subdirs(local.join("Packages")) {
+        let name = package.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+        if name.starts_with("claude_") || name.starts_with("anthropicpbc.claude_") {
+            dirs.push(package.join("LocalCache").join("Roaming").join("Claude"));
+        }
+    }
+    dirs.extend(subdirs(local.join("Claude-Data")));
+    let modified = |d: &PathBuf| std::fs::metadata(d.join("config.json")).and_then(|m| m.modified()).ok();
+    dirs.retain(|d| modified(d).is_some());
+    dirs.sort_by_key(|d| std::cmp::Reverse(modified(d)));
+    dirs
+}
+
+/// Chromium's os_crypt value: "v10", a 12-byte nonce, then the AES-256-GCM ciphertext with its 16-byte tag.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn open_chromium_secret(key: &[u8], sealed: &[u8]) -> Option<Vec<u8>> {
+    use aes_gcm::aead::{Aead, KeyInit};
+    let rest = sealed.strip_prefix(b"v10").filter(|r| r.len() >= 12 + 16)?;
+    aes_gcm::Aes256Gcm::new_from_slice(key).ok()?.decrypt(aes_gcm::Nonce::from_slice(&rest[..12]), &rest[12..]).ok()
+}
+
+/// From the desktop app's token cache, a valid token for api.anthropic.com that can read the profile (the usage endpoint
+/// needs `user:profile`), of the account signed in now, and its plan. With several, the one with the fewest scopes.
+/// Keys look like "acct:<account>|<client>:<organization>:https://api.anthropic.com:<scopes>".
+#[cfg_attr(not(windows), allow(dead_code))]
+fn desktop_token(cache: &Value, account: &str, now: u64) -> Option<(String, Option<String>)> {
+    const HOST: &str = ":https://api.anthropic.com:";
+    cache
+        .as_object()?
+        .iter()
+        .filter(|(name, _)| !name.starts_with("acct:") || (!account.is_empty() && name.starts_with(&format!("acct:{account}|"))))
+        .filter_map(|(name, v)| {
+            let scopes = name.split_once(HOST)?.1.split_whitespace().collect::<Vec<_>>();
+            let token = v["token"].as_str().filter(|t| !t.is_empty())?;
+            (scopes.contains(&"user:profile") && v["expiresAt"].as_f64()? > now as f64).then(|| (scopes.len(), token, v["subscriptionType"].as_str()))
+        })
+        .min_by_key(|(n, ..)| *n)
+        .map(|(_, token, plan)| (token.to_string(), plan.map(capitalize)))
 }
 
 /// claude.ai's own usage page with the session key: the organizations, then the usage of the one with a chat plan.
@@ -1055,7 +1151,7 @@ fn parse_iso_ms(s: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{claude_org, claude_web_plan, claude_windows, csrf_token, find_jwt_after, find_jwt_in_file, logged_http_port, quota_windows, next_utc, parse_agy_usage, parse_deepseek, parse_iso_ms, parse_openrouter, parse_retry_after, parse_zai, read_tail};
+    use super::{claude_org, claude_web_plan, desktop_token, open_chromium_secret, claude_windows, csrf_token, find_jwt_after, find_jwt_in_file, logged_http_port, quota_windows, next_utc, parse_agy_usage, parse_deepseek, parse_iso_ms, parse_openrouter, parse_retry_after, parse_zai, read_tail};
     use serde_json::json;
 
     #[test]
@@ -1249,6 +1345,40 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         assert_eq!(found.as_deref(), Some("eyJhbGc.eyJzdWIiOiJ4In0.sig-_x"));
         assert!(find_jwt_in_file(&path, key).is_none());
+    }
+
+    #[test]
+    fn desktop_token_takes_a_valid_profile_token_of_the_signed_in_account() {
+        let now = 1_000_000;
+        let api = ":https://api.anthropic.com:";
+        let cache = json!({
+            format!("acct:me|client:org{api}user:inference user:profile user:sessions"): { "token": "wide", "expiresAt": 2_000_000, "subscriptionType": "max" },
+            format!("acct:me|client:org{api}user:profile"): { "token": "narrow", "expiresAt": 2_000_000.0, "subscriptionType": "max" },
+            format!("acct:me|client:old{api}user:profile"): { "token": "stale", "expiresAt": 999_999 },
+            format!("acct:other|client:org{api}user:profile"): { "token": "someone-else", "expiresAt": 2_000_000 },
+            format!("acct:me|client:org{api}user:inference"): { "token": "no-profile", "expiresAt": 2_000_000 },
+            "acct:me|client:org:https://claude.ai:user:profile": { "token": "other-host", "expiresAt": 2_000_000 },
+        });
+        assert_eq!(desktop_token(&cache, "me", now), Some(("narrow".into(), Some("Max".into()))));
+        // Another account's tokens, expired ones and the wrong scope or host are never taken.
+        assert_eq!(desktop_token(&cache, "nobody", now), None);
+        assert_eq!(desktop_token(&cache, "", now), None);
+        assert_eq!(desktop_token(&cache, "me", 3_000_000), None);
+        // Entries without an account prefix belong to whoever is signed in.
+        let plain = json!({ format!("client:org{api}user:profile"): { "token": "t", "expiresAt": 2_000_000 } });
+        assert_eq!(desktop_token(&plain, "", now), Some(("t".into(), None)));
+    }
+
+    #[test]
+    fn chromium_secret_opens_only_with_its_key() {
+        use aes_gcm::aead::{Aead, KeyInit};
+        let (key, nonce) = ([7u8; 32], [3u8; 12]);
+        let sealed = aes_gcm::Aes256Gcm::new_from_slice(&key).unwrap().encrypt(aes_gcm::Nonce::from_slice(&nonce), b"{\"a\":1}".as_ref()).unwrap();
+        let value = [b"v10".as_ref(), &nonce, &sealed].concat();
+        assert_eq!(open_chromium_secret(&key, &value).as_deref(), Some(b"{\"a\":1}".as_ref()));
+        assert_eq!(open_chromium_secret(&[8u8; 32], &value), None);
+        assert_eq!(open_chromium_secret(&key, &value[3..]), None);
+        assert_eq!(open_chromium_secret(&key, b"v10short"), None);
     }
 }
 
