@@ -64,6 +64,7 @@ test("row widths", () => {
   assert.deepEqual(plan.dropped, ["equalizer", "cover"]);   // 112 > 70, poi 88 > 70, poi 60 entra
   assert.equal(surfaceWidth("capsule", 100), 188); assert.equal(surfaceWidth("notch", 200), 256);
   assert.equal(surfaceWidth("capsule", 900), 700); assert.equal(surfaceWidth("notch", Number.NaN), 188);
+  assert.equal(surfaceWidth("capsule", 250, 0, 1, Infinity, 3), 256); assert.equal(surfaceWidth("notch", 250, 239, 0.9, Infinity, 10), 243);
 });
 test("plan row", () => {
   const items: RowItem[] = [

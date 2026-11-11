@@ -1,7 +1,7 @@
 import { t } from "../../i18n";
 import { openOn } from "../../notch/nav";
 import { isMac } from "../../platform/native";
-import { noticeCard } from "../../notch/row/NoticeCard";
+import { ICON_BOX, noticeCard } from "../../notch/row/NoticeCard";
 import { settings } from "../../settings/store";
 import { BrandLogo, brandColor, brandFor } from "../../ui/brands";
 import { CopyCodeButton, copyCodeWidth } from "./CopyCode";
@@ -9,7 +9,7 @@ import { noticeText } from "./format";
 import type { Notice } from "./history";
 import { noticeCode } from "./otp";
 
-const LOGO = 32, RING = 18;
+const LOGO = ICON_BOX, RING = 18;
 
 /** The app's logo (or its Start menu icon), or its initial when there is neither (crest-notify, an app Start does not list). */
 export function AppIcon({ n, size, rounded }: { n: Pick<Notice, "icon" | "appName">; size: number; rounded?: boolean }) {

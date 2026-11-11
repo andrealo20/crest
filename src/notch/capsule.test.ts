@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CAPSULE, hasBridge, panelTop, snapCapsule, windowYFor } from "./capsule.ts";
+import { CAPSULE, hasBridge, lineCapsuleY, panelTop, snapCapsule, surfaceOf, windowYFor } from "./capsule.ts";
 
 const work = { top: 0, height: 1032 };
 
@@ -65,4 +65,16 @@ test("bridge and window edges", () => {
   assert.equal(windowYFor("capsule", Number.NaN, 1080), 0);
   assert.equal(panelTop(-10, 200), 0); assert.equal(panelTop(100, 600), 0); assert.equal(panelTop(Number.NaN, 200), 0);
   assert.equal(CAPSULE.windowH, 560);
+});
+test("a capsule a window rule turned into the line opens as the capsule", () => {
+  assert.equal(surfaceOf("line", "capsule", true), "capsule");   // a notice opens the line
+  assert.equal(surfaceOf("line", "capsule", false), "notch");   // the idle line itself is drawn as a line
+  assert.equal(surfaceOf("line", "line", true), "notch");   // the line chosen as the look opens into the notch
+  assert.equal(surfaceOf("line", "notch", true), "notch");
+  assert.equal(surfaceOf("capsule", "capsule", false), "capsule");
+  assert.equal(surfaceOf("notch", "notch", true), "notch");
+  // At its own place while bridged to the top, else just off the edge (below a top taskbar).
+  assert.equal(lineCapsuleY(5, 0), 5); assert.equal(lineCapsuleY(300, 0), 5);
+  assert.equal(lineCapsuleY(60, 48), 60); assert.equal(lineCapsuleY(300, 48), 53);
+  assert.equal(lineCapsuleY(Number.NaN, Number.NaN), 5);
 });

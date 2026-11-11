@@ -12,8 +12,15 @@ import { Marquee } from "./Marquee";
  */
 
 /** Designed height of a card, like the row's 30 (drawn at the notch's content scale). */
-export const CARD_H = 52;
-const ICON_BOX = 32, GAP = 10, PAD = 6, TEXT_MAX = 300, TEXT_MIN = 120;
+export const CARD_H = 46;
+/** The icon's box; an app's own icon (NoticePop, AskNotice) has the same size. */
+export const ICON_BOX = 28;
+const GAP = 10, PAD = 6, TEXT_MAX = 300, TEXT_MIN = 120;
+/**
+ * The shape's margin around a card, which has PAD of its own: the notch only clears its bottom corners (radius 10, geometry.ts),
+ * the capsule centres the icon in its round end. Both far narrower than the row's insets.
+ */
+export const CARD_INSET = { notch: 4, capsule: (CARD_H - ICON_BOX) / 2 - PAD } as const;
 
 export interface CardSpec {
   key: string;

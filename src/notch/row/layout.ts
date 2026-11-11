@@ -209,9 +209,10 @@ const spanOf = (span: number) => (Number.isFinite(span) && span > 0 ? span : Inf
 /**
  * The surface's width for a content width at scale 1: the content plus the inset at both ends (at most maxSurface), both grown by `scale`,
  * never narrower than `min` (the saved width) and never wider than `span` (the monitor along the edge), which only narrows what is drawn.
+ * The inset is the row's unless given (a notice card brings its own padding, NoticeCard.tsx).
  */
-export function surfaceWidth(style: "notch" | "capsule", content: number, min: number = ROW.minSurface, scale = 1, span = Infinity): number {
-  const wanted = Math.min(ROW.maxSurface, (content > 0 ? content : 0) + 2 * insetOf(style)) * scaleOf(scale);
+export function surfaceWidth(style: "notch" | "capsule", content: number, min: number = ROW.minSurface, scale = 1, span = Infinity, inset: number = insetOf(style)): number {
+  const wanted = Math.min(ROW.maxSurface, (content > 0 ? content : 0) + 2 * inset) * scaleOf(scale);
   return Math.min(spanOf(span), Math.max(Number.isFinite(min) ? min : ROW.minSurface, wanted));
 }
 

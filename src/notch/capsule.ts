@@ -27,6 +27,16 @@ export function hasBridge(style: Style, y: number, workTop: number): boolean {
   return style !== "capsule" || y - (Number.isFinite(workTop) ? Math.max(0, workTop) : 0) <= CAPSULE.bridgeMax;
 }
 
+/** The closed surface for the look on screen: a capsule that a window rule turned into the line opens as the capsule (the look the user chose); everything else that opens the line, as the notch. */
+export function surfaceOf(shown: Style, chosen: Style, opening: boolean): "notch" | "capsule" {
+  return shown === "capsule" || (opening && shown === "line" && chosen === "capsule") ? "capsule" : "notch";
+}
+
+/** Where that capsule opens, the window hanging from the top edge meanwhile: at its own place while it is bridged to the top, else just off the edge. */
+export function lineCapsuleY(y: number, workTop: number): number {
+  return Number.isFinite(y) && hasBridge("capsule", y, workTop) ? y : (Number.isFinite(workTop) ? Math.max(0, workTop) : 0) + CAPSULE.gap;
+}
+
 type Place = [place: number, guide: number | null];
 // The nearest place within snapReach; on a tie the later one wins (the order of the lists below is part of the rule).
 function nearest(value: number, places: Place[]): Place | null {

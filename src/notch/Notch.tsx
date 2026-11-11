@@ -4,12 +4,13 @@ import { GearSix, PushPin } from "@phosphor-icons/react";
 import { content, springs } from "../design/motion";
 import { livePosition, useNowPlaying } from "../platform/media";
 import { isNative, keyboardFocus, onNativeBlur, onNativeHover, onNativeHoverAt, onShortcut, onTrayOpen, setHitRect, setMemoryLow } from "../platform/native";
-import { PrivacyDots } from "../features/privacy/PrivacyDots";
+import { PrivacyDots, usePrivacyDots } from "../features/privacy/PrivacyDots";
 import { dragArea, edgeOf, useDragToMove, viewLine, windowLength, windowY } from "./drag";
 import { useLiveActivity } from "./live";
 import { CompactRow } from "./row/CompactRow";
 import { CompactColumn } from "./row/CompactColumn";
 import { NoticeLayer } from "./row/NoticeLayer";
+import { CARD_H, CARD_INSET } from "./row/NoticeCard";
 import { Nest } from "./pet/Nest";
 import { statusAlert } from "../features/status/store";
 import { effectiveIdleStyle, screen } from "../features/window/store";
@@ -19,7 +20,7 @@ import { windowShell } from "../platform/services";
 import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
 import { across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
 import { columnRoom, columnSurface } from "./column";
-import { capsuleY, hasBridge, panelTop, windowYFor } from "./capsule";
+import { capsuleY, hasBridge, lineCapsuleY, panelTop, surfaceOf, windowYFor } from "./capsule";
 import { contentScale, sideLength } from "./collapsed";
 import { monitor, monitorMetrics, monitors, notchBusy, sharedSpan } from "./monitor";
 import { useMirror } from "./mirror";
@@ -155,7 +156,8 @@ export function Notch() {
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
-  const surface = idleStyle === "capsule" ? "capsule" : "notch";
+  // What opens a capsule that a window rule turned into the line comes as the capsule, the look that was chosen.
+  const surface = surfaceOf(idleStyle, displaySettings.idleStyle, alert);
   // The row is on screen closed or peeking, not as a line, not while Rust hides the window for a window rule.
   const hiddenForFullscreen = screenBehavior === "hide";
   const showRow = status !== "open" && !idleLine && !hiddenForFullscreen && !editing;
@@ -179,7 +181,10 @@ export function Notch() {
   monitors.use(); // with "All monitors" the span is the narrowest one's
   const area = dragArea(), span = sharedSpan(side ? area.height : area.width, side);
   const closedH = surface === "capsule" ? sizes.capsuleHeight : sizes.notchHeight, scale = contentScale(closedH);
-  const closedW = surfaceWidth(surface, notice?.width ?? (showRow || status === "open" ? rowWidth : 0), surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span);
+  // A card brings its own padding (NoticeCard.tsx), so the shape keeps a narrow margin; the privacy dots, when on, keep the row's beside it.
+  const dotsOn = usePrivacyDots().length > 0;
+  const cardInset = notice && notice.height >= CARD_H && !(showRow && dotsOn) ? CARD_INSET[surface] : undefined;
+  const closedW = surfaceWidth(surface, notice?.width ?? (showRow || status === "open" ? rowWidth : 0), surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span, cardInset);
   // A notice card (NoticeCard.tsx) is taller than the row: the closed shape grows to it, drawn at the same content scale.
   const shapeH = notice ? Math.max(closedH, notice.height * scale) : closedH;
   const [column, setColumn] = useState({ length: 0, width: 0, notice: false });
@@ -193,7 +198,7 @@ export function Notch() {
   const capY = capsuleY(drag.y, sizes.capsuleHeight, isNative ? monitorMetrics().height : viewH);
   const bridged = hasBridge(idleStyle, capY, workTop);
   const winTop = isNative ? windowY(capY) : windowYFor(idleStyle, capY, viewH, workTop);
-  const capsuleTop = idleStyle === "capsule" ? capY - winTop : 0;
+  const capsuleTop = idleStyle === "capsule" ? capY - winTop : surface === "capsule" ? lineCapsuleY(capY, workTop) - winTop : 0;
   const lineShape = lineIdle && status !== "open";
   // Open, a bridged capsule hangs from the edge like the notch; a floating one opens from its top, moved up as far as the panel needs (a notice card the same, so it stays in the window).
   // The line's distance from the edge is a place on the screen, saved at 100 % like display.y.

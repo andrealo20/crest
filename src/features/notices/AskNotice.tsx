@@ -3,12 +3,12 @@ import { Check, Checks, Prohibit, X } from "@phosphor-icons/react";
 import { t } from "../../i18n";
 import { measureText } from "../../notch/row/measure";
 import { NOTICE_BUTTON as BUTTON, NOTICE_BUTTON_PAD as PAD, NoticeButton } from "../../notch/row/NoticeButton";
-import { noticeCard } from "../../notch/row/NoticeCard";
+import { ICON_BOX, noticeCard } from "../../notch/row/NoticeCard";
 import { AppIcon, brandAccent } from "./NoticePop";
 import { optionLabel, type Ask } from "./asks";
 import { answerAsk } from "./store";
 
-const ICON = 16, LOGO = 32, BUTTON_GAP = 4, LABEL_MAX = 110;
+const ICON = 16, LOGO = ICON_BOX, BUTTON_GAP = 4, LABEL_MAX = 110;
 
 // The whole body on one line: a command is allowed as a whole, so none of its lines may stay hidden.
 const askLine = (a: Ask) => [a.title, a.body.split("\n").map((l) => l.trim()).filter(Boolean).join(" ")].filter(Boolean).join(" · ");

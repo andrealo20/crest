@@ -34,7 +34,7 @@ Other ways were considered and left out. Reading Windows' notification database 
 - **Every day**: a daily quiet window, for example 22:00 to 07:00, works the same way.
 - **Full screen and focus**: while an app fills the notch's screen, or Windows focus or Do Not Disturb is on, notices also go to the history only.
 
-In the closed notch a finished timer and status alerts come first, then notices, then quota alerts and new songs. On the line look, whether it is the closed look you chose or a window rule turned the notch into it, a notice that pops up opens the line into the notch for its few seconds, like a finished timer; with Windows' Do Not Disturb, quiet hours, presentation mode or a full-screen app it only goes to the history.
+In the closed notch a finished timer and status alerts come first, then notices, then quota alerts and new songs. On the line look, whether it is the closed look you chose or a window rule turned the notch or the capsule into it, a notice that pops up opens the line for its few seconds, like a finished timer: as the capsule if the capsule is your closed look, as the notch otherwise. With Windows' Do Not Disturb, quiet hours, presentation mode or a full-screen app it only goes to the history. The card is as wide as its text needs, with a narrow margin to the shape's edge, and never narrower than the closed shape.
 
 ## crest-notify
 
