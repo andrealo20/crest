@@ -1,5 +1,23 @@
 [
   {
+    "version": "1.1.2",
+    "date": "2026-11-11",
+    "items": [
+      {
+        "en": "A notice opens the line into the notch for a few seconds, like a finished timer"
+      },
+      {
+        "en": "The Claude card in AI usage stays current on Windows with the desktop app's sign-in, no terminal needed"
+      },
+      {
+        "en": "A question from crest-notify too long to show whole is refused, so Allow never approves text you did not see"
+      },
+      {
+        "en": "A broken or hostile calendar feed can no longer stop Crest"
+      }
+    ]
+  },
+  {
     "version": "1.1.1",
     "date": "2026-11-11",
     "items": [
