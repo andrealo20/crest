@@ -18,9 +18,12 @@ const MAX_EVENTS: usize = 3000;
 const MAX_OCCURRENCES: usize = 500;
 /// Characters kept of the text fields, which every instance of a series repeats in the result and the cache file.
 /// Teams, Zoom and Meet invitations put their link within the first few thousand characters of the description.
+const MAX_TITLE: usize = 500;
 const MAX_LOCATION: usize = 500;
 const MAX_URL: usize = 2000;
 const MAX_DESCRIPTION: usize = 4000;
+/// The UID goes into every instance's id.
+const MAX_UID: usize = 1000;
 
 #[derive(Debug)]
 pub struct Prop {
@@ -92,13 +95,21 @@ fn content_line(line: &str) -> Option<Prop> {
     Some(Prop { name, params, value })
 }
 
+/// Deeper than any real calendar needs (VCALENDAR > VEVENT > VALARM). Deeper components are skipped with their END
+/// lines: dropping a tree recurses once per level, and a million nested BEGINs would overflow the thread's stack.
+const MAX_DEPTH: usize = 8;
+
 /// Top-level components (normally one VCALENDAR) with their children; unknown or unbalanced lines are skipped.
 pub fn parse(text: &str) -> Vec<Comp> {
     let mut top = vec![];
     let mut stack: Vec<Comp> = vec![];
+    let mut skipped = 0usize;
     for line in unfold(text.trim_start_matches('\u{feff}')) {
         let Some(prop) = content_line(&line) else { continue };
         match prop.name.as_str() {
+            "BEGIN" if skipped > 0 || stack.len() >= MAX_DEPTH => skipped += 1,
+            "END" if skipped > 0 => skipped -= 1,
+            _ if skipped > 0 => {}
             "BEGIN" => stack.push(Comp { name: prop.value.trim().to_ascii_uppercase(), ..Default::default() }),
             "END" => {
                 let name = prop.value.trim().to_ascii_uppercase();
@@ -440,14 +451,20 @@ fn series(e: &Comp, ctx: &Ctx, calendar: &str, from: Timestamp, to: Timestamp, m
         }
     }
     let excluded: HashSet<i64> = ctx.instants(e, "EXDATE").iter().filter_map(|w| w.timestamp()).map(|t| t.as_second()).collect();
-    let uid = e.text("UID");
-    let (title, location) = (e.text("SUMMARY"), capped(e.text("LOCATION"), MAX_LOCATION));
+    let uid = capped(e.text("UID"), MAX_UID);
+    let (title, location) = (capped(e.text("SUMMARY"), MAX_TITLE), capped(e.text("LOCATION"), MAX_LOCATION));
     // URL is a URI value, not text: no escapes to undo.
     let url = capped(e.prop("URL").map(|p| p.value.trim().to_string()).unwrap_or_default(), MAX_URL);
     let description = capped(e.text("DESCRIPTION"), MAX_DESCRIPTION);
     starts.sort();
     starts.dedup();
+    // RDATE values are not bounded by recur::expand: a series stops at MAX_OCCURRENCES instances like a rule does,
+    // the earliest ones, so a feed cannot multiply its text by an unbounded list of dates.
+    let mut kept = 0;
     for local in starts {
+        if kept == MAX_OCCURRENCES {
+            break;
+        }
         let w = When { local, ..start.clone() };
         let Some(s) = w.timestamp() else { continue };
         if excluded.contains(&s.as_second()) || (!override_ && moved.is_some_and(|m| m.contains(&s.as_second()))) {
@@ -475,6 +492,7 @@ fn series(e: &Comp, ctx: &Ctx, calendar: &str, from: Timestamp, to: Timestamp, m
             end: end_ts.as_millisecond(),
             all_day: start.all_day,
         });
+        kept += 1;
     }
 }
 
@@ -625,6 +643,34 @@ mod tests {
         assert!(list[0].description.starts_with("Join, then ä"));
         assert_eq!(list[0].description.chars().count(), MAX_DESCRIPTION);
         assert_eq!(capped("abc".into(), 5), "abc");
+    }
+
+    #[test]
+    fn deep_nesting_is_skipped_on_a_small_stack() {
+        // Dropping a tree this deep recursed once per level and overflowed the stack.
+        let n = 100_000;
+        let deep = format!("BEGIN:VCALENDAR\r\n{}{}BEGIN:VEVENT\r\nUID:a\r\nSUMMARY:after\r\nDTSTART:20261102T090000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n", "BEGIN:X\r\n".repeat(n), "END:X\r\n".repeat(n));
+        let titles = std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(move || read(&deep, &berlin()).into_iter().map(|e| e.0).collect::<Vec<_>>())
+            .unwrap()
+            .join()
+            .unwrap();
+        assert_eq!(titles, ["after"]);
+        // Real nesting (VEVENT > VALARM) is kept.
+        let top = parse("BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nBEGIN:VALARM\r\nACTION:DISPLAY\r\nEND:VALARM\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n");
+        assert_eq!(top[0].comps[0].comps[0].name, "VALARM");
+    }
+
+    #[test]
+    fn rdate_series_and_title_capped() {
+        let title = "t".repeat(MAX_TITLE + 100);
+        let dates: Vec<String> = (0..MAX_OCCURRENCES + 300).map(|i| format!("202611{:02}T{:02}{:02}00Z", 2 + i / 1440, i / 60 % 24, i % 60)).collect();
+        let body = format!("BEGIN:VEVENT\r\nUID:{}\r\nSUMMARY:{title}\r\nDTSTART:20261102T000000Z\r\nRDATE:{}\r\nEND:VEVENT\r\n", "u".repeat(MAX_UID + 5), dates.join(","));
+        let got = read(&cal(&body), &berlin());
+        assert_eq!(got.len(), MAX_OCCURRENCES);
+        assert_eq!(got[0].0.chars().count(), MAX_TITLE);
+        assert_eq!(got[0].1, "2026-11-02T00:00:00Z");
     }
 
     #[test]

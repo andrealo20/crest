@@ -151,6 +151,14 @@ pub fn take_line(buf: &[u8]) -> Frame {
 /// tab are removed (they could reorder or hide text in the notch).
 pub fn parse(line: &[u8]) -> Result<Request, &'static str> {
     let mut r: Request = serde_json::from_slice(line).map_err(|_| "invalid-json")?;
+    // A question is answered for its whole text, so one that would be cut is refused: the caller then falls back to
+    // its own prompt instead of the user approving words they never saw.
+    if r.ask.is_some() {
+        let fits = |t: &Option<String>, max: usize, multiline| clean(t.clone(), usize::MAX, multiline).is_none_or(|s| s.chars().count() <= max);
+        if !fits(&r.title, MAX_TITLE, false) || !fits(&r.body, MAX_BODY, true) {
+            return Err("ask-too-long");
+        }
+    }
     r.title = clean(r.title, MAX_TITLE, false);
     r.body = clean(r.body, MAX_BODY, true);
     r.source = clean(r.source, MAX_FIELD, false);
@@ -399,6 +407,20 @@ mod tests {
         assert_eq!(ask(r#"["a"]"#, 601), Err("ask-timeout"));
         // A question needs words.
         assert_eq!(parse(br#"{"ask":{"options":["a"],"timeout":5}}"#), Err("empty"));
+        // A question is never cut: padding that would hide the tail gets it refused, while a plain notice is still cut.
+        let with_body = |body: String, ask: bool| {
+            let mut v = serde_json::json!({ "title": "Bash", "body": body });
+            if ask {
+                v["ask"] = serde_json::json!({ "options": ["allow"], "timeout": 5 });
+            }
+            parse(&serde_json::to_vec(&v).unwrap())
+        };
+        let hidden = format!("ls{}&& echo tail", " ".repeat(MAX_BODY));
+        assert_eq!(with_body(hidden.clone(), true), Err("ask-too-long"));
+        assert_eq!(with_body("a".repeat(MAX_BODY), true).unwrap().body.unwrap().chars().count(), MAX_BODY);
+        assert_eq!(with_body(hidden, false).unwrap().body.unwrap().chars().count(), MAX_BODY);
+        let title = format!(r#"{{"title":"{}","ask":{{"options":["a"],"timeout":5}}}}"#, "t".repeat(MAX_TITLE + 1));
+        assert_eq!(parse(title.as_bytes()), Err("ask-too-long"));
         assert!(option_ok("always-allow") && !option_ok("") && !option_ok("é"));
         let reply: Reply = serde_json::from_str(r#"{"result":"answered","choice":"deny"}"#).unwrap();
         assert_eq!(reply.choice.as_deref(), Some("deny"));
