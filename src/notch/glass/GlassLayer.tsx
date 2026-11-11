@@ -1,8 +1,8 @@
 // The glass (docs/themes.md, Glass): the open panel drawn over a copy of the screen behind the window, bent along the rim and blurred
-// in the middle. It is the one blur over a large surface in Crest (CONTRIBUTING.md): each copy is blurred once, into the mip levels of
-// its texture, and a frame only reads them; the canvas is sized at the start of a transition, never per frame.
+// in the middle. It blurs without CSS (CONTRIBUTING.md): each copy is blurred once, into the mip levels of its texture, and a frame
+// only reads them; the canvas is sized at the start of a transition, never per frame.
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { cancelFrame, frame, useReducedMotion, type MotionValue } from "motion/react";
 import { activeTheme } from "../../features/themes/store";
 import { DOCK_HEIGHT, HEADER_HEIGHT, type NotchGeometry } from "../geometry";
@@ -44,7 +44,9 @@ export function GlassLayer({ mode, w, h, r, ear, target }: Shape & { mode: "arme
   live.current = { target, reduced };
   const glass = useRef<Glass | null>(null);
 
-  useEffect(() => {
+  // Layout effects: the canvas is sized and its frame asked for before the paint where --shape turns clear, which with reduced motion
+  // (no fade) would otherwise show the notch gone for a frame.
+  useLayoutEffect(() => {
     const g = startGlass(canvas.current!, { w, h, r, ear }, live);
     glass.current = g;
     return () => {
@@ -52,9 +54,9 @@ export function GlassLayer({ mode, w, h, r, ear, target }: Shape & { mode: "arme
       g.stop();
     };
   }, [w, h, r, ear]);
-  useEffect(() => glass.current?.show(mode === "shown"), [mode]);
+  useLayoutEffect(() => glass.current?.show(mode === "shown"), [mode]);
   // A transition starts: the canvas grows to hold where the shape goes.
-  useEffect(() => glass.current?.fit(), [target.w, target.h, target.ear]);
+  useLayoutEffect(() => glass.current?.fit(), [target.w, target.h, target.ear]);
 
   return <canvas ref={canvas} aria-hidden width={1} height={1} className="pointer-events-none absolute top-0" />;
 }

@@ -178,7 +178,9 @@ export function Notch() {
   // mounted while the setting is on, whatever the shape: remounting it would build its context again (37-65 ms) on every change.
   const glassShape = edge === "top" && surface === "notch" && !(idleLine && sizes.lineTop > 0);
   const broken = glassBroken.use();
-  const armed = themes.glass && !isMac && !broken;
+  const shot = snapshot.use();
+  // Switched off with a copy on screen, the layer stays until the copy goes: its full veil covers the copy while --shape comes back.
+  const armed = (themes.glass || shot.ready) && !isMac && !broken;
   // Each store hook runs on every render, as for `urgent` above.
   const presentingMode = usePresenting();
   const sharing = privacy.use().screen;
@@ -193,7 +195,6 @@ export function Notch() {
     saver: powerState.use()?.saver === true, fullscreen: fullscreen.use() || gaming, hidden: hiddenForFullscreen || windowHidden,
     presenting, cover: backdrop, dragging: drag.dragging, editing,
   });
-  const shot = snapshot.use();
   const glass: GlassMode = !armed ? "off" : allowed && shot.ready && status !== "peek" ? "shown" : "armed";
   const reduced = useReducedMotion();
   const noticeTime = status !== "open" && (showRow || alert);
@@ -371,6 +372,12 @@ export function Notch() {
   useEffect(() => {
     if (presenting || drag.dragging || windowHidden) dropSnapshot();
   }, [presenting, drag.dragging, windowHidden]);
+  // Glass switched off: the copy goes once --shape covers the panel again, and the layer with it.
+  useEffect(() => {
+    if (themes.glass) return;
+    const id = window.setTimeout(dropSnapshot, CLOSE_SETTLE_MS);
+    return () => window.clearTimeout(id);
+  }, [themes.glass]);
   // Moved, rescaled or on another monitor while open: the copy no longer lies under the window. Before the effect below, so a drag's
   // release asks once.
   const place = `${placementKey()}|${displaySettings.offset}|${behavior.scale}`;
@@ -516,7 +523,7 @@ export function Notch() {
                 {/* The Music tool's cover behind the whole panel; while it shows, the panel takes the Dark theme's light text. */}
                 <CoverBackdrop />
                 {/* Over the glass the header sits on the closed notch's colour (the brow, shader.ts), so it takes the closed notch's ink. */}
-                <Header title={t(tab.label)} ink={glass === "shown" ? closedInk : undefined} />
+                <Header title={t(tab.label)} ink={glass === "shown" ? closedInk : undefined} fade={glass !== "off" && !reduced} />
                 <div className="relative min-h-0 flex-1 overflow-clip">
                   <AnimatePresence mode="popLayout" initial={false}>
                     <motion.div
@@ -581,17 +588,16 @@ function LineProgress({ along }: { along: "x" | "y" }) {
   );
 }
 
-/** Header: tool title on the left, actions + pin on the right. The middle (camera) stays free. */
-function Header({ title, ink }: { title: string; ink?: Record<string, string> }) {
+/** Header: tool title on the left, actions + pin on the right. The middle (camera) stays free. `fade`: the glass is on, see INK_FADE. */
+function Header({ title, ink, fade }: { title: string; ink?: Record<string, string>; fade: boolean }) {
   const isPinned = pinned.use();
-  const reduced = useReducedMotion();
   return (
     // Empty header space = drag handle; the hit zone around it starts the drag (one handler, or two drags would run).
     // The title's colour is body's, worked out from the theme's label: set again here so the ink (the brow's, the cover's) reaches it.
     <div
       data-drag-handle
       className="flex shrink-0 items-center justify-between gap-3 ps-5 pe-3"
-      style={{ height: HEADER_HEIGHT + 4, color: "var(--color-label)", ...ink, ...(!reduced && { transition: INK_FADE }) }}
+      style={{ height: HEADER_HEIGHT + 4, color: "var(--color-label)", ...ink, ...(fade && { transition: INK_FADE }) }}
     >
       <div className="relative min-w-0 flex-1">
         <AnimatePresence mode="popLayout" initial={false}>

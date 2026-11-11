@@ -11,7 +11,7 @@ export const GLASS_LEAD_MS = 120;
 export const GLASS_MIN_DWELL_MS = 50;
 /** In click mode: a pointer that only crosses the notch takes no copy. */
 export const GLASS_CLICK_DWELL_MS = 100;
-/** After a close: the shape is covered by the opaque --shape (300 ms) before the copy goes. */
+/** After a close, or Glass switched off: the shape is covered by the opaque --shape (300 ms) before the copy goes. */
 export const CLOSE_SETTLE_MS = 400;
 /** A copy that does not arrive in this time is given up; the panel keeps the tint. */
 export const BUFFER_WAIT_MS = 1000;
