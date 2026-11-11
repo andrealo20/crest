@@ -96,7 +96,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 - **Three looks**: a notch that hugs the edge, a capsule you drag to any height, or a thin line with the song's progress. On the top, bottom, left or right edge, in the size you choose.
 - **The row** shows the parts you pick, in your order, rotating when they don't fit: cover, timer, title or the current lyric line, AI quota rings, CPU, RAM, GPU, network, power, battery, temperature, clock, GitHub, weather, the next event, downloads, and parts your own scripts set.
 - **Notices** take the row for a moment: a finished timer, a due to-do, a meeting about to start, a download or screenshot just saved, a quota alert, the charger, Bluetooth, the internet, Caps Lock, volume and brightness.
-- **Privacy dots** turn green while the microphone or camera is in use and red while the screen is recorded.
+- **Privacy dots** turn green while the microphone or camera is in use and red while the screen is recorded (on Windows only by its own capture tools and Store apps, since Windows keeps no record for desktop recorders).
 - **A pet** in a nest beside the notch, if you want one: it dances to the music and runs faster the busier the CPU is.
 
 ### Music
