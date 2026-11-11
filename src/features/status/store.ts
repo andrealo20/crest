@@ -9,6 +9,9 @@ import { STATUS, btAlert, levelAlert, lockAlert, micAlert, netAlert, osdArmed, o
 /** The status alert on screen, for STATUS.showMs; a new one replaces it. */
 export const statusAlert = createStore<StatusAlert | null>(null);
 
+/** The power state as sysevents.rs last told it, null until then; the glass reads its `saver` (src/notch/glass). */
+export const powerState = createStore<PowerState | null>(null);
+
 let started = false;
 
 /** Listens to sysevents.rs from the seed on and turns each change into an alert by the rules in status.ts. */
@@ -32,6 +35,7 @@ export function startStatusWatch() {
   const seed = (s: StatusSeed) => {
     if (s.power && !power) powerAlert(null, s.power, low, t);
     ({ power, online, devices } = mergeSeed({ power, online, devices }, s));
+    powerState.set(power);
   };
   status.on({
     seed,
@@ -39,6 +43,7 @@ export function startStatusWatch() {
       const before = { ...low };
       const alert = powerAlert(power, next, low, t);
       power = next;
+      powerState.set(next);
       const on = settings.get().closed.statusAlerts.power;
       // A low-battery warning dropped for a fullscreen app is not used up: the next reading gives it again.
       if (!show(alert, on) && on && alert && alert.tone !== "normal") Object.assign(low, before);
