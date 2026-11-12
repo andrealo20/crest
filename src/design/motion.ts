@@ -6,6 +6,7 @@ import type { Transition } from "motion/react";
  *
  * Apple-style springs (visualDuration + bounce) instead of stiffness/damping:
  * easier to read and matches SwiftUI's .spring(duration:bounce:).
+ * springs.glide is the exception, written as stiffness and damping so it keeps its velocity (physics()).
  */
 
 // ?slow=4 in the URL slows all springs down for tuning.

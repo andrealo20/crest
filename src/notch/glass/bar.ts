@@ -90,9 +90,16 @@ export function useGlassBar(capsule: RefObject<HTMLDivElement | null>, strip: Re
   useLayoutEffect(() => {
     if (on) place.current(true);
   }, [on, target, tools]);
+  // A click on the pointed tool resizes the panel without moving the target: measured now, the observer would draw it a frame late.
+  // After the effect above, so a drop it sent on keeps sliding.
   useLayoutEffect(() => {
-    if (on) animate(drop.lift, pointed && !reduced ? 1 : 0, springs.peek);
-  }, [on, pointed, reduced]);
+    if (on) place.current(false);
+  }, [on, active]);
+  // Whether anything is pointed, not which tool: peek starts from rest, so sent again at every tool it would rise in steps.
+  const lifted = pointed !== null && !reduced;
+  useLayoutEffect(() => {
+    if (on) animate(drop.lift, lifted ? 1 : 0, springs.peek);
+  }, [on, lifted]);
   // Natively the page gets no pointerleave once the window lets the pointer through (hit_test.rs): Rust's hover says it left.
   useEffect(
     () =>
@@ -115,9 +122,10 @@ export function useGlassBar(capsule: RefObject<HTMLDivElement | null>, strip: Re
       const id = tool(e.target);
       if (id) setHovered(id);
     },
-    onPointerLeave: () => {
+    // Only with the button still down: after a pointerup it would start the bounce over from rest and cut it short.
+    onPointerLeave: (e: PointerEvent) => {
       setHovered(null);
-      release();
+      if (e.buttons !== 0) release();
     },
     onPointerDown: (e: PointerEvent) => {
       if (!reduced && tool(e.target)) animate(drop.press, 1, springs.snappy);

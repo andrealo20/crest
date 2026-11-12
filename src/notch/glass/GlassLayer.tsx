@@ -137,7 +137,9 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     // The tool bar and its drop, in the canvas: x from its centre, which is the panel's. Covering, the Dock's own fills are back.
     const mid = box.w / 2, bh = barBox.h.get(), bottom = barBox.top.get() + bh, lift = drop.lift.get();
     gl.uniform4f(u.uBar, mid + barBox.x.get(), bottom - bh / 2, covering ? 0 : barBox.w.get() / 2, bh / 2);
-    const [rise, hw, hh] = dropShape(drop.w.get(), drop.h.get(), bh, lift, drop.press.get(), reduced ? 0 : Math.abs(drop.x.getVelocity()));
+    // At rest no stretch: a spring's last frame snaps to its target, and that snap would read as speed.
+    const speed = reduced || !drop.x.isAnimating() ? 0 : Math.abs(drop.x.getVelocity());
+    const [rise, hw, hh] = dropShape(drop.w.get(), drop.h.get(), bh, lift, drop.press.get(), speed);
     gl.uniform4f(u.uDrop, mid + drop.x.get(), bottom - rise, hw, hh);
     gl.uniform1f(u.uLift, lift);
     gl.uniform4f(u.uFill, ...t.fill);
@@ -252,6 +254,8 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
   };
 
   const offs = [shape.w, shape.h, shape.r, shape.ear, ...Object.values(barBox), ...Object.values(drop)].map((v) => v.on("change", () => frame.render(draw)));
+  // A long glide reaches its target frames before it ends, with no change left to draw it unstretched.
+  offs.push(drop.x.on("animationComplete", () => frame.render(draw)));
   const offTheme = activeTheme.subscribe(() => {
     themeUntil = performance.now() + THEME_FADE_MS;
     frame.render(draw);

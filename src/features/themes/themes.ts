@@ -282,7 +282,8 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     success: ensure("success", pick("success", mode.success), needs(TEXT, bg)),
   };
   const veil = withAlpha(bg, glassVeil(bg, [[colors.foreground, STRONG_TEXT], [colors.secondary, TEXT], [colors.tertiary, TERTIARY]]));
-  // The clearest Transparency keeps WCAG AA: 4.5:1 for the main text, 3:1 for labels; clearer, a label can meet its backdrop at 1:1.
+  // The clearest Transparency: 4.5:1 for the main text, 3:1 for labels (WCAG's minimum for large text and graphics); clearer, a label
+  // can meet its backdrop at 1:1.
   const clearest = glassVeil(bg, [[colors.foreground, TEXT], [colors.secondary, GRAPHIC]]);
   // The tool bar's glass (src/notch/glass/bar.ts): its icons keep 3:1, the pointed and current one on the drop's --color-fill-3 too.
   const bar = Math.max(glassVeil(bg, [[colors.foreground, GRAPHIC], [colors.secondary, GRAPHIC]]), glassVeil(bg, [[colors.foreground, GRAPHIC]], fill[2]));

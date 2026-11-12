@@ -162,7 +162,8 @@ void main() {
 
   // The tool bar and the drop on it (bar.ts): glass of their own inside the panel's, from the same copy, only in the bar's box.
   float inB = 0.0, inD = 0.0, glow = 0.0, hairB = 0.0, shade = 0.0;
-  if (uBar.z > 0.0 && abs(p.x - uBar.x) < uBar.z + 8.0 && abs(p.y - uBar.y) < uBar.w + 8.0) {
+  // 16 px around it: the shadow's tail and a squashed, stretched drop at an end tool.
+  if (uBar.z > 0.0 && abs(p.x - uBar.x) < uBar.z + 16.0 && abs(p.y - uBar.y) < uBar.w + 16.0) {
     float dB = sdBar(p);
     inB = clamp(0.5 - dB * uDpr, 0.0, 1.0);
     shade = BAR_SHADOW * exp(-max(dB, 0.0) / 3.0) * (1.0 - inB);
@@ -196,7 +197,7 @@ void main() {
             float nl = length(n);
             n = nl > 1e-5 ? n / nl : vec2(0.0, -1.0);
             qD += bend(iD, DROP_BAND, n, BAR_THICK, uLens.x, sD) * uLift;
-            glow = max(glow, shine(n, sD, iD, bD) * uLift * inD);
+            glow = max(glow, shine(n, sD, iD, bD) * uLift * inD * free);
           }
           q = mix(q, qD, inD * uLift);
           lod = mix(lod, uLod.x + 0.5 * (lod - uLod.x), inD * uLift);

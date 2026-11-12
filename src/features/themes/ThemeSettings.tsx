@@ -205,7 +205,10 @@ function GlassLook() {
   );
 }
 
-/** A slider of the glass's look, with its value beside it; saved on every move, like the other sliders in the settings. */
+/**
+ * A slider of the glass's look, with its value beside it; saved on every step, like the other sliders in the settings. A drag repeats
+ * the same step over a few px, and each save would draw the whole panel again.
+ */
 function GlassSlider(props: { label: string; hint: ReactNode; field: keyof typeof GLASS_RANGE; step: number; mark?: number; text?: string }) {
   const value = settings.use().themes[props.field];
   const [min, max] = GLASS_RANGE[props.field];
@@ -213,7 +216,7 @@ function GlassSlider(props: { label: string; hint: ReactNode; field: keyof typeo
   return (
     <Row label={props.label} hint={props.hint}>
       <div className="flex w-52 shrink-0 items-center gap-2">
-        <Slider label={props.label} value={value} min={min} max={max} step={props.step} mark={props.mark} valueText={text} onChange={(v) => updateSettings((cur) => ({ themes: { ...cur.themes, [props.field]: v } }))} />
+        <Slider label={props.label} value={value} min={min} max={max} step={props.step} mark={props.mark} valueText={text} onChange={(v) => v !== value && updateSettings((cur) => ({ themes: { ...cur.themes, [props.field]: v } }))} />
         <span className="tabular w-10 shrink-0 text-end text-caption text-label-2">{text}</span>
       </div>
     </Row>

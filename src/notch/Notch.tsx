@@ -541,7 +541,7 @@ export function Notch() {
                     </motion.div>
                   </AnimatePresence>
                 </div>
-                <Dock tabs={visible} activeId={tab.id} liquid={glass === "shown"} />
+                <Dock tabs={visible} activeId={tab.id} liquid={glass === "shown"} fades={glass !== "off"} />
                 {/* The grips and their sizes assume a panel hanging from the top edge. */}
                 {/* The grips size the user's own size; an extra height (sizeExtra) stays on top of it. */}
                 {!overridden && edge === "top" && <ResizeHandles id={tab.id} def={tab.size} size={toolSize} />}
@@ -571,6 +571,8 @@ const GLASS_STATUS = { "--color-orange": "var(--glass-orange)", "--color-red": "
 const GLASS_STATUS_FADE = "--color-orange 300ms var(--ease-out), --color-red 300ms var(--ease-out), --color-green 300ms var(--ease-out)";
 /** The header's ink changes with the brow under it as the glass comes and goes; the accent keeps global.css's fade. */
 const INK_FADE = "--color-label 300ms var(--ease-out), --color-label-2 300ms var(--ease-out), --color-label-3 300ms var(--ease-out), --accent 500ms ease";
+/** The Dock's fills step aside for the glass and come back with --shape's fade. */
+const FILL_FADE = "transition-colors duration-300 ease-out motion-reduce:transition-none";
 
 /** The song's progress along the idle line, as thick as the line: moved once a second with a 1 s linear transition, only while playing. `along`: the upright axis the edge runs on. */
 function LineProgress({ along }: { along: "x" | "y" }) {
@@ -627,8 +629,9 @@ function Header({ title, ink, fade }: { title: string; ink?: Record<string, stri
 /**
  * Tool bar at the bottom (like OmniNotch). The gear at the end toggles between settings and the last tool. Over the glass (`liquid`) the
  * shader draws it as a capsule of glass with a drop under the pointed or the current tool (glass/bar.ts), and its own fills step aside.
+ * `fades`: the glass is on, so the fills fade with it; without it they follow the theme's crossfade, as before the glass.
  */
-function Dock({ tabs, activeId, liquid }: { tabs: NotchTab[]; activeId: string; liquid: boolean }) {
+function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: string; liquid: boolean; fades: boolean }) {
   const lastTool = useRef(tabs[0]?.id);
   if (!pageTabs.some((p) => p.id === activeId)) lastTool.current = activeId;
   const inSettings = activeId === settingsTab.id;
@@ -658,7 +661,7 @@ function Dock({ tabs, activeId, liquid }: { tabs: NotchTab[]; activeId: string; 
         {...handlers}
         // Over the glass the dot and the coloured icons take colours held to 3:1 over the bar's thinner veil (themes.ts glassInk).
         style={liquid ? barInk(theme, hues) : undefined}
-        className={`flex h-10 max-w-full items-center rounded-[14px] p-0.5 transition-colors duration-300 ease-out motion-reduce:transition-none ${liquid ? "bg-transparent" : "bg-fill-2"}`}
+        className={`flex h-10 max-w-full items-center rounded-[14px] p-0.5 ${fades ? FILL_FADE : ""} ${liquid ? "bg-transparent" : "bg-fill-2"}`}
       >
         <div ref={strip} className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]" style={{ maskImage: fade, WebkitMaskImage: fade }}>
           {tabs.map((tab) => (
@@ -671,6 +674,7 @@ function Dock({ tabs, activeId, liquid }: { tabs: NotchTab[]; activeId: string; 
               active={tab.id === activeId}
               pointed={pointed === tab.id}
               liquid={liquid}
+              fades={fades}
               lens={pointed === tab.id ? mag : 1}
               onClick={() => navigate(tab.id)}
             />
@@ -684,6 +688,7 @@ function Dock({ tabs, activeId, liquid }: { tabs: NotchTab[]; activeId: string; 
           active={inSettings}
           pointed={pointed === settingsTab.id}
           liquid={liquid}
+          fades={fades}
           lens={pointed === settingsTab.id ? mag : 1}
           badge={badge}
           onClick={() => {
@@ -730,6 +735,7 @@ function DockButton(props: {
   active: boolean;
   pointed: boolean;
   liquid: boolean;
+  fades: boolean;
   lens: number;
   onClick: () => void;
   badge?: boolean;
@@ -759,7 +765,7 @@ function DockButton(props: {
       {props.active && (
         <motion.span
           layoutId="dock-pill"
-          className={`absolute inset-0 rounded-[12px] transition-colors duration-300 ease-out motion-reduce:transition-none ${props.liquid ? "bg-transparent" : "bg-fill-3"}`}
+          className={`absolute inset-0 rounded-[12px] ${props.fades ? FILL_FADE : ""} ${props.liquid ? "bg-transparent" : "bg-fill-3"}`}
           transition={springs.snappy}
         >
           <span className="absolute bottom-[3px] left-1/2 h-[2px] w-3 -translate-x-1/2 rounded-full bg-label" />
@@ -767,19 +773,19 @@ function DockButton(props: {
       )}
       <motion.span className="relative flex" initial={false} animate={{ transform: `scale(${props.lens})` }} transition={springs.peek}>
         <I size={18} weight={props.active ? "fill" : "bold"} />
+        {/* Badge dot (e.g. update available) at the icon's top right; in here it grows with the icon under the glass drop. */}
+        <AnimatePresence>
+          {props.badge && (
+            <motion.span
+              className={`absolute top-[-3px] left-1/2 ml-[4px] size-[7px] rounded-full bg-link ring-2 ${props.liquid ? "ring-transparent" : "ring-notch"}`}
+              initial={{ opacity: 0, transform: "scale(0.9)" }}
+              animate={{ opacity: 1, transform: "scale(1)" }}
+              exit={{ opacity: 0, transform: "scale(0.9)" }}
+              transition={springs.snappy}
+            />
+          )}
+        </AnimatePresence>
       </motion.span>
-      {/* Badge dot (e.g. update available) at the icon's top right. */}
-      <AnimatePresence>
-        {props.badge && (
-          <motion.span
-            className={`absolute top-[6px] left-1/2 ml-[4px] size-[7px] rounded-full bg-link ring-2 ${props.liquid ? "ring-transparent" : "ring-notch"}`}
-            initial={{ opacity: 0, transform: "scale(0.9)" }}
-            animate={{ opacity: 1, transform: "scale(1)" }}
-            exit={{ opacity: 0, transform: "scale(0.9)" }}
-            transition={springs.snappy}
-          />
-        )}
-      </AnimatePresence>
     </button>
   );
 }
