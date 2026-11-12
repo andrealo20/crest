@@ -6,7 +6,9 @@
 //!   recordings, screenshots and Hide Crest from screen sharing, and the copy for the open panel (backdrop.rs) finds it out.
 //! - The copy is Windows.Graphics.Capture of the notch's monitor, without the yellow border and the cursor, on the GPU that
 //!   drives that monitor, into frames that hold the monitor from its top left corner to the zone's far corner (Windows clips
-//!   the rest). From Windows 11 24H2 Windows sends at most 10 frames a second; before it the handler drops the extra ones.
+//!   the rest). Windows sends at most 10 frames a second. One D3D11 device is kept while the switch is on: a new one for
+//!   each session cost 0.2 to 2.5 s and memory that did not all come back.
+//! - 8-bit frames on an HDR monitor too: what Windows shows in SDR comes out exact, HDR content is cut at SDR white.
 //! - A frame goes to the page only when the zone's bytes differ from the last ones sent, a session's first always: the notch
 //!   redrawing itself marks the zone dirty with nothing changed behind it, and the glass would redraw itself for ever. At a
 //!   still screen Windows sends nothing, so a new zone, or the copy again after the panel was open, is a new session.
@@ -14,7 +16,7 @@
 //!   frame waits for it, the newest, dropped there if a start or a stop came since.
 //! - Stopping closes the session and the pool, waits for a frame being handled and bumps `gen`, in that order, before the
 //!   notch's flag may change: nothing captured with the notch in it can reach the page.
-//! - Hidden on ARM64 PCs, in the Store build and before Windows 11 until someone tries it there.
+//! - Hidden before Windows 11 24H2, on ARM64 PCs and in the Store build until someone tries it there.
 
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
@@ -22,25 +24,28 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2Environment12, ICoreWebView2_17};
-use windows::core::{factory, Interface, Ref};
+use windows::core::{factory, Interface, Ref, HRESULT};
 use windows::Foundation::{TimeSpan, TypedEventHandler};
 use windows::Graphics::Capture::{
     Direct3D11CaptureFrame, Direct3D11CaptureFramePool, GraphicsCaptureAccess, GraphicsCaptureAccessKind, GraphicsCaptureItem, GraphicsCaptureSession,
 };
 use windows::Graphics::DirectX::Direct3D11::IDirect3DDevice;
 use windows::Graphics::DirectX::DirectXPixelFormat;
+use windows::Graphics::RectInt32;
 use windows::Graphics::SizeInt32;
 use windows::Security::Authorization::AppCapabilityAccess::AppCapabilityAccessStatus;
-use windows::Win32::Foundation::{E_ACCESSDENIED, HMODULE, HWND};
+use windows::Win32::Foundation::{E_ACCESSDENIED, HMODULE, HWND, LUID};
 use windows::Win32::Graphics::Direct3D::D3D_DRIVER_TYPE_UNKNOWN;
 use windows::Win32::Graphics::Direct3D11::{
     D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, ID3D11Multithread, ID3D11Texture2D, D3D11_BOX, D3D11_CPU_ACCESS_READ,
     D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ, D3D11_SDK_VERSION, D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING,
 };
 use windows::Win32::Graphics::Dwm::DwmFlush;
-use windows::Win32::Graphics::Dxgi::Common::{DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC};
-use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIAdapter1, IDXGIDevice, IDXGIFactory1, IDXGIOutput6};
-use windows::Win32::Graphics::Gdi::HMONITOR;
+use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC};
+use windows::Win32::Graphics::Dxgi::{
+    CreateDXGIFactory1, IDXGIAdapter1, IDXGIDevice, IDXGIFactory1, DXGI_ERROR_DEVICE_REMOVED, DXGI_ERROR_DEVICE_RESET,
+};
+use windows::Win32::Graphics::Gdi::{MonitorFromWindow, HMONITOR, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 use windows::Win32::System::WinRT::Direct3D11::{CreateDirect3D11DeviceFromDXGIDevice, IDirect3DDxgiInterfaceAccess};
 use windows::Win32::System::WinRT::Graphics::Capture::IGraphicsCaptureItemInterop;
@@ -49,11 +54,12 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetSystemMetrics, GetWindowDisplayAffinity, SetWindowDisplayAffinity, SM_REMOTESESSION, WDA_EXCLUDEFROMCAPTURE, WINDOW_DISPLAY_AFFINITY,
 };
 
-use super::math::{intersect, Pacer, Rect};
+use super::math::{intersect, Rect};
 use super::{backdrop, one_at_a_time, record, CaptureState};
 
-/// Windows 11: on Windows 10 a capture keeps its yellow border around the whole screen (IsBorderRequired comes with 20348).
-const FIRST_BUILD: u32 = 22000;
+/// Windows 11 24H2, the first with MinUpdateInterval and DirtyRegions. Before it every composition sends a frame, and
+/// pacing them in the handler loses the end of a burst, which then stays on the glass at a still screen.
+const FIRST_BUILD: u32 = 26100;
 /// Frames a second, as many on battery: fewer would not spare the compositor, which does most of the work.
 const FPS: u32 = 10;
 
@@ -62,6 +68,8 @@ const FPS: u32 = 10;
 static LIVE: Mutex<Option<Live>> = Mutex::new(None);
 /// Bumped by every start and every stop: a frame still waiting for the main thread from before is dropped there.
 static GEN: AtomicU32 = AtomicU32::new(0);
+/// The device sessions are made on, from the switch going on to it going off (`gpu`).
+static GPU: Mutex<Option<Gpu>> = Mutex::new(None);
 
 /// Whether the live glass can run on this PC, and if not why: the page shows its switch only when it can.
 #[derive(Serialize)]
@@ -143,14 +151,24 @@ fn switch(app: &AppHandle, notch: HWND, on: bool) -> Result<(), &'static str> {
     // The copy stops before the flag goes back: a frame taken after it would carry the notch into its own glass.
     if !on {
         stop(&mut live);
+        *lock(&GPU) = None;
     }
-    let _one = one_at_a_time();
+    {
+        let _one = one_at_a_time();
+        if on {
+            keep_out(notch)?;
+            state.live.store(true, Ordering::SeqCst);
+        } else if state.live.swap(false, Ordering::SeqCst) {
+            if let Some(flag) = backdrop::restore_to(state.excluded(), state.holds.load(Ordering::SeqCst), crate::sharing::hidden(), false) {
+                let _ = unsafe { SetWindowDisplayAffinity(notch, flag) };
+            }
+        }
+    }
+    // The device now, so the first start does not wait for it; with LIVE still held, so the switch going off waits for it.
     if on {
-        keep_out(notch)?;
-        state.live.store(true, Ordering::SeqCst);
-    } else if state.live.swap(false, Ordering::SeqCst) {
-        if let Some(flag) = backdrop::restore_to(state.excluded(), state.holds.load(Ordering::SeqCst), crate::sharing::hidden(), false) {
-            let _ = unsafe { SetWindowDisplayAffinity(notch, flag) };
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            let _ = gpu(MonitorFromWindow(notch, MONITOR_DEFAULTTONEAREST), true);
         }
     }
     Ok(())
@@ -174,45 +192,55 @@ fn keep_out(notch: HWND) -> Result<(), &'static str> {
     Ok(())
 }
 
-/// Why the live glass cannot run here, None when it can. Worked out once.
+/// Why the live glass cannot run here, None when it can. Worked out once, as soon as the answer is sure.
 async fn support(window: &WebviewWindow) -> Option<&'static str> {
     static KNOWN: OnceLock<Option<&'static str>> = OnceLock::new();
     if let Some(known) = KNOWN.get() {
         return *known;
     }
-    let why = match unsupported(crate::terminal::windows_build(), crate::native_machine() == Some("aarch64"), cfg!(feature = "store")) {
-        None if !capture(window).await => Some("unsupported"),
+    let why = match unsupported(crate::terminal::windows_build(), crate::native_machine(), cfg!(feature = "store")) {
+        None => match capture(window).await {
+            Some(true) => None,
+            Some(false) => Some("unsupported"),
+            // Not known this time (the window closing, WinRT failing): no for now, asked again next time.
+            None => return Some("unsupported"),
+        },
         why => why,
     };
     *KNOWN.get_or_init(|| why)
 }
 
-/// The reasons that come before trying anything, in the contract's order. ARM64 and the Store build have never been tried.
-fn unsupported(build: u32, arm: bool, store: bool) -> Option<&'static str> {
+/// The reasons that come before trying anything, in the contract's order. ARM64 and the Store build have never been tried,
+/// and a PC whose architecture cannot be read is not taken for x64.
+fn unsupported(build: u32, machine: Option<&str>, store: bool) -> Option<&'static str> {
     if build < FIRST_BUILD {
         Some("old-windows")
-    } else if arm {
+    } else if machine == Some("aarch64") {
         Some("arm64")
     } else if store {
         Some("store")
+    } else if machine != Some("x86_64") {
+        Some("unsupported")
     } else {
         None
     }
 }
 
-/// Windows.Graphics.Capture, and a WebView2 that takes shared buffers (backdrop.rs `share`).
-async fn capture(window: &WebviewWindow) -> bool {
-    if !GraphicsCaptureSession::IsSupported().unwrap_or(false) {
-        return false;
+/// Windows.Graphics.Capture, and a WebView2 that takes shared buffers (backdrop.rs `share`); None when it could not be asked.
+async fn capture(window: &WebviewWindow) -> Option<bool> {
+    if !GraphicsCaptureSession::IsSupported().ok()? {
+        return Some(false);
     }
     let (tx, rx) = tokio::sync::oneshot::channel();
-    let asked = window.with_webview(move |webview| {
-        let _ = tx.send(unsafe {
-            webview.environment().cast::<ICoreWebView2Environment12>().is_ok()
-                && webview.controller().CoreWebView2().is_ok_and(|core| core.cast::<ICoreWebView2_17>().is_ok())
-        });
-    });
-    asked.is_ok() && rx.await.unwrap_or(false)
+    window
+        .with_webview(move |webview| {
+            let _ = tx.send(unsafe {
+                webview.environment().cast::<ICoreWebView2Environment12>().is_ok()
+                    && webview.controller().CoreWebView2().is_ok_and(|core| core.cast::<ICoreWebView2_17>().is_ok())
+            });
+        })
+        .ok()?;
+    rx.await.ok()
 }
 
 /// Why a session cannot start now, from what Rust knows before it looks at the screen, in the contract's order.
@@ -254,9 +282,12 @@ fn begin(app: &AppHandle, window: &WebviewWindow, notch: isize, zone: Rect, supp
     let state = app.state::<CaptureState>();
     let remote = unsafe { GetSystemMetrics(SM_REMOTESESSION) } != 0 || crate::sysevents::remote();
     let locked = crate::sysevents::locked();
+    // The window's flag as well as the switch: whatever wrote it last, the notch must be out before anything is copied.
+    let mut flag = 0u32;
+    let out = unsafe { GetWindowDisplayAffinity(HWND(notch as _), &mut flag) }.is_ok() && flag == WDA_EXCLUDEFROMCAPTURE.0;
     if let Some(why) = refusal(
         crate::terminal::windows_build(),
-        state.live.load(Ordering::SeqCst),
+        state.live.load(Ordering::SeqCst) && out,
         backdrop::transparency(),
         remote,
         locked,
@@ -266,11 +297,6 @@ fn begin(app: &AppHandle, window: &WebviewWindow, notch: isize, zone: Rect, supp
     }
     let (win, monitor, handle) = backdrop::placement(HWND(notch as _)).ok_or("no-window")?;
     let (at, zone, size) = clip(zone, win, monitor).ok_or("no-window")?;
-    // An HDR monitor would come out washed out in 8-bit frames.
-    let dxgi: IDXGIFactory1 = unsafe { CreateDXGIFactory1() }.map_err(|_| "failed")?;
-    if output(&dxgi, handle).is_some_and(|(_, hdr)| hdr) {
-        return Err("hdr");
-    }
     if let Some(why) = support {
         return Err(why);
     }
@@ -292,19 +318,15 @@ fn borderless() -> bool {
     })
 }
 
-/// The GPU that drives `monitor` and whether that monitor shows HDR; None when no GPU lists it.
-fn output(dxgi: &IDXGIFactory1, monitor: HMONITOR) -> Option<(IDXGIAdapter1, bool)> {
+/// The GPU that drives `monitor`; None when no GPU lists it.
+fn output(dxgi: &IDXGIFactory1, monitor: HMONITOR) -> Option<IDXGIAdapter1> {
     unsafe {
         for i in 0.. {
             let adapter = dxgi.EnumAdapters1(i).ok()?;
             for j in 0.. {
                 let Ok(output) = adapter.EnumOutputs(j) else { break };
                 if output.GetDesc().is_ok_and(|d| d.Monitor == monitor) {
-                    let hdr = output
-                        .cast::<IDXGIOutput6>()
-                        .and_then(|o| o.GetDesc1())
-                        .is_ok_and(|d| d.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
-                    return Some((adapter, hdr));
+                    return Some(adapter);
                 }
             }
         }
@@ -312,11 +334,39 @@ fn output(dxgi: &IDXGIFactory1, monitor: HMONITOR) -> Option<(IDXGIAdapter1, boo
     }
 }
 
-/// A D3D11 device on `gpu`, the one that drives the notch's monitor, so frames are not copied between GPUs; the default one
-/// when no GPU lists that monitor or the device cannot be made there.
-fn device(gpu: Option<IDXGIAdapter1>) -> windows::core::Result<(ID3D11Device, ID3D11DeviceContext, IDirect3DDevice)> {
+/// A D3D11 device and what a capture needs of it.
+#[derive(Clone)]
+struct Gpu {
+    /// The GPU it was made on; None for the default one or WARP, which no other session gets.
+    luid: Option<LUID>,
+    device: ID3D11Device,
+    context: ID3D11DeviceContext,
+    winrt: IDirect3DDevice,
+}
+
+// D3D11 with multithread protection on, WinRT objects agile.
+unsafe impl Send for Gpu {}
+
+/// The kept device, made again when another GPU drives `monitor` or the device was lost. `fallback`: the default GPU, or
+/// WARP, when the monitor's own GPU gives no device; not after a loss, which would carry on in software.
+fn gpu(monitor: HMONITOR, fallback: bool) -> windows::core::Result<Gpu> {
+    let mut kept = lock(&GPU);
+    let dxgi: IDXGIFactory1 = unsafe { CreateDXGIFactory1()? };
+    let adapter = output(&dxgi, monitor).and_then(|a| Some((unsafe { a.GetDesc1() }.ok()?.AdapterLuid, a)));
+    let luid = adapter.as_ref().map(|(luid, _)| *luid);
+    if let Some(gpu) = kept.as_ref().filter(|g| g.luid.is_some() && g.luid == luid && unsafe { g.device.GetDeviceRemovedReason() }.is_ok()) {
+        return Ok(gpu.clone());
+    }
+    *kept = None;
+    let made = device(adapter, fallback)?;
+    *kept = Some(made.clone());
+    Ok(made)
+}
+
+/// A D3D11 device on `gpu`, the one that drives the notch's monitor, so frames are not copied between GPUs.
+fn device(gpu: Option<(LUID, IDXGIAdapter1)>, fallback: bool) -> windows::core::Result<Gpu> {
     unsafe {
-        let on_gpu = gpu.and_then(|gpu| {
+        let on_gpu = gpu.and_then(|(luid, gpu)| {
             let (mut device, mut context) = (None, None);
             let flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
             D3D11CreateDevice(
@@ -331,16 +381,20 @@ fn device(gpu: Option<IDXGIAdapter1>) -> windows::core::Result<(ID3D11Device, ID
                 Some(&mut context),
             )
             .ok()?;
-            device.zip(context)
+            Some((device?, context?, Some(luid)))
         });
-        let (device, context) = match on_gpu {
+        let (device, context, luid) = match on_gpu {
             Some(made) => made,
-            None => record::d3d_device()?,
+            None if fallback => {
+                let (device, context) = record::d3d_device()?;
+                (device, context, None)
+            }
+            None => return Err(DXGI_ERROR_DEVICE_REMOVED.into()),
         };
         // Windows' capture threads use it as well as the frame handler.
         let _ = device.cast::<ID3D11Multithread>()?.SetMultithreadProtected(true);
         let winrt = CreateDirect3D11DeviceFromDXGIDevice(&device.cast::<IDXGIDevice>()?)?.cast()?;
-        Ok((device, context, winrt))
+        Ok(Gpu { luid, device, context, winrt })
     }
 }
 
@@ -384,30 +438,26 @@ unsafe impl Send for Live {}
 fn open(monitor: HMONITOR, zone: Rect, size: SizeInt32, gen: u32, send: Sink, fault: Fault) -> Result<Live, &'static str> {
     let failed = |_| "failed";
     let denied = |e: windows::core::Error| if e.code() == E_ACCESSDENIED { "capture-denied" } else { "failed" };
-    let dxgi: IDXGIFactory1 = unsafe { CreateDXGIFactory1() }.map_err(failed)?;
-    let (device, context, winrt) = device(output(&dxgi, monitor).map(|(gpu, _)| gpu)).map_err(failed)?;
-    let staging = staging(&device, zone).map_err(failed)?;
+    let gpu = gpu(monitor, true).map_err(failed)?;
+    let staging = staging(&gpu.device, zone).map_err(failed)?;
     let item: GraphicsCaptureItem = factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>()
         .and_then(|interop| unsafe { interop.CreateForMonitor(monitor) })
         .map_err(denied)?;
     let content = item.Size().map_err(failed)?;
-    let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(&winrt, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, size).map_err(failed)?;
+    let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(&gpu.winrt, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, size).map_err(failed)?;
     let session = pool.CreateCaptureSession(&item).map_err(denied)?;
     let _ = session.SetIsCursorCaptureEnabled(false);
-    let _ = session.SetIsBorderRequired(false);
-    // Windows 11 24H2 (26100) and later keep to the rate themselves.
-    let paced = session.SetMinUpdateInterval(TimeSpan { Duration: 10_000_000 / FPS as i64 }).is_ok();
+    session.SetIsBorderRequired(false).map_err(|_| "border-denied")?;
+    session.SetMinUpdateInterval(TimeSpan { Duration: 10_000_000 / FPS as i64 }).map_err(failed)?;
     let frames = Arc::new(Mutex::new(Frames {
         done: false,
         seq: 0,
-        context,
+        gpu,
         staging,
-        dxgi,
         monitor,
         zone,
         size,
         content,
-        pacer: (!paced).then(|| Pacer::new(FPS)),
         last: Vec::new(),
         renewed: false,
         copies: 0,
@@ -446,7 +496,11 @@ fn stop(slot: &mut Option<Live>) -> Option<u32> {
     let live = slot.take()?;
     let _ = live.session.Close();
     let _ = live.pool.Close();
-    lock(&live.frames).done = true;
+    let mut frames = lock(&live.frames);
+    frames.done = true;
+    // The last copy goes now, not when Windows lets the handler go.
+    frames.last = Vec::new();
+    drop(frames);
     GEN.fetch_add(1, Ordering::SeqCst);
     Some(live.gen)
 }
@@ -516,10 +570,8 @@ struct Frames {
     /// Set by `stop`, or when the session stops on its own: a frame that still comes is left alone.
     done: bool,
     seq: u32,
-    context: ID3D11DeviceContext,
+    gpu: Gpu,
     staging: ID3D11Texture2D,
-    /// Stale once the displays change (HDR among them): then the monitor is looked at again.
-    dxgi: IDXGIFactory1,
     monitor: HMONITOR,
     /// The zone in the monitor, px.
     zone: Rect,
@@ -527,8 +579,6 @@ struct Frames {
     size: SizeInt32,
     /// The monitor's size at the start: frames of another size mean it changed, and the zone with it.
     content: SizeInt32,
-    /// Before Windows 11 24H2 the handler keeps to the rate itself.
-    pacer: Option<Pacer>,
     /// The zone's bytes last sent, empty before the session's first frame.
     last: Vec<u8>,
     /// The device was made again once; a second loss stops the session.
@@ -562,52 +612,39 @@ impl Frames {
             Err(e) if !e.code().is_err() => return Step::Skip,
             Err(e) => Err(e),
         };
-        // A lost device shows as an error here or from Map: a new device once, then the session stops.
-        taken.unwrap_or_else(|_| {
-            let first = !std::mem::replace(&mut self.renewed, true);
-            if first && self.renew(pool).is_ok() {
-                Step::Skip
-            } else {
+        // A lost device shows as an error here or from Map: a new device once, then the session stops. Any other error loses
+        // this frame only.
+        taken.unwrap_or_else(|e| {
+            let lost = device_lost(e.code(), unsafe { self.gpu.device.GetDeviceRemovedReason() }.is_err());
+            if lost && (std::mem::replace(&mut self.renewed, true) || self.renew(pool).is_err()) {
                 Step::Stop("device")
+            } else {
+                Step::Skip
             }
         })
     }
 
     fn take(&mut self, frame: &Direct3D11CaptureFrame) -> windows::core::Result<Step> {
-        if let Some(pacer) = &mut self.pacer {
-            if !pacer.admit(frame.SystemRelativeTime()?.Duration) {
-                return Ok(Step::Skip);
-            }
-        }
         if frame.ContentSize()? != self.content {
             return Ok(Step::Stop("monitor"));
         }
-        if !unsafe { self.dxgi.IsCurrent() }.as_bool() {
-            self.dxgi = unsafe { CreateDXGIFactory1()? };
-            if output(&self.dxgi, self.monitor).is_some_and(|(_, hdr)| hdr) {
-                return Ok(Step::Stop("hdr"));
-            }
-        }
         let z = self.zone;
-        let first = self.last.is_empty();
-        // Before 26100 there are no dirty regions, and every frame kept is read.
-        let elsewhere = |dirty: windows_collections::IVectorView<windows::Graphics::RectInt32>| {
-            !dirty.into_iter().any(|r| intersect(Rect { x: r.X, y: r.Y, w: r.Width, h: r.Height }, z).is_some())
-        };
-        if !first && frame.DirtyRegions().is_ok_and(elsewhere) {
+        // No dirty regions (they cannot be read) count as the zone dirty.
+        if !self.last.is_empty() && frame.DirtyRegions().is_ok_and(|dirty| !touches(dirty, z)) {
             return Ok(Step::Skip);
         }
         let access: IDirect3DDxgiInterfaceAccess = frame.Surface()?.cast()?;
         let texture: ID3D11Texture2D = unsafe { access.GetInterface()? };
         let area = D3D11_BOX { left: z.x as u32, top: z.y as u32, front: 0, right: z.right() as u32, bottom: z.bottom() as u32, back: 1 };
         let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
+        let context = &self.gpu.context;
         let changed = unsafe {
-            self.context.CopySubresourceRegion(&self.staging, 0, 0, 0, 0, &texture, 0, Some(&area));
-            self.context.Map(&self.staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped))?;
+            context.CopySubresourceRegion(&self.staging, 0, 0, 0, 0, &texture, 0, Some(&area));
+            context.Map(&self.staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped))?;
             let (row, pitch) = (z.w as usize * 4, mapped.RowPitch as usize);
             let rows = std::slice::from_raw_parts(mapped.pData as *const u8, pitch * (z.h as usize - 1) + row);
             let changed = refresh(&mut self.last, rows, pitch, row);
-            self.context.Unmap(&self.staging, 0);
+            context.Unmap(&self.staging, 0);
             changed
         };
         self.copies += 1;
@@ -620,13 +657,23 @@ impl Frames {
 
     /// A new device on the monitor's GPU and the pool made again on it, as the Screen capture docs say for a lost device.
     fn renew(&mut self, pool: &Direct3D11CaptureFramePool) -> windows::core::Result<()> {
-        let dxgi: IDXGIFactory1 = unsafe { CreateDXGIFactory1()? };
-        let (device, context, winrt) = device(output(&dxgi, self.monitor).map(|(gpu, _)| gpu))?;
-        let staging = staging(&device, self.zone)?;
-        pool.Recreate(&winrt, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, self.size)?;
-        (self.dxgi, self.context, self.staging) = (dxgi, context, staging);
+        let gpu = gpu(self.monitor, false)?;
+        let staging = staging(&gpu.device, self.zone)?;
+        pool.Recreate(&gpu.winrt, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, self.size)?;
+        (self.gpu, self.staging) = (gpu, staging);
         Ok(())
     }
+}
+
+/// Whether a frame's error means the GPU was lost: the error says so, or the device does. A pool closed by `stop` under a
+/// frame being handled (RO_E_CLOSED) is not.
+fn device_lost(error: HRESULT, removed: bool) -> bool {
+    error == DXGI_ERROR_DEVICE_REMOVED || error == DXGI_ERROR_DEVICE_RESET || removed
+}
+
+/// Whether one of a frame's dirty regions reaches the zone, both px in the monitor.
+fn touches(dirty: impl IntoIterator<Item = RectInt32>, zone: Rect) -> bool {
+    dirty.into_iter().any(|r| intersect(Rect { x: r.X, y: r.Y, w: r.Width, h: r.Height }, zone).is_some())
 }
 
 /// Copies the zone's rows, `pitch` bytes apart in `mapped` and `row` bytes long, over `last`; whether a byte changed. An empty
@@ -663,20 +710,27 @@ mod tests {
 
     #[test]
     fn reasons_it_cannot_run_in_the_order_of_the_contract() {
-        assert_eq!(unsupported(26100, false, false), None);
-        assert_eq!(unsupported(22000, false, false), None);
-        assert_eq!(unsupported(21999, false, false), Some("old-windows"));
-        assert_eq!(unsupported(22000, true, false), Some("arm64"));
-        assert_eq!(unsupported(22000, false, true), Some("store"));
+        let x64 = Some("x86_64");
+        assert_eq!(unsupported(26100, x64, false), None);
+        assert_eq!(unsupported(26300, x64, false), None);
+        // Windows 11 23H2: no MinUpdateInterval.
+        assert_eq!(unsupported(22631, x64, false), Some("old-windows"));
+        assert_eq!(unsupported(19045, x64, false), Some("old-windows"));
+        assert_eq!(unsupported(26100, Some("aarch64"), false), Some("arm64"));
+        assert_eq!(unsupported(26100, x64, true), Some("store"));
+        // An architecture it does not know or cannot read is no.
+        assert_eq!(unsupported(26100, Some("other"), false), Some("unsupported"));
+        assert_eq!(unsupported(26100, None, false), Some("unsupported"));
         // Several at once: the first one.
-        assert_eq!(unsupported(19045, true, true), Some("old-windows"));
-        assert_eq!(unsupported(26100, true, true), Some("arm64"));
+        assert_eq!(unsupported(19045, Some("aarch64"), true), Some("old-windows"));
+        assert_eq!(unsupported(26100, Some("aarch64"), true), Some("arm64"));
+        assert_eq!(unsupported(26100, None, true), Some("store"));
     }
 
     #[test]
     fn a_start_refuses_in_the_order_of_the_contract() {
         assert_eq!(refusal(26100, true, true, false, false, false), None);
-        assert_eq!(refusal(22631, true, true, false, false, false), None);
+        assert_eq!(refusal(22631, true, true, false, false, false), Some("old-windows"));
         assert_eq!(refusal(19045, true, true, false, false, false), Some("old-windows"));
         assert_eq!(refusal(26100, false, true, false, false, false), Some("not-excluded"));
         assert_eq!(refusal(26100, true, false, false, false, false), Some("transparency-off"));
@@ -740,6 +794,27 @@ mod tests {
     }
 
     #[test]
+    fn a_frame_is_read_when_a_dirty_region_reaches_the_zone() {
+        let zone = Rect { x: 1140, y: 0, w: 600, h: 120 };
+        let r = |x, y, w, h| RectInt32 { X: x, Y: y, Width: w, Height: h };
+        assert!(!touches(vec![], zone));
+        assert!(!touches(vec![r(0, 500, 300, 300), r(1740, 0, 50, 120)], zone), "beside the zone");
+        assert!(touches(vec![r(0, 500, 300, 300), r(1700, 100, 200, 200)], zone));
+        assert!(touches(vec![r(0, 0, 2880, 1800)], zone));
+    }
+
+    #[test]
+    fn only_a_lost_gpu_makes_the_device_again() {
+        use windows::Win32::Foundation::{E_FAIL, RO_E_CLOSED};
+        assert!(device_lost(DXGI_ERROR_DEVICE_REMOVED, false));
+        assert!(device_lost(DXGI_ERROR_DEVICE_RESET, false));
+        assert!(device_lost(E_FAIL, true), "the device says it is gone");
+        // The pool closed by a stop under a frame being handled.
+        assert!(!device_lost(RO_E_CLOSED, false));
+        assert!(!device_lost(E_FAIL, false));
+    }
+
+    #[test]
     fn the_newest_frame_waits_and_a_start_or_stop_drops_it() {
         let waiting = Waiting::default();
         let gen = GEN.load(Ordering::SeqCst);
@@ -762,15 +837,15 @@ mod tests {
         assert_eq!(serde_json::to_string(&Started { gen: 3, x: 470, y: 0, w: 600, h: 120 }).unwrap(), r#"{"gen":3,"x":470,"y":0,"w":600,"h":120}"#);
         let yes = Support { supported: true, reason: None };
         assert_eq!(serde_json::to_string(&yes).unwrap(), r#"{"supported":true,"reason":null}"#);
-        let no = Support { supported: false, reason: unsupported(26100, false, true) };
+        let no = Support { supported: false, reason: unsupported(26100, Some("x86_64"), true) };
         assert_eq!(serde_json::to_string(&no).unwrap(), r#"{"supported":false,"reason":"store"}"#);
     }
 }
 
 #[cfg(test)]
 mod live {
-    //! Shows two windows for about five seconds and copies the screen under them: a grey one, and on top of it a magenta one
-    //! kept out of captures the way the notch is. Nothing is saved. It shows on screen, so only on request, with the PC free
+    //! Shows three windows for about ten seconds and copies the screen under them: a grey one, on top of it a magenta one
+    //! kept out of captures the way the notch is, and one above them that changes away from the zone. Nothing is saved. It shows on screen, so only on request, with the PC free
     //! and unlocked, from a process without a package identity (explorer.exe, not a packaged terminal):
     //! `cargo test --lib capture::glass_live::live -- --ignored --nocapture`.
     use std::time::{Duration, Instant};
@@ -909,6 +984,8 @@ mod live {
         let behind = Rect { x: monitor.x + 120, y: monitor.y + 360, w: 320, h: 160 };
         let grey = window(behind, GREY);
         let notch = window(Rect { x: behind.x + 80, y: behind.y + 40, w: 160, h: 80 }, MAGENTA);
+        // On the monitor and in the frames, away from the zone.
+        let far = window(Rect { x: behind.x, y: behind.y - 220, w: 160, h: 120 }, GREY);
         run(Duration::from_millis(200), || {});
         let out = || {
             let _one = one_at_a_time();
@@ -960,6 +1037,23 @@ mod live {
             assert!(!any_magenta(px) && all(px, GREEN), "the new copy is not the window behind the notch");
         }
 
+        // A change behind the notch, then 20 to 80 ms later one away from it, then nothing, 20 times: the change behind
+        // still comes, so a frame's dirty regions cover all the changes since the frame before, not only the last one.
+        let mut colour = GREEN;
+        let mut slowest = Duration::ZERO;
+        for i in 0..20u64 {
+            colour = if colour == GREEN { GREY } else { GREEN };
+            let t = Instant::now();
+            paint(grey, colour);
+            run(Duration::from_millis(20 + i * 37 % 61), || {});
+            paint(far, if i % 2 == 0 { GREEN } else { GREY });
+            let came = until(Duration::from_millis(300), || lock(&frames).last().is_some_and(|(_, px)| all(px, colour)));
+            assert!(came, "change {i} behind the notch did not come");
+            slowest = slowest.max(t.elapsed());
+            run(Duration::from_millis(150), || {});
+        }
+        eprintln!("20 changes behind the notch followed by one away from it: all came, the slowest after {slowest:?}");
+
         // Stopped, then the flag back as when the switch goes off: nothing comes after, whatever changes.
         let gen = GEN.load(Ordering::SeqCst);
         assert_eq!(stop(&mut live), Some(1));
@@ -971,7 +1065,8 @@ mod live {
             paint(grey, if flip { GREY } else { GREEN });
         });
         assert_eq!(count(), after, "a frame came after the stop");
-        assert_eq!(GEN.load(Ordering::SeqCst), gen.wrapping_add(1));
+        // Greater, not one more: other tests in this process move GEN too.
+        assert!(GEN.load(Ordering::SeqCst) > gen);
 
         // A new session at a still screen still sends a first frame.
         out();
@@ -988,8 +1083,10 @@ mod live {
             assert!(!any_magenta(px) && all(px, GREY));
         }
         stop(&mut live);
+        *lock(&GPU) = None;
         assert!(lock(&faults).is_empty(), "{:?}", lock(&faults));
         unsafe {
+            let _ = DestroyWindow(far);
             let _ = DestroyWindow(notch);
             let _ = DestroyWindow(grey);
         }

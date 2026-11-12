@@ -200,7 +200,7 @@ fn exclude(app: &AppHandle, on: bool) {
     let live = app.state::<CaptureState>().live.load(Ordering::SeqCst);
     for (label, w) in app.webview_windows() {
         if let Ok(hwnd) = w.hwnd() {
-            let _ = unsafe { SetWindowDisplayAffinity(hwnd, affinity(on || (live && label == "notch"), hidden)) };
+            let _ = unsafe { SetWindowDisplayAffinity(hwnd, window_affinity(on, hidden, live, label == "notch")) };
         }
     }
 }
@@ -215,6 +215,11 @@ fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
 /// Out of captures when asked to be (a screenshot, a recording) or when the user chose to hide Crest from screen sharing.
 fn affinity(on: bool, hidden: bool) -> WINDOW_DISPLAY_AFFINITY {
     if on || hidden { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }
+}
+
+/// A window's flag in `exclude`: the notch also stays out while the live glass is on, or it would show in its own glass.
+fn window_affinity(on: bool, hidden: bool, live: bool, notch: bool) -> WINDOW_DISPLAY_AFFINITY {
+    affinity(on || (live && notch), hidden)
 }
 
 /// The setting changed (sharing.rs). A recording or a screenshot of Crest's own keeps the windows out until it ends, whatever
@@ -780,6 +785,14 @@ mod affinity_tests {
         // Hide Crest from screen sharing on: the end of a screenshot or a recording leaves the windows out.
         assert_eq!(affinity(false, true), WDA_EXCLUDEFROMCAPTURE);
         assert_eq!(affinity(true, true), WDA_EXCLUDEFROMCAPTURE);
+    }
+
+    #[test]
+    fn the_notch_alone_stays_out_while_the_live_glass_is_on() {
+        assert_eq!(window_affinity(false, false, true, true), WDA_EXCLUDEFROMCAPTURE);
+        assert_eq!(window_affinity(false, false, true, false), WDA_NONE);
+        assert_eq!(window_affinity(false, false, false, true), WDA_NONE);
+        assert_eq!(window_affinity(true, false, false, false), WDA_EXCLUDEFROMCAPTURE);
     }
 }
 
