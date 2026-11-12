@@ -1,6 +1,7 @@
 import { createStore } from "../../lib/store";
 import { glassBackdrop, isMac, isNative, onSharedBuffer } from "../../platform/native";
 import { BUFFER_WAIT_MS, takes, type SnapshotMeta } from "./params";
+import { receiveLive } from "./live";
 
 /*
  * The glass's copy of the screen behind the window: asked for as the pointer rests on the notch (capture/backdrop.rs, in the browser
@@ -68,6 +69,8 @@ export function dropSnapshot() {
  * WebView2's renderer, all of Crest's interface with it. The bytes are BGRA and the shader reads them so (.bgr).
  */
 function receive(meta: unknown, data: ArrayBuffer) {
+  // The live glass's frames (live.ts) come through the same bridge; one listener, as the bridge releases each buffer after it.
+  if ((meta as { kind?: unknown } | null)?.kind === "glass-live") return receiveLive(meta, data);
   const s = snapshot.get();
   const win = [Math.round(innerWidth * devicePixelRatio), Math.round(innerHeight * devicePixelRatio)] as const;
   if (!renderer || !takes(s, meta, win, data.byteLength)) return;

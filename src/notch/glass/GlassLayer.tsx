@@ -1,17 +1,20 @@
 // The glass (docs/themes.md, Glass): the open panel drawn over a copy of the screen behind the window, bent along the rim and blurred
 // in the middle. It blurs without CSS (CONTRIBUTING.md): each copy is blurred once, into the mip levels of its texture, and a frame
 // only reads them; the canvas is sized at the start of a transition, never per frame. The tool bar and its drop (bar.ts) are drawn here
-// too, from the same copy: no glass is drawn over glass.
+// too, from the same copy: no glass is drawn over glass. The closed notch and the capsule draw here too, over the live copy (live.ts),
+// in a canvas sized on the closed shape.
 
 import { useLayoutEffect, useRef } from "react";
 import { cancelFrame, frame, useReducedMotion, type MotionValue } from "motion/react";
-import { activeTheme } from "../../features/themes/store";
+import { activeTheme, darkInk } from "../../features/themes/store";
 import { glassVeilAt } from "../../features/themes/themes";
+import type { GlassZone } from "../../platform/native";
 import { settings } from "../../settings/store";
 import { DOCK_HEIGHT, HEADER_HEIGHT, type NotchGeometry } from "../geometry";
 import { viewZoom } from "../viewZoom";
 import { barBox, drop } from "./bar";
-import { GLASS, canvasBox, dropLens, dropShape, lodFor, parseTint, shapeUniform, textureMap, type SnapshotMeta } from "./params";
+import { dropLive, restartLive, setLiveRenderer } from "./live";
+import { GLASS, canvasBox, dropLens, dropShape, lodFor, parseTint, shapeUniform, textureMap } from "./params";
 import { DOWN_FS, MAIN_FS, program } from "./shader";
 import { dropSnapshot, glassBroken, setGlassRenderer, snapshot } from "./snapshot";
 
@@ -35,18 +38,21 @@ const ATTRS: WebGLContextAttributes = {
 
 /** `top`: the shape's top in the page as it springs (Notch.tsx useSpringTop): a floating capsule rises as its panel opens. */
 interface Shape { w: MotionValue<number>; h: MotionValue<number>; r: MotionValue<number>; ear: MotionValue<number>; rt: MotionValue<number>; top: MotionValue<number> }
-interface Live { target: NotchGeometry; hangs: boolean; reduced: boolean }
-interface Glass { show(on: boolean): void; fit(): void; stop(): void }
+/** `look`: which copy is drawn, the open panel's (snapshot.ts) or the closed shapes' live one (live.ts). */
+interface Live { target: NotchGeometry; hangs: boolean; reduced: boolean; look: "panel" | "closed" }
+interface Glass { show(on: boolean): void; fit(): void; relook(): void; stop(): void }
 type Tint = NonNullable<ReturnType<typeof parseTint>>;
 type Gpu = NonNullable<ReturnType<typeof setup>>;
+/** A copy in a texture, its mip levels the blur pyramid; `meta` is the area of the window it holds. */
+interface Copy { tex: WebGLTexture | null; w: number; h: number; levels: number; meta: GlassZone | null }
 
-/** The canvas under the open panel's content. Armed it rests at 1x1 with its context alive, so a peek pays no setup. */
-export function GlassLayer({ mode, w, h, r, ear, rt, top, target, hangs }: Shape & { mode: "armed" | "shown"; target: NotchGeometry; hangs: boolean }) {
+/** The canvas under the open panel's content and under the closed row. Armed it rests at 1x1 with its context alive, so a peek pays no setup. */
+export function GlassLayer({ mode, look, w, h, r, ear, rt, top, target, hangs }: Shape & { mode: "armed" | "shown"; look: Live["look"]; target: NotchGeometry; hangs: boolean }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const reduced = useReducedMotion() === true;
   // Read by the drawing, which runs outside React.
-  const live = useRef<Live>({ target, hangs, reduced });
-  live.current = { target, hangs, reduced };
+  const live = useRef<Live>({ target, hangs, reduced, look });
+  live.current = { target, hangs, reduced, look };
   const glass = useRef<Glass | null>(null);
 
   // Layout effects: the canvas is sized and its frame asked for before the paint where --shape turns clear, which with reduced motion
@@ -60,6 +66,8 @@ export function GlassLayer({ mode, w, h, r, ear, rt, top, target, hangs }: Shape
     };
   }, [w, h, r, ear, rt, top]);
   useLayoutEffect(() => glass.current?.show(mode === "shown"), [mode]);
+  // From the panel's copy to the live one or back: the canvas takes the size of the shape drawn now.
+  useLayoutEffect(() => glass.current?.relook(), [look]);
   // A transition starts: the canvas grows to hold where the shape goes.
   useLayoutEffect(() => glass.current?.fit(), [target.w, target.h, target.ear]);
 
@@ -81,12 +89,15 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
   let gpu = gl && setup(gl);
   if (!gl || !gpu) {
     glassBroken.set(true);
-    return { show() {}, fit() {}, stop() {} };
+    return { show() {}, fit() {}, relook() {}, stop() {} };
   }
 
-  let tex: WebGLTexture | null = null, texW = 0, texH = 0, levels = 0;
-  // rect is read with the shape's top at topAt, at the start of a transition and when a copy comes.
-  let meta: SnapshotMeta | null = null, rect: DOMRect | null = null, topAt = 0;
+  // The open panel's copy and the closed shapes' live one.
+  const snap: Copy = { tex: null, w: 0, h: 0, levels: 0, meta: null };
+  const liveCopy: Copy = { tex: null, w: 0, h: 0, levels: 0, meta: null };
+  const maxSize: number = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  // rect is read with the shape's top at topAt, at the start of a transition and when a copy for the panel comes.
+  let rect: DOMRect | null = null, topAt = 0;
   // The canvas's width in CSS px and its device px per CSS px; scale 0 while it rests at 1x1.
   let box = { w: 0, scale: 0 };
   let showing = false, covering = false, coverTimer = 0, themeUntil = 0;
@@ -102,8 +113,21 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     return true;
   };
 
+  /**
+   * The closed shapes' glass, from the theme in memory, not the CSS: the closed row's ink is Dark's unless the theme colours the closed
+   * notch, and it is not on <html>. Its veil's colour is the closed notch's; no side bands, no tool bar, no brow.
+   */
+  const closedTokens = () => {
+    const theme = activeTheme.get(), ink = theme.closedNotch ? theme.vars : darkInk();
+    const tint = parseTint(ink["--glass-tint"]), clear = parseTint(ink["--glass-tint-clear"]), rim = parseTint(ink["--glass-rim"]);
+    if (!tint || !clear || !rim) return null;
+    return { tint, edge: tint[3], clear: clear[3], bar: tint[3], rim, brow: tint, fill: [0, 0, 0, 0] as Tint, dark: theme.closedNotch ? theme.dark : true };
+  };
+
   const draw = () => {
-    if (!showing || !gpu || !tokens || !meta || !rect || gl.isContextLost()) return;
+    const closed = live.current.look === "closed", src = closed ? liveCopy : snap;
+    // Covering needs no copy: the full veil hides whatever was there.
+    if (!showing || !gpu || !rect || gl.isContextLost() || (!src.meta && !covering)) return;
     // During the springs the tokens in memory serve. A theme's crossfade is read on every frame, and once more after it: frames that
     // came late (a throttled window) would leave colours from the middle of it.
     if (themeUntil) {
@@ -111,13 +135,16 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
       if (performance.now() < themeUntil) frame.render(draw);
       else themeUntil = 0;
     }
-    const { u, p } = gpu.main, t = tokens, scale = box.scale;
-    // The canvas where it is now, without reading the DOM: the shape's top springs on its own.
-    const map = textureMap(rect, viewZoom(), devicePixelRatio, meta, shape.top.get() - topAt);
+    const t = closed ? closedTokens() : tokens && { ...tokens, dark: activeTheme.get().dark };
+    if (!t) return;
+    const { u, p } = gpu.main, scale = box.scale;
+    // The canvas where it is now, without reading the DOM: the shape's top springs on its own. Without a copy (covering) the texture is
+    // unbound, read as black under the full veil.
+    const map = src.meta ? textureMap(rect, viewZoom(), devicePixelRatio, src.meta, shape.top.get() - topAt) : { scale: [1, 1] as [number, number], offset: [0, 0] as [number, number] };
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.useProgram(p);
-    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.bindTexture(gl.TEXTURE_2D, src.tex);
     gl.uniform2f(u.uRes, canvas.width, canvas.height);
     gl.uniform1f(u.uDpr, scale);
     gl.uniform2f(u.uTexScale, ...map.scale);
@@ -127,7 +154,10 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     // Under half a pixel the top corners are gone: the panel hangs from the edge (a spring may also take them below 0).
     const rt = shape.rt.get();
     gl.uniform1f(u.uRt, rt < 0.5 ? 0 : rt);
-    gl.uniform1f(u.uBand, GLASS.band);
+    gl.uniform1f(u.uBand, closed ? GLASS.closedBand : GLASS.band);
+    gl.uniform1f(u.uThick, closed ? GLASS.closedThick : GLASS.thick);
+    gl.uniform1f(u.uShadow, closed ? 0 : GLASS.shadow);
+    gl.uniform1f(u.uEdgeFade, closed && src.meta ? 1 : 0);
     const look = settings.get().themes, reduced = live.current.reduced;
     // Covering, the veil at full strength hides the copy while --shape comes back. Else Transparency (themes.ts glassVeilAt): the
     // content down to the theme's clearest, the side bands and the tool bar never clearer than their own.
@@ -135,33 +165,47 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     gl.uniform1f(u.uMaxShift, ((reduced ? GLASS.maxShiftReduced : GLASS.maxShift) * look.glassRefraction) / 100);
     gl.uniform2f(u.uLod, ...lodFor(scale, look.glassFrost));
     gl.uniform4f(u.uVeil, t.tint[0], t.tint[1], t.tint[2], veil(t.tint[3], t.clear));
-    gl.uniform1f(u.uVeilEdge, veil(t.edge));
+    // The closed shapes keep one veil all over: their row runs up to the sides, so no clearer side bands.
+    gl.uniform1f(u.uVeilEdge, closed ? veil(t.tint[3], t.clear) : veil(t.edge));
     gl.uniform1f(u.uBarVeil, veil(t.bar));
     gl.uniform1f(u.uDock, DOCK_HEIGHT);
-    // The brow only on a panel hanging from the edge: a floating capsule's header keeps the theme's ink (Notch.tsx).
-    gl.uniform4f(u.uBrow, t.brow[0], t.brow[1], t.brow[2], live.current.hangs ? HEADER_HEIGHT : -1);
+    // The brow only on a panel hanging from the edge: a floating capsule's header keeps the theme's ink (Notch.tsx). Covering draws
+    // what --shape turns into, so no brow, but while round top corners and ears meet (a capsule near the edge springing): there the
+    // brow hides the top rim.
+    const brow = !closed && live.current.hangs && (!covering || (rt >= 0.5 && shape.ear.get() > 0));
+    gl.uniform4f(u.uBrow, t.brow[0], t.brow[1], t.brow[2], brow ? HEADER_HEIGHT : -1);
     gl.uniform4f(u.uRim, t.rim[0], t.rim[1], t.rim[2], (t.rim[3] * look.glassRim) / 100);
-    // The tool bar and its drop, in the canvas: x from its centre, which is the panel's. Covering, the Dock's own fills are back.
-    const mid = box.w / 2, bh = barBox.h.get(), bottom = barBox.top.get() + bh, lift = drop.lift.get();
-    gl.uniform4f(u.uBar, mid + barBox.x.get(), bottom - bh / 2, covering ? 0 : barBox.w.get() / 2, bh / 2);
-    // At rest no stretch: a spring's last frame snaps to its target, and that snap would read as speed.
-    const speed = reduced || !drop.x.isAnimating() ? 0 : Math.abs(drop.x.getVelocity());
-    const [rise, hw, hh] = dropShape(drop.w.get(), drop.h.get(), bh, lift, drop.press.get(), speed);
-    gl.uniform4f(u.uDrop, mid + drop.x.get(), bottom - rise, hw, hh);
-    gl.uniform1f(u.uLift, lift);
+    if (closed) {
+      // No tool bar on a closed shape: its motion values may still hold the last panel's.
+      gl.uniform4f(u.uBar, 0, 0, 0, 0);
+      gl.uniform4f(u.uDrop, 0, 0, 0, 0);
+      gl.uniform1f(u.uLift, 0);
+    } else {
+      // The tool bar and its drop, in the canvas: x from its centre, which is the panel's. Covering, the Dock's own fills are back.
+      const mid = box.w / 2, bh = barBox.h.get(), bottom = barBox.top.get() + bh, lift = drop.lift.get();
+      gl.uniform4f(u.uBar, mid + barBox.x.get(), bottom - bh / 2, covering ? 0 : barBox.w.get() / 2, bh / 2);
+      // At rest no stretch: a spring's last frame snaps to its target, and that snap would read as speed.
+      const speed = reduced || !drop.x.isAnimating() ? 0 : Math.abs(drop.x.getVelocity());
+      const [rise, hw, hh] = dropShape(drop.w.get(), drop.h.get(), bh, lift, drop.press.get(), speed);
+      gl.uniform4f(u.uDrop, mid + drop.x.get(), bottom - rise, hw, hh);
+      gl.uniform1f(u.uLift, lift);
+    }
     gl.uniform4f(u.uFill, ...t.fill);
     gl.uniform2f(u.uLens, ...dropLens(look.glassRefraction));
-    gl.uniform1f(u.uHair, activeTheme.get().dark ? GLASS.hairDark : GLASS.hairLight);
+    gl.uniform1f(u.uHair, t.dark ? GLASS.hairDark : GLASS.hairLight);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
 
-  /** Grows the canvas to hold the shape now and the one it goes to: at the start of a transition, never per frame, never smaller while shown. */
-  const fit = () => {
+  /**
+   * Grows the canvas to hold the shape now and the one it goes to: at the start of a transition, never per frame, never smaller while
+   * shown, but `fresh`: when the look changes, the size of the shapes drawn now (a panel's canvas is about 30 times a closed notch's).
+   */
+  const fit = (fresh = false) => {
     if (!showing) return;
     const zoom = viewZoom(), scale = devicePixelRatio * zoom;
     const now = { w: shape.w.get(), h: shape.h.get(), ear: shape.ear.get() };
     const next = canvasBox(now, live.current.target, { w: innerWidth / zoom, h: innerHeight / zoom }, scale);
-    const same = scale === box.scale;
+    const same = scale === box.scale && !fresh;
     if (same && next.px[0] <= canvas.width && next.px[1] <= canvas.height) return;
     canvas.width = same ? Math.max(canvas.width, next.px[0]) : next.px[0];
     canvas.height = same ? Math.max(canvas.height, next.px[1]) : next.px[1];
@@ -198,68 +242,98 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     }
   };
 
+  /** The look changed: the canvas takes the size of the shapes drawn now. */
+  const relook = () => {
+    fit(true);
+    frame.render(draw);
+  };
+
   // The blur pyramid in the texture's mip levels, each from the one above (dual filter, shader.ts).
-  const pyramid = ({ down, fbo }: Gpu) => {
+  const pyramid = ({ down, fbo }: Gpu, c: Copy) => {
     gl.useProgram(down.p);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    for (let k = 1; k < levels; k++) {
+    for (let k = 1; k < c.levels; k++) {
       // Only level k - 1 is visible to the sampler while level k is the target: no feedback loop.
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, k - 1);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, k - 1);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, k);
-      gl.viewport(0, 0, Math.max(1, texW >> k), Math.max(1, texH >> k));
-      gl.uniform2f(down.u.uStep, 1 / Math.max(1, texW >> (k - 1)), 1 / Math.max(1, texH >> (k - 1)));
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, c.tex, k);
+      gl.viewport(0, 0, Math.max(1, c.w >> k), Math.max(1, c.h >> k));
+      gl.uniform2f(down.u.uStep, 1 / Math.max(1, c.w >> (k - 1)), 1 / Math.max(1, c.h >> (k - 1)));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, 0);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, levels - 1);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, c.levels - 1);
     // Detached, or the framebuffer would keep the texture, and the copy in it, alive after free().
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   };
 
-  const upload = (m: SnapshotMeta, bytes: Uint8Array) => {
-    if (!gpu || gl.isContextLost() || Math.max(m.w, m.h) > gl.getParameter(gl.MAX_TEXTURE_SIZE) || !readTokens()) return false;
-    if (!tex || m.w !== texW || m.h !== texH) {
-      if (tex) gl.deleteTexture(tex);
-      tex = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      levels = Math.floor(Math.log2(Math.max(m.w, m.h))) + 1;
-      gl.texStorage2D(gl.TEXTURE_2D, levels, gl.RGBA8, m.w, m.h);
+  /** Puts `bytes` (BGRA, uploaded as RGBA) into `c`'s texture, allocated again only for a new size, and blurs it into its levels. */
+  const store = (g: Gpu, c: Copy, m: GlassZone, bytes: Uint8Array) => {
+    if (!c.tex || m.w !== c.w || m.h !== c.h) {
+      if (c.tex) gl.deleteTexture(c.tex);
+      c.tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, c.tex);
+      c.levels = Math.floor(Math.log2(Math.max(m.w, m.h))) + 1;
+      gl.texStorage2D(gl.TEXTURE_2D, c.levels, gl.RGBA8, m.w, m.h);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       // The bend and a window partly off its monitor sample past the copy: they get its edge, not the far side.
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      texW = m.w;
-      texH = m.h;
+      c.w = m.w;
+      c.h = m.h;
     }
-    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.bindTexture(gl.TEXTURE_2D, c.tex);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, m.w, m.h, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
-    pyramid(gpu);
-    meta = m;
+    pyramid(g, c);
+    c.meta = m;
+  };
+
+  const upload = (m: GlassZone, bytes: Uint8Array) => {
+    if (!gpu || gl.isContextLost() || Math.max(m.w, m.h) > maxSize || !readTokens()) return false;
+    store(gpu, snap, m, bytes);
     rect = canvas.getBoundingClientRect();
     topAt = shape.top.get();
     frame.render(draw);
     return true;
   };
 
+  // Up to 10 a second, so no DOM read but a first one: the canvas is placed by fit, and the shape's top springs on its own (draw).
+  const uploadLive = (m: GlassZone, bytes: Uint8Array) => {
+    if (!gpu || gl.isContextLost() || Math.max(m.w, m.h) > maxSize) return false;
+    store(gpu, liveCopy, m, bytes);
+    if (!rect) {
+      rect = canvas.getBoundingClientRect();
+      topAt = shape.top.get();
+    }
+    frame.render(draw);
+    return true;
+  };
+
   // A texture freed and its size forgotten: the next copy allocates again, even at the same size.
-  const free = () => {
-    if (tex) gl.deleteTexture(tex);
-    tex = null;
-    texW = texH = 0;
+  const free = (c: Copy) => {
+    if (c.tex) gl.deleteTexture(c.tex);
+    c.tex = null;
+    c.w = c.h = 0;
+  };
+  const freeLive = () => {
+    free(liveCopy);
+    liveCopy.meta = null;
   };
 
   const onLost = (e: Event) => {
     e.preventDefault();
     dropSnapshot();
+    dropLive();
   };
-  // A new copy comes with the next peek.
+  // A new copy comes with the next peek, a live one at once.
   const onRestored = () => {
-    free();
+    free(snap);
+    freeLive();
     gpu = setup(gl);
-    if (!gpu) glassBroken.set(true);
+    if (gpu) restartLive();
+    else glassBroken.set(true);
   };
 
   const offs = [...Object.values(shape), ...Object.values(barBox), ...Object.values(drop)].map((v) => v.on("change", () => frame.render(draw)));
@@ -279,7 +353,8 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
   document.documentElement.addEventListener("transitionend", onFaded);
   canvas.addEventListener("webglcontextlost", onLost);
   canvas.addEventListener("webglcontextrestored", onRestored);
-  setGlassRenderer({ upload, free });
+  setGlassRenderer({ upload, free: () => free(snap) });
+  setLiveRenderer({ uploadLive, freeLive });
 
   const stop = () => {
     offs.forEach((off) => off());
@@ -291,10 +366,12 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     canvas.removeEventListener("webglcontextlost", onLost);
     canvas.removeEventListener("webglcontextrestored", onRestored);
     setGlassRenderer(null);
+    setLiveRenderer(null);
     // A copy on screen goes with the texture. One still on its way stays: StrictMode runs this right after mounting, after the panel
     // asked for one (Glass turned on with the panel open), and mounts again before it comes.
     if (snapshot.get().ready) dropSnapshot();
-    free();
+    free(snap);
+    freeLive();
     if (gpu) {
       gl.deleteProgram(gpu.down.p);
       gl.deleteProgram(gpu.main.p);
@@ -307,5 +384,5 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     }, 0);
   };
 
-  return { show, fit, stop };
+  return { show, fit: () => fit(), relook, stop };
 }

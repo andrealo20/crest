@@ -33,8 +33,9 @@ import { sizeExtra, sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
 import type { GlassMode } from "./glass/GlassLayer";
 import { barInk, useGlassBar } from "./glass/bar";
-import { CLOSE_SETTLE_MS, SNAPSHOT_STALE_MS, dropLens, glassAllowed, glassShape, snapshotLead } from "./glass/params";
+import { CLOSE_SETTLE_MS, SNAPSHOT_STALE_MS, dropLens, glassAllowed, glassShape, liveNeed, snapshotLead } from "./glass/params";
 import { contrastMore, dropSnapshot, glassBroken, reducedTransparency, requestSnapshot, snapshot } from "./glass/snapshot";
+import { dropLive, liveFrame, liveSession, liveSupport, restartLive, wantLive } from "./glass/live";
 import { ClosedResize, ClosedResizeBar, closedEdit, closedLive } from "./ClosedResize";
 import { drop, takeDropped } from "../platform/drop";
 import { hoverDelayMs, settings } from "../settings/store";
@@ -48,7 +49,7 @@ import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
 import { dueTasks } from "../features/todos/store";
 import { asks, popping } from "../features/notices/store";
-import { activeTheme, forcedColors, refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/store";
+import { activeTheme, forcedColors, refreshTheme, useClosedGlassInk, useClosedInk, useThemedAccent } from "../features/themes/store";
 import { useHue, useIconColors, type Hue } from "../features/themes/hues";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
@@ -190,14 +191,41 @@ export function Notch() {
   // The hide shortcut (or a rule) hides the window and may leave the panel open meanwhile.
   const [windowHidden, setWindowHidden] = useState(false);
   useEffect(() => windowShell.onHidden(setWindowHidden), []);
-  const allowed = glassAllowed({
-    on: themes.glass, windows: !isMac, fits: glassFits, webgl: !broken,
+  // What turns any glass off.
+  const blocks = {
     forcedColors: forcedColors.use(), contrastMore: contrastMore.use(), reducedTransparency: reducedTransparency.use(),
     saver: powerState.use()?.saver === true, fullscreen: fullscreen.use() || gaming, hidden: hiddenForFullscreen || windowHidden,
     presenting, cover: backdrop, dragging: drag.dragging, editing,
-  });
-  const glass: GlassMode = !armed ? "off" : allowed && shot.ready && status !== "peek" ? "shown" : "armed";
+  };
+  const allowed = glassAllowed({ on: themes.glass, windows: !isMac, fits: glassFits, webgl: !broken, ...blocks });
+  // The live glass (glass/live.ts): the closed notch on the top edge and the capsule, never the line; not while the session is locked,
+  // away on a remote client or asleep either.
+  const support = liveSupport.use(), session = liveSession.use();
+  const liveAllowed =
+    glassAllowed({ on: themes.glass && themes.glassLive && support?.supported === true, windows: !isMac, fits: edge === "top" && !idleLine, webgl: !broken, ...blocks }) &&
+    !session.locked && !session.remote && !session.asleep;
+  // The open panel draws over the copy taken as it opens (snapshot.ts) and keeps it as it closes, under the closed colour coming back;
+  // the closed shapes and the peek draw over the live copy (live.ts). Whether a panel is closing is state set during render, React's way
+  // for state that follows a prop: a ref written in render could keep a discarded render's value.
+  const [lastStatus, setLastStatus] = useState(status);
+  const [shrinking, setShrinking] = useState(false);
+  if (status !== lastStatus) {
+    setLastStatus(status);
+    setShrinking(lastStatus === "open" && status === "closed");
+  }
+  // The panel's look holds for the whole close, copy or not: no texture change while the shape is larger than the live zone.
+  useEffect(() => {
+    if (!shrinking) return;
+    const id = window.setTimeout(() => setShrinking(false), CLOSE_SETTLE_MS);
+    return () => window.clearTimeout(id);
+  }, [shrinking]);
+  const closedLook = status === "peek" || (status === "closed" && !shrinking);
+  const liveReady = liveFrame.use();
+  const glass: GlassMode = !armed ? "off" : closedLook ? (liveAllowed && liveReady ? "shown" : "armed") : allowed && shot.ready ? "shown" : "armed";
   const reduced = useReducedMotion();
+  // The closed row over the closed glass (themes.ts closedGlassInk); its colours change with --shape's fade while the switch is on.
+  const closedGlass = useClosedGlassInk(closedInk?.["--accent"] ?? accent, glass === "shown" && closedLook);
+  const inkFade = themes.glass && themes.glassLive && !reduced;
   const noticeTime = status !== "open" && (showRow || alert);
   const showNotices = !side && noticeTime && !editing;
   // On the idle line, only an urgent notice brings the column up: its icon alone, so the shape always has something to click.
@@ -361,12 +389,25 @@ export function Notch() {
   }, [status]);
 
   // Closed for a while → WebView2 may trim memory; back to normal on the first touch
-  // (peek), so the hover delay covers paging it back in before the notch opens.
+  // (peek), so the hover delay covers paging it back in before the notch opens; not while the closed notch draws a live copy, which
+  // uploads and draws up to 10 times a second.
   useEffect(() => {
-    if (status !== "closed") return setMemoryLow(false);
+    if (status !== "closed" || liveReady) return setMemoryLow(false);
     const id = window.setTimeout(() => setMemoryLow(true), MEMORY_LOW_AFTER_MS);
     return () => window.clearTimeout(id);
-  }, [status]);
+  }, [status, liveReady]);
+
+  // The live glass's zone (glass/live.ts): the closed shape's hover nudge and room for the bend around it, once the panel has closed
+  // (the peek stops it, the panel takes its own copy). Natively the window is the page; in the browser the notch sits in the view.
+  // Before the effect on `place` below, so a move to another monitor's scale starts once, for the new zone.
+  const reach = peekGeometry(surface, closedW, shapeH);
+  const need = liveAllowed && status === "closed" ? liveNeed(reach, top, surface === "capsule", { mid: innerWidth / 2 + (isNative ? 0 : drag.offset * viewZoom()), zoom: viewZoom(), dpr: devicePixelRatio }) : null;
+  const needKey = need && `${need.x},${need.y},${need.w},${need.h}`;
+  useEffect(() => wantLive(need), [needKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The last copy stays on the peek's glass; it goes once the panel opens, and at once when the live glass may not show at all.
+  useEffect(() => {
+    if (!liveAllowed || status === "open") dropLive();
+  }, [liveAllowed, status]);
 
   // The glass's copy of the screen goes at once when presenting, moving or hidden: the full veil covers the panel until --shape is
   // opaque. Hidden, a new copy comes when the window shows again.
@@ -387,6 +428,8 @@ export function Notch() {
     if (lastPlace.current === place) return;
     lastPlace.current = place;
     dropSnapshot();
+    // The live copy's zone is in the window, its capture in the monitor: a new session even for the same zone.
+    restartLive();
     if (status === "open" && allowed) requestSnapshot();
   }, [place, status, allowed]);
   // A fresh copy for every opening, asked for ahead of the hover delay (the shortcut opens without a peek); none while something
@@ -476,9 +519,19 @@ export function Notch() {
         onContextMenu={onContextMenu}
         onWheel={onWheel}
       >
-        <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge} thin={lineShape} glass={glass} top={topValue} hangs={bridged}>
+        <NotchShape
+          geometry={shape}
+          transition={transition}
+          elevated={status === "open"}
+          edge={edge}
+          thin={lineShape}
+          glass={glass}
+          look={closedLook ? "closed" : "panel"}
+          top={topValue}
+          hangs={bridged}
+        >
           {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes), and their order on screen in any language. */}
-          <div data-theme-ink dir="ltr" className="contents" style={closedInk}>
+          <div data-theme-ink dir="ltr" className="contents" style={{ ...closedInk, ...closedGlass, ...(inkFade && { transition: CLOSED_INK_FADE }) }}>
             {/* Laid out at their designed size and drawn at the content scale, from the edge (the column from its centre). */}
             <div className="absolute inset-0" style={{ transform: `scale(${scale})`, transformOrigin: side ? "50% 50%" : "50% 0" }}>
               <AnimatePresence>
@@ -570,6 +623,8 @@ const SLIDE_OUT: Record<Edge, string> = { top: "translate(0px, -4px)", bottom: "
 const GLASS_STATUS = { "--color-orange": "var(--glass-orange)", "--color-red": "var(--glass-red)", "--color-green": "var(--glass-green)" };
 /** With --shape's fade, so text changes colour along with the background under it. */
 const GLASS_STATUS_FADE = "--color-orange 300ms var(--ease-out), --color-red 300ms var(--ease-out), --color-green 300ms var(--ease-out)";
+/** The closed row's ink over the closed glass changes with --shape's fade, like the open panel's status colours. */
+const CLOSED_INK_FADE = `${GLASS_STATUS_FADE}, --color-link 300ms var(--ease-out), --accent 300ms var(--ease-out)`;
 /** The header's ink changes with the brow under it as the glass comes and goes; the accent keeps global.css's fade. */
 const INK_FADE = "--color-label 300ms var(--ease-out), --color-label-2 300ms var(--ease-out), --color-label-3 300ms var(--ease-out), --accent 500ms ease";
 /** The Dock's fills step aside for the glass and come back with --shape's fade. */

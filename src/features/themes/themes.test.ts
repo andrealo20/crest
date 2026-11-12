@@ -10,6 +10,7 @@ import {
   TERTIARY,
   TEXT,
   THEME_DEFAULTS,
+  closedGlassInk,
   findTheme,
   glassInk,
   glassVeil,
@@ -239,6 +240,12 @@ test("glass: off by default, on only when saved as true", () => {
   assert.equal(normalizeThemeSettings({ glass: "true" }).glass, false);
 });
 
+test("the live glass's switch: off by default, on only when saved as true", () => {
+  assert.equal(normalizeThemeSettings({}).glassLive, false);
+  assert.equal(normalizeThemeSettings({ glassLive: true }).glassLive, true);
+  assert.equal(normalizeThemeSettings({ glassLive: "true" }).glassLive, false);
+});
+
 const veilOf = (t: ThemeFile) => parseColor(resolveTheme(t).vars["--glass-tint"])!;
 const GLASS_STATUS = ["--glass-orange", "--glass-red", "--glass-green"];
 const GREYS = Array.from({ length: 256 }, (_, g): Rgba => ({ r: g, g, b: g, a: 1 }));
@@ -378,4 +385,23 @@ test("the tool bar's ink keeps 3:1 over its veil and the drop's fill", () => {
   }
   // A colour that passes stays as written.
   assert.equal(glassInk(resolveTheme(dark), true)["--hue-yellow"], "#ffe800");
+});
+
+test("the closed glass's ink keeps its minimum over the closed veil", () => {
+  // Dark's ink with the darkest blue an album can give (accentFrom): lifted to 3:1, the status colours the glass's.
+  assert.deepEqual(closedGlassInk(resolveTheme(dark), "#3333ff", false), {
+    "--accent": "#6f6fff", "--color-link": "#419cff", "--color-orange": "#ff9f0a", "--color-red": "#ff766d", "--color-green": "#30d158",
+  });
+  const hued = closedGlassInk(resolveTheme(dark), "#3333ff", true);
+  assert.equal(Object.keys(hued).length, 22);
+  assert.equal(hued["--hue-indigo"], "#6f6fff");
+  // Every built-in theme as the closed notch's ink, coloured icons on.
+  for (const t of BUILT_IN_THEMES) {
+    const r = resolveTheme({ ...t, closedNotch: "background" }), veil = parseColor(r.vars["--glass-tint"])!;
+    const lowest = (c: string) => Math.min(...GREYS.map((g) => contrast(parseColor(c)!, over(veil, g))));
+    for (const [name, value] of Object.entries(closedGlassInk(r, r.vars["--theme-accent"], true))) {
+      const min = ["--color-orange", "--color-red", "--color-green"].includes(name) ? TEXT : GRAPHIC;
+      assert.ok(lowest(value) >= min, `${t.id} ${name} ${value}`);
+    }
+  }
 });

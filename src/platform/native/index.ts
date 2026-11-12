@@ -98,6 +98,33 @@ export function glassBackdrop(seq: number): Promise<void> {
   return isNative ? invoke("glass_backdrop", { seq }) : Promise.reject(new Error("not native"));
 }
 
+/** Whether the live glass can run on this PC (capture/glass_live.rs), and if not why: old-windows, arm64, store, unsupported. */
+export interface GlassLiveSupport { supported: boolean; reason: string | null }
+/** An area of the notch window in whole physical px, the space of the glass's copies (src/notch/glass/params.ts). */
+export interface GlassZone { x: number; y: number; w: number; h: number }
+
+/** The live glass's commands (capture/glass_live.rs, src/notch/glass/live.ts); each rejects with a short code. */
+export const glassLive = {
+  supported: (): Promise<GlassLiveSupport> => invoke("glass_live_supported"),
+  exclude: (on: boolean): Promise<void> => invoke("glass_live_exclude", { on }),
+  start: (zone: GlassZone): Promise<GlassZone & { gen: number }> => invoke("glass_live_start", { zone }),
+  stop: (): Promise<void> => invoke("glass_live_stop"),
+};
+
+/** Rust stopped the live copy on its own (`glass://live`): that session's gen, and why. */
+export function onGlassLiveStop(handler: (e: { gen: number; reason: string }) => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen<{ gen: number; reason: string }>("glass://live", (e) => handler(e.payload));
+  return () => void off.then((f) => f());
+}
+
+/** The session locked, away on a remote client, or the screen asleep or just back (`status://session`), sent when one changes. */
+export function onSessionState(handler: (s: { locked: boolean; remote: boolean; asleep: boolean }) => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen<{ locked: boolean; remote: boolean; asleep: boolean }>("status://session", (e) => handler(e.payload));
+  return () => void off.then((f) => f());
+}
+
 interface SharedBufferEvent { additionalData: unknown; getBuffer(): ArrayBuffer }
 interface SharedBufferHost {
   addEventListener(type: "sharedbufferreceived", listener: (e: SharedBufferEvent) => void): void;

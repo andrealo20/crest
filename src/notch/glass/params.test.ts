@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canvasBox, dropLens, dropShape, glassAllowed, glassShape, lodFor, metaOk, parseTint, shapeUniform, snapshotLead, takes, textureMap, visiblePart, type GlassInput, type SnapshotMeta } from "./params.ts";
+import {
+  canvasBox, dropLens, dropShape, glassAllowed, glassShape, liveAccepts, liveMetaOk, liveNeed, liveStep, liveZone, lodFor, metaOk, parseTint, sameZone, shapeUniform,
+  snapshotLead, takes, textureMap, visiblePart, type GlassInput, type LiveMeta, type SnapshotMeta,
+} from "./params.ts";
 
 const near = (a: readonly number[], b: readonly number[]) => assert.ok(a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-9), `${a} vs ${b}`);
 
@@ -141,4 +144,73 @@ test("a buffer is taken only for the request waited on, of the window as it is",
   assert.equal(takes(waiting, META, [4, 5], 32), false);
   assert.equal(takes(waiting, META, [4, 2], 16), false); // a short buffer
   assert.equal(takes(waiting, { ...META, kind: "x" }, [4, 2], 32), false);
+});
+
+test("live zone: the hover nudge's box with room for the bend, in physical px", () => {
+  const peek = { w: 204, h: 34, ear: 7 };
+  assert.deepEqual(liveNeed(peek, 0, false, { mid: 380, zoom: 1, dpr: 2 }), { x: 510, y: 0, w: 500, h: 100 });
+  // The capsule has room above too, past the window's top; liveZone cuts it.
+  assert.deepEqual(liveNeed({ ...peek, ear: 0 }, 6, true, { mid: 380, zoom: 1, dpr: 2 }), { x: 524, y: -20, w: 472, h: 132 });
+  // At 125 % the edges are rounded outwards.
+  assert.deepEqual(liveNeed(peek, 0, false, { mid: 380, zoom: 1, dpr: 1.25 }), { x: 318, y: 0, w: 314, h: 63 });
+  // The browser's own zoom of the notch's layer.
+  assert.deepEqual(liveNeed(peek, 0, false, { mid: 380, zoom: 1.5, dpr: 2 }), { x: 385, y: 0, w: 750, h: 150 });
+});
+
+test("live zone: slack on the sides, kept while it holds the shape, renewed when outgrown or much too big, inside the window", () => {
+  const win = { w: 1520, h: 1120 }, Z = { x: 462, y: 0, w: 596, h: 100 };
+  assert.deepEqual(liveZone({ x: 510, y: 0, w: 500, h: 100 }, null, 48, win), Z);
+  assert.equal(liveZone({ x: 500, y: 0, w: 520, h: 100 }, Z, 48, win), Z);
+  assert.deepEqual(liveZone({ x: 440, y: 0, w: 640, h: 100 }, Z, 48, win), { x: 392, y: 0, w: 736, h: 100 });
+  // Much wider than the shape needs: a new, narrower zone.
+  assert.deepEqual(liveZone({ x: 510, y: 0, w: 500, h: 100 }, { x: 262, y: 0, w: 996, h: 100 }, 48, win), Z);
+  // Taller for a notice card; back from it, the taller zone stays.
+  const tall = liveZone({ x: 510, y: 0, w: 500, h: 164 }, Z, 48, win);
+  assert.deepEqual(tall, { x: 462, y: 0, w: 596, h: 164 });
+  assert.equal(liveZone({ x: 510, y: 0, w: 500, h: 100 }, tall, 48, win), tall);
+  assert.deepEqual(liveZone({ x: 524, y: -20, w: 472, h: 132 }, null, 48, win), { x: 476, y: 0, w: 568, h: 112 });
+  assert.deepEqual(liveZone({ x: -30, y: 0, w: 100, h: 50 }, null, 48, win), { x: 0, y: 0, w: 118, h: 50 });
+  assert.equal(sameZone(null, null), true);
+  assert.equal(sameZone(Z, { ...Z }), true);
+  assert.equal(sameZone(Z, null), false);
+  assert.equal(sameZone(Z, { ...Z, h: 101 }), false);
+});
+
+test("live frames: checked at the border, only of the sessions in use, newest first, of the window as it is", () => {
+  const L: LiveMeta = { kind: "glass-live", gen: 3, seq: 5, x: 0, y: 0, w: 4, h: 2, ww: 4, wh: 2 };
+  assert.equal(liveMetaOk(L, 32), true);
+  const { gen: _, ...noGen } = L;
+  assert.equal(liveMetaOk(noGen, 32), false);
+  assert.equal(liveMetaOk({ ...L, gen: "3" }, 32), false);
+  assert.equal(liveMetaOk({ ...L, kind: "glass-backdrop" }, 32), false);
+  assert.equal(liveMetaOk({ ...L, x: 1 }, 32), false);
+  assert.equal(liveMetaOk(L, 31), false);
+  // A live frame is not a copy for the panel.
+  assert.equal(metaOk(L, 32), false);
+  const s = { want: true, floor: 3, last: { gen: 3, seq: 4 } };
+  assert.equal(liveAccepts(s, L, [4, 2], 32), true);
+  assert.equal(liveAccepts({ ...s, last: { gen: 3, seq: 5 } }, L, [4, 2], 32), false); // not newer
+  assert.equal(liveAccepts({ ...s, floor: 4 }, L, [4, 2], 32), false); // a session stopped or replaced
+  assert.equal(liveAccepts({ ...s, want: false }, L, [4, 2], 32), false); // peek, panel open, stopped
+  // A new session's first frame, also before the answer to its start.
+  assert.equal(liveAccepts({ ...s, last: { gen: 3, seq: 9 } }, { ...L, gen: 4, seq: 1 }, [4, 2], 32), true);
+  assert.equal(liveAccepts(s, L, [7, 2], 32), false);
+  assert.equal(liveAccepts(s, L, [6, 4], 32), true);
+});
+
+test("live steps: the exclusion first, then a start for a zone not running, a stop when none is wanted", () => {
+  const A = { x: 1, y: 2, w: 3, h: 4 }, B = { ...A, h: 5 };
+  const base = { exclude: true, excluded: true as boolean | null, want: null as typeof A | null, have: null as typeof A | null, blocked: false };
+  assert.deepEqual(liveStep({ ...base, excluded: null }), { do: "exclude", on: true });
+  // At load with the switch off.
+  assert.deepEqual(liveStep({ ...base, exclude: false, excluded: null }), { do: "exclude", on: false });
+  assert.deepEqual(liveStep({ ...base, want: A }), { do: "start", zone: A });
+  assert.equal(liveStep({ ...base, want: A, have: { ...A } }), null);
+  assert.deepEqual(liveStep({ ...base, want: B, have: A }), { do: "start", zone: B });
+  assert.deepEqual(liveStep({ ...base, have: A }), { do: "stop" });
+  // A refusal waits for a change.
+  assert.equal(liveStep({ ...base, want: A, blocked: true }), null);
+  // No start without the exclusion.
+  assert.equal(liveStep({ ...base, exclude: false, excluded: false, want: A }), null);
+  assert.deepEqual(liveStep({ ...base, excluded: false, want: A }), { do: "exclude", on: true });
 });

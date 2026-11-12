@@ -44,6 +44,8 @@ export interface ThemeSettings {
   glassRefraction: number;
   glassFrost: number;
   glassRim: number;
+  /** The closed notch and the capsule drawn as glass too, over a live copy of the screen around them (Windows 11, src/notch/glass/live.ts). */
+  glassLive: boolean;
   /** The whole app's font (FONTS), set as --font-sans; the terminal and the timer looks keep their monospace. */
   font: FontId;
 }
@@ -382,6 +384,29 @@ export const HUE_PALETTE = {
 export type Hue = keyof typeof HUE_PALETTE;
 
 /**
+ * The closed row's ink over the closed shapes' glass (src/notch/glass/live.ts). The closed veil holds the text levels of `ink` (Dark's, or
+ * the theme's when it colours the closed notch); the album colour, the link and, with coloured icons, every hue are held to 3:1 over that
+ * veil on black and on white, and the warning, error and success colours take the glass's.
+ */
+export function closedGlassInk(ink: ResolvedTheme, accent: string, hues: boolean): Record<string, string> {
+  const veil = parseColor(ink.vars["--glass-tint"])!;
+  const needs = [BLACK, WHITE].map((x) => ({ background: over(veil, x), minimum: GRAPHIC }));
+  const hold = (c: string) => {
+    const p = parseColor(c);
+    return p ? formatColor(ensureContrast(p, needs)) : c;
+  };
+  const out: Record<string, string> = {
+    "--accent": hold(accent),
+    "--color-link": hold(ink.vars["--color-link"]),
+    "--color-orange": ink.vars["--glass-orange"],
+    "--color-red": ink.vars["--glass-red"],
+    "--color-green": ink.vars["--glass-green"],
+  };
+  if (hues) for (const hue of Object.keys(HUE_PALETTE)) out[`--hue-${hue}`] = hold(ink.vars[`--hue-${hue}`]);
+  return out;
+}
+
+/**
  * The tool bar's colours over the glass (src/notch/glass/bar.ts): its veil is thinner than the panel's, so the update dot's link colour
  * and, with coloured icons, every hue are held to 3:1 over it and over the drop's fill, on any backdrop. Apart from resolveTheme: the
  * hues cost 3-4 ms, paid only while the bar shows them.
@@ -578,6 +603,7 @@ export const THEME_DEFAULTS: ThemeSettings = {
   glassRefraction: 100,
   glassFrost: 100,
   glassRim: 100,
+  glassLive: false,
   font: "inter",
 };
 
@@ -620,6 +646,7 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     glassRefraction: look("glassRefraction"),
     glassFrost: look("glassFrost"),
     glassRim: look("glassRim"),
+    glassLive: s.glassLive === true,
     font: typeof s.font === "string" && Object.hasOwn(FONTS, s.font) ? s.font : THEME_DEFAULTS.font,
   };
 }

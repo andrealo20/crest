@@ -15,6 +15,8 @@ interface Props {
   thin?: boolean;
   /** The open panel as glass (src/notch/glass): armed, the canvas waits; shown, it draws and --shape clears to let it through. */
   glass?: GlassMode;
+  /** Which copy the glass draws: the open panel's (snapshot.ts) or the closed shapes' live one (live.ts). */
+  look?: "panel" | "closed";
   /** The shape's top as it springs (Notch.tsx), which moves the glass's canvas over the copy. */
   top: MotionValue<number>;
   /** The open panel hangs from the edge (not a floating capsule's): the glass keeps the closed notch's colour under its header. */
@@ -31,7 +33,7 @@ interface Props {
  * re-render per frame. Animations are interruptible and keep their velocity
  * (important when hovering in and out quickly).
  */
-export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, glass = "off", top, hangs, children }: Props) {
+export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, glass = "off", look = "panel", top, hangs, children }: Props) {
   const w = useMotionValue(geometry.w);
   const h = useMotionValue(geometry.h);
   const r = useMotionValue(geometry.r);
@@ -68,12 +70,16 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", thin 
     <motion.div
       data-notch-shape
       className="relative"
-      // The theme's background open; closed black, unless the theme opts in (--notch-closed). Crossfades (themes.css), which lets the
-      // glass in when it shows and covers it again on the way out.
-      style={{ width: wPx, height: hPx, ["--shape" as string]: elevated ? (glass === "shown" ? "transparent" : "var(--color-notch)") : "var(--notch-closed)" }}
+      // The theme's background open; closed black, unless the theme opts in (--notch-closed); transparent while the glass shows, open
+      // or closed. Crossfades (themes.css), which lets the glass in when it shows and covers it again on the way out.
+      style={{
+        width: wPx,
+        height: hPx,
+        ["--shape" as string]: glass === "shown" && (elevated || look === "closed") ? "transparent" : elevated ? "var(--color-notch)" : "var(--notch-closed)",
+      }}
     >
       {/* Under the ears and the shadow like the shape's own colour, so its ears crossfade with --shape too. */}
-      {glass !== "off" && <GlassLayer mode={glass} w={wPx} h={hPx} r={r} ear={ear} rt={rt} top={top} target={geometry} hangs={hangs} />}
+      {glass !== "off" && <GlassLayer mode={glass} look={look} w={wPx} h={hPx} r={r} ear={ear} rt={rt} top={top} target={geometry} hangs={hangs} />}
       <motion.span
         aria-hidden
         className="absolute top-0"

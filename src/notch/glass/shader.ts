@@ -30,8 +30,8 @@ void main() {
 }`;
 
 /**
- * The open panel as glass: the copy bent along the rim and blurred in the middle, under the theme's background as a veil. The tool bar
- * and its drop (bar.ts) are glass of their own inside it, from the same copy.
+ * The glass: the open panel over the copy taken as it opens, the closed notch and the capsule over the live copy (live.ts), bent along the
+ * rim and blurred in the middle, under a veil. The tool bar and its drop (bar.ts) are glass of their own inside the panel, from the same copy.
  */
 export const MAIN_FS = `#version 300 es
 precision highp float;
@@ -49,9 +49,12 @@ uniform vec2 uLod;             // blur level at the rim and in the middle, with 
 uniform vec4 uVeil;            // --glass-tint's colour, and the content's veil after Transparency (themes.ts glassVeilAt)
 uniform float uVeilEdge;       // the side bands' veil after Transparency
 uniform float uDock;           // DOCK_HEIGHT: no side bands along the tool bar's strip
-uniform vec4 uBrow;            // --notch-closed and HEADER_HEIGHT; -1 on a floating panel, which has none
+uniform vec4 uBrow;            // --notch-closed and HEADER_HEIGHT; -1 where there is none (a floating panel, the closed shapes)
 uniform vec4 uRim;             // --glass-rim, its strength times Rim light
 uniform float uHair;           // the outline, stronger on light themes
+uniform float uThick;          // the glass's thickness for the bend: the panel's, or the closed shapes' thinner one (params.ts GLASS)
+uniform float uShadow;         // the inner shadow along the rim; 0 on the closed shapes, whose row runs close to it
+uniform float uEdgeFade;       // 1 for the live copy (live.ts): past its zone the veil alone
 uniform vec4 uBar;             // the tool bar's capsule: centre x and y, half width and height; half width 0: none
 uniform float uBarVeil;        // its veil after Transparency (--glass-tint-bar, never clearer)
 uniform vec4 uDrop;            // the drop on it: centre x and y, half width and height; half width 0: none
@@ -62,9 +65,7 @@ out vec4 o;
 
 const float IOR = 1.5;
 const float SLOPE = 1.6;
-const float THICK = 18.0;
 const float SAT = 1.2;
-const float SHADOW = 0.18;
 const vec2 LIGHT = vec2(-0.6, -0.8);
 const vec4 SPEC = vec4(1.0, 0.5, 1.4, 1.5);
 const vec2 GLOSS = vec2(0.22, 5.0);
@@ -162,7 +163,7 @@ void main() {
     g = vec2(sdPanel(p + vec2(h, 0.0)) - sdPanel(p - vec2(h, 0.0)), sdPanel(p + vec2(0.0, h)) - sdPanel(p - vec2(0.0, h)));
     float gl = length(g);
     g = gl > 1e-5 ? g / gl : vec2(0.0, 1.0);
-    shift = bend(inward, uBand, g, THICK, uMaxShift, slope);
+    shift = bend(inward, uBand, g, uThick, uMaxShift, slope);
   }
   vec2 q = p + shift;
   float lod = mix(uLod.x, uLod.y, smoothstep(0.0, 1.0, band));
@@ -213,7 +214,8 @@ void main() {
     }
   }
 
-  vec3 col = textureLod(uTex, q * uTexScale + uTexOffset, lod).bgr;
+  vec2 uv = q * uTexScale + uTexOffset;
+  vec3 col = textureLod(uTex, uv, lod).bgr;
   // Clamped before the veil, so the veil's worst case stays a white or a black backdrop (themes.ts glassVeil).
   col = clamp(mix(vec3(luma(col)), col, SAT), 0.0, 1.0);
 
@@ -224,13 +226,19 @@ void main() {
   float head = uRt > 0.0 ? smoothstep(HEAD, HEAD + 8.0, p.y) : 1.0;
   float edge = (1.0 - smoothstep(0.5 * uBand, uBand, inward)) * side * (1.0 - strip) * head;
   col = mix(col, uVeil.rgb, mix(mix(uVeil.a, uVeilEdge, edge), uBarVeil, inB));
+  // The live copy holds a zone around the closed shape (live.ts): past it, while a grown shape waits for its new zone, the veil alone,
+  // faded in over 4 px. Not on the copy's own edges: the hanging notch's top is the screen's.
+  if (uEdgeFade > 0.0) {
+    vec2 m = min(uv, 1.0 - uv) / uTexScale;
+    col = mix(uVeil.rgb, col, clamp(1.0 + min(m.x, m.y) / 4.0, 0.0, 1.0));
+  }
   col = mix(col, uFill.rgb, uFill.a * inD);
   col *= 1.0 - shade * strip;
 
   if (rim) {
     vec2 light = normalize(LIGHT);
     // Not inside the bar: its icons keep the 3:1 its veil is worked out for.
-    col *= 1.0 - SHADOW * exp(-inward / 5.0) * (0.55 + 0.45 * max(dot(g, -light), 0.0)) * (1.0 - inB);
+    col *= 1.0 - uShadow * exp(-inward / 5.0) * (0.55 + 0.45 * max(dot(g, -light), 0.0)) * (1.0 - inB);
     col += uRim.rgb * uRim.a * shine(g, slope, inward, band);
     col = mix(col, vec3(0.0), uHair * (1.0 - smoothstep(0.0, 1.0, inward * uDpr)));
   }

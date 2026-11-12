@@ -2,6 +2,7 @@
 
 import { PADDING } from "../geometry.ts";
 import type { Edge } from "../edge.ts";
+import type { GlassZone as Zone } from "../../platform/native";
 import { parseColor } from "../../features/themes/color.ts";
 
 /** band: the rim that bends (the panel's padding, so no content sits on it but a floating panel's header, under its round top); lod: blur levels at scale 1 (lodFor); hair: the outline's strength. */
@@ -11,7 +12,15 @@ export const GLASS = {
   dropGrow: 6, dropRise: 3, squash: 0.15, stretch: 0.012, stretchMax: 8,
   // Its lens at Refraction 100 %: the bend at its rim in px and the magnification, the icon's too.
   dropShift: 10, dropMag: 0.15,
+  // The panel's glass: its thickness for the bend and its inner shadow (shader.ts uThick, uShadow).
+  thick: 18, shadow: 0.18,
+  // The closed shapes' glass (live.ts): a rim as thin as the tool bar's and no inner shadow, clear of the closed row.
+  closedBand: 6, closedThick: 10,
+  // Room around the closed shape for the bend and the blur, and the live zone's slack on each side, CSS px.
+  zoneMargin: PADDING, zoneSlack: 24,
 } as const;
+/** A running live session moves to a new zone once the zone has stayed the same this long. */
+export const LIVE_SETTLE_MS = 150;
 /** The copy is asked for this long before the hover delay ends: a first peek after a while is estimated at 60-115 ms. */
 export const GLASS_LEAD_MS = 120;
 /** In hover mode: a pointer that only crosses the notch takes no copy. */
@@ -73,7 +82,7 @@ export interface SnapshotMeta { kind: "glass-backdrop"; seq: number; x: number; 
  * `dpr` the device pixels per page px, `zoom` the panel scale the page applies itself (viewZoom: 1 in the app, where dpr has it). `dy`:
  * how far the shape's top has sprung since `rect` was read (CSS px of the shape), so the canvas is placed without reading the DOM.
  */
-export function textureMap(rect: { left: number; top: number }, zoom: number, dpr: number, meta: SnapshotMeta, dy = 0): { scale: [number, number]; offset: [number, number] } {
+export function textureMap(rect: { left: number; top: number }, zoom: number, dpr: number, meta: Zone, dy = 0): { scale: [number, number]; offset: [number, number] } {
   return {
     scale: [(zoom * dpr) / meta.w, (zoom * dpr) / meta.h],
     offset: [(rect.left * dpr - meta.x) / meta.w, ((rect.top + dy * zoom) * dpr - meta.y) / meta.h],
@@ -130,16 +139,80 @@ export function parseTint(text: string | undefined): [number, number, number, nu
   return c && [c.r / 255, c.g / 255, c.b / 255, c.a];
 }
 
-/** What Rust sends next to a buffer of `byteLength` bytes, checked at the border: an area inside the window that the bytes hold. */
-export function metaOk(meta: unknown, byteLength: number): meta is SnapshotMeta {
+/** What comes with a live frame (capture/glass_live.rs LiveMeta): its session and number in it, the zone inside the window, the window. */
+export interface LiveMeta { kind: "glass-live"; gen: number; seq: number; x: number; y: number; w: number; h: number; ww: number; wh: number }
+
+/** What Rust sends next to a buffer of `byteLength` bytes, checked at the border: `kind`, whole `ids`, an area inside the window that the bytes hold. */
+function frameOk(meta: unknown, byteLength: number, kind: string, ids: string[]): boolean {
   if (typeof meta !== "object" || meta === null) return false;
   const m = meta as Record<string, unknown>;
-  if (m.kind !== "glass-backdrop" || !["seq", "x", "y", "w", "h", "ww", "wh"].every((k) => Number.isInteger(m[k]))) return false;
+  if (m.kind !== kind || ![...ids, "x", "y", "w", "h", "ww", "wh"].every((k) => Number.isInteger(m[k]))) return false;
   const { x, y, w, h, ww, wh } = m as unknown as SnapshotMeta;
   return w >= 1 && h >= 1 && w <= 16384 && h <= 16384 && x >= 0 && y >= 0 && x + w <= ww && y + h <= wh && w * h * 4 <= byteLength;
+}
+
+/** A copy for the open panel (capture/backdrop.rs), checked at the border. */
+export function metaOk(meta: unknown, byteLength: number): meta is SnapshotMeta {
+  return frameOk(meta, byteLength, "glass-backdrop", ["seq"]);
+}
+
+/** A live frame (capture/glass_live.rs), checked at the border. */
+export function liveMetaOk(meta: unknown, byteLength: number): meta is LiveMeta {
+  return frameOk(meta, byteLength, "glass-live", ["gen", "seq"]);
 }
 
 /** Whether a buffer is the copy being waited for: well formed, for the latest request, and of the window at its size now (`windowPx`). */
 export function takes(state: { seq: number; pending: boolean }, meta: unknown, windowPx: readonly [number, number], byteLength: number): meta is SnapshotMeta {
   return state.pending && metaOk(meta, byteLength) && meta.seq === state.seq && Math.abs(meta.ww - windowPx[0]) <= 2 && Math.abs(meta.wh - windowPx[1]) <= 2;
+}
+
+/**
+ * Whether a live frame is drawn: well formed, while a zone is wanted, of a session not older than `floor`, newer than `last`, of the
+ * window at its size now. `floor` lets a new session's first frame through before the answer to its start (live.ts).
+ */
+export function liveAccepts(s: { want: boolean; floor: number; last: { gen: number; seq: number } }, meta: unknown, windowPx: readonly [number, number], byteLength: number): meta is LiveMeta {
+  return s.want && liveMetaOk(meta, byteLength) && meta.gen >= s.floor && (meta.gen > s.last.gen || (meta.gen === s.last.gen && meta.seq > s.last.seq)) &&
+    Math.abs(meta.ww - windowPx[0]) <= 2 && Math.abs(meta.wh - windowPx[1]) <= 2;
+}
+
+/**
+ * The zone the live glass needs (live.ts), physical px of the window: `reach` (the shape as its hover nudge makes it, the largest it gets
+ * closed) with GLASS.zoneMargin around it, above too when it floats (the capsule), at `top` CSS px; `mid` is its centre's x in page px,
+ * `zoom` the page's own zoom (viewZoom), `dpr` device px per page px. Edges rounded outwards.
+ */
+export function liveNeed(reach: ShapeSize, top: number, floating: boolean, view: { mid: number; zoom: number; dpr: number }): Zone {
+  const m = GLASS.zoneMargin, k = view.zoom * view.dpr, mid = view.mid * view.dpr, half = (reach.w / 2 + reach.ear + m) * k;
+  const x = Math.floor(mid - half), y = Math.floor((floating ? top - m : top) * k);
+  return { x, y, w: Math.ceil(mid + half) - x, h: Math.ceil((top + reach.h + m) * k) - y };
+}
+
+/**
+ * The zone to capture for `need`, inside the window `win`: `current` while it still holds `need` and is not much wider or taller (a row a
+ * few px wider or narrower opens no session), else `need` with `slack` physical px on each side.
+ */
+export function liveZone(need: Zone, current: Zone | null, slack: number, win: { w: number; h: number }): Zone {
+  const clip = (r: Zone): Zone => {
+    const x = Math.max(0, r.x), y = Math.max(0, r.y);
+    return { x, y, w: Math.max(0, Math.min(win.w, r.x + r.w) - x), h: Math.max(0, Math.min(win.h, r.y + r.h) - y) };
+  };
+  const n = clip(need);
+  const holds = current !== null && current.x <= n.x && current.y <= n.y && current.x + current.w >= n.x + n.w && current.y + current.h >= n.y + n.h;
+  if (holds && current.w - n.w <= 4 * slack && current.h - n.h <= 2 * slack) return current;
+  return clip({ x: n.x - slack, y: n.y, w: n.w + 2 * slack, h: n.h });
+}
+
+export const sameZone = (a: Zone | null, b: Zone | null) => a === b || (!!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h);
+
+export type LiveStep = { do: "exclude"; on: boolean } | { do: "start"; zone: Zone } | { do: "stop" } | null;
+
+/**
+ * The live glass's next command (live.ts): the exclusion as wanted first; with it on, a start for a zone wanted and not running (unless a
+ * refusal waits for a change), a stop when none is wanted.
+ */
+export function liveStep(s: { exclude: boolean; excluded: boolean | null; want: Zone | null; have: Zone | null; blocked: boolean }): LiveStep {
+  if (s.exclude !== s.excluded) return { do: "exclude", on: s.exclude };
+  if (!s.exclude) return null;
+  if (s.want && !s.blocked && !sameZone(s.want, s.have)) return { do: "start", zone: s.want };
+  if (!s.want && s.have) return { do: "stop" };
+  return null;
 }

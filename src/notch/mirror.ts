@@ -15,6 +15,9 @@ const EVERY_MS = 250;
 /** The markup of `root` with its `data:` images taken out by index (mirror.rs Picture), so a cover is not sent four times a second. */
 export function picture(root: Element): { html: string; images: string[] } {
   const copy = root.cloneNode(true) as Element;
+  // The copies keep the closed notch's colour: the live glass (src/notch/glass/live.ts) shows this screen, and its canvas comes over empty.
+  copy.querySelectorAll("canvas").forEach((c) => c.remove());
+  copy.querySelectorAll<HTMLElement>("[data-notch-shape]").forEach((s) => s.style.setProperty("--shape", "var(--notch-closed)"));
   const images: string[] = [];
   copy.querySelectorAll("img").forEach((img) => {
     const src = img.getAttribute("src");

@@ -1,3 +1,4 @@
+import type { GlassZone } from "../platform/native";
 import { demo, showcase } from "./showcase-data";
 
 /*
@@ -5,6 +6,7 @@ import { demo, showcase } from "./showcase-data";
  * see DesktopMock's DOM, so this draws the same desktop into an image (its gradient, the File Explorer window, the taskbar), and the
  * glass's bands carry on what is around them. ?glassBackdrop=stripes draws black and white diagonal stripes instead, to judge how the
  * rim bends; ?glassBackdrop=light a white page of dark text, the worst backdrop for dark themes. BGRA, like the copy from Rust.
+ * ?glassLive stands in for the live glass on the closed notch and the capsule (fakeLive).
  */
 
 let last: { key: string; bytes: Uint8Array<ArrayBuffer> } | null = null;
@@ -30,6 +32,51 @@ export function fakeBackdrop(w: number, h: number, kind: string | null): Uint8Ar
   }
   last = { key, bytes };
   return bytes;
+}
+
+/**
+ * The live glass's commands (src/notch/glass/live.ts) over the fake desktop. A start answers with a new gen and sends the zone's first
+ * frame 20 ms later, then one every ?glassLive=<ms> (none without a number); a stop or a new start ends the frames. ?glassDelay=<ms>
+ * holds each start's answer that long, to try a command crossing others.
+ */
+export function fakeLive(receive: (meta: unknown, data: ArrayBuffer) => void) {
+  const q = new URLSearchParams(location.search), every = Number(q.get("glassLive")) || 0, delay = Number(q.get("glassDelay")) || 0;
+  let gen = 0, timer = 0;
+  const end = () => {
+    window.clearTimeout(timer);
+    gen++;
+  };
+  const send = (g: number, seq: number, z: GlassZone) => {
+    const W = Math.round(innerWidth * devicePixelRatio), H = Math.round(innerHeight * devicePixelRatio), all = fakeBackdrop(W, H, q.get("glassBackdrop"));
+    const x = Math.min(Math.max(0, z.x), W - 1), y = Math.min(Math.max(0, z.y), H - 1), w = Math.min(z.w, W - x), h = Math.min(z.h, H - y);
+    const bytes = new Uint8Array(w * h * 4);
+    for (let r = 0; r < h; r++) bytes.set(all.subarray(((y + r) * W + x) * 4, ((y + r) * W + x + w) * 4), r * w * 4);
+    receive({ kind: "glass-live", gen: g, seq, x, y, w, h, ww: W, wh: H }, bytes.buffer);
+  };
+  return {
+    supported: async () => ({ supported: true, reason: null }),
+    exclude: async (on: boolean) => {
+      console.debug("fake live", "exclude", on);
+      if (!on) end();
+    },
+    start: async (zone: GlassZone) => {
+      end();
+      const g = gen;
+      console.debug("fake live", "start", g);
+      let seq = 0;
+      const next = () => {
+        send(g, ++seq, zone);
+        if (every) timer = window.setTimeout(next, every);
+      };
+      timer = window.setTimeout(next, 20);
+      if (delay) await new Promise((done) => setTimeout(done, delay));
+      return { gen: g, ...zone };
+    },
+    stop: async () => {
+      console.debug("fake live", "stop");
+      end();
+    },
+  };
 }
 
 /** DesktopMock's dark desktop in CSS px of the page; the showcase and the demo have its clean one, without the window. */
