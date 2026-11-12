@@ -113,7 +113,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     }
     const { u, p } = gpu.main, t = tokens, scale = box.scale;
     // The canvas where it is now, without reading the DOM: the shape's top springs on its own.
-    const zoom = viewZoom(), map = textureMap({ left: rect.left, top: rect.top + (shape.top.get() - topAt) * zoom }, zoom, devicePixelRatio, meta);
+    const map = textureMap(rect, viewZoom(), devicePixelRatio, meta, shape.top.get() - topAt);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.useProgram(p);

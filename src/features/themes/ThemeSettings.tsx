@@ -95,7 +95,7 @@ function ThemeChoice() {
     pickTheme(id);
   };
   // For the saved look; a window rule can change it for a while (Notch.tsx works from the look on screen).
-  const fits = glassShape(s.display.idleStyle, s.dock.edge, s.closedSize.lineTop);
+  const fits = glassShape(s.display.idleStyle, s.dock.edge);
 
   return (
     <Group title={t("Theme")} id="settings-themes">

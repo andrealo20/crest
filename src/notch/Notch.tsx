@@ -175,10 +175,9 @@ export function Notch() {
   // The edge it hangs from (the capsule floats on the top frame); on a side edge the row stands as a column, which shows notices as an icon line.
   const edge = edgeOf(idleStyle, drag.dock);
   const side = across(edge);
-  // Glass (src/notch/glass): Windows, the capsule's open panel, or one hanging from the top edge from the notch or the line at the
-  // edge. The layer stays mounted while the setting is on, whatever the shape: remounting it would build its context again (37-65 ms)
-  // on every change.
-  const glassFits = glassShape(idleStyle, edge, sizes.lineTop);
+  // Glass (src/notch/glass): Windows, the capsule's open panel, or one hanging from the top edge from the notch or the line. The layer
+  // stays mounted while the setting is on, whatever the shape: remounting it would build its context again (37-65 ms) on every change.
+  const glassFits = glassShape(idleStyle, edge);
   const broken = glassBroken.use();
   const shot = snapshot.use();
   // Switched off with a copy on screen, the layer stays until the copy goes: its full veil covers the copy while --shape comes back.
@@ -192,7 +191,7 @@ export function Notch() {
   const [windowHidden, setWindowHidden] = useState(false);
   useEffect(() => windowShell.onHidden(setWindowHidden), []);
   const allowed = glassAllowed({
-    on: themes.glass, windows: !isMac, shape: glassFits, webgl: !broken,
+    on: themes.glass, windows: !isMac, fits: glassFits, webgl: !broken,
     forcedColors: forcedColors.use(), contrastMore: contrastMore.use(), reducedTransparency: reducedTransparency.use(),
     saver: powerState.use()?.saver === true, fullscreen: fullscreen.use() || gaming, hidden: hiddenForFullscreen || windowHidden,
     presenting, cover: backdrop, dragging: drag.dragging, editing,

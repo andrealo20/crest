@@ -1,9 +1,10 @@
 // The glass's rules and numbers (src/notch/glass): pure, no DOM, so node --test runs them.
 
 import { PADDING } from "../geometry.ts";
+import type { Edge } from "../edge.ts";
 import { parseColor } from "../../features/themes/color.ts";
 
-/** band: the rim that bends (the panel's padding, so no content sits on it); lod: blur levels at scale 1 (lodFor); hair: the outline's strength. */
+/** band: the rim that bends (the panel's padding, so no content sits on it but a floating panel's header, under its round top); lod: blur levels at scale 1 (lodFor); hair: the outline's strength. */
 export const GLASS = {
   band: PADDING, maxShift: 6, maxShiftReduced: 3, lodRim: -0.5, lodMid: 1.9, hairDark: 0.21, hairLight: 0.35,
   // The drop (bar.ts): lifted, this much wider and this far out of the bar's top; a press squashes it by this share; speed stretches it.
@@ -24,25 +25,25 @@ export const BUFFER_WAIT_MS = 1000;
 /** At the opening a copy older than this (a long peek in click mode) is taken again; the old one shows meanwhile. */
 export const SNAPSHOT_STALE_MS = 2000;
 
-/** Everything the glass depends on; the first four must hold, the rest turn it off. `shape`: glassShape for the look on screen. */
+/** Everything the glass depends on; the first four must hold, the rest turn it off. `fits`: glassShape for the look on screen. */
 export interface GlassInput {
-  on: boolean; windows: boolean; shape: boolean; webgl: boolean;
+  on: boolean; windows: boolean; fits: boolean; webgl: boolean;
   forcedColors: boolean; contrastMore: boolean; reducedTransparency: boolean; saver: boolean;
   fullscreen: boolean; hidden: boolean; presenting: boolean; cover: boolean; dragging: boolean; editing: boolean;
 }
 
 /** Whether the glass may show now. Running on battery does not count: the glass costs at the opening, not at rest. */
 export function glassAllowed(i: GlassInput): boolean {
-  if (!i.on || !i.windows || !i.shape || !i.webgl) return false;
+  if (!i.on || !i.windows || !i.fits || !i.webgl) return false;
   return !(i.forcedColors || i.contrastMore || i.reducedTransparency || i.saver || i.fullscreen || i.hidden || i.presenting || i.cover || i.dragging || i.editing);
 }
 
 /**
- * Whether the open panel of a closed look can be glass: the capsule's, bridged to the top edge or floating, or a panel hanging from the
- * top edge, from the notch or from the line at the edge. A line away from the edge, and the other edges, keep the opaque panel.
+ * Whether the open panel of a closed look can be glass: the capsule's, bridged to the top edge or floating, or one hanging from the top
+ * edge, from the notch or the line (also a line away from the edge: its panel hangs from it). The other edges keep the opaque panel.
  */
-export function glassShape(style: "notch" | "capsule" | "line", edge: string, lineTop: number): boolean {
-  return style === "capsule" || (edge === "top" && !(style === "line" && lineTop > 0));
+export function glassShape(style: "notch" | "capsule" | "line", edge: Edge): boolean {
+  return style === "capsule" || edge === "top";
 }
 
 /** How long the pointer rests on the notch before the copy is asked for. */
@@ -69,12 +70,13 @@ export interface SnapshotMeta { kind: "glass-backdrop"; seq: number; x: number; 
 
 /**
  * From a point of the canvas (CSS px of the shape) to the copy's texture: uv = p * scale + offset. `rect` is the canvas on the page,
- * `dpr` the device pixels per page px, `zoom` the panel scale the page applies itself (viewZoom: 1 in the app, where dpr has it).
+ * `dpr` the device pixels per page px, `zoom` the panel scale the page applies itself (viewZoom: 1 in the app, where dpr has it). `dy`:
+ * how far the shape's top has sprung since `rect` was read (CSS px of the shape), so the canvas is placed without reading the DOM.
  */
-export function textureMap(rect: { left: number; top: number }, zoom: number, dpr: number, meta: SnapshotMeta): { scale: [number, number]; offset: [number, number] } {
+export function textureMap(rect: { left: number; top: number }, zoom: number, dpr: number, meta: SnapshotMeta, dy = 0): { scale: [number, number]; offset: [number, number] } {
   return {
     scale: [(zoom * dpr) / meta.w, (zoom * dpr) / meta.h],
-    offset: [(rect.left * dpr - meta.x) / meta.w, (rect.top * dpr - meta.y) / meta.h],
+    offset: [(rect.left * dpr - meta.x) / meta.w, ((rect.top + dy * zoom) * dpr - meta.y) / meta.h],
   };
 }
 

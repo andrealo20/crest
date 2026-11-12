@@ -59,7 +59,7 @@ A theme decides how the panel looks, never whether it can be read. Each colour i
 
 ## Glass
 
-**Settings › Themes › Glass** (off by default, Windows only for now) draws the open panel as glass: the screen behind it shows through, bent along the sides, blurred in the middle, with a light rim. It works while the open panel hangs from the top edge of the screen, from the notch or from the line at the edge, and on the capsule, whose panel is glass all round when it floats away from the edge; the other edges and the Mac keep the opaque panel.
+**Settings › Themes › Glass** (off by default, Windows only for now) draws the open panel as glass: the screen behind it shows through, bent along the sides, blurred in the middle, with a light rim. It works while the open panel hangs from the top edge of the screen, from the notch or from the line, and on the capsule, whose panel is glass all round when it floats away from the edge; the other edges and the Mac keep the opaque panel.
 
 The glass shows a copy of the screen taken as the panel opens, so a video or a page scrolling behind it stays still. Crest copies the area under its window when the pointer rests on the notch (also when it then leaves without opening the panel) or the panel opens another way (a shortcut, the tray menu), again when the panel opens more than 2 seconds after that copy, and again, while the panel is open, if the notch is moved or the glass turns back on without a copy (Glass switched on, presentation mode ended, Crest shown again). The copy stays in memory until the panel closes. Nothing is saved or sent ([PRIVACY.md](../PRIVACY.md)).
 

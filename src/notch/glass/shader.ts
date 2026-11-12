@@ -73,6 +73,7 @@ const float DROP_BAND = 6.0;   // the drop's; clear of the icon under it, but fo
 const float BAR_THICK = 10.0;  // the bar's and the drop's glass, thinner than the panel's
 const float BAR_SHADOW = 0.12; // the bar's soft shadow on the panel around it, inside the tool bar's strip
 const float MERGE = 6.0;       // the lifted drop's smooth union with the bar, WinIsland's 6 px
+const float HEAD = 36.0;       // the header's rows, HEADER_HEIGHT + 4 (Notch.tsx Header)
 
 float sdRound(vec2 p, vec2 c, vec2 b, float r) {
   vec2 q = abs(p - c) - b + r;
@@ -81,14 +82,16 @@ float sdRound(vec2 p, vec2 c, vec2 b, float r) {
 
 // Signed distance to the open panel (CSS px, negative inside). Hanging from y = 0 the body runs on past the screen edge, so that edge
 // has no rim, and the ears are the two corners between body and screen edge (NotchShape.tsx draws them with radial-gradient).
-// Floating, it is the whole box from y = 0 with top corners uRt; while a capsule near the edge opens or closes, the ears come and go on it.
+// Floating, it is the whole box from y = 0 with top corners uRt; while a shape near the edge opens or closes, the ears come and go
+// beside it, their strip only outside the body's columns (half a pixel in, as the CSS ears) so the top corners stay round. The top rim
+// that strip leaves until uRt reaches 0 lies under the brow.
 float sdPanel(vec2 p) {
   float L = uShape.x, R = uShape.y, H = uShape.z, e = uShape.w;
   float d = uRt > 0.0
     ? sdRound(p, vec2(0.5 * (L + R), 0.5 * H), vec2(0.5 * (R - L), 0.5 * H), p.y < 0.5 * H ? uRt : uR)
     : sdRound(p, vec2(0.5 * (L + R), H - 4000.0), vec2(0.5 * (R - L), 4000.0), uR);
   if (e > 0.0) {
-    d = min(d, p.y - e);
+    d = min(d, uRt > 0.0 ? max(p.y - e, min(p.x - L, R - p.x) - 0.5) : p.y - e);
     vec2 ql = vec2(p.x - (L - e), e - p.y);
     vec2 qr = vec2((R + e) - p.x, e - p.y);
     float ol = length(max(ql, 0.0)) + min(max(ql.x, ql.y), 0.0) - e;
@@ -215,9 +218,11 @@ void main() {
   col = clamp(mix(vec3(luma(col)), col, SAT), 0.0, 1.0);
 
   // The veil: the theme's background, lighter in the side bands above the tool bar, thinner in the bar, with the drop's tint on it.
+  // Round top corners bring the bands under the header's buttons: there they start below it.
   float side = smoothstep(0.35, 0.75, abs(g.x));
   float strip = smoothstep(uShape.z - uDock - 8.0, uShape.z - uDock, p.y);
-  float edge = (1.0 - smoothstep(0.5 * uBand, uBand, inward)) * side * (1.0 - strip);
+  float head = uRt > 0.0 ? smoothstep(HEAD, HEAD + 8.0, p.y) : 1.0;
+  float edge = (1.0 - smoothstep(0.5 * uBand, uBand, inward)) * side * (1.0 - strip) * head;
   col = mix(col, uVeil.rgb, mix(mix(uVeil.a, uVeilEdge, edge), uBarVeil, inB));
   col = mix(col, uFill.rgb, uFill.a * inD);
   col *= 1.0 - shade * strip;
