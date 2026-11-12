@@ -1,11 +1,12 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react";
-import { ArrowCounterClockwise } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, WarningCircle } from "@phosphor-icons/react";
 import { Button, Group, Row, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
 import { formatTime } from "../../lib/format";
 import { isMac } from "../../platform/native";
 import { openFile, revealFile } from "../../platform/services";
 import { demo } from "../../dev/showcase-data";
 import { glassShape } from "../../notch/glass/params";
+import { liveSupport } from "../../notch/glass/live";
 import { settings, updateSettings } from "../../settings/store";
 import { t } from "../../i18n";
 import { contrast, parseColor, toHex, withAlpha, type Rgba } from "./color";
@@ -96,6 +97,8 @@ function ThemeChoice() {
   };
   // For the saved look; a window rule can change it for a while (Notch.tsx works from the look on screen).
   const fits = glassShape(s.display.idleStyle, s.dock.edge);
+  // The live glass's switch only where it can run: Windows 11 24H2 on x64, not the Store build (capture/glass_live.rs).
+  const support = liveSupport.use();
 
   return (
     <Group title={t("Theme")} id="settings-themes">
@@ -171,7 +174,30 @@ function ThemeChoice() {
         </Row>
       )}
       {!isMac && !demo && themes.glass && <GlassLook />}
+      {!isMac && !demo && themes.glass && support?.supported === true && <GlassLive />}
     </Group>
+  );
+}
+
+/** The live glass's switch (src/notch/glass/live.ts), with the battery warning always under it, so it is read before switching on. */
+function GlassLive() {
+  const on = settings.use().themes.glassLive;
+  const label = t("Auch geschlossene Notch und Kapsel");
+  return (
+    <Row
+      label={label}
+      hint={
+        <>
+          {t("Zeigt live, was hinter der geschlossenen Notch und der Kapsel liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlen Notch und Kapsel in Screenshots, Aufnahmen und Bildschirmfreigaben.")}
+          <span className="mt-1 flex items-start gap-1 text-caution">
+            <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
+            {t("Braucht mehr Akku: Windows hat bei jeder Änderung auf dem Bildschirm mehr Arbeit")}
+          </span>
+        </>
+      }
+    >
+      <Switch label={label} checked={on} onChange={(glassLive) => updateSettings((cur) => ({ themes: { ...cur.themes, glassLive } }))} />
+    </Row>
   );
 }
 

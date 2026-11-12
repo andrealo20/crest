@@ -387,6 +387,19 @@ test("the tool bar's ink keeps 3:1 over its veil and the drop's fill", () => {
   assert.equal(glassInk(resolveTheme(dark), true)["--hue-yellow"], "#ffe800");
 });
 
+test("the yellow warning keeps 4.5:1 on the panel, on its group's fill and under the glass", () => {
+  for (const t of BUILT_IN_THEMES) {
+    const r = resolveTheme(t), bg = r.colors.background, fill1 = over(parseColor(r.vars["--color-fill-1"])!, bg);
+    const caution = parseColor(r.vars["--color-caution"])!, glass = parseColor(r.vars["--glass-caution"])!, veil = veilOf(t);
+    assert.ok(contrast(caution, bg) >= TEXT && contrast(caution, fill1) >= TEXT, t.id);
+    const tops = [undefined, parseColor(r.vars["--color-fill-1"])!];
+    for (const top of tops) assert.ok(worst(glass, veil.a, bg, top) >= TEXT, `${t.id} glass`);
+  }
+  // Dark's is the plain system yellow, as in tokens.css; light themes take a darker one, darker still under the glass.
+  assert.equal(resolveTheme(dark).vars["--color-caution"], "#ffd60a");
+  assert.deepEqual([resolveTheme(light).vars["--color-caution"], resolveTheme(light).vars["--glass-caution"]], ["#876b00", "#624d00"]);
+});
+
 test("the closed glass's ink keeps its minimum over the closed veil", () => {
   // Dark's ink with the darkest blue an album can give (accentFrom): lifted to 3:1, the status colours the glass's.
   assert.deepEqual(closedGlassInk(resolveTheme(dark), "#3333ff", false), {

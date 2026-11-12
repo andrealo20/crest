@@ -293,6 +293,11 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
   // darkest and lightest ends (Dark's red would drop to 3.4:1 over white), so neither the veil nor the panel's colours have to move.
   const glassStatus = (c: Rgba) => formatColor(ensureContrast(c, needs(TEXT, over(veil, BLACK), over(veil, WHITE))));
   const yellow = ensure("yellow", parseColor(mode.yellow)!, needs(GRAPHIC, bg));
+  // The yellow warning under Glass (ThemeSettings.tsx GlassLive) is text: 4.5:1 on the panel and on the settings group's fill, and,
+  // under the glass, over the veil's darkest and lightest ends with and without that fill. Not through `ensure`, which would list it
+  // among the corrections the editor shows: no theme writes it.
+  const caution = ensureContrast(parseColor(mode.yellow)!, needs(TEXT, bg, fill1));
+  const glassCaution = ensureContrast(caution, needs(TEXT, ...[BLACK, WHITE].flatMap((x) => [over(veil, x), over(fill[0], over(veil, x))])));
   // Ink on label-coloured fills and on scrims (Tailwind's `black`): whichever of black and white reads better on the foreground.
   const label = over(colors.foreground, bg);
   const onLabel = contrast(WHITE, label) > contrast(BLACK, label) ? WHITE : BLACK;
@@ -313,6 +318,7 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     "--color-red": formatColor(colors.critical),
     "--color-orange": formatColor(colors.warning),
     "--color-yellow": formatColor(yellow),
+    "--color-caution": formatColor(caution),
     "--color-link": formatColor(colors.link),
     "--color-black": formatColor(onLabel),
     "--theme-accent": formatColor(colors.accent),
@@ -325,6 +331,7 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     "--glass-orange": glassStatus(colors.warning),
     "--glass-red": glassStatus(colors.critical),
     "--glass-green": glassStatus(colors.success),
+    "--glass-caution": formatColor(glassCaution),
   };
   // Coloured icons sit on the panel, the elevated cards, the Hardware rows and the active dock pill.
   const hueGrounds = needs(GRAPHIC, bg, elevated, fill1, over(fill[2], bg));

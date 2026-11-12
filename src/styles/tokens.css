@@ -26,6 +26,8 @@
   --color-red: #ff453a;
   --color-orange: #ff9f0a;
   --color-yellow: #ffd60a;
+  /* Warnings in yellow text (the live glass's battery note): the yellow held to 4.5:1, like the text colours. */
+  --color-caution: #ffd60a;
   /* Links (Apple's dark mode link color). */
   --color-link: #419cff;
 

@@ -620,9 +620,9 @@ const PANEL_ANCHOR: Record<Edge, string> = { top: "top-0 left-1/2", bottom: "bot
 const SLIDE_IN: Record<Edge, string> = { top: "translate(0px, -6px)", bottom: "translate(0px, 6px)", left: "translate(-6px, 0px)", right: "translate(6px, 0px)" };
 const SLIDE_OUT: Record<Edge, string> = { top: "translate(0px, -4px)", bottom: "translate(0px, 4px)", left: "translate(-4px, 0px)", right: "translate(4px, 0px)" };
 /** Over the glass, status text takes the colours themes.ts holds to 4.5:1 over the veil on any backdrop. */
-const GLASS_STATUS = { "--color-orange": "var(--glass-orange)", "--color-red": "var(--glass-red)", "--color-green": "var(--glass-green)" };
+const GLASS_STATUS = { "--color-orange": "var(--glass-orange)", "--color-red": "var(--glass-red)", "--color-green": "var(--glass-green)", "--color-caution": "var(--glass-caution)" };
 /** With --shape's fade, so text changes colour along with the background under it. */
-const GLASS_STATUS_FADE = "--color-orange 300ms var(--ease-out), --color-red 300ms var(--ease-out), --color-green 300ms var(--ease-out)";
+const GLASS_STATUS_FADE = "--color-orange 300ms var(--ease-out), --color-red 300ms var(--ease-out), --color-green 300ms var(--ease-out), --color-caution 300ms var(--ease-out)";
 /** The closed row's ink over the closed glass changes with --shape's fade, like the open panel's status colours. */
 const CLOSED_INK_FADE = `${GLASS_STATUS_FADE}, --color-link 300ms var(--ease-out), --accent 300ms var(--ease-out)`;
 /** The header's ink changes with the brow under it as the glass comes and goes; the accent keeps global.css's fade. */
