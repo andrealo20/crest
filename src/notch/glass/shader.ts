@@ -29,7 +29,10 @@ void main() {
   o = s * 0.125;
 }`;
 
-/** The open panel as glass: the copy bent along the rim and blurred in the middle, under the theme's background as a veil. */
+/**
+ * The open panel as glass: the copy bent along the rim and blurred in the middle, under the theme's background as a veil. The tool bar
+ * and its drop (bar.ts) are glass of their own inside it, from the same copy.
+ */
 export const MAIN_FS = `#version 300 es
 precision highp float;
 uniform sampler2D uTex;        // the copy of the screen, BGRA bytes uploaded as RGBA, its mips the blur pyramid
@@ -44,10 +47,16 @@ uniform float uMaxShift;       // lower with reduced motion, times Refraction
 uniform vec2 uLod;             // blur level at the rim and in the middle, with Frost (params.ts lodFor)
 uniform vec4 uVeil;            // --glass-tint's colour, and the content's veil after Transparency (themes.ts glassVeilAt)
 uniform float uVeilEdge;       // the side bands' veil after Transparency
-uniform float uDock;           // DOCK_HEIGHT: the tool bar keeps the content's veil
+uniform float uDock;           // DOCK_HEIGHT: no side bands along the tool bar's strip
 uniform vec4 uBrow;            // --notch-closed and HEADER_HEIGHT
 uniform vec4 uRim;             // --glass-rim, its strength times Rim light
 uniform float uHair;           // the outline, stronger on light themes
+uniform vec4 uBar;             // the tool bar's capsule: centre x and y, half width and height; half width 0: none
+uniform float uBarVeil;        // its veil after Transparency (--glass-tint-bar, never clearer)
+uniform vec4 uDrop;            // the drop on it: centre x and y, half width and height; half width 0: none
+uniform float uLift;           // the drop lifted into a lens, 0 to 1
+uniform vec4 uFill;            // --color-fill-3, the drop's tint
+uniform vec2 uLens;            // the drop's bend at its rim in px and its magnification, fully lifted (params.ts dropLens)
 out vec4 o;
 
 const float IOR = 1.5;
@@ -58,6 +67,11 @@ const float SHADOW = 0.18;
 const vec2 LIGHT = vec2(-0.6, -0.8);
 const vec4 SPEC = vec4(1.0, 0.5, 1.4, 1.5);
 const vec2 GLOSS = vec2(0.22, 5.0);
+const float BAR_BAND = 8.0;    // the bar's rim that bends; clear of its icons (11 px from its long sides on buttons from about 32 px)
+const float DROP_BAND = 6.0;   // the drop's; clear of the icon under it, but for a press at high Refraction
+const float BAR_THICK = 10.0;  // the bar's and the drop's glass, thinner than the panel's
+const float BAR_SHADOW = 0.12; // the bar's soft shadow on the panel around it, inside the tool bar's strip
+const float MERGE = 6.0;       // the lifted drop's smooth union with the bar, WinIsland's 6 px
 
 float sdRound(vec2 p, vec2 c, vec2 b, float r) {
   vec2 q = abs(p - c) - b + r;
@@ -82,6 +96,48 @@ float sdPanel(vec2 p) {
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 
+// Polynomial smooth minimum (Inigo Quilez), as WinIsland joins its shapes; k 0 is min().
+float smin(float a, float b, float k) {
+  if (k <= 0.0) return min(a, b);
+  float h = clamp(1.0 - abs(a - b) / k, 0.0, 1.0);
+  return min(a, b) - k * 0.25 * h * h;
+}
+
+// The drop, a capsule, cut by the panel while the springs run.
+float sdDrop(vec2 p) { return max(sdRound(p, uDrop.xy, uDrop.zw, min(uDrop.z, uDrop.w)), sdPanel(p)); }
+
+// The bar, a capsule, with the lifted drop risen out of it, cut by the panel.
+float sdBar(vec2 p) {
+  float b = sdRound(p, uBar.xy, uBar.zw, uBar.w);
+  if (uDrop.z > 0.0) b = smin(b, sdRound(p, uDrop.xy, uDrop.zw, min(uDrop.z, uDrop.w)), MERGE * uLift);
+  return max(b, sdPanel(p));
+}
+
+// The backdrop's shift at inward px into a rim w wide with outward normal n: the slope of the profile, refract(), along the ray through
+// glass thick px, at most most. The slope comes back for the light.
+vec2 bend(float inward, float w, vec2 n, float thick, float most, out float slope) {
+  slope = 0.0;
+  float b = clamp(inward / w, 0.0, 1.0);
+  if (b >= 1.0) return vec2(0.0);
+  float u = 1.0 - b;
+  float u3 = u * u * u;
+  slope = min(SLOPE * u3 * pow(max(1.0 - u3 * u, 1e-4), -0.75), 12.0);
+  vec3 ray = refract(vec3(0.0, 0.0, -1.0), normalize(vec3(n * slope, 1.0)), 1.0 / IOR);
+  vec2 s = ray.z < 0.0 ? ray.xy / -ray.z * (thick + inward * 0.5) : vec2(0.0);
+  float len = length(s);
+  return len > most ? s * (most / len) : s;
+}
+
+// The rim light and the gloss of a rim with outward normal n, at inward px and band (0 at the edge, 1 past the rim).
+float shine(vec2 n, float slope, float inward, float band) {
+  vec2 light = normalize(LIGHT);
+  float rl = exp(-(inward * inward) / (SPEC.z * SPEC.z));
+  float lit = pow(max(dot(n, light), 0.0), SPEC.w) * SPEC.x + pow(max(dot(n, -light), 0.0), SPEC.w) * SPEC.y;
+  vec3 rv = reflect(vec3(0.0, 0.0, -1.0), normalize(vec3(n * slope, 1.0)));
+  float gloss = pow(max(dot(rv, normalize(vec3(light, 0.75))), 0.0), GLOSS.y) * GLOSS.x * (1.0 - band);
+  return rl * lit + gloss;
+}
+
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uDpr;
   float d = sdPanel(p);
@@ -99,38 +155,77 @@ void main() {
     g = vec2(sdPanel(p + vec2(h, 0.0)) - sdPanel(p - vec2(h, 0.0)), sdPanel(p + vec2(0.0, h)) - sdPanel(p - vec2(0.0, h)));
     float gl = length(g);
     g = gl > 1e-5 ? g / gl : vec2(0.0, 1.0);
-    if (band < 1.0) {
-      float u = 1.0 - band;
-      float u3 = u * u * u;
-      slope = min(SLOPE * u3 * pow(max(1.0 - u3 * u, 1e-4), -0.75), 12.0);
-      vec3 ray = refract(vec3(0.0, 0.0, -1.0), normalize(vec3(g * slope, 1.0)), 1.0 / IOR);
-      if (ray.z < 0.0) shift = ray.xy / -ray.z * (THICK + inward * 0.5);
-      float len = length(shift);
-      if (len > uMaxShift) shift *= uMaxShift / len;
+    shift = bend(inward, uBand, g, THICK, uMaxShift, slope);
+  }
+  vec2 q = p + shift;
+  float lod = mix(uLod.x, uLod.y, smoothstep(0.0, 1.0, band));
+
+  // The tool bar and the drop on it (bar.ts): glass of their own inside the panel's, from the same copy, only in the bar's box.
+  float inB = 0.0, inD = 0.0, glow = 0.0, hairB = 0.0, shade = 0.0;
+  if (uBar.z > 0.0 && abs(p.x - uBar.x) < uBar.z + 8.0 && abs(p.y - uBar.y) < uBar.w + 8.0) {
+    float dB = sdBar(p);
+    inB = clamp(0.5 - dB * uDpr, 0.0, 1.0);
+    shade = BAR_SHADOW * exp(-max(dB, 0.0) / 3.0) * (1.0 - inB);
+    if (inB > 0.0) {
+      // Along the panel's edge (the bar's bottom, 2 px off it) the panel's rim is the one that shows.
+      float free = smoothstep(4.0, 10.0, inward);
+      float iB = max(-dB, 0.0), bB = clamp(iB / BAR_BAND, 0.0, 1.0), sB = 0.0;
+      vec2 qB = p;
+      if (iB < BAR_BAND + 2.0) {
+        const float h = 0.5;
+        vec2 n = vec2(sdBar(p + vec2(h, 0.0)) - sdBar(p - vec2(h, 0.0)), sdBar(p + vec2(0.0, h)) - sdBar(p - vec2(0.0, h)));
+        float nl = length(n);
+        n = nl > 1e-5 ? n / nl : vec2(0.0, -1.0);
+        qB += bend(iB, BAR_BAND, n, BAR_THICK, uMaxShift, sB);
+        glow = shine(n, sB, iB, bB) * free * inB;
+        hairB = (1.0 - smoothstep(0.0, 1.0, iB * uDpr)) * free * inB;
+      }
+      // In the bar its own rim bends, not the panel's bottom band.
+      q = mix(q, qB, inB);
+      lod = mix(lod, mix(uLod.x, uLod.y, smoothstep(0.0, 1.0, bB)), inB);
+      if (uDrop.z > 0.0) {
+        float dD = sdDrop(p);
+        inD = clamp(0.5 - dD * uDpr, 0.0, 1.0);
+        if (inD > 0.0 && uLift > 0.0) {
+          float iD = max(-dD, 0.0), bD = clamp(iD / DROP_BAND, 0.0, 1.0), sD = 0.0;
+          // A lens: what is under it magnified, and bent at its rim.
+          vec2 qD = uDrop.xy + (p - uDrop.xy) / (1.0 + (uLens.y - 1.0) * uLift);
+          if (iD < DROP_BAND + 2.0) {
+            const float h = 0.5;
+            vec2 n = vec2(sdDrop(p + vec2(h, 0.0)) - sdDrop(p - vec2(h, 0.0)), sdDrop(p + vec2(0.0, h)) - sdDrop(p - vec2(0.0, h)));
+            float nl = length(n);
+            n = nl > 1e-5 ? n / nl : vec2(0.0, -1.0);
+            qD += bend(iD, DROP_BAND, n, BAR_THICK, uLens.x, sD) * uLift;
+            glow = max(glow, shine(n, sD, iD, bD) * uLift * inD);
+          }
+          q = mix(q, qD, inD * uLift);
+          lod = mix(lod, uLod.x + 0.5 * (lod - uLod.x), inD * uLift);
+        }
+      }
     }
   }
 
-  vec3 col = textureLod(uTex, (p + shift) * uTexScale + uTexOffset, mix(uLod.x, uLod.y, smoothstep(0.0, 1.0, band))).bgr;
+  vec3 col = textureLod(uTex, q * uTexScale + uTexOffset, lod).bgr;
   // Clamped before the veil, so the veil's worst case stays a white or a black backdrop (themes.ts glassVeil).
   col = clamp(mix(vec3(luma(col)), col, SAT), 0.0, 1.0);
 
-  // The veil: the theme's background at its least readable opacity, lighter only in the side bands above the tool bar.
+  // The veil: the theme's background, lighter in the side bands above the tool bar, thinner in the bar, with the drop's tint on it.
   float side = smoothstep(0.35, 0.75, abs(g.x));
-  float bar = smoothstep(uShape.z - uDock - 8.0, uShape.z - uDock, p.y);
-  float edge = (1.0 - smoothstep(0.5 * uBand, uBand, inward)) * side * (1.0 - bar);
-  col = mix(col, uVeil.rgb, mix(uVeil.a, uVeilEdge, edge));
+  float strip = smoothstep(uShape.z - uDock - 8.0, uShape.z - uDock, p.y);
+  float edge = (1.0 - smoothstep(0.5 * uBand, uBand, inward)) * side * (1.0 - strip);
+  col = mix(col, uVeil.rgb, mix(mix(uVeil.a, uVeilEdge, edge), uBarVeil, inB));
+  col = mix(col, uFill.rgb, uFill.a * inD);
+  col *= 1.0 - shade * strip;
 
   if (rim) {
     vec2 light = normalize(LIGHT);
-    vec3 n = normalize(vec3(g * slope, 1.0));
-    col *= 1.0 - SHADOW * exp(-inward / 5.0) * (0.55 + 0.45 * max(dot(g, -light), 0.0));
-    float rl = exp(-(inward * inward) / (SPEC.z * SPEC.z));
-    float lit = pow(max(dot(g, light), 0.0), SPEC.w) * SPEC.x + pow(max(dot(g, -light), 0.0), SPEC.w) * SPEC.y;
-    vec3 rv = reflect(vec3(0.0, 0.0, -1.0), n);
-    float gloss = pow(max(dot(rv, normalize(vec3(light, 0.75))), 0.0), GLOSS.y) * GLOSS.x * (1.0 - band);
-    col += uRim.rgb * uRim.a * (rl * lit + gloss);
+    // Not inside the bar: its icons keep the 3:1 its veil is worked out for.
+    col *= 1.0 - SHADOW * exp(-inward / 5.0) * (0.55 + 0.45 * max(dot(g, -light), 0.0)) * (1.0 - inB);
+    col += uRim.rgb * uRim.a * shine(g, slope, inward, band);
     col = mix(col, vec3(0.0), uHair * (1.0 - smoothstep(0.0, 1.0, inward * uDpr)));
   }
+  col += uRim.rgb * uRim.a * glow;
+  col = mix(col, vec3(0.0), uHair * hairB);
 
   // The brow: the closed notch's colour over the header, ears included.
   col = mix(col, uBrow.rgb, 1.0 - smoothstep(uBrow.a - 0.5 / uDpr, uBrow.a + 0.5 / uDpr, p.y));

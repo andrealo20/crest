@@ -4,7 +4,13 @@ import { PADDING } from "../geometry.ts";
 import { parseColor } from "../../features/themes/color.ts";
 
 /** band: the rim that bends (the panel's padding, so no content sits on it); lod: blur levels at scale 1 (lodFor); hair: the outline's strength. */
-export const GLASS = { band: PADDING, maxShift: 6, maxShiftReduced: 3, lodRim: -0.5, lodMid: 1.9, hairDark: 0.21, hairLight: 0.35 } as const;
+export const GLASS = {
+  band: PADDING, maxShift: 6, maxShiftReduced: 3, lodRim: -0.5, lodMid: 1.9, hairDark: 0.21, hairLight: 0.35,
+  // The drop (bar.ts): lifted, this much wider and this far out of the bar's top; a press squashes it by this share; speed stretches it.
+  dropGrow: 6, dropRise: 3, squash: 0.15, stretch: 0.012, stretchMax: 8,
+  // Its lens at Refraction 100 %: the bend at its rim in px and the magnification, the icon's too.
+  dropShift: 10, dropMag: 0.15,
+} as const;
 /** The copy is asked for this long before the hover delay ends: a first peek after a while is estimated at 60-115 ms. */
 export const GLASS_LEAD_MS = 120;
 /** In hover mode: a pointer that only crosses the notch takes no copy. */
@@ -71,6 +77,35 @@ export function textureMap(rect: { left: number; top: number }, zoom: number, dp
 export function lodFor(scale: number, frost = 100): [number, number] {
   const s = Math.log2(scale), rim = Math.max(0, s + GLASS.lodRim);
   return [rim, Math.max(rim, s + GLASS.lodMid + Math.log2(Math.max(frost, 1) / 100))];
+}
+
+/**
+ * The drop on the tool bar (bar.ts), CSS px: [its centre's height over the bar's bottom, half width, half height]; all 0 without a tool.
+ * Resting it is the tool's box (`w` x `h`, centred in the bar); lifted it stands on the bar's bottom, as tall as the bar and GLASS.dropRise
+ * more; a press squashes it down and wider, and springing back (springs.rebound) it overshoots up to 1 px over that; `speed` (px/s along
+ * the bar) stretches it.
+ */
+export function dropShape(w: number, h: number, barH: number, lift: number, press: number, speed: number): [number, number, number] {
+  if (w <= 0) return [0, 0, 0];
+  const wide = (w + GLASS.dropGrow * lift + Math.min(speed * GLASS.stretch, GLASS.stretchMax)) * (1 + GLASS.squash * press);
+  const tall = Math.min((h + (barH + GLASS.dropRise - h) * lift) * (1 - GLASS.squash * press), barH + GLASS.dropRise + 1);
+  return [((barH - h) / 2) * (1 - lift) + tall / 2, wide / 2, tall / 2];
+}
+
+/** The drop's lens for Refraction in %: [the bend at its rim in px, the magnification]; the icon under it grows by the same. */
+export function dropLens(refraction: number): [number, number] {
+  const k = refraction / 100;
+  return [GLASS.dropShift * k, 1 + GLASS.dropMag * k];
+}
+
+/**
+ * The part of a tool's button the drop covers, page px: [centre, width]. The layout width about the rect's centre (a press scales the
+ * rect, not its centre), cut to the strip's view while it scrolls; out of view, width 0 at the view's edge.
+ */
+export function visiblePart(rect: { left: number; width: number }, layoutWidth: number, view: { left: number; right: number } | null): [number, number] {
+  const mid = rect.left + rect.width / 2;
+  const left = Math.max(mid - layoutWidth / 2, view?.left ?? -Infinity), right = Math.min(mid + layoutWidth / 2, view?.right ?? Infinity);
+  return right > left ? [(left + right) / 2, right - left] : [Math.min(Math.max(mid, view?.left ?? mid), view?.right ?? mid), 0];
 }
 
 /** The shader's uShape: the body's left and right edge, its height and the ears, in a canvas `boxW` wide centred on it. */

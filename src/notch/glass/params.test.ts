@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canvasBox, glassAllowed, lodFor, metaOk, parseTint, shapeUniform, snapshotLead, takes, textureMap, type GlassInput, type SnapshotMeta } from "./params.ts";
+import { canvasBox, dropLens, dropShape, glassAllowed, lodFor, metaOk, parseTint, shapeUniform, snapshotLead, takes, textureMap, visiblePart, type GlassInput, type SnapshotMeta } from "./params.ts";
 
 const near = (a: readonly number[], b: readonly number[]) => assert.ok(a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-9), `${a} vs ${b}`);
 
@@ -59,6 +59,30 @@ test("blur levels follow the scale, and Frost scales the middle's", () => {
   near(lodFor(2, 50), [0.5, 1.9]);
   near(lodFor(2, 0), [0.5, 0.5]);
   near(lodFor(1, 25), [0, 0]);
+});
+
+test("the drop: the tool's box resting, a lens on the bar's bottom lifted, squashed by a press, stretched by speed", () => {
+  near(dropShape(42, 36, 40, 0, 0, 0), [20, 21, 18]);
+  near(dropShape(42, 36, 40, 1, 0, 0), [21.5, 24, 21.5]);
+  near(dropShape(42, 36, 40, 1, 1, 0), [18.275, 27.6, 18.275]);
+  // springs.rebound's deepest point after a click: taller than lifted, held to 1 px over it.
+  near(dropShape(42, 36, 40, 1, -0.254, 0), [22, 23.0856, 22]);
+  near(dropShape(42, 36, 40, 1, 0, 1000), [21.5, 28, 21.5]);
+  near(dropShape(0, 36, 40, 1, 0, 0), [0, 0, 0]);
+});
+
+test("the drop's lens follows Refraction", () => {
+  near(dropLens(100), [10, 1.15]);
+  near(dropLens(0), [0, 1]);
+  near(dropLens(200), [20, 1.3]);
+});
+
+test("the part of a button the drop covers", () => {
+  near(visiblePart({ left: 100, width: 42 }, 42, null), [121, 42]);
+  // Pressed (.pressable scales it to 0.94): the layout width about the same centre.
+  near(visiblePart({ left: 101.26, width: 39.48 }, 42, null), [121, 42]);
+  near(visiblePart({ left: 480, width: 42 }, 42, { left: 0, right: 500 }), [490, 20]);
+  near(visiblePart({ left: 520, width: 42 }, 42, { left: 0, right: 500 }), [500, 0]);
 });
 
 test("shape uniform: the body centred in the canvas", () => {

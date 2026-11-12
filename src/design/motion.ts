@@ -18,6 +18,16 @@ function spring(visualDuration: number, bounce: number): Transition {
   return { type: "spring", visualDuration: visualDuration * slow, bounce };
 }
 
+/**
+ * spring() as stiffness and damping, the same curve from rest: Motion 14 starts a spring set by duration and bounce from rest whenever
+ * it is aimed somewhere else, this one keeps its velocity (the glass drop, src/notch/glass/bar.ts).
+ */
+function physics(visualDuration: number, bounce: number): Transition {
+  const [d, b] = reduceMotion ? [0.2, 0] : [visualDuration, bounce];
+  const root = (2 * Math.PI) / (d * slow * 1.2);
+  return { type: "spring", stiffness: root * root, damping: 2 * (1 - b) * root, mass: 1 };
+}
+
 export const springs = {
   /** Notch opens: lively, a noticeable but short overshoot. */
   open: spring(0.42, 0.24),
@@ -29,6 +39,10 @@ export const springs = {
   morph: spring(0.36, 0.14),
   /** Small elements inside (tab pill, toggles). */
   snappy: spring(0.24, 0.12),
+  /** The glass drop in the tool bar: snappy, keeping its velocity when it is sent somewhere else. */
+  glide: physics(0.24, 0.12),
+  /** A squashed shape springing back past its rest: the glass drop after a click. */
+  rebound: spring(0.32, 0.6),
 } as const;
 
 const easeOut = [0.23, 1, 0.32, 1] as const;
