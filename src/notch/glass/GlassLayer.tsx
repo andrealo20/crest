@@ -5,6 +5,8 @@
 import { useLayoutEffect, useRef } from "react";
 import { cancelFrame, frame, useReducedMotion, type MotionValue } from "motion/react";
 import { activeTheme } from "../../features/themes/store";
+import { glassVeilAt } from "../../features/themes/themes";
+import { settings } from "../../settings/store";
 import { DOCK_HEIGHT, HEADER_HEIGHT, type NotchGeometry } from "../geometry";
 import { viewZoom } from "../viewZoom";
 import { GLASS, canvasBox, lodFor, parseTint, shapeUniform, textureMap, type SnapshotMeta } from "./params";
@@ -84,14 +86,14 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
   // The canvas's width in CSS px and its device px per CSS px; scale 0 while it rests at 1x1.
   let box = { w: 0, scale: 0 };
   let showing = false, covering = false, coverTimer = 0, themeUntil = 0;
-  let tokens: { tint: Tint; edge: number; rim: Tint; brow: Tint } | null = null;
+  let tokens: { tint: Tint; edge: number; clear: number; rim: Tint; brow: Tint } | null = null;
 
   /** The theme's glass tokens (themes.ts) as the shader takes them; false while one does not read as a colour. */
   const readTokens = () => {
     const css = getComputedStyle(document.documentElement), read = (name: string) => parseTint(css.getPropertyValue(name));
-    const tint = read("--glass-tint"), edge = read("--glass-tint-edge"), rim = read("--glass-rim"), brow = read("--notch-closed");
-    if (!tint || !edge || !rim || !brow) return false;
-    tokens = { tint, edge: edge[3], rim, brow };
+    const tint = read("--glass-tint"), edge = read("--glass-tint-edge"), clear = read("--glass-tint-clear"), rim = read("--glass-rim"), brow = read("--notch-closed");
+    if (!tint || !edge || !clear || !rim || !brow) return false;
+    tokens = { tint, edge: edge[3], clear: clear[3], rim, brow };
     return true;
   };
 
@@ -117,14 +119,17 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     gl.uniform4f(u.uShape, ...shapeUniform(box.w, shape.w.get(), shape.h.get(), shape.ear.get()));
     gl.uniform1f(u.uR, shape.r.get());
     gl.uniform1f(u.uBand, GLASS.band);
-    gl.uniform1f(u.uMaxShift, live.current.reduced ? GLASS.maxShiftReduced : GLASS.maxShift);
-    gl.uniform2f(u.uLod, ...lodFor(scale));
-    // Covering: the veil at full strength hides the copy while --shape comes back.
-    gl.uniform4f(u.uVeil, t.tint[0], t.tint[1], t.tint[2], covering ? 1 : t.tint[3]);
-    gl.uniform1f(u.uVeilEdge, covering ? 1 : t.edge);
+    const look = settings.get().themes;
+    // Covering, the veil at full strength hides the copy while --shape comes back. Else Transparency (themes.ts glassVeilAt): the
+    // content down to the theme's clearest, the side bands never clearer than their own.
+    const veil = (safe: number, clearest?: number) => (covering ? 1 : glassVeilAt(safe, look.glassTransparency, clearest));
+    gl.uniform1f(u.uMaxShift, ((live.current.reduced ? GLASS.maxShiftReduced : GLASS.maxShift) * look.glassRefraction) / 100);
+    gl.uniform2f(u.uLod, ...lodFor(scale, look.glassFrost));
+    gl.uniform4f(u.uVeil, t.tint[0], t.tint[1], t.tint[2], veil(t.tint[3], t.clear));
+    gl.uniform1f(u.uVeilEdge, veil(t.edge));
     gl.uniform1f(u.uDock, DOCK_HEIGHT);
     gl.uniform4f(u.uBrow, t.brow[0], t.brow[1], t.brow[2], HEADER_HEIGHT);
-    gl.uniform4f(u.uRim, ...t.rim);
+    gl.uniform4f(u.uRim, t.rim[0], t.rim[1], t.rim[2], (t.rim[3] * look.glassRim) / 100);
     gl.uniform1f(u.uHair, activeTheme.get().dark ? GLASS.hairDark : GLASS.hairLight);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
@@ -239,6 +244,8 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     themeUntil = performance.now() + THEME_FADE_MS;
     frame.render(draw);
   });
+  // The glass's sliders (ThemeSettings.tsx) show on the next frame; draw() returns at once while nothing shows.
+  const offLook = settings.subscribe(() => frame.render(draw));
   // And at the crossfade's end, whenever that is: in a window that draws late (hidden, busy) the reads above can all fall before it,
   // and the glass would keep the last theme's veil under this theme's text.
   const onFaded = (e: TransitionEvent) => {
@@ -252,6 +259,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
   const stop = () => {
     offs.forEach((off) => off());
     offTheme();
+    offLook();
     document.documentElement.removeEventListener("transitionend", onFaded);
     cancelFrame(draw);
     window.clearTimeout(coverTimer);

@@ -38,6 +38,12 @@ export interface ThemeSettings {
   coverTint: boolean;
   /** The open panel drawn as glass over a copy of the screen behind it (Windows, src/notch/glass); resolveTheme gives its --glass-* tokens. */
   glass: boolean;
+  /** Transparency, under Glass: 0 is the theme's safe veil, -100 opaque, 100 the clearest (glassVeilAt); src/notch/glass reads it each frame. */
+  glassTransparency: number;
+  /** Refraction, Frost and Rim light, in % of their default. */
+  glassRefraction: number;
+  glassFrost: number;
+  glassRim: number;
   /** The whole app's font (FONTS), set as --font-sans; the terminal and the timer looks keep their monospace. */
   font: FontId;
 }
@@ -75,6 +81,8 @@ export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
 export const TERTIARY = 2.8;
 /** The glass's veil in the bands along the panel's sides, where Crest writes nothing: 35 %, the dimming Apple asks for under clear glass over bright content. */
 export const GLASS_EDGE = 0.35;
+/** The glass's sliders' ends (Settings › Themes, under Glass); saved values are held to them. */
+export const GLASS_RANGE = { glassTransparency: [-100, 100], glassRefraction: [0, 200], glassFrost: [0, 200], glassRim: [0, 200] } as const;
 export const MAX_FILE_BYTES = 64 * 1024;
 export const DEFAULT_THEME = "dark";
 
@@ -274,6 +282,8 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     success: ensure("success", pick("success", mode.success), needs(TEXT, bg)),
   };
   const veil = withAlpha(bg, glassVeil(bg, [[colors.foreground, STRONG_TEXT], [colors.secondary, TEXT], [colors.tertiary, TERTIARY]]));
+  // The clearest Transparency keeps WCAG AA: 4.5:1 for the main text, 3:1 for labels; clearer, a label can meet its backdrop at 1:1.
+  const clearest = glassVeil(bg, [[colors.foreground, TEXT], [colors.secondary, GRAPHIC]]);
   // The veil holds the three text levels only: under the glass, status text gets colours of its own, held to 4.5:1 over the veil's
   // darkest and lightest ends (Dark's red would drop to 3.4:1 over white), so neither the veil nor the panel's colours have to move.
   const glassStatus = (c: Rgba) => formatColor(ensureContrast(c, needs(TEXT, over(veil, BLACK), over(veil, WHITE))));
@@ -304,6 +314,7 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     "--notch-closed": closedNotch ? formatColor(bg) : "#000000",
     "--glass-tint": formatColor(veil),
     "--glass-tint-edge": formatColor(withAlpha(bg, Math.min(GLASS_EDGE, veil.a))),
+    "--glass-tint-clear": formatColor(withAlpha(bg, clearest)),
     "--glass-rim": dark ? "rgb(255 255 255 / 0.7)" : "rgb(255 255 255 / 0.9)",
     "--glass-orange": glassStatus(colors.warning),
     "--glass-red": glassStatus(colors.critical),
@@ -329,6 +340,15 @@ export function glassVeil(background: Rgba, texts: readonly (readonly [Rgba, num
     if (texts.every(([t, min]) => contrast(t, low) >= min && contrast(t, high) >= min && side(t, low) === side(t, high))) return i / 100;
   }
   return 1;
+}
+
+/**
+ * The veil the Transparency slider gives (ThemeSettings.glassTransparency): 0 is `safe`, the theme's least readable veil; towards -100
+ * it thickens to opaque, towards 100 it thins to `clearest`. The side bands pass only their own veil: never clearer.
+ */
+export function glassVeilAt(safe: number, transparency: number, clearest = safe): number {
+  const t = Math.max(-100, Math.min(100, transparency)) / 100;
+  return t <= 0 ? safe - t * (1 - safe) : safe - t * (safe - clearest);
 }
 
 /** Coloured icons (Settings, Themes; hues.ts), in risograph ink colours: a bright shade for dark themes and a darker one for light themes, then held to 3:1 like every other colour. */
@@ -532,6 +552,10 @@ export const THEME_DEFAULTS: ThemeSettings = {
   iconColors: false,
   coverTint: false,
   glass: false,
+  glassTransparency: 0,
+  glassRefraction: 100,
+  glassFrost: 100,
+  glassRim: 100,
   font: "inter",
 };
 
@@ -552,6 +576,11 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
   const sc = (typeof s.schedule === "object" && s.schedule !== null ? s.schedule : {}) as Partial<ThemeSettings["schedule"]>;
   const text = (v: unknown, fallback: string) => (typeof v === "string" && v ? v : fallback);
   const time = (v: unknown, fallback: string) => (typeof v === "string" && TIME.test(v) ? v : fallback);
+  // A number held to the slider's ends and made whole; anything else (a string, NaN, a hand edit) is the default.
+  const look = (k: keyof typeof GLASS_RANGE) => {
+    const v: unknown = s[k], [lo, hi] = GLASS_RANGE[k];
+    return typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(hi, Math.max(lo, v))) : THEME_DEFAULTS[k];
+  };
   return {
     id: text(s.id, THEME_DEFAULTS.id),
     custom,
@@ -565,6 +594,10 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     iconColors: typeof s.iconColors === "boolean" ? s.iconColors : legacyIconColors,
     coverTint: s.coverTint === true,
     glass: s.glass === true,
+    glassTransparency: look("glassTransparency"),
+    glassRefraction: look("glassRefraction"),
+    glassFrost: look("glassFrost"),
+    glassRim: look("glassRim"),
     font: typeof s.font === "string" && Object.hasOwn(FONTS, s.font) ? s.font : THEME_DEFAULTS.font,
   };
 }

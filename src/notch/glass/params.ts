@@ -64,10 +64,13 @@ export function textureMap(rect: { left: number; top: number }, zoom: number, dp
   };
 }
 
-/** Blur levels at the rim and in the middle for device pixels per CSS px `scale`: the same blur in CSS px at every scale. */
-export function lodFor(scale: number): [number, number] {
-  const s = Math.log2(scale);
-  return [Math.max(0, s + GLASS.lodRim), s + GLASS.lodMid];
+/**
+ * Blur levels at the rim and in the middle for device pixels per CSS px `scale`: the same blur in CSS px at every scale. `frost` (%)
+ * scales the middle's blur radius; at 0 the middle is as sharp as the rim.
+ */
+export function lodFor(scale: number, frost = 100): [number, number] {
+  const s = Math.log2(scale), rim = Math.max(0, s + GLASS.lodRim);
+  return [rim, Math.max(rim, s + GLASS.lodMid + Math.log2(Math.max(frost, 1) / 100))];
 }
 
 /** The shader's uShape: the body's left and right edge, its height and the ears, in a canvas `boxW` wide centred on it. */

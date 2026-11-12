@@ -51,10 +51,14 @@ test("texture map: a point of the canvas to the copy's uv", () => {
   near(textureMap({ left: 10, top: 0 }, 1.25, 2, meta).scale, [map.scale[0] * 1.25, map.scale[1] * 1.25]);
 });
 
-test("blur levels follow the scale, so the blur is the same in CSS px", () => {
+test("blur levels follow the scale, and Frost scales the middle's", () => {
   near(lodFor(2), [0.5, 2.9]);
   near(lodFor(1), [0, 1.9]);
   near(lodFor(4), [1.5, 3.9]);
+  near(lodFor(2, 200), [0.5, 3.9]);
+  near(lodFor(2, 50), [0.5, 1.9]);
+  near(lodFor(2, 0), [0.5, 0.5]);
+  near(lodFor(1, 25), [0, 0]);
 });
 
 test("shape uniform: the body centred in the canvas", () => {
