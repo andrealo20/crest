@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canvasBox, dropLens, dropShape, glassAllowed, lodFor, metaOk, parseTint, shapeUniform, snapshotLead, takes, textureMap, visiblePart, type GlassInput, type SnapshotMeta } from "./params.ts";
+import { canvasBox, dropLens, dropShape, glassAllowed, glassShape, lodFor, metaOk, parseTint, shapeUniform, snapshotLead, takes, textureMap, visiblePart, type GlassInput, type SnapshotMeta } from "./params.ts";
 
 const near = (a: readonly number[], b: readonly number[]) => assert.ok(a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-9), `${a} vs ${b}`);
 
 const BASE: GlassInput = {
-  on: true, windows: true, hangsFromTop: true, webgl: true,
+  on: true, windows: true, shape: true, webgl: true,
   forcedColors: false, contrastMore: false, reducedTransparency: false, saver: false,
   fullscreen: false, hidden: false, presenting: false, cover: false, dragging: false, editing: false,
 };
@@ -14,6 +14,20 @@ test("glass: on with everything it needs, off with any one thing missing or in t
   assert.equal(glassAllowed(BASE), true);
   // Each field flipped on its own: the four it needs turn false, the others turn true.
   for (const key of Object.keys(BASE) as (keyof GlassInput)[]) assert.equal(glassAllowed({ ...BASE, [key]: !BASE[key] }), false, key);
+});
+
+test("glass shape: the capsule anywhere, the notch and the line only hanging from the top edge", () => {
+  assert.equal(glassShape("notch", "top", 0), true);
+  assert.equal(glassShape("notch", "left", 0), false);
+  assert.equal(glassShape("notch", "bottom", 0), false);
+  // The capsule floats on the top frame whatever edge the notch was docked to.
+  assert.equal(glassShape("capsule", "top", 0), true);
+  assert.equal(glassShape("capsule", "right", 8), true);
+  assert.equal(glassShape("line", "top", 0), true);
+  assert.equal(glassShape("line", "top", 4), false);
+  assert.equal(glassShape("line", "left", 0), false);
+  // The line's distance from the edge counts only for the line.
+  assert.equal(glassShape("notch", "top", 4), true);
 });
 
 test("the copy is asked for ahead of the hover delay, once the pointer rests", () => {

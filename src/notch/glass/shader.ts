@@ -42,13 +42,14 @@ uniform vec2 uTexScale;        // uv = p * uTexScale + uTexOffset (params.ts tex
 uniform vec2 uTexOffset;
 uniform vec4 uShape;           // body left, right, height, ear radius, CSS px in the canvas
 uniform float uR;              // bottom corner radius
+uniform float uRt;             // top corner radius: 0 hangs from y = 0 (the notch, a capsule near the edge), more floats
 uniform float uBand;           // the rim that bends
 uniform float uMaxShift;       // lower with reduced motion, times Refraction
 uniform vec2 uLod;             // blur level at the rim and in the middle, with Frost (params.ts lodFor)
 uniform vec4 uVeil;            // --glass-tint's colour, and the content's veil after Transparency (themes.ts glassVeilAt)
 uniform float uVeilEdge;       // the side bands' veil after Transparency
 uniform float uDock;           // DOCK_HEIGHT: no side bands along the tool bar's strip
-uniform vec4 uBrow;            // --notch-closed and HEADER_HEIGHT
+uniform vec4 uBrow;            // --notch-closed and HEADER_HEIGHT; -1 on a floating panel, which has none
 uniform vec4 uRim;             // --glass-rim, its strength times Rim light
 uniform float uHair;           // the outline, stronger on light themes
 uniform vec4 uBar;             // the tool bar's capsule: centre x and y, half width and height; half width 0: none
@@ -78,11 +79,14 @@ float sdRound(vec2 p, vec2 c, vec2 b, float r) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
 
-// Signed distance to the open panel (CSS px, negative inside). It hangs from y = 0: the body runs on past the screen edge, so that
-// edge has no rim, and the ears are the two corners between body and screen edge (NotchShape.tsx draws them with radial-gradient).
+// Signed distance to the open panel (CSS px, negative inside). Hanging from y = 0 the body runs on past the screen edge, so that edge
+// has no rim, and the ears are the two corners between body and screen edge (NotchShape.tsx draws them with radial-gradient).
+// Floating, it is the whole box from y = 0 with top corners uRt; while a capsule near the edge opens or closes, the ears come and go on it.
 float sdPanel(vec2 p) {
   float L = uShape.x, R = uShape.y, H = uShape.z, e = uShape.w;
-  float d = sdRound(p, vec2(0.5 * (L + R), H - 4000.0), vec2(0.5 * (R - L), 4000.0), uR);
+  float d = uRt > 0.0
+    ? sdRound(p, vec2(0.5 * (L + R), 0.5 * H), vec2(0.5 * (R - L), 0.5 * H), p.y < 0.5 * H ? uRt : uR)
+    : sdRound(p, vec2(0.5 * (L + R), H - 4000.0), vec2(0.5 * (R - L), 4000.0), uR);
   if (e > 0.0) {
     d = min(d, p.y - e);
     vec2 ql = vec2(p.x - (L - e), e - p.y);

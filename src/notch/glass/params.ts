@@ -24,17 +24,25 @@ export const BUFFER_WAIT_MS = 1000;
 /** At the opening a copy older than this (a long peek in click mode) is taken again; the old one shows meanwhile. */
 export const SNAPSHOT_STALE_MS = 2000;
 
-/** Everything the glass depends on; the first four must hold, the rest turn it off. */
+/** Everything the glass depends on; the first four must hold, the rest turn it off. `shape`: glassShape for the look on screen. */
 export interface GlassInput {
-  on: boolean; windows: boolean; hangsFromTop: boolean; webgl: boolean;
+  on: boolean; windows: boolean; shape: boolean; webgl: boolean;
   forcedColors: boolean; contrastMore: boolean; reducedTransparency: boolean; saver: boolean;
   fullscreen: boolean; hidden: boolean; presenting: boolean; cover: boolean; dragging: boolean; editing: boolean;
 }
 
 /** Whether the glass may show now. Running on battery does not count: the glass costs at the opening, not at rest. */
 export function glassAllowed(i: GlassInput): boolean {
-  if (!i.on || !i.windows || !i.hangsFromTop || !i.webgl) return false;
+  if (!i.on || !i.windows || !i.shape || !i.webgl) return false;
   return !(i.forcedColors || i.contrastMore || i.reducedTransparency || i.saver || i.fullscreen || i.hidden || i.presenting || i.cover || i.dragging || i.editing);
+}
+
+/**
+ * Whether the open panel of a closed look can be glass: the capsule's, bridged to the top edge or floating, or a panel hanging from the
+ * top edge, from the notch or from the line at the edge. A line away from the edge, and the other edges, keep the opaque panel.
+ */
+export function glassShape(style: "notch" | "capsule" | "line", edge: string, lineTop: number): boolean {
+  return style === "capsule" || (edge === "top" && !(style === "line" && lineTop > 0));
 }
 
 /** How long the pointer rests on the notch before the copy is asked for. */

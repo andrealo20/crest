@@ -33,31 +33,32 @@ const ATTRS: WebGLContextAttributes = {
   failIfMajorPerformanceCaveat: true,
 };
 
-interface Shape { w: MotionValue<number>; h: MotionValue<number>; r: MotionValue<number>; ear: MotionValue<number> }
-interface Live { target: NotchGeometry; reduced: boolean }
+/** `top`: the shape's top in the page as it springs (Notch.tsx useSpringTop): a floating capsule rises as its panel opens. */
+interface Shape { w: MotionValue<number>; h: MotionValue<number>; r: MotionValue<number>; ear: MotionValue<number>; rt: MotionValue<number>; top: MotionValue<number> }
+interface Live { target: NotchGeometry; hangs: boolean; reduced: boolean }
 interface Glass { show(on: boolean): void; fit(): void; stop(): void }
 type Tint = NonNullable<ReturnType<typeof parseTint>>;
 type Gpu = NonNullable<ReturnType<typeof setup>>;
 
 /** The canvas under the open panel's content. Armed it rests at 1x1 with its context alive, so a peek pays no setup. */
-export function GlassLayer({ mode, w, h, r, ear, target }: Shape & { mode: "armed" | "shown"; target: NotchGeometry }) {
+export function GlassLayer({ mode, w, h, r, ear, rt, top, target, hangs }: Shape & { mode: "armed" | "shown"; target: NotchGeometry; hangs: boolean }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const reduced = useReducedMotion() === true;
   // Read by the drawing, which runs outside React.
-  const live = useRef<Live>({ target, reduced });
-  live.current = { target, reduced };
+  const live = useRef<Live>({ target, hangs, reduced });
+  live.current = { target, hangs, reduced };
   const glass = useRef<Glass | null>(null);
 
   // Layout effects: the canvas is sized and its frame asked for before the paint where --shape turns clear, which with reduced motion
   // (no fade) would otherwise show the notch gone for a frame.
   useLayoutEffect(() => {
-    const g = startGlass(canvas.current!, { w, h, r, ear }, live);
+    const g = startGlass(canvas.current!, { w, h, r, ear, rt, top }, live);
     glass.current = g;
     return () => {
       glass.current = null;
       g.stop();
     };
-  }, [w, h, r, ear]);
+  }, [w, h, r, ear, rt, top]);
   useLayoutEffect(() => glass.current?.show(mode === "shown"), [mode]);
   // A transition starts: the canvas grows to hold where the shape goes.
   useLayoutEffect(() => glass.current?.fit(), [target.w, target.h, target.ear]);
@@ -84,7 +85,8 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
   }
 
   let tex: WebGLTexture | null = null, texW = 0, texH = 0, levels = 0;
-  let meta: SnapshotMeta | null = null, rect: DOMRect | null = null;
+  // rect is read with the shape's top at topAt, at the start of a transition and when a copy comes.
+  let meta: SnapshotMeta | null = null, rect: DOMRect | null = null, topAt = 0;
   // The canvas's width in CSS px and its device px per CSS px; scale 0 while it rests at 1x1.
   let box = { w: 0, scale: 0 };
   let showing = false, covering = false, coverTimer = 0, themeUntil = 0;
@@ -110,7 +112,8 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
       else themeUntil = 0;
     }
     const { u, p } = gpu.main, t = tokens, scale = box.scale;
-    const map = textureMap(rect, viewZoom(), devicePixelRatio, meta);
+    // The canvas where it is now, without reading the DOM: the shape's top springs on its own.
+    const zoom = viewZoom(), map = textureMap({ left: rect.left, top: rect.top + (shape.top.get() - topAt) * zoom }, zoom, devicePixelRatio, meta);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.useProgram(p);
@@ -121,6 +124,9 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     gl.uniform2f(u.uTexOffset, ...map.offset);
     gl.uniform4f(u.uShape, ...shapeUniform(box.w, shape.w.get(), shape.h.get(), shape.ear.get()));
     gl.uniform1f(u.uR, shape.r.get());
+    // Under half a pixel the top corners are gone: the panel hangs from the edge (a spring may also take them below 0).
+    const rt = shape.rt.get();
+    gl.uniform1f(u.uRt, rt < 0.5 ? 0 : rt);
     gl.uniform1f(u.uBand, GLASS.band);
     const look = settings.get().themes, reduced = live.current.reduced;
     // Covering, the veil at full strength hides the copy while --shape comes back. Else Transparency (themes.ts glassVeilAt): the
@@ -132,7 +138,8 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     gl.uniform1f(u.uVeilEdge, veil(t.edge));
     gl.uniform1f(u.uBarVeil, veil(t.bar));
     gl.uniform1f(u.uDock, DOCK_HEIGHT);
-    gl.uniform4f(u.uBrow, t.brow[0], t.brow[1], t.brow[2], HEADER_HEIGHT);
+    // The brow only on a panel hanging from the edge: a floating capsule's header keeps the theme's ink (Notch.tsx).
+    gl.uniform4f(u.uBrow, t.brow[0], t.brow[1], t.brow[2], live.current.hangs ? HEADER_HEIGHT : -1);
     gl.uniform4f(u.uRim, t.rim[0], t.rim[1], t.rim[2], (t.rim[3] * look.glassRim) / 100);
     // The tool bar and its drop, in the canvas: x from its centre, which is the panel's. Covering, the Dock's own fills are back.
     const mid = box.w / 2, bh = barBox.h.get(), bottom = barBox.top.get() + bh, lift = drop.lift.get();
@@ -161,6 +168,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     box = { w: canvas.width / scale, scale };
     Object.assign(canvas.style, { width: `${box.w}px`, height: `${canvas.height / scale}px`, left: `calc(50% - ${box.w / 2}px)` });
     rect = canvas.getBoundingClientRect();
+    topAt = shape.top.get();
     frame.render(draw);
   };
 
@@ -231,6 +239,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     pyramid(gpu);
     meta = m;
     rect = canvas.getBoundingClientRect();
+    topAt = shape.top.get();
     frame.render(draw);
     return true;
   };
@@ -253,7 +262,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     if (!gpu) glassBroken.set(true);
   };
 
-  const offs = [shape.w, shape.h, shape.r, shape.ear, ...Object.values(barBox), ...Object.values(drop)].map((v) => v.on("change", () => frame.render(draw)));
+  const offs = [...Object.values(shape), ...Object.values(barBox), ...Object.values(drop)].map((v) => v.on("change", () => frame.render(draw)));
   // A long glide reaches its target frames before it ends, with no change left to draw it unstretched.
   offs.push(drop.x.on("animationComplete", () => frame.render(draw)));
   const offTheme = activeTheme.subscribe(() => {

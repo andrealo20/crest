@@ -5,6 +5,7 @@ import { formatTime } from "../../lib/format";
 import { isMac } from "../../platform/native";
 import { openFile, revealFile } from "../../platform/services";
 import { demo } from "../../dev/showcase-data";
+import { glassShape } from "../../notch/glass/params";
 import { settings, updateSettings } from "../../settings/store";
 import { t } from "../../i18n";
 import { contrast, parseColor, toHex, withAlpha, type Rgba } from "./color";
@@ -93,9 +94,8 @@ function ThemeChoice() {
     discardEdits();
     pickTheme(id);
   };
-  // The glass draws only a panel hanging from the top edge (src/notch/glass): the notch, or the line at the edge.
-  // The saved look; a window rule can change it for a while (Notch.tsx works from the look on screen).
-  const hangs = s.dock.edge === "top" && s.display.idleStyle !== "capsule" && !(s.display.idleStyle === "line" && s.closedSize.lineTop > 0);
+  // For the saved look; a window rule can change it for a while (Notch.tsx works from the look on screen).
+  const fits = glassShape(s.display.idleStyle, s.dock.edge, s.closedSize.lineTop);
 
   return (
     <Group title={t("Theme")} id="settings-themes">
@@ -165,7 +165,7 @@ function ThemeChoice() {
       {!isMac && !demo && (
         <Row
           label={t("Glas")}
-          hint={hangs ? t("Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas") : t("Nur wenn das offene Panel oben am Bildschirmrand hängt")}
+          hint={fits ? t("Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas") : t("Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt")}
         >
           <Switch label={t("Glas")} checked={themes.glass} onChange={(glass) => updateSettings((cur) => ({ themes: { ...cur.themes, glass } }))} />
         </Row>

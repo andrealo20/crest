@@ -33,7 +33,7 @@ import { sizeExtra, sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
 import type { GlassMode } from "./glass/GlassLayer";
 import { barInk, useGlassBar } from "./glass/bar";
-import { CLOSE_SETTLE_MS, SNAPSHOT_STALE_MS, dropLens, glassAllowed, snapshotLead } from "./glass/params";
+import { CLOSE_SETTLE_MS, SNAPSHOT_STALE_MS, dropLens, glassAllowed, glassShape, snapshotLead } from "./glass/params";
 import { contrastMore, dropSnapshot, glassBroken, reducedTransparency, requestSnapshot, snapshot } from "./glass/snapshot";
 import { ClosedResize, ClosedResizeBar, closedEdit, closedLive } from "./ClosedResize";
 import { drop, takeDropped } from "../platform/drop";
@@ -175,9 +175,10 @@ export function Notch() {
   // The edge it hangs from (the capsule floats on the top frame); on a side edge the row stands as a column, which shows notices as an icon line.
   const edge = edgeOf(idleStyle, drag.dock);
   const side = across(edge);
-  // Glass (src/notch/glass): Windows, the open panel hanging from the top edge, from the notch or the line at the edge. The layer stays
-  // mounted while the setting is on, whatever the shape: remounting it would build its context again (37-65 ms) on every change.
-  const glassShape = edge === "top" && surface === "notch" && !(idleLine && sizes.lineTop > 0);
+  // Glass (src/notch/glass): Windows, the capsule's open panel, or one hanging from the top edge from the notch or the line at the
+  // edge. The layer stays mounted while the setting is on, whatever the shape: remounting it would build its context again (37-65 ms)
+  // on every change.
+  const glassFits = glassShape(idleStyle, edge, sizes.lineTop);
   const broken = glassBroken.use();
   const shot = snapshot.use();
   // Switched off with a copy on screen, the layer stays until the copy goes: its full veil covers the copy while --shape comes back.
@@ -191,7 +192,7 @@ export function Notch() {
   const [windowHidden, setWindowHidden] = useState(false);
   useEffect(() => windowShell.onHidden(setWindowHidden), []);
   const allowed = glassAllowed({
-    on: themes.glass, windows: !isMac, hangsFromTop: glassShape, webgl: !broken,
+    on: themes.glass, windows: !isMac, shape: glassFits, webgl: !broken,
     forcedColors: forcedColors.use(), contrastMore: contrastMore.use(), reducedTransparency: reducedTransparency.use(),
     saver: powerState.use()?.saver === true, fullscreen: fullscreen.use() || gaming, hidden: hiddenForFullscreen || windowHidden,
     presenting, cover: backdrop, dragging: drag.dragging, editing,
@@ -476,7 +477,7 @@ export function Notch() {
         onContextMenu={onContextMenu}
         onWheel={onWheel}
       >
-        <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge} thin={lineShape} glass={glass}>
+        <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge} thin={lineShape} glass={glass} top={topValue} hangs={bridged}>
           {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes), and their order on screen in any language. */}
           <div data-theme-ink dir="ltr" className="contents" style={closedInk}>
             {/* Laid out at their designed size and drawn at the content scale, from the edge (the column from its centre). */}
@@ -523,8 +524,9 @@ export function Notch() {
                 <div aria-hidden data-ambience={tinted && glass !== "shown" ? "on" : "off"} className="pointer-events-none absolute inset-0 -z-10" style={tinted ? { ["--ambience" as string]: accent } : undefined} />
                 {/* The Music tool's cover behind the whole panel; while it shows, the panel takes the Dark theme's light text. */}
                 <CoverBackdrop />
-                {/* Over the glass the header sits on the closed notch's colour (the brow, shader.ts), so it takes the closed notch's ink. */}
-                <Header title={t(tab.label)} ink={glass === "shown" ? closedInk : undefined} fade={glass !== "off" && !reduced} />
+                {/* Over the glass a hanging panel's header sits on the closed notch's colour (the brow, shader.ts), so it takes the closed
+                    notch's ink; a floating capsule's has no brow and keeps the theme's. */}
+                <Header title={t(tab.label)} ink={glass === "shown" && bridged ? closedInk : undefined} fade={glass !== "off" && !reduced} />
                 <div className="relative min-h-0 flex-1 overflow-clip">
                   <AnimatePresence mode="popLayout" initial={false}>
                     <motion.div
