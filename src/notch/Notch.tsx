@@ -32,7 +32,8 @@ import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
 import { sizeExtra, sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
 import type { GlassMode } from "./glass/GlassLayer";
-import { CLOSE_SETTLE_MS, SNAPSHOT_STALE_MS, glassAllowed, snapshotLead } from "./glass/params";
+import { barInk, useGlassBar } from "./glass/bar";
+import { CLOSE_SETTLE_MS, SNAPSHOT_STALE_MS, dropLens, glassAllowed, glassShape, snapshotLead } from "./glass/params";
 import { contrastMore, dropSnapshot, glassBroken, reducedTransparency, requestSnapshot, snapshot } from "./glass/snapshot";
 import { ClosedResize, ClosedResizeBar, closedEdit, closedLive } from "./ClosedResize";
 import { drop, takeDropped } from "../platform/drop";
@@ -47,8 +48,8 @@ import { t } from "../i18n";
 import { timer, useSecondTick } from "../features/timer/store";
 import { dueTasks } from "../features/todos/store";
 import { asks, popping } from "../features/notices/store";
-import { forcedColors, refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/store";
-import { useHue, type Hue } from "../features/themes/hues";
+import { activeTheme, forcedColors, refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/store";
+import { useHue, useIconColors, type Hue } from "../features/themes/hues";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
 import { viewZoom } from "./viewZoom";
@@ -174,9 +175,9 @@ export function Notch() {
   // The edge it hangs from (the capsule floats on the top frame); on a side edge the row stands as a column, which shows notices as an icon line.
   const edge = edgeOf(idleStyle, drag.dock);
   const side = across(edge);
-  // Glass (src/notch/glass): Windows, the open panel hanging from the top edge, from the notch or the line at the edge. The layer stays
-  // mounted while the setting is on, whatever the shape: remounting it would build its context again (37-65 ms) on every change.
-  const glassShape = edge === "top" && surface === "notch" && !(idleLine && sizes.lineTop > 0);
+  // Glass (src/notch/glass): Windows, the capsule's open panel, or one hanging from the top edge from the notch or the line. The layer
+  // stays mounted while the setting is on, whatever the shape: remounting it would build its context again (37-65 ms) on every change.
+  const glassFits = glassShape(idleStyle, edge);
   const broken = glassBroken.use();
   const shot = snapshot.use();
   // Switched off with a copy on screen, the layer stays until the copy goes: its full veil covers the copy while --shape comes back.
@@ -190,7 +191,7 @@ export function Notch() {
   const [windowHidden, setWindowHidden] = useState(false);
   useEffect(() => windowShell.onHidden(setWindowHidden), []);
   const allowed = glassAllowed({
-    on: themes.glass, windows: !isMac, hangsFromTop: glassShape, webgl: !broken,
+    on: themes.glass, windows: !isMac, fits: glassFits, webgl: !broken,
     forcedColors: forcedColors.use(), contrastMore: contrastMore.use(), reducedTransparency: reducedTransparency.use(),
     saver: powerState.use()?.saver === true, fullscreen: fullscreen.use() || gaming, hidden: hiddenForFullscreen || windowHidden,
     presenting, cover: backdrop, dragging: drag.dragging, editing,
@@ -475,7 +476,7 @@ export function Notch() {
         onContextMenu={onContextMenu}
         onWheel={onWheel}
       >
-        <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge} thin={lineShape} glass={glass}>
+        <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge} thin={lineShape} glass={glass} top={topValue} hangs={bridged}>
           {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes), and their order on screen in any language. */}
           <div data-theme-ink dir="ltr" className="contents" style={closedInk}>
             {/* Laid out at their designed size and drawn at the content scale, from the edge (the column from its centre). */}
@@ -522,8 +523,9 @@ export function Notch() {
                 <div aria-hidden data-ambience={tinted && glass !== "shown" ? "on" : "off"} className="pointer-events-none absolute inset-0 -z-10" style={tinted ? { ["--ambience" as string]: accent } : undefined} />
                 {/* The Music tool's cover behind the whole panel; while it shows, the panel takes the Dark theme's light text. */}
                 <CoverBackdrop />
-                {/* Over the glass the header sits on the closed notch's colour (the brow, shader.ts), so it takes the closed notch's ink. */}
-                <Header title={t(tab.label)} ink={glass === "shown" ? closedInk : undefined} fade={glass !== "off" && !reduced} />
+                {/* Over the glass a hanging panel's header sits on the closed notch's colour (the brow, shader.ts), so it takes the closed
+                    notch's ink; a floating capsule's has no brow and keeps the theme's. */}
+                <Header title={t(tab.label)} ink={glass === "shown" && bridged ? closedInk : undefined} fade={glass !== "off" && !reduced} />
                 <div className="relative min-h-0 flex-1 overflow-clip">
                   <AnimatePresence mode="popLayout" initial={false}>
                     <motion.div
@@ -540,7 +542,7 @@ export function Notch() {
                     </motion.div>
                   </AnimatePresence>
                 </div>
-                <Dock tabs={visible} activeId={tab.id} />
+                <Dock tabs={visible} activeId={tab.id} liquid={glass === "shown"} fades={glass !== "off"} />
                 {/* The grips and their sizes assume a panel hanging from the top edge. */}
                 {/* The grips size the user's own size; an extra height (sizeExtra) stays on top of it. */}
                 {!overridden && edge === "top" && <ResizeHandles id={tab.id} def={tab.size} size={toolSize} />}
@@ -570,6 +572,8 @@ const GLASS_STATUS = { "--color-orange": "var(--glass-orange)", "--color-red": "
 const GLASS_STATUS_FADE = "--color-orange 300ms var(--ease-out), --color-red 300ms var(--ease-out), --color-green 300ms var(--ease-out)";
 /** The header's ink changes with the brow under it as the glass comes and goes; the accent keeps global.css's fade. */
 const INK_FADE = "--color-label 300ms var(--ease-out), --color-label-2 300ms var(--ease-out), --color-label-3 300ms var(--ease-out), --accent 500ms ease";
+/** The Dock's fills step aside for the glass and come back with --shape's fade. */
+const FILL_FADE = "transition-colors duration-300 ease-out motion-reduce:transition-none";
 
 /** The song's progress along the idle line, as thick as the line: moved once a second with a 1 s linear transition, only while playing. `along`: the upright axis the edge runs on. */
 function LineProgress({ along }: { along: "x" | "y" }) {
@@ -623,8 +627,12 @@ function Header({ title, ink, fade }: { title: string; ink?: Record<string, stri
   );
 }
 
-/** Tool bar at the bottom (like OmniNotch). The gear at the end toggles between settings and the last tool. */
-function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
+/**
+ * Tool bar at the bottom (like OmniNotch). The gear at the end toggles between settings and the last tool. Over the glass (`liquid`) the
+ * shader draws it as a capsule of glass with a drop under the pointed or the current tool (glass/bar.ts), and its own fills step aside.
+ * `fades`: the glass is on, so the fills fade with it; without it they follow the theme's crossfade, as before the glass.
+ */
+function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: string; liquid: boolean; fades: boolean }) {
   const lastTool = useRef(tabs[0]?.id);
   if (!pageTabs.some((p) => p.id === activeId)) lastTool.current = activeId;
   const inSettings = activeId === settingsTab.id;
@@ -638,19 +646,51 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
   const strip = useRef<HTMLDivElement>(null);
   const more = useScrollEdges(strip);
   const fade = more.start || more.end ? `linear-gradient(90deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
+  const capsule = useRef<HTMLDivElement>(null);
+  const { pointed, handlers } = useGlassBar(capsule, strip, activeId, liquid, tabs.map((tab) => tab.id).join());
+  // Each store hook runs on every render, as for `urgent` in Notch().
+  const theme = activeTheme.use();
+  const hues = useIconColors();
+  const refraction = settings.use().themes.glassRefraction;
+  const reduced = useReducedMotion() === true;
+  // Under the drop's lens the pointed icon grows as much as what the lens shows.
+  const mag = liquid && !reduced ? dropLens(refraction)[1] : 1;
   return (
     <div className="flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
-      <div className="flex h-10 max-w-full items-center rounded-[14px] bg-fill-2 p-0.5">
+      <div
+        ref={capsule}
+        {...handlers}
+        // Over the glass the dot and the coloured icons take colours held to 3:1 over the bar's thinner veil (themes.ts glassInk).
+        style={liquid ? barInk(theme, hues) : undefined}
+        className={`flex h-10 max-w-full items-center rounded-[14px] p-0.5 ${fades ? FILL_FADE : ""} ${liquid ? "bg-transparent" : "bg-fill-2"}`}
+      >
         <div ref={strip} className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]" style={{ maskImage: fade, WebkitMaskImage: fade }}>
           {tabs.map((tab) => (
-            <DockButton key={tab.id} label={t(tab.label)} icon={tab.icon} hue={tab.hue} active={tab.id === activeId} onClick={() => navigate(tab.id)} />
+            <DockButton
+              key={tab.id}
+              id={tab.id}
+              label={t(tab.label)}
+              icon={tab.icon}
+              hue={tab.hue}
+              active={tab.id === activeId}
+              pointed={pointed === tab.id}
+              liquid={liquid}
+              fades={fades}
+              lens={pointed === tab.id ? mag : 1}
+              onClick={() => navigate(tab.id)}
+            />
           ))}
         </div>
         <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-separator" />
         <DockButton
+          id={settingsTab.id}
           label={t(settingsTab.label)}
           icon={GearSix}
           active={inSettings}
+          pointed={pointed === settingsTab.id}
+          liquid={liquid}
+          fades={fades}
+          lens={pointed === settingsTab.id ? mag : 1}
           badge={badge}
           onClick={() => {
             if (inSettings) navigate(lastTool.current ?? tabs[0].id);
@@ -687,44 +727,66 @@ function useScrollEdges(ref: RefObject<HTMLDivElement | null>) {
   return edges;
 }
 
-function DockButton(props: { label: string; icon: NotchTab["icon"]; hue?: Hue; active: boolean; onClick: () => void; badge?: boolean }) {
+/** `pointed`: under the glass drop (glass/bar.ts), so in the label colour that keeps 3:1 there; `lens`: the icon's scale under it. */
+function DockButton(props: {
+  id: string;
+  label: string;
+  icon: NotchTab["icon"];
+  hue?: Hue;
+  active: boolean;
+  pointed: boolean;
+  liquid: boolean;
+  fades: boolean;
+  lens: number;
+  onClick: () => void;
+  badge?: boolean;
+}) {
   const I = props.icon;
   const color = useHue(props.hue);
   const ref = useRef<HTMLButtonElement>(null);
-  // A key shortcut can pick a tool scrolled out of the dock's view.
-  useEffect(() => {
+  // A key shortcut can pick a tool scrolled out of the dock's view. Before the Dock's own layout effects, so the glass drop measures
+  // the strip already scrolled.
+  useLayoutEffect(() => {
     if (props.active) ref.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [props.active]);
   return (
     <button
       ref={ref}
+      data-tool={props.id}
       aria-label={props.label}
       title={props.label}
       onClick={props.onClick}
       className={`pressable relative flex h-9 w-[42px] min-w-6 shrink items-center justify-center rounded-[12px] transition-colors duration-150 ${
-        props.active ? "text-label" : color ? "" : "text-label-2 hover:text-label"
+        props.active || props.pointed ? "text-label" : color ? "" : "text-label-2 hover:text-label"
       }`}
       style={color ? { color } : undefined}
     >
-      {/* The current tool: a brighter pill with a mark under the icon, sliding from tool to tool. */}
+      {/* The current tool: a brighter pill with a mark under the icon, sliding from tool to tool. Over the glass the shader draws the
+          pill as the drop; the mark stays here. */}
       {props.active && (
-        <motion.span layoutId="dock-pill" className="absolute inset-0 rounded-[12px] bg-fill-3" transition={springs.snappy}>
+        <motion.span
+          layoutId="dock-pill"
+          className={`absolute inset-0 rounded-[12px] ${props.fades ? FILL_FADE : ""} ${props.liquid ? "bg-transparent" : "bg-fill-3"}`}
+          transition={springs.snappy}
+        >
           <span className="absolute bottom-[3px] left-1/2 h-[2px] w-3 -translate-x-1/2 rounded-full bg-label" />
         </motion.span>
       )}
-      <I size={18} weight={props.active ? "fill" : "bold"} className="relative" />
-      {/* Badge dot (e.g. update available) at the icon's top right. */}
-      <AnimatePresence>
-        {props.badge && (
-          <motion.span
-            className="absolute top-[6px] left-1/2 ml-[4px] size-[7px] rounded-full bg-link ring-2 ring-notch"
-            initial={{ opacity: 0, transform: "scale(0.9)" }}
-            animate={{ opacity: 1, transform: "scale(1)" }}
-            exit={{ opacity: 0, transform: "scale(0.9)" }}
-            transition={springs.snappy}
-          />
-        )}
-      </AnimatePresence>
+      <motion.span className="relative flex" initial={false} animate={{ transform: `scale(${props.lens})` }} transition={springs.peek}>
+        <I size={18} weight={props.active ? "fill" : "bold"} />
+        {/* Badge dot (e.g. update available) at the icon's top right; in here it grows with the icon under the glass drop. */}
+        <AnimatePresence>
+          {props.badge && (
+            <motion.span
+              className={`absolute top-[-3px] left-1/2 ml-[4px] size-[7px] rounded-full bg-link ring-2 ${props.liquid ? "ring-transparent" : "ring-notch"}`}
+              initial={{ opacity: 0, transform: "scale(0.9)" }}
+              animate={{ opacity: 1, transform: "scale(1)" }}
+              exit={{ opacity: 0, transform: "scale(0.9)" }}
+              transition={springs.snappy}
+            />
+          )}
+        </AnimatePresence>
+      </motion.span>
     </button>
   );
 }

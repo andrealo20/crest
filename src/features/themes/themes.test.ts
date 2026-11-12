@@ -5,12 +5,15 @@ import { BLACK, WHITE, contrast, over, parseColor, withAlpha, type Rgba } from "
 import {
   BUILT_IN_THEMES,
   GLASS_EDGE,
+  GRAPHIC,
   STRONG_TEXT,
   TERTIARY,
   TEXT,
   THEME_DEFAULTS,
   findTheme,
+  glassInk,
   glassVeil,
+  glassVeilAt,
   importThemes,
   normalizeId,
   normalizeThemeSettings,
@@ -238,6 +241,16 @@ test("glass: off by default, on only when saved as true", () => {
 
 const veilOf = (t: ThemeFile) => parseColor(resolveTheme(t).vars["--glass-tint"])!;
 const GLASS_STATUS = ["--glass-orange", "--glass-red", "--glass-green"];
+const GREYS = Array.from({ length: 256 }, (_, g): Rgba => ({ r: g, g, b: g, a: 1 }));
+/** The veil (`bg` at `alpha`) over a grey, with `top` laid on it. */
+const veiled = (g: Rgba, alpha: number, bg: Rgba, top?: Rgba) => (top ? over(top, over(withAlpha(bg, alpha), g)) : over(withAlpha(bg, alpha), g));
+/** The lowest contrast of `c` over the veil on any uniform grey. */
+const worst = (c: Rgba, alpha: number, bg: Rgba, top?: Rgba) => Math.min(...GREYS.map((g) => contrast(c, veiled(g, alpha, bg, top))));
+/** Every opacity in hundredths over every uniform grey. */
+const brute = (bg: Rgba, texts: readonly (readonly [Rgba, number])[], top?: Rgba) => {
+  for (let i = 0; i <= 100; i++) if (GREYS.every((g) => texts.every(([c, min]) => contrast(c, veiled(g, i / 100, bg, top)) >= min))) return i / 100;
+  return 1;
+};
 
 test("glass veil: the least share of the background that keeps every text level over any backdrop", () => {
   // Text over the veil: the theme's three levels and the status colours drawn under the glass.
@@ -247,15 +260,6 @@ test("glass veil: the least share of the background that keeps every text level 
     [r.colors.tertiary, TERTIARY],
     ...GLASS_STATUS.map((v): [Rgba, number] => [parseColor(r.vars[v])!, TEXT]),
   ];
-  // Every opacity in hundredths over every uniform grey.
-  const brute = (bg: Rgba, texts: [Rgba, number][]) => {
-    for (let i = 0; i <= 100; i++) {
-      const veil = withAlpha(bg, i / 100);
-      const passes = (g: number) => texts.every(([c, min]) => contrast(c, over(veil, { r: g, g, b: g, a: 1 })) >= min);
-      if (Array.from({ length: 256 }, (_, g) => g).every(passes)) return i / 100;
-    }
-    return 1;
-  };
   // docs/themes.md quotes Dark, Light and the opaque ones; a theme that changes colours changes its row.
   const table: Record<string, number> = {
     dark: 0.78, light: 0.8, "one-dark-pro": 0.86, "github-dark": 0.87, "github-light": 0.87, dracula: 0.83, "night-owl": 0.8, "catppuccin-mocha": 0.83,
@@ -296,4 +300,82 @@ test("glass status colours keep 4.5:1 over the veil on black and on white", () =
   // Where the veil is opaque the panel's own colours are already right.
   const latte = resolveTheme(findTheme("catppuccin-latte", [])).vars;
   assert.deepEqual(GLASS_STATUS.map((n) => latte[n]), [latte["--color-orange"], latte["--color-red"], latte["--color-green"]]);
+});
+
+test("glass look: defaults, held to the sliders' ends and whole, anything else back to the default", () => {
+  const look = (s: ReturnType<typeof normalizeThemeSettings>) => [s.glassTransparency, s.glassRefraction, s.glassFrost, s.glassRim];
+  assert.deepEqual(look(normalizeThemeSettings({})), [0, 100, 100, 100]);
+  assert.deepEqual(look(normalizeThemeSettings({ glassTransparency: 250, glassRefraction: -5, glassFrost: 33.4, glassRim: "150" })), [100, 0, 33, 100]);
+  assert.equal(normalizeThemeSettings({ glassTransparency: -300 }).glassTransparency, -100);
+  assert.equal(normalizeThemeSettings({ glassFrost: NaN }).glassFrost, 100);
+});
+
+test("Transparency: 0 is the safe veil, -100 opaque, 100 the clearest", () => {
+  const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-9, `${a} vs ${b}`);
+  near(glassVeilAt(0.78, 0, 0.59), 0.78);
+  near(glassVeilAt(0.78, -100, 0.59), 1);
+  near(glassVeilAt(0.78, 100, 0.59), 0.59);
+  near(glassVeilAt(0.78, 40, 0.59), 0.704);
+  near(glassVeilAt(0.78, -40, 0.59), 0.868);
+  near(glassVeilAt(0.59, 100), 0.59);
+  near(glassVeilAt(0.78, 250, 0.59), 0.59);
+  near(glassVeilAt(0.78, -250, 0.59), 1);
+  for (let t = -100; t < 100; t += 5) assert.ok(glassVeilAt(0.78, t + 5, 0.59) <= glassVeilAt(0.78, t, 0.59), String(t));
+});
+
+test("the clearest Transparency and the tool bar's veil", () => {
+  // [clearest, tool bar]; docs/themes.md quotes Dark's and Light's.
+  const table: Record<string, [number, number]> = {
+    dark: [0.59, 0.59], light: [0.56, 0.56], "one-dark-pro": [0.74, 0.74], "github-dark": [0.76, 0.76], "github-light": [0.72, 0.72], dracula: [0.69, 0.69],
+    "night-owl": [0.69, 0.69], "catppuccin-mocha": [0.7, 0.67], "catppuccin-latte": [0.81, 0.78], nord: [0.72, 0.67], "rose-pine": [0.8, 0.8],
+    "rose-pine-dawn": [0.81, 0.79], "gruvbox-dark": [0.74, 0.69], "solarized-light": [0.78, 0.78], everforest: [0.82, 0.8],
+  };
+  assert.deepEqual(Object.keys(table), BUILT_IN_THEMES.map((t) => t.id));
+  for (const t of BUILT_IN_THEMES) {
+    const r = resolveTheme(t), bg = r.colors.background, fg = r.colors.foreground, fill3 = parseColor(r.vars["--color-fill-3"])!;
+    const clear = parseColor(r.vars["--glass-tint-clear"])!.a, bar = parseColor(r.vars["--glass-tint-bar"])!.a;
+    assert.equal(clear, brute(bg, [[fg, TEXT], [r.colors.secondary, GRAPHIC]]), t.id);
+    assert.equal(bar, Math.max(brute(bg, [[fg, GRAPHIC], [r.colors.secondary, GRAPHIC]]), brute(bg, [[fg, GRAPHIC]], fill3)), t.id);
+    assert.deepEqual([clear, bar], table[t.id], t.id);
+    assert.ok(bar <= clear && clear <= veilOf(t).a, t.id);
+    const at100 = glassVeilAt(veilOf(t).a, 100, clear);
+    assert.ok(worst(r.colors.foreground, at100, bg) >= TEXT && worst(r.colors.secondary, at100, bg) >= GRAPHIC, t.id);
+  }
+});
+
+test("more covered than the mark, every minimum holds", () => {
+  for (const t of BUILT_IN_THEMES) {
+    const r = resolveTheme(t), bg = r.colors.background;
+    const texts: [Rgba, number][] = [
+      [r.colors.foreground, STRONG_TEXT],
+      [r.colors.secondary, TEXT],
+      [r.colors.tertiary, TERTIARY],
+      ...GLASS_STATUS.map((v): [Rgba, number] => [parseColor(r.vars[v])!, TEXT]),
+    ];
+    const bar = parseColor(r.vars["--glass-tint-bar"])!.a, fill3 = parseColor(r.vars["--color-fill-3"])!;
+    for (const at of [-25, -50, -100]) {
+      const veil = glassVeilAt(veilOf(t).a, at, parseColor(r.vars["--glass-tint-clear"])!.a);
+      for (const [c, min] of texts) assert.ok(worst(c, veil, bg) >= min, `${t.id} ${at}`);
+      // The tool bar: its icons on the bare glass, and the pointed or current one on the drop.
+      const onBar = glassVeilAt(bar, at);
+      assert.ok(worst(r.colors.foreground, onBar, bg) >= GRAPHIC && worst(r.colors.secondary, onBar, bg) >= GRAPHIC, `${t.id} bar ${at}`);
+      assert.ok(worst(r.colors.foreground, onBar, bg, fill3) >= GRAPHIC, `${t.id} drop ${at}`);
+    }
+  }
+});
+
+test("the tool bar's ink keeps 3:1 over its veil and the drop's fill", () => {
+  for (const t of BUILT_IN_THEMES) {
+    const r = resolveTheme(t), bg = r.colors.background, fill3 = parseColor(r.vars["--color-fill-3"])!;
+    const bar = parseColor(r.vars["--glass-tint-bar"])!.a;
+    const ink = glassInk(r, true);
+    assert.equal(Object.keys(ink).length, 18, t.id);
+    for (const [name, value] of Object.entries(ink)) {
+      const c = parseColor(value)!;
+      for (const at of [0, -100]) for (const top of [undefined, fill3]) assert.ok(worst(c, glassVeilAt(bar, at), bg, top) >= GRAPHIC, `${t.id} ${name} ${at}`);
+    }
+    assert.deepEqual(Object.keys(glassInk(r, false)), ["--color-link"], t.id);
+  }
+  // A colour that passes stays as written.
+  assert.equal(glassInk(resolveTheme(dark), true)["--hue-yellow"], "#ffe800");
 });

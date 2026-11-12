@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canvasBox, glassAllowed, lodFor, metaOk, parseTint, shapeUniform, snapshotLead, takes, textureMap, type GlassInput, type SnapshotMeta } from "./params.ts";
+import { canvasBox, dropLens, dropShape, glassAllowed, glassShape, lodFor, metaOk, parseTint, shapeUniform, snapshotLead, takes, textureMap, visiblePart, type GlassInput, type SnapshotMeta } from "./params.ts";
 
 const near = (a: readonly number[], b: readonly number[]) => assert.ok(a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-9), `${a} vs ${b}`);
 
 const BASE: GlassInput = {
-  on: true, windows: true, hangsFromTop: true, webgl: true,
+  on: true, windows: true, fits: true, webgl: true,
   forcedColors: false, contrastMore: false, reducedTransparency: false, saver: false,
   fullscreen: false, hidden: false, presenting: false, cover: false, dragging: false, editing: false,
 };
@@ -14,6 +14,18 @@ test("glass: on with everything it needs, off with any one thing missing or in t
   assert.equal(glassAllowed(BASE), true);
   // Each field flipped on its own: the four it needs turn false, the others turn true.
   for (const key of Object.keys(BASE) as (keyof GlassInput)[]) assert.equal(glassAllowed({ ...BASE, [key]: !BASE[key] }), false, key);
+});
+
+test("glass shape: the capsule anywhere, the notch and the line only on the top edge", () => {
+  assert.equal(glassShape("notch", "top"), true);
+  assert.equal(glassShape("notch", "left"), false);
+  assert.equal(glassShape("notch", "bottom"), false);
+  // The capsule floats on the top frame whatever edge the notch was docked to.
+  assert.equal(glassShape("capsule", "top"), true);
+  assert.equal(glassShape("capsule", "right"), true);
+  // At the edge or away from it, the line's open panel hangs from the top edge.
+  assert.equal(glassShape("line", "top"), true);
+  assert.equal(glassShape("line", "left"), false);
 });
 
 test("the copy is asked for ahead of the hover delay, once the pointer rests", () => {
@@ -49,12 +61,45 @@ test("texture map: a point of the canvas to the copy's uv", () => {
   near([textureMap({ left: 10, top: 0 }, 1, 2, { ...meta, x: 40 }).offset[0]], [map.offset[0] - 40 / 1520]);
   // The browser's CSS zoom (viewZoom): a CSS px of the shape covers 25 % more of the copy.
   near(textureMap({ left: 10, top: 0 }, 1.25, 2, meta).scale, [map.scale[0] * 1.25, map.scale[1] * 1.25]);
+  // The shape's top sprang since the canvas was read: a floating capsule's panel 58 px higher, at a 125 % panel scale.
+  near(textureMap({ left: 10, top: 0 }, 1, 2, meta, 0).offset, map.offset);
+  const risen = textureMap({ left: 10, top: 0 }, 1.25, 2, meta, -58);
+  near(risen.offset, [map.offset[0], map.offset[1] - (58 * 1.25 * 2) / 1120]);
+  near(risen.scale, [map.scale[0] * 1.25, map.scale[1] * 1.25]);
 });
 
-test("blur levels follow the scale, so the blur is the same in CSS px", () => {
+test("blur levels follow the scale, and Frost scales the middle's", () => {
   near(lodFor(2), [0.5, 2.9]);
   near(lodFor(1), [0, 1.9]);
   near(lodFor(4), [1.5, 3.9]);
+  near(lodFor(2, 200), [0.5, 3.9]);
+  near(lodFor(2, 50), [0.5, 1.9]);
+  near(lodFor(2, 0), [0.5, 0.5]);
+  near(lodFor(1, 25), [0, 0]);
+});
+
+test("the drop: the tool's box resting, a lens on the bar's bottom lifted, squashed by a press, stretched by speed", () => {
+  near(dropShape(42, 36, 40, 0, 0, 0), [20, 21, 18]);
+  near(dropShape(42, 36, 40, 1, 0, 0), [21.5, 24, 21.5]);
+  near(dropShape(42, 36, 40, 1, 1, 0), [18.275, 27.6, 18.275]);
+  // springs.rebound's deepest point after a click: taller than lifted, held to 1 px over it.
+  near(dropShape(42, 36, 40, 1, -0.254, 0), [22, 23.0856, 22]);
+  near(dropShape(42, 36, 40, 1, 0, 1000), [21.5, 28, 21.5]);
+  near(dropShape(0, 36, 40, 1, 0, 0), [0, 0, 0]);
+});
+
+test("the drop's lens follows Refraction", () => {
+  near(dropLens(100), [10, 1.15]);
+  near(dropLens(0), [0, 1]);
+  near(dropLens(200), [20, 1.3]);
+});
+
+test("the part of a button the drop covers", () => {
+  near(visiblePart({ left: 100, width: 42 }, 42, null), [121, 42]);
+  // Pressed (.pressable scales it to 0.94): the layout width about the same centre.
+  near(visiblePart({ left: 101.26, width: 39.48 }, 42, null), [121, 42]);
+  near(visiblePart({ left: 480, width: 42 }, 42, { left: 0, right: 500 }), [490, 20]);
+  near(visiblePart({ left: 520, width: 42 }, 42, { left: 0, right: 500 }), [500, 0]);
 });
 
 test("shape uniform: the body centred in the canvas", () => {

@@ -1,10 +1,17 @@
 // The glass's rules and numbers (src/notch/glass): pure, no DOM, so node --test runs them.
 
 import { PADDING } from "../geometry.ts";
+import type { Edge } from "../edge.ts";
 import { parseColor } from "../../features/themes/color.ts";
 
-/** band: the rim that bends (the panel's padding, so no content sits on it); lod: blur levels at scale 1 (lodFor); hair: the outline's strength. */
-export const GLASS = { band: PADDING, maxShift: 6, maxShiftReduced: 3, lodRim: -0.5, lodMid: 1.9, hairDark: 0.21, hairLight: 0.35 } as const;
+/** band: the rim that bends (the panel's padding, so no content sits on it but a floating panel's header, under its round top); lod: blur levels at scale 1 (lodFor); hair: the outline's strength. */
+export const GLASS = {
+  band: PADDING, maxShift: 6, maxShiftReduced: 3, lodRim: -0.5, lodMid: 1.9, hairDark: 0.21, hairLight: 0.35,
+  // The drop (bar.ts): lifted, this much wider and this far out of the bar's top; a press squashes it by this share; speed stretches it.
+  dropGrow: 6, dropRise: 3, squash: 0.15, stretch: 0.012, stretchMax: 8,
+  // Its lens at Refraction 100 %: the bend at its rim in px and the magnification, the icon's too.
+  dropShift: 10, dropMag: 0.15,
+} as const;
 /** The copy is asked for this long before the hover delay ends: a first peek after a while is estimated at 60-115 ms. */
 export const GLASS_LEAD_MS = 120;
 /** In hover mode: a pointer that only crosses the notch takes no copy. */
@@ -18,17 +25,25 @@ export const BUFFER_WAIT_MS = 1000;
 /** At the opening a copy older than this (a long peek in click mode) is taken again; the old one shows meanwhile. */
 export const SNAPSHOT_STALE_MS = 2000;
 
-/** Everything the glass depends on; the first four must hold, the rest turn it off. */
+/** Everything the glass depends on; the first four must hold, the rest turn it off. `fits`: glassShape for the look on screen. */
 export interface GlassInput {
-  on: boolean; windows: boolean; hangsFromTop: boolean; webgl: boolean;
+  on: boolean; windows: boolean; fits: boolean; webgl: boolean;
   forcedColors: boolean; contrastMore: boolean; reducedTransparency: boolean; saver: boolean;
   fullscreen: boolean; hidden: boolean; presenting: boolean; cover: boolean; dragging: boolean; editing: boolean;
 }
 
 /** Whether the glass may show now. Running on battery does not count: the glass costs at the opening, not at rest. */
 export function glassAllowed(i: GlassInput): boolean {
-  if (!i.on || !i.windows || !i.hangsFromTop || !i.webgl) return false;
+  if (!i.on || !i.windows || !i.fits || !i.webgl) return false;
   return !(i.forcedColors || i.contrastMore || i.reducedTransparency || i.saver || i.fullscreen || i.hidden || i.presenting || i.cover || i.dragging || i.editing);
+}
+
+/**
+ * Whether the open panel of a closed look can be glass: the capsule's, bridged to the top edge or floating, or one hanging from the top
+ * edge, from the notch or the line (also a line away from the edge: its panel hangs from it). The other edges keep the opaque panel.
+ */
+export function glassShape(style: "notch" | "capsule" | "line", edge: Edge): boolean {
+  return style === "capsule" || edge === "top";
 }
 
 /** How long the pointer rests on the notch before the copy is asked for. */
@@ -55,19 +70,52 @@ export interface SnapshotMeta { kind: "glass-backdrop"; seq: number; x: number; 
 
 /**
  * From a point of the canvas (CSS px of the shape) to the copy's texture: uv = p * scale + offset. `rect` is the canvas on the page,
- * `dpr` the device pixels per page px, `zoom` the panel scale the page applies itself (viewZoom: 1 in the app, where dpr has it).
+ * `dpr` the device pixels per page px, `zoom` the panel scale the page applies itself (viewZoom: 1 in the app, where dpr has it). `dy`:
+ * how far the shape's top has sprung since `rect` was read (CSS px of the shape), so the canvas is placed without reading the DOM.
  */
-export function textureMap(rect: { left: number; top: number }, zoom: number, dpr: number, meta: SnapshotMeta): { scale: [number, number]; offset: [number, number] } {
+export function textureMap(rect: { left: number; top: number }, zoom: number, dpr: number, meta: SnapshotMeta, dy = 0): { scale: [number, number]; offset: [number, number] } {
   return {
     scale: [(zoom * dpr) / meta.w, (zoom * dpr) / meta.h],
-    offset: [(rect.left * dpr - meta.x) / meta.w, (rect.top * dpr - meta.y) / meta.h],
+    offset: [(rect.left * dpr - meta.x) / meta.w, ((rect.top + dy * zoom) * dpr - meta.y) / meta.h],
   };
 }
 
-/** Blur levels at the rim and in the middle for device pixels per CSS px `scale`: the same blur in CSS px at every scale. */
-export function lodFor(scale: number): [number, number] {
-  const s = Math.log2(scale);
-  return [Math.max(0, s + GLASS.lodRim), s + GLASS.lodMid];
+/**
+ * Blur levels at the rim and in the middle for device pixels per CSS px `scale`: the same blur in CSS px at every scale. `frost` (%)
+ * scales the middle's blur radius; at 0 the middle is as sharp as the rim.
+ */
+export function lodFor(scale: number, frost = 100): [number, number] {
+  const s = Math.log2(scale), rim = Math.max(0, s + GLASS.lodRim);
+  return [rim, Math.max(rim, s + GLASS.lodMid + Math.log2(Math.max(frost, 1) / 100))];
+}
+
+/**
+ * The drop on the tool bar (bar.ts), CSS px: [its centre's height over the bar's bottom, half width, half height]; all 0 without a tool.
+ * Resting it is the tool's box (`w` x `h`, centred in the bar); lifted it stands on the bar's bottom, as tall as the bar and GLASS.dropRise
+ * more; a press squashes it down and wider, and springing back (springs.rebound) it overshoots up to 1 px over that; `speed` (px/s along
+ * the bar) stretches it.
+ */
+export function dropShape(w: number, h: number, barH: number, lift: number, press: number, speed: number): [number, number, number] {
+  if (w <= 0) return [0, 0, 0];
+  const wide = (w + GLASS.dropGrow * lift + Math.min(speed * GLASS.stretch, GLASS.stretchMax)) * (1 + GLASS.squash * press);
+  const tall = Math.min((h + (barH + GLASS.dropRise - h) * lift) * (1 - GLASS.squash * press), barH + GLASS.dropRise + 1);
+  return [((barH - h) / 2) * (1 - lift) + tall / 2, wide / 2, tall / 2];
+}
+
+/** The drop's lens for Refraction in %: [the bend at its rim in px, the magnification]; the icon under it grows by the same. */
+export function dropLens(refraction: number): [number, number] {
+  const k = refraction / 100;
+  return [GLASS.dropShift * k, 1 + GLASS.dropMag * k];
+}
+
+/**
+ * The part of a tool's button the drop covers, page px: [centre, width]. The layout width about the rect's centre (a press scales the
+ * rect, not its centre), cut to the strip's view while it scrolls; out of view, width 0 at the view's edge.
+ */
+export function visiblePart(rect: { left: number; width: number }, layoutWidth: number, view: { left: number; right: number } | null): [number, number] {
+  const mid = rect.left + rect.width / 2;
+  const left = Math.max(mid - layoutWidth / 2, view?.left ?? -Infinity), right = Math.min(mid + layoutWidth / 2, view?.right ?? Infinity);
+  return right > left ? [(left + right) / 2, right - left] : [Math.min(Math.max(mid, view?.left ?? mid), view?.right ?? mid), 0];
 }
 
 /** The shader's uShape: the body's left and right edge, its height and the ears, in a canvas `boxW` wide centred on it. */

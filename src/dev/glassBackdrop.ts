@@ -4,7 +4,7 @@ import { demo, showcase } from "./showcase-data";
  * Browser only: the screen behind the window for the glass (src/notch/glass/snapshot.ts), which the browser cannot copy. WebGL does not
  * see DesktopMock's DOM, so this draws the same desktop into an image (its gradient, the File Explorer window, the taskbar), and the
  * glass's bands carry on what is around them. ?glassBackdrop=stripes draws black and white diagonal stripes instead, to judge how the
- * rim bends. BGRA, like the copy from Rust.
+ * rim bends; ?glassBackdrop=light a white page of dark text, the worst backdrop for dark themes. BGRA, like the copy from Rust.
  */
 
 let last: { key: string; bytes: Uint8Array<ArrayBuffer> } | null = null;
@@ -20,6 +20,7 @@ export function fakeBackdrop(w: number, h: number, kind: string | null): Uint8Ar
   const scale = devicePixelRatio;
   ctx.scale(scale, scale);
   if (kind === "stripes") stripes(ctx, w / scale, h / scale);
+  else if (kind === "light") page(ctx, w / scale, h / scale);
   else desktop(ctx, w / scale, h / scale);
   const bytes = new Uint8Array(ctx.getImageData(0, 0, w, h).data.buffer);
   for (let i = 0; i < bytes.length; i += 4) {
@@ -86,4 +87,14 @@ function stripes(ctx: CanvasRenderingContext2D, W: number, H: number) {
   ctx.fillStyle = "#ffffff";
   ctx.transform(1, 0, 1, 1, 0, 0); // x + y: upright bands lean at 45°
   for (let x = -H; x < W; x += 16) ctx.fillRect(x, 0, 8, H);
+}
+
+/** A light page, like a document or a site: white with rows of dark text, the worst backdrop for dark themes. */
+function page(ctx: CanvasRenderingContext2D, W: number, H: number) {
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#202124";
+  ctx.font = `14px ${getComputedStyle(document.body).fontFamily}`;
+  ctx.textBaseline = "middle";
+  for (let y = 24; y < H; y += 22) ctx.fillText("The quick brown fox jumps over the lazy dog. ".repeat(6), 12, y);
 }
