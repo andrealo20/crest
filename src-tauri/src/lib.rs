@@ -533,10 +533,18 @@ pub fn run() {
             capture::glass_live::glass_live_supported,
             #[cfg(windows)]
             capture::glass_live::glass_live_exclude,
+            #[cfg(windows)]
+            capture::glass_live::glass_live_start,
+            #[cfg(windows)]
+            capture::glass_live::glass_live_stop,
             #[cfg(target_os = "macos")]
             macos::glass_live_supported,
             #[cfg(target_os = "macos")]
             macos::glass_live_exclude,
+            #[cfg(target_os = "macos")]
+            macos::glass_live_start,
+            #[cfg(target_os = "macos")]
+            macos::glass_live_stop,
             #[cfg(target_os = "macos")]
             macos::colour::colour_pick,
             agents::agents_list,

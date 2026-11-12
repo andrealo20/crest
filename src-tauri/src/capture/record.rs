@@ -87,12 +87,12 @@ unsafe impl Send for Recorder {}
 pub type OnEnd = Arc<dyn Fn(Option<&'static str>) + Send + Sync>;
 
 /// A COM out-parameter that came back empty although the call succeeded.
-fn out<T>(v: Option<T>) -> Result<T> {
+pub(super) fn out<T>(v: Option<T>) -> Result<T> {
     v.ok_or_else(|| windows::core::Error::from(E_POINTER))
 }
 
 /// The GPU, or WARP (software rendering) on machines without a usable one.
-unsafe fn d3d_device() -> Result<(ID3D11Device, ID3D11DeviceContext)> {
+pub(super) unsafe fn d3d_device() -> Result<(ID3D11Device, ID3D11DeviceContext)> {
     let mut last = None;
     for driver in [D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP] {
         let (mut device, mut context) = (None, None);

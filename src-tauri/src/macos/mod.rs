@@ -132,6 +132,14 @@ pub fn glass_live_exclude(on: bool) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+pub fn glass_live_start() -> Result<(), String> {
+    Err("unsupported".into())
+}
+
+#[tauri::command]
+pub fn glass_live_stop() {}
+
 /// Counts every change of the general pasteboard, like GetClipboardSequenceNumber (clipboard.rs).
 pub fn pasteboard_change_count() -> u32 {
     NSPasteboard::generalPasteboard().changeCount() as u32

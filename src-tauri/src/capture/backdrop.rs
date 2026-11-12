@@ -20,7 +20,7 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2Environment12, 
 use windows::core::{w, Interface, HSTRING, PWSTR};
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::Graphics::Dwm::DwmFlush;
-use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
+use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, HMONITOR, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
 use windows::Win32::UI::HiDpi::{SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
@@ -75,25 +75,12 @@ fn take(app: &AppHandle, window: &WebviewWindow, notch: isize, seq: u32) -> Resu
     unsafe {
         let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     }
-    let mut value = 0u32;
-    let mut size = std::mem::size_of::<u32>() as u32;
-    let read = unsafe {
-        RegGetValueW(
-            HKEY_CURRENT_USER,
-            crate::quick::PERSONALIZE,
-            w!("EnableTransparency"),
-            RRF_RT_REG_DWORD,
-            None,
-            Some(&mut value as *mut u32 as *mut _),
-            Some(&mut size),
-        )
-    };
     let remote = unsafe { GetSystemMetrics(SM_REMOTESESSION) } != 0;
-    if let Some(why) = refusal(crate::terminal::windows_build(), transparency_on(read.is_ok().then_some(value)), remote) {
+    if let Some(why) = refusal(crate::terminal::windows_build(), transparency(), remote) {
         return Err(why);
     }
     let notch = HWND(notch as *mut _);
-    let (win, monitor) = placement(notch).ok_or("no-window")?;
+    let (win, monitor, _) = placement(notch).ok_or("no-window")?;
     let (area, x, y) = copy_area(win, monitor).ok_or("no-window")?;
     let state = app.state::<CaptureState>();
     let dib = copy_without(notch, area, seq, || {
@@ -113,7 +100,7 @@ fn take(app: &AppHandle, window: &WebviewWindow, notch: isize, seq: u32) -> Resu
 }
 
 /// Why no copy can be taken now; None when it can.
-fn refusal(build: u32, transparency: bool, remote: bool) -> Option<&'static str> {
+pub(super) fn refusal(build: u32, transparency: bool, remote: bool) -> Option<&'static str> {
     if build < FIRST_BUILD {
         Some("old-windows")
     } else if !transparency {
@@ -125,13 +112,31 @@ fn refusal(build: u32, transparency: bool, remote: bool) -> Option<&'static str>
     }
 }
 
+/// Windows' transparency effects are on (Settings, Personalization, Colors).
+pub(super) fn transparency() -> bool {
+    let mut value = 0u32;
+    let mut size = std::mem::size_of::<u32>() as u32;
+    let read = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            crate::quick::PERSONALIZE,
+            w!("EnableTransparency"),
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut value as *mut u32 as *mut _),
+            Some(&mut size),
+        )
+    };
+    transparency_on(read.is_ok().then_some(value))
+}
+
 /// `EnableTransparency` as read: missing counts as on.
 fn transparency_on(value: Option<u32>) -> bool {
     value != Some(0)
 }
 
-/// The notch window and the monitor it is on, physical px; None while it is hidden.
-fn placement(notch: HWND) -> Option<(Rect, Rect)> {
+/// The notch window and the monitor it is on, physical px, with that monitor's handle; None while it is hidden.
+pub(super) fn placement(notch: HWND) -> Option<(Rect, Rect, HMONITOR)> {
     let rect = |r: RECT| Rect { x: r.left, y: r.top, w: r.right - r.left, h: r.bottom - r.top };
     unsafe {
         if !IsWindowVisible(notch).as_bool() {
@@ -139,8 +144,9 @@ fn placement(notch: HWND) -> Option<(Rect, Rect)> {
         }
         let mut win = RECT::default();
         GetWindowRect(notch, &mut win).ok()?;
+        let monitor = MonitorFromWindow(notch, MONITOR_DEFAULTTONEAREST);
         let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
-        GetMonitorInfoW(MonitorFromWindow(notch, MONITOR_DEFAULTTONEAREST), &mut info).as_bool().then(|| (rect(win), rect(info.rcMonitor)))
+        GetMonitorInfoW(monitor, &mut info).as_bool().then(|| (rect(win), rect(info.rcMonitor), monitor))
     }
 }
 
@@ -197,7 +203,7 @@ fn copy_without(notch: HWND, area: Rect, seq: u32, restore: impl FnOnce() -> Opt
 }
 
 /// On the main thread: a new shared buffer with the pixels, posted read only with `meta` to Crest's own page, then closed.
-fn share(webview: &PlatformWebview, pixels: &[u8], meta: &str) -> Result<(), &'static str> {
+pub(super) fn share(webview: &PlatformWebview, pixels: &[u8], meta: &str) -> Result<(), &'static str> {
     unsafe {
         let core = webview.controller().CoreWebView2().map_err(|_| "failed")?;
         let (Ok(env), Ok(view)) = (webview.environment().cast::<ICoreWebView2Environment12>(), core.cast::<ICoreWebView2_17>()) else {

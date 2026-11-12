@@ -97,8 +97,18 @@ static LOCKED: AtomicBool = AtomicBool::new(false);
 /// Shown on a remote client, or not shown at all (the console went to another session, the remote client disconnected).
 static REMOTE: AtomicBool = AtomicBool::new(false);
 
-/// What keeps the glass's live copy (capture/glass_live.rs) stopped, for the page as `status://session`. `asleep`: the screen off or
-/// the PC suspended, and for `standby::SETTLE` after it comes back.
+/// The session is locked.
+pub(crate) fn locked() -> bool {
+    LOCKED.load(Ordering::SeqCst)
+}
+
+/// The session is not on this PC's own screen.
+pub(crate) fn remote() -> bool {
+    REMOTE.load(Ordering::SeqCst)
+}
+
+/// What keeps the glass's live copy (capture/glass_live.rs) stopped, for the page as `status://session`. `asleep`: the
+/// screen off or the PC suspended, and for `standby::SETTLE` after it comes back.
 #[derive(Serialize, Clone, Copy, PartialEq, Default, Debug)]
 struct Session {
     locked: bool,
@@ -108,7 +118,12 @@ struct Session {
 
 impl Session {
     fn now() -> Session {
-        Session { locked: LOCKED.load(Ordering::SeqCst), remote: REMOTE.load(Ordering::SeqCst), asleep: crate::standby::settling() }
+        Session { locked: locked(), remote: remote(), asleep: crate::standby::settling() }
+    }
+
+    /// Why the live copy stops now, the first that holds; None when nothing stops it.
+    fn halts(self) -> Option<&'static str> {
+        [(self.asleep, "asleep"), (self.locked, "locked"), (self.remote, "remote")].into_iter().find_map(|(on, why)| on.then_some(why))
     }
 }
 
@@ -385,7 +400,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
     }
 }
 
-/// Sends the session state when it changed, and looks again once the screen has been back for `standby::SETTLE`.
+/// Sends the session state when it changed, stopping the live copy first when something takes the screen away, and looks
+/// again once the screen has been back for `standby::SETTLE`.
 fn session_changed(app: &AppHandle, hwnd: HWND, last: &mut Session) {
     let now = Session::now();
     if now.asleep && !crate::standby::asleep() {
@@ -393,6 +409,9 @@ fn session_changed(app: &AppHandle, hwnd: HWND, last: &mut Session) {
     }
     if now != *last {
         *last = now;
+        if let Some(why) = now.halts() {
+            crate::capture::glass_live::halt(app, why);
+        }
         let _ = app.emit("status://session", now);
     }
 }
@@ -705,6 +724,16 @@ mod tests {
     fn the_session_goes_to_the_page_as_three_flags() {
         let sent = serde_json::to_value(Session { locked: true, remote: false, asleep: true }).unwrap();
         assert_eq!(sent, serde_json::json!({ "locked": true, "remote": false, "asleep": true }));
+    }
+
+    #[test]
+    fn the_live_copy_stops_for_the_first_reason_that_holds() {
+        assert_eq!(Session::default().halts(), None);
+        assert_eq!(Session { locked: true, ..Default::default() }.halts(), Some("locked"));
+        assert_eq!(Session { remote: true, ..Default::default() }.halts(), Some("remote"));
+        assert_eq!(Session { asleep: true, ..Default::default() }.halts(), Some("asleep"));
+        assert_eq!(Session { locked: true, remote: true, asleep: true }.halts(), Some("asleep"));
+        assert_eq!(Session { locked: true, remote: true, asleep: false }.halts(), Some("locked"));
     }
 
     #[test]
