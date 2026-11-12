@@ -4,7 +4,7 @@ import { livePosition, media, type NowPlaying } from "../../platform/media";
 import { isNative } from "../../platform/native";
 import { demo } from "../../dev/showcase-data";
 import { settings } from "../../settings/store";
-import { LEAD, cacheKey, closedLine, foundOf, lineAt, lookupAllowed, lyricsOf, pickRecord, searchTerms, untilNext, withExtra, type Found, type LrclibRecord, type LyricLine, type Lyrics } from "./lrc";
+import { LEAD, cacheKey, closedIndex, closedLine, foundOf, lineAt, lookupAllowed, lyricsOf, pickRecord, searchTerms, untilNext, withExtra, type Found, type LrclibRecord, type LyricLine, type Lyrics } from "./lrc";
 import { createLyricsCache, type CacheEntry } from "./lyricsCache";
 import { enabledSources, firstFound, type LyricSourceId } from "./lyricSources";
 import { lang } from "../../i18n";
@@ -191,7 +191,8 @@ export function useLyricIndex(lines: { time: number }[] | null | undefined, np: 
 }
 
 /**
- * Text of the current line; null before the first line, in a gap, or without lyrics. With `show.translation` the line
+ * Text of the current line, for the closed notch: in a short pause the line before it (closedIndex); null before the
+ * first line, in a pause of SHORT_GAP or more, after the last line, or without lyrics. With `show.translation` the line
  * comes translated where its source has a translation, with `show.roman` in Latin letters where it has a
  * romanisation; otherwise as sung.
  */
@@ -200,7 +201,7 @@ export function useLyricLine(np: NowPlaying | null, enabled: boolean, show: { ro
   const translated = useOfflineTranslation(np, linesOf(useLyrics(np, enabled)), enabled && show.translation && offline);
   const lines = useRomanized(translated, enabled && show.roman);
   const i = useLyricIndex(lines, np);
-  return closedLine(lines && i >= 0 ? lines[i] : null, show);
+  return closedLine(lines && i >= 0 ? lines[closedIndex(lines, i)] : null, show);
 }
 
 const CJK = /[ぁ-ゖァ-ヺ㐀-䶿一-鿿가-힣]/;

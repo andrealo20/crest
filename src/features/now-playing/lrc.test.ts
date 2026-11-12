@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cacheKey, closedLine, foundOf, lineAt, lookupAllowed, lyricsOf, parseLrc, pickRecord, searchTerms, untilNext, withExtra } from "./lrc.ts";
+import { SHORT_GAP, cacheKey, closedIndex, closedLine, foundOf, lineAt, lookupAllowed, lyricsOf, parseLrc, pickRecord, searchTerms, untilNext, withExtra } from "./lrc.ts";
 
 test("parses stamps, repeats, offset and tags", () => {
   const lines = parseLrc("[ar:Someone]\n[ti:Song]\n[00:12.50]First\r\n[00:05.00][01:02.3]Chorus  again\n[00:20.000]\nno stamp\n[1:03:5]x");
@@ -132,4 +132,33 @@ test("the closed notch shows the line as sung, translated or romanised", () => {
   assert.equal(closedLine({ time: 1, text: "Hello" }, tr), "Hello");
   assert.equal(closedLine({ time: 1, text: "" }, roman), null);
   assert.equal(closedLine(null, tr), null);
+});
+
+test("a short pause keeps the line sung before it in the closed notch, a long one does not (issue #37)", () => {
+  const lines = [
+    { time: 5, text: "First" }, // 0
+    { time: 9, text: "" }, // 1: 3 s until Second
+    { time: 12, text: "Second" }, // 2
+    { time: 15, text: "" }, // 3: 15 s until Third
+    { time: 27, text: "" }, // 4: the same pause, 3 s before its end
+    { time: 30, text: "Third" }, // 5
+    { time: 34, text: "" }, // 6: two empty lines, 6 s in all
+    { time: 37, text: "" }, // 7
+    { time: 40, text: "Fourth" }, // 8
+    { time: 45, text: "" }, // 9: the end of the song
+  ];
+  assert.equal(closedIndex(lines, -1), -1);
+  assert.equal(closedIndex(lines, 0), 0);
+  assert.equal(closedIndex(lines, 1), 0);
+  assert.equal(closedIndex(lines, 3), 3);
+  // Measured from the pause's first empty line: the old line does not come back just before the next one.
+  assert.equal(closedIndex(lines, 4), 4);
+  assert.equal(closedIndex(lines, 6), 5);
+  assert.equal(closedIndex(lines, 7), 5);
+  assert.equal(closedIndex(lines, 9), 9);
+  // The intro has no line before it to keep.
+  assert.equal(closedIndex([{ time: 0, text: "" }, { time: 2, text: "First" }], 0), 0);
+  // A pause of exactly SHORT_GAP is a long one.
+  assert.equal(closedIndex([{ time: 0, text: "A" }, { time: 1, text: "" }, { time: 1 + SHORT_GAP, text: "B" }], 1), 1);
+  assert.equal(closedIndex([{ time: 0, text: "A" }, { time: 1, text: "" }, { time: SHORT_GAP, text: "B" }], 1), 0);
 });

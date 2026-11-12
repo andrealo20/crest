@@ -113,6 +113,24 @@ export function untilNext(lines: { time: number }[], index: number, t: number): 
   return next ? Math.max(0, next.time - t) : Infinity;
 }
 
+/** Seconds: a pause in the singing shorter than this keeps the line before it in the closed notch (issue #37). */
+export const SHORT_GAP = 10;
+
+/**
+ * The line the closed notch shows while line `i` is sung: the line itself, but in a pause (empty lines) shorter than
+ * SHORT_GAP the line sung before it, so a breath between two lines does not swap the row out and back. A pause runs
+ * from its first empty line to the next line with words; the intro and the end of the song have none to keep.
+ */
+export function closedIndex(lines: { time: number; text: string }[], i: number): number {
+  if (i < 0 || lines[i].text) return i;
+  let start = i;
+  while (start > 0 && !lines[start - 1].text) start--;
+  let end = i + 1;
+  while (end < lines.length && !lines[end].text) end++;
+  if (start === 0 || end === lines.length || lines[end].time - lines[start].time >= SHORT_GAP) return i;
+  return start - 1;
+}
+
 const NOISE = /\s*[([](?:official|lyrics?|audio|video|music|visuali[sz]er|hd|hq|4k|mv|m\/v)\b[^)\]]*[)\]]/gi;
 const NOT_AN_ARTIST = /^(?:google chrome|chrome|microsoft edge|edge|brave|firefox|opera|vivaldi|youtube)$/i;
 

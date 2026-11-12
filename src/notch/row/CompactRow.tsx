@@ -91,7 +91,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   // The title stays while paused, like the cover; it only scrolls while playing.
   const music = s.music;
   const lyric = useRememberedLyric(np, useLyricLine(np, (closed.parts.title && music.titleLyrics) || music.notchLyrics, { roman: music.closedRoman === true, translation: music.closedTranslation === true }));
-  // Lyric mode of the title part: the current line, the title before the first line, in gaps and without lyrics.
+  // Lyric mode of the title part: the current line, the title before the first line, in long pauses and without lyrics.
   const titleLyric = music.titleLyrics && lyric;
   const caption = titleLyric ? lyric : np ? trackCaption(np.title ?? "", np.artist ?? "") : "";
   // Lyrics in the closed notch: while a line is sung, cover and line (with a running timer or a Discord call) replace the row,
