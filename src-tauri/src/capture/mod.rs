@@ -5,6 +5,7 @@
 //! While a screenshot or screen recording is taken, Crest's own window is excluded from capture
 //! (WDA_EXCLUDEFROMCAPTURE), and only then, unless "Hide Crest from screen sharing" is on (sharing.rs): then it stays out.
 //! The glass's copy of the screen behind the notch (backdrop.rs) leaves out the notch window alone, through the same lock.
+//! While the live glass is on (glass_live.rs) the notch window stays out of every capture.
 //! Recording state goes to the frontend as `capture://state`. Find on screen (find.rs)
 //! reads the screens with OCR from in-memory copies.
 
@@ -12,6 +13,7 @@ mod audio;
 pub(crate) mod backdrop;
 pub(crate) mod eyedropper;
 pub(crate) mod find;
+pub(crate) mod glass_live;
 mod math;
 mod record;
 mod shot;
@@ -51,6 +53,8 @@ pub struct CaptureState {
     screen: AtomicBool,
     /// Screenshots and Find reads under way, each keeping Crest's windows out of capture.
     holds: AtomicUsize,
+    /// The live glass is switched on (glass_live.rs): the notch window stays out of capture until it is switched off.
+    live: AtomicBool,
 }
 
 impl CaptureState {
@@ -189,12 +193,14 @@ pub(crate) fn exclude_if_capturing(app: &AppHandle) {
 /// Every Crest window (the notch, the floating timer, ...) in or out of captures. "Out" ends at the user's choice
 /// (sharing.rs): with Hide Crest from screen sharing on, putting the windows back leaves them excluded.
 fn exclude(app: &AppHandle, on: bool) {
-    // The flag is read inside the pass: the end of a screenshot cannot put back an outdated one over the Hide Crest switch.
+    // The flags are read inside the pass: the end of a screenshot cannot put back an outdated one over the Hide Crest switch,
+    // nor the notch over the live glass.
     let _one = one_at_a_time();
-    let flag = affinity(on, crate::sharing::hidden());
-    for w in app.webview_windows().values() {
+    let hidden = crate::sharing::hidden();
+    let live = app.state::<CaptureState>().live.load(Ordering::SeqCst);
+    for (label, w) in app.webview_windows() {
         if let Ok(hwnd) = w.hwnd() {
-            let _ = unsafe { SetWindowDisplayAffinity(hwnd, flag) };
+            let _ = unsafe { SetWindowDisplayAffinity(hwnd, affinity(on || (live && label == "notch"), hidden)) };
         }
     }
 }

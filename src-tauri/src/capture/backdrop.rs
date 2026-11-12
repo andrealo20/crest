@@ -2,7 +2,7 @@
 //! as a WebView2 shared buffer when it asks for one, as the pointer rests on the notch.
 //!
 //! - The notch's capture flag goes through the same lock as `exclude`, and never back to WDA_NONE while a recording, a
-//!   screenshot or "Hide Crest from screen sharing" keeps the window out.
+//!   screenshot, "Hide Crest from screen sharing" or the live glass (glass_live.rs) keeps the window out.
 //! - No CAPTUREBLT, which makes the cursor flicker on every call. A DwmFlush between the flag and the copy makes a copy taken
 //!   before DWM applies the flag even less likely (none was seen without it); the live test below checks the exclusion.
 //! - One buffer per copy, closed right after the post: the page keeps its view until it releases it, and nothing here writes
@@ -60,11 +60,10 @@ struct GlassMeta {
 /// follows, but for a `timeout`: the main thread may still post it late.
 #[tauri::command]
 pub async fn glass_backdrop(seq: u32, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    let notch = NOTCH.get().copied().unwrap_or_else(|| own_hwnd(&window));
+    let notch = notch(&window);
     if notch == 0 {
         return Err("no-window".into());
     }
-    let _ = NOTCH.set(notch);
     LATEST.fetch_max(seq, Ordering::SeqCst);
     let done = tauri::async_runtime::spawn_blocking(move || take(&app, &window, notch, seq)).await.unwrap_or(Err("failed"));
     // Idle again once the newest request is through: a reloaded page counts from 1 again and must not look old.
@@ -97,7 +96,9 @@ fn take(app: &AppHandle, window: &WebviewWindow, notch: isize, seq: u32) -> Resu
     let (win, monitor) = placement(notch).ok_or("no-window")?;
     let (area, x, y) = copy_area(win, monitor).ok_or("no-window")?;
     let state = app.state::<CaptureState>();
-    let dib = copy_without(notch, area, seq, || restore_to(state.excluded(), state.holds.load(Ordering::SeqCst), crate::sharing::hidden()))?;
+    let dib = copy_without(notch, area, seq, || {
+        restore_to(state.excluded(), state.holds.load(Ordering::SeqCst), crate::sharing::hidden(), state.live.load(Ordering::SeqCst))
+    })?;
     let pixels = dib.pixels().to_vec();
     drop(dib);
     let meta =
@@ -149,9 +150,19 @@ fn copy_area(window: Rect, monitor: Rect) -> Option<(Rect, i32, i32)> {
     Some((area, area.x - window.x, area.y - window.y))
 }
 
-/// The flag the notch goes back to after the copy; None while a recording or a screenshot still holds it out.
-fn restore_to(recording: bool, holds: usize, hidden: bool) -> Option<WINDOW_DISPLAY_AFFINITY> {
-    (!recording && holds == 0).then(|| affinity(false, hidden))
+/// The notch window's handle, 0 when it cannot be read. Kept once read: `hwnd()` goes through the main thread.
+pub(super) fn notch(window: &WebviewWindow) -> isize {
+    let notch = NOTCH.get().copied().unwrap_or_else(|| own_hwnd(window));
+    if notch != 0 {
+        let _ = NOTCH.set(notch);
+    }
+    notch
+}
+
+/// The flag the notch goes back to after the copy; None while a recording, a screenshot or the live glass (glass_live.rs) still
+/// holds it out.
+pub(super) fn restore_to(recording: bool, holds: usize, hidden: bool, live: bool) -> Option<WINDOW_DISPLAY_AFFINITY> {
+    (!recording && holds == 0 && !live).then(|| affinity(false, hidden))
 }
 
 /// The screen under `area` without the window `notch`, through the same lock as `exclude`. No wait on the main thread in here.
@@ -255,10 +266,12 @@ mod tests {
 
     #[test]
     fn the_flag_goes_back_to_the_users_choice_unless_a_capture_holds_it() {
-        assert_eq!(restore_to(false, 0, false), Some(WDA_NONE));
-        assert_eq!(restore_to(false, 0, true), Some(WDA_EXCLUDEFROMCAPTURE));
-        assert_eq!(restore_to(true, 0, false), None);
-        assert_eq!(restore_to(false, 1, false), None);
+        assert_eq!(restore_to(false, 0, false, false), Some(WDA_NONE));
+        assert_eq!(restore_to(false, 0, true, false), Some(WDA_EXCLUDEFROMCAPTURE));
+        assert_eq!(restore_to(true, 0, false, false), None);
+        assert_eq!(restore_to(false, 1, false, false), None);
+        // The live glass keeps the notch out until it is switched off.
+        assert_eq!(restore_to(false, 0, false, true), None);
     }
 
     #[test]

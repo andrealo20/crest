@@ -116,6 +116,22 @@ pub fn privacy_state() -> serde_json::Value {
     serde_json::json!({ "mic": false, "camera": false, "screen": false })
 }
 
+/// The live glass (capture/glass_live.rs on Windows) does not run on a Mac: the page asks, hides the switch, and the rest answers
+/// as on a PC where it cannot run.
+#[tauri::command]
+pub fn glass_live_supported() -> serde_json::Value {
+    serde_json::json!({ "supported": false, "reason": "unsupported" })
+}
+
+#[tauri::command]
+pub fn glass_live_exclude(on: bool) -> Result<(), String> {
+    if on {
+        Err("unsupported".into())
+    } else {
+        Ok(())
+    }
+}
+
 /// Counts every change of the general pasteboard, like GetClipboardSequenceNumber (clipboard.rs).
 pub fn pasteboard_change_count() -> u32 {
     NSPasteboard::generalPasteboard().changeCount() as u32
