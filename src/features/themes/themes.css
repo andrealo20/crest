@@ -26,7 +26,7 @@
 @property --glass-tint-edge { syntax: "<color>"; inherits: true; initial-value: rgb(0 0 0 / 0.35); }
 @property --glass-rim { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.7); }
 @property --glass-tint-clear { syntax: "<color>"; inherits: true; initial-value: rgb(0 0 0 / 0.59); }
-@property --glass-tint-bar { syntax: "<color>"; inherits: true; initial-value: rgb(0 0 0 / 0.59); }
+@property --glass-tint-bar { syntax: "<color>"; inherits: true; initial-value: rgb(0 0 0 / 0.35); }
 @property --glass-orange { syntax: "<color>"; inherits: true; initial-value: #ff9f0a; }
 @property --glass-red { syntax: "<color>"; inherits: true; initial-value: #ff453a; }
 @property --glass-green { syntax: "<color>"; inherits: true; initial-value: #30d158; }

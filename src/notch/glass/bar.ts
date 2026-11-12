@@ -18,7 +18,7 @@ export const barBox = { x: motionValue(0), top: motionValue(0), w: motionValue(0
 export const drop = { x: motionValue(0), w: motionValue(0), h: motionValue(0), lift: motionValue(0), press: motionValue(0) };
 
 let ink: { theme: ResolvedTheme; hues: boolean; vars: Record<string, string> } | null = null;
-/** glassInk for the theme on screen, kept until it changes: with coloured icons it costs 3-4 ms, once per theme, not on every opening. */
+/** glassInk for the theme on screen, kept until it changes: worked out once per theme, not on every render of the Dock. */
 export function barInk(theme: ResolvedTheme, hues: boolean): Record<string, string> {
   if (ink?.theme !== theme || ink.hues !== hues) ink = { theme, hues, vars: glassInk(theme, hues) };
   return ink.vars;

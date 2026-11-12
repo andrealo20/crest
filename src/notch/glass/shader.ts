@@ -53,7 +53,7 @@ uniform vec4 uBrow;            // --notch-closed and HEADER_HEIGHT; -1 on a floa
 uniform vec4 uRim;             // --glass-rim, its strength times Rim light
 uniform float uHair;           // the outline, stronger on light themes
 uniform vec4 uBar;             // the tool bar's capsule: centre x and y, half width and height; half width 0: none
-uniform float uBarVeil;        // its veil after Transparency (--glass-tint-bar, never clearer)
+uniform float uBarVeil;        // its veil (--glass-tint-bar, the side bands'), which Transparency leaves as it is
 uniform vec4 uDrop;            // the drop on it: centre x and y, half width and height; half width 0: none
 uniform float uLift;           // the drop lifted into a lens, 0 to 1
 uniform vec4 uFill;            // --color-fill-3, the drop's tint
@@ -229,7 +229,7 @@ void main() {
 
   if (rim) {
     vec2 light = normalize(LIGHT);
-    // Not inside the bar: its icons keep the 3:1 its veil is worked out for.
+    // Not inside the bar: its ink is worked out over the veil alone (themes.ts glassInk).
     col *= 1.0 - SHADOW * exp(-inward / 5.0) * (0.55 + 0.45 * max(dot(g, -light), 0.0)) * (1.0 - inB);
     col += uRim.rgb * uRim.a * shine(g, slope, inward, band);
     col = mix(col, vec3(0.0), uHair * (1.0 - smoothstep(0.0, 1.0, inward * uDpr)));

@@ -1,7 +1,7 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck.Core/PanelThemes.cs, PanelThemes.Build.cs,
 // PanelThemes.Derive.cs and Themes/*.json (the palettes of One Dark Pro, GitHub, Dracula and Night Owl, all MIT, see docs/themes.md).
 
-import { BLACK, WHITE, contrast, ensureContrast, formatColor, isDark, luminance, mix, over, parseColor, toHex, withAlpha, type ContrastNeed, type Rgba } from "./color.ts";
+import { BLACK, WHITE, contrast, contrastScore, ensureContrast, formatColor, isDark, luminance, mix, over, parseColor, toHex, withAlpha, type ContrastNeed, type Rgba } from "./color.ts";
 
 /**
  * Panel themes. A theme names a few colours (THEME_KEYS); the rest of Crest's tokens follow from
@@ -79,7 +79,10 @@ export const FONT_NAMES: Record<FontId, string> = {
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
 /** Tertiary text (hints, inactive icons): Crest's own dark tertiary, white at 34 %, is 2.9:1 on black. */
 export const TERTIARY = 2.8;
-/** The glass's veil in the bands along the panel's sides, where Crest writes nothing: 35 %, the dimming Apple asks for under clear glass over bright content. */
+/**
+ * The glass's veil in the bands along the panel's sides, where Crest writes nothing, and under the tool bar: 35 %, the dimming Apple asks
+ * for under clear glass over bright content.
+ */
 export const GLASS_EDGE = 0.35;
 /** The glass's sliders' ends (Settings › Themes, under Glass); saved values are held to them. */
 export const GLASS_RANGE = { glassTransparency: [-100, 100], glassRefraction: [0, 200], glassFrost: [0, 200], glassRim: [0, 200] } as const;
@@ -285,8 +288,8 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
   // The clearest Transparency: 4.5:1 for the main text, 3:1 for labels (WCAG's minimum for large text and graphics); clearer, a label
   // can meet its backdrop at 1:1.
   const clearest = glassVeil(bg, [[colors.foreground, TEXT], [colors.secondary, GRAPHIC]]);
-  // The tool bar's glass (src/notch/glass/bar.ts): its icons keep 3:1, the pointed and current one on the drop's --color-fill-3 too.
-  const bar = Math.max(glassVeil(bg, [[colors.foreground, GRAPHIC], [colors.secondary, GRAPHIC]]), glassVeil(bg, [[colors.foreground, GRAPHIC]], fill[2]));
+  // The side bands' veil, and the tool bar's (src/notch/glass/bar.ts), which Transparency leaves as it is: its icons take glassInk.
+  const edge = formatColor(withAlpha(bg, Math.min(GLASS_EDGE, veil.a)));
   // The veil holds the three text levels only: under the glass, status text gets colours of its own, held to 4.5:1 over the veil's
   // darkest and lightest ends (Dark's red would drop to 3.4:1 over white), so neither the veil nor the panel's colours have to move.
   const glassStatus = (c: Rgba) => formatColor(ensureContrast(c, needs(TEXT, over(veil, BLACK), over(veil, WHITE))));
@@ -316,9 +319,9 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     "--theme-accent": formatColor(colors.accent),
     "--notch-closed": closedNotch ? formatColor(bg) : "#000000",
     "--glass-tint": formatColor(veil),
-    "--glass-tint-edge": formatColor(withAlpha(bg, Math.min(GLASS_EDGE, veil.a))),
+    "--glass-tint-edge": edge,
     "--glass-tint-clear": formatColor(withAlpha(bg, clearest)),
-    "--glass-tint-bar": formatColor(withAlpha(bg, bar)),
+    "--glass-tint-bar": edge,
     "--glass-rim": dark ? "rgb(255 255 255 / 0.7)" : "rgb(255 255 255 / 0.9)",
     "--glass-orange": glassStatus(colors.warning),
     "--glass-red": glassStatus(colors.critical),
@@ -336,15 +339,12 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
  * The glass lays the panel's background over the screen as a veil (src/notch/glass): the least opacity, in hundredths, at which every
  * text keeps its minimum over any backdrop. Grey backdrops from black to white span every luminance the veil can sit on; a text that
  * stays on one side of the veiled backdrop at both ends is at its worst at one of them, and one that changes side meets 1:1 in between.
- * `top`: a fill laid over the veil, the texts read on it (the tool bar's drop lays --color-fill-3); the stack still runs one way with
- * the backdrop, so black and white stay its ends.
  */
-export function glassVeil(background: Rgba, texts: readonly (readonly [Rgba, number])[], top?: Rgba): number {
+export function glassVeil(background: Rgba, texts: readonly (readonly [Rgba, number])[]): number {
   const side = (t: Rgba, under: Rgba) => Math.sign(luminance(over(t, under)) - luminance(under));
   for (let i = 0; i <= 100; i++) {
     const veil = withAlpha(background, i / 100);
-    const lay = (x: Rgba) => (top ? over(top, over(veil, x)) : over(veil, x));
-    const low = lay(BLACK), high = lay(WHITE);
+    const low = over(veil, BLACK), high = over(veil, WHITE);
     if (texts.every(([t, min]) => contrast(t, low) >= min && contrast(t, high) >= min && side(t, low) === side(t, high))) return i / 100;
   }
   return 1;
@@ -352,7 +352,7 @@ export function glassVeil(background: Rgba, texts: readonly (readonly [Rgba, num
 
 /**
  * The veil the Transparency slider gives (ThemeSettings.glassTransparency): 0 is `safe`, the theme's least readable veil; towards -100
- * it thickens to opaque, towards 100 it thins to `clearest`. The side bands and the tool bar pass only their own veil: never clearer.
+ * it thickens to opaque, towards 100 it thins to `clearest`. The side bands pass only their own veil: never clearer.
  */
 export function glassVeilAt(safe: number, transparency: number, clearest = safe): number {
   const t = Math.max(-100, Math.min(100, transparency)) / 100;
@@ -383,15 +383,17 @@ export type Hue = keyof typeof HUE_PALETTE;
 
 /**
  * The tool bar's colours over the glass (src/notch/glass/bar.ts): its veil is thinner than the panel's, so the update dot's link colour
- * and, with coloured icons, every hue are held to 3:1 over it and over the drop's fill, on any backdrop. Apart from resolveTheme: the
- * hues cost 3-4 ms, paid only while the bar shows them.
+ * and the icons, the current tool's mark and, with coloured icons, every hue take one ink. That veil is the side bands' (--glass-tint-bar),
+ * too thin for any colour to keep 3:1 over every backdrop, and a colour as light as some backdrop meets it at 1:1 (ensureContrast, held to
+ * the two ends only, would pick one). White, lighter than any backdrop, is at its worst over the lightest, black over the darkest, and no
+ * colour does better than the better of the two.
  */
 export function glassInk(theme: ResolvedTheme, hues: boolean): Record<string, string> {
   const veil = parseColor(theme.vars["--glass-tint-bar"])!, fill = parseColor(theme.vars["--color-fill-3"])!;
   const needs = [BLACK, WHITE].flatMap((x) => [over(veil, x), over(fill, over(veil, x))]).map((background) => ({ background, minimum: GRAPHIC }));
-  const ink = (name: string) => formatColor(ensureContrast(parseColor(theme.vars[name])!, needs));
-  const out: Record<string, string> = { "--color-link": ink("--color-link") };
-  if (hues) for (const hue of Object.keys(HUE_PALETTE)) out[`--hue-${hue}`] = ink(`--hue-${hue}`);
+  const ink = formatColor(contrastScore(WHITE, needs) >= contrastScore(BLACK, needs) ? WHITE : BLACK);
+  const out: Record<string, string> = { "--color-label": ink, "--color-label-2": ink, "--color-link": ink };
+  if (hues) for (const hue of Object.keys(HUE_PALETTE)) out[`--hue-${hue}`] = ink;
   return out;
 }
 

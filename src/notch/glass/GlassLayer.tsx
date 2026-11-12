@@ -130,13 +130,13 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     gl.uniform1f(u.uBand, GLASS.band);
     const look = settings.get().themes, reduced = live.current.reduced;
     // Covering, the veil at full strength hides the copy while --shape comes back. Else Transparency (themes.ts glassVeilAt): the
-    // content down to the theme's clearest, the side bands and the tool bar never clearer than their own.
+    // content down to the theme's clearest, the side bands never clearer than their own; the tool bar keeps its own.
     const veil = (safe: number, clearest?: number) => (covering ? 1 : glassVeilAt(safe, look.glassTransparency, clearest));
     gl.uniform1f(u.uMaxShift, ((reduced ? GLASS.maxShiftReduced : GLASS.maxShift) * look.glassRefraction) / 100);
     gl.uniform2f(u.uLod, ...lodFor(scale, look.glassFrost));
     gl.uniform4f(u.uVeil, t.tint[0], t.tint[1], t.tint[2], veil(t.tint[3], t.clear));
     gl.uniform1f(u.uVeilEdge, veil(t.edge));
-    gl.uniform1f(u.uBarVeil, veil(t.bar));
+    gl.uniform1f(u.uBarVeil, covering ? 1 : t.bar);
     gl.uniform1f(u.uDock, DOCK_HEIGHT);
     // The brow only on a panel hanging from the edge: a floating capsule's header keeps the theme's ink (Notch.tsx).
     gl.uniform4f(u.uBrow, t.brow[0], t.brow[1], t.brow[2], live.current.hangs ? HEADER_HEIGHT : -1);
