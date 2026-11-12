@@ -20,7 +20,7 @@ use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
-use windows::core::{implement, w, GUID, PCWSTR};
+use windows::core::{implement, w, GUID, PCWSTR, PWSTR};
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW, CM_Locate_DevNodeW, CM_GETIDLIST_FILTER_ENUMERATOR,
     CM_GETIDLIST_FILTER_PRESENT, CM_LOCATE_DEVNODE_NORMAL, CR_SUCCESS,
@@ -40,7 +40,10 @@ use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, 
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CAPITAL, VK_NUMLOCK};
 use windows::Win32::System::Power::{GetSystemPowerStatus, RegisterPowerSettingNotification, RegisterSuspendResumeNotification, POWERBROADCAST_SETTING, SYSTEM_POWER_STATUS};
-use windows::Win32::System::RemoteDesktop::{WTSRegisterSessionNotification, NOTIFY_FOR_THIS_SESSION};
+use windows::Win32::System::RemoteDesktop::{
+    WTSFreeMemory, WTSQuerySessionInformationW, WTSRegisterSessionNotification, WTSSessionInfoEx, NOTIFY_FOR_THIS_SESSION, WTSINFOEXW,
+    WTS_CURRENT_SERVER_HANDLE, WTS_CURRENT_SESSION, WTS_SESSIONSTATE_LOCK,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, GetSystemMetrics, KillTimer, PostMessageW, RegisterClassW, SetTimer, DEVICE_NOTIFY_WINDOW_HANDLE,
     HWND_MESSAGE, MSG, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND, PBT_POWERSETTINGCHANGE, SM_REMOTESESSION, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP,
@@ -92,6 +95,10 @@ static LOOP: AtomicIsize = AtomicIsize::new(0);
 const WM_SESSION: u32 = WM_APP + 7;
 /// Fires once the screen has been back for `standby::SETTLE`, when `asleep` turns false.
 const SETTLE_TIMER: usize = 3;
+/// Tries the session notifications again, which fail before the Remote Desktop services are up (RPC_S_INVALID_BINDING).
+const WTS_TIMER: usize = 4;
+const WTS_RETRY_MS: u32 = 5000;
+const WTS_TRIES: u32 = 12;
 /// Win+L or the lock after idle; set from the session notifications.
 static LOCKED: AtomicBool = AtomicBool::new(false);
 /// Shown on a remote client, or not shown at all (the console went to another session, the remote client disconnected).
@@ -200,10 +207,23 @@ fn run(app: AppHandle) {
         }
         // Registering sends nothing: a Crest started inside a remote session reads it here.
         REMOTE.store(GetSystemMetrics(SM_REMOTESESSION) != 0, Ordering::SeqCst);
-        if let Err(e) = WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION) {
-            eprintln!("sysevents: session notification failed: {e}");
+        let mut wts_tries = 0;
+        if !watch_session(hwnd) {
+            SetTimer(Some(hwnd), WTS_TIMER, WTS_RETRY_MS, None);
         }
         let mut session = Session::now();
+        // The live copy stops and the page hears of it off this loop, which must not wait for a start meanwhile (the screen
+        // going off comes here); one thread, so the events keep their order.
+        let (to_page, changes) = std::sync::mpsc::channel::<Session>();
+        let page = app.clone();
+        thread::spawn(move || {
+            for now in changes {
+                if let Some(why) = now.halts() {
+                    crate::capture::glass_live::halt(&page, why);
+                }
+                let _ = page.emit("status://session", now);
+            }
+        });
 
         let h = hwnd.0 as isize;
         let handler = NetworkStatusChangedEventHandler::new(move |_| {
@@ -262,10 +282,17 @@ fn run(app: AppHandle) {
                         let _ = app.emit("status://net", serde_json::json!({ "online": now }));
                     }
                 }
-                WM_SESSION => session_changed(&app, hwnd, &mut session),
+                WM_SESSION => session_changed(hwnd, &mut session, &to_page),
                 WM_TIMER if msg.wParam.0 == SETTLE_TIMER => {
                     let _ = KillTimer(Some(hwnd), SETTLE_TIMER);
-                    session_changed(&app, hwnd, &mut session);
+                    session_changed(hwnd, &mut session, &to_page);
+                }
+                WM_TIMER if msg.wParam.0 == WTS_TIMER => {
+                    wts_tries += 1;
+                    if watch_session(hwnd) || wts_tries >= WTS_TRIES {
+                        let _ = KillTimer(Some(hwnd), WTS_TIMER);
+                        session_changed(hwnd, &mut session, &to_page);
+                    }
                 }
                 WM_BT if watcher.is_some() => {
                     enumerated |= msg.wParam.0 == 1;
@@ -400,19 +427,37 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
     }
 }
 
-/// Sends the session state when it changed, stopping the live copy first when something takes the screen away, and looks
-/// again once the screen has been back for `standby::SETTLE`.
-fn session_changed(app: &AppHandle, hwnd: HWND, last: &mut Session) {
+/// Sends the session state on to the page when it changed, the live copy stopping first when something takes the screen
+/// away, and looks again once the screen has been back for `standby::SETTLE`.
+fn session_changed(hwnd: HWND, last: &mut Session, to_page: &std::sync::mpsc::Sender<Session>) {
     let now = Session::now();
     if now.asleep && !crate::standby::asleep() {
         unsafe { SetTimer(Some(hwnd), SETTLE_TIMER, crate::standby::SETTLE.as_millis() as u32 + 100, None) };
     }
     if now != *last {
         *last = now;
-        if let Some(why) = now.halts() {
-            crate::capture::glass_live::halt(app, why);
+        let _ = to_page.send(now);
+    }
+}
+
+/// The session notifications, and whether the session is locked now, which registering does not send (a Crest restarted
+/// while the PC is locked). False when registering failed.
+fn watch_session(hwnd: HWND) -> bool {
+    unsafe {
+        if let Err(e) = WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION) {
+            eprintln!("sysevents: session notification failed: {e}");
+            return false;
         }
-        let _ = app.emit("status://session", now);
+        let (mut info, mut size) = (PWSTR::null(), 0u32);
+        if WTSQuerySessionInformationW(Some(WTS_CURRENT_SERVER_HANDLE), WTS_CURRENT_SESSION, WTSSessionInfoEx, &mut info, &mut size).is_ok() {
+            // Only the flags: the rest names the user and the domain.
+            let ex = &*(info.0 as *const WTSINFOEXW);
+            if ex.Level == 1 {
+                LOCKED.store(ex.Data.WTSInfoExLevel1.SessionFlags == WTS_SESSIONSTATE_LOCK as i32, Ordering::SeqCst);
+            }
+            WTSFreeMemory(info.0 as _);
+        }
+        true
     }
 }
 
