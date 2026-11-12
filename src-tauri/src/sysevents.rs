@@ -9,6 +9,8 @@
 //! so registering it is silent too; changes Crest makes itself carry `controls::OWN_CHANGE` and are skipped.
 //! Caps Lock and Num Lock have no change event short of a keyboard hook, so a small thread reads them every `LOCK_POLL` while their alert is on and can show.
 //! The Bluetooth watcher and the volume callback run only while their alerts are on (`status_configure`).
+//! The session's lock and its move to a remote client or away from the console come as WM_WTSSESSION_CHANGE; with the
+//! screen and sleep state they go to the page as `status://session`, which the glass's live copy waits on.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicUsize, Ordering};
@@ -38,9 +40,11 @@ use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, 
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CAPITAL, VK_NUMLOCK};
 use windows::Win32::System::Power::{GetSystemPowerStatus, RegisterPowerSettingNotification, RegisterSuspendResumeNotification, POWERBROADCAST_SETTING, SYSTEM_POWER_STATUS};
+use windows::Win32::System::RemoteDesktop::{WTSRegisterSessionNotification, NOTIFY_FOR_THIS_SESSION};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, KillTimer, PostMessageW, RegisterClassW, SetTimer, DEVICE_NOTIFY_WINDOW_HANDLE,
-    HWND_MESSAGE, MSG, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND, PBT_POWERSETTINGCHANGE, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_POWERBROADCAST, WM_TIMER, WNDCLASSW,
+    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, GetSystemMetrics, KillTimer, PostMessageW, RegisterClassW, SetTimer, DEVICE_NOTIFY_WINDOW_HANDLE,
+    HWND_MESSAGE, MSG, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND, PBT_POWERSETTINGCHANGE, SM_REMOTESESSION, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP,
+    WM_POWERBROADCAST, WM_TIMER, WM_WTSSESSION_CHANGE, WNDCLASSW, WTS_CONSOLE_CONNECT, WTS_CONSOLE_DISCONNECT, WTS_REMOTE_CONNECT, WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
 };
 
 // Not in the enabled features; values from winnt.h.
@@ -84,6 +88,29 @@ const SRC_VOLUME: usize = 2;
 static SOURCES: AtomicUsize = AtomicUsize::new(SRC_BT | SRC_VOLUME);
 /// The loop's window, 0 until it exists.
 static LOOP: AtomicIsize = AtomicIsize::new(0);
+/// The session was locked or unlocked, moved to or from a remote client, or the screen or sleep state changed.
+const WM_SESSION: u32 = WM_APP + 7;
+/// Fires once the screen has been back for `standby::SETTLE`, when `asleep` turns false.
+const SETTLE_TIMER: usize = 3;
+/// Win+L or the lock after idle; set from the session notifications.
+static LOCKED: AtomicBool = AtomicBool::new(false);
+/// Shown on a remote client, or not shown at all (the console went to another session, the remote client disconnected).
+static REMOTE: AtomicBool = AtomicBool::new(false);
+
+/// What keeps the glass's live copy (capture/glass_live.rs) stopped, for the page as `status://session`. `asleep`: the screen off or
+/// the PC suspended, and for `standby::SETTLE` after it comes back.
+#[derive(Serialize, Clone, Copy, PartialEq, Default, Debug)]
+struct Session {
+    locked: bool,
+    remote: bool,
+    asleep: bool,
+}
+
+impl Session {
+    fn now() -> Session {
+        Session { locked: LOCKED.load(Ordering::SeqCst), remote: REMOTE.load(Ordering::SeqCst), asleep: crate::standby::settling() }
+    }
+}
 
 #[derive(Serialize, Clone, Copy, PartialEq)]
 pub struct Power {
@@ -156,6 +183,12 @@ fn run(app: AppHandle) {
         if let Err(e) = RegisterSuspendResumeNotification(HANDLE(hwnd.0), DEVICE_NOTIFY_WINDOW_HANDLE) {
             eprintln!("sysevents: suspend notification failed: {e}");
         }
+        // Registering sends nothing: a Crest started inside a remote session reads it here.
+        REMOTE.store(GetSystemMetrics(SM_REMOTESESSION) != 0, Ordering::SeqCst);
+        if let Err(e) = WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION) {
+            eprintln!("sysevents: session notification failed: {e}");
+        }
+        let mut session = Session::now();
 
         let h = hwnd.0 as isize;
         let handler = NetworkStatusChangedEventHandler::new(move |_| {
@@ -213,6 +246,11 @@ fn run(app: AppHandle) {
                         seed().online = now;
                         let _ = app.emit("status://net", serde_json::json!({ "online": now }));
                     }
+                }
+                WM_SESSION => session_changed(&app, hwnd, &mut session),
+                WM_TIMER if msg.wParam.0 == SETTLE_TIMER => {
+                    let _ = KillTimer(Some(hwnd), SETTLE_TIMER);
+                    session_changed(&app, hwnd, &mut session);
                 }
                 WM_BT if watcher.is_some() => {
                     enumerated |= msg.wParam.0 == 1;
@@ -328,9 +366,34 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                 PBT_APMRESUMEAUTOMATIC | PBT_APMRESUMESUSPEND => crate::standby::set_suspended(false),
                 _ => {}
             }
+            // The loop compares with what it last sent: a battery change sends nothing there.
+            let _ = PostMessageW(Some(hwnd), WM_SESSION, WPARAM(0), LPARAM(0));
             return LRESULT(1);
         }
+        if msg == WM_WTSSESSION_CHANGE {
+            match wparam.0 as u32 {
+                WTS_SESSION_LOCK => LOCKED.store(true, Ordering::SeqCst),
+                WTS_SESSION_UNLOCK => LOCKED.store(false, Ordering::SeqCst),
+                WTS_REMOTE_CONNECT | WTS_CONSOLE_DISCONNECT => REMOTE.store(true, Ordering::SeqCst),
+                WTS_CONSOLE_CONNECT => REMOTE.store(false, Ordering::SeqCst),
+                _ => {}
+            }
+            let _ = PostMessageW(Some(hwnd), WM_SESSION, WPARAM(0), LPARAM(0));
+            return LRESULT(0);
+        }
         DefWindowProcW(hwnd, msg, wparam, lparam)
+    }
+}
+
+/// Sends the session state when it changed, and looks again once the screen has been back for `standby::SETTLE`.
+fn session_changed(app: &AppHandle, hwnd: HWND, last: &mut Session) {
+    let now = Session::now();
+    if now.asleep && !crate::standby::asleep() {
+        unsafe { SetTimer(Some(hwnd), SETTLE_TIMER, crate::standby::SETTLE.as_millis() as u32 + 100, None) };
+    }
+    if now != *last {
+        *last = now;
+        let _ = app.emit("status://session", now);
     }
 }
 
@@ -636,6 +699,12 @@ mod tests {
     fn power_carries_the_saver_to_the_page() {
         let sent = serde_json::to_value(Power { ac: true, percent: Some(50), battery: true, charging: false, saver: true }).unwrap();
         assert_eq!(sent["saver"], true);
+    }
+
+    #[test]
+    fn the_session_goes_to_the_page_as_three_flags() {
+        let sent = serde_json::to_value(Session { locked: true, remote: false, asleep: true }).unwrap();
+        assert_eq!(sent, serde_json::json!({ "locked": true, "remote": false, "asleep": true }));
     }
 
     #[test]
