@@ -476,6 +476,7 @@
  "Ablehnen": "अस्वीकार करें",
  "Schlüssel eintragen": "कुंजी जोड़ें",
  "Schlüssel liegen in der Windows-Anmeldeinformationsverwaltung. Alles bleibt auf diesem PC.": "कुंजियाँ Windows क्रेडेंशियल प्रबंधक में रखी जाती हैं। सब कुछ इसी PC पर रहता है।",
+ "Schlüssel liegen im Schlüsselbund des Desktops (GNOME-Schlüsselbund, KWallet oder KeePassXC). Alles bleibt auf diesem Computer.": "कुंजियाँ डेस्कटॉप की कीरिंग (GNOME कीरिंग, KWallet या KeePassXC) में रखी जाती हैं। सब कुछ इसी कंप्यूटर पर रहता है।",
  "Schlüssel ungültig – bitte neu eintragen.": "अमान्य कुंजी: कृपया इसे फिर से दर्ज करें।",
  "Schnee": "बर्फ़",
  "Schnell": "तेज़",

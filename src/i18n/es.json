@@ -476,6 +476,7 @@
  "Ablehnen": "Denegar",
  "Schlüssel eintragen": "Añadir clave",
  "Schlüssel liegen in der Windows-Anmeldeinformationsverwaltung. Alles bleibt auf diesem PC.": "Las claves se guardan en el Administrador de credenciales de Windows. Todo se queda en este PC.",
+ "Schlüssel liegen im Schlüsselbund des Desktops (GNOME-Schlüsselbund, KWallet oder KeePassXC). Alles bleibt auf diesem Computer.": "Las claves se guardan en el llavero del escritorio (GNOME Keyring, KWallet o KeePassXC). Todo se queda en este equipo.",
  "Schlüssel ungültig – bitte neu eintragen.": "Clave no válida: vuelve a introducirla.",
  "Schnee": "Nieve",
  "Schnell": "Rápido",

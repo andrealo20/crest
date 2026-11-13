@@ -107,7 +107,7 @@ import { between, changelog, markSeen, useUnseen } from "../../lib/changelog";
 import { privacy, togglePresentation, usePresenting } from "../privacy/store";
 import { english, language, LANGUAGE_NAMES, LANGUAGES, t, tBackend, type LanguageSetting } from "../../i18n";
 import { ChangelogList } from "../whatsnew/ChangelogList";
-import { isMac } from "../../platform/native";
+import { isMac, noWinApis, isLinux } from "../../platform/native";
 import { ThemeSettings } from "../themes/ThemeSettings";
 import { HideFromSharingRow } from "../meeting/HideFromSharingRow";
 import { hueVar, useIconColors, type Hue } from "../themes/hues";
@@ -330,7 +330,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const pomeloPages = usePomeloPages();
   // Plugin pages are served over http://crestplugin.localhost, which only works on Windows, and live notices have no Mac
   // version (the tool is in WINDOWS_ONLY, src/notch/tabs.ts). The Taskbar's pages show only where the bar can run.
-  const pages = [...allPages.filter((p) => (scopeOf(p.id) === "taskbar" ? taskbarShown : !(isMac && (p.id === "plugins" || p.id === "notices")))), ...pomeloPages];
+  const pages = [...allPages.filter((p) => (scopeOf(p.id) === "taskbar" ? taskbarShown : !(noWinApis && (p.id === "plugins" || p.id === "notices")))), ...pomeloPages];
   // A page the list does not show (the Taskbar's, once they hide; a schema page not loaded yet) falls back to its scope's first, then General.
   const page = pages.some((p) => p.id === saved[saved.scope]) ? saved[saved.scope] : (pages.find((p) => scopeOf(p.id) === saved.scope)?.id ?? "general");
   const info = pages.find((p) => p.id === page) ?? allPages[0];
@@ -785,7 +785,7 @@ function PageContent({ page }: { page: PageId }) {
       {page === "tools" && (
         <>
           <Tools />
-          {!isMac && <SystemSettings />}
+          {!noWinApis && <SystemSettings />}
           {findTab("vault") && <VaultSettings />}
           <ProductivitySettings />
           <ScreenTimeSettings />
@@ -1005,7 +1005,7 @@ function KeysNote() {
   return (
     <div className="flex items-start gap-1.5 px-3 pb-1 text-caption text-label-4">
       <LockSimple size={11} weight="bold" className="mt-0.5 shrink-0" />
-      {isMac ? t("Schlüssel liegen im Schlüsselbund von macOS. Alles bleibt auf diesem Mac.") : t("Schlüssel liegen in der Windows-Anmeldeinformationsverwaltung. Alles bleibt auf diesem PC.")}
+      {isMac ? t("Schlüssel liegen im Schlüsselbund von macOS. Alles bleibt auf diesem Mac.") : isLinux ? t("Schlüssel liegen im Schlüsselbund des Desktops (GNOME-Schlüsselbund, KWallet oder KeePassXC). Alles bleibt auf diesem Computer.") : t("Schlüssel liegen in der Windows-Anmeldeinformationsverwaltung. Alles bleibt auf diesem PC.")}
     </div>
   );
 }
@@ -1160,7 +1160,7 @@ export function ShortcutRow({ icon }: { icon?: RowSymbol }) {
 function General() {
   const s = settings.use();
   const [auto, setAuto] = useState<boolean | null>(null);
-  const autostartLabel = isMac ? t("Bei der Anmeldung öffnen") : t("Mit Windows starten");
+  const autostartLabel = noWinApis ? t("Bei der Anmeldung öffnen") : t("Mit Windows starten");
   const [autoError, setAutoError] = useState<string | null>(null);
   useEffect(() => {
     void autostart.get().then(setAuto);
@@ -1254,7 +1254,7 @@ function Display() {
   const d = s.display;
   const fpsError = fps.use().error;
   // The unlock row shows once the counter has answered "no-admin", so ask while gaming mode is on, not only when a game is up.
-  useFpsPolling(!isMac && s.gaming.mode !== "off");
+  useFpsPolling(!noWinApis && s.gaming.mode !== "off");
   const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
   useEffect(() => {
     void display.monitors().then(setMonitors);
@@ -1281,7 +1281,7 @@ function Display() {
               }))
             }
             options={[
-              ...(isMac ? [] : [{ value: "follow", label: t("Dem Mauszeiger folgen") }, { value: "all", label: t("Alle Monitore") }]),
+              ...(noWinApis ? [] : [{ value: "follow", label: t("Dem Mauszeiger folgen") }, { value: "all", label: t("Alle Monitore") }]),
               ...monitors.map((m, i) => ({ value: m.name, label: label(m, i) })),
             ]}
           />
@@ -1308,7 +1308,7 @@ function Display() {
         <Switch label={t("Hinweis bei Kontingent 70 und 90 %")} checked={s.closed.quotaAlerts} onChange={(quotaAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, quotaAlerts } }))} />
       </Row>
       {/* The download watcher and the status events (power, network, Bluetooth, volume, brightness, lock keys) have no Mac backend. */}
-      {!isMac && (
+      {!noWinApis && (
         <>
           <Row icon="download_done" label={t("Hinweis bei fertigem Download")} hint={t("Mit Im Ordner zeigen und Zur Ablage, nicht in den Ruhezeiten")}>
             <Switch label={t("Hinweis bei fertigem Download")} checked={s.closed.downloadAlerts} onChange={(downloadAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, downloadAlerts } }))} />
@@ -1343,7 +1343,7 @@ function Display() {
         </Row>
       )}
       {/* Hardware readings and FPS have no Mac backend yet. */}
-      {!isMac && (
+      {!noWinApis && (
         <>
           <Row icon="sports_esports"
             label={t("Gaming-Modus")}
@@ -1371,7 +1371,7 @@ function Display() {
         </>
       )}
       {/* macOS shows its own recording dots, and Crest cannot read the state there. */}
-      {!isMac && (
+      {!noWinApis && (
         <Row icon="fiber_manual_record" label={t("Aufnahme-Punkte")} hint={t("Grün: Mikrofon/Kamera aktiv · Rot: Bildschirm wird aufgenommen")}>
           <Switch label={t("Aufnahme-Punkte")} checked={s.privacyDots} onChange={(privacyDots) => updateSettings({ privacyDots })} />
         </Row>
@@ -1478,7 +1478,7 @@ function ClosedParts() {
   // Only these always show; battery, power and temperature can be missing, so they cannot keep the part alone. The network
   // counts too, so the part can show only the download and upload speed (issue #11).
   const mainReadings = ["cpu", "ram", "gpu", "net"] as const;
-  const shown = c.order.filter((id) => !BAR_ONLY.includes(id) && !(isMac && NO_MAC_PARTS.has(id)));
+  const shown = c.order.filter((id) => !BAR_ONLY.includes(id) && !(noWinApis && NO_MAC_PARTS.has(id)));
   const readingsOn = mainReadings.filter((k) => c.readings[k]).length;
   const iconColors = useIconColors();
   // What a part shows nothing without; the part itself says so while it is on.
@@ -1562,7 +1562,7 @@ function Presentation() {
       >
         <Switch label={t("Präsentationsmodus")} checked={presenting} onChange={togglePresentation} />
       </Row>
-      {!isMac && (
+      {!noWinApis && (
         <Row icon="screen_record" label={t("Bei Bildschirmaufnahme")} hint={t("Teams, Discord, OBS … schaltet sich danach wieder ab")}>
           <Switch
             label={t("Bei Bildschirmaufnahme")}
@@ -1574,7 +1574,8 @@ function Presentation() {
       {auto && recording && !presenting && (
         <Row icon="stop_screen_share" label={t("Für diese Aufnahme aus")} hint={t("Schaltet sich bei der nächsten wieder ein")} />
       )}
-      <HideFromSharingRow />
+      {/* Linux can't keep a window out of what other apps capture. */}
+      {!isLinux && <HideFromSharingRow />}
     </Group>
   );
 }

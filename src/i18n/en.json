@@ -476,6 +476,7 @@
  "Ablehnen": "Deny",
  "Schlüssel eintragen": "Add key",
  "Schlüssel liegen in der Windows-Anmeldeinformationsverwaltung. Alles bleibt auf diesem PC.": "Keys are stored in Windows Credential Manager. Everything stays on this PC.",
+ "Schlüssel liegen im Schlüsselbund des Desktops (GNOME-Schlüsselbund, KWallet oder KeePassXC). Alles bleibt auf diesem Computer.": "Keys are stored in the desktop's keyring (GNOME Keyring, KWallet or KeePassXC). Everything stays on this computer.",
  "Schlüssel ungültig – bitte neu eintragen.": "Invalid key: please enter it again.",
  "Schnee": "Snow",
  "Schnell": "Fast",

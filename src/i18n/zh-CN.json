@@ -476,6 +476,7 @@
  "Ablehnen": "拒绝",
  "Schlüssel eintragen": "添加密钥",
  "Schlüssel liegen in der Windows-Anmeldeinformationsverwaltung. Alles bleibt auf diesem PC.": "密钥保存在 Windows 凭据管理器中。所有数据都留在此电脑上。",
+ "Schlüssel liegen im Schlüsselbund des Desktops (GNOME-Schlüsselbund, KWallet oder KeePassXC). Alles bleibt auf diesem Computer.": "密钥保存在桌面的密钥环中（GNOME 密钥环、KWallet 或 KeePassXC）。所有数据都留在这台电脑上。",
  "Schlüssel ungültig – bitte neu eintragen.": "密钥无效：请重新输入。",
  "Schnee": "雪",
  "Schnell": "快",
