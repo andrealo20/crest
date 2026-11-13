@@ -100,15 +100,23 @@ export function lodFor(scale: number, frost = 100): [number, number] {
 
 /**
  * The drop on the tool bar (bar.ts), CSS px: [its centre's height over the bar's bottom, half width, half height]; all 0 without a tool.
- * Resting it is the tool's box (`w` x `h`, centred in the bar); lifted it stands on the bar's bottom, as tall as the bar and GLASS.dropRise
- * more; a press squashes it down and wider, and springing back (springs.rebound) it overshoots up to 1 px over that; `speed` (px/s along
- * the bar) stretches it.
+ * Resting it is the tool's box (`w` x `h`, centred in the bar); lifted it stands on the bar's bottom, as tall as the bar and `rise` more
+ * (0 without the glass); a press squashes it down and wider, and springing back (springs.rebound) it overshoots up to 1 px over that;
+ * `speed` (px/s along the bar) stretches it.
  */
-export function dropShape(w: number, h: number, barH: number, lift: number, press: number, speed: number): [number, number, number] {
+export function dropShape(w: number, h: number, barH: number, lift: number, press: number, speed: number, rise: number = GLASS.dropRise): [number, number, number] {
   if (w <= 0) return [0, 0, 0];
   const wide = (w + GLASS.dropGrow * lift + Math.min(speed * GLASS.stretch, GLASS.stretchMax)) * (1 + GLASS.squash * press);
-  const tall = Math.min((h + (barH + GLASS.dropRise - h) * lift) * (1 - GLASS.squash * press), barH + GLASS.dropRise + 1);
+  const tall = Math.min((h + (barH + rise - h) * lift) * (1 - GLASS.squash * press), barH + rise + 1);
   return [((barH - h) / 2) * (1 - lift) + tall / 2, wide / 2, tall / 2];
+}
+
+/**
+ * The drop without the glass (bar.ts usePlainDrop): the transform that takes a box `baseW` x `baseH`, its left edge on the bar's centre
+ * and its bottom on the bar's, to what dropShape gives, with its centre `dx` from the bar's.
+ */
+export function dropTransform(dx: number, [up, hw, hh]: readonly [number, number, number], baseW: number, baseH: number): string {
+  return `translate(${dx - baseW / 2}px, ${baseH / 2 - up}px) scale(${(2 * hw) / baseW}, ${(2 * hh) / baseH})`;
 }
 
 /** The drop's lens for Refraction in %: [the bend at its rim in px, the magnification]; the icon under it grows by the same. */

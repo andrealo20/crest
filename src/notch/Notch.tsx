@@ -32,7 +32,7 @@ import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
 import { sizeExtra, sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
 import type { GlassMode } from "./glass/GlassLayer";
-import { barInk, useGlassBar } from "./glass/bar";
+import { barInk, useBarDrop, usePlainDrop } from "./glass/bar";
 import { CLOSE_SETTLE_MS, SNAPSHOT_STALE_MS, dropLens, glassAllowed, glassShape, liveNeed, snapshotLead } from "./glass/params";
 import { contrastMore, dropSnapshot, glassBroken, reducedTransparency, requestSnapshot, snapshot } from "./glass/snapshot";
 import { dropLive, liveFrame, liveSession, liveSupport, restartLive, wantLive } from "./glass/live";
@@ -688,8 +688,9 @@ function Header({ title, ink, fade }: { title: string; ink?: Record<string, stri
 }
 
 /**
- * Tool bar at the bottom (like OmniNotch). The gear at the end toggles between settings and the last tool. Over the glass (`liquid`) the
- * shader draws it as a capsule of glass with a drop under the pointed or the current tool (glass/bar.ts), and its own fills step aside.
+ * Tool bar at the bottom (like OmniNotch). The gear at the end toggles between settings and the last tool. A drop under the pointed or
+ * the current tool moves the same way with the glass and without (glass/bar.ts). Over the glass (`liquid`) the shader draws the bar as a
+ * capsule of glass and the drop on it, and the Dock's own fills step aside.
  * `fades`: the glass is on, so the fills fade with it; without it they follow the theme's crossfade, as before the glass.
  */
 function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: string; liquid: boolean; fades: boolean }) {
@@ -707,14 +708,16 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
   const more = useScrollEdges(strip);
   const fade = more.start || more.end ? `linear-gradient(90deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
   const capsule = useRef<HTMLDivElement>(null);
-  const { pointed, handlers } = useGlassBar(capsule, strip, activeId, liquid, tabs.map((tab) => tab.id).join());
+  const { pointed, handlers } = useBarDrop(capsule, strip, activeId, tabs.map((tab) => tab.id).join());
+  const pill = useRef<HTMLSpanElement>(null);
+  usePlainDrop(pill, !liquid);
   // Each store hook runs on every render, as for `urgent` in Notch().
   const theme = activeTheme.use();
   const hues = useIconColors();
   const refraction = settings.use().themes.glassRefraction;
   const reduced = useReducedMotion() === true;
-  // Under the drop's lens the pointed icon grows as much as what the lens shows.
-  const mag = liquid && !reduced ? dropLens(refraction)[1] : 1;
+  // Under the drop the pointed icon grows as much as the lens shows; without the glass, where its sliders do not show, as at their default.
+  const mag = reduced ? 1 : dropLens(liquid ? refraction : 100)[1];
   return (
     <div className="flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
       <div
@@ -722,8 +725,12 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
         {...handlers}
         // Over the glass the icons, the mark and the dot take the one ink that reads best over the bar's clear veil (themes.ts glassInk).
         style={liquid ? barInk(theme, hues) : undefined}
-        className={`flex h-10 max-w-full items-center rounded-[14px] p-0.5 ${fades ? FILL_FADE : ""} ${liquid ? "bg-transparent" : "bg-fill-2"}`}
+        className={`relative flex h-10 max-w-full items-center rounded-[14px] p-0.5 ${fades ? FILL_FADE : ""} ${liquid ? "bg-transparent" : "bg-fill-2"}`}
       >
+        {/* The drop without the glass (usePlainDrop), behind the buttons and cut to the capsule; not in the strip, which also cuts upwards. */}
+        <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+          <span ref={pill} className={`absolute bottom-0 left-1/2 h-9 w-[42px] rounded-[12px] ${fades ? FILL_FADE : ""} ${liquid ? "bg-transparent" : "bg-fill-3"}`} />
+        </span>
         <div ref={strip} className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]" style={{ maskImage: fade, WebkitMaskImage: fade }}>
           {tabs.map((tab) => (
             <DockButton
@@ -735,7 +742,6 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
               active={tab.id === activeId}
               pointed={pointed === tab.id}
               liquid={liquid}
-              fades={fades}
               lens={pointed === tab.id ? mag : 1}
               onClick={() => navigate(tab.id)}
             />
@@ -749,7 +755,6 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
           active={inSettings}
           pointed={pointed === settingsTab.id}
           liquid={liquid}
-          fades={fades}
           lens={pointed === settingsTab.id ? mag : 1}
           badge={badge}
           onClick={() => {
@@ -787,7 +792,7 @@ function useScrollEdges(ref: RefObject<HTMLDivElement | null>) {
   return edges;
 }
 
-/** `pointed`: under the glass drop (glass/bar.ts), so in the label colour, which over the glass is the bar's ink; `lens`: the icon's scale under it. */
+/** `pointed`: under the drop (glass/bar.ts), so in the label colour, which over the glass is the bar's ink; `lens`: the icon's scale under it. */
 function DockButton(props: {
   id: string;
   label: string;
@@ -796,7 +801,6 @@ function DockButton(props: {
   active: boolean;
   pointed: boolean;
   liquid: boolean;
-  fades: boolean;
   lens: number;
   onClick: () => void;
   badge?: boolean;
@@ -804,7 +808,7 @@ function DockButton(props: {
   const I = props.icon;
   const color = useHue(props.hue);
   const ref = useRef<HTMLButtonElement>(null);
-  // A key shortcut can pick a tool scrolled out of the dock's view. Before the Dock's own layout effects, so the glass drop measures
+  // A key shortcut can pick a tool scrolled out of the dock's view. Before the Dock's own layout effects, so the drop measures
   // the strip already scrolled.
   useLayoutEffect(() => {
     if (props.active) ref.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
@@ -821,14 +825,10 @@ function DockButton(props: {
       }`}
       style={color ? { color } : undefined}
     >
-      {/* The current tool: a brighter pill with a mark under the icon, sliding from tool to tool. Over the glass the shader draws the
-          pill as the drop; the mark stays here. */}
+      {/* The current tool's mark under the icon, sliding from tool to tool. The brighter pill over it is the drop: the shader's over
+          the glass, the Dock's own without. */}
       {props.active && (
-        <motion.span
-          layoutId="dock-pill"
-          className={`absolute inset-0 rounded-[12px] ${props.fades ? FILL_FADE : ""} ${props.liquid ? "bg-transparent" : "bg-fill-3"}`}
-          transition={springs.snappy}
-        >
+        <motion.span layoutId="dock-pill" className="absolute inset-0" transition={springs.snappy}>
           <span className="absolute bottom-[3px] left-1/2 h-[2px] w-3 -translate-x-1/2 rounded-full bg-label" />
         </motion.span>
       )}

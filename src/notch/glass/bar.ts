@@ -1,13 +1,14 @@
-// The tool bar over the glass (Notch.tsx Dock): the capsule and the drop the glass draws (GlassLayer.tsx, shader.ts), measured from the
-// DOM only when something changes and moved by springs, so the glass draws while they move and never at rest.
+// The tool bar (Notch.tsx Dock): its capsule and the drop on it, measured from the DOM only when something changes and moved by springs.
+// The glass draws them (GlassLayer.tsx, shader.ts), and where it does not show the Dock's own element (usePlainDrop): while they move,
+// never at rest.
 
 import { useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type PointerEvent, type RefObject } from "react";
-import { animate, motionValue, useReducedMotion, type MotionValue } from "motion/react";
+import { animate, cancelFrame, frame, motionValue, useReducedMotion, type MotionValue } from "motion/react";
 import { springs } from "../../design/motion";
 import { glassInk, type ResolvedTheme } from "../../features/themes/themes";
 import { onNativeHover } from "../../platform/native";
 import { viewZoom } from "../viewZoom";
-import { visiblePart } from "./params";
+import { dropShape, dropTransform, visiblePart } from "./params";
 
 /** The capsule: its centre's x from the open panel's centre, its top in the panel, its size; CSS px. Width 0 until measured. */
 export const barBox = { x: motionValue(0), top: motionValue(0), w: motionValue(0), h: motionValue(0) };
@@ -25,10 +26,10 @@ export function barInk(theme: ResolvedTheme, hues: boolean): Record<string, stri
 }
 
 /**
- * The tool pointed at (pointer or keyboard) and the capsule's handlers; `on` while the glass shows. `tools`: the bar's tools in order,
+ * The tool pointed at (pointer or keyboard) and the capsule's handlers, with the glass or without. `tools`: the bar's tools in order,
  * which can move its buttons without resizing the capsule (a tool switched on with the bar at its widest, or moved).
  */
-export function useGlassBar(capsule: RefObject<HTMLDivElement | null>, strip: RefObject<HTMLDivElement | null>, active: string, on: boolean, tools: string) {
+export function useBarDrop(capsule: RefObject<HTMLDivElement | null>, strip: RefObject<HTMLDivElement | null>, active: string, tools: string) {
   // Kept apart, so the pointer leaving the bar hands the drop back to the button the keyboard is on.
   const [hovered, setHovered] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
@@ -67,7 +68,6 @@ export function useGlassBar(capsule: RefObject<HTMLDivElement | null>, strip: Re
   };
 
   useLayoutEffect(() => {
-    if (!on) return;
     const cap = capsule.current!, panel = cap.closest("[data-open-panel]")!, list = strip.current;
     const again = () => place.current(false);
     again();
@@ -85,30 +85,28 @@ export function useGlassBar(capsule: RefObject<HTMLDivElement | null>, strip: Re
       // Opened again before a spring ends, the first measure jumps instead of sliding on from here.
       [drop.x, drop.w, drop.h].forEach((v) => v.stop());
     };
-  }, [on, capsule, strip]);
+  }, [capsule, strip]);
   // To the tool pointed at, or back to the current one, or where its button went.
   useLayoutEffect(() => {
-    if (on) place.current(true);
-  }, [on, target, tools]);
+    place.current(true);
+  }, [target, tools]);
   // A click on the pointed tool resizes the panel without moving the target: measured now, the observer would draw it a frame late.
   // After the effect above, so a drop it sent on keeps sliding.
   useLayoutEffect(() => {
-    if (on) place.current(false);
-  }, [on, active]);
+    place.current(false);
+  }, [active]);
   // Whether anything is pointed, not which tool: peek starts from rest, so sent again at every tool it would rise in steps.
   const lifted = pointed !== null && !reduced;
   useLayoutEffect(() => {
-    if (on) animate(drop.lift, lifted ? 1 : 0, springs.peek);
-  }, [on, lifted]);
+    animate(drop.lift, lifted ? 1 : 0, springs.peek);
+  }, [lifted]);
   // Natively the page gets no pointerleave once the window lets the pointer through (hit_test.rs): Rust's hover says it left.
   useEffect(
     () =>
-      on
-        ? onNativeHover((inside) => {
-            if (!inside) setHovered(null);
-          })
-        : undefined,
-    [on],
+      onNativeHover((inside) => {
+        if (!inside) setHovered(null);
+      }),
+    [],
   );
 
   const tool = (el: EventTarget | null) => (el instanceof Element ? (el.closest("[data-tool]")?.getAttribute("data-tool") ?? null) : null);
@@ -141,5 +139,36 @@ export function useGlassBar(capsule: RefObject<HTMLDivElement | null>, strip: Re
       if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(null);
     },
   };
-  return on ? { pointed, handlers } : { pointed: null, handlers: {} };
+  return { pointed, handlers };
+}
+
+/** Where the glass does not show (`on`) the Dock draws the drop itself, as `el`: the same values, as a transform over the tool's box. */
+export function usePlainDrop(el: RefObject<HTMLElement | null>, on: boolean) {
+  useLayoutEffect(() => {
+    const node = el.current;
+    if (!on || !node) return;
+    // The layout size, as for the tool's box above: offsetWidth would round it.
+    const css = getComputedStyle(node);
+    let bw = parseFloat(css.width), bh = parseFloat(css.height);
+    const draw = () => {
+      const w = drop.w.get(), h = drop.h.get();
+      // The box only between springs: while one runs the drop is its transform alone.
+      if (w > 0 && (w !== bw || h !== bh) && !drop.w.isAnimating() && !drop.h.isAnimating()) {
+        node.style.width = `${(bw = w)}px`;
+        node.style.height = `${(bh = h)}px`;
+      }
+      // As the glass draws it (GlassLayer.tsx), but no taller than the bar: its fill past the bar's would show in another tone.
+      const speed = drop.x.isAnimating() ? Math.abs(drop.x.getVelocity()) : 0;
+      node.style.transform = dropTransform(drop.x.get() - barBox.x.get(), dropShape(w, h, barBox.h.get(), drop.lift.get(), drop.press.get(), speed, 0), bw, bh);
+    };
+    const again = () => frame.render(draw);
+    const offs = [...Object.values(barBox), ...Object.values(drop)].map((v) => v.on("change", again));
+    // A spring's last frame still counts as running: the drop unstretched, in its new box, comes with the frame after.
+    offs.push(...[drop.x, drop.w, drop.h].map((v) => v.on("animationComplete", again)));
+    draw();
+    return () => {
+      offs.forEach((off) => off());
+      cancelFrame(draw);
+    };
+  }, [el, on]);
 }

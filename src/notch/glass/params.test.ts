@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  canvasBox, dropLens, dropShape, glassAllowed, glassShape, liveAccepts, liveMetaOk, liveNeed, liveStep, liveZone, lodFor, metaOk, parseTint, sameZone, shapeUniform,
+  canvasBox, dropLens, dropShape, dropTransform, glassAllowed, glassShape, liveAccepts, liveMetaOk, liveNeed, liveStep, liveZone, lodFor, metaOk, parseTint, sameZone, shapeUniform,
   snapshotLead, takes, textureMap, visiblePart, zoneHolds, type GlassInput, type LiveMeta, type SnapshotMeta,
 } from "./params.ts";
 
@@ -89,6 +89,16 @@ test("the drop: the tool's box resting, a lens on the bar's bottom lifted, squas
   near(dropShape(42, 36, 40, 1, -0.254, 0), [22, 23.0856, 22]);
   near(dropShape(42, 36, 40, 1, 0, 1000), [21.5, 28, 21.5]);
   near(dropShape(0, 36, 40, 1, 0, 0), [0, 0, 0]);
+});
+
+test("the drop without the glass: lifted no taller than the bar, drawn as a transform over the tool's box", () => {
+  near(dropShape(42, 36, 40, 1, 0, 0, 0), [20, 24, 20]);
+  near(dropShape(42, 36, 40, 1, -0.254, 0, 0), [20.5, 23.0856, 20.5]);
+  // Resting, the box itself, moved from the bar's centre and bottom to the tool.
+  assert.equal(dropTransform(-100, dropShape(42, 36, 40, 0, 0, 0, 0), 42, 36), "translate(-121px, -2px) scale(1, 1)");
+  assert.equal(dropTransform(10, [20, 20, 24], 32, 32), "translate(-6px, -4px) scale(1.25, 1.5)");
+  // Without a tool it keeps its box and shrinks to nothing.
+  assert.equal(dropTransform(10, dropShape(0, 36, 40, 0, 0, 0, 0), 42, 36), "translate(-11px, 18px) scale(0, 0)");
 });
 
 test("the drop's lens follows Refraction", () => {
