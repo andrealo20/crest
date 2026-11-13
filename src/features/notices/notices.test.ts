@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { NOTICE_DEFAULTS, MAX_APPS, inQuiet, minutes, normalizeNotices, rememberApp, route, ruleFor, setRule } from "./rules.ts";
-import { HISTORY, addNotice, removeApp, removeToasts, type Notice } from "./history.ts";
+import { HISTORY, addNotice, appOpens, removeApp, removeToasts, type Notice } from "./history.ts";
 import { duration, noticeText, popLine, shortTime } from "./format.ts";
 
 const tr = (de: string, vars?: Record<string, string | number>) => (vars ? `${de} ${JSON.stringify(vars)}` : de);
@@ -135,4 +135,13 @@ test("words", () => {
   assert.equal(noticeText(n({ exitCode: 2, durationMs: 100 }), en), "Fehlgeschlagen (Code 2) nach 100 ms");
   assert.equal(popLine(n({ title: "Mail", body: "Hello\nmore" }), tr), "Mail · Hello");
   assert.equal(popLine(n({ title: "", body: "Only" }), tr), "Only");
+});
+
+test("an app Windows can open by its id: a package or a name, not a full path", () => {
+  assert.equal(appOpens("Microsoft.WindowsTerminal_8wekyb3d8bbwe!App"), true);
+  assert.equal(appOpens("{6D809377-6AF0-444B-8957-A3773F02200E}\\Notepad++\\notepad++.exe"), true);
+  assert.equal(appOpens("C:\\Program Files\\App\\app.exe"), false);
+  assert.equal(appOpens("..\\App"), false);
+  assert.equal(appOpens("App & more"), false);
+  assert.equal(appOpens(""), false);
 });

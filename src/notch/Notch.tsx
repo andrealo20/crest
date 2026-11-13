@@ -90,7 +90,7 @@ export function Notch() {
   const asking = asks.use().length > 0;
   const urgent = timerFinished || tasksDue || recordingOn || asking;
   const statusOn = statusAlert.use() !== null;
-  const popped = popping.use() !== null;
+  const pop = popping.use(), popped = pop !== null;
   const idleLine = idleStyle === "line";
   const alert = idleLine && (urgent || statusOn || popped);
   // Plugin tools exist once their list has been read.
@@ -301,9 +301,10 @@ export function Notch() {
     };
   }, [dismiss]);
 
-  // Hover stays off while a question waits, or the card would vanish under the pointer.
+  // Hover stays off while a question waits, or the card would vanish under the pointer, and while a Windows notice shows:
+  // a click on its card opens its app (issue #34), and the panel opening on the way there would take the card away first.
   // Open, the enter still has to run: it cancels the close timer a leave started.
-  const hoverOff = editing || (asking && status !== "open");
+  const hoverOff = editing || ((asking || pop?.source === "windows") && status !== "open");
   useNativeBridge(hitRef, topValue, hoverOff ? NOOP : onPointerEnter, onPointerLeave, edge);
   // Starting the resize mode from the settings closes the panel onto the closed shape it changes.
   useEffect(() => {

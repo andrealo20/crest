@@ -25,6 +25,12 @@ export interface Notice {
 
 export const HISTORY = { max: 100, maxAgeMs: 24 * 60 * 60 * 1000 } as const;
 
+/**
+ * Whether Windows can open the app by its id (src-tauri notices.rs valid_app_id, the same rule): a package's id or a desktop app's
+ * name or known-folder path, not a full path, whose colon the command refuses.
+ */
+export const appOpens = (appId: string) => appId.length > 0 && appId.length <= 512 && !appId.includes("..") && /^[A-Za-z0-9._\-!{}\\ +()@#=]+$/.test(appId);
+
 /** `b` updates `a` in place: the same app and replace key. */
 export const sameKey = (a: Notice, b: Notice) => !!a.replace && a.replace === b.replace && a.appId === b.appId;
 
