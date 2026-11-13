@@ -5,9 +5,11 @@
 //! `LastUsedTimeStart`/`LastUsedTimeStop`. Stop = 0 means "in use". Desktop apps
 //! sit one level deeper under `NonPackaged`.
 //!
-//! Screen recording: `graphicsCaptureProgrammatic` (Windows.Graphics.Capture: Discord,
-//! Teams, Snipping Tool, OBS depending on source). Older capture paths (DXGI
-//! duplication) don't show up there.
+//! Screen recording: `graphicsCaptureProgrammatic` and `graphicsCaptureWithoutBorder`. Windows records them only
+//! for packaged apps that go through its consent check (Snipping Tool, Click to Do, Store apps). Desktop apps
+//! (OBS, Zoom, Discord, browsers sharing a tab or the screen) leave no entry with any capture API: measured on
+//! build 26300 with FFmpeg's WGC, DXGI and GDI capture and Chrome's getDisplayMedia. `NonPackaged` is still
+//! read in case a build starts recording them.
 
 use serde::Serialize;
 use windows::core::{HSTRING, PCWSTR};
@@ -47,11 +49,18 @@ impl Own {
     }
 }
 
+/// Snipping Tool declares only the borderless capability, so its recordings show up under that one alone.
+const SCREEN: [&str; 2] = ["graphicsCaptureProgrammatic", "graphicsCaptureWithoutBorder"];
+
 // async: the registry walk runs off the main thread, which animates the notch.
 #[tauri::command(async)]
 pub fn privacy_state() -> Privacy {
-    let busy = |cap: &str| in_use(&format!(r"{BASE}\{cap}"), Own::get());
-    Privacy { mic: busy("microphone"), camera: busy("webcam"), screen: busy("graphicsCaptureProgrammatic") }
+    let busy = |caps: &[&str]| any_in_use(BASE, caps, Own::get());
+    Privacy { mic: busy(&["microphone"]), camera: busy(&["webcam"]), screen: busy(&SCREEN) }
+}
+
+fn any_in_use(base: &str, caps: &[&str], own: &Own) -> bool {
+    caps.iter().any(|cap| in_use(&format!(r"{base}\{cap}"), own))
 }
 
 /// Is any app under `path` (or `path\NonPackaged`) active right now?
@@ -123,7 +132,44 @@ fn qword(key: HKEY, name: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::Own;
+    use super::{any_in_use, Own, SCREEN};
+    use windows::core::HSTRING;
+    use windows::Win32::System::Registry::{RegCreateKeyW, RegDeleteTreeW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, REG_QWORD};
+
+    /// `path` under the fake consent store, with LastUsedTimeStart/Stop like Windows writes them.
+    fn entry(root: &str, path: &str, start: u64, stop: u64) {
+        let mut key = HKEY::default();
+        unsafe {
+            assert!(RegCreateKeyW(HKEY_CURRENT_USER, &HSTRING::from(format!(r"{root}\{path}")), &mut key).is_ok());
+            for (name, v) in [("LastUsedTimeStart", start), ("LastUsedTimeStop", stop)] {
+                assert!(RegSetValueExW(key, &HSTRING::from(name), None, REG_QWORD, Some(&v.to_le_bytes())).is_ok());
+            }
+            super::close(key);
+        }
+    }
+
+    #[test]
+    fn screen_counts_either_capture_capability() {
+        let root = format!(r"Software\CrestPrivacyTest{}", std::process::id());
+        let own = Own { exe: Some(r"c:#apps#crest.exe".into()), family: None };
+        let busy = || any_in_use(&root, &SCREEN, &own);
+        let wipe = || unsafe { RegDeleteTreeW(HKEY_CURRENT_USER, &HSTRING::from(root.as_str())) };
+
+        entry(&root, r"graphicsCaptureProgrammatic\MSTeams_8wekyb3d8bbwe", 5, 9);
+        entry(&root, r"graphicsCaptureWithoutBorder\NonPackaged\c:#apps#crest.exe", 5, 0);
+        let idle = busy(); // only a finished capture and Crest's own
+        // Snipping Tool declares only the borderless capability, so its recordings show up there alone.
+        entry(&root, r"graphicsCaptureWithoutBorder\Microsoft.ScreenSketch_8wekyb3d8bbwe", 5, 0);
+        let snipping = busy();
+        let _ = wipe();
+        entry(&root, r"graphicsCaptureProgrammatic\NonPackaged\c:#apps#obs64.exe", 5, 0);
+        let desktop = busy();
+        let _ = wipe();
+
+        assert!(!idle);
+        assert!(snipping);
+        assert!(desktop);
+    }
 
     #[test]
     fn own_entries_are_skipped() {
