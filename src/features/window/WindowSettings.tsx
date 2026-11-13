@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLineUp, Plus, X } from "../../ui/iconset";
-import { isMac } from "../../platform/native";
+import { isMac, noWinApis } from "../../platform/native";
 import { windowShell, type HotkeyState, type RunningApp } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { tabs, settingsTab, findTab, type NotchTab } from "../../notch/tabs";
@@ -34,7 +34,7 @@ export function WindowSettings() {
   return (
     <>
       <Rules />
-      {!isMac && <AppRules />}
+      {!noWinApis && <AppRules />}
       <Shortcuts />
       <Panel />
       <Mouse />
@@ -47,9 +47,9 @@ function Rules() {
   const r = s.behavior.rules;
   const gaming = s.gaming.mode !== "off";
   return (
-    <Group title={isMac ? undefined : t("Wenn ein Fenster den Bildschirm füllt")} id="settings-window">
+    <Group title={noWinApis ? undefined : t("Wenn ein Fenster den Bildschirm füllt")} id="settings-window">
       {/* The window watcher behind the rules is Windows only. */}
-      {!isMac && (
+      {!noWinApis && (
         <>
           {CONTEXTS.map((c) => (
             <Row key={c} icon={contextSymbol[c]} label={t(contextLabel[c])} hint={gaming && c !== "maximized" ? t("Der Gaming-Modus hält Crest hier sichtbar") : t(contextHint[c])}>
@@ -202,9 +202,9 @@ function Shortcuts() {
       <HotkeyRow kind="open" icon="keyboard" />
       <HotkeyRow kind="hide" icon="visibility_off" />
       <HotkeyRow kind="resize" icon="aspect_ratio" />
-      {!isMac && <HotkeyRow kind="find" icon="screen_search_desktop" />}
+      {!noWinApis && <HotkeyRow kind="find" icon="screen_search_desktop" />}
       <HotkeyRow kind="mic" icon="mic_off" />
-      {!isMac && <HotkeyRow kind="search" icon="search" />}
+      {!noWinApis && <HotkeyRow kind="search" icon="search" />}
       <ToolHotkeys />
     </Group>
   );

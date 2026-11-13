@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { CaretDown, Coffee, Eye, EyeSlash, Moon, MusicNoteSimple, SkipForward, Timer } from "../../ui/iconset";
 import { DiscordLogo } from "../../ui/brands";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { content, springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
@@ -77,7 +77,7 @@ export function OverviewView() {
       {(parts.clock || parts.weather) && <Header clock={parts.clock} weather={parts.weather} />}
       {parts.activity && <Activity />}
       {/* Focus, keep awake and volume have no backend on a Mac yet. Without the volume, the others share its room. */}
-      {!isMac && TILES.some((id) => parts[id]) && (
+      {!noWinApis && TILES.some((id) => parts[id]) && (
         <div className="flex gap-2">
           {parts.focus && <FocusTile grow={!parts.volume} />}
           {parts.awake && <AwakeTile grow={!parts.volume} />}

@@ -1,6 +1,6 @@
 import { t } from "../../i18n";
 import { openOn } from "../../notch/nav";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { noticeSource } from "../../platform/services";
 import { ICON_BOX, noticeCard } from "../../notch/row/NoticeCard";
 import { settings } from "../../settings/store";
@@ -51,7 +51,7 @@ export function noticePop(n: Notice, max: number) {
   const first = noticeText(n, t).split("\n")[0].trim();
   const ring = n.progress !== null && n.progress !== undefined;
   // The pop is dismissed when presentation mode starts, so the code is never offered while the text is hidden.
-  const code = !ring && !isMac && settings.get().notices.copyCodes ? noticeCode(n) : null;
+  const code = !ring && !noWinApis && settings.get().notices.copyCodes ? noticeCode(n) : null;
   return noticeCard(
     {
       // A progress update keeps the key, so it changes in place instead of fading out and in.
@@ -73,7 +73,7 @@ export function noticePop(n: Notice, max: number) {
               });
               dismissPop();
             }
-          : isMac
+          : noWinApis
             ? undefined
             : () => openOn("notices"),
       text: n.title ? first || n.appName : first,

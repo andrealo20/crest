@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { barParts, rowVisible } from "../../notch/row/visibility";
 import { fetchSystem, type GpuReading, type ProcReading, type SystemStats, type SystemWant } from "../../platform/services";
 import { settings } from "../../settings/store";
@@ -201,7 +201,7 @@ function wantedBesidesTemps(): boolean {
 }
 
 // system_stats has no Mac backend.
-const wanted = () => !isMac && (wantedBesidesTemps() || barParts.get().includes("temps"));
+const wanted = () => !noWinApis && (wantedBesidesTemps() || barParts.get().includes("temps"));
 
 function rhythm(): number {
   if (shown.get() > 0) return SHOWN_MS;

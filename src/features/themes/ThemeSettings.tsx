@@ -3,7 +3,7 @@ import { ArrowCounterClockwise, WarningCircle } from "../../ui/iconset";
 import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
 import type { RowSymbol } from "../../ui/materialNames";
 import { formatTime } from "../../lib/format";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { windowKind } from "../../lib/windowKind";
 import { openFile, revealFile } from "../../platform/services";
 import { demo } from "../../dev/showcase-data";
@@ -335,7 +335,7 @@ function ThemeChoice() {
           onChange={(coverTint) => updateSettings((cur) => ({ themes: { ...cur.themes, coverTint } }))}
         />
       </Row>
-      {!isMac && !demo && (
+      {!noWinApis && !demo && (
         <Row icon="blur_on"
           label={t("Glas")}
           hint={
@@ -349,10 +349,10 @@ function ThemeChoice() {
           <Switch label={t("Glas")} checked={themes.glass} onChange={(glass) => updateSettings((cur) => ({ themes: { ...cur.themes, glass } }))} />
         </Row>
       )}
-      {!isMac && !demo && themes.glass && <GlassLook />}
-      {!isMac && !demo && themes.glass && support?.supported === true && <GlassLive />}
-      {!isMac && !demo && themes.glass && support?.supported === true && <GlassAlerts />}
-      {!isMac && !demo && themes.glass && support?.supported === true && <GlassFps />}
+      {!noWinApis && !demo && themes.glass && <GlassLook />}
+      {!noWinApis && !demo && themes.glass && support?.supported === true && <GlassLive />}
+      {!noWinApis && !demo && themes.glass && support?.supported === true && <GlassAlerts />}
+      {!noWinApis && !demo && themes.glass && support?.supported === true && <GlassFps />}
     </Group>
   );
 }
