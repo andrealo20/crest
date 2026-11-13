@@ -202,8 +202,8 @@ async fn support(window: &WebviewWindow) -> Option<&'static str> {
         None => match capture(window).await {
             Some(true) => None,
             Some(false) => Some("unsupported"),
-            // Not known this time (the window closing, WinRT failing): no for now, asked again next time.
-            None => return Some("unsupported"),
+            // Not known this time (the window closing, WinRT failing): no for now, and the page asks again (live.ts).
+            None => return Some("failed"),
         },
         why => why,
     };
@@ -308,14 +308,18 @@ fn begin(app: &AppHandle, window: &WebviewWindow, notch: isize, zone: Rect, supp
     Ok(Started { gen, x: at.x, y: at.y, w: at.w, h: at.h })
 }
 
-/// Windows' answer to capturing without the yellow border, asked once and kept: the Store build would show a prompt and wait
-/// for it, so this never runs on the main thread.
+/// Windows' answer to capturing without the yellow border. A yes is kept; a no is asked again at the next start, since a
+/// failure that passes would otherwise leave the switch on with no glass until Crest restarts. The Store build would show a
+/// prompt and wait for it, so this never runs on the main thread.
 fn borderless() -> bool {
-    static ALLOWED: OnceLock<bool> = OnceLock::new();
-    *ALLOWED.get_or_init(|| {
-        GraphicsCaptureAccess::RequestAccessAsync(GraphicsCaptureAccessKind::Borderless).and_then(|op| op.join())
-            == Ok(AppCapabilityAccessStatus::Allowed)
-    })
+    static ALLOWED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if ALLOWED.load(Ordering::Relaxed) {
+        return true;
+    }
+    let yes = GraphicsCaptureAccess::RequestAccessAsync(GraphicsCaptureAccessKind::Borderless).and_then(|op| op.join())
+        == Ok(AppCapabilityAccessStatus::Allowed);
+    ALLOWED.store(yes, Ordering::Relaxed);
+    yes
 }
 
 /// The GPU that drives `monitor`; None when no GPU lists it.
@@ -699,7 +703,7 @@ fn slot() -> MutexGuard<'static, Option<Live>> {
     lock(&LIVE)
 }
 
-/// A panic in a frame handler must not take the glass down with it.
+/// A poisoned lock is taken as it is. Only a build that unwinds (the tests) can poison one: the release build aborts on a panic.
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }

@@ -35,6 +35,8 @@ let busy = false, again = false, settle = 0, moved = false, fresh = false;
 
 /** The zone to run a session for: none while nothing can draw its frames (the canvas gone, its WebGL context lost). */
 const zone = () => (renderer ? want : null);
+/** Between two askings whether the live glass can run, when Rust could not tell. */
+const SUPPORT_RETRY_MS = 5000;
 
 /** One command at a time: a start in flight never crosses a stop or the exclusion. */
 function pump() {
@@ -183,10 +185,17 @@ export function startGlassLive() {
       liveSupport.set({ supported: true, reason: null });
     });
   } else {
-    void glassLive.supported().then(
-      (s) => liveSupport.set(s),
-      () => liveSupport.set({ supported: false, reason: "failed" }),
-    );
+    // Rust answers "failed" when it could not tell this time (WinRT failing as Crest starts): asked again a few times, or the
+    // switch would be gone until Crest restarts with the setting saved on.
+    const ask = (left: number) =>
+      void glassLive.supported().then(
+        (s) => {
+          liveSupport.set(s);
+          if (!s.supported && s.reason === "failed" && left > 0) window.setTimeout(() => ask(left - 1), SUPPORT_RETRY_MS);
+        },
+        () => liveSupport.set({ supported: false, reason: "failed" }),
+      );
+    ask(3);
     onGlassLiveStop(({ gen, reason }) => {
       maxGen = Math.max(maxGen, gen);
       // An older session's end, while a newer one starts, changes nothing; the end of one whose start has not answered yet does.
