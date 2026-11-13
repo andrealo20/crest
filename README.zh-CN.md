@@ -60,20 +60,6 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
   <img src="docs/media/features/caps-lock.png" alt="收起的刘海里短暂显示“大写锁定已开启”" width="236" />
 </p>
 
-播放歌曲时，它可以用当前歌词代替歌名。AI 代理要运行命令前它会先问你，AI 额度快用完时会提醒你，下一个会议的通话一键就能加入。耳机、音量、麦克风、充电器和结束的计时器也都会短暂出现。
-
-<p align="center">
-  <img src="docs/media/features/closed-lyrics.png" alt="收起的刘海显示歌曲的当前歌词，旁边是正在运行的专注计时器" width="455" /><br />
-  <img src="docs/media/features/closed-ask.png" alt="收起的刘海里 AI 代理询问是否可以运行 npm test，带“允许”“始终允许”和“拒绝”" width="558" /><br />
-  <img src="docs/media/features/closed-quota.png" alt="收起的刘海里的 AI 用量提醒：Claude 会话已用 93%，2 小时 24 分钟后重置" width="394" />
-  <img src="docs/media/features/closed-calendar.png" alt="收起的刘海里即将开始的会议，带加入视频通话的按钮" width="332" /><br />
-  <img src="docs/media/features/closed-bluetooth.png" alt="蓝牙耳机已连接，电量 80%" width="236" />
-  <img src="docs/media/features/closed-volume.png" alt="音量变化，滑块在 52%" width="236" />
-  <img src="docs/media/features/closed-mic.png" alt="麦克风已静音" width="236" /><br />
-  <img src="docs/media/features/closed-unplug.png" alt="拔掉充电器，使用电池，电量 55%" width="236" />
-  <img src="docs/media/features/closed-timer.png" alt="结束的计时器，显示“完成”" width="236" />
-</p>
-
 ## 1.2.0 新功能
 
 <p align="center"><img src="docs/media/features/liquid-glass.gif" alt="液态玻璃：拖到玻璃胶囊下方的窗口会透过它显示出来，面板以玻璃的形式在它上方展开，一滴玻璃沿着工具栏跟随指针，并在点击后回弹" width="760" /></p>

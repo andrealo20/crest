@@ -60,20 +60,6 @@ Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, R
   <img src="docs/media/features/caps-lock.png" alt="Caps Lock on, shown for a moment in the closed notch" width="236" />
 </p>
 
-While a song plays it can show the lyric line instead of the title. It asks before an AI agent runs a command, warns you before an AI limit runs out and puts the next meeting's call one click away. Headphones, volume, the microphone, the charger and a finished timer each get a moment of their own.
-
-<p align="center">
-  <img src="docs/media/features/closed-lyrics.png" alt="The closed notch showing the current lyric line of the song next to a running focus timer" width="455" /><br />
-  <img src="docs/media/features/closed-ask.png" alt="An AI agent asking in the closed notch whether it may run npm test, with Allow, Always allow and Deny" width="558" /><br />
-  <img src="docs/media/features/closed-quota.png" alt="An AI usage warning in the closed notch: Claude session 93% used, resets in 2 h 24 min" width="394" />
-  <img src="docs/media/features/closed-calendar.png" alt="A meeting about to start in the closed notch, with a button that joins the video call" width="332" /><br />
-  <img src="docs/media/features/closed-bluetooth.png" alt="Bluetooth earbuds connected, with their battery at 80%" width="236" />
-  <img src="docs/media/features/closed-volume.png" alt="The volume changing, with a slider at 52%" width="236" />
-  <img src="docs/media/features/closed-mic.png" alt="The microphone muted" width="236" /><br />
-  <img src="docs/media/features/closed-unplug.png" alt="The charger unplugged, running on battery at 55%" width="236" />
-  <img src="docs/media/features/closed-timer.png" alt="A timer that has finished, marked Done" width="236" />
-</p>
-
 ## What's new in 1.2.0
 
 <p align="center"><img src="docs/media/features/liquid-glass.gif" alt="Liquid Glass: a window dragged under the glass capsule shows through it, the panel opens as glass over it, and a drop of glass follows the pointer along the tool bar and bounces after a click" width="760" /></p>
