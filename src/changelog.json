@@ -1,5 +1,32 @@
 [
   {
+    "version": "1.2.0",
+    "date": "2026-11-13",
+    "items": [
+      {
+        "en": "Liquid Glass: the open panel as glass that bends and blurs the screen behind it, with four sliders. On Windows, off by default"
+      },
+      {
+        "en": "Glass on the closed notch and the capsule too, over a live copy of the screen, on Windows 11 24H2 and later"
+      },
+      {
+        "en": "The tool bar's highlight follows the pointer, grows under it and bounces back after a click"
+      },
+      {
+        "en": "Day and night themes at sunrise and sunset, and the date beside the clock in the closed notch"
+      },
+      {
+        "en": "A click on a notice in the closed notch opens its app, and Overview has play/pause and next"
+      },
+      {
+        "en": "Lyrics stay through short pauses, and notices open as the capsule when it is the chosen look"
+      },
+      {
+        "en": "Fixes for a browser tooltip that stayed on screen and for the privacy dot during Snipping Tool recordings"
+      }
+    ]
+  },
+  {
     "version": "1.1.2",
     "date": "2026-11-11",
     "items": [
