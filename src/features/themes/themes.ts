@@ -391,8 +391,8 @@ export type Hue = keyof typeof HUE_PALETTE;
 
 /**
  * The closed row's ink over the closed shapes' glass (src/notch/glass/live.ts). The closed veil holds the text levels of `ink` (Dark's, or
- * the theme's when it colours the closed notch); the album colour, the link and, with coloured icons, every hue are held to 3:1 over that
- * veil on black and on white, and the warning, error and success colours take the glass's.
+ * the theme's when it colours the closed notch); the album colour, the link, the readings' yellow and, with coloured icons, every hue are
+ * held to 3:1 over that veil on black and on white, and the warning, error and success colours take the glass's.
  */
 export function closedGlassInk(ink: ResolvedTheme, accent: string, hues: boolean): Record<string, string> {
   const veil = parseColor(ink.vars["--glass-tint"])!;
@@ -404,6 +404,7 @@ export function closedGlassInk(ink: ResolvedTheme, accent: string, hues: boolean
   const out: Record<string, string> = {
     "--accent": hold(accent),
     "--color-link": hold(ink.vars["--color-link"]),
+    "--color-yellow": hold(ink.vars["--color-yellow"]),
     "--color-orange": ink.vars["--glass-orange"],
     "--color-red": ink.vars["--glass-red"],
     "--color-green": ink.vars["--glass-green"],

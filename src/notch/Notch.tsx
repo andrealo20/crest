@@ -211,21 +211,24 @@ export function Notch() {
   const [shrinking, setShrinking] = useState(false);
   if (status !== lastStatus) {
     setLastStatus(status);
-    setShrinking(lastStatus === "open" && status === "closed");
+    // Only the panel opening or closing: a peek while it still shrinks leaves the time below running.
+    if (lastStatus === "open" || status === "open") setShrinking(status !== "open");
   }
-  // The panel's look holds for the whole close, copy or not: no texture change while the shape is larger than the live zone.
+  // The panel's look holds for the whole close, copy or not, also through a peek: no texture change while the shape is larger than
+  // the live zone.
   useEffect(() => {
     if (!shrinking) return;
     const id = window.setTimeout(() => setShrinking(false), CLOSE_SETTLE_MS);
     return () => window.clearTimeout(id);
   }, [shrinking]);
-  const closedLook = status === "peek" || (status === "closed" && !shrinking);
+  const closedLook = status !== "open" && !shrinking;
   const liveReady = liveFrame.use();
   const glass: GlassMode = !armed ? "off" : closedLook ? (liveAllowed && liveReady ? "shown" : "armed") : allowed && shot.ready ? "shown" : "armed";
   const reduced = useReducedMotion();
-  // The closed row over the closed glass (themes.ts closedGlassInk); its colours change with --shape's fade while the switch is on.
+  // The closed row over the closed glass (themes.ts closedGlassInk); its colours change with --shape's fade while the switch is on,
+  // where the live glass can run: elsewhere (a Mac with a Windows backup restored) the row keeps global.css's fade of the accent.
   const closedGlass = useClosedGlassInk(closedInk?.["--accent"] ?? accent, glass === "shown" && closedLook);
-  const inkFade = themes.glass && themes.glassLive && !reduced;
+  const inkFade = themes.glass && themes.glassLive && support?.supported === true && !reduced;
   const noticeTime = status !== "open" && (showRow || alert);
   const showNotices = !side && noticeTime && !editing;
   // On the idle line, only an urgent notice brings the column up: its icon alone, so the shape always has something to click.
@@ -626,7 +629,7 @@ const GLASS_STATUS = { "--color-orange": "var(--glass-orange)", "--color-red": "
 /** With --shape's fade, so text changes colour along with the background under it. */
 const GLASS_STATUS_FADE = "--color-orange 300ms var(--ease-out), --color-red 300ms var(--ease-out), --color-green 300ms var(--ease-out), --color-caution 300ms var(--ease-out)";
 /** The closed row's ink over the closed glass changes with --shape's fade, like the open panel's status colours. */
-const CLOSED_INK_FADE = `${GLASS_STATUS_FADE}, --color-link 300ms var(--ease-out), --accent 300ms var(--ease-out)`;
+const CLOSED_INK_FADE = `${GLASS_STATUS_FADE}, --color-yellow 300ms var(--ease-out), --color-link 300ms var(--ease-out), --accent 300ms var(--ease-out)`;
 /** The header's ink changes with the brow under it as the glass comes and goes; the accent keeps global.css's fade. */
 const INK_FADE = "--color-label 300ms var(--ease-out), --color-label-2 300ms var(--ease-out), --color-label-3 300ms var(--ease-out), --accent 500ms ease";
 /** The Dock's fills step aside for the glass and come back with --shape's fade. */

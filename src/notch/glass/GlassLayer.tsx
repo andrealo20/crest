@@ -116,14 +116,16 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
   };
 
   /**
-   * The closed shapes' glass, from the theme in memory, not the CSS: the closed row's ink is Dark's unless the theme colours the closed
-   * notch, and it is not on <html>. Its veil's colour is the closed notch's; no side bands, no tool bar, no brow.
+   * The closed shapes' glass: its veil's colour is the closed notch's; no side bands, no tool bar, no brow (draw). A theme that colours
+   * the closed notch takes the CSS's tokens, which crossfade with the theme as the closed row's ink over them does. The black notch takes
+   * Dark's from memory: its row's ink is Dark's too, and that is not on <html>.
    */
   const closedTokens = () => {
-    const theme = activeTheme.get(), ink = theme.closedNotch ? theme.vars : darkInk();
-    const tint = parseTint(ink["--glass-tint"]), clear = parseTint(ink["--glass-tint-clear"]), rim = parseTint(ink["--glass-rim"]);
+    const theme = activeTheme.get();
+    if (theme.closedNotch) return tokens && { ...tokens, dark: theme.dark };
+    const ink = darkInk(), tint = parseTint(ink["--glass-tint"]), clear = parseTint(ink["--glass-tint-clear"]), rim = parseTint(ink["--glass-rim"]);
     if (!tint || !clear || !rim) return null;
-    return { tint, edge: tint[3], clear: clear[3], rim, brow: tint, fill: [0, 0, 0, 0] as Tint, dark: theme.closedNotch ? theme.dark : true };
+    return { tint, edge: tint[3], clear: clear[3], rim, brow: tint, fill: [0, 0, 0, 0] as Tint, dark: true };
   };
 
   const draw = () => {

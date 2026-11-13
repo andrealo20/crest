@@ -408,10 +408,12 @@ test("the yellow warning keeps 4.5:1 on the panel, on its group's fill and under
 test("the closed glass's ink keeps its minimum over the closed veil", () => {
   // Dark's ink with the darkest blue an album can give (accentFrom): lifted to 3:1, the status colours the glass's.
   assert.deepEqual(closedGlassInk(resolveTheme(dark), "#3333ff", false), {
-    "--accent": "#6f6fff", "--color-link": "#419cff", "--color-orange": "#ff9f0a", "--color-red": "#ff766d", "--color-green": "#30d158",
+    "--accent": "#6f6fff", "--color-link": "#419cff", "--color-yellow": "#ffd60a", "--color-orange": "#ff9f0a", "--color-red": "#ff766d", "--color-green": "#30d158",
   });
+  // The readings' yellow of a light theme that colours the closed notch: 4.72:1 on the opaque notch, darkened to keep 3:1 over its veil.
+  assert.equal(closedGlassInk(resolveTheme({ ...light, closedNotch: "background" }), "#3333ff", false)["--color-yellow"], "#886b00");
   const hued = closedGlassInk(resolveTheme(dark), "#3333ff", true);
-  assert.equal(Object.keys(hued).length, 22);
+  assert.equal(Object.keys(hued).length, 23);
   assert.equal(hued["--hue-indigo"], "#6f6fff");
   // Every built-in theme as the closed notch's ink, coloured icons on.
   for (const t of BUILT_IN_THEMES) {
