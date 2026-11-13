@@ -11,7 +11,7 @@ import { glassVeilAt } from "../../features/themes/themes";
 import type { GlassZone } from "../../platform/native";
 import { settings } from "../../settings/store";
 import { DOCK_HEIGHT, HEADER_HEIGHT, type NotchGeometry } from "../geometry";
-import { viewZoom } from "../viewZoom";
+import { viewMetrics, viewZoom } from "../viewZoom";
 import { barBox, drop } from "./bar";
 import { dropLive, setLiveRenderer } from "./live";
 import { GLASS, canvasBox, dropLens, dropShape, lodFor, parseTint, shapeUniform, textureMap } from "./params";
@@ -66,8 +66,10 @@ export function GlassLayer({ mode, look, w, h, r, ear, rt, top, target, hangs }:
     };
   }, [w, h, r, ear, rt, top]);
   useLayoutEffect(() => glass.current?.show(mode === "shown"), [mode]);
-  // From the panel's copy to the live one or back: the canvas takes the size of the shape drawn now.
-  useLayoutEffect(() => glass.current?.relook(), [look]);
+  // From the panel's copy to the live one or back, or the page at another scale or size (the notch on another monitor): the canvas takes
+  // the size of the shape drawn now, and its place in the page is read again.
+  const view = viewMetrics.use();
+  useLayoutEffect(() => glass.current?.relook(), [look, view]);
   // A transition starts: the canvas grows to hold where the shape goes.
   useLayoutEffect(() => glass.current?.fit(), [target.w, target.h, target.ear]);
 

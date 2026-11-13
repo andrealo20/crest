@@ -53,7 +53,7 @@ import { activeTheme, forcedColors, refreshTheme, useClosedGlassInk, useClosedIn
 import { useHue, useIconColors, type Hue } from "../features/themes/hues";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
-import { viewZoom } from "./viewZoom";
+import { viewMetrics, viewZoom } from "./viewZoom";
 import { CoverBackdrop, coverBackdrop } from "../features/now-playing/CoverBackdrop";
 import { darkInk } from "../features/themes/store";
 
@@ -399,9 +399,11 @@ export function Notch() {
 
   // The live glass's zone (glass/live.ts): the closed shape's hover nudge and room for the bend around it, once the panel has closed
   // (the peek stops it, the panel takes its own copy). Natively the window is the page; in the browser the notch sits in the view.
-  // Before the effect on `place` below, so a move to another monitor's scale starts once, for the new zone.
+  // Before the effect on `place` below, so a move starts once, for the new zone. The page's scale and width are state (viewMetrics): on a
+  // monitor with another scale they change after `place` has, and the zone, in physical px, is taken again for them.
+  const view = viewMetrics.use();
   const reach = peekGeometry(surface, closedW, shapeH);
-  const need = liveAllowed && status === "closed" ? liveNeed(reach, top, surface === "capsule", { mid: innerWidth / 2 + (isNative ? 0 : drag.offset * viewZoom()), zoom: viewZoom(), dpr: devicePixelRatio }) : null;
+  const need = liveAllowed && status === "closed" ? liveNeed(reach, top, surface === "capsule", { mid: view.width / 2 + (isNative ? 0 : drag.offset * viewZoom()), zoom: viewZoom(), dpr: view.dpr }) : null;
   const needKey = need && `${need.x},${need.y},${need.w},${need.h}`;
   useEffect(() => wantLive(need), [needKey]); // eslint-disable-line react-hooks/exhaustive-deps
   // The last copy stays on the peek's glass; it goes once the panel opens, and at once when the live glass may not show at all.
