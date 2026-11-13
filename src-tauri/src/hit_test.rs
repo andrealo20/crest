@@ -163,12 +163,13 @@ fn set_click_through(hwnd: isize, on: bool) {
 #[cfg(windows)]
 fn window_below() -> Option<isize> {
     use windows::Win32::Foundation::POINT;
-    use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetWindowThreadProcessId, WindowFromPoint};
+    use windows::Win32::UI::WindowsAndMessaging::{GetAncestor, GetCursorPos, GetWindowThreadProcessId, WindowFromPoint, GA_ROOT};
     let (mut cursor, mut pid) = (POINT::default(), 0);
     unsafe {
         GetCursorPos(&mut cursor).ok()?;
         let below = WindowFromPoint(cursor);
-        GetWindowThreadProcessId(below, Some(&mut pid));
+        // Whose it is by the window it sits in: the WebView inside the timer or a copy of the notch is another process's window.
+        GetWindowThreadProcessId(GetAncestor(below, GA_ROOT), Some(&mut pid));
         (pid != 0 && pid != std::process::id()).then_some(below.0 as isize)
     }
 }
