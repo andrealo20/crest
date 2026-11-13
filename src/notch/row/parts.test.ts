@@ -14,6 +14,7 @@ test("default values", () => {
   assert.deepEqual(CLOSED_DEFAULTS.parts, { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, calendar: false, script: false, downloads: true, weather: false });
   assert.deepEqual(CLOSED_DEFAULTS.readings, { cpu: true, ram: true, gpu: true, net: false, power: false, battery: false, temp: false });
   assert.equal(CLOSED_DEFAULTS.clockSeconds, false); assert.equal(CLOSED_DEFAULTS.lineProgress, true); assert.equal(CLOSED_DEFAULTS.quotaAlerts, true); assert.equal(CLOSED_DEFAULTS.downloadAlerts, true);
+  assert.equal(CLOSED_DEFAULTS.clockDate, false);
 });
 test("total on any shape", () => {
   for (const bad of [null, 0, "x", [], true, { order: "timer", parts: 3, readings: null }, { order: [1, null, {}] }]) assert.deepEqual(normalizeClosed(bad), CLOSED_DEFAULTS);
@@ -28,6 +29,8 @@ test("keeps valid saved values", () => {
   assert.equal(normalizeClosed({ readings: { net: true, temp: "x" } }).readings.net, true);
   assert.equal(normalizeClosed({ readings: { net: true, temp: "x" } }).readings.temp, false);
   assert.equal(n.clockSeconds, true); assert.equal(n.lineProgress, false); assert.equal(n.quotaAlerts, false);
+  // The date beside the clock (issue #41): off unless it was saved on.
+  assert.equal(n.clockDate, false); assert.equal(normalizeClosed({ clockDate: true }).clockDate, true); assert.equal(normalizeClosed({ clockDate: 1 }).clockDate, false);
   assert.equal(normalizeClosed({ parts: { clock: "yes", rings: 0 } }).parts.clock, false); assert.equal(normalizeClosed({ parts: { rings: 0 } }).parts.rings, true);
 });
 test("does not alias the defaults", () => {

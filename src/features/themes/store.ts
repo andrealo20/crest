@@ -35,10 +35,10 @@ export const darkInk = (): Record<string, string> => DARK.vars;
 /** The theme on screen now (the draft while editing). */
 export const activeTheme = createStore<ResolvedTheme>(DARK);
 
-/** The saved theme due now (day/night included). */
+/** The saved theme due now (day/night included, by the sun at the Weather place when the schedule follows it). */
 export function savedTheme(now = new Date()): ThemeFile {
-  const themes = settings.get().themes;
-  return findTheme(activeThemeId(themes, now), themes.custom);
+  const { themes, weather } = settings.get();
+  return findTheme(activeThemeId(themes, now, weather), themes.custom);
 }
 
 let lastKey = "";
@@ -58,13 +58,16 @@ let timer = 0;
 let lastSchedule = "";
 /** One timeout to the next day/night change, no polling. */
 function scheduleNext() {
-  const s = settings.get().themes.schedule;
-  const key = JSON.stringify(s);
+  const { themes, weather } = settings.get();
+  const s = themes.schedule;
+  // The place counts only while the schedule follows the sun: its sunrise and sunset are the times then.
+  const place = s.sun ? weather : null;
+  const key = JSON.stringify([s, place?.lat, place?.lon]);
   if (key === lastSchedule) return;
   lastSchedule = key;
   window.clearTimeout(timer);
   if (!s.on) return;
-  const wait = nextChange(s, new Date()).getTime() - Date.now();
+  const wait = nextChange(s, new Date(), place).getTime() - Date.now();
   timer = window.setTimeout(refreshTheme, wait + 500);
 }
 
@@ -131,7 +134,7 @@ export function useClosedGlassInk(accent: string, on: boolean): Record<string, s
 export const allThemes = (): ThemeFile[] => [...BUILT_IN_THEMES, ...settings.get().themes.custom];
 
 export function pickTheme(id: string) {
-  updateSettings((s) => ({ themes: chooseTheme(s.themes, id, new Date()) }));
+  updateSettings((s) => ({ themes: chooseTheme(s.themes, id, new Date(), s.weather) }));
 }
 
 export function deleteCustomTheme(id: string) {
@@ -182,7 +185,7 @@ export function saveAsNew(name: string) {
   const id = uniqueId(name, taken);
   const { colors, closedNotch } = h.present;
   const theme: ThemeFile = { format: 1, id, name: name.trim().slice(0, 60) || id, colors, ...(closedNotch ? { closedNotch } : {}) };
-  updateSettings((s) => ({ themes: chooseTheme({ ...s.themes, custom: [...s.themes.custom, theme] }, id, new Date()) }));
+  updateSettings((s) => ({ themes: chooseTheme({ ...s.themes, custom: [...s.themes.custom, theme] }, id, new Date(), s.weather) }));
   draft.set(null);
 }
 

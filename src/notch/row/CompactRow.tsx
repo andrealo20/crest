@@ -120,7 +120,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
       const caption = downloadsCaption(dl);
       fixed(id, downloadsWidth(caption), () => <DownloadsPart list={dl} caption={caption} />);
     }
-    else if (id === "clock") fixed(id, clockWidth(closed.clockSeconds, s.units.clock === "12"), () => <Clock seconds={closed.clockSeconds} h12={s.units.clock === "12"} paused={covered} />);
+    else if (id === "clock") fixed(id, clockWidth(closed.clockSeconds, s.units.clock === "12", closed.clockDate), () => <Clock seconds={closed.clockSeconds} h12={s.units.clock === "12"} date={closed.clockDate} paused={covered} />);
     else if (id === "title" && caption) {
       const text = measureText(caption);
       parts.push({ item: { id, kind: "title", text }, draw: (p) => titleLyric
@@ -150,7 +150,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   useLayoutEffect(() => onWidth(width), [width, onWidth]);
 
   // Choosing other parts fades the whole row over; parts coming and going while it stays the same grow and shrink.
-  const chosen = `${closed.order.filter((id) => closed.parts[id]).join()}|${Object.values(closed.readings).join()}|${closed.clockSeconds}`;
+  const chosen = `${closed.order.filter((id) => closed.parts[id]).join()}|${Object.values(closed.readings).join()}|${closed.clockSeconds}|${closed.clockDate}`;
   return (
     <motion.div
       // Faded out under a notice: no longer a target for a click or a hover (Notch.tsx partTarget).

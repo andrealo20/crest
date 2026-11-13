@@ -11,7 +11,7 @@ import { settings, updateSettings } from "../../settings/store";
 import { t } from "../../i18n";
 import { contrast, parseColor, toHex, withAlpha, type Rgba } from "./color";
 import { ColorPicker } from "./ColorPicker";
-import { HALF_HOURS, activeThemeId, isNight } from "./daynight";
+import { HALF_HOURS, activeThemeId, isNight, sunHours } from "./daynight";
 import { original } from "./history";
 import {
   activeTheme,
@@ -80,13 +80,13 @@ const KEY_LABELS: Record<Adjustment["key"], string> = {
 
 function ThemeChoice() {
   const s = settings.use();
-  const themes = s.themes;
+  const { themes, weather } = s;
   activeTheme.use(); // re-render when day turns to night
   const forced = forcedColors.use();
   const editing = draft.use();
   const [pending, setPending] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const current = findTheme(activeThemeId(themes, new Date()), themes.custom);
+  const current = findTheme(activeThemeId(themes, new Date(), weather), themes.custom);
   const list = [...BUILT_IN_THEMES, ...themes.custom];
 
   const choose = (id: string) => {
@@ -267,13 +267,20 @@ function ThemePreview({ theme }: { theme: ThemeFile }) {
 }
 
 function DayNight() {
-  const { themes } = settings.use();
+  const { themes, weather } = settings.use();
   activeTheme.use(); // the "now" hint follows the change
   const s = themes.schedule;
   const set = (patch: Partial<typeof s>) => updateSettings((x) => ({ themes: { ...x.themes, schedule: { ...x.themes.schedule, ...patch } } }));
   const options = allThemes().map((theme) => ({ value: theme.id, label: themeName(theme) }));
   // formatTime follows the 12 or 24 hour setting.
-  const times = HALF_HOURS.map((v) => ({ value: v, label: formatTime(new Date(2000, 0, 1, Number(v.slice(0, 2)), Number(v.slice(3)))) }));
+  const clock = (minutes: number) => formatTime(new Date(2000, 0, 1, Math.floor(minutes / 60), minutes % 60));
+  const times = HALF_HOURS.map((v) => ({ value: v, label: clock(Number(v.slice(0, 2)) * 60 + Number(v.slice(3))) }));
+  const now = new Date();
+  // Following the sun, today's sunrise and sunset stand where the two set times are. Without them (no place set, or a
+  // day the sun does not rise or set) the set times still apply, so their menus stay.
+  const sun = s.sun ? sunHours(now, weather) : null;
+  const start = (minutes: number | undefined, value: string, onChange: (v: string) => void) =>
+    minutes === undefined ? <Select width="w-24" value={value} options={times} onChange={onChange} /> : <span className="tabular flex w-24 items-center justify-center text-body text-label-2">{clock(minutes)}</span>;
 
   const turnOn = (on: boolean) => {
     if (!on) return set({ on });
@@ -286,21 +293,25 @@ function DayNight() {
     <Group title={t("Tag und Nacht")} id="settings-daynight">
       <Row
         label={t("Nach Uhrzeit wechseln")}
-        hint={s.on ? (isNight(s, new Date()) ? t("Jetzt gilt das Nacht-Theme") : t("Jetzt gilt das Tag-Theme")) : t("Ein Theme für den Tag, eins für die Nacht")}
+        hint={s.on ? (isNight(s, now, weather) ? t("Jetzt gilt das Nacht-Theme") : t("Jetzt gilt das Tag-Theme")) : t("Ein Theme für den Tag, eins für die Nacht")}
       >
         <Switch checked={s.on} onChange={turnOn} label={t("Nach Uhrzeit wechseln")} />
       </Row>
       {s.on && (
         <>
+          {/* The place whose sun it is, or where to set one (issue #41). */}
+          <Row label={t("Bei Sonnenaufgang und Sonnenuntergang")} hint={s.sun ? (weather ? weather.name : t("Lege zuerst deinen Ort unter Wetter fest")) : undefined}>
+            <Switch checked={s.sun} onChange={(sun) => set({ sun })} label={t("Bei Sonnenaufgang und Sonnenuntergang")} />
+          </Row>
           <Row label={t("Tag ab")}>
             <div className="flex gap-1.5">
-              <Select width="w-24" value={s.dayStart} options={times} onChange={(dayStart) => set({ dayStart })} />
+              {start(sun?.[0], s.dayStart, (dayStart) => set({ dayStart }))}
               <Select width="w-32" value={s.day} options={options} onChange={(day) => set({ day })} />
             </div>
           </Row>
           <Row label={t("Nacht ab")}>
             <div className="flex gap-1.5">
-              <Select width="w-24" value={s.nightStart} options={times} onChange={(nightStart) => set({ nightStart })} />
+              {start(sun?.[1], s.nightStart, (nightStart) => set({ nightStart }))}
               <Select width="w-32" value={s.night} options={options} onChange={(night) => set({ night })} />
             </div>
           </Row>

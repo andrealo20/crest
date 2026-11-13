@@ -28,7 +28,7 @@ Notch and capsule show a row of parts, centred and in the order you choose:
 - AI quota rings (one colour per provider);
 - song title (or the current lyric line);
 - hardware readings: CPU, RAM and GPU, plus network, power, battery and temperature if you turn them on;
-- equalizer, clock (with seconds if you like), today's GitHub contributions, today's weather and your next calendar event;
+- equalizer, clock (with seconds and the date if you like), today's GitHub contributions, today's weather and your next calendar event;
 - parts your scripts set with `crest-notify part`: an icon, a short text and a progress bar, which can open a tool or plugin on click;
 - downloads in progress, while a browser is downloading something.
 
@@ -281,7 +281,7 @@ The vault is off by default; turn it on under **Settings → Tools**.
 
 - Fifteen built-in panel themes (Dark, Light, One Dark Pro, GitHub Dark, GitHub Light, Dracula, Night Owl, Catppuccin Mocha, Catppuccin Latte, Nord, Rosé Pine, Rosé Pine Dawn, Gruvbox Dark, Solarized Light and Everforest) under **Settings → Themes**.
 - The editor changes background, foreground, accent and the warning colours with a colour picker and shows each change on the panel at once.
-- Save the result as your own theme, export and import themes as JSON files, or switch between a day and a night theme by time.
+- Save the result as your own theme, export and import themes as JSON files, or switch between a day and a night theme, at two times you set or at sunrise and sunset.
 - The closed notch stays black unless a theme opts in to colour it.
 - **Coloured icons** (off by default) gives each tool in the tool bar, each Settings page, the weather, the Overview tiles, the Hardware rows and the closed-row readings a colour of its own. The colours are worked out for the active theme so they keep at least 3:1 contrast, on light and custom themes too. Over the glass the tool bar keeps one ink instead ([themes.md](themes.md#glass)).
 - Tint from the album art (off by default) gives the open panel a soft glow of the cover's colour from the top while a song shows, fading between songs and behind the content, so text keeps the theme's contrast.

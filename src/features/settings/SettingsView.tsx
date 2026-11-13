@@ -1066,6 +1066,7 @@ function ClosedParts() {
                       onChange={(v) => (v || readingsOn > 1) && setClosed((cur) => ({ readings: { ...cur.readings, [k]: v } }))}
                     />
                   ))}
+                {on && id === "clock" && <SubSwitch label={t("Datum")} checked={c.clockDate} onChange={(clockDate) => setClosed(() => ({ clockDate }))} />}
                 {on && id === "clock" && <SubSwitch label={t("Sekunden")} checked={c.clockSeconds} onChange={(clockSeconds) => setClosed(() => ({ clockSeconds }))} />}
                 {on && id === "title" && <SubSwitch label={t("Songtext")} checked={music.titleLyrics} onChange={(titleLyrics) => setMusic({ titleLyrics })} />}
                 <Switch label={t(label)} checked={on} onChange={(v) => setClosed((cur) => ({ parts: { ...cur.parts, [id]: v } }))} />

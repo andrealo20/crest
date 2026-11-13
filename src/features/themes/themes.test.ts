@@ -209,7 +209,9 @@ test("settings normalisation", () => {
     schedule: { on: true, dayStart: "25:00", nightStart: "21:30" },
   });
   assert.deepEqual(s.custom.map((t) => t.name), ["Mine"]);
-  assert.deepEqual(s.schedule, { on: true, day: "light", night: "dark", dayStart: "07:00", nightStart: "21:30" });
+  assert.deepEqual(s.schedule, { on: true, day: "light", night: "dark", dayStart: "07:00", nightStart: "21:30", sun: false });
+  assert.equal(normalizeThemeSettings({ schedule: { sun: true } }).schedule.sun, true);
+  assert.equal(normalizeThemeSettings({ schedule: { sun: "yes" } }).schedule.sun, false);
   assert.equal(findTheme("gone", s.custom).id, "dark");
 });
 

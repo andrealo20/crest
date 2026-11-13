@@ -30,8 +30,8 @@ export interface ThemeSettings {
   /** The chosen theme (the day theme's place is `schedule.day` while the schedule is on). */
   id: string;
   custom: ThemeFile[];
-  /** Day and night: two themes switched by the local clock. */
-  schedule: { on: boolean; day: string; night: string; dayStart: string; nightStart: string };
+  /** Day and night: two themes switched by the local clock, at the two set times or, with `sun`, at sunrise and sunset at the Weather place (daynight.ts). */
+  schedule: { on: boolean; day: string; night: string; dayStart: string; nightStart: string; sun: boolean };
   /** Tool bar, settings pages, weather and closed-row readings with icons in colours of their own (hues.ts). */
   iconColors: boolean;
   /** The open panel takes a soft glow of the cover colour while a song shows (themes.css, [data-ambience]). */
@@ -604,7 +604,7 @@ export function importThemes(custom: readonly ThemeFile[], files: { file: string
 export const THEME_DEFAULTS: ThemeSettings = {
   id: DEFAULT_THEME,
   custom: [],
-  schedule: { on: false, day: "light", night: "dark", dayStart: "07:00", nightStart: "19:00" },
+  schedule: { on: false, day: "light", night: "dark", dayStart: "07:00", nightStart: "19:00", sun: false },
   iconColors: false,
   coverTint: false,
   glass: false,
@@ -647,6 +647,7 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
       night: text(sc.night, d.night),
       dayStart: time(sc.dayStart, d.dayStart),
       nightStart: time(sc.nightStart, d.nightStart),
+      sun: sc.sun === true,
     },
     iconColors: typeof s.iconColors === "boolean" ? s.iconColors : legacyIconColors,
     coverTint: s.coverTint === true,

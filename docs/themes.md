@@ -14,6 +14,8 @@ Built in: Dark (the default), Light, One Dark Pro, GitHub Dark, GitHub Light, Dr
 
 **Switch by time of day** picks one theme for the day and one for the night, with the start of each in half hours. A day may run past midnight (20:00 to 08:00). While it is on, choosing a theme card changes the theme of the period you are in.
 
+**At sunrise and sunset** starts the day at sunrise and the night at sunset instead, at the place set under **Settings → General → Weather**. Crest works the two times out on your computer, with no request to any service, and shows today's in place of the two menus. Without a place, and on a day the sun does not rise or set there, the two set times apply.
+
 ## Windows high contrast
 
 With a Windows contrast theme on, Crest uses the system colours whatever theme is chosen: window text on the window colour, gray text for quiet text, the highlight colour for accents. The theme comes back when contrast is turned off.
