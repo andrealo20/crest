@@ -1,6 +1,6 @@
 [package]
 name = "crest"
-version = "1.1.2"
+version = "1.2.0"
 edition = "2021"
 license = "GPL-3.0-only"
 # src/bin/crest-notify.rs is a second binary; `cargo run` and the app mean this one.
