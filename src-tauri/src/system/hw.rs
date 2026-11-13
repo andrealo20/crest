@@ -20,6 +20,7 @@ use windows::Win32::Storage::FileSystem::{
     CreateFileW, GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDriveStringsW, GetVolumeNameForVolumeMountPointW, QueryDosDeviceW,
     FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
+use windows::Win32::System::Diagnostics::Debug::{SetThreadErrorMode, SEM_FAILCRITICALERRORS, THREAD_ERROR_MODE};
 use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryExW, LOAD_LIBRARY_SEARCH_SYSTEM32};
 use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
 use windows::Win32::System::IO::DeviceIoControl;
@@ -347,6 +348,7 @@ const IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS: u32 = 0x560000;
 const DEVICE_PROPERTY: u32 = 0;
 const SEEK_PENALTY_PROPERTY: u32 = 7;
 const TEMPERATURE_PROPERTY: u32 = 52;
+const DRIVE_REMOVABLE: u32 = 2;
 const DRIVE_FIXED: u32 = 3;
 /// A drive behind a RAID controller is never asked for its temperature: the controller's driver answers for it and may hang.
 const BUS_RAID: u32 = 8;
@@ -397,24 +399,30 @@ fn read_drives(temps: bool) -> Drives {
     Drives { volumes, disks }
 }
 
-/// Every fixed lettered volume, each once; subst letters and volumes whose extents cannot be read (a VeraCrypt or
-/// ImDisk volume lives inside another drive) are left out.
+/// Every fixed or removable lettered volume on a disk, each once. Subst letters, virtual file systems (Google Drive),
+/// empty card readers and volumes whose extents cannot be read (a VeraCrypt or ImDisk volume lives inside another
+/// drive) are left out.
 fn volumes() -> Vec<Volume> {
     let mut list = Vec::new();
     let mut seen = Vec::<String>::new();
     unsafe {
+        // An empty card reader would otherwise raise the "no disk in the drive" dialog every 10 seconds.
+        let mut old_mode = THREAD_ERROR_MODE(0);
+        let _ = SetThreadErrorMode(SEM_FAILCRITICALERRORS, Some(&mut old_mode));
         let mut buf = [0u16; 512];
         let n = GetLogicalDriveStringsW(Some(&mut buf)) as usize;
         for root in buf[..n.min(buf.len())].split(|&c| c == 0).filter(|r| !r.is_empty()) {
             let root_s = String::from_utf16_lossy(root);
             let root_h = HSTRING::from(root_s.as_str());
-            if GetDriveTypeW(&root_h) != DRIVE_FIXED {
+            if !matches!(GetDriveTypeW(&root_h), DRIVE_FIXED | DRIVE_REMOVABLE) {
                 continue;
             }
             let letter = root_s.trim_end_matches('\\').to_string();
             let mut target = [0u16; 512];
             let len = QueryDosDeviceW(&HSTRING::from(letter.as_str()), Some(&mut target)) as usize;
-            if len > 0 && String::from_utf16_lossy(&target[..len.min(4)]).starts_with("\\??\\") {
+            // The first string ends at the first NUL; a failed query keeps the letter.
+            let first = target[..len.min(target.len())].split(|&c| c == 0).next().unwrap_or(&[]);
+            if len > 0 && !disk_volume(&String::from_utf16_lossy(first)) {
                 continue;
             }
             let mut guid = [0u16; 64];
@@ -432,8 +440,14 @@ fn volumes() -> Vec<Volume> {
             let Some(disk) = extents(&letter) else { continue };
             list.push(Volume { letter, total, free, disk });
         }
+        let _ = SetThreadErrorMode(old_mode, None);
     }
     list
+}
+
+/// A letter whose DOS device is a disk volume; a subst target (`\??\`) and a virtual file system are not.
+fn disk_volume(target: &str) -> bool {
+    target.starts_with(r"\Device\HarddiskVolume")
 }
 
 fn open(path: &str) -> Option<HANDLE> {
@@ -506,4 +520,16 @@ fn disk(number: u32, temps: bool) -> Option<Disk> {
         let _ = CloseHandle(h);
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_disk_volumes_are_kept() {
+        assert!(disk_volume(r"\Device\HarddiskVolume3"));
+        assert!(!disk_volume(r"\Device\Volume{042dcf0d-1a8b-3c45-87b7-1a3469d2a54b}"));
+        assert!(!disk_volume(r"\??\C:\some\folder"));
+    }
 }

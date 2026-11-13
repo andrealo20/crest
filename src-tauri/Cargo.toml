@@ -109,6 +109,8 @@ windows = { version = "0.62", features = [
   "Win32_System_Variant",
   "Win32_Storage_FileSystem",
   "Win32_System_Diagnostics_Etw",
+  # Drives: no "no disk in the drive" dialog for an empty card reader (system/hw.rs).
+  "Win32_System_Diagnostics_Debug",
   "Win32_System_Registry",
   "Win32_System_Time",
   "Win32_Security_Credentials",

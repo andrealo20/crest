@@ -182,27 +182,31 @@ test("battery model", () => {
   assert.equal(healthLevel(null), 0);
 });
 
-test("drives: internal only, grouped by physical drive", () => {
+test("drives: internal first, then the ones that plug in, grouped by physical drive", () => {
   const gb = 1024 ** 3;
   const drives = groupDrives({
     volumes: [
       { letter: "D:", total: 500 * gb, free: 100 * gb, disk: 0 },
       { letter: "C:", total: 400 * gb, free: 200 * gb, disk: 0 },
       { letter: "E:", total: 64 * gb, free: 1 * gb, disk: 1 },
+      { letter: "B:", total: 128 * gb, free: 8 * gb, disk: 3 },
+      { letter: "F:", total: 100 * gb, free: 10 * gb, disk: 2 },
       { letter: "R:", total: 0.5 * gb, free: 0, disk: 0 },
+      { letter: "A:", total: 0.5 * gb, free: 0, disk: 1 },
       { letter: "S:", total: 2000 * gb, free: 0, disk: null },
     ],
     disks: [
       { number: 0, model: "Samsung 990 PRO", bus: 17, removable: false, ssd: true, temp: [45, 82, 85] },
       { number: 1, model: "USB stick", bus: 7, removable: true, ssd: true, temp: null },
+      { number: 2, model: "Virtual disk", bus: 14, removable: false, ssd: false, temp: null },
+      { number: 3, model: "SD card", bus: 12, removable: true, ssd: false, temp: null },
     ],
   });
-  assert.equal(drives.length, 2);
-  assert.equal(drives[0].letters, "C: D:");
+  assert.deepEqual(drives.map((d) => d.letters), ["C: D:", "S:", "B:", "E:"]);
   assert.equal(drives[0].used, 600 * gb);
   assert.equal(drives[0].temp, 45);
   assert.equal(drives[0].tempLevel, 0);
-  assert.equal(drives[1].letters, "S:");
+  assert.equal(drives[3].model, "USB stick");
   assert.equal(groupDrives(null).length, 0);
 });
 
