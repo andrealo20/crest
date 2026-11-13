@@ -715,7 +715,7 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
       <div
         ref={capsule}
         {...handlers}
-        // Over the glass the dot and the coloured icons take colours held to 3:1 over the bar's thinner veil (themes.ts glassInk).
+        // Over the glass the icons, the mark and the dot take the one ink that reads best over the bar's clear veil (themes.ts glassInk).
         style={liquid ? barInk(theme, hues) : undefined}
         className={`flex h-10 max-w-full items-center rounded-[14px] p-0.5 ${fades ? FILL_FADE : ""} ${liquid ? "bg-transparent" : "bg-fill-2"}`}
       >
@@ -782,7 +782,7 @@ function useScrollEdges(ref: RefObject<HTMLDivElement | null>) {
   return edges;
 }
 
-/** `pointed`: under the glass drop (glass/bar.ts), so in the label colour that keeps 3:1 there; `lens`: the icon's scale under it. */
+/** `pointed`: under the glass drop (glass/bar.ts), so in the label colour, which over the glass is the bar's ink; `lens`: the icon's scale under it. */
 function DockButton(props: {
   id: string;
   label: string;
