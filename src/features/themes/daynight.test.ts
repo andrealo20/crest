@@ -95,6 +95,24 @@ test("nextChange with the sun: each day by its own sunrise and sunset", () => {
   assert.deepEqual(nextChange(s, at(23, 30), place), at(0, sunHours(at(12, 0, 16), place)![0], 16));
 });
 
+test("with the sun the theme changes at every rising and setting, wherever the place is", () => {
+  const s = schedule("07:00", "19:00", true);
+  // All round the world at 40 degrees north, through a year: for places far from this computer's time zone the sun sets
+  // after its midnight, where the day by the clock has already turned, and on some day of the year it crosses that midnight.
+  for (let lon = -180; lon < 180; lon += 30) {
+    const place = { lat: 40, lon };
+    for (let h = 0; h < 366 * 24; h += 5) {
+      const now = new Date(2026, 0, 1, h, 7), night = isNight(s, now, place), next = nextChange(s, now, place);
+      const where = `longitude ${lon}, ${now.toISOString()}`;
+      assert.ok(next > now, where);
+      // The longest night there is under 15 hours.
+      assert.ok(next.getTime() - now.getTime() < 16 * 3_600_000, `${where}: next change ${next.toISOString()}`);
+      assert.equal(isNight(s, new Date(next.getTime() - 60_000), place), night, `${where}: a minute before ${next.toISOString()}`);
+      assert.equal(isNight(s, next, place), !night, `${where}: at ${next.toISOString()}`);
+    }
+  }
+});
+
 test("active theme and choosing with the sun", () => {
   const noon = at(12), place = equator(noon);
   const on = { ...THEME_DEFAULTS, schedule: { ...THEME_DEFAULTS.schedule, on: true, sun: true, dayStart: "20:00", nightStart: "08:00" } };

@@ -36,31 +36,57 @@ export function sunHours(now: Date, place: Place): [number, number] | null {
 }
 
 /**
- * The day's start and end in minutes on the day of `now`: sunrise and sunset when the schedule follows the sun and the
- * place has both that day, else the set times; invalid or equal times (a day that never ends) fall back to the defaults.
+ * The sun's risings (true) and settings at the place for yesterday, today and tomorrow, as instants to the minute, in order.
+ * Empty without a place; a day without both (the midnight sun, the polar night) adds none.
  */
-function hours(schedule: ThemeSettings["schedule"], now: Date, place: Place): [number, number] {
-  const sun = schedule.sun ? sunHours(now, place) : null;
-  if (sun) return sun;
+function sunEvents(now: Date, place: Place): [number, boolean][] {
+  if (!place || !Number.isFinite(place.lat) || !Number.isFinite(place.lon)) return [];
+  const midnight = (offset: number) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset).getTime();
+  const minute = (ms: number) => Math.round(ms / 60_000) * 60_000;
+  return [-1, 0, 1]
+    .flatMap((d): [number, boolean][] => {
+      const { sunrise, sunset } = sunDay(midnight(d), midnight(d + 1), place.lat, place.lon);
+      return sunrise === null || sunset === null ? [] : [[minute(sunrise), true], [minute(sunset), false]];
+    })
+    .sort((a, b) => a[0] - b[0]);
+}
+
+/** Whether the schedule follows the sun on the day of `now`: the switch is on and the place has a sunrise and a sunset that day. */
+const bySun = (schedule: ThemeSettings["schedule"], now: Date, place: Place) => schedule.sun && sunHours(now, place) !== null;
+
+/** The set day's start and end in minutes; invalid or equal times (a day that never ends) fall back to the defaults. */
+function hours(schedule: ThemeSettings["schedule"]): [number, number] {
   const day = parseTime(schedule.dayStart), night = parseTime(schedule.nightStart);
   if (day !== null && night !== null && day !== night) return [day, night];
   return [parseTime(THEME_DEFAULTS.schedule.dayStart)!, parseTime(THEME_DEFAULTS.schedule.nightStart)!];
 }
 
-/** Whether it is night at this local time. The day may run past midnight (a night shift's 20:00 to 08:00). */
+/**
+ * Whether it is night at this local time. By the sun it is night from a setting to the next rising, by their instants and not
+ * by today's two times on the clock: at a place in another time zone, or far north, the sun can set after this computer's
+ * midnight. By the set times the day may run past midnight (a night shift's 20:00 to 08:00).
+ */
 export function isNight(schedule: ThemeSettings["schedule"], now: Date, place?: Place): boolean {
-  const [day, night] = hours(schedule, now, place);
+  if (bySun(schedule, now, place)) {
+    const last = sunEvents(now, place).filter(([at]) => at <= now.getTime()).at(-1);
+    // Before the first rising known (the day after a polar night): still night.
+    return last ? !last[1] : true;
+  }
+  const [day, night] = hours(schedule);
   const m = now.getHours() * 60 + now.getMinutes();
   const daytime = day < night ? m >= day && m < night : m >= day || m < night;
   return !daytime;
 }
 
-/** The next local time the theme changes, after `now`: the first of today's and tomorrow's changes, each day by its own times. */
+/** The next local time the theme changes, after `now`: by the sun its next rising or setting, else the first of the set times. */
 export function nextChange(schedule: ThemeSettings["schedule"], now: Date, place?: Place): Date {
-  const changes = [0, 1].flatMap((offset) => {
-    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
-    return hours(schedule, day, place).map((m) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), Math.floor(m / 60), m % 60));
-  });
+  if (bySun(schedule, now, place)) {
+    const next = sunEvents(now, place).find(([at]) => at > now.getTime());
+    if (next) return new Date(next[0]);
+  }
+  const changes = [0, 1].flatMap((offset) =>
+    hours(schedule).map((m) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, Math.floor(m / 60), m % 60)),
+  );
   // Tomorrow's are always later than now, so there is one to take.
   return changes.filter((t) => t > now).reduce((a, b) => (a < b ? a : b));
 }
