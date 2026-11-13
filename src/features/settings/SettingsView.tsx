@@ -1006,7 +1006,7 @@ const NO_MAC_PARTS = new Set<PartId>(["readings", "discord", "downloads"]);
 
 /** Parts of the closed row (notch and capsule share them): drag to reorder, switch on/off. Same pattern as `Tools()`. */
 function ClosedParts() {
-  const { closed: c, music, tools, notices, github } = settings.use();
+  const { closed: c, music, tools, notices, github, dock } = settings.use();
   const [dragging, setDragging] = useState<PartId | null>(null);
   const setClosed = (patch: (cur: ClosedSettings) => Partial<ClosedSettings>) => updateSettings((cur) => ({ closed: { ...cur.closed, ...patch(cur.closed) } }));
   // Only these always show; battery, power and temperature can be missing, so they cannot keep the part alone. The network
@@ -1066,7 +1066,8 @@ function ClosedParts() {
                       onChange={(v) => (v || readingsOn > 1) && setClosed((cur) => ({ readings: { ...cur.readings, [k]: v } }))}
                     />
                   ))}
-                {on && id === "clock" && <SubSwitch label={t("Datum")} checked={c.clockDate} onChange={(clockDate) => setClosed(() => ({ clockDate }))} />}
+                {/* Not on a side edge: the narrow column shows the time alone. */}
+                {on && id === "clock" && !across(dock.edge) && <SubSwitch label={t("Datum")} checked={c.clockDate} onChange={(clockDate) => setClosed(() => ({ clockDate }))} />}
                 {on && id === "clock" && <SubSwitch label={t("Sekunden")} checked={c.clockSeconds} onChange={(clockSeconds) => setClosed(() => ({ clockSeconds }))} />}
                 {on && id === "title" && <SubSwitch label={t("Songtext")} checked={music.titleLyrics} onChange={(titleLyrics) => setMusic({ titleLyrics })} />}
                 <Switch label={t(label)} checked={on} onChange={(v) => setClosed((cur) => ({ parts: { ...cur.parts, [id]: v } }))} />
