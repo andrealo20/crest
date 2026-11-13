@@ -2,6 +2,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    #[cfg(target_os = "linux")]
+    crest_lib::prefer_x11();
     // Elevated helper call from "Unlock FPS": grant rights and exit. Must run
     // before run(), otherwise single-instance would hand it to the running app.
     let args: Vec<String> = std::env::args().collect();

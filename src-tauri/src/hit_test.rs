@@ -17,6 +17,9 @@
 //! (`track`, `set_zones`), and `taskbar://hover` tells that page when the pointer comes onto one and leaves. Focus mode
 //! puts only the notch aside.
 
+// Linux has no pointer to poll (linux/input.rs sets the window's input shape instead), so the polling half of this file is not used there.
+#![cfg_attr(target_os = "linux", allow(dead_code))]
+
 #[cfg(windows)]
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
@@ -41,6 +44,14 @@ pub struct HitRect {
 }
 
 impl HitRect {
+    /// The zone as whole logical px (CSS px times the page's zoom), rounded outwards.
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+    fn logical(&self, zoom: f64) -> (i32, i32, i32, i32) {
+        let (x0, y0) = ((self.x * zoom).floor(), (self.y * zoom).floor());
+        let (x1, y1) = (((self.x + self.w) * zoom).ceil(), ((self.y + self.h) * zoom).ceil());
+        (x0 as i32, y0 as i32, (x1 - x0) as i32, (y1 - y0) as i32)
+    }
+
     pub(crate) fn contains(&self, x: f64, y: f64) -> bool {
         x >= self.x && x <= self.x + self.w && y >= self.y && y <= self.y + self.h
     }
@@ -120,20 +131,44 @@ impl HitState {
         self.refresh();
     }
 
+    /// The parts of the window that take the pointer, as (x, y, w, h) in logical px; None = all of it (pinned).
+    /// Linux sets this as the window's input shape instead of polling the pointer (linux/input.rs).
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+    pub(crate) fn input_zones(&self) -> Option<Vec<(i32, i32, i32, i32)>> {
+        if *self.pinned.lock().unwrap() {
+            return None;
+        }
+        let zoom = self.zoom();
+        let mut zones = vec![self.rect.lock().unwrap().logical(zoom)];
+        zones.extend(self.pet.lock().unwrap().map(|p| p.logical(zoom)));
+        Some(zones)
+    }
+
     fn zoom(&self) -> f64 {
         let z = f64::from_bits(self.zoom.load(Ordering::Relaxed));
         if z > 0.0 { z } else { 1.0 }
     }
 }
 
+/// Linux has no pointer to poll (Wayland hides it from a client), so the zones are the window's input shape.
+#[cfg(target_os = "linux")]
+fn apply_zones(window: &WebviewWindow, state: &HitState) {
+    crate::linux::input::apply(window, state.input_zones());
+}
+
+#[cfg(not(target_os = "linux"))]
+fn apply_zones(_: &WebviewWindow, _: &HitState) {}
+
 #[tauri::command]
-pub fn set_hit_rect(rect: HitRect, state: State<'_, HitState>) {
+pub fn set_hit_rect(rect: HitRect, window: WebviewWindow, state: State<'_, HitState>) {
     *state.rect.lock().unwrap() = rect;
+    apply_zones(&window, &state);
 }
 
 #[tauri::command]
-pub fn set_pet_rect(rect: Option<HitRect>, state: State<'_, HitState>) {
+pub fn set_pet_rect(rect: Option<HitRect>, window: WebviewWindow, state: State<'_, HitState>) {
     *state.pet.lock().unwrap() = rect;
+    apply_zones(&window, &state);
 }
 
 #[tauri::command]
@@ -143,8 +178,9 @@ pub fn set_passthrough(on: bool, state: State<'_, HitState>) {
 
 /// Kept open (the pin in the notch's header); with Behind on, kept open it rests under the windows again (display.rs `restack`).
 #[tauri::command]
-pub fn set_pinned(pinned: bool, state: State<'_, HitState>, app: AppHandle) {
+pub fn set_pinned(pinned: bool, window: WebviewWindow, state: State<'_, HitState>, app: AppHandle) {
     *state.pinned.lock().unwrap() = pinned;
+    apply_zones(&window, &state);
     crate::display::restack(&app);
 }
 
@@ -439,8 +475,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 let primary = if GetSystemMetrics(SM_SWAPBUTTON) != 0 { VK_RBUTTON } else { VK_LBUTTON };
                 GetAsyncKeyState(primary.0 as i32) as u16 & 0x8000 != 0
             };
-            #[cfg(target_os = "macos")]
-            let dragging = crate::macos::left_button_down();
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            let dragging = crate::native::left_button_down();
             let passthrough = state.passthrough.load(Ordering::Relaxed);
             // Edge distance to the nearest hit zone, the other windows' too; a held button keeps the fast poll (drags,
             // triple click in focus mode).

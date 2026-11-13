@@ -458,6 +458,12 @@ pub(crate) fn restack(app: &AppHandle) {
                 let _ = window.set_always_on_top(true);
                 crate::macos::raise(&window);
             }
+            // The Linux notch has no Behind: it stays on top.
+            #[cfg(target_os = "linux")]
+            {
+                let _ = window.set_always_on_top(true);
+                crate::native::raise(&window);
+            }
         }
     }
     #[cfg(windows)]
