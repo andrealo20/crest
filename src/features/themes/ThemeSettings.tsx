@@ -196,7 +196,8 @@ function GlassLive() {
         </>
       }
     >
-      <Switch label={label} checked={on} onChange={(glassLive) => updateSettings((cur) => ({ themes: { ...cur.themes, glassLive } }))} />
+      {/* Read out on its own, the label does not say what it adds to: the switch names the glass. */}
+      <Switch label={`${t("Glas")}: ${label}`} checked={on} onChange={(glassLive) => updateSettings((cur) => ({ themes: { ...cur.themes, glassLive } }))} />
     </Row>
   );
 }

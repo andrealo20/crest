@@ -149,7 +149,7 @@ let savedPage: PageId = "general";
 
 type Hit = SearchEntry & { page: PageId; groupId: string };
 
-const textOf = (el: Element | null | undefined) => el?.textContent?.trim() ?? "";
+const textOf = (el: Node | null | undefined) => el?.textContent?.trim() ?? "";
 /** The Row whose label and group a hit names, inside `root`. */
 const findRow = (root: Element, h: Hit) =>
   [...root.querySelectorAll<HTMLElement>("[data-row]")].find((r) => textOf(r.querySelector("[data-row-label]")) === h.label && (r.closest("section")?.id ?? "") === h.groupId);
@@ -166,9 +166,10 @@ function readRows(root: HTMLElement): Hit[] {
       const key = `${page}|${groupId}|${label}`;
       if (!label || seen.has(key)) return [];
       seen.add(key);
-      const hint = textOf(row.querySelector("[data-row-hint]"));
+      // A hint can be several texts (a description and a warning under it): each is an entry of its own, read and put into English apart.
+      const hints = [...(row.querySelector("[data-row-hint]")?.childNodes ?? [])].map(textOf).filter(Boolean);
       const group = textOf(section?.querySelector(":scope > h3"));
-      return [{ page, groupId, label, hint, group, en: { label: english(label), hint: english(hint), group: english(group) } }];
+      return [{ page, groupId, label, hint: hints.join(" "), group, en: { label: english(label), hint: hints.map(english).filter(Boolean).join(" "), group: english(group) } }];
     }),
   );
 }
