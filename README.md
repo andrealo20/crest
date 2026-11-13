@@ -74,18 +74,19 @@ While a song plays it can show the lyric line instead of the title. It asks befo
   <img src="docs/media/features/closed-timer.png" alt="A timer that has finished, marked Done" width="236" />
 </p>
 
-## What's new in 1.1.0
+## What's new in 1.2.0
 
-- **A shortcut for any tool**: Settings → Window → Open a tool directly gives a tool its own shortcut, which opens the notch on that tool from anywhere.
-- **Paste directly** from the Clipboard history into the app you were in, like Win + V. It is off by default, in Settings → Tools → Clipboard.
-- **Crest's own eyedropper** in Colour: a loupe over a still picture of all your monitors, right on each one whatever its scaling. On a Mac the system's colour sampler does the same.
-- **Backup and restore** in Settings → General: your settings, notes, to-dos and every tool's data in one file, to restore on this PC or another one. Keys, passwords and the vault stay out of it.
-- **Web search** in Overview with Google, Bing, DuckDuckGo or Brave Search, off by default.
-- **Ask** works with a model on your own PC through LM Studio or Ollama, with no key and no account.
-- **Panel scale** from 80 to 200 percent, the album cover behind the whole Now Playing panel, and about 160 currencies in the Converter and Calc.
-- **Fixes** for drags out of the Shelf, an invisible banner window that caught the pointer, lyrics that jumped to the end of a new song, and the Unlock FPS row, which jumped while the FPS counter retried.
+<p align="center"><img src="docs/media/features/liquid-glass.gif" alt="Liquid Glass: a window dragged under the glass capsule shows through it, the panel opens as glass over it, and a drop of glass follows the pointer along the tool bar and bounces after a click" width="760" /></p>
 
-The [1.1.0 release](https://github.com/andrealo20/crest/releases/tag/v1.1.0) has the downloads and the full notes, with the issue behind each change.
+- **Liquid Glass**: Settings → Themes → Glass turns the open panel into glass. The screen behind it shows through, bent along the sides and blurred in the middle, and four sliders set Transparency, Refraction, Frost and Rim light. On Windows, off by default.
+- **Glass on the closed notch and the capsule** too, over a live copy of the screen just around them, on Windows 11 24H2 and later. While it is on, the notch stays out of screenshots and screen sharing.
+- **A tool bar that follows the pointer**: the highlight slides to the tool you point at, grows under it and bounces back after a click. A drop of glass over the glass, a brighter pill without it and on the Mac.
+- **Themes at sunrise and sunset**: day and night can change with the sun at the place set for the Weather, worked out on your computer.
+- **The date beside the clock** in the closed notch, and a click on a notice there opens its app right away.
+- **Overview** has play/pause and next beside the song, and synced lyrics stay through short pauses.
+- **Fixes** for a browser tooltip that stayed on screen while Crest was open, and for the privacy dot during Snipping Tool recordings.
+
+The [1.2.0 release](https://github.com/andrealo20/crest/releases/tag/v1.2.0) has the downloads and the full notes, with the issue behind each change.
 
 ## Features
 
@@ -156,7 +157,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 
 ### Make it yours
 
-- **Themes**: fifteen built in, an editor, sixteen fonts, coloured icons and a day and night switch.
+- **Themes**: fifteen built in, an editor, sixteen fonts, coloured icons, a day and night switch that can follow the sun, and Liquid Glass on Windows.
 - **Window rules** for full-screen apps and games, any **monitor** or all of them, and every panel resized to taste.
 - **11 languages**: English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German and Italian.
 - **Plugins**: your own tools in HTML, CSS and JavaScript, sandboxed ([docs/plugins.md](docs/plugins.md)).
@@ -193,7 +194,7 @@ Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Wi
 - The layout of the collapsed row, the carousel timing, the capsule placement rules, the per-app audio capture, the way live notices learn of new Windows notifications from the event log, the screen-edge frame, the side column, the portable packaging, the window and app rules, the shortcut text and the panel sizes and scale are translated from [BrimDeck](https://github.com/MoFeng2223/BrimDeck) (Apache-2.0, license text in [licenses/BrimDeck-LICENSE](licenses/BrimDeck-LICENSE)).
 - The panel themes, their readability correction and the day and night switch are translated from BrimDeck too ([docs/themes.md](docs/themes.md)). The One Dark Pro, GitHub, Dracula, Night Owl, Catppuccin, Nord, Rosé Pine, Gruvbox, Solarized and Everforest themes use the colours of those palettes under the MIT License ([licenses/theme-palettes-MIT.txt](licenses/theme-palettes-MIT.txt)).
 - Hiding the Windows volume and brightness indicator follows [Bloom](https://github.com/SehajveerSingh2005/bloom) (GPL-3.0, license text in [licenses/Bloom-LICENSE](licenses/Bloom-LICENSE)).
-- The glass's refraction and rim light are adapted from [WinIsland](https://github.com/WinIslandProject/WinIsland) (GPL-3.0, license text in [licenses/WinIsland-LICENSE](licenses/WinIsland-LICENSE)).
+- The glass's refraction and rim light are adapted from WinIsland (GPL-3.0, license text in [licenses/WinIsland-LICENSE](licenses/WinIsland-LICENSE)).
 - The notch proportions were derived from [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT).
 - The terminal uses [xterm.js](https://github.com/xtermjs/xterm.js) (MIT, [licenses/xterm-MIT.txt](licenses/xterm-MIT.txt)).
 - Pinyin for Chinese lyrics comes from [rust-pinyin](https://github.com/mozillazg/rust-pinyin) (MIT, [licenses/pinyin-MIT.txt](licenses/pinyin-MIT.txt)). Kanji readings use [JMdict](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0) in the [jmdict-simplified](https://github.com/scriptin/jmdict-simplified) format, downloaded on demand and not shipped with Crest.
