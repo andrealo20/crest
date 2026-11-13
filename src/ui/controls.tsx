@@ -331,6 +331,10 @@ export function Slider(props: {
   step?: number;
   onChange: (v: number) => void;
   label: string;
+  /** A tick on the track at this value (the glass's safe Transparency). */
+  mark?: number;
+  /** What a screen reader says for the value, when the number alone is not it. */
+  valueText?: string;
 }) {
   const track = useRef<HTMLDivElement>(null);
   const step = props.step ?? 1;
@@ -354,6 +358,7 @@ export function Slider(props: {
       aria-valuenow={props.value}
       aria-valuemin={props.min}
       aria-valuemax={props.max}
+      aria-valuetext={props.valueText}
       className="relative flex h-5 w-full cursor-pointer touch-none items-center rounded-full outline-none focus-visible:ring-1 focus-visible:ring-label-3"
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -375,6 +380,14 @@ export function Slider(props: {
           style={{ transform: `scaleX(${ratio})` }}
         />
       </div>
+      {/* Outside the track, which clips; taller than the knob, so it shows with the knob on it. */}
+      {props.mark !== undefined && (
+        <span
+          aria-hidden
+          className="absolute top-1/2 h-[18px] w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-label-3"
+          style={{ left: `${((props.mark - props.min) / (props.max - props.min)) * 100}%` }}
+        />
+      )}
       <span
         className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_3px_rgb(0_0_0/0.5)]"
         style={{ left: `${ratio * 100}%` }}

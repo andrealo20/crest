@@ -527,6 +527,24 @@ pub fn run() {
             capture::find::find_highlight,
             #[cfg(windows)]
             capture::eyedropper::colour_pick,
+            #[cfg(windows)]
+            capture::backdrop::glass_backdrop,
+            #[cfg(windows)]
+            capture::glass_live::glass_live_supported,
+            #[cfg(windows)]
+            capture::glass_live::glass_live_exclude,
+            #[cfg(windows)]
+            capture::glass_live::glass_live_start,
+            #[cfg(windows)]
+            capture::glass_live::glass_live_stop,
+            #[cfg(target_os = "macos")]
+            macos::glass_live_supported,
+            #[cfg(target_os = "macos")]
+            macos::glass_live_exclude,
+            #[cfg(target_os = "macos")]
+            macos::glass_live_start,
+            #[cfg(target_os = "macos")]
+            macos::glass_live_stop,
             #[cfg(target_os = "macos")]
             macos::colour::colour_pick,
             agents::agents_list,
@@ -720,7 +738,7 @@ fn diagnostics_info(window: tauri::WebviewWindow) -> serde_json::Value {
 
 /// The PC's own architecture, which GetSystemInfo hides from an emulated process.
 #[cfg(windows)]
-fn native_machine() -> Option<&'static str> {
+pub(crate) fn native_machine() -> Option<&'static str> {
     use windows::Win32::System::SystemInformation::{IMAGE_FILE_MACHINE, IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_ARM64};
     use windows::Win32::System::Threading::{GetCurrentProcess, IsWow64Process2};
     let (mut process, mut native) = (IMAGE_FILE_MACHINE::default(), IMAGE_FILE_MACHINE::default());

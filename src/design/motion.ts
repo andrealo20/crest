@@ -6,6 +6,7 @@ import type { Transition } from "motion/react";
  *
  * Apple-style springs (visualDuration + bounce) instead of stiffness/damping:
  * easier to read and matches SwiftUI's .spring(duration:bounce:).
+ * springs.glide is the exception, written as stiffness and damping so it keeps its velocity (physics()).
  */
 
 // ?slow=4 in the URL slows all springs down for tuning.
@@ -16,6 +17,16 @@ const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 function spring(visualDuration: number, bounce: number): Transition {
   if (reduceMotion) return { type: "spring", visualDuration: 0.2 * slow, bounce: 0 };
   return { type: "spring", visualDuration: visualDuration * slow, bounce };
+}
+
+/**
+ * spring() as stiffness and damping, the same curve from rest: Motion 14 starts a spring set by duration and bounce from rest whenever
+ * it is aimed somewhere else, this one keeps its velocity (the tool bar's drop, src/notch/glass/bar.ts).
+ */
+function physics(visualDuration: number, bounce: number): Transition {
+  const [d, b] = reduceMotion ? [0.2, 0] : [visualDuration, bounce];
+  const root = (2 * Math.PI) / (d * slow * 1.2);
+  return { type: "spring", stiffness: root * root, damping: 2 * (1 - b) * root, mass: 1 };
 }
 
 export const springs = {
@@ -29,6 +40,10 @@ export const springs = {
   morph: spring(0.36, 0.14),
   /** Small elements inside (tab pill, toggles). */
   snappy: spring(0.24, 0.12),
+  /** The drop in the tool bar: snappy, keeping its velocity when it is sent somewhere else. */
+  glide: physics(0.24, 0.12),
+  /** A squashed shape springing back past its rest: the tool bar's drop after a click. */
+  rebound: spring(0.32, 0.6),
 } as const;
 
 const easeOut = [0.23, 1, 0.32, 1] as const;

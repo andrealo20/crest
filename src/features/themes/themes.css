@@ -18,9 +18,19 @@
 @property --color-red { syntax: "<color>"; inherits: true; initial-value: #ff453a; }
 @property --color-orange { syntax: "<color>"; inherits: true; initial-value: #ff9f0a; }
 @property --color-yellow { syntax: "<color>"; inherits: true; initial-value: #ffd60a; }
+@property --color-caution { syntax: "<color>"; inherits: true; initial-value: #ffd60a; }
 @property --color-link { syntax: "<color>"; inherits: true; initial-value: #419cff; }
 @property --color-black { syntax: "<color>"; inherits: true; initial-value: #000; }
 @property --shape { syntax: "<color>"; inherits: true; initial-value: #000; }
+/* The glass's veils, rim and status colours (src/notch/glass), crossfaded with the theme like the colours above. */
+@property --glass-tint { syntax: "<color>"; inherits: true; initial-value: rgb(0 0 0 / 0.78); }
+@property --glass-tint-edge { syntax: "<color>"; inherits: true; initial-value: rgb(0 0 0 / 0.35); }
+@property --glass-rim { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.7); }
+@property --glass-tint-clear { syntax: "<color>"; inherits: true; initial-value: rgb(0 0 0 / 0.59); }
+@property --glass-orange { syntax: "<color>"; inherits: true; initial-value: #ff9f0a; }
+@property --glass-red { syntax: "<color>"; inherits: true; initial-value: #ff453a; }
+@property --glass-green { syntax: "<color>"; inherits: true; initial-value: #30d158; }
+@property --glass-caution { syntax: "<color>"; inherits: true; initial-value: #ffd60a; }
 
 :root {
   transition:
@@ -38,8 +48,17 @@
     --color-red 500ms ease,
     --color-orange 500ms ease,
     --color-yellow 500ms ease,
+    --color-caution 500ms ease,
     --color-link 500ms ease,
-    --color-black 500ms ease;
+    --color-black 500ms ease,
+    --glass-tint 500ms ease,
+    --glass-tint-edge 500ms ease,
+    --glass-tint-clear 500ms ease,
+    --glass-rim 500ms ease,
+    --glass-orange 500ms ease,
+    --glass-red 500ms ease,
+    --glass-green 500ms ease,
+    --glass-caution 500ms ease;
 }
 
 /*
@@ -97,8 +116,18 @@
     --color-link: LinkText !important;
     --color-green: Highlight !important;
     --color-yellow: Highlight !important;
+    --color-caution: CanvasText !important;
     --color-orange: CanvasText !important;
     --color-red: CanvasText !important;
+    /* The glass is off with forced colours (src/notch/glass); these keep it opaque and in the system's colours all the same. */
+    --glass-tint: Canvas !important;
+    --glass-tint-edge: Canvas !important;
+    --glass-tint-clear: Canvas !important;
+    --glass-rim: CanvasText !important;
+    --glass-orange: CanvasText !important;
+    --glass-red: CanvasText !important;
+    --glass-green: Highlight !important;
+    --glass-caution: CanvasText !important;
     --accent: Highlight !important;
     --theme-accent: Highlight !important;
   }

@@ -9,6 +9,7 @@ import {
   BUILT_IN_THEMES,
   FONTS,
   THEME_DEFAULTS,
+  closedGlassInk,
   findTheme,
   importThemes,
   isBuiltIn,
@@ -116,6 +117,13 @@ export function useThemedAccent(raw: string | undefined): string {
 export function useClosedInk(raw: string | undefined): Record<string, string> | undefined {
   const theme = activeTheme.use();
   return useMemo(() => (theme.closedNotch ? undefined : { ...DARK.vars, "--accent": raw ?? DARK.vars["--theme-accent"] }), [raw, theme.closedNotch]);
+}
+
+/** The closed row's ink over its glass (themes.ts closedGlassInk), while that glass shows; undefined otherwise. */
+export function useClosedGlassInk(accent: string, on: boolean): Record<string, string> | undefined {
+  const theme = activeTheme.use();
+  const hues = settings.use().themes.iconColors;
+  return useMemo(() => (on ? closedGlassInk(theme.closedNotch ? theme : DARK, accent, hues) : undefined), [on, theme, accent, hues]);
 }
 
 // ---------- Choosing ----------

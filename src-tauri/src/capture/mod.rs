@@ -4,12 +4,16 @@
 //! recordings in Videos\Crest\Recordings as MP4, audio-only ones in Music\Crest\Recordings as M4A.
 //! While a screenshot or screen recording is taken, Crest's own window is excluded from capture
 //! (WDA_EXCLUDEFROMCAPTURE), and only then, unless "Hide Crest from screen sharing" is on (sharing.rs): then it stays out.
+//! The glass's copy of the screen behind the notch (backdrop.rs) leaves out the notch window alone, through the same lock.
+//! While the live glass is on (glass_live.rs) the notch window stays out of every capture.
 //! Recording state goes to the frontend as `capture://state`. Find on screen (find.rs)
 //! reads the screens with OCR from in-memory copies.
 
 mod audio;
+pub(crate) mod backdrop;
 pub(crate) mod eyedropper;
 pub(crate) mod find;
+pub(crate) mod glass_live;
 mod math;
 mod record;
 mod shot;
@@ -49,6 +53,8 @@ pub struct CaptureState {
     screen: AtomicBool,
     /// Screenshots and Find reads under way, each keeping Crest's windows out of capture.
     holds: AtomicUsize,
+    /// The live glass is switched on (glass_live.rs): the notch window stays out of capture until it is switched off.
+    live: AtomicBool,
 }
 
 impl CaptureState {
@@ -187,21 +193,33 @@ pub(crate) fn exclude_if_capturing(app: &AppHandle) {
 /// Every Crest window (the notch, the floating timer, ...) in or out of captures. "Out" ends at the user's choice
 /// (sharing.rs): with Hide Crest from screen sharing on, putting the windows back leaves them excluded.
 fn exclude(app: &AppHandle, on: bool) {
-    // One pass at a time, with the flag read inside it: a pass that started earlier cannot put back an outdated flag
-    // over the user's latest choice (the end of a screenshot against the Hide Crest switch).
-    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
-    let _one = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
-    let flag = affinity(on, crate::sharing::hidden());
-    for w in app.webview_windows().values() {
+    // The flags are read inside the pass: the end of a screenshot cannot put back an outdated one over the Hide Crest switch,
+    // nor the notch over the live glass.
+    let _one = one_at_a_time();
+    let hidden = crate::sharing::hidden();
+    let live = app.state::<CaptureState>().live.load(Ordering::SeqCst);
+    for (label, w) in app.webview_windows() {
         if let Ok(hwnd) = w.hwnd() {
-            let _ = unsafe { SetWindowDisplayAffinity(hwnd, flag) };
+            let _ = unsafe { SetWindowDisplayAffinity(hwnd, window_affinity(on, hidden, live, label == "notch")) };
         }
     }
+}
+
+/// One pass over the windows' capture flags at a time (`exclude`, the glass's copy): a pass that started earlier cannot put back an
+/// outdated flag over the user's latest choice.
+fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
+    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+    ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 /// Out of captures when asked to be (a screenshot, a recording) or when the user chose to hide Crest from screen sharing.
 fn affinity(on: bool, hidden: bool) -> WINDOW_DISPLAY_AFFINITY {
     if on || hidden { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }
+}
+
+/// A window's flag in `exclude`: the notch also stays out while the live glass is on, or it would show in its own glass.
+fn window_affinity(on: bool, hidden: bool, live: bool, notch: bool) -> WINDOW_DISPLAY_AFFINITY {
+    affinity(on || (live && notch), hidden)
 }
 
 /// The setting changed (sharing.rs). A recording or a screenshot of Crest's own keeps the windows out until it ends, whatever
@@ -767,6 +785,14 @@ mod affinity_tests {
         // Hide Crest from screen sharing on: the end of a screenshot or a recording leaves the windows out.
         assert_eq!(affinity(false, true), WDA_EXCLUDEFROMCAPTURE);
         assert_eq!(affinity(true, true), WDA_EXCLUDEFROMCAPTURE);
+    }
+
+    #[test]
+    fn the_notch_alone_stays_out_while_the_live_glass_is_on() {
+        assert_eq!(window_affinity(false, false, true, true), WDA_EXCLUDEFROMCAPTURE);
+        assert_eq!(window_affinity(false, false, true, false), WDA_NONE);
+        assert_eq!(window_affinity(false, false, false, true), WDA_NONE);
+        assert_eq!(window_affinity(true, false, false, false), WDA_EXCLUDEFROMCAPTURE);
     }
 }
 

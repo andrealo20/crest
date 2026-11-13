@@ -1,8 +1,12 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react";
-import { ArrowCounterClockwise } from "@phosphor-icons/react";
-import { Button, Group, Row, Select, StyleCards, Switch, TextField } from "../../ui/controls";
+import { ArrowCounterClockwise, WarningCircle } from "@phosphor-icons/react";
+import { Button, Group, Row, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
 import { formatTime } from "../../lib/format";
+import { isMac } from "../../platform/native";
 import { openFile, revealFile } from "../../platform/services";
+import { demo } from "../../dev/showcase-data";
+import { glassShape } from "../../notch/glass/params";
+import { liveSupport } from "../../notch/glass/live";
 import { settings, updateSettings } from "../../settings/store";
 import { t } from "../../i18n";
 import { contrast, parseColor, toHex, withAlpha, type Rgba } from "./color";
@@ -29,7 +33,21 @@ import {
   themesFolder,
   undoEdit,
 } from "./store";
-import { BUILT_IN_THEMES, EDITOR_KEYS, FONTS, FONT_NAMES, findTheme, isBuiltIn, resolveTheme, type Adjustment, type FontId, type ThemeFile, type ThemeKey } from "./themes";
+import {
+  BUILT_IN_THEMES,
+  EDITOR_KEYS,
+  FONTS,
+  FONT_NAMES,
+  GLASS_RANGE,
+  findTheme,
+  glassVeilAt,
+  isBuiltIn,
+  resolveTheme,
+  type Adjustment,
+  type FontId,
+  type ThemeFile,
+  type ThemeKey,
+} from "./themes";
 
 /** The two plain built-ins are named after their look; the ported editor themes keep their own names. */
 const themeName = (theme: ThemeFile) => (!isBuiltIn(theme.id) ? theme.name : theme.id === "dark" ? t("Dunkel") : theme.id === "light" ? t("Hell") : theme.name);
@@ -61,7 +79,8 @@ const KEY_LABELS: Record<Adjustment["key"], string> = {
 };
 
 function ThemeChoice() {
-  const themes = settings.use().themes;
+  const s = settings.use();
+  const themes = s.themes;
   activeTheme.use(); // re-render when day turns to night
   const forced = forcedColors.use();
   const editing = draft.use();
@@ -76,6 +95,10 @@ function ThemeChoice() {
     discardEdits();
     pickTheme(id);
   };
+  // For the saved look; a window rule can change it for a while (Notch.tsx works from the look on screen).
+  const fits = glassShape(s.display.idleStyle, s.dock.edge);
+  // The live glass's switch only where it can run: Windows 11 24H2 on x64, not the Store build (capture/glass_live.rs).
+  const support = liveSupport.use();
 
   return (
     <Group title={t("Theme")} id="settings-themes">
@@ -142,7 +165,88 @@ function ThemeChoice() {
           onChange={(coverTint) => updateSettings((cur) => ({ themes: { ...cur.themes, coverTint } }))}
         />
       </Row>
+      {!isMac && !demo && (
+        <Row
+          label={t("Glas")}
+          hint={fits ? t("Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas") : t("Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt")}
+        >
+          <Switch label={t("Glas")} checked={themes.glass} onChange={(glass) => updateSettings((cur) => ({ themes: { ...cur.themes, glass } }))} />
+        </Row>
+      )}
+      {!isMac && !demo && themes.glass && <GlassLook />}
+      {!isMac && !demo && themes.glass && support?.supported === true && <GlassLive />}
     </Group>
+  );
+}
+
+/** The live glass's switch (src/notch/glass/live.ts), with the battery warning always under it, so it is read before switching on. */
+function GlassLive() {
+  const on = settings.use().themes.glassLive;
+  const label = t("Auch geschlossene Notch und Kapsel");
+  return (
+    <Row
+      label={label}
+      hint={
+        <>
+          {t("Zeigt live, was hinter der geschlossenen Notch und der Kapsel liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlen Notch und Kapsel in Screenshots, Aufnahmen und Bildschirmfreigaben.")}
+          <span className="mt-1 flex items-start gap-1 text-caution">
+            <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
+            {t("Braucht mehr Akku: Windows hat bei jeder Änderung auf dem Bildschirm mehr Arbeit")}
+          </span>
+        </>
+      }
+    >
+      {/* Read out on its own, the label does not say what it adds to: the switch names the glass. */}
+      <Switch label={`${t("Glas")}: ${label}`} checked={on} onChange={(glassLive) => updateSettings((cur) => ({ themes: { ...cur.themes, glassLive } }))} />
+    </Row>
+  );
+}
+
+/** The glass's look, under its switch; src/notch/glass shows each move on its next frame. */
+function GlassLook() {
+  const transparency = settings.use().themes.glassTransparency;
+  const vars = activeTheme.use().vars;
+  // The theme's veils as transparency in %: the mark's, and the slider's now.
+  const alpha = (name: string) => parseColor(vars[name])?.a ?? 1;
+  const percent = (veil: number) => Math.round((1 - veil) * 100);
+  const safe = alpha("--glass-tint"), past = transparency > 0;
+  return (
+    <>
+      <GlassSlider
+        label={t("Transparenz")}
+        // A status, so crossing the mark is read out.
+        hint={
+          <span role="status" className={past ? "text-label" : undefined}>
+            {past ? t("Über hellen oder gestreiften Hintergründen kann Text schlechter zu lesen sein") : t("Bis zur Markierung ({n} %) bleibt jeder Text über jedem Hintergrund lesbar", { n: percent(safe) })}
+          </span>
+        }
+        field="glassTransparency"
+        step={5}
+        mark={0}
+        text={`${percent(glassVeilAt(safe, transparency, alpha("--glass-tint-clear")))} %`}
+      />
+      <GlassSlider label={t("Lichtbrechung")} hint={t("Wie stark der Rand den Hintergrund biegt")} field="glassRefraction" step={10} />
+      <GlassSlider label={t("Mattierung")} hint={t("Wie stark der Hintergrund in der Mitte verschwimmt")} field="glassFrost" step={10} />
+      <GlassSlider label={t("Licht am Rand")} hint={t("Wie hell der Rand des Glases leuchtet")} field="glassRim" step={10} />
+    </>
+  );
+}
+
+/**
+ * A slider of the glass's look, with its value beside it; saved on every step, like the other sliders in the settings. A drag repeats
+ * the same step over a few px, and each save would draw the whole panel again.
+ */
+function GlassSlider(props: { label: string; hint: ReactNode; field: keyof typeof GLASS_RANGE; step: number; mark?: number; text?: string }) {
+  const value = settings.use().themes[props.field];
+  const [min, max] = GLASS_RANGE[props.field];
+  const text = props.text ?? `${value} %`;
+  return (
+    <Row label={props.label} hint={props.hint}>
+      <div className="flex w-52 shrink-0 items-center gap-2">
+        <Slider label={props.label} value={value} min={min} max={max} step={props.step} mark={props.mark} valueText={text} onChange={(v) => v !== value && updateSettings((cur) => ({ themes: { ...cur.themes, [props.field]: v } }))} />
+        <span className="tabular w-10 shrink-0 text-end text-caption text-label-2">{text}</span>
+      </div>
+    </Row>
   );
 }
 

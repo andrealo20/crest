@@ -1,7 +1,7 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck.Core/PanelThemes.cs, PanelThemes.Build.cs,
 // PanelThemes.Derive.cs and Themes/*.json (the palettes of One Dark Pro, GitHub, Dracula and Night Owl, all MIT, see docs/themes.md).
 
-import { BLACK, WHITE, contrast, ensureContrast, formatColor, isDark, mix, over, parseColor, toHex, withAlpha, type ContrastNeed, type Rgba } from "./color.ts";
+import { BLACK, WHITE, contrast, contrastScore, ensureContrast, formatColor, isDark, luminance, mix, over, parseColor, toHex, withAlpha, type ContrastNeed, type Rgba } from "./color.ts";
 
 /**
  * Panel themes. A theme names a few colours (THEME_KEYS); the rest of Crest's tokens follow from
@@ -36,6 +36,16 @@ export interface ThemeSettings {
   iconColors: boolean;
   /** The open panel takes a soft glow of the cover colour while a song shows (themes.css, [data-ambience]). */
   coverTint: boolean;
+  /** The open panel drawn as glass over a copy of the screen behind it (Windows, src/notch/glass); resolveTheme gives its --glass-* tokens. */
+  glass: boolean;
+  /** Transparency, under Glass: 0 is the theme's safe veil, -100 opaque, 100 the clearest (glassVeilAt); src/notch/glass reads it each frame. */
+  glassTransparency: number;
+  /** Refraction, Frost and Rim light, in % of their default. */
+  glassRefraction: number;
+  glassFrost: number;
+  glassRim: number;
+  /** The closed notch and the capsule drawn as glass too, over a live copy of the screen around them (Windows 11, src/notch/glass/live.ts). */
+  glassLive: boolean;
   /** The whole app's font (FONTS), set as --font-sans; the terminal and the timer looks keep their monospace. */
   font: FontId;
 }
@@ -71,6 +81,13 @@ export const FONT_NAMES: Record<FontId, string> = {
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
 /** Tertiary text (hints, inactive icons): Crest's own dark tertiary, white at 34 %, is 2.9:1 on black. */
 export const TERTIARY = 2.8;
+/**
+ * The glass's veil in the bands along the panel's sides, where Crest writes nothing, and under the tool bar: 35 %, the dimming Apple asks
+ * for under clear glass over bright content.
+ */
+export const GLASS_EDGE = 0.35;
+/** The glass's sliders' ends (Settings › Themes, under Glass); saved values are held to them. */
+export const GLASS_RANGE = { glassTransparency: [-100, 100], glassRefraction: [0, 200], glassFrost: [0, 200], glassRim: [0, 200] } as const;
 export const MAX_FILE_BYTES = 64 * 1024;
 export const DEFAULT_THEME = "dark";
 
@@ -269,7 +286,21 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     critical: ensure("critical", pick("critical", mode.critical), needs(TEXT, bg)),
     success: ensure("success", pick("success", mode.success), needs(TEXT, bg)),
   };
+  const veil = withAlpha(bg, glassVeil(bg, [[colors.foreground, STRONG_TEXT], [colors.secondary, TEXT], [colors.tertiary, TERTIARY]]));
+  // The clearest Transparency: 4.5:1 for the main text, 3:1 for labels (WCAG's minimum for large text and graphics); clearer, a label
+  // can meet its backdrop at 1:1.
+  const clearest = glassVeil(bg, [[colors.foreground, TEXT], [colors.secondary, GRAPHIC]]);
+  // The side bands' veil, and the tool bar's (src/notch/glass/bar.ts), which Transparency leaves as it is: its icons take glassInk.
+  const edge = formatColor(withAlpha(bg, Math.min(GLASS_EDGE, veil.a)));
+  // The veil holds the three text levels only: under the glass, status text gets colours of its own, held to 4.5:1 over the veil's
+  // darkest and lightest ends (Dark's red would drop to 3.4:1 over white), so neither the veil nor the panel's colours have to move.
+  const glassStatus = (c: Rgba) => formatColor(ensureContrast(c, needs(TEXT, over(veil, BLACK), over(veil, WHITE))));
   const yellow = ensure("yellow", parseColor(mode.yellow)!, needs(GRAPHIC, bg));
+  // The yellow warning under Glass (ThemeSettings.tsx GlassLive) is text: 4.5:1 on the panel and on the settings group's fill, and,
+  // under the glass, over the veil's darkest and lightest ends with and without that fill. Not through `ensure`, which would list it
+  // among the corrections the editor shows: no theme writes it.
+  const caution = ensureContrast(parseColor(mode.yellow)!, needs(TEXT, bg, fill1));
+  const glassCaution = ensureContrast(caution, needs(TEXT, ...[BLACK, WHITE].flatMap((x) => [over(veil, x), over(fill[0], over(veil, x))])));
   // Ink on label-coloured fills and on scrims (Tailwind's `black`): whichever of black and white reads better on the foreground.
   const label = over(colors.foreground, bg);
   const onLabel = contrast(WHITE, label) > contrast(BLACK, label) ? WHITE : BLACK;
@@ -290,10 +321,19 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     "--color-red": formatColor(colors.critical),
     "--color-orange": formatColor(colors.warning),
     "--color-yellow": formatColor(yellow),
+    "--color-caution": formatColor(caution),
     "--color-link": formatColor(colors.link),
     "--color-black": formatColor(onLabel),
     "--theme-accent": formatColor(colors.accent),
     "--notch-closed": closedNotch ? formatColor(bg) : "#000000",
+    "--glass-tint": formatColor(veil),
+    "--glass-tint-edge": edge,
+    "--glass-tint-clear": formatColor(withAlpha(bg, clearest)),
+    "--glass-rim": dark ? "rgb(255 255 255 / 0.7)" : "rgb(255 255 255 / 0.9)",
+    "--glass-orange": glassStatus(colors.warning),
+    "--glass-red": glassStatus(colors.critical),
+    "--glass-green": glassStatus(colors.success),
+    "--glass-caution": formatColor(glassCaution),
   };
   // Coloured icons sit on the panel, the elevated cards, the Hardware rows and the active dock pill.
   const hueGrounds = needs(GRAPHIC, bg, elevated, fill1, over(fill[2], bg));
@@ -301,6 +341,30 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     vars[`--hue-${hue}`] = formatColor(ensureContrast(parseColor(dark ? onDark : onLight)!, hueGrounds));
   }
   return { id: file.id, dark, vars, colors, adjustments, closedNotch };
+}
+
+/**
+ * The glass lays the panel's background over the screen as a veil (src/notch/glass): the least opacity, in hundredths, at which every
+ * text keeps its minimum over any backdrop. Grey backdrops from black to white span every luminance the veil can sit on; a text that
+ * stays on one side of the veiled backdrop at both ends is at its worst at one of them, and one that changes side meets 1:1 in between.
+ */
+export function glassVeil(background: Rgba, texts: readonly (readonly [Rgba, number])[]): number {
+  const side = (t: Rgba, under: Rgba) => Math.sign(luminance(over(t, under)) - luminance(under));
+  for (let i = 0; i <= 100; i++) {
+    const veil = withAlpha(background, i / 100);
+    const low = over(veil, BLACK), high = over(veil, WHITE);
+    if (texts.every(([t, min]) => contrast(t, low) >= min && contrast(t, high) >= min && side(t, low) === side(t, high))) return i / 100;
+  }
+  return 1;
+}
+
+/**
+ * The veil the Transparency slider gives (ThemeSettings.glassTransparency): 0 is `safe`, the theme's least readable veil; towards -100
+ * it thickens to opaque, towards 100 it thins to `clearest`. The side bands pass only their own veil: never clearer.
+ */
+export function glassVeilAt(safe: number, transparency: number, clearest = safe): number {
+  const t = Math.max(-100, Math.min(100, transparency)) / 100;
+  return t <= 0 ? safe - t * (1 - safe) : safe - t * (safe - clearest);
 }
 
 /** Coloured icons (Settings, Themes; hues.ts), in risograph ink colours: a bright shade for dark themes and a darker one for light themes, then held to 3:1 like every other colour. */
@@ -324,6 +388,46 @@ export const HUE_PALETTE = {
   slate: ["#9aa3ad", "#6d757f"],
 } as const;
 export type Hue = keyof typeof HUE_PALETTE;
+
+/**
+ * The closed row's ink over the closed shapes' glass (src/notch/glass/live.ts). The closed veil holds the text levels of `ink` (Dark's, or
+ * the theme's when it colours the closed notch); the album colour, the link, the readings' yellow and, with coloured icons, every hue are
+ * held to 3:1 over that veil on black and on white, and the warning, error and success colours take the glass's.
+ */
+export function closedGlassInk(ink: ResolvedTheme, accent: string, hues: boolean): Record<string, string> {
+  const veil = parseColor(ink.vars["--glass-tint"])!;
+  const needs = [BLACK, WHITE].map((x) => ({ background: over(veil, x), minimum: GRAPHIC }));
+  const hold = (c: string) => {
+    const p = parseColor(c);
+    return p ? formatColor(ensureContrast(p, needs)) : c;
+  };
+  const out: Record<string, string> = {
+    "--accent": hold(accent),
+    "--color-link": hold(ink.vars["--color-link"]),
+    "--color-yellow": hold(ink.vars["--color-yellow"]),
+    "--color-orange": ink.vars["--glass-orange"],
+    "--color-red": ink.vars["--glass-red"],
+    "--color-green": ink.vars["--glass-green"],
+  };
+  if (hues) for (const hue of Object.keys(HUE_PALETTE)) out[`--hue-${hue}`] = hold(ink.vars[`--hue-${hue}`]);
+  return out;
+}
+
+/**
+ * The tool bar's colours over the glass (src/notch/glass/bar.ts): its veil is thinner than the panel's, so the update dot's link colour
+ * and the icons, the current tool's mark and, with coloured icons, every hue take one ink. That veil is the side bands' (--glass-tint-edge),
+ * too thin for any colour to keep 3:1 over every backdrop, and a colour as light as some backdrop meets it at 1:1 (ensureContrast, held to
+ * the two ends only, would pick one). White, lighter than any backdrop, is at its worst over the lightest, black over the darkest, and no
+ * colour does better than the better of the two.
+ */
+export function glassInk(theme: ResolvedTheme, hues: boolean): Record<string, string> {
+  const veil = parseColor(theme.vars["--glass-tint-edge"])!, fill = parseColor(theme.vars["--color-fill-3"])!;
+  const needs = [BLACK, WHITE].flatMap((x) => [over(veil, x), over(fill, over(veil, x))]).map((background) => ({ background, minimum: GRAPHIC }));
+  const ink = formatColor(contrastScore(WHITE, needs) >= contrastScore(BLACK, needs) ? WHITE : BLACK);
+  const out: Record<string, string> = { "--color-label": ink, "--color-label-2": ink, "--color-link": ink };
+  if (hues) for (const hue of Object.keys(HUE_PALETTE)) out[`--hue-${hue}`] = ink;
+  return out;
+}
 
 /** Before 0.3.3 a Hardware switch coloured only the closed-row readings; saved settings that had it on keep coloured icons. */
 export const legacyIconColors = (system: unknown) => typeof system === "object" && system !== null && (system as { iconColors?: unknown }).iconColors === true;
@@ -503,6 +607,12 @@ export const THEME_DEFAULTS: ThemeSettings = {
   schedule: { on: false, day: "light", night: "dark", dayStart: "07:00", nightStart: "19:00" },
   iconColors: false,
   coverTint: false,
+  glass: false,
+  glassTransparency: 0,
+  glassRefraction: 100,
+  glassFrost: 100,
+  glassRim: 100,
+  glassLive: false,
   font: "inter",
 };
 
@@ -523,6 +633,11 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
   const sc = (typeof s.schedule === "object" && s.schedule !== null ? s.schedule : {}) as Partial<ThemeSettings["schedule"]>;
   const text = (v: unknown, fallback: string) => (typeof v === "string" && v ? v : fallback);
   const time = (v: unknown, fallback: string) => (typeof v === "string" && TIME.test(v) ? v : fallback);
+  // A number held to the slider's ends and made whole; anything else (a string, NaN, a hand edit) is the default.
+  const look = (k: keyof typeof GLASS_RANGE) => {
+    const v: unknown = s[k], [lo, hi] = GLASS_RANGE[k];
+    return typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(hi, Math.max(lo, v))) : THEME_DEFAULTS[k];
+  };
   return {
     id: text(s.id, THEME_DEFAULTS.id),
     custom,
@@ -535,6 +650,12 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     },
     iconColors: typeof s.iconColors === "boolean" ? s.iconColors : legacyIconColors,
     coverTint: s.coverTint === true,
+    glass: s.glass === true,
+    glassTransparency: look("glassTransparency"),
+    glassRefraction: look("glassRefraction"),
+    glassFrost: look("glassFrost"),
+    glassRim: look("glassRim"),
+    glassLive: s.glassLive === true,
     font: typeof s.font === "string" && Object.hasOwn(FONTS, s.font) ? s.font : THEME_DEFAULTS.font,
   };
 }

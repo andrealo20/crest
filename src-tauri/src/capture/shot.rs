@@ -104,10 +104,20 @@ pub fn virtual_screen() -> Rect {
 
 /// Copies what is on all screens right now. CAPTUREBLT includes layered windows (menus, tooltips).
 pub fn grab(screen: Rect) -> Result<Dib> {
+    copy(screen, SRCCOPY | CAPTUREBLT)
+}
+
+/// The same without CAPTUREBLT, which makes the cursor flicker on every call: for the glass, copied with the pointer on the notch.
+/// A window made layered with SetLayeredWindowAttributes is still in it; one drawn with UpdateLayeredWindow was not tried.
+pub fn grab_plain(screen: Rect) -> Result<Dib> {
+    copy(screen, SRCCOPY)
+}
+
+fn copy(screen: Rect, rop: ROP_CODE) -> Result<Dib> {
     let dib = Dib::new(screen.w, screen.h)?;
     unsafe {
         let src = GetDC(None);
-        let done = BitBlt(dib.dc, 0, 0, screen.w, screen.h, Some(src), screen.x, screen.y, SRCCOPY | CAPTUREBLT);
+        let done = BitBlt(dib.dc, 0, 0, screen.w, screen.h, Some(src), screen.x, screen.y, rop);
         ReleaseDC(None, src);
         done?;
     }
