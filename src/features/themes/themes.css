@@ -27,7 +27,6 @@
 @property --glass-tint-edge { syntax: "<color>"; inherits: true; initial-value: rgb(0 0 0 / 0.35); }
 @property --glass-rim { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.7); }
 @property --glass-tint-clear { syntax: "<color>"; inherits: true; initial-value: rgb(0 0 0 / 0.59); }
-@property --glass-tint-bar { syntax: "<color>"; inherits: true; initial-value: rgb(0 0 0 / 0.35); }
 @property --glass-orange { syntax: "<color>"; inherits: true; initial-value: #ff9f0a; }
 @property --glass-red { syntax: "<color>"; inherits: true; initial-value: #ff453a; }
 @property --glass-green { syntax: "<color>"; inherits: true; initial-value: #30d158; }
@@ -55,7 +54,6 @@
     --glass-tint 500ms ease,
     --glass-tint-edge 500ms ease,
     --glass-tint-clear 500ms ease,
-    --glass-tint-bar 500ms ease,
     --glass-rim 500ms ease,
     --glass-orange 500ms ease,
     --glass-red 500ms ease,
@@ -125,7 +123,6 @@
     --glass-tint: Canvas !important;
     --glass-tint-edge: Canvas !important;
     --glass-tint-clear: Canvas !important;
-    --glass-tint-bar: Canvas !important;
     --glass-rim: CanvasText !important;
     --glass-orange: CanvasText !important;
     --glass-red: CanvasText !important;

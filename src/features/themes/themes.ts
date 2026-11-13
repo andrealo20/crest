@@ -329,7 +329,6 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     "--glass-tint": formatColor(veil),
     "--glass-tint-edge": edge,
     "--glass-tint-clear": formatColor(withAlpha(bg, clearest)),
-    "--glass-tint-bar": edge,
     "--glass-rim": dark ? "rgb(255 255 255 / 0.7)" : "rgb(255 255 255 / 0.9)",
     "--glass-orange": glassStatus(colors.warning),
     "--glass-red": glassStatus(colors.critical),
@@ -415,13 +414,13 @@ export function closedGlassInk(ink: ResolvedTheme, accent: string, hues: boolean
 
 /**
  * The tool bar's colours over the glass (src/notch/glass/bar.ts): its veil is thinner than the panel's, so the update dot's link colour
- * and the icons, the current tool's mark and, with coloured icons, every hue take one ink. That veil is the side bands' (--glass-tint-bar),
+ * and the icons, the current tool's mark and, with coloured icons, every hue take one ink. That veil is the side bands' (--glass-tint-edge),
  * too thin for any colour to keep 3:1 over every backdrop, and a colour as light as some backdrop meets it at 1:1 (ensureContrast, held to
  * the two ends only, would pick one). White, lighter than any backdrop, is at its worst over the lightest, black over the darkest, and no
  * colour does better than the better of the two.
  */
 export function glassInk(theme: ResolvedTheme, hues: boolean): Record<string, string> {
-  const veil = parseColor(theme.vars["--glass-tint-bar"])!, fill = parseColor(theme.vars["--color-fill-3"])!;
+  const veil = parseColor(theme.vars["--glass-tint-edge"])!, fill = parseColor(theme.vars["--color-fill-3"])!;
   const needs = [BLACK, WHITE].flatMap((x) => [over(veil, x), over(fill, over(veil, x))]).map((background) => ({ background, minimum: GRAPHIC }));
   const ink = formatColor(contrastScore(WHITE, needs) >= contrastScore(BLACK, needs) ? WHITE : BLACK);
   const out: Record<string, string> = { "--color-label": ink, "--color-label-2": ink, "--color-link": ink };

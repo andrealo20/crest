@@ -831,11 +831,12 @@ function DockButton(props: {
       )}
       <motion.span className="relative flex" initial={false} animate={{ transform: `scale(${props.lens})` }} transition={springs.peek}>
         <I size={18} weight={props.active ? "fill" : "bold"} />
-        {/* Badge dot (e.g. update available) at the icon's top right; in here it grows with the icon under the glass drop. */}
+        {/* Badge dot (e.g. update available) at the icon's top right; in here it grows with the icon under the glass drop. Over the glass
+            it is the gear's colour (the bar's one ink), so its ring stays, thinned, to keep it off the gear. */}
         <AnimatePresence>
           {props.badge && (
             <motion.span
-              className={`absolute top-[-3px] left-1/2 ml-[4px] size-[7px] rounded-full bg-link ring-2 ${props.liquid ? "ring-transparent" : "ring-notch"}`}
+              className={`absolute top-[-3px] left-1/2 ml-[4px] size-[7px] rounded-full bg-link ring-2 ${props.liquid ? "ring-notch/60" : "ring-notch"}`}
               initial={{ opacity: 0, transform: "scale(0.9)" }}
               animate={{ opacity: 1, transform: "scale(1)" }}
               exit={{ opacity: 0, transform: "scale(0.9)" }}

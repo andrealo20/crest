@@ -56,7 +56,7 @@ uniform float uThick;          // the glass's thickness for the bend: the panel'
 uniform float uShadow;         // the inner shadow along the rim; 0 on the closed shapes, whose row runs close to it
 uniform float uEdgeFade;       // 1 for the live copy (live.ts): past its zone the veil alone
 uniform vec4 uBar;             // the tool bar's capsule: centre x and y, half width and height; half width 0: none
-uniform float uBarVeil;        // its veil (--glass-tint-bar, the side bands'), which Transparency leaves as it is
+uniform float uBarVeil;        // its veil, the side bands' at the mark (--glass-tint-edge), which Transparency leaves as it is
 uniform vec4 uDrop;            // the drop on it: centre x and y, half width and height; half width 0: none
 uniform float uLift;           // the drop lifted into a lens, 0 to 1
 uniform vec4 uFill;            // --color-fill-3, the drop's tint

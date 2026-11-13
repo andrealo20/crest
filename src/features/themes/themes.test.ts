@@ -286,7 +286,6 @@ test("glass veil: the least share of the background that keeps every text level 
 test("glass tokens", () => {
   assert.equal(resolveTheme(dark).vars["--glass-tint"], "rgb(0 0 0 / 0.78)");
   assert.equal(resolveTheme(dark).vars["--glass-tint-edge"], "rgb(0 0 0 / 0.35)");
-  assert.equal(resolveTheme(dark).vars["--glass-tint-bar"], "rgb(0 0 0 / 0.35)");
   assert.equal(resolveTheme(light).vars["--glass-tint"], "rgb(250 250 252 / 0.8)");
   assert.equal(resolveTheme(findTheme("catppuccin-latte", [])).vars["--glass-tint"], "#e6e9ef");
   for (const t of BUILT_IN_THEMES) {
@@ -343,10 +342,9 @@ test("the clearest Transparency, and the tool bar's veil is the side bands'", ()
   assert.deepEqual(Object.keys(table), BUILT_IN_THEMES.map((t) => t.id));
   for (const t of BUILT_IN_THEMES) {
     const r = resolveTheme(t), bg = r.colors.background, fg = r.colors.foreground;
-    const clear = parseColor(r.vars["--glass-tint-clear"])!.a, bar = parseColor(r.vars["--glass-tint-bar"])!;
+    const clear = parseColor(r.vars["--glass-tint-clear"])!.a, bar = parseColor(r.vars["--glass-tint-edge"])!;
     assert.equal(clear, brute(bg, [[fg, TEXT], [r.colors.secondary, GRAPHIC]]), t.id);
     assert.equal(clear, table[t.id], t.id);
-    assert.equal(r.vars["--glass-tint-bar"], r.vars["--glass-tint-edge"], t.id);
     assert.deepEqual(bar, withAlpha(bg, GLASS_EDGE), t.id);
     assert.ok(bar.a <= clear && clear <= veilOf(t).a, t.id);
     const at100 = glassVeilAt(veilOf(t).a, 100, clear);
@@ -377,7 +375,7 @@ test("the tool bar's ink: white or black, the best worst case over its veil and 
   const round = (x: number) => Math.round(x * 100) / 100;
   for (const t of BUILT_IN_THEMES) {
     const r = resolveTheme(t), bg = r.colors.background, fill3 = parseColor(r.vars["--color-fill-3"])!;
-    const bar = parseColor(r.vars["--glass-tint-bar"])!.a;
+    const bar = parseColor(r.vars["--glass-tint-edge"])!.a;
     const inks = glassInk(r, true), ink = inks["--color-link"];
     assert.equal(Object.keys(inks).length, 20, t.id);
     assert.ok(Object.values(inks).every((v) => v === ink), t.id);
