@@ -1,10 +1,10 @@
 name: CI
 
-# Checks every pull request and every push to main, so a failing test or a missing translation shows up before a
+# Checks every pull request and every push to main or to a release branch (rel-*), so a failing test or a missing translation shows up before a
 # release. The release workflow keeps its own Test steps as a second defence.
 on:
   push:
-    branches: [main]
+    branches: [main, "rel-*"]
   pull_request:
 
 permissions:
