@@ -19,11 +19,13 @@ export const isNative = true;
 export const settings = { get: () => ({ behavior: { scale: 100 } }) };
 
 test("the page's scale and size follow a move to another scale and a resize, and the scale is watched again after each change", async () => {
-  const queries: { query: string; change: () => void }[] = [];
+  const queries: { query: string; change: () => void; once?: boolean }[] = [];
   let resized = () => {};
   Object.assign(globalThis, {
     devicePixelRatio: 1, innerWidth: 760, innerHeight: 532,
-    matchMedia: (query: string) => ({ addEventListener: (_: string, change: () => void) => queries.push({ query, change }) }),
+    matchMedia: (query: string) => ({
+      addEventListener: (_: string, change: () => void, options?: { once?: boolean }) => queries.push({ query, change, once: options?.once }),
+    }),
     addEventListener: (_: string, listener: () => void) => (resized = listener),
   });
   const { viewMetrics } = (await import("./viewZoom.ts")) as typeof import("./viewZoom");
@@ -38,6 +40,8 @@ test("the page's scale and size follow a move to another scale and a resize, and
   queries[1].change();
   assert.equal(viewMetrics.get().dpr, 1);
   assert.equal(queries.length, 3);
+  // Each listens once: back at a scale seen before, its query would otherwise have two listeners.
+  assert.ok(queries.every((q) => q.once === true));
   // A resize alone; one that changes nothing leaves the store as it is, so nothing renders for it.
   Object.assign(globalThis, { innerWidth: 900 });
   resized();

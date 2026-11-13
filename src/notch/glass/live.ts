@@ -29,8 +29,9 @@ let exclude = false, excluded: boolean | null = null, refused = false;
 let want: GlassZone | null = null, have: GlassZone | null = { x: 0, y: 0, w: 0, h: 0 }, blocked = false;
 // The newest gen seen, the oldest whose frames count, the newest Rust stopped on its own, the last frame drawn.
 let maxGen = 0, floor = 1, ended = 0, last = { gen: 0, seq: 0 };
-// A command in flight, a restart asked for meanwhile, a zone change waiting, a restart that waits for that change.
-let busy = false, again = false, settle = 0, moved = false;
+// A command in flight, a restart asked for meanwhile, a zone change waiting, a restart that waits for that change, a start sent in
+// this turn.
+let busy = false, again = false, settle = 0, moved = false, fresh = false;
 
 /** The zone to run a session for: none while nothing can draw its frames (the canvas gone, its WebGL context lost). */
 const zone = () => (renderer ? want : null);
@@ -41,10 +42,15 @@ function pump() {
   const step = liveStep({ exclude: exclude && !refused, excluded, want: zone(), have, blocked });
   if (!step) return;
   busy = true;
+  if (step.do === "start") {
+    fresh = true;
+    queueMicrotask(() => (fresh = false));
+  }
   void run(api, step).finally(() => {
     busy = false;
-    // A new session only for a zone still wanted; with none, the session just started must still be stopped.
-    if (again && zone()) {
+    // A new session only for a zone still wanted; with none, the session just started must still be stopped. Nor without the
+    // exclusion: then the one a page before may have left is still to stop.
+    if (again && zone() && excluded) {
       have = null;
       blocked = false;
     }
@@ -132,7 +138,8 @@ export function restartLive() {
   // A zone change on its way opens a new session anyway.
   if (settle) return void (moved = true);
   moved = false;
-  if (busy) again = true;
+  // A start sent in this same turn (one commit that changes the zone and moves the window) is for the window where it is now.
+  if (busy) again ||= !fresh;
   else {
     have = null;
     blocked = false;
@@ -203,7 +210,8 @@ export function startGlassLive() {
     const t = settings.get().themes, on = t.glass && t.glassLive && liveSupport.get()?.supported === true;
     if (on === exclude && excluded !== null) return;
     exclude = on;
-    if (!on) refused = false;
+    // Also when the refusal came after the switch went off (its command was still out): on again, the exclusion is asked for again.
+    refused = false;
     pump();
   };
   settings.subscribe(sync);

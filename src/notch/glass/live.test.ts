@@ -163,6 +163,7 @@ test("a restart asked for during a start, then a peek: the session just started 
   const t = await load();
   await t.ready();
   t.live.wantLive(NEED);
+  await flush();
   t.live.restartLive();
   t.live.wantLive(null);
   await t.answer("start", { gen: 3, ...ZONE });
@@ -173,9 +174,36 @@ test("a restart asked for during a start: a new session once it has answered", a
   const t = await load();
   await t.ready();
   t.live.wantLive(NEED);
+  await flush();
   t.live.restartLive();
   await t.answer("start", { gen: 3, ...ZONE });
   assert.deepEqual(last(), { ...last(), name: "start", arg: ZONE });
+});
+
+test("a restart asked for in the turn that sent a start (one commit that changes the zone and moves the window): that start is the one", async () => {
+  const t = await load();
+  await t.ready();
+  // A drag's release: no zone before.
+  t.live.wantLive(NEED);
+  t.live.restartLive();
+  await t.answer("start", { gen: 3, ...ZONE });
+  assert.equal(page.calls.length, 0);
+  // A session running, and a zone it has outgrown.
+  t.live.wantLive({ x: 410, y: 0, w: 700, h: 132 });
+  t.live.restartLive();
+  await t.answer("start", { gen: 5, x: 362, y: 0, w: 796, h: 132 });
+  assert.equal(page.calls.length, 0);
+  assert.equal(page.log.filter((name) => name === "start").length, 2);
+});
+
+test("a restart asked for during a start that is refused: a new start all the same", async () => {
+  const t = await load();
+  await t.ready();
+  t.live.wantLive(NEED);
+  await flush();
+  t.live.restartLive();
+  await t.refuse("start", "transparency-off");
+  assert.equal(last()?.name, "start");
 });
 
 test("Rust ends a session before its start has answered: the answer counts as a refusal, and nothing is asked until something changes", async () => {
@@ -187,7 +215,8 @@ test("Rust ends a session before its start has answered: the answer counts as a 
   assert.equal(t.live.liveFrame.get(), false);
   await t.answer("start", { gen: 5, ...ZONE });
   assert.equal(page.calls.length, 0);
-  t.live.restartLive();
+  // No session is taken for running: the unlock starts one.
+  page.session(UNLOCKED);
   assert.equal(last()?.name, "start");
 });
 
@@ -236,7 +265,7 @@ test("a start refused for the exclusion asks for the exclusion again, then start
   assert.equal(last()?.name, "start");
 });
 
-test("any other refusal waits for a change: the same zone asks for nothing, a moved window starts again", async () => {
+test("any other refusal waits for a change: the same zone asks for nothing, a moved window starts again, and so does another zone", async () => {
   const t = await load();
   await t.ready();
   t.live.wantLive(NEED);
@@ -245,6 +274,10 @@ test("any other refusal waits for a change: the same zone asks for nothing, a mo
   assert.equal(page.calls.length, 0);
   t.live.restartLive();
   assert.equal(last()?.name, "start");
+  await t.refuse("start", "transparency-off");
+  assert.equal(page.calls.length, 0);
+  t.live.wantLive({ x: 410, y: 0, w: 700, h: 132 });
+  assert.deepEqual(last()?.arg, { x: 362, y: 0, w: 796, h: 132 });
 });
 
 test("after a new start the frames of the session before are not drawn", async () => {
@@ -293,6 +326,7 @@ test("the glass layer lost during a start that a restart follows: the session ju
   const t = await load();
   await t.ready();
   t.live.wantLive(NEED);
+  await flush();
   t.live.restartLive();
   t.live.setLiveRenderer(null);
   await t.answer("start", { gen: 3, ...ZONE });
@@ -310,6 +344,24 @@ test("the exclusion refused at load: the session a page before may have left is 
   assert.equal(page.calls.length, 0);
   page.settings.set({ themes: { glass: true, glassLive: true } });
   assert.equal(page.log.at(-1), "exclude true");
+});
+
+test("the exclusion refused at load with a restart asked for meanwhile (the window placed, the layer back): the stop all the same", async () => {
+  const t = await load();
+  t.live.wantLive(NEED);
+  t.live.restartLive();
+  await t.refuse("exclude", "exclude-failed");
+  assert.deepEqual(page.log, ["exclude true", "stop"]);
+});
+
+test("the switch turned off while the exclusion is out, which is then refused: on again, the exclusion is asked for again", async () => {
+  const t = await load();
+  page.settings.set({ themes: { glass: true, glassLive: false } });
+  await t.refuse("exclude", "exclude-failed");
+  await t.answer("stop");
+  assert.equal(page.calls.length, 0);
+  page.settings.set({ themes: { glass: true, glassLive: true } });
+  assert.deepEqual(page.log, ["exclude true", "stop", "exclude true"]);
 });
 
 test("a zone the shape has outgrown starts at once, one inside the running zone once it has settled", async () => {
@@ -336,4 +388,16 @@ test("the window moved while a zone change waited: a new session even when the c
   assert.equal(page.calls.length, 0);
   t.live.wantLive(NEED);
   assert.deepEqual(last()?.arg, ZONE);
+});
+
+test("the window moved while a zone change waited, and the change went through: its session is the new one, and no other follows", async () => {
+  const t = await load();
+  await t.ready();
+  await t.run(3);
+  t.live.wantLive({ x: 560, y: 0, w: 400, h: 100 });
+  t.live.restartLive();
+  await new Promise((done) => setTimeout(done, LIVE_SETTLE_MS + 30));
+  await t.answer("start", { gen: 5, x: 512, y: 0, w: 496, h: 100 });
+  t.live.wantLive({ x: 560, y: 0, w: 400, h: 100 });
+  assert.equal(page.calls.length, 0);
 });
