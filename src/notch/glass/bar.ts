@@ -84,6 +84,11 @@ export function useBarDrop(capsule: RefObject<HTMLDivElement | null>, strip: Ref
       [drop.x, drop.w, drop.h].forEach((v) => v.stop());
     };
   }, [capsule, strip]);
+  // A tool taken off the bar while pointed at would leave the drop with nothing under it: the pointing starts over.
+  useLayoutEffect(() => {
+    setHovered(null);
+    setFocused(null);
+  }, [tools]);
   // To the tool pointed at, or back to the current one, or where its button went.
   useLayoutEffect(() => {
     place.current(true);
@@ -155,6 +160,14 @@ export function usePlainDrop(el: RefObject<HTMLElement | null>, on: boolean) {
     const css = getComputedStyle(node);
     let bw = parseFloat(css.width), bh = parseFloat(css.height);
     const draw = () => {
+      // A throw in a frame's callback would stop Motion's whole frame loop: the drop stops following instead.
+      try {
+        paint();
+      } catch {
+        stop();
+      }
+    };
+    const paint = () => {
       const w = drop.w.get(), h = drop.h.get();
       // The box only between springs: while one runs the drop is its transform alone.
       // Not for the 1e-13 px a measure differs by from one tool to the next.
@@ -170,11 +183,11 @@ export function usePlainDrop(el: RefObject<HTMLElement | null>, on: boolean) {
     const offs = [barBox.x, barBox.h, ...Object.values(drop)].map((v) => v.on("change", again));
     // A spring's last frame still counts as running: the drop unstretched, in its new box, comes with the frame after.
     offs.push(...[drop.x, drop.w, drop.h].map((v) => v.on("animationComplete", again)));
-    draw();
     const stop = () => {
       offs.forEach((off) => off());
       cancelFrame(draw);
     };
+    draw();
     const id = fading ? window.setTimeout(stop, FILL_FADE_MS) : 0;
     return () => {
       window.clearTimeout(id);

@@ -128,7 +128,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     return { tint, edge: tint[3], clear: clear[3], rim, brow: tint, fill: [0, 0, 0, 0] as Tint, dark: true };
   };
 
-  const draw = () => {
+  const paint = () => {
     const closed = live.current.look === "closed", src = closed ? liveCopy : snap;
     // Covering needs no copy: the full veil hides whatever was there.
     if (!showing || !gpu || !rect || gl.isContextLost() || (!src.meta && !covering)) return;
@@ -198,6 +198,15 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     gl.uniform2f(u.uLens, ...dropLens(look.glassRefraction));
     gl.uniform1f(u.uHair, t.dark ? GLASS.hairDark : GLASS.hairLight);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+  };
+  // A throw in a frame's callback stops Motion's whole frame loop, and with it every animation of the notch: the glass gives
+  // up instead, and the notch goes on opaque.
+  const draw = () => {
+    try {
+      paint();
+    } catch {
+      glassBroken.set(true);
+    }
   };
 
   /**
