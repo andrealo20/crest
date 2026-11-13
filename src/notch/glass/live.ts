@@ -6,7 +6,7 @@ import { createStore } from "../../lib/store";
 import { glassLive, isMac, isNative, onGlassLiveStop, onSessionState, type GlassLiveSupport, type GlassZone } from "../../platform/native";
 import { settings } from "../../settings/store";
 import { viewZoom } from "../viewZoom";
-import { GLASS, LIVE_SETTLE_MS, liveAccepts, liveMetaOk, liveStep, liveZone, sameZone, type LiveMeta, type LiveStep } from "./params";
+import { GLASS, LIVE_SETTLE_MS, liveAccepts, liveMetaOk, liveStep, liveZone, sameZone, zoneHolds, type LiveMeta, type LiveStep } from "./params";
 
 /** Whether the live glass can run here; null until Rust answers (always on a Mac, and in the browser without ?glassLive). */
 export const liveSupport = createStore<GlassLiveSupport | null>(null);
@@ -32,16 +32,19 @@ let maxGen = 0, floor = 1, ended = 0, last = { gen: 0, seq: 0 };
 // A command in flight, a restart asked for meanwhile, a zone change waiting, a restart that waits for that change.
 let busy = false, again = false, settle = 0, moved = false;
 
+/** The zone to run a session for: none while nothing can draw its frames (the canvas gone, its WebGL context lost). */
+const zone = () => (renderer ? want : null);
+
 /** One command at a time: a start in flight never crosses a stop or the exclusion. */
 function pump() {
   if (busy || !api || !liveSupport.get()) return;
-  const step = liveStep({ exclude: exclude && !refused, excluded, want, have, blocked });
+  const step = liveStep({ exclude: exclude && !refused, excluded, want: zone(), have, blocked });
   if (!step) return;
   busy = true;
   void run(api, step).finally(() => {
     busy = false;
     // A new session only for a zone still wanted; with none, the session just started must still be stopped.
-    if (again && want) {
+    if (again && zone()) {
       have = null;
       blocked = false;
     }
@@ -117,14 +120,15 @@ export function wantLive(need: GlassZone | null) {
     blocked = false;
     pump();
   };
-  // A first session, or a stop, at once; a running one moves to its new zone once nothing changed for LIVE_SETTLE_MS.
-  if (next && want) settle = window.setTimeout(apply, LIVE_SETTLE_MS);
+  // A first session, a stop and a zone the shape has outgrown, at once: past the running zone the glass shows its veil alone. A
+  // running one moves to a zone inside its own once nothing changed for LIVE_SETTLE_MS.
+  if (next && want && zoneHolds(want, next)) settle = window.setTimeout(apply, LIVE_SETTLE_MS);
   else apply();
 }
 
 /** A new session for the zone wanted, whose first frame comes even on a still screen: the window moved, the texture was lost. */
 export function restartLive() {
-  if (!want) return;
+  if (!zone()) return;
   // A zone change on its way opens a new session anyway.
   if (settle) return void (moved = true);
   moved = false;
@@ -142,10 +146,12 @@ export function dropLive() {
   if (liveFrame.get()) liveFrame.set(false);
 }
 
+/** The glass layer comes and goes, also with its WebGL context: without one the session stops, with one a new session starts. */
 export function setLiveRenderer(r: LiveRenderer | null) {
   renderer = r;
   if (!r) {
     if (liveFrame.get()) liveFrame.set(false);
+    pump();
   } else restartLive();
 }
 
@@ -179,6 +185,8 @@ export function startGlassLive() {
       // An older session's end, while a newer one starts, changes nothing; the end of one whose start has not answered yet does.
       if (gen < floor) return;
       ended = Math.max(ended, gen);
+      // A frame Rust posted before it stopped may come after this.
+      floor = Math.max(floor, gen + 1);
       gone();
       if (import.meta.env.DEV) console.debug("glass live stopped", reason);
     });

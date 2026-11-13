@@ -13,7 +13,7 @@ import { settings } from "../../settings/store";
 import { DOCK_HEIGHT, HEADER_HEIGHT, type NotchGeometry } from "../geometry";
 import { viewZoom } from "../viewZoom";
 import { barBox, drop } from "./bar";
-import { dropLive, restartLive, setLiveRenderer } from "./live";
+import { dropLive, setLiveRenderer } from "./live";
 import { GLASS, canvasBox, dropLens, dropShape, lodFor, parseTint, shapeUniform, textureMap } from "./params";
 import { DOWN_FS, MAIN_FS, program } from "./shader";
 import { dropSnapshot, glassBroken, setGlassRenderer, snapshot } from "./snapshot";
@@ -322,17 +322,20 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     liveCopy.meta = null;
   };
 
+  const liveRenderer = { uploadLive, freeLive };
+  // No copy can be drawn until the context is back: the live session stops meanwhile (live.ts).
   const onLost = (e: Event) => {
     e.preventDefault();
     dropSnapshot();
     dropLive();
+    setLiveRenderer(null);
   };
   // A new copy comes with the next peek, a live one at once.
   const onRestored = () => {
     free(snap);
     freeLive();
     gpu = setup(gl);
-    if (gpu) restartLive();
+    if (gpu) setLiveRenderer(liveRenderer);
     else glassBroken.set(true);
   };
 
@@ -354,7 +357,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
   canvas.addEventListener("webglcontextlost", onLost);
   canvas.addEventListener("webglcontextrestored", onRestored);
   setGlassRenderer({ upload, free: () => free(snap) });
-  setLiveRenderer({ uploadLive, freeLive });
+  setLiveRenderer(liveRenderer);
 
   const stop = () => {
     offs.forEach((off) => off());

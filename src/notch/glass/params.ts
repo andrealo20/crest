@@ -19,7 +19,7 @@ export const GLASS = {
   // Room around the closed shape for the bend and the blur, and the live zone's slack on each side, CSS px.
   zoneMargin: PADDING, zoneSlack: 24,
 } as const;
-/** A running live session moves to a new zone once the zone has stayed the same this long. */
+/** A running live session moves to a zone inside its own once that zone has stayed the same this long; to one it does not hold, at once. */
 export const LIVE_SETTLE_MS = 150;
 /** The copy is asked for this long before the hover delay ends: a first peek after a while is estimated at 60-115 ms. */
 export const GLASS_LEAD_MS = 120;
@@ -196,22 +196,24 @@ export function liveZone(need: Zone, current: Zone | null, slack: number, win: {
     return { x, y, w: Math.max(0, Math.min(win.w, r.x + r.w) - x), h: Math.max(0, Math.min(win.h, r.y + r.h) - y) };
   };
   const n = clip(need);
-  const holds = current !== null && current.x <= n.x && current.y <= n.y && current.x + current.w >= n.x + n.w && current.y + current.h >= n.y + n.h;
-  if (holds && current.w - n.w <= 4 * slack && current.h - n.h <= 2 * slack) return current;
+  if (current && zoneHolds(current, n) && current.w - n.w <= 4 * slack && current.h - n.h <= 2 * slack) return current;
   return clip({ x: n.x - slack, y: n.y, w: n.w + 2 * slack, h: n.h });
 }
 
 export const sameZone = (a: Zone | null, b: Zone | null) => a === b || (!!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h);
+/** Whether `inner` lies inside `outer`. */
+export const zoneHolds = (outer: Zone, inner: Zone) => outer.x <= inner.x && outer.y <= inner.y && outer.x + outer.w >= inner.x + inner.w && outer.y + outer.h >= inner.y + inner.h;
 
 export type LiveStep = { do: "exclude"; on: boolean } | { do: "start"; zone: Zone } | { do: "stop" } | null;
 
 /**
  * The live glass's next command (live.ts): the exclusion as wanted first; with it on, a start for a zone wanted and not running (unless a
- * refusal waits for a change), a stop when none is wanted.
+ * refusal waits for a change), a stop when none is wanted. Without it only a stop, for a session that may still run: the one of the page
+ * before a reload, when the exclusion is refused.
  */
 export function liveStep(s: { exclude: boolean; excluded: boolean | null; want: Zone | null; have: Zone | null; blocked: boolean }): LiveStep {
   if (s.exclude !== s.excluded) return { do: "exclude", on: s.exclude };
-  if (!s.exclude) return null;
+  if (!s.exclude) return s.have ? { do: "stop" } : null;
   if (s.want && !s.blocked && !sameZone(s.want, s.have)) return { do: "start", zone: s.want };
   if (!s.want && s.have) return { do: "stop" };
   return null;

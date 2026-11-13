@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   canvasBox, dropLens, dropShape, glassAllowed, glassShape, liveAccepts, liveMetaOk, liveNeed, liveStep, liveZone, lodFor, metaOk, parseTint, sameZone, shapeUniform,
-  snapshotLead, takes, textureMap, visiblePart, type GlassInput, type LiveMeta, type SnapshotMeta,
+  snapshotLead, takes, textureMap, visiblePart, zoneHolds, type GlassInput, type LiveMeta, type SnapshotMeta,
 } from "./params.ts";
 
 const near = (a: readonly number[], b: readonly number[]) => assert.ok(a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-9), `${a} vs ${b}`);
@@ -174,6 +174,11 @@ test("live zone: slack on the sides, kept while it holds the shape, renewed when
   assert.equal(sameZone(Z, { ...Z }), true);
   assert.equal(sameZone(Z, null), false);
   assert.equal(sameZone(Z, { ...Z, h: 101 }), false);
+  // A zone inside the running one waits to settle (live.ts); one that reaches past it on any side does not.
+  assert.equal(zoneHolds(Z, Z), true);
+  assert.equal(zoneHolds(Z, { x: 512, y: 0, w: 496, h: 100 }), true);
+  assert.equal(zoneHolds(Z, { ...Z, x: 461 }), false);
+  assert.equal(zoneHolds(Z, tall), false);
 });
 
 test("live frames: checked at the border, only of the sessions in use, newest first, of the window as it is", () => {
@@ -210,7 +215,8 @@ test("live steps: the exclusion first, then a start for a zone not running, a st
   assert.deepEqual(liveStep({ ...base, have: A }), { do: "stop" });
   // A refusal waits for a change.
   assert.equal(liveStep({ ...base, want: A, blocked: true }), null);
-  // No start without the exclusion.
+  // No start without the exclusion, but a stop for a session that may still run (the exclusion refused after a reload).
   assert.equal(liveStep({ ...base, exclude: false, excluded: false, want: A }), null);
+  assert.deepEqual(liveStep({ ...base, exclude: false, excluded: false, have: A }), { do: "stop" });
   assert.deepEqual(liveStep({ ...base, excluded: false, want: A }), { do: "exclude", on: true });
 });
