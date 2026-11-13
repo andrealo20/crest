@@ -158,20 +158,27 @@ fn set_click_through(hwnd: isize, on: bool) {
     }
 }
 
-/// Another app's window under the pointer, asked while Crest still lets the pointer through: WindowFromPoint skips a
-/// click-through window, so it answers with the one below.
+/// The window under the pointer, and whether it is one of Crest's own. Whose it is comes from the window it sits in: the
+/// WebView inside the notch, the timer or a copy of the notch is another process's window. While Crest lets the pointer
+/// through, WindowFromPoint skips its click-through window and answers with the one below.
 #[cfg(windows)]
-fn window_below() -> Option<isize> {
+fn under_pointer() -> Option<(isize, bool)> {
     use windows::Win32::Foundation::POINT;
     use windows::Win32::UI::WindowsAndMessaging::{GetAncestor, GetCursorPos, GetWindowThreadProcessId, WindowFromPoint, GA_ROOT};
     let (mut cursor, mut pid) = (POINT::default(), 0);
     unsafe {
         GetCursorPos(&mut cursor).ok()?;
-        let below = WindowFromPoint(cursor);
-        // Whose it is by the window it sits in: the WebView inside the timer or a copy of the notch is another process's window.
-        GetWindowThreadProcessId(GetAncestor(below, GA_ROOT), Some(&mut pid));
-        (pid != 0 && pid != std::process::id()).then_some(below.0 as isize)
+        let at = WindowFromPoint(cursor);
+        GetWindowThreadProcessId(GetAncestor(at, GA_ROOT), Some(&mut pid));
+        (pid != 0).then_some((at.0 as isize, pid == std::process::id()))
     }
+}
+
+/// Whether any mouse button is held: the app under the pointer may be following a drag with any of them.
+#[cfg(windows)]
+fn button_down() -> bool {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_MBUTTON, VK_RBUTTON};
+    [VK_LBUTTON, VK_RBUTTON, VK_MBUTTON].iter().any(|key| unsafe { GetAsyncKeyState(key.0 as i32) } as u16 & 0x8000 != 0)
 }
 
 /// Tells the window Crest took the pointer from that the mouse left it, as Windows does when the pointer moves onto
@@ -274,17 +281,25 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
 
             // Only call on change: every call goes through the event loop.
             if last_ignore != Some(ignore) {
-                // Asked before the window takes the pointer, since after that the point is Crest's own. Not during a drag,
-                // which the app below is still following.
+                // Asked before the window takes the pointer, since after that the point is Crest's own. Only when Crest takes
+                // it from an app (not at the first pass or after a refresh), and not with a button held, which that app may be
+                // following as a drag.
                 #[cfg(windows)]
-                let below = if !ignore && !dragging && (inside || on_pet) { window_below() } else { None };
+                let below = if last_ignore == Some(true) && !ignore && !button_down() && (inside || on_pet) {
+                    under_pointer().filter(|&(_, ours)| !ours).map(|(below, _)| below)
+                } else {
+                    None
+                };
                 #[cfg(windows)]
                 set_click_through(hwnd, ignore);
                 let _ = window.set_ignore_cursor_events(ignore);
                 // Sent once the window holds the pointer: the app below looks at what is under the pointer when it reads this.
+                // Only if Crest holds it now: under a window that covers Crest (Task View, a game bar) that app keeps the pointer.
                 #[cfg(windows)]
                 if let Some(below) = below {
-                    tell_mouse_left(below);
+                    if under_pointer().is_some_and(|(_, ours)| ours) {
+                        tell_mouse_left(below);
+                    }
                 }
                 last_ignore = Some(ignore);
             }
