@@ -158,6 +158,34 @@ fn set_click_through(hwnd: isize, on: bool) {
     }
 }
 
+/// Another app's window under the pointer, asked while Crest still lets the pointer through: WindowFromPoint skips a
+/// click-through window, so it answers with the one below.
+#[cfg(windows)]
+fn window_below() -> Option<isize> {
+    use windows::Win32::Foundation::POINT;
+    use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetWindowThreadProcessId, WindowFromPoint};
+    let (mut cursor, mut pid) = (POINT::default(), 0);
+    unsafe {
+        GetCursorPos(&mut cursor).ok()?;
+        let below = WindowFromPoint(cursor);
+        GetWindowThreadProcessId(below, Some(&mut pid));
+        (pid != 0 && pid != std::process::id()).then_some(below.0 as isize)
+    }
+}
+
+/// Tells the window Crest took the pointer from that the mouse left it, as Windows does when the pointer moves onto
+/// another window. Windows only tells a window that asked, and a Chromium browser (Edge, Chrome) stops asking once it has
+/// read such a notice with the pointer back over itself, which happens when Crest takes the pointer and lets it go within
+/// a few milliseconds. From then on it kept a favourite's tooltip on screen for as long as Crest held the pointer (issue #40).
+#[cfg(windows)]
+fn tell_mouse_left(hwnd: isize) {
+    use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+    use windows::Win32::UI::WindowsAndMessaging::PostMessageW;
+    const WM_MOUSELEAVE: u32 = 0x02A3;
+    // Refused for a window of an app that runs as administrator, which then keeps what it shows.
+    let _ = unsafe { PostMessageW(Some(HWND(hwnd as _)), WM_MOUSELEAVE, WPARAM(0), LPARAM(0)) };
+}
+
 #[cfg(not(windows))]
 fn geometry(window: &WebviewWindow) -> Option<(f64, f64, f64)> {
     let (Ok(cursor), Ok(origin), Ok(scale)) = (window.cursor_position(), window.outer_position(), window.scale_factor()) else {
@@ -245,9 +273,18 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
 
             // Only call on change: every call goes through the event loop.
             if last_ignore != Some(ignore) {
+                // Asked before the window takes the pointer, since after that the point is Crest's own. Not during a drag,
+                // which the app below is still following.
+                #[cfg(windows)]
+                let below = if !ignore && !dragging && (inside || on_pet) { window_below() } else { None };
                 #[cfg(windows)]
                 set_click_through(hwnd, ignore);
                 let _ = window.set_ignore_cursor_events(ignore);
+                // Sent once the window holds the pointer: the app below looks at what is under the pointer when it reads this.
+                #[cfg(windows)]
+                if let Some(below) = below {
+                    tell_mouse_left(below);
+                }
                 last_ignore = Some(ignore);
             }
             if last_inside != Some(inside) {
