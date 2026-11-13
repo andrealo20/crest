@@ -78,8 +78,6 @@ export function useBarDrop(capsule: RefObject<HTMLDivElement | null>, strip: Ref
     return () => {
       size.disconnect();
       list?.removeEventListener("scroll", again);
-      setHovered(null);
-      setFocused(null);
       drop.lift.jump(0);
       drop.press.jump(0);
       // Opened again before a spring ends, the first measure jumps instead of sliding on from here.
@@ -142,18 +140,25 @@ export function useBarDrop(capsule: RefObject<HTMLDivElement | null>, strip: Ref
   return { pointed, handlers };
 }
 
+/** The Dock's fills fade for this long as the glass comes and goes (Notch.tsx FILL_FADE), and a frame more. */
+const FILL_FADE_MS = 320;
+
 /** Where the glass does not show (`on`) the Dock draws the drop itself, as `el`: the same values, as a transform over the tool's box. */
 export function usePlainDrop(el: RefObject<HTMLElement | null>, on: boolean) {
+  const drew = useRef(false);
   useLayoutEffect(() => {
-    const node = el.current;
-    if (!on || !node) return;
+    // The glass is back over a drop drawn here: its fill fades out, and until it has the drop still follows the values.
+    const node = el.current, fading = !on && drew.current;
+    drew.current = on;
+    if (!node || !(on || fading)) return;
     // The layout size, as for the tool's box above: offsetWidth would round it.
     const css = getComputedStyle(node);
     let bw = parseFloat(css.width), bh = parseFloat(css.height);
     const draw = () => {
       const w = drop.w.get(), h = drop.h.get();
       // The box only between springs: while one runs the drop is its transform alone.
-      if (w > 0 && (w !== bw || h !== bh) && !drop.w.isAnimating() && !drop.h.isAnimating()) {
+      // Not for the 1e-13 px a measure differs by from one tool to the next.
+      if (w > 0 && (Math.abs(w - bw) > 0.01 || Math.abs(h - bh) > 0.01) && !drop.w.isAnimating() && !drop.h.isAnimating()) {
         node.style.width = `${(bw = w)}px`;
         node.style.height = `${(bh = h)}px`;
       }
@@ -162,13 +167,18 @@ export function usePlainDrop(el: RefObject<HTMLElement | null>, on: boolean) {
       node.style.transform = dropTransform(drop.x.get() - barBox.x.get(), dropShape(w, h, barBox.h.get(), drop.lift.get(), drop.press.get(), speed, 0), bw, bh);
     };
     const again = () => frame.render(draw);
-    const offs = [...Object.values(barBox), ...Object.values(drop)].map((v) => v.on("change", again));
+    const offs = [barBox.x, barBox.h, ...Object.values(drop)].map((v) => v.on("change", again));
     // A spring's last frame still counts as running: the drop unstretched, in its new box, comes with the frame after.
     offs.push(...[drop.x, drop.w, drop.h].map((v) => v.on("animationComplete", again)));
     draw();
-    return () => {
+    const stop = () => {
       offs.forEach((off) => off());
       cancelFrame(draw);
+    };
+    const id = fading ? window.setTimeout(stop, FILL_FADE_MS) : 0;
+    return () => {
+      window.clearTimeout(id);
+      stop();
     };
   }, [el, on]);
 }

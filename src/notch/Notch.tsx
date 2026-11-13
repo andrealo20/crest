@@ -825,16 +825,16 @@ function DockButton(props: {
       }`}
       style={color ? { color } : undefined}
     >
-      {/* The current tool's mark under the icon, sliding from tool to tool. The brighter pill over it is the drop: the shader's over
-          the glass, the Dock's own without. */}
+      {/* The current tool's mark under the icon, sliding from tool to tool along the bar only: when the panel changes height it stays
+          with the bar, as the drop does. The brighter pill over it is the drop: the shader's over the glass, the Dock's own without. */}
       {props.active && (
-        <motion.span layoutId="dock-pill" className="absolute inset-0" transition={springs.snappy}>
+        <motion.span layoutId="dock-pill" layout="x" className="absolute inset-0" transition={springs.snappy}>
           <span className="absolute bottom-[3px] left-1/2 h-[2px] w-3 -translate-x-1/2 rounded-full bg-label" />
         </motion.span>
       )}
       <motion.span className="relative flex" initial={false} animate={{ transform: `scale(${props.lens})` }} transition={springs.peek}>
         <I size={18} weight={props.active ? "fill" : "bold"} />
-        {/* Badge dot (e.g. update available) at the icon's top right; in here it grows with the icon under the glass drop. Over the glass
+        {/* Badge dot (e.g. update available) at the icon's top right; in here it grows with the icon under the drop. Over the glass
             it is the gear's colour (the bar's one ink), so its ring stays, thinned, to keep it off the gear. */}
         <AnimatePresence>
           {props.badge && (
