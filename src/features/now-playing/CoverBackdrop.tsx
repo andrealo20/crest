@@ -8,9 +8,9 @@ export const coverBackdrop = createStore<string | null>(null);
 /**
  * Behind the open panel (Notch.tsx, under the content like the ambience tint): the tiny cover stretched over the panel,
  * which reads as blurred, darkened so the Dark theme's light text stays readable, and darker at the bottom where the
- * controls and the dock sit. A new cover fades in over the old one.
+ * controls and the dock sit. A new cover fades in over the old one. Over the glass (dark themes only) it is partly see-through, so the glass shows under it.
  */
-export function CoverBackdrop() {
+export function CoverBackdrop({ glass }: { glass: boolean }) {
   const src = coverBackdrop.use();
   return (
     <AnimatePresence initial={false}>
@@ -20,7 +20,7 @@ export function CoverBackdrop() {
           aria-hidden
           className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-[inherit]"
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: artworkSwap.enter }}
+          animate={{ opacity: glass ? 0.65 : 1, transition: artworkSwap.enter }}
           exit={{ opacity: 0, transition: artworkSwap.exit }}
         >
           <AnimatePresence initial={false}>

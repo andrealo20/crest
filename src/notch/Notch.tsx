@@ -109,6 +109,7 @@ export function Notch() {
   const closedInk = useClosedInk(np?.accent);
   const tinted = themes.coverTint && !!np?.artwork;
   const backdrop = coverBackdrop.use() !== null;
+  const darkTheme = activeTheme.use().dark;
 
   // Like the Dynamic Island: opening jumps to the running activity's tool,
   // but only after a pause. Closed briefly (copying a key, grabbing a file) → you
@@ -191,11 +192,11 @@ export function Notch() {
   // The hide shortcut (or a rule) hides the window and may leave the panel open meanwhile.
   const [windowHidden, setWindowHidden] = useState(false);
   useEffect(() => windowShell.onHidden(setWindowHidden), []);
-  // What turns any glass off.
+  // What turns any glass off. The cover only on a light theme: its veil is light, and the panel takes light text over the cover.
   const blocks = {
     forcedColors: forcedColors.use(), contrastMore: contrastMore.use(), reducedTransparency: reducedTransparency.use(),
     saver: powerState.use()?.saver === true, fullscreen: fullscreen.use() || gaming, hidden: hiddenForFullscreen || windowHidden,
-    presenting, cover: backdrop, dragging: drag.dragging, editing,
+    presenting, cover: backdrop && !darkTheme, dragging: drag.dragging, editing,
   };
   const allowed = glassAllowed({ on: themes.glass, windows: !isMac, fits: glassFits, webgl: !broken, ...blocks });
   // The live glass (glass/live.ts): the closed notch on the top edge and the capsule, never the line; not while the session is locked,
@@ -580,8 +581,9 @@ export function Notch() {
                 {/* Below the content (-z-10 in the panel's own stacking context), so it never sits over text. Off over the glass: the veil is
                     worked out without it, and the cover's colour on top would take text below its minimum. */}
                 <div aria-hidden data-ambience={tinted && glass !== "shown" ? "on" : "off"} className="pointer-events-none absolute inset-0 -z-10" style={tinted ? { ["--ambience" as string]: accent } : undefined} />
-                {/* The Music tool's cover behind the whole panel; while it shows, the panel takes the Dark theme's light text. */}
-                <CoverBackdrop />
+                {/* The Music tool's cover behind the whole panel; while it shows, the panel takes the Dark theme's light text. On a dark
+                    theme it stays over the glass, see-through so the glass shows; on a light theme the glass turns off (blocks above). */}
+                <CoverBackdrop glass={glass === "shown"} />
                 {/* Over the glass a hanging panel's header sits on the closed notch's colour (the brow, shader.ts), so it takes the closed
                     notch's ink; a floating capsule's has no brow and keeps the theme's. */}
                 <Header title={t(tab.label)} ink={glass === "shown" && bridged ? closedInk : undefined} fade={glass !== "off" && !reduced} />
