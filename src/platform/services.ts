@@ -549,9 +549,9 @@ export const status = {
     ];
     return () => offs.forEach((off) => void off.then((f) => f()));
   },
-  /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `bt`, `volume`: keep the Bluetooth watcher and the volume callback;
+  /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `insert`: watch Insert presses; `bt`, `volume`: keep the Bluetooth watcher and the volume callback;
    *  `hideOsd`: hide the Windows indicator now (status.ts osdHidden); `osdArmed`: the option is in force, also while it is not hiding. */
-  configure: (c: { ddc: boolean; locks: boolean; bt: boolean; volume: boolean; hideOsd: boolean; osdArmed: boolean }) => {
+  configure: (c: { ddc: boolean; locks: boolean; insert: boolean; bt: boolean; volume: boolean; hideOsd: boolean; osdArmed: boolean }) => {
     if (isNative) void invoke("status_configure", c);
   },
 };

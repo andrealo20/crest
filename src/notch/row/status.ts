@@ -90,10 +90,11 @@ export function levelAlert(e: LevelEvent, tr: Tr): StatusAlert {
   return { kind: "volume", icon, text: e.muted ? tr("Stummgeschaltet") : tr("{p} %", { p }), tone: "normal", level: p };
 }
 
-/** A Caps Lock or Num Lock toggle from sysevents.rs, which sends only changes, never the state at start. */
-export interface LockEvent { key: "caps" | "num"; on: boolean }
+/** A Caps Lock or Num Lock toggle from sysevents.rs, which sends only changes, never the state at start. "insert" is a bare press of Insert, always `on`: programs keep their own overtype state. */
+export interface LockEvent { key: "caps" | "num" | "insert"; on: boolean }
 
 export function lockAlert(e: LockEvent, tr: Tr): StatusAlert {
+  if (e.key === "insert") return { kind: "lock", icon: "keyboard", text: tr("Einfg"), tone: "normal" };
   const text = e.key === "caps" ? tr(e.on ? "Feststelltaste an" : "Feststelltaste aus") : tr(e.on ? "Num-Taste an" : "Num-Taste aus");
   return { kind: "lock", icon: e.key === "caps" ? "caps-lock" : "num-lock", text, tone: "normal", ...(e.on ? {} : { off: true }) };
 }

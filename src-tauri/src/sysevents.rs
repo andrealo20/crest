@@ -7,7 +7,8 @@
 //! a failure is logged and leaves only that source off. What a source reads at registration goes
 //! into the seed (`status://seed`, `status_seed`), never into a change event. The volume callback only fires on a change,
 //! so registering it is silent too; changes Crest makes itself carry `controls::OWN_CHANGE` and are skipped.
-//! Caps Lock and Num Lock have no change event short of a keyboard hook, so a small thread reads them every `LOCK_POLL` while their alert is on and can show.
+//! Caps Lock and Num Lock have no change event short of a keyboard hook, so a small thread reads them every `LOCK_POLL` while their alert is on and can show;
+//! the Insert alert reads that key's toggle bit on the same thread.
 //! The Bluetooth watcher and the volume callback run only while their alerts are on (`status_configure`).
 //! The session's lock and its move to a remote client or away from the console come as WM_WTSSESSION_CHANGE; with the
 //! screen and sleep state they go to the page as `status://session`, which the glass's live copy waits on.
@@ -38,7 +39,9 @@ use windows::Networking::Connectivity::{NetworkConnectivityLevel, NetworkInforma
 use windows::Win32::Foundation::{DEVPROPKEY, HANDLE, HWND, LPARAM, LRESULT, PROPERTYKEY, WPARAM};
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CAPITAL, VK_NUMLOCK};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    GetAsyncKeyState, GetKeyState, VIRTUAL_KEY, VK_CAPITAL, VK_CONTROL, VK_INSERT, VK_LWIN, VK_MENU, VK_NUMLOCK, VK_RWIN, VK_SHIFT,
+};
 use windows::Win32::System::Power::{GetSystemPowerStatus, RegisterPowerSettingNotification, RegisterSuspendResumeNotification, POWERBROADCAST_SETTING, SYSTEM_POWER_STATUS};
 use windows::Win32::System::RemoteDesktop::{
     WTSFreeMemory, WTSQuerySessionInformationW, WTSRegisterSessionNotification, WTSSessionInfoEx, NOTIFY_FOR_THIS_SESSION, WTSINFOEXW,
@@ -678,12 +681,13 @@ pub fn emit_level(app: &AppHandle, kind: &str, level: u8, muted: bool) {
 }
 
 /// From the settings: external monitors are read over DDC/CI only while the Brightness alert is on, Caps Lock and Num Lock only
-/// while theirs is on and can show, the Bluetooth watcher and the volume callback only while their alerts are, and the Windows
+/// while theirs is on and can show, Insert likewise with its own, the Bluetooth watcher and the volume callback only while their alerts are, and the Windows
 /// indicator is hidden only while the frontend says Crest's HUD replaces it (`osd_armed`: the option is on, even if it is not hiding just now).
 #[tauri::command]
-pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, bt: bool, volume: bool, hide_osd: bool, osd_armed: bool) {
+pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, insert: bool, bt: bool, volume: bool, hide_osd: bool, osd_armed: bool) {
     crate::brightness::set_ddc(ddc);
-    watch_locks(&app, locks);
+    INSERT_ON.store(insert, Ordering::SeqCst);
+    watch_locks(&app, locks || insert);
     crate::osd::set(hide_osd, osd_armed);
     SOURCES.store(if bt { SRC_BT } else { 0 } | if volume { SRC_VOLUME } else { 0 }, Ordering::SeqCst);
     let h = LOOP.load(Ordering::SeqCst);
@@ -694,6 +698,8 @@ pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, bt: bool, volume
 
 const LOCK_POLL: Duration = Duration::from_millis(150);
 static LOCKS_ON: AtomicBool = AtomicBool::new(false);
+/// The Insert alert is on and can show; the lock poll then runs for it too.
+static INSERT_ON: AtomicBool = AtomicBool::new(false);
 /// Bumped on every switch; a polling thread runs while the number is still its own, so turning off ends it.
 static LOCKS_RUN: AtomicUsize = AtomicUsize::new(0);
 
@@ -715,7 +721,7 @@ fn watch_locks(app: &AppHandle, on: bool) {
     }
     let app = app.clone();
     thread::spawn(move || {
-        let mut last = None;
+        let (mut last, mut insert) = (None, None);
         while LOCKS_RUN.load(Ordering::SeqCst) == run {
             if crate::standby::asleep() {
                 thread::sleep(LOCK_POLL);
@@ -723,6 +729,12 @@ fn watch_locks(app: &AppHandle, on: bool) {
             }
             for (key, on) in lock_changes(&mut last, locks()) {
                 let _ = app.emit("status://lock", serde_json::json!({ "key": key, "on": on }));
+            }
+            // Off, Insert is not read, and turning it on starts from a new baseline.
+            if !INSERT_ON.load(Ordering::SeqCst) {
+                insert = None;
+            } else if insert_pressed(&mut insert, insert_state()) {
+                let _ = app.emit("status://lock", serde_json::json!({ "key": "insert", "on": true }));
             }
             thread::sleep(LOCK_POLL);
         }
@@ -733,6 +745,23 @@ fn watch_locks(app: &AppHandle, on: bool) {
 fn lock_changes(last: &mut Option<Locks>, now: Locks) -> Vec<(&'static str, bool)> {
     let Some(before) = last.replace(now) else { return Vec::new() };
     [("caps", before.0, now.0), ("num", before.1, now.1)].into_iter().filter(|(_, was, is)| was != is).map(|(key, _, is)| (key, is)).collect()
+}
+
+/// Insert's toggle bit, and whether Ctrl, Shift, Alt or a Windows key is down.
+type Insert = (bool, bool);
+
+fn insert_state() -> Insert {
+    let down = |key: VIRTUAL_KEY| unsafe { GetAsyncKeyState(key.0 as i32) } as u16 & 0x8000 != 0;
+    // The toggle flips on each press, once for a held key; programs keep their own overtype state, so it says nothing of on or off.
+    (unsafe { GetKeyState(VK_INSERT.0 as i32) } & 1 != 0, [VK_SHIFT, VK_CONTROL, VK_MENU, VK_LWIN, VK_RWIN].into_iter().any(down))
+}
+
+/// A bare press: the toggle flipped since the last reading and no modifier was down at either reading, so Shift+Insert
+/// and Ctrl+Insert stay silent. The first reading is the baseline. shortcut: two presses between readings cancel out,
+/// and a modifier pressed and released between them goes unseen; a keyboard hook would see both, at the cost of every key.
+fn insert_pressed(last: &mut Option<Insert>, now: Insert) -> bool {
+    let Some(before) = last.replace(now) else { return false };
+    before.0 != now.0 && !before.1 && !now.1
 }
 
 #[cfg(test)]
@@ -789,5 +818,21 @@ mod tests {
         assert_eq!(lock_changes(&mut last, (true, true)), vec![("caps", true)]);
         assert_eq!(lock_changes(&mut last, (false, false)), vec![("caps", false), ("num", false)]);
         assert_eq!(last, Some((false, false)));
+    }
+
+    #[test]
+    fn insert_counts_only_a_bare_press() {
+        let mut last = None;
+        // The first reading is the baseline.
+        assert!(!insert_pressed(&mut last, (true, false)));
+        // Held or untouched: the toggle stays, nothing.
+        assert!(!insert_pressed(&mut last, (true, false)));
+        assert!(insert_pressed(&mut last, (false, false)));
+        // Shift+Insert or Ctrl+Insert: a modifier down now, or at the reading before, is a shortcut.
+        assert!(!insert_pressed(&mut last, (true, true)));
+        assert!(!insert_pressed(&mut last, (true, true)));
+        assert!(!insert_pressed(&mut last, (false, false)));
+        assert!(insert_pressed(&mut last, (true, false)));
+        assert_eq!(last, Some((true, false)));
     }
 }

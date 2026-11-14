@@ -61,7 +61,7 @@ export function startStatusWatch() {
       show(btAlert(e, t), settings.get().closed.statusAlerts.bt);
     },
     level: (e) => show(levelAlert(e, t), settings.get().closed.statusAlerts[e.kind]),
-    lock: (e) => show(lockAlert(e, t), settings.get().closed.statusAlerts.lock),
+    lock: (e) => show(lockAlert(e, t), settings.get().closed.statusAlerts[e.key === "insert" ? "insert" : "lock"]),
     mic: (e) => show(micAlert(e, t), settings.get().closed.statusAlerts.mic),
   });
   void status.seed().then(seed, () => {});
@@ -73,7 +73,7 @@ export function startStatusWatch() {
     // Alerts are dropped while quiet, so the key poll rests too; Bluetooth and volume run while their own alerts are on.
     // Off, the watcher forgets the devices; the next scan is a new baseline, so the ones remembered here would hide a reconnect.
     if (!alerts.bt) devices.clear();
-    const c = { ddc: alerts.brightness, locks: alerts.lock && !quiet, bt: alerts.bt, volume: alerts.volume, hideOsd: osdHidden(alerts, fullscreen.get()), osdArmed: osdArmed(alerts) };
+    const c = { ddc: alerts.brightness, locks: alerts.lock && !quiet, insert: alerts.insert && !quiet, bt: alerts.bt, volume: alerts.volume, hideOsd: osdHidden(alerts, fullscreen.get()), osdArmed: osdArmed(alerts) };
     if (JSON.stringify(c) === sent) return;
     sent = JSON.stringify(c);
     status.configure(c);

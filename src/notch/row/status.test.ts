@@ -137,6 +137,9 @@ test("lock: Caps Lock and Num Lock", () => {
   // No level bar: the alert is only the icon and the text.
   assert.equal(lockAlert({ key: "num", on: true }, tr).level, undefined);
 });
+test("lock: Insert says it was pressed, never on or off", () => {
+  assert.deepEqual(lockAlert({ key: "insert", on: true }, tr), { kind: "lock", icon: "keyboard", text: "Einfg", tone: "normal" });
+});
 test("mic: the shortcut's mute and unmute", () => {
   assert.deepEqual(micAlert({ muted: true }, tr), { kind: "mic", icon: "microphone-slash", text: "Mikrofon ist stumm", tone: "normal" });
   assert.deepEqual(micAlert({ muted: false }, tr), { kind: "mic", icon: "microphone", text: "Mikrofon ist an", tone: "normal" });
