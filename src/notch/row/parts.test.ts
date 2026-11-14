@@ -57,6 +57,7 @@ test("caption", () => {
 test("each part of the closed row opens its tool", () => {
   for (const [part, tool] of [["cover", "media"], ["title", "media"], ["lyric", "media"], ["equalizer", "media"], ["timer", "timer"], ["clock", "timer"], ["rings", "usage"], ["readings", "system"], ["discord", "discord"], ["github", "github"], ["calendar", "calendar"], ["script", "notices"], ["awake", "overview"], ["downloads", "shelf"], ["weather", "weather"]] as const)
     assert.equal(partTool(part), tool, part);
+  assert.equal(partTool("plugin-pill:crypto-ticker"), "plugin:crypto-ticker");
   // The privacy dots have no tool of their own; every part id has an answer.
   assert.equal(partTool("privacy"), null);
   for (const id of PART_IDS) assert.notEqual(partTool(id), null, id);
