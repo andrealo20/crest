@@ -1784,5 +1784,9 @@
  "H": "D",
  "M": "M",
  "{n} Einreichungen am {date}": "{n} envíos el {date}",
- "Crest-Menü": "Menú de Crest"
+ "Crest-Menü": "Menú de Crest",
+ "Neues Fenster": "Nueva ventana",
+ "Anheften": "Anclar",
+ "Fenster schließen": "Cerrar ventana",
+ "Alle Fenster schließen": "Cerrar todas las ventanas"
 }

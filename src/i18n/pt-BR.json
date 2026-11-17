@@ -1784,5 +1784,9 @@
  "H": "D",
  "M": "M",
  "{n} Einreichungen am {date}": "{n} envios em {date}",
- "Crest-Menü": "Menu do Crest"
+ "Crest-Menü": "Menu do Crest",
+ "Neues Fenster": "Nova janela",
+ "Anheften": "Fixar",
+ "Fenster schließen": "Fechar janela",
+ "Alle Fenster schließen": "Fechar todas as janelas"
 }

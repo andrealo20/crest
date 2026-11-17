@@ -1784,5 +1784,9 @@
  "H": "H",
  "M": "M",
  "{n} Einreichungen am {date}": "{date} को {n} सबमिशन",
- "Crest-Menü": "Crest मेनू"
+ "Crest-Menü": "Crest मेनू",
+ "Neues Fenster": "नई विंडो",
+ "Anheften": "पिन करें",
+ "Fenster schließen": "विंडो बंद करें",
+ "Alle Fenster schließen": "सभी विंडो बंद करें"
 }

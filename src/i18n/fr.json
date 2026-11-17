@@ -1784,5 +1784,9 @@
  "H": "D",
  "M": "M",
  "{n} Einreichungen am {date}": "{n} soumissions le {date}",
- "Crest-Menü": "Menu Crest"
+ "Crest-Menü": "Menu Crest",
+ "Neues Fenster": "Nouvelle fenêtre",
+ "Anheften": "Épingler",
+ "Fenster schließen": "Fermer la fenêtre",
+ "Alle Fenster schließen": "Fermer toutes les fenêtres"
 }

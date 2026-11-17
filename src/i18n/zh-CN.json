@@ -1784,5 +1784,9 @@
  "H": "难",
  "M": "中",
  "{n} Einreichungen am {date}": "{date} 提交了 {n} 次",
- "Crest-Menü": "Crest 菜单"
+ "Crest-Menü": "Crest 菜单",
+ "Neues Fenster": "新建窗口",
+ "Anheften": "固定",
+ "Fenster schließen": "关闭窗口",
+ "Alle Fenster schließen": "关闭所有窗口"
 }

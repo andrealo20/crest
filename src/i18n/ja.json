@@ -1784,5 +1784,9 @@
  "H": "難",
  "M": "中",
  "{n} Einreichungen am {date}": "{date}に{n}件の提出",
- "Crest-Menü": "Crest メニュー"
+ "Crest-Menü": "Crest メニュー",
+ "Neues Fenster": "新しいウィンドウ",
+ "Anheften": "固定する",
+ "Fenster schließen": "ウィンドウを閉じる",
+ "Alle Fenster schließen": "すべてのウィンドウを閉じる"
 }

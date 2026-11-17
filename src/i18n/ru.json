@@ -1784,5 +1784,9 @@
  "H": "Т",
  "M": "С",
  "{n} Einreichungen am {date}": "{n} отправок {date}",
- "Crest-Menü": "Меню Crest"
+ "Crest-Menü": "Меню Crest",
+ "Neues Fenster": "Новое окно",
+ "Anheften": "Закрепить",
+ "Fenster schließen": "Закрыть окно",
+ "Alle Fenster schließen": "Закрыть все окна"
 }
