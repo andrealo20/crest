@@ -19,6 +19,7 @@ import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSi
 import { DEFAULT_OFF, TOOL_IDS } from "./tools";
 import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
 import { normalizeSearch, type SearchSetting } from "../features/overview/search";
+import { TASKBAR_DEFAULTS, normalizeTaskbar, type TaskbarSettings } from "../features/taskbar/model";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "off" | "low" | "medium" | "high" | "xhigh";
@@ -167,6 +168,8 @@ export interface Settings {
   clipChips: boolean;
   /** Clipboard tool: a click on an entry also pastes it into the app that had the keyboard before the notch opened (clipboard.rs). Off by default: it changes what a click does. */
   clipPaste: boolean;
+  /** Crest's bar in place of Windows' taskbar (Windows only, off by default): its zones, size, background and pinned apps (src/features/taskbar). */
+  taskbar: TaskbarSettings;
 }
 
 const defaults: Settings = {
@@ -233,6 +236,7 @@ const defaults: Settings = {
   setup: { done: false },
   clipChips: true,
   clipPaste: false,
+  taskbar: TASKBAR_DEFAULTS,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -337,6 +341,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     dock: normalizeDock(s.dock),
     // Only a fresh install starts from the defaults (done: false); settings saved by 0.2.x have no `setup` and never see it.
     setup: { done: s.setup ? s.setup.done === true : true },
+    taskbar: normalizeTaskbar(s.taskbar),
   };
 }
 

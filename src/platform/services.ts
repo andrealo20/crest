@@ -3,6 +3,7 @@ import { isNotchWindow } from "../lib/windowKind";
 import { invoke } from "@tauri-apps/api/core";
 import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { isMac, isNative } from "./native";
 import type { BluetoothEvent, DisplayEvent, FocusEvent, LevelEvent, LockEvent, MicEvent, ModeEvent, OutputEvent, PowerState } from "../notch/row/status";
 import type { LaunchPlan, ShellInfo } from "../features/terminal/shell";
@@ -13,6 +14,7 @@ import type { RulesPayload } from "../features/window/model";
 import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
+import type { WindowList } from "../features/taskbar/model";
 import bundledChangelog from "../changelog.json";
 import { demo, photo, sample, sampleAvatar, screenshot, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
 import { demoFiles, demoPaste } from "./drop";
@@ -346,11 +348,17 @@ function samplePicture(path: string): string {
 
 // ---------- Updates ----------
 
-let buildInfo: Promise<{ store: boolean }> | undefined;
+/** `taskbarPreview`: a Windows build outside the Store with a file `Crest.taskbar` next to the exe, which shows the Taskbar settings. */
+interface BuildInfo {
+  store: boolean;
+  taskbarPreview: boolean;
+}
+
+let buildInfo: Promise<BuildInfo> | undefined;
 
 /** Which build runs, asked once: the Microsoft Store build (Cargo feature `store`) is updated by the Store only. */
 export const build = {
-  info: (): Promise<{ store: boolean }> => (buildInfo ??= isNative ? invoke<{ store: boolean }>("build_info") : Promise.resolve({ store: false })),
+  info: (): Promise<BuildInfo> => (buildInfo ??= isNative ? invoke<BuildInfo>("build_info") : Promise.resolve({ store: false, taskbarPreview: false })),
 };
 
 export interface SystemDiagnostics {
@@ -1229,6 +1237,41 @@ export const launcher = {
     const off = listen<{ id: string; code: string }>("launcher://missing", (e) => handler(e.payload.id, e.payload.code));
     return () => void off.then((f) => f());
   },
+};
+
+// ---------- Taskbar ----------
+
+/**
+ * Crest's bar on Windows (src-tauri/src/taskbar). The notch turns it on and sets its height; the bar's own window reads the open
+ * windows and acts on clicks (the command filter keeps each window to its part). In the browser nothing happens: the demo has no bar.
+ */
+export const taskbar = {
+  /** On or off, `height` CSS px tall. The notch only. */
+  apply: (enabled: boolean, height: number): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height }) : Promise.resolve()),
+  /** The open windows as Rust last listed them. */
+  windows: (): Promise<WindowList> => (isNative ? invoke<WindowList>("taskbar_windows") : Promise.resolve({ groups: [], active: null })),
+  /** The list each time it changes; Rust sends it to the bar's window only. */
+  onWindows(handler: (list: WindowList) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<WindowList>("taskbar://windows", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** The pointer came onto the bar or an open menu, or left them; from the Rust poll, since the page sees no pointerleave once the window lets the pointer through. */
+  onHover(handler: (inside: boolean) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<boolean>("taskbar://hover", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Acts on a listed window. An error (a window of an app run as administrator) changes nothing. */
+  window: (id: number, action: "activate" | "toggle" | "minimize" | "close"): Promise<void> => (isNative ? invoke("taskbar_window", { id, action }) : Promise.resolve()),
+  /** Gives the keyboard back to the app in front, after a menu closed with Esc. */
+  release: (): Promise<void> => (isNative ? invoke("taskbar_release") : Promise.resolve()),
+  /** Icons of the groups without an entry, by group key (PNG data URL, null = none). */
+  icons: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_icons", { keys }) : Promise.resolve({})),
+  /** Where the page draws (the bar, an open menu) in its CSS px; clicks pass through the rest of the window. */
+  hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
+  /** Ends Crest (the Crest menu's Quit). */
+  quit: (): Promise<void> => (isNative ? invoke("app_quit") : Promise.resolve()),
 };
 
 // ---------- GitHub ----------

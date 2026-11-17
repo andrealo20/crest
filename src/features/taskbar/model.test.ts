@@ -1,0 +1,101 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  TASKBAR_DEFAULTS,
+  barButtons,
+  clickAction,
+  fitIcon,
+  indicator,
+  menuFor,
+  moveItem,
+  normalizeTaskbar,
+  normalizeZones,
+  placeMenu,
+  taskbarShown,
+  type BarButton,
+  type BarItem,
+  type Group,
+  type Win,
+} from "./model.ts";
+
+test("any saved value becomes valid bar settings", () => {
+  for (const v of [undefined, null, 0, "x", [], true, { zones: "x", height: "44", surface: 1, pinned: {} }]) assert.deepEqual(normalizeTaskbar(v), TASKBAR_DEFAULTS);
+  assert.equal(normalizeTaskbar({ enabled: "yes" }).enabled, false);
+  assert.equal(normalizeTaskbar({ enabled: true }).enabled, true);
+  assert.equal(normalizeTaskbar({ height: 100 }).height, 64);
+  assert.equal(normalizeTaskbar({ height: -5 }).height, 32);
+  assert.equal(normalizeTaskbar({ height: 40, iconSize: 40 }).iconSize, 40); // fitIcon shrinks it where it is drawn, not in the saved setting
+  assert.equal(fitIcon(40, 40), 28);
+  assert.equal(normalizeTaskbar({ surface: "glass" }).surface, "notch");
+  assert.deepEqual(normalizeTaskbar({ pinned: [{ id: "a", name: "A" }, { id: "a", name: "B" }, { id: 1 }] }).pinned, [{ id: "a", name: "A" }]);
+  normalizeTaskbar(undefined).zones.left.push("crest");
+  assert.deepEqual(TASKBAR_DEFAULTS.zones.left, []);
+});
+
+test("every item sits in exactly one zone", () => {
+  assert.deepEqual(normalizeZones({}), { left: [], center: ["apps"], right: ["crest"] });
+  assert.deepEqual(normalizeZones({ left: ["crest", "x"], center: ["apps", "crest"] }), { left: ["crest"], center: ["apps"], right: [] });
+  assert.deepEqual(normalizeZones({ right: ["apps"] }), { left: [], center: [], right: ["crest", "apps"] }); // a missing item returns at its default index
+});
+
+test("items move between zones", () => {
+  const z = normalizeZones({});
+  assert.deepEqual(moveItem(z, "crest", "left"), { left: ["crest"], center: ["apps"], right: [] });
+  assert.deepEqual(moveItem(normalizeZones({ center: ["apps", "crest"] }), "crest", "center", 0).center, ["crest", "apps"]);
+  assert.deepEqual(moveItem(z, "crest", "left", 99).left, ["crest"]);
+  assert.equal(moveItem(z, "nope" as BarItem, "left"), z);
+});
+
+test("pinned apps come first and own their open windows", () => {
+  const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
+  const code = { id: "shell:AppsFolder\\VSCode", name: "VS Code" }, paths = { id: "C:\\Users\\u\\Code.exe", name: "Code" };
+  const groups: Group[] = [
+    { key: "chrome", name: "Chrome", pins: [{ id: "shell:AppsFolder\\Chrome", name: "Chrome" }], windows: [w(1)] },
+    { key: "c:\\users\\u\\code.exe", name: "VS Code", pins: [code, paths], windows: [w(2), w(3)] },
+    { key: "window:9", name: "tool", pins: [], windows: [w(9)] },
+  ];
+  const b = barButtons([paths, code, { id: "shell:AppsFolder\\Notepad", name: "Notepad" }], groups);
+  assert.deepEqual(b.map((x) => x.key), [paths.id, code.id, "shell:AppsFolder\\Notepad", "chrome", "window:9"]);
+  assert.deepEqual(b[1].windows.map((x) => x.id), [2, 3]); // the first pinned id in group.pins owns it
+  assert.equal(b[0].windows.length, 0);
+  assert.equal(b[2].windows.length, 0); // pinned and closed
+  assert.deepEqual(barButtons(null, groups).map((x) => x.key), ["chrome", "c:\\users\\u\\code.exe", "window:9"]);
+});
+
+test("a click launches, toggles or lists", () => {
+  const w = (id: number, flashing = false): Win => ({ id, title: "t", minimized: false, flashing });
+  const base = { key: "k", name: "n", pin: null, pins: [{ id: "x", name: "X" }] } satisfies Omit<BarButton, "windows">;
+  assert.deepEqual(clickAction({ ...base, windows: [] }), { kind: "launch", id: "x" });
+  assert.deepEqual(clickAction({ ...base, pins: [], windows: [] }), { kind: "none" });
+  assert.deepEqual(clickAction({ ...base, windows: [w(4)] }), { kind: "toggle", id: 4 });
+  assert.deepEqual(clickAction({ ...base, windows: [w(4), w(5)] }), { kind: "list" });
+  assert.equal(indicator({ ...base, windows: [w(4, true)] }, 4), "attention");
+  assert.equal(indicator({ ...base, windows: [w(4)] }, 4), "front");
+  assert.equal(indicator({ ...base, windows: [w(4)] }, 7), "open");
+  assert.equal(indicator({ ...base, windows: [] }, null), "none");
+});
+
+test("the right-click menu offers what the app allows", () => {
+  const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
+  const pin = { id: "p", name: "P" };
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [] }), ["newWindow", "unpin"]);
+  assert.deepEqual(menuFor({ key: "k", name: "K", pin: null, pins: [pin], windows: [w(1)] }), ["newWindow", "pin", "close"]);
+  assert.deepEqual(menuFor({ key: "k", name: "K", pin: null, pins: [], windows: [w(1), w(2)] }), ["closeAll"]);
+});
+
+test("a menu opens over its button and stays inside the window", () => {
+  assert.equal(placeMenu(900, 40, 200, 1920), 820);
+  assert.equal(placeMenu(0, 40, 200, 1920), 8);
+  assert.equal(placeMenu(1900, 40, 200, 1920), 1712);
+  assert.equal(placeMenu(100, 40, 3000, 1920), 8);
+});
+
+test("the taskbar settings show only where the bar can run", () => {
+  const p = { native: true, mac: false, dev: false, preview: false, enabled: false };
+  assert.equal(taskbarShown(p), false);
+  assert.equal(taskbarShown({ ...p, preview: true }), true);
+  assert.equal(taskbarShown({ ...p, dev: true }), true);
+  assert.equal(taskbarShown({ ...p, enabled: true }), true); // turned on through a backup: it can be turned off
+  assert.equal(taskbarShown({ ...p, mac: true, dev: true }), false);
+  assert.equal(taskbarShown({ ...p, native: false, dev: true }), false);
+});

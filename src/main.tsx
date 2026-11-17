@@ -34,6 +34,7 @@ import { startCapture } from "./features/capture/store";
 import { startDownloads } from "./features/downloads/store";
 import { startPlugins } from "./features/plugins/store";
 import { startMeeting } from "./features/meeting/store";
+import { startTaskbar } from "./features/taskbar/store";
 import { startSettingsBridge } from "./features/settings/window/shared";
 import { demo, showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
@@ -69,6 +70,7 @@ startCapture();
 startDownloads();
 startPlugins();
 startMeeting();
+startTaskbar();
 startSettingsBridge();
 
 // Send display settings (monitor, fullscreen, offset, window top, gaming) to Rust on start and on every change.
