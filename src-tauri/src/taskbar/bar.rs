@@ -14,6 +14,8 @@
 //! Async on purpose: creating a window from a sync command deadlocks on Windows.
 
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering};
+use std::sync::Mutex;
+use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
@@ -32,10 +34,14 @@ const MAX_HEIGHT: f64 = 64.0;
 const WINDOW_BAND: f64 = MAX_HEIGHT + 2.0 * GAP;
 /// Above the bar, for its menus and labels: the tallest panel and a margin, CSS px.
 const ROOM: f64 = 560.0;
+/// How long an Off waits for its window to go: 300 steps of 10 ms, 3 s in all.
+const GONE_STEP: Duration = Duration::from_millis(10);
+const GONE_STEPS: usize = 300;
 
-/// Held while the window is being built, so a second call does not build a second one.
-static OPENING: AtomicBool = AtomicBool::new(false);
-/// The notch has the bar on. Set before the window is built, so a build sees an Off that came meanwhile.
+/// Held through each `taskbar_apply`, so an On never finds the window an Off is taking down, nor starts the thread before that
+/// Off has stopped it.
+static APPLYING: Mutex<()> = Mutex::new(());
+/// The notch has the bar on. Set before the window is built, so a build sees Crest quitting meanwhile (`shutdown`).
 static ENABLED: AtomicBool = AtomicBool::new(false);
 /// The page has reported its bar: the bar has drawn.
 static DRAWN: AtomicBool = AtomicBool::new(false);
@@ -59,17 +65,23 @@ pub(crate) fn bar_rect((x, y, width, height): (i32, i32, u32, u32), scale: f64) 
 }
 
 /// Turns the bar on or off and sets its height. The notch only, from the Taskbar settings; the Height slider calls it on
-/// every step.
+/// every step. One call at a time (`APPLYING`), and the notch sends the next only once this one has returned (store.ts), so
+/// they run in their order.
 #[tauri::command]
 pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result<(), String> {
+    // To the end of the call, which never awaits.
+    let _applying = APPLYING.lock().unwrap_or_else(|e| e.into_inner());
     if !enabled {
         switch_off();
-        // Windows' taskbar back before the bar goes. The lock is free again before the thread is joined below.
+        // Windows' taskbar back before the bar goes. Explorer's lock is free again before the thread is joined below.
         explorer::set_mode(Mode::Off);
         hit_test::untrack(&app.state::<HitState>(), LABEL);
         HANDLE.store(0, Ordering::SeqCst);
         if let Some(window) = app.get_webview_window(LABEL) {
             let _ = window.destroy();
+            // `destroy` only asks the main thread. An On after this call must find no window, or it would place this one as it
+            // goes and leave no bar; bounded, so a main thread that does not answer cannot hold the switch.
+            super::tries(std::iter::repeat_n(GONE_STEP, GONE_STEPS), std::thread::sleep, || app.get_webview_window(LABEL).is_none());
         }
         set_band(&app, 0.0);
         super::stop();
@@ -87,11 +99,6 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
         place(&app);
         return Ok(());
     }
-    // A build is running: it shows the bar.
-    if OPENING.swap(true, Ordering::AcqRel) {
-        return Ok(());
-    }
-    let _opening = Opening;
     // A failed build leaves no band for a bar that does not exist.
     let failed = |e: String| {
         ENABLED.store(false, Ordering::SeqCst);
@@ -131,7 +138,7 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
         let _ = window.destroy();
         return failed("no window handle".into());
     };
-    // Turned off while it was being built.
+    // Turned off while it was being built: Crest is quitting (`shutdown`).
     if !ENABLED.load(Ordering::SeqCst) {
         let _ = window.destroy();
         return Ok(());
@@ -254,15 +261,6 @@ fn set_band(app: &AppHandle, band: f64) {
     }
 }
 
-/// Gives OPENING back on every way out of a build, a failed one included.
-struct Opening;
-
-impl Drop for Opening {
-    fn drop(&mut self) {
-        OPENING.store(false, Ordering::Release);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,5 +277,20 @@ mod tests {
     #[test]
     fn the_bar_window_never_covers_its_monitor() {
         assert_eq!(bar_rect((0, 0, 1366, 768), 1.0), (0, 192, 1366, 576)); // capped at three quarters
+    }
+
+    #[test]
+    fn an_off_waits_for_its_window_to_go_three_seconds_at_most() {
+        let off = |looks_until_gone: usize| {
+            let (mut waited, mut looks) = (Duration::ZERO, 0);
+            let gone = super::super::tries(std::iter::repeat_n(GONE_STEP, GONE_STEPS), |step| waited += step, || {
+                looks += 1;
+                looks >= looks_until_gone
+            });
+            (gone, waited)
+        };
+        assert_eq!(off(1), (true, GONE_STEP)); // the main thread took it down at once
+        assert_eq!(off(50), (true, GONE_STEP * 50));
+        assert_eq!(off(usize::MAX), (false, Duration::from_secs(3))); // a main thread that does not answer
     }
 }

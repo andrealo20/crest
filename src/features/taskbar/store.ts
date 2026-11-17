@@ -13,12 +13,16 @@ export const groupIcons = createStore<Record<string, string | null>>({});
 export function startTaskbar() {
   if (!isNative || isMac) return;
   let last = "";
+  let queue = Promise.resolve();
   const sync = () => {
     const { enabled, height } = settings.get().taskbar;
     const key = `${enabled}|${height}`;
     if (key === last) return;
     last = key;
-    void taskbar.apply(enabled, height);
+    // One change at a time, in their order: Rust finishes each (an Off once its window is gone) before the next is sent, after a
+    // failed one too.
+    const apply = () => taskbar.apply(enabled, height);
+    queue = queue.then(apply, apply);
   };
   sync();
   settings.subscribe(sync);
