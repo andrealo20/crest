@@ -42,7 +42,7 @@ use windows::Win32::UI::Shell::{SHQueryUserNotificationState, QUNS_RUNNING_D3D_F
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetDesktopWindow, GetForegroundWindow, GetShellWindow, GetWindow, GetWindowLongPtrW, GetWindowRect,
     GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SetWindowPos, GWL_EXSTYLE, GWL_STYLE, GW_OWNER,
-    HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_THICKFRAME,
 };
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::FindWindowExW;
@@ -670,7 +670,7 @@ fn read_foreground(hwnd: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) 
     // The notification state is global; with the foreground window on our monitor, it is this window.
     let exclusive = unsafe { SHQueryUserNotificationState() }.is_ok_and(|s| s == QUNS_RUNNING_D3D_FULL_SCREEN);
     let frame = frame_rect(hwnd);
-    let context = screen_policy::classify(exclusive, covers(frame, m), has_caption(hwnd), unsafe { IsZoomed(hwnd) }.as_bool(), within(frame, work));
+    let context = screen_policy::classify(exclusive, covers(frame, m), has_caption(hwnd), unsafe { IsZoomed(hwnd) }.as_bool(), within(frame, work), has_resize_frame(hwnd));
     Seen { context, name, path }
 }
 
@@ -699,7 +699,7 @@ fn read_background(foreground: HWND, own: HWND, monitor: HMONITOR, known: &mut K
             continue;
         }
         let (name, path) = known.describe(hwnd, app_pid(hwnd));
-        return Some(Seen { context: screen_policy::classify(false, full, caption, maximized, within(frame, work)), name, path });
+        return Some(Seen { context: screen_policy::classify(false, full, caption, maximized, within(frame, work), has_resize_frame(hwnd)), name, path });
     }
     None
 }
@@ -770,6 +770,11 @@ fn exe_name(path: &str) -> String {
 #[cfg(windows)]
 fn has_caption(hwnd: HWND) -> bool {
     unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) as u32 & WS_CAPTION.0 != 0 }
+}
+
+#[cfg(windows)]
+fn has_resize_frame(hwnd: HWND) -> bool {
+    unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) as u32 & WS_THICKFRAME.0 != 0 }
 }
 
 #[cfg(windows)]
