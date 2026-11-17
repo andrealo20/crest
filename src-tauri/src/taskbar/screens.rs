@@ -160,10 +160,10 @@ pub(crate) fn all() -> Vec<(String, isize)> {
     primary.into_iter().chain(bars().iter().map(|o| (o.label.clone(), o.hwnd))).collect()
 }
 
-/// The window is one of Crest's bars.
-#[expect(dead_code)]
+/// The window is one of Crest's bars; a null handle never is, though the primary's reads 0 while it is off. Called on every
+/// foreground change and display poll, so it copies nothing.
 pub(crate) fn is_bar(hwnd: isize) -> bool {
-    all().iter().any(|(_, h)| *h == hwnd)
+    hwnd != 0 && (bar::hwnd() == hwnd || bars().iter().any(|o| o.hwnd == hwnd))
 }
 
 /// The monitors that get a bar of their own, in the order given: every one but the primary. None while the primary is not
@@ -184,5 +184,10 @@ mod tests {
         assert_eq!(others(&three, Some(r"\\.\DISPLAY2")), n(&[r"\\.\DISPLAY1", r"\\.\DISPLAY3"]));
         assert!(others(&n(&[r"\\.\DISPLAY1"]), Some(r"\\.\DISPLAY1")).is_empty());
         assert!(others(&three, None).is_empty()); // no primary known: never a second bar on the primary's monitor
+    }
+
+    #[test]
+    fn a_null_handle_is_never_a_bar() {
+        assert!(!is_bar(0)); // the primary's handle reads 0 here, as while the bar is off
     }
 }

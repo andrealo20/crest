@@ -16,12 +16,13 @@ use std::time::{Duration, Instant};
 
 use base64::Engine;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
 use windows::core::{Interface, GUID, HSTRING, PCWSTR, PWSTR};
-use windows::Win32::Foundation::{ERROR_MORE_DATA, ERROR_SUCCESS, PROPERTYKEY, SIZE};
+use windows::Win32::Foundation::{ERROR_MORE_DATA, ERROR_SUCCESS, HANDLE, PROPERTYKEY, SIZE};
 use windows::Win32::Graphics::Gdi::{
-    CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW, BITMAP, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP,
+    CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW, MonitorFromWindow, BITMAP, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
+    HBITMAP, MONITOR_DEFAULTTONEAREST,
 };
 use windows::Win32::System::Com::{CoInitializeEx, CoTaskMemFree, CoUninitialize, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
 use windows::Win32::System::Registry::{
@@ -29,7 +30,8 @@ use windows::Win32::System::Registry::{
 };
 use windows::Win32::UI::Shell::{
     BHID_EnumItems, FOLDERID_AppsFolder, IEnumShellItems, IShellItem, IShellItem2, IShellItemImageFactory, SHCreateItemFromParsingName,
-    SHGetKnownFolderItem, ShellExecuteW, KF_FLAG_DEFAULT, SIGDN, SIGDN_NORMALDISPLAY, SIGDN_PARENTRELATIVEPARSING, SIIGBF_ICONONLY,
+    SHGetKnownFolderItem, ShellExecuteExW, ShellExecuteW, KF_FLAG_DEFAULT, SEE_MASK_HMONITOR, SEE_MASK_NOASYNC, SHELLEXECUTEINFOW, SHELLEXECUTEINFOW_0,
+    SIGDN, SIGDN_NORMALDISPLAY, SIGDN_PARENTRELATIVEPARSING, SIIGBF_ICONONLY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{AllowSetForegroundWindow, ASFW_ANY, SW_SHOWNORMAL};
 
@@ -241,12 +243,23 @@ pub async fn launcher_icons(ids: Vec<String>, app: AppHandle) -> Result<HashMap<
     .await?
 }
 
+/// From a bar, the app opens on the bar's monitor; from the notch, where Windows puts it.
 #[tauri::command]
-pub async fn launcher_open(id: String, app: AppHandle) -> Result<(), String> {
-    blocking(app, move |state| open(state, id)).await?
+pub async fn launcher_open(id: String, window: WebviewWindow, app: AppHandle) -> Result<(), String> {
+    let monitor = on_its_monitor(window.label())
+        .then(|| window.hwnd().ok())
+        .flatten()
+        .map(|hwnd| unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) }.0 as isize);
+    blocking(app, move |state| open(state, id, monitor)).await?
 }
 
-fn open(state: &LauncherState, id: String) -> Result<(), String> {
+/// The windows whose launches open on their own monitor: the bars, `taskbar` and `taskbar-<n>`.
+fn on_its_monitor(label: &str) -> bool {
+    label == "taskbar" || label.starts_with("taskbar-")
+}
+
+/// Starts a listed app, on `monitor` when one is given; an app that keeps its own place keeps it.
+fn open(state: &LauncherState, id: String, monitor: Option<isize>) -> Result<(), String> {
     apps(state, false)?;
     // Not in the cached list: it may be new since. Read the list again, at most once a minute.
     if !is_known(state, &id) {
@@ -258,7 +271,20 @@ fn open(state: &LauncherState, id: String) -> Result<(), String> {
     let ok = on_sta(move || unsafe {
         // Lets an already running single-instance app (which only gets a message) take the foreground.
         let _ = AllowSetForegroundWindow(ASFW_ANY);
-        ShellExecuteW(None, PCWSTR::null(), &HSTRING::from(id), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL).0 as isize > 32
+        let file = HSTRING::from(id);
+        let Some(monitor) = monitor else {
+            return ShellExecuteW(None, PCWSTR::null(), &file, PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL).0 as isize > 32;
+        };
+        let mut info = SHELLEXECUTEINFOW {
+            cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
+            // NOASYNC: this thread ends right after, so the launch finishes before the call returns.
+            fMask: SEE_MASK_NOASYNC | SEE_MASK_HMONITOR,
+            lpFile: PCWSTR(file.as_ptr()),
+            nShow: SW_SHOWNORMAL.0,
+            Anonymous: SHELLEXECUTEINFOW_0 { hMonitor: HANDLE(monitor as _) },
+            ..Default::default()
+        };
+        ShellExecuteExW(&mut info).is_ok()
     })
     .unwrap_or(false);
     if ok { Ok(()) } else { Err("failed".into()) }
@@ -277,7 +303,7 @@ pub fn launch_from_key(app: &AppHandle, id: String) {
     let app = app.clone();
     // Off the main thread: the first launch may have to read the app list.
     std::thread::spawn(move || {
-        if let Err(code) = open(&app.state::<LauncherState>(), id.clone()) {
+        if let Err(code) = open(&app.state::<LauncherState>(), id.clone(), None) {
             // The frontend names the app; open the notch so the message is seen.
             let _ = app.emit("launcher://missing", serde_json::json!({ "id": id, "code": code }));
             crate::shell::open(&app, Some("launcher"));
@@ -383,5 +409,11 @@ mod tests {
         assert_eq!(ids(entries_for(&apps, None, r"c:\users\u\code.exe")), ["shell:AppsFolder\\VSCode", r"C:\Users\u\Code.exe"]);
         assert_eq!(ids(entries_for(&apps, Some("Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"), "")), ["shell:AppsFolder\\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"]);
         assert!(entries_for(&apps, None, r"C:\tools\portable.exe").is_empty());
+    }
+
+    #[test]
+    fn only_a_bar_launches_on_its_own_monitor() {
+        assert!(on_its_monitor("taskbar") && on_its_monitor("taskbar-2"));
+        assert!(!on_its_monitor("notch") && !on_its_monitor("settings") && !on_its_monitor("taskbarx"));
     }
 }

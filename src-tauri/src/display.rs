@@ -577,7 +577,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             };
             let foreground = unsafe { GetForegroundWindow() };
             let bar = crate::taskbar::bar::hwnd();
-            ruled = ruled_front(foreground, bar, ruled);
+            ruled = ruled_front(foreground, crate::taskbar::screens::is_bar(foreground.0 as isize), ruled);
             let monitor = unsafe { MonitorFromWindow(own, MONITOR_DEFAULTTONEAREST) };
             let fg = read_foreground(ruled, own, monitor, &mut front);
             // Looked up only where it can matter: nothing in front fills the monitor.
@@ -688,10 +688,10 @@ impl Known {
 }
 
 #[cfg(windows)]
-/// The window the rules read: the one in front, unless that is Crest's bar (`bar`, 0 while there is none), which a click on it
-/// or one of its menus brings to front. The rules then stay on the window in front `before` it, as the bar's list does (tasks.rs).
-fn ruled_front(foreground: HWND, bar: isize, before: HWND) -> HWND {
-    if bar != 0 && foreground.0 as isize == bar { before } else { foreground }
+/// The window the rules read: the one in front, unless that is one of Crest's bars (`is_bar`), which a click on it or one of its
+/// menus brings to front. The rules then stay on the window in front `before` it, as the bars' lists do (tasks.rs).
+fn ruled_front(foreground: HWND, is_bar: bool, before: HWND) -> HWND {
+    if is_bar { before } else { foreground }
 }
 
 #[cfg(windows)]
@@ -968,8 +968,8 @@ mod tests {
     #[test]
     fn the_bar_in_front_leaves_the_rules_on_the_window_before_it() {
         let h = |n: isize| HWND(n as _);
-        assert_eq!(ruled_front(h(7), 9, h(5)), h(7)); // an app in front
-        assert_eq!(ruled_front(h(9), 9, h(7)), h(7)); // the bar clicked, or one of its menus open
-        assert_eq!(ruled_front(h(0), 0, h(7)), h(0)); // nothing in front and no bar
+        assert_eq!(ruled_front(h(7), false, h(5)), h(7)); // an app in front
+        assert_eq!(ruled_front(h(9), true, h(7)), h(7)); // a bar clicked, or one of its menus open
+        assert_eq!(ruled_front(h(0), false, h(7)), h(0)); // nothing in front
     }
 }
