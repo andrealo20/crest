@@ -7,6 +7,7 @@ import {
   fitIcon,
   indicator,
   menuFor,
+  menuKey,
   moveItem,
   normalizeTaskbar,
   normalizeZones,
@@ -88,6 +89,19 @@ test("a menu opens over its button and stays inside the window", () => {
   assert.equal(placeMenu(0, 40, 200, 1920), 8);
   assert.equal(placeMenu(1900, 40, 200, 1920), 1712);
   assert.equal(placeMenu(100, 40, 3000, 1920), 8);
+});
+
+test("the keys move through a menu's rows and wrap at its ends", () => {
+  assert.equal(menuKey("ArrowDown", 0, 3), 1);
+  assert.equal(menuKey("ArrowDown", 2, 3), 0);
+  assert.equal(menuKey("ArrowUp", 0, 3), 2);
+  assert.equal(menuKey("ArrowUp", 2, 3), 1);
+  assert.equal(menuKey("ArrowDown", -1, 3), 0); // focus outside the rows: Down goes to the first, Up to the last
+  assert.equal(menuKey("ArrowUp", -1, 3), 2);
+  assert.equal(menuKey("Home", 2, 3), 0);
+  assert.equal(menuKey("End", 0, 3), 2);
+  assert.equal(menuKey("Enter", 0, 3), undefined);
+  assert.equal(menuKey("ArrowDown", -1, 0), undefined);
 });
 
 test("the taskbar settings show only where the bar can run", () => {

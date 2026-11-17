@@ -180,6 +180,12 @@ export function menuFor(b: BarButton): MenuEntry[] {
 export const placeMenu = (anchorX: number, anchorW: number, menuW: number, viewW: number, edge = 8) =>
   Math.max(edge, Math.min(anchorX + anchorW / 2 - menuW / 2, viewW - edge - menuW));
 
+/** The row a key moves to among a menu's `count` rows from row `at` (-1: none): Up and Down wrap, Home and End go to the ends; undefined for any other key. */
+export function menuKey(key: string, at: number, count: number): number | undefined {
+  const to = key === "ArrowDown" ? at + 1 : key === "ArrowUp" ? (at < 0 ? count : at) - 1 : key === "Home" ? 0 : key === "End" ? count - 1 : undefined;
+  return to === undefined || !count ? undefined : (to + count) % count;
+}
+
 /** The Taskbar settings show in the Windows app only: in a dev build, in a build marked for the preview, and while the bar is on, so it can be turned off. */
 export const taskbarShown = (p: { native: boolean; mac: boolean; dev: boolean; preview: boolean; enabled: boolean }): boolean =>
   p.native && !p.mac && (p.dev || p.preview || p.enabled);

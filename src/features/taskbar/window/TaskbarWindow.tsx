@@ -1,6 +1,5 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEventHandler, type ReactNode, type RefObject } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { fade, popover, pulse, springs } from "../../../design/motion";
+import { Fragment, useCallback, useEffect, useRef, useState, type MouseEventHandler, type RefObject } from "react";
+import { AnimatePresence } from "motion/react";
 import { t } from "../../../i18n";
 import { launcher, taskbar } from "../../../platform/services";
 import { settings } from "../../../settings/store";
@@ -8,16 +7,15 @@ import { CrestMark } from "../../../ui/CrestMark";
 import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
-import { barButtons, clickAction, fitIcon, indicator, launchId, placeMenu, type BarButton, type BarItem, type Indicator, type Zone } from "../model";
+import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, type BarItem, type Zone } from "../model";
 import { barWindows, groupIcons } from "../store";
-import { AppMenu, BarMenu, CrestMenu, WindowList } from "./BarMenu";
+import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
+import { Item, MARK } from "./Item";
 
 /** Room between the bar and the screen's sides and bottom, CSS px (src-tauri/src/taskbar/bar.rs GAP). */
 const GAP = 4;
 /** Room between the bar and a menu above it, CSS px, as between a button and its name. */
 const MENU_GAP = 8;
-/** Thickness of the mark under an app, CSS px. */
-const MARK = 3;
 const ZONES: [Zone, string][] = [
   ["left", "justify-start"],
   ["center", "justify-center"],
@@ -49,9 +47,8 @@ export function TaskbarWindow() {
   const [hovered, setHovered] = useState<string | null>(null);
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
   const [menu, setMenu] = useState<OpenMenu | null>(null);
-  const [panel, setPanel] = useState<HTMLDivElement | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
-  useHitZone(bar, panel);
+  const placeMenuZone = useHitZone(bar);
   // Once the window lets the pointer through, the page sees no pointerleave: Rust says when the pointer left the bar.
   useEffect(
     () =>
@@ -161,7 +158,7 @@ export function TaskbarWindow() {
               bottom={GAP + height + MENU_GAP}
               anchor={menu.anchor}
               onClose={closeMenu}
-              onPanel={setPanel}
+              onPlace={placeMenuZone}
             >
               {menu.kind === "crest" ? (
                 <CrestMenu close={closeMenu} />
@@ -184,137 +181,32 @@ export function TaskbarWindow() {
 
 /**
  * Tells Rust where the page takes the pointer: the bar and the gap under it, so a click in the gap never reaches the app behind,
- * and the open menu. Only once the bar has a size: the first report says it has drawn, and Windows' taskbar hides then.
+ * and the open menu, whose box comes through the returned function each time the menu places itself (null once it closes). The
+ * bar counts only once it has a size: the first report says it has drawn, and Windows' taskbar hides then.
  */
-function useHitZone(ref: RefObject<HTMLDivElement | null>, menu: HTMLElement | null) {
+function useHitZone(ref: RefObject<HTMLDivElement | null>) {
+  const menu = useRef<HitRect | null>(null);
+  const report = useCallback(() => {
+    const r = ref.current?.getBoundingClientRect();
+    if (r && r.width > 0 && r.height > 0) void taskbar.hitRects([{ x: r.x, y: r.y, w: r.width, h: window.innerHeight - r.y }, ...(menu.current ? [menu.current] : [])]);
+  }, [ref]);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const report = () => {
-      const r = el.getBoundingClientRect();
-      if (!(r.width > 0 && r.height > 0)) return;
-      const rects = [{ x: r.x, y: r.y, w: r.width, h: window.innerHeight - r.y }];
-      // The menu's layout box: the scale it opens with would shrink a measured one.
-      if (menu) rects.push({ x: menu.offsetLeft, y: menu.offsetTop, w: menu.offsetWidth, h: menu.offsetHeight });
-      void taskbar.hitRects(rects);
-    };
     const observer = new ResizeObserver(report);
     observer.observe(el);
-    if (menu) observer.observe(menu);
     // Another monitor or scale can move the bar without resizing it.
     window.addEventListener("resize", report);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", report);
     };
-  }, [ref, menu]);
-}
-
-/** A button on the bar: its icon lifts under the pointer, with its name (or what went wrong) in a label above. */
-function Item(props: {
-  name: string;
-  label: string | null;
-  failed: boolean;
-  lifted: boolean;
-  size: number;
-  markAt: number;
-  mark?: Indicator;
-  onEnter: () => void;
-  onLeave: () => void;
-  onClick: MouseEventHandler<HTMLButtonElement>;
-  onContextMenu: MouseEventHandler<HTMLButtonElement>;
-  children: ReactNode;
-}) {
-  return (
-    // The gap under the bar (GAP, h-1) belongs to the button above it, so a click with the pointer pushed against the screen's
-    // edge, left or right, lands on the button; the gap itself stays empty. A press shrinks only the icon, by `scale` (Motion's
-    // lift owns its transform): shrinking the whole button, as .pressable does, would lift that strip off the edge while the
-    // button is held, and the release would land beside it.
-    <button
-      aria-label={props.name}
-      onPointerEnter={props.onEnter}
-      onPointerLeave={props.onLeave}
-      onClick={props.onClick}
-      onContextMenu={props.onContextMenu}
-      className="group relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"
-      style={{ width: props.size + 16 }}
-    >
-      <motion.span
-        className="flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94"
-        initial={false}
-        animate={{ transform: `translateY(${props.lifted ? -2 : 0}px)` }}
-        transition={springs.peek}
-      >
-        {props.children}
-      </motion.span>
-      {props.mark && <Mark kind={props.mark} bottom={props.markAt} />}
-      <Label text={props.label} failed={props.failed} />
-    </button>
-  );
-}
-
-/** Three pulses, ending on the solid accent: an app can wait for attention a long time, and the bar stays idle meanwhile. */
-const ATTENTION = { ...pulse, repeat: 5 };
-
-/**
- * Under an app: a dot while it is open, a longer mark while it is in front, the accent while a window asks for attention, pulsing
- * when that starts. Both shapes are drawn whole and change by opacity and scale only.
- */
-function Mark({ kind, bottom }: { kind: Indicator; bottom: number }) {
-  const long = kind === "front" || kind === "attention";
-  return (
-    // No initial={false} here: a mark that appears asking for attention pulses too, where initial={false} would leave it dim.
-    <motion.span
-      className="absolute inset-x-0 flex justify-center"
-      style={{ bottom, height: MARK }}
-      animate={{ opacity: kind === "attention" ? [1, 0.35] : 1 }}
-      transition={kind === "attention" ? ATTENTION : fade}
-    >
-      <motion.span
-        className="absolute rounded-full bg-label-2"
-        style={{ width: MARK, height: MARK }}
-        initial={false}
-        animate={{ opacity: kind === "open" ? 1 : 0, transform: `scale(${kind === "open" ? 1 : 0.5})` }}
-        transition={springs.snappy}
-      />
-      <motion.span
-        className={`absolute w-4 rounded-full ${kind === "attention" ? "bg-accent" : "bg-label"}`}
-        style={{ height: MARK }}
-        initial={false}
-        animate={{ opacity: long ? 1 : 0, transform: `scaleX(${long ? 1 : 0.25})` }}
-        transition={springs.snappy}
-      />
-    </motion.span>
-  );
-}
-
-/** A button's name above it, or what went wrong; never takes the pointer. */
-function Label({ text, failed }: { text: string | null; failed: boolean }) {
-  return <AnimatePresence>{text !== null && <Bubble key={text} text={text} failed={failed} />}</AnimatePresence>;
-}
-
-function Bubble({ text, failed }: { text: string; failed: boolean }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [shift, setShift] = useState(0);
-  // Centred over its button, and moved only as far as it must to stay inside the window, as the menus do.
-  useLayoutEffect(() => {
-    const el = ref.current;
-    const button = el?.parentElement?.getBoundingClientRect();
-    if (!el || !button) return;
-    const w = el.offsetWidth;
-    setShift(placeMenu(button.x, button.width, w, window.innerWidth) - (button.x + button.width / 2 - w / 2));
-  }, []);
-  return (
-    <motion.span
-      ref={ref}
-      dir="auto"
-      className={`pointer-events-none absolute bottom-full left-1/2 mb-2 max-w-80 -translate-x-1/2 truncate rounded-[8px] bg-elevated px-2 py-1 text-footnote font-medium shadow-[0_4px_14px_rgb(0_0_0/0.4)] ring-1 ring-separator ${failed ? "text-red" : "text-label"}`}
-      style={{ marginLeft: shift }}
-      initial={{ opacity: 0, transform: "translateY(2px) scale(0.96)" }}
-      animate={{ opacity: 1, transform: "translateY(0px) scale(1)", transition: popover.enter }}
-      exit={{ opacity: 0, transform: "scale(0.98)", transition: popover.exit }}
-    >
-      {text}
-    </motion.span>
+  }, [ref, report]);
+  return useCallback(
+    (box: HitRect | null) => {
+      menu.current = box;
+      report();
+    },
+    [report],
   );
 }

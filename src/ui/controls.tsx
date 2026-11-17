@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { CaretUpDown, Eye, EyeSlash, type Icon } from "@phosphor-icons/react";
 import { popover, springs } from "../design/motion";
 import { t } from "../i18n";
+import { MENU_PANEL_CLASS, MENU_ROW_CLASS } from "./menu";
 import { sliderKey } from "./sliderKey";
 
 /*
@@ -407,11 +408,6 @@ const MENU_ROW = 28;
 const MENU_MAX = 160;
 const MENU_GAP = 4;
 const MENU_EDGE = 8;
-
-/** The menu's panel and rows, which the taskbar's menus share (src/features/taskbar/window/BarMenu.tsx); h-7 is MENU_ROW. */
-export const MENU_PANEL_CLASS =
-  "pointer-events-auto fixed z-[60] overflow-y-auto rounded-[10px] bg-elevated p-1 shadow-[0_10px_30px_rgb(0_0_0/0.6)] ring-1 ring-separator [scrollbar-width:none]";
-export const MENU_ROW_CLASS = "flex h-7 w-full min-w-0 items-center rounded-[6px] px-2 text-start text-footnote hover:bg-fill-2";
 
 type MenuPos = {
   left: number;
