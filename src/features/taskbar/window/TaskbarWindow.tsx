@@ -102,8 +102,9 @@ export function TaskbarWindow() {
     onLeave: () => setHovered((h) => (h === key ? null : h)),
   });
 
+  // The app menu's button comes with its panel, so "start" draws nothing yet.
   const render = (id: BarItem) =>
-    id === "apps" ? (
+    id === "start" ? null : id === "apps" ? (
       buttons.map((b) => {
         const entry = launchId(b);
         return (

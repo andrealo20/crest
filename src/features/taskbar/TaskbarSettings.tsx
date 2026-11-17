@@ -32,8 +32,8 @@ function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSettings) =>
 /** The bar's zones, physical: left stays left in a right-to-left language. */
 const ZONES: Zone[] = ["left", "center", "right"];
 const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte", right: "Rechte Seite" };
-/** What the bar draws for each item: the apps' buttons, and the button of the Crest menu. */
-const ITEM_LABEL: Record<BarItem, string> = { apps: "Apps und Fenster", crest: "Crest-Menü" };
+/** What the bar draws for each item: the app menu's button, the apps' buttons, and the button of the Crest menu. */
+const ITEM_LABEL: Record<BarItem, string> = { start: "App-Menü", apps: "Apps und Fenster", crest: "Crest-Menü" };
 
 /** Taskbar → General: the bar on or off, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
