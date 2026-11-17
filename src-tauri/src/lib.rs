@@ -81,6 +81,8 @@ mod startup;
 mod system;
 #[cfg(windows)]
 mod sysevents;
+#[cfg(windows)]
+mod taskbar;
 mod timer_window;
 #[cfg(windows)]
 mod terminal;
@@ -206,6 +208,18 @@ pub fn osd_guard(pid: &str) -> i32 {
 #[cfg(windows)]
 pub fn restore_osd() {
     osd::restore()
+}
+
+/// For main.rs: the process that gives Windows' taskbar back after Crest (see taskbar/explorer.rs).
+#[cfg(windows)]
+pub fn taskbar_guard(pid: &str) -> i32 {
+    taskbar::explorer::guard(pid)
+}
+
+/// For main.rs: the uninstaller gives Windows' taskbar back before it closes Crest and its guard (see taskbar/explorer.rs).
+#[cfg(windows)]
+pub fn restore_taskbar() {
+    taskbar::explorer::restore()
 }
 
 /// For main.rs: the uninstaller gives back the Windows banners Crest turned off (see banners.rs).
@@ -610,6 +624,9 @@ pub fn run() {
             // A run that ended without restoring the Windows indicator (and whose guard was ended with it) is cleaned up here.
             #[cfg(windows)]
             osd::restore();
+            // The same for Windows' taskbar, on its own thread: SHAppBarMessage waits on Explorer.
+            #[cfg(windows)]
+            std::thread::spawn(taskbar::explorer::restore);
 
             enable_autostart_once(app.handle());
             build_tray(app)?;
@@ -618,9 +635,12 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("failed to start Crest")
         .run(|app, event| {
-            // A recording still running when Crest quits is finished, so the file is complete.
             #[cfg(windows)]
             if let tauri::RunEvent::Exit = event {
+                // First, before a recording's finish can wait 5 s. tao turns WM_ENDSESSION(TRUE) into RunEvent::Exit, so this
+                // also runs at sign-out, Store updates and the installer's Restart Manager close.
+                taskbar::explorer::restore();
+                // A recording still running when Crest quits is finished, so the file is complete.
                 capture::finish_on_exit(app);
                 osd::set(false, false);
                 power::keep_awake_stop();

@@ -727,7 +727,7 @@ fn top_windows() -> Vec<HWND> {
 }
 
 #[cfg(windows)]
-fn window_pid(hwnd: HWND) -> u32 {
+pub(crate) fn window_pid(hwnd: HWND) -> u32 {
     let mut pid = 0u32;
     unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
     pid
@@ -752,7 +752,7 @@ fn has_ex_style(hwnd: HWND, bits: u32) -> bool {
 }
 
 #[cfg(windows)]
-fn class_name(hwnd: HWND) -> String {
+pub(crate) fn class_name(hwnd: HWND) -> String {
     let mut buf = [0u16; 64];
     let len = unsafe { GetClassNameW(hwnd, &mut buf) }.max(0) as usize;
     String::from_utf16_lossy(&buf[..len])
