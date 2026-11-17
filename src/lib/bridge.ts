@@ -23,8 +23,8 @@ const HELLO = "bridge://hello";
 const ACTION = "bridge://action";
 
 /**
- * The window a share serves, the settings window by default. `hello` is the event its hello comes as: a window that may not
- * emit has it sent for it, under a name of its own. Nothing goes out while `when` is not true.
+ * `to` is the window a share serves (the settings window by default), and `hello` the event its hello arrives as (Rust sends it
+ * for a window that may not emit).
  */
 export interface ShareOptions {
   to?: string;

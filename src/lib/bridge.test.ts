@@ -103,6 +103,30 @@ test("a share with a condition sends only while it holds", () => {
   assert.equal(open.watched(), false);
 });
 
+test("a condition waits for the hello and sends everything at each opening", () => {
+  const bus = memoryBus();
+  const a = memStore(1);
+  const open = memStore(false);
+  const stop = shareStores(bus, { a }, { when: open });
+  const states = (...values: number[]) => values.map((value) => ({ payload: { name: "a", value }, to: "settings" }));
+  open.set(true);
+  assert.deepEqual(bus.sent("bridge://state"), states());
+  bus.emit("bridge://hello", null);
+  assert.deepEqual(bus.sent("bridge://state"), states(1));
+  open.set(false);
+  a.set(2);
+  open.set(true);
+  assert.deepEqual(bus.sent("bridge://state"), states(1, 2));
+  open.set(false);
+  open.set(1);
+  a.set(3);
+  assert.deepEqual(bus.sent("bridge://state"), states(1, 2));
+  open.set(true);
+  stop();
+  a.set(4);
+  assert.deepEqual(bus.sent("bridge://state"), states(1, 2, 3));
+});
+
 test("a follower can say hello its own way", () => {
   const bus = memoryBus();
   let hellos = 0;
