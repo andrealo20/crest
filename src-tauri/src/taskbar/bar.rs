@@ -151,6 +151,8 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
     SHOWN.store(false, Ordering::SeqCst);
     HANDLE.store(hwnd, Ordering::SeqCst);
     sync(&app);
+    // A bar built hidden sends no change from `sync`, so every window hears its state here.
+    let _ = app.emit("taskbar://shown", shown());
     Ok(())
 }
 
