@@ -176,6 +176,8 @@ pub(crate) fn sync(app: &AppHandle) {
     if SHOWN.swap(show, Ordering::SeqCst) == show {
         return;
     }
+    // To every window: the bar pauses its widgets, the notch stops their sources.
+    let _ = app.emit("taskbar://shown", show);
     let Some(window) = app.get_webview_window(LABEL) else { return };
     if !show {
         let _ = window.hide();
@@ -262,6 +264,11 @@ pub(crate) fn band() -> f64 {
 /// The bar's window, 0 while there is none.
 pub(crate) fn hwnd() -> isize {
     HANDLE.load(Ordering::SeqCst)
+}
+
+/// Whether the last `sync` showed the bar, for a page that has just loaded (`taskbar_hello`).
+pub(crate) fn shown() -> bool {
+    SHOWN.load(Ordering::SeqCst)
 }
 
 /// A new band changes the primary's work area for the notch, which reads the monitors again.

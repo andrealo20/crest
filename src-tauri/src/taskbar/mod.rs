@@ -10,6 +10,7 @@
 pub(crate) mod bar;
 pub(crate) mod explorer;
 pub(crate) mod tasks;
+pub(crate) mod widgets;
 
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicU32, Ordering};

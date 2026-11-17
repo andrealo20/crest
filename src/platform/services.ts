@@ -1272,6 +1272,16 @@ export const taskbar = {
   hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
   /** Ends Crest (the Crest menu's Quit). */
   quit: (): Promise<void> => (isNative ? invoke("app_quit") : Promise.resolve()),
+  /** Has the notch send the widgets' data (`bar://hello`); call it once the page listens. Whether the bar shows now, so the page starts paused or not. */
+  hello: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_hello") : Promise.resolve(true)),
+  /** The clock's click: Windows' notification centre, with the calendar. */
+  calendar: (): Promise<void> => (isNative ? invoke("taskbar_calendar") : Promise.resolve()),
+  /** The bar shows or hides (a full-screen app, the hide hotkey). Rust sends it to every window: the bar pauses its widgets, the notch stops their sources. */
+  onShown(handler: (shown: boolean) => void): () => void {
+    if (!isNative) return () => {};
+    const off = listen<boolean>("taskbar://shown", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
 };
 
 // ---------- GitHub ----------

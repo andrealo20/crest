@@ -152,11 +152,12 @@ const SETTINGS_DENIED: &[&str] = &[
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release",
 ];
 
-/// What the bar may call: its own hit zones and window list, starting apps, opening the notch and the settings, and the Crest
-/// menu. Its settings reach Rust only through the notch (`taskbar_apply`).
+/// What the bar may call: its own hit zones and window list, starting apps, opening the notch and the settings, the Crest
+/// menu, and its widgets' hello and calendar. Its settings reach Rust only through the notch (`taskbar_apply`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log",
+    "taskbar_hello", "taskbar_calendar",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -518,6 +519,10 @@ pub fn run() {
             taskbar::tasks::taskbar_icons,
             #[cfg(windows)]
             taskbar::tasks::taskbar_release,
+            #[cfg(windows)]
+            taskbar::widgets::taskbar_hello,
+            #[cfg(windows)]
+            taskbar::widgets::taskbar_calendar,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,
@@ -1046,6 +1051,9 @@ mod tests {
         assert!(ok("taskbar", "taskbar_hit_rects") && ok("taskbar", "launcher_open") && ok("taskbar", "app_quit") && ok("taskbar-2", "notch_open"));
         assert!(!ok("taskbar", "taskbar_apply") && !ok("taskbar", "vault_reveal") && !ok("taskbar", "launcher_shortcuts") && !ok("taskbar", "set_hit_rect"));
         assert!(!ok("settings", "taskbar_apply") && !ok("settings", "taskbar_hit_rects") && ok("notch", "taskbar_apply"));
+        assert!(ok("taskbar", "taskbar_hello") && ok("taskbar", "taskbar_calendar"));
+        // The notch holds the audio capture and the lyrics switch for the bar's widgets.
+        assert!(!ok("taskbar", "audio_levels") && !ok("taskbar", "media_lyrics"));
     }
 
     #[test]
