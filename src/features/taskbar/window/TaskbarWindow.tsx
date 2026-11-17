@@ -118,11 +118,11 @@ export function TaskbarWindow() {
           </Item>
         );
       })
-    ) : (
+    ) : id === "crest" ? (
       <Item {...item("crest", t("Crest-Menü"))} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
         <CrestMark size={size} />
       </Item>
-    );
+    ) : null;
 
   return (
     <div

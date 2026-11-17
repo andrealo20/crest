@@ -20,7 +20,7 @@ import {
 } from "./model.ts";
 
 test("any saved value becomes valid bar settings", () => {
-  for (const v of [undefined, null, 0, "x", [], true, { zones: "x", height: "44", surface: 1, pinned: {} }]) assert.deepEqual(normalizeTaskbar(v), TASKBAR_DEFAULTS);
+  for (const v of [undefined, null, 0, "x", [], true, { zones: "x", height: "44", surface: 1, pinned: {}, clock: "x" }]) assert.deepEqual(normalizeTaskbar(v), TASKBAR_DEFAULTS);
   assert.equal(normalizeTaskbar({ enabled: "yes" }).enabled, false);
   assert.equal(normalizeTaskbar({ enabled: true }).enabled, true);
   assert.equal(normalizeTaskbar({ height: 100 }).height, 64);
@@ -33,10 +33,30 @@ test("any saved value becomes valid bar settings", () => {
   assert.deepEqual(TASKBAR_DEFAULTS.zones.left, []);
 });
 
-test("every item sits in exactly one zone", () => {
+test("every fixed item sits in exactly one zone", () => {
   assert.deepEqual(normalizeZones({}), { left: [], center: ["apps"], right: ["crest"] });
   assert.deepEqual(normalizeZones({ left: ["crest", "x"], center: ["apps", "crest"] }), { left: ["crest"], center: ["apps"], right: [] });
-  assert.deepEqual(normalizeZones({ right: ["apps"] }), { left: [], center: [], right: ["crest", "apps"] }); // a missing item returns at its default index
+  assert.deepEqual(normalizeZones({ right: ["apps"] }), { left: [], center: [], right: ["apps", "crest"] }); // a missing item returns at its default index, here past the end
+});
+
+test("widgets stay where they were put, and a missing one stays off the bar", () => {
+  assert.deepEqual(normalizeZones({ left: ["timer", "x"], center: ["apps"], right: ["timer", "clock", "crest"] }), { left: ["timer"], center: ["apps"], right: ["clock", "crest"] });
+});
+
+test("the default widgets arrive once", () => {
+  assert.deepEqual(normalizeZones(undefined, true), TASKBAR_DEFAULTS.zones);
+  assert.deepEqual(normalizeZones({ left: [], center: ["apps"], right: ["crest"] }, true).right, ["weather", "clock", "crest"]);
+  assert.deepEqual(normalizeZones({ left: ["clock"], center: ["apps"], right: ["crest"] }, true), { left: ["clock"], center: ["apps"], right: ["weather", "crest"] });
+  const once = normalizeTaskbar({ zones: { left: [], center: ["apps"], right: ["crest"] } });
+  assert.deepEqual(once.zones.right, ["weather", "clock", "crest"]);
+  assert.equal(once.widgetsSeeded, true);
+  assert.deepEqual(normalizeTaskbar({ ...once, zones: { ...once.zones, right: ["crest"] } }).zones.right, ["crest"]);
+  assert.deepEqual(normalizeTaskbar(undefined).zones, TASKBAR_DEFAULTS.zones);
+});
+
+test("the bar's clock has its own date and seconds", () => {
+  assert.deepEqual(normalizeTaskbar({}).clock, { date: true, seconds: false });
+  assert.deepEqual(normalizeTaskbar({ clock: { date: false, seconds: "x" } }).clock, { date: false, seconds: false });
 });
 
 test("items move between zones", () => {

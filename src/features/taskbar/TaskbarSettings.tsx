@@ -33,7 +33,7 @@ function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSettings) =>
 const ZONES: Zone[] = ["left", "center", "right"];
 const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte", right: "Rechte Seite" };
 /** What the bar draws for each item: the apps' buttons, and the button of the Crest menu. */
-const ITEM_LABEL: Record<BarItem, string> = { apps: "Apps und Fenster", crest: "Crest-Menü" };
+const ITEM_LABEL: Partial<Record<BarItem, string>> = { apps: "Apps und Fenster", crest: "Crest-Menü" };
 
 /** Taskbar → General: the bar on or off, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
@@ -84,7 +84,7 @@ export function TaskbarItems() {
               >
                 <DotsSixVertical size={13} weight="bold" className="-ms-1 text-label-4 transition-colors group-hover:text-label-3" />
                 {id === "crest" ? <CrestMark size={15} className="shrink-0 text-label-2" /> : <AppWindow size={15} weight="bold" className="shrink-0 text-label-2" />}
-                <span className="min-w-0 flex-1 truncate text-body text-label select-none">{t(ITEM_LABEL[id])}</span>
+                <span className="min-w-0 flex-1 truncate text-body text-label select-none">{t(ITEM_LABEL[id] ?? id)}</span>
                 <div onPointerDown={(e) => e.stopPropagation()}>
                   {/* The menu also reports its current zone when picked again; moveItem would send the item to that zone's end. */}
                   <Select width="w-36" value={zone} options={options} onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: moveItem(cur.zones, id, to) }))} />
