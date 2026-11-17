@@ -665,11 +665,12 @@ fn read_foreground(hwnd: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) 
     if pid == unsafe { GetCurrentProcessId() } {
         return Seen::desktop();
     }
-    let Some(m) = monitor_rect(monitor) else { return Seen::desktop() };
+    let Some((m, work)) = monitor_rect(monitor) else { return Seen::desktop() };
     let (name, path) = known.describe(hwnd, app_pid(hwnd));
     // The notification state is global; with the foreground window on our monitor, it is this window.
     let exclusive = unsafe { SHQueryUserNotificationState() }.is_ok_and(|s| s == QUNS_RUNNING_D3D_FULL_SCREEN);
-    let context = screen_policy::classify(exclusive, covers(frame_rect(hwnd), m), has_caption(hwnd), unsafe { IsZoomed(hwnd) }.as_bool());
+    let frame = frame_rect(hwnd);
+    let context = screen_policy::classify(exclusive, covers(frame, m), has_caption(hwnd), unsafe { IsZoomed(hwnd) }.as_bool(), within(frame, work));
     Seen { context, name, path }
 }
 
@@ -678,7 +679,7 @@ fn read_foreground(hwnd: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) 
 /// maximized behind another app, a borderless game in the background). Skips tool and cloaked windows
 /// (other virtual desktops) and our own.
 fn read_background(foreground: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) -> Option<Seen> {
-    let m = monitor_rect(monitor)?;
+    let (m, work) = monitor_rect(monitor)?;
     let own_pid = unsafe { GetCurrentProcessId() };
     // EnumWindows runs from the top of the z-order, so the first match is the frontmost one.
     for hwnd in top_windows() {
@@ -687,7 +688,8 @@ fn read_background(foreground: HWND, own: HWND, monitor: HMONITOR, known: &mut K
         }
         let maximized = unsafe { IsZoomed(hwnd) }.as_bool();
         let caption = has_caption(hwnd);
-        let full = covers(frame_rect(hwnd), m);
+        let frame = frame_rect(hwnd);
+        let full = covers(frame, m);
         // Tool windows, click-through and never-activated windows are overlays (dimmers, recording frames), not apps.
         if (!maximized && !(full && !caption)) || has_ex_style(hwnd, WS_EX_TOOLWINDOW.0 | WS_EX_TRANSPARENT.0 | WS_EX_NOACTIVATE.0) {
             continue;
@@ -697,7 +699,7 @@ fn read_background(foreground: HWND, own: HWND, monitor: HMONITOR, known: &mut K
             continue;
         }
         let (name, path) = known.describe(hwnd, app_pid(hwnd));
-        return Some(Seen { context: screen_policy::classify(false, full, caption, maximized), name, path });
+        return Some(Seen { context: screen_policy::classify(false, full, caption, maximized, within(frame, work)), name, path });
     }
     None
 }
@@ -783,15 +785,21 @@ fn frame_rect(hwnd: HWND) -> RECT {
 }
 
 #[cfg(windows)]
-fn monitor_rect(monitor: HMONITOR) -> Option<RECT> {
+fn monitor_rect(monitor: HMONITOR) -> Option<(RECT, RECT)> {
     let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
-    unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool().then_some(info.rcMonitor)
+    unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool().then_some((info.rcMonitor, info.rcWork))
 }
 
 #[cfg(windows)]
 /// Covers the whole monitor, give or take 2 px.
 fn covers(r: RECT, m: RECT) -> bool {
     r.left <= m.left + 2 && r.top <= m.top + 2 && r.right >= m.right - 2 && r.bottom >= m.bottom - 2
+}
+
+#[cfg(windows)]
+/// Inside the work area, give or take 2 px.
+fn within(r: RECT, work: RECT) -> bool {
+    r.left >= work.left - 2 && r.top >= work.top - 2 && r.right <= work.right + 2 && r.bottom <= work.bottom + 2
 }
 
 #[cfg(windows)]
@@ -900,5 +908,16 @@ mod tests {
         assert_eq!(at(100.0).1, 100);
         assert_eq!(at(5000.0).1, 520);
         assert_eq!(at(-50.0).1, 0);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_frame_over_the_taskbar_band_is_outside_the_work_area() {
+        let rect = |left, top, right, bottom| RECT { left, top, right, bottom };
+        let work = rect(0, 0, 1920, 1032);
+        assert!(within(rect(0, 0, 1920, 1032), work));
+        assert!(within(rect(-2, -2, 1922, 1034), work), "give or take 2 px");
+        assert!(!within(rect(0, 0, 1920, 1080), work));
+        assert!(within(rect(0, 0, 1920, 1080), rect(0, 0, 1920, 1080)), "auto-hide: the work area is the monitor");
     }
 }
