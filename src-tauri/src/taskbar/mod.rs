@@ -15,6 +15,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Mutex, Once};
 use std::thread::JoinHandle;
+use std::time::Duration;
 
 use tauri::{AppHandle, Manager};
 use windows::core::w;
@@ -45,6 +46,9 @@ const RETRY_TIMER: usize = 1;
 const RETRY_MS: u32 = 50;
 /// Posted by `start` once the Start list is read: the windows are listed again, with their pins.
 const RELIST: u32 = WM_APP;
+/// The waits before each read of the Start list: none, then longer after each read that failed or came back empty (a sign-in
+/// where the shell is not ready yet), and none after the last.
+const START_LIST: [Duration; 4] = [Duration::ZERO, Duration::from_secs(5), Duration::from_secs(20), Duration::from_secs(60)];
 
 thread_local! {
     /// The thread's window, and what found explorer's lock taken there (`defer`).
@@ -82,11 +86,11 @@ pub(crate) fn start(app: &AppHandle) {
         }
     }
     drop(thread);
-    // Pins come from the Start list, which nothing may have read yet; it is read once, off the thread, which must not wait on
-    // the shell.
+    // Pins come from the Start list, which nothing may have read yet; it is read off the thread, which must not wait on the shell,
+    // and again a few times while it fails (`START_LIST`), or every pinned app would show twice for the whole session.
     let app = app.clone();
     std::thread::spawn(move || {
-        if launcher::apps(&app.state::<LauncherState>(), false).is_ok() {
+        if tries(START_LIST, std::thread::sleep, || launcher::apps(&app.state::<LauncherState>(), false).is_ok()) {
             // Only to the thread running now: a window handle kept from before may belong to another app by then.
             if let Some((window, _)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
                 let _ = unsafe { PostMessageW(Some(HWND(*window as _)), RELIST, WPARAM(0), LPARAM(0)) };
@@ -243,6 +247,14 @@ fn defer(keep: impl FnOnce(&mut Pending)) {
     });
 }
 
+/// Tries after each wait in turn until a try succeeds; whether one did. `sleep` is `thread::sleep` (the tests count the waits).
+fn tries(waits: impl IntoIterator<Item = Duration>, mut sleep: impl FnMut(Duration), mut attempt: impl FnMut() -> bool) -> bool {
+    waits.into_iter().any(|wait| {
+        sleep(wait);
+        attempt()
+    })
+}
+
 /// Does again what found explorer's lock taken, deciding from the mode it reads now, so a hide still never lands after a
 /// restore. What finds the lock taken again waits for the next round.
 fn retry(window: HWND) {
@@ -258,5 +270,22 @@ fn retry(window: HWND) {
         if !explorer::on_show(hwnd) {
             defer(|pending| pending.shown.push(hwnd));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_failed_start_list_is_read_again_less_often_and_not_for_ever() {
+        let run = |reads: &[bool]| {
+            let (mut waited, mut reads) = (Vec::new(), reads.iter());
+            let read = tries(START_LIST, |wait| waited.push(wait.as_secs()), || *reads.next().unwrap());
+            (read, waited)
+        };
+        assert_eq!(run(&[true]), (true, vec![0])); // read at once
+        assert_eq!(run(&[false, false, true]), (true, vec![0, 5, 20])); // a sign-in where the shell was not ready yet
+        assert_eq!(run(&[false; 4]), (false, vec![0, 5, 20, 60])); // then left: the windows keep no pins
     }
 }
