@@ -131,6 +131,8 @@ windows = { version = "0.62", features = [
   "Win32_System_LibraryLoader",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_WindowsAndMessaging",
+  # SetWinEventHook: Crest's bar hides Windows' taskbar again when Windows shows it (taskbar/mod.rs).
+  "Win32_UI_Accessibility",
   "Win32_System_Ole",
   "Win32_UI_Shell_Common",
   "Win32_System_Console",

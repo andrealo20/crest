@@ -156,13 +156,14 @@ pub(crate) fn untrack(state: &HitState, label: &str) {
     state.zoned.lock().unwrap().retain(|z| z.label != label);
 }
 
-/// The zones `label`'s page reports; false, and ignored, for a window not tracked (a page still reporting as it closes).
+/// The zones `label`'s page reports, and how many of them it keeps (see sanitize); 0, and ignored, for a window not tracked
+/// (a page still reporting as it closes).
 #[cfg(windows)]
-pub(crate) fn set_zones(state: &HitState, label: &str, rects: Vec<HitRect>) -> bool {
+pub(crate) fn set_zones(state: &HitState, label: &str, rects: Vec<HitRect>) -> usize {
     let mut zoned = state.zoned.lock().unwrap();
-    let Some(z) = zoned.iter_mut().find(|z| z.label == label) else { return false };
+    let Some(z) = zoned.iter_mut().find(|z| z.label == label) else { return 0 };
     z.zones = sanitize(rects);
-    true
+    z.zones.len()
 }
 
 /// A page's report as the poll uses it: at most 8 zones, each with finite values and a positive size.
@@ -568,13 +569,14 @@ mod tests {
     fn only_a_tracked_window_keeps_its_zones() {
         let state = HitState::default();
         let bar = HitRect { x: 0.0, y: 0.0, w: 100.0, h: 40.0 };
-        assert!(!set_zones(&state, "taskbar", vec![bar]));
+        assert_eq!(set_zones(&state, "taskbar", vec![bar]), 0);
         track(&state, "taskbar", 1);
         track(&state, "taskbar", 2); // a new window under the same label replaces the old one
-        assert!(set_zones(&state, "taskbar", vec![bar, HitRect::default()]));
+        assert_eq!(set_zones(&state, "taskbar", vec![HitRect::default()]), 0); // nothing drawn: not the bar's first draw
+        assert_eq!(set_zones(&state, "taskbar", vec![bar, HitRect::default()]), 1);
         let zoned = state.zoned.lock().unwrap().clone();
         assert!(zoned.len() == 1 && zoned[0].hwnd == 2 && zoned[0].zones.len() == 1);
         untrack(&state, "taskbar");
-        assert!(!set_zones(&state, "taskbar", vec![bar])); // a late report from a page that closed
+        assert_eq!(set_zones(&state, "taskbar", vec![bar]), 0); // a late report from a page that closed
     }
 }

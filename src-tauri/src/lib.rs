@@ -637,9 +637,10 @@ pub fn run() {
             // A run that ended without restoring the Windows indicator (and whose guard was ended with it) is cleaned up here.
             #[cfg(windows)]
             osd::restore();
-            // The same for Windows' taskbar, on its own thread: SHAppBarMessage waits on Explorer.
+            // The same for Windows' taskbar, on its own thread (SHAppBarMessage waits on Explorer); it never runs after the
+            // bar's first hide, which runs it first when it comes earlier.
             #[cfg(windows)]
-            std::thread::spawn(taskbar::explorer::restore);
+            std::thread::spawn(taskbar::explorer::restore_at_start);
 
             enable_autostart_once(app.handle());
             build_tray(app)?;
@@ -652,7 +653,7 @@ pub fn run() {
             if let tauri::RunEvent::Exit = event {
                 // First, before a recording's finish can wait 5 s. tao turns WM_ENDSESSION(TRUE) into RunEvent::Exit, so this
                 // also runs at sign-out, Store updates and the installer's Restart Manager close.
-                taskbar::explorer::restore();
+                taskbar::shutdown();
                 // A recording still running when Crest quits is finished, so the file is complete.
                 capture::finish_on_exit(app);
                 osd::set(false, false);

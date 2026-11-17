@@ -8,12 +8,16 @@
 //! in front on its monitor (display.rs reads it), whatever the notch's own rules say, and is raised before the notch so the
 //! notch stays above it.
 //!
+//! Windows' taskbar hides once the bar has drawn and comes back while the hide hotkey hides Crest and when the bar goes
+//! (explorer.rs, `follow`).
+//!
 //! Async on purpose: creating a window from a sync command deadlocks on Windows.
 
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering};
 
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
+use super::explorer::{self, Mode};
 use crate::display;
 use crate::hit_test::{self, HitRect, HitState};
 
@@ -39,6 +43,8 @@ static DRAWN: AtomicBool = AtomicBool::new(false);
 static FULLSCREEN: AtomicBool = AtomicBool::new(false);
 /// What the last `sync` did.
 static SHOWN: AtomicBool = AtomicBool::new(false);
+/// The hide hotkey's state as the last `sync` saw it.
+static USER_HIDDEN: AtomicBool = AtomicBool::new(false);
 /// The band the bar takes off the work area, CSS px, as f64 bits; 0 while it is off.
 static BAND: AtomicU64 = AtomicU64::new(0);
 /// The window once built and placed, 0 otherwise. For threads that must not ask the main thread for it.
@@ -57,14 +63,16 @@ pub(crate) fn bar_rect((x, y, width, height): (i32, i32, u32, u32), scale: f64) 
 #[tauri::command]
 pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result<(), String> {
     if !enabled {
-        ENABLED.store(false, Ordering::SeqCst);
-        DRAWN.store(false, Ordering::SeqCst);
+        switch_off();
+        // Windows' taskbar back before the bar goes. The lock is free again before the thread is joined below.
+        explorer::set_mode(Mode::Off);
         hit_test::untrack(&app.state::<HitState>(), LABEL);
         HANDLE.store(0, Ordering::SeqCst);
         if let Some(window) = app.get_webview_window(LABEL) {
             let _ = window.destroy();
         }
         set_band(&app, 0.0);
+        super::stop();
         return Ok(());
     }
     ENABLED.store(true, Ordering::SeqCst);
@@ -79,16 +87,27 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
         return Ok(());
     }
     let _opening = Opening;
-    let config = app.config().app.windows.iter().find(|w| w.label == LABEL).cloned().ok_or("Taskbar window missing in config")?;
+    // A failed build leaves no band for a bar that does not exist.
+    let failed = |e: String| {
+        ENABLED.store(false, Ordering::SeqCst);
+        set_band(&app, 0.0);
+        Err(e)
+    };
+    let Some(config) = app.config().app.windows.iter().find(|w| w.label == LABEL).cloned() else {
+        return failed("Taskbar window missing in config".into());
+    };
     // The notch's WebView2 folder and arguments, so the bar joins its browser process (portable.rs).
-    let window = WebviewWindowBuilder::from_config(&app, &config)
+    let built = WebviewWindowBuilder::from_config(&app, &config)
         .map(|b| b.on_navigation(crate::own_page))
         .map(|b| match crate::portable::data_dir() {
             Some(dir) => b.data_directory(dir),
             None => b,
         })
-        .and_then(|b| b.build())
-        .map_err(|e| e.to_string())?;
+        .and_then(|b| b.build());
+    let window = match built {
+        Ok(window) => window,
+        Err(e) => return failed(e.to_string()),
+    };
     // Built during a recording or a screenshot, or while Crest is hidden from screen sharing: as the other windows are.
     crate::capture::exclude_if_capturing(&app);
     let handle = app.clone();
@@ -105,13 +124,15 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
     place(&app);
     let Ok(hwnd) = window.hwnd().map(|h| h.0 as isize) else {
         let _ = window.destroy();
-        return Err("no window handle".into());
+        return failed("no window handle".into());
     };
     // Turned off while it was being built.
     if !ENABLED.load(Ordering::SeqCst) {
         let _ = window.destroy();
         return Ok(());
     }
+    // After every way out above, so a build that fails has no thread to stop.
+    super::start();
     // Taken once here: the poll must not ask the main thread for it.
     hit_test::track(&app.state::<HitState>(), LABEL, hwnd);
     // A new window starts hidden; `sync` shows it unless the hide hotkey or a full-screen app keeps it hidden.
@@ -121,20 +142,25 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
     Ok(())
 }
 
-/// The zones the bar's page draws (the bar, an open menu) in its CSS px. A report with a zone tells that the bar has drawn;
-/// a late one from a page closing after Off is never counted, its window no longer being tracked.
+/// The zones the bar's page draws (the bar, an open menu) in its CSS px. The first report with a zone the poll keeps tells
+/// that the bar has drawn, and Windows' taskbar hides; a late one from a page closing after Off is never counted, its window
+/// no longer being tracked.
 #[tauri::command]
 pub fn taskbar_hit_rects(rects: Vec<HitRect>, window: WebviewWindow, state: State<'_, HitState>) {
-    let drawn = !rects.is_empty();
-    if hit_test::set_zones(&state, window.label(), rects) && drawn && ENABLED.load(Ordering::SeqCst) {
-        DRAWN.store(true, Ordering::SeqCst);
+    if hit_test::set_zones(&state, window.label(), rects) > 0 && ENABLED.load(Ordering::SeqCst) && !DRAWN.swap(true, Ordering::SeqCst) {
+        follow(window.app_handle());
     }
 }
 
 /// Shows the bar unless the hide hotkey or a full-screen app on its monitor hides it; only acts on a change. Only through
-/// `show` and `hide`: a raw ShowWindow would leave tao's visible flag stale.
+/// `show` and `hide`: a raw ShowWindow would leave tao's visible flag stale. The hotkey also brings Windows' taskbar back
+/// while it hides Crest.
 pub(crate) fn sync(app: &AppHandle) {
-    let show = HANDLE.load(Ordering::SeqCst) != 0 && !display::user_hidden(app) && !FULLSCREEN.load(Ordering::SeqCst);
+    let user_hidden = display::user_hidden(app);
+    if USER_HIDDEN.swap(user_hidden, Ordering::SeqCst) != user_hidden && DRAWN.load(Ordering::SeqCst) {
+        follow(app);
+    }
+    let show = HANDLE.load(Ordering::SeqCst) != 0 && !user_hidden && !FULLSCREEN.load(Ordering::SeqCst);
     if SHOWN.swap(show, Ordering::SeqCst) == show {
         return;
     }
@@ -144,16 +170,35 @@ pub(crate) fn sync(app: &AppHandle) {
         return;
     }
     // Shown first, then click-through, as the notch and the mirrors are: click-through fails on a window that was never shown.
-    // The pointer poll takes the pointer over on its next pass.
-    let _ = window.show();
-    let _ = window.set_ignore_cursor_events(true);
-    display::raise_topmost(&window);
-    // The notch goes back above the bar.
-    if !display::is_hidden(app) {
-        if let Some(notch) = app.get_webview_window("notch") {
-            display::raise_topmost(&notch);
+    // One task on the main thread, so the pointer poll's own call, which takes the pointer over on its next pass, lands after both.
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let _ = window.show();
+        let _ = window.set_ignore_cursor_events(true);
+        display::raise_topmost(&window);
+        // The notch goes back above the bar.
+        if !display::is_hidden(&handle) {
+            if let Some(notch) = handle.get_webview_window("notch") {
+                display::raise_topmost(&notch);
+            }
         }
-    }
+    });
+}
+
+/// Hides Windows' taskbar once the bar has drawn, and shows it while the hide hotkey hides Crest (`explorer::wanted`). On a
+/// thread of its own: the first hide starts a process, writes a file and waits on Explorer, and callers run on the main
+/// thread. The bar's state is read under explorer's lock, so an Off that came meanwhile always wins.
+fn follow(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        explorer::set_mode_with(|| explorer::wanted(ENABLED.load(Ordering::SeqCst) && DRAWN.load(Ordering::SeqCst), display::user_hidden(&app)));
+    });
+}
+
+/// The bar no longer counts as on: no draw or hotkey still on its way hides Windows' taskbar again.
+pub(crate) fn switch_off() {
+    ENABLED.store(false, Ordering::SeqCst);
+    DRAWN.store(false, Ordering::SeqCst);
 }
 
 /// Puts the shown bar back on top of the other topmost windows. Callers raise the notch after it.
