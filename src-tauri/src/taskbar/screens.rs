@@ -39,12 +39,17 @@ fn bars() -> MutexGuard<'static, Vec<Other>> {
 /// Never on the main thread, which a build and `bar::take_down` wait for.
 pub(crate) fn sync(app: &AppHandle) {
     let _sync = SYNC.lock().unwrap_or_else(|e| e.into_inner());
-    let (monitors, primary) = if bar::hwnd() != 0 {
+    let on = bar::hwnd() != 0;
+    let (monitors, primary) = if on {
         (app.available_monitors().unwrap_or_default(), app.primary_monitor().ok().flatten().and_then(|m| m.name().cloned()))
     } else {
         (Vec::new(), None)
     };
     let names: Vec<String> = monitors.iter().filter_map(|m| m.name().cloned()).collect();
+    // With the primary's bar there, no monitor or no primary is Windows not answering, not a change: the bars stay as they are.
+    if on && (names.is_empty() || primary.is_none()) {
+        return;
+    }
     let wanted: Vec<(String, String)> =
         others(&names, primary.as_deref()).into_iter().enumerate().map(|(i, name)| (format!("{}-{}", bar::LABEL, i + 1), name)).collect();
     let extra: Vec<String> = bars().iter().map(|o| o.label.clone()).filter(|label| wanted.iter().all(|(l, _)| l != label)).collect();

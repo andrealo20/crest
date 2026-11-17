@@ -159,7 +159,9 @@ fn run(app: AppHandle, rx: Receiver<()>) {
         if checked.elapsed() >= IDLE || screens.is_empty() {
             checked = Instant::now();
             let now = signature(&app);
-            if !screens.is_empty() && now != screens {
+            // No monitor at all is Windows not answering, not every monitor gone: it changes nothing, and the next reading is
+            // compared with the last good one.
+            if !screens.is_empty() && !now.is_empty() && now != screens {
                 if let Some(window) = app.get_webview_window("notch") {
                     let _ = display::place(&window, &app.state::<DisplayState>());
                 }
@@ -169,7 +171,9 @@ fn run(app: AppHandle, rx: Receiver<()>) {
                 dirty = true;
                 settle = Some(Instant::now());
             }
-            screens = now;
+            if !now.is_empty() {
+                screens = now;
+            }
         }
         if settle.is_some_and(|t| t.elapsed() >= SCREENS_SETTLE) {
             settle = None;
