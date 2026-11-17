@@ -10,7 +10,7 @@ import { closedEdit } from "../../../notch/ClosedResize";
 import { liveSupport } from "../../../notch/glass/live";
 import { monitor, monitors } from "../../../notch/monitor";
 import { pinned } from "../../../notch/useNotchState";
-import { isNative } from "../../../platform/native";
+import { isNative, settingsWindow } from "../../../platform/native";
 import { backupFiles } from "../../../platform/services";
 import { vault } from "../../../platform/vault";
 import { calendar, refreshCalendar } from "../../calendar/store";
@@ -18,11 +18,14 @@ import { discordState, reconnectDiscord } from "../../discord/store";
 import { github, refreshGithub } from "../../github/store";
 import { hotkeysResting, shortcutResult } from "../../launcher/store";
 import { leetcode, refreshLeetcode } from "../../leetcode/store";
-import { refreshStatus, sourceStatus } from "../../notices/store";
+import { clearHistory, deleteNotice, refreshStatus, sourceStatus } from "../../notices/store";
 import { syncOfflineStatus } from "../../now-playing/offlineEngine";
+import { startAwake, stopAwake } from "../../overview/store";
 import { plugins, refreshPlugins } from "../../plugins/store";
 import { privacy, snoozed, togglePresentation } from "../../privacy/store";
 import { system } from "../../system/store";
+import { runInTerminal } from "../../terminal/session";
+import { focusMuted, timerActions } from "../../timer/store";
 import { refreshUsage } from "../../usage/store";
 import { hotkeyStatus, pauseHotkeys, toolHotkeyStatus } from "../../window/store";
 
@@ -57,7 +60,7 @@ export const sharedStores: Record<string, Shared> = {
   sourceStatus,
 };
 
-/** A request from the settings window, carried out here in the notch by the function the window called. */
+/** A request from the settings window or the bar, carried out here in the notch by the function the window called. */
 function run(action: BridgeAction) {
   switch (action.kind) {
     case "pauseHotkeys":
@@ -77,6 +80,21 @@ function run(action: BridgeAction) {
       return void vault.lock().catch(() => {});
     case "refresh":
       return void refreshers[action.what](action.force);
+    case "awake":
+      return startAwake(action.minutes);
+    case "awakeOff":
+      return stopAwake();
+    case "renewClaude":
+      runInTerminal("claude");
+      return void settingsWindow.notchOpen("terminal");
+    case "noticeDelete":
+      return deleteNotice(action.id);
+    case "noticesClear":
+      return clearHistory();
+    case "timerSilence":
+      return timerActions.silence();
+    case "focusMute":
+      return focusMuted.set(action.on);
   }
 }
 

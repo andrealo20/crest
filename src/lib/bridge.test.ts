@@ -97,6 +97,37 @@ test("a vault lock reaches the notch", () => {
   assert.deepEqual(ran, [{ kind: "lockVault" }]);
 });
 
+test("the bar's requests reach the notch field for field, and nothing in a wrong shape does", () => {
+  // Rust passes on only these from the bar (src-tauri/src/taskbar/panel.rs); the notch checks them again.
+  const bus = memoryBus();
+  const ran: unknown[] = [];
+  onActions(bus, (a) => ran.push(a));
+  const kept = [
+    { kind: "refresh", what: "github" },
+    { kind: "refresh", what: "github", force: true },
+    ...[1, 30, 1440, null].map((minutes) => ({ kind: "awake", minutes })),
+    { kind: "awakeOff" },
+    { kind: "renewClaude" },
+    { kind: "noticesClear" },
+    { kind: "timerSilence" },
+    { kind: "presentation" },
+    { kind: "focusMute", on: true },
+    { kind: "noticeDelete", id: "a1" },
+    { kind: "noticeDelete", id: "a".repeat(128) },
+  ];
+  const refused = [
+    { kind: "refresh", what: "evil" },
+    ...[0, 1441, 2.5, "30", undefined].map((minutes) => ({ kind: "awake", minutes })),
+    { kind: "focusMute", on: "yes" },
+    { kind: "noticeDelete", id: "" },
+    { kind: "noticeDelete", id: "a".repeat(129) },
+    "timerSilence",
+  ];
+  [...kept, ...refused].forEach((a) => bus.emit("bridge://action", a));
+  bus.emit("bridge://action", { kind: "timerSilence", x: 1 });
+  assert.deepEqual(ran, [...kept, { kind: "timerSilence" }]);
+});
+
 test("closing_the_settings_window_resumes_hotkeys", () => {
   assert.ok(settingsClosedActions().some((a) => a.kind === "pauseHotkeys" && a.on === false));
 });
