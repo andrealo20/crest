@@ -13,6 +13,7 @@ import { pinned } from "../../../notch/useNotchState";
 import { isNative, settingsWindow } from "../../../platform/native";
 import { backupFiles } from "../../../platform/services";
 import { vault } from "../../../platform/vault";
+import { settings } from "../../../settings/store";
 import { calendar, refreshCalendar } from "../../calendar/store";
 import { discordState, reconnectDiscord } from "../../discord/store";
 import { github, refreshGithub } from "../../github/store";
@@ -85,6 +86,8 @@ function run(action: BridgeAction) {
     case "awakeOff":
       return stopAwake();
     case "renewClaude":
+      // The bar reaches the terminal only through here, so the notch keeps Usage's rule and starts no shell while the tool is off.
+      if (!settings.get().tools.some((x) => x.id === "terminal" && x.enabled)) return;
       runInTerminal("claude");
       return void settingsWindow.notchOpen("terminal");
     case "noticeDelete":
