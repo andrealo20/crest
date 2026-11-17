@@ -212,6 +212,10 @@ fn clean_locked(scan: &mut Scan) {
 }
 
 /// `restore` for code that already holds `SCAN`; `hid_here` shows the taskbars even without a record.
+///
+/// The show comes last, after the record is gone: a restore from another process (the uninstaller, the guard) raises
+/// `on_show` in a Crest still running, which hides the taskbars again while it still finds the record. A restore that stops
+/// before the removal leaves the record, and the next one finishes the job.
 pub(crate) fn restore_locked(hid_here: bool) {
     let path = record_path();
     let record = path.as_deref().map_or(Record::Missing, read_record);
@@ -219,15 +223,15 @@ pub(crate) fn restore_locked(hid_here: bool) {
     let taskbars = taskbars(shell);
     let appbar = appbar_taskbar(shell);
     let steps = restore_steps(record, hid_here, !taskbars.is_empty(), appbar.is_some());
-    if steps.show {
-        post(&taskbars, SW_SHOWNA);
-        HID_HERE.store(false, Ordering::SeqCst);
-    }
     if let (true, Some(hwnd)) = (steps.autohide_off, appbar) {
         appbar_call(hwnd, ABM_SETSTATE, 0);
     }
     if let (true, Some(path)) = (steps.remove, &path) {
         let _ = fs::remove_file(path);
+    }
+    if steps.show {
+        post(&taskbars, SW_SHOWNA);
+        HID_HERE.store(false, Ordering::SeqCst);
     }
 }
 
