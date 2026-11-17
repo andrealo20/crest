@@ -103,6 +103,8 @@ export function BarMenu(props: {
       // The page's direction: the zones around it are physical (dir="ltr"), the menu reads as the rest of Crest.
       dir={document.documentElement.dir}
       className={`${MENU_PANEL_CLASS} w-max max-w-80 min-w-40`}
+      // The focus leaves its rows, so a second Enter while it fades does not run one again.
+      inert={!present}
       style={{ bottom, maxHeight: window.innerHeight - bottom - EDGE, transformOrigin: "50% 100%", pointerEvents: present ? undefined : "none" }}
       initial={{ opacity: 0, transform: "scale(0.96) translateY(2px)" }}
       animate={{ opacity: 1, transform: "scale(1) translateY(0px)", transition: popover.enter }}
