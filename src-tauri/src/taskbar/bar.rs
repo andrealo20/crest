@@ -75,6 +75,11 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
         super::stop();
         return Ok(());
     }
+    // The Store build has no uninstall step that gives Windows' taskbar back: it never turns the bar on, whatever a restored
+    // backup says. Off above works as everywhere.
+    if cfg!(feature = "store") {
+        return Ok(());
+    }
     ENABLED.store(true, Ordering::SeqCst);
     // `max` reads NaN as the lowest bar.
     set_band(&app, height.max(MIN_HEIGHT).min(MAX_HEIGHT) + 2.0 * GAP);
