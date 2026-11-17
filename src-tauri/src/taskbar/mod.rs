@@ -2,9 +2,10 @@
 //!
 //! While the bar's window exists, one thread keeps a hidden top-level window, WinEvent hooks and a shell hook: a taskbar Windows
 //! shows again is hidden again while Crest hides them (explorer.rs `on_show`), and so are a restarted Explorer's new ones, which
-//! it announces with the `TaskbarCreated` broadcast. The same events keep the bar's list of open windows (tasks.rs). Only
-//! top-level windows get broadcasts, so the window is not message-only. The thread never waits for explorer's lock: what finds
-//! it taken is done again by a short timer (`defer`, `retry`).
+//! it announces with the `TaskbarCreated` broadcast. The same events keep the bar's list of open windows (tasks.rs). A new work
+//! area (auto-hide turned on or off, an appbar) places the bar again at once. Only top-level windows get broadcasts, so the
+//! window is not message-only. The thread never waits for explorer's lock: what finds it taken is done again by a short timer
+//! (`defer`, `retry`).
 
 pub(crate) mod bar;
 pub(crate) mod explorer;
@@ -27,8 +28,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DeregisterShellHookWindow, DispatchMessageW, GetMessageW, KillTimer, PostMessageW, PostQuitMessage, RegisterClassW,
     RegisterShellHookWindow, RegisterWindowMessageW, SetTimer, CHILDID_SELF, EVENT_OBJECT_CLOAKED, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE,
     EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, MSG,
-    OBJID_WINDOW, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_APP, WM_CLOSE, WM_DESTROY, WM_TIMER, WNDCLASSW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-    WS_POPUP,
+    OBJID_WINDOW, SPI_SETWORKAREA, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_APP, WM_CLOSE, WM_DESTROY, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW,
+    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 
 use crate::launcher::{self, LauncherState};
@@ -51,13 +52,14 @@ const RELIST: u32 = WM_APP;
 const START_LIST: [Duration; 4] = [Duration::ZERO, Duration::from_secs(5), Duration::from_secs(20), Duration::from_secs(60)];
 
 thread_local! {
-    /// The thread's window, and what found explorer's lock taken there (`defer`).
+    /// The thread's window and app, and what found explorer's lock taken there (`defer`).
     static PENDING: RefCell<Pending> = RefCell::default();
 }
 
 #[derive(Default)]
 struct Pending {
     window: HWND,
+    app: Option<AppHandle>,
     /// `retry`'s timer is armed: SetTimer succeeded.
     armed: bool,
     /// Taskbars Windows showed.
@@ -124,7 +126,10 @@ unsafe fn run(ready: Sender<isize>, app: AppHandle) {
         TASKBAR_CREATED.store(RegisterWindowMessageW(w!("TaskbarCreated")), Ordering::SeqCst);
         SHELLHOOK.store(RegisterWindowMessageW(w!("SHELLHOOK")), Ordering::SeqCst);
         if let Some(window) = window() {
-            PENDING.with_borrow_mut(|pending| pending.window = window);
+            PENDING.with_borrow_mut(|pending| {
+                pending.window = window;
+                pending.app = Some(app.clone());
+            });
             let others = WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS;
             let hooks = [
                 SetWinEventHook(EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, None, Some(on_event), 0, 0, others),
@@ -203,6 +208,13 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
     }
     if msg == RELIST {
         tasks::arm();
+        return LRESULT(0);
+    }
+    // Auto-hide turned on or off, an appbar came or went: the bar moves with the work area now, not at the mirror's next check.
+    if msg == WM_SETTINGCHANGE && wparam.0 == SPI_SETWORKAREA.0 as usize {
+        if let Some(app) = PENDING.with_borrow(|pending| pending.app.clone()) {
+            bar::work_area_changed(&app);
+        }
         return LRESULT(0);
     }
     if msg != 0 && msg == SHELLHOOK.load(Ordering::SeqCst) {

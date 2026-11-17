@@ -244,6 +244,16 @@ pub(crate) fn place(app: &AppHandle) {
     }
 }
 
+/// The work area has changed (the taskbar thread, mod.rs): the bar and a notch on the bottom edge move now, not at the mirror's
+/// check up to a second later. Posted to the main thread, which that thread never waits on.
+pub(super) fn work_area_changed(app: &AppHandle) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        place(&handle);
+        let _ = handle.emit("notch://monitors", ());
+    });
+}
+
 /// The band the bar takes off the primary's work area (its height and gaps), CSS px; 0 while it is off.
 pub(crate) fn band() -> f64 {
     f64::from_bits(BAND.load(Ordering::SeqCst))
