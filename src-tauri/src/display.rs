@@ -186,7 +186,7 @@ pub struct MonitorInfo {
     primary: bool,
     width: u32,
     height: u32,
-    /// Work area (without taskbar, and on the primary without Crest's bar) in CSS px: top below the monitor's top edge, and height.
+    /// Work area (without taskbar and Crest's bar) in CSS px: top below the monitor's top edge, and height.
     work_top: f64,
     work_height: f64,
     /// The work area's left edge from the monitor's left, and its width (a taskbar on the left or right), in CSS px.
@@ -219,7 +219,7 @@ fn named_monitors(window: &WebviewWindow) -> Vec<(String, tauri::Monitor)> {
 pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -> Vec<MonitorInfo> {
     let zoom = state.config.lock().unwrap().zoom;
     let primary = window.primary_monitor().ok().flatten().map(|m| *m.position());
-    // Crest's bar stands on the primary's work area and takes its band off it, in the notch's CSS px.
+    // Crest's bar stands on every monitor's work area and takes its band off each, in the notch's CSS px.
     #[cfg(windows)]
     let band = crate::taskbar::bar::band() / zoom;
     #[cfg(not(windows))]
@@ -235,7 +235,7 @@ pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -
                 width: (m.size().width as f64 / scale) as u32,
                 height: (m.size().height as f64 / scale) as u32,
                 work_top: (wa.position.y - m.position().y) as f64 / scale,
-                work_height: wa.size.height as f64 / scale - if primary { band } else { 0.0 },
+                work_height: wa.size.height as f64 / scale - band,
                 work_left: (wa.position.x - m.position().x) as f64 / scale,
                 work_width: wa.size.width as f64 / scale,
                 name,

@@ -1,15 +1,15 @@
 //! Crest's bar: the window `taskbar` (tauri.conf.json, page taskbar.html) along the bottom of the primary monitor's work
-//! area, as wide as it and much taller than the bar, so menus and name labels have room above the bar. The page lays the bar
-//! at the window's bottom and reports where it draws (`taskbar_hit_rects`); the pointer poll (hit_test.rs) lets clicks
-//! through everywhere else. The band the bar takes (its height and gaps) comes off the primary's work area for the notch
-//! (`display_monitors`).
+//! area, as wide as it and much taller than the bar, so menus and name labels have room above the bar. Every other monitor
+//! gets a bar of its own from the same template (screens.rs). The page lays the bar at the window's bottom and reports where
+//! it draws (`taskbar_hit_rects`); the pointer poll (hit_test.rs) lets clicks through everywhere else. The band the bar takes
+//! (its height and gaps) comes off every monitor's work area for the notch (`display_monitors`).
 //!
 //! Only the notch applies the bar's settings (`taskbar_apply`). The bar hides with the hide hotkey and over a full-screen app
 //! in front on its monitor (display.rs reads it), whatever the notch's own rules say, and is raised before the notch so the
 //! notch stays above it.
 //!
-//! Windows' taskbar hides once the bar has drawn and comes back while the hide hotkey hides Crest and when the bar goes
-//! (explorer.rs, `follow`).
+//! Windows' taskbar hides once the primary's bar has drawn and comes back while the hide hotkey hides Crest and when the bar
+//! goes (explorer.rs, `follow`).
 //!
 //! Async on purpose: creating a window from a sync command deadlocks on Windows.
 
@@ -34,7 +34,7 @@ const MAX_HEIGHT: f64 = 64.0;
 const WINDOW_BAND: f64 = MAX_HEIGHT + 2.0 * GAP;
 /// Above the bar, for its menus and labels: the tallest panel and a margin, CSS px.
 const ROOM: f64 = 560.0;
-/// How long an Off waits for its window to go: 300 steps of 10 ms, 3 s in all.
+/// How long `take_down` waits for a window to go: 300 steps of 10 ms, 3 s in all.
 const GONE_STEP: Duration = Duration::from_millis(10);
 const GONE_STEPS: usize = 300;
 
@@ -77,12 +77,9 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
         explorer::set_mode(Mode::Off);
         hit_test::untrack(&app.state::<HitState>(), LABEL);
         HANDLE.store(0, Ordering::SeqCst);
-        if let Some(window) = app.get_webview_window(LABEL) {
-            let _ = window.destroy();
-            // `destroy` only asks the main thread. An On after this call must find no window, or it would place this one as it
-            // goes and leave no bar; bounded, so a main thread that does not answer cannot hold the switch.
-            super::tries(std::iter::repeat_n(GONE_STEP, GONE_STEPS), std::thread::sleep, || app.get_webview_window(LABEL).is_none());
-        }
+        take_down(&app, LABEL);
+        // The other monitors' bars go too, the primary's being gone.
+        super::screens::sync(&app);
         set_band(&app, 0.0);
         super::stop();
         return Ok(());
@@ -105,34 +102,16 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
         set_band(&app, 0.0);
         Err(e)
     };
-    let Some(config) = app.config().app.windows.iter().find(|w| w.label == LABEL).cloned() else {
-        return failed("Taskbar window missing in config".into());
-    };
-    // The notch's WebView2 folder and arguments, so the bar joins its browser process (portable.rs).
-    let built = WebviewWindowBuilder::from_config(&app, &config)
-        .map(|b| b.on_navigation(crate::own_page))
-        .map(|b| match crate::portable::data_dir() {
-            Some(dir) => b.data_directory(dir),
-            None => b,
-        })
-        .and_then(|b| b.build());
+    let handle = app.clone();
+    let built = build(&app, LABEL, move || {
+        hit_test::untrack(&handle.state::<HitState>(), LABEL);
+        DRAWN.store(false, Ordering::SeqCst);
+        HANDLE.store(0, Ordering::SeqCst);
+    });
     let window = match built {
         Ok(window) => window,
-        Err(e) => return failed(e.to_string()),
+        Err(e) => return failed(e),
     };
-    // Built during a recording or a screenshot, or while Crest is hidden from screen sharing: as the other windows are.
-    crate::capture::exclude_if_capturing(&app);
-    let handle = app.clone();
-    window.on_window_event(move |event| match event {
-        // Alt+F4 on the bar: it stays until the notch turns it off.
-        WindowEvent::CloseRequested { api, .. } => api.prevent_close(),
-        WindowEvent::Destroyed => {
-            hit_test::untrack(&handle.state::<HitState>(), LABEL);
-            DRAWN.store(false, Ordering::SeqCst);
-            HANDLE.store(0, Ordering::SeqCst);
-        }
-        _ => {}
-    });
     place(&app);
     let Ok(hwnd) = window.hwnd().map(|h| h.0 as isize) else {
         let _ = window.destroy();
@@ -151,27 +130,65 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
     SHOWN.store(false, Ordering::SeqCst);
     HANDLE.store(hwnd, Ordering::SeqCst);
     sync(&app);
+    // The other monitors' bars, now that the primary's is there.
+    super::screens::sync(&app);
     Ok(())
 }
 
-/// The zones the bar's page draws (the bar, an open menu) in its CSS px. The first report with a zone the poll keeps tells
-/// that the bar has drawn, and Windows' taskbar hides; a late one from a page closing after Off is never counted, its window
-/// no longer being tracked.
+/// A bar window from the template `LABEL` under `label`, with the notch's WebView2 folder and arguments so it joins its
+/// browser process (portable.rs). Alt+F4 never closes it; `on_destroyed` runs once it is gone. Options for the bar's look go
+/// here, so every monitor's bar gets them.
+pub(super) fn build(app: &AppHandle, label: &str, on_destroyed: impl Fn() + Send + 'static) -> Result<WebviewWindow, String> {
+    let mut config = app.config().app.windows.iter().find(|w| w.label == LABEL).cloned().ok_or("Taskbar window missing in config")?;
+    config.label = label.to_owned();
+    let window = WebviewWindowBuilder::from_config(app, &config)
+        .map(|b| b.on_navigation(crate::own_page))
+        .map(|b| match crate::portable::data_dir() {
+            Some(dir) => b.data_directory(dir),
+            None => b,
+        })
+        .and_then(|b| b.build())
+        .map_err(|e| e.to_string())?;
+    // Built during a recording or a screenshot, or while Crest is hidden from screen sharing: as the other windows are.
+    crate::capture::exclude_if_capturing(app);
+    window.on_window_event(move |event| match event {
+        // Alt+F4 on the bar: it stays until the notch turns it off.
+        WindowEvent::CloseRequested { api, .. } => api.prevent_close(),
+        WindowEvent::Destroyed => on_destroyed(),
+        _ => {}
+    });
+    Ok(window)
+}
+
+/// Destroys `label`'s window and waits until it is gone, so what comes next never finds it on its way out: an On would place
+/// it as it goes and leave no bar. `destroy` only asks the main thread, so never on it; bounded, so a main thread that does not
+/// answer cannot hold the switch.
+pub(super) fn take_down(app: &AppHandle, label: &str) {
+    if let Some(window) = app.get_webview_window(label) {
+        let _ = window.destroy();
+        super::tries(std::iter::repeat_n(GONE_STEP, GONE_STEPS), std::thread::sleep, || app.get_webview_window(label).is_none());
+    }
+}
+
+/// The zones a bar's page draws (the bar, an open menu) in its CSS px. The primary's first report with a zone the poll keeps
+/// tells that the bar has drawn, and Windows' taskbar hides; another bar's never does, and a late one from a page closing after
+/// Off is never counted, its window no longer being tracked.
 #[tauri::command]
 pub fn taskbar_hit_rects(rects: Vec<HitRect>, window: WebviewWindow, state: State<'_, HitState>) {
-    if hit_test::set_zones(&state, window.label(), rects) > 0 && ENABLED.load(Ordering::SeqCst) && !DRAWN.swap(true, Ordering::SeqCst) {
+    if hit_test::set_zones(&state, window.label(), rects) > 0 && window.label() == LABEL && ENABLED.load(Ordering::SeqCst) && !DRAWN.swap(true, Ordering::SeqCst) {
         follow(window.app_handle());
     }
 }
 
-/// Shows the bar unless the hide hotkey or a full-screen app on its monitor hides it; only acts on a change. Only through
-/// `show` and `hide`: a raw ShowWindow would leave tao's visible flag stale. The hotkey also brings Windows' taskbar back
-/// while it hides Crest.
+/// Shows the bar unless the hide hotkey or a full-screen app on its monitor hides it, and the other monitors' bars each the
+/// same way; only acts on a change. Only through `show` and `hide`: a raw ShowWindow would leave tao's visible flag stale. The
+/// hotkey also brings Windows' taskbar back while it hides Crest.
 pub(crate) fn sync(app: &AppHandle) {
     let user_hidden = display::user_hidden(app);
     if USER_HIDDEN.swap(user_hidden, Ordering::SeqCst) != user_hidden && DRAWN.load(Ordering::SeqCst) {
         follow(app);
     }
+    super::screens::sync_shown(app);
     let show = HANDLE.load(Ordering::SeqCst) != 0 && !user_hidden && !FULLSCREEN.load(Ordering::SeqCst);
     if SHOWN.swap(show, Ordering::SeqCst) == show {
         return;
@@ -181,8 +198,13 @@ pub(crate) fn sync(app: &AppHandle) {
         let _ = window.hide();
         return;
     }
-    // Shown first, then click-through, as the notch and the mirrors are: click-through fails on a window that was never shown.
-    // One task on the main thread, so the pointer poll's own call, which takes the pointer over on its next pass, lands after both.
+    reveal(app, window);
+}
+
+/// Shows a bar. Shown first, then click-through, as the notch and the mirrors are: click-through fails on a window that was
+/// never shown. One task on the main thread, so the pointer poll's own call, which takes the pointer over on its next pass,
+/// lands after both.
+pub(super) fn reveal(app: &AppHandle, window: WebviewWindow) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         let _ = window.show();
@@ -213,14 +235,14 @@ pub(crate) fn switch_off() {
     DRAWN.store(false, Ordering::SeqCst);
 }
 
-/// Puts the shown bar back on top of the other topmost windows. Callers raise the notch after it.
+/// Puts the shown bars back on top of the other topmost windows. Callers raise the notch after them.
 pub(crate) fn raise(app: &AppHandle) {
-    if !SHOWN.load(Ordering::SeqCst) {
-        return;
+    if SHOWN.load(Ordering::SeqCst) {
+        if let Some(window) = app.get_webview_window(LABEL) {
+            display::raise_topmost(&window);
+        }
     }
-    if let Some(window) = app.get_webview_window(LABEL) {
-        display::raise_topmost(&window);
-    }
+    super::screens::raise(app);
 }
 
 /// A full-screen app came to or left the front of the bar's monitor.
@@ -230,10 +252,18 @@ pub(crate) fn set_fullscreen(app: &AppHandle, on: bool) {
     }
 }
 
-/// Along the bottom of the primary monitor's work area (`bar_rect`).
+/// The bar along the bottom of the primary monitor's work area, and the other bars along theirs.
 pub(crate) fn place(app: &AppHandle) {
-    let Some(window) = app.get_webview_window(LABEL) else { return };
-    let Ok(Some(monitor)) = window.primary_monitor() else { return };
+    if let Some(window) = app.get_webview_window(LABEL) {
+        if let Ok(Some(monitor)) = window.primary_monitor() {
+            put(&window, &monitor);
+        }
+    }
+    super::screens::place(app);
+}
+
+/// Along the bottom of `monitor`'s work area (`bar_rect`).
+pub(super) fn put(window: &WebviewWindow, monitor: &tauri::Monitor) {
     let area = monitor.work_area();
     let work = (area.position.x, area.position.y, area.size.width, area.size.height);
     let (x, y, width, height) = bar_rect(work, monitor.scale_factor());
@@ -244,8 +274,8 @@ pub(crate) fn place(app: &AppHandle) {
     }
 }
 
-/// The work area has changed (the taskbar thread, mod.rs): the bar and a notch on the bottom edge move now, not at the mirror's
-/// check up to a second later. Posted to the main thread, which that thread never waits on.
+/// The work area has changed (the taskbar thread, mod.rs): the bars and a notch on the bottom edge move now, not at the
+/// mirror's check up to a second later. Posted to the main thread, which that thread never waits on.
 pub(super) fn work_area_changed(app: &AppHandle) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
@@ -254,7 +284,7 @@ pub(super) fn work_area_changed(app: &AppHandle) {
     });
 }
 
-/// The band the bar takes off the primary's work area (its height and gaps), CSS px; 0 while it is off.
+/// The band the bar takes off every monitor's work area (its height and gaps), CSS px; 0 while it is off.
 pub(crate) fn band() -> f64 {
     f64::from_bits(BAND.load(Ordering::SeqCst))
 }
@@ -264,7 +294,7 @@ pub(crate) fn hwnd() -> isize {
     HANDLE.load(Ordering::SeqCst)
 }
 
-/// A new band changes the primary's work area for the notch, which reads the monitors again.
+/// A new band changes every monitor's work area for the notch, which reads the monitors again.
 fn set_band(app: &AppHandle, band: f64) {
     if f64::from_bits(BAND.swap(band.to_bits(), Ordering::SeqCst)) != band {
         let _ = app.emit("notch://monitors", ());
