@@ -143,9 +143,10 @@ pub(crate) fn sync(app: &AppHandle) {
         let _ = window.hide();
         return;
     }
-    // Click-through before it shows: the poll only takes it over on its next pass.
-    let _ = window.set_ignore_cursor_events(true);
+    // Shown first, then click-through, as the notch and the mirrors are: click-through fails on a window that was never shown.
+    // The pointer poll takes the pointer over on its next pass.
     let _ = window.show();
+    let _ = window.set_ignore_cursor_events(true);
     display::raise_topmost(&window);
     // The notch goes back above the bar.
     if !display::is_hidden(app) {
