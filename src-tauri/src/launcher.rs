@@ -33,7 +33,7 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{AllowSetForegroundWindow, ASFW_ANY, SW_SHOWNORMAL};
 
-const APPS_PREFIX: &str = r"shell:AppsFolder\";
+pub(crate) const APPS_PREFIX: &str = r"shell:AppsFolder\";
 /// Icon edge in device pixels: 32 CSS px tiles on a 200 % screen.
 const ICON_PX: i32 = 64;
 const DIGITS: [Code; 6] = [Code::Digit1, Code::Digit2, Code::Digit3, Code::Digit4, Code::Digit5, Code::Digit6];
@@ -121,7 +121,7 @@ fn start_apps() -> windows::core::Result<Vec<App>> {
 }
 
 /// The exe a Start entry's shortcut starts with no arguments (`plain_exe`); None for Store apps and everything else.
-unsafe fn shortcut_exe(item: &IShellItem) -> Option<String> {
+pub(crate) unsafe fn shortcut_exe(item: &IShellItem) -> Option<String> {
     let item = item.cast::<IShellItem2>().ok()?;
     let read = |key: &PROPERTYKEY| item.GetString(key).ok().and_then(|p| crate::controls::take(p));
     plain_exe(read(&LINK_TARGET).as_deref(), read(&LINK_ARGUMENTS).as_deref())

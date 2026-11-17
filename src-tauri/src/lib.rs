@@ -518,6 +518,8 @@ pub fn run() {
             taskbar::tasks::taskbar_icons,
             #[cfg(windows)]
             taskbar::tasks::taskbar_release,
+            #[cfg(windows)]
+            taskbar::pins::taskbar_import_pins,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,
@@ -1046,6 +1048,7 @@ mod tests {
         assert!(ok("taskbar", "taskbar_hit_rects") && ok("taskbar", "launcher_open") && ok("taskbar", "app_quit") && ok("taskbar-2", "notch_open"));
         assert!(!ok("taskbar", "taskbar_apply") && !ok("taskbar", "vault_reveal") && !ok("taskbar", "launcher_shortcuts") && !ok("taskbar", "set_hit_rect"));
         assert!(!ok("settings", "taskbar_apply") && !ok("settings", "taskbar_hit_rects") && ok("notch", "taskbar_apply"));
+        assert!(ok("notch", "taskbar_import_pins") && ok("settings", "taskbar_import_pins") && !ok("taskbar", "taskbar_import_pins"));
     }
 
     #[test]

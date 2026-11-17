@@ -38,7 +38,7 @@ use crate::{display, mixer};
 /// A window flashes: the redraw code with the high bit (not in the windows crate).
 const HSHELL_FLASH: u32 = HSHELL_REDRAW | HSHELL_HIGHBIT;
 /// System.AppUserModel.ID, defined here so one key does not need the EnhancedStorage feature.
-const APP_USER_MODEL_ID: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0x9f4c2855_9f79_4b39_a8d0_e1d42de1d5f3), pid: 5 };
+pub(super) const APP_USER_MODEL_ID: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0x9f4c2855_9f79_4b39_a8d0_e1d42de1d5f3), pid: 5 };
 /// The list's one-shot timer on the thread's window (mod.rs routes it), with an id of its own.
 pub(super) const LIST_TIMER: usize = 2;
 const LIST_MS: u32 = 100;

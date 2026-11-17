@@ -9,6 +9,7 @@
 
 pub(crate) mod bar;
 pub(crate) mod explorer;
+pub(crate) mod pins;
 pub(crate) mod tasks;
 
 use std::cell::RefCell;
