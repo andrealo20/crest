@@ -149,10 +149,17 @@ const SETTINGS_DENIED: &[&str] = &[
     "launcher_shortcuts", "clipboard_mode", "tray_texts", "media_pin", "status_configure", "notices_configure",
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
-    "timer_window_open",
+    "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release",
 ];
 
-/// The notch window may call every command; the settings, timer and mirror windows only what they need. Tauri lets every
+/// What the bar may call: its own hit zones and window list, starting apps, opening the notch and the settings, and the Crest
+/// menu. Its settings reach Rust only through the notch (`taskbar_apply`).
+const TASKBAR_ALLOWED: &[&str] = &[
+    "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
+    "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log",
+];
+
+/// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
 /// local window call every app command (the capabilities only cover plugins and core), so a bug in one of them would
 /// otherwise reach the vault or the terminal.
 fn command_allowed(window: &str, command: &str) -> bool {
@@ -161,6 +168,7 @@ fn command_allowed(window: &str, command: &str) -> bool {
         "settings" => !SETTINGS_DENIED.contains(&command),
         "timer" => command == "timer_window_close",
         w if w.starts_with("mirror-") => command == "mirror_picture",
+        w if w == "taskbar" || w.starts_with("taskbar-") => TASKBAR_ALLOWED.contains(&command),
         _ => false,
     }
 }
@@ -415,6 +423,7 @@ pub fn run() {
             vault::vault_hello_disable,
             autostart_get,
             autostart_set,
+            app_quit,
             build_info,
             diagnostics_info,
             open_sponsors,
@@ -497,6 +506,10 @@ pub fn run() {
             launcher::launcher_open,
             #[cfg(windows)]
             launcher::launcher_shortcuts,
+            #[cfg(windows)]
+            taskbar::bar::taskbar_apply,
+            #[cfg(windows)]
+            taskbar::bar::taskbar_hit_rects,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,
@@ -782,10 +795,18 @@ fn autostart_set(enabled: bool, app: AppHandle, state: State<'_, TrayItems>) -> 
     result
 }
 
-/// Which build runs: the Microsoft Store one leaves updates to the Store.
+/// The Crest menu's Quit, on the bar.
+#[tauri::command]
+fn app_quit(app: AppHandle) {
+    app.exit(0)
+}
+
+/// Which build runs: the Microsoft Store one leaves updates to the Store. The Taskbar settings show in a Windows build with a
+/// file `Crest.taskbar` next to the exe (as `Crest.portable` marks a portable copy), never in the Store build.
 #[tauri::command]
 fn build_info() -> serde_json::Value {
-    serde_json::json!({ "store": cfg!(feature = "store") })
+    let marked = std::env::current_exe().is_ok_and(|exe| exe.with_file_name("Crest.taskbar").is_file());
+    serde_json::json!({ "store": cfg!(feature = "store"), "taskbarPreview": cfg!(windows) && !cfg!(feature = "store") && marked })
 }
 
 /// For Copy diagnostics (Settings, General): Windows edition and build, the architecture of this build and of the PC
@@ -1013,6 +1034,9 @@ mod tests {
         assert!(!ok("settings", "display_apply") && !ok("settings", "keyboard_focus") && !ok("settings", "hotkeys_apply"));
         // Focus mode makes the notch ignore the mouse: only the notch may turn that on.
         assert!(!ok("settings", "set_passthrough"));
+        assert!(ok("taskbar", "taskbar_hit_rects") && ok("taskbar", "launcher_open") && ok("taskbar", "app_quit") && ok("taskbar-2", "notch_open"));
+        assert!(!ok("taskbar", "taskbar_apply") && !ok("taskbar", "vault_reveal") && !ok("taskbar", "launcher_shortcuts") && !ok("taskbar", "set_hit_rect"));
+        assert!(!ok("settings", "taskbar_apply") && !ok("settings", "taskbar_hit_rects") && ok("notch", "taskbar_apply"));
     }
 
     #[test]

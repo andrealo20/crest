@@ -4,6 +4,7 @@
 //! recordings in Videos\Crest\Recordings as MP4, audio-only ones in Music\Crest\Recordings as M4A.
 //! While a screenshot or screen recording is taken, Crest's own window is excluded from capture
 //! (WDA_EXCLUDEFROMCAPTURE), and only then, unless "Hide Crest from screen sharing" is on (sharing.rs): then it stays out.
+//! The bar (taskbar/bar.rs) stays in Crest's own captures, as Windows' taskbar does in the system's, and follows only that switch.
 //! The glass's copy of the screen behind the notch (backdrop.rs) leaves out the notch window alone, through the same lock.
 //! While the live glass is on (glass_live.rs) the notch window stays out of every capture.
 //! Recording state goes to the frontend as `capture://state`. Find on screen (find.rs)
@@ -200,7 +201,7 @@ fn exclude(app: &AppHandle, on: bool) {
     let live = app.state::<CaptureState>().live.load(Ordering::SeqCst);
     for (label, w) in app.webview_windows() {
         if let Ok(hwnd) = w.hwnd() {
-            let _ = unsafe { SetWindowDisplayAffinity(hwnd, window_affinity(on, hidden, live, label == "notch")) };
+            let _ = unsafe { SetWindowDisplayAffinity(hwnd, window_affinity(on, hidden, live, &label)) };
         }
     }
 }
@@ -217,9 +218,14 @@ fn affinity(on: bool, hidden: bool) -> WINDOW_DISPLAY_AFFINITY {
     if on || hidden { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }
 }
 
-/// A window's flag in `exclude`: the notch also stays out while the live glass is on, or it would show in its own glass.
-fn window_affinity(on: bool, hidden: bool, live: bool, notch: bool) -> WINDOW_DISPLAY_AFFINITY {
-    affinity(on || (live && notch), hidden)
+/// A window's flag in `exclude`, by its label: the notch also stays out while the live glass is on, or it would show in its own
+/// glass; the bar stays in Crest's own screenshots and recordings, as Windows' taskbar does in the system's.
+fn window_affinity(on: bool, hidden: bool, live: bool, label: &str) -> WINDOW_DISPLAY_AFFINITY {
+    match label {
+        "notch" => affinity(on || live, hidden),
+        bar if bar.starts_with("taskbar") => affinity(false, hidden),
+        _ => affinity(on, hidden),
+    }
 }
 
 /// The setting changed (sharing.rs). A recording or a screenshot of Crest's own keeps the windows out until it ends, whatever
@@ -789,10 +795,16 @@ mod affinity_tests {
 
     #[test]
     fn the_notch_alone_stays_out_while_the_live_glass_is_on() {
-        assert_eq!(window_affinity(false, false, true, true), WDA_EXCLUDEFROMCAPTURE);
-        assert_eq!(window_affinity(false, false, true, false), WDA_NONE);
-        assert_eq!(window_affinity(false, false, false, true), WDA_NONE);
-        assert_eq!(window_affinity(true, false, false, false), WDA_EXCLUDEFROMCAPTURE);
+        assert_eq!(window_affinity(false, false, true, "notch"), WDA_EXCLUDEFROMCAPTURE);
+        assert_eq!(window_affinity(false, false, true, "settings"), WDA_NONE);
+    }
+
+    #[test]
+    fn the_bar_stays_in_crests_own_captures_but_not_in_shared_screens() {
+        assert_eq!(window_affinity(true, false, false, "taskbar"), WDA_NONE);
+        assert_eq!(window_affinity(false, true, false, "taskbar"), WDA_EXCLUDEFROMCAPTURE);
+        // A capture of Crest's own still leaves the other windows out.
+        assert_eq!(window_affinity(true, false, false, "settings"), WDA_EXCLUDEFROMCAPTURE);
     }
 }
 

@@ -15,8 +15,9 @@
 //! hide hotkey, and each one on its own where a window on its monitor calls for a hiding or line rule.
 //!
 //! The thread also notices monitors being added, removed, rescaled or getting another taskbar (once a second): it places
-//! the notch again and emits `notch://monitors`, which makes the frontend read them again. Once such changes have been quiet for
-//! `SCREENS_SETTLE` it compares the monitors with the ones before and tells each that came or went (`status://display`, the status alert).
+//! the notch and Crest's bar again and emits `notch://monitors`, which makes the frontend read them again. Once such changes
+//! have been quiet for `SCREENS_SETTLE` it compares the monitors with the ones before and tells each that came or went
+//! (`status://display`, the status alert).
 
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::sync::Mutex;
@@ -162,6 +163,7 @@ fn run(app: AppHandle, rx: Receiver<()>) {
                 if let Some(window) = app.get_webview_window("notch") {
                     let _ = display::place(&window, &app.state::<DisplayState>());
                 }
+                crate::taskbar::bar::place(&app);
                 let _ = app.emit("notch://monitors", ());
                 dirty = true;
                 settle = Some(Instant::now());

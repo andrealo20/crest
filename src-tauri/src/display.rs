@@ -5,7 +5,8 @@
 //! borderless window behind it counts too. The rules answer keep, line or hide: Rust hides the
 //! window itself and emits `notch://screen` so the frontend can draw the line. `notch://fullscreen`
 //! still reports a full-screen foreground for gaming mode. On every new foreground window "always
-//! on top" is reapplied in case another app put itself above.
+//! on top" is reapplied in case another app put itself above. Crest's bar (taskbar/bar.rs, Windows) gets the full-screen
+//! reading of its own monitor and is raised before the notch.
 //!
 //! The hide hotkey (shell.rs) hides Crest on top of that until it is pressed again, the notch is
 //! opened from the tray, Crest is launched again or "raise now" runs. Opening on purpose also shows Crest over a "hide" rule
@@ -185,7 +186,7 @@ pub struct MonitorInfo {
     primary: bool,
     width: u32,
     height: u32,
-    /// Work area (without taskbar) in CSS px: top below the monitor's top edge, and height.
+    /// Work area (without taskbar, and on the primary without Crest's bar) in CSS px: top below the monitor's top edge, and height.
     work_top: f64,
     work_height: f64,
     /// The work area's left edge from the monitor's left, and its width (a taskbar on the left or right), in CSS px.
@@ -218,17 +219,23 @@ fn named_monitors(window: &WebviewWindow) -> Vec<(String, tauri::Monitor)> {
 pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -> Vec<MonitorInfo> {
     let zoom = state.config.lock().unwrap().zoom;
     let primary = window.primary_monitor().ok().flatten().map(|m| *m.position());
+    // Crest's bar stands on the primary's work area and takes its band off it, in the notch's CSS px.
+    #[cfg(windows)]
+    let band = crate::taskbar::bar::band() / zoom;
+    #[cfg(not(windows))]
+    let band = 0.0;
     named_monitors(&window)
         .into_iter()
         .map(|(name, m)| {
             let scale = m.scale_factor() * zoom;
             let wa = m.work_area();
+            let primary = primary == Some(*m.position());
             MonitorInfo {
-                primary: primary == Some(*m.position()),
+                primary,
                 width: (m.size().width as f64 / scale) as u32,
                 height: (m.size().height as f64 / scale) as u32,
                 work_top: (wa.position.y - m.position().y) as f64 / scale,
-                work_height: wa.size.height as f64 / scale,
+                work_height: wa.size.height as f64 / scale - if primary { band } else { 0.0 },
                 work_left: (wa.position.x - m.position().x) as f64 / scale,
                 work_width: wa.size.width as f64 / scale,
                 name,
@@ -329,6 +336,8 @@ pub fn display_raise(app: AppHandle) {
     let Some(window) = app.get_webview_window("notch") else { return };
     #[cfg(windows)]
     {
+        // The bar first, so the notch stays above it.
+        crate::taskbar::bar::raise(&app);
         raise_topmost(&window);
         crate::mirror::raise(&app);
     }
@@ -427,6 +436,9 @@ pub fn is_hidden(app: &AppHandle) -> bool {
 
 /// Shows or hides the window (and the floating timer with it) to match the hotkey and the rules; only acts on a change.
 fn sync(app: &AppHandle) {
+    // The bar follows the hotkey on its own, whatever the notch does (taskbar/bar.rs).
+    #[cfg(windows)]
+    crate::taskbar::bar::sync(app);
     let state = app.state::<DisplayState>();
     let hide = state.hides();
     if state.hidden.swap(hide, Ordering::Relaxed) == hide {
@@ -546,6 +558,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
         let mut last_behavior: Option<Behavior> = None;
         let mut last_foreground = HWND::default();
         let (mut front, mut behind) = (Known::default(), Known::default());
+        // The front window of the bar's monitor, while the notch is on another one.
+        let mut bar_front = Known::default();
         // What each other monitor's window was last known as: its frontmost window and the one behind it.
         let mut aside: std::collections::HashMap<isize, (Known, Known)> = Default::default();
         loop {
@@ -572,6 +586,17 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 last_fullscreen = fullscreen;
                 state.fullscreen.store(fullscreen, Ordering::Relaxed);
                 let _ = app.emit("notch://fullscreen", fullscreen);
+            }
+            // The bar hides over a full-screen app in front on its own monitor, whatever the notch's rules say.
+            let bar = crate::taskbar::bar::hwnd();
+            if bar != 0 {
+                let under = unsafe { MonitorFromWindow(HWND(bar as *mut _), MONITOR_DEFAULTTONEAREST) };
+                let covered = if under == monitor {
+                    fullscreen
+                } else {
+                    read_foreground(foreground, own, under, &mut bar_front).context.is_fullscreen()
+                };
+                crate::taskbar::bar::set_fullscreen(&app, covered);
             }
             let behavior = screen_policy::decide(
                 &rules,
@@ -603,9 +628,12 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             if std::mem::replace(&mut *state.mirror_block.lock().unwrap(), block.clone()) != block {
                 crate::mirror::wake(&app);
             }
-            // New foreground window: reapply "on top" in case it covered us.
-            if !state.hidden.load(Ordering::Relaxed) && foreground != last_foreground {
-                raise_topmost(&window);
+            // New foreground window: reapply "on top" in case it covered us, the bar first so the notch stays above it.
+            if foreground != last_foreground {
+                crate::taskbar::bar::raise(&app);
+                if !state.hidden.load(Ordering::Relaxed) {
+                    raise_topmost(&window);
+                }
             }
             last_foreground = foreground;
         }

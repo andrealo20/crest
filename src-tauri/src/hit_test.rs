@@ -73,7 +73,6 @@ const DRAG_START: f64 = 6.0;
 
 /// A window besides the notch that takes the pointer only over the zones its page reports (the bar).
 #[cfg(windows)]
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone)]
 struct Zoned {
     label: String,
@@ -146,7 +145,6 @@ pub fn set_pinned(pinned: bool, state: State<'_, HitState>) {
 /// takes `hwnd`: the poll must not ask the main thread for it (see geometry). A window built again under the label
 /// replaces the old one.
 #[cfg(windows)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn track(state: &HitState, label: &str, hwnd: isize) {
     let mut zoned = state.zoned.lock().unwrap();
     zoned.retain(|z| z.label != label);
@@ -154,14 +152,12 @@ pub(crate) fn track(state: &HitState, label: &str, hwnd: isize) {
 }
 
 #[cfg(windows)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn untrack(state: &HitState, label: &str) {
     state.zoned.lock().unwrap().retain(|z| z.label != label);
 }
 
 /// The zones `label`'s page reports; false, and ignored, for a window not tracked (a page still reporting as it closes).
 #[cfg(windows)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn set_zones(state: &HitState, label: &str, rects: Vec<HitRect>) -> bool {
     let mut zoned = state.zoned.lock().unwrap();
     let Some(z) = zoned.iter_mut().find(|z| z.label == label) else { return false };
