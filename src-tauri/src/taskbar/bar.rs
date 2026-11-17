@@ -21,7 +21,7 @@ use super::explorer::{self, Mode};
 use crate::display;
 use crate::hit_test::{self, HitRect, HitState};
 
-const LABEL: &str = "taskbar";
+pub(super) const LABEL: &str = "taskbar";
 /// Room between the bar and the screen's edges, CSS px.
 const GAP: f64 = 4.0;
 /// The heights the settings offer for the bar, CSS px.
@@ -132,7 +132,7 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
         return Ok(());
     }
     // After every way out above, so a build that fails has no thread to stop.
-    super::start();
+    super::start(&app);
     // Taken once here: the poll must not ask the main thread for it.
     hit_test::track(&app.state::<HitState>(), LABEL, hwnd);
     // A new window starts hidden; `sync` shows it unless the hide hotkey or a full-screen app keeps it hidden.

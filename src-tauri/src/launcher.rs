@@ -7,6 +7,8 @@
 //! - Icons: `IShellItemImageFactory` for both kinds, as PNG data URLs, cached per id.
 //! - Launch: only ids from the list, so the WebView cannot start an arbitrary command.
 //! - Shortcuts: Alt+1..6, registered and dispatched by shell.rs with Crest's other shortcuts.
+//! - The taskbar finds an open app's entries here (`entries_for`): a Start shortcut that starts an exe with no arguments
+//!   keeps that exe.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -16,8 +18,8 @@ use base64::Engine;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
-use windows::core::{HSTRING, PCWSTR, PWSTR};
-use windows::Win32::Foundation::{ERROR_MORE_DATA, ERROR_SUCCESS, SIZE};
+use windows::core::{Interface, GUID, HSTRING, PCWSTR, PWSTR};
+use windows::Win32::Foundation::{ERROR_MORE_DATA, ERROR_SUCCESS, PROPERTYKEY, SIZE};
 use windows::Win32::Graphics::Gdi::{
     CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW, BITMAP, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP,
 };
@@ -26,8 +28,8 @@ use windows::Win32::System::Registry::{
     RegCloseKey, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, RRF_RT_REG_EXPAND_SZ, RRF_RT_REG_SZ,
 };
 use windows::Win32::UI::Shell::{
-    BHID_EnumItems, FOLDERID_AppsFolder, IEnumShellItems, IShellItem, IShellItemImageFactory, SHCreateItemFromParsingName, SHGetKnownFolderItem,
-    ShellExecuteW, KF_FLAG_DEFAULT, SIGDN, SIGDN_NORMALDISPLAY, SIGDN_PARENTRELATIVEPARSING, SIIGBF_ICONONLY,
+    BHID_EnumItems, FOLDERID_AppsFolder, IEnumShellItems, IShellItem, IShellItem2, IShellItemImageFactory, SHCreateItemFromParsingName,
+    SHGetKnownFolderItem, ShellExecuteW, KF_FLAG_DEFAULT, SIGDN, SIGDN_NORMALDISPLAY, SIGDN_PARENTRELATIVEPARSING, SIIGBF_ICONONLY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{AllowSetForegroundWindow, ASFW_ANY, SW_SHOWNORMAL};
 
@@ -35,13 +37,20 @@ const APPS_PREFIX: &str = r"shell:AppsFolder\";
 /// Icon edge in device pixels: 32 CSS px tiles on a 200 % screen.
 const ICON_PX: i32 = 64;
 const DIGITS: [Code; 6] = [Code::Digit1, Code::Digit2, Code::Digit3, Code::Digit4, Code::Digit5, Code::Digit6];
+/// System.Link.TargetParsingPath and System.Link.Arguments of a Start entry's shortcut, defined here so two keys do not need the
+/// EnhancedStorage feature.
+const LINK_TARGET: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0xb9b4b3fc_2b51_4a42_b5d8_324146afcf25), pid: 2 };
+const LINK_ARGUMENTS: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0x436f2667_14e2_4feb_b30a_146c53b5b674), pid: 100 };
 
 #[derive(Clone, Serialize)]
 pub struct App {
-    id: String,
-    name: String,
+    pub(crate) id: String,
+    pub(crate) name: String,
     /// "start" or "apppaths".
     source: &'static str,
+    /// The exe the entry starts with no arguments, which an open window of that exe matches (`entries_for`).
+    #[serde(skip)]
+    exe: Option<String>,
 }
 
 /// An unknown id reads the list again at most this often.
@@ -103,12 +112,40 @@ fn start_apps() -> windows::core::Result<Vec<App>> {
             for item in batch.iter().take(fetched as usize).flatten() {
                 let (Some(name), Some(id)) = (display_name(item, SIGDN_NORMALDISPLAY), display_name(item, SIGDN_PARENTRELATIVEPARSING)) else { continue };
                 if !name.trim().is_empty() && !id.is_empty() {
-                    out.push(App { id: format!("{APPS_PREFIX}{id}"), name, source: "start" });
+                    out.push(App { id: format!("{APPS_PREFIX}{id}"), name, source: "start", exe: shortcut_exe(item) });
                 }
             }
         }
         Ok(out)
     }
+}
+
+/// The exe a Start entry's shortcut starts with no arguments (`plain_exe`); None for Store apps and everything else.
+unsafe fn shortcut_exe(item: &IShellItem) -> Option<String> {
+    let item = item.cast::<IShellItem2>().ok()?;
+    let read = |key: &PROPERTYKEY| item.GetString(key).ok().and_then(|p| crate::controls::take(p));
+    plain_exe(read(&LINK_TARGET).as_deref(), read(&LINK_ARGUMENTS).as_deref())
+}
+
+/// An exe target with blank or no arguments: a shortcut that passes arguments (cmd.exe /k VsDevCmd.bat, a browser profile)
+/// starts something other than the exe alone.
+fn plain_exe(target: Option<&str>, args: Option<&str>) -> Option<String> {
+    let target = target?;
+    let exe = std::path::Path::new(target).extension().is_some_and(|ext| ext.eq_ignore_ascii_case("exe"));
+    (exe && args.is_none_or(|a| a.trim().is_empty())).then(|| target.to_string())
+}
+
+/// The Start entries of an open app, for the taskbar. With an AppUserModelID only the entry of that id, never one found by
+/// the exe (a web app's window must not light up its browser); without one, the Start entries that start this exe, then its
+/// App Paths entry (`list_apps` keeps the Start entries first). Both ASCII case-insensitive, as Windows compares them.
+pub(crate) fn entries_for(apps: &[App], aumid: Option<&str>, exe: &str) -> Vec<App> {
+    apps.iter()
+        .filter(|a| match aumid {
+            Some(aumid) => a.id.strip_prefix(APPS_PREFIX).is_some_and(|id| id.eq_ignore_ascii_case(aumid)),
+            None => a.exe.as_deref().is_some_and(|e| e.eq_ignore_ascii_case(exe)),
+        })
+        .cloned()
+        .collect()
 }
 
 /// `App Paths\<name>.exe` default values: the exe paths Windows finds by name (Win+R). Existing files only.
@@ -143,7 +180,7 @@ fn app_paths() -> Vec<App> {
             if path.is_empty() || !std::path::Path::new(&path).is_file() || out.iter().any(|a| a.id.eq_ignore_ascii_case(&path)) {
                 continue;
             }
-            out.push(App { name: crate::mixer::display_name(&path), id: path, source: "apppaths" });
+            out.push(App { name: crate::mixer::display_name(&path), id: path.clone(), source: "apppaths", exe: Some(path) });
         }
         let _ = unsafe { RegCloseKey(key) };
     }
@@ -151,7 +188,7 @@ fn app_paths() -> Vec<App> {
 }
 
 /// The cached list, read once if empty. A failed read is not cached.
-fn apps(state: &LauncherState, refresh: bool) -> Result<Vec<App>, String> {
+pub(crate) fn apps(state: &LauncherState, refresh: bool) -> Result<Vec<App>, String> {
     if !refresh {
         if let Some(apps) = state.apps.lock().unwrap().clone() {
             return Ok(apps);
@@ -162,6 +199,12 @@ fn apps(state: &LauncherState, refresh: bool) -> Result<Vec<App>, String> {
     let apps = on_sta(list_apps).ok_or("failed")??;
     *state.apps.lock().unwrap() = Some(apps.clone());
     Ok(apps)
+}
+
+/// Runs `f` on the list as last read, empty if it was never read, without reading it: the taskbar's thread must not wait on
+/// the shell.
+pub(crate) fn cached<T>(state: &LauncherState, f: impl FnOnce(&[App]) -> T) -> T {
+    f(state.apps.lock().unwrap_or_else(|e| e.into_inner()).as_deref().unwrap_or_default())
 }
 
 fn is_known(state: &LauncherState, id: &str) -> bool {
@@ -315,5 +358,30 @@ mod tests {
         }
         // Explorer opens Documents for an id like this one (issue #50), so notices must not hand it over.
         assert_eq!(on_sta(|| in_apps_folder("Crest.Test.NotAnApp")), Some(false));
+    }
+
+    #[test]
+    fn a_shortcut_matches_by_exe_only_without_arguments() {
+        assert_eq!(plain_exe(Some(r"C:\Users\u\Code.exe"), None), Some(r"C:\Users\u\Code.exe".into()));
+        assert_eq!(plain_exe(Some(r"C:\Windows\System32\cmd.exe"), Some("/k VsDevCmd.bat")), None);
+        assert_eq!(plain_exe(Some("::{52205FD8-5DFB-447D-801A-D0B52F2E83E1}"), None), None);
+        assert_eq!(plain_exe(Some(r"C:\Windows\System32\compmgmt.msc"), Some(" ")), None);
+    }
+
+    #[test]
+    fn open_apps_find_their_start_entries() {
+        let app = |id: &str, source: &'static str, exe: Option<&str>| App { id: id.into(), name: id.into(), source, exe: exe.map(Into::into) };
+        let apps = [
+            app("shell:AppsFolder\\Chrome", "start", None), // its shortcut has arguments
+            app("shell:AppsFolder\\VSCode", "start", Some(r"C:\Users\u\Code.exe")),
+            app("shell:AppsFolder\\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App", "start", None),
+            app(r"C:\Users\u\Code.exe", "apppaths", Some(r"C:\Users\u\Code.exe")),
+        ];
+        let ids = |v: Vec<App>| v.into_iter().map(|a| a.id).collect::<Vec<_>>();
+        assert_eq!(ids(entries_for(&apps, Some("chrome"), "")), ["shell:AppsFolder\\Chrome"]);
+        assert!(entries_for(&apps, Some("Chrome._crx_x"), r"C:\Program Files\Google\Chrome\chrome.exe").is_empty()); // a PWA never lights up its browser
+        assert_eq!(ids(entries_for(&apps, None, r"c:\users\u\code.exe")), ["shell:AppsFolder\\VSCode", r"C:\Users\u\Code.exe"]);
+        assert_eq!(ids(entries_for(&apps, Some("Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"), "")), ["shell:AppsFolder\\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"]);
+        assert!(entries_for(&apps, None, r"C:\tools\portable.exe").is_empty());
     }
 }

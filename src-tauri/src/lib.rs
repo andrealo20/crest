@@ -510,6 +510,14 @@ pub fn run() {
             taskbar::bar::taskbar_apply,
             #[cfg(windows)]
             taskbar::bar::taskbar_hit_rects,
+            #[cfg(windows)]
+            taskbar::tasks::taskbar_windows,
+            #[cfg(windows)]
+            taskbar::tasks::taskbar_window,
+            #[cfg(windows)]
+            taskbar::tasks::taskbar_icons,
+            #[cfg(windows)]
+            taskbar::tasks::taskbar_release,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,

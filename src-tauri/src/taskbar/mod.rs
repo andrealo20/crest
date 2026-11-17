@@ -1,12 +1,14 @@
 //! Crest's own taskbar (Windows only).
 //!
-//! While the bar's window exists, one thread keeps a hidden top-level window and a WinEvent hook: a taskbar Windows shows
-//! again is hidden again while Crest hides them (explorer.rs `on_show`), and so are a restarted Explorer's new ones, which it
-//! announces with the `TaskbarCreated` broadcast. Only top-level windows get broadcasts, so the window is not message-only.
-//! The thread never waits for explorer's lock: what finds it taken is done again by a short timer (`defer`, `retry`).
+//! While the bar's window exists, one thread keeps a hidden top-level window, WinEvent hooks and a shell hook: a taskbar Windows
+//! shows again is hidden again while Crest hides them (explorer.rs `on_show`), and so are a restarted Explorer's new ones, which
+//! it announces with the `TaskbarCreated` broadcast. The same events keep the bar's list of open windows (tasks.rs). Only
+//! top-level windows get broadcasts, so the window is not message-only. The thread never waits for explorer's lock: what finds
+//! it taken is done again by a short timer (`defer`, `retry`).
 
 pub(crate) mod bar;
 pub(crate) mod explorer;
+pub(crate) mod tasks;
 
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -14,26 +16,35 @@ use std::sync::mpsc::{channel, Sender};
 use std::sync::{Mutex, Once};
 use std::thread::JoinHandle;
 
+use tauri::{AppHandle, Manager};
 use windows::core::w;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, KillTimer, PostMessageW, PostQuitMessage, RegisterClassW, RegisterWindowMessageW, SetTimer,
-    CHILDID_SELF, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_SHOW, MSG, OBJID_WINDOW, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_CLOSE,
-    WM_DESTROY, WM_TIMER, WNDCLASSW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP,
+    CreateWindowExW, DefWindowProcW, DeregisterShellHookWindow, DispatchMessageW, GetMessageW, KillTimer, PostMessageW, PostQuitMessage, RegisterClassW,
+    RegisterShellHookWindow, RegisterWindowMessageW, SetTimer, CHILDID_SELF, EVENT_OBJECT_CLOAKED, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE,
+    EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, MSG,
+    OBJID_WINDOW, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_APP, WM_CLOSE, WM_DESTROY, WM_TIMER, WNDCLASSW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_POPUP,
 };
+
+use crate::launcher::{self, LauncherState};
 
 /// The thread's window and the thread, while it runs.
 static THREAD: Mutex<Option<(isize, JoinHandle<()>)>> = Mutex::new(None);
 /// The message of Explorer's `TaskbarCreated` broadcast.
 static TASKBAR_CREATED: AtomicU32 = AtomicU32::new(0);
+/// The message of the shell hook (`RegisterShellHookWindow`).
+static SHELLHOOK: AtomicU32 = AtomicU32::new(0);
 /// The window class, registered once: a second `RegisterClassW` fails (error 1410).
 static CLASS: Once = Once::new();
 /// `retry`'s one-shot timer on the thread's window, with an id of its own.
 const RETRY_TIMER: usize = 1;
 const RETRY_MS: u32 = 50;
+/// Posted by `start` once the Start list is read: the windows are listed again, with their pins.
+const RELIST: u32 = WM_APP;
 
 thread_local! {
     /// The thread's window, and what found explorer's lock taken there (`defer`).
@@ -43,6 +54,8 @@ thread_local! {
 #[derive(Default)]
 struct Pending {
     window: HWND,
+    /// `retry`'s timer is armed: SetTimer succeeded.
+    armed: bool,
     /// Taskbars Windows showed.
     shown: Vec<HWND>,
     /// Explorer made its taskbars anew.
@@ -50,20 +63,36 @@ struct Pending {
 }
 
 /// Starts the thread unless it runs (`taskbar_apply`, once it has built the bar's window); returns once its window exists.
-pub(crate) fn start() {
+pub(crate) fn start(app: &AppHandle) {
     let mut thread = THREAD.lock().unwrap_or_else(|e| e.into_inner());
     if thread.is_some() {
         return;
     }
     let (ready, window) = channel();
-    let handle = std::thread::spawn(move || unsafe { run(ready) });
+    let handle = {
+        let app = app.clone();
+        std::thread::spawn(move || unsafe { run(ready, app) })
+    };
     match window.recv() {
         Ok(window) => *thread = Some((window, handle)),
         // No window: the thread has ended.
         Err(_) => {
             let _ = handle.join();
+            return;
         }
     }
+    drop(thread);
+    // Pins come from the Start list, which nothing may have read yet; it is read once, off the thread, which must not wait on
+    // the shell.
+    let app = app.clone();
+    std::thread::spawn(move || {
+        if launcher::apps(&app.state::<LauncherState>(), false).is_ok() {
+            // Only to the thread running now: a window handle kept from before may belong to another app by then.
+            if let Some((window, _)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+                let _ = unsafe { PostMessageW(Some(HWND(*window as _)), RELIST, WPARAM(0), LPARAM(0)) };
+            }
+        }
+    });
 }
 
 /// Ends the thread: its window closes, and that ends its loop. Never while holding explorer's lock, which the thread takes.
@@ -71,6 +100,7 @@ pub(crate) fn stop() {
     let Some((window, thread)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
     let _ = unsafe { PostMessageW(Some(HWND(window as _)), WM_CLOSE, WPARAM(0), LPARAM(0)) };
     let _ = thread.join();
+    tasks::clear();
 }
 
 /// Crest quits (`RunEvent::Exit`, sign-out and an installer's close included): Windows' taskbar comes back, then the thread ends.
@@ -84,25 +114,49 @@ pub(crate) fn shutdown() {
     stop();
 }
 
-unsafe fn run(ready: Sender<isize>) {
+unsafe fn run(ready: Sender<isize>, app: AppHandle) {
     unsafe {
         let com = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
         TASKBAR_CREATED.store(RegisterWindowMessageW(w!("TaskbarCreated")), Ordering::SeqCst);
+        SHELLHOOK.store(RegisterWindowMessageW(w!("SHELLHOOK")), Ordering::SeqCst);
         if let Some(window) = window() {
             PENDING.with_borrow_mut(|pending| pending.window = window);
-            let hook = SetWinEventHook(EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, None, Some(on_event), 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
-            if hook.is_invalid() {
-                eprintln!("taskbar: WinEvent hook failed");
+            let others = WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS;
+            let hooks = [
+                SetWinEventHook(EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, None, Some(on_event), 0, 0, others),
+                SetWinEventHook(EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_NAMECHANGE, None, Some(on_event), 0, 0, others),
+                SetWinEventHook(EVENT_OBJECT_CLOAKED, EVENT_OBJECT_UNCLOAKED, None, Some(on_event), 0, 0, others),
+                SetWinEventHook(EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MINIMIZEEND, None, Some(on_event), 0, 0, others),
+                // Crest's own windows too: one of them in front means no app is.
+                SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, None, Some(on_event), 0, 0, WINEVENT_OUTOFCONTEXT),
+            ];
+            if hooks.iter().any(|hook| hook.is_invalid()) {
+                eprintln!("taskbar: a WinEvent hook failed");
             }
+            listen(window);
+            tasks::begin(app, window);
             let _ = ready.send(window.0 as isize);
             let mut msg = MSG::default();
             while GetMessageW(&mut msg, None, 0, 0).0 > 0 {
                 DispatchMessageW(&msg);
             }
-            let _ = UnhookWinEvent(hook);
+            for hook in hooks {
+                let _ = UnhookWinEvent(hook);
+            }
         }
         if com {
             CoUninitialize();
+        }
+    }
+}
+
+/// The shell hook, for the flash and ghost-window codes only (tasks.rs), again after Explorer restarts. Without it the list
+/// still works, without those.
+fn listen(window: HWND) {
+    unsafe {
+        let _ = DeregisterShellHookWindow(window);
+        if !RegisterShellHookWindow(window).as_bool() {
+            eprintln!("taskbar: shell hook failed, no flashing or ghost windows");
         }
     }
 }
@@ -127,41 +181,64 @@ unsafe fn window() -> Option<HWND> {
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     // `stop`'s WM_CLOSE ends here, through DefWindowProcW; the loop ends only on WM_QUIT.
     if msg == WM_DESTROY {
-        let _ = unsafe { KillTimer(Some(hwnd), RETRY_TIMER) };
-        unsafe { PostQuitMessage(0) };
+        unsafe {
+            let _ = KillTimer(Some(hwnd), RETRY_TIMER);
+            let _ = KillTimer(Some(hwnd), tasks::LIST_TIMER);
+            let _ = DeregisterShellHookWindow(hwnd);
+            PostQuitMessage(0);
+        }
         return LRESULT(0);
     }
     if msg == WM_TIMER && wparam.0 == RETRY_TIMER {
         retry(hwnd);
         return LRESULT(0);
     }
+    if msg == WM_TIMER && wparam.0 == tasks::LIST_TIMER {
+        tasks::on_timer(hwnd);
+        return LRESULT(0);
+    }
+    if msg == RELIST {
+        tasks::arm();
+        return LRESULT(0);
+    }
+    if msg != 0 && msg == SHELLHOOK.load(Ordering::SeqCst) {
+        tasks::on_shell(wparam.0 as u32, lparam.0);
+        return LRESULT(0);
+    }
     if msg != 0 && msg == TASKBAR_CREATED.load(Ordering::SeqCst) {
         if !explorer::on_taskbar_created() {
             defer(|pending| pending.created = true);
         }
+        listen(hwnd);
+        tasks::arm();
         return LRESULT(0);
     }
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }
 
-/// A window shown, hidden or destroyed outside Crest; only a window itself shown counts here.
+/// A window event of another process, or any window brought to front: a window itself shown goes to explorer.rs, and every
+/// window event to the list (tasks.rs).
 unsafe extern "system" fn on_event(_: HWINEVENTHOOK, event: u32, hwnd: HWND, object: i32, child: i32, _: u32, _: u32) {
-    if event == EVENT_OBJECT_SHOW && object == OBJID_WINDOW.0 && child == CHILDID_SELF as i32 && !explorer::on_show(hwnd) {
+    if object != OBJID_WINDOW.0 || child != CHILDID_SELF as i32 {
+        return;
+    }
+    if event == EVENT_OBJECT_SHOW && !explorer::on_show(hwnd) {
         defer(|pending| {
             if !pending.shown.contains(&hwnd) {
                 pending.shown.push(hwnd);
             }
         });
     }
+    tasks::on_event(event, hwnd);
 }
 
-/// Keeps what found explorer's lock taken, and arms `retry` if nothing waited yet (a timer armed again would only come later).
+/// Keeps what found explorer's lock taken, and arms `retry` unless it is armed (a timer armed again would only come later).
 fn defer(keep: impl FnOnce(&mut Pending)) {
     PENDING.with_borrow_mut(|pending| {
-        let armed = pending.created || !pending.shown.is_empty();
         keep(pending);
-        if !armed {
-            let _ = unsafe { SetTimer(Some(pending.window), RETRY_TIMER, RETRY_MS, None) };
+        if !pending.armed {
+            // Armed only when SetTimer succeeded: a failed one is tried again with the next deferral.
+            pending.armed = unsafe { SetTimer(Some(pending.window), RETRY_TIMER, RETRY_MS, None) } != 0;
         }
     });
 }
@@ -170,7 +247,10 @@ fn defer(keep: impl FnOnce(&mut Pending)) {
 /// restore. What finds the lock taken again waits for the next round.
 fn retry(window: HWND) {
     let _ = unsafe { KillTimer(Some(window), RETRY_TIMER) };
-    let (shown, created) = PENDING.with_borrow_mut(|pending| (std::mem::take(&mut pending.shown), std::mem::take(&mut pending.created)));
+    let (shown, created) = PENDING.with_borrow_mut(|pending| {
+        pending.armed = false;
+        (std::mem::take(&mut pending.shown), std::mem::take(&mut pending.created))
+    });
     if created && !explorer::on_taskbar_created() {
         defer(|pending| pending.created = true);
     }

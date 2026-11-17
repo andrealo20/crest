@@ -133,6 +133,8 @@ windows = { version = "0.62", features = [
   "Win32_UI_WindowsAndMessaging",
   # SetWinEventHook: Crest's bar hides Windows' taskbar again when Windows shows it (taskbar/mod.rs).
   "Win32_UI_Accessibility",
+  # GetApplicationUserModelId: the bar groups a packaged app's windows by its AppUserModelID (taskbar/tasks.rs).
+  "Win32_Storage_Packaging_Appx",
   "Win32_System_Ole",
   "Win32_UI_Shell_Common",
   "Win32_System_Console",

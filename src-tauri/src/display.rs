@@ -746,7 +746,7 @@ fn candidate(hwnd: HWND) -> bool {
 }
 
 #[cfg(windows)]
-fn top_windows() -> Vec<HWND> {
+pub(crate) fn top_windows() -> Vec<HWND> {
     unsafe extern "system" fn collect(hwnd: HWND, list: LPARAM) -> windows::core::BOOL {
         (*(list.0 as *mut Vec<HWND>)).push(hwnd);
         true.into()
@@ -765,7 +765,7 @@ pub(crate) fn window_pid(hwnd: HWND) -> u32 {
 
 #[cfg(windows)]
 /// The app behind a window: a UWP app's frame belongs to ApplicationFrameHost, its CoreWindow child to the app.
-fn app_pid(hwnd: HWND) -> u32 {
+pub(crate) fn app_pid(hwnd: HWND) -> u32 {
     if class_name(hwnd) == "ApplicationFrameWindow" {
         if let Ok(core) = unsafe { FindWindowExW(Some(hwnd), None, w!("Windows.UI.Core.CoreWindow"), PCWSTR::null()) } {
             if !core.is_invalid() {
