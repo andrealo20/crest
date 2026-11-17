@@ -86,7 +86,8 @@ export function TaskbarItems() {
                 {id === "crest" ? <CrestMark size={15} className="shrink-0 text-label-2" /> : <AppWindow size={15} weight="bold" className="shrink-0 text-label-2" />}
                 <span className="min-w-0 flex-1 truncate text-body text-label select-none">{t(ITEM_LABEL[id])}</span>
                 <div onPointerDown={(e) => e.stopPropagation()}>
-                  <Select width="w-36" value={zone} options={options} onChange={(to) => setTaskbar((cur) => ({ zones: moveItem(cur.zones, id, to) }))} />
+                  {/* The menu also reports its current zone when picked again; moveItem would send the item to that zone's end. */}
+                  <Select width="w-36" value={zone} options={options} onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: moveItem(cur.zones, id, to) }))} />
                 </div>
               </Reorder.Item>
             ))}
