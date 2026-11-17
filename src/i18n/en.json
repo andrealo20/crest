@@ -1783,5 +1783,6 @@
  "M": "M",
  "Rang: #{n}": "Rank: #{n}",
  "Trage deinen LeetCode-Namen ein. Gelesen wird das öffentliche Profil, ohne Anmeldung.": "Enter your LeetCode username. Only the public profile is read, without signing in.",
- "{n} Einreichungen am {date}": "{n} submissions on {date}"
+ "{n} Einreichungen am {date}": "{n} submissions on {date}",
+ "Crest-Menü": "Crest menu"
 }

@@ -1783,5 +1783,6 @@
  "E": "F",
  "H": "D",
  "M": "M",
- "{n} Einreichungen am {date}": "{n} envíos el {date}"
+ "{n} Einreichungen am {date}": "{n} envíos el {date}",
+ "Crest-Menü": "Menú de Crest"
 }

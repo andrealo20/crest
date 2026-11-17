@@ -7,6 +7,7 @@ import { language, startLanguage } from "../../../i18n";
 import { startThemes } from "../../themes/store";
 import { startCrashLog } from "../../window/store";
 import { startBarWindows } from "../store";
+import { TaskbarWindow } from "./TaskbarWindow";
 
 /*
  * Entry of the bar's window (taskbar.html, src-tauri/src/taskbar/bar.rs). Loads the settings and the open windows, nothing the
@@ -33,11 +34,6 @@ window.addEventListener("keydown", (e) => {
 });
 
 startBarWindows();
-
-/** The bar; it draws nothing yet. */
-function TaskbarWindow() {
-  return null;
-}
 
 /** Re-renders on a language change, as the notch's root does. */
 function App() {

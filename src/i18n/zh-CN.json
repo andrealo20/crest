@@ -1783,5 +1783,6 @@
  "E": "简",
  "H": "难",
  "M": "中",
- "{n} Einreichungen am {date}": "{date} 提交了 {n} 次"
+ "{n} Einreichungen am {date}": "{date} 提交了 {n} 次",
+ "Crest-Menü": "Crest 菜单"
 }

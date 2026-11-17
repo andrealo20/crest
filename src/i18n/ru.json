@@ -1783,5 +1783,6 @@
  "E": "Л",
  "H": "Т",
  "M": "С",
- "{n} Einreichungen am {date}": "{n} отправок {date}"
+ "{n} Einreichungen am {date}": "{n} отправок {date}",
+ "Crest-Menü": "Меню Crest"
 }
