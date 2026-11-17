@@ -227,17 +227,24 @@ function Item(props: {
 }) {
   return (
     // The gap under the bar (GAP, h-1) belongs to the button above it, so a click with the pointer pushed against the screen's
-    // edge, left or right, lands on the button; the gap itself stays empty.
+    // edge, left or right, lands on the button; the gap itself stays empty. A press shrinks only the icon, by `scale` (Motion's
+    // lift owns its transform): shrinking the whole button, as .pressable does, would lift that strip off the edge while the
+    // button is held, and the release would land beside it.
     <button
       aria-label={props.name}
       onPointerEnter={props.onEnter}
       onPointerLeave={props.onLeave}
       onClick={props.onClick}
       onContextMenu={props.onContextMenu}
-      className="pressable relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"
+      className="group relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"
       style={{ width: props.size + 16 }}
     >
-      <motion.span className="flex" initial={false} animate={{ transform: `translateY(${props.lifted ? -2 : 0}px)` }} transition={springs.peek}>
+      <motion.span
+        className="flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94"
+        initial={false}
+        animate={{ transform: `translateY(${props.lifted ? -2 : 0}px)` }}
+        transition={springs.peek}
+      >
         {props.children}
       </motion.span>
       {props.mark && <Mark kind={props.mark} bottom={props.markAt} />}
@@ -246,19 +253,22 @@ function Item(props: {
   );
 }
 
+/** Three pulses, ending on the solid accent: an app can wait for attention a long time, and the bar stays idle meanwhile. */
+const ATTENTION = { ...pulse, repeat: 5 };
+
 /**
- * Under an app: a dot while it is open, a longer mark while it is in front, the accent pulsing while a window asks for attention.
- * Both shapes are drawn whole and change by opacity and scale only.
+ * Under an app: a dot while it is open, a longer mark while it is in front, the accent while a window asks for attention, pulsing
+ * when that starts. Both shapes are drawn whole and change by opacity and scale only.
  */
 function Mark({ kind, bottom }: { kind: Indicator; bottom: number }) {
   const long = kind === "front" || kind === "attention";
   return (
-    // No initial={false} here: it would leave a mark that appears asking for attention still, at the pulse's last keyframe.
+    // No initial={false} here: a mark that appears asking for attention pulses too, where initial={false} would leave it dim.
     <motion.span
       className="absolute inset-x-0 flex justify-center"
       style={{ bottom, height: MARK }}
       animate={{ opacity: kind === "attention" ? [1, 0.35] : 1 }}
-      transition={kind === "attention" ? pulse : fade}
+      transition={kind === "attention" ? ATTENTION : fade}
     >
       <motion.span
         className="absolute rounded-full bg-label-2"
