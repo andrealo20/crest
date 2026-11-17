@@ -19,7 +19,8 @@ use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard, TryLockError};
+use std::time::{Duration, Instant};
 
 use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::{HWND, LPARAM};
@@ -31,18 +32,22 @@ use crate::notices::OWN_APP;
 use crate::portable;
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+/// A guard lives at least this long; one that ends sooner could not wait for Crest (`died_at_once`).
+const GUARD_MIN_LIFE: Duration = Duration::from_secs(2);
 
 /// This process hid the taskbars and has not shown them since: a restore shows them even when the record is gone.
 static HID_HERE: AtomicBool = AtomicBool::new(false);
 /// Every hide, show and restore runs under it, so a re-hide never lands after a restore. Not re-entrant: only the public entry
 /// points lock it, and code already holding it calls the `_locked` variants.
-static SCAN: Mutex<Scan> = Mutex::new(Scan { mode: Mode::Off, guard: None, cleaned: false });
+static SCAN: Mutex<Scan> = Mutex::new(Scan { mode: Mode::Off, guard: None, gave_up: false, cleaned: false });
 
 /// What `SCAN` keeps.
 struct Scan {
     mode: Mode,
-    /// The guard process, from the first hide until `Off`.
-    guard: Option<Child>,
+    /// The guard process and when it started, from the first hide until an `Off` leaves nothing to give back.
+    guard: Option<(Child, Instant)>,
+    /// A guard ended at once (`died_at_once`): none is started again until the user asks for `Hidden`.
+    gave_up: bool,
     /// The restore at start has run (`clean_locked`).
     cleaned: bool,
 }
@@ -70,6 +75,24 @@ pub(crate) fn wanted(bar_on: bool, user_hidden: bool) -> Mode {
 /// Whether a window Windows has just shown is hidden again: only one of Explorer's taskbars, only while Crest hides them.
 fn rehide(mode: Mode, is_taskbar: bool) -> bool {
     mode == Mode::Hidden && is_taskbar
+}
+
+/// Whether Windows' taskbar was given back from outside while Crest hides it, so Crest stops hiding it again (`on_show`,
+/// `on_taskbar_created`). While Crest hides, the record always exists: a missing or unreadable one means the uninstaller's
+/// `--restore-taskbar` ran while Crest still runs.
+fn given_back(record: Record) -> bool {
+    !matches!(record, Record::Saved(_))
+}
+
+/// Whether an `Off` left nothing to give back, so the guard can go; otherwise it restores when Crest ends.
+fn nothing_left(hid_here: bool, record: Record) -> bool {
+    !hid_here && record == Record::Missing
+}
+
+/// Whether a guard found dead `lived` after it started counts as failed: it could not wait for Crest and gave the taskbar back
+/// at once, and starting it again would loop (start, give back, hide again).
+fn died_at_once(lived: Duration) -> bool {
+    lived < GUARD_MIN_LIFE
 }
 
 /// Whether auto-hide is Crest's to turn off later: an existing record always wins over a new reading, and a new one never
@@ -113,6 +136,10 @@ fn record_path() -> Option<PathBuf> {
     state_path(portable::data_dir(), std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
 }
 
+fn record_now() -> Record {
+    record_path().as_deref().map_or(Record::Missing, read_record)
+}
+
 /// What the record says.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Record {
@@ -154,6 +181,16 @@ fn restore_steps(record: Record, hid_here: bool, explorer_found: bool, appbar_ok
 
 fn lock() -> MutexGuard<'static, Scan> {
     SCAN.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// `SCAN` if it is free. The taskbar thread takes it only this way: a thread waiting for a lock answers no message, and a holder
+/// may be waiting on Explorer, which may be sending to that thread's window. mod.rs tries again shortly.
+fn try_lock() -> Option<MutexGuard<'static, Scan>> {
+    match SCAN.try_lock() {
+        Ok(scan) => Some(scan),
+        Err(TryLockError::Poisoned(e)) => Some(e.into_inner()),
+        Err(TryLockError::WouldBlock) => None,
+    }
 }
 
 /// Gives Windows' taskbar back as far as Crest took it; safe to call any time, also from another process.
@@ -210,6 +247,10 @@ pub(crate) fn set_mode_with(mode: impl FnOnce() -> Mode) {
 fn set_mode_locked(scan: &mut Scan, wanted: Mode) {
     // The start's restore first, so it never removes a record written below.
     clean_locked(scan);
+    // Asked for by the user (the bar's first draw, the hotkey): a guard that failed may be started again.
+    if wanted == Mode::Hidden {
+        scan.gave_up = false;
+    }
     let mode = step(scan.mode, wanted);
     if mode == scan.mode && (mode != Mode::Hidden || alive(&mut scan.guard)) {
         return;
@@ -217,9 +258,13 @@ fn set_mode_locked(scan: &mut Scan, wanted: Mode) {
     match mode {
         Mode::Off => {
             restore_locked(HID_HERE.load(Ordering::SeqCst));
-            if let Some(mut guard) = scan.guard.take() {
-                let _ = guard.kill();
-                let _ = guard.wait();
+            // Kept while anything is left to give back (no Explorer, the appbar calls answered by another program): it
+            // restores when Crest ends.
+            if nothing_left(HID_HERE.load(Ordering::SeqCst), record_now()) {
+                if let Some((mut guard, _)) = scan.guard.take() {
+                    let _ = guard.kill();
+                    let _ = guard.wait();
+                }
             }
             scan.mode = Mode::Off;
         }
@@ -228,22 +273,26 @@ fn set_mode_locked(scan: &mut Scan, wanted: Mode) {
             post(&taskbars(shell_pid()), SW_SHOWNA);
             scan.mode = Mode::Shown;
         }
-        Mode::Hidden => hide_locked(scan, false),
+        // The short path is for the way back from the hotkey only, not for a guard and a record an `Off` kept.
+        Mode::Hidden => {
+            let full = scan.mode == Mode::Off;
+            hide_locked(scan, record_now(), full);
+        }
     }
 }
 
-/// Hides Explorer's taskbars. The full path (`full_hide`, and always for the new taskbars of a restarted Explorer) first has the
-/// guard running and the record written, then sets the auto-hide the record calls Crest's; else it only hides. Nothing is
-/// hidden while the record cannot be read or written: the mode stays as it was.
-fn hide_locked(scan: &mut Scan, explorer_restarted: bool) {
-    let Some(path) = record_path() else { return };
-    let saved = match read_record(&path) {
+/// Hides Explorer's taskbars. The full path (`full`, or `full_hide`) first has the guard running and the record written, then
+/// sets the auto-hide the record calls Crest's; else it only hides. Nothing is hidden while the record cannot be read or
+/// written: the mode stays as it was.
+fn hide_locked(scan: &mut Scan, record: Record, full: bool) {
+    let saved = match record {
         Record::Missing => None,
         Record::Saved(crests) => Some(crests),
         Record::Unreadable => return,
     };
     let shell = shell_pid();
-    if explorer_restarted || full_hide(alive(&mut scan.guard), saved.is_some()) {
+    if full || full_hide(alive(&mut scan.guard), saved.is_some()) {
+        let Some(path) = record_path() else { return };
         if !guarded(scan) {
             return;
         }
@@ -265,42 +314,56 @@ fn hide_locked(scan: &mut Scan, explorer_restarted: bool) {
 }
 
 /// Windows has shown `hwnd` (the thread's WinEvent hook, mod.rs): one of Explorer's taskbars is hidden again while Crest hides
-/// them. Only a posted `SW_HIDE` here, never an appbar call.
-pub(crate) fn on_show(hwnd: HWND) {
+/// them, unless it was given back from outside (`given_back`). Only a posted `SW_HIDE` here, never an appbar call. False when
+/// `SCAN` is taken: nothing was done, and the thread tries again shortly.
+pub(crate) fn on_show(hwnd: HWND) -> bool {
     let taskbar = is_explorers(hwnd, shell_pid());
-    // Every window shown anywhere comes here; only Explorer's taskbars wait for the lock.
+    // Every window shown anywhere comes here; only Explorer's taskbars need the lock.
     if !taskbar {
-        return;
+        return true;
     }
-    let mut scan = lock();
-    if rehide(scan.mode, taskbar) && guarded(&mut scan) {
+    let Some(mut scan) = try_lock() else { return false };
+    if rehide(scan.mode, taskbar) && !given_back(record_now()) && guarded(&mut scan) {
         let _ = unsafe { ShowWindowAsync(hwnd, SW_HIDE) };
     }
+    true
 }
 
 /// Explorer has made its taskbars anew (`TaskbarCreated`, mod.rs): while Crest hides them, the new ones are hidden too, with the
-/// auto-hide the record calls Crest's set again.
-pub(crate) fn on_taskbar_created() {
-    let mut scan = lock();
+/// auto-hide the record calls Crest's set again, unless the taskbar was given back from outside. False when `SCAN` is taken, as
+/// `on_show`.
+pub(crate) fn on_taskbar_created() -> bool {
+    let Some(mut scan) = try_lock() else { return false };
     if scan.mode == Mode::Hidden {
-        hide_locked(&mut scan, true);
+        let record = record_now();
+        if !given_back(record) {
+            hide_locked(&mut scan, record, true);
+        }
     }
+    true
 }
 
-fn alive(guard: &mut Option<Child>) -> bool {
-    guard.as_mut().is_some_and(|child| matches!(child.try_wait(), Ok(None)))
+fn alive(guard: &mut Option<(Child, Instant)>) -> bool {
+    guard.as_mut().is_some_and(|(child, _)| matches!(child.try_wait(), Ok(None)))
 }
 
-/// Has the guard running, started again if it died (ended from Task Manager). Without one nothing more is hidden, and taskbars
-/// hidden already come back (`Shown`), so Windows' taskbar stays reachable.
+/// Has the guard running, started again if it died (ended from Task Manager), but not after one that ended at once
+/// (`died_at_once`) until the user asks for `Hidden` again. Without one nothing more is hidden, and taskbars hidden already
+/// come back (`Shown`), so Windows' taskbar stays reachable.
 fn guarded(scan: &mut Scan) -> bool {
     if alive(&mut scan.guard) {
         return true;
     }
-    scan.guard = std::env::current_exe()
-        .and_then(|exe| Command::new(exe).arg("--taskbar-guard").arg(std::process::id().to_string()).creation_flags(CREATE_NO_WINDOW).spawn())
-        .inspect_err(|e| eprintln!("taskbar: guard failed, Windows' taskbar stays: {e}"))
-        .ok();
+    if let Some((_, started)) = scan.guard.take() {
+        scan.gave_up |= died_at_once(started.elapsed());
+    }
+    if !scan.gave_up {
+        scan.guard = std::env::current_exe()
+            .and_then(|exe| Command::new(exe).arg("--taskbar-guard").arg(std::process::id().to_string()).creation_flags(CREATE_NO_WINDOW).spawn())
+            .inspect_err(|e| eprintln!("taskbar: guard failed, Windows' taskbar stays: {e}"))
+            .ok()
+            .map(|child| (child, Instant::now()));
+    }
     if scan.guard.is_none() && scan.mode == Mode::Hidden {
         post(&taskbars(shell_pid()), SW_SHOWNA);
         scan.mode = Mode::Shown;
@@ -423,6 +486,35 @@ mod tests {
         assert_eq!(step(Mode::Hidden, Mode::Shown), Mode::Shown);
         assert_eq!(step(Mode::Shown, Mode::Hidden), Mode::Hidden);
         assert_eq!(step(Mode::Hidden, Mode::Off), Mode::Off);
+    }
+
+    #[test]
+    fn a_taskbar_given_back_from_outside_is_not_taken_again() {
+        assert!(!given_back(Record::Saved(true)) && !given_back(Record::Saved(false)));
+        assert!(given_back(Record::Missing)); // the uninstaller's --restore-taskbar ran while Crest still runs
+        assert!(given_back(Record::Unreadable));
+    }
+
+    #[test]
+    fn the_guard_stays_while_anything_is_left_to_give_back() {
+        assert!(nothing_left(false, Record::Missing));
+        assert!(!nothing_left(true, Record::Missing)); // no Explorer to show the taskbars to
+        assert!(!nothing_left(false, Record::Saved(true))); // Crest's auto-hide still on: another program answers the appbar calls
+        assert!(!nothing_left(false, Record::Saved(false)) && !nothing_left(false, Record::Unreadable));
+    }
+
+    #[test]
+    fn a_guard_that_ends_at_once_is_not_started_again() {
+        assert!(died_at_once(Duration::from_millis(300)) && died_at_once(Duration::from_millis(1999)));
+        assert!(!died_at_once(Duration::from_secs(2)) && !died_at_once(Duration::from_secs(600))); // ended from Task Manager later: started again
+    }
+
+    #[test]
+    fn the_taskbar_thread_never_waits_for_the_lock() {
+        let held = lock();
+        assert!(!on_taskbar_created()); // taken: nothing done, the thread tries again
+        drop(held);
+        assert!(on_taskbar_created()); // free, and nothing hidden: done
     }
 
     #[test]
