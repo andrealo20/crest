@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { followStores, onActions, sendAction, shareStores, type Transport } from "./bridge.ts";
 import { settingsClosedActions } from "./bridgeRules.ts";
 
-/** Both windows on one bus: an emit reaches every handler of its event at once, whatever window it names. */
+/** Both windows on one bus: an emit reaches every handler of its event at once, whatever window it names, and stays in a log. */
 function memoryBus() {
   const handlers = new Map<string, Set<(payload: unknown) => void>>();
-  const counts = new Map<string, number>();
-  const bus: Transport & { sent(event: string): number } = {
-    emit(event, payload) {
-      counts.set(event, (counts.get(event) ?? 0) + 1);
+  const log: { event: string; payload: unknown; to?: string }[] = [];
+  const bus: Transport & { sent(event: string): { payload: unknown; to?: string }[] } = {
+    emit(event, payload, to) {
+      log.push({ event, payload, to });
       [...(handlers.get(event) ?? [])].forEach((h) => h(payload));
     },
     listen(event, handler) {
@@ -17,7 +17,7 @@ function memoryBus() {
       handlers.get(event)!.add(handler);
       return () => void handlers.get(event)!.delete(handler);
     },
-    sent: (event) => counts.get(event) ?? 0,
+    sent: (event) => log.filter((e) => e.event === event).map(({ payload, to }) => ({ payload, to })),
   };
   return bus;
 }
@@ -35,6 +35,7 @@ function memStore<T>(initial: T) {
       listeners.add(listener);
       return () => void listeners.delete(listener);
     },
+    watched: () => listeners.size > 0,
   };
 }
 
@@ -54,11 +55,60 @@ test("nothing is sent before a hello, and nothing after stop", () => {
   const notchSide = { a: memStore(1) };
   const stop = shareStores(bus, notchSide);
   notchSide.a.set(2);
-  assert.equal(bus.sent("bridge://state"), 0);
+  assert.deepEqual(bus.sent("bridge://state"), []);
   stop();
   bus.emit("bridge://hello", null);
   notchSide.a.set(3);
-  assert.equal(bus.sent("bridge://state"), 0);
+  assert.deepEqual(bus.sent("bridge://state"), []);
+});
+
+test("a share answers its own window's hello and sends there", () => {
+  const bus = memoryBus();
+  const a = memStore(1);
+  shareStores(bus, { a }, { to: "taskbar", hello: "bar://hello" });
+  bus.emit("bridge://hello", null);
+  assert.deepEqual(bus.sent("bridge://state"), []);
+  bus.emit("bar://hello", null);
+  a.set(2);
+  // A page that reloads says hello again and gets everything again.
+  bus.emit("bar://hello", null);
+  assert.deepEqual(bus.sent("bridge://state"), [
+    { payload: { name: "a", value: 1 }, to: "taskbar" },
+    { payload: { name: "a", value: 2 }, to: "taskbar" },
+    { payload: { name: "a", value: 2 }, to: "taskbar" },
+  ]);
+});
+
+test("a share with a condition sends only while it holds", () => {
+  const bus = memoryBus();
+  const a = memStore(1);
+  const open = memStore(false);
+  const stop = shareStores(bus, { a }, { when: open });
+  const states = (...values: number[]) => values.map((value) => ({ payload: { name: "a", value }, to: "settings" }));
+  bus.emit("bridge://hello", null);
+  a.set(2);
+  assert.deepEqual(bus.sent("bridge://state"), states());
+  // A store tells its listeners of every set, so only a change to true sends everything again.
+  open.set(true);
+  open.set(true);
+  assert.deepEqual(bus.sent("bridge://state"), states(2));
+  a.set(3);
+  assert.deepEqual(bus.sent("bridge://state"), states(2, 3));
+  open.set(false);
+  a.set(4);
+  assert.deepEqual(bus.sent("bridge://state"), states(2, 3));
+  stop();
+  open.set(true);
+  assert.deepEqual(bus.sent("bridge://state"), states(2, 3));
+  assert.equal(open.watched(), false);
+});
+
+test("a follower can say hello its own way", () => {
+  const bus = memoryBus();
+  let hellos = 0;
+  followStores(bus, { a: memStore(0) }, () => hellos++);
+  assert.equal(hellos, 1);
+  assert.deepEqual(bus.sent("bridge://hello"), []);
 });
 
 test("unknown store names are ignored", () => {

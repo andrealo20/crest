@@ -24,6 +24,9 @@ export const tauriTransport: Transport = {
   },
 };
 
+/** Settles once every `listen` started so far has registered, for a window whose hello does not go through `emit`. */
+export const listening = (): Promise<unknown> => ready;
+
 /** From a window other than the notch: asks the notch to do it (src/features/settings/window/shared.ts runs it). */
 export function askNotch(action: BridgeAction) {
   sendAction(tauriTransport, action);
