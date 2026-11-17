@@ -2,6 +2,7 @@ import { askNotch } from "../../lib/tauriTransport";
 import { isNotchWindow } from "../../lib/windowKind";
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
+import { barParts } from "../../notch/row/visibility";
 import { fetchCalendar, openMeetingLink, type CalendarData, type CalendarEvent } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { dueEvent, nextChange, nextEvent } from "./model";
@@ -14,7 +15,7 @@ export const calendar = createStore<{ data: CalendarData | null; error: string |
 
 /** The event announced in the closed notch, set by the scheduler; null while none is due or the notice or tool is off. */
 export const calendarDue = createStore<CalendarEvent | null>(null);
-/** The next event within the part's horizon (only while the part is on). */
+/** The next event within the part's horizon (only while the part is on with the tool, or Crest's bar shows it). */
 export const calendarNext = createStore<CalendarEvent | null>(null);
 
 /** Closed notices survive a restart (stored ids are pruned to the agenda's events on each close). */
@@ -62,12 +63,13 @@ function schedule() {
   window.clearTimeout(timeout);
   const now = Date.now();
   const s = settings.get();
-  const on = toolOn();
-  const events = on ? (calendar.get().data?.events ?? []) : [];
+  const on = toolOn(), bar = barParts.get().includes("calendar");
+  const events = on || bar ? (calendar.get().data?.events ?? []) : [];
   const { notice, noticeMin, horizonMin } = s.calendar;
-  const due = notice ? dueEvent(events, now, noticeMin, dismissed) : null;
+  // The bar's widget reads the events with the tool off; the notice stays the tool's.
+  const due = notice && on ? dueEvent(events, now, noticeMin, dismissed) : null;
   if (due?.id !== calendarDue.get()?.id) calendarDue.set(due);
-  const next = s.closed.parts.calendar ? nextEvent(events, now) : null;
+  const next = (s.closed.parts.calendar && on) || bar ? nextEvent(events, now) : null;
   const shown = next && next.start - now <= horizonMin * 60_000 ? next : null;
   if (shown !== calendarNext.get()) calendarNext.set(shown);
   const at = nextChange(events, now, [noticeMin * 60_000, horizonMin * 60_000]);
@@ -79,7 +81,7 @@ let lastSources = "";
 function apply() {
   const s = settings.get();
   const key = JSON.stringify(s.calendar.sources);
-  const wanted = toolOn() && s.calendar.sources.length > 0;
+  const wanted = (toolOn() || barParts.get().includes("calendar")) && s.calendar.sources.length > 0;
   if (key !== lastSources) {
     // Added, edited or removed: fetch at once (an empty list also clears Rust's cache file).
     lastSources = key;
@@ -99,6 +101,7 @@ function apply() {
 export function startCalendar() {
   apply();
   settings.subscribe(apply);
+  barParts.subscribe(apply);
   calendar.subscribe(schedule);
 }
 
