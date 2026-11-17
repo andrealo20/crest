@@ -5,7 +5,7 @@ import { t } from "../../../i18n";
 import { launcher, taskbar } from "../../../platform/services";
 import { settings } from "../../../settings/store";
 import { CrestMark } from "../../../ui/CrestMark";
-import { AppIcon } from "../../launcher/LauncherView";
+import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
 import { barButtons, clickAction, fitIcon, indicator, launchId, placeMenu, type BarButton, type BarItem, type Indicator, type Zone } from "../model";
@@ -116,6 +116,10 @@ export function TaskbarWindow() {
           ))}
         </div>
       </div>
+      {/* The launch error for screen readers too: a button's label is not read out. */}
+      <span role="status" aria-live="polite" className="sr-only">
+        {error?.text}
+      </span>
     </div>
   );
 }
@@ -158,12 +162,14 @@ function Item(props: {
   children: ReactNode;
 }) {
   return (
+    // The gap under the bar (GAP, h-1) belongs to the button above it, so a click with the pointer pushed against the screen's
+    // edge, left or right, lands on the button; the gap itself stays empty.
     <button
       aria-label={props.name}
       onPointerEnter={props.onEnter}
       onPointerLeave={props.onLeave}
       onClick={props.onClick}
-      className="pressable relative flex shrink-0 items-center justify-center"
+      className="pressable relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"
       style={{ width: props.size + 16 }}
     >
       <motion.span className="flex" initial={false} animate={{ transform: `translateY(${props.lifted ? -2 : 0}px)` }} transition={springs.peek}>

@@ -9,7 +9,8 @@ import { t } from "../../i18n";
 import { moveFavorite } from "./apps";
 import { slotStatus } from "./shortcuts";
 import { hotkeysResting, shortcutResult, useIcons } from "./store";
-import { AppIcon, HOTKEY_HINT } from "./LauncherView";
+import { AppIcon } from "./AppIcon";
+import { HOTKEY_HINT } from "./LauncherView";
 
 /** Settings → Tools → Launcher: order of the pinned apps (= Alt number), removing, and the shortcuts. */
 export function LauncherSettings() {
