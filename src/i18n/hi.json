@@ -1788,5 +1788,18 @@
  "Neues Fenster": "नई विंडो",
  "Anheften": "पिन करें",
  "Fenster schließen": "विंडो बंद करें",
- "Alle Fenster schließen": "सभी विंडो बंद करें"
+ "Alle Fenster schließen": "सभी विंडो बंद करें",
+ "Elemente": "आइटम",
+ "Aussehen": "रूप",
+ "Apps und Fenster": "ऐप और विंडो",
+ "Crest-Taskleiste": "Crest टास्कबार",
+ "Mitte": "बीच में",
+ "Zum Sortieren ziehen": "क्रम बदलने के लिए खींचें",
+ "Angeheftete Apps": "पिन किए गए ऐप",
+ "Symbolgröße": "आइकन का आकार",
+ "Blendet die Windows-Taskleiste auf allen Bildschirmen aus und zeigt die von Crest auf dem Hauptbildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "सभी डिस्प्ले पर Windows टास्कबार छिपाता है और मुख्य डिस्प्ले पर Crest का टास्कबार दिखाता है। बंद करने पर, या Crest के बंद होने पर, Windows वाला वापस आ जाता है",
+ "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "वॉल्यूम, नेटवर्क, बैटरी और सूचनाएँ Win+A और Win+N पर हैं",
+ "Mit Rechtsklick auf eine App in der Taskleiste anheften": "टास्कबार में किसी ऐप पर राइट-क्लिक करके उसे पिन करें",
+ "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "नॉच: बंद नॉच जैसा। थीम: थीम का पृष्ठभूमि रंग",
+ "Farben und Thema gelten auch für die Taskleiste": "रंग और थीम टास्कबार पर भी लागू होते हैं"
 }

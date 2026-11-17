@@ -1788,5 +1788,18 @@
  "Neues Fenster": "Nuova finestra",
  "Anheften": "Fissa",
  "Fenster schließen": "Chiudi finestra",
- "Alle Fenster schließen": "Chiudi tutte le finestre"
+ "Alle Fenster schließen": "Chiudi tutte le finestre",
+ "Elemente": "Elementi",
+ "Aussehen": "Aspetto",
+ "Apps und Fenster": "App e finestre",
+ "Crest-Taskleiste": "Barra delle applicazioni di Crest",
+ "Mitte": "Centro",
+ "Zum Sortieren ziehen": "Trascina per riordinare",
+ "Angeheftete Apps": "App fissate",
+ "Symbolgröße": "Dimensione delle icone",
+ "Blendet die Windows-Taskleiste auf allen Bildschirmen aus und zeigt die von Crest auf dem Hauptbildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "Nasconde la barra delle applicazioni di Windows su tutti gli schermi e mostra quella di Crest sullo schermo principale. Spenta, o quando Crest si chiude, torna quella di Windows",
+ "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Volume, rete, batteria e notifiche sono su Win+A e Win+N",
+ "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Fissa un'app con un clic destro su di essa nella barra delle applicazioni",
+ "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Notch: come il notch chiuso. Tema: il colore di sfondo del tema",
+ "Farben und Thema gelten auch für die Taskleiste": "Colori e tema valgono anche per la barra delle applicazioni"
 }

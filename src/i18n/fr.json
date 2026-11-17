@@ -1788,5 +1788,18 @@
  "Neues Fenster": "Nouvelle fenêtre",
  "Anheften": "Épingler",
  "Fenster schließen": "Fermer la fenêtre",
- "Alle Fenster schließen": "Fermer toutes les fenêtres"
+ "Alle Fenster schließen": "Fermer toutes les fenêtres",
+ "Elemente": "Éléments",
+ "Aussehen": "Apparence",
+ "Apps und Fenster": "Applications et fenêtres",
+ "Crest-Taskleiste": "Barre des tâches Crest",
+ "Mitte": "Centre",
+ "Zum Sortieren ziehen": "Faites glisser pour réordonner",
+ "Angeheftete Apps": "Applications épinglées",
+ "Symbolgröße": "Taille des icônes",
+ "Blendet die Windows-Taskleiste auf allen Bildschirmen aus und zeigt die von Crest auf dem Hauptbildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "Masque la barre des tâches de Windows sur tous les écrans et affiche celle de Crest sur l'écran principal. Désactivée, ou quand Crest se ferme, celle de Windows revient",
+ "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Le volume, le réseau, la batterie et les notifications sont sur Win+A et Win+N",
+ "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Épinglez une application d'un clic droit dessus dans la barre des tâches",
+ "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Encoche : comme l'encoche fermée. Thème : la couleur d'arrière-plan du thème",
+ "Farben und Thema gelten auch für die Taskleiste": "Les couleurs et le thème s'appliquent aussi à la barre des tâches"
 }

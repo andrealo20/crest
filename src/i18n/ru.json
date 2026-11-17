@@ -1788,5 +1788,18 @@
  "Neues Fenster": "Новое окно",
  "Anheften": "Закрепить",
  "Fenster schließen": "Закрыть окно",
- "Alle Fenster schließen": "Закрыть все окна"
+ "Alle Fenster schließen": "Закрыть все окна",
+ "Elemente": "Элементы",
+ "Aussehen": "Внешний вид",
+ "Apps und Fenster": "Приложения и окна",
+ "Crest-Taskleiste": "Панель задач Crest",
+ "Mitte": "По центру",
+ "Zum Sortieren ziehen": "Перетащите для сортировки",
+ "Angeheftete Apps": "Закреплённые приложения",
+ "Symbolgröße": "Размер значков",
+ "Blendet die Windows-Taskleiste auf allen Bildschirmen aus und zeigt die von Crest auf dem Hauptbildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "Скрывает панель задач Windows на всех экранах и показывает панель Crest на основном экране. Если её выключить или Crest завершится, панель Windows вернётся",
+ "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Громкость, сеть, батарея и уведомления открываются по Win+A и Win+N",
+ "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Закрепите приложение, щёлкнув его правой кнопкой на панели задач",
+ "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Вырез: как закрытый вырез. Тема: цвет фона темы",
+ "Farben und Thema gelten auch für die Taskleiste": "Цвета и тема применяются и к панели задач"
 }

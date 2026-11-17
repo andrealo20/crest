@@ -1788,5 +1788,18 @@
  "Neues Fenster": "新しいウィンドウ",
  "Anheften": "固定する",
  "Fenster schließen": "ウィンドウを閉じる",
- "Alle Fenster schließen": "すべてのウィンドウを閉じる"
+ "Alle Fenster schließen": "すべてのウィンドウを閉じる",
+ "Elemente": "項目",
+ "Aussehen": "外観",
+ "Apps und Fenster": "アプリとウィンドウ",
+ "Crest-Taskleiste": "Crest タスクバー",
+ "Mitte": "中央",
+ "Zum Sortieren ziehen": "ドラッグで並べ替え",
+ "Angeheftete Apps": "固定したアプリ",
+ "Symbolgröße": "アイコンのサイズ",
+ "Blendet die Windows-Taskleiste auf allen Bildschirmen aus und zeigt die von Crest auf dem Hauptbildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "すべてのディスプレイで Windows のタスクバーを隠し、メインディスプレイに Crest のタスクバーを表示します。オフにするか Crest が終了すると、Windows のタスクバーが戻ります",
+ "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "音量、ネットワーク、バッテリー、通知は Win+A と Win+N で開けます",
+ "Mit Rechtsklick auf eine App in der Taskleiste anheften": "タスクバーのアプリを右クリックして固定します",
+ "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "ノッチ: 閉じたノッチと同じ。テーマ: テーマの背景色",
+ "Farben und Thema gelten auch für die Taskleiste": "色とテーマはタスクバーにも適用されます"
 }

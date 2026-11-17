@@ -1788,5 +1788,18 @@
  "Neues Fenster": "New window",
  "Anheften": "Pin",
  "Fenster schließen": "Close window",
- "Alle Fenster schließen": "Close all windows"
+ "Alle Fenster schließen": "Close all windows",
+ "Elemente": "Items",
+ "Aussehen": "Appearance",
+ "Apps und Fenster": "Apps and windows",
+ "Crest-Taskleiste": "Crest taskbar",
+ "Mitte": "Center",
+ "Zum Sortieren ziehen": "Drag to reorder",
+ "Angeheftete Apps": "Pinned apps",
+ "Symbolgröße": "Icon size",
+ "Blendet die Windows-Taskleiste auf allen Bildschirmen aus und zeigt die von Crest auf dem Hauptbildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "Hides the Windows taskbar on every display and shows Crest's on the main display. Turned off, or when Crest ends, the Windows one comes back",
+ "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Volume, network, battery and notifications are on Win+A and Win+N",
+ "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Pin an app with a right click on it in the taskbar",
+ "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Notch: like the closed notch. Theme: the theme's background colour",
+ "Farben und Thema gelten auch für die Taskleiste": "Colours and theme apply to the taskbar too"
 }

@@ -9,6 +9,7 @@ import {
   CloudSun,
   CheckCircle,
   Clock,
+  Columns,
   Cpu,
   DownloadSimple,
   GithubLogo,
@@ -18,6 +19,7 @@ import {
   MagnifyingGlass,
   Monitor,
   MusicNote,
+  PaintBrush,
   Palette,
   Play,
   Plugs,
@@ -35,6 +37,7 @@ import {
 } from "@phosphor-icons/react";
 import { content, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, type AlarmDuration } from "../../lib/sound";
+import { createStore } from "../../lib/store";
 import { nav, navigate } from "../../notch/nav";
 import { findTab, setupTab } from "../../notch/tabs";
 import { PluginSettings } from "../plugins/PluginSettings";
@@ -102,8 +105,9 @@ import { ThemeSettings } from "../themes/ThemeSettings";
 import { HideFromSharingRow } from "../meeting/HideFromSharingRow";
 import { hueVar, useIconColors, type Hue } from "../themes/hues";
 import { ClipboardSettings } from "../clipboard/ClipboardSettings";
+import { TaskbarApps, TaskbarGeneral, TaskbarItems, TaskbarLook, useTaskbarShown } from "../taskbar/TaskbarSettings";
 
-type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins";
+type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins" | "taskbar" | "taskbar-items" | "taskbar-apps" | "taskbar-look";
 
 const allPages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
   { id: "general", label: "Allgemein", icon: SlidersHorizontal, hue: "slate" },
@@ -116,10 +120,15 @@ const allPages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
   { id: "themes", label: "Themen", icon: Palette, hue: "pink" },
   { id: "notices", label: "Mitteilungen", icon: BellSimple, hue: "red" },
   { id: "plugins", label: "Plugins", icon: PuzzlePiece, hue: "green" },
+  { id: "taskbar", label: "Allgemein", icon: SlidersHorizontal, hue: "slate" },
+  { id: "taskbar-items", label: "Elemente", icon: Columns, hue: "blue" },
+  { id: "taskbar-apps", label: "Apps und Fenster", icon: AppWindow, hue: "indigo" },
+  { id: "taskbar-look", label: "Aussehen", icon: PaintBrush, hue: "pink" },
 ];
-// Plugin pages are served over http://crestplugin.localhost, which only works on Windows, and live notices have no Mac
-// version (the tool is in WINDOWS_ONLY, src/notch/tabs.ts).
-const pages = allPages.filter((p) => !(isMac && (p.id === "plugins" || p.id === "notices")));
+
+/** The settings window's switch shows one scope's pages: the notch's, with those of the whole app, or the taskbar's. */
+type Scope = "notch" | "taskbar";
+const scopeOf = (page: PageId): Scope => (page.startsWith("taskbar") ? "taskbar" : "notch");
 
 /** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. */
 const sectionPage: Record<string, PageId> = {
@@ -145,10 +154,30 @@ const sectionPage: Record<string, PageId> = {
   calendar: "accounts",
   notices: "notices",
   plugins: "plugins",
+  taskbar: "taskbar",
+  "taskbar-items": "taskbar-items",
+  "taskbar-apps": "taskbar-apps",
+  "taskbar-look": "taskbar-look",
 };
 
-/** Last open page survives closing/opening the notch (the component is rebuilt). */
-let savedPage: PageId = "general";
+/**
+ * The open scope and the last page of each, which the settings window's switch reads and sets. They survive closing/opening the
+ * notch (the component is rebuilt).
+ */
+export const savedPage = createStore<{ scope: Scope } & Record<Scope, PageId>>({ scope: "notch", notch: "general", taskbar: "taskbar" });
+
+/** Opens a page, which becomes the last one of its scope. */
+function openPage(page: PageId) {
+  const scope = scopeOf(page);
+  savedPage.set((s) => ({ ...s, scope, [scope]: page }));
+}
+
+// A section asked for opens its page as it comes, so a view built after it shows that page from its first frame (the settings
+// window gets its first section while it loads). The view scrolls to the section.
+nav.subscribe(() => {
+  const page = sectionPage[nav.get().section ?? ""];
+  if (page) openPage(page);
+});
 
 type Hit = SearchEntry & { page: PageId; groupId: string };
 
@@ -183,13 +212,15 @@ function readRows(root: HTMLElement): Hit[] {
  */
 export function SettingsView() {
   const deepLink = nav.use();
-  const [page, setPageState] = useState<PageId>(() => (deepLink.section && sectionPage[deepLink.section]) || savedPage);
+  const saved = savedPage.use();
+  const taskbarShown = useTaskbarShown();
+  // Plugin pages are served over http://crestplugin.localhost, which only works on Windows, and live notices have no Mac
+  // version (the tool is in WINDOWS_ONLY, src/notch/tabs.ts). The Taskbar's pages show only where the bar can run.
+  const pages = allPages.filter((p) => (scopeOf(p.id) === "taskbar" ? taskbarShown : !(isMac && (p.id === "plugins" || p.id === "notices"))));
+  // A page the list does not show (the Taskbar's, once they hide) falls back to General.
+  const page = pages.some((p) => p.id === saved[saved.scope]) ? saved[saved.scope] : "general";
   const iconColors = useIconColors();
   const scroller = useRef<HTMLDivElement>(null);
-  const setPage = (p: PageId) => {
-    savedPage = p;
-    setPageState(p);
-  };
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<Hit[]>([]);
   const [target, setTarget] = useState<Hit | null>(null);
@@ -232,7 +263,7 @@ export function SettingsView() {
 
   const openHit = (h: Hit) => {
     setQuery("");
-    setPage(h.page);
+    openPage(h.page);
     setTarget(h);
   };
 
@@ -255,8 +286,7 @@ export function SettingsView() {
   useEffect(() => {
     const { section } = deepLink;
     if (!section || !sectionPage[section]) return;
-    setPage(sectionPage[section]);
-    // The section only exists after the page switch.
+    // The section only exists after the page switch (openPage, from the nav subscription above).
     const id = window.setTimeout(
       () => scroller.current?.querySelector<HTMLElement>(`#settings-${section}`)?.scrollIntoView({ behavior: "smooth", block: "start" }),
       120,
@@ -285,23 +315,24 @@ export function SettingsView() {
             className="min-w-0 flex-1 bg-transparent text-footnote text-label outline-none placeholder:text-label-4"
           />
         </label>
-        {pages.map((p) => {
+        {pages.filter((p) => scopeOf(p.id) === scopeOf(page)).map((p) => {
           const active = p.id === page && !searching;
           return (
             <button
               key={p.id}
               onClick={() => {
                 setQuery("");
-                setPage(p.id);
+                openPage(p.id);
               }}
               aria-current={active ? "page" : undefined}
-              className={`pressable relative flex h-8 items-center gap-2 rounded-[8px] px-2.5 text-start text-body transition-colors duration-150 ${
+              className={`pressable relative flex min-h-8 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body transition-colors duration-150 ${
                 active ? "text-label" : "text-label-3 hover:text-label-2"
               }`}
             >
               {active && <motion.span layoutId="settings-page" className="absolute inset-0 rounded-[8px] bg-fill-2" transition={springs.snappy} />}
               <p.icon size={15} weight={active ? "fill" : "bold"} className="relative shrink-0" style={iconColors ? { color: hueVar(p.hue) } : undefined} />
-              <span className="relative truncate">{t(p.label)}</span>
+              {/* Wraps like the bug report below: "Apps und Fenster" is longer than the column in most languages. */}
+              <span className="relative leading-tight">{t(p.label)}</span>
             </button>
           );
         })}
@@ -352,7 +383,9 @@ function SearchResults({ hits, onOpen }: { hits: Hit[]; onOpen: (h: Hit) => void
   return (
     <div className="flex flex-col divide-y divide-separator overflow-hidden rounded-[12px] bg-fill-1">
       {hits.map((h) => {
-        const pageName = t(pages.find((p) => p.id === h.page)!.label);
+        const pageName = t(allPages.find((p) => p.id === h.page)!.label);
+        // The Taskbar's General and the Notch's would read alike.
+        const scopeName = scopeOf(h.page) === "taskbar" ? t("Taskleiste") : "";
         return (
           <button
             key={`${h.page}|${h.groupId}|${h.label}`}
@@ -361,7 +394,7 @@ function SearchResults({ hits, onOpen }: { hits: Hit[]; onOpen: (h: Hit) => void
           >
             <span className="flex items-baseline justify-between gap-3">
               <span className="truncate text-body text-label">{h.label}</span>
-              <span className="shrink-0 text-caption text-label-4">{[...new Set([pageName, h.group])].filter(Boolean).join(" · ")}</span>
+              <span className="shrink-0 text-caption text-label-4">{[...new Set([scopeName, pageName, h.group])].filter(Boolean).join(" · ")}</span>
             </span>
             {h.hint && <span className="text-caption text-label-3">{h.hint}</span>}
           </button>
@@ -432,6 +465,10 @@ function PageContent({ page }: { page: PageId }) {
         </>
       )}
       {page === "themes" && <ThemeSettings />}
+      {page === "taskbar" && <TaskbarGeneral />}
+      {page === "taskbar-items" && <TaskbarItems />}
+      {page === "taskbar-apps" && <TaskbarApps />}
+      {page === "taskbar-look" && <TaskbarLook />}
     </>
   );
 }

@@ -1788,5 +1788,18 @@
  "Neues Fenster": "新建窗口",
  "Anheften": "固定",
  "Fenster schließen": "关闭窗口",
- "Alle Fenster schließen": "关闭所有窗口"
+ "Alle Fenster schließen": "关闭所有窗口",
+ "Elemente": "项目",
+ "Aussehen": "外观",
+ "Apps und Fenster": "应用和窗口",
+ "Crest-Taskleiste": "Crest 任务栏",
+ "Mitte": "中间",
+ "Zum Sortieren ziehen": "拖动可排序",
+ "Angeheftete Apps": "已固定的应用",
+ "Symbolgröße": "图标大小",
+ "Blendet die Windows-Taskleiste auf allen Bildschirmen aus und zeigt die von Crest auf dem Hauptbildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "在所有显示器上隐藏 Windows 任务栏，并在主显示器上显示 Crest 的任务栏。关闭它或 Crest 退出时，Windows 任务栏会恢复",
+ "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "音量、网络、电池和通知可通过 Win+A 和 Win+N 打开",
+ "Mit Rechtsklick auf eine App in der Taskleiste anheften": "在任务栏中右键单击应用即可固定",
+ "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "刘海：与收起的刘海相同。主题：主题的背景色",
+ "Farben und Thema gelten auch für die Taskleiste": "颜色和主题也适用于任务栏"
 }

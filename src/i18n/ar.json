@@ -1788,5 +1788,18 @@
  "Neues Fenster": "نافذة جديدة",
  "Anheften": "تثبيت",
  "Fenster schließen": "إغلاق النافذة",
- "Alle Fenster schließen": "إغلاق كل النوافذ"
+ "Alle Fenster schließen": "إغلاق كل النوافذ",
+ "Elemente": "العناصر",
+ "Aussehen": "المظهر",
+ "Apps und Fenster": "التطبيقات والنوافذ",
+ "Crest-Taskleiste": "شريط مهام Crest",
+ "Mitte": "الوسط",
+ "Zum Sortieren ziehen": "اسحب لإعادة الترتيب",
+ "Angeheftete Apps": "التطبيقات المثبّتة",
+ "Symbolgröße": "حجم الأيقونات",
+ "Blendet die Windows-Taskleiste auf allen Bildschirmen aus und zeigt die von Crest auf dem Hauptbildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "يخفي شريط مهام Windows على كل الشاشات ويعرض شريط Crest على الشاشة الرئيسية. عند إيقافه أو عند خروج Crest يعود شريط Windows",
+ "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "مستوى الصوت والشبكة والبطارية والإشعارات على Win+A وWin+N",
+ "Mit Rechtsklick auf eine App in der Taskleiste anheften": "ثبّت تطبيقًا بالنقر عليه بزر الماوس الأيمن في شريط المهام",
+ "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "النوتش: مثل النوتش المغلق. السمة: لون خلفية السمة",
+ "Farben und Thema gelten auch für die Taskleiste": "الألوان والسمة تنطبق على شريط المهام أيضًا"
 }
