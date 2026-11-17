@@ -557,6 +557,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
         let mut last_fullscreen = false;
         let mut last_behavior: Option<Behavior> = None;
         let mut last_foreground = HWND::default();
+        // The window the rules read (`ruled_front`).
+        let mut ruled = HWND::default();
         let (mut front, mut behind) = (Known::default(), Known::default());
         // The front window of the bar's monitor, while the notch is on another one.
         let mut bar_front = Known::default();
@@ -574,11 +576,13 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 (c.rules.clone(), c.gaming, c.mode == "all")
             };
             let foreground = unsafe { GetForegroundWindow() };
+            let bar = crate::taskbar::bar::hwnd();
+            ruled = ruled_front(foreground, bar, ruled);
             let monitor = unsafe { MonitorFromWindow(own, MONITOR_DEFAULTTONEAREST) };
-            let fg = read_foreground(foreground, own, monitor, &mut front);
+            let fg = read_foreground(ruled, own, monitor, &mut front);
             // Looked up only where it can matter: nothing in front fills the monitor.
             let bg = (rules.background_matters() && fg.context == Context::Desktop)
-                .then(|| read_background(foreground, own, monitor, &mut behind))
+                .then(|| read_background(ruled, own, monitor, &mut behind))
                 .flatten();
 
             let fullscreen = fg.context.is_fullscreen();
@@ -588,13 +592,12 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 let _ = app.emit("notch://fullscreen", fullscreen);
             }
             // The bar hides over a full-screen app in front on its own monitor, whatever the notch's rules say.
-            let bar = crate::taskbar::bar::hwnd();
             if bar != 0 {
                 let under = unsafe { MonitorFromWindow(HWND(bar as *mut _), MONITOR_DEFAULTTONEAREST) };
                 let covered = if under == monitor {
                     fullscreen
                 } else {
-                    read_foreground(foreground, own, under, &mut bar_front).context.is_fullscreen()
+                    read_foreground(ruled, own, under, &mut bar_front).context.is_fullscreen()
                 };
                 crate::taskbar::bar::set_fullscreen(&app, covered);
             }
@@ -617,8 +620,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 for m in crate::mirror::monitors(&app).into_iter().filter(|&m| m != monitor.0 as isize) {
                     let (near, far) = aside.entry(m).or_default();
                     let elsewhere = HMONITOR(m as *mut _);
-                    let seen = read_foreground(foreground, own, elsewhere, near);
-                    let back = (rules.background_matters() && seen.context == Context::Desktop).then(|| read_background(foreground, own, elsewhere, far)).flatten();
+                    let seen = read_foreground(ruled, own, elsewhere, near);
+                    let back = (rules.background_matters() && seen.context == Context::Desktop).then(|| read_background(ruled, own, elsewhere, far)).flatten();
                     let rule = screen_policy::decide(&rules, (seen.context, &seen.name, &seen.path), back.as_ref().map(|b| (b.context, b.name.as_str(), b.path.as_str())), gaming);
                     if rule != Behavior::Normal {
                         block.push(m);
@@ -682,6 +685,13 @@ impl Known {
         }
         (self.name.clone(), self.path.clone())
     }
+}
+
+#[cfg(windows)]
+/// The window the rules read: the one in front, unless that is Crest's bar (`bar`, 0 while there is none), which a click on it
+/// or one of its menus brings to front. The rules then stay on the window in front `before` it, as the bar's list does (tasks.rs).
+fn ruled_front(foreground: HWND, bar: isize, before: HWND) -> HWND {
+    if bar != 0 && foreground.0 as isize == bar { before } else { foreground }
 }
 
 #[cfg(windows)]
@@ -952,5 +962,14 @@ mod tests {
         assert!(within(rect(-2, -2, 1922, 1034), work), "give or take 2 px");
         assert!(!within(rect(0, 0, 1920, 1080), work));
         assert!(within(rect(0, 0, 1920, 1080), rect(0, 0, 1920, 1080)), "auto-hide: the work area is the monitor");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_bar_in_front_leaves_the_rules_on_the_window_before_it() {
+        let h = |n: isize| HWND(n as _);
+        assert_eq!(ruled_front(h(7), 9, h(5)), h(7)); // an app in front
+        assert_eq!(ruled_front(h(9), 9, h(7)), h(7)); // the bar clicked, or one of its menus open
+        assert_eq!(ruled_front(h(0), 0, h(7)), h(0)); // nothing in front and no bar
     }
 }
