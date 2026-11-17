@@ -6,7 +6,7 @@ import { settings } from "../../../settings/store";
 import { language, startLanguage } from "../../../i18n";
 import { startThemes } from "../../themes/store";
 import { startCrashLog } from "../../window/store";
-import { startBarWindows } from "../store";
+import { followNotch, startBarWindows } from "../store";
 import { TaskbarWindow } from "./TaskbarWindow";
 
 /*
@@ -34,6 +34,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 startBarWindows();
+followNotch();
 
 /** Re-renders on a language change, as the notch's root does. */
 function App() {
