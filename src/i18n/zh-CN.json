@@ -1801,5 +1801,11 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "音量、网络、电池和通知可通过 Win+A 和 Win+N 打开",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "在任务栏中右键单击应用即可固定",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "刘海：与收起的刘海相同。主题：主题的背景色",
- "Farben und Thema gelten auch für die Taskleiste": "颜色和主题也适用于任务栏"
+ "Farben und Thema gelten auch für die Taskleiste": "颜色和主题也适用于任务栏",
+ "Apps der Windows-Taskleiste": "Windows 任务栏中的应用",
+ "Ersetzt die angehefteten Apps durch die der Windows-Taskleiste": "用 Windows 任务栏中的应用替换已固定的应用",
+ "Von Windows übernehmen": "从 Windows 导入",
+ "Wirklich ersetzen?": "确定替换吗？",
+ "Auf der Windows-Taskleiste ist keine App angeheftet": "Windows 任务栏上没有固定的应用",
+ "Die Apps von Windows lassen sich gerade nicht lesen": "暂时无法读取 Windows 的应用"
 }

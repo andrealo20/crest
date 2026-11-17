@@ -15,6 +15,7 @@ import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
 import type { WindowList } from "../features/taskbar/model";
+import type { Favorite } from "../features/launcher/apps";
 import bundledChangelog from "../changelog.json";
 import { demo, photo, sample, sampleAvatar, screenshot, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
 import { demoFiles, demoPaste } from "./drop";
@@ -1248,6 +1249,8 @@ export const launcher = {
 export const taskbar = {
   /** On or off, `height` CSS px tall. The notch only. */
   apply: (enabled: boolean, height: number): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height }) : Promise.resolve()),
+  /** The Start entries pinned on Windows' taskbar, in Windows' order; empty when none is pinned or none can be read, an error only when the Start list cannot be read. The notch and the settings only. */
+  importPins: (): Promise<Favorite[]> => (isNative ? invoke<Favorite[]>("taskbar_import_pins") : Promise.resolve([])),
   /** The open windows as Rust last listed them. */
   windows: (): Promise<WindowList> => (isNative ? invoke<WindowList>("taskbar_windows") : Promise.resolve({ groups: [], active: null })),
   /** The list each time it changes; Rust sends it to the bar's window only. */

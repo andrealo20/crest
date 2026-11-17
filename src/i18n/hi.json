@@ -1801,5 +1801,11 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "वॉल्यूम, नेटवर्क, बैटरी और सूचनाएँ Win+A और Win+N पर हैं",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "टास्कबार में किसी ऐप पर राइट-क्लिक करके उसे पिन करें",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "नॉच: बंद नॉच जैसा। थीम: थीम का पृष्ठभूमि रंग",
- "Farben und Thema gelten auch für die Taskleiste": "रंग और थीम टास्कबार पर भी लागू होते हैं"
+ "Farben und Thema gelten auch für die Taskleiste": "रंग और थीम टास्कबार पर भी लागू होते हैं",
+ "Apps der Windows-Taskleiste": "Windows टास्कबार के ऐप",
+ "Ersetzt die angehefteten Apps durch die der Windows-Taskleiste": "पिन किए गए ऐप को Windows टास्कबार के ऐप से बदलता है",
+ "Von Windows übernehmen": "Windows से आयात करें",
+ "Wirklich ersetzen?": "क्या सचमुच बदलना है?",
+ "Auf der Windows-Taskleiste ist keine App angeheftet": "Windows टास्कबार पर कोई ऐप पिन नहीं है",
+ "Die Apps von Windows lassen sich gerade nicht lesen": "Windows के ऐप अभी पढ़े नहीं जा सकते"
 }

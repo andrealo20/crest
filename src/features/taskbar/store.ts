@@ -1,7 +1,8 @@
 import { createStore } from "../../lib/store";
 import { isMac, isNative } from "../../platform/native";
 import { taskbar } from "../../platform/services";
-import { settings } from "../../settings/store";
+import { settings, updateSettings } from "../../settings/store";
+import { normalizeFavorites } from "../launcher/apps";
 import type { WindowList } from "./model";
 
 /** In the bar's window: the open windows grouped by app, as Rust last sent them. */
@@ -9,13 +10,24 @@ export const barWindows = createStore<WindowList>({ groups: [], active: null });
 /** In the bar's window: icons of the groups without an entry (the launcher has none for them), by group key; null = none. */
 export const groupIcons = createStore<Record<string, string | null>>({});
 
-/** The notch applies the bar's on/off and height to Rust, the only window that does: as saved when Crest starts, then on every change of either. */
+/**
+ * The notch applies the bar's on/off and height to Rust, the only window that does: as saved when Crest starts, then on every change
+ * of either. The first time the bar is on and its pinned list was never filled, the notch fills it with Windows' pinned apps.
+ */
 export function startTaskbar() {
   if (!isNative || isMac) return;
   let last = "";
   let queue = Promise.resolve();
+  let seeded = false;
   const sync = () => {
-    const { enabled, height } = settings.get().taskbar;
+    const { enabled, height, pinned } = settings.get().taskbar;
+    // One try per start: a failed read leaves the list to the next start, and an app pinned meanwhile is never overwritten.
+    if (enabled && pinned === null && !seeded) {
+      seeded = true;
+      void taskbar.importPins().then((apps) => {
+        if (settings.get().taskbar.pinned === null) updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: normalizeFavorites(apps) } }));
+      }, () => {});
+    }
     const key = `${enabled}|${height}`;
     if (key === last) return;
     last = key;

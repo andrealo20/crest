@@ -1801,5 +1801,11 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Le volume, le réseau, la batterie et les notifications sont sur Win+A et Win+N",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Épinglez une application d'un clic droit dessus dans la barre des tâches",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Encoche : comme l'encoche fermée. Thème : la couleur d'arrière-plan du thème",
- "Farben und Thema gelten auch für die Taskleiste": "Les couleurs et le thème s'appliquent aussi à la barre des tâches"
+ "Farben und Thema gelten auch für die Taskleiste": "Les couleurs et le thème s'appliquent aussi à la barre des tâches",
+ "Apps der Windows-Taskleiste": "Applications de la barre des tâches de Windows",
+ "Ersetzt die angehefteten Apps durch die der Windows-Taskleiste": "Remplace les applications épinglées par celles de la barre des tâches de Windows",
+ "Von Windows übernehmen": "Importer depuis Windows",
+ "Wirklich ersetzen?": "Vraiment remplacer ?",
+ "Auf der Windows-Taskleiste ist keine App angeheftet": "Aucune application n'est épinglée dans la barre des tâches de Windows",
+ "Die Apps von Windows lassen sich gerade nicht lesen": "Impossible de lire les applications de Windows pour le moment"
 }

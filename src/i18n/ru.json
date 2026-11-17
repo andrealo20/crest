@@ -1801,5 +1801,11 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Громкость, сеть, батарея и уведомления открываются по Win+A и Win+N",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Закрепите приложение, щёлкнув его правой кнопкой на панели задач",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Вырез: как закрытый вырез. Тема: цвет фона темы",
- "Farben und Thema gelten auch für die Taskleiste": "Цвета и тема применяются и к панели задач"
+ "Farben und Thema gelten auch für die Taskleiste": "Цвета и тема применяются и к панели задач",
+ "Apps der Windows-Taskleiste": "Приложения панели задач Windows",
+ "Ersetzt die angehefteten Apps durch die der Windows-Taskleiste": "Заменяет закреплённые приложения теми, что есть на панели задач Windows",
+ "Von Windows übernehmen": "Импорт из Windows",
+ "Wirklich ersetzen?": "Точно заменить?",
+ "Auf der Windows-Taskleiste ist keine App angeheftet": "На панели задач Windows нет закреплённых приложений",
+ "Die Apps von Windows lassen sich gerade nicht lesen": "Сейчас не удаётся прочитать приложения Windows"
 }

@@ -1801,5 +1801,11 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "مستوى الصوت والشبكة والبطارية والإشعارات على Win+A وWin+N",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "ثبّت تطبيقًا بالنقر عليه بزر الماوس الأيمن في شريط المهام",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "النوتش: مثل النوتش المغلق. السمة: لون خلفية السمة",
- "Farben und Thema gelten auch für die Taskleiste": "الألوان والسمة تنطبق على شريط المهام أيضًا"
+ "Farben und Thema gelten auch für die Taskleiste": "الألوان والسمة تنطبق على شريط المهام أيضًا",
+ "Apps der Windows-Taskleiste": "تطبيقات شريط مهام Windows",
+ "Ersetzt die angehefteten Apps durch die der Windows-Taskleiste": "يستبدل التطبيقات المثبّتة بتطبيقات شريط مهام Windows",
+ "Von Windows übernehmen": "استيراد من Windows",
+ "Wirklich ersetzen?": "هل تريد الاستبدال فعلًا؟",
+ "Auf der Windows-Taskleiste ist keine App angeheftet": "لا يوجد أي تطبيق مثبّت على شريط مهام Windows",
+ "Die Apps von Windows lassen sich gerade nicht lesen": "يتعذّر قراءة تطبيقات Windows حاليًا"
 }

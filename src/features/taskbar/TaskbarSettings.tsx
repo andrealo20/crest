@@ -5,11 +5,12 @@ import { springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { nav } from "../../notch/nav";
 import { isMac, isNative } from "../../platform/native";
-import { build } from "../../platform/services";
+import { build, taskbar } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { CrestMark } from "../../ui/CrestMark";
 import { Button, Group, Row, Segmented, Select, Slider, Switch } from "../../ui/controls";
 import { FavoriteList } from "../launcher/FavoriteList";
+import { normalizeFavorites } from "../launcher/apps";
 import { fitIcon, HEIGHT, ICON, moveItem, taskbarShown, type BarItem, type TaskbarSettings, type Zone } from "./model";
 
 /*
@@ -98,13 +99,51 @@ export function TaskbarItems() {
   );
 }
 
-/** Taskbar → Apps and windows: the pinned apps in the bar's order. An app is pinned on the bar, from its right-click menu. */
+/**
+ * Taskbar → Apps and windows: the pinned apps in the bar's order. An app is pinned on the bar, from its right-click menu; Windows'
+ * pinned apps replace the list from here, a list that is not empty only on a second click within 3 s.
+ */
 export function TaskbarApps() {
   const pinned = settings.use().taskbar.pinned ?? [];
+  const [confirm, setConfirm] = useState(false);
+  const [outcome, setOutcome] = useState<"none" | "failed" | null>(null);
+
+  useEffect(() => {
+    if (!confirm) return;
+    const id = window.setTimeout(() => setConfirm(false), 3000);
+    return () => window.clearTimeout(id);
+  }, [confirm]);
+
+  const importPins = () => {
+    setOutcome(null);
+    if (pinned.length && !confirm) return setConfirm(true);
+    setConfirm(false);
+    void taskbar.importPins().then(
+      (apps) => {
+        const next = normalizeFavorites(apps);
+        setTaskbar({ pinned: next });
+        if (!next?.length) setOutcome("none");
+      },
+      () => setOutcome("failed"),
+    );
+  };
+
   return (
     <Group id="settings-taskbar-apps">
       <Row label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Mit Rechtsklick auf eine App in der Taskleiste anheften")} />
       {pinned.length > 0 && <FavoriteList favorites={pinned} onChange={(next) => setTaskbar({ pinned: next })} />}
+      <Row
+        label={t("Apps der Windows-Taskleiste")}
+        hint={
+          outcome === "none"
+            ? t("Auf der Windows-Taskleiste ist keine App angeheftet")
+            : outcome === "failed"
+              ? t("Die Apps von Windows lassen sich gerade nicht lesen")
+              : t("Ersetzt die angehefteten Apps durch die der Windows-Taskleiste")
+        }
+      >
+        <Button onClick={importPins}>{confirm ? t("Wirklich ersetzen?") : t("Von Windows übernehmen")}</Button>
+      </Row>
     </Group>
   );
 }
