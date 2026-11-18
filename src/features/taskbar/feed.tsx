@@ -27,7 +27,7 @@ import { RELEASE_CAPTURE_MS } from "../now-playing/Equalizer";
 import { useLyricLine } from "../now-playing/lyrics";
 import { usage, useUsageViewer } from "../usage/store";
 import { barFeed, feedStores, panelOpen, panelStores, type BarFeed } from "./barStores";
-import { barWidgets } from "./widgets";
+import { barPartsFor, barWidgets } from "./widgets";
 
 /*
  * The notch's end of the bar's widgets: it runs the closed row's hooks for each widget on the bar and sends the result to the
@@ -149,13 +149,14 @@ export function WidgetSources(): ReactNode {
   language.use();
   const { enabled, zones } = settings.use().taskbar;
   const shown = barOnScreen.use();
-  const widgets = enabled ? barWidgets(zones) : [];
-  // Discord stays connected while the bar hides: each connect is a login with a token refresh, and a failed one asks for consent again.
-  const parts = shown ? widgets : widgets.filter((id) => id === "discord");
+  const parts = barPartsFor(barWidgets(zones), enabled, shown);
   const key = parts.join();
   useEffect(() => barParts.set(parts), [key]);
   useEffect(() => () => barParts.set([]), []);
-  return (shown ? widgets : []).map((id) => {
+  // A child only once its store has been told: these effects run after the children's, and a source mounted with the change would
+  // write the slice of a store not yet running (the calendar's null, its widget blinking to its icon).
+  const told = barParts.use();
+  return (shown ? told : []).map((id) => {
     const Source = SOURCES[id];
     return Source && <Source key={id} />;
   });

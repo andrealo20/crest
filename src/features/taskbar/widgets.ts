@@ -16,6 +16,14 @@ export const widgetScale = (height: number, iconSize: number): number => fitIcon
 export const barWidgets = (zones: Record<Zone, BarItem[]>): PartId[] => [...zones.left, ...zones.center, ...zones.right].filter(isWidget);
 
 /**
+ * The widgets the notch's stores run for the bar (barParts): all of them while the bar is on and shows, none while it is off, and
+ * while it hides only Discord, which stays connected: each connect is a login with a token refresh, and a failed one asks for
+ * consent again.
+ */
+export const barPartsFor = (widgets: PartId[], on: boolean, shown: boolean): PartId[] =>
+  !on ? [] : shown ? widgets : widgets.filter((id) => id === "discord");
+
+/**
  * The zones with `id` last in `to`, before the Crest button when the zone ends with it, so the button stays at the edge; a
  * widget already on the bar leaves them as they are.
  */

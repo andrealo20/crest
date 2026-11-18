@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import type { PartId } from "../../notch/row/parts.ts";
 import { TASKBAR_DEFAULTS } from "./model.ts";
-import { addWidget, barWidgets, isWidget, removeWidget, widgetScale, widgetTool } from "./widgets.ts";
+import { addWidget, barPartsFor, barWidgets, isWidget, removeWidget, widgetScale, widgetTool } from "./widgets.ts";
 
 test("a widget opens its tool, the clock Windows' calendar", () => {
   assert.equal(widgetTool("clock"), null);
@@ -27,4 +28,13 @@ test("an added widget goes last in its zone, before the Crest button at its end"
 test("a removed widget leaves the bar", () => {
   assert.deepEqual(removeWidget(TASKBAR_DEFAULTS.zones, "clock").right, ["weather", "crest"]);
   assert.deepEqual(barWidgets(TASKBAR_DEFAULTS.zones), ["weather", "clock"]);
+});
+
+test("the stores run the bar's widgets while it shows, only Discord while it hides, none while it is off", () => {
+  const widgets: PartId[] = ["weather", "discord", "clock"];
+  assert.deepEqual(barPartsFor(widgets, true, true), widgets);
+  assert.deepEqual(barPartsFor(widgets, true, false), ["discord"]);
+  assert.deepEqual(barPartsFor(["weather", "clock"], true, false), []);
+  assert.deepEqual(barPartsFor(widgets, false, true), []);
+  assert.deepEqual(barPartsFor(widgets, false, false), []);
 });
