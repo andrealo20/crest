@@ -15,6 +15,10 @@ export function Item(props: {
   size: number;
   markAt: number;
   mark?: Indicator;
+  /** The button's width when its content is not an icon of `size`. */
+  width?: number;
+  /** The id of what a screen reader says after the name: a widget's content. */
+  describedBy?: string;
   onEnter: () => void;
   onLeave: () => void;
   onClick: MouseEventHandler<HTMLButtonElement>;
@@ -28,12 +32,13 @@ export function Item(props: {
     // button is held, and the release would land beside it.
     <button
       aria-label={props.name}
+      aria-describedby={props.describedBy}
       onPointerEnter={props.onEnter}
       onPointerLeave={props.onLeave}
       onClick={props.onClick}
       onContextMenu={props.onContextMenu}
       className="group relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"
-      style={{ width: props.size + 16 }}
+      style={{ width: props.width ?? props.size + 16 }}
     >
       <motion.span
         className="flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94"
@@ -48,6 +53,8 @@ export function Item(props: {
     </button>
   );
 }
+
+export type ItemProps = Parameters<typeof Item>[0];
 
 /** Three pulses, ending on the solid accent: an app can wait for attention a long time, and the bar stays idle meanwhile. */
 const ATTENTION = { ...pulse, repeat: 5 };
