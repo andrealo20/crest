@@ -12,7 +12,8 @@ import { demote, promote, shownSlot, splitTray } from "../trayModel";
 import { holdBriefly } from "./hold";
 import { Item, type ItemProps } from "./Item";
 
-type Common = Pick<ItemProps, "name" | "label" | "failed" | "lifted" | "size" | "markAt" | "onEnter" | "onLeave">;
+/** What every bar button has in common (TaskbarWindow's `item`). */
+export type Common = Pick<ItemProps, "name" | "label" | "failed" | "lifted" | "size" | "markAt" | "onEnter" | "onLeave">;
 
 /** How far a press on an icon moves before it drags the icon, CSS px; less is still a click. */
 const DRAG = 4;

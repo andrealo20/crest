@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { DotsThree } from "@phosphor-icons/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -20,6 +20,8 @@ import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, labelRise, type Box } fr
 import { closePanel, panel, togglePanel } from "../panel";
 import { barShown, barWindows, groupIcons } from "../store";
 import { splitApps } from "../fit";
+import { barStatus } from "../status";
+import { batteryGlyph, netGlyph, soundGlyph } from "../statusModel";
 import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
 import { isWidget, widgetTool } from "../widgets";
@@ -30,6 +32,7 @@ import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu
 import { BarPanel } from "./BarPanel";
 import { holdBriefly } from "./hold";
 import { Item, MARK } from "./Item";
+import { Status } from "./Status";
 import { Tray, TrayDrop } from "./Tray";
 import { useAppFit } from "./useAppFit";
 import { useAutoHide } from "./useAutoHide";
@@ -133,9 +136,14 @@ export function TaskbarWindow() {
   }, [fit.mode]);
   // Start, the apps, "…" and Crest grow as a dock's icons, by the pitch of the apps in use; widgets and tray icons only lift.
   const mag = reduced ? undefined : { pointer, unit: (narrow ? compactIcon(size) + COMPACT_PAD : size + 16) + (tiles ? LOOK.tileGap : 2), rise: labelRise(size, height) };
+  // Stato's glyphs: one coming or going changes its width.
+  const glyphs = useSyncExternalStore(barStatus.subscribe, () => {
+    const s = barStatus.get();
+    return [s.network && netGlyph(s.network), soundGlyph(s.sound), batteryGlyph(s.power)].filter(Boolean).length;
+  });
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
   // An open menu or panel holds the bar up, and so does an app asking for attention.
-  const layout = `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${fit.mode}:${fit.visible}:${fit.trayBack}:${fit.hide}`;
+  const layout = `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${fit.mode}:${fit.visible}:${fit.trayBack}:${fit.hide}|${glyphs}`;
   const { down, place: placeMenuZone } = useHitZone(bar, shape, setBoxes, layout, {
     open: menu !== null || open !== null,
     attention: buttons.some((b) => indicator(b, active) === "attention"),
@@ -290,6 +298,23 @@ export function TaskbarWindow() {
           tile={tile}
           tiles={tiles}
           more={trayMore}
+          // No menu of its own, as a widget: the Crest menu over the pointer.
+          onMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
+        />
+      );
+    if (id === "status")
+      return (
+        <Status
+          size={size}
+          item={item}
+          tile={tile}
+          expanded={open?.content.kind === "quick"}
+          onClick={(e) => {
+            setError(null);
+            setMenu(null);
+            const r = e.currentTarget.getBoundingClientRect();
+            togglePanel({ kind: "quick" }, { x: r.x, w: r.width });
+          }}
           // No menu of its own, as a widget: the Crest menu over the pointer.
           onMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
         />

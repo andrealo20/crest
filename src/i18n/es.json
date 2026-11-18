@@ -1830,5 +1830,14 @@
  "Keine ausgeblendeten Symbole": "Ningún icono oculto",
  "{n} weitere App": "{n} app más",
  "{n} weitere Apps": "{n} apps más",
- "Weitere Apps": "Más apps"
+ "Weitere Apps": "Más apps",
+ "Ethernet": "Ethernet",
+ "WLAN: {name}": "Wi-Fi: {name}",
+ "WLAN aus": "Wi-Fi desactivado",
+ "Nicht verbunden": "No conectado",
+ "Lautstärke {p} %": "Volumen {p}%",
+ "Akku {p} %, lädt": "Batería {p}%, cargando",
+ "Schnelleinstellungen": "Configuración rápida",
+ "Weitere Einstellungen": "Más configuración",
+ "Energiesparmodus": "Ahorro de energía"
 }

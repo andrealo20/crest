@@ -1830,5 +1830,14 @@
  "Keine ausgeblendeten Symbole": "没有隐藏的图标",
  "{n} weitere App": "另外 {n} 个应用",
  "{n} weitere Apps": "另外 {n} 个应用",
- "Weitere Apps": "更多应用"
+ "Weitere Apps": "更多应用",
+ "Ethernet": "以太网",
+ "WLAN: {name}": "WLAN: {name}",
+ "WLAN aus": "WLAN 已关闭",
+ "Nicht verbunden": "未连接",
+ "Lautstärke {p} %": "音量 {p}%",
+ "Akku {p} %, lädt": "电池 {p}%，正在充电",
+ "Schnelleinstellungen": "快速设置",
+ "Weitere Einstellungen": "更多设置",
+ "Energiesparmodus": "节能模式"
 }

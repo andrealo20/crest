@@ -1,6 +1,8 @@
 import { barFeed } from "../features/taskbar/barStores";
+import { barStatus } from "../features/taskbar/status";
 import { barWindows } from "../features/taskbar/store";
 import { trayPictures, trayState } from "../features/taskbar/tray";
+import { mockStatus } from "../platform/services";
 import { updateSettings } from "../settings/store";
 import { sampleAvatar } from "./showcase-data";
 
@@ -19,6 +21,7 @@ export function fillSample(): void {
       groups: Array.from({ length: apps }, (_, i) => ({ key: `sample-${i}`, name: `App ${i}`, pins: [], windows: [{ id: i + 1, title: `App ${i}`, minimized: false, flashing: i === apps - 2 }] })),
       active: apps,
     });
+  barStatus.set({ power: mockStatus.seed().power, network: { kind: "wireless", wifi: true, bars: 4, ssid: "Crest Lab" }, sound: { level: 40, muted: false } });
   barFeed.set({
     weather: { temp: 12, feels: 10, code: 2, wind: 9, day: true },
     // Wider than the title's 160 px, so it scrolls.

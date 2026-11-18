@@ -1830,5 +1830,14 @@
  "Keine ausgeblendeten Symbole": "Nessuna icona nascosta",
  "{n} weitere App": "{n} altra app",
  "{n} weitere Apps": "Altre {n} app",
- "Weitere Apps": "Altre app"
+ "Weitere Apps": "Altre app",
+ "Ethernet": "Ethernet",
+ "WLAN: {name}": "Wi-Fi: {name}",
+ "WLAN aus": "Wi-Fi disattivato",
+ "Nicht verbunden": "Non connesso",
+ "Lautstärke {p} %": "Volume {p}%",
+ "Akku {p} %, lädt": "Batteria {p}%, in carica",
+ "Schnelleinstellungen": "Impostazioni rapide",
+ "Weitere Einstellungen": "Altre impostazioni",
+ "Energiesparmodus": "Risparmio energia"
 }

@@ -1830,5 +1830,14 @@
  "Keine ausgeblendeten Symbole": "Нет скрытых значков",
  "{n} weitere App": "Ещё {n} приложение",
  "{n} weitere Apps": "Ещё приложений: {n}",
- "Weitere Apps": "Другие приложения"
+ "Weitere Apps": "Другие приложения",
+ "Ethernet": "Ethernet",
+ "WLAN: {name}": "Wi-Fi: {name}",
+ "WLAN aus": "Wi-Fi выключен",
+ "Nicht verbunden": "Не подключено",
+ "Lautstärke {p} %": "Громкость {p}%",
+ "Akku {p} %, lädt": "Батарея {p}%, заряжается",
+ "Schnelleinstellungen": "Быстрые параметры",
+ "Weitere Einstellungen": "Другие параметры",
+ "Energiesparmodus": "Экономия энергии"
 }

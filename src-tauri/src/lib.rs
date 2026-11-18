@@ -146,25 +146,27 @@ pub(crate) fn own_page(url: &tauri::Url) -> bool {
 /// glass) or apply the settings to the system. The notch applies what the settings window saves, so only it does that.
 const SETTINGS_DENIED: &[&str] = &[
     "display_apply", "keyboard_focus", "set_hit_rect", "set_pet_rect", "set_pinned", "set_passthrough", "memory_low", "hotkeys_apply",
-    "launcher_shortcuts", "clipboard_mode", "tray_texts", "media_pin", "status_configure", "notices_configure",
+    "launcher_shortcuts", "clipboard_mode", "tray_texts", "media_pin", "status_configure", "status_bar", "notices_configure",
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
     "taskbar_auto_hide", "taskbar_slid", "taskbar_shell", "taskbar_windows_pins", "taskbar_tray_on", "taskbar_tray_click",
+    "taskbar_settings",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, opening the notch and
 /// the settings, the Crest menu, its own glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
 /// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
-/// (`taskbar_slid`), Windows' Start and its Win+X menu (`taskbar_shell`), the tray's icons with their pictures and clicks, and what
-/// the notch's tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`,
+/// (`taskbar_slid`), Windows' Start, its Win+X menu and its quick settings (`taskbar_shell`), four of its settings pages
+/// (`taskbar_settings`), the tray's icons with their pictures and clicks, and what the notch's tools in its panel read or do on
+/// a click. Its settings reach Rust only through the notch (`taskbar_apply`,
 /// `taskbar_auto_hide`, `taskbar_tray_on`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "taskbar_tray", "taskbar_tray_images", "taskbar_tray_click",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log", "taskbar_front",
     "taskbar_slid", "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
-    "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "translate_status", "taskbar_shell",
+    "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "translate_status", "taskbar_shell", "taskbar_settings",
     "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
     "notices_open_app", "notices_copy_code",
     "power_plans", "power_plan_set", "system_icon", "reveal_file", "ports_list", "ports_open", "ports_end",
@@ -358,6 +360,8 @@ pub fn run() {
             sysevents::status_seed,
             #[cfg(windows)]
             sysevents::status_configure,
+            #[cfg(windows)]
+            sysevents::status_bar,
             #[cfg(windows)]
             system::system_icon,
             convert::convert_probe,
@@ -565,6 +569,8 @@ pub fn run() {
             taskbar::widgets::taskbar_hello,
             #[cfg(windows)]
             taskbar::widgets::taskbar_calendar,
+            #[cfg(windows)]
+            taskbar::widgets::taskbar_settings,
             #[cfg(windows)]
             taskbar::pins::taskbar_import_pins,
             #[cfg(windows)]
@@ -1157,6 +1163,7 @@ mod tests {
         assert!(!ok("settings", "glass_live_start") && !ok("timer", "glass_live_exclude"));
         // The bar reads the power state for its glass, but never sets what the status alerts watch.
         assert!(ok("taskbar", "status_seed") && ok("taskbar-1", "status_seed") && !ok("taskbar", "status_configure"));
+        assert!(ok("notch", "status_bar") && !ok("taskbar", "status_bar") && !ok("taskbar-1", "status_bar") && !ok("settings", "status_bar"));
         assert!(ok("taskbar", "taskbar_panel") && ok("taskbar", "taskbar_ask") && !ok("taskbar", "launcher_apps") && ok("taskbar-1", "taskbar_panel"));
         // A settings window claiming a bar's panel would keep the notch's sources running.
         assert!(!ok("settings", "taskbar_panel") && !ok("settings", "taskbar_ask") && !ok("timer", "taskbar_ask"));
@@ -1211,6 +1218,7 @@ mod tests {
         // The widgets' hello, which has the notch send their data, and the clock's click. Their audio capture and lyrics switch are
         // the notch's (audio_levels and media_lyrics, refused above).
         assert!(ok("taskbar", "taskbar_hello") && ok("taskbar", "taskbar_calendar") && ok("taskbar-1", "taskbar_hello"));
+        assert!(ok("taskbar", "taskbar_settings") && ok("taskbar-1", "taskbar_settings") && !ok("settings", "taskbar_settings"));
         assert!(ok("notch", "taskbar_import_pins") && ok("settings", "taskbar_import_pins") && !ok("taskbar", "taskbar_import_pins"));
         // Windows' pins reach the bar through the notch, which applies them to the settings.
         assert!(ok("notch", "taskbar_windows_pins") && !ok("taskbar", "taskbar_windows_pins"));

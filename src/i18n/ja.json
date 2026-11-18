@@ -1830,5 +1830,14 @@
  "Keine ausgeblendeten Symbole": "隠れているアイコンはありません",
  "{n} weitere App": "他 {n} 個のアプリ",
  "{n} weitere Apps": "他 {n} 個のアプリ",
- "Weitere Apps": "その他のアプリ"
+ "Weitere Apps": "その他のアプリ",
+ "Ethernet": "イーサネット",
+ "WLAN: {name}": "Wi-Fi: {name}",
+ "WLAN aus": "Wi-Fi オフ",
+ "Nicht verbunden": "未接続",
+ "Lautstärke {p} %": "音量 {p}%",
+ "Akku {p} %, lädt": "バッテリー {p}%、充電中",
+ "Schnelleinstellungen": "クイック設定",
+ "Weitere Einstellungen": "その他の設定",
+ "Energiesparmodus": "省エネ機能"
 }

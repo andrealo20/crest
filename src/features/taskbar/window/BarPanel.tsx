@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, usePresence, type Transition } from "motion/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { content, springs } from "../../../design/motion";
@@ -12,8 +12,8 @@ import { settings } from "../../../settings/store";
 import { useToolSize } from "../../window/panel";
 import { limits } from "../../window/panelSize";
 import { fitIcon, placeMenu } from "../model";
-import { closePanel, panel, trayDrag, type OpenPanel, type PanelContent } from "../panel";
-import { PANEL_EDGE, PANEL_GAP, TOOL_FALLBACK, TRAY_SIZE, fitPanel, toolPanelSize } from "../panelModel";
+import { closePanel, panel, quickLayout, trayDrag, type OpenPanel, type PanelContent } from "../panel";
+import { PANEL_EDGE, PANEL_GAP, QUICK_SIZE, TOOL_FALLBACK, TRAY_SIZE, fitPanel, toolPanelSize } from "../panelModel";
 import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
 import type { HitRect } from "./BarMenu";
@@ -22,6 +22,9 @@ import { TrayPanel } from "./TrayPanel";
 
 /** The panel's corners at 100 %, CSS px: the notch's open panel where it floats, without ears. */
 const RADIUS = 30;
+
+/** Loaded the first time Stato opens it. */
+const QuickPanel = lazy(() => import("./QuickPanel"));
 
 /**
  * The panel above the bar (panel.ts) in the notch's shape and springs: it grows up out of the item it opened from, centred on it and
@@ -53,8 +56,10 @@ function usePanelSize(shows: PanelContent, apps: number): { w: number; h: number
   const { height, iconSize, trayShown } = settings.use().taskbar;
   const { icons } = trayState.use();
   const folded = trayFolded.use();
+  const quick = quickLayout.use();
   if (shows.kind === "tray") return TRAY_SIZE(fitIcon(height, iconSize), (folded ? icons : splitTray(icons, trayShown).hidden).length);
   if (shows.kind === "apps") return TRAY_SIZE(fitIcon(height, iconSize), apps);
+  if (shows.kind === "quick") return QUICK_SIZE(quick);
   if (!tab) return null;
   // The notch's own rule (Notch.tsx): the tool's runtime request wins over the size it was given, an extra height rides on top of
   // that size, and both are held to the monitor.
@@ -169,7 +174,9 @@ function Panel({ open, bar, onPlace, apps }: { open: OpenPanel; bar: RefObject<H
       // it the window lets the pointer through, so a pick in a menu that hung past it would land in the window below.
       data-notch-hit
       role="dialog"
-      aria-label={open.content.kind === "tray" ? t("Infobereich") : open.content.kind === "apps" ? t("Weitere Apps") : undefined}
+      aria-label={
+        open.content.kind === "tray" ? t("Infobereich") : open.content.kind === "apps" ? t("Weitere Apps") : open.content.kind === "quick" ? t("Schnelleinstellungen") : undefined
+      }
       aria-labelledby={open.content.kind === "tool" ? TOOL_TITLE_ID : undefined}
       // Closing, it takes no key and no click: its zone is already gone.
       inert={!present}
@@ -197,7 +204,17 @@ function Panel({ open, bar, onPlace, apps }: { open: OpenPanel; bar: RefObject<H
                   animate={{ opacity: 1, transition: content.enter }}
                   exit={{ opacity: 0, transition: content.exit }}
                 >
-                  {open.content.kind === "tray" ? <TrayPanel /> : open.content.kind === "apps" ? apps.grid : <ToolPanel tool={open.content.tool} />}
+                  {open.content.kind === "tray" ? (
+                    <TrayPanel />
+                  ) : open.content.kind === "apps" ? (
+                    apps.grid
+                  ) : open.content.kind === "tool" ? (
+                    <ToolPanel tool={open.content.tool} />
+                  ) : (
+                    <Suspense fallback={null}>
+                      <QuickPanel />
+                    </Suspense>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

@@ -20,6 +20,9 @@ export const panel = createStore<OpenPanel | null>(null);
  */
 export const trayDrag = createStore<{ id: string; img: string | null; x: number; y: number; from: "panel" | "bar" } | null>(null);
 
+/** The quick panel's rows that come and go (QuickPanel.tsx), for its size (QUICK_SIZE): the radios, the brightness, the open output list's px. */
+export const quickLayout = createStore<{ radios: boolean; brightness: boolean; list: number }>({ radios: true, brightness: false, list: 0 });
+
 /** Opens the panel over `anchor`, or puts `content` in its place when it is open. A tool the bar cannot show opens in the notch. */
 export function openPanel(content: PanelContent, anchor: PanelAnchor): void {
   if (content.kind === "tool" && !opensInBar(content)) {

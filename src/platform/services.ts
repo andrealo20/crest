@@ -15,6 +15,7 @@ import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
 import type { TrayState, WindowList } from "../features/taskbar/model";
+import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
 import type { Rect } from "../features/taskbar/autoHide";
 import type { Favorite } from "../features/launcher/apps";
 import bundledChangelog from "../changelog.json";
@@ -552,8 +553,8 @@ export const display = {
 
 // ---------- Status alerts (sysevents.rs) ----------
 
-/** State at start, so what is already true (charger in, headphones on) does not alert. */
-export interface StatusSeed { power: PowerState | null; online: boolean | null; devices: string[] }
+/** State at start, so what is already true (charger in, headphones on) does not alert; `network` and `sound` only while a bar shows Stato. */
+export interface StatusSeed { power: PowerState | null; online: boolean | null; devices: string[]; network: NetworkState | null; sound: SoundState | null }
 export interface StatusHandlers {
   seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: BluetoothEvent): void; level(e: LevelEvent): void; lock(e: LockEvent): void; mic(e: MicEvent): void;
   output(e: OutputEvent): void; focus(e: FocusEvent): void; mode(e: ModeEvent): void; airplane(on: boolean): void; display(e: DisplayEvent): void;
@@ -599,11 +600,37 @@ export const status = {
     void invoke<StatusSeed>("status_seed").then(seed, () => {});
     return () => offs.forEach((off) => void off.then((f) => f()));
   },
+  /**
+   * The power, the network and the volume for the bar's Stato item, each as it changes, as onPower does for one: the seed passes only
+   * what it knows and no change has said since. Rust sends the network and the volume only while the notch says a bar shows Stato.
+   */
+  onBar: (handler: (patch: Partial<BarStatus>) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const keys = ["power", "network", "sound"] as const;
+    const heard = new Set<string>();
+    const seed = (s: StatusSeed) => {
+      const fresh = keys.filter((k) => s[k] !== null && !heard.has(k));
+      if (fresh.length) handler(Object.fromEntries(fresh.map((k) => [k, s[k]])));
+    };
+    const offs = [
+      listen<StatusSeed>("status://seed", (e) => seed(e.payload)),
+      ...keys.map((k) =>
+        listen<BarStatus[typeof k]>(`status://${k}`, (e) => {
+          heard.add(k);
+          handler({ [k]: e.payload });
+        }),
+      ),
+    ];
+    void invoke<StatusSeed>("status_seed").then(seed, () => {});
+    return () => offs.forEach((off) => void off.then((f) => f()));
+  },
   /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `insert`: watch Insert presses; `bt`, `volume`, `mic`: keep the Bluetooth watcher and the volume and microphone callbacks;
    *  `focus`: read Do not disturb; `hideOsd`: hide the Windows indicator now (status.ts osdHidden); `osdArmed`: the option is in force, also while it is not hiding. */
   configure: (c: { ddc: boolean; locks: boolean; insert: boolean; bt: boolean; volume: boolean; mic: boolean; focus: boolean; hideOsd: boolean; osdArmed: boolean }) => {
     if (isNative) void invoke("status_configure", c);
   },
+  /** Whether Rust follows the network and the volume for the bar's Stato (model.ts statusWanted); sent by the notch only. */
+  barOn: (on: boolean): Promise<void> => (isNative ? invoke("status_bar", { on }) : Promise.resolve()),
 };
 
 // ---------- Downloads in progress (downloads.rs) ----------
@@ -658,7 +685,7 @@ export const mockStatus = (() => {
   let output = 0, dnd = false, mode = 2, airplane = false, monitor = false;
   const listeners = new Set<StatusHandlers>();
   return {
-    seed: (): StatusSeed => ({ power, online, devices: buds ? ["Buds"] : [] }),
+    seed: (): StatusSeed => ({ power, online, devices: buds ? ["Buds"] : [], network: null, sound: null }),
     subscribe(h: StatusHandlers) {
       listeners.add(h);
       return () => void listeners.delete(h);
@@ -1306,8 +1333,8 @@ export const taskbar = {
   window: (id: number, action: "activate" | "toggle" | "minimize" | "close"): Promise<void> => (isNative ? invoke("taskbar_window", { id, action }) : Promise.resolve()),
   /** Gives the keyboard back to the app in front, or the last one if only Start came after it (none after the desktop or a Crest window), after a menu or panel closed from the bar. */
   release: (): Promise<void> => (isNative ? invoke("taskbar_release") : Promise.resolve()),
-  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu. */
-  shell: (action: "start" | "winx"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
+  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu, "quick" its quick settings (Win+A). */
+  shell: (action: "start" | "winx" | "quick"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
   /** Icons of the groups without an entry, by group key (PNG data URL, null = none). */
   icons: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_icons", { keys }) : Promise.resolve({})),
   /** The tray's icons as Rust last listed them: none while Crest's tray does not run. */
@@ -1325,7 +1352,7 @@ export const taskbar = {
     isNative ? invoke("taskbar_tray_click", { key, button, rect }) : Promise.resolve(),
   /** Where the page draws (the bar, an open menu) in its CSS px; clicks pass through the rest of the window. */
   hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
-  /** Tells the notch what the bar's panel shows: "tray", a tool's id, or null once it closes. */
+  /** Tells the notch what the bar's panel shows: "tray", "apps", "quick", a tool's id, or null once it closes. */
   panel: (open: string | null): Promise<void> => (isNative ? invoke("taskbar_panel", { open }) : Promise.resolve()),
   /** "Hide when a window touches it" on or off; only while it is on does Rust send each bar the window in front of its monitor. The notch only. */
   autoHide: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_auto_hide", { on }) : Promise.resolve()),
@@ -1355,6 +1382,8 @@ export const taskbar = {
   hello: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_hello") : Promise.resolve(true)),
   /** The clock's click: Windows' notification centre, with the calendar. */
   calendar: (): Promise<void> => (isNative ? invoke("taskbar_calendar") : Promise.resolve()),
+  /** One of Windows' settings pages, by name (Rust maps it to its URI). */
+  settings: (page: "home" | "saver" | "airplane" | "ethernet"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
   /**
    * The bar shows or hides (a full-screen app, the hide hotkey, slid off the screen). Rust sends the primary bar's state to the notch, which stops the
    * widgets' sources, and to that bar, which pauses them; each other bar gets its own. On this window only: a listener for any

@@ -33,7 +33,7 @@ fn kind_of(name: &str) -> Option<RadioKind> {
     }
 }
 
-fn radios() -> windows::core::Result<Vec<Radio>> {
+pub(crate) fn radios() -> windows::core::Result<Vec<Radio>> {
     Ok(Radio::GetRadiosAsync()?.join()?.into_iter().collect())
 }
 
@@ -42,7 +42,7 @@ fn of_kind(list: &[Radio], kind: RadioKind) -> impl Iterator<Item = &Radio> {
 }
 
 /// On when any radio of that kind is (a USB adapter next to the built-in one); None when there is none.
-fn radio_on(list: &[Radio], kind: RadioKind) -> Option<bool> {
+pub(crate) fn radio_on(list: &[Radio], kind: RadioKind) -> Option<bool> {
     let states: Vec<_> = of_kind(list, kind).filter_map(|r| r.State().ok()).collect();
     (!states.is_empty()).then(|| states.contains(&RadioState::On))
 }

@@ -6,9 +6,9 @@ import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 
 /** The bar's zones. Physical, as the closed row's: left stays left in a right-to-left language. */
 export type Zone = "left" | "center" | "right";
-/** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button, the notification area ("tray") and the closed notch's parts as widgets. */
-export type BarItem = "start" | "apps" | "crest" | "tray" | PartId;
-/** The items every bar has: one missing from the zones is put back in its default place. The tray and the widgets can be taken off. */
+/** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button, the notification area ("tray"), Stato (network, volume and battery, "status") and the closed notch's parts as widgets. */
+export type BarItem = "start" | "apps" | "crest" | "tray" | "status" | PartId;
+/** The items every bar has: one missing from the zones is put back in its default place. The tray, Stato and the widgets can be taken off. */
 export const FIXED_ITEMS = ["start", "apps", "crest"] as const;
 /** The bar's shape: along the screen's edge with no gaps, floating above it, a capsule, or a tile per item. */
 export type BarShape = "docked" | "floating" | "capsule" | "tiles";
@@ -17,7 +17,7 @@ export type BarShape = "docked" | "floating" | "capsule" | "tiles";
  * The bar: on or off, the items in each zone, the bar's height and its icons' size in CSS px, its background (the closed
  * notch's or the theme's), the pinned apps (null: never seeded), the ids Windows' taskbar had pinned when the notch last read them,
  * with those a read missed (null: never read; store.ts follows what changes there), its shape, its transparency in percent and its
- * glass, the bar clock's own date and seconds, and whether the default widgets and the tray were placed (once, so one taken off
+ * glass, the bar clock's own date and seconds, and whether the default widgets, the tray and Stato were placed (once, so one taken off
  * stays off). The tray keeps the icons in `trayShown` (TrayIcon.id) on the bar; the others are in the panel behind its ^ button.
  */
 export interface TaskbarSettings {
@@ -36,13 +36,14 @@ export interface TaskbarSettings {
   clock: { date: boolean; seconds: boolean };
   widgetsSeeded: boolean;
   traySeeded: boolean;
+  statusSeeded: boolean;
   trayShown: string[];
 }
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
   enabled: false,
   autoHide: false,
-  zones: { left: [], center: ["start", "apps"], right: ["weather", "tray", "clock", "crest"] },
+  zones: { left: [], center: ["start", "apps"], right: ["weather", "tray", "status", "clock", "crest"] },
   height: 44,
   iconSize: 24,
   surface: "notch",
@@ -54,6 +55,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   clock: { date: true, seconds: false },
   widgetsSeeded: true,
   traySeeded: true,
+  statusSeeded: true,
   trayShown: [],
 };
 
@@ -74,7 +76,7 @@ export const COMPACT_PAD = 10;
 
 const ZONES: Zone[] = ["left", "center", "right"];
 /** Every item a zone may hold. */
-const ITEMS: string[] = [...FIXED_ITEMS, "tray", ...PART_IDS];
+const ITEMS: string[] = [...FIXED_ITEMS, "tray", "status", ...PART_IDS];
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const within = (v: unknown, [min, max]: readonly [number, number], fallback: number) =>
@@ -86,12 +88,14 @@ const within = (v: unknown, [min, max]: readonly [number, number], fallback: num
  */
 export function normalizeTaskbar(v: unknown): TaskbarSettings {
   const s = isObj(v) ? v : {}, d = TASKBAR_DEFAULTS, clock = isObj(s.clock) ? s.clock : {};
-  const zones = normalizeZones(s.zones, s.widgetsSeeded !== true);
+  // Settings saved before the widgets, the tray or Stato get the default ones once; the flags are saved with them, so one taken off stays off.
+  const widgets = normalizeZones(s.zones, s.widgetsSeeded !== true);
+  const tray = s.traySeeded === true ? widgets : withItem(widgets, "tray");
+  const zones = s.statusSeeded === true ? tray : withItem(tray, "status");
   return {
     enabled: s.enabled === true,
     autoHide: s.autoHide === true,
-    // Settings saved before the widgets get the default ones once; widgetsSeeded is saved with them, so a widget taken off stays off.
-    zones: s.traySeeded === true ? zones : withTray(zones),
+    zones,
     height: within(s.height, HEIGHT, d.height),
     iconSize: within(s.iconSize, ICON, d.iconSize),
     surface: s.surface === "theme" ? "theme" : "notch",
@@ -103,18 +107,19 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     clock: { date: clock.date !== false, seconds: clock.seconds === true },
     widgetsSeeded: true,
     traySeeded: true,
+    statusSeeded: true,
     trayShown: Array.isArray(s.trayShown) ? [...new Set(s.trayShown.filter((x): x is string => typeof x === "string"))] : [],
   };
 }
 
-/** The zones with the tray put in once, before the clock in its zone, else before the Crest button (at the end of the right zone with neither); a tray already on the bar leaves them as they are. */
-function withTray(zones: Record<Zone, BarItem[]>): Record<Zone, BarItem[]> {
-  if (ZONES.some((z) => zones[z].includes("tray"))) return zones;
-  const zone = (id: BarItem) => ZONES.find((z) => zones[z].includes(id));
+/** The zones with the tray or Stato put in once, before the clock in its zone, else before the Crest button (at the end of the right zone with neither); one already on the bar leaves them as they are. */
+function withItem(zones: Record<Zone, BarItem[]>, id: "tray" | "status"): Record<Zone, BarItem[]> {
+  if (ZONES.some((z) => zones[z].includes(id))) return zones;
+  const zone = (x: BarItem) => ZONES.find((z) => zones[z].includes(x));
   const before = zone("clock") ? "clock" : "crest", to = zone(before) ?? "right";
   const at = zones[to].indexOf(before);
   const items = [...zones[to]];
-  items.splice(at < 0 ? items.length : at, 0, "tray");
+  items.splice(at < 0 ? items.length : at, 0, id);
   return { ...zones, [to]: items };
 }
 
@@ -124,10 +129,13 @@ export const trayOnBar = (zones: Record<Zone, BarItem[]>): boolean => ZONES.some
 /** Whether the spy that records the tray's icons runs: while the bar is on and a zone holds the tray; otherwise Explorer keeps the tray alone. */
 export const trayWanted = (t: TaskbarSettings): boolean => t.enabled && trayOnBar(t.zones);
 
+/** Whether Rust follows the network and the volume for the bar (`status.barOn`): while the bar is on and a zone holds Stato. */
+export const statusWanted = (t: TaskbarSettings): boolean => t.enabled && ZONES.some((z) => t.zones[z].includes("status"));
+
 /**
  * Each fixed item in exactly one zone and each widget in one at most: unknown ids dropped, a duplicate kept at its first place
  * reading left, center, right, and a missing fixed item back in its default zone at its default index (the end when the zone is
- * shorter). A missing widget or tray is off the bar; `seed` puts the default widgets back the same way (the tray comes with normalizeTaskbar).
+ * shorter). A missing widget, tray or Stato is off the bar; `seed` puts the default widgets back the same way (the tray and Stato come with normalizeTaskbar).
  */
 export function normalizeZones(v: unknown, seed = false): Record<Zone, BarItem[]> {
   const s = isObj(v) ? v : {};
@@ -143,8 +151,8 @@ export function normalizeZones(v: unknown, seed = false): Record<Zone, BarItem[]
   }
   for (const z of ZONES) {
     // splice puts an index past the end at the end.
-    // Without the tray, which is no fixed item: it would push the indexes of the others past what they were.
-    TASKBAR_DEFAULTS.zones[z].filter((id) => id !== "tray").forEach((id, i) => {
+    // Without the tray and Stato, which are no fixed items: they would push the indexes of the others past what they were.
+    TASKBAR_DEFAULTS.zones[z].filter((id) => id !== "tray" && id !== "status").forEach((id, i) => {
       if (!seen.has(id) && (FIXED_ITEMS.includes(id as never) || (seed && PART_IDS.includes(id as PartId)))) zones[z].splice(i, 0, id);
     });
   }

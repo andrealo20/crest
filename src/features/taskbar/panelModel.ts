@@ -3,8 +3,8 @@
 
 import { DOCK_HEIGHT } from "../../notch/geometry.ts";
 
-/** What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, or the apps behind "…". */
-export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "apps" };
+/** What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, the apps behind "…", or Stato's quick panel. */
+export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "apps" } | { kind: "quick" };
 /** The item the panel opens over: its left edge and its width, CSS px. */
 export interface PanelAnchor {
   x: number;
@@ -19,7 +19,7 @@ export interface OpenPanel {
 /** The tools the closed row's parts open (partTool in src/notch/row/parts.ts): the same parts on the bar open them in its panel. */
 export const BAR_TOOLS: readonly string[] = ["media", "timer", "usage", "system", "notices", "overview", "shelf", "weather", "discord", "github", "leetcode", "calendar"];
 
-/** The tool's id, or the kind ("tray", "apps") for any other content: the panel crossfades when it changes. */
+/** The tool's id, or the kind ("tray", "apps", "quick") for any other content: the panel crossfades when it changes. */
 export const panelKey = (c: PanelContent) => (c.kind === "tool" ? c.tool : c.kind);
 /** The same content closes the panel on a second click, another takes its place. The kind counts too, so no tool id passes for the tray. */
 export const sameContent = (a: PanelContent, b: PanelContent) => a.kind === b.kind && panelKey(a) === panelKey(b);
@@ -28,12 +28,12 @@ export const sameContent = (a: PanelContent, b: PanelContent) => a.kind === b.ki
  * centre zone recentres as window buttons come and go, a clock widens), while two items never overlap. A zero-width span overlaps nothing.
  */
 export const sameAnchor = (a: PanelAnchor, b: PanelAnchor) => a.w > 0 && b.w > 0 && a.x < b.x + b.w && b.x < a.x + a.w;
-/** The tray and the widgets' tools open in the bar; any other tool opens in the notch, so a widget added later still opens somewhere. */
+/** The tray, the quick panel and the widgets' tools open in the bar; any other tool opens in the notch, so a widget added later still opens somewhere. */
 export const opensInBar = (c: PanelContent) => c.kind !== "tool" || BAR_TOOLS.includes(c.tool);
 
 /**
  * The notch's record of what each bar's panel shows, by the bar window's label, after a `bar://panel` event (`taskbar_panel`,
- * src-tauri/src/taskbar/panel.rs): `open` is "tray", "apps" or a tool's id, null once the panel closes. Another window could emit the event
+ * src-tauri/src/taskbar/panel.rs): `open` is "tray", "apps", "quick" or a tool's id, null once the panel closes. Another window could emit the event
  * by mistake, so the label is only a key, and a payload of another shape leaves the record as it is, the very same object.
  */
 export function withPanel(state: Record<string, string>, payload: unknown): Record<string, string> {
@@ -58,6 +58,16 @@ export const PANEL_EDGE = 8;
  * with 12 px round them; one row at least, for the line it shows without icons, and four at most, past which it scrolls.
  */
 export const TRAY_SIZE = (icon: number, count: number) => ({ w: 5 * (icon + 16) + 24, h: Math.min(Math.max(Math.ceil(count / 5), 1), 4) * (icon + 16) + 24 });
+
+/**
+ * The quick panel's size at 100 %: 12 px round its rows, 10 px between them. The radios (56) and the brightness (40) only where they
+ * apply; the volume, the saver and airplane chips (40 each) and the footer (32) always; `list` is the open output list, with its own
+ * separator and no gap of its own.
+ */
+export function QUICK_SIZE(rows: { radios: boolean; brightness: boolean; list: number }): { w: number; h: number } {
+  const heights = [rows.radios ? 56 : 0, 40, rows.brightness ? 40 : 0, 40, 32].filter((h) => h > 0);
+  return { w: 360, h: 24 + heights.reduce((a, b) => a + b, 0) + 10 * (heights.length - 1) + rows.list };
+}
 
 /** A tool's size in the panel: its size in the notch less the notch's tool bar, which the panel does not have. */
 export const toolPanelSize = (size: { w: number; h: number }) => ({ w: size.w, h: size.h - DOCK_HEIGHT });

@@ -2,11 +2,11 @@ import { followStores } from "../../lib/bridge";
 import { createStore } from "../../lib/store";
 import { listening, tauriTransport } from "../../lib/tauriTransport";
 import { isMac, isNative } from "../../platform/native";
-import { taskbar } from "../../platform/services";
+import { status, taskbar } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { normalizeFavorites } from "../launcher/apps";
 import { feedStores, panelStores } from "./barStores";
-import { applyWindowsPins, trayOnBar, type TaskbarSettings, type WindowList } from "./model";
+import { applyWindowsPins, statusWanted, trayOnBar, type TaskbarSettings, type WindowList } from "./model";
 
 /** In the bar's window: the open windows grouped by app, as Rust last sent them. */
 export const barWindows = createStore<WindowList>({ groups: [], active: null });
@@ -30,6 +30,7 @@ export function startTaskbar() {
   let last = "";
   let hides: boolean | null = null;
   let tray: boolean | null = null;
+  let statusOn: boolean | null = null;
   let queue = Promise.resolve();
   let seeded = false;
   let offPins: (() => void) | null = null;
@@ -71,6 +72,12 @@ export function startTaskbar() {
     if (wantTray !== tray) {
       tray = wantTray;
       void taskbar.trayOn(wantTray).catch(() => {});
+    }
+    // Likewise, whether the bar is on and shows Stato: Rust follows the network and the volume for it only then.
+    const wantStatus = statusWanted(settings.get().taskbar);
+    if (wantStatus !== statusOn) {
+      statusOn = wantStatus;
+      void status.barOn(wantStatus).catch(() => {});
     }
     // One try per start: a failed read leaves the list to the next start, and an app pinned meanwhile is never overwritten.
     if (enabled && pinned === null && !seeded) {

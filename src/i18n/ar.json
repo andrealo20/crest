@@ -1830,5 +1830,14 @@
  "Keine ausgeblendeten Symbole": "لا رموز مخفية",
  "{n} weitere App": "{n} تطبيق آخر",
  "{n} weitere Apps": "{n} تطبيقات أخرى",
- "Weitere Apps": "تطبيقات أخرى"
+ "Weitere Apps": "تطبيقات أخرى",
+ "Ethernet": "إيثرنت",
+ "WLAN: {name}": "Wi-Fi: {name}",
+ "WLAN aus": "Wi-Fi متوقف",
+ "Nicht verbunden": "غير متصل",
+ "Lautstärke {p} %": "مستوى الصوت {p}%",
+ "Akku {p} %, lädt": "البطارية {p}%، قيد الشحن",
+ "Schnelleinstellungen": "الإعدادات السريعة",
+ "Weitere Einstellungen": "مزيد من الإعدادات",
+ "Energiesparmodus": "توفير الطاقة"
 }

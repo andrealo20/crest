@@ -15,6 +15,7 @@ import {
   normalizeTaskbar,
   normalizeZones,
   placeMenu,
+  statusWanted,
   taskbarShown,
   trayIcon,
   trayOnBar,
@@ -84,7 +85,7 @@ test("the default widgets arrive once", () => {
   assert.deepEqual(normalizeZones({ left: [], center: ["apps"], right: ["crest"] }, true).right, ["weather", "clock", "crest"]);
   assert.deepEqual(normalizeZones({ left: ["clock"], center: ["apps"], right: ["crest"] }, true), { left: ["clock"], center: ["start", "apps"], right: ["weather", "crest"] });
   const once = normalizeTaskbar({ zones: { left: [], center: ["apps"], right: ["crest"] } });
-  assert.deepEqual(once.zones.right, ["weather", "tray", "clock", "crest"]);
+  assert.deepEqual(once.zones.right, ["weather", "tray", "status", "clock", "crest"]);
   assert.equal(once.widgetsSeeded, true);
   assert.deepEqual(normalizeTaskbar({ ...once, zones: { ...once.zones, right: ["crest"] } }).zones.right, ["crest"]);
   assert.deepEqual(normalizeTaskbar(undefined).zones, TASKBAR_DEFAULTS.zones);
@@ -180,14 +181,32 @@ test("the remembered windows pins keep only strings, once each", () => {
 });
 
 test("the tray arrives once before the clock and stays removed when taken off", () => {
-  const seeded = normalizeTaskbar({ zones: { left: [], center: ["start", "apps"], right: ["clock", "crest"] }, widgetsSeeded: true });
+  const seeded = normalizeTaskbar({ zones: { left: [], center: ["start", "apps"], right: ["clock", "crest"] }, widgetsSeeded: true, statusSeeded: true });
   assert.deepEqual(seeded.zones.right, ["tray", "clock", "crest"]);
   const removed = normalizeTaskbar({ ...seeded, zones: { ...seeded.zones, right: ["clock", "crest"] } });
   assert.deepEqual(removed.zones.right, ["clock", "crest"]);
 });
 
 test("the tray goes before the Crest menu when there is no clock", () => {
-  assert.deepEqual(normalizeTaskbar({ zones: { left: [], center: ["start", "apps"], right: ["crest"] }, widgetsSeeded: true }).zones.right, ["tray", "crest"]);
+  assert.deepEqual(normalizeTaskbar({ zones: { left: [], center: ["start", "apps"], right: ["crest"] }, widgetsSeeded: true, statusSeeded: true }).zones.right, ["tray", "crest"]);
+});
+
+test("Stato arrives once before the clock and stays removed when taken off", () => {
+  const seeded = normalizeTaskbar({ zones: { left: [], center: ["start", "apps"], right: ["tray", "clock", "crest"] }, widgetsSeeded: true, traySeeded: true });
+  assert.deepEqual(seeded.zones.right, ["tray", "status", "clock", "crest"]);
+  assert.equal(seeded.statusSeeded, true);
+  const removed = normalizeTaskbar({ ...seeded, zones: { ...seeded.zones, right: ["tray", "clock", "crest"] } });
+  assert.deepEqual(removed.zones.right, ["tray", "clock", "crest"]);
+});
+
+test("Stato goes before the Crest menu when there is no clock", () => {
+  assert.deepEqual(normalizeTaskbar({ zones: { left: [], center: ["start", "apps"], right: ["crest"] }, widgetsSeeded: true, traySeeded: true }).zones.right, ["status", "crest"]);
+});
+
+test("Rust follows the network and the volume for the bar only while it is on and shows Stato", () => {
+  assert.equal(statusWanted({ ...TASKBAR_DEFAULTS, enabled: true }), true);
+  assert.equal(statusWanted({ ...TASKBAR_DEFAULTS, enabled: false }), false);
+  assert.equal(statusWanted({ ...TASKBAR_DEFAULTS, enabled: true, zones: { left: [], center: ["start", "apps"], right: ["crest"] } }), false);
 });
 
 test("the icons kept visible are strings, once each", () => {

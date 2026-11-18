@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, TRAY_SIZE, dropSlot, fitPanel, opensInBar, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, QUICK_SIZE, TRAY_SIZE, dropSlot, fitPanel, opensInBar, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -87,4 +87,18 @@ test("a dragged icon lands in the slot under the pointer", () => {
   const slots = [100, 140, 180].map((x) => ({ x, w: 40 }));
   assert.deepEqual([90, 125, 165, 500].map((x) => dropSlot(slots, x)), [0, 1, 2, 3]);
   assert.equal(dropSlot([], 300), 0);
+});
+
+test("Stato's quick panel opens in the bar's panel, apart from the tray and any tool", () => {
+  assert.equal(opensInBar({ kind: "quick" }), true);
+  assert.equal(panelKey({ kind: "quick" }), "quick");
+  assert.equal(sameContent({ kind: "quick" }, { kind: "tray" }), false);
+  assert.equal(sameContent({ kind: "quick" }, { kind: "tool", tool: "quick" }), false);
+});
+
+test("the quick panel is as tall as its rows", () => {
+  // 12 px padding top and bottom, rows 56 (radios), 40 (volume), 40 (brightness), 40 (saver and airplane), 32 (footer), 10 px between rows.
+  assert.deepEqual(QUICK_SIZE({ radios: true, brightness: true, list: 0 }), { w: 360, h: 272 });
+  assert.deepEqual(QUICK_SIZE({ radios: false, brightness: false, list: 0 }), { w: 360, h: 156 });
+  assert.equal(QUICK_SIZE({ radios: true, brightness: true, list: 90 }).h, 362);
 });
