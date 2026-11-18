@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, QUICK_SIZE, TRAY_SIZE, dropSlot, fitPanel, opensInBar, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, TRAY_SIZE, dropSlot, fitPanel, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -101,4 +101,20 @@ test("the quick panel is as tall as its rows", () => {
   assert.deepEqual(QUICK_SIZE({ radios: true, brightness: true, list: 0 }), { w: 360, h: 272 });
   assert.deepEqual(QUICK_SIZE({ radios: false, brightness: false, list: 0 }), { w: 360, h: 156 });
   assert.equal(QUICK_SIZE({ radios: true, brightness: true, list: 90 }).h, 362);
+});
+
+test("a quick page is as tall as its rows, six at most before it scrolls", () => {
+  // 12 px padding top and bottom, the header 32, the rows 40 each (one at least), the footer 32, 10 px between the three.
+  assert.deepEqual(QUICK_PAGE_SIZE(3, 0), { w: 360, h: 228 });
+  assert.deepEqual(QUICK_PAGE_SIZE(0, 0), { w: 360, h: 148 });
+  assert.equal(QUICK_PAGE_SIZE(10, 0).h, 348);
+  assert.equal(QUICK_PAGE_SIZE(3, PASSWORD_ROW).h, 272);
+});
+
+test("a page goes back to the panel when its radio is gone, and stays while it is only off", () => {
+  assert.equal(pageAfter("wifi", { wifi: false, bluetooth: true }), "wifi");
+  assert.equal(pageAfter("wifi", { wifi: null, bluetooth: true }), null);
+  assert.equal(pageAfter("bluetooth", { wifi: true, bluetooth: null }), null);
+  assert.equal(pageAfter("bluetooth", null), "bluetooth"); // the radios are not read yet
+  assert.equal(pageAfter(null, { wifi: true, bluetooth: true }), null);
 });

@@ -1,7 +1,7 @@
 import { createStore } from "../../lib/store";
 import { settingsWindow } from "../../platform/native";
 import { taskbar } from "../../platform/services";
-import { opensInBar, panelKey, sameAnchor, sameContent, type OpenPanel, type PanelAnchor, type PanelContent } from "./panelModel";
+import { opensInBar, panelKey, sameAnchor, sameContent, type OpenPanel, type PanelAnchor, type PanelContent, type QuickPage } from "./panelModel";
 
 /*
  * The panel above the bar, in the bar's window: what it shows and the item it opens over. The bar's items open it only through the
@@ -22,6 +22,12 @@ export const trayDrag = createStore<{ id: string; img: string | null; x: number;
 
 /** The quick panel's rows that come and go (QuickPanel.tsx), for its size (QUICK_SIZE): the radios, the brightness, the open output list's px. */
 export const quickLayout = createStore<{ radios: boolean; brightness: boolean; list: number }>({ radios: true, brightness: false, list: 0 });
+
+/** The page open in the quick panel and the rows it asks room for (QUICK_PAGE_SIZE), null on the main page; the panel reopens on the main page. */
+export const quickPage = createStore<{ page: QuickPage; rows: number; extra: number } | null>(null);
+
+/** While Windows' own prompt has the focus, the panel stays open when its window loses it. */
+export const panelHeld = createStore(false);
 
 /** Opens the panel over `anchor`, or puts `content` in its place when it is open. A tool the bar cannot show opens in the notch. */
 export function openPanel(content: PanelContent, anchor: PanelAnchor): void {

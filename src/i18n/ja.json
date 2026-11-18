@@ -1839,5 +1839,12 @@
  "Akku {p} %, lädt": "バッテリー {p}%、充電中",
  "Schnelleinstellungen": "クイック設定",
  "Weitere Einstellungen": "その他の設定",
- "Energiesparmodus": "省エネ機能"
+ "Energiesparmodus": "省エネ機能",
+ "WLAN-Netzwerke anzeigen": "Wi-Fi ネットワークを表示",
+ "Bluetooth-Geräte anzeigen": "Bluetooth デバイスを表示",
+ "Zurück zu den Schnelleinstellungen": "クイック設定に戻る",
+ "WLAN ist ausgeschaltet": "Wi-Fi はオフです",
+ "Bluetooth ist ausgeschaltet": "Bluetooth はオフです",
+ "Weitere WLAN-Einstellungen": "その他の Wi-Fi 設定",
+ "Weitere Bluetooth-Geräte": "その他の Bluetooth デバイス"
 }

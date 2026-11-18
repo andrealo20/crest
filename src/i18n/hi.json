@@ -1839,5 +1839,12 @@
  "Akku {p} %, lädt": "बैटरी {p}%, चार्ज हो रही है",
  "Schnelleinstellungen": "त्वरित सेटिंग्स",
  "Weitere Einstellungen": "अधिक सेटिंग्स",
- "Energiesparmodus": "ऊर्जा बचत"
+ "Energiesparmodus": "ऊर्जा बचत",
+ "WLAN-Netzwerke anzeigen": "वाई-फ़ाई नेटवर्क दिखाएँ",
+ "Bluetooth-Geräte anzeigen": "ब्लूटूथ डिवाइस दिखाएँ",
+ "Zurück zu den Schnelleinstellungen": "त्वरित सेटिंग्स पर वापस जाएँ",
+ "WLAN ist ausgeschaltet": "वाई-फ़ाई बंद है",
+ "Bluetooth ist ausgeschaltet": "ब्लूटूथ बंद है",
+ "Weitere WLAN-Einstellungen": "अधिक वाई-फ़ाई सेटिंग्स",
+ "Weitere Bluetooth-Geräte": "अधिक ब्लूटूथ डिवाइस"
 }

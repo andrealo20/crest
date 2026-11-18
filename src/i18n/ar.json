@@ -1839,5 +1839,12 @@
  "Akku {p} %, lädt": "البطارية {p}%، قيد الشحن",
  "Schnelleinstellungen": "الإعدادات السريعة",
  "Weitere Einstellungen": "مزيد من الإعدادات",
- "Energiesparmodus": "توفير الطاقة"
+ "Energiesparmodus": "توفير الطاقة",
+ "WLAN-Netzwerke anzeigen": "إظهار شبكات Wi-Fi",
+ "Bluetooth-Geräte anzeigen": "إظهار أجهزة بلوتوث",
+ "Zurück zu den Schnelleinstellungen": "العودة إلى الإعدادات السريعة",
+ "WLAN ist ausgeschaltet": "Wi-Fi متوقف عن التشغيل",
+ "Bluetooth ist ausgeschaltet": "بلوتوث متوقف عن التشغيل",
+ "Weitere WLAN-Einstellungen": "مزيد من إعدادات Wi-Fi",
+ "Weitere Bluetooth-Geräte": "مزيد من أجهزة بلوتوث"
 }

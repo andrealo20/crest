@@ -1839,5 +1839,12 @@
  "Akku {p} %, lädt": "Батарея {p}%, заряжается",
  "Schnelleinstellungen": "Быстрые параметры",
  "Weitere Einstellungen": "Другие параметры",
- "Energiesparmodus": "Экономия энергии"
+ "Energiesparmodus": "Экономия энергии",
+ "WLAN-Netzwerke anzeigen": "Показать сети Wi-Fi",
+ "Bluetooth-Geräte anzeigen": "Показать устройства Bluetooth",
+ "Zurück zu den Schnelleinstellungen": "Назад к быстрым параметрам",
+ "WLAN ist ausgeschaltet": "Wi-Fi выключен",
+ "Bluetooth ist ausgeschaltet": "Bluetooth выключен",
+ "Weitere WLAN-Einstellungen": "Другие параметры Wi-Fi",
+ "Weitere Bluetooth-Geräte": "Другие устройства Bluetooth"
 }

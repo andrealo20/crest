@@ -1,5 +1,5 @@
 //! The commands of the bar's widgets (Windows only): the page's hello, which has the notch send it the widgets' data, the
-//! clock's click and the quick panel's settings pages.
+//! clock's click and the settings pages of the quick panel and its pages.
 
 use tauri::{AppHandle, Emitter, WebviewWindow};
 
@@ -22,13 +22,16 @@ pub fn taskbar_calendar() -> Result<(), String> {
     crate::open_url("ms-actioncenter:")
 }
 
-/// The settings pages the quick panel opens, by name: the page never sends a URL.
+/// The settings pages the quick panel and its pages open, by name: the page never sends a URL.
 fn settings_page(page: &str) -> Option<&'static str> {
     match page {
         "home" => Some("ms-settings:"),
         "saver" => Some("ms-settings:batterysaver"),
         "airplane" => Some("ms-settings:network-airplanemode"),
         "ethernet" => Some("ms-settings:network-ethernet"),
+        "wifi" => Some("ms-settings:network-wifi"),
+        "bluetooth" => Some("ms-settings:bluetooth"),
+        "location" => Some("ms-settings:privacy-location"),
         _ => None,
     }
 }
@@ -49,6 +52,10 @@ mod tests {
         assert_eq!(settings_page("saver"), Some("ms-settings:batterysaver"));
         assert_eq!(settings_page("airplane"), Some("ms-settings:network-airplanemode"));
         assert_eq!(settings_page("ethernet"), Some("ms-settings:network-ethernet"));
+        assert_eq!(settings_page("wifi"), Some("ms-settings:network-wifi"));
+        assert_eq!(settings_page("bluetooth"), Some("ms-settings:bluetooth"));
+        assert_eq!(settings_page("location"), Some("ms-settings:privacy-location"));
+        assert_eq!(settings_page("ms-availablenetworks:"), None);
         assert_eq!(settings_page("ms-settings:privacy"), None);
         assert_eq!(settings_page(""), None);
     }

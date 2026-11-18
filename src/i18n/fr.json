@@ -1839,5 +1839,12 @@
  "Akku {p} %, lädt": "Batterie {p} %, en charge",
  "Schnelleinstellungen": "Paramètres rapides",
  "Weitere Einstellungen": "Plus de paramètres",
- "Energiesparmodus": "Économiseur d'énergie"
+ "Energiesparmodus": "Économiseur d'énergie",
+ "WLAN-Netzwerke anzeigen": "Afficher les réseaux Wi-Fi",
+ "Bluetooth-Geräte anzeigen": "Afficher les appareils Bluetooth",
+ "Zurück zu den Schnelleinstellungen": "Retour aux paramètres rapides",
+ "WLAN ist ausgeschaltet": "Le Wi-Fi est désactivé",
+ "Bluetooth ist ausgeschaltet": "Le Bluetooth est désactivé",
+ "Weitere WLAN-Einstellungen": "Plus de paramètres Wi-Fi",
+ "Weitere Bluetooth-Geräte": "Plus d'appareils Bluetooth"
 }

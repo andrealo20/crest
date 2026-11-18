@@ -1839,5 +1839,12 @@
  "Akku {p} %, lädt": "Batteria {p}%, in carica",
  "Schnelleinstellungen": "Impostazioni rapide",
  "Weitere Einstellungen": "Altre impostazioni",
- "Energiesparmodus": "Risparmio energia"
+ "Energiesparmodus": "Risparmio energia",
+ "WLAN-Netzwerke anzeigen": "Mostra le reti Wi-Fi",
+ "Bluetooth-Geräte anzeigen": "Mostra i dispositivi Bluetooth",
+ "Zurück zu den Schnelleinstellungen": "Torna alle impostazioni rapide",
+ "WLAN ist ausgeschaltet": "Il Wi-Fi è spento",
+ "Bluetooth ist ausgeschaltet": "Il Bluetooth è spento",
+ "Weitere WLAN-Einstellungen": "Altre impostazioni Wi-Fi",
+ "Weitere Bluetooth-Geräte": "Altri dispositivi Bluetooth"
 }

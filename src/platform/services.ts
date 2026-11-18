@@ -1383,7 +1383,7 @@ export const taskbar = {
   /** The clock's click: Windows' notification centre, with the calendar. */
   calendar: (): Promise<void> => (isNative ? invoke("taskbar_calendar") : Promise.resolve()),
   /** One of Windows' settings pages, by name (Rust maps it to its URI). */
-  settings: (page: "home" | "saver" | "airplane" | "ethernet"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
+  settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
   /**
    * The bar shows or hides (a full-screen app, the hide hotkey, slid off the screen). Rust sends the primary bar's state to the notch, which stops the
    * widgets' sources, and to that bar, which pauses them; each other bar gets its own. On this window only: a listener for any

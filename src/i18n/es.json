@@ -1839,5 +1839,12 @@
  "Akku {p} %, lädt": "Batería {p}%, cargando",
  "Schnelleinstellungen": "Configuración rápida",
  "Weitere Einstellungen": "Más configuración",
- "Energiesparmodus": "Ahorro de energía"
+ "Energiesparmodus": "Ahorro de energía",
+ "WLAN-Netzwerke anzeigen": "Mostrar redes Wi-Fi",
+ "Bluetooth-Geräte anzeigen": "Mostrar dispositivos Bluetooth",
+ "Zurück zu den Schnelleinstellungen": "Volver a Configuración rápida",
+ "WLAN ist ausgeschaltet": "Wi-Fi está desactivado",
+ "Bluetooth ist ausgeschaltet": "Bluetooth está desactivado",
+ "Weitere WLAN-Einstellungen": "Más configuración de Wi-Fi",
+ "Weitere Bluetooth-Geräte": "Más dispositivos Bluetooth"
 }

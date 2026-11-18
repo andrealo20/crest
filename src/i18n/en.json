@@ -1839,5 +1839,12 @@
  "Akku {p} %, lädt": "Battery {p}%, charging",
  "Schnelleinstellungen": "Quick settings",
  "Weitere Einstellungen": "More settings",
- "Energiesparmodus": "Energy saver"
+ "Energiesparmodus": "Energy saver",
+ "WLAN-Netzwerke anzeigen": "Show Wi-Fi networks",
+ "Bluetooth-Geräte anzeigen": "Show Bluetooth devices",
+ "Zurück zu den Schnelleinstellungen": "Back to quick settings",
+ "WLAN ist ausgeschaltet": "Wi-Fi is off",
+ "Bluetooth ist ausgeschaltet": "Bluetooth is off",
+ "Weitere WLAN-Einstellungen": "More Wi-Fi settings",
+ "Weitere Bluetooth-Geräte": "More Bluetooth devices"
 }

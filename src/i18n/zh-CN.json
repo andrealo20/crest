@@ -1839,5 +1839,12 @@
  "Akku {p} %, lädt": "电池 {p}%，正在充电",
  "Schnelleinstellungen": "快速设置",
  "Weitere Einstellungen": "更多设置",
- "Energiesparmodus": "节能模式"
+ "Energiesparmodus": "节能模式",
+ "WLAN-Netzwerke anzeigen": "显示 WLAN 网络",
+ "Bluetooth-Geräte anzeigen": "显示蓝牙设备",
+ "Zurück zu den Schnelleinstellungen": "返回快速设置",
+ "WLAN ist ausgeschaltet": "WLAN 已关闭",
+ "Bluetooth ist ausgeschaltet": "蓝牙已关闭",
+ "Weitere WLAN-Einstellungen": "更多 WLAN 设置",
+ "Weitere Bluetooth-Geräte": "更多蓝牙设备"
 }
