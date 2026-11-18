@@ -13,7 +13,7 @@ import { media, useNowPlaying } from "../../platform/media";
 import { systemControls, type AudioOutput, type FocusState, type VolumeState } from "../../platform/services";
 import { MIXER_MAX_ROWS, MIXER_ROW, sendSystemVolume } from "../now-playing/Mixer";
 import { outputIcon } from "./outputs";
-import { useDiscordCall } from "../discord/store";
+import { discordToolOn, useDiscordCall } from "../discord/store";
 import { Equalizer } from "../now-playing/Equalizer";
 import { ARTWORK_LAYOUT_ID, PlayPauseIcon } from "../now-playing/NowPlayingView";
 import { formatClock, timer, useRemaining } from "../timer/store";
@@ -203,6 +203,8 @@ const ROW_CONTROL = "pressable pressable-fill flex size-8 items-center justify-c
 /** What's running, in the same priority as the closed notch: timer, call, music. */
 function Activity() {
   const np = useNowPlaying();
+  // The bar's Discord widget can hold a call with the tool off; then the row keeps the music, as opening the notch does (live.tsx).
+  const discordOn = discordToolOn(settings.use());
   const call = useDiscordCall();
   const tm = timer.use();
   const remaining = useRemaining();
@@ -217,7 +219,7 @@ function Activity() {
       title: tm.finished ? t(tm.mode === "focus" ? "Fokus abgelaufen" : "Pause abgelaufen") : t(tm.mode === "focus" ? "Fokus" : "Pause"),
       detail: tm.finished ? t("Zum Schließen öffnen") : t("noch {time}", { time: formatClock(remaining) }),
     };
-  } else if (call) {
+  } else if (call && discordOn) {
     item = {
       key: "discord",
       tab: "discord",
