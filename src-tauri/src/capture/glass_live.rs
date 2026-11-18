@@ -165,6 +165,11 @@ pub(crate) fn forget(app: &AppHandle, label: &str) {
         let state = app.state::<CaptureState>();
         // LIVE held to the end, as in `switch`.
         let mut live = slot();
+        // The bar was built again while this waited, and its page may have started already: that session and the flag are the
+        // new bar's. Tauri drops a window from its list before its Destroyed handlers run, so the old one is never found here.
+        if app.get_webview_window(&label).is_some() {
+            return;
+        }
         stop(&mut live, &label);
         if !app.webview_windows().keys().any(|l| *l != label && l.starts_with("taskbar")) {
             state.bar_live.store(false, Ordering::SeqCst);
