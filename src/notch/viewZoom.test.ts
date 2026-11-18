@@ -16,6 +16,7 @@ export function createStore<T>(state: T) {
   return { get: () => state, set: (next: T) => void (state = next) };
 }
 export const isNative = true;
+export const isTaskbarWindow = false;
 export const settings = { get: () => ({ behavior: { scale: 100 } }) };
 
 test("the page's scale and size follow a move to another scale and a resize, and the scale is watched again after each change", async () => {

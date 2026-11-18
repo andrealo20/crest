@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type MouseEventHandler, type RefObject } from "react";
 import { AnimatePresence } from "motion/react";
+import { SquaresFour } from "@phosphor-icons/react";
 import { t } from "../../../i18n";
 import { launcher, taskbar } from "../../../platform/services";
 import { settings } from "../../../settings/store";
@@ -8,8 +9,10 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
 import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, type BarItem, type Zone } from "../model";
+import { closePanel, panel, togglePanel } from "../panel";
 import { barWindows, groupIcons } from "../store";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
+import { BarPanel } from "./BarPanel";
 import { Item, MARK } from "./Item";
 
 /** Room between the bar and the screen's sides and bottom, CSS px (src-tauri/src/taskbar/bar.rs GAP). */
@@ -49,6 +52,11 @@ export function TaskbarWindow() {
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const placeMenuZone = useHitZone(bar);
+  // The panel above the bar shares the menus' place in the hit zone: opening one closes the other.
+  const open = panel.use();
+  useEffect(() => {
+    if (open) setMenu(null);
+  }, [open]);
   // Once the window lets the pointer through, the page sees no pointerleave: Rust says when the pointer left the bar.
   useEffect(
     () =>
@@ -73,9 +81,15 @@ export function TaskbarWindow() {
   /** Opens a menu over its button, or closes it on a second click there; another button's menu takes the place of an open one. */
   const toggle = (next: Menu, anchor: HTMLElement) => {
     const r = anchor.getBoundingClientRect();
+    closePanel();
     setMenu((m) => (m?.kind === next.kind && m.anchor === anchor ? null : { ...next, anchor, x: r.x, w: r.width }));
   };
   const openCrestMenu: MouseEventHandler<HTMLButtonElement> = (e) => toggle({ kind: "crest" }, e.currentTarget);
+  /** Opens the app menu over its button, or closes it on a second click there. */
+  const toggleApps: MouseEventHandler<HTMLButtonElement> = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    togglePanel({ kind: "apps" }, { x: r.x, w: r.width });
+  };
 
   const launch = (b: BarButton, id: string) =>
     launcher.open(id).catch((code) => setError({ key: b.key, text: t(code === "not-found" ? "{name} ist nicht mehr installiert" : "{name} startet nicht", { name: b.name }) }));
@@ -92,8 +106,8 @@ export function TaskbarWindow() {
 
   const item = (key: string, name: string) => ({
     name,
-    // An open menu hides the names, which would show around it.
-    label: menu ? null : error?.key === key ? error.text : hovered === key ? name : null,
+    // An open menu or panel hides the names, which would show around it.
+    label: menu || open ? null : error?.key === key ? error.text : hovered === key ? name : null,
     failed: error?.key === key,
     lifted: hovered === key,
     size,
@@ -102,10 +116,16 @@ export function TaskbarWindow() {
     onLeave: () => setHovered((h) => (h === key ? null : h)),
   });
 
-  // The app menu's button comes with its panel, so "start" draws nothing yet.
-  const render = (id: BarItem) =>
-    id === "start" ? null : id === "apps" ? (
-      buttons.map((b) => {
+  // Each item draws in a branch of its own: an item added to BarItem without one is a type error, not a second Crest button.
+  const render = (id: BarItem) => {
+    if (id === "start")
+      return (
+        <Item {...item("start", t("App-Menü"))} expanded={open?.content.kind === "apps"} onClick={toggleApps} onContextMenu={toggleApps}>
+          <SquaresFour size={size} weight="bold" />
+        </Item>
+      );
+    if (id === "apps")
+      return buttons.map((b) => {
         const entry = launchId(b);
         return (
           <Item
@@ -118,20 +138,25 @@ export function TaskbarWindow() {
             <AppIcon src={entry === null ? ownIcons[b.key] : icons[entry]} size={size} />
           </Item>
         );
-      })
-    ) : (
-      <Item {...item("crest", t("Crest-Menü"))} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
-        <CrestMark size={size} />
-      </Item>
-    );
+      });
+    if (id === "crest")
+      return (
+        <Item {...item("crest", t("Crest-Menü"))} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
+          <CrestMark size={size} />
+        </Item>
+      );
+    return id satisfies never;
+  };
 
   return (
     <div
       className="flex h-full flex-col justify-end"
       style={{ ["--accent" as string]: accent }}
-      // A right click beside the buttons, on the bar or in the gap under it: the Crest menu, over the pointer.
+      // A right click beside the buttons, on the bar or in the gap under it: the Crest menu, over the pointer. Not in the panel.
       onContextMenu={(e) => {
-        if (!(e.target as Element).closest("button, [role=menu]")) setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 });
+        if ((e.target as Element).closest("button, [role=menu], [role=dialog]")) return;
+        closePanel();
+        setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 });
       }}
     >
       {/* On the closed notch's black the bar and its menus keep their dark tokens whatever the theme (Notch.tsx), and its zones keep their sides in any language. */}
@@ -150,7 +175,8 @@ export function TaskbarWindow() {
           ))}
         </div>
         <AnimatePresence>
-          {menu && (
+          {/* Gone in the very commit the panel opens in, so its zone is cleared before the panel's box goes in, never after. */}
+          {menu && !open && (
             <BarMenu
               key={`${menu.kind}@${menu.x}`}
               title={menu.kind === "crest" ? t("Crest-Menü") : menu.b.name}
@@ -172,6 +198,8 @@ export function TaskbarWindow() {
           )}
         </AnimatePresence>
       </div>
+      {/* Outside the bar's ink: the panel has the theme's colours whatever the bar's background, as the notch's open panel has. */}
+      <BarPanel bar={bar} onPlace={placeMenuZone} />
       {/* The launch error for screen readers too: a button's label is not read out. */}
       <span role="status" aria-live="polite" className="sr-only">
         {error?.text}

@@ -15,6 +15,8 @@ export function Item(props: {
   size: number;
   markAt: number;
   mark?: Indicator;
+  /** An item that opens the panel above the bar: whether the panel shows what it opens. */
+  expanded?: boolean;
   onEnter: () => void;
   onLeave: () => void;
   onClick: MouseEventHandler<HTMLButtonElement>;
@@ -28,6 +30,8 @@ export function Item(props: {
     // button is held, and the release would land beside it.
     <button
       aria-label={props.name}
+      aria-haspopup={props.expanded === undefined ? undefined : "dialog"}
+      aria-expanded={props.expanded}
       onPointerEnter={props.onEnter}
       onPointerLeave={props.onLeave}
       onClick={props.onClick}

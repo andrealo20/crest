@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Reorder } from "motion/react";
-import { AppWindow, DotsSixVertical } from "@phosphor-icons/react";
+import { AppWindow, DotsSixVertical, SquaresFour } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { nav } from "../../notch/nav";
@@ -83,7 +83,13 @@ export function TaskbarItems() {
                 }`}
               >
                 <DotsSixVertical size={13} weight="bold" className="-ms-1 text-label-4 transition-colors group-hover:text-label-3" />
-                {id === "crest" ? <CrestMark size={15} className="shrink-0 text-label-2" /> : <AppWindow size={15} weight="bold" className="shrink-0 text-label-2" />}
+                {id === "crest" ? (
+                  <CrestMark size={15} className="shrink-0 text-label-2" />
+                ) : id === "start" ? (
+                  <SquaresFour size={15} weight="bold" className="shrink-0 text-label-2" />
+                ) : (
+                  <AppWindow size={15} weight="bold" className="shrink-0 text-label-2" />
+                )}
                 <span className="min-w-0 flex-1 truncate text-body text-label select-none">{t(ITEM_LABEL[id])}</span>
                 <div onPointerDown={(e) => e.stopPropagation()}>
                   {/* The menu also reports its current zone when picked again; moveItem would send the item to that zone's end. */}

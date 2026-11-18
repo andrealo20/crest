@@ -6,6 +6,8 @@ import { settings } from "../../../settings/store";
 import { language, startLanguage } from "../../../i18n";
 import { startThemes } from "../../themes/store";
 import { startCrashLog } from "../../window/store";
+import { taskbar } from "../../../platform/services";
+import { startPanelReport } from "../panel";
 import { startBarWindows } from "../store";
 import { TaskbarWindow } from "./TaskbarWindow";
 
@@ -34,6 +36,9 @@ window.addEventListener("keydown", (e) => {
 });
 
 startBarWindows();
+// A reloaded page starts with its panel closed: the notch forgets what the page before it had open.
+void taskbar.panel(null);
+startPanelReport();
 
 /** Re-renders on a language change, as the notch's root does. */
 function App() {

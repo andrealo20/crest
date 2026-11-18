@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
+import { isNotchWindow } from "../../lib/windowKind";
 import { launcher } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { fullscreen } from "../system/gaming";
@@ -41,8 +42,9 @@ export function loadApps(refresh = false): Promise<void> {
     .then((raw) => {
       const apps = mergeApps(raw);
       launcherApps.set({ apps, loading: false, failed: false });
-      // First list ever: pin the AI apps found. An empty list is a failed read, not "nothing installed".
-      if (settings.get().launcher.favorites === null && raw.length > 0) {
+      // First list ever: pin the AI apps found. An empty list is a failed read, not "nothing installed". The notch only: the bar's
+      // app menu reads the list too and writes nothing of the Launcher's.
+      if (isNotchWindow && settings.get().launcher.favorites === null && raw.length > 0) {
         updateSettings((s) => ({ launcher: { ...s.launcher, favorites: detectAi(apps).map((a) => ({ id: a.id, name: a.name })) } }));
       }
     })
