@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEventHandler } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEventHandler, type PointerEvent as ReactPointerEvent } from "react";
 import { motion } from "motion/react";
 import { popover } from "../../../design/motion";
 import { t } from "../../../i18n";
@@ -10,12 +10,16 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { aiKey, type LauncherApp } from "../../launcher/apps";
 import { launcherApps, loadApps, useIcons } from "../../launcher/store";
 import { menuKey } from "../model";
-import { closePanel } from "../panel";
+import { closePanel, panel, pinDrag } from "../panel";
 import { appRows } from "../panelModel";
 import { togglePin } from "./BarMenu";
 
 /** Room the pin menu keeps from the panel's edges, CSS px. */
 const EDGE = 8;
+/** How far a press on a row moves before it drags the app out, CSS px; less is still a click. */
+const DRAG = 4;
+/** The ways a press ends without a key. */
+const PRESS_ENDS = ["pointerup", "pointercancel", "lostpointercapture"] as const;
 
 /** An open pin menu: its app, and where it opens in the window's px (the pointer, or the selected row's bottom left corner). */
 type PinAt = { app: LauncherApp; x: number; y: number };
@@ -70,6 +74,51 @@ export function AppsView() {
     root.querySelectorAll("[data-app]").forEach((row) => observer.observe(row));
     return () => observer.disconnect();
   }, [rows]);
+
+  // A press on a row, followed until the pointer lets go: past DRAG it drags the app (pinDrag), which the bar pins where it is let
+  // go (TaskbarWindow). The press ends on the release, a cancel, a lost capture, Esc while dragging, or the panel closing; `dragged`
+  // outlives it, so the click its release makes starts nothing.
+  const endPress = useRef<(() => void) | null>(null);
+  const dragged = useRef(false);
+  useEffect(() => {
+    const off = panel.subscribe(() => panel.get() || endPress.current?.());
+    return () => {
+      off();
+      endPress.current?.();
+    };
+  }, []);
+  const press = (e: ReactPointerEvent<HTMLElement>, app: LauncherApp) => {
+    if (e.button !== 0) return;
+    const { pointerId, clientX, clientY } = e;
+    // The row gets every move and the release, wherever the pointer goes; the window gets them from it, and a capture lost to a
+    // row taken out of the list (a search typed meanwhile) reaches the window from the document.
+    e.currentTarget.setPointerCapture(pointerId);
+    dragged.current = false;
+    const onMove = (m: PointerEvent) => {
+      if (m.pointerId !== pointerId || (!dragged.current && Math.hypot(m.clientX - clientX, m.clientY - clientY) <= DRAG)) return;
+      dragged.current = true;
+      pinDrag.set({ app, x: m.clientX, y: m.clientY });
+    };
+    const onEnd = (m: PointerEvent) => m.pointerId === pointerId && end();
+    // Taken on the way down, before the panel's own Esc, which then leaves the panel open.
+    const onKey = (k: KeyboardEvent) => {
+      if (k.key !== "Escape" || !dragged.current) return;
+      k.preventDefault();
+      end();
+    };
+    const end = () => {
+      removeEventListener("pointermove", onMove);
+      for (const type of PRESS_ENDS) removeEventListener(type, onEnd);
+      removeEventListener("keydown", onKey, true);
+      endPress.current = null;
+      pinDrag.set(null);
+    };
+    endPress.current?.();
+    addEventListener("pointermove", onMove);
+    for (const type of PRESS_ENDS) addEventListener(type, onEnd);
+    addEventListener("keydown", onKey, true);
+    endPress.current = end;
+  };
 
   const start = (app: LauncherApp) => {
     setError(null);
@@ -173,7 +222,10 @@ export function AppsView() {
                 aria-selected={i === at}
                 data-app={a.id}
                 onPointerMove={() => setSel(i)}
-                onClick={() => start(a)}
+                onPointerDown={(e) => press(e, a)}
+                onClick={() => {
+                  if (!dragged.current) start(a);
+                }}
                 onContextMenu={(e) => {
                   setSel(i);
                   setPin({ app: a, x: e.clientX, y: e.clientY });

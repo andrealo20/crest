@@ -1,8 +1,8 @@
-// The rules of the panel above Crest's bar: what it shows, which tools open in it, how big it is and how the app menu lists the
-// apps. Pure, so they can be tested without the app around them.
+// The rules of the panel above Crest's bar: what it shows, which tools open in it, how big it is, how the app menu lists the apps
+// and where an app dragged out of it is pinned. Pure, so they can be tested without the app around them.
 
 import { DOCK_HEIGHT } from "../../notch/geometry.ts";
-import { searchApps, type LauncherApp } from "../launcher/apps.ts";
+import { searchApps, type Favorite, type LauncherApp } from "../launcher/apps.ts";
 
 /** What the panel shows: the app menu, or a tool by the id the notch opens it with. */
 export type PanelContent = { kind: "apps" } | { kind: "tool"; tool: string };
@@ -81,4 +81,22 @@ export function appRows(apps: LauncherApp[], query: string): AppRow[] {
     const row: AppRow = { kind: "app", app };
     return i > 0 && initialOf(apps[i - 1].name) === letter ? [row] : [{ kind: "letter", letter }, row];
   });
+}
+
+/** The slot a dragged app lands in among the bar's pinned buttons (`slots`, in their order): before the first whose centre is right of `x`, else after the last. */
+export function dropSlot(slots: { x: number; w: number }[], x: number): number {
+  const i = slots.findIndex((s) => s.x + s.w / 2 > x);
+  return i < 0 ? slots.length : i;
+}
+
+/**
+ * The pinned apps with `app` at `slot` of the order as the bar shows it: a pinned app moves there, so a slot right before or right
+ * after it leaves the order as it is; a new one goes in, at the end for a slot past it. A pin keeps only its id and name.
+ */
+export function pinAt(pinned: Favorite[], app: Favorite, slot: number): Favorite[] {
+  const from = pinned.findIndex((f) => f.id === app.id);
+  const next = pinned.filter((f) => f.id !== app.id);
+  // The slots after a pinned app's own place count that place, which `next` no longer has.
+  next.splice(from >= 0 && slot > from ? slot - 1 : slot, 0, app);
+  return next.map(({ id, name }) => ({ id, name }));
 }

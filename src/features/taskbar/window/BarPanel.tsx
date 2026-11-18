@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, usePresence, type Transition } from "motion/react";
 import { listen } from "@tauri-apps/api/event";
 import { content, springs } from "../../../design/motion";
@@ -8,7 +8,7 @@ import { isNative, onNativeBlur } from "../../../platform/native";
 import { taskbar } from "../../../platform/services";
 import { settings } from "../../../settings/store";
 import { placeMenu } from "../model";
-import { closePanel, panel, type OpenPanel, type PanelContent } from "../panel";
+import { closePanel, panel, pinDrag, type OpenPanel, type PanelContent } from "../panel";
 import { APPS_SIZE, PANEL_EDGE, PANEL_GAP, fitPanel, panelKey } from "../panelModel";
 import { AppsView } from "./AppsView";
 import type { HitRect } from "./BarMenu";
@@ -59,12 +59,15 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
   const natural = asked ?? kept.current;
   const size = natural && fitPanel(natural, { w: view.width - 2 * PANEL_EDGE, h: view.barTop - PANEL_GAP - PANEL_EDGE }, zoom);
 
-  // Its final box on screen, which the hit zone takes in full as soon as it opens and gives up as soon as it starts closing.
+  // Its final box on screen, which the hit zone takes in full as soon as it opens and gives up as soon as it starts closing. While an
+  // app is dragged out of the app menu the zone is the whole window, or the window would let the pointer go as it left the panel.
   const w = size ? size.w * zoom : 0;
   const h = size ? size.h * zoom : 0;
   const left = placeMenu(anchor.x, anchor.w, w, view.width, PANEL_EDGE);
   const placed = present && size !== null;
-  const box = placed ? { x: left, y: view.barTop - PANEL_GAP - h, w, h } : null;
+  // Only whether a drag runs: the pointer's moves would draw the whole panel again.
+  const dragging = useSyncExternalStore(pinDrag.subscribe, () => pinDrag.get() !== null);
+  const box = !placed ? null : dragging ? { x: 0, y: 0, w: view.width, h: view.height } : { x: left, y: view.barTop - PANEL_GAP - h, w, h };
   // Null is reported once: a menu can take the slot while the panel fades, and a resize meanwhile must leave its box alone.
   useLayoutEffect(() => {
     onPlace(box);

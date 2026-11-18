@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { LauncherApp } from "../launcher/apps.ts";
-import { BAR_TOOLS, appRows, fitPanel, initialOf, opensInBar, panelKey, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import type { Favorite, LauncherApp } from "../launcher/apps.ts";
+import { BAR_TOOLS, appRows, dropSlot, fitPanel, initialOf, opensInBar, panelKey, pinAt, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const apps: PanelContent = { kind: "apps" };
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
@@ -73,4 +73,23 @@ test("a search lists matches without letters, AI apps first", () => {
   const [calculator, claude, cursor] = ["Calculator", "Claude", "Cursor"].map(app);
   assert.deepEqual(appRows([calculator, claude, cursor], "c"), [claude, cursor, calculator].map((a) => ({ kind: "app", app: a })));
   assert.deepEqual(appRows([calculator, claude, cursor], "xyz"), []);
+});
+
+test("a dragged app lands in the slot under the pointer", () => {
+  const slots = [100, 140, 180].map((x) => ({ x, w: 40 }));
+  assert.deepEqual([90, 125, 165, 500].map((x) => dropSlot(slots, x)), [0, 1, 2, 3]);
+  assert.equal(dropSlot([], 300), 0);
+});
+
+test("pinning at a slot inserts a new app and moves a pinned one", () => {
+  const pin = (name: string): Favorite => ({ id: `shell:AppsFolder\\${name}`, name });
+  const [A, B, C, D] = ["A", "B", "C", "D"].map(pin);
+  assert.deepEqual(pinAt([A, B, C], A, 2), [B, A, C]);
+  assert.deepEqual(pinAt([A, B, C], C, 0), [C, A, B]);
+  assert.deepEqual(pinAt([A, B, C], B, 1), [A, B, C]);
+  assert.deepEqual(pinAt([A, B, C], B, 2), [A, B, C]);
+  assert.deepEqual(pinAt([A, B, C], D, 1), [A, D, B, C]);
+  assert.deepEqual(pinAt([A], D, 99), [A, D]);
+  // An app dragged out of the menu carries its list's fields too; a pin keeps its id and name only.
+  assert.deepEqual(pinAt([A], app("D"), 0), [D, A]);
 });
