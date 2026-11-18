@@ -6,7 +6,7 @@
 
 use std::sync::{Mutex, MutexGuard};
 
-use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+use tauri::{AppHandle, Manager, WebviewWindow};
 
 use super::bar;
 use crate::display;
@@ -122,8 +122,8 @@ pub(crate) fn sync_shown(app: &AppHandle) {
         })
         .collect();
     for (label, show) in changed {
-        // To that bar alone, as the primary's goes to it and the notch (bar.rs `tell_shown`): its panel closes as it hides.
-        let _ = app.emit_to(label.as_str(), "taskbar://shown", show);
+        // To that bar alone, unless its page has slid it off the screen (bar.rs `showed`): its panel closes as it hides.
+        bar::showed(app, &label, show);
         let Some(window) = app.get_webview_window(&label) else { continue };
         if show {
             bar::reveal(app, window);
@@ -131,6 +131,11 @@ pub(crate) fn sync_shown(app: &AppHandle) {
             let _ = window.hide();
         }
     }
+}
+
+/// Whether the last `sync_shown` showed `label`'s bar; false for a label with no bar here.
+pub(super) fn shown(label: &str) -> bool {
+    bars().iter().any(|o| o.label == label && o.shown)
 }
 
 /// A full-screen app came to or left the front of a bar's monitor (front.rs).

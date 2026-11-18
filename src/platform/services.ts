@@ -1298,6 +1298,8 @@ export const taskbar = {
   panel: (open: string | null): Promise<void> => (isNative ? invoke("taskbar_panel", { open }) : Promise.resolve()),
   /** "Hide when a window touches it" on or off; only while it is on does Rust send each bar the window in front of its monitor. The notch only. */
   autoHide: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_auto_hide", { on }) : Promise.resolve()),
+  /** This bar slid off the screen (useAutoHide) or back up: Rust tells this bar, and the notch for the primary's, that it is hidden while down (onShown). */
+  slid: (down: boolean): Promise<void> => (isNative ? invoke("taskbar_slid", { down }) : Promise.resolve()),
   /** The frame of the window in front of this bar's monitor, in the page's CSS px, as Rust last sent it: null without one and while the option is off. */
   front: (): Promise<Rect | null> => (isNative ? invoke<Rect | null>("taskbar_front") : Promise.resolve(null)),
   /** That frame each time it changes, while the option is on; Rust sends each bar its own. */
@@ -1313,7 +1315,7 @@ export const taskbar = {
   /** The clock's click: Windows' notification centre, with the calendar. */
   calendar: (): Promise<void> => (isNative ? invoke("taskbar_calendar") : Promise.resolve()),
   /**
-   * The bar shows or hides (a full-screen app, the hide hotkey). Rust sends the primary bar's state to the notch, which stops the
+   * The bar shows or hides (a full-screen app, the hide hotkey, slid off the screen). Rust sends the primary bar's state to the notch, which stops the
    * widgets' sources, and to that bar, which pauses them; each other bar gets its own. On this window only: a listener for any
    * target would also hear the other bars'.
    */

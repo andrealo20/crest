@@ -150,17 +150,18 @@ const SETTINGS_DENIED: &[&str] = &[
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
-    "taskbar_auto_hide",
+    "taskbar_auto_hide", "taskbar_slid",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, opening the notch and
 /// the settings, the Crest menu, its own glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
-/// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs) and what the notch's tools
-/// in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`).
+/// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
+/// (`taskbar_slid`) and what the notch's tools in its panel read or do on a click. Its settings reach Rust only through the notch
+/// (`taskbar_apply`, `taskbar_auto_hide`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log", "taskbar_front",
-    "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
+    "taskbar_slid", "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
     "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "launcher_apps", "translate_status",
     "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
     "notices_open_app", "notices_copy_code",
@@ -524,6 +525,8 @@ pub fn run() {
             taskbar::bar::taskbar_apply,
             #[cfg(windows)]
             taskbar::bar::taskbar_hit_rects,
+            #[cfg(windows)]
+            taskbar::bar::taskbar_slid,
             #[cfg(windows)]
             taskbar::tasks::taskbar_windows,
             #[cfg(windows)]
@@ -1135,6 +1138,8 @@ mod tests {
         assert!(ok("notch", "taskbar_import_pins") && ok("settings", "taskbar_import_pins") && !ok("taskbar", "taskbar_import_pins"));
         assert!(ok("taskbar", "taskbar_front") && ok("taskbar-1", "taskbar_front") && !ok("taskbar", "taskbar_auto_hide"));
         assert!(ok("notch", "taskbar_auto_hide") && !ok("settings", "taskbar_auto_hide"));
+        // Each bar says when its page slid it off the screen, for its own label; no other window has a bar to slide.
+        assert!(ok("taskbar", "taskbar_slid") && ok("taskbar-1", "taskbar_slid") && !ok("settings", "taskbar_slid"));
     }
 
     #[test]

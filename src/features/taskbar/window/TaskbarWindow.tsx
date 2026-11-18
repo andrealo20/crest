@@ -62,7 +62,8 @@ export function TaskbarWindow() {
   const { groups, active } = barWindows.use();
   const ink = useClosedInk(undefined);
   const accent = useThemedAccent(undefined);
-  // Rust hides the window without telling WebView2 the page is out of sight, so the widgets rest by this instead.
+  // Rust hides the window without telling WebView2 the page is out of sight, so the widgets rest by this instead. It reads false
+  // while the bar is slid off the screen too (taskbar.slid below).
   const paused = !barShown.use();
   const bar = useRef<HTMLDivElement>(null);
   // The first app button, pinned or not: an app dragged onto the bar's first slot goes in the gap before it.
@@ -112,6 +113,9 @@ export function TaskbarWindow() {
     open: menu !== null || open !== null,
     attention: buttons.some((b) => indicator(b, active) === "attention"),
   });
+  // Down, Rust tells this bar, and the notch for the primary's, that it is hidden (bar.rs taskbar_slid): the widgets and their sources
+  // rest as when it hides. Once per change, and once on load, which clears a slide the page left behind before a reload.
+  useEffect(() => void taskbar.slid(down), [down]);
   // Slid off the screen, the bar runs no glass, as when it hides.
   const look = useBarSurface(boxes, ink, down);
   // The shape slides out of its still box by its height and the gap under it, off the screen (useAutoHide).

@@ -6,7 +6,8 @@
 //!
 //! Only the notch applies the bar's settings (`taskbar_apply`). The bar hides with the hide hotkey and over a full-screen app
 //! in front on its monitor (display.rs reads it), whatever the notch's own rules say, and is raised before the notch so the
-//! notch stays above it.
+//! notch stays above it. With "hide when a window touches it" on, the page slides the bar off the screen inside its still window
+//! (`taskbar_slid`): the bar and the notch then hear it hidden (`taskbar://shown`), as when its window hides.
 //!
 //! Windows' taskbar hides once the primary's bar has drawn and comes back while the hide hotkey hides Crest and when the bar
 //! goes (explorer.rs, `follow`).
@@ -14,7 +15,7 @@
 //! Async on purpose: creating a window from a sync command deadlocks on Windows.
 
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewWindow, WebviewWindowBuilder, WindowEvent};
@@ -55,6 +56,20 @@ static USER_HIDDEN: AtomicBool = AtomicBool::new(false);
 static BAND: AtomicU64 = AtomicU64::new(0);
 /// The window once built and placed, 0 otherwise. For threads that must not ask the main thread for it.
 static HANDLE: AtomicIsize = AtomicIsize::new(0);
+
+/// The bars whose page has slid them off the screen inside their window (`taskbar_slid`), by label. Held across the emit of a
+/// change in what a bar hears (`tell`), so the last change is the one heard last; no Rust listener of that event takes it again.
+static SLID: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn slid() -> MutexGuard<'static, Vec<String>> {
+    SLID.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// What a bar hears as its shown state (`taskbar://shown`, `taskbar_hello`), and the notch for the primary's: its window shows and
+/// its page has not slid it off the screen (`taskbar_slid`). A label that never slid is up.
+fn on_screen(shown: bool, slid: &[String], label: &str) -> bool {
+    shown && !slid.iter().any(|l| l == label)
+}
 
 /// The window in physical px (x, y, width, height) for a work area (x, y, width, height) at `scale`: as wide as the work area
 /// and standing on its bottom, at most three quarters of its height (a transparent window over the whole monitor would
@@ -138,7 +153,7 @@ pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, app
     HANDLE.store(hwnd, Ordering::SeqCst);
     sync(&app);
     // A bar built hidden sends no change from `sync`, so the notch and the page hear its state here.
-    tell_shown(&app, shown());
+    tell_now(&app, LABEL);
     // The other monitors' bars, now that the primary's is there.
     super::screens::sync(&app);
     Ok(())
@@ -150,6 +165,8 @@ pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, app
 pub(super) fn build(app: &AppHandle, label: &str, on_destroyed: impl Fn() + Send + 'static) -> Result<WebviewWindow, String> {
     let mut config = app.config().app.windows.iter().find(|w| w.label == LABEL).cloned().ok_or("Taskbar window missing in config")?;
     config.label = label.to_owned();
+    // A new page starts up: a slide its window's last page reported on its way out is not this one's.
+    forget_slid(label);
     let window = WebviewWindowBuilder::from_config(app, &config)
         .map(|b| b.on_navigation(crate::own_page))
         .map(|b| match crate::portable::data_dir() {
@@ -167,6 +184,7 @@ pub(super) fn build(app: &AppHandle, label: &str, on_destroyed: impl Fn() + Send
         WindowEvent::CloseRequested { api, .. } => api.prevent_close(),
         WindowEvent::Destroyed => {
             on_destroyed();
+            forget_slid(&label);
             crate::capture::glass_live::forget(&handle, &label);
             // A bar destroyed with its panel open never reports the close: the notch would keep running what that panel needed
             // and, docked at the bottom, keep stepping aside for a panel that is gone. The payload is `taskbar_panel`'s (panel.rs).
@@ -197,6 +215,25 @@ pub fn taskbar_hit_rects(rects: Vec<HitRect>, window: WebviewWindow, state: Stat
     }
 }
 
+/// The calling bar's page slid it off the screen inside its window (`down`, useAutoHide.ts) or brought it back up. Down, the bar
+/// hears itself hidden, and the notch too for the primary's, so the widgets and their sources rest as when it hides. Only a change
+/// of what the bar hears is told: a hidden window reads hidden either way. Sync, so a bar's calls run in their order.
+#[tauri::command]
+pub fn taskbar_slid(down: bool, window: WebviewWindow) {
+    let label = window.label();
+    let mut slid = slid();
+    let shown = window_shown(label);
+    let before = on_screen(shown, &slid, label);
+    slid.retain(|l| l != label);
+    if down {
+        slid.push(label.to_owned());
+    }
+    let after = on_screen(shown, &slid, label);
+    if after != before {
+        tell(window.app_handle(), label, after);
+    }
+}
+
 /// Shows the bar unless the hide hotkey or a full-screen app on its monitor hides it, and the other monitors' bars each the
 /// same way; only acts on a change. Only through `show` and `hide`: a raw ShowWindow would leave tao's visible flag stale. The
 /// hotkey also brings Windows' taskbar back while it hides Crest.
@@ -210,7 +247,7 @@ pub(crate) fn sync(app: &AppHandle) {
     if SHOWN.swap(show, Ordering::SeqCst) == show {
         return;
     }
-    tell_shown(app, show);
+    showed(app, LABEL, show);
     let Some(window) = app.get_webview_window(LABEL) else { return };
     if !show {
         let _ = window.hide();
@@ -312,17 +349,45 @@ pub(crate) fn hwnd() -> isize {
     HANDLE.load(Ordering::SeqCst)
 }
 
-/// Whether the last `sync` showed the primary's bar, for its page that has just loaded (`taskbar_hello`) and for the notch and
-/// that page once `taskbar_apply` has built the bar.
-pub(crate) fn shown() -> bool {
-    SHOWN.load(Ordering::SeqCst)
+/// Whether `label`'s window shows, slid or not: the primary's as the last `sync` left it, another's as `screens::sync_shown` did.
+/// False for a label with no bar.
+fn window_shown(label: &str) -> bool {
+    if label == LABEL { SHOWN.load(Ordering::SeqCst) } else { super::screens::shown(label) }
 }
 
-/// The primary's bar shows or hides: the notch stops or starts its widgets' sources, its page pauses them and closes its panel.
-/// Only to those two: another monitor's bar hears its own (screens.rs), so the primary hiding never closes that bar's panel.
-fn tell_shown(app: &AppHandle, show: bool) {
-    let _ = app.emit_to("notch", "taskbar://shown", show);
-    let _ = app.emit_to(LABEL, "taskbar://shown", show);
+/// What `label`'s bar hears now (`on_screen`), for its page that has just loaded (`taskbar_hello`).
+pub(crate) fn shown(label: &str) -> bool {
+    on_screen(window_shown(label), &slid(), label)
+}
+
+/// `label`'s window showed or hid: its bar hears it, unless its page has slid it off the screen.
+pub(super) fn showed(app: &AppHandle, label: &str, show: bool) {
+    let slid = slid();
+    // Slid, the bar reads hidden whether its window shows or not: nothing changes for it.
+    if on_screen(true, &slid, label) {
+        tell(app, label, show);
+    }
+}
+
+/// Tells `label`'s bar what it hears now, changed or not: for a bar just built, whose `sync` sent no change.
+fn tell_now(app: &AppHandle, label: &str) {
+    let slid = slid();
+    tell(app, label, on_screen(window_shown(label), &slid, label));
+}
+
+/// A bar shows or hides for its page (`on_screen`), under `SLID`. To that bar alone, and to the notch for the primary's: the notch
+/// stops or starts its widgets' sources, the page pauses them and closes its panel. Another monitor's bar hears only its own, so
+/// the primary hiding never closes that bar's panel.
+fn tell(app: &AppHandle, label: &str, show: bool) {
+    if label == LABEL {
+        let _ = app.emit_to("notch", "taskbar://shown", show);
+    }
+    let _ = app.emit_to(label, "taskbar://shown", show);
+}
+
+/// A bar's window was built or destroyed: no page of it has slid it.
+fn forget_slid(label: &str) {
+    slid().retain(|l| l != label);
 }
 
 /// A new band changes every monitor's work area for the notch, which reads the monitors again.
@@ -348,6 +413,17 @@ mod tests {
     #[test]
     fn the_bar_window_never_covers_its_monitor() {
         assert_eq!(bar_rect((0, 0, 1366, 768), 1.0), (0, 192, 1366, 576)); // capped at three quarters
+    }
+
+    #[test]
+    fn a_bar_is_on_screen_while_its_window_shows_and_it_has_not_slid() {
+        let slid = ["taskbar-1".to_owned()];
+        assert!(on_screen(true, &[], LABEL));
+        assert!(!on_screen(false, &[], LABEL)); // hidden: the hotkey, a full-screen app
+        assert!(!on_screen(true, &slid, "taskbar-1")); // slid off the screen inside its shown window
+        assert!(!on_screen(false, &slid, "taskbar-1"));
+        assert!(on_screen(true, &slid, LABEL)); // another bar's slide is its own
+        assert!(on_screen(true, &slid, "taskbar-9")); // a label that never slid
     }
 
     #[test]
