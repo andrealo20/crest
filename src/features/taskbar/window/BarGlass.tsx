@@ -129,6 +129,8 @@ function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { redu
     }
     const { shape, boxes, radius, veil, dark, reduced } = now.current;
     const shapes = glassShapes(shape, boxes).rects.slice(0, MAX_RECTS);
+    // No shapes (every box zero-sized) would put the top at Infinity.
+    if (!shapes.length) return clear();
     // Sized here, when the shapes change: never per frame.
     const dpr = devicePixelRatio, top = Math.max(0, Math.min(...shapes.map((r) => r.y)) - GLASS.zoneMargin), h = innerHeight - top;
     const pw = Math.round(innerWidth * dpr), ph = Math.max(1, Math.round(h * dpr));
@@ -137,7 +139,7 @@ function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { redu
       canvas.height = ph;
       Object.assign(canvas.style, { width: `${innerWidth}px`, height: `${h}px` });
     }
-    if (!shapes.length || !copy.meta || !tokens) return clear();
+    if (!copy.meta || !tokens) return clear();
     const { u, p } = gpu.main, map = textureMap({ left: 0, top }, 1, dpr, copy.meta), look = settings.get().themes;
     rects.fill(0);
     shapes.forEach((r, i) => rects.set([r.x, r.y - top, r.w, r.h], i * 4));
@@ -168,6 +170,12 @@ function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { redu
       paint();
     } catch {
       setLiveRenderer(null);
+      // Its last image would stay under the CSS surface; a lost context can throw here too.
+      try {
+        clear();
+      } catch {
+        /* nothing left to show */
+      }
     }
   };
 
