@@ -74,8 +74,8 @@ export function TaskbarWindow() {
   const markAt = Math.round(((height - size) / 2 - MARK) / 2);
   const gap = barGap(shape);
   const tiles = shape === "tiles";
-  // The tiles' boxes move when a button comes or goes without the bar resizing.
-  const placeMenuZone = useHitZone(bar, shape, setBoxes, `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}`);
+  // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
+  const placeMenuZone = useHitZone(bar, shape, setBoxes, `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}`);
   // In the order the tiles are drawn and measured: past LOOK.maxTiles the glass does not draw them, and they keep the veil.
   let tileCount = 0;
   const tile = () => (tiles ? { background: tileCount++ < LOOK.maxTiles ? look.background : look.plain, radius: LOOK.radius } : undefined);
