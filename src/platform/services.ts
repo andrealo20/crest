@@ -1280,7 +1280,7 @@ export const taskbar = {
   apply: (enabled: boolean, height: number, docked: boolean): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height, docked }) : Promise.resolve()),
   /** The Start entries pinned on Windows' taskbar, in Windows' order; empty when none is pinned or none can be read, an error only when the Start list cannot be read. The notch and the settings only. */
   importPins: (): Promise<Favorite[]> => (isNative ? invoke<Favorite[]>("taskbar_import_pins") : Promise.resolve([])),
-  /** The ids pinned on Windows' taskbar now, the apps pinned there and the ids unpinned since `last` (the `now` of the answer before; null the first time, which changes nothing); `ok` false with all else empty when that cannot be read, and nothing is to change. The notch only. */
+  /** The ids to remember (those pinned on Windows' taskbar now, then those the read missed but kept), the apps pinned there and the ids unpinned since `last` (the `now` of the answer before; null the first time, which changes nothing); `ok` false with all else empty when that cannot be read, and nothing is to change. The notch only. */
   windowsPins: (last: string[] | null): Promise<WindowsPins> => (isNative ? invoke<WindowsPins>("taskbar_windows_pins", { last }) : Promise.resolve({ ok: false, now: [], added: [], removed: [] })),
   /** Windows' pins changed (Rust watches them while the bar runs); to the notch only. */
   onWindowsPins(handler: () => void): () => void {

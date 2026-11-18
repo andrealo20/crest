@@ -119,15 +119,27 @@ fn read(apps: &[App]) -> Option<Vec<String>> {
     Some(ids(apps, &favorites()?, folder(apps)?))
 }
 
-/// What changed on Windows' taskbar since `last`, the ids read the time before: the ids new in `now`, and those gone from it that
-/// the Start list still knows or that are no longer installed (one the Start list missed but still installed stays: a list read
-/// in part). The first read (`last` None) only remembers. None when more than half of a list of four or more went at once: a
-/// read that failed, not apps unpinned.
+/// What changed on Windows' taskbar since `last`, the ids remembered the time before (`remembered`): the ids new in `now`, and
+/// those gone from it that the Start list still knows or that are no longer installed (one the Start list missed but still
+/// installed stays: a list read in part). The first read (`last` None) only remembers. None when more than half of a list of four
+/// or more went at once: a read that failed, not apps unpinned.
 fn follow(last: Option<&[String]>, now: &[String], known: impl Fn(&str) -> bool, installed: impl Fn(&str) -> bool) -> Option<(Vec<String>, Vec<String>)> {
     let Some(last) = last else { return Some((Vec::new(), Vec::new())) };
     let added: Vec<String> = now.iter().filter(|id| !last.contains(id)).cloned().collect();
     let removed: Vec<String> = last.iter().filter(|id| !now.contains(id) && (known(id) || !installed(id))).cloned().collect();
     (last.len() < 4 || removed.len() * 2 <= last.len()).then_some((added, removed))
+}
+
+/// The ids to remember for the next ask: `now`, then those of `last` gone from it but kept (not in `removed`), in `last`'s order.
+/// So a pin a read missed is not taken for a new one when it is read again, which would bring back one taken off Crest's bar.
+fn remembered(last: Option<&[String]>, now: &[String], removed: &[String]) -> Vec<String> {
+    let kept = last.unwrap_or_default().iter().filter(|id| !now.contains(id) && !removed.contains(id));
+    now.iter().chain(kept).cloned().collect()
+}
+
+/// A path on another machine (`\\host\share\x.exe`, from a restored backup, say): probing it would open a connection there.
+fn remote(id: &str) -> bool {
+    id.as_bytes().get(..2).is_some_and(|start| start.iter().all(|b| matches!(b, b'\\' | b'/')))
 }
 
 /// The Start entries pinned on Windows' taskbar, in Windows' order, for the bar's pinned list. An error only when the Start list
@@ -147,6 +159,8 @@ pub async fn taskbar_import_pins(app: AppHandle) -> Result<Vec<App>, String> {
 #[derive(Default, Serialize)]
 pub struct WindowsPins {
     ok: bool,
+    /// The ids for the notch to remember and send back as `last`: Windows' pins now, then those this read missed but kept
+    /// (`remembered`).
     now: Vec<String>,
     added: Vec<App>,
     removed: Vec<String>,
@@ -154,20 +168,24 @@ pub struct WindowsPins {
 
 /// The bar's pins follow Windows' (store.ts `startTaskbar`): the notch asks at the bar's start, for what changed while Crest was
 /// closed, and on each `taskbar://windows-pins`, with the ids of its last answer (None the first time). The Start list is read
-/// as the import reads it, so one not read yet at the bar's start is read now. The notch only.
+/// again when its last read is older than the launcher's gap (`launcher::read_lately`), so an app installed since and pinned
+/// from Windows' Start is found, and one not read yet at the bar's start is read now. The notch only.
 #[tauri::command]
 pub async fn taskbar_windows_pins(app: AppHandle, last: Option<Vec<String>>) -> WindowsPins {
     tauri::async_runtime::spawn_blocking(move || {
-        let apps = launcher::apps(&app.state::<LauncherState>(), false).ok()?;
+        let state = app.state::<LauncherState>();
+        let apps = launcher::apps(&state, !launcher::read_lately(&state)).ok()?;
         launcher::on_sta(move || {
             let now = read(&apps)?;
             let known = |id: &str| apps.iter().any(|a| a.id == id);
+            // A remote path counts as installed and is never probed.
             let installed = |id: &str| match id.strip_prefix(launcher::APPS_PREFIX) {
                 Some(aumid) => launcher::in_apps_folder(aumid),
-                None => Path::new(id).is_file(),
+                None => remote(id) || Path::new(id).is_file(),
             };
             let (added, removed) = follow(last.as_deref(), &now, known, installed)?;
             let added = added.iter().filter_map(|id| apps.iter().find(|a| &a.id == id).cloned()).collect();
+            let now = remembered(last.as_deref(), &now, &removed);
             Some(WindowsPins { ok: true, now, added, removed })
         })?
     })
@@ -186,6 +204,11 @@ const RETRY_MS: u32 = 30_000;
 
 /// The watch thread's stop event and the thread, while it runs.
 static WATCH: Mutex<Option<(isize, JoinHandle<()>)>> = Mutex::new(None);
+
+/// Tells the notch Windows' pins may have changed: it asks what did (`taskbar_windows_pins`).
+pub(crate) fn tell(app: &AppHandle) {
+    let _ = app.emit_to("notch", "taskbar://windows-pins", ());
+}
 
 /// Starts watching Windows' pins unless the thread runs (mod.rs `start`).
 pub(crate) fn watch(app: &AppHandle) {
@@ -236,6 +259,10 @@ fn changes(app: &AppHandle, key: HKEY, stop: HANDLE) -> bool {
         // One-shot: armed again after each signal, never twice for one.
         if !armed {
             if unsafe { RegNotifyChangeKeyValue(key, false, REG_NOTIFY_CHANGE_LAST_SET, Some(changed), true) } != ERROR_SUCCESS {
+                // A change gathered so far is told before the key is opened again.
+                if gathering {
+                    tell(app);
+                }
                 break false;
             }
             armed = true;
@@ -245,7 +272,7 @@ fn changes(app: &AppHandle, key: HKEY, stop: HANDLE) -> bool {
             (armed, gathering) = (false, true);
         } else if woke == WAIT_TIMEOUT {
             gathering = false;
-            let _ = app.emit_to("notch", "taskbar://windows-pins", ());
+            tell(app);
         } else {
             break true;
         }
@@ -304,5 +331,20 @@ mod tests {
         assert_eq!(follow(Some(&ids(&["a", "b", "c", "d", "e", "f"])[..]), &ids(&["a", "b"]), all, all), None);
         // A small list may empty out.
         assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&[]), all, all), Some((vec![], ids(&["a", "b"]))));
+    }
+
+    #[test]
+    fn a_pin_the_read_missed_is_still_remembered() {
+        let ids = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        // First time: what was read.
+        assert_eq!(remembered(None, &ids(&["a", "b"]), &[]), ids(&["a", "b"]));
+        // Now's order, then the kept ones in last's order; the removed one is forgotten.
+        assert_eq!(remembered(Some(&ids(&["x", "a", "y", "z"])[..]), &ids(&["b", "a"]), &ids(&["y"])), ids(&["b", "a", "x", "z"]));
+    }
+
+    #[test]
+    fn a_path_on_another_machine_is_never_probed() {
+        assert!(remote(r"\\host\share\x.exe") && remote("//host/share/x.exe") && remote(r"\/host\x.exe"));
+        assert!(!remote(r"C:\Apps\x.exe") && !remote(r"\x.exe") && !remote(""));
     }
 }

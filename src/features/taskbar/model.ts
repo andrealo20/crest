@@ -13,9 +13,9 @@ export type BarShape = "docked" | "floating" | "capsule" | "tiles";
 
 /**
  * The bar: on or off, the items in each zone, the bar's height and its icons' size in CSS px, its background (the closed
- * notch's or the theme's), the pinned apps (null: never seeded), the ids Windows' taskbar had pinned when the notch last read them
- * (null: never read; store.ts follows what changes there), its shape, its transparency in percent and its glass, the bar clock's own
- * date and seconds, and whether the default widgets were placed (once, so one taken off stays off).
+ * notch's or the theme's), the pinned apps (null: never seeded), the ids Windows' taskbar had pinned when the notch last read them,
+ * with those a read missed (null: never read; store.ts follows what changes there), its shape, its transparency in percent and its
+ * glass, the bar clock's own date and seconds, and whether the default widgets were placed (once, so one taken off stays off).
  */
 export interface TaskbarSettings {
   enabled: boolean;

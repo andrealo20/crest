@@ -109,6 +109,8 @@ pub(crate) fn start(app: &AppHandle) {
     std::thread::spawn(move || {
         if tries(START_LIST, std::thread::sleep, || launcher::apps(&app.state::<LauncherState>(), false).is_ok()) {
             relist();
+            // The notch's ask at the bar's start fails without the list: it asks again (store.ts `followPins` takes one at a time).
+            pins::tell(&app);
         }
     });
 }

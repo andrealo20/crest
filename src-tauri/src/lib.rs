@@ -150,7 +150,7 @@ const SETTINGS_DENIED: &[&str] = &[
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
-    "taskbar_auto_hide", "taskbar_slid", "taskbar_shell",
+    "taskbar_auto_hide", "taskbar_slid", "taskbar_shell", "taskbar_windows_pins",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, opening the notch and
@@ -1083,6 +1083,8 @@ mod tests {
         assert!(ok("taskbar", "taskbar_hit_rects") && ok("taskbar", "launcher_open") && ok("taskbar", "app_quit") && ok("taskbar-2", "notch_open"));
         assert!(!ok("taskbar", "taskbar_apply") && !ok("taskbar", "vault_reveal") && !ok("taskbar", "launcher_shortcuts") && !ok("taskbar", "set_hit_rect"));
         assert!(!ok("settings", "taskbar_apply") && !ok("settings", "taskbar_hit_rects") && ok("notch", "taskbar_apply"));
+        // Only the notch follows Windows' pins and remembers them.
+        assert!(!ok("settings", "taskbar_windows_pins") && ok("notch", "taskbar_windows_pins"));
         assert!(["glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c)));
         assert!(!ok("settings", "glass_live_start") && !ok("timer", "glass_live_exclude"));
         // The bar reads the power state for its glass, but never sets what the status alerts watch.
