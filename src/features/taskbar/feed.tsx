@@ -16,7 +16,7 @@ import { barParts } from "../../notch/row/visibility";
 import { subscribeLevels } from "../../platform/audio";
 import { useNowPlaying } from "../../platform/media";
 import { isMac, isNative } from "../../platform/native";
-import { taskbar } from "../../platform/services";
+import { build, taskbar } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { useDiscordCall } from "../discord/store";
 import { downloads } from "../downloads/store";
@@ -49,6 +49,8 @@ export function startBarShare() {
   shareStores(tauriTransport, feedStores, { to: "taskbar", hello: "bar://hello" });
   shareStores(tauriTransport, panelStores, { to: "taskbar", hello: "bar://hello", when: panelOpen });
   taskbar.onShown((on) => barOnScreen.set(on));
+  // The Store build never builds the bar, whatever a restored backup says (bar.rs), so no shown state ever comes: no sources.
+  void build.info().then((b) => { if (b.store) barOnScreen.set(false); }, () => {});
 }
 
 /** Writes a widget's slice only when it changed: each write goes to the bar. */
