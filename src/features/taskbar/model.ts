@@ -68,6 +68,9 @@ const SHAPES: BarShape[] = ["docked", "floating", "capsule", "tiles"];
 export const fitIcon = (height: number, icon: number) => Math.min(icon, height - 12);
 /** A tray icon's size beside apps' icons of `size`: Windows' 16 to 24, and the widgets' glyphs, at every icon size. */
 export const trayIcon = (size: number) => Math.round((size * 2) / 3);
+/** An app button's icon once the apps narrow to fit, and the padding round it: 24 in 30 at the default. */
+export const compactIcon = (size: number) => Math.round((size * 5) / 6);
+export const COMPACT_PAD = 10;
 
 const ZONES: Zone[] = ["left", "center", "right"];
 /** Every item a zone may hold. */

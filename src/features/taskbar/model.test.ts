@@ -1,10 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  COMPACT_PAD,
   TASKBAR_DEFAULTS,
   applyWindowsPins,
   barButtons,
   clickAction,
+  compactIcon,
   fitIcon,
   indicator,
   menuFor,
@@ -43,6 +45,13 @@ test("tray icons are two thirds of the apps' icons", () => {
   assert.equal(trayIcon(24), 16);
   assert.equal(trayIcon(16), 11);
   assert.equal(trayIcon(40), 27);
+});
+
+test("narrow apps keep five sixths of the icon and 10 px round it", () => {
+  assert.equal(compactIcon(24), 20);
+  assert.equal(compactIcon(16), 13);
+  assert.equal(compactIcon(40), 33);
+  assert.equal(compactIcon(24) + COMPACT_PAD, 30);
 });
 
 test("the look's settings are repaired and default to today's bar", () => {
