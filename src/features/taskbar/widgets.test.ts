@@ -19,14 +19,14 @@ test("widgets grow and shrink with the icons", () => {
 
 test("an added widget goes last in its zone, before the Crest button at its end", () => {
   const z = TASKBAR_DEFAULTS.zones;
-  assert.deepEqual(addWidget(z, "timer", "right").right, ["weather", "tray", "clock", "timer", "crest"]);
+  assert.deepEqual(addWidget(z, "timer", "right").right, ["weather", "tray", "status", "clock", "timer", "crest"]);
   assert.deepEqual(addWidget(z, "timer", "left").left, ["timer"]);
   assert.deepEqual(addWidget({ ...z, right: ["crest", "weather"] }, "timer", "right").right, ["crest", "weather", "timer"]);
   assert.deepEqual(addWidget(z, "clock", "left"), z);
 });
 
 test("a removed widget leaves the bar", () => {
-  assert.deepEqual(removeWidget(TASKBAR_DEFAULTS.zones, "clock").right, ["weather", "tray", "crest"]);
+  assert.deepEqual(removeWidget(TASKBAR_DEFAULTS.zones, "clock").right, ["weather", "tray", "status", "crest"]);
   assert.deepEqual(barWidgets(TASKBAR_DEFAULTS.zones), ["weather", "clock"]);
 });
 
@@ -50,4 +50,10 @@ test("the tray can be added back like a widget", () => {
   const zones: Record<Zone, BarItem[]> = { left: [], center: ["start", "apps"], right: ["clock", "crest"] };
   assert.deepEqual(addWidget(zones, "tray", "right").right, ["clock", "tray", "crest"]);
   assert.equal(addWidget(TASKBAR_DEFAULTS.zones, "tray", "left"), TASKBAR_DEFAULTS.zones);
+});
+
+test("Stato can be added back like the tray", () => {
+  const zones: Record<Zone, BarItem[]> = { left: [], center: ["start", "apps"], right: ["clock", "crest"] };
+  assert.deepEqual(addWidget(zones, "status", "right").right, ["clock", "status", "crest"]);
+  assert.deepEqual(removeWidget(TASKBAR_DEFAULTS.zones, "status").right, ["weather", "tray", "clock", "crest"]);
 });

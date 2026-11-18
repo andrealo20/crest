@@ -234,6 +234,7 @@ export function TaskbarWindow() {
           onMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
         />
       );
+    if (id === "status") return null; // drawn from the next task on (B4)
     if (id === "crest")
       return (
         <Item {...item("crest", t("Crest-Menü"))} tile={tile()} onClick={openCrestMenu} onContextMenu={openCrestMenu}>

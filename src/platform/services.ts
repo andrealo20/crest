@@ -604,6 +604,8 @@ export const status = {
   configure: (c: { ddc: boolean; locks: boolean; insert: boolean; bt: boolean; volume: boolean; mic: boolean; focus: boolean; hideOsd: boolean; osdArmed: boolean }) => {
     if (isNative) void invoke("status_configure", c);
   },
+  /** Whether Rust follows the network and the volume for the bar's Stato (model.ts statusWanted); sent by the notch only. */
+  barOn: (on: boolean): Promise<void> => (isNative ? invoke("status_bar", { on }) : Promise.resolve()),
 };
 
 // ---------- Downloads in progress (downloads.rs) ----------

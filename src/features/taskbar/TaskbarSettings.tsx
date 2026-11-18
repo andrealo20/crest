@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Reorder } from "motion/react";
-import { AppWindow, CaretUp, DotsSixVertical, WarningCircle } from "@phosphor-icons/react";
+import { AppWindow, CaretUp, DotsSixVertical, WarningCircle, WifiHigh } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { liveSupport } from "../../notch/glass/live";
@@ -39,8 +39,8 @@ export function useTaskbarShown(): boolean {
 /** The bar's zones, physical: left stays left in a right-to-left language. */
 const ZONES: Zone[] = ["left", "center", "right"];
 const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte", right: "Rechte Seite" };
-/** What the bar draws for each fixed item: Windows' Start button, the apps' buttons, the button of the Crest menu and the notification area. A widget has its part's name. */
-const ITEM_LABEL: Record<Exclude<BarItem, PartId>, string> = { start: "Startmenü", apps: "Apps und Fenster", crest: "Crest-Menü", tray: "Infobereich" };
+/** What the bar draws for each fixed item: Windows' Start button, the apps' buttons, the button of the Crest menu, the notification area and Stato. A widget has its part's name. */
+const ITEM_LABEL: Record<Exclude<BarItem, PartId>, string> = { start: "Startmenü", apps: "Apps und Fenster", crest: "Crest-Menü", tray: "Infobereich", status: "Status" };
 const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "Schwebend", capsule: "Kapsel", tiles: "Kacheln" };
 
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, and where the system icons it leaves out are. */
@@ -118,14 +118,14 @@ export function TaskbarItems() {
                   <div className="truncate text-body text-label">{t(isWidget(id) ? partInfo[id].label : ITEM_LABEL[id])}</div>
                   {id === "start" && <div className="text-caption text-label-3">{t("Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste")}</div>}
                 </div>
-                {(isWidget(id) || id === "tray") && <WidgetOptions id={id} />}
+                {(isWidget(id) || id === "tray" || id === "status") && <WidgetOptions id={id} />}
                 <div onPointerDown={(e) => e.stopPropagation()}>
                   {/* The menu also reports its current zone when picked again, which would send the item to that zone's end. A widget goes in as "+" puts it, before the Crest button. */}
                   <Select
                     width="w-36"
                     value={zone}
                     options={options}
-                    onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: isWidget(id) || id === "tray" ? addWidget(removeWidget(cur.zones, id), id, to) : moveItem(cur.zones, id, to) }))}
+                    onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: isWidget(id) || id === "tray" || id === "status" ? addWidget(removeWidget(cur.zones, id), id, to) : moveItem(cur.zones, id, to) }))}
                   />
                 </div>
               </Reorder.Item>
@@ -140,7 +140,7 @@ export function TaskbarItems() {
   );
 }
 
-/** An item's icon: Crest's mark, Windows' mark, the apps' window, the tray's ^ or a widget's part as the settings show it. A new fixed item does not compile without one. */
+/** An item's icon: Crest's mark, Windows' mark, the apps' window, the tray's ^, Stato's Wi-Fi or a widget's part as the settings show it. A new fixed item does not compile without one. */
 function ItemIcon({ id }: { id: BarItem }) {
   if (isWidget(id)) {
     const I = partInfo[id].icon;
@@ -150,6 +150,7 @@ function ItemIcon({ id }: { id: BarItem }) {
   if (id === "apps") return <AppWindow size={15} weight="bold" className="shrink-0 text-label-2" />;
   if (id === "crest") return <CrestMark size={15} className="shrink-0 text-label-2" />;
   if (id === "tray") return <CaretUp size={15} weight="bold" className="shrink-0 text-label-2" />;
+  if (id === "status") return <WifiHigh size={15} weight="bold" className="shrink-0 text-label-2" />;
   return id satisfies never;
 }
 
