@@ -64,9 +64,11 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
   const h = size ? size.h * zoom : 0;
   const left = placeMenu(anchor.x, anchor.w, w, view.width, PANEL_EDGE);
   const placed = present && size !== null;
+  const box = placed ? { x: left, y: view.barTop - PANEL_GAP - h, w, h } : null;
+  // Null is reported once: a menu can take the slot while the panel fades, and a resize meanwhile must leave its box alone.
   useLayoutEffect(() => {
-    onPlace(placed ? { x: left, y: view.barTop - PANEL_GAP - h, w, h } : null);
-  }, [placed, left, view.barTop, w, h, onPlace]);
+    onPlace(box);
+  }, [box?.x, box?.y, box?.w, box?.h, onPlace]);
 
   // Mounted closed over its item and grown on the next commit: NotchShape springs to a new geometry, never to its first one.
   const [grown, setGrown] = useState(false);
