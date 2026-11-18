@@ -689,6 +689,14 @@ pub fn run() {
                         #[cfg(windows)]
                         on_exit(window.app_handle());
                         window.app_handle().exit(0);
+                        // A close of every window (taskkill without /F) can destroy tao's hidden event target after the exit
+                        // request was posted to it, and RunEvent::Exit never comes. on_exit already gave everything back, so end
+                        // the process if the orderly exit has not, later than a recording's stop can take there (up to 10 s).
+                        #[cfg(windows)]
+                        std::thread::spawn(|| {
+                            std::thread::sleep(std::time::Duration::from_secs(15));
+                            std::process::exit(0);
+                        });
                     }
                     CloseAction::Ignore => api.prevent_close(),
                     CloseAction::Close => {}
