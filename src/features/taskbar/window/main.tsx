@@ -11,12 +11,12 @@ import { startThemes } from "../../themes/store";
 import { startCrashLog } from "../../window/store";
 import { taskbar } from "../../../platform/services";
 import { startPanelReport } from "../panel";
-import { followNotch, startBarWindows } from "../store";
+import { followBar, startBarWindows } from "../store";
 import { TaskbarWindow, primary } from "./TaskbarWindow";
 
 /*
- * Entry of the bar's window (taskbar.html, src-tauri/src/taskbar/bar.rs). Loads the settings and the open windows, and in the
- * primary bar follows what the notch sends it (barStores.ts: the widgets' data, the panel's stores); in dev in the browser, where
+ * Entry of the bar's window (taskbar.html, src-tauri/src/taskbar/bar.rs). Loads the settings and the open windows, follows whether
+ * the bar shows, and in the primary bar follows what the notch sends it (barStores.ts: the widgets' data, the panel's stores); in dev in the browser, where
  * no notch runs, sample data stands in. Nothing the notch runs: the settings follow the notch window through localStorage
  * (src/lib/storeCore.ts), and only the notch applies them (src/lib/windowKind.ts). The windows and the data come as events, so the
  * page does nothing while they do not change.
@@ -44,8 +44,8 @@ startBarWindows();
 // A reloaded page starts with its panel closed: the notch forgets what the page before it had open.
 void taskbar.panel(null);
 startPanelReport();
-// The notch sends its data to the primary bar only; another bar's hello would have it send everything there again.
-if (primary) followNotch();
+// Whether this bar shows, in every bar (its glass stops while Rust hides it); the notch's data, in the primary only.
+followBar(primary);
 // In the browser no notch feeds the widgets: sample data, in dev only, so they can be checked as they draw.
 if (import.meta.env.DEV && !isNative) void import("../../../dev/barSample").then((m) => m.fillSample());
 

@@ -1310,7 +1310,7 @@ export const taskbar = {
   },
   /** Ends Crest (the Crest menu's Quit). */
   quit: (): Promise<void> => (isNative ? invoke("app_quit") : Promise.resolve()),
-  /** Has the notch send the widgets' data (`bar://hello`); call it once the page listens. Whether the bar shows now, so the page starts paused or not. */
+  /** In the primary bar, has the notch send the widgets' data (`bar://hello`); call it once the page listens. Whether this bar shows now, so the page starts paused or not. */
   hello: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_hello") : Promise.resolve(true)),
   /** The clock's click: Windows' notification centre, with the calendar. */
   calendar: (): Promise<void> => (isNative ? invoke("taskbar_calendar") : Promise.resolve()),

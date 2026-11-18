@@ -12,7 +12,7 @@ import type { TaskbarSettings, WindowList } from "./model";
 export const barWindows = createStore<WindowList>({ groups: [], active: null });
 /** In the bar's window: icons of the groups without an entry (the launcher has none for them), by group key; null = none. */
 export const groupIcons = createStore<Record<string, string | null>>({});
-/** In the bar's window: whether the bar shows; its widgets rest while it does not. */
+/** In the bar's window: whether this bar shows (followBar); its widgets rest and its glass stops while it does not. */
 export const barShown = createStore(true);
 
 /** A change to the bar's settings, from the Taskbar pages and their widget rows; the notch applies on/off and the height to Rust (startTaskbar), the bar reads the rest itself. */
@@ -72,21 +72,26 @@ export function startBarWindows() {
   barWindows.subscribe(fetchGroupIcons);
 }
 
-/** The bar's entry only: follows the notch's stores (barStores.ts) and whether the bar shows. The hello goes through Rust, as the bar may not emit. */
-export function followNotch() {
+/**
+ * The bar's entry: follows whether this bar shows (Rust tells each bar its own), on every monitor, since a hidden bar's glass must
+ * stop; the primary also follows the notch's stores (barStores.ts). The hello goes through Rust, as the bar may not emit, and only the
+ * primary's has the notch send them.
+ */
+export function followBar(primary: boolean) {
   let heard = false;
   taskbar.onShown((on) => {
     heard = true;
     barShown.set(on);
   });
-  followStores(tauriTransport, { ...feedStores, ...panelStores }, () =>
+  const hello = () =>
     void listening()
       .then(() => taskbar.hello())
       .then((on) => {
         // A change heard while the hello was on its way is newer than its answer.
         if (!heard) barShown.set(on);
-      }, () => {}),
-  );
+      }, () => {});
+  if (primary) followStores(tauriTransport, { ...feedStores, ...panelStores }, hello);
+  else hello();
 }
 
 const asked = new Set<string>();
