@@ -10,9 +10,10 @@
 //! touches it" is on (`taskbar_auto_hide`), each bar is also sent that window's frame in its CSS px when it changes
 //! (`taskbar://front`): the page knows the bar's shape and decides whether the frame touches it. A bar the pointer could not
 //! bring back is sent none, so it never slides away (`stays_up`): one whose work area ends above its monitor's bottom edge,
-//! or with another monitor below it. The settings say when a bar stays up (`taskbar_slide_blocked`). While the option is on,
-//! each bar is also told when one of Windows' own surfaces holds it up (`taskbar://hold`, `held`): Start, Win+X, the calendar,
-//! the notification centre, an app's tray menu.
+//! or with another monitor below it. Crest's own reserved strip (reserve.rs) is left out of that edge (`own_band_off`): it is
+//! the bar's, and auto-hide turned on removes it. The settings say when a bar stays up (`taskbar_slide_blocked`). While the
+//! option is on, each bar is also told when one of Windows' own surfaces holds it up (`taskbar://hold`, `held`): Start, Win+X,
+//! the calendar, the notification centre, an app's tray menu.
 //!
 //! On the display poll's thread: Win32 reads only, and no lock held across `set_fullscreen` or an emit.
 
@@ -31,7 +32,7 @@ use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::Shell::{SHQueryUserNotificationState, QUNS_RUNNING_D3D_FULL_SCREEN};
 use windows::Win32::UI::WindowsAndMessaging::{GetAncestor, GetCursorPos, GetWindowRect, IsIconic, GA_ROOTOWNER};
 
-use super::{screens, start, tasks};
+use super::{reserve, screens, start, tasks};
 use crate::display;
 
 /// "Hide when a window touches it" is on. The notch applies it, as it does the bar's other settings (`taskbar_auto_hide`).
@@ -133,6 +134,15 @@ fn stays_up(monitor: RECT, work: RECT, all: &[RECT]) -> bool {
     work.bottom < monitor.bottom || below(monitor, all)
 }
 
+/// The work area with Crest's own reserved strip given back: the first of `strips` that starts at its bottom and overlaps it
+/// sideways moves the bottom down to the strip's. Another program's band below Crest's still ends it above the edge.
+fn own_band_off(work: RECT, strips: &[RECT]) -> RECT {
+    match strips.iter().find(|s| s.top == work.bottom && s.left < work.right && s.right > work.left) {
+        Some(s) => RECT { bottom: s.bottom, ..work },
+        None => work,
+    }
+}
+
 /// How many of `monitors`, each bar's monitor and work area, keep their bar up (`stays_up`) among `all` the monitors.
 fn blocked_count(monitors: &[(RECT, RECT)], all: &[RECT]) -> usize {
     monitors.iter().filter(|&&(monitor, work)| stays_up(monitor, work, all)).count()
@@ -215,6 +225,7 @@ pub(crate) fn poll(app: &AppHandle, raw: HWND, foreground: HWND) {
 fn rect_for(ahead: Option<isize>, bar: HWND, monitor: isize, monitors: &[(isize, RECT, RECT)]) -> Option<Rect> {
     let ahead = HWND(ahead? as _);
     let &(_, here, work) = monitors.iter().find(|&&(m, _, _)| m == monitor)?;
+    let work = own_band_off(work, &reserve::strips());
     if stays_up(here, work, &monitors.iter().map(|&(_, rect, _)| rect).collect::<Vec<_>>()) {
         return None;
     }
@@ -291,11 +302,12 @@ pub async fn taskbar_slide_blocked() -> usize {
     let count = || {
         let read = monitors();
         let all: Vec<RECT> = read.iter().map(|&(_, rect, _)| rect).collect();
+        let strips = reserve::strips();
         let bars: Vec<(RECT, RECT)> = screens::all()
             .into_iter()
             .filter_map(|(_, hwnd)| {
                 let m = tasks::monitor_of(HWND(hwnd as _));
-                read.iter().find(|&&(h, _, _)| h == m).map(|&(_, rect, work)| (rect, work))
+                read.iter().find(|&&(h, _, _)| h == m).map(|&(_, rect, work)| (rect, own_band_off(work, &strips)))
             })
             .collect();
         blocked_count(&bars, &all)
@@ -373,6 +385,18 @@ mod tests {
         let (free, banded) = (r(0, 0, 1920, 1080), r(1920, 0, 3840, 1080));
         // The second's work area ends above its bottom edge.
         assert_eq!(blocked_count(&[(free, free), (banded, r(1920, 0, 3840, 1032))], &[free, banded]), 1);
+    }
+
+    #[test]
+    fn crests_own_reserved_strip_never_keeps_a_bar_up() {
+        let r = |left, top, right, bottom| RECT { left, top, right, bottom };
+        let screen = r(0, 0, 1920, 1080);
+        let own = r(0, 1036, 1920, 1080);
+        assert_eq!(own_band_off(r(0, 0, 1920, 1036), &[own]), screen);
+        assert!(!stays_up(screen, own_band_off(r(0, 0, 1920, 1036), &[own]), &[screen])); // auto-hide just turned on, removal on its way
+        assert!(stays_up(screen, own_band_off(r(0, 0, 1920, 992), &[r(0, 992, 1920, 1036)]), &[screen])); // another program's band below Crest's still counts
+        assert_eq!(own_band_off(r(0, 0, 1920, 1036), &[r(1920, 1036, 3840, 1080)]), r(0, 0, 1920, 1036)); // another monitor's strip
+        assert_eq!(blocked_count(&[(screen, own_band_off(r(0, 0, 1920, 1036), &[own]))], &[screen]), 0);
     }
 
     #[test]

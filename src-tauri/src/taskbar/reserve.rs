@@ -59,8 +59,6 @@ pub(crate) fn strip(label: &str) -> Option<RECT> {
 }
 
 /// Every reserved strip.
-// shortcut: the slide rule (C6) is its only caller; drop the allow when it lands.
-#[allow(dead_code)]
 pub(crate) fn strips() -> Vec<RECT> {
     strips_lock().iter().map(|&(_, r)| r).collect()
 }
