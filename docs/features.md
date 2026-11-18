@@ -295,6 +295,19 @@ The vault is off by default; turn it on under **Settings → Tools**.
 
 Details: [themes.md](themes.md).
 
+## Taskbar
+
+**Settings → Taskbar → Appearance** sets the look of Crest's own taskbar (Windows):
+
+- **Shape**: **Docked** runs the full width along the bottom edge with square corners and no gap, as Windows' taskbar does; **Floating** (the default) stands 4 px off the sides and the bottom with round corners; **Capsule** sits in the middle, as wide as its buttons, growing and shrinking as apps open and close; **Tiles** has no band behind, and puts each button on a tile of its own as tall as the bar, 6 px apart, with the zones where they are. As a capsule the bar lines the three zones up in the middle, left, center and right; **Items** says so under the zones, and the zones saved there stay as they are.
+- **Height** (32 to 64 px, 44 by default) and **Icon size** (16 to 40 px, 24 by default), for every shape. A low bar draws smaller icons and gives back the saved size when it grows again.
+- **Background**: **Notch** takes the closed notch's black, **Theme** the theme's background colour. With Tiles it is on each tile.
+- **Transparency** (0 to 100%, 0 by default, an opaque bar): the number beside it is how much of the screen behind shows through. Without Glass the bar goes from opaque to fully clear, icons left; with Glass it goes from the veil that keeps every text readable to the theme's clearest veil, as the notch's Transparency does. With transparency effects off, more contrast or forced colours in Windows the bar stays opaque.
+- **Glass** (off by default; Windows 11 24H2 or later on x64, not in the Microsoft Store version for now, the switch shows only there): the bar shows a live copy of the screen behind it, up to 10 times a second, bent at the rim and blurred as the notch's glass. It needs more battery, and while it is on the bar is left out of every screenshot, recording and screen share, Crest's own included. It is separate from the notch's glass: either can be on alone. Under it, **Refraction**, **Frost** and **Rim light** are the notch's own sliders (**Settings → Themes → Glass**), shown here too: moving them changes both.
+- Colours and theme are the ones of **Settings → Themes**, with a button to get there.
+
+Details of the glass: [themes.md](themes.md#glass).
+
 ## Live notices and crest-notify
 
 - Turn on **Settings → Notices** and Windows notifications from any app show in the closed notch for 6 seconds, with the app's logo, name, title and text, and land on a **Notices** page in the open notch.

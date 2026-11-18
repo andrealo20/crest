@@ -1802,5 +1802,11 @@
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "ثبّت تطبيقًا بالنقر عليه بزر الماوس الأيمن في شريط المهام",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "النوتش: مثل النوتش المغلق. السمة: لون خلفية السمة",
  "Farben und Thema gelten auch für die Taskleiste": "الألوان والسمة تنطبق على شريط المهام أيضًا",
- "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "يعرض مباشرةً ما يوجد خلف شريط المهام، حتى 10 مرات في الثانية. ما دام مفعّلًا، لا يظهر شريط المهام في لقطات الشاشة والتسجيلات ومشاركة الشاشة."
+ "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "يعرض مباشرةً ما يوجد خلف شريط المهام، حتى 10 مرات في الثانية. ما دام مفعّلًا، لا يظهر شريط المهام في لقطات الشاشة والتسجيلات ومشاركة الشاشة.",
+ "Form": "الشكل",
+ "Angedockt": "ملتصق",
+ "Schwebend": "عائم",
+ "Kacheln": "مربعات",
+ "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "في شكل الكبسولة يصف شريط المهام المناطق الثلاث في الوسط: يسار، الوسط، يمين. تبقى المناطق هنا كما هي",
+ "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "الانكسار والضبابية وضوء الحافة تنطبق على النوتش أيضًا"
 }
