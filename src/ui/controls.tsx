@@ -346,7 +346,7 @@ export function Slider(props: {
   mark?: number;
   /** What a screen reader says for the value, when the number alone is not it. */
   valueText?: string;
-  /** The drag let go, or a key moved the value: for a setting written once instead of live. */
+  /** The drag let go, or a key that moved the value came up (once for a held key): for a setting written once instead of live. */
   onRelease?: () => void;
 }) {
   const track = useRef<HTMLDivElement>(null);
@@ -386,8 +386,10 @@ export function Slider(props: {
         if (to === undefined) return;
         e.preventDefault();
         props.onChange(to);
-        props.onRelease?.();
       }}
+      // A held key repeats keydown only. Blur too, for a key held while the focus leaves.
+      onKeyUp={props.onRelease}
+      onBlur={props.onRelease}
     >
       <div className="relative h-1 w-full overflow-hidden rounded-full bg-fill-2">
         <div
