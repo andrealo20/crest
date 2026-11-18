@@ -1,12 +1,16 @@
 import { useLayoutEffect, useRef, useState, type MouseEventHandler, type PointerEventHandler, type ReactNode, type Ref } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useSpring, useTransform, type MotionValue } from "motion/react";
 import { fade, popover, pulse, springs } from "../../../design/motion";
+import { magnify } from "../look";
 import { placeMenu, type Indicator } from "../model";
 
 /** Thickness of the mark under an app, CSS px. */
 export const MARK = 3;
 
-/** A button on the bar: its icon lifts under the pointer, with its name (or what went wrong) in a label above. */
+/** The bar's pointer (clientX, Infinity off the bar), the pitch from one button to the next and how far the name rises over the grown icon. */
+export type Magnify = { pointer: MotionValue<number>; unit: number; rise: number };
+
+/** A button on the bar: its icon lifts (or with `magnify`, grows) under the pointer, with its name (or what went wrong) in a label above. */
 export function Item(props: {
   name: string;
   label: string | null;
@@ -28,6 +32,8 @@ export function Item(props: {
   width?: number;
   /** The id of what a screen reader says after the name: a widget's content. */
   describedBy?: string;
+  /** Grow as a dock's icon with the pointer near, in place of the lift. */
+  magnify?: Magnify;
   onEnter: () => void;
   onLeave: () => void;
   onClick: MouseEventHandler<HTMLButtonElement>;
@@ -59,17 +65,52 @@ export function Item(props: {
       className="group relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"
       style={{ width: props.width ?? props.size + 16, background: props.tile?.background, borderRadius: props.tile?.radius }}
     >
-      <motion.span
-        className="flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94"
-        initial={false}
-        animate={{ transform: `translateY(${props.lifted ? -2 : 0}px)` }}
-        transition={springs.peek}
-      >
-        {props.children}
-      </motion.span>
+      {props.magnify ? (
+        <Magnified {...props.magnify}>{props.children}</Magnified>
+      ) : (
+        <motion.span
+          className="flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94"
+          initial={false}
+          animate={{ transform: `translateY(${props.lifted ? -2 : 0}px)` }}
+          transition={springs.peek}
+        >
+          {props.children}
+        </motion.span>
+      )}
       {props.mark && <Mark kind={props.mark} bottom={props.markAt} />}
-      <Label text={props.label} failed={props.failed} />
+      <Label text={props.label} failed={props.failed} rise={props.magnify?.rise ?? 0} />
     </button>
+  );
+}
+
+/**
+ * The icon grown from its bottom by its distance to the pointer, through a spring that keeps its velocity as the pointer moves on.
+ * Motion values only: React draws nothing while the pointer moves. The button's centre is measured once each time the pointer comes
+ * onto the bar and after a render (the scale never moves the button).
+ */
+function Magnified({ pointer, unit, children }: Magnify & { children: ReactNode }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const centre = useRef<number | null>(null);
+  // Measured again after each render too: an app launched from the bar moves the buttons while the pointer stays on it.
+  useLayoutEffect(() => {
+    centre.current = null;
+  });
+  const target = useTransform(pointer, (x) => {
+    if (!Number.isFinite(x)) {
+      centre.current = null;
+      return 1;
+    }
+    const button = ref.current?.parentElement?.getBoundingClientRect();
+    if (!button) return 1;
+    centre.current ??= button.x + button.width / 2;
+    return magnify(x - centre.current, unit);
+  });
+  const scale = useSpring(target, springs.glide);
+  return (
+    // The press keeps a span of its own, so its scale and the magnify's never write the same property.
+    <motion.span ref={ref} className="flex origin-bottom" style={{ scale }}>
+      <span className="flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94">{children}</span>
+    </motion.span>
   );
 }
 
@@ -111,11 +152,12 @@ export function Mark({ kind, bottom }: { kind: Indicator; bottom: number }) {
 }
 
 /** A button's name above it, or what went wrong; never takes the pointer. */
-function Label({ text, failed }: { text: string | null; failed: boolean }) {
-  return <AnimatePresence>{text !== null && <Bubble key={text} text={text} failed={failed} />}</AnimatePresence>;
+function Label({ text, failed, rise }: { text: string | null; failed: boolean; rise: number }) {
+  return <AnimatePresence>{text !== null && <Bubble key={text} text={text} failed={failed} rise={rise} />}</AnimatePresence>;
 }
 
-function Bubble({ text, failed }: { text: string; failed: boolean }) {
+/** `rise`: px above the usual 8 over the button, clear of a magnified icon. */
+function Bubble({ text, failed, rise }: { text: string; failed: boolean; rise: number }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [shift, setShift] = useState(0);
   // Centred over its button, and moved only as far as it must to stay inside the window, as the menus do.
@@ -130,8 +172,8 @@ function Bubble({ text, failed }: { text: string; failed: boolean }) {
     <motion.span
       ref={ref}
       dir="auto"
-      className={`pointer-events-none absolute bottom-full left-1/2 mb-2 max-w-80 -translate-x-1/2 truncate rounded-[8px] bg-elevated px-2 py-1 text-footnote font-medium shadow-[0_4px_14px_rgb(0_0_0/0.4)] ring-1 ring-separator ${failed ? "text-red" : "text-label"}`}
-      style={{ marginLeft: shift }}
+      className={`pointer-events-none absolute bottom-full left-1/2 max-w-80 -translate-x-1/2 truncate rounded-[8px] bg-elevated px-2 py-1 text-footnote font-medium shadow-[0_4px_14px_rgb(0_0_0/0.4)] ring-1 ring-separator ${failed ? "text-red" : "text-label"}`}
+      style={{ marginLeft: shift, marginBottom: 8 + rise }}
       initial={{ opacity: 0, transform: "translateY(2px) scale(0.96)" }}
       animate={{ opacity: 1, transform: "translateY(0px) scale(1)", transition: popover.enter }}
       exit={{ opacity: 0, transform: "scale(0.98)", transition: popover.exit }}

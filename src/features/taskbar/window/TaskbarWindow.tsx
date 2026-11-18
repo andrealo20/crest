@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { DotsThree } from "@phosphor-icons/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { springs } from "../../../design/motion";
@@ -16,7 +16,7 @@ import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
 import { zones as hitZones, type Rect } from "../autoHide";
 import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
-import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, type Box } from "../look";
+import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, labelRise, type Box } from "../look";
 import { closePanel, panel, togglePanel } from "../panel";
 import { barShown, barWindows, groupIcons } from "../store";
 import { splitApps } from "../fit";
@@ -89,13 +89,18 @@ export function TaskbarWindow() {
   }, [open]);
   // The shape's boxes, for its glass: new ones only when they change, so a hover does not draw the glass again.
   const [boxes, setBoxes] = useState<Box[]>([]);
+  // The pointer's x over the bar, Infinity off it: the magnified icons follow it without React drawing anything.
+  const pointer = useMotionValue(Infinity);
+  const reduced = useReducedMotion() === true;
   // Once the window lets the pointer through, the page sees no pointerleave: Rust says when the pointer left the bar.
   useEffect(
     () =>
       taskbar.onHover((inside) => {
-        if (!inside) setHovered(null);
+        if (inside) return;
+        setHovered(null);
+        pointer.set(Infinity);
       }),
-    [],
+    [pointer],
   );
   useEffect(() => {
     if (!error) return;
@@ -122,6 +127,8 @@ export function TaskbarWindow() {
   const appIcon = narrow ? compactIcon(size) : size;
   const appWidth = narrow ? compactIcon(size) + COMPACT_PAD : undefined;
   useEffect(() => trayFolded.set(fit.trayBack), [fit.trayBack]);
+  // Start, the apps, "…" and Crest grow as a dock's icons, by the pitch of the apps in use; widgets and tray icons only lift.
+  const mag = reduced ? undefined : { pointer, unit: (narrow ? compactIcon(size) + COMPACT_PAD : size + 16) + (tiles ? LOOK.tileGap : 2), rise: labelRise(size, height) };
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
   // An open menu or panel holds the bar up, and so does an app asking for attention.
   const layout = `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${fit.mode}:${fit.visible}:${fit.trayBack}:${fit.hide}`;
@@ -193,6 +200,7 @@ export function TaskbarWindow() {
         <Item
           {...item("start", t("Startmenü"))}
           kind="start"
+          magnify={mag}
           tile={tile()}
           // Windows' own Start and its Win+X menu, the bar held up while they come to the front; Windows may refuse, and nothing changes then.
           onClick={() => {
@@ -217,6 +225,7 @@ export function TaskbarWindow() {
             {...item(b.key, b.name)}
             tile={tile()}
             width={appWidth}
+            magnify={mag}
             mark={indicator(b, active)}
             onClick={(e) => click(b, e.currentTarget)}
             onContextMenu={(e) => toggle({ kind: "app", b }, e.currentTarget)}
@@ -237,6 +246,7 @@ export function TaskbarWindow() {
           {...(failed && { label: menu || open ? null : error.text, failed })}
           tile={tile()}
           width={appWidth}
+          magnify={mag}
           // Open or asking for attention, as one app with every hidden app's windows.
           mark={indicator({ key: "", name: "", pin: null, pins: [], windows: hiddenButtons.flatMap((b) => b.windows) }, active)}
           expanded={open?.content.kind === "apps"}
@@ -282,7 +292,7 @@ export function TaskbarWindow() {
       );
     if (id === "crest")
       return (
-        <Item {...item("crest", t("Crest-Menü"))} kind="crest" tile={tile()} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
+        <Item {...item("crest", t("Crest-Menü"))} kind="crest" tile={tile()} magnify={mag} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
           <CrestMark size={size} />
         </Item>
       );
@@ -304,7 +314,14 @@ export function TaskbarWindow() {
       <div data-theme-ink dir="ltr" className="contents" style={surface === "notch" ? ink : undefined}>
         {look.glass && <BarGlass {...look.glass} />}
         {/* The shape's place stays still, so its box is the band at rest while the shape slides out of it (useHitZone measures this box). */}
-        <div ref={bar} className={shape === "capsule" ? "self-center" : undefined} style={{ margin: shape === "capsule" ? `0 0 ${gap}px` : `0 ${gap}px ${gap}px` }}>
+        <div
+          ref={bar}
+          className={shape === "capsule" ? "self-center" : undefined}
+          style={{ margin: shape === "capsule" ? `0 0 ${gap}px` : `0 ${gap}px ${gap}px` }}
+          // The bar only, never a menu or the panel above it.
+          onPointerMove={(e) => pointer.set(e.clientX)}
+          onPointerLeave={() => pointer.set(Infinity)}
+        >
           {/* Positioned, so it draws over the glass's canvas. The capsule puts the three zones in a row, as close as its buttons. */}
           {shape === "capsule" ? (
             <motion.div {...slide}>
