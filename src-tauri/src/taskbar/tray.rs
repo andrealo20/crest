@@ -528,6 +528,20 @@ fn apply(icons: &mut Vec<Entry>, op: IconOp, data: IconData, owner_pid: u32, own
         (IconOp::SetVersion, Some(at)) => icons[at].version = data.version.unwrap_or(icons[at].version),
         (IconOp::Add | IconOp::Modify, at) => {
             let at = match at {
+                // A GUID icon added again from Crest's own window becomes Crest's: it leaves, as one never stays.
+                Some(at) if data.hwnd != 0 && owner_pid == own_pid => {
+                    icons.remove(at);
+                    return before != visible(icons);
+                }
+                // Its window again, as ManagedShell refreshes it: a GUID icon may come back from a new window and id.
+                Some(at) if data.hwnd != 0 => {
+                    let e = &mut icons[at];
+                    (e.hwnd, e.uid) = (data.hwnd, data.uid);
+                    if owner_pid != 0 {
+                        e.owner_pid = owner_pid;
+                    }
+                    at
+                }
                 Some(at) => at,
                 None if owner_pid == 0 || owner_pid == own_pid => return false,
                 None => {
@@ -659,14 +673,20 @@ fn arm(spy: HWND) {
 fn sweep(spy: HWND) {
     let gone = {
         let mut store = store();
-        let before = store.icons.len();
-        store.icons.retain(|e| unsafe { IsWindow(Some(handle(e.hwnd))) }.as_bool());
+        let gone = drop_gone(&mut store.icons, |hwnd| unsafe { IsWindow(Some(handle(hwnd))) }.as_bool());
         prune(&mut store);
-        store.icons.len() != before
+        gone
     };
     if gone {
         arm(spy);
     }
+}
+
+/// The icons whose window is not `alive` leave; whether any did.
+fn drop_gone(icons: &mut Vec<Entry>, alive: impl Fn(u32) -> bool) -> bool {
+    let before = icons.len();
+    icons.retain(|e| alive(e.hwnd));
+    icons.len() != before
 }
 
 /// Every bar hears the tray when it differs from what they last heard. On the spy's thread only, so nothing is sent while the
@@ -838,6 +858,24 @@ mod tests {
         apply(&mut icons, IconOp::Modify, icon(None, Some(true)), APP, CREST);
         assert!(by_key(&icons, &keys[0]).is_none());
         assert!(by_key(&icons, "w:1:1").is_none());
+    }
+
+    #[test]
+    fn a_guid_icon_added_again_from_a_new_window_answers_there() {
+        let guid = IconKey::Guid(GUID::from_values(1, 2, 3, [4, 5, 6, 7, 8, 9, 10, 11]));
+        let mut icons = Vec::new();
+        apply(&mut icons, IconOp::Add, IconData { key: guid.clone(), ..icon(Some("Sync"), None) }, APP, CREST);
+        let key = visible(&icons)[0].key.clone();
+        // The app restarted: the same GUID from window 0x5678, id 9, while 0x1234 is gone.
+        let again = IconData { key: guid.clone(), hwnd: 0x5678, uid: 9, ..icon(None, None) };
+        apply(&mut icons, IconOp::Add, again.clone(), APP + 1, CREST);
+        assert!(!drop_gone(&mut icons, |hwnd| hwnd != 0x1234));
+        assert_eq!((icons.len(), icons[0].hwnd, icons[0].uid, icons[0].owner_pid), (1, 0x5678, 9, APP + 1));
+        // The page keeps its key, which follows the GUID.
+        assert_eq!(visible(&icons)[0].key, key);
+        // Moved to a window of Crest's, it is Crest's own and leaves.
+        assert!(apply(&mut icons, IconOp::Modify, again, CREST, CREST));
+        assert!(icons.is_empty());
     }
 
     #[test]
