@@ -308,6 +308,8 @@ Details: [themes.md](themes.md).
 
 **Settings → Taskbar → Items** also places the **Notification area**, the tray, like a widget: it comes once before the clock, can be taken off with its cross and added back with a zone's **Add widget**. On the bar it shows the icons you keep visible, one button each (left, right and double click reach the program as from Windows' tray), then a **^** button, "Show hidden icons", for all the others; an icon dragged from there onto the bar stays visible, and the order on the bar is yours. By default every icon is behind the ^. Crest records the tray's icons only while a bar shows the tray; with the tray taken off or the bar off, Windows' tray keeps them all.
 
+When the apps do not fit, their buttons narrow first, then the last ones go behind a **…** button; the app in front and those asking for attention stay on the bar. Its panel lists them five to a row: a click does what it does on the bar, a right click opens the app's menu. With too little room even for one app and **…**, the tray's kept icons go back behind the ^, then the widgets farthest from the bar's centre hide, so nothing leaves the screen and the widgets never cover the apps. This holds on every bar, on every monitor. The tray's icons are two thirds the size of the apps'.
+
 Details of the glass, and what it costs: [themes.md](themes.md#glass).
 
 The first button on the bar is Windows' own Start: a left click opens the Start menu and a right click the Win+X menu, drawn with the Windows mark in the bar's colour. Apps are pinned from Windows' Start or with a right click on an open app in the bar.

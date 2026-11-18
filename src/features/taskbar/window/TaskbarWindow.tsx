@@ -25,6 +25,7 @@ import { splitTray } from "../trayModel";
 import { isWidget, widgetTool } from "../widgets";
 import { BarGlass, useBarSurface } from "./BarGlass";
 import { Capsule } from "./Capsule";
+import { AppsPanel } from "./AppsPanel";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
 import { holdBriefly } from "./hold";
@@ -238,8 +239,12 @@ export function TaskbarWindow() {
           width={appWidth}
           // Open or asking for attention, as one app with every hidden app's windows.
           mark={indicator({ key: "", name: "", pin: null, pins: [], windows: hiddenButtons.flatMap((b) => b.windows) }, active)}
-          expanded={false}
-          onClick={() => {}}
+          expanded={open?.content.kind === "apps"}
+          onClick={(e) => {
+            setError(null);
+            const r = e.currentTarget.getBoundingClientRect();
+            togglePanel({ kind: "apps" }, { x: r.x, w: r.width });
+          }}
           // No menu of its own, as ^: the Crest menu over the pointer.
           onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
         >
@@ -349,7 +354,30 @@ export function TaskbarWindow() {
         </AnimatePresence>
       </div>
       {/* Outside the bar's ink: the panel has the theme's colours whatever the bar's background, as the notch's open panel has. */}
-      <BarPanel bar={bar} onPlace={placeMenuZone} />
+      <BarPanel
+        bar={bar}
+        onPlace={placeMenuZone}
+        apps={{
+          count: hiddenButtons.length,
+          grid: (
+            <AppsPanel
+              apps={hiddenButtons.map((b) => {
+                const entry = launchId(b);
+                return { b, icon: entry === null ? ownIcons[b.key] : icons[entry], mark: indicator(b, active) };
+              })}
+              size={size}
+              // In the middle of the 8 px under the cell's icon, as markAt is under the bar's.
+              markAt={Math.round((8 - MARK) / 2)}
+              // A click does what the bar's does, over the cell: a window list or an app menu takes the panel's place.
+              onClick={(b, cell) => {
+                closePanel();
+                click(b, cell);
+              }}
+              onMenu={(b, cell) => toggle({ kind: "app", b }, cell)}
+            />
+          ),
+        }}
+      />
       <TrayDrop bar={bar} more={trayMore} size={trayIcon(size)} />
       {/* The launch error for screen readers too: a button's label is not read out. */}
       <span role="status" aria-live="polite" className="sr-only">

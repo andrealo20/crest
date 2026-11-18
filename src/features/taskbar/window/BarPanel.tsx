@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, usePresence, type Transition } from "motion/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { content, springs } from "../../../design/motion";
@@ -28,9 +28,10 @@ const RADIUS = 30;
  * kept inside the window, its bottom edge PANEL_GAP above the bar, the whole of it drawn at Crest's scale. It closes on Esc (the
  * keyboard then goes back to the app in front), on a pointerdown anywhere else, when the window loses the focus and when the bar
  * hides; a pointerdown on an item that opens a panel is left to that item's click, which closes it or switches it. Its box takes the
- * bar's menu slot in the hit zone: the panel and the bar's menus are never open together.
+ * bar's menu slot in the hit zone: the panel and the bar's menus are never open together. The apps behind "…" come drawn from the bar
+ * (`apps`), which holds what their clicks do.
  */
-export function BarPanel(props: { bar: RefObject<HTMLElement | null>; onPlace: (box: HitRect | null) => void }) {
+export function BarPanel(props: { bar: RefObject<HTMLElement | null>; onPlace: (box: HitRect | null) => void; apps: { count: number; grid: ReactNode } }) {
   const open = panel.use();
   return <AnimatePresence>{open && <Panel key="panel" open={open} {...props} />}</AnimatePresence>;
 }
@@ -43,7 +44,7 @@ const measure = (bar: RefObject<HTMLElement | null>) => ({ barTop: bar.current?.
  * A tool takes the size the notch gives it, less the notch's tool bar, once the tools' code has loaded. Every hook runs for every
  * content, as a switch between the tray and a tool renders the same panel.
  */
-function usePanelSize(shows: PanelContent): { w: number; h: number } | null {
+function usePanelSize(shows: PanelContent, apps: number): { w: number; h: number } | null {
   const tabs = useTabs(shows.kind === "tool");
   const tab = shows.kind === "tool" ? tabs?.findTab(shows.tool) : undefined;
   const toolSize = useToolSize(tab?.id ?? "", tab?.size ?? TOOL_FALLBACK);
@@ -53,6 +54,7 @@ function usePanelSize(shows: PanelContent): { w: number; h: number } | null {
   const { icons } = trayState.use();
   const folded = trayFolded.use();
   if (shows.kind === "tray") return TRAY_SIZE(fitIcon(height, iconSize), (folded ? icons : splitTray(icons, trayShown).hidden).length);
+  if (shows.kind === "apps") return TRAY_SIZE(fitIcon(height, iconSize), apps);
   if (!tab) return null;
   // The notch's own rule (Notch.tsx): the tool's runtime request wins over the size it was given, an extra height rides on top of
   // that size, and both are held to the monitor.
@@ -61,7 +63,7 @@ function usePanelSize(shows: PanelContent): { w: number; h: number } | null {
   return toolPanelSize(extra?.tabId === tab.id ? { w: toolSize.w, h: Math.min(toolSize.h + extra.h, maxH) } : toolSize);
 }
 
-function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLElement | null>; onPlace: (box: HitRect | null) => void }) {
+function Panel({ open, bar, onPlace, apps }: { open: OpenPanel; bar: RefObject<HTMLElement | null>; onPlace: (box: HitRect | null) => void; apps: { count: number; grid: ReactNode } }) {
   const { anchor } = open;
   const [present, safeToRemove] = usePresence();
   const ref = useRef<HTMLDivElement>(null);
@@ -78,7 +80,7 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
   }, [bar]);
 
   // A content whose size is not known yet keeps the size the panel had before it.
-  const asked = usePanelSize(open.content);
+  const asked = usePanelSize(open.content, apps.count);
   const kept = useRef(asked);
   if (asked) kept.current = asked;
   const natural = asked ?? kept.current;
@@ -167,7 +169,7 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
       // it the window lets the pointer through, so a pick in a menu that hung past it would land in the window below.
       data-notch-hit
       role="dialog"
-      aria-label={open.content.kind === "tray" ? t("Infobereich") : undefined}
+      aria-label={open.content.kind === "tray" ? t("Infobereich") : open.content.kind === "apps" ? t("Weitere Apps") : undefined}
       aria-labelledby={open.content.kind === "tool" ? TOOL_TITLE_ID : undefined}
       // Closing, it takes no key and no click: its zone is already gone.
       inert={!present}
@@ -195,7 +197,7 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
                   animate={{ opacity: 1, transition: content.enter }}
                   exit={{ opacity: 0, transition: content.exit }}
                 >
-                  {open.content.kind === "tray" ? <TrayPanel /> : <ToolPanel tool={open.content.tool} />}
+                  {open.content.kind === "tray" ? <TrayPanel /> : open.content.kind === "apps" ? apps.grid : <ToolPanel tool={open.content.tool} />}
                 </motion.div>
               )}
             </AnimatePresence>

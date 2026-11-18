@@ -24,6 +24,13 @@ test("the tray panel opens in the bar and is not a tool", () => {
   assert.equal(sameContent({ kind: "tray" }, { kind: "tray" }), true);
 });
 
+test("the apps behind … open in the bar's panel, apart from the tray and any tool", () => {
+  assert.equal(opensInBar({ kind: "apps" }), true);
+  assert.equal(panelKey({ kind: "apps" }), "apps");
+  assert.equal(sameContent({ kind: "apps" }, { kind: "tray" }), false);
+  assert.equal(sameContent({ kind: "apps" }, { kind: "tool", tool: "apps" }), false);
+});
+
 test("the tray panel grows a row for every five icons, up to four rows, then scrolls", () => {
   // Five buttons as wide as the bar's (icon + 16) and 12 px round them; one row for the line it shows without icons.
   assert.deepEqual(TRAY_SIZE(24, 0), { w: 224, h: 64 });

@@ -1829,5 +1829,6 @@
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Значками панели задач управляет другая программа.",
  "Keine ausgeblendeten Symbole": "Нет скрытых значков",
  "{n} weitere App": "Ещё {n} приложение",
- "{n} weitere Apps": "Ещё приложений: {n}"
+ "{n} weitere Apps": "Ещё приложений: {n}",
+ "Weitere Apps": "Другие приложения"
 }

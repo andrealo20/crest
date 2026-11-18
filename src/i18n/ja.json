@@ -1829,5 +1829,6 @@
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "別のプログラムがタスクバーのアイコンを管理しています。",
  "Keine ausgeblendeten Symbole": "隠れているアイコンはありません",
  "{n} weitere App": "他 {n} 個のアプリ",
- "{n} weitere Apps": "他 {n} 個のアプリ"
+ "{n} weitere Apps": "他 {n} 個のアプリ",
+ "Weitere Apps": "その他のアプリ"
 }

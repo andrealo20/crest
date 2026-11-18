@@ -82,7 +82,7 @@ const ATTENTION = { ...pulse, repeat: 5 };
  * Under an app: a dot while it is open, a longer mark while it is in front, the accent while a window asks for attention, pulsing
  * when that starts. Both shapes are drawn whole and change by opacity and scale only.
  */
-function Mark({ kind, bottom }: { kind: Indicator; bottom: number }) {
+export function Mark({ kind, bottom }: { kind: Indicator; bottom: number }) {
   const long = kind === "front" || kind === "attention";
   return (
     // No initial={false} here: a mark that appears asking for attention pulses too, where initial={false} would leave it dim.
