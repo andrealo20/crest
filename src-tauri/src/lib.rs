@@ -164,6 +164,8 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "power_plans", "power_plan_set", "system_icon", "reveal_file", "ports_list", "ports_open", "ports_end",
     "convert_probe", "file_preview", "open_path", "copy_files", "shelf_drag_out", "clipboard_paste_files", "shelf_clipboard_text",
     "phone_share_start", "phone_share_stop",
+    "media_get", "media_control", "media_open_source", "media_sources", "mixer_list", "volume_get", "mixer_set", "volume_set",
+    "lyrics_romanize", "translate_file",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -1090,6 +1092,15 @@ mod tests {
         // A phone share lives in Rust and in the view that started it, which stops it and knows its own lost event by its address:
         // the bar starts and stops its own.
         assert!(ok("taskbar", "phone_share_start") && ok("taskbar", "phone_share_stop"));
+        // The bar's Now playing follows the song from Rust itself, its player, player menu and mixer act on a click (the mixer reads
+        // the levels while it is open), and its lyrics are romanized there, and translated there when offline translation is on.
+        assert!(ok("taskbar", "media_get") && ok("taskbar", "media_control") && ok("taskbar", "media_open_source") && ok("taskbar", "media_sources"));
+        assert!(ok("taskbar", "mixer_list") && ok("taskbar", "volume_get") && ok("taskbar", "mixer_set") && ok("taskbar", "volume_set"));
+        assert!(ok("taskbar", "lyrics_romanize") && ok("taskbar", "translate_file"));
+        // The notch alone fetches the lyrics, which fill the cache the bar reads. The lyrics' position and the audio levels are plain
+        // switches in Rust that only the notch turns, for a bar too, so a bar's panel closing never turns them off under the notch; the
+        // pinned player is a setting the notch applies.
+        assert!(!ok("taskbar", "lyrics_fetch") && !ok("taskbar", "media_lyrics") && !ok("taskbar", "audio_levels") && !ok("taskbar", "media_pin"));
     }
 
     #[test]

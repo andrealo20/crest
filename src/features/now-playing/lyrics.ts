@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { livePosition, media, type NowPlaying } from "../../platform/media";
 import { isNative } from "../../platform/native";
+import { isNotchWindow } from "../../lib/windowKind";
 import { demo } from "../../dev/showcase-data";
 import { settings } from "../../settings/store";
+import { barShows, onBarShows } from "../taskbar/barPanels";
 import { LEAD, cacheKey, closedIndex, closedLine, foundOf, lineAt, lookupAllowed, lyricsOf, pickRecord, searchTerms, untilNext, withExtra, type Found, type LrclibRecord, type LyricLine, type Lyrics } from "./lrc";
-import { createLyricsCache, type CacheEntry } from "./lyricsCache";
+import { CACHE_PREFIX, createLyricsCache, type CacheEntry } from "./lyricsCache";
 import { enabledSources, firstFound, type LyricSourceId } from "./lyricSources";
 import { lang } from "../../i18n";
 import { detectLanguage, pairsFor, targetOf, translationLrc } from "./offline";
@@ -14,8 +16,9 @@ import { hasPair, offlineStatus, translateOffline } from "./offlineEngine";
 /*
  * Synced lyrics from the sources the user turned on, in their order (lyricSources.ts): LRCLIB (lrclib.net, free, no key)
  * from the webview, Kugou and NetEase from Rust (src-tauri/src/lyrics.rs). Only title, artist and length are sent, and only
- * while a lyrics surface is on (the panel in Now Playing or a lyric mode of the closed notch) and only for sessions with a
- * known length up to 20 minutes. Answers are cached in memory and on disk.
+ * while a lyrics surface is on (the panel in Now Playing, the notch's or a bar's, or a lyric mode of the closed notch) and only
+ * for sessions with a known length up to 20 minutes. Answers are cached in memory and on disk. Only the notch asks the sources:
+ * a bar's window shows what the notch cached for it.
  */
 
 const API = "https://lrclib.net/api";
@@ -89,6 +92,14 @@ const songKey = (np: NowPlaying, order: LyricSourceId[]) => {
   return order.join(",") === "lrclib" ? key : `${key}\n${order.join(",")}`;
 };
 
+/**
+ * The song's cache key while its lyrics may be looked up, else null. Browser players report no artist for some videos; the title
+ * alone still finds many songs. Streams, podcasts and other long or open-ended sessions are not looked up, so their titles stay on
+ * the PC.
+ */
+const lookupKey = (np: NowPlaying | null, order: LyricSourceId[]) =>
+  np && np.title.trim() !== "" && lookupAllowed(np.duration) && order.length > 0 ? songKey(np, order) : null;
+
 const fromEntry = (e: CacheEntry): Lyrics => lyricsOf(e);
 
 /** Lyrics of a song; null when a source could not be reached and none had it (not cached, asked again next time). */
@@ -118,51 +129,94 @@ const OFFLINE_RETRY_MS = 60_000;
 
 /** Lyrics surfaces on screen; while there is one, Rust refreshes the position every few seconds. */
 let shown = 0;
+/** Counts a surface in or out: the first in turns the refresh on, the last out turns it off (only the notch's count reaches Rust, native.ts). */
+const count = (on: boolean) => {
+  if (on ? ++shown === 1 : --shown === 0) media.lyricsShown(on);
+};
+
+/**
+ * Passes the song's lyrics to `done`, or null when no source could be reached; such a song is asked once more, when the network is
+ * back or after OFFLINE_RETRY_MS. The bar's window asks no source: it passes what the cache holds, which the notch fills for a bar's
+ * panel (followBar), and on a miss reads it again when the notch writes the song there. Returns the stop.
+ */
+function loadLyrics(key: string, np: NowPlaying, order: LyricSourceId[], done: (l: Lyrics | null) => void): () => void {
+  if (!isNotchWindow) {
+    const read = (e?: StorageEvent) => {
+      const known = (!e || e.key === CACHE_PREFIX + key) && cache.get(key);
+      if (known) done(fromEntry(known));
+    };
+    read();
+    window.addEventListener("storage", read);
+    return () => window.removeEventListener("storage", read);
+  }
+  let alive = true, retried = false, timer = 0;
+  const again = () => {
+    window.clearTimeout(timer);
+    window.removeEventListener("online", again);
+    if (alive) load();
+  };
+  const load = () =>
+    void lyricsFor(key, np, order).then((l) => {
+      if (!alive) return;
+      done(l);
+      if (l || retried) return;
+      retried = true;
+      window.addEventListener("online", again);
+      timer = window.setTimeout(again, OFFLINE_RETRY_MS);
+    });
+  load();
+  return () => {
+    alive = false;
+    window.clearTimeout(timer);
+    window.removeEventListener("online", again);
+  };
+}
 
 /** Lyrics of the shown song while `enabled`; nothing is fetched otherwise. */
 export function useLyrics(np: NowPlaying | null, enabled: boolean): LyricsState | null {
   const order = enabledSources(settings.use().music.lyricSources);
-  // Browser players report no artist for some videos; the title alone still finds many songs.
   const wanted = !!np && enabled && np.title.trim() !== "";
-  // Streams, podcasts and other long or open-ended sessions are not looked up, so their titles stay on the PC.
-  const allowed = wanted && lookupAllowed(np.duration) && order.length > 0;
-  const key = allowed ? songKey(np, order) : null;
+  const key = wanted ? lookupKey(np, order) : null;
   const [state, setState] = useState<{ key: string; value: LyricsState } | null>(null);
   useEffect(() => {
     if (!key || !np) return;
-    let alive = true, retried = false, timer = 0;
-    const again = () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("online", again);
-      if (alive) load();
-    };
-    const load = () =>
-      void lyricsFor(key, np, order).then((l) => {
-        if (!alive) return;
-        setState({ key, value: l ?? { kind: "offline" } });
-        if (l || retried) return;
-        retried = true;
-        window.addEventListener("online", again);
-        timer = window.setTimeout(again, OFFLINE_RETRY_MS);
-      });
     setState({ key, value: { kind: "loading" } });
-    load();
-    return () => {
-      alive = false;
-      window.clearTimeout(timer);
-      window.removeEventListener("online", again);
-    };
+    return loadLyrics(key, np, order, (l) => setState({ key, value: l ?? { kind: "offline" } }));
   }, [key]);
   useEffect(() => {
     if (!key) return;
-    if (++shown === 1) media.lyricsShown(true);
-    return () => {
-      if (--shown === 0) media.lyricsShown(false);
-    };
+    count(true);
+    return () => count(false);
   }, [!!key]);
   if (wanted && !order.length) return { kind: "nosource" };
-  if (wanted && !allowed) return { kind: "skipped" };
+  if (wanted && !key) return { kind: "skipped" };
   return key && state?.key === key ? state.value : key ? { kind: "loading" } : null;
+}
+
+/*
+ * In the notch, for a bar's panel that shows Now playing with its lyrics open: the bar asks no source, so the notch loads the playing
+ * song's lyrics as its own panel would, which fills the cache the bar reads, and counts the bar's lyrics as one more surface.
+ */
+let barSong: string | null = null;
+let stopBar = () => {};
+
+/** Runs on whatever can change the song a bar's lyrics need (the panel, the settings, the song) and acts only when that song changes. */
+function followBar() {
+  const np = media.get();
+  const music = settings.get().music;
+  const order = enabledSources(music.lyricSources);
+  const key = barShows("media") && music.lyricsOpen ? lookupKey(np, order) : null;
+  if (key === barSong) return;
+  if (!key !== !barSong) count(!!key);
+  barSong = key;
+  stopBar();
+  stopBar = np && key ? loadLyrics(key, np, order, () => {}) : () => {};
+}
+
+if (isNotchWindow) {
+  onBarShows("media", followBar);
+  settings.subscribe(followBar);
+  media.subscribe(followBar);
 }
 
 /** The synced lines, if the state has them. */

@@ -1,4 +1,4 @@
-import { isNotchWindow } from "../../lib/windowKind";
+import { isNotchWindow, isTaskbarWindow } from "../../lib/windowKind";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { accentFrom } from "../../lib/accent";
@@ -78,8 +78,9 @@ export function createNativeMedia(): MediaSource {
     }
   };
 
-  // Only the notch follows the playing song (and works out its colours); the controls below work from any window.
-  if (isNotchWindow) {
+  // The notch and the bar, whose panel shows Now playing, follow the playing song from Rust (and work out its colours); the controls
+  // below work from any window.
+  if (isNotchWindow || isTaskbarWindow) {
     void invoke<NativeNowPlaying | null>("media_get").then(apply);
     void listen<NativeNowPlaying | null>("media://update", (e) => apply(e.payload));
   }
@@ -135,7 +136,9 @@ export function createNativeMedia(): MediaSource {
       control("repeat");
     },
     pin: (appId) => void invoke("media_pin", { appId }),
-    lyricsShown: (on) => void invoke("media_lyrics", { on }),
+    // A plain switch in Rust, so only the notch turns it, also for a bar's lyrics (lyrics.ts): another window turning it off would
+    // stop the refresh under the notch's lyrics.
+    lyricsShown: (on) => void (isNotchWindow && invoke("media_lyrics", { on })),
     sources: () => invoke<SourceInfo[]>("media_sources").catch(() => []),
   };
 }
