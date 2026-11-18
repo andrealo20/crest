@@ -36,16 +36,22 @@ const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte",
 /** What the bar draws for each item: the apps' buttons, and the button of the Crest menu. */
 const ITEM_LABEL: Record<BarItem, string> = { apps: "Apps und Fenster", crest: "Crest-Menü" };
 
-/** Taskbar → General: the bar on or off, and where the system icons it leaves out are. */
+/** Taskbar → General: the bar on or off, whether it slides away when a window touches it, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
-  const enabled = settings.use().taskbar.enabled;
+  const { enabled, autoHide } = settings.use().taskbar;
   return (
     <Group id="settings-taskbar">
       <Row
         label={t("Crest-Taskleiste")}
-        hint={t("Blendet die Windows-Taskleiste auf allen Bildschirmen aus und zeigt die von Crest auf dem Hauptbildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück")}
+        hint={t("Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück")}
       >
         <Switch label={t("Crest-Taskleiste")} checked={enabled} onChange={(on) => setTaskbar({ enabled: on })} />
+      </Row>
+      <Row
+        label={t("Ausblenden, wenn ein Fenster sie berührt")}
+        hint={t("Die Leiste gleitet aus dem Bildschirm, solange das Fenster vorne sie berührt, und kommt zurück, wenn der Zeiger den unteren Rand berührt")}
+      >
+        <Switch label={t("Ausblenden, wenn ein Fenster sie berührt")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
       </Row>
       {/* A sentence, not a setting's name: it wraps instead of being cut. */}
       <Row label={<span className="whitespace-normal">{t("Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N")}</span>} />

@@ -23,6 +23,8 @@ test("any saved value becomes valid bar settings", () => {
   for (const v of [undefined, null, 0, "x", [], true, { zones: "x", height: "44", surface: 1, pinned: {} }]) assert.deepEqual(normalizeTaskbar(v), TASKBAR_DEFAULTS);
   assert.equal(normalizeTaskbar({ enabled: "yes" }).enabled, false);
   assert.equal(normalizeTaskbar({ enabled: true }).enabled, true);
+  assert.equal(normalizeTaskbar({ autoHide: true }).autoHide, true);
+  assert.equal(normalizeTaskbar({ autoHide: "yes" }).autoHide, false);
   assert.equal(normalizeTaskbar({ height: 100 }).height, 64);
   assert.equal(normalizeTaskbar({ height: -5 }).height, 32);
   assert.equal(normalizeTaskbar({ height: 40, iconSize: 40 }).iconSize, 40); // fitIcon shrinks it where it is drawn, not in the saved setting

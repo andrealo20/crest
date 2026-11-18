@@ -11,16 +11,22 @@ export const barWindows = createStore<WindowList>({ groups: [], active: null });
 export const groupIcons = createStore<Record<string, string | null>>({});
 
 /**
- * The notch applies the bar's on/off and height to Rust, the only window that does: as saved when Crest starts, then on every change
- * of either. The first time the bar is on and its pinned list was never filled, the notch fills it with Windows' pinned apps.
+ * The notch applies the bar's on/off, height and hiding to Rust, the only window that does: as saved when Crest starts, then on every
+ * change of each. The first time the bar is on and its pinned list was never filled, the notch fills it with Windows' pinned apps.
  */
 export function startTaskbar() {
   if (!isNative || isMac) return;
   let last = "";
+  let hides: boolean | null = null;
   let queue = Promise.resolve();
   let seeded = false;
   const sync = () => {
-    const { enabled, height, pinned } = settings.get().taskbar;
+    const { enabled, height, pinned, autoHide } = settings.get().taskbar;
+    // Outside the queue: a flag the display poll reads, which never waits for a bar to be built or taken down.
+    if (autoHide !== hides) {
+      hides = autoHide;
+      void taskbar.autoHide(autoHide);
+    }
     // One try per start: a failed read leaves the list to the next start, and an app pinned meanwhile is never overwritten.
     if (enabled && pinned === null && !seeded) {
       seeded = true;

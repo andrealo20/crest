@@ -14,6 +14,8 @@ export type BarItem = "apps" | "crest";
  */
 export interface TaskbarSettings {
   enabled: boolean;
+  /** Each bar slides off its screen while the window in front of its monitor touches it (autoHide.ts). */
+  autoHide: boolean;
   zones: Record<Zone, BarItem[]>;
   height: number;
   iconSize: number;
@@ -23,6 +25,7 @@ export interface TaskbarSettings {
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
   enabled: false,
+  autoHide: false,
   zones: { left: [], center: ["apps"], right: ["crest"] },
   height: 44,
   iconSize: 24,
@@ -53,6 +56,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
   const s = isObj(v) ? v : {}, d = TASKBAR_DEFAULTS;
   return {
     enabled: s.enabled === true,
+    autoHide: s.autoHide === true,
     zones: normalizeZones(s.zones),
     height: within(s.height, HEIGHT, d.height),
     iconSize: within(s.iconSize, ICON, d.iconSize),

@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type MouseEventHandler, type RefObject } from "react";
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { springs } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { launcher, taskbar } from "../../../platform/services";
 import { settings } from "../../../settings/store";
@@ -7,10 +8,12 @@ import { CrestMark } from "../../../ui/CrestMark";
 import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
+import { zones as hitZones, type Rect } from "../autoHide";
 import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, type BarItem, type Zone } from "../model";
 import { barWindows, groupIcons } from "../store";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { Item, MARK } from "./Item";
+import { useAutoHide } from "./useAutoHide";
 
 /** Room between the bar and the screen's sides and bottom, CSS px (src-tauri/src/taskbar/bar.rs GAP). */
 const GAP = 4;
@@ -48,7 +51,6 @@ export function TaskbarWindow() {
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
-  const placeMenuZone = useHitZone(bar);
   // Once the window lets the pointer through, the page sees no pointerleave: Rust says when the pointer left the bar.
   useEffect(
     () =>
@@ -64,6 +66,8 @@ export function TaskbarWindow() {
   }, [error]);
 
   const buttons = barButtons(pinned, groups);
+  // An app asking for attention holds the bar up, as an open menu does.
+  const { down, place: placeMenuZone } = useHitZone(bar, { open: menu !== null, attention: buttons.some((b) => indicator(b, active) === "attention") });
   const icons = useIcons(buttons.flatMap((b) => launchId(b) ?? []));
   const ownIcons = groupIcons.use();
   const size = fitIcon(height, iconSize);
@@ -135,18 +139,23 @@ export function TaskbarWindow() {
     >
       {/* On the closed notch's black the bar and its menus keep their dark tokens whatever the theme (Notch.tsx), and its zones keep their sides in any language. */}
       <div data-theme-ink dir="ltr" className="contents" style={surface === "notch" ? ink : undefined}>
-        <div
-          ref={bar}
-          className="grid grid-cols-[1fr_auto_1fr] rounded-[12px] px-1 text-label"
-          style={{ height, margin: `0 ${GAP}px ${GAP}px`, background: surface === "notch" ? "var(--notch-closed)" : "var(--color-notch)" }}
-        >
-          {ZONES.map(([zone, justify]) => (
-            <div key={zone} className={`flex min-w-0 gap-0.5 ${justify}`}>
-              {zones[zone].map((id) => (
-                <Fragment key={id}>{render(id)}</Fragment>
-              ))}
-            </div>
-          ))}
+        {/* The bar's place stays still, so its box is the band at rest while the bar slides out of it, off the screen. */}
+        <div ref={bar} style={{ margin: `0 ${GAP}px ${GAP}px` }}>
+          <motion.div
+            className="grid grid-cols-[1fr_auto_1fr] rounded-[12px] px-1 text-label"
+            style={{ height, background: surface === "notch" ? "var(--notch-closed)" : "var(--color-notch)" }}
+            initial={false}
+            animate={{ y: down ? height + GAP : 0 }}
+            transition={springs.snappy}
+          >
+            {ZONES.map(([zone, justify]) => (
+              <div key={zone} className={`flex min-w-0 gap-0.5 ${justify}`}>
+                {zones[zone].map((id) => (
+                  <Fragment key={id}>{render(id)}</Fragment>
+                ))}
+              </div>
+            ))}
+          </motion.div>
         </div>
         <AnimatePresence>
           {menu && (
@@ -180,15 +189,24 @@ export function TaskbarWindow() {
 }
 
 /**
- * Tells Rust where the page takes the pointer: the bar and the gap under it, so a click in the gap never reaches the app behind,
- * and the open menu, whose box comes through the returned function each time the menu places itself (null once it closes). The
- * bar counts only once it has a size: the first report says it has drawn, and Windows' taskbar hides then.
+ * Tells Rust where the page takes the pointer (autoHide.ts zones): the bar and the gap under it, so a click in the gap never reaches
+ * the app behind, and the open menu, whose box comes through `place` each time the menu places itself (null once it closes); with
+ * "hide when a window touches it" on, the strip at the bottom edge too, alone while the bar is down. The bar counts only once it has
+ * a size: the first report says it has drawn, and Windows' taskbar hides then. Its band also decides whether it is down.
  */
-function useHitZone(ref: RefObject<HTMLDivElement | null>) {
+function useHitZone(ref: RefObject<HTMLDivElement | null>, hold: { open: boolean; attention: boolean }) {
+  const on = settings.use().taskbar.autoHide;
+  const [band, setBand] = useState<Rect | null>(null);
+  const down = useAutoHide({ band, ...hold });
   const menu = useRef<HitRect | null>(null);
+  // As of the last render, for the reports the observers make.
+  const now = useRef({ on, down });
   const report = useCallback(() => {
     const r = ref.current?.getBoundingClientRect();
-    if (r && r.width > 0 && r.height > 0) void taskbar.hitRects([{ x: r.x, y: r.y, w: r.width, h: window.innerHeight - r.y }, ...(menu.current ? [menu.current] : [])]);
+    if (!r || r.width <= 0 || r.height <= 0) return;
+    const box = { x: r.x, y: r.y, w: r.width, h: window.innerHeight - r.y };
+    setBand((b) => (b?.x === box.x && b.y === box.y && b.w === box.w && b.h === box.h ? b : box));
+    void taskbar.hitRects(hitZones({ band: box, open: menu.current ? [menu.current] : [], ...now.current, width: window.innerWidth, height: window.innerHeight }));
   }, [ref]);
   useEffect(() => {
     const el = ref.current;
@@ -202,11 +220,17 @@ function useHitZone(ref: RefObject<HTMLDivElement | null>) {
       window.removeEventListener("resize", report);
     };
   }, [ref, report]);
-  return useCallback(
+  // Down or up, the option on or off: other zones over the same still box.
+  useEffect(() => {
+    now.current = { on, down };
+    report();
+  }, [on, down, report]);
+  const place = useCallback(
     (box: HitRect | null) => {
       menu.current = box;
       report();
     },
     [report],
   );
+  return { down, place };
 }
