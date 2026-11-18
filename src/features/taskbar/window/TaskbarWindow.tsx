@@ -127,6 +127,10 @@ export function TaskbarWindow() {
   const appIcon = narrow ? compactIcon(size) : size;
   const appWidth = narrow ? compactIcon(size) + COMPACT_PAD : undefined;
   useEffect(() => trayFolded.set(fit.trayBack), [fit.trayBack]);
+  // Every app fits again: "…" goes, and so does its panel, which would stay open and empty.
+  useEffect(() => {
+    if (fit.mode !== "overflow" && panel.get()?.content.kind === "apps") closePanel();
+  }, [fit.mode]);
   // Start, the apps, "…" and Crest grow as a dock's icons, by the pitch of the apps in use; widgets and tray icons only lift.
   const mag = reduced ? undefined : { pointer, unit: (narrow ? compactIcon(size) + COMPACT_PAD : size + 16) + (tiles ? LOOK.tileGap : 2), rise: labelRise(size, height) };
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).

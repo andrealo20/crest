@@ -7,7 +7,7 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { trayIcon, type TrayIcon } from "../model";
 import { panel, togglePanel, trayDrag } from "../panel";
 import { dropSlot } from "../panelModel";
-import { startTray, trayPictures, trayState } from "../tray";
+import { startTray, trayFolded, trayPictures, trayState } from "../tray";
 import { demote, promote, shownSlot, splitTray } from "../trayModel";
 import { holdBriefly } from "./hold";
 import { Item, type ItemProps } from "./Item";
@@ -154,6 +154,8 @@ function dropAt(bar: HTMLElement | null, more: HTMLElement | null, d: { x: numbe
   if (!bar || !more || d.y < bar.getBoundingClientRect().top) return null;
   const caret = more.getBoundingClientRect();
   if (d.from === "bar" && d.x >= caret.left && d.x <= caret.right) return { hide: true } as const;
+  // While the bar's tray is folded behind ^ (fit.ts) an icon kept on the bar would not be drawn: no place to keep it.
+  if (trayFolded.get()) return null;
   const slots = [...bar.querySelectorAll("[data-tray]")].map((el) => el.getBoundingClientRect());
   if (d.x < (slots[0] ?? caret).left || d.x > caret.right) return null;
   const slot = dropSlot(slots.map((r) => ({ x: r.x, w: r.width })), d.x);
