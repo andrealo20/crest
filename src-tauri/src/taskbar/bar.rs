@@ -342,6 +342,16 @@ pub(crate) fn band() -> f64 {
     f64::from_bits(BAND.load(Ordering::SeqCst))
 }
 
+/// Whether `label` is a bar's window: the primary's or another monitor's (screens.rs).
+pub(crate) fn is_bar_label(label: &str) -> bool {
+    label == LABEL || label.starts_with("taskbar-")
+}
+
+/// For the commands only a bar may call: `command_allowed` lets the notch call every command, this refuses it too.
+pub(crate) fn from_bar(window: &WebviewWindow) -> Result<(), String> {
+    if is_bar_label(window.label()) { Ok(()) } else { Err("denied".into()) }
+}
+
 /// The bar's window, 0 while there is none.
 pub(crate) fn hwnd() -> isize {
     HANDLE.load(Ordering::SeqCst)
@@ -411,6 +421,12 @@ mod tests {
     #[test]
     fn the_bar_window_never_covers_its_monitor() {
         assert_eq!(bar_rect((0, 0, 1366, 768), 1.0), (0, 192, 1366, 576)); // capped at three quarters
+    }
+
+    #[test]
+    fn only_bars_reach_the_networks_and_devices() {
+        assert!(is_bar_label("taskbar") && is_bar_label("taskbar-2"));
+        assert!(!is_bar_label("notch") && !is_bar_label("settings") && !is_bar_label("taskbarx") && !is_bar_label(""));
     }
 
     #[test]

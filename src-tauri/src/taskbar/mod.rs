@@ -18,6 +18,7 @@ pub(crate) mod tasks;
 pub(crate) mod tray;
 pub(crate) mod traywire;
 pub(crate) mod widgets;
+pub(crate) mod wifi;
 
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicU32, Ordering};

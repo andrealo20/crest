@@ -54,8 +54,8 @@ fn dark() -> bool {
     read.is_ok() && value == 0
 }
 
-/// Runs `job` with COM on a thread of its own: the radio calls wait on WinRT operations.
-async fn blocking<T: Send + 'static>(job: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
+/// Runs `job` with COM on a thread of its own: the radio calls wait on WinRT operations (and the bar's Wi-Fi page's, taskbar/wifi.rs).
+pub(crate) async fn blocking<T: Send + 'static>(job: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(move || {
         unsafe {
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
