@@ -132,6 +132,8 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
     const onDown = (e: PointerEvent) => {
       const target = e.target;
       if (target instanceof Node && ref.current?.contains(target)) return;
+      // A tool's select menu is portaled into the body (controls.tsx) but belongs to the panel, as it belongs to the notch (Notch.tsx).
+      if (target instanceof Element && target.closest("[data-notch-menu]")) return;
       if (target instanceof Element && target.closest("[aria-haspopup=dialog]")) return;
       if (e.clientY >= view.barTop && e.clientX >= anchor.x && e.clientX <= anchor.x + anchor.w) return;
       closePanel();
