@@ -12,6 +12,7 @@ import { GLASS, lodFor, parseTint, textureMap } from "../../../notch/glass/param
 import { DOWN_FS, program } from "../../../notch/glass/shader";
 import { viewMetrics } from "../../../notch/viewZoom";
 import type { GlassZone } from "../../../platform/native";
+import { status } from "../../../platform/services";
 import { settings } from "../../../settings/store";
 import { activeTheme, forcedColors } from "../../themes/store";
 import { barNeed, barRadius, barVeil, glassShapes, themeVeils, type Box } from "../look";
@@ -33,6 +34,10 @@ const ATTRS: WebGLContextAttributes = {
 const pageShown = createStore(document.visibilityState === "visible");
 document.addEventListener("visibilitychange", () => pageShown.set(document.visibilityState === "visible"));
 
+/** Energy saver is on (sysevents.rs): the glass stops, as all of it does. The notch keeps its own in the status alerts, which run only there. */
+const saver = createStore(false);
+status.onPower((p) => saver.set(p.saver === true));
+
 interface Props { shape: BarShape; boxes: Box[]; radius: number; veil: number; dark: boolean }
 
 /**
@@ -47,11 +52,11 @@ export function useBarSurface(boxes: Box[], ink: Record<string, string> | undefi
   const supported = liveSupport.use()?.supported === true;
   const lessTransparency = reducedTransparency.use(), moreContrast = contrastMore.use(), forced = forcedColors.use();
   const reduced = lessTransparency || moreContrast || forced;
-  const shown = pageShown.use(), live = liveFrame.use();
+  const shown = pageShown.use(), saving = saver.use(), live = liveFrame.use();
   const { dpr } = viewMetrics.use();
   const dark = surface === "notch" && ink ? true : theme.dark;
   const veil = barVeil({ transparency, glass: glass && supported, reduced, ...themeVeils(surface === "notch" && ink ? ink : theme.vars) });
-  const on = glass && supported && !reduced && shown;
+  const on = glass && supported && !reduced && shown && !saving;
   const need = on ? barNeed(boxes, dpr) : null;
   const needKey = JSON.stringify(need);
   useEffect(() => wantLive(need), [needKey]); // eslint-disable-line react-hooks/exhaustive-deps
