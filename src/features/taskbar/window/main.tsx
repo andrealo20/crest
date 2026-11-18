@@ -1,9 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { MotionConfig } from "motion/react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import "../../../styles/global.css";
 import { settings } from "../../../settings/store";
 import { language, startLanguage } from "../../../i18n";
+import { receiveLive, restartLive, startGlassLive } from "../../../notch/glass/live";
+import { isMac, isNative, onSharedBuffer } from "../../../platform/native";
 import { startThemes } from "../../themes/store";
 import { startCrashLog } from "../../window/store";
 import { startBarWindows } from "../store";
@@ -34,6 +37,17 @@ window.addEventListener("keydown", (e) => {
 });
 
 startBarWindows();
+
+// The bar's live glass (BarGlass.tsx), behind its own switch; in the browser ?glassLive stands in for Rust, as for the notch. Only the
+// live frames come through the shared buffers here: snapshot.ts, which would listen for the open panel's copy too, is not loaded.
+startGlassLive(() => settings.get().taskbar.glass);
+if (isNative && !isMac) {
+  onSharedBuffer((meta, data) => {
+    if ((meta as { kind?: unknown } | null)?.kind === "glass-live") receiveLive(meta, data);
+  });
+  // The copy's zone is in the window, its capture in the monitor: the bar moved with the work area, a new session.
+  void getCurrentWindow().onMoved(restartLive);
+}
 
 /** Re-renders on a language change, as the notch's root does. */
 function App() {

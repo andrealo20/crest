@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type MouseEventHandler, type RefObject } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
 import { AnimatePresence } from "motion/react";
 import { t } from "../../../i18n";
 import { launcher, taskbar } from "../../../platform/services";
@@ -7,13 +7,14 @@ import { CrestMark } from "../../../ui/CrestMark";
 import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
-import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, type BarItem, type Zone } from "../model";
+import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
+import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, type Box } from "../look";
 import { barWindows, groupIcons } from "../store";
+import { BarGlass, useBarSurface } from "./BarGlass";
+import { Capsule } from "./Capsule";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { Item, MARK } from "./Item";
 
-/** Room between the bar and the screen's sides and bottom, CSS px (src-tauri/src/taskbar/bar.rs GAP). */
-const GAP = 4;
 /** Room between the bar and a menu above it, CSS px, as between a button and its name. */
 const MENU_GAP = 8;
 const ZONES: [Zone, string][] = [
@@ -38,7 +39,7 @@ type OpenMenu = Menu & { anchor: Element | null; x: number; w: number };
  * off it, a click.
  */
 export function TaskbarWindow() {
-  const { zones, height, iconSize, surface, pinned } = settings.use().taskbar;
+  const { zones, height, iconSize, surface, pinned, shape } = settings.use().taskbar;
   const { groups, active } = barWindows.use();
   const ink = useClosedInk(undefined);
   const accent = useThemedAccent(undefined);
@@ -48,7 +49,9 @@ export function TaskbarWindow() {
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
-  const placeMenuZone = useHitZone(bar);
+  // The shape's boxes, for its glass: new ones only when they change, so a hover does not draw the glass again.
+  const [boxes, setBoxes] = useState<Box[]>([]);
+  const look = useBarSurface(boxes, ink);
   // Once the window lets the pointer through, the page sees no pointerleave: Rust says when the pointer left the bar.
   useEffect(
     () =>
@@ -69,6 +72,13 @@ export function TaskbarWindow() {
   const size = fitIcon(height, iconSize);
   // The mark sits in the middle of the room under the icon, on whole pixels.
   const markAt = Math.round(((height - size) / 2 - MARK) / 2);
+  const gap = barGap(shape);
+  const tiles = shape === "tiles";
+  // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
+  const placeMenuZone = useHitZone(bar, shape, setBoxes, `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}`);
+  // In the order the tiles are drawn and measured: past LOOK.maxTiles the glass does not draw them, and they keep the veil.
+  let tileCount = 0;
+  const tile = () => (tiles ? { background: tileCount++ < LOOK.maxTiles ? look.background : look.plain, radius: LOOK.radius } : undefined);
 
   /** Opens a menu over its button, or closes it on a second click there; another button's menu takes the place of an open one. */
   const toggle = (next: Menu, anchor: HTMLElement) => {
@@ -110,6 +120,7 @@ export function TaskbarWindow() {
           <Item
             key={b.key}
             {...item(b.key, b.name)}
+            tile={tile()}
             mark={indicator(b, active)}
             onClick={(e) => click(b, e.currentTarget)}
             onContextMenu={(e) => toggle({ kind: "app", b }, e.currentTarget)}
@@ -119,7 +130,7 @@ export function TaskbarWindow() {
         );
       })
     ) : (
-      <Item {...item("crest", t("Crest-Menü"))} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
+      <Item {...item("crest", t("Crest-Menü"))} tile={tile()} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
         <CrestMark size={size} />
       </Item>
     );
@@ -135,19 +146,27 @@ export function TaskbarWindow() {
     >
       {/* On the closed notch's black the bar and its menus keep their dark tokens whatever the theme (Notch.tsx), and its zones keep their sides in any language. */}
       <div data-theme-ink dir="ltr" className="contents" style={surface === "notch" ? ink : undefined}>
-        <div
-          ref={bar}
-          className="grid grid-cols-[1fr_auto_1fr] rounded-[12px] px-1 text-label"
-          style={{ height, margin: `0 ${GAP}px ${GAP}px`, background: surface === "notch" ? "var(--notch-closed)" : "var(--color-notch)" }}
-        >
-          {ZONES.map(([zone, justify]) => (
-            <div key={zone} className={`flex min-w-0 gap-0.5 ${justify}`}>
-              {zones[zone].map((id) => (
-                <Fragment key={id}>{render(id)}</Fragment>
-              ))}
-            </div>
-          ))}
-        </div>
+        {look.glass && <BarGlass {...look.glass} />}
+        {/* Positioned, so it draws over the glass's canvas. The capsule puts the three zones in a row, as close as its buttons. */}
+        {shape === "capsule" ? (
+          <Capsule ref={bar} style={{ height, marginBottom: gap, borderRadius: barRadius(shape, height), background: look.background }}>
+            {ZONES.map(([zone]) => zones[zone].map((id) => <Fragment key={id}>{render(id)}</Fragment>))}
+          </Capsule>
+        ) : (
+          <div
+            ref={bar}
+            className="relative grid grid-cols-[1fr_auto_1fr] px-1 text-label"
+            style={{ height, margin: `0 ${gap}px ${gap}px`, borderRadius: barRadius(shape, height), background: tiles ? undefined : look.background }}
+          >
+            {ZONES.map(([zone, justify]) => (
+              <div key={zone} className={`flex min-w-0 gap-0.5 ${justify}`} style={tiles ? { gap: LOOK.tileGap } : undefined}>
+                {zones[zone].map((id) => (
+                  <Fragment key={id}>{render(id)}</Fragment>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
         <AnimatePresence>
           {menu && (
             <BarMenu
@@ -155,7 +174,7 @@ export function TaskbarWindow() {
               title={menu.kind === "crest" ? t("Crest-Menü") : menu.b.name}
               x={menu.x}
               w={menu.w}
-              bottom={GAP + height + MENU_GAP}
+              bottom={gap + height + MENU_GAP}
               anchor={menu.anchor}
               onClose={closeMenu}
               onPlace={placeMenuZone}
@@ -179,17 +198,30 @@ export function TaskbarWindow() {
   );
 }
 
+/** An element's box on the page, CSS px. */
+const boxOf = (el: Element): Box => {
+  const r = el.getBoundingClientRect();
+  return { x: r.x, y: r.y, w: r.width, h: r.height };
+};
+
 /**
- * Tells Rust where the page takes the pointer: the bar and the gap under it, so a click in the gap never reaches the app behind,
- * and the open menu, whose box comes through the returned function each time the menu places itself (null once it closes). The
- * bar counts only once it has a size: the first report says it has drawn, and Windows' taskbar hides then.
+ * Tells Rust where the page takes the pointer: the bar (or the capsule) and the gap under it, so a click in the gap never reaches
+ * the app behind, or for the tiles one box per zone round its tiles, so a click between the zones does; and the open menu, whose box
+ * comes through the returned function each time the menu places itself (null once it closes). The bar counts only once it has a
+ * size: the first report says it has drawn, and Windows' taskbar hides then. The bar's box, or the tiles', goes to its glass too.
+ * `layout` changes when the tiles may have moved inside a bar that kept its size.
  */
-function useHitZone(ref: RefObject<HTMLDivElement | null>) {
+function useHitZone(ref: RefObject<HTMLDivElement | null>, shape: BarShape, setBoxes: Dispatch<SetStateAction<Box[]>>, layout: string) {
   const menu = useRef<HitRect | null>(null);
   const report = useCallback(() => {
-    const r = ref.current?.getBoundingClientRect();
-    if (r && r.width > 0 && r.height > 0) void taskbar.hitRects([{ x: r.x, y: r.y, w: r.width, h: window.innerHeight - r.y }, ...(menu.current ? [menu.current] : [])]);
-  }, [ref]);
+    const el = ref.current;
+    if (!el || el.offsetWidth <= 0 || el.offsetHeight <= 0) return;
+    const groups = shape === "tiles" ? [...el.children].map((zone) => [...zone.querySelectorAll("[data-tile]")].map(boxOf)) : [[boxOf(el)]];
+    void taskbar.hitRects([...hitBoxes(groupBoxes(groups), window.innerHeight), ...(menu.current ? [menu.current] : [])]);
+    const next = groups.flat();
+    setBoxes((b) => (JSON.stringify(b) === JSON.stringify(next) ? b : next));
+  }, [ref, shape, setBoxes]);
+  useLayoutEffect(report, [report, layout]);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;

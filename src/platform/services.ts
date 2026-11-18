@@ -577,6 +577,26 @@ export const status = {
     ];
     return () => offs.forEach((off) => void off.then((f) => f()));
   },
+  /**
+   * The power state alone, from the seed on, for the bar's page: its glass stops in Energy saver. The alerts run only in the notch.
+   * A seed read before a change came is the older one, so it is dropped once a change has.
+   */
+  onPower: (handler: (s: PowerState) => void): (() => void) => {
+    if (!isNative) return () => {};
+    let heard = false;
+    const seed = (s: StatusSeed) => {
+      if (s.power && !heard) handler(s.power);
+    };
+    const offs = [
+      listen<StatusSeed>("status://seed", (e) => seed(e.payload)),
+      listen<PowerState>("status://power", (e) => {
+        heard = true;
+        handler(e.payload);
+      }),
+    ];
+    void invoke<StatusSeed>("status_seed").then(seed, () => {});
+    return () => offs.forEach((off) => void off.then((f) => f()));
+  },
   /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `insert`: watch Insert presses; `bt`, `volume`, `mic`: keep the Bluetooth watcher and the volume and microphone callbacks;
    *  `focus`: read Do not disturb; `hideOsd`: hide the Windows indicator now (status.ts osdHidden); `osdArmed`: the option is in force, also while it is not hiding. */
   configure: (c: { ddc: boolean; locks: boolean; insert: boolean; bt: boolean; volume: boolean; mic: boolean; focus: boolean; hideOsd: boolean; osdArmed: boolean }) => {
@@ -1246,8 +1266,8 @@ export const launcher = {
  * windows and acts on clicks (the command filter keeps each window to its part). In the browser nothing happens: the demo has no bar.
  */
 export const taskbar = {
-  /** On or off, `height` CSS px tall. The notch only. */
-  apply: (enabled: boolean, height: number): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height }) : Promise.resolve()),
+  /** On or off, `height` CSS px tall, docked to the screen's edge (no gaps) or not. The notch only. */
+  apply: (enabled: boolean, height: number, docked: boolean): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height, docked }) : Promise.resolve()),
   /** The open windows as Rust last listed them. */
   windows: (): Promise<WindowList> => (isNative ? invoke<WindowList>("taskbar_windows") : Promise.resolve({ groups: [], active: null })),
   /** The list each time it changes; Rust sends it to the bar's window only. */

@@ -13,15 +13,8 @@ export const snapshot = createStore({ seq: 0, ready: false, pending: false, take
 /** WebGL refused or broken for this session (no context, failIfMajorPerformanceCaveat, programs that do not link). */
 export const glassBroken = createStore(false);
 
-function mediaStore(query: string) {
-  const q = typeof matchMedia === "function" ? matchMedia(query) : null;
-  const store = createStore(q?.matches ?? false);
-  q?.addEventListener("change", (e) => store.set(e.matches));
-  return store;
-}
-/** Media the glass turns off with; WebView2 and the browser follow the system's setting. */
-export const contrastMore = mediaStore("(prefers-contrast: more)");
-export const reducedTransparency = mediaStore("(prefers-reduced-transparency: reduce)");
+/** Media the glass turns off with (media.ts), where they have always been imported from. */
+export { contrastMore, reducedTransparency } from "./media";
 
 /** The glass layer (GlassLayer.tsx): `upload` puts a copy in its texture and says whether it can be drawn, `free` drops the texture. */
 export interface GlassRenderer { upload(meta: SnapshotMeta, bytes: Uint8Array): boolean; free(): void }

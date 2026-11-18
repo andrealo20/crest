@@ -64,11 +64,19 @@ pub(crate) fn bar_rect((x, y, width, height): (i32, i32, u32, u32), scale: f64) 
     (x, y + height as i32 - tall as i32, width, tall)
 }
 
-/// Turns the bar on or off and sets its height. The notch only, from the Taskbar settings; the Height slider calls it on
-/// every step. One call at a time (`APPLYING`), and the notch sends the next only once this one has returned (store.ts), so
-/// they run in their order.
+/// The band a bar `height` CSS px tall takes off the work area: the bar alone when docked to the screen's edge, the bar and
+/// its gaps otherwise. The height is held to the settings' range; `max` reads NaN as the lowest bar.
+fn band_for(height: f64, docked: bool) -> f64 {
+    let height = height.max(MIN_HEIGHT).min(MAX_HEIGHT);
+    if docked { height } else { height + 2.0 * GAP }
+}
+
+/// Turns the bar on or off and sets its height, and whether it is docked to the screen's edge (`None`, from an older
+/// caller: not docked), which takes the gaps out of its band. The notch only, from the Taskbar settings; the Height slider
+/// calls it on every step. One call at a time (`APPLYING`), and the notch sends the next only once this one has returned
+/// (store.ts), so they run in their order.
 #[tauri::command]
-pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result<(), String> {
+pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, app: AppHandle) -> Result<(), String> {
     // To the end of the call, which never awaits.
     let _applying = APPLYING.lock().unwrap_or_else(|e| e.into_inner());
     if !enabled {
@@ -93,8 +101,7 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
         return Ok(());
     }
     ENABLED.store(true, Ordering::SeqCst);
-    // `max` reads NaN as the lowest bar.
-    set_band(&app, height.max(MIN_HEIGHT).min(MAX_HEIGHT) + 2.0 * GAP);
+    set_band(&app, band_for(height, docked.unwrap_or(false)));
     if app.get_webview_window(LABEL).is_some() {
         place(&app);
         return Ok(());
@@ -128,6 +135,7 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
         WindowEvent::CloseRequested { api, .. } => api.prevent_close(),
         WindowEvent::Destroyed => {
             hit_test::untrack(&handle.state::<HitState>(), LABEL);
+            crate::capture::glass_live::forget(&handle, LABEL);
             DRAWN.store(false, Ordering::SeqCst);
             HANDLE.store(0, Ordering::SeqCst);
         }
@@ -287,6 +295,14 @@ mod tests {
     #[test]
     fn the_bar_window_never_covers_its_monitor() {
         assert_eq!(bar_rect((0, 0, 1366, 768), 1.0), (0, 192, 1366, 576)); // capped at three quarters
+    }
+
+    #[test]
+    fn the_band_has_no_gaps_when_the_bar_is_docked() {
+        assert_eq!(band_for(44.0, false), 52.0);
+        assert_eq!(band_for(44.0, true), 44.0);
+        assert_eq!(band_for(100.0, true), 64.0);
+        assert_eq!(band_for(f64::NAN, false), 40.0);
     }
 
     #[test]

@@ -7,10 +7,12 @@ import { normalizeFavorites, type Favorite } from "../launcher/apps.ts";
 export type Zone = "left" | "center" | "right";
 /** What the zones hold: the apps (pinned and open) and the Crest button. Phase 3 adds "start", phase 4 the parts. */
 export type BarItem = "apps" | "crest";
+/** The bar's shape: along the screen's edge with no gaps, floating above it, a capsule, or a tile per item. */
+export type BarShape = "docked" | "floating" | "capsule" | "tiles";
 
 /**
  * The bar: on or off, the items in each zone, the bar's height and its icons' size in CSS px, its background (the closed
- * notch's or the theme's), and the pinned apps (null: never seeded).
+ * notch's or the theme's), the pinned apps (null: never seeded), its shape, its transparency in percent and its glass.
  */
 export interface TaskbarSettings {
   enabled: boolean;
@@ -19,6 +21,9 @@ export interface TaskbarSettings {
   iconSize: number;
   surface: "notch" | "theme";
   pinned: Favorite[] | null;
+  shape: BarShape;
+  transparency: number;
+  glass: boolean;
 }
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
@@ -28,11 +33,17 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   iconSize: 24,
   surface: "notch",
   pinned: null,
+  shape: "floating",
+  transparency: 0,
+  glass: false,
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
 export const HEIGHT = [32, 64] as const;
 export const ICON = [16, 40] as const;
+/** The transparency the settings offer, percent. */
+export const TRANSPARENCY = [0, 100] as const;
+const SHAPES: BarShape[] = ["docked", "floating", "capsule", "tiles"];
 
 /** The icon size drawn in a bar this tall: 6 px clear above and below. The saved size stays, so a taller bar gives it back. */
 export const fitIcon = (height: number, icon: number) => Math.min(icon, height - 12);
@@ -58,6 +69,9 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     iconSize: within(s.iconSize, ICON, d.iconSize),
     surface: s.surface === "theme" ? "theme" : "notch",
     pinned: normalizeFavorites(s.pinned),
+    shape: SHAPES.includes(s.shape as BarShape) ? (s.shape as BarShape) : d.shape,
+    transparency: within(s.transparency, TRANSPARENCY, d.transparency),
+    glass: s.glass === true,
   };
 }
 

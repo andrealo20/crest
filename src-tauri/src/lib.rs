@@ -152,11 +152,13 @@ const SETTINGS_DENIED: &[&str] = &[
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release",
 ];
 
-/// What the bar may call: its own hit zones and window list, starting apps, opening the notch and the settings, and the Crest
-/// menu. Its settings reach Rust only through the notch (`taskbar_apply`).
+/// What the bar may call: its own hit zones and window list, starting apps, opening the notch and the settings, the Crest
+/// menu, and its own glass, with the power state that stops it in Energy saver (`status_seed`, read-only). Its settings reach
+/// Rust only through the notch (`taskbar_apply`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log",
+    "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -1046,6 +1048,10 @@ mod tests {
         assert!(ok("taskbar", "taskbar_hit_rects") && ok("taskbar", "launcher_open") && ok("taskbar", "app_quit") && ok("taskbar-2", "notch_open"));
         assert!(!ok("taskbar", "taskbar_apply") && !ok("taskbar", "vault_reveal") && !ok("taskbar", "launcher_shortcuts") && !ok("taskbar", "set_hit_rect"));
         assert!(!ok("settings", "taskbar_apply") && !ok("settings", "taskbar_hit_rects") && ok("notch", "taskbar_apply"));
+        assert!(["glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c)));
+        assert!(!ok("settings", "glass_live_start") && !ok("timer", "glass_live_exclude"));
+        // The bar reads the power state for its glass, but never sets what the status alerts watch.
+        assert!(ok("taskbar", "status_seed") && ok("taskbar-1", "status_seed") && !ok("taskbar", "status_configure"));
     }
 
     #[test]

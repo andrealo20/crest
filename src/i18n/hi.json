@@ -1801,5 +1801,12 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "वॉल्यूम, नेटवर्क, बैटरी और सूचनाएँ Win+A और Win+N पर हैं",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "टास्कबार में किसी ऐप पर राइट-क्लिक करके उसे पिन करें",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "नॉच: बंद नॉच जैसा। थीम: थीम का पृष्ठभूमि रंग",
- "Farben und Thema gelten auch für die Taskleiste": "रंग और थीम टास्कबार पर भी लागू होते हैं"
+ "Farben und Thema gelten auch für die Taskleiste": "रंग और थीम टास्कबार पर भी लागू होते हैं",
+ "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "टास्कबार के पीछे जो है उसे लाइव दिखाता है, एक सेकंड में 10 बार तक। जब तक यह चालू है, टास्कबार स्क्रीनशॉट, रिकॉर्डिंग और स्क्रीन शेयर में नहीं दिखता।",
+ "Form": "आकार",
+ "Angedockt": "जुड़ी हुई",
+ "Schwebend": "तैरती हुई",
+ "Kacheln": "टाइलें",
+ "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "कैप्सूल में टास्कबार तीनों हिस्सों को बीच में एक कतार में रखता है: बाएँ, बीच, दाएँ। यहाँ के हिस्से जैसे हैं वैसे ही रहते हैं",
+ "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "अपवर्तन, धुंधलापन और किनारे की रोशनी नॉच पर भी लागू होते हैं"
 }

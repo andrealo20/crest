@@ -186,8 +186,17 @@ export function receiveLive(meta: unknown, data: ArrayBuffer) {
   if (!liveFrame.get()) liveFrame.set(true);
 }
 
-/** At start (main.tsx): asks whether the live glass can run, keeps the exclusion with Glass and the switch, listens to Rust. */
-export function startGlassLive() {
+/** The notch's exclusion: Glass and "Also the closed notch and capsule" on, or a status alert drawn as glass. */
+const notchWants = () => {
+  const t = settings.get().themes;
+  return t.glass && (t.glassLive || hudWants);
+};
+
+/**
+ * At start (main.tsx, and the bar's window with its own switch): asks whether the live glass can run, keeps the exclusion while
+ * `wants` holds, listens to Rust.
+ */
+export function startGlassLive(wants: () => boolean = notchWants) {
   if (isMac) return;
   if (!isNative) {
     if (!new URLSearchParams(location.search).has("glassLive")) return;
@@ -227,7 +236,7 @@ export function startGlassLive() {
   }
   // Asked at load with the state as it is, once Rust has said whether it can run, and again on every change.
   const sync = () => {
-    const t = settings.get().themes, on = t.glass && (t.glassLive || hudWants) && liveSupport.get()?.supported === true;
+    const on = wants() && liveSupport.get()?.supported === true;
     if (on === exclude && excluded !== null) return;
     exclude = on;
     // Also when the refusal came after the switch went off (its command was still out): on again, the exclusion is asked for again.

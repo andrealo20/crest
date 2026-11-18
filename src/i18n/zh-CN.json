@@ -1801,5 +1801,12 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "音量、网络、电池和通知可通过 Win+A 和 Win+N 打开",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "在任务栏中右键单击应用即可固定",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "刘海：与收起的刘海相同。主题：主题的背景色",
- "Farben und Thema gelten auch für die Taskleiste": "颜色和主题也适用于任务栏"
+ "Farben und Thema gelten auch für die Taskleiste": "颜色和主题也适用于任务栏",
+ "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "实时显示任务栏后面的内容，每秒最多 10 次。开启期间，任务栏不会出现在截图、录制和屏幕共享中。",
+ "Form": "形状",
+ "Angedockt": "停靠",
+ "Schwebend": "悬浮",
+ "Kacheln": "磁贴",
+ "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "胶囊形状下，任务栏会把三个区域在中间排成一行：左、中、右。这里的区域保持不变",
+ "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "折射、磨砂和边缘光也作用于刘海"
 }

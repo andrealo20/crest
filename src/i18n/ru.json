@@ -1801,5 +1801,12 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Громкость, сеть, батарея и уведомления открываются по Win+A и Win+N",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Закрепите приложение, щёлкнув его правой кнопкой на панели задач",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Вырез: как закрытый вырез. Тема: цвет фона темы",
- "Farben und Thema gelten auch für die Taskleiste": "Цвета и тема применяются и к панели задач"
+ "Farben und Thema gelten auch für die Taskleiste": "Цвета и тема применяются и к панели задач",
+ "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "Показывает в реальном времени то, что находится за панелью задач, до 10 раз в секунду. Пока это включено, панель задач не попадает в снимки экрана, записи и демонстрацию экрана.",
+ "Form": "Форма",
+ "Angedockt": "Прикреплённая",
+ "Schwebend": "Плавающая",
+ "Kacheln": "Плитки",
+ "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "В виде капсулы панель задач выстраивает три зоны в ряд по центру: слева, по центру, справа. Зоны здесь остаются как есть",
+ "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "Преломление, Матовость и Свет по краю действуют и на вырез"
 }

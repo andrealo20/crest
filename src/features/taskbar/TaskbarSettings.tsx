@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Reorder } from "motion/react";
-import { AppWindow, DotsSixVertical } from "@phosphor-icons/react";
+import { AppWindow, DotsSixVertical, WarningCircle } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";
+import { liveSupport } from "../../notch/glass/live";
 import { nav } from "../../notch/nav";
 import { isMac, isNative } from "../../platform/native";
 import { build } from "../../platform/services";
@@ -10,7 +11,10 @@ import { settings, updateSettings } from "../../settings/store";
 import { CrestMark } from "../../ui/CrestMark";
 import { Button, Group, Row, Segmented, Select, Slider, Switch } from "../../ui/controls";
 import { FavoriteList } from "../launcher/FavoriteList";
-import { fitIcon, HEIGHT, ICON, moveItem, taskbarShown, type BarItem, type TaskbarSettings, type Zone } from "./model";
+import { activeTheme, darkInk } from "../themes/store";
+import { GlassSlider } from "../themes/ThemeSettings";
+import { barVeil, themeVeils } from "./look";
+import { fitIcon, HEIGHT, ICON, moveItem, taskbarShown, TRANSPARENCY, type BarItem, type BarShape, type TaskbarSettings, type Zone } from "./model";
 
 /*
  * Settings → Taskbar: the pages of Crest's bar, behind the settings window's Notch | Taskbar switch (SettingsView lists them). They
@@ -34,6 +38,7 @@ const ZONES: Zone[] = ["left", "center", "right"];
 const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte", right: "Rechte Seite" };
 /** What the bar draws for each item: the apps' buttons, and the button of the Crest menu. */
 const ITEM_LABEL: Record<BarItem, string> = { apps: "Apps und Fenster", crest: "Crest-Menü" };
+const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "Schwebend", capsule: "Kapsel", tiles: "Kacheln" };
 
 /** Taskbar → General: the bar on or off, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
@@ -54,7 +59,7 @@ export function TaskbarGeneral() {
 
 /** Taskbar → Items: what each zone of the bar holds, in order. A row's menu moves the item to the end of another zone. */
 export function TaskbarItems() {
-  const zones = settings.use().taskbar.zones;
+  const { zones, shape } = settings.use().taskbar;
   const [dragging, setDragging] = useState<BarItem | null>(null);
   const options = ZONES.map((z) => ({ value: z, label: t(ZONE_LABEL[z]) }));
   return (
@@ -94,6 +99,9 @@ export function TaskbarItems() {
           </Reorder.Group>
         </div>
       ))}
+      {shape === "capsule" && (
+        <Row label={<span className="whitespace-normal">{t("Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind")}</span>} />
+      )}
     </Group>
   );
 }
@@ -109,11 +117,30 @@ export function TaskbarApps() {
   );
 }
 
-/** Taskbar → Appearance: the bar's height, its icons' size and its background. Colours and theme are the ones of Notch → Themes. */
+/**
+ * Taskbar → Appearance: the bar's shape, height, its icons' size, its background, its transparency and its glass. Colours, theme and
+ * the glass's sliders are the ones of Notch → Themes.
+ */
 export function TaskbarLook() {
-  const { height, iconSize, surface } = settings.use().taskbar;
+  const { shape, height, iconSize, surface, transparency, glass } = settings.use().taskbar;
+  const theme = activeTheme.use();
+  // The glass's switch only where the live glass can run (src/notch/glass/live.ts), as in Notch → Themes.
+  const support = liveSupport.use(), live = !isMac && support?.supported === true;
+  // How much of the screen behind shows, as the notch's Transparency says it: the surface's veil (look.ts barVeil) on the Notch
+  // surface's Dark tokens, unless the theme colours the closed notch too.
+  const veils = themeVeils(surface === "notch" && !theme.closedNotch ? darkInk() : theme.vars);
+  const seen = Math.round((1 - barVeil({ transparency, glass: glass && live, reduced: false, ...veils })) * 100);
   return (
     <Group id="settings-taskbar-look">
+      <Row label={t("Form")}>
+        <Segmented
+          id="taskbar-shape"
+          size="sm"
+          value={shape}
+          onChange={(shape) => setTaskbar({ shape })}
+          options={(Object.keys(SHAPE_LABEL) as BarShape[]).map((s) => ({ value: s, label: t(SHAPE_LABEL[s]) }))}
+        />
+      </Row>
       <PxRow label={t("Höhe")} value={height} min={HEIGHT[0]} max={HEIGHT[1]} onChange={(height) => setTaskbar({ height })} />
       {/* The size the bar draws: a lower bar keeps the saved one and a taller bar gives it back (fitIcon). */}
       <PxRow label={t("Symbolgröße")} value={fitIcon(height, iconSize)} min={ICON[0]} max={fitIcon(height, ICON[1])} onChange={(iconSize) => setTaskbar({ iconSize })} />
@@ -129,6 +156,37 @@ export function TaskbarLook() {
           ]}
         />
       </Row>
+      <Row label={t("Transparenz")}>
+        <div className="flex w-52 items-center gap-2">
+          <Slider label={t("Transparenz")} value={transparency} min={TRANSPARENCY[0]} max={TRANSPARENCY[1]} step={5} valueText={`${seen} %`} onChange={(transparency) => setTaskbar({ transparency })} />
+          <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{seen} %</span>
+        </div>
+      </Row>
+      {live && (
+        <Row
+          label={t("Glas")}
+          hint={
+            <>
+              {t("Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.")}
+              <span className="mt-1 flex items-start gap-1 text-caution">
+                <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
+                {t("Braucht mehr Akku: Windows hat bei jeder Änderung auf dem Bildschirm mehr Arbeit")}
+              </span>
+            </>
+          }
+        >
+          <Switch label={t("Glas")} checked={glass} onChange={(glass) => setTaskbar({ glass })} />
+        </Row>
+      )}
+      {/* The notch's glass sliders (Notch → Themes shows them only with the notch's glass on): Crest has one glass. */}
+      {live && glass && (
+        <>
+          <Row label={<span className="whitespace-normal">{t("Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch")}</span>} />
+          <GlassSlider label={t("Lichtbrechung")} hint={t("Wie stark der Rand den Hintergrund biegt")} field="glassRefraction" step={10} />
+          <GlassSlider label={t("Mattierung")} hint={t("Wie stark der Hintergrund in der Mitte verschwimmt")} field="glassFrost" step={10} />
+          <GlassSlider label={t("Licht am Rand")} hint={t("Wie hell der Rand des Glases leuchtet")} field="glassRim" step={10} />
+        </>
+      )}
       <Row label={<span className="whitespace-normal">{t("Farben und Thema gelten auch für die Taskleiste")}</span>}>
         <Button onClick={() => nav.set({ tabId: "settings", section: "themes" })}>{t("Themen")}</Button>
       </Row>

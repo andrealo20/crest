@@ -1,24 +1,27 @@
-//! The live glass on the closed notch and the capsule (src/notch/glass), Windows 11 only, behind its own switch in Settings ›
-//! Themes, off by default: a copy of the screen just around the closed notch or the capsule, up to 10 times a second.
+//! The live glass on the closed notch and the capsule (src/notch/glass) and on the bar, Windows 11 only, behind its own switch
+//! in Settings › Themes, off by default: a copy of the screen just around the closed notch, the capsule or the bar, up to 10
+//! times a second.
 //!
-//! - While the switch is on the notch window stays out of every capture, its own included, whether the copy runs or not:
-//!   `glass_live_exclude` sets the flag when it goes on and puts it back when it goes off, `exclude` keeps it out through
-//!   recordings, screenshots and Hide Crest from screen sharing, and the copy for the open panel (backdrop.rs) finds it out.
-//! - The copy is Windows.Graphics.Capture of the notch's monitor, without the yellow border and the cursor, on the GPU that
+//! - One session per window, the notch and each bar, and the commands always act on the window that calls them.
+//! - While the switch is on the window stays out of every capture, its own included, whether the copy runs or not:
+//!   `glass_live_exclude` sets its flag when it goes on and puts it back when it goes off, one flag for the notch and one for
+//!   all the bars (`glass_flag`). `exclude` keeps them out through recordings, screenshots and Hide Crest from screen sharing,
+//!   and the copy for the open panel (backdrop.rs) finds the notch out.
+//! - The copy is Windows.Graphics.Capture of the window's monitor, without the yellow border and the cursor, on the GPU that
 //!   drives that monitor, into frames that hold the monitor from its top left corner to the zone's far corner (Windows clips
-//!   the rest). Windows sends at most 10 frames a second. One D3D11 device is kept while the switch is on: a new one for
+//!   the rest). Windows sends at most 10 frames a second. One D3D11 device is kept while a switch is on: a new one for
 //!   each session cost 0.2 to 2.5 s and memory that did not all come back.
 //! - 8-bit frames on an HDR monitor too: what Windows shows in SDR comes out exact, HDR content is cut at SDR white.
 //! - A frame goes to the page only when the zone's bytes differ from the last ones sent, a session's first always: the notch
 //!   redrawing itself marks the zone dirty with nothing changed behind it, and the glass would redraw itself for ever. At a
 //!   still screen Windows sends nothing, so a new zone, or the copy again after the panel was open, is a new session.
 //! - One shared buffer per frame, made, filled and posted read only on the main thread (backdrop.rs `share`); at most one
-//!   frame waits for it, the newest, dropped there if a start or a stop came since.
-//! - Stopping closes the session and the pool, waits for a frame being handled and bumps `gen`, in that order, before the
-//!   notch's flag may change: nothing captured with the notch in it can reach the page.
+//!   frame of a session waits for it, the newest, dropped there if that session stopped since.
+//! - Stopping marks the session stopped, closes it and the pool and waits for a frame being handled, in that order, before
+//!   the window's flag may change: nothing captured with the window in it can reach the page.
 //! - Hidden before Windows 11 24H2, on ARM64 PCs and in the Store build until someone tries it there.
 
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use serde::Serialize;
@@ -55,7 +58,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 
 use super::math::{intersect, Rect};
-use super::{backdrop, one_at_a_time, record, CaptureState};
+use super::{affinity, backdrop, glass_flag, one_at_a_time, own_hwnd, record, CaptureState};
 
 /// Windows 11 24H2, the first with MinUpdateInterval and DirtyRegions. Before it every composition sends a frame, and
 /// pacing them in the handler loses the end of a burst, which then stays on the glass at a still screen.
@@ -63,12 +66,14 @@ const FIRST_BUILD: u32 = 26100;
 /// Frames a second, as many on battery: fewer would not spare the compositor, which does most of the work.
 const FPS: u32 = 10;
 
-/// The running session, None while stopped. Held through a whole start, so starts, stops and the switch going off come one
-/// at a time; the frame handler never takes it.
-static LIVE: Mutex<Option<Live>> = Mutex::new(None);
-/// Bumped by every start and every stop: a frame still waiting for the main thread from before is dropped there.
+/// The running sessions by window label, at most the notch's and one per bar. Held through a whole start, so starts, stops
+/// and a switch going off come one at a time; the frame handler never takes it.
+static LIVE: Mutex<Vec<(String, Live)>> = Mutex::new(Vec::new());
+/// Numbers the sessions, bumped by every start, so a number is never used twice across windows.
 static GEN: AtomicU32 = AtomicU32::new(0);
-/// The device sessions are made on, from the switch going on to it going off (`gpu`).
+/// The device sessions are made on, from a switch going on to the last one going off (`gpu`).
+/// shortcut: one device for every window, made again when the notch and a bar sit on monitors driven by different GPUs and
+/// start in turn; keep one per GPU once bars come to other monitors.
 static GPU: Mutex<Option<Gpu>> = Mutex::new(None);
 
 /// Whether the live glass can run on this PC, and if not why: the page shows its switch only when it can.
@@ -104,88 +109,136 @@ struct LiveMeta {
 }
 
 #[tauri::command]
-pub async fn glass_live_supported(window: WebviewWindow) -> Support {
+pub async fn glass_live_supported(app: AppHandle, window: WebviewWindow) -> Result<Support, String> {
+    own(&app, &window)?;
     let reason = support(&window).await;
-    Support { supported: reason.is_none(), reason }
+    Ok(Support { supported: reason.is_none(), reason })
 }
 
-/// The switch went on or off; the page also calls it at load. On: the notch window out of every capture until it goes off,
-/// or a rejection with the reason it cannot run, or `exclude-failed` with the flag as it was. Off: the copy stops, then the
+/// The switch went on or off; the page also calls it at load. On: the calling window out of every capture until it goes off,
+/// or a rejection with the reason it cannot run, or `exclude-failed` with the flag as it was. Off: its copy stops, then the
 /// flag goes back to what recordings, screenshots and Hide Crest from screen sharing ask for. Either way, again is the same.
 #[tauri::command]
 pub async fn glass_live_exclude(on: bool, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+    let hwnd = own(&app, &window)?;
     if on {
         if let Some(why) = support(&window).await {
             return Err(why.into());
         }
     }
-    let notch = backdrop::notch(&window);
-    tauri::async_runtime::spawn_blocking(move || switch(&app, HWND(notch as _), on)).await.unwrap_or(Err("failed")).map_err(String::from)
+    let label = window.label().to_string();
+    tauri::async_runtime::spawn_blocking(move || switch(&app, &label, HWND(hwnd as _), on)).await.unwrap_or(Err("failed")).map_err(String::from)
 }
 
-/// The live copy of `zone` (px inside the notch window, as in backdrop.rs), in a new session that replaces any other: also the
-/// way to change the zone, since at a still screen only a new session sends a frame. Resolves with its gen and the zone as
-/// kept; the frames follow, the first one possibly before this answer. Rejects with a short code (`refusal`, then `begin`).
+/// The live copy of `zone` (px inside the calling window, as in backdrop.rs), in a new session that replaces that window's
+/// other one: also the way to change the zone, since at a still screen only a new session sends a frame. Resolves with its gen
+/// and the zone as kept; the frames follow, the first one possibly before this answer. Rejects with a short code (`refusal`,
+/// then `begin`).
 #[tauri::command]
 pub async fn glass_live_start(zone: Rect, app: AppHandle, window: WebviewWindow) -> Result<Started, String> {
+    let hwnd = own(&app, &window)?;
     let support = support(&window).await;
-    let notch = backdrop::notch(&window);
-    tauri::async_runtime::spawn_blocking(move || begin(&app, &window, notch, zone, support)).await.unwrap_or(Err("failed")).map_err(String::from)
+    tauri::async_runtime::spawn_blocking(move || begin(&app, &window, hwnd, zone, support)).await.unwrap_or(Err("failed")).map_err(String::from)
 }
 
-/// Stops the live copy, if it runs; the notch stays out of captures while the switch is on.
+/// Stops the calling window's live copy, if it runs; the window stays out of captures while the switch is on.
 #[tauri::command]
-pub async fn glass_live_stop() {
-    let _ = tauri::async_runtime::spawn_blocking(|| stop(&mut slot())).await;
+pub async fn glass_live_stop(app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+    own(&app, &window)?;
+    let label = window.label().to_string();
+    let _ = tauri::async_runtime::spawn_blocking(move || stop(&mut slot(), &label)).await;
+    Ok(())
 }
 
-/// The screen went off or to sleep, the session was locked or went to a remote client (sysevents.rs): the copy stops and the
-/// page hears why.
+/// The calling window's handle, `no-window` for a window without a live glass. The notch's is kept once read (backdrop.rs).
+fn own(app: &AppHandle, window: &WebviewWindow) -> Result<isize, String> {
+    glass_flag(&app.state::<CaptureState>(), window.label()).ok_or("no-window")?;
+    Ok(if window.label() == "notch" { backdrop::notch(window) } else { own_hwnd(window) })
+}
+
+/// The bar `label` is gone (taskbar/bar.rs): its copy stops, the bars' flag goes down with the last bar, as nothing is left to
+/// keep out and the next bar's page sets it again at load, and the device goes when no glass is on. On another thread: the
+/// window's events come on the main thread, which a start or a switch holding LIVE may be waiting for (`exclude`).
+pub(crate) fn forget(app: &AppHandle, label: &str) {
+    let (app, label) = (app.clone(), label.to_string());
+    std::thread::spawn(move || {
+        let state = app.state::<CaptureState>();
+        // LIVE held to the end, as in `switch`.
+        let mut live = slot();
+        // The bar was built again while this waited, and its page may have started already: that session and the flag are the
+        // new bar's. Tauri drops a window from its list before its Destroyed handlers run, so the old one is never found here.
+        if app.get_webview_window(&label).is_some() {
+            return;
+        }
+        stop(&mut live, &label);
+        if !app.webview_windows().keys().any(|l| *l != label && l.starts_with("taskbar")) {
+            state.bar_live.store(false, Ordering::SeqCst);
+        }
+        if !state.live.load(Ordering::SeqCst) && !state.bar_live.load(Ordering::SeqCst) {
+            *lock(&GPU) = None;
+        }
+    });
+}
+
+/// The screen went off or to sleep, the session was locked or went to a remote client (sysevents.rs): every copy stops and
+/// each page hears why.
 pub(crate) fn halt(app: &AppHandle, why: &'static str) {
     halt_if(app, None, why);
 }
 
-fn switch(app: &AppHandle, notch: HWND, on: bool) -> Result<(), &'static str> {
+fn switch(app: &AppHandle, label: &str, hwnd: HWND, on: bool) -> Result<(), &'static str> {
     let state = app.state::<CaptureState>();
+    let flag = glass_flag(&state, label).ok_or("no-window")?;
+    let bar = label != "notch";
     let mut live = slot();
-    // The copy stops before the flag goes back: a frame taken after it would carry the notch into its own glass.
+    // The copy stops before the flag goes back: a frame taken after it would carry the window into its own glass.
     if !on {
-        stop(&mut live);
-        *lock(&GPU) = None;
+        stop(&mut live, label);
     }
     {
         let _one = one_at_a_time();
         if on {
-            keep_out(notch)?;
-            state.live.store(true, Ordering::SeqCst);
-        } else if state.live.swap(false, Ordering::SeqCst) {
-            if let Some(flag) = backdrop::restore_to(state.excluded(), state.holds.load(Ordering::SeqCst), crate::sharing::hidden(), false) {
-                let _ = unsafe { SetWindowDisplayAffinity(notch, flag) };
+            keep_out(hwnd)?;
+            flag.store(true, Ordering::SeqCst);
+        } else if flag.swap(false, Ordering::SeqCst) || bar {
+            // A bar goes back even with the flag already down, since the bars share it and the first one off lowered it; back
+            // into Crest's own captures, as `window_affinity` has it.
+            let hidden = crate::sharing::hidden();
+            let back = if bar {
+                Some(affinity(false, hidden))
+            } else {
+                backdrop::restore_to(state.excluded(), state.holds.load(Ordering::SeqCst), hidden, false)
+            };
+            if let Some(back) = back {
+                let _ = unsafe { SetWindowDisplayAffinity(hwnd, back) };
             }
         }
+    }
+    if !on && !state.live.load(Ordering::SeqCst) && !state.bar_live.load(Ordering::SeqCst) {
+        *lock(&GPU) = None;
     }
     // The device now, so the first start does not wait for it; with LIVE still held, so the switch going off waits for it.
     if on {
         unsafe {
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-            let _ = gpu(MonitorFromWindow(notch, MONITOR_DEFAULTTONEAREST), true);
+            let _ = gpu(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), true);
         }
     }
     Ok(())
 }
 
-/// The notch out of captures: the flag, read back, then a frame of DWM so the next capture is without it. On a failure the
+/// The window out of captures: the flag, read back, then a frame of DWM so the next capture is without it. On a failure the
 /// flag goes back to what it was. Under `one_at_a_time`.
-fn keep_out(notch: HWND) -> Result<(), &'static str> {
+fn keep_out(hwnd: HWND) -> Result<(), &'static str> {
     let mut was = 0u32;
-    unsafe { GetWindowDisplayAffinity(notch, &mut was) }.map_err(|_| "exclude-failed")?;
+    unsafe { GetWindowDisplayAffinity(hwnd, &mut was) }.map_err(|_| "exclude-failed")?;
     if was == WDA_EXCLUDEFROMCAPTURE.0 {
         return Ok(());
     }
-    let set = unsafe { SetWindowDisplayAffinity(notch, WDA_EXCLUDEFROMCAPTURE) }.is_ok();
+    let set = unsafe { SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE) }.is_ok();
     let mut now = 0u32;
-    if !set || unsafe { GetWindowDisplayAffinity(notch, &mut now) }.is_err() || now != WDA_EXCLUDEFROMCAPTURE.0 {
-        let _ = unsafe { SetWindowDisplayAffinity(notch, WINDOW_DISPLAY_AFFINITY(was)) };
+    if !set || unsafe { GetWindowDisplayAffinity(hwnd, &mut now) }.is_err() || now != WDA_EXCLUDEFROMCAPTURE.0 {
+        let _ = unsafe { SetWindowDisplayAffinity(hwnd, WINDOW_DISPLAY_AFFINITY(was)) };
         return Err("exclude-failed");
     }
     let _ = unsafe { DwmFlush() };
@@ -272,22 +325,23 @@ fn clip(zone: Rect, window: Rect, monitor: Rect) -> Option<(Rect, Rect, SizeInt3
     Some((Rect { x: on.x - window.x, y: on.y - window.y, ..on }, there, SizeInt32 { Width: there.right(), Height: there.bottom() }))
 }
 
-fn begin(app: &AppHandle, window: &WebviewWindow, notch: isize, zone: Rect, support: Option<&'static str>) -> Result<Started, &'static str> {
+fn begin(app: &AppHandle, window: &WebviewWindow, hwnd: isize, zone: Rect, support: Option<&'static str>) -> Result<Started, &'static str> {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     }
+    let label = window.label();
     let mut live = slot();
-    stop(&mut live);
+    stop(&mut live, label);
     let state = app.state::<CaptureState>();
     let remote = unsafe { GetSystemMetrics(SM_REMOTESESSION) } != 0 || crate::sysevents::remote();
     let locked = crate::sysevents::locked();
-    // The window's flag as well as the switch: whatever wrote it last, the notch must be out before anything is copied.
+    // The window's flag as well as the switch: whatever wrote it last, the window must be out before anything is copied.
     let mut flag = 0u32;
-    let out = unsafe { GetWindowDisplayAffinity(HWND(notch as _), &mut flag) }.is_ok() && flag == WDA_EXCLUDEFROMCAPTURE.0;
+    let out = unsafe { GetWindowDisplayAffinity(HWND(hwnd as _), &mut flag) }.is_ok() && flag == WDA_EXCLUDEFROMCAPTURE.0;
     if let Some(why) = refusal(
         crate::terminal::windows_build(),
-        state.live.load(Ordering::SeqCst) && out,
+        glass_flag(&state, label).is_some_and(|on| on.load(Ordering::SeqCst)) && out,
         backdrop::transparency(),
         remote,
         locked,
@@ -295,7 +349,7 @@ fn begin(app: &AppHandle, window: &WebviewWindow, notch: isize, zone: Rect, supp
     ) {
         return Err(why);
     }
-    let (win, monitor, handle) = backdrop::placement(HWND(notch as _)).ok_or("no-window")?;
+    let (win, monitor, handle) = backdrop::placement(HWND(hwnd as _)).ok_or("no-window")?;
     let (at, zone, size) = clip(zone, win, monitor).ok_or("no-window")?;
     if let Some(why) = support {
         return Err(why);
@@ -304,7 +358,9 @@ fn begin(app: &AppHandle, window: &WebviewWindow, notch: isize, zone: Rect, supp
         return Err("border-denied");
     }
     let gen = GEN.fetch_add(1, Ordering::SeqCst).wrapping_add(1);
-    *live = Some(open(handle, zone, size, gen, to_page(window.clone(), gen, at, win), halt_later(app.clone(), gen))?);
+    let alive = Arc::new(AtomicBool::new(true));
+    let sink = to_page(window.clone(), alive.clone(), gen, at, win);
+    live.push((label.to_string(), open(handle, zone, size, gen, alive, sink, halt_later(app.clone(), gen))?));
     Ok(Started { gen, x: at.x, y: at.y, w: at.w, h: at.h })
 }
 
@@ -367,7 +423,7 @@ fn gpu(monitor: HMONITOR, fallback: bool) -> windows::core::Result<Gpu> {
     Ok(made)
 }
 
-/// A D3D11 device on `gpu`, the one that drives the notch's monitor, so frames are not copied between GPUs.
+/// A D3D11 device on `gpu`, the one that drives the window's monitor, so frames are not copied between GPUs.
 fn device(gpu: Option<(LUID, IDXGIAdapter1)>, fallback: bool) -> windows::core::Result<Gpu> {
     unsafe {
         let on_gpu = gpu.and_then(|(luid, gpu)| {
@@ -428,6 +484,8 @@ type Fault = Arc<dyn Fn(&'static str) + Send + Sync>;
 
 struct Live {
     gen: u32,
+    /// Lowered by `stop` before anything else: a frame of this session still waiting for the main thread is dropped there.
+    alive: Arc<AtomicBool>,
     session: GraphicsCaptureSession,
     pool: Direct3D11CaptureFramePool,
     _item: GraphicsCaptureItem,
@@ -439,7 +497,7 @@ unsafe impl Send for Live {}
 
 /// Starts capturing `zone` (px in `monitor`) into frames of `size`: frames for the page to `send`, a reason to stop on its own
 /// to `fault`. Access refused (Settings › Privacy & security, or a policy, for a packaged Crest) is `capture-denied`.
-fn open(monitor: HMONITOR, zone: Rect, size: SizeInt32, gen: u32, send: Sink, fault: Fault) -> Result<Live, &'static str> {
+fn open(monitor: HMONITOR, zone: Rect, size: SizeInt32, gen: u32, alive: Arc<AtomicBool>, send: Sink, fault: Fault) -> Result<Live, &'static str> {
     let failed = |_| "failed";
     let denied = |e: windows::core::Error| if e.code() == E_ACCESSDENIED { "capture-denied" } else { "failed" };
     let gpu = gpu(monitor, true).map_err(failed)?;
@@ -491,35 +549,39 @@ fn open(monitor: HMONITOR, zone: Rect, size: SizeInt32, gen: u32, send: Sink, fa
     }))
     .map_err(failed)?;
     session.StartCapture().map_err(denied)?;
-    Ok(Live { gen, session, pool, _item: item, frames })
+    Ok(Live { gen, alive, session, pool, _item: item, frames })
 }
 
-/// Ends the session in `slot`, if any, and gives its gen: no frame comes any more, the one being handled is finished, and one
-/// waiting for the main thread is dropped there. Only after this may the notch's flag change.
-fn stop(slot: &mut Option<Live>) -> Option<u32> {
-    let live = slot.take()?;
+/// Ends `label`'s session, if any, and gives its gen (`close`).
+fn stop(live: &mut Vec<(String, Live)>, label: &str) -> Option<u32> {
+    let i = live.iter().position(|(l, _)| l == label)?;
+    Some(close(live.swap_remove(i).1))
+}
+
+/// Ends a session and gives its gen: a frame waiting for the main thread is dropped there, no frame comes any more and the one
+/// being handled is finished. Only after this may the window's flag change.
+fn close(live: Live) -> u32 {
+    live.alive.store(false, Ordering::SeqCst);
     let _ = live.session.Close();
     let _ = live.pool.Close();
     let mut frames = lock(&live.frames);
     frames.done = true;
     // The last copy goes now, not when Windows lets the handler go.
     frames.last = Vec::new();
-    drop(frames);
-    GEN.fetch_add(1, Ordering::SeqCst);
-    Some(live.gen)
+    live.gen
 }
 
-/// Stops the session `gen` (any for None) and tells the page why with `glass://live`.
+/// Stops the session `gen` (every one for None) and tells its window why with `glass://live`.
 fn halt_if(app: &AppHandle, gen: Option<u32>, why: &'static str) {
-    let stopped = {
+    let stopped: Vec<(String, u32)> = {
         let mut live = slot();
-        if gen.is_some() && live.as_ref().map(|l| l.gen) != gen {
-            return;
-        }
-        stop(&mut live)
+        let (gone, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut *live).into_iter().partition(|(_, l)| gen.is_none_or(|g| l.gen == g));
+        *live = kept;
+        gone.into_iter().map(|(label, l)| (label, close(l))).collect()
     };
-    if let Some(gen) = stopped {
-        let _ = app.emit("glass://live", serde_json::json!({ "gen": gen, "reason": why }));
+    for (label, gen) in stopped {
+        // The label too: the page's global `listen` also hears what goes to other windows.
+        let _ = app.emit_to(label.as_str(), "glass://live", serde_json::json!({ "label": label, "gen": gen, "reason": why }));
     }
 }
 
@@ -532,7 +594,7 @@ fn halt_later(app: AppHandle, gen: u32) -> Fault {
 }
 
 /// Frames for the page, posted from the main thread.
-fn to_page(window: WebviewWindow, gen: u32, at: Rect, win: Rect) -> Sink {
+fn to_page(window: WebviewWindow, alive: Arc<AtomicBool>, gen: u32, at: Rect, win: Rect) -> Sink {
     let waiting = Arc::new(Waiting::default());
     Box::new(move |seq, pixels| {
         let meta = LiveMeta { kind: "glass-live", gen, seq, x: at.x, y: at.y, w: at.w, h: at.h, ww: win.w, wh: win.h };
@@ -540,15 +602,15 @@ fn to_page(window: WebviewWindow, gen: u32, at: Rect, win: Rect) -> Sink {
         if !waiting.put((pixels, meta)) {
             return;
         }
-        let next = waiting.clone();
+        let (next, still) = (waiting.clone(), alive.clone());
         let posted = window.with_webview(move |webview| {
-            if let Some((pixels, meta)) = next.take(gen) {
+            if let Some((pixels, meta)) = next.take(&still) {
                 let _ = backdrop::share(&webview, &pixels, &meta);
             }
         });
         // The window is gone: let the next frame try again.
         if posted.is_err() {
-            waiting.take(gen);
+            waiting.take(&alive);
         }
     })
 }
@@ -563,9 +625,9 @@ impl Waiting {
         lock(&self.0).replace(frame).is_none()
     }
 
-    /// The frame for the post, unless a start or a stop came after session `gen`'s.
-    fn take(&self, gen: u32) -> Option<(Vec<u8>, String)> {
-        lock(&self.0).take().filter(|_| GEN.load(Ordering::SeqCst) == gen)
+    /// The frame for the post, unless its session stopped since (`alive` down).
+    fn take(&self, alive: &AtomicBool) -> Option<(Vec<u8>, String)> {
+        lock(&self.0).take().filter(|_| alive.load(Ordering::SeqCst))
     }
 }
 
@@ -699,7 +761,7 @@ fn refresh(last: &mut Vec<u8>, mapped: &[u8], pitch: usize, row: usize) -> bool 
     changed
 }
 
-fn slot() -> MutexGuard<'static, Option<Live>> {
+fn slot() -> MutexGuard<'static, Vec<(String, Live)>> {
     lock(&LIVE)
 }
 
@@ -819,18 +881,17 @@ mod tests {
     }
 
     #[test]
-    fn the_newest_frame_waits_and_a_start_or_stop_drops_it() {
-        let waiting = Waiting::default();
-        let gen = GEN.load(Ordering::SeqCst);
-        assert!(waiting.put((vec![1], "a".into())));
-        // A post is on its way: the newer frame takes the older one's place.
-        assert!(!waiting.put((vec![2], "b".into())));
-        assert_eq!(waiting.take(gen), Some((vec![2], "b".into())));
-        assert_eq!(waiting.take(gen), None);
-        assert!(waiting.put((vec![3], "c".into())));
-        GEN.fetch_add(1, Ordering::SeqCst);
-        assert_eq!(waiting.take(gen), None);
-        assert!(waiting.put((vec![4], "d".into())), "dropped, and the slot free again");
+    fn waiting_frames_belong_to_their_own_session() {
+        let (notch, bar) = (AtomicBool::new(true), AtomicBool::new(true));
+        let (a, b) = (Waiting::default(), Waiting::default());
+        assert!(a.put((vec![1], "a".into())));
+        assert!(!a.put((vec![2], "b".into())), "the newer frame takes the older one's place");
+        assert!(b.put((vec![9], "z".into())));
+        // The bar's session stops: the notch's frame still goes.
+        bar.store(false, Ordering::SeqCst);
+        assert_eq!(b.take(&bar), None);
+        assert_eq!(a.take(&notch), Some((vec![2], "b".into())));
+        assert!(b.put((vec![10], "y".into())), "dropped, and the slot free again");
     }
 
     #[test]
@@ -1004,13 +1065,13 @@ mod live {
         let start = || {
             let (sent, failed) = (frames.clone(), faults.clone());
             let send: Sink = Box::new(move |seq, px| lock(&sent).push((seq, px)));
-            Some(open(handle, zone, size, 1, send, Arc::new(move |why| lock(&failed).push(why))).unwrap())
+            open(handle, zone, size, 1, Arc::new(AtomicBool::new(true)), send, Arc::new(move |why| lock(&failed).push(why))).unwrap()
         };
         let count = || lock(&frames).len();
 
         // A new session sends its first frame, without the notch.
         let t = Instant::now();
-        let mut live = start();
+        let live = start();
         assert!(until(Duration::from_secs(1), || count() == 1), "no first frame");
         eprintln!("first frame after {:?}", t.elapsed());
         {
@@ -1021,13 +1082,13 @@ mod live {
         }
 
         // The notch changes at 60 Hz, nothing behind it does: copies maybe, nothing sent.
-        let copies = lock(&live.as_ref().unwrap().frames).copies;
+        let copies = lock(&live.frames).copies;
         let mut flip = false;
         run(Duration::from_millis(1500), || {
             flip = !flip;
             paint(notch, if flip { MAGENTA_2 } else { MAGENTA });
         });
-        eprintln!("notch changing for 1.5 s: {} zones read, {} sent", lock(&live.as_ref().unwrap().frames).copies - copies, count() - 1);
+        eprintln!("notch changing for 1.5 s: {} zones read, {} sent", lock(&live.frames).copies - copies, count() - 1);
         assert_eq!(count(), 1, "sent although nothing behind the notch changed");
 
         // What is behind changes: sent, still without the notch.
@@ -1059,8 +1120,8 @@ mod live {
         eprintln!("20 changes behind the notch followed by one away from it: all came, the slowest after {slowest:?}");
 
         // Stopped, then the flag back as when the switch goes off: nothing comes after, whatever changes.
-        let gen = GEN.load(Ordering::SeqCst);
-        assert_eq!(stop(&mut live), Some(1));
+        let alive = live.alive.clone();
+        assert_eq!(close(live), 1);
         let after = count();
         unsafe { SetWindowDisplayAffinity(notch, windows::Win32::UI::WindowsAndMessaging::WDA_NONE) }.unwrap();
         run(Duration::from_millis(400), || {
@@ -1069,15 +1130,14 @@ mod live {
             paint(grey, if flip { GREY } else { GREEN });
         });
         assert_eq!(count(), after, "a frame came after the stop");
-        // Greater, not one more: other tests in this process move GEN too.
-        assert!(GEN.load(Ordering::SeqCst) > gen);
+        assert!(!alive.load(Ordering::SeqCst));
 
         // A new session at a still screen still sends a first frame.
         out();
         paint(grey, GREY);
         run(Duration::from_millis(300), || {});
         let t = Instant::now();
-        let mut live = start();
+        let live = start();
         assert!(until(Duration::from_secs(1), || count() == after + 1), "a new session at a still screen sent nothing");
         eprintln!("first frame of a new session at a still screen after {:?}", t.elapsed());
         {
@@ -1086,7 +1146,7 @@ mod live {
             assert_eq!(*seq, 1);
             assert!(!any_magenta(px) && all(px, GREY));
         }
-        stop(&mut live);
+        close(live);
         *lock(&GPU) = None;
         assert!(lock(&faults).is_empty(), "{:?}", lock(&faults));
         unsafe {

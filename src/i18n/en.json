@@ -1801,5 +1801,12 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Volume, network, battery and notifications are on Win+A and Win+N",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Pin an app with a right click on it in the taskbar",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Notch: like the closed notch. Theme: the theme's background colour",
- "Farben und Thema gelten auch für die Taskleiste": "Colours and theme apply to the taskbar too"
+ "Farben und Thema gelten auch für die Taskleiste": "Colours and theme apply to the taskbar too",
+ "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "Shows what is behind the taskbar, live, up to 10 times a second. While it is on, the taskbar is left out of screenshots, recordings and screen sharing.",
+ "Form": "Shape",
+ "Angedockt": "Docked",
+ "Schwebend": "Floating",
+ "Kacheln": "Tiles",
+ "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "As a capsule, the taskbar lines the three areas up in the middle: left, center, right. The areas here stay as they are",
+ "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "Refraction, Frost and Rim light also apply to the notch"
 }

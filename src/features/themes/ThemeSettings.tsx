@@ -248,7 +248,7 @@ function GlassLook() {
  * A slider of the glass's look, with its value beside it; saved on every step, like the other sliders in the settings. A drag repeats
  * the same step over a few px, and each save would draw the whole panel again.
  */
-function GlassSlider(props: { label: string; hint: ReactNode; field: keyof typeof GLASS_RANGE; step: number; mark?: number; text?: string }) {
+export function GlassSlider(props: { label: string; hint: ReactNode; field: keyof typeof GLASS_RANGE; step: number; mark?: number; text?: string }) {
   const value = settings.use().themes[props.field];
   const [min, max] = GLASS_RANGE[props.field];
   const text = props.text ?? `${value} %`;

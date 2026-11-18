@@ -1801,5 +1801,12 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Le volume, le réseau, la batterie et les notifications sont sur Win+A et Win+N",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Épinglez une application d'un clic droit dessus dans la barre des tâches",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Encoche : comme l'encoche fermée. Thème : la couleur d'arrière-plan du thème",
- "Farben und Thema gelten auch für die Taskleiste": "Les couleurs et le thème s'appliquent aussi à la barre des tâches"
+ "Farben und Thema gelten auch für die Taskleiste": "Les couleurs et le thème s'appliquent aussi à la barre des tâches",
+ "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "Montre en direct ce qui se trouve derrière la barre des tâches, jusqu'à 10 fois par seconde. Tant que c'est activé, la barre des tâches n'apparaît ni dans les captures d'écran, ni dans les enregistrements, ni dans les partages d'écran.",
+ "Form": "Forme",
+ "Angedockt": "Ancrée",
+ "Schwebend": "Flottante",
+ "Kacheln": "Vignettes",
+ "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "En capsule, la barre des tâches aligne les trois zones au centre : gauche, centre, droite. Les zones ici restent telles quelles",
+ "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "Réfraction, Dépoli et Lumière du bord s'appliquent aussi à l'encoche"
 }
