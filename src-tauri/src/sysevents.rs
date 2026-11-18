@@ -11,6 +11,8 @@
 //! Caps Lock and Num Lock have no change event short of a keyboard hook, so a small thread reads them every `LOCK_POLL` while their alert is on and can show;
 //! the Insert alert reads that key's toggle bit on the same thread.
 //! The Bluetooth watcher and the volume and microphone callbacks run only while their alerts are on (`status_configure`).
+//! The bar's Stato item reads the network in use, the Wi-Fi radio and the volume only while a bar shows it (`status_bar`): the radios
+//! are watched then, and the volume callback runs for it even with its alert off (`status://network`, `status://sound`).
 //! Do Not Disturb has no public change event either: a thread reads it every `FOCUS_POLL` while its alert is on and can show. Airplane
 //! mode has none that is documented: a thread waits on its registry key. The power mode and the battery's report call back on their own.
 //! Changes Crest makes itself (the output device, Do Not Disturb, the power plan) are marked with `own` and not told back.
@@ -38,6 +40,7 @@ use windows::Win32::Media::Audio::{
 };
 use windows::core::{Array, IInspectable, Interface, Ref, HSTRING};
 use windows::Devices::Power::Battery;
+use windows::Devices::Radios::{Radio, RadioKind};
 use windows::Devices::Enumeration::{DeviceInformation, DeviceInformationKind, DeviceInformationUpdate, DeviceWatcher};
 use windows_collections::IIterable;
 use windows::Foundation::{IPropertyValue, TypedEventHandler};
@@ -204,9 +207,51 @@ pub struct Seed {
     online: Option<bool>,
     /// Names of the Bluetooth devices connected now.
     devices: Vec<String>,
+    /// The bar's Stato item, `null` while no bar shows it.
+    network: Option<Network>,
+    sound: Option<Sound>,
 }
 
-static SEED: Mutex<Seed> = Mutex::new(Seed { power: None, online: None, devices: Vec::new() });
+static SEED: Mutex<Seed> = Mutex::new(Seed { power: None, online: None, devices: Vec::new(), network: None, sound: None });
+
+/// The kind of the network in use; any internet profile that is not WLAN counts as wired, a cellular modem included.
+#[derive(Serialize, Clone, Copy, PartialEq, Debug)]
+#[serde(rename_all = "lowercase")]
+enum Link {
+    Wired,
+    Wireless,
+    None,
+}
+
+/// The network in use for the bar's Stato item (`status://network`).
+#[derive(Serialize, Clone, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Network {
+    kind: Link,
+    /// The Wi-Fi radio is on; None: no Wi-Fi radio on this PC.
+    wifi: Option<bool>,
+    /// Signal bars 0..5, only on Wi-Fi.
+    bars: Option<u8>,
+    /// The Wi-Fi's name, only on Wi-Fi and only when Windows gives it.
+    ssid: Option<String>,
+}
+
+/// The default output's volume for the bar's Stato item (`status://sound`), every change, Crest's own included.
+#[derive(Serialize, Clone, Copy, PartialEq, Debug)]
+pub struct Sound {
+    level: u8,
+    muted: bool,
+}
+
+/// One read of the internet profile.
+struct Profile {
+    wlan: bool,
+    ssid: Option<String>,
+    bars: Option<u8>,
+}
+
+/// While a bar shows Stato (`status_bar`).
+static BAR_STATUS: AtomicBool = AtomicBool::new(false);
 
 /// A panic elsewhere must not take the alerts down with it: the seed stays readable.
 fn seed() -> MutexGuard<'static, Seed> {
@@ -298,7 +343,11 @@ fn run(app: AppHandle) {
         let mut enumerated = false;
 
         let volume_client: IAudioEndpointVolumeCallback = LevelWatch(h, WM_VOL).into();
-        let mut volume_on = sources & SRC_VOLUME != 0;
+        // The callback runs for the HUD's alert or for the bar's Stato; `bar_on` turns on through WM_SOURCES, posted below.
+        let mut volume_alert = sources & SRC_VOLUME != 0;
+        let mut bar_on = false;
+        let mut radios: Vec<(Radio, i64)> = Vec::new();
+        let mut volume_on = volume_alert;
         let mut volume = devices.as_ref().filter(|_| volume_on).and_then(|d| watch_level(d, eRender, &volume_client));
         let mut last_volume = volume.as_ref().map(|v| v.1);
         // The default microphone's mute, the same way: a key on the laptop, Windows' settings or another app muting it.
@@ -333,6 +382,10 @@ fn run(app: AppHandle) {
         watch_airplane(app.clone());
 
         let _ = app.emit("status://seed", status_seed());
+        // `status_bar` may have come before the loop's window existed.
+        if BAR_STATUS.load(Ordering::SeqCst) {
+            let _ = PostMessageW(Some(hwnd), WM_SOURCES, WPARAM(0), LPARAM(0));
+        }
 
         // Runs for the app's lifetime; process exit releases the registrations.
         let mut msg = MSG::default();
@@ -359,6 +412,9 @@ fn run(app: AppHandle) {
                     if seed().online != now {
                         seed().online = now;
                         let _ = app.emit("status://net", serde_json::json!({ "online": now }));
+                    }
+                    if bar_on {
+                        send_network(&app, &radios);
                     }
                 }
                 WM_SESSION => session_changed(hwnd, &mut session, &to_page),
@@ -402,12 +458,18 @@ fn run(app: AppHandle) {
                     let now = (msg.wParam.0.min(100) as u8, msg.lParam.0 & 1 != 0);
                     let own = msg.lParam.0 & 2 != 0;
                     // Windows may bring its flyout up for a key that changes nothing (the level already at an end): hide that one too.
-                    if !own {
+                    if volume_alert && !own {
                         crate::osd::after_change();
                     }
                     // Crest's own change still moves the baseline, so the next outside change compares against it.
-                    if volume_changed(&mut last_volume, now) && !own {
-                        emit_level(&app, "volume", now.0, now.1);
+                    if volume_changed(&mut last_volume, now) {
+                        let (level, sound) = sound_events(volume_alert, bar_on, own);
+                        if level {
+                            emit_level(&app, "volume", now.0, now.1);
+                        }
+                        if sound {
+                            send_sound(&app, Some(now));
+                        }
                     }
                 }
                 WM_VOLDEV => {
@@ -417,6 +479,9 @@ fn run(app: AppHandle) {
                         }
                         volume = devices.as_ref().and_then(|d| watch_level(d, eRender, &volume_client));
                         last_volume = volume.as_ref().map(|v| v.1);
+                        if bar_on {
+                            send_sound(&app, last_volume);
+                        }
                     }
                     // Where the sound went, unless Crest moved it; none at all is a new start, so the next device alerts.
                     let now = devices.as_ref().and_then(default_output);
@@ -463,7 +528,9 @@ fn run(app: AppHandle) {
                         connected = None;
                         enumerated = false;
                     }
-                    if (sources & SRC_VOLUME != 0) != volume_on {
+                    volume_alert = sources & SRC_VOLUME != 0;
+                    let bar = BAR_STATUS.load(Ordering::SeqCst);
+                    if (volume_alert || bar) != volume_on {
                         volume_on = !volume_on;
                         if let Some((endpoint, _)) = volume.take() {
                             let _ = endpoint.UnregisterControlChangeNotify(&volume_client);
@@ -472,6 +539,19 @@ fn run(app: AppHandle) {
                             volume = devices.as_ref().and_then(|d| watch_level(d, eRender, &volume_client));
                         }
                         last_volume = volume.as_ref().map(|v| v.1);
+                    }
+                    if bar != bar_on {
+                        bar_on = bar;
+                        if bar_on {
+                            radios = watch_radios(h);
+                            send_network(&app, &radios);
+                            send_sound(&app, last_volume);
+                        } else {
+                            unwatch_radios(std::mem::take(&mut radios));
+                            let mut s = seed();
+                            s.network = None;
+                            s.sound = None;
+                        }
                     }
                     if (sources & SRC_MIC != 0) != mic_on {
                         mic_on = !mic_on;
@@ -598,6 +678,64 @@ fn online() -> bool {
     NetworkInformation::GetInternetConnectionProfile()
         .and_then(|p| p.GetNetworkConnectivityLevel())
         .is_ok_and(|level| level == NetworkConnectivityLevel::InternetAccess)
+}
+
+/// The internet profile in use, None without one. The name comes only from `GetConnectedSsid`: `ProfileName`, wlanapi.h and
+/// Windows.Devices.WiFi ask for the location permission.
+fn profile() -> Option<Profile> {
+    let p = NetworkInformation::GetInternetConnectionProfile().ok()?;
+    let wlan = p.IsWlanConnectionProfile().unwrap_or(false);
+    let ssid = wlan.then(|| p.WlanConnectionProfileDetails().and_then(|d| d.GetConnectedSsid()).ok().map(|s| s.to_string())).flatten();
+    let bars = p.GetSignalBars().and_then(|b| b.Value()).ok();
+    Some(Profile { wlan, ssid, bars })
+}
+
+/// What the bar shows: no profile is no network, WLAN gives its bars and its name when not empty, anything else is wired.
+fn network(profile: Option<Profile>, wifi: Option<bool>) -> Network {
+    match profile {
+        None => Network { kind: Link::None, wifi, bars: None, ssid: None },
+        Some(p) if p.wlan => Network { kind: Link::Wireless, wifi, bars: p.bars, ssid: p.ssid.filter(|s| !s.is_empty()) },
+        Some(_) => Network { kind: Link::Wired, wifi, bars: None, ssid: None },
+    }
+}
+
+/// The radios, each waking the loop on a switch so it goes through the network's settle. Removed with `unwatch_radios`.
+fn watch_radios(h: isize) -> Vec<(Radio, i64)> {
+    let handler = TypedEventHandler::<Radio, IInspectable>::new(move |_, _| {
+        let _ = unsafe { PostMessageW(Some(HWND(h as _)), WM_NET, WPARAM(0), LPARAM(0)) };
+        Ok(())
+    });
+    crate::quick::radios()
+        .inspect_err(|e| eprintln!("sysevents: radios failed: {e}"))
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|r| r.StateChanged(&handler).ok().map(|token| (r, token)))
+        .collect()
+}
+
+fn unwatch_radios(radios: Vec<(Radio, i64)>) {
+    for (r, token) in radios {
+        let _ = r.RemoveStateChanged(token);
+    }
+}
+
+/// Seeds the network for the bar and tells it, only on a change.
+fn send_network(app: &AppHandle, radios: &[(Radio, i64)]) {
+    let list: Vec<Radio> = radios.iter().map(|(r, _)| r.clone()).collect();
+    let now = network(profile(), crate::quick::radio_on(&list, RadioKind::WiFi));
+    if seed().network.as_ref() != Some(&now) {
+        seed().network = Some(now.clone());
+        let _ = app.emit("status://network", now);
+    }
+}
+
+/// Seeds the volume for the bar and tells it, only on a change; None (no output device) tells nothing.
+fn send_sound(app: &AppHandle, level: Option<Level>) {
+    let now = level.map(|(level, muted)| Sound { level, muted });
+    if now.is_some() && seed().sound != now {
+        seed().sound = now;
+        let _ = app.emit("status://sound", now);
+    }
 }
 
 /// Runs on an audio service thread: it only tells the loop that the default output or microphone changed.
@@ -842,6 +980,12 @@ fn volume_changed(last: &mut Option<Level>, now: Level) -> bool {
     changed
 }
 
+/// Which events a volume change sends, (status://level, status://sound): the HUD only with its alert on and only for an outside
+/// change, the bar every change while it shows Stato.
+fn sound_events(alert: bool, bar: bool, own: bool) -> (bool, bool) {
+    (alert && !own, bar)
+}
+
 /// One HUD reading for the frontend (status://level): `kind` "volume" or "brightness", `level` 0..100.
 pub fn emit_level(app: &AppHandle, kind: &str, level: u8, muted: bool) {
     let _ = app.emit("status://level", serde_json::json!({ "kind": kind, "level": level, "muted": muted }));
@@ -861,6 +1005,16 @@ pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, insert: bool, bt
     watch_focus(&app, focus);
     crate::osd::set(hide_osd, osd_armed);
     SOURCES.store(if bt { SRC_BT } else { 0 } | if volume { SRC_VOLUME } else { 0 } | if mic { SRC_MIC } else { 0 }, Ordering::SeqCst);
+    let h = LOOP.load(Ordering::SeqCst);
+    if h != 0 {
+        let _ = unsafe { PostMessageW(Some(HWND(h as _)), WM_SOURCES, WPARAM(0), LPARAM(0)) };
+    }
+}
+
+/// From the notch: a bar shows Stato (on), or none does (off). The loop then watches the radios and the volume for it.
+#[tauri::command]
+pub fn status_bar(on: bool) {
+    BAR_STATUS.store(on, Ordering::SeqCst);
     let h = LOOP.load(Ordering::SeqCst);
     if h != 0 {
         let _ = unsafe { PostMessageW(Some(HWND(h as _)), WM_SOURCES, WPARAM(0), LPARAM(0)) };
@@ -1086,6 +1240,35 @@ mod tests {
         assert!(volume_changed(&mut last, (40, true)));
         assert!(volume_changed(&mut last, (42, true)));
         assert_eq!(last, Some((42, true)));
+    }
+
+    #[test]
+    fn the_network_in_use_names_its_kind_and_only_wifi_has_a_name_and_bars() {
+        assert_eq!(network(None, Some(true)), Network { kind: Link::None, wifi: Some(true), bars: None, ssid: None });
+        assert_eq!(network(None, Some(false)).wifi, Some(false));
+        assert_eq!(network(None, None).wifi, None);
+        let wired = network(Some(Profile { wlan: false, ssid: Some("x".into()), bars: Some(3) }), Some(true));
+        assert_eq!((wired.kind, wired.ssid, wired.bars), (Link::Wired, None, None));
+        let wifi = network(Some(Profile { wlan: true, ssid: Some("Home".into()), bars: Some(4) }), Some(true));
+        assert_eq!((wifi.kind, wifi.ssid.as_deref(), wifi.bars), (Link::Wireless, Some("Home"), Some(4)));
+        assert_eq!(network(Some(Profile { wlan: true, ssid: Some(String::new()), bars: None }), Some(true)).ssid, None);
+    }
+
+    #[test]
+    fn the_network_reaches_the_page_in_lower_case() {
+        let sent = serde_json::to_value(network(None, None)).unwrap();
+        assert_eq!(sent["kind"], "none");
+        assert_eq!(sent["wifi"], serde_json::Value::Null);
+        assert_eq!(serde_json::to_value(Sound { level: 40, muted: true }).unwrap(), serde_json::json!({ "level": 40, "muted": true }));
+    }
+
+    #[test]
+    fn a_volume_change_tells_the_hud_only_from_outside_and_the_bar_always() {
+        // (alert, bar, own) -> (status://level, status://sound)
+        assert_eq!(sound_events(true, false, false), (true, false));
+        assert_eq!(sound_events(true, true, true), (false, true));
+        assert_eq!(sound_events(false, true, false), (false, true));
+        assert_eq!(sound_events(false, false, false), (false, false));
     }
 
     #[test]

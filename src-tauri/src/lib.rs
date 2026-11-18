@@ -146,7 +146,7 @@ pub(crate) fn own_page(url: &tauri::Url) -> bool {
 /// glass) or apply the settings to the system. The notch applies what the settings window saves, so only it does that.
 const SETTINGS_DENIED: &[&str] = &[
     "display_apply", "keyboard_focus", "set_hit_rect", "set_pet_rect", "set_pinned", "set_passthrough", "memory_low", "hotkeys_apply",
-    "launcher_shortcuts", "clipboard_mode", "tray_texts", "media_pin", "status_configure", "notices_configure",
+    "launcher_shortcuts", "clipboard_mode", "tray_texts", "media_pin", "status_configure", "status_bar", "notices_configure",
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
@@ -358,6 +358,8 @@ pub fn run() {
             sysevents::status_seed,
             #[cfg(windows)]
             sysevents::status_configure,
+            #[cfg(windows)]
+            sysevents::status_bar,
             #[cfg(windows)]
             system::system_icon,
             convert::convert_probe,
@@ -1157,6 +1159,7 @@ mod tests {
         assert!(!ok("settings", "glass_live_start") && !ok("timer", "glass_live_exclude"));
         // The bar reads the power state for its glass, but never sets what the status alerts watch.
         assert!(ok("taskbar", "status_seed") && ok("taskbar-1", "status_seed") && !ok("taskbar", "status_configure"));
+        assert!(ok("notch", "status_bar") && !ok("taskbar", "status_bar") && !ok("taskbar-1", "status_bar") && !ok("settings", "status_bar"));
         assert!(ok("taskbar", "taskbar_panel") && ok("taskbar", "taskbar_ask") && !ok("taskbar", "launcher_apps") && ok("taskbar-1", "taskbar_panel"));
         // A settings window claiming a bar's panel would keep the notch's sources running.
         assert!(!ok("settings", "taskbar_panel") && !ok("settings", "taskbar_ask") && !ok("timer", "taskbar_ask"));
