@@ -1801,5 +1801,7 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "音量、网络、电池和通知可通过 Win+A 和 Win+N 打开",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "在任务栏中右键单击应用即可固定",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "刘海：与收起的刘海相同。主题：主题的背景色",
- "Farben und Thema gelten auch für die Taskleiste": "颜色和主题也适用于任务栏"
+ "Farben und Thema gelten auch für die Taskleiste": "颜色和主题也适用于任务栏",
+ "Widget hinzufügen": "添加小组件",
+ "Gilt auch für die Notch": "也适用于刘海"
 }

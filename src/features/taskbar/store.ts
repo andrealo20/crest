@@ -3,9 +3,9 @@ import { createStore } from "../../lib/store";
 import { listening, tauriTransport } from "../../lib/tauriTransport";
 import { isMac, isNative } from "../../platform/native";
 import { taskbar } from "../../platform/services";
-import { settings } from "../../settings/store";
+import { settings, updateSettings } from "../../settings/store";
 import { feedStores, panelStores } from "./barStores";
-import type { WindowList } from "./model";
+import type { TaskbarSettings, WindowList } from "./model";
 
 /** In the bar's window: the open windows grouped by app, as Rust last sent them. */
 export const barWindows = createStore<WindowList>({ groups: [], active: null });
@@ -13,6 +13,11 @@ export const barWindows = createStore<WindowList>({ groups: [], active: null });
 export const groupIcons = createStore<Record<string, string | null>>({});
 /** In the bar's window: whether the bar shows; its widgets rest while it does not. */
 export const barShown = createStore(true);
+
+/** A change to the bar's settings, from the Taskbar pages and their widget rows; the notch applies it (startTaskbar). */
+export function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSettings) => Partial<TaskbarSettings>)) {
+  updateSettings((s) => ({ taskbar: { ...s.taskbar, ...(typeof patch === "function" ? patch(s.taskbar) : patch) } }));
+}
 
 /** The notch applies the bar's on/off and height to Rust, the only window that does: as saved when Crest starts, then on every change of either. */
 export function startTaskbar() {

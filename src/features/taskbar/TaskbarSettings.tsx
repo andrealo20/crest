@@ -4,13 +4,18 @@ import { AppWindow, DotsSixVertical } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { nav } from "../../notch/nav";
+import type { PartId } from "../../notch/row/parts";
+import { partInfo } from "../../notch/row/partInfo";
 import { isMac, isNative } from "../../platform/native";
 import { build } from "../../platform/services";
-import { settings, updateSettings } from "../../settings/store";
+import { settings } from "../../settings/store";
 import { CrestMark } from "../../ui/CrestMark";
 import { Button, Group, Row, Segmented, Select, Slider, Switch } from "../../ui/controls";
 import { FavoriteList } from "../launcher/FavoriteList";
-import { fitIcon, HEIGHT, ICON, moveItem, taskbarShown, type BarItem, type TaskbarSettings, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, taskbarShown, type BarItem, type Zone } from "./model";
+import { setTaskbar } from "./store";
+import { AddWidget, WidgetOptions } from "./WidgetRows";
+import { isWidget } from "./widgets";
 
 /*
  * Settings → Taskbar: the pages of Crest's bar, behind the settings window's Notch | Taskbar switch (SettingsView lists them). They
@@ -25,15 +30,11 @@ export function useTaskbarShown(): boolean {
   return taskbarShown({ native: isNative, mac: isMac, dev: import.meta.env.DEV, preview, enabled });
 }
 
-function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSettings) => Partial<TaskbarSettings>)) {
-  updateSettings((s) => ({ taskbar: { ...s.taskbar, ...(typeof patch === "function" ? patch(s.taskbar) : patch) } }));
-}
-
 /** The bar's zones, physical: left stays left in a right-to-left language. */
 const ZONES: Zone[] = ["left", "center", "right"];
 const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte", right: "Rechte Seite" };
-/** What the bar draws for each item: the apps' buttons, and the button of the Crest menu. */
-const ITEM_LABEL: Partial<Record<BarItem, string>> = { apps: "Apps und Fenster", crest: "Crest-Menü" };
+/** What the bar draws for each fixed item: the apps' buttons, and the button of the Crest menu. A widget has its part's name. */
+const ITEM_LABEL: Record<Exclude<BarItem, PartId>, string> = { apps: "Apps und Fenster", crest: "Crest-Menü" };
 
 /** Taskbar → General: the bar on or off, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
@@ -61,7 +62,9 @@ export function TaskbarItems() {
     <Group id="settings-taskbar-items">
       {ZONES.map((zone) => (
         <div key={zone}>
-          <Row label={t(ZONE_LABEL[zone])} hint={zones[zone].length > 1 ? t("Zum Sortieren ziehen") : undefined} />
+          <Row label={t(ZONE_LABEL[zone])} hint={zones[zone].length > 1 ? t("Zum Sortieren ziehen") : undefined}>
+            <AddWidget zone={zone} />
+          </Row>
           <Reorder.Group
             as="div"
             axis="y"
@@ -78,13 +81,15 @@ export function TaskbarItems() {
                 onDragStart={() => setDragging(id)}
                 onDragEnd={() => setDragging(null)}
                 whileDrag={{ scale: 1.02 }}
-                className={`group relative flex h-9 cursor-grab items-center gap-2.5 px-3 active:cursor-grabbing ${
+                className={`group relative flex min-h-9 cursor-grab items-center gap-2.5 px-3 py-1 active:cursor-grabbing ${
                   dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
                 }`}
               >
-                <DotsSixVertical size={13} weight="bold" className="-ms-1 text-label-4 transition-colors group-hover:text-label-3" />
-                {id === "crest" ? <CrestMark size={15} className="shrink-0 text-label-2" /> : <AppWindow size={15} weight="bold" className="shrink-0 text-label-2" />}
-                <span className="min-w-0 flex-1 truncate text-body text-label select-none">{t(ITEM_LABEL[id] ?? id)}</span>
+                <DotsSixVertical size={13} weight="bold" className="-ms-1 shrink-0 text-label-4 transition-colors group-hover:text-label-3" />
+                <ItemIcon id={id} />
+                {/* From its own width, so a narrow page shrinks it along with a widget's options instead of first. */}
+                <span className="min-w-0 flex-auto truncate text-body text-label select-none">{t(isWidget(id) ? partInfo[id].label : ITEM_LABEL[id])}</span>
+                {isWidget(id) && <WidgetOptions id={id} />}
                 <div onPointerDown={(e) => e.stopPropagation()}>
                   {/* The menu also reports its current zone when picked again; moveItem would send the item to that zone's end. */}
                   <Select width="w-36" value={zone} options={options} onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: moveItem(cur.zones, id, to) }))} />
@@ -96,6 +101,13 @@ export function TaskbarItems() {
       ))}
     </Group>
   );
+}
+
+/** An item's icon: Crest's mark, the apps' window, or a widget's part as the settings show it. */
+function ItemIcon({ id }: { id: BarItem }) {
+  if (id === "crest") return <CrestMark size={15} className="shrink-0 text-label-2" />;
+  const I = isWidget(id) ? partInfo[id].icon : AppWindow;
+  return <I size={15} weight="bold" className="shrink-0 text-label-2" />;
 }
 
 /** Taskbar → Apps and windows: the pinned apps in the bar's order. An app is pinned on the bar, from its right-click menu. */

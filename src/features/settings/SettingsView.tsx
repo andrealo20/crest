@@ -52,7 +52,7 @@ import { searchSettings, type SearchEntry } from "./search";
 import { github } from "../github/store";
 import { leetcode } from "../leetcode/store";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
-import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
+import { Button, Group, Row, Segmented, Select, Slider, StyleCards, SubSwitch, Switch, TextField } from "../../ui/controls";
 import { PET_IDS, PET_SIZE, type ClosedSettings, type PartId, type PetId } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
 import { PetArt } from "../../notch/pet/Nest";
@@ -1005,16 +1005,6 @@ function ShapePreview({ d }: { d: string }) {
     <svg width={90} height={24} viewBox="0 0 60 16" aria-hidden>
       <path d={d} fill="currentColor" />
     </svg>
-  );
-}
-
-/** Small labelled switch for a part's own options, next to its main switch. */
-function SubSwitch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <span className="flex items-center gap-1.5 text-caption text-label-3 select-none">
-      {label}
-      <Switch label={label} checked={checked} onChange={onChange} />
-    </span>
   );
 }
 
