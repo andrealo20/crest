@@ -830,7 +830,8 @@ pub(crate) fn frame_rect(hwnd: HWND) -> RECT {
 }
 
 #[cfg(windows)]
-fn monitor_rect(monitor: HMONITOR) -> Option<(RECT, RECT)> {
+/// The monitor's rect and its work area (`rcMonitor`, `rcWork`).
+pub(crate) fn monitor_rect(monitor: HMONITOR) -> Option<(RECT, RECT)> {
     let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
     unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool().then_some((info.rcMonitor, info.rcWork))
 }

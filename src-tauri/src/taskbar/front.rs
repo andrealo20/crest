@@ -8,8 +8,9 @@
 //!
 //! Each bar hides over a full-screen app in front of its own monitor (`screens::set_fullscreen`). While "hide when a window
 //! touches it" is on (`taskbar_auto_hide`), each bar is also sent that window's frame in its CSS px when it changes
-//! (`taskbar://front`): the page knows the bar's shape and decides whether the frame touches it. A bar with another monitor
-//! below it is sent none, so it never slides away: the pointer would pass to that monitor instead of stopping at the edge.
+//! (`taskbar://front`): the page knows the bar's shape and decides whether the frame touches it. A bar the pointer could not
+//! bring back is sent none, so it never slides away (`stays_up`): one whose work area ends above its monitor's bottom edge,
+//! or with another monitor below it.
 //!
 //! On the display poll's thread: Win32 reads only, and no lock held across `set_fullscreen` or an emit.
 
@@ -114,6 +115,14 @@ fn below(monitor: RECT, all: &[RECT]) -> bool {
     all.iter().any(|o| o.top == monitor.bottom && o.left < monitor.right && o.right > monitor.left)
 }
 
+/// The pointer could not bring a bar on this monitor back, so it never slides away. The bar's window stands on the work
+/// area's bottom: where that ends above the monitor's bottom edge (another appbar there, or a band Windows' taskbar still
+/// keeps), the strip that brings it back floats above the edge, where the pointer does not stop; and with another monitor
+/// below (`below`) the pointer passes on to it.
+fn stays_up(monitor: RECT, work: RECT, all: &[RECT]) -> bool {
+    work.bottom < monitor.bottom || below(monitor, all)
+}
+
 /// A frame in physical px as the bar window's CSS px: from the window's top-left `origin`, at `scale` (its DPI / 96).
 fn in_bar(frame: RECT, (x, y): (i32, i32), scale: f64) -> Rect {
     // From `a` to `b`, in CSS px.
@@ -173,12 +182,12 @@ pub(crate) fn poll(app: &AppHandle, foreground: HWND) {
 }
 
 /// What a bar is sent while the option is on: the frame of the window in front of its monitor, in the bar's CSS px. None
-/// without one, and on a monitor with another below it. The bar's place and scale are read as the pointer poll reads them
+/// without one, and where the bar stays up (`stays_up`). The bar's place and scale are read as the pointer poll reads them
 /// (hit_test.rs `geometry`), never from the main thread.
-fn rect_for(ahead: Option<isize>, bar: HWND, monitor: isize, monitors: &[(isize, RECT)]) -> Option<Rect> {
+fn rect_for(ahead: Option<isize>, bar: HWND, monitor: isize, monitors: &[(isize, RECT, RECT)]) -> Option<Rect> {
     let ahead = HWND(ahead? as _);
-    let &(_, here) = monitors.iter().find(|&&(m, _)| m == monitor)?;
-    if below(here, &monitors.iter().map(|&(_, rect)| rect).collect::<Vec<_>>()) {
+    let &(_, here, work) = monitors.iter().find(|&&(m, _, _)| m == monitor)?;
+    if stays_up(here, work, &monitors.iter().map(|&(_, rect, _)| rect).collect::<Vec<_>>()) {
         return None;
     }
     let mut origin = RECT::default();
@@ -204,14 +213,17 @@ fn send(app: &AppHandle, rects: Vec<(String, Option<Rect>)>) {
     }
 }
 
-/// Every monitor's handle and rect in physical px. Without a DC, the rect Windows passes is the monitor's (`rcMonitor`).
-fn monitors() -> Vec<(isize, RECT)> {
-    unsafe extern "system" fn each(monitor: HMONITOR, _: HDC, rect: *mut RECT, list: LPARAM) -> BOOL {
-        (*(list.0 as *mut Vec<(isize, RECT)>)).push((monitor.0 as isize, *rect));
+/// Every monitor's handle, rect and work area in physical px (`rcMonitor`, `rcWork`). One Windows cannot read is left out,
+/// so its bar stays up.
+fn monitors() -> Vec<(isize, RECT, RECT)> {
+    unsafe extern "system" fn each(monitor: HMONITOR, _: HDC, _: *mut RECT, list: LPARAM) -> BOOL {
+        if let Some((rect, work)) = display::monitor_rect(monitor) {
+            (*(list.0 as *mut Vec<(isize, RECT, RECT)>)).push((monitor.0 as isize, rect, work));
+        }
         true.into()
     }
-    let mut list: Vec<(isize, RECT)> = Vec::new();
-    let _ = unsafe { EnumDisplayMonitors(None, None, Some(each), LPARAM(&mut list as *mut Vec<(isize, RECT)> as isize)) };
+    let mut list: Vec<(isize, RECT, RECT)> = Vec::new();
+    let _ = unsafe { EnumDisplayMonitors(None, None, Some(each), LPARAM(&mut list as *mut Vec<(isize, RECT, RECT)> as isize)) };
     list
 }
 
@@ -280,6 +292,17 @@ mod tests {
         assert!(!below(laptop, &[top, laptop]));
         assert!(!below(r(0, 0, 1920, 1080), &[r(0, 0, 1920, 1080), r(1920, 0, 3840, 1080)])); // side by side
         assert!(!below(top, &[top, r(1920, 0, 2560, 900)])); // below the line, but past its right edge
+    }
+
+    #[test]
+    fn a_bar_above_its_monitors_bottom_edge_never_slides_away() {
+        let r = |left, top, right, bottom| RECT { left, top, right, bottom };
+        let screen = r(0, 0, 1920, 1080);
+        assert!(!stays_up(screen, screen, &[screen])); // the work area down to the bottom edge: the bar may slide away
+        assert!(!stays_up(screen, r(64, 0, 1920, 1080), &[screen])); // an appbar on the left leaves the bottom edge as it is
+        assert!(stays_up(screen, r(0, 0, 1920, 1032), &[screen])); // a band kept at the bottom: the strip would float above the edge
+        let (top, laptop) = (r(0, -1080, 1920, 0), r(320, 0, 1760, 900));
+        assert!(stays_up(top, top, &[top, laptop])); // another monitor below
     }
 
     #[test]
