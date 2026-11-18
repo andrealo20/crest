@@ -15,8 +15,8 @@
 //! hide hotkey, and each one on its own where a window on its monitor calls for a hiding or line rule.
 //!
 //! The thread also notices monitors being added, removed, rescaled or getting another taskbar (once a second): it places
-//! the notch and Crest's bars again, gives every monitor its bar (taskbar/screens.rs) and emits `notch://monitors`, which
-//! makes the frontend read them again. Once such changes have been quiet for `SCREENS_SETTLE` it compares the monitors with
+//! the notch and Crest's bars again, emits `notch://monitors`, which makes the frontend read them again, then gives every
+//! monitor its bar (taskbar/screens.rs). Once such changes have been quiet for `SCREENS_SETTLE` it compares the monitors with
 //! the ones before and tells each that came or went (`status://display`, the status alert).
 
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
@@ -166,8 +166,9 @@ fn run(app: AppHandle, rx: Receiver<()>) {
                     let _ = display::place(&window, &app.state::<DisplayState>());
                 }
                 crate::taskbar::bar::place(&app);
-                crate::taskbar::screens::sync(&app);
                 let _ = app.emit("notch://monitors", ());
+                // After the emit: building a bar, or waiting while an Off holds SYNC, can take seconds the notch need not wait.
+                crate::taskbar::screens::sync(&app);
                 dirty = true;
                 settle = Some(Instant::now());
             }
