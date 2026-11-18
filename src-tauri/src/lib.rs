@@ -162,6 +162,8 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
     "notices_open_app", "notices_copy_code",
     "power_plans", "power_plan_set", "system_icon", "reveal_file", "ports_list", "ports_open", "ports_end",
+    "convert_probe", "file_preview", "open_path", "copy_files", "shelf_drag_out", "clipboard_paste_files", "shelf_clipboard_text",
+    "phone_share_start", "phone_share_stop",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -1081,6 +1083,13 @@ mod tests {
         // Its readings come from the notch alone: each call measures the CPU since the one before, and a call without the process
         // list drops it, so a second reader would falsify the notch's values.
         assert!(!ok("taskbar", "system_stats"));
+        // The bar's Shelf reads its files, previews, opens, copies and drags out its cards (shelf.rs starts the drag from the window
+        // that calls it), and takes what Ctrl+V or the paste button brings: files, a copied image it saves to Pictures, or text.
+        assert!(ok("taskbar", "convert_probe") && ok("taskbar", "file_preview") && ok("taskbar", "open_path") && ok("taskbar", "copy_files"));
+        assert!(ok("taskbar", "shelf_drag_out") && ok("taskbar", "clipboard_paste_files") && ok("taskbar", "shelf_clipboard_text"));
+        // A phone share lives in Rust and in the view that started it, which stops it and knows its own lost event by its address:
+        // the bar starts and stops its own.
+        assert!(ok("taskbar", "phone_share_start") && ok("taskbar", "phone_share_stop"));
     }
 
     #[test]
