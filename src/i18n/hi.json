@@ -1798,8 +1798,6 @@
  "Angeheftete Apps": "पिन किए गए ऐप",
  "Symbolgröße": "आइकन का आकार",
  "Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "Windows टास्कबार छिपाता है और हर डिस्प्ले पर Crest का टास्कबार दिखाता है। बंद करने पर, या Crest के बंद होने पर, Windows वाला वापस आ जाता है",
- "Ausblenden, wenn ein Fenster sie berührt": "किसी विंडो के छूने पर छिपाएँ",
- "Die Leiste gleitet aus dem Bildschirm, solange das Fenster vorne sie berührt, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "जब तक सामने वाली विंडो टास्कबार को छूती है, टास्कबार स्क्रीन से बाहर खिसक जाता है, और पॉइंटर के नीचे के किनारे को छूने पर वापस आ जाता है",
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "वॉल्यूम, नेटवर्क, बैटरी और सूचनाएँ Win+A और Win+N पर हैं",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "टास्कबार में किसी ऐप पर राइट-क्लिक करके उसे पिन करें",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "नॉच: बंद नॉच जैसा। थीम: थीम का पृष्ठभूमि रंग",
@@ -1820,5 +1818,8 @@
  "Von Windows übernehmen": "Windows से आयात करें",
  "Wirklich ersetzen?": "क्या सचमुच बदलना है?",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "Windows टास्कबार पर कोई ऐप पिन नहीं है",
- "Die Apps von Windows lassen sich gerade nicht lesen": "Windows के ऐप अभी पढ़े नहीं जा सकते"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "Windows के ऐप अभी पढ़े नहीं जा सकते",
+ "Widget hinzufügen …": "विजेट जोड़ें …",
+ "Automatisch ausblenden": "स्वचालित रूप से छिपाएँ",
+ "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "जब कोई विंडो, जैसे बड़ी की हुई विंडो, बार को छूती है तो बार खिसककर हट जाती है, और पॉइंटर के निचले किनारे को छूने पर वापस आ जाती है।"
 }

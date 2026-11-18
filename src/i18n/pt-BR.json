@@ -1798,8 +1798,6 @@
  "Angeheftete Apps": "Apps fixados",
  "Symbolgröße": "Tamanho dos ícones",
  "Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "Oculta a barra de tarefas do Windows e mostra a do Crest em cada tela. Desligada, ou quando o Crest fecha, a do Windows volta",
- "Ausblenden, wenn ein Fenster sie berührt": "Ocultar quando uma janela a toca",
- "Die Leiste gleitet aus dem Bildschirm, solange das Fenster vorne sie berührt, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "A barra desliza para fora da tela enquanto a janela em primeiro plano a toca, e volta quando o ponteiro toca a borda inferior",
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Volume, rede, bateria e notificações ficam em Win+A e Win+N",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Fixe um app clicando com o botão direito nele na barra de tarefas",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Notch: como o notch fechado. Tema: a cor de fundo do tema",
@@ -1820,5 +1818,8 @@
  "Von Windows übernehmen": "Importar do Windows",
  "Wirklich ersetzen?": "Substituir mesmo?",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "Nenhum app está fixado na barra de tarefas do Windows",
- "Die Apps von Windows lassen sich gerade nicht lesen": "Os apps do Windows não podem ser lidos agora"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "Os apps do Windows não podem ser lidos agora",
+ "Widget hinzufügen …": "Adicionar widget …",
+ "Automatisch ausblenden": "Ocultar automaticamente",
+ "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "A barra desliza para fora quando uma janela a toca, por exemplo uma maximizada, e volta quando o ponteiro toca a borda inferior."
 }

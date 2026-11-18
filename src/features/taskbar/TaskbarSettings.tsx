@@ -54,10 +54,10 @@ export function TaskbarGeneral() {
         <Switch label={t("Crest-Taskleiste")} checked={enabled} onChange={(on) => setTaskbar({ enabled: on })} />
       </Row>
       <Row
-        label={t("Ausblenden, wenn ein Fenster sie berührt")}
-        hint={t("Die Leiste gleitet aus dem Bildschirm, solange das Fenster vorne sie berührt, und kommt zurück, wenn der Zeiger den unteren Rand berührt")}
+        label={t("Automatisch ausblenden")}
+        hint={t("Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt")}
       >
-        <Switch label={t("Ausblenden, wenn ein Fenster sie berührt")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
+        <Switch label={t("Automatisch ausblenden")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
       </Row>
       {/* A sentence, not a setting's name: it wraps instead of being cut. */}
       <Row label={<span className="whitespace-normal">{t("Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N")}</span>} />

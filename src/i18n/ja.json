@@ -1798,8 +1798,6 @@
  "Angeheftete Apps": "固定したアプリ",
  "Symbolgröße": "アイコンのサイズ",
  "Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "Windows のタスクバーを隠し、各ディスプレイに Crest のタスクバーを表示します。オフにするか Crest が終了すると、Windows のタスクバーが戻ります",
- "Ausblenden, wenn ein Fenster sie berührt": "ウィンドウが触れたら非表示",
- "Die Leiste gleitet aus dem Bildschirm, solange das Fenster vorne sie berührt, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "前面のウィンドウが触れている間はタスクバーが画面の外へスライドし、ポインターが下端に触れると戻ります",
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "音量、ネットワーク、バッテリー、通知は Win+A と Win+N で開けます",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "タスクバーのアプリを右クリックして固定します",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "ノッチ: 閉じたノッチと同じ。テーマ: テーマの背景色",
@@ -1820,5 +1818,8 @@
  "Von Windows übernehmen": "Windows から読み込む",
  "Wirklich ersetzen?": "本当に置き換えますか？",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "Windows のタスクバーに固定されたアプリはありません",
- "Die Apps von Windows lassen sich gerade nicht lesen": "今は Windows のアプリを読み取れません"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "今は Windows のアプリを読み取れません",
+ "Widget hinzufügen …": "ウィジェットを追加 …",
+ "Automatisch ausblenden": "自動的に隠す",
+ "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "ウィンドウ（たとえば最大化したウィンドウ）が触れるとバーが画面外へ滑り出し、ポインターが下端に触れると戻ります。"
 }

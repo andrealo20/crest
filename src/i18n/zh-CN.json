@@ -1798,8 +1798,6 @@
  "Angeheftete Apps": "已固定的应用",
  "Symbolgröße": "图标大小",
  "Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "隐藏 Windows 任务栏，并在每台显示器上显示 Crest 的任务栏。关闭它或 Crest 退出时，Windows 任务栏会恢复",
- "Ausblenden, wenn ein Fenster sie berührt": "窗口触碰时隐藏",
- "Die Leiste gleitet aus dem Bildschirm, solange das Fenster vorne sie berührt, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "最前面的窗口触碰任务栏时，任务栏会滑出屏幕；指针触碰底部边缘时，它会回来",
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "音量、网络、电池和通知可通过 Win+A 和 Win+N 打开",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "在任务栏中右键单击应用即可固定",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "刘海：与收起的刘海相同。主题：主题的背景色",
@@ -1820,5 +1818,8 @@
  "Von Windows übernehmen": "从 Windows 导入",
  "Wirklich ersetzen?": "确定替换吗？",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "Windows 任务栏上没有固定的应用",
- "Die Apps von Windows lassen sich gerade nicht lesen": "暂时无法读取 Windows 的应用"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "暂时无法读取 Windows 的应用",
+ "Widget hinzufügen …": "添加小组件 …",
+ "Automatisch ausblenden": "自动隐藏",
+ "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "当窗口（例如最大化的窗口）触碰任务栏时，任务栏会滑出屏幕，指针触碰屏幕下边缘时再滑回。"
 }

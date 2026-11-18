@@ -1798,8 +1798,6 @@
  "Angeheftete Apps": "التطبيقات المثبّتة",
  "Symbolgröße": "حجم الأيقونات",
  "Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "يخفي شريط مهام Windows ويعرض شريط Crest على كل شاشة. عند إيقافه أو عند خروج Crest يعود شريط Windows",
- "Ausblenden, wenn ein Fenster sie berührt": "إخفاء عندما تلمسه نافذة",
- "Die Leiste gleitet aus dem Bildschirm, solange das Fenster vorne sie berührt, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "ينزلق الشريط خارج الشاشة ما دامت النافذة الأمامية تلمسه، ويعود عندما يلمس المؤشر الحافة السفلية",
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "مستوى الصوت والشبكة والبطارية والإشعارات على Win+A وWin+N",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "ثبّت تطبيقًا بالنقر عليه بزر الماوس الأيمن في شريط المهام",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "النوتش: مثل النوتش المغلق. السمة: لون خلفية السمة",
@@ -1820,5 +1818,8 @@
  "Von Windows übernehmen": "استيراد من Windows",
  "Wirklich ersetzen?": "هل تريد الاستبدال فعلًا؟",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "لا يوجد أي تطبيق مثبّت على شريط مهام Windows",
- "Die Apps von Windows lassen sich gerade nicht lesen": "يتعذّر قراءة تطبيقات Windows حاليًا"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "يتعذّر قراءة تطبيقات Windows حاليًا",
+ "Widget hinzufügen …": "إضافة أداة مصغّرة …",
+ "Automatisch ausblenden": "إخفاء تلقائي",
+ "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "ينزلق الشريط بعيدًا عندما تلمسه نافذة، مثل نافذة مكبّرة، ويعود عندما يلمس المؤشر الحافة السفلية."
 }

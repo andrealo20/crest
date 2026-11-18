@@ -5,7 +5,7 @@ import { popover } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { onNativeBlur, settingsWindow } from "../../../platform/native";
 import { autostart, taskbar } from "../../../platform/services";
-import { updateSettings } from "../../../settings/store";
+import { settings, updateSettings } from "../../../settings/store";
 import { MENU_PANEL_CLASS, MENU_ROW_CLASS } from "../../../ui/menu";
 import { toggleFavorite, type Favorite } from "../../launcher/apps";
 import { launchId, menuFor, menuKey, placeMenu, type BarButton } from "../model";
@@ -186,6 +186,7 @@ export function WindowList({ b, close }: { b: BarButton; close: () => void }) {
 /** The tray menu's entries: the notch, the Taskbar settings, Start with Windows (read each time the menu opens), Quit. */
 export function CrestMenu({ close }: { close: () => void }) {
   const [auto, setAuto] = useState<boolean | null>(null);
+  const autoHide = settings.use().taskbar.autoHide;
   useEffect(() => {
     autostart.get().then(setAuto, () => {});
   }, []);
@@ -197,6 +198,7 @@ export function CrestMenu({ close }: { close: () => void }) {
     <>
       <Row label={t("Crest öffnen")} onClick={run(() => settingsWindow.notchOpen(null))} />
       <Row label={t("Einstellungen …")} onClick={run(() => settingsWindow.open("taskbar"))} />
+      <Row label={t("Widget hinzufügen …")} onClick={run(() => settingsWindow.open("taskbar-items"))} />
       <Row
         label={t("Mit Windows starten")}
         checked={auto === true}
@@ -206,6 +208,11 @@ export function CrestMenu({ close }: { close: () => void }) {
           // Windows can refuse (the Store build's startup task switched off in Task Manager): the check shows the real state then.
           autostart.set(!auto).catch(() => autostart.get().then(setAuto, () => {}));
         }}
+      />
+      <Row
+        label={t("Automatisch ausblenden")}
+        checked={autoHide}
+        onClick={() => updateSettings((s) => ({ taskbar: { ...s.taskbar, autoHide: !s.taskbar.autoHide } }))}
       />
       <Row label={t("Crest beenden")} onClick={run(taskbar.quit)} />
     </>
