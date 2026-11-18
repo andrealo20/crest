@@ -46,9 +46,10 @@ interface Props { shape: BarShape; boxes: Box[]; radius: number; veil: number; d
  * The bar's surface (design 6.2, 6.3) for the shape's boxes (the bar, the capsule or the tiles): the CSS background to draw, the veil
  * alone for a tile the glass does not draw (`plain`), and the glass's props while the glass may show (null otherwise). The veil is the
  * same with the glass showing or not, so the bar keeps its tone when the glass comes and goes; reduced transparency, more contrast or
- * forced colours make it opaque. `ink` is the Dark tokens the bar wears on the Notch surface (useClosedInk).
+ * forced colours make it opaque. `ink` is the Dark tokens the bar wears on the Notch surface (useClosedInk). A bar `slid` off the screen
+ * (useAutoHide) runs no glass, as a hidden one.
  */
-export function useBarSurface(boxes: Box[], ink: Record<string, string> | undefined): { background: string; plain: string; glass: Props | null } {
+export function useBarSurface(boxes: Box[], ink: Record<string, string> | undefined, slid: boolean): { background: string; plain: string; glass: Props | null } {
   const { shape, surface, transparency, glass, height } = settings.use().taskbar;
   const theme = activeTheme.use();
   const supported = liveSupport.use()?.supported === true;
@@ -58,7 +59,7 @@ export function useBarSurface(boxes: Box[], ink: Record<string, string> | undefi
   const { dpr } = viewMetrics.use();
   const dark = surface === "notch" && ink ? true : theme.dark;
   const veil = barVeil({ transparency, glass: glass && supported, reduced, ...themeVeils(surface === "notch" && ink ? ink : theme.vars) });
-  const on = glass && supported && !reduced && page && bar && !saving;
+  const on = glass && supported && !reduced && page && bar && !slid && !saving;
   const need = on ? barNeed(boxes, dpr) : null;
   const needKey = JSON.stringify(need);
   useEffect(() => wantLive(need), [needKey]); // eslint-disable-line react-hooks/exhaustive-deps

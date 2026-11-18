@@ -1,7 +1,8 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { SquaresFour } from "@phosphor-icons/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { springs } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { partInfo } from "../../../notch/row/partInfo";
 import type { PartId } from "../../../notch/row/parts";
@@ -12,6 +13,7 @@ import { CrestMark } from "../../../ui/CrestMark";
 import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
+import { zones as hitZones, type Rect } from "../autoHide";
 import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
 import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, type Box } from "../look";
 import { closePanel, panel, pinDrag, togglePanel } from "../panel";
@@ -23,6 +25,7 @@ import { Capsule } from "./Capsule";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
 import { Item, MARK } from "./Item";
+import { useAutoHide } from "./useAutoHide";
 import { WidgetItem } from "./Widget";
 
 /** Room between the bar and a menu above it, CSS px, as between a button and its name. */
@@ -81,7 +84,6 @@ export function TaskbarWindow() {
   }, [open]);
   // The shape's boxes, for its glass: new ones only when they change, so a hover does not draw the glass again.
   const [boxes, setBoxes] = useState<Box[]>([]);
-  const look = useBarSurface(boxes, ink);
   // Once the window lets the pointer through, the page sees no pointerleave: Rust says when the pointer left the bar.
   useEffect(
     () =>
@@ -105,7 +107,15 @@ export function TaskbarWindow() {
   const gap = barGap(shape);
   const tiles = shape === "tiles";
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
-  const placeMenuZone = useHitZone(bar, shape, setBoxes, `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}`);
+  // An open menu or panel holds the bar up, and so does an app asking for attention.
+  const { down, place: placeMenuZone } = useHitZone(bar, shape, setBoxes, `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}`, {
+    open: menu !== null || open !== null,
+    attention: buttons.some((b) => indicator(b, active) === "attention"),
+  });
+  // Slid off the screen, the bar runs no glass, as when it hides.
+  const look = useBarSurface(boxes, ink, down);
+  // The shape slides out of its still box by its height and the gap under it, off the screen (useAutoHide).
+  const slide = { initial: false, animate: { y: down ? height + gap : 0 }, transition: springs.snappy } as const;
   // In the order the tiles are drawn and measured: past LOOK.maxTiles the glass does not draw them, and they keep the veil.
   let tileCount = 0;
   const tile = () => (tiles ? { background: tileCount++ < LOOK.maxTiles ? look.background : look.plain, radius: LOOK.radius } : undefined);
@@ -210,7 +220,8 @@ export function TaskbarWindow() {
 
   return (
     <div
-      className="flex h-full flex-col justify-end"
+      // Clipped, so the bar slid off the screen leaves #root nothing to scroll to when one of its buttons takes the focus.
+      className="flex h-full flex-col justify-end overflow-clip"
       style={{ ["--accent" as string]: accent }}
       // A right click beside the buttons, on the bar or in the gap under it: the Crest menu, over the pointer. Not in the panel.
       onContextMenu={(e) => {
@@ -221,26 +232,31 @@ export function TaskbarWindow() {
       {/* On the closed notch's black the bar and its menus keep their dark tokens whatever the theme (Notch.tsx), and its zones keep their sides in any language. */}
       <div data-theme-ink dir="ltr" className="contents" style={surface === "notch" ? ink : undefined}>
         {look.glass && <BarGlass {...look.glass} />}
-        {/* Positioned, so it draws over the glass's canvas. The capsule puts the three zones in a row, as close as its buttons. */}
-        {shape === "capsule" ? (
-          <Capsule ref={bar} style={{ height, marginBottom: gap, borderRadius: barRadius(shape, height), background: look.background }}>
-            {ZONES.map(([zone]) => zones[zone].map((id) => <Fragment key={id}>{render(id)}</Fragment>))}
-          </Capsule>
-        ) : (
-          <div
-            ref={bar}
-            className="relative grid grid-cols-[1fr_auto_1fr] px-1 text-label"
-            style={{ height, margin: `0 ${gap}px ${gap}px`, borderRadius: barRadius(shape, height), background: tiles ? undefined : look.background }}
-          >
-            {ZONES.map(([zone, justify]) => (
-              <div key={zone} className={`flex min-w-0 gap-0.5 ${justify}`} style={tiles ? { gap: LOOK.tileGap } : undefined}>
-                {zones[zone].map((id) => (
-                  <Fragment key={id}>{render(id)}</Fragment>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
+        {/* The shape's place stays still, so its box is the band at rest while the shape slides out of it (useHitZone measures this box). */}
+        <div ref={bar} className={shape === "capsule" ? "self-center" : undefined} style={{ margin: shape === "capsule" ? `0 0 ${gap}px` : `0 ${gap}px ${gap}px` }}>
+          {/* Positioned, so it draws over the glass's canvas. The capsule puts the three zones in a row, as close as its buttons. */}
+          {shape === "capsule" ? (
+            <motion.div {...slide}>
+              <Capsule style={{ height, borderRadius: barRadius(shape, height), background: look.background }}>
+                {ZONES.map(([zone]) => zones[zone].map((id) => <Fragment key={id}>{render(id)}</Fragment>))}
+              </Capsule>
+            </motion.div>
+          ) : (
+            <motion.div
+              {...slide}
+              className="relative grid grid-cols-[1fr_auto_1fr] px-1 text-label"
+              style={{ height, borderRadius: barRadius(shape, height), background: tiles ? undefined : look.background }}
+            >
+              {ZONES.map(([zone, justify]) => (
+                <div key={zone} className={`flex min-w-0 gap-0.5 ${justify}`} style={tiles ? { gap: LOOK.tileGap } : undefined}>
+                  {zones[zone].map((id) => (
+                    <Fragment key={id}>{render(id)}</Fragment>
+                  ))}
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </div>
         <AnimatePresence>
           {/* Gone in the very commit the panel opens in, so its zone is cleared before the panel's box goes in, never after. */}
           {menu && !open && (
@@ -331,19 +347,37 @@ function PinDrop({ bar, firstApp, size }: { bar: RefObject<HTMLDivElement | null
 }
 
 /**
- * Tells Rust where the page takes the pointer: the bar (or the capsule) and the gap under it, so a click in the gap never reaches
- * the app behind, or for the tiles one box per zone round its tiles, so a click between the zones does; and the open menu, whose box
- * comes through the returned function each time the menu places itself (null once it closes). The bar counts only once it has a
- * size: the first report says it has drawn, and Windows' taskbar hides then. The bar's box, or the tiles', goes to its glass too.
- * `layout` changes when the tiles may have moved inside a bar that kept its size.
+ * Tells Rust where the page takes the pointer (autoHide.ts zones): the bar (or the capsule) and the gap under it, so a click in the gap
+ * never reaches the app behind, or for the tiles one box per zone round its tiles, so a click between the zones does; the open menu or
+ * panel, whose box comes through `place` each time it places itself (null once it closes); with "hide when a window touches it" on,
+ * the strip at the bottom edge too, alone while the bar is down. The bar counts only once it has a size: the first report says it has
+ * drawn, and Windows' taskbar hides then. The boxes are where the shape rests, up or down: `ref` is its still box, the band that
+ * decides whether it is down (useAutoHide), and the tiles are taken back by the slide. They go to its glass too. `layout` changes when
+ * the tiles may have moved inside a bar that kept its size.
  */
-function useHitZone(ref: RefObject<HTMLDivElement | null>, shape: BarShape, setBoxes: Dispatch<SetStateAction<Box[]>>, layout: string) {
+function useHitZone(ref: RefObject<HTMLDivElement | null>, shape: BarShape, setBoxes: Dispatch<SetStateAction<Box[]>>, layout: string, hold: { open: boolean; attention: boolean }) {
+  const on = settings.use().taskbar.autoHide;
+  const [band, setBand] = useState<Rect | null>(null);
+  const down = useAutoHide({ band, ...hold });
   const menu = useRef<HitRect | null>(null);
+  // As of the last render, for the reports the observers make.
+  const now = useRef({ on, down });
   const report = useCallback(() => {
     const el = ref.current;
     if (!el || el.offsetWidth <= 0 || el.offsetHeight <= 0) return;
-    const groups = shape === "tiles" ? [...el.children].map((zone) => [...zone.querySelectorAll("[data-tile]")].map(boxOf)) : [[boxOf(el)]];
-    void taskbar.hitRects([...hitBoxes(groupBoxes(groups), window.innerHeight), ...(menu.current ? [menu.current] : [])]);
+    const rest = boxOf(el);
+    const box = { ...rest, h: window.innerHeight - rest.y };
+    setBand((b) => (b?.x === box.x && b.y === box.y && b.w === box.w && b.h === box.h ? b : box));
+    // The sliding layer inside the still box: how far down it is now, which the tiles' boxes give back.
+    const layer = el.firstElementChild;
+    const dy = layer ? layer.getBoundingClientRect().y - rest.y : 0;
+    const tile = (t: Element) => {
+      const b = boxOf(t);
+      return { ...b, y: b.y - dy };
+    };
+    const groups = shape === "tiles" && layer ? [...layer.children].map((zone) => [...zone.querySelectorAll("[data-tile]")].map(tile)) : [[rest]];
+    const bands = hitBoxes(groupBoxes(groups), window.innerHeight);
+    void taskbar.hitRects(hitZones({ bands, open: menu.current ? [menu.current] : [], ...now.current, width: window.innerWidth, height: window.innerHeight }));
     const next = groups.flat();
     setBoxes((b) => (JSON.stringify(b) === JSON.stringify(next) ? b : next));
   }, [ref, shape, setBoxes]);
@@ -362,11 +396,17 @@ function useHitZone(ref: RefObject<HTMLDivElement | null>, shape: BarShape, setB
       window.removeEventListener("resize", report);
     };
   }, [ref, report, shape, layout]);
-  return useCallback(
+  // Down or up, the option on or off: other zones over the same still box.
+  useEffect(() => {
+    now.current = { on, down };
+    report();
+  }, [on, down, report]);
+  const place = useCallback(
     (box: HitRect | null) => {
       menu.current = box;
       report();
     },
     [report],
   );
+  return { down, place };
 }

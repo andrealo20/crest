@@ -4,6 +4,7 @@ import { listening, tauriTransport } from "../../lib/tauriTransport";
 import { isMac, isNative } from "../../platform/native";
 import { taskbar } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
+import { normalizeFavorites } from "../launcher/apps";
 import { feedStores, panelStores } from "./barStores";
 import type { TaskbarSettings, WindowList } from "./model";
 
@@ -19,13 +20,30 @@ export function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSetti
   updateSettings((s) => ({ taskbar: { ...s.taskbar, ...(typeof patch === "function" ? patch(s.taskbar) : patch) } }));
 }
 
-/** The notch applies the bar's on/off, height and docking to Rust, the only window that does: as saved when Crest starts, then on every change of any. */
+/**
+ * The notch applies the bar's on/off, height, docking and hiding to Rust, the only window that does: as saved when Crest starts, then
+ * on every change of any. The first time the bar is on and its pinned list was never filled, the notch fills it with Windows' pinned apps.
+ */
 export function startTaskbar() {
   if (!isNative || isMac) return;
   let last = "";
+  let hides: boolean | null = null;
   let queue = Promise.resolve();
+  let seeded = false;
   const sync = () => {
-    const { enabled, height, shape } = settings.get().taskbar;
+    const { enabled, height, shape, pinned, autoHide } = settings.get().taskbar;
+    // Outside the queue: a flag the display poll reads, which never waits for a bar to be built or taken down.
+    if (autoHide !== hides) {
+      hides = autoHide;
+      void taskbar.autoHide(autoHide);
+    }
+    // One try per start: a failed read leaves the list to the next start, and an app pinned meanwhile is never overwritten.
+    if (enabled && pinned === null && !seeded) {
+      seeded = true;
+      void taskbar.importPins().then((apps) => {
+        if (settings.get().taskbar.pinned === null) updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: normalizeFavorites(apps) } }));
+      }, () => {});
+    }
     // A docked bar takes no gaps off the work area; the other shapes differ only in the bar's page.
     const docked = shape === "docked";
     const key = `${enabled}|${height}|${docked}`;

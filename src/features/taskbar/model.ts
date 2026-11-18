@@ -18,6 +18,8 @@ export type BarShape = "docked" | "floating" | "capsule" | "tiles";
  */
 export interface TaskbarSettings {
   enabled: boolean;
+  /** Each bar slides off its screen while the window in front of its monitor touches it (autoHide.ts). */
+  autoHide: boolean;
   zones: Record<Zone, BarItem[]>;
   height: number;
   iconSize: number;
@@ -32,6 +34,7 @@ export interface TaskbarSettings {
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
   enabled: false,
+  autoHide: false,
   zones: { left: [], center: ["start", "apps"], right: ["weather", "clock", "crest"] },
   height: 44,
   iconSize: 24,
@@ -70,6 +73,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
   const s = isObj(v) ? v : {}, d = TASKBAR_DEFAULTS, clock = isObj(s.clock) ? s.clock : {};
   return {
     enabled: s.enabled === true,
+    autoHide: s.autoHide === true,
     // Settings saved before the widgets get the default ones once; widgetsSeeded is saved with them, so a widget taken off stays off.
     zones: normalizeZones(s.zones, s.widgetsSeeded !== true),
     height: within(s.height, HEIGHT, d.height),

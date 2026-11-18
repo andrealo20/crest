@@ -3,20 +3,21 @@
 //! entries as pins, and the commands the bar's buttons call.
 //!
 //! The taskbar thread (mod.rs) feeds it WinEvents (windows shown, hidden, destroyed, renamed, cloaked, minimized, brought to
-//! front) and the shell hook's flash and ghost-window codes. Each only arms a 100 ms timer that is not armed yet; when it fires,
-//! the list is made again (`Track::recompute`) and sent to the bar if it changed. The commands act only on listed windows, still of
-//! the process they were listed with.
+//! front) and the shell hook's flash, ghost-window and monitor codes. Each only arms a 100 ms timer that is not armed yet; when it
+//! fires, the list is made again (`Track::recompute`) and each bar gets the windows on its monitor if they changed. The commands
+//! act only on listed windows, still of the process they were listed with.
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicIsize, Ordering};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use windows::core::{GUID, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, ERROR_SUCCESS, HWND, LPARAM, PROPERTYKEY, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
+use windows::Win32::Graphics::Gdi::{MonitorFromWindow, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::Storage::Packaging::Appx::{GetApplicationUserModelId, APPLICATION_USER_MODEL_ID_MAX_LENGTH};
 use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToStringAlloc};
 use windows::Win32::System::Threading::{GetCurrentProcessId, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
@@ -26,19 +27,19 @@ use windows::Win32::UI::WindowsAndMessaging::{
     AllowSetForegroundWindow, GetAncestor, GetForegroundWindow, GetLastActivePopup, GetWindow, GetWindowLongPtrW, GetWindowTextW, IsIconic,
     IsWindowVisible, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED, EVENT_OBJECT_DESTROY,
     EVENT_OBJECT_HIDE, EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND,
-    EVENT_SYSTEM_MINIMIZESTART, GA_ROOT, GA_ROOTOWNER, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HSHELL_HIGHBIT, HSHELL_REDRAW, HSHELL_WINDOWREPLACED,
-    HSHELL_WINDOWREPLACING, SC_CLOSE, SC_MINIMIZE, SW_RESTORE, WM_SYSCOMMAND, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-    WS_EX_WINDOWEDGE, WS_MINIMIZEBOX,
+    EVENT_SYSTEM_MINIMIZESTART, GA_ROOT, GA_ROOTOWNER, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HSHELL_HIGHBIT, HSHELL_MONITORCHANGED, HSHELL_REDRAW,
+    HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, SC_CLOSE, SC_MINIMIZE, SW_RESTORE, WM_SYSCOMMAND, WS_EX_APPWINDOW, WS_EX_NOACTIVATE,
+    WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_MINIMIZEBOX,
 };
 
-use super::bar;
+use super::screens;
 use crate::launcher::{self, LauncherState};
 use crate::{display, mixer};
 
 /// A window flashes: the redraw code with the high bit (not in the windows crate).
 const HSHELL_FLASH: u32 = HSHELL_REDRAW | HSHELL_HIGHBIT;
 /// System.AppUserModel.ID, defined here so one key does not need the EnhancedStorage feature.
-const APP_USER_MODEL_ID: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0x9f4c2855_9f79_4b39_a8d0_e1d42de1d5f3), pid: 5 };
+pub(super) const APP_USER_MODEL_ID: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0x9f4c2855_9f79_4b39_a8d0_e1d42de1d5f3), pid: 5 };
 /// The list's one-shot timer on the thread's window (mod.rs routes it), with an id of its own.
 pub(super) const LIST_TIMER: usize = 2;
 const LIST_MS: u32 = 100;
@@ -79,16 +80,21 @@ pub struct Win {
     flashing: bool,
 }
 
-/// The list as last sent, with each listed window's process, for the commands.
+/// The list as last made, with each listed window's process and monitor, for the commands, and what each bar was last sent.
+#[derive(Default)]
 struct Last {
     list: WindowList,
     pids: Vec<(isize, u32)>,
+    /// Each listed window's monitor (`monitor_of`).
+    monitors: HashMap<isize, isize>,
+    /// By the bar's label.
+    sent: HashMap<String, WindowList>,
 }
 
-static LAST: Mutex<Last> = Mutex::new(Last { list: WindowList { groups: Vec::new(), active: None }, pids: Vec::new() });
+static LAST: LazyLock<Mutex<Last>> = LazyLock::new(Mutex::default);
 /// Icons of apps without Start entries, per group (`taskbar_icons`).
 static ICONS: Mutex<BTreeMap<String, Option<String>>> = Mutex::new(BTreeMap::new());
-/// The window in front, never the bar: a click on the bar leaves in front the app the click acts on (`toggle`).
+/// The window in front, never a bar: a click on a bar leaves in front the app the click acts on (`toggle`).
 static FOREGROUND: AtomicIsize = AtomicIsize::new(0);
 
 thread_local! {
@@ -205,6 +211,19 @@ fn next_front(z_order: &[isize], skip: isize, usable: impl Fn(isize) -> bool) ->
     z_order.iter().copied().find(|&h| h != skip && usable(h))
 }
 
+/// A bar's part of the list: each app's windows on the bar's monitor (`on_it`), and no app without one there. It names the window
+/// in front only when that is one of them, so a focus change on another monitor leaves this bar's list, and its page, as they are.
+fn for_monitor(list: &WindowList, on_it: impl Fn(isize) -> bool) -> WindowList {
+    let mut here = list.clone();
+    for group in &mut here.groups {
+        group.windows.retain(|w| on_it(w.id));
+    }
+    here.groups.retain(|g| !g.windows.is_empty());
+    // `active` is always a listed window, so on this monitor means kept.
+    here.active = list.active.filter(|&id| on_it(id));
+    here
+}
+
 /// The thread has its window (mod.rs): the list starts, at once.
 pub(super) fn begin(app: AppHandle, window: HWND) {
     FOREGROUND.store(unsafe { GetForegroundWindow() }.0 as isize, Ordering::SeqCst);
@@ -234,11 +253,11 @@ pub(super) fn arm() {
     });
 }
 
-/// A window event (mod.rs `on_event`). The window in front is kept, unless it is the bar.
+/// A window event (mod.rs `on_event`). The window in front is kept, unless it is a bar.
 pub(super) fn on_event(event: u32, hwnd: HWND) {
     let id = hwnd.0 as isize;
     if event == EVENT_SYSTEM_FOREGROUND {
-        if id == bar::hwnd() {
+        if screens::is_bar(id) {
             return;
         }
         FOREGROUND.store(id, Ordering::SeqCst);
@@ -249,7 +268,8 @@ pub(super) fn on_event(event: u32, hwnd: HWND) {
     }
 }
 
-/// A shell hook code (mod.rs): flashing and ghost windows wait for the next list.
+/// A shell hook code (mod.rs): flashing and ghost windows wait for the next list; a window moved to another monitor only needs
+/// one, which moves its button to that monitor's bar.
 pub(super) fn on_shell(code: u32, hwnd: isize) {
     if matches!(code, HSHELL_FLASH | HSHELL_REDRAW | HSHELL_WINDOWREPLACING | HSHELL_WINDOWREPLACED) {
         TRACK.with_borrow_mut(|t| {
@@ -258,37 +278,49 @@ pub(super) fn on_shell(code: u32, hwnd: isize) {
             }
         });
         arm();
+    } else if code == HSHELL_MONITORCHANGED {
+        arm();
     }
 }
 
-/// The list timer fired (mod.rs): the list is made again and sent to the bar if it changed.
+/// The list timer fired (mod.rs): the list is made again, and each bar gets the windows on its monitor if they changed. A bar
+/// that is new or on another monitor gets them too (`screens::sync` lists again).
 pub(super) fn on_timer(window: HWND) {
     let _ = unsafe { KillTimer(Some(window), LIST_TIMER) };
     // Out of the cell while Windows is asked: an event let in meanwhile finds no list, never one borrowed twice.
     let Some(mut track) = TRACK.with_borrow_mut(Option::take) else { return };
     track.armed = false;
-    let (list, pids) = track.recompute();
+    let (list, pids, monitors) = track.recompute();
     let app = track.app.clone();
     TRACK.with_borrow_mut(|t| *t = Some(track));
+    let lists: Vec<(String, WindowList)> = screens::all()
+        .into_iter()
+        .map(|(label, bar)| {
+            let monitor = monitor_of(HWND(bar as _));
+            (label, for_monitor(&list, |id| monitors.get(&id) == Some(&monitor)))
+        })
+        .collect();
     let mut last = last();
+    last.list = list;
     last.pids = pids;
-    if last.list != list {
-        last.list = list.clone();
-        drop(last);
-        let _ = app.emit_to(bar::LABEL, "taskbar://windows", list);
+    last.monitors = monitors;
+    let changed: Vec<(String, WindowList)> = lists.iter().filter(|(label, here)| last.sent.get(label) != Some(here)).cloned().collect();
+    // A bar gone leaves the record.
+    last.sent = lists.into_iter().collect();
+    drop(last);
+    for (label, here) in changed {
+        let _ = app.emit_to(label, "taskbar://windows", here);
     }
 }
 
 /// The bar has gone (mod.rs `stop`): a bar built later starts from an empty list.
 pub(super) fn clear() {
-    let mut last = last();
-    last.list = WindowList::default();
-    last.pids.clear();
+    *last() = Last::default();
 }
 
 impl Track {
-    /// The open windows now, grouped by app in the order each app first comes, and each window's process.
-    fn recompute(&mut self) -> (WindowList, Vec<(isize, u32)>) {
+    /// The open windows now, grouped by app in the order each app first comes, and each window's process and monitor.
+    fn recompute(&mut self) -> (WindowList, Vec<(isize, u32)>, HashMap<isize, isize>) {
         for (code, hwnd) in std::mem::take(&mut self.shell) {
             match code {
                 HSHELL_FLASH => {
@@ -320,6 +352,7 @@ impl Track {
         let mut processes: HashMap<u32, (Option<String>, String)> = HashMap::new();
         let mut groups: Vec<(Group, Option<String>)> = Vec::new();
         let mut pids = Vec::new();
+        let mut monitors = HashMap::new();
         for &id in &self.order {
             let hwnd = HWND(id as _);
             let source = HWND(self.ghosts.get(&id).copied().unwrap_or(id) as _);
@@ -329,6 +362,7 @@ impl Track {
             let key = group_key(window_aumid.as_deref(), package_aumid.as_deref(), &exe, id);
             let win = Win { id, title: title(hwnd), minimized: unsafe { IsIconic(hwnd) }.as_bool(), flashing: self.flashing.contains(&id) };
             pids.push((id, display::window_pid(hwnd)));
+            monitors.insert(id, monitor_of(hwnd));
             match groups.iter_mut().find(|(group, _)| group.key == key) {
                 Some((group, _)) => group.windows.push(win),
                 None => {
@@ -354,12 +388,17 @@ impl Track {
                 group
             })
             .collect();
-        (WindowList { groups, active }, pids)
+        (WindowList { groups, active }, pids, monitors)
     }
 }
 
+/// The monitor a window is on; for a minimized one, the monitor it comes back to. It asks no window, so any thread.
+pub(super) fn monitor_of(hwnd: HWND) -> isize {
+    unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) }.0 as isize
+}
+
 /// Whether a top-level window gets a button now (`eligible`). Few are visible, so only those are read further.
-fn listable(hwnd: HWND, own: u32) -> bool {
+pub(super) fn listable(hwnd: HWND, own: u32) -> bool {
     let visible = unsafe { IsWindowVisible(hwnd) }.as_bool();
     visible
         && eligible(&Look {
@@ -425,10 +464,14 @@ fn last() -> MutexGuard<'static, Last> {
     LAST.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// The list as last sent, for a bar page that has just loaded; `taskbar://windows` brings each change.
+/// The calling bar's windows, those on its monitor, for a bar page that has just loaded; `taskbar://windows` brings each change.
 #[tauri::command]
-pub fn taskbar_windows() -> WindowList {
-    last().list.clone()
+pub fn taskbar_windows(window: WebviewWindow) -> WindowList {
+    // A sync command runs on the main thread, where the handle is read without a wait.
+    let Ok(hwnd) = window.hwnd() else { return WindowList::default() };
+    let monitor = monitor_of(hwnd);
+    let last = last();
+    for_monitor(&last.list, |id| last.monitors.get(&id) == Some(&monitor))
 }
 
 /// What a click on a window's button does: "activate", "toggle" (minimizes the app in front, else brings it forward),
@@ -610,5 +653,18 @@ mod tests {
         let usable = |h: isize| h != 3; // 3 is minimized
         assert_eq!(next_front(&[1, 2, 3, 4], 1, usable), Some(2));
         assert_eq!(next_front(&[1, 3], 1, usable), None);
+    }
+
+    #[test]
+    fn each_bar_lists_its_own_monitors_windows() {
+        let w = |id| Win { id, title: String::new(), minimized: false, flashing: false };
+        let g = |key: &str, ids: &[isize]| Group { key: key.into(), name: key.into(), pins: vec![], windows: ids.iter().map(|&i| w(i)).collect(), exe: String::new() };
+        let list = WindowList { groups: vec![g("chrome", &[1, 2]), g("code", &[3])], active: Some(3) };
+        let here = for_monitor(&list, |id| id == 2);
+        assert_eq!(here.groups.len(), 1);
+        assert_eq!(here.groups[0].windows.iter().map(|w| w.id).collect::<Vec<_>>(), vec![2]); // Chrome keeps only its window on this monitor
+        assert_eq!(here.active, None); // the window in front is on another monitor, so this bar's list names none
+        assert_eq!(for_monitor(&list, |id| id == 3).active, Some(3)); // the bar on its monitor keeps it
+        assert!(for_monitor(&list, |_| false).groups.is_empty());
     }
 }

@@ -9,7 +9,10 @@
 
 pub(crate) mod bar;
 pub(crate) mod explorer;
+pub(crate) mod front;
 pub(crate) mod panel;
+pub(crate) mod pins;
+pub(crate) mod screens;
 pub(crate) mod tasks;
 pub(crate) mod widgets;
 
@@ -47,7 +50,7 @@ static CLASS: Once = Once::new();
 /// `retry`'s one-shot timer on the thread's window, with an id of its own.
 const RETRY_TIMER: usize = 1;
 const RETRY_MS: u32 = 50;
-/// Posted by `start` once the Start list is read: the windows are listed again, with their pins.
+/// Posted by `relist`: the windows are listed again, with their pins once the Start list is read, for the bars there are now.
 const RELIST: u32 = WM_APP;
 /// The waits before each read of the Start list: none, then longer after each read that failed or came back empty (a sign-in
 /// where the shell is not ready yet), and none after the last.
@@ -95,12 +98,17 @@ pub(crate) fn start(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
         if tries(START_LIST, std::thread::sleep, || launcher::apps(&app.state::<LauncherState>(), false).is_ok()) {
-            // Only to the thread running now: a window handle kept from before may belong to another app by then.
-            if let Some((window, _)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
-                let _ = unsafe { PostMessageW(Some(HWND(*window as _)), RELIST, WPARAM(0), LPARAM(0)) };
-            }
+            relist();
         }
     });
+}
+
+/// The windows are listed again on the running thread (`RELIST`): the Start list has been read, or the bars have changed.
+pub(crate) fn relist() {
+    // Only to the thread running now: a window handle kept from before may belong to another app by then.
+    if let Some((window, _)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+        let _ = unsafe { PostMessageW(Some(HWND(*window as _)), RELIST, WPARAM(0), LPARAM(0)) };
+    }
 }
 
 /// Ends the thread: its window closes, and that ends its loop. Never while holding explorer's lock, which the thread takes.

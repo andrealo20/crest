@@ -8,11 +8,12 @@ import { nav } from "../../notch/nav";
 import type { PartId } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
 import { isMac, isNative } from "../../platform/native";
-import { build } from "../../platform/services";
+import { build, taskbar } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { CrestMark } from "../../ui/CrestMark";
 import { Button, Group, Row, Segmented, Select, Slider, Switch } from "../../ui/controls";
 import { FavoriteList } from "../launcher/FavoriteList";
+import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
 import { barVeil, themeVeils } from "./look";
@@ -41,16 +42,22 @@ const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte",
 const ITEM_LABEL: Record<Exclude<BarItem, PartId>, string> = { start: "App-Menü", apps: "Apps und Fenster", crest: "Crest-Menü" };
 const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "Schwebend", capsule: "Kapsel", tiles: "Kacheln" };
 
-/** Taskbar → General: the bar on or off, and where the system icons it leaves out are. */
+/** Taskbar → General: the bar on or off, whether it slides away when a window touches it, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
-  const enabled = settings.use().taskbar.enabled;
+  const { enabled, autoHide } = settings.use().taskbar;
   return (
     <Group id="settings-taskbar">
       <Row
         label={t("Crest-Taskleiste")}
-        hint={t("Blendet die Windows-Taskleiste auf allen Bildschirmen aus und zeigt die von Crest auf dem Hauptbildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück")}
+        hint={t("Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück")}
       >
         <Switch label={t("Crest-Taskleiste")} checked={enabled} onChange={(on) => setTaskbar({ enabled: on })} />
+      </Row>
+      <Row
+        label={t("Ausblenden, wenn ein Fenster sie berührt")}
+        hint={t("Die Leiste gleitet aus dem Bildschirm, solange das Fenster vorne sie berührt, und kommt zurück, wenn der Zeiger den unteren Rand berührt")}
+      >
+        <Switch label={t("Ausblenden, wenn ein Fenster sie berührt")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
       </Row>
       {/* A sentence, not a setting's name: it wraps instead of being cut. */}
       <Row label={<span className="whitespace-normal">{t("Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N")}</span>} />
@@ -128,13 +135,62 @@ function ItemIcon({ id }: { id: BarItem }) {
   return id satisfies never;
 }
 
-/** Taskbar → Apps and windows: the pinned apps in the bar's order. An app is pinned on the bar, from its right-click menu. */
+/**
+ * Taskbar → Apps and windows: the pinned apps in the bar's order. An app is pinned on the bar, from its right-click menu; Windows'
+ * pinned apps replace the list from here (one that is not empty only on a second click within 3 s), and an empty answer leaves it.
+ */
 export function TaskbarApps() {
   const pinned = settings.use().taskbar.pinned ?? [];
+  const [confirm, setConfirm] = useState(false);
+  const [outcome, setOutcome] = useState<"none" | "failed" | null>(null);
+
+  useEffect(() => {
+    if (!confirm) return;
+    const id = window.setTimeout(() => setConfirm(false), 3000);
+    return () => window.clearTimeout(id);
+  }, [confirm]);
+
+  const importPins = () => {
+    setOutcome(null);
+    if (pinned.length && !confirm) return setConfirm(true);
+    setConfirm(false);
+    void taskbar.importPins().then(
+      (apps) => {
+        const next = normalizeFavorites(apps);
+        if (next?.length) setTaskbar({ pinned: next });
+        else setOutcome("none");
+      },
+      () => setOutcome("failed"),
+    );
+  };
+
   return (
     <Group id="settings-taskbar-apps">
       <Row label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Mit Rechtsklick auf eine App in der Taskleiste anheften")} />
       {pinned.length > 0 && <FavoriteList favorites={pinned} onChange={(next) => setTaskbar({ pinned: next })} />}
+      {/* Long in some languages beside the button: the name wraps instead of being cut. */}
+      <Row
+        label={<span className="whitespace-normal">{t("Apps der Windows-Taskleiste")}</span>}
+        hint={
+          outcome === "none"
+            ? t("Auf der Windows-Taskleiste ist keine App angeheftet")
+            : outcome === "failed"
+              ? t("Die Apps von Windows lassen sich gerade nicht lesen")
+              : t("Ersetzt die angehefteten Apps durch die der Windows-Taskleiste")
+        }
+      >
+        <Button onClick={importPins}>
+          {/* Both texts in one cell: the button keeps the wider one's width, so the confirming click lands where the first did. */}
+          <span className="grid text-center">
+            <span className={`col-start-1 row-start-1 ${confirm ? "invisible" : ""}`} aria-hidden={confirm}>
+              {t("Von Windows übernehmen")}
+            </span>
+            <span className={`col-start-1 row-start-1 ${confirm ? "" : "invisible"}`} aria-hidden={!confirm}>
+              {t("Wirklich ersetzen?")}
+            </span>
+          </span>
+        </Button>
+      </Row>
     </Group>
   );
 }

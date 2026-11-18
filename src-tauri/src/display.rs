@@ -5,8 +5,8 @@
 //! borderless window behind it counts too. The rules answer keep, line or hide: Rust hides the
 //! window itself and emits `notch://screen` so the frontend can draw the line. `notch://fullscreen`
 //! still reports a full-screen foreground for gaming mode. On every new foreground window "always
-//! on top" is reapplied in case another app put itself above. Crest's bar (taskbar/bar.rs, Windows) gets the full-screen
-//! reading of its own monitor and is raised before the notch.
+//! on top" is reapplied in case another app put itself above. Crest's bars (Windows) get the full-screen reading of the window
+//! in front of their own monitors (taskbar/front.rs) and are raised before the notch.
 //!
 //! The hide hotkey (shell.rs) hides Crest on top of that until it is pressed again, the notch is
 //! opened from the tray, Crest is launched again or "raise now" runs. Opening on purpose also shows Crest over a "hide" rule
@@ -186,7 +186,7 @@ pub struct MonitorInfo {
     primary: bool,
     width: u32,
     height: u32,
-    /// Work area (without taskbar, and on the primary without Crest's bar) in CSS px: top below the monitor's top edge, and height.
+    /// Work area (without taskbar and Crest's bar) in CSS px: top below the monitor's top edge, and height.
     work_top: f64,
     work_height: f64,
     /// The work area's left edge from the monitor's left, and its width (a taskbar on the left or right), in CSS px.
@@ -219,7 +219,7 @@ fn named_monitors(window: &WebviewWindow) -> Vec<(String, tauri::Monitor)> {
 pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -> Vec<MonitorInfo> {
     let zoom = state.config.lock().unwrap().zoom;
     let primary = window.primary_monitor().ok().flatten().map(|m| *m.position());
-    // Crest's bar stands on the primary's work area and takes its band off it, in the notch's CSS px.
+    // Crest's bar stands on every monitor's work area and takes its band off each, in the notch's CSS px.
     #[cfg(windows)]
     let band = crate::taskbar::bar::band() / zoom;
     #[cfg(not(windows))]
@@ -235,7 +235,7 @@ pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -
                 width: (m.size().width as f64 / scale) as u32,
                 height: (m.size().height as f64 / scale) as u32,
                 work_top: (wa.position.y - m.position().y) as f64 / scale,
-                work_height: wa.size.height as f64 / scale - if primary { band } else { 0.0 },
+                work_height: wa.size.height as f64 / scale - band,
                 work_left: (wa.position.x - m.position().x) as f64 / scale,
                 work_width: wa.size.width as f64 / scale,
                 name,
@@ -560,8 +560,6 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
         // The window the rules read (`ruled_front`).
         let mut ruled = HWND::default();
         let (mut front, mut behind) = (Known::default(), Known::default());
-        // The front window of the bar's monitor, while the notch is on another one.
-        let mut bar_front = Known::default();
         // What each other monitor's window was last known as: its frontmost window and the one behind it.
         let mut aside: std::collections::HashMap<isize, (Known, Known)> = Default::default();
         loop {
@@ -576,8 +574,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 (c.rules.clone(), c.gaming, c.mode == "all")
             };
             let foreground = unsafe { GetForegroundWindow() };
-            let bar = crate::taskbar::bar::hwnd();
-            ruled = ruled_front(foreground, bar, ruled);
+            ruled = ruled_front(foreground, crate::taskbar::screens::is_bar(foreground.0 as isize), ruled);
             let monitor = unsafe { MonitorFromWindow(own, MONITOR_DEFAULTTONEAREST) };
             let fg = read_foreground(ruled, own, monitor, &mut front);
             // Looked up only where it can matter: nothing in front fills the monitor.
@@ -591,16 +588,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 state.fullscreen.store(fullscreen, Ordering::Relaxed);
                 let _ = app.emit("notch://fullscreen", fullscreen);
             }
-            // The bar hides over a full-screen app in front on its own monitor, whatever the notch's rules say.
-            if bar != 0 {
-                let under = unsafe { MonitorFromWindow(HWND(bar as *mut _), MONITOR_DEFAULTTONEAREST) };
-                let covered = if under == monitor {
-                    fullscreen
-                } else {
-                    read_foreground(ruled, own, under, &mut bar_front).context.is_fullscreen()
-                };
-                crate::taskbar::bar::set_fullscreen(&app, covered);
-            }
+            // Each bar hides over a full-screen app in front of its own monitor, whatever the notch's rules say.
+            crate::taskbar::front::poll(&app, ruled);
             let behavior = screen_policy::decide(
                 &rules,
                 (fg.context, &fg.name, &fg.path),
@@ -688,10 +677,10 @@ impl Known {
 }
 
 #[cfg(windows)]
-/// The window the rules read: the one in front, unless that is Crest's bar (`bar`, 0 while there is none), which a click on it
-/// or one of its menus brings to front. The rules then stay on the window in front `before` it, as the bar's list does (tasks.rs).
-fn ruled_front(foreground: HWND, bar: isize, before: HWND) -> HWND {
-    if bar != 0 && foreground.0 as isize == bar { before } else { foreground }
+/// The window the rules read: the one in front, unless that is one of Crest's bars (`is_bar`), which a click on it or one of its
+/// menus brings to front. The rules then stay on the window in front `before` it, as the bars' lists do (tasks.rs).
+fn ruled_front(foreground: HWND, is_bar: bool, before: HWND) -> HWND {
+    if is_bar { before } else { foreground }
 }
 
 #[cfg(windows)]
@@ -710,6 +699,19 @@ fn read_foreground(hwnd: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) 
     let frame = frame_rect(hwnd);
     let context = screen_policy::classify(exclusive, covers(frame, m), has_caption(hwnd), unsafe { IsZoomed(hwnd) }.as_bool(), within(frame, work), has_resize_frame(hwnd));
     Seen { context, name, path }
+}
+
+#[cfg(windows)]
+/// Whether a window fills `monitor` as a full-screen app, for Crest's bars (taskbar/front.rs): `read_foreground`'s reading
+/// without the rules' names. False for an invalid window, one of Crest's, one that is not a `candidate` or one on another
+/// monitor. `exclusive` is Windows' exclusive full screen, which it reports of the foreground only.
+pub(crate) fn fills(hwnd: HWND, monitor: HMONITOR, exclusive: bool) -> bool {
+    if hwnd.is_invalid() || !candidate(hwnd) || unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) } != monitor || window_pid(hwnd) == unsafe { GetCurrentProcessId() } {
+        return false;
+    }
+    let Some((m, work)) = monitor_rect(monitor) else { return false };
+    let frame = frame_rect(hwnd);
+    screen_policy::classify(exclusive, covers(frame, m), has_caption(hwnd), unsafe { IsZoomed(hwnd) }.as_bool(), within(frame, work), has_resize_frame(hwnd)).is_fullscreen()
 }
 
 #[cfg(windows)]
@@ -817,7 +819,7 @@ fn has_resize_frame(hwnd: HWND) -> bool {
 
 #[cfg(windows)]
 /// The visible frame (without the invisible resize borders), else the window rect.
-fn frame_rect(hwnd: HWND) -> RECT {
+pub(crate) fn frame_rect(hwnd: HWND) -> RECT {
     let mut rect = RECT::default();
     unsafe {
         if DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &mut rect as *mut RECT as *mut _, std::mem::size_of::<RECT>() as u32).is_err() {
@@ -828,7 +830,8 @@ fn frame_rect(hwnd: HWND) -> RECT {
 }
 
 #[cfg(windows)]
-fn monitor_rect(monitor: HMONITOR) -> Option<(RECT, RECT)> {
+/// The monitor's rect and its work area (`rcMonitor`, `rcWork`).
+pub(crate) fn monitor_rect(monitor: HMONITOR) -> Option<(RECT, RECT)> {
     let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
     unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool().then_some((info.rcMonitor, info.rcWork))
 }
@@ -847,7 +850,7 @@ fn within(r: RECT, work: RECT) -> bool {
 
 #[cfg(windows)]
 /// Desktop and taskbar never count as fullscreen.
-fn is_desktop(hwnd: HWND) -> bool {
+pub(crate) fn is_desktop(hwnd: HWND) -> bool {
     if unsafe { hwnd == GetDesktopWindow() || hwnd == GetShellWindow() } {
         return true;
     }
@@ -968,8 +971,8 @@ mod tests {
     #[test]
     fn the_bar_in_front_leaves_the_rules_on_the_window_before_it() {
         let h = |n: isize| HWND(n as _);
-        assert_eq!(ruled_front(h(7), 9, h(5)), h(7)); // an app in front
-        assert_eq!(ruled_front(h(9), 9, h(7)), h(7)); // the bar clicked, or one of its menus open
-        assert_eq!(ruled_front(h(0), 0, h(7)), h(0)); // nothing in front and no bar
+        assert_eq!(ruled_front(h(7), false, h(5)), h(7)); // an app in front
+        assert_eq!(ruled_front(h(9), true, h(7)), h(7)); // a bar clicked, or one of its menus open
+        assert_eq!(ruled_front(h(0), false, h(7)), h(0)); // nothing in front
     }
 }

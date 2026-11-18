@@ -150,15 +150,16 @@ const SETTINGS_DENIED: &[&str] = &[
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
+    "taskbar_auto_hide",
 ];
 
-/// What the bar may call: its own hit zones and window list, listing and starting apps, opening the notch and the settings, the
-/// Crest menu, its own glass with the power state that stops it in Energy saver (`status_seed`, read-only), its two ways to reach
-/// the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs) and what the notch's tools in its panel read
-/// or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`).
+/// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, opening the notch and
+/// the settings, the Crest menu, its own glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
+/// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs) and what the notch's tools
+/// in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
-    "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log",
+    "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log", "taskbar_front",
     "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
     "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "launcher_apps", "translate_status",
     "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
@@ -539,6 +540,12 @@ pub fn run() {
             taskbar::widgets::taskbar_hello,
             #[cfg(windows)]
             taskbar::widgets::taskbar_calendar,
+            #[cfg(windows)]
+            taskbar::pins::taskbar_import_pins,
+            #[cfg(windows)]
+            taskbar::front::taskbar_auto_hide,
+            #[cfg(windows)]
+            taskbar::front::taskbar_front,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,
@@ -1125,6 +1132,9 @@ mod tests {
         // The widgets' hello, which has the notch send their data, and the clock's click. Their audio capture and lyrics switch are
         // the notch's (audio_levels and media_lyrics, refused above).
         assert!(ok("taskbar", "taskbar_hello") && ok("taskbar", "taskbar_calendar") && ok("taskbar-1", "taskbar_hello"));
+        assert!(ok("notch", "taskbar_import_pins") && ok("settings", "taskbar_import_pins") && !ok("taskbar", "taskbar_import_pins"));
+        assert!(ok("taskbar", "taskbar_front") && ok("taskbar-1", "taskbar_front") && !ok("taskbar", "taskbar_auto_hide"));
+        assert!(ok("notch", "taskbar_auto_hide") && !ok("settings", "taskbar_auto_hide"));
     }
 
     #[test]

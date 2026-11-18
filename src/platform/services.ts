@@ -15,6 +15,8 @@ import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
 import type { WindowList } from "../features/taskbar/model";
+import type { Rect } from "../features/taskbar/autoHide";
+import type { Favorite } from "../features/launcher/apps";
 import bundledChangelog from "../changelog.json";
 import { demo, photo, sample, sampleAvatar, screenshot, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
 import { demoFiles, demoPaste } from "./drop";
@@ -1268,6 +1270,8 @@ export const launcher = {
 export const taskbar = {
   /** On or off, `height` CSS px tall, docked to the screen's edge (no gaps) or not. The notch only. */
   apply: (enabled: boolean, height: number, docked: boolean): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height, docked }) : Promise.resolve()),
+  /** The Start entries pinned on Windows' taskbar, in Windows' order; empty when none is pinned or none can be read, an error only when the Start list cannot be read. The notch and the settings only. */
+  importPins: (): Promise<Favorite[]> => (isNative ? invoke<Favorite[]>("taskbar_import_pins") : Promise.resolve([])),
   /** The open windows as Rust last listed them. */
   windows: (): Promise<WindowList> => (isNative ? invoke<WindowList>("taskbar_windows") : Promise.resolve({ groups: [], active: null })),
   /** The list each time it changes; Rust sends it to the bar's window only. */
@@ -1292,16 +1296,30 @@ export const taskbar = {
   hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
   /** Tells the notch what the bar's panel shows: "apps", a tool's id, or null once it closes. */
   panel: (open: string | null): Promise<void> => (isNative ? invoke("taskbar_panel", { open }) : Promise.resolve()),
+  /** "Hide when a window touches it" on or off; only while it is on does Rust send each bar the window in front of its monitor. The notch only. */
+  autoHide: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_auto_hide", { on }) : Promise.resolve()),
+  /** The frame of the window in front of this bar's monitor, in the page's CSS px, as Rust last sent it: null without one and while the option is off. */
+  front: (): Promise<Rect | null> => (isNative ? invoke<Rect | null>("taskbar_front") : Promise.resolve(null)),
+  /** That frame each time it changes, while the option is on; Rust sends each bar its own. */
+  onFront(handler: (r: Rect | null) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<Rect | null>("taskbar://front", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** Ends Crest (the Crest menu's Quit). */
   quit: (): Promise<void> => (isNative ? invoke("app_quit") : Promise.resolve()),
   /** Has the notch send the widgets' data (`bar://hello`); call it once the page listens. Whether the bar shows now, so the page starts paused or not. */
   hello: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_hello") : Promise.resolve(true)),
   /** The clock's click: Windows' notification centre, with the calendar. */
   calendar: (): Promise<void> => (isNative ? invoke("taskbar_calendar") : Promise.resolve()),
-  /** The bar shows or hides (a full-screen app, the hide hotkey). Rust sends it to every window: the bar pauses its widgets, the notch stops their sources. */
+  /**
+   * The bar shows or hides (a full-screen app, the hide hotkey). Rust sends the primary bar's state to the notch, which stops the
+   * widgets' sources, and to that bar, which pauses them; each other bar gets its own. On this window only: a listener for any
+   * target would also hear the other bars'.
+   */
   onShown(handler: (shown: boolean) => void): () => void {
     if (!isNative) return () => {};
-    const off = listen<boolean>("taskbar://shown", (e) => handler(e.payload));
+    const off = getCurrentWebviewWindow().listen<boolean>("taskbar://shown", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
 };

@@ -3,7 +3,7 @@ import { animate, motion, useMotionValue, useReducedMotion } from "motion/react"
 import { springs } from "../../../design/motion";
 
 /** The capsule: as wide as its buttons, springing to a new width when one comes or goes (at once with reduced motion). */
-export function Capsule({ ref, style, children }: { ref: RefObject<HTMLDivElement | null>; style: CSSProperties; children: ReactNode }) {
+export function Capsule({ ref, style, children }: { ref?: RefObject<HTMLDivElement | null>; style: CSSProperties; children: ReactNode }) {
   const content = useRef<HTMLDivElement>(null);
   // A motion value set from the observer: Motion's first change after mount would not spring through `animate`.
   const width = useMotionValue(0);
