@@ -1833,5 +1833,7 @@
  "WLAN aus": "Wi-Fi オフ",
  "Nicht verbunden": "未接続",
  "Lautstärke {p} %": "音量 {p}%",
- "Akku {p} %, lädt": "バッテリー {p}%、充電中"
+ "Akku {p} %, lädt": "バッテリー {p}%、充電中",
+ "Schnelleinstellungen": "クイック設定",
+ "Weitere Einstellungen": "その他の設定"
 }

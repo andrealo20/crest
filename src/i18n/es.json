@@ -1833,5 +1833,7 @@
  "WLAN aus": "Wi-Fi desactivado",
  "Nicht verbunden": "No conectado",
  "Lautstärke {p} %": "Volumen {p}%",
- "Akku {p} %, lädt": "Batería {p}%, cargando"
+ "Akku {p} %, lädt": "Batería {p}%, cargando",
+ "Schnelleinstellungen": "Configuración rápida",
+ "Weitere Einstellungen": "Más configuración"
 }

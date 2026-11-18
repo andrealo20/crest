@@ -1833,5 +1833,7 @@
  "WLAN aus": "Wi-Fi désactivé",
  "Nicht verbunden": "Non connecté",
  "Lautstärke {p} %": "Volume {p} %",
- "Akku {p} %, lädt": "Batterie {p} %, en charge"
+ "Akku {p} %, lädt": "Batterie {p} %, en charge",
+ "Schnelleinstellungen": "Paramètres rapides",
+ "Weitere Einstellungen": "Plus de paramètres"
 }

@@ -314,6 +314,8 @@ The first button on the bar is Windows' own Start: a left click opens the Start 
 
 Apps pinned or unpinned in Windows' Start show up on the bar or leave it, changes made while Crest was closed included. A read of Windows' pins that looks wrong changes nothing, and **Import from Windows** (**Settings → Taskbar → Apps and windows**) starts the following again from what it imported. The bar's Crest menu has **Add widget** and **Auto-hide**.
 
+**Status** (Settings → Taskbar → Items, placed once before the clock like the Notification area) shows the network in use, the volume and the battery as one button, on every bar: Wi-Fi with its signal, the cable, Wi-Fi off or no network; the speaker as the volume and the mute; the battery in five levels or charging, green with Energy saver on, and left out on a PC without a battery. It changes only when Windows reports a change, nothing on the bar reads at intervals. A click opens Crest's quick panel over it: Wi-Fi and Bluetooth switches (each only where the PC has the radio), an Ethernet tile while a cable is in use that opens Windows' Ethernet page, the volume with the choice of output as in Overview, the brightness of that bar's monitor where Crest can set it, **Energy saver** with its state and **Airplane mode**, each opening its page in Windows' Settings, and **More settings**, which opens Windows' own quick settings. The Wi-Fi name shows only when Windows gives it without location access; otherwise the panel says "Connected".
+
 ## Live notices and crest-notify
 
 - Turn on **Settings → Notices** and Windows notifications from any app show in the closed notch for 6 seconds, with the app's logo, name, title and text, and land on a **Notices** page in the open notch.

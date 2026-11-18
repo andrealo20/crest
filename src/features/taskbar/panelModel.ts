@@ -59,6 +59,16 @@ export const PANEL_EDGE = 8;
  */
 export const TRAY_SIZE = (icon: number, count: number) => ({ w: 5 * (icon + 16) + 24, h: Math.min(Math.max(Math.ceil(count / 5), 1), 4) * (icon + 16) + 24 });
 
+/**
+ * The quick panel's size at 100 %: 12 px round its rows, 10 px between them. The radios (56) and the brightness (40) only where they
+ * apply; the volume, the saver and airplane chips (40 each) and the footer (32) always; `list` is the open output list, with its own
+ * separator and no gap of its own.
+ */
+export function QUICK_SIZE(rows: { radios: boolean; brightness: boolean; list: number }): { w: number; h: number } {
+  const heights = [rows.radios ? 56 : 0, 40, rows.brightness ? 40 : 0, 40, 32].filter((h) => h > 0);
+  return { w: 360, h: 24 + heights.reduce((a, b) => a + b, 0) + 10 * (heights.length - 1) + rows.list };
+}
+
 /** A tool's size in the panel: its size in the notch less the notch's tool bar, which the panel does not have. */
 export const toolPanelSize = (size: { w: number; h: number }) => ({ w: size.w, h: size.h - DOCK_HEIGHT });
 

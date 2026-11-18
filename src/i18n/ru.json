@@ -1833,5 +1833,7 @@
  "WLAN aus": "Wi-Fi выключен",
  "Nicht verbunden": "Не подключено",
  "Lautstärke {p} %": "Громкость {p}%",
- "Akku {p} %, lädt": "Батарея {p}%, заряжается"
+ "Akku {p} %, lädt": "Батарея {p}%, заряжается",
+ "Schnelleinstellungen": "Быстрые параметры",
+ "Weitere Einstellungen": "Другие параметры"
 }

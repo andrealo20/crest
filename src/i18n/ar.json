@@ -1833,5 +1833,7 @@
  "WLAN aus": "Wi-Fi متوقف",
  "Nicht verbunden": "غير متصل",
  "Lautstärke {p} %": "مستوى الصوت {p}%",
- "Akku {p} %, lädt": "البطارية {p}%، قيد الشحن"
+ "Akku {p} %, lädt": "البطارية {p}%، قيد الشحن",
+ "Schnelleinstellungen": "الإعدادات السريعة",
+ "Weitere Einstellungen": "مزيد من الإعدادات"
 }

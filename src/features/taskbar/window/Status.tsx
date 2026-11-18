@@ -26,7 +26,8 @@ import { batteryGlyph, glyphSize, netGlyph, soundGlyph, statusParts, statusWidth
 import { Item, type ItemProps } from "./Item";
 import type { Common } from "./Tray";
 
-const NET: Record<ReturnType<typeof netGlyph>, Icon> = {
+/** The network glyph's icon, here and in the quick panel's Wi-Fi tile. */
+export const NET: Record<ReturnType<typeof netGlyph>, Icon> = {
   wired: Network,
   "wifi-off": WifiSlash,
   "wifi-unlinked": WifiX,
