@@ -8,6 +8,7 @@
 //! (`defer`, `retry`). The tray's spy (tray.rs) has a thread of its own, which runs only while this one does.
 
 pub(crate) mod bar;
+pub(crate) mod bluetooth;
 pub(crate) mod explorer;
 pub(crate) mod front;
 pub(crate) mod panel;

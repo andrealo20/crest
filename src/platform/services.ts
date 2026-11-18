@@ -17,7 +17,7 @@ import type { PluginManifest } from "../features/plugins/model";
 import type { TrayState, WindowList } from "../features/taskbar/model";
 import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
 import type { Rect } from "../features/taskbar/autoHide";
-import type { WifiList } from "../features/taskbar/quickPages";
+import type { BtDevice, WifiList } from "../features/taskbar/quickPages";
 import type { Favorite } from "../features/launcher/apps";
 import bundledChangelog from "../changelog.json";
 import { demo, photo, sample, sampleAvatar, screenshot, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
@@ -941,6 +941,12 @@ const SAMPLE_WIFI: WifiList = {
     { ssid: "Flat 4B", bars: 1, kind: "personal", saved: false, connected: false },
   ],
 };
+/** The quick panel's Bluetooth page in the dev server: headphones with their battery, a mouse without, a controller away. */
+const SAMPLE_BT: BtDevice[] = [
+  { id: "1", name: "WH-1000XM5", categories: ["Audio.Headphone"], connected: true, battery: 80 },
+  { id: "2", name: "MX Master 3S", categories: ["Input.Mouse"], connected: true, battery: null },
+  { id: "3", name: "Xbox Wireless Controller", categories: ["Input.Gaming"], connected: false, battery: null },
+];
 
 /** One program in the volume mixer (all its audio sessions together). */
 export interface AppVolume {
@@ -1401,6 +1407,14 @@ export const taskbar = {
   wifiConnect: (ssid: string, password: string | null): Promise<void> => (isNative ? invoke("taskbar_wifi_connect", { ssid, password }) : Promise.resolve()),
   /** Leaves the network in use. */
   wifiDisconnect: (): Promise<void> => (isNative ? invoke("taskbar_wifi_disconnect") : Promise.resolve()),
+  /** The Bluetooth page's paired devices, connected first, read once from Windows' device store (no radio search). */
+  btDevices: (): Promise<BtDevice[]> => (isNative ? invoke<BtDevice[]>("taskbar_bt_devices") : Promise.resolve(SAMPLE_BT)),
+  /** A paired device connected or left (`status://bt`, which Rust sends only while the Bluetooth alerts are on); returns the stop. */
+  onBluetooth: (handler: () => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen("status://bt", () => handler());
+    return () => void off.then((f) => f());
+  },
   /** One of Windows' settings pages, by name (Rust maps it to its URI). */
   settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
   /**

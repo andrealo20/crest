@@ -83,7 +83,7 @@ const DEVPKEY_BLUETOOTH_BATTERY: DEVPROPKEY = DEVPROPKEY { fmtid: GUID::from_u12
 /// with an address), read from its device store without the radio. Audio endpoints cannot tell them apart: with an offload
 /// driver (AMD's) their enumerator is the driver's GUID, not BTHENUM, and mice or controllers have none. A watcher on the
 /// association endpoints kept the radio searching for devices, which broke Bluetooth audio up on some PCs (issue #48).
-const BT_PAIRED: &str = r#"System.Devices.ClassGuid:="{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}" AND System.Devices.Aep.DeviceAddress:<>[]"#;
+pub(crate) const BT_PAIRED: &str = r#"System.Devices.ClassGuid:="{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}" AND System.Devices.Aep.DeviceAddress:<>[]"#;
 /// True while the device is connected; Windows gives this property of a Bluetooth device node no public name.
 const BT_CONNECTED: &str = "{83DA6326-97A6-4088-9453-A1923F573B29} 15";
 const BT_CATEGORY: &str = "System.Devices.CategoryIds";
@@ -765,18 +765,18 @@ impl IMMNotificationClient_Impl for Endpoints_Impl {
     }
 }
 
-/// A connected Bluetooth device, as its device node describes it.
-struct BtDevice {
-    name: String,
+/// A paired Bluetooth device, as its device node describes it.
+pub(crate) struct BtDevice {
+    pub(crate) name: String,
     /// Windows' device categories ("Audio.Headphone", "Input.Mouse"), for the icon.
-    categories: Vec<String>,
+    pub(crate) categories: Vec<String>,
     /// "c0:e5:79:36:e7:c6".
-    address: String,
+    pub(crate) address: String,
     /// Missing on some LE devices.
-    container: Option<GUID>,
+    pub(crate) container: Option<GUID>,
 }
 
-fn bt_props() -> IIterable<HSTRING> {
+pub(crate) fn bt_props() -> IIterable<HSTRING> {
     IIterable::from([BT_CONNECTED, BT_CATEGORY, BT_ADDRESS, BT_CONTAINER].map(HSTRING::from).to_vec())
 }
 
@@ -824,30 +824,30 @@ fn bt_watch(h: isize, paired: Paired) -> Option<DeviceWatcher> {
         .ok()
 }
 
+/// A paired device as its node describes it, and whether it is connected now (the alerts and the bar's Bluetooth page).
+pub(crate) fn read_device(d: &DeviceInformation) -> Option<(bool, BtDevice)> {
+    let props = d.Properties().ok()?;
+    let value = |key: &str| props.Lookup(&key.into()).ok().and_then(|v| v.cast::<IPropertyValue>().ok());
+    let connected = value(BT_CONNECTED).and_then(|v| v.GetBoolean().ok()).unwrap_or(false);
+    let name = d.Name().ok()?.to_string();
+    let mut categories = Array::<HSTRING>::new();
+    let categories = match value(BT_CATEGORY) {
+        Some(v) if v.GetStringArray(&mut categories).is_ok() => categories.iter().map(|c| c.to_string()).collect(),
+        _ => Vec::new(),
+    };
+    let address = value(BT_ADDRESS).and_then(|v| v.GetString().ok()).map(|a| a.to_string()).unwrap_or_default();
+    let container = value(BT_CONTAINER).and_then(|v| v.GetGuid().ok());
+    Some((connected, BtDevice { name, categories, address, container }))
+}
+
 /// The paired devices connected now, by device instance id.
 fn bluetooth(paired: &Paired) -> HashMap<String, BtDevice> {
-    lock(paired).iter().filter_map(|(id, d)| {
-        let props = d.Properties().ok()?;
-        let value = |key: &str| props.Lookup(&key.into()).ok().and_then(|v| v.cast::<IPropertyValue>().ok());
-        if !value(BT_CONNECTED)?.GetBoolean().ok()? {
-            return None;
-        }
-        let name = d.Name().ok()?.to_string();
-        let mut categories = Array::<HSTRING>::new();
-        let categories = match value(BT_CATEGORY) {
-            Some(v) if v.GetStringArray(&mut categories).is_ok() => categories.iter().map(|c| c.to_string()).collect(),
-            _ => Vec::new(),
-        };
-        let address = value(BT_ADDRESS).and_then(|v| v.GetString().ok()).map(|a| a.to_string()).unwrap_or_default();
-        let container = value(BT_CONTAINER).and_then(|v| v.GetGuid().ok());
-        Some((id.clone(), BtDevice { name, categories, address, container }))
-    })
-    .collect()
+    lock(paired).iter().filter_map(|(id, d)| read_device(d).filter(|(c, _)| *c).map(|(_, dev)| (id.clone(), dev))).collect()
 }
 
 /// Battery from the device's Bluetooth nodes, found by its address in the instance id or by its container; read once at
 /// connection, `None` when the device does not report it.
-fn battery(address: &str, container: Option<GUID>) -> Option<u8> {
+pub(crate) fn battery(address: &str, container: Option<GUID>) -> Option<u8> {
     let address = address.replace(':', "").to_ascii_uppercase();
     let flags = CM_GETIDLIST_FILTER_ENUMERATOR | CM_GETIDLIST_FILTER_PRESENT;
     for enumerator in [w!("BTHENUM"), w!("BTHHFENUM"), w!("BTHLE")] {

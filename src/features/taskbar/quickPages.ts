@@ -66,3 +66,13 @@ export function wifiRows(view: WifiView, count: number): number {
   if (view === "list") return count;
   return view === "ask" || view === "denied" ? 2 : 1;
 }
+
+/** One paired Bluetooth device, as Rust sends it (src-tauri taskbar/bluetooth.rs `BtRow`): connected ones first, `battery` 0 to 100 or null. */
+export interface BtDevice {
+  id: string;
+  name: string;
+  /** Windows' device categories ("Audio.Headphone", "Input.Mouse"), for the icon. */
+  categories: string[];
+  connected: boolean;
+  battery: number | null;
+}
