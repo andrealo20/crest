@@ -21,6 +21,19 @@ export const anyBarPanel = () => Object.keys(barPanels.get()).length > 0;
 /** Any bar's panel shows a tool, not only the app menu. */
 export const anyBarTool = () => Object.values(barPanels.get()).some((open) => open !== "apps");
 
+/**
+ * Calls `act` only when `barShows(id)` changes, starting from false (`barPanels` notifies unchanged values too), so the notch starts
+ * and stops what it runs for a bar's tool once. Returns the unsubscribe.
+ */
+export function onBarShows(id: string, act: (shown: boolean) => void): () => void {
+  let shown = false;
+  return barPanels.subscribe(() => {
+    if (barShows(id) === shown) return;
+    shown = !shown;
+    act(shown);
+  });
+}
+
 /** In the app's notch window only: follows what the bars report through Rust (`taskbar_panel`, src-tauri/src/taskbar/panel.rs). */
 export function startBarPanels() {
   if (!isNative || !isNotchWindow) return;
