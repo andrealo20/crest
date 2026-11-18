@@ -20,6 +20,8 @@ const EDGE = 8;
 const DRAG = 4;
 /** The ways a press ends without a key. */
 const PRESS_ENDS = ["pointerup", "pointercancel", "lostpointercapture"] as const;
+/** How long a read of the app list holds, ms: the menu opened later reads it again. */
+const FRESH = 60_000;
 
 /** An open pin menu: its app, and where it opens in the window's px (the pointer, or the selected row's bottom left corner). */
 type PinAt = { app: LauncherApp; x: number; y: number };
@@ -46,7 +48,12 @@ export function AppsView() {
   // A list read again under the same query can be shorter than the place selected in it.
   const at = Math.min(sel, options.length - 1);
 
-  useEffect(() => void loadApps(), []);
+  // The page lives as long as Crest runs: a list read once would miss an app installed later and keep one removed. A list older than
+  // FRESH is read again behind the one on screen, which stays meanwhile.
+  useEffect(() => {
+    const { apps, readAt } = launcherApps.get();
+    void loadApps(apps !== null && Date.now() - readAt > FRESH);
+  }, []);
   useEffect(() => field.current?.focus({ preventScroll: true }), []);
   useEffect(() => {
     if (!error) return;
@@ -158,7 +165,7 @@ export function AppsView() {
     }
   };
 
-  // An empty list is a read that went wrong too (loadApps), and once read the list is not read again without Neu einlesen.
+  // An empty list is a read that went wrong too (loadApps).
   const unreadable = apps ? apps.length === 0 : failed;
   let option = 0;
   return (

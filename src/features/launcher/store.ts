@@ -8,8 +8,8 @@ import { t } from "../../i18n";
 import { detectAi, mergeApps, type LauncherApp } from "./apps";
 import { hotkeysPaused, shortcutIds } from "./shortcuts";
 
-/** The merged app list; null until it was read once (on first open of the tool). */
-export const launcherApps = createStore<{ apps: LauncherApp[] | null; loading: boolean; failed: boolean }>({ apps: null, loading: false, failed: false });
+/** The merged app list; null until it was read once (on first open of the tool). `readAt`: when it was last read without a failure, 0 before. */
+export const launcherApps = createStore<{ apps: LauncherApp[] | null; loading: boolean; failed: boolean; readAt: number }>({ apps: null, loading: false, failed: false, readAt: 0 });
 
 /** Icons by id (PNG data URL, null = none). Rust caches them too. */
 export const launcherIcons = createStore<Record<string, string | null>>({});
@@ -41,7 +41,7 @@ export function loadApps(refresh = false): Promise<void> {
     .apps(refresh)
     .then((raw) => {
       const apps = mergeApps(raw);
-      launcherApps.set({ apps, loading: false, failed: false });
+      launcherApps.set({ apps, loading: false, failed: false, readAt: Date.now() });
       // First list ever: pin the AI apps found. An empty list is a failed read, not "nothing installed". The notch only: the bar's
       // app menu reads the list too and writes nothing of the Launcher's.
       if (isNotchWindow && settings.get().launcher.favorites === null && raw.length > 0) {
