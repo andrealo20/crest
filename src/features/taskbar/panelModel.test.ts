@@ -24,10 +24,20 @@ test("the same content toggles, another one takes its place", () => {
   assert.equal(panelKey(tool("weather")), "weather");
 });
 
-test("the same item is the same span on the bar, so another item opening the same tool moves the panel", () => {
-  assert.equal(sameAnchor({ x: 120.5, w: 40 }, { x: 120.5, w: 40 }), true);
-  assert.equal(sameAnchor({ x: 120.5, w: 40 }, { x: 164.5, w: 40 }), false);
-  assert.equal(sameAnchor({ x: 120.5, w: 40 }, { x: 120.5, w: 88 }), false);
+test("an item stays the same item while it shifts or resizes under its panel, and two items never are", () => {
+  const item = { x: 120, w: 40 };
+  // Itself, shifted by a few px either way or by most of its width, and wider (a clock that grew).
+  for (const moved of [item, { x: 124, w: 40 }, { x: 116.5, w: 40 }, { x: 156, w: 40 }, { x: 84, w: 40 }, { x: 110, w: 64 }]) {
+    assert.equal(sameAnchor(item, moved) && sameAnchor(moved, item), true, JSON.stringify(moved));
+  }
+  // A neighbour touching it on either side, or past a gap.
+  for (const other of [{ x: 160, w: 40 }, { x: 80, w: 40 }, { x: 162, w: 40 }, { x: 0, w: 100 }]) {
+    assert.equal(sameAnchor(item, other) || sameAnchor(other, item), false, JSON.stringify(other));
+  }
+  // A zero-width span overlaps nothing: not a span around it, not one it touches, not itself.
+  for (const point of [{ x: 130, w: 0 }, { x: 120, w: 0 }, { x: 160, w: 0 }]) {
+    assert.equal(sameAnchor(item, point) || sameAnchor(point, item) || sameAnchor(point, point), false, JSON.stringify(point));
+  }
 });
 
 test("the notch keeps what each bar's panel shows", () => {

@@ -31,8 +31,9 @@ export function openPanel(content: PanelContent, anchor: PanelAnchor): void {
 }
 
 /**
- * The second click on an item closes what it opened and gives the keyboard back to the app that had it. Any other content opens, and
- * so does the same content from another item (several open the same tool): the panel moves over that item.
+ * The second click on an item closes what it opened and gives the keyboard back to the app that had it, even if the item shifted or
+ * changed width meanwhile (its span still overlaps the one it opened from). Any other content opens, and so does the same content from
+ * another item (several open the same tool): the panel moves over that item.
  */
 export function togglePanel(content: PanelContent, anchor: PanelAnchor): void {
   const open = panel.get();
