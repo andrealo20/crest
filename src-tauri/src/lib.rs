@@ -153,12 +153,12 @@ const SETTINGS_DENIED: &[&str] = &[
 ];
 
 /// What the bar may call: its own hit zones and window list, listing and starting apps, opening the notch and the settings, the
-/// Crest menu, and its two ways to reach the notch (taskbar/panel.rs). Its settings reach Rust only through the notch
-/// (`taskbar_apply`).
+/// Crest menu, its two ways to reach the notch (taskbar/panel.rs) and what the notch's tools in its panel read. Its settings reach
+/// Rust only through the notch (`taskbar_apply`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log",
-    "taskbar_panel", "taskbar_ask", "launcher_apps",
+    "taskbar_panel", "taskbar_ask", "launcher_apps", "translate_status",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -1055,6 +1055,8 @@ mod tests {
         assert!(ok("taskbar", "taskbar_panel") && ok("taskbar", "taskbar_ask") && ok("taskbar", "launcher_apps") && ok("taskbar-1", "taskbar_panel"));
         // A settings window claiming a bar's panel would keep the notch's sources running.
         assert!(!ok("settings", "taskbar_panel") && !ok("settings", "taskbar_ask") && !ok("timer", "taskbar_ask"));
+        // The tools' code reads the installed translation pairs as it loads in the bar (offlineEngine.ts).
+        assert!(ok("taskbar", "translate_status"));
     }
 
     #[test]

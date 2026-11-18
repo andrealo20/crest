@@ -4,14 +4,19 @@ import { listen } from "@tauri-apps/api/event";
 import { content, springs } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { NotchShape } from "../../../notch/NotchShape";
+import { monitorMetrics } from "../../../notch/monitor";
+import { sizeExtra, sizeOverride } from "../../../notch/size";
 import { isNative, onNativeBlur } from "../../../platform/native";
 import { taskbar } from "../../../platform/services";
 import { settings } from "../../../settings/store";
+import { useToolSize } from "../../window/panel";
+import { limits } from "../../window/panelSize";
 import { placeMenu } from "../model";
 import { closePanel, panel, pinDrag, type OpenPanel, type PanelContent } from "../panel";
-import { APPS_SIZE, PANEL_EDGE, PANEL_GAP, fitPanel, panelKey } from "../panelModel";
+import { APPS_SIZE, PANEL_EDGE, PANEL_GAP, fitPanel, toolPanelSize } from "../panelModel";
 import { AppsView } from "./AppsView";
 import type { HitRect } from "./BarMenu";
+import { TOOL_TITLE_ID, ToolPanel, useTabs } from "./ToolPanel";
 
 /** The panel's corners at 100 %, CSS px: the notch's open panel where it floats, without ears. */
 const RADIUS = 30;
@@ -31,9 +36,24 @@ export function BarPanel(props: { bar: RefObject<HTMLElement | null>; onPlace: (
 /** The bar's top edge and the window's size, CSS px. The edge is measured, not worked out, so the gap holds for any shape of the bar. */
 const measure = (bar: RefObject<HTMLElement | null>) => ({ barTop: bar.current?.getBoundingClientRect().top ?? innerHeight, width: innerWidth, height: innerHeight });
 
-/** The panel's size at 100 % for what it shows, before it is fitted to the room above the bar; null keeps the size the panel has. */
+/**
+ * The panel's size at 100 % for what it shows, before it is fitted to the room above the bar; null keeps the size the panel has.
+ * A tool takes the size the notch gives it, less the notch's tool bar, once the tools' code has loaded. Every hook runs for every
+ * content, as a switch between the app menu and a tool renders the same panel.
+ */
 function usePanelSize(shows: PanelContent): { w: number; h: number } | null {
-  return shows.kind === "apps" ? APPS_SIZE : null;
+  const tabs = useTabs(shows.kind === "tool");
+  const tab = shows.kind === "tool" ? tabs?.findTab(shows.tool) : undefined;
+  const toolSize = useToolSize(tab?.id ?? "", tab?.size ?? APPS_SIZE);
+  const override = sizeOverride.use();
+  const extra = sizeExtra.use();
+  if (shows.kind === "apps") return APPS_SIZE;
+  if (!tab) return null;
+  // The notch's own rule (Notch.tsx): the tool's runtime request wins over the size it was given, an extra height rides on top of
+  // that size, and both are held to the monitor.
+  const maxH = limits(tab.size, monitorMetrics().height).maxH;
+  if (override?.tabId === tab.id) return toolPanelSize({ w: override.w, h: Math.min(override.h, maxH) });
+  return toolPanelSize(extra?.tabId === tab.id ? { w: toolSize.w, h: Math.min(toolSize.h + extra.h, maxH) } : toolSize);
 }
 
 function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLElement | null>; onPlace: (box: HitRect | null) => void }) {
@@ -134,6 +154,7 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
       ref={ref}
       role="dialog"
       aria-label={open.content.kind === "apps" ? t("App-Menü") : undefined}
+      aria-labelledby={open.content.kind === "tool" ? TOOL_TITLE_ID : undefined}
       // Closing, it takes no key and no click: its zone is already gone.
       inert={!present}
       className="fixed left-0 -translate-x-1/2"
@@ -151,7 +172,8 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
             <AnimatePresence initial={false}>
               {size && (
                 <motion.div
-                  key={panelKey(open.content)}
+                  // A switch between two tools keeps the tool panel, which crossfades the tool below its own header (ToolPanel.tsx).
+                  key={open.content.kind}
                   // Laid out at its full size from the bottom centre, so it stays put while the shape grows up around it.
                   className="absolute bottom-0 left-1/2"
                   style={{ width: size.w, height: size.h, marginLeft: -size.w / 2 }}
@@ -159,7 +181,7 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
                   animate={{ opacity: 1, transition: content.enter }}
                   exit={{ opacity: 0, transition: content.exit }}
                 >
-                  {open.content.kind === "apps" && <AppsView />}
+                  {open.content.kind === "apps" ? <AppsView /> : <ToolPanel tool={open.content.tool} />}
                 </motion.div>
               )}
             </AnimatePresence>
