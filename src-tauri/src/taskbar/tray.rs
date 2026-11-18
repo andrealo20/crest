@@ -42,7 +42,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, GetMessageW, GetWindowRect, IsWindow, KillTimer, PeekMessageW, PostMessageW, PostThreadMessageW, RegisterClassW,
     RegisterWindowMessageW, SendMessageTimeoutW, SendMessageW, SendNotifyMessageW, SetTimer, SetWindowPos, HICON, HWND_BROADCAST, HWND_TOPMOST,
     MSG, MSGFLT_ALLOW, PM_NOREMOVE, SEND_MESSAGE_TIMEOUT_FLAGS, SMTO_ABORTIFHUNG, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WM_APP,
-    WM_COPYDATA, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    WM_CLOSE, WM_COPYDATA, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 
 use super::explorer;
@@ -465,6 +465,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
     }
     if traywire::forwards(msg) {
         return LRESULT(forward(msg, wparam, lparam, false));
+    }
+    // Only `vanish` ends the window, else `SPY` names a dead one; WM_SYSCOMMAND's SC_CLOSE comes here too, through DefWindowProcW.
+    if msg == WM_CLOSE {
+        return LRESULT(0);
     }
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }
