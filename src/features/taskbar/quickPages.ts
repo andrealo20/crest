@@ -78,12 +78,12 @@ export interface BtDevice {
 }
 
 /** What the Bluetooth page shows in place of its rows, or "list" when it lists them. */
-export type BtView = "off" | "loading" | "empty" | "list";
+export type BtView = "off" | "loading" | "failed" | "empty" | "list";
 
-/** The page's view from the radio and the last read (null before the first). */
-export function btView(on: boolean, devices: BtDevice[] | null): BtView {
+/** The page's view from the radio, the last read (null before the first) and whether the latest read failed. */
+export function btView(on: boolean, devices: BtDevice[] | null, failed: boolean): BtView {
   if (!on) return "off";
-  if (devices === null) return "loading";
+  if (devices === null) return failed ? "failed" : "loading";
   return devices.length ? "list" : "empty";
 }
 

@@ -12,8 +12,17 @@ import { QuickPageFrame, away } from "./QuickPage";
 /** The quick panel's Bluetooth page: the paired devices, connected first with their battery, each opening Bluetooth in Settings. */
 export function BluetoothPage({ on, job }: { on: boolean; job: SwitchJob }) {
   const [devices, setDevices] = useState<BtDevice[] | null>(null);
-  const read = () => void taskbar.btDevices().then(setDevices, () => setDevices([]));
-  const view = btView(on, devices);
+  const [failed, setFailed] = useState(false);
+  // A failed read keeps the last list.
+  const read = () =>
+    void taskbar.btDevices().then(
+      (d) => {
+        setDevices(d);
+        setFailed(false);
+      },
+      () => setFailed(true),
+    );
+  const view = btView(on, devices, failed);
 
   // Read when the page opens and when its switch turns the radio on, then on each device the alerts hear: never at intervals.
   useEffect(() => {
@@ -31,6 +40,7 @@ export function BluetoothPage({ on, job }: { on: boolean; job: SwitchJob }) {
       footer={{ label: t("Weitere Bluetooth-Geräte"), onClick: () => away(() => taskbar.settings("bluetooth")) }}
     >
       {view === "off" && <p className="px-1 text-footnote text-label-2">{t("Bluetooth ist ausgeschaltet")}</p>}
+      {view === "failed" && <p className="px-1 text-footnote text-label-2">{t("Das hat nicht geklappt")}</p>}
       {view === "empty" && <p className="px-1 text-footnote text-label-2">{t("Keine gekoppelten Geräte")}</p>}
       {view === "list" &&
         devices?.map((d) => {

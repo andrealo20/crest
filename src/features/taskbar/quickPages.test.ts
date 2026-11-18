@@ -57,10 +57,13 @@ test("the Wi-Fi page keeps the password in the row's state alone: never logged, 
 const dev = (p: Partial<BtDevice>): BtDevice => ({ id: "1", name: "Buds", categories: [], connected: false, battery: null, ...p });
 
 test("the Bluetooth page lists the paired devices once its radio is on and they are read", () => {
-  assert.equal(btView(false, [dev({})]), "off");
-  assert.equal(btView(true, null), "loading");
-  assert.equal(btView(true, []), "empty");
-  assert.equal(btView(true, [dev({})]), "list");
+  assert.equal(btView(false, [dev({})], false), "off");
+  assert.equal(btView(true, null, false), "loading");
+  assert.equal(btView(true, null, true), "failed"); // a failed first read is not "no paired devices"
+  assert.equal(btView(true, [], false), "empty");
+  assert.equal(btView(true, [dev({})], false), "list");
+  assert.equal(btView(true, [dev({})], true), "list"); // a failed reread keeps the last list
+  assert.equal(btRows("failed", 0), 1);
   assert.equal(btRows("list", 3), 3);
   assert.equal(btRows("empty", 0), 1);
 });
