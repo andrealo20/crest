@@ -56,10 +56,15 @@ export function TaskbarWindow() {
   // The button under the pointer, and a launch that failed (in its button's label for a while).
   const [hovered, setHovered] = useState<string | null>(null);
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
-  const [menu, setMenu] = useState<OpenMenu | null>(null);
-  const closeMenu = useCallback(() => setMenu(null), []);
+  const [menu, setOpenMenu] = useState<OpenMenu | null>(null);
+  // The panel above the bar shares the menus' place in the hit zone: opening one closes the other. Every menu closes the panel here,
+  // wherever it is set from, or one set while the panel is open would wait hidden behind it and pop up once it closes.
+  const setMenu = useCallback((next: OpenMenu | null) => {
+    if (next) closePanel();
+    setOpenMenu(next);
+  }, []);
+  const closeMenu = useCallback(() => setMenu(null), [setMenu]);
   const placeMenuZone = useHitZone(bar);
-  // The panel above the bar shares the menus' place in the hit zone: opening one closes the other.
   const open = panel.use();
   useEffect(() => {
     if (open) setMenu(null);
@@ -88,8 +93,7 @@ export function TaskbarWindow() {
   /** Opens a menu over its button, or closes it on a second click there; another button's menu takes the place of an open one. */
   const toggle = (next: Menu, anchor: HTMLElement) => {
     const r = anchor.getBoundingClientRect();
-    closePanel();
-    setMenu((m) => (m?.kind === next.kind && m.anchor === anchor ? null : { ...next, anchor, x: r.x, w: r.width }));
+    setMenu(menu?.kind === next.kind && menu.anchor === anchor ? null : { ...next, anchor, x: r.x, w: r.width });
   };
   const openCrestMenu: MouseEventHandler<HTMLButtonElement> = (e) => toggle({ kind: "crest" }, e.currentTarget);
   /** Opens the app menu over its button, or closes it on a second click there. */
@@ -164,7 +168,6 @@ export function TaskbarWindow() {
       // A right click beside the buttons, on the bar or in the gap under it: the Crest menu, over the pointer. Not in the panel.
       onContextMenu={(e) => {
         if ((e.target as Element).closest("button, [role=menu], [role=dialog]")) return;
-        closePanel();
         setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 });
       }}
     >
