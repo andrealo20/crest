@@ -1,51 +1,10 @@
-import { useEffect, type MouseEventHandler } from "react";
-import {
-  BatteryCharging,
-  BatteryFull,
-  BatteryHigh,
-  BatteryLow,
-  BatteryMedium,
-  BatteryWarning,
-  Network,
-  NetworkSlash,
-  SpeakerHigh,
-  SpeakerLow,
-  SpeakerNone,
-  SpeakerSimpleSlash,
-  WifiHigh,
-  WifiLow,
-  WifiMedium,
-  WifiNone,
-  WifiSlash,
-  WifiX,
-  type Icon,
-} from "@phosphor-icons/react";
+import { useEffect, type MouseEventHandler, type ReactNode } from "react";
 import { t } from "../../../i18n";
+import { BatteryGlyph, NetGlyph, SpeakerGlyph } from "../../../ui/glyphs";
 import { barStatus, startStatus } from "../status";
 import { batteryGlyph, glyphSize, netGlyph, soundGlyph, statusParts, statusWidth } from "../statusModel";
 import { Item, type ItemProps } from "./Item";
 import type { Common } from "./Tray";
-
-/** The network glyph's icon, here and in the quick panel's Wi-Fi tile. */
-export const NET: Record<ReturnType<typeof netGlyph>, Icon> = {
-  wired: Network,
-  "wifi-off": WifiSlash,
-  "wifi-unlinked": WifiX,
-  "wifi-0": WifiNone,
-  "wifi-1": WifiLow,
-  "wifi-2": WifiMedium,
-  "wifi-3": WifiHigh,
-  offline: NetworkSlash,
-};
-const SOUND: Record<NonNullable<ReturnType<typeof soundGlyph>>, Icon> = { muted: SpeakerSimpleSlash, low: SpeakerNone, mid: SpeakerLow, high: SpeakerHigh };
-const BATTERY: Record<NonNullable<ReturnType<typeof batteryGlyph>>, Icon> = {
-  charging: BatteryCharging,
-  full: BatteryFull,
-  high: BatteryHigh,
-  medium: BatteryMedium,
-  low: BatteryLow,
-  warning: BatteryWarning,
-};
 
 /**
  * Stato: the network, the volume and the battery as one button, each glyph left out while it has nothing to say (no battery on a
@@ -68,26 +27,31 @@ export function Status(props: {
   const sound = soundGlyph(s.sound);
   const battery = batteryGlyph(s.power);
   const size = glyphSize(props.size);
-  const glyphs: [string, Icon, string?][] = [];
-  if (net) glyphs.push(["net", NET[net]]);
-  if (sound) glyphs.push(["sound", SOUND[sound]]);
-  // Energy saver tints the battery, as Windows does.
-  if (battery) glyphs.push(["battery", BATTERY[battery], s.power?.saver ? "var(--color-green)" : undefined]);
-  if (!glyphs.length) return null;
+  const parts: [string, ReactNode][] = [];
+  if (net) parts.push(["net", <NetGlyph glyph={net} size={size} />]);
+  if (sound) parts.push(["sound", <SpeakerGlyph glyph={sound} size={size} />]);
+  if (battery && s.power) {
+    const glyph = <BatteryGlyph percent={s.power.percent} charging={s.power.charging} warning={battery === "warning"} size={size} />;
+    // Energy saver tints the battery, as Windows does.
+    parts.push(["battery", s.power.saver ? <span style={{ color: "var(--color-green)" }}>{glyph}</span> : glyph]);
+  }
+  if (!parts.length) return null;
   const name = statusParts(s).map(([k, p]) => t(k, p)).join(", ") || t("Status");
   return (
     <Item
       {...props.item("status", name)}
       kind="status"
       tile={props.tile()}
-      width={statusWidth(props.size, glyphs.length)}
+      width={statusWidth(props.size, parts.length)}
       expanded={props.expanded}
       onClick={props.onClick}
       onContextMenu={props.onMenu}
     >
       <span className="flex gap-1">
-        {glyphs.map(([key, Glyph, color]) => (
-          <Glyph key={key} size={size} weight="bold" style={color ? { color } : undefined} />
+        {parts.map(([key, part]) => (
+          <span key={key} className="flex">
+            {part}
+          </span>
         ))}
       </span>
     </Item>

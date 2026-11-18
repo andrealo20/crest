@@ -9,7 +9,6 @@ import { closePanel, quickLayout } from "../panel";
 import { barStatus } from "../status";
 import { wifiTile } from "../statusModel";
 import { holdBriefly } from "./hold";
-import { NET } from "./Status";
 
 /**
  * Stato's quick panel, sized by QUICK_SIZE: the radios that apply (Wi-Fi, Bluetooth, the cable), the volume with its outputs, the
@@ -46,12 +45,7 @@ export default function QuickPanel() {
       {radios && (
         <div className="flex h-14 shrink-0 gap-2">
           {quick?.wifi != null && (
-            <Tile
-              lead={<RadioSwitch kind="wifi" on={quick.wifi} job={job} />}
-              name={t("WLAN")}
-              line={wifi.ssid ?? t(wifi.key)}
-              icon={wifi.glyph && NET[wifi.glyph]}
-            />
+            <Tile lead={<RadioSwitch kind="wifi" on={quick.wifi} job={job} />} name={t("WLAN")} line={wifi.ssid ?? t(wifi.key)} />
           )}
           {quick?.bluetooth != null && <Tile lead={<RadioSwitch kind="bluetooth" on={quick.bluetooth} job={job} />} name={t("Bluetooth")} line={quick.bluetooth ? t("An") : t("Aus")} />}
           {wired && <Tile lead={<Round icon={Network} />} name={t("Ethernet")} line={t("Verbunden")} onClick={() => away(() => taskbar.settings("ethernet"))} />}
@@ -83,16 +77,13 @@ export default function QuickPanel() {
 }
 
 /** A radios-row tile: its switch or icon, its name and a line under it; a button as a whole when it opens something. */
-function Tile({ lead, name, line, icon: I, onClick }: { lead: ReactNode; name: string; line: string; icon?: Icon | null; onClick?: () => void }) {
+function Tile({ lead, name, line, onClick }: { lead: ReactNode; name: string; line: string; onClick?: () => void }) {
   const body = (
     <>
       {lead}
       <span className="flex min-w-0 flex-1 flex-col text-start">
         <span className="truncate text-footnote font-medium text-label">{name}</span>
-        <span className="flex min-w-0 items-center gap-1 text-caption text-label-3">
-          {I && <I size={12} weight="bold" className="shrink-0" />}
-          <span className="truncate">{line}</span>
-        </span>
+        <span className="truncate text-caption text-label-3">{line}</span>
       </span>
     </>
   );

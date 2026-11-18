@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowClockwise, Bed, Bluetooth, Lock, Microphone, MicrophoneSlash, Power, WifiHigh, MoonStars, type Icon } from "@phosphor-icons/react";
+import { ArrowClockwise, Bed, Lock, Microphone, MicrophoneSlash, Power, MoonStars, type Icon } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { systemControls, type PowerAction, type QuickState } from "../../platform/services";
 import { HUE_PALETTE } from "../themes/themes";
 import type { Hue } from "../themes/hues";
 import { t } from "../../i18n";
+import { BluetoothGlyph, NetGlyph } from "../../ui/glyphs";
 
 /*
  * Overview's quick controls, like the quick settings: Wi-Fi, Bluetooth, the dark theme and the microphone mute as switches, then
@@ -92,7 +93,7 @@ export function RadioSwitch({ kind, on, job }: { kind: "wifi" | "bluetooth"; on:
   const wifi = kind === "wifi";
   return (
     <Switch
-      icon={wifi ? WifiHigh : Bluetooth}
+      glyph={<RadioGlyph kind={kind} size={16} />}
       hue={wifi ? "blue" : "indigo"}
       label={wifi ? t("WLAN") : t("Bluetooth")}
       on={on}
@@ -102,7 +103,25 @@ export function RadioSwitch({ kind, on, job }: { kind: "wifi" | "bluetooth"; on:
   );
 }
 
-function Switch({ icon: I, hue, label, on, busy, onToggle }: { icon: Icon; hue: Hue; label: string; on: boolean; busy: boolean; onToggle: () => void }) {
+/** A radio's glyph, the same shape on and off: the full fan for Wi-Fi, the rune for Bluetooth. */
+export function RadioGlyph({ kind, size }: { kind: "wifi" | "bluetooth"; size: number }) {
+  return kind === "wifi" ? <NetGlyph glyph="wifi-3" size={size} /> : <BluetoothGlyph size={size} />;
+}
+
+/** A radio's disc as Switch draws it, for a glyph that is not a button of its own: only its colour says on. */
+export function RadioDisc({ kind, on, children }: { kind: "wifi" | "bluetooth"; on: boolean; children: ReactNode }) {
+  return (
+    <span
+      className={`flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-200 ${on ? "text-white" : "bg-fill-2 text-label-2"}`}
+      style={on ? { background: HUE_PALETTE[kind === "wifi" ? "blue" : "indigo"][1] } : undefined}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** A round switch: its Phosphor icon (filled when on), or a glyph of Crest's own drawn as it is. */
+function Switch({ icon: I, glyph, hue, label, on, busy, onToggle }: { icon?: Icon; glyph?: ReactNode; hue: Hue; label: string; on: boolean; busy: boolean; onToggle: () => void }) {
   return (
     <button
       aria-label={label}
@@ -113,7 +132,7 @@ function Switch({ icon: I, hue, label, on, busy, onToggle }: { icon: Icon; hue: 
       className={`pressable flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-200 disabled:opacity-60 ${on ? "text-white" : "bg-fill-2 text-label-2 hover:text-label"}`}
       style={on ? { background: HUE_PALETTE[hue][1] } : undefined}
     >
-      <I size={15} weight={on ? "fill" : "bold"} />
+      {glyph ?? (I && <I size={15} weight={on ? "fill" : "bold"} />)}
     </button>
   );
 }

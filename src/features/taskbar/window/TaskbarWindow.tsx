@@ -270,7 +270,7 @@ export function TaskbarWindow() {
           // No menu of its own, as ^: the Crest menu over the pointer.
           onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
         >
-          <DotsThree size={appIcon} weight="bold" />
+          <DotsThree size={appIcon} weight="regular" />
         </Item>,
       ];
     }
