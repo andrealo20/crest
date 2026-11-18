@@ -14,6 +14,7 @@ pub(crate) mod panel;
 pub(crate) mod pins;
 pub(crate) mod screens;
 pub(crate) mod tasks;
+pub(crate) mod traywire;
 pub(crate) mod widgets;
 
 use std::cell::RefCell;
