@@ -63,7 +63,7 @@ export function OverviewView() {
     void systemControls.setOutput(id).catch(() => {}).finally(loadOutputs);
   };
 
-  // The notch's monitor brightness: the row shows only where Crest can set it, read every few seconds (keys, other apps).
+  // The calling window's monitor brightness: the row shows only where Crest can set it, read every few seconds (keys, other apps).
   const [bright, setBright] = useState<number | null>(null);
   const brightBusy = useRef(false);
   // Until when a reading would undo the slider: writes still going out, or just landed.
@@ -73,10 +73,12 @@ export function OverviewView() {
     const quiet = () => brightBusy.current || Date.now() < brightHold.current;
     let period = 3000;
     let id = 0;
+    // A read still out when the view goes must neither set its state nor start a poll that nothing would stop.
+    let alive = true;
     const load = () =>
       !quiet() &&
       void systemControls.brightness().then((v) => {
-        if (quiet()) return;
+        if (!alive || quiet()) return;
         // DDC/CI misses a read now and then: the row goes only after three in a row.
         brightMisses.current = v === null ? brightMisses.current + 1 : 0;
         if (v !== null || brightMisses.current >= 3) setBright(v);
@@ -90,7 +92,10 @@ export function OverviewView() {
       });
     load();
     id = window.setInterval(load, period);
-    return () => window.clearInterval(id);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
   }, []);
 
   // The open list grows the notch by its rows, like the player menu in Now Playing; the brightness row by its height and gap.
@@ -433,7 +438,7 @@ function OutputList({ outputs, rows, onPick }: { outputs: AudioOutput[]; rows: n
 /** A tile (h-10) and the gap above it (gap-2.5). */
 const BRIGHTNESS_ROW = 50;
 
-/** The notch's monitor brightness, 0..100. A drag sends one write at a time and then the latest level: DDC/CI answers slowly. */
+/** The calling window's monitor brightness, 0..100. A drag sends one write at a time and then the latest level: DDC/CI answers slowly. */
 /** `busy`: a drag is under way. `hold`: until when the parent's poll must not overwrite the level (writes in flight, plus a second). */
 function BrightnessTile({ level, busy, hold, onLevel }: { level: number; busy: { current: boolean }; hold: { current: number }; onLevel: (percent: number) => void }) {
   const sunHue = useHue("amber");

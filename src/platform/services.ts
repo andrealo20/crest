@@ -941,7 +941,7 @@ export const systemControls = {
     Object.assign(mockVolume, patch, patch.level !== undefined && patch.level > 0 && patch.muted === undefined ? { muted: false } : {});
     return Promise.resolve({ ...mockVolume });
   },
-  /** The notch's monitor, 0..100; null when Crest can't set it (src-tauri brightness.rs, macos/brightness.rs). */
+  /** The calling window's monitor, 0..100; null when Crest can't set it (src-tauri brightness.rs, macos/brightness.rs). */
   brightness: (): Promise<number | null> =>
     isNative ? invoke<number | null>("brightness_get").catch(() => null) : Promise.resolve(mockBrightness.percent),
   setBrightness: (percent: number): Promise<void> => {

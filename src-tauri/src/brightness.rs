@@ -5,8 +5,9 @@
 //! - External monitors: DDC/CI has no change event, so while the Brightness alert is on they are read every `POLL`, each
 //!   monitor's first reading being its baseline. A monitor that does not answer three times in a row is left alone for a minute.
 //!
-//! - The Overview's slider sets the notch's monitor: DDC/CI for an external one, WMI's WmiSetBrightness for a laptop panel. For a
-//!   moment after that, changes are taken as the new baseline, so the closed notch doesn't announce what the slider just did.
+//! - The Overview's slider sets the calling window's monitor: DDC/CI for an external one, WMI's WmiSetBrightness for a laptop
+//!   panel. For a moment after that, changes are taken as the new baseline, so the closed notch doesn't announce what the slider
+//!   just did.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -223,7 +224,7 @@ unsafe extern "system" fn each(monitor: HMONITOR, _: HDC, _: *mut RECT, list: LP
     TRUE
 }
 
-/// The monitor the notch window is on.
+/// The monitor the calling window is on: the notch's, or a bar's for the Overview in its panel.
 fn notch_monitor(window: &tauri::WebviewWindow) -> Option<isize> {
     let hwnd = window.hwnd().ok()?;
     Some(unsafe { MonitorFromWindow(HWND(hwnd.0), MONITOR_DEFAULTTONEAREST) }.0 as isize)
@@ -241,7 +242,7 @@ async fn on_com_thread<T: Send + 'static>(job: impl FnOnce() -> T + Send + 'stat
     .map_err(|e| e.to_string())
 }
 
-/// The slider's level for the notch's monitor: over DDC/CI, else its laptop panel through WMI; None when it can't be set from here.
+/// The slider's level for the calling window's monitor: over DDC/CI, else its laptop panel through WMI; None when it can't be set from here.
 #[tauri::command]
 pub async fn brightness_get(window: tauri::WebviewWindow) -> Option<u8> {
     let monitor = notch_monitor(&window)?;
@@ -255,7 +256,7 @@ pub async fn brightness_get(window: tauri::WebviewWindow) -> Option<u8> {
     .flatten()
 }
 
-/// Sets the notch's monitor to `percent`.
+/// Sets the calling window's monitor to `percent`.
 #[tauri::command]
 pub async fn brightness_set(window: tauri::WebviewWindow, percent: u8) -> Result<(), String> {
     let monitor = notch_monitor(&window).ok_or("no-monitor")?;
