@@ -121,7 +121,12 @@ export function TaskbarWindow() {
   const tiles = shape === "tiles";
   // Too many apps for the room: narrower buttons, then the last ones behind "…", the app in front and those asking for attention kept
   // shown; and with too little room even for one app and "…", the tray's kept icons and then the widgets give way (fit.ts).
-  const fit = useAppFit(bar, { zones, shape, size, count: buttons.length, trayCount: trayVisible.length, primary });
+  // Stato's glyphs: one coming or going changes its width, and with none it draws nothing the fit could observe.
+  const glyphs = useSyncExternalStore(barStatus.subscribe, () => {
+    const s = barStatus.get();
+    return [s.network && netGlyph(s.network), soundGlyph(s.sound), batteryGlyph(s.power)].filter(Boolean).length;
+  });
+  const fit = useAppFit(bar, { zones, shape, size, count: buttons.length, trayCount: trayVisible.length, primary, glyphs });
   const kept = [...buttons.filter((b) => b.windows.some((w) => w.id === active)), ...buttons.filter((b) => indicator(b, active) === "attention")].map((b) => b.key);
   const shown = new Set(splitApps(buttons.map((b) => b.key), fit.mode === "overflow" ? fit.visible : buttons.length, kept).shown);
   const shownButtons = buttons.filter((b) => shown.has(b.key));
@@ -136,11 +141,6 @@ export function TaskbarWindow() {
   }, [fit.mode]);
   // Start, the apps, "…" and Crest grow as a dock's icons, by the pitch of the apps in use; widgets and tray icons only lift.
   const mag = reduced ? undefined : { pointer, unit: (narrow ? compactIcon(size) + COMPACT_PAD : size + 16) + (tiles ? LOOK.tileGap : 2), rise: labelRise(size, height) };
-  // Stato's glyphs: one coming or going changes its width.
-  const glyphs = useSyncExternalStore(barStatus.subscribe, () => {
-    const s = barStatus.get();
-    return [s.network && netGlyph(s.network), soundGlyph(s.sound), batteryGlyph(s.power)].filter(Boolean).length;
-  });
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
   // An open menu or panel holds the bar up, and so does an app asking for attention.
   const layout = `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${fit.mode}:${fit.visible}:${fit.trayBack}:${fit.hide}|${glyphs}`;

@@ -15,7 +15,7 @@ const same = (a: Fit, b: Fit) => a.mode === b.mode && a.visible === b.visible &&
  */
 export function useAppFit(
   bar: RefObject<HTMLElement | null>,
-  i: { zones: Record<Zone, BarItem[]>; shape: BarShape; size: number; count: number; trayCount: number; primary: boolean },
+  i: { zones: Record<Zone, BarItem[]>; shape: BarShape; size: number; count: number; trayCount: number; primary: boolean; glyphs: number },
 ): Fit {
   const widths = useRef(new Map<string, number>());
   const was = useRef<Fit | null>(null);
@@ -52,7 +52,7 @@ export function useAppFit(
     was.current = next;
     setFit((f) => (same(f, next) ? f : next));
   }, [bar]);
-  const key = `${JSON.stringify(i.zones)}|${i.shape}|${i.size}|${i.count}|${i.trayCount}|${i.primary}`;
+  const key = `${JSON.stringify(i.zones)}|${i.shape}|${i.size}|${i.count}|${i.trayCount}|${i.primary}|${i.glyphs}`;
   useLayoutEffect(() => {
     now.current = i;
     measure();
