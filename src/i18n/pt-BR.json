@@ -1862,5 +1862,7 @@
  "Verbinden": "Conectar",
  "Falsches Passwort": "Senha incorreta",
  "Netzwerk nicht erreichbar": "Rede fora de alcance",
- "Zeitüberschreitung": "Tempo esgotado"
+ "Zeitüberschreitung": "Tempo esgotado",
+ "Keine gekoppelten Geräte": "Nenhum dispositivo emparelhado",
+ "Verbunden · {p} %": "Conectado · {p}%"
 }

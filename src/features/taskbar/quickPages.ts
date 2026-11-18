@@ -76,3 +76,24 @@ export interface BtDevice {
   connected: boolean;
   battery: number | null;
 }
+
+/** What the Bluetooth page shows in place of its rows, or "list" when it lists them. */
+export type BtView = "off" | "loading" | "empty" | "list";
+
+/** The page's view from the radio and the last read (null before the first). */
+export function btView(on: boolean, devices: BtDevice[] | null): BtView {
+  if (!on) return "off";
+  if (devices === null) return "loading";
+  return devices.length ? "list" : "empty";
+}
+
+/** A device's caption as a t() key and its params: connected, with the battery when Windows has it; a paired one has none. */
+export function btLine(d: BtDevice): [string, Record<string, number>?] | null {
+  if (!d.connected) return null;
+  return d.battery === null ? ["Verbunden"] : ["Verbunden · {p} %", { p: d.battery }];
+}
+
+/** The rows the page asks room for: one per device, one for a line. */
+export function btRows(view: BtView, count: number): number {
+  return view === "list" ? count : 1;
+}

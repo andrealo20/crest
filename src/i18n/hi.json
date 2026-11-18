@@ -1862,5 +1862,7 @@
  "Verbinden": "कनेक्ट करें",
  "Falsches Passwort": "गलत पासवर्ड",
  "Netzwerk nicht erreichbar": "नेटवर्क पहुँच से बाहर",
- "Zeitüberschreitung": "समय समाप्त"
+ "Zeitüberschreitung": "समय समाप्त",
+ "Keine gekoppelten Geräte": "कोई युग्मित डिवाइस नहीं",
+ "Verbunden · {p} %": "कनेक्ट है · {p}%"
 }

@@ -1862,5 +1862,7 @@
  "Verbinden": "Se connecter",
  "Falsches Passwort": "Mot de passe incorrect",
  "Netzwerk nicht erreichbar": "Réseau hors de portée",
- "Zeitüberschreitung": "Délai dépassé"
+ "Zeitüberschreitung": "Délai dépassé",
+ "Keine gekoppelten Geräte": "Aucun appareil couplé",
+ "Verbunden · {p} %": "Connecté · {p} %"
 }

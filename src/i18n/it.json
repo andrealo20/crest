@@ -1862,5 +1862,7 @@
  "Verbinden": "Connetti",
  "Falsches Passwort": "Password errata",
  "Netzwerk nicht erreichbar": "Rete non raggiungibile",
- "Zeitüberschreitung": "Tempo scaduto"
+ "Zeitüberschreitung": "Tempo scaduto",
+ "Keine gekoppelten Geräte": "Nessun dispositivo associato",
+ "Verbunden · {p} %": "Connesso · {p}%"
 }

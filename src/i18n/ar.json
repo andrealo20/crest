@@ -1862,5 +1862,7 @@
  "Verbinden": "اتصال",
  "Falsches Passwort": "كلمة مرور خاطئة",
  "Netzwerk nicht erreichbar": "الشبكة خارج النطاق",
- "Zeitüberschreitung": "انتهت المهلة"
+ "Zeitüberschreitung": "انتهت المهلة",
+ "Keine gekoppelten Geräte": "لا توجد أجهزة مقترنة",
+ "Verbunden · {p} %": "متصل · {p}%"
 }

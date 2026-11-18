@@ -1862,5 +1862,7 @@
  "Verbinden": "Connect",
  "Falsches Passwort": "Wrong password",
  "Netzwerk nicht erreichbar": "Network out of reach",
- "Zeitüberschreitung": "Timed out"
+ "Zeitüberschreitung": "Timed out",
+ "Keine gekoppelten Geräte": "No paired devices",
+ "Verbunden · {p} %": "Connected · {p}%"
 }

@@ -1862,5 +1862,7 @@
  "Verbinden": "接続",
  "Falsches Passwort": "パスワードが正しくありません",
  "Netzwerk nicht erreichbar": "ネットワークが範囲外です",
- "Zeitüberschreitung": "タイムアウトしました"
+ "Zeitüberschreitung": "タイムアウトしました",
+ "Keine gekoppelten Geräte": "ペアリングされたデバイスはありません",
+ "Verbunden · {p} %": "接続済み · {p}%"
 }

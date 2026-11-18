@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { afterConnect, wifiAction, wifiRows, wifiView, type WifiNetwork } from "./quickPages.ts";
+import { afterConnect, btLine, btRows, btView, wifiAction, wifiRows, wifiView, type BtDevice, type WifiNetwork } from "./quickPages.ts";
 
 const net = (p: Partial<WifiNetwork>): WifiNetwork => ({ ssid: "Home", bars: 3, kind: "personal", saved: false, connected: false, ...p });
 
@@ -52,4 +52,21 @@ test("the Wi-Fi page keeps the password in the row's state alone: never logged, 
   for (const leak of ["console.", "localStorage", "sessionStorage", "createStore", "useRef(value", ".current = value", "setNote(value", "setFailed(value"]) {
     assert.ok(!src.includes(leak), `WifiPage.tsx must not contain ${leak}`);
   }
+});
+
+const dev = (p: Partial<BtDevice>): BtDevice => ({ id: "1", name: "Buds", categories: [], connected: false, battery: null, ...p });
+
+test("the Bluetooth page lists the paired devices once its radio is on and they are read", () => {
+  assert.equal(btView(false, [dev({})]), "off");
+  assert.equal(btView(true, null), "loading");
+  assert.equal(btView(true, []), "empty");
+  assert.equal(btView(true, [dev({})]), "list");
+  assert.equal(btRows("list", 3), 3);
+  assert.equal(btRows("empty", 0), 1);
+});
+
+test("a connected device says so with its battery, a paired one says nothing", () => {
+  assert.deepEqual(btLine(dev({ connected: true, battery: 80 })), ["Verbunden · {p} %", { p: 80 }]);
+  assert.deepEqual(btLine(dev({ connected: true })), ["Verbunden"]);
+  assert.equal(btLine(dev({})), null);
 });
