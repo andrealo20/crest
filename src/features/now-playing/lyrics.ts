@@ -135,19 +135,30 @@ const count = (on: boolean) => {
 };
 
 /**
- * Passes the song's lyrics to `done`, or null when no source could be reached; such a song is asked once more, when the network is
- * back or after OFFLINE_RETRY_MS. The bar's window asks no source: it passes what the cache holds, which the notch fills for a bar's
- * panel (followBar), and on a miss reads it again when the notch writes the song there. Returns the stop.
+ * Passes the song's lyrics to `done`, or the offline state when no source could be reached; such a song is asked once more, when the
+ * network is back or after OFFLINE_RETRY_MS. The bar's window asks no source: it passes what the cache holds, which the notch fills for
+ * a bar's panel (followBar), and on a miss reads it again when the notch writes the song there. Returns the stop.
  */
-function loadLyrics(key: string, np: NowPlaying, order: LyricSourceId[], done: (l: Lyrics | null) => void): () => void {
+function loadLyrics(key: string, np: NowPlaying, order: LyricSourceId[], done: (l: LyricsState) => void): () => void {
   if (!isNotchWindow) {
     const read = (e?: StorageEvent) => {
       const known = (!e || e.key === CACHE_PREFIX + key) && cache.get(key);
       if (known) done(fromEntry(known));
     };
+    // Offline the notch gives up on a song it has not cached and says so: the bar says it too, and waits again once back online.
+    const net = () => {
+      if (!cache.get(key)) done({ kind: navigator.onLine ? "loading" : "offline" });
+    };
     read();
+    if (!navigator.onLine) net();
     window.addEventListener("storage", read);
-    return () => window.removeEventListener("storage", read);
+    window.addEventListener("online", net);
+    window.addEventListener("offline", net);
+    return () => {
+      window.removeEventListener("storage", read);
+      window.removeEventListener("online", net);
+      window.removeEventListener("offline", net);
+    };
   }
   let alive = true, retried = false, timer = 0;
   const again = () => {
@@ -158,7 +169,7 @@ function loadLyrics(key: string, np: NowPlaying, order: LyricSourceId[], done: (
   const load = () =>
     void lyricsFor(key, np, order).then((l) => {
       if (!alive) return;
-      done(l);
+      done(l ?? { kind: "offline" });
       if (l || retried) return;
       retried = true;
       window.addEventListener("online", again);
@@ -181,7 +192,7 @@ export function useLyrics(np: NowPlaying | null, enabled: boolean): LyricsState 
   useEffect(() => {
     if (!key || !np) return;
     setState({ key, value: { kind: "loading" } });
-    return loadLyrics(key, np, order, (l) => setState({ key, value: l ?? { kind: "offline" } }));
+    return loadLyrics(key, np, order, (value) => setState({ key, value }));
   }, [key]);
   useEffect(() => {
     if (!key) return;
