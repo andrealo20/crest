@@ -4,7 +4,7 @@ import { btIcon } from "../../../notch/row/status";
 import { STATUS_ICON } from "../../../notch/row/statusIcons";
 import { taskbar } from "../../../platform/services";
 import { RadioSwitch, type SwitchJob } from "../../overview/QuickControls";
-import { quickPage } from "../panel";
+import { sizeQuickPage } from "../panel";
 import { PAGE_ROW } from "../panelModel";
 import { btLine, btRows, btView, type BtDevice } from "../quickPages";
 import { QuickPageFrame, away } from "./QuickPage";
@@ -21,7 +21,7 @@ export function BluetoothPage({ on, job }: { on: boolean; job: SwitchJob }) {
   }, [on]);
   useEffect(() => taskbar.onBluetooth(read), []);
 
-  useLayoutEffect(() => quickPage.set({ page: "bluetooth", rows: btRows(view, devices?.length ?? 0), extra: 0 }), [view, devices]);
+  useLayoutEffect(() => sizeQuickPage("bluetooth", btRows(view, devices?.length ?? 0), 0), [view, devices]);
 
   return (
     <QuickPageFrame

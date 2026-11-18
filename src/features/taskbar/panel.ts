@@ -26,6 +26,11 @@ export const quickLayout = createStore<{ radios: boolean; brightness: boolean; l
 /** The page open in the quick panel and the rows it asks room for (QUICK_PAGE_SIZE), null on the main page; the panel reopens on the main page. */
 export const quickPage = createStore<{ page: QuickPage; rows: number; extra: number } | null>(null);
 
+/** A page's rows, set only while that page is the open one: a page still playing its exit animation must not bring itself back. */
+export function sizeQuickPage(page: QuickPage, rows: number, extra: number): void {
+  if (quickPage.get()?.page === page) quickPage.set({ page, rows, extra });
+}
+
 /** While Windows' own prompt has the focus, the panel stays open when its window loses it. */
 export const panelHeld = createStore(false);
 

@@ -4,7 +4,7 @@ import { t } from "../../../i18n";
 import { taskbar } from "../../../platform/services";
 import { NetGlyph } from "../../../ui/glyphs";
 import { RadioSwitch, type SwitchJob } from "../../overview/QuickControls";
-import { panelHeld, quickPage } from "../panel";
+import { panelHeld, sizeQuickPage } from "../panel";
 import { PAGE_ROW, PASSWORD_ROW } from "../panelModel";
 import { afterConnect, wifiAction, wifiRows, wifiView, type WifiList, type WifiNetwork } from "../quickPages";
 import { barsGlyph } from "../statusModel";
@@ -69,7 +69,7 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
   };
   const connect = (n: WifiNetwork, password: string | null) => settle(n, taskbar.wifiConnect(n.ssid, password));
 
-  useLayoutEffect(() => quickPage.set({ page: "wifi", rows: wifiRows(view, list?.networks.length ?? 0), extra: open ? PASSWORD_ROW : 0 }), [view, list, open]);
+  useLayoutEffect(() => sizeQuickPage("wifi", wifiRows(view, list?.networks.length ?? 0), open ? PASSWORD_ROW : 0), [view, list, open]);
 
   const line = (text: string) => <p className="px-1 text-footnote text-label-2">{text}</p>;
   return (
