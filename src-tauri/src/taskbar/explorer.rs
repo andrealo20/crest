@@ -330,6 +330,8 @@ pub(crate) fn on_show(hwnd: HWND) -> bool {
     if rehide(scan.mode, taskbar) && !given_back(record_now()) && guarded(&mut scan) {
         let _ = unsafe { ShowWindowAsync(hwnd, SW_HIDE) };
     }
+    // Shown, it may have come ahead of the tray's spy: a post to the spy's thread, which raises itself (tray.rs).
+    super::tray::raise();
     true
 }
 
@@ -387,7 +389,7 @@ pub(crate) fn guard(pid: &str) -> i32 {
 }
 
 /// Explorer's process, from its desktop window rather than from a taskbar class another program can register too.
-fn shell_pid() -> u32 {
+pub(super) fn shell_pid() -> u32 {
     window_pid(unsafe { GetShellWindow() })
 }
 
@@ -397,17 +399,23 @@ fn is_explorers(hwnd: HWND, shell: u32) -> bool {
 
 /// Explorer's taskbars: the primary's `Shell_TrayWnd` and a `Shell_SecondaryTrayWnd` on each other monitor.
 fn taskbars(shell: u32) -> Vec<HWND> {
+    [w!("Shell_TrayWnd"), w!("Shell_SecondaryTrayWnd")].into_iter().flat_map(windows_of).filter(|&hwnd| is_explorers(hwnd, shell)).collect()
+}
+
+/// Every top-level window of `class`, front to back, hidden ones included.
+pub(super) fn windows_of(class: PCWSTR) -> Vec<HWND> {
     let mut found = Vec::new();
-    for class in [w!("Shell_TrayWnd"), w!("Shell_SecondaryTrayWnd")] {
-        let mut after = None;
-        while let Ok(hwnd) = unsafe { FindWindowExW(None, after, class, PCWSTR::null()) } {
-            after = Some(hwnd);
-            if is_explorers(hwnd, shell) {
-                found.push(hwnd);
-            }
-        }
+    while let Ok(hwnd) = unsafe { FindWindowExW(None, found.last().copied(), class, PCWSTR::null()) } {
+        found.push(hwnd);
     }
     found
+}
+
+/// Explorer's own `Shell_TrayWnd`, by the shell's process: where the tray's spy passes every message on (tray.rs), never
+/// another program's. None while Explorer has none (it is restarting).
+pub(crate) fn explorer_tray() -> Option<HWND> {
+    let shell = shell_pid();
+    windows_of(w!("Shell_TrayWnd")).into_iter().find(|&hwnd| is_explorers(hwnd, shell))
 }
 
 /// Shows or hides the taskbars without waiting on Explorer; `SW_SHOWNA` leaves the keyboard where it is.
@@ -417,10 +425,18 @@ fn post(taskbars: &[HWND], how: SHOW_WINDOW_CMD) {
     }
 }
 
+/// Whether `SHAppBarMessage` reaches Explorer from the first `Shell_TrayWnd`: it is Explorer's own, or the tray's spy, which
+/// passes the call on to Explorer (tray.rs).
+fn appbar_ok(explorers: bool, spy: bool) -> bool {
+    explorers || spy
+}
+
 /// Explorer's taskbar if `SHAppBarMessage` reaches it: that call finds its target by the class `Shell_TrayWnd`, whatever `hWnd`
-/// says, and another program's can come first. None: Crest makes no appbar call.
+/// says, and another program's can come first (`appbar_ok`). Explorer's own window even with the spy first, so `hWnd` names it.
+/// None: Crest makes no appbar call.
 fn appbar_taskbar(shell: u32) -> Option<HWND> {
-    unsafe { FindWindowW(w!("Shell_TrayWnd"), None) }.ok().filter(|&hwnd| is_explorers(hwnd, shell))
+    let first = unsafe { FindWindowW(w!("Shell_TrayWnd"), None) }.ok()?;
+    if appbar_ok(is_explorers(first, shell), super::tray::is_spy(first)) { explorer_tray() } else { None }
 }
 
 /// `SHAppBarMessage` to Explorer's taskbar `hwnd` (`appbar_taskbar`), with `state` for `ABM_SETSTATE`.
@@ -519,6 +535,13 @@ mod tests {
         assert!(!on_taskbar_created()); // taken: nothing done, the thread tries again
         drop(held);
         assert!(on_taskbar_created()); // free, and nothing hidden: done
+    }
+
+    #[test]
+    fn the_spy_answers_for_explorer_appbar_calls() {
+        assert!(appbar_ok(true, false));
+        assert!(appbar_ok(false, true));
+        assert!(!appbar_ok(false, false));
     }
 
     #[test]

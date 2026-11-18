@@ -3,12 +3,14 @@
 //! The wire format of the tray: what apps send to `Shell_TrayWnd` in `WM_COPYDATA` (`Shell_NotifyIcon`, the icon position
 //! request) and what Crest sends back to them. Pure: explicit little-endian reads with bounds checks, no window, no Win32 calls.
 //! The handle fields are 32 bits on x64 and ARM64 alike, so one layout covers both.
-// Used by the spy window and the icon store, which come in later commits; drop this then.
+// The icon store uses the rest, in a later commit; drop this then.
 #![allow(dead_code)]
 
 use windows::core::GUID;
 use windows::Win32::Foundation::RECT;
-use windows::Win32::UI::Shell::{NIF_GUID, NIF_ICON, NIF_MESSAGE, NIF_STATE, NIF_TIP, NIN_SELECT, NIS_HIDDEN};
+use windows::Win32::UI::Shell::{
+    ABM_GETTASKBARPOS, ABM_QUERYPOS, ABM_SETPOS, NIF_GUID, NIF_ICON, NIF_MESSAGE, NIF_STATE, NIF_TIP, NIN_SELECT, NIS_HIDDEN,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     WM_ACTIVATEAPP, WM_COMMAND, WM_CONTEXTMENU, WM_COPYDATA, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_USER,
 };
@@ -23,6 +25,13 @@ const ICON_LEN: usize = 8 + 952;
 const RECT_LEN: usize = 40;
 /// The first registered message number: registered messages are not forwarded.
 const REGISTERED: u32 = 0xC000;
+/// An appbar call's payload (dwData 0), the same from 32- and 64-bit apps: the 40-byte `APPBARDATA` with 32-bit handles, the
+/// message at 40, then the shared memory that carries the answer, its handle (64 bits) at 48 and its process at 56.
+const APPBAR_LEN: usize = 64;
+const SHARED_AT: usize = 48;
+const PID_AT: usize = 56;
+/// The `APPBARDATA` in that payload and in the shared memory.
+pub(crate) const ABD_LEN: usize = 40;
 
 /// What an app asked of the icon.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -120,7 +129,7 @@ fn parse_icon(b: &[u8]) -> Option<Msg> {
     let n = 8; // the NOTIFYICONDATA
     let (hwnd, uid, flags) = (u32_at(b, n + 4)?, u32_at(b, n + 8)?, u32_at(b, n + 12)?);
     let has = |f: u32| flags & f != 0;
-    let key = if has(NIF_GUID.0) { IconKey::Guid(guid_at(b, n + 936)?) } else { IconKey::Id { hwnd, uid } };
+    let key = key(if has(NIF_GUID.0) { guid_at(b, n + 936)? } else { GUID::zeroed() }, hwnd, uid);
     // The state counts only for the bits the mask names.
     let hidden = if has(NIF_STATE.0) && u32_at(b, n + 284)? & NIS_HIDDEN.0 != 0 { Some(u32_at(b, n + 280)? & NIS_HIDDEN.0 != 0) } else { None };
     Some(Msg::Icon(
@@ -144,9 +153,12 @@ fn parse_rect(b: &[u8]) -> Option<Msg> {
         return None;
     }
     let (corner, hwnd, uid) = (u32_at(b, 4)?, u32_at(b, 16)?, u32_at(b, 20)?);
-    let guid = guid_at(b, 24)?;
-    let key = if guid == GUID::zeroed() { IconKey::Id { hwnd, uid } } else { IconKey::Guid(guid) };
-    Some(Msg::GetRect { key, corner })
+    Some(Msg::GetRect { key: key(guid_at(b, 24)?, hwnd, uid), corner })
+}
+
+/// An icon's key: a zero GUID is none, so a request and the icon it names key alike.
+fn key(guid: GUID, hwnd: u32, uid: u32) -> IconKey {
+    if guid == GUID::zeroed() { IconKey::Id { hwnd, uid } } else { IconKey::Guid(guid) }
 }
 
 /// A name for an icon that survives restarts: its GUID in braces, else the exe (lower case) and the id.
@@ -184,10 +196,28 @@ pub(crate) fn callback_args(version: u32, uid: u32, msg: u32, x: i32, y: i32) ->
     }
 }
 
-/// The reply to the position request: the rect's corner as two signed 16-bit halves (x low, y high).
+/// The reply to the position request: the rect's corner as two signed 16-bit halves (x low, y high), widened from 32 bits with
+/// its sign as ManagedShell's `MakeLParam`.
 pub(crate) fn rect_reply(corner: u32, rect: RECT) -> isize {
     let (x, y) = if corner == 1 { (rect.left, rect.top) } else { (rect.right, rect.bottom) };
-    ((x as u32 & 0xFFFF) | (y as u32 & 0xFFFF) << 16) as isize
+    ((x as u32 & 0xFFFF) | (y as u32 & 0xFFFF) << 16) as i32 as isize
+}
+
+/// The shared memory of an appbar call that answers through it (`ABM_QUERYPOS`, `ABM_SETPOS`, `ABM_GETTASKBARPOS`): its handle
+/// and the process it was made for. None for the other calls and for a payload of another layout.
+pub(crate) fn appbar_shared(b: &[u8]) -> Option<(u64, u32)> {
+    if b.len() != APPBAR_LEN || u32_at(b, 0)? != ABD_LEN as u32 || !matches!(u32_at(b, 40)?, ABM_QUERYPOS | ABM_SETPOS | ABM_GETTASKBARPOS) {
+        return None;
+    }
+    Some((u64::from_le_bytes(b[SHARED_AT..SHARED_AT + 8].try_into().ok()?), u32_at(b, PID_AT)?))
+}
+
+/// A payload `appbar_shared` accepted, with its shared memory moved to `handle` made for process `pid`.
+pub(crate) fn reshare(b: &[u8], handle: u64, pid: u32) -> Vec<u8> {
+    let mut b = b.to_vec();
+    b[SHARED_AT..SHARED_AT + 8].copy_from_slice(&handle.to_le_bytes());
+    b[PID_AT..PID_AT + 4].copy_from_slice(&pid.to_le_bytes());
+    b
 }
 
 /// Whether the spy passes a message on to Explorer: copy data, activation, commands and the user range; never registered
@@ -199,6 +229,7 @@ pub(crate) fn forwards(msg: u32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use windows::Win32::UI::Shell::ABM_GETSTATE;
     use windows::Win32::UI::WindowsAndMessaging::{WM_PAINT, WM_TIMER};
 
     fn put(b: &mut [u8], at: usize, v: u32) {
@@ -257,6 +288,9 @@ mod tests {
         let (_, d) = icon(parse(1, &b));
         assert_eq!(d.key, IconKey::Guid(GUID::from_values(1, 2, 3, [4, 5, 6, 7, 8, 9, 10, 11])));
         assert_eq!((d.hwnd, d.uid), (0x1234, 7));
+        // A zero GUID is no GUID: the same key as the position request gives that icon.
+        let zero = icon_bytes(1, NIF_GUID.0);
+        assert_eq!(icon(parse(1, &zero)).1.key, IconKey::Id { hwnd: 0x1234, uid: 7 });
     }
 
     #[test]
@@ -312,6 +346,24 @@ mod tests {
         let unpack = |r: isize| (r as i16 as i32, (r >> 16) as i16 as i32);
         assert_eq!(unpack(rect_reply(1, rect)), (-30, 40));
         assert_eq!(unpack(rect_reply(2, rect)), (50, 60));
+        // A y above the primary monitor makes the whole reply negative, as a 32-bit LPARAM widened by the system.
+        assert_eq!(rect_reply(1, RECT { left: 5, top: -2, right: 0, bottom: 0 }), ((-2i32 << 16) | 5) as isize);
+    }
+
+    #[test]
+    fn an_appbar_position_call_names_its_shared_memory() {
+        let mut b = vec![0u8; APPBAR_LEN];
+        put(&mut b, 0, ABD_LEN as u32);
+        b[SHARED_AT..SHARED_AT + 8].copy_from_slice(&0x1_2345_6789u64.to_le_bytes());
+        put(&mut b, PID_AT, 77);
+        for m in [ABM_QUERYPOS, ABM_SETPOS, ABM_GETTASKBARPOS] {
+            put(&mut b, 40, m);
+            assert_eq!(appbar_shared(&b), Some((0x1_2345_6789, 77)));
+        }
+        assert_eq!(appbar_shared(&reshare(&b, 0x42, 9)), Some((0x42, 9)));
+        assert_eq!(appbar_shared(&b[..APPBAR_LEN - 1]), None);
+        put(&mut b, 40, ABM_GETSTATE); // answered in the return value alone
+        assert_eq!(appbar_shared(&b), None);
     }
 
     #[test]
