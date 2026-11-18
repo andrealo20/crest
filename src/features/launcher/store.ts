@@ -53,14 +53,21 @@ export function loadApps(refresh = false): Promise<void> {
   return loading;
 }
 
+/** Ids asked of Rust whose answer has not come yet, not asked again meanwhile: overlapping calls would make the shell extract the same icons twice. */
+const asking = new Set<string>();
+
 /** Fetches the icons of these ids that are not known yet. */
 export function useIcons(ids: string[]) {
   const key = ids.join("\n");
   useEffect(() => {
     const known = launcherIcons.get();
-    const missing = ids.filter((id) => !(id in known));
+    const missing = ids.filter((id) => !(id in known) && !asking.has(id));
     if (!missing.length) return;
-    void launcher.icons(missing).then((icons) => launcherIcons.set((s) => ({ ...s, ...icons })), () => {});
+    for (const id of missing) asking.add(id);
+    void launcher
+      .icons(missing)
+      .then((icons) => launcherIcons.set((s) => ({ ...s, ...icons })), () => {})
+      .finally(() => missing.forEach((id) => asking.delete(id)));
   }, [key]);
   return launcherIcons.use();
 }
