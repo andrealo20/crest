@@ -8,7 +8,7 @@ import { isNative } from "../../../platform/native";
 import { startThemes } from "../../themes/store";
 import { startCrashLog } from "../../window/store";
 import { followNotch, startBarWindows } from "../store";
-import { TaskbarWindow } from "./TaskbarWindow";
+import { TaskbarWindow, primary } from "./TaskbarWindow";
 
 /*
  * Entry of the bar's window (taskbar.html, src-tauri/src/taskbar/bar.rs). Loads the settings and the open windows, nothing the
@@ -35,7 +35,8 @@ window.addEventListener("keydown", (e) => {
 });
 
 startBarWindows();
-followNotch();
+// The notch sends its data to the primary bar only; another bar's hello would have it send everything there again.
+if (primary) followNotch();
 // In the browser no notch feeds the widgets: sample data, in dev only, so they can be checked as they draw.
 if (import.meta.env.DEV && !isNative) void import("../../../dev/barSample").then((m) => m.fillSample());
 

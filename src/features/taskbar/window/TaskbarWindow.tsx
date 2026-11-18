@@ -28,8 +28,8 @@ const ZONES: [Zone, string][] = [
   ["center", "justify-center"],
   ["right", "justify-end"],
 ];
-/** Widgets draw on the primary bar only, the window labelled `taskbar`; the bars on other monitors skip them. */
-const primary = !isNative || getCurrentWebviewWindow().label === "taskbar";
+/** The primary bar, the window labelled `taskbar`: only it draws widgets and follows the notch (main.tsx); the bars on other monitors skip both. */
+export const primary = !isNative || getCurrentWebviewWindow().label === "taskbar";
 
 /** What a menu lists: an app's right-click menu, an app's windows (as they were when it opened), or the Crest menu. */
 type Menu = { kind: "app" | "list"; b: BarButton } | { kind: "crest" };
