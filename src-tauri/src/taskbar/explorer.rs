@@ -652,8 +652,12 @@ mod tests {
         assert!(!died_at_once(Duration::from_secs(2)) && !died_at_once(Duration::from_secs(600))); // ended from Task Manager later: started again
     }
 
+    /// The tests that hold `SCAN` take this first: run in parallel, one's "free" check could meet the other's held lock.
+    static SCAN_TESTS: Mutex<()> = Mutex::new(());
+
     #[test]
     fn the_taskbar_thread_never_waits_for_the_lock() {
+        let _serial = SCAN_TESTS.lock().unwrap_or_else(|e| e.into_inner());
         let held = lock();
         assert!(!on_taskbar_created()); // taken: nothing done, the thread tries again
         drop(held);
@@ -662,6 +666,7 @@ mod tests {
 
     #[test]
     fn the_appbar_calls_never_wait_for_the_lock() {
+        let _serial = SCAN_TESTS.lock().unwrap_or_else(|e| e.into_inner());
         let held = lock();
         assert!(try_locked(|_| ()).is_none()); // taken: the bar's thread defers
         drop(held);

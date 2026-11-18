@@ -110,7 +110,7 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
     let reachable = explorer::appbar_reachable();
     let (docked, band_css) = *WISH.lock().unwrap_or_else(|e| e.into_inner());
     let wanted = reserves(docked, front::auto_hide(), reachable) && hiding;
-    let bars: Vec<(String, RECT, i32)> = screens::all()
+    let mut bars: Vec<(String, RECT, i32)> = screens::all()
         .into_iter()
         .filter_map(|(label, hwnd)| {
             let hwnd = HWND(hwnd as _);
@@ -118,6 +118,7 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
             Some((label, monitor, band_px(band_css, unsafe { GetDpiForWindow(hwnd) })))
         })
         .collect();
+    one_per_monitor(&mut bars);
     let path = explorer::appbars_path();
     // A record gone while helpers are held was removed by a restore (another process's, or this one's Off), with them.
     let listed = path.as_deref().is_some_and(Path::exists);
@@ -275,6 +276,17 @@ pub(crate) fn step(wanted: bool, registered: bool, reachable: bool) -> Step {
     }
 }
 
+/// Keeps the first bar of each monitor (`screens::all` lists the primary first). An unplugged monitor's bar sits on the monitor
+/// Windows moved its window to until `screens` takes it down: it counts as gone, so it never stacks a second strip there.
+pub(crate) fn one_per_monitor(bars: &mut Vec<(String, RECT, i32)>) {
+    let mut seen = Vec::new();
+    bars.retain(|(_, monitor, _)| {
+        let first = !seen.contains(monitor);
+        seen.push(*monitor);
+        first
+    });
+}
+
 /// The bar's height in physical px on a monitor of this dpi.
 pub(crate) fn band_px(height_css: f64, dpi: u32) -> i32 {
     (height_css * dpi as f64 / 96.0).round() as i32
@@ -349,5 +361,17 @@ mod tests {
         assert_eq!(parse_hwnds(&format_hwnds(&[4660, 22136])), vec![4660, 22136]);
         assert_eq!(parse_hwnds("12\n\nx\n0\n 7 \n"), vec![12, 7]); // blank, text and null lines skipped
         assert!(parse_hwnds("").is_empty());
+    }
+
+    #[test]
+    fn a_bar_on_a_monitor_already_listed_counts_as_gone() {
+        let primary = RECT { left: 0, top: 0, right: 1920, bottom: 1080 };
+        let right = RECT { left: 1920, top: 0, right: 3840, bottom: 1080 };
+        let mut bars = vec![("taskbar".to_owned(), primary, 44), ("taskbar-1".to_owned(), right, 44)];
+        one_per_monitor(&mut bars);
+        assert_eq!(bars.len(), 2);
+        bars[1].1 = primary; // its monitor unplugged: Windows moved the window onto the primary
+        one_per_monitor(&mut bars);
+        assert_eq!(bars, vec![("taskbar".to_owned(), primary, 44)]); // the primary's own bar, listed first, keeps the strip
     }
 }
