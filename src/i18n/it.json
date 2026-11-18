@@ -1827,5 +1827,7 @@
  "Infobereich": "Area di notifica",
  "Ausgeblendete Symbole anzeigen": "Mostra icone nascoste",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Un altro programma gestisce le icone della barra.",
- "Keine ausgeblendeten Symbole": "Nessuna icona nascosta"
+ "Keine ausgeblendeten Symbole": "Nessuna icona nascosta",
+ "{n} weitere App": "{n} altra app",
+ "{n} weitere Apps": "Altre {n} app"
 }

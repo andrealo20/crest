@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { DotsThree } from "@phosphor-icons/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { springs } from "../../../design/motion";
 import { t } from "../../../i18n";
@@ -14,11 +15,12 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
 import { zones as hitZones, type Rect } from "../autoHide";
-import { barButtons, clickAction, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
+import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
 import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, type Box } from "../look";
 import { closePanel, panel, togglePanel } from "../panel";
 import { barShown, barWindows, groupIcons } from "../store";
-import { trayState } from "../tray";
+import { splitApps } from "../fit";
+import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
 import { isWidget, widgetTool } from "../widgets";
 import { BarGlass, useBarSurface } from "./BarGlass";
@@ -28,6 +30,7 @@ import { BarPanel } from "./BarPanel";
 import { holdBriefly } from "./hold";
 import { Item, MARK } from "./Item";
 import { Tray, TrayDrop } from "./Tray";
+import { useAppFit } from "./useAppFit";
 import { useAutoHide } from "./useAutoHide";
 import { WidgetItem } from "./Widget";
 
@@ -107,9 +110,21 @@ export function TaskbarWindow() {
   const markAt = Math.round(((height - size) / 2 - MARK) / 2);
   const gap = barGap(shape);
   const tiles = shape === "tiles";
+  // Too many apps for the room: narrower buttons, then the last ones behind "…", the app in front and those asking for attention kept
+  // shown; and with too little room even for one app and "…", the tray's kept icons and then the widgets give way (fit.ts).
+  const fit = useAppFit(bar, { zones, shape, size, count: buttons.length, trayCount: trayVisible.length, primary });
+  const kept = [...buttons.filter((b) => b.windows.some((w) => w.id === active)), ...buttons.filter((b) => indicator(b, active) === "attention")].map((b) => b.key);
+  const shown = new Set(splitApps(buttons.map((b) => b.key), fit.mode === "overflow" ? fit.visible : buttons.length, kept).shown);
+  const shownButtons = buttons.filter((b) => shown.has(b.key));
+  const hiddenButtons = buttons.filter((b) => !shown.has(b.key));
+  const narrow = fit.mode !== "full";
+  const appIcon = narrow ? compactIcon(size) : size;
+  const appWidth = narrow ? compactIcon(size) + COMPACT_PAD : undefined;
+  useEffect(() => trayFolded.set(fit.trayBack), [fit.trayBack]);
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
   // An open menu or panel holds the bar up, and so does an app asking for attention.
-  const { down, place: placeMenuZone } = useHitZone(bar, shape, setBoxes, `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}`, {
+  const layout = `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${fit.mode}:${fit.visible}:${fit.trayBack}:${fit.hide}`;
+  const { down, place: placeMenuZone } = useHitZone(bar, shape, setBoxes, layout, {
     open: menu !== null || open !== null,
     attention: buttons.some((b) => indicator(b, active) === "attention"),
   });
@@ -176,6 +191,7 @@ export function TaskbarWindow() {
       return (
         <Item
           {...item("start", t("Startmenü"))}
+          kind="start"
           tile={tile()}
           // Windows' own Start and its Win+X menu, the bar held up while they come to the front; Windows may refuse, and nothing changes then.
           onClick={() => {
@@ -191,30 +207,54 @@ export function TaskbarWindow() {
           <WindowsMark size={Math.round(size * 0.72)} />
         </Item>
       );
-    if (id === "apps")
-      return buttons.map((b) => {
+    if (id === "apps") {
+      const apps = shownButtons.map((b) => {
         const entry = launchId(b);
         return (
           <Item
             key={b.key}
             {...item(b.key, b.name)}
             tile={tile()}
+            width={appWidth}
             mark={indicator(b, active)}
             onClick={(e) => click(b, e.currentTarget)}
             onContextMenu={(e) => toggle({ kind: "app", b }, e.currentTarget)}
           >
-            <AppIcon src={entry === null ? ownIcons[b.key] : icons[entry]} size={size} />
+            <AppIcon src={entry === null ? ownIcons[b.key] : icons[entry]} size={appIcon} />
           </Item>
         );
       });
+      if (fit.mode !== "overflow") return apps;
+      const n = hiddenButtons.length;
+      // A launch from the panel that failed shows here, as its app has no button of its own on the bar.
+      const failed = error !== null && hiddenButtons.some((b) => b.key === error.key);
+      return [
+        ...apps,
+        <Item
+          key="apps-more"
+          {...item("apps-more", t(n === 1 ? "{n} weitere App" : "{n} weitere Apps", { n }))}
+          {...(failed && { label: menu || open ? null : error.text, failed })}
+          tile={tile()}
+          width={appWidth}
+          // Open or asking for attention, as one app with every hidden app's windows.
+          mark={indicator({ key: "", name: "", pin: null, pins: [], windows: hiddenButtons.flatMap((b) => b.windows) }, active)}
+          expanded={false}
+          onClick={() => {}}
+          // No menu of its own, as ^: the Crest menu over the pointer.
+          onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
+        >
+          <DotsThree size={appIcon} weight="bold" />
+        </Item>,
+      ];
+    }
     if (isWidget(id)) {
-      if (!primary) return null;
+      if (!primary || fit.hide.includes(id)) return null;
       const tool = widgetTool(id);
       return (
         <WidgetItem
           id={id}
           // A widget that opens a tool says whether the panel shows it, so a press on it is left to its click and the panel moves in place.
-          item={{ ...item(id, t(partInfo[id].label)), tile: tile(), expanded: tool === null ? undefined : open?.content.kind === "tool" && open.content.tool === tool }}
+          item={{ ...item(id, t(partInfo[id].label)), kind: id, tile: tile(), expanded: tool === null ? undefined : open?.content.kind === "tool" && open.content.tool === tool }}
           paused={paused}
           onClick={(e) => clickWidget(id, e.currentTarget)}
           // No menu of its own: the Crest menu over the pointer, as beside the buttons.
@@ -225,7 +265,7 @@ export function TaskbarWindow() {
     if (id === "tray")
       return (
         <Tray
-          visible={trayVisible}
+          visible={fit.trayBack ? [] : trayVisible}
           size={size}
           item={item}
           tile={tile}
@@ -237,7 +277,7 @@ export function TaskbarWindow() {
       );
     if (id === "crest")
       return (
-        <Item {...item("crest", t("Crest-Menü"))} tile={tile()} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
+        <Item {...item("crest", t("Crest-Menü"))} kind="crest" tile={tile()} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
           <CrestMark size={size} />
         </Item>
       );
@@ -274,7 +314,8 @@ export function TaskbarWindow() {
               style={{ height, borderRadius: barRadius(shape, height), background: tiles ? undefined : look.background }}
             >
               {ZONES.map(([zone, justify]) => (
-                <div key={zone} className={`flex min-w-0 gap-0.5 ${justify}`} style={tiles ? { gap: LOOK.tileGap } : undefined}>
+                // A side zone holding the apps grows to them and moves the centre aside; the fit leaves the other side its room.
+                <div key={zone} className={`flex gap-0.5 ${justify} ${zone !== "center" && zones[zone].includes("apps") ? "" : "min-w-0"}`} style={tiles ? { gap: LOOK.tileGap } : undefined}>
                   {zones[zone].map((id) => (
                     <Fragment key={id}>{render(id)}</Fragment>
                   ))}

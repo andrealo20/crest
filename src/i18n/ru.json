@@ -1827,5 +1827,7 @@
  "Infobereich": "Область уведомлений",
  "Ausgeblendete Symbole anzeigen": "Показать скрытые значки",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Значками панели задач управляет другая программа.",
- "Keine ausgeblendeten Symbole": "Нет скрытых значков"
+ "Keine ausgeblendeten Symbole": "Нет скрытых значков",
+ "{n} weitere App": "Ещё {n} приложение",
+ "{n} weitere Apps": "Ещё приложений: {n}"
 }

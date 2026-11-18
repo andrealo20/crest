@@ -14,7 +14,7 @@ import { limits } from "../../window/panelSize";
 import { fitIcon, placeMenu } from "../model";
 import { closePanel, panel, trayDrag, type OpenPanel, type PanelContent } from "../panel";
 import { PANEL_EDGE, PANEL_GAP, TOOL_FALLBACK, TRAY_SIZE, fitPanel, toolPanelSize } from "../panelModel";
-import { trayState } from "../tray";
+import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
 import type { HitRect } from "./BarMenu";
 import { TOOL_TITLE_ID, ToolPanel, useTabs } from "./ToolPanel";
@@ -51,7 +51,8 @@ function usePanelSize(shows: PanelContent): { w: number; h: number } | null {
   const extra = sizeExtra.use();
   const { height, iconSize, trayShown } = settings.use().taskbar;
   const { icons } = trayState.use();
-  if (shows.kind === "tray") return TRAY_SIZE(fitIcon(height, iconSize), splitTray(icons, trayShown).hidden.length);
+  const folded = trayFolded.use();
+  if (shows.kind === "tray") return TRAY_SIZE(fitIcon(height, iconSize), (folded ? icons : splitTray(icons, trayShown).hidden).length);
   if (!tab) return null;
   // The notch's own rule (Notch.tsx): the tool's runtime request wins over the size it was given, an extra height rides on top of
   // that size, and both are held to the monitor.

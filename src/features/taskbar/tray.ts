@@ -8,6 +8,9 @@ export const trayState = createStore<TrayState>({ yielded: false, icons: [] });
 /** In the bar's window: the pictures fetched so far, by `TrayIcon.img`; a key Rust could not answer is not here, so it is asked again. */
 export const trayPictures = createStore<Record<string, string>>({});
 
+/** In the bar's window: the bar has too little room even for the tray's kept icons, so they are back behind ^ and its panel lists every icon. */
+export const trayFolded = createStore(false);
+
 const asked = new Set<string>();
 
 /** Asks Rust for the pictures the icons now listed lack, once per key at a time, and drops those no icon shows any more. */

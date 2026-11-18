@@ -1827,5 +1827,7 @@
  "Infobereich": "Zone de notification",
  "Ausgeblendete Symbole anzeigen": "Afficher les icônes cachées",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Un autre programme gère les icônes de la barre des tâches.",
- "Keine ausgeblendeten Symbole": "Aucune icône cachée"
+ "Keine ausgeblendeten Symbole": "Aucune icône cachée",
+ "{n} weitere App": "{n} autre app",
+ "{n} weitere Apps": "{n} autres apps"
 }

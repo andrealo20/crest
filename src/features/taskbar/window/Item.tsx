@@ -19,6 +19,8 @@ export function Item(props: {
   tile?: { background: string; radius: number };
   /** An item that opens the panel above the bar: whether the panel shows what it opens. */
   expanded?: boolean;
+  /** What the item is (`data-kind`): the bar measures each item other than the apps by it, as it fits the apps (useAppFit). */
+  kind?: string;
   /** A tray icon kept visible: its place among them (`data-tray`). */
   tray?: number;
   ref?: Ref<HTMLButtonElement>;
@@ -45,6 +47,7 @@ export function Item(props: {
       aria-haspopup={props.expanded === undefined ? undefined : "dialog"}
       aria-expanded={props.expanded}
       aria-describedby={props.describedBy}
+      data-kind={props.kind}
       data-tray={props.tray}
       onPointerEnter={props.onEnter}
       onPointerLeave={props.onLeave}
