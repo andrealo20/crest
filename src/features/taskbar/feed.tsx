@@ -43,7 +43,7 @@ const barMedia = createStore(false);
 /** The Windows app only: shares the widgets' data with the bar from its hello on, the panel's stores while the panel shows a tool, and follows whether the bar shows. */
 export function startBarShare() {
   if (!isNative || isMac) return;
-  // Not for the app menu alone: the panel's raw stores go to the bar only while a tool shows there.
+  // The panel's raw stores go to the bar only while a tool shows there.
   barPanels.subscribe(() => panelOpen.set(anyBarTool()));
   onBarShows("media", (on) => barMedia.set(on));
   shareStores(tauriTransport, feedStores, { to: "taskbar", hello: "bar://hello" });

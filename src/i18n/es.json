@@ -1798,10 +1798,7 @@
  "Angeheftete Apps": "Apps ancladas",
  "Symbolgröße": "Tamaño de los iconos",
  "Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "Oculta la barra de tareas de Windows y muestra la de Crest en cada pantalla. Al desactivarla, o cuando Crest se cierra, vuelve la de Windows",
- "Ausblenden, wenn ein Fenster sie berührt": "Ocultar cuando una ventana la toca",
- "Die Leiste gleitet aus dem Bildschirm, solange das Fenster vorne sie berührt, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "La barra se desliza fuera de la pantalla mientras la ventana en primer plano la toca, y vuelve cuando el puntero toca el borde inferior",
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "El volumen, la red, la batería y las notificaciones están en Win+A y Win+N",
- "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Ancla una app con clic derecho sobre ella en la barra de tareas",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Notch: como el notch cerrado. Tema: el color de fondo del tema",
  "Farben und Thema gelten auch für die Taskleiste": "Los colores y el tema también se aplican a la barra de tareas",
  "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "Muestra en vivo lo que hay detrás de la barra de tareas, hasta 10 veces por segundo. Mientras está activado, la barra de tareas no aparece en capturas de pantalla, grabaciones ni al compartir pantalla.",
@@ -1811,7 +1808,6 @@
  "Kacheln": "Mosaicos",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "Como cápsula, la barra de tareas pone las tres zonas en fila en el centro: izquierda, centro, derecha. Las zonas de aquí no cambian",
  "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "Refracción, Esmerilado y Luz del borde también se aplican al notch",
- "App-Menü": "Menú de apps",
  "Dateien legst du auf der Notch ab": "Suelta los archivos sobre el notch",
  "Widget hinzufügen": "Añadir widget",
  "Gilt auch für die Notch": "También se aplica al notch",
@@ -1820,5 +1816,12 @@
  "Von Windows übernehmen": "Importar de Windows",
  "Wirklich ersetzen?": "¿Seguro que quieres reemplazarlas?",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "No hay ninguna app anclada en la barra de tareas de Windows",
- "Die Apps von Windows lassen sich gerade nicht lesen": "No se pueden leer las apps de Windows ahora"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "No se pueden leer las apps de Windows ahora",
+ "Widget hinzufügen …": "Añadir widget …",
+ "Automatisch ausblenden": "Ocultar automáticamente",
+ "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "La barra se oculta cuando una ventana la toca, por ejemplo una maximizada, y vuelve cuando el puntero toca el borde inferior.",
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "En un monitor la barra no puede ocultarse: allí el área de trabajo termina por encima del borde, o hay otro monitor debajo",
+ "Startmenü": "Inicio",
+ "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "Inicio se abre donde Windows lo coloca, según la alineación de su barra de tareas",
+ "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "Ancla una app desde el Inicio de Windows o con clic derecho sobre una app abierta en la barra de tareas"
 }

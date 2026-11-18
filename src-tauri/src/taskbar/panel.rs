@@ -10,7 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 /// What the bridge may refresh (`REFRESH` in src/lib/bridge.ts).
 const REFRESH: [&str; 8] = ["usage", "github", "leetcode", "calendar", "discord", "plugins", "offline", "notices"];
 
-/// What the bar's panel shows: "apps", a tool's id, or None once it closes.
+/// What the bar's panel shows: a tool's id, or None once it closes.
 #[tauri::command]
 pub fn taskbar_panel(open: Option<String>, window: WebviewWindow) -> Result<(), String> {
     if !panel_open(open.as_deref()) {
@@ -26,7 +26,7 @@ pub fn taskbar_ask(action: Value, app: AppHandle) -> Result<(), String> {
     app.emit_to("notch", "bridge://action", action).map_err(|e| e.to_string())
 }
 
-/// None, or an id of 1 to 64 ASCII letters, digits, `-`, `_` and `:` ("apps", "media", "plugin:x").
+/// None, or an id of 1 to 64 ASCII letters, digits, `-`, `_` and `:` ("media", "plugin:x").
 pub(crate) fn panel_open(open: Option<&str>) -> bool {
     open.is_none_or(|id| (1..=64).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_:".contains(&b)))
 }
@@ -97,8 +97,8 @@ mod tests {
     }
 
     #[test]
-    fn a_panel_names_apps_or_a_tool() {
-        assert!(panel_open(None) && panel_open(Some("apps")) && panel_open(Some("media")) && panel_open(Some("plugin:x_y-1")));
+    fn a_panel_names_a_tool() {
+        assert!(panel_open(None) && panel_open(Some("media")) && panel_open(Some("plugin:x_y-1")));
         assert!(panel_open(Some(&"a".repeat(64))));
         assert!(!panel_open(Some("")) && !panel_open(Some(&"a".repeat(65))) && !panel_open(Some("a b")) && !panel_open(Some("../x")));
     }

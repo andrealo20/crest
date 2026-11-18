@@ -11,7 +11,9 @@
 //! The bar sets the mode (`set_mode`): `Hidden` once it has drawn, with the guard started and the record written first and
 //! auto-hide turned on when it was off, so maximized windows fill the screen; `Shown` while the hide hotkey hides Crest, with
 //! auto-hide, the record and the guard kept; `Off` when the bar goes, which is a restore. While `Hidden`, a taskbar Windows shows
-//! again (Start, Win+T, a notification) is hidden again at once, and so are a restarted Explorer's new ones (mod.rs).
+//! again (Start, Win+T, a notification) is hidden again at once, and so are a restarted Explorer's new ones (mod.rs). A hide
+//! whose appbar calls Explorer's taskbar did not answer (none yet, or another program's `Shell_TrayWnd` first) writes "0", and
+//! the taskbar thread tries auto-hide again once it answers (`retry_autohide`).
 
 use std::fs;
 use std::io::ErrorKind;
@@ -39,7 +41,7 @@ const GUARD_MIN_LIFE: Duration = Duration::from_secs(2);
 static HID_HERE: AtomicBool = AtomicBool::new(false);
 /// Every hide, show and restore runs under it, so a re-hide never lands after a restore. Not re-entrant: only the public entry
 /// points lock it, and code already holding it calls the `_locked` variants.
-static SCAN: Mutex<Scan> = Mutex::new(Scan { mode: Mode::Off, guard: None, gave_up: false, cleaned: false });
+static SCAN: Mutex<Scan> = Mutex::new(Scan { mode: Mode::Off, guard: None, gave_up: false, cleaned: false, missed: false });
 
 /// What `SCAN` keeps.
 struct Scan {
@@ -50,6 +52,9 @@ struct Scan {
     gave_up: bool,
     /// The restore at start has run (`clean_locked`).
     cleaned: bool,
+    /// A new record was written while Explorer's taskbar did not answer the appbar calls: auto-hide is still to try
+    /// (`retry_autohide`). Kept through `Shown`, cleared by `Off`.
+    missed: bool,
 }
 
 /// What Crest does with Windows' taskbars.
@@ -99,6 +104,12 @@ fn died_at_once(lived: Duration) -> bool {
 /// claims an auto-hide Crest could not set.
 fn autohide_is_crests(saved: Option<bool>, autohide_now: bool, appbar_ok: bool) -> bool {
     saved.unwrap_or(appbar_ok && !autohide_now)
+}
+
+/// What the record says once Explorer's taskbar answers (`appbar_ok`) after a hide that `missed` auto-hide: Some(true) claims
+/// auto-hide and turns it on, Some(false) leaves the user's own, already on. None: nothing to do yet.
+fn retry_claim(missed: bool, appbar_ok: bool, autohide_now: bool) -> Option<bool> {
+    (missed && appbar_ok).then_some(!autohide_now)
 }
 
 /// The mode Crest moves to: shown from `Off` stays `Off`, since nothing is hidden yet.
@@ -270,6 +281,9 @@ fn set_mode_locked(scan: &mut Scan, wanted: Mode) {
                     let _ = guard.wait();
                 }
             }
+            // Off ends the auto-hide retry. A record kept because Explorer was down is reused by the next hide, which does not
+            // retry.
+            scan.missed = false;
             scan.mode = Mode::Off;
         }
         // Auto-hide, the record and the guard stay for the way back.
@@ -311,6 +325,13 @@ fn hide_locked(scan: &mut Scan, record: Record, full: bool) {
         if let (true, Some(hwnd)) = (crests, appbar) {
             appbar_call(hwnd, ABM_SETSTATE, ABS_AUTOHIDE);
         }
+        // A new record says "0" without asking Explorer when it did not answer: the taskbar thread asks again.
+        if saved.is_none() {
+            scan.missed = appbar.is_none();
+            if scan.missed {
+                super::autohide_missed();
+            }
+        }
         HID_HERE.store(true, Ordering::SeqCst);
     }
     post(&taskbars(shell), SW_HIDE);
@@ -345,6 +366,44 @@ pub(crate) fn on_taskbar_created() -> bool {
         }
     }
     true
+}
+
+/// The auto-hide a hide could not set (`missed`), tried again on the taskbar thread (mod.rs) once Explorer's own taskbar answers
+/// the appbar calls: the record first, then auto-hide, as `hide_locked` does. Only while `Hidden`, and never on a taskbar given
+/// back from outside. False when `SCAN` is taken, as `on_show`.
+pub(crate) fn retry_autohide() -> bool {
+    let Some(mut scan) = try_lock() else { return false };
+    if scan.mode != Mode::Hidden || !scan.missed {
+        return true;
+    }
+    match record_now() {
+        Record::Saved(_) => {}
+        // Given back from outside (`given_back`): nothing left to claim.
+        Record::Missing => {
+            scan.missed = false;
+            return true;
+        }
+        // Cannot be read now: the next try.
+        Record::Unreadable => return true,
+    }
+    let appbar = appbar_taskbar(shell_pid());
+    let autohide_now = appbar.is_some_and(|hwnd| appbar_call(hwnd, ABM_GETSTATE, 0) as u32 & ABS_AUTOHIDE != 0);
+    let (Some(claim), Some(path)) = (retry_claim(scan.missed, appbar.is_some(), autohide_now), record_path()) else { return true };
+    if let Err(e) = crate::write_atomic(&path, format(claim).as_bytes()) {
+        eprintln!("taskbar: record not written, auto-hide stays off: {e}");
+        return true;
+    }
+    if let (true, Some(hwnd)) = (claim, appbar) {
+        appbar_call(hwnd, ABM_SETSTATE, ABS_AUTOHIDE);
+    }
+    scan.missed = false;
+    true
+}
+
+/// Whether auto-hide is still to try (`retry_autohide`). True while `SCAN` is taken: mod.rs keeps its timer, whose next tick
+/// decides.
+pub(crate) fn missed() -> bool {
+    try_lock().is_none_or(|scan| scan.missed)
 }
 
 fn alive(guard: &mut Option<(Child, Instant)>) -> bool {
@@ -387,7 +446,7 @@ pub(crate) fn guard(pid: &str) -> i32 {
 }
 
 /// Explorer's process, from its desktop window rather than from a taskbar class another program can register too.
-fn shell_pid() -> u32 {
+pub(crate) fn shell_pid() -> u32 {
     window_pid(unsafe { GetShellWindow() })
 }
 
@@ -535,6 +594,14 @@ mod tests {
         assert!(!autohide_is_crests(Some(false), false, true));
         assert!(!autohide_is_crests(None, false, false)); // another program answers the appbar calls: never claim auto-hide
         assert!(autohide_is_crests(Some(true), true, false)); // an earlier record still stands
+    }
+
+    #[test]
+    fn auto_hide_is_tried_again_once_explorer_answers() {
+        assert_eq!(retry_claim(true, true, false), Some(true)); // write "1", turn auto-hide on
+        assert_eq!(retry_claim(true, true, true), Some(false)); // the user's own auto-hide: write "0", stop
+        assert_eq!(retry_claim(true, false, false), None); // still no answer: keep waiting
+        assert_eq!(retry_claim(false, true, false), None); // nothing was missed
     }
 
     #[test]

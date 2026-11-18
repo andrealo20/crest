@@ -1263,6 +1263,14 @@ export const launcher = {
 
 // ---------- Taskbar ----------
 
+/** Windows' pins as `taskbar.windowsPins` reads them (src-tauri/src/taskbar/pins.rs `WindowsPins`). */
+export interface WindowsPins {
+  ok: boolean;
+  now: string[];
+  added: Favorite[];
+  removed: string[];
+}
+
 /**
  * Crest's bar on Windows (src-tauri/src/taskbar). The notch turns it on and sets its height; the bar's own window reads the open
  * windows and acts on clicks (the command filter keeps each window to its part). In the browser nothing happens: the demo has no bar.
@@ -1272,6 +1280,14 @@ export const taskbar = {
   apply: (enabled: boolean, height: number, docked: boolean): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height, docked }) : Promise.resolve()),
   /** The Start entries pinned on Windows' taskbar, in Windows' order; empty when none is pinned or none can be read, an error only when the Start list cannot be read. The notch and the settings only. */
   importPins: (): Promise<Favorite[]> => (isNative ? invoke<Favorite[]>("taskbar_import_pins") : Promise.resolve([])),
+  /** The ids to remember (those pinned on Windows' taskbar now, then those the read missed but kept), the apps pinned there and the ids unpinned since `last` (the `now` of the answer before; null the first time, which changes nothing); `ok` false with all else empty when that cannot be read, and nothing is to change. The notch only. */
+  windowsPins: (last: string[] | null): Promise<WindowsPins> => (isNative ? invoke<WindowsPins>("taskbar_windows_pins", { last }) : Promise.resolve({ ok: false, now: [], added: [], removed: [] })),
+  /** Windows' pins changed (Rust watches them while the bar runs); to the notch only. */
+  onWindowsPins(handler: () => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen("taskbar://windows-pins", () => handler());
+    return () => void off.then((f) => f());
+  },
   /** The open windows as Rust last listed them. */
   windows: (): Promise<WindowList> => (isNative ? invoke<WindowList>("taskbar_windows") : Promise.resolve({ groups: [], active: null })),
   /** The list each time it changes; Rust sends it to the bar's window only. */
@@ -1288,16 +1304,20 @@ export const taskbar = {
   },
   /** Acts on a listed window. An error (a window of an app run as administrator) changes nothing. */
   window: (id: number, action: "activate" | "toggle" | "minimize" | "close"): Promise<void> => (isNative ? invoke("taskbar_window", { id, action }) : Promise.resolve()),
-  /** Gives the keyboard back to the app in front, after a menu closed with Esc. */
+  /** Gives the keyboard back to the app in front, or the last one if only Start came after it (none after the desktop or a Crest window), after a menu or panel closed from the bar. */
   release: (): Promise<void> => (isNative ? invoke("taskbar_release") : Promise.resolve()),
+  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu. */
+  shell: (action: "start" | "winx"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
   /** Icons of the groups without an entry, by group key (PNG data URL, null = none). */
   icons: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_icons", { keys }) : Promise.resolve({})),
   /** Where the page draws (the bar, an open menu) in its CSS px; clicks pass through the rest of the window. */
   hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
-  /** Tells the notch what the bar's panel shows: "apps", a tool's id, or null once it closes. */
+  /** Tells the notch what the bar's panel shows: a tool's id, or null once it closes. */
   panel: (open: string | null): Promise<void> => (isNative ? invoke("taskbar_panel", { open }) : Promise.resolve()),
   /** "Hide when a window touches it" on or off; only while it is on does Rust send each bar the window in front of its monitor. The notch only. */
   autoHide: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_auto_hide", { on }) : Promise.resolve()),
+  /** How many bars cannot slide away: their work area ends above the monitor's bottom edge, or another monitor lies below. 0 while the bar is off. The settings only. */
+  slideBlocked: (): Promise<number> => (isNative ? invoke<number>("taskbar_slide_blocked") : Promise.resolve(0)),
   /** This bar slid off the screen (useAutoHide) or back up: Rust tells this bar, and the notch for the primary's, that it is hidden while down (onShown). */
   slid: (down: boolean): Promise<void> => (isNative ? invoke("taskbar_slid", { down }) : Promise.resolve()),
   /** The frame of the window in front of this bar's monitor, in the page's CSS px, as Rust last sent it: null without one and while the option is off. */
@@ -1306,6 +1326,12 @@ export const taskbar = {
   onFront(handler: (r: Rect | null) => void): () => void {
     if (!isNative) return () => {};
     const off = getCurrentWebviewWindow().listen<Rect | null>("taskbar://front", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** One of Windows' own surfaces (Start, Win+X, the calendar, a tray menu) holds the bar up, or no longer does; on a change, while the option is on, and false once it turns off. */
+  onHold(handler: (held: boolean) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<boolean>("taskbar://hold", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
   /** Ends Crest (the Crest menu's Quit). */

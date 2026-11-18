@@ -24,12 +24,12 @@ use windows::Win32::System::Threading::{GetCurrentProcessId, OpenProcess, PROCES
 use windows::Win32::UI::Input::KeyboardAndMouse::IsWindowEnabled;
 use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow};
 use windows::Win32::UI::WindowsAndMessaging::{
-    AllowSetForegroundWindow, GetAncestor, GetForegroundWindow, GetLastActivePopup, GetWindow, GetWindowLongPtrW, GetWindowTextW, IsIconic,
-    IsWindowVisible, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED, EVENT_OBJECT_DESTROY,
-    EVENT_OBJECT_HIDE, EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND,
-    EVENT_SYSTEM_MINIMIZESTART, GA_ROOT, GA_ROOTOWNER, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HSHELL_HIGHBIT, HSHELL_MONITORCHANGED, HSHELL_REDRAW,
-    HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, SC_CLOSE, SC_MINIMIZE, SW_RESTORE, WM_SYSCOMMAND, WS_EX_APPWINDOW, WS_EX_NOACTIVATE,
-    WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_MINIMIZEBOX,
+    AllowSetForegroundWindow, GetAncestor, GetDesktopWindow, GetForegroundWindow, GetLastActivePopup, GetShellWindow, GetWindow, GetWindowLongPtrW,
+    GetWindowTextW, IsIconic, IsWindowVisible, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED,
+    EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND,
+    EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, GA_ROOT, GA_ROOTOWNER, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HSHELL_HIGHBIT,
+    HSHELL_MONITORCHANGED, HSHELL_REDRAW, HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, SC_CLOSE, SC_MINIMIZE, SW_RESTORE, WM_SYSCOMMAND,
+    WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_MINIMIZEBOX,
 };
 
 use super::screens;
@@ -96,6 +96,9 @@ static LAST: LazyLock<Mutex<Last>> = LazyLock::new(Mutex::default);
 static ICONS: Mutex<BTreeMap<String, Option<String>>> = Mutex::new(BTreeMap::new());
 /// The window in front, never a bar: a click on a bar leaves in front the app the click acts on (`toggle`).
 static FOREGROUND: AtomicIsize = AtomicIsize::new(0);
+/// The last listed window in front, for when Start has held the front since (`release`); 0 once the desktop or a Crest window
+/// came after it, as then there is no app to go back to.
+static LAST_APP: AtomicIsize = AtomicIsize::new(0);
 
 thread_local! {
     /// The list's state on the taskbar thread, from `begin` until the thread ends.
@@ -211,6 +214,12 @@ fn next_front(z_order: &[isize], skip: isize, usable: impl Fn(isize) -> bool) ->
     z_order.iter().copied().find(|&h| h != skip && usable(h))
 }
 
+/// Where the keyboard goes back to: the app in front, else the last one that was, when Start took the front from it, if it is
+/// still `usable` (listed, and not minimized since: that would bring it back).
+fn release_target(in_front: Option<isize>, last_app: Option<isize>, usable: impl Fn(isize) -> bool) -> Option<isize> {
+    in_front.or(last_app.filter(|&h| usable(h)))
+}
+
 /// A bar's part of the list: each app's windows on the bar's monitor (`on_it`), and no app without one there. It names the window
 /// in front only when that is one of them, so a focus change on another monitor leaves this bar's list, and its page, as they are.
 fn for_monitor(list: &WindowList, on_it: impl Fn(isize) -> bool) -> WindowList {
@@ -253,7 +262,8 @@ pub(super) fn arm() {
     });
 }
 
-/// A window event (mod.rs `on_event`). The window in front is kept, unless it is a bar.
+/// A window event (mod.rs `on_event`). The window in front is kept, unless it is a bar; a listed one is also the last app, and
+/// the desktop or a Crest window clears it. Start and the other shell windows leave it as it is.
 pub(super) fn on_event(event: u32, hwnd: HWND) {
     let id = hwnd.0 as isize;
     if event == EVENT_SYSTEM_FOREGROUND {
@@ -263,9 +273,23 @@ pub(super) fn on_event(event: u32, hwnd: HWND) {
         FOREGROUND.store(id, Ordering::SeqCst);
     }
     let (armed, listed) = TRACK.with_borrow(|t| t.as_ref().map_or((true, false), |t| (t.armed, t.order.contains(&id))));
+    if event == EVENT_SYSTEM_FOREGROUND {
+        if listed {
+            LAST_APP.store(id, Ordering::SeqCst);
+        } else if desktop_itself(hwnd) || display::window_pid(hwnd) == unsafe { GetCurrentProcessId() } {
+            LAST_APP.store(0, Ordering::SeqCst);
+        }
+    }
     if !armed && arms(event, listed, || could_list(hwnd)) {
         arm();
     }
+}
+
+/// The desktop's own windows. Not Windows' taskbars, which `display::is_desktop` also counts: the hidden one takes the front as
+/// Start opens, and must not clear the last app.
+fn desktop_itself(hwnd: HWND) -> bool {
+    let desktop = unsafe { hwnd == GetDesktopWindow() || hwnd == GetShellWindow() };
+    desktop || matches!(display::class_name(hwnd).as_str(), "Progman" | "WorkerW")
 }
 
 /// A shell hook code (mod.rs): flashing and ghost windows wait for the next list; a window moved to another monitor only needs
@@ -347,6 +371,9 @@ impl Track {
         // A window brought to front has been seen: it stops asking for attention.
         if let Some(active) = active {
             self.flashing.remove(&active);
+            // Also a window listed only now, after its own foreground event (a new app). Never after a clear: `active` is the
+            // listed window in front now, and the desktop or a Crest window in front gives none.
+            LAST_APP.store(active, Ordering::SeqCst);
         }
         // Read once per process.
         let mut processes: HashMap<u32, (Option<String>, String)> = HashMap::new();
@@ -496,12 +523,20 @@ pub async fn taskbar_window(id: isize, action: String) -> Result<(), String> {
     }
 }
 
-/// A bar menu closed with Esc: the keyboard goes back to the app in front.
+/// A bar menu or panel closed from the bar (Esc, a second click on its item): the keyboard goes back (`release`).
 #[tauri::command]
 pub fn taskbar_release() {
+    release();
+}
+
+/// The keyboard goes back to the app in front, or to the last one if only Start has been in front since; to none after the
+/// desktop or a Crest window (`LAST_APP`). On the main thread: `taskbar_release`, and the Start button's click that closed
+/// Start (start.rs).
+pub(crate) fn release() {
     let listed: Vec<isize> = last().pids.iter().map(|&(h, _)| h).collect();
-    if let Some(active) = active_now(&listed) {
-        let _ = activate(HWND(active as _));
+    let usable = |h: isize| listed.contains(&h) && !unsafe { IsIconic(HWND(h as _)) }.as_bool();
+    if let Some(target) = release_target(active_now(&listed), Some(LAST_APP.load(Ordering::SeqCst)), usable) {
+        let _ = activate(HWND(target as _));
     }
 }
 
@@ -653,6 +688,16 @@ mod tests {
         let usable = |h: isize| h != 3; // 3 is minimized
         assert_eq!(next_front(&[1, 2, 3, 4], 1, usable), Some(2));
         assert_eq!(next_front(&[1, 3], 1, usable), None);
+    }
+
+    #[test]
+    fn the_keyboard_goes_back_to_the_last_app_when_start_held_the_front() {
+        let usable = |h: isize| h != 8 && h != 9; // 8 is minimized, 9 no longer listed
+        assert_eq!(release_target(None, Some(7), usable), Some(7));
+        assert_eq!(release_target(Some(3), Some(7), usable), Some(3));
+        assert_eq!(release_target(None, None, usable), None);
+        assert_eq!(release_target(None, Some(8), usable), None); // minimized since: not brought back
+        assert_eq!(release_target(None, Some(9), usable), None); // closed since
     }
 
     #[test]

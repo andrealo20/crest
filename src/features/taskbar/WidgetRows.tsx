@@ -92,8 +92,13 @@ export function AddWidget({ zone }: { zone: Zone }) {
       trigger={{
         label: t("Widget hinzufügen"),
         menuWidth: 220,
-        className: "pressable pressable-fill flex size-7 items-center justify-center rounded-full bg-fill-2 text-label",
-        content: <Plus size={13} weight="bold" />,
+        className: "pressable pressable-fill flex h-7 items-center gap-1.5 rounded-full bg-fill-2 px-2.5 text-label",
+        content: (
+          <>
+            <Plus size={13} weight="bold" />
+            <span>{t("Widget hinzufügen")}</span>
+          </>
+        ),
       }}
     />
   );

@@ -1,6 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { SquaresFour } from "@phosphor-icons/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { springs } from "../../../design/motion";
 import { t } from "../../../i18n";
@@ -10,6 +9,7 @@ import { isNative } from "../../../platform/native";
 import { launcher, taskbar } from "../../../platform/services";
 import { settings, updateSettings } from "../../../settings/store";
 import { CrestMark } from "../../../ui/CrestMark";
+import { WindowsMark } from "../../../ui/WindowsMark";
 import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
@@ -24,6 +24,7 @@ import { BarGlass, useBarSurface } from "./BarGlass";
 import { Capsule } from "./Capsule";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
+import { holdBriefly } from "./hold";
 import { Item, MARK } from "./Item";
 import { useAutoHide } from "./useAutoHide";
 import { WidgetItem } from "./Widget";
@@ -32,7 +33,7 @@ import { WidgetItem } from "./Widget";
 const MENU_GAP = 8;
 /** Room between two buttons in a zone (gap-0.5), CSS px, which the drop marker fills. */
 const BUTTON_GAP = 2;
-/** The icon of an app dragged out of the app menu, CSS px. */
+/** The icon of an app dragged out of the bar, CSS px. */
 const GHOST = 32;
 const ZONES: [Zone, string][] = [
   ["left", "justify-start"],
@@ -130,11 +131,6 @@ export function TaskbarWindow() {
     setMenu(menu?.kind === next.kind && menu.anchor === anchor ? null : { ...next, anchor, x: r.x, w: r.width });
   };
   const openCrestMenu: MouseEventHandler<HTMLButtonElement> = (e) => toggle({ kind: "crest" }, e.currentTarget);
-  /** Opens the app menu over its button, or closes it on a second click there. */
-  const toggleApps: MouseEventHandler<HTMLButtonElement> = (e) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    togglePanel({ kind: "apps" }, { x: r.x, w: r.width });
-  };
 
   const launch = (b: BarButton, id: string) =>
     launcher.open(id).catch((code) => setError({ key: b.key, text: t(code === "not-found" ? "{name} ist nicht mehr installiert" : "{name} startet nicht", { name: b.name }) }));
@@ -154,8 +150,11 @@ export function TaskbarWindow() {
     setError(null);
     setMenu(null);
     const tool = widgetTool(id);
-    // Windows may refuse to open it; nothing changes then.
-    if (tool === null) return void taskbar.calendar().catch(() => {});
+    // Windows may refuse to open it; nothing changes then. The bar stays up while it comes to the front.
+    if (tool === null) {
+      holdBriefly();
+      return void taskbar.calendar().catch(() => {});
+    }
     const r = button.getBoundingClientRect();
     togglePanel({ kind: "tool", tool }, { x: r.x, w: r.width });
   };
@@ -176,8 +175,21 @@ export function TaskbarWindow() {
   const render = (id: BarItem) => {
     if (id === "start")
       return (
-        <Item {...item("start", t("App-Menü"))} tile={tile()} expanded={open?.content.kind === "apps"} onClick={toggleApps} onContextMenu={toggleApps}>
-          <SquaresFour size={size} weight="bold" />
+        <Item
+          {...item("start", t("Startmenü"))}
+          tile={tile()}
+          // Windows' own Start and its Win+X menu, the bar held up while they come to the front; Windows may refuse, and nothing changes then.
+          onClick={() => {
+            holdBriefly();
+            void taskbar.shell("start").catch(() => {});
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            holdBriefly();
+            void taskbar.shell("winx").catch(() => {});
+          }}
+        >
+          <WindowsMark size={Math.round(size * 0.72)} />
         </Item>
       );
     if (id === "apps")
@@ -310,8 +322,9 @@ function dropAt(bar: HTMLElement | null, x: number, y: number) {
 }
 
 /**
- * An app dragged out of the app menu (pinDrag): its icon under the pointer and, over the bar, a line in the gap it would be pinned
- * in. Let go there, it is pinned there; anywhere else the pins stay as they are. Nothing of it runs while no app is dragged.
+ * An app dragged onto the bar from a list (pinDrag; none drags one since the app menu went, the tray will): its icon under the
+ * pointer and, over the bar, a line in the gap it would be pinned in. Let go there, it is pinned there; anywhere else the pins stay
+ * as they are. Nothing of it runs while no app is dragged.
  */
 function PinDrop({ bar, firstApp, size }: { bar: RefObject<HTMLDivElement | null>; firstApp: RefObject<HTMLButtonElement | null>; size: number }) {
   const drag = pinDrag.use();

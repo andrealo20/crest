@@ -308,6 +308,10 @@ Details: [themes.md](themes.md).
 
 Details of the glass, and what it costs: [themes.md](themes.md#glass).
 
+The first button on the bar is Windows' own Start: a left click opens the Start menu and a right click the Win+X menu, drawn with the Windows mark in the bar's colour. Apps are pinned from Windows' Start or with a right click on an open app in the bar.
+
+Apps pinned or unpinned in Windows' Start show up on the bar or leave it, changes made while Crest was closed included. A read of Windows' pins that looks wrong changes nothing, and **Import from Windows** (**Settings → Taskbar → Apps and windows**) starts the following again from what it imported. The bar's Crest menu has **Add widget** and **Auto-hide**.
+
 ## Live notices and crest-notify
 
 - Turn on **Settings → Notices** and Windows notifications from any app show in the closed notch for 6 seconds, with the app's logo, name, title and text, and land on a **Notices** page in the open notch.

@@ -19,7 +19,7 @@ export function Item(props: {
   tile?: { background: string; radius: number };
   /** An item that opens the panel above the bar: whether the panel shows what it opens. */
   expanded?: boolean;
-  /** A pinned app: its place among the pinned apps (`data-pin`), where an app dragged out of the app menu finds its slot. */
+  /** A pinned app: its place among the pinned apps (`data-pin`), where a dragged app finds its slot. */
   pin?: number;
   ref?: Ref<HTMLButtonElement>;
   /** The button's width when its content is not an icon of `size`. */

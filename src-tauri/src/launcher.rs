@@ -209,6 +209,11 @@ pub(crate) fn cached<T>(state: &LauncherState, f: impl FnOnce(&[App]) -> T) -> T
     f(state.apps.lock().unwrap_or_else(|e| e.into_inner()).as_deref().unwrap_or_default())
 }
 
+/// The list was read, or tried, less than `RESCAN_GAP` ago: it is not read again yet for an id or an app it may lack.
+pub(crate) fn read_lately(state: &LauncherState) -> bool {
+    state.scanned.lock().unwrap().is_some_and(|t| t.elapsed() < RESCAN_GAP)
+}
+
 fn is_known(state: &LauncherState, id: &str) -> bool {
     state.apps.lock().unwrap().as_ref().is_some_and(|apps| apps.iter().any(|a| a.id == id))
 }
@@ -263,8 +268,7 @@ fn open(state: &LauncherState, id: String, monitor: Option<isize>) -> Result<(),
     apps(state, false)?;
     // Not in the cached list: it may be new since. Read the list again, at most once a minute.
     if !is_known(state, &id) {
-        let recent = state.scanned.lock().unwrap().is_some_and(|t| t.elapsed() < RESCAN_GAP);
-        if recent || apps(state, true).is_err() || !is_known(state, &id) {
+        if read_lately(state) || apps(state, true).is_err() || !is_known(state, &id) {
             return Err("not-found".into());
         }
     }

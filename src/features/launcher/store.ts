@@ -42,8 +42,7 @@ export function loadApps(refresh = false): Promise<void> {
     .then((raw) => {
       const apps = mergeApps(raw);
       launcherApps.set({ apps, loading: false, failed: false, readAt: Date.now() });
-      // First list ever: pin the AI apps found. An empty list is a failed read, not "nothing installed". The notch only: the bar's
-      // app menu reads the list too and writes nothing of the Launcher's.
+      // First list ever: pin the AI apps found. An empty list is a failed read, not "nothing installed". The notch only.
       if (isNotchWindow && settings.get().launcher.favorites === null && raw.length > 0) {
         updateSettings((s) => ({ launcher: { ...s.launcher, favorites: detectAi(apps).map((a) => ({ id: a.id, name: a.name })) } }));
       }

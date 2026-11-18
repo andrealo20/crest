@@ -16,7 +16,7 @@ let loading: Promise<void> | null = null;
 
 /**
  * The notch's tool registry (src/notch/tabs.ts), imported the first time `load` is true. It pulls in the code of every tool, which
- * the bar's page leaves alone until a tool opens in its panel: the app menu needs none of it.
+ * the bar's page leaves alone until a tool opens in its panel.
  */
 export function useTabs(load: boolean): Tabs | null {
   const tabs = registry.use();

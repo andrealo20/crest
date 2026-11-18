@@ -15,7 +15,7 @@ export type { OpenPanel, PanelAnchor, PanelContent };
 export const panel = createStore<OpenPanel | null>(null);
 
 /**
- * An app dragged out of the app menu and the pointer, in the window's CSS px; null while none is. The menu's row moves it, the bar
+ * An app dragged out and the pointer, in the window's CSS px; null while none is. The dragged row moves it, the bar
  * draws the app under the pointer and pins it where it is let go, and the panel lets the window take the pointer meanwhile.
  */
 export const pinDrag = createStore<{ app: Favorite; x: number; y: number } | null>(null);

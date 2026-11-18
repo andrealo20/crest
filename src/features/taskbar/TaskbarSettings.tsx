@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Reorder } from "motion/react";
-import { AppWindow, DotsSixVertical, SquaresFour, WarningCircle } from "@phosphor-icons/react";
+import { AppWindow, DotsSixVertical, WarningCircle } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { liveSupport } from "../../notch/glass/live";
@@ -11,6 +11,7 @@ import { isMac, isNative } from "../../platform/native";
 import { build, taskbar } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { CrestMark } from "../../ui/CrestMark";
+import { WindowsMark } from "../../ui/WindowsMark";
 import { Button, Group, Row, Segmented, Select, Slider, Switch } from "../../ui/controls";
 import { FavoriteList } from "../launcher/FavoriteList";
 import { normalizeFavorites } from "../launcher/apps";
@@ -38,13 +39,16 @@ export function useTaskbarShown(): boolean {
 /** The bar's zones, physical: left stays left in a right-to-left language. */
 const ZONES: Zone[] = ["left", "center", "right"];
 const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte", right: "Rechte Seite" };
-/** What the bar draws for each fixed item: the app menu's button, the apps' buttons, and the button of the Crest menu. A widget has its part's name. */
-const ITEM_LABEL: Record<Exclude<BarItem, PartId>, string> = { start: "App-Menü", apps: "Apps und Fenster", crest: "Crest-Menü" };
+/** What the bar draws for each fixed item: Windows' Start button, the apps' buttons, and the button of the Crest menu. A widget has its part's name. */
+const ITEM_LABEL: Record<Exclude<BarItem, PartId>, string> = { start: "Startmenü", apps: "Apps und Fenster", crest: "Crest-Menü" };
 const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "Schwebend", capsule: "Kapsel", tiles: "Kacheln" };
 
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
   const { enabled, autoHide } = settings.use().taskbar;
+  // Bars that stay up with auto-hide on (Rust front.rs `stays_up`), read as the page opens and when the switch changes.
+  const [blocked, setBlocked] = useState(0);
+  useEffect(() => void taskbar.slideBlocked().then(setBlocked, () => {}), [autoHide]);
   return (
     <Group id="settings-taskbar">
       <Row
@@ -54,10 +58,20 @@ export function TaskbarGeneral() {
         <Switch label={t("Crest-Taskleiste")} checked={enabled} onChange={(on) => setTaskbar({ enabled: on })} />
       </Row>
       <Row
-        label={t("Ausblenden, wenn ein Fenster sie berührt")}
-        hint={t("Die Leiste gleitet aus dem Bildschirm, solange das Fenster vorne sie berührt, und kommt zurück, wenn der Zeiger den unteren Rand berührt")}
+        label={t("Automatisch ausblenden")}
+        hint={
+          <>
+            {t("Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt")}
+            {autoHide && blocked > 0 && (
+              <span className="mt-1 flex items-start gap-1 text-caution">
+                <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
+                {t("Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm")}
+              </span>
+            )}
+          </>
+        }
       >
-        <Switch label={t("Ausblenden, wenn ein Fenster sie berührt")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
+        <Switch label={t("Automatisch ausblenden")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
       </Row>
       {/* A sentence, not a setting's name: it wraps instead of being cut. */}
       <Row label={<span className="whitespace-normal">{t("Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N")}</span>} />
@@ -100,7 +114,10 @@ export function TaskbarItems() {
                 <DotsSixVertical size={13} weight="bold" className="-ms-1 shrink-0 text-label-4 transition-colors group-hover:text-label-3" />
                 <ItemIcon id={id} />
                 {/* From its own width, so a narrow page shrinks it along with a widget's options instead of first. */}
-                <span className="min-w-0 flex-auto truncate text-body text-label select-none">{t(isWidget(id) ? partInfo[id].label : ITEM_LABEL[id])}</span>
+                <div className="min-w-0 flex-auto select-none">
+                  <div className="truncate text-body text-label">{t(isWidget(id) ? partInfo[id].label : ITEM_LABEL[id])}</div>
+                  {id === "start" && <div className="text-caption text-label-3">{t("Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste")}</div>}
+                </div>
                 {isWidget(id) && <WidgetOptions id={id} />}
                 <div onPointerDown={(e) => e.stopPropagation()}>
                   {/* The menu also reports its current zone when picked again, which would send the item to that zone's end. A widget goes in as "+" puts it, before the Crest button. */}
@@ -123,13 +140,13 @@ export function TaskbarItems() {
   );
 }
 
-/** An item's icon: Crest's mark, the app menu's squares, the apps' window, or a widget's part as the settings show it. A new fixed item does not compile without one. */
+/** An item's icon: Crest's mark, Windows' mark, the apps' window, or a widget's part as the settings show it. A new fixed item does not compile without one. */
 function ItemIcon({ id }: { id: BarItem }) {
   if (isWidget(id)) {
     const I = partInfo[id].icon;
     return <I size={15} weight="bold" className="shrink-0 text-label-2" />;
   }
-  if (id === "start") return <SquaresFour size={15} weight="bold" className="shrink-0 text-label-2" />;
+  if (id === "start") return <WindowsMark size={15} className="shrink-0 text-label-2" />;
   if (id === "apps") return <AppWindow size={15} weight="bold" className="shrink-0 text-label-2" />;
   if (id === "crest") return <CrestMark size={15} className="shrink-0 text-label-2" />;
   return id satisfies never;
@@ -157,7 +174,8 @@ export function TaskbarApps() {
     void taskbar.importPins().then(
       (apps) => {
         const next = normalizeFavorites(apps);
-        if (next?.length) setTaskbar({ pinned: next });
+        // Windows' pins as remembered too, so its next change is followed from these and not taken for the first read.
+        if (next?.length) setTaskbar({ pinned: next, windowsPins: next.map((f) => f.id) });
         else setOutcome("none");
       },
       () => setOutcome("failed"),
@@ -166,7 +184,7 @@ export function TaskbarApps() {
 
   return (
     <Group id="settings-taskbar-apps">
-      <Row label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Mit Rechtsklick auf eine App in der Taskleiste anheften")} />
+      <Row label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften")} />
       {pinned.length > 0 && <FavoriteList favorites={pinned} onChange={(next) => setTaskbar({ pinned: next })} />}
       {/* Long in some languages beside the button: the name wraps instead of being cut. */}
       <Row
