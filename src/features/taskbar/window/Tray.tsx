@@ -4,10 +4,10 @@ import { t } from "../../../i18n";
 import { taskbar } from "../../../platform/services";
 import { updateSettings } from "../../../settings/store";
 import { AppIcon } from "../../launcher/AppIcon";
-import type { TrayIcon } from "../model";
+import { trayIcon, type TrayIcon } from "../model";
 import { panel, togglePanel, trayDrag } from "../panel";
 import { dropSlot } from "../panelModel";
-import { startTray, trayPictures, trayState } from "../tray";
+import { startTray, trayFolded, trayPictures, trayState } from "../tray";
 import { demote, promote, shownSlot, splitTray } from "../trayModel";
 import { holdBriefly } from "./hold";
 import { Item, type ItemProps } from "./Item";
@@ -101,6 +101,7 @@ export function Tray({
   size,
   item,
   tile,
+  tiles,
   more: moreRef,
   onMenu,
 }: {
@@ -109,6 +110,8 @@ export function Tray({
   /** What every button has in common, by the key it is hovered under (TaskbarWindow's `item`). */
   item: (key: string, name: string) => Common;
   tile: () => ItemProps["tile"];
+  /** The Tiles shape, whose tiles stay as wide as the apps' (size + 16). */
+  tiles: boolean;
   /** The ^ button, where TrayDrop finds the end of the tray. */
   more: RefObject<HTMLButtonElement | null>;
   /** A right click on the ^ button, which has no menu of its own: the Crest menu over the pointer. */
@@ -122,15 +125,17 @@ export function Tray({
     togglePanel({ kind: "tray" }, { x: r.x, w: r.width });
   };
   const more = t("Ausgeblendete Symbole anzeigen");
+  const glyph = trayIcon(size);
+  const slot = tiles ? undefined : glyph + 16;
   return (
     <>
       {visible.map((icon, i) => (
-        <Item key={icon.key} {...item(`tray:${icon.key}`, icon.tip || t("Infobereich"))} tile={tile()} tray={i} {...trayButton(icon, "bar")}>
-          <AppIcon src={icon.img === null ? null : pictures[icon.img]} size={size} />
+        <Item key={icon.key} {...item(`tray:${icon.key}`, icon.tip || t("Infobereich"))} tile={tile()} tray={i} width={slot} {...trayButton(icon, "bar")}>
+          <AppIcon src={icon.img === null ? null : pictures[icon.img]} size={glyph} />
         </Item>
       ))}
-      <Item {...item("tray-more", more)} ref={moreRef} tile={tile()} expanded={open?.content.kind === "tray"} onClick={toggle} onContextMenu={onMenu}>
-        <CaretUp size={size} weight="bold" />
+      <Item {...item("tray-more", more)} ref={moreRef} tile={tile()} expanded={open?.content.kind === "tray"} width={slot} onClick={toggle} onContextMenu={onMenu}>
+        <CaretUp size={glyph} weight="bold" />
       </Item>
     </>
   );
@@ -149,6 +154,8 @@ function dropAt(bar: HTMLElement | null, more: HTMLElement | null, d: { x: numbe
   if (!bar || !more || d.y < bar.getBoundingClientRect().top) return null;
   const caret = more.getBoundingClientRect();
   if (d.from === "bar" && d.x >= caret.left && d.x <= caret.right) return { hide: true } as const;
+  // While the bar's tray is folded behind ^ (fit.ts) an icon kept on the bar would not be drawn: no place to keep it.
+  if (trayFolded.get()) return null;
   const slots = [...bar.querySelectorAll("[data-tray]")].map((el) => el.getBoundingClientRect());
   if (d.x < (slots[0] ?? caret).left || d.x > caret.right) return null;
   const slot = dropSlot(slots.map((r) => ({ x: r.x, w: r.width })), d.x);

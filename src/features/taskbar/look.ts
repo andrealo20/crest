@@ -80,3 +80,19 @@ function union(all: Box[]): Box | null {
   const x = Math.min(...boxes.map((b) => b.x)), y = Math.min(...boxes.map((b) => b.y));
   return { x, y, w: Math.max(...boxes.map((b) => b.x + b.w)) - x, h: Math.max(...boxes.map((b) => b.y + b.h)) - y };
 }
+
+/** How much the icon under the pointer grows, as a dock's. */
+export const MAGNIFY = 1.5;
+
+/**
+ * An icon's scale with the pointer `d` px from its centre, `unit` the pitch from one button to the next: MAGNIFY right under it,
+ * about 1.33 one place away, about 1.05 two away, and 1 from two and a half on (also for a pointer off the bar, Infinity or NaN).
+ */
+export function magnify(d: number, unit: number): number {
+  const r = 2.5 * unit;
+  if (!(Math.abs(d) < r)) return 1;
+  return 1 + (MAGNIFY - 1) * Math.cos((Math.PI / 2) * (Math.abs(d) / r)) ** 2;
+}
+
+/** How far a name over an icon of `size` rises in a bar `height` tall: past the bar's top, the icon grown to MAGNIFY from its bottom. */
+export const labelRise = (size: number, height: number) => Math.max(0, Math.ceil(MAGNIFY * size - (height + size) / 2));

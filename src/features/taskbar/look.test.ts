@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { BarShape } from "./model.ts";
-import { LOOK, barGap, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, themeVeils } from "./look.ts";
+import { LOOK, barGap, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, labelRise, magnify, themeVeils } from "./look.ts";
 import { GLASS, liveZone } from "../../notch/glass/params.ts";
 
 test("the surface's veil", () => {
@@ -62,4 +62,22 @@ test("one box per group of tiles, empty groups dropped", () => {
   const a = { x: 10, y: 600, w: 40, h: 44 }, b = { x: 56, y: 600, w: 40, h: 44 }, c = { x: 900, y: 600, w: 40, h: 44 }, empty = { x: 0, y: 0, w: 0, h: 0 };
   assert.deepEqual(groupBoxes([[a, b], [], [c, empty]]), [{ x: 10, y: 600, w: 86, h: 44 }, c]);
   assert.deepEqual(groupBoxes([[empty]]), []);
+});
+
+test("the icon under the pointer grows by half, its neighbours less, and from two and a half places on not at all", () => {
+  const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 0.001, `${a} is not about ${b}`);
+  assert.equal(magnify(0, 42), 1.5);
+  near(magnify(42, 42), 1.327);
+  near(magnify(-42, 42), 1.327);
+  near(magnify(84, 42), 1.048);
+  assert.equal(magnify(105, 42), 1);
+  assert.equal(magnify(400, 42), 1);
+  assert.equal(magnify(Infinity, 42), 1);
+});
+
+test("a name rises by as much as its icon grows past the bar's top", () => {
+  assert.equal(labelRise(24, 44), 2);
+  assert.equal(labelRise(20, 32), 4);
+  assert.equal(labelRise(40, 64), 8);
+  assert.equal(labelRise(16, 44), 0);
 });

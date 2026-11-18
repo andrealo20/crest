@@ -1827,5 +1827,8 @@
  "Infobereich": "Área de notificaciones",
  "Ausgeblendete Symbole anzeigen": "Mostrar iconos ocultos",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Otro programa gestiona los iconos de la barra de tareas.",
- "Keine ausgeblendeten Symbole": "Ningún icono oculto"
+ "Keine ausgeblendeten Symbole": "Ningún icono oculto",
+ "{n} weitere App": "{n} app más",
+ "{n} weitere Apps": "{n} apps más",
+ "Weitere Apps": "Más apps"
 }

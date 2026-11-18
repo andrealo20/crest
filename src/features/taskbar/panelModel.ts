@@ -3,8 +3,8 @@
 
 import { DOCK_HEIGHT } from "../../notch/geometry.ts";
 
-/** What the panel shows: a tool, by the id the notch opens it with, or the tray's hidden icons. */
-export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" };
+/** What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, or the apps behind "…". */
+export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "apps" };
 /** The item the panel opens over: its left edge and its width, CSS px. */
 export interface PanelAnchor {
   x: number;
@@ -19,7 +19,7 @@ export interface OpenPanel {
 /** The tools the closed row's parts open (partTool in src/notch/row/parts.ts): the same parts on the bar open them in its panel. */
 export const BAR_TOOLS: readonly string[] = ["media", "timer", "usage", "system", "notices", "overview", "shelf", "weather", "discord", "github", "leetcode", "calendar"];
 
-/** "tray" or the tool's id: the panel crossfades when it changes. */
+/** The tool's id, or the kind ("tray", "apps") for any other content: the panel crossfades when it changes. */
 export const panelKey = (c: PanelContent) => (c.kind === "tool" ? c.tool : c.kind);
 /** The same content closes the panel on a second click, another takes its place. The kind counts too, so no tool id passes for the tray. */
 export const sameContent = (a: PanelContent, b: PanelContent) => a.kind === b.kind && panelKey(a) === panelKey(b);
@@ -33,7 +33,7 @@ export const opensInBar = (c: PanelContent) => c.kind !== "tool" || BAR_TOOLS.in
 
 /**
  * The notch's record of what each bar's panel shows, by the bar window's label, after a `bar://panel` event (`taskbar_panel`,
- * src-tauri/src/taskbar/panel.rs): `open` is "tray" or a tool's id, null once the panel closes. Another window could emit the event
+ * src-tauri/src/taskbar/panel.rs): `open` is "tray", "apps" or a tool's id, null once the panel closes. Another window could emit the event
  * by mistake, so the label is only a key, and a payload of another shape leaves the record as it is, the very same object.
  */
 export function withPanel(state: Record<string, string>, payload: unknown): Record<string, string> {

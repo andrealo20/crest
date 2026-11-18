@@ -157,7 +157,7 @@ function useSlices(keys: (keyof BarFeed)[]): BarFeed {
  */
 export function WidgetItem({ id, item, paused, onClick, onContextMenu }: {
   id: PartId;
-  item: Pick<ItemProps, "name" | "label" | "failed" | "lifted" | "size" | "markAt" | "tile" | "expanded" | "onEnter" | "onLeave">;
+  item: Pick<ItemProps, "name" | "label" | "failed" | "lifted" | "size" | "markAt" | "tile" | "expanded" | "kind" | "onEnter" | "onLeave">;
   paused: boolean;
   onClick: MouseEventHandler<HTMLButtonElement>;
   onContextMenu: MouseEventHandler<HTMLButtonElement>;

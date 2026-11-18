@@ -1,4 +1,5 @@
 import { barFeed } from "../features/taskbar/barStores";
+import { barWindows } from "../features/taskbar/store";
 import { trayPictures, trayState } from "../features/taskbar/tray";
 import { updateSettings } from "../settings/store";
 import { sampleAvatar } from "./showcase-data";
@@ -11,6 +12,13 @@ export function fillSample(): void {
   updateSettings((c) => ({ taskbar: { ...c.taskbar, trayShown: ["sample-sync", "sample-chat"] } }));
   trayState.set({ yielded: false, icons: [{ id: "sample-sync", key: "1", tip: "Sync: up to date", img: "sample-sync" }, { id: "sample-chat", key: "2", tip: "Chat: 2 new messages", img: null }] });
   trayPictures.set({ "sample-sync": sampleTrayPicture });
+  // ?apps=N: N open apps, the last one in front and the one before it asking for attention.
+  const apps = Number(new URLSearchParams(location.search).get("apps"));
+  if (apps > 0)
+    barWindows.set({
+      groups: Array.from({ length: apps }, (_, i) => ({ key: `sample-${i}`, name: `App ${i}`, pins: [], windows: [{ id: i + 1, title: `App ${i}`, minimized: false, flashing: i === apps - 2 }] })),
+      active: apps,
+    });
   barFeed.set({
     weather: { temp: 12, feels: 10, code: 2, wind: 9, day: true },
     // Wider than the title's 160 px, so it scrolls.

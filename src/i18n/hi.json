@@ -1827,5 +1827,8 @@
  "Infobereich": "सूचना क्षेत्र",
  "Ausgeblendete Symbole anzeigen": "छिपे हुए आइकन दिखाएँ",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "टास्कबार के आइकन कोई दूसरा प्रोग्राम संभाल रहा है।",
- "Keine ausgeblendeten Symbole": "कोई छिपा हुआ आइकन नहीं"
+ "Keine ausgeblendeten Symbole": "कोई छिपा हुआ आइकन नहीं",
+ "{n} weitere App": "{n} और ऐप",
+ "{n} weitere Apps": "{n} और ऐप",
+ "Weitere Apps": "और ऐप"
 }
