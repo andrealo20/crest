@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, usePresence, type Transition } from "motion/react";
-import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { content, springs } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { NotchShape } from "../../../notch/NotchShape";
@@ -141,8 +141,9 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
     addEventListener("keydown", onKey);
     addEventListener("pointerdown", onDown);
     const offBlur = onNativeBlur(closePanel);
-    // The bar hides with the hide hotkey or over a full-screen app, and its panel with it.
-    const offShown = isNative ? listen<boolean>("taskbar://shown", (e) => !e.payload && closePanel()) : null;
+    // The bar hides with the hide hotkey or over a full-screen app, and its panel with it. On this window only: with a bar on each
+    // monitor, another bar hiding must not close this one's panel.
+    const offShown = isNative ? getCurrentWebviewWindow().listen<boolean>("taskbar://shown", (e) => !e.payload && closePanel()) : null;
     return () => {
       removeEventListener("keydown", onKey);
       removeEventListener("pointerdown", onDown);
