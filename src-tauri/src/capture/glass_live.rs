@@ -600,7 +600,12 @@ fn halt_if(app: &AppHandle, gen: Option<u32>, why: &'static str) {
         let mut live = slot();
         let (gone, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut *live).into_iter().partition(|(_, l)| gen.is_none_or(|g| l.gen == g));
         *live = kept;
-        gone.into_iter().map(|(label, l)| (label, close(l))).collect()
+        let stopped: Vec<(String, u32)> = gone.into_iter().map(|(label, l)| (label, close(l))).collect();
+        // A bar whose monitor went may be renamed onto another monitor rather than destroyed: its GPU goes with the monitor.
+        if why == "monitor" {
+            stopped.iter().for_each(|(label, _)| claim(label, None));
+        }
+        stopped
     };
     for (label, gen) in stopped {
         // The label too: the page's global `listen` also hears what goes to other windows.
