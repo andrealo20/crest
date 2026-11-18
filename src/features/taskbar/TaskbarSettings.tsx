@@ -107,7 +107,7 @@ export function TaskbarItems() {
 
 /**
  * Taskbar → Apps and windows: the pinned apps in the bar's order. An app is pinned on the bar, from its right-click menu; Windows'
- * pinned apps replace the list from here, a list that is not empty only on a second click within 3 s.
+ * pinned apps replace the list from here (one that is not empty only on a second click within 3 s), and an empty answer leaves it.
  */
 export function TaskbarApps() {
   const pinned = settings.use().taskbar.pinned ?? [];
@@ -127,8 +127,8 @@ export function TaskbarApps() {
     void taskbar.importPins().then(
       (apps) => {
         const next = normalizeFavorites(apps);
-        setTaskbar({ pinned: next });
-        if (!next?.length) setOutcome("none");
+        if (next?.length) setTaskbar({ pinned: next });
+        else setOutcome("none");
       },
       () => setOutcome("failed"),
     );
@@ -138,8 +138,9 @@ export function TaskbarApps() {
     <Group id="settings-taskbar-apps">
       <Row label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Mit Rechtsklick auf eine App in der Taskleiste anheften")} />
       {pinned.length > 0 && <FavoriteList favorites={pinned} onChange={(next) => setTaskbar({ pinned: next })} />}
+      {/* Long in some languages beside the button: the name wraps instead of being cut. */}
       <Row
-        label={t("Apps der Windows-Taskleiste")}
+        label={<span className="whitespace-normal">{t("Apps der Windows-Taskleiste")}</span>}
         hint={
           outcome === "none"
             ? t("Auf der Windows-Taskleiste ist keine App angeheftet")
@@ -148,7 +149,17 @@ export function TaskbarApps() {
               : t("Ersetzt die angehefteten Apps durch die der Windows-Taskleiste")
         }
       >
-        <Button onClick={importPins}>{confirm ? t("Wirklich ersetzen?") : t("Von Windows übernehmen")}</Button>
+        <Button onClick={importPins}>
+          {/* Both texts in one cell: the button keeps the wider one's width, so the confirming click lands where the first did. */}
+          <span className="grid text-center">
+            <span className={`col-start-1 row-start-1 ${confirm ? "invisible" : ""}`} aria-hidden={confirm}>
+              {t("Von Windows übernehmen")}
+            </span>
+            <span className={`col-start-1 row-start-1 ${confirm ? "" : "invisible"}`} aria-hidden={!confirm}>
+              {t("Wirklich ersetzen?")}
+            </span>
+          </span>
+        </Button>
       </Row>
     </Group>
   );
