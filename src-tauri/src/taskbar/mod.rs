@@ -57,7 +57,8 @@ const RETRY_MS: u32 = 50;
 const RELIST: u32 = WM_APP;
 /// Posted by `autohide_missed`: arms `AUTOHIDE_TIMER`, which only the window's own thread can.
 const AUTOHIDE: u32 = WM_APP + 1;
-/// Posted by `stop`: the window goes, and the loop with it. A WM_CLOSE from outside never ends the thread.
+/// Posted by `stop` with the window as its wparam (`stops`): the window goes, and the loop with it. A WM_CLOSE from outside, or
+/// another program's broadcast of the same number, never ends the thread.
 const STOP: u32 = WM_APP + 2;
 /// Auto-hide a hide could not set is tried again this often while it is still to do (`try_autohide`).
 const AUTOHIDE_TIMER: usize = 3;
@@ -150,7 +151,7 @@ pub(crate) fn stop() {
     let Some((window, thread)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
     // The tray's spy goes with the bar, after that restore, whose appbar call reached Explorer through it.
     tray::stop();
-    let _ = unsafe { PostMessageW(Some(HWND(window as _)), STOP, WPARAM(0), LPARAM(0)) };
+    let _ = unsafe { PostMessageW(Some(HWND(window as _)), STOP, WPARAM(window as usize), LPARAM(0)) };
     let _ = thread.join();
     start::end(true);
     pins::unwatch();
@@ -237,9 +238,14 @@ unsafe fn window() -> Option<HWND> {
     }
 }
 
+/// `stop`'s own STOP: it names the window it is posted to, as no program broadcasting the same number does.
+fn stops(msg: u32, wparam: WPARAM, window: HWND) -> bool {
+    msg == STOP && wparam.0 == window.0 as usize
+}
+
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     // `stop`'s STOP ends here; the loop ends only on WM_QUIT.
-    if msg == STOP {
+    if stops(msg, wparam, hwnd) {
         let _ = unsafe { DestroyWindow(hwnd) };
         return LRESULT(0);
     }
@@ -383,5 +389,14 @@ mod tests {
         assert_eq!(run(&[true]), (true, vec![0])); // read at once
         assert_eq!(run(&[false, false, true]), (true, vec![0, 5, 20])); // a sign-in where the shell was not ready yet
         assert_eq!(run(&[false; 4]), (false, vec![0, 5, 20, 60])); // then left: the windows keep no pins
+    }
+
+    #[test]
+    fn only_stops_own_message_ends_the_thread() {
+        let window = HWND(0x1234 as _);
+        assert!(stops(STOP, WPARAM(0x1234), window)); // `stop`, naming the window it posts to
+        assert!(!stops(STOP, WPARAM(0), window)); // another program's broadcast of WM_APP + 2
+        assert!(!stops(STOP, WPARAM(0x5678), window));
+        assert!(!stops(WM_CLOSE, WPARAM(0x1234), window));
     }
 }
