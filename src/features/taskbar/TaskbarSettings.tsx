@@ -108,11 +108,15 @@ export function TaskbarItems() {
   );
 }
 
-/** An item's icon: Crest's mark, the apps' window, or a widget's part as the settings show it. */
+/** An item's icon: Crest's mark, the apps' window, or a widget's part as the settings show it. A new fixed item does not compile without one. */
 function ItemIcon({ id }: { id: BarItem }) {
+  if (isWidget(id)) {
+    const I = partInfo[id].icon;
+    return <I size={15} weight="bold" className="shrink-0 text-label-2" />;
+  }
+  if (id === "apps") return <AppWindow size={15} weight="bold" className="shrink-0 text-label-2" />;
   if (id === "crest") return <CrestMark size={15} className="shrink-0 text-label-2" />;
-  const I = isWidget(id) ? partInfo[id].icon : AppWindow;
-  return <I size={15} weight="bold" className="shrink-0 text-label-2" />;
+  return id satisfies never;
 }
 
 /** Taskbar → Apps and windows: the pinned apps in the bar's order. An app is pinned on the bar, from its right-click menu. */
