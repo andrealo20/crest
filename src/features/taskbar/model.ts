@@ -146,6 +146,18 @@ export interface WindowList {
   active: number | null;
 }
 
+/** An icon in the tray (tray.rs): `img` keys its picture for `taskbar.trayImages`, null for none. */
+export interface TrayIcon {
+  id: string;
+  tip: string;
+  img: string | null;
+}
+/** The tray's icons, none while Crest's tray does not run; `yielded` when another program's tray has them. */
+export interface TrayState {
+  yielded: boolean;
+  icons: TrayIcon[];
+}
+
 /** A button on the bar: a pinned app (`pin`) with the windows it owns, or an open app that is not pinned; `pins` are the entries that start it. */
 export interface BarButton {
   key: string;

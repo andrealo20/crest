@@ -3,8 +3,6 @@
 //! The wire format of the tray: what apps send to `Shell_TrayWnd` in `WM_COPYDATA` (`Shell_NotifyIcon`, the icon position
 //! request) and what Crest sends back to them. Pure: explicit little-endian reads with bounds checks, no window, no Win32 calls.
 //! The handle fields are 32 bits on x64 and ARM64 alike, so one layout covers both.
-// The icon store uses the rest, in a later commit; drop this then.
-#![allow(dead_code)]
 
 use windows::core::GUID;
 use windows::Win32::Foundation::RECT;

@@ -34,10 +34,10 @@ use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_SWAPBUTTON};
 /// Hit zone in CSS px, relative to the window's top-left corner.
 #[derive(Clone, Copy, Default, Deserialize)]
 pub struct HitRect {
-    x: f64,
-    y: f64,
-    w: f64,
-    h: f64,
+    pub(crate) x: f64,
+    pub(crate) y: f64,
+    pub(crate) w: f64,
+    pub(crate) h: f64,
 }
 
 impl HitRect {

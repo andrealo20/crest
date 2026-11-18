@@ -19,7 +19,8 @@ use tauri::State;
 use windows::core::{Interface, BOOL, HSTRING, PCWSTR, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, TRUE};
 use windows::Win32::Graphics::Gdi::{
-    CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW, BITMAP, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
+    CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GdiFlush, GetDIBits, GetObjectW, SelectObject, BITMAP, BITMAPINFO,
+    BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP,
 };
 use windows::Win32::Media::Audio::{
     eConsole, eRender, AudioSessionStateExpired, IAudioSessionControl2, IAudioSessionManager2, IMMDeviceEnumerator, ISimpleAudioVolume,
@@ -35,8 +36,9 @@ use windows::Win32::UI::Shell::{
     ApplicationActivationManager, IApplicationActivationManager, SHGetFileInfoW, ACTIVATEOPTIONS, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    DestroyIcon, EnumWindows, GetForegroundWindow, GetIconInfo, GetWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
-    IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindow, GW_OWNER, ICONINFO, SW_RESTORE,
+    DestroyIcon, DrawIconEx, EnumWindows, GetForegroundWindow, GetIconInfo, GetWindow, GetWindowTextLengthW, GetWindowTextW,
+    GetWindowThreadProcessId, IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindow, DI_IMAGE, DI_MASK, GW_OWNER, HICON, ICONINFO,
+    SW_RESTORE,
 };
 
 use crate::media::MediaState;
@@ -263,40 +265,11 @@ pub(crate) fn icon_png(path: &str) -> Option<String> {
     }
 }
 
-unsafe fn icon_to_png(icon: windows::Win32::UI::WindowsAndMessaging::HICON) -> Option<Vec<u8>> {
+pub(crate) unsafe fn icon_to_png(icon: HICON) -> Option<Vec<u8>> {
     let mut ii = ICONINFO::default();
     GetIconInfo(icon, &mut ii).ok()?;
     let result = (|| {
-        let mut bm = BITMAP::default();
-        if GetObjectW(ii.hbmColor.into(), std::mem::size_of::<BITMAP>() as i32, Some((&mut bm as *mut BITMAP).cast())) == 0 {
-            return None;
-        }
-        let (w, h) = (bm.bmWidth, bm.bmHeight);
-        let mut bmi = BITMAPINFO::default();
-        bmi.bmiHeader = BITMAPINFOHEADER {
-            biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
-            biWidth: w,
-            biHeight: -h, // top-down
-            biPlanes: 1,
-            biBitCount: 32,
-            biCompression: BI_RGB.0,
-            ..Default::default()
-        };
-        let mut px = vec![0u8; (w * h * 4) as usize];
-        let dc = CreateCompatibleDC(None);
-        let lines = GetDIBits(dc, ii.hbmColor, 0, h as u32, Some(px.as_mut_ptr().cast()), &mut bmi, DIB_RGB_COLORS);
-        let _ = DeleteDC(dc);
-        if lines == 0 {
-            return None;
-        }
-        // BGRA → RGBA; old icons without alpha are fully opaque.
-        let no_alpha = px.chunks(4).all(|p| p[3] == 0);
-        for p in px.chunks_mut(4) {
-            p.swap(0, 2);
-            if no_alpha {
-                p[3] = 255;
-            }
-        }
+        let (w, h, px) = if ii.hbmColor.is_invalid() { mask_only(icon, ii.hbmMask)? } else { colour(ii.hbmColor)? };
         let img = image::RgbaImage::from_raw(w as u32, h as u32, px)?;
         let mut png = Vec::new();
         img.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).ok()?;
@@ -309,6 +282,90 @@ unsafe fn icon_to_png(icon: windows::Win32::UI::WindowsAndMessaging::HICON) -> O
         let _ = DeleteObject(ii.hbmMask.into());
     }
     result
+}
+
+/// A 32-bit top-down DIB of `w` by `h`.
+fn dib_info(w: i32, h: i32) -> BITMAPINFO {
+    let header = BITMAPINFOHEADER {
+        biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+        biWidth: w,
+        biHeight: -h,
+        biPlanes: 1,
+        biBitCount: 32,
+        biCompression: BI_RGB.0,
+        ..Default::default()
+    };
+    BITMAPINFO { bmiHeader: header, ..Default::default() }
+}
+
+/// An icon's colour bitmap as RGBA, with its size.
+unsafe fn colour(bitmap: HBITMAP) -> Option<(i32, i32, Vec<u8>)> {
+    let mut bm = BITMAP::default();
+    if GetObjectW(bitmap.into(), std::mem::size_of::<BITMAP>() as i32, Some((&mut bm as *mut BITMAP).cast())) == 0 {
+        return None;
+    }
+    let (w, h) = (bm.bmWidth, bm.bmHeight);
+    let mut bmi = dib_info(w, h);
+    let mut px = vec![0u8; (w * h * 4) as usize];
+    let dc = CreateCompatibleDC(None);
+    let lines = GetDIBits(dc, bitmap, 0, h as u32, Some(px.as_mut_ptr().cast()), &mut bmi, DIB_RGB_COLORS);
+    let _ = DeleteDC(dc);
+    if lines == 0 {
+        return None;
+    }
+    // BGRA → RGBA; old icons without alpha are fully opaque.
+    let no_alpha = px.chunks(4).all(|p| p[3] == 0);
+    for p in px.chunks_mut(4) {
+        p.swap(0, 2);
+        if no_alpha {
+            p[3] = 255;
+        }
+    }
+    Some((w, h, px))
+}
+
+/// A mask-only (monochrome) icon has no colour bitmap; its mask is the AND mask above the image, twice the icon's height. Its
+/// image and its mask are drawn apart into a 32-bit DIB, each over a fill that leaves it as it is whether the draw copies or
+/// combines: black and white as RGBA, transparent where the mask is set over a black image.
+unsafe fn mask_only(icon: HICON, mask: HBITMAP) -> Option<(i32, i32, Vec<u8>)> {
+    let mut bm = BITMAP::default();
+    if GetObjectW(mask.into(), std::mem::size_of::<BITMAP>() as i32, Some((&mut bm as *mut BITMAP).cast())) == 0 {
+        return None;
+    }
+    let (w, h) = (bm.bmWidth, bm.bmHeight / 2);
+    if w <= 0 || h <= 0 {
+        return None;
+    }
+    let len = (w * h * 4) as usize;
+    let dc = CreateCompatibleDC(None);
+    let mut bits = std::ptr::null_mut();
+    let dib = CreateDIBSection(Some(dc), &dib_info(w, h), DIB_RGB_COLORS, &mut bits, None, 0);
+    let px = match dib {
+        Ok(dib) if !bits.is_null() => {
+            let old = SelectObject(dc, dib.into());
+            let draw = |flags, fill| {
+                let _ = GdiFlush();
+                std::ptr::write_bytes(bits as *mut u8, fill, len);
+                DrawIconEx(dc, 0, 0, icon, w, h, 0, None, flags).ok()?;
+                let _ = GdiFlush();
+                Some(std::slice::from_raw_parts(bits as *const u8, len).to_vec())
+            };
+            let px = draw(DI_IMAGE, 0x00).zip(draw(DI_MASK, 0xFF)).map(|(mut image, mask)| {
+                for (p, m) in image.chunks_mut(4).zip(mask.chunks(4)) {
+                    p[3] = if m[0] != 0 && p[..3] == [0, 0, 0] { 0 } else { 255 };
+                }
+                image
+            });
+            SelectObject(dc, old);
+            px
+        }
+        _ => None,
+    };
+    if let Ok(dib) = dib {
+        let _ = DeleteObject(dib.into());
+    }
+    let _ = DeleteDC(dc);
+    px.map(|px| (w, h, px))
 }
 
 // ── Open the playing app ─────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ import type { RulesPayload } from "../features/window/model";
 import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
-import type { WindowList } from "../features/taskbar/model";
+import type { TrayState, WindowList } from "../features/taskbar/model";
 import type { Rect } from "../features/taskbar/autoHide";
 import type { Favorite } from "../features/launcher/apps";
 import bundledChangelog from "../changelog.json";
@@ -1292,6 +1292,19 @@ export const taskbar = {
   release: (): Promise<void> => (isNative ? invoke("taskbar_release") : Promise.resolve()),
   /** Icons of the groups without an entry, by group key (PNG data URL, null = none). */
   icons: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_icons", { keys }) : Promise.resolve({})),
+  /** The tray's icons as Rust last listed them: none while Crest's tray does not run. */
+  tray: (): Promise<TrayState> => (isNative ? invoke<TrayState>("taskbar_tray") : Promise.resolve({ yielded: false, icons: [] })),
+  /** The tray's icons each time they change, at most every 250 ms; Rust sends them to every bar. */
+  onTray(handler: (state: TrayState) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<TrayState>("taskbar://tray", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** The tray icons' pictures by their `img` key (PNG data URL, null = no icon shows it any more). */
+  trayImages: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_tray_images", { keys }) : Promise.resolve({})),
+  /** A click on a tray icon drawn at `rect` (this page's CSS px): its app gets it as from Windows' tray. Errors: gone, unknown-button. */
+  trayClick: (id: string, button: "left" | "right" | "double", rect: { x: number; y: number; w: number; h: number }): Promise<void> =>
+    isNative ? invoke("taskbar_tray_click", { id, button, rect }) : Promise.resolve(),
   /** Where the page draws (the bar, an open menu) in its CSS px; clicks pass through the rest of the window. */
   hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
   /** Tells the notch what the bar's panel shows: "apps", a tool's id, or null once it closes. */
