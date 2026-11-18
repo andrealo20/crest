@@ -9,19 +9,21 @@ export const barWindows = createStore<WindowList>({ groups: [], active: null });
 /** In the bar's window: icons of the groups without an entry (the launcher has none for them), by group key; null = none. */
 export const groupIcons = createStore<Record<string, string | null>>({});
 
-/** The notch applies the bar's on/off and height to Rust, the only window that does: as saved when Crest starts, then on every change of either. */
+/** The notch applies the bar's on/off, height and docking to Rust, the only window that does: as saved when Crest starts, then on every change of any. */
 export function startTaskbar() {
   if (!isNative || isMac) return;
   let last = "";
   let queue = Promise.resolve();
   const sync = () => {
-    const { enabled, height } = settings.get().taskbar;
-    const key = `${enabled}|${height}`;
+    const { enabled, height, shape } = settings.get().taskbar;
+    // A docked bar takes no gaps off the work area; the other shapes differ only in the bar's page.
+    const docked = shape === "docked";
+    const key = `${enabled}|${height}|${docked}`;
     if (key === last) return;
     last = key;
     // One change at a time, in their order: Rust finishes each (an Off once its window is gone) before the next is sent, after a
     // failed one too.
-    const apply = () => taskbar.apply(enabled, height);
+    const apply = () => taskbar.apply(enabled, height, docked);
     queue = queue.then(apply, apply);
   };
   sync();

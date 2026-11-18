@@ -33,6 +33,16 @@ test("any saved value becomes valid bar settings", () => {
   assert.deepEqual(TASKBAR_DEFAULTS.zones.left, []);
 });
 
+test("the look's settings are repaired and default to today's bar", () => {
+  const d = normalizeTaskbar(undefined);
+  assert.deepEqual([d.shape, d.transparency, d.glass], ["floating", 0, false]);
+  const s = normalizeTaskbar({ shape: "tiles", transparency: 37.6, glass: true });
+  assert.deepEqual([s.shape, s.transparency, s.glass], ["tiles", 38, true]);
+  const bad = normalizeTaskbar({ shape: "dock", transparency: 400, glass: "yes" });
+  assert.deepEqual([bad.shape, bad.transparency, bad.glass], ["floating", 100, false]);
+  assert.equal(normalizeTaskbar({ transparency: -5 }).transparency, 0);
+});
+
 test("every item sits in exactly one zone", () => {
   assert.deepEqual(normalizeZones({}), { left: [], center: ["apps"], right: ["crest"] });
   assert.deepEqual(normalizeZones({ left: ["crest", "x"], center: ["apps", "crest"] }), { left: ["crest"], center: ["apps"], right: [] });

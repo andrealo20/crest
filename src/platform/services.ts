@@ -1246,8 +1246,8 @@ export const launcher = {
  * windows and acts on clicks (the command filter keeps each window to its part). In the browser nothing happens: the demo has no bar.
  */
 export const taskbar = {
-  /** On or off, `height` CSS px tall. The notch only. */
-  apply: (enabled: boolean, height: number): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height }) : Promise.resolve()),
+  /** On or off, `height` CSS px tall, docked to the screen's edge (no gaps) or not. The notch only. */
+  apply: (enabled: boolean, height: number, docked: boolean): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height, docked }) : Promise.resolve()),
   /** The open windows as Rust last listed them. */
   windows: (): Promise<WindowList> => (isNative ? invoke<WindowList>("taskbar_windows") : Promise.resolve({ groups: [], active: null })),
   /** The list each time it changes; Rust sends it to the bar's window only. */
