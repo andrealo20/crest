@@ -44,7 +44,10 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
   }, [on]);
 
   useEffect(() => () => panelHeld.set(false), []);
+  // Held while Windows' prompt is open: a second click would ask again and the first answer would end the hold.
+  const asking = panelHeld.use();
   const allow = () => {
+    if (panelHeld.get()) return;
     panelHeld.set(true);
     setNote(null);
     taskbar
@@ -104,7 +107,7 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
       {view === "ask" && (
         <div className="flex flex-col items-start gap-2">
           {line(t("Windows fragt einmal nach dem Standortzugriff, bevor Crest Netzwerke in der Nähe zeigen kann."))}
-          <button onClick={allow} className={BUTTON}>
+          <button disabled={asking} onClick={allow} className={BUTTON}>
             {t("Netzwerke in der Nähe anzeigen")}
           </button>
         </div>
