@@ -20,6 +20,8 @@ use windows::Devices::WiFi::{WiFiAccessStatus, WiFiAdapter, WiFiConnectionStatus
 use windows::Networking::Connectivity::{ConnectionProfileFilter, NetworkAuthenticationType, NetworkInformation};
 use windows::Security::Authorization::AppCapabilityAccess::{AppCapability, AppCapabilityAccessStatus};
 use windows::Security::Credentials::PasswordCredential;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
 
 use super::bar;
 
@@ -216,16 +218,24 @@ pub async fn taskbar_wifi_scan(window: WebviewWindow, scan: bool) -> Result<Wifi
     .await
 }
 
-/// The click on "Show nearby networks": Windows' prompt, then the focus back to the bar, which the prompt took (the panel waits
-/// for it). "allowed" or "denied".
+/// The click on "Show nearby networks": Windows' prompt. "allowed" or "denied". The page then asks the focus back
+/// (`taskbar_wifi_focus`), only if it still waits with the panel open.
 #[tauri::command]
 pub async fn taskbar_wifi_allow(window: WebviewWindow) -> Result<String, String> {
     guard(&window)?;
-    let word = run(|| WiFiAdapter::RequestAccessAsync().and_then(|op| op.join()).map(request_word).map_err(|_| "failed")).await;
-    let _ = window.set_focus();
-    let word = word?;
+    let word = run(|| WiFiAdapter::RequestAccessAsync().and_then(|op| op.join()).map(request_word).map_err(|_| "failed")).await?;
     GRANTED.store(word == "allowed", Ordering::Relaxed);
     Ok(word.into())
+}
+
+/// The bar takes back the focus Windows' prompt took. A plain `SetForegroundWindow`, which Windows refuses once the user went to
+/// another app; tao's `set_focus` would then tap Alt into that app and take the focus anyway.
+#[tauri::command]
+pub fn taskbar_wifi_focus(window: WebviewWindow) -> Result<(), String> {
+    guard(&window)?;
+    let hwnd = window.hwnd().map_err(|_| "failed")?;
+    let _ = unsafe { SetForegroundWindow(HWND(hwnd.0)) };
+    Ok(())
 }
 
 /// Joins `ssid` as the last report saw it (no scan), with Windows' saved profile when `password` is None, else with that
@@ -382,5 +392,17 @@ mod tests {
         for leak in ["eprintln!", "println!", "dbg!", "format!", "panic!", "e.to_string()", "{e}", "{password"] {
             assert!(!code.contains(leak), "wifi.rs must not contain {leak}");
         }
+    }
+
+    #[test]
+    fn the_focus_comes_back_only_when_the_page_asks_and_never_through_taos_alt_tap() {
+        // tao's set_focus sends Alt to the app in front when Windows refuses the focus; the prompt's answer focuses nothing.
+        let src = include_str!("wifi.rs");
+        let code = &src[..src.find("#[cfg(test)]").unwrap()];
+        assert!(!code.contains(concat!("set_", "focus(")));
+        let allow = &code[code.find("fn taskbar_wifi_allow").unwrap()..];
+        let allow = &allow[..allow.find("\n}").unwrap()];
+        assert!(!allow.contains("SetForegroundWindow"));
+        assert!(code.contains("fn taskbar_wifi_focus"));
     }
 }

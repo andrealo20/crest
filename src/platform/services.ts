@@ -1405,6 +1405,8 @@ export const taskbar = {
   wifiScan: (scan: boolean): Promise<WifiList> => (isNative ? invoke<WifiList>("taskbar_wifi_scan", { scan }) : Promise.resolve(SAMPLE_WIFI)),
   /** The click on "Show nearby networks": Windows' location prompt, the only call that may show it. */
   wifiAllow: (): Promise<"allowed" | "denied"> => (isNative ? invoke("taskbar_wifi_allow") : Promise.resolve("allowed")),
+  /** After the prompt, while the page still waits with the panel open: the bar takes the focus back, unless Windows refuses it (the user went to another app). */
+  wifiFocus: (): Promise<void> => (isNative ? invoke("taskbar_wifi_focus") : Promise.resolve()),
   /** Joins a network, with Windows' saved profile when `password` is null; rejects with a fixed word ("password", "unavailable", "timeout", "settings", "denied", "failed"). */
   wifiConnect: (ssid: string, password: string | null): Promise<void> => (isNative ? invoke("taskbar_wifi_connect", { ssid, password }) : Promise.resolve()),
   /** Leaves the network in use. */

@@ -151,7 +151,8 @@ const SETTINGS_DENIED: &[&str] = &[
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
     "taskbar_auto_hide", "taskbar_slid", "taskbar_shell", "taskbar_windows_pins", "taskbar_tray_on", "taskbar_tray_click",
-    "taskbar_settings", "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
+    "taskbar_settings", "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect",
+    "taskbar_bt_devices",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, opening the notch and
@@ -176,7 +177,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "lyrics_romanize", "translate_file",
     "audio_outputs", "audio_set_output", "brightness_get", "brightness_set", "focus_get", "focus_set", "quick_get", "quick_radio",
     "quick_dark", "mic_mute", "quick_power", "web_search",
-    "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
+    "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -576,6 +577,8 @@ pub fn run() {
             taskbar::wifi::taskbar_wifi_scan,
             #[cfg(windows)]
             taskbar::wifi::taskbar_wifi_allow,
+            #[cfg(windows)]
+            taskbar::wifi::taskbar_wifi_focus,
             #[cfg(windows)]
             taskbar::wifi::taskbar_wifi_connect,
             #[cfg(windows)]
@@ -1252,7 +1255,7 @@ mod tests {
         // The Start button opens Windows' Start and its Win+X menu; no other window has the button.
         assert!(ok("taskbar", "taskbar_shell") && ok("taskbar-1", "taskbar_shell") && !ok("settings", "taskbar_shell"));
         // The quick panel's Wi-Fi and Bluetooth pages, on every bar, never in the settings window; the commands refuse any window but a bar's, the notch too.
-        assert!(["taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));
+        assert!(["taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));
     }
 
     #[test]

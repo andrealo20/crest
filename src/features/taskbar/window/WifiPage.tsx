@@ -4,7 +4,7 @@ import { t } from "../../../i18n";
 import { taskbar } from "../../../platform/services";
 import { NetGlyph } from "../../../ui/glyphs";
 import { RadioSwitch, type SwitchJob } from "../../overview/QuickControls";
-import { panelHeld, sizeQuickPage } from "../panel";
+import { panel, panelHeld, sizeQuickPage } from "../panel";
 import { PAGE_ROW, PASSWORD_ROW } from "../panelModel";
 import { afterConnect, wifiAction, wifiRows, wifiView, type WifiList, type WifiNetwork } from "../quickPages";
 import { barsGlyph } from "../statusModel";
@@ -52,7 +52,11 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
       .then((a) => (a === "allowed" ? read(true) : setList({ state: "denied", networks: [] })))
       // The "ask" list stays on screen, so the failure shows as the footer's note.
       .catch((e) => setNote(afterConnect(String(e)).note))
-      .finally(() => panelHeld.set(false));
+      .finally(() => {
+        // Only while this page still waits in an open panel: closed meanwhile, the keyboard stays where the user put it.
+        if (panelHeld.get() && panel.get()) void taskbar.wifiFocus();
+        panelHeld.set(false);
+      });
   };
 
   const settle = (n: WifiNetwork, call: Promise<void>) => {
