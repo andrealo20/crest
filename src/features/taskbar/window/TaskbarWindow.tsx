@@ -14,7 +14,7 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
 import { zones as hitZones, type Rect } from "../autoHide";
-import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
+import { barButtons, clickAction, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
 import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, type Box } from "../look";
 import { closePanel, panel, togglePanel } from "../panel";
 import { barShown, barWindows, groupIcons } from "../store";
@@ -229,6 +229,7 @@ export function TaskbarWindow() {
           size={size}
           item={item}
           tile={tile}
+          tiles={tiles}
           more={trayMore}
           // No menu of its own, as a widget: the Crest menu over the pointer.
           onMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
@@ -308,7 +309,7 @@ export function TaskbarWindow() {
       </div>
       {/* Outside the bar's ink: the panel has the theme's colours whatever the bar's background, as the notch's open panel has. */}
       <BarPanel bar={bar} onPlace={placeMenuZone} />
-      <TrayDrop bar={bar} more={trayMore} size={size} />
+      <TrayDrop bar={bar} more={trayMore} size={trayIcon(size)} />
       {/* The launch error for screen readers too: a button's label is not read out. */}
       <span role="status" aria-live="polite" className="sr-only">
         {error?.text}

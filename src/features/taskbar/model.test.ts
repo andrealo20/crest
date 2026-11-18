@@ -14,6 +14,7 @@ import {
   normalizeZones,
   placeMenu,
   taskbarShown,
+  trayIcon,
   trayOnBar,
   trayWanted,
   type BarButton,
@@ -36,6 +37,12 @@ test("any saved value becomes valid bar settings", () => {
   assert.deepEqual(normalizeTaskbar({ pinned: [{ id: "a", name: "A" }, { id: "a", name: "B" }, { id: 1 }] }).pinned, [{ id: "a", name: "A" }]);
   normalizeTaskbar(undefined).zones.left.push("crest");
   assert.deepEqual(TASKBAR_DEFAULTS.zones.left, []);
+});
+
+test("tray icons are two thirds of the apps' icons", () => {
+  assert.equal(trayIcon(24), 16);
+  assert.equal(trayIcon(16), 11);
+  assert.equal(trayIcon(40), 27);
 });
 
 test("the look's settings are repaired and default to today's bar", () => {

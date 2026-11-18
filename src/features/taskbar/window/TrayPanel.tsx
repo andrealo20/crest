@@ -1,7 +1,7 @@
 import { t } from "../../../i18n";
 import { settings } from "../../../settings/store";
 import { AppIcon } from "../../launcher/AppIcon";
-import { fitIcon } from "../model";
+import { fitIcon, trayIcon } from "../model";
 import { trayPictures, trayState } from "../tray";
 import { splitTray } from "../trayModel";
 import { trayButton } from "./Tray";
@@ -33,7 +33,7 @@ export function TrayPanel() {
           {...trayButton(icon, "panel")}
           className="flex items-center justify-center rounded-[8px] outline-none hover:bg-fill-2 focus-visible:bg-fill-2"
         >
-          <AppIcon src={icon.img === null ? null : pictures[icon.img]} size={size} />
+          <AppIcon src={icon.img === null ? null : pictures[icon.img]} size={trayIcon(size)} />
         </button>
       ))}
     </div>

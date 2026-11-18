@@ -66,6 +66,8 @@ const SHAPES: BarShape[] = ["docked", "floating", "capsule", "tiles"];
 
 /** The icon size drawn in a bar this tall: 6 px clear above and below. The saved size stays, so a taller bar gives it back. */
 export const fitIcon = (height: number, icon: number) => Math.min(icon, height - 12);
+/** A tray icon's size beside apps' icons of `size`: Windows' 16 to 24, and the widgets' glyphs, at every icon size. */
+export const trayIcon = (size: number) => Math.round((size * 2) / 3);
 
 const ZONES: Zone[] = ["left", "center", "right"];
 /** Every item a zone may hold. */
