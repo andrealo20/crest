@@ -154,13 +154,13 @@ const SETTINGS_DENIED: &[&str] = &[
 
 /// What the bar may call: its own hit zones and window list, listing and starting apps, opening the notch and the settings, the
 /// Crest menu, its own glass with the power state that stops it in Energy saver (`status_seed`, read-only), its two ways to reach
-/// the notch (taskbar/panel.rs) and what the notch's tools in its panel read or do on a click. Its settings reach Rust only
-/// through the notch (`taskbar_apply`).
+/// the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs) and what the notch's tools in its panel read
+/// or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log",
     "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
-    "taskbar_panel", "taskbar_ask", "launcher_apps", "translate_status",
+    "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "launcher_apps", "translate_status",
     "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
     "notices_open_app", "notices_copy_code",
     "power_plans", "power_plan_set", "system_icon", "reveal_file", "ports_list", "ports_open", "ports_end",
@@ -535,6 +535,10 @@ pub fn run() {
             taskbar::panel::taskbar_panel,
             #[cfg(windows)]
             taskbar::panel::taskbar_ask,
+            #[cfg(windows)]
+            taskbar::widgets::taskbar_hello,
+            #[cfg(windows)]
+            taskbar::widgets::taskbar_calendar,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,
@@ -1118,6 +1122,9 @@ mod tests {
         // Keep awake's state lives in the notch, which shows it in the closed notch: a bar that set it in Rust would leave the notch
         // showing the old state, so the bar asks the notch (taskbar_ask).
         assert!(!ok("taskbar", "keep_awake_set"));
+        // The widgets' hello, which has the notch send their data, and the clock's click. Their audio capture and lyrics switch are
+        // the notch's (audio_levels and media_lyrics, refused above).
+        assert!(ok("taskbar", "taskbar_hello") && ok("taskbar", "taskbar_calendar") && ok("taskbar-1", "taskbar_hello"));
     }
 
     #[test]

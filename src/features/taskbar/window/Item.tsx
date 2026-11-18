@@ -22,6 +22,10 @@ export function Item(props: {
   /** A pinned app: its place among the pinned apps (`data-pin`), where an app dragged out of the app menu finds its slot. */
   pin?: number;
   ref?: Ref<HTMLButtonElement>;
+  /** The button's width when its content is not an icon of `size`. */
+  width?: number;
+  /** The id of what a screen reader says after the name: a widget's content. */
+  describedBy?: string;
   onEnter: () => void;
   onLeave: () => void;
   onClick: MouseEventHandler<HTMLButtonElement>;
@@ -38,6 +42,7 @@ export function Item(props: {
       aria-label={props.name}
       aria-haspopup={props.expanded === undefined ? undefined : "dialog"}
       aria-expanded={props.expanded}
+      aria-describedby={props.describedBy}
       data-pin={props.pin}
       onPointerEnter={props.onEnter}
       onPointerLeave={props.onLeave}
@@ -45,7 +50,7 @@ export function Item(props: {
       onContextMenu={props.onContextMenu}
       data-tile={props.tile ? "" : undefined}
       className="group relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"
-      style={{ width: props.size + 16, background: props.tile?.background, borderRadius: props.tile?.radius }}
+      style={{ width: props.width ?? props.size + 16, background: props.tile?.background, borderRadius: props.tile?.radius }}
     >
       <motion.span
         className="flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94"
@@ -60,6 +65,8 @@ export function Item(props: {
     </button>
   );
 }
+
+export type ItemProps = Parameters<typeof Item>[0];
 
 /** Three pulses, ending on the solid accent: an app can wait for attention a long time, and the bar stays idle meanwhile. */
 const ATTENTION = { ...pulse, repeat: 5 };

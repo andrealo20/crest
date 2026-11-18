@@ -1,8 +1,8 @@
 /*
- * The bridge between the notch and the settings window. The saved stores already reach every window through localStorage
+ * The bridge between the notch and its other windows. The saved stores already reach every window through localStorage
  * (storeCore.ts); this carries what lives only in the notch's memory (update state, shortcut results, readings) to the settings
- * window, and the settings window's requests to the notch, which alone acts on them. No app imports, so the tests can load it;
- * the transport over Tauri events is in tauriTransport.ts.
+ * window or another one (ShareOptions), and the settings window's requests to the notch, which alone acts on them. No app
+ * imports, so the tests can load it; the transport over Tauri events is in tauriTransport.ts.
  */
 
 /** Sends an event to a window by label, and listens to events sent to this one. */
@@ -23,36 +23,65 @@ const HELLO = "bridge://hello";
 const ACTION = "bridge://action";
 
 /**
- * Notch side: once the settings window says hello (it has loaded and listens), sends it every store's value, then each change.
- * Nothing goes out before the hello. Returns the function that stops it.
+ * `to` is the window a share serves (the settings window by default), and `hello` the event its hello arrives as (Rust sends it
+ * for a window that may not emit).
  */
-export function shareStores(t: Transport, stores: Record<string, Shared>): () => void {
+export interface ShareOptions {
+  to?: string;
+  hello?: string;
+  when?: Shared;
+}
+
+/**
+ * Notch side: once the window says hello (it has loaded and listens), sends it every store's value, then each change. Nothing
+ * goes out before the hello, nor while `when` is not true; each time `when` turns true, every value goes out again. Returns the
+ * function that stops it.
+ */
+export function shareStores(t: Transport, stores: Record<string, Shared>, options: ShareOptions = {}): () => void {
+  const { to = "settings", hello = HELLO, when } = options;
   let live = false;
-  const send = (name: string) => t.emit(STATE, { name, value: stores[name].get() }, "settings");
+  const holds = () => !when || when.get() === true;
+  let held = holds();
+  const send = (name: string) => t.emit(STATE, { name, value: stores[name].get() }, to);
+  const sendAll = () => Object.keys(stores).forEach(send);
   const offs = Object.keys(stores).map((name) =>
     stores[name].subscribe(() => {
-      if (live) send(name);
+      if (live && holds()) send(name);
     }),
   );
-  const offHello = t.listen(HELLO, () => {
+  const offHello = t.listen(hello, () => {
     live = true;
-    Object.keys(stores).forEach(send);
+    if (holds()) sendAll();
+  });
+  // A store tells its listeners of every set, so only a change to true sends everything again.
+  const offWhen = when?.subscribe(() => {
+    const was = held;
+    held = holds();
+    if (live && held && !was) sendAll();
   });
   return () => {
     live = false;
     offHello();
+    offWhen?.();
     offs.forEach((off) => off());
   };
 }
 
-/** Settings side: takes the notch's values into the stores of the same name, then says hello. Other names are ignored. */
-export function followStores(t: Transport, stores: Record<string, Shared>): () => void {
+/**
+ * Follower side: takes the notch's values into the stores of the same name, then says hello: by default an event to the notch,
+ * or `hello` for a window that may not emit. Other names are ignored.
+ */
+export function followStores(
+  t: Transport,
+  stores: Record<string, Shared>,
+  hello: () => void = () => t.emit(HELLO, null, "notch"),
+): () => void {
   const off = t.listen(STATE, (payload) => {
     if (typeof payload !== "object" || payload === null) return;
     const { name, value } = payload as { name?: unknown; value?: unknown };
     if (typeof name === "string" && Object.hasOwn(stores, name)) stores[name].set(value);
   });
-  t.emit(HELLO, null, "notch");
+  hello();
   return off;
 }
 

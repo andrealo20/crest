@@ -2,17 +2,19 @@
 // tested without the app around them.
 
 import { normalizeFavorites, type Favorite } from "../launcher/apps.ts";
+import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 
 /** The bar's zones. Physical, as the closed row's: left stays left in a right-to-left language. */
 export type Zone = "left" | "center" | "right";
-/** What the zones hold: the app menu's button ("start"), the apps (pinned and open) and the Crest button. Phase 4 adds the parts. */
-export type BarItem = "start" | "apps" | "crest";
+/** What the zones hold: the app menu's button ("start"), the apps (pinned and open), the Crest button and the closed notch's parts as widgets. */
+export type BarItem = "start" | "apps" | "crest" | PartId;
 /** The bar's shape: along the screen's edge with no gaps, floating above it, a capsule, or a tile per item. */
 export type BarShape = "docked" | "floating" | "capsule" | "tiles";
 
 /**
  * The bar: on or off, the items in each zone, the bar's height and its icons' size in CSS px, its background (the closed
- * notch's or the theme's), the pinned apps (null: never seeded), its shape, its transparency in percent and its glass.
+ * notch's or the theme's), the pinned apps (null: never seeded), its shape, its transparency in percent and its glass, the bar
+ * clock's own date and seconds, and whether the default widgets were placed (once, so one taken off stays off).
  */
 export interface TaskbarSettings {
   enabled: boolean;
@@ -24,11 +26,13 @@ export interface TaskbarSettings {
   shape: BarShape;
   transparency: number;
   glass: boolean;
+  clock: { date: boolean; seconds: boolean };
+  widgetsSeeded: boolean;
 }
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
   enabled: false,
-  zones: { left: [], center: ["start", "apps"], right: ["crest"] },
+  zones: { left: [], center: ["start", "apps"], right: ["weather", "clock", "crest"] },
   height: 44,
   iconSize: 24,
   surface: "notch",
@@ -36,6 +40,8 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   shape: "floating",
   transparency: 0,
   glass: false,
+  clock: { date: true, seconds: false },
+  widgetsSeeded: true,
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -49,8 +55,8 @@ const SHAPES: BarShape[] = ["docked", "floating", "capsule", "tiles"];
 export const fitIcon = (height: number, icon: number) => Math.min(icon, height - 12);
 
 const ZONES: Zone[] = ["left", "center", "right"];
-/** Every item has a default place, so the defaults list them all. */
-const ITEMS = ZONES.flatMap((z) => TASKBAR_DEFAULTS.zones[z]);
+/** The fixed items all have a default place, so the defaults list them; any part can be a widget. */
+const ITEMS = [...ZONES.flatMap((z) => TASKBAR_DEFAULTS.zones[z]), ...PART_IDS];
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const within = (v: unknown, [min, max]: readonly [number, number], fallback: number) =>
@@ -61,10 +67,11 @@ const within = (v: unknown, [min, max]: readonly [number, number], fallback: num
  * the height: every window that loads saves this, so a lower bar would shrink it for good (fitIcon shrinks it where it is drawn).
  */
 export function normalizeTaskbar(v: unknown): TaskbarSettings {
-  const s = isObj(v) ? v : {}, d = TASKBAR_DEFAULTS;
+  const s = isObj(v) ? v : {}, d = TASKBAR_DEFAULTS, clock = isObj(s.clock) ? s.clock : {};
   return {
     enabled: s.enabled === true,
-    zones: normalizeZones(s.zones),
+    // Settings saved before the widgets get the default ones once; widgetsSeeded is saved with them, so a widget taken off stays off.
+    zones: normalizeZones(s.zones, s.widgetsSeeded !== true),
     height: within(s.height, HEIGHT, d.height),
     iconSize: within(s.iconSize, ICON, d.iconSize),
     surface: s.surface === "theme" ? "theme" : "notch",
@@ -72,14 +79,17 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     shape: SHAPES.includes(s.shape as BarShape) ? (s.shape as BarShape) : d.shape,
     transparency: within(s.transparency, TRANSPARENCY, d.transparency),
     glass: s.glass === true,
+    clock: { date: clock.date !== false, seconds: clock.seconds === true },
+    widgetsSeeded: true,
   };
 }
 
 /**
- * Every item in exactly one zone: unknown ids dropped, a duplicate kept at its first place reading left, center, right, and a
- * missing item back in its default zone at its default index (the end when the zone is shorter).
+ * Each fixed item in exactly one zone and each widget in one at most: unknown ids dropped, a duplicate kept at its first place
+ * reading left, center, right, and a missing fixed item back in its default zone at its default index (the end when the zone is
+ * shorter). A missing widget is off the bar; `seed` puts the default ones back the same way.
  */
-export function normalizeZones(v: unknown): Record<Zone, BarItem[]> {
+export function normalizeZones(v: unknown, seed = false): Record<Zone, BarItem[]> {
   const s = isObj(v) ? v : {};
   const seen = new Set<BarItem>();
   const zones: Record<Zone, BarItem[]> = { left: [], center: [], right: [] };
@@ -94,7 +104,7 @@ export function normalizeZones(v: unknown): Record<Zone, BarItem[]> {
   for (const z of ZONES) {
     // splice puts an index past the end at the end.
     TASKBAR_DEFAULTS.zones[z].forEach((id, i) => {
-      if (!seen.has(id)) zones[z].splice(i, 0, id);
+      if (!seen.has(id) && (seed || !PART_IDS.includes(id as PartId))) zones[z].splice(i, 0, id);
     });
   }
   return zones;

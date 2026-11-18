@@ -1810,5 +1810,7 @@
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "カプセルでは、タスクバーが3つの領域を中央に左、中央、右の順で並べます。ここの領域はそのままです",
  "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "屈折、すりガラス、縁の光はノッチにも適用されます",
  "App-Menü": "アプリメニュー",
- "Dateien legst du auf der Notch ab": "ファイルはノッチにドロップします"
+ "Dateien legst du auf der Notch ab": "ファイルはノッチにドロップします",
+ "Widget hinzufügen": "ウィジェットを追加",
+ "Gilt auch für die Notch": "ノッチにも適用されます"
 }

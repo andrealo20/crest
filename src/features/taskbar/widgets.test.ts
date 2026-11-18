@@ -1,0 +1,47 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
+import { TASKBAR_DEFAULTS } from "./model.ts";
+import { addWidget, barPartsFor, barSources, barWidgets, isWidget, removeWidget, widgetScale, widgetTool } from "./widgets.ts";
+
+test("a widget opens its tool, the clock Windows' calendar", () => {
+  // Every part: one without a tool would open Windows' calendar.
+  const tools: Record<Exclude<PartId, "clock">, string> = { title: "media", equalizer: "media", timer: "timer", rings: "usage", readings: "system", script: "notices", downloads: "shelf", weather: "weather", calendar: "calendar", discord: "discord", github: "github", leetcode: "leetcode" };
+  for (const id of PART_IDS) assert.equal(widgetTool(id), id === "clock" ? null : tools[id], id);
+  assert.ok(isWidget("clock") && !isWidget("apps") && !isWidget("crest"));
+});
+
+test("widgets grow and shrink with the icons", () => {
+  assert.equal(widgetScale(44, 24), 1);
+  assert.equal(widgetScale(64, 40), 40 / 24);
+  assert.equal(widgetScale(32, 24), 20 / 24);
+});
+
+test("an added widget goes last in its zone, before the Crest button at its end", () => {
+  const z = TASKBAR_DEFAULTS.zones;
+  assert.deepEqual(addWidget(z, "timer", "right").right, ["weather", "clock", "timer", "crest"]);
+  assert.deepEqual(addWidget(z, "timer", "left").left, ["timer"]);
+  assert.deepEqual(addWidget({ ...z, right: ["crest", "weather"] }, "timer", "right").right, ["crest", "weather", "timer"]);
+  assert.deepEqual(addWidget(z, "clock", "left"), z);
+});
+
+test("a removed widget leaves the bar", () => {
+  assert.deepEqual(removeWidget(TASKBAR_DEFAULTS.zones, "clock").right, ["weather", "crest"]);
+  assert.deepEqual(barWidgets(TASKBAR_DEFAULTS.zones), ["weather", "clock"]);
+});
+
+test("the stores run the bar's widgets while it shows, only Discord while it hides, none while it is off", () => {
+  const widgets: PartId[] = ["weather", "discord", "clock"];
+  assert.deepEqual(barPartsFor(widgets, true, true), widgets);
+  assert.deepEqual(barPartsFor(widgets, true, false), ["discord"]);
+  assert.deepEqual(barPartsFor(["weather", "clock"], true, false), []);
+  assert.deepEqual(barPartsFor(widgets, false, true), []);
+  assert.deepEqual(barPartsFor(widgets, false, false), []);
+});
+
+test("the notch captures the audio for a bar's Now Playing panel as for the equalizer widget, once", () => {
+  assert.deepEqual(barSources(["weather", "clock"], false), ["weather", "clock"]);
+  assert.deepEqual(barSources(["weather", "clock"], true), ["weather", "clock", "equalizer"]);
+  assert.deepEqual(barSources(["equalizer", "title"], true), ["equalizer", "title"]);
+  assert.deepEqual(barSources([], true), ["equalizer"]);
+});

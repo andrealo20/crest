@@ -37,6 +37,7 @@ import { startPlugins } from "./features/plugins/store";
 import { startMeeting } from "./features/meeting/store";
 import { startTaskbar } from "./features/taskbar/store";
 import { startBarPanels } from "./features/taskbar/barPanels";
+import { WidgetSources, startBarShare } from "./features/taskbar/feed";
 import { startSettingsBridge } from "./features/settings/window/shared";
 import { demo, showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
@@ -75,6 +76,7 @@ startPlugins();
 startMeeting();
 startTaskbar();
 startBarPanels();
+startBarShare();
 startSettingsBridge();
 
 // Send display settings (monitor, fullscreen, offset, window top, gaming) to Rust on start and on every change.
@@ -141,6 +143,7 @@ function App() {
     <MotionConfig reducedMotion="user">
       {!isNative && <DesktopMock />}
       <Notch />
+      {isNative && !isMac && <WidgetSources />}
     </MotionConfig>
   );
 }

@@ -1810,5 +1810,7 @@
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "कैप्सूल में टास्कबार तीनों हिस्सों को बीच में एक कतार में रखता है: बाएँ, बीच, दाएँ। यहाँ के हिस्से जैसे हैं वैसे ही रहते हैं",
  "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "अपवर्तन, धुंधलापन और किनारे की रोशनी नॉच पर भी लागू होते हैं",
  "App-Menü": "ऐप मेनू",
- "Dateien legst du auf der Notch ab": "फ़ाइलें नॉच पर छोड़ें"
+ "Dateien legst du auf der Notch ab": "फ़ाइलें नॉच पर छोड़ें",
+ "Widget hinzufügen": "विजेट जोड़ें",
+ "Gilt auch für die Notch": "नॉच पर भी लागू होता है"
 }

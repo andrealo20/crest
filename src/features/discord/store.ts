@@ -1,15 +1,19 @@
 import { askNotch } from "../../lib/tauriTransport";
 import { isNotchWindow } from "../../lib/windowKind";
 import { createStore } from "../../lib/store";
+import { barParts } from "../../notch/row/visibility";
 import { discord, type DiscordSnapshot } from "../../platform/services";
-import { settings } from "../../settings/store";
+import { settings, type Settings } from "../../settings/store";
 
 /** Last state from Rust (`discord://state`). */
 export const discordState = createStore<DiscordSnapshot>({ status: "off", error: null, call: null });
 
+/** Whether the Discord tool is on. The bar's Discord widget holds the connection with it off too, so a call can come without it. */
+export const discordToolOn = (s: Settings) => s.tools.some((x) => x.id === "discord" && x.enabled);
+
 let started = false;
 
-/** Connects/disconnects when the Discord tool or the client ID changes. */
+/** Connects/disconnects when the Discord tool, the bar's Discord widget or the client ID changes. */
 export function startDiscord() {
   if (started) return;
   started = true;
@@ -19,7 +23,7 @@ export function startDiscord() {
   let last = "";
   const apply = () => {
     const s = settings.get();
-    const enabled = s.tools.some((x) => x.id === "discord" && x.enabled);
+    const enabled = discordToolOn(s) || barParts.get().includes("discord");
     const key = `${enabled}|${s.discord.clientId}`;
     if (key === last) return;
     last = key;
@@ -27,6 +31,7 @@ export function startDiscord() {
   };
   apply();
   settings.subscribe(apply);
+  barParts.subscribe(apply);
 }
 
 /** Reconnect (e.g. after saving the client secret). */
@@ -34,7 +39,7 @@ export function reconnectDiscord() {
   // The notch holds the connection.
   if (!isNotchWindow) return askNotch({ kind: "refresh", what: "discord" });
   const s = settings.get();
-  discord.configure(s.tools.some((x) => x.id === "discord" && x.enabled), s.discord.clientId);
+  discord.configure(discordToolOn(s) || barParts.get().includes("discord"), s.discord.clientId);
 }
 
 export function useDiscordCall() {

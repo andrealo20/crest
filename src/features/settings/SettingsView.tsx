@@ -4,35 +4,25 @@ import {
   AppWindow,
   ArrowsInLineHorizontal,
   BellSimple,
-  CalendarBlank,
-  ChartDonut,
-  CloudSun,
   CheckCircle,
-  Clock,
   Columns,
-  Cpu,
-  DownloadSimple,
-  GithubLogo,
   DotsSixVertical,
   Keyboard,
   LockSimple,
   MagnifyingGlass,
   Monitor,
-  MusicNote,
   PaintBrush,
   Palette,
   Play,
   Plugs,
   PuzzlePiece,
   Bug,
-  TerminalWindow,
   SlidersHorizontal,
   Sparkle,
   SquaresFour,
   SignOut,
   Stop,
   Timer,
-  Waveform,
   type Icon,
 } from "@phosphor-icons/react";
 import { content, fade, springs } from "../../design/motion";
@@ -62,9 +52,9 @@ import { searchSettings, type SearchEntry } from "./search";
 import { github } from "../github/store";
 import { leetcode } from "../leetcode/store";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
-import { DiscordLogo, LeetcodeLogo } from "../../ui/brands";
-import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
+import { Button, Group, Row, Segmented, Select, Slider, StyleCards, SubSwitch, Switch, TextField } from "../../ui/controls";
 import { PET_IDS, PET_SIZE, type ClosedSettings, type PartId, type PetId } from "../../notch/row/parts";
+import { partInfo } from "../../notch/row/partInfo";
 import { PetArt } from "../../notch/pet/Nest";
 import { PET_NAMES } from "../../notch/pet/art";
 import { effortLevels, providerInfo } from "../ask/providers";
@@ -1015,32 +1005,6 @@ function ShapePreview({ d }: { d: string }) {
     <svg width={90} height={24} viewBox="0 0 60 16" aria-hidden>
       <path d={d} fill="currentColor" />
     </svg>
-  );
-}
-
-const partInfo: Record<PartId, { label: string; icon: Icon; hue: Hue }> = {
-  timer: { label: "Timer", icon: Timer, hue: "orange" },
-  discord: { label: "Discord", icon: DiscordLogo, hue: "indigo" },
-  rings: { label: "AI-Nutzung", icon: ChartDonut, hue: "purple" },
-  title: { label: "Songtitel", icon: MusicNote, hue: "pink" },
-  readings: { label: "Auslastung", icon: Cpu, hue: "red" },
-  equalizer: { label: "Equalizer", icon: Waveform, hue: "pink" },
-  clock: { label: "Uhrzeit", icon: Clock, hue: "blue" },
-  github: { label: "GitHub heute", icon: GithubLogo, hue: "violet" },
-  leetcode: { label: "LeetCode heute", icon: LeetcodeLogo, hue: "amber" },
-  calendar: { label: "Nächster Termin", icon: CalendarBlank, hue: "red" },
-  script: { label: "Skript-Anzeigen (crest-notify)", icon: TerminalWindow, hue: "slate" },
-  downloads: { label: "Downloads", icon: DownloadSimple, hue: "teal" },
-  weather: { label: "Wetter", icon: CloudSun, hue: "sky" },
-};
-
-/** Small labelled switch for a part's own options, next to its main switch. */
-function SubSwitch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <span className="flex items-center gap-1.5 text-caption text-label-3 select-none">
-      {label}
-      <Switch label={label} checked={checked} onChange={onChange} />
-    </span>
   );
 }
 

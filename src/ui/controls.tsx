@@ -132,6 +132,16 @@ export function Switch({
   );
 }
 
+/** Small labelled switch for an item's own options, inside its row (a closed part's, a bar widget's). */
+export function SubSwitch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <span className="flex items-center gap-1.5 text-caption text-label-3 select-none">
+      {label}
+      <Switch label={label} checked={checked} onChange={onChange} />
+    </span>
+  );
+}
+
 /** Row in settings lists: label on the left, control on the right. The data attributes feed the settings search. */
 export function Row({
   label,

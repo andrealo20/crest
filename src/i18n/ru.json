@@ -1810,5 +1810,7 @@
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "В виде капсулы панель задач выстраивает три зоны в ряд по центру: слева, по центру, справа. Зоны здесь остаются как есть",
  "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "Преломление, Матовость и Свет по краю действуют и на вырез",
  "App-Menü": "Меню приложений",
- "Dateien legst du auf der Notch ab": "Перетаскивайте файлы на вырез"
+ "Dateien legst du auf der Notch ab": "Перетаскивайте файлы на вырез",
+ "Widget hinzufügen": "Добавить виджет",
+ "Gilt auch für die Notch": "Применяется и к вырезу"
 }

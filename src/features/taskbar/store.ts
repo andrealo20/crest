@@ -1,13 +1,23 @@
+import { followStores } from "../../lib/bridge";
 import { createStore } from "../../lib/store";
+import { listening, tauriTransport } from "../../lib/tauriTransport";
 import { isMac, isNative } from "../../platform/native";
 import { taskbar } from "../../platform/services";
-import { settings } from "../../settings/store";
-import type { WindowList } from "./model";
+import { settings, updateSettings } from "../../settings/store";
+import { feedStores, panelStores } from "./barStores";
+import type { TaskbarSettings, WindowList } from "./model";
 
 /** In the bar's window: the open windows grouped by app, as Rust last sent them. */
 export const barWindows = createStore<WindowList>({ groups: [], active: null });
 /** In the bar's window: icons of the groups without an entry (the launcher has none for them), by group key; null = none. */
 export const groupIcons = createStore<Record<string, string | null>>({});
+/** In the bar's window: whether the bar shows; its widgets rest while it does not. */
+export const barShown = createStore(true);
+
+/** A change to the bar's settings, from the Taskbar pages and their widget rows; the notch applies on/off and the height to Rust (startTaskbar), the bar reads the rest itself. */
+export function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSettings) => Partial<TaskbarSettings>)) {
+  updateSettings((s) => ({ taskbar: { ...s.taskbar, ...(typeof patch === "function" ? patch(s.taskbar) : patch) } }));
+}
 
 /** The notch applies the bar's on/off, height and docking to Rust, the only window that does: as saved when Crest starts, then on every change of any. */
 export function startTaskbar() {
@@ -42,6 +52,23 @@ export function startBarWindows() {
     if (!fresh) barWindows.set(list);
   });
   barWindows.subscribe(fetchGroupIcons);
+}
+
+/** The bar's entry only: follows the notch's stores (barStores.ts) and whether the bar shows. The hello goes through Rust, as the bar may not emit. */
+export function followNotch() {
+  let heard = false;
+  taskbar.onShown((on) => {
+    heard = true;
+    barShown.set(on);
+  });
+  followStores(tauriTransport, { ...feedStores, ...panelStores }, () =>
+    void listening()
+      .then(() => taskbar.hello())
+      .then((on) => {
+        // A change heard while the hello was on its way is newer than its answer.
+        if (!heard) barShown.set(on);
+      }, () => {}),
+  );
 }
 
 const asked = new Set<string>();

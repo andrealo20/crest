@@ -11,13 +11,15 @@ import { startThemes } from "../../themes/store";
 import { startCrashLog } from "../../window/store";
 import { taskbar } from "../../../platform/services";
 import { startPanelReport } from "../panel";
-import { startBarWindows } from "../store";
-import { TaskbarWindow } from "./TaskbarWindow";
+import { followNotch, startBarWindows } from "../store";
+import { TaskbarWindow, primary } from "./TaskbarWindow";
 
 /*
- * Entry of the bar's window (taskbar.html, src-tauri/src/taskbar/bar.rs). Loads the settings and the open windows, nothing the
- * notch runs: the settings follow the notch window through localStorage (src/lib/storeCore.ts), and only the notch applies them
- * (src/lib/windowKind.ts). The open windows come as Rust events, so the page does nothing while they do not change.
+ * Entry of the bar's window (taskbar.html, src-tauri/src/taskbar/bar.rs). Loads the settings and the open windows, and in the
+ * primary bar follows what the notch sends it (barStores.ts: the widgets' data, the panel's stores); in dev in the browser, where
+ * no notch runs, sample data stands in. Nothing the notch runs: the settings follow the notch window through localStorage
+ * (src/lib/storeCore.ts), and only the notch applies them (src/lib/windowKind.ts). The windows and the data come as events, so the
+ * page does nothing while they do not change.
  */
 
 // The colours and the font come from the theme variables.
@@ -42,6 +44,10 @@ startBarWindows();
 // A reloaded page starts with its panel closed: the notch forgets what the page before it had open.
 void taskbar.panel(null);
 startPanelReport();
+// The notch sends its data to the primary bar only; another bar's hello would have it send everything there again.
+if (primary) followNotch();
+// In the browser no notch feeds the widgets: sample data, in dev only, so they can be checked as they draw.
+if (import.meta.env.DEV && !isNative) void import("../../../dev/barSample").then((m) => m.fillSample());
 
 // The bar's live glass (BarGlass.tsx), behind its own switch; in the browser ?glassLive stands in for Rust, as for the notch. Only the
 // live frames come through the shared buffers here, and this is the page's one listener: snapshot.ts, loaded with the panel's

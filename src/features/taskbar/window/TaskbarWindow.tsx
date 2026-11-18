@@ -1,7 +1,11 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
 import { AnimatePresence } from "motion/react";
 import { SquaresFour } from "@phosphor-icons/react";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { t } from "../../../i18n";
+import { partInfo } from "../../../notch/row/partInfo";
+import type { PartId } from "../../../notch/row/parts";
+import { isNative } from "../../../platform/native";
 import { launcher, taskbar } from "../../../platform/services";
 import { settings, updateSettings } from "../../../settings/store";
 import { CrestMark } from "../../../ui/CrestMark";
@@ -12,12 +16,14 @@ import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, 
 import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, type Box } from "../look";
 import { closePanel, panel, pinDrag, togglePanel } from "../panel";
 import { dropSlot, pinAt } from "../panelModel";
-import { barWindows, groupIcons } from "../store";
+import { barShown, barWindows, groupIcons } from "../store";
+import { isWidget, widgetTool } from "../widgets";
 import { BarGlass, useBarSurface } from "./BarGlass";
 import { Capsule } from "./Capsule";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
 import { Item, MARK } from "./Item";
+import { WidgetItem } from "./Widget";
 
 /** Room between the bar and a menu above it, CSS px, as between a button and its name. */
 const MENU_GAP = 8;
@@ -30,6 +36,8 @@ const ZONES: [Zone, string][] = [
   ["center", "justify-center"],
   ["right", "justify-end"],
 ];
+/** The primary bar, the window labelled `taskbar`: only it draws widgets and follows the notch (main.tsx); the bars on other monitors skip both. */
+export const primary = !isNative || getCurrentWebviewWindow().label === "taskbar";
 
 /** What a menu lists: an app's right-click menu, an app's windows (as they were when it opened), or the Crest menu. */
 type Menu = { kind: "app" | "list"; b: BarButton } | { kind: "crest" };
@@ -51,6 +59,8 @@ export function TaskbarWindow() {
   const { groups, active } = barWindows.use();
   const ink = useClosedInk(undefined);
   const accent = useThemedAccent(undefined);
+  // Rust hides the window without telling WebView2 the page is out of sight, so the widgets rest by this instead.
+  const paused = !barShown.use();
   const bar = useRef<HTMLDivElement>(null);
   // The first app button, pinned or not: an app dragged onto the bar's first slot goes in the gap before it.
   const firstApp = useRef<HTMLButtonElement>(null);
@@ -125,6 +135,17 @@ export function TaskbarWindow() {
     else if (action.kind === "toggle") taskbar.window(action.id, "toggle").catch(() => {});
   };
 
+  /** A widget opens its tool in the panel over it; the clock opens Windows' calendar instead, as Windows' own clock does. */
+  const clickWidget = (id: PartId, button: HTMLElement) => {
+    setError(null);
+    setMenu(null);
+    const tool = widgetTool(id);
+    // Windows may refuse to open it; nothing changes then.
+    if (tool === null) return void taskbar.calendar().catch(() => {});
+    const r = button.getBoundingClientRect();
+    togglePanel({ kind: "tool", tool }, { x: r.x, w: r.width });
+  };
+
   const item = (key: string, name: string) => ({
     name,
     // An open menu or panel hides the names, which would show around it.
@@ -163,6 +184,21 @@ export function TaskbarWindow() {
           </Item>
         );
       });
+    if (isWidget(id)) {
+      if (!primary) return null;
+      const tool = widgetTool(id);
+      return (
+        <WidgetItem
+          id={id}
+          // A widget that opens a tool says whether the panel shows it, so a press on it is left to its click and the panel moves in place.
+          item={{ ...item(id, t(partInfo[id].label)), tile: tile(), expanded: tool === null ? undefined : open?.content.kind === "tool" && open.content.tool === tool }}
+          paused={paused}
+          onClick={(e) => clickWidget(id, e.currentTarget)}
+          // No menu of its own: the Crest menu over the pointer, as beside the buttons.
+          onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
+        />
+      );
+    }
     if (id === "crest")
       return (
         <Item {...item("crest", t("Crest-Menü"))} tile={tile()} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
@@ -317,13 +353,15 @@ function useHitZone(ref: RefObject<HTMLDivElement | null>, shape: BarShape, setB
     if (!el) return;
     const observer = new ResizeObserver(report);
     observer.observe(el);
+    // A widget's tile changes width with what it shows (a temperature, a caption) inside a bar that keeps its size, moving its neighbours.
+    if (shape === "tiles") el.querySelectorAll("[data-tile]").forEach((tile) => observer.observe(tile));
     // Another monitor or scale can move the bar without resizing it.
     window.addEventListener("resize", report);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", report);
     };
-  }, [ref, report]);
+  }, [ref, report, shape, layout]);
   return useCallback(
     (box: HitRect | null) => {
       menu.current = box;

@@ -17,6 +17,7 @@ import { settings } from "../../../settings/store";
 import { activeTheme, forcedColors } from "../../themes/store";
 import { barNeed, barRadius, barVeil, glassShapes, themeVeils, type Box } from "../look";
 import type { BarShape } from "../model";
+import { barShown } from "../store";
 import { BAR_FS, MAX_RECTS } from "./glassShader";
 
 const ATTRS: WebGLContextAttributes = {
@@ -30,7 +31,8 @@ const ATTRS: WebGLContextAttributes = {
   failIfMajorPerformanceCaveat: true,
 };
 
-/** The page is on screen: a bar hidden (the shortcut, a full-screen app) runs no copy. */
+/** The page is on screen: a bar hidden (the shortcut, a full-screen app) runs no copy. Rust may hide the window without WebView2 telling
+ * the page, so the bar's own shown state (barShown, from Rust) counts too. */
 const pageShown = createStore(document.visibilityState === "visible");
 document.addEventListener("visibilitychange", () => pageShown.set(document.visibilityState === "visible"));
 
@@ -52,11 +54,11 @@ export function useBarSurface(boxes: Box[], ink: Record<string, string> | undefi
   const supported = liveSupport.use()?.supported === true;
   const lessTransparency = reducedTransparency.use(), moreContrast = contrastMore.use(), forced = forcedColors.use();
   const reduced = lessTransparency || moreContrast || forced;
-  const shown = pageShown.use(), saving = saver.use(), live = liveFrame.use();
+  const page = pageShown.use(), bar = barShown.use(), saving = saver.use(), live = liveFrame.use();
   const { dpr } = viewMetrics.use();
   const dark = surface === "notch" && ink ? true : theme.dark;
   const veil = barVeil({ transparency, glass: glass && supported, reduced, ...themeVeils(surface === "notch" && ink ? ink : theme.vars) });
-  const on = glass && supported && !reduced && shown && !saving;
+  const on = glass && supported && !reduced && page && bar && !saving;
   const need = on ? barNeed(boxes, dpr) : null;
   const needKey = JSON.stringify(need);
   useEffect(() => wantLive(need), [needKey]); // eslint-disable-line react-hooks/exhaustive-deps
