@@ -1846,5 +1846,21 @@
  "WLAN ist ausgeschaltet": "Wi-Fi はオフです",
  "Bluetooth ist ausgeschaltet": "Bluetooth はオフです",
  "Weitere WLAN-Einstellungen": "その他の Wi-Fi 設定",
- "Weitere Bluetooth-Geräte": "その他の Bluetooth デバイス"
+ "Weitere Bluetooth-Geräte": "その他の Bluetooth デバイス",
+ "Netzwerke werden gesucht …": "ネットワークを検索しています…",
+ "Windows fragt einmal nach dem Standortzugriff, bevor Crest Netzwerke in der Nähe zeigen kann.": "Crest が近くのネットワークを表示する前に、Windows が位置情報へのアクセスを一度だけ確認します。",
+ "Netzwerke in der Nähe anzeigen": "近くのネットワークを表示",
+ "Der Standortzugriff ist für Crest aus, daher bleiben die Netzwerke verborgen.": "Crest の位置情報へのアクセスがオフのため、ネットワークは表示されません。",
+ "In den Einstellungen erlauben": "設定で許可",
+ "Kein WLAN-Adapter": "Wi-Fi アダプターがありません",
+ "Keine Netzwerke gefunden": "ネットワークが見つかりません",
+ "Verbindung wird hergestellt …": "接続中…",
+ "In den Windows-Einstellungen verbinden": "Windows の設定で接続",
+ "Gesichert": "セキュリティ保護あり",
+ "Ungesichert": "オープン",
+ "Trennen": "切断",
+ "Verbinden": "接続",
+ "Falsches Passwort": "パスワードが正しくありません",
+ "Netzwerk nicht erreichbar": "ネットワークが範囲外です",
+ "Zeitüberschreitung": "タイムアウトしました"
 }

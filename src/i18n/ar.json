@@ -1846,5 +1846,21 @@
  "WLAN ist ausgeschaltet": "Wi-Fi متوقف عن التشغيل",
  "Bluetooth ist ausgeschaltet": "بلوتوث متوقف عن التشغيل",
  "Weitere WLAN-Einstellungen": "مزيد من إعدادات Wi-Fi",
- "Weitere Bluetooth-Geräte": "مزيد من أجهزة بلوتوث"
+ "Weitere Bluetooth-Geräte": "مزيد من أجهزة بلوتوث",
+ "Netzwerke werden gesucht …": "جارٍ البحث عن الشبكات …",
+ "Windows fragt einmal nach dem Standortzugriff, bevor Crest Netzwerke in der Nähe zeigen kann.": "يطلب Windows مرة واحدة الوصول إلى الموقع قبل أن يتمكن Crest من عرض الشبكات القريبة.",
+ "Netzwerke in der Nähe anzeigen": "إظهار الشبكات القريبة",
+ "Der Standortzugriff ist für Crest aus, daher bleiben die Netzwerke verborgen.": "الوصول إلى الموقع متوقف لـ Crest، لذا تبقى الشبكات مخفية.",
+ "In den Einstellungen erlauben": "السماح في الإعدادات",
+ "Kein WLAN-Adapter": "لا يوجد محول Wi-Fi",
+ "Keine Netzwerke gefunden": "لم يتم العثور على شبكات",
+ "Verbindung wird hergestellt …": "جارٍ الاتصال …",
+ "In den Windows-Einstellungen verbinden": "الاتصال من إعدادات Windows",
+ "Gesichert": "آمنة",
+ "Ungesichert": "مفتوحة",
+ "Trennen": "قطع الاتصال",
+ "Verbinden": "اتصال",
+ "Falsches Passwort": "كلمة مرور خاطئة",
+ "Netzwerk nicht erreichbar": "الشبكة خارج النطاق",
+ "Zeitüberschreitung": "انتهت المهلة"
 }

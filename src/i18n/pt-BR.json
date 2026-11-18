@@ -1846,5 +1846,21 @@
  "WLAN ist ausgeschaltet": "O Wi-Fi está desativado",
  "Bluetooth ist ausgeschaltet": "O Bluetooth está desativado",
  "Weitere WLAN-Einstellungen": "Mais configurações de Wi-Fi",
- "Weitere Bluetooth-Geräte": "Mais dispositivos Bluetooth"
+ "Weitere Bluetooth-Geräte": "Mais dispositivos Bluetooth",
+ "Netzwerke werden gesucht …": "Procurando redes …",
+ "Windows fragt einmal nach dem Standortzugriff, bevor Crest Netzwerke in der Nähe zeigen kann.": "O Windows pede uma vez acesso à localização antes que o Crest possa mostrar as redes próximas.",
+ "Netzwerke in der Nähe anzeigen": "Mostrar redes próximas",
+ "Der Standortzugriff ist für Crest aus, daher bleiben die Netzwerke verborgen.": "O acesso à localização está desativado para o Crest, então as redes ficam ocultas.",
+ "In den Einstellungen erlauben": "Permitir nas Configurações",
+ "Kein WLAN-Adapter": "Nenhum adaptador Wi-Fi",
+ "Keine Netzwerke gefunden": "Nenhuma rede encontrada",
+ "Verbindung wird hergestellt …": "Conectando …",
+ "In den Windows-Einstellungen verbinden": "Conectar nas Configurações do Windows",
+ "Gesichert": "Seguro",
+ "Ungesichert": "Aberto",
+ "Trennen": "Desconectar",
+ "Verbinden": "Conectar",
+ "Falsches Passwort": "Senha incorreta",
+ "Netzwerk nicht erreichbar": "Rede fora de alcance",
+ "Zeitüberschreitung": "Tempo esgotado"
 }

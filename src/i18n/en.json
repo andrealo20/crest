@@ -1846,5 +1846,21 @@
  "WLAN ist ausgeschaltet": "Wi-Fi is off",
  "Bluetooth ist ausgeschaltet": "Bluetooth is off",
  "Weitere WLAN-Einstellungen": "More Wi-Fi settings",
- "Weitere Bluetooth-Geräte": "More Bluetooth devices"
+ "Weitere Bluetooth-Geräte": "More Bluetooth devices",
+ "Netzwerke werden gesucht …": "Looking for networks …",
+ "Windows fragt einmal nach dem Standortzugriff, bevor Crest Netzwerke in der Nähe zeigen kann.": "Windows asks once for location access before Crest can show nearby networks.",
+ "Netzwerke in der Nähe anzeigen": "Show nearby networks",
+ "Der Standortzugriff ist für Crest aus, daher bleiben die Netzwerke verborgen.": "Location access is off for Crest, so the networks stay hidden.",
+ "In den Einstellungen erlauben": "Allow in Settings",
+ "Kein WLAN-Adapter": "No Wi-Fi adapter",
+ "Keine Netzwerke gefunden": "No networks found",
+ "Verbindung wird hergestellt …": "Connecting …",
+ "In den Windows-Einstellungen verbinden": "Connect in Windows Settings",
+ "Gesichert": "Secured",
+ "Ungesichert": "Open",
+ "Trennen": "Disconnect",
+ "Verbinden": "Connect",
+ "Falsches Passwort": "Wrong password",
+ "Netzwerk nicht erreichbar": "Network out of reach",
+ "Zeitüberschreitung": "Timed out"
 }

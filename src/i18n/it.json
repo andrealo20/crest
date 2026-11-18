@@ -1846,5 +1846,21 @@
  "WLAN ist ausgeschaltet": "Il Wi-Fi è spento",
  "Bluetooth ist ausgeschaltet": "Il Bluetooth è spento",
  "Weitere WLAN-Einstellungen": "Altre impostazioni Wi-Fi",
- "Weitere Bluetooth-Geräte": "Altri dispositivi Bluetooth"
+ "Weitere Bluetooth-Geräte": "Altri dispositivi Bluetooth",
+ "Netzwerke werden gesucht …": "Ricerca delle reti …",
+ "Windows fragt einmal nach dem Standortzugriff, bevor Crest Netzwerke in der Nähe zeigen kann.": "Windows chiede una volta l'accesso alla posizione prima che Crest possa mostrare le reti vicine.",
+ "Netzwerke in der Nähe anzeigen": "Mostra le reti vicine",
+ "Der Standortzugriff ist für Crest aus, daher bleiben die Netzwerke verborgen.": "L'accesso alla posizione è spento per Crest, quindi le reti restano nascoste.",
+ "In den Einstellungen erlauben": "Consenti in Impostazioni",
+ "Kein WLAN-Adapter": "Nessun adattatore Wi-Fi",
+ "Keine Netzwerke gefunden": "Nessuna rete trovata",
+ "Verbindung wird hergestellt …": "Connessione …",
+ "In den Windows-Einstellungen verbinden": "Connetti dalle Impostazioni di Windows",
+ "Gesichert": "Protetta",
+ "Ungesichert": "Aperta",
+ "Trennen": "Disconnetti",
+ "Verbinden": "Connetti",
+ "Falsches Passwort": "Password errata",
+ "Netzwerk nicht erreichbar": "Rete non raggiungibile",
+ "Zeitüberschreitung": "Tempo scaduto"
 }

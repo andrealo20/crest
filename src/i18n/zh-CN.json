@@ -1846,5 +1846,21 @@
  "WLAN ist ausgeschaltet": "WLAN 已关闭",
  "Bluetooth ist ausgeschaltet": "蓝牙已关闭",
  "Weitere WLAN-Einstellungen": "更多 WLAN 设置",
- "Weitere Bluetooth-Geräte": "更多蓝牙设备"
+ "Weitere Bluetooth-Geräte": "更多蓝牙设备",
+ "Netzwerke werden gesucht …": "正在搜索网络…",
+ "Windows fragt einmal nach dem Standortzugriff, bevor Crest Netzwerke in der Nähe zeigen kann.": "Windows 会先询问一次位置访问权限，然后 Crest 才能显示附近的网络。",
+ "Netzwerke in der Nähe anzeigen": "显示附近的网络",
+ "Der Standortzugriff ist für Crest aus, daher bleiben die Netzwerke verborgen.": "Crest 的位置访问权限已关闭，因此网络保持隐藏。",
+ "In den Einstellungen erlauben": "在设置中允许",
+ "Kein WLAN-Adapter": "没有 WLAN 适配器",
+ "Keine Netzwerke gefunden": "未找到网络",
+ "Verbindung wird hergestellt …": "正在连接…",
+ "In den Windows-Einstellungen verbinden": "在 Windows 设置中连接",
+ "Gesichert": "安全",
+ "Ungesichert": "开放",
+ "Trennen": "断开连接",
+ "Verbinden": "连接",
+ "Falsches Passwort": "密码错误",
+ "Netzwerk nicht erreichbar": "网络不在范围内",
+ "Zeitüberschreitung": "已超时"
 }

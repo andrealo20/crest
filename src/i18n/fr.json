@@ -1846,5 +1846,21 @@
  "WLAN ist ausgeschaltet": "Le Wi-Fi est désactivé",
  "Bluetooth ist ausgeschaltet": "Le Bluetooth est désactivé",
  "Weitere WLAN-Einstellungen": "Plus de paramètres Wi-Fi",
- "Weitere Bluetooth-Geräte": "Plus d'appareils Bluetooth"
+ "Weitere Bluetooth-Geräte": "Plus d'appareils Bluetooth",
+ "Netzwerke werden gesucht …": "Recherche de réseaux…",
+ "Windows fragt einmal nach dem Standortzugriff, bevor Crest Netzwerke in der Nähe zeigen kann.": "Windows demande une fois l'accès à la localisation avant que Crest puisse afficher les réseaux à proximité.",
+ "Netzwerke in der Nähe anzeigen": "Afficher les réseaux à proximité",
+ "Der Standortzugriff ist für Crest aus, daher bleiben die Netzwerke verborgen.": "L'accès à la localisation est désactivé pour Crest, les réseaux restent donc masqués.",
+ "In den Einstellungen erlauben": "Autoriser dans les Paramètres",
+ "Kein WLAN-Adapter": "Aucune carte Wi-Fi",
+ "Keine Netzwerke gefunden": "Aucun réseau trouvé",
+ "Verbindung wird hergestellt …": "Connexion…",
+ "In den Windows-Einstellungen verbinden": "Se connecter dans les Paramètres Windows",
+ "Gesichert": "Sécurisé",
+ "Ungesichert": "Ouvert",
+ "Trennen": "Se déconnecter",
+ "Verbinden": "Se connecter",
+ "Falsches Passwort": "Mot de passe incorrect",
+ "Netzwerk nicht erreichbar": "Réseau hors de portée",
+ "Zeitüberschreitung": "Délai dépassé"
 }

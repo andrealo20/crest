@@ -1846,5 +1846,21 @@
  "WLAN ist ausgeschaltet": "वाई-फ़ाई बंद है",
  "Bluetooth ist ausgeschaltet": "ब्लूटूथ बंद है",
  "Weitere WLAN-Einstellungen": "अधिक वाई-फ़ाई सेटिंग्स",
- "Weitere Bluetooth-Geräte": "अधिक ब्लूटूथ डिवाइस"
+ "Weitere Bluetooth-Geräte": "अधिक ब्लूटूथ डिवाइस",
+ "Netzwerke werden gesucht …": "नेटवर्क खोजे जा रहे हैं …",
+ "Windows fragt einmal nach dem Standortzugriff, bevor Crest Netzwerke in der Nähe zeigen kann.": "Crest आस-पास के नेटवर्क दिखा सके, इससे पहले Windows एक बार स्थान ऐक्सेस के लिए पूछता है।",
+ "Netzwerke in der Nähe anzeigen": "आस-पास के नेटवर्क दिखाएँ",
+ "Der Standortzugriff ist für Crest aus, daher bleiben die Netzwerke verborgen.": "Crest के लिए स्थान ऐक्सेस बंद है, इसलिए नेटवर्क छिपे रहते हैं।",
+ "In den Einstellungen erlauben": "सेटिंग्स में अनुमति दें",
+ "Kein WLAN-Adapter": "कोई वाई-फ़ाई एडैप्टर नहीं",
+ "Keine Netzwerke gefunden": "कोई नेटवर्क नहीं मिला",
+ "Verbindung wird hergestellt …": "कनेक्ट हो रहा है …",
+ "In den Windows-Einstellungen verbinden": "Windows सेटिंग्स में कनेक्ट करें",
+ "Gesichert": "सुरक्षित",
+ "Ungesichert": "खुला",
+ "Trennen": "डिस्कनेक्ट करें",
+ "Verbinden": "कनेक्ट करें",
+ "Falsches Passwort": "गलत पासवर्ड",
+ "Netzwerk nicht erreichbar": "नेटवर्क पहुँच से बाहर",
+ "Zeitüberschreitung": "समय समाप्त"
 }

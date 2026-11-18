@@ -1846,5 +1846,21 @@
  "WLAN ist ausgeschaltet": "Wi-Fi выключен",
  "Bluetooth ist ausgeschaltet": "Bluetooth выключен",
  "Weitere WLAN-Einstellungen": "Другие параметры Wi-Fi",
- "Weitere Bluetooth-Geräte": "Другие устройства Bluetooth"
+ "Weitere Bluetooth-Geräte": "Другие устройства Bluetooth",
+ "Netzwerke werden gesucht …": "Поиск сетей…",
+ "Windows fragt einmal nach dem Standortzugriff, bevor Crest Netzwerke in der Nähe zeigen kann.": "Windows один раз запрашивает доступ к расположению, прежде чем Crest сможет показать сети поблизости.",
+ "Netzwerke in der Nähe anzeigen": "Показать сети поблизости",
+ "Der Standortzugriff ist für Crest aus, daher bleiben die Netzwerke verborgen.": "Доступ к расположению для Crest выключен, поэтому сети скрыты.",
+ "In den Einstellungen erlauben": "Разрешить в параметрах",
+ "Kein WLAN-Adapter": "Нет адаптера Wi-Fi",
+ "Keine Netzwerke gefunden": "Сети не найдены",
+ "Verbindung wird hergestellt …": "Подключение…",
+ "In den Windows-Einstellungen verbinden": "Подключиться в параметрах Windows",
+ "Gesichert": "Защищено",
+ "Ungesichert": "Открыто",
+ "Trennen": "Отключиться",
+ "Verbinden": "Подключиться",
+ "Falsches Passwort": "Неверный пароль",
+ "Netzwerk nicht erreichbar": "Сеть вне зоны действия",
+ "Zeitüberschreitung": "Время ожидания истекло"
 }

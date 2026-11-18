@@ -12,7 +12,7 @@ import { settings } from "../../../settings/store";
 import { useToolSize } from "../../window/panel";
 import { limits } from "../../window/panelSize";
 import { fitIcon, placeMenu } from "../model";
-import { closePanel, panel, quickLayout, quickPage, trayDrag, type OpenPanel, type PanelContent } from "../panel";
+import { closePanel, panel, panelHeld, quickLayout, quickPage, trayDrag, type OpenPanel, type PanelContent } from "../panel";
 import { PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, TOOL_FALLBACK, TRAY_SIZE, fitPanel, toolPanelSize } from "../panelModel";
 import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
@@ -156,7 +156,8 @@ function Panel({ open, bar, onPlace, apps }: { open: OpenPanel; bar: RefObject<H
     };
     addEventListener("keydown", onKey);
     addEventListener("pointerdown", onDown);
-    const offBlur = onNativeBlur(closePanel);
+    // Windows' location prompt takes the focus while the Wi-Fi page waits for it (WifiPage.tsx).
+    const offBlur = onNativeBlur(() => panelHeld.get() || closePanel());
     // The bar hides with the hide hotkey or over a full-screen app, and its panel with it. On this window only: with a bar on each
     // monitor, another bar hiding must not close this one's panel.
     const offShown = isNative ? getCurrentWebviewWindow().listen<boolean>("taskbar://shown", (e) => !e.payload && closePanel()) : null;
