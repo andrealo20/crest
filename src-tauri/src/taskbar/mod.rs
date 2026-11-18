@@ -9,6 +9,7 @@
 
 pub(crate) mod bar;
 pub(crate) mod explorer;
+pub(crate) mod front;
 pub(crate) mod pins;
 pub(crate) mod screens;
 pub(crate) mod tasks;

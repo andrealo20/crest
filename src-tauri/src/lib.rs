@@ -149,14 +149,14 @@ const SETTINGS_DENIED: &[&str] = &[
     "launcher_shortcuts", "clipboard_mode", "tray_texts", "media_pin", "status_configure", "notices_configure",
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
-    "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release",
+    "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_auto_hide",
 ];
 
-/// What the bar may call: its own hit zones and window list, starting apps, opening the notch and the settings, and the Crest
-/// menu. Its settings reach Rust only through the notch (`taskbar_apply`).
+/// What the bar may call: its own hit zones, window list and window in front, starting apps, opening the notch and the settings,
+/// and the Crest menu. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
-    "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log",
+    "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log", "taskbar_front",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -520,6 +520,10 @@ pub fn run() {
             taskbar::tasks::taskbar_release,
             #[cfg(windows)]
             taskbar::pins::taskbar_import_pins,
+            #[cfg(windows)]
+            taskbar::front::taskbar_auto_hide,
+            #[cfg(windows)]
+            taskbar::front::taskbar_front,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,
@@ -1049,6 +1053,8 @@ mod tests {
         assert!(!ok("taskbar", "taskbar_apply") && !ok("taskbar", "vault_reveal") && !ok("taskbar", "launcher_shortcuts") && !ok("taskbar", "set_hit_rect"));
         assert!(!ok("settings", "taskbar_apply") && !ok("settings", "taskbar_hit_rects") && ok("notch", "taskbar_apply"));
         assert!(ok("notch", "taskbar_import_pins") && ok("settings", "taskbar_import_pins") && !ok("taskbar", "taskbar_import_pins"));
+        assert!(ok("taskbar", "taskbar_front") && ok("taskbar-1", "taskbar_front") && !ok("taskbar", "taskbar_auto_hide"));
+        assert!(ok("notch", "taskbar_auto_hide") && !ok("settings", "taskbar_auto_hide"));
     }
 
     #[test]

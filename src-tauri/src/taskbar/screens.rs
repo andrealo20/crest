@@ -133,8 +133,7 @@ pub(crate) fn sync_shown(app: &AppHandle) {
     }
 }
 
-/// A full-screen app came to or left the front of a bar's monitor (display.rs).
-#[expect(dead_code)]
+/// A full-screen app came to or left the front of a bar's monitor (front.rs).
 pub(crate) fn set_fullscreen(app: &AppHandle, label: &str, on: bool) {
     if label == bar::LABEL {
         bar::set_fullscreen(app, on);

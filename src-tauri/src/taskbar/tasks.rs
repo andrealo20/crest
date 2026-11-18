@@ -393,12 +393,12 @@ impl Track {
 }
 
 /// The monitor a window is on; for a minimized one, the monitor it comes back to. It asks no window, so any thread.
-fn monitor_of(hwnd: HWND) -> isize {
+pub(super) fn monitor_of(hwnd: HWND) -> isize {
     unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) }.0 as isize
 }
 
 /// Whether a top-level window gets a button now (`eligible`). Few are visible, so only those are read further.
-fn listable(hwnd: HWND, own: u32) -> bool {
+pub(super) fn listable(hwnd: HWND, own: u32) -> bool {
     let visible = unsafe { IsWindowVisible(hwnd) }.as_bool();
     visible
         && eligible(&Look {
