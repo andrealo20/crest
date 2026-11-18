@@ -1,13 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { PartId } from "../../notch/row/parts.ts";
+import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 import { TASKBAR_DEFAULTS } from "./model.ts";
 import { addWidget, barPartsFor, barWidgets, isWidget, removeWidget, widgetScale, widgetTool } from "./widgets.ts";
 
 test("a widget opens its tool, the clock Windows' calendar", () => {
-  assert.equal(widgetTool("clock"), null);
-  for (const [id, tool] of [["title", "media"], ["equalizer", "media"], ["timer", "timer"], ["rings", "usage"], ["readings", "system"], ["script", "notices"], ["downloads", "shelf"], ["weather", "weather"], ["calendar", "calendar"], ["discord", "discord"], ["github", "github"], ["leetcode", "leetcode"]] as const)
-    assert.equal(widgetTool(id), tool);
+  // Every part: one without a tool would open Windows' calendar.
+  const tools: Record<Exclude<PartId, "clock">, string> = { title: "media", equalizer: "media", timer: "timer", rings: "usage", readings: "system", script: "notices", downloads: "shelf", weather: "weather", calendar: "calendar", discord: "discord", github: "github", leetcode: "leetcode" };
+  for (const id of PART_IDS) assert.equal(widgetTool(id), id === "clock" ? null : tools[id], id);
   assert.ok(isWidget("clock") && !isWidget("apps") && !isWidget("crest"));
 });
 
