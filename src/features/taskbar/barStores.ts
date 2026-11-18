@@ -19,7 +19,7 @@ import type { Forecast } from "../weather/store";
  * notch (feed.tsx) and ready to draw, and the stores the panel's tools show.
  */
 
-/** One slice per widget, as the closed row draws it; the slice of a widget that is not on the bar stays empty. */
+/** One slice per widget, as the closed row draws it: empty until the widget's source first runs, then its last value while the source does not (feed.tsx). */
 export interface BarFeed {
   weather: Forecast["current"] | null;
   title: { text: string; lyric: boolean } | null;

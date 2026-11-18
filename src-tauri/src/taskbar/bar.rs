@@ -268,7 +268,8 @@ pub(crate) fn hwnd() -> isize {
     HANDLE.load(Ordering::SeqCst)
 }
 
-/// Whether the last `sync` showed the bar, for a page that has just loaded (`taskbar_hello`).
+/// Whether the last `sync` showed the bar, for a page that has just loaded (`taskbar_hello`) and for every window once
+/// `taskbar_apply` has built the bar.
 pub(crate) fn shown() -> bool {
     SHOWN.load(Ordering::SeqCst)
 }

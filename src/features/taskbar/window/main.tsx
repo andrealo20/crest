@@ -11,9 +11,11 @@ import { followNotch, startBarWindows } from "../store";
 import { TaskbarWindow, primary } from "./TaskbarWindow";
 
 /*
- * Entry of the bar's window (taskbar.html, src-tauri/src/taskbar/bar.rs). Loads the settings and the open windows, nothing the
- * notch runs: the settings follow the notch window through localStorage (src/lib/storeCore.ts), and only the notch applies them
- * (src/lib/windowKind.ts). The open windows come as Rust events, so the page does nothing while they do not change.
+ * Entry of the bar's window (taskbar.html, src-tauri/src/taskbar/bar.rs). Loads the settings and the open windows, and in the
+ * primary bar follows what the notch sends it (barStores.ts: the widgets' data, the panel's stores); in dev in the browser, where
+ * no notch runs, sample data stands in. Nothing the notch runs: the settings follow the notch window through localStorage
+ * (src/lib/storeCore.ts), and only the notch applies them (src/lib/windowKind.ts). The windows and the data come as events, so the
+ * page does nothing while they do not change.
  */
 
 // The colours and the font come from the theme variables.

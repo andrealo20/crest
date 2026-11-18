@@ -14,7 +14,7 @@ export const groupIcons = createStore<Record<string, string | null>>({});
 /** In the bar's window: whether the bar shows; its widgets rest while it does not. */
 export const barShown = createStore(true);
 
-/** A change to the bar's settings, from the Taskbar pages and their widget rows; the notch applies it (startTaskbar). */
+/** A change to the bar's settings, from the Taskbar pages and their widget rows; the notch applies on/off and the height to Rust (startTaskbar), the bar reads the rest itself. */
 export function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSettings) => Partial<TaskbarSettings>)) {
   updateSettings((s) => ({ taskbar: { ...s.taskbar, ...(typeof patch === "function" ? patch(s.taskbar) : patch) } }));
 }
