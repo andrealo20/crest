@@ -2,7 +2,7 @@ import { createStore } from "../../lib/store";
 import { settingsWindow } from "../../platform/native";
 import { taskbar } from "../../platform/services";
 import type { Favorite } from "../launcher/apps";
-import { opensInBar, panelKey, sameContent, type OpenPanel, type PanelAnchor, type PanelContent } from "./panelModel";
+import { opensInBar, panelKey, sameAnchor, sameContent, type OpenPanel, type PanelAnchor, type PanelContent } from "./panelModel";
 
 /*
  * The panel above the bar, in the bar's window: what it shows and the item it opens over. The bar's items open it only through the
@@ -30,10 +30,13 @@ export function openPanel(content: PanelContent, anchor: PanelAnchor): void {
   panel.set({ content, anchor });
 }
 
-/** The second click on an item closes what it opened and gives the keyboard back to the app that had it; any other content opens. */
+/**
+ * The second click on an item closes what it opened and gives the keyboard back to the app that had it. Any other content opens, and
+ * so does the same content from another item (several open the same tool): the panel moves over that item.
+ */
 export function togglePanel(content: PanelContent, anchor: PanelAnchor): void {
   const open = panel.get();
-  if (!open || !sameContent(open.content, content)) return openPanel(content, anchor);
+  if (!open || !sameContent(open.content, content) || !sameAnchor(open.anchor, anchor)) return openPanel(content, anchor);
   closePanel();
   void taskbar.release();
 }

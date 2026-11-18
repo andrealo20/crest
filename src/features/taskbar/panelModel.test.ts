@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Favorite, LauncherApp } from "../launcher/apps.ts";
-import { BAR_TOOLS, appRows, dropSlot, fitPanel, initialOf, opensInBar, panelKey, pinAt, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, appRows, dropSlot, fitPanel, initialOf, opensInBar, panelKey, pinAt, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const apps: PanelContent = { kind: "apps" };
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
@@ -22,6 +22,12 @@ test("the same content toggles, another one takes its place", () => {
   assert.equal(sameContent(apps, tool("apps")), false);
   assert.equal(panelKey(apps), "apps");
   assert.equal(panelKey(tool("weather")), "weather");
+});
+
+test("the same item is the same span on the bar, so another item opening the same tool moves the panel", () => {
+  assert.equal(sameAnchor({ x: 120.5, w: 40 }, { x: 120.5, w: 40 }), true);
+  assert.equal(sameAnchor({ x: 120.5, w: 40 }, { x: 164.5, w: 40 }), false);
+  assert.equal(sameAnchor({ x: 120.5, w: 40 }, { x: 120.5, w: 88 }), false);
 });
 
 test("the notch keeps what each bar's panel shows", () => {

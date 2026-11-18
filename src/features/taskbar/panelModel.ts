@@ -24,6 +24,8 @@ export const BAR_TOOLS: readonly string[] = ["media", "timer", "usage", "system"
 export const panelKey = (c: PanelContent) => (c.kind === "apps" ? "apps" : c.tool);
 /** The same content closes the panel on a second click, another takes its place. The kind counts too, so no tool id passes for the app menu. */
 export const sameContent = (a: PanelContent, b: PanelContent) => a.kind === b.kind && panelKey(a) === panelKey(b);
+/** The same item by its span on the bar: several items can open the same tool, and a click on another one moves the panel to it. */
+export const sameAnchor = (a: PanelAnchor, b: PanelAnchor) => a.x === b.x && a.w === b.w;
 /** The app menu and the widgets' tools open in the bar; any other tool opens in the notch, so a widget added later still opens somewhere. */
 export const opensInBar = (c: PanelContent) => c.kind === "apps" || BAR_TOOLS.includes(c.tool);
 
