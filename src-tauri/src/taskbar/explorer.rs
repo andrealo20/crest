@@ -3,7 +3,9 @@
 //! Only Explorer's own taskbars count: `Shell_TrayWnd` and `Shell_SecondaryTrayWnd` in the process of the shell window, never a
 //! window by its class alone. Before Crest hides them it writes a record, the file `taskbar-hidden` (in a portable copy's data
 //! folder, else in Crest's folder in %LOCALAPPDATA%): "1" when Crest turned auto-hide on, "0" when auto-hide was on already.
-//! `restore` shows the taskbars again, turns off only the auto-hide the record calls Crest's and removes the record: when Crest
+//! Beside it, `taskbar-appbars` lists the appbars of the docked bars that reserve their strip (reserve.rs). `restore` removes
+//! those appbars and their record first (only through Explorer's taskbar, else both stay for a later restore), then turns off
+//! only the auto-hide the record calls Crest's, removes the record and shows the taskbars again, in that order: when Crest
 //! exits (sign-out, a Store update and an installer's close included), at the next start (a run that ended without it), from
 //! the uninstaller (`--restore-taskbar`) and from a guard process, the same exe started with `--taskbar-guard <pid>`, which
 //! waits for Crest to end in any way (crash, Task Manager).
@@ -26,7 +28,7 @@ use std::time::{Duration, Instant};
 
 use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::{HWND, LPARAM};
-use windows::Win32::UI::Shell::{SHAppBarMessage, ABM_GETSTATE, ABM_SETSTATE, ABS_AUTOHIDE, APPBARDATA};
+use windows::Win32::UI::Shell::{SHAppBarMessage, ABM_GETSTATE, ABM_REMOVE, ABM_SETSTATE, ABS_AUTOHIDE, APPBARDATA};
 use windows::Win32::UI::WindowsAndMessaging::{FindWindowExW, FindWindowW, GetShellWindow, ShowWindowAsync, SHOW_WINDOW_CMD, SW_HIDE, SW_SHOWNA};
 
 use crate::display::{class_name, window_pid};
@@ -89,9 +91,16 @@ fn given_back(record: Record) -> bool {
     !matches!(record, Record::Saved(_))
 }
 
-/// Whether an `Off` left nothing to give back, so the guard can go; otherwise it restores when Crest ends.
-fn nothing_left(hid_here: bool, record: Record) -> bool {
-    !hid_here && record == Record::Missing
+/// Whether an `Off` left nothing to give back, so the guard can go; otherwise it restores when Crest ends. `listed`: the
+/// appbars record still exists.
+fn nothing_left(hid_here: bool, record: Record, listed: bool) -> bool {
+    !hid_here && record == Record::Missing && !listed
+}
+
+/// Whether a restore removes the appbars the record `listed`: only while Explorer's taskbar answers the appbar calls
+/// (`appbar_ok`), since with another program's `Shell_TrayWnd` first the removal would reach that program, not Explorer.
+fn unregisters(listed: bool, appbar_ok: bool) -> bool {
+    listed && appbar_ok
 }
 
 /// Whether a guard found dead `lived` after it started counts as failed: it could not wait for Crest and gave the taskbar back
@@ -145,6 +154,15 @@ fn state_path(portable_data: Option<PathBuf>, local_app_data: Option<PathBuf>) -
 
 fn record_path() -> Option<PathBuf> {
     state_path(portable::data_dir(), std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
+}
+
+/// The record of the docked bars' appbars (`reserve::format_hwnds`), in the folder of the taskbar's record.
+fn appbars_beside(record: &Path) -> PathBuf {
+    record.with_file_name("taskbar-appbars")
+}
+
+pub(crate) fn appbars_path() -> Option<PathBuf> {
+    record_path().map(|p| appbars_beside(&p))
 }
 
 fn record_now() -> Record {
@@ -240,6 +258,16 @@ pub(crate) fn restore_locked(hid_here: bool) {
     let taskbars = taskbars(shell);
     let appbar = appbar_taskbar(shell);
     let steps = restore_steps(record, hid_here, !taskbars.is_empty(), appbar.is_some());
+    // The docked bars' strips first; an unreadable record counts as not listed and stays.
+    if let Some(appbars) = appbars_path() {
+        let listed = fs::read_to_string(&appbars).ok();
+        if unregisters(listed.is_some(), appbar.is_some()) {
+            for hwnd in super::reserve::parse_hwnds(listed.as_deref().unwrap_or_default()) {
+                appbar_call(HWND(hwnd as _), ABM_REMOVE, 0);
+            }
+            let _ = fs::remove_file(&appbars);
+        }
+    }
     if let (true, Some(hwnd)) = (steps.autohide_off, appbar) {
         appbar_call(hwnd, ABM_SETSTATE, 0);
     }
@@ -281,7 +309,7 @@ fn set_mode_locked(scan: &mut Scan, wanted: Mode) {
             restore_locked(HID_HERE.load(Ordering::SeqCst));
             // Kept while anything is left to give back (no Explorer, the appbar calls answered by another program): it
             // restores when Crest ends.
-            if nothing_left(HID_HERE.load(Ordering::SeqCst), record_now()) {
+            if nothing_left(HID_HERE.load(Ordering::SeqCst), record_now(), appbars_path().is_some_and(|p| p.exists())) {
                 if let Some((mut guard, _)) = scan.guard.take() {
                     let _ = guard.kill();
                     let _ = guard.wait();
@@ -504,7 +532,8 @@ fn appbar_taskbar(shell: u32) -> Option<HWND> {
     if appbar_ok(is_explorers(first, shell), super::tray::is_spy(first)) { explorer_tray() } else { None }
 }
 
-/// `SHAppBarMessage` to Explorer's taskbar `hwnd` (`appbar_taskbar`), with `state` for `ABM_SETSTATE`.
+/// `SHAppBarMessage` for `hwnd` (Explorer's taskbar from `appbar_taskbar`, or one of Crest's appbars for `ABM_REMOVE`), with
+/// `state` for `ABM_SETSTATE`.
 fn appbar_call(hwnd: HWND, message: u32, state: u32) -> usize {
     let mut data = APPBARDATA { cbSize: std::mem::size_of::<APPBARDATA>() as u32, hWnd: hwnd, lParam: LPARAM(state as isize), ..Default::default() };
     unsafe { SHAppBarMessage(message, &mut data) }
@@ -582,10 +611,23 @@ mod tests {
 
     #[test]
     fn the_guard_stays_while_anything_is_left_to_give_back() {
-        assert!(nothing_left(false, Record::Missing));
-        assert!(!nothing_left(true, Record::Missing)); // no Explorer to show the taskbars to
-        assert!(!nothing_left(false, Record::Saved(true))); // Crest's auto-hide still on: another program answers the appbar calls
-        assert!(!nothing_left(false, Record::Saved(false)) && !nothing_left(false, Record::Unreadable));
+        assert!(nothing_left(false, Record::Missing, false));
+        assert!(!nothing_left(true, Record::Missing, false)); // no Explorer to show the taskbars to
+        assert!(!nothing_left(false, Record::Saved(true), false)); // Crest's auto-hide still on: another program answers the appbar calls
+        assert!(!nothing_left(false, Record::Saved(false), false) && !nothing_left(false, Record::Unreadable, false));
+        assert!(!nothing_left(false, Record::Missing, true)); // an appbar another program kept Crest from removing
+    }
+
+    #[test]
+    fn crests_appbars_are_removed_only_through_explorer() {
+        assert!(unregisters(true, true));
+        assert!(!unregisters(true, false)); // another program first: the record stays for the next restore
+        assert!(!unregisters(false, true));
+    }
+
+    #[test]
+    fn the_appbars_record_lives_beside_the_taskbar_record() {
+        assert_eq!(appbars_beside(Path::new(r"C:\Crest\data\taskbar-hidden")), PathBuf::from(r"C:\Crest\data\taskbar-appbars"));
     }
 
     #[test]
