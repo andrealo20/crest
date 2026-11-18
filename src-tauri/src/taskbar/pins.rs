@@ -125,6 +125,8 @@ mod tests {
         assert!(find_whole(&blob, "Contoso.Notes_8wekyb3d8bbwe!Notes").is_some());
         assert_eq!(find_whole(&blob, "Notes"), None); // only the tail of another string
         assert_eq!(find_whole(&blob, "Google"), None);
+        assert_eq!(find_whole(&utf16("\u{2}Chrome.Beta\0"), "Chrome"), None); // only the front of a longer id
+        assert_eq!(find_whole(&utf16("Chrome\0"), "Chrome"), Some(0)); // at the very start of the data
         assert_eq!(find_whole(&[], "Chrome"), None);
     }
 
