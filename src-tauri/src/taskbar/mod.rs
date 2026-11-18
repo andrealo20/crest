@@ -101,7 +101,7 @@ pub(crate) fn start(app: &AppHandle) {
         }
     }
     drop(thread);
-    start::begin(app);
+    start::begin();
     // Pins come from the Start list, which nothing may have read yet; it is read off the thread, which must not wait on the shell,
     // and again a few times while it fails (`START_LIST`), or every pinned app would show twice for the whole session.
     let app = app.clone();

@@ -3,18 +3,17 @@
 //! The button sends the Windows key, or Win+X for a right click, once Explorer's process may take the front: no taskbar window
 //! is looked for, so it works with Windows' taskbar hidden, and Windows picks where Start opens. A click on the bar brings the
 //! bar to the front, which closes Start before the click arrives: Windows says when Start shows and hides (`IAppVisibility`),
-//! and a click that comes just after it hid only leaves it closed. When Start hides with a bar in front, the keyboard goes back
-//! to the app that had it (tasks.rs `release`).
+//! and a click that comes just after it hid only leaves it closed and gives the keyboard back to the app that had it (tasks.rs
+//! `release`).
 //!
 //! While the bar runs, one MTA thread holds the visibility sink (`begin`, `end`). The sink runs on a COM thread: it only stores
-//! Start's state and posts to the main thread, so it never waits.
+//! Start's state, so it never waits.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 use std::time::Instant;
 
-use tauri::AppHandle;
 use windows::core::{implement, BOOL};
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::Graphics::Gdi::HMONITOR;
@@ -24,9 +23,9 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_LWIN, VK_X,
 };
 use windows::Win32::UI::Shell::{AppVisibility, IAppVisibility, IAppVisibilityEvents, IAppVisibilityEvents_Impl, MONITOR_APP_VISIBILITY};
-use windows::Win32::UI::WindowsAndMessaging::{AllowSetForegroundWindow, GetForegroundWindow};
+use windows::Win32::UI::WindowsAndMessaging::AllowSetForegroundWindow;
 
-use super::{explorer, screens, tasks};
+use super::{explorer, tasks};
 
 /// A click this soon after Start hid came while it showed: the click on the bar hid it on its way.
 const JUST_CLOSED_MS: u64 = 500;
@@ -78,15 +77,15 @@ fn thread() -> MutexGuard<'static, Option<(isize, JoinHandle<()>)>> {
 }
 
 /// Starts watching Start unless the thread runs (mod.rs `start`). Without the watch every click opens Start.
-pub(crate) fn begin(app: &AppHandle) {
+pub(crate) fn begin() {
     let mut thread = thread();
     if thread.is_some() {
         return;
     }
     let Ok(stop) = (unsafe { CreateEventW(None, true, false, None) }) else { return };
     // As a number: a HANDLE does not cross threads.
-    let (stop, app) = (stop.0 as isize, app.clone());
-    *thread = Some((stop, std::thread::spawn(move || watch(app, HANDLE(stop as _)))));
+    let stop = stop.0 as isize;
+    *thread = Some((stop, std::thread::spawn(move || watch(HANDLE(stop as _)))));
 }
 
 /// Stops watching Start (mod.rs `stop`): the thread lets go of the sink and ends.
@@ -101,10 +100,10 @@ pub(crate) fn end() {
 }
 
 /// The visibility thread: the sink is advised until the stop event is set, then unadvised, all COM released before COM ends.
-fn watch(app: AppHandle, stop: HANDLE) {
+fn watch(stop: HANDLE) {
     let com = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) }.is_ok();
     {
-        let sink: IAppVisibilityEvents = Sink(app).into();
+        let sink: IAppVisibilityEvents = Sink.into();
         let advised = unsafe { CoCreateInstance::<_, IAppVisibility>(&AppVisibility, None, CLSCTX_INPROC_SERVER) }
             .and_then(|visibility| unsafe { visibility.Advise(&sink) }.map(|cookie| (visibility, cookie)))
             .inspect_err(|e| eprintln!("taskbar: Start's visibility not watched, every click opens it: {e}"))
@@ -119,9 +118,9 @@ fn watch(app: AppHandle, stop: HANDLE) {
     }
 }
 
-/// Runs on a COM thread: it only stores Start's state and posts to the main thread, never waits.
+/// Runs on a COM thread: it only stores Start's state, never waits.
 #[implement(IAppVisibilityEvents)]
-struct Sink(AppHandle);
+struct Sink;
 
 impl IAppVisibilityEvents_Impl for Sink_Impl {
     fn AppVisibilityOnMonitorChanged(&self, _: HMONITOR, _: MONITOR_APP_VISIBILITY, _: MONITOR_APP_VISIBILITY) -> windows::core::Result<()> {
@@ -135,20 +134,21 @@ impl IAppVisibilityEvents_Impl for Sink_Impl {
             CLOSED_AT.store(now_ms(), Ordering::SeqCst);
         }
         OPEN.store(visible, Ordering::SeqCst);
-        // A bar holds the front Start had: the keyboard goes back to the app.
-        if !visible && screens::is_bar(unsafe { GetForegroundWindow() }.0 as isize) {
-            let _ = self.0.run_on_main_thread(tasks::release);
-        }
+        // No release here: it would land mid-click, and the bar item clicked would find an app already in front. The Start
+        // button's own click gives the keyboard back (`taskbar_shell`).
         Ok(())
     }
 }
 
-/// The Start button: "start" opens Windows' Start, unless that click hid it (`start_click`); "winx" opens its Win+X menu.
-/// Sync, on the main thread: neither call waits.
+/// The Start button: "start" opens Windows' Start, unless that click hid it (`start_click`): then the keyboard goes back to
+/// the app (tasks.rs `release`), the click being handled. "winx" opens its Win+X menu. Sync, on the main thread: nothing waits.
 #[tauri::command]
 pub fn taskbar_shell(action: String) -> Result<(), String> {
     let vks: &[VIRTUAL_KEY] = match action.as_str() {
-        "start" if start_click(open(), closed_ms_ago()) == Click::Close => return Ok(()),
+        "start" if start_click(open(), closed_ms_ago()) == Click::Close => {
+            tasks::release();
+            return Ok(());
+        }
         "start" => &[VK_LWIN],
         "winx" => &[VK_LWIN, VK_X],
         _ => return Err("unknown".into()),

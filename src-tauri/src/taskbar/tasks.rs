@@ -96,7 +96,8 @@ static LAST: LazyLock<Mutex<Last>> = LazyLock::new(Mutex::default);
 static ICONS: Mutex<BTreeMap<String, Option<String>>> = Mutex::new(BTreeMap::new());
 /// The window in front, never a bar: a click on a bar leaves in front the app the click acts on (`toggle`).
 static FOREGROUND: AtomicIsize = AtomicIsize::new(0);
-/// The last listed window in front, for when Start has held the front since (`release`).
+/// The last listed window in front, for when Start has held the front since (`release`); 0 once the desktop or a Crest window
+/// came after it, as then there is no app to go back to.
 static LAST_APP: AtomicIsize = AtomicIsize::new(0);
 
 thread_local! {
@@ -213,9 +214,10 @@ fn next_front(z_order: &[isize], skip: isize, usable: impl Fn(isize) -> bool) ->
     z_order.iter().copied().find(|&h| h != skip && usable(h))
 }
 
-/// Where the keyboard goes back to: the app in front, else the last one that was, when Start took the front from it.
-fn release_target(in_front: Option<isize>, last_app: Option<isize>) -> Option<isize> {
-    in_front.or(last_app)
+/// Where the keyboard goes back to: the app in front, else the last one that was, when Start took the front from it, if it is
+/// still `usable` (listed, and not minimized since: that would bring it back).
+fn release_target(in_front: Option<isize>, last_app: Option<isize>, usable: impl Fn(isize) -> bool) -> Option<isize> {
+    in_front.or(last_app.filter(|&h| usable(h)))
 }
 
 /// A bar's part of the list: each app's windows on the bar's monitor (`on_it`), and no app without one there. It names the window
@@ -260,7 +262,8 @@ pub(super) fn arm() {
     });
 }
 
-/// A window event (mod.rs `on_event`). The window in front is kept, unless it is a bar; a listed one also as the last app.
+/// A window event (mod.rs `on_event`). The window in front is kept, unless it is a bar; a listed one is also the last app, and
+/// the desktop or a Crest window clears it. Start and the other shell windows leave it as it is.
 pub(super) fn on_event(event: u32, hwnd: HWND) {
     let id = hwnd.0 as isize;
     if event == EVENT_SYSTEM_FOREGROUND {
@@ -270,8 +273,12 @@ pub(super) fn on_event(event: u32, hwnd: HWND) {
         FOREGROUND.store(id, Ordering::SeqCst);
     }
     let (armed, listed) = TRACK.with_borrow(|t| t.as_ref().map_or((true, false), |t| (t.armed, t.order.contains(&id))));
-    if event == EVENT_SYSTEM_FOREGROUND && listed {
-        LAST_APP.store(id, Ordering::SeqCst);
+    if event == EVENT_SYSTEM_FOREGROUND {
+        if listed {
+            LAST_APP.store(id, Ordering::SeqCst);
+        } else if display::is_desktop(hwnd) || display::window_pid(hwnd) == unsafe { GetCurrentProcessId() } {
+            LAST_APP.store(0, Ordering::SeqCst);
+        }
     }
     if !armed && arms(event, listed, || could_list(hwnd)) {
         arm();
@@ -357,7 +364,8 @@ impl Track {
         // A window brought to front has been seen: it stops asking for attention.
         if let Some(active) = active {
             self.flashing.remove(&active);
-            // Also a window listed only now, after its own foreground event (a new app).
+            // Also a window listed only now, after its own foreground event (a new app). Never after a clear: `active` is the
+            // listed window in front now, and the desktop or a Crest window in front gives none.
             LAST_APP.store(active, Ordering::SeqCst);
         }
         // Read once per process.
@@ -508,18 +516,19 @@ pub async fn taskbar_window(id: isize, action: String) -> Result<(), String> {
     }
 }
 
-/// A bar menu closed with Esc: the keyboard goes back to the app in front.
+/// A bar menu or panel closed from the bar (Esc, a second click on its item): the keyboard goes back (`release`).
 #[tauri::command]
 pub fn taskbar_release() {
     release();
 }
 
-/// The keyboard goes back to the app in front, or to the last one if Start has been in front since (start.rs, on the main
-/// thread). Only a window still listed, and never one minimized since: that would bring it back.
+/// The keyboard goes back to the app in front, or to the last one if only Start has been in front since; to none after the
+/// desktop or a Crest window (`LAST_APP`). On the main thread: `taskbar_release`, and the Start button's click that closed
+/// Start (start.rs).
 pub(crate) fn release() {
     let listed: Vec<isize> = last().pids.iter().map(|&(h, _)| h).collect();
-    let last_app = Some(LAST_APP.load(Ordering::SeqCst)).filter(|&h| listed.contains(&h) && !unsafe { IsIconic(HWND(h as _)) }.as_bool());
-    if let Some(target) = release_target(active_now(&listed), last_app) {
+    let usable = |h: isize| listed.contains(&h) && !unsafe { IsIconic(HWND(h as _)) }.as_bool();
+    if let Some(target) = release_target(active_now(&listed), Some(LAST_APP.load(Ordering::SeqCst)), usable) {
         let _ = activate(HWND(target as _));
     }
 }
@@ -676,9 +685,12 @@ mod tests {
 
     #[test]
     fn the_keyboard_goes_back_to_the_last_app_when_start_held_the_front() {
-        assert_eq!(release_target(None, Some(7)), Some(7));
-        assert_eq!(release_target(Some(3), Some(7)), Some(3));
-        assert_eq!(release_target(None, None), None);
+        let usable = |h: isize| h != 8 && h != 9; // 8 is minimized, 9 no longer listed
+        assert_eq!(release_target(None, Some(7), usable), Some(7));
+        assert_eq!(release_target(Some(3), Some(7), usable), Some(3));
+        assert_eq!(release_target(None, None, usable), None);
+        assert_eq!(release_target(None, Some(8), usable), None); // minimized since: not brought back
+        assert_eq!(release_target(None, Some(9), usable), None); // closed since
     }
 
     #[test]
