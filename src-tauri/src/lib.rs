@@ -161,6 +161,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_panel", "taskbar_ask", "launcher_apps", "translate_status",
     "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
     "notices_open_app", "notices_copy_code",
+    "power_plans", "power_plan_set", "system_icon", "reveal_file", "ports_list", "ports_open", "ports_end",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -1073,6 +1074,13 @@ mod tests {
         assert!(ok("taskbar", "notices_open_app") && ok("taskbar", "notices_copy_code") && !ok("taskbar", "notices_remove_windows"));
         // The detached timer window is the notch's: the bar's Timer shows no button for it.
         assert!(!ok("taskbar", "timer_window_open") && !ok("taskbar", "timer_window_close"));
+        // The bar's Hardware reads the power plans as it opens and switches them, asks a process row's icon, shows a process in
+        // Explorer, and its ports sheet lists the ports, opens one in the browser and ends the process on one.
+        assert!(ok("taskbar", "power_plans") && ok("taskbar", "power_plan_set") && ok("taskbar", "system_icon") && ok("taskbar", "reveal_file"));
+        assert!(ok("taskbar", "ports_list") && ok("taskbar", "ports_open") && ok("taskbar", "ports_end"));
+        // Its readings come from the notch alone: each call measures the CPU since the one before, and a call without the process
+        // list drops it, so a second reader would falsify the notch's values.
+        assert!(!ok("taskbar", "system_stats"));
     }
 
     #[test]
