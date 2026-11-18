@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { springs } from "../../../design/motion";
@@ -111,8 +111,10 @@ export function TaskbarWindow() {
   const gap = barGap(shape);
   const tiles = shape === "tiles";
   // Stato's glyphs: one coming or going changes its width.
-  const s = barStatus.use();
-  const glyphs = [s.network && netGlyph(s.network), soundGlyph(s.sound), batteryGlyph(s.power)].filter(Boolean).length;
+  const glyphs = useSyncExternalStore(barStatus.subscribe, () => {
+    const s = barStatus.get();
+    return [s.network && netGlyph(s.network), soundGlyph(s.sound), batteryGlyph(s.power)].filter(Boolean).length;
+  });
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
   // An open menu or panel holds the bar up, and so does an app asking for attention.
   const { down, place: placeMenuZone } = useHitZone(bar, shape, setBoxes, `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${glyphs}`, {

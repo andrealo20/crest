@@ -1835,5 +1835,6 @@
  "Lautstärke {p} %": "音量 {p}%",
  "Akku {p} %, lädt": "バッテリー {p}%、充電中",
  "Schnelleinstellungen": "クイック設定",
- "Weitere Einstellungen": "その他の設定"
+ "Weitere Einstellungen": "その他の設定",
+ "Energiesparmodus": "省エネ機能"
 }

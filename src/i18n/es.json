@@ -1835,5 +1835,6 @@
  "Lautstärke {p} %": "Volumen {p}%",
  "Akku {p} %, lädt": "Batería {p}%, cargando",
  "Schnelleinstellungen": "Configuración rápida",
- "Weitere Einstellungen": "Más configuración"
+ "Weitere Einstellungen": "Más configuración",
+ "Energiesparmodus": "Ahorro de energía"
 }

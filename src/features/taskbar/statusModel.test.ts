@@ -43,7 +43,7 @@ test("the name says each state, with the percentages", () => {
     statusParts({ network: { kind: "wireless", wifi: true, bars: 4, ssid: "Home" }, sound: { level: 40, muted: false }, power: { ac: true, percent: 80, battery: true, charging: true } }),
     [["WLAN: {name}", { name: "Home" }], ["Lautstärke {p} %", { p: 40 }], ["Akku {p} %, lädt", { p: 80 }]],
   );
-  assert.deepEqual(statusParts({ network: { kind: "wired", wifi: null, bars: null, ssid: null }, sound: { level: 10, muted: true }, power: null }), [["Ethernet"], ["Stumm"]]);
+  assert.deepEqual(statusParts({ network: { kind: "wired", wifi: null, bars: null, ssid: null }, sound: { level: 10, muted: true }, power: null }), [["Ethernet"], ["Stummgeschaltet"]]);
   assert.deepEqual(statusParts({ network: { kind: "wireless", wifi: true, bars: 2, ssid: null }, sound: null, power: { ac: false, percent: 55, battery: true, charging: false } }), [["WLAN"], ["Akku {p} %", { p: 55 }]]);
   assert.deepEqual(statusParts({ network: { kind: "none", wifi: false, bars: null, ssid: null }, sound: null, power: null }), [["WLAN aus"]]);
   assert.deepEqual(statusParts({ network: { kind: "none", wifi: true, bars: null, ssid: null }, sound: null, power: null }), [["Nicht verbunden"]]);

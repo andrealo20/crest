@@ -63,7 +63,7 @@ export default function QuickPanel() {
       {listOpen && <OutputList outputs={outputs} rows={rows} onPick={pick} />}
       {brightness && <BrightnessTile level={bright} busy={busy} hold={hold} onLevel={setBright} />}
       <div className="flex h-10 shrink-0 gap-2">
-        <Chip icon={Leaf} name={t("Energiesparen")} state={power ? (power.saver ? t("An") : t("Aus")) : null} onClick={() => away(() => taskbar.settings("saver"))} />
+        <Chip icon={Leaf} name={t("Energiesparmodus")} state={power ? (power.saver ? t("An") : t("Aus")) : null} onClick={() => away(() => taskbar.settings("saver"))} />
         <Chip icon={Airplane} name={t("Flugzeugmodus")} state={null} onClick={() => away(() => taskbar.settings("airplane"))} />
       </div>
       <div className="flex h-8 shrink-0 items-center gap-2">

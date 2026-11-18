@@ -51,7 +51,7 @@ export function statusParts(s: BarStatus): [string, Record<string, string | numb
   if (n?.kind === "wireless") parts.push(n.ssid ? ["WLAN: {name}", { name: n.ssid }] : ["WLAN"]);
   else if (n?.kind === "wired") parts.push(["Ethernet"]);
   else if (n) parts.push([n.wifi === null ? "Keine Verbindung" : n.wifi ? "Nicht verbunden" : "WLAN aus"]);
-  if (s.sound) parts.push(soundGlyph(s.sound) === "muted" ? ["Stumm"] : ["Lautstärke {p} %", { p: s.sound.level }]);
+  if (s.sound) parts.push(soundGlyph(s.sound) === "muted" ? ["Stummgeschaltet"] : ["Lautstärke {p} %", { p: s.sound.level }]);
   const p = s.power;
   if (p?.battery && p.percent !== null) parts.push([p.charging ? "Akku {p} %, lädt" : "Akku {p} %", { p: p.percent }]);
   return parts;

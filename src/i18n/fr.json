@@ -1835,5 +1835,6 @@
  "Lautstärke {p} %": "Volume {p} %",
  "Akku {p} %, lädt": "Batterie {p} %, en charge",
  "Schnelleinstellungen": "Paramètres rapides",
- "Weitere Einstellungen": "Plus de paramètres"
+ "Weitere Einstellungen": "Plus de paramètres",
+ "Energiesparmodus": "Économiseur d'énergie"
 }

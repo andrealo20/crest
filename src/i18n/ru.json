@@ -1835,5 +1835,6 @@
  "Lautstärke {p} %": "Громкость {p}%",
  "Akku {p} %, lädt": "Батарея {p}%, заряжается",
  "Schnelleinstellungen": "Быстрые параметры",
- "Weitere Einstellungen": "Другие параметры"
+ "Weitere Einstellungen": "Другие параметры",
+ "Energiesparmodus": "Экономия энергии"
 }

@@ -1835,5 +1835,6 @@
  "Lautstärke {p} %": "音量 {p}%",
  "Akku {p} %, lädt": "电池 {p}%，正在充电",
  "Schnelleinstellungen": "快速设置",
- "Weitere Einstellungen": "更多设置"
+ "Weitere Einstellungen": "更多设置",
+ "Energiesparmodus": "节能模式"
 }
