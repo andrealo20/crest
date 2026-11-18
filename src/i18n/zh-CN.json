@@ -1799,7 +1799,6 @@
  "Symbolgröße": "图标大小",
  "Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "隐藏 Windows 任务栏，并在每台显示器上显示 Crest 的任务栏。关闭它或 Crest 退出时，Windows 任务栏会恢复",
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "音量、网络、电池和通知可通过 Win+A 和 Win+N 打开",
- "Mit Rechtsklick auf eine App in der Taskleiste anheften": "在任务栏中右键单击应用即可固定",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "刘海：与收起的刘海相同。主题：主题的背景色",
  "Farben und Thema gelten auch für die Taskleiste": "颜色和主题也适用于任务栏",
  "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "实时显示任务栏后面的内容，每秒最多 10 次。开启期间，任务栏不会出现在截图、录制和屏幕共享中。",
@@ -1809,7 +1808,6 @@
  "Kacheln": "磁贴",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "胶囊形状下，任务栏会把三个区域在中间排成一行：左、中、右。这里的区域保持不变",
  "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "折射、磨砂和边缘光也作用于刘海",
- "App-Menü": "应用菜单",
  "Dateien legst du auf der Notch ab": "将文件拖放到刘海上",
  "Widget hinzufügen": "添加小组件",
  "Gilt auch für die Notch": "也适用于刘海",
@@ -1822,5 +1820,8 @@
  "Widget hinzufügen …": "添加小组件 …",
  "Automatisch ausblenden": "自动隐藏",
  "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "当窗口（例如最大化的窗口）触碰任务栏时，任务栏会滑出屏幕，指针触碰屏幕下边缘时再滑回。",
- "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "某台显示器上的任务栏无法滑出：那里的工作区在屏幕边缘上方就结束了，或者下方还有另一台显示器"
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "某台显示器上的任务栏无法滑出：那里的工作区在屏幕边缘上方就结束了，或者下方还有另一台显示器",
+ "Startmenü": "开始",
+ "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "“开始”菜单会在 Windows 放置它的位置打开，具体取决于其任务栏的对齐方式",
+ "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "从 Windows 开始菜单固定应用，或在任务栏中右键单击已打开的应用"
 }

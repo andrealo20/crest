@@ -1799,7 +1799,6 @@
  "Symbolgröße": "आइकन का आकार",
  "Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "Windows टास्कबार छिपाता है और हर डिस्प्ले पर Crest का टास्कबार दिखाता है। बंद करने पर, या Crest के बंद होने पर, Windows वाला वापस आ जाता है",
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "वॉल्यूम, नेटवर्क, बैटरी और सूचनाएँ Win+A और Win+N पर हैं",
- "Mit Rechtsklick auf eine App in der Taskleiste anheften": "टास्कबार में किसी ऐप पर राइट-क्लिक करके उसे पिन करें",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "नॉच: बंद नॉच जैसा। थीम: थीम का पृष्ठभूमि रंग",
  "Farben und Thema gelten auch für die Taskleiste": "रंग और थीम टास्कबार पर भी लागू होते हैं",
  "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "टास्कबार के पीछे जो है उसे लाइव दिखाता है, एक सेकंड में 10 बार तक। जब तक यह चालू है, टास्कबार स्क्रीनशॉट, रिकॉर्डिंग और स्क्रीन शेयर में नहीं दिखता।",
@@ -1809,7 +1808,6 @@
  "Kacheln": "टाइलें",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "कैप्सूल में टास्कबार तीनों हिस्सों को बीच में एक कतार में रखता है: बाएँ, बीच, दाएँ। यहाँ के हिस्से जैसे हैं वैसे ही रहते हैं",
  "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "अपवर्तन, धुंधलापन और किनारे की रोशनी नॉच पर भी लागू होते हैं",
- "App-Menü": "ऐप मेनू",
  "Dateien legst du auf der Notch ab": "फ़ाइलें नॉच पर छोड़ें",
  "Widget hinzufügen": "विजेट जोड़ें",
  "Gilt auch für die Notch": "नॉच पर भी लागू होता है",
@@ -1822,5 +1820,8 @@
  "Widget hinzufügen …": "विजेट जोड़ें …",
  "Automatisch ausblenden": "स्वचालित रूप से छिपाएँ",
  "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "जब कोई विंडो, जैसे बड़ी की हुई विंडो, बार को छूती है तो बार खिसककर हट जाती है, और पॉइंटर के निचले किनारे को छूने पर वापस आ जाती है।",
- "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "एक मॉनिटर पर बार खिसककर नहीं हट सकती: वहाँ कार्य क्षेत्र किनारे से ऊपर ख़त्म हो जाता है, या उसके नीचे कोई और मॉनिटर है"
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "एक मॉनिटर पर बार खिसककर नहीं हट सकती: वहाँ कार्य क्षेत्र किनारे से ऊपर ख़त्म हो जाता है, या उसके नीचे कोई और मॉनिटर है",
+ "Startmenü": "प्रारंभ",
+ "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "प्रारंभ वहीं खुलता है जहाँ Windows उसे रखता है, जो उसके टास्कबार के संरेखण पर निर्भर करता है",
+ "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "Windows के प्रारंभ से, या टास्कबार में किसी खुले ऐप पर राइट-क्लिक करके ऐप को पिन करें"
 }

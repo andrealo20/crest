@@ -1799,7 +1799,6 @@
  "Symbolgröße": "Dimensione delle icone",
  "Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "Nasconde la barra delle applicazioni di Windows e mostra quella di Crest su ogni schermo. Spenta, o quando Crest si chiude, torna quella di Windows",
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Volume, rete, batteria e notifiche sono su Win+A e Win+N",
- "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Fissa un'app con un clic destro su di essa nella barra delle applicazioni",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Notch: come il notch chiuso. Tema: il colore di sfondo del tema",
  "Farben und Thema gelten auch für die Taskleiste": "Colori e tema valgono anche per la barra delle applicazioni",
  "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "Mostra dal vivo ciò che sta dietro la barra delle applicazioni, fino a 10 volte al secondo. Finché è attivo, la barra non compare in screenshot, registrazioni e condivisioni dello schermo.",
@@ -1809,7 +1808,6 @@
  "Kacheln": "Piastrelle",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "Come capsula, la barra mette in fila al centro le tre zone: sinistra, centro, destra. Le zone qui restano come sono",
  "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "Rifrazione, Smerigliatura e Luce sul bordo valgono anche per il notch",
- "App-Menü": "Menu delle app",
  "Dateien legst du auf der Notch ab": "I file si lasciano sul notch",
  "Widget hinzufügen": "Aggiungi widget",
  "Gilt auch für die Notch": "Vale anche per il notch",
@@ -1822,5 +1820,8 @@
  "Widget hinzufügen …": "Aggiungi widget …",
  "Automatisch ausblenden": "Nascondi automaticamente",
  "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "La barra scende quando una finestra la tocca, per esempio una finestra massimizzata, e torna quando il puntatore tocca il bordo in basso.",
- "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "Su un monitor la barra non può scendere: lì l'area di lavoro finisce sopra il bordo, o sotto c'è un altro monitor"
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "Su un monitor la barra non può scendere: lì l'area di lavoro finisce sopra il bordo, o sotto c'è un altro monitor",
+ "Startmenü": "Start",
+ "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "Lo Start si apre dove lo mette Windows, secondo l'allineamento della sua barra",
+ "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "Fissa un'app dallo Start di Windows o con un clic destro su un'app aperta nella barra"
 }

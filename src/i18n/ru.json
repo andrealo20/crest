@@ -1799,7 +1799,6 @@
  "Symbolgröße": "Размер значков",
  "Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "Скрывает панель задач Windows и показывает панель Crest на каждом экране. Если её выключить или Crest завершится, панель Windows вернётся",
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Громкость, сеть, батарея и уведомления открываются по Win+A и Win+N",
- "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Закрепите приложение, щёлкнув его правой кнопкой на панели задач",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Вырез: как закрытый вырез. Тема: цвет фона темы",
  "Farben und Thema gelten auch für die Taskleiste": "Цвета и тема применяются и к панели задач",
  "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "Показывает в реальном времени то, что находится за панелью задач, до 10 раз в секунду. Пока это включено, панель задач не попадает в снимки экрана, записи и демонстрацию экрана.",
@@ -1809,7 +1808,6 @@
  "Kacheln": "Плитки",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "В виде капсулы панель задач выстраивает три зоны в ряд по центру: слева, по центру, справа. Зоны здесь остаются как есть",
  "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "Преломление, Матовость и Свет по краю действуют и на вырез",
- "App-Menü": "Меню приложений",
  "Dateien legst du auf der Notch ab": "Перетаскивайте файлы на вырез",
  "Widget hinzufügen": "Добавить виджет",
  "Gilt auch für die Notch": "Применяется и к вырезу",
@@ -1822,5 +1820,8 @@
  "Widget hinzufügen …": "Добавить виджет …",
  "Automatisch ausblenden": "Автоматически скрывать",
  "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "Панель уезжает, когда её касается окно, например развёрнутое, и возвращается, когда указатель касается нижнего края.",
- "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "На одном мониторе панель не может уехать: там рабочая область заканчивается выше края или под ним есть другой монитор"
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "На одном мониторе панель не может уехать: там рабочая область заканчивается выше края или под ним есть другой монитор",
+ "Startmenü": "Пуск",
+ "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "Пуск открывается там, где его размещает Windows, в зависимости от выравнивания его панели задач",
+ "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "Закрепите приложение из меню «Пуск» Windows или щёлкните правой кнопкой открытое приложение на панели задач"
 }

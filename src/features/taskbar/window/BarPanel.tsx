@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, typ
 import { AnimatePresence, animate, motion, useMotionValue, usePresence, type Transition } from "motion/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { content, springs } from "../../../design/motion";
-import { t } from "../../../i18n";
 import { NotchShape } from "../../../notch/NotchShape";
 import { monitorMetrics } from "../../../notch/monitor";
 import { sizeExtra, sizeOverride } from "../../../notch/size";
@@ -13,8 +12,7 @@ import { useToolSize } from "../../window/panel";
 import { limits } from "../../window/panelSize";
 import { placeMenu } from "../model";
 import { closePanel, panel, pinDrag, type OpenPanel, type PanelContent } from "../panel";
-import { APPS_SIZE, PANEL_EDGE, PANEL_GAP, fitPanel, toolPanelSize } from "../panelModel";
-import { AppsView } from "./AppsView";
+import { PANEL_EDGE, PANEL_GAP, TOOL_FALLBACK, fitPanel, toolPanelSize } from "../panelModel";
 import type { HitRect } from "./BarMenu";
 import { TOOL_TITLE_ID, ToolPanel, useTabs } from "./ToolPanel";
 
@@ -38,16 +36,14 @@ const measure = (bar: RefObject<HTMLElement | null>) => ({ barTop: bar.current?.
 
 /**
  * The panel's size at 100 % for what it shows, before it is fitted to the room above the bar; null keeps the size the panel has.
- * A tool takes the size the notch gives it, less the notch's tool bar, once the tools' code has loaded. Every hook runs for every
- * content, as a switch between the app menu and a tool renders the same panel.
+ * A tool takes the size the notch gives it, less the notch's tool bar, once the tools' code has loaded.
  */
 function usePanelSize(shows: PanelContent): { w: number; h: number } | null {
-  const tabs = useTabs(shows.kind === "tool");
-  const tab = shows.kind === "tool" ? tabs?.findTab(shows.tool) : undefined;
-  const toolSize = useToolSize(tab?.id ?? "", tab?.size ?? APPS_SIZE);
+  const tabs = useTabs(true);
+  const tab = tabs?.findTab(shows.tool);
+  const toolSize = useToolSize(tab?.id ?? "", tab?.size ?? TOOL_FALLBACK);
   const override = sizeOverride.use();
   const extra = sizeExtra.use();
-  if (shows.kind === "apps") return APPS_SIZE;
   if (!tab) return null;
   // The notch's own rule (Notch.tsx): the tool's runtime request wins over the size it was given, an extra height rides on top of
   // that size, and both are held to the monitor.
@@ -80,7 +76,7 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
   const size = natural && fitPanel(natural, { w: view.width - 2 * PANEL_EDGE, h: view.barTop - PANEL_GAP - PANEL_EDGE }, zoom);
 
   // Its final box on screen, which the hit zone takes in full as soon as it opens and gives up as soon as it starts closing. While an
-  // app is dragged out of the app menu the zone is the whole window, or the window would let the pointer go as it left the panel.
+  // app is dragged out of the panel the zone is the whole window, or the window would let the pointer go as it left the panel.
   const w = size ? size.w * zoom : 0;
   const h = size ? size.h * zoom : 0;
   const left = placeMenu(anchor.x, anchor.w, w, view.width, PANEL_EDGE);
@@ -122,7 +118,7 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
   useEffect(() => {
     if (!present) return;
     const onKey = (e: KeyboardEvent) => {
-      // An Esc that a menu inside the panel took (the app menu's pin menu) closes only that menu.
+      // An Esc that a menu inside the panel took (a tool's select menu) closes only that menu.
       if (e.key !== "Escape" || e.defaultPrevented) return;
       closePanel();
       void taskbar.release();
@@ -159,8 +155,7 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
       // it the window lets the pointer through, so a pick in a menu that hung past it would land in the window below.
       data-notch-hit
       role="dialog"
-      aria-label={open.content.kind === "apps" ? t("App-Menü") : undefined}
-      aria-labelledby={open.content.kind === "tool" ? TOOL_TITLE_ID : undefined}
+      aria-labelledby={TOOL_TITLE_ID}
       // Closing, it takes no key and no click: its zone is already gone.
       inert={!present}
       className="fixed left-0 -translate-x-1/2"
@@ -187,7 +182,7 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
                   animate={{ opacity: 1, transition: content.enter }}
                   exit={{ opacity: 0, transition: content.exit }}
                 >
-                  {open.content.kind === "apps" ? <AppsView /> : <ToolPanel tool={open.content.tool} />}
+                  <ToolPanel tool={open.content.tool} />
                 </motion.div>
               )}
             </AnimatePresence>

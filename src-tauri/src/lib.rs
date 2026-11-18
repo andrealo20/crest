@@ -162,7 +162,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log", "taskbar_front",
     "taskbar_slid", "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
-    "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "launcher_apps", "translate_status", "taskbar_shell",
+    "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "translate_status", "taskbar_shell",
     "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
     "notices_open_app", "notices_copy_code",
     "power_plans", "power_plan_set", "system_icon", "reveal_file", "ports_list", "ports_open", "ports_end",
@@ -1085,7 +1085,7 @@ mod tests {
         assert!(!ok("settings", "glass_live_start") && !ok("timer", "glass_live_exclude"));
         // The bar reads the power state for its glass, but never sets what the status alerts watch.
         assert!(ok("taskbar", "status_seed") && ok("taskbar-1", "status_seed") && !ok("taskbar", "status_configure"));
-        assert!(ok("taskbar", "taskbar_panel") && ok("taskbar", "taskbar_ask") && ok("taskbar", "launcher_apps") && ok("taskbar-1", "taskbar_panel"));
+        assert!(ok("taskbar", "taskbar_panel") && ok("taskbar", "taskbar_ask") && !ok("taskbar", "launcher_apps") && ok("taskbar-1", "taskbar_panel"));
         // A settings window claiming a bar's panel would keep the notch's sources running.
         assert!(!ok("settings", "taskbar_panel") && !ok("settings", "taskbar_ask") && !ok("timer", "taskbar_ask"));
         // The tools' code reads the installed translation pairs as it loads in the bar (offlineEngine.ts).

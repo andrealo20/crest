@@ -1799,7 +1799,6 @@
  "Symbolgröße": "Tamanho dos ícones",
  "Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "Oculta a barra de tarefas do Windows e mostra a do Crest em cada tela. Desligada, ou quando o Crest fecha, a do Windows volta",
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "Volume, rede, bateria e notificações ficam em Win+A e Win+N",
- "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Fixe um app clicando com o botão direito nele na barra de tarefas",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Notch: como o notch fechado. Tema: a cor de fundo do tema",
  "Farben und Thema gelten auch für die Taskleiste": "Cores e tema também valem para a barra de tarefas",
  "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "Mostra ao vivo o que está atrás da barra de tarefas, até 10 vezes por segundo. Enquanto estiver ativado, a barra de tarefas fica de fora de capturas de tela, gravações e compartilhamentos de tela.",
@@ -1809,7 +1808,6 @@
  "Kacheln": "Blocos",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "Como cápsula, a barra de tarefas enfileira as três áreas no centro: esquerda, centro, direita. As áreas aqui continuam como estão",
  "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "Refração, Fosco e Luz da borda também valem para o notch",
- "App-Menü": "Menu de apps",
  "Dateien legst du auf der Notch ab": "Solte os arquivos sobre o notch",
  "Widget hinzufügen": "Adicionar widget",
  "Gilt auch für die Notch": "Também vale para o notch",
@@ -1822,5 +1820,8 @@
  "Widget hinzufügen …": "Adicionar widget …",
  "Automatisch ausblenden": "Ocultar automaticamente",
  "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "A barra desliza para fora quando uma janela a toca, por exemplo uma maximizada, e volta quando o ponteiro toca a borda inferior.",
- "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "Em um monitor a barra não consegue deslizar para fora: lá a área de trabalho termina acima da borda, ou há outro monitor abaixo"
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "Em um monitor a barra não consegue deslizar para fora: lá a área de trabalho termina acima da borda, ou há outro monitor abaixo",
+ "Startmenü": "Iniciar",
+ "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "O Iniciar abre onde o Windows o coloca, conforme o alinhamento da barra de tarefas dele",
+ "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "Fixe um app pelo Iniciar do Windows ou clicando com o botão direito em um app aberto na barra de tarefas"
 }

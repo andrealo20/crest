@@ -50,7 +50,7 @@ export const EMPTY_FEED: BarFeed = {
 
 export const barFeed = createStore<BarFeed>(EMPTY_FEED);
 
-/** True while a bar's panel shows a tool, not only the app menu; the notch sets it from barPanels.ts (feed.tsx). */
+/** True while a bar's panel shows a tool; the notch sets it from barPanels.ts (feed.tsx). */
 export const panelOpen = createStore(false);
 
 export const feedStores = { barFeed };

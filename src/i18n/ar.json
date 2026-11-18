@@ -1799,7 +1799,6 @@
  "Symbolgröße": "حجم الأيقونات",
  "Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück": "يخفي شريط مهام Windows ويعرض شريط Crest على كل شاشة. عند إيقافه أو عند خروج Crest يعود شريط Windows",
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "مستوى الصوت والشبكة والبطارية والإشعارات على Win+A وWin+N",
- "Mit Rechtsklick auf eine App in der Taskleiste anheften": "ثبّت تطبيقًا بالنقر عليه بزر الماوس الأيمن في شريط المهام",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "النوتش: مثل النوتش المغلق. السمة: لون خلفية السمة",
  "Farben und Thema gelten auch für die Taskleiste": "الألوان والسمة تنطبق على شريط المهام أيضًا",
  "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "يعرض مباشرةً ما يوجد خلف شريط المهام، حتى 10 مرات في الثانية. ما دام مفعّلًا، لا يظهر شريط المهام في لقطات الشاشة والتسجيلات ومشاركة الشاشة.",
@@ -1809,7 +1808,6 @@
  "Kacheln": "مربعات",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "في شكل الكبسولة يصف شريط المهام المناطق الثلاث في الوسط: يسار، الوسط، يمين. تبقى المناطق هنا كما هي",
  "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "الانكسار والضبابية وضوء الحافة تنطبق على النوتش أيضًا",
- "App-Menü": "قائمة التطبيقات",
  "Dateien legst du auf der Notch ab": "أفلت الملفات على النوتش",
  "Widget hinzufügen": "إضافة أداة مصغّرة",
  "Gilt auch für die Notch": "ينطبق على النوتش أيضًا",
@@ -1822,5 +1820,8 @@
  "Widget hinzufügen …": "إضافة أداة مصغّرة …",
  "Automatisch ausblenden": "إخفاء تلقائي",
  "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "ينزلق الشريط بعيدًا عندما تلمسه نافذة، مثل نافذة مكبّرة، ويعود عندما يلمس المؤشر الحافة السفلية.",
- "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "لا يستطيع الشريط أن ينزلق بعيدًا على إحدى الشاشات: فمساحة العمل هناك تنتهي فوق الحافة، أو توجد تحتها شاشة أخرى"
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "لا يستطيع الشريط أن ينزلق بعيدًا على إحدى الشاشات: فمساحة العمل هناك تنتهي فوق الحافة، أو توجد تحتها شاشة أخرى",
+ "Startmenü": "ابدأ",
+ "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "تُفتح قائمة ابدأ حيث يضعها Windows، بحسب محاذاة شريط المهام الخاص به",
+ "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "ثبّت تطبيقًا من قائمة ابدأ في Windows أو بالنقر بزر الماوس الأيمن على تطبيق مفتوح في شريط المهام"
 }
