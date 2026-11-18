@@ -20,6 +20,15 @@ export const calendarNext = createStore<CalendarEvent | null>(null);
 /** Closed notices survive a restart (stored ids are pruned to the agenda's events on each close). */
 const dismissedIds = createStore<string[]>([], { persist: "calendar-dismissed" });
 const dismissed = new Set(dismissedIds.get());
+// A close in another window (a join in the bar's panel) arrives as a storage event, after the store's own listener (added with the
+// store above) has read the new list. Its ids are added to this window's set, so the notch takes that reminder down and neither
+// window's next close drops the other's. Adding keeps this window's own ids too, since each window prunes what it saves to the
+// events it knows.
+window.addEventListener("storage", (e) => {
+  if (e.key !== "notch:calendar-dismissed") return;
+  for (const id of dismissedIds.get()) dismissed.add(id);
+  schedule();
+});
 let latest = 0;
 
 const toolOn = () => settings.get().tools.some((t) => t.id === "calendar" && t.enabled);
@@ -59,6 +68,8 @@ export function joinMeeting(id: string, link: string) {
 // One timeout to the next moment the notice or the part changes (at most a minute, for standby and clock changes).
 let timeout: number | undefined;
 function schedule() {
+  // The notice and the closed part show only in the notch, so the bar's panel and the settings window keep no timer for them.
+  if (!isNotchWindow) return;
   window.clearTimeout(timeout);
   const now = Date.now();
   const s = settings.get();

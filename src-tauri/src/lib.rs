@@ -153,12 +153,13 @@ const SETTINGS_DENIED: &[&str] = &[
 ];
 
 /// What the bar may call: its own hit zones and window list, listing and starting apps, opening the notch and the settings, the
-/// Crest menu, its two ways to reach the notch (taskbar/panel.rs) and what the notch's tools in its panel read. Its settings reach
-/// Rust only through the notch (`taskbar_apply`).
+/// Crest menu, its two ways to reach the notch (taskbar/panel.rs) and what the notch's tools in its panel read or do on a click.
+/// Its settings reach Rust only through the notch (`taskbar_apply`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log",
     "taskbar_panel", "taskbar_ask", "launcher_apps", "translate_status",
+    "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -1057,6 +1058,15 @@ mod tests {
         assert!(!ok("settings", "taskbar_panel") && !ok("settings", "taskbar_ask") && !ok("timer", "taskbar_ask"));
         // The tools' code reads the installed translation pairs as it loads in the bar (offlineEngine.ts).
         assert!(ok("taskbar", "translate_status"));
+        // A click in the bar's Calendar, GitHub, LeetCode or Discord (join, the two profiles, mute, deafen, leave), and the tokens
+        // Usage reads from the local logs while a card that shows them is on screen.
+        assert!(ok("taskbar", "calendar_open_link") && ok("taskbar", "github_open_profile") && ok("taskbar", "leetcode_open_profile"));
+        assert!(ok("taskbar", "discord_action") && ok("taskbar", "usage_tokens"));
+        // What those tools show is fetched by the notch alone; the bar's Refresh and Retry ask it (taskbar_ask).
+        assert!(!ok("taskbar", "usage_fetch") && !ok("taskbar", "github_contributions") && !ok("taskbar", "leetcode_stats"));
+        assert!(!ok("taskbar", "calendar_fetch") && !ok("taskbar", "discord_state"));
+        // Usage's renew runs in the notch's terminal: the bar never starts or types into a shell.
+        assert!(!ok("taskbar", "terminal_info") && !ok("taskbar", "terminal_start") && !ok("taskbar", "terminal_write") && !ok("taskbar", "terminal_kill"));
     }
 
     #[test]
