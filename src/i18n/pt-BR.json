@@ -1821,5 +1821,6 @@
  "Die Apps von Windows lassen sich gerade nicht lesen": "Os apps do Windows não podem ser lidos agora",
  "Widget hinzufügen …": "Adicionar widget …",
  "Automatisch ausblenden": "Ocultar automaticamente",
- "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "A barra desliza para fora quando uma janela a toca, por exemplo uma maximizada, e volta quando o ponteiro toca a borda inferior."
+ "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "A barra desliza para fora quando uma janela a toca, por exemplo uma maximizada, e volta quando o ponteiro toca a borda inferior.",
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "Em um monitor a barra não consegue deslizar para fora: lá a área de trabalho termina acima da borda, ou há outro monitor abaixo"
 }

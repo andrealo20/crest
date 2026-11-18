@@ -1298,6 +1298,8 @@ export const taskbar = {
   panel: (open: string | null): Promise<void> => (isNative ? invoke("taskbar_panel", { open }) : Promise.resolve()),
   /** "Hide when a window touches it" on or off; only while it is on does Rust send each bar the window in front of its monitor. The notch only. */
   autoHide: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_auto_hide", { on }) : Promise.resolve()),
+  /** How many bars cannot slide away: their work area ends above the monitor's bottom edge, or another monitor lies below. 0 while the bar is off. The settings only. */
+  slideBlocked: (): Promise<number> => (isNative ? invoke<number>("taskbar_slide_blocked") : Promise.resolve(0)),
   /** This bar slid off the screen (useAutoHide) or back up: Rust tells this bar, and the notch for the primary's, that it is hidden while down (onShown). */
   slid: (down: boolean): Promise<void> => (isNative ? invoke("taskbar_slid", { down }) : Promise.resolve()),
   /** The frame of the window in front of this bar's monitor, in the page's CSS px, as Rust last sent it: null without one and while the option is off. */

@@ -549,6 +549,8 @@ pub fn run() {
             taskbar::front::taskbar_auto_hide,
             #[cfg(windows)]
             taskbar::front::taskbar_front,
+            #[cfg(windows)]
+            taskbar::front::taskbar_slide_blocked,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,
@@ -1140,6 +1142,8 @@ mod tests {
         assert!(ok("notch", "taskbar_auto_hide") && !ok("settings", "taskbar_auto_hide"));
         // Each bar says when its page slid it off the screen, for its own label; no other window has a bar to slide.
         assert!(ok("taskbar", "taskbar_slid") && ok("taskbar-1", "taskbar_slid") && !ok("settings", "taskbar_slid"));
+        // The settings' note on a bar that cannot slide away; the bar has no use for it.
+        assert!(!ok("taskbar", "taskbar_slide_blocked") && ok("settings", "taskbar_slide_blocked"));
     }
 
     #[test]

@@ -1821,5 +1821,6 @@
  "Die Apps von Windows lassen sich gerade nicht lesen": "Windows' apps can't be read right now",
  "Widget hinzufügen …": "Add widget …",
  "Automatisch ausblenden": "Auto-hide",
- "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "The bar slides away when a window touches it, for example a maximized one, and comes back when the pointer touches the bottom edge."
+ "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "The bar slides away when a window touches it, for example a maximized one, and comes back when the pointer touches the bottom edge.",
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "On one monitor the bar can't slide away: its work area ends above the edge there, or another monitor lies below it"
 }

@@ -45,6 +45,9 @@ const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
   const { enabled, autoHide } = settings.use().taskbar;
+  // Bars that stay up with auto-hide on (Rust front.rs `stays_up`), read as the page opens and when the switch changes.
+  const [blocked, setBlocked] = useState(0);
+  useEffect(() => void taskbar.slideBlocked().then(setBlocked), [autoHide]);
   return (
     <Group id="settings-taskbar">
       <Row
@@ -55,7 +58,17 @@ export function TaskbarGeneral() {
       </Row>
       <Row
         label={t("Automatisch ausblenden")}
-        hint={t("Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt")}
+        hint={
+          <>
+            {t("Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt")}
+            {autoHide && blocked > 0 && (
+              <span className="mt-1 flex items-start gap-1 text-caution">
+                <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
+                {t("Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm")}
+              </span>
+            )}
+          </>
+        }
       >
         <Switch label={t("Automatisch ausblenden")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
       </Row>

@@ -1821,5 +1821,6 @@
  "Die Apps von Windows lassen sich gerade nicht lesen": "Windows के ऐप अभी पढ़े नहीं जा सकते",
  "Widget hinzufügen …": "विजेट जोड़ें …",
  "Automatisch ausblenden": "स्वचालित रूप से छिपाएँ",
- "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "जब कोई विंडो, जैसे बड़ी की हुई विंडो, बार को छूती है तो बार खिसककर हट जाती है, और पॉइंटर के निचले किनारे को छूने पर वापस आ जाती है।"
+ "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "जब कोई विंडो, जैसे बड़ी की हुई विंडो, बार को छूती है तो बार खिसककर हट जाती है, और पॉइंटर के निचले किनारे को छूने पर वापस आ जाती है।",
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "एक मॉनिटर पर बार खिसककर नहीं हट सकती: वहाँ कार्य क्षेत्र किनारे से ऊपर ख़त्म हो जाता है, या उसके नीचे कोई और मॉनिटर है"
 }

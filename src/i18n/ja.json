@@ -1821,5 +1821,6 @@
  "Die Apps von Windows lassen sich gerade nicht lesen": "今は Windows のアプリを読み取れません",
  "Widget hinzufügen …": "ウィジェットを追加 …",
  "Automatisch ausblenden": "自動的に隠す",
- "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "ウィンドウ（たとえば最大化したウィンドウ）が触れるとバーが画面外へ滑り出し、ポインターが下端に触れると戻ります。"
+ "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "ウィンドウ（たとえば最大化したウィンドウ）が触れるとバーが画面外へ滑り出し、ポインターが下端に触れると戻ります。",
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "一部のモニターではバーが画面外へ滑り出せません: 作業領域が下端より上で終わっているか、下に別のモニターがあります"
 }

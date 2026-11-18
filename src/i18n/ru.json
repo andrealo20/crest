@@ -1821,5 +1821,6 @@
  "Die Apps von Windows lassen sich gerade nicht lesen": "Сейчас не удаётся прочитать приложения Windows",
  "Widget hinzufügen …": "Добавить виджет …",
  "Automatisch ausblenden": "Автоматически скрывать",
- "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "Панель уезжает, когда её касается окно, например развёрнутое, и возвращается, когда указатель касается нижнего края."
+ "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "Панель уезжает, когда её касается окно, например развёрнутое, и возвращается, когда указатель касается нижнего края.",
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "На одном мониторе панель не может уехать: там рабочая область заканчивается выше края или под ним есть другой монитор"
 }

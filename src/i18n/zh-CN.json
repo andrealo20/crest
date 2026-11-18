@@ -1821,5 +1821,6 @@
  "Die Apps von Windows lassen sich gerade nicht lesen": "暂时无法读取 Windows 的应用",
  "Widget hinzufügen …": "添加小组件 …",
  "Automatisch ausblenden": "自动隐藏",
- "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "当窗口（例如最大化的窗口）触碰任务栏时，任务栏会滑出屏幕，指针触碰屏幕下边缘时再滑回。"
+ "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt": "当窗口（例如最大化的窗口）触碰任务栏时，任务栏会滑出屏幕，指针触碰屏幕下边缘时再滑回。",
+ "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "某台显示器上的任务栏无法滑出：那里的工作区在屏幕边缘上方就结束了，或者下方还有另一台显示器"
 }

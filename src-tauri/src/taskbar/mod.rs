@@ -52,6 +52,11 @@ const RETRY_TIMER: usize = 1;
 const RETRY_MS: u32 = 50;
 /// Posted by `relist`: the windows are listed again, with their pins once the Start list is read, for the bars there are now.
 const RELIST: u32 = WM_APP;
+/// Posted by `autohide_missed`: arms `AUTOHIDE_TIMER`, which only the window's own thread can.
+const AUTOHIDE: u32 = WM_APP + 1;
+/// Auto-hide a hide could not set is tried again this often while it is still to do (`try_autohide`).
+const AUTOHIDE_TIMER: usize = 3;
+const AUTOHIDE_MS: u32 = 5000;
 /// The waits before each read of the Start list: none, then longer after each read that failed or came back empty (a sign-in
 /// where the shell is not ready yet), and none after the last.
 const START_LIST: [Duration; 4] = [Duration::ZERO, Duration::from_secs(5), Duration::from_secs(20), Duration::from_secs(60)];
@@ -71,6 +76,8 @@ struct Pending {
     shown: Vec<HWND>,
     /// Explorer made its taskbars anew.
     created: bool,
+    /// Auto-hide is to try again (`try_autohide`).
+    autohide: bool,
 }
 
 /// Starts the thread unless it runs (`taskbar_apply`, once it has built the bar's window); returns once its window exists.
@@ -105,9 +112,19 @@ pub(crate) fn start(app: &AppHandle) {
 
 /// The windows are listed again on the running thread (`RELIST`): the Start list has been read, or the bars have changed.
 pub(crate) fn relist() {
+    post_to_thread(RELIST);
+}
+
+/// A hide could not turn auto-hide on (explorer.rs `missed`): the running thread arms its timer (`AUTOHIDE`). Called under
+/// explorer's lock, which only waits here for `THREAD`, held briefly.
+pub(crate) fn autohide_missed() {
+    post_to_thread(AUTOHIDE);
+}
+
+fn post_to_thread(msg: u32) {
     // Only to the thread running now: a window handle kept from before may belong to another app by then.
     if let Some((window, _)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
-        let _ = unsafe { PostMessageW(Some(HWND(*window as _)), RELIST, WPARAM(0), LPARAM(0)) };
+        let _ = unsafe { PostMessageW(Some(HWND(*window as _)), msg, WPARAM(0), LPARAM(0)) };
     }
 }
 
@@ -203,6 +220,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         unsafe {
             let _ = KillTimer(Some(hwnd), RETRY_TIMER);
             let _ = KillTimer(Some(hwnd), tasks::LIST_TIMER);
+            let _ = KillTimer(Some(hwnd), AUTOHIDE_TIMER);
             let _ = DeregisterShellHookWindow(hwnd);
             PostQuitMessage(0);
         }
@@ -216,8 +234,16 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         tasks::on_timer(hwnd);
         return LRESULT(0);
     }
+    if msg == WM_TIMER && wparam.0 == AUTOHIDE_TIMER {
+        try_autohide(hwnd);
+        return LRESULT(0);
+    }
     if msg == RELIST {
         tasks::arm();
+        return LRESULT(0);
+    }
+    if msg == AUTOHIDE {
+        let _ = unsafe { SetTimer(Some(hwnd), AUTOHIDE_TIMER, AUTOHIDE_MS, None) };
         return LRESULT(0);
     }
     // Auto-hide turned on or off, an appbar came or went: the bar moves with the work area now, not at the mirror's next check.
@@ -225,6 +251,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         if let Some(app) = PENDING.with_borrow(|pending| pending.app.clone()) {
             bar::work_area_changed(&app);
         }
+        // A taskbar that came or went moves the work area: Explorer's may answer the appbar calls now.
+        try_autohide(hwnd);
         return LRESULT(0);
     }
     if msg != 0 && msg == SHELLHOOK.load(Ordering::SeqCst) {
@@ -235,6 +263,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         if !explorer::on_taskbar_created() {
             defer(|pending| pending.created = true);
         }
+        try_autohide(hwnd);
         listen(hwnd);
         tasks::arm();
         return LRESULT(0);
@@ -281,17 +310,30 @@ fn tries(waits: impl IntoIterator<Item = Duration>, mut sleep: impl FnMut(Durati
 /// restore. What finds the lock taken again waits for the next round.
 fn retry(window: HWND) {
     let _ = unsafe { KillTimer(Some(window), RETRY_TIMER) };
-    let (shown, created) = PENDING.with_borrow_mut(|pending| {
+    let (shown, created, autohide) = PENDING.with_borrow_mut(|pending| {
         pending.armed = false;
-        (std::mem::take(&mut pending.shown), std::mem::take(&mut pending.created))
+        (std::mem::take(&mut pending.shown), std::mem::take(&mut pending.created), std::mem::take(&mut pending.autohide))
     });
     if created && !explorer::on_taskbar_created() {
         defer(|pending| pending.created = true);
+    }
+    if autohide {
+        try_autohide(window);
     }
     for hwnd in shown {
         if !explorer::on_show(hwnd) {
             defer(|pending| pending.shown.push(hwnd));
         }
+    }
+}
+
+/// Tries again the auto-hide a hide could not set (explorer.rs `retry_autohide`), and stops its timer once nothing is left
+/// to try. A taken lock defers it, as the rest.
+fn try_autohide(window: HWND) {
+    if !explorer::retry_autohide() {
+        defer(|pending| pending.autohide = true);
+    } else if !explorer::missed() {
+        let _ = unsafe { KillTimer(Some(window), AUTOHIDE_TIMER) };
     }
 }
 
