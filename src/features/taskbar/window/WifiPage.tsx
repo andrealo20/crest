@@ -46,10 +46,12 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
   useEffect(() => () => panelHeld.set(false), []);
   const allow = () => {
     panelHeld.set(true);
+    setNote(null);
     taskbar
       .wifiAllow()
       .then((a) => (a === "allowed" ? read(true) : setList({ state: "denied", networks: [] })))
-      .catch((e) => setFailed(String(e)))
+      // The "ask" list stays on screen, so the failure shows as the footer's note.
+      .catch((e) => setNote(afterConnect(String(e)).note))
       .finally(() => panelHeld.set(false));
   };
 
