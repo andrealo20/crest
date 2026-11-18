@@ -17,6 +17,17 @@ export function netGlyph(n: NetworkState): "wired" | "wifi-off" | "wifi-unlinked
   return n.wifi === null ? "offline" : n.wifi ? "wifi-unlinked" : "wifi-off";
 }
 
+/**
+ * The quick panel's Wi-Fi tile: its line (the SSID when Windows gives it, else a text key) and its glyph. While a cable carries the
+ * internet it says only On or Off, with no glyph, since Windows may keep Wi-Fi associated beside the cable.
+ */
+export function wifiTile(on: boolean, n: NetworkState | null): { key: "An" | "Aus" | "Verbunden" | "Nicht verbunden"; ssid: string | null; glyph: ReturnType<typeof netGlyph> | null } {
+  const glyph = n && n.kind !== "wired" ? netGlyph(n) : null;
+  if (!on) return { key: "Aus", ssid: null, glyph };
+  if (n?.kind === "wireless") return { key: "Verbunden", ssid: n.ssid, glyph };
+  return { key: n?.kind === "wired" ? "An" : "Nicht verbunden", ssid: null, glyph };
+}
+
 /** The speaker's glyph, with VolumeTile's thresholds; null until the volume is known. */
 export function soundGlyph(s: SoundState | null): "muted" | "low" | "mid" | "high" | null {
   if (!s) return null;

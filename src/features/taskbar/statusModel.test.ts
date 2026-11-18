@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { batteryGlyph, glyphSize, netGlyph, soundGlyph, statusParts, statusWidth, type NetworkState } from "./statusModel.ts";
+import { batteryGlyph, glyphSize, netGlyph, soundGlyph, statusParts, statusWidth, wifiTile, type NetworkState } from "./statusModel.ts";
 
 test("the network glyph is the connection in use", () => {
   const n = (p: Partial<NetworkState>): NetworkState => ({ kind: "none", wifi: true, bars: null, ssid: null, ...p });
@@ -57,4 +57,15 @@ test("the glyphs are two thirds of the icon and the item as wide as they are", (
   assert.equal(statusWidth(24, 3), 72);
   assert.equal(statusWidth(24, 2), 52);
   assert.equal(statusWidth(20, 3), 63);
+});
+
+test("the quick panel's Wi-Fi tile says only On or Off while a cable carries the internet", () => {
+  const n = (p: Partial<NetworkState>): NetworkState => ({ kind: "none", wifi: true, bars: null, ssid: null, ...p });
+  assert.deepEqual(wifiTile(true, n({ kind: "wired" })), { key: "An", ssid: null, glyph: null });
+  assert.deepEqual(wifiTile(false, n({ kind: "wired", wifi: false })), { key: "Aus", ssid: null, glyph: null });
+  assert.deepEqual(wifiTile(true, n({ kind: "wireless", bars: 3, ssid: "Lab" })), { key: "Verbunden", ssid: "Lab", glyph: "wifi-2" });
+  assert.deepEqual(wifiTile(true, n({ kind: "wireless" })), { key: "Verbunden", ssid: null, glyph: "wifi-3" });
+  assert.deepEqual(wifiTile(true, n({})), { key: "Nicht verbunden", ssid: null, glyph: "wifi-unlinked" });
+  assert.deepEqual(wifiTile(false, n({ wifi: false })), { key: "Aus", ssid: null, glyph: "wifi-off" });
+  assert.deepEqual(wifiTile(true, null), { key: "Nicht verbunden", ssid: null, glyph: null });
 });

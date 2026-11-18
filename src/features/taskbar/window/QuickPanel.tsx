@@ -7,14 +7,14 @@ import { BrightnessTile, OutputList, VolumeTile, useBrightness, useOutputs } fro
 import { MIXER_MAX_ROWS, MIXER_ROW } from "../../now-playing/Mixer";
 import { closePanel, quickLayout } from "../panel";
 import { barStatus } from "../status";
-import { netGlyph } from "../statusModel";
+import { wifiTile } from "../statusModel";
 import { holdBriefly } from "./hold";
 import { NET } from "./Status";
 
 /**
  * Stato's quick panel, sized by QUICK_SIZE: the radios that apply (Wi-Fi, Bluetooth, the cable), the volume with its outputs, the
  * bar's own monitor brightness where Crest can set it, Energy saver and Airplane mode, and a footer with what went wrong and Windows'
- * own quick settings. Built from Overview's pieces, whose reads run only while the panel is open.
+ * Settings. Built from Overview's pieces, whose reads run only while the panel is open.
  */
 export default function QuickPanel() {
   const [quick, reload] = useQuick();
@@ -23,15 +23,15 @@ export default function QuickPanel() {
   const { outputs, listOpen, device, toggle, pick } = useOutputs();
   const { bright, setBright, busy, hold } = useBrightness();
   const wired = network?.kind === "wired";
-  // Kept while the radios are not read yet, so the panel does not shrink and grow back as it opens.
-  const radios = quick === null || quick.wifi !== null || quick.bluetooth !== null || wired;
+  // Until the radios are read the row keeps what the last open found (the default the first time), so the panel does not jump.
+  const radios = (quick === null ? quickLayout.get().radios : quick.wifi !== null || quick.bluetooth !== null) || wired;
   const rows = Math.min(MIXER_MAX_ROWS, outputs.length);
   const list = listOpen ? rows * MIXER_ROW + 14 : 0;
   const brightness = bright !== null;
   useLayoutEffect(() => {
     quickLayout.set({ radios, brightness, list });
   }, [radios, brightness, list]);
-  useLayoutEffect(() => () => quickLayout.set({ radios: true, brightness: false, list: 0 }), []);
+  useLayoutEffect(() => () => quickLayout.set({ ...quickLayout.get(), brightness: false, list: 0 }), []);
 
   // A Windows surface comes to the front: the panel goes and the bar stays up meanwhile.
   const away = (open: () => Promise<void>) => {
@@ -39,7 +39,7 @@ export default function QuickPanel() {
     holdBriefly();
     void open().catch(() => {});
   };
-  const WifiIcon = network ? NET[netGlyph(network)] : null;
+  const wifi = wifiTile(quick?.wifi === true, network);
 
   return (
     <div className="flex h-full flex-col gap-2.5 p-3">
@@ -49,8 +49,8 @@ export default function QuickPanel() {
             <Tile
               lead={<RadioSwitch kind="wifi" on={quick.wifi} job={job} />}
               name={t("WLAN")}
-              line={!quick.wifi ? t("Aus") : network?.kind === "wireless" ? (network.ssid ?? t("Verbunden")) : t("Nicht verbunden")}
-              icon={WifiIcon}
+              line={wifi.ssid ?? t(wifi.key)}
+              icon={wifi.glyph && NET[wifi.glyph]}
             />
           )}
           {quick?.bluetooth != null && <Tile lead={<RadioSwitch kind="bluetooth" on={quick.bluetooth} job={job} />} name={t("Bluetooth")} line={quick.bluetooth ? t("An") : t("Aus")} />}
@@ -71,7 +71,8 @@ export default function QuickPanel() {
           {job.note}
         </span>
         <button
-          onClick={() => away(() => taskbar.shell("quick"))}
+          // Settings' home: Win+A (taskbar.shell("quick")) is not yet known to open Windows' quick settings while its taskbar is hidden.
+          onClick={() => away(() => taskbar.settings("home"))}
           className="pressable shrink-0 rounded-full px-2.5 py-1 text-footnote font-medium text-label-2 hover:bg-fill-2 hover:text-label"
         >
           {t("Weitere Einstellungen")}
