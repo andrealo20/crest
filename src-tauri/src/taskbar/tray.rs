@@ -255,6 +255,13 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
     if msg == WM_COPYDATA {
         return LRESULT(unsafe { copy_data(wparam, lparam) });
     }
+    // ManagedShell posts this one on rather than send it: a synchronous forward of it is what its fix avoids. Nothing waits.
+    if traywire::posts(msg) {
+        if let Some(to) = explorer::explorer_tray() {
+            let _ = unsafe { PostMessageW(Some(to), msg, wparam, lparam) };
+        }
+        return unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) };
+    }
     if traywire::forwards(msg) {
         return LRESULT(forward(msg, wparam, lparam));
     }

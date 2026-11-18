@@ -226,6 +226,12 @@ pub(crate) fn forwards(msg: u32) -> bool {
     matches!(msg, WM_COPYDATA | WM_ACTIVATEAPP | WM_COMMAND) || (WM_USER..REGISTERED).contains(&msg)
 }
 
+/// Whether the spy posts a forwarded message instead of sending it and waiting: only `WM_USER + 372`, which ManagedShell's
+/// TrayService posts to Explorer's tray rather than forward synchronously.
+pub(crate) fn posts(msg: u32) -> bool {
+    msg == WM_USER + 372
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -380,6 +386,14 @@ mod tests {
         }
         for m in [0xC000, 0xC123, WM_TIMER, WM_PAINT] {
             assert!(!forwards(m));
+        }
+    }
+
+    #[test]
+    fn only_one_shell_message_is_posted_on() {
+        assert!(posts(WM_USER + 372));
+        for m in [WM_USER, WM_USER + 371, WM_USER + 373, WM_COPYDATA, WM_COMMAND, WM_ACTIVATEAPP] {
+            assert!(!posts(m));
         }
     }
 
