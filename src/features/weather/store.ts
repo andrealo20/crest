@@ -267,9 +267,9 @@ const shown = settings.get().tools.some((x) => (x.id === "weather" || x.id === "
 if (shown && isNotchWindow) void detectPlace();
 
 /*
- * In the notch, for a bar's panel that shows the weather (its tool, or the Overview's header): what the tool does here on mount, the
- * place looked up while none is set or the forecast loaded, and again 30 s after a failure, until neither shows. The bar shows the
- * forecast this saves.
+ * In the notch, for a bar's panel that shows the weather (its tool, or the Overview's header): what the tool does here on mount, until
+ * neither shows. The place is looked up while none is set, and again when the PC comes back online; the forecast is loaded, and again
+ * 30 s after a failure. The bar shows the forecast this saves.
  */
 /** What the notch loads for the bars: "" nothing, "?" the place while none is set, or the place's key. */
 let barKey = "";
@@ -282,8 +282,11 @@ function loadForBars() {
   window.clearTimeout(barRetry);
   if (!barKey) return;
   const p = settings.get().weather;
+  // Without a place the lookup is tried again only once the network is back (below), as the tool's is: not every 30 s for as long
+  // as the PC stays offline.
+  if (!p) return void detectPlace();
   // The saved forecast stands in for a failed read, as in the tool: try again soon too.
-  const done = p ? loadForecast(p.lat, p.lon).then((f) => !f.savedAt, () => false) : detectPlace();
+  const done = loadForecast(p.lat, p.lon).then((f) => !f.savedAt, () => false);
   void done.then((ok) => {
     if (!ok && at === barTry) barRetry = window.setTimeout(loadForBars, 30_000);
   });
@@ -303,4 +306,6 @@ if (isNotchWindow) {
   onBarShows("weather", followBars);
   onBarShows("overview", followBars);
   settings.subscribe(followBars);
+  // Back online, the tool looks the place up or reads the forecast again (useLoadedForecast): so does the load for the bars.
+  window.addEventListener("online", loadForBars);
 }

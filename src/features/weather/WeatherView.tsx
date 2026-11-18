@@ -6,7 +6,7 @@ import { content, fade, spin } from "../../design/motion";
 import { settings } from "../../settings/store";
 import { isNotchWindow } from "../../lib/windowKind";
 import { navigate } from "../../notch/nav";
-import { Skeleton } from "../../ui/controls";
+import { Button, Empty, Skeleton } from "../../ui/controls";
 import { formatAgo, formatTemp, formatTime, formatWind } from "../../lib/format";
 import { locale, t } from "../../i18n";
 import { choosePlace, describe, detectPlace, searchPlaces, useForecast, type Forecast, type Place } from "./store";
@@ -30,7 +30,8 @@ export function WeatherView() {
   const [searching, setSearching] = useState(false);
   const [detectFailed, setDetectFailed] = useState(false);
 
-  // First start without a location: detect via IP; if that fails, show the search. Only the notch looks it up: the bar waits for it.
+  // First start without a location: detect via IP; if that fails, show the search. Only the notch looks it up and searches: without a
+  // place the bar sends to the settings window, as its place button does.
   useEffect(() => {
     if (!place && isNotchWindow) void detectPlace().then((ok) => setDetectFailed(!ok));
   }, [place]);
@@ -41,6 +42,10 @@ export function WeatherView() {
         {searching || (!place && detectFailed) ? (
           <motion.div key="search" className="h-full" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: content.enter }} exit={{ opacity: 0, transition: content.exit }}>
             <PlaceSearch onDone={() => setSearching(false)} canCancel={!!place} />
+          </motion.div>
+        ) : !place && !isNotchWindow ? (
+          <motion.div key="noplace" className="h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={fade}>
+            <Empty icon={MapPin} title={t("Für welchen Ort soll das Wetter angezeigt werden?")} action={<Button onClick={() => navigate("settings", "weather")}>{t("Einstellungen")}</Button>} />
           </motion.div>
         ) : data === "error" ? (
           <motion.div key="error" className="flex h-full items-center justify-center text-body text-label-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={fade}>
