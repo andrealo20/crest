@@ -12,11 +12,17 @@ test("a window touches the bar only where they overlap", () => {
 });
 
 test("the bar slides away only while nothing holds it", () => {
-  const p = { on: true, covered: true, pointer: false, open: false, attention: false };
+  const p = { on: true, covered: true, pointer: false, open: false, attention: false, held: false };
   assert.equal(slides(p), true);
   for (const k of ["pointer", "open", "attention"] as const) assert.equal(slides({ ...p, [k]: true }), false);
   assert.equal(slides({ ...p, on: false }), false);
   assert.equal(slides({ ...p, covered: false }), false);
+});
+
+test("a Windows surface holds the bar up like a menu", () => {
+  const base = { on: true, covered: true, pointer: false, open: false, attention: false };
+  assert.equal(slides({ ...base, held: false }), true);
+  assert.equal(slides({ ...base, held: true }), false);
 });
 
 test("a bar that slid away keeps only the strip at the bottom edge", () => {

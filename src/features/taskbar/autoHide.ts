@@ -13,15 +13,20 @@ export interface Rect {
 export const STRIP = 2;
 /** The wait before a bar slides away, ms: a pointer that has just left it, or a window passing over it, does not send it down. */
 export const SLIDE_DELAY = 300;
+/** How long a click on Start or the clock holds the bar up, ms: Windows' surface takes a moment to come to the front (window/hold.ts). */
+export const BRIEF_HOLD = 800;
 
 /** The window in front overlaps the bar's band by at least a pixel; edges that only meet do not touch. */
 export function touches(front: Rect | null, band: Rect): boolean {
   return front !== null && front.x < band.x + band.w && band.x < front.x + front.w && front.y < band.y + band.h && band.y < front.y + front.h;
 }
 
-/** The option on and the window in front touching the bar, with neither the pointer, an open menu nor an app asking for attention holding it up. */
-export function slides(p: { on: boolean; covered: boolean; pointer: boolean; open: boolean; attention: boolean }): boolean {
-  return p.on && p.covered && !p.pointer && !p.open && !p.attention;
+/**
+ * The option on and the window in front touching the bar, with neither the pointer, an open menu, an app asking for attention nor
+ * one of Windows' own surfaces (`held`: Start, Win+X, the calendar, a tray menu) holding it up.
+ */
+export function slides(p: { on: boolean; covered: boolean; pointer: boolean; open: boolean; attention: boolean; held: boolean }): boolean {
+  return p.on && p.covered && !p.pointer && !p.open && !p.attention && !p.held;
 }
 
 /**

@@ -1312,6 +1312,12 @@ export const taskbar = {
     const off = getCurrentWebviewWindow().listen<Rect | null>("taskbar://front", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
+  /** One of Windows' own surfaces (Start, Win+X, the calendar, a tray menu) holds the bar up, or no longer does; on a change, while the option is on, and false once it turns off. */
+  onHold(handler: (held: boolean) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<boolean>("taskbar://hold", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** Ends Crest (the Crest menu's Quit). */
   quit: (): Promise<void> => (isNative ? invoke("app_quit") : Promise.resolve()),
   /** In the primary bar, has the notch send the widgets' data (`bar://hello`); call it once the page listens. Whether this bar shows now, so the page starts paused or not. */

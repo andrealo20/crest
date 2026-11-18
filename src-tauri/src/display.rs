@@ -589,7 +589,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 let _ = app.emit("notch://fullscreen", fullscreen);
             }
             // Each bar hides over a full-screen app in front of its own monitor, whatever the notch's rules say.
-            crate::taskbar::front::poll(&app, ruled);
+            crate::taskbar::front::poll(&app, foreground, ruled);
             let behavior = screen_policy::decide(
                 &rules,
                 (fg.context, &fg.name, &fg.path),

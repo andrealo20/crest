@@ -24,6 +24,7 @@ import { BarGlass, useBarSurface } from "./BarGlass";
 import { Capsule } from "./Capsule";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
+import { holdBriefly } from "./hold";
 import { Item, MARK } from "./Item";
 import { useAutoHide } from "./useAutoHide";
 import { WidgetItem } from "./Widget";
@@ -149,8 +150,11 @@ export function TaskbarWindow() {
     setError(null);
     setMenu(null);
     const tool = widgetTool(id);
-    // Windows may refuse to open it; nothing changes then.
-    if (tool === null) return void taskbar.calendar().catch(() => {});
+    // Windows may refuse to open it; nothing changes then. The bar stays up while it comes to the front.
+    if (tool === null) {
+      holdBriefly();
+      return void taskbar.calendar().catch(() => {});
+    }
     const r = button.getBoundingClientRect();
     togglePanel({ kind: "tool", tool }, { x: r.x, w: r.width });
   };
@@ -174,10 +178,14 @@ export function TaskbarWindow() {
         <Item
           {...item("start", t("Startmenü"))}
           tile={tile()}
-          // Windows' own Start and its Win+X menu; Windows may refuse, and nothing changes then.
-          onClick={() => void taskbar.shell("start").catch(() => {})}
+          // Windows' own Start and its Win+X menu, the bar held up while they come to the front; Windows may refuse, and nothing changes then.
+          onClick={() => {
+            holdBriefly();
+            void taskbar.shell("start").catch(() => {});
+          }}
           onContextMenu={(e) => {
             e.preventDefault();
+            holdBriefly();
             void taskbar.shell("winx").catch(() => {});
           }}
         >

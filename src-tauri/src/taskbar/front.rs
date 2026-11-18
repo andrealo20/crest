@@ -10,7 +10,9 @@
 //! touches it" is on (`taskbar_auto_hide`), each bar is also sent that window's frame in its CSS px when it changes
 //! (`taskbar://front`): the page knows the bar's shape and decides whether the frame touches it. A bar the pointer could not
 //! bring back is sent none, so it never slides away (`stays_up`): one whose work area ends above its monitor's bottom edge,
-//! or with another monitor below it. The settings say when a bar stays up (`taskbar_slide_blocked`).
+//! or with another monitor below it. The settings say when a bar stays up (`taskbar_slide_blocked`). While the option is on,
+//! each bar is also told when one of Windows' own surfaces holds it up (`taskbar://hold`, `held`): Start, Win+X, the calendar,
+//! the notification centre, an app's tray menu.
 //!
 //! On the display poll's thread: Win32 reads only, and no lock held across `set_fullscreen` or an emit.
 
@@ -29,13 +31,15 @@ use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::Shell::{SHQueryUserNotificationState, QUNS_RUNNING_D3D_FULL_SCREEN};
 use windows::Win32::UI::WindowsAndMessaging::{GetAncestor, GetCursorPos, GetWindowRect, IsIconic, GA_ROOTOWNER};
 
-use super::{screens, tasks};
+use super::{screens, start, tasks};
 use crate::display;
 
 /// "Hide when a window touches it" is on. The notch applies it, as it does the bar's other settings (`taskbar_auto_hide`).
 static AUTO_HIDE: AtomicBool = AtomicBool::new(false);
 /// What each bar was last sent, by label (`taskbar_front`). Held only to read or write it, never across an emit.
 static SENT: LazyLock<Mutex<HashMap<String, Option<Rect>>>> = LazyLock::new(Mutex::default);
+/// What the bars were last sent as `taskbar://hold`; false again once the option is off.
+static HELD: AtomicBool = AtomicBool::new(false);
 
 thread_local! {
     /// What the rule keeps between polls (`Seen`), on the display poll's thread, the only one that polls.
@@ -109,6 +113,12 @@ fn front(fg: Fg, fg_here: bool, desktop_here: bool, stack: &[isize]) -> Option<i
     }
 }
 
+/// Windows' own surfaces hold the bars up, as their own menus do: Start while it shows, or a window in front with no button
+/// (`other`) that is not Crest's, such as Win+X, the calendar, the notification centre or an app's tray menu.
+fn held(start_open: bool, other: bool, crest: bool) -> bool {
+    start_open || (other && !crest)
+}
+
 /// Another monitor shares part of this one's bottom edge: there the pointer passes on to it instead of stopping at the edge,
 /// so a bar that slid away could not be brought back.
 fn below(monitor: RECT, all: &[RECT]) -> bool {
@@ -136,8 +146,9 @@ fn in_bar(frame: RECT, (x, y): (i32, i32), scale: f64) -> Rect {
 }
 
 /// Every bar's full screen and, while the option is on, the frame of the window in front of its monitor, from one read of the
-/// windows (display.rs `spawn`, every 400 ms). `foreground` is the window in front as the notch's rules read it, never a bar.
-pub(crate) fn poll(app: &AppHandle, foreground: HWND) {
+/// windows (display.rs `spawn`, every 400 ms). `foreground` is the window in front as the notch's rules read it, never a bar;
+/// `raw` is the one Windows says is in front, which may be a bar or null.
+pub(crate) fn poll(app: &AppHandle, raw: HWND, foreground: HWND) {
     let bars = screens::all();
     if bars.is_empty() {
         // The bars are off: what came before them is forgotten.
@@ -168,6 +179,17 @@ pub(crate) fn poll(app: &AppHandle, foreground: HWND) {
         }
     }
     let auto_hide = AUTO_HIDE.load(Ordering::SeqCst);
+    let hold = auto_hide && {
+        // A null foreground (nothing active) holds nothing, or the bars would stay up as long as it lasts; Start is heard on its own.
+        let other = !raw.is_invalid() && Fg::of(raw, own) == Fg::Other && !screens::is_bar(raw.0 as isize);
+        held(start::open(), other, display::window_pid(raw) == own)
+    };
+    // Each bar on a change, before the frames, so a bar under a surface never starts to slide; false once the option is off.
+    if HELD.swap(hold, Ordering::SeqCst) != hold {
+        for (label, _, _) in &bars {
+            let _ = app.emit_to(label.as_str(), "taskbar://hold", hold);
+        }
+    }
     let monitors = if auto_hide { monitors() } else { Vec::new() };
     let mut rects = Vec::new();
     for (label, bar, m) in &bars {
@@ -306,6 +328,14 @@ mod tests {
         assert_eq!(desktop.next(Fg::Other, m2), desktop); // then Start: still the desktop on m1
         assert_eq!(desktop.next(Fg::Listed(5), m1).next(Fg::Desktop, m2).desktop_on, m2); // an app, then the desktop from m2
         assert_eq!(Seen::default().next(Fg::Other, m1), Seen::default()); // nothing before: each monitor's top window
+    }
+
+    #[test]
+    fn start_and_windows_menus_hold_the_bar_but_crest_windows_do_not() {
+        assert!(held(true, false, false)); // Start open
+        assert!(held(false, true, false)); // a window with no button, not Crest's
+        assert!(!held(false, true, true)); // a Crest window
+        assert!(!held(false, false, false)); // an app with a button, or the desktop
     }
 
     #[test]
