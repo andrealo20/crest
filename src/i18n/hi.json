@@ -1827,5 +1827,6 @@
  "Infobereich": "सूचना क्षेत्र",
  "Ausgeblendete Symbole anzeigen": "छिपे हुए आइकन दिखाएँ",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "टास्कबार के आइकन कोई दूसरा प्रोग्राम संभाल रहा है।",
- "Keine ausgeblendeten Symbole": "कोई छिपा हुआ आइकन नहीं"
+ "Keine ausgeblendeten Symbole": "कोई छिपा हुआ आइकन नहीं",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "Windows टास्कबार की जगह कोई दूसरा प्रोग्राम है: जुड़ी हुई बार जगह आरक्षित नहीं करती, और बड़ी की हुई विंडो उसके नीचे तक जाती हैं"
 }

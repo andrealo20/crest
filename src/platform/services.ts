@@ -1331,6 +1331,8 @@ export const taskbar = {
   autoHide: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_auto_hide", { on }) : Promise.resolve()),
   /** How many bars cannot slide away: their work area ends above the monitor's bottom edge, or another monitor lies below. 0 while the bar is off. The settings only. */
   slideBlocked: (): Promise<number> => (isNative ? invoke<number>("taskbar_slide_blocked") : Promise.resolve(0)),
+  /** Whether a docked bar with auto-hide off can reserve its strip: false while another program stands in for Windows' taskbar. The settings only. */
+  reserveReachable: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_reserve_reachable") : Promise.resolve(true)),
   /** Whether a zone of the bar holds the tray (trayOnBar), sent on or off; Rust adds whether the bar runs and runs Crest's tray (the spy that records the notification area's icons) while both hold. The notch only. */
   trayOn: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_tray_on", { on }) : Promise.resolve()),
   /** This bar slid off the screen (useAutoHide) or back up: Rust tells this bar, and the notch for the primary's, that it is hidden while down (onShown). */

@@ -1827,5 +1827,6 @@
  "Infobereich": "通知領域",
  "Ausgeblendete Symbole anzeigen": "隠れているアイコンを表示",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "別のプログラムがタスクバーのアイコンを管理しています。",
- "Keine ausgeblendeten Symbole": "隠れているアイコンはありません"
+ "Keine ausgeblendeten Symbole": "隠れているアイコンはありません",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "別のプログラムが Windows のタスクバーの代わりになっています: ドッキングのバーは場所を確保せず、最大化したウィンドウがバーの下に入ります"
 }

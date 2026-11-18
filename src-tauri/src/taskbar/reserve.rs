@@ -301,6 +301,13 @@ pub(crate) fn parse_hwnds(text: &str) -> Vec<isize> {
     text.lines().filter_map(|l| l.trim().parse::<isize>().ok()).filter(|&h| h != 0).collect()
 }
 
+/// Whether a docked bar can reserve its strip now: another program's `Shell_TrayWnd` first keeps it floating. The settings only;
+/// window lookups, never a wait.
+#[tauri::command]
+pub fn taskbar_reserve_reachable() -> bool {
+    explorer::appbar_reachable()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

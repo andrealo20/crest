@@ -1827,5 +1827,6 @@
  "Infobereich": "Zone de notification",
  "Ausgeblendete Symbole anzeigen": "Afficher les icônes cachées",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Un autre programme gère les icônes de la barre des tâches.",
- "Keine ausgeblendeten Symbole": "Aucune icône cachée"
+ "Keine ausgeblendeten Symbole": "Aucune icône cachée",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "Un autre programme a pris la place de la barre des tâches de Windows : la barre Ancrée ne réserve pas d'espace et les fenêtres agrandies passent dessous"
 }

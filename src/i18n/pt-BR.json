@@ -1827,5 +1827,6 @@
  "Infobereich": "Área de notificação",
  "Ausgeblendete Symbole anzeigen": "Mostrar ícones ocultos",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Outro programa gerencia os ícones da barra de tarefas.",
- "Keine ausgeblendeten Symbole": "Nenhum ícone oculto"
+ "Keine ausgeblendeten Symbole": "Nenhum ícone oculto",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "Outro programa ocupa o lugar da barra de tarefas do Windows: a barra Encaixada não reserva espaço e as janelas maximizadas passam por baixo dela"
 }

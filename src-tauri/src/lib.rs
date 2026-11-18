@@ -576,6 +576,8 @@ pub fn run() {
             #[cfg(windows)]
             taskbar::front::taskbar_slide_blocked,
             #[cfg(windows)]
+            taskbar::reserve::taskbar_reserve_reachable,
+            #[cfg(windows)]
             taskbar::tray::taskbar_tray_on,
             #[cfg(windows)]
             taskbar::tray::taskbar_tray,
@@ -1226,6 +1228,8 @@ mod tests {
         assert!(ok("taskbar", "taskbar_slid") && ok("taskbar-1", "taskbar_slid") && !ok("settings", "taskbar_slid"));
         // The settings' note on a bar that cannot slide away; the bar has no use for it.
         assert!(!ok("taskbar", "taskbar_slide_blocked") && ok("settings", "taskbar_slide_blocked"));
+        // The settings' line on a docked bar another program keeps from reserving; the bar has no use for it.
+        assert!(ok("settings", "taskbar_reserve_reachable") && !ok("taskbar", "taskbar_reserve_reachable"));
         // The Start button opens Windows' Start and its Win+X menu; no other window has the button.
         assert!(ok("taskbar", "taskbar_shell") && ok("taskbar-1", "taskbar_shell") && !ok("settings", "taskbar_shell"));
     }

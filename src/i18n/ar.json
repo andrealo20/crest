@@ -1827,5 +1827,6 @@
  "Infobereich": "منطقة الإشعارات",
  "Ausgeblendete Symbole anzeigen": "إظهار الرموز المخفية",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "برنامج آخر يدير رموز شريط المهام.",
- "Keine ausgeblendeten Symbole": "لا رموز مخفية"
+ "Keine ausgeblendeten Symbole": "لا رموز مخفية",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "برنامج آخر يحلّ محل شريط مهام Windows: الشريط الملتصق لا يحجز مساحة، والنوافذ المكبّرة تمتد تحته"
 }

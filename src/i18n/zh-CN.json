@@ -1827,5 +1827,6 @@
  "Infobereich": "通知区域",
  "Ausgeblendete Symbole anzeigen": "显示隐藏的图标",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "另一个程序正在管理任务栏的图标。",
- "Keine ausgeblendeten Symbole": "没有隐藏的图标"
+ "Keine ausgeblendeten Symbole": "没有隐藏的图标",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "另一个程序取代了 Windows 任务栏：停靠的任务栏不会预留空间，最大化的窗口会伸到它下面"
 }

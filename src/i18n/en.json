@@ -1827,5 +1827,6 @@
  "Infobereich": "Notification area",
  "Ausgeblendete Symbole anzeigen": "Show hidden icons",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Another program manages the taskbar's icons.",
- "Keine ausgeblendeten Symbole": "No hidden icons"
+ "Keine ausgeblendeten Symbole": "No hidden icons",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "Another program stands in for Windows' taskbar: the docked bar reserves no space, and maximized windows reach under it"
 }

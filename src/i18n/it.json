@@ -1827,5 +1827,6 @@
  "Infobereich": "Area di notifica",
  "Ausgeblendete Symbole anzeigen": "Mostra icone nascoste",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Un altro programma gestisce le icone della barra.",
- "Keine ausgeblendeten Symbole": "Nessuna icona nascosta"
+ "Keine ausgeblendeten Symbole": "Nessuna icona nascosta",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "Un altro programma ha preso il posto della barra di Windows: la barra Attaccata non riserva lo spazio e le finestre massimizzate le passano sotto"
 }

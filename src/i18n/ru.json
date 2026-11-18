@@ -1827,5 +1827,6 @@
  "Infobereich": "Область уведомлений",
  "Ausgeblendete Symbole anzeigen": "Показать скрытые значки",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Значками панели задач управляет другая программа.",
- "Keine ausgeblendeten Symbole": "Нет скрытых значков"
+ "Keine ausgeblendeten Symbole": "Нет скрытых значков",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "Место панели задач Windows занимает другая программа: прикреплённая панель не резервирует место, и развёрнутые окна заходят под неё"
 }
