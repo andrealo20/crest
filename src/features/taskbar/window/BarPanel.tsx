@@ -154,6 +154,9 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
   return (
     <motion.div
       ref={ref}
+      // A tool's select menu stays inside the closest hit zone (controls.tsx), as in the notch. Here that is the panel's box: outside
+      // it the window lets the pointer through, so a pick in a menu that hung past it would land in the window below.
+      data-notch-hit
       role="dialog"
       aria-label={open.content.kind === "apps" ? t("App-Menü") : undefined}
       aria-labelledby={open.content.kind === "tool" ? TOOL_TITLE_ID : undefined}
