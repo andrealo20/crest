@@ -269,7 +269,7 @@ pub(crate) unsafe fn icon_to_png(icon: HICON) -> Option<Vec<u8>> {
     let mut ii = ICONINFO::default();
     GetIconInfo(icon, &mut ii).ok()?;
     let result = (|| {
-        let (w, h, px) = if ii.hbmColor.is_invalid() { mask_only(icon, ii.hbmMask)? } else { colour(ii.hbmColor)? };
+        let (w, h, px) = if ii.hbmColor.is_invalid() { mask_only(icon, ii.hbmMask)? } else { colour(ii.hbmColor, ii.hbmMask)? };
         let img = image::RgbaImage::from_raw(w as u32, h as u32, px)?;
         let mut png = Vec::new();
         img.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).ok()?;
@@ -298,27 +298,31 @@ fn dib_info(w: i32, h: i32) -> BITMAPINFO {
     BITMAPINFO { bmiHeader: header, ..Default::default() }
 }
 
-/// An icon's colour bitmap as RGBA, with its size.
-unsafe fn colour(bitmap: HBITMAP) -> Option<(i32, i32, Vec<u8>)> {
+/// An icon's colour bitmap as RGBA, with its size. One without alpha (an old icon, or one drawn at run time with GDI) is clear
+/// where its AND mask `mask` is set and opaque elsewhere.
+unsafe fn colour(bitmap: HBITMAP, mask: HBITMAP) -> Option<(i32, i32, Vec<u8>)> {
     let mut bm = BITMAP::default();
     if GetObjectW(bitmap.into(), std::mem::size_of::<BITMAP>() as i32, Some((&mut bm as *mut BITMAP).cast())) == 0 {
         return None;
     }
     let (w, h) = (bm.bmWidth, bm.bmHeight);
-    let mut bmi = dib_info(w, h);
-    let mut px = vec![0u8; (w * h * 4) as usize];
     let dc = CreateCompatibleDC(None);
-    let lines = GetDIBits(dc, bitmap, 0, h as u32, Some(px.as_mut_ptr().cast()), &mut bmi, DIB_RGB_COLORS);
+    // As a 32-bit DIB; a monochrome mask reads black where clear and white where set.
+    let read = |bitmap: HBITMAP| {
+        let mut px = vec![0u8; (w * h * 4) as usize];
+        let lines = GetDIBits(dc, bitmap, 0, h as u32, Some(px.as_mut_ptr().cast()), &mut dib_info(w, h), DIB_RGB_COLORS);
+        (lines != 0).then_some(px)
+    };
+    let px = read(bitmap);
+    let no_alpha = px.as_ref().is_some_and(|px| px.chunks(4).all(|p| p[3] == 0));
+    let and = if no_alpha { read(mask) } else { None };
     let _ = DeleteDC(dc);
-    if lines == 0 {
-        return None;
-    }
-    // BGRA → RGBA; old icons without alpha are fully opaque.
-    let no_alpha = px.chunks(4).all(|p| p[3] == 0);
-    for p in px.chunks_mut(4) {
+    let mut px = px?;
+    // BGRA → RGBA. Without alpha, a mask that cannot be read leaves the icon fully opaque.
+    for (i, p) in px.chunks_mut(4).enumerate() {
         p.swap(0, 2);
         if no_alpha {
-            p[3] = 255;
+            p[3] = if and.as_ref().is_some_and(|m| m[i * 4] != 0) { 0 } else { 255 };
         }
     }
     Some((w, h, px))
@@ -471,5 +475,24 @@ mod tests {
         // Listed child first, as a process list can be.
         let tree = tree_of(10, &[(30, 20), (20, 10), (40, 99), (11, 1)]);
         assert_eq!(tree, HashSet::from([10, 20, 30]));
+    }
+
+    #[test]
+    fn an_icon_without_alpha_is_clear_where_its_mask_is_set() {
+        use windows::Win32::Graphics::Gdi::CreateBitmap;
+        use windows::Win32::UI::WindowsAndMessaging::CreateIconIndirect;
+        unsafe {
+            // Red and blue with no alpha, as GDI draws; the mask (rows of 16 bits) is set over the blue.
+            let colour = CreateBitmap(2, 1, 1, 32, Some([0x00FF_0000u32, 0x0000_00FF].as_ptr().cast()));
+            let mask = CreateBitmap(2, 1, 1, 1, Some([0b0100_0000u8, 0].as_ptr().cast()));
+            let icon = CreateIconIndirect(&ICONINFO { fIcon: TRUE, hbmMask: mask, hbmColor: colour, ..Default::default() }).unwrap();
+            let png = icon_to_png(icon);
+            let _ = DestroyIcon(icon);
+            let _ = DeleteObject(colour.into());
+            let _ = DeleteObject(mask.into());
+            let px = image::load_from_memory(&png.unwrap()).unwrap().to_rgba8();
+            assert_eq!(px.get_pixel(0, 0).0, [255, 0, 0, 255]);
+            assert_eq!(px.get_pixel(1, 0).0[3], 0);
+        }
     }
 }
