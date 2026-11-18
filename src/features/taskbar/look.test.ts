@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { BarShape } from "./model.ts";
-import { LOOK, barGap, barNeed, barRadius, barVeil, glassShapes, hitBoxes } from "./look.ts";
+import { LOOK, barGap, barNeed, barRadius, barVeil, glassShapes, hitBoxes, themeVeils } from "./look.ts";
 import { GLASS, liveZone } from "../../notch/glass/params.ts";
 
 test("the surface's veil", () => {
@@ -13,6 +13,11 @@ test("the surface's veil", () => {
   assert.equal(v({ glass: true, transparency: 100 }), 0.5);
   assert.equal(v({ glass: true, transparency: 100, reduced: true }), 1);
   assert.equal(v({ transparency: 100, reduced: true }), 1);
+});
+
+test("a theme's veils from its tokens", () => {
+  assert.deepEqual(themeVeils({ "--glass-tint": "rgb(0 0 0 / 0.78)", "--glass-tint-clear": "rgb(0 0 0 / 0.59)" }), { safe: 0.78, clearest: 0.59 });
+  assert.deepEqual(themeVeils({}), { safe: 1, clearest: 1 });
 });
 
 test("gaps and corners by shape", () => {
@@ -32,6 +37,15 @@ test("the shapes the glass draws", () => {
   const t = glassShapes("tiles", tiles);
   assert.equal(t.rects.length, LOOK.maxTiles);
   assert.deepEqual(t.plain, tiles.slice(LOOK.maxTiles));
+});
+
+test("an empty box (a hidden element's at 0, 0) counts nowhere", () => {
+  const box = { x: 100, y: 600, w: 40, h: 44 }, empty = { x: 0, y: 0, w: 0, h: 0 };
+  assert.deepEqual(glassShapes("docked", [box, empty]), glassShapes("docked", [box]));
+  assert.deepEqual(glassShapes("tiles", [empty, box]), { rects: [box], plain: [] });
+  assert.deepEqual(glassShapes("floating", [box, empty]), { rects: [box], plain: [] });
+  assert.deepEqual(barNeed([box, empty], 2), barNeed([box], 2));
+  assert.equal(barNeed([empty], 2), null);
 });
 
 test("the zone the bar's copy needs", () => {

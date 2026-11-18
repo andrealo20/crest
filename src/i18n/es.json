@@ -1801,5 +1801,6 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "El volumen, la red, la batería y las notificaciones están en Win+A y Win+N",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "Ancla una app con clic derecho sobre ella en la barra de tareas",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "Notch: como el notch cerrado. Tema: el color de fondo del tema",
- "Farben und Thema gelten auch für die Taskleiste": "Los colores y el tema también se aplican a la barra de tareas"
+ "Farben und Thema gelten auch für die Taskleiste": "Los colores y el tema también se aplican a la barra de tareas",
+ "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "Muestra en vivo lo que hay detrás de la barra de tareas, hasta 10 veces por segundo. Mientras está activado, la barra de tareas no aparece en capturas de pantalla, grabaciones ni al compartir pantalla."
 }

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type MouseEventHandler, type RefObject } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
 import { AnimatePresence } from "motion/react";
 import { t } from "../../../i18n";
 import { launcher, taskbar } from "../../../platform/services";
@@ -8,7 +8,9 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
 import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, type BarItem, type Zone } from "../model";
+import type { Box } from "../look";
 import { barWindows, groupIcons } from "../store";
+import { BarGlass, useBarSurface } from "./BarGlass";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { Item, MARK } from "./Item";
 
@@ -48,7 +50,10 @@ export function TaskbarWindow() {
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
-  const placeMenuZone = useHitZone(bar);
+  // The bar's box, for its glass: a new one only when it changes, so a hover does not draw the glass again.
+  const [box, setBox] = useState<Box | null>(null);
+  const placeMenuZone = useHitZone(bar, setBox);
+  const look = useBarSurface(box, ink);
   // Once the window lets the pointer through, the page sees no pointerleave: Rust says when the pointer left the bar.
   useEffect(
     () =>
@@ -135,11 +140,9 @@ export function TaskbarWindow() {
     >
       {/* On the closed notch's black the bar and its menus keep their dark tokens whatever the theme (Notch.tsx), and its zones keep their sides in any language. */}
       <div data-theme-ink dir="ltr" className="contents" style={surface === "notch" ? ink : undefined}>
-        <div
-          ref={bar}
-          className="grid grid-cols-[1fr_auto_1fr] rounded-[12px] px-1 text-label"
-          style={{ height, margin: `0 ${GAP}px ${GAP}px`, background: surface === "notch" ? "var(--notch-closed)" : "var(--color-notch)" }}
-        >
+        {look.glass && <BarGlass {...look.glass} />}
+        {/* Positioned, so it draws over the glass's canvas. */}
+        <div ref={bar} className="relative grid grid-cols-[1fr_auto_1fr] rounded-[12px] px-1 text-label" style={{ height, margin: `0 ${GAP}px ${GAP}px`, background: look.background }}>
           {ZONES.map(([zone, justify]) => (
             <div key={zone} className={`flex min-w-0 gap-0.5 ${justify}`}>
               {zones[zone].map((id) => (
@@ -182,14 +185,18 @@ export function TaskbarWindow() {
 /**
  * Tells Rust where the page takes the pointer: the bar and the gap under it, so a click in the gap never reaches the app behind,
  * and the open menu, whose box comes through the returned function each time the menu places itself (null once it closes). The
- * bar counts only once it has a size: the first report says it has drawn, and Windows' taskbar hides then.
+ * bar counts only once it has a size: the first report says it has drawn, and Windows' taskbar hides then. The bar's box goes to
+ * its glass too.
  */
-function useHitZone(ref: RefObject<HTMLDivElement | null>) {
+function useHitZone(ref: RefObject<HTMLDivElement | null>, setBox: Dispatch<SetStateAction<Box | null>>) {
   const menu = useRef<HitRect | null>(null);
   const report = useCallback(() => {
     const r = ref.current?.getBoundingClientRect();
-    if (r && r.width > 0 && r.height > 0) void taskbar.hitRects([{ x: r.x, y: r.y, w: r.width, h: window.innerHeight - r.y }, ...(menu.current ? [menu.current] : [])]);
-  }, [ref]);
+    if (!r || r.width <= 0 || r.height <= 0) return;
+    void taskbar.hitRects([{ x: r.x, y: r.y, w: r.width, h: window.innerHeight - r.y }, ...(menu.current ? [menu.current] : [])]);
+    const next = { x: r.x, y: r.y, w: r.width, h: r.height };
+    setBox((b) => (b && b.x === next.x && b.y === next.y && b.w === next.w && b.h === next.h ? b : next));
+  }, [ref, setBox]);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;

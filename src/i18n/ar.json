@@ -1801,5 +1801,6 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "مستوى الصوت والشبكة والبطارية والإشعارات على Win+A وWin+N",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "ثبّت تطبيقًا بالنقر عليه بزر الماوس الأيمن في شريط المهام",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "النوتش: مثل النوتش المغلق. السمة: لون خلفية السمة",
- "Farben und Thema gelten auch für die Taskleiste": "الألوان والسمة تنطبق على شريط المهام أيضًا"
+ "Farben und Thema gelten auch für die Taskleiste": "الألوان والسمة تنطبق على شريط المهام أيضًا",
+ "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "يعرض مباشرةً ما يوجد خلف شريط المهام، حتى 10 مرات في الثانية. ما دام مفعّلًا، لا يظهر شريط المهام في لقطات الشاشة والتسجيلات ومشاركة الشاشة."
 }

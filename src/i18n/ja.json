@@ -1801,5 +1801,6 @@
  "Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N": "音量、ネットワーク、バッテリー、通知は Win+A と Win+N で開けます",
  "Mit Rechtsklick auf eine App in der Taskleiste anheften": "タスクバーのアプリを右クリックして固定します",
  "Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes": "ノッチ: 閉じたノッチと同じ。テーマ: テーマの背景色",
- "Farben und Thema gelten auch für die Taskleiste": "色とテーマはタスクバーにも適用されます"
+ "Farben und Thema gelten auch für die Taskleiste": "色とテーマはタスクバーにも適用されます",
+ "Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "タスクバーの後ろにあるものを、毎秒最大10回、リアルタイムで表示します。オンの間、タスクバーはスクリーンショット、録画、画面共有に映りません。"
 }
