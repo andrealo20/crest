@@ -138,6 +138,9 @@ pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, app
             crate::capture::glass_live::forget(&handle, LABEL);
             DRAWN.store(false, Ordering::SeqCst);
             HANDLE.store(0, Ordering::SeqCst);
+            // A bar destroyed with its panel open never reports the close: the notch would keep running what that panel needed
+            // and, docked at the bottom, keep stepping aside for a panel that is gone. The payload is `taskbar_panel`'s (panel.rs).
+            let _ = handle.emit_to("notch", "bar://panel", serde_json::json!({ "label": LABEL, "open": null }));
         }
         _ => {}
     });

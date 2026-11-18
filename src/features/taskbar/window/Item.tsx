@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type MouseEventHandler, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type MouseEventHandler, type ReactNode, type Ref } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { fade, popover, pulse, springs } from "../../../design/motion";
 import { placeMenu, type Indicator } from "../model";
@@ -17,6 +17,11 @@ export function Item(props: {
   mark?: Indicator;
   /** The Tiles shape: the button draws its own tile, as tall as the bar, and carries data-tile (the bar measures the tiles by it). */
   tile?: { background: string; radius: number };
+  /** An item that opens the panel above the bar: whether the panel shows what it opens. */
+  expanded?: boolean;
+  /** A pinned app: its place among the pinned apps (`data-pin`), where an app dragged out of the app menu finds its slot. */
+  pin?: number;
+  ref?: Ref<HTMLButtonElement>;
   onEnter: () => void;
   onLeave: () => void;
   onClick: MouseEventHandler<HTMLButtonElement>;
@@ -29,7 +34,11 @@ export function Item(props: {
     // lift owns its transform): shrinking the whole button, as .pressable does, would lift that strip off the edge while the
     // button is held, and the release would land beside it.
     <button
+      ref={props.ref}
       aria-label={props.name}
+      aria-haspopup={props.expanded === undefined ? undefined : "dialog"}
+      aria-expanded={props.expanded}
+      data-pin={props.pin}
       onPointerEnter={props.onEnter}
       onPointerLeave={props.onLeave}
       onClick={props.onClick}

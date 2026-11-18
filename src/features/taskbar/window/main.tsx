@@ -9,6 +9,8 @@ import { receiveLive, restartLive, startGlassLive } from "../../../notch/glass/l
 import { isMac, isNative, onSharedBuffer } from "../../../platform/native";
 import { startThemes } from "../../themes/store";
 import { startCrashLog } from "../../window/store";
+import { taskbar } from "../../../platform/services";
+import { startPanelReport } from "../panel";
 import { startBarWindows } from "../store";
 import { TaskbarWindow } from "./TaskbarWindow";
 
@@ -37,9 +39,13 @@ window.addEventListener("keydown", (e) => {
 });
 
 startBarWindows();
+// A reloaded page starts with its panel closed: the notch forgets what the page before it had open.
+void taskbar.panel(null);
+startPanelReport();
 
 // The bar's live glass (BarGlass.tsx), behind its own switch; in the browser ?glassLive stands in for Rust, as for the notch. Only the
-// live frames come through the shared buffers here: snapshot.ts, which would listen for the open panel's copy too, is not loaded.
+// live frames come through the shared buffers here, and this is the page's one listener: snapshot.ts, loaded with the panel's
+// NotchShape, listens only where the notch starts it.
 startGlassLive(() => settings.get().taskbar.glass);
 if (isNative && !isMac) {
   onSharedBuffer((meta, data) => {

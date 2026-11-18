@@ -73,7 +73,13 @@ function receive(meta: unknown, data: ArrayBuffer) {
   if (import.meta.env.DEV) console.debug("glass", `${Math.round(performance.now() - askedAt)} ms`);
 }
 
-if (isNative && !isMac) onSharedBuffer(receive);
+/**
+ * At start, in the notch's page only (main.tsx): the page's one listener for Rust's buffers. Not on import, as the bar's panel draws
+ * a NotchShape, which loads this file, and the bar's page has a listener of its own for its live frames (taskbar/window/main.tsx).
+ */
+export function startSnapshots() {
+  if (isNative && !isMac) onSharedBuffer(receive);
+}
 
 /** The browser's stand-in for Rust: the fake desktop as BGRA bytes after ?glassDelay ms (30 by default). */
 async function fake(seq: number) {

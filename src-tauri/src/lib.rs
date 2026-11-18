@@ -149,16 +149,27 @@ const SETTINGS_DENIED: &[&str] = &[
     "launcher_shortcuts", "clipboard_mode", "tray_texts", "media_pin", "status_configure", "notices_configure",
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
-    "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release",
+    "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
 ];
 
-/// What the bar may call: its own hit zones and window list, starting apps, opening the notch and the settings, the Crest
-/// menu, and its own glass, with the power state that stops it in Energy saver (`status_seed`, read-only). Its settings reach
-/// Rust only through the notch (`taskbar_apply`).
+/// What the bar may call: its own hit zones and window list, listing and starting apps, opening the notch and the settings, the
+/// Crest menu, its own glass with the power state that stops it in Energy saver (`status_seed`, read-only), its two ways to reach
+/// the notch (taskbar/panel.rs) and what the notch's tools in its panel read or do on a click. Its settings reach Rust only
+/// through the notch (`taskbar_apply`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log",
     "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
+    "taskbar_panel", "taskbar_ask", "launcher_apps", "translate_status",
+    "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
+    "notices_open_app", "notices_copy_code",
+    "power_plans", "power_plan_set", "system_icon", "reveal_file", "ports_list", "ports_open", "ports_end",
+    "convert_probe", "file_preview", "open_path", "copy_files", "shelf_drag_out", "clipboard_paste_files", "shelf_clipboard_text",
+    "phone_share_start", "phone_share_stop",
+    "media_get", "media_control", "media_open_source", "media_sources", "mixer_list", "volume_get", "mixer_set", "volume_set",
+    "lyrics_romanize", "translate_file",
+    "audio_outputs", "audio_set_output", "brightness_get", "brightness_set", "focus_get", "focus_set", "quick_get", "quick_radio",
+    "quick_dark", "mic_mute", "quick_power", "web_search",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -520,6 +531,10 @@ pub fn run() {
             taskbar::tasks::taskbar_icons,
             #[cfg(windows)]
             taskbar::tasks::taskbar_release,
+            #[cfg(windows)]
+            taskbar::panel::taskbar_panel,
+            #[cfg(windows)]
+            taskbar::panel::taskbar_ask,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,
@@ -1052,6 +1067,57 @@ mod tests {
         assert!(!ok("settings", "glass_live_start") && !ok("timer", "glass_live_exclude"));
         // The bar reads the power state for its glass, but never sets what the status alerts watch.
         assert!(ok("taskbar", "status_seed") && ok("taskbar-1", "status_seed") && !ok("taskbar", "status_configure"));
+        assert!(ok("taskbar", "taskbar_panel") && ok("taskbar", "taskbar_ask") && ok("taskbar", "launcher_apps") && ok("taskbar-1", "taskbar_panel"));
+        // A settings window claiming a bar's panel would keep the notch's sources running.
+        assert!(!ok("settings", "taskbar_panel") && !ok("settings", "taskbar_ask") && !ok("timer", "taskbar_ask"));
+        // The tools' code reads the installed translation pairs as it loads in the bar (offlineEngine.ts).
+        assert!(ok("taskbar", "translate_status"));
+        // A click in the bar's Calendar, GitHub, LeetCode or Discord (join, the two profiles, mute, deafen, leave), and the tokens
+        // Usage reads from the local logs while a card that shows them is on screen.
+        assert!(ok("taskbar", "calendar_open_link") && ok("taskbar", "github_open_profile") && ok("taskbar", "leetcode_open_profile"));
+        assert!(ok("taskbar", "discord_action") && ok("taskbar", "usage_tokens"));
+        // What those tools show is fetched by the notch alone; the bar's Refresh and Retry ask it (taskbar_ask).
+        assert!(!ok("taskbar", "usage_fetch") && !ok("taskbar", "github_contributions") && !ok("taskbar", "leetcode_stats"));
+        assert!(!ok("taskbar", "calendar_fetch") && !ok("taskbar", "discord_state"));
+        // Usage's renew runs in the notch's terminal: the bar never starts or types into a shell.
+        assert!(!ok("taskbar", "terminal_info") && !ok("taskbar", "terminal_start") && !ok("taskbar", "terminal_write") && !ok("taskbar", "terminal_kill"));
+        // A click on a row of the bar's Notices opens its app or copies its code. Deleting one or all asks the notch (taskbar_ask),
+        // which holds the history and takes the notices out of Windows' notification centre too.
+        assert!(ok("taskbar", "notices_open_app") && ok("taskbar", "notices_copy_code") && !ok("taskbar", "notices_remove_windows"));
+        // The detached timer window is the notch's: the bar's Timer shows no button for it.
+        assert!(!ok("taskbar", "timer_window_open") && !ok("taskbar", "timer_window_close"));
+        // The bar's Hardware reads the power plans as it opens and switches them, asks a process row's icon, shows a process in
+        // Explorer, and its ports sheet lists the ports, opens one in the browser and ends the process on one.
+        assert!(ok("taskbar", "power_plans") && ok("taskbar", "power_plan_set") && ok("taskbar", "system_icon") && ok("taskbar", "reveal_file"));
+        assert!(ok("taskbar", "ports_list") && ok("taskbar", "ports_open") && ok("taskbar", "ports_end"));
+        // Its readings come from the notch alone: each call measures the CPU since the one before, and a call without the process
+        // list drops it, so a second reader would falsify the notch's values.
+        assert!(!ok("taskbar", "system_stats"));
+        // The bar's Shelf reads its files, previews, opens, copies and drags out its cards (shelf.rs starts the drag from the window
+        // that calls it), and takes what Ctrl+V or the paste button brings: files, a copied image it saves to Pictures, or text.
+        assert!(ok("taskbar", "convert_probe") && ok("taskbar", "file_preview") && ok("taskbar", "open_path") && ok("taskbar", "copy_files"));
+        assert!(ok("taskbar", "shelf_drag_out") && ok("taskbar", "clipboard_paste_files") && ok("taskbar", "shelf_clipboard_text"));
+        // A phone share lives in Rust and in the view that started it, which stops it and knows its own lost event by its address:
+        // the bar starts and stops its own.
+        assert!(ok("taskbar", "phone_share_start") && ok("taskbar", "phone_share_stop"));
+        // The bar's Now playing follows the song from Rust itself, its player, player menu and mixer act on a click (the mixer reads
+        // the levels while it is open), and its lyrics are romanized there, and translated there when offline translation is on.
+        assert!(ok("taskbar", "media_get") && ok("taskbar", "media_control") && ok("taskbar", "media_open_source") && ok("taskbar", "media_sources"));
+        assert!(ok("taskbar", "mixer_list") && ok("taskbar", "volume_get") && ok("taskbar", "mixer_set") && ok("taskbar", "volume_set"));
+        assert!(ok("taskbar", "lyrics_romanize") && ok("taskbar", "translate_file"));
+        // The notch alone fetches the lyrics, which fill the cache the bar reads. The lyrics' position and the audio levels are plain
+        // switches in Rust that only the notch turns, for a bar too, so a bar's panel closing never turns them off under the notch; the
+        // pinned player is a setting the notch applies.
+        assert!(!ok("taskbar", "lyrics_fetch") && !ok("taskbar", "media_lyrics") && !ok("taskbar", "audio_levels") && !ok("taskbar", "media_pin"));
+        // The bar's Overview reads the playback devices, the brightness, focus and the quick controls while it shows and sets them on a
+        // click, and its search line opens the results in the browser. The brightness is the calling window's monitor (brightness.rs),
+        // so from the bar it is the bar's own.
+        assert!(ok("taskbar", "audio_outputs") && ok("taskbar", "audio_set_output") && ok("taskbar", "brightness_get") && ok("taskbar", "brightness_set"));
+        assert!(ok("taskbar", "focus_get") && ok("taskbar", "focus_set") && ok("taskbar", "quick_get") && ok("taskbar", "quick_radio"));
+        assert!(ok("taskbar", "quick_dark") && ok("taskbar", "mic_mute") && ok("taskbar", "quick_power") && ok("taskbar", "web_search"));
+        // Keep awake's state lives in the notch, which shows it in the closed notch: a bar that set it in Rust would leave the notch
+        // showing the old state, so the bar asks the notch (taskbar_ask).
+        assert!(!ok("taskbar", "keep_awake_set"));
     }
 
     #[test]

@@ -1,3 +1,4 @@
+import { askNotch } from "../../lib/tauriTransport";
 import { isNotchWindow } from "../../lib/windowKind";
 import { createStore } from "../../lib/store";
 import { isMac } from "../../platform/native";
@@ -11,6 +12,9 @@ let ends: number | undefined;
 
 /** On for `minutes` (null = until turned off). The backend ends a timed one by itself; this only follows. */
 export function startAwake(minutes: number | null) {
+  // Only the notch holds the state and may set it in Rust (the bar and the settings window may not): another window asks the
+  // notch, whose request handler calls this function there (src/features/settings/window/shared.ts).
+  if (!isNotchWindow) return askNotch({ kind: "awake", minutes });
   const next = awakeStart(minutes, Date.now());
   awake.set(next);
   window.clearTimeout(ends);
@@ -19,6 +23,7 @@ export function startAwake(minutes: number | null) {
 }
 
 export function stopAwake() {
+  if (!isNotchWindow) return askNotch({ kind: "awakeOff" });
   window.clearTimeout(ends);
   awake.set(null);
   if (!isMac) void keepAwake(false, null).catch(() => {});

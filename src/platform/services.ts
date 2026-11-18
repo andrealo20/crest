@@ -961,7 +961,7 @@ export const systemControls = {
     Object.assign(mockVolume, patch, patch.level !== undefined && patch.level > 0 && patch.muted === undefined ? { muted: false } : {});
     return Promise.resolve({ ...mockVolume });
   },
-  /** The notch's monitor, 0..100; null when Crest can't set it (src-tauri brightness.rs, macos/brightness.rs). */
+  /** The calling window's monitor, 0..100; null when Crest can't set it (src-tauri brightness.rs, macos/brightness.rs). */
   brightness: (): Promise<number | null> =>
     isNative ? invoke<number | null>("brightness_get").catch(() => null) : Promise.resolve(mockBrightness.percent),
   setBrightness: (percent: number): Promise<void> => {
@@ -1290,6 +1290,8 @@ export const taskbar = {
   icons: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_icons", { keys }) : Promise.resolve({})),
   /** Where the page draws (the bar, an open menu) in its CSS px; clicks pass through the rest of the window. */
   hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
+  /** Tells the notch what the bar's panel shows: "apps", a tool's id, or null once it closes. */
+  panel: (open: string | null): Promise<void> => (isNative ? invoke("taskbar_panel", { open }) : Promise.resolve()),
   /** Ends Crest (the Crest menu's Quit). */
   quit: (): Promise<void> => (isNative ? invoke("app_quit") : Promise.resolve()),
 };

@@ -4,7 +4,9 @@ import { CircleNotch, Drop, MagnifyingGlass, MapPin, NavigationArrow, SunHorizon
 import { useHue, type Hue } from "../themes/hues";
 import { content, fade, spin } from "../../design/motion";
 import { settings } from "../../settings/store";
-import { Skeleton } from "../../ui/controls";
+import { isNotchWindow } from "../../lib/windowKind";
+import { navigate } from "../../notch/nav";
+import { Button, Empty, Skeleton } from "../../ui/controls";
 import { formatAgo, formatTemp, formatTime, formatWind } from "../../lib/format";
 import { locale, t } from "../../i18n";
 import { choosePlace, describe, detectPlace, searchPlaces, useForecast, type Forecast, type Place } from "./store";
@@ -28,9 +30,10 @@ export function WeatherView() {
   const [searching, setSearching] = useState(false);
   const [detectFailed, setDetectFailed] = useState(false);
 
-  // First start without a location: detect via IP; if that fails, show the search.
+  // First start without a location: detect via IP; if that fails, show the search. Only the notch looks it up and searches: without a
+  // place the bar sends to the settings window, as its place button does.
   useEffect(() => {
-    if (!place) void detectPlace().then((ok) => setDetectFailed(!ok));
+    if (!place && isNotchWindow) void detectPlace().then((ok) => setDetectFailed(!ok));
   }, [place]);
 
   return (
@@ -39,6 +42,10 @@ export function WeatherView() {
         {searching || (!place && detectFailed) ? (
           <motion.div key="search" className="h-full" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: content.enter }} exit={{ opacity: 0, transition: content.exit }}>
             <PlaceSearch onDone={() => setSearching(false)} canCancel={!!place} />
+          </motion.div>
+        ) : !place && !isNotchWindow ? (
+          <motion.div key="noplace" className="h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={fade}>
+            <Empty icon={MapPin} title={t("Für welchen Ort soll das Wetter angezeigt werden?")} action={<Button onClick={() => navigate("settings", "weather")}>{t("Einstellungen")}</Button>} />
           </motion.div>
         ) : data === "error" ? (
           <motion.div key="error" className="flex h-full items-center justify-center text-body text-label-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={fade}>
@@ -51,7 +58,8 @@ export function WeatherView() {
           </motion.div>
         ) : (
           <motion.div key="data" className="flex h-full gap-2" initial={{ opacity: 0, filter: "blur(4px)" }} animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}>
-            <Now data={data} name={place.name} detail={place.detail} auto={!!place.auto} onChangePlace={() => setSearching(true)} />
+            {/* The search asks Open-Meteo and the IP lookup: from the bar the place changes in the settings window. */}
+            <Now data={data} name={place.name} detail={place.detail} auto={!!place.auto} onChangePlace={() => (isNotchWindow ? setSearching(true) : navigate("settings", "weather"))} />
             {/* A size container: Hours (66 px) steps aside below 226 px, what it and the seven days (152 px) need. */}
             <div className="flex min-w-0 flex-1 flex-col gap-2 [container-type:size]">
               <Hours data={data} />

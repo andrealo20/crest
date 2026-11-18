@@ -1808,5 +1808,7 @@
  "Schwebend": "Floating",
  "Kacheln": "Tiles",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "As a capsule, the taskbar lines the three areas up in the middle: left, center, right. The areas here stay as they are",
- "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "Refraction, Frost and Rim light also apply to the notch"
+ "Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch": "Refraction, Frost and Rim light also apply to the notch",
+ "App-Menü": "App menu",
+ "Dateien legst du auf der Notch ab": "Drop files onto the notch"
 }

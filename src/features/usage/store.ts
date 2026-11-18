@@ -5,6 +5,7 @@ import { createStore } from "../../lib/store";
 import { rowVisible } from "../../notch/row/visibility";
 import { fetchUsage, fetchUsageTokens, type UsageId, type UsageProvider } from "../../platform/services";
 import { settings } from "../../settings/store";
+import { onBarShows } from "../taskbar/barPanels";
 import { shownIds } from "./cards";
 import type { TokenReport } from "./tokens";
 
@@ -75,6 +76,8 @@ export function startUsagePolling() {
   settings.subscribe(apply);
   rowVisible.subscribe(apply);
   viewers.subscribe(apply);
+  // A bar's panel showing AI usage counts as one more open view, so the notch fetches for it.
+  onBarShows("usage", (shown) => viewers.set((n) => n + (shown ? 1 : -1)));
 }
 
 /** For views that show the quotas: polling while mounted. */

@@ -44,15 +44,20 @@ test("the look's settings are repaired and default to today's bar", () => {
 });
 
 test("every item sits in exactly one zone", () => {
-  assert.deepEqual(normalizeZones({}), { left: [], center: ["apps"], right: ["crest"] });
-  assert.deepEqual(normalizeZones({ left: ["crest", "x"], center: ["apps", "crest"] }), { left: ["crest"], center: ["apps"], right: [] });
-  assert.deepEqual(normalizeZones({ right: ["apps"] }), { left: [], center: [], right: ["crest", "apps"] }); // a missing item returns at its default index
+  assert.deepEqual(normalizeZones({}), { left: [], center: ["start", "apps"], right: ["crest"] });
+  assert.deepEqual(normalizeZones({ left: ["crest", "x"], center: ["apps", "crest"] }), { left: ["crest"], center: ["start", "apps"], right: [] });
+  assert.deepEqual(normalizeZones({ right: ["apps"] }), { left: [], center: ["start"], right: ["crest", "apps"] }); // a missing item returns at its default index
+});
+
+test("the app menu's button comes first in the middle, also on a bar saved before it existed", () => {
+  assert.deepEqual(TASKBAR_DEFAULTS.zones.center, ["start", "apps"]);
+  assert.deepEqual(normalizeZones({ left: [], center: ["apps"], right: ["crest"] }).center, ["start", "apps"]); // a phase 2 save
 });
 
 test("items move between zones", () => {
   const z = normalizeZones({});
-  assert.deepEqual(moveItem(z, "crest", "left"), { left: ["crest"], center: ["apps"], right: [] });
-  assert.deepEqual(moveItem(normalizeZones({ center: ["apps", "crest"] }), "crest", "center", 0).center, ["crest", "apps"]);
+  assert.deepEqual(moveItem(z, "crest", "left"), { left: ["crest"], center: ["start", "apps"], right: [] });
+  assert.deepEqual(moveItem(normalizeZones({ center: ["apps", "crest"] }), "crest", "center", 0).center, ["crest", "start", "apps"]);
   assert.deepEqual(moveItem(z, "crest", "left", 99).left, ["crest"]);
   assert.equal(moveItem(z, "nope" as BarItem, "left"), z);
 });

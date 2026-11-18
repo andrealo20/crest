@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Reorder } from "motion/react";
-import { AppWindow, DotsSixVertical, WarningCircle } from "@phosphor-icons/react";
+import { AppWindow, DotsSixVertical, SquaresFour, WarningCircle } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { liveSupport } from "../../notch/glass/live";
@@ -36,8 +36,8 @@ function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSettings) =>
 /** The bar's zones, physical: left stays left in a right-to-left language. */
 const ZONES: Zone[] = ["left", "center", "right"];
 const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte", right: "Rechte Seite" };
-/** What the bar draws for each item: the apps' buttons, and the button of the Crest menu. */
-const ITEM_LABEL: Record<BarItem, string> = { apps: "Apps und Fenster", crest: "Crest-Menü" };
+/** What the bar draws for each item: the app menu's button, the apps' buttons, and the button of the Crest menu. */
+const ITEM_LABEL: Record<BarItem, string> = { start: "App-Menü", apps: "Apps und Fenster", crest: "Crest-Menü" };
 const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "Schwebend", capsule: "Kapsel", tiles: "Kacheln" };
 
 /** Taskbar → General: the bar on or off, and where the system icons it leaves out are. */
@@ -88,7 +88,13 @@ export function TaskbarItems() {
                 }`}
               >
                 <DotsSixVertical size={13} weight="bold" className="-ms-1 text-label-4 transition-colors group-hover:text-label-3" />
-                {id === "crest" ? <CrestMark size={15} className="shrink-0 text-label-2" /> : <AppWindow size={15} weight="bold" className="shrink-0 text-label-2" />}
+                {id === "crest" ? (
+                  <CrestMark size={15} className="shrink-0 text-label-2" />
+                ) : id === "start" ? (
+                  <SquaresFour size={15} weight="bold" className="shrink-0 text-label-2" />
+                ) : (
+                  <AppWindow size={15} weight="bold" className="shrink-0 text-label-2" />
+                )}
                 <span className="min-w-0 flex-1 truncate text-body text-label select-none">{t(ITEM_LABEL[id])}</span>
                 <div onPointerDown={(e) => e.stopPropagation()}>
                   {/* The menu also reports its current zone when picked again; moveItem would send the item to that zone's end. */}

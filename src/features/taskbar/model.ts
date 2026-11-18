@@ -5,8 +5,8 @@ import { normalizeFavorites, type Favorite } from "../launcher/apps.ts";
 
 /** The bar's zones. Physical, as the closed row's: left stays left in a right-to-left language. */
 export type Zone = "left" | "center" | "right";
-/** What the zones hold: the apps (pinned and open) and the Crest button. Phase 3 adds "start", phase 4 the parts. */
-export type BarItem = "apps" | "crest";
+/** What the zones hold: the app menu's button ("start"), the apps (pinned and open) and the Crest button. Phase 4 adds the parts. */
+export type BarItem = "start" | "apps" | "crest";
 /** The bar's shape: along the screen's edge with no gaps, floating above it, a capsule, or a tile per item. */
 export type BarShape = "docked" | "floating" | "capsule" | "tiles";
 
@@ -28,7 +28,7 @@ export interface TaskbarSettings {
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
   enabled: false,
-  zones: { left: [], center: ["apps"], right: ["crest"] },
+  zones: { left: [], center: ["start", "apps"], right: ["crest"] },
   height: 44,
   iconSize: 24,
   surface: "notch",

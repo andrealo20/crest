@@ -59,7 +59,10 @@ export function followStores(t: Transport, stores: Record<string, Shared>): () =
 const REFRESH = ["usage", "github", "leetcode", "calendar", "discord", "plugins", "offline", "notices"] as const;
 type Refresh = (typeof REFRESH)[number];
 
-/** What the settings window may ask the notch to do. */
+/**
+ * What the other windows may ask the notch to do. The bar asks through Rust (`taskbar_ask`), which passes on only the refreshes,
+ * the presentation and the kinds from `awake` on.
+ */
 export type BridgeAction =
   | { kind: "pauseHotkeys"; on: boolean }
   | { kind: "closedEdit" }
@@ -68,13 +71,22 @@ export type BridgeAction =
   | { kind: "installUpdate" }
   | { kind: "restart" }
   | { kind: "lockVault" }
-  | { kind: "refresh"; what: Refresh; force?: boolean };
+  | { kind: "refresh"; what: Refresh; force?: boolean }
+  /** Keep awake for 1 to 1440 minutes, or null for until it is turned off. */
+  | { kind: "awake"; minutes: number | null }
+  | { kind: "awakeOff" }
+  /** Usage's "Im Terminal erneuern": claude in the notch's terminal, with the notch open on it. */
+  | { kind: "renewClaude" }
+  | { kind: "noticeDelete"; id: string }
+  | { kind: "noticesClear" }
+  | { kind: "timerSilence" }
+  | { kind: "focusMute"; on: boolean };
 
 export function sendAction(t: Transport, action: BridgeAction) {
   t.emit(ACTION, action, "notch");
 }
 
-/** Notch side: runs the settings window's requests. Anything that is not one of the actions above, field for field, is dropped. */
+/** Notch side: runs the other windows' requests. Anything that is not one of the actions above, field for field, is dropped. */
 export function onActions(t: Transport, run: (action: BridgeAction) => void): () => void {
   return t.listen(ACTION, (payload) => {
     const action = asAction(payload);
@@ -89,13 +101,25 @@ function asAction(payload: unknown): BridgeAction | null {
   switch (a.kind) {
     case "pauseHotkeys":
       return typeof a.on === "boolean" ? { kind: "pauseHotkeys", on: a.on } : null;
+    case "focusMute":
+      return typeof a.on === "boolean" ? { kind: "focusMute", on: a.on } : null;
     case "closedEdit":
     case "presentation":
     case "checkUpdate":
     case "installUpdate":
     case "restart":
     case "lockVault":
+    case "awakeOff":
+    case "renewClaude":
+    case "noticesClear":
+    case "timerSilence":
       return { kind: a.kind };
+    case "awake":
+      return a.minutes === null || (typeof a.minutes === "number" && Number.isInteger(a.minutes) && a.minutes >= 1 && a.minutes <= 1440)
+        ? { kind: "awake", minutes: a.minutes }
+        : null;
+    case "noticeDelete":
+      return typeof a.id === "string" && a.id.length >= 1 && a.id.length <= 128 ? { kind: "noticeDelete", id: a.id } : null;
     case "refresh": {
       const what = REFRESH.find((w) => w === a.what);
       if (!what || (a.force !== undefined && typeof a.force !== "boolean")) return null;

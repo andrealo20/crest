@@ -3,6 +3,8 @@ import { motion } from "motion/react";
 import { ArrowClockwise, Gauge, SlidersHorizontal, Table, WarningCircle } from "@phosphor-icons/react";
 import { content, spin, springs } from "../../design/motion";
 import { formatAgo, formatIn } from "../../lib/format";
+import { askNotch } from "../../lib/tauriTransport";
+import { isNotchWindow } from "../../lib/windowKind";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
 import { requestSize } from "../../notch/size";
@@ -226,6 +228,8 @@ export function UsageView() {
                     <button
                       className="mb-1 block text-link hover:underline"
                       onClick={() => {
+                        // Crest's terminal lives in the notch, so from the bar's panel the notch runs the renewal there and opens on it.
+                        if (!isNotchWindow) return askNotch({ kind: "renewClaude" });
                         runInTerminal("claude");
                         navigate("terminal");
                       }}

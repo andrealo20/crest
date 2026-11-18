@@ -17,3 +17,4 @@ export function kindOf(pathname: string): WindowKind {
 export const windowKind: WindowKind = typeof location === "undefined" ? "notch" : kindOf(location.pathname);
 export const isNotchWindow = windowKind === "notch";
 export const isTimerWindow = windowKind === "timer";
+export const isTaskbarWindow = windowKind === "taskbar";

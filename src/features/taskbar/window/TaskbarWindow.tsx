@@ -1,22 +1,30 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
 import { AnimatePresence } from "motion/react";
+import { SquaresFour } from "@phosphor-icons/react";
 import { t } from "../../../i18n";
 import { launcher, taskbar } from "../../../platform/services";
-import { settings } from "../../../settings/store";
+import { settings, updateSettings } from "../../../settings/store";
 import { CrestMark } from "../../../ui/CrestMark";
 import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
 import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
 import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, type Box } from "../look";
+import { closePanel, panel, pinDrag, togglePanel } from "../panel";
+import { dropSlot, pinAt } from "../panelModel";
 import { barWindows, groupIcons } from "../store";
 import { BarGlass, useBarSurface } from "./BarGlass";
 import { Capsule } from "./Capsule";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
+import { BarPanel } from "./BarPanel";
 import { Item, MARK } from "./Item";
 
 /** Room between the bar and a menu above it, CSS px, as between a button and its name. */
 const MENU_GAP = 8;
+/** Room between two buttons in a zone (gap-0.5), CSS px, which the drop marker fills. */
+const BUTTON_GAP = 2;
+/** The icon of an app dragged out of the app menu, CSS px. */
+const GHOST = 32;
 const ZONES: [Zone, string][] = [
   ["left", "justify-start"],
   ["center", "justify-center"],
@@ -44,11 +52,23 @@ export function TaskbarWindow() {
   const ink = useClosedInk(undefined);
   const accent = useThemedAccent(undefined);
   const bar = useRef<HTMLDivElement>(null);
+  // The first app button, pinned or not: an app dragged onto the bar's first slot goes in the gap before it.
+  const firstApp = useRef<HTMLButtonElement>(null);
   // The button under the pointer, and a launch that failed (in its button's label for a while).
   const [hovered, setHovered] = useState<string | null>(null);
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
-  const [menu, setMenu] = useState<OpenMenu | null>(null);
-  const closeMenu = useCallback(() => setMenu(null), []);
+  const [menu, setOpenMenu] = useState<OpenMenu | null>(null);
+  // The panel above the bar shares the menus' place in the hit zone: opening one closes the other. Every menu closes the panel here,
+  // wherever it is set from, or one set while the panel is open would wait hidden behind it and pop up once it closes.
+  const setMenu = useCallback((next: OpenMenu | null) => {
+    if (next) closePanel();
+    setOpenMenu(next);
+  }, []);
+  const closeMenu = useCallback(() => setMenu(null), [setMenu]);
+  const open = panel.use();
+  useEffect(() => {
+    if (open) setMenu(null);
+  }, [open]);
   // The shape's boxes, for its glass: new ones only when they change, so a hover does not draw the glass again.
   const [boxes, setBoxes] = useState<Box[]>([]);
   const look = useBarSurface(boxes, ink);
@@ -83,9 +103,14 @@ export function TaskbarWindow() {
   /** Opens a menu over its button, or closes it on a second click there; another button's menu takes the place of an open one. */
   const toggle = (next: Menu, anchor: HTMLElement) => {
     const r = anchor.getBoundingClientRect();
-    setMenu((m) => (m?.kind === next.kind && m.anchor === anchor ? null : { ...next, anchor, x: r.x, w: r.width }));
+    setMenu(menu?.kind === next.kind && menu.anchor === anchor ? null : { ...next, anchor, x: r.x, w: r.width });
   };
   const openCrestMenu: MouseEventHandler<HTMLButtonElement> = (e) => toggle({ kind: "crest" }, e.currentTarget);
+  /** Opens the app menu over its button, or closes it on a second click there. */
+  const toggleApps: MouseEventHandler<HTMLButtonElement> = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    togglePanel({ kind: "apps" }, { x: r.x, w: r.width });
+  };
 
   const launch = (b: BarButton, id: string) =>
     launcher.open(id).catch((code) => setError({ key: b.key, text: t(code === "not-found" ? "{name} ist nicht mehr installiert" : "{name} startet nicht", { name: b.name }) }));
@@ -102,8 +127,8 @@ export function TaskbarWindow() {
 
   const item = (key: string, name: string) => ({
     name,
-    // An open menu hides the names, which would show around it.
-    label: menu ? null : error?.key === key ? error.text : hovered === key ? name : null,
+    // An open menu or panel hides the names, which would show around it.
+    label: menu || open ? null : error?.key === key ? error.text : hovered === key ? name : null,
     failed: error?.key === key,
     lifted: hovered === key,
     size,
@@ -112,15 +137,24 @@ export function TaskbarWindow() {
     onLeave: () => setHovered((h) => (h === key ? null : h)),
   });
 
-  const render = (id: BarItem) =>
-    id === "apps" ? (
-      buttons.map((b) => {
+  // Each item draws in a branch of its own: an item added to BarItem without one is a type error, not a second Crest button.
+  const render = (id: BarItem) => {
+    if (id === "start")
+      return (
+        <Item {...item("start", t("App-Menü"))} tile={tile()} expanded={open?.content.kind === "apps"} onClick={toggleApps} onContextMenu={toggleApps}>
+          <SquaresFour size={size} weight="bold" />
+        </Item>
+      );
+    if (id === "apps")
+      return buttons.map((b, i) => {
         const entry = launchId(b);
         return (
           <Item
             key={b.key}
             {...item(b.key, b.name)}
             tile={tile()}
+            ref={i === 0 ? firstApp : undefined}
+            pin={b.pin !== null ? i : undefined}
             mark={indicator(b, active)}
             onClick={(e) => click(b, e.currentTarget)}
             onContextMenu={(e) => toggle({ kind: "app", b }, e.currentTarget)}
@@ -128,20 +162,24 @@ export function TaskbarWindow() {
             <AppIcon src={entry === null ? ownIcons[b.key] : icons[entry]} size={size} />
           </Item>
         );
-      })
-    ) : (
-      <Item {...item("crest", t("Crest-Menü"))} tile={tile()} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
-        <CrestMark size={size} />
-      </Item>
-    );
+      });
+    if (id === "crest")
+      return (
+        <Item {...item("crest", t("Crest-Menü"))} tile={tile()} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
+          <CrestMark size={size} />
+        </Item>
+      );
+    return id satisfies never;
+  };
 
   return (
     <div
       className="flex h-full flex-col justify-end"
       style={{ ["--accent" as string]: accent }}
-      // A right click beside the buttons, on the bar or in the gap under it: the Crest menu, over the pointer.
+      // A right click beside the buttons, on the bar or in the gap under it: the Crest menu, over the pointer. Not in the panel.
       onContextMenu={(e) => {
-        if (!(e.target as Element).closest("button, [role=menu]")) setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 });
+        if ((e.target as Element).closest("button, [role=menu], [role=dialog]")) return;
+        setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 });
       }}
     >
       {/* On the closed notch's black the bar and its menus keep their dark tokens whatever the theme (Notch.tsx), and its zones keep their sides in any language. */}
@@ -168,7 +206,8 @@ export function TaskbarWindow() {
           </div>
         )}
         <AnimatePresence>
-          {menu && (
+          {/* Gone in the very commit the panel opens in, so its zone is cleared before the panel's box goes in, never after. */}
+          {menu && !open && (
             <BarMenu
               key={`${menu.kind}@${menu.x}`}
               title={menu.kind === "crest" ? t("Crest-Menü") : menu.b.name}
@@ -190,6 +229,9 @@ export function TaskbarWindow() {
           )}
         </AnimatePresence>
       </div>
+      {/* Outside the bar's ink: the panel has the theme's colours whatever the bar's background, as the notch's open panel has. */}
+      <BarPanel bar={bar} onPlace={placeMenuZone} />
+      <PinDrop bar={bar} firstApp={firstApp} size={size} />
       {/* The launch error for screen readers too: a button's label is not read out. */}
       <span role="status" aria-live="polite" className="sr-only">
         {error?.text}
@@ -203,6 +245,54 @@ const boxOf = (el: Element): Box => {
   const r = el.getBoundingClientRect();
   return { x: r.x, y: r.y, w: r.width, h: r.height };
 };
+
+/** Where an app dragged to (x, y) lands: over the bar, its slot among the pinned buttons, whose boxes come along; elsewhere null. */
+function dropAt(bar: HTMLElement | null, x: number, y: number) {
+  if (!bar || y < bar.getBoundingClientRect().top) return null;
+  const pins = [...bar.querySelectorAll("[data-pin]")].map((el) => el.getBoundingClientRect());
+  return { pins, slot: dropSlot(pins.map((r) => ({ x: r.x, w: r.width })), x) };
+}
+
+/**
+ * An app dragged out of the app menu (pinDrag): its icon under the pointer and, over the bar, a line in the gap it would be pinned
+ * in. Let go there, it is pinned there; anywhere else the pins stay as they are. Nothing of it runs while no app is dragged.
+ */
+function PinDrop({ bar, firstApp, size }: { bar: RefObject<HTMLDivElement | null>; firstApp: RefObject<HTMLButtonElement | null>; size: number }) {
+  const drag = pinDrag.use();
+  const icons = useIcons(drag ? [drag.app.id] : []);
+  const dragging = drag !== null;
+  useEffect(() => {
+    if (!dragging) return;
+    // Taken on the way down, before the menu's row ends the drag on the same release.
+    const onUp = () => {
+      const d = pinDrag.get();
+      const at = d && dropAt(bar.current, d.x, d.y);
+      if (d && at) updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: pinAt(s.taskbar.pinned ?? [], d.app, at.slot) } }));
+    };
+    addEventListener("pointerup", onUp, true);
+    return () => removeEventListener("pointerup", onUp, true);
+  }, [dragging, bar]);
+  if (!drag) return null;
+
+  // In the gap before the first app button for the first slot, after the slot's pinned button for any other. A bar with no app on
+  // it has no gap to show; a release over it pins the app all the same.
+  const at = dropAt(bar.current, drag.x, drag.y);
+  const beside = at && (at.slot ? at.pins[at.slot - 1] : firstApp.current?.getBoundingClientRect());
+  return (
+    <>
+      <span className="pointer-events-none fixed top-0 left-0 flex" style={{ transform: `translate(${drag.x - GHOST / 2}px, ${drag.y - GHOST / 2}px)` }}>
+        <AppIcon src={icons[drag.app.id]} size={GHOST} />
+      </span>
+      {/* Over the icon: the pointer is mostly close to the gap it names, and the icon would hide it. */}
+      {at && beside && (
+        <span
+          className="pointer-events-none fixed top-0 left-0 w-0.5 rounded-full bg-accent"
+          style={{ height: size, transform: `translate(${at.slot ? beside.right : beside.left - BUTTON_GAP}px, ${beside.top + (beside.height - size) / 2}px)` }}
+        />
+      )}
+    </>
+  );
+}
 
 /**
  * Tells Rust where the page takes the pointer: the bar (or the capsule) and the gap under it, so a click in the gap never reaches

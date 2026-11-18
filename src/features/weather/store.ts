@@ -16,8 +16,9 @@ import { settings, updateSettings } from "../../settings/store";
 import { lang, t } from "../../i18n";
 import type { Hue } from "../themes/hues";
 import { createStore } from "../../lib/store";
-import { savedForecast, type SavedForecast } from "./stale";
+import { FRESH_MS, savedForecast, shownForecast, type SavedForecast } from "./stale";
 import { demo } from "../../dev/showcase-data";
+import { barShows, onBarShows } from "../taskbar/barPanels";
 
 /*
  * Weather data via Open-Meteo (free, no key). Used by the weather tool and the
@@ -58,19 +59,27 @@ export function peekForecast(lat: number, lon: number): Forecast | null {
   return cache.get(`${lat},${lon}`)?.data ?? null;
 }
 
+/** Today here as YYYY-MM-DD, the form of the forecast's days. */
+function today(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export async function loadForecast(lat: number, lon: number): Promise<Forecast> {
   const key = `${lat},${lon}`;
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < 10 * 60_000) return hit.data;
+  if (hit && Date.now() - hit.at < FRESH_MS) {
+    // Back to a place read minutes ago: save its forecast again, since the bar shows only the saved one.
+    if (lastGood.get()?.key !== key) lastGood.set({ key, at: hit.at, data: hit.data });
+    return hit.data;
+  }
   try {
     const data = await fetchForecast(lat, lon);
     cache.set(key, { at: Date.now(), data });
     lastGood.set({ key, at: Date.now(), data });
     return data;
   } catch (e) {
-    const d = new Date();
-    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    const saved = savedForecast(lastGood.get(), key, Date.now(), today);
+    const saved = savedForecast(lastGood.get(), key, Date.now(), today());
     if (saved) return saved;
     throw e;
   }
@@ -188,8 +197,8 @@ export function detectPlace(force = false): Promise<boolean> {
   return detecting;
 }
 
-/** Forecast for the set location; null while loading or without a location, "error" on failure. `everyMs`: read again that often (the closed row's part stays mounted for hours). */
-export function useForecast(everyMs = 0, on = true): Forecast | null | "error" {
+/** In the notch: the forecast read here, and the place looked up while none is set. */
+function useLoadedForecast(everyMs = 0, on = true): Forecast | null | "error" {
   const place = settings.use().weather;
   const key = place ? `${place.lat},${place.lon}` : "";
   // Tagged with its place, so a reading of the previous place is never shown under the new one.
@@ -237,8 +246,66 @@ export function useForecast(everyMs = 0, on = true): Forecast | null | "error" {
   return got && got.key === key ? got.v : null;
 }
 
+/** In the bar: the forecast the notch saved for the set place, followed as the notch saves a newer one; null while none is saved. */
+function useSavedForecast(): Forecast | null {
+  const place = settings.use().weather;
+  const saved = lastGood.use();
+  return place ? shownForecast(saved, `${place.lat},${place.lon}`, Date.now(), today()) : null;
+}
+
+/**
+ * Forecast for the set location; null while loading or without a location, "error" on failure. `everyMs`: read again that often (the
+ * closed row's part stays mounted for hours). Only the notch asks Open-Meteo and looks the place up; the bar shows what the notch saved,
+ * which the notch loads while a bar shows the weather (below). Chosen once per window, so a view always calls the same hooks.
+ */
+export const useForecast: (everyMs?: number, on?: boolean) => Forecast | null | "error" = isNotchWindow ? useLoadedForecast : useSavedForecast;
+
 // On start, only when the weather shows somewhere (its tool or the Overview header): first run or "automatic"
 // → location from IP (detectPlace leaves a hand-picked one alone).
 const shown = settings.get().tools.some((x) => (x.id === "weather" || x.id === "overview") && x.enabled);
 // The notch alone looks the place up, and writes it to the settings the other windows follow.
 if (shown && isNotchWindow) void detectPlace();
+
+/*
+ * In the notch, for a bar's panel that shows the weather (its tool, or the Overview's header): what the tool does here on mount, until
+ * neither shows. The place is looked up while none is set, and again when the PC comes back online; the forecast is loaded, and again
+ * 30 s after a failure. The bar shows the forecast this saves.
+ */
+/** What the notch loads for the bars: "" nothing, "?" the place while none is set, or the place's key. */
+let barKey = "";
+/** Counts the attempts, so only the latest one schedules the next. */
+let barTry = 0;
+let barRetry = 0;
+
+function loadForBars() {
+  const at = ++barTry;
+  window.clearTimeout(barRetry);
+  if (!barKey) return;
+  const p = settings.get().weather;
+  // Without a place the lookup is tried again only once the network is back (below), as the tool's is: not every 30 s for as long
+  // as the PC stays offline.
+  if (!p) return void detectPlace();
+  // The saved forecast stands in for a failed read, as in the tool: try again soon too.
+  const done = loadForecast(p.lat, p.lon).then((f) => !f.savedAt, () => false);
+  void done.then((ok) => {
+    if (!ok && at === barTry) barRetry = window.setTimeout(loadForBars, 30_000);
+  });
+}
+
+/** Starts when a bar begins to show the weather or the place changes, and stops when none shows it; the settings notify on any change. */
+function followBars() {
+  const p = settings.get().weather;
+  const key = !barShows("weather") && !barShows("overview") ? "" : p ? `${p.lat},${p.lon}` : "?";
+  if (key === barKey) return;
+  barKey = key;
+  loadForBars();
+}
+
+if (isNotchWindow) {
+  // Either one calls, and both are read: a panel switching from the Weather tool to the Overview goes on with the same load.
+  onBarShows("weather", followBars);
+  onBarShows("overview", followBars);
+  settings.subscribe(followBars);
+  // Back online, the tool looks the place up or reads the forecast again (useLoadedForecast): so does the load for the bars.
+  window.addEventListener("online", loadForBars);
+}
