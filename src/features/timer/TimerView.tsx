@@ -9,6 +9,8 @@ import {
   formatClock,
   presets,
   ringing,
+  setFocusMuted,
+  stopRinging,
   timer,
   timerActions,
   useRemaining,
@@ -20,9 +22,13 @@ import { detached, toggleDetached } from "./detach";
 import { settings } from "../../settings/store";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { isNative } from "../../platform/native";
+import { isNotchWindow } from "../../lib/windowKind";
 import { t } from "../../i18n";
 
 const modeLabel: Record<TimerMode, string> = { focus: "Fokus", break: "Pause" };
+
+/** The detached window is the notch's to open and close (`timer_window_open`), so the bar's panel shows no button for it. */
+const detachable = isNative && isNotchWindow;
 
 /*
  *   [Focus | Break]               15  25  45  [37]  [✎]
@@ -46,15 +52,15 @@ function TimerHeader() {
   const open = detached.use();
   const sound = settings.use().timer.focusSound;
   const muted = focusMuted.use();
-  if (!isNative && sound === "off") return null;
+  if (!detachable && sound === "off") return null;
   return (
     <HeaderActions>
       {sound !== "off" && (
-        <HeaderButton label={muted ? t("Fokus-Klang einschalten") : t("Fokus-Klang stummschalten")} onClick={() => focusMuted.set(!muted)}>
+        <HeaderButton label={muted ? t("Fokus-Klang einschalten") : t("Fokus-Klang stummschalten")} onClick={() => setFocusMuted(!muted)}>
           {muted ? <SpeakerSimpleSlash size={14} weight="bold" /> : <SpeakerSimpleHigh size={14} weight="bold" />}
         </HeaderButton>
       )}
-      {isNative && (
+      {detachable && (
         <HeaderButton label={open ? t("Timer-Fenster schließen") : t("Timer abdocken")} active={open} onClick={toggleDetached}>
           <PictureInPicture size={14} weight="bold" />
         </HeaderButton>
@@ -108,7 +114,7 @@ function FinishedView() {
             transition={content.exit}
           >
             {ring ? (
-              <RoundButton label={t("Alarm stoppen")} onClick={timerActions.silence} tint={tint}>
+              <RoundButton label={t("Alarm stoppen")} onClick={stopRinging} tint={tint}>
                 <SpeakerSimpleSlash size={17} weight="fill" />
               </RoundButton>
             ) : (

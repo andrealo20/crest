@@ -207,7 +207,9 @@ export function dismissPop() {
 /** Ids Windows gave these notices' toasts, for removing them from the notification centre too. */
 const windowsIds = (list: Notice[]) => list.flatMap((n) => (n.source === "windows" && typeof n.windowsId === "number" ? [n.windowsId] : []));
 
+/** The history lives in the notch, which also takes the toast out of the notification centre, so another window asks the notch. */
 export function deleteNotice(id: string) {
+  if (!isNotchWindow) return askNotch({ kind: "noticeDelete", id });
   noticeSource.removeWindows(windowsIds(history.get().filter((n) => n.id === id)));
   history.set((list) => removeNotice(list, id));
   if (popping.get()?.id === id) dismissPop();
@@ -228,7 +230,9 @@ function forgetToasts(ids: number[]) {
     .catch(console.error);
 }
 
+/** Deletes every notice the way `deleteNotice` deletes one, so another window asks the notch here too. */
 export function clearHistory() {
+  if (!isNotchWindow) return askNotch({ kind: "noticesClear" });
   noticeSource.removeWindows(windowsIds(history.get()));
   history.set([]);
   dismissPop();

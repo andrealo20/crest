@@ -160,6 +160,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log",
     "taskbar_panel", "taskbar_ask", "launcher_apps", "translate_status",
     "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
+    "notices_open_app", "notices_copy_code",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -1067,6 +1068,11 @@ mod tests {
         assert!(!ok("taskbar", "calendar_fetch") && !ok("taskbar", "discord_state"));
         // Usage's renew runs in the notch's terminal: the bar never starts or types into a shell.
         assert!(!ok("taskbar", "terminal_info") && !ok("taskbar", "terminal_start") && !ok("taskbar", "terminal_write") && !ok("taskbar", "terminal_kill"));
+        // A click on a row of the bar's Notices opens its app or copies its code. Deleting one or all asks the notch (taskbar_ask),
+        // which holds the history and takes the notices out of Windows' notification centre too.
+        assert!(ok("taskbar", "notices_open_app") && ok("taskbar", "notices_copy_code") && !ok("taskbar", "notices_remove_windows"));
+        // The detached timer window is the notch's: the bar's Timer shows no button for it.
+        assert!(!ok("taskbar", "timer_window_open") && !ok("taskbar", "timer_window_close"));
     }
 
     #[test]
