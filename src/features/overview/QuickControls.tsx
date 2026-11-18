@@ -42,7 +42,10 @@ export function useQuick(): [QuickState | null, () => void] {
   return [state, load.current];
 }
 
-export function QuickControls({ state, reload }: { state: QuickState; reload: () => void }) {
+/** A switch's command under way and what went wrong with the last one, shared by the switches of one view. */
+export type SwitchJob = { busy: boolean; note: string | null; run: (job: Promise<void>) => void; fail: (e: unknown) => void };
+
+export function useSwitchJob(reload: () => void): SwitchJob {
   // A switch is off limits while its command runs (a radio can take a second or two), so a second click cannot repeat it.
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -53,29 +56,49 @@ export function QuickControls({ state, reload }: { state: QuickState; reload: ()
     window.clearTimeout(noteTimer.current);
     noteTimer.current = window.setTimeout(() => setNote(null), NOTE_MS);
   };
-  const toggle = (job: Promise<void>) => {
+  const run = (job: Promise<void>) => {
     setBusy(true);
     void job.catch(fail).finally(() => {
       setBusy(false);
       reload();
     });
   };
+  return { busy, note, run, fail };
+}
+
+export function QuickControls({ state, reload }: { state: QuickState; reload: () => void }) {
+  const job = useSwitchJob(reload);
   return (
     <div className="flex h-11 shrink-0 items-center gap-1.5 rounded-[12px] bg-fill-1 px-1.5">
-      {state.wifi !== null && <Switch icon={WifiHigh} hue="blue" label={t("WLAN")} on={state.wifi} busy={busy} onToggle={() => toggle(systemControls.setRadio("wifi", !state.wifi))} />}
-      {state.bluetooth !== null && <Switch icon={Bluetooth} hue="indigo" label={t("Bluetooth")} on={state.bluetooth} busy={busy} onToggle={() => toggle(systemControls.setRadio("bluetooth", !state.bluetooth))} />}
-      <Switch icon={MoonStars} hue="violet" label={t("Dunkles Design")} on={state.dark} busy={busy} onToggle={() => toggle(systemControls.setDark(!state.dark))} />
+      {state.wifi !== null && <RadioSwitch kind="wifi" on={state.wifi} job={job} />}
+      {state.bluetooth !== null && <RadioSwitch kind="bluetooth" on={state.bluetooth} job={job} />}
+      <Switch icon={MoonStars} hue="violet" label={t("Dunkles Design")} on={state.dark} busy={job.busy} onToggle={() => job.run(systemControls.setDark(!state.dark))} />
       {/* Lit while muted, like the mute button of a call. */}
-      {state.micMuted !== null && <Switch icon={state.micMuted ? MicrophoneSlash : Microphone} hue="red" label={t("Mikrofon stummschalten")} on={state.micMuted} busy={busy} onToggle={() => toggle(systemControls.setMicMuted(!state.micMuted))} />}
+      {state.micMuted !== null && <Switch icon={state.micMuted ? MicrophoneSlash : Microphone} hue="red" label={t("Mikrofon stummschalten")} on={state.micMuted} busy={job.busy} onToggle={() => job.run(systemControls.setMicMuted(!state.micMuted))} />}
       {/* Switches on one end, the power actions on the other; between them, what went wrong. */}
       <span role="status" className="min-w-0 flex-1 truncate ps-1 text-caption text-label-3">
-        {note}
+        {job.note}
       </span>
-      <PowerButton icon={Lock} label={t("Sperren")} action="lock" onError={fail} />
-      <PowerButton icon={Bed} label={t("Energie sparen")} action="sleep" confirm onError={fail} />
-      <PowerButton icon={ArrowClockwise} label={t("Neu starten")} action="restart" confirm onError={fail} />
-      <PowerButton icon={Power} label={t("Herunterfahren")} action="shutdown" confirm onError={fail} />
+      <PowerButton icon={Lock} label={t("Sperren")} action="lock" onError={job.fail} />
+      <PowerButton icon={Bed} label={t("Energie sparen")} action="sleep" confirm onError={job.fail} />
+      <PowerButton icon={ArrowClockwise} label={t("Neu starten")} action="restart" confirm onError={job.fail} />
+      <PowerButton icon={Power} label={t("Herunterfahren")} action="shutdown" confirm onError={job.fail} />
     </div>
+  );
+}
+
+/** The Wi-Fi or the Bluetooth switch, in Overview's row and in the bar's quick panel. */
+export function RadioSwitch({ kind, on, job }: { kind: "wifi" | "bluetooth"; on: boolean; job: SwitchJob }) {
+  const wifi = kind === "wifi";
+  return (
+    <Switch
+      icon={wifi ? WifiHigh : Bluetooth}
+      hue={wifi ? "blue" : "indigo"}
+      label={wifi ? t("WLAN") : t("Bluetooth")}
+      on={on}
+      busy={job.busy}
+      onToggle={() => job.run(systemControls.setRadio(kind, !on))}
+    />
   );
 }
 
