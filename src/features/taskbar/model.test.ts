@@ -14,6 +14,8 @@ import {
   normalizeZones,
   placeMenu,
   taskbarShown,
+  trayOnBar,
+  trayWanted,
   type BarButton,
   type BarItem,
   type Group,
@@ -62,11 +64,11 @@ test("widgets stay where they were put, and a missing one stays off the bar", ()
 });
 
 test("the default widgets arrive once", () => {
-  assert.deepEqual(normalizeZones(undefined, true), TASKBAR_DEFAULTS.zones);
+  assert.deepEqual(normalizeZones(undefined, true), { ...TASKBAR_DEFAULTS.zones, right: ["weather", "clock", "crest"] }); // the tray arrives with normalizeTaskbar
   assert.deepEqual(normalizeZones({ left: [], center: ["apps"], right: ["crest"] }, true).right, ["weather", "clock", "crest"]);
   assert.deepEqual(normalizeZones({ left: ["clock"], center: ["apps"], right: ["crest"] }, true), { left: ["clock"], center: ["start", "apps"], right: ["weather", "crest"] });
   const once = normalizeTaskbar({ zones: { left: [], center: ["apps"], right: ["crest"] } });
-  assert.deepEqual(once.zones.right, ["weather", "clock", "crest"]);
+  assert.deepEqual(once.zones.right, ["weather", "tray", "clock", "crest"]);
   assert.equal(once.widgetsSeeded, true);
   assert.deepEqual(normalizeTaskbar({ ...once, zones: { ...once.zones, right: ["crest"] } }).zones.right, ["crest"]);
   assert.deepEqual(normalizeTaskbar(undefined).zones, TASKBAR_DEFAULTS.zones);
@@ -159,4 +161,31 @@ test("windows pins are added at the end and removed, Crest's own pins and order 
 test("the remembered windows pins keep only strings, once each", () => {
   assert.deepEqual(normalizeTaskbar({ windowsPins: ["a", 1, "a", "b"] }).windowsPins, ["a", "b"]);
   assert.equal(normalizeTaskbar({}).windowsPins, null);
+});
+
+test("the tray arrives once before the clock and stays removed when taken off", () => {
+  const seeded = normalizeTaskbar({ zones: { left: [], center: ["start", "apps"], right: ["clock", "crest"] }, widgetsSeeded: true });
+  assert.deepEqual(seeded.zones.right, ["tray", "clock", "crest"]);
+  const removed = normalizeTaskbar({ ...seeded, zones: { ...seeded.zones, right: ["clock", "crest"] } });
+  assert.deepEqual(removed.zones.right, ["clock", "crest"]);
+});
+
+test("the tray goes before the Crest menu when there is no clock", () => {
+  assert.deepEqual(normalizeTaskbar({ zones: { left: [], center: ["start", "apps"], right: ["crest"] }, widgetsSeeded: true }).zones.right, ["tray", "crest"]);
+});
+
+test("the icons kept visible are strings, once each", () => {
+  assert.deepEqual(normalizeTaskbar({ trayShown: ["a", 2, "a", "b"] }).trayShown, ["a", "b"]);
+});
+
+test("the spy runs only while a bar shows the tray", () => {
+  assert.equal(trayWanted({ ...TASKBAR_DEFAULTS, enabled: true }), true);
+  assert.equal(trayWanted({ ...TASKBAR_DEFAULTS, enabled: false }), false);
+  assert.equal(trayWanted({ ...TASKBAR_DEFAULTS, enabled: true, zones: { left: [], center: ["start", "apps"], right: ["crest"] } }), false);
+});
+
+test("the notch tells Rust whether a zone holds the tray, whether the bar is on or off", () => {
+  assert.equal(trayOnBar(TASKBAR_DEFAULTS.zones), true);
+  assert.equal(trayOnBar({ left: ["tray"], center: ["start", "apps"], right: ["crest"] }), true);
+  assert.equal(trayOnBar({ left: [], center: ["start", "apps"], right: ["crest"] }), false);
 });

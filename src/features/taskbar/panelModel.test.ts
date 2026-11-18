@@ -1,10 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Favorite, LauncherApp } from "../launcher/apps.ts";
-import { BAR_TOOLS, dropSlot, fitPanel, opensInBar, panelKey, pinAt, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, TRAY_SIZE, dropSlot, fitPanel, opensInBar, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
-const app = (name: string): LauncherApp => ({ id: `shell:AppsFolder\\${name}`, name, source: "start" });
 
 test("the twelve widget tools open in the bar, any other tool in the notch", () => {
   for (const id of BAR_TOOLS) assert.equal(opensInBar(tool(id)), true, id);
@@ -16,6 +14,23 @@ test("the same content toggles, another one takes its place", () => {
   assert.equal(sameContent(tool("media"), tool("media")), true);
   assert.equal(sameContent(tool("media"), tool("timer")), false);
   assert.equal(panelKey(tool("weather")), "weather");
+});
+
+test("the tray panel opens in the bar and is not a tool", () => {
+  assert.equal(opensInBar({ kind: "tray" }), true);
+  assert.equal(panelKey({ kind: "tray" }), "tray");
+  // A tool known by the id "tray" is still a tool: the kind counts too.
+  assert.equal(sameContent({ kind: "tray" }, tool("tray")), false);
+  assert.equal(sameContent({ kind: "tray" }, { kind: "tray" }), true);
+});
+
+test("the tray panel grows a row for every five icons, up to four rows, then scrolls", () => {
+  // Five buttons as wide as the bar's (icon + 16) and 12 px round them; one row for the line it shows without icons.
+  assert.deepEqual(TRAY_SIZE(24, 0), { w: 224, h: 64 });
+  assert.deepEqual(TRAY_SIZE(24, 5), { w: 224, h: 64 });
+  assert.deepEqual(TRAY_SIZE(24, 6), { w: 224, h: 104 });
+  assert.deepEqual(TRAY_SIZE(24, 40), { w: 224, h: 184 });
+  assert.deepEqual(TRAY_SIZE(16, 40), { w: 184, h: 152 });
 });
 
 test("an item stays the same item while it shifts or resizes under its panel, and two items never are", () => {
@@ -61,21 +76,8 @@ test("the panel fits the room above the bar at any scale", () => {
   assert.deepEqual(fitPanel({ w: 740, h: 300 }, { w: 1000, h: 568 }, 1.5), { w: 666, h: 300 });
 });
 
-test("a dragged app lands in the slot under the pointer", () => {
+test("a dragged icon lands in the slot under the pointer", () => {
   const slots = [100, 140, 180].map((x) => ({ x, w: 40 }));
   assert.deepEqual([90, 125, 165, 500].map((x) => dropSlot(slots, x)), [0, 1, 2, 3]);
   assert.equal(dropSlot([], 300), 0);
-});
-
-test("pinning at a slot inserts a new app and moves a pinned one", () => {
-  const pin = (name: string): Favorite => ({ id: `shell:AppsFolder\\${name}`, name });
-  const [A, B, C, D] = ["A", "B", "C", "D"].map(pin);
-  assert.deepEqual(pinAt([A, B, C], A, 2), [B, A, C]);
-  assert.deepEqual(pinAt([A, B, C], C, 0), [C, A, B]);
-  assert.deepEqual(pinAt([A, B, C], B, 1), [A, B, C]);
-  assert.deepEqual(pinAt([A, B, C], B, 2), [A, B, C]);
-  assert.deepEqual(pinAt([A, B, C], D, 1), [A, D, B, C]);
-  assert.deepEqual(pinAt([A], D, 99), [A, D]);
-  // An app dragged out of Windows' list carries its fields too; a pin keeps its id and name only.
-  assert.deepEqual(pinAt([A], app("D"), 0), [D, A]);
 });

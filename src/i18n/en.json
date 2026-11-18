@@ -1823,5 +1823,9 @@
  "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "On one monitor the bar can't slide away: its work area ends above the edge there, or another monitor lies below it",
  "Startmenü": "Start",
  "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "Start opens where Windows puts it, depending on the alignment of its taskbar",
- "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "Pin an app from Windows' Start or with a right click on an open app in the taskbar"
+ "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "Pin an app from Windows' Start or with a right click on an open app in the taskbar",
+ "Infobereich": "Notification area",
+ "Ausgeblendete Symbole anzeigen": "Show hidden icons",
+ "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Another program manages the taskbar's icons.",
+ "Keine ausgeblendeten Symbole": "No hidden icons"
 }

@@ -7,7 +7,7 @@ import { partInfo } from "../../../notch/row/partInfo";
 import type { PartId } from "../../../notch/row/parts";
 import { isNative } from "../../../platform/native";
 import { launcher, taskbar } from "../../../platform/services";
-import { settings, updateSettings } from "../../../settings/store";
+import { settings } from "../../../settings/store";
 import { CrestMark } from "../../../ui/CrestMark";
 import { WindowsMark } from "../../../ui/WindowsMark";
 import { AppIcon } from "../../launcher/AppIcon";
@@ -16,9 +16,10 @@ import { useClosedInk, useThemedAccent } from "../../themes/store";
 import { zones as hitZones, type Rect } from "../autoHide";
 import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
 import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, type Box } from "../look";
-import { closePanel, panel, pinDrag, togglePanel } from "../panel";
-import { dropSlot, pinAt } from "../panelModel";
+import { closePanel, panel, togglePanel } from "../panel";
 import { barShown, barWindows, groupIcons } from "../store";
+import { trayState } from "../tray";
+import { splitTray } from "../trayModel";
 import { isWidget, widgetTool } from "../widgets";
 import { BarGlass, useBarSurface } from "./BarGlass";
 import { Capsule } from "./Capsule";
@@ -26,15 +27,12 @@ import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu
 import { BarPanel } from "./BarPanel";
 import { holdBriefly } from "./hold";
 import { Item, MARK } from "./Item";
+import { Tray, TrayDrop } from "./Tray";
 import { useAutoHide } from "./useAutoHide";
 import { WidgetItem } from "./Widget";
 
 /** Room between the bar and a menu above it, CSS px, as between a button and its name. */
 const MENU_GAP = 8;
-/** Room between two buttons in a zone (gap-0.5), CSS px, which the drop marker fills. */
-const BUTTON_GAP = 2;
-/** The icon of an app dragged out of the bar, CSS px. */
-const GHOST = 32;
 const ZONES: [Zone, string][] = [
   ["left", "justify-start"],
   ["center", "justify-center"],
@@ -59,7 +57,8 @@ type OpenMenu = Menu & { anchor: Element | null; x: number; w: number };
  * off it, a click.
  */
 export function TaskbarWindow() {
-  const { zones, height, iconSize, surface, pinned, shape } = settings.use().taskbar;
+  const { zones, height, iconSize, surface, pinned, shape, trayShown } = settings.use().taskbar;
+  const { visible: trayVisible } = splitTray(trayState.use().icons, trayShown);
   const { groups, active } = barWindows.use();
   const ink = useClosedInk(undefined);
   const accent = useThemedAccent(undefined);
@@ -67,8 +66,8 @@ export function TaskbarWindow() {
   // while the bar is slid off the screen too (taskbar.slid below).
   const paused = !barShown.use();
   const bar = useRef<HTMLDivElement>(null);
-  // The first app button, pinned or not: an app dragged onto the bar's first slot goes in the gap before it.
-  const firstApp = useRef<HTMLButtonElement>(null);
+  // The tray's ^ button: a tray icon dragged onto the bar lands between the first kept icon and it.
+  const trayMore = useRef<HTMLButtonElement>(null);
   // The button under the pointer, and a launch that failed (in its button's label for a while).
   const [hovered, setHovered] = useState<string | null>(null);
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
@@ -110,7 +109,7 @@ export function TaskbarWindow() {
   const tiles = shape === "tiles";
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
   // An open menu or panel holds the bar up, and so does an app asking for attention.
-  const { down, place: placeMenuZone } = useHitZone(bar, shape, setBoxes, `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}`, {
+  const { down, place: placeMenuZone } = useHitZone(bar, shape, setBoxes, `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}`, {
     open: menu !== null || open !== null,
     attention: buttons.some((b) => indicator(b, active) === "attention"),
   });
@@ -193,15 +192,13 @@ export function TaskbarWindow() {
         </Item>
       );
     if (id === "apps")
-      return buttons.map((b, i) => {
+      return buttons.map((b) => {
         const entry = launchId(b);
         return (
           <Item
             key={b.key}
             {...item(b.key, b.name)}
             tile={tile()}
-            ref={i === 0 ? firstApp : undefined}
-            pin={b.pin !== null ? i : undefined}
             mark={indicator(b, active)}
             onClick={(e) => click(b, e.currentTarget)}
             onContextMenu={(e) => toggle({ kind: "app", b }, e.currentTarget)}
@@ -225,6 +222,18 @@ export function TaskbarWindow() {
         />
       );
     }
+    if (id === "tray")
+      return (
+        <Tray
+          visible={trayVisible}
+          size={size}
+          item={item}
+          tile={tile}
+          more={trayMore}
+          // No menu of its own, as a widget: the Crest menu over the pointer.
+          onMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
+        />
+      );
     if (id === "crest")
       return (
         <Item {...item("crest", t("Crest-Menü"))} tile={tile()} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
@@ -299,7 +308,7 @@ export function TaskbarWindow() {
       </div>
       {/* Outside the bar's ink: the panel has the theme's colours whatever the bar's background, as the notch's open panel has. */}
       <BarPanel bar={bar} onPlace={placeMenuZone} />
-      <PinDrop bar={bar} firstApp={firstApp} size={size} />
+      <TrayDrop bar={bar} more={trayMore} size={size} />
       {/* The launch error for screen readers too: a button's label is not read out. */}
       <span role="status" aria-live="polite" className="sr-only">
         {error?.text}
@@ -313,55 +322,6 @@ const boxOf = (el: Element): Box => {
   const r = el.getBoundingClientRect();
   return { x: r.x, y: r.y, w: r.width, h: r.height };
 };
-
-/** Where an app dragged to (x, y) lands: over the bar, its slot among the pinned buttons, whose boxes come along; elsewhere null. */
-function dropAt(bar: HTMLElement | null, x: number, y: number) {
-  if (!bar || y < bar.getBoundingClientRect().top) return null;
-  const pins = [...bar.querySelectorAll("[data-pin]")].map((el) => el.getBoundingClientRect());
-  return { pins, slot: dropSlot(pins.map((r) => ({ x: r.x, w: r.width })), x) };
-}
-
-/**
- * An app dragged onto the bar from a list (pinDrag; none drags one since the app menu went, the tray will): its icon under the
- * pointer and, over the bar, a line in the gap it would be pinned in. Let go there, it is pinned there; anywhere else the pins stay
- * as they are. Nothing of it runs while no app is dragged.
- */
-function PinDrop({ bar, firstApp, size }: { bar: RefObject<HTMLDivElement | null>; firstApp: RefObject<HTMLButtonElement | null>; size: number }) {
-  const drag = pinDrag.use();
-  const icons = useIcons(drag ? [drag.app.id] : []);
-  const dragging = drag !== null;
-  useEffect(() => {
-    if (!dragging) return;
-    // Taken on the way down, before the menu's row ends the drag on the same release.
-    const onUp = () => {
-      const d = pinDrag.get();
-      const at = d && dropAt(bar.current, d.x, d.y);
-      if (d && at) updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: pinAt(s.taskbar.pinned ?? [], d.app, at.slot) } }));
-    };
-    addEventListener("pointerup", onUp, true);
-    return () => removeEventListener("pointerup", onUp, true);
-  }, [dragging, bar]);
-  if (!drag) return null;
-
-  // In the gap before the first app button for the first slot, after the slot's pinned button for any other. A bar with no app on
-  // it has no gap to show; a release over it pins the app all the same.
-  const at = dropAt(bar.current, drag.x, drag.y);
-  const beside = at && (at.slot ? at.pins[at.slot - 1] : firstApp.current?.getBoundingClientRect());
-  return (
-    <>
-      <span className="pointer-events-none fixed top-0 left-0 flex" style={{ transform: `translate(${drag.x - GHOST / 2}px, ${drag.y - GHOST / 2}px)` }}>
-        <AppIcon src={icons[drag.app.id]} size={GHOST} />
-      </span>
-      {/* Over the icon: the pointer is mostly close to the gap it names, and the icon would hide it. */}
-      {at && beside && (
-        <span
-          className="pointer-events-none fixed top-0 left-0 w-0.5 rounded-full bg-accent"
-          style={{ height: size, transform: `translate(${at.slot ? beside.right : beside.left - BUTTON_GAP}px, ${beside.top + (beside.height - size) / 2}px)` }}
-        />
-      )}
-    </>
-  );
-}
 
 /**
  * Tells Rust where the page takes the pointer (autoHide.ts zones): the bar (or the capsule) and the gap under it, so a click in the gap

@@ -14,7 +14,7 @@ import type { RulesPayload } from "../features/window/model";
 import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
-import type { WindowList } from "../features/taskbar/model";
+import type { TrayState, WindowList } from "../features/taskbar/model";
 import type { Rect } from "../features/taskbar/autoHide";
 import type { Favorite } from "../features/launcher/apps";
 import bundledChangelog from "../changelog.json";
@@ -1310,14 +1310,29 @@ export const taskbar = {
   shell: (action: "start" | "winx"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
   /** Icons of the groups without an entry, by group key (PNG data URL, null = none). */
   icons: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_icons", { keys }) : Promise.resolve({})),
+  /** The tray's icons as Rust last listed them: none while Crest's tray does not run. */
+  tray: (): Promise<TrayState> => (isNative ? invoke<TrayState>("taskbar_tray") : Promise.resolve({ yielded: false, icons: [] })),
+  /** The tray's icons each time they change, at most every 250 ms; Rust sends them to every bar. */
+  onTray(handler: (state: TrayState) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<TrayState>("taskbar://tray", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** The tray icons' pictures by their `img` key (PNG data URL, null = no icon shows it any more). */
+  trayImages: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_tray_images", { keys }) : Promise.resolve({})),
+  /** A click on the tray icon `key` (`TrayIcon.key`) drawn at `rect` (this page's CSS px): its app gets it as from Windows' tray. Errors: gone, unknown-button. */
+  trayClick: (key: string, button: "left" | "right" | "double", rect: { x: number; y: number; w: number; h: number }): Promise<void> =>
+    isNative ? invoke("taskbar_tray_click", { key, button, rect }) : Promise.resolve(),
   /** Where the page draws (the bar, an open menu) in its CSS px; clicks pass through the rest of the window. */
   hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
-  /** Tells the notch what the bar's panel shows: a tool's id, or null once it closes. */
+  /** Tells the notch what the bar's panel shows: "tray", a tool's id, or null once it closes. */
   panel: (open: string | null): Promise<void> => (isNative ? invoke("taskbar_panel", { open }) : Promise.resolve()),
   /** "Hide when a window touches it" on or off; only while it is on does Rust send each bar the window in front of its monitor. The notch only. */
   autoHide: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_auto_hide", { on }) : Promise.resolve()),
   /** How many bars cannot slide away: their work area ends above the monitor's bottom edge, or another monitor lies below. 0 while the bar is off. The settings only. */
   slideBlocked: (): Promise<number> => (isNative ? invoke<number>("taskbar_slide_blocked") : Promise.resolve(0)),
+  /** Whether a zone of the bar holds the tray (trayOnBar), sent on or off; Rust adds whether the bar runs and runs Crest's tray (the spy that records the notification area's icons) while both hold. The notch only. */
+  trayOn: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_tray_on", { on }) : Promise.resolve()),
   /** This bar slid off the screen (useAutoHide) or back up: Rust tells this bar, and the notch for the primary's, that it is hidden while down (onShown). */
   slid: (down: boolean): Promise<void> => (isNative ? invoke("taskbar_slid", { down }) : Promise.resolve()),
   /** The frame of the window in front of this bar's monitor, in the page's CSS px, as Rust last sent it: null without one and while the option is off. */

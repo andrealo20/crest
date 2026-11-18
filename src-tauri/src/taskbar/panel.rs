@@ -10,7 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 /// What the bridge may refresh (`REFRESH` in src/lib/bridge.ts).
 const REFRESH: [&str; 8] = ["usage", "github", "leetcode", "calendar", "discord", "plugins", "offline", "notices"];
 
-/// What the bar's panel shows: a tool's id, or None once it closes.
+/// What the bar's panel shows: "tray", a tool's id, or None once it closes.
 #[tauri::command]
 pub fn taskbar_panel(open: Option<String>, window: WebviewWindow) -> Result<(), String> {
     if !panel_open(open.as_deref()) {

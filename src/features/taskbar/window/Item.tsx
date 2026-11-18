@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type MouseEventHandler, type ReactNode, type Ref } from "react";
+import { useLayoutEffect, useRef, useState, type MouseEventHandler, type PointerEventHandler, type ReactNode, type Ref } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { fade, popover, pulse, springs } from "../../../design/motion";
 import { placeMenu, type Indicator } from "../model";
@@ -19,8 +19,8 @@ export function Item(props: {
   tile?: { background: string; radius: number };
   /** An item that opens the panel above the bar: whether the panel shows what it opens. */
   expanded?: boolean;
-  /** A pinned app: its place among the pinned apps (`data-pin`), where a dragged app finds its slot. */
-  pin?: number;
+  /** A tray icon kept visible: its place among them (`data-tray`). */
+  tray?: number;
   ref?: Ref<HTMLButtonElement>;
   /** The button's width when its content is not an icon of `size`. */
   width?: number;
@@ -29,7 +29,9 @@ export function Item(props: {
   onEnter: () => void;
   onLeave: () => void;
   onClick: MouseEventHandler<HTMLButtonElement>;
+  onDoubleClick?: MouseEventHandler<HTMLButtonElement>;
   onContextMenu: MouseEventHandler<HTMLButtonElement>;
+  onPointerDown?: PointerEventHandler<HTMLButtonElement>;
   children: ReactNode;
 }) {
   return (
@@ -43,11 +45,13 @@ export function Item(props: {
       aria-haspopup={props.expanded === undefined ? undefined : "dialog"}
       aria-expanded={props.expanded}
       aria-describedby={props.describedBy}
-      data-pin={props.pin}
+      data-tray={props.tray}
       onPointerEnter={props.onEnter}
       onPointerLeave={props.onLeave}
       onClick={props.onClick}
+      onDoubleClick={props.onDoubleClick}
       onContextMenu={props.onContextMenu}
+      onPointerDown={props.onPointerDown}
       data-tile={props.tile ? "" : undefined}
       className="group relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"
       style={{ width: props.width ?? props.size + 16, background: props.tile?.background, borderRadius: props.tile?.radius }}

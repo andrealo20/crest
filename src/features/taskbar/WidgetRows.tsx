@@ -19,11 +19,11 @@ import { addWidget, barWidgets, isWidget, removeWidget } from "./widgets";
 const MAIN_READINGS = ["cpu", "ram", "gpu", "net"] as const;
 
 /** A widget's switches, what it shows nothing without, and the button that takes it off the bar. */
-export function WidgetOptions({ id }: { id: PartId }) {
+export function WidgetOptions({ id }: { id: PartId | "tray" }) {
   const s = settings.use();
   const readingsOn = MAIN_READINGS.filter((k) => s.closed.readings[k]).length;
   // In the words of the notch's settings.
-  const needs: Partial<Record<PartId, string | false>> = {
+  const needs: Partial<Record<PartId | "tray", string | false>> = {
     github: !s.github.user.trim() && t("Braucht deinen GitHub-Namen"),
     leetcode: !s.leetcode.user.trim() && t("Braucht deinen LeetCode-Namen"),
     script: !(s.notices.enabled && s.notices.cli) && t("Braucht Live-Mitteilungen und crest-notify"),
@@ -78,17 +78,19 @@ export function WidgetOptions({ id }: { id: PartId }) {
   );
 }
 
-/** A zone's "+": the widgets not on the bar; the one picked goes last in the zone, before the Crest button (addWidget). */
+/** A zone's "+": the widgets and the tray not on the bar; the one picked goes last in the zone, before the Crest button (addWidget). */
 export function AddWidget({ zone }: { zone: Zone }) {
-  const on = barWidgets(settings.use().taskbar.zones);
-  const off = PART_IDS.filter((id) => !on.includes(id));
+  const zones = settings.use().taskbar.zones;
+  const on = barWidgets(zones);
+  const off: (PartId | "tray")[] = PART_IDS.filter((id) => !on.includes(id));
+  if (!Object.values(zones).some((items) => items.includes("tray"))) off.push("tray");
   if (!off.length) return null;
   return (
     <Select<string>
       width="shrink-0"
       value=""
-      options={off.map((id) => ({ value: id, label: t(partInfo[id].label) }))}
-      onChange={(id) => isWidget(id) && setTaskbar((cur) => ({ zones: addWidget(cur.zones, id, zone) }))}
+      options={off.map((id) => ({ value: id, label: t(id === "tray" ? "Infobereich" : partInfo[id].label) }))}
+      onChange={(id) => (isWidget(id) || id === "tray") && setTaskbar((cur) => ({ zones: addWidget(cur.zones, id, zone) }))}
       trigger={{
         label: t("Widget hinzufügen"),
         menuWidth: 220,

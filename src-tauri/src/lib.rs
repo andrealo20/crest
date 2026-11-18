@@ -150,16 +150,18 @@ const SETTINGS_DENIED: &[&str] = &[
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
-    "taskbar_auto_hide", "taskbar_slid", "taskbar_shell", "taskbar_windows_pins",
+    "taskbar_auto_hide", "taskbar_slid", "taskbar_shell", "taskbar_windows_pins", "taskbar_tray_on", "taskbar_tray_click",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, opening the notch and
 /// the settings, the Crest menu, its own glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
 /// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
-/// (`taskbar_slid`), Windows' Start and its Win+X menu (`taskbar_shell`) and what the notch's tools in its panel read or do on a
-/// click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`).
+/// (`taskbar_slid`), Windows' Start and its Win+X menu (`taskbar_shell`), the tray's icons with their pictures and clicks, and what
+/// the notch's tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`,
+/// `taskbar_auto_hide`, `taskbar_tray_on`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
+    "taskbar_tray", "taskbar_tray_images", "taskbar_tray_click",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log", "taskbar_front",
     "taskbar_slid", "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
     "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "translate_status", "taskbar_shell",
@@ -555,6 +557,14 @@ pub fn run() {
             taskbar::front::taskbar_front,
             #[cfg(windows)]
             taskbar::front::taskbar_slide_blocked,
+            #[cfg(windows)]
+            taskbar::tray::taskbar_tray_on,
+            #[cfg(windows)]
+            taskbar::tray::taskbar_tray,
+            #[cfg(windows)]
+            taskbar::tray::taskbar_tray_images,
+            #[cfg(windows)]
+            taskbar::tray::taskbar_tray_click,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,
@@ -1148,6 +1158,12 @@ mod tests {
         assert!(ok("notch", "taskbar_windows_pins") && !ok("taskbar", "taskbar_windows_pins"));
         assert!(ok("taskbar", "taskbar_front") && ok("taskbar-1", "taskbar_front") && !ok("taskbar", "taskbar_auto_hide"));
         assert!(ok("notch", "taskbar_auto_hide") && !ok("settings", "taskbar_auto_hide"));
+        // The tray's spy runs while the notch says a bar shows the tray, as it applies the bar's other settings.
+        assert!(ok("notch", "taskbar_tray_on") && !ok("taskbar", "taskbar_tray_on") && !ok("settings", "taskbar_tray_on"));
+        // Every bar reads the tray's icons and their pictures and clicks them; a click places the app's menu by the calling bar,
+        // which the settings window is not.
+        assert!(ok("taskbar", "taskbar_tray") && ok("taskbar-1", "taskbar_tray_images") && ok("taskbar", "taskbar_tray_click"));
+        assert!(ok("notch", "taskbar_tray_click") && !ok("settings", "taskbar_tray_click"));
         // Each bar says when its page slid it off the screen, for its own label; no other window has a bar to slide.
         assert!(ok("taskbar", "taskbar_slid") && ok("taskbar-1", "taskbar_slid") && !ok("settings", "taskbar_slid"));
         // The settings' note on a bar that cannot slide away; the bar has no use for it.

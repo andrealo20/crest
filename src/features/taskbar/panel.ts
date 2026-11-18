@@ -1,7 +1,6 @@
 import { createStore } from "../../lib/store";
 import { settingsWindow } from "../../platform/native";
 import { taskbar } from "../../platform/services";
-import type { Favorite } from "../launcher/apps";
 import { opensInBar, panelKey, sameAnchor, sameContent, type OpenPanel, type PanelAnchor, type PanelContent } from "./panelModel";
 
 /*
@@ -15,10 +14,11 @@ export type { OpenPanel, PanelAnchor, PanelContent };
 export const panel = createStore<OpenPanel | null>(null);
 
 /**
- * An app dragged out and the pointer, in the window's CSS px; null while none is. The dragged row moves it, the bar
- * draws the app under the pointer and pins it where it is let go, and the panel lets the window take the pointer meanwhile.
+ * A tray icon dragged off the bar or out of the tray panel (Tray.tsx), by its `TrayIcon.id` and picture key, and the pointer, in the
+ * window's CSS px; null while none is. The bar draws the icon under the pointer and keeps it visible or hides it where it is let go,
+ * and the panel lets the window take the pointer meanwhile.
  */
-export const pinDrag = createStore<{ app: Favorite; x: number; y: number } | null>(null);
+export const trayDrag = createStore<{ id: string; img: string | null; x: number; y: number; from: "panel" | "bar" } | null>(null);
 
 /** Opens the panel over `anchor`, or puts `content` in its place when it is open. A tool the bar cannot show opens in the notch. */
 export function openPanel(content: PanelContent, anchor: PanelAnchor): void {

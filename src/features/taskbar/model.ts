@@ -6,8 +6,10 @@ import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 
 /** The bar's zones. Physical, as the closed row's: left stays left in a right-to-left language. */
 export type Zone = "left" | "center" | "right";
-/** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button and the closed notch's parts as widgets. */
-export type BarItem = "start" | "apps" | "crest" | PartId;
+/** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button, the notification area ("tray") and the closed notch's parts as widgets. */
+export type BarItem = "start" | "apps" | "crest" | "tray" | PartId;
+/** The items every bar has: one missing from the zones is put back in its default place. The tray and the widgets can be taken off. */
+export const FIXED_ITEMS = ["start", "apps", "crest"] as const;
 /** The bar's shape: along the screen's edge with no gaps, floating above it, a capsule, or a tile per item. */
 export type BarShape = "docked" | "floating" | "capsule" | "tiles";
 
@@ -15,7 +17,8 @@ export type BarShape = "docked" | "floating" | "capsule" | "tiles";
  * The bar: on or off, the items in each zone, the bar's height and its icons' size in CSS px, its background (the closed
  * notch's or the theme's), the pinned apps (null: never seeded), the ids Windows' taskbar had pinned when the notch last read them,
  * with those a read missed (null: never read; store.ts follows what changes there), its shape, its transparency in percent and its
- * glass, the bar clock's own date and seconds, and whether the default widgets were placed (once, so one taken off stays off).
+ * glass, the bar clock's own date and seconds, and whether the default widgets and the tray were placed (once, so one taken off
+ * stays off). The tray keeps the icons in `trayShown` (TrayIcon.id) on the bar; the others are in the panel behind its ^ button.
  */
 export interface TaskbarSettings {
   enabled: boolean;
@@ -32,12 +35,14 @@ export interface TaskbarSettings {
   glass: boolean;
   clock: { date: boolean; seconds: boolean };
   widgetsSeeded: boolean;
+  traySeeded: boolean;
+  trayShown: string[];
 }
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
   enabled: false,
   autoHide: false,
-  zones: { left: [], center: ["start", "apps"], right: ["weather", "clock", "crest"] },
+  zones: { left: [], center: ["start", "apps"], right: ["weather", "tray", "clock", "crest"] },
   height: 44,
   iconSize: 24,
   surface: "notch",
@@ -48,6 +53,8 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   glass: false,
   clock: { date: true, seconds: false },
   widgetsSeeded: true,
+  traySeeded: true,
+  trayShown: [],
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -61,8 +68,8 @@ const SHAPES: BarShape[] = ["docked", "floating", "capsule", "tiles"];
 export const fitIcon = (height: number, icon: number) => Math.min(icon, height - 12);
 
 const ZONES: Zone[] = ["left", "center", "right"];
-/** The fixed items all have a default place, so the defaults list them; any part can be a widget. */
-const ITEMS = [...ZONES.flatMap((z) => TASKBAR_DEFAULTS.zones[z]), ...PART_IDS];
+/** Every item a zone may hold. */
+const ITEMS: string[] = [...FIXED_ITEMS, "tray", ...PART_IDS];
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const within = (v: unknown, [min, max]: readonly [number, number], fallback: number) =>
@@ -74,11 +81,12 @@ const within = (v: unknown, [min, max]: readonly [number, number], fallback: num
  */
 export function normalizeTaskbar(v: unknown): TaskbarSettings {
   const s = isObj(v) ? v : {}, d = TASKBAR_DEFAULTS, clock = isObj(s.clock) ? s.clock : {};
+  const zones = normalizeZones(s.zones, s.widgetsSeeded !== true);
   return {
     enabled: s.enabled === true,
     autoHide: s.autoHide === true,
     // Settings saved before the widgets get the default ones once; widgetsSeeded is saved with them, so a widget taken off stays off.
-    zones: normalizeZones(s.zones, s.widgetsSeeded !== true),
+    zones: s.traySeeded === true ? zones : withTray(zones),
     height: within(s.height, HEIGHT, d.height),
     iconSize: within(s.iconSize, ICON, d.iconSize),
     surface: s.surface === "theme" ? "theme" : "notch",
@@ -89,13 +97,32 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     glass: s.glass === true,
     clock: { date: clock.date !== false, seconds: clock.seconds === true },
     widgetsSeeded: true,
+    traySeeded: true,
+    trayShown: Array.isArray(s.trayShown) ? [...new Set(s.trayShown.filter((x): x is string => typeof x === "string"))] : [],
   };
 }
+
+/** The zones with the tray put in once, before the clock in its zone, else before the Crest button (at the end of the right zone with neither); a tray already on the bar leaves them as they are. */
+function withTray(zones: Record<Zone, BarItem[]>): Record<Zone, BarItem[]> {
+  if (ZONES.some((z) => zones[z].includes("tray"))) return zones;
+  const zone = (id: BarItem) => ZONES.find((z) => zones[z].includes(id));
+  const before = zone("clock") ? "clock" : "crest", to = zone(before) ?? "right";
+  const at = zones[to].indexOf(before);
+  const items = [...zones[to]];
+  items.splice(at < 0 ? items.length : at, 0, "tray");
+  return { ...zones, [to]: items };
+}
+
+/** Whether a zone holds the tray: what the notch sends Rust (`taskbar.trayOn`), on or off, so turning the bar off never stops the spy before Windows' taskbar is back. */
+export const trayOnBar = (zones: Record<Zone, BarItem[]>): boolean => ZONES.some((z) => zones[z].includes("tray"));
+
+/** Whether the spy that records the tray's icons runs: while the bar is on and a zone holds the tray; otherwise Explorer keeps the tray alone. */
+export const trayWanted = (t: TaskbarSettings): boolean => t.enabled && trayOnBar(t.zones);
 
 /**
  * Each fixed item in exactly one zone and each widget in one at most: unknown ids dropped, a duplicate kept at its first place
  * reading left, center, right, and a missing fixed item back in its default zone at its default index (the end when the zone is
- * shorter). A missing widget is off the bar; `seed` puts the default ones back the same way.
+ * shorter). A missing widget or tray is off the bar; `seed` puts the default widgets back the same way (the tray comes with normalizeTaskbar).
  */
 export function normalizeZones(v: unknown, seed = false): Record<Zone, BarItem[]> {
   const s = isObj(v) ? v : {};
@@ -111,8 +138,9 @@ export function normalizeZones(v: unknown, seed = false): Record<Zone, BarItem[]
   }
   for (const z of ZONES) {
     // splice puts an index past the end at the end.
-    TASKBAR_DEFAULTS.zones[z].forEach((id, i) => {
-      if (!seen.has(id) && (seed || !PART_IDS.includes(id as PartId))) zones[z].splice(i, 0, id);
+    // Without the tray, which is no fixed item: it would push the indexes of the others past what they were.
+    TASKBAR_DEFAULTS.zones[z].filter((id) => id !== "tray").forEach((id, i) => {
+      if (!seen.has(id) && (FIXED_ITEMS.includes(id as never) || (seed && PART_IDS.includes(id as PartId)))) zones[z].splice(i, 0, id);
     });
   }
   return zones;
@@ -154,6 +182,23 @@ export interface Group {
 export interface WindowList {
   groups: Group[];
   active: number | null;
+}
+
+/**
+ * An icon in the tray (tray.rs). `key` tells it apart from every other icon while it lives (React keys, `taskbar.trayClick`); `id`
+ * names it across restarts, for the choice to keep it visible, and two instances of one program can share it; `img` keys its
+ * picture for `taskbar.trayImages`, null for none.
+ */
+export interface TrayIcon {
+  id: string;
+  key: string;
+  tip: string;
+  img: string | null;
+}
+/** The tray's icons, none while Crest's tray does not run; `yielded` when another program's tray has them. */
+export interface TrayState {
+  yielded: boolean;
+  icons: TrayIcon[];
 }
 
 /** A button on the bar: a pinned app (`pin`) with the windows it owns, or an open app that is not pinned; `pins` are the entries that start it. */

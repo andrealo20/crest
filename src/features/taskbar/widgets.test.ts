@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
-import { TASKBAR_DEFAULTS } from "./model.ts";
+import { TASKBAR_DEFAULTS, type BarItem, type Zone } from "./model.ts";
 import { addWidget, barPartsFor, barSources, barWidgets, isWidget, removeWidget, widgetScale, widgetTool } from "./widgets.ts";
 
 test("a widget opens its tool, the clock Windows' calendar", () => {
@@ -19,14 +19,14 @@ test("widgets grow and shrink with the icons", () => {
 
 test("an added widget goes last in its zone, before the Crest button at its end", () => {
   const z = TASKBAR_DEFAULTS.zones;
-  assert.deepEqual(addWidget(z, "timer", "right").right, ["weather", "clock", "timer", "crest"]);
+  assert.deepEqual(addWidget(z, "timer", "right").right, ["weather", "tray", "clock", "timer", "crest"]);
   assert.deepEqual(addWidget(z, "timer", "left").left, ["timer"]);
   assert.deepEqual(addWidget({ ...z, right: ["crest", "weather"] }, "timer", "right").right, ["crest", "weather", "timer"]);
   assert.deepEqual(addWidget(z, "clock", "left"), z);
 });
 
 test("a removed widget leaves the bar", () => {
-  assert.deepEqual(removeWidget(TASKBAR_DEFAULTS.zones, "clock").right, ["weather", "crest"]);
+  assert.deepEqual(removeWidget(TASKBAR_DEFAULTS.zones, "clock").right, ["weather", "tray", "crest"]);
   assert.deepEqual(barWidgets(TASKBAR_DEFAULTS.zones), ["weather", "clock"]);
 });
 
@@ -44,4 +44,10 @@ test("the notch captures the audio for a bar's Now Playing panel as for the equa
   assert.deepEqual(barSources(["weather", "clock"], true), ["weather", "clock", "equalizer"]);
   assert.deepEqual(barSources(["equalizer", "title"], true), ["equalizer", "title"]);
   assert.deepEqual(barSources([], true), ["equalizer"]);
+});
+
+test("the tray can be added back like a widget", () => {
+  const zones: Record<Zone, BarItem[]> = { left: [], center: ["start", "apps"], right: ["clock", "crest"] };
+  assert.deepEqual(addWidget(zones, "tray", "right").right, ["clock", "tray", "crest"]);
+  assert.equal(addWidget(TASKBAR_DEFAULTS.zones, "tray", "left"), TASKBAR_DEFAULTS.zones);
 });

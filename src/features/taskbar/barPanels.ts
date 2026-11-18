@@ -11,15 +11,15 @@ import { withPanel } from "./panelModel";
  * what each bar's panel shows from here.
  */
 
-/** In the notch's window: what each bar's panel shows (a tool's id) by the bar window's label; a closed panel has no entry. */
+/** In the notch's window: what each bar's panel shows ("tray" or a tool's id) by the bar window's label; a closed panel has no entry. */
 export const barPanels = createStore<Record<string, string>>({});
 
 /** Any bar's panel shows the tool `id`. */
 export const barShows = (id: string) => Object.values(barPanels.get()).includes(id);
 /** Any bar's panel is open. */
 export const anyBarPanel = () => Object.keys(barPanels.get()).length > 0;
-/** Any bar shows a panel. */
-export const anyBarTool = anyBarPanel;
+/** Any bar's panel shows a tool, not the tray. */
+export const anyBarTool = () => Object.values(barPanels.get()).some((open) => open !== "tray");
 
 /**
  * Calls `act` only when `barShows(id)` changes, starting from false (`barPanels` notifies unchanged values too), so the notch starts

@@ -5,7 +5,7 @@
 //! it announces with the `TaskbarCreated` broadcast. The same events keep the bar's list of open windows (tasks.rs). A new work
 //! area (auto-hide turned on or off, an appbar) places the bar again at once. Only top-level windows get broadcasts, so the
 //! window is not message-only. The thread never waits for explorer's lock: what finds it taken is done again by a short timer
-//! (`defer`, `retry`).
+//! (`defer`, `retry`). The tray's spy (tray.rs) has a thread of its own, which runs only while this one does.
 
 pub(crate) mod bar;
 pub(crate) mod explorer;
@@ -15,6 +15,8 @@ pub(crate) mod pins;
 pub(crate) mod screens;
 pub(crate) mod start;
 pub(crate) mod tasks;
+pub(crate) mod tray;
+pub(crate) mod traywire;
 pub(crate) mod widgets;
 
 use std::cell::RefCell;
@@ -103,6 +105,8 @@ pub(crate) fn start(app: &AppHandle) {
     drop(thread);
     start::begin();
     pins::watch(app);
+    // The tray's spy, if the tray is wanted, now that the bar is on.
+    tray::start(app);
     // Pins come from the Start list, which nothing may have read yet; it is read off the thread, which must not wait on the shell,
     // and again a few times while it fails (`START_LIST`), or every pinned app would show twice for the whole session.
     let app = app.clone();
@@ -133,9 +137,17 @@ fn post_to_thread(msg: u32) {
     }
 }
 
+/// The thread runs: the bar is on.
+fn running() -> bool {
+    THREAD.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+}
+
 /// Ends the thread: its window closes, and that ends its loop. Never while holding explorer's lock, which the thread takes.
+/// Both callers have given Windows' taskbar back first (bar.rs `taskbar_apply` off, `shutdown`).
 pub(crate) fn stop() {
     let Some((window, thread)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
+    // The tray's spy goes with the bar, after that restore, whose appbar call reached Explorer through it.
+    tray::stop();
     let _ = unsafe { PostMessageW(Some(HWND(window as _)), WM_CLOSE, WPARAM(0), LPARAM(0)) };
     let _ = thread.join();
     start::end(true);
