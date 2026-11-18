@@ -130,7 +130,8 @@ export function TaskbarWindow() {
 
   return (
     <div
-      className="flex h-full flex-col justify-end"
+      // Clipped, so the bar slid off the screen leaves #root nothing to scroll to when one of its buttons takes the focus.
+      className="flex h-full flex-col justify-end overflow-clip"
       style={{ ["--accent" as string]: accent }}
       // A right click beside the buttons, on the bar or in the gap under it: the Crest menu, over the pointer.
       onContextMenu={(e) => {
