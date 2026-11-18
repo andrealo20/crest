@@ -166,6 +166,8 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "phone_share_start", "phone_share_stop",
     "media_get", "media_control", "media_open_source", "media_sources", "mixer_list", "volume_get", "mixer_set", "volume_set",
     "lyrics_romanize", "translate_file",
+    "audio_outputs", "audio_set_output", "brightness_get", "brightness_set", "focus_get", "focus_set", "quick_get", "quick_radio",
+    "quick_dark", "mic_mute", "quick_power", "web_search",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -1101,6 +1103,15 @@ mod tests {
         // switches in Rust that only the notch turns, for a bar too, so a bar's panel closing never turns them off under the notch; the
         // pinned player is a setting the notch applies.
         assert!(!ok("taskbar", "lyrics_fetch") && !ok("taskbar", "media_lyrics") && !ok("taskbar", "audio_levels") && !ok("taskbar", "media_pin"));
+        // The bar's Overview reads the playback devices, the brightness, focus and the quick controls while it shows and sets them on a
+        // click, and its search line opens the results in the browser. The brightness is the calling window's monitor (brightness.rs),
+        // so from the bar it is the bar's own.
+        assert!(ok("taskbar", "audio_outputs") && ok("taskbar", "audio_set_output") && ok("taskbar", "brightness_get") && ok("taskbar", "brightness_set"));
+        assert!(ok("taskbar", "focus_get") && ok("taskbar", "focus_set") && ok("taskbar", "quick_get") && ok("taskbar", "quick_radio"));
+        assert!(ok("taskbar", "quick_dark") && ok("taskbar", "mic_mute") && ok("taskbar", "quick_power") && ok("taskbar", "web_search"));
+        // Keep awake's state lives in the notch, which shows it in the closed notch: a bar that set it in Rust would leave the notch
+        // showing the old state, so the bar asks the notch (taskbar_ask).
+        assert!(!ok("taskbar", "keep_awake_set"));
     }
 
     #[test]
