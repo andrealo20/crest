@@ -121,10 +121,13 @@ struct Entry {
     img_key: Option<String>,
 }
 
-/// An icon on the list the bars get; `img` keys its picture (`taskbar_tray_images`).
+/// An icon on the list the bars get. `key` tells it apart from every other icon while it lives (clicks, the page's list); `id`
+/// names it across restarts, for the choice to keep it visible, and two instances of one program can share it; `img` keys its
+/// picture (`taskbar_tray_images`).
 #[derive(Serialize, Clone, PartialEq)]
 pub struct TrayIcon {
     id: String,
+    key: String,
     tip: String,
     img: Option<String>,
 }
@@ -245,11 +248,11 @@ pub async fn taskbar_tray_images(keys: Vec<String>) -> HashMap<String, Option<St
     .unwrap_or_default()
 }
 
-/// A click on an icon at `rect`, in the calling bar's CSS px: its app gets the messages Windows' tray sends, and the rect answers
-/// its position request. Never waits: the messages are notifications. Errors: gone (no such icon, or its window is no more),
-/// unknown-button.
+/// A click on the icon `key` (`TrayIcon.key`) at `rect`, in the calling bar's CSS px: its app gets the messages Windows' tray
+/// sends, and the rect answers its position request. Never waits: the messages are notifications. Errors: gone (no such icon
+/// shown, or its window is no more), unknown-button.
 #[tauri::command]
-pub fn taskbar_tray_click(id: String, button: String, rect: HitRect, window: WebviewWindow) -> Result<(), String> {
+pub fn taskbar_tray_click(key: String, button: String, rect: HitRect, window: WebviewWindow) -> Result<(), String> {
     let button = match button.as_str() {
         "left" => Button::Left,
         "right" => Button::Right,
@@ -261,7 +264,7 @@ pub fn taskbar_tray_click(id: String, button: String, rect: HitRect, window: Web
     let rect = unsafe { on_screen(bar, rect) }.ok_or("gone")?;
     let (hwnd, uid, callback, version, owner) = {
         let mut store = store();
-        let e = store.icons.iter().find(|e| e.id == id).ok_or("gone")?;
+        let e = by_key(&store.icons, &key).ok_or("gone")?;
         let found = (handle(e.hwnd), e.uid, e.callback, e.version, e.owner_pid);
         store.clicked = Some(rect);
         found
@@ -566,7 +569,21 @@ fn find(icons: &[Entry], key: &IconKey) -> Option<usize> {
 
 /// What the bars show: the icons their apps do not hide.
 fn visible(icons: &[Entry]) -> Vec<TrayIcon> {
-    icons.iter().filter(|e| !e.hidden).map(|e| TrayIcon { id: e.id.clone(), tip: e.tip.clone(), img: e.img_key.clone() }).collect()
+    let shown = icons.iter().filter(|e| !e.hidden);
+    shown.map(|e| TrayIcon { id: e.id.clone(), key: key_text(&e.key), tip: e.tip.clone(), img: e.img_key.clone() }).collect()
+}
+
+/// An icon's key as the page has it: its GUID, else its window and id, so no two icons there share one.
+fn key_text(key: &IconKey) -> String {
+    match key {
+        IconKey::Guid(g) => format!("g:{}", traywire::identity(Some(*g), "", 0)),
+        IconKey::Id { hwnd, uid } => format!("w:{hwnd}:{uid}"),
+    }
+}
+
+/// The icon a click names by its key, among those the bars show.
+fn by_key<'a>(icons: &'a [Entry], key: &str) -> Option<&'a Entry> {
+    icons.iter().find(|e| !e.hidden && key_text(&e.key) == key)
 }
 
 /// Pictures no icon shows any more go.
@@ -716,6 +733,7 @@ unsafe fn appbar(wparam: WPARAM, bytes: &[u8], wait: bool) -> Option<isize> {
 mod tests {
     use super::*;
     use traywire::{click_messages, Button};
+    use windows::core::GUID;
     use windows::Win32::UI::Shell::NIN_SELECT;
 
     const APP: u32 = 10;
@@ -782,6 +800,35 @@ mod tests {
         assert!(!apply(&mut icons, IconOp::SetVersion, set, APP, CREST));
         assert_eq!(icons[0].version, 4);
         assert_eq!(click_messages(Button::Left, icons[0].version).last(), Some(&NIN_SELECT));
+    }
+
+    #[test]
+    fn two_icons_of_one_program_and_id_keep_apart_by_their_key() {
+        // Two instances of one program, each with its icon 7: one remembered choice, two icons.
+        let mut icons = Vec::new();
+        apply(&mut icons, IconOp::Add, icon(Some("First"), None), APP, CREST);
+        let second = IconData { key: IconKey::Id { hwnd: 0x5678, uid: 7 }, hwnd: 0x5678, ..icon(Some("Second"), None) };
+        apply(&mut icons, IconOp::Add, second, APP, CREST);
+        let shown = visible(&icons);
+        assert_eq!(shown[0].id, shown[1].id);
+        assert_ne!(shown[0].key, shown[1].key);
+        let guid = GUID::from_values(1, 2, 3, [4, 5, 6, 7, 8, 9, 10, 11]);
+        assert_eq!(key_text(&IconKey::Guid(guid)), "g:{00000001-0002-0003-0405-060708090a0b}");
+        assert_eq!(key_text(&IconKey::Id { hwnd: 0x5678, uid: 7 }), "w:22136:7");
+    }
+
+    #[test]
+    fn a_click_finds_its_icon_by_key_and_never_a_hidden_one() {
+        let mut icons = Vec::new();
+        apply(&mut icons, IconOp::Add, icon(Some("First"), None), APP, CREST);
+        let second = IconData { key: IconKey::Id { hwnd: 0x5678, uid: 7 }, hwnd: 0x5678, ..icon(Some("Second"), None) };
+        apply(&mut icons, IconOp::Add, second, APP, CREST);
+        let keys: Vec<String> = visible(&icons).into_iter().map(|i| i.key).collect();
+        assert_eq!(by_key(&icons, &keys[1]).map(|e| e.tip.as_str()), Some("Second"));
+        assert_eq!(by_key(&icons, &keys[0]).map(|e| e.tip.as_str()), Some("First"));
+        apply(&mut icons, IconOp::Modify, icon(None, Some(true)), APP, CREST);
+        assert!(by_key(&icons, &keys[0]).is_none());
+        assert!(by_key(&icons, "w:1:1").is_none());
     }
 
     #[test]

@@ -146,9 +146,14 @@ export interface WindowList {
   active: number | null;
 }
 
-/** An icon in the tray (tray.rs): `img` keys its picture for `taskbar.trayImages`, null for none. */
+/**
+ * An icon in the tray (tray.rs). `key` tells it apart from every other icon while it lives (React keys, `taskbar.trayClick`); `id`
+ * names it across restarts, for the choice to keep it visible, and two instances of one program can share it; `img` keys its
+ * picture for `taskbar.trayImages`, null for none.
+ */
 export interface TrayIcon {
   id: string;
+  key: string;
   tip: string;
   img: string | null;
 }

@@ -1302,9 +1302,9 @@ export const taskbar = {
   },
   /** The tray icons' pictures by their `img` key (PNG data URL, null = no icon shows it any more). */
   trayImages: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_tray_images", { keys }) : Promise.resolve({})),
-  /** A click on a tray icon drawn at `rect` (this page's CSS px): its app gets it as from Windows' tray. Errors: gone, unknown-button. */
-  trayClick: (id: string, button: "left" | "right" | "double", rect: { x: number; y: number; w: number; h: number }): Promise<void> =>
-    isNative ? invoke("taskbar_tray_click", { id, button, rect }) : Promise.resolve(),
+  /** A click on the tray icon `key` (`TrayIcon.key`) drawn at `rect` (this page's CSS px): its app gets it as from Windows' tray. Errors: gone, unknown-button. */
+  trayClick: (key: string, button: "left" | "right" | "double", rect: { x: number; y: number; w: number; h: number }): Promise<void> =>
+    isNative ? invoke("taskbar_tray_click", { key, button, rect }) : Promise.resolve(),
   /** Where the page draws (the bar, an open menu) in its CSS px; clicks pass through the rest of the window. */
   hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
   /** Tells the notch what the bar's panel shows: "apps", a tool's id, or null once it closes. */
