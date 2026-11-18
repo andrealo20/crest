@@ -1,5 +1,5 @@
-//! The commands of the bar's widgets (Windows only): the page's hello, which has the notch send it the widgets' data, and the
-//! clock's click.
+//! The commands of the bar's widgets (Windows only): the page's hello, which has the notch send it the widgets' data, the
+//! clock's click and the quick panel's settings pages.
 
 use tauri::{AppHandle, Emitter, WebviewWindow};
 
@@ -20,4 +20,36 @@ pub fn taskbar_hello(app: AppHandle, window: WebviewWindow) -> bool {
 #[tauri::command]
 pub fn taskbar_calendar() -> Result<(), String> {
     crate::open_url("ms-actioncenter:")
+}
+
+/// The settings pages the quick panel opens, by name: the page never sends a URL.
+fn settings_page(page: &str) -> Option<&'static str> {
+    match page {
+        "home" => Some("ms-settings:"),
+        "saver" => Some("ms-settings:batterysaver"),
+        "airplane" => Some("ms-settings:network-airplanemode"),
+        "ethernet" => Some("ms-settings:network-ethernet"),
+        _ => None,
+    }
+}
+
+/// Opens one of Windows' settings pages named by `settings_page`.
+#[tauri::command]
+pub fn taskbar_settings(page: String) -> Result<(), String> {
+    crate::open_url(settings_page(&page).ok_or("unknown")?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_known_settings_pages_open() {
+        assert_eq!(settings_page("home"), Some("ms-settings:"));
+        assert_eq!(settings_page("saver"), Some("ms-settings:batterysaver"));
+        assert_eq!(settings_page("airplane"), Some("ms-settings:network-airplanemode"));
+        assert_eq!(settings_page("ethernet"), Some("ms-settings:network-ethernet"));
+        assert_eq!(settings_page("ms-settings:privacy"), None);
+        assert_eq!(settings_page(""), None);
+    }
 }

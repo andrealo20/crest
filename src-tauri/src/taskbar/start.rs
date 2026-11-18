@@ -21,7 +21,7 @@ use windows::Win32::Graphics::Gdi::HMONITOR;
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
 use windows::Win32::System::Threading::{CreateEventW, SetEvent, WaitForMultipleObjects, INFINITE};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_LWIN, VK_X,
+    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_A, VK_LWIN, VK_X,
 };
 use windows::Win32::UI::Shell::{AppVisibility, IAppVisibility, IAppVisibilityEvents, IAppVisibilityEvents_Impl, MONITOR_APP_VISIBILITY};
 use windows::Win32::UI::WindowsAndMessaging::AllowSetForegroundWindow;
@@ -194,7 +194,7 @@ impl IAppVisibilityEvents_Impl for Sink_Impl {
 }
 
 /// The Start button: "start" opens Windows' Start, unless that click hid it (`start_click`): then the keyboard goes back to
-/// the app (tasks.rs `release`), the click being handled. "winx" opens its Win+X menu. Sync, on the main thread: nothing waits.
+/// the app (tasks.rs `release`), the click being handled. "winx" opens its Win+X menu, "quick" its quick settings (Win+A). Sync, on the main thread: nothing waits.
 #[tauri::command]
 pub fn taskbar_shell(action: String) -> Result<(), String> {
     let vks: &[VIRTUAL_KEY] = match action.as_str() {
@@ -204,6 +204,7 @@ pub fn taskbar_shell(action: String) -> Result<(), String> {
         }
         "start" => &[VK_LWIN],
         "winx" => &[VK_LWIN, VK_X],
+        "quick" => &[VK_LWIN, VK_A],
         _ => return Err("unknown".into()),
     };
     let inputs = keys(vks);
@@ -242,6 +243,14 @@ mod tests {
         assert_eq!(
             pairs(&keys(&[VK_LWIN, VK_X])),
             [(VK_LWIN, KEYBD_EVENT_FLAGS(0)), (VK_X, KEYBD_EVENT_FLAGS(0)), (VK_X, KEYEVENTF_KEYUP), (VK_LWIN, KEYEVENTF_KEYUP)]
+        );
+    }
+
+    #[test]
+    fn win_a_lets_go_of_a_before_the_windows_key() {
+        assert_eq!(
+            pairs(&keys(&[VK_LWIN, VK_A])),
+            [(VK_LWIN, KEYBD_EVENT_FLAGS(0)), (VK_A, KEYBD_EVENT_FLAGS(0)), (VK_A, KEYEVENTF_KEYUP), (VK_LWIN, KEYEVENTF_KEYUP)]
         );
     }
 }
