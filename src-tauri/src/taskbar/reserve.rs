@@ -8,10 +8,35 @@
 //! Every registration is recorded, one window handle per line, in `taskbar-appbars` beside the record of Windows' hidden
 //! taskbar (`format_hwnds`, `parse_hwnds`), so the guard, the next start and the uninstaller remove them first.
 
-// shortcut: these rules are wired one by one by the safety net, the bar's placement and the registration; drop it when all are.
-#![cfg_attr(not(test), allow(dead_code))]
+// shortcut: these rules are wired one by one by the safety net, the bar's placement, the registration and the slide rule
+// (`strips`, used by no test either); drop it when all are.
+#![allow(dead_code)]
+
+use std::sync::{Mutex, MutexGuard};
 
 use windows::Win32::Foundation::RECT;
+
+/// The strip each reserving bar stands on, by bar label, physical px. Held only to read or write.
+static STRIPS: Mutex<Vec<(String, RECT)>> = Mutex::new(Vec::new());
+
+fn strips_lock() -> MutexGuard<'static, Vec<(String, RECT)>> {
+    STRIPS.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// The strip `label`'s bar reserves, if it reserves one.
+pub(crate) fn strip(label: &str) -> Option<RECT> {
+    strips_lock().iter().find(|(l, _)| l == label).map(|&(_, r)| r)
+}
+
+/// Every reserved strip.
+pub(crate) fn strips() -> Vec<RECT> {
+    strips_lock().iter().map(|&(_, r)| r).collect()
+}
+
+/// Whether any bar reserves its strip.
+pub(crate) fn active() -> bool {
+    !strips_lock().is_empty()
+}
 
 /// Whether a bar with these settings reserves its strip. `reachable`: appbar calls reach Explorer.
 pub(crate) fn reserves(docked: bool, auto_hide: bool, reachable: bool) -> bool {
