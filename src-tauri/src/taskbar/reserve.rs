@@ -73,6 +73,14 @@ pub(super) fn clear() {
     strips_lock().clear();
 }
 
+/// `label`'s strip, or none, published before the appbar call that moves the work area: a place or a notch refresh while
+/// the call is in progress (its broadcast can come inside it) then reads the strip with the new work area, not the old one.
+fn publish(label: &str, strip: Option<RECT>) {
+    let mut strips = strips_lock();
+    strips.retain(|(l, _)| l != label);
+    strips.extend(strip.map(|s| (label.to_owned(), s)));
+}
+
 /// The notch applied the bar (bar.rs `taskbar_apply`): docked or not, and its height in CSS px. The appbars follow.
 pub(crate) fn wish(docked: bool, band_css: f64) {
     *WISH.lock().unwrap_or_else(|e| e.into_inner()) = (docked, band_css);
@@ -122,6 +130,7 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
     let path = explorer::appbars_path();
     // A record gone while helpers are held was removed by a restore (another process's, or this one's Off), with them.
     let listed = path.as_deref().is_some_and(Path::exists);
+    let before = strips_lock().clone();
     let mut regs = REGS.take();
     let held = regs.len();
     regs.retain(|reg| {
@@ -130,6 +139,7 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
         if remove {
             // Never while another program's Shell_TrayWnd is first: the removal would reach it.
             if reachable {
+                publish(&reg.label, None);
                 call(reg.helper, ABM_REMOVE, RECT::default());
             }
             let _ = unsafe { DestroyWindow(reg.helper) };
@@ -181,6 +191,7 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
         }
         let strip = settle(call(reg.helper, ABM_QUERYPOS, strip_for(monitor, band)).1, band);
         if new || strip != reg.strip {
+            publish(&reg.label, Some(strip));
             let s = call(reg.helper, ABM_SETPOS, strip).1;
             reg.strip = s;
             let _ = unsafe { SetWindowPos(reg.helper, None, s.left, s.top, s.right - s.left, s.bottom - s.top, SWP_NOZORDER | SWP_NOACTIVATE) };
@@ -195,12 +206,9 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
     }
     let now: Vec<(String, RECT)> = regs.iter().map(|r| (r.label.clone(), r.strip)).collect();
     REGS.set(regs);
-    let changed = {
-        let mut strips = strips_lock();
-        let changed = *strips != now;
-        *strips = now;
-        changed
-    };
+    // Against the strips at the start, so the writes `publish` made above still count as a change.
+    let changed = before != now;
+    *strips_lock() = now;
     // The bars stand on their strips, and the notch reads the monitors again.
     if changed {
         bar::work_area_changed(app);
