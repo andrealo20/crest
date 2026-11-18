@@ -4,6 +4,7 @@ import { MotionConfig } from "motion/react";
 import "../../../styles/global.css";
 import { settings } from "../../../settings/store";
 import { language, startLanguage } from "../../../i18n";
+import { isNative } from "../../../platform/native";
 import { startThemes } from "../../themes/store";
 import { startCrashLog } from "../../window/store";
 import { followNotch, startBarWindows } from "../store";
@@ -35,6 +36,8 @@ window.addEventListener("keydown", (e) => {
 
 startBarWindows();
 followNotch();
+// In the browser no notch feeds the widgets: sample data, in dev only, so they can be checked as they draw.
+if (import.meta.env.DEV && !isNative) void import("../../../dev/barSample").then((m) => m.fillSample());
 
 /** Re-renders on a language change, as the notch's root does. */
 function App() {

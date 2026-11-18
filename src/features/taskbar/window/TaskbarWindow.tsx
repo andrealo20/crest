@@ -1,6 +1,10 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type MouseEventHandler, type RefObject } from "react";
 import { AnimatePresence } from "motion/react";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { t } from "../../../i18n";
+import { partInfo } from "../../../notch/row/partInfo";
+import type { PartId } from "../../../notch/row/parts";
+import { isNative } from "../../../platform/native";
 import { launcher, taskbar } from "../../../platform/services";
 import { settings } from "../../../settings/store";
 import { CrestMark } from "../../../ui/CrestMark";
@@ -8,9 +12,12 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useClosedInk, useThemedAccent } from "../../themes/store";
 import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, type BarItem, type Zone } from "../model";
-import { barWindows, groupIcons } from "../store";
+import { togglePanel } from "../panel";
+import { barShown, barWindows, groupIcons } from "../store";
+import { isWidget, widgetTool } from "../widgets";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { Item, MARK } from "./Item";
+import { WidgetItem } from "./Widget";
 
 /** Room between the bar and the screen's sides and bottom, CSS px (src-tauri/src/taskbar/bar.rs GAP). */
 const GAP = 4;
@@ -21,6 +28,8 @@ const ZONES: [Zone, string][] = [
   ["center", "justify-center"],
   ["right", "justify-end"],
 ];
+/** Widgets draw on the primary bar only, the window labelled `taskbar`; the bars on other monitors skip them. */
+const primary = !isNative || getCurrentWebviewWindow().label === "taskbar";
 
 /** What a menu lists: an app's right-click menu, an app's windows (as they were when it opened), or the Crest menu. */
 type Menu = { kind: "app" | "list"; b: BarButton } | { kind: "crest" };
@@ -42,6 +51,8 @@ export function TaskbarWindow() {
   const { groups, active } = barWindows.use();
   const ink = useClosedInk(undefined);
   const accent = useThemedAccent(undefined);
+  // Rust hides the window without telling WebView2 the page is out of sight, so the widgets rest by this instead.
+  const paused = !barShown.use();
   const bar = useRef<HTMLDivElement>(null);
   // The button under the pointer, and a launch that failed (in its button's label for a while).
   const [hovered, setHovered] = useState<string | null>(null);
@@ -90,6 +101,17 @@ export function TaskbarWindow() {
     else if (action.kind === "toggle") taskbar.window(action.id, "toggle").catch(() => {});
   };
 
+  /** A widget opens its tool in the panel over it; the clock opens Windows' calendar instead, as Windows' own clock does. */
+  const clickWidget = (id: PartId, button: HTMLElement) => {
+    setError(null);
+    setMenu(null);
+    const tool = widgetTool(id);
+    // Windows may refuse to open it; nothing changes then.
+    if (tool === null) return void taskbar.calendar().catch(() => {});
+    const r = button.getBoundingClientRect();
+    togglePanel({ kind: "tool", tool }, { x: r.x, w: r.width });
+  };
+
   const item = (key: string, name: string) => ({
     name,
     // An open menu hides the names, which would show around it.
@@ -118,11 +140,22 @@ export function TaskbarWindow() {
           </Item>
         );
       })
-    ) : id === "crest" ? (
+    ) : isWidget(id) ? (
+      primary && (
+        <WidgetItem
+          id={id}
+          item={item(id, t(partInfo[id].label))}
+          paused={paused}
+          onClick={(e) => clickWidget(id, e.currentTarget)}
+          // No menu of its own: the Crest menu over the pointer, as beside the buttons.
+          onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
+        />
+      )
+    ) : (
       <Item {...item("crest", t("Crest-Menü"))} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
         <CrestMark size={size} />
       </Item>
-    ) : null;
+    );
 
   return (
     <div

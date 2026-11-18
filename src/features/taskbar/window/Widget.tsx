@@ -177,9 +177,10 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu }: {
     timerDuration: duration,
   });
   return (
-    <Item {...item} width={width * k + 16} describedBy={desc} onClick={onClick} onContextMenu={onContextMenu}>
-      {/* As tall as the closed row the parts are drawn for; one grid cell, so a part and its icon fade over each other centred. */}
-      <span id={desc} className="grid h-[30px]" style={{ zoom: k, width }}>
+    // Whole pixels, so the buttons after it stay on whole pixels too.
+    <Item {...item} width={Math.round(width * k) + 16} describedBy={desc} onClick={onClick} onContextMenu={onContextMenu}>
+      {/* As tall as the closed row the parts are drawn for; one grid cell, so a part and its icon fade over each other centred; clipped, so a wider part fading out never covers its neighbours. */}
+      <span id={desc} className="grid h-[30px] overflow-clip" style={{ zoom: k, width }}>
         <AnimatePresence initial={false}>{node}</AnimatePresence>
       </span>
     </Item>
