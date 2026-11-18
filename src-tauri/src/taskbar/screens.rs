@@ -75,6 +75,8 @@ pub(crate) fn sync(app: &AppHandle) {
     }
     sync_shown(app);
     super::relist();
+    // Monitors or scales changed, or a bar was taken down: the appbars follow.
+    super::reserve::refresh();
 }
 
 /// A new bar under `label`, hidden until `sync_shown` shows it. It stays in `OTHERS` and tracked by the pointer poll until it

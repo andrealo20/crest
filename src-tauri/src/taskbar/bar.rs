@@ -125,6 +125,7 @@ pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, app
     }
     ENABLED.store(true, Ordering::SeqCst);
     set_band(&app, band_for(height, docked.unwrap_or(false)));
+    super::reserve::wish(docked.unwrap_or(false), band_for(height, true));
     if app.get_webview_window(LABEL).is_some() {
         place(&app);
         return Ok(());
@@ -290,6 +291,8 @@ fn follow(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
         explorer::set_mode_with(|| explorer::wanted(ENABLED.load(Ordering::SeqCst) && DRAWN.load(Ordering::SeqCst), display::user_hidden(&app)));
+        // A registration needs the hide done.
+        super::reserve::refresh();
     });
 }
 

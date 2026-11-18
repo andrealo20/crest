@@ -3,7 +3,8 @@
 //! Only Explorer's own taskbars count: `Shell_TrayWnd` and `Shell_SecondaryTrayWnd` in the process of the shell window, never a
 //! window by its class alone. Before Crest hides them it writes a record, the file `taskbar-hidden` (in a portable copy's data
 //! folder, else in Crest's folder in %LOCALAPPDATA%): "1" when Crest turned auto-hide on, "0" when auto-hide was on already.
-//! Beside it, `taskbar-appbars` lists the appbars of the docked bars that reserve their strip (reserve.rs). `restore` removes
+//! Beside it, `taskbar-appbars` lists the appbars of the docked bars that reserve their strip (reserve.rs, registered on the
+//! taskbar thread under `SCAN` taken with `try_locked`, and written before each registration). `restore` removes
 //! those appbars and their record first (only through Explorer's taskbar, else both stay for a later restore), then turns off
 //! only the auto-hide the record calls Crest's, removes the record and shows the taskbars again, in that order: when Crest
 //! exits (sign-out, a Store update and an installer's close included), at the next start (a run that ended without it), from
@@ -226,6 +227,16 @@ fn try_lock() -> Option<MutexGuard<'static, Scan>> {
         Err(TryLockError::Poisoned(e)) => Some(e.into_inner()),
         Err(TryLockError::WouldBlock) => None,
     }
+}
+
+/// Runs `f` under `SCAN` if it is free, for the docked bars' appbar calls on the taskbar thread (reserve.rs `reconcile`); None
+/// when it is taken. `f` hears whether a bar may reserve: Crest hides Windows' taskbar (`Hidden`, or `Shown` by the hide
+/// hotkey) with the guard alive, so a crash is covered, and the record is there, so a taskbar given back from outside is not
+/// reserved against again.
+pub(crate) fn try_locked<T>(f: impl FnOnce(bool) -> T) -> Option<T> {
+    let mut scan = try_lock()?;
+    let hiding = scan.mode != Mode::Off && alive(&mut scan.guard) && record_now() != Record::Missing;
+    Some(f(hiding))
 }
 
 /// Gives Windows' taskbar back as far as Crest took it; safe to call any time, also from another process.
@@ -532,6 +543,11 @@ fn appbar_taskbar(shell: u32) -> Option<HWND> {
     if appbar_ok(is_explorers(first, shell), super::tray::is_spy(first)) { explorer_tray() } else { None }
 }
 
+/// Whether Crest's appbar calls reach Explorer now (`appbar_taskbar`): the docked bars register and remove only then.
+pub(crate) fn appbar_reachable() -> bool {
+    appbar_taskbar(shell_pid()).is_some()
+}
+
 /// `SHAppBarMessage` for `hwnd` (Explorer's taskbar from `appbar_taskbar`, or one of Crest's appbars for `ABM_REMOVE`), with
 /// `state` for `ABM_SETSTATE`.
 fn appbar_call(hwnd: HWND, message: u32, state: u32) -> usize {
@@ -642,6 +658,14 @@ mod tests {
         assert!(!on_taskbar_created()); // taken: nothing done, the thread tries again
         drop(held);
         assert!(on_taskbar_created()); // free, and nothing hidden: done
+    }
+
+    #[test]
+    fn the_appbar_calls_never_wait_for_the_lock() {
+        let held = lock();
+        assert!(try_locked(|_| ()).is_none()); // taken: the bar's thread defers
+        drop(held);
+        assert_eq!(try_locked(|hiding| hiding), Some(false)); // free, nothing hidden: no registration
     }
 
     #[test]

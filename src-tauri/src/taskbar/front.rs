@@ -262,6 +262,11 @@ fn pointer_monitor() -> Option<isize> {
     Some(unsafe { MonitorFromPoint(point, MONITOR_DEFAULTTONEAREST) }.0 as isize)
 }
 
+/// Whether "hide when a window touches it" is on: a bar that may slide away reserves no strip (reserve.rs).
+pub(crate) fn auto_hide() -> bool {
+    AUTO_HIDE.load(Ordering::SeqCst)
+}
+
 fn sent() -> MutexGuard<'static, HashMap<String, Option<Rect>>> {
     SENT.lock().unwrap_or_else(|e| e.into_inner())
 }
@@ -274,6 +279,8 @@ pub fn taskbar_auto_hide(on: bool) {
     let mut sent = sent();
     if AUTO_HIDE.swap(on, Ordering::SeqCst) != on {
         sent.clear();
+        // Only posts to the taskbar thread, so the record's lock is fine.
+        super::reserve::refresh();
     }
 }
 

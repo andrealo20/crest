@@ -7,14 +7,44 @@
 //!
 //! Every registration is recorded, one window handle per line, in `taskbar-appbars` beside the record of Windows' hidden
 //! taskbar (`format_hwnds`, `parse_hwnds`), so the guard, the next start and the uninstaller remove them first.
+//!
+//! The appbar of each reserving bar is a hidden helper window on the taskbar thread (mod.rs), never the bar's own window.
+//! `reconcile` runs there on a posted `REAPPBAR` only, under explorer's lock taken without waiting: it removes, registers and
+//! places the helpers, and asks Windows for a strip only when one is new, Windows says the appbars moved, Explorer restarted,
+//! or a bar's monitor or height changed. An answer equal to the strip held is not set again, so maximized windows resize once.
 
-// shortcut: these rules are wired one by one by the safety net, the bar's placement, the registration and the slide rule
-// (`strips`, used by no test either); drop it when all are.
-#![allow(dead_code)]
+use std::cell::RefCell;
+use std::path::Path;
+use std::sync::{Mutex, MutexGuard, Once};
 
-use std::sync::{Mutex, MutexGuard};
+use tauri::AppHandle;
+use windows::core::w;
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
+use windows::Win32::Graphics::Gdi::HMONITOR;
+use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::UI::HiDpi::GetDpiForWindow;
+use windows::Win32::UI::Shell::{
+    SHAppBarMessage, ABE_BOTTOM, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS, ABN_POSCHANGED, ABN_STATECHANGE, APPBARDATA,
+};
+use windows::Win32::UI::WindowsAndMessaging::{
+    CreateWindowExW, DefWindowProcW, DestroyWindow, RegisterClassW, SetWindowPos, SWP_NOACTIVATE, SWP_NOZORDER, WM_APP, WNDCLASSW,
+    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP,
+};
 
-use windows::Win32::Foundation::RECT;
+use super::{bar, explorer, front, screens, tasks};
+use crate::display;
+
+/// `REAPPBAR`'s flags. `ASK`: look again; `RENEW`: Explorer restarted, every kept appbar registers again; `FORCE`: Windows
+/// moved the appbars, every strip is asked for again.
+pub(super) const ASK: usize = 1;
+pub(super) const RENEW: usize = 2;
+pub(super) const FORCE: usize = 4;
+/// The helpers' callback message (`helper_proc`).
+const CALLBACK: u32 = WM_APP + 1;
+/// The helpers' window class, registered once.
+static CLASS: Once = Once::new();
+/// What the notch last applied: the bar is docked, and its height in CSS px.
+static WISH: Mutex<(bool, f64)> = Mutex::new((false, 0.0));
 
 /// The strip each reserving bar stands on, by bar label, physical px. Held only to read or write.
 static STRIPS: Mutex<Vec<(String, RECT)>> = Mutex::new(Vec::new());
@@ -29,6 +59,8 @@ pub(crate) fn strip(label: &str) -> Option<RECT> {
 }
 
 /// Every reserved strip.
+// shortcut: the slide rule (C6) is its only caller; drop the allow when it lands.
+#[allow(dead_code)]
 pub(crate) fn strips() -> Vec<RECT> {
     strips_lock().iter().map(|&(_, r)| r).collect()
 }
@@ -36,6 +68,188 @@ pub(crate) fn strips() -> Vec<RECT> {
 /// Whether any bar reserves its strip.
 pub(crate) fn active() -> bool {
     !strips_lock().is_empty()
+}
+
+/// No strip is reserved any more: the taskbar thread has ended (mod.rs `stop`), and its helpers with it.
+pub(super) fn clear() {
+    strips_lock().clear();
+}
+
+/// The notch applied the bar (bar.rs `taskbar_apply`): docked or not, and its height in CSS px. The appbars follow.
+pub(crate) fn wish(docked: bool, band_css: f64) {
+    *WISH.lock().unwrap_or_else(|e| e.into_inner()) = (docked, band_css);
+    refresh();
+}
+
+/// The appbars are brought in line on the taskbar thread, if it runs. Any thread: it only posts.
+pub(crate) fn refresh() {
+    super::post_to_thread(super::REAPPBAR, ASK);
+}
+
+thread_local! {
+    /// The registered helpers, on the taskbar thread. Taken out while `reconcile` works, never borrowed across an appbar call.
+    static REGS: RefCell<Vec<Reg>> = const { RefCell::new(Vec::new()) };
+}
+
+/// One bar's registration.
+struct Reg {
+    label: String,
+    helper: HWND,
+    /// The bar's monitor and height in px when its strip was last asked for.
+    monitor: RECT,
+    band: i32,
+    /// What Windows set (`ABM_SETPOS`).
+    strip: RECT,
+}
+
+/// Brings the appbars in line with the bars, their settings and Explorer, with `REAPPBAR`'s `flags`. The taskbar thread only;
+/// false when explorer's lock is taken, and nothing was done.
+pub(super) fn reconcile(app: &AppHandle, flags: usize) -> bool {
+    explorer::try_locked(|hiding| reconcile_locked(app, flags, hiding)).is_some()
+}
+
+fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
+    let reachable = explorer::appbar_reachable();
+    let (docked, band_css) = *WISH.lock().unwrap_or_else(|e| e.into_inner());
+    let wanted = reserves(docked, front::auto_hide(), reachable) && hiding;
+    let bars: Vec<(String, RECT, i32)> = screens::all()
+        .into_iter()
+        .filter_map(|(label, hwnd)| {
+            let hwnd = HWND(hwnd as _);
+            let (monitor, _) = display::monitor_rect(HMONITOR(tasks::monitor_of(hwnd) as _))?;
+            Some((label, monitor, band_px(band_css, unsafe { GetDpiForWindow(hwnd) })))
+        })
+        .collect();
+    let path = explorer::appbars_path();
+    // A record gone while helpers are held was removed by a restore (another process's, or this one's Off), with them.
+    let listed = path.as_deref().is_some_and(Path::exists);
+    let mut regs = REGS.take();
+    let held = regs.len();
+    regs.retain(|reg| {
+        let gone = !bars.iter().any(|(l, ..)| *l == reg.label);
+        let remove = !listed || (gone && reachable) || step(wanted, true, reachable) == Step::Remove;
+        if remove {
+            // Never while another program's Shell_TrayWnd is first: the removal would reach it.
+            if reachable {
+                call(reg.helper, ABM_REMOVE, RECT::default());
+            }
+            let _ = unsafe { DestroyWindow(reg.helper) };
+        }
+        !remove
+    });
+    let mut dirty = regs.len() != held;
+    let mut fresh: Vec<Reg> = Vec::new();
+    for (label, monitor, band) in &bars {
+        if regs.iter().any(|r| r.label == *label) || step(wanted, false, reachable) != Step::Register {
+            continue;
+        }
+        if let Some(helper) = helper(strip_for(*monitor, *band)) {
+            fresh.push(Reg { label: label.clone(), helper, monitor: *monitor, band: *band, strip: RECT::default() });
+        }
+    }
+    // The record first, with every helper, so no registration is ever missing from it.
+    if !fresh.is_empty() {
+        let all: Vec<isize> = regs.iter().chain(&fresh).map(|r| r.helper.0 as isize).collect();
+        let written = match path.as_deref() {
+            Some(p) => crate::write_atomic(p, format_hwnds(&all).as_bytes()).map_err(|e| e.to_string()),
+            None => Err("no folder for it".to_owned()),
+        };
+        if let Err(e) = written {
+            eprintln!("taskbar: appbars record not written, no strip reserved: {e}");
+            for reg in fresh.drain(..) {
+                let _ = unsafe { DestroyWindow(reg.helper) };
+            }
+        }
+    }
+    fresh.retain(|reg| {
+        let registered = call(reg.helper, ABM_NEW, RECT::default()).0 != 0;
+        if !registered {
+            let _ = unsafe { DestroyWindow(reg.helper) };
+            dirty = true;
+        }
+        registered
+    });
+    let kept = regs.len();
+    regs.extend(fresh);
+    for (i, reg) in regs.iter_mut().enumerate() {
+        let Some(&(_, monitor, band)) = bars.iter().find(|(l, ..)| *l == reg.label) else { continue };
+        // A restarted Explorer registers a kept helper again; FALSE means it was still registered. TRUE: it has no strip
+        // there yet, so it is set as a new one.
+        let renewed = flags & RENEW != 0 && reachable && i < kept && call(reg.helper, ABM_NEW, RECT::default()).0 != 0;
+        let new = i >= kept || renewed;
+        if !reachable || !(new || flags & (FORCE | RENEW) != 0 || reg.monitor != monitor || reg.band != band) {
+            continue;
+        }
+        let strip = settle(call(reg.helper, ABM_QUERYPOS, strip_for(monitor, band)).1, band);
+        if new || strip != reg.strip {
+            let s = call(reg.helper, ABM_SETPOS, strip).1;
+            reg.strip = s;
+            let _ = unsafe { SetWindowPos(reg.helper, None, s.left, s.top, s.right - s.left, s.bottom - s.top, SWP_NOZORDER | SWP_NOACTIVATE) };
+        }
+        reg.monitor = monitor;
+        reg.band = band;
+    }
+    // After removals the record holds the helpers left, or goes with the last.
+    if let (true, Some(p)) = (dirty, path.as_deref()) {
+        let left: Vec<isize> = regs.iter().map(|r| r.helper.0 as isize).collect();
+        let _ = if left.is_empty() { std::fs::remove_file(p) } else { crate::write_atomic(p, format_hwnds(&left).as_bytes()) };
+    }
+    let now: Vec<(String, RECT)> = regs.iter().map(|r| (r.label.clone(), r.strip)).collect();
+    REGS.set(regs);
+    let changed = {
+        let mut strips = strips_lock();
+        let changed = *strips != now;
+        *strips = now;
+        changed
+    };
+    // The bars stand on their strips, and the notch reads the monitors again.
+    if changed {
+        bar::work_area_changed(app);
+    }
+}
+
+/// `SHAppBarMessage` for a helper on the bottom edge with `rc`: the answer, and the rect Windows gives back.
+fn call(helper: HWND, message: u32, rc: RECT) -> (usize, RECT) {
+    let mut data = APPBARDATA {
+        cbSize: std::mem::size_of::<APPBARDATA>() as u32,
+        hWnd: helper,
+        uCallbackMessage: CALLBACK,
+        uEdge: ABE_BOTTOM,
+        rc,
+        ..Default::default()
+    };
+    let answer = unsafe { SHAppBarMessage(message, &mut data) };
+    (answer, data.rc)
+}
+
+/// A helper window at `strip`: never shown, no taskbar button, never activated. A hidden window reserves (the C1 probe).
+fn helper(strip: RECT) -> Option<HWND> {
+    unsafe {
+        let instance = GetModuleHandleW(None).ok()?;
+        CLASS.call_once(|| {
+            let class = WNDCLASSW { lpfnWndProc: Some(helper_proc), hInstance: instance.into(), lpszClassName: w!("CrestAppbar"), ..Default::default() };
+            if RegisterClassW(&class) == 0 {
+                eprintln!("taskbar: appbar class failed: {}", windows::core::Error::from_thread());
+            }
+        });
+        let (width, height) = (strip.right - strip.left, strip.bottom - strip.top);
+        let style = WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
+        CreateWindowExW(style, w!("CrestAppbar"), w!(""), WS_POPUP, strip.left, strip.top, width, height, None, None, Some(instance.into()), None)
+            .inspect_err(|e| eprintln!("taskbar: appbar window failed: {e}"))
+            .ok()
+    }
+}
+
+/// Windows moved the appbars or changed its taskbar's state: every strip is asked for again, posted. A full-screen app is
+/// ignored: front.rs already hides a bar over one.
+unsafe extern "system" fn helper_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    if msg == CALLBACK {
+        if matches!(wparam.0 as u32, ABN_POSCHANGED | ABN_STATECHANGE) {
+            super::post_to_thread(super::REAPPBAR, ASK | FORCE);
+        }
+        return LRESULT(0);
+    }
+    unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }
 
 /// Whether a bar with these settings reserves its strip. `reachable`: appbar calls reach Explorer.

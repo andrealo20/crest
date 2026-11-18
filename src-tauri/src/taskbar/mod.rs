@@ -5,7 +5,8 @@
 //! it announces with the `TaskbarCreated` broadcast. The same events keep the bar's list of open windows (tasks.rs). A new work
 //! area (auto-hide turned on or off, an appbar) places the bar again at once. Only top-level windows get broadcasts, so the
 //! window is not message-only. The thread never waits for explorer's lock: what finds it taken is done again by a short timer
-//! (`defer`, `retry`). The tray's spy (tray.rs) has a thread of its own, which runs only while this one does.
+//! (`defer`, `retry`). The docked bars' appbars live on this thread too (reserve.rs): every change to them comes as a posted
+//! `REAPPBAR`, never from inside a call. The tray's spy (tray.rs) has a thread of its own, which runs only while this one does.
 
 pub(crate) mod bar;
 pub(crate) mod explorer;
@@ -61,6 +62,9 @@ const AUTOHIDE: u32 = WM_APP + 1;
 /// Posted by `stop` with the window as its wparam (`stops`): the window goes, and the loop with it. A WM_CLOSE from outside, or
 /// another program's broadcast of the same number, never ends the thread.
 const STOP: u32 = WM_APP + 2;
+/// Posted by `reserve::refresh`, the work area, `TaskbarCreated` and the appbars' own callbacks, with reserve.rs' flags as the
+/// wparam: the docked bars' appbars are brought in line (`reserve::reconcile`).
+const REAPPBAR: u32 = WM_APP + 3;
 /// Auto-hide a hide could not set is tried again this often while it is still to do (`try_autohide`).
 const AUTOHIDE_TIMER: usize = 3;
 const AUTOHIDE_MS: u32 = 5000;
@@ -85,6 +89,8 @@ struct Pending {
     created: bool,
     /// Auto-hide is to try again (`try_autohide`).
     autohide: bool,
+    /// The appbars' flags still to reconcile (`reappbar`), 0 for none.
+    appbar: usize,
 }
 
 /// Starts the thread unless it runs (`taskbar_apply`, once it has built the bar's window); returns once its window exists.
@@ -125,19 +131,19 @@ pub(crate) fn start(app: &AppHandle) {
 
 /// The windows are listed again on the running thread (`RELIST`): the Start list has been read, or the bars have changed.
 pub(crate) fn relist() {
-    post_to_thread(RELIST);
+    post_to_thread(RELIST, 0);
 }
 
 /// A hide could not turn auto-hide on (explorer.rs `missed`): the running thread arms its timer (`AUTOHIDE`). Called under
 /// explorer's lock, which only waits here for `THREAD`, held briefly.
 pub(crate) fn autohide_missed() {
-    post_to_thread(AUTOHIDE);
+    post_to_thread(AUTOHIDE, 0);
 }
 
-fn post_to_thread(msg: u32) {
+fn post_to_thread(msg: u32, wparam: usize) {
     // Only to the thread running now: a window handle kept from before may belong to another app by then.
     if let Some((window, _)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
-        let _ = unsafe { PostMessageW(Some(HWND(*window as _)), msg, WPARAM(0), LPARAM(0)) };
+        let _ = unsafe { PostMessageW(Some(HWND(*window as _)), msg, WPARAM(wparam), LPARAM(0)) };
     }
 }
 
@@ -154,6 +160,8 @@ pub(crate) fn stop() {
     tray::stop();
     let _ = unsafe { PostMessageW(Some(HWND(window as _)), STOP, WPARAM(window as usize), LPARAM(0)) };
     let _ = thread.join();
+    // The helpers went with the thread; Windows' work area no longer lacks their strips.
+    reserve::clear();
     start::end(true);
     pins::unwatch();
     tasks::clear();
@@ -284,6 +292,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         let _ = unsafe { SetTimer(Some(hwnd), AUTOHIDE_TIMER, AUTOHIDE_MS, None) };
         return LRESULT(0);
     }
+    if msg == REAPPBAR {
+        reappbar(wparam.0);
+        return LRESULT(0);
+    }
     // Auto-hide turned on or off, an appbar came or went: the bar moves with the work area now, not at the mirror's next check.
     if msg == WM_SETTINGCHANGE && wparam.0 == SPI_SETWORKAREA.0 as usize {
         if let Some(app) = PENDING.with_borrow(|pending| pending.app.clone()) {
@@ -291,6 +303,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         }
         // A taskbar that came or went moves the work area: Explorer's may answer the appbar calls now.
         try_autohide(hwnd);
+        // Posted, never run here: a broadcast can come while this thread waits inside an appbar call.
+        post_to_thread(REAPPBAR, reserve::ASK);
         return LRESULT(0);
     }
     if msg != 0 && msg == SHELLHOOK.load(Ordering::SeqCst) {
@@ -302,6 +316,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             defer(|pending| pending.created = true);
         }
         try_autohide(hwnd);
+        // A restarted Explorer knows no appbar: each kept one registers again, posted as above.
+        post_to_thread(REAPPBAR, reserve::ASK | reserve::RENEW);
         listen(hwnd);
         start::rearm();
         tasks::arm();
@@ -349,9 +365,14 @@ fn tries(waits: impl IntoIterator<Item = Duration>, mut sleep: impl FnMut(Durati
 /// restore. What finds the lock taken again waits for the next round.
 fn retry(window: HWND) {
     let _ = unsafe { KillTimer(Some(window), RETRY_TIMER) };
-    let (shown, created, autohide) = PENDING.with_borrow_mut(|pending| {
+    let (shown, created, autohide, appbar) = PENDING.with_borrow_mut(|pending| {
         pending.armed = false;
-        (std::mem::take(&mut pending.shown), std::mem::take(&mut pending.created), std::mem::take(&mut pending.autohide))
+        (
+            std::mem::take(&mut pending.shown),
+            std::mem::take(&mut pending.created),
+            std::mem::take(&mut pending.autohide),
+            std::mem::take(&mut pending.appbar),
+        )
     });
     if created && !explorer::on_taskbar_created() {
         defer(|pending| pending.created = true);
@@ -363,6 +384,18 @@ fn retry(window: HWND) {
         if !explorer::on_show(hwnd) {
             defer(|pending| pending.shown.push(hwnd));
         }
+    }
+    // Last, once the taskbars are hidden again and auto-hide is set.
+    if appbar != 0 {
+        reappbar(appbar);
+    }
+}
+
+/// Brings the docked bars' appbars in line (`reserve::reconcile`), or keeps `flags` for `retry` while explorer's lock is taken.
+fn reappbar(flags: usize) {
+    let Some(app) = PENDING.with_borrow(|pending| pending.app.clone()) else { return };
+    if !reserve::reconcile(&app, flags) {
+        defer(|pending| pending.appbar |= flags);
     }
 }
 
