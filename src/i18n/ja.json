@@ -1839,5 +1839,6 @@
  "Akku {p} %, lädt": "バッテリー {p}%、充電中",
  "Schnelleinstellungen": "クイック設定",
  "Weitere Einstellungen": "その他の設定",
- "Energiesparmodus": "省エネ機能"
+ "Energiesparmodus": "省エネ機能",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "別のプログラムが Windows のタスクバーの代わりになっています: ドッキングのバーは場所を確保せず、最大化したウィンドウがバーの下に入ります"
 }

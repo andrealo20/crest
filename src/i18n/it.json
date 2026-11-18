@@ -1839,5 +1839,6 @@
  "Akku {p} %, lädt": "Batteria {p}%, in carica",
  "Schnelleinstellungen": "Impostazioni rapide",
  "Weitere Einstellungen": "Altre impostazioni",
- "Energiesparmodus": "Risparmio energia"
+ "Energiesparmodus": "Risparmio energia",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "Un altro programma ha preso il posto della barra di Windows: la barra Attaccata non riserva lo spazio e le finestre massimizzate le passano sotto"
 }

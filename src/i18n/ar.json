@@ -1839,5 +1839,6 @@
  "Akku {p} %, lädt": "البطارية {p}%، قيد الشحن",
  "Schnelleinstellungen": "الإعدادات السريعة",
  "Weitere Einstellungen": "مزيد من الإعدادات",
- "Energiesparmodus": "توفير الطاقة"
+ "Energiesparmodus": "توفير الطاقة",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "برنامج آخر يحلّ محل شريط مهام Windows: الشريط الملتصق لا يحجز مساحة، والنوافذ المكبّرة تمتد تحته"
 }

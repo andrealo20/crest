@@ -1839,5 +1839,6 @@
  "Akku {p} %, lädt": "Батарея {p}%, заряжается",
  "Schnelleinstellungen": "Быстрые параметры",
  "Weitere Einstellungen": "Другие параметры",
- "Energiesparmodus": "Экономия энергии"
+ "Energiesparmodus": "Экономия энергии",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "Место панели задач Windows занимает другая программа: прикреплённая панель не резервирует место, и развёрнутые окна заходят под неё"
 }

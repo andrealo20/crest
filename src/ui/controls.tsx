@@ -346,6 +346,8 @@ export function Slider(props: {
   mark?: number;
   /** What a screen reader says for the value, when the number alone is not it. */
   valueText?: string;
+  /** The drag let go, or a key moved the value: for a setting written once instead of live. */
+  onRelease?: () => void;
 }) {
   const track = useRef<HTMLDivElement>(null);
   const step = props.step ?? 1;
@@ -378,11 +380,13 @@ export function Slider(props: {
       onPointerMove={(e) =>
         e.currentTarget.hasPointerCapture(e.pointerId) && set(e.clientX)
       }
+      onLostPointerCapture={props.onRelease}
       onKeyDown={(e) => {
         const to = sliderKey(e.key, props.value, step, props.min, props.max);
         if (to === undefined) return;
         e.preventDefault();
         props.onChange(to);
+        props.onRelease?.();
       }}
     >
       <div className="relative h-1 w-full overflow-hidden rounded-full bg-fill-2">

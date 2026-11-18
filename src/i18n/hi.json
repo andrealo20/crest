@@ -1839,5 +1839,6 @@
  "Akku {p} %, lädt": "बैटरी {p}%, चार्ज हो रही है",
  "Schnelleinstellungen": "त्वरित सेटिंग्स",
  "Weitere Einstellungen": "अधिक सेटिंग्स",
- "Energiesparmodus": "ऊर्जा बचत"
+ "Energiesparmodus": "ऊर्जा बचत",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "Windows टास्कबार की जगह कोई दूसरा प्रोग्राम है: जुड़ी हुई बार जगह आरक्षित नहीं करती, और बड़ी की हुई विंडो उसके नीचे तक जाती हैं"
 }

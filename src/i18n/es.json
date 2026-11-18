@@ -1839,5 +1839,6 @@
  "Akku {p} %, lädt": "Batería {p}%, cargando",
  "Schnelleinstellungen": "Configuración rápida",
  "Weitere Einstellungen": "Más configuración",
- "Energiesparmodus": "Ahorro de energía"
+ "Energiesparmodus": "Ahorro de energía",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "Otro programa ocupa el lugar de la barra de tareas de Windows: la barra Acoplada no reserva espacio y las ventanas maximizadas pasan por debajo"
 }

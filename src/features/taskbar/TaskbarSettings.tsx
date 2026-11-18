@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Reorder } from "motion/react";
 import { AppWindow, CaretUp, DotsSixVertical, WarningCircle, WifiHigh } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
@@ -45,10 +45,13 @@ const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "
 
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
-  const { enabled, autoHide } = settings.use().taskbar;
+  const { enabled, autoHide, shape } = settings.use().taskbar;
   // Bars that stay up with auto-hide on (Rust front.rs `stays_up`), read as the page opens and when the switch changes.
   const [blocked, setBlocked] = useState(0);
   useEffect(() => void taskbar.slideBlocked().then(setBlocked, () => {}), [autoHide]);
+  // Whether a docked bar can reserve its strip (Rust reserve.rs), read as the page opens and when shape or auto-hide change.
+  const [reachable, setReachable] = useState(true);
+  useEffect(() => void taskbar.reserveReachable().then(setReachable, () => {}), [autoHide, shape]);
   return (
     <Group id="settings-taskbar">
       <Row
@@ -66,6 +69,12 @@ export function TaskbarGeneral() {
               <span className="mt-1 flex items-start gap-1 text-caution">
                 <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
                 {t("Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm")}
+              </span>
+            )}
+            {enabled && shape === "docked" && !autoHide && !reachable && (
+              <span className="mt-1 flex items-start gap-1 text-caution">
+                <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
+                {t("Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie")}
               </span>
             )}
           </>
@@ -220,7 +229,7 @@ export function TaskbarApps() {
  * the glass's sliders are the ones of Notch → Themes.
  */
 export function TaskbarLook() {
-  const { shape, height, iconSize, surface, transparency, glass } = settings.use().taskbar;
+  const { shape, height, iconSize, surface, transparency, glass, autoHide } = settings.use().taskbar;
   const theme = activeTheme.use();
   // The glass's switch only where the live glass can run (src/notch/glass/live.ts), as in Notch → Themes.
   const support = liveSupport.use(), live = !isMac && support?.supported === true;
@@ -239,7 +248,8 @@ export function TaskbarLook() {
           options={(Object.keys(SHAPE_LABEL) as BarShape[]).map((s) => ({ value: s, label: t(SHAPE_LABEL[s]) }))}
         />
       </Row>
-      <PxRow label={t("Höhe")} value={height} min={HEIGHT[0]} max={HEIGHT[1]} onChange={(height) => setTaskbar({ height })} />
+      {/* A reserving bar's height moves its strip and resizes maximized windows: written once, on release. */}
+      <PxRow label={t("Höhe")} value={height} min={HEIGHT[0]} max={HEIGHT[1]} live={!(shape === "docked" && !autoHide)} onChange={(height) => setTaskbar({ height })} />
       {/* The size the bar draws: a lower bar keeps the saved one and a taller bar gives it back (fitIcon). */}
       <PxRow label={t("Symbolgröße")} value={fitIcon(height, iconSize)} min={ICON[0]} max={fitIcon(height, ICON[1])} onChange={(iconSize) => setTaskbar({ iconSize })} />
       <Row label={t("Hintergrund")} hint={t("Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes")}>
@@ -292,13 +302,28 @@ export function TaskbarLook() {
   );
 }
 
-/** A slider with its value in CSS px, in even steps: the icon then sits in the bar's middle on whole pixels. */
-function PxRow({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (v: number) => void }) {
+/**
+ * A slider with its value in CSS px, in even steps: the icon then sits in the bar's middle on whole pixels. Not `live`, it shows the
+ * dragged value and calls `onChange` once, on release.
+ */
+function PxRow({ label, value, min, max, onChange, live = true }: { label: string; value: number; min: number; max: number; onChange: (v: number) => void; live?: boolean }) {
+  const dragged = useRef<number | undefined>(undefined);
+  const [shown, setShown] = useState<number>();
+  const hold = (v: number) => {
+    dragged.current = v;
+    setShown(v);
+  };
+  const release = () => {
+    if (dragged.current !== undefined) onChange(dragged.current);
+    dragged.current = undefined;
+    setShown(undefined);
+  };
+  const v = shown ?? value;
   return (
     <Row label={label}>
       <div className="flex w-52 items-center gap-2">
-        <Slider label={label} value={value} min={min} max={max} step={2} onChange={onChange} />
-        <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{value} px</span>
+        <Slider label={label} value={v} min={min} max={max} step={2} onChange={live ? onChange : hold} onRelease={live ? undefined : release} />
+        <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{v} px</span>
       </div>
     </Row>
   );

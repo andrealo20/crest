@@ -1839,5 +1839,6 @@
  "Akku {p} %, lädt": "Battery {p}%, charging",
  "Schnelleinstellungen": "Quick settings",
  "Weitere Einstellungen": "More settings",
- "Energiesparmodus": "Energy saver"
+ "Energiesparmodus": "Energy saver",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "Another program stands in for Windows' taskbar: the docked bar reserves no space, and maximized windows reach under it"
 }

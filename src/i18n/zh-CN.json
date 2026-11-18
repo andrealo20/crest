@@ -1839,5 +1839,6 @@
  "Akku {p} %, lädt": "电池 {p}%，正在充电",
  "Schnelleinstellungen": "快速设置",
  "Weitere Einstellungen": "更多设置",
- "Energiesparmodus": "节能模式"
+ "Energiesparmodus": "节能模式",
+ "Ein anderes Programm steht an der Stelle der Windows-Taskleiste: Die angedockte Leiste reserviert keinen Platz, maximierte Fenster reichen unter sie": "另一个程序取代了 Windows 任务栏：停靠的任务栏不会预留空间，最大化的窗口会伸到它下面"
 }
