@@ -15,6 +15,8 @@ export function Item(props: {
   size: number;
   markAt: number;
   mark?: Indicator;
+  /** The Tiles shape: the button draws its own tile, as tall as the bar, and carries data-tile (the bar measures the tiles by it). */
+  tile?: { background: string; radius: number };
   onEnter: () => void;
   onLeave: () => void;
   onClick: MouseEventHandler<HTMLButtonElement>;
@@ -32,8 +34,9 @@ export function Item(props: {
       onPointerLeave={props.onLeave}
       onClick={props.onClick}
       onContextMenu={props.onContextMenu}
+      data-tile={props.tile ? "" : undefined}
       className="group relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"
-      style={{ width: props.size + 16 }}
+      style={{ width: props.size + 16, background: props.tile?.background, borderRadius: props.tile?.radius }}
     >
       <motion.span
         className="flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94"

@@ -44,6 +44,11 @@ export function hitBoxes(boxes: Box[], windowHeight: number): Box[] {
   return sized(boxes).map((b) => ({ ...b, h: windowHeight - b.y }));
 }
 
+/** One box per group (the bar, the capsule, or a zone's tiles): the union of its boxes, a group with none dropped. */
+export function groupBoxes(groups: Box[][]): Box[] {
+  return groups.flatMap((g) => union(g) ?? []);
+}
+
 /** Room past the screen's edges for a docked bar's glass, CSS px. */
 const BLEED = 4000;
 

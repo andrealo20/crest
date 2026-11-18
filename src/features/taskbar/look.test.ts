@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { BarShape } from "./model.ts";
-import { LOOK, barGap, barNeed, barRadius, barVeil, glassShapes, hitBoxes, themeVeils } from "./look.ts";
+import { LOOK, barGap, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, themeVeils } from "./look.ts";
 import { GLASS, liveZone } from "../../notch/glass/params.ts";
 
 test("the surface's veil", () => {
@@ -56,4 +56,10 @@ test("the zone the bar's copy needs", () => {
   const win = { w: 2880, h: 1300 };
   const run = liveZone(barNeed([{ x: 600, y: 600, w: 240, h: 44 }], 2)!, null, 48, win);
   assert.deepEqual(liveZone(barNeed([{ x: 596, y: 600, w: 248, h: 44 }], 2)!, run, 48, win), run);
+});
+
+test("one box per group of tiles, empty groups dropped", () => {
+  const a = { x: 10, y: 600, w: 40, h: 44 }, b = { x: 56, y: 600, w: 40, h: 44 }, c = { x: 900, y: 600, w: 40, h: 44 }, empty = { x: 0, y: 0, w: 0, h: 0 };
+  assert.deepEqual(groupBoxes([[a, b], [], [c, empty]]), [{ x: 10, y: 600, w: 86, h: 44 }, c]);
+  assert.deepEqual(groupBoxes([[empty]]), []);
 });

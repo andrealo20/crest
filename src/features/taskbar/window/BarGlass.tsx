@@ -2,7 +2,7 @@
 // with the closed notch's thin glass, under the veil of the bar's surface. Nothing runs at rest: the canvas draws for a frame from Rust,
 // new props, a change of the glass's look or of the theme, never in a loop.
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { cancelFrame, frame, useReducedMotion } from "motion/react";
 import { createStore } from "../../../lib/store";
 import { freeCopy, storeCopy, type Copy } from "../../../notch/glass/copy";
@@ -36,12 +36,13 @@ document.addEventListener("visibilitychange", () => pageShown.set(document.visib
 interface Props { shape: BarShape; boxes: Box[]; radius: number; veil: number; dark: boolean }
 
 /**
- * The bar's surface (design 6.2, 6.3): the CSS background to draw, and the glass's props while the glass may show (null otherwise).
- * The veil is the same with the glass showing or not, so the bar keeps its tone when the glass comes and goes; reduced transparency,
- * more contrast or forced colours make it opaque. `ink` is the Dark tokens the bar wears on the Notch surface (useClosedInk).
+ * The bar's surface (design 6.2, 6.3) for the shape's boxes (the bar, the capsule or the tiles): the CSS background to draw, the veil
+ * alone for a tile the glass does not draw (`plain`), and the glass's props while the glass may show (null otherwise). The veil is the
+ * same with the glass showing or not, so the bar keeps its tone when the glass comes and goes; reduced transparency, more contrast or
+ * forced colours make it opaque. `ink` is the Dark tokens the bar wears on the Notch surface (useClosedInk).
  */
-export function useBarSurface(box: Box | null, ink: Record<string, string> | undefined): { background: string; glass: Props | null } {
-  const { surface, transparency, glass, height } = settings.use().taskbar;
+export function useBarSurface(boxes: Box[], ink: Record<string, string> | undefined): { background: string; plain: string; glass: Props | null } {
+  const { shape, surface, transparency, glass, height } = settings.use().taskbar;
   const theme = activeTheme.use();
   const supported = liveSupport.use()?.supported === true;
   const lessTransparency = reducedTransparency.use(), moreContrast = contrastMore.use(), forced = forcedColors.use();
@@ -51,15 +52,15 @@ export function useBarSurface(box: Box | null, ink: Record<string, string> | und
   const dark = surface === "notch" && ink ? true : theme.dark;
   const veil = barVeil({ transparency, glass: glass && supported, reduced, ...themeVeils(surface === "notch" && ink ? ink : theme.vars) });
   const on = glass && supported && !reduced && shown;
-  const need = on && box ? barNeed([box], dpr) : null;
+  const need = on ? barNeed(boxes, dpr) : null;
   const needKey = JSON.stringify(need);
   useEffect(() => wantLive(need), [needKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  const boxes = useMemo(() => (box ? [box] : []), [box]);
   const color = surface === "notch" ? "var(--notch-closed)" : "var(--color-notch)";
-  // Floating until the other shapes come with their layout.
+  const plain = `color-mix(in srgb, ${color} ${veil * 100}%, transparent)`;
   return {
-    background: on && live ? "transparent" : `color-mix(in srgb, ${color} ${veil * 100}%, transparent)`,
-    glass: on && box ? { shape: "floating", boxes, radius: barRadius("floating", height), veil, dark } : null,
+    background: on && live ? "transparent" : plain,
+    plain,
+    glass: on && boxes.length ? { shape, boxes, radius: barRadius(shape, height), veil, dark } : null,
   };
 }
 
