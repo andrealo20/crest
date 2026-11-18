@@ -9,8 +9,8 @@
 //!   and the copy for the open panel (backdrop.rs) finds the notch out.
 //! - The copy is Windows.Graphics.Capture of the window's monitor, without the yellow border and the cursor, on the GPU that
 //!   drives that monitor, into frames that hold the monitor from its top left corner to the zone's far corner (Windows clips
-//!   the rest). Windows sends at most 10 frames a second. One D3D11 device per GPU is kept while a switch is on: a new one for
-//!   each session cost 0.2 to 2.5 s and memory that did not all come back.
+//!   the rest). Windows sends at most 10 frames a second. One D3D11 device is kept for each GPU a window's glass is on, its copy
+//!   paused or not, until no window's is: a new one for each session cost 0.2 to 2.5 s and memory that did not all come back.
 //! - 8-bit frames on an HDR monitor too: what Windows shows in SDR comes out exact, HDR content is cut at SDR white.
 //! - A frame goes to the page only when the zone's bytes differ from the last ones sent, a session's first always: the notch
 //!   redrawing itself marks the zone dirty with nothing changed behind it, and the glass would redraw itself for ever. At a
@@ -71,8 +71,12 @@ const FPS: u32 = 10;
 static LIVE: Mutex<Vec<(String, Live)>> = Mutex::new(Vec::new());
 /// Numbers the sessions, bumped by every start, so a number is never used twice across windows.
 static GEN: AtomicU32 = AtomicU32::new(0);
-/// The devices sessions are made on, one per GPU (`gpu`), from a switch going on to the last one going off: the notch and the
-/// bars may sit on monitors driven by different GPUs and start in turn.
+/// The GPU each window's glass is on (`claim`), from its switch going on or its last start until its switch goes off, the window
+/// goes or it starts on another GPU: a paused copy (the panel open, the bar slid away, the screen off) comes back on the same one.
+/// Taken under LIVE only, before GPU.
+static ON: Mutex<Vec<(String, LUID)>> = Mutex::new(Vec::new());
+/// The devices sessions are made on, one per GPU (`gpu`), while a window's glass is on that GPU (`ON`): the notch and the bars may
+/// sit on monitors driven by different GPUs and start in turn.
 static GPU: Mutex<Vec<Gpu>> = Mutex::new(Vec::new());
 
 /// Whether the live glass can run on this PC, and if not why: the page shows its switch only when it can.
@@ -156,8 +160,8 @@ fn own(app: &AppHandle, window: &WebviewWindow) -> Result<isize, String> {
 }
 
 /// The bar `label` is gone (taskbar/bar.rs): its copy stops, the bars' flag goes down with the last bar, as nothing is left to
-/// keep out and the next bar's page sets it again at load, and the device goes when no glass is on. On another thread: the
-/// window's events come on the main thread, which a start or a switch holding LIVE may be waiting for (`exclude`).
+/// keep out and the next bar's page sets it again at load, and its GPU's device goes when no other glass is on it. On another
+/// thread: the window's events come on the main thread, which a start or a switch holding LIVE may be waiting for (`exclude`).
 pub(crate) fn forget(app: &AppHandle, label: &str) {
     let (app, label) = (app.clone(), label.to_string());
     std::thread::spawn(move || {
@@ -173,9 +177,7 @@ pub(crate) fn forget(app: &AppHandle, label: &str) {
         if !app.webview_windows().keys().any(|l| *l != label && l.starts_with("taskbar")) {
             state.bar_live.store(false, Ordering::SeqCst);
         }
-        if !state.live.load(Ordering::SeqCst) && !state.bar_live.load(Ordering::SeqCst) {
-            lock(&GPU).clear();
-        }
+        claim(&label, None);
     });
 }
 
@@ -213,16 +215,12 @@ fn switch(app: &AppHandle, label: &str, hwnd: HWND, on: bool) -> Result<(), &'st
             }
         }
     }
-    if !on && !state.live.load(Ordering::SeqCst) && !state.bar_live.load(Ordering::SeqCst) {
-        lock(&GPU).clear();
-    }
     // The device now, so the first start does not wait for it; with LIVE still held, so the switch going off waits for it.
-    if on {
-        unsafe {
-            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-            let _ = gpu(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), true);
-        }
-    }
+    let made = on.then(|| unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        gpu(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), true)
+    });
+    claim(label, made.and_then(|g| g.ok()?.luid));
     Ok(())
 }
 
@@ -359,7 +357,11 @@ fn begin(app: &AppHandle, window: &WebviewWindow, hwnd: isize, zone: Rect, suppo
     let gen = GEN.fetch_add(1, Ordering::SeqCst).wrapping_add(1);
     let alive = Arc::new(AtomicBool::new(true));
     let sink = to_page(window.clone(), alive.clone(), gen, at, win);
-    live.push((label.to_string(), open(handle, zone, size, gen, alive, sink, halt_later(app.clone(), gen))?));
+    let session = open(handle, zone, size, gen, alive, sink, halt_later(app.clone(), gen))?;
+    // The window may have moved to a monitor on another GPU. Read back, as the frame handler may have made the device again.
+    let luid = lock(&session.frames).gpu.luid;
+    claim(label, luid);
+    live.push((label.to_string(), session));
     Ok(Started { gen, x: at.x, y: at.y, w: at.w, h: at.h })
 }
 
@@ -423,6 +425,25 @@ fn gpu(monitor: HMONITOR, fallback: bool) -> windows::core::Result<Gpu> {
         kept.push(made.clone());
     }
     Ok(made)
+}
+
+/// `label`'s glass is on GPU `luid` now, on none for None (its switch off, the window gone, a default or WARP device): the kept
+/// devices of GPUs no window is on any more go, as one left open could keep a GPU from its deepest sleep. Under LIVE.
+fn claim(label: &str, luid: Option<LUID>) {
+    let mut on = lock(&ON);
+    place(&mut on, label, luid);
+    lock(&GPU).retain(|g| needed(g.luid, &on));
+}
+
+/// Puts `label` on GPU `luid` among the windows' GPUs, one each, or takes it off them for None.
+fn place(on: &mut Vec<(String, LUID)>, label: &str, luid: Option<LUID>) {
+    on.retain(|(l, _)| l != label);
+    on.extend(luid.map(|luid| (label.to_string(), luid)));
+}
+
+/// Whether the device kept for GPU `luid` stays: a window's glass is on that GPU.
+fn needed(luid: Option<LUID>, on: &[(String, LUID)]) -> bool {
+    on.iter().any(|(_, l)| Some(*l) == luid)
 }
 
 /// A D3D11 device on `gpu`, the one that drives the window's monitor, so frames are not copied between GPUs.
@@ -880,6 +901,34 @@ mod tests {
         // The pool closed by a stop under a frame being handled.
         assert!(!device_lost(RO_E_CLOSED, false));
         assert!(!device_lost(E_FAIL, false));
+    }
+
+    #[test]
+    fn a_gpu_keeps_its_device_while_a_window_has_its_glass_on_it() {
+        let (igpu, dgpu) = (LUID { LowPart: 1, HighPart: 0 }, LUID { LowPart: 2, HighPart: 0 });
+        let mut on = Vec::new();
+        // A hybrid laptop: the notch and the primary bar on its panel, taskbar-1 on a monitor wired to the discrete GPU.
+        place(&mut on, "notch", Some(igpu));
+        place(&mut on, "taskbar", Some(igpu));
+        place(&mut on, "taskbar-1", Some(dgpu));
+        assert!(needed(Some(igpu), &on) && needed(Some(dgpu), &on));
+        // A copy paused (the panel open, a bar slid away, the screen off) places nothing: both stay.
+        // The monitor unplugged, taskbar-1 is forgotten: the discrete GPU's device goes while the other switches stay on.
+        place(&mut on, "taskbar-1", None);
+        assert!(!needed(Some(dgpu), &on), "a device for a GPU no window is on");
+        assert!(needed(Some(igpu), &on));
+        // The notch moves to a monitor on the discrete GPU: the primary bar alone keeps the integrated one.
+        place(&mut on, "notch", Some(dgpu));
+        assert!(needed(Some(igpu), &on) && needed(Some(dgpu), &on));
+        place(&mut on, "taskbar", None);
+        assert!(!needed(Some(igpu), &on), "the primary bar's switch went off");
+        // Back on the panel: one GPU per window, the one it left goes.
+        place(&mut on, "notch", Some(igpu));
+        assert!(needed(Some(igpu), &on) && !needed(Some(dgpu), &on));
+        // A start on the default GPU or WARP (no LUID) leaves the window on none, and a device without a LUID is never kept.
+        place(&mut on, "notch", None);
+        assert!(on.is_empty());
+        assert!(!needed(None, &[("notch".into(), igpu)]));
     }
 
     #[test]
