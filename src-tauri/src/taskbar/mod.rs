@@ -138,7 +138,7 @@ pub(crate) fn stop() {
     let Some((window, thread)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
     let _ = unsafe { PostMessageW(Some(HWND(window as _)), WM_CLOSE, WPARAM(0), LPARAM(0)) };
     let _ = thread.join();
-    start::end();
+    start::end(true);
     pins::unwatch();
     tasks::clear();
 }
@@ -151,6 +151,8 @@ pub(crate) fn shutdown() {
     explorer::set_mode(explorer::Mode::Off);
     // Whatever an earlier Off left (no Explorer then, the appbar calls answered by another program) is tried again at every exit.
     explorer::restore();
+    // Not joined: Start's watch may wait on a hung Explorer, and the main thread must not.
+    start::end(false);
     stop();
 }
 
@@ -272,6 +274,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         }
         try_autohide(hwnd);
         listen(hwnd);
+        start::rearm();
         tasks::arm();
         return LRESULT(0);
     }

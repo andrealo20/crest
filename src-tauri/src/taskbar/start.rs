@@ -6,19 +6,20 @@
 //! and a click that comes just after it hid only leaves it closed and gives the keyboard back to the app that had it (tasks.rs
 //! `release`).
 //!
-//! While the bar runs, one MTA thread holds the visibility sink (`begin`, `end`). The sink runs on a COM thread: it only stores
-//! Start's state, so it never waits.
+//! While the bar runs, one MTA thread holds the visibility sink (`begin`, `end`), advised again for a restarted Explorer
+//! (`rearm`) and every `RETRY_MS` while it cannot be. The sink runs on a COM thread: it only stores Start's state, so it never
+//! waits.
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 use std::time::Instant;
 
 use windows::core::{implement, BOOL};
-use windows::Win32::Foundation::{CloseHandle, HANDLE};
+use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_EVENT, WAIT_OBJECT_0, WAIT_TIMEOUT};
 use windows::Win32::Graphics::Gdi::HMONITOR;
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
-use windows::Win32::System::Threading::{CreateEventW, SetEvent, WaitForSingleObject, INFINITE};
+use windows::Win32::System::Threading::{CreateEventW, SetEvent, WaitForMultipleObjects, INFINITE};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_LWIN, VK_X,
 };
@@ -31,6 +32,8 @@ use super::{explorer, tasks};
 const JUST_CLOSED_MS: u64 = 500;
 /// `CLOSED_AT` before Start has hidden once in this run.
 const NEVER: u64 = u64::MAX;
+/// Start is watched again this often while it cannot be (no Explorer yet at sign-in, say).
+const RETRY_MS: u32 = 30_000;
 
 /// Start shows now, as the sink last heard.
 static OPEN: AtomicBool = AtomicBool::new(false);
@@ -39,6 +42,8 @@ static CLOSED_AT: AtomicU64 = AtomicU64::new(NEVER);
 static BASE: LazyLock<Instant> = LazyLock::new(Instant::now);
 /// The visibility thread's stop event and the thread, while it runs.
 static THREAD: Mutex<Option<(isize, JoinHandle<()>)>> = Mutex::new(None);
+/// The thread's re-arm event while it runs, else 0: read without a lock by the taskbar thread (`rearm`).
+static REARM: AtomicIsize = AtomicIsize::new(0);
 
 #[derive(Debug, PartialEq)]
 enum Click {
@@ -83,38 +88,86 @@ pub(crate) fn begin() {
         return;
     }
     let Ok(stop) = (unsafe { CreateEventW(None, true, false, None) }) else { return };
-    // As a number: a HANDLE does not cross threads.
-    let stop = stop.0 as isize;
-    *thread = Some((stop, std::thread::spawn(move || watch(HANDLE(stop as _)))));
+    let Ok(rearm) = (unsafe { CreateEventW(None, false, false, None) }) else {
+        let _ = unsafe { CloseHandle(stop) };
+        return;
+    };
+    // As numbers: a HANDLE does not cross threads.
+    let (stop, rearm) = (stop.0 as isize, rearm.0 as isize);
+    REARM.store(rearm, Ordering::SeqCst);
+    *thread = Some((stop, std::thread::spawn(move || watch(HANDLE(stop as _), HANDLE(rearm as _)))));
 }
 
-/// Stops watching Start (mod.rs `stop`): the thread lets go of the sink and ends.
-pub(crate) fn end() {
+/// Explorer made its taskbars anew (mod.rs `TaskbarCreated`): the thread watches Start again, on the new Explorer. It only sets
+/// an event, so the taskbar thread never waits; that thread has ended before `end` closes the event (mod.rs `stop`).
+pub(crate) fn rearm() {
+    let rearm = REARM.load(Ordering::SeqCst);
+    if rearm != 0 {
+        let _ = unsafe { SetEvent(HANDLE(rearm as _)) };
+    }
+}
+
+/// Stops watching Start: the thread lets go of the sink and ends. With `join` false, at Crest's exit (mod.rs `shutdown`), it
+/// is only told to: its `Unadvise` may wait on a hung Explorer, and Windows' taskbar is back by then.
+pub(crate) fn end(join: bool) {
     let Some((stop, thread)) = thread().take() else { return };
     let stop = HANDLE(stop as _);
     let _ = unsafe { SetEvent(stop) };
+    if !join {
+        // The events stay open: the thread may still wait on them.
+        return;
+    }
     let _ = thread.join();
     let _ = unsafe { CloseHandle(stop) };
+    let _ = unsafe { CloseHandle(HANDLE(REARM.swap(0, Ordering::SeqCst) as _)) };
     // Nothing hears Start any more: a bar built later must not find it still showing.
     OPEN.store(false, Ordering::SeqCst);
 }
 
 /// The visibility thread: the sink is advised until the stop event is set, then unadvised, all COM released before COM ends.
-fn watch(stop: HANDLE) {
+/// A re-arm unadvises it and advises it again on a new object; one not advised is tried again every `RETRY_MS`.
+fn watch(stop: HANDLE, rearm: HANDLE) {
     let com = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) }.is_ok();
     {
         let sink: IAppVisibilityEvents = Sink.into();
-        let advised = unsafe { CoCreateInstance::<_, IAppVisibility>(&AppVisibility, None, CLSCTX_INPROC_SERVER) }
-            .and_then(|visibility| unsafe { visibility.Advise(&sink) }.map(|cookie| (visibility, cookie)))
-            .inspect_err(|e| eprintln!("taskbar: Start's visibility not watched, every click opens it: {e}"))
-            .ok();
-        unsafe { WaitForSingleObject(stop, INFINITE) };
-        if let Some((visibility, cookie)) = advised {
-            let _ = unsafe { visibility.Unadvise(cookie) };
+        let mut advised = None;
+        loop {
+            if advised.is_none() {
+                advised = advise(&sink);
+            }
+            let woke = unsafe { WaitForMultipleObjects(&[stop, rearm], false, if advised.is_some() { INFINITE } else { RETRY_MS }) };
+            if woke == WAIT_EVENT(WAIT_OBJECT_0.0 + 1) {
+                unadvise(advised.take());
+                // What the old Explorer said no longer holds; `advise` reads it again.
+                OPEN.store(false, Ordering::SeqCst);
+            } else if woke != WAIT_TIMEOUT {
+                // The stop event, or a failed wait, which would fail again at once.
+                break;
+            }
         }
+        unadvise(advised);
     }
     if com {
         unsafe { CoUninitialize() };
+    }
+}
+
+/// Watches Start with `sink`, then reads whether it shows now: the sink hears only changes. None when it cannot be watched;
+/// until it is, every click opens Start.
+fn advise(sink: &IAppVisibilityEvents) -> Option<(IAppVisibility, u32)> {
+    let advised = unsafe { CoCreateInstance::<_, IAppVisibility>(&AppVisibility, None, CLSCTX_INPROC_SERVER) }
+        .and_then(|visibility| unsafe { visibility.Advise(sink) }.map(|cookie| (visibility, cookie)))
+        .inspect_err(|e| eprintln!("taskbar: Start's visibility not watched, every click opens it: {e}"))
+        .ok()?;
+    if let Ok(visible) = unsafe { advised.0.IsLauncherVisible() } {
+        OPEN.store(visible.as_bool(), Ordering::SeqCst);
+    }
+    Some(advised)
+}
+
+fn unadvise(advised: Option<(IAppVisibility, u32)>) {
+    if let Some((visibility, cookie)) = advised {
+        let _ = unsafe { visibility.Unadvise(cookie) };
     }
 }
 
