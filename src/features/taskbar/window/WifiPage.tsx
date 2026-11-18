@@ -30,8 +30,14 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
       .then((l) => {
         setList(l);
         setFailed(null);
+        setNote(null);
       })
-      .catch((e) => setFailed(String(e)))
+      .catch((e) => {
+        const code = String(e);
+        setFailed(code);
+        // The last list stays on screen (wifiView), so the failure shows as the footer's note.
+        if (list && code !== "settings") setNote(afterConnect(code).note);
+      })
       .finally(() => setScanning(false));
   };
 
