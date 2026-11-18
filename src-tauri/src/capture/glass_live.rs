@@ -9,7 +9,7 @@
 //!   and the copy for the open panel (backdrop.rs) finds the notch out.
 //! - The copy is Windows.Graphics.Capture of the window's monitor, without the yellow border and the cursor, on the GPU that
 //!   drives that monitor, into frames that hold the monitor from its top left corner to the zone's far corner (Windows clips
-//!   the rest). Windows sends at most 10 frames a second. One D3D11 device is kept while a switch is on: a new one for
+//!   the rest). Windows sends at most 10 frames a second. One D3D11 device per GPU is kept while a switch is on: a new one for
 //!   each session cost 0.2 to 2.5 s and memory that did not all come back.
 //! - 8-bit frames on an HDR monitor too: what Windows shows in SDR comes out exact, HDR content is cut at SDR white.
 //! - A frame goes to the page only when the zone's bytes differ from the last ones sent, a session's first always: the notch
@@ -71,10 +71,9 @@ const FPS: u32 = 10;
 static LIVE: Mutex<Vec<(String, Live)>> = Mutex::new(Vec::new());
 /// Numbers the sessions, bumped by every start, so a number is never used twice across windows.
 static GEN: AtomicU32 = AtomicU32::new(0);
-/// The device sessions are made on, from a switch going on to the last one going off (`gpu`).
-/// shortcut: one device for every window, made again when the notch and a bar sit on monitors driven by different GPUs and
-/// start in turn; keep one per GPU once bars come to other monitors.
-static GPU: Mutex<Option<Gpu>> = Mutex::new(None);
+/// The devices sessions are made on, one per GPU (`gpu`), from a switch going on to the last one going off: the notch and the
+/// bars may sit on monitors driven by different GPUs and start in turn.
+static GPU: Mutex<Vec<Gpu>> = Mutex::new(Vec::new());
 
 /// Whether the live glass can run on this PC, and if not why: the page shows its switch only when it can.
 #[derive(Serialize)]
@@ -175,7 +174,7 @@ pub(crate) fn forget(app: &AppHandle, label: &str) {
             state.bar_live.store(false, Ordering::SeqCst);
         }
         if !state.live.load(Ordering::SeqCst) && !state.bar_live.load(Ordering::SeqCst) {
-            *lock(&GPU) = None;
+            lock(&GPU).clear();
         }
     });
 }
@@ -215,7 +214,7 @@ fn switch(app: &AppHandle, label: &str, hwnd: HWND, on: bool) -> Result<(), &'st
         }
     }
     if !on && !state.live.load(Ordering::SeqCst) && !state.bar_live.load(Ordering::SeqCst) {
-        *lock(&GPU) = None;
+        lock(&GPU).clear();
     }
     // The device now, so the first start does not wait for it; with LIVE still held, so the switch going off waits for it.
     if on {
@@ -407,19 +406,22 @@ struct Gpu {
 // D3D11 with multithread protection on, WinRT objects agile.
 unsafe impl Send for Gpu {}
 
-/// The kept device, made again when another GPU drives `monitor` or the device was lost. `fallback`: the default GPU, or
-/// WARP, when the monitor's own GPU gives no device; not after a loss, which would carry on in software.
+/// The kept device of the GPU that drives `monitor`, made the first time and again after it was lost. `fallback`: the default
+/// GPU, or WARP, when the monitor's own GPU gives no device; not after a loss, which would carry on in software. That one is not
+/// kept, as no other session gets it.
 fn gpu(monitor: HMONITOR, fallback: bool) -> windows::core::Result<Gpu> {
     let mut kept = lock(&GPU);
     let dxgi: IDXGIFactory1 = unsafe { CreateDXGIFactory1()? };
     let adapter = output(&dxgi, monitor).and_then(|a| Some((unsafe { a.GetDesc1() }.ok()?.AdapterLuid, a)));
     let luid = adapter.as_ref().map(|(luid, _)| *luid);
-    if let Some(gpu) = kept.as_ref().filter(|g| g.luid.is_some() && g.luid == luid && unsafe { g.device.GetDeviceRemovedReason() }.is_ok()) {
+    kept.retain(|g| unsafe { g.device.GetDeviceRemovedReason() }.is_ok());
+    if let Some(gpu) = kept.iter().find(|g| g.luid.is_some() && g.luid == luid) {
         return Ok(gpu.clone());
     }
-    *kept = None;
     let made = device(adapter, fallback)?;
-    *kept = Some(made.clone());
+    if made.luid.is_some() {
+        kept.push(made.clone());
+    }
     Ok(made)
 }
 
@@ -1147,7 +1149,7 @@ mod live {
             assert!(!any_magenta(px) && all(px, GREY));
         }
         close(live);
-        *lock(&GPU) = None;
+        lock(&GPU).clear();
         assert!(lock(&faults).is_empty(), "{:?}", lock(&faults));
         unsafe {
             let _ = DestroyWindow(far);
