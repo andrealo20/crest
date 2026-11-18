@@ -96,6 +96,8 @@ static LAST: LazyLock<Mutex<Last>> = LazyLock::new(Mutex::default);
 static ICONS: Mutex<BTreeMap<String, Option<String>>> = Mutex::new(BTreeMap::new());
 /// The window in front, never a bar: a click on a bar leaves in front the app the click acts on (`toggle`).
 static FOREGROUND: AtomicIsize = AtomicIsize::new(0);
+/// The last listed window in front, for when Start has held the front since (`release`).
+static LAST_APP: AtomicIsize = AtomicIsize::new(0);
 
 thread_local! {
     /// The list's state on the taskbar thread, from `begin` until the thread ends.
@@ -211,6 +213,11 @@ fn next_front(z_order: &[isize], skip: isize, usable: impl Fn(isize) -> bool) ->
     z_order.iter().copied().find(|&h| h != skip && usable(h))
 }
 
+/// Where the keyboard goes back to: the app in front, else the last one that was, when Start took the front from it.
+fn release_target(in_front: Option<isize>, last_app: Option<isize>) -> Option<isize> {
+    in_front.or(last_app)
+}
+
 /// A bar's part of the list: each app's windows on the bar's monitor (`on_it`), and no app without one there. It names the window
 /// in front only when that is one of them, so a focus change on another monitor leaves this bar's list, and its page, as they are.
 fn for_monitor(list: &WindowList, on_it: impl Fn(isize) -> bool) -> WindowList {
@@ -253,7 +260,7 @@ pub(super) fn arm() {
     });
 }
 
-/// A window event (mod.rs `on_event`). The window in front is kept, unless it is a bar.
+/// A window event (mod.rs `on_event`). The window in front is kept, unless it is a bar; a listed one also as the last app.
 pub(super) fn on_event(event: u32, hwnd: HWND) {
     let id = hwnd.0 as isize;
     if event == EVENT_SYSTEM_FOREGROUND {
@@ -263,6 +270,9 @@ pub(super) fn on_event(event: u32, hwnd: HWND) {
         FOREGROUND.store(id, Ordering::SeqCst);
     }
     let (armed, listed) = TRACK.with_borrow(|t| t.as_ref().map_or((true, false), |t| (t.armed, t.order.contains(&id))));
+    if event == EVENT_SYSTEM_FOREGROUND && listed {
+        LAST_APP.store(id, Ordering::SeqCst);
+    }
     if !armed && arms(event, listed, || could_list(hwnd)) {
         arm();
     }
@@ -347,6 +357,8 @@ impl Track {
         // A window brought to front has been seen: it stops asking for attention.
         if let Some(active) = active {
             self.flashing.remove(&active);
+            // Also a window listed only now, after its own foreground event (a new app).
+            LAST_APP.store(active, Ordering::SeqCst);
         }
         // Read once per process.
         let mut processes: HashMap<u32, (Option<String>, String)> = HashMap::new();
@@ -499,9 +511,16 @@ pub async fn taskbar_window(id: isize, action: String) -> Result<(), String> {
 /// A bar menu closed with Esc: the keyboard goes back to the app in front.
 #[tauri::command]
 pub fn taskbar_release() {
+    release();
+}
+
+/// The keyboard goes back to the app in front, or to the last one if Start has been in front since (start.rs, on the main
+/// thread). Only a window still listed, and never one minimized since: that would bring it back.
+pub(crate) fn release() {
     let listed: Vec<isize> = last().pids.iter().map(|&(h, _)| h).collect();
-    if let Some(active) = active_now(&listed) {
-        let _ = activate(HWND(active as _));
+    let last_app = Some(LAST_APP.load(Ordering::SeqCst)).filter(|&h| listed.contains(&h) && !unsafe { IsIconic(HWND(h as _)) }.as_bool());
+    if let Some(target) = release_target(active_now(&listed), last_app) {
+        let _ = activate(HWND(target as _));
     }
 }
 
@@ -653,6 +672,13 @@ mod tests {
         let usable = |h: isize| h != 3; // 3 is minimized
         assert_eq!(next_front(&[1, 2, 3, 4], 1, usable), Some(2));
         assert_eq!(next_front(&[1, 3], 1, usable), None);
+    }
+
+    #[test]
+    fn the_keyboard_goes_back_to_the_last_app_when_start_held_the_front() {
+        assert_eq!(release_target(None, Some(7)), Some(7));
+        assert_eq!(release_target(Some(3), Some(7)), Some(3));
+        assert_eq!(release_target(None, None), None);
     }
 
     #[test]

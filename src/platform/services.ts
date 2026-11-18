@@ -1290,6 +1290,8 @@ export const taskbar = {
   window: (id: number, action: "activate" | "toggle" | "minimize" | "close"): Promise<void> => (isNative ? invoke("taskbar_window", { id, action }) : Promise.resolve()),
   /** Gives the keyboard back to the app in front, after a menu closed with Esc. */
   release: (): Promise<void> => (isNative ? invoke("taskbar_release") : Promise.resolve()),
+  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed), "winx" its Win+X menu. */
+  shell: (action: "start" | "winx"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
   /** Icons of the groups without an entry, by group key (PNG data URL, null = none). */
   icons: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_icons", { keys }) : Promise.resolve({})),
   /** Where the page draws (the bar, an open menu) in its CSS px; clicks pass through the rest of the window. */

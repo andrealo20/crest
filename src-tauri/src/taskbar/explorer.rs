@@ -445,7 +445,7 @@ pub(crate) fn guard(pid: &str) -> i32 {
 }
 
 /// Explorer's process, from its desktop window rather than from a taskbar class another program can register too.
-fn shell_pid() -> u32 {
+pub(crate) fn shell_pid() -> u32 {
     window_pid(unsafe { GetShellWindow() })
 }
 

@@ -13,6 +13,7 @@ pub(crate) mod front;
 pub(crate) mod panel;
 pub(crate) mod pins;
 pub(crate) mod screens;
+pub(crate) mod start;
 pub(crate) mod tasks;
 pub(crate) mod widgets;
 
@@ -100,6 +101,7 @@ pub(crate) fn start(app: &AppHandle) {
         }
     }
     drop(thread);
+    start::begin(app);
     // Pins come from the Start list, which nothing may have read yet; it is read off the thread, which must not wait on the shell,
     // and again a few times while it fails (`START_LIST`), or every pinned app would show twice for the whole session.
     let app = app.clone();
@@ -133,6 +135,7 @@ pub(crate) fn stop() {
     let Some((window, thread)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
     let _ = unsafe { PostMessageW(Some(HWND(window as _)), WM_CLOSE, WPARAM(0), LPARAM(0)) };
     let _ = thread.join();
+    start::end();
     tasks::clear();
 }
 

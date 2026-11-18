@@ -150,19 +150,19 @@ const SETTINGS_DENIED: &[&str] = &[
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
-    "taskbar_auto_hide", "taskbar_slid",
+    "taskbar_auto_hide", "taskbar_slid", "taskbar_shell",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, opening the notch and
 /// the settings, the Crest menu, its own glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
 /// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
-/// (`taskbar_slid`) and what the notch's tools in its panel read or do on a click. Its settings reach Rust only through the notch
-/// (`taskbar_apply`, `taskbar_auto_hide`).
+/// (`taskbar_slid`), Windows' Start and its Win+X menu (`taskbar_shell`) and what the notch's tools in its panel read or do on a
+/// click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log", "taskbar_front",
     "taskbar_slid", "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
-    "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "launcher_apps", "translate_status",
+    "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "launcher_apps", "translate_status", "taskbar_shell",
     "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
     "notices_open_app", "notices_copy_code",
     "power_plans", "power_plan_set", "system_icon", "reveal_file", "ports_list", "ports_open", "ports_end",
@@ -535,6 +535,8 @@ pub fn run() {
             taskbar::tasks::taskbar_icons,
             #[cfg(windows)]
             taskbar::tasks::taskbar_release,
+            #[cfg(windows)]
+            taskbar::start::taskbar_shell,
             #[cfg(windows)]
             taskbar::panel::taskbar_panel,
             #[cfg(windows)]
@@ -1144,6 +1146,8 @@ mod tests {
         assert!(ok("taskbar", "taskbar_slid") && ok("taskbar-1", "taskbar_slid") && !ok("settings", "taskbar_slid"));
         // The settings' note on a bar that cannot slide away; the bar has no use for it.
         assert!(!ok("taskbar", "taskbar_slide_blocked") && ok("settings", "taskbar_slide_blocked"));
+        // The Start button opens Windows' Start and its Win+X menu; no other window has the button.
+        assert!(ok("taskbar", "taskbar_shell") && ok("taskbar-1", "taskbar_shell") && !ok("settings", "taskbar_shell"));
     }
 
     #[test]
