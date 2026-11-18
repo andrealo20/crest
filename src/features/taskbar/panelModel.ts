@@ -1,7 +1,8 @@
-// The rules of the panel above Crest's bar: what it shows, which tools open in it and how big it is. Pure, so they can be
-// tested without the app around them.
+// The rules of the panel above Crest's bar: what it shows, which tools open in it, how big it is and how the app menu lists the
+// apps. Pure, so they can be tested without the app around them.
 
 import { DOCK_HEIGHT } from "../../notch/geometry.ts";
+import { searchApps, type LauncherApp } from "../launcher/apps.ts";
 
 /** What the panel shows: the app menu, or a tool by the id the notch opens it with. */
 export type PanelContent = { kind: "apps" } | { kind: "tool"; tool: string };
@@ -59,3 +60,25 @@ export const fitPanel = (size: { w: number; h: number }, room: { w: number; h: n
   w: Math.floor(Math.min(size.w, room.w / zoom)),
   h: Math.floor(Math.min(size.h, room.h / zoom)),
 });
+
+/** A row of the app menu's list: a letter over the apps whose names start with it, or an app. */
+export type AppRow = { kind: "letter"; letter: string } | { kind: "app"; app: LauncherApp };
+
+/** The letter an app's name is listed under: its first letter without accents, upper case; "#" for a name that starts with a digit or a sign. */
+export function initialOf(name: string): string {
+  const first = [...name.trim().normalize("NFD").replace(/\p{M}/gu, "")][0] ?? "";
+  return /\p{L}/u.test(first) ? first.toUpperCase() : "#";
+}
+
+/**
+ * The app menu's list: with no search every app in the list's order, which is by name (mergeApps), a letter over each run of apps
+ * that start with it; with a search the Launcher's matches, AI apps first, where letters would only break up that order.
+ */
+export function appRows(apps: LauncherApp[], query: string): AppRow[] {
+  if (query.trim()) return searchApps(apps, query, Infinity).map((app) => ({ kind: "app", app }));
+  return apps.flatMap((app, i): AppRow[] => {
+    const letter = initialOf(app.name);
+    const row: AppRow = { kind: "app", app };
+    return i > 0 && initialOf(apps[i - 1].name) === letter ? [row] : [{ kind: "letter", letter }, row];
+  });
+}

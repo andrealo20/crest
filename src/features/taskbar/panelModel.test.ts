@@ -1,9 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, fitPanel, opensInBar, panelKey, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import type { LauncherApp } from "../launcher/apps.ts";
+import { BAR_TOOLS, appRows, fitPanel, initialOf, opensInBar, panelKey, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const apps: PanelContent = { kind: "apps" };
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
+const app = (name: string): LauncherApp => ({ id: `shell:AppsFolder\\${name}`, name, source: "start" });
 
 test("the app menu and the twelve widget tools open in the bar, any other tool in the notch", () => {
   assert.equal(opensInBar(apps), true);
@@ -47,4 +49,28 @@ test("the panel fits the room above the bar at any scale", () => {
   assert.deepEqual(fitPanel({ w: 720, h: 494 }, { w: 1904, h: 568 }, 1.25), { w: 720, h: 454 });
   assert.deepEqual(fitPanel({ w: 560, h: 294 }, { w: 1350, h: 512 }, 2), { w: 560, h: 256 });
   assert.deepEqual(fitPanel({ w: 740, h: 300 }, { w: 1000, h: 568 }, 1.5), { w: 666, h: 300 });
+});
+
+test("the app menu lists every app under its letter", () => {
+  const list = ["Affinity Photo", "Audacity", "Claude", "Cursor"].map(app);
+  assert.deepEqual(appRows(list, ""), [
+    { kind: "letter", letter: "A" },
+    { kind: "app", app: list[0] },
+    { kind: "app", app: list[1] },
+    { kind: "letter", letter: "C" },
+    { kind: "app", app: list[2] },
+    { kind: "app", app: list[3] },
+  ]);
+  // Spaces alone are no search yet.
+  assert.deepEqual(appRows(list, "  "), appRows(list, ""));
+  assert.equal(initialOf("Ébauche"), "E");
+  assert.equal(initialOf("ölfass"), "O");
+  assert.equal(initialOf("7-Zip"), "#");
+  assert.equal(initialOf("  zed"), "Z");
+});
+
+test("a search lists matches without letters, AI apps first", () => {
+  const [calculator, claude, cursor] = ["Calculator", "Claude", "Cursor"].map(app);
+  assert.deepEqual(appRows([calculator, claude, cursor], "c"), [claude, cursor, calculator].map((a) => ({ kind: "app", app: a })));
+  assert.deepEqual(appRows([calculator, claude, cursor], "xyz"), []);
 });

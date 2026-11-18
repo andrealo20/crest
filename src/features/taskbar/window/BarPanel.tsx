@@ -97,7 +97,8 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
   useEffect(() => {
     if (!present) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      // An Esc that a menu inside the panel took (the app menu's pin menu) closes only that menu.
+      if (e.key !== "Escape" || e.defaultPrevented) return;
       closePanel();
       void taskbar.release();
     };

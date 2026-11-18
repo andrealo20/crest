@@ -133,7 +133,7 @@ function Row(props: { label: string; onClick: () => void; checked?: boolean }) {
 }
 
 /** Pins or unpins an app; the other windows follow the saved settings. */
-const togglePin = (app: Favorite) => updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: toggleFavorite(s.taskbar.pinned ?? [], app) } }));
+export const togglePin = (app: Favorite) => updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: toggleFavorite(s.taskbar.pinned ?? [], app) } }));
 
 /** An app's right-click menu, as menuFor allows it. `launch` starts the app as a click on its button does, errors included. */
 export function AppMenu({ b, launch, close }: { b: BarButton; launch: (id: string) => void; close: () => void }) {
