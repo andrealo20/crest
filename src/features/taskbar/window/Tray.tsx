@@ -136,7 +136,7 @@ export function Tray({
         </Item>
       ))}
       <Item {...item("tray-more", more)} ref={moreRef} tile={tile()} expanded={open?.content.kind === "tray"} width={slot} onClick={toggle} onContextMenu={onMenu}>
-        <CaretUp size={glyph} weight="bold" />
+        <CaretUp size={glyph} weight="regular" />
       </Item>
     </>
   );

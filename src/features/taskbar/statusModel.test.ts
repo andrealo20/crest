@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { batteryGlyph, glyphSize, netGlyph, soundGlyph, statusParts, statusWidth, wifiTile, type NetworkState } from "./statusModel.ts";
+import { barsGlyph, batteryGlyph, glyphSize, netGlyph, soundGlyph, statusParts, statusWidth, wifiTile, type NetworkState } from "./statusModel.ts";
 
 test("the network glyph is the connection in use", () => {
   const n = (p: Partial<NetworkState>): NetworkState => ({ kind: "none", wifi: true, bars: null, ssid: null, ...p });
@@ -61,11 +61,20 @@ test("the glyphs are two thirds of the icon and the item as wide as they are", (
 
 test("the quick panel's Wi-Fi tile says only On or Off while a cable carries the internet", () => {
   const n = (p: Partial<NetworkState>): NetworkState => ({ kind: "none", wifi: true, bars: null, ssid: null, ...p });
-  assert.deepEqual(wifiTile(true, n({ kind: "wired" })), { key: "An", ssid: null, glyph: null });
-  assert.deepEqual(wifiTile(false, n({ kind: "wired", wifi: false })), { key: "Aus", ssid: null, glyph: null });
-  assert.deepEqual(wifiTile(true, n({ kind: "wireless", bars: 3, ssid: "Lab" })), { key: "Verbunden", ssid: "Lab", glyph: "wifi-2" });
-  assert.deepEqual(wifiTile(true, n({ kind: "wireless" })), { key: "Verbunden", ssid: null, glyph: "wifi-3" });
-  assert.deepEqual(wifiTile(true, n({})), { key: "Nicht verbunden", ssid: null, glyph: "wifi-unlinked" });
-  assert.deepEqual(wifiTile(false, n({ wifi: false })), { key: "Aus", ssid: null, glyph: "wifi-off" });
-  assert.deepEqual(wifiTile(true, null), { key: "Nicht verbunden", ssid: null, glyph: null });
+  assert.deepEqual(wifiTile(true, n({ kind: "wired" })), { key: "An", ssid: null });
+  assert.deepEqual(wifiTile(false, n({ kind: "wired", wifi: false })), { key: "Aus", ssid: null });
+  assert.deepEqual(wifiTile(true, n({ kind: "wireless", bars: 3, ssid: "Lab" })), { key: "Verbunden", ssid: "Lab" });
+  assert.deepEqual(wifiTile(true, n({ kind: "wireless" })), { key: "Verbunden", ssid: null });
+  assert.deepEqual(wifiTile(true, n({})), { key: "Nicht verbunden", ssid: null });
+  assert.deepEqual(wifiTile(false, n({ wifi: false })), { key: "Aus", ssid: null });
+  assert.deepEqual(wifiTile(true, null), { key: "Nicht verbunden", ssid: null });
+});
+
+test("a network's bars give the fan's level, four or more a full fan", () => {
+  assert.equal(barsGlyph(5), "wifi-3");
+  assert.equal(barsGlyph(4), "wifi-3");
+  assert.equal(barsGlyph(3), "wifi-2");
+  assert.equal(barsGlyph(1), "wifi-1");
+  assert.equal(barsGlyph(0), "wifi-0");
+  assert.equal(barsGlyph(null), "wifi-3");
 });

@@ -17,6 +17,7 @@ import type { PluginManifest } from "../features/plugins/model";
 import type { TrayState, WindowList } from "../features/taskbar/model";
 import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
 import type { Rect } from "../features/taskbar/autoHide";
+import type { BtDevice, WifiList } from "../features/taskbar/quickPages";
 import type { Favorite } from "../features/launcher/apps";
 import bundledChangelog from "../changelog.json";
 import { demo, photo, sample, sampleAvatar, screenshot, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
@@ -930,6 +931,22 @@ export interface QuickState {
 }
 export type PowerAction = "lock" | "sleep" | "restart" | "shutdown";
 const mockQuick: QuickState = { wifi: true, bluetooth: true, dark: true, micMuted: false };
+/** The quick panel's Wi-Fi page in the dev server: one network of each kind. */
+const SAMPLE_WIFI: WifiList = {
+  state: "allowed",
+  networks: [
+    { ssid: "Home", bars: 4, kind: "personal", saved: true, connected: true },
+    { ssid: "Cafe Rosa", bars: 3, kind: "open", saved: false, connected: false },
+    { ssid: "Office", bars: 3, kind: "enterprise", saved: false, connected: false },
+    { ssid: "Flat 4B", bars: 1, kind: "personal", saved: false, connected: false },
+  ],
+};
+/** The quick panel's Bluetooth page in the dev server: headphones with their battery, a mouse without, a controller away. */
+const SAMPLE_BT: BtDevice[] = [
+  { id: "1", name: "WH-1000XM5", categories: ["Audio.Headphone"], connected: true, battery: 80 },
+  { id: "2", name: "MX Master 3S", categories: ["Input.Mouse"], connected: true, battery: null },
+  { id: "3", name: "Xbox Wireless Controller", categories: ["Input.Gaming"], connected: false, battery: null },
+];
 
 /** One program in the volume mixer (all its audio sessions together). */
 export interface AppVolume {
@@ -1384,8 +1401,24 @@ export const taskbar = {
   hello: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_hello") : Promise.resolve(true)),
   /** The clock's click: Windows' notification centre, with the calendar. */
   calendar: (): Promise<void> => (isNative ? invoke("taskbar_calendar") : Promise.resolve()),
+  /** The Wi-Fi page's networks, after a fresh scan when `scan` (the page's first read and its refresh); only the state until Windows' location consent is given. */
+  wifiScan: (scan: boolean): Promise<WifiList> => (isNative ? invoke<WifiList>("taskbar_wifi_scan", { scan }) : Promise.resolve(SAMPLE_WIFI)),
+  /** The click on "Show nearby networks": Windows' location prompt, the only call that may show it. */
+  wifiAllow: (): Promise<"allowed" | "denied"> => (isNative ? invoke("taskbar_wifi_allow") : Promise.resolve("allowed")),
+  /** Joins a network, with Windows' saved profile when `password` is null; rejects with a fixed word ("password", "unavailable", "timeout", "settings", "denied", "failed"). */
+  wifiConnect: (ssid: string, password: string | null): Promise<void> => (isNative ? invoke("taskbar_wifi_connect", { ssid, password }) : Promise.resolve()),
+  /** Leaves the network in use. */
+  wifiDisconnect: (): Promise<void> => (isNative ? invoke("taskbar_wifi_disconnect") : Promise.resolve()),
+  /** The Bluetooth page's paired devices, connected first, read once from Windows' device store (no radio search). */
+  btDevices: (): Promise<BtDevice[]> => (isNative ? invoke<BtDevice[]>("taskbar_bt_devices") : Promise.resolve(SAMPLE_BT)),
+  /** A paired device connected or left (`status://bt`, which Rust sends only while the Bluetooth alerts are on); returns the stop. */
+  onBluetooth: (handler: () => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen("status://bt", () => handler());
+    return () => void off.then((f) => f());
+  },
   /** One of Windows' settings pages, by name (Rust maps it to its URI). */
-  settings: (page: "home" | "saver" | "airplane" | "ethernet"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
+  settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
   /**
    * The bar shows or hides (a full-screen app, the hide hotkey, slid off the screen). Rust sends the primary bar's state to the notch, which stops the
    * widgets' sources, and to that bar, which pauses them; each other bar gets its own. On this window only: a listener for any

@@ -9,6 +9,7 @@
 //! `REAPPBAR`, never from inside a call. The tray's spy (tray.rs) has a thread of its own, which runs only while this one does.
 
 pub(crate) mod bar;
+pub(crate) mod bluetooth;
 pub(crate) mod explorer;
 pub(crate) mod front;
 pub(crate) mod panel;
@@ -20,6 +21,7 @@ pub(crate) mod tasks;
 pub(crate) mod tray;
 pub(crate) mod traywire;
 pub(crate) mod widgets;
+pub(crate) mod wifi;
 
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicU32, Ordering};

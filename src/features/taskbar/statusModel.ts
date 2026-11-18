@@ -2,6 +2,7 @@
 // without the app around them; the state comes from Rust's events (sysevents.rs, services.ts status.onBar).
 
 import type { PowerState } from "../../notch/row/status.ts";
+import type { NetGlyphName } from "../../ui/glyphModel.ts";
 import { trayIcon } from "./model.ts";
 
 /** The connection in use (`status://network`): its kind, whether a Wi-Fi radio is on (null: none), its signal 0..5 and its name, Wi-Fi only. */
@@ -11,22 +12,26 @@ export interface SoundState { level: number; muted: boolean }
 /** What Stato draws; null where Rust has said nothing yet, or never will (no battery reading). */
 export interface BarStatus { power: PowerState | null; network: NetworkState | null; sound: SoundState | null }
 
+/** A network's signal (0..5, null unknown) as the fan's level: four bars or more, or none known, light the whole fan. */
+export function barsGlyph(bars: number | null): "wifi-0" | "wifi-1" | "wifi-2" | "wifi-3" {
+  return bars === null || bars >= 4 ? "wifi-3" : bars >= 3 ? "wifi-2" : bars >= 1 ? "wifi-1" : "wifi-0";
+}
+
 /** The network's glyph: the cable, Wi-Fi off, on with no network, its signal in four steps, or no network at all. */
-export function netGlyph(n: NetworkState): "wired" | "wifi-off" | "wifi-unlinked" | "wifi-0" | "wifi-1" | "wifi-2" | "wifi-3" | "offline" {
+export function netGlyph(n: NetworkState): NetGlyphName {
   if (n.kind === "wired") return "wired";
-  if (n.kind === "wireless") return n.bars === null || n.bars >= 4 ? "wifi-3" : n.bars >= 3 ? "wifi-2" : n.bars >= 1 ? "wifi-1" : "wifi-0";
+  if (n.kind === "wireless") return barsGlyph(n.bars);
   return n.wifi === null ? "offline" : n.wifi ? "wifi-unlinked" : "wifi-off";
 }
 
 /**
- * The quick panel's Wi-Fi tile: its line (the SSID when Windows gives it, else a text key) and its glyph. While a cable carries the
- * internet it says only On or Off, with no glyph, since Windows may keep Wi-Fi associated beside the cable.
+ * The quick panel's Wi-Fi tile: its line, the SSID when Windows gives it, else a text key. While a cable carries the internet it says
+ * only On or Off, since Windows may keep Wi-Fi associated beside the cable.
  */
-export function wifiTile(on: boolean, n: NetworkState | null): { key: "An" | "Aus" | "Verbunden" | "Nicht verbunden"; ssid: string | null; glyph: ReturnType<typeof netGlyph> | null } {
-  const glyph = n && n.kind !== "wired" ? netGlyph(n) : null;
-  if (!on) return { key: "Aus", ssid: null, glyph };
-  if (n?.kind === "wireless") return { key: "Verbunden", ssid: n.ssid, glyph };
-  return { key: n?.kind === "wired" ? "An" : "Nicht verbunden", ssid: null, glyph };
+export function wifiTile(on: boolean, n: NetworkState | null): { key: "An" | "Aus" | "Verbunden" | "Nicht verbunden"; ssid: string | null } {
+  if (!on) return { key: "Aus", ssid: null };
+  if (n?.kind === "wireless") return { key: "Verbunden", ssid: n.ssid };
+  return { key: n?.kind === "wired" ? "An" : "Nicht verbunden", ssid: null };
 }
 
 /** The speaker's glyph, with VolumeTile's thresholds; null until the volume is known. */

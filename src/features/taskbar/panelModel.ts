@@ -69,6 +69,27 @@ export function QUICK_SIZE(rows: { radios: boolean; brightness: boolean; list: n
   return { w: 360, h: 24 + heights.reduce((a, b) => a + b, 0) + 10 * (heights.length - 1) + rows.list };
 }
 
+/** A page inside the quick panel: the Wi-Fi networks or the Bluetooth devices, opened by its tile's chevron. */
+export type QuickPage = "wifi" | "bluetooth";
+/** A page's row, CSS px. */
+export const PAGE_ROW = 40;
+/** The rows a page shows before it scrolls. */
+export const PAGE_MAX_ROWS = 6;
+/** The room the Wi-Fi page's password row adds under its network, CSS px. */
+export const PASSWORD_ROW = 44;
+
+/**
+ * A quick page's size at 100 %: 12 px round it, the header (32), its rows (one at least, PAGE_MAX_ROWS at most, past which they
+ * scroll) plus `extra`, and the footer (32), 10 px between the three.
+ */
+export const QUICK_PAGE_SIZE = (rows: number, extra: number) => ({ w: 360, h: 24 + 32 + 10 + Math.min(Math.max(rows, 1), PAGE_MAX_ROWS) * PAGE_ROW + extra + 10 + 32 });
+
+/** The page the quick panel keeps: none once the page's radio is gone (adapter removed), the same while it is only off or not read yet. */
+export function pageAfter(page: QuickPage | null, quick: { wifi: boolean | null; bluetooth: boolean | null } | null): QuickPage | null {
+  if (page === null || (quick !== null && quick[page] === null)) return null;
+  return page;
+}
+
 /** A tool's size in the panel: its size in the notch less the notch's tool bar, which the panel does not have. */
 export const toolPanelSize = (size: { w: number; h: number }) => ({ w: size.w, h: size.h - DOCK_HEIGHT });
 

@@ -114,7 +114,7 @@ export function widgetBody(id: PartId, ctx: WidgetContext): Body {
         animate={{ opacity: 1, transition: fade }}
         exit={{ opacity: 0, transition: fade }}
       >
-        {body ? body.node : <I size={16} weight="bold" className="text-label-3" />}
+        {body ? body.node : <I size={16} weight="regular" className="text-label-3" />}
       </motion.span>
     ),
     width: body ? body.width : 16,
