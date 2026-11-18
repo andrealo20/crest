@@ -4,7 +4,11 @@
 //! send to the tray (`Shell_NotifyIcon`, `SHAppBarMessage`, in `WM_COPYDATA`) reaches Crest first. Every message goes on to
 //! Explorer's own `Shell_TrayWnd`, found by the shell's process, and Explorer's answer goes back to the app: Explorer keeps every
 //! icon, so nothing needs giving back however Crest ends. Only the icon position request is Crest's to answer. Another program's
-//! own `Shell_TrayWnd` (lumabar, say) wins: while one is there the spy has no window, and looks again every few seconds.
+//! own `Shell_TrayWnd` (lumabar, say) wins: while one is there, ahead of the spy or behind, the spy has no window, and looks again
+//! every few seconds.
+//!
+//! A forward waits on Explorer at most `FORWARD_MS`, so no app waits long on a busy Explorer through Crest. Crest's own appbar
+//! calls (explorer.rs, auto-hide) are the exception: they wait for Explorer's answer as they did before the spy.
 //!
 //! The spy runs while the tray is wanted (`taskbar_tray_on`) and the bar's thread runs (mod.rs). Its thread never waits on the
 //! main thread, never takes explorer's lock and holds no lock across a forward, during which the messages sent to it run (an
@@ -25,7 +29,8 @@ use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::Shell::{SHAllocShared, SHFreeShared, SHLockShared, SHUnlockShared};
 use windows::Win32::UI::WindowsAndMessaging::{
     ChangeWindowMessageFilterEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, FindWindowW, GetMessageW, KillTimer,
-    PeekMessageW, PostMessageW, PostThreadMessageW, RegisterClassW, RegisterWindowMessageW, SendMessageTimeoutW, SendNotifyMessageW, SetTimer,
+    PeekMessageW, PostMessageW, PostThreadMessageW, RegisterClassW, RegisterWindowMessageW, SendMessageTimeoutW, SendMessageW, SendNotifyMessageW,
+    SetTimer,
     SetWindowPos, HWND_BROADCAST, HWND_TOPMOST, MSG, MSGFLT_ALLOW, PM_NOREMOVE, SEND_MESSAGE_TIMEOUT_FLAGS, SMTO_ABORTIFHUNG, SMTO_NORMAL,
     SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WM_APP, WM_COPYDATA, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
@@ -208,19 +213,19 @@ fn announce() {
     }
 }
 
-/// Every `FIRST_MS` and on `raise`: the spy goes ahead of every other `Shell_TrayWnd` again, unless another program's is there,
-/// which it leaves the tray to. Once first, it announces itself once to each Explorer tray (the first, and a restarted
-/// Explorer's), so apps add their icons through it.
+/// Every `FIRST_MS` and on `raise`: the spy leaves the tray to another program's `Shell_TrayWnd` whenever one is there, ahead of
+/// it or behind, and otherwise goes ahead of every other `Shell_TrayWnd` again. Once first, it announces itself once to each
+/// Explorer tray (the first, and a restarted Explorer's), so apps add their icons through it.
 unsafe fn keep_first(spy: HWND) {
+    if other_program() {
+        YIELDED.store(true, Ordering::SeqCst);
+        unsafe { vanish(spy) };
+        return;
+    }
     unsafe {
         if FindWindowW(w!("Shell_TrayWnd"), None).ok() != Some(spy) {
-            if other_program() {
-                YIELDED.store(true, Ordering::SeqCst);
-                vanish(spy);
-            } else {
-                // Explorer's window stays where it is: only the spy moves.
-                let _ = SetWindowPos(spy, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-            }
+            // Explorer's window stays where it is: only the spy moves.
+            let _ = SetWindowPos(spy, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
             return;
         }
     }
@@ -263,7 +268,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         return unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) };
     }
     if traywire::forwards(msg) {
-        return LRESULT(forward(msg, wparam, lparam));
+        return LRESULT(forward(msg, wparam, lparam, false));
     }
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }
@@ -275,18 +280,26 @@ unsafe fn copy_data(wparam: WPARAM, lparam: LPARAM) -> isize {
     let bytes = if data.lpData.is_null() { &[][..] } else { unsafe { std::slice::from_raw_parts(data.lpData as *const u8, data.cbData as usize) } };
     match traywire::parse(data.dwData, bytes) {
         Msg::GetRect { .. } => 0,
-        Msg::AppBar => unsafe { appbar(wparam, bytes) }.unwrap_or_else(|| forward(WM_COPYDATA, wparam, lparam)),
-        Msg::Icon(..) | Msg::Other => forward(WM_COPYDATA, wparam, lparam),
+        Msg::AppBar => {
+            // Crest's own auto-hide calls wait on Explorer as before the spy: its safety net reads a timeout's 0 as an answer.
+            let wait = traywire::waits_for_explorer(bytes, std::process::id());
+            unsafe { appbar(wparam, bytes, wait) }.unwrap_or_else(|| forward(WM_COPYDATA, wparam, lparam, wait))
+        }
+        Msg::Icon(..) | Msg::Other => forward(WM_COPYDATA, wparam, lparam, false),
     }
 }
 
-/// Explorer's answer to `msg`, 0 when there is no Explorer or it does not answer in time.
-fn forward(msg: u32, wparam: WPARAM, lparam: LPARAM) -> isize {
-    explorer::explorer_tray().and_then(|to| send(to, msg, wparam, lparam)).unwrap_or(0)
+/// Explorer's answer to `msg`, 0 when there is no Explorer or it does not answer in time (`send`).
+fn forward(msg: u32, wparam: WPARAM, lparam: LPARAM, wait: bool) -> isize {
+    explorer::explorer_tray().and_then(|to| send(to, msg, wparam, lparam, wait)).unwrap_or(0)
 }
 
-/// Sends to Explorer's tray, waiting at most `FORWARD_MS` and not at all on a hung Explorer: its answer, None without one.
-fn send(to: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> Option<isize> {
+/// Sends to Explorer's tray, waiting at most `FORWARD_MS` and not at all on a hung Explorer: its answer, None without one. With
+/// `wait`, for as long as Explorer takes; the messages apps send to the spy meanwhile still run, each with the cap.
+fn send(to: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, wait: bool) -> Option<isize> {
+    if wait {
+        return Some(unsafe { SendMessageW(to, msg, Some(wparam), Some(lparam)) }.0);
+    }
     let mut answer = 0usize;
     let sent = unsafe { SendMessageTimeoutW(to, msg, wparam, lparam, FORWARD_FLAGS, FORWARD_MS, Some(&mut answer)) };
     (sent.0 != 0).then_some(answer as isize)
@@ -295,7 +308,7 @@ fn send(to: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> Option<isize> {
 /// An appbar call that answers in shared memory (`traywire::appbar_shared`): that memory was made for Crest's process, so Explorer
 /// gets a copy made for its own and its answer is copied back. None when the call is another or no copy could be made: it goes
 /// on as it came, as without the spy.
-unsafe fn appbar(wparam: WPARAM, bytes: &[u8]) -> Option<isize> {
+unsafe fn appbar(wparam: WPARAM, bytes: &[u8], wait: bool) -> Option<isize> {
     let (handle, pid) = traywire::appbar_shared(bytes)?;
     let to = explorer::explorer_tray()?;
     let explorer = window_pid(to);
@@ -310,7 +323,7 @@ unsafe fn appbar(wparam: WPARAM, bytes: &[u8]) -> Option<isize> {
         } else {
             let payload = traywire::reshare(bytes, copy.0 as usize as u64, explorer);
             let data = COPYDATASTRUCT { dwData: 0, cbData: payload.len() as u32, lpData: payload.as_ptr() as *mut _ };
-            let answer = send(to, WM_COPYDATA, wparam, LPARAM(&data as *const COPYDATASTRUCT as isize));
+            let answer = send(to, WM_COPYDATA, wparam, LPARAM(&data as *const COPYDATASTRUCT as isize), wait);
             // Without an answer Explorer may still read the copy later, when it gets to the message: it keeps it.
             if answer.is_some() {
                 let back = SHLockShared(copy, explorer);

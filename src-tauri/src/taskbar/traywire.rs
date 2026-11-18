@@ -212,6 +212,12 @@ pub(crate) fn appbar_shared(b: &[u8]) -> Option<(u64, u32)> {
     Some((u64::from_le_bytes(b[SHARED_AT..SHARED_AT + 8].try_into().ok()?), u32_at(b, PID_AT)?))
 }
 
+/// Whether an appbar call is Crest's own (explorer.rs): its sender's process, kept beside the shared memory's handle, is
+/// `own_pid`. The spy waits on Explorer for those without a cap, as without the spy.
+pub(crate) fn waits_for_explorer(b: &[u8], own_pid: u32) -> bool {
+    b.len() == APPBAR_LEN && u32_at(b, 0) == Some(ABD_LEN as u32) && u32_at(b, PID_AT) == Some(own_pid)
+}
+
 /// A payload `appbar_shared` accepted, with its shared memory moved to `handle` made for process `pid`.
 pub(crate) fn reshare(b: &[u8], handle: u64, pid: u32) -> Vec<u8> {
     let mut b = b.to_vec();
@@ -387,6 +393,19 @@ mod tests {
         for m in [0xC000, 0xC123, WM_TIMER, WM_PAINT] {
             assert!(!forwards(m));
         }
+    }
+
+    #[test]
+    fn crests_own_appbar_calls_wait_on_explorer() {
+        let mut b = vec![0u8; APPBAR_LEN];
+        put(&mut b, 0, ABD_LEN as u32);
+        put(&mut b, 40, ABM_GETSTATE);
+        put(&mut b, PID_AT, 20);
+        assert!(waits_for_explorer(&b, 20)); // Crest (pid 20) reading or setting its auto-hide
+        assert!(!waits_for_explorer(&b, 30)); // another app's call keeps the cap
+        assert!(!waits_for_explorer(&b[..APPBAR_LEN - 1], 20));
+        put(&mut b, 0, 48);
+        assert!(!waits_for_explorer(&b, 20));
     }
 
     #[test]

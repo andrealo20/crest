@@ -426,7 +426,7 @@ fn post(taskbars: &[HWND], how: SHOW_WINDOW_CMD) {
 }
 
 /// Whether `SHAppBarMessage` reaches Explorer from the first `Shell_TrayWnd`: it is Explorer's own, or the tray's spy, which
-/// passes the call on to Explorer (tray.rs).
+/// passes Crest's call on and waits for Explorer's answer, as without the spy (tray.rs).
 fn appbar_ok(explorers: bool, spy: bool) -> bool {
     explorers || spy
 }
