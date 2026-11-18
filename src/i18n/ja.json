@@ -1822,5 +1822,7 @@
  "Auf der Windows-Taskleiste ist keine App angeheftet": "Windows のタスクバーに固定されたアプリはありません",
  "Die Apps von Windows lassen sich gerade nicht lesen": "今は Windows のアプリを読み取れません",
  "Infobereich": "通知領域",
- "Ausgeblendete Symbole anzeigen": "隠れているアイコンを表示"
+ "Ausgeblendete Symbole anzeigen": "隠れているアイコンを表示",
+ "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "別のプログラムがタスクバーのアイコンを管理しています。",
+ "Keine ausgeblendeten Symbole": "隠れているアイコンはありません"
 }

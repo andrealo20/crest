@@ -1822,5 +1822,7 @@
  "Auf der Windows-Taskleiste ist keine App angeheftet": "Aucune application n'est épinglée dans la barre des tâches de Windows",
  "Die Apps von Windows lassen sich gerade nicht lesen": "Impossible de lire les applications de Windows pour le moment",
  "Infobereich": "Zone de notification",
- "Ausgeblendete Symbole anzeigen": "Afficher les icônes cachées"
+ "Ausgeblendete Symbole anzeigen": "Afficher les icônes cachées",
+ "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Un autre programme gère les icônes de la barre des tâches.",
+ "Keine ausgeblendeten Symbole": "Aucune icône cachée"
 }

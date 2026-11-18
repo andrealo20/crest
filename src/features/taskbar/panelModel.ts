@@ -4,8 +4,8 @@
 import { DOCK_HEIGHT } from "../../notch/geometry.ts";
 import { searchApps, type Favorite, type LauncherApp } from "../launcher/apps.ts";
 
-/** What the panel shows: the app menu, or a tool by the id the notch opens it with. */
-export type PanelContent = { kind: "apps" } | { kind: "tool"; tool: string };
+/** What the panel shows: the app menu, a tool by the id the notch opens it with, or the tray's hidden icons. */
+export type PanelContent = { kind: "apps" } | { kind: "tool"; tool: string } | { kind: "tray" };
 /** The item the panel opens over: its left edge and its width, CSS px. */
 export interface PanelAnchor {
   x: number;
@@ -20,8 +20,8 @@ export interface OpenPanel {
 /** The tools the closed row's parts open (partTool in src/notch/row/parts.ts): the same parts on the bar open them in its panel. */
 export const BAR_TOOLS: readonly string[] = ["media", "timer", "usage", "system", "notices", "overview", "shelf", "weather", "discord", "github", "leetcode", "calendar"];
 
-/** "apps" or the tool's id: the panel crossfades when it changes. */
-export const panelKey = (c: PanelContent) => (c.kind === "apps" ? "apps" : c.tool);
+/** "apps", "tray" or the tool's id: the panel crossfades when it changes. */
+export const panelKey = (c: PanelContent) => (c.kind === "tool" ? c.tool : c.kind);
 /** The same content closes the panel on a second click, another takes its place. The kind counts too, so no tool id passes for the app menu. */
 export const sameContent = (a: PanelContent, b: PanelContent) => a.kind === b.kind && panelKey(a) === panelKey(b);
 /**
@@ -29,12 +29,12 @@ export const sameContent = (a: PanelContent, b: PanelContent) => a.kind === b.ki
  * centre zone recentres as window buttons come and go, a clock widens), while two items never overlap. A zero-width span overlaps nothing.
  */
 export const sameAnchor = (a: PanelAnchor, b: PanelAnchor) => a.w > 0 && b.w > 0 && a.x < b.x + b.w && b.x < a.x + a.w;
-/** The app menu and the widgets' tools open in the bar; any other tool opens in the notch, so a widget added later still opens somewhere. */
-export const opensInBar = (c: PanelContent) => c.kind === "apps" || BAR_TOOLS.includes(c.tool);
+/** The app menu, the tray and the widgets' tools open in the bar; any other tool opens in the notch, so a widget added later still opens somewhere. */
+export const opensInBar = (c: PanelContent) => c.kind !== "tool" || BAR_TOOLS.includes(c.tool);
 
 /**
  * The notch's record of what each bar's panel shows, by the bar window's label, after a `bar://panel` event (`taskbar_panel`,
- * src-tauri/src/taskbar/panel.rs): `open` is "apps" or a tool's id, null once the panel closes. Another window could emit the event
+ * src-tauri/src/taskbar/panel.rs): `open` is "apps", "tray" or a tool's id, null once the panel closes. Another window could emit the event
  * by mistake, so the label is only a key, and a payload of another shape leaves the record as it is, the very same object.
  */
 export function withPanel(state: Record<string, string>, payload: unknown): Record<string, string> {
@@ -53,6 +53,12 @@ export const APPS_SIZE = { w: 400, h: 520 };
 export const PANEL_GAP = 8;
 /** The least room between the panel and the window's edges, CSS px, as placeMenu keeps for the menus. */
 export const PANEL_EDGE = 8;
+
+/**
+ * The tray panel's size at 100% for `count` hidden icons of `icon` px: five to a row, each in a button as wide as the bar's (icon + 16)
+ * with 12 px round them, as the app menu's; one row at least, for the line it shows without icons, and four at most, past which it scrolls.
+ */
+export const TRAY_SIZE = (icon: number, count: number) => ({ w: 5 * (icon + 16) + 24, h: Math.min(Math.max(Math.ceil(count / 5), 1), 4) * (icon + 16) + 24 });
 
 /** A tool's size in the panel: its size in the notch less the notch's tool bar, which the panel does not have. */
 export const toolPanelSize = (size: { w: number; h: number }) => ({ w: size.w, h: size.h - DOCK_HEIGHT });

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type MouseEventHandler, type ReactNode, type Ref } from "react";
+import { useLayoutEffect, useRef, useState, type MouseEventHandler, type PointerEventHandler, type ReactNode, type Ref } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { fade, popover, pulse, springs } from "../../../design/motion";
 import { placeMenu, type Indicator } from "../model";
@@ -33,6 +33,7 @@ export function Item(props: {
   onClick: MouseEventHandler<HTMLButtonElement>;
   onDoubleClick?: MouseEventHandler<HTMLButtonElement>;
   onContextMenu: MouseEventHandler<HTMLButtonElement>;
+  onPointerDown?: PointerEventHandler<HTMLButtonElement>;
   children: ReactNode;
 }) {
   return (
@@ -53,6 +54,7 @@ export function Item(props: {
       onClick={props.onClick}
       onDoubleClick={props.onDoubleClick}
       onContextMenu={props.onContextMenu}
+      onPointerDown={props.onPointerDown}
       data-tile={props.tile ? "" : undefined}
       className="group relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"
       style={{ width: props.width ?? props.size + 16, background: props.tile?.background, borderRadius: props.tile?.radius }}

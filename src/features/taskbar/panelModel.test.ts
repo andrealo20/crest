@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Favorite, LauncherApp } from "../launcher/apps.ts";
-import { BAR_TOOLS, appRows, dropSlot, fitPanel, initialOf, opensInBar, panelKey, pinAt, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, TRAY_SIZE, appRows, dropSlot, fitPanel, initialOf, opensInBar, panelKey, pinAt, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const apps: PanelContent = { kind: "apps" };
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
@@ -22,6 +22,20 @@ test("the same content toggles, another one takes its place", () => {
   assert.equal(sameContent(apps, tool("apps")), false);
   assert.equal(panelKey(apps), "apps");
   assert.equal(panelKey(tool("weather")), "weather");
+});
+
+test("the tray panel opens in the bar and is not a tool", () => {
+  assert.equal(opensInBar({ kind: "tray" }), true);
+  assert.equal(panelKey({ kind: "tray" }), "tray");
+});
+
+test("the tray panel grows a row for every five icons, up to four rows, then scrolls", () => {
+  // Five buttons as wide as the bar's (icon + 16) and 12 px round them; one row for the line it shows without icons.
+  assert.deepEqual(TRAY_SIZE(24, 0), { w: 224, h: 64 });
+  assert.deepEqual(TRAY_SIZE(24, 5), { w: 224, h: 64 });
+  assert.deepEqual(TRAY_SIZE(24, 6), { w: 224, h: 104 });
+  assert.deepEqual(TRAY_SIZE(24, 40), { w: 224, h: 184 });
+  assert.deepEqual(TRAY_SIZE(16, 40), { w: 184, h: 152 });
 });
 
 test("an item stays the same item while it shifts or resizes under its panel, and two items never are", () => {

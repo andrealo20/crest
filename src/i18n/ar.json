@@ -1822,5 +1822,7 @@
  "Auf der Windows-Taskleiste ist keine App angeheftet": "لا يوجد أي تطبيق مثبّت على شريط مهام Windows",
  "Die Apps von Windows lassen sich gerade nicht lesen": "يتعذّر قراءة تطبيقات Windows حاليًا",
  "Infobereich": "منطقة الإشعارات",
- "Ausgeblendete Symbole anzeigen": "إظهار الرموز المخفية"
+ "Ausgeblendete Symbole anzeigen": "إظهار الرموز المخفية",
+ "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "برنامج آخر يدير رموز شريط المهام.",
+ "Keine ausgeblendeten Symbole": "لا رموز مخفية"
 }

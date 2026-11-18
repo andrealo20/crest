@@ -1822,5 +1822,7 @@
  "Auf der Windows-Taskleiste ist keine App angeheftet": "No hay ninguna app anclada en la barra de tareas de Windows",
  "Die Apps von Windows lassen sich gerade nicht lesen": "No se pueden leer las apps de Windows ahora",
  "Infobereich": "Área de notificaciones",
- "Ausgeblendete Symbole anzeigen": "Mostrar iconos ocultos"
+ "Ausgeblendete Symbole anzeigen": "Mostrar iconos ocultos",
+ "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Otro programa gestiona los iconos de la barra de tareas.",
+ "Keine ausgeblendeten Symbole": "Ningún icono oculto"
 }

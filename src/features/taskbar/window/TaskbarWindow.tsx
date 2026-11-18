@@ -27,7 +27,7 @@ import { Capsule } from "./Capsule";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
 import { Item, MARK } from "./Item";
-import { Tray } from "./Tray";
+import { Tray, TrayDrop } from "./Tray";
 import { useAutoHide } from "./useAutoHide";
 import { WidgetItem } from "./Widget";
 
@@ -72,6 +72,8 @@ export function TaskbarWindow() {
   const bar = useRef<HTMLDivElement>(null);
   // The first app button, pinned or not: an app dragged onto the bar's first slot goes in the gap before it.
   const firstApp = useRef<HTMLButtonElement>(null);
+  // The tray's ^ button: a tray icon dragged onto the bar lands between the first kept icon and it.
+  const trayMore = useRef<HTMLButtonElement>(null);
   // The button under the pointer, and a launch that failed (in its button's label for a while).
   const [hovered, setHovered] = useState<string | null>(null);
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
@@ -224,6 +226,7 @@ export function TaskbarWindow() {
           size={size}
           item={item}
           tile={tile}
+          more={trayMore}
           // No menu of its own, as a widget: the Crest menu over the pointer.
           onMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
         />
@@ -303,6 +306,7 @@ export function TaskbarWindow() {
       {/* Outside the bar's ink: the panel has the theme's colours whatever the bar's background, as the notch's open panel has. */}
       <BarPanel bar={bar} onPlace={placeMenuZone} />
       <PinDrop bar={bar} firstApp={firstApp} size={size} />
+      <TrayDrop bar={bar} more={trayMore} size={size} />
       {/* The launch error for screen readers too: a button's label is not read out. */}
       <span role="status" aria-live="polite" className="sr-only">
         {error?.text}

@@ -1822,5 +1822,7 @@
  "Auf der Windows-Taskleiste ist keine App angeheftet": "Sulla barra di Windows non c'è nessuna app fissata",
  "Die Apps von Windows lassen sich gerade nicht lesen": "Le app di Windows ora non si possono leggere",
  "Infobereich": "Area di notifica",
- "Ausgeblendete Symbole anzeigen": "Mostra icone nascoste"
+ "Ausgeblendete Symbole anzeigen": "Mostra icone nascoste",
+ "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Un altro programma gestisce le icone della barra.",
+ "Keine ausgeblendeten Symbole": "Nessuna icona nascosta"
 }

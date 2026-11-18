@@ -20,6 +20,12 @@ export const panel = createStore<OpenPanel | null>(null);
  */
 export const pinDrag = createStore<{ app: Favorite; x: number; y: number } | null>(null);
 
+/**
+ * A tray icon dragged off the bar or out of the tray panel (Tray.tsx), by its `TrayIcon.id` and picture key, and the pointer, as for
+ * pinDrag: the bar draws the icon under the pointer and keeps it visible or hides it where it is let go.
+ */
+export const trayDrag = createStore<{ id: string; img: string | null; x: number; y: number; from: "panel" | "bar" } | null>(null);
+
 /** Opens the panel over `anchor`, or puts `content` in its place when it is open. A tool the bar cannot show opens in the notch. */
 export function openPanel(content: PanelContent, anchor: PanelAnchor): void {
   if (content.kind === "tool" && !opensInBar(content)) {
