@@ -190,6 +190,24 @@ fn command_allowed(window: &str, command: &str) -> bool {
     }
 }
 
+/// What a close asked from outside Crest (WM_CLOSE, Alt+F4) does to a window.
+#[derive(Debug, PartialEq)]
+enum CloseAction {
+    /// Crest quits as with Quit: only the notch applies the bar's settings, so Crest without it is half alive.
+    Quit,
+    /// A bar goes only through Off, which gives Windows' taskbar back.
+    Ignore,
+    Close,
+}
+
+fn close_action(label: &str) -> CloseAction {
+    match label {
+        "notch" => CloseAction::Quit,
+        l if l == "taskbar" || l.starts_with("taskbar-") => CloseAction::Ignore,
+        _ => CloseAction::Close,
+    }
+}
+
 /// Opens a web or store link, or a file, in its default handler. Not through Explorer: it reads an address with `?a=1&b=2`
 /// or a file name with a comma as something else and opens Documents instead.
 pub(crate) fn open_url(url: &str) -> Result<(), String> {
@@ -662,6 +680,19 @@ pub fn run() {
                 commands(invoke)
             }
         })
+        // Tauri quits only once its last window is gone: a notch closed beside the bar or the settings left Crest running without it.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                match close_action(window.label()) {
+                    CloseAction::Quit => {
+                        api.prevent_close();
+                        window.app_handle().exit(0);
+                    }
+                    CloseAction::Ignore => api.prevent_close(),
+                    CloseAction::Close => {}
+                }
+            }
+        })
         .setup(move |app| {
             // A menu bar app: no Dock icon, like skipTaskbar on Windows.
             #[cfg(target_os = "macos")]
@@ -1077,6 +1108,14 @@ mod tests {
         if cfg!(target_arch = "aarch64") {
             assert_eq!(native, Some("aarch64"));
         }
+    }
+
+    #[test]
+    fn a_close_from_outside_quits_at_the_notch_and_never_takes_a_bar() {
+        use super::{close_action, CloseAction::*};
+        assert_eq!(close_action("notch"), Quit);
+        assert!(["taskbar", "taskbar-1", "taskbar-12"].iter().all(|l| close_action(l) == Ignore));
+        assert!(["settings", "timer", "mirror-1"].iter().all(|l| close_action(l) == Close));
     }
 
     #[test]

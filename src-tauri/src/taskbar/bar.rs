@@ -160,8 +160,8 @@ pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, app
 }
 
 /// A bar window from the template `LABEL` under `label`, with the notch's WebView2 folder and arguments so it joins its
-/// browser process (portable.rs). Alt+F4 never closes it; once it is gone `on_destroyed` runs, its glass stops and the notch
-/// hears that its panel closed. Options for the bar's look go here, so every monitor's bar gets them.
+/// browser process (portable.rs). Alt+F4 never closes it (lib.rs `close_action`); once it is gone `on_destroyed` runs, its
+/// glass stops and the notch hears that its panel closed. Options for the bar's look go here, so every monitor's bar gets them.
 pub(super) fn build(app: &AppHandle, label: &str, on_destroyed: impl Fn() + Send + 'static) -> Result<WebviewWindow, String> {
     let mut config = app.config().app.windows.iter().find(|w| w.label == LABEL).cloned().ok_or("Taskbar window missing in config")?;
     config.label = label.to_owned();
@@ -180,8 +180,6 @@ pub(super) fn build(app: &AppHandle, label: &str, on_destroyed: impl Fn() + Send
     crate::capture::exclude_if_capturing(app);
     let (handle, label) = (app.clone(), label.to_owned());
     window.on_window_event(move |event| match event {
-        // Alt+F4 on the bar: it stays until the notch turns it off.
-        WindowEvent::CloseRequested { api, .. } => api.prevent_close(),
         WindowEvent::Destroyed => {
             on_destroyed();
             forget_slid(&label);

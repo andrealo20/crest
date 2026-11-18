@@ -33,7 +33,7 @@ use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTME
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DeregisterShellHookWindow, DispatchMessageW, GetMessageW, KillTimer, PostMessageW, PostQuitMessage, RegisterClassW,
+    CreateWindowExW, DefWindowProcW, DeregisterShellHookWindow, DestroyWindow, DispatchMessageW, GetMessageW, KillTimer, PostMessageW, PostQuitMessage, RegisterClassW,
     RegisterShellHookWindow, RegisterWindowMessageW, SetTimer, CHILDID_SELF, EVENT_OBJECT_CLOAKED, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE,
     EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, MSG,
     OBJID_WINDOW, SPI_SETWORKAREA, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_APP, WM_CLOSE, WM_DESTROY, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW,
@@ -57,6 +57,8 @@ const RETRY_MS: u32 = 50;
 const RELIST: u32 = WM_APP;
 /// Posted by `autohide_missed`: arms `AUTOHIDE_TIMER`, which only the window's own thread can.
 const AUTOHIDE: u32 = WM_APP + 1;
+/// Posted by `stop`: the window goes, and the loop with it. A WM_CLOSE from outside never ends the thread.
+const STOP: u32 = WM_APP + 2;
 /// Auto-hide a hide could not set is tried again this often while it is still to do (`try_autohide`).
 const AUTOHIDE_TIMER: usize = 3;
 const AUTOHIDE_MS: u32 = 5000;
@@ -148,7 +150,7 @@ pub(crate) fn stop() {
     let Some((window, thread)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
     // The tray's spy goes with the bar, after that restore, whose appbar call reached Explorer through it.
     tray::stop();
-    let _ = unsafe { PostMessageW(Some(HWND(window as _)), WM_CLOSE, WPARAM(0), LPARAM(0)) };
+    let _ = unsafe { PostMessageW(Some(HWND(window as _)), STOP, WPARAM(0), LPARAM(0)) };
     let _ = thread.join();
     start::end(true);
     pins::unwatch();
@@ -236,7 +238,15 @@ unsafe fn window() -> Option<HWND> {
 }
 
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    // `stop`'s WM_CLOSE ends here, through DefWindowProcW; the loop ends only on WM_QUIT.
+    // `stop`'s STOP ends here; the loop ends only on WM_QUIT.
+    if msg == STOP {
+        let _ = unsafe { DestroyWindow(hwnd) };
+        return LRESULT(0);
+    }
+    // Something else asking it to close (WM_SYSCOMMAND's SC_CLOSE comes here too, through DefWindowProcW): the bar stays.
+    if msg == WM_CLOSE {
+        return LRESULT(0);
+    }
     if msg == WM_DESTROY {
         unsafe {
             let _ = KillTimer(Some(hwnd), RETRY_TIMER);
