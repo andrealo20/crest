@@ -5,6 +5,8 @@ import { t } from "../../../i18n";
 import { createStore } from "../../../lib/store";
 import { HEADER_HEIGHT } from "../../../notch/geometry";
 import { ToolScope, activeTool, headerSlot } from "../../../notch/header";
+import { CoverBackdrop, coverBackdrop } from "../../now-playing/CoverBackdrop";
+import { darkInk } from "../../themes/store";
 
 type Tabs = typeof import("../../../notch/tabs");
 
@@ -30,19 +32,26 @@ export const TOOL_TITLE_ID = "bar-panel-tool-title";
 /**
  * A notch tool in the bar's panel, a second copy of the one in the notch: the notch's header without its pin, since the panel always
  * closes on a click outside, and the tool's view without the tool bar. A switch to another tool keeps the header, whose slot takes
- * the new tool's own buttons (HeaderActions), and crossfades the title and the view as the notch does.
+ * the new tool's own buttons (HeaderActions), and crossfades the title and the view as the notch does. A cover a tool asks for
+ * (CoverBackdrop) lies behind the header and the view, as behind the notch's panel.
  */
 export function ToolPanel({ tool }: { tool: string }) {
   const tab = useTabs(true)?.findTab(tool);
   const id = tab?.id;
+  const backdrop = coverBackdrop.use() !== null;
   // The header's buttons follow the tool on screen (header.tsx).
   useLayoutEffect(() => {
     if (id) activeTool.set(id);
   }, [id]);
   if (!tab) return null;
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center justify-between gap-3 ps-5 pe-3" style={{ height: HEADER_HEIGHT + 4 }}>
+    // Its own stacking context, so the cover below the content stays above the panel's shape. While the cover shows, the panel takes
+    // the Dark theme's light text, as the notch's does.
+    <div className="relative isolate flex h-full flex-col" style={backdrop ? darkInk() : undefined}>
+      {/* The bar's panel has no glass: the cover is drawn whole. */}
+      <CoverBackdrop glass={false} />
+      {/* The title's colour is body's, worked out from the theme's label: set again here so the cover's ink reaches it. */}
+      <div className="flex shrink-0 items-center justify-between gap-3 ps-5 pe-3" style={{ height: HEADER_HEIGHT + 4, color: "var(--color-label)" }}>
         <div id={TOOL_TITLE_ID} className="relative min-w-0 flex-1">
           {/* The notch's title also blurs as it changes; the bar animates opacity and transforms only. */}
           <AnimatePresence mode="popLayout" initial={false}>
