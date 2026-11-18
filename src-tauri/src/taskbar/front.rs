@@ -1,9 +1,10 @@
 //! The window in front of each bar's monitor, read by the display poll every 400 ms (display.rs `spawn`).
 //!
 //! Only that window counts, never one behind it: the app in front when it is on that monitor (a dialog counts as its app); none
-//! on the monitor where the desktop was clicked; otherwise the monitor's frontmost window that has a button and is not
-//! minimized. Start, search, the quick settings, the notification centre and the calendar have no button, so they never count;
-//! the poll's foreground is never a bar, so a click on a bar never counts either.
+//! on the monitor where the pointer was when the desktop came to the front; otherwise the monitor's frontmost window that has a
+//! button and is not minimized. Start, search, the quick settings, the notification centre, the calendar and Crest's own
+//! windows have no button: while one of them is in front, the rule keeps the foreground that came before it (`Seen`), so it
+//! leaves every bar as it was. The poll's foreground is never a bar, so a click on a bar never counts either.
 //!
 //! Each bar hides over a full-screen app in front of its own monitor (`screens::set_fullscreen`). While "hide when a window
 //! touches it" is on (`taskbar_auto_hide`), each bar is also sent that window's frame in its CSS px when it changes
@@ -12,6 +13,7 @@
 //!
 //! On the display poll's thread: Win32 reads only, and no lock held across `set_fullscreen` or an emit.
 
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex, MutexGuard};
@@ -33,6 +35,11 @@ use crate::display;
 static AUTO_HIDE: AtomicBool = AtomicBool::new(false);
 /// What each bar was last sent, by label (`taskbar_front`). Held only to read or write it, never across an emit.
 static SENT: LazyLock<Mutex<HashMap<String, Option<Rect>>>> = LazyLock::new(Mutex::default);
+
+thread_local! {
+    /// What the rule keeps between polls (`Seen`), on the display poll's thread, the only one that polls.
+    static SEEN: Cell<Seen> = const { Cell::new(Seen { fg: None, desktop_on: None }) };
+}
 
 /// A window's frame in a bar window's CSS px, from that window's top-left.
 #[derive(Clone, Copy, PartialEq, Debug, Serialize)]
@@ -68,13 +75,35 @@ impl Fg {
     }
 }
 
-/// The window in front of a monitor: the app in front when it is on this monitor (`fg_here`); none on the pointer's monitor
-/// when the desktop is in front, since the desktop spans them all and that is where it was clicked; otherwise the first of
+/// What the rule keeps between polls: the last foreground that was not `Other`, and the monitor the pointer was on when the
+/// desktop came to the front.
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
+struct Seen {
+    fg: Option<Fg>,
+    desktop_on: Option<isize>,
+}
+
+impl Seen {
+    /// After a poll that finds `now` in front with the pointer on `pointer`. A surface without a button keeps what came before
+    /// it; the desktop takes the pointer's monitor as it comes to the front, and keeps it through such surfaces until an app
+    /// comes to the front.
+    fn next(self, now: Fg, pointer: Option<isize>) -> Seen {
+        match now {
+            Fg::Other => self,
+            Fg::Desktop if self.fg == Some(Fg::Desktop) => self,
+            Fg::Desktop => Seen { fg: Some(now), desktop_on: pointer },
+            Fg::Listed(_) => Seen { fg: Some(now), desktop_on: None },
+        }
+    }
+}
+
+/// The window in front of a monitor for the foreground the rule keeps: the app when it is on this monitor (`fg_here`); none on
+/// the monitor where the desktop came to the front (`desktop_here`), since the desktop spans them all; otherwise the first of
 /// `stack`, this monitor's windows with a button and not minimized, front to back.
-fn front(fg: Fg, fg_here: bool, pointer_here: bool, stack: &[isize]) -> Option<isize> {
+fn front(fg: Fg, fg_here: bool, desktop_here: bool, stack: &[isize]) -> Option<isize> {
     match fg {
         Fg::Listed(id) if fg_here => Some(id),
-        Fg::Desktop if pointer_here => None,
+        Fg::Desktop if desktop_here => None,
         _ => stack.first().copied(),
     }
 }
@@ -97,17 +126,21 @@ fn in_bar(frame: RECT, (x, y): (i32, i32), scale: f64) -> Rect {
 pub(crate) fn poll(app: &AppHandle, foreground: HWND) {
     let bars = screens::all();
     if bars.is_empty() {
+        // The bars are off: what came before them is forgotten.
+        SEEN.set(Seen::default());
         return;
     }
     let own = unsafe { GetCurrentProcessId() };
-    let fg = Fg::of(foreground, own);
+    let seen = SEEN.get().next(Fg::of(foreground, own), pointer_monitor());
+    SEEN.set(seen);
+    // Before any app or the desktop has been in front, `front` falls back to each monitor's top window.
+    let fg = seen.fg.unwrap_or(Fg::Other);
     let fg_on = tasks::monitor_of(foreground);
     // The app a dialog stands for is in front on its own window's monitor, whose bar marks it as in front (tasks.rs `for_monitor`).
     let listed_on = match fg {
         Fg::Listed(id) => tasks::monitor_of(HWND(id as _)),
         _ => fg_on,
     };
-    let pointer = pointer_monitor();
     // Windows says it of the foreground only.
     let exclusive = unsafe { SHQueryUserNotificationState() }.is_ok_and(|s| s == QUNS_RUNNING_D3D_FULL_SCREEN);
     let bars: Vec<(String, HWND, isize)> = bars.into_iter().map(|(label, hwnd)| (label, HWND(hwnd as _), tasks::monitor_of(HWND(hwnd as _)))).collect();
@@ -124,7 +157,7 @@ pub(crate) fn poll(app: &AppHandle, foreground: HWND) {
     let monitors = if auto_hide { monitors() } else { Vec::new() };
     let mut rects = Vec::new();
     for (label, bar, m) in &bars {
-        let ahead = front(fg, listed_on == *m, pointer == Some(*m), &stacks[m]);
+        let ahead = front(fg, listed_on == *m, seen.desktop_on == Some(*m), &stacks[m]);
         let monitor = HMONITOR(*m as _);
         // The foreground counts with Windows' exclusive full screen, which speaks of it only; the window in front, if another, without.
         let full = (fg_on == *m && display::fills(foreground, monitor, exclusive))
@@ -224,6 +257,19 @@ mod tests {
         assert_eq!(front(Fg::Desktop, false, false, &stack), Some(7)); // the desktop clicked on another monitor
         assert_eq!(front(Fg::Other, true, true, &stack), Some(7)); // Start, a flyout or the bar itself: as before it came
         assert_eq!(front(Fg::Other, true, true, &[]), None);
+    }
+
+    #[test]
+    fn start_and_the_notch_leave_the_bars_as_they_were() {
+        let (m1, m2) = (Some(1), Some(2));
+        let app = Seen::default().next(Fg::Listed(5), m1);
+        assert_eq!(app.next(Fg::Other, m2), app); // Start over an app: still the app
+        let desktop = app.next(Fg::Desktop, m1);
+        assert_eq!(desktop, Seen { fg: Some(Fg::Desktop), desktop_on: m1 }); // the desktop clicked on m1
+        assert_eq!(desktop.next(Fg::Desktop, m2), desktop); // the pointer moved to m2: still m1
+        assert_eq!(desktop.next(Fg::Other, m2), desktop); // then Start: still the desktop on m1
+        assert_eq!(desktop.next(Fg::Listed(5), m1).next(Fg::Desktop, m2).desktop_on, m2); // an app, then the desktop from m2
+        assert_eq!(Seen::default().next(Fg::Other, m1), Seen::default()); // nothing before: each monitor's top window
     }
 
     #[test]
