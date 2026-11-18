@@ -1,6 +1,5 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type MouseEventHandler, type ReactNode, type RefObject, type SetStateAction } from "react";
-import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from "motion/react";
-import { springs } from "../../../design/motion";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
+import { AnimatePresence } from "motion/react";
 import { t } from "../../../i18n";
 import { launcher, taskbar } from "../../../platform/services";
 import { settings } from "../../../settings/store";
@@ -12,6 +11,7 @@ import { barButtons, clickAction, fitIcon, indicator, launchId, type BarButton, 
 import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, type Box } from "../look";
 import { barWindows, groupIcons } from "../store";
 import { BarGlass, useBarSurface } from "./BarGlass";
+import { Capsule } from "./Capsule";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { Item, MARK } from "./Item";
 
@@ -240,35 +240,5 @@ function useHitZone(ref: RefObject<HTMLDivElement | null>, shape: BarShape, setB
       report();
     },
     [report],
-  );
-}
-
-/** The capsule: as wide as its buttons, springing to a new width when one comes or goes (at once with reduced motion). */
-function Capsule({ ref, style, children }: { ref: RefObject<HTMLDivElement | null>; style: CSSProperties; children: ReactNode }) {
-  const content = useRef<HTMLDivElement>(null);
-  // A motion value set from the observer: Motion's first change after mount would not spring through `animate`.
-  const width = useMotionValue(0);
-  const reduced = useReducedMotion() === true;
-  useLayoutEffect(() => {
-    const el = content.current!;
-    // The first width before the first paint, at once.
-    width.jump(el.offsetWidth);
-    const observer = new ResizeObserver(() => {
-      if (reduced) width.jump(el.offsetWidth);
-      else animate(width, el.offsetWidth, springs.glide);
-    });
-    observer.observe(el);
-    return () => {
-      observer.disconnect();
-      width.stop();
-    };
-  }, [width, reduced]);
-  return (
-    // Not clipped, so the names show above it: while it springs wider, a new button stands past its edge for a moment.
-    <motion.div ref={ref} className="relative flex justify-center self-center text-label" style={{ ...style, width }}>
-      <div ref={content} className="flex shrink-0 gap-0.5 px-1">
-        {children}
-      </div>
-    </motion.div>
   );
 }
