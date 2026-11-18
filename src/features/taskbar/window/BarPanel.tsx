@@ -194,7 +194,8 @@ function Panel({ open, bar, onPlace }: { open: OpenPanel; bar: RefObject<HTMLEle
                   animate={{ opacity: 1, transition: content.enter }}
                   exit={{ opacity: 0, transition: content.exit }}
                 >
-                  {open.content.kind === "tray" ? <TrayPanel /> : <ToolPanel tool={open.content.tool} />}
+                  {/* The quick panel draws nothing until it has its own content and size. */}
+                  {open.content.kind === "tray" ? <TrayPanel /> : open.content.kind === "tool" ? <ToolPanel tool={open.content.tool} /> : null}
                 </motion.div>
               )}
             </AnimatePresence>

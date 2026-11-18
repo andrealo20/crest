@@ -1827,5 +1827,11 @@
  "Infobereich": "सूचना क्षेत्र",
  "Ausgeblendete Symbole anzeigen": "छिपे हुए आइकन दिखाएँ",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "टास्कबार के आइकन कोई दूसरा प्रोग्राम संभाल रहा है।",
- "Keine ausgeblendeten Symbole": "कोई छिपा हुआ आइकन नहीं"
+ "Keine ausgeblendeten Symbole": "कोई छिपा हुआ आइकन नहीं",
+ "Ethernet": "ईथरनेट",
+ "WLAN: {name}": "वाई-फ़ाई: {name}",
+ "WLAN aus": "वाई-फ़ाई बंद",
+ "Nicht verbunden": "कनेक्ट नहीं है",
+ "Lautstärke {p} %": "वॉल्यूम {p}%",
+ "Akku {p} %, lädt": "बैटरी {p}%, चार्ज हो रही है"
 }

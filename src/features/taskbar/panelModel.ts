@@ -3,8 +3,8 @@
 
 import { DOCK_HEIGHT } from "../../notch/geometry.ts";
 
-/** What the panel shows: a tool, by the id the notch opens it with, or the tray's hidden icons. */
-export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" };
+/** What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, or Stato's quick panel. */
+export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "quick" };
 /** The item the panel opens over: its left edge and its width, CSS px. */
 export interface PanelAnchor {
   x: number;
@@ -19,7 +19,7 @@ export interface OpenPanel {
 /** The tools the closed row's parts open (partTool in src/notch/row/parts.ts): the same parts on the bar open them in its panel. */
 export const BAR_TOOLS: readonly string[] = ["media", "timer", "usage", "system", "notices", "overview", "shelf", "weather", "discord", "github", "leetcode", "calendar"];
 
-/** "tray" or the tool's id: the panel crossfades when it changes. */
+/** "tray", "quick" or the tool's id: the panel crossfades when it changes. */
 export const panelKey = (c: PanelContent) => (c.kind === "tool" ? c.tool : c.kind);
 /** The same content closes the panel on a second click, another takes its place. The kind counts too, so no tool id passes for the tray. */
 export const sameContent = (a: PanelContent, b: PanelContent) => a.kind === b.kind && panelKey(a) === panelKey(b);
@@ -28,7 +28,7 @@ export const sameContent = (a: PanelContent, b: PanelContent) => a.kind === b.ki
  * centre zone recentres as window buttons come and go, a clock widens), while two items never overlap. A zero-width span overlaps nothing.
  */
 export const sameAnchor = (a: PanelAnchor, b: PanelAnchor) => a.w > 0 && b.w > 0 && a.x < b.x + b.w && b.x < a.x + a.w;
-/** The tray and the widgets' tools open in the bar; any other tool opens in the notch, so a widget added later still opens somewhere. */
+/** The tray, the quick panel and the widgets' tools open in the bar; any other tool opens in the notch, so a widget added later still opens somewhere. */
 export const opensInBar = (c: PanelContent) => c.kind !== "tool" || BAR_TOOLS.includes(c.tool);
 
 /**

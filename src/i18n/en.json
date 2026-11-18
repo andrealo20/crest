@@ -1827,5 +1827,11 @@
  "Infobereich": "Notification area",
  "Ausgeblendete Symbole anzeigen": "Show hidden icons",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Another program manages the taskbar's icons.",
- "Keine ausgeblendeten Symbole": "No hidden icons"
+ "Keine ausgeblendeten Symbole": "No hidden icons",
+ "Ethernet": "Ethernet",
+ "WLAN: {name}": "Wi-Fi: {name}",
+ "WLAN aus": "Wi-Fi off",
+ "Nicht verbunden": "Not connected",
+ "Lautstärke {p} %": "Volume {p}%",
+ "Akku {p} %, lädt": "Battery {p}%, charging"
 }

@@ -81,3 +81,10 @@ test("a dragged icon lands in the slot under the pointer", () => {
   assert.deepEqual([90, 125, 165, 500].map((x) => dropSlot(slots, x)), [0, 1, 2, 3]);
   assert.equal(dropSlot([], 300), 0);
 });
+
+test("Stato's quick panel opens in the bar's panel, apart from the tray and any tool", () => {
+  assert.equal(opensInBar({ kind: "quick" }), true);
+  assert.equal(panelKey({ kind: "quick" }), "quick");
+  assert.equal(sameContent({ kind: "quick" }, { kind: "tray" }), false);
+  assert.equal(sameContent({ kind: "quick" }, { kind: "tool", tool: "quick" }), false);
+});

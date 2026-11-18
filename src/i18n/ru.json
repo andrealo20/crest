@@ -1827,5 +1827,11 @@
  "Infobereich": "Область уведомлений",
  "Ausgeblendete Symbole anzeigen": "Показать скрытые значки",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Значками панели задач управляет другая программа.",
- "Keine ausgeblendeten Symbole": "Нет скрытых значков"
+ "Keine ausgeblendeten Symbole": "Нет скрытых значков",
+ "Ethernet": "Ethernet",
+ "WLAN: {name}": "Wi-Fi: {name}",
+ "WLAN aus": "Wi-Fi выключен",
+ "Nicht verbunden": "Не подключено",
+ "Lautstärke {p} %": "Громкость {p}%",
+ "Akku {p} %, lädt": "Батарея {p}%, заряжается"
 }

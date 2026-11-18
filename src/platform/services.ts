@@ -15,6 +15,7 @@ import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
 import type { TrayState, WindowList } from "../features/taskbar/model";
+import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
 import type { Rect } from "../features/taskbar/autoHide";
 import type { Favorite } from "../features/launcher/apps";
 import bundledChangelog from "../changelog.json";
@@ -552,8 +553,8 @@ export const display = {
 
 // ---------- Status alerts (sysevents.rs) ----------
 
-/** State at start, so what is already true (charger in, headphones on) does not alert. */
-export interface StatusSeed { power: PowerState | null; online: boolean | null; devices: string[] }
+/** State at start, so what is already true (charger in, headphones on) does not alert; `network` and `sound` only while a bar shows Stato. */
+export interface StatusSeed { power: PowerState | null; online: boolean | null; devices: string[]; network: NetworkState | null; sound: SoundState | null }
 export interface StatusHandlers {
   seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: BluetoothEvent): void; level(e: LevelEvent): void; lock(e: LockEvent): void; mic(e: MicEvent): void;
   output(e: OutputEvent): void; focus(e: FocusEvent): void; mode(e: ModeEvent): void; airplane(on: boolean): void; display(e: DisplayEvent): void;
@@ -595,6 +596,30 @@ export const status = {
         heard = true;
         handler(e.payload);
       }),
+    ];
+    void invoke<StatusSeed>("status_seed").then(seed, () => {});
+    return () => offs.forEach((off) => void off.then((f) => f()));
+  },
+  /**
+   * The power, the network and the volume for the bar's Stato item, each as it changes, as onPower does for one: the seed passes only
+   * what it knows and no change has said since. Rust sends the network and the volume only while the notch says a bar shows Stato.
+   */
+  onBar: (handler: (patch: Partial<BarStatus>) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const keys = ["power", "network", "sound"] as const;
+    const heard = new Set<string>();
+    const seed = (s: StatusSeed) => {
+      const fresh = keys.filter((k) => s[k] !== null && !heard.has(k));
+      if (fresh.length) handler(Object.fromEntries(fresh.map((k) => [k, s[k]])));
+    };
+    const offs = [
+      listen<StatusSeed>("status://seed", (e) => seed(e.payload)),
+      ...keys.map((k) =>
+        listen<BarStatus[typeof k]>(`status://${k}`, (e) => {
+          heard.add(k);
+          handler({ [k]: e.payload });
+        }),
+      ),
     ];
     void invoke<StatusSeed>("status_seed").then(seed, () => {});
     return () => offs.forEach((off) => void off.then((f) => f()));
@@ -660,7 +685,7 @@ export const mockStatus = (() => {
   let output = 0, dnd = false, mode = 2, airplane = false, monitor = false;
   const listeners = new Set<StatusHandlers>();
   return {
-    seed: (): StatusSeed => ({ power, online, devices: buds ? ["Buds"] : [] }),
+    seed: (): StatusSeed => ({ power, online, devices: buds ? ["Buds"] : [], network: null, sound: null }),
     subscribe(h: StatusHandlers) {
       listeners.add(h);
       return () => void listeners.delete(h);

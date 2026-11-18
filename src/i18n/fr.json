@@ -1827,5 +1827,11 @@
  "Infobereich": "Zone de notification",
  "Ausgeblendete Symbole anzeigen": "Afficher les icônes cachées",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Un autre programme gère les icônes de la barre des tâches.",
- "Keine ausgeblendeten Symbole": "Aucune icône cachée"
+ "Keine ausgeblendeten Symbole": "Aucune icône cachée",
+ "Ethernet": "Ethernet",
+ "WLAN: {name}": "Wi-Fi : {name}",
+ "WLAN aus": "Wi-Fi désactivé",
+ "Nicht verbunden": "Non connecté",
+ "Lautstärke {p} %": "Volume {p} %",
+ "Akku {p} %, lädt": "Batterie {p} %, en charge"
 }

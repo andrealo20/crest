@@ -1827,5 +1827,11 @@
  "Infobereich": "Área de notificação",
  "Ausgeblendete Symbole anzeigen": "Mostrar ícones ocultos",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Outro programa gerencia os ícones da barra de tarefas.",
- "Keine ausgeblendeten Symbole": "Nenhum ícone oculto"
+ "Keine ausgeblendeten Symbole": "Nenhum ícone oculto",
+ "Ethernet": "Ethernet",
+ "WLAN: {name}": "Wi-Fi: {name}",
+ "WLAN aus": "Wi-Fi desativado",
+ "Nicht verbunden": "Não conectado",
+ "Lautstärke {p} %": "Volume {p}%",
+ "Akku {p} %, lädt": "Bateria {p}%, carregando"
 }

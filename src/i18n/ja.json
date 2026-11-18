@@ -1827,5 +1827,11 @@
  "Infobereich": "通知領域",
  "Ausgeblendete Symbole anzeigen": "隠れているアイコンを表示",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "別のプログラムがタスクバーのアイコンを管理しています。",
- "Keine ausgeblendeten Symbole": "隠れているアイコンはありません"
+ "Keine ausgeblendeten Symbole": "隠れているアイコンはありません",
+ "Ethernet": "イーサネット",
+ "WLAN: {name}": "Wi-Fi: {name}",
+ "WLAN aus": "Wi-Fi オフ",
+ "Nicht verbunden": "未接続",
+ "Lautstärke {p} %": "音量 {p}%",
+ "Akku {p} %, lädt": "バッテリー {p}%、充電中"
 }

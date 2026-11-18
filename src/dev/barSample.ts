@@ -1,5 +1,7 @@
 import { barFeed } from "../features/taskbar/barStores";
+import { barStatus } from "../features/taskbar/status";
 import { trayPictures, trayState } from "../features/taskbar/tray";
+import { mockStatus } from "../platform/services";
 import { updateSettings } from "../settings/store";
 import { sampleAvatar } from "./showcase-data";
 
@@ -11,6 +13,7 @@ export function fillSample(): void {
   updateSettings((c) => ({ taskbar: { ...c.taskbar, trayShown: ["sample-sync", "sample-chat"] } }));
   trayState.set({ yielded: false, icons: [{ id: "sample-sync", key: "1", tip: "Sync: up to date", img: "sample-sync" }, { id: "sample-chat", key: "2", tip: "Chat: 2 new messages", img: null }] });
   trayPictures.set({ "sample-sync": sampleTrayPicture });
+  barStatus.set({ power: mockStatus.seed().power, network: { kind: "wireless", wifi: true, bars: 4, ssid: "Crest Lab" }, sound: { level: 40, muted: false } });
   barFeed.set({
     weather: { temp: 12, feels: 10, code: 2, wind: 9, day: true },
     // Wider than the title's 160 px, so it scrolls.

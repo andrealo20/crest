@@ -1827,5 +1827,11 @@
  "Infobereich": "Area di notifica",
  "Ausgeblendete Symbole anzeigen": "Mostra icone nascoste",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Un altro programma gestisce le icone della barra.",
- "Keine ausgeblendeten Symbole": "Nessuna icona nascosta"
+ "Keine ausgeblendeten Symbole": "Nessuna icona nascosta",
+ "Ethernet": "Ethernet",
+ "WLAN: {name}": "Wi-Fi: {name}",
+ "WLAN aus": "Wi-Fi disattivato",
+ "Nicht verbunden": "Non connesso",
+ "Lautstärke {p} %": "Volume {p}%",
+ "Akku {p} %, lädt": "Batteria {p}%, in carica"
 }

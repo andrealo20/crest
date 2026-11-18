@@ -1827,5 +1827,11 @@
  "Infobereich": "منطقة الإشعارات",
  "Ausgeblendete Symbole anzeigen": "إظهار الرموز المخفية",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "برنامج آخر يدير رموز شريط المهام.",
- "Keine ausgeblendeten Symbole": "لا رموز مخفية"
+ "Keine ausgeblendeten Symbole": "لا رموز مخفية",
+ "Ethernet": "إيثرنت",
+ "WLAN: {name}": "Wi-Fi: {name}",
+ "WLAN aus": "Wi-Fi متوقف",
+ "Nicht verbunden": "غير متصل",
+ "Lautstärke {p} %": "مستوى الصوت {p}%",
+ "Akku {p} %, lädt": "البطارية {p}%، قيد الشحن"
 }
