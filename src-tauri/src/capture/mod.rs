@@ -59,6 +59,8 @@ pub struct CaptureState {
     live: AtomicBool,
     /// The bars' live glass is switched on: every bar stays out of capture until it is switched off. One for all of them, as
     /// the setting is one.
+    /// shortcut: with several bars the first one switched off lowers it while another bar's copy may still run; one flag per
+    /// label when phase 5 brings bars to other monitors.
     bar_live: AtomicBool,
 }
 
@@ -196,12 +198,20 @@ fn new_file(dir: &Path, prefix: &str, ext: &str) -> Result<PathBuf, String> {
     Ok(dir.join(file_name(prefix, ext, stamp(), |n| dir.join(n).exists())))
 }
 
-/// For a Crest window opened while a recording runs or while Crest is hidden from screen sharing (the floating timer, a copy
-/// on another monitor): exclude it too.
+/// For a Crest window opened while a recording or a screenshot runs, while Crest is hidden from screen sharing or while the
+/// bars' live glass is on (the floating timer, a copy on another monitor, a bar): exclude it too.
 pub(crate) fn exclude_if_capturing(app: &AppHandle) {
-    if app.state::<CaptureState>().excluded() || crate::sharing::hidden() {
-        exclude(app, true);
+    let state = app.state::<CaptureState>();
+    let held = state.excluded() || state.holds.load(Ordering::SeqCst) > 0;
+    if let Some(on) = on_open(held, crate::sharing::hidden(), state.bar_live.load(Ordering::SeqCst)) {
+        exclude(app, on);
     }
+}
+
+/// What `exclude_if_capturing` passes to `exclude`, None when nothing keeps a window out. The bars' glass alone passes false:
+/// the bar goes out on its own flag (`window_affinity`), the other windows stay in.
+fn on_open(held: bool, hidden: bool, bar_live: bool) -> Option<bool> {
+    (held || hidden || bar_live).then_some(held)
 }
 
 /// Every Crest window (the notch, the floating timer, ...) in or out of captures. "Out" ends at the user's choice
@@ -831,6 +841,18 @@ mod affinity_tests {
         assert_eq!(window_affinity(false, false, false, true, "notch"), WDA_NONE);
         // Off, the bar is back in Crest's own captures.
         assert_eq!(window_affinity(true, false, false, false, "taskbar"), WDA_NONE);
+    }
+
+    #[test]
+    fn a_bar_built_while_its_glass_is_on_starts_out_of_captures() {
+        let on = on_open(false, false, true).expect("the bar's glass keeps it out");
+        assert_eq!(window_affinity(on, false, false, true, "taskbar"), WDA_EXCLUDEFROMCAPTURE);
+        // The other windows stay in.
+        assert_eq!(window_affinity(on, false, false, true, "settings"), WDA_NONE);
+        assert_eq!(on_open(false, false, false), None);
+        // A recording or a screenshot under way still takes every window out.
+        assert_eq!(on_open(true, false, true), Some(true));
+        assert_eq!(on_open(false, true, false), Some(false));
     }
 
     #[test]

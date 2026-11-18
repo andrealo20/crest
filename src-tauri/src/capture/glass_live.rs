@@ -156,6 +156,25 @@ fn own(app: &AppHandle, window: &WebviewWindow) -> Result<isize, String> {
     Ok(if window.label() == "notch" { backdrop::notch(window) } else { own_hwnd(window) })
 }
 
+/// The bar `label` is gone (taskbar/bar.rs): its copy stops, the bars' flag goes down with the last bar, as nothing is left to
+/// keep out and the next bar's page sets it again at load, and the device goes when no glass is on. On another thread: the
+/// window's events come on the main thread, which a start or a switch holding LIVE may be waiting for (`exclude`).
+pub(crate) fn forget(app: &AppHandle, label: &str) {
+    let (app, label) = (app.clone(), label.to_string());
+    std::thread::spawn(move || {
+        let state = app.state::<CaptureState>();
+        // LIVE held to the end, as in `switch`.
+        let mut live = slot();
+        stop(&mut live, &label);
+        if !app.webview_windows().keys().any(|l| *l != label && l.starts_with("taskbar")) {
+            state.bar_live.store(false, Ordering::SeqCst);
+        }
+        if !state.live.load(Ordering::SeqCst) && !state.bar_live.load(Ordering::SeqCst) {
+            *lock(&GPU) = None;
+        }
+    });
+}
+
 /// The screen went off or to sleep, the session was locked or went to a remote client (sysevents.rs): every copy stops and
 /// each page hears why.
 pub(crate) fn halt(app: &AppHandle, why: &'static str) {

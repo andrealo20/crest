@@ -128,6 +128,7 @@ pub async fn taskbar_apply(enabled: bool, height: f64, app: AppHandle) -> Result
         WindowEvent::CloseRequested { api, .. } => api.prevent_close(),
         WindowEvent::Destroyed => {
             hit_test::untrack(&handle.state::<HitState>(), LABEL);
+            crate::capture::glass_live::forget(&handle, LABEL);
             DRAWN.store(false, Ordering::SeqCst);
             HANDLE.store(0, Ordering::SeqCst);
         }
