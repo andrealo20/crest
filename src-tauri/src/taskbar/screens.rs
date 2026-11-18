@@ -47,11 +47,9 @@ pub(crate) fn sync(app: &AppHandle) {
     };
     let names: Vec<String> = monitors.iter().filter_map(|m| m.name().cloned()).collect();
     // With the primary's bar there, no monitor or no primary is Windows not answering, not a change: the bars stay as they are.
-    if on && (names.is_empty() || primary.is_none()) {
-        return;
-    }
+    let Some(names) = wanted(on, &names, primary.as_deref()) else { return };
     let wanted: Vec<(String, String)> =
-        others(&names, primary.as_deref()).into_iter().enumerate().map(|(i, name)| (format!("{}-{}", bar::LABEL, i + 1), name)).collect();
+        names.into_iter().enumerate().map(|(i, name)| (format!("{}-{}", bar::LABEL, i + 1), name)).collect();
     let extra: Vec<String> = bars().iter().map(|o| o.label.clone()).filter(|label| wanted.iter().all(|(l, _)| l != label)).collect();
     for label in extra {
         hit_test::untrack(&app.state::<HitState>(), &label);
@@ -172,6 +170,15 @@ fn others(names: &[String], primary: Option<&str>) -> Vec<String> {
     names.iter().filter(|name| name.as_str() != primary).cloned().collect()
 }
 
+/// The monitors that get a bar of their own (`others`) while the primary's bar is there, none while it is off. None for a
+/// read that failed with the primary's bar there (no monitor or no primary listed): the bars stay as they are.
+fn wanted(on: bool, names: &[String], primary: Option<&str>) -> Option<Vec<String>> {
+    if !on {
+        return Some(Vec::new());
+    }
+    (!names.is_empty() && primary.is_some()).then(|| others(names, primary))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,6 +190,16 @@ mod tests {
         assert_eq!(others(&three, Some(r"\\.\DISPLAY2")), n(&[r"\\.\DISPLAY1", r"\\.\DISPLAY3"]));
         assert!(others(&n(&[r"\\.\DISPLAY1"]), Some(r"\\.\DISPLAY1")).is_empty());
         assert!(others(&three, None).is_empty()); // no primary known: never a second bar on the primary's monitor
+    }
+
+    #[test]
+    fn a_monitor_read_that_fails_leaves_the_bars_as_they_are() {
+        let n = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let two = n(&[r"\\.\DISPLAY1", r"\\.\DISPLAY2"]);
+        assert_eq!(wanted(true, &two, Some(r"\\.\DISPLAY1")), Some(n(&[r"\\.\DISPLAY2"]))); // a good read
+        assert_eq!(wanted(true, &[], Some(r"\\.\DISPLAY1")), None); // no monitor listed: Windows not answering
+        assert_eq!(wanted(true, &two, None), None); // no primary named: the same
+        assert_eq!(wanted(false, &[], None), Some(Vec::new())); // the bar off, nothing read: every other bar goes
     }
 
     #[test]
