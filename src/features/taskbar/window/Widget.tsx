@@ -60,12 +60,14 @@ function part(id: PartId, { feed: f, paused, hovered, clock, h12, titleLoop, tim
       return f.weather && { node: <WeatherPart now={f.weather} />, width: weatherWidth() };
     case "title": {
       if (!f.title) return null;
-      const { text, lyric } = f.title, textWidth = measureText(text), width = Math.min(textWidth, ROW.titleMax);
+      // Always titleMax, as the notch counts it (layout.ts naturalWidth): a new line or song never moves the buttons beside it.
+      const { text, lyric } = f.title, textWidth = measureText(text), width = ROW.titleMax;
       return {
         node: lyric ? (
           <LiveLyric text={text} textWidth={textWidth} width={width} paused={hovered || paused} />
         ) : (
-          <Marquee key={text} text={text} textWidth={textWidth} width={width} paused={hovered || paused || !f.playing} endless={titleLoop} />
+          // A shorter caption sits centred in the room, as LiveLyric centres a shorter line: widgetBody's cell centres it.
+          <Marquee key={text} text={text} textWidth={textWidth} width={Math.min(textWidth, width)} paused={hovered || paused || !f.playing} endless={titleLoop} />
         ),
         width,
       };
