@@ -11,6 +11,7 @@
 
 use std::cmp::Reverse;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
 use serde::Serialize;
 use tauri::WebviewWindow;
@@ -140,10 +141,27 @@ fn checked() -> &'static str {
     AppCapability::Create(&HSTRING::from("wiFiControl")).and_then(|c| c.CheckAccess()).map(|s| access_word(s, GRANTED.load(Ordering::Relaxed))).unwrap_or("denied")
 }
 
-/// The first Wi-Fi adapter; "none" without one.
-fn adapter() -> Result<WiFiAdapter, &'static str> {
-    let all = WiFiAdapter::FindAllAdaptersAsync().and_then(|op| op.join()).map_err(|_| "failed")?;
-    all.into_iter().next().ok_or("none")
+/// The adapter the page last scanned with. Windows fills `NetworkReport` from the last scan on that same object, so connecting
+/// and rereading go through it: a new object's report may be empty.
+static ADAPTER: Mutex<Option<WiFiAdapter>> = Mutex::new(None);
+
+/// The value kept in `slot`, or a new one from `find` when `fresh` or none is kept (a failure keeps nothing).
+fn kept<T: Clone>(slot: &Mutex<Option<T>>, fresh: bool, find: impl FnOnce() -> Result<T, &'static str>) -> Result<T, &'static str> {
+    let mut slot = slot.lock().unwrap_or_else(|e| e.into_inner());
+    if let (false, Some(a)) = (fresh, slot.as_ref()) {
+        return Ok(a.clone());
+    }
+    let found = find();
+    *slot = found.as_ref().ok().cloned();
+    found
+}
+
+/// The first Wi-Fi adapter, looked up again when `fresh` (each scan, so an adapter plugged or pulled is seen); "none" without one.
+fn adapter(fresh: bool) -> Result<WiFiAdapter, &'static str> {
+    kept(&ADAPTER, fresh, || {
+        let all = WiFiAdapter::FindAllAdaptersAsync().and_then(|op| op.join()).map_err(|_| "failed")?;
+        all.into_iter().next().ok_or("none")
+    })
 }
 
 /// The page's rows, after a fresh scan when `scan` (the page's first read and its refresh button). Without consent, only the
@@ -156,7 +174,7 @@ pub async fn taskbar_wifi_scan(window: WebviewWindow, scan: bool) -> Result<Wifi
         if state != "allowed" {
             return Ok(WifiList { state, networks: vec![] });
         }
-        let adapter = match adapter() {
+        let adapter = match adapter(scan) {
             Err("none") => return Ok(WifiList { state: "none", networks: vec![] }),
             other => other?,
         };
@@ -219,7 +237,7 @@ pub async fn taskbar_wifi_connect(window: WebviewWindow, ssid: String, password:
         if checked() != "allowed" {
             return Err("denied");
         }
-        let adapter = adapter()?;
+        let adapter = adapter(false)?;
         let report = adapter.NetworkReport().and_then(|r| r.AvailableNetworks()).map_err(|_| "failed")?;
         let net = report
             .into_iter()
@@ -254,7 +272,7 @@ pub async fn taskbar_wifi_disconnect(window: WebviewWindow) -> Result<(), String
         if checked() != "allowed" {
             return Err("denied");
         }
-        adapter()?.Disconnect().map_err(|_| "failed")
+        adapter(false)?.Disconnect().map_err(|_| "failed")
     })
     .await
 }
@@ -325,6 +343,19 @@ mod tests {
         assert_eq!(request_word(WiFiAccessStatus::DeniedByUser), "denied");
         assert_eq!(request_word(WiFiAccessStatus::DeniedBySystem), "denied");
         assert_eq!(request_word(WiFiAccessStatus::Unspecified), "denied");
+    }
+
+    #[test]
+    fn the_scanned_adapter_is_kept_for_connect_and_found_again_at_each_scan() {
+        let slot = Mutex::new(None);
+        assert_eq!(kept(&slot, false, || Ok(1)), Ok(1));
+        // Connect and reread reuse the object the scan filled.
+        assert_eq!(kept(&slot, false, || Ok(2)), Ok(1));
+        assert_eq!(kept(&slot, true, || Ok(3)), Ok(3));
+        assert_eq!(kept(&slot, false, || Ok(4)), Ok(3));
+        // An adapter gone at a scan is forgotten.
+        assert_eq!(kept(&slot, true, || Err("none")), Err::<i32, _>("none"));
+        assert_eq!(kept(&slot, false, || Ok(5)), Ok(5));
     }
 
     #[test]
