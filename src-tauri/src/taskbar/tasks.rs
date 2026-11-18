@@ -211,14 +211,16 @@ fn next_front(z_order: &[isize], skip: isize, usable: impl Fn(isize) -> bool) ->
     z_order.iter().copied().find(|&h| h != skip && usable(h))
 }
 
-/// A bar's part of the list: each app's windows on the bar's monitor (`on_it`), and no app without one there. `active` stays:
-/// only the bar on the front window's monitor has a button that shows it.
+/// A bar's part of the list: each app's windows on the bar's monitor (`on_it`), and no app without one there. It names the window
+/// in front only when that is one of them, so a focus change on another monitor leaves this bar's list, and its page, as they are.
 fn for_monitor(list: &WindowList, on_it: impl Fn(isize) -> bool) -> WindowList {
     let mut here = list.clone();
     for group in &mut here.groups {
         group.windows.retain(|w| on_it(w.id));
     }
     here.groups.retain(|g| !g.windows.is_empty());
+    // `active` is always a listed window, so on this monitor means kept.
+    here.active = list.active.filter(|&id| on_it(id));
     here
 }
 
@@ -661,7 +663,8 @@ mod tests {
         let here = for_monitor(&list, |id| id == 2);
         assert_eq!(here.groups.len(), 1);
         assert_eq!(here.groups[0].windows.iter().map(|w| w.id).collect::<Vec<_>>(), vec![2]); // Chrome keeps only its window on this monitor
-        assert_eq!(here.active, Some(3)); // the window in front is on another monitor: no button here shows it
+        assert_eq!(here.active, None); // the window in front is on another monitor, so this bar's list names none
+        assert_eq!(for_monitor(&list, |id| id == 3).active, Some(3)); // the bar on its monitor keeps it
         assert!(for_monitor(&list, |_| false).groups.is_empty());
     }
 }
