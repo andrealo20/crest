@@ -19,12 +19,15 @@ import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, type Box } from "../look
 import { closePanel, panel, pinDrag, togglePanel } from "../panel";
 import { dropSlot, pinAt } from "../panelModel";
 import { barShown, barWindows, groupIcons } from "../store";
+import { trayState } from "../tray";
+import { splitTray } from "../trayModel";
 import { isWidget, widgetTool } from "../widgets";
 import { BarGlass, useBarSurface } from "./BarGlass";
 import { Capsule } from "./Capsule";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
 import { Item, MARK } from "./Item";
+import { Tray } from "./Tray";
 import { useAutoHide } from "./useAutoHide";
 import { WidgetItem } from "./Widget";
 
@@ -58,7 +61,8 @@ type OpenMenu = Menu & { anchor: Element | null; x: number; w: number };
  * off it, a click.
  */
 export function TaskbarWindow() {
-  const { zones, height, iconSize, surface, pinned, shape } = settings.use().taskbar;
+  const { zones, height, iconSize, surface, pinned, shape, trayShown } = settings.use().taskbar;
+  const { visible: trayVisible } = splitTray(trayState.use().icons, trayShown);
   const { groups, active } = barWindows.use();
   const ink = useClosedInk(undefined);
   const accent = useThemedAccent(undefined);
@@ -109,7 +113,7 @@ export function TaskbarWindow() {
   const tiles = shape === "tiles";
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
   // An open menu or panel holds the bar up, and so does an app asking for attention.
-  const { down, place: placeMenuZone } = useHitZone(bar, shape, setBoxes, `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}`, {
+  const { down, place: placeMenuZone } = useHitZone(bar, shape, setBoxes, `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}`, {
     open: menu !== null || open !== null,
     attention: buttons.some((b) => indicator(b, active) === "attention"),
   });
@@ -213,6 +217,17 @@ export function TaskbarWindow() {
         />
       );
     }
+    if (id === "tray")
+      return (
+        <Tray
+          visible={trayVisible}
+          size={size}
+          item={item}
+          tile={tile}
+          // No menu of its own, as a widget: the Crest menu over the pointer.
+          onMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
+        />
+      );
     if (id === "crest")
       return (
         <Item {...item("crest", t("Crest-Menü"))} tile={tile()} onClick={openCrestMenu} onContextMenu={openCrestMenu}>

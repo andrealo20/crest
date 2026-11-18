@@ -21,6 +21,8 @@ export function Item(props: {
   expanded?: boolean;
   /** A pinned app: its place among the pinned apps (`data-pin`), where an app dragged out of the app menu finds its slot. */
   pin?: number;
+  /** A tray icon kept visible: its place among them (`data-tray`). */
+  tray?: number;
   ref?: Ref<HTMLButtonElement>;
   /** The button's width when its content is not an icon of `size`. */
   width?: number;
@@ -29,6 +31,7 @@ export function Item(props: {
   onEnter: () => void;
   onLeave: () => void;
   onClick: MouseEventHandler<HTMLButtonElement>;
+  onDoubleClick?: MouseEventHandler<HTMLButtonElement>;
   onContextMenu: MouseEventHandler<HTMLButtonElement>;
   children: ReactNode;
 }) {
@@ -44,9 +47,11 @@ export function Item(props: {
       aria-expanded={props.expanded}
       aria-describedby={props.describedBy}
       data-pin={props.pin}
+      data-tray={props.tray}
       onPointerEnter={props.onEnter}
       onPointerLeave={props.onLeave}
       onClick={props.onClick}
+      onDoubleClick={props.onDoubleClick}
       onContextMenu={props.onContextMenu}
       data-tile={props.tile ? "" : undefined}
       className="group relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"

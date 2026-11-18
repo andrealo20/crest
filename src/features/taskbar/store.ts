@@ -6,7 +6,7 @@ import { taskbar } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { normalizeFavorites } from "../launcher/apps";
 import { feedStores, panelStores } from "./barStores";
-import type { TaskbarSettings, WindowList } from "./model";
+import { trayWanted, type TaskbarSettings, type WindowList } from "./model";
 
 /** In the bar's window: the open windows grouped by app, as Rust last sent them. */
 export const barWindows = createStore<WindowList>({ groups: [], active: null });
@@ -28,14 +28,21 @@ export function startTaskbar() {
   if (!isNative || isMac) return;
   let last = "";
   let hides: boolean | null = null;
+  let tray: boolean | null = null;
   let queue = Promise.resolve();
   let seeded = false;
   const sync = () => {
     const { enabled, height, shape, pinned, autoHide } = settings.get().taskbar;
+    const wantTray = trayWanted(settings.get().taskbar);
     // Outside the queue: a flag the display poll reads, which never waits for a bar to be built or taken down.
     if (autoHide !== hides) {
       hides = autoHide;
       void taskbar.autoHide(autoHide);
+    }
+    // Likewise: Rust starts the spy only while a bar shows the tray and stops it, giving Explorer every icon back, otherwise.
+    if (wantTray !== tray) {
+      tray = wantTray;
+      void taskbar.trayOn(wantTray).catch(() => {});
     }
     // One try per start: a failed read leaves the list to the next start, and an app pinned meanwhile is never overwritten.
     if (enabled && pinned === null && !seeded) {

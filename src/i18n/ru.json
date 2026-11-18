@@ -1820,5 +1820,7 @@
  "Von Windows übernehmen": "Импорт из Windows",
  "Wirklich ersetzen?": "Точно заменить?",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "На панели задач Windows нет закреплённых приложений",
- "Die Apps von Windows lassen sich gerade nicht lesen": "Сейчас не удаётся прочитать приложения Windows"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "Сейчас не удаётся прочитать приложения Windows",
+ "Infobereich": "Область уведомлений",
+ "Ausgeblendete Symbole anzeigen": "Показать скрытые значки"
 }

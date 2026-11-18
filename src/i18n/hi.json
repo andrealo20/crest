@@ -1820,5 +1820,7 @@
  "Von Windows übernehmen": "Windows से आयात करें",
  "Wirklich ersetzen?": "क्या सचमुच बदलना है?",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "Windows टास्कबार पर कोई ऐप पिन नहीं है",
- "Die Apps von Windows lassen sich gerade nicht lesen": "Windows के ऐप अभी पढ़े नहीं जा सकते"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "Windows के ऐप अभी पढ़े नहीं जा सकते",
+ "Infobereich": "सूचना क्षेत्र",
+ "Ausgeblendete Symbole anzeigen": "छिपे हुए आइकन दिखाएँ"
 }

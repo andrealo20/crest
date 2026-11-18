@@ -1820,5 +1820,7 @@
  "Von Windows übernehmen": "Import from Windows",
  "Wirklich ersetzen?": "Replace them?",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "No app is pinned on the Windows taskbar",
- "Die Apps von Windows lassen sich gerade nicht lesen": "Windows' apps can't be read right now"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "Windows' apps can't be read right now",
+ "Infobereich": "Notification area",
+ "Ausgeblendete Symbole anzeigen": "Show hidden icons"
 }

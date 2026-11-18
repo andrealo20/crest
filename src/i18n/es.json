@@ -1820,5 +1820,7 @@
  "Von Windows übernehmen": "Importar de Windows",
  "Wirklich ersetzen?": "¿Seguro que quieres reemplazarlas?",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "No hay ninguna app anclada en la barra de tareas de Windows",
- "Die Apps von Windows lassen sich gerade nicht lesen": "No se pueden leer las apps de Windows ahora"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "No se pueden leer las apps de Windows ahora",
+ "Infobereich": "Área de notificaciones",
+ "Ausgeblendete Symbole anzeigen": "Mostrar iconos ocultos"
 }

@@ -1820,5 +1820,7 @@
  "Von Windows übernehmen": "从 Windows 导入",
  "Wirklich ersetzen?": "确定替换吗？",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "Windows 任务栏上没有固定的应用",
- "Die Apps von Windows lassen sich gerade nicht lesen": "暂时无法读取 Windows 的应用"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "暂时无法读取 Windows 的应用",
+ "Infobereich": "通知区域",
+ "Ausgeblendete Symbole anzeigen": "显示隐藏的图标"
 }

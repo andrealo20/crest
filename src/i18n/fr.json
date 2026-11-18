@@ -1820,5 +1820,7 @@
  "Von Windows übernehmen": "Importer depuis Windows",
  "Wirklich ersetzen?": "Vraiment remplacer ?",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "Aucune application n'est épinglée dans la barre des tâches de Windows",
- "Die Apps von Windows lassen sich gerade nicht lesen": "Impossible de lire les applications de Windows pour le moment"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "Impossible de lire les applications de Windows pour le moment",
+ "Infobereich": "Zone de notification",
+ "Ausgeblendete Symbole anzeigen": "Afficher les icônes cachées"
 }

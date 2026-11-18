@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Reorder } from "motion/react";
-import { AppWindow, DotsSixVertical, SquaresFour, WarningCircle } from "@phosphor-icons/react";
+import { AppWindow, CaretUp, DotsSixVertical, SquaresFour, WarningCircle } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { liveSupport } from "../../notch/glass/live";
@@ -38,8 +38,8 @@ export function useTaskbarShown(): boolean {
 /** The bar's zones, physical: left stays left in a right-to-left language. */
 const ZONES: Zone[] = ["left", "center", "right"];
 const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte", right: "Rechte Seite" };
-/** What the bar draws for each fixed item: the app menu's button, the apps' buttons, and the button of the Crest menu. A widget has its part's name. */
-const ITEM_LABEL: Record<Exclude<BarItem, PartId>, string> = { start: "App-Menü", apps: "Apps und Fenster", crest: "Crest-Menü" };
+/** What the bar draws for each fixed item: the app menu's button, the apps' buttons, the button of the Crest menu and the notification area. A widget has its part's name. */
+const ITEM_LABEL: Record<Exclude<BarItem, PartId>, string> = { start: "App-Menü", apps: "Apps und Fenster", crest: "Crest-Menü", tray: "Infobereich" };
 const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "Schwebend", capsule: "Kapsel", tiles: "Kacheln" };
 
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, and where the system icons it leaves out are. */
@@ -101,14 +101,14 @@ export function TaskbarItems() {
                 <ItemIcon id={id} />
                 {/* From its own width, so a narrow page shrinks it along with a widget's options instead of first. */}
                 <span className="min-w-0 flex-auto truncate text-body text-label select-none">{t(isWidget(id) ? partInfo[id].label : ITEM_LABEL[id])}</span>
-                {isWidget(id) && <WidgetOptions id={id} />}
+                {(isWidget(id) || id === "tray") && <WidgetOptions id={id} />}
                 <div onPointerDown={(e) => e.stopPropagation()}>
                   {/* The menu also reports its current zone when picked again, which would send the item to that zone's end. A widget goes in as "+" puts it, before the Crest button. */}
                   <Select
                     width="w-36"
                     value={zone}
                     options={options}
-                    onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: isWidget(id) ? addWidget(removeWidget(cur.zones, id), id, to) : moveItem(cur.zones, id, to) }))}
+                    onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: isWidget(id) || id === "tray" ? addWidget(removeWidget(cur.zones, id), id, to) : moveItem(cur.zones, id, to) }))}
                   />
                 </div>
               </Reorder.Item>
@@ -123,7 +123,7 @@ export function TaskbarItems() {
   );
 }
 
-/** An item's icon: Crest's mark, the app menu's squares, the apps' window, or a widget's part as the settings show it. A new fixed item does not compile without one. */
+/** An item's icon: Crest's mark, the app menu's squares, the apps' window, the tray's ^ or a widget's part as the settings show it. A new fixed item does not compile without one. */
 function ItemIcon({ id }: { id: BarItem }) {
   if (isWidget(id)) {
     const I = partInfo[id].icon;
@@ -132,6 +132,7 @@ function ItemIcon({ id }: { id: BarItem }) {
   if (id === "start") return <SquaresFour size={15} weight="bold" className="shrink-0 text-label-2" />;
   if (id === "apps") return <AppWindow size={15} weight="bold" className="shrink-0 text-label-2" />;
   if (id === "crest") return <CrestMark size={15} className="shrink-0 text-label-2" />;
+  if (id === "tray") return <CaretUp size={15} weight="bold" className="shrink-0 text-label-2" />;
   return id satisfies never;
 }
 

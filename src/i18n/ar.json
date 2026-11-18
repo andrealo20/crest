@@ -1820,5 +1820,7 @@
  "Von Windows übernehmen": "استيراد من Windows",
  "Wirklich ersetzen?": "هل تريد الاستبدال فعلًا؟",
  "Auf der Windows-Taskleiste ist keine App angeheftet": "لا يوجد أي تطبيق مثبّت على شريط مهام Windows",
- "Die Apps von Windows lassen sich gerade nicht lesen": "يتعذّر قراءة تطبيقات Windows حاليًا"
+ "Die Apps von Windows lassen sich gerade nicht lesen": "يتعذّر قراءة تطبيقات Windows حاليًا",
+ "Infobereich": "منطقة الإشعارات",
+ "Ausgeblendete Symbole anzeigen": "إظهار الرموز المخفية"
 }

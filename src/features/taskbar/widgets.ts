@@ -31,16 +31,16 @@ export const barSources = (parts: readonly PartId[], media: boolean): readonly P
 
 /**
  * The zones with `id` last in `to`, before the Crest button when the zone ends with it, so the button stays at the edge; a
- * widget already on the bar leaves them as they are.
+ * widget (or the tray) already on the bar leaves them as they are.
  */
-export function addWidget(zones: Record<Zone, BarItem[]>, id: PartId, to: Zone): Record<Zone, BarItem[]> {
-  if (barWidgets(zones).includes(id)) return zones;
+export function addWidget(zones: Record<Zone, BarItem[]>, id: PartId | "tray", to: Zone): Record<Zone, BarItem[]> {
+  if (Object.values(zones).some((items) => items.includes(id))) return zones;
   const items = zones[to], at = items.at(-1) === "crest" ? items.length - 1 : items.length;
   return { ...zones, [to]: [...items.slice(0, at), id, ...items.slice(at)] };
 }
 
 /** The zones without `id`. */
-export const removeWidget = (zones: Record<Zone, BarItem[]>, id: PartId): Record<Zone, BarItem[]> => ({
+export const removeWidget = (zones: Record<Zone, BarItem[]>, id: PartId | "tray"): Record<Zone, BarItem[]> => ({
   left: zones.left.filter((x) => x !== id),
   center: zones.center.filter((x) => x !== id),
   right: zones.right.filter((x) => x !== id),
