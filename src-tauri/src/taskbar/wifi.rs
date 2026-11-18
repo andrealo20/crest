@@ -10,6 +10,7 @@
 //! command answers "settings" (the bar never runs there anyway).
 
 use std::cmp::Reverse;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Serialize;
 use tauri::WebviewWindow;
@@ -87,11 +88,16 @@ fn rows(seen: Vec<Seen>, connected: Option<&str>, saved: &[String]) -> Vec<WifiN
     out
 }
 
-/// Windows' consent as `CheckAccess` reads it. An unpackaged app may get "not declared": its click asks Windows, which answers
-/// at once when Crest is already allowed.
-fn access_word(s: AppCapabilityAccessStatus) -> &'static str {
+/// Windows' prompt answered "allowed" in this run. An unpackaged app may read "not declared" from `CheckAccess` even then, so
+/// that reading counts as allowed once the prompt granted it; after a restart the first click answers at once.
+static GRANTED: AtomicBool = AtomicBool::new(false);
+
+/// Windows' consent as `CheckAccess` reads it, `granted` being the prompt's answer in this run. An unpackaged app may get "not
+/// declared": its click asks Windows, which answers at once when Crest is already allowed.
+fn access_word(s: AppCapabilityAccessStatus, granted: bool) -> &'static str {
     match s {
         AppCapabilityAccessStatus::Allowed => "allowed",
+        AppCapabilityAccessStatus::NotDeclaredByApp if granted => "allowed",
         AppCapabilityAccessStatus::UserPromptRequired | AppCapabilityAccessStatus::NotDeclaredByApp => "ask",
         _ => "denied",
     }
@@ -131,7 +137,7 @@ async fn run<T: Send + 'static>(job: impl FnOnce() -> Result<T, &'static str> + 
 
 /// Windows' consent, read without prompting.
 fn checked() -> &'static str {
-    AppCapability::Create(&HSTRING::from("wiFiControl")).and_then(|c| c.CheckAccess()).map(access_word).unwrap_or("denied")
+    AppCapability::Create(&HSTRING::from("wiFiControl")).and_then(|c| c.CheckAccess()).map(|s| access_word(s, GRANTED.load(Ordering::Relaxed))).unwrap_or("denied")
 }
 
 /// The first Wi-Fi adapter; "none" without one.
@@ -197,8 +203,10 @@ pub async fn taskbar_wifi_scan(window: WebviewWindow, scan: bool) -> Result<Wifi
 #[tauri::command]
 pub async fn taskbar_wifi_allow(window: WebviewWindow) -> Result<String, String> {
     guard(&window)?;
-    let word = run(|| WiFiAdapter::RequestAccessAsync().and_then(|op| op.join()).map(request_word).map_err(|_| "failed")).await?;
+    let word = run(|| WiFiAdapter::RequestAccessAsync().and_then(|op| op.join()).map(request_word).map_err(|_| "failed")).await;
     let _ = window.set_focus();
+    let word = word?;
+    GRANTED.store(word == "allowed", Ordering::Relaxed);
     Ok(word.into())
 }
 
@@ -304,11 +312,15 @@ mod tests {
     #[test]
     fn access_is_asked_only_where_windows_would_prompt() {
         use AppCapabilityAccessStatus as C;
-        assert_eq!(access_word(C::Allowed), "allowed");
-        assert_eq!(access_word(C::UserPromptRequired), "ask");
-        assert_eq!(access_word(C::NotDeclaredByApp), "ask");
-        assert_eq!(access_word(C::DeniedByUser), "denied");
-        assert_eq!(access_word(C::DeniedBySystem), "denied");
+        assert_eq!(access_word(C::Allowed, false), "allowed");
+        assert_eq!(access_word(C::UserPromptRequired, false), "ask");
+        assert_eq!(access_word(C::NotDeclaredByApp, false), "ask");
+        assert_eq!(access_word(C::DeniedByUser, false), "denied");
+        assert_eq!(access_word(C::DeniedBySystem, false), "denied");
+        // Granted by the prompt in this run: honoured only where an unpackaged Crest reads "not declared".
+        assert_eq!(access_word(C::NotDeclaredByApp, true), "allowed");
+        assert_eq!(access_word(C::UserPromptRequired, true), "ask");
+        assert_eq!(access_word(C::DeniedByUser, true), "denied");
         assert_eq!(request_word(WiFiAccessStatus::Allowed), "allowed");
         assert_eq!(request_word(WiFiAccessStatus::DeniedByUser), "denied");
         assert_eq!(request_word(WiFiAccessStatus::DeniedBySystem), "denied");
