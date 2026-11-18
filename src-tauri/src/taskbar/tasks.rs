@@ -24,12 +24,12 @@ use windows::Win32::System::Threading::{GetCurrentProcessId, OpenProcess, PROCES
 use windows::Win32::UI::Input::KeyboardAndMouse::IsWindowEnabled;
 use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow};
 use windows::Win32::UI::WindowsAndMessaging::{
-    AllowSetForegroundWindow, GetAncestor, GetForegroundWindow, GetLastActivePopup, GetWindow, GetWindowLongPtrW, GetWindowTextW, IsIconic,
-    IsWindowVisible, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED, EVENT_OBJECT_DESTROY,
-    EVENT_OBJECT_HIDE, EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND,
-    EVENT_SYSTEM_MINIMIZESTART, GA_ROOT, GA_ROOTOWNER, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HSHELL_HIGHBIT, HSHELL_MONITORCHANGED, HSHELL_REDRAW,
-    HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, SC_CLOSE, SC_MINIMIZE, SW_RESTORE, WM_SYSCOMMAND, WS_EX_APPWINDOW, WS_EX_NOACTIVATE,
-    WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_MINIMIZEBOX,
+    AllowSetForegroundWindow, GetAncestor, GetDesktopWindow, GetForegroundWindow, GetLastActivePopup, GetShellWindow, GetWindow, GetWindowLongPtrW,
+    GetWindowTextW, IsIconic, IsWindowVisible, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED,
+    EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND,
+    EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, GA_ROOT, GA_ROOTOWNER, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HSHELL_HIGHBIT,
+    HSHELL_MONITORCHANGED, HSHELL_REDRAW, HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, SC_CLOSE, SC_MINIMIZE, SW_RESTORE, WM_SYSCOMMAND,
+    WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_MINIMIZEBOX,
 };
 
 use super::screens;
@@ -276,13 +276,20 @@ pub(super) fn on_event(event: u32, hwnd: HWND) {
     if event == EVENT_SYSTEM_FOREGROUND {
         if listed {
             LAST_APP.store(id, Ordering::SeqCst);
-        } else if display::is_desktop(hwnd) || display::window_pid(hwnd) == unsafe { GetCurrentProcessId() } {
+        } else if desktop_itself(hwnd) || display::window_pid(hwnd) == unsafe { GetCurrentProcessId() } {
             LAST_APP.store(0, Ordering::SeqCst);
         }
     }
     if !armed && arms(event, listed, || could_list(hwnd)) {
         arm();
     }
+}
+
+/// The desktop's own windows. Not Windows' taskbars, which `display::is_desktop` also counts: the hidden one takes the front as
+/// Start opens, and must not clear the last app.
+fn desktop_itself(hwnd: HWND) -> bool {
+    let desktop = unsafe { hwnd == GetDesktopWindow() || hwnd == GetShellWindow() };
+    desktop || matches!(display::class_name(hwnd).as_str(), "Progman" | "WorkerW")
 }
 
 /// A shell hook code (mod.rs): flashing and ghost windows wait for the next list; a window moved to another monitor only needs

@@ -1,4 +1,5 @@
-// The rules of the panel above Crest's bar: what it shows, which tools open in it, how big it is, and where an app dragged out of the bar is pinned. Pure, so they can be tested without the app around them.
+// The rules of the panel above Crest's bar: what it shows, which tools open in it, how big it is, and where an app dragged out of
+// the bar is pinned. Pure, so they can be tested without the app around them.
 
 import { DOCK_HEIGHT } from "../../notch/geometry.ts";
 import type { Favorite } from "../launcher/apps.ts";

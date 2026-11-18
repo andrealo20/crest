@@ -48,7 +48,7 @@ export function TaskbarGeneral() {
   const { enabled, autoHide } = settings.use().taskbar;
   // Bars that stay up with auto-hide on (Rust front.rs `stays_up`), read as the page opens and when the switch changes.
   const [blocked, setBlocked] = useState(0);
-  useEffect(() => void taskbar.slideBlocked().then(setBlocked), [autoHide]);
+  useEffect(() => void taskbar.slideBlocked().then(setBlocked, () => {}), [autoHide]);
   return (
     <Group id="settings-taskbar">
       <Row

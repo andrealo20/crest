@@ -52,7 +52,7 @@ test("every fixed item sits in exactly one zone", () => {
   assert.deepEqual(normalizeZones({ right: ["apps"] }), { left: [], center: ["start"], right: ["apps", "crest"] }); // a missing item returns at its default index, here past the end
 });
 
-test("the app menu's button comes first in the middle, also on a bar saved before it existed", () => {
+test("the Start button comes first in the middle, also on a bar saved before it existed", () => {
   assert.deepEqual(TASKBAR_DEFAULTS.zones.center, ["start", "apps"]);
   assert.deepEqual(normalizeZones({ left: [], center: ["apps"], right: ["crest"] }).center, ["start", "apps"]); // a phase 2 save
 });

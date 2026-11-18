@@ -322,8 +322,9 @@ function dropAt(bar: HTMLElement | null, x: number, y: number) {
 }
 
 /**
- * An app dragged out (pinDrag): its icon under the pointer and, over the bar, a line in the gap it would be pinned
- * in. Let go there, it is pinned there; anywhere else the pins stay as they are. Nothing of it runs while no app is dragged.
+ * An app dragged onto the bar from a list (pinDrag; none drags one since the app menu went, the tray will): its icon under the
+ * pointer and, over the bar, a line in the gap it would be pinned in. Let go there, it is pinned there; anywhere else the pins stay
+ * as they are. Nothing of it runs while no app is dragged.
  */
 function PinDrop({ bar, firstApp, size }: { bar: RefObject<HTMLDivElement | null>; firstApp: RefObject<HTMLButtonElement | null>; size: number }) {
   const drag = pinDrag.use();

@@ -281,7 +281,8 @@ fn set_mode_locked(scan: &mut Scan, wanted: Mode) {
                     let _ = guard.wait();
                 }
             }
-            // The restore took the record it was about.
+            // Off ends the auto-hide retry. A record kept because Explorer was down is reused by the next hide, which does not
+            // retry.
             scan.missed = false;
             scan.mode = Mode::Off;
         }

@@ -6,7 +6,7 @@ import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 
 /** The bar's zones. Physical, as the closed row's: left stays left in a right-to-left language. */
 export type Zone = "left" | "center" | "right";
-/** What the zones hold: the app menu's button ("start"), the apps (pinned and open), the Crest button and the closed notch's parts as widgets. */
+/** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button and the closed notch's parts as widgets. */
 export type BarItem = "start" | "apps" | "crest" | PartId;
 /** The bar's shape: along the screen's edge with no gaps, floating above it, a capsule, or a tile per item. */
 export type BarShape = "docked" | "floating" | "capsule" | "tiles";

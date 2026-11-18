@@ -151,8 +151,9 @@ fn in_bar(frame: RECT, (x, y): (i32, i32), scale: f64) -> Rect {
 pub(crate) fn poll(app: &AppHandle, raw: HWND, foreground: HWND) {
     let bars = screens::all();
     if bars.is_empty() {
-        // The bars are off: what came before them is forgotten.
+        // The bars are off: what came before them is forgotten, and the hold, so bars built later hear it on its next change.
         SEEN.set(Seen::default());
+        HELD.store(false, Ordering::SeqCst);
         return;
     }
     let own = unsafe { GetCurrentProcessId() };
