@@ -6,7 +6,7 @@ import { taskbar } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { normalizeFavorites } from "../launcher/apps";
 import { feedStores, panelStores } from "./barStores";
-import type { TaskbarSettings, WindowList } from "./model";
+import { applyWindowsPins, type TaskbarSettings, type WindowList } from "./model";
 
 /** In the bar's window: the open windows grouped by app, as Rust last sent them. */
 export const barWindows = createStore<WindowList>({ groups: [], active: null });
@@ -22,7 +22,8 @@ export function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSetti
 
 /**
  * The notch applies the bar's on/off, height, docking and hiding to Rust, the only window that does: as saved when Crest starts, then
- * on every change of any. The first time the bar is on and its pinned list was never filled, the notch fills it with Windows' pinned apps.
+ * on every change of any. The first time the bar is on and its pinned list was never filled, the notch fills it with Windows' pinned apps;
+ * while the bar is on, what is pinned or unpinned on Windows' taskbar follows on it (followPins).
  */
 export function startTaskbar() {
   if (!isNative || isMac) return;
@@ -30,6 +31,32 @@ export function startTaskbar() {
   let hides: boolean | null = null;
   let queue = Promise.resolve();
   let seeded = false;
+  let offPins: (() => void) | null = null;
+  let reading = false;
+  let again = false;
+  // One read at a time; a change heard during one is read once more after it. Applied to the settings as they are then, to a pinned
+  // list never seeded not at all (the seed brings Windows' pins), and only from a good read, so a failed one keeps the remembered ids.
+  const followPins = () => {
+    if (reading) {
+      again = true;
+      return;
+    }
+    reading = true;
+    void taskbar
+      .windowsPins(settings.get().taskbar.windowsPins)
+      .then((r) => {
+        if (!r.ok) return;
+        const change = { added: normalizeFavorites(r.added) ?? [], removed: r.removed };
+        updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: s.taskbar.pinned && applyWindowsPins(s.taskbar.pinned, change), windowsPins: r.now } }));
+      }, () => {})
+      .finally(() => {
+        reading = false;
+        if (again) {
+          again = false;
+          if (offPins) followPins();
+        }
+      });
+  };
   const sync = () => {
     const { enabled, height, shape, pinned, autoHide } = settings.get().taskbar;
     // Outside the queue: a flag the display poll reads, which never waits for a bar to be built or taken down.
@@ -43,6 +70,14 @@ export function startTaskbar() {
       void taskbar.importPins().then((apps) => {
         if (settings.get().taskbar.pinned === null) updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: normalizeFavorites(apps) } }));
       }, () => {});
+    }
+    // Once as the bar comes on, for what changed while Crest was closed, then on each change Rust hears.
+    if (enabled && !offPins) {
+      offPins = taskbar.onWindowsPins(followPins);
+      followPins();
+    } else if (!enabled && offPins) {
+      offPins();
+      offPins = null;
     }
     // A docked bar takes no gaps off the work area; the other shapes differ only in the bar's page.
     const docked = shape === "docked";

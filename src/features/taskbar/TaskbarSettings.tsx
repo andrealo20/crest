@@ -174,7 +174,8 @@ export function TaskbarApps() {
     void taskbar.importPins().then(
       (apps) => {
         const next = normalizeFavorites(apps);
-        if (next?.length) setTaskbar({ pinned: next });
+        // Windows' pins as remembered too, so its next change is followed from these and not taken for the first read.
+        if (next?.length) setTaskbar({ pinned: next, windowsPins: next.map((f) => f.id) });
         else setOutcome("none");
       },
       () => setOutcome("failed"),

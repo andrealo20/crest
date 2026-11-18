@@ -8,13 +8,24 @@
 //!
 //! The apps come in the value's order, then those only the folder has, by file name. Without the value (missing, or changed by a
 //! Windows update) the folder alone remains.
+//!
+//! While the bar runs, the bar follows Windows' own pins too (`taskbar_windows_pins`): a thread watches the `Taskband` key
+//! (`watch`) and tells the notch, which asks what changed since the list it remembers, and once at the bar's start for what
+//! changed while Crest was closed. Only a read of both sources counts, and a pin leaves the bar only when its app is surely
+//! unpinned (`follow`).
 
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::thread::JoinHandle;
 
-use tauri::{AppHandle, Manager};
-use windows::core::{w, HSTRING};
-use windows::Win32::Foundation::ERROR_SUCCESS;
-use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_BINARY};
+use serde::Serialize;
+use tauri::{AppHandle, Emitter, Manager};
+use windows::core::{w, HSTRING, PCWSTR};
+use windows::Win32::Foundation::{CloseHandle, ERROR_SUCCESS, HANDLE, WAIT_OBJECT_0, WAIT_TIMEOUT};
+use windows::Win32::System::Registry::{
+    RegCloseKey, RegGetValueW, RegNotifyChangeKeyValue, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, KEY_NOTIFY, REG_NOTIFY_CHANGE_LAST_SET, RRF_RT_REG_BINARY,
+};
+use windows::Win32::System::Threading::{CreateEventW, SetEvent, WaitForMultipleObjects, WaitForSingleObject, INFINITE};
 use windows::Win32::UI::Shell::{FOLDERID_UserPinned, IShellItem2, SHCreateItemFromParsingName, SHGetKnownFolderPath, KF_FLAG_DEFAULT};
 
 use super::tasks::APP_USER_MODEL_ID;
@@ -47,33 +58,33 @@ fn order(mut found: Vec<(usize, String)>, folder: Vec<String>) -> Vec<String> {
     ids
 }
 
-/// The `Favorites` value, empty when it is missing or cannot be read (one that grew between the two reads is too big for its
+/// The `Favorites` value; None when it is missing or cannot be read (one that grew between the two reads is too big for its
 /// buffer).
-fn favorites() -> Vec<u8> {
+fn favorites() -> Option<Vec<u8>> {
     let read = |data: Option<*mut core::ffi::c_void>, size: &mut u32| {
-        let key = w!(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband");
-        (unsafe { RegGetValueW(HKEY_CURRENT_USER, key, w!("Favorites"), RRF_RT_REG_BINARY, None, data, Some(size)) }) == ERROR_SUCCESS
+        (unsafe { RegGetValueW(HKEY_CURRENT_USER, TASKBAND, w!("Favorites"), RRF_RT_REG_BINARY, None, data, Some(size)) }) == ERROR_SUCCESS
     };
     let mut size = 0;
     if !read(None, &mut size) {
-        return Vec::new();
+        return None;
     }
     let mut value = vec![0u8; size as usize];
     if !read(Some(value.as_mut_ptr().cast()), &mut size) {
-        return Vec::new();
+        return None;
     }
     value.truncate(size as usize);
-    value
+    Some(value)
 }
 
 /// The shortcuts in `User Pinned\TaskBar` by file name, as the ids of their entries in the Start list: by the shortcut's
-/// AppUserModelID, else by the exe it starts with no arguments. A shortcut without an entry (a portable exe) is left out.
-fn folder(apps: &[App]) -> Vec<String> {
+/// AppUserModelID, else by the exe it starts with no arguments. A shortcut without an entry (a portable exe) is left out. None
+/// when the folder cannot be read.
+fn folder(apps: &[App]) -> Option<Vec<String>> {
     let dir = unsafe { SHGetKnownFolderPath(&FOLDERID_UserPinned, KF_FLAG_DEFAULT, None) }.ok().and_then(|p| unsafe { crate::controls::take(p) });
-    let Some(Ok(files)) = dir.map(|dir| std::fs::read_dir(Path::new(&dir).join("TaskBar"))) else { return Vec::new() };
+    let Some(Ok(files)) = dir.map(|dir| std::fs::read_dir(Path::new(&dir).join("TaskBar"))) else { return None };
     let mut links: Vec<PathBuf> = files.flatten().map(|f| f.path()).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk"))).collect();
     links.sort();
-    links
+    let ids = links
         .iter()
         .filter_map(|link| unsafe {
             let item: IShellItem2 = SHCreateItemFromParsingName(&HSTRING::from(link.as_path()), None).ok()?;
@@ -82,14 +93,41 @@ fn folder(apps: &[App]) -> Vec<String> {
             let exe = if aumid.is_some() { String::new() } else { launcher::shortcut_exe(&item)? };
             launcher::entries_for(apps, aumid.as_deref(), &exe).into_iter().next().map(|a| a.id)
         })
-        .collect()
+        .collect();
+    Some(ids)
 }
 
-/// The Start list's entries pinned on Windows' taskbar, in Windows' order (`order`). Needs COM: run it through `launcher::on_sta`.
+/// The ids of the Start list's entries in the value and the folder, in Windows' order (`order`).
+fn ids(apps: &[App], value: &[u8], folder: Vec<String>) -> Vec<String> {
+    let found = apps.iter().filter_map(|a| Some((find_whole(value, a.id.strip_prefix(launcher::APPS_PREFIX)?)?, a.id.clone()))).collect();
+    order(found, folder)
+}
+
+/// The Start list's entries pinned on Windows' taskbar, in Windows' order, from what of the two sources can be read. Needs COM:
+/// run it through `launcher::on_sta`.
 fn pinned(apps: &[App]) -> Vec<App> {
-    let value = favorites();
-    let found = apps.iter().filter_map(|a| Some((find_whole(&value, a.id.strip_prefix(launcher::APPS_PREFIX)?)?, a.id.clone()))).collect();
-    order(found, folder(apps)).into_iter().filter_map(|id| apps.iter().find(|a| a.id == id).cloned()).collect()
+    let ids = ids(apps, &favorites().unwrap_or_default(), folder(apps).unwrap_or_default());
+    ids.into_iter().filter_map(|id| apps.iter().find(|a| a.id == id).cloned()).collect()
+}
+
+/// The ids pinned on Windows' taskbar now, in Windows' order; None unless both sources and the Start list are read, so a failed
+/// read never looks like apps unpinned. Needs COM: run it through `launcher::on_sta`.
+fn read(apps: &[App]) -> Option<Vec<String>> {
+    if apps.is_empty() {
+        return None;
+    }
+    Some(ids(apps, &favorites()?, folder(apps)?))
+}
+
+/// What changed on Windows' taskbar since `last`, the ids read the time before: the ids new in `now`, and those gone from it that
+/// the Start list still knows or that are no longer installed (one the Start list missed but still installed stays: a list read
+/// in part). The first read (`last` None) only remembers. None when more than half of a list of four or more went at once: a
+/// read that failed, not apps unpinned.
+fn follow(last: Option<&[String]>, now: &[String], known: impl Fn(&str) -> bool, installed: impl Fn(&str) -> bool) -> Option<(Vec<String>, Vec<String>)> {
+    let Some(last) = last else { return Some((Vec::new(), Vec::new())) };
+    let added: Vec<String> = now.iter().filter(|id| !last.contains(id)).cloned().collect();
+    let removed: Vec<String> = last.iter().filter(|id| !now.contains(id) && (known(id) || !installed(id))).cloned().collect();
+    (last.len() < 4 || removed.len() * 2 <= last.len()).then_some((added, removed))
 }
 
 /// The Start entries pinned on Windows' taskbar, in Windows' order, for the bar's pinned list. An error only when the Start list
@@ -102,6 +140,118 @@ pub async fn taskbar_import_pins(app: AppHandle) -> Result<Vec<App>, String> {
     })
     .await
     .map_err(|_| "failed".to_string())?
+}
+
+/// Windows' pins now, and what changed since the ids the notch remembered (`follow`). `ok` false, with nothing else, when they
+/// cannot be read or the read looks failed: the notch then changes nothing and keeps what it remembered.
+#[derive(Default, Serialize)]
+pub struct WindowsPins {
+    ok: bool,
+    now: Vec<String>,
+    added: Vec<App>,
+    removed: Vec<String>,
+}
+
+/// The bar's pins follow Windows' (store.ts `startTaskbar`): the notch asks at the bar's start, for what changed while Crest was
+/// closed, and on each `taskbar://windows-pins`, with the ids of its last answer (None the first time). The Start list is read
+/// as the import reads it, so one not read yet at the bar's start is read now. The notch only.
+#[tauri::command]
+pub async fn taskbar_windows_pins(app: AppHandle, last: Option<Vec<String>>) -> WindowsPins {
+    tauri::async_runtime::spawn_blocking(move || {
+        let apps = launcher::apps(&app.state::<LauncherState>(), false).ok()?;
+        launcher::on_sta(move || {
+            let now = read(&apps)?;
+            let known = |id: &str| apps.iter().any(|a| a.id == id);
+            let installed = |id: &str| match id.strip_prefix(launcher::APPS_PREFIX) {
+                Some(aumid) => launcher::in_apps_folder(aumid),
+                None => Path::new(id).is_file(),
+            };
+            let (added, removed) = follow(last.as_deref(), &now, known, installed)?;
+            let added = added.iter().filter_map(|id| apps.iter().find(|a| &a.id == id).cloned()).collect();
+            Some(WindowsPins { ok: true, now, added, removed })
+        })?
+    })
+    .await
+    .ok()
+    .flatten()
+    .unwrap_or_default()
+}
+
+/// Windows writes this key when an app is pinned or unpinned on its taskbar.
+const TASKBAND: PCWSTR = w!(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband");
+/// Writes this close together are one change: a pin writes more than one value.
+const GATHER_MS: u32 = 500;
+/// A key that cannot be opened or watched is tried again this often.
+const RETRY_MS: u32 = 30_000;
+
+/// The watch thread's stop event and the thread, while it runs.
+static WATCH: Mutex<Option<(isize, JoinHandle<()>)>> = Mutex::new(None);
+
+/// Starts watching Windows' pins unless the thread runs (mod.rs `start`).
+pub(crate) fn watch(app: &AppHandle) {
+    let mut watch = WATCH.lock().unwrap_or_else(|e| e.into_inner());
+    if watch.is_some() {
+        return;
+    }
+    let Ok(stop) = (unsafe { CreateEventW(None, true, false, None) }) else { return };
+    // As a number: a HANDLE does not cross threads.
+    let stop = stop.0 as isize;
+    let app = app.clone();
+    *watch = Some((stop, std::thread::spawn(move || run(&app, HANDLE(stop as _)))));
+}
+
+/// Stops watching (mod.rs `stop`): returns once the thread has ended, which it does at once, whatever it waits for.
+pub(crate) fn unwatch() {
+    let Some((stop, thread)) = WATCH.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
+    let stop = HANDLE(stop as _);
+    let _ = unsafe { SetEvent(stop) };
+    let _ = thread.join();
+    let _ = unsafe { CloseHandle(stop) };
+}
+
+/// The watch thread: the key, watched until the stop event is set, and opened again `RETRY_MS` after it could not be.
+fn run(app: &AppHandle, stop: HANDLE) {
+    loop {
+        let mut key = HKEY::default();
+        if unsafe { RegOpenKeyExW(HKEY_CURRENT_USER, TASKBAND, Some(0), KEY_NOTIFY, &mut key) } == ERROR_SUCCESS {
+            let stopped = changes(app, key, stop);
+            let _ = unsafe { RegCloseKey(key) };
+            if stopped {
+                return;
+            }
+        }
+        // The stop event, or a failed wait, which would fail again at once.
+        if unsafe { WaitForSingleObject(stop, RETRY_MS) } != WAIT_TIMEOUT {
+            return;
+        }
+    }
+}
+
+/// Tells the notch of each change to `key`, once its writes have stopped for `GATHER_MS`. True when the stop event is set (or a
+/// wait failed); false when the key cannot be watched (deleted, say), for `run` to open it again.
+fn changes(app: &AppHandle, key: HKEY, stop: HANDLE) -> bool {
+    let Ok(changed) = (unsafe { CreateEventW(None, false, false, None) }) else { return false };
+    let (mut armed, mut gathering) = (false, false);
+    let stopped = loop {
+        // One-shot: armed again after each signal, never twice for one.
+        if !armed {
+            if unsafe { RegNotifyChangeKeyValue(key, false, REG_NOTIFY_CHANGE_LAST_SET, Some(changed), true) } != ERROR_SUCCESS {
+                break false;
+            }
+            armed = true;
+        }
+        let woke = unsafe { WaitForMultipleObjects(&[changed, stop], false, if gathering { GATHER_MS } else { INFINITE }) };
+        if woke == WAIT_OBJECT_0 {
+            (armed, gathering) = (false, true);
+        } else if woke == WAIT_TIMEOUT {
+            gathering = false;
+            let _ = app.emit_to("notch", "taskbar://windows-pins", ());
+        } else {
+            break true;
+        }
+    };
+    let _ = unsafe { CloseHandle(changed) };
+    stopped
 }
 
 #[cfg(test)]
@@ -136,5 +286,23 @@ mod tests {
         let found = vec![(900, "Notes".to_string()), (10, "Explorer".to_string()), (400, "Chrome".to_string())];
         assert_eq!(order(found, s(&["Chrome", "Notepad++"])), s(&["Explorer", "Chrome", "Notes", "Notepad++"]));
         assert_eq!(order(vec![], s(&["B", "A", "B"])), s(&["B", "A"])); // no value: the folder alone, each once
+    }
+
+    #[test]
+    fn windows_pin_changes_follow_only_a_healthy_read() {
+        let ids = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let all = |_: &str| true;
+        // First time: remember, change nothing.
+        assert_eq!(follow(None, &ids(&["a"]), all, all), Some((vec![], vec![])));
+        // New in Windows: added. Gone and still known: removed.
+        assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&["a", "c"]), all, all), Some((ids(&["c"]), ids(&["b"]))));
+        // Gone, unknown to the Start list but still installed: kept (a partial Start list).
+        assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&["a"]), |id| id != "b", all), Some((vec![], vec![])));
+        // Gone and uninstalled: removed.
+        assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&["a"]), |id| id != "b", |id| id != "b"), Some((vec![], ids(&["b"]))));
+        // More than half of a list of four or more gone at once: a failed read.
+        assert_eq!(follow(Some(&ids(&["a", "b", "c", "d", "e", "f"])[..]), &ids(&["a", "b"]), all, all), None);
+        // A small list may empty out.
+        assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&[]), all, all), Some((vec![], ids(&["a", "b"]))));
     }
 }

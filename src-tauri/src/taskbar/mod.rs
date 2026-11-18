@@ -102,6 +102,7 @@ pub(crate) fn start(app: &AppHandle) {
     }
     drop(thread);
     start::begin();
+    pins::watch(app);
     // Pins come from the Start list, which nothing may have read yet; it is read off the thread, which must not wait on the shell,
     // and again a few times while it fails (`START_LIST`), or every pinned app would show twice for the whole session.
     let app = app.clone();
@@ -136,6 +137,7 @@ pub(crate) fn stop() {
     let _ = unsafe { PostMessageW(Some(HWND(window as _)), WM_CLOSE, WPARAM(0), LPARAM(0)) };
     let _ = thread.join();
     start::end();
+    pins::unwatch();
     tasks::clear();
 }
 

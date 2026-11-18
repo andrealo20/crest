@@ -548,6 +548,8 @@ pub fn run() {
             #[cfg(windows)]
             taskbar::pins::taskbar_import_pins,
             #[cfg(windows)]
+            taskbar::pins::taskbar_windows_pins,
+            #[cfg(windows)]
             taskbar::front::taskbar_auto_hide,
             #[cfg(windows)]
             taskbar::front::taskbar_front,
@@ -1140,6 +1142,8 @@ mod tests {
         // the notch's (audio_levels and media_lyrics, refused above).
         assert!(ok("taskbar", "taskbar_hello") && ok("taskbar", "taskbar_calendar") && ok("taskbar-1", "taskbar_hello"));
         assert!(ok("notch", "taskbar_import_pins") && ok("settings", "taskbar_import_pins") && !ok("taskbar", "taskbar_import_pins"));
+        // Windows' pins reach the bar through the notch, which applies them to the settings.
+        assert!(ok("notch", "taskbar_windows_pins") && !ok("taskbar", "taskbar_windows_pins"));
         assert!(ok("taskbar", "taskbar_front") && ok("taskbar-1", "taskbar_front") && !ok("taskbar", "taskbar_auto_hide"));
         assert!(ok("notch", "taskbar_auto_hide") && !ok("settings", "taskbar_auto_hide"));
         // Each bar says when its page slid it off the screen, for its own label; no other window has a bar to slide.

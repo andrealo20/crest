@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   TASKBAR_DEFAULTS,
+  applyWindowsPins,
   barButtons,
   clickAction,
   fitIcon,
@@ -149,4 +150,13 @@ test("the taskbar settings show only where the bar can run", () => {
   assert.equal(taskbarShown({ ...p, enabled: true }), true); // turned on through a backup: it can be turned off
   assert.equal(taskbarShown({ ...p, mac: true, dev: true }), false);
   assert.equal(taskbarShown({ ...p, native: false, dev: true }), false);
+});
+
+test("windows pins are added at the end and removed, Crest's own pins and order untouched", () => {
+  const f = (id: string) => ({ id, name: id });
+  assert.deepEqual(applyWindowsPins([f("a"), f("b"), f("c")], { added: [f("d"), f("a")], removed: ["b"] }), [f("a"), f("c"), f("d")]);
+});
+test("the remembered windows pins keep only strings, once each", () => {
+  assert.deepEqual(normalizeTaskbar({ windowsPins: ["a", 1, "a", "b"] }).windowsPins, ["a", "b"]);
+  assert.equal(normalizeTaskbar({}).windowsPins, null);
 });

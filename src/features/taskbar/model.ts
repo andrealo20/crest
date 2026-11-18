@@ -13,8 +13,9 @@ export type BarShape = "docked" | "floating" | "capsule" | "tiles";
 
 /**
  * The bar: on or off, the items in each zone, the bar's height and its icons' size in CSS px, its background (the closed
- * notch's or the theme's), the pinned apps (null: never seeded), its shape, its transparency in percent and its glass, the bar
- * clock's own date and seconds, and whether the default widgets were placed (once, so one taken off stays off).
+ * notch's or the theme's), the pinned apps (null: never seeded), the ids Windows' taskbar had pinned when the notch last read them
+ * (null: never read; store.ts follows what changes there), its shape, its transparency in percent and its glass, the bar clock's own
+ * date and seconds, and whether the default widgets were placed (once, so one taken off stays off).
  */
 export interface TaskbarSettings {
   enabled: boolean;
@@ -25,6 +26,7 @@ export interface TaskbarSettings {
   iconSize: number;
   surface: "notch" | "theme";
   pinned: Favorite[] | null;
+  windowsPins: string[] | null;
   shape: BarShape;
   transparency: number;
   glass: boolean;
@@ -40,6 +42,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   iconSize: 24,
   surface: "notch",
   pinned: null,
+  windowsPins: null,
   shape: "floating",
   transparency: 0,
   glass: false,
@@ -80,6 +83,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     iconSize: within(s.iconSize, ICON, d.iconSize),
     surface: s.surface === "theme" ? "theme" : "notch",
     pinned: normalizeFavorites(s.pinned),
+    windowsPins: Array.isArray(s.windowsPins) ? [...new Set(s.windowsPins.filter((id): id is string => typeof id === "string"))] : null,
     shape: SHAPES.includes(s.shape as BarShape) ? (s.shape as BarShape) : d.shape,
     transparency: within(s.transparency, TRANSPARENCY, d.transparency),
     glass: s.glass === true,
@@ -120,6 +124,12 @@ export function moveItem(zones: Record<Zone, BarItem[]>, id: BarItem, to: Zone, 
   const next = { left: zones.left.filter((x) => x !== id), center: zones.center.filter((x) => x !== id), right: zones.right.filter((x) => x !== id) };
   next[to].splice(Math.max(0, index ?? next[to].length), 0, id);
   return next;
+}
+
+/** What changed on Windows' taskbar, on the bar's pinned apps: those pinned there at the end unless already pinned, those unpinned there taken off; the rest keep their order. */
+export function applyWindowsPins(pinned: Favorite[], change: { added: Favorite[]; removed: string[] }): Favorite[] {
+  const kept = pinned.filter((f) => !change.removed.includes(f.id));
+  return [...kept, ...change.added.filter((f) => !kept.some((k) => k.id === f.id))];
 }
 
 // What Rust sends the bar (src-tauri/src/taskbar/tasks.rs).

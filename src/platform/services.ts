@@ -1263,6 +1263,14 @@ export const launcher = {
 
 // ---------- Taskbar ----------
 
+/** Windows' pins as `taskbar.windowsPins` reads them (src-tauri/src/taskbar/pins.rs `WindowsPins`). */
+export interface WindowsPins {
+  ok: boolean;
+  now: string[];
+  added: Favorite[];
+  removed: string[];
+}
+
 /**
  * Crest's bar on Windows (src-tauri/src/taskbar). The notch turns it on and sets its height; the bar's own window reads the open
  * windows and acts on clicks (the command filter keeps each window to its part). In the browser nothing happens: the demo has no bar.
@@ -1272,6 +1280,14 @@ export const taskbar = {
   apply: (enabled: boolean, height: number, docked: boolean): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height, docked }) : Promise.resolve()),
   /** The Start entries pinned on Windows' taskbar, in Windows' order; empty when none is pinned or none can be read, an error only when the Start list cannot be read. The notch and the settings only. */
   importPins: (): Promise<Favorite[]> => (isNative ? invoke<Favorite[]>("taskbar_import_pins") : Promise.resolve([])),
+  /** The ids pinned on Windows' taskbar now, the apps pinned there and the ids unpinned since `last` (the `now` of the answer before; null the first time, which changes nothing); `ok` false with all else empty when that cannot be read, and nothing is to change. The notch only. */
+  windowsPins: (last: string[] | null): Promise<WindowsPins> => (isNative ? invoke<WindowsPins>("taskbar_windows_pins", { last }) : Promise.resolve({ ok: false, now: [], added: [], removed: [] })),
+  /** Windows' pins changed (Rust watches them while the bar runs); to the notch only. */
+  onWindowsPins(handler: () => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen("taskbar://windows-pins", () => handler());
+    return () => void off.then((f) => f());
+  },
   /** The open windows as Rust last listed them. */
   windows: (): Promise<WindowList> => (isNative ? invoke<WindowList>("taskbar_windows") : Promise.resolve({ groups: [], active: null })),
   /** The list each time it changes; Rust sends it to the bar's window only. */
