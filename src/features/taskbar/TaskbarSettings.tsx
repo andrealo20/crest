@@ -15,7 +15,7 @@ import { FavoriteList } from "../launcher/FavoriteList";
 import { fitIcon, HEIGHT, ICON, moveItem, taskbarShown, type BarItem, type Zone } from "./model";
 import { setTaskbar } from "./store";
 import { AddWidget, WidgetOptions } from "./WidgetRows";
-import { isWidget } from "./widgets";
+import { addWidget, isWidget, removeWidget } from "./widgets";
 
 /*
  * Settings → Taskbar: the pages of Crest's bar, behind the settings window's Notch | Taskbar switch (SettingsView lists them). They
@@ -53,7 +53,7 @@ export function TaskbarGeneral() {
   );
 }
 
-/** Taskbar → Items: what each zone of the bar holds, in order. A row's menu moves the item to the end of another zone. */
+/** Taskbar → Items: what each zone of the bar holds, in order. A row's menu moves the item to the end of another zone, a widget before the Crest button. */
 export function TaskbarItems() {
   const zones = settings.use().taskbar.zones;
   const [dragging, setDragging] = useState<BarItem | null>(null);
@@ -91,8 +91,13 @@ export function TaskbarItems() {
                 <span className="min-w-0 flex-auto truncate text-body text-label select-none">{t(isWidget(id) ? partInfo[id].label : ITEM_LABEL[id])}</span>
                 {isWidget(id) && <WidgetOptions id={id} />}
                 <div onPointerDown={(e) => e.stopPropagation()}>
-                  {/* The menu also reports its current zone when picked again; moveItem would send the item to that zone's end. */}
-                  <Select width="w-36" value={zone} options={options} onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: moveItem(cur.zones, id, to) }))} />
+                  {/* The menu also reports its current zone when picked again, which would send the item to that zone's end. A widget goes in as "+" puts it, before the Crest button. */}
+                  <Select
+                    width="w-36"
+                    value={zone}
+                    options={options}
+                    onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: isWidget(id) ? addWidget(removeWidget(cur.zones, id), id, to) : moveItem(cur.zones, id, to) }))}
+                  />
                 </div>
               </Reorder.Item>
             ))}
