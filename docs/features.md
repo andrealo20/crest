@@ -306,7 +306,7 @@ Details: [themes.md](themes.md).
 - **Glass** (off by default; Windows 11 24H2 or later on x64, not in the Microsoft Store version for now, the switch shows only there): the bar shows a live copy of the screen behind it, up to 10 times a second, bent at the rim and blurred as the notch's glass. It needs more battery, and while it is on the bar is left out of every screenshot, recording and screen share, Crest's own included. It is separate from the notch's glass: either can be on alone. Under it, **Refraction**, **Frost** and **Rim light** are the notch's own sliders (**Settings → Themes → Glass**), shown here too: moving them changes both.
 - Colours and theme are the ones of **Settings → Themes**, with a button to get there.
 
-Details of the glass: [themes.md](themes.md#glass).
+Details of the glass, and what it costs: [themes.md](themes.md#glass).
 
 ## Live notices and crest-notify
 
