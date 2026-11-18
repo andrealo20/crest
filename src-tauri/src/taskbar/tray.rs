@@ -14,7 +14,7 @@
 //! from a copy of each app's icon. The bars hear the list `EMIT_MS` after it changes, and a click on one reaches its app as from
 //! Windows' tray (`taskbar_tray_click`). Without the spy's window there are no icons.
 //!
-//! The spy runs while the tray is wanted (`taskbar_tray_on`) and the bar's thread runs (mod.rs). Its thread never waits on the
+//! The spy runs while a zone holds the tray (`taskbar_tray_on`) and the bar's thread runs (mod.rs). Its thread never waits on the
 //! main thread, never takes explorer's lock and holds no lock across a forward, during which the messages sent to it run (an
 //! appbar call made under explorer's lock among them). Other threads read its atomics, post to it and take the icons' lock
 //! (`STORE`) for short reads and writes, never across a send, an emit or a picture's conversion.
@@ -75,7 +75,7 @@ const WAKE: usize = 4;
 
 /// The thread's id and the thread, while it runs. Held through a start and a stop, so there is never a second spy.
 static THREAD: Mutex<Option<(u32, JoinHandle<()>)>> = Mutex::new(None);
-/// The notch wants the tray (`taskbar_tray_on`).
+/// A zone of the bar holds the tray (`taskbar_tray_on`).
 static WISH: AtomicBool = AtomicBool::new(false);
 /// The spy's window, 0 while it has none.
 static SPY: AtomicIsize = AtomicIsize::new(0);
@@ -219,12 +219,21 @@ pub(crate) fn raise() {
     }
 }
 
-/// The notch shows the tray on a bar or no longer does: the spy runs while that holds and the bar is on. Off the async
+/// Whether a zone of the bar holds the tray, which the notch sends whether the bar is on or off; Rust adds whether the bar's
+/// thread runs (`wanted`), so turning the bar off stops the spy in mod.rs `stop`, after Windows' taskbar is back. Off the async
 /// runtime's threads, as a stop waits for a forward.
 #[tauri::command]
 pub async fn taskbar_tray_on(on: bool, app: AppHandle) {
     WISH.store(on, Ordering::SeqCst);
-    let _ = tauri::async_runtime::spawn_blocking(move || if on { start(&app) } else { stop() }).await;
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        if on {
+            start(&app)
+        } else {
+            // Under SCAN no appbar call of Crest's (a re-hide) is on its way to be lost as the spy goes; the spy never takes it.
+            explorer::locked(stop)
+        }
+    })
+    .await;
 }
 
 /// The tray for a bar page that has just loaded; `taskbar://tray` brings each change.

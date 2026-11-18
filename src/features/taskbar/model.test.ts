@@ -13,6 +13,7 @@ import {
   normalizeZones,
   placeMenu,
   taskbarShown,
+  trayOnBar,
   trayWanted,
   type BarButton,
   type BarItem,
@@ -171,4 +172,10 @@ test("the spy runs only while a bar shows the tray", () => {
   assert.equal(trayWanted({ ...TASKBAR_DEFAULTS, enabled: true }), true);
   assert.equal(trayWanted({ ...TASKBAR_DEFAULTS, enabled: false }), false);
   assert.equal(trayWanted({ ...TASKBAR_DEFAULTS, enabled: true, zones: { left: [], center: ["start", "apps"], right: ["crest"] } }), false);
+});
+
+test("the notch tells Rust whether a zone holds the tray, whether the bar is on or off", () => {
+  assert.equal(trayOnBar(TASKBAR_DEFAULTS.zones), true);
+  assert.equal(trayOnBar({ left: ["tray"], center: ["start", "apps"], right: ["crest"] }), true);
+  assert.equal(trayOnBar({ left: [], center: ["start", "apps"], right: ["crest"] }), false);
 });

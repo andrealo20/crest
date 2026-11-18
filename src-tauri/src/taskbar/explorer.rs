@@ -183,6 +183,12 @@ fn lock() -> MutexGuard<'static, Scan> {
     SCAN.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// Runs `f` under `SCAN`, so none of Crest's appbar calls (all made under it) is on its way meanwhile (tray.rs `taskbar_tray_on`).
+pub(crate) fn locked<T>(f: impl FnOnce() -> T) -> T {
+    let _scan = lock();
+    f()
+}
+
 /// `SCAN` if it is free. The taskbar thread takes it only this way: a thread waiting for a lock answers no message, and a holder
 /// may be waiting on Explorer, which may be sending to that thread's window. mod.rs tries again shortly.
 fn try_lock() -> Option<MutexGuard<'static, Scan>> {

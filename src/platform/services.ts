@@ -1311,7 +1311,7 @@ export const taskbar = {
   panel: (open: string | null): Promise<void> => (isNative ? invoke("taskbar_panel", { open }) : Promise.resolve()),
   /** "Hide when a window touches it" on or off; only while it is on does Rust send each bar the window in front of its monitor. The notch only. */
   autoHide: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_auto_hide", { on }) : Promise.resolve()),
-  /** Crest's tray (the spy that records the notification area's icons) on or off: on while a bar shows the tray (trayWanted). The notch only. */
+  /** Whether a zone of the bar holds the tray (trayOnBar), sent on or off; Rust adds whether the bar runs and runs Crest's tray (the spy that records the notification area's icons) while both hold. The notch only. */
   trayOn: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_tray_on", { on }) : Promise.resolve()),
   /** This bar slid off the screen (useAutoHide) or back up: Rust tells this bar, and the notch for the primary's, that it is hidden while down (onShown). */
   slid: (down: boolean): Promise<void> => (isNative ? invoke("taskbar_slid", { down }) : Promise.resolve()),

@@ -6,7 +6,7 @@ import { taskbar } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { normalizeFavorites } from "../launcher/apps";
 import { feedStores, panelStores } from "./barStores";
-import { trayWanted, type TaskbarSettings, type WindowList } from "./model";
+import { trayOnBar, type TaskbarSettings, type WindowList } from "./model";
 
 /** In the bar's window: the open windows grouped by app, as Rust last sent them. */
 export const barWindows = createStore<WindowList>({ groups: [], active: null });
@@ -33,13 +33,14 @@ export function startTaskbar() {
   let seeded = false;
   const sync = () => {
     const { enabled, height, shape, pinned, autoHide } = settings.get().taskbar;
-    const wantTray = trayWanted(settings.get().taskbar);
+    const wantTray = trayOnBar(settings.get().taskbar.zones);
     // Outside the queue: a flag the display poll reads, which never waits for a bar to be built or taken down.
     if (autoHide !== hides) {
       hides = autoHide;
       void taskbar.autoHide(autoHide);
     }
-    // Likewise: Rust starts the spy only while a bar shows the tray and stops it, giving Explorer every icon back, otherwise.
+    // Likewise, whether a zone holds the tray: Rust runs the spy while it does and the bar is on, so the bar turned off stops the
+    // spy in Rust after Windows' taskbar is back (mod.rs `stop`), and the tray taken off stops it here, giving Explorer every icon back.
     if (wantTray !== tray) {
       tray = wantTray;
       void taskbar.trayOn(wantTray).catch(() => {});

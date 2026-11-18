@@ -109,8 +109,11 @@ function withTray(zones: Record<Zone, BarItem[]>): Record<Zone, BarItem[]> {
   return { ...zones, [to]: items };
 }
 
+/** Whether a zone holds the tray: what the notch sends Rust (`taskbar.trayOn`), on or off, so turning the bar off never stops the spy before Windows' taskbar is back. */
+export const trayOnBar = (zones: Record<Zone, BarItem[]>): boolean => ZONES.some((z) => zones[z].includes("tray"));
+
 /** Whether the spy that records the tray's icons runs: while the bar is on and a zone holds the tray; otherwise Explorer keeps the tray alone. */
-export const trayWanted = (t: TaskbarSettings): boolean => t.enabled && ZONES.some((z) => t.zones[z].includes("tray"));
+export const trayWanted = (t: TaskbarSettings): boolean => t.enabled && trayOnBar(t.zones);
 
 /**
  * Each fixed item in exactly one zone and each widget in one at most: unknown ids dropped, a duplicate kept at its first place
