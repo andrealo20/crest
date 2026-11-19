@@ -1321,26 +1321,31 @@ function Display() {
           ))}
         </>
       )}
-      <Row icon="filter_center_focus" label={t("Fokus-Modus mit drei Klicks")} hint={t("Drei schnelle Klicks auf die geschlossene Notch machen sie halb durchsichtig oder zur Linie und lassen Klicks durch. Drei weitere Klicks, das Öffnen per Tastenkürzel oder ein Neustart holen sie zurück.")}>
-        <Switch label={t("Fokus-Modus mit drei Klicks")} checked={d.focusClicks} onChange={(focusClicks) => updateSettings((cur) => ({ display: { ...cur.display, focusClicks } }))} />
-      </Row>
-      {d.focusClicks && (
-        <Row icon="opacity"
-          label={t("Fokus-Darstellung")}
-          hint={d.focusStyle === "line" ? t("Nur eine dünne Linie am Rand, ohne Musik und Co.") : t("Halb durchsichtig")}
-        >
-          <Segmented
-            id="focus-style"
-            label={t("Fokus-Darstellung")}
-            size="sm"
-            value={d.focusStyle}
-            onChange={(focusStyle) => updateSettings((cur) => ({ display: { ...cur.display, focusStyle } }))}
-            options={[
-              { value: "dim", label: t("Durchsichtig") },
-              { value: "line", label: t("Linie") },
-            ]}
-          />
-        </Row>
+      {/* Click-through needs the pointer polled, which Linux does not (linux/input.rs). */}
+      {!isLinux && (
+        <>
+          <Row icon="filter_center_focus" label={t("Fokus-Modus mit drei Klicks")} hint={t("Drei schnelle Klicks auf die geschlossene Notch machen sie halb durchsichtig oder zur Linie und lassen Klicks durch. Drei weitere Klicks, das Öffnen per Tastenkürzel oder ein Neustart holen sie zurück.")}>
+            <Switch label={t("Fokus-Modus mit drei Klicks")} checked={d.focusClicks} onChange={(focusClicks) => updateSettings((cur) => ({ display: { ...cur.display, focusClicks } }))} />
+          </Row>
+          {d.focusClicks && (
+            <Row icon="opacity"
+              label={t("Fokus-Darstellung")}
+              hint={d.focusStyle === "line" ? t("Nur eine dünne Linie am Rand, ohne Musik und Co.") : t("Halb durchsichtig")}
+            >
+              <Segmented
+                id="focus-style"
+                label={t("Fokus-Darstellung")}
+                size="sm"
+                value={d.focusStyle}
+                onChange={(focusStyle) => updateSettings((cur) => ({ display: { ...cur.display, focusStyle } }))}
+                options={[
+                  { value: "dim", label: t("Durchsichtig") },
+                  { value: "line", label: t("Linie") },
+                ]}
+              />
+            </Row>
+          )}
+        </>
       )}
       {/* Hardware readings and FPS have no Mac backend yet. */}
       {!noWinApis && (
