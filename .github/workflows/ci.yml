@@ -20,7 +20,8 @@ jobs:
       fail-fast: false
       matrix:
         # windows-11-arm runs the ARM64 build and macos-latest the Apple silicon one, which the release only compiles.
-        os: [windows-latest, windows-11-arm, macos-latest]
+        # ubuntu-latest is the Linux port (experimental, community-maintained, see CONTRIBUTING.md); it is not released from here.
+        os: [windows-latest, windows-11-arm, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -37,6 +38,10 @@ jobs:
       - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: src-tauri
+      # What the Linux build links against (CONTRIBUTING.md, Build from source).
+      - name: Linux build libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libasound2-dev libudev-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - run: npm ci
       - run: npm run typecheck
       - run: npm test

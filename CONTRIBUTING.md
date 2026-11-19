@@ -14,6 +14,7 @@ Prerequisites:
 - Rust (stable).
 - WebView2 (part of Windows 11; on Windows 10 the installer fetches it).
 - On Windows, the Visual Studio Build Tools with the C++ workload and a Windows 11 SDK, required for linking.
+- On Linux, the libraries listed under [Linux](#linux) below instead of WebView2 and the Visual Studio Build Tools.
 
 ```bash
 npm install
@@ -35,6 +36,20 @@ npx tauri build --no-bundle   # result: src-tauri/target/release/crest.exe
 ```
 
 Run Tauri and Cargo commands from PowerShell. In Git Bash, `/usr/bin/link` shadows the MSVC linker and the build fails.
+
+### Linux
+
+The Linux port is experimental and community-maintained: the setup it has been tried on is GNOME on Wayland, through XWayland. An X11 session and other desktops (KDE, Xfce, tiling window managers) are built to work but have not been tried. CI builds and tests it on Ubuntu. Build libraries (the Ubuntu or Debian names; other distributions ship the same libraries):
+
+```bash
+sudo apt install libwebkit2gtk-4.1-dev libasound2-dev libudev-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+# Fedora (names not tried): webkit2gtk4.1-devel alsa-lib-devel systemd-devel libxdo-devel libayatana-appindicator-gtk3-devel librsvg2-devel
+# Arch (names not tried):   webkit2gtk-4.1 alsa-lib systemd-libs xdotool libayatana-appindicator librsvg
+```
+
+TLS is rustls on Linux, so there is no `libssl-dev`. `npm run tauri dev` and `cargo test --lib` run as above. At run time the mixer, equalizer and microphone use PipeWire's `wpctl`, `pw-dump` and `pw-record`, the music uses MPRIS and saved keys use the desktop's Secret Service (GNOME Keyring, KWallet or KeePassXC), each only matters for its own feature.
+
+A Wayland client cannot place its own window or read the pointer, so on a Wayland session Crest runs through XWayland (`GDK_BACKEND=x11`, set in `main.rs`). `CREST_WAYLAND=1` keeps native Wayland, where the notch will not stay at the screen edge. The Rust side of the port is `src-tauri/src/linux/`, which mirrors `macos/`; call sites reach either through the `native` alias in `lib.rs`. The app does not look for updates on Linux (`latest.json` has no Linux entry).
 
 ### Microsoft Store build
 
