@@ -116,3 +116,14 @@ test("a dragged row's state layer sits in the components layer, only under Mater
   assert.match(r.body, /background\s*:\s*currentColor\s*;/);
   assert.match(r.body, /opacity\s*:\s*0\.16\s*;/);
 });
+
+test("in Windows' high contrast a switch keeps its edge, and an on switch the outline a chosen segment has", () => {
+  const forced = rules(css).filter((r) => r.parents.includes("@media (forced-colors: active)"));
+  const body = (selector: string) =>
+    forced
+      .filter((r) => r.selector.split(",").map((s) => s.trim()).includes(selector))
+      .map((r) => r.body.replace(/\s+/g, " "))
+      .join(";");
+  assert.match(body('[role="switch"]'), /border: 1px solid CanvasText/);
+  assert.match(body('[role="switch"][aria-checked="true"]'), /outline: 2px solid Highlight;\s*outline-offset: -2px/);
+});

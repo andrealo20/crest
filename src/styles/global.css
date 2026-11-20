@@ -272,9 +272,14 @@ body {
 /* In forced colours a chosen page or option has only its colour to tell it apart, and forced colours take that away. */
 @media (forced-colors: active) {
   [aria-current="page"],
-  [role="radio"][aria-checked="true"] {
+  [role="radio"][aria-checked="true"],
+  [role="switch"][aria-checked="true"] {
     outline: 2px solid Highlight;
     outline-offset: -2px;
+  }
+  /* The track's fill and inset shadow vanish here, which would leave an off switch a lone knob. */
+  [role="switch"] {
+    border: 1px solid CanvasText;
   }
 }
 
