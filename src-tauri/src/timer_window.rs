@@ -41,12 +41,13 @@ pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, dpr: Option<f64>,
 
     // A saved spot on a connected monitor, with the size the timer had there; else the default spot on the primary monitor.
     let base = (config.width, config.height);
-    let spot = match x.zip(y).and_then(|at| Some((monitor_at(&window, at)?, at))) {
-        Some((m, at)) => Some((Origin::Spot(at, saved_size(base, dpr, m.scale_factor())), m)),
-        None => window.primary_monitor().ok().flatten().map(|m| (Origin::Default, m)),
-    };
-    if let Some((from, m)) = spot {
-        put_at(&window, base, from, grown(base, 1.0, m.scale_factor()), None, Screen::of(&m));
+    let screens: Vec<Screen> = window.available_monitors().unwrap_or_default().iter().map(Screen::of).collect();
+    let spot = x
+        .zip(y)
+        .and_then(|at| saved_origin(&screens, at, dpr, base))
+        .or_else(|| window.primary_monitor().ok().flatten().map(|m| (Origin::Default, Screen::of(&m))));
+    if let Some((from, s)) = spot {
+        put_at(&window, base, from, grown(base, 1.0, s.scale), None, s);
     }
     window.show().map_err(|e| e.to_string())?;
 
@@ -113,15 +114,6 @@ fn put_at(window: &WebviewWindow, base: (f64, f64), from: Origin, now: (i32, i32
     *PLACED.lock().unwrap() = Some((from, at));
 }
 
-/// The connected monitor that holds at least the top-left 48 px of a window at `at`: one unplugged since would leave the timer
-/// out of reach.
-fn monitor_at(window: &WebviewWindow, at: (i32, i32)) -> Option<Monitor> {
-    window.available_monitors().unwrap_or_default().into_iter().find(|m| {
-        let (p, s) = (m.position(), m.size());
-        grips((p.x, p.y), (s.width as i32, s.height as i32), at)
-    })
-}
-
 /// What the timer was put from: the default spot, or a spot with the window's size there, both in physical px.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Origin {
@@ -130,7 +122,7 @@ enum Origin {
 }
 
 /// A monitor in physical px: its top-left, size and scale, and where its work area ends on the right and at the bottom.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct Screen {
     pos: (i32, i32),
     size: (i32, i32),
@@ -162,6 +154,30 @@ fn saved_size(base: (f64, f64), dpr: Option<f64>, scale: f64) -> (i32, i32) {
         Some(d) => grown(base, d, 1.0),
         None => grown(base, 1.0, scale),
     }
+}
+
+/// Where a saved spot opens from, or None when no connected monitor holds its top-left 48 px (one unplugged since would leave
+/// the timer out of reach). The monitor that held most of the window gave it its DPI (Windows' rule), so the size it had there
+/// and the size it gets now are both worked out on that monitor: at an unchanged Text size they match and the spot stays.
+fn saved_origin(screens: &[Screen], at: (i32, i32), dpr: Option<f64>, base: (f64, f64)) -> Option<(Origin, Screen)> {
+    let corner = screens.iter().position(|s| grips(s.pos, s.size, at))?;
+    let rough = saved_size(base, dpr, screens[corner].scale);
+    let s = screens[most_of(screens, at, rough).unwrap_or(corner)];
+    Some((Origin::Spot(at, saved_size(base, dpr, s.scale)), s))
+}
+
+/// The screen that holds the largest part of a window at `at`, `size` px.
+fn most_of(screens: &[Screen], at: (i32, i32), size: (i32, i32)) -> Option<usize> {
+    let part = |s: &Screen| {
+        let w = (at.0 + size.0).min(s.pos.0 + s.size.0) - at.0.max(s.pos.0);
+        let h = (at.1 + size.1).min(s.pos.1 + s.size.1) - at.1.max(s.pos.1);
+        if w > 0 && h > 0 {
+            w as i64 * h as i64
+        } else {
+            0
+        }
+    };
+    screens.iter().enumerate().map(|(i, s)| (i, part(s))).filter(|&(_, a)| a > 0).max_by_key(|&(_, a)| a).map(|(i, _)| i)
 }
 
 /// What putting the window takes, and in which order.
@@ -264,11 +280,29 @@ mod tests {
     }
 
     #[test]
-    fn a_saved_spot_is_read_as_a_timer_at_100_and_never_moved_twice() {
-        // Saved at 100 % near the right edge, opened at 150 %: back by the 60 px it would stick out.
+    fn a_spot_saved_at_100_moves_back_only_as_far_as_the_grown_timer_needs() {
+        // Near the right edge, opened at 150 %: back by the 60 px it would stick out.
         assert_eq!(spot_for(Origin::Spot((1500, 300), (320, 84)), (480, 126), FHD), (1440, 300));
-        // Saved there by a timer that was already 480 px wide: it still fits, so it stays.
+        // One where the grown timer still fits stays.
         assert_eq!(spot_for(Origin::Spot((1440, 300), (320, 84)), (480, 126), FHD), (1440, 300));
+    }
+
+    /// 150 % monitors left and right of the 1920 x 1080 primary.
+    const LEFT_150: Screen = Screen { pos: (-2880, 0), size: (2880, 1620), scale: 1.5, end: (0, 1548) };
+    const RIGHT_150: Screen = Screen { pos: (1920, 0), size: (2880, 1620), scale: 1.5, end: (4800, 1548) };
+
+    #[test]
+    fn a_spot_across_two_monitors_opens_from_the_one_that_held_most_of_it() {
+        let base = (320.0, 84.0);
+        let reopened = |screens: &[Screen], at, dpr| {
+            let (from, s) = saved_origin(screens, at, dpr, base).unwrap();
+            spot_for(from, grown(base, 1.0, s.scale), s)
+        };
+        // At Text size 100 % a spot never moves, whichever monitor has its corner and whichever has the rest (and its DPI).
+        assert_eq!(reopened(&[LEFT_150, FHD], (-100, 300), Some(1.0)), (-100, 300), "corner on the left, most on the primary");
+        assert_eq!(reopened(&[FHD, RIGHT_150], (1800, 300), Some(1.5)), (1800, 300), "corner on the primary, most on the right");
+        assert_eq!(reopened(&[LEFT_150, FHD], (-100, 300), None), (-100, 300), "saved before the ratio was");
+        assert_eq!(saved_origin(&[FHD], (2000, 300), Some(1.0), base), None, "no monitor under its corner any more");
     }
 
     #[test]

@@ -6,7 +6,8 @@ import { readSpot, type Spot } from "./window/moves";
 /*
  * Detached timer: a small always-on-top window (timer.html) with the running timer.
  * Rust reports open/closed, so the button in the notch stays right when the window
- * closes itself. The window saves its position under POS_KEY on every move.
+ * closes itself. The window saves where the user puts it under POS_KEY, with its pixel
+ * ratio there; the moves Crest makes itself are not saved (window/moves.ts).
  */
 export const detached = createStore(false);
 
