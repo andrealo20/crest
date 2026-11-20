@@ -355,7 +355,7 @@ function Progress({ np, wavy }: { np: NowPlaying; wavy: boolean }) {
             className={`relative w-full overflow-hidden rounded-full bg-fill-2 transition-[height] duration-150 ease-out ${active ? "h-[9px]" : "h-[5px]"}`}
           >
             <motion.div
-              className={`absolute inset-0 rounded-full transition-colors duration-150 ${active ? "bg-primary" : "bg-label-2"}`}
+              className={`absolute inset-0 rounded-full transition-colors duration-150 ${active ? "bg-primary" : "bg-label-2 material:bg-primary"}`}
               style={{ transform }}
             />
           </div>
