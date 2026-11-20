@@ -163,6 +163,28 @@ body {
     opacity: 0;
   }
 
+  /* The bar's items: their own span, lit by the bar's hovered state, never :hover. The bar's window lets the pointer through off its
+     zones and the page sees no pointerleave there, so :hover would stay on the last button; Rust clears hovered instead. */
+  [data-design="material"] .m3-layer {
+    background: currentColor;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 15ms linear;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    [data-design="material"] .m3-layer[data-hover] {
+      opacity: var(--m3-state-hover);
+    }
+  }
+  [data-design="material"] :focus-visible > .m3-layer {
+    opacity: var(--m3-state-focus);
+    transition-duration: 45ms;
+  }
+  [data-design="material"] :active > .m3-layer {
+    opacity: var(--m3-state-press);
+    transition-duration: 75ms;
+  }
+
   /* Pressed corners of a filled pill: a rectangle with 8 px corners fades in under it. The pill stays opaque and holds the other
      shape inside it, so the inside never thins halfway as two crossfading shapes would; only the corners fill in. */
   [data-design="material"] .m3-morph {

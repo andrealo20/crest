@@ -47,6 +47,7 @@ export function Status(props: {
       kind="status"
       tile={tile}
       width={statusWidth(props.size, parts.length, battery !== null, pill && props.height)}
+      layer={pill?.height}
       expanded={props.expanded}
       onClick={props.onClick}
       onContextMenu={props.onMenu}

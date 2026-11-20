@@ -117,6 +117,34 @@ test("a dragged row's state layer sits in the components layer, only under Mater
   assert.match(r.body, /opacity\s*:\s*0\.16\s*;/);
 });
 
+test("the bar's state layer sits in the components layer, reads the state variables and never :hover", () => {
+  const layers = rules(css).filter((r) => r.selector.includes(".m3-layer"));
+  assert.ok(layers.length >= 4, "no bar state layer rules");
+  for (const r of layers) {
+    assert.ok(r.parents.includes(LAYER), `${r.selector} is outside ${LAYER}`);
+    assert.ok(r.selector.includes('[data-design="material"]'), `${r.selector} reaches Crest`);
+    // The bar's window never sees the pointer leave, so :hover would stay on the last button.
+    assert.doesNotMatch(r.selector, /:hover/);
+    const transition = /(?:^|[\s;])transition(?:-property)?\s*:([^;]*)/.exec(r.body);
+    if (transition) assert.doesNotMatch(transition[1], /transform|box-shadow|background|border-radius|all/, r.selector);
+  }
+  const base = layers.filter((r) => r.selector === '[data-design="material"] .m3-layer');
+  assert.equal(base.length, 1, "no base .m3-layer rule");
+  assert.match(base[0].body, /background\s*:\s*currentColor\s*;/);
+  assert.match(base[0].body, /opacity\s*:\s*0\s*;/);
+  assert.match(base[0].body, /pointer-events\s*:\s*none\s*;/);
+  const state = (s: string) => layers.filter((r) => r.selector.includes(s));
+  const [hover] = state("[data-hover]");
+  assert.ok(hover, "no [data-hover] rule");
+  assert.match(hover.body, /opacity\s*:\s*var\(--m3-state-hover[,)]/);
+  assert.ok(hover.parents.includes("@media (hover: hover) and (pointer: fine)"), "a tap would leave the layer on");
+  for (const [s, v] of [[":focus-visible", "focus"], [":active", "press"]]) {
+    const [r] = state(s);
+    assert.ok(r, `no ${s} rule`);
+    assert.match(r.body, new RegExp(`opacity\\s*:\\s*var\\(--m3-state-${v}[,)]`), r.selector);
+  }
+});
+
 test("in Windows' high contrast a switch keeps its edge, and an on switch the outline a chosen segment has", () => {
   const forced = rules(css).filter((r) => r.parents.includes("@media (forced-colors: active)"));
   const body = (selector: string) =>

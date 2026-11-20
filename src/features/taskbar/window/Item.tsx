@@ -1,6 +1,8 @@
 import { useLayoutEffect, useRef, useState, type MouseEventHandler, type PointerEventHandler, type ReactNode, type Ref } from "react";
 import { AnimatePresence, motion, useSpring, useTransform, type MotionValue } from "motion/react";
+import { design } from "../../../design/design";
 import { fade, popover, pulse, springs } from "../../../design/motion";
+import { itemLayer, marks } from "../itemLook";
 import { magnify } from "../look";
 import { placeMenu, type Indicator } from "../model";
 
@@ -40,8 +42,13 @@ export function Item(props: {
   onDoubleClick?: MouseEventHandler<HTMLButtonElement>;
   onContextMenu: MouseEventHandler<HTMLButtonElement>;
   onPointerDown?: PointerEventHandler<HTMLButtonElement>;
+  /** Under Material, the height of the pill and the state layer off Tiles, when the item draws a pill of its own (Stato). */
+  layer?: number;
   children: ReactNode;
 }) {
+  const material = design.use() === "material";
+  const shape = itemLayer({ size: props.size, width: props.width ?? props.size + 16, layer: props.layer, tile: props.tile });
+  const pill = props.mark !== undefined && marks(props.mark, "material").pill;
   return (
     // The gap under the bar (GAP, h-1) belongs to the button above it, so a click with the pointer pushed against the screen's
     // edge, left or right, lands on the button; the gap itself stays empty. A press shrinks only the icon, by `scale` (Motion's
@@ -65,11 +72,14 @@ export function Item(props: {
       className="group relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"
       style={{ width: props.width ?? props.size + 16, background: props.tile?.background, borderRadius: props.tile?.radius }}
     >
+      {material && props.mark && <motion.span aria-hidden data-front-pill className="absolute bg-secondary-container" style={shape} initial={false} animate={{ opacity: pill ? 1 : 0, transform: `scaleX(${pill ? 1 : 0.6})` }} transition={springs.snappy} />}
+      {/* Lit by the bar's hovered state, which Rust clears when the pointer leaves the window; :hover would stay on. */}
+      {material && <span aria-hidden data-hover={props.lifted || undefined} className="m3-layer absolute" style={shape} />}
       {props.magnify ? (
         <Magnified {...props.magnify}>{props.children}</Magnified>
       ) : (
         <motion.span
-          className="flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94"
+          className="relative flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94"
           initial={false}
           animate={{ transform: `translateY(${props.lifted ? -2 : 0}px)` }}
           transition={springs.peek}
@@ -108,7 +118,7 @@ function Magnified({ pointer, unit, children }: Magnify & { children: ReactNode 
   const scale = useSpring(target, springs.glide);
   return (
     // The press keeps a span of its own, so its scale and the magnify's never write the same property.
-    <motion.span ref={ref} className="flex origin-bottom" style={{ scale }}>
+    <motion.span ref={ref} className="relative flex origin-bottom" style={{ scale }}>
       <span className="flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94">{children}</span>
     </motion.span>
   );
@@ -120,11 +130,12 @@ export type ItemProps = Parameters<typeof Item>[0];
 const ATTENTION = { ...pulse, repeat: 5 };
 
 /**
- * Under an app: a dot while it is open, a longer mark while it is in front, the accent while a window asks for attention, pulsing
- * when that starts. Both shapes are drawn whole and change by opacity and scale only.
+ * Under an app: a dot while it is open, a longer mark while it is in front (in Crest; Material puts a pill behind it), the accent
+ * while a window asks for attention, pulsing when that starts. Both shapes are drawn whole and change by opacity and scale only.
  */
 export function Mark({ kind, bottom }: { kind: Indicator; bottom: number }) {
-  const long = kind === "front" || kind === "attention";
+  const appDesign = design.use();
+  const { dot, bar } = marks(kind, appDesign);
   return (
     // No initial={false} here: a mark that appears asking for attention pulses too, where initial={false} would leave it dim.
     <motion.span
@@ -137,14 +148,14 @@ export function Mark({ kind, bottom }: { kind: Indicator; bottom: number }) {
         className="absolute rounded-full bg-label-2"
         style={{ width: MARK, height: MARK }}
         initial={false}
-        animate={{ opacity: kind === "open" ? 1 : 0, transform: `scale(${kind === "open" ? 1 : 0.5})` }}
+        animate={{ opacity: dot ? 1 : 0, transform: `scale(${dot ? 1 : 0.5})` }}
         transition={springs.snappy}
       />
       <motion.span
         className={`absolute w-4 rounded-full ${kind === "attention" ? "bg-accent" : "bg-label"}`}
         style={{ height: MARK }}
         initial={false}
-        animate={{ opacity: long ? 1 : 0, transform: `scaleX(${long ? 1 : 0.25})` }}
+        animate={{ opacity: bar ? 1 : 0, transform: `scaleX(${bar ? 1 : 0.25})` }}
         transition={springs.snappy}
       />
     </motion.span>
