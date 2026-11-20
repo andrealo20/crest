@@ -93,6 +93,7 @@ export function AddWidget({ zone }: { zone: Zone }) {
     <Select<string>
       width="shrink-0"
       value=""
+      menuMax={480}
       options={off.map((id) => ({ value: id, label: t(id === "tray" ? "Infobereich" : id === "status" ? "Status" : partInfo[id].label) }))}
       onChange={(id) => (isWidget(id) || id === "tray" || id === "status") && setTaskbar((cur) => ({ zones: addWidget(cur.zones, id, zone) }))}
       trigger={{
@@ -119,6 +120,7 @@ export function AddTool({ zone }: { zone: Zone }) {
     <Select<string>
       width="shrink-0"
       value=""
+      menuMax={480}
       options={offered.map((id) => ({ value: id, label: t(toolInfo[id].label) }))}
       onChange={(id) => TOOL_BUTTONS.includes(id) && setTaskbar((cur) => ({ zones: addWidget(cur.zones, `tool:${id}`, zone) }))}
       trigger={{

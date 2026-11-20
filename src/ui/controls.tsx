@@ -443,6 +443,8 @@ export function Select<T extends string>(props: {
   width?: string;
   /** Own trigger: its content, look and name, and a menu width of its own when the trigger is small. */
   trigger?: { content: ReactNode; className: string; label: string; menuWidth?: number };
+  /** The menu's tallest height, CSS px, for a long list with room around it; still clamped to the room above or below. MENU_MAX without it. */
+  menuMax?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -459,7 +461,7 @@ export function Select<T extends string>(props: {
     const maxY =
       Math.min(bounds?.bottom ?? window.innerHeight, window.innerHeight) -
       MENU_EDGE;
-    const wanted = Math.min(MENU_MAX, props.options.length * MENU_ROW + 8);
+    const wanted = Math.min(props.menuMax ?? MENU_MAX, props.options.length * MENU_ROW + 8);
     const below = maxY - trigger.bottom - MENU_GAP;
     const above = trigger.top - minY - MENU_GAP;
     const up = below < wanted && above > below;
