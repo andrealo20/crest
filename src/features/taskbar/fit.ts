@@ -44,16 +44,19 @@ function steps(z: Record<Zone, FitEntry[]>, gap: number): string[] {
 /** How the bar's apps fit, from what was measured and the last fit (null at first): full size, narrow, or the last ones behind "…", and what the other items give up when even one app and "…" do not fit. */
 export function fitBar(m: FitMeasure, was: Fit | null): Fit {
   const order = steps(m.zones, m.gap);
+  const apps = m.apps ? m.count : 0;
+  // A row of n items takes n - 1 gaps; the apps' row counts its buttons among them, each charged its gap in `P` or `p` below.
+  const span = (list: FitEntry[], withApps: boolean) => (list.length || (withApps && apps > 0) ? cost(list, m.gap) - m.gap : 0);
   const room = (k: number) => {
     const gone = new Set(order.slice(0, k));
     const keep = (z: Zone) => m.zones[z].filter((x) => !(x.gives === "tray" ? gone.has("tray") : gone.has(x.id)));
-    const [l, c, r] = [cost(keep("left"), m.gap), cost(keep("center"), m.gap), cost(keep("right"), m.gap)];
+    if (m.row) return m.inner - span([...keep("left"), ...keep("center"), ...keep("right")], true);
+    const [l, c, r] = [span(keep("left"), m.apps === "left"), span(keep("center"), m.apps === "center"), span(keep("right"), m.apps === "right")];
     // Apps in the centre keep it centred: the wider side counts on both sides.
-    return m.row || m.apps === "left" || m.apps === "right" ? m.inner - l - c - r : m.inner - 2 * Math.max(l, r) - c;
+    return m.apps === "left" || m.apps === "right" ? m.inner - l - c - r : m.inner - 2 * Math.max(l, r) - c;
   };
   const P = m.full + m.gap;
   const p = m.compact + m.gap;
-  const apps = m.apps ? m.count : 0;
   const min = apps === 0 ? 0 : apps === 1 ? p : 2 * p;
   let wasK = 0;
   while (was && wasK < order.length && (order[wasK] === "tray" ? was.trayBack : was.hide.includes(order[wasK]))) wasK++;

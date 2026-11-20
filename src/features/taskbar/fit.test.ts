@@ -12,14 +12,14 @@ const bar = (o: Partial<FitMeasure> = {}): FitMeasure => ({
 const fit = (mode: Fit["mode"], visible: number, o: Partial<Fit> = {}): Fit => ({ mode, visible, trayBack: false, hide: [], ...o });
 
 test("the apps keep their full size while they fit, then narrow, then the last ones go behind the button", () => {
-  assert.deepEqual(fitBar(bar({ count: 30 }), null), fit("full", 30));
-  assert.deepEqual(fitBar(bar({ count: 31 }), null), fit("compact", 31));
+  assert.deepEqual(fitBar(bar({ count: 31 }), null), fit("full", 31));
+  assert.deepEqual(fitBar(bar({ count: 32 }), null), fit("compact", 32));
   assert.deepEqual(fitBar(bar({ count: 41 }), null), fit("overflow", 39));
 });
 
 test("the centre stays centred: the wider side zone counts twice", () => {
   const right = [e("weather", 66, "widget"), e("clock", 86, "widget"), e("crest", 40)];
-  // 1424 - 2 * (68 + 88 + 42) - 42 = 986: 30 apps fit only narrow (960).
+  // 1424 - 2 * (66 + 2 + 86 + 2 + 40) - (40 + 2) + 2 = 992: 30 apps fit only narrow (960).
   assert.deepEqual(fitBar(bar({ count: 30, zones: { left: [], center: [e("start", 40)], right } }), null), fit("compact", 30));
 });
 
@@ -35,8 +35,8 @@ test("a bar on another monitor, with no widgets, folds its apps the same way", (
 
 test("growing back takes FIT_MARGIN px more than shrinking, so a few pixels never move an app in and out", () => {
   assert.equal(FIT_MARGIN, 24);
-  // 1424 - 2 * 56 - 42 = 1270: 30 full apps take 1260.
-  const tight = bar({ count: 30, zones: { left: [], center: [e("start", 40)], right: [e("crest", 54)] } });
+  // 1424 - 2 * 57 - 42 + 2 = 1270: 30 full apps take 1260.
+  const tight = bar({ count: 30, zones: { left: [], center: [e("start", 40)], right: [e("crest", 57)] } });
   assert.deepEqual(fitBar(tight, null), fit("full", 30));
   assert.deepEqual(fitBar(tight, fit("compact", 30)), fit("compact", 30));
   // 38 narrow apps and the button fit in 1270, 37 with the margin.
@@ -46,12 +46,34 @@ test("growing back takes FIT_MARGIN px more than shrinking, so a few pixels neve
   assert.deepEqual(fitBar(many, fit("overflow", 39)), fit("overflow", 38));
 });
 
+test("the fit is exact: the items in a row take their widths and one gap fewer than their number", () => {
+  // A docked bar, 6 px between items: 66 + 6 + 86 + 6 + 40 = 204 on each side, Start and 12 full apps 40 + 12 * (6 + 40) in the centre.
+  const right = [e("weather", 66, "widget"), e("clock", 86, "widget"), e("crest", 40)];
+  const docked = (inner: number, count: number) => bar({ inner, gap: 6, count, zones: { left: [], center: [e("start", 40)], right } });
+  assert.deepEqual(fitBar(docked(2 * 204 + 40 + 12 * 46, 12), null), fit("full", 12));
+  assert.deepEqual(fitBar(docked(2 * 204 + 40 + 12 * 46 - 1, 12), null), fit("compact", 12));
+  // 14 narrow apps and "…" take 40 + 15 * 36 = 580 of the 592 left, 15 would take 616.
+  assert.deepEqual(fitBar(docked(2 * 204 + 40 + 12 * 46, 20), null), fit("overflow", 14));
+  // Apps in a side zone, after Start: 40 + 12 * 46 there, and the right zone once.
+  const side = (inner: number) => bar({ inner, gap: 6, count: 12, apps: "left", zones: { left: [e("start", 40)], center: [], right } });
+  assert.deepEqual(fitBar(side(40 + 12 * 46 + 204), null), fit("full", 12));
+  assert.deepEqual(fitBar(side(40 + 12 * 46 + 204 - 1), null), fit("compact", 12));
+  // The capsule: one row, so the gap between two zones counts once.
+  const row = (inner: number) => bar({ inner, gap: 6, count: 12, row: true, zones: { left: [], center: [e("start", 40)], right } });
+  assert.deepEqual(fitBar(row(40 + 12 * 46 + 6 + 204), null), fit("full", 12));
+  assert.deepEqual(fitBar(row(40 + 12 * 46 + 6 + 204 - 1), null), fit("compact", 12));
+  // Without apps a widget leaves only when the items alone do not fit, the centre still centred.
+  const none = (inner: number) => bar({ inner, gap: 6, apps: null, zones: { left: [], center: [], right } });
+  assert.deepEqual(fitBar(none(2 * 204), null), fit("full", 0));
+  assert.deepEqual(fitBar(none(2 * 204 - 1), null), fit("full", 0, { hide: ["clock"] }));
+});
+
 test("when one app and the button do not fit, the tray's kept icons go back behind ^ first, then the widget farthest from the centre", () => {
   const right = [e("weather", 60, "widget"), e("tray", 32, "tray"), e("tray", 32, "tray"), e("tray-more", 32), e("clock", 80, "widget"), e("crest", 40)];
   const small = (inner: number) => bar({ inner, count: 10, zones: { left: [], center: [e("start", 40)], right } });
   assert.deepEqual(fitBar(small(600), null), fit("overflow", 2, { trayBack: true }));
   assert.deepEqual(fitBar(small(500), null), fit("overflow", 4, { trayBack: true, hide: ["clock"] }));
-  // With the tray back 70 px are left: one app and the button (64), not FIT_MARGIN more, so a hidden clock stays hidden.
+  // With the tray back 76 px are left: one app and the button (64), not FIT_MARGIN more, so a hidden clock stays hidden.
   assert.deepEqual(fitBar(small(552), null), fit("overflow", 1, { trayBack: true }));
   assert.deepEqual(fitBar(small(552), fit("overflow", 4, { trayBack: true, hide: ["clock"] })), fit("overflow", 5, { trayBack: true, hide: ["clock"] }));
 });
