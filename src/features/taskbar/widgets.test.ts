@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 import { TASKBAR_DEFAULTS, type BarItem, type Zone } from "./model.ts";
-import { addWidget, barPartsFor, barSources, barWidgets, isWidget, removeWidget, widgetScale, widgetTool } from "./widgets.ts";
+import { SLIDE_KEEP_MS, addWidget, barPartsFor, barSources, barWidgets, isWidget, removeWidget, sourcesAfter, widgetScale, widgetTool } from "./widgets.ts";
 
 test("a widget opens its tool, the clock Windows' calendar", () => {
   // Every part: one without a tool would open Windows' calendar.
@@ -56,4 +56,17 @@ test("Stato can be added back like the tray", () => {
   const zones: Record<Zone, BarItem[]> = { left: [], center: ["start", "apps"], right: ["clock", "crest"] };
   assert.deepEqual(addWidget(zones, "status", "right").right, ["clock", "status", "crest"]);
   assert.deepEqual(removeWidget(TASKBAR_DEFAULTS.zones, "status").right, ["weather", "tray", "clock", "crest"]);
+});
+
+test("the bar's sources run through a slide's first 30 s and stop at once when its window hides", () => {
+  const up = { shown: true, slid: false }, down = { shown: true, slid: true };
+  const hidden = { shown: false, slid: false }, hiddenDown = { shown: false, slid: true };
+  assert.equal(SLIDE_KEEP_MS, 30_000);
+  assert.equal(sourcesAfter(up, down), "keep"); // a slide starts: running for SLIDE_KEEP_MS, then resting
+  assert.equal(sourcesAfter(down, up), "run");
+  assert.equal(sourcesAfter(up, hidden), "rest"); // a full-screen app or the hide hotkey: at once
+  assert.equal(sourcesAfter(down, hiddenDown), "rest"); // hidden while slid: at once, the slide's wait cut short
+  assert.equal(sourcesAfter(hiddenDown, down), "rest"); // shown again but still slid: no slide started
+  assert.equal(sourcesAfter(hidden, up), "run");
+  assert.equal(sourcesAfter(down, down), null); // nothing changed: as they are, the wait going on
 });

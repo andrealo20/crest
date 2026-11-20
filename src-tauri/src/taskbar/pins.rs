@@ -11,8 +11,8 @@
 //!
 //! While the bar runs, the bar follows Windows' own pins too (`taskbar_windows_pins`): a thread watches the `Taskband` key
 //! (`watch`) and tells the notch, which asks what changed since the list it remembers, and once at the bar's start for what
-//! changed while Crest was closed. Only a read of both sources counts, and a pin leaves the bar only when its app is surely
-//! unpinned (`follow`).
+//! changed while Crest was closed. Only a read of both sources counts, a pin leaves the bar only when its app is surely
+//! unpinned, and more than half of the list gone at once counts only when a second read drops the same pins (`follow`).
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -121,13 +121,18 @@ fn read(apps: &[App]) -> Option<Vec<String>> {
 
 /// What changed on Windows' taskbar since `last`, the ids remembered the time before (`remembered`): the ids new in `now`, and
 /// those gone from it that the Start list still knows or that are no longer installed (one the Start list missed but still
-/// installed stays: a list read in part). The first read (`last` None) only remembers. None when more than half of a list of four
-/// or more went at once: a read that failed, not apps unpinned.
-fn follow(last: Option<&[String]>, now: &[String], known: impl Fn(&str) -> bool, installed: impl Fn(&str) -> bool) -> Option<(Vec<String>, Vec<String>)> {
-    let Some(last) = last else { return Some((Vec::new(), Vec::new())) };
+/// installed stays: a list read in part). The first read (`last` None) only remembers. More than half of a list of four or more
+/// gone at once looks like a read that failed: refused (`Err`, with what it would take off), unless the read before was refused
+/// for the same pins (`refused`); a second read agreeing that they are gone (a reset by a Windows update, a backup restored on
+/// another PC) goes through, with the pins made meanwhile.
+fn follow(last: Option<&[String]>, now: &[String], refused: &[String], known: impl Fn(&str) -> bool, installed: impl Fn(&str) -> bool) -> Result<(Vec<String>, Vec<String>), Vec<String>> {
+    let Some(last) = last else { return Ok((Vec::new(), Vec::new())) };
     let added: Vec<String> = now.iter().filter(|id| !last.contains(id)).cloned().collect();
     let removed: Vec<String> = last.iter().filter(|id| !now.contains(id) && (known(id) || !installed(id))).cloned().collect();
-    (last.len() < 4 || removed.len() * 2 <= last.len()).then_some((added, removed))
+    if last.len() >= 4 && removed.len() * 2 > last.len() && removed != refused {
+        return Err(removed);
+    }
+    Ok((added, removed))
 }
 
 /// The ids to remember for the next ask: `now`, then those of `last` gone from it but kept (not in `removed`), in `last`'s order.
@@ -166,6 +171,9 @@ pub struct WindowsPins {
     removed: Vec<String>,
 }
 
+/// What the last read was refused for (`follow`): the pins it would have taken off. Cleared by a read that goes through.
+static REFUSED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
 /// The bar's pins follow Windows' (store.ts `startTaskbar`): the notch asks at the bar's start, for what changed while Crest was
 /// closed, and on each `taskbar://windows-pins`, with the ids of its last answer (None the first time). The Start list is read
 /// again when its last read is older than the launcher's gap (`launcher::read_lately`), so an app installed since and pinned
@@ -187,7 +195,15 @@ pub async fn taskbar_windows_pins(app: AppHandle, last: Option<Vec<String>>) -> 
                 Some(aumid) => launcher::in_apps_folder(aumid),
                 None => remote(id) || Path::new(id).is_file(),
             };
-            let (added, removed) = follow(last.as_deref(), &now, known, installed)?;
+            let mut refused = REFUSED.lock().unwrap_or_else(|e| e.into_inner());
+            let (added, removed) = match follow(last.as_deref(), &now, &refused, known, installed) {
+                Ok(change) => change,
+                Err(dropped) => {
+                    *refused = dropped;
+                    return None;
+                }
+            };
+            refused.clear();
             let added = added.iter().filter_map(|id| apps.iter().find(|a| &a.id == id).cloned()).collect();
             let now = remembered(last.as_deref(), &now, &removed);
             Some(WindowsPins { ok: true, now, added, removed })
@@ -324,17 +340,30 @@ mod tests {
         let ids = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
         let all = |_: &str| true;
         // First time: remember, change nothing.
-        assert_eq!(follow(None, &ids(&["a"]), all, all), Some((vec![], vec![])));
+        assert_eq!(follow(None, &ids(&["a"]), &[], all, all), Ok((vec![], vec![])));
         // New in Windows: added. Gone and still known: removed.
-        assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&["a", "c"]), all, all), Some((ids(&["c"]), ids(&["b"]))));
+        assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&["a", "c"]), &[], all, all), Ok((ids(&["c"]), ids(&["b"]))));
         // Gone, unknown to the Start list but still installed: kept (a partial Start list).
-        assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&["a"]), |id| id != "b", all), Some((vec![], vec![])));
+        assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&["a"]), &[], |id| id != "b", all), Ok((vec![], vec![])));
         // Gone and uninstalled: removed.
-        assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&["a"]), |id| id != "b", |id| id != "b"), Some((vec![], ids(&["b"]))));
+        assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&["a"]), &[], |id| id != "b", |id| id != "b"), Ok((vec![], ids(&["b"]))));
         // More than half of a list of four or more gone at once: a failed read.
-        assert_eq!(follow(Some(&ids(&["a", "b", "c", "d", "e", "f"])[..]), &ids(&["a", "b"]), all, all), None);
+        assert_eq!(follow(Some(&ids(&["a", "b", "c", "d", "e", "f"])[..]), &ids(&["a", "b"]), &[], all, all), Err(ids(&["c", "d", "e", "f"])));
         // A small list may empty out.
-        assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&[]), all, all), Some((vec![], ids(&["a", "b"]))));
+        assert_eq!(follow(Some(&ids(&["a", "b"])[..]), &ids(&[]), &[], all, all), Ok((vec![], ids(&["a", "b"]))));
+    }
+
+    #[test]
+    fn a_mass_unpin_goes_through_once_a_second_read_drops_the_same_pins() {
+        let ids = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let all = |_: &str| true;
+        let six = ids(&["a", "b", "c", "d", "e", "f"]);
+        // The first read that drops four of six is refused, with what it would drop.
+        assert_eq!(follow(Some(&six[..]), &ids(&["a", "b"]), &[], all, all), Err(ids(&["c", "d", "e", "f"])));
+        // The next one dropping the same four goes through, with a pin made meanwhile (an update's reset, then a new pin).
+        assert_eq!(follow(Some(&six[..]), &ids(&["a", "b", "x"]), &ids(&["c", "d", "e", "f"]), all, all), Ok((ids(&["x"]), ids(&["c", "d", "e", "f"]))));
+        // One that drops others is refused again, with its own.
+        assert_eq!(follow(Some(&six[..]), &ids(&["a"]), &ids(&["c", "d", "e", "f"]), all, all), Err(ids(&["b", "c", "d", "e", "f"])));
     }
 
     #[test]

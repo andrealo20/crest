@@ -1866,5 +1866,6 @@
  "Zeitüberschreitung": "已超时",
  "Keine gekoppelten Geräte": "没有已配对的设备",
  "Verbunden · {p} %": "已连接 · {p}%",
- "Verbindung wird getrennt …": "正在断开连接…"
+ "Verbindung wird getrennt …": "正在断开连接…",
+ "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "底部是 Crest 任务栏：关闭它后可重新选择底部"
 }

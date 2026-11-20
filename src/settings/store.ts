@@ -12,7 +12,7 @@ import type { ColorScheme } from "../features/system/levels";
 import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
 import { NOTICE_DEFAULTS, normalizeNotices, type NoticeSettings } from "../features/notices/rules";
 import { WINDOW_DEFAULTS, normalizeWindow, type WindowSettings } from "../features/window/model";
-import { DOCK_DEFAULTS, normalizeDock, type Dock } from "../notch/edge";
+import { DOCK_DEFAULTS, dockBesideBar, normalizeDock, type Dock } from "../notch/edge";
 import { normalizeMonitorMode, type MonitorMode } from "../notch/follow";
 import { CALENDAR_DEFAULTS, normalizeCalendar, type CalendarSettings } from "../features/calendar/model";
 import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
@@ -278,6 +278,16 @@ try {
   settings.set(defaults);
 }
 
+/** Crest's bar is on. Windows only: a Mac, which has no bar, never reads it on from a restored backup. */
+export function barOn(s: Settings): boolean {
+  return s.taskbar.enabled && !isMac;
+}
+
+/** The notch leaves the bottom edge to Crest's bar (edge.ts dockBesideBar), as the settings load (a restored backup too) and on every update (the bar turned on). */
+function besideBar(s: Settings): Settings {
+  return { ...s, dock: dockBesideBar(s.dock, barOn(s)) };
+}
+
 function migrate({ language: _old, ...s }: Settings & { language?: unknown }): Settings {
   const known = new Set<string>(TOOL_IDS);
   // Plugin tools stay; src/features/plugins/store.ts drops those no longer installed once it has read the list.
@@ -288,7 +298,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     if (id === "overview") tools.unshift({ id, enabled: true });
     else tools.push({ id, enabled: !DEFAULT_OFF.has(id) });
   }
-  return {
+  return besideBar({
     ...defaults,
     ...s,
     // The old `language` was forced to English, never a choice: those settings start from the system language.
@@ -342,7 +352,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     // Only a fresh install starts from the defaults (done: false); settings saved by 0.2.x have no `setup` and never see it.
     setup: { done: s.setup ? s.setup.done === true : true },
     taskbar: normalizeTaskbar(s.taskbar),
-  };
+  });
 }
 
 /** Migrates the old shape ({ provider: "demo", model }) and adds missing providers. */
@@ -359,5 +369,5 @@ export function updateAsk(provider: AskProvider, patch: Partial<AskProviderConfi
 }
 
 export function updateSettings(patch: Partial<Settings> | ((s: Settings) => Partial<Settings>)) {
-  settings.set((s) => ({ ...s, ...(typeof patch === "function" ? patch(s) : patch) }));
+  settings.set((s) => besideBar({ ...s, ...(typeof patch === "function" ? patch(s) : patch) }));
 }

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { display } from "../platform/services";
-import { settings, updateSettings } from "../settings/store";
+import { barOn, settings, updateSettings } from "../settings/store";
 import { effectiveIdleStyle } from "../features/window/store";
 import { toPageCss, toSaved } from "../features/window/panelSize";
 import { capsuleY, snapCapsule, windowYFor } from "./capsule";
@@ -99,7 +99,8 @@ export const viewLine = (dock: Dock) => {
 /*
  * Move the notch along its edge, the capsule anywhere: grab it anywhere when closed, by the
  * header when open. Closed, the notch and the line move to the edge nearest the pointer (with
- * hysteresis), hanging from the screen's edge over a taskbar and from the taskbar's edge elsewhere.
+ * hysteresis), never to the bottom while Crest's bar is on, hanging from the screen's edge over
+ * a taskbar and from the taskbar's edge elsewhere.
  * Natively the window itself moves (display.rs, clamped to the monitor), in the browser only
  * the notch inside the window. Saved on release. `shape` gives the closed shape, which the capsule snaps with.
  */
@@ -128,6 +129,8 @@ export function useDragToMove(status: NotchStatus, shape: () => { w: number; h: 
 
     // Where the pointer is on the monitor: the notch's place on its edge plus the pointer's place in the hit zone, which hangs from the edge.
     const m0 = dragArea(), work0 = workOf(m0), edge0 = from.dock.edge;
+    // Crest's bar takes the bottom edge: a pointer nearest to it leaves the notch on its own (edge.ts nearestEdge).
+    const shut = barOn(settings.get()) ? "bottom" : undefined;
     const hit = document.querySelector("[data-notch-hit]")?.getBoundingClientRect();
     const z = viewZoom();
     const raw = hit ? pointerIn(edge0, hit, e.clientX, e.clientY) : { depth: 0, along: 0 };
@@ -153,7 +156,7 @@ export function useDragToMove(status: NotchStatus, shape: () => { w: number; h: 
       } else {
         const p = { x: grab.x + dx, y: grab.y + dy }, work = workOf(m), open = status === "open";
         // Open, it keeps its edge and anchor: the panel would jump around the screen.
-        const edge = open ? edge0 : nearestEdge(p.x, p.y, m.width, m.height, current.dock.edge);
+        const edge = open ? edge0 : nearestEdge(p.x, p.y, m.width, m.height, current.dock.edge, shut);
         const anchor = anchorAt(edge, p.x, p.y, m.width, m.height, work) ?? (edge === edge0 ? from.dock.anchor : "auto");
         // On the edge it started on, the grabbed point stays under the pointer; on another, the notch's centre comes under it.
         const along = alongOf(edge, p.x, p.y) - span(edge, m.width, m.height) / 2 - (edge === edge0 ? rel.along : 0);

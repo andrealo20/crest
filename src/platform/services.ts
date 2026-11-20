@@ -18,6 +18,7 @@ import type { TrayState, WindowList } from "../features/taskbar/model";
 import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
 import type { Rect } from "../features/taskbar/autoHide";
 import type { BtDevice, WifiList } from "../features/taskbar/quickPages";
+import type { BarSeen } from "../features/taskbar/widgets";
 import type { Favorite } from "../features/launcher/apps";
 import bundledChangelog from "../changelog.json";
 import { demo, photo, sample, sampleAvatar, screenshot, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
@@ -1369,7 +1370,7 @@ export const taskbar = {
     isNative ? invoke("taskbar_tray_click", { key, button, rect }) : Promise.resolve(),
   /** Where the page draws (the bar, an open menu) in its CSS px; clicks pass through the rest of the window. */
   hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
-  /** Tells the notch what the bar's panel shows: "tray", "apps", "quick", a tool's id, or null once it closes. */
+  /** Tells the notch the tool the bar's panel shows, or null once it closes or shows the tray, the apps or the quick panel. */
   panel: (open: string | null): Promise<void> => (isNative ? invoke("taskbar_panel", { open }) : Promise.resolve()),
   /** "Hide when a window touches it" on or off; only while it is on does Rust send each bar the window in front of its monitor. The notch only. */
   autoHide: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_auto_hide", { on }) : Promise.resolve()),
@@ -1379,7 +1380,7 @@ export const taskbar = {
   reserveReachable: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_reserve_reachable") : Promise.resolve(true)),
   /** Whether a zone of the bar holds the tray (trayOnBar), sent on or off; Rust adds whether the bar runs and runs Crest's tray (the spy that records the notification area's icons) while both hold. The notch only. */
   trayOn: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_tray_on", { on }) : Promise.resolve()),
-  /** This bar slid off the screen (useAutoHide) or back up: Rust tells this bar, and the notch for the primary's, that it is hidden while down (onShown). */
+  /** This bar slid off the screen (useAutoHide) or back up: Rust tells this bar that it is hidden while down (onShown), and the notch the primary's slide (onBarSeen). */
   slid: (down: boolean): Promise<void> => (isNative ? invoke("taskbar_slid", { down }) : Promise.resolve()),
   /** The frame of the window in front of this bar's monitor, in the page's CSS px, as Rust last sent it: null without one and while the option is off. */
   front: (): Promise<Rect | null> => (isNative ? invoke<Rect | null>("taskbar_front") : Promise.resolve(null)),
@@ -1422,13 +1423,21 @@ export const taskbar = {
   /** One of Windows' settings pages, by name (Rust maps it to its URI). */
   settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
   /**
-   * The bar shows or hides (a full-screen app, the hide hotkey, slid off the screen). Rust sends the primary bar's state to the notch, which stops the
-   * widgets' sources, and to that bar, which pauses them; each other bar gets its own. On this window only: a listener for any
-   * target would also hear the other bars'.
+   * In a bar: it shows or hides (a full-screen app, the hide hotkey, slid off the screen); Rust sends each bar its own, which pauses
+   * its widgets. On this window only: a listener for any target would also hear the other bars'.
    */
   onShown(handler: (shown: boolean) => void): () => void {
     if (!isNative) return () => {};
     const off = getCurrentWebviewWindow().listen<boolean>("taskbar://shown", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /**
+   * In the notch: the primary bar's window shows or hides (a full-screen app, the hide hotkey), or its page slides it away or back
+   * (`bar://shown`, bar.rs `tell_notch`), so the widgets' sources run through a short slide and stop at once on a hide.
+   */
+  onBarSeen(handler: (seen: BarSeen) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<BarSeen>("bar://shown", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
 };

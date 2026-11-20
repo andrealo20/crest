@@ -127,6 +127,8 @@ windows = { version = "0.62", features = [
   "Devices_Radios",
   # The quick panel's Wi-Fi page (taskbar/wifi.rs).
   "Devices_WiFi",
+  # Stato follows the Wi-Fi signal (sysevents.rs watch_signal): types only, wlanapi.dll's calls are looked up at run time.
+  "Win32_NetworkManagement_WiFi",
   "Win32_System_SystemInformation",
   "Win32_System_DataExchange",
   "Win32_System_Memory",

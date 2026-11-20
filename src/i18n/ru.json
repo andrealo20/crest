@@ -1866,5 +1866,6 @@
  "Zeitüberschreitung": "Время ожидания истекло",
  "Keine gekoppelten Geräte": "Нет сопряженных устройств",
  "Verbunden · {p} %": "Подключено · {p}%",
- "Verbindung wird getrennt …": "Отключение…"
+ "Verbindung wird getrennt …": "Отключение…",
+ "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "Внизу находится панель задач Crest: нижний край вернётся, когда её выключат"
 }

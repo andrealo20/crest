@@ -1866,5 +1866,6 @@
  "Zeitüberschreitung": "Timed out",
  "Keine gekoppelten Geräte": "No paired devices",
  "Verbunden · {p} %": "Connected · {p}%",
- "Verbindung wird getrennt …": "Disconnecting …"
+ "Verbindung wird getrennt …": "Disconnecting …",
+ "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "The Crest taskbar is at the bottom: the bottom edge comes back when it is off"
 }

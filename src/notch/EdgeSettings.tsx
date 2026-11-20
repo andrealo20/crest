@@ -1,21 +1,33 @@
 import { t } from "../i18n";
-import { settings, updateSettings } from "../settings/store";
+import { barOn, settings, updateSettings } from "../settings/store";
 import { Row, Segmented } from "../ui/controls";
 import { hasTaskbar, overTaskbar, type Edge } from "./edge";
 import { monitor, monitorMetrics } from "./monitor";
 
-/** Settings rows: the screen edge the notch and the line hang from, and (with a taskbar on that edge) whether from the screen's edge or the taskbar's. The capsule floats freely, so it has neither. */
+/**
+ * Settings rows: the screen edge the notch and the line hang from, and (with a taskbar on that edge) whether from the screen's edge or the taskbar's. The capsule floats freely, so it has neither.
+ * While Crest's bar is on, the bottom edge is the bar's: the row leaves it out and says so.
+ */
 export function EdgeSettings() {
   const s = settings.use();
   monitor.use();
   if (s.display.idleStyle === "capsule") return null;
   const { edge, anchor } = s.dock;
+  const bar = barOn(s);
   const m = monitorMetrics();
   const taskbar = hasTaskbar(edge, m.width, m.height, { x: m.workLeft, y: m.workTop, width: m.workWidth, height: m.workHeight });
   const setDock = (patch: Partial<typeof s.dock>) => updateSettings((cur) => ({ dock: { ...cur.dock, ...patch } }));
   return (
     <>
-      <Row label={t("Bildschirmrand")} hint={t("Geschlossen auch an einen anderen Rand ziehen")}>
+      <Row
+        label={t("Bildschirmrand")}
+        hint={
+          <>
+            {t("Geschlossen auch an einen anderen Rand ziehen")}
+            {bar && <span className="mt-1 block">{t("Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist")}</span>}
+          </>
+        }
+      >
         <Segmented<Edge>
           id="dock-edge"
           size="sm"
@@ -24,7 +36,7 @@ export function EdgeSettings() {
           onChange={(next) => updateSettings((cur) => ({ dock: { edge: next, anchor: "auto" }, display: { ...cur.display, offset: 0 } }))}
           options={[
             { value: "top", label: t("Rand oben") },
-            { value: "bottom", label: t("Rand unten") },
+            ...(bar ? [] : [{ value: "bottom" as const, label: t("Rand unten") }]),
             { value: "left", label: t("Rand links") },
             { value: "right", label: t("Rand rechts") },
           ]}

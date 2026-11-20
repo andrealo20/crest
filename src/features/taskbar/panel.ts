@@ -1,7 +1,7 @@
 import { createStore } from "../../lib/store";
 import { settingsWindow } from "../../platform/native";
 import { taskbar } from "../../platform/services";
-import { opensInBar, panelKey, sameAnchor, sameContent, type OpenPanel, type PanelAnchor, type PanelContent, type QuickPage } from "./panelModel";
+import { opensInBar, sameAnchor, sameContent, type OpenPanel, type PanelAnchor, type PanelContent, type QuickPage } from "./panelModel";
 
 /*
  * The panel above the bar, in the bar's window: what it shows and the item it opens over. The bar's items open it only through the
@@ -61,12 +61,12 @@ export function closePanel(): void {
   panel.set(null);
 }
 
-/** Tells the notch what the panel shows each time that changes (`bar://panel`), so it runs what a tool open here needs from it. */
+/** Tells the notch which tool the panel shows each time that changes (`bar://panel`), so it runs what the tool needs from it. The tray, the apps behind … and the quick panel need nothing from it and report as no tool. */
 export function startPanelReport(): void {
   let last: string | null = null;
   panel.subscribe(() => {
-    const open = panel.get();
-    const key = open && panelKey(open.content);
+    const open = panel.get()?.content;
+    const key = open?.kind === "tool" ? open.tool : null;
     if (key === last) return;
     last = key;
     void taskbar.panel(key);

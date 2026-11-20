@@ -28,15 +28,18 @@ import { useLyricLine } from "../now-playing/lyrics";
 import { usage, useUsageViewer } from "../usage/store";
 import { anyBarTool, barPanels, onBarShows } from "./barPanels";
 import { barFeed, feedStores, panelOpen, panelStores, type BarFeed } from "./barStores";
-import { barPartsFor, barSources, barWidgets } from "./widgets";
+import { SLIDE_KEEP_MS, barPartsFor, barSources, barWidgets, sourcesAfter, type BarSeen } from "./widgets";
 
 /*
  * The notch's end of the bar's widgets: it runs the closed row's hooks for each widget on the bar and sends the result to the
  * bar's window, which only draws (barStores.ts lists what goes over).
  */
 
-/** In the notch: whether Crest's bar shows. Starts shown, so a notch that reloads does not leave the widgets without data. */
-export const barOnScreen = createStore(true);
+/**
+ * In the notch: whether the bar's widget sources run: while the primary bar shows, and for SLIDE_KEEP_MS after it starts sliding away
+ * (widgets.ts sourcesAfter). Starts on, so a notch that reloads does not leave the widgets without data.
+ */
+export const sourcesOn = createStore(true);
 /** In the notch: a bar's panel shows Now Playing (barPanels.ts), whose equalizer only listens to the levels the notch captures. */
 const barMedia = createStore(false);
 /** In the notch: the Store build, which never builds the bar, so the bar counts as off and not even Discord stays connected for it. */
@@ -50,9 +53,20 @@ export function startBarShare() {
   onBarShows("media", (on) => barMedia.set(on));
   shareStores(tauriTransport, feedStores, { to: "taskbar", hello: "bar://hello" });
   shareStores(tauriTransport, panelStores, { to: "taskbar", hello: "bar://hello", when: panelOpen });
-  taskbar.onShown((on) => barOnScreen.set(on));
+  // Rust tells the primary bar's window and its slide apart (bar.rs `tell_notch`): a slide keeps the sources SLIDE_KEEP_MS, a hide stops
+  // them at once. One wait at a time, cleared by the next change.
+  let seen: BarSeen = { shown: true, slid: false };
+  let wait = 0;
+  taskbar.onBarSeen((now) => {
+    const next = sourcesAfter(seen, now);
+    seen = now;
+    if (next === null) return;
+    window.clearTimeout(wait);
+    if (next === "keep") wait = window.setTimeout(() => sourcesOn.set(false), SLIDE_KEEP_MS);
+    sourcesOn.set(next !== "rest");
+  });
   // The Store build never builds the bar, whatever a restored backup says (bar.rs), so no shown state ever comes: no sources.
-  void build.info().then((b) => { if (b.store) { barOnScreen.set(false); noBar.set(true); } }, () => {});
+  void build.info().then((b) => { if (b.store) { sourcesOn.set(false); noBar.set(true); } }, () => {});
 }
 
 /** Writes a widget's slice only when it changed: each write goes to the bar. */
@@ -152,15 +166,15 @@ const SOURCES: Partial<Record<PartId, () => null>> = {
 };
 
 /**
- * Hidden, beside the notch: while the bar is on and shows, one child per widget on it runs that part's source and writes its
+ * Hidden, beside the notch: while the bar is on and its sources run (sourcesOn), one child per widget on it runs that part's source and writes its
  * slice of `barFeed`. Mounting a child starts the source, unmounting stops it; the slices keep their last value meanwhile.
  */
 export function WidgetSources(): ReactNode {
   language.use();
   const { enabled, zones } = settings.use().taskbar;
-  const shown = barOnScreen.use();
+  const live = sourcesOn.use();
   const none = noBar.use();
-  const parts = barPartsFor(barWidgets(zones), enabled && !none, shown);
+  const parts = barPartsFor(barWidgets(zones), enabled && !none, live);
   const key = parts.join();
   useEffect(() => barParts.set(parts), [key]);
   useEffect(() => () => barParts.set([]), []);
@@ -168,7 +182,7 @@ export function WidgetSources(): ReactNode {
   // write the slice of a store not yet running (the calendar's null, its widget blinking to its icon).
   const told = barParts.use();
   const media = barMedia.use();
-  return barSources(shown ? told : [], media).map((id) => {
+  return barSources(live ? told : [], media).map((id) => {
     const Source = SOURCES[id];
     return Source && <Source key={id} />;
   });

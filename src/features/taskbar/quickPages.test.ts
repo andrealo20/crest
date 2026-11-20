@@ -54,6 +54,15 @@ test("the Wi-Fi page keeps the password in the row's state alone: never logged, 
   }
 });
 
+test("the Wi-Fi page scans each time it sees the radio come on, at its consent and on Refresh, never on a timer", () => {
+  const src = readFileSync(new URL("./window/WifiPage.tsx", import.meta.url), "utf8");
+  // As the page opens with the radio on, and when the radio comes on while it is open (its switch or Windows'): one scan each.
+  assert.match(src, /useEffect\(\(\) => \{\s*if \(on\) void read\(true\);\s*\}, \[on\]\);/);
+  // The page's three scans: the radio coming on, the consent's answer, the refresh button.
+  assert.equal(src.match(/read\(true\)/g)?.length, 3);
+  for (const timer of ["setInterval", "setTimeout"]) assert.ok(!src.includes(timer), `WifiPage.tsx must not contain ${timer}`);
+});
+
 const dev = (p: Partial<BtDevice>): BtDevice => ({ id: "1", name: "Buds", categories: [], connected: false, battery: null, ...p });
 
 test("the Bluetooth page lists the paired devices once its radio is on and they are read", () => {
