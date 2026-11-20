@@ -81,6 +81,7 @@ mod startup;
 mod system;
 #[cfg(windows)]
 mod sysevents;
+mod text_scale;
 mod timer_window;
 #[cfg(windows)]
 mod terminal;
@@ -147,7 +148,7 @@ const SETTINGS_DENIED: &[&str] = &[
     "launcher_shortcuts", "clipboard_mode", "tray_texts", "media_pin", "status_configure", "notices_configure",
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
-    "timer_window_open",
+    "timer_window_open", "display_rescale",
 ];
 
 /// The notch window may call every command; the settings, timer and mirror windows only what they need. Tauri lets every
@@ -311,6 +312,7 @@ pub fn run() {
             downloads::downloads_configure,
             display::display_monitors,
             display::display_apply,
+            display::display_rescale,
             display::display_screen,
             display::display_fullscreen,
             display::display_raise,
@@ -769,7 +771,7 @@ fn build_info() -> serde_json::Value {
 }
 
 /// For Copy diagnostics (Settings, General): Windows edition and build, the architecture of this build and of the PC
-/// (an x64 build on an ARM PC runs emulated), and each monitor's scale. Nothing about the user, the PC's name or a path.
+/// (an x64 build on an ARM PC runs emulated), each monitor's scale and Windows' Text size. Nothing about the user, the PC's name or a path.
 #[tauri::command]
 fn diagnostics_info(window: tauri::WebviewWindow) -> serde_json::Value {
     let scales: Vec<f64> = window.available_monitors().unwrap_or_default().iter().map(|m| m.scale_factor()).collect();
@@ -779,6 +781,7 @@ fn diagnostics_info(window: tauri::WebviewWindow) -> serde_json::Value {
         "arch": std::env::consts::ARCH,
         "machine": native_machine(),
         "scales": scales,
+        "textScale": text_scale::get(),
     })
 }
 
@@ -993,6 +996,8 @@ mod tests {
         assert!(!ok("settings", "display_apply") && !ok("settings", "keyboard_focus") && !ok("settings", "hotkeys_apply"));
         // Focus mode makes the notch ignore the mouse: only the notch may turn that on.
         assert!(!ok("settings", "set_passthrough"));
+        // Resizing and moving the notch's window follows the notch's own page.
+        assert!(!ok("settings", "display_rescale"));
     }
 
     #[test]

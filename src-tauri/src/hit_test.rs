@@ -245,6 +245,13 @@ fn tell_mouse_left(hwnd: isize) {
     let _ = unsafe { PostMessageW(Some(HWND(hwnd as _)), WM_MOUSELEAVE, WPARAM(0), LPARAM(0)) };
 }
 
+/// The pointer, `dx` and `dy` device px from the window's top-left corner, in the page's CSS px: the monitor's scale, the
+/// panel scale and Windows' Text size all make a CSS px bigger (text_scale.rs).
+fn to_page(dx: f64, dy: f64, device: f64, zoom: f64, text: f64) -> (f64, f64) {
+    let scale = device * zoom * text;
+    (dx / scale, dy / scale)
+}
+
 #[cfg(not(windows))]
 fn geometry(window: &WebviewWindow) -> Option<(f64, f64, f64)> {
     let (Ok(cursor), Ok(origin), Ok(scale)) = (window.cursor_position(), window.outer_position(), window.scale_factor()) else {
@@ -288,9 +295,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             let Some((dx, dy, scale)) = geometry else { continue };
 
             // The hit rect is in the zoomed page's CSS px.
-            let scale = scale * state.zoom();
-            let x = dx / scale;
-            let y = dy / scale;
+            let (x, y) = to_page(dx, dy, scale, state.zoom(), crate::text_scale::get());
             let rect = *state.rect.lock().unwrap();
             // GetAsyncKeyState reads the physical buttons: a left-handed mouse has its primary button on the right.
             #[cfg(windows)]
@@ -423,6 +428,23 @@ mod tests {
     fn empty_rect_holds_only_its_point() {
         let r = HitRect::default();
         assert!(r.contains(0.0, 0.0) && !r.contains(0.1, 0.0));
+    }
+
+    #[test]
+    fn the_dock_and_the_pin_take_the_pointer_at_text_size_125() {
+        // Issue #61: the Media tool (520 x 232 CSS px) hangs from the top of the 760 px wide page, centred, with the hit zone's
+        // 16 px at the sides and 12 px below. At 200 % with Windows' Text size at 125 % a CSS px is 2.5 device px.
+        let rect = HitRect { x: 104.0, y: 0.0, w: 552.0, h: 244.0 };
+        let (x, y) = to_page(2.5 * 380.0, 2.5 * 220.0, 2.0, 1.0, 1.25);
+        assert!(rect.contains(x, y), "the Dock, 12 px above the panel's bottom: {x}, {y}");
+        let (x, y) = to_page(2.5 * 614.0, 2.5 * 30.0, 2.0, 1.0, 1.25);
+        assert!(rect.contains(x, y), "the pin, 26 px in from the panel's right edge: {x}, {y}");
+    }
+
+    #[test]
+    fn the_panel_scale_and_the_text_size_both_divide_the_pointer() {
+        assert_eq!(to_page(300.0, 150.0, 1.5, 1.0, 1.0), (200.0, 100.0));
+        assert_eq!(to_page(300.0, 150.0, 1.0, 1.25, 1.2), (200.0, 100.0));
     }
 
     #[test]

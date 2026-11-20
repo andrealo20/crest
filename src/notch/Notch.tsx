@@ -20,7 +20,7 @@ import { powerState, statusAlert } from "../features/status/store";
 import { effectiveIdleStyle, screen } from "../features/window/store";
 import { ResizeHandles, stepToolSize, useToolSize, wheelTaken } from "../features/window/panel";
 import { cycle } from "../features/window/model";
-import { windowShell } from "../platform/services";
+import { display, windowShell } from "../platform/services";
 import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
 import { across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
 import { columnRoom, columnSurface } from "./column";
@@ -497,7 +497,7 @@ export function Notch() {
   }, [themes.glass]);
   // Moved, rescaled or on another monitor while open: the copy no longer lies under the window. Before the effect below, so a drag's
   // release asks once.
-  const place = `${placementKey()}|${displaySettings.offset}|${behavior.scale}`;
+  const place = `${placementKey()}|${displaySettings.offset}|${behavior.scale}|${view.dpr}`;
   const lastPlace = useRef(place);
   useEffect(() => {
     if (lastPlace.current === place) return;
@@ -1062,6 +1062,16 @@ function useNativeBridge(
     report();
     // Moving the capsule changes padding or margin, which the observer doesn't see; measured after Motion has rendered the new value.
     const offTop = top.on("change", () => frame.postRender(report));
+    // A window that grows or shrinks moves the centred zone without resizing it, which the observer doesn't see either. A new page
+    // scale can be Windows' Text size, which Rust has to read again to size the window and the hit test with it (issue #61).
+    let dpr = viewMetrics.get().dpr;
+    const offMetrics = viewMetrics.subscribe(() => {
+      if (viewMetrics.get().dpr !== dpr) {
+        dpr = viewMetrics.get().dpr;
+        display.rescale();
+      }
+      report();
+    });
 
     const offHover = onNativeHover((inside) => (inside ? onEnter() : onLeave()));
     // Text field focused → hold (clickable, no collapse) until focus leaves.
@@ -1084,6 +1094,7 @@ function useNativeBridge(
     return () => {
       ro.disconnect();
       offTop();
+      offMetrics();
       offHover();
       mo.disconnect();
       el.removeEventListener("focusin", onFocusIn);

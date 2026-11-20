@@ -12,7 +12,8 @@
 //! until the notch closes; the floating timer hides and shows with the notch.
 //!
 //! `offset` moves the notch along its edge (dragging), clamped to the monitor. `zoom` is the panel scale:
-//! the page is zoomed and the window grown by it, so CSS px times DPI times zoom are device pixels.
+//! the page is zoomed and the window grown by it. Windows' Text size makes WebView2 draw the page larger again
+//! (text_scale.rs) and the window grows with it too, so CSS px times DPI times zoom times Text size are device pixels.
 //! `edge` and `line` put the window on another screen edge (bottom, left, right).
 //!
 //! `mode` "follow" or "all" (mirror.rs): the frontend picks `monitor` from where the pointer is, and with "all" sends a `spot`
@@ -183,8 +184,10 @@ fn fit_along(along: f64) -> f64 {
 pub struct MonitorInfo {
     name: String,
     primary: bool,
-    width: u32,
-    height: u32,
+    /// Size in CSS px, not rounded: the scale (DPI x panel scale x Text size) rarely divides it, and a rounded size left the
+    /// right or bottom edge's notch a pixel short of the screen's edge.
+    width: f64,
+    height: f64,
     /// Work area (without taskbar) in CSS px: top below the monitor's top edge, and height.
     work_top: f64,
     work_height: f64,
@@ -216,7 +219,7 @@ fn named_monitors(window: &WebviewWindow) -> Vec<(String, tauri::Monitor)> {
 
 #[tauri::command]
 pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -> Vec<MonitorInfo> {
-    let zoom = state.config.lock().unwrap().zoom;
+    let zoom = state.config.lock().unwrap().zoom * crate::text_scale::get();
     let primary = window.primary_monitor().ok().flatten().map(|m| *m.position());
     named_monitors(&window)
         .into_iter()
@@ -225,8 +228,8 @@ pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -
             let wa = m.work_area();
             MonitorInfo {
                 primary: primary == Some(*m.position()),
-                width: (m.size().width as f64 / scale) as u32,
-                height: (m.size().height as f64 / scale) as u32,
+                width: m.size().width as f64 / scale,
+                height: m.size().height as f64 / scale,
                 work_top: (wa.position.y - m.position().y) as f64 / scale,
                 work_height: wa.size.height as f64 / scale,
                 work_left: (wa.position.x - m.position().x) as f64 / scale,
@@ -262,6 +265,37 @@ pub fn display_apply(mut config: Config, window: WebviewWindow, state: State<'_,
     if moved || zoomed || mirrored {
         crate::mirror::wake(window.app_handle());
     }
+}
+
+/// The page's own scale changed (another monitor, or Windows' Text size): with a new Text size the window and the copies on the
+/// other monitors grow or shrink with it, so the page keeps its size in CSS px and the hit test its units (text_scale.rs). A notch
+/// hanging from an edge stays on it until the page has read the monitors again at the new size (`notch://monitors`) and sent new
+/// places; the offset and a floating capsule's top are the page's own px and move with the Text size, as everything it draws grows.
+#[tauri::command]
+pub fn display_rescale(window: WebviewWindow, state: State<'_, DisplayState>) {
+    let Some((old, new)) = crate::text_scale::refresh() else { return };
+    follow_text_scale(&mut state.config.lock().unwrap(), old / new);
+    let _ = place(&window, &state);
+    crate::mirror::wake(window.app_handle());
+    let _ = window.emit("notch://monitors", ());
+}
+
+/// The lines the page sent for the window and the copies are CSS px at the Text size of then: `k` (old / new factor) keeps them on
+/// the same device px. On top the page sends a hanging notch's line as the window's top too (follow.ts spotFor), so a top equal to
+/// its line goes with it. A floating capsule's top comes without a line: it is the page's own px, sent again only when it changes,
+/// so a converted copy would make the capsule jump at its next drag.
+fn follow_text_scale(c: &mut Config, k: f64) {
+    follow(&mut c.line, &mut c.y, k);
+    for spot in &mut c.spots {
+        follow(&mut spot.line, &mut spot.y, k);
+    }
+}
+
+fn follow(line: &mut f64, y: &mut f64, k: f64) {
+    if *y == *line {
+        *y *= k;
+    }
+    *line *= k;
 }
 
 /// What the rules call for right now ("normal" | "line" | "hide"), for the frontend's start.
@@ -473,7 +507,8 @@ impl DisplayState {
 
 /// `place` for any window: on `wanted` (the primary monitor when it is missing), with `line` and `y` for that monitor and the rest of `c`.
 pub(crate) fn put(window: &WebviewWindow, wanted: Option<&str>, c: &Config, line: f64, y: f64) -> tauri::Result<()> {
-    let (offset, zoom, edge, along) = (c.offset, c.zoom, c.edge.as_str(), fit_along(c.along));
+    // Text size zooms the page as the panel scale does (text_scale.rs).
+    let (offset, zoom, edge, along) = (c.offset, c.zoom * crate::text_scale::get(), c.edge.as_str(), fit_along(c.along));
     let side = edge == "left" || edge == "right";
     let monitor = wanted
         .and_then(|name| named_monitors(window).into_iter().find(|(n, _)| n == name).map(|(_, m)| m))
@@ -507,7 +542,7 @@ fn kept_along(along: f64) -> f64 {
     fit_along(along) - (ALONG - PANEL_ALONG)
 }
 
-/// Where the window goes on its monitor; CSS px values, `scale` = monitor DPI x zoom.
+/// Where the window goes on its monitor; CSS px values, `scale` = monitor DPI x zoom x Text size.
 struct Placement<'a> {
     edge: &'a str,
     offset: f64,
@@ -805,6 +840,25 @@ fn is_desktop(hwnd: HWND) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_new_text_size_keeps_a_hanging_edge_on_its_line() {
+        // What the page sends at Text size 100 % (follow.ts spotFor), and what keeps each window on the same device px at 125 %
+        // until the page sends what it measures at the new size.
+        let at_125 = |line: f64, y: f64| {
+            let mut c = Config { line, y, spots: vec![Spot { monitor: "B".into(), line, y }], ..Default::default() };
+            follow_text_scale(&mut c, 1.0 / 1.25);
+            assert_eq!(c.spots, vec![Spot { monitor: "B".into(), line: c.line, y: c.y }], "the copies follow the same rule");
+            (c.line, c.y)
+        };
+        // Bottom edge: the line is the work area's bottom, and the top is unused.
+        assert_eq!(at_125(1032.0, 0.0), (825.6, 0.0));
+        // Top edge, hanging from a 40 px taskbar on top: the line is sent as the window's top too.
+        assert_eq!(at_125(40.0, 40.0), (32.0, 32.0));
+        // A floating capsule: no line, and a top in the page's own px that the page sends again only when it changes. Converted
+        // here, the capsule would jump back at its next drag.
+        assert_eq!(at_125(0.0, 194.0), (0.0, 194.0));
+    }
 
     #[test]
     fn a_second_launch_leaves_the_rules_their_say() {

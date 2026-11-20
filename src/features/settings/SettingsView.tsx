@@ -535,6 +535,7 @@ function DiagnosticsRow() {
         arch: sys.arch,
         machine: sys.machine,
         scales: sys.scales,
+        textScale: sys.textScale ?? 1,
         panelScale: s.behavior.scale,
         tools: s.tools.filter((x) => x.enabled).map((x) => x.id),
         closedStyle: s.display.idleStyle,
@@ -822,7 +823,7 @@ function Display() {
   useEffect(() => {
     void display.monitors().then(setMonitors);
   }, []);
-  const label = (m: MonitorInfo, i: number) => `${m.primary ? t("Hauptbildschirm") : t("Bildschirm {n}", { n: i + 1 })} · ${m.width}×${m.height}`;
+  const label = (m: MonitorInfo, i: number) => `${m.primary ? t("Hauptbildschirm") : t("Bildschirm {n}", { n: i + 1 })} · ${Math.floor(m.width)}×${Math.floor(m.height)}`;
 
   return (
     <Group id="settings-display">
