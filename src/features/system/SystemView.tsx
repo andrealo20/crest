@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { AppWindow, ArrowDown, ArrowsDownUp, ArrowUp, BatteryHigh, CaretDown, Cpu, HardDrives, Lightning, WifiHigh, X, type Icon } from "@phosphor-icons/react";
 import { GpuIcon, RamIcon } from "../../ui/icons";
 import { Segmented, Select } from "../../ui/controls";
-import { content, fade } from "../../design/motion";
+import { content } from "../../design/motion";
 import { t } from "../../i18n";
 import { powerPlans, revealFile, systemIcon, type PowerPlans, type ProcReading } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
@@ -383,7 +383,7 @@ function ProcessRow({ proc, value, onClick }: { proc: ProcReading; value: string
 
 function ProcessCard({ proc, cores, onClose }: { proc: ProcReading; cores: number; onClose: () => void }) {
   return (
-    <motion.div {...fade} className="absolute inset-x-0 top-0 z-10 rounded-[14px] bg-elevated p-3 shadow-[0_6px_18px_rgb(0_0_0/0.45)]">
+    <motion.div className="absolute inset-x-0 top-0 z-10 rounded-[14px] bg-elevated p-3 shadow-[0_6px_18px_rgb(0_0_0/0.45)]">
       <div className="flex items-center gap-2">
         <AppIcon path={proc.path} size={22} />
         <span className="min-w-0 flex-1 truncate text-body font-medium text-label">{proc.name}</span>

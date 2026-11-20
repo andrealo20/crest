@@ -200,7 +200,7 @@ function Slot({ x, width, tool, children }: { x: number; width: number; tool: st
       initial={{ scale: 0.82, x }}
       animate={{ scale: 1, x }}
       exit={{ scale: 0.82 }}
-      transition={{ ...springs.morph, scale: springs.snappy }}
+      transition={{ default: springs.morph, scale: springs.snappy }}
     >
       {children}
     </motion.div>

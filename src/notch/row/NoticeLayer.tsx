@@ -6,7 +6,7 @@ import { pauseRecording, recording, saved, stopRecording, type Saved } from "../
 import { elapsedAt, formatElapsed } from "../../features/capture/clock";
 import { openFile } from "../../platform/services";
 import { openOn } from "../nav";
-import { content, fade, pulse, springs } from "../../design/motion";
+import { card as cardIn, content, fade, pulse, springs } from "../../design/motion";
 import { hueVar } from "../../features/themes/hues";
 import { useNowPlaying } from "../../platform/media";
 import type { UsageId } from "../../platform/services";
@@ -44,14 +44,13 @@ import { downloadNotice } from "../../features/downloads/DownloadNotice";
 import { noticeCard } from "./NoticeCard";
 
 const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76, REC_DOT = 8, THUMB_W = 56, THUMB_H = 32, LEVEL_BAR = 56, ROW_H = 30;
-/** The card's way in, after the shape has started growing; the overshoot is an entrance only, it leaves with a plain fade. */
-const CARD_IN = { opacity: { duration: 0.25, delay: 0.08 }, transform: { type: "spring" as const, stiffness: 420, damping: 26, delay: 0.08 } };
 const TONE = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" } as const;
 /** A status icon that changes in place (louder, muted, Caps Lock off) leaves and comes in with a little scale and blur. */
 const ICON_SWAP = {
   from: { opacity: 0, transform: "scale(0.6)", filter: "blur(2px)" },
   to: { opacity: 1, transform: "scale(1)", filter: "blur(0px)" },
-  transition: { ...springs.snappy, opacity: fade, filter: fade },
+  // The presets themselves, not a copy made at import, so a change of Style reaches them (motion.ts setMotionDesign).
+  transition: { default: springs.snappy, opacity: fade, filter: fade },
 };
 
 /** The capture saved in the last SAVED.showMs (also one taken while the notch was open, for what is left of its time). */
@@ -343,7 +342,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly, mono = false }: { 
             // A card waits for the notch to grow, then comes in from a little smaller with a soft overshoot; a status alert settles
             // in from a touch smaller and softer while the shape springs to its size.
             initial={card ? { opacity: 0, transform: "scale(0.94)" } : exact ? { opacity: 0, transform: `scale(${0.96 * k})`, filter: "blur(2px)" } : { opacity: 0 }}
-            animate={card ? { opacity: 1, transform: "scale(1)", transition: CARD_IN } : exact ? { opacity: 1, transform: `scale(${k})`, filter: "blur(0px)", transition: content.enter } : { opacity: 1, transition: content.enter }}
+            animate={card ? { opacity: 1, transform: "scale(1)", transition: cardIn } : exact ? { opacity: 1, transform: `scale(${k})`, filter: "blur(0px)", transition: content.enter } : { opacity: 1, transition: content.enter }}
             exit={{ opacity: 0, transition: content.exit }}
           >
             {body}

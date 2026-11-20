@@ -4,6 +4,7 @@ import { isNotchWindow } from "../../lib/windowKind";
 import { themeFiles } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { design, type Design } from "../../design/design";
+import { setMotionDesign } from "../../design/motion";
 import { activeThemeId, chooseTheme, nextChange } from "./daynight";
 import { record, startHistory, undo, type History } from "./history";
 import { materialInk, resolveMaterial } from "./material";
@@ -71,6 +72,7 @@ function apply() {
   for (const [name, value] of Object.entries(resolved.vars)) root.style.setProperty(name, value);
   root.dataset.theme = resolved.dark ? "dark" : "light";
   root.dataset.design = style;
+  setMotionDesign(style);
   design.set(style);
   // Before activeTheme, whose listeners (the glass) read the ink.
   inkTheme.set(style === "material" ? materialInk(file, { contrast }) : DARK);

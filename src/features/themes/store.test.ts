@@ -45,6 +45,9 @@ export const settings = createStore({ themes: { ...THEME_DEFAULTS, id: "light" }
 export const updateSettings = () => {};
 export const setRowFamily = () => {};
 export const design = createStore("crest");
+/** The Style apply() last gave the motion presets. */
+let motion = "";
+export const setMotionDesign = (style: string) => void (motion = style);
 
 // ---------- The page ----------
 
@@ -70,16 +73,16 @@ const pick = (style: "crest" | "material") => settings.set({ ...settings.get(), 
 test("apply() draws again when the Style or the system's contrast changes, and the closed notch's ink follows the Style", async () => {
   const store = (await import("./store.ts")) as typeof import("./store");
   store.startThemes();
-  const seen = () => [dataset.design, design.get(), vars["--color-notch"], vars["--color-primary"], store.darkInk()["--color-notch"], store.darkInk()["--color-primary"], vars["--font-sans"]];
+  const seen = () => [dataset.design, design.get(), motion, vars["--color-notch"], vars["--color-primary"], store.darkInk()["--color-notch"], store.darkInk()["--color-primary"], vars["--font-sans"]];
   // Light in the Crest style; the black closed notch keeps Dark's ink.
-  const crest = ["crest", "crest", "#fafafc", "#1d1d1f", "#000000", "rgb(255 255 255 / 0.96)", FONTS.inter];
+  const crest = ["crest", "crest", "crest", "#fafafc", "#1d1d1f", "#000000", "rgb(255 255 255 / 0.96)", FONTS.inter];
   assert.deepEqual(seen(), crest);
   // Light's seed: a light panel, and on the closed notch the dark scheme of the same seed.
   pick("material");
-  assert.deepEqual(seen(), ["material", "material", "#f9f9ff", "#415e91", "#111318", "#aac7ff", fontStack("auto", "material")]);
+  assert.deepEqual(seen(), ["material", "material", "material", "#f9f9ff", "#415e91", "#111318", "#aac7ff", fontStack("auto", "material")]);
   more.matches = true;
   more.change();
-  assert.deepEqual(seen(), ["material", "material", "#f9f9ff", "#042b5b", "#111318", "#ebf0ff", fontStack("auto", "material")]);
+  assert.deepEqual(seen(), ["material", "material", "material", "#f9f9ff", "#042b5b", "#111318", "#ebf0ff", fontStack("auto", "material")]);
   pick("crest");
   assert.deepEqual(seen(), crest);
 });
