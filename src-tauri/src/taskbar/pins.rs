@@ -174,7 +174,8 @@ pub struct WindowsPins {
 pub async fn taskbar_windows_pins(app: AppHandle, last: Option<Vec<String>>) -> WindowsPins {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<LauncherState>();
-        let apps = launcher::apps(&state, !launcher::read_lately(&state)).ok()?;
+        // A failed refresh falls back to the list as last read, or the notch would drop this change until the next one.
+        let apps = launcher::apps(&state, !launcher::read_lately(&state)).or_else(|_| launcher::apps(&state, false)).ok()?;
         launcher::on_sta(move || {
             let now = read(&apps)?;
             let known = |id: &str| apps.iter().any(|a| a.id == id);
