@@ -1865,5 +1865,6 @@
  "Netzwerk nicht erreichbar": "Red fuera de alcance",
  "Zeitüberschreitung": "Se agotó el tiempo de espera",
  "Keine gekoppelten Geräte": "No hay dispositivos emparejados",
- "Verbunden · {p} %": "Conectado · {p}%"
+ "Verbunden · {p} %": "Conectado · {p}%",
+ "Verbindung wird getrennt …": "Desconectando …"
 }
