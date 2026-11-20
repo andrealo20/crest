@@ -50,7 +50,7 @@ export function BluetoothPage({ on, job }: { on: boolean; job: SwitchJob }) {
             <button
               key={d.id}
               onClick={() => away(() => taskbar.settings("bluetooth"))}
-              className="flex w-full items-center gap-2.5 rounded-[10px] px-2 hover:bg-fill-1"
+              className="flex w-full items-center gap-2.5 rounded-[10px] px-2 hover:bg-fill-1 material:rounded-full"
               style={{ height: PAGE_ROW }}
             >
               <Icon size={16} weight="regular" className={`shrink-0 ${d.connected ? "text-label" : "text-label-3"}`} />

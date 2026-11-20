@@ -32,7 +32,7 @@ export function TrayPanel() {
           aria-label={icon.tip || t("Infobereich")}
           title={icon.tip || undefined}
           {...trayButton(icon, "panel")}
-          className="flex items-center justify-center rounded-[8px] outline-none hover:bg-fill-2 focus-visible:bg-fill-2"
+          className="flex items-center justify-center rounded-[8px] outline-none hover:bg-fill-2 focus-visible:bg-fill-2 material:rounded-full pressable-wide"
         >
           <AppIcon src={icon.img === null ? null : pictures[icon.img]} size={trayIcon(size)} />
         </button>

@@ -10,7 +10,8 @@ import { afterConnect, wifiAction, wifiRows, wifiView, type WifiList, type WifiN
 import { barsGlyph } from "../statusModel";
 import { QuickPageFrame, away } from "./QuickPage";
 
-const BUTTON = "pressable shrink-0 rounded-full px-2.5 py-1 text-footnote font-medium text-label-2 bg-fill-1 hover:bg-fill-2 hover:text-label disabled:opacity-40";
+// Material greys a disabled button out as controls.tsx's buttons do, instead of a tonal one at 40 %.
+const BUTTON = "pressable shrink-0 rounded-full px-2.5 py-1 text-footnote font-medium text-label-2 bg-fill-1 hover:bg-fill-2 hover:text-label disabled:opacity-40 material:bg-secondary-container material:text-on-secondary-container material:hover:bg-secondary-container material:hover:text-on-secondary-container material:disabled:bg-fill-2 material:disabled:text-label-4 material:disabled:opacity-100";
 
 /** The network a connect or a disconnect waits on, and which of the two, for its row's caption. */
 type Busy = { ssid: string; disconnect: boolean };
@@ -180,7 +181,7 @@ function NetworkRow({ n, busy, onClick, onDisconnect }: { n: WifiNetwork; busy: 
       </span>
     </>
   );
-  const row = "flex w-full items-center gap-2.5 rounded-[10px] px-2";
+  const row = "flex w-full items-center gap-2.5 rounded-[10px] px-2 material:rounded-full";
   if (n.connected)
     return (
       <div className={row} style={{ height: PAGE_ROW }}>
@@ -224,7 +225,8 @@ function PasswordRow({ onConnect, onCancel }: { onConnect: (password: string) =>
             onCancel();
           }
         }}
-        className="h-8 min-w-0 flex-1 rounded-[8px] bg-fill-1 px-2.5 text-footnote text-label outline-none focus:ring-1 focus:ring-separator"
+        // Material's outlined field: the 2 px border at focus takes a pixel of the padding, so the text stays put.
+        className="h-8 min-w-0 flex-1 rounded-[8px] bg-fill-1 px-2.5 text-footnote text-label outline-none focus:ring-1 focus:ring-separator material:bg-transparent material:border material:border-label-3 material:focus:border-2 material:focus:border-primary material:focus:ring-0 material:focus:px-[9px]"
       />
       <button disabled={!value} onClick={submit} className={BUTTON}>
         {t("Verbinden")}

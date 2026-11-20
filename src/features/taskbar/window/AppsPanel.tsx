@@ -25,7 +25,7 @@ export function AppsPanel(props: {
             e.preventDefault();
             props.onMenu(b, e.currentTarget);
           }}
-          className="relative flex items-center justify-center rounded-[8px] outline-none hover:bg-fill-2 focus-visible:bg-fill-2"
+          className="relative flex items-center justify-center rounded-[8px] outline-none hover:bg-fill-2 focus-visible:bg-fill-2 material:rounded-full pressable-wide"
         >
           <AppIcon src={icon} size={props.size} />
           <Mark kind={mark} bottom={props.markAt} />

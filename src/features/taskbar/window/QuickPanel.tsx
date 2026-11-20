@@ -116,7 +116,7 @@ export default function QuickPanel() {
 function SplitTile({ kind, on, job, name, line, onOpen }: { kind: "wifi" | "bluetooth"; on: boolean; job: SwitchJob; name: string; line: string; onOpen: () => void }) {
   const show = kind === "wifi" ? t("WLAN-Netzwerke anzeigen") : t("Bluetooth-Geräte anzeigen");
   return (
-    <div className="flex min-w-0 flex-1 basis-0 items-center overflow-hidden rounded-[12px] bg-fill-1">
+    <div className="flex min-w-0 flex-1 basis-0 items-center overflow-hidden rounded-[12px] bg-fill-1 material:rounded-full">
       <button
         aria-pressed={on}
         aria-label={name}
@@ -148,7 +148,7 @@ function SplitTile({ kind, on, job, name, line, onOpen }: { kind: "wifi" | "blue
 /** One of the buttons under the sliders: an icon, a name and its state where it has one; a click opens its page in Settings. */
 function Chip({ icon, name, state, onClick }: { icon: ReactNode; name: string; state: string | null; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="pressable flex min-w-0 flex-1 basis-0 items-center gap-2 rounded-[12px] bg-fill-1 px-2.5 hover:bg-fill-2">
+    <button onClick={onClick} className="pressable flex min-w-0 flex-1 basis-0 items-center gap-2 rounded-[12px] bg-fill-1 px-2.5 hover:bg-fill-2 material:rounded-full">
       <span className="flex shrink-0 text-label-2">{icon}</span>
       <span className="min-w-0 flex-1 truncate text-start text-footnote font-medium text-label">{name}</span>
       {state && <span className="shrink-0 text-caption text-label-3">{state}</span>}
