@@ -1,6 +1,6 @@
 // The bar's live glass (docs/themes.md, Glass): its shapes drawn over a live copy of the screen behind them (src/notch/glass/live.ts),
-// with the closed notch's thin glass, under the veil of the bar's surface. Nothing runs at rest: the canvas draws for a frame from Rust,
-// new props, a change of the glass's look or of the theme, never in a loop.
+// with the closed notch's thin glass (Glass) or the widgets' (Liquid Glass +, glassPlusShader.ts), under the veil of the bar's surface.
+// Nothing runs at rest: the canvas draws for a frame from Rust, new props, a change of the glass's look or of the theme, never in a loop.
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { cancelFrame, frame, useReducedMotion } from "motion/react";
@@ -14,10 +14,12 @@ import { viewMetrics } from "../../../notch/viewZoom";
 import type { GlassZone } from "../../../platform/native";
 import { status } from "../../../platform/services";
 import { settings } from "../../../settings/store";
-import { activeTheme, forcedColors } from "../../themes/store";
-import { barNeed, barRadius, barVeil, glassShapes, themeVeils, type Box } from "../look";
+import { activeTheme, darkInk, forcedColors, useClosedInk } from "../../themes/store";
+import { GLASS_PLUS, plusSliders, plusTarget } from "../glassPlus";
+import { barLook, barNeed, barRadius, barVeil, glassShapes, plusShapes, themeVeils, type BarLook, type Box } from "../look";
 import type { BarShape } from "../model";
 import { barShown } from "../store";
+import { BAR_PLUS_FS } from "./glassPlusShader";
 import { BAR_FS, MAX_RECTS } from "./glassShader";
 
 const ATTRS: WebGLContextAttributes = {
@@ -40,25 +42,33 @@ document.addEventListener("visibilitychange", () => pageShown.set(document.visib
 const saver = createStore(false);
 status.onPower((p) => saver.set(p.saver === true));
 
-interface Props { shape: BarShape; boxes: Box[]; radius: number; veil: number; dark: boolean }
+interface Props { shape: BarShape; boxes: Box[]; radius: number; veil: number; dark: boolean; look: BarLook }
 
 /**
  * The bar's surface (design 6.2, 6.3) for the shape's boxes (the bar, the capsule or the tiles): the CSS background to draw, the veil
  * alone for a tile the glass does not draw (`plain`), and the glass's props while the glass may show (null otherwise). The veil is the
  * same with the glass showing or not, so the bar keeps its tone when the glass comes and goes; reduced transparency, more contrast or
- * forced colours make it opaque. `ink` is the Dark tokens the bar wears on the Notch surface (useClosedInk). A bar `slid` off the screen
- * (useAutoHide) runs no glass, as a hidden one.
+ * forced colours make it opaque. `ink` is the tokens the bar and its menus wear (Dark's under Liquid Glass +, and on the Notch surface
+ * unless the theme colours the closed notch, useClosedInk), `radius` the corners for the shape and its look; both follow the look
+ * (barLook: the choice and whether the live copy can run), never whether the glass shows. A bar `slid` off the screen (useAutoHide)
+ * runs no glass, as a hidden one.
  */
-export function useBarSurface(boxes: Box[], ink: Record<string, string> | undefined, slid: boolean): { background: string; plain: string; glass: Props | null } {
-  const { shape, surface, transparency, glass, height } = settings.use().taskbar;
+export function useBarSurface(boxes: Box[], slid: boolean): { background: string; plain: string; ink: Record<string, string> | undefined; radius: number; glass: Props | null } {
+  const taskbar = settings.use().taskbar;
+  const { shape, surface, transparency, glass, height } = taskbar;
   const theme = activeTheme.use();
+  const closed = useClosedInk(undefined);
   const supported = liveSupport.use()?.supported === true;
   const lessTransparency = reducedTransparency.use(), moreContrast = contrastMore.use(), forced = forcedColors.use();
   const reduced = lessTransparency || moreContrast || forced;
   const page = pageShown.use(), bar = barShown.use(), saving = saver.use(), live = liveFrame.use();
   const { dpr } = viewMetrics.use();
-  const dark = surface === "notch" && ink ? true : theme.dark;
-  const veil = barVeil({ transparency, glass: glass && supported, reduced, ...themeVeils(surface === "notch" && ink ? ink : theme.vars) });
+  const look = barLook(taskbar, supported);
+  // Liquid Glass +: the closed notch's ink whatever the theme and the background, white content as on the widgets, over the glass and over its fallback veil.
+  const ink = look === "plus" ? { ...darkInk(), "--accent": darkInk()["--theme-accent"] } : surface === "notch" ? closed : undefined;
+  const radius = barRadius(shape, height, look);
+  const dark = ink ? true : theme.dark;
+  const veil = barVeil({ transparency, glass: glass && supported, reduced, ...themeVeils(ink ?? theme.vars) });
   const on = glass && supported && !reduced && page && bar && !slid && !saving;
   const need = on ? barNeed(boxes, dpr) : null;
   const needKey = JSON.stringify(need);
@@ -68,7 +78,9 @@ export function useBarSurface(boxes: Box[], ink: Record<string, string> | undefi
   return {
     background: on && live ? "transparent" : plain,
     plain,
-    glass: on && boxes.length ? { shape, boxes, radius: barRadius(shape, height), veil, dark } : null,
+    ink,
+    radius,
+    glass: on && boxes.length ? { shape, boxes, radius, veil, dark, look } : null,
   };
 }
 
@@ -81,6 +93,8 @@ export function BarGlass(props: Props) {
   const now = useRef({ ...props, reduced });
   now.current = { ...props, reduced };
   const redraw = useRef(() => {});
+  // A new look links its own program, so the canvas is set up again, as for a slide (the same canvas gives back the same context, and
+  // `stop` loses it only once the canvas is gone).
   useLayoutEffect(() => {
     const g = startBarGlass(canvas.current!, now);
     redraw.current = g.redraw;
@@ -88,16 +102,17 @@ export function BarGlass(props: Props) {
       redraw.current = () => {};
       g.stop();
     };
-  }, []);
-  const { shape, boxes, radius, veil, dark } = props;
-  useLayoutEffect(() => redraw.current(), [shape, boxes, radius, veil, dark, reduced, dpr]);
+  }, [props.look]);
+  const { shape, boxes, radius, veil, dark, look } = props;
+  // A new look's first paint finds no copy and clears, so the old look's last frame goes at once.
+  useLayoutEffect(() => redraw.current(), [shape, boxes, radius, veil, dark, reduced, dpr, look]);
   return <canvas ref={canvas} aria-hidden width={1} height={1} className="pointer-events-none absolute bottom-0 left-0" />;
 }
 
 type Tint = NonNullable<ReturnType<typeof parseTint>>;
 
-function setup(gl: WebGL2RenderingContext) {
-  const down = program(gl, DOWN_FS), main = program(gl, BAR_FS);
+function setup(gl: WebGL2RenderingContext, look: BarLook) {
+  const down = program(gl, DOWN_FS), main = program(gl, look === "plus" ? BAR_PLUS_FS : BAR_FS);
   if (!down || !main) return null;
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
@@ -108,7 +123,7 @@ function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { redu
   // One context per element: StrictMode's second mount of the same canvas gets the same one back. Without one no renderer is set, no
   // copy runs and the bar keeps its CSS surface.
   const gl = canvas.getContext("webgl2", ATTRS);
-  let gpu = gl && setup(gl);
+  let gpu = gl && setup(gl, now.current.look);
   if (!gl || !gpu) return { redraw() {}, stop() {} };
 
   const copy: Copy = { tex: null, w: 0, h: 0, levels: 0, meta: null };
@@ -130,8 +145,10 @@ function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { redu
       tokens = tint && rim ? { tint, rim } : null;
       stale = false;
     }
-    const { shape, boxes, radius, veil, dark, reduced } = now.current;
-    const shapes = glassShapes(shape, boxes).rects.slice(0, MAX_RECTS);
+    const { shape, boxes, radius, veil, dark, reduced, look } = now.current;
+    const plus = look === "plus";
+    const drawn = plus ? plusShapes(shape, boxes) : { rects: glassShapes(shape, boxes).rects, top: false };
+    const shapes = drawn.rects.slice(0, MAX_RECTS);
     // No shapes (every box zero-sized) would put the top at Infinity.
     if (!shapes.length) return clear();
     // Sized here, when the shapes change: never per frame.
@@ -143,7 +160,7 @@ function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { redu
       Object.assign(canvas.style, { width: `${innerWidth}px`, height: `${h}px` });
     }
     if (!copy.meta || !tokens) return clear();
-    const { u, p } = gpu.main, map = textureMap({ left: 0, top }, 1, dpr, copy.meta), look = settings.get().themes;
+    const { u, p } = gpu.main, map = textureMap({ left: 0, top }, 1, dpr, copy.meta), sliders = settings.get().themes;
     rects.fill(0);
     shapes.forEach((r, i) => rects.set([r.x, r.y - top, r.w, r.h], i * 4));
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -157,14 +174,25 @@ function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { redu
     gl.uniform4fv(u["uRects[0]"], rects);
     gl.uniform1i(u.uCount, shapes.length);
     gl.uniform1f(u.uRadius, radius);
-    gl.uniform1f(u.uBand, GLASS.closedBand);
-    gl.uniform1f(u.uThick, GLASS.closedThick);
-    gl.uniform1f(u.uMaxShift, ((reduced ? GLASS.maxShiftReduced : GLASS.maxShift) * look.glassRefraction) / 100);
-    gl.uniform2f(u.uLod, ...lodFor(dpr, look.glassFrost));
-    gl.uniform4f(u.uVeil, tokens.tint[0], tokens.tint[1], tokens.tint[2], veil);
-    gl.uniform4f(u.uRim, tokens.rim[0], tokens.rim[1], tokens.rim[2], (tokens.rim[3] * look.glassRim) / 100);
-    gl.uniform1f(u.uHair, dark ? GLASS.hairDark : GLASS.hairLight);
-    gl.uniform1f(u.uEdgeFade, 1);
+    if (plus) {
+      const s = plusSliders(sliders, dpr);
+      gl.uniform1f(u.uDocked, drawn.top ? 1 : 0);
+      gl.uniform2f(u.uLens, s.strength, reduced ? GLASS.maxShiftReduced : 1e4);
+      gl.uniform2f(u.uLod, ...s.lod);
+      gl.uniform1f(u.uVeilLod, Math.log2(dpr) + GLASS_PLUS.veilLevel);
+      gl.uniform3f(u.uTint, tokens.tint[0], tokens.tint[1], tokens.tint[2]);
+      gl.uniform1f(u.uTarget, plusTarget(tokens.tint, veil));
+      gl.uniform1f(u.uSpec, s.spec);
+    } else {
+      gl.uniform1f(u.uBand, GLASS.closedBand);
+      gl.uniform1f(u.uThick, GLASS.closedThick);
+      gl.uniform1f(u.uMaxShift, ((reduced ? GLASS.maxShiftReduced : GLASS.maxShift) * sliders.glassRefraction) / 100);
+      gl.uniform2f(u.uLod, ...lodFor(dpr, sliders.glassFrost));
+      gl.uniform4f(u.uVeil, tokens.tint[0], tokens.tint[1], tokens.tint[2], veil);
+      gl.uniform4f(u.uRim, tokens.rim[0], tokens.rim[1], tokens.rim[2], (tokens.rim[3] * sliders.glassRim) / 100);
+      gl.uniform1f(u.uHair, dark ? GLASS.hairDark : GLASS.hairLight);
+      gl.uniform1f(u.uEdgeFade, 1);
+    }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
   // A throw in a frame's callback stops Motion's whole frame loop: the glass gives up instead, and the bar keeps its CSS surface.
@@ -203,7 +231,7 @@ function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { redu
   };
   const onRestored = () => {
     freeLive();
-    gpu = setup(gl);
+    gpu = setup(gl, now.current.look);
     if (gpu) setLiveRenderer(renderer);
   };
   const redraw = () => {

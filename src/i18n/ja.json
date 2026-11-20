@@ -1022,6 +1022,8 @@
  "Tönung vom Albumcover": "アルバムアートの色合い",
  "Das offene Panel nimmt leicht die Farbe des laufenden Songs an": "開いたパネルが再生中の曲の色をほんのりまといます",
  "Glas": "ガラス",
+ "Liquid Glass +": "Liquid Glass +",
+ "Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht": "{name} ではタスクバーの内容は常に白になり、「背景」は適用されません",
  "Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas": "開いたパネルの後ろの画面がガラスのように透けて見えます",
  "Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt": "カプセルのとき、または開いたパネルが画面の上端から下がっているときだけ",
  "Transparenz": "透明度",

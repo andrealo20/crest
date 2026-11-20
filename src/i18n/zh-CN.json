@@ -1022,6 +1022,8 @@
  "Tönung vom Albumcover": "专辑封面色调",
  "Das offene Panel nimmt leicht die Farbe des laufenden Songs an": "展开的面板会略带正在播放歌曲的颜色",
  "Glas": "玻璃",
+ "Liquid Glass +": "Liquid Glass +",
+ "Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht": "使用 {name} 时，任务栏的内容始终为白色，“背景”不适用",
  "Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas": "展开的面板像玻璃一样透出后面的屏幕",
  "Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt": "仅在使用胶囊，或展开的面板挂在屏幕顶部边缘时",
  "Transparenz": "透明度",

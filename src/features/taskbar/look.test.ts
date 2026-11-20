@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import type { BarShape } from "./model.ts";
-import { LOOK, barGap, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, labelRise, magnify, themeVeils } from "./look.ts";
+import { LOOK, barGap, barLook, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, labelRise, magnify, plusShapes, themeVeils } from "./look.ts";
 import { GLASS, liveZone } from "../../notch/glass/params.ts";
 
 test("the surface's veil", () => {
@@ -20,9 +21,30 @@ test("a theme's veils from its tokens", () => {
   assert.deepEqual(themeVeils({}), { safe: 1, clearest: 1 });
 });
 
-test("gaps and corners by shape", () => {
-  assert.deepEqual(["docked", "floating", "capsule", "tiles"].map((s) => barGap(s as BarShape)), [0, 4, 4, 4]);
-  assert.deepEqual(["docked", "floating", "capsule", "tiles"].map((s) => barRadius(s as BarShape, 44)), [0, 12, 22, 12]);
+test("gaps by shape, and corners by shape and look", () => {
+  const shapes: BarShape[] = ["docked", "floating", "capsule", "tiles"];
+  assert.deepEqual(shapes.map((s) => barGap(s)), [0, 4, 4, 4]);
+  assert.deepEqual(shapes.map((s) => barRadius(s, 44, "crest")), [0, 12, 22, 12]);
+  // Material's rows are Crest's until the material-style session fills them (contract point 5).
+  assert.deepEqual(shapes.map((s) => barRadius(s, 44, "material")), [0, 12, 22, 12]);
+  // Liquid Glass +: the widgets' pills and their tiles' 0.9 of half the height; they have no docked shape, so it stays square.
+  assert.deepEqual(shapes.map((s) => barRadius(s, 44, "plus")), [0, 22, 22, 19.8]);
+  assert.deepEqual(shapes.map((s) => barRadius(s, 32, "plus")), [0, 16, 16, 14.4]);
+});
+
+test("Liquid Glass + is the bar's look where it is chosen under Glass and the live copy can run", () => {
+  assert.equal(barLook({ glass: true, glassLook: "plus" }, true), "plus");
+  // ARM64, the Store build, Windows before 24H2, a Mac, or Rust not answered yet.
+  assert.equal(barLook({ glass: true, glassLook: "plus" }, false), "crest");
+  assert.equal(barLook({ glass: false, glassLook: "plus" }, true), "crest");
+  assert.equal(barLook({ glass: true, glassLook: "crest" }, true), "crest");
+});
+
+test("the bar's corners and ink come from the chosen look, never from whether the glass shows this instant", () => {
+  const src = readFileSync(new URL("./window/BarGlass.tsx", import.meta.url), "utf8");
+  assert.match(src, /const look = barLook\(taskbar, supported\);/);
+  assert.match(src, /const ink = look === "plus" \?/);
+  assert.match(src, /const radius = barRadius\(shape, height, look\);/);
 });
 
 test("the pointer's zones reach the window's bottom", () => {
@@ -37,6 +59,15 @@ test("the shapes the glass draws", () => {
   const t = glassShapes("tiles", tiles);
   assert.equal(t.rects.length, LOOK.maxTiles);
   assert.deepEqual(t.plain, tiles.slice(LOOK.maxTiles));
+});
+
+test("Liquid Glass +'s shapes: a docked bar as its real box with only its top bending, the others as Glass draws them", () => {
+  const box = { x: 0, y: 8, w: 1440, h: 44 }, empty = { x: 0, y: 0, w: 0, h: 0 };
+  assert.deepEqual(plusShapes("docked", [box, empty]), { rects: [box], top: true });
+  assert.deepEqual(plusShapes("docked", []), { rects: [], top: true });
+  assert.deepEqual(plusShapes("floating", [box]), { rects: [box], top: false });
+  const tiles = Array.from({ length: 30 }, (_, i) => ({ x: i * 46, y: 8, w: 40, h: 44 }));
+  assert.deepEqual(plusShapes("tiles", tiles), { rects: tiles.slice(0, LOOK.maxTiles), top: false });
 });
 
 test("an empty box (a hidden element's at 0, 0) counts nowhere", () => {

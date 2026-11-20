@@ -1022,6 +1022,8 @@
  "Tönung vom Albumcover": "Оттенок обложки альбома",
  "Das offene Panel nimmt leicht die Farbe des laufenden Songs an": "Открытая панель слегка окрашивается в цвет играющей песни",
  "Glas": "Стекло",
+ "Liquid Glass +": "Liquid Glass +",
+ "Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht": "С {name} содержимое панели задач всегда белое, а Фон не действует",
  "Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas": "Сквозь открытую панель, как сквозь стекло, видно экран за ней",
  "Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt": "Только с капсулой или когда открытая панель свисает с верхнего края экрана",
  "Transparenz": "Прозрачность",

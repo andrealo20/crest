@@ -1,7 +1,7 @@
 // The rules of the bar's look: gaps, corners, the surface's veil, the pointer's zones, the shapes the glass draws and the zone its
 // live copy needs. Pure, so node --test runs them.
 
-import type { BarShape } from "./model.ts";
+import type { BarShape, TaskbarSettings } from "./model.ts";
 import type { GlassZone } from "../../platform/native";
 import { glassVeilAt } from "../themes/themes.ts";
 import { GLASS, parseTint } from "../../notch/glass/params.ts";
@@ -9,7 +9,7 @@ import { GLASS, parseTint } from "../../notch/glass/params.ts";
 /** A box on the page, CSS px. */
 export interface Box { x: number; y: number; w: number; h: number }
 
-/** gap: the room under and beside a bar off the edge; tileGap: between tiles; radius: the corners of a floating bar and a tile; maxTiles: the tiles the shader draws as glass. */
+/** gap: the room under and beside a bar off the edge; tileGap: between tiles; radius: Crest's corners of a floating bar and a tile; maxTiles: the tiles the shader draws as glass. */
 export const LOOK = { gap: 4, tileGap: 6, radius: 12, maxTiles: 24 } as const;
 
 /** The room under and beside the bar: none for a docked bar. */
@@ -17,9 +17,34 @@ export function barGap(shape: BarShape): number {
   return shape === "docked" ? 0 : LOOK.gap;
 }
 
-/** The corners' radius: square docked, round ends on a capsule `height` tall. */
-export function barRadius(shape: BarShape, height: number): number {
-  return shape === "docked" ? 0 : shape === "capsule" ? height / 2 : LOOK.radius;
+/**
+ * Whose look the bar's surface, corners and ink wear: Crest's, Material's (`themes.design`, its row filled by that session) or Liquid
+ * Glass + (`taskbar.glassLook`), which outranks Material on the bar's surface, its corners and its ink (the closed notch's ink,
+ * `darkInk()`) only; marks, names, menus and panels keep `themes.design`'s style whatever it is.
+ */
+export type BarLook = "crest" | "material" | "plus";
+
+/** The corners by look and shape, for a bar `height` tall: one row per look, each owned by its look's session. */
+const CORNERS: Record<BarLook, Record<BarShape, (height: number) => number>> = {
+  crest: { docked: () => 0, floating: () => LOOK.radius, capsule: (h) => h / 2, tiles: () => LOOK.radius },
+  // Crest's until the material-style session fills it (contract point 5).
+  material: { docked: () => 0, floating: () => LOOK.radius, capsule: (h) => h / 2, tiles: () => LOOK.radius },
+  // The widgets' pills and tiles (LiquidGlassWindows tiles.rs and battery.rs); they have no docked shape, so it stays square.
+  plus: { docked: () => 0, floating: (h) => h / 2, capsule: (h) => h / 2, tiles: (h) => (0.9 * h) / 2 },
+};
+
+/** The radius of the bar's corners, or of each tile's, for a bar `height` tall in the given look. */
+export function barRadius(shape: BarShape, height: number, look: BarLook): number {
+  return CORNERS[look][shape](height);
+}
+
+/**
+ * The bar's look: Liquid Glass + where it is chosen under Glass and the live copy can run here (`supported`: liveSupport), else
+ * Crest's; never whether the glass shows this instant (a slide, energy saver, the first frame, the lock, a WebGL failure), which
+ * changes only the surface. Material adds its own look here (contract point 2).
+ */
+export function barLook(t: Pick<TaskbarSettings, "glass" | "glassLook">, supported: boolean): BarLook {
+  return t.glass && t.glassLook === "plus" && supported ? "plus" : "crest";
 }
 
 /**
@@ -64,6 +89,16 @@ export function glassShapes(shape: BarShape, all: Box[]): { rects: Box[]; plain:
   }
   if (shape === "tiles") return { rects: boxes.slice(0, LOOK.maxTiles), plain: boxes.slice(LOOK.maxTiles) };
   return { rects: boxes, plain: [] };
+}
+
+/**
+ * The rectangles Liquid Glass + draws: as `glassShapes`, but a docked bar is its real box with only its top edge bending (`top`): the
+ * lens reaches across the shape, and the BLEED box's centre would sit 2000 px down.
+ */
+export function plusShapes(shape: BarShape, all: Box[]): { rects: Box[]; top: boolean } {
+  if (shape !== "docked") return { rects: glassShapes(shape, all).rects, top: false };
+  const u = union(all);
+  return { rects: u ? [u] : [], top: true };
 }
 
 /** The zone the bar's live copy needs: the boxes' union with GLASS.zoneMargin around it, physical px at `dpr`, rounded outwards; null without boxes. */
