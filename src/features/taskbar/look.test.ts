@@ -27,8 +27,10 @@ test("gaps by shape, and corners by shape and look", () => {
   // Between the items in a zone: 6 px on every shape, the tiles' own gap on Tiles.
   assert.deepEqual(shapes.map((s) => itemGap(s)), [6, 6, 6, LOOK.tileGap]);
   assert.deepEqual(shapes.map((s) => barRadius(s, 44, "crest")), [0, 12, 22, 12]);
-  // Material's rows are Crest's until the material-style session fills them (contract point 5).
-  assert.deepEqual(shapes.map((s) => barRadius(s, 44, "material")), [0, 12, 22, 12]);
+  // Material: M3's floating toolbar full round, its large shape (16) on tiles, at the default height and at HEIGHT's ends.
+  assert.deepEqual(shapes.map((s) => barRadius(s, 44, "material")), [0, 22, 22, 16]);
+  assert.deepEqual(shapes.map((s) => barRadius(s, 32, "material")), [0, 16, 16, 16]);
+  assert.deepEqual(shapes.map((s) => barRadius(s, 64, "material")), [0, 32, 32, 16]);
   // Liquid Glass +: the widgets' pills and their tiles' 0.9 of half the height; they have no docked shape, so it stays square.
   assert.deepEqual(shapes.map((s) => barRadius(s, 44, "plus")), [0, 22, 22, 19.8]);
   assert.deepEqual(shapes.map((s) => barRadius(s, 32, "plus")), [0, 16, 16, 14.4]);
@@ -40,11 +42,19 @@ test("Liquid Glass + is the bar's look where it is chosen under Glass and the li
   assert.equal(barLook({ glass: true, glassLook: "plus" }, false), "crest");
   assert.equal(barLook({ glass: false, glassLook: "plus" }, true), "crest");
   assert.equal(barLook({ glass: true, glassLook: "crest" }, true), "crest");
+  // Under Material, Liquid Glass + still wins where it runs; elsewhere the bar wears Material's look.
+  assert.equal(barLook({ glass: true, glassLook: "plus" }, true, "material"), "plus");
+  assert.equal(barLook({ glass: true, glassLook: "plus" }, false, "material"), "material");
+  assert.equal(barLook({ glass: false, glassLook: "plus" }, true, "material"), "material");
+  assert.equal(barLook({ glass: true, glassLook: "crest" }, true, "material"), "material");
+  assert.equal(barLook({ glass: true, glassLook: "crest" }, true, "crest"), "crest");
+  assert.equal(barLook({ glass: true, glassLook: "plus" }, false), "crest");
 });
 
 test("the bar's corners and ink come from the chosen look, never from whether the glass shows this instant", () => {
   const src = readFileSync(new URL("./window/BarGlass.tsx", import.meta.url), "utf8");
-  assert.match(src, /const look = barLook\(taskbar, supported\);/);
+  assert.match(src, /const appDesign = design\.use\(\);/);
+  assert.match(src, /const look = barLook\(taskbar, supported, appDesign\);/);
   assert.match(src, /const ink = look === "plus" \?/);
   assert.match(src, /const radius = barRadius\(shape, height, look\);/);
 });

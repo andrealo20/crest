@@ -4,6 +4,7 @@
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { cancelFrame, frame, useReducedMotion } from "motion/react";
+import { design } from "../../../design/design";
 import { createStore } from "../../../lib/store";
 import { freeCopy, storeCopy, type Copy } from "../../../notch/glass/copy";
 import { dropLive, liveFrame, liveSupport, setLiveRenderer, wantLive } from "../../../notch/glass/live";
@@ -68,7 +69,8 @@ export function useBarSurface(
   const reduced = lessTransparency || moreContrast || forced;
   const page = pageShown.use(), bar = barShown.use(), saving = saver.use(), live = liveFrame.use();
   const { dpr } = viewMetrics.use();
-  const look = barLook(taskbar, supported);
+  const appDesign = design.use();
+  const look = barLook(taskbar, supported, appDesign);
   // Liquid Glass +: the closed notch's ink whatever the theme and the background, white content as on the widgets, over the glass and over its fallback veil.
   const ink = look === "plus" ? { ...darkInk(), "--accent": darkInk()["--theme-accent"] } : surface === "notch" ? closed : undefined;
   const radius = barRadius(shape, height, look);
