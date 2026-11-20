@@ -260,7 +260,7 @@ export const ROW_SYMBOLS = [
   "battery_full", "bedtime", "bluetooth", "blur_circular", "blur_linear", "blur_on", "bolt", "border_outer", "brightness_5",
   "brush", "cable", "calendar_month", "campaign", "category", "check", "cloud", "code", "coffee", "colors", "content_copy",
   "content_paste", "contrast", "currency_exchange", "dark_mode", "data_object", "data_usage", "desktop_windows",
-  "developer_board", "device_thermostat", "dictionary", "difference", "directions_walk", "dns", "do_not_disturb_on", "download",
+  "developer_board", "device_thermostat", "dictionary", "difference", "directions_walk", "dns", "do_not_disturb_on", "dock_to_bottom", "download",
   "download_done", "download_for_offline", "edit_calendar", "edit_note", "energy_savings_leaf", "equalizer", "event",
   "event_repeat", "event_upcoming", "extension", "favorite", "fiber_manual_record", "file_export", "file_open",
   "filter_center_focus", "fingerprint", "fit_screen", "flag", "flare", "flight", "flip_to_front", "folder", "font_download",

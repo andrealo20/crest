@@ -34,15 +34,16 @@ const FILES = [
   "features/meeting/HideFromSharingRow.tsx",
   "features/leetcode/LeetcodeSettings.tsx",
   "features/github/GithubSettings.tsx",
+  "features/taskbar/TaskbarSettings.tsx",
 ];
 
 const read = (file: string) => readFileSync(join(import.meta.dirname, "../..", file), "utf8");
 
-/** Each `<Row` opening tag of `code`, up to the `>` that closes it outside any braces. */
-function rowTags(code: string): string[] {
-  return [...code.matchAll(/<Row\b/g)].map((m) => {
+/** Each `<Row` (or `<name`) opening tag of `code`, up to the `>` that closes it outside any braces. */
+function rowTags(code: string, name = "Row"): string[] {
+  return [...code.matchAll(new RegExp(`<${name}\\b`, "g"))].map((m) => {
     let depth = 0;
-    let i = m.index + 4;
+    let i = m.index + 1 + name.length;
     for (; i < code.length; i++) {
       const c = code[i];
       if (c === "{") depth++;
@@ -58,9 +59,26 @@ test("every settings row has an icon, but the editor's name row, whose label is 
   for (const file of FILES) {
     const tags = rowTags(read(file));
     assert.ok(tags.length > 0, `${file}: no <Row found`);
-    for (const tag of tags) if (!/\bicon=/.test(tag) && !/label=\{<TextField/.test(tag)) bare.push(`${file}: ${tag.replace(/\s+/g, " ").slice(0, 80)}`);
+    for (const tag of tags) {
+      if (/\bicon=/.test(tag) || /label=\{<TextField/.test(tag)) continue;
+      // The bar's Glass row and glass note belong to the taskbar session (contract, point 4), which picks their icons.
+      if (file === "features/taskbar/TaskbarSettings.tsx" && (tag.includes('t("Glas")') || tag.includes("gelten auch für die Notch"))) continue;
+      bare.push(`${file}: ${tag.replace(/\s+/g, " ").slice(0, 80)}`);
+    }
   }
   assert.deepEqual(bare, []);
+});
+
+test("the taskbar's glass sliders carry the notch's icons, field by field", () => {
+  const icons = (file: string) =>
+    Object.fromEntries(
+      rowTags(read(file), "GlassSlider")
+        .map((tag) => [tag.match(/\bfield="([^"]*)"/)?.[1], tag.match(/\bicon="([^"]*)"/)?.[1]])
+        .filter(([field]) => field === "glassRefraction" || field === "glassFrost" || field === "glassRim"),
+    );
+  const notch = icons("features/themes/ThemeSettings.tsx");
+  assert.equal(Object.keys(notch).length, 3);
+  assert.deepEqual(icons("features/taskbar/TaskbarSettings.tsx"), notch);
 });
 
 test("every literal row icon is one of ROW_SYMBOLS", () => {

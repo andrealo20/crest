@@ -14,6 +14,7 @@ const sites: [string, number, number, boolean][] = [
   ["features/settings/SettingsView.tsx", 4, 2, true],
   ["features/launcher/FavoriteList.tsx", 4, 1, true],
   ["features/usage/UsageSettings.tsx", 4, 1, true],
+  ["features/taskbar/TaskbarSettings.tsx", 4, 1, true],
   ["features/ports/PortsPanel.tsx", 3, 1, false],
   ["features/vault/VaultView.tsx", 3, 1, false],
   ["features/system/SystemView.tsx", 2, 1, false],

@@ -14,6 +14,7 @@ import { settings } from "../../settings/store";
 import { CrestMark } from "../../ui/CrestMark";
 import { WindowsMark } from "../../ui/WindowsMark";
 import { Button, Group, Row, Segmented, Select, Slider, Switch } from "../../ui/controls";
+import type { RowSymbol } from "../../ui/materialNames";
 import { FavoriteList } from "../launcher/FavoriteList";
 import { MoveButton } from "../launcher/FavoriteList";
 import { normalizeFavorites } from "../launcher/apps";
@@ -58,12 +59,14 @@ export function TaskbarGeneral() {
   return (
     <Group id="settings-taskbar">
       <Row
+        icon="dock_to_bottom"
         label={t("Crest-Taskleiste")}
         hint={t("Blendet die Windows-Taskleiste aus und zeigt die von Crest auf jedem Bildschirm. Ausgeschaltet oder wenn Crest endet, kommt die von Windows zurück")}
       >
         <Switch label={t("Crest-Taskleiste")} checked={enabled} onChange={(on) => setTaskbar({ enabled: on })} />
       </Row>
       <Row
+        icon="visibility_off"
         label={t("Automatisch ausblenden")}
         hint={
           <>
@@ -85,8 +88,8 @@ export function TaskbarGeneral() {
       >
         <Switch label={t("Automatisch ausblenden")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
       </Row>
-      {/* A sentence, not a setting's name: it wraps instead of being cut. */}
-      <Row label={<span className="whitespace-normal">{t("Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N")}</span>} />
+      {/* A sentence, not a setting's name: it wraps instead of being cut. Width 0 under Material keeps it beside its icon, as the hints. */}
+      <Row icon="keyboard" label={<span className="whitespace-normal roomy:block roomy:w-0 roomy:min-w-full">{t("Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N")}</span>} />
     </Group>
   );
 }
@@ -117,7 +120,7 @@ export function TaskbarItems() {
     <Group id="settings-taskbar-items">
       {ZONES.map((zone) => (
         <div key={zone}>
-          <Row label={t(ZONE_LABEL[zone])} hint={zones[zone].length > 1 ? t("Zum Sortieren ziehen") : undefined}>
+          <Row icon="widgets" label={t(ZONE_LABEL[zone])} hint={zones[zone].length > 1 ? t("Zum Sortieren ziehen") : undefined}>
             <div className="flex flex-wrap justify-end gap-2">
               <AddWidget zone={zone} />
               <AddTool zone={zone} />
@@ -140,7 +143,7 @@ export function TaskbarItems() {
                 onDragEnd={() => setDragging(null)}
                 whileDrag={{ scale: 1.02 }}
                 className={`group relative flex min-h-9 cursor-grab items-center gap-2.5 px-3 py-1 active:cursor-grabbing ${
-                  dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
+                  dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)] material:shadow-level4 m3-dragged" : ""
                 }`}
               >
                 <DotsSixVertical size={13} weight="bold" className="-ms-1 shrink-0 text-label-4 transition-colors group-hover:text-label-3" />
@@ -174,7 +177,7 @@ export function TaskbarItems() {
         </div>
       ))}
       {shape === "capsule" && (
-        <Row label={<span className="whitespace-normal">{t("Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind")}</span>} />
+        <Row icon="info" label={<span className="whitespace-normal roomy:block roomy:w-0 roomy:min-w-full">{t("Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind")}</span>} />
       )}
     </Group>
   );
@@ -232,10 +235,11 @@ export function TaskbarApps() {
 
   return (
     <Group id="settings-taskbar-apps">
-      <Row label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften")} />
+      <Row icon="keep" label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften")} />
       {pinned.length > 0 && <FavoriteList favorites={pinned} onChange={(next) => setTaskbar({ pinned: next })} />}
       {/* Long in some languages beside the button: the name wraps instead of being cut. */}
       <Row
+        icon="file_open"
         label={<span className="whitespace-normal">{t("Apps der Windows-Taskleiste")}</span>}
         // A status, so the import's outcome is read out after the click.
         hint={
@@ -289,7 +293,7 @@ export function TaskbarLook() {
   const seen = Math.round((1 - barVeil({ transparency, glass: glass && live, reduced: false, ...veils })) * 100);
   return (
     <Group id="settings-taskbar-look">
-      <Row label={t("Form")}>
+      <Row icon="rounded_corner" label={t("Form")}>
         <Segmented
           id="taskbar-shape"
           size="sm"
@@ -299,10 +303,10 @@ export function TaskbarLook() {
         />
       </Row>
       {/* A reserving bar's height moves its strip and resizes maximized windows: written once, on release. */}
-      <PxRow label={t("Höhe")} value={height} min={HEIGHT[0]} max={HEIGHT[1]} live={!(shape === "docked" && !autoHide)} onChange={(height) => setTaskbar({ height })} />
+      <PxRow icon="height" label={t("Höhe")} value={height} min={HEIGHT[0]} max={HEIGHT[1]} live={!(shape === "docked" && !autoHide)} onChange={(height) => setTaskbar({ height })} />
       {/* The size the bar draws: a lower bar keeps the saved one and a taller bar gives it back (fitIcon). */}
-      <PxRow label={t("Symbolgröße")} value={fitIcon(height, iconSize)} min={ICON[0]} max={fitIcon(height, ICON[1])} onChange={(iconSize) => setTaskbar({ iconSize })} />
-      <Row label={t("Hintergrund")} hint={t("Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes")}>
+      <PxRow icon="aspect_ratio" label={t("Symbolgröße")} value={fitIcon(height, iconSize)} min={ICON[0]} max={fitIcon(height, ICON[1])} onChange={(iconSize) => setTaskbar({ iconSize })} />
+      <Row icon="format_color_fill" label={t("Hintergrund")} hint={t("Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes")}>
         <Segmented
           id="taskbar-surface"
           size="sm"
@@ -314,7 +318,7 @@ export function TaskbarLook() {
           ]}
         />
       </Row>
-      <Row label={t("Transparenz")}>
+      <Row icon="opacity" label={t("Transparenz")}>
         <div className="flex w-52 items-center gap-2">
           <Slider label={t("Transparenz")} value={transparency} min={TRANSPARENCY[0]} max={TRANSPARENCY[1]} step={5} valueText={`${seen} %`} onChange={(transparency) => setTaskbar({ transparency })} />
           <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{seen} %</span>
@@ -348,12 +352,12 @@ export function TaskbarLook() {
       {live && glass && (
         <>
           <Row label={<span className="whitespace-normal">{t("Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch")}</span>} />
-          <GlassSlider label={t("Lichtbrechung")} hint={t("Wie stark der Rand den Hintergrund biegt")} field="glassRefraction" step={10} />
-          <GlassSlider label={t("Mattierung")} hint={t("Wie stark der Hintergrund in der Mitte verschwimmt")} field="glassFrost" step={10} />
-          <GlassSlider label={t("Licht am Rand")} hint={t("Wie hell der Rand des Glases leuchtet")} field="glassRim" step={10} />
+          <GlassSlider label={t("Lichtbrechung")} hint={t("Wie stark der Rand den Hintergrund biegt")} icon="ripples" field="glassRefraction" step={10} />
+          <GlassSlider label={t("Mattierung")} hint={t("Wie stark der Hintergrund in der Mitte verschwimmt")} icon="lens_blur" field="glassFrost" step={10} />
+          <GlassSlider label={t("Licht am Rand")} hint={t("Wie hell der Rand des Glases leuchtet")} icon="flare" field="glassRim" step={10} />
         </>
       )}
-      <Row label={<span className="whitespace-normal">{t("Farben und Thema gelten auch für die Taskleiste")}</span>}>
+      <Row icon="palette" label={<span className="whitespace-normal">{t("Farben und Thema gelten auch für die Taskleiste")}</span>}>
         <Button onClick={() => nav.set({ tabId: "settings", section: "themes" })}>{t("Themen")}</Button>
       </Row>
     </Group>
@@ -364,7 +368,7 @@ export function TaskbarLook() {
  * A slider with its value in CSS px, in even steps: the icon then sits in the bar's middle on whole pixels. Not `live`, it shows the
  * dragged value and calls `onChange` once, on release.
  */
-function PxRow({ label, value, min, max, onChange, live = true }: { label: string; value: number; min: number; max: number; onChange: (v: number) => void; live?: boolean }) {
+function PxRow({ label, icon, value, min, max, onChange, live = true }: { label: string; icon: RowSymbol; value: number; min: number; max: number; onChange: (v: number) => void; live?: boolean }) {
   const dragged = useRef<number | undefined>(undefined);
   const [shown, setShown] = useState<number>();
   const hold = (v: number) => {
@@ -378,7 +382,7 @@ function PxRow({ label, value, min, max, onChange, live = true }: { label: strin
   };
   const v = shown ?? value;
   return (
-    <Row label={label}>
+    <Row icon={icon} label={label}>
       <div className="flex w-52 items-center gap-2">
         <Slider label={label} value={v} min={min} max={max} step={2} onChange={live ? onChange : hold} onRelease={live ? undefined : release} />
         <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{v} px</span>
