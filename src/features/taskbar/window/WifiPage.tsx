@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { ArrowClockwise, LockSimple } from "@phosphor-icons/react";
 import { t } from "../../../i18n";
 import { taskbar } from "../../../platform/services";
@@ -45,12 +45,10 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
       .finally(() => setScanning(false));
   };
 
-  // The first read scans; turning the radio on later reads the adapter's report, which Windows refreshes on its own.
-  const scanned = useRef(false);
+  // Each time the page sees the radio on, as it opens or when it comes on while the page is open, it scans once: a user's action,
+  // never a timer (#48). The report from before the radio went off would show otherwise until Refresh.
   useEffect(() => {
-    if (!on) return;
-    read(!scanned.current);
-    scanned.current = true;
+    if (on) void read(true);
   }, [on]);
 
   useEffect(() => () => panelHeld.set(false), []);
