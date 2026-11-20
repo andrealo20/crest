@@ -281,13 +281,21 @@ pub fn display_rescale(window: WebviewWindow, state: State<'_, DisplayState>) {
 }
 
 /// The lines the page sent for the window and the copies are CSS px at the Text size of then: `k` (old / new factor) keeps them on
-/// the same device px. The top is left as sent: only a floating capsule has one, kept in the page's own px and sent again only when
-/// it changes, so a converted copy would make the capsule jump at its next drag.
+/// the same device px. On top the page sends a hanging notch's line as the window's top too (follow.ts spotFor), so a top equal to
+/// its line goes with it. A floating capsule's top comes without a line: it is the page's own px, sent again only when it changes,
+/// so a converted copy would make the capsule jump at its next drag.
 fn follow_text_scale(c: &mut Config, k: f64) {
-    c.line *= k;
+    follow(&mut c.line, &mut c.y, k);
     for spot in &mut c.spots {
-        spot.line *= k;
+        follow(&mut spot.line, &mut spot.y, k);
     }
+}
+
+fn follow(line: &mut f64, y: &mut f64, k: f64) {
+    if *y == *line {
+        *y *= k;
+    }
+    *line *= k;
 }
 
 /// What the rules call for right now ("normal" | "line" | "hide"), for the frontend's start.
@@ -835,15 +843,21 @@ mod tests {
 
     #[test]
     fn a_new_text_size_keeps_a_hanging_edge_on_its_line() {
-        // Bottom edge: the page sent the work area's bottom, 1032 CSS px, at Text size 100 %. At 125 % the same device px are
-        // 1032 / 1.25 CSS px, and so are the copies' lines, until the page sends what it measures at the new size.
-        let mut c = Config { line: 1032.0, y: 40.0, spots: vec![Spot { monitor: "B".into(), line: 800.0, y: 10.0 }], ..Default::default() };
-        follow_text_scale(&mut c, 1.0 / 1.25);
-        assert_eq!(c.line, 825.6);
-        // The top is only a floating capsule's, which the page keeps in its own px and does not send again: converted here, the
-        // capsule would jump back at its next drag.
-        assert_eq!(c.y, 40.0);
-        assert_eq!(c.spots, vec![Spot { monitor: "B".into(), line: 640.0, y: 10.0 }]);
+        // What the page sends at Text size 100 % (follow.ts spotFor), and what keeps each window on the same device px at 125 %
+        // until the page sends what it measures at the new size.
+        let at_125 = |line: f64, y: f64| {
+            let mut c = Config { line, y, spots: vec![Spot { monitor: "B".into(), line, y }], ..Default::default() };
+            follow_text_scale(&mut c, 1.0 / 1.25);
+            assert_eq!(c.spots, vec![Spot { monitor: "B".into(), line: c.line, y: c.y }], "the copies follow the same rule");
+            (c.line, c.y)
+        };
+        // Bottom edge: the line is the work area's bottom, and the top is unused.
+        assert_eq!(at_125(1032.0, 0.0), (825.6, 0.0));
+        // Top edge, hanging from a 40 px taskbar on top: the line is sent as the window's top too.
+        assert_eq!(at_125(40.0, 40.0), (32.0, 32.0));
+        // A floating capsule: no line, and a top in the page's own px that the page sends again only when it changes. Converted
+        // here, the capsule would jump back at its next drag.
+        assert_eq!(at_125(0.0, 194.0), (0.0, 194.0));
     }
 
     #[test]
