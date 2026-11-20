@@ -1034,6 +1034,13 @@ export function onTimerWindow(handler: (open: boolean) => void): () => void {
   return () => void off.then((f) => f());
 }
 
+/** Where Crest is about to move the timer window itself, as it follows Windows' Text size: a move not to save. */
+export function onTimerPlaced(handler: (x: number, y: number) => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen<[number, number]>("timer-window://placed", (e) => handler(e.payload[0], e.payload[1]));
+  return () => void off.then((f) => f());
+}
+
 // ---------- Shelf drag out and text (src-tauri/src/shelf.rs) ----------
 
 /**

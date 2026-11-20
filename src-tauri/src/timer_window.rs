@@ -11,6 +11,8 @@ use tauri::{AppHandle, Emitter, LogicalSize, Manager, Monitor, PhysicalPosition,
 
 const LABEL: &str = "timer";
 const EVENT: &str = "timer-window://open";
+/// Sent to the page before Crest moves the open window itself, so the page does not save that move (moves.ts).
+const PLACING: &str = "timer-window://placed";
 
 /// Where Crest last put the window and what from: a live Text size change works from there while the window has not been
 /// dragged since, so a round trip brings it back to the user's spot.
@@ -44,7 +46,7 @@ pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, app: AppHandle) -
         None => window.primary_monitor().ok().flatten().map(|m| (Origin::Default, m)),
     };
     if let Some((from, m)) = spot {
-        put_at(&window, base, from, grown(base, 1.0, m.scale_factor()), Screen::of(&m));
+        put_at(&window, base, from, grown(base, 1.0, m.scale_factor()), None, Screen::of(&m));
     }
     window.show().map_err(|e| e.to_string())?;
 
@@ -76,14 +78,15 @@ pub fn follow_text_size(app: &AppHandle) {
     // The default spot is on the primary monitor, as at opening.
     let monitor = if from == Origin::Default { window.primary_monitor() } else { window.current_monitor() };
     if let Ok(Some(m)) = monitor {
-        put_at(&window, (config.width, config.height), from, now, Screen::of(&m));
+        put_at(&window, (config.width, config.height), from, now, Some((at.x, at.y)), Screen::of(&m));
     }
 }
 
-/// Sizes the window for the Text size on `s` and puts it where `from` says; `now` is its size in physical px. Growing, it is
-/// moved first, and shrinking, sized first, so it never spills past where it ends up (onto a neighbour monitor with another
-/// DPI, say). At the same size only the position is set, as before the Text size was followed.
-fn put_at(window: &WebviewWindow, base: (f64, f64), from: Origin, now: (i32, i32), s: Screen) {
+/// Sizes the window for the Text size on `s` and puts it where `from` says; `now` is its size in physical px, and `shown` where
+/// it is when it is already open. Growing, it is moved first, and shrinking, sized first, so it never spills past where it ends
+/// up (onto a neighbour monitor with another DPI, say). At the same size only the position is set, as before the Text size was
+/// followed.
+fn put_at(window: &WebviewWindow, base: (f64, f64), from: Origin, now: (i32, i32), shown: Option<(i32, i32)>, s: Screen) {
     let text = crate::text_scale::get();
     let new = grown(base, text, s.scale);
     let at = spot_for(from, new, s);
@@ -91,6 +94,14 @@ fn put_at(window: &WebviewWindow, base: (f64, f64), from: Origin, now: (i32, i32
         let _ = window.set_size(LogicalSize::new(base.0 * text, base.1 * text));
     };
     let position = || {
+        if shown == Some(at) {
+            return;
+        }
+        // The page saves every move it sees; announced, this one is left out, so the saved spot stays the user's. At opening
+        // the page is not listening yet.
+        if shown.is_some() {
+            let _ = window.emit(PLACING, at);
+        }
         let _ = window.set_position(PhysicalPosition::new(at.0, at.1));
     };
     if new == now {
