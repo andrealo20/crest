@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FlipHorizontal, VideoCamera, VideoCameraSlash } from "@phosphor-icons/react";
+import { FlipHorizontal, VideoCamera, VideoCameraSlash } from "../../ui/iconset";
 import { HeaderActions, HeaderButton, activeTool } from "../../notch/header";
 import { windowShell } from "../../platform/services";
 import { settings, updateSettings, type Settings } from "../../settings/store";

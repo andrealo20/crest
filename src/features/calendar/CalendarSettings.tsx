@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Plus, X } from "@phosphor-icons/react";
+import { Plus, X } from "../../ui/iconset";
 import { isMac } from "../../platform/native";
 import { secrets } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";

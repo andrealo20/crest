@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { Check, Copy, Eyedropper, Trash, X } from "@phosphor-icons/react";
+import { Check, Copy, Eyedropper, Trash, X } from "../../ui/iconset";
 import { fade } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { Button, Empty, Segmented, TextField } from "../../ui/controls";

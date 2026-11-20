@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileZip, FolderOpen, PuzzlePiece, X } from "@phosphor-icons/react";
+import { FileZip, FolderOpen, PuzzlePiece, X } from "../../ui/iconset";
 import { isNative } from "../../platform/native";
 import { demo } from "../../dev/showcase-data";
 import type { StagedPlugin } from "../../platform/services";

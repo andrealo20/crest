@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, Broom, Check, Clock, ClockClockwise, Plus, Star, X } from "@phosphor-icons/react";
+import { AlarmIcon, Broom, Check, Clock, ClockClockwise, Plus, Star, X } from "../../ui/iconset";
 import { springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { Segmented } from "../../ui/controls";

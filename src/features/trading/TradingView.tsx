@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowClockwise, CaretLeft, CaretRight, Key, WarningCircle, Wallet } from "@phosphor-icons/react";
+import { ArrowClockwise, CaretLeft, CaretRight, Key, WarningCircle, Wallet } from "../../ui/iconset";
 import { DepotIcon } from "../../ui/icons";
 import { content, fade, spin, springs } from "../../design/motion";
 import { formatAgo, formatMoney, formatPercent, formatTime } from "../../lib/format";

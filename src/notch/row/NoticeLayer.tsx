@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, BatteryLow, BatteryWarning, CheckCircle, FilmStrip, Pause, Play, Stop, Waveform, ArrowSquareOut, ImageSquare } from "@phosphor-icons/react";
+import { AlarmIcon, BatteryLow, BatteryWarning, CheckCircle, FilmStrip, Pause, Play, Stop, Waveform, ArrowSquareOut, ImageSquare } from "../../ui/iconset";
 import { STATUS_ICON } from "./statusIcons";
 import { pauseRecording, recording, saved, stopRecording, type Saved } from "../../features/capture/store";
 import { elapsedAt, formatElapsed } from "../../features/capture/clock";

@@ -1,4 +1,4 @@
-import { Timer } from "@phosphor-icons/react";
+import { Timer } from "../../../ui/iconset";
 import { formatClock, remainingOf, timer, useSecondTick, type TimerMode } from "../../../features/timer/store";
 import { measureTabular } from "../measure";
 import { modeTint } from "../../../features/timer/looks";

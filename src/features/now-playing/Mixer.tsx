@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CaretDown, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleSlash } from "@phosphor-icons/react";
+import { CaretDown, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleSlash } from "../../ui/iconset";
 import { content, springs } from "../../design/motion";
 import { holdOpen } from "../../notch/useNotchState";
 import { isMac } from "../../platform/native";

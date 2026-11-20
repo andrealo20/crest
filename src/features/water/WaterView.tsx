@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowCounterClockwise, Drop, GearSix } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, Drop, GearSix } from "../../ui/iconset";
 import { springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";

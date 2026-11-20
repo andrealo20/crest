@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Reorder } from "motion/react";
-import { CaretDown, CaretUp, DotsSixVertical, X } from "@phosphor-icons/react";
+import { CaretDown, CaretUp, DotsSixVertical, X } from "../../ui/iconset";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { moveFavorite, type Favorite } from "./apps";

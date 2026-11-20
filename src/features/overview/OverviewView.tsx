@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CaretDown, Coffee, Eye, EyeSlash, Moon, MusicNoteSimple, SkipForward, Timer } from "@phosphor-icons/react";
+import { CaretDown, Coffee, Eye, EyeSlash, Moon, MusicNoteSimple, SkipForward, Timer } from "../../ui/iconset";
 import { DiscordLogo } from "../../ui/brands";
 import { isMac } from "../../platform/native";
 import { content, springs } from "../../design/motion";

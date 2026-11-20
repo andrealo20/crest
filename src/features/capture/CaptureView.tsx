@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BoundingBox, Camera, Crop, FilmStrip, FolderOpen, ImageSquare, Microphone, MicrophoneSlash, Pause, Play, Record, SpeakerHigh, SpeakerSlash, Stop, Trash, Tray, type Icon } from "@phosphor-icons/react";
+import { BoundingBox, Camera, Crop, FilmStrip, FolderOpen, ImageSquare, Microphone, MicrophoneSlash, Pause, Play, Record, SpeakerHigh, SpeakerSlash, Stop, Trash, Tray, type Icon } from "../../ui/iconset";
 import { fade, pulse, springs } from "../../design/motion";
 import { formatBytes, formatTime } from "../../lib/format";
 import { HeaderActions, HeaderButton } from "../../notch/header";

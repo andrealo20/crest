@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CaretLeft } from "@phosphor-icons/react";
+import { CaretLeft } from "../../../ui/iconset";
 import { t } from "../../../i18n";
 import { closePanel, quickPage } from "../panel";
 import { holdBriefly } from "./hold";

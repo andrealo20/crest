@@ -1,4 +1,4 @@
-import { Coffee, Eye } from "@phosphor-icons/react";
+import { Coffee, Eye } from "../../ui/iconset";
 import { NOTICE_BUTTON_PAD as PAD, NoticeButton } from "../../notch/row/NoticeButton";
 import { noticeCard } from "../../notch/row/NoticeCard";
 import { measureTabular, measureText } from "../../notch/row/measure";

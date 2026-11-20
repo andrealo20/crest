@@ -9,7 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
-import { CaretUpDown, Eye, EyeSlash, type Icon } from "@phosphor-icons/react";
+import { CaretUpDown, Eye, EyeSlash, type Icon } from "./iconset";
 import { design } from "../design/design";
 import { popover, springs } from "../design/motion";
 import { t } from "../i18n";

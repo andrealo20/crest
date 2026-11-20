@@ -11,7 +11,7 @@ import {
   Moon,
   Sun,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { settings, updateSettings } from "../../settings/store";
 import { lang, t } from "../../i18n";
 import type { Hue } from "../themes/hues";

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CaretRight } from "@phosphor-icons/react";
+import { CaretRight } from "../../../ui/iconset";
 import { content } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { systemControls, taskbar } from "../../../platform/services";

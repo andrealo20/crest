@@ -1,7 +1,7 @@
 import { askNotch } from "../lib/tauriTransport";
 import { isNotchWindow } from "../lib/windowKind";
 import { useEffect, useRef } from "react";
-import { Check } from "@phosphor-icons/react";
+import { Check } from "../ui/iconset";
 import { createStore } from "../lib/store";
 import { settings, updateSettings } from "../settings/store";
 import { t } from "../i18n";

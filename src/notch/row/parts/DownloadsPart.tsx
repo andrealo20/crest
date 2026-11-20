@@ -1,4 +1,4 @@
-import { DownloadSimple } from "@phosphor-icons/react";
+import { DownloadSimple } from "../../../ui/iconset";
 import type { DownloadProgress } from "../../../platform/services";
 import { formatBytes } from "../../../lib/format";
 import { rate } from "../../../features/system/format";

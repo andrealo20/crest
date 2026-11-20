@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { AnimatePresence, animate, frame, motion, useMotionValue, useReducedMotion, useTransform, type MotionValue, type Transition } from "motion/react";
-import { GearSix, PushPin } from "@phosphor-icons/react";
+import { GearSix, PushPin } from "../ui/iconset";
 import { content, springs } from "../design/motion";
 import { livePosition, useNowPlaying } from "../platform/media";
 import { isMac, isNative, keyboardFocus, onNativeBlur, onNativeHover, onNativeHoverAt, onShortcut, onTrayOpen, setHitRect, setMemoryLow, setPassthrough } from "../platform/native";

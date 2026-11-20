@@ -1,7 +1,7 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck/MainWindow.CompactColumn.cs.
 import { useLayoutEffect, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { AlarmIcon, BatteryLow, BatteryWarning, CheckCircle, Coffee, Pause, Play, Stop } from "@phosphor-icons/react";
+import { AlarmIcon, BatteryLow, BatteryWarning, CheckCircle, Coffee, Pause, Play, Stop } from "../../ui/iconset";
 import { STATUS_ICON } from "./statusIcons";
 import { hueVar } from "../../features/themes/hues";
 import { content, pulse } from "../../design/motion";

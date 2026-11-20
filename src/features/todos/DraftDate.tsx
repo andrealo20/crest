@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Clock, X } from "@phosphor-icons/react";
+import { Clock, X } from "../../ui/iconset";
 import { springs } from "../../design/motion";
 import { formatTime } from "../../lib/format";
 import { lang, locale, t } from "../../i18n";

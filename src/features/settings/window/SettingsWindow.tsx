@@ -1,5 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { X } from "@phosphor-icons/react";
+import { X } from "../../../ui/iconset";
 import { design } from "../../../design/design";
 import { t } from "../../../i18n";
 import { HeaderButton } from "../../../notch/header";

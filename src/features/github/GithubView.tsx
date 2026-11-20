@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { ArrowClockwise, GithubLogo, SlidersHorizontal, WarningCircle } from "@phosphor-icons/react";
+import { ArrowClockwise, GithubLogo, SlidersHorizontal, WarningCircle } from "../../ui/iconset";
 import { content, spin } from "../../design/motion";
 import { formatAgo } from "../../lib/format";
 import { HeaderActions, HeaderButton } from "../../notch/header";

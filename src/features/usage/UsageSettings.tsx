@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Reorder } from "motion/react";
-import { Check, DotsSixVertical, PencilSimple } from "@phosphor-icons/react";
+import { Check, DotsSixVertical, PencilSimple } from "../../ui/iconset";
 import { springs } from "../../design/motion";
 import type { SecretName, UsageId } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";

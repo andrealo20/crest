@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { Fingerprint } from "@phosphor-icons/react";
+import { Fingerprint } from "../../ui/iconset";
 import { content } from "../../design/motion";
 import { vault, vaultError } from "../../platform/vault";
 import { Button } from "../../ui/controls";

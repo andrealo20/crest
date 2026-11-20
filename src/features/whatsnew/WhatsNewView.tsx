@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Heart, Star } from "@phosphor-icons/react";
+import { Heart, Star } from "../../ui/iconset";
 import { between, changelog, useUnseen } from "../../lib/changelog";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
 import { openSponsors, openStoreReview } from "../../platform/services";

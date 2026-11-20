@@ -18,7 +18,7 @@ import {
   Tray,
   X,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { fade, springs } from "../../design/motion";
 import { createStore } from "../../lib/store";
 import { formatBytes } from "../../lib/format";

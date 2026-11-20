@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUp, Copy, Check, NotePencil, Stop, Translate, TextAlignLeft, X, type Icon } from "@phosphor-icons/react";
+import { ArrowUp, Copy, Check, NotePencil, Stop, Translate, TextAlignLeft, X, type Icon } from "../../ui/iconset";
 import { content, fade } from "../../design/motion";
 import { createStore } from "../../lib/store";
 import { HeaderActions, HeaderButton } from "../../notch/header";

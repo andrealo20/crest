@@ -1,6 +1,6 @@
 import type { CSSProperties, KeyboardEvent } from "react";
 import { AnimatePresence } from "motion/react";
-import { Plus, X } from "@phosphor-icons/react";
+import { Plus, X } from "../../ui/iconset";
 import { t } from "../../i18n";
 import { fontEpoch } from "../../notch/row/measure";
 import { PART_IDS, type PartId } from "../../notch/row/parts";

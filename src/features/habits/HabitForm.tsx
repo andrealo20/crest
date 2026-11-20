@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, Trash } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Trash } from "../../ui/iconset";
 import { HeaderButton } from "../../notch/header";
 import { settings } from "../../settings/store";
 import { Button, Switch } from "../../ui/controls";

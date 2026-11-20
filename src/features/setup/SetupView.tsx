@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { MusicNotesSimple, SlidersHorizontal, Sparkle, CheckCircle } from "@phosphor-icons/react";
+import { MusicNotesSimple, SlidersHorizontal, Sparkle, CheckCircle } from "../../ui/iconset";
 import { content } from "../../design/motion";
 import { t } from "../../i18n";
 import { navigate } from "../../notch/nav";

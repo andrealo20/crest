@@ -25,7 +25,7 @@ import {
   Timer,
   X,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { design } from "../../design/design";
 import { content, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, type AlarmDuration } from "../../lib/sound";

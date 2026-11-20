@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Reorder } from "motion/react";
-import { AppWindow, CaretUp, DotsSixVertical, WarningCircle, WifiHigh } from "@phosphor-icons/react";
-import { CaretDown } from "@phosphor-icons/react";
+import { AppWindow, CaretUp, DotsSixVertical, WarningCircle, WifiHigh } from "../../ui/iconset";
+import { CaretDown } from "../../ui/iconset";
 import { design } from "../../design/design";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";

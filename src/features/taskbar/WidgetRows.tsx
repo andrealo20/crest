@@ -1,4 +1,4 @@
-import { Plus, X } from "@phosphor-icons/react";
+import { Plus, X } from "../../ui/iconset";
 import { t } from "../../i18n";
 import { PART_IDS } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";

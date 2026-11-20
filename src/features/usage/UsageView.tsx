@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowClockwise, Gauge, SlidersHorizontal, Table, WarningCircle } from "@phosphor-icons/react";
+import { ArrowClockwise, Gauge, SlidersHorizontal, Table, WarningCircle } from "../../ui/iconset";
 import { content, spin, springs } from "../../design/motion";
 import { formatAgo, formatIn } from "../../lib/format";
 import { askNotch } from "../../lib/tauriTransport";

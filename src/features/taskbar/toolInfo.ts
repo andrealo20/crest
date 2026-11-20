@@ -30,7 +30,7 @@ import {
   VideoCamera,
   Waveform,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { DepotIcon } from "../../ui/icons";
 import type { Hue } from "../themes/hues";
 

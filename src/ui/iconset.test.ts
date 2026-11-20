@@ -31,6 +31,14 @@ test("every name src imports from Phosphor or from iconset is mapped to Material
   assert.deepEqual(loose, []);
 });
 
+test("no file under src but iconset.tsx imports @phosphor-icons/react, so every icon follows the style", () => {
+  const src = join(import.meta.dirname, "..");
+  const direct = readdirSync(src, { recursive: true, encoding: "utf8" })
+    .filter((f) => /\.tsx?$/.test(f) && !/\.test\.ts$/.test(f) && join(src, f) !== join(import.meta.dirname, "iconset.tsx"))
+    .filter((f) => /(from|import)\s*\(?\s*["']@phosphor-icons\/react["']/.test(readFileSync(join(src, f), "utf8")));
+  assert.deepEqual(direct, []);
+});
+
 test("every mapped name has its Material outline, and the ones drawn at the regular weight their weight 300 one too", () => {
   for (const [name, material] of Object.entries(MATERIAL_NAMES)) assert.ok(PATHS[material], `${name}: no path for ${material}`);
   for (const name of REGULAR) assert.ok(LIGHT[MATERIAL_NAMES[name]], `${name}: no weight 300 outline`);

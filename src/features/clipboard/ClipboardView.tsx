@@ -22,7 +22,7 @@ import {
   Trash,
   X,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { content, fade, springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { MAX_SIZE, requestSize } from "../../notch/size";

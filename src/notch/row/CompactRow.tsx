@@ -29,7 +29,7 @@ import { WeatherPart, useWeatherNow, weatherWidth } from "./parts/WeatherPart";
 import { NextEventPart, nextEventWidth, useNextEvent } from "./parts/NextEventPart";
 import { ScriptParts, scriptPartsWidth } from "./parts/ScriptPart";
 import { scriptParts } from "../../features/notices/store";
-import { Coffee } from "@phosphor-icons/react";
+import { Coffee } from "../../ui/iconset";
 import { t } from "../../i18n";
 import { awake } from "../../features/overview/store";
 import { DownloadsPart, downloadsCaption, downloadsWidth } from "./parts/DownloadsPart";

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Check, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal } from "@phosphor-icons/react";
+import { Check, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal } from "../../ui/iconset";
 import { content } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";

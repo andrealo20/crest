@@ -1,4 +1,4 @@
-import { MicrophoneSlash, SpeakerSimpleSlash } from "@phosphor-icons/react";
+import { MicrophoneSlash, SpeakerSimpleSlash } from "../../../ui/iconset";
 import type { DiscordCall } from "../../../platform/services";
 import { Equalizer } from "../../../features/now-playing/Equalizer";
 import { GuildIcon } from "../../../features/discord/DiscordView";

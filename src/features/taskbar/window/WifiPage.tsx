@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { ArrowClockwise, LockSimple } from "@phosphor-icons/react";
+import { ArrowClockwise, LockSimple } from "../../../ui/iconset";
 import { t } from "../../../i18n";
 import { taskbar } from "../../../platform/services";
 import { NetGlyph } from "../../../ui/glyphs";

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { motion, useIsPresent, useReducedMotion } from "motion/react";
-import { Check } from "@phosphor-icons/react";
+import { Check } from "../../../ui/iconset";
 import { design } from "../../../design/design";
 import { popover } from "../../../design/motion";
 import { t } from "../../../i18n";

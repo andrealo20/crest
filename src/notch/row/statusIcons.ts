@@ -1,4 +1,4 @@
-import { Airplane, BatteryFull, BatteryHigh, Bluetooth, DeviceMobile, File as FileGlyph, Files, Folder, GameController, Gauge, Headphones, ImageSquare, Keyboard, Leaf, LinkSimple, Lock, LockOpen, Microphone, MicrophoneSlash, Monitor, Moon, Mouse, NumberSquareOne, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Sun, SunDim, TextAa, Watch, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
+import { Airplane, BatteryFull, BatteryHigh, Bluetooth, DeviceMobile, File as FileGlyph, Files, Folder, GameController, Gauge, Headphones, ImageSquare, Keyboard, Leaf, LinkSimple, Lock, LockOpen, Microphone, MicrophoneSlash, Monitor, Moon, Mouse, NumberSquareOne, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Sun, SunDim, TextAa, Watch, WifiHigh, WifiSlash, type Icon } from "../../ui/iconset";
 import type { StatusAlert } from "./status";
 
 /** The status alerts' icons, for the closed shape (NoticeLayer.tsx) and the side edges (CompactColumn.tsx). */

@@ -1,5 +1,5 @@
 import { forwardRef, type ReactElement } from "react";
-import { IconBase, type Icon, type IconWeight } from "@phosphor-icons/react";
+import { IconBase, type Icon, type IconWeight } from "./iconset";
 
 /**
  * Custom icons on the Phosphor grid (256 viewBox, round caps) where Phosphor

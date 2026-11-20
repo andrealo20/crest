@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Lightning, LockSimple, SignOut, Thermometer, type Icon } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Lightning, LockSimple, SignOut, Thermometer, type Icon } from "../../../ui/iconset";
 import { t } from "../../../i18n";
 import { fps, useFpsPolling } from "../../../features/system/gaming";
 import { batteryLevel } from "../../../features/system/battery";

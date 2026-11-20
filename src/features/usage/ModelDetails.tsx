@@ -1,7 +1,7 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck/ModelDetails.cs (table layout: input, cache write, cache read, output, total, cost).
 import { useState, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { PencilSimple, Table } from "@phosphor-icons/react";
+import { PencilSimple, Table } from "../../ui/iconset";
 import { content } from "../../design/motion";
 import { settings, updateSettings } from "../../settings/store";
 import { BrandLogo } from "../../ui/brands";

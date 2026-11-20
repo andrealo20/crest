@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowCounterClockwise, ArrowDown, ArrowUp, MagnifyingGlass, MapPin, Moon, Plus, Sun, X } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, ArrowDown, ArrowUp, MagnifyingGlass, MapPin, Moon, Plus, Sun, X } from "../../ui/iconset";
 import { content, springs } from "../../design/motion";
 import { HeaderActions, HeaderButton, activeTool } from "../../notch/header";
 import { navigate } from "../../notch/nav";

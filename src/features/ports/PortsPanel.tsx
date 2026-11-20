@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowSquareOut, CaretDown, CaretUp, Check, Copy, Globe, LockSimple, PlugsConnected, X } from "@phosphor-icons/react";
+import { ArrowSquareOut, CaretDown, CaretUp, Check, Copy, Globe, LockSimple, PlugsConnected, X } from "../../ui/iconset";
 import { fade } from "../../design/motion";
 import { t } from "../../i18n";
 import { HeaderActions, HeaderButton } from "../../notch/header";

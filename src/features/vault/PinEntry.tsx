@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useAnimate } from "motion/react";
-import { LockSimple, ShieldCheck } from "@phosphor-icons/react";
+import { LockSimple, ShieldCheck } from "../../ui/iconset";
 import { content, shake, springs } from "../../design/motion";
 import { keyboardFocus } from "../../platform/native";
 import { t } from "../../i18n";

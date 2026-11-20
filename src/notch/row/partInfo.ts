@@ -1,4 +1,4 @@
-import { CalendarBlank, ChartDonut, Clock, CloudSun, Cpu, DownloadSimple, GithubLogo, MusicNote, TerminalWindow, Timer, Waveform, type Icon } from "@phosphor-icons/react";
+import { CalendarBlank, ChartDonut, Clock, CloudSun, Cpu, DownloadSimple, GithubLogo, MusicNote, TerminalWindow, Timer, Waveform, type Icon } from "../../ui/iconset";
 import type { Hue } from "../../features/themes/hues";
 import { DiscordLogo, LeetcodeLogo } from "../../ui/brands";
 import type { PartId } from "./parts";

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { CaretUp } from "@phosphor-icons/react";
+import { CaretUp } from "../../ui/iconset";
 import { settings } from "../../settings/store";
 import { isMac, isNative } from "../../platform/native";
 import { Button, Group, Row, Segmented, Select, Switch } from "../../ui/controls";

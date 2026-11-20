@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLineUp, Plus, X } from "@phosphor-icons/react";
+import { ArrowLineUp, Plus, X } from "../../ui/iconset";
 import { isMac } from "../../platform/native";
 import { windowShell, type HotkeyState, type RunningApp } from "../../platform/services";
 import { settings } from "../../settings/store";

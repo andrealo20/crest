@@ -1,5 +1,5 @@
 import { useEffect, type MouseEvent, type MouseEventHandler, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
-import { CaretUp } from "@phosphor-icons/react";
+import { CaretUp } from "../../../ui/iconset";
 import { t } from "../../../i18n";
 import { taskbar } from "../../../platform/services";
 import { updateSettings } from "../../../settings/store";

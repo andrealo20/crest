@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BellSimple, BellSimpleSlash, EyeSlash, GearSix, Trash, X } from "@phosphor-icons/react";
+import { BellSimple, BellSimpleSlash, EyeSlash, GearSix, Trash, X } from "../../ui/iconset";
 import { springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CheckCircle, LockSimple, Plus, X } from "@phosphor-icons/react";
+import { CheckCircle, LockSimple, Plus, X } from "../../ui/iconset";
 import { fade } from "../../design/motion";
 import { formatMoney } from "../../lib/format";
 import { secrets } from "../../platform/services";

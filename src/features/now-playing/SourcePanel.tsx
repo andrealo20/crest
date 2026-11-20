@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { CaretUpDown, Check, PushPinSimple } from "@phosphor-icons/react";
+import { CaretUpDown, Check, PushPinSimple } from "../../ui/iconset";
 import { content } from "../../design/motion";
 import { media, type NowPlaying, type SourceInfo } from "../../platform/media";
 import { settings } from "../../settings/store";

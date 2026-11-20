@@ -1,4 +1,4 @@
-import { PuzzlePiece } from "@phosphor-icons/react";
+import { PuzzlePiece } from "../../ui/iconset";
 import type { NotchTab } from "../../notch/tabs";
 import { iconFor } from "./icons";
 import { pluginOf, toolId, type PluginManifest } from "./model";

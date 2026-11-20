@@ -15,7 +15,7 @@ import {
   User,
   WarningCircle,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { content, tick } from "../../design/motion";
 import { createStore } from "../../lib/store";
 import { HeaderActions, HeaderButton } from "../../notch/header";

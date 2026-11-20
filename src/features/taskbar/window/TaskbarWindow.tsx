@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from "motion/react";
-import { DotsThree } from "@phosphor-icons/react";
+import { DotsThree } from "../../../ui/iconset";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { springs } from "../../../design/motion";
 import { t } from "../../../i18n";

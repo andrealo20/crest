@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowsClockwise, Check, ClipboardText, Copy, QrCode, Trash } from "@phosphor-icons/react";
+import { ArrowsClockwise, Check, ClipboardText, Copy, QrCode, Trash } from "../../ui/iconset";
 import { content } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { Button, Group, Meter, Row, Slider, Switch, TextField } from "../../ui/controls";

@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react";
-import { ArrowCounterClockwise, WarningCircle } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, WarningCircle } from "../../ui/iconset";
 import { Button, Group, Row, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
 import type { RowSymbol } from "../../ui/materialNames";
 import { formatTime } from "../../lib/format";

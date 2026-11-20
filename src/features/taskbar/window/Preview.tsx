@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion, useIsPresent } from "motion/react";
-import { X } from "@phosphor-icons/react";
+import { X } from "../../../ui/iconset";
 import { fade } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { onNativeBlur } from "../../../platform/native";

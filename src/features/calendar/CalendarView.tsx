@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowClockwise, CalendarBlank, CaretLeft, CaretRight, SlidersHorizontal, VideoCamera, WarningCircle } from "@phosphor-icons/react";
+import { ArrowClockwise, CalendarBlank, CaretLeft, CaretRight, SlidersHorizontal, VideoCamera, WarningCircle } from "../../ui/iconset";
 import { content, spin } from "../../design/motion";
 import { formatAgo, formatTime } from "../../lib/format";
 import { HeaderActions, HeaderButton } from "../../notch/header";

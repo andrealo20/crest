@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CircleNotch, Drop, MagnifyingGlass, MapPin, NavigationArrow, SunHorizon, Umbrella, Wind, type Icon } from "@phosphor-icons/react";
+import { CircleNotch, Drop, MagnifyingGlass, MapPin, NavigationArrow, SunHorizon, Umbrella, Wind, type Icon } from "../../ui/iconset";
 import { useHue, type Hue } from "../themes/hues";
 import { content, fade, spin } from "../../design/motion";
 import { settings } from "../../settings/store";

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Headphones, Microphone, MicrophoneSlash, PhoneDisconnect, SlidersHorizontal, SpeakerSimpleSlash, type Icon } from "@phosphor-icons/react";
+import { Headphones, Microphone, MicrophoneSlash, PhoneDisconnect, SlidersHorizontal, SpeakerSimpleSlash, type Icon } from "../../ui/iconset";
 import { DiscordLogo } from "../../ui/brands";
 import { content, springs } from "../../design/motion";
 import { t, tBackend } from "../../i18n";

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createStore } from "../../lib/store";
-import { ArrowsLeftRight } from "@phosphor-icons/react";
+import { ArrowsLeftRight } from "../../ui/iconset";
 import { Select } from "../../ui/controls";
 import { locale, t } from "../../i18n";
 import { fetchRates } from "../../platform/portfolio";
