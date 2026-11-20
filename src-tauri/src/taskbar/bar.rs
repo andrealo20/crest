@@ -8,7 +8,8 @@
 //! Only the notch applies the bar's settings (`taskbar_apply`). The bar hides with the hide hotkey and over a full-screen app
 //! in front on its monitor (display.rs reads it), whatever the notch's own rules say, and is raised before the notch so the
 //! notch stays above it. With "hide when a window touches it" on, the page slides the bar off the screen inside its still window
-//! (`taskbar_slid`): the bar and the notch then hear it hidden (`taskbar://shown`), as when its window hides.
+//! (`taskbar_slid`): the bar then hears it hidden (`taskbar://shown`), as when its window hides, and the notch hears the slide
+//! apart from a hide (`bar://shown`).
 //!
 //! Windows' taskbar hides once the primary's bar has drawn and comes back while the hide hotkey hides Crest and when the bar
 //! goes (explorer.rs, `follow`).
@@ -67,8 +68,8 @@ fn slid() -> MutexGuard<'static, Vec<String>> {
     SLID.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// What a bar hears as its shown state (`taskbar://shown`, `taskbar_hello`), and the notch for the primary's: its window shows and
-/// its page has not slid it off the screen (`taskbar_slid`). A label that never slid is up.
+/// What a bar hears as its shown state (`taskbar://shown`, `taskbar_hello`): its window shows and its page has not slid it off
+/// the screen (`taskbar_slid`). A label that never slid is up.
 fn on_screen(shown: bool, slid: &[String], label: &str) -> bool {
     shown && !slid.iter().any(|l| l == label)
 }
@@ -229,14 +230,15 @@ pub fn taskbar_hit_rects(rects: Vec<HitRect>, window: WebviewWindow, state: Stat
 }
 
 /// The calling bar's page slid it off the screen inside its window (`down`, useAutoHide.ts) or brought it back up. Down, the bar
-/// hears itself hidden, and the notch too for the primary's, so the widgets and their sources rest as when it hides. Only a change
-/// of what the bar hears is told: a hidden window reads hidden either way. Sync, so a bar's calls run in their order.
+/// hears itself hidden, so its widgets rest as when it hides; only a change of what the bar hears is told, a hidden window reads
+/// hidden either way. The notch hears each slide of the primary's (`tell_notch`). Sync, so a bar's calls run in their order.
 #[tauri::command]
 pub fn taskbar_slid(down: bool, window: WebviewWindow) {
     let label = window.label();
     let mut slid = slid();
     let shown = window_shown(label);
     let before = on_screen(shown, &slid, label);
+    let was = slid.iter().any(|l| l == label);
     slid.retain(|l| l != label);
     if down {
         slid.push(label.to_owned());
@@ -244,6 +246,10 @@ pub fn taskbar_slid(down: bool, window: WebviewWindow) {
     let after = on_screen(shown, &slid, label);
     if after != before {
         tell(window.app_handle(), label, after);
+    }
+    // The notch hears the primary's slide itself, a hidden window's too: it tells a slide from a hide.
+    if label == LABEL && was != down {
+        tell_notch(window.app_handle(), shown, &slid);
     }
 }
 
@@ -397,22 +403,37 @@ pub(super) fn showed(app: &AppHandle, label: &str, show: bool) {
     if on_screen(true, &slid, label) {
         tell(app, label, show);
     }
+    // The notch hears the primary's window either way: hidden while slid, the sources stop at once.
+    if label == LABEL {
+        tell_notch(app, show, &slid);
+    }
 }
 
 /// Tells `label`'s bar what it hears now, changed or not: for a bar just built, whose `sync` sent no change.
 fn tell_now(app: &AppHandle, label: &str) {
     let slid = slid();
-    tell(app, label, on_screen(window_shown(label), &slid, label));
+    let shown = window_shown(label);
+    tell(app, label, on_screen(shown, &slid, label));
+    if label == LABEL {
+        tell_notch(app, shown, &slid);
+    }
 }
 
-/// A bar shows or hides for its page (`on_screen`), under `SLID`. To that bar alone, and to the notch for the primary's: the notch
-/// stops or starts its widgets' sources, the page pauses them and closes its panel. Another monitor's bar hears only its own, so
-/// the primary hiding never closes that bar's panel.
+/// A bar shows or hides for its page (`on_screen`), under `SLID`: to that bar alone, which pauses its widgets and closes its panel.
+/// Another monitor's bar hears only its own, so the primary hiding never closes that bar's panel.
 fn tell(app: &AppHandle, label: &str, show: bool) {
-    if label == LABEL {
-        let _ = app.emit_to("notch", "taskbar://shown", show);
-    }
     let _ = app.emit_to(label, "taskbar://shown", show);
+}
+
+/// What the notch hears of the primary's bar (`bar://shown`): whether its window shows and whether its page slid it off the
+/// screen, apart, so the notch keeps the widgets' sources through a short slide and stops them at once on a hide.
+fn notch_hears(shown: bool, slid: &[String]) -> serde_json::Value {
+    serde_json::json!({ "shown": shown, "slid": slid.iter().any(|l| l == LABEL) })
+}
+
+/// Tells the notch the primary's state (`notch_hears`), under `SLID` as `tell` is.
+fn tell_notch(app: &AppHandle, shown: bool, slid: &[String]) {
+    let _ = app.emit_to("notch", "bar://shown", notch_hears(shown, slid));
 }
 
 /// A bar's window was built or destroyed: no page of it has slid it.
@@ -430,6 +451,15 @@ fn set_band(app: &AppHandle, band: f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_notch_hears_the_primary_bars_slide_apart_from_its_window() {
+        let slid = |labels: &[&str]| labels.iter().map(|l| l.to_string()).collect::<Vec<_>>();
+        assert_eq!(notch_hears(true, &slid(&[LABEL])), serde_json::json!({ "shown": true, "slid": true })); // slid away: the sources stay a while
+        assert_eq!(notch_hears(false, &slid(&[LABEL])), serde_json::json!({ "shown": false, "slid": true })); // hidden while slid: a hide all the same
+        assert_eq!(notch_hears(true, &slid(&["taskbar-1"])), serde_json::json!({ "shown": true, "slid": false })); // another bar's slide is its own
+        assert_eq!(notch_hears(false, &[]), serde_json::json!({ "shown": false, "slid": false }));
+    }
 
     #[test]
     fn the_bar_window_sits_on_the_work_area_bottom() {

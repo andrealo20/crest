@@ -19,9 +19,9 @@ export const widgetScale = (height: number, iconSize: number): number => fitIcon
 export const barWidgets = (zones: Record<Zone, BarItem[]>): PartId[] => [...zones.left, ...zones.center, ...zones.right].filter(isWidget);
 
 /**
- * The widgets the notch's stores run for the bar (barParts): all of them while the bar is on and shows, none while it is off, and
- * while it hides only Discord, which stays connected: each connect is a login with a token refresh, and a failed one asks for
- * consent again.
+ * The widgets the notch's stores run for the bar (barParts): all of them while the bar is on and its sources run (feed.tsx: it shows,
+ * or it slid away less than SLIDE_KEEP_MS ago), none while it is off, and otherwise only Discord, which stays connected: each connect
+ * is a login with a token refresh, and a failed one asks for consent again.
  */
 export const barPartsFor = (widgets: PartId[], on: boolean, shown: boolean): PartId[] =>
   !on ? [] : shown ? widgets : widgets.filter((id) => id === "discord");
@@ -31,6 +31,27 @@ export const barPartsFor = (widgets: PartId[], on: boolean, shown: boolean): Par
  * a bar's panel shows Now Playing (`media`), whose equalizer only listens to the levels.
  */
 export const barSources = (parts: readonly PartId[], media: boolean): readonly PartId[] => (media && !parts.includes("equalizer") ? [...parts, "equalizer"] : parts);
+
+/** How long the notch keeps the bar's widget sources after the primary bar starts sliding away (auto-hide), ms: back within it, the bar finds them running. */
+export const SLIDE_KEEP_MS = 30_000;
+
+/** What the notch hears of the primary bar (`bar://shown`, bar.rs `notch_hears`): its window shows (a full-screen app and the hide hotkey hide it), and its page slid it off the screen. */
+export interface BarSeen {
+  shown: boolean;
+  slid: boolean;
+}
+
+/**
+ * The widgets' sources once the primary bar goes from `before` to `now`: running while it shows and is up; kept for SLIDE_KEEP_MS when
+ * it starts sliding away from up ("keep"), then resting; resting at once when its window hides, and while it shows again still slid.
+ * Null when nothing changed, so a repeated message neither stops them nor starts another wait.
+ */
+export function sourcesAfter(before: BarSeen, now: BarSeen): "run" | "keep" | "rest" | null {
+  if (now.shown === before.shown && now.slid === before.slid) return null;
+  if (!now.shown) return "rest";
+  if (!now.slid) return "run";
+  return before.shown && !before.slid ? "keep" : "rest";
+}
 
 /**
  * The zones with `id` last in `to`, before the Crest button when the zone ends with it, so the button stays at the edge; a
