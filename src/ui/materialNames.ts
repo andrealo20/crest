@@ -132,7 +132,7 @@ export const MATERIAL_NAMES: Record<string, string> = {
   MusicNote: "music_note",
   MusicNoteSimple: "music_note",
   MusicNotesSimple: "music_note",
-  // Points north-east where Phosphor's points north-west, so the wind arrow (WeatherView.tsx) needs 90° more under Material.
+  // Points north-east where Phosphor's points north-west, so the wind arrow turns 90° less under Material (weather/wind.ts).
   NavigationArrow: "near_me",
   NotePencil: "edit_square",
   NumberSquareOne: "looks_one",

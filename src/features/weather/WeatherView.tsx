@@ -11,6 +11,8 @@ import { formatAgo, formatTemp, formatTime, formatWind } from "../../lib/format"
 import { locale, t } from "../../i18n";
 import { choosePlace, describe, detectPlace, searchPlaces, useForecast, type Forecast, type Place } from "./store";
 import { hourStart } from "./hours";
+import { windArrow } from "./wind";
+import { design } from "../../design/design";
 
 /*
  * Weather via Open-Meteo (data and location detection: ./store.ts).
@@ -93,6 +95,7 @@ function Now({ data, name, detail, auto, onChangePlace }: { data: Forecast; name
   const { icon: I, text } = describe(data.current.code, data.current.day);
   const today = data.daily[0];
   const c = data.current;
+  const style = design.use();
   return (
     <div className="flex w-[212px] shrink-0 flex-col rounded-[16px] p-3 text-white" style={{ background: sky(c.code, c.day) }}>
       <button onClick={onChangePlace} className="flex min-w-0 items-center gap-1 self-start text-footnote font-semibold hover:opacity-80" title={detail ? `${detail} · ${t("Ort ändern")}` : t("Ort ändern")}>
@@ -114,8 +117,8 @@ function Now({ data, name, detail, auto, onChangePlace }: { data: Forecast; name
         <Chip title={t("Wind")}>
           <Wind size={12} weight="bold" />
           {formatWind(c.wind)}
-          {/* Where the wind blows to: the arrow points away from where it comes from; the icon itself points north-west. */}
-          {c.windDir !== undefined && <NavigationArrow size={10} weight="fill" style={{ transform: `rotate(${c.windDir - 135}deg)` }} />}
+          {/* Where the wind blows to: the arrow points away from where it comes from. */}
+          {c.windDir !== undefined && <NavigationArrow size={10} weight="fill" style={{ transform: `rotate(${windArrow(c.windDir, style)}deg)` }} />}
         </Chip>
         {c.humidity !== undefined && (
           <Chip title={t("Luftfeuchtigkeit")}>
