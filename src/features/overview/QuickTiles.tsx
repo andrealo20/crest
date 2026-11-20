@@ -37,6 +37,9 @@ export function useOutputs(): { outputs: AudioOutput[]; choice: boolean; listOpe
   return { outputs, choice, listOpen, device: choice ? (outputs.find((o) => o.default)?.name ?? "") : null, toggle, pick };
 }
 
+// Counted across mounts: the bar's quick panel remounts on each open, and the row it keeps must go after three short opens too.
+const brightMisses = { current: 0 };
+
 /**
  * The calling window's monitor brightness: the row shows only where Crest can set it, read every few seconds (keys, other apps).
  * `read`: the first answer is in, a level or the third miss in a row; until then `bright` is null either way.
@@ -47,7 +50,6 @@ export function useBrightness(): { bright: number | null; read: boolean; setBrig
   const brightBusy = useRef(false);
   // Until when a reading would undo the slider: writes still going out, or just landed.
   const brightHold = useRef(0);
-  const brightMisses = useRef(0);
   useEffect(() => {
     const quiet = () => brightBusy.current || Date.now() < brightHold.current;
     let period = 3000;
