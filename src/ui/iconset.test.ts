@@ -67,3 +67,7 @@ test("Crest's own icons have a Material Symbol too: memory, a board and a rising
   assert.deepEqual(Object.fromEntries(own.map((name) => [name, MATERIAL_NAMES[name]])), { RamIcon: "memory_alt", GpuIcon: "developer_board", DepotIcon: "trending_up" });
   assert.match(read("icons.tsx"), /return material\(/);
 });
+
+test("the lyrics button draws Material's lyrics symbol, since mic_external_on's looping cord reads as a paperclip at 14 px", () => {
+  assert.equal(MATERIAL_NAMES.MicrophoneStage, "lyrics");
+});

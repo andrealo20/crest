@@ -127,7 +127,7 @@ export const MATERIAL_NAMES: Record<string, string> = {
   MapPin: "location_on",
   Microphone: "mic",
   MicrophoneSlash: "mic_off",
-  MicrophoneStage: "mic_external_on",
+  MicrophoneStage: "lyrics",
   Monitor: "desktop_windows",
   Moon: "dark_mode",
   MoonStars: "bedtime",
