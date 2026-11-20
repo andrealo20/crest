@@ -9,7 +9,7 @@ import { GLASS, parseTint } from "../../notch/glass/params.ts";
 /** A box on the page, CSS px. */
 export interface Box { x: number; y: number; w: number; h: number }
 
-/** gap: the room under and beside a bar off the edge; tileGap: between tiles; radius: the corners of a floating bar and a tile; maxTiles: the tiles the shader draws as glass. */
+/** gap: the room under and beside a bar off the edge; tileGap: between tiles; radius: Crest's corners of a floating bar and a tile; maxTiles: the tiles the shader draws as glass. */
 export const LOOK = { gap: 4, tileGap: 6, radius: 12, maxTiles: 24 } as const;
 
 /** The room under and beside the bar: none for a docked bar. */
@@ -17,9 +17,25 @@ export function barGap(shape: BarShape): number {
   return shape === "docked" ? 0 : LOOK.gap;
 }
 
-/** The corners' radius: square docked, round ends on a capsule `height` tall. */
-export function barRadius(shape: BarShape, height: number): number {
-  return shape === "docked" ? 0 : shape === "capsule" ? height / 2 : LOOK.radius;
+/**
+ * Whose look the bar's surface, corners and ink wear: Crest's, Material's (`themes.design`, its row filled by that session) or Liquid
+ * Glass + (`taskbar.glassLook`), which outranks Material on the bar's surface, its corners and its ink (the closed notch's ink,
+ * `darkInk()`) only; marks, names, menus and panels keep `themes.design`'s style whatever it is.
+ */
+export type BarLook = "crest" | "material" | "plus";
+
+/** The corners by look and shape, for a bar `height` tall: one row per look, each owned by its look's session. */
+const CORNERS: Record<BarLook, Record<BarShape, (height: number) => number>> = {
+  crest: { docked: () => 0, floating: () => LOOK.radius, capsule: (h) => h / 2, tiles: () => LOOK.radius },
+  // Crest's until the material-style session fills it (contract point 5).
+  material: { docked: () => 0, floating: () => LOOK.radius, capsule: (h) => h / 2, tiles: () => LOOK.radius },
+  // The widgets' pills and tiles (LiquidGlassWindows tiles.rs and battery.rs); they have no docked shape, so it stays square.
+  plus: { docked: () => 0, floating: (h) => h / 2, capsule: (h) => h / 2, tiles: (h) => (0.9 * h) / 2 },
+};
+
+/** The radius of the bar's corners, or of each tile's, for a bar `height` tall in the given look. */
+export function barRadius(shape: BarShape, height: number, look: BarLook): number {
+  return CORNERS[look][shape](height);
 }
 
 /**

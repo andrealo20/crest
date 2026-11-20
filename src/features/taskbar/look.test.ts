@@ -20,9 +20,15 @@ test("a theme's veils from its tokens", () => {
   assert.deepEqual(themeVeils({}), { safe: 1, clearest: 1 });
 });
 
-test("gaps and corners by shape", () => {
-  assert.deepEqual(["docked", "floating", "capsule", "tiles"].map((s) => barGap(s as BarShape)), [0, 4, 4, 4]);
-  assert.deepEqual(["docked", "floating", "capsule", "tiles"].map((s) => barRadius(s as BarShape, 44)), [0, 12, 22, 12]);
+test("gaps by shape, and corners by shape and look", () => {
+  const shapes: BarShape[] = ["docked", "floating", "capsule", "tiles"];
+  assert.deepEqual(shapes.map((s) => barGap(s)), [0, 4, 4, 4]);
+  assert.deepEqual(shapes.map((s) => barRadius(s, 44, "crest")), [0, 12, 22, 12]);
+  // Material's rows are Crest's until the material-style session fills them (contract point 5).
+  assert.deepEqual(shapes.map((s) => barRadius(s, 44, "material")), [0, 12, 22, 12]);
+  // Liquid Glass +: the widgets' pills and their tiles' 0.9 of half the height; they have no docked shape, so it stays square.
+  assert.deepEqual(shapes.map((s) => barRadius(s, 44, "plus")), [0, 22, 22, 19.8]);
+  assert.deepEqual(shapes.map((s) => barRadius(s, 32, "plus")), [0, 16, 16, 14.4]);
 });
 
 test("the pointer's zones reach the window's bottom", () => {

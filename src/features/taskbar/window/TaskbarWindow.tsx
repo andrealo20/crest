@@ -13,10 +13,10 @@ import { CrestMark } from "../../../ui/CrestMark";
 import { WindowsMark } from "../../../ui/WindowsMark";
 import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
-import { useClosedInk, useThemedAccent } from "../../themes/store";
+import { useThemedAccent } from "../../themes/store";
 import { zones as hitZones, type Rect } from "../autoHide";
 import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
-import { LOOK, barGap, barRadius, groupBoxes, hitBoxes, labelRise, type Box } from "../look";
+import { LOOK, barGap, groupBoxes, hitBoxes, labelRise, type Box } from "../look";
 import { closePanel, panel, togglePanel } from "../panel";
 import { barShown, barWindows, groupIcons } from "../store";
 import { splitApps } from "../fit";
@@ -64,10 +64,9 @@ type OpenMenu = Menu & { anchor: Element | null; x: number; w: number };
  * off it, a click.
  */
 export function TaskbarWindow() {
-  const { zones, height, iconSize, surface, pinned, shape, trayShown } = settings.use().taskbar;
+  const { zones, height, iconSize, pinned, shape, trayShown } = settings.use().taskbar;
   const { visible: trayVisible } = splitTray(trayState.use().icons, trayShown);
   const { groups, active } = barWindows.use();
-  const ink = useClosedInk(undefined);
   const accent = useThemedAccent(undefined);
   // Rust hides the window without telling WebView2 the page is out of sight, so the widgets rest by this instead. It reads false
   // while the bar is slid off the screen too (taskbar.slid below).
@@ -152,12 +151,12 @@ export function TaskbarWindow() {
   // rest as when it hides. Once per change, and once on load, which clears a slide the page left behind before a reload.
   useEffect(() => void taskbar.slid(down), [down]);
   // Slid off the screen, the bar runs no glass, as when it hides.
-  const look = useBarSurface(boxes, ink, down);
+  const look = useBarSurface(boxes, down);
   // The shape slides out of its still box by its height and the gap under it, off the screen (useAutoHide).
   const slide = { initial: false, animate: { y: down ? height + gap : 0 }, transition: springs.snappy } as const;
   // In the order the tiles are drawn and measured: past LOOK.maxTiles the glass does not draw them, and they keep the veil.
   let tileCount = 0;
-  const tile = () => (tiles ? { background: tileCount++ < LOOK.maxTiles ? look.background : look.plain, radius: LOOK.radius } : undefined);
+  const tile = () => (tiles ? { background: tileCount++ < LOOK.maxTiles ? look.background : look.plain, radius: look.radius } : undefined);
 
   /** Opens a menu over its button, or closes it on a second click there; another button's menu takes the place of an open one. */
   const toggle = (next: Menu, anchor: HTMLElement) => {
@@ -340,7 +339,7 @@ export function TaskbarWindow() {
       }}
     >
       {/* On the closed notch's black the bar and its menus keep their dark tokens whatever the theme (Notch.tsx), and its zones keep their sides in any language. */}
-      <div data-theme-ink dir="ltr" className="contents" style={surface === "notch" ? ink : undefined}>
+      <div data-theme-ink dir="ltr" className="contents" style={look.ink}>
         {look.glass && <BarGlass {...look.glass} />}
         {/* The shape's place stays still, so its box is the band at rest while the shape slides out of it (useHitZone measures this box). */}
         <div
@@ -354,7 +353,7 @@ export function TaskbarWindow() {
           {/* Positioned, so it draws over the glass's canvas. The capsule puts the three zones in a row, as close as its buttons. */}
           {shape === "capsule" ? (
             <motion.div {...slide}>
-              <Capsule style={{ height, borderRadius: barRadius(shape, height), background: look.background }}>
+              <Capsule style={{ height, borderRadius: look.radius, background: look.background }}>
                 {ZONES.map(([zone]) => zones[zone].map((id) => <Fragment key={id}>{render(id)}</Fragment>))}
               </Capsule>
             </motion.div>
@@ -362,7 +361,7 @@ export function TaskbarWindow() {
             <motion.div
               {...slide}
               className="relative grid grid-cols-[1fr_auto_1fr] px-1 text-label"
-              style={{ height, borderRadius: barRadius(shape, height), background: tiles ? undefined : look.background }}
+              style={{ height, borderRadius: look.radius, background: tiles ? undefined : look.background }}
             >
               {ZONES.map(([zone, justify]) => (
                 // A side zone holding the apps grows to them and moves the centre aside; the fit leaves the other side its room.
