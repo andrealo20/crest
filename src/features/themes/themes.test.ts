@@ -75,6 +75,20 @@ test("Dark resolves to exactly the tokens in tokens.css", () => {
   }
 });
 
+test("Crest style: every theme resolves to the recorded variables", () => {
+  // Recorded before the Material style, in a file the resolver cannot rewrite: the Crest style must keep every colour.
+  const recorded: Record<string, Record<string, string>> = JSON.parse(readFileSync(new URL("./crest-vars.fixture.json", import.meta.url), "utf8"));
+  // The only variables the Material style may add: its role tokens, which repeat colours Crest already paints.
+  const roles = ["--color-primary", "--color-on-primary", "--color-secondary-container", "--color-on-secondary-container"];
+  assert.deepEqual(Object.keys(recorded).sort(), BUILT_IN_THEMES.map((t) => t.id).sort());
+  for (const t of BUILT_IN_THEMES) {
+    const vars = resolveTheme(t).vars, want = recorded[t.id];
+    for (const [name, value] of Object.entries(want)) assert.equal(vars[name], value, `${t.id} ${name}`);
+    const known = new Set([...Object.keys(want), ...roles]);
+    assert.deepEqual(Object.keys(vars).filter((name) => !known.has(name)), [], `${t.id}: variables not recorded`);
+  }
+});
+
 test("light themes flip the ink on label fills", () => {
   assert.equal(resolveTheme(dark).vars["--color-black"], "#000000");
   assert.equal(resolveTheme(light).vars["--color-black"], "#ffffff");
