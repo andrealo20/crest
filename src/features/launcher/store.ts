@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createStore } from "../../lib/store";
 import { isNotchWindow } from "../../lib/windowKind";
 import { launcher } from "../../platform/services";
@@ -54,20 +54,35 @@ export function loadApps(refresh = false): Promise<void> {
 
 /** Ids asked of Rust whose answer has not come yet, not asked again meanwhile: overlapping calls would make the shell extract the same icons twice. */
 const asking = new Set<string>();
+/** The waits before asking again after a failed call: the Start list's own (taskbar/mod.rs `START_LIST`), as a sign-in's first read of it can fail. */
+const RETRY_MS = [5000, 20000, 60000];
 
-/** Fetches the icons of these ids that are not known yet. */
+/** Fetches the icons of these ids that are not known yet, and again after a call that failed (`RETRY_MS`). */
 export function useIcons(ids: string[]) {
   const key = ids.join("\n");
+  // How often the effect has asked again since a call last worked; in its deps, so a bump asks again.
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     const known = launcherIcons.get();
     const missing = ids.filter((id) => !(id in known) && !asking.has(id));
     if (!missing.length) return;
     for (const id of missing) asking.add(id);
+    let timer = 0;
     void launcher
       .icons(missing)
-      .then((icons) => launcherIcons.set((s) => ({ ...s, ...icons })), () => {})
+      .then(
+        (icons) => {
+          launcherIcons.set((s) => ({ ...s, ...icons }));
+          if (retry) setRetry(0);
+        },
+        // Armed even after this run's cleanup: the run that followed skipped these ids while they were in flight.
+        () => {
+          if (retry < RETRY_MS.length) timer = window.setTimeout(() => setRetry(retry + 1), RETRY_MS[retry]);
+        },
+      )
       .finally(() => missing.forEach((id) => asking.delete(id)));
-  }, [key]);
+    return () => window.clearTimeout(timer);
+  }, [key, retry]);
   return launcherIcons.use();
 }
 
