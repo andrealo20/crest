@@ -45,6 +45,12 @@ export function poly(pts: [number, number][]): string {
   return d + "Z";
 }
 
+/** A stadium of radius R round the segment (x0, y0)..(x1, y1), clockwise like every other body. */
+export function capsule(x0: number, y0: number, x1: number, y1: number): string {
+  const l = Math.hypot(x1 - x0, y1 - y0), nx = ((y0 - y1) / l) * R, ny = ((x1 - x0) / l) * R;
+  return `M${f(x0 - nx)} ${f(y0 - ny)}L${f(x1 - nx)} ${f(y1 - ny)}A${R} ${R} 0 0 1 ${f(x1 + nx)} ${f(y1 + ny)}L${f(x0 + nx)} ${f(y0 + ny)}A${R} ${R} 0 0 1 ${f(x0 - nx)} ${f(y0 - ny)}Z`;
+}
+
 /** Off, or nothing there: the slash over the glyph, drawn after a cut of R either side of it. */
 export const SLASH = "M2.5 2.5L13.5 13.5";
 
@@ -77,6 +83,13 @@ export const MUTE = "M9 5.5L14 10.5M14 5.5L9 10.5";
 const SLOPE = 6 / 11;
 /** The Bluetooth rune: its spine on x 7 from y 2 to 14, the tips on x 12.5 and the tails on x 2.5. */
 export const RUNE = `M2.5 ${f(8 - 4.5 * SLOPE)}L12.5 11L7 14V2L12.5 5L2.5 ${f(8 + 4.5 * SLOPE)}`;
+
+/** Airplane mode: the plane from above, nose up, fuselage 2 wide, swept wings and tail. */
+export const PLANE = poly([[7, 1], [9, 1], [9, 5], [15, 9], [15, 11], [9, 10], [9, 12], [12, 14], [12, 15], [4, 15], [4, 14], [7, 12], [7, 10], [1, 11], [1, 9], [7, 5]]);
+/** Energy saver: a square with two opposite corners rounded wide, tip up right, its stalk down left. */
+export const LEAF = "M11 2H13A1 1 0 0 1 14 3V5A8 8 0 0 1 6 13H4A1 1 0 0 1 3 12V10A8 8 0 0 1 11 2Z" + capsule(1.5, 14.5, 4, 12);
+/** The leaf's vein, cut out of it 1 wide. */
+export const VEIN = "M4.5 11.5L10.5 5.5";
 
 /** Which parts of the Wi-Fi fan are lit: the wedge and the first `arcs` arcs; the rest are dimmed. */
 export function wifiLit(g: NetGlyphName): { wedge: boolean; arcs: number } {

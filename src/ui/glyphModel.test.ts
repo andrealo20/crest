@@ -9,11 +9,14 @@ import {
   GLOBE,
   MONITOR,
   MUTE,
+  LEAF,
+  PLANE,
   RUNE,
   SLASH,
   SPEAKER,
   WAVES,
   batteryFill,
+  capsule,
   poly,
   speakerWaves,
   wifiLit,
@@ -64,6 +67,10 @@ test("poly rounds every corner to 1, less where an edge is too short for it", ()
   assert.equal(poly([[22, 5], [24, 5], [24, 11], [22, 11]]), "M22 6A1 1 0 0 1 23 5L23 5A1 1 0 0 1 24 6L24 10A1 1 0 0 1 23 11L23 11A1 1 0 0 1 22 10Z");
 });
 
+test("the leaf's stalk is a stadium of radius 1 round its segment", () => {
+  assert.equal(capsule(1.5, 14.5, 4, 12), "M0.793 13.793L3.293 11.293A1 1 0 0 1 4.707 12.707L2.207 15.207A1 1 0 0 1 0.793 13.793Z");
+});
+
 test("every straight edge of the solid glyphs lies on a whole unit", () => {
   const shapes: [string, string, number][] = [
     ["FAN_WEDGE", FAN_WEDGE, 0],
@@ -75,6 +82,8 @@ test("every straight edge of the solid glyphs lies on a whole unit", () => {
     ...WAVES.map((d, i): [string, string, number] => [`WAVES[${i}]`, d, 2]),
     ["MUTE", MUTE, 2],
     ["RUNE", RUNE, 2],
+    ["PLANE", PLANE, 0],
+    ["LEAF", LEAF, 0],
   ];
   let seen = 0;
   for (const [name, d, stroke] of shapes)
@@ -82,7 +91,7 @@ test("every straight edge of the solid glyphs lies on a whole unit", () => {
       seen++;
       assert.ok(Math.abs(e.at - Math.round(e.at)) < 1e-6, `${name}: ${e.axis === "x" ? "vertical" : "horizontal"} edge at ${e.axis} ${e.at}`);
     }
-  assert.ok(seen >= 17, `only ${seen} straight edges read`);
+  assert.ok(seen >= 28, `only ${seen} straight edges read`);
 });
 
 test("the speaker draws a wave per volume step and none when muted", () => {

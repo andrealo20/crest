@@ -7,12 +7,15 @@ import {
   FAN_ARCS,
   FAN_WEDGE,
   GLOBE,
+  LEAF,
   MERIDIAN,
   MONITOR,
   MUTE,
+  PLANE,
   RUNE,
   SLASH,
   SPEAKER,
+  VEIN,
   WAVES,
   batteryFill,
   speakerWaves,
@@ -135,6 +138,26 @@ export function BluetoothGlyph({ size, className }: { size: number; className?: 
   return (
     <Svg size={size} className={className}>
       <Line d={RUNE} />
+    </Svg>
+  );
+}
+
+/** Airplane mode: the plane from above, nose up. */
+export function AirplaneGlyph({ size }: { size: number }) {
+  return (
+    <Svg size={size}>
+      <path d={PLANE} />
+    </Svg>
+  );
+}
+
+/** Energy saver: the leaf with its vein cut through. */
+export function SaverGlyph({ size }: { size: number }) {
+  return (
+    <Svg size={size}>
+      <Knock cuts={[[VEIN, 1, false]]}>
+        <path d={LEAF} />
+      </Knock>
     </Svg>
   );
 }
