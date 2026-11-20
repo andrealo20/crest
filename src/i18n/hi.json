@@ -1865,5 +1865,6 @@
  "Netzwerk nicht erreichbar": "नेटवर्क पहुँच से बाहर",
  "Zeitüberschreitung": "समय समाप्त",
  "Keine gekoppelten Geräte": "कोई युग्मित डिवाइस नहीं",
- "Verbunden · {p} %": "कनेक्ट है · {p}%"
+ "Verbunden · {p} %": "कनेक्ट है · {p}%",
+ "Verbindung wird getrennt …": "डिस्कनेक्ट हो रहा है …"
 }

@@ -1865,5 +1865,6 @@
  "Netzwerk nicht erreichbar": "الشبكة خارج النطاق",
  "Zeitüberschreitung": "انتهت المهلة",
  "Keine gekoppelten Geräte": "لا توجد أجهزة مقترنة",
- "Verbunden · {p} %": "متصل · {p}%"
+ "Verbunden · {p} %": "متصل · {p}%",
+ "Verbindung wird getrennt …": "جارٍ قطع الاتصال …"
 }

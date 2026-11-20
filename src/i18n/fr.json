@@ -1865,5 +1865,6 @@
  "Netzwerk nicht erreichbar": "Réseau hors de portée",
  "Zeitüberschreitung": "Délai dépassé",
  "Keine gekoppelten Geräte": "Aucun appareil couplé",
- "Verbunden · {p} %": "Connecté · {p} %"
+ "Verbunden · {p} %": "Connecté · {p} %",
+ "Verbindung wird getrennt …": "Déconnexion…"
 }

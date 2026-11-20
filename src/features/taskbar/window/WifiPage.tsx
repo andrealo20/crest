@@ -12,6 +12,9 @@ import { QuickPageFrame, away } from "./QuickPage";
 
 const BUTTON = "pressable shrink-0 rounded-full px-2.5 py-1 text-footnote font-medium text-label-2 bg-fill-1 hover:bg-fill-2 hover:text-label disabled:opacity-40";
 
+/** The network a connect or a disconnect waits on, and which of the two, for its row's caption. */
+type Busy = { ssid: string; disconnect: boolean };
+
 /** The quick panel's Wi-Fi page: the networks nearby once Windows' location consent is given, joined with a click or a password. */
 export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
   const [list, setList] = useState<WifiList | null>(null);
@@ -19,13 +22,14 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
   const [scanning, setScanning] = useState(false);
   // The network whose password row is open, and the one connecting or disconnecting.
   const [open, setOpen] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<Busy | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const view = wifiView(on, list, failed);
 
+  // Resolves once the list or its failure is in, never rejected: `settle` waits on it.
   const read = (scan: boolean) => {
     setScanning(scan);
-    taskbar
+    return taskbar
       .wifiScan(scan)
       .then((l) => {
         setList(l);
@@ -58,7 +62,8 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
     setNote(null);
     taskbar
       .wifiAllow()
-      .then((a) => (a === "allowed" ? read(true) : setList({ state: "denied", networks: [] })))
+      // Not waiting for the scan: the focus comes back as the prompt closes.
+      .then((a) => (a === "allowed" ? void read(true) : setList({ state: "denied", networks: [] })))
       // The "ask" list stays on screen, so the failure shows as the footer's note.
       .catch((e) => setNote(afterConnect(String(e)).note))
       .finally(() => {
@@ -68,11 +73,12 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
       });
   };
 
-  const settle = (n: WifiNetwork, call: Promise<void>) => {
-    setBusy(n.ssid);
+  const settle = (n: WifiNetwork, call: Promise<void>, disconnect = false) => {
+    setBusy({ ssid: n.ssid, disconnect });
     setNote(null);
     setOpen(null);
     call
+      // Busy until the list after the call lands: cleared before it, the row would show its old state for a moment.
       .then(() => read(false))
       .catch((e) => {
         const a = afterConnect(String(e));
@@ -141,7 +147,7 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
                 else if (a === "password") setOpen(open === n.ssid ? null : n.ssid);
                 else if (a === "settings") away(() => taskbar.settings("wifi"));
               }}
-              onDisconnect={() => settle(n, taskbar.wifiDisconnect())}
+              onDisconnect={() => settle(n, taskbar.wifiDisconnect(), true)}
             />
             {open === n.ssid && <PasswordRow onConnect={(p) => connect(n, p)} onCancel={() => setOpen(null)} />}
           </div>
@@ -151,10 +157,12 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
 }
 
 /** A network: its signal, its name and how it is joined; the one in use with its Disconnect button, the others a button. */
-function NetworkRow({ n, busy, onClick, onDisconnect }: { n: WifiNetwork; busy: string | null; onClick: () => void; onDisconnect: () => void }) {
+function NetworkRow({ n, busy, onClick, onDisconnect }: { n: WifiNetwork; busy: Busy | null; onClick: () => void; onDisconnect: () => void }) {
   const caption =
-    busy === n.ssid
-      ? t("Verbindung wird hergestellt …")
+    busy?.ssid === n.ssid
+      ? busy.disconnect
+        ? t("Verbindung wird getrennt …")
+        : t("Verbindung wird hergestellt …")
       : n.connected
         ? t("Verbunden")
         : n.kind === "enterprise"

@@ -1865,5 +1865,6 @@
  "Netzwerk nicht erreichbar": "ネットワークが範囲外です",
  "Zeitüberschreitung": "タイムアウトしました",
  "Keine gekoppelten Geräte": "ペアリングされたデバイスはありません",
- "Verbunden · {p} %": "接続済み · {p}%"
+ "Verbunden · {p} %": "接続済み · {p}%",
+ "Verbindung wird getrennt …": "切断中…"
 }

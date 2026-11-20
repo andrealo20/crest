@@ -1865,5 +1865,6 @@
  "Netzwerk nicht erreichbar": "Rede fora de alcance",
  "Zeitüberschreitung": "Tempo esgotado",
  "Keine gekoppelten Geräte": "Nenhum dispositivo emparelhado",
- "Verbunden · {p} %": "Conectado · {p}%"
+ "Verbunden · {p} %": "Conectado · {p}%",
+ "Verbindung wird getrennt …": "Desconectando …"
 }

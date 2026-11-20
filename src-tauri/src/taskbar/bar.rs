@@ -130,10 +130,13 @@ pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, app
         place(&app);
         return Ok(());
     }
-    // A failed build leaves no band for a bar that does not exist.
+    // A failed build leaves no band for a bar that does not exist, and the notch hears it hidden, so the widgets' sources rest.
     let failed = |e: String| {
         ENABLED.store(false, Ordering::SeqCst);
         set_band(&app, 0.0);
+        // It can still hold the last bar's shown state, as an Off runs no `sync`.
+        SHOWN.store(false, Ordering::SeqCst);
+        tell_now(&app, LABEL);
         Err(e)
     };
     let handle = app.clone();

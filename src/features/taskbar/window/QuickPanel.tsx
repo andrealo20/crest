@@ -27,20 +27,21 @@ export default function QuickPanel() {
   const job = useSwitchJob(reload);
   const { network, power } = barStatus.use();
   const { outputs, listOpen, device, toggle, pick } = useOutputs();
-  const { bright, setBright, busy, hold } = useBrightness();
+  const { bright, read, setBright, busy, hold } = useBrightness();
   const page = quickPage.use();
   const wired = network?.kind === "wired";
   // Until the radios are read the row keeps what the last open found (the default the first time), so the panel does not jump.
   const radios = quick === null ? quickLayout.get().radios : quick.wifi !== null || quick.bluetooth !== null;
   const rows = Math.min(MIXER_MAX_ROWS, outputs.length);
   const list = listOpen ? rows * MIXER_ROW + 14 : 0;
-  const brightness = bright !== null;
+  // The brightness row the same way until its first answer, drawn empty meanwhile.
+  const brightness = read ? bright !== null : quickLayout.get().brightness;
   useLayoutEffect(() => {
     quickLayout.set({ radios, brightness, list });
   }, [radios, brightness, list]);
   useLayoutEffect(
     () => () => {
-      quickLayout.set({ ...quickLayout.get(), brightness: false, list: 0 });
+      quickLayout.set({ ...quickLayout.get(), list: 0 });
       quickPage.set(null);
     },
     [],
@@ -82,7 +83,7 @@ export default function QuickPanel() {
               <VolumeTile device={device} open={listOpen} onDevices={toggle} />
             </div>
             {listOpen && <OutputList outputs={outputs} rows={rows} onPick={pick} />}
-            {brightness && <BrightnessTile level={bright} busy={busy} hold={hold} onLevel={setBright} />}
+            {brightness && (bright === null ? <div className="h-10 shrink-0" /> : <BrightnessTile level={bright} busy={busy} hold={hold} onLevel={setBright} />)}
             <div className="flex h-10 shrink-0 gap-2">
               <Chip icon={<Leaf size={16} weight="regular" />} name={t("Energiesparmodus")} state={power ? (power.saver ? t("An") : t("Aus")) : null} onClick={() => away(() => taskbar.settings("saver"))} />
               <Chip icon={<Airplane size={16} weight="regular" />} name={t("Flugzeugmodus")} state={null} onClick={() => away(() => taskbar.settings("airplane"))} />

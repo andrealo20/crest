@@ -1865,5 +1865,6 @@
  "Netzwerk nicht erreichbar": "Сеть вне зоны действия",
  "Zeitüberschreitung": "Время ожидания истекло",
  "Keine gekoppelten Geräte": "Нет сопряженных устройств",
- "Verbunden · {p} %": "Подключено · {p}%"
+ "Verbunden · {p} %": "Подключено · {p}%",
+ "Verbindung wird getrennt …": "Отключение…"
 }

@@ -1865,5 +1865,6 @@
  "Netzwerk nicht erreichbar": "Rete non raggiungibile",
  "Zeitüberschreitung": "Tempo scaduto",
  "Keine gekoppelten Geräte": "Nessun dispositivo associato",
- "Verbunden · {p} %": "Connesso · {p}%"
+ "Verbunden · {p} %": "Connesso · {p}%",
+ "Verbindung wird getrennt …": "Disconnessione …"
 }

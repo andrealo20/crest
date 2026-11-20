@@ -1865,5 +1865,6 @@
  "Netzwerk nicht erreichbar": "网络不在范围内",
  "Zeitüberschreitung": "已超时",
  "Keine gekoppelten Geräte": "没有已配对的设备",
- "Verbunden · {p} %": "已连接 · {p}%"
+ "Verbunden · {p} %": "已连接 · {p}%",
+ "Verbindung wird getrennt …": "正在断开连接…"
 }
