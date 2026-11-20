@@ -283,14 +283,6 @@ export function TaskbarLook() {
     { value: "plus", label: name },
   ] as const;
   const picked = glass ? glassLook : "off";
-  // shortcut: Segmented has no radio role or state yet (controls.tsx is Material's), so the Glass row lays them on its buttons; drop this and the wrapper's role once material-style's phase 2 gives Segmented its own.
-  const lookGroup = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    lookGroup.current?.querySelectorAll("button").forEach((b, i) => {
-      b.setAttribute("role", "radio");
-      b.setAttribute("aria-checked", String(looks[i]?.value === picked));
-    });
-  });
   // How much of the screen behind shows, as the notch's Transparency says it: the surface's veil (look.ts barVeil) on the Notch
   // surface's Dark tokens, unless the theme colours the closed notch too, and always under Liquid Glass + (useBarSurface).
   const veils = themeVeils((surface === "notch" && !theme.closedNotch) || plus ? darkInk() : theme.vars);
@@ -342,15 +334,14 @@ export function TaskbarLook() {
             </>
           }
         >
-          <div ref={lookGroup} role="radiogroup" aria-label={t("Glas")} className="shrink-0">
-            <Segmented
-              id="taskbar-glass"
-              size="sm"
-              value={picked}
-              onChange={(v) => setTaskbar(v === "off" ? { glass: false } : { glass: true, glassLook: v })}
-              options={[...looks]}
-            />
-          </div>
+          <Segmented
+            id="taskbar-glass"
+            size="sm"
+            label={t("Glas")}
+            value={picked}
+            onChange={(v) => setTaskbar(v === "off" ? { glass: false } : { glass: true, glassLook: v })}
+            options={[...looks]}
+          />
         </Row>
       )}
       {/* The notch's glass sliders (Notch → Themes shows them only with the notch's glass on); both of the bar's looks read them. */}
