@@ -94,7 +94,7 @@ export const MAX_FILE_BYTES = 64 * 1024;
 export const DEFAULT_THEME = "dark";
 
 /** Defaults of a dark and a light surface: what a file leaves out, and the alphas of the derived tokens. */
-const MODES = {
+export const MODES = {
   dark: {
     foreground: "rgb(255 255 255 / 0.96)",
     accent: "#0a84ff",
@@ -248,12 +248,12 @@ export interface ResolvedTheme {
   closedNotch: boolean;
 }
 
-/** From a theme file to Crest's tokens. */
-export function resolveTheme(file: ThemeFile): ResolvedTheme {
+/** From a theme file to Crest's tokens. `override.yellow` replaces the side's yellow, which no theme file writes: the Material style brings its own. */
+export function resolveTheme(file: ThemeFile, override: { yellow?: string } = {}): ResolvedTheme {
   const written = (k: ThemeKey) => parseColor(file.colors[k]);
   const bg = over(written("background") ?? BLACK, BLACK);
   const dark = isDark(bg);
-  const mode = dark ? MODES.dark : MODES.light;
+  const mode = { ...(dark ? MODES.dark : MODES.light), ...override };
   const ink = written("foreground") ?? parseColor(mode.foreground)!;
   const elevated = over(written("elevated") ?? (dark ? mix(bg, over(ink, bg), 0.11) : mix(bg, WHITE, 0.8)), bg);
 
