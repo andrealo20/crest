@@ -74,7 +74,8 @@ test("the app in front in the overflow panel gets Material's tonal pill behind i
   const src = window("AppsPanel.tsx");
   const pill = /\{material && <motion\.span[^\n]*data-front-pill[^\n]*/.exec(src);
   assert.ok(pill, "no pill drawn under a material && branch");
-  for (const c of ["aria-hidden", "bg-secondary-container", "rounded-full", "marks(mark, appDesign).pill"]) assert.ok(pill[0].includes(c), c);
+  // The cell is size + 16 square: full width and 4 px off top and bottom gives the bar's size + 16 by size + 8 stadium, not a circle.
+  for (const c of ["aria-hidden", "bg-secondary-container", "rounded-full", "inset-x-0 inset-y-1", "marks(mark, appDesign).pill"]) assert.ok(pill[0].includes(c), c);
   assert.doesNotMatch(pill[0], /backgroundColor|width:|height:/);
   // Over the pill: an icon after a positioned span paints under it unless it is positioned too.
   assert.match(src, /<span className="relative flex">\s*<AppIcon/);

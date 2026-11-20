@@ -34,7 +34,7 @@ export function AppsPanel(props: {
           className="relative flex items-center justify-center rounded-[8px] outline-none hover:bg-fill-2 focus-visible:bg-fill-2 material:rounded-full pressable-wide"
         >
           {/* Under Material the app in front has the bar's tonal pill in place of the long mark, as tall as an M3 indicator. */}
-          {material && <motion.span aria-hidden data-front-pill className="absolute inset-1 rounded-full bg-secondary-container" initial={false} animate={{ opacity: marks(mark, appDesign).pill ? 1 : 0, transform: `scaleX(${marks(mark, appDesign).pill ? 1 : 0.6})` }} transition={springs.snappy} />}
+          {material && <motion.span aria-hidden data-front-pill className="absolute inset-x-0 inset-y-1 rounded-full bg-secondary-container" initial={false} animate={{ opacity: marks(mark, appDesign).pill ? 1 : 0, transform: `scaleX(${marks(mark, appDesign).pill ? 1 : 0.6})` }} transition={springs.snappy} />}
           <span className="relative flex">
             <AppIcon src={icon} size={props.size} />
           </span>
