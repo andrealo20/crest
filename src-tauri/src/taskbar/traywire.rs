@@ -159,15 +159,39 @@ fn key(guid: GUID, hwnd: u32, uid: u32) -> IconKey {
     if guid == GUID::zeroed() { IconKey::Id { hwnd, uid } } else { IconKey::Guid(guid) }
 }
 
-/// A name for an icon that survives restarts: its GUID in braces, else the exe (lower case) and the id.
+/// A name for an icon that survives restarts and updates: its GUID in braces, else the exe (lower case, each version in its
+/// folders as `*`) and the id.
 pub(crate) fn identity(guid: Option<GUID>, exe: &str, uid: u32) -> String {
     match guid {
         Some(g) => {
             let tail: String = g.data4[2..].iter().map(|b| format!("{b:02x}")).collect();
             format!("{{{:08x}-{:04x}-{:04x}-{:02x}{:02x}-{tail}}}", g.data1, g.data2, g.data3, g.data4[0], g.data4[1])
         }
-        None => format!("{}:{uid}", exe.to_lowercase()),
+        None => {
+            let exe = exe.to_lowercase();
+            let (folders, file) = exe.split_at(exe.rfind(['\\', '/']).map_or(0, |at| at + 1));
+            format!("{}{file}:{uid}", unversioned(folders))
+        }
     }
+}
+
+/// `path` with each run of two or more dot-separated numbers as `*`: Squirrel apps (`app-1.0.9175`) and Store packages
+/// (`name_1.2.3.0_x64__id`) keep their exe in a folder named by version, which every update renames.
+fn unversioned(path: &str) -> String {
+    let b = path.as_bytes();
+    let digits_end = |at: usize| at + b[at..].iter().take_while(|c| c.is_ascii_digit()).count();
+    let (mut out, mut i) = (String::new(), 0);
+    while let Some(skip) = path[i..].find(|c: char| c.is_ascii_digit()) {
+        let start = i + skip;
+        out.push_str(&path[i..start]);
+        let mut end = digits_end(start);
+        while b.get(end) == Some(&b'.') && b.get(end + 1).is_some_and(u8::is_ascii_digit) {
+            end = digits_end(end + 1);
+        }
+        out.push_str(if path[start..end].contains('.') { "*" } else { &path[start..end] });
+        i = end;
+    }
+    out + &path[i..]
 }
 
 /// The messages a click sends to the icon's window, in order. From version 3 the select or context-menu message follows.
@@ -381,6 +405,20 @@ mod tests {
         let g = GUID::from_values(0x1234abcd, 0x5678, 0x9abc, [0xde, 0xf0, 1, 2, 3, 4, 5, 6]);
         assert_eq!(identity(Some(g), "x", 1), "{1234abcd-5678-9abc-def0-010203040506}");
         assert_eq!(identity(None, "C:\\A\\B.EXE", 3), "c:\\a\\b.exe:3");
+    }
+
+    #[test]
+    fn a_version_in_the_exes_folders_does_not_change_its_name() {
+        let id = |exe: &str| identity(None, exe, 1);
+        // Squirrel, Store and plain version folders, renamed by every update.
+        assert_eq!(id(r"C:\Users\Zoë\AppData\Local\Discord\app-1.0.9175\Discord.exe"), r"c:\users\zoë\appdata\local\discord\app-*\discord.exe:1");
+        assert_eq!(
+            id(r"C:\Program Files\WindowsApps\MSTeams_24295.605.3225.8804_x64__8wekyb3d8bbwe\ms-teams.exe"),
+            r"c:\program files\windowsapps\msteams_*_x64__8wekyb3d8bbwe\ms-teams.exe:1"
+        );
+        assert_eq!(id(r"C:\Apps\Tool\131.0.6778.86\Tool.exe"), r"c:\apps\tool\*\tool.exe:1");
+        // Lone numbers and the exe's own name stay.
+        assert_eq!(id(r"C:\Program Files (x86)\Steam 2\v8\app-1.2.exe"), r"c:\program files (x86)\steam 2\v8\app-1.2.exe:1");
     }
 
     #[test]
