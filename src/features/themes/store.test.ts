@@ -210,3 +210,35 @@ test("a crossfade draws in its callback, and one that runs after a newer apply()
   assert.equal(vars["--color-notch"], crestNotch);
   crossfades = false;
 });
+
+test("an older crossfade that ends while a newer one runs leaves the colours' blend off", async () => {
+  const store = (await import("./store.ts")) as typeof import("./store");
+  store.startThemes();
+  crossfades = false;
+  pick("crest");
+  const pending: (() => void)[] = [];
+  const finishes: (() => void)[] = [];
+  Object.assign(document, {
+    startViewTransition(update: () => void) {
+      pending.push(update);
+      return { finished: new Promise<void>((done) => finishes.push(done)) };
+    },
+  });
+  crossfades = true;
+  // Crest, Material, Crest, Material in quick succession: each change starts its crossfade before the last one has ended.
+  pick("material");
+  pending.shift()!();
+  pick("crest");
+  pending.shift()!();
+  pick("material");
+  pending.shift()!();
+  assert.equal(finishes.length, 3);
+  finishes[0]();
+  finishes[1]();
+  await settle();
+  assert.equal(dataset.designSwitching, "");
+  finishes[2]();
+  await settle();
+  assert.equal("designSwitching" in dataset, false);
+  crossfades = false;
+});

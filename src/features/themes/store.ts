@@ -73,6 +73,8 @@ const pageDesign = import.meta.env.DEV ? new URLSearchParams(location.search).ge
 
 let lastKey = "";
 let lastNotch = "";
+/** The crossfade of the latest change of style. */
+let switching: ViewTransition | null = null;
 function apply() {
   const file = draft.get()?.present ?? savedTheme();
   const style: Design = pageDesign === "material" || pageDesign === "crest" ? pageDesign : settings.get().themes.design;
@@ -98,7 +100,9 @@ function apply() {
   if (wantsViewTransition(root.dataset.design as Design | undefined, style, typeof document.startViewTransition === "function")) {
     // Without the colours' own 500 ms blend under the crossfade, and with React's new tree drawn inside the callback, not after the snapshot.
     root.dataset.designSwitching = "";
-    document.startViewTransition(() => flushSync(write)).finished.finally(() => delete root.dataset.designSwitching);
+    const transition = (switching = document.startViewTransition(() => flushSync(write)));
+    // An older crossfade can end while a newer one still runs, and the blend stays off until the last one ends.
+    transition.finished.finally(() => switching === transition && delete root.dataset.designSwitching);
   } else write();
   const notch = resolved.vars["--color-notch"];
   // The notch is always open, so it alone keeps Rust's colour for the next settings window current.
