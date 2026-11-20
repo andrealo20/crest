@@ -60,3 +60,27 @@ export function plusSliders(t: Pick<ThemeSettings, "glassRefraction" | "glassFro
 export function plusTarget(tint: readonly number[], veil: number): number {
   return luminance(over({ r: tint[0] * 255, g: tint[1] * 255, b: tint[2] * 255, a: veil }, WHITE));
 }
+
+/** The shader's line over the edge's own device px (its centre, half a px in): what a one px ring in CSS shows of it. */
+const T = 0.5 / GLASS_PLUS.rim, EDGE_LINE = 0.85 * Math.exp(-T * T) + 0.15 * Math.exp(-T);
+
+/**
+ * Liquid Glass +'s rim light on a panel above the bar (BarPanel.tsx), in CSS: no live copy shows there, so no shader. White, `px` CSS
+ * px wide (one device px), at Rim light `rim` (%), null at 0: GLASS_PLUS.hairline of it all round, and the rest from GLASS_PLUS.light
+ * as a shadow pushed `px` that way, whose edge is widest at the lit corner and thins along the two sides to nothing at the next two
+ * corners, as the shader's lobe gathers; the opposite corner `reflected` of it. Inset shadows only: a padding or a border under 1 CSS
+ * px is drawn a whole CSS px wide, and a mask would turn the panel's text to greyscale antialiasing.
+ */
+export function plusPanelRim(rim: number, px: number): { boxShadow: string } | null {
+  const k = Math.min((GLASS_PLUS.specular * rim * EDGE_LINE) / 100, 1);
+  if (k <= 0) return null;
+  const a = (GLASS_PLUS.light * Math.PI) / 180, x = +(-Math.cos(a) * px).toFixed(3), y = +(-Math.sin(a) * px).toFixed(3);
+  const white = (alpha: number) => `rgb(255 255 255 / ${alpha.toFixed(3)})`, lit = k * (1 - GLASS_PLUS.hairline);
+  return {
+    boxShadow: [
+      `inset 0 0 0 ${px}px ${white(k * GLASS_PLUS.hairline)}`,
+      `inset ${x}px ${y}px 0 0 ${white(lit)}`,
+      `inset ${-x}px ${-y}px 0 0 ${white(lit * GLASS_PLUS.reflected)}`,
+    ].join(", "),
+  };
+}
