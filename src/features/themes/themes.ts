@@ -407,6 +407,8 @@ export const HUE_PALETTE = {
   slate: ["#9aa3ad", "#6d757f"],
 } as const;
 export type Hue = keyof typeof HUE_PALETTE;
+/** Material's tinted pill under a hue (Dock, chosen settings entry, coloured row icons): at 18 % the Dock's capsule drops to 2.87:1, at 14 % every hue keeps 3:1. */
+export const HUE_PILL = 0.14;
 
 /**
  * The closed row's ink over the closed shapes' glass (src/notch/glass/live.ts). The closed veil holds the text levels of `ink` (the black
