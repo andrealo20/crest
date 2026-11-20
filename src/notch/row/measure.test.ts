@@ -36,7 +36,7 @@ Object.assign(globalThis, {
   },
 });
 
-test("widths come from the canvas while it draws the check's line as the page does, else from the page; tabular ones from the page in Material", async () => {
+test("in Material widths come from the canvas while it draws the check's line as the page does, else from the page, tabular ones always; in Crest from the canvas", async () => {
   const m = (await import("./measure.ts")) as typeof import("./measure");
   // The check's line (19 characters) 0.38 px apart: canvas widths, rounded up (the page's would be 31).
   assert.equal(m.measureText("12:45"), 30);
@@ -53,4 +53,7 @@ test("widths come from the canvas while it draws the check's line as the page do
   char.page = 7;
   fontLoaded();
   assert.deepEqual([m.measureText("12:45"), m.measureTabular("12:45"), m.measureText("12:45", m.CAPTION_FONT)], [35, 40, 35]);
+  // The Crest style never checks: every width stays on the canvas, as before Material.
+  m.setTabularFromDom(false);
+  assert.deepEqual([m.measureText("12:45"), m.measureTabular("12:45")], [30, 30]);
 });

@@ -72,8 +72,9 @@ function measure(text: string, font: string, tabular: boolean): number {
   let w = cache.get(key);
   if (w === undefined) {
     // Google Sans Flex's opsz follows the size, and an engine may apply it in the page and not on the canvas (Edge applies it to both;
-    // WKWebView was never measured). Checked after every change, since the first widths may come before the font has loaded.
-    canvasOff ??= Math.abs(canvasWidth(CHECK, ROW_FONT) - pageWidth(CHECK, ROW_FONT, false)) > 0.5;
+    // WKWebView was never measured). Checked after every change, since the first widths may come before the font has loaded. Only in
+    // Material: the Crest style keeps every width on the canvas, as it always measured.
+    canvasOff ??= tabularFromDom && Math.abs(canvasWidth(CHECK, ROW_FONT) - pageWidth(CHECK, ROW_FONT, false)) > 0.5;
     const width = tabular || canvasOff ? pageWidth(text, font, tabular) : canvasWidth(text, font);
     w = Math.ceil(width + (font === CAPTION_FONT ? captionSpacing * text.length : 0));
     // One entry per song title over a long session; start over rather than grow without end.
