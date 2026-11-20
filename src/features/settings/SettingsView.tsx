@@ -286,7 +286,8 @@ export function SettingsView() {
 
   return (
     <div className="flex h-full gap-3 px-4 pt-1 pb-3">
-      <nav className="flex w-[136px] shrink-0 flex-col gap-0.5">
+      {/* Scrolls when the pages are taller than the room (the notch's settings tab, the window at its smallest), keeping 4 px around a focused item for its ring; shrink-0 keeps a wrapped name on its two lines. */}
+      <nav className="-mx-1 flex w-[144px] shrink-0 flex-col gap-0.5 overflow-y-auto px-1 pb-1 scroll-py-1 [scrollbar-width:none]">
         <label className="mb-1 flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] bg-fill-1 px-2 text-label-3 focus-within:bg-fill-2">
           <MagnifyingGlass size={12} weight="bold" className="shrink-0" />
           <input
@@ -315,7 +316,7 @@ export function SettingsView() {
                 openPage(p.id);
               }}
               aria-current={active ? "page" : undefined}
-              className={`pressable relative flex min-h-8 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body transition-colors duration-150 ${
+              className={`pressable relative flex min-h-8 shrink-0 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body transition-colors duration-150 ${
                 active ? "text-label" : "text-label-3 hover:text-label-2"
               }`}
             >
@@ -330,7 +331,7 @@ export function SettingsView() {
         <button
           onClick={openBugReport}
           title={t("Öffnet das Formular auf GitHub, mit deiner Crest-Version schon eingetragen")}
-          className="pressable relative flex min-h-8 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body text-label-3 transition-colors duration-150 hover:text-label-2"
+          className="pressable relative flex min-h-8 shrink-0 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body text-label-3 transition-colors duration-150 hover:text-label-2"
         >
           <Bug size={15} weight="bold" className="relative shrink-0" style={iconColors ? { color: hueVar("rose") } : undefined} />
           {/* Longer in some languages than the pages' names: it wraps rather than being cut. */}
