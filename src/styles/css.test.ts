@@ -101,3 +101,9 @@ test("the menus take Material's corners and elevation without the ring", () => {
   const menu = readFileSync(join(import.meta.dirname, "../ui/menu.ts"), "utf8");
   for (const c of ["material:rounded-[16px]", "material:shadow-level2", "material:ring-0"]) assert.ok(menu.includes(c), c);
 });
+
+test("the Dock's buttons stay out of the state layer, since the drop is their hover there", () => {
+  const layered = rules(css).filter((r) => r.selector.includes('.pressable[class*="rounded"]'));
+  assert.ok(layered.length >= 5, "no state layer rules");
+  for (const r of layered) assert.ok(r.selector.includes(":not([data-tool])"), `${r.selector} reaches the Dock`);
+});

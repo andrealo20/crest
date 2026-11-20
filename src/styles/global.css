@@ -129,12 +129,13 @@ body {
 }
 
 /* Material 3 state layers, in a layer before Tailwind's utilities so absolute, fixed and sticky on an element still win over relative.
-   The veil is the content's colour at an opacity, which macOS 12 draws without color-mix(). */
+   The veil is the content's colour at an opacity, which macOS 12 draws without color-mix(). The Dock's tools ([data-tool]) stay out:
+   their hover is the drop that follows the pointer (Notch.tsx). */
 @layer components {
-  [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill) {
+  [data-design="material"] :is(.pressable[class*="rounded"]:not([data-tool]), .pressable-fill) {
     position: relative;
   }
-  [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill)::after {
+  [data-design="material"] :is(.pressable[class*="rounded"]:not([data-tool]), .pressable-fill)::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -146,19 +147,19 @@ body {
   }
   /* Tailwind's hover: does not ask for a fine pointer, so a tap would leave the veil on. */
   @media (hover: hover) and (pointer: fine) {
-    [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill):hover::after {
+    [data-design="material"] :is(.pressable[class*="rounded"]:not([data-tool]), .pressable-fill):hover::after {
       opacity: var(--m3-state-hover);
     }
   }
-  [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill):focus-visible::after {
+  [data-design="material"] :is(.pressable[class*="rounded"]:not([data-tool]), .pressable-fill):focus-visible::after {
     opacity: var(--m3-state-focus);
     transition-duration: 45ms;
   }
-  [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill):active::after {
+  [data-design="material"] :is(.pressable[class*="rounded"]:not([data-tool]), .pressable-fill):active::after {
     opacity: var(--m3-state-press);
     transition-duration: 75ms;
   }
-  [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill):is(:disabled, [aria-disabled="true"])::after {
+  [data-design="material"] :is(.pressable[class*="rounded"]:not([data-tool]), .pressable-fill):is(:disabled, [aria-disabled="true"])::after {
     opacity: 0;
   }
 

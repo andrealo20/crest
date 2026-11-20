@@ -55,6 +55,7 @@ import { dueTasks } from "../features/todos/store";
 import { asks, popping } from "../features/notices/store";
 import { activeTheme, forcedColors, refreshTheme, useClosedGlassInk, useClosedInk, useThemedAccent } from "../features/themes/store";
 import { useHue, useIconColors, type Hue } from "../features/themes/hues";
+import { HUE_PILL } from "../features/themes/themes";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
 import { viewMetrics, viewZoom } from "./viewZoom";
@@ -795,11 +796,17 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
         {...handlers}
         // Over the glass the icons, the mark and the dot take the one ink that reads best over the bar's clear veil (themes.ts glassInk).
         style={liquid ? barInk(theme, hues) : undefined}
-        className={`relative flex h-10 max-w-full items-center rounded-[14px] p-0.5 ${fades ? FILL_FADE : ""} ${liquid ? "bg-transparent" : "bg-fill-2"}`}
+        className={`relative flex h-10 max-w-full items-center rounded-[14px] material:rounded-[20px] p-0.5 ${fades ? FILL_FADE : ""} ${liquid ? "bg-transparent" : "bg-fill-2"}`}
       >
-        {/* The drop without the glass (usePlainDrop), behind the buttons and cut to the capsule; not in the strip, which also cuts upwards. */}
+        {/* The drop without the glass (usePlainDrop), behind the buttons and cut to the capsule; not in the strip, which also cuts upwards.
+            Under Material it is the state layer that moves with the pointer, so it matches the current tool's pill when it rests there. */}
         <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
-          <span ref={pill} className={`absolute bottom-0 left-1/2 h-9 w-[42px] rounded-[12px] ${fades ? FILL_FADE : ""} ${liquid ? "bg-transparent" : "bg-fill-3"}`} />
+          <span
+            ref={pill}
+            className={`absolute bottom-0 left-1/2 h-9 w-[42px] rounded-[12px] ${fades ? FILL_FADE : ""} ${
+              liquid ? "bg-transparent" : "bg-fill-3 material:rounded-[18px] material:bg-current material:opacity-[0.08]"
+            }`}
+          />
         </span>
         <div ref={strip} className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]" style={{ maskImage: fade, WebkitMaskImage: fade }}>
           {tabs.map((tab) => (
@@ -885,18 +892,25 @@ function DockButton(props: {
       ref={ref}
       data-tool={props.id}
       aria-label={props.label}
+      aria-current={props.active ? "page" : undefined}
       title={props.label}
       onClick={props.onClick}
-      className={`pressable relative flex h-9 w-[42px] min-w-6 shrink items-center justify-center rounded-[12px] transition-colors duration-150 ${
-        props.active || props.pointed ? "text-label" : color ? "" : "text-label-2 hover:text-label"
+      className={`pressable relative flex h-9 w-[42px] min-w-6 shrink items-center justify-center rounded-[12px] material:rounded-[18px] transition-colors duration-150 ${
+        props.active ? "text-label material:text-on-secondary-container" : props.pointed ? "text-label" : color ? "" : "text-label-2 hover:text-label"
       }`}
       style={color ? { color } : undefined}
     >
       {/* The current tool's mark under the icon, sliding from tool to tool along the bar only: when the panel changes height it stays
-          with the bar, as the drop does. The brighter pill over it is the drop: the shader's over the glass, the Dock's own without. */}
+          with the bar, as the drop does. The brighter pill over it is the drop: the shader's over the glass, the Dock's own without.
+          Under Material the mark gives way to a pill as big as the slot; a coloured one is the tool's hue at HUE_PILL, which keeps
+          the icon in that hue at 3:1 where a hue on secondary-container would not. */}
       {props.active && (
         <motion.span layoutId="dock-pill" layout="x" className="absolute inset-0" transition={springs.snappy}>
-          <span className="absolute bottom-[3px] left-1/2 h-[2px] w-3 -translate-x-1/2 rounded-full bg-label" />
+          <span className="absolute bottom-[3px] left-1/2 h-[2px] w-3 -translate-x-1/2 rounded-full bg-label material:hidden" />
+          <span
+            className="absolute inset-0 hidden rounded-[18px] bg-secondary-container material:block"
+            style={color ? { background: color, opacity: HUE_PILL } : undefined}
+          />
         </motion.span>
       )}
       <motion.span className="relative flex" initial={false} animate={{ transform: `scale(${props.lens})` }} transition={springs.peek}>
