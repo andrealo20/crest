@@ -580,7 +580,7 @@ fn run(app: AppHandle) {
                     }
                 }
                 // The Wi-Fi's signal changed: read at once, not through the network's 2 s settle, which a steady run of these would keep pushing back.
-                WM_SIGNAL if bar_on => send_network(&app, &radios),
+                WM_SIGNAL if bar_on => send_bars(&app),
                 _ => {
                     DispatchMessageW(&msg);
                 }
@@ -744,6 +744,26 @@ fn send_network(app: &AppHandle, radios: &[(Radio, i64)]) {
         seed().network = Some(now.clone());
         let _ = app.emit("status://network", now);
     }
+}
+
+/// A signal change: only the bars, read again and sent on a change. The name stays the one `send_network` last read, as
+/// `GetConnectedSsid` asks the location permission and the signal moves every few seconds. A profile that is no longer WLAN
+/// waits for the network's own event.
+fn send_bars(app: &AppHandle) {
+    let Some(p) = NetworkInformation::GetInternetConnectionProfile().ok().filter(|p| p.IsWlanConnectionProfile().unwrap_or(false)) else {
+        return;
+    };
+    let bars = p.GetSignalBars().and_then(|b| b.Value()).ok();
+    let now = rebar(seed().network.as_ref(), bars);
+    if let Some(now) = now {
+        seed().network = Some(now.clone());
+        let _ = app.emit("status://network", now);
+    }
+}
+
+/// The shown network with new bars: only a Wi-Fi shown already, and only when they moved.
+fn rebar(shown: Option<&Network>, bars: Option<u8>) -> Option<Network> {
+    shown.filter(|n| n.kind == Link::Wireless && n.bars != bars).map(|n| Network { bars, ..n.clone() })
 }
 
 /// Seeds the volume for the bar and tells it, only on a change; None (no output device) tells nothing.
@@ -1355,6 +1375,20 @@ mod tests {
         let wifi = network(Some(Profile { wlan: true, ssid: Some("Home".into()), bars: Some(4) }), Some(true));
         assert_eq!((wifi.kind, wifi.ssid.as_deref(), wifi.bars), (Link::Wireless, Some("Home"), Some(4)));
         assert_eq!(network(Some(Profile { wlan: true, ssid: Some(String::new()), bars: None }), Some(true)).ssid, None);
+    }
+
+    #[test]
+    fn a_signal_change_moves_only_the_bars_of_the_wifi_already_shown() {
+        let home = network(Some(Profile { wlan: true, ssid: Some("Home".into()), bars: Some(4) }), Some(true));
+        assert_eq!(rebar(Some(&home), Some(2)), Some(Network { bars: Some(2), ..home.clone() }));
+        assert_eq!(rebar(Some(&home), Some(4)), None);
+        assert_eq!(rebar(Some(&network(None, Some(true))), Some(2)), None);
+        assert_eq!(rebar(None, Some(2)), None);
+        // The signal's path reads no name: GetConnectedSsid is one of the location-gated Wi-Fi reads.
+        let src = include_str!("sysevents.rs");
+        let code = &src[..src.find("#[cfg(test)]").unwrap()];
+        let body = &code[code.find("fn send_bars").unwrap()..];
+        assert!(!body[..body.find("\n}").unwrap()].contains("Ssid"));
     }
 
     #[test]
