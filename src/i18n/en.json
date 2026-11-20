@@ -1022,6 +1022,8 @@
  "Tönung vom Albumcover": "Tint from the album art",
  "Das offene Panel nimmt leicht die Farbe des laufenden Songs an": "The open panel takes on a hint of the playing song's colour",
  "Glas": "Glass",
+ "Liquid Glass +": "Liquid Glass +",
+ "Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht": "With {name} the taskbar's content is always white, and Background does not apply",
  "Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas": "The open panel lets the screen behind it show through, like glass",
  "Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt": "Only with the capsule, or when the open panel hangs from the top edge of the screen",
  "Transparenz": "Transparency",

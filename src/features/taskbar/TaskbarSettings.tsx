@@ -17,7 +17,7 @@ import { FavoriteList } from "../launcher/FavoriteList";
 import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
-import { barVeil, themeVeils } from "./look";
+import { barLook, barVeil, themeVeils } from "./look";
 import { fitIcon, HEIGHT, ICON, moveItem, taskbarShown, TRANSPARENCY, type BarItem, type BarShape, type Zone } from "./model";
 import { setTaskbar } from "./store";
 import { AddWidget, WidgetOptions } from "./WidgetRows";
@@ -235,13 +235,16 @@ export function TaskbarApps() {
  * the glass's sliders are the ones of Notch → Themes.
  */
 export function TaskbarLook() {
-  const { shape, height, iconSize, surface, transparency, glass, autoHide } = settings.use().taskbar;
+  const { shape, height, iconSize, surface, transparency, glass, glassLook, autoHide } = settings.use().taskbar;
   const theme = activeTheme.use();
   // The glass's switch only where the live glass can run (src/notch/glass/live.ts), as in Notch → Themes.
   const support = liveSupport.use(), live = !isMac && support?.supported === true;
+  const plus = barLook({ glass, glassLook }, live) === "plus";
+  // A name in Latin letters, isolated left to right, so in Arabic its plus stays after it.
+  const name = "\u2066" + t("Liquid Glass +") + "\u2069";
   // How much of the screen behind shows, as the notch's Transparency says it: the surface's veil (look.ts barVeil) on the Notch
-  // surface's Dark tokens, unless the theme colours the closed notch too.
-  const veils = themeVeils(surface === "notch" && !theme.closedNotch ? darkInk() : theme.vars);
+  // surface's Dark tokens, unless the theme colours the closed notch too, and always under Liquid Glass + (useBarSurface).
+  const veils = themeVeils((surface === "notch" && !theme.closedNotch) || plus ? darkInk() : theme.vars);
   const seen = Math.round((1 - barVeil({ transparency, glass: glass && live, reduced: false, ...veils })) * 100);
   return (
     <Group id="settings-taskbar-look">
@@ -282,6 +285,7 @@ export function TaskbarLook() {
           hint={
             <>
               {t("Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.")}
+              {plus && <span className="mt-1 block">{t("Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht", { name })}</span>}
               <span className="mt-1 flex items-start gap-1 text-caution">
                 <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
                 {t("Braucht mehr Akku: Windows hat bei jeder Änderung auf dem Bildschirm mehr Arbeit")}
@@ -289,10 +293,20 @@ export function TaskbarLook() {
             </>
           }
         >
-          <Switch label={t("Glas")} checked={glass} onChange={(glass) => setTaskbar({ glass })} />
+          <Segmented
+            id="taskbar-glass"
+            size="sm"
+            value={glass ? glassLook : "off"}
+            onChange={(v) => setTaskbar(v === "off" ? { glass: false } : { glass: true, glassLook: v })}
+            options={[
+              { value: "off", label: t("Aus") },
+              { value: "crest", label: t("Glas") },
+              { value: "plus", label: name },
+            ]}
+          />
         </Row>
       )}
-      {/* The notch's glass sliders (Notch → Themes shows them only with the notch's glass on): Crest has one glass. */}
+      {/* The notch's glass sliders (Notch → Themes shows them only with the notch's glass on); both of the bar's looks read them. */}
       {live && glass && (
         <>
           <Row label={<span className="whitespace-normal">{t("Lichtbrechung, Mattierung und Licht am Rand gelten auch für die Notch")}</span>} />
