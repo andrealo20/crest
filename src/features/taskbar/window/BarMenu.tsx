@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { motion, useIsPresent } from "motion/react";
 import { Check } from "@phosphor-icons/react";
+import { design } from "../../../design/design";
 import { popover } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { onNativeBlur, settingsWindow } from "../../../platform/native";
@@ -46,6 +47,7 @@ export function BarMenu(props: {
   const { x, w, bottom, anchor, onClose, onPlace } = props;
   // Fading out after it closed, it takes no key, no click and no place in the hit zone.
   const present = useIsPresent();
+  const appDesign = design.use();
   const ref = useRef<HTMLDivElement>(null);
 
   // Placed from its own size, before it first shows and whenever that size changes (a font that arrives late), and the hit zone
@@ -106,7 +108,7 @@ export function BarMenu(props: {
       // The focus leaves its rows, so a second Enter while it fades does not run one again.
       inert={!present}
       style={{ bottom, maxHeight: window.innerHeight - bottom - EDGE, transformOrigin: "50% 100%", pointerEvents: present ? undefined : "none" }}
-      initial={{ opacity: 0, transform: "scale(0.96) translateY(2px)" }}
+      initial={{ opacity: 0, transform: `scale(${appDesign === "material" ? 0.8 : 0.96}) translateY(2px)` }}
       animate={{ opacity: 1, transform: "scale(1) translateY(0px)", transition: popover.enter }}
       exit={{ opacity: 0, transform: "scale(0.98)", transition: popover.exit }}
     >
