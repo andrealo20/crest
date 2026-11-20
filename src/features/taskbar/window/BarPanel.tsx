@@ -153,6 +153,21 @@ function Panel({
     return () => observer.disconnect();
   }, [present, safeToRemove]);
 
+  // A tool's select menu is portaled into the body (controls.tsx), out of the ink below: while the panel is up the body wears its ink
+  // too, so the menu is as dark as the panel. The bar already wears that ink under Liquid Glass +, the only look that passes one.
+  const ink = surface.ink && JSON.stringify(surface.ink);
+  useLayoutEffect(() => {
+    if (!ink) return;
+    const vars: Record<string, string> = JSON.parse(ink);
+    const body = document.body;
+    body.dataset.themeInk = "";
+    for (const [name, value] of Object.entries(vars)) body.style.setProperty(name, value);
+    return () => {
+      delete body.dataset.themeInk;
+      for (const name of Object.keys(vars)) body.style.removeProperty(name);
+    };
+  }, [ink]);
+
   const tray = open.content.kind === "tray";
   useEffect(() => {
     if (!present) return;

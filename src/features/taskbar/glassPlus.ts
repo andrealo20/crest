@@ -67,9 +67,9 @@ const T = 0.5 / GLASS_PLUS.rim, EDGE_LINE = 0.85 * Math.exp(-T * T) + 0.15 * Mat
 /**
  * Liquid Glass +'s rim light on a panel above the bar (BarPanel.tsx), in CSS: no live copy shows there, so no shader. White, `px` CSS
  * px wide (one device px), at Rim light `rim` (%), null at 0: GLASS_PLUS.hairline of it all round, and the rest from GLASS_PLUS.light
- * as a shadow pushed `px` that way, whose edge is widest at the lit corner and thins along the two sides to nothing at the next two
- * corners, as the shader's lobe gathers; the opposite corner `reflected` of it. Inset shadows only: a padding or a border under 1 CSS
- * px is drawn a whole CSS px wide, and a mask would turn the panel's text to greyscale antialiasing.
+ * as a shadow pushed `px` that way, which lights the two sides that meet at the lit corner, one device px wide all along them, and
+ * tapers to nothing only through the arcs of the next two corners; the opposite corner `reflected` of it. Inset shadows only: a
+ * padding or a border under 1 CSS px is drawn a whole CSS px wide, and a mask would turn the panel's text to greyscale antialiasing.
  */
 export function plusPanelRim(rim: number, px: number): { boxShadow: string } | null {
   const k = Math.min((GLASS_PLUS.specular * rim * EDGE_LINE) / 100, 1);
