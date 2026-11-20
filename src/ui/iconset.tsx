@@ -57,9 +57,6 @@ import { MATERIAL_NAMES } from "./materialNames";
 
 export * from "@phosphor-icons/react";
 
-// In step with the opacity of the .pressable around it (global.css), so a pin that fills in keeps time with its button.
-const FADE = "opacity 160ms";
-
 /**
  * Phosphor's `Ph` under the Crest style. Under Material, the Material Symbol materialNames.ts gives `name`, drawn by Phosphor's own
  * IconBase so that size, color, mirrored, alt and the rest behave the same: bold is the outline at weight 500, regular the outline at
@@ -68,13 +65,14 @@ const FADE = "opacity 160ms";
 function material(Ph: Icon, name: string): Icon {
   const glyph = MATERIAL_NAMES[name];
   const [outline, fill] = PATHS[glyph];
-  // The same two paths at every weight, so a change of weight fades one into the other, while a CSS transition does not run on
-  // mount. A glyph whose fill is its outline draws one path: two copies fading across would dim it halfway.
+  // The same two paths at every weight, so a change of weight fades one into the other (.icon-fade in global.css, which keeps time
+  // with the .pressable around it and stays off under reduced motion), while a CSS transition does not run on mount. A glyph whose
+  // fill is its outline draws one path: two copies fading across would dim it halfway.
   const draw = (d: string, shown: number, filled: number) =>
     fill ? (
       <>
-        <path d={d} style={{ opacity: shown, transition: FADE }} />
-        <path d={fill} style={{ opacity: filled, transition: FADE }} />
+        <path d={d} style={{ opacity: shown }} className="icon-fade" />
+        <path d={fill} style={{ opacity: filled }} className="icon-fade" />
       </>
     ) : (
       <path d={d} />

@@ -70,7 +70,15 @@ body {
   --text-body--letter-spacing: 0;
   --text-title--letter-spacing: 0;
   --text-display--letter-spacing: 0;
+  /* Material's curves: emphasized decelerate for the press and the ease-out fades, standard for Tailwind's transition utilities. */
+  --ease-out: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
+
+/* Material's classes, after @import "tailwindcss" so they compile: material:rounded-full wins over rounded-[8px] under Material
+   only, and roomy: where a [data-roomy] container gives Material its wider rows. */
+@custom-variant material (&:where([data-design="material"], [data-design="material"] *));
+@custom-variant roomy (&:where([data-design="material"] [data-roomy], [data-design="material"] [data-roomy] *));
 
 /* Numbers that change (times, timers, values) must not jump. */
 .tabular {
@@ -90,25 +98,133 @@ body {
     color 160ms ease,
     opacity 160ms ease;
 }
-.pressable:active {
-  transform: scale(0.94);
-}
-/* Wide surfaces (cards): 6 % would be a jolt at 500 px, so only press in slightly. */
-.pressable.pressable-wide:active {
-  transform: scale(0.985);
+/* The scale on press waits for no-preference: with reduced motion nothing moves, wide cards included. Under Material only the
+   .pressable without a shape keep it (text links, bare icons); the rest answer with the state layer below. */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-design="material"]) .pressable:active,
+  [data-design="material"] .pressable:not([class*="rounded"], .pressable-fill):active {
+    transform: scale(0.94);
+  }
+  /* Wide surfaces (cards): 6 % would be a jolt at 500 px, so only press in slightly. */
+  :root:not([data-design="material"]) .pressable.pressable-wide:active,
+  [data-design="material"] .pressable.pressable-wide:not([class*="rounded"], .pressable-fill):active {
+    transform: scale(0.985);
+  }
 }
 @media (hover: hover) and (pointer: fine) {
-  .pressable-fill:hover {
+  :root:not([data-design="material"]) .pressable-fill:hover {
     background-color: var(--color-fill-2);
   }
 }
-.pressable-fill:active {
+:root:not([data-design="material"]) .pressable-fill:active {
   background-color: var(--color-fill-3);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pressable:active {
-    transform: none;
+/* Material 3 state layers, in a layer before Tailwind's utilities so absolute, fixed and sticky on an element still win over relative.
+   The veil is the content's colour at an opacity, which macOS 12 draws without color-mix(). */
+@layer components {
+  [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill) {
+    position: relative;
+  }
+  [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill)::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: currentColor;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 15ms linear;
+  }
+  /* Tailwind's hover: does not ask for a fine pointer, so a tap would leave the veil on. */
+  @media (hover: hover) and (pointer: fine) {
+    [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill):hover::after {
+      opacity: 0.08;
+    }
+  }
+  [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill):focus-visible::after {
+    opacity: 0.1;
+    transition-duration: 45ms;
+  }
+  [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill):active::after {
+    opacity: 0.1;
+    transition-duration: 75ms;
+  }
+  [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill):is(:disabled, [aria-disabled="true"])::after {
+    opacity: 0;
+  }
+
+  /* Pressed corners of a filled pill: a rectangle with 8 px corners fades in under it. The pill stays opaque and holds the other
+     shape inside it, so the inside never thins halfway as two crossfading shapes would; only the corners fill in. */
+  [data-design="material"] .m3-morph {
+    isolation: isolate;
+  }
+  [data-design="material"] .m3-morph::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: var(--m3-pressed-radius, 8px);
+    background: inherit;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  [data-design="material"] .m3-morph:active:not(:disabled)::before {
+    opacity: 1;
+  }
+  /* The pressed veil takes the pressed shape, or a pill of it would show inside the rectangle. */
+  [data-design="material"] .m3-morph:active::after {
+    border-radius: var(--m3-pressed-radius, 8px);
+  }
+
+  /* Level 1 on hover, drawn once on its own layer and faded, since a box-shadow transition repaints every frame. */
+  [data-design="material"] .m3-lift {
+    isolation: isolate;
+  }
+  [data-design="material"] .m3-lift > .m3-shadow {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: var(--shadow-level1);
+    opacity: 0;
+    transition: opacity 120ms cubic-bezier(0.4, 0, 0.6, 1);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    [data-design="material"] .m3-lift:hover:not(:disabled, :active, :focus-visible) > .m3-shadow {
+      opacity: 1;
+      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  }
+}
+
+/* Material's focus ring, unlayered so it replaces the ring utilities, in primary: a role no resolver writes would void the outline. */
+[data-design="material"] :is(button, a, [role="button"], [role="switch"], [role="radio"], [role="tab"], [role="slider"]):focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+  /* The focus-visible:ring-1 of the shared controls would draw a second ring. */
+  --tw-ring-shadow: 0 0 #0000;
+}
+/* Flush with a clipping edge (the activity row, inset-0 in a rounded box): the ring goes inside. */
+[data-design="material"] .pressable-wide:focus-visible {
+  outline-offset: -3px;
+}
+
+/* In forced colours a chosen page or option has only its colour to tell it apart, and forced colours take that away. */
+@media (forced-colors: active) {
+  [aria-current="page"],
+  [role="radio"][aria-checked="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
+/* The crossfade of an icon's outline and fill (iconset.tsx), in step with the opacity of the .pressable around it. */
+@media (prefers-reduced-motion: no-preference) {
+  .icon-fade {
+    transition: opacity 160ms;
   }
 }
 
