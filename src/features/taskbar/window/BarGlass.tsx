@@ -15,10 +15,11 @@ import type { GlassZone } from "../../../platform/native";
 import { status } from "../../../platform/services";
 import { settings } from "../../../settings/store";
 import { activeTheme, darkInk, forcedColors, useClosedInk } from "../../themes/store";
-import { GLASS_PLUS, plusSliders, plusTarget } from "../glassPlus";
+import { GLASS_PLUS, plusPanelRim, plusSliders, plusTarget } from "../glassPlus";
 import { barLook, barNeed, barRadius, barVeil, glassShapes, plusShapes, themeVeils, type BarLook, type Box } from "../look";
 import type { BarShape } from "../model";
 import { barShown } from "../store";
+import type { PanelSurface } from "./BarPanel";
 import { BAR_PLUS_FS } from "./glassPlusShader";
 import { BAR_FS, MAX_RECTS } from "./glassShader";
 
@@ -51,10 +52,14 @@ interface Props { shape: BarShape; boxes: Box[]; radius: number; veil: number; d
  * forced colours make it opaque. `ink` is the tokens the bar and its menus wear (Dark's under Liquid Glass +, and on the Notch surface
  * unless the theme colours the closed notch, useClosedInk), `radius` the corners for the shape and its look; both follow the look
  * (barLook: the choice and whether the live copy can run), never whether the glass shows. A bar `slid` off the screen (useAutoHide)
- * runs no glass, as a hidden one.
+ * runs no glass, as a hidden one. `panel` is what the panels above the bar wear: under Liquid Glass + (the look, not whether it shows)
+ * the bar's ink, fill included, and a CSS rim light; otherwise nothing, and they keep the theme's colours.
  */
-export function useBarSurface(boxes: Box[], slid: boolean): { background: string; plain: string; ink: Record<string, string> | undefined; radius: number; glass: Props | null } {
-  const taskbar = settings.use().taskbar;
+export function useBarSurface(
+  boxes: Box[],
+  slid: boolean,
+): { background: string; plain: string; ink: Record<string, string> | undefined; radius: number; panel: PanelSurface | undefined; glass: Props | null } {
+  const { taskbar, themes, behavior } = settings.use();
   const { shape, surface, transparency, glass, height } = taskbar;
   const theme = activeTheme.use();
   const closed = useClosedInk(undefined);
@@ -80,6 +85,8 @@ export function useBarSurface(boxes: Box[], slid: boolean): { background: string
     plain,
     ink,
     radius,
+    // One device px inside the panel's zoom (Crest's Scale); no white ring over forced colours' own.
+    panel: look === "plus" ? { ink, rim: (!forced && plusPanelRim(themes.glassRim, 1 / (dpr * (behavior.scale / 100)))) || undefined } : undefined,
     glass: on && boxes.length ? { shape, boxes, radius, veil, dark, look } : null,
   };
 }

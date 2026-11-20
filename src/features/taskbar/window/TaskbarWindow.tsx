@@ -436,9 +436,11 @@ export function TaskbarWindow() {
           )}
         </AnimatePresence>
       </div>
-      {/* Outside the bar's ink: the panel has the theme's colours whatever the bar's background, as the notch's open panel has. */}
+      {/* Outside the bar's ink, which would lay an Arabic panel out left to right: the panel has the theme's colours whatever the bar's
+          background, as the notch's open panel has, and under Liquid Glass + the bar's ink and a rim light (useBarSurface). */}
       <BarPanel
         bar={bar}
+        surface={look.panel}
         onPlace={placeMenuZone}
         apps={{
           count: hiddenButtons.length,

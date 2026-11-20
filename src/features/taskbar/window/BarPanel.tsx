@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, usePresence, type Transition } from "motion/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { content, springs } from "../../../design/motion";
@@ -23,6 +23,15 @@ import { TrayPanel } from "./TrayPanel";
 /** The panel's corners at 100 %, CSS px: the notch's open panel where it floats, without ears. */
 const RADIUS = 30;
 
+/**
+ * What the panel wears, all of it from here: the tokens of its ink, its fill among them (`--color-notch`, which NotchShape paints as
+ * `--shape`), and the style of a rim drawn over its edge. Without them, the theme's own and no rim, as the notch's open panel.
+ */
+export interface PanelSurface {
+  ink?: Record<string, string>;
+  rim?: CSSProperties;
+}
+
 /** Loaded the first time Stato opens it. */
 const QuickPanel = lazy(() => import("./QuickPanel"));
 
@@ -34,7 +43,7 @@ const QuickPanel = lazy(() => import("./QuickPanel"));
  * bar's menu slot in the hit zone: the panel and the bar's menus are never open together. The apps behind "…" come drawn from the bar
  * (`apps`), which holds what their clicks do.
  */
-export function BarPanel(props: { bar: RefObject<HTMLElement | null>; onPlace: (box: HitRect | null) => void; apps: { count: number; grid: ReactNode } }) {
+export function BarPanel(props: { bar: RefObject<HTMLElement | null>; onPlace: (box: HitRect | null) => void; apps: { count: number; grid: ReactNode }; surface?: PanelSurface }) {
   const open = panel.use();
   return <AnimatePresence>{open && <Panel key="panel" open={open} {...props} />}</AnimatePresence>;
 }
@@ -69,7 +78,19 @@ function usePanelSize(shows: PanelContent, apps: number): { w: number; h: number
   return toolPanelSize(extra?.tabId === tab.id ? { w: toolSize.w, h: Math.min(toolSize.h + extra.h, maxH) } : toolSize);
 }
 
-function Panel({ open, bar, onPlace, apps }: { open: OpenPanel; bar: RefObject<HTMLElement | null>; onPlace: (box: HitRect | null) => void; apps: { count: number; grid: ReactNode } }) {
+function Panel({
+  open,
+  bar,
+  onPlace,
+  apps,
+  surface = {},
+}: {
+  open: OpenPanel;
+  bar: RefObject<HTMLElement | null>;
+  onPlace: (box: HitRect | null) => void;
+  apps: { count: number; grid: ReactNode };
+  surface?: PanelSurface;
+}) {
   const { anchor } = open;
   const [present, safeToRemove] = usePresence();
   const ref = useRef<HTMLDivElement>(null);
@@ -132,6 +153,21 @@ function Panel({ open, bar, onPlace, apps }: { open: OpenPanel; bar: RefObject<H
     return () => observer.disconnect();
   }, [present, safeToRemove]);
 
+  // A tool's select menu is portaled into the body (controls.tsx), out of the ink below: while the panel is up the body wears its ink
+  // too, so the menu is as dark as the panel. The bar already wears that ink under Liquid Glass +, the only look that passes one.
+  const ink = surface.ink && JSON.stringify(surface.ink);
+  useLayoutEffect(() => {
+    if (!ink) return;
+    const vars: Record<string, string> = JSON.parse(ink);
+    const body = document.body;
+    body.dataset.themeInk = "";
+    for (const [name, value] of Object.entries(vars)) body.style.setProperty(name, value);
+    return () => {
+      delete body.dataset.themeInk;
+      for (const name of Object.keys(vars)) body.style.removeProperty(name);
+    };
+  }, [ink]);
+
   const tray = open.content.kind === "tray";
   useEffect(() => {
     if (!present) return;
@@ -185,8 +221,9 @@ function Panel({ open, bar, onPlace, apps }: { open: OpenPanel; bar: RefObject<H
       className="fixed left-0 -translate-x-1/2"
       style={{ bottom: view.height - view.barTop + PANEL_GAP, x, pointerEvents: present ? undefined : "none" }}
     >
-      {/* Drawn at Crest's scale, as the notch's panel is; the box around it is in the window's px. */}
-      <div style={{ zoom }}>
+      {/* Drawn at Crest's scale, as the notch's panel is; the box around it is in the window's px. An ink of its own sets the text's
+          colour again (body's is worked out from the theme's label) and is marked, so forced colours still override it (themes.css). */}
+      <div data-theme-ink={surface.ink ? "" : undefined} style={{ zoom, ...(surface.ink && { ...surface.ink, color: "var(--color-label)" }) }}>
         <NotchShape geometry={geometry} transition={shapeSpring} elevated top={top} hangs={false}>
           <motion.div
             className="absolute inset-0"
@@ -221,6 +258,8 @@ function Panel({ open, bar, onPlace, apps }: { open: OpenPanel; bar: RefObject<H
               )}
             </AnimatePresence>
           </motion.div>
+          {/* Over the content and with the shape, not with the content's fade. */}
+          {surface.rim && <div aria-hidden className="pointer-events-none absolute inset-0" style={{ borderRadius: RADIUS, ...surface.rim }} />}
         </NotchShape>
       </div>
     </motion.div>
