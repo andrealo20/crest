@@ -19,7 +19,7 @@ const PLACING: &str = "timer-window://placed";
 static PLACED: Mutex<Option<(Origin, (i32, i32))>> = Mutex::new(None);
 
 #[tauri::command]
-pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, app: AppHandle) -> Result<(), String> {
+pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, dpr: Option<f64>, app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(LABEL) {
         return window.show().map_err(|e| e.to_string());
     }
@@ -39,10 +39,10 @@ pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, app: AppHandle) -
     #[cfg(not(windows))]
     crate::sharing::protect_new(&app);
 
-    // A saved spot on a connected monitor is the top-left of a timer at 100 % there; else the default spot on the primary monitor.
+    // A saved spot on a connected monitor, with the size the timer had there; else the default spot on the primary monitor.
     let base = (config.width, config.height);
     let spot = match x.zip(y).and_then(|at| Some((monitor_at(&window, at)?, at))) {
-        Some((m, at)) => Some((Origin::Spot(at, grown(base, 1.0, m.scale_factor())), m)),
+        Some((m, at)) => Some((Origin::Spot(at, saved_size(base, dpr, m.scale_factor())), m)),
         None => window.primary_monitor().ok().flatten().map(|m| (Origin::Default, m)),
     };
     if let Some((from, m)) = spot {
@@ -82,31 +82,28 @@ pub fn follow_text_size(app: &AppHandle) {
     }
 }
 
-/// Sizes the window for the Text size on `s` and puts it where `from` says; `now` is its size in physical px, and `shown` where
-/// it is when it is already open. Growing, it is moved first, and shrinking, sized first, so it never spills past where it ends
-/// up (onto a neighbour monitor with another DPI, say). At the same size only the position is set, as before the Text size was
-/// followed.
+/// Sizes the window for the Text size on `s` and puts it where `from` says (`steps`); `now` is its size in physical px, and
+/// `shown` where it is when it is already open. At the same size at opening only the position is set, as before the Text size
+/// was followed.
 fn put_at(window: &WebviewWindow, base: (f64, f64), from: Origin, now: (i32, i32), shown: Option<(i32, i32)>, s: Screen) {
     let text = crate::text_scale::get();
     let new = grown(base, text, s.scale);
     let at = spot_for(from, new, s);
+    let plan = steps(now, new, shown, at);
     let size = || {
-        let _ = window.set_size(LogicalSize::new(base.0 * text, base.1 * text));
+        if plan.resize {
+            let _ = window.set_size(LogicalSize::new(base.0 * text, base.1 * text));
+        }
     };
     let position = || {
-        if shown == Some(at) {
-            return;
-        }
-        // The page saves every move it sees; announced, this one is left out, so the saved spot stays the user's. At opening
-        // the page is not listening yet.
-        if shown.is_some() {
+        if plan.announce {
             let _ = window.emit(PLACING, at);
         }
-        let _ = window.set_position(PhysicalPosition::new(at.0, at.1));
+        if plan.moves {
+            let _ = window.set_position(PhysicalPosition::new(at.0, at.1));
+        }
     };
-    if new == now {
-        position();
-    } else if new.0 > now.0 {
+    if plan.move_first {
         position();
         size();
     } else {
@@ -156,6 +153,35 @@ impl Screen {
 /// The window's size in physical px for the config's logical `base` at Text size `text` on a monitor at `scale`.
 fn grown((w, h): (f64, f64), text: f64, scale: f64) -> (i32, i32) {
     ((w * text * scale).round() as i32, (h * text * scale).round() as i32)
+}
+
+/// The size in physical px the window had at a saved spot: the page saves its pixel ratio with the spot (monitor scale times
+/// Text size there), else, for a spot saved before it did or a ratio that cannot be one, a timer at 100 % on a monitor at `scale`.
+fn saved_size(base: (f64, f64), dpr: Option<f64>, scale: f64) -> (i32, i32) {
+    match dpr.filter(|d| (0.5..=10.0).contains(d)) {
+        Some(d) => grown(base, d, 1.0),
+        None => grown(base, 1.0, scale),
+    }
+}
+
+/// What putting the window takes, and in which order.
+#[derive(Debug, PartialEq)]
+struct Steps {
+    resize: bool,
+    moves: bool,
+    /// The page saves every move it sees; announced, a move Crest makes to an open window is left out, so the saved spot stays
+    /// the user's. At opening the page is not listening yet.
+    announce: bool,
+    /// Growing, the window is moved first, and shrinking, sized first, so it never spills past where it ends up (onto a
+    /// neighbour monitor with another DPI, say).
+    move_first: bool,
+}
+
+/// From the window's size `now`, its size `new` and where it goes, `at`; `shown` is where it is when it is already open, and a
+/// move to there is not made.
+fn steps(now: (i32, i32), new: (i32, i32), shown: Option<(i32, i32)>, at: (i32, i32)) -> Steps {
+    let moves = shown != Some(at);
+    Steps { resize: new != now, moves, announce: moves && shown.is_some(), move_first: new.0 > now.0 }
 }
 
 /// One axis: where a window starting at `at` starts when its length goes from `old` to `new` px on a work area that ends at
@@ -260,6 +286,33 @@ mod tests {
         assert_eq!(at_150, (1440, 300));
         let back = origin(Some((from, at_150)), at_150, (480, 126));
         assert_eq!(spot_for(back, (320, 84), FHD), (1500, 300));
+    }
+
+    #[test]
+    fn a_saved_spot_carries_the_size_the_timer_had_there() {
+        let base = (320.0, 84.0);
+        assert_eq!(saved_size(base, Some(1.5), 1.0), (480, 126), "dragged at Text size 150 %");
+        assert_eq!(saved_size(base, Some(1.875), 1.25), (600, 158), "150 % on a 125 % monitor");
+        assert_eq!(saved_size(base, None, 1.25), (400, 105), "saved before the ratio was: a timer at 100 %");
+        for broken in [0.0, -1.0, f64::NAN, f64::INFINITY, 1e9] {
+            assert_eq!(saved_size(base, Some(broken), 1.25), (400, 105), "{broken} is not a pixel ratio");
+        }
+    }
+
+    #[test]
+    fn a_timer_saved_on_the_edge_while_grown_reopens_on_it() {
+        // Dragged flush right at 150 % and reopened at 100 %: it stays on the edge, as a live change would keep it.
+        let at_150 = Origin::Spot((1440, 300), saved_size((320.0, 84.0), Some(1.5), 1.0));
+        assert_eq!(spot_for(at_150, (320, 84), FHD), (1600, 300));
+    }
+
+    #[test]
+    fn putting_the_window_moves_before_growing_and_sizes_before_shrinking() {
+        let plan = |resize, moves, announce, move_first| Steps { resize, moves, announce, move_first };
+        assert_eq!(steps((320, 84), (320, 84), None, (1576, 72)), plan(false, true, false, false), "opening at 100 %: a move only");
+        assert_eq!(steps((320, 84), (480, 126), Some((1576, 72)), (1416, 72)), plan(true, true, true, true), "growing while open");
+        assert_eq!(steps((480, 126), (320, 84), Some((1416, 72)), (1576, 72)), plan(true, true, true, false), "shrinking while open");
+        assert_eq!(steps((320, 84), (480, 126), Some((600, 300)), (600, 300)), plan(true, false, false, true), "growing in place: no move to announce");
     }
 
     #[test]

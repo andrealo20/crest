@@ -47,7 +47,8 @@ export function TimerWindow() {
     const off = getCurrentWindow().onMoved(({ payload }) => {
       if (!moves.save(payload.x, payload.y)) return;
       try {
-        localStorage.setItem(POS_KEY, JSON.stringify({ x: payload.x, y: payload.y }));
+        // With the pixel ratio, from which Rust works out the size the window had here (it grows with Windows' Text size).
+        localStorage.setItem(POS_KEY, JSON.stringify({ x: payload.x, y: payload.y, dpr: window.devicePixelRatio }));
       } catch {
         // Storage full or blocked: it opens at the default spot next time.
       }

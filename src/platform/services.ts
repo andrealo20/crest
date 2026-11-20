@@ -1019,8 +1019,8 @@ export const powerPlans = {
 // ---------- Detached timer window (src-tauri/src/timer_window.rs) ----------
 
 /** Opens the small always-on-top timer window at a saved position (physical px), if it is still on a monitor. */
-export function openTimerWindow(pos: { x: number; y: number } | null): Promise<void> {
-  return isNative ? invoke("timer_window_open", { x: pos?.x ?? null, y: pos?.y ?? null }) : Promise.resolve();
+export function openTimerWindow(pos: { x: number; y: number; dpr?: number } | null): Promise<void> {
+  return isNative ? invoke("timer_window_open", { x: pos?.x ?? null, y: pos?.y ?? null, dpr: pos?.dpr ?? null }) : Promise.resolve();
 }
 
 export function closeTimerWindow(): Promise<void> {
