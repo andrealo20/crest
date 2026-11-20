@@ -803,8 +803,8 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
         <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
           <span
             ref={pill}
-            className={`absolute bottom-0 left-1/2 h-9 w-[42px] rounded-[12px] ${fades ? FILL_FADE : ""} ${
-              liquid ? "bg-transparent" : "bg-fill-3 material:rounded-[18px] material:bg-current material:opacity-[0.08]"
+            className={`absolute bottom-0 left-1/2 h-9 w-[42px] rounded-[12px] material:rounded-[18px] material:opacity-[0.08] ${fades ? FILL_FADE : ""} ${
+              liquid ? "bg-transparent" : "bg-fill-3 material:bg-current"
             }`}
           />
         </span>
