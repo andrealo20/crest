@@ -188,11 +188,15 @@ Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Wi
 - Pinyin for Chinese lyrics comes from [rust-pinyin](https://github.com/mozillazg/rust-pinyin) (MIT, [licenses/pinyin-MIT.txt](licenses/pinyin-MIT.txt)). Kanji readings use [JMdict](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0) in the [jmdict-simplified](https://github.com/scriptin/jmdict-simplified) format, downloaded on demand and not shipped with Crest.
 - The text is set in [Inter](https://github.com/rsms/inter) (SIL Open Font License 1.1, [licenses/Inter-OFL.txt](licenses/Inter-OFL.txt)), bundled through Fontsource.
 - The icons are [Phosphor](https://github.com/phosphor-icons/react) (MIT, [licenses/Phosphor-MIT.txt](licenses/Phosphor-MIT.txt)).
+- The Material style follows [Stellaria](https://github.com/SMIDR76/stellaria-windows) (GPL-3.0, license text in [licenses/Stellaria-LICENSE](licenses/Stellaria-LICENSE)), itself a port of [Caelestia](https://github.com/caelestia-dots/shell) by the caelestia-dots contributors (GPL-3.0).
+- Its colours are computed with [material-color-utilities](https://github.com/material-foundation/material-color-utilities) by Google (Apache-2.0, [licenses/material-color-utilities-Apache-2.0.txt](licenses/material-color-utilities-Apache-2.0.txt)).
+- Its text is set in [Google Sans Flex](https://github.com/googlefonts/googlesans-flex) (SIL Open Font License 1.1, [licenses/GoogleSansFlex-OFL.txt](licenses/GoogleSansFlex-OFL.txt)), an instance of the Fontsource files, rounded at 25, latin and latin-ext only.
+- Its icons are [Material Symbols Rounded](https://github.com/google/material-design-icons) by Google (Apache-2.0, [licenses/MaterialSymbols-Apache-2.0.txt](licenses/MaterialSymbols-Apache-2.0.txt)). Crest ships outlines drawn from the font for the icons it uses.
 - The calendar maps Windows time zone names to IANA names with the table from [jiff](https://github.com/BurntSushi/jiff) (MIT, [licenses/jiff-LICENSE](licenses/jiff-LICENSE)), which also supplies the time zone database.
 - The QR code that sends Shelf files to a phone comes from [qrcodegen](https://www.nayuki.io/page/qr-code-generator-library) by Project Nayuki (MIT, [licenses/qrcodegen-MIT.txt](licenses/qrcodegen-MIT.txt)).
 - Weather data is by [Open-Meteo.com](https://open-meteo.com/), under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the installers, the Store package and the portable zip carry the licence texts in `LICENSE` and `licenses/`.
 - The design follows Apple's Dynamic Island and the macOS app OmniNotch. Crest is not affiliated with Apple or OmniNotch.
-- Crest is an independent app by Andrea Loroni. It is not made, sponsored or endorsed by Microsoft.
+- Crest is an independent app by Andrea Loroni. It is not made, sponsored or endorsed by Microsoft or Google.
 
 ## License
 
