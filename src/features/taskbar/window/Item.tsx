@@ -183,7 +183,7 @@ function Bubble({ text, failed, rise }: { text: string; failed: boolean; rise: n
     <motion.span
       ref={ref}
       dir="auto"
-      className={`pointer-events-none absolute bottom-full left-1/2 max-w-80 -translate-x-1/2 truncate rounded-[8px] bg-elevated px-2 py-1 text-footnote font-medium shadow-[0_4px_14px_rgb(0_0_0/0.4)] ring-1 ring-separator ${failed ? "text-red" : "text-label"}`}
+      className={`pointer-events-none absolute bottom-full left-1/2 max-w-80 -translate-x-1/2 truncate rounded-[8px] bg-elevated px-2 py-1 text-footnote font-medium shadow-[0_4px_14px_rgb(0_0_0/0.4)] ring-1 ring-separator material:rounded-[4px] material:shadow-none material:ring-0 material:text-notch ${failed ? "text-red material:bg-red" : "text-label material:bg-label"}`}
       style={{ marginLeft: shift, marginBottom: 8 + rise }}
       initial={{ opacity: 0, transform: "translateY(2px) scale(0.96)" }}
       animate={{ opacity: 1, transform: "translateY(0px) scale(1)", transition: popover.enter }}

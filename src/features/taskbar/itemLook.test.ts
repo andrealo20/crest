@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { itemLayer, marks } from "./itemLook.ts";
+import { contrast, parseColor } from "../themes/color.ts";
+import { materialInk, resolveMaterial } from "../themes/material.ts";
+import { BUILT_IN_THEMES } from "../themes/themes.ts";
 
 test("the marks under an app: Crest's of today, and Material's pill in place of the long mark in front", () => {
   const none = { dot: false, bar: false, pill: false };
@@ -36,4 +39,27 @@ test("Item draws the pill and the state layer only under Material, the layer lit
   assert.equal(item.match(/data-front-pill/g)?.length, 1);
   assert.equal(item.match(/m3-layer/g)?.length, 1);
   assert.match(window("Status.tsx"), /layer=\{pill\?\.height\}/);
+});
+
+test("the bar's name reads at 4.5:1 as an M3 tooltip, on the page's theme and on the closed notch's ink", () => {
+  for (const t of BUILT_IN_THEMES) {
+    for (const level of [0, 1] as const) {
+      for (const r of [resolveMaterial(t, { contrast: level }), materialInk(t, { contrast: level })]) {
+        const notch = parseColor(r.vars["--color-notch"])!;
+        for (const bg of ["--color-label", "--color-red"]) {
+          const ratio = contrast(notch, parseColor(r.vars[bg])!);
+          assert.ok(ratio >= 4.5, `${t.id}, contrast ${level}: notch on ${bg} is ${ratio.toFixed(2)}:1`);
+        }
+      }
+    }
+  }
+});
+
+test("the name bubble turns into an M3 tooltip under Material and keeps every Crest class", () => {
+  const bubble = /function Bubble[\s\S]*?className=\{`([^`]*)`\}/.exec(window("Item.tsx"));
+  assert.ok(bubble, "no Bubble class string");
+  const classes = bubble[1];
+  for (const c of ["material:rounded-[4px]", "material:shadow-none", "material:ring-0", "material:text-notch"]) assert.ok(classes.includes(c), c);
+  assert.ok(classes.includes('${failed ? "text-red material:bg-red" : "text-label material:bg-label"}'));
+  for (const c of ["rounded-[8px]", "bg-elevated", "shadow-[0_4px_14px_rgb(0_0_0/0.4)]", "ring-1 ring-separator", "px-2 py-1 text-footnote font-medium"]) assert.ok(classes.includes(c), c);
 });
