@@ -391,8 +391,11 @@ export interface UpdateHandle {
 export interface ChangelogEntry {
   version: string;
   date: string;
-  /** `highlight`: shown in bold and bright (e.g. an announcement). Older versions ignore it. */
-  items: { en: string; highlight?: boolean }[];
+  /**
+   * `highlight`: shown in bold and bright (e.g. an announcement). `section`: the line links to that settings section
+   * (a key of `sectionPage`). Older versions ignore both.
+   */
+  items: { en: string; highlight?: boolean; section?: string }[];
 }
 
 /** In the browser, `?update` in the URL fakes an update for testing. */

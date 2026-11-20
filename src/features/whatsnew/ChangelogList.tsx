@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { content } from "../../design/motion";
 import { locale, t } from "../../i18n";
+import { navigate } from "../../notch/nav";
 import type { ChangelogEntry } from "../../platform/services";
 
 /** Versions with their date and items, newest first; `fresh` marks the ones not seen before. Settings and What's new. */
@@ -24,7 +25,16 @@ export function ChangelogList({ entries, fresh }: { entries: ChangelogEntry[]; f
             {e.items.map((item, j) => (
               <li key={j} className={`flex gap-2 text-footnote ${item.highlight ? "font-semibold text-label" : "text-label-2"}`}>
                 <span aria-hidden className={`mt-[7px] size-[3px] shrink-0 rounded-full ${item.highlight ? "bg-primary" : "bg-label-3"}`} />
-                <span>{item.en}</span>
+                {item.section ? (
+                  <button
+                    className="rounded-[4px] text-start text-link outline-none hover:underline focus-visible:ring-1 focus-visible:ring-label-3"
+                    onClick={() => navigate("settings", item.section)}
+                  >
+                    {item.en}
+                  </button>
+                ) : (
+                  <span>{item.en}</span>
+                )}
               </li>
             ))}
           </ul>
