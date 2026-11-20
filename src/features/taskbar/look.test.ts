@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { BarShape } from "./model.ts";
-import { LOOK, barGap, barLook, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, labelRise, magnify, themeVeils } from "./look.ts";
+import { LOOK, barGap, barLook, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, labelRise, magnify, plusShapes, themeVeils } from "./look.ts";
 import { GLASS, liveZone } from "../../notch/glass/params.ts";
 
 test("the surface's veil", () => {
@@ -59,6 +59,15 @@ test("the shapes the glass draws", () => {
   const t = glassShapes("tiles", tiles);
   assert.equal(t.rects.length, LOOK.maxTiles);
   assert.deepEqual(t.plain, tiles.slice(LOOK.maxTiles));
+});
+
+test("Liquid Glass +'s shapes: a docked bar as its real box with only its top bending, the others as Glass draws them", () => {
+  const box = { x: 0, y: 8, w: 1440, h: 44 }, empty = { x: 0, y: 0, w: 0, h: 0 };
+  assert.deepEqual(plusShapes("docked", [box, empty]), { rects: [box], top: true });
+  assert.deepEqual(plusShapes("docked", []), { rects: [], top: true });
+  assert.deepEqual(plusShapes("floating", [box]), { rects: [box], top: false });
+  const tiles = Array.from({ length: 30 }, (_, i) => ({ x: i * 46, y: 8, w: 40, h: 44 }));
+  assert.deepEqual(plusShapes("tiles", tiles), { rects: tiles.slice(0, LOOK.maxTiles), top: false });
 });
 
 test("an empty box (a hidden element's at 0, 0) counts nowhere", () => {

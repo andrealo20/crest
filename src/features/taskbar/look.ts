@@ -91,6 +91,16 @@ export function glassShapes(shape: BarShape, all: Box[]): { rects: Box[]; plain:
   return { rects: boxes, plain: [] };
 }
 
+/**
+ * The rectangles Liquid Glass + draws: as `glassShapes`, but a docked bar is its real box with only its top edge bending (`top`): the
+ * lens reaches across the shape, and the BLEED box's centre would sit 2000 px down.
+ */
+export function plusShapes(shape: BarShape, all: Box[]): { rects: Box[]; top: boolean } {
+  if (shape !== "docked") return { rects: glassShapes(shape, all).rects, top: false };
+  const u = union(all);
+  return { rects: u ? [u] : [], top: true };
+}
+
 /** The zone the bar's live copy needs: the boxes' union with GLASS.zoneMargin around it, physical px at `dpr`, rounded outwards; null without boxes. */
 export function barNeed(boxes: Box[], dpr: number): GlassZone | null {
   const u = union(boxes);
