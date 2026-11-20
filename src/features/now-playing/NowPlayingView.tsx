@@ -8,7 +8,7 @@ import { coverSize } from "./coverSize";
 import { useToolSize } from "../window/panel";
 import { livePosition, media, useNowPlaying, type NowPlaying } from "../../platform/media";
 import { holdOpen } from "../../notch/useNotchState";
-import { isMac } from "../../platform/native";
+import { isMac, noWinApis } from "../../platform/native";
 import { requestExtra } from "../../notch/size";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { findTab } from "../../notch/tabs";
@@ -83,8 +83,8 @@ export function NowPlayingView() {
         <button
           onClick={() => void media.openSource()}
           // Opening the playing app is Windows only.
-          disabled={isMac}
-          title={isMac ? undefined : source ? t("In {app} öffnen", { app: source }) : t("App öffnen")}
+          disabled={noWinApis}
+          title={noWinApis ? undefined : source ? t("In {app} öffnen", { app: source }) : t("App öffnen")}
           className="group/source pressable flex min-w-0 flex-1 items-center gap-3 rounded-[12px] text-start"
         >
           <Artwork np={np} size={cover} />
@@ -181,7 +181,7 @@ function Artwork({ np, size }: { np: NowPlaying; size: number }) {
           transition={{ duration: 0.25 }}
         />
         {/* Hover: hint that a click opens the app. */}
-        {!isMac && (
+        {!noWinApis && (
           <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[12px] bg-black/45 text-label opacity-0 transition-opacity duration-150 group-hover/source:opacity-100">
             <ArrowUpRight size={20} weight="bold" />
           </span>

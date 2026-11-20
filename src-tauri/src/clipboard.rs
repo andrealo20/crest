@@ -34,10 +34,10 @@ use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 use crate::now_ms;
 
 // The Win32 name on a Mac too, so the call sites below are the same on both.
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 #[allow(non_snake_case)]
 unsafe fn GetClipboardSequenceNumber() -> u32 {
-    crate::macos::pasteboard_change_count()
+    crate::native::pasteboard_change_count()
 }
 
 const MAX_ITEMS: usize = 40;
@@ -189,8 +189,8 @@ pub fn clipboard_copy(id: u64, app: AppHandle, state: State<'_, ClipboardState>)
 #[tauri::command]
 pub fn clipboard_paste(id: u64, app: AppHandle, state: State<'_, ClipboardState>) -> Result<bool, String> {
     clipboard_copy(id, app.clone(), state)?;
-    #[cfg(target_os = "macos")]
-    if !crate::macos::may_press_keys() {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    if !crate::native::may_press_keys() {
         return Ok(false);
     }
     let Some(target) = crate::return_keyboard(&app) else { return Ok(false) };
@@ -198,8 +198,8 @@ pub fn clipboard_paste(id: u64, app: AppHandle, state: State<'_, ClipboardState>
     thread::spawn(move || {
         #[cfg(windows)]
         let front = || unsafe { GetForegroundWindow() }.0 as isize;
-        #[cfg(target_os = "macos")]
-        let front = || crate::macos::frontmost_pid() as isize;
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        let front = || crate::native::frontmost_pid() as isize;
         // Pressed only once the app is in front, or the keys would land in whatever is.
         if wait_for(Duration::from_millis(500), || front() == target) {
             press_paste();
@@ -227,8 +227,8 @@ fn press_paste() {
     unsafe { SendInput(&ctrl_v(), std::mem::size_of::<INPUT>() as i32) };
 }
 
-#[cfg(target_os = "macos")]
-use crate::macos::press_paste;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+use crate::native::press_paste;
 
 /// Ctrl+V as four key events. Virtual keys, so the keyboard layout doesn't matter.
 #[cfg(windows)]
@@ -433,17 +433,17 @@ impl PrivateFormats {
 }
 
 /// On a Mac the marks are pasteboard types, read on each change (macos/mod.rs).
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 struct PrivateFormats;
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 impl PrivateFormats {
     fn register() -> Self {
         PrivateFormats
     }
 
     fn is_private(&self) -> Option<bool> {
-        Some(crate::macos::pasteboard_is_private())
+        Some(crate::native::pasteboard_is_private())
     }
 }
 

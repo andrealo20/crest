@@ -4,7 +4,7 @@
 // switch off, also while a status alert is drawn as glass and a little after (Notch.tsx, liveForHud).
 
 import { createStore } from "../../lib/store";
-import { glassLive, isMac, isNative, onGlassLiveStop, onSessionState, type GlassLiveSupport, type GlassZone } from "../../platform/native";
+import { glassLive, noWinApis, isNative, onGlassLiveStop, onSessionState, type GlassLiveSupport, type GlassZone } from "../../platform/native";
 import { settings } from "../../settings/store";
 import { viewZoom } from "../viewZoom";
 import { GLASS, LIVE_SETTLE_MS, liveAccepts, liveMetaOk, liveStep, liveZone, sameZone, zoneHolds, type LiveMeta, type LiveStep } from "./params";
@@ -188,7 +188,7 @@ export function receiveLive(meta: unknown, data: ArrayBuffer) {
 
 /** At start (main.tsx): asks whether the live glass can run, keeps the exclusion with Glass and the switch, listens to Rust. */
 export function startGlassLive() {
-  if (isMac) return;
+  if (noWinApis) return;
   if (!isNative) {
     if (!new URLSearchParams(location.search).has("glassLive")) return;
     void import("../../dev/glassBackdrop").then(({ fakeLive }) => {

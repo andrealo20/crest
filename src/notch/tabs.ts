@@ -76,7 +76,7 @@ import { Robot } from "@phosphor-icons/react";
 import { AgentsView } from "../features/agents/AgentsView";
 import { CalcView } from "../features/calc/CalcView";
 import { pluginTab } from "../features/plugins/tabs";
-import { isMac } from "../platform/native";
+import { noWinApis } from "../platform/native";
 
 /** Tools built on Windows APIs with no Mac version yet (src-tauri/src/macos/); a Mac doesn't list them. */
 const WINDOWS_ONLY = new Set(["shelf", "system", "discord", "vault", "terminal", "launcher", "notices", "capture", "recorder", "camera"]);
@@ -144,7 +144,7 @@ export const tabs: NotchTab[] = ([
   { id: "teleprompter", hue: "amber", label: "Prompter", icon: Scroll, size: { w: 560, h: 340 }, View: TeleprompterView },
   { id: "agents", hue: "indigo", label: "Agents", icon: Robot, size: { w: 560, h: 320 }, View: AgentsView },
   { id: "calc", hue: "indigo", label: "Rechner", icon: Calculator, size: { w: 600, h: 320 }, View: CalcView },
-] satisfies NotchTab[]).filter((t) => !isMac || !WINDOWS_ONLY.has(t.id));
+] satisfies NotchTab[]).filter((t) => !noWinApis || !WINDOWS_ONLY.has(t.id));
 
 /** Settings: reached via the gear, not in the tool bar. */
 export const settingsTab: NotchTab = { id: "settings", label: "Einstellungen", icon: GearSix, size: { w: 660, h: 460 }, View: SettingsView };

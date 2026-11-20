@@ -31,7 +31,7 @@ arboard = { version = "3", features = ["image-data"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp", "ico", "tiff", "dds", "tga"] }
 cpal = "0.18"
 rustfft = "6"
-reqwest = { version = "0.13", default-features = false, features = ["native-tls", "json", "charset"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "charset"] }
 sysinfo = "0.39"
 tokio = { version = "1", features = ["net", "io-util", "sync", "time", "macros"] }
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
@@ -50,6 +50,22 @@ qrcodegen = "1.8"
 aes-gcm = "0.10"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+
+# TLS: the platform stack on Windows/macOS as before; rustls on Linux so no libssl-dev is needed.
+[target.'cfg(any(windows, target_os = "macos"))'.dependencies]
+reqwest = { version = "0.13", default-features = false, features = ["native-tls"] }
+[target.'cfg(not(any(windows, target_os = "macos")))'.dependencies]
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+
+# Linux (src/linux/input.rs): the window's input shape, so hover and clicks reach the notch without polling the pointer.
+# Already in the tree through tauri.
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+# Music (src/linux/media.rs, MPRIS), the saved keys (secrets.rs, Secret Service) and the file pickers (picker.rs, the XDG portal):
+# all talk to the desktop over D-Bus. zbus is already in the tree through tauri.
+zbus = "5"
+secret-service = { version = "5", features = ["rt-async-io-crypto-rust"] }
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "async-std"] }
 
 # macOS (src/macos/): Keychain for the API keys; AppKit for the window level above the menu bar, the frontmost app,
 # the pasteboard and the colour sampler (with block2 for its handler); a Foundation dictionary for the Accessibility

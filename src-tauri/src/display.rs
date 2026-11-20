@@ -367,8 +367,8 @@ pub fn display_raise(app: AppHandle) {
         raise_topmost(&window);
         crate::mirror::raise(&app);
     }
-    #[cfg(target_os = "macos")]
-    crate::macos::raise(&window);
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    crate::native::raise(&window);
 }
 
 /// Puts the window on top of the other topmost windows. `set_always_on_top(true)` does nothing on a window that is already topmost.
@@ -483,10 +483,10 @@ fn sync(app: &AppHandle) {
         let _ = window.show();
         #[cfg(windows)]
         raise_topmost(&window);
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
         {
             let _ = window.set_always_on_top(true);
-            crate::macos::raise(&window);
+            crate::native::raise(&window);
         }
         // Let the click-through state be set again after show() (the poll caches the old one).
         app.state::<HitState>().refresh();

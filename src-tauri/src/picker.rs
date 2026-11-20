@@ -33,6 +33,24 @@ pub async fn pick(what: Pick, _: &WebviewWindow) -> Option<String> {
     (out.status.success() && !path.is_empty()).then_some(path)
 }
 
+/// The same through the file chooser portal (xdg-desktop-portal), which GNOME, KDE and the others each answer with their own
+/// dialog. Nothing answering reads as cancelled, as on the other platforms.
+#[cfg(target_os = "linux")]
+pub async fn pick(what: Pick, _: &WebviewWindow) -> Option<String> {
+    let dialog = rfd::AsyncFileDialog::new();
+    let chosen = match what {
+        Pick::Folder => dialog.pick_folder().await,
+        Pick::File { name, exts, dir } => {
+            let dialog = dialog.add_filter(name, exts);
+            match dir {
+                Some(dir) => dialog.set_directory(dir).pick_file().await,
+                None => dialog.pick_file().await,
+            }
+        }
+    }?;
+    Some(chosen.path().to_string_lossy().into_owned())
+}
+
 /// The Mac picker's script. Built on every platform, so its test runs everywhere.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn applescript(what: Pick) -> String {

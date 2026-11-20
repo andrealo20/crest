@@ -2,7 +2,7 @@ import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { ArrowCounterClockwise, WarningCircle } from "@phosphor-icons/react";
 import { Button, Group, Row, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
 import { formatTime } from "../../lib/format";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { openFile, revealFile } from "../../platform/services";
 import { demo } from "../../dev/showcase-data";
 import { glassShape } from "../../notch/glass/params";
@@ -165,7 +165,7 @@ function ThemeChoice() {
           onChange={(coverTint) => updateSettings((cur) => ({ themes: { ...cur.themes, coverTint } }))}
         />
       </Row>
-      {!isMac && !demo && (
+      {!noWinApis && !demo && (
         <Row
           label={t("Glas")}
           hint={fits ? t("Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas") : t("Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt")}
@@ -173,9 +173,9 @@ function ThemeChoice() {
           <Switch label={t("Glas")} checked={themes.glass} onChange={(glass) => updateSettings((cur) => ({ themes: { ...cur.themes, glass } }))} />
         </Row>
       )}
-      {!isMac && !demo && themes.glass && <GlassLook />}
-      {!isMac && !demo && themes.glass && support?.supported === true && <GlassLive />}
-      {!isMac && !demo && themes.glass && support?.supported === true && <GlassAlerts />}
+      {!noWinApis && !demo && themes.glass && <GlassLook />}
+      {!noWinApis && !demo && themes.glass && support?.supported === true && <GlassLive />}
+      {!noWinApis && !demo && themes.glass && support?.supported === true && <GlassAlerts />}
     </Group>
   );
 }

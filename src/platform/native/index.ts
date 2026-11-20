@@ -26,8 +26,16 @@ export const settingsWindow = {
 /** The app on a Mac, where the tools built on Windows APIs are hidden (src/notch/tabs.ts). */
 export const isMac = isNative && navigator.userAgent.includes("Mac");
 
+/** The app on Linux. Its tools are the Mac's short list for now; each comes back as its Linux version lands (src-tauri/src/linux/). */
+export const isLinux = isNative && /Linux/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent);
+
+/** A desktop without the Windows APIs most tools are built on: they are hidden here (src/notch/tabs.ts). Mac or Linux. */
+export const noWinApis = isMac || isLinux;
+
 /** Reports the hit zone in CSS px relative to the window to Rust (click-through). */
+let lastRect = { x: 0, y: 0, w: 0, h: 0 };
 export function setHitRect(rect: { x: number; y: number; w: number; h: number }) {
+  lastRect = rect;
   if (isNative) void invoke("set_hit_rect", { rect });
 }
 
@@ -48,9 +56,87 @@ export function setPinned(pinned: boolean) {
   if (isNative) void invoke("set_pinned", { pinned });
 }
 
-/** Cursor over the hit zone; comes from the Rust poll instead of DOM events. */
+/** How far inside the hit zone the pointer must be to count as entering it, in px. */
+const ENTER_INSET = 3;
+
+const domHover = new Set<(inside: boolean) => void>();
+const domHoverAt = new Set<(x: number, y: number) => void>();
+
+/**
+ * Linux: the window takes the pointer only over the hit zone (its input shape, src-tauri/src/linux/input.rs), so the
+ * page sees the pointer enter and leave itself. One pair of listeners serves both callbacks below.
+ */
+function listenDom(): () => void {
+  let inside = false;
+  // Pointer events count only after the pointer crossed into the window (GTK's enter, from Rust): WebKit sends the last
+  // position again whenever the page changes under a still pointer, and such an echo of the position the pointer just left
+  // opened the notch again, which then closed, over and over. True at the start: the pointer may already be over the zone.
+  let crossed = true;
+  let last: PointerEvent | null = null;
+  const set = (now: boolean, e?: PointerEvent) => {
+    if (now === inside) return;
+    inside = now;
+    if (now && e) domHoverAt.forEach((h) => h(e.clientX, e.clientY));
+    domHover.forEach((h) => h(now));
+  };
+  const test = (e: PointerEvent) => {
+    const r = lastRect;
+    const m = inside ? -1 : ENTER_INSET;
+    // Entering needs a crossing first; staying or leaving does not.
+    const within = e.clientX >= r.x + m && e.clientX <= r.x + r.w - m && e.clientY >= r.y + m && e.clientY <= r.y + r.h - m;
+    set(within && (inside || crossed), e);
+  };
+  // Inside is decided by where the event is, not by its type. Entering needs the pointer a few px inside the zone and
+  // staying only needs it on the zone: the edge pixels are where late events land.
+  const move = (e: PointerEvent) => {
+    last = e;
+    test(e);
+  };
+  const out = (e: PointerEvent) => {
+    if (!e.relatedTarget) set(false);
+  };
+  const offCrossed = listen("notch://crossed", () => {
+    crossed = true;
+    // The pointer may have stopped on arriving, with no event after the crossing.
+    if (last && !inside && performance.now() - last.timeStamp < 150) test(last);
+  });
+  // The leave comes from Rust too (GTK's leave-notify, src-tauri/src/linux/input.rs): a pointer that stops moving sends no event.
+  const offLeave = listen<boolean>("notch://hover", (e) => {
+    if (e.payload) return;
+    crossed = false;
+    set(false);
+  });
+  document.addEventListener("pointermove", move, true);
+  document.addEventListener("pointerover", move, true);
+  document.addEventListener("pointerout", out, true);
+  return () => {
+    void offLeave.then((f) => f());
+    void offCrossed.then((f) => f());
+    document.removeEventListener("pointermove", move, true);
+    document.removeEventListener("pointerover", move, true);
+    document.removeEventListener("pointerout", out, true);
+  };
+}
+
+let offDom: (() => void) | null = null;
+
+/** Adds a handler to one of the sets, with the listeners running while either has one. */
+function onDom<T>(set: Set<T>, handler: T): () => void {
+  set.add(handler);
+  offDom ??= listenDom();
+  return () => {
+    set.delete(handler);
+    if (!domHover.size && !domHoverAt.size) {
+      offDom?.();
+      offDom = null;
+    }
+  };
+}
+
+/** Cursor over the hit zone; comes from the Rust poll instead of DOM events (on Linux from the DOM, see listenDom). */
 export function onNativeHover(handler: (inside: boolean) => void): () => void {
   if (!isNative) return () => {};
+  if (isLinux) return onDom(domHover, handler);
   const off = listen<boolean>("notch://hover", (e) => handler(e.payload));
   return () => void off.then((f) => f());
 }
@@ -58,6 +144,7 @@ export function onNativeHover(handler: (inside: boolean) => void): () => void {
 /** Where the pointer entered the hit zone, in the page's px; sent just before the hover. */
 export function onNativeHoverAt(handler: (x: number, y: number) => void): () => void {
   if (!isNative) return () => {};
+  if (isLinux) return onDom(domHoverAt, handler);
   const off = listen<[number, number]>("notch://hover-at", (e) => handler(e.payload[0], e.payload[1]));
   return () => void off.then((f) => f());
 }

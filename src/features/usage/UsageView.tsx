@@ -8,7 +8,7 @@ import { navigate } from "../../notch/nav";
 import { requestSize } from "../../notch/size";
 import { findTab } from "../../notch/tabs";
 import type { UsageBalance, UsageId, UsageProvider, UsageWindow } from "../../platform/services";
-import { isMac, isNative } from "../../platform/native";
+import { noWinApis, isNative } from "../../platform/native";
 import { settings } from "../../settings/store";
 import { runInTerminal } from "../terminal/session";
 import { BrandLogo, brandName } from "../../ui/brands";
@@ -92,7 +92,7 @@ export function UsageView() {
   useUsageViewer();
   const s = settings.use();
   // Crest's terminal: Windows only, and only while the tool is in the tool bar.
-  const terminalShown = isNative && !isMac && s.tools.some((x) => x.id === "terminal" && x.enabled);
+  const terminalShown = isNative && !noWinApis && s.tools.some((x) => x.id === "terminal" && x.enabled);
   const ids = shownIds(s.aiUsage.order, s.usage);
   const { providers, loading, updatedAt } = usage.use();
   const [page, setPage] = useState<"cards" | "models">("cards");

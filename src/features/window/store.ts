@@ -1,7 +1,7 @@
 import { askNotch } from "../../lib/tauriTransport";
 import { isNotchWindow } from "../../lib/windowKind";
 import { createStore } from "../../lib/store";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { windowShell, type HotkeyState, type ScreenBehavior } from "../../platform/services";
 import { settings, updateSettings, type Settings } from "../../settings/store";
 import { conflicts, label, launcherKeys, normalize, toolConflicts, type HotkeyKind } from "./hotkeys";
@@ -45,7 +45,7 @@ export function takenByLauncher(s: Settings = settings.get()): string[] {
 
 /** Crest's shortcuts as they can be registered: Find on screen reads the screens with Windows' OCR and has no Mac version yet. */
 export function usableHotkeys(s: Settings = settings.get()): Record<HotkeyKind, string> {
-  return isMac ? { ...s.behavior.hotkeys, find: "" } : s.behavior.hotkeys;
+  return noWinApis ? { ...s.behavior.hotkeys, find: "" } : s.behavior.hotkeys;
 }
 
 /** The tools' own shortcuts that can work now, `[tool id, shortcut]`: tools that are on, in dock order. */
@@ -97,8 +97,8 @@ export function startCrashLog() {
   // Only the first line: a rejected value can carry a whole response body.
   window.addEventListener("unhandledrejection", (e) => {
     const reason = String(e.reason).split("\n")[0];
-    // A Mac has no handler for the Windows-only commands, which some stores call at start: expected, not worth a crash.log line.
-    if (isMac && /^Command \S+ not found$/.test(reason)) return;
+    // A Mac or Linux has no handler for the Windows-only commands, which some stores call at start: expected, not worth a crash.log line.
+    if (noWinApis && /^Command \S+ not found$/.test(reason)) return;
     log(`unhandled rejection: ${reason}`);
   });
 }

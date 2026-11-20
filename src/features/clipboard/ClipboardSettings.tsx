@@ -1,5 +1,5 @@
 import { settings, updateSettings } from "../../settings/store";
-import { isMac } from "../../platform/native";
+import { isMac, isLinux } from "../../platform/native";
 import { Group, Row, Switch } from "../../ui/controls";
 import { t } from "../../i18n";
 
@@ -14,16 +14,19 @@ export function ClipboardSettings() {
       >
         <Switch label={t("Chips zum Dekodieren")} checked={s.clipChips !== false} onChange={(clipChips) => updateSettings({ clipChips })} />
       </Row>
-      <Row
-        label={t("Direkt einfügen")}
-        hint={
-          isMac
-            ? t("Ein Klick auf einen Eintrag kopiert ihn und fügt ihn in die App ein, die vor dem Öffnen der Notch vorne war. Dafür braucht Crest die Freigabe unter Datenschutz & Sicherheit → Bedienungshilfen.")
-            : t("Ein Klick auf einen Eintrag kopiert ihn und fügt ihn in die App ein, die vor dem Öffnen der Notch vorne war, wie Win + V.")
-        }
-      >
-        <Switch label={t("Direkt einfügen")} checked={s.clipPaste === true} onChange={(clipPaste) => updateSettings({ clipPaste })} />
-      </Row>
+      {/* Linux can't press keys in another app, so a click only copies. */}
+      {!isLinux && (
+        <Row
+          label={t("Direkt einfügen")}
+          hint={
+            isMac
+              ? t("Ein Klick auf einen Eintrag kopiert ihn und fügt ihn in die App ein, die vor dem Öffnen der Notch vorne war. Dafür braucht Crest die Freigabe unter Datenschutz & Sicherheit → Bedienungshilfen.")
+              : t("Ein Klick auf einen Eintrag kopiert ihn und fügt ihn in die App ein, die vor dem Öffnen der Notch vorne war, wie Win + V.")
+          }
+        >
+          <Switch label={t("Direkt einfügen")} checked={s.clipPaste === true} onChange={(clipPaste) => updateSettings({ clipPaste })} />
+        </Row>
+      )}
     </Group>
   );
 }

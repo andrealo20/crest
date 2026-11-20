@@ -2,6 +2,7 @@ import { askNotch } from "./tauriTransport";
 import { isNotchWindow } from "./windowKind";
 import { createStore } from "./store";
 import { settings } from "../settings/store";
+import { isLinux } from "../platform/native";
 import { build, fetchChangelog, updater, type ChangelogEntry, type UpdateHandle } from "../platform/services";
 
 /*
@@ -23,9 +24,11 @@ export const update = createStore<{
   notes: ChangelogEntry[] | null;
   /** The Microsoft Store build: the Store updates it, so there is nothing to check here. */
   store: boolean;
+  /** Something else updates it: the Store, or on Linux the package manager or whatever built it (latest.json has no Linux entry). */
+  external: boolean;
   /** The last download or install failed; the update stays on offer. */
   installFailed: boolean;
-}>({ current: null, phase: "idle", version: null, progress: 0, checkedAt: null, notes: null, store: false, installFailed: false });
+}>({ current: null, phase: "idle", version: null, progress: 0, checkedAt: null, notes: null, store: false, external: isLinux, installFailed: false });
 
 let found: UpdateHandle | null = null;
 
@@ -33,7 +36,7 @@ export async function checkForUpdate() {
   // The notch keeps what it found, to install it later: the settings window asks it.
   if (!isNotchWindow) return askNotch({ kind: "checkUpdate" });
   // Store policy: the Store build never looks for updates anywhere else, not even on the automatic check.
-  if ((await build.info()).store) return;
+  if (isLinux || (await build.info()).store) return;
   const phase = update.get().phase;
   if (phase === "checking" || phase === "downloading") return;
   update.set((s) => ({ ...s, phase: "checking" }));
@@ -69,7 +72,7 @@ const EVERY = 4 * 60 * 60 * 1000;
 /** On start (slightly delayed to keep startup fast) and every 4 hours after that, if allowed. */
 export function startUpdateWatch() {
   void updater.current().then((current) => update.set((s) => ({ ...s, current })));
-  void build.info().then(({ store }) => update.set((s) => ({ ...s, store })));
+  void build.info().then(({ store }) => update.set((s) => ({ ...s, store, external: store || isLinux })));
   const auto = () => settings.get().updates.auto && void checkForUpdate();
   setTimeout(auto, 15_000);
   setInterval(auto, EVERY);

@@ -3,7 +3,7 @@ import { isNotchWindow } from "../lib/windowKind";
 import { invoke } from "@tauri-apps/api/core";
 import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { isMac, isNative } from "./native";
+import { noWinApis, isNative } from "./native";
 import type { BluetoothEvent, DisplayEvent, FocusEvent, LevelEvent, LockEvent, MicEvent, ModeEvent, OutputEvent, PowerState } from "../notch/row/status";
 import type { LaunchPlan, ShellInfo } from "../features/terminal/shell";
 import type { TokenReport } from "../features/usage/tokens";
@@ -536,7 +536,7 @@ export const display = {
    * taking the focus or the pointer; false hides it again. Nothing happens while the window shows anyway.
    */
   alert: (on: boolean) => {
-    if (isNative && !isMac) void invoke("display_alert", { on }).catch(() => {});
+    if (isNative && !noWinApis) void invoke("display_alert", { on }).catch(() => {});
   },
   /** true while an app covers the notch's monitor in fullscreen. */
   onFullscreen: (handler: (on: boolean) => void): (() => void) => {
@@ -1406,13 +1406,13 @@ export const noticeSource = {
    * Turns Windows' own banners off (or back on) for these apps; their notices still reach Crest (banners.rs).
    * Rejects with "settings" in the Store build, which opened Windows' notification settings instead.
    */
-  banners: (hide: boolean, apps: string[]): Promise<void> => (isNative && !isMac ? invoke("notices_banners", { hide, apps }) : Promise.resolve()),
+  banners: (hide: boolean, apps: string[]): Promise<void> => (isNative && !noWinApis ? invoke("notices_banners", { hide, apps }) : Promise.resolve()),
   /** Windows' own notification sound off for these apps while Crest plays its own (banners.rs); rejects in the Store build. */
-  sounds: (mute: boolean, apps: string[]): Promise<void> => (isNative && !isMac ? invoke("notices_sounds", { mute, apps }) : Promise.resolve()),
+  sounds: (mute: boolean, apps: string[]): Promise<void> => (isNative && !noWinApis ? invoke("notices_sounds", { mute, apps }) : Promise.resolve()),
   /** Asks for a sound file and keeps a copy in Crest's data folder; its name, or null when cancelled. Rejects with "format" or "size". */
-  pickSound: (): Promise<string | null> => (isNative && !isMac ? invoke<string | null>("notices_sound_pick") : Promise.resolve(null)),
+  pickSound: (): Promise<string | null> => (isNative && !noWinApis ? invoke<string | null>("notices_sound_pick") : Promise.resolve(null)),
   /** The kept sound file's bytes; rejects with "none" when there is no copy. */
-  readSound: (): Promise<ArrayBuffer> => (isNative && !isMac ? invoke<ArrayBuffer>("notices_sound_read") : Promise.reject(new Error("none"))),
+  readSound: (): Promise<ArrayBuffer> => (isNative && !noWinApis ? invoke<ArrayBuffer>("notices_sound_read") : Promise.reject(new Error("none"))),
   /** Opens the app a Windows notice came from, on its start page; false when Windows has no app by that id (a system notification, a tray icon's balloon). */
   openApp: (appId: string): Promise<boolean> => (isNative ? invoke("notices_open_app", { appId }).then(() => true, () => false) : Promise.resolve(true)),
   /** A notice's one-time code on the clipboard, kept out of every clipboard history and emptied after 30 s unless something else was copied (the Vault's way). The browser has only the plain clipboard. */
@@ -1527,7 +1527,7 @@ const demoPlugins = (() => {
 
 /** Install, list and remove plugins, and run what their pages ask for (src/features/plugins/PluginView.tsx). */
 export const pluginApi = {
-  list: (): Promise<PluginManifest[]> => (isMac ? Promise.resolve([]) : isNative ? invoke<PluginManifest[]>("plugins_list") : demo ? demoPlugins.list() : Promise.resolve([])),
+  list: (): Promise<PluginManifest[]> => (noWinApis ? Promise.resolve([]) : isNative ? invoke<PluginManifest[]>("plugins_list") : demo ? demoPlugins.list() : Promise.resolve([])),
   /** The system's folder or .zip picker; null when cancelled. */
   pick: (zip: boolean): Promise<string | null> => (isNative ? invoke<string | null>("plugins_pick", { zip }) : demo ? demoPlugins.pick() : Promise.resolve(null)),
   stage: (path: string): Promise<StagedPlugin> => (isNative ? invoke<StagedPlugin>("plugins_stage", { path }) : demo ? demoPlugins.stage() : notInBrowser()),

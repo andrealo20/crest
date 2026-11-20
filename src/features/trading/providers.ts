@@ -1,4 +1,4 @@
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import type { SecretName } from "../../platform/services";
 
 /*
@@ -83,6 +83,6 @@ const all: ProviderInfo[] = [
   },
 ];
 
-export const providers = all.filter((p) => !(isMac && p.id === "coinbase"));
+export const providers = all.filter((p) => !(noWinApis && p.id === "coinbase"));
 
 export const providerName = (id: string): string => (id === "manual" ? "Manuell" : (all.find((p) => p.id === id)?.name ?? id));

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLineUp, Plus, X } from "@phosphor-icons/react";
-import { isMac } from "../../platform/native";
+import { isMac, noWinApis } from "../../platform/native";
 import { windowShell, type HotkeyState, type RunningApp } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { tabs, settingsTab, findTab, type NotchTab } from "../../notch/tabs";
@@ -32,7 +32,7 @@ export function WindowSettings() {
   return (
     <>
       <Rules />
-      {!isMac && <AppRules />}
+      {!noWinApis && <AppRules />}
       <Shortcuts />
       <Panel />
       <Mouse />
@@ -45,9 +45,9 @@ function Rules() {
   const r = s.behavior.rules;
   const gaming = s.gaming.mode !== "off";
   return (
-    <Group title={isMac ? undefined : t("Wenn ein Fenster den Bildschirm füllt")} id="settings-window">
+    <Group title={noWinApis ? undefined : t("Wenn ein Fenster den Bildschirm füllt")} id="settings-window">
       {/* The window watcher behind the rules is Windows only. */}
-      {!isMac && (
+      {!noWinApis && (
         <>
           {CONTEXTS.map((c) => (
             <Row key={c} label={t(contextLabel[c])} hint={gaming && c !== "maximized" ? t("Der Gaming-Modus hält Crest hier sichtbar") : t(contextHint[c])}>
@@ -192,7 +192,7 @@ function Shortcuts() {
       <HotkeyRow kind="open" />
       <HotkeyRow kind="hide" />
       <HotkeyRow kind="resize" />
-      {!isMac && <HotkeyRow kind="find" />}
+      {!noWinApis && <HotkeyRow kind="find" />}
       <HotkeyRow kind="mic" />
       <ToolHotkeys />
     </Group>

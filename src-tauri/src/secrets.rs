@@ -94,6 +94,22 @@ fn delete_target(target: &str) {
     let _ = security_framework::passwords::delete_generic_password(SERVICE, target);
 }
 
+// Linux: the desktop's secret store (GNOME Keyring, KWallet, KeePassXC), through the Secret Service.
+#[cfg(target_os = "linux")]
+fn read_target(target: &str) -> Option<String> {
+    crate::linux::secrets::read(target)
+}
+
+#[cfg(target_os = "linux")]
+fn write_target(target: &str, value: &str) -> Result<(), String> {
+    crate::linux::secrets::write(target, value)
+}
+
+#[cfg(target_os = "linux")]
+fn delete_target(target: &str) {
+    crate::linux::secrets::delete(target)
+}
+
 pub fn read(name: &str) -> Option<String> {
     read_target(&target_name(name).ok()?)
 }

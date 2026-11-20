@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { CaretDown, Check, Coffee, Eye, EyeSlash, Headphones, Moon, MusicNoteSimple, SkipForward, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleHigh, SpeakerSimpleSlash, Sun, SunDim, Timer } from "@phosphor-icons/react";
 import { DiscordLogo } from "../../ui/brands";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { content, springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
@@ -53,7 +53,7 @@ export function OverviewView() {
   const [outputsOpen, setOutputsOpen] = useState(false);
   const loadOutputs = () => void systemControls.outputs().then(setOutputs).catch(() => setOutputs([]));
   useEffect(() => {
-    if (!isMac) loadOutputs();
+    if (!noWinApis) loadOutputs();
   }, []);
   const choice = outputs.length > 1;
   const listOpen = outputsOpen && choice;
@@ -116,7 +116,7 @@ export function OverviewView() {
       <Header />
       <Activity />
       {/* Focus, keep awake and volume have no backend on a Mac yet. */}
-      {!isMac && (
+      {!noWinApis && (
         <div className="flex gap-2">
           <FocusTile />
           <AwakeTile />
