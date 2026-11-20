@@ -102,8 +102,8 @@ export const content: Record<"enter" | "exit", Transition> = {
  */
 export const card: Transition = {
   opacity: { duration: 0.25 * slow, delay: 0.08 * slow },
-  // Stiffness 420, damping 26.
-  transform: { ...physics(0.2555, 0.3657), delay: 0.08 * slow },
+  // CARD_IN's own spring, written out so reduced motion leaves it as Crest always drew it.
+  transform: { type: "spring", stiffness: 420, damping: 26, mass: 1, delay: 0.08 * slow },
 };
 
 /** "Wrong" (PIN): a short, damped side-to-side shake like the macOS login field. */

@@ -23,7 +23,7 @@ test("the Style rewrites the motion presets in place, and Crest's come back key 
   // Motion drops a root delay for a value with a transition of its own.
   const { opacity, transform } = card as Record<"opacity" | "transform", Record<string, number>>;
   assert.deepEqual(opacity, { duration: 0.25, delay: 0.08 });
-  assert.ok(Math.abs(transform.stiffness - 420) < 0.05 && Math.abs(transform.damping - 26) < 0.01 && transform.delay === 0.08);
+  assert.deepEqual(transform, { type: "spring", stiffness: 420, damping: 26, mass: 1, delay: 0.08 });
 
   setMotionDesign("material");
   assert.deepEqual(springs, {
