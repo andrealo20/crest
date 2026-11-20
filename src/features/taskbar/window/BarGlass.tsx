@@ -103,8 +103,8 @@ export function BarGlass(props: Props) {
   const now = useRef({ ...props, reduced });
   now.current = { ...props, reduced };
   const redraw = useRef(() => {});
-  // A new look links its own program, so the canvas is set up again, as for a slide (the same canvas gives back the same context, and
-  // `stop` loses it only once the canvas is gone).
+  // Liquid Glass + links its own program, so turning it on or off sets the canvas up again, as for a slide (the same canvas gives back
+  // the same context, and `stop` loses it only once the canvas is gone). Crest's and Material's Glass share one, and keep it.
   useLayoutEffect(() => {
     const g = startBarGlass(canvas.current!, now);
     redraw.current = g.redraw;
@@ -112,7 +112,7 @@ export function BarGlass(props: Props) {
       redraw.current = () => {};
       g.stop();
     };
-  }, [props.look]);
+  }, [props.look === "plus"]);
   const { shape, boxes, radius, veil, dark, look } = props;
   // A new look's first paint finds no copy and clears, so the old look's last frame goes at once.
   useLayoutEffect(() => redraw.current(), [shape, boxes, radius, veil, dark, reduced, dpr, look]);

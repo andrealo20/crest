@@ -30,8 +30,11 @@ test("every uniform Liquid Glass + declares is set by the bar's paint with the c
     assert.ok(own.includes(`gl.${call}`), call);
 });
 
-test("Glass keeps its program: only Liquid Glass + links the new one, the look sets the canvas up again and clears the old look's last frame", () => {
+test("only Liquid Glass + picks another program, so switching between Crest's and Material's Glass keeps the renderer and its frame", () => {
+  const setup = /const g = startBarGlass\([\s\S]*?\}, \[(.*?)\]\);/.exec(paint);
+  assert.ok(setup, "no renderer setup effect");
+  assert.equal(setup[1], 'props.look === "plus"');
   assert.match(paint, /program\(gl, look === "plus" \? BAR_PLUS_FS : BAR_FS\)/);
-  assert.match(paint, /\}, \[props\.look\]\);/);
+  // The radius still changes with the look, and a new look's first paint clears the old one's last frame.
   assert.match(paint, /\[shape, boxes, radius, veil, dark, reduced, dpr, look\]\);/);
 });
