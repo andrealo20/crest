@@ -15,6 +15,7 @@ import { popover, springs } from "../design/motion";
 import { t } from "../i18n";
 import { MENU_PANEL_CLASS, MENU_ROW_CLASS } from "./menu";
 import { filledPress } from "./press";
+import { GROUP_IN } from "./cascade";
 import { arrowStep } from "./radioKeys";
 import { sliderKey } from "./sliderKey";
 
@@ -227,12 +228,21 @@ export function Row({
   children?: ReactNode;
 }) {
   return (
-    <div data-row className="flex min-h-9 items-center justify-between gap-3 px-3 py-1.5">
-      <div className="min-w-0">
-        <div data-row-label className="truncate text-body text-label">{label}</div>
-        {hint && <div data-row-hint className="text-caption text-label-3 [overflow-wrap:anywhere]">{hint}</div>}
+    <div
+      data-row
+      className="flex min-h-9 items-center justify-between gap-3 px-3 py-1.5 roomy:min-h-12 roomy:flex-wrap roomy:gap-x-3 roomy:gap-y-1 roomy:rounded-[16px] roomy:px-[14px] roomy:py-2"
+    >
+      <div className="min-w-0 roomy:grow roomy:basis-auto">
+        <div data-row-label className="truncate text-body text-label roomy:line-clamp-2 roomy:whitespace-normal">{label}</div>
+        {/* Width 0 keeps the hint out of the label's own width, so only the label decides when the control drops below it. */}
+        {hint && (
+          <div data-row-hint className="text-caption text-label-3 [overflow-wrap:anywhere] roomy:mt-0.5 roomy:w-0 roomy:min-w-full roomy:text-label-2">
+            {hint}
+          </div>
+        )}
       </div>
-      {children}
+      {/* No box in Crest; in roomy it wraps under the label when the two do not fit side by side. */}
+      <div className="contents roomy:ms-auto roomy:flex roomy:shrink-0 roomy:items-center roomy:ps-1 roomy:empty:hidden">{children}</div>
     </div>
   );
 }
@@ -248,16 +258,17 @@ export function Group({
   id?: string;
 }) {
   return (
-    <section id={id} className="scroll-mt-2">
+    // Only animates when a parent gives the variant labels: never in Crest or in the search's hidden index.
+    <motion.section id={id} variants={GROUP_IN} className="scroll-mt-2 roomy:rounded-[24px] roomy:bg-fill-1 roomy:p-2">
       {title && (
-        <h3 className="mb-1 px-3 text-caption font-medium tracking-wide text-label-3 uppercase">
+        <h3 className="mb-1 px-3 text-caption font-medium tracking-wide text-label-3 uppercase roomy:mb-0 roomy:px-[14px] roomy:pt-[10px] roomy:pb-[6px] roomy:text-body roomy:font-semibold roomy:tracking-normal roomy:text-primary roomy:normal-case">
           {title}
         </h3>
       )}
-      <div className="divide-y divide-separator overflow-hidden rounded-[12px] bg-fill-1">
+      <div className="divide-y divide-separator overflow-hidden rounded-[12px] bg-fill-1 roomy:flex roomy:flex-col roomy:gap-0.5 roomy:divide-y-0 roomy:overflow-visible roomy:rounded-none roomy:bg-transparent">
         {children}
       </div>
-    </section>
+    </motion.section>
   );
 }
 
