@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  EDGES, EDGE_HYSTERESIS, anchorAt, applyLinear, deltaFromScreen, edgeLine, frameCss, frameFor, fromScreen, hasTaskbar, linear, nearestEdge, normalizeDock,
+  EDGES, EDGE_HYSTERESIS, anchorAt, applyLinear, deltaFromScreen, dockBesideBar, edgeLine, frameCss, frameFor, fromScreen, hasTaskbar, linear, nearestEdge, normalizeDock,
   pointToScreen, pointerIn, toScreen, upright, uprightCss, windowSize, type Work,
 } from "./edge.ts";
 
@@ -88,6 +88,15 @@ test("nearest edge with hysteresis", () => {
   assert.equal(nearestEdge(Number.NaN, 20, W, H, "right"), "right");
 });
 
+test("with Crest's bar on, a pointer nearest to the bottom leaves a dragged notch on its edge", () => {
+  assert.equal(nearestEdge(960, H - 10, W, H, "top", "bottom"), "top");
+  assert.equal(nearestEdge(960, H - 10, W, H, "right", "bottom"), "right");
+  // Nearer to the left edge than to the bottom: the left edge, as without the bar.
+  assert.equal(nearestEdge(50, H - 80, W, H, "top", "bottom"), "left");
+  // Without the bar, the bottom as before.
+  assert.equal(nearestEdge(960, H - 10, W, H, "top"), "bottom");
+});
+
 test("taskbar and anchor while dragging", () => {
   assert.equal(hasTaskbar("bottom", W, H, bottomBar), true);
   assert.equal(hasTaskbar("top", W, H, bottomBar), false);
@@ -106,6 +115,14 @@ test("saved dock: valid values kept, anything else falls back", () => {
   assert.deepEqual(normalizeDock({ edge: "left", anchor: "screen" }), { edge: "left", anchor: "screen" });
   assert.deepEqual(normalizeDock({ edge: "middle", anchor: 3 }), { edge: "top", anchor: "auto" });
   assert.deepEqual(normalizeDock([1, 2]), { edge: "top", anchor: "auto" });
+});
+
+test("with Crest's bar on, a dock on the bottom edge moves to the top with its default anchor, any other stays", () => {
+  assert.deepEqual(dockBesideBar({ edge: "bottom", anchor: "screen" }, true), { edge: "top", anchor: "auto" });
+  assert.deepEqual(dockBesideBar({ edge: "bottom", anchor: "taskbar" }, false), { edge: "bottom", anchor: "taskbar" });
+  assert.deepEqual(dockBesideBar({ edge: "top", anchor: "taskbar" }, true), { edge: "top", anchor: "taskbar" });
+  const left = { edge: "left", anchor: "screen" } as const;
+  assert.equal(dockBesideBar(left, true), left); // the very object: nothing new to save
 });
 
 test("pointer in a hanging rectangle: depth from the edge side, along from the centre", () => {

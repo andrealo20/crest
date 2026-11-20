@@ -57,7 +57,6 @@ import { activeTheme, forcedColors, refreshTheme, useClosedGlassInk, useClosedIn
 import { useHue, useIconColors, type Hue } from "../features/themes/hues";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
-import { barPanels } from "../features/taskbar/barPanels";
 import { viewMetrics, viewZoom } from "./viewZoom";
 import { CoverBackdrop, coverBackdrop } from "../features/now-playing/CoverBackdrop";
 import { darkInk } from "../features/themes/store";
@@ -338,19 +337,13 @@ export function Notch() {
     };
   }, [dismiss]);
 
-  // A closed notch on the bottom edge sits on the bar and above it: it would cover the lower edge of a panel the bar opens and open under a
-  // pointer on its way there. While a bar's panel is open it steps aside, faded out, click-through and without hover. Each store hook runs
-  // on every render, as for `urgent` above.
-  const barPanelOpen = Object.keys(barPanels.use()).length > 0;
-  const stepAside = edge === "bottom" && status !== "open" && barPanelOpen;
   // Hover stays off in focus mode (a card there takes the pointer, see below), while a question waits, or the card would vanish under the
   // pointer, and while a Windows notice shows: a click on its card opens its app (issue #34), and the panel opening on the way there would
   // take the card away first. Open, the enter still has to run: it cancels the close timer a leave started.
-  const hoverOff = editing || focus || stepAside || ((asking || pop?.source === "windows") && status !== "open");
+  const hoverOff = editing || focus || ((asking || pop?.source === "windows") && status !== "open");
   useNativeBridge(hitRef, topValue, hoverOff ? NOOP : onPointerEnter, onPointerLeave, edge);
   // Focus mode is click-through, except while a card with buttons shows (a question, a finished timer, a reminder, the recording): its buttons need the pointer.
-  // Stepped aside it is click-through even while a card shows, since the card fades out with the rest.
-  useEffect(() => setPassthrough((focus && !noticeTime) || stepAside), [focus, noticeTime, stepAside]);
+  useEffect(() => setPassthrough(focus && !noticeTime), [focus, noticeTime]);
   // Starting the resize mode from the settings closes the panel onto the closed shape it changes.
   useEffect(() => {
     if (editing) close();
@@ -569,7 +562,7 @@ export function Notch() {
       // In the browser the notch moves inside the window; natively the whole window moves (display.rs).
       style={{
         ["--accent" as string]: accent,
-        opacity: stepAside ? 0 : focus && !line ? 0.5 : 1,
+        opacity: focus && !line ? 0.5 : 1,
         transform: frame ? [frame, slide].filter(Boolean).join(" ") : slide,
         ...(frame && { right: "auto", width: isNative ? windowLength(drag.dock) : side ? viewH : viewW, transformOrigin: "0 0" }),
         // In the browser the layer stands in for the window Rust zooms natively.

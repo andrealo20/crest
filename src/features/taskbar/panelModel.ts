@@ -33,7 +33,7 @@ export const opensInBar = (c: PanelContent) => c.kind !== "tool" || BAR_TOOLS.in
 
 /**
  * The notch's record of what each bar's panel shows, by the bar window's label, after a `bar://panel` event (`taskbar_panel`,
- * src-tauri/src/taskbar/panel.rs): `open` is "tray", "apps", "quick" or a tool's id, null once the panel closes. Another window could emit the event
+ * src-tauri/src/taskbar/panel.rs): `open` is the tool's id, null once the panel closes or shows no tool. Another window could emit the event
  * by mistake, so the label is only a key, and a payload of another shape leaves the record as it is, the very same object.
  */
 export function withPanel(state: Record<string, string>, payload: unknown): Record<string, string> {

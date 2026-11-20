@@ -199,8 +199,8 @@ pub(super) fn build(app: &AppHandle, label: &str, on_destroyed: impl Fn() + Send
             on_destroyed();
             forget_slid(&label);
             crate::capture::glass_live::forget(&handle, &label);
-            // A bar destroyed with its panel open never reports the close: the notch would keep running what that panel needed
-            // and, docked at the bottom, keep stepping aside for a panel that is gone. The payload is `taskbar_panel`'s (panel.rs).
+            // A bar destroyed with its panel open never reports the close: the notch would keep running what that panel's tool
+            // needed. The payload is `taskbar_panel`'s (panel.rs).
             let _ = handle.emit_to("notch", "bar://panel", serde_json::json!({ "label": label, "open": null }));
         }
         _ => {}
@@ -344,8 +344,9 @@ pub(super) fn put(window: &WebviewWindow, monitor: &tauri::Monitor) {
     }
 }
 
-/// The work area has changed (the taskbar thread, mod.rs): the bars and a notch on the bottom edge move now, not at the
-/// mirror's check up to a second later. Posted to the main thread, which that thread never waits on.
+/// The work area has changed (the taskbar thread, mod.rs): the bars move now, and the notch reads the monitors again (an
+/// edge's taskbar line, the capsule's work area, the copies on other monitors), not at the mirror's check up to a second
+/// later. Posted to the main thread, which that thread never waits on.
 pub(super) fn work_area_changed(app: &AppHandle) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {

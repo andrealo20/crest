@@ -7,11 +7,10 @@ import { BAR_TOOLS, withPanel } from "./panelModel";
 
 /*
  * The notch's side of the bars' panels. A tool open in a bar needs what only the notch does for it (its polls and fetches, the Rust
- * switches only the notch turns on), and the closed notch on the bottom edge steps aside for a bar's panel (Notch.tsx): both read
- * what each bar's panel shows from here.
+ * switches only the notch turns on): it reads the tool each bar's panel shows from here.
  */
 
-/** In the notch's window: what each bar's panel shows ("tray", "apps" or a tool's id) by the bar window's label; a closed panel has no entry. */
+/** In the notch's window: the tool each bar's panel shows, by the bar window's label; a panel closed or showing no tool has no entry. */
 export const barPanels = createStore<Record<string, string>>({});
 
 /** Any bar's panel shows the tool `id`. */
