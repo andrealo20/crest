@@ -244,6 +244,17 @@ body {
   [data-design="material"] .m3-morph:active:not(:disabled) > .m3-tone {
     border-radius: var(--m3-pressed-radius, 8px);
   }
+
+  /* A dragged row's state layer. The rows are already relative and never .pressable, so their ::after is free. */
+  [data-design="material"] .m3-dragged::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: currentColor;
+    opacity: 0.16;
+    pointer-events: none;
+  }
 }
 
 /* Material's focus ring, unlayered so it replaces the ring utilities, in primary: a role no resolver writes would void the outline. */

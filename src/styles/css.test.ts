@@ -107,3 +107,12 @@ test("the Dock's buttons stay out of the state layer, since the drop is their ho
   assert.ok(layered.length >= 5, "no state layer rules");
   for (const r of layered) assert.ok(r.selector.includes(":not([data-tool])"), `${r.selector} reaches the Dock`);
 });
+
+test("a dragged row's state layer sits in the components layer, only under Material, at 16 %", () => {
+  const dragged = rules(css).filter((r) => r.selector.includes(".m3-dragged"));
+  assert.deepEqual(dragged.map((r) => r.selector), ['[data-design="material"] .m3-dragged::after']);
+  const [r] = dragged;
+  assert.ok(r.parents.includes(LAYER), `${r.selector} is outside ${LAYER}`);
+  assert.match(r.body, /background\s*:\s*currentColor\s*;/);
+  assert.match(r.body, /opacity\s*:\s*0\.16\s*;/);
+});

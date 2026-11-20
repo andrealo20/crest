@@ -1282,7 +1282,7 @@ function ClosedParts() {
               onDragEnd={() => setDragging(null)}
               whileDrag={{ scale: 1.02 }}
               className={`group relative flex h-9 cursor-grab items-center gap-2.5 px-3 active:cursor-grabbing ${
-                dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
+                dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)] material:shadow-level4 m3-dragged" : ""
               }`}
             >
               <DotsSixVertical size={13} weight="bold" className="-ms-1 text-label-4 transition-colors group-hover:text-label-3" />
@@ -1578,7 +1578,7 @@ function Tools() {
               onDragEnd={() => setDragging(null)}
               whileDrag={{ scale: 1.02 }}
               className={`group relative flex h-9 cursor-grab items-center gap-2.5 px-3 active:cursor-grabbing ${
-                dragging === tool.id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
+                dragging === tool.id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)] material:shadow-level4 m3-dragged" : ""
               }`}
             >
               <DotsSixVertical size={13} weight="bold" className="-ms-1 text-label-4 transition-colors group-hover:text-label-3" />
