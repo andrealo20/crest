@@ -63,3 +63,12 @@ test("the name bubble turns into an M3 tooltip under Material and keeps every Cr
   assert.ok(classes.includes('${failed ? "text-red material:bg-red" : "text-label material:bg-label"}'));
   for (const c of ["rounded-[8px]", "bg-elevated", "shadow-[0_4px_14px_rgb(0_0_0/0.4)]", "ring-1 ring-separator", "px-2 py-1 text-footnote font-medium"]) assert.ok(classes.includes(c), c);
 });
+
+test("under Liquid Glass + a tile keeps its glass: the pill and the state layer are the centred M3 indicator, not the whole tile", () => {
+  assert.match(window("Item.tsx"), /itemLayer\(\{ size: props\.size, width: props\.width \?\? props\.size \+ 16, layer: props\.layer, tile: props\.plus \? undefined : props\.tile \}\)/);
+  assert.deepEqual(itemLayer({ size: 24, width: 40, tile: undefined }), { left: 0, right: 0, top: "50%", height: 32, marginTop: -16, borderRadius: 16 });
+  // Every item takes it from the bar's common props: the apps, the tray, Stato, the widgets and the tools.
+  assert.match(window("TaskbarWindow.tsx"), /const item = \(key: string, name: string\) => \(\{[^}]*plus: look\.look === "plus",/);
+  assert.match(window("Tray.tsx"), /Pick<ItemProps, [^>]*"plus"/);
+  assert.match(window("Widget.tsx"), /Pick<ItemProps, [^>]*"plus"/);
+});

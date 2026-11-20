@@ -44,10 +44,12 @@ export function Item(props: {
   onPointerDown?: PointerEventHandler<HTMLButtonElement>;
   /** Under Material, the height of the pill and the state layer off Tiles, when the item draws a pill of its own (Stato). */
   layer?: number;
+  /** Liquid Glass + owns the bar's surface: a tile keeps its glass, and the pill and the state layer take the centred indicator's shape. */
+  plus?: boolean;
   children: ReactNode;
 }) {
   const material = design.use() === "material";
-  const shape = itemLayer({ size: props.size, width: props.width ?? props.size + 16, layer: props.layer, tile: props.tile });
+  const shape = itemLayer({ size: props.size, width: props.width ?? props.size + 16, layer: props.layer, tile: props.plus ? undefined : props.tile });
   const pill = props.mark !== undefined && marks(props.mark, "material").pill;
   return (
     // The gap under the bar (GAP, h-1) belongs to the button above it, so a click with the pointer pushed against the screen's

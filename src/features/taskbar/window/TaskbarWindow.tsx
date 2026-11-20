@@ -348,6 +348,7 @@ export function TaskbarWindow() {
     lifted: hovered === key,
     size,
     markAt,
+    plus: look.look === "plus",
     onEnter: () => setHovered(key),
     onLeave: () => setHovered((h) => (h === key ? null : h)),
   });
