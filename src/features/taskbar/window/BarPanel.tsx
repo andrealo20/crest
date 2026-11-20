@@ -222,8 +222,9 @@ function Panel({
       style={{ bottom: view.height - view.barTop + PANEL_GAP, x, pointerEvents: present ? undefined : "none" }}
     >
       {/* Drawn at Crest's scale, as the notch's panel is; the box around it is in the window's px. An ink of its own sets the text's
-          colour again (body's is worked out from the theme's label) and is marked, so forced colours still override it (themes.css). */}
-      <div data-theme-ink={surface.ink ? "" : undefined} style={{ zoom, ...(surface.ink && { ...surface.ink, color: "var(--color-label)" }) }}>
+          colour again (body's is worked out from the theme's label) and is marked, so forced colours still override it (themes.css).
+          Material puts a panel above the bar at level 3; the notch's open panel stays at level 4. */}
+      <div className="material:[--shadow-panel:var(--shadow-level3)]" data-theme-ink={surface.ink ? "" : undefined} style={{ zoom, ...(surface.ink && { ...surface.ink, color: "var(--color-label)" }) }}>
         <NotchShape geometry={geometry} transition={shapeSpring} elevated top={top} hangs={false}>
           <motion.div
             className="absolute inset-0"
