@@ -126,7 +126,7 @@ type Presets = Record<keyof typeof live, Transition>;
 function material(): Presets {
   return {
     open: spring(0.37, 0.2), // expressive slow spatial, k 200 ζ 0.8: inside the window's margins, at the pace of today's opening
-    close: spring(0.198, 0.1), // standard default spatial, k 700 ζ 0.9: no dip under the closed shape
+    close: spring(0.198, 0.1), // standard default spatial, k 700 ζ 0.9: dips 0.8 px under the closed shape, the expressive ones 8
     peek: spring(0.269, 0.2), // expressive default spatial, k 380 ζ 0.8
     morph: spring(0.269, 0.2),
     snappy: spring(0.269, 0.2),
