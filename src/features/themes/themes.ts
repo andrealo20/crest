@@ -13,6 +13,8 @@ export const THEME_KEYS = ["background", "foreground", "secondary", "tertiary", 
 export type ThemeKey = (typeof THEME_KEYS)[number];
 /** The colours the settings editor offers. */
 export const EDITOR_KEYS = ["background", "foreground", "accent", "warning", "critical"] as const satisfies readonly ThemeKey[];
+/** The editor's colours in a style: Material's scheme takes only the accent as its seed and the background's side, and works out the rest. */
+export const editorKeys = (design: Design): readonly (typeof EDITOR_KEYS)[number][] => (design === "material" ? ["accent", "background"] : EDITOR_KEYS);
 
 export interface ThemeFile {
   format: 1;
@@ -247,6 +249,9 @@ export function systemTheme(a: { accent: string; dark: boolean } | null): ThemeF
   const side = BUILT_IN_THEMES[a.dark ? 0 : 1];
   return { format: 1, id: SYSTEM_THEME, name: "System", colors: { ...side.colors, accent: a.accent } };
 }
+
+/** The themes to pick from, in the order of their cards: the System card first when the system was read, the built-ins, one's own. */
+export const themeChoices = (system: ThemeFile | null, custom: readonly ThemeFile[]): ThemeFile[] => [...(system ? [system] : []), ...BUILT_IN_THEMES, ...custom];
 
 /**
  * The theme an id names, among the built-ins, the System card (`system`, the card's theme when the system was read) and the

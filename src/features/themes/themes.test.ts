@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { BLACK, WHITE, contrast, formatColor, over, parseColor, withAlpha, type Rgba } from "./color.ts";
 import {
   BUILT_IN_THEMES,
+  EDITOR_KEYS,
   FONTS,
   GLASS_EDGE,
   GRAPHIC,
@@ -14,6 +15,7 @@ import {
   THEME_DEFAULTS,
   captionSpacing,
   closedGlassInk,
+  editorKeys,
   findTheme,
   fontStack,
   glassInk,
@@ -29,6 +31,7 @@ import {
   setThemeColor,
   systemTheme,
   takenIds,
+  themeChoices,
   themeToText,
   uniqueId,
   validateTheme,
@@ -543,4 +546,16 @@ test("a file or a theme of one's own with the id \"system\" never takes the Syst
   assert.equal(taken.size, BUILT_IN_THEMES.length + 1);
   assert.ok(takenIds([{ format: 1, id: "mine", name: "Mine", colors: {} }]).has("mine"));
   assert.notEqual(uniqueId("System", takenIds([])), "system");
+});
+
+test("the editor's colours: all five in Crest, in Material the starting colour first, then the background's side", () => {
+  assert.deepEqual(editorKeys("crest"), EDITOR_KEYS);
+  assert.deepEqual(editorKeys("material"), ["accent", "background"]);
+});
+
+test("the theme cards: the System card first when the system was read, then the built-ins, then one's own", () => {
+  assert.deepEqual(themeChoices(null, []), BUILT_IN_THEMES);
+  const sys = systemTheme({ accent: "#0078d4", dark: true })!;
+  const mine: ThemeFile = { format: 1, id: "mine", name: "Mine", colors: {} };
+  assert.deepEqual(themeChoices(sys, [mine]), [sys, ...BUILT_IN_THEMES, mine]);
 });

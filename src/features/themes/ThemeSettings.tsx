@@ -8,7 +8,7 @@ import { demo } from "../../dev/showcase-data";
 import { glassShape } from "../../notch/glass/params";
 import { liveSupport } from "../../notch/glass/live";
 import { settings, updateSettings } from "../../settings/store";
-import { design } from "../../design/design";
+import { design, type Design } from "../../design/design";
 import { t } from "../../i18n";
 import { contrast, parseColor, toHex, withAlpha, type Rgba } from "./color";
 import { ColorPicker } from "./ColorPicker";
@@ -16,7 +16,6 @@ import { HALF_HOURS, activeThemeId, isNight, sunHours } from "./daynight";
 import { original } from "./history";
 import {
   activeTheme,
-  allThemes,
   deleteCustomTheme,
   discardEdits,
   draft,
@@ -31,19 +30,23 @@ import {
   saveAsNew,
   savedTheme,
   startEditing,
+  systemFile,
   themesFolder,
   undoEdit,
 } from "./store";
+import { resolveMaterial } from "./material";
 import {
-  BUILT_IN_THEMES,
   EDITOR_KEYS,
   FONT_NAMES,
   GLASS_RANGE,
+  SYSTEM_THEME,
+  editorKeys,
   findTheme,
   fontStack,
   glassVeilAt,
   isBuiltIn,
   resolveTheme,
+  themeChoices,
   type Adjustment,
   type FontId,
   type ThemeFile,
@@ -51,12 +54,14 @@ import {
 } from "./themes";
 
 /** The two plain built-ins are named after their look; the ported editor themes keep their own names. */
-const themeName = (theme: ThemeFile) => (!isBuiltIn(theme.id) ? theme.name : theme.id === "dark" ? t("Dunkel") : theme.id === "light" ? t("Hell") : theme.name);
+const themeName = (theme: ThemeFile) =>
+  !isBuiltIn(theme.id) ? theme.name : theme.id === "dark" ? t("Dunkel") : theme.id === "light" ? t("Hell") : theme.id === SYSTEM_THEME ? t("System") : theme.name;
 
 /** Settings → Themes: the theme, day and night, the colour editor and theme files. */
 export function ThemeSettings() {
   return (
     <>
+      {!demo && <StyleChoice />}
       <ThemeChoice />
       <DayNight />
       <ThemeEditor />
@@ -79,6 +84,70 @@ const KEY_LABELS: Record<Adjustment["key"], string> = {
   yellow: "Gelb",
 };
 
+/**
+ * Crest's own look or Material, for the whole app. The cards are drawn, never made of real controls: under a Material window a
+ * real Crest control would come out Material.
+ */
+function StyleChoice() {
+  const chosen = settings.use().themes.design;
+  activeTheme.use(); // the drawings follow the theme in use and the draft
+  const file = draft.use()?.present ?? savedTheme();
+  return (
+    <Group title={t("Stil")} id="settings-design">
+      {/* Only for the search, which reads rows: one text per hint node, so "Material" is found too. */}
+      <div data-row aria-hidden className="sr-only">
+        <div data-row-label>{t("Stil")}</div>
+        <div data-row-hint>
+          <span>{t("Formen, Farben, Symbole und Bewegung der ganzen App")}</span>
+          <span>Crest · Material</span>
+        </div>
+      </div>
+      <div className="p-2">
+        <StyleCards<Design>
+          columns={2}
+          label={t("Stil")}
+          value={chosen}
+          onChange={(design) => updateSettings((cur) => ({ themes: { ...cur.themes, design } }))}
+          options={[
+            { value: "crest", label: "Crest", hint: t("Das gewohnte Aussehen"), preview: <CrestThumb file={file} /> },
+            { value: "material", label: "Material", hint: t("Farben aus dem Theme, weiche Formen"), preview: <MaterialThumb file={file} /> },
+          ]}
+        />
+      </div>
+    </Group>
+  );
+}
+
+/** A pill button and the green switch on the theme's panel, as the Crest style draws them. */
+function CrestThumb({ file }: { file: ThemeFile }) {
+  const v = useMemo(() => resolveTheme(file).vars, [file]);
+  return (
+    <span className="flex h-full w-full items-center justify-center gap-2 forced-color-adjust-none" style={{ background: v["--color-notch"] }}>
+      <span className="flex h-3 w-7 items-center justify-center rounded-full" style={{ background: v["--color-fill-2"] }}>
+        <span className="h-1 w-4 rounded-full" style={{ background: v["--color-label"] }} />
+      </span>
+      <span className="flex h-3 w-5 items-center justify-end rounded-full px-0.5 rtl:justify-start" style={{ background: v["--color-green"] }}>
+        <span className="size-2 rounded-full bg-white" />
+      </span>
+    </span>
+  );
+}
+
+/** A tonal button and the M3 switch on the theme's surface, as the Material style draws them. */
+function MaterialThumb({ file }: { file: ThemeFile }) {
+  const v = useMemo(() => resolveMaterial(file).vars, [file]);
+  return (
+    <span className="flex h-full w-full items-center justify-center gap-2 forced-color-adjust-none" style={{ background: v["--color-notch"] }}>
+      <span className="flex h-3.5 w-7 items-center justify-center rounded-full" style={{ background: v["--color-secondary-container"] }}>
+        <span className="h-1 w-4 rounded-full" style={{ background: v["--color-on-secondary-container"] }} />
+      </span>
+      <span className="flex h-3.5 w-6 items-center justify-end rounded-full px-0.5 rtl:justify-start" style={{ background: v["--color-primary"] }}>
+        <span className="size-2.5 rounded-full" style={{ background: v["--color-on-primary"] }} />
+      </span>
+    </span>
+  );
+}
+
 function ThemeChoice() {
   const s = settings.use();
   const { themes, weather } = s;
@@ -88,8 +157,9 @@ function ThemeChoice() {
   const editing = draft.use();
   const [pending, setPending] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const current = findTheme(activeThemeId(themes, new Date(), weather), themes.custom);
-  const list = [...BUILT_IN_THEMES, ...themes.custom];
+  const system = systemFile.use();
+  const current = findTheme(activeThemeId(themes, new Date(), weather), themes.custom, system);
+  const list = themeChoices(system, themes.custom);
 
   const choose = (id: string) => {
     setConfirmDelete(false);
@@ -110,8 +180,11 @@ function ThemeChoice() {
           label={t("Theme")}
           value={current.id}
           onChange={choose}
-          options={list.map((theme) => ({ value: theme.id, label: themeName(theme), preview: <ThemePreview theme={theme} /> }))}
+          options={list.map((theme) => ({ value: theme.id, label: themeName(theme), preview: <ThemePreview theme={theme} style={style} /> }))}
         />
+        {style === "material" && (
+          <p className="px-1 pt-2 text-caption text-label-2">{t("In Material gibt jedes Theme seinen Akzent und die helle oder dunkle Seite vor; die Farbe änderst du unter Farben")}</p>
+        )}
       </div>
       {pending && (
         <Row label={t("Ungespeicherte Farben verwerfen?")}>
@@ -148,8 +221,14 @@ function ThemeChoice() {
       )}
       <Row label={t("Schrift")} hint={t("Für die ganze App. Terminal und Timer behalten ihre Schrift")}>
         <Select
+          // Wide enough for "Automatic (Google Sans Flex)" in Russian, the longest.
+          width="w-60"
           value={themes.font}
-          options={(Object.keys(FONT_NAMES) as FontId[]).map((value) => ({ value, label: FONT_NAMES[value], font: fontStack(value, style) }))}
+          options={(Object.keys(FONT_NAMES) as FontId[]).map((value) => ({
+            value,
+            label: value === "auto" ? t("Automatisch ({font})", { font: style === "material" ? "Google Sans Flex" : FONT_NAMES.auto }) : FONT_NAMES[value],
+            font: fontStack(value, style),
+          }))}
           onChange={(font) => updateSettings((cur) => ({ themes: { ...cur.themes, font } }))}
         />
       </Row>
@@ -264,9 +343,9 @@ export function GlassSlider(props: { label: string; hint: ReactNode; field: keyo
   );
 }
 
-/** A tiny panel in the theme's colours: accent dot, two text lines, warning and critical dots. */
-function ThemePreview({ theme }: { theme: ThemeFile }) {
-  const v = useMemo(() => resolveTheme(theme).vars, [theme]);
+/** A tiny panel in the theme's colours as the style draws them: accent dot, two text lines, warning and critical dots. */
+function ThemePreview({ theme, style }: { theme: ThemeFile; style: Design }) {
+  const v = useMemo(() => (style === "material" ? resolveMaterial(theme) : resolveTheme(theme)).vars, [theme, style]);
   return (
     <span className="flex h-full w-full items-center gap-1.5 px-2 forced-color-adjust-none" style={{ background: v["--color-notch"] }}>
       <span className="size-2 shrink-0 rounded-full" style={{ background: v["--theme-accent"] }} />
@@ -285,7 +364,9 @@ function DayNight() {
   activeTheme.use(); // the "now" hint follows the change
   const s = themes.schedule;
   const set = (patch: Partial<typeof s>) => updateSettings((x) => ({ themes: { ...x.themes, schedule: { ...x.themes.schedule, ...patch } } }));
-  const options = allThemes().map((theme) => ({ value: theme.id, label: themeName(theme) }));
+  // The System card too, so a day or night set to it has a name in its menu.
+  const system = systemFile.use();
+  const options = themeChoices(system, themes.custom).map((theme) => ({ value: theme.id, label: themeName(theme) }));
   // formatTime follows the 12 or 24 hour setting.
   const clock = (minutes: number) => formatTime(new Date(2000, 0, 1, Math.floor(minutes / 60), minutes % 60));
   const times = HALF_HOURS.map((v) => ({ value: v, label: clock(Number(v.slice(0, 2)) * 60 + Number(v.slice(3))) }));
@@ -299,7 +380,7 @@ function DayNight() {
   const turnOn = (on: boolean) => {
     if (!on) return set({ on });
     // Start from the theme in use: it keeps its place by day if it is light, by night if it is dark.
-    const currentDark = resolveTheme(findTheme(themes.id, themes.custom)).dark;
+    const currentDark = resolveTheme(findTheme(themes.id, themes.custom, system)).dark;
     set(currentDark ? { on, night: themes.id } : { on, day: themes.id });
   };
 
@@ -342,6 +423,7 @@ function ThemeEditor() {
   const theme = activeTheme.use();
   const [open, setOpen] = useState<ThemeKey | null>(null);
   const name = draftName.use();
+  const material = design.use() === "material";
 
   if (!h)
     return (
@@ -375,7 +457,7 @@ function ThemeEditor() {
         <span className="text-orange">{t("Warnung")}</span>
         <span className="text-red">{t("Kritisch")}</span>
       </div>
-      {EDITOR_KEYS.map((key) => {
+      {editorKeys(material ? "material" : "crest").map((key) => {
         const shown = theme.colors[key];
         const written = parseColor(file.colors[key]) ?? shown;
         return (
@@ -386,10 +468,12 @@ function ThemeEditor() {
               className="pressable pressable-fill flex min-h-9 w-full items-center gap-2.5 px-3 py-1.5 text-start"
             >
               <span className="size-4 shrink-0 rounded-full ring-1 ring-separator forced-color-adjust-none" style={{ background: theme.vars[varFor[key]] }} />
-              <span className="flex-1 text-body text-label">{t(KEY_LABELS[key])}</span>
+              <span className="flex-1 text-body text-label">{material && key === "accent" ? t("Startfarbe") : t(KEY_LABELS[key])}</span>
               {key !== "background" && <span className="tabular text-caption text-label-3">{ratio(contrast(shown, bg))}</span>}
               <span className="tabular w-16 text-end text-caption text-label-2">{hexOf(written)}</span>
             </button>
+            {/* Lined up with the label: 12 px of padding, the 16 px swatch and its 10 px gap. */}
+            {material && key === "background" && <div className="pe-3 pb-1.5 ps-[38px] text-caption text-label-2">{t("In Material zählt nur, ob er hell oder dunkel ist")}</div>}
             {open === key && <ColorPicker value={withAlpha(written, 1)} onChange={(c) => editColor(key, c)} swatches={swatches} />}
           </Fragment>
         );
