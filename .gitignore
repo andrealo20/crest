@@ -12,10 +12,10 @@ brag-output/
 # Agent working files, kept local
 CLAUDE.md
 AGENTS.md
-PLAN.md
-PLAN-REVIEW-LOG.md
+PLAN*.md
 .claude/
 .codex/
+.superpowers/
 .design/
 src-tauri/target-shared
 .agent-notes/
