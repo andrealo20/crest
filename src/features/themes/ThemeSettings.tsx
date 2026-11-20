@@ -127,7 +127,7 @@ function CrestThumb({ file }: { file: ThemeFile }) {
       <span className="flex h-3 w-7 items-center justify-center rounded-full" style={{ background: v["--color-fill-2"] }}>
         <span className="h-1 w-4 rounded-full" style={{ background: v["--color-label"] }} />
       </span>
-      <span className="flex h-3 w-5 items-center justify-end rounded-full px-0.5 rtl:justify-start" style={{ background: v["--color-green"] }}>
+      <span className="flex h-3 w-5 items-center justify-end rounded-full px-0.5" style={{ background: v["--color-green"] }}>
         <span className="size-2 rounded-full bg-white" />
       </span>
     </span>
@@ -142,7 +142,7 @@ function MaterialThumb({ file }: { file: ThemeFile }) {
       <span className="flex h-3.5 w-7 items-center justify-center rounded-full" style={{ background: v["--color-secondary-container"] }}>
         <span className="h-1 w-4 rounded-full" style={{ background: v["--color-on-secondary-container"] }} />
       </span>
-      <span className="flex h-3.5 w-6 items-center justify-end rounded-full px-0.5 rtl:justify-start" style={{ background: v["--color-primary"] }}>
+      <span className="flex h-3.5 w-6 items-center justify-end rounded-full px-0.5" style={{ background: v["--color-primary"] }}>
         <span className="size-2.5 rounded-full" style={{ background: v["--color-on-primary"] }} />
       </span>
     </span>
