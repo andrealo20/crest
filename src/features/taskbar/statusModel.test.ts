@@ -48,15 +48,18 @@ test("the name says each state, with the percentages", () => {
   assert.deepEqual(statusParts({ network: { kind: "none", wifi: false, bars: null, ssid: null }, sound: null, power: null }), [["WLAN aus"]]);
   assert.deepEqual(statusParts({ network: { kind: "none", wifi: true, bars: null, ssid: null }, sound: null, power: null }), [["Nicht verbunden"]]);
   assert.deepEqual(statusParts({ network: { kind: "none", wifi: null, bars: null, ssid: null }, sound: null, power: null }), [["Keine Verbindung"]]);
+  assert.deepEqual(statusParts({ network: null, sound: null, power: { ac: false, percent: 63, battery: true, charging: false, saver: true } }), [["Akku {p} %", { p: 63 }]]);
   assert.deepEqual(statusParts({ network: null, sound: null, power: null }), []);
 });
 
 test("the glyphs are two thirds of the icon and the item as wide as they are", () => {
   assert.equal(glyphSize(24), 16);
   assert.equal(glyphSize(20), 13);
-  assert.equal(statusWidth(24, 3), 72);
-  assert.equal(statusWidth(24, 2), 52);
-  assert.equal(statusWidth(20, 3), 63);
+  assert.equal(statusWidth(24, 3, true), 83);
+  assert.equal(statusWidth(24, 3, false), 72);
+  assert.equal(statusWidth(24, 2, false), 52);
+  assert.equal(statusWidth(24, 1, true), 43);
+  assert.equal(statusWidth(20, 3, true), 72);
 });
 
 test("the quick panel's Wi-Fi tile says only On or Off while a cable carries the internet", () => {

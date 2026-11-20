@@ -1,115 +1,245 @@
-// Crest's own glyphs, shared by the bar's Stato, the quick panel and Overview. Drawn on a 16 grid with 1 px strokes whose centres
-// sit on half pixels, so at 200 % every straight edge lands on a whole pixel; the rules live in glyphModel.ts.
+// Crest's own glyphs, shared by the bar's Stato, the quick panel and Overview. Solid shapes on a 16 grid, every straight edge on a
+// whole unit so it stays sharp at 100 % and 200 %; the shapes and their rules live in glyphModel.ts.
 
-import { useId, type CSSProperties, type ReactNode } from "react";
-import { FAN_APEX_Y, FAN_RADII, batteryFill, speakerWaves, wifiLit, type NetGlyphName } from "./glyphModel";
+import { useId, type ReactNode } from "react";
+import { viewMetrics } from "../notch/viewZoom";
+import {
+  BATTERY_BODY,
+  BATTERY_BOLT,
+  BATTERY_CAP,
+  BATTERY_DASH,
+  BATTERY_W,
+  BODY_BOLT,
+  DIM,
+  FAN_ARCS,
+  FAN_WEDGE,
+  GLOBE,
+  LEAF,
+  MERIDIAN,
+  MONITOR,
+  MUTE,
+  NUMBER_SIZE,
+  PLANE,
+  RUNE,
+  SLASH,
+  SPEAKER,
+  VEIN,
+  WAVES,
+  batteryDigits,
+  batteryScale,
+  batteryTint,
+  batteryWideFill,
+  batteryWidth,
+  speakerWaves,
+  strip,
+  wifiLit,
+  type NetGlyphName,
+} from "./glyphModel";
 
-const s = Math.SQRT1_2;
-const f = (n: number) => +n.toFixed(3);
-const DIM = 0.3;
+/** A per instance id `url(#...)` can take: useId's characters are not all valid there. */
+const svgId = (prefix: string, id: string) => `${prefix}${id.replace(/[^\w-]/g, "")}`;
 
-/** An arc of radius r round (cx, cy), from its upper left to its upper right, at 45 degrees either side of the top. */
-const arc = (cx: number, cy: number, r: number) => `M${f(cx - r * s)} ${f(cy - r * s)}A${r} ${r} 0 0 1 ${f(cx + r * s)} ${f(cy - r * s)}`;
-
-function Svg({ size, className, style, children }: { size: number; className?: string; style?: CSSProperties; children: ReactNode }) {
+function Svg({ size, className, children }: { size: number; className?: string; children: ReactNode }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className={className}
-      style={style}
-    >
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" aria-hidden className={className}>
       {children}
     </svg>
   );
 }
 
-/** The network: the Wi-Fi fan lit by its signal (dimmed while unlinked, slashed while off), the cable's screen, or the crossed globe. */
+/** A linear part: a stroke 2 wide with round ends. */
+function Line({ d, opacity }: { d: string; opacity?: number }) {
+  return <path d={d} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={opacity} />;
+}
+
+/** `children` with each cut [path, width, filled] taken out, so what is drawn over a cut stands apart from it by a gap. */
+function Knock({ cuts, width = 16, children }: { cuts: [string, number, boolean][]; width?: number; children: ReactNode }) {
+  const id = svgId("k", useId());
+  return (
+    <>
+      <mask id={id}>
+        <rect width={width} height="16" fill="#fff" />
+        {cuts.map(([d, w, filled]) => (
+          <path key={d} d={d} fill={filled ? "#000" : "none"} stroke="#000" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" />
+        ))}
+      </mask>
+      <g mask={`url(#${id})`}>{children}</g>
+    </>
+  );
+}
+
+/** The network: the Wi-Fi fan lit by its signal (dimmed while unlinked, slashed while off), the screen on its stand, or the slashed globe. */
 export function NetGlyph({ glyph, size, className }: { glyph: NetGlyphName; size: number; className?: string }) {
   if (glyph === "wired")
     return (
       <Svg size={size} className={className}>
-        <rect x="2.5" y="2.5" width="10" height="8" rx="1" />
-        <path d="M7.5 10.5V13.5M5.5 13.5H9.5" />
+        <path d={MONITOR} fillRule="evenodd" />
       </Svg>
     );
   if (glyph === "offline")
     return (
       <Svg size={size} className={className}>
-        <circle cx="8" cy="8" r="5.5" />
-        <path d="M2.5 7.5H13.5" />
-        <ellipse cx="8" cy="8" rx="2.5" ry="5.5" />
-        <path d="M2.5 13.5L13.5 2.5" />
+        <Knock cuts={[[MERIDIAN, 1, false], [SLASH, 4, false]]}>
+          <path d={GLOBE} opacity={DIM} />
+        </Knock>
+        <Line d={SLASH} />
       </Svg>
     );
   const lit = wifiLit(glyph);
-  const w = 2.5 * s;
+  const fan = (
+    <>
+      <path d={FAN_WEDGE} opacity={lit.wedge ? undefined : DIM} />
+      {FAN_ARCS.map((d, i) => (
+        <Line key={d} d={d} opacity={i < lit.arcs ? undefined : DIM} />
+      ))}
+    </>
+  );
   return (
     <Svg size={size} className={className}>
-      <path
-        d={`M8 ${FAN_APEX_Y}L${f(8 - w)} ${f(FAN_APEX_Y - w)}A2.5 2.5 0 0 1 ${f(8 + w)} ${f(FAN_APEX_Y - w)}Z`}
-        fill="currentColor"
-        stroke="none"
-        opacity={lit.wedge ? undefined : DIM}
-      />
-      {FAN_RADII.map((r, i) => (
-        <path key={r} d={arc(8, FAN_APEX_Y, r)} opacity={i < lit.arcs ? undefined : DIM} />
-      ))}
-      {glyph === "wifi-off" && <path d="M3.5 2.5L13.5 12.5" />}
-    </Svg>
-  );
-}
-
-/** The speaker with a wave per volume step, or crossed when muted. */
-export function SpeakerGlyph({ glyph, size }: { glyph: "muted" | "low" | "mid" | "high"; size: number }) {
-  const waves = speakerWaves(glyph);
-  return (
-    <Svg size={size}>
-      <path d="M2.5 6.5H4.5L7.5 3.5V12.5L4.5 9.5H2.5Z" />
-      {[3, 5, 7].slice(0, waves).map((r) => (
-        <path key={r} d={`M${f(7.5 + r * s)} ${f(8 - r * s)}A${r} ${r} 0 0 1 ${f(7.5 + r * s)} ${f(8 + r * s)}`} />
-      ))}
-      {glyph === "muted" && <path d="M10.5 6L14.5 10M14.5 6L10.5 10" />}
-    </Svg>
-  );
-}
-
-const BOLT = "M8.5 2.5L5 8.5H8L7 13.5L11 7H8Z";
-
-/** The battery filled as far as its level (red when it warns), with a bolt cut into it while charging. */
-export function BatteryGlyph({ percent, charging, warning, size }: { percent: number | null; charging: boolean; warning: boolean; size: number }) {
-  // useId's characters are not all valid in url(#...).
-  const mask = `bolt${useId().replace(/[^\w-]/g, "")}`;
-  return (
-    <Svg size={size}>
-      {charging && (
-        <mask id={mask}>
-          <rect width="16" height="16" fill="white" stroke="none" />
-          <path d={BOLT} fill="black" stroke="black" strokeWidth={2} />
-        </mask>
+      {glyph === "wifi-off" ? (
+        <>
+          <Knock cuts={[[SLASH, 4, false]]}>{fan}</Knock>
+          <Line d={SLASH} />
+        </>
+      ) : (
+        fan
       )}
-      <g mask={charging ? `url(#${mask})` : undefined}>
-        <rect x="1.5" y="4.5" width="12" height="6" rx="1.5" />
-        <rect x="14" y="6" width="1" height="3" fill="currentColor" stroke="none" />
-        <rect x="3" y="6" width={batteryFill(percent)} height="3" rx="0.5" stroke="none" fill={warning ? "var(--color-red)" : "currentColor"} />
-      </g>
-      {charging && <path d={BOLT} fill="currentColor" stroke="none" />}
     </Svg>
   );
 }
 
-/** The Bluetooth rune, its spine on x 7.5. */
+/** The speaker with a wave per volume step, or a cross where the waves were when muted. */
+export function SpeakerGlyph({ glyph, size }: { glyph: "muted" | "low" | "mid" | "high"; size: number }) {
+  return (
+    <Svg size={size}>
+      <path d={SPEAKER} />
+      {WAVES.slice(0, speakerWaves(glyph)).map((d) => (
+        <Line key={d} d={d} />
+      ))}
+      {glyph === "muted" && <Line d={MUTE} />}
+    </Svg>
+  );
+}
+
+/**
+ * The battery, wider than the other glyphs, its charge written in it: the body lit as far as the level and dimmed beyond (red when
+ * it warns, else green in Energy saver), the cap lit only at 100, a bolt in the cap's place while charging. Drawn for the screen's
+ * device pixels, so a scale change redraws it through viewMetrics.
+ */
+export function BatteryGlyph({ percent, charging, warning, saver = false, size }: { percent: number | null; charging: boolean; warning: boolean; saver?: boolean; size: number }) {
+  const { dpr } = viewMetrics.use();
+  const id = useId();
+  const [x0, y0, x1, y1] = BATTERY_BODY;
+  const { number, cut, baseline } = batteryScale(size * dpr);
+  const w = batteryWideFill(percent, size * dpr);
+  const tint = batteryTint(warning, saver);
+  const fill = tint ? `var(--color-${tint})` : undefined;
+  const part = (a: number, b: number, dimmed: boolean) => <path d={strip(x0, y0, x1, y1, a, b)} fill={fill} opacity={dimmed ? DIM : undefined} />;
+  const inBody = charging && !number;
+  let body: ReactNode;
+  if (w === null) {
+    // Unknown: the dimmed body and, in the number's place, the dash in a cut like the digits'; not with the bolt in the body.
+    body = part(x0, x1, true);
+    if (!inBody)
+      body = (
+        <>
+          <Knock cuts={[[BATTERY_DASH, 2 * cut, true]]} width={BATTERY_W}>
+            {body}
+          </Knock>
+          <path d={BATTERY_DASH} />
+        </>
+      );
+  } else {
+    body = (
+      <>
+        {w > 0 && part(x0, x0 + w, false)}
+        {w < 20 && part(x0 + w, x1, true)}
+      </>
+    );
+    if (number && percent !== null) {
+      // A digit cut out of the body, or written in the ink in a cut all round: the level's edge stays exact.
+      const digits = batteryDigits(percent, w, tint !== null);
+      const text = (i: number, attrs: { fill?: string; stroke?: string; strokeWidth?: number; strokeLinejoin?: "round" }) => (
+        <text
+          key={i}
+          x={digits[i].x}
+          y={baseline}
+          fontSize={NUMBER_SIZE}
+          textAnchor="middle"
+          fontFamily="'Inter Variable', sans-serif"
+          fontWeight={700}
+          style={{ fontVariantNumeric: "tabular-nums" }}
+          {...attrs}
+        >
+          {digits[i].d}
+        </text>
+      );
+      const mask = svgId("k", id);
+      body = (
+        <>
+          <mask id={mask}>
+            <rect width={BATTERY_W} height="16" fill="#fff" />
+            {digits.map((g, i) => text(i, g.inked ? { fill: "#000", stroke: "#000", strokeWidth: 2 * cut, strokeLinejoin: "round" } : { fill: "#000" }))}
+          </mask>
+          <g mask={`url(#${mask})`}>{body}</g>
+          {digits.map((g, i) => g.inked && text(i, {}))}
+        </>
+      );
+    }
+  }
+  if (inBody) {
+    // The bolt cut out of the body and lit again right of the level's edge, so nothing is drawn twice.
+    const edge = x0 + (w ?? 0);
+    const clip = svgId("c", id);
+    body = (
+      <>
+        <Knock cuts={[[BODY_BOLT, 0, true]]} width={BATTERY_W}>
+          {body}
+        </Knock>
+        {edge < x1 && (
+          <>
+            <clipPath id={clip}>
+              <rect x={edge} width={BATTERY_W} height="16" />
+            </clipPath>
+            <path d={BODY_BOLT} clipPath={`url(#${clip})`} />
+          </>
+        )}
+      </>
+    );
+  }
+  return (
+    <svg width={batteryWidth(size)} height={size} viewBox={`0 0 ${BATTERY_W} 16`} preserveAspectRatio="xMinYMid meet" fill="currentColor" aria-hidden>
+      {body}
+      {charging && !inBody ? <path d={BATTERY_BOLT} /> : <path d={BATTERY_CAP} opacity={w === 20 ? undefined : DIM} />}
+    </svg>
+  );
+}
+
+/** The Bluetooth rune, its spine on x 7. */
 export function BluetoothGlyph({ size, className }: { size: number; className?: string }) {
   return (
     <Svg size={size} className={className}>
-      <path d="M4.5 5.5L10.5 10.5L7.5 13.5V2.5L10.5 5.5L4.5 10.5" />
+      <Line d={RUNE} />
+    </Svg>
+  );
+}
+
+/** Airplane mode: the plane from above, nose up. */
+export function AirplaneGlyph({ size }: { size: number }) {
+  return (
+    <Svg size={size}>
+      <path d={PLANE} />
+    </Svg>
+  );
+}
+
+/** Energy saver: the leaf with its vein cut through. */
+export function SaverGlyph({ size }: { size: number }) {
+  return (
+    <Svg size={size}>
+      <Knock cuts={[[VEIN, 1, false]]}>
+        <path d={LEAF} />
+      </Knock>
     </Svg>
   );
 }

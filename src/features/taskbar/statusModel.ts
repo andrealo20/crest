@@ -2,7 +2,7 @@
 // without the app around them; the state comes from Rust's events (sysevents.rs, services.ts status.onBar).
 
 import type { PowerState } from "../../notch/row/status.ts";
-import type { NetGlyphName } from "../../ui/glyphModel.ts";
+import { batteryWidth, type NetGlyphName } from "../../ui/glyphModel.ts";
 import { trayIcon } from "./model.ts";
 
 /** The connection in use (`status://network`): its kind, whether a Wi-Fi radio is on (null: none), its signal 0..5 and its name, Wi-Fi only. */
@@ -65,5 +65,7 @@ export function statusParts(s: BarStatus): [string, Record<string, string | numb
 
 /** Stato's glyphs at the tray's icon size, two thirds of the app icon (design 5.2). */
 export const glyphSize = trayIcon;
-/** Stato's width for `count` glyphs: the glyphs 4 px apart, with the 8 px a bar button keeps on each side. */
-export const statusWidth = (size: number, count: number) => count * glyphSize(size) + (count - 1) * 4 + 16;
+/** Stato's width for `count` glyphs, the battery among them at its own width: the glyphs 4 px apart, with the 8 px a bar button
+ *  keeps on each side. */
+export const statusWidth = (size: number, count: number, battery: boolean) =>
+  (count - (battery ? 1 : 0)) * glyphSize(size) + (battery ? batteryWidth(glyphSize(size)) : 0) + (count - 1) * 4 + 16;

@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Airplane, CaretRight, Leaf } from "@phosphor-icons/react";
+import { CaretRight } from "@phosphor-icons/react";
 import { content } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { systemControls, taskbar } from "../../../platform/services";
-import { NetGlyph } from "../../../ui/glyphs";
+import { AirplaneGlyph, NetGlyph, SaverGlyph } from "../../../ui/glyphs";
 import { RadioDisc, RadioGlyph, useQuick, useSwitchJob, type SwitchJob } from "../../overview/QuickControls";
 import { BrightnessTile, OutputList, VolumeTile, useBrightness, useOutputs } from "../../overview/QuickTiles";
 import { MIXER_MAX_ROWS, MIXER_ROW } from "../../now-playing/Mixer";
@@ -85,8 +85,8 @@ export default function QuickPanel() {
             {listOpen && <OutputList outputs={outputs} rows={rows} onPick={pick} />}
             {brightness && (bright === null ? <div className="h-10 shrink-0" /> : <BrightnessTile level={bright} busy={busy} hold={hold} onLevel={setBright} />)}
             <div className="flex h-10 shrink-0 gap-2">
-              <Chip icon={<Leaf size={16} weight="regular" />} name={t("Energiesparmodus")} state={power ? (power.saver ? t("An") : t("Aus")) : null} onClick={() => away(() => taskbar.settings("saver"))} />
-              <Chip icon={<Airplane size={16} weight="regular" />} name={t("Flugzeugmodus")} state={null} onClick={() => away(() => taskbar.settings("airplane"))} />
+              <Chip icon={<SaverGlyph size={16} />} name={t("Energiesparmodus")} state={power ? (power.saver ? t("An") : t("Aus")) : null} onClick={() => away(() => taskbar.settings("saver"))} />
+              <Chip icon={<AirplaneGlyph size={16} />} name={t("Flugzeugmodus")} state={null} onClick={() => away(() => taskbar.settings("airplane"))} />
               {/* Shown only while the cable carries the internet, so it needs no "Connected": three chips leave no room for it beside the name. */}
               {wired && <Chip icon={<NetGlyph glyph="wired" size={16} />} name={t("Ethernet")} state={null} onClick={() => away(() => taskbar.settings("ethernet"))} />}
             </div>
