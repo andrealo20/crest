@@ -74,7 +74,8 @@ pub(crate) fn sync(app: &AppHandle) {
         bar::put(&window, monitor);
     }
     sync_shown(app);
-    super::relist();
+    // Behind the moves, which `bar::put` only posted to the main thread: the lists read each bar's monitor from its window.
+    let _ = app.run_on_main_thread(super::relist);
     // Monitors or scales changed, or a bar was taken down: the appbars follow.
     super::reserve::refresh();
 }
