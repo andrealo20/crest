@@ -249,3 +249,33 @@ export const REGULAR = [
   "Watch",
   "Waveform",
 ];
+
+/**
+ * The Material Symbols of the settings rows (Row in controls.tsx), drawn only under Material and in alphabetical order: one per
+ * meaning, the same for rows that say the same thing on different pages, and no letters or flags, so each reads in every language.
+ */
+export const ROW_SYMBOLS = [
+  "account_balance", "account_box", "add", "alarm", "album", "all_inclusive", "anchor", "apps", "arrow_range",
+  "arrow_selector_tool", "aspect_ratio", "attach_money", "audio_file", "avg_time", "backup", "badge", "battery_charging_full",
+  "battery_full", "bedtime", "bluetooth", "blur_circular", "blur_linear", "blur_on", "bolt", "border_outer", "brightness_5",
+  "brush", "cable", "calendar_month", "campaign", "category", "check", "cloud", "code", "coffee", "colors", "content_copy",
+  "content_paste", "contrast", "currency_exchange", "dark_mode", "data_object", "data_usage", "desktop_windows",
+  "developer_board", "device_thermostat", "dictionary", "difference", "directions_walk", "dns", "do_not_disturb_on", "download",
+  "download_done", "download_for_offline", "edit_calendar", "edit_note", "energy_savings_leaf", "equalizer", "event",
+  "event_repeat", "event_upcoming", "extension", "favorite", "fiber_manual_record", "file_export", "file_open",
+  "filter_center_focus", "fingerprint", "fit_screen", "flag", "flare", "flight", "flip_to_front", "folder", "font_download",
+  "format_color_fill", "format_ink_highlighter", "format_quote", "format_size", "fullscreen", "headphones", "height",
+  "hide_source", "hourglass_bottom", "hourglass_top", "info", "keep", "key", "keyboard", "keyboard_alt", "keyboard_capslock",
+  "label", "language", "layers", "layers_clear", "lens_blur", "library_music", "light_mode", "line_weight", "linear_scale",
+  "link", "location_on", "lock", "lock_reset", "lyrics", "mic", "mic_off", "monitoring", "mouse", "music_note", "my_location",
+  "notification_important", "notifications", "notifications_active", "notifications_off", "numbers", "opacity", "open_in_full",
+  "open_with", "padding", "palette", "password", "person", "pets", "pin", "power_settings_new", "present_to_all", "psychology",
+  "receipt_long", "record_voice_over", "repeat", "right_click", "ripples", "rounded_corner", "routine", "schedule",
+  "screen_record", "screen_search_desktop", "sell", "settings_backup_restore", "shield_lock", "show_chart", "smart_toy",
+  "speaker", "speed", "sports_esports", "star", "stop_circle", "stop_screen_share", "storefront", "straighten", "style",
+  "swap_horiz", "tag", "terminal", "thermometer", "timelapse", "touch_app", "translate", "travel_explore", "trending_up",
+  "troubleshoot", "tune", "update", "usb", "visibility", "visibility_off", "volume_up", "wallpaper", "warning", "water_drop",
+  "water_full", "wb_twilight", "web_asset", "widgets", "wifi", "zoom_in",
+] as const;
+
+export type RowSymbol = (typeof ROW_SYMBOLS)[number];

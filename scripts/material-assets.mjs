@@ -1,12 +1,13 @@
 // The Material style's assets, cut from npm packages and committed, so a build needs neither the packages nor this script.
 // Run by hand from the repository root when a package's version changes:
 //   node scripts/material-assets.mjs fonts   src/assets/fonts/google-sans-flex-latin.woff2 and google-sans-flex-latin-ext.woff2
-//   node scripts/material-assets.mjs paths   src/ui/material-paths.ts, the outlines of the icons src/ui/materialNames.ts maps
+//   node scripts/material-assets.mjs paths   src/ui/material-paths.ts, the outlines of the icons src/ui/materialNames.ts maps and of
+//                                            the settings rows' symbols
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import * as hb from "harfbuzzjs";
 import subsetFont from "subset-font";
 import { decompress } from "wawoff2";
-import { MATERIAL_NAMES, REGULAR } from "../src/ui/materialNames.ts";
+import { MATERIAL_NAMES, REGULAR, ROW_SYMBOLS } from "../src/ui/materialNames.ts";
 
 const what = process.argv[2];
 
@@ -86,10 +87,12 @@ if (what === "fonts") {
     if (glyphs.length !== 1) throw new Error(`material-symbols ${version} has no "${name}": the name shapes to ${glyphs.length} glyphs, not one`);
     return svgPath(font.glyphToJson(glyphs[0].codepoint));
   };
-  const names = [...new Set(Object.values(MATERIAL_NAMES))].sort();
+  const mapped = new Set(Object.values(MATERIAL_NAMES));
+  const names = [...new Set([...mapped, ...ROW_SYMBOLS])].sort();
   const regular = new Set(REGULAR.map((name) => MATERIAL_NAMES[name]));
   const paths = names.map((name) => {
-    const outline = draw(name, 0, 500), fill = draw(name, 1, 500);
+    // A row's symbol is only ever drawn as the outline: its filled shape would be bytes nobody draws.
+    const outline = draw(name, 0, 500), fill = mapped.has(name) ? draw(name, 1, 500) : outline;
     return `  ${name}: [${JSON.stringify(outline)}, ${fill === outline ? 0 : JSON.stringify(fill)}],`;
   });
   const light = names.filter((name) => regular.has(name)).map((name) => `  ${name}: ${JSON.stringify(draw(name, 0, 300))},`);

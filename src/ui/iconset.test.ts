@@ -12,6 +12,8 @@ const read = (path: string) => readFileSync(join(import.meta.dirname, path), "ut
 
 test("every name src imports from Phosphor or from iconset is mapped to Material, kept on purpose, or a type", () => {
   const src = join(import.meta.dirname, "..");
+  // iconset's own components, such as MaterialSymbol, are not Phosphor names.
+  const own = new Set([...read("iconset.tsx").matchAll(/^export function (\w+)/gm)].map((m) => m[1]));
   const loose: string[] = [];
   for (const file of readdirSync(src, { recursive: true, encoding: "utf8" }).filter((f) => /\.tsx?$/.test(f))) {
     const code = readFileSync(join(src, file), "utf8");
@@ -21,6 +23,7 @@ test("every name src imports from Phosphor or from iconset is mapped to Material
       for (const spec of names.split(",").map((s) => s.trim())) {
         const name = spec.split(/\s+as\s+/)[0];
         if (!spec || typeOnly || spec.startsWith("type ") || name in MATERIAL_NAMES || KEEP_PHOSPHOR.includes(name)) continue;
+        if (from !== "@phosphor-icons/react" && own.has(name)) continue;
         loose.push(`${name} in ${file}`);
       }
     }

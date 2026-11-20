@@ -16,16 +16,16 @@ export function BreaksSettings() {
   const set = breaksActions.setConfig;
   return (
     <Group id="settings-breaks" title={t("Pausen")}>
-      <Row label={t("Pausen-Erinnerungen")} hint={t("Eine Karte in der geschlossenen Notch, still bei Präsentationen, Vollbild und Bitte nicht stören")}>
+      <Row icon="coffee" label={t("Pausen-Erinnerungen")} hint={t("Eine Karte in der geschlossenen Notch, still bei Präsentationen, Vollbild und Bitte nicht stören")}>
         <Switch label={t("Pausen-Erinnerungen")} checked={c.on} onChange={(on) => set({ on })} />
       </Row>
-      <Row label={t("Kurze Pause alle")} hint={t("20 Sekunden in die Ferne schauen")}>
+      <Row icon="visibility" label={t("Kurze Pause alle")} hint={t("20 Sekunden in die Ferne schauen")}>
         <Segmented id="breaks-micro" size="sm" value={String(c.microEveryMin)} onChange={(v) => set({ microEveryMin: Number(v) })} options={chips(MICRO, c.microEveryMin)} />
       </Row>
-      <Row label={t("Lange Pause alle")}>
+      <Row icon="directions_walk" label={t("Lange Pause alle")}>
         <Segmented id="breaks-long" size="sm" value={String(c.longEveryMin)} onChange={(v) => set({ longEveryMin: Number(v) })} options={chips(LONG, c.longEveryMin)} />
       </Row>
-      <Row label={t("Dauer der langen Pause")}>
+      <Row icon="timelapse" label={t("Dauer der langen Pause")}>
         <Segmented id="breaks-length" size="sm" value={String(c.longMin)} onChange={(v) => set({ longMin: Number(v) })} options={chips(LENGTH, c.longMin)} />
       </Row>
     </Group>

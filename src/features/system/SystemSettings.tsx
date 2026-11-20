@@ -2,15 +2,16 @@ import { t } from "../../i18n";
 import type { ReadingKey } from "../../notch/row/parts";
 import { settings, updateSettings } from "../../settings/store";
 import { Group, Row, Segmented, Select, Switch } from "../../ui/controls";
+import type { RowSymbol } from "../../ui/materialNames";
 import { COLOR_SCHEMES, schemeColor, type ColorScheme } from "./levels";
 import { system } from "./store";
 
 const schemeLabel: Record<ColorScheme, string> = { calm: "Ruhig", traffic: "Ampel", accent: "Akzent" };
 
-const extras: { key: ReadingKey; label: string; hint: string }[] = [
-  { key: "power", label: "Leistung", hint: "Ganzer PC; geschätzt, wenn kein Messgerät da ist" },
-  { key: "battery", label: "Akku", hint: "Nur bei Laptops" },
-  { key: "temp", label: "Temperatur", hint: "CPU, sonst GPU; erscheint, sobald ein Sensor antwortet" },
+const extras: { key: ReadingKey; label: string; hint: string; symbol: RowSymbol }[] = [
+  { key: "power", label: "Leistung", hint: "Ganzer PC; geschätzt, wenn kein Messgerät da ist", symbol: "bolt" },
+  { key: "battery", label: "Akku", hint: "Nur bei Laptops", symbol: "battery_full" },
+  { key: "temp", label: "Temperatur", hint: "CPU, sonst GPU; erscheint, sobald ein Sensor antwortet", symbol: "thermometer" },
 ];
 
 /** Hardware tool: colours, the GPU shown, and the opt-in readings of the closed row. */
@@ -23,7 +24,7 @@ export function SystemSettings() {
 
   return (
     <Group title={t("Hardware")} id="settings-system">
-      <Row label={t("Farben")} hint={t("Für die Werte im Tool und in der geschlossenen Notch")}>
+      <Row icon="palette" label={t("Farben")} hint={t("Für die Werte im Tool und in der geschlossenen Notch")}>
         <Segmented
           id="system-colors"
           value={s.system.colors}
@@ -44,7 +45,7 @@ export function SystemSettings() {
         />
       </Row>
       {gpus.length > 1 && (
-        <Row label="GPU" hint={t("Auch per Klick auf die GPU-Zeile im Tool")}>
+        <Row icon="developer_board" label="GPU" hint={t("Auch per Klick auf die GPU-Zeile im Tool")}>
           <Select
             width="w-36"
             value={s.system.gpu ? `${s.system.gpuIndex}#${s.system.gpu}` : ""}
@@ -63,9 +64,9 @@ export function SystemSettings() {
           />
         </Row>
       )}
-      <Row label={t("In der geschlossenen Notch")} hint={t("Zusätzliche Werte im Teil „Auslastung“")} />
+      <Row icon="monitoring" label={t("In der geschlossenen Notch")} hint={t("Zusätzliche Werte im Teil „Auslastung“")} />
       {extras.map((e) => (
-        <Row key={e.key} label={t(e.label)} hint={t(e.hint)}>
+        <Row key={e.key} icon={e.symbol} label={t(e.label)} hint={t(e.hint)}>
           <Switch label={t(e.label)} checked={s.closed.readings[e.key]} onChange={(on) => setReading(e.key, on)} />
         </Row>
       ))}

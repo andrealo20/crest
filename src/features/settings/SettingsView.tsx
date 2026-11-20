@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, LayoutGroup, motion, Reorder, useReducedMotion, type Variants } from "motion/react";
+import { AnimatePresence, LayoutGroup, motion, Reorder, useReducedMotion, type MotionStyle, type Variants } from "motion/react";
 import {
   AppWindow,
   ArrowsInLineHorizontal,
@@ -57,6 +57,7 @@ import { github } from "../github/store";
 import { leetcode } from "../leetcode/store";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
 import { Button, Group, RoomyContext, Row, Segmented, Select, Slider, StyleCards, SubSwitch, Switch, TextField } from "../../ui/controls";
+import type { RowSymbol } from "../../ui/materialNames";
 import { PET_IDS, PET_SIZE, type ClosedSettings, type PartId, type PetId } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
 import { PetArt } from "../../notch/pet/Nest";
@@ -445,7 +446,9 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
         <motion.div
           key={viewKey}
           className="absolute inset-0 flex flex-col gap-4 overflow-y-auto pb-6 [scrollbar-width:none] roomy:gap-3"
-          style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 28px), transparent)" }}
+          // The rows' icon circles take the page's hue from here (Row in controls.tsx).
+          data-row-hues={iconColors || undefined}
+          style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 28px), transparent)", "--row-hue": hueVar(allPages.find((p) => p.id === page)!.hue) } as MotionStyle}
           {...(view.cascade
             ? { initial: "hidden", animate: "shown", variants: PAGE_CASCADE }
             : { initial: { opacity: 0 }, animate: { opacity: 1, transition: content.enter } })}
@@ -670,20 +673,20 @@ function Updates() {
 
   return (
     <Group title={t("Updates")} id="settings-updates">
-      <Row label={t("Version {v}", { v: u.current ?? "–" })} hint={status}>
+      <Row icon="info" label={t("Version {v}", { v: u.current ?? "–" })} hint={status}>
         {!u.store && (
           <Button disabled={busy} onClick={() => void checkForUpdate()}>
             {t("Jetzt suchen")}
           </Button>
         )}
       </Row>
-      {u.store && <Row label={t("Updates kommen über den Microsoft Store")} />}
+      {u.store && <Row icon="storefront" label={t("Updates kommen über den Microsoft Store")} />}
       <DiagnosticsRow />
       <PortableNote />
       <AnimatePresence initial={false}>
         {(u.phase === "available" || u.phase === "downloading") && u.version && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={fade} className="overflow-hidden">
-            <Row label={t("Version {v} verfügbar", { v: u.version })} hint={t("Lädt, installiert und startet neu")}>
+            <Row icon="download" label={t("Version {v} verfügbar", { v: u.version })} hint={t("Lädt, installiert und startet neu")}>
               {u.phase === "downloading" ? (
                 <div className="h-1.5 w-28 overflow-hidden rounded-full bg-fill-2">
                   <div className="h-full origin-left rtl:origin-right rounded-full bg-primary transition-transform duration-150 ease-linear" style={{ transform: `scaleX(${u.progress})` }} />
@@ -698,7 +701,7 @@ function Updates() {
           </motion.div>
         )}
       </AnimatePresence>
-      <Row
+      <Row icon="campaign"
         label={
           <span className="flex items-center gap-1.5">
             {t("Neuerungen")}
@@ -724,7 +727,7 @@ function Updates() {
         )}
       </AnimatePresence>
       {!u.store && (
-        <Row label={t("Automatisch suchen")} hint={t("Alle 4 Stunden, anonym bei GitHub, ohne deine Daten")}>
+        <Row icon="update" label={t("Automatisch suchen")} hint={t("Alle 4 Stunden, anonym bei GitHub, ohne deine Daten")}>
           <Switch label={t("Automatisch suchen")} checked={auto} onChange={(on) => updateSettings({ updates: { auto: on } })} />
         </Row>
       )}
@@ -775,7 +778,7 @@ function DiagnosticsRow() {
         ? t("Kopieren fehlgeschlagen")
         : t("Version, Windows, Bildschirme und Einstellungen für einen Fehlerbericht, ohne persönliche Daten");
   return (
-    <Row label={t("Diagnose kopieren")} hint={hint}>
+    <Row icon="troubleshoot" label={t("Diagnose kopieren")} hint={hint}>
       <Button onClick={() => void copy()}>{t("Kopieren")}</Button>
     </Row>
   );
@@ -785,11 +788,11 @@ function Support() {
   const { store } = update.use();
   return (
     <Group title={t("Unterstützen")} id="settings-support">
-      <Row label={t("Crest unterstützen")} hint={t("Kostenlos und ohne Werbung. Spenden über GitHub Sponsors sind freiwillig")}>
+      <Row icon="favorite" label={t("Crest unterstützen")} hint={t("Kostenlos und ohne Werbung. Spenden über GitHub Sponsors sind freiwillig")}>
         <Button onClick={openSponsors}>{t("Sponsern")}</Button>
       </Row>
       {store && (
-        <Row label={t("Crest bewerten")} hint={t("Eine Bewertung im Microsoft Store hilft anderen, Crest zu finden")}>
+        <Row icon="star" label={t("Crest bewerten")} hint={t("Eine Bewertung im Microsoft Store hilft anderen, Crest zu finden")}>
           <Button onClick={openStoreReview}>{t("Bewerten")}</Button>
         </Row>
       )}
@@ -811,7 +814,7 @@ function Ask() {
   const s = settings.use();
   return (
     <Group title={t("AI-Chat")} id="settings-ask">
-      <Row label={t("Anbieter")}>
+      <Row icon="cloud" label={t("Anbieter")}>
         <Segmented<AskProvider>
           id="ask-provider"
           size="sm"
@@ -821,7 +824,7 @@ function Ask() {
         />
       </Row>
       {s.ask.provider === "custom" && (
-        <Row label={t("Base-URL")} hint={t("OpenAI-kompatibel, endet meist auf /v1")}>
+        <Row icon="link" label={t("Base-URL")} hint={t("OpenAI-kompatibel, endet meist auf /v1")}>
           <TextField
             value={s.ask.configs.custom.baseUrl}
             onChange={(baseUrl) => updateAsk("custom", { baseUrl: baseUrl.trim() })}
@@ -832,10 +835,11 @@ function Ask() {
       )}
       <SecretRow
         name={`ai.${s.ask.provider}` as SecretName}
+        icon="key"
         label={t("API-Schlüssel")}
         hint={s.ask.provider === "custom" ? t("Für einen Server auf diesem Computer wie LM Studio oder Ollama nicht nötig") : undefined}
       />
-      <Row label={t("Modell")} hint={s.ask.provider === "openrouter" ? t("Modell-ID von openrouter.ai/models") : undefined}>
+      <Row icon="smart_toy" label={t("Modell")} hint={s.ask.provider === "openrouter" ? t("Modell-ID von openrouter.ai/models") : undefined}>
         <TextField
           value={s.ask.configs[s.ask.provider].model}
           onChange={(model) => updateAsk(s.ask.provider, { model: model.trim() })}
@@ -843,7 +847,7 @@ function Ask() {
           width="w-52"
         />
       </Row>
-      <Row label={t("Denkaufwand")} hint={t("Wie gründlich das Modell nachdenkt")}>
+      <Row icon="psychology" label={t("Denkaufwand")} hint={t("Wie gründlich das Modell nachdenkt")}>
         <Segmented
           id="ask-effort-settings"
           size="sm"
@@ -861,7 +865,7 @@ export function OpenRows() {
   const s = settings.use();
   return (
     <>
-      <Row label={t("Öffnen")}>
+      <Row icon="touch_app" label={t("Öffnen")}>
         <Segmented
           id="open-mode"
           size="sm"
@@ -876,7 +880,7 @@ export function OpenRows() {
       <AnimatePresence initial={false}>
         {s.openMode === "hover" && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={fade} className="overflow-hidden">
-            <Row label={t("Hover-Verzögerung")}>
+            <Row icon="hourglass_top" label={t("Hover-Verzögerung")}>
               <Segmented
                 id="hover-delay"
                 size="sm"
@@ -889,7 +893,7 @@ export function OpenRows() {
                 ]}
               />
             </Row>
-            <Row label={t("Darüberfahren öffnet das Tool des Teils")} hint={t("Aus öffnet sich die Notch wie sonst; ein Klick auf einen Teil öffnet sein Tool immer")}>
+            <Row icon="arrow_selector_tool" label={t("Darüberfahren öffnet das Tool des Teils")} hint={t("Aus öffnet sich die Notch wie sonst; ein Klick auf einen Teil öffnet sein Tool immer")}>
               <Switch
                 label={t("Darüberfahren öffnet das Tool des Teils")}
                 checked={s.behavior.hoverParts}
@@ -904,11 +908,12 @@ export function OpenRows() {
 }
 
 /** The open shortcut as keycaps, with a warning when another program holds it. */
-export function ShortcutRow() {
+export function ShortcutRow({ icon }: { icon?: RowSymbol }) {
   const keys = settings.use().behavior.hotkeys.open;
   const openKey = hotkeyStatus.use().open;
   return (
     <Row
+      icon={icon}
       label={t("Tastenkürzel")}
       hint={
         !keys ? (
@@ -946,7 +951,7 @@ function General() {
 
   return (
     <Group>
-      <Row label={t("Sprache")}>
+      <Row icon="language" label={t("Sprache")}>
         <Select<LanguageSetting>
           width="w-40"
           value={s.lang}
@@ -954,7 +959,7 @@ function General() {
           options={[{ value: "system", label: t("Systemsprache") }, ...LANGUAGES.map((l) => ({ value: l, label: LANGUAGE_NAMES[l] }))]}
         />
       </Row>
-      <Row label={t("Uhrzeit")}>
+      <Row icon="schedule" label={t("Uhrzeit")}>
         <Segmented
           id="clock-format"
           size="sm"
@@ -967,7 +972,7 @@ function General() {
         />
       </Row>
       <OpenRows />
-      <Row label={t("Schließen-Verzögerung")} hint={t("Wie lange die Notch offen bleibt, nachdem der Zeiger sie verlassen hat")}>
+      <Row icon="hourglass_bottom" label={t("Schließen-Verzögerung")} hint={t("Wie lange die Notch offen bleibt, nachdem der Zeiger sie verlassen hat")}>
         <Segmented
           id="close-delay"
           size="sm"
@@ -980,7 +985,7 @@ function General() {
           ]}
         />
       </Row>
-      <Row label={autostartLabel} hint={autoError ?? undefined}>
+      <Row icon="power_settings_new" label={autostartLabel} hint={autoError ?? undefined}>
         {auto !== null && (
           <Switch
             label={autostartLabel}
@@ -997,31 +1002,31 @@ function General() {
           />
         )}
       </Row>
-      <ShortcutRow />
-      <Row label={t("Einrichtung")} hint={t("Voreinstellung, Aussehen und Öffnen noch einmal wählen")}>
+      <ShortcutRow icon="keyboard" />
+      <Row icon="tune" label={t("Einrichtung")} hint={t("Voreinstellung, Aussehen und Öffnen noch einmal wählen")}>
         <Button onClick={() => navigate(setupTab.id)}>{t("Erneut starten")}</Button>
       </Row>
     </Group>
   );
 }
 
-const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string][] = [
-  ["power", "Ladegerät und Akku", "Beim Ein- und Ausstecken, Akku bei 20 und 10 % und wenn er am Ladegerät fertig geladen ist"],
-  ["saver", "Energiesparen und Energiemodus", "Wenn das Energiesparen an- oder ausgeht oder du den Energiemodus wechselst"],
-  ["net", "Netzwerk", "Wenn das Internet wegfällt und zurückkommt"],
-  ["airplane", "Flugzeugmodus", "Wenn der Flugzeugmodus an- oder ausgeht"],
-  ["bt", "Bluetooth-Geräte", "Beim Verbinden oder Trennen, mit Akku, wenn das Gerät ihn meldet"],
-  ["output", "Ausgabegerät", "Wenn Windows den Ton auf andere Lautsprecher oder Kopfhörer legt; ein Wechsel in Crest zählt nicht"],
-  ["display", "Bildschirme", "Wenn ein Bildschirm angeschlossen oder getrennt wird, mit seiner Bildwiederholrate"],
-  ["volume", "Lautstärke", "Mit Pegel, wenn sich die Lautstärke oder Stummschaltung ändert"],
-  ["brightness", "Helligkeit", "Eingebauter Bildschirm sofort, externe Monitore über DDC/CI alle 2 Sekunden"],
-  ["lock", "Feststell- und Num-Taste", "Wenn die Feststelltaste oder die Num-Taste umgeschaltet wird"],
-  ["insert", "Einfg-Taste", "Wenn sie allein gedrückt wird; Tastenkürzel wie Umschalt+Einfg zählen nicht"],
-  ["mic", "Mikrofon", "Wenn das Mikrofon stumm- oder wieder eingeschaltet wird: mit dem Tastenkürzel, einer Taste am Laptop oder in Windows"],
-  ["focus", "Nicht stören", "Wenn Nicht stören oder eine Fokussitzung an- oder ausgeht"],
-  ["clip", "Kopieren", "Wenn du Text, einen Link, ein Bild oder Dateien kopierst; braucht das Werkzeug Zwischenablage"],
-  ["hideOsd", "Windows-Anzeige ausblenden", "Blendet die Lautstärke- und Helligkeitsanzeige von Windows aus, solange Crest läuft; braucht Lautstärke und Helligkeit"],
-  ["everywhere", "Überall anzeigen", "Lautstärke, Helligkeit, die Sperrtasten, das Mikrofon und das Kopieren auch über Vollbild-Apps und wenn Crest ausgeblendet ist; mit Windows-Anzeige ausblenden erscheint die von Windows nie"],
+const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string, RowSymbol][] = [
+  ["power", "Ladegerät und Akku", "Beim Ein- und Ausstecken, Akku bei 20 und 10 % und wenn er am Ladegerät fertig geladen ist", "battery_charging_full"],
+  ["saver", "Energiesparen und Energiemodus", "Wenn das Energiesparen an- oder ausgeht oder du den Energiemodus wechselst", "energy_savings_leaf"],
+  ["net", "Netzwerk", "Wenn das Internet wegfällt und zurückkommt", "wifi"],
+  ["airplane", "Flugzeugmodus", "Wenn der Flugzeugmodus an- oder ausgeht", "flight"],
+  ["bt", "Bluetooth-Geräte", "Beim Verbinden oder Trennen, mit Akku, wenn das Gerät ihn meldet", "bluetooth"],
+  ["output", "Ausgabegerät", "Wenn Windows den Ton auf andere Lautsprecher oder Kopfhörer legt; ein Wechsel in Crest zählt nicht", "speaker"],
+  ["display", "Bildschirme", "Wenn ein Bildschirm angeschlossen oder getrennt wird, mit seiner Bildwiederholrate", "desktop_windows"],
+  ["volume", "Lautstärke", "Mit Pegel, wenn sich die Lautstärke oder Stummschaltung ändert", "volume_up"],
+  ["brightness", "Helligkeit", "Eingebauter Bildschirm sofort, externe Monitore über DDC/CI alle 2 Sekunden", "brightness_5"],
+  ["lock", "Feststell- und Num-Taste", "Wenn die Feststelltaste oder die Num-Taste umgeschaltet wird", "keyboard_capslock"],
+  ["insert", "Einfg-Taste", "Wenn sie allein gedrückt wird; Tastenkürzel wie Umschalt+Einfg zählen nicht", "keyboard_alt"],
+  ["mic", "Mikrofon", "Wenn das Mikrofon stumm- oder wieder eingeschaltet wird: mit dem Tastenkürzel, einer Taste am Laptop oder in Windows", "mic"],
+  ["focus", "Nicht stören", "Wenn Nicht stören oder eine Fokussitzung an- oder ausgeht", "do_not_disturb_on"],
+  ["clip", "Kopieren", "Wenn du Text, einen Link, ein Bild oder Dateien kopierst; braucht das Werkzeug Zwischenablage", "content_copy"],
+  ["hideOsd", "Windows-Anzeige ausblenden", "Blendet die Lautstärke- und Helligkeitsanzeige von Windows aus, solange Crest läuft; braucht Lautstärke und Helligkeit", "layers_clear"],
+  ["everywhere", "Überall anzeigen", "Lautstärke, Helligkeit, die Sperrtasten, das Mikrofon und das Kopieren auch über Vollbild-Apps und wenn Crest ausgeblendet ist; mit Windows-Anzeige ausblenden erscheint die von Windows nie", "all_inclusive"],
 ];
 
 /** Where and when the notch shows up. */
@@ -1041,7 +1046,7 @@ function Display() {
     <Group id="settings-display">
       {/* Also with one monitor while "follow" or "all" is saved (a laptop undocked), or it could not be changed back. */}
       {(monitors.length > 1 || d.monitorMode !== "chosen") && (
-        <Row
+        <Row icon="desktop_windows"
           label={t("Monitor")}
           hint={d.monitorMode === "follow" ? t("Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger") : d.monitorMode === "all" ? t("Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst") : undefined}
         >
@@ -1065,7 +1070,7 @@ function Display() {
       )}
       <EdgeSettings />
       {(d.offset !== 0 || d.y !== 5) && (
-        <Row label={t("Position")} hint={t("Notch an der Kopfzeile oder geschlossen ziehen, um sie zu verschieben")}>
+        <Row icon="open_with" label={t("Position")} hint={t("Notch an der Kopfzeile oder geschlossen ziehen, um sie zu verschieben")}>
           <Button onClick={() => updateSettings((cur) => ({ display: { ...cur.display, offset: 0, y: 5 } }))}>
             <span className="flex items-center gap-1.5">
               <ArrowsInLineHorizontal size={13} weight="bold" /> {t("Zur Mitte")}
@@ -1077,31 +1082,31 @@ function Display() {
       <SizeSettings />
       <ClosedParts />
       {d.idleStyle !== "line" && <PetSettingsRows />}
-      <Row label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>
+      <Row icon="linear_scale" label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>
         <Switch label={t("Fortschritt auf der Linie")} checked={s.closed.lineProgress} onChange={(lineProgress) => updateSettings((cur) => ({ closed: { ...cur.closed, lineProgress } }))} />
       </Row>
-      <Row label={t("Hinweis bei Kontingent 70 und 90 %")} hint={t("Braucht den Teil AI-Nutzung")}>
+      <Row icon="data_usage" label={t("Hinweis bei Kontingent 70 und 90 %")} hint={t("Braucht den Teil AI-Nutzung")}>
         <Switch label={t("Hinweis bei Kontingent 70 und 90 %")} checked={s.closed.quotaAlerts} onChange={(quotaAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, quotaAlerts } }))} />
       </Row>
       {/* The download watcher and the status events (power, network, Bluetooth, volume, brightness, lock keys) have no Mac backend. */}
       {!isMac && (
         <>
-          <Row label={t("Hinweis bei fertigem Download")} hint={t("Mit Im Ordner zeigen und Zur Ablage, nicht in den Ruhezeiten")}>
+          <Row icon="download_done" label={t("Hinweis bei fertigem Download")} hint={t("Mit Im Ordner zeigen und Zur Ablage, nicht in den Ruhezeiten")}>
             <Switch label={t("Hinweis bei fertigem Download")} checked={s.closed.downloadAlerts} onChange={(downloadAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, downloadAlerts } }))} />
           </Row>
-          <Row label={t("Statusmeldungen")} />
-          {statusAlerts.map(([k, label, hint]) => (
-            <Row key={k} label={t(label)} hint={t(hint)}>
+          <Row icon="notification_important" label={t("Statusmeldungen")} />
+          {statusAlerts.map(([k, label, hint, icon]) => (
+            <Row key={k} icon={icon} label={t(label)} hint={t(hint)}>
               <Switch label={t(label)} checked={s.closed.statusAlerts[k]} onChange={(v) => updateSettings((cur) => ({ closed: { ...cur.closed, statusAlerts: { ...cur.closed.statusAlerts, [k]: v } } }))} />
             </Row>
           ))}
         </>
       )}
-      <Row label={t("Fokus-Modus mit drei Klicks")} hint={t("Drei schnelle Klicks auf die geschlossene Notch machen sie halb durchsichtig oder zur Linie und lassen Klicks durch. Drei weitere Klicks, das Öffnen per Tastenkürzel oder ein Neustart holen sie zurück.")}>
+      <Row icon="filter_center_focus" label={t("Fokus-Modus mit drei Klicks")} hint={t("Drei schnelle Klicks auf die geschlossene Notch machen sie halb durchsichtig oder zur Linie und lassen Klicks durch. Drei weitere Klicks, das Öffnen per Tastenkürzel oder ein Neustart holen sie zurück.")}>
         <Switch label={t("Fokus-Modus mit drei Klicks")} checked={d.focusClicks} onChange={(focusClicks) => updateSettings((cur) => ({ display: { ...cur.display, focusClicks } }))} />
       </Row>
       {d.focusClicks && (
-        <Row
+        <Row icon="opacity"
           label={t("Fokus-Darstellung")}
           hint={d.focusStyle === "line" ? t("Nur eine dünne Linie am Rand, ohne Musik und Co.") : t("Halb durchsichtig")}
         >
@@ -1120,7 +1125,7 @@ function Display() {
       {/* Hardware readings and FPS have no Mac backend yet. */}
       {!isMac && (
         <>
-          <Row
+          <Row icon="sports_esports"
             label={t("Gaming-Modus")}
             hint={t("FPS und Auslastung in der geschlossenen Notch")}
           >
@@ -1138,7 +1143,7 @@ function Display() {
           </Row>
           {fpsError === "no-admin" && <FpsUnlockRow />}
           {fpsError === "relogin" && (
-            <Row label={t("FPS freischalten")} hint={t("Fertig: einmal ab- und wieder anmelden, dann laufen die FPS")}>
+            <Row icon="speed" label={t("FPS freischalten")} hint={t("Fertig: einmal ab- und wieder anmelden, dann laufen die FPS")}>
               <SignOut size={18} weight="bold" className="text-orange" />
             </Row>
           )}
@@ -1146,7 +1151,7 @@ function Display() {
       )}
       {/* macOS shows its own recording dots, and Crest cannot read the state there. */}
       {!isMac && (
-        <Row label={t("Aufnahme-Punkte")} hint={t("Grün: Mikrofon/Kamera aktiv · Rot: Bildschirm wird aufgenommen")}>
+        <Row icon="fiber_manual_record" label={t("Aufnahme-Punkte")} hint={t("Grün: Mikrofon/Kamera aktiv · Rot: Bildschirm wird aufgenommen")}>
           <Switch label={t("Aufnahme-Punkte")} checked={s.privacyDots} onChange={(privacyDots) => updateSettings({ privacyDots })} />
         </Row>
       )}
@@ -1159,7 +1164,7 @@ export function ClosedStyle() {
   const style = settings.use().display.idleStyle;
   return (
     <div className="pb-3">
-      <Row
+      <Row icon="rounded_corner"
         label={t("Geschlossen")}
         hint={
           style === "line"
@@ -1200,7 +1205,7 @@ function PetSettingsRows() {
   const setPet = (patch: Partial<ClosedSettings["pet"]>) => updateSettings((cur) => ({ closed: { ...cur.closed, pet: { ...cur.closed.pet, ...patch } } }));
   return (
     <>
-      <Row
+      <Row icon="pets"
         label={t("Haustier")}
         hint={isMac ? t("Neben der Notch: tanzt zur Musik, freut sich über Erledigtes und schläft, wenn nichts los ist") : t("Neben der Notch: tanzt zur Musik, rennt mit der CPU, freut sich über Erledigtes und schläft, wenn nichts los ist")}
       >
@@ -1216,13 +1221,13 @@ function PetSettingsRows() {
       </Row>
       {pet.id && (
         <>
-          <Row label={t("Größe des Haustiers")} hint={t("Unabhängig von der Größe der Notch")}>
+          <Row icon="aspect_ratio" label={t("Größe des Haustiers")} hint={t("Unabhängig von der Größe der Notch")}>
             <div className="flex w-52 items-center gap-2">
               <Slider label={t("Größe des Haustiers")} value={pet.size} min={PET_SIZE.min} max={PET_SIZE.max} step={2} onChange={(size) => setPet({ size })} />
               <span className="tabular w-8 text-end text-caption text-label-2">{pet.size}</span>
             </div>
           </Row>
-          <Row label={t("Seite")}>
+          <Row icon="swap_horiz" label={t("Seite")}>
             <Segmented id="pet-side" size="sm" value={pet.side} options={across(dock.edge) ? [{ value: "left", label: t("Oben") }, { value: "right", label: t("Unten") }] : [{ value: "left", label: t("Linke Seite") }, { value: "right", label: t("Rechte Seite") }]} onChange={(side) => setPet({ side })} />
           </Row>
         </>
@@ -1255,7 +1260,7 @@ function ClosedParts() {
 
   return (
     <div>
-      <Row label={t("Inhalt")} hint={t("Gilt für Notch und Kapsel, zum Sortieren ziehen")} />
+      <Row icon="widgets" label={t("Inhalt")} hint={t("Gilt für Notch und Kapsel, zum Sortieren ziehen")} />
       {/* Parts a Mac does not show keep their place at the end of the order. */}
       <Reorder.Group
         as="div"
@@ -1319,14 +1324,14 @@ function Presentation() {
   const recording = privacy.use().screen;
   return (
     <Group title={t("Präsentationsmodus")} id="settings-presentation">
-      <Row
+      <Row icon="present_to_all"
         label={t("Präsentationsmodus")}
         hint={presenting && !manual ? t("Aktiv, Bildschirmaufnahme erkannt") : t("Blendet Zwischenablage, Kontostände, Tresor, Aufnahmen und Ablage aus")}
       >
         <Switch label={t("Präsentationsmodus")} checked={presenting} onChange={togglePresentation} />
       </Row>
       {!isMac && (
-        <Row label={t("Bei Bildschirmaufnahme")} hint={t("Teams, Discord, OBS … schaltet sich danach wieder ab")}>
+        <Row icon="screen_record" label={t("Bei Bildschirmaufnahme")} hint={t("Teams, Discord, OBS … schaltet sich danach wieder ab")}>
           <Switch
             label={t("Bei Bildschirmaufnahme")}
             checked={auto}
@@ -1335,7 +1340,7 @@ function Presentation() {
         </Row>
       )}
       {auto && recording && !presenting && (
-        <Row label={t("Für diese Aufnahme aus")} hint={t("Schaltet sich bei der nächsten wieder ein")} />
+        <Row icon="stop_screen_share" label={t("Für diese Aufnahme aus")} hint={t("Schaltet sich bei der nächsten wieder ein")} />
       )}
       <HideFromSharingRow />
     </Group>
@@ -1360,16 +1365,16 @@ function Discord() {
   const save = () => updateSettings({ discord: { clientId: id.trim() } });
   return (
     <Group title="Discord" id="settings-discord">
-      <Row label={t("Status")} hint={state.error ? tBackend(state.error) : undefined}>
+      <Row icon="cable" label={t("Status")} hint={state.error ? tBackend(state.error) : undefined}>
         <span className={`text-caption ${state.status === "ready" ? "text-green" : "text-label-2"}`}>{t(discordStatus[state.status] ?? state.status)}</span>
       </Row>
-      <Row label={t("Client-ID")}>
+      <Row icon="badge" label={t("Client-ID")}>
         <div className="flex items-center gap-1.5">
           <TextField value={id} onChange={setId} onSubmit={save} placeholder="123456789012345678" width="w-40" />
           {id.trim() !== s.discord.clientId && <Button onClick={save}>{t("Sichern")}</Button>}
         </div>
       </Row>
-      <SecretRow name="discord.secret" label={t("Client-Secret")} onSaved={reconnectDiscord} />
+      <SecretRow name="discord.secret" icon="key" label={t("Client-Secret")} onSaved={reconnectDiscord} />
       <div className="px-3 py-2 text-caption text-label-3">
         {t("discord.com/developers → New Application → OAuth2: Client-ID und Client-Secret kopieren und unter Redirects http://localhost eintragen und speichern. Beim ersten Verbinden fragt Discord einmal nach.")}
       </div>
@@ -1404,7 +1409,7 @@ function Alarm() {
 
   return (
     <Group id="settings-alarm">
-      <Row label={t("Alarm-Ton")}>
+      <Row icon="alarm" label={t("Alarm-Ton")}>
         <div className="flex items-center gap-1.5">
           <button
             aria-label={previewing ? t("Stopp") : t("Probehören")}
@@ -1429,13 +1434,13 @@ function Alarm() {
           />
         </div>
       </Row>
-      <Row label={t("Lautstärke")}>
+      <Row icon="volume_up" label={t("Lautstärke")}>
         <div className="flex w-52 items-center gap-2">
           <Slider label={t("Lautstärke")} value={Math.round(a.volume * 100)} min={5} max={100} step={5} onChange={(v) => set({ volume: v / 100 })} />
           <span className="tabular w-8 text-end text-caption text-label-2">{Math.round(a.volume * 100)}</span>
         </div>
       </Row>
-      <Row label={t("Dauer")} hint={t("Wie lange der Alarm klingelt")}>
+      <Row icon="timelapse" label={t("Dauer")} hint={t("Wie lange der Alarm klingelt")}>
         <Segmented id="alarm-duration" size="sm" value={String(a.duration)} onChange={(v) => set({ duration: Number(v) as AlarmDuration })} options={durations.map((o) => ({ ...o, label: t(o.label, { n: o.value }) }))} />
       </Row>
     </Group>
@@ -1448,10 +1453,10 @@ function FocusSoundSettings() {
   const set = (patch: Partial<{ focusSound: FocusSound; focusVolume: number }>) => updateSettings((cur) => ({ timer: { ...cur.timer, ...patch } }));
   return (
     <Group id="settings-focus-sound">
-      <Row label={t("Fokus-Klang")} hint={t("Spielt, solange ein Fokus-Timer läuft")}>
+      <Row icon="headphones" label={t("Fokus-Klang")} hint={t("Spielt, solange ein Fokus-Timer läuft")}>
         <Select width="w-44" value={focusSound} onChange={(v) => set({ focusSound: v })} options={focusSounds.map((o) => ({ ...o, label: t(o.label) }))} />
       </Row>
-      <Row label={t("Lautstärke")}>
+      <Row icon="volume_up" label={t("Lautstärke")}>
         <div className="flex w-52 items-center gap-2">
           <Slider label={t("Lautstärke")} value={Math.round(focusVolume * 100)} min={5} max={100} step={5} onChange={(v) => set({ focusVolume: v / 100 })} />
           <span className="tabular w-8 text-end text-caption text-label-2">{Math.round(focusVolume * 100)}</span>
@@ -1473,7 +1478,7 @@ function FpsUnlockRow() {
     failed: t("Hat nicht geklappt, Crest einmal als Administrator starten"),
   }[state];
   return (
-    <Row label={t("FPS freischalten")} hint={hint}>
+    <Row icon="speed" label={t("FPS freischalten")} hint={hint}>
       {state === "ok" || state === "relogin" ? (
         <CheckCircle size={18} weight="fill" className="text-green" />
       ) : (
@@ -1497,7 +1502,7 @@ function Weather() {
   const [searching, setSearching] = useState(false);
   return (
     <Group title={t("Wetter")} id="settings-weather">
-      <Row label={t("Standort")} hint={w?.auto ? t("Ungefähr, aus deiner IP-Adresse") : undefined}>
+      <Row icon="my_location" label={t("Standort")} hint={w?.auto ? t("Ungefähr, aus deiner IP-Adresse") : undefined}>
         <Segmented<"auto" | "manual">
           id="weather-mode"
           size="sm"
@@ -1514,7 +1519,7 @@ function Weather() {
           ]}
         />
       </Row>
-      <Row label={t("Einheit")}>
+      <Row icon="device_thermostat" label={t("Einheit")}>
         <Segmented
           id="temp-unit"
           size="sm"
@@ -1526,7 +1531,7 @@ function Weather() {
           ]}
         />
       </Row>
-      <Row label={t("Ort")}>
+      <Row icon="location_on" label={t("Ort")}>
         <Button onClick={() => setSearching((v) => !v)}>{w?.name ?? t("Wird erkannt …")}</Button>
       </Row>
       <AnimatePresence initial={false}>
@@ -1601,7 +1606,7 @@ function Tools() {
  * Field for a key. Stored values are never read back, it only shows
  * "saved ✓". Typing a new one overwrites it, saving empty deletes it.
  */
-export function SecretRow({ name, label, hint, onSaved }: { name: SecretName; label: string; hint?: string; onSaved?: () => void }) {
+export function SecretRow({ name, label, hint, icon, onSaved }: { name: SecretName; label: string; hint?: string; icon?: RowSymbol; onSaved?: () => void }) {
   const [stored, setStored] = useState(false);
   const [value, setValue] = useState("");
   const [saved, setSaved] = useState(false);
@@ -1629,7 +1634,7 @@ export function SecretRow({ name, label, hint, onSaved }: { name: SecretName; la
   };
 
   return (
-    <Row label={label} hint={hint}>
+    <Row icon={icon} label={label} hint={hint}>
       <div className="flex items-center gap-1.5">
         <AnimatePresence>
           {(saved || (stored && !value)) && (

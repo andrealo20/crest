@@ -114,7 +114,7 @@ export function BackupSettings() {
 
   return (
     <Group title={t("Backup")} id="settings-backup">
-      <Row
+      <Row icon="backup"
         label={t("Backup erstellen")}
         hint={
           saveError ? (
@@ -132,7 +132,7 @@ export function BackupSettings() {
         </div>
       </Row>
       {pending ? (
-        <Row
+        <Row icon="settings_backup_restore"
           label={pendingDate ? t("Backup vom {date} wiederherstellen?", { date: pendingDate }) : t("Dieses Backup wiederherstellen?")}
           hint={t("Ersetzt alle Daten von Crest. Die jetzigen werden vorher als Backup gesichert, dann startet Crest neu")}
         >
@@ -146,7 +146,7 @@ export function BackupSettings() {
           </div>
         </Row>
       ) : (
-        <Row
+        <Row icon="settings_backup_restore"
           label={t("Aus einem Backup wiederherstellen")}
           hint={restoreError ? <span className="text-orange">{restoreError}</span> : (restoredHint ?? t("Ersetzt alle Daten von Crest durch die des Backups und startet Crest neu"))}
         >

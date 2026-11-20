@@ -25,18 +25,18 @@ export function ProductivitySettings() {
   return (
     <>
       <Group id="settings-todos" title={t("To-Dos und Übersicht")}>
-        <Row label={t("Ton bei Erinnerungen")} hint={toolOn("todos") ? t("Der Alarm-Ton des Timers, einmal") : t("Braucht das Tool To-Dos")}>
+        <Row icon="music_note" label={t("Ton bei Erinnerungen")} hint={toolOn("todos") ? t("Der Alarm-Ton des Timers, einmal") : t("Braucht das Tool To-Dos")}>
           <Switch label={t("Ton bei Erinnerungen")} checked={p.reminderSound} onChange={(reminderSound) => set({ reminderSound })} />
         </Row>
         {DATE_LANGUAGES.includes(lang()) && (
-          <Row label={t("Datum in neuen Aufgaben erkennen")} hint={toolOn("todos") ? t("Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie") : t("Braucht das Tool To-Dos")}>
+          <Row icon="edit_calendar" label={t("Datum in neuen Aufgaben erkennen")} hint={toolOn("todos") ? t("Zeigt eine Fälligkeit unter dem Feld; Enter übernimmt sie") : t("Braucht das Tool To-Dos")}>
             <Switch label={t("Datum in neuen Aufgaben erkennen")} checked={p.nlDates} onChange={(nlDates) => set({ nlDates })} />
           </Row>
         )}
-        <Row label={t("Zitat in der Übersicht")} hint={t("Eine kurze Zeile für die schweren Stunden")}>
+        <Row icon="format_quote" label={t("Zitat in der Übersicht")} hint={t("Eine kurze Zeile für die schweren Stunden")}>
           <Switch label={t("Zitat in der Übersicht")} checked={p.quotes} onChange={(quotes) => set({ quotes })} />
         </Row>
-        <Row label={t("Websuche in der Übersicht")} hint={t("Ein Feld, das im Standardbrowser sucht")}>
+        <Row icon="travel_explore" label={t("Websuche in der Übersicht")} hint={t("Ein Feld, das im Standardbrowser sucht")}>
           <Select<SearchSetting>
             width="w-36"
             value={p.search}
@@ -46,19 +46,19 @@ export function ProductivitySettings() {
         </Row>
       </Group>
       <Group id="settings-water" title={t("Wasser")}>
-        <Row label={t("Erinnerungen")} hint={toolOn("water") ? t("Ein Hinweis in der geschlossenen Notch, bis das Tagesziel erreicht ist") : t("Braucht das Tool Wasser")}>
+        <Row icon="water_drop" label={t("Erinnerungen")} hint={toolOn("water") ? t("Ein Hinweis in der geschlossenen Notch, bis das Tagesziel erreicht ist") : t("Braucht das Tool Wasser")}>
           <Switch label={t("Erinnerungen")} checked={w.remind} onChange={(remind) => waterActions.setConfig({ remind })} />
         </Row>
-        <Row label={t("Flasche")} hint={t("So viel zählt ein Klick auf Trinken")}>
+        <Row icon="water_full" label={t("Flasche")} hint={t("So viel zählt ein Klick auf Trinken")}>
           <Segmented id="water-bottle" size="sm" value={String(w.bottleMl)} onChange={(v) => waterActions.setConfig({ bottleMl: Number(v) })} options={withValue(BOTTLES, w.bottleMl).map((v) => ({ value: String(v), label: formatMl(v) }))} />
         </Row>
-        <Row label={t("Tagesziel")}>
+        <Row icon="flag" label={t("Tagesziel")}>
           <Segmented id="water-goal" size="sm" value={String(w.goalMl)} onChange={(v) => waterActions.setConfig({ goalMl: Number(v) })} options={withValue(GOALS, w.goalMl).map((v) => ({ value: String(v), label: formatMl(v) }))} />
         </Row>
-        <Row label={t("Erinnern alle")}>
+        <Row icon="repeat" label={t("Erinnern alle")}>
           <Segmented id="water-every" size="sm" value={String(w.everyMin)} onChange={(v) => waterActions.setConfig({ everyMin: Number(v) })} options={withValue(EVERY, w.everyMin).map((v) => ({ value: String(v), label: t("{n} Min.", { n: v }) }))} />
         </Row>
-        <Row label={t("Zeitraum")} hint={t("Außerhalb davon keine Erinnerungen")}>
+        <Row icon="avg_time" label={t("Zeitraum")} hint={t("Außerhalb davon keine Erinnerungen")}>
           <div className="flex items-center gap-1.5">
             <Select width="w-20" value={String(w.from - (w.from % 60))} onChange={(v) => waterActions.setConfig({ from: Number(v) })} options={HOURS} />
             <span className="text-caption text-label-3">{t("bis")}</span>

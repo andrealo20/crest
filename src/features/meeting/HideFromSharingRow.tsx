@@ -8,7 +8,7 @@ export function HideFromSharingRow() {
   const on = settings.use().presentation.hideFromCapture;
   const label = t("Crest vor Bildschirmfreigabe und Aufnahmen verbergen");
   return (
-    <Row
+    <Row icon="hide_source"
       label={label}
       hint={
         isMac

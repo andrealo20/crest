@@ -20,7 +20,7 @@ export function LeetcodeSettings() {
 
   return (
     <Group title="LeetCode" id="settings-leetcode">
-      <Row
+      <Row icon="person"
         label={t("Nutzername")}
         hint={t(
           "Liest das öffentliche Profil und Einreichungen, einmal pro Stunde",

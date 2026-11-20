@@ -10,7 +10,7 @@ export function TimerLookSettings() {
   const { look, color } = settings.use().timer;
   return (
     <Group title={t("Timer-Stil")} id="settings-timer-look">
-      <Row label={t("Farbe")} hint={t("Für den Fokus-Timer, auch in der geschlossenen Notch; Pausen bleiben grün")}>
+      <Row icon="palette" label={t("Farbe")} hint={t("Für den Fokus-Timer, auch in der geschlossenen Notch; Pausen bleiben grün")}>
         <ColorDots value={color} onChange={(c) => updateSettings((s) => ({ timer: { ...s.timer, color: c } }))} />
       </Row>
       <div className="px-3 py-2.5">
@@ -59,7 +59,7 @@ export function ClockLookSettings() {
   ];
   return (
     <Group title={t("Uhr-Stil")} id="settings-clock-look">
-      <Row label={t("Farbe")} hint={t("Für die Uhr in der Übersicht")}>
+      <Row icon="palette" label={t("Farbe")} hint={t("Für die Uhr in der Übersicht")}>
         <ColorDots value={clockColor} onChange={(c) => updateSettings((s) => ({ timer: { ...s.timer, clockColor: c } }))} />
       </Row>
       <div className="px-3 py-2.5">

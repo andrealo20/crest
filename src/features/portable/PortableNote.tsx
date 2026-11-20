@@ -9,7 +9,7 @@ export function PortableNote() {
   useEffect(() => void portable.info().then(setInfo), []);
   if (!info?.portable) return null;
   return (
-    <Row
+    <Row icon="usb"
       label={t("Portable Kopie")}
       hint={
         info.writable

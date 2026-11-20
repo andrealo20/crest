@@ -22,7 +22,7 @@ export function TradingSettings() {
   return (
     <>
       <Group title={t("Portfolio")} id="settings-trading">
-        <Row label={t("Basiswährung")} hint={t("Alle Konten werden darin angezeigt")}>
+        <Row icon="currency_exchange" label={t("Basiswährung")} hint={t("Alle Konten werden darin angezeigt")}>
           <Select value={effectiveBase(s.trading.base)} options={baseOptions} onChange={(base) => updateSettings((p) => ({ trading: { ...p.trading, base } }))} width="w-24" />
         </Row>
         <div className="flex items-start gap-1.5 px-3 py-2 text-caption text-label-3">
@@ -54,7 +54,7 @@ function ProviderRow({ provider: p }: { provider: ProviderInfo }) {
 
   return (
     <div>
-      <Row label={p.name} hint={connected ? t("Verbunden") : undefined}>
+      <Row icon="account_balance" label={p.name} hint={connected ? t("Verbunden") : undefined}>
         <div className="flex items-center gap-1.5">
           {connected && <CheckCircle size={14} weight="fill" className="text-green" />}
           <Button onClick={() => setOpen((o) => !o)}>{open ? t("Fertig") : connected ? t("Bearbeiten") : t("Einrichten")}</Button>
@@ -64,7 +64,7 @@ function ProviderRow({ provider: p }: { provider: ProviderInfo }) {
         {open && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={fade} className="overflow-hidden bg-fill-1">
             {p.id === "t212" && (
-              <Row label={t("Konto")}>
+              <Row icon="account_box" label={t("Konto")}>
                 <Segmented
                   id="t212-env"
                   size="sm"
@@ -78,7 +78,7 @@ function ProviderRow({ provider: p }: { provider: ProviderInfo }) {
               </Row>
             )}
             {p.fields.map((f) => (
-              <SecretRow key={f.secret} name={f.secret} label={t(f.label)} hint={f.hint && t(f.hint)} onSaved={check} />
+              <SecretRow key={f.secret} name={f.secret} icon="key" label={t(f.label)} hint={f.hint && t(f.hint)} onSaved={check} />
             ))}
             <div className="px-3 py-2 text-caption text-label-3">{t(p.help)}</div>
             {connected && <div className="px-3 pb-2 text-caption text-label-3">{t("Wer den Schlüssel löscht, löscht auch Verlauf und geladene Daten dieses Kontos.")}</div>}
@@ -107,7 +107,7 @@ function ManualHoldings() {
   return (
     <Group title={t("Manuelle Bestände")} id="settings-manual">
       {list.map((m) => (
-        <Row
+        <Row icon="show_chart"
           key={m.id}
           label={`${m.symbol} · ${m.quantity.toLocaleString(locale(), { maximumFractionDigits: 8 })}`}
           hint={[
@@ -126,7 +126,7 @@ function ManualHoldings() {
       {draft ? (
         <ManualForm draft={draft} onChange={setDraft} onDone={() => setDraft(null)} />
       ) : (
-        <Row label={list.length ? "" : t("Noch nichts eingetragen")}>
+        <Row icon="add" label={list.length ? "" : t("Noch nichts eingetragen")}>
           <Button icon={Plus} onClick={() => setDraft(emptyDraft(base))}>
             {t("Bestand hinzufügen")}
           </Button>
@@ -170,7 +170,7 @@ function ManualForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
 
   return (
     <div className="bg-fill-1">
-      <Row label={t("Art")}>
+      <Row icon="category" label={t("Art")}>
         <Segmented
           id="manual-kind"
           size="sm"
@@ -182,31 +182,31 @@ function ManualForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
           ]}
         />
       </Row>
-      <Row label={t("Symbol")} hint={d.kind === "crypto" ? t("z. B. BTC, ETH") : t("z. B. VWCE, AAPL")}>
+      <Row icon="tag" label={t("Symbol")} hint={d.kind === "crypto" ? t("z. B. BTC, ETH") : t("z. B. VWCE, AAPL")}>
         <TextField value={d.symbol} onChange={(symbol) => set({ symbol })} placeholder="BTC" width="w-32" autoFocus />
       </Row>
-      <Row label={t("Name")} hint={t("Optional")}>
+      <Row icon="label" label={t("Name")} hint={t("Optional")}>
         <TextField value={d.name} onChange={(name) => set({ name })} width="w-32" />
       </Row>
-      <Row label={t("Menge")}>
+      <Row icon="numbers" label={t("Menge")}>
         <TextField value={d.quantity} onChange={(quantity) => set({ quantity })} placeholder="0.5" width="w-32" onSubmit={save} />
       </Row>
-      <Row label={t("Währung")} hint={t("Für Einstand und Kurs")}>
+      <Row icon="attach_money" label={t("Währung")} hint={t("Für Einstand und Kurs")}>
         <Select value={d.currency} options={baseOptions} onChange={(currency) => set({ currency })} width="w-24" />
       </Row>
-      <Row label={t("Einstand gesamt")} hint={t("Was alle Stücke gekostet haben, leer = unbekannt")}>
+      <Row icon="receipt_long" label={t("Einstand gesamt")} hint={t("Was alle Stücke gekostet haben, leer = unbekannt")}>
         <TextField value={d.cost} onChange={(cost) => set({ cost })} placeholder="0" width="w-32" onSubmit={save} />
       </Row>
       <AnimatePresence initial={false}>
         {d.kind === "stock" && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={fade} className="overflow-hidden">
-            <Row label={t("Kurs je Stück")} hint={t("Von Hand, es gibt keine freie Kursquelle für Aktien")}>
+            <Row icon="sell" label={t("Kurs je Stück")} hint={t("Von Hand, es gibt keine freie Kursquelle für Aktien")}>
               <TextField value={d.price} onChange={(price) => set({ price })} placeholder="0" width="w-32" onSubmit={save} />
             </Row>
           </motion.div>
         )}
       </AnimatePresence>
-      <Row label="">
+      <Row icon="check" label="">
         <div className="flex gap-1.5">
           <Button onClick={onDone}>{t("Abbrechen")}</Button>
           <Button primary disabled={!valid} onClick={save}>

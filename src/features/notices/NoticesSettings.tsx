@@ -48,12 +48,12 @@ export function NoticesSettings() {
   return (
     <>
       <Group title={t("Live-Mitteilungen")} id="settings-notices">
-        <Row label={t("Live-Mitteilungen")} hint={t("Mitteilungen in der geschlossenen Notch und im Verlauf. Alles bleibt auf diesem PC.")}>
+        <Row icon="notifications" label={t("Live-Mitteilungen")} hint={t("Mitteilungen in der geschlossenen Notch und im Verlauf. Alles bleibt auf diesem PC.")}>
           <Switch label={t("Live-Mitteilungen")} checked={n.enabled} onChange={setNoticesEnabled} />
         </Row>
         {n.enabled && (
           <>
-            <Row label={t("Windows-Mitteilungen")} hint={windowsHint}>
+            <Row icon="notifications_active" label={t("Windows-Mitteilungen")} hint={windowsHint}>
               <div className="flex items-center gap-2">
                 {status.access === "unspecified" && n.windows && <Button onClick={() => void requestAccess()}>{t("Zugriff erlauben")}</Button>}
                 <Switch label={t("Windows-Mitteilungen")} checked={n.windows} onChange={(windows) => patch(() => ({ windows }))} />
@@ -61,12 +61,12 @@ export function NoticesSettings() {
             </Row>
             {/* The Store build cannot change Windows' settings (banners.rs). */}
             {n.windows && !store && (
-              <Row label={t("Windows-Banner ausblenden")} hint={t("Mitteilungen erscheinen nur in Crest und bleiben in der Mitteilungszentrale von Windows")}>
+              <Row icon="notifications_off" label={t("Windows-Banner ausblenden")} hint={t("Mitteilungen erscheinen nur in Crest und bleiben in der Mitteilungszentrale von Windows")}>
                 <Switch label={t("Windows-Banner ausblenden")} checked={n.hideBanners} onChange={(hideBanners) => patch(() => ({ hideBanners }))} />
               </Row>
             )}
             {/* Crest's own sound with the card (issue #31); the Store build cannot mute Windows' (banners.rs). */}
-            <Row
+            <Row icon="music_note"
               label={t("Ton")}
               hint={
                 store
@@ -95,7 +95,7 @@ export function NoticesSettings() {
             </Row>
             {/* Also after a refused first pick, which leaves the sound as it was, so the reason shows. */}
             {(n.sound === "file" || fileError !== null) && (
-              <Row
+              <Row icon="audio_file"
                 label={t("Tondatei")}
                 hint={
                   fileError === "format" ? t("Diese Datei kann Crest nicht abspielen: MP3, WAV, OGG, M4A oder FLAC")
@@ -107,7 +107,7 @@ export function NoticesSettings() {
                 <Button onClick={() => void pickSoundFile()}>{t("Datei wählen …")}</Button>
               </Row>
             )}
-            <Row label="crest-notify" hint={
+            <Row icon="code" label="crest-notify" hint={
                 !n.cli ? t("Für Skripte und Agent-Hooks")
                 : status.pipe ? t("Bereit · für Skripte und Agent-Hooks")
                 : status.pipeFailed ? t("Kanal konnte nicht geöffnet werden · belegt ein anderes Programm den Namen?")
@@ -115,7 +115,7 @@ export function NoticesSettings() {
               }>
               <Switch label="crest-notify" checked={n.cli} onChange={(cli) => patch(() => ({ cli }))} />
             </Row>
-            <Row label={t("Kopier-Knopf für Einmalcodes")} hint={t("Erscheint, wenn eine Mitteilung einen Code enthält. Die Kopie bleibt aus dem Verlauf der Zwischenablage und wird nach 30 s geleert.")}>
+            <Row icon="content_copy" label={t("Kopier-Knopf für Einmalcodes")} hint={t("Erscheint, wenn eine Mitteilung einen Code enthält. Die Kopie bleibt aus dem Verlauf der Zwischenablage und wird nach 30 s geleert.")}>
               <Switch label={t("Kopier-Knopf für Einmalcodes")} checked={n.copyCodes} onChange={(copyCodes) => patch(() => ({ copyCodes }))} />
             </Row>
           </>
@@ -124,8 +124,8 @@ export function NoticesSettings() {
 
       {n.enabled && (
         <Group title={t("Ruhezeiten")}>
-          <Row label={t("Im Präsentationsmodus")} hint={t("Mitteilungen gehen still in den Verlauf")} />
-          <Row label={t("Jeden Tag")} hint={t("Zur selben Zeit still, auch über Mitternacht")}>
+          <Row icon="present_to_all" label={t("Im Präsentationsmodus")} hint={t("Mitteilungen gehen still in den Verlauf")} />
+          <Row icon="bedtime" label={t("Jeden Tag")} hint={t("Zur selben Zeit still, auch über Mitternacht")}>
             <div className="flex items-center gap-1.5">
               {n.quiet.on && (
                 <>
@@ -142,10 +142,10 @@ export function NoticesSettings() {
 
       {n.enabled && (
         <Group title={t("Apps")}>
-          {apps.length === 0 && <Row label={t("Noch keine")} hint={t("Apps erscheinen hier mit ihrer ersten Mitteilung")} />}
+          {apps.length === 0 && <Row icon="apps" label={t("Noch keine")} hint={t("Apps erscheinen hier mit ihrer ersten Mitteilung")} />}
           {apps.map(([id, name]) => (
             // The Windows app id only as a tooltip: as a second line it cluttered the list and long ids ran under the buttons (issue #4).
-            <Row key={id} label={<span title={id}>{name}</span>}>
+            <Row icon="apps" key={id} label={<span title={id}>{name}</span>}>
               <Segmented
                 id={`notice-rule-${id}`}
                 size="sm"

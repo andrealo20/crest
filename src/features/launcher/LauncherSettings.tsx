@@ -18,7 +18,7 @@ export function LauncherSettings() {
 
   return (
     <Group title={t("Launcher")} id="settings-launcher">
-      <Row
+      <Row icon="keyboard"
         label={t("Alt+1 bis Alt+6")}
         hint={
           taken.length
@@ -31,7 +31,7 @@ export function LauncherSettings() {
         <Switch label={t("Alt+1 bis Alt+6")} checked={l.hotkeys} onChange={(hotkeys) => set({ hotkeys })} />
       </Row>
       {favorites.length === 0 ? (
-        <Row label={t("Keine Apps angeheftet")}>
+        <Row icon="keep" label={t("Keine Apps angeheftet")}>
           <Button onClick={() => navigate("launcher")}>{t("Apps hinzufügen")}</Button>
         </Row>
       ) : (

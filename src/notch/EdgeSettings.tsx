@@ -19,7 +19,7 @@ export function EdgeSettings() {
   const setDock = (patch: Partial<typeof s.dock>) => updateSettings((cur) => ({ dock: { ...cur.dock, ...patch } }));
   return (
     <>
-      <Row
+      <Row icon="border_outer"
         label={t("Bildschirmrand")}
         hint={
           <>
@@ -43,7 +43,7 @@ export function EdgeSettings() {
         />
       </Row>
       {taskbar && (
-        <Row label={t("Hängt an")} hint={t("Über der Taskleiste verdeckt die Notch einen Teil davon")}>
+        <Row icon="anchor" label={t("Hängt an")} hint={t("Über der Taskleiste verdeckt die Notch einen Teil davon")}>
           <Segmented
             id="dock-anchor"
             size="sm"

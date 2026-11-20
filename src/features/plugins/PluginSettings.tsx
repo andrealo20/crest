@@ -64,7 +64,7 @@ export function PluginSettings() {
   if (!isNative && !demo) {
     return (
       <Group title={t("Plugins")} id="settings-plugins">
-        <Row label={t("Plugins laufen nur in der App")} />
+        <Row icon="extension" label={t("Plugins laufen nur in der App")} />
       </Group>
     );
   }
@@ -76,7 +76,7 @@ export function PluginSettings() {
           const I = iconFor(m.icon) ?? PuzzlePiece;
           const on = tools.some((x) => x.id === toolId(m.id) && x.enabled);
           return (
-            <Row
+            <Row icon="extension"
               key={m.id}
               label={
                 <span className="flex items-center gap-2">
@@ -106,7 +106,7 @@ export function PluginSettings() {
         {state.phase === "confirm" && state.staged ? (
           <Confirm staged={state.staged} error={state.error} />
         ) : (
-          <Row
+          <Row icon="add"
             label={list.length ? t("Plugin hinzufügen") : t("Noch kein Plugin")}
             hint={state.error ? <span className="text-orange">{errorText(state.error)}</span> : t("Ein Ordner oder eine .zip mit crest-plugin.json")}
           >

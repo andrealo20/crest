@@ -1,6 +1,6 @@
 // The icon set of the active style: every name and prop of @phosphor-icons/react, with the names materialNames.ts maps drawn as
 // Material Symbols under the Material style. One named import per icon, never a namespace import: that bundles all of Phosphor.
-import { forwardRef, type ReactElement } from "react";
+import { forwardRef, type CSSProperties, type ReactElement } from "react";
 import {
   Airplane as PhAirplane, Alarm as PhAlarm, AppWindow as PhAppWindow, ArrowCircleUp as PhArrowCircleUp,
   ArrowClockwise as PhArrowClockwise, ArrowCounterClockwise as PhArrowCounterClockwise, ArrowDown as PhArrowDown,
@@ -53,7 +53,7 @@ import {
 } from "@phosphor-icons/react";
 import { design } from "../design/design";
 import { LIGHT, PATHS } from "./material-paths";
-import { MATERIAL_NAMES } from "./materialNames";
+import { MATERIAL_NAMES, type RowSymbol } from "./materialNames";
 
 export * from "@phosphor-icons/react";
 
@@ -292,3 +292,12 @@ export const Wind = material(PhWind, "Wind");
 export const X = material(PhX, "X");
 // Phosphor's newer name for Alarm, which the notch's alarm notices import: left to `export *`, it would stay Phosphor's under Material.
 export const AlarmIcon = Alarm;
+
+/** A settings row's Material Symbol, as its outline: shown only under Material, so it needs no Phosphor counterpart. */
+export function MaterialSymbol({ name, size = 24, className, style }: { name: RowSymbol; size?: number; className?: string; style?: CSSProperties }) {
+  return (
+    <svg aria-hidden width={size} height={size} viewBox="0 -960 960 960" fill="currentColor" className={className} style={style}>
+      <path d={PATHS[name][0]} />
+    </svg>
+  );
+}

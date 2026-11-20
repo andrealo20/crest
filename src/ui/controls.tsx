@@ -18,6 +18,9 @@ import { filledPress } from "./press";
 import { GROUP_IN } from "./cascade";
 import { arrowStep } from "./radioKeys";
 import { sliderKey } from "./sliderKey";
+import { MaterialSymbol } from "./iconset";
+import type { RowSymbol } from "./materialNames";
+import { HUE_PILL } from "../features/themes/themes";
 
 /*
  * Shared controls. Every tool uses these instead of its own variants, so sizes,
@@ -221,10 +224,13 @@ export function SubSwitch({ label, checked, onChange }: { label: string; checked
 export function Row({
   label,
   hint,
+  icon,
   children,
 }: {
   label: ReactNode;
   hint?: ReactNode;
+  /** Drawn in a tonal circle at the row's start, only under Material and where the content column is 560 px wide or more. */
+  icon?: RowSymbol;
   children?: ReactNode;
 }) {
   return (
@@ -232,6 +238,16 @@ export function Row({
       data-row
       className="flex min-h-9 items-center justify-between gap-3 px-3 py-1.5 roomy:min-h-12 roomy:flex-wrap roomy:gap-x-3 roomy:gap-y-1 roomy:rounded-[16px] roomy:px-[14px] roomy:py-2"
     >
+      {icon && (
+        // The page's hue comes from data-row-hues and --row-hue on the page (SettingsView), since a row does not read the settings.
+        <span
+          data-row-icon
+          className="relative hidden size-8 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container roomy:@min-[560px]:flex in-data-row-hues:bg-transparent in-data-row-hues:text-(--row-hue)"
+        >
+          <span aria-hidden className="absolute inset-0 hidden rounded-full in-data-row-hues:block" style={{ background: "var(--row-hue)", opacity: HUE_PILL }} />
+          <MaterialSymbol name={icon} size={18} className="relative" />
+        </span>
+      )}
       <div className="min-w-0 roomy:grow roomy:basis-auto">
         <div data-row-label className="truncate text-body text-label roomy:line-clamp-2 roomy:whitespace-normal">{label}</div>
         {/* Width 0 keeps the hint out of the label's own width, so only the label decides when the control drops below it. */}

@@ -140,7 +140,7 @@ export function UsageSettings() {
             );
           })}
         </Reorder.Group>
-        <Row
+        <Row icon="cloud"
           label={
             <span className="flex items-center gap-2 text-label-3">
               <BrandLogo id="grok" size={14} /> {brandName.grok}
@@ -155,7 +155,7 @@ export function UsageSettings() {
         <Group title={t("Schlüssel für die AI-Nutzung")}>
           {keyed.map((id) => (
             // Saving a key asks the source again at once, so an old "no key" or "key rejected" does not linger.
-            <SecretRow key={id} name={keys[id]!} label={names[id] || brandName[id]} hint={keyHints[id] && t(keyHints[id])} onSaved={() => void refreshUsage()} />
+            <SecretRow key={id} name={keys[id]!} icon="key" label={names[id] || brandName[id]} hint={keyHints[id] && t(keyHints[id])} onSaved={() => void refreshUsage()} />
           ))}
         </Group>
       )}
