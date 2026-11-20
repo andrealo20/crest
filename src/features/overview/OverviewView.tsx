@@ -205,7 +205,7 @@ function Activity() {
   }
 
   return (
-    <div className="relative h-11 overflow-hidden rounded-[12px] bg-fill-1">
+    <div className="relative h-11 overflow-hidden rounded-[12px] bg-fill-1 material:rounded-[16px]">
       <AnimatePresence mode="popLayout" initial={false}>
         {item ? (
           <motion.div
@@ -274,7 +274,7 @@ function FocusTile() {
         setFocus((f) => f && { ...f, active: !active });
         void systemControls.setFocus(!active).then(setFocus).catch(() => systemControls.focus().then(setFocus));
       }}
-      className={`pressable flex h-10 min-w-[150px] shrink-0 items-center gap-2.5 rounded-[12px] px-2.5 transition-colors duration-200 disabled:opacity-40 ${
+      className={`pressable flex h-10 min-w-[150px] shrink-0 items-center gap-2.5 rounded-[12px] px-2.5 transition-colors material:rounded-full duration-200 disabled:opacity-40 ${
         active ? "bg-primary text-on-primary" : "bg-fill-1 text-label"
       }`}
     >
@@ -308,7 +308,7 @@ function AwakeTile() {
   ];
 
   return (
-    <div className={`flex h-10 min-w-[150px] shrink-0 items-center rounded-[12px] transition-colors duration-200 ${active ? "bg-primary text-on-primary" : "bg-fill-1 text-label"}`}>
+    <div className={`flex h-10 min-w-[150px] shrink-0 items-center rounded-[12px] transition-colors material:rounded-full duration-200 ${active ? "bg-primary text-on-primary" : "bg-fill-1 text-label"}`}>
       <button aria-pressed={active} onClick={() => (active ? stopAwake() : startAwake(null))} className="pressable flex h-full min-w-0 flex-1 items-center gap-2.5 ps-2.5">
         <motion.span
           className={`flex size-6 shrink-0 items-center justify-center rounded-full ${active ? "bg-black/10" : "bg-fill-2"}`}

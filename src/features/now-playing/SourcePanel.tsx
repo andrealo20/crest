@@ -72,15 +72,15 @@ export function SourcePanel({ np }: { np: NowPlaying }) {
               role="option"
               aria-selected={row.checked}
               onClick={() => setMusic({ pinned: row.appId })}
-              className="pressable flex w-full items-center gap-2.5 rounded-[10px] px-2 text-start hover:bg-fill-1"
+              className={`pressable flex w-full items-center gap-2.5 rounded-[10px] px-2 text-start hover:bg-fill-1 material:rounded-[17px] ${row.checked ? "material:bg-secondary-container material:hover:bg-secondary-container" : ""}`}
               style={{ height: MIXER_ROW }}
             >
               <span className={`size-1.5 shrink-0 rounded-full ${row.isPlaying ? "bg-accent" : "bg-label-4"} ${row.appId ? "" : "opacity-0"}`} />
-              <span className={`w-28 shrink-0 truncate text-footnote ${row.checked ? "font-medium text-label" : "text-label-2"}`}>
+              <span className={`w-28 shrink-0 truncate text-footnote ${row.checked ? "font-medium text-label material:text-on-secondary-container" : "text-label-2"}`}>
                 {row.appId ? row.name : t("Automatisch")}
               </span>
-              <span className="min-w-0 flex-1 truncate text-caption text-label-3">{detail}</span>
-              {row.checked && <Check size={13} weight="bold" className="shrink-0 text-label" />}
+              <span className={`min-w-0 flex-1 truncate text-caption text-label-3 ${row.checked ? "material:text-on-secondary-container" : ""}`}>{detail}</span>
+              {row.checked && <Check size={13} weight="bold" className="shrink-0 text-label material:text-on-secondary-container" />}
             </button>
           );
         })}

@@ -3,8 +3,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { ArrowClockwise, Bed, Lock, Microphone, MicrophoneSlash, Power, MoonStars, type Icon } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { systemControls, type PowerAction, type QuickState } from "../../platform/services";
-import { HUE_PALETTE } from "../themes/themes";
 import type { Hue } from "../themes/hues";
+import { design } from "../../design/design";
+import { discLook } from "./quickDisc";
 import { t } from "../../i18n";
 import { BluetoothGlyph, NetGlyph } from "../../ui/glyphs";
 
@@ -70,7 +71,7 @@ export function useSwitchJob(reload: () => void): SwitchJob {
 export function QuickControls({ state, reload }: { state: QuickState; reload: () => void }) {
   const job = useSwitchJob(reload);
   return (
-    <div className="flex h-11 shrink-0 items-center gap-1.5 rounded-[12px] bg-fill-1 px-1.5">
+    <div className="flex h-11 shrink-0 items-center gap-1.5 rounded-[12px] bg-fill-1 px-1.5 material:rounded-full">
       {state.wifi !== null && <RadioSwitch kind="wifi" on={state.wifi} job={job} />}
       {state.bluetooth !== null && <RadioSwitch kind="bluetooth" on={state.bluetooth} job={job} />}
       <Switch icon={MoonStars} hue="violet" label={t("Dunkles Design")} on={state.dark} busy={job.busy} onToggle={() => job.run(systemControls.setDark(!state.dark))} />
@@ -110,11 +111,10 @@ export function RadioGlyph({ kind, size }: { kind: "wifi" | "bluetooth"; size: n
 
 /** A radio's disc as Switch draws it, for a glyph that is not a button of its own: only its colour says on. */
 export function RadioDisc({ kind, on, children }: { kind: "wifi" | "bluetooth"; on: boolean; children: ReactNode }) {
+  const look = discLook(design.use(), kind === "wifi" ? "blue" : "indigo", on);
+  // relative: the tile's button is pressed with the disc inside it, and the pressed corners (.m3-morph::before) must stay on the disc.
   return (
-    <span
-      className={`flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-200 ${on ? "text-white" : "bg-fill-2 text-label-2"}`}
-      style={on ? { background: HUE_PALETTE[kind === "wifi" ? "blue" : "indigo"][1] } : undefined}
-    >
+    <span className={`relative flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-200 ${look.className}`} style={look.style}>
       {children}
     </span>
   );
@@ -122,6 +122,7 @@ export function RadioDisc({ kind, on, children }: { kind: "wifi" | "bluetooth"; 
 
 /** A round switch: its Phosphor icon (filled when on), or a glyph of Crest's own drawn as it is. */
 function Switch({ icon: I, glyph, hue, label, on, busy, onToggle }: { icon?: Icon; glyph?: ReactNode; hue: Hue; label: string; on: boolean; busy: boolean; onToggle: () => void }) {
+  const look = discLook(design.use(), hue, on);
   return (
     <button
       aria-label={label}
@@ -129,8 +130,8 @@ function Switch({ icon: I, glyph, hue, label, on, busy, onToggle }: { icon?: Ico
       title={label}
       disabled={busy}
       onClick={onToggle}
-      className={`pressable flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-200 disabled:opacity-60 ${on ? "text-white" : "bg-fill-2 text-label-2 hover:text-label"}`}
-      style={on ? { background: HUE_PALETTE[hue][1] } : undefined}
+      className={`pressable flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-200 disabled:opacity-60 ${look.className} ${on ? "" : "hover:text-label"}`}
+      style={look.style}
     >
       {glyph ?? (I && <I size={15} weight={on ? "fill" : "bold"} />)}
     </button>

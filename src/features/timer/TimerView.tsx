@@ -307,7 +307,7 @@ function MinutesInput(props: { initial: number; tint: string; onDone: (minutes: 
 
 function Segmented({ value, onChange, disabled }: { value: TimerMode; onChange: (m: TimerMode) => void; disabled?: boolean }) {
   return (
-    <div className="flex rounded-full bg-fill-1 p-0.5">
+    <div className="flex rounded-full bg-fill-1 p-0.5 material:overflow-hidden material:bg-transparent material:shadow-[inset_0_0_0_1px_var(--color-label-3)]">
       {(Object.keys(modeLabel) as TimerMode[]).map((m) => (
         <button
           key={m}

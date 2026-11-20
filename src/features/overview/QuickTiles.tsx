@@ -112,12 +112,12 @@ export function OutputList({ outputs, rows, onPick }: { outputs: AudioOutput[]; 
             role="option"
             aria-selected={o.default}
             onClick={() => onPick(o.id)}
-            className="pressable flex w-full items-center gap-2.5 rounded-[10px] px-2 text-start hover:bg-fill-1"
+            className={`pressable flex w-full items-center gap-2.5 rounded-[10px] px-2 text-start hover:bg-fill-1 material:rounded-[17px] ${o.default ? "material:bg-secondary-container material:hover:bg-secondary-container" : ""}`}
             style={{ height: MIXER_ROW }}
           >
-            <OutputIcon name={o.name} className={`shrink-0 ${o.default ? "text-label" : "text-label-3"}`} />
-            <span className={`min-w-0 flex-1 truncate text-footnote ${o.default ? "font-medium text-label" : "text-label-2"}`}>{o.name}</span>
-            {o.default && <Check size={13} weight="bold" className="shrink-0 text-label" />}
+            <OutputIcon name={o.name} className={`shrink-0 ${o.default ? "text-label material:text-on-secondary-container" : "text-label-3"}`} />
+            <span className={`min-w-0 flex-1 truncate text-footnote ${o.default ? "font-medium text-label material:text-on-secondary-container" : "text-label-2"}`}>{o.name}</span>
+            {o.default && <Check size={13} weight="bold" className="shrink-0 text-label material:text-on-secondary-container" />}
           </button>
         ))}
       </div>
@@ -164,7 +164,7 @@ export function BrightnessTile({ level, busy, hold, onLevel }: { level: number; 
   const Icon = level < 50 ? SunDim : Sun;
 
   return (
-    <div className="flex h-10 items-center gap-2 rounded-[12px] bg-fill-1 pe-3 ps-1.5">
+    <div className="flex h-10 items-center gap-2 rounded-[12px] bg-fill-1 pe-3 ps-1.5 material:rounded-full">
       <span className="flex size-7 shrink-0 items-center justify-center text-label-2" style={sunHue ? { color: sunHue } : undefined}>
         <Icon size={15} weight="fill" />
       </span>
@@ -238,7 +238,7 @@ export function VolumeTile({ device, open, onDevices }: { device: string | null;
   const Icon = vol?.muted || level === 0 ? SpeakerSimpleSlash : level < 0.34 ? SpeakerNone : level < 0.67 ? SpeakerLow : SpeakerHigh;
 
   return (
-    <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[12px] bg-fill-1 pe-3 ps-1.5">
+    <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[12px] bg-fill-1 pe-3 ps-1.5 material:rounded-full">
       <button
         aria-label={vol?.muted ? t("Stummschaltung aufheben") : t("Stumm")}
         disabled={!vol}
