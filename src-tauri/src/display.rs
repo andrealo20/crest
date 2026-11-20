@@ -277,6 +277,7 @@ pub fn display_rescale(window: WebviewWindow, state: State<'_, DisplayState>) {
     follow_text_scale(&mut state.config.lock().unwrap(), old / new);
     let _ = place(&window, &state);
     crate::mirror::wake(window.app_handle());
+    crate::timer_window::follow_text_size(window.app_handle());
     let _ = window.emit("notch://monitors", ());
 }
 
