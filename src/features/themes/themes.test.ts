@@ -12,6 +12,7 @@ import {
   TERTIARY,
   TEXT,
   THEME_DEFAULTS,
+  captionSpacing,
   closedGlassInk,
   findTheme,
   fontStack,
@@ -292,6 +293,13 @@ test("fontStack: auto is Inter in the Crest style and Google Sans Flex before In
   assert.ok(material.startsWith('"Google Sans Flex"'), material);
   assert.ok(material.includes(FONTS.inter), material);
   assert.equal(fontStack("georgia", "material"), FONTS.georgia);
+});
+
+test("captionSpacing: the caption's tracking measure.ts adds, text-caption's 0.01em of 11 px in the Crest style and none in Material", () => {
+  assert.equal(captionSpacing("crest"), 0.11);
+  assert.equal(captionSpacing("material"), 0);
+  // What Material's rule in global.css sets, so the measured caption is the drawn one.
+  assert.match(readFileSync(new URL("../../styles/global.css", import.meta.url), "utf8"), /\[data-design="material"\] \{[^}]*--text-caption--letter-spacing: 0;/);
 });
 
 test("over keeps the pop-up colours opaque", () => {

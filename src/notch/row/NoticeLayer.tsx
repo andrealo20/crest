@@ -30,7 +30,7 @@ import { formatIn } from "../../lib/format";
 import { t } from "../../i18n";
 import { QUOTA, SAVED, TRACK, armTrack, detectRise, newQuotaTracker, observeTrack, topNotice, type QuotaRise, type TrackGate } from "./notices";
 import { trackCaption } from "./parts";
-import { fontEpoch, measureText } from "./measure";
+import { fontEpoch, measureTabular, measureText } from "./measure";
 import { Marquee } from "./Marquee";
 import { NOTICE_BUTTON as REC_BUTTON, NoticeButton, useNoticeHover } from "./NoticeButton";
 import { Ring } from "./parts/Rings";
@@ -174,7 +174,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly, mono = false }: { 
   if (kind === "recording") {
     const label = formatElapsed(elapsedAt(rec, Date.now()));
     // Measured with zeros so the width only changes when a digit is added, not every second.
-    width = REC_DOT + GAP + measureText(label.replace(/\d/g, "0")) + GAP + 2 * REC_BUTTON + 4;
+    width = REC_DOT + GAP + measureTabular(label.replace(/\d/g, "0")) + GAP + 2 * REC_BUTTON + 4;
     key = "recording";
     // A click or hover on the notice opens the tool that records (data-open, as the row's parts), its buttons excepted.
     body = (
@@ -254,8 +254,8 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly, mono = false }: { 
     // The volume and brightness HUD adds a level bar; its text keeps the width of "100 %", so the notch holds still while the level moves.
     const bar = status.level === undefined ? 0 : LEVEL_BAR + GAP;
     // Its digits are tabular, each as wide as an 8, which the canvas does not know.
-    const tab = (text: string) => (bar ? text.replace(/\d/g, "8") : text);
-    const textW = Math.min(Math.max(measureText(tab(status.text)), bar && measureText(tab(t("{p} %", { p: 100 })))), max - ICON - GAP - bar);
+    const tab = (text: string) => (bar ? measureTabular(text.replace(/\d/g, "8")) : measureText(text));
+    const textW = Math.min(Math.max(tab(status.text), bar && tab(t("{p} %", { p: 100 }))), max - ICON - GAP - bar);
     width = ICON + GAP + bar + textW;
     // One key per kind: a newer alert of the same kind swaps its text in place instead of cross-fading.
     key = `status:${status.kind}`;

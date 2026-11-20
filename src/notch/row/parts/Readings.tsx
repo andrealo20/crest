@@ -9,7 +9,7 @@ import { tempLevel } from "../../../features/system/temps";
 import { settings } from "../../../settings/store";
 import { activeTheme } from "../../../features/themes/store";
 import type { ClosedSettings } from "../parts";
-import { CAPTION_FONT, measureText } from "../measure";
+import { CAPTION_FONT, measureTabular, measureText } from "../measure";
 
 export type ReadingId = "fps" | "cpu" | "ram" | "gpu" | "down" | "up" | "power" | "battery" | "temp";
 /** `source`: which sensor a temperature comes from; `estimate`: power summed from parts, not measured. */
@@ -27,7 +27,7 @@ const GLYPHS: Partial<Record<ReadingId, Icon>> = { down: ArrowDown, up: ArrowUp,
 
 /** Each reading reserves its widest figure (tabular digits are each as wide as an 8), so the row never shifts. */
 const widest = (id: ReadingId) => (id === "down" || id === "up" ? WIDEST.rate : id === "power" ? WIDEST.watts : id === "temp" ? WIDEST.temp : WIDEST.percent);
-export const digits = (id: ReadingId) => measureText(widest(id).replace(/[0-9]/g, "8"));
+export const digits = (id: ReadingId) => measureTabular(widest(id).replace(/[0-9]/g, "8"));
 const lead = (id: ReadingId) => (id === "fps" ? measureText("FPS", CAPTION_FONT) : id === "battery" ? BATTERY_W : LETTER[id] ? DIAL : id === "temp" ? GLYPH + MARK : GLYPH);
 export const readingWidth = (id: ReadingId) => lead(id) + DIAL_GAP + digits(id);
 

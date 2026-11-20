@@ -33,7 +33,7 @@ import { COLUMN, columnWidth, fitLines, ringLines, stack } from "../column";
 import { useHeld } from "./CompactRow";
 import { NOTICE_BUTTON, NoticeButton, useNoticeHover } from "./NoticeButton";
 import { useRowVisible } from "./visibility";
-import { CAPTION_FONT, fontEpoch, measureText } from "./measure";
+import { CAPTION_FONT, fontEpoch, measureTabular } from "./measure";
 import { RING, Ring, ringLabel, ringProviders, ringValue } from "./parts/Rings";
 import { ReadingView, readingWidth, useReadings } from "./parts/Readings";
 import { Clock, clockWidth } from "./parts/Clock";
@@ -73,7 +73,7 @@ function useNoticeLine(): Line | null {
   if (kind === "recording") {
     // Stacked: dot, time, pause or resume, stop. The width is the time's, measured with zeros so it only changes with a new digit.
     const label = formatElapsed(elapsedAt(rec, Date.now()));
-    const w = Math.max(NOTICE_BUTTON, Math.ceil(measureText(label.replace(/\d/g, "0"), CAPTION_FONT)));
+    const w = Math.max(NOTICE_BUTTON, Math.ceil(measureTabular(label.replace(/\d/g, "0"), CAPTION_FONT)));
     return {
       id: "notice-recording",
       w,

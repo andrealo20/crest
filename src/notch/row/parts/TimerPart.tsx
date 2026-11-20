@@ -1,13 +1,13 @@
 import { Timer } from "@phosphor-icons/react";
 import { formatClock, remainingOf, timer, useSecondTick, type TimerMode } from "../../../features/timer/store";
-import { measureText } from "../measure";
+import { measureTabular } from "../measure";
 import { modeTint } from "../../../features/timer/looks";
 import { settings } from "../../../settings/store";
 
 const ICON = 17, GAP = 4;
 
 /** Room for the longest the countdown can read: the full duration, every digit an 8 ("180:00" too). */
-export const timerWidth = (duration: number) => ICON + GAP + measureText(formatClock(duration).replace(/\d/g, "8"));
+export const timerWidth = (duration: number) => ICON + GAP + measureTabular(formatClock(duration).replace(/\d/g, "8"));
 
 /** A running timer: icon and countdown, in the focus colour (Settings, Timer) or green for a break. Finished, it belongs to the notices. With `sample` it draws that state and never reads or ticks the real timer. */
 export function TimerPart({ paused, sample }: { paused: boolean; sample?: { remaining: number; duration: number; mode: TimerMode } }) {

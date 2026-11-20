@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { shade, todayCount } from "../../../features/leetcode/submissions";
 import { leetcode } from "../../../features/leetcode/store";
 import { utcDate } from "../../../platform/services";
-import { measureText } from "../measure";
+import { measureTabular } from "../measure";
 import { t } from "../../../i18n";
 
 /** Today's count and shade once the calendar has loaded (the LeetCode store polls while the part is on screen). */
@@ -31,7 +31,7 @@ const SQUARE = 10,
 
 /** Room for the square and the count. */
 export const leetcodeWidth = (count: number) =>
-  SQUARE + GAP + measureText("8".repeat(String(count).length));
+  SQUARE + GAP + measureTabular("8".repeat(String(count).length));
 
 /** Today's LeetCode submissions: a square in today's shade and the count. */
 export function LeetcodePart({

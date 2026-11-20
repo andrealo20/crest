@@ -43,7 +43,13 @@ export const isNotchWindow = false;
 export const themeFiles = {};
 export const settings = createStore({ themes: { ...THEME_DEFAULTS, id: "light" }, weather: null });
 export const updateSettings = () => {};
-export const setRowFamily = () => {};
+/** What applyFont() last gave measure.ts: the row's family, the caption's tracking, and whether tabular text is measured in the page. */
+let family = "", spacing = -1, tabular: boolean | null = null;
+export function setRowFamily(f: string, s: number) {
+  family = f;
+  spacing = s;
+}
+export const setTabularFromDom = (on: boolean) => void (tabular = on);
 export const design = createStore("crest");
 /** The Style apply() last gave the motion presets. */
 let motion = "";
@@ -70,19 +76,26 @@ Object.assign(globalThis, {
 
 const pick = (style: "crest" | "material") => settings.set({ ...settings.get(), themes: { ...settings.get().themes, design: style } });
 
-test("apply() draws again when the Style or the system's contrast changes, and the closed notch's ink follows the Style", async () => {
+test("apply() draws again when the Style or the system's contrast changes, and the closed notch's ink and the row's widths follow the Style", async () => {
   const store = (await import("./store.ts")) as typeof import("./store");
   store.startThemes();
-  const seen = () => [dataset.design, design.get(), motion, vars["--color-notch"], vars["--color-primary"], store.darkInk()["--color-notch"], store.darkInk()["--color-primary"], vars["--font-sans"]];
-  // Light in the Crest style; the black closed notch keeps Dark's ink.
-  const crest = ["crest", "crest", "crest", "#fafafc", "#1d1d1f", "#000000", "rgb(255 255 255 / 0.96)", FONTS.inter];
+  const seen = () => [dataset.design, design.get(), motion, vars["--color-notch"], vars["--color-primary"], store.darkInk()["--color-notch"], store.darkInk()["--color-primary"], vars["--font-sans"], family, spacing, tabular];
+  // Light in the Crest style; the black closed notch keeps Dark's ink, and the row measures as before.
+  const crest = ["crest", "crest", "crest", "#fafafc", "#1d1d1f", "#000000", "rgb(255 255 255 / 0.96)", FONTS.inter, FONTS.inter, 0.11, false];
   assert.deepEqual(seen(), crest);
-  // Light's seed: a light panel, and on the closed notch the dark scheme of the same seed.
+  // Light's seed: a light panel, and on the closed notch the dark scheme of the same seed. Captions without tracking, tabular text from the page.
   pick("material");
-  assert.deepEqual(seen(), ["material", "material", "material", "#f9f9ff", "#415e91", "#111318", "#aac7ff", fontStack("auto", "material")]);
+  const gsf = fontStack("auto", "material");
+  assert.deepEqual(seen(), ["material", "material", "material", "#f9f9ff", "#415e91", "#111318", "#aac7ff", gsf, gsf, 0, true]);
   more.matches = true;
   more.change();
-  assert.deepEqual(seen(), ["material", "material", "material", "#f9f9ff", "#042b5b", "#111318", "#ebf0ff", fontStack("auto", "material")]);
+  assert.deepEqual(seen(), ["material", "material", "material", "#f9f9ff", "#042b5b", "#111318", "#ebf0ff", gsf, gsf, 0, true]);
   pick("crest");
   assert.deepEqual(seen(), crest);
+  // A font picked by name keeps its stack in both styles, and the tracking and the tabular widths still follow the Style.
+  settings.set({ ...settings.get(), themes: { ...settings.get().themes, font: "georgia" } });
+  pick("material");
+  assert.deepEqual(seen().slice(7), [FONTS.georgia, FONTS.georgia, 0, true]);
+  pick("crest");
+  assert.deepEqual(seen().slice(7), [FONTS.georgia, FONTS.georgia, 0.11, false]);
 });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSecondTick } from "../../../features/timer/store";
 import { locale } from "../../../i18n";
-import { ROW_FONT, fontEpoch, measureText } from "../measure";
+import { ROW_FONT, fontEpoch, measureTabular } from "../measure";
 
 const DATE = { weekday: "short", day: "numeric", month: "short" } as const;
 
@@ -22,7 +22,7 @@ const dateRoom = new Map<string, number>();
 function widest(f: Intl.DateTimeFormat, times: Date[]): number {
   // The 8th of August at 08:08:08: whatever the format shows, its last digit is an 8.
   const eight = f.format(new Date(2000, 7, 8, 8, 8, 8)).match(/\p{Nd}/gu)!.at(-1)!;
-  return Math.max(...times.map((d) => measureText(f.format(d).replace(/\p{Nd}/gu, eight))));
+  return Math.max(...times.map((d) => measureTabular(f.format(d).replace(/\p{Nd}/gu, eight))));
 }
 
 /** The widest `f` writes in a year, cached by `options` (what else changes the format) and by language and font. */

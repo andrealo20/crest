@@ -89,6 +89,9 @@ export function fontStack(id: FontId, design: Design): string {
   return design === "material" ? `"Google Sans Flex", ${FONTS.inter}` : FONTS.inter;
 }
 
+/** The caption's tracking in px, which measure.ts adds since the canvas leaves it out: text-caption's 0.01em of 11 px, none in Material (global.css). */
+export const captionSpacing = (design: Design): number => (design === "material" ? 0 : 0.11);
+
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
 /** Tertiary text (hints, inactive icons): Crest's own dark tertiary, white at 34 %, is 2.9:1 on black. */
 export const TERTIARY = 2.8;

@@ -8,10 +8,11 @@ import { setMotionDesign } from "../../design/motion";
 import { activeThemeId, chooseTheme, nextChange } from "./daynight";
 import { record, startHistory, undo, type History } from "./history";
 import { materialInk, resolveMaterial } from "./material";
-import { setRowFamily } from "../../notch/row/measure";
+import { setRowFamily, setTabularFromDom } from "../../notch/row/measure";
 import {
   BUILT_IN_THEMES,
   THEME_DEFAULTS,
+  captionSpacing,
   closedGlassInk,
   findTheme,
   fontStack,
@@ -109,11 +110,15 @@ export function refreshTheme() {
 let lastFont = "";
 /** Runs after apply(), whose style it reads. */
 function applyFont() {
-  const family = fontStack(settings.get().themes.font, design.get());
-  if (family === lastFont) return;
-  lastFont = family;
+  const style = design.get();
+  const family = fontStack(settings.get().themes.font, style);
+  // The style as well: a font picked by name keeps its stack in both, while the caption's tracking and the tabular widths change.
+  const key = `${style}\n${family}`;
+  if (key === lastFont) return;
+  lastFont = key;
   document.documentElement.style.setProperty("--font-sans", family);
-  setRowFamily(family);
+  setTabularFromDom(style === "material");
+  setRowFamily(family, captionSpacing(style));
 }
 
 export function startThemes() {

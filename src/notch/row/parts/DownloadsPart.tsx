@@ -2,7 +2,7 @@ import { DownloadSimple } from "@phosphor-icons/react";
 import type { DownloadProgress } from "../../../platform/services";
 import { formatBytes } from "../../../lib/format";
 import { rate } from "../../../features/system/format";
-import { measureText } from "../measure";
+import { measureTabular } from "../measure";
 
 const ICON = 14, GAP = 4;
 
@@ -14,7 +14,7 @@ export function downloadsCaption(list: DownloadProgress[]): string {
 }
 
 /** Measured with zeros, so the width only changes when a digit is added, not every second. */
-export const downloadsWidth = (caption: string) => ICON + GAP + measureText(caption.replace(/\d/g, "0"));
+export const downloadsWidth = (caption: string) => ICON + GAP + measureTabular(caption.replace(/\d/g, "0"));
 
 /** Downloads in progress: an icon, the size so far and the speed; the names in the tooltip. */
 export function DownloadsPart({ list, caption }: { list: DownloadProgress[]; caption: string }) {
