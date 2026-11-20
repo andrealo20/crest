@@ -326,7 +326,7 @@ export function TaskbarWindow() {
           // No menu of its own, as a widget: the Crest menu over the pointer.
           onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
         >
-          <ToolGlyph tool={tool} size={trayIcon(size)} />
+          <ToolGlyph tool={tool} size={trayIcon(size)} plus={look.look === "plus"} />
         </Item>
       );
     }
@@ -552,8 +552,11 @@ function useHitZone(ref: RefObject<HTMLDivElement | null>, shape: BarShape, setB
   return { down, place };
 }
 
-/** A tool button's icon: the widgets' resting colour (Widget.tsx), or the tool's hue with coloured icons on, as the notch's Dock draws it. */
-function ToolGlyph({ tool, size }: { tool: string; size: number }) {
+/**
+ * A tool button's icon: the widgets' resting colour (Widget.tsx), or the tool's hue with coloured icons on, as the notch's Dock draws
+ * it. Under Liquid Glass +, beside the apps' white icons, it rests as the Dock's icons do (DockButton's text-label-2), not switched off.
+ */
+function ToolGlyph({ tool, size, plus }: { tool: string; size: number; plus: boolean }) {
   const I = toolInfo[tool].icon;
-  return <I size={size} weight="regular" className="text-label-3" style={{ color: useHue(toolInfo[tool].hue) }} />;
+  return <I size={size} weight="regular" className={plus ? "text-label-2" : "text-label-3"} style={{ color: useHue(toolInfo[tool].hue) }} />;
 }
