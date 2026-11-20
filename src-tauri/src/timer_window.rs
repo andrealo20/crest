@@ -43,6 +43,9 @@ pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, dpr: Option<f64>,
     crate::sharing::protect_new(&app);
 
     // A saved spot on a connected monitor, with the size the timer had there; else the default spot on the primary monitor.
+    // Off Windows the Text size is always 100 % and the displays' rects in physical px can overlap (each is its origin in points
+    // times its own scale on a Mac), so the saved ratio is left out there: the timer opens where it was saved, as it always did.
+    let dpr = if cfg!(windows) { dpr } else { None };
     let base = (config.width, config.height);
     let screens: Vec<Screen> = window.available_monitors().unwrap_or_default().iter().map(Screen::of).collect();
     let spot = x
@@ -81,7 +84,10 @@ pub fn follow_text_size(app: &AppHandle) {
     let (from, put_on) = origin(*PLACED.lock().unwrap(), (at.x, at.y), now);
     // Measured on the monitor it was put from while it is still there, as a reopen would be; dragged since, on the one that holds
     // most of it now.
-    let screen = put_on.or_else(|| window.current_monitor().ok().flatten().map(|m| Screen::of(&m)));
+    let screens: Vec<Screen> = window.available_monitors().unwrap_or_default().iter().map(Screen::of).collect();
+    let screen = put_on
+        .and_then(|on| fresh(on, &screens))
+        .or_else(|| window.current_monitor().ok().flatten().map(|m| Screen::of(&m)));
     if let Some(s) = screen {
         put_at(&window, (config.width, config.height), from, now, Some((at.x, at.y)), s);
     }
@@ -224,6 +230,12 @@ fn spot_for(from: Origin, new: (i32, i32), s: Screen) -> (i32, i32) {
     }
 }
 
+/// The connected monitor at the remembered one's position, read again: its scale or work area may have changed since the
+/// window was put (Display settings, the taskbar), as a reopen would see. None when it is gone.
+fn fresh(on: Screen, screens: &[Screen]) -> Option<Screen> {
+    screens.iter().copied().find(|s| s.pos == on.pos)
+}
+
 /// What a live change works from: while the window is still where Crest put it, the remembered origin and the monitor it was
 /// measured on; else (dragged since, or moved by Windows) the spot and size it has now, and no monitor yet.
 fn origin(placed: Option<Placed>, now: (i32, i32), size: (i32, i32)) -> (Origin, Option<Screen>) {
@@ -324,6 +336,14 @@ mod tests {
         assert_eq!(at_150, (1440, 300));
         let (back, _) = origin(Some((from, at_150, FHD)), at_150, (480, 126));
         assert_eq!(spot_for(back, (320, 84), FHD), (1500, 300));
+    }
+
+    #[test]
+    fn a_remembered_monitor_is_read_again_for_its_scale_and_work_area() {
+        // The primary went from 100 to 150 % while the timer was open: the same monitor, with its new scale and work area.
+        let now_150 = Screen { scale: 1.5, end: (1920, 1008), ..FHD };
+        assert_eq!(fresh(FHD, &[LEFT_150, now_150]), Some(now_150));
+        assert_eq!(fresh(FHD, &[LEFT_150]), None, "unplugged since");
     }
 
     #[test]
