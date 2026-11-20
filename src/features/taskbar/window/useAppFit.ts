@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { fitBar, type Fit, type FitEntry } from "../fit";
-import { LOOK, barGap } from "../look";
+import { barGap, itemGap } from "../look";
 import { COMPACT_PAD, compactIcon, trayIcon, type BarItem, type BarShape, type Zone } from "../model";
 import { isWidget } from "../widgets";
 
@@ -39,7 +39,7 @@ export function useAppFit(
     const next = fitBar(
       {
         inner: innerWidth - 2 * barGap(shape) - 8,
-        gap: shape === "tiles" ? LOOK.tileGap : 2,
+        gap: itemGap(shape),
         row: shape === "capsule",
         apps: ZONES.find((z) => zones[z].includes("apps")) ?? null,
         zones: { left: zones.left.flatMap(entries), center: zones.center.flatMap(entries), right: zones.right.flatMap(entries) },

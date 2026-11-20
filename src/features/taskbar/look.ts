@@ -12,6 +12,11 @@ export interface Box { x: number; y: number; w: number; h: number }
 /** gap: the room under and beside a bar off the edge; tileGap: between tiles; radius: Crest's corners of a floating bar and a tile; maxTiles: the tiles the shader draws as glass. */
 export const LOOK = { gap: 4, tileGap: 6, radius: 12, maxTiles: 24 } as const;
 
+/** The room between two items in a zone: 6 px, the tiles' own gap on Tiles. */
+export function itemGap(shape: BarShape): number {
+  return shape === "tiles" ? LOOK.tileGap : 6;
+}
+
 /** The room under and beside the bar: none for a docked bar. */
 export function barGap(shape: BarShape): number {
   return shape === "docked" ? 0 : LOOK.gap;
