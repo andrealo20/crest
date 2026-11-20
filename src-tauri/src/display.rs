@@ -268,8 +268,9 @@ pub fn display_apply(mut config: Config, window: WebviewWindow, state: State<'_,
 }
 
 /// The page's own scale changed (another monitor, or Windows' Text size): with a new Text size the window and the copies on the
-/// other monitors grow or shrink with it, so the page keeps its size in CSS px and the hit test its units (text_scale.rs). They stay
-/// where they were until the page has read the monitors again at the new size (`notch://monitors`) and sent new places.
+/// other monitors grow or shrink with it, so the page keeps its size in CSS px and the hit test its units (text_scale.rs). A notch
+/// hanging from an edge stays on it until the page has read the monitors again at the new size (`notch://monitors`) and sent new
+/// places; the offset and a floating capsule's top are the page's own px and move with the Text size, as everything it draws grows.
 #[tauri::command]
 pub fn display_rescale(window: WebviewWindow, state: State<'_, DisplayState>) {
     let Some((old, new)) = crate::text_scale::refresh() else { return };
@@ -279,14 +280,13 @@ pub fn display_rescale(window: WebviewWindow, state: State<'_, DisplayState>) {
     let _ = window.emit("notch://monitors", ());
 }
 
-/// The line, top and copies' spots the page sent are CSS px at the Text size of then: `k` (old / new factor) keeps them on the same
-/// device px.
+/// The lines the page sent for the window and the copies are CSS px at the Text size of then: `k` (old / new factor) keeps them on
+/// the same device px. The top is left as sent: only a floating capsule has one, kept in the page's own px and sent again only when
+/// it changes, so a converted copy would make the capsule jump at its next drag.
 fn follow_text_scale(c: &mut Config, k: f64) {
     c.line *= k;
-    c.y *= k;
     for spot in &mut c.spots {
         spot.line *= k;
-        spot.y *= k;
     }
 }
 
@@ -834,13 +834,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_new_text_size_keeps_the_window_where_it_was() {
+    fn a_new_text_size_keeps_a_hanging_edge_on_its_line() {
         // Bottom edge: the page sent the work area's bottom, 1032 CSS px, at Text size 100 %. At 125 % the same device px are
-        // 1032 / 1.25 CSS px, and so are the copies' spots, until the page sends what it measures at the new size.
+        // 1032 / 1.25 CSS px, and so are the copies' lines, until the page sends what it measures at the new size.
         let mut c = Config { line: 1032.0, y: 40.0, spots: vec![Spot { monitor: "B".into(), line: 800.0, y: 10.0 }], ..Default::default() };
         follow_text_scale(&mut c, 1.0 / 1.25);
-        assert_eq!((c.line, c.y), (825.6, 32.0));
-        assert_eq!(c.spots, vec![Spot { monitor: "B".into(), line: 640.0, y: 8.0 }]);
+        assert_eq!(c.line, 825.6);
+        // The top is only a floating capsule's, which the page keeps in its own px and does not send again: converted here, the
+        // capsule would jump back at its next drag.
+        assert_eq!(c.y, 40.0);
+        assert_eq!(c.spots, vec![Spot { monitor: "B".into(), line: 640.0, y: 10.0 }]);
     }
 
     #[test]
