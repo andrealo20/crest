@@ -753,8 +753,11 @@ fn send_bars(app: &AppHandle) {
     let Some(p) = NetworkInformation::GetInternetConnectionProfile().ok().filter(|p| p.IsWlanConnectionProfile().unwrap_or(false)) else {
         return;
     };
-    let bars = p.GetSignalBars().and_then(|b| b.Value()).ok();
-    let now = rebar(seed().network.as_ref(), bars);
+    // No value (a roam, a failed read) is no news: the shown bars stay until a real reading or the network's own event.
+    let Ok(bars) = p.GetSignalBars().and_then(|b| b.Value()) else {
+        return;
+    };
+    let now = rebar(seed().network.as_ref(), Some(bars));
     if let Some(now) = now {
         seed().network = Some(now.clone());
         let _ = app.emit("status://network", now);
