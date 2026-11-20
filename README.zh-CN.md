@@ -175,7 +175,9 @@ Crest 免费，没有广告，也没有付费版本。如果它对你有用，�
 
 Crest 是 Linux5Real 的 [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 的修改版本，于 2026 年 10 月 31 日从 1.6.0 版本分叉。之后的每一处改动都记录在提交历史里。第三方代码和资源的完整来源与许可证列在[英文 README](README.md#credits-and-licences) 中。
 
-Crest 是 Andrea Loroni 的独立应用，与 Apple、OmniNotch 和 Microsoft 均无关联，也未获其赞助或认可。
+Material 风格参照了 [Stellaria](https://github.com/SMIDR76/stellaria-windows)（GPL-3.0，许可证文本见 [licenses/Stellaria-LICENSE](licenses/Stellaria-LICENSE)），而 Stellaria 本身是 caelestia-dots 贡献者的 [Caelestia](https://github.com/caelestia-dots/shell)（GPL-3.0）的移植版本。它的颜色由 Google 的 [material-color-utilities](https://github.com/material-foundation/material-color-utilities)（Apache-2.0，[licenses/material-color-utilities-Apache-2.0.txt](licenses/material-color-utilities-Apache-2.0.txt)）计算。它的文字使用 [Google Sans Flex](https://github.com/googlefonts/googlesans-flex)（SIL Open Font License 1.1，[licenses/GoogleSansFlex-OFL.txt](licenses/GoogleSansFlex-OFL.txt)），取自 Fontsource 文件的一个实例，圆角值为 25，仅含 latin 和 latin-ext。它的图标是 Google 的 [Material Symbols Rounded](https://github.com/google/material-design-icons)（Apache-2.0，[licenses/MaterialSymbols-Apache-2.0.txt](licenses/MaterialSymbols-Apache-2.0.txt)），Crest 只附带从字体中提取的、它用到的那些图标的轮廓。
+
+Crest 是 Andrea Loroni 的独立应用，与 Apple、OmniNotch、Microsoft 和 Google 均无关联，也未获其赞助或认可。
 
 ## 许可证
 
