@@ -171,11 +171,12 @@ export function startThemes() {
   });
   draft.subscribe(apply);
   moreContrast?.addEventListener("change", apply);
-  const take = (a: SystemAccent | null) => {
-    lastAccent.set(a);
-    systemFile.set(systemTheme(a));
+  // The saved reading, this window's own or another's: the timer and the bar cannot read the system, so they follow the notch's.
+  lastAccent.subscribe(() => {
+    systemFile.set(systemTheme(lastAccent.get()));
     apply();
-  };
+  });
+  const take = (a: SystemAccent | null) => lastAccent.set(a);
   // A failed read keeps the last one.
   const read = () => void systemAccent.get().then(take, () => {});
   read();

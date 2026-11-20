@@ -27,7 +27,7 @@ registerHooks({
 
 /** What the page saved before it was loaded, by `persist` key, and the stores that read it. */
 const persisted: Record<string, unknown> = {};
-const stores: Record<string, { get(): unknown }> = {};
+const stores: Record<string, { get(): unknown; set(next: unknown): void }> = {};
 
 export function createStore<T>(state: T, opts: { persist?: string } = {}) {
   const listeners = new Set<() => void>();
@@ -60,9 +60,15 @@ export const wantsViewTransition = (from: string | undefined, to: string) => cro
 export const themeFiles = {};
 /** The system's answer to systemAccent.get(), given when a test says so, and the listener store.ts gives the event. */
 let answer: (a: unknown) => void = () => {};
+/** Rust refusing the read, as it does for the timer and the bar windows. */
+let refuse: () => void = () => {};
 let accentEvent: (a: unknown) => void = () => {};
 export const systemAccent = {
-  get: () => new Promise((done) => (answer = done)),
+  get: () =>
+    new Promise((done, no) => {
+      answer = done;
+      refuse = () => no(new Error("not allowed"));
+    }),
   listen(cb: (a: unknown) => void) {
     accentEvent = cb;
     return () => {};
@@ -126,6 +132,21 @@ test("a saved System card draws from the last accent read before the system answ
   assert.equal(dataset.theme, "light");
   assert.equal(vars["--color-primary"], primary("#ff5500", false));
   // Back to Light in the Crest style, where the next test starts.
+  settings.set({ ...settings.get(), themes: { ...settings.get().themes, id: "light", design: "crest" } });
+});
+
+test("a window whose own read is refused takes the System card from the reading another window saves", async () => {
+  const store = (await import("./store.ts")) as typeof import("./store");
+  settings.set({ ...settings.get(), themes: { ...settings.get().themes, id: "system", design: "material" } });
+  store.startThemes();
+  refuse();
+  await settle();
+  const primary = (accent: string, dark: boolean) => resolveMaterial(systemTheme({ accent, dark })!).vars["--color-primary"];
+  // The notch reads the system and saves it: this window hears of it only through the saved store.
+  stores["system-accent"].set({ accent: "#2e7d32", dark: true });
+  assert.equal(store.systemFile.get()?.colors.accent, "#2e7d32");
+  assert.equal(dataset.theme, "dark");
+  assert.equal(vars["--color-primary"], primary("#2e7d32", true));
   settings.set({ ...settings.get(), themes: { ...settings.get().themes, id: "light", design: "crest" } });
 });
 
