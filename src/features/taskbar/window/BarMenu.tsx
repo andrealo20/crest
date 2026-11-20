@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { motion, useIsPresent } from "motion/react";
+import { motion, useIsPresent, useReducedMotion } from "motion/react";
 import { Check } from "@phosphor-icons/react";
 import { design } from "../../../design/design";
 import { popover } from "../../../design/motion";
@@ -48,6 +48,8 @@ export function BarMenu(props: {
   // Fading out after it closed, it takes no key, no click and no place in the hit zone.
   const present = useIsPresent();
   const appDesign = design.use();
+  // MotionConfig's reducedMotion keeps a transform string, so the reduced start is chosen here: Crest's slight one.
+  const reduced = useReducedMotion() === true;
   const ref = useRef<HTMLDivElement>(null);
 
   // Placed from its own size, before it first shows and whenever that size changes (a font that arrives late), and the hit zone
@@ -108,7 +110,7 @@ export function BarMenu(props: {
       // The focus leaves its rows, so a second Enter while it fades does not run one again.
       inert={!present}
       style={{ bottom, maxHeight: window.innerHeight - bottom - EDGE, transformOrigin: "50% 100%", pointerEvents: present ? undefined : "none" }}
-      initial={{ opacity: 0, transform: `scale(${appDesign === "material" ? 0.8 : 0.96}) translateY(2px)` }}
+      initial={{ opacity: 0, transform: `scale(${appDesign === "material" && !reduced ? 0.8 : 0.96}) translateY(2px)` }}
       animate={{ opacity: 1, transform: "scale(1) translateY(0px)", transition: popover.enter }}
       exit={{ opacity: 0, transform: "scale(0.98)", transition: popover.exit }}
     >

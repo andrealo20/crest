@@ -627,6 +627,8 @@ export function Select<T extends string>(props: {
 
   const current = props.options.find((o) => o.value === props.value);
   const style = design.use();
+  // MotionConfig's reducedMotion keeps a transform string, so the reduced start is chosen here: Crest's slight one.
+  const reduced = useReducedMotion() === true;
   return (
     <div ref={ref} className={`relative ${props.width ?? "w-28"}`}>
       {props.trigger ? (
@@ -672,7 +674,7 @@ export function Select<T extends string>(props: {
               }}
               initial={{
                 opacity: 0,
-                transform: `scale(${style === "material" ? 0.8 : 0.96}) translateY(${pos.up ? 2 : -2}px)`,
+                transform: `scale(${style === "material" && !reduced ? 0.8 : 0.96}) translateY(${pos.up ? 2 : -2}px)`,
               }}
               animate={{
                 opacity: 1,

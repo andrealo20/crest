@@ -9,7 +9,7 @@ const window = (name: string) => readFileSync(join(import.meta.dirname, "window"
 test("the bar's menus open from Material's 0.8 scale as the select menus do, in the shared menu look", () => {
   const src = window("BarMenu.tsx");
   assert.match(src, /const appDesign = design\.use\(\);/);
-  assert.ok(src.includes('scale(${appDesign === "material" ? 0.8 : 0.96}) translateY(2px)'));
+  assert.ok(src.includes('scale(${appDesign === "material" && !reduced ? 0.8 : 0.96}) translateY(2px)'));
   assert.match(src, /exit=\{\{ opacity: 0, transform: "scale\(0\.98\)"/);
   assert.match(src, /\$\{MENU_PANEL_CLASS\}/);
   assert.match(src, /\$\{MENU_ROW_CLASS\}/);
@@ -78,4 +78,15 @@ test("the app in front in the overflow panel gets Material's tonal pill behind i
   assert.doesNotMatch(pill[0], /backgroundColor|width:|height:/);
   // Over the pill: an icon after a positioned span paints under it unless it is positioned too.
   assert.match(src, /<span className="relative flex">\s*<AppIcon/);
+});
+
+test("with reduced motion the bar's menus and the select menus open from Crest's 0.96, not Material's 0.8, since MotionConfig keeps a transform string", () => {
+  const menu = window("BarMenu.tsx");
+  assert.match(menu, /const reduced = useReducedMotion\(\) === true;/);
+  assert.ok(menu.includes('scale(${appDesign === "material" && !reduced ? 0.8 : 0.96})'));
+  const select = readFileSync(join(import.meta.dirname, "..", "..", "ui", "controls.tsx"), "utf8");
+  const body = select.slice(select.indexOf("export function Select<"), select.indexOf("export function Skeleton("));
+  assert.match(body, /const reduced = useReducedMotion\(\) === true;/);
+  assert.ok(body.includes('scale(${style === "material" && !reduced ? 0.8 : 0.96})'));
+  assert.ok(!select.includes('scale(${style === "material" ? 0.8'));
 });
