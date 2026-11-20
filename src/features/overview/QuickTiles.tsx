@@ -37,9 +37,13 @@ export function useOutputs(): { outputs: AudioOutput[]; choice: boolean; listOpe
   return { outputs, choice, listOpen, device: choice ? (outputs.find((o) => o.default)?.name ?? "") : null, toggle, pick };
 }
 
-/** The calling window's monitor brightness: the row shows only where Crest can set it, read every few seconds (keys, other apps). */
-export function useBrightness(): { bright: number | null; setBright: (n: number) => void; busy: { current: boolean }; hold: { current: number } } {
+/**
+ * The calling window's monitor brightness: the row shows only where Crest can set it, read every few seconds (keys, other apps).
+ * `read`: the first answer is in, a level or the third miss in a row; until then `bright` is null either way.
+ */
+export function useBrightness(): { bright: number | null; read: boolean; setBright: (n: number) => void; busy: { current: boolean }; hold: { current: number } } {
   const [bright, setBright] = useState<number | null>(null);
+  const [read, setRead] = useState(false);
   const brightBusy = useRef(false);
   // Until when a reading would undo the slider: writes still going out, or just landed.
   const brightHold = useRef(0);
@@ -56,7 +60,10 @@ export function useBrightness(): { bright: number | null; setBright: (n: number)
         if (!alive || quiet()) return;
         // DDC/CI misses a read now and then: the row goes only after three in a row.
         brightMisses.current = v === null ? brightMisses.current + 1 : 0;
-        if (v !== null || brightMisses.current >= 3) setBright(v);
+        if (v !== null || brightMisses.current >= 3) {
+          setBright(v);
+          setRead(true);
+        }
         // With nothing to set, look again only now and then (another monitor may take the notch).
         const every = brightMisses.current >= 3 ? 30_000 : 3000;
         if (every !== period) {
@@ -72,7 +79,7 @@ export function useBrightness(): { bright: number | null; setBright: (n: number)
       window.clearInterval(id);
     };
   }, []);
-  return { bright, setBright, busy: brightBusy, hold: brightHold };
+  return { bright, read, setBright, busy: brightBusy, hold: brightHold };
 }
 
 const OUTPUT_ICONS = { headphones: Headphones, "speaker-hifi": SpeakerHifi, speaker: SpeakerSimpleHigh };
