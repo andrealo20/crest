@@ -1,4 +1,6 @@
 import {
+  createContext,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -6,11 +8,13 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, type Variants } from "motion/react";
 import { CaretUpDown, Eye, EyeSlash, type Icon } from "@phosphor-icons/react";
+import { design } from "../design/design";
 import { popover, springs } from "../design/motion";
 import { t } from "../i18n";
 import { MENU_PANEL_CLASS, MENU_ROW_CLASS } from "./menu";
+import { arrowStep } from "./radioKeys";
 import { sliderKey } from "./sliderKey";
 
 /*
@@ -18,24 +22,45 @@ import { sliderKey } from "./sliderKey";
  * radii and motion are identical everywhere.
  */
 
-/** Segmented control with a sliding pill. `id` must be unique per instance. */
+/** True inside the settings, whose wider rows Material sizes its controls for (the roomy: variant, with data-roomy on the same root). */
+export const RoomyContext = createContext(false);
+
+/** Segmented control with a sliding pill, as a radio group: Tab reaches the chosen segment, arrows move and pick. `id` must be unique per instance. */
 export function Segmented<T extends string>(props: {
   id: string;
   value: T;
   options: { value: T; label: ReactNode }[];
   onChange: (v: T) => void;
   size?: "sm" | "md";
+  label?: string;
 }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const h = props.size === "sm" ? "h-5 px-2" : "h-6 px-3";
   return (
-    <div className="flex shrink-0 rounded-full bg-fill-1 p-0.5">
-      {props.options.map((o) => {
+    <div
+      role="radiogroup"
+      aria-label={props.label}
+      className="flex shrink-0 rounded-full bg-fill-1 p-0.5 material:overflow-hidden material:bg-transparent material:shadow-[inset_0_0_0_1px_var(--color-label-3)]"
+    >
+      {props.options.map((o, i) => {
         const active = o.value === props.value;
         return (
           <button
             key={o.value}
+            ref={(el) => void (refs.current[i] = el)}
+            role="radio"
+            aria-checked={active}
+            tabIndex={active ? 0 : -1}
             onClick={() => props.onChange(o.value)}
-            className={`relative rounded-full text-caption font-medium transition-colors duration-150 ${h} ${
+            onKeyDown={(e) => {
+              const step = arrowStep(e.key, getComputedStyle(e.currentTarget).direction === "rtl");
+              if (!step) return;
+              e.preventDefault();
+              const j = (i + step + props.options.length) % props.options.length;
+              props.onChange(props.options[j].value);
+              refs.current[j]?.focus();
+            }}
+            className={`relative rounded-full text-caption font-medium transition-colors duration-150 ${h} roomy:h-7 roomy:px-3 roomy:text-footnote ${
               active ? "text-on-secondary-container" : "text-label-3 hover:text-label-2"
             }`}
           >
@@ -57,20 +82,27 @@ export function Segmented<T extends string>(props: {
 /** Cards with a small drawing each, for choices that are easier seen than read. Radio group: Tab reaches the chosen card, arrows move and pick. */
 export function StyleCards<T extends string>(props: {
   value: T;
-  options: { value: T; label: ReactNode; preview: ReactNode }[];
+  options: { value: T; label: ReactNode; preview: ReactNode; hint?: ReactNode }[];
   onChange: (v: T) => void;
   label?: string;
-  /** Cards per row (default 3). */
-  columns?: 3 | 4;
+  /** Cards per row (default 3); with 2 each card lays its drawing beside its name and hint. */
+  columns?: 2 | 3 | 4;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const wide = props.columns === 2;
   const pick = (i: number) => {
     const j = (i + props.options.length) % props.options.length;
     props.onChange(props.options[j].value);
     refs.current[j]?.focus();
   };
   return (
-    <div role="radiogroup" aria-label={props.label} className={`grid gap-2 ${props.columns === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+    <div
+      role="radiogroup"
+      aria-label={props.label}
+      className={`grid gap-2 ${
+        wide ? "grid-cols-2" : `${props.columns === 4 ? "grid-cols-4" : "grid-cols-3"} roomy:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]`
+      }`}
+    >
       {props.options.map((o, i) => {
         const active = o.value === props.value;
         return (
@@ -82,19 +114,30 @@ export function StyleCards<T extends string>(props: {
             tabIndex={active ? 0 : -1}
             onClick={() => props.onChange(o.value)}
             onKeyDown={(e) => {
-              // Right to left, the next card is the one on the left.
-              const rtl = e.currentTarget.matches(":dir(rtl)");
-              const step = ({ ArrowDown: 1, ArrowUp: -1, ArrowRight: rtl ? -1 : 1, ArrowLeft: rtl ? 1 : -1 } as Record<string, number>)[e.key] ?? 0;
+              const step = arrowStep(e.key, getComputedStyle(e.currentTarget).direction === "rtl");
               if (!step) return;
               e.preventDefault();
               pick(i + step);
             }}
-            className={`pressable flex flex-col items-center gap-1.5 rounded-[10px] p-2 outline-none transition-colors duration-150 focus-visible:ring-1 focus-visible:ring-label-3 ${
-              active ? "bg-secondary-container text-on-secondary-container" : "bg-fill-2 text-label-3 hover:text-label-2"
-            }`}
+            className={`pressable flex rounded-[10px] p-2 outline-none transition-colors duration-150 focus-visible:ring-1 focus-visible:ring-label-3 material:rounded-[16px] ${
+              wide ? "min-h-16 flex-row items-center gap-3 text-start" : "flex-col items-center gap-1.5"
+            } ${active ? "bg-secondary-container text-on-secondary-container material:ring-2 material:ring-primary" : "bg-fill-2 text-label-3 hover:text-label-2"}`}
           >
-            <span className="flex h-7 w-full items-start justify-center overflow-hidden rounded-[6px] bg-fill-1">{o.preview}</span>
-            <span className="text-caption font-medium">{o.label}</span>
+            <span
+              className={`flex items-start justify-center overflow-hidden rounded-[6px] bg-fill-1 material:rounded-[10px] ${
+                wide ? "h-11 w-[72px] shrink-0" : "h-7 w-full"
+              }`}
+            >
+              {o.preview}
+            </span>
+            {wide ? (
+              <span className="flex min-w-0 flex-col">
+                <span className="text-body font-semibold">{o.label}</span>
+                {o.hint && <span className="text-caption text-label-2">{o.hint}</span>}
+              </span>
+            ) : (
+              <span className="text-caption font-medium">{o.label}</span>
+            )}
           </button>
         );
       })}
@@ -102,7 +145,14 @@ export function StyleCards<T extends string>(props: {
   );
 }
 
-/** iOS switch. Green like Apple's; the knob slides with a spring. */
+/** The knob of the settings' switch under Material: 16 px off, 24 on, 28 while pressed, sliding 20 px. */
+const KNOB = {
+  off: { transform: "translateX(0px) scale(0.571)" },
+  on: { transform: "translateX(20px) scale(0.857)" },
+  pressed: (on: boolean) => ({ transform: `translateX(${on ? 20 : 0}px) scale(1)` }),
+} satisfies Variants;
+
+/** iOS switch. Green like Apple's; the knob slides with a spring. Under Material it takes the primary colour, and Material's own size in the settings. */
 export function Switch({
   checked,
   onChange,
@@ -112,16 +162,39 @@ export function Switch({
   onChange: (v: boolean) => void;
   label: string;
 }) {
+  // Motion's values cannot read the roomy: variant, so the size is chosen here.
+  const style = design.use();
+  const roomy = useContext(RoomyContext) && style === "material";
+  if (roomy)
+    return (
+      <motion.button
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        initial={false}
+        animate={checked ? "on" : "off"}
+        whileTap="pressed"
+        className="relative h-8 w-[52px] shrink-0 rounded-full bg-fill-3 shadow-[inset_0_0_0_2px_var(--color-label-3)] rtl:-scale-x-100"
+      >
+        {/* Colours change as layers in opacity, so nothing repaints while they fade. */}
+        <span className={`absolute inset-0 rounded-full bg-primary transition-opacity duration-200 ${checked ? "opacity-100" : "opacity-0"}`} />
+        <motion.span className="absolute top-[2px] left-[2px] size-7 rounded-full" variants={KNOB} custom={checked} transition={springs.pop}>
+          <span className={`absolute inset-0 rounded-full bg-label-3 transition-opacity duration-200 ${checked ? "opacity-0" : "opacity-100"}`} />
+          <span className={`absolute inset-0 rounded-full bg-on-primary transition-opacity duration-200 ${checked ? "opacity-100" : "opacity-0"}`} />
+        </motion.span>
+      </motion.button>
+    );
   return (
     <button
       role="switch"
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`pressable relative h-[18px] w-[30px] shrink-0 rounded-full transition-colors duration-200 rtl:-scale-x-100 ${checked ? "bg-green" : "bg-fill-3"}`}
+      className={`pressable relative h-[18px] w-[30px] shrink-0 rounded-full transition-colors duration-200 rtl:-scale-x-100 ${checked ? "bg-green material:bg-primary" : "bg-fill-3"}`}
     >
       <motion.span
-        className="absolute top-[2px] left-[2px] size-[14px] rounded-full bg-white shadow-sm"
+        className={`absolute top-[2px] left-[2px] size-[14px] rounded-full bg-white shadow-sm material:shadow-none ${checked ? "material:bg-on-primary" : "material:bg-label-3"}`}
         initial={false}
         animate={{
           transform: checked ? "translateX(12px)" : "translateX(0px)",

@@ -52,7 +52,7 @@ import { searchSettings, type SearchEntry } from "./search";
 import { github } from "../github/store";
 import { leetcode } from "../leetcode/store";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
-import { Button, Group, Row, Segmented, Select, Slider, StyleCards, SubSwitch, Switch, TextField } from "../../ui/controls";
+import { Button, Group, RoomyContext, Row, Segmented, Select, Slider, StyleCards, SubSwitch, Switch, TextField } from "../../ui/controls";
 import { PET_IDS, PET_SIZE, type ClosedSettings, type PartId, type PetId } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
 import { PetArt } from "../../notch/pet/Nest";
@@ -288,87 +288,90 @@ export function SettingsView() {
   }, [deepLink]);
 
   return (
-    <div className="flex h-full gap-3 px-4 pt-1 pb-3">
-      {/* Scrolls when the pages are taller than the room (the notch's settings tab, the window at its smallest), keeping 4 px around a focused item for its ring; shrink-0 keeps a wrapped name on its two lines. */}
-      <nav className="-mx-1 flex w-[144px] shrink-0 flex-col gap-0.5 overflow-y-auto px-1 pb-1 scroll-py-1 [scrollbar-width:none]">
-        <label className="mb-1 flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] bg-fill-1 px-2 text-label-3 focus-within:bg-fill-2">
-          <MagnifyingGlass size={12} weight="bold" className="shrink-0" />
-          <input
-            ref={field}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== "Escape" || !query) return;
-              // Esc clears first; only an empty field lets it through to close the notch.
-              e.stopPropagation();
-              setQuery("");
-            }}
-            placeholder={t("Suchen")}
-            aria-label={t("Suchen")}
-            spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent text-footnote text-label outline-none placeholder:text-label-4"
-          />
-        </label>
-        {pages.filter((p) => scopeOf(p.id) === scopeOf(page)).map((p) => {
-          const active = p.id === page && !searching;
-          return (
-            <button
-              key={p.id}
-              onClick={() => {
+    // Roomy in both styles: the roomy: variant and the context only change anything under Material.
+    <RoomyContext value={true}>
+      <div data-roomy className="flex h-full gap-3 px-4 pt-1 pb-3">
+        {/* Scrolls when the pages are taller than the room (the notch's settings tab, the window at its smallest), keeping 4 px around a focused item for its ring; shrink-0 keeps a wrapped name on its two lines. */}
+        <nav className="-mx-1 flex w-[144px] shrink-0 flex-col gap-0.5 overflow-y-auto px-1 pb-1 scroll-py-1 [scrollbar-width:none]">
+          <label className="mb-1 flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] bg-fill-1 px-2 text-label-3 focus-within:bg-fill-2">
+            <MagnifyingGlass size={12} weight="bold" className="shrink-0" />
+            <input
+              ref={field}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Escape" || !query) return;
+                // Esc clears first; only an empty field lets it through to close the notch.
+                e.stopPropagation();
                 setQuery("");
-                openPage(p.id);
               }}
-              aria-current={active ? "page" : undefined}
-              className={`pressable relative flex min-h-8 shrink-0 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body transition-colors duration-150 ${
-                active ? "text-label" : "text-label-3 hover:text-label-2"
-              }`}
-            >
-              {active && <motion.span layoutId="settings-page" className="absolute inset-0 rounded-[8px] bg-fill-2" transition={springs.snappy} />}
-              <p.icon size={15} weight={active ? "fill" : "bold"} className="relative shrink-0" style={iconColors ? { color: hueVar(p.hue) } : undefined} />
-              {/* Wraps like the bug report below: "Apps und Fenster" is longer than the column in most languages. */}
-              <span className="relative leading-tight">{t(p.label)}</span>
-            </button>
-          );
-        })}
-        {/* Not a page: opens GitHub's form, with this version filled in. */}
-        <button
-          onClick={openBugReport}
-          title={t("Öffnet das Formular auf GitHub, mit deiner Crest-Version schon eingetragen")}
-          className="pressable relative flex min-h-8 shrink-0 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body text-label-3 transition-colors duration-150 hover:text-label-2"
-        >
-          <Bug size={15} weight="bold" className="relative shrink-0" style={iconColors ? { color: hueVar("rose") } : undefined} />
-          {/* Longer in some languages than the pages' names: it wraps rather than being cut. */}
-          <span className="relative leading-tight">{t("Fehler melden")}</span>
-        </button>
-      </nav>
-      {/* Ref on the stable container: popLayout doesn't pass refs to the child. */}
-      <div ref={scroller} className="relative min-w-0 flex-1">
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.div
-            key={searching ? "search" : page}
-            className="absolute inset-0 flex flex-col gap-4 overflow-y-auto pb-6 [scrollbar-width:none]"
-            style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 28px), transparent)" }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: content.enter }}
-            exit={{ opacity: 0, transition: content.exit }}
+              placeholder={t("Suchen")}
+              aria-label={t("Suchen")}
+              spellCheck={false}
+              className="min-w-0 flex-1 bg-transparent text-footnote text-label outline-none placeholder:text-label-4"
+            />
+          </label>
+          {pages.filter((p) => scopeOf(p.id) === scopeOf(page)).map((p) => {
+            const active = p.id === page && !searching;
+            return (
+              <button
+                key={p.id}
+                onClick={() => {
+                  setQuery("");
+                  openPage(p.id);
+                }}
+                aria-current={active ? "page" : undefined}
+                className={`pressable relative flex min-h-8 shrink-0 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body transition-colors duration-150 ${
+                  active ? "text-label" : "text-label-3 hover:text-label-2"
+                }`}
+              >
+                {active && <motion.span layoutId="settings-page" className="absolute inset-0 rounded-[8px] bg-fill-2" transition={springs.snappy} />}
+                <p.icon size={15} weight={active ? "fill" : "bold"} className="relative shrink-0" style={iconColors ? { color: hueVar(p.hue) } : undefined} />
+                {/* Wraps like the bug report below: "Apps und Fenster" is longer than the column in most languages. */}
+                <span className="relative leading-tight">{t(p.label)}</span>
+              </button>
+            );
+          })}
+          {/* Not a page: opens GitHub's form, with this version filled in. */}
+          <button
+            onClick={openBugReport}
+            title={t("Öffnet das Formular auf GitHub, mit deiner Crest-Version schon eingetragen")}
+            className="pressable relative flex min-h-8 shrink-0 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body text-label-3 transition-colors duration-150 hover:text-label-2"
           >
-            {searching ? <SearchResults hits={results} onOpen={openHit} /> : <PageContent page={page} />}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-      {searching && (
-        // Every page, never shown: only read for the index. The LayoutGroup keeps their layoutIds apart from the visible ones.
-        <div ref={hidden} hidden inert>
-          <LayoutGroup id="settings-search">
-            {pages.map((p) => (
-              <div key={p.id} data-page={p.id}>
-                <PageContent page={p.id} />
-              </div>
-            ))}
-          </LayoutGroup>
+            <Bug size={15} weight="bold" className="relative shrink-0" style={iconColors ? { color: hueVar("rose") } : undefined} />
+            {/* Longer in some languages than the pages' names: it wraps rather than being cut. */}
+            <span className="relative leading-tight">{t("Fehler melden")}</span>
+          </button>
+        </nav>
+        {/* Ref on the stable container: popLayout doesn't pass refs to the child. */}
+        <div ref={scroller} className="relative min-w-0 flex-1">
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.div
+              key={searching ? "search" : page}
+              className="absolute inset-0 flex flex-col gap-4 overflow-y-auto pb-6 [scrollbar-width:none]"
+              style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 28px), transparent)" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, transition: content.enter }}
+              exit={{ opacity: 0, transition: content.exit }}
+            >
+              {searching ? <SearchResults hits={results} onOpen={openHit} /> : <PageContent page={page} />}
+            </motion.div>
+          </AnimatePresence>
         </div>
-      )}
-    </div>
+        {searching && (
+          // Every page, never shown: only read for the index. The LayoutGroup keeps their layoutIds apart from the visible ones.
+          <div ref={hidden} hidden inert>
+            <LayoutGroup id="settings-search">
+              {pages.map((p) => (
+                <div key={p.id} data-page={p.id}>
+                  <PageContent page={p.id} />
+                </div>
+              ))}
+            </LayoutGroup>
+          </div>
+        )}
+      </div>
+    </RoomyContext>
   );
 }
 
