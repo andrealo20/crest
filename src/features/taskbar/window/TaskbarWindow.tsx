@@ -16,7 +16,7 @@ import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
 import { zones as hitZones, type Rect } from "../autoHide";
 import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
-import { LOOK, barGap, groupBoxes, hitBoxes, labelRise, type Box } from "../look";
+import { LOOK, barGap, groupBoxes, hitBoxes, itemGap, labelRise, type Box } from "../look";
 import { closePanel, panel, togglePanel } from "../panel";
 import { barShown, barWindows, groupIcons } from "../store";
 import { splitApps } from "../fit";
@@ -118,6 +118,7 @@ export function TaskbarWindow() {
   const markAt = Math.round(((height - size) / 2 - MARK) / 2);
   const gap = barGap(shape);
   const tiles = shape === "tiles";
+  const between = itemGap(shape);
   // Too many apps for the room: narrower buttons, then the last ones behind "…", the app in front and those asking for attention kept
   // shown; and with too little room even for one app and "…", the tray's kept icons and then the widgets give way (fit.ts).
   // Stato's glyphs: one coming or going changes its width, and with none it draws nothing the fit could observe.
@@ -139,7 +140,7 @@ export function TaskbarWindow() {
     if (fit.mode !== "overflow" && panel.get()?.content.kind === "apps") closePanel();
   }, [fit.mode]);
   // Start, the apps, "…" and Crest grow as a dock's icons, by the pitch of the apps in use; widgets and tray icons only lift.
-  const mag = reduced ? undefined : { pointer, unit: (narrow ? compactIcon(size) + COMPACT_PAD : size + 16) + (tiles ? LOOK.tileGap : 2), rise: labelRise(size, height) };
+  const mag = reduced ? undefined : { pointer, unit: (narrow ? compactIcon(size) + COMPACT_PAD : size + 16) + between, rise: labelRise(size, height) };
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
   // An open menu or panel holds the bar up, and so does an app asking for attention.
   const layout = `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${fit.mode}:${fit.visible}:${fit.trayBack}:${fit.hide}|${glyphs}`;
@@ -354,7 +355,7 @@ export function TaskbarWindow() {
           {/* Positioned, so it draws over the glass's canvas. The capsule puts the three zones in a row, as close as its buttons. */}
           {shape === "capsule" ? (
             <motion.div {...slide}>
-              <Capsule style={{ height, borderRadius: look.radius, background: look.background }}>
+              <Capsule style={{ height, borderRadius: look.radius, background: look.background }} gap={between}>
                 {ZONES.map(([zone]) => zones[zone].map((id) => <Fragment key={id}>{render(id)}</Fragment>))}
               </Capsule>
             </motion.div>
@@ -366,7 +367,7 @@ export function TaskbarWindow() {
             >
               {ZONES.map(([zone, justify]) => (
                 // A side zone holding the apps grows to them and moves the centre aside; the fit leaves the other side its room.
-                <div key={zone} className={`flex gap-0.5 ${justify} ${zone !== "center" && zones[zone].includes("apps") ? "" : "min-w-0"}`} style={tiles ? { gap: LOOK.tileGap } : undefined}>
+                <div key={zone} className={`flex ${justify} ${zone !== "center" && zones[zone].includes("apps") ? "" : "min-w-0"}`} style={{ gap: between }}>
                   {zones[zone].map((id) => (
                     <Fragment key={id}>{render(id)}</Fragment>
                   ))}
@@ -424,7 +425,7 @@ export function TaskbarWindow() {
           ),
         }}
       />
-      <TrayDrop bar={bar} more={trayMore} size={trayIcon(size)} />
+      <TrayDrop bar={bar} more={trayMore} size={trayIcon(size)} gap={between} />
       {/* The launch error for screen readers too: a button's label is not read out. */}
       <span role="status" aria-live="polite" className="sr-only">
         {error?.text}

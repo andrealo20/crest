@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { BarShape } from "./model.ts";
-import { LOOK, barGap, barLook, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, labelRise, magnify, plusShapes, themeVeils } from "./look.ts";
+import { LOOK, barGap, barLook, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, itemGap, labelRise, magnify, plusShapes, themeVeils } from "./look.ts";
 import { GLASS, liveZone } from "../../notch/glass/params.ts";
 
 test("the surface's veil", () => {
@@ -24,6 +24,8 @@ test("a theme's veils from its tokens", () => {
 test("gaps by shape, and corners by shape and look", () => {
   const shapes: BarShape[] = ["docked", "floating", "capsule", "tiles"];
   assert.deepEqual(shapes.map((s) => barGap(s)), [0, 4, 4, 4]);
+  // Between the items in a zone: 6 px on every shape, the tiles' own gap on Tiles.
+  assert.deepEqual(shapes.map((s) => itemGap(s)), [6, 6, 6, LOOK.tileGap]);
   assert.deepEqual(shapes.map((s) => barRadius(s, 44, "crest")), [0, 12, 22, 12]);
   // Material's rows are Crest's until the material-style session fills them (contract point 5).
   assert.deepEqual(shapes.map((s) => barRadius(s, 44, "material")), [0, 12, 22, 12]);

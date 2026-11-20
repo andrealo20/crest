@@ -71,7 +71,11 @@ export const statusPill = (height: number) => {
   const h = 2 * Math.round(height * 0.35);
   return { height: h, pad: Math.round(h / 3) };
 };
-/** Stato's width for `count` glyphs, the battery among them at its own width: the glyphs 4 px apart, inside the pill's sides for a
- *  bar `height` tall. The pill is the whole button, so the bar's fit measures exactly this. */
-export const statusWidth = (size: number, count: number, battery: boolean, height: number) =>
-  (count - (battery ? 1 : 0)) * glyphSize(size) + (battery ? batteryWidth(glyphSize(size)) : 0) + (count - 1) * 4 + 2 * statusPill(height).pad;
+/** The room between Stato's glyphs: 6 px in the pill, 4 px without it (Tiles, whose tile is already a rounded fill). */
+export const glyphGap = (pill: boolean) => (pill ? 6 : 4);
+/** Stato's width for `count` glyphs, the battery among them at its own width: glyphGap apart, inside the pill's sides for a bar
+ *  `height` tall, or with no pill (`height` null) the 8 px a bar button keeps on each side. The pill is the whole button, so the
+ *  bar's fit measures exactly this. */
+export const statusWidth = (size: number, count: number, battery: boolean, height: number | null) =>
+  (count - (battery ? 1 : 0)) * glyphSize(size) + (battery ? batteryWidth(glyphSize(size)) : 0) + (count - 1) * glyphGap(height !== null) +
+  (height === null ? 16 : 2 * statusPill(height).pad);

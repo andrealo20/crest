@@ -6,7 +6,7 @@ export interface FitEntry { id: string; w: number; gives?: "tray" | "widget" }
 export interface FitMeasure {
   /** The room inside the bar: innerWidth - 2 * barGap(shape) - 8. */
   inner: number;
-  /** Between two items: 2, or LOOK.tileGap on tiles. */
+  /** Between two items: itemGap(shape). */
   gap: number;
   /** The capsule: every zone in one row. */
   row: boolean;

@@ -19,8 +19,6 @@ export type Common = Pick<ItemProps, "name" | "label" | "failed" | "lifted" | "s
 const DRAG = 4;
 /** The ways a press ends without a key. */
 const PRESS_ENDS = ["pointerup", "pointercancel", "lostpointercapture"] as const;
-/** Room between two buttons in a zone (gap-0.5), CSS px, which the drop marker fills. */
-const BUTTON_GAP = 2;
 
 // The press being followed (its end), and whether the last press dragged its icon: the click its release makes sends nothing.
 let endPress: (() => void) | null = null;
@@ -168,7 +166,7 @@ function dropAt(bar: HTMLElement | null, more: HTMLElement | null, d: { x: numbe
  * Let go there it is kept there, onto ^ or into the panel from the bar it is hidden, anywhere else nothing changes: `trayShown` is
  * written once per drop. Nothing of it runs while no icon is dragged.
  */
-export function TrayDrop({ bar, more, size }: { bar: RefObject<HTMLElement | null>; more: RefObject<HTMLElement | null>; size: number }) {
+export function TrayDrop({ bar, more, size, gap }: { bar: RefObject<HTMLElement | null>; more: RefObject<HTMLElement | null>; size: number; gap: number }) {
   const drag = trayDrag.use();
   const pictures = trayPictures.use();
   const dragging = drag !== null;
@@ -199,7 +197,8 @@ export function TrayDrop({ bar, more, size }: { bar: RefObject<HTMLElement | nul
       {at && !at.hide && (
         <span
           className="pointer-events-none fixed top-0 left-0 w-0.5 rounded-full bg-accent"
-          style={{ height: size, transform: `translate(${at.before.left - BUTTON_GAP}px, ${at.before.top + (at.before.height - size) / 2}px)` }}
+          // Centred in the gap between two buttons (itemGap), 2 px wide.
+          style={{ height: size, transform: `translate(${at.before.left - gap / 2 - 1}px, ${at.before.top + (at.before.height - size) / 2}px)` }}
         />
       )}
     </>
