@@ -1006,6 +1006,7 @@
  "Automatisch ({font})": "自动（{font}）",
  "Startfarbe": "起始颜色",
  "In Material zählt nur, ob er hell oder dunkel ist": "在 Material 中只看它是浅色还是深色",
+ "Gilt für die ganze App; ändern unter Themen": "适用于整个应用；可在主题中更改",
  "Windows-Kontrastdesign ist an": "Windows 高对比度已开启",
  "Crest zeigt die Systemfarben, bis es ausgeschaltet wird": "关闭前，Crest 将使用系统颜色",
  "Ungespeicherte Farben verwerfen?": "放弃未保存的颜色？",

@@ -1006,6 +1006,7 @@
  "Automatisch ({font})": "Automatic ({font})",
  "Startfarbe": "Starting colour",
  "In Material zählt nur, ob er hell oder dunkel ist": "In Material only light or dark counts",
+ "Gilt für die ganze App; ändern unter Themen": "Applies to the whole app; change it under Themes",
  "Windows-Kontrastdesign ist an": "Windows high contrast is on",
  "Crest zeigt die Systemfarben, bis es ausgeschaltet wird": "Crest uses the system colours until it is turned off",
  "Ungespeicherte Farben verwerfen?": "Discard the unsaved colours?",

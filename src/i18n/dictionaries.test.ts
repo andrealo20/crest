@@ -16,6 +16,7 @@ const KEYS: [string, string, string][] = [
   ["Automatisch ({font})", "Automatic ({font})", "Automatico ({font})"],
   ["Startfarbe", "Starting colour", "Colore di partenza"],
   ["In Material zählt nur, ob er hell oder dunkel ist", "In Material only light or dark counts", "In Material conta solo se è chiaro o scuro"],
+  ["Gilt für die ganze App; ändern unter Themen", "Applies to the whole app; change it under Themes", "Vale per tutta l'app; si cambia in Temi"],
 ];
 
 test("every dictionary has the Material style's strings right after Theme, in the same order", () => {

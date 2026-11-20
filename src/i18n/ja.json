@@ -1006,6 +1006,7 @@
  "Automatisch ({font})": "自動（{font}）",
  "Startfarbe": "開始色",
  "In Material zählt nur, ob er hell oder dunkel ist": "Material では明るいか暗いかだけが反映されます",
+ "Gilt für die ganze App; ändern unter Themen": "アプリ全体に適用されます。テーマで変更できます",
  "Windows-Kontrastdesign ist an": "Windows のハイコントラストがオンです",
  "Crest zeigt die Systemfarben, bis es ausgeschaltet wird": "オフにするまで、Crest はシステムの色を使います",
  "Ungespeicherte Farben verwerfen?": "保存していない色を破棄しますか？",
