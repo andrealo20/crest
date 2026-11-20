@@ -171,6 +171,7 @@ export function TaskbarApps() {
   const pinned = settings.use().taskbar.pinned ?? [];
   const [confirm, setConfirm] = useState(false);
   const [outcome, setOutcome] = useState<"none" | "failed" | null>(null);
+  const [reading, setReading] = useState(false);
 
   useEffect(() => {
     if (!confirm) return;
@@ -182,6 +183,7 @@ export function TaskbarApps() {
     setOutcome(null);
     if (pinned.length && !confirm) return setConfirm(true);
     setConfirm(false);
+    setReading(true);
     void taskbar.importPins().then(
       (apps) => {
         const next = normalizeFavorites(apps);
@@ -190,7 +192,7 @@ export function TaskbarApps() {
         else setOutcome("none");
       },
       () => setOutcome("failed"),
-    );
+    ).finally(() => setReading(false));
   };
 
   return (
@@ -200,15 +202,19 @@ export function TaskbarApps() {
       {/* Long in some languages beside the button: the name wraps instead of being cut. */}
       <Row
         label={<span className="whitespace-normal">{t("Apps der Windows-Taskleiste")}</span>}
+        // A status, so the import's outcome is read out after the click.
         hint={
-          outcome === "none"
-            ? t("Auf der Windows-Taskleiste ist keine App angeheftet")
-            : outcome === "failed"
-              ? t("Die Apps von Windows lassen sich gerade nicht lesen")
-              : t("Ersetzt die angehefteten Apps durch die der Windows-Taskleiste")
+          <span role="status">
+            {outcome === "none"
+              ? t("Auf der Windows-Taskleiste ist keine App angeheftet")
+              : outcome === "failed"
+                ? t("Die Apps von Windows lassen sich gerade nicht lesen")
+                : t("Ersetzt die angehefteten Apps durch die der Windows-Taskleiste")}
+          </span>
         }
       >
-        <Button onClick={importPins}>
+        {/* One read at a time: a second click would start another import. */}
+        <Button onClick={importPins} disabled={reading}>
           {/* Both texts in one cell: the button keeps the wider one's width, so the confirming click lands where the first did. */}
           <span className="grid text-center">
             <span className={`col-start-1 row-start-1 ${confirm ? "invisible" : ""}`} aria-hidden={confirm}>
