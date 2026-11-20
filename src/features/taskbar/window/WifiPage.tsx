@@ -26,9 +26,10 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
   const [note, setNote] = useState<string | null>(null);
   const view = wifiView(on, list, failed);
 
+  // Resolves once the list or its failure is in, never rejected: `settle` waits on it.
   const read = (scan: boolean) => {
     setScanning(scan);
-    taskbar
+    return taskbar
       .wifiScan(scan)
       .then((l) => {
         setList(l);
@@ -61,7 +62,8 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
     setNote(null);
     taskbar
       .wifiAllow()
-      .then((a) => (a === "allowed" ? read(true) : setList({ state: "denied", networks: [] })))
+      // Not waiting for the scan: the focus comes back as the prompt closes.
+      .then((a) => (a === "allowed" ? void read(true) : setList({ state: "denied", networks: [] })))
       // The "ask" list stays on screen, so the failure shows as the footer's note.
       .catch((e) => setNote(afterConnect(String(e)).note))
       .finally(() => {
@@ -76,6 +78,7 @@ export function WifiPage({ on, job }: { on: boolean; job: SwitchJob }) {
     setNote(null);
     setOpen(null);
     call
+      // Busy until the list after the call lands: cleared before it, the row would show its old state for a moment.
       .then(() => read(false))
       .catch((e) => {
         const a = afterConnect(String(e));
