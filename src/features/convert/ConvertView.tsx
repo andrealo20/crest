@@ -20,6 +20,7 @@ export function ConvertView() {
       <HeaderActions>
         <Segmented
           id="convert-mode"
+          label={t("Converter")}
           size="sm"
           value={mode}
           onChange={setMode}

@@ -333,6 +333,7 @@ function List(props: {
       <div className="flex shrink-0 items-center gap-2">
         <Segmented
           id="vault-kind"
+          label={t("Tresor")}
           value={props.kind}
           onChange={props.setKind}
           options={[

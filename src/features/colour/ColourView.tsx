@@ -33,6 +33,7 @@ export function ColourView() {
       <HeaderActions>
         <Segmented
           id="colour-mode"
+          label={t("Farbe")}
           size="sm"
           value={mode}
           onChange={setMode}

@@ -20,13 +20,13 @@ export function BreaksSettings() {
         <Switch label={t("Pausen-Erinnerungen")} checked={c.on} onChange={(on) => set({ on })} />
       </Row>
       <Row icon="visibility" label={t("Kurze Pause alle")} hint={t("20 Sekunden in die Ferne schauen")}>
-        <Segmented id="breaks-micro" size="sm" value={String(c.microEveryMin)} onChange={(v) => set({ microEveryMin: Number(v) })} options={chips(MICRO, c.microEveryMin)} />
+        <Segmented label={t("Kurze Pause alle")} id="breaks-micro" size="sm" value={String(c.microEveryMin)} onChange={(v) => set({ microEveryMin: Number(v) })} options={chips(MICRO, c.microEveryMin)} />
       </Row>
       <Row icon="directions_walk" label={t("Lange Pause alle")}>
-        <Segmented id="breaks-long" size="sm" value={String(c.longEveryMin)} onChange={(v) => set({ longEveryMin: Number(v) })} options={chips(LONG, c.longEveryMin)} />
+        <Segmented label={t("Lange Pause alle")} id="breaks-long" size="sm" value={String(c.longEveryMin)} onChange={(v) => set({ longEveryMin: Number(v) })} options={chips(LONG, c.longEveryMin)} />
       </Row>
       <Row icon="timelapse" label={t("Dauer der langen Pause")}>
-        <Segmented id="breaks-length" size="sm" value={String(c.longMin)} onChange={(v) => set({ longMin: Number(v) })} options={chips(LENGTH, c.longMin)} />
+        <Segmented label={t("Dauer der langen Pause")} id="breaks-length" size="sm" value={String(c.longMin)} onChange={(v) => set({ longMin: Number(v) })} options={chips(LENGTH, c.longMin)} />
       </Row>
     </Group>
   );

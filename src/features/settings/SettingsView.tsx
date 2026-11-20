@@ -817,6 +817,7 @@ function Ask() {
       <Row icon="cloud" label={t("Anbieter")}>
         <Segmented<AskProvider>
           id="ask-provider"
+          label={t("Anbieter")}
           size="sm"
           value={s.ask.provider}
           onChange={(provider) => updateSettings({ ask: { ...s.ask, provider } })}
@@ -850,6 +851,7 @@ function Ask() {
       <Row icon="psychology" label={t("Denkaufwand")} hint={t("Wie gründlich das Modell nachdenkt")}>
         <Segmented
           id="ask-effort-settings"
+          label={t("Denkaufwand")}
           size="sm"
           value={s.ask.configs[s.ask.provider].effort}
           onChange={(effort) => updateAsk(s.ask.provider, { effort })}
@@ -868,6 +870,7 @@ export function OpenRows() {
       <Row icon="touch_app" label={t("Öffnen")}>
         <Segmented
           id="open-mode"
+          label={t("Öffnen")}
           size="sm"
           value={s.openMode}
           onChange={(openMode) => updateSettings({ openMode })}
@@ -883,6 +886,7 @@ export function OpenRows() {
             <Row icon="hourglass_top" label={t("Hover-Verzögerung")}>
               <Segmented
                 id="hover-delay"
+                label={t("Hover-Verzögerung")}
                 size="sm"
                 value={s.hoverDelay}
                 onChange={(hoverDelay) => updateSettings({ hoverDelay })}
@@ -962,6 +966,7 @@ function General() {
       <Row icon="schedule" label={t("Uhrzeit")}>
         <Segmented
           id="clock-format"
+          label={t("Uhrzeit")}
           size="sm"
           value={s.units.clock}
           onChange={(clock) => updateSettings((p) => ({ units: { ...p.units, clock } }))}
@@ -975,6 +980,7 @@ function General() {
       <Row icon="hourglass_bottom" label={t("Schließen-Verzögerung")} hint={t("Wie lange die Notch offen bleibt, nachdem der Zeiger sie verlassen hat")}>
         <Segmented
           id="close-delay"
+          label={t("Schließen-Verzögerung")}
           size="sm"
           value={s.behavior.closeDelay}
           onChange={(closeDelay) => updateSettings((cur) => ({ behavior: { ...cur.behavior, closeDelay } }))}
@@ -1112,6 +1118,7 @@ function Display() {
         >
           <Segmented
             id="focus-style"
+            label={t("Fokus-Darstellung")}
             size="sm"
             value={d.focusStyle}
             onChange={(focusStyle) => updateSettings((cur) => ({ display: { ...cur.display, focusStyle } }))}
@@ -1131,6 +1138,7 @@ function Display() {
           >
             <Segmented
               id="gaming-mode"
+              label={t("Gaming-Modus")}
               size="sm"
               value={s.gaming.mode}
               onChange={(mode) => updateSettings({ gaming: { mode } })}
@@ -1228,7 +1236,7 @@ function PetSettingsRows() {
             </div>
           </Row>
           <Row icon="swap_horiz" label={t("Seite")}>
-            <Segmented id="pet-side" size="sm" value={pet.side} options={across(dock.edge) ? [{ value: "left", label: t("Oben") }, { value: "right", label: t("Unten") }] : [{ value: "left", label: t("Linke Seite") }, { value: "right", label: t("Rechte Seite") }]} onChange={(side) => setPet({ side })} />
+            <Segmented label={t("Seite")} id="pet-side" size="sm" value={pet.side} options={across(dock.edge) ? [{ value: "left", label: t("Oben") }, { value: "right", label: t("Unten") }] : [{ value: "left", label: t("Linke Seite") }, { value: "right", label: t("Rechte Seite") }]} onChange={(side) => setPet({ side })} />
           </Row>
         </>
       )}
@@ -1441,7 +1449,7 @@ function Alarm() {
         </div>
       </Row>
       <Row icon="timelapse" label={t("Dauer")} hint={t("Wie lange der Alarm klingelt")}>
-        <Segmented id="alarm-duration" size="sm" value={String(a.duration)} onChange={(v) => set({ duration: Number(v) as AlarmDuration })} options={durations.map((o) => ({ ...o, label: t(o.label, { n: o.value }) }))} />
+        <Segmented label={t("Dauer")} id="alarm-duration" size="sm" value={String(a.duration)} onChange={(v) => set({ duration: Number(v) as AlarmDuration })} options={durations.map((o) => ({ ...o, label: t(o.label, { n: o.value }) }))} />
       </Row>
     </Group>
   );
@@ -1505,6 +1513,7 @@ function Weather() {
       <Row icon="my_location" label={t("Standort")} hint={w?.auto ? t("Ungefähr, aus deiner IP-Adresse") : undefined}>
         <Segmented<"auto" | "manual">
           id="weather-mode"
+          label={t("Standort")}
           size="sm"
           value={!w || w.auto ? "auto" : "manual"}
           onChange={(m) => {
@@ -1522,6 +1531,7 @@ function Weather() {
       <Row icon="device_thermostat" label={t("Einheit")}>
         <Segmented
           id="temp-unit"
+          label={t("Einheit")}
           size="sm"
           value={units.temp}
           onChange={(temp) => updateSettings((p) => ({ units: { ...p.units, temp } }))}

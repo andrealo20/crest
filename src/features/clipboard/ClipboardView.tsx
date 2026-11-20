@@ -136,7 +136,7 @@ export function ClipboardView() {
   return (
     <div className="flex h-full flex-col">
       <HeaderActions>
-        <Segmented id="clip-filter" size="sm" value={filter} onChange={setFilter} options={filters.map((f) => ({ ...f, label: t(f.label) }))} />
+        <Segmented label={t("Zwischenablage")} id="clip-filter" size="sm" value={filter} onChange={setFilter} options={filters.map((f) => ({ ...f, label: t(f.label) }))} />
         <HeaderButton
           label={t("Alle löschen")}
           onClick={() => {

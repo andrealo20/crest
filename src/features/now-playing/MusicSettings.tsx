@@ -47,6 +47,7 @@ export function MusicSettings() {
           <Row icon="equalizer" label={t("Equalizer-Stil")} hint={t("Im Musik-Tool; die geschlossene Notch behält ihre vier Balken")}>
             <Segmented
               id="music-eq-style"
+              label={t("Equalizer-Stil")}
               value={music.eqStyle}
               options={[
                 { value: "bars", label: t("Balken") },
@@ -60,6 +61,7 @@ export function MusicSettings() {
         <Row icon="linear_scale" label={t("Fortschrittsbalken")} hint={t("Wellig schwingt beim Abspielen und wird bei Pause flach")}>
           <Segmented
             id="music-progress-style"
+            label={t("Fortschrittsbalken")}
             value={music.progressStyle}
             options={[
               { value: "line", label: t("Linie") },

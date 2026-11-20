@@ -56,7 +56,7 @@ export function TradingView() {
   const actions = (
     <HeaderActions>
       {env === "demo" && accounts.some((a) => a.id === "t212") && <span className="me-1 rounded-full bg-fill-2 px-1.5 text-caption text-label-2">{t("Demo")}</span>}
-      {state?.total && <Segmented id="trading-range" size="sm" value={r} onChange={range.set} options={ranges.map((o) => ({ ...o, label: t(o.label) }))} />}
+      {state?.total && <Segmented label={t("Depot")} id="trading-range" size="sm" value={r} onChange={range.set} options={ranges.map((o) => ({ ...o, label: t(o.label) }))} />}
       <HeaderButton label={updatedAt ? t("Aktualisiert {ago}", { ago: formatAgo(Date.now() - updatedAt) }) : t("Aktualisieren")} onClick={() => void refresh()}>
         <motion.span className="flex" animate={{ rotate: loading ? 360 : 0 }} transition={loading ? spin : { duration: 0 }}>
           <ArrowClockwise size={14} weight="bold" />

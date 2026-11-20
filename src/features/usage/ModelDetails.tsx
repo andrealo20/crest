@@ -66,7 +66,7 @@ export function ModelDetails({ state }: { state: { report: TokenReport | null; l
   return (
     <div className="flex h-full flex-col px-4 pt-1 pb-2">
       <div className="mb-2 flex items-center gap-2">
-        <Segmented id="usage-range" size="sm" value={range} onChange={setRange} options={ranges.map((r) => ({ ...r, label: t(r.label) }))} />
+        <Segmented label={t("AI-Nutzung")} id="usage-range" size="sm" value={range} onChange={setRange} options={ranges.map((r) => ({ ...r, label: t(r.label) }))} />
         <div className="flex gap-1">
           {report.tools.map((x) => (
             <button

@@ -55,6 +55,7 @@ function Rules() {
             <Row key={c} icon={contextSymbol[c]} label={t(contextLabel[c])} hint={gaming && c !== "maximized" ? t("Der Gaming-Modus hält Crest hier sichtbar") : t(contextHint[c])}>
               <Segmented
                 id={`rule-${c}`}
+                label={t(contextLabel[c])}
                 size="sm"
                 value={r[c]}
                 onChange={(v) => updateBehavior((b) => ({ rules: { ...b.rules, [c]: v } }))}
@@ -416,6 +417,7 @@ function Panel() {
       <Row icon="aspect_ratio" label={t("Größe")} hint={t("Pro Tool an den Rändern des offenen Panels ziehen; Doppelklick setzt zurück")}>
         <Segmented<QuickSize | "custom">
           id="panel-size"
+          label={t("Größe")}
           size="sm"
           value={quick ?? "custom"}
           onChange={(q) => {

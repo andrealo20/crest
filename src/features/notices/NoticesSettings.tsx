@@ -148,6 +148,7 @@ export function NoticesSettings() {
             <Row icon="apps" key={id} label={<span title={id}>{name}</span>}>
               <Segmented
                 id={`notice-rule-${id}`}
+                label={name}
                 size="sm"
                 value={ruleFor(n.rules, id)}
                 options={ruleOptions.map((o) => ({ value: o.value, label: t(o.label) }))}

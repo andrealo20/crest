@@ -50,13 +50,13 @@ export function ProductivitySettings() {
           <Switch label={t("Erinnerungen")} checked={w.remind} onChange={(remind) => waterActions.setConfig({ remind })} />
         </Row>
         <Row icon="water_full" label={t("Flasche")} hint={t("So viel zählt ein Klick auf Trinken")}>
-          <Segmented id="water-bottle" size="sm" value={String(w.bottleMl)} onChange={(v) => waterActions.setConfig({ bottleMl: Number(v) })} options={withValue(BOTTLES, w.bottleMl).map((v) => ({ value: String(v), label: formatMl(v) }))} />
+          <Segmented label={t("Flasche")} id="water-bottle" size="sm" value={String(w.bottleMl)} onChange={(v) => waterActions.setConfig({ bottleMl: Number(v) })} options={withValue(BOTTLES, w.bottleMl).map((v) => ({ value: String(v), label: formatMl(v) }))} />
         </Row>
         <Row icon="flag" label={t("Tagesziel")}>
-          <Segmented id="water-goal" size="sm" value={String(w.goalMl)} onChange={(v) => waterActions.setConfig({ goalMl: Number(v) })} options={withValue(GOALS, w.goalMl).map((v) => ({ value: String(v), label: formatMl(v) }))} />
+          <Segmented label={t("Tagesziel")} id="water-goal" size="sm" value={String(w.goalMl)} onChange={(v) => waterActions.setConfig({ goalMl: Number(v) })} options={withValue(GOALS, w.goalMl).map((v) => ({ value: String(v), label: formatMl(v) }))} />
         </Row>
         <Row icon="repeat" label={t("Erinnern alle")}>
-          <Segmented id="water-every" size="sm" value={String(w.everyMin)} onChange={(v) => waterActions.setConfig({ everyMin: Number(v) })} options={withValue(EVERY, w.everyMin).map((v) => ({ value: String(v), label: t("{n} Min.", { n: v }) }))} />
+          <Segmented label={t("Erinnern alle")} id="water-every" size="sm" value={String(w.everyMin)} onChange={(v) => waterActions.setConfig({ everyMin: Number(v) })} options={withValue(EVERY, w.everyMin).map((v) => ({ value: String(v), label: t("{n} Min.", { n: v }) }))} />
         </Row>
         <Row icon="avg_time" label={t("Zeitraum")} hint={t("Außerhalb davon keine Erinnerungen")}>
           <div className="flex items-center gap-1.5">

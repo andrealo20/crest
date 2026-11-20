@@ -177,6 +177,7 @@ export function SystemView() {
             <span className="text-caption font-medium tracking-wide text-label-3 uppercase">{t("Prozesse")}</span>
             <Segmented
               id="system-sort"
+              label={t("Prozesse")}
               size="sm"
               value={sort}
               onChange={(v) => updateSettings((cur) => ({ system: { ...cur.system, sort: v } }))}

@@ -27,6 +27,7 @@ export function SystemSettings() {
       <Row icon="palette" label={t("Farben")} hint={t("Für die Werte im Tool und in der geschlossenen Notch")}>
         <Segmented
           id="system-colors"
+          label={t("Farben")}
           value={s.system.colors}
           onChange={(colors) => set({ colors })}
           options={COLOR_SCHEMES.map((c) => ({

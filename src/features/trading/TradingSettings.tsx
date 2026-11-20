@@ -67,6 +67,7 @@ function ProviderRow({ provider: p }: { provider: ProviderInfo }) {
               <Row icon="account_box" label={t("Konto")}>
                 <Segmented
                   id="t212-env"
+                  label={t("Konto")}
                   size="sm"
                   value={s.trading.env}
                   onChange={(env) => updateSettings((prev) => ({ trading: { ...prev.trading, env } }))}
@@ -173,6 +174,7 @@ function ManualForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
       <Row icon="category" label={t("Art")}>
         <Segmented
           id="manual-kind"
+          label={t("Art")}
           size="sm"
           value={d.kind}
           onChange={(kind) => set({ kind })}

@@ -30,6 +30,7 @@ export function EdgeSettings() {
       >
         <Segmented<Edge>
           id="dock-edge"
+          label={t("Bildschirmrand")}
           size="sm"
           value={edge}
           // A new edge starts at its middle and with its own default anchor.
@@ -46,6 +47,7 @@ export function EdgeSettings() {
         <Row icon="anchor" label={t("Hängt an")} hint={t("Über der Taskleiste verdeckt die Notch einen Teil davon")}>
           <Segmented
             id="dock-anchor"
+            label={t("Hängt an")}
             size="sm"
             value={overTaskbar(edge, anchor) ? "screen" : "taskbar"}
             onChange={(next) => setDock({ anchor: next })}

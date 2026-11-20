@@ -110,6 +110,7 @@ export function UnitsPanel() {
     <div className="flex h-full flex-col gap-3">
       <Segmented
         id="units-cat"
+        label={t("Einheiten")}
         size="sm"
         value={cat}
         onChange={setCat}

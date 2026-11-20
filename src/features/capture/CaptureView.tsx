@@ -103,7 +103,7 @@ export function CaptureView() {
               options={sources.map((s) => ({ value: s.id, label: label(s) }))}
               onChange={(v) => setCapture({ source: v })}
             />
-            <Segmented id="capture-fps" size="sm" value={String(cfg.fps)} options={[{ value: "30", label: "30" }, { value: "60", label: "60" }]} onChange={(v) => setCapture({ fps: v === "60" ? 60 : 30 })} />
+            <Segmented label={t("Video")} id="capture-fps" size="sm" value={String(cfg.fps)} options={[{ value: "30", label: "30" }, { value: "60", label: "60" }]} onChange={(v) => setCapture({ fps: v === "60" ? 60 : 30 })} />
             <Toggle on={cfg.mic} icons={[Microphone, MicrophoneSlash]} labels={[t("Mit Mikrofon"), t("Ohne Mikrofon")]} onChange={(mic) => setCapture({ mic })} />
             <Toggle on={cfg.system} icons={[SpeakerHigh, SpeakerSlash]} labels={[t("Mit Systemton"), t("Ohne Systemton")]} onChange={(system) => setCapture({ system })} />
             <Button icon={Record} primary disabled={busy || !source || !idle} onClick={record}>
@@ -241,6 +241,7 @@ function Library() {
       <div className="flex items-center justify-between">
         <Segmented
           id="capture-filter"
+          label={t("Erfassen")}
           size="sm"
           value={filter}
           options={[{ value: "all", label: t("Alle") }, { value: "shot", label: t("Bildschirmfotos") }, { value: "video", label: t("Videos") }]}

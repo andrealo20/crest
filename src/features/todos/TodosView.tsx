@@ -380,6 +380,7 @@ function TaskDetails({ task, onClose }: { task: Task; onClose: () => void }) {
       />
       <Segmented
         id={`due-day-${task.id}`}
+        label={t("Tag")}
         size="sm"
         value={chosenDay as "0" | "1"}
         onChange={(v) => setDay(v)}

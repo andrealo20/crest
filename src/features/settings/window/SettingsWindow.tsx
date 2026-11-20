@@ -27,6 +27,7 @@ export function SettingsWindow() {
   const scopeSwitch = taskbarShown && (
     <Segmented
       id="settings-scope"
+      label={t("Einstellungen")}
       value={scope}
       onChange={(next) => savedPage.set((s) => ({ ...s, scope: next }))}
       options={[

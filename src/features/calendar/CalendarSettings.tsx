@@ -67,6 +67,7 @@ export function CalendarSettings() {
           {c.notice && (
             <Segmented
               id="calendar-notice"
+              label={t("Mitteilung vor Terminen")}
               size="sm"
               value={String(c.noticeMin) as "5" | "10"}
               onChange={(v) => setCalendar(() => ({ noticeMin: v === "5" ? 5 : 10 }))}
@@ -124,6 +125,7 @@ function SourceForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
         <Row icon="category" label={t("Art")}>
           <Segmented
             id="calendar-kind"
+            label={t("Art")}
             size="sm"
             value={d.kind}
             onChange={(kind) => set({ kind, secret: "" })}
