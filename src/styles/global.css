@@ -176,11 +176,14 @@ body {
       opacity: var(--m3-state-hover);
     }
   }
-  [data-design="material"] :focus-visible > .m3-layer {
+  /* Stato's sits one span down, in its lifted pill; only a button's span, since :active reaches every ancestor of the press. */
+  [data-design="material"] :focus-visible > .m3-layer,
+  [data-design="material"] button:focus-visible > span > .m3-layer {
     opacity: var(--m3-state-focus);
     transition-duration: 45ms;
   }
-  [data-design="material"] :active > .m3-layer {
+  [data-design="material"] :active > .m3-layer,
+  [data-design="material"] button:active > span > .m3-layer {
     opacity: var(--m3-state-press);
     transition-duration: 75ms;
   }

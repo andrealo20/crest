@@ -142,6 +142,8 @@ test("the bar's state layer sits in the components layer, reads the state variab
     const [r] = state(s);
     assert.ok(r, `no ${s} rule`);
     assert.match(r.body, new RegExp(`opacity\\s*:\\s*var\\(--m3-state-${v}[,)]`), r.selector);
+    // Stato's layer sits one span down, in the lifted pill; only under a button, since :active reaches every ancestor of the press.
+    assert.ok(r.selector.includes(`button${s} > span > .m3-layer`), `${s} misses Stato's layer`);
   }
 });
 

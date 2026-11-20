@@ -51,6 +51,10 @@ export function Item(props: {
   const material = design.use() === "material";
   const shape = itemLayer({ size: props.size, width: props.width ?? props.size + 16, layer: props.layer, tile: props.plus ? undefined : props.tile });
   const pill = props.mark !== undefined && marks(props.mark, "material").pill;
+  // Stato draws a pill of its own, inside the lifted span: its layer rides there, over the pill's fill, as the pill lifts.
+  const inPill = props.layer !== undefined;
+  // Lit by the bar's hovered state, which Rust clears when the pointer leaves the window; :hover would stay on.
+  const layer = material && <span aria-hidden data-hover={props.lifted || undefined} className={`m3-layer absolute${inPill ? " inset-0 rounded-full" : ""}`} style={inPill ? undefined : shape} />;
   return (
     // The gap under the bar (GAP, h-1) belongs to the button above it, so a click with the pointer pushed against the screen's
     // edge, left or right, lands on the button; the gap itself stays empty. A press shrinks only the icon, by `scale` (Motion's
@@ -75,8 +79,7 @@ export function Item(props: {
       style={{ width: props.width ?? props.size + 16, background: props.tile?.background, borderRadius: props.tile?.radius }}
     >
       {material && props.mark && <motion.span aria-hidden data-front-pill className="absolute bg-secondary-container" style={shape} initial={false} animate={{ opacity: pill ? 1 : 0, transform: `scaleX(${pill ? 1 : 0.6})` }} transition={springs.snappy} />}
-      {/* Lit by the bar's hovered state, which Rust clears when the pointer leaves the window; :hover would stay on. */}
-      {material && <span aria-hidden data-hover={props.lifted || undefined} className="m3-layer absolute" style={shape} />}
+      {!inPill && layer}
       {props.magnify ? (
         <Magnified {...props.magnify}>{props.children}</Magnified>
       ) : (
@@ -87,6 +90,7 @@ export function Item(props: {
           transition={springs.peek}
         >
           {props.children}
+          {inPill && layer}
         </motion.span>
       )}
       {props.mark && <Mark kind={props.mark} bottom={props.markAt} />}

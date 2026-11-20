@@ -31,7 +31,7 @@ const window = (name: string) => readFileSync(join(import.meta.dirname, "window"
 test("Item draws the pill and the state layer only under Material, the layer lit by the bar's hovered state and never by :hover", () => {
   const item = window("Item.tsx");
   assert.match(item, /\{material &&[^}]*data-front-pill/);
-  const layer = /\{material && <span[^\n]*m3-layer[^\n]*/.exec(item);
+  const layer = /material && <span[^\n]*m3-layer[^\n]*/.exec(item);
   assert.ok(layer, "no state layer drawn under a material && branch");
   assert.match(layer[0], /data-hover=\{props\.lifted \|\| undefined\}/);
   // The window lets the pointer through off its zones and the page never sees pointerleave there, so a :hover would stay lit.
@@ -71,4 +71,12 @@ test("under Liquid Glass + a tile keeps its glass: the pill and the state layer 
   assert.match(window("TaskbarWindow.tsx"), /const item = \(key: string, name: string\) => \(\{[^}]*plus: look\.look === "plus",/);
   assert.match(window("Tray.tsx"), /Pick<ItemProps, [^>]*"plus"/);
   assert.match(window("Widget.tsx"), /Pick<ItemProps, [^>]*"plus"/);
+});
+
+test("Stato's state layer rides in the lifted pill, over its fill, so it never shows as a band under it", () => {
+  const item = window("Item.tsx");
+  assert.match(item, /const inPill = props\.layer !== undefined;/);
+  assert.match(item, /className=\{`m3-layer absolute\$\{inPill \? " inset-0 rounded-full" : ""\}`\} style=\{inPill \? undefined : shape\}/);
+  assert.match(item, /\{!inPill && layer\}/);
+  assert.match(item, /\{props\.children\}\s*\{inPill && layer\}\s*<\/motion\.span>/);
 });
