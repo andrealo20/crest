@@ -326,6 +326,11 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     "--color-caution": formatColor(caution),
     "--color-link": formatColor(colors.link),
     "--color-black": formatColor(onLabel),
+    // The roles Material components paint; the Crest style repeats today's colours, so a class can move to its role without a change on screen.
+    "--color-primary": formatColor(colors.foreground),
+    "--color-on-primary": formatColor(onLabel),
+    "--color-secondary-container": formatColor(fill[2]),
+    "--color-on-secondary-container": formatColor(colors.foreground),
     "--theme-accent": formatColor(colors.accent),
     "--notch-closed": closedNotch ? formatColor(bg) : "#000000",
     "--glass-tint": formatColor(veil),

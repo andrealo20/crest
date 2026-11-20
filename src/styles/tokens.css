@@ -30,6 +30,11 @@
   --color-caution: #ffd60a;
   /* Links (Apple's dark mode link color). */
   --color-link: #419cff;
+  /* Roles a Material component needs besides text and fills; in the Crest style they repeat label, black and fill-3. */
+  --color-primary: rgb(255 255 255 / 0.96);
+  --color-on-primary: #000;
+  --color-secondary-container: rgb(255 255 255 / 0.16);
+  --color-on-secondary-container: rgb(255 255 255 / 0.96);
 
   --font-sans: "Inter Variable", "Segoe UI Variable Text", system-ui, sans-serif;
 

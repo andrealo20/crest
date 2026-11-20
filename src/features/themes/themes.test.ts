@@ -89,6 +89,30 @@ test("Crest style: every theme resolves to the recorded variables", () => {
   }
 });
 
+test("Crest style: the four role tokens repeat label, black, fill-3 and label", () => {
+  for (const t of BUILT_IN_THEMES) {
+    const v = resolveTheme(t).vars;
+    assert.deepEqual(
+      [v["--color-primary"], v["--color-on-primary"], v["--color-secondary-container"], v["--color-on-secondary-container"]],
+      [v["--color-label"], v["--color-black"], v["--color-fill-3"], v["--color-label"]],
+      t.id,
+    );
+  }
+});
+
+test("forced colours list every colour token", () => {
+  const tokens = readFileSync(new URL("../../styles/tokens.css", import.meta.url), "utf8");
+  const css = readFileSync(new URL("./themes.css", import.meta.url), "utf8");
+  // The block ends at the first brace in the first column: the rules inside it are indented.
+  const block = /@media \(forced-colors: active\) \{([\s\S]*?)\n\}/.exec(css)![1];
+  // Without !important the inline theme on <html> wins and the row does nothing.
+  const forced = new Set([...block.matchAll(/(--[\w-]+):[^;]*!important;/g)].map(([, name]) => name));
+  const names = [...tokens.matchAll(/(--color-[\w-]+):\s*([^;]+);/g)];
+  assert.ok(names.length >= 16);
+  // --color-accent only points at --accent, so the row for --accent covers it.
+  for (const [, name, value] of names) assert.ok(forced.has(/^var\((--[\w-]+)\)$/.exec(value)?.[1] ?? name), `${name} has no forced colour`);
+});
+
 test("light themes flip the ink on label fills", () => {
   assert.equal(resolveTheme(dark).vars["--color-black"], "#000000");
   assert.equal(resolveTheme(light).vars["--color-black"], "#ffffff");
