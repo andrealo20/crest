@@ -102,9 +102,67 @@ export function speakerWaves(g: "muted" | "low" | "mid" | "high"): number {
   return { muted: 0, low: 1, mid: 2, high: 3 }[g];
 }
 
-/** The battery's fill width in px (0..9, half px steps), at least half a px while charge is left; full when the level is unknown. */
-export function batteryFill(percent: number | null): number {
-  if (percent === null) return 9;
-  const w = Math.min(9, Math.max(0, Math.round((percent / 100) * 18) / 2));
-  return percent > 0 ? Math.max(0.5, w) : w;
+/** The part between x = a and x = b of the rectangle x0..x1 by y0..y1 with its corners rounded to R. */
+export function strip(x0: number, y0: number, x1: number, y1: number, a: number, b: number): string {
+  const top = (x: number) => y0 + R - Math.sqrt(R * R - Math.max(0, x0 + R - x, x - x1 + R) ** 2);
+  const bottom = (x: number) => y0 + y1 - top(x);
+  const xs = [a, ...[x0 + R, x1 - R].filter((x) => x > a && x < b), b];
+  const bent = (u: number, v: number) => v <= x0 + R || u >= x1 - R;
+  let d = `M${f(a)} ${f(top(a))}`;
+  for (let k = 1; k < xs.length; k++) d += bent(xs[k - 1], xs[k]) ? `A${R} ${R} 0 0 1 ${f(xs[k])} ${f(top(xs[k]))}` : `H${f(xs[k])}`;
+  d += `V${f(bottom(b))}`;
+  for (let k = xs.length - 1; k > 0; k--) d += bent(xs[k - 1], xs[k]) ? `A${R} ${R} 0 0 1 ${f(xs[k - 1])} ${f(bottom(xs[k - 1]))}` : `H${f(xs[k - 1])}`;
+  return d + "Z";
+}
+
+// The battery, the charge written in it, on the other glyphs' centre line: the body x 1..21, y 2..14, the cap x 22..24, y 5..11,
+// lit only at 100. Its width stays 27 in every state, so Stato keeps its size when the charger comes or goes. It is drawn for the
+// screen: `px` is its height in device pixels (size * devicePixelRatio), and batteryScale says what follows.
+export const BATTERY_W = 27;
+export const BATTERY_BODY = [1, 2, 21, 14] as const;
+export const BATTERY_CAP = poly([[22, 5], [24, 5], [24, 11], [22, 11]]);
+/** Charging beside the number, in the cap's place: as tall as the body, sharp like every bolt, its jog on y 8. */
+export const BATTERY_BOLT = "M26.5 2L25.5 8H27L22.5 14L23.5 8H22Z";
+/** Charging where the number does not fit: the bolt in the middle of the body, and the cap stays. */
+export const BODY_BOLT = "M13 2L12 8H15L9 14L10 8H7Z";
+/** Unknown: a dash in the number's place. */
+export const BATTERY_DASH = strip(8, 7, 14, 9, 8, 14);
+/** The number in Inter, bold, tabular figures: digits 7 units tall (cap height 0.7275 em). */
+export const NUMBER_SIZE = f(7 / 0.7275);
+/** A tabular digit's advance, 0.6465 em in Inter. */
+const DIGIT_ADVANCE = 0.6465 * NUMBER_SIZE;
+
+/** ceil(size * 27 / 16): a whole px, so what follows Stato stays on whole pixels. */
+export const batteryWidth = (size: number) => Math.ceil((size * BATTERY_W) / 16);
+
+/** From the battery's height in device px: the number from 14, half units and baseline 11.5 from 32 (the renderer puts a baseline
+ *  on a whole pixel, so 11.5 below would land on 12), the cut round what is drawn over the body one device px, never under 0.5. */
+export function batteryScale(px: number): { number: boolean; half: boolean; cut: number; baseline: 11 | 11.5 } {
+  const half = px >= 32;
+  return { number: px >= 14, half, cut: Math.max(0.5, 16 / px), baseline: half ? 11.5 : 11 };
+}
+
+/** Lit width over x 1..21: 20 only at 100, at most a step less below, at least 2 while charge is left; null when unknown. */
+export function batteryWideFill(percent: number | null, px: number): number | null {
+  if (percent === null) return null;
+  const p = Math.round(percent);
+  if (p >= 100) return 20;
+  const step = batteryScale(px).half ? 0.5 : 1;
+  const w = Math.min(20 - step, Math.max(0, Math.round((p * 0.2) / step) * step));
+  return p > 0 ? Math.max(2, w) : w;
+}
+
+/** The red of a warning wins over Energy saver's green: Windows turns Energy saver on under 20 %, and a battery about to run out
+ *  must not read green. */
+export const batteryTint = (warning: boolean, saver: boolean): "red" | "green" | null => (warning ? "red" : saver ? "green" : null);
+
+/** Each digit of round(percent), centred in its tabular cell round x 11; `inked` when written in its cut, else cut out of the body.
+ *  A digit whose cell's middle is lit is cut out, else inked, so no digit changes ink inside itself; on a tinted body every digit
+ *  is inked (a hole in red or green shows the backdrop against a colour), but not at 100, which leaves no room for a cut. */
+export function batteryDigits(percent: number, fill: number, tinted: boolean): { d: string; x: number; inked: boolean }[] {
+  const digits = [...String(Math.round(percent))];
+  return digits.map((d, i) => {
+    const x = f(11 + (i - (digits.length - 1) / 2) * DIGIT_ADVANCE);
+    return { d, x, inked: !(x < 1 + fill && (!tinted || fill === 20)) };
+  });
 }

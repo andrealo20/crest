@@ -30,11 +30,8 @@ export function Status(props: {
   const parts: [string, ReactNode][] = [];
   if (net) parts.push(["net", <NetGlyph glyph={net} size={size} />]);
   if (sound) parts.push(["sound", <SpeakerGlyph glyph={sound} size={size} />]);
-  if (battery && s.power) {
-    const glyph = <BatteryGlyph percent={s.power.percent} charging={s.power.charging} warning={battery === "warning"} size={size} />;
-    // Energy saver tints the battery, as Windows does.
-    parts.push(["battery", s.power.saver ? <span style={{ color: "var(--color-green)" }}>{glyph}</span> : glyph]);
-  }
+  if (battery && s.power)
+    parts.push(["battery", <BatteryGlyph percent={s.power.percent} charging={s.power.charging} warning={battery === "warning"} saver={s.power.saver === true} size={size} />]);
   if (!parts.length) return null;
   const name = statusParts(s).map(([k, p]) => t(k, p)).join(", ") || t("Status");
   return (
@@ -42,7 +39,7 @@ export function Status(props: {
       {...props.item("status", name)}
       kind="status"
       tile={props.tile()}
-      width={statusWidth(props.size, parts.length)}
+      width={statusWidth(props.size, parts.length, battery !== null)}
       expanded={props.expanded}
       onClick={props.onClick}
       onContextMenu={props.onMenu}

@@ -2,7 +2,14 @@
 // whole unit so it stays sharp at 100 % and 200 %; the shapes and their rules live in glyphModel.ts.
 
 import { useId, type ReactNode } from "react";
+import { viewMetrics } from "../notch/viewZoom";
 import {
+  BATTERY_BODY,
+  BATTERY_BOLT,
+  BATTERY_CAP,
+  BATTERY_DASH,
+  BATTERY_W,
+  BODY_BOLT,
   DIM,
   FAN_ARCS,
   FAN_WEDGE,
@@ -11,14 +18,20 @@ import {
   MERIDIAN,
   MONITOR,
   MUTE,
+  NUMBER_SIZE,
   PLANE,
   RUNE,
   SLASH,
   SPEAKER,
   VEIN,
   WAVES,
-  batteryFill,
+  batteryDigits,
+  batteryScale,
+  batteryTint,
+  batteryWideFill,
+  batteryWidth,
   speakerWaves,
+  strip,
   wifiLit,
   type NetGlyphName,
 } from "./glyphModel";
@@ -40,12 +53,12 @@ function Line({ d, opacity }: { d: string; opacity?: number }) {
 }
 
 /** `children` with each cut [path, width, filled] taken out, so what is drawn over a cut stands apart from it by a gap. */
-function Knock({ cuts, children }: { cuts: [string, number, boolean][]; children: ReactNode }) {
+function Knock({ cuts, width = 16, children }: { cuts: [string, number, boolean][]; width?: number; children: ReactNode }) {
   const id = svgId("k", useId());
   return (
     <>
       <mask id={id}>
-        <rect width="16" height="16" fill="#fff" />
+        <rect width={width} height="16" fill="#fff" />
         {cuts.map(([d, w, filled]) => (
           <path key={d} d={d} fill={filled ? "#000" : "none"} stroke="#000" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" />
         ))}
@@ -108,28 +121,97 @@ export function SpeakerGlyph({ glyph, size }: { glyph: "muted" | "low" | "mid" |
   );
 }
 
-const BOLT = "M8.5 2.5L5 8.5H8L7 13.5L11 7H8Z";
-
-/** The battery filled as far as its level (red when it warns), with a bolt cut into it while charging. */
-export function BatteryGlyph({ percent, charging, warning, size }: { percent: number | null; charging: boolean; warning: boolean; size: number }) {
-  const mask = svgId("bolt", useId());
-  return (
-    <Svg size={size}>
-      <g fill="none" stroke="currentColor" strokeWidth={1} strokeLinecap="round" strokeLinejoin="round">
-        {charging && (
+/**
+ * The battery, wider than the other glyphs, its charge written in it: the body lit as far as the level and dimmed beyond (red when
+ * it warns, else green in Energy saver), the cap lit only at 100, a bolt in the cap's place while charging. Drawn for the screen's
+ * device pixels, so a scale change redraws it through viewMetrics.
+ */
+export function BatteryGlyph({ percent, charging, warning, saver = false, size }: { percent: number | null; charging: boolean; warning: boolean; saver?: boolean; size: number }) {
+  const { dpr } = viewMetrics.use();
+  const id = useId();
+  const [x0, y0, x1, y1] = BATTERY_BODY;
+  const { number, cut, baseline } = batteryScale(size * dpr);
+  const w = batteryWideFill(percent, size * dpr);
+  const tint = batteryTint(warning, saver);
+  const fill = tint ? `var(--color-${tint})` : undefined;
+  const part = (a: number, b: number, dimmed: boolean) => <path d={strip(x0, y0, x1, y1, a, b)} fill={fill} opacity={dimmed ? DIM : undefined} />;
+  const inBody = charging && !number;
+  let body: ReactNode;
+  if (w === null) {
+    // Unknown: the dimmed body and, in the number's place, the dash in a cut like the digits'; not with the bolt in the body.
+    body = part(x0, x1, true);
+    if (!inBody)
+      body = (
+        <>
+          <Knock cuts={[[BATTERY_DASH, 2 * cut, true]]} width={BATTERY_W}>
+            {body}
+          </Knock>
+          <path d={BATTERY_DASH} />
+        </>
+      );
+  } else {
+    body = (
+      <>
+        {w > 0 && part(x0, x0 + w, false)}
+        {w < 20 && part(x0 + w, x1, true)}
+      </>
+    );
+    if (number && percent !== null) {
+      // A digit cut out of the body, or written in the ink in a cut all round: the level's edge stays exact.
+      const digits = batteryDigits(percent, w, tint !== null);
+      const text = (i: number, attrs: { fill?: string; stroke?: string; strokeWidth?: number; strokeLinejoin?: "round" }) => (
+        <text
+          key={i}
+          x={digits[i].x}
+          y={baseline}
+          fontSize={NUMBER_SIZE}
+          textAnchor="middle"
+          fontFamily="'Inter Variable', sans-serif"
+          fontWeight={700}
+          style={{ fontVariantNumeric: "tabular-nums" }}
+          {...attrs}
+        >
+          {digits[i].d}
+        </text>
+      );
+      const mask = svgId("k", id);
+      body = (
+        <>
           <mask id={mask}>
-            <rect width="16" height="16" fill="white" stroke="none" />
-            <path d={BOLT} fill="black" stroke="black" strokeWidth={2} />
+            <rect width={BATTERY_W} height="16" fill="#fff" />
+            {digits.map((g, i) => text(i, g.inked ? { fill: "#000", stroke: "#000", strokeWidth: 2 * cut, strokeLinejoin: "round" } : { fill: "#000" }))}
           </mask>
+          <g mask={`url(#${mask})`}>{body}</g>
+          {digits.map((g, i) => g.inked && text(i, {}))}
+        </>
+      );
+    }
+  }
+  if (inBody) {
+    // The bolt cut out of the body and lit again right of the level's edge, so nothing is drawn twice.
+    const edge = x0 + (w ?? 0);
+    const clip = svgId("c", id);
+    body = (
+      <>
+        <Knock cuts={[[BODY_BOLT, 0, true]]} width={BATTERY_W}>
+          {body}
+        </Knock>
+        {edge < x1 && (
+          <>
+            <clipPath id={clip}>
+              <rect x={edge} width={BATTERY_W} height="16" />
+            </clipPath>
+            <path d={BODY_BOLT} clipPath={`url(#${clip})`} />
+          </>
         )}
-        <g mask={charging ? `url(#${mask})` : undefined}>
-          <rect x="1.5" y="4.5" width="12" height="6" rx="1.5" />
-          <rect x="14" y="6" width="1" height="3" fill="currentColor" stroke="none" />
-          <rect x="3" y="6" width={batteryFill(percent)} height="3" rx="0.5" stroke="none" fill={warning ? "var(--color-red)" : "currentColor"} />
-        </g>
-        {charging && <path d={BOLT} fill="currentColor" stroke="none" />}
-      </g>
-    </Svg>
+      </>
+    );
+  }
+  return (
+    <svg width={batteryWidth(size)} height={size} viewBox={`0 0 ${BATTERY_W} 16`} preserveAspectRatio="xMinYMid meet" fill="currentColor" aria-hidden>
+      {body}
+      {charging && !inBody ? <path d={BATTERY_BOLT} /> : <path d={BATTERY_CAP} opacity={w === 20 ? undefined : DIM} />}
+    </svg>
   );
 }
 
