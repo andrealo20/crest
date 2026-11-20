@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AnimatePresence, LayoutGroup, motion, Reorder } from "motion/react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { AnimatePresence, LayoutGroup, motion, Reorder, useReducedMotion, type Variants } from "motion/react";
 import {
   AppWindow,
   ArrowsInLineHorizontal,
@@ -23,8 +23,10 @@ import {
   SignOut,
   Stop,
   Timer,
+  X,
   type Icon,
 } from "@phosphor-icons/react";
+import { design } from "../../design/design";
 import { content, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, type AlarmDuration } from "../../lib/sound";
 import { createStore } from "../../lib/store";
@@ -48,6 +50,8 @@ import {
 } from "../../platform/services";
 import { BackupSettings } from "./BackupSettings";
 import { diagnosticsText } from "./diagnostics";
+import { cascades, shellLayout, showsHeaderTitle } from "./shell";
+import { cascadeDelay } from "../../ui/cascade";
 import { searchSettings, type SearchEntry } from "./search";
 import { github } from "../github/store";
 import { leetcode } from "../leetcode/store";
@@ -94,6 +98,7 @@ import { isMac } from "../../platform/native";
 import { ThemeSettings } from "../themes/ThemeSettings";
 import { HideFromSharingRow } from "../meeting/HideFromSharingRow";
 import { hueVar, useIconColors, type Hue } from "../themes/hues";
+import { HUE_PILL } from "../themes/themes";
 import { ClipboardSettings } from "../clipboard/ClipboardSettings";
 import { TaskbarApps, TaskbarGeneral, TaskbarItems, TaskbarLook, useTaskbarShown } from "../taskbar/TaskbarSettings";
 import { WidgetsPage } from "../taskbar/WidgetsPage";
@@ -139,6 +144,7 @@ const sectionPage: Record<string, PageId> = {
   water: "tools",
   terminal: "tools",
   themes: "themes",
+  design: "themes",
   system: "tools",
   launcher: "tools",
   github: "accounts",
@@ -169,8 +175,13 @@ function openPage(page: PageId) {
 // window gets its first section while it loads). The view scrolls to the section.
 nav.subscribe(() => {
   const page = sectionPage[nav.get().section ?? ""];
-  if (page) openPage(page);
+  if (!page) return;
+  linkedPage = page;
+  openPage(page);
 });
+
+/** The page a deep link opened last, until a click opens one: a page opened at its section does not cascade (6.11). */
+let linkedPage: PageId | null = null;
 
 type Hit = SearchEntry & { page: PageId; groupId: string };
 
@@ -199,28 +210,63 @@ function readRows(root: HTMLElement): Hit[] {
   );
 }
 
+/** The settings window's own actions, which Material draws in the page's header instead of the window's title row. */
+type Chrome = { onClose: () => void; onDrag: (e: React.MouseEvent) => void; center?: ReactNode };
+
+/** A page's groups wait for the cascade's labels, and start one after another. */
+const PAGE_CASCADE = { shown: { transition: { delayChildren: cascadeDelay } } } satisfies Variants;
+
 /**
  * Settings like macOS: categories on the left, only their content on the right.
  * Other tools jump straight to their section via `navigate("settings", "<section>")`.
  */
-export function SettingsView() {
+export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const deepLink = nav.use();
   const saved = savedPage.use();
   const taskbarShown = useTaskbarShown();
+  const material = design.use() === "material";
+  const reduced = useReducedMotion() === true;
   // Plugin pages are served over http://crestplugin.localhost, which only works on Windows, and live notices have no Mac
   // version (the tool is in WINDOWS_ONLY, src/notch/tabs.ts). The Taskbar's pages show only where the bar can run.
   const pages = allPages.filter((p) => (scopeOf(p.id) === "taskbar" ? taskbarShown : !(isMac && (p.id === "plugins" || p.id === "notices"))));
   // A page the list does not show (the Taskbar's, once they hide) falls back to General.
   const page = pages.some((p) => p.id === saved[saved.scope]) ? saved[saved.scope] : "general";
   const iconColors = useIconColors();
+  const root = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(820);
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [rows, setRows] = useState<Hit[]>([]);
   const [target, setTarget] = useState<Hit | null>(null);
   const field = useRef<HTMLInputElement>(null);
   const hidden = useRef<HTMLDivElement>(null);
   const searching = query.trim() !== "";
   const results = searching ? searchSettings(rows, query) : [];
+  const layout = material ? shellLayout(width) : "list";
+  // In the rail and the row on top the search is a button, which opens the field.
+  const compact = layout !== "list";
+  const fieldShown = !compact || searchOpen || searching;
+
+  // Decided once when the page shown changes, so a later render cannot take the labels away from groups still rising. Back from
+  // the search to the same page is not a change of page.
+  const viewKey = searching ? "search" : page;
+  let [view, setView] = useState({ key: viewKey, page, cascade: false });
+  if (view.key !== viewKey) {
+    const changed = !searching && page !== view.page;
+    const aimed = target?.page === page || linkedPage === page;
+    view = { key: viewKey, page: searching ? view.page : page, cascade: changed && cascades({ material, reduced, searching, target: aimed }) };
+    setView(view);
+  }
+
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    setWidth(el.getBoundingClientRect().width);
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [material]);
 
   // The index is the real pages, rendered hidden while searching and read again on every keystroke, so it never goes stale.
   useLayoutEffect(() => {
@@ -247,6 +293,8 @@ export function SettingsView() {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "f") return;
       e.preventDefault();
+      // A field not shown yet takes the focus as it mounts (autoFocus).
+      setSearchOpen(true);
       field.current?.focus();
       field.current?.select();
     };
@@ -254,9 +302,15 @@ export function SettingsView() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const openHit = (h: Hit) => {
+  const show = (p: PageId) => {
     setQuery("");
-    openPage(h.page);
+    setSearchOpen(false);
+    linkedPage = null;
+    openPage(p);
+  };
+
+  const openHit = (h: Hit) => {
+    show(h.page);
     setTarget(h);
   };
 
@@ -264,6 +318,8 @@ export function SettingsView() {
     if (!target) return;
     // Like the deep link below: the row only exists after the page switch.
     const id = window.setTimeout(() => {
+      // Spent once it has scrolled: a target left set would keep every later change of page out of the cascade.
+      setTarget(null);
       const box = scroller.current;
       const row = box && findRow(box, target);
       if (!row) return;
@@ -287,39 +343,186 @@ export function SettingsView() {
     return () => window.clearTimeout(id);
   }, [deepLink]);
 
+  const input = (
+    <input
+      ref={field}
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key !== "Escape" || !query) return;
+        // Esc clears first; only an empty field lets it through to close the notch.
+        e.stopPropagation();
+        setQuery("");
+      }}
+      onBlur={(e) => !e.currentTarget.value && setSearchOpen(false)}
+      autoFocus={compact}
+      placeholder={t("Suchen")}
+      aria-label={t("Suchen")}
+      spellCheck={false}
+      className={`min-w-0 flex-1 bg-transparent text-label outline-none ${material ? "text-body placeholder:text-label-3" : "text-footnote placeholder:text-label-4"}`}
+    />
+  );
+  const searchPill = (place: string) => (
+    <label className={`flex h-10 shrink-0 items-center gap-2.5 rounded-full bg-fill-2 px-3.5 text-label-2 focus-within:ring-2 focus-within:ring-primary ${place}`}>
+      <MagnifyingGlass size={20} className="shrink-0" />
+      {input}
+    </label>
+  );
+
+  const scopePages = pages.filter((p) => scopeOf(p.id) === scopeOf(page));
+  // Material's items: pills with their name in the list, round icons in the rail and the row on top.
+  const item = compact ? "size-10 shrink-0 justify-center" : "h-12 shrink gap-3 px-3 text-start text-body font-medium";
+  const materialNav = (
+    <>
+      {compact ? (
+        <button aria-label={t("Suchen")} title={t("Suchen")} onClick={() => setSearchOpen(true)} className="pressable flex size-10 shrink-0 items-center justify-center rounded-full text-label-2">
+          <MagnifyingGlass size={20} />
+        </button>
+      ) : (
+        searchPill("mb-2 w-full")
+      )}
+      {scopePages.map((p) => {
+        const active = p.id === page && !searching;
+        const name = t(p.label);
+        return (
+          <button
+            key={p.id}
+            onClick={() => show(p.id)}
+            aria-current={active ? "page" : undefined}
+            aria-label={compact ? name : undefined}
+            title={compact ? name : undefined}
+            className={`pressable relative flex items-center rounded-full ${item} ${active ? "text-on-secondary-container" : "text-label-2"}`}
+          >
+            {active && (
+              <motion.span
+                layoutId="settings-page"
+                className="absolute inset-0 rounded-full bg-secondary-container"
+                style={iconColors ? { background: hueVar(p.hue), opacity: HUE_PILL } : undefined}
+                transition={springs.snappy}
+              />
+            )}
+            <p.icon size={20} weight={active ? "fill" : "bold"} className="relative shrink-0" style={iconColors ? { color: hueVar(p.hue) } : undefined} />
+            {!compact && <span className="relative">{name}</span>}
+          </button>
+        );
+      })}
+      {/* Still the last item, the way people reach Andrea; its name wraps in the long languages. */}
+      <button
+        onClick={openBugReport}
+        aria-label={compact ? t("Fehler melden") : undefined}
+        title={compact ? t("Fehler melden") : t("Öffnet das Formular auf GitHub, mit deiner Crest-Version schon eingetragen")}
+        className={`pressable relative flex items-center rounded-full text-label-2 ${item}`}
+      >
+        <Bug size={20} weight="bold" className="relative shrink-0" style={iconColors ? { color: hueVar("rose") } : undefined} />
+        {!compact && <span className="relative">{t("Fehler melden")}</span>}
+      </button>
+    </>
+  );
+
+  const header = chrome && (
+    // The window is dragged by the header's and the navigation's empty parts.
+    <header className="relative flex h-14 shrink-0 items-center gap-2 ps-4 pe-2" onMouseDown={chrome.onDrag}>
+      {compact && fieldShown
+        ? searchPill("min-w-0 flex-1")
+        : showsHeaderTitle(width, !!chrome.center) && <h2 className="truncate text-display font-medium text-label">{t(allPages.find((p) => p.id === page)!.label)}</h2>}
+      {chrome.center && !(compact && fieldShown) && <div className="absolute left-1/2 -translate-x-1/2">{chrome.center}</div>}
+      <button
+        aria-label={t("Schließen")}
+        title={t("Schließen")}
+        onClick={chrome.onClose}
+        className="pressable ms-auto flex size-10 shrink-0 items-center justify-center rounded-full text-label-2"
+      >
+        <X size={18} weight="bold" />
+      </button>
+    </header>
+  );
+
+  const pageArea = (
+    // Ref on the stable container: popLayout doesn't pass refs to the child. A container only under Material: it also contains
+    // layout and style, a new stacking context and a containing block for fixed elements, which Crest must not get.
+    <div ref={scroller} className="relative min-w-0 flex-1 roomy:ms-2 roomy:me-4 roomy:@container">
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.div
+          key={viewKey}
+          className="absolute inset-0 flex flex-col gap-4 overflow-y-auto pb-6 [scrollbar-width:none] roomy:gap-3"
+          style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 28px), transparent)" }}
+          {...(view.cascade
+            ? { initial: "hidden", animate: "shown", variants: PAGE_CASCADE }
+            : { initial: { opacity: 0 }, animate: { opacity: 1, transition: content.enter } })}
+          exit={{ opacity: 0, transition: content.exit }}
+        >
+          {searching ? <SearchResults hits={results} onOpen={openHit} /> : <PageContent page={page} />}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+
+  const hiddenIndex = searching && (
+    // Every page, never shown: only read for the index. The LayoutGroup keeps their layoutIds apart from the visible ones.
+    <div ref={hidden} hidden inert>
+      <LayoutGroup id="settings-search">
+        {pages.map((p) => (
+          <div key={p.id} data-page={p.id}>
+            <PageContent page={p.id} />
+          </div>
+        ))}
+      </LayoutGroup>
+    </div>
+  );
+
+  if (material)
+    return (
+      <RoomyContext value={true}>
+        <div ref={root} data-roomy className={`relative flex h-full ${layout === "top" ? "flex-col" : ""}`}>
+          {layout === "list" && (
+            // A still light of the theme's colour behind the navigation.
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 start-0 w-[176px]"
+              style={{ background: "radial-gradient(closest-side, var(--color-primary), transparent)", opacity: 0.1 }}
+            />
+          )}
+          {layout === "top" ? (
+            <>
+              {header}
+              <nav className="flex h-14 shrink-0 items-center gap-0.5 overflow-x-auto px-2 [scrollbar-width:none]">{materialNav}</nav>
+            </>
+          ) : (
+            // Scrolls when the items do not fit, keeping 4 px around a focused one for its ring.
+            <nav
+              className={`relative flex shrink-0 flex-col overflow-y-auto p-2 scroll-py-1 [scrollbar-width:none] ${layout === "rail" ? "w-14 items-center gap-0.5" : "w-[176px]"}`}
+              onMouseDown={chrome?.onDrag}
+            >
+              {materialNav}
+            </nav>
+          )}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {layout !== "top" && header}
+            {/* The panel has no header: the opened field takes a row of its own above the content. */}
+            {!chrome && compact && fieldShown && <div className="flex shrink-0 px-2 pb-2">{searchPill("min-w-0 flex-1")}</div>}
+            {pageArea}
+          </div>
+          {hiddenIndex}
+        </div>
+      </RoomyContext>
+    );
+
   return (
     // Roomy in both styles: the roomy: variant and the context only change anything under Material.
     <RoomyContext value={true}>
-      <div data-roomy className="flex h-full gap-3 px-4 pt-1 pb-3">
+      <div ref={root} data-roomy className="flex h-full gap-3 px-4 pt-1 pb-3">
         {/* Scrolls when the pages are taller than the room (the notch's settings tab, the window at its smallest), keeping 4 px around a focused item for its ring; shrink-0 keeps a wrapped name on its two lines. */}
         <nav className="-mx-1 flex w-[144px] shrink-0 flex-col gap-0.5 overflow-y-auto px-1 pb-1 scroll-py-1 [scrollbar-width:none]">
           <label className="mb-1 flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] bg-fill-1 px-2 text-label-3 focus-within:bg-fill-2">
             <MagnifyingGlass size={12} weight="bold" className="shrink-0" />
-            <input
-              ref={field}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Escape" || !query) return;
-                // Esc clears first; only an empty field lets it through to close the notch.
-                e.stopPropagation();
-                setQuery("");
-              }}
-              placeholder={t("Suchen")}
-              aria-label={t("Suchen")}
-              spellCheck={false}
-              className="min-w-0 flex-1 bg-transparent text-footnote text-label outline-none placeholder:text-label-4"
-            />
+            {input}
           </label>
-          {pages.filter((p) => scopeOf(p.id) === scopeOf(page)).map((p) => {
+          {scopePages.map((p) => {
             const active = p.id === page && !searching;
             return (
               <button
                 key={p.id}
-                onClick={() => {
-                  setQuery("");
-                  openPage(p.id);
-                }}
+                onClick={() => show(p.id)}
                 aria-current={active ? "page" : undefined}
                 className={`pressable relative flex min-h-8 shrink-0 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body transition-colors duration-150 ${
                   active ? "text-label" : "text-label-3 hover:text-label-2"
@@ -343,33 +546,8 @@ export function SettingsView() {
             <span className="relative leading-tight">{t("Fehler melden")}</span>
           </button>
         </nav>
-        {/* Ref on the stable container: popLayout doesn't pass refs to the child. */}
-        <div ref={scroller} className="relative min-w-0 flex-1">
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.div
-              key={searching ? "search" : page}
-              className="absolute inset-0 flex flex-col gap-4 overflow-y-auto pb-6 [scrollbar-width:none]"
-              style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 28px), transparent)" }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1, transition: content.enter }}
-              exit={{ opacity: 0, transition: content.exit }}
-            >
-              {searching ? <SearchResults hits={results} onOpen={openHit} /> : <PageContent page={page} />}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-        {searching && (
-          // Every page, never shown: only read for the index. The LayoutGroup keeps their layoutIds apart from the visible ones.
-          <div ref={hidden} hidden inert>
-            <LayoutGroup id="settings-search">
-              {pages.map((p) => (
-                <div key={p.id} data-page={p.id}>
-                  <PageContent page={p.id} />
-                </div>
-              ))}
-            </LayoutGroup>
-          </div>
-        )}
+        {pageArea}
+        {hiddenIndex}
       </div>
     </RoomyContext>
   );
@@ -378,7 +556,7 @@ export function SettingsView() {
 function SearchResults({ hits, onOpen }: { hits: Hit[]; onOpen: (h: Hit) => void }) {
   if (!hits.length) return <div className="px-3 pt-2 text-caption text-label-3">{t("Nichts gefunden")}</div>;
   return (
-    <div className="flex flex-col divide-y divide-separator overflow-hidden rounded-[12px] bg-fill-1">
+    <div className="flex flex-col divide-y divide-separator overflow-hidden rounded-[12px] bg-fill-1 material:divide-y-0 material:rounded-[24px] material:p-2">
       {hits.map((h) => {
         const pageName = t(allPages.find((p) => p.id === h.page)!.label);
         // The Taskbar's General and the Notch's would read alike.
@@ -387,11 +565,11 @@ function SearchResults({ hits, onOpen }: { hits: Hit[]; onOpen: (h: Hit) => void
           <button
             key={`${h.page}|${h.groupId}|${h.label}`}
             onClick={() => onOpen(h)}
-            className="flex min-h-9 flex-col items-stretch px-3 py-1.5 text-start outline-none hover:bg-fill-2 focus-visible:bg-fill-2"
+            className="flex min-h-9 flex-col items-stretch px-3 py-1.5 text-start outline-none hover:bg-fill-2 focus-visible:bg-fill-2 material:min-h-12 material:rounded-[16px]"
           >
             <span className="flex items-baseline justify-between gap-3">
               <span className="truncate text-body text-label">{h.label}</span>
-              <span className="shrink-0 text-caption text-label-4">{[...new Set([scopeName, pageName, h.group])].filter(Boolean).join(" · ")}</span>
+              <span className="shrink-0 text-caption text-label-4 material:text-label-2">{[...new Set([scopeName, pageName, h.group])].filter(Boolean).join(" · ")}</span>
             </span>
             {h.hint && <span className="text-caption text-label-3">{h.hint}</span>}
           </button>
