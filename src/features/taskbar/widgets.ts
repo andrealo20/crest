@@ -1,13 +1,19 @@
-// The closed notch's parts as widgets of Crest's bar: which items are widgets, what a click on one opens, their size, and adding
-// or removing one. Pure, so the rules are tested without the app around them.
+// The closed notch's parts as widgets of Crest's bar, and the buttons that open a tool: which items are widgets, what a click on one
+// opens, their size, and adding or removing one. Pure, so the rules are tested without the app around them.
 
 import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
-import { TASKBAR_DEFAULTS, fitIcon, type BarItem, type Zone } from "./model.ts";
+import { TASKBAR_DEFAULTS, TOOL_BUTTONS, fitIcon, type BarItem, type ToolItem, type Zone } from "./model.ts";
+import { opensInBar } from "./panelModel.ts";
 
-/** What the settings take off the bar and put back like a widget: the widgets, the tray and Stato. */
-export type Removable = PartId | "tray" | "status";
+/** What the settings take off the bar and put back like a widget: the widgets, the tray, Stato and the tool buttons. */
+export type Removable = PartId | "tray" | "status" | ToolItem;
 
 export const isWidget = (id: string): id is PartId => PART_IDS.includes(id as PartId);
+export const isTool = (id: string): id is ToolItem => id.startsWith("tool:");
+/** A tool button's tool. */
+export const toolOf = (id: ToolItem): string => id.slice("tool:".length);
+/** A tool switched on or off in the notch's settings (settings.tools). */
+export type ToolSwitch = { id: string; enabled: boolean };
 
 /** The tool a widget opens in the panel over the bar; null for the clock, which opens Windows' calendar instead. */
 export const widgetTool = (id: PartId): string | null => (id === "clock" ? null : partTool(id));
@@ -17,6 +23,25 @@ export const widgetScale = (height: number, iconSize: number): number => fitIcon
 
 /** The widgets on the bar, reading left, center, right. */
 export const barWidgets = (zones: Record<Zone, BarItem[]>): PartId[] => [...zones.left, ...zones.center, ...zones.right].filter(isWidget);
+
+/**
+ * Whether a button of `tool` shows on the bar and in Add tool: one the notch opens only while the tool is on there, since the notch
+ * opens its first tool in place of one switched off (Notch.tsx:105-108); one the panel opens, and Find on screen, a page without a
+ * switch, always. Never one the bar does not offer: another window gets the settings' raw JSON from a storage event, without
+ * normalizeZones (storeCore.ts:51-57).
+ */
+export const toolShown = (tool: string, tools: readonly ToolSwitch[]): boolean =>
+  TOOL_BUTTONS.includes(tool) && (opensInBar({ kind: "tool", tool }) || tool === "find" || tools.some((x) => x.id === tool && x.enabled));
+
+/** The zones the bar draws and fits: without the buttons whose tool cannot open (toolShown). */
+export function shownZones(zones: Record<Zone, BarItem[]>, tools: readonly ToolSwitch[]): Record<Zone, BarItem[]> {
+  const keep = (id: BarItem) => !isTool(id) || toolShown(toolOf(id), tools);
+  return { left: zones.left.filter(keep), center: zones.center.filter(keep), right: zones.right.filter(keep) };
+}
+
+/** What Add tool offers, in the notch's order: the tools a button can open (TOOL_BUTTONS) not on the bar and able to open (toolShown). */
+export const addableTools = (zones: Record<Zone, BarItem[]>, tools: readonly ToolSwitch[]): string[] =>
+  TOOL_BUTTONS.filter((id) => !Object.values(zones).some((items) => items.includes(`tool:${id}`)) && toolShown(id, tools));
 
 /**
  * The widgets the notch's stores run for the bar (barParts): all of them while the bar is on and its sources run (feed.tsx: it shows,
@@ -54,8 +79,8 @@ export function sourcesAfter(before: BarSeen, now: BarSeen): "run" | "keep" | "r
 }
 
 /**
- * The zones with `id` last in `to`, before the Crest button when the zone ends with it, so the button stays at the edge; a
- * widget (or the tray, or Stato) already on the bar leaves them as they are.
+ * The zones with `id` (a widget or a tool button) last in `to`, before the Crest button when the zone ends with it, so the button
+ * stays at the edge; a widget or a tool button (or the tray, or Stato) already on the bar leaves them as they are.
  */
 export function addWidget(zones: Record<Zone, BarItem[]>, id: Removable, to: Zone): Record<Zone, BarItem[]> {
   if (Object.values(zones).some((items) => items.includes(id))) return zones;
@@ -63,7 +88,7 @@ export function addWidget(zones: Record<Zone, BarItem[]>, id: Removable, to: Zon
   return { ...zones, [to]: [...items.slice(0, at), id, ...items.slice(at)] };
 }
 
-/** The zones without `id`. */
+/** The zones without `id`, a widget or a tool button. */
 export const removeWidget = (zones: Record<Zone, BarItem[]>, id: Removable): Record<Zone, BarItem[]> => ({
   left: zones.left.filter((x) => x !== id),
   center: zones.center.filter((x) => x !== id),

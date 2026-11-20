@@ -6,7 +6,7 @@ import { settings, updateSettings } from "../../settings/store";
 import { Select, SubSwitch } from "../../ui/controls";
 import { setMusic } from "../now-playing/music";
 import { shownIds } from "../usage/cards";
-import type { Zone } from "./model";
+import type { ToolItem, Zone } from "./model";
 import { setTaskbar } from "./store";
 import { addWidget, barWidgets, isWidget, removeWidget, type Removable } from "./widgets";
 
@@ -82,7 +82,7 @@ export function WidgetOptions({ id }: { id: Removable }) {
 export function AddWidget({ zone }: { zone: Zone }) {
   const zones = settings.use().taskbar.zones;
   const on = barWidgets(zones);
-  const off: Removable[] = PART_IDS.filter((id) => !on.includes(id));
+  const off: Exclude<Removable, ToolItem>[] = PART_IDS.filter((id) => !on.includes(id));
   for (const id of ["tray", "status"] as const) if (!Object.values(zones).some((items) => items.includes(id))) off.push(id);
   if (!off.length) return null;
   return (

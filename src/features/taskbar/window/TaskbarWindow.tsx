@@ -18,13 +18,16 @@ import { zones as hitZones, type Rect } from "../autoHide";
 import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
 import { LOOK, barGap, groupBoxes, hitBoxes, labelRise, type Box } from "../look";
 import { closePanel, panel, togglePanel } from "../panel";
+import { opensInBar } from "../panelModel";
 import { barShown, barWindows, groupIcons } from "../store";
 import { splitApps } from "../fit";
 import { barStatus } from "../status";
 import { batteryGlyph, netGlyph, soundGlyph } from "../statusModel";
 import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
-import { isWidget, widgetTool } from "../widgets";
+import { isTool, isWidget, shownZones, toolOf, widgetTool } from "../widgets";
+import { toolInfo } from "../toolInfo";
+import { useHue } from "../../themes/hues";
 import { BarGlass, useBarSurface } from "./BarGlass";
 import { Capsule } from "./Capsule";
 import { AppsPanel } from "./AppsPanel";
@@ -64,7 +67,10 @@ type OpenMenu = Menu & { anchor: Element | null; x: number; w: number };
  * off it, a click.
  */
 export function TaskbarWindow() {
-  const { zones, height, iconSize, pinned, shape, trayShown } = settings.use().taskbar;
+  const s = settings.use();
+  const { zones: saved, height, iconSize, pinned, shape, trayShown } = s.taskbar;
+  // Without the buttons whose tool cannot open: the notch opens its first tool in place of one switched off there (widgets.ts toolShown).
+  const zones = shownZones(saved, s.tools);
   const { visible: trayVisible } = splitTray(trayState.use().icons, trayShown);
   const { groups, active } = barWindows.use();
   const accent = useThemedAccent(undefined);
@@ -178,6 +184,12 @@ export function TaskbarWindow() {
     else if (action.kind === "toggle") taskbar.window(action.id, "toggle").catch(() => {});
   };
 
+  /** Opens `tool` over its button, or closes it on a second click there: in the panel, or in the notch for a tool the panel does not show (openPanel). */
+  const openTool = (tool: string, button: HTMLElement) => {
+    const r = button.getBoundingClientRect();
+    togglePanel({ kind: "tool", tool }, { x: r.x, w: r.width });
+  };
+
   /** A widget opens its tool in the panel over it; the clock opens Windows' calendar instead, as Windows' own clock does. */
   const clickWidget = (id: PartId, button: HTMLElement) => {
     setError(null);
@@ -188,8 +200,7 @@ export function TaskbarWindow() {
       holdBriefly();
       return void taskbar.calendar().catch(() => {});
     }
-    const r = button.getBoundingClientRect();
-    togglePanel({ kind: "tool", tool }, { x: r.x, w: r.width });
+    openTool(tool, button);
   };
 
   const item = (key: string, name: string) => ({
@@ -286,6 +297,31 @@ export function TaskbarWindow() {
           // No menu of its own: the Crest menu over the pointer, as beside the buttons.
           onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
         />
+      );
+    }
+    if (isTool(id)) {
+      // As a widget: on the primary bar only, and hidden once the bar runs out of room (useAppFit).
+      if (!primary || fit.hide.includes(id)) return null;
+      const tool = toolOf(id);
+      return (
+        <Item
+          {...item(id, t(toolInfo[tool].label))}
+          kind={id}
+          tile={tile()}
+          // A tray icon's slot, as the tray draws it.
+          width={tiles ? undefined : trayIcon(size) + 16}
+          // Only a tool the panel shows says whether it is open; one the notch opens leaves the bar's panel closed.
+          expanded={opensInBar({ kind: "tool", tool }) ? open?.content.kind === "tool" && open.content.tool === tool : undefined}
+          onClick={(e) => {
+            setError(null);
+            setMenu(null);
+            openTool(tool, e.currentTarget);
+          }}
+          // No menu of its own, as a widget: the Crest menu over the pointer.
+          onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
+        >
+          <ToolGlyph tool={tool} size={trayIcon(size)} />
+        </Item>
       );
     }
     if (id === "tray")
@@ -501,4 +537,10 @@ function useHitZone(ref: RefObject<HTMLDivElement | null>, shape: BarShape, setB
     [report],
   );
   return { down, place };
+}
+
+/** A tool button's icon: the widgets' resting colour (Widget.tsx), or the tool's hue with coloured icons on, as the notch's Dock draws it. */
+function ToolGlyph({ tool, size }: { tool: string; size: number }) {
+  const I = toolInfo[tool].icon;
+  return <I size={size} weight="regular" className="text-label-3" style={{ color: useHue(toolInfo[tool].hue) }} />;
 }

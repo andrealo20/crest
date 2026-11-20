@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObje
 import { fitBar, type Fit, type FitEntry } from "../fit";
 import { LOOK, barGap } from "../look";
 import { COMPACT_PAD, compactIcon, trayIcon, type BarItem, type BarShape, type Zone } from "../model";
-import { isWidget } from "../widgets";
+import { isTool, isWidget } from "../widgets";
 
 const ZONES: Zone[] = ["left", "center", "right"];
 const same = (a: Fit, b: Fit) => a.mode === b.mode && a.visible === b.visible && a.trayBack === b.trayBack && a.hide.join() === b.hide.join();
@@ -30,11 +30,11 @@ export function useAppFit(
     const entries = (id: BarItem): FitEntry[] => {
       if (id === "apps") return [];
       if (id === "tray") return [...Array.from({ length: trayCount }, () => ({ id: "tray", w: slot, gives: "tray" as const })), { id: "tray-more", w: slot }];
-      // A bar on another monitor does not draw widgets.
-      if (isWidget(id) && !primary) return [];
+      // A bar on another monitor draws neither widgets nor tool buttons.
+      if ((isWidget(id) || isTool(id)) && !primary) return [];
       const found = el.querySelectorAll<HTMLElement>(`[data-kind="${id}"]`);
       if (found.length) widths.current.set(id, [...found].reduce((n, x) => n + x.offsetWidth, 0));
-      return [{ id, w: widths.current.get(id) ?? 0, gives: isWidget(id) ? "widget" : undefined }];
+      return [{ id, w: widths.current.get(id) ?? 0, gives: isWidget(id) || isTool(id) ? "widget" : undefined }];
     };
     const next = fitBar(
       {

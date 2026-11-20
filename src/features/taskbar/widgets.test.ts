@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
-import { TASKBAR_DEFAULTS, type BarItem, type Zone } from "./model.ts";
-import { SLIDE_KEEP_MS, addWidget, barPartsFor, barSources, barWidgets, isWidget, removeWidget, sourcesAfter, widgetScale, widgetTool } from "./widgets.ts";
+import { DEFAULT_OFF, TOOL_IDS } from "../../settings/tools.ts";
+import { TASKBAR_DEFAULTS, TOOL_BUTTONS, type BarItem, type Zone } from "./model.ts";
+import { SLIDE_KEEP_MS, addWidget, addableTools, barPartsFor, barSources, barWidgets, isTool, isWidget, removeWidget, shownZones, sourcesAfter, toolOf, toolShown, widgetScale, widgetTool } from "./widgets.ts";
 
 test("a widget opens its tool, the clock Windows' calendar", () => {
   // Every part: one without a tool would open Windows' calendar.
@@ -69,4 +70,36 @@ test("the bar's sources run through a slide's first 30 s and stop at once when i
   assert.equal(sourcesAfter(hiddenDown, down), "rest"); // shown again but still slid: no slide started
   assert.equal(sourcesAfter(hidden, up), "run");
   assert.equal(sourcesAfter(down, down), null); // nothing changed: as they are, the wait going on
+});
+
+const switches = [{ id: "clipboard", enabled: false }, { id: "ask", enabled: true }, { id: "notes", enabled: false }];
+
+test("a tool button shows while its tool can open, and the bar draws only those", () => {
+  assert.equal(toolShown("notes", switches), true); // the panel's, off in the notch
+  assert.equal(toolShown("ask", switches), true);
+  assert.equal(toolShown("clipboard", switches), false); // the notch would open another tool
+  assert.equal(toolShown("vault", switches), false); // missing from the list counts as off
+  assert.equal(toolShown("find", switches), true); // a page, no switch
+  assert.equal(toolShown("xyz", switches), false); // an id that skipped normalizeZones (storeCore.ts:51-57 hands over raw JSON)
+  const zones: Record<Zone, BarItem[]> = { left: ["tool:clipboard", "tool:ask"], center: ["start", "apps"], right: ["tool:notes", "weather", "crest"] };
+  assert.deepEqual(shownZones(zones, switches), { left: ["tool:ask"], center: ["start", "apps"], right: ["tool:notes", "weather", "crest"] });
+});
+
+test("Add tool offers the tools not on the bar, those of the notch only while on there", () => {
+  const offered = addableTools({ left: ["tool:ask"], center: ["start", "apps"], right: ["crest"] }, switches);
+  assert.equal(offered.includes("ask"), false);
+  assert.equal(offered.includes("clipboard"), false);
+  assert.ok(offered.includes("notes") && offered.includes("media") && offered.includes("find"));
+  const factory = TOOL_IDS.map((id) => ({ id, enabled: !DEFAULT_OFF.has(id) }));
+  assert.equal(addableTools(TASKBAR_DEFAULTS.zones, factory).length, 18);
+  assert.ok(addableTools(TASKBAR_DEFAULTS.zones, factory).every((id) => TOOL_BUTTONS.includes(id)));
+});
+
+test("a tool button is added and taken off like a widget, apart from the widget of a similar id", () => {
+  const z = TASKBAR_DEFAULTS.zones;
+  assert.deepEqual(addWidget(z, "tool:media", "right").right, ["weather", "tray", "status", "clock", "tool:media", "crest"]);
+  assert.deepEqual(removeWidget(addWidget(z, "tool:media", "right"), "tool:media"), z);
+  assert.ok(isTool("tool:media") && !isTool("media") && !isTool("timer"));
+  assert.equal(toolOf("tool:find"), "find");
+  assert.deepEqual(barWidgets(addWidget(z, "tool:media", "left")), ["weather", "clock"]);
 });

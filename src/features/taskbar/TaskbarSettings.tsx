@@ -18,10 +18,11 @@ import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
-import { fitIcon, HEIGHT, ICON, moveItem, taskbarShown, TRANSPARENCY, type BarItem, type BarShape, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, taskbarShown, TRANSPARENCY, type BarItem, type BarShape, type ToolItem, type Zone } from "./model";
 import { setTaskbar } from "./store";
 import { AddWidget, WidgetOptions } from "./WidgetRows";
-import { addWidget, isWidget, removeWidget } from "./widgets";
+import { toolInfo } from "./toolInfo";
+import { addWidget, isTool, isWidget, removeWidget, toolOf } from "./widgets";
 
 /*
  * Settings → Taskbar: the pages of Crest's bar, behind the settings window's Notch | Taskbar switch (SettingsView lists them). They
@@ -40,7 +41,7 @@ export function useTaskbarShown(): boolean {
 const ZONES: Zone[] = ["left", "center", "right"];
 const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte", right: "Rechte Seite" };
 /** What the bar draws for each fixed item: Windows' Start button, the apps' buttons, the button of the Crest menu, the notification area and Stato. A widget has its part's name. */
-const ITEM_LABEL: Record<Exclude<BarItem, PartId>, string> = { start: "Startmenü", apps: "Apps und Fenster", crest: "Crest-Menü", tray: "Infobereich", status: "Status" };
+const ITEM_LABEL: Record<Exclude<BarItem, PartId | ToolItem>, string> = { start: "Startmenü", apps: "Apps und Fenster", crest: "Crest-Menü", tray: "Infobereich", status: "Status" };
 const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "Schwebend", capsule: "Kapsel", tiles: "Kacheln" };
 
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, and where the system icons it leaves out are. */
@@ -124,7 +125,7 @@ export function TaskbarItems() {
                 <ItemIcon id={id} />
                 {/* From its own width, so a narrow page shrinks it along with a widget's options instead of first. */}
                 <div className="min-w-0 flex-auto select-none">
-                  <div className="truncate text-body text-label">{t(isWidget(id) ? partInfo[id].label : ITEM_LABEL[id])}</div>
+                  <div className="truncate text-body text-label">{t(isWidget(id) ? partInfo[id].label : isTool(id) ? toolInfo[toolOf(id)].label : ITEM_LABEL[id])}</div>
                   {id === "start" && <div className="text-caption text-label-3">{t("Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste")}</div>}
                 </div>
                 {(isWidget(id) || id === "tray" || id === "status") && <WidgetOptions id={id} />}
@@ -149,10 +150,14 @@ export function TaskbarItems() {
   );
 }
 
-/** An item's icon: Crest's mark, Windows' mark, the apps' window, the tray's ^, Stato's Wi-Fi or a widget's part as the settings show it. A new fixed item does not compile without one. */
+/** An item's icon: Crest's mark, Windows' mark, the apps' window, the tray's ^, Stato's Wi-Fi, a widget's part as the settings show it or a tool's icon. A new fixed item does not compile without one. */
 function ItemIcon({ id }: { id: BarItem }) {
   if (isWidget(id)) {
     const I = partInfo[id].icon;
+    return <I size={15} weight="bold" className="shrink-0 text-label-2" />;
+  }
+  if (isTool(id)) {
+    const I = toolInfo[toolOf(id)].icon;
     return <I size={15} weight="bold" className="shrink-0 text-label-2" />;
   }
   if (id === "start") return <WindowsMark size={15} className="shrink-0 text-label-2" />;
