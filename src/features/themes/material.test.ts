@@ -112,6 +112,12 @@ test("Material: Dark's and Light's seeds give the design's colours, so a change 
   assert.deepEqual(table.map(([name]) => [name, d[name], l[name]]), table);
 });
 
+test("Material: more contrast reaches the panel and the closed notch's ink", () => {
+  // At contrast 0 Dark's primary is #aac7ff: a contrast option dropped on the way would give that.
+  assert.equal(resolveMaterial(dark, { contrast: 1 }).vars["--color-primary"], "#ebf0ff");
+  assert.equal(materialInk(dark, { contrast: 1 }).vars["--color-primary"], "#ebf0ff");
+});
+
 test("the colour library stays at exactly 0.3.0: another version can change every colour", () => {
   const pkg = JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8"));
   assert.equal(pkg.dependencies["@material/material-color-utilities"], "0.3.0");
