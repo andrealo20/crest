@@ -18,8 +18,9 @@ const PLACING: &str = "timer-window://placed";
 /// dragged since, so a round trip brings it back to the user's spot.
 static PLACED: Mutex<Option<Placed>> = Mutex::new(None);
 
-/// What Crest put the window from, where it put it, and the monitor it measured that on.
-type Placed = (Origin, (i32, i32), Screen);
+/// What Crest put the window from, where it put it, and the position of the monitor it measured that on (read again at the next
+/// live change, `fresh`).
+type Placed = (Origin, (i32, i32), (i32, i32));
 
 #[tauri::command]
 pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, dpr: Option<f64>, app: AppHandle) -> Result<(), String> {
@@ -121,7 +122,7 @@ fn put_at(window: &WebviewWindow, base: (f64, f64), from: Origin, now: (i32, i32
         size();
         position();
     }
-    *PLACED.lock().unwrap() = Some((from, at, s));
+    *PLACED.lock().unwrap() = Some((from, at, s.pos));
 }
 
 /// What the timer was put from: the default spot, or a spot with the window's size there, both in physical px.
@@ -230,15 +231,15 @@ fn spot_for(from: Origin, new: (i32, i32), s: Screen) -> (i32, i32) {
     }
 }
 
-/// The connected monitor at the remembered one's position, read again: its scale or work area may have changed since the
-/// window was put (Display settings, the taskbar), as a reopen would see. None when it is gone.
-fn fresh(on: Screen, screens: &[Screen]) -> Option<Screen> {
-    screens.iter().copied().find(|s| s.pos == on.pos)
+/// The connected monitor at a remembered monitor's position, read as it is now: its scale or work area may have changed since
+/// the window was put (Display settings, the taskbar), as a reopen would see. None when it is gone.
+fn fresh(pos: (i32, i32), screens: &[Screen]) -> Option<Screen> {
+    screens.iter().copied().find(|s| s.pos == pos)
 }
 
-/// What a live change works from: while the window is still where Crest put it, the remembered origin and the monitor it was
-/// measured on; else (dragged since, or moved by Windows) the spot and size it has now, and no monitor yet.
-fn origin(placed: Option<Placed>, now: (i32, i32), size: (i32, i32)) -> (Origin, Option<Screen>) {
+/// What a live change works from: while the window is still where Crest put it, the remembered origin and the position of the
+/// monitor it was measured on; else (dragged since, or moved by Windows) the spot and size it has now, and no monitor yet.
+fn origin(placed: Option<Placed>, now: (i32, i32), size: (i32, i32)) -> (Origin, Option<(i32, i32)>) {
     match placed {
         Some((from, at, on)) if at == now => (from, Some(on)),
         _ => (Origin::Spot(now, size), None),
@@ -324,8 +325,8 @@ mod tests {
     #[test]
     fn a_live_change_works_from_where_the_timer_was_put_unless_it_was_dragged_since() {
         let from = Origin::Spot((1500, 300), (320, 84));
-        assert_eq!(origin(Some((from, (1440, 300), FHD)), (1440, 300), (480, 126)), (from, Some(FHD)));
-        assert_eq!(origin(Some((Origin::Default, (1576, 72), FHD)), (800, 500), (480, 126)), (Origin::Spot((800, 500), (480, 126)), None));
+        assert_eq!(origin(Some((from, (1440, 300), FHD.pos)), (1440, 300), (480, 126)), (from, Some(FHD.pos)));
+        assert_eq!(origin(Some((Origin::Default, (1576, 72), FHD.pos)), (800, 500), (480, 126)), (Origin::Spot((800, 500), (480, 126)), None));
         assert_eq!(origin(None, (800, 500), (320, 84)), (Origin::Spot((800, 500), (320, 84)), None));
     }
 
@@ -334,7 +335,7 @@ mod tests {
         let from = Origin::Spot((1500, 300), (320, 84));
         let at_150 = spot_for(from, (480, 126), FHD);
         assert_eq!(at_150, (1440, 300));
-        let (back, _) = origin(Some((from, at_150, FHD)), at_150, (480, 126));
+        let (back, _) = origin(Some((from, at_150, FHD.pos)), at_150, (480, 126));
         assert_eq!(spot_for(back, (320, 84), FHD), (1500, 300));
     }
 
@@ -342,8 +343,8 @@ mod tests {
     fn a_remembered_monitor_is_read_again_for_its_scale_and_work_area() {
         // The primary went from 100 to 150 % while the timer was open: the same monitor, with its new scale and work area.
         let now_150 = Screen { scale: 1.5, end: (1920, 1008), ..FHD };
-        assert_eq!(fresh(FHD, &[LEFT_150, now_150]), Some(now_150));
-        assert_eq!(fresh(FHD, &[LEFT_150]), None, "unplugged since");
+        assert_eq!(fresh(FHD.pos, &[LEFT_150, now_150]), Some(now_150));
+        assert_eq!(fresh(FHD.pos, &[LEFT_150]), None, "unplugged since");
     }
 
     #[test]
@@ -354,8 +355,8 @@ mod tests {
         let at = spot_for(from, grown(base, 1.0, s.scale), s);
         assert_eq!(at, (1700, 300), "reopened at 100 %");
         // Back to 150 % while it is open: measured on the monitor it was put from, as a reopen at 150 % would be.
-        let (live, on) = origin(Some((from, at, s)), at, (320, 84));
-        let on = on.expect("the monitor it was put from");
+        let (live, on) = origin(Some((from, at, s.pos)), at, (320, 84));
+        let on = fresh(on.expect("the monitor it was put from"), &[FHD, RIGHT_150]).expect("still connected");
         assert_eq!(on, RIGHT_150);
         assert_eq!(spot_for(live, grown(base, 1.5, on.scale), on), (1700, 300));
     }
