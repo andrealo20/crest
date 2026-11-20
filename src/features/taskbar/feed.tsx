@@ -39,6 +39,8 @@ import { barPartsFor, barSources, barWidgets } from "./widgets";
 export const barOnScreen = createStore(true);
 /** In the notch: a bar's panel shows Now Playing (barPanels.ts), whose equalizer only listens to the levels the notch captures. */
 const barMedia = createStore(false);
+/** In the notch: the Store build, which never builds the bar, so the bar counts as off and not even Discord stays connected for it. */
+const noBar = createStore(false);
 
 /** The Windows app only: shares the widgets' data with the bar from its hello on, the panel's stores while the panel shows a tool, and follows whether the bar shows. */
 export function startBarShare() {
@@ -50,7 +52,7 @@ export function startBarShare() {
   shareStores(tauriTransport, panelStores, { to: "taskbar", hello: "bar://hello", when: panelOpen });
   taskbar.onShown((on) => barOnScreen.set(on));
   // The Store build never builds the bar, whatever a restored backup says (bar.rs), so no shown state ever comes: no sources.
-  void build.info().then((b) => { if (b.store) barOnScreen.set(false); }, () => {});
+  void build.info().then((b) => { if (b.store) { barOnScreen.set(false); noBar.set(true); } }, () => {});
 }
 
 /** Writes a widget's slice only when it changed: each write goes to the bar. */
@@ -157,7 +159,8 @@ export function WidgetSources(): ReactNode {
   language.use();
   const { enabled, zones } = settings.use().taskbar;
   const shown = barOnScreen.use();
-  const parts = barPartsFor(barWidgets(zones), enabled, shown);
+  const none = noBar.use();
+  const parts = barPartsFor(barWidgets(zones), enabled && !none, shown);
   const key = parts.join();
   useEffect(() => barParts.set(parts), [key]);
   useEffect(() => () => barParts.set([]), []);
