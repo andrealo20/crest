@@ -11,7 +11,7 @@ import { savedPage, SettingsView } from "../SettingsView";
 const close = () => isNative && void getCurrentWindow().close();
 
 const drag = (e: React.MouseEvent) => {
-  if (e.button === 0 && isNative && !(e.target as Element).closest("button, input")) void getCurrentWindow().startDragging();
+  if (e.button === 0 && isNative && !(e.target as Element).closest("button, input, label")) void getCurrentWindow().startDragging();
 };
 
 /**
