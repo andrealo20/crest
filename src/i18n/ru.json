@@ -1813,6 +1813,8 @@
  "Dateien legst du auf der Notch ab": "Перетаскивайте файлы на вырез",
  "Widget hinzufügen": "Добавить виджет",
  "Gilt auch für die Notch": "Применяется и к вырезу",
+ "Tool hinzufügen": "Добавить инструмент",
+ "In der Notch ausgeschaltet": "Выключен в вырезе",
  "Apps der Windows-Taskleiste": "Приложения панели задач Windows",
  "Ersetzt die angehefteten Apps durch die der Windows-Taskleiste": "Заменяет закреплённые приложения теми, что есть на панели задач Windows",
  "Von Windows übernehmen": "Импорт из Windows",

@@ -18,11 +18,11 @@ import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
-import { fitIcon, HEIGHT, ICON, moveItem, taskbarShown, TRANSPARENCY, type BarItem, type BarShape, type ToolItem, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type BarShape, type ToolItem, type Zone } from "./model";
 import { setTaskbar } from "./store";
-import { AddWidget, WidgetOptions } from "./WidgetRows";
+import { AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
 import { toolInfo } from "./toolInfo";
-import { addWidget, isTool, isWidget, removeWidget, toolOf } from "./widgets";
+import { addWidget, isTool, isWidget, removeWidget, shownZones, toolOf } from "./widgets";
 
 /*
  * Settings → Taskbar: the pages of Crest's bar, behind the settings window's Notch | Taskbar switch (SettingsView lists them). They
@@ -91,7 +91,9 @@ export function TaskbarGeneral() {
 
 /** Taskbar → Items: what each zone of the bar holds, in order. A row's menu moves the item to the end of another zone, a widget before the Crest button. */
 export function TaskbarItems() {
-  const { zones, shape } = settings.use().taskbar;
+  const { zones: saved, shape } = settings.use().taskbar;
+  // No row for a tool button the bar does not offer: another window gets the raw JSON from a storage event, without normalizeZones (storeCore.ts:51-57).
+  const zones = shownZones(saved, TOOL_BUTTONS.map((id) => ({ id, enabled: true })));
   const [dragging, setDragging] = useState<BarItem | null>(null);
   const options = ZONES.map((z) => ({ value: z, label: t(ZONE_LABEL[z]) }));
   return (
@@ -99,7 +101,10 @@ export function TaskbarItems() {
       {ZONES.map((zone) => (
         <div key={zone}>
           <Row label={t(ZONE_LABEL[zone])} hint={zones[zone].length > 1 ? t("Zum Sortieren ziehen") : undefined}>
-            <AddWidget zone={zone} />
+            <div className="flex flex-wrap justify-end gap-2">
+              <AddWidget zone={zone} />
+              <AddTool zone={zone} />
+            </div>
           </Row>
           <Reorder.Group
             as="div"
@@ -128,14 +133,14 @@ export function TaskbarItems() {
                   <div className="truncate text-body text-label">{t(isWidget(id) ? partInfo[id].label : isTool(id) ? toolInfo[toolOf(id)].label : ITEM_LABEL[id])}</div>
                   {id === "start" && <div className="text-caption text-label-3">{t("Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste")}</div>}
                 </div>
-                {(isWidget(id) || id === "tray" || id === "status") && <WidgetOptions id={id} />}
+                {(isWidget(id) || isTool(id) || id === "tray" || id === "status") && <WidgetOptions id={id} />}
                 <div onPointerDown={(e) => e.stopPropagation()}>
                   {/* The menu also reports its current zone when picked again, which would send the item to that zone's end. A widget goes in as "+" puts it, before the Crest button. */}
                   <Select
                     width="w-36"
                     value={zone}
                     options={options}
-                    onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: isWidget(id) || id === "tray" || id === "status" ? addWidget(removeWidget(cur.zones, id), id, to) : moveItem(cur.zones, id, to) }))}
+                    onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: isWidget(id) || isTool(id) || id === "tray" || id === "status" ? addWidget(removeWidget(cur.zones, id), id, to) : moveItem(cur.zones, id, to) }))}
                   />
                 </div>
               </Reorder.Item>

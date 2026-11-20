@@ -6,13 +6,15 @@ import { settings, updateSettings } from "../../settings/store";
 import { Select, SubSwitch } from "../../ui/controls";
 import { setMusic } from "../now-playing/music";
 import { shownIds } from "../usage/cards";
-import type { ToolItem, Zone } from "./model";
+import { TOOL_BUTTONS, type ToolItem, type Zone } from "./model";
 import { setTaskbar } from "./store";
-import { addWidget, barWidgets, isWidget, removeWidget, type Removable } from "./widgets";
+import { toolInfo } from "./toolInfo";
+import { addableTools, addWidget, barWidgets, isTool, isWidget, removeWidget, toolOf, toolShown, type Removable } from "./widgets";
 
 /*
- * The widgets' pieces of Settings → Taskbar → Items (TaskbarItems draws the rows): a widget's options in its row and each zone's
- * "+". Only the clock's switches are the bar's own; the others are the closed notch's settings, as its parts page sets them.
+ * The widgets' pieces of Settings → Taskbar → Items (TaskbarItems draws the rows): a widget's or a tool button's options in its row
+ * and each zone's Add widget and Add tool. Only the clock's switches are the bar's own; the others are the closed notch's settings,
+ * as its parts page sets them.
  */
 
 /** As on the closed notch's parts page: only these readings always show, so one of them stays on. */
@@ -52,7 +54,9 @@ export function WidgetOptions({ id }: { id: Removable }) {
         <SubSwitch label={t("Endlos scrollen")} checked={s.music.titleLoop} onChange={(titleLoop) => setMusic({ titleLoop })} />
       </>
     ) : null;
-  const caption = id === "readings" || id === "title" ? t("Gilt auch für die Notch") : needs[id];
+  // A tool button whose tool is off in the notch stays here, hidden on the bar until the tool is on again.
+  const caption =
+    id === "readings" || id === "title" ? t("Gilt auch für die Notch") : isTool(id) ? !toolShown(toolOf(id), s.tools) && t("In der Notch ausgeschaltet") : needs[id];
   return (
     <div className="flex min-w-0 items-center gap-3">
       {(switches || caption) && (
@@ -99,6 +103,32 @@ export function AddWidget({ zone }: { zone: Zone }) {
           <>
             <Plus size={13} weight="bold" />
             <span>{t("Widget hinzufügen")}</span>
+          </>
+        ),
+      }}
+    />
+  );
+}
+
+/** A zone's Add tool: the tools a button can open, not on the bar and able to open (widgets.ts addableTools); the one picked goes where Add widget puts a widget. */
+export function AddTool({ zone }: { zone: Zone }) {
+  const s = settings.use();
+  const offered = addableTools(s.taskbar.zones, s.tools);
+  if (!offered.length) return null;
+  return (
+    <Select<string>
+      width="shrink-0"
+      value=""
+      options={offered.map((id) => ({ value: id, label: t(toolInfo[id].label) }))}
+      onChange={(id) => TOOL_BUTTONS.includes(id) && setTaskbar((cur) => ({ zones: addWidget(cur.zones, `tool:${id}`, zone) }))}
+      trigger={{
+        label: t("Tool hinzufügen"),
+        menuWidth: 220,
+        className: "pressable pressable-fill flex h-7 items-center gap-1.5 rounded-full bg-fill-2 px-2.5 text-label",
+        content: (
+          <>
+            <Plus size={13} weight="bold" />
+            <span>{t("Tool hinzufügen")}</span>
           </>
         ),
       }}
