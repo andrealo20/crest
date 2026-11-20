@@ -4,13 +4,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Check, Pause, Play, X } from "@phosphor-icons/react";
 import { content, pulse } from "../../../design/motion";
 import { settings } from "../../../settings/store";
-import { closeTimerWindow } from "../../../platform/services";
+import { closeTimerWindow, onTimerPlaced } from "../../../platform/services";
 import { isNative } from "../../../platform/native";
 import { timer, timerActions, useRemaining } from "../store";
 import { POS_KEY } from "../detach";
 import { Look } from "../Look";
 import { modeTint } from "../looks";
 import { t } from "../../../i18n";
+import { savedMoves } from "./moves";
 
 /*
  *   ╭──────────────────────────────────╮
@@ -37,17 +38,25 @@ export function TimerWindow() {
     return () => window.clearTimeout(id);
   }, [s.finished, alarm.duration]);
 
-  // Remember where it was put; Rust checks the spot is still on a monitor next time.
+  // Remember where the user put it; Rust checks the spot is still on a monitor next time. A move Crest makes itself, as the
+  // window follows Windows' Text size, is announced first and not saved, so a reopen does not drift (moves.ts).
   useEffect(() => {
     if (!isNative) return;
+    const moves = savedMoves();
+    const offPlaced = onTimerPlaced(moves.placed);
     const off = getCurrentWindow().onMoved(({ payload }) => {
+      if (!moves.save(payload.x, payload.y)) return;
       try {
-        localStorage.setItem(POS_KEY, JSON.stringify({ x: payload.x, y: payload.y }));
+        // With the pixel ratio, from which Rust works out the size the window had here (it grows with Windows' Text size).
+        localStorage.setItem(POS_KEY, JSON.stringify({ x: payload.x, y: payload.y, dpr: window.devicePixelRatio }));
       } catch {
         // Storage full or blocked: it opens at the default spot next time.
       }
     });
-    return () => void off.then((f) => f());
+    return () => {
+      offPlaced();
+      void off.then((f) => f());
+    };
   }, []);
 
   return (
