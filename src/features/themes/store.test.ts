@@ -179,6 +179,7 @@ test("the notch alone tells the settings window its background, and only when --
 test("a crossfade draws in its callback, and one that runs after a newer apply() leaves that one on screen", async () => {
   const store = (await import("./store.ts")) as typeof import("./store");
   store.startThemes();
+  settings.set({ ...settings.get(), themes: { ...settings.get().themes, font: "auto" } });
   pick("crest");
   const crestNotch = vars["--color-notch"];
   const pending: (() => void)[] = [];
@@ -196,12 +197,19 @@ test("a crossfade draws in its callback, and one that runs after a newer apply()
   assert.equal(dataset.designSwitching, "");
   pending.shift()!();
   assert.equal(dataset.design, "material");
+  // The font follows the Style drawn in the callback: Google Sans Flex, captions without tracking, tabular text from the page.
+  const gsf = fontStack("auto", "material");
+  assert.deepEqual([vars["--font-sans"], family, spacing, tabular], [gsf, gsf, 0, true]);
   finish();
   await settle();
   assert.equal("designSwitching" in dataset, false);
-  crossfades = false;
+  // And back to Crest through a crossfade too.
   pick("crest");
-  crossfades = true;
+  pending.shift()!();
+  assert.equal(dataset.design, "crest");
+  assert.deepEqual([vars["--font-sans"], family, spacing, tabular], [FONTS.inter, FONTS.inter, 0.11, false]);
+  finish();
+  await settle();
   // Material, then back to Crest before the engine calls back: Crest draws at once, and the late callback must not bring Material back.
   pick("material");
   pick("crest");

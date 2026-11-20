@@ -93,6 +93,8 @@ function apply() {
     root.dataset.design = style;
     setMotionDesign(style);
     design.set(style);
+    // Here, not after apply(): a crossfade draws this later, and the font must follow the Style it draws.
+    applyFont();
     // Before activeTheme, whose listeners (the glass) read the ink.
     inkTheme.set(style === "material" ? materialInk(file, { contrast }) : DARK);
     activeTheme.set(resolved);
@@ -140,7 +142,7 @@ export function refreshTheme() {
 }
 
 let lastFont = "";
-/** Runs after apply(), whose style it reads. */
+/** Runs once write() has set the Style it reads, and on every change of the settings for the font itself. */
 function applyFont() {
   const style = design.get();
   const family = fontStack(settings.get().themes.font, style);
