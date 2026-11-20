@@ -69,3 +69,13 @@ test("the tray's and the apps' cells are pills under Material, with the focus ri
     assert.ok(!cell.includes("pressable"), `${name}: no .pressable`);
   }
 });
+
+test("the app in front in the overflow panel gets Material's tonal pill behind its icon, as on the bar", () => {
+  const src = window("AppsPanel.tsx");
+  const pill = /\{material && <motion\.span[^\n]*data-front-pill[^\n]*/.exec(src);
+  assert.ok(pill, "no pill drawn under a material && branch");
+  for (const c of ["aria-hidden", "bg-secondary-container", "rounded-full", "marks(mark, appDesign).pill"]) assert.ok(pill[0].includes(c), c);
+  assert.doesNotMatch(pill[0], /backgroundColor|width:|height:/);
+  // Over the pill: an icon after a positioned span paints under it unless it is positioned too.
+  assert.match(src, /<span className="relative flex">\s*<AppIcon/);
+});
