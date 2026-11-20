@@ -16,8 +16,8 @@ export type BarShape = "docked" | "floating" | "capsule" | "tiles";
 /**
  * The bar: on or off, the items in each zone, the bar's height and its icons' size in CSS px, its background (the closed
  * notch's or the theme's), the pinned apps (null: never seeded), the ids Windows' taskbar had pinned when the notch last read them,
- * with those a read missed (null: never read; store.ts follows what changes there), its shape, its transparency in percent and its
- * glass, the bar clock's own date and seconds, and whether the default widgets, the tray and Stato were placed (once, so one taken off
+ * with those a read missed (null: never read; store.ts follows what changes there), its shape, its transparency in percent, its glass
+ * and the glass's look, the bar clock's own date and seconds, and whether the default widgets, the tray and Stato were placed (once, so one taken off
  * stays off). The tray keeps the icons in `trayShown` (TrayIcon.id) on the bar; the others are in the panel behind its ^ button.
  */
 export interface TaskbarSettings {
@@ -33,6 +33,8 @@ export interface TaskbarSettings {
   shape: BarShape;
   transparency: number;
   glass: boolean;
+  /** Under `glass`, the look of the bar's glass, Crest's or Liquid Glass + (look.ts `barLook`); `glass` alone gates the live copy and its exclusion from captures (contract point 1). */
+  glassLook: "crest" | "plus";
   clock: { date: boolean; seconds: boolean };
   widgetsSeeded: boolean;
   traySeeded: boolean;
@@ -52,6 +54,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   shape: "floating",
   transparency: 0,
   glass: false,
+  glassLook: "crest",
   clock: { date: true, seconds: false },
   widgetsSeeded: true,
   traySeeded: true,
@@ -104,6 +107,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     shape: SHAPES.includes(s.shape as BarShape) ? (s.shape as BarShape) : d.shape,
     transparency: within(s.transparency, TRANSPARENCY, d.transparency),
     glass: s.glass === true,
+    glassLook: s.glassLook === "plus" ? "plus" : "crest",
     clock: { date: clock.date !== false, seconds: clock.seconds === true },
     widgetsSeeded: true,
     traySeeded: true,

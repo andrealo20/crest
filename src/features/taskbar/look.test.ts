@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import type { BarShape } from "./model.ts";
-import { LOOK, barGap, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, labelRise, magnify, themeVeils } from "./look.ts";
+import { LOOK, barGap, barLook, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, labelRise, magnify, themeVeils } from "./look.ts";
 import { GLASS, liveZone } from "../../notch/glass/params.ts";
 
 test("the surface's veil", () => {
@@ -29,6 +30,21 @@ test("gaps by shape, and corners by shape and look", () => {
   // Liquid Glass +: the widgets' pills and their tiles' 0.9 of half the height; they have no docked shape, so it stays square.
   assert.deepEqual(shapes.map((s) => barRadius(s, 44, "plus")), [0, 22, 22, 19.8]);
   assert.deepEqual(shapes.map((s) => barRadius(s, 32, "plus")), [0, 16, 16, 14.4]);
+});
+
+test("Liquid Glass + is the bar's look where it is chosen under Glass and the live copy can run", () => {
+  assert.equal(barLook({ glass: true, glassLook: "plus" }, true), "plus");
+  // ARM64, the Store build, Windows before 24H2, a Mac, or Rust not answered yet.
+  assert.equal(barLook({ glass: true, glassLook: "plus" }, false), "crest");
+  assert.equal(barLook({ glass: false, glassLook: "plus" }, true), "crest");
+  assert.equal(barLook({ glass: true, glassLook: "crest" }, true), "crest");
+});
+
+test("the bar's corners and ink come from the chosen look, never from whether the glass shows this instant", () => {
+  const src = readFileSync(new URL("./window/BarGlass.tsx", import.meta.url), "utf8");
+  assert.match(src, /const look = barLook\(taskbar, supported\);/);
+  assert.match(src, /const ink = look === "plus" \?/);
+  assert.match(src, /const radius = barRadius\(shape, height, look\);/);
 });
 
 test("the pointer's zones reach the window's bottom", () => {

@@ -57,12 +57,14 @@ test("narrow apps keep five sixths of the icon and 10 px round it", () => {
 
 test("the look's settings are repaired and default to today's bar", () => {
   const d = normalizeTaskbar(undefined);
-  assert.deepEqual([d.shape, d.transparency, d.glass], ["floating", 0, false]);
-  const s = normalizeTaskbar({ shape: "tiles", transparency: 37.6, glass: true });
-  assert.deepEqual([s.shape, s.transparency, s.glass], ["tiles", 38, true]);
-  const bad = normalizeTaskbar({ shape: "dock", transparency: 400, glass: "yes" });
-  assert.deepEqual([bad.shape, bad.transparency, bad.glass], ["floating", 100, false]);
+  assert.deepEqual([d.shape, d.transparency, d.glass, d.glassLook], ["floating", 0, false, "crest"]);
+  const s = normalizeTaskbar({ shape: "tiles", transparency: 37.6, glass: true, glassLook: "plus" });
+  assert.deepEqual([s.shape, s.transparency, s.glass, s.glassLook], ["tiles", 38, true, "plus"]);
+  const bad = normalizeTaskbar({ shape: "dock", transparency: 400, glass: "yes", glassLook: "Plus" });
+  assert.deepEqual([bad.shape, bad.transparency, bad.glass, bad.glassLook], ["floating", 100, false, "crest"]);
   assert.equal(normalizeTaskbar({ transparency: -5 }).transparency, 0);
+  // The look outlives Glass switched off, so switching it back on brings the same look.
+  assert.equal(normalizeTaskbar({ glass: false, glassLook: "plus" }).glassLook, "plus");
 });
 
 test("every fixed item sits in exactly one zone", () => {

@@ -338,7 +338,7 @@ export function TaskbarWindow() {
         setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 });
       }}
     >
-      {/* On the closed notch's black the bar and its menus keep their dark tokens whatever the theme (Notch.tsx), and its zones keep their sides in any language. */}
+      {/* On the closed notch's black, and always under Liquid Glass +, the bar and its menus keep the closed notch's ink whatever the theme (useBarSurface), and its zones keep their sides in any language. */}
       <div data-theme-ink dir="ltr" className="contents" style={look.ink}>
         {look.glass && <BarGlass {...look.glass} />}
         {/* The shape's place stays still, so its box is the band at rest while the shape slides out of it (useHitZone measures this box). */}

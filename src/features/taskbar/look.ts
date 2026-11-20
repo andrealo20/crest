@@ -1,7 +1,7 @@
 // The rules of the bar's look: gaps, corners, the surface's veil, the pointer's zones, the shapes the glass draws and the zone its
 // live copy needs. Pure, so node --test runs them.
 
-import type { BarShape } from "./model.ts";
+import type { BarShape, TaskbarSettings } from "./model.ts";
 import type { GlassZone } from "../../platform/native";
 import { glassVeilAt } from "../themes/themes.ts";
 import { GLASS, parseTint } from "../../notch/glass/params.ts";
@@ -36,6 +36,15 @@ const CORNERS: Record<BarLook, Record<BarShape, (height: number) => number>> = {
 /** The radius of the bar's corners, or of each tile's, for a bar `height` tall in the given look. */
 export function barRadius(shape: BarShape, height: number, look: BarLook): number {
   return CORNERS[look][shape](height);
+}
+
+/**
+ * The bar's look: Liquid Glass + where it is chosen under Glass and the live copy can run here (`supported`: liveSupport), else
+ * Crest's; never whether the glass shows this instant (a slide, energy saver, the first frame, the lock, a WebGL failure), which
+ * changes only the surface. Material adds its own look here (contract point 2).
+ */
+export function barLook(t: Pick<TaskbarSettings, "glass" | "glassLook">, supported: boolean): BarLook {
+  return t.glass && t.glassLook === "plus" && supported ? "plus" : "crest";
 }
 
 /**

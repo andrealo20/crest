@@ -14,8 +14,8 @@ import { viewMetrics } from "../../../notch/viewZoom";
 import type { GlassZone } from "../../../platform/native";
 import { status } from "../../../platform/services";
 import { settings } from "../../../settings/store";
-import { activeTheme, forcedColors, useClosedInk } from "../../themes/store";
-import { barNeed, barRadius, barVeil, glassShapes, themeVeils, type Box } from "../look";
+import { activeTheme, darkInk, forcedColors, useClosedInk } from "../../themes/store";
+import { barLook, barNeed, barRadius, barVeil, glassShapes, themeVeils, type Box } from "../look";
 import type { BarShape } from "../model";
 import { barShown } from "../store";
 import { BAR_FS, MAX_RECTS } from "./glassShader";
@@ -46,12 +46,14 @@ interface Props { shape: BarShape; boxes: Box[]; radius: number; veil: number; d
  * The bar's surface (design 6.2, 6.3) for the shape's boxes (the bar, the capsule or the tiles): the CSS background to draw, the veil
  * alone for a tile the glass does not draw (`plain`), and the glass's props while the glass may show (null otherwise). The veil is the
  * same with the glass showing or not, so the bar keeps its tone when the glass comes and goes; reduced transparency, more contrast or
- * forced colours make it opaque. `ink` is the tokens the bar and its menus wear (Dark's on the Notch surface unless the theme colours
- * the closed notch, useClosedInk), `radius` the corners for the shape and its look; both follow the look, never whether the glass
- * shows. A bar `slid` off the screen (useAutoHide) runs no glass, as a hidden one.
+ * forced colours make it opaque. `ink` is the tokens the bar and its menus wear (Dark's under Liquid Glass +, and on the Notch surface
+ * unless the theme colours the closed notch, useClosedInk), `radius` the corners for the shape and its look; both follow the look
+ * (barLook: the choice and whether the live copy can run), never whether the glass shows. A bar `slid` off the screen (useAutoHide)
+ * runs no glass, as a hidden one.
  */
 export function useBarSurface(boxes: Box[], slid: boolean): { background: string; plain: string; ink: Record<string, string> | undefined; radius: number; glass: Props | null } {
-  const { shape, surface, transparency, glass, height } = settings.use().taskbar;
+  const taskbar = settings.use().taskbar;
+  const { shape, surface, transparency, glass, height } = taskbar;
   const theme = activeTheme.use();
   const closed = useClosedInk(undefined);
   const supported = liveSupport.use()?.supported === true;
@@ -59,8 +61,10 @@ export function useBarSurface(boxes: Box[], slid: boolean): { background: string
   const reduced = lessTransparency || moreContrast || forced;
   const page = pageShown.use(), bar = barShown.use(), saving = saver.use(), live = liveFrame.use();
   const { dpr } = viewMetrics.use();
-  const ink = surface === "notch" ? closed : undefined;
-  const radius = barRadius(shape, height, "crest");
+  const look = barLook(taskbar, supported);
+  // Liquid Glass +: the closed notch's ink whatever the theme and the background, white content as on the widgets, over the glass and over its fallback veil.
+  const ink = look === "plus" ? { ...darkInk(), "--accent": darkInk()["--theme-accent"] } : surface === "notch" ? closed : undefined;
+  const radius = barRadius(shape, height, look);
   const dark = ink ? true : theme.dark;
   const veil = barVeil({ transparency, glass: glass && supported, reduced, ...themeVeils(ink ?? theme.vars) });
   const on = glass && supported && !reduced && page && bar && !slid && !saving;
