@@ -3,15 +3,17 @@ import { createStore } from "../../lib/store";
 import { isNotchWindow } from "../../lib/windowKind";
 import { themeFiles } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
+import { design, type Design } from "../../design/design";
 import { activeThemeId, chooseTheme, nextChange } from "./daynight";
 import { record, startHistory, undo, type History } from "./history";
+import { materialInk, resolveMaterial } from "./material";
 import { setRowFamily } from "../../notch/row/measure";
 import {
   BUILT_IN_THEMES,
-  FONTS,
   THEME_DEFAULTS,
   closedGlassInk,
   findTheme,
+  fontStack,
   importThemes,
   isBuiltIn,
   readableAccent,
@@ -34,8 +36,13 @@ import "./themes.css";
 export const draft = createStore<History<ThemeFile> | null>(null, { persist: "theme-draft" });
 
 const DARK = resolveTheme(BUILT_IN_THEMES[0]);
-/** The Dark theme's tokens, for light text over a dark picture whatever the theme (the Music tool's cover backdrop). */
-export const darkInk = (): Record<string, string> => DARK.vars;
+/**
+ * The black closed notch's ink, which keeps light text whatever the theme: Dark's tokens in the Crest style, in Material the dark
+ * scheme of the theme's seed (materialInk).
+ */
+export const inkTheme = createStore<ResolvedTheme>(DARK);
+/** The closed notch's ink tokens, for light text over a dark picture whatever the theme (the Music tool's cover backdrop). */
+export const darkInk = (): Record<string, string> => inkTheme.get().vars;
 /** The theme on screen now (the draft while editing). */
 export const activeTheme = createStore<ResolvedTheme>(DARK);
 
@@ -45,16 +52,28 @@ export function savedTheme(now = new Date()): ThemeFile {
   return findTheme(activeThemeId(themes, now, weather), themes.custom);
 }
 
+/** The system asks for more contrast (Increase contrast on macOS): Material takes its scheme at contrast 1. */
+const moreContrast = typeof matchMedia === "function" ? matchMedia("(prefers-contrast: more)") : null;
+/** In development `?design=material` or `crest` sets the style of this page alone, unsaved, for screenshots. */
+const pageDesign = import.meta.env.DEV ? new URLSearchParams(location.search).get("design") : null;
+
 let lastKey = "";
 function apply() {
   const file = draft.get()?.present ?? savedTheme();
-  const key = JSON.stringify(file);
+  const style: Design = pageDesign === "material" || pageDesign === "crest" ? pageDesign : settings.get().themes.design;
+  const more = moreContrast?.matches ?? false;
+  const key = JSON.stringify([style, more, file]);
   if (key === lastKey) return;
   lastKey = key;
-  const resolved = resolveTheme(file);
-  const root = document.documentElement.style;
-  for (const [name, value] of Object.entries(resolved.vars)) root.setProperty(name, value);
-  document.documentElement.dataset.theme = resolved.dark ? "dark" : "light";
+  const contrast = more ? 1 : 0;
+  const resolved = style === "material" ? resolveMaterial(file, { contrast }) : resolveTheme(file);
+  const root = document.documentElement;
+  for (const [name, value] of Object.entries(resolved.vars)) root.style.setProperty(name, value);
+  root.dataset.theme = resolved.dark ? "dark" : "light";
+  root.dataset.design = style;
+  design.set(style);
+  // Before activeTheme, whose listeners (the glass) read the ink.
+  inkTheme.set(style === "material" ? materialInk(file, { contrast }) : DARK);
   activeTheme.set(resolved);
 }
 
@@ -86,8 +105,9 @@ export function refreshTheme() {
 }
 
 let lastFont = "";
+/** Runs after apply(), whose style it reads. */
 function applyFont() {
-  const family = FONTS[settings.get().themes.font];
+  const family = fontStack(settings.get().themes.font, design.get());
   if (family === lastFont) return;
   lastFont = family;
   document.documentElement.style.setProperty("--font-sans", family);
@@ -109,6 +129,7 @@ export function startThemes() {
     scheduleNext();
   });
   draft.subscribe(apply);
+  moreContrast?.addEventListener("change", apply);
 }
 
 /** Windows high contrast is on (forced colours): the system's colours replace every theme. */
@@ -123,19 +144,21 @@ export function useThemedAccent(raw: string | undefined): string {
 }
 
 /**
- * Tokens for the closed row: the Dark theme's, so the black notch keeps light text whatever the
+ * Tokens for the closed row: the closed notch's ink (inkTheme), so the black notch keeps light text whatever the
  * theme, with the raw cover colour (tuned for black). Nothing when the theme colours the closed notch too.
  */
 export function useClosedInk(raw: string | undefined): Record<string, string> | undefined {
   const theme = activeTheme.use();
-  return useMemo(() => (theme.closedNotch ? undefined : { ...DARK.vars, "--accent": raw ?? DARK.vars["--theme-accent"] }), [raw, theme.closedNotch]);
+  const ink = inkTheme.use();
+  return useMemo(() => (theme.closedNotch ? undefined : { ...ink.vars, "--accent": raw ?? ink.vars["--theme-accent"] }), [raw, theme.closedNotch, ink]);
 }
 
 /** The closed row's ink over its glass (themes.ts closedGlassInk), while that glass shows; undefined otherwise. */
 export function useClosedGlassInk(accent: string, on: boolean): Record<string, string> | undefined {
   const theme = activeTheme.use();
+  const ink = inkTheme.use();
   const hues = settings.use().themes.iconColors;
-  return useMemo(() => (on ? closedGlassInk(theme.closedNotch ? theme : DARK, accent, hues) : undefined), [on, theme, accent, hues]);
+  return useMemo(() => (on ? closedGlassInk(theme.closedNotch ? theme : ink, accent, hues) : undefined), [on, theme, ink, accent, hues]);
 }
 
 // ---------- Choosing ----------

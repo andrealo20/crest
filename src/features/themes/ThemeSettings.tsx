@@ -8,6 +8,7 @@ import { demo } from "../../dev/showcase-data";
 import { glassShape } from "../../notch/glass/params";
 import { liveSupport } from "../../notch/glass/live";
 import { settings, updateSettings } from "../../settings/store";
+import { design } from "../../design/design";
 import { t } from "../../i18n";
 import { contrast, parseColor, toHex, withAlpha, type Rgba } from "./color";
 import { ColorPicker } from "./ColorPicker";
@@ -36,10 +37,10 @@ import {
 import {
   BUILT_IN_THEMES,
   EDITOR_KEYS,
-  FONTS,
   FONT_NAMES,
   GLASS_RANGE,
   findTheme,
+  fontStack,
   glassVeilAt,
   isBuiltIn,
   resolveTheme,
@@ -82,6 +83,7 @@ function ThemeChoice() {
   const s = settings.use();
   const { themes, weather } = s;
   activeTheme.use(); // re-render when day turns to night
+  const style = design.use();
   const forced = forcedColors.use();
   const editing = draft.use();
   const [pending, setPending] = useState<string | null>(null);
@@ -147,7 +149,7 @@ function ThemeChoice() {
       <Row label={t("Schrift")} hint={t("Für die ganze App. Terminal und Timer behalten ihre Schrift")}>
         <Select
           value={themes.font}
-          options={(Object.keys(FONT_NAMES) as FontId[]).map((value) => ({ value, label: FONT_NAMES[value], font: FONTS[value] }))}
+          options={(Object.keys(FONT_NAMES) as FontId[]).map((value) => ({ value, label: FONT_NAMES[value], font: fontStack(value, style) }))}
           onChange={(font) => updateSettings((cur) => ({ themes: { ...cur.themes, font } }))}
         />
       </Row>

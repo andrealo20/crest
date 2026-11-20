@@ -20,6 +20,8 @@ function show(p: MirrorPicture) {
   const doc = document.documentElement;
   doc.style.cssText = p.root;
   if (p.theme) doc.dataset.theme = p.theme;
+  // Written for Crest too, or a copy would keep Material's look after a switch back; a picture without one is Crest's.
+  doc.dataset.design = p.design || "crest";
   doc.lang = p.lang;
   doc.dir = p.dir;
   if (p.images) images = p.images;

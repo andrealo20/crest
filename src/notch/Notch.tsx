@@ -654,7 +654,7 @@ export function Notch() {
                 {/* Below the content (-z-10 in the panel's own stacking context), so it never sits over text. Off over the glass: the veil is
                     worked out without it, and the cover's colour on top would take text below its minimum. */}
                 <div aria-hidden data-ambience={tinted && glass !== "shown" ? "on" : "off"} className="pointer-events-none absolute inset-0 -z-10" style={tinted ? { ["--ambience" as string]: accent } : undefined} />
-                {/* The Music tool's cover behind the whole panel; while it shows, the panel takes the Dark theme's light text. On a dark
+                {/* The Music tool's cover behind the whole panel; while it shows, the panel takes the closed notch's light ink (darkInk). On a dark
                     theme it stays over the glass, see-through so the glass shows; on a light theme the glass turns off (blocks above). */}
                 <CoverBackdrop glass={glass === "shown"} />
                 <Header title={t(tab.label)} />

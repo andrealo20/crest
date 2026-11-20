@@ -475,8 +475,8 @@ export const autostart = {
 
 // ---------- Display ----------
 
-/** The closed notch as markup (mirror.rs Picture): the page's theme variables, and the `data:` images by index (null = unchanged). */
-export interface MirrorPicture { html: string; root: string; theme: string; lang: string; dir: string; images: string[] | null }
+/** The closed notch as markup (mirror.rs Picture): the page's theme variables and style, and the `data:` images by index (null = unchanged). */
+export interface MirrorPicture { html: string; root: string; theme: string; design: string; lang: string; dir: string; images: string[] | null }
 
 export interface MonitorInfo {
   name: string;

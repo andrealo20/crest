@@ -54,6 +54,9 @@ pub struct Picture {
     html: String,
     root: String,
     theme: String,
+    /// The page's style, `crest` or `material` (its `data-design`); a notch from before the Style setting sends none.
+    #[serde(default)]
+    design: String,
     /// The page's `lang` and `dir`, which pick the CJK glyphs and the direction of what is drawn.
     lang: String,
     dir: String,
@@ -477,6 +480,13 @@ mod tests {
         // A new monitor without a spot yet waits for the frontend's.
         assert_eq!(names(mirrored(&spots[..1], Some("B"), Some("A"), &present)), ["A"]);
         assert!(mirrored(&[], Some("B"), Some("A"), &present).is_empty());
+    }
+
+    #[test]
+    fn a_picture_without_a_design_still_reads() {
+        // As a notch from before the Style setting sends it; the mirror page draws an empty design as Crest.
+        let picture: Picture = serde_json::from_str(r#"{"html":"<div></div>","root":"","theme":"dark","lang":"en","dir":"ltr","images":null}"#).unwrap();
+        assert_eq!(picture.design, "");
     }
 
     #[test]

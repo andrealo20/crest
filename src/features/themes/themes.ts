@@ -2,6 +2,7 @@
 // PanelThemes.Derive.cs and Themes/*.json (the palettes of One Dark Pro, GitHub, Dracula and Night Owl, all MIT, see docs/themes.md).
 
 import { BLACK, WHITE, contrast, contrastScore, ensureContrast, formatColor, isDark, luminance, mix, over, parseColor, toHex, withAlpha, type ContrastNeed, type Rgba } from "./color.ts";
+import type { Design } from "../../design/design.ts";
 
 /**
  * Panel themes. A theme names a few colours (THEME_KEYS); the rest of Crest's tokens follow from
@@ -48,7 +49,9 @@ export interface ThemeSettings {
   glassLive: boolean;
   /** Status alerts (volume, brightness, a copy and the others) drawn as clear glass over a live copy of the screen, while Glass is on (src/notch/Notch.tsx). */
   glassAlerts: boolean;
-  /** The whole app's font (FONTS), set as --font-sans; the terminal and the timer looks keep their monospace. */
+  /** The style of every window and of the copies on other monitors: Crest's own, or Material 3 seeded by the theme's accent (material.ts). */
+  design: Design;
+  /** The whole app's font (FONTS, or "auto" for the style's own: fontStack), set as --font-sans; the terminal and the timer looks keep their monospace. */
   font: FontId;
 }
 
@@ -72,13 +75,19 @@ export const FONTS = {
   mvboli: '"Crest Digits", "MV Boli", Noteworthy, cursive',
   gabriola: '"Crest Digits", Gabriola, "Apple Chancery", cursive',
 } as const;
-export type FontId = keyof typeof FONTS;
-/** Names in the menu: font names, never translated. */
+export type FontId = keyof typeof FONTS | "auto";
+/** Names in the menu: font names, never translated; "auto" under the font it draws in the Crest style. */
 export const FONT_NAMES: Record<FontId, string> = {
-  inter: "Inter", segoe: "Segoe UI", bahnschrift: "Bahnschrift", franklin: "Franklin Gothic", impact: "Impact", georgia: "Georgia",
+  auto: "Inter", inter: "Inter", segoe: "Segoe UI", bahnschrift: "Bahnschrift", franklin: "Franklin Gothic", impact: "Impact", georgia: "Georgia",
   sitka: "Sitka", palatino: "Palatino", cascadia: "Cascadia", courier: "Courier New", comic: "Comic Sans MS", inkfree: "Ink Free",
   print: "Segoe Print", script: "Segoe Script", mvboli: "MV Boli", gabriola: "Gabriola",
 };
+
+/** The stack a font id draws in a style: "auto" is Inter in Crest's, and in Material Google Sans Flex with Inter after it for what it lacks (Cyrillic). */
+export function fontStack(id: FontId, design: Design): string {
+  if (id !== "auto") return FONTS[id];
+  return design === "material" ? `"Google Sans Flex", ${FONTS.inter}` : FONTS.inter;
+}
 
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
 /** Tertiary text (hints, inactive icons): Crest's own dark tertiary, white at 34 %, is 2.9:1 on black. */
@@ -397,9 +406,10 @@ export const HUE_PALETTE = {
 export type Hue = keyof typeof HUE_PALETTE;
 
 /**
- * The closed row's ink over the closed shapes' glass (src/notch/glass/live.ts). The closed veil holds the text levels of `ink` (Dark's, or
- * the theme's when it colours the closed notch); the album colour, the link, the readings' yellow and, with coloured icons, every hue are
- * held to 3:1 over that veil on black and on white, and the warning, error and success colours take the glass's.
+ * The closed row's ink over the closed shapes' glass (src/notch/glass/live.ts). The closed veil holds the text levels of `ink` (the black
+ * notch's, store.ts inkTheme, or the theme's when it colours the closed notch); the album colour, the link, the readings' yellow and,
+ * with coloured icons, every hue are held to 3:1 over that veil on black and on white, and the warning, error and success colours take
+ * the glass's.
  */
 export function closedGlassInk(ink: ResolvedTheme, accent: string, hues: boolean): Record<string, string> {
   const veil = parseColor(ink.vars["--glass-tint"])!;
@@ -622,7 +632,8 @@ export const THEME_DEFAULTS: ThemeSettings = {
   glassRim: 100,
   glassLive: false,
   glassAlerts: true,
-  font: "inter",
+  design: "crest",
+  font: "auto",
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -647,6 +658,7 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     const v: unknown = s[k], [lo, hi] = GLASS_RANGE[k];
     return typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(hi, Math.max(lo, v))) : THEME_DEFAULTS[k];
   };
+  const font = typeof s.font === "string" && Object.hasOwn(FONT_NAMES, s.font) ? s.font : THEME_DEFAULTS.font;
   return {
     id: text(s.id, THEME_DEFAULTS.id),
     custom,
@@ -667,6 +679,9 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     glassRim: look("glassRim"),
     glassLive: s.glassLive === true,
     glassAlerts: s.glassAlerts !== false,
-    font: typeof s.font === "string" && Object.hasOwn(FONTS, s.font) ? s.font : THEME_DEFAULTS.font,
+    design: s.design === "material" ? "material" : "crest",
+    // Saved before the Style setting (no `design`), "inter" was the default nobody picked: it becomes the style's font. Saved beside a
+    // style, it was picked, and stays.
+    font: font === "inter" && s.design === undefined ? "auto" : font,
   };
 }

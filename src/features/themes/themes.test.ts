@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { BLACK, WHITE, contrast, formatColor, over, parseColor, withAlpha, type Rgba } from "./color.ts";
 import {
   BUILT_IN_THEMES,
+  FONTS,
   GLASS_EDGE,
   GRAPHIC,
   HUE_PALETTE,
@@ -13,6 +14,7 @@ import {
   THEME_DEFAULTS,
   closedGlassInk,
   findTheme,
+  fontStack,
   glassInk,
   glassVeil,
   glassVeilAt,
@@ -264,10 +266,32 @@ test("cover tint: off by default, on only when saved as true", () => {
   assert.equal(normalizeThemeSettings({}).coverTint, false);
   assert.equal(normalizeThemeSettings({ coverTint: true }).coverTint, true);
   assert.equal(normalizeThemeSettings({ coverTint: "true" }).coverTint, false);
-  assert.equal(normalizeThemeSettings({}).font, "inter");
+});
+
+test("the Style: Crest by default and for anything unknown, Material only when saved", () => {
+  assert.equal(normalizeThemeSettings({}).design, "crest");
+  assert.equal(normalizeThemeSettings({ design: "material" }).design, "material");
+  assert.equal(normalizeThemeSettings({ design: "fancy" }).design, "crest");
+});
+
+test("the font: the style's own by default, and an Inter saved before the Style setting becomes it, once", () => {
+  assert.equal(normalizeThemeSettings({}).font, "auto");
   assert.equal(normalizeThemeSettings({ font: "georgia" }).font, "georgia");
-  assert.equal(normalizeThemeSettings({ font: "Papyrus" }).font, "inter");
-  assert.equal(normalizeThemeSettings({ font: "toString" }).font, "inter");
+  assert.equal(normalizeThemeSettings({ font: "Papyrus" }).font, "auto");
+  assert.equal(normalizeThemeSettings({ font: "toString" }).font, "auto");
+  // Before the Style setting Inter was the default nobody chose; saved beside a style, it was picked.
+  const migrated = normalizeThemeSettings({ font: "inter" });
+  assert.equal(migrated.font, "auto");
+  assert.equal(normalizeThemeSettings({ font: "inter", design: "crest" }).font, "inter");
+  assert.equal(normalizeThemeSettings({ ...migrated, font: "inter" }).font, "inter");
+});
+
+test("fontStack: auto is Inter in the Crest style and Google Sans Flex before Inter in Material, a chosen font stays", () => {
+  assert.equal(fontStack("auto", "crest"), FONTS.inter);
+  const material = fontStack("auto", "material");
+  assert.ok(material.startsWith('"Google Sans Flex"'), material);
+  assert.ok(material.includes(FONTS.inter), material);
+  assert.equal(fontStack("georgia", "material"), FONTS.georgia);
 });
 
 test("over keeps the pop-up colours opaque", () => {
