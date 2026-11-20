@@ -187,7 +187,7 @@ export function Toggle(props: { on: boolean; icons: [Icon, Icon]; labels: [strin
       aria-pressed={props.on}
       title={label}
       onClick={() => props.onChange(!props.on)}
-      className={`pressable flex size-7 shrink-0 items-center justify-center rounded-full ${props.on ? "bg-fill-3 text-label" : "bg-fill-1 text-label-3 hover:text-label-2"}`}
+      className={`pressable flex size-7 shrink-0 items-center justify-center rounded-full ${props.on ? "bg-secondary-container text-on-secondary-container" : "bg-fill-1 text-label-3 hover:text-label-2"}`}
     >
       <I size={14} weight="bold" />
     </button>

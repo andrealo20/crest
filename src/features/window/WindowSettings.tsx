@@ -285,14 +285,14 @@ function ShortcutBox({ rec, value, name, onClear }: { rec: ReturnType<typeof use
         // Key combinations read left to right in any language.
         dir="ltr"
         className={`pressable flex h-7 min-w-24 items-center justify-center gap-1 rounded-[8px] px-2 text-caption outline-none focus-visible:ring-1 focus-visible:ring-label-3 ${
-          rec.recording ? "bg-fill-3 text-label ring-1 ring-label-3" : "bg-fill-2 text-label-2"
+          rec.recording ? "bg-secondary-container text-on-secondary-container ring-1 ring-label-3" : "bg-fill-2 text-label-2"
         }`}
       >
         {rec.recording ? (
           t("Kombination drücken …")
         ) : caps.length ? (
           caps.map((k, i) => (
-            <kbd key={i} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">
+            <kbd key={i} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption material:rounded-[8px] material:bg-fill-3 material:border-b-2 material:border-separator material:font-semibold">
               {k}
             </kbd>
           ))

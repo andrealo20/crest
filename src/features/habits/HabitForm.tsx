@@ -127,7 +127,7 @@ export function HabitForm({ habit, onClose }: { habit?: Habit; onClose: () => vo
             aria-label={weekdayName(d, "long")}
             title={weekdayName(d, "long")}
             onClick={() => toggleDay(d)}
-            className={`pressable size-7 rounded-full text-caption font-medium ${days.includes(d) ? "bg-fill-3 text-label" : "text-label-3 hover:text-label-2"}`}
+            className={`pressable size-7 rounded-full text-caption font-medium ${days.includes(d) ? "bg-secondary-container text-on-secondary-container" : "text-label-3 hover:text-label-2"}`}
           >
             {weekdayName(d, "narrow")}
           </button>
@@ -135,7 +135,7 @@ export function HabitForm({ habit, onClose }: { habit?: Habit; onClose: () => vo
         <button
           aria-pressed={everyDay}
           onClick={() => setDays(ALL_DAYS)}
-          className={`pressable ms-2 h-7 rounded-full px-3 text-footnote font-medium ${everyDay ? "bg-fill-3 text-label" : "text-label-3 hover:text-label-2"}`}
+          className={`pressable ms-2 h-7 rounded-full px-3 text-footnote font-medium ${everyDay ? "bg-secondary-container text-on-secondary-container" : "text-label-3 hover:text-label-2"}`}
         >
           {t("Jeden Tag")}
         </button>

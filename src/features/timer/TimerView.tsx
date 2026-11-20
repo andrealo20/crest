@@ -314,11 +314,11 @@ function Segmented({ value, onChange, disabled }: { value: TimerMode; onChange: 
           onClick={() => onChange(m)}
           disabled={disabled}
           className={`relative h-6 rounded-full px-3 text-caption font-medium transition-colors duration-150 disabled:opacity-40 ${
-            m === value ? "text-label" : "text-label-3 hover:text-label-2"
+            m === value ? "text-on-secondary-container" : "text-label-3 hover:text-label-2"
           }`}
         >
           {m === value && (
-            <motion.span layoutId="timer-mode" className="absolute inset-0 rounded-full bg-fill-3" transition={springs.snappy} />
+            <motion.span layoutId="timer-mode" className="absolute inset-0 rounded-full bg-secondary-container" transition={springs.snappy} />
           )}
           <span className="relative">{t(modeLabel[m])}</span>
         </button>

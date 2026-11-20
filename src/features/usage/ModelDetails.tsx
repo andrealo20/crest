@@ -73,7 +73,7 @@ export function ModelDetails({ state }: { state: { report: TokenReport | null; l
               key={x.id}
               aria-pressed={tools.has(x.id)}
               onClick={() => toggleTool(x.id)}
-              className={`pressable flex h-6 items-center gap-1 rounded-full px-2 text-caption font-medium transition-colors ${tools.has(x.id) ? "bg-fill-3 text-label" : "bg-fill-1 text-label-3 hover:text-label-2"}`}
+              className={`pressable flex h-6 items-center gap-1 rounded-full px-2 text-caption font-medium transition-colors ${tools.has(x.id) ? "bg-secondary-container text-on-secondary-container" : "bg-fill-1 text-label-3 hover:text-label-2"}`}
             >
               <BrandLogo id={x.id} size={11} />
               {toolNames[x.id]}

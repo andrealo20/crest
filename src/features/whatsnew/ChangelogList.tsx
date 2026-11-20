@@ -23,7 +23,7 @@ export function ChangelogList({ entries, fresh }: { entries: ChangelogEntry[]; f
           <ul className="mt-1 flex flex-col gap-0.5">
             {e.items.map((item, j) => (
               <li key={j} className={`flex gap-2 text-footnote ${item.highlight ? "font-semibold text-label" : "text-label-2"}`}>
-                <span aria-hidden className={`mt-[7px] size-[3px] shrink-0 rounded-full ${item.highlight ? "bg-label" : "bg-label-3"}`} />
+                <span aria-hidden className={`mt-[7px] size-[3px] shrink-0 rounded-full ${item.highlight ? "bg-primary" : "bg-label-3"}`} />
                 <span>{item.en}</span>
               </li>
             ))}

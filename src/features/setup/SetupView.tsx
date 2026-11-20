@@ -66,7 +66,7 @@ export function SetupView() {
         <div className="flex flex-1">{!last && <Button onClick={finish}>{t("Überspringen")}</Button>}</div>
         <div role="img" aria-label={t("Schritt {n} von {m}", { n: state.step + 1, m: STEPS })} className="flex items-center gap-1">
           {Array.from({ length: STEPS }, (_, i) => (
-            <span key={i} className={`h-1.5 rounded-full transition-[width,background-color] duration-200 ${i === state.step ? "w-4 bg-label" : "w-1.5 bg-fill-3"}`} />
+            <span key={i} className={`h-1.5 rounded-full transition-[width,background-color] duration-200 ${i === state.step ? "w-4 bg-primary" : "w-1.5 bg-fill-3"}`} />
           ))}
         </div>
         <div className="flex flex-1 justify-end gap-1.5">
@@ -131,7 +131,7 @@ function PresetStep({ preset, original, onPick }: { preset: PresetId; original: 
                   updateSettings((cur) => ({ tools: cur.tools.map((x) => (x.id === tool.id ? { ...x, enabled: !x.enabled } : x)) }))
                 }
                 className={`pressable flex h-7 items-center gap-1.5 rounded-full px-2.5 text-footnote transition-colors duration-150 ${
-                  tool.enabled ? "bg-fill-3 text-label" : "bg-fill-1 text-label-3 hover:text-label-2"
+                  tool.enabled ? "bg-secondary-container text-on-secondary-container" : "bg-fill-1 text-label-3 hover:text-label-2"
                 }`}
               >
                 <tab.icon size={13} weight={tool.enabled ? "fill" : "bold"} />

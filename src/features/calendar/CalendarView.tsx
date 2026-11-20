@@ -224,11 +224,11 @@ function Month(p: { events: CalendarEvent[]; colors: Map<string, string>; now: n
               onClick={() => p.onPick(c.day)}
               aria-label={new Date(c.day).toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long" })}
               aria-pressed={isPicked}
-              className={`pressable flex h-[26px] flex-col items-center justify-center rounded-[8px] ${isPicked ? "bg-fill-3" : "hover:bg-fill-1"}`}
+              className={`pressable flex h-[26px] flex-col items-center justify-center rounded-[8px] ${isPicked ? "bg-secondary-container" : "hover:bg-fill-1"}`}
             >
               <span
                 className={`tabular flex size-[17px] items-center justify-center rounded-full text-caption leading-none ${
-                  isToday ? "bg-label font-semibold text-black" : c.inMonth ? "text-label" : "text-label-4"
+                  isToday ? "bg-primary font-semibold text-on-primary" : c.inMonth ? "text-label" : "text-label-4"
                 }`}
               >
                 {new Date(c.day).getDate()}

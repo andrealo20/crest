@@ -175,7 +175,7 @@ export function LevelBar(props: { value: number; muted: boolean; label: string; 
         <div
           // Dragging: follow the cursor almost directly. Otherwise (other app, keyboard
           // volume keys) glide to the new level.
-          className={`absolute inset-0 rounded-full transition-[transform,background-color] ${grab ? "duration-75 ease-linear" : "duration-300 ease-out"} ${active ? "bg-label" : "bg-label-2"}`}
+          className={`absolute inset-0 rounded-full transition-[transform,background-color] ${grab ? "duration-75 ease-linear" : "duration-300 ease-out"} ${active ? "bg-primary" : "bg-label-2"}`}
           style={{ transform: `translateX(${(level - 1) * 100}%)` }}
         />
       </div>

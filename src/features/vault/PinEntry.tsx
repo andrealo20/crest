@@ -95,7 +95,7 @@ export function PinEntry(props: {
             <span key={i} className="relative size-3">
               <span className={`absolute inset-0 rounded-full border-[1.5px] ${error && !filled ? "border-red/70" : "border-label-3"}`} />
               <motion.span
-                className="absolute inset-0 rounded-full bg-label"
+                className="absolute inset-0 rounded-full bg-primary"
                 initial={false}
                 animate={{ opacity: filled ? 1 : 0, transform: filled ? "scale(1)" : "scale(0.6)" }}
                 transition={springs.snappy}

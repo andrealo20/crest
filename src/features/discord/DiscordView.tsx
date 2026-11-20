@@ -170,7 +170,7 @@ function Members({ call }: { call: DiscordCall }) {
 
 function RoundButton(props: { label: string; icon: Icon; onClick: () => void; active?: boolean; danger?: boolean }) {
   const I = props.icon;
-  const tone = props.danger ? "bg-red text-label" : props.active ? "bg-label text-notch" : "pressable-fill bg-fill-2 text-label";
+  const tone = props.danger ? "bg-red text-label" : props.active ? "bg-primary text-notch material:text-on-primary" : "pressable-fill bg-fill-2 text-label";
   return (
     <button aria-label={props.label} title={props.label} onClick={props.onClick} className={`pressable flex size-11 items-center justify-center rounded-full ${tone}`}>
       <I size={20} weight="fill" />

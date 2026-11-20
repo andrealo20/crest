@@ -388,7 +388,7 @@ function TaskDetails({ task, onClose }: { task: Task; onClose: () => void }) {
           { value: "1", label: t("Morgen") },
         ]}
       />
-      <button onClick={save} disabled={!parsed} className="pressable h-6 rounded-full bg-label px-2.5 text-caption font-medium text-black disabled:opacity-35">
+      <button onClick={save} disabled={!parsed} className="pressable m3-morph h-6 rounded-full bg-primary px-2.5 text-caption font-medium text-on-primary disabled:opacity-35">
         {t("Erinnern")}
       </button>
       {task.due !== null && (

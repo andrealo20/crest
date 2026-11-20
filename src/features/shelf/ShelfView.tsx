@@ -385,7 +385,7 @@ export function ShelfView() {
                 {(selecting || picked > 0) && (
                   <span
                     className={`pointer-events-none absolute top-1.5 start-1.5 flex size-5 items-center justify-center rounded-full backdrop-blur-md ${
-                      on ? "bg-label text-notch" : "bg-fill-3 text-transparent"
+                      on ? "bg-primary text-notch material:text-on-primary" : "bg-fill-3 text-transparent"
                     }`}
                   >
                     <Check size={10} weight="bold" />

@@ -505,7 +505,7 @@ function Updates() {
             <Row label={t("Version {v} verfügbar", { v: u.version })} hint={t("Lädt, installiert und startet neu")}>
               {u.phase === "downloading" ? (
                 <div className="h-1.5 w-28 overflow-hidden rounded-full bg-fill-2">
-                  <div className="h-full origin-left rtl:origin-right rounded-full bg-label transition-transform duration-150 ease-linear" style={{ transform: `scaleX(${u.progress})` }} />
+                  <div className="h-full origin-left rtl:origin-right rounded-full bg-primary transition-transform duration-150 ease-linear" style={{ transform: `scaleX(${u.progress})` }} />
                 </div>
               ) : (
                 <Button primary onClick={() => void installUpdate()}>
@@ -744,7 +744,7 @@ export function ShortcutRow() {
         <Keyboard size={13} weight="bold" className="text-label-3" />
         {keys ? (
           keycaps(keys).map(keyText).map((k) => (
-            <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">{k}</kbd>
+            <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption material:rounded-[8px] material:bg-fill-3 material:border-b-2 material:border-separator material:font-semibold">{k}</kbd>
           ))
         ) : (
           t("Nicht gesetzt")

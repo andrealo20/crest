@@ -36,13 +36,13 @@ export function Segmented<T extends string>(props: {
             key={o.value}
             onClick={() => props.onChange(o.value)}
             className={`relative rounded-full text-caption font-medium transition-colors duration-150 ${h} ${
-              active ? "text-label" : "text-label-3 hover:text-label-2"
+              active ? "text-on-secondary-container" : "text-label-3 hover:text-label-2"
             }`}
           >
             {active && (
               <motion.span
                 layoutId={`seg-${props.id}`}
-                className="absolute inset-0 rounded-full bg-fill-3"
+                className="absolute inset-0 rounded-full bg-secondary-container"
                 transition={springs.snappy}
               />
             )}
@@ -90,7 +90,7 @@ export function StyleCards<T extends string>(props: {
               pick(i + step);
             }}
             className={`pressable flex flex-col items-center gap-1.5 rounded-[10px] p-2 outline-none transition-colors duration-150 focus-visible:ring-1 focus-visible:ring-label-3 ${
-              active ? "bg-fill-3 text-label" : "bg-fill-2 text-label-3 hover:text-label-2"
+              active ? "bg-secondary-container text-on-secondary-container" : "bg-fill-2 text-label-3 hover:text-label-2"
             }`}
           >
             <span className="flex h-7 w-full items-start justify-center overflow-hidden rounded-[6px] bg-fill-1">{o.preview}</span>
@@ -259,7 +259,7 @@ export function Button(props: {
       disabled={props.disabled}
       className={`pressable flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-footnote font-medium disabled:opacity-35 ${
         props.primary
-          ? "bg-label text-black"
+          ? "bg-primary text-on-primary"
           : "pressable-fill bg-fill-2 text-label"
       }`}
     >

@@ -197,7 +197,7 @@ export function BrightnessTile({ level, busy, hold, onLevel }: { level: number; 
         }}
       >
         <motion.div
-          className="absolute inset-0 origin-left rounded-full bg-label"
+          className="absolute inset-0 origin-left rounded-full bg-primary"
           initial={false}
           animate={{ transform: `scaleX(${level / 100})` }}
           transition={busy.current ? { duration: 0 } : springs.snappy}
@@ -278,7 +278,7 @@ export function VolumeTile({ device, open, onDevices }: { device: string | null;
         }}
       >
         <motion.div
-          className="absolute inset-0 origin-left rounded-full bg-label"
+          className="absolute inset-0 origin-left rounded-full bg-primary"
           initial={false}
           animate={{ transform: `scaleX(${level})` }}
           transition={dragging.current ? { duration: 0 } : springs.snappy}
