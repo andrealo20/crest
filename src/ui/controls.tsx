@@ -8,12 +8,13 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion, type Variants } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
 import { CaretUpDown, Eye, EyeSlash, type Icon } from "@phosphor-icons/react";
 import { design } from "../design/design";
 import { popover, springs } from "../design/motion";
 import { t } from "../i18n";
 import { MENU_PANEL_CLASS, MENU_ROW_CLASS } from "./menu";
+import { filledPress } from "./press";
 import { arrowStep } from "./radioKeys";
 import { sliderKey } from "./sliderKey";
 
@@ -281,7 +282,7 @@ export function TextField(props: {
   }, [props.revealed]);
   return (
     <div
-      className={`flex h-7 items-center gap-1 rounded-[8px] bg-fill-2 px-2 ${props.width ?? "w-44"} ${props.invalid ? "ring-1 ring-red" : ""}`}
+      className={`flex h-7 items-center gap-1 rounded-[8px] bg-fill-2 px-2 material:border material:border-label-3 material:bg-transparent material:focus-within:border-2 material:focus-within:px-[7px] roomy:h-8 ${props.width ?? "w-44"} ${props.invalid ? "ring-1 ring-red material:border-red material:ring-0" : "material:focus-within:border-primary"}`}
     >
       <input
         value={props.value}
@@ -317,7 +318,18 @@ export function TextField(props: {
   );
 }
 
-/** Small text button (secondary) or filled (primary). */
+/** Material's hover shadow and tone layer of a filled or tonal button (global.css .m3-lift). None in Crest, where they would not be absolute and the gap would count them. */
+export function M3Layers() {
+  if (design.use() !== "material") return null;
+  return (
+    <>
+      <span aria-hidden className="m3-shadow" />
+      <span aria-hidden className="m3-tone" />
+    </>
+  );
+}
+
+/** Small text button (secondary, tonal under Material) or filled (primary). */
 export function Button(props: {
   children: ReactNode;
   onClick?: () => void;
@@ -326,19 +338,25 @@ export function Button(props: {
   icon?: Icon;
 }) {
   const I = props.icon;
+  const tap = filledPress(design.use(), useReducedMotion() === true);
+  const press = props.disabled ? {} : tap;
   return (
-    <button
+    <motion.button
       onClick={props.onClick}
       disabled={props.disabled}
-      className={`pressable flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-footnote font-medium disabled:opacity-35 ${
+      {...press}
+      // Motion springs back to the transform it read at rest, and the computed "none" reads as scale(0).
+      style={press.whileTap && { transform: "scale(1)" }}
+      className={`pressable m3-morph m3-lift flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-footnote font-medium disabled:opacity-35 material:disabled:bg-fill-2 material:disabled:text-label-4 material:disabled:opacity-100 roomy:h-8 roomy:px-3 ${
         props.primary
-          ? "bg-primary text-on-primary"
-          : "pressable-fill bg-fill-2 text-label"
+          ? "m3-filled bg-primary text-on-primary"
+          : "pressable-fill bg-fill-2 text-label material:bg-secondary-container material:text-on-secondary-container"
       }`}
     >
+      <M3Layers />
       {I && <I size={13} weight="bold" />}
       {props.children}
-    </button>
+    </motion.button>
   );
 }
 
@@ -464,9 +482,9 @@ export function Slider(props: {
       onKeyUp={props.onRelease}
       onBlur={props.onRelease}
     >
-      <div className="relative h-1 w-full overflow-hidden rounded-full bg-fill-2">
+      <div className="relative h-1 w-full overflow-hidden rounded-full bg-fill-2 material:bg-fill-3">
         <div
-          className="absolute inset-0 origin-left rounded-full bg-label-2"
+          className="absolute inset-0 origin-left rounded-full bg-label-2 material:bg-primary"
           style={{ transform: `scaleX(${ratio})` }}
         />
       </div>
@@ -479,7 +497,7 @@ export function Slider(props: {
         />
       )}
       <span
-        className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_3px_rgb(0_0_0/0.5)]"
+        className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_3px_rgb(0_0_0/0.5)] material:bg-primary material:shadow-none roomy:size-5"
         style={{ left: `${ratio * 100}%` }}
       />
     </div>
@@ -581,6 +599,7 @@ export function Select<T extends string>(props: {
   }, [open]);
 
   const current = props.options.find((o) => o.value === props.value);
+  const style = design.use();
   return (
     <div ref={ref} className={`relative ${props.width ?? "w-28"}`}>
       {props.trigger ? (
@@ -596,7 +615,7 @@ export function Select<T extends string>(props: {
       ) : (
         <button
           onClick={() => setOpen((o) => !o)}
-          className="pressable pressable-fill flex h-7 w-full items-center justify-between gap-1 rounded-[8px] bg-fill-2 px-2 text-footnote text-label"
+          className="pressable pressable-fill flex h-7 w-full items-center justify-between gap-1 rounded-[8px] bg-fill-2 px-2 text-footnote text-label material:rounded-full roomy:h-8"
         >
           <span className="truncate" style={current?.font ? { fontFamily: current.font } : undefined}>
             {current?.label}
@@ -626,7 +645,7 @@ export function Select<T extends string>(props: {
               }}
               initial={{
                 opacity: 0,
-                transform: `scale(0.96) translateY(${pos.up ? 2 : -2}px)`,
+                transform: `scale(${style === "material" ? 0.8 : 0.96}) translateY(${pos.up ? 2 : -2}px)`,
               }}
               animate={{
                 opacity: 1,
@@ -648,7 +667,7 @@ export function Select<T extends string>(props: {
                   }}
                   // A row is one line: a long window title is cut, and shown whole on hover.
                   title={o.label}
-                  className={`${MENU_ROW_CLASS} ${o.value === props.value ? "text-label" : "text-label-2"}`}
+                  className={`${MENU_ROW_CLASS} ${o.value === props.value ? "text-label material:bg-secondary-container material:text-on-secondary-container" : "text-label-2"}`}
                 >
                   <span className="truncate" style={o.font ? { fontFamily: o.font } : undefined}>
                     {o.label}

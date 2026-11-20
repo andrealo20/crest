@@ -73,6 +73,14 @@ body {
   /* Material's curves: emphasized decelerate for the press and the ease-out fades, standard for Tailwind's transition utilities. */
   --ease-out: cubic-bezier(0.05, 0.7, 0.1, 1);
   --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  /* The state layer's opacities, which a button on a dark theme sets to zero for its tone layer (.m3-tone below). */
+  --m3-state-hover: 0.08;
+  --m3-state-focus: 0.1;
+  --m3-state-press: 0.1;
+}
+/* Motion springs the press of a filled button (press.ts): a CSS transition on transform would chase every frame of it. */
+[data-design="material"] .m3-morph {
+  transition-property: background-color, color, opacity;
 }
 
 /* Material's classes, after @import "tailwindcss" so they compile: material:rounded-full wins over rounded-[8px] under Material
@@ -139,15 +147,15 @@ body {
   /* Tailwind's hover: does not ask for a fine pointer, so a tap would leave the veil on. */
   @media (hover: hover) and (pointer: fine) {
     [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill):hover::after {
-      opacity: 0.08;
+      opacity: var(--m3-state-hover);
     }
   }
   [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill):focus-visible::after {
-    opacity: 0.1;
+    opacity: var(--m3-state-focus);
     transition-duration: 45ms;
   }
   [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill):active::after {
-    opacity: 0.1;
+    opacity: var(--m3-state-press);
     transition-duration: 75ms;
   }
   [data-design="material"] :is(.pressable[class*="rounded"], .pressable-fill):is(:disabled, [aria-disabled="true"])::after {
@@ -197,6 +205,43 @@ body {
       opacity: 1;
       transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     }
+  }
+
+  /* On a dark theme the state layer, the content's colour, would darken a filled button below its tone at rest. A white layer under
+     the content lifts it instead. Present on light themes too, out of the flow, so a button's content sits the same on both. */
+  [data-design="material"][data-theme="dark"] .m3-lift {
+    --m3-state-hover: 0;
+    --m3-state-focus: 0;
+    --m3-state-press: 0;
+    --m3-tone-hover: 0.12;
+    --m3-tone-press: 0.16;
+  }
+  /* primary sits darker than its container in the tonal palette, so it takes more white for the same rise. */
+  [data-design="material"][data-theme="dark"] .m3-lift.m3-filled {
+    --m3-tone-hover: 0.16;
+    --m3-tone-press: 0.24;
+  }
+  [data-design="material"] .m3-lift > .m3-tone {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: #fff;
+    opacity: 0;
+    transition: opacity 120ms cubic-bezier(0.4, 0, 0.6, 1);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    [data-design="material"][data-theme="dark"] .m3-lift:hover:not(:disabled) > .m3-tone {
+      opacity: var(--m3-tone-hover);
+      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  }
+  [data-design="material"][data-theme="dark"] .m3-lift:active:not(:disabled) > .m3-tone {
+    opacity: var(--m3-tone-press);
+  }
+  [data-design="material"] .m3-morph:active:not(:disabled) > .m3-tone {
+    border-radius: var(--m3-pressed-radius, 8px);
   }
 }
 

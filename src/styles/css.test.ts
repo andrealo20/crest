@@ -58,3 +58,46 @@ test("nothing macOS 12 cannot read: no linear() easing and no color-mix()", () =
   assert.doesNotMatch(css, /linear\(/);
   assert.doesNotMatch(css, /color-mix\(/);
 });
+
+const LAYER = "@layer components";
+
+test("the tone layer sits in the components layer, fades only its opacity, and turns visible only on dark themes", () => {
+  const tones = rules(css).filter((r) => r.selector.includes(".m3-tone"));
+  assert.ok(tones.length >= 3, "no tone layer rules");
+  for (const r of tones) {
+    assert.ok(r.parents.includes(LAYER), `${r.selector} is outside ${LAYER}`);
+    // Only the opacity moves: a transition on anything else would repaint, and the pressed corners snap with the button's own.
+    const transition = /(?:^|[\s;])transition(?:-property)?\s*:([^;]*)/.exec(r.body);
+    if (transition) assert.doesNotMatch(transition[1], /transform|box-shadow|background|border-radius|all/, r.selector);
+    if (/:hover|:active/.test(r.selector) && /opacity\s*:/.test(r.body))
+      for (const [, prop] of r.body.matchAll(/([\w-]+)\s*:/g)) assert.match(prop, /^(opacity|transition-[\w-]+)$/, `${r.selector} sets ${prop}`);
+  }
+  const base = tones.filter((r) => /position\s*:\s*absolute/.test(r.body) && /opacity\s*:\s*0\s*;/.test(r.body));
+  assert.deepEqual(base.map((r) => r.selector), ['[data-design="material"] .m3-lift > .m3-tone']);
+  for (const r of tones.filter((r) => /opacity\s*:\s*var\(--m3-tone-/.test(r.body)))
+    assert.ok(r.selector.includes('[data-theme="dark"]'), `${r.selector} shows the tone on light themes`);
+  for (const r of tones.filter((r) => r.selector.includes("[data-theme")))
+    assert.match(r.selector, /:hover|:active/, `${r.selector} is neither the hover nor the press`);
+});
+
+test("the state layer reads its opacities from the variables a dark button sets to zero", () => {
+  const layers = rules(css).filter(
+    (r) => r.selector.includes(".pressable-fill)") && r.selector.endsWith("::after") && /:hover|:focus-visible|:active/.test(r.selector) && /opacity\s*:/.test(r.body),
+  );
+  assert.ok(layers.length >= 3, "no state layer rules");
+  for (const r of layers) {
+    const state = r.selector.includes(":hover") ? "hover" : r.selector.includes(":focus-visible") ? "focus" : "press";
+    assert.match(r.body, new RegExp(`opacity\\s*:\\s*var\\(--m3-state-${state}[,)]`), r.selector);
+  }
+});
+
+test("a morphing button leaves its transform to Motion's spring, outside the layers so it wins over .pressable", () => {
+  const morph = rules(css).filter((r) => r.selector === '[data-design="material"] .m3-morph' && !r.parents.includes(LAYER) && /transition-property\s*:/.test(r.body));
+  assert.equal(morph.length, 1, "no unlayered .m3-morph transition-property");
+  assert.doesNotMatch(/transition-property\s*:([^;]*)/.exec(morph[0].body)![1], /transform|all/);
+});
+
+test("the menus take Material's corners and elevation without the ring", () => {
+  const menu = readFileSync(join(import.meta.dirname, "../ui/menu.ts"), "utf8");
+  for (const c of ["material:rounded-[16px]", "material:shadow-level2", "material:ring-0"]) assert.ok(menu.includes(c), c);
+});
