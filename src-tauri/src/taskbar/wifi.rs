@@ -3,8 +3,9 @@
 //!
 //! Windows asks the user's location consent for every call of that namespace. `taskbar_wifi_scan` only reads it (`CheckAccess`,
 //! which never prompts), and only `taskbar_wifi_allow`, run by a click on the page, may show Windows' prompt
-//! (`RequestAccessAsync`). The password passes once, into Windows' credential, and is never logged nor put in an error: every
-//! answer is a fixed word ("denied", "settings", "none", "unavailable", "password", "timeout", "failed").
+//! (`RequestAccessAsync`). Stato's signal (sysevents.rs) is followed only once `checked` reads allowed. The password passes once,
+//! into Windows' credential, and is never logged nor put in an error: every answer is a fixed word ("denied", "settings", "none",
+//! "unavailable", "password", "timeout", "failed").
 //!
 //! Only bars call these (`bar::from_bar`, the notch refused too). The Store package declares no `wiFiControl`, so there each
 //! command answers "settings" (the bar never runs there anyway).
@@ -138,8 +139,8 @@ async fn run<T: Send + 'static>(job: impl FnOnce() -> Result<T, &'static str> + 
     crate::quick::blocking(job).await.map_err(|_| "failed".to_string())?.map_err(String::from)
 }
 
-/// Windows' consent, read without prompting.
-fn checked() -> &'static str {
+/// Windows' consent, read without prompting: by the page, and by sysevents.rs before it follows Stato's signal.
+pub(crate) fn checked() -> &'static str {
     AppCapability::Create(&HSTRING::from("wiFiControl")).and_then(|c| c.CheckAccess()).map(|s| access_word(s, GRANTED.load(Ordering::Relaxed))).unwrap_or("denied")
 }
 
@@ -225,6 +226,7 @@ pub async fn taskbar_wifi_allow(window: WebviewWindow) -> Result<String, String>
     guard(&window)?;
     let word = run(|| WiFiAdapter::RequestAccessAsync().and_then(|op| op.join()).map(request_word).map_err(|_| "failed")).await?;
     GRANTED.store(word == "allowed", Ordering::Relaxed);
+    crate::sysevents::consent_changed();
     Ok(word.into())
 }
 

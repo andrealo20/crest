@@ -13,6 +13,8 @@
 //! The Bluetooth watcher and the volume and microphone callbacks run only while their alerts are on (`status_configure`).
 //! The bar's Stato item reads the network in use, the Wi-Fi radio and the volume only while a bar shows it (`status_bar`): the radios
 //! are watched then, and the volume callback runs for it even with its alert off (`status://network`, `status://sound`).
+//! Then too, once Windows' location consent for Crest reads allowed (wifi.rs `checked`), the Wi-Fi in use's signal is followed
+//! through wlanapi's signal quality notification (`watch_signal`); without it the bars move with network events only.
 //! Do Not Disturb has no public change event either: a thread reads it every `FOCUS_POLL` while its alert is on and can show. Airplane
 //! mode has none that is documented: a thread waits on its registry key. The power mode and the battery's report call back on their own.
 //! Changes Crest makes itself (the output device, Do Not Disturb, the power plan) are marked with `own` and not told back.
@@ -28,7 +30,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
-use windows::core::{implement, w, GUID, PCWSTR, PWSTR};
+use windows::core::{implement, s, w, BOOL, GUID, PCWSTR, PWSTR};
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW, CM_Locate_DevNodeW, CM_GETIDLIST_FILTER_ENUMERATOR,
     CM_GETIDLIST_FILTER_PRESENT, CM_LOCATE_DEVNODE_NORMAL, CR_SUCCESS,
@@ -45,6 +47,10 @@ use windows::Devices::Enumeration::{DeviceInformation, DeviceInformationKind, De
 use windows_collections::IIterable;
 use windows::Foundation::{IPropertyValue, TypedEventHandler};
 use windows::Networking::Connectivity::{NetworkConnectivityLevel, NetworkInformation, NetworkStatusChangedEventHandler};
+use windows::Win32::NetworkManagement::WiFi::{
+    wlan_notification_msm_signal_quality_change, L2_NOTIFICATION_DATA, WLAN_API_VERSION_2_0, WLAN_NOTIFICATION_CALLBACK, WLAN_NOTIFICATION_SOURCES,
+    WLAN_NOTIFICATION_SOURCE_MSM,
+};
 use windows::Win32::Foundation::{DEVPROPKEY, HANDLE, HWND, LPARAM, LRESULT, PROPERTYKEY, WPARAM};
 use windows::Win32::System::Com::StructuredStorage::{PropVariantToStringAlloc, PropVariantToUInt32};
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ};
@@ -52,7 +58,7 @@ use windows::Win32::System::Registry::{
     RegNotifyChangeKeyValue, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_LOCAL_MACHINE, KEY_NOTIFY, KEY_QUERY_VALUE, REG_DWORD, REG_NOTIFY_CHANGE_LAST_SET, REG_VALUE_TYPE,
 };
 use windows::Win32::System::SystemInformation::GetTickCount64;
-use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress, LoadLibraryExW, LOAD_LIBRARY_SEARCH_SYSTEM32};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetAsyncKeyState, GetKeyState, VIRTUAL_KEY, VK_CAPITAL, VK_CONTROL, VK_INSERT, VK_LWIN, VK_MENU, VK_NUMLOCK, VK_RWIN, VK_SHIFT,
 };
@@ -117,6 +123,8 @@ const WM_MIC: u32 = WM_APP + 8;
 const WM_MICDEV: u32 = WM_APP + 9;
 /// Windows' effective power mode changed (wParam the mode), from its own callback thread.
 const WM_MODE: u32 = WM_APP + 10;
+/// The Wi-Fi in use's signal quality changed (`watch_signal`), from wlanapi's notification thread.
+const WM_SIGNAL: u32 = WM_APP + 11;
 /// The sources the settings want on; all until the frontend says otherwise.
 static SOURCES: AtomicUsize = AtomicUsize::new(SRC_BT | SRC_VOLUME | SRC_MIC);
 
@@ -347,6 +355,7 @@ fn run(app: AppHandle) {
         let mut volume_alert = sources & SRC_VOLUME != 0;
         let mut bar_on = false;
         let mut radios: Vec<(Radio, i64)> = Vec::new();
+        let mut signal: Option<Signal> = None;
         let mut volume_on = volume_alert;
         let mut volume = devices.as_ref().filter(|_| volume_on).and_then(|d| watch_level(d, eRender, &volume_client));
         let mut last_volume = volume.as_ref().map(|v| v.1);
@@ -548,10 +557,16 @@ fn run(app: AppHandle) {
                             send_sound(&app, last_volume);
                         } else {
                             unwatch_radios(std::mem::take(&mut radios));
+                            signal = None;
                             let mut s = seed();
                             s.network = None;
                             s.sound = None;
                         }
+                    }
+                    // The Wi-Fi signal while Stato shows, from the moment the location consent reads allowed: looked at on each
+                    // WM_SOURCES, which the Wi-Fi page's consent posts too (`consent_changed`).
+                    if bar_on && signal.is_none() {
+                        signal = watch_signal(h);
                     }
                     if (sources & SRC_MIC != 0) != mic_on {
                         mic_on = !mic_on;
@@ -564,6 +579,8 @@ fn run(app: AppHandle) {
                         last_mic = mic.as_ref().map(|m| m.1 .1);
                     }
                 }
+                // The Wi-Fi's signal changed: read at once, not through the network's 2 s settle, which a steady run of these would keep pushing back.
+                WM_SIGNAL if bar_on => send_network(&app, &radios),
                 _ => {
                     DispatchMessageW(&msg);
                 }
@@ -736,6 +753,63 @@ fn send_sound(app: &AppHandle, level: Option<Level>) {
         seed().sound = now;
         let _ = app.emit("status://sound", now);
     }
+}
+
+type WlanOpen = unsafe extern "system" fn(u32, *const c_void, *mut u32, *mut HANDLE) -> u32;
+type WlanRegister = unsafe extern "system" fn(HANDLE, WLAN_NOTIFICATION_SOURCES, BOOL, WLAN_NOTIFICATION_CALLBACK, *const c_void, *const c_void, *mut u32) -> u32;
+type WlanClose = unsafe extern "system" fn(HANDLE, *const c_void) -> u32;
+
+/// The signal watch: its WLAN client handle, whose closing ends the notification, with wlanapi's close.
+struct Signal {
+    handle: HANDLE,
+    close: WlanClose,
+}
+
+impl Drop for Signal {
+    /// On the loop's thread, never in the callback, where closing would wait on itself.
+    fn drop(&mut self) {
+        unsafe { (self.close)(self.handle, std::ptr::null()) };
+    }
+}
+
+/// The Wi-Fi in use's signal for Stato, from wlanapi's signal quality notification (MSM source). Windows lets an app register for
+/// that source only with its location consent (the `wiFiControl` capability) and may bring up its one-time prompt for one without
+/// it, which only the Wi-Fi page's click may: so nothing is looked up until that consent reads allowed (wifi.rs `checked`, which
+/// never prompts). wlanapi.dll is looked up at run time, as hw.rs looks up nvml.dll, so a Windows without it still starts Crest.
+/// None without the consent, the DLL or a running WLAN service.
+fn watch_signal(h: isize) -> Option<Signal> {
+    if crate::taskbar::wifi::checked() != "allowed" {
+        return None;
+    }
+    unsafe {
+        // Stays loaded: the close and the notification's caller live in it.
+        let lib = LoadLibraryExW(w!("wlanapi.dll"), None, LOAD_LIBRARY_SEARCH_SYSTEM32).ok()?;
+        let open: WlanOpen = std::mem::transmute(GetProcAddress(lib, s!("WlanOpenHandle"))?);
+        let register: WlanRegister = std::mem::transmute(GetProcAddress(lib, s!("WlanRegisterNotification"))?);
+        let close: WlanClose = std::mem::transmute(GetProcAddress(lib, s!("WlanCloseHandle"))?);
+        let (mut version, mut handle) = (0u32, HANDLE::default());
+        if open(WLAN_API_VERSION_2_0, std::ptr::null(), &mut version, &mut handle) != 0 {
+            return None;
+        }
+        let signal = Signal { handle, close };
+        // Duplicates ignored: one change, one message. A refusal drops `signal`, which closes the handle.
+        (register(handle, WLAN_NOTIFICATION_SOURCE_MSM, true.into(), Some(on_wlan), h as *const c_void, std::ptr::null(), std::ptr::null_mut()) == 0).then_some(signal)
+    }
+}
+
+/// wlanapi's notification thread: only a change of the connected network's signal quality wakes the loop.
+unsafe extern "system" fn on_wlan(data: *mut L2_NOTIFICATION_DATA, context: *mut c_void) {
+    if let Some(d) = unsafe { data.as_ref() } {
+        if is_signal(d.NotificationSource, d.NotificationCode) {
+            let _ = unsafe { PostMessageW(Some(HWND(context)), WM_SIGNAL, WPARAM(0), LPARAM(0)) };
+        }
+    }
+}
+
+/// The signal quality notification (wlanapi.h `wlan_notification_msm_signal_quality_change`), told apart from the other MSM codes and
+/// from the same number in another source.
+fn is_signal(source: WLAN_NOTIFICATION_SOURCES, code: u32) -> bool {
+    source == WLAN_NOTIFICATION_SOURCE_MSM && code == wlan_notification_msm_signal_quality_change.0 as u32
 }
 
 /// Runs on an audio service thread: it only tells the loop that the default output or microphone changed.
@@ -1021,6 +1095,14 @@ pub fn status_bar(on: bool) {
     }
 }
 
+/// The Wi-Fi page's consent prompt answered (wifi.rs `taskbar_wifi_allow`): the loop looks again whether it may follow the Wi-Fi signal.
+pub(crate) fn consent_changed() {
+    let h = LOOP.load(Ordering::SeqCst);
+    if h != 0 {
+        let _ = unsafe { PostMessageW(Some(HWND(h as _)), WM_SOURCES, WPARAM(0), LPARAM(0)) };
+    }
+}
+
 const LOCK_POLL: Duration = Duration::from_millis(150);
 static LOCKS_ON: AtomicBool = AtomicBool::new(false);
 /// The Insert alert is on and can show; the lock poll then runs for it too.
@@ -1178,6 +1260,27 @@ unsafe fn airplane(key: HKEY) -> Option<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_the_signal_quality_notification_wakes_the_loop() {
+        use windows::Win32::NetworkManagement::WiFi::{wlan_notification_acm_scan_fail, wlan_notification_msm_disconnected, WLAN_NOTIFICATION_SOURCE_ACM};
+        let quality = wlan_notification_msm_signal_quality_change.0 as u32;
+        assert!(is_signal(WLAN_NOTIFICATION_SOURCE_MSM, quality));
+        assert_eq!(wlan_notification_acm_scan_fail.0 as u32, quality); // the same number from the ACM source is a failed scan
+        assert!(!is_signal(WLAN_NOTIFICATION_SOURCE_ACM, quality));
+        assert!(!is_signal(WLAN_NOTIFICATION_SOURCE_MSM, wlan_notification_msm_disconnected.0 as u32));
+    }
+
+    #[test]
+    fn the_signal_is_registered_only_once_the_location_consent_reads_allowed() {
+        // The module's code above its tests, read as text: watch_signal reads the consent before it looks up the registration, and the
+        // loop is its only caller (Windows may prompt for the MSM source; only the Wi-Fi page's click may bring that prompt up).
+        let src = include_str!("sysevents.rs");
+        let code = &src[..src.find("#[cfg(test)]").unwrap()];
+        let body = &code[code.find("fn watch_signal").unwrap()..];
+        assert!(body.find("checked() != \"allowed\"").unwrap() < body.find("s!(\"WlanRegisterNotification\")").unwrap());
+        assert_eq!(code.matches("watch_signal(").count(), 2); // its definition and the loop's one call
+    }
 
     #[test]
     fn the_output_icon_follows_the_form_factor() {
