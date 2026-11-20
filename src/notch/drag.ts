@@ -18,7 +18,10 @@ const THRESHOLD = 6;
 /** The notch snaps to the center when close to it. */
 const SNAP = 24;
 
-/** display.offset and display.y are saved at 100 % scale; the page works in CSS px of the current scale. */
+/**
+ * display.offset and display.y are saved at 100 % scale; the page works in CSS px of the current scale. Windows' Text size is not taken
+ * out (text_scale.rs): above 100 % a saved place lands that much further from the centre or the top, as everything Crest draws grows.
+ */
 const pageCss = (saved: number) => toPageCss(saved, settings.get().behavior.scale);
 
 type Style = "notch" | "capsule" | "line";

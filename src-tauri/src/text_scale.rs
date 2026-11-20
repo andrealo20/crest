@@ -20,10 +20,12 @@ pub fn get() -> f64 {
     now
 }
 
-/// Reads the setting again; true when it changed.
-pub fn refresh() -> bool {
+/// Reads the setting again; the old and the new factor when it changed.
+pub fn refresh() -> Option<(f64, f64)> {
+    let old = get();
     let now = factor(read());
-    f64::from_bits(FACTOR.swap(now.to_bits(), Ordering::Relaxed)) != now
+    FACTOR.store(now.to_bits(), Ordering::Relaxed);
+    (now != old).then_some((old, now))
 }
 
 /// The registry value as a factor. Settings writes 100 to 225 and nothing at 100 %; anything else is clamped into that range.

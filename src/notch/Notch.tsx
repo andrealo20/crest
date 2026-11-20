@@ -497,7 +497,7 @@ export function Notch() {
   }, [themes.glass]);
   // Moved, rescaled or on another monitor while open: the copy no longer lies under the window. Before the effect below, so a drag's
   // release asks once.
-  const place = `${placementKey()}|${displaySettings.offset}|${behavior.scale}`;
+  const place = `${placementKey()}|${displaySettings.offset}|${behavior.scale}|${view.dpr}`;
   const lastPlace = useRef(place);
   useEffect(() => {
     if (lastPlace.current === place) return;

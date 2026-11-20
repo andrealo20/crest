@@ -823,7 +823,7 @@ function Display() {
   useEffect(() => {
     void display.monitors().then(setMonitors);
   }, []);
-  const label = (m: MonitorInfo, i: number) => `${m.primary ? t("Hauptbildschirm") : t("Bildschirm {n}", { n: i + 1 })} · ${m.width}×${m.height}`;
+  const label = (m: MonitorInfo, i: number) => `${m.primary ? t("Hauptbildschirm") : t("Bildschirm {n}", { n: i + 1 })} · ${Math.round(m.width)}×${Math.round(m.height)}`;
 
   return (
     <Group id="settings-display">
