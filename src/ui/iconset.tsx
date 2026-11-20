@@ -62,7 +62,7 @@ export * from "@phosphor-icons/react";
  * IconBase so that size, color, mirrored, alt and the rest behave the same: bold is the outline at weight 500, regular the outline at
  * 300, fill the filled shape, and duotone the outline with the filled shape at 20 %, as Phosphor draws it.
  */
-function material(Ph: Icon, name: string): Icon {
+export function material(Ph: Icon, name: string): Icon {
   const glyph = MATERIAL_NAMES[name];
   const [outline, fill] = PATHS[glyph];
   // The same two paths at every weight, so a change of weight fades one into the other (.icon-fade in global.css, which keeps time

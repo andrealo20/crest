@@ -56,6 +56,14 @@ test("iconset.tsx redraws every mapped name from the Phosphor icon of that name"
   const code = read("iconset.tsx");
   const drawn = new Set([...code.matchAll(/export const (\w+) = material\(Ph(\w+), "(\w+)"\);/g)].filter(([, a, b, c]) => a === b && b === c).map((m) => m[1]));
   const alias = new Map([...code.matchAll(/export const (\w+) = (\w+);/g)].map((m) => [m[1], m[2]]));
-  const missing = Object.keys(MATERIAL_NAMES).filter((name) => !drawn.has(name) && !drawn.has(alias.get(name) ?? ""));
+  // Crest's own icons (icons.tsx) are redrawn by make(), from their own name.
+  const own = new Set([...read("icons.tsx").matchAll(/export const (\w+) = make\("(\w+)"/g)].filter(([, a, b]) => a === b).map((m) => m[1]));
+  const missing = Object.keys(MATERIAL_NAMES).filter((name) => !drawn.has(name) && !drawn.has(alias.get(name) ?? "") && !own.has(name));
   assert.deepEqual(missing, []);
+});
+
+test("Crest's own icons have a Material Symbol too: memory, a board and a rising line", () => {
+  const own = [...read("icons.tsx").matchAll(/export const (\w+) = make\(/g)].map((m) => m[1]);
+  assert.deepEqual(Object.fromEntries(own.map((name) => [name, MATERIAL_NAMES[name]])), { RamIcon: "memory_alt", GpuIcon: "developer_board", DepotIcon: "trending_up" });
+  assert.match(read("icons.tsx"), /return material\(/);
 });
