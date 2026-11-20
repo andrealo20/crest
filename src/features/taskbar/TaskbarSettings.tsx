@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Reorder } from "motion/react";
 import { AppWindow, CaretUp, DotsSixVertical, WarningCircle, WifiHigh } from "@phosphor-icons/react";
 import { CaretDown } from "@phosphor-icons/react";
+import { design } from "../../design/design";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { liveSupport } from "../../notch/glass/live";
@@ -276,6 +277,7 @@ export function TaskbarApps() {
 export function TaskbarLook() {
   const { shape, height, iconSize, surface, transparency, glass, glassLook, autoHide } = settings.use().taskbar;
   const theme = activeTheme.use();
+  const appDesign = design.use();
   // The glass's switch only where the live glass can run (src/notch/glass/live.ts), as in Notch → Themes.
   const support = liveSupport.use(), live = !isMac && support?.supported === true;
   const plus = barLook({ glass, glassLook }, live) === "plus";
@@ -293,6 +295,9 @@ export function TaskbarLook() {
   const seen = Math.round((1 - barVeil({ transparency, glass: glass && live, reduced: false, ...veils })) * 100);
   return (
     <Group id="settings-taskbar-look">
+      <Row icon="style" label={t("Stil")} hint={t("Gilt für die ganze App; ändern unter Themen")}>
+        <Button onClick={() => nav.set({ tabId: "settings", section: "design" })}>{appDesign === "material" ? "Material" : "Crest"}</Button>
+      </Row>
       <Row icon="rounded_corner" label={t("Form")}>
         <Segmented
           id="taskbar-shape"
