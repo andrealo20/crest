@@ -65,7 +65,13 @@ export function statusParts(s: BarStatus): [string, Record<string, string | numb
 
 /** Stato's glyphs at the tray's icon size, two thirds of the app icon (design 5.2). */
 export const glyphSize = trayIcon;
-/** Stato's width for `count` glyphs, the battery among them at its own width: the glyphs 4 px apart, with the 8 px a bar button
- *  keeps on each side. */
-export const statusWidth = (size: number, count: number, battery: boolean) =>
-  (count - (battery ? 1 : 0)) * glyphSize(size) + (battery ? batteryWidth(glyphSize(size)) : 0) + (count - 1) * 4 + 16;
+/** Stato's pill for a bar `height` tall: 70 % of it on an even number of px, so the glyphs centre on whole pixels, and a third of
+ *  its own height on each side of the glyphs. */
+export const statusPill = (height: number) => {
+  const h = 2 * Math.round(height * 0.35);
+  return { height: h, pad: Math.round(h / 3) };
+};
+/** Stato's width for `count` glyphs, the battery among them at its own width: the glyphs 4 px apart, inside the pill's sides for a
+ *  bar `height` tall. The pill is the whole button, so the bar's fit measures exactly this. */
+export const statusWidth = (size: number, count: number, battery: boolean, height: number) =>
+  (count - (battery ? 1 : 0)) * glyphSize(size) + (battery ? batteryWidth(glyphSize(size)) : 0) + (count - 1) * 4 + 2 * statusPill(height).pad;

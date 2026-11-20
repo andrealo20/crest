@@ -305,6 +305,7 @@ export function TaskbarWindow() {
       return (
         <Status
           size={size}
+          height={height}
           item={item}
           tile={tile}
           expanded={open?.content.kind === "quick"}
