@@ -69,6 +69,11 @@
     --glass-caution 500ms ease;
 }
 
+/* A change of style crossfades as one picture (store.ts apply()); the colours blending underneath would show through it. */
+:root[data-design-switching] {
+  transition: none;
+}
+
 /*
  * The cover tint (Settings, Themes): a glow of the cover colour from the panel's top, behind the
  * content, so text keeps the theme's contrast. Only opacity and a registered colour move, no blur.

@@ -47,7 +47,16 @@ export function createStore<T>(state: T, opts: { persist?: string } = {}) {
   return store;
 }
 export const useMemo = <T>(make: () => T) => make();
-export const isNotchWindow = false;
+/** A let, so a test can make this page the notch's: store.ts reads the live binding. */
+export let isNotchWindow = false;
+const beNotch = (on: boolean) => void (isNotchWindow = on);
+/** The colours the notch gave the settings window to open in. */
+const backgrounds: string[] = [];
+export const settingsWindow = { background: async (color: string) => void backgrounds.push(color) };
+export const flushSync = (write: () => void) => write();
+/** Off: apply() writes at once. On: a change of style goes through document.startViewTransition, as on an engine that has it. */
+let crossfades = false;
+export const wantsViewTransition = (from: string | undefined, to: string) => crossfades && from !== to;
 export const themeFiles = {};
 /** The system's answer to systemAccent.get(), given when a test says so, and the listener store.ts gives the event. */
 let answer: (a: unknown) => void = () => {};
@@ -142,4 +151,62 @@ test("apply() draws again when the Style or the system's contrast changes, and t
   assert.deepEqual(seen().slice(7), [FONTS.georgia, FONTS.georgia, 0, true]);
   pick("crest");
   assert.deepEqual(seen().slice(7), [FONTS.georgia, FONTS.georgia, 0.11, false]);
+});
+
+test("the notch alone tells the settings window its background, and only when --color-notch changes", async () => {
+  const store = (await import("./store.ts")) as typeof import("./store");
+  const theme = (id: string) => settings.set({ ...settings.get(), themes: { ...settings.get().themes, id } });
+  store.startThemes();
+  pick("material");
+  theme("dark");
+  assert.deepEqual(backgrounds, []);
+  beNotch(true);
+  theme("light");
+  assert.deepEqual(backgrounds, [vars["--color-notch"]]);
+  // More contrast draws again with a new primary on the same background: nothing new to send.
+  const primary = vars["--color-primary"];
+  more.matches = !more.matches;
+  more.change();
+  assert.notEqual(vars["--color-primary"], primary);
+  assert.equal(backgrounds.length, 1);
+  theme("dark");
+  assert.equal(backgrounds.length, 2);
+  assert.notEqual(backgrounds[1], backgrounds[0]);
+  assert.equal(backgrounds[1], vars["--color-notch"]);
+  beNotch(false);
+});
+
+test("a crossfade draws in its callback, and one that runs after a newer apply() leaves that one on screen", async () => {
+  const store = (await import("./store.ts")) as typeof import("./store");
+  store.startThemes();
+  pick("crest");
+  const crestNotch = vars["--color-notch"];
+  const pending: (() => void)[] = [];
+  let finish = () => {};
+  Object.assign(document, {
+    startViewTransition(update: () => void) {
+      pending.push(update);
+      return { finished: new Promise<void>((done) => (finish = done)) };
+    },
+  });
+  crossfades = true;
+  pick("material");
+  // Nothing drawn until the engine calls back, and the colours' blend is off meanwhile.
+  assert.equal(dataset.design, "crest");
+  assert.equal(dataset.designSwitching, "");
+  pending.shift()!();
+  assert.equal(dataset.design, "material");
+  finish();
+  await settle();
+  assert.equal("designSwitching" in dataset, false);
+  crossfades = false;
+  pick("crest");
+  crossfades = true;
+  // Material, then back to Crest before the engine calls back: Crest draws at once, and the late callback must not bring Material back.
+  pick("material");
+  pick("crest");
+  pending.forEach((update) => update());
+  assert.equal(dataset.design, "crest");
+  assert.equal(vars["--color-notch"], crestNotch);
+  crossfades = false;
 });

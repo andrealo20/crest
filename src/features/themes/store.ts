@@ -1,10 +1,13 @@
 import { useMemo } from "react";
+import { flushSync } from "react-dom";
 import { createStore } from "../../lib/store";
 import { isNotchWindow } from "../../lib/windowKind";
 import { systemAccent, themeFiles, type SystemAccent } from "../../platform/services";
+import { settingsWindow } from "../../platform/native";
 import { settings, updateSettings } from "../../settings/store";
 import { design, type Design } from "../../design/design";
 import { setMotionDesign } from "../../design/motion";
+import { wantsViewTransition } from "../../design/viewTransition";
 import { activeThemeId, chooseTheme, nextChange } from "./daynight";
 import { record, startHistory, undo, type History } from "./history";
 import { materialInk, resolveMaterial } from "./material";
@@ -69,6 +72,7 @@ const darkScheme = typeof matchMedia === "function" ? matchMedia("(prefers-color
 const pageDesign = import.meta.env.DEV ? new URLSearchParams(location.search).get("design") : null;
 
 let lastKey = "";
+let lastNotch = "";
 function apply() {
   const file = draft.get()?.present ?? savedTheme();
   const style: Design = pageDesign === "material" || pageDesign === "crest" ? pageDesign : settings.get().themes.design;
@@ -79,14 +83,29 @@ function apply() {
   const contrast = more ? 1 : 0;
   const resolved = style === "material" ? resolveMaterial(file, { contrast }) : resolveTheme(file);
   const root = document.documentElement;
-  for (const [name, value] of Object.entries(resolved.vars)) root.style.setProperty(name, value);
-  root.dataset.theme = resolved.dark ? "dark" : "light";
-  root.dataset.design = style;
-  setMotionDesign(style);
-  design.set(style);
-  // Before activeTheme, whose listeners (the glass) read the ink.
-  inkTheme.set(style === "material" ? materialInk(file, { contrast }) : DARK);
-  activeTheme.set(resolved);
+  const write = () => {
+    // A crossfade's callback waits for a frame; a newer apply() in between has already drawn what is due.
+    if (key !== lastKey) return;
+    for (const [name, value] of Object.entries(resolved.vars)) root.style.setProperty(name, value);
+    root.dataset.theme = resolved.dark ? "dark" : "light";
+    root.dataset.design = style;
+    setMotionDesign(style);
+    design.set(style);
+    // Before activeTheme, whose listeners (the glass) read the ink.
+    inkTheme.set(style === "material" ? materialInk(file, { contrast }) : DARK);
+    activeTheme.set(resolved);
+  };
+  if (wantsViewTransition(root.dataset.design as Design | undefined, style, typeof document.startViewTransition === "function")) {
+    // Without the colours' own 500 ms blend under the crossfade, and with React's new tree drawn inside the callback, not after the snapshot.
+    root.dataset.designSwitching = "";
+    document.startViewTransition(() => flushSync(write)).finished.finally(() => delete root.dataset.designSwitching);
+  } else write();
+  const notch = resolved.vars["--color-notch"];
+  // The notch is always open, so it alone keeps Rust's colour for the next settings window current.
+  if (isNotchWindow && notch !== lastNotch) {
+    lastNotch = notch;
+    void settingsWindow.background(notch);
+  }
 }
 
 let timer = 0;

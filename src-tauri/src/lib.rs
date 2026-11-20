@@ -514,6 +514,7 @@ pub fn run() {
             timer_window::timer_window_close,
             settings_window::settings_window_open,
             settings_window::settings_window_section,
+            settings_window::settings_window_background,
             shell::notch_open,
             #[cfg(windows)]
             banners::notices_banners,

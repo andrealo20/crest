@@ -21,6 +21,8 @@ export const settingsWindow = {
   },
   /** Opens the notch from another window, on a tool, as the tray does. */
   notchOpen: (tab: string | null): Promise<void> => (isNative ? invoke("notch_open", { tab }) : Promise.resolve()),
+  /** The theme's background ("#rrggbb"), which the next settings window opens in instead of black. */
+  background: (color: string): Promise<void> => (isNative ? invoke("settings_window_background", { color }) : Promise.resolve()),
 };
 
 /** The app on a Mac, where the tools built on Windows APIs are hidden (src/notch/tabs.ts). */
