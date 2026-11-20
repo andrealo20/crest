@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, TRAY_SIZE, dropSlot, fitPanel, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, TRAY_SIZE, dropSlot, fitPanel, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
-test("the twelve widget tools open in the bar, any other tool in the notch", () => {
+test("the twelve widget tools open in the bar", () => {
   for (const id of BAR_TOOLS) assert.equal(opensInBar(tool(id)), true, id);
   for (const id of ["vault", "terminal", "settings"]) assert.equal(opensInBar(tool(id)), false, id);
   assert.equal(BAR_TOOLS.length, 12);
@@ -117,4 +117,13 @@ test("a page goes back to the panel when its radio is gone, and stays while it i
   assert.equal(pageAfter("bluetooth", { wifi: true, bluetooth: null }), null);
   assert.equal(pageAfter("bluetooth", null), "bluetooth"); // the radios are not read yet
   assert.equal(pageAfter(null, { wifi: true, bluetooth: true }), null);
+});
+
+test("the six tools on saved stores open in the panel too, the half-working and notch-only ones and Find on screen in the notch", () => {
+  const saved = ["notes", "todos", "water", "scratchpad", "habits", "clocks"];
+  for (const id of saved) assert.equal(opensInBar(tool(id)), true, id);
+  // The notch runs nothing for them: barPanels.ts reads BAR_TOOLS.
+  for (const id of saved) assert.equal(BAR_TOOLS.includes(id), false, id);
+  for (const id of ["clipboard", "ask", "trading", "vault", "terminal", "capture", "recorder", "camera", "calc", "convert", "launcher", "colour", "teleprompter", "agents", "find"]) assert.equal(opensInBar(tool(id)), false, id);
+  assert.equal(PANEL_TOOLS.length, 18);
 });

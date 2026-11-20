@@ -2,12 +2,15 @@
 // tested without the app around them.
 
 import { normalizeFavorites, type Favorite } from "../launcher/apps.ts";
-import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
+import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
+import { TOOL_IDS } from "../../settings/tools.ts";
 
 /** The bar's zones. Physical, as the closed row's: left stays left in a right-to-left language. */
 export type Zone = "left" | "center" | "right";
-/** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button, the notification area ("tray"), Stato (network, volume and battery, "status") and the closed notch's parts as widgets. */
-export type BarItem = "start" | "apps" | "crest" | "tray" | "status" | PartId;
+/** A button that opens a tool, by the id the notch opens it with: `tool:notes`. The prefix keeps it apart from a part of the same id. */
+export type ToolItem = `tool:${string}`;
+/** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button, the notification area ("tray"), Stato (network, volume and battery, "status"), the closed notch's parts as widgets and buttons that open a tool (`tool:<id>`). */
+export type BarItem = "start" | "apps" | "crest" | "tray" | "status" | PartId | ToolItem;
 /** The items every bar has: one missing from the zones is put back in its default place. The tray, Stato and the widgets can be taken off. */
 export const FIXED_ITEMS = ["start", "apps", "crest"] as const;
 /** The bar's shape: along the screen's edge with no gaps, floating above it, a capsule, or a tile per item. */
@@ -78,8 +81,12 @@ export const compactIcon = (size: number) => Math.round((size * 5) / 6);
 export const COMPACT_PAD = 10;
 
 const ZONES: Zone[] = ["left", "center", "right"];
+/** The tools whose widget opens the same panel, a part named as its tool (partTool): a button would repeat it, so the bar does not offer them. */
+const WIDGET_TOOLS: readonly string[] = PART_IDS.filter((p) => partTool(p) === p);
+/** The tools a button on the bar can open: Crest's tools but those, then Find on screen, a page (tabs.ts findOnScreenTab). */
+export const TOOL_BUTTONS: readonly string[] = [...TOOL_IDS.filter((id) => !WIDGET_TOOLS.includes(id)), "find"];
 /** Every item a zone may hold. */
-const ITEMS: string[] = [...FIXED_ITEMS, "tray", "status", ...PART_IDS];
+const ITEMS: string[] = [...FIXED_ITEMS, "tray", "status", ...PART_IDS, ...TOOL_BUTTONS.map((id) => `tool:${id}`)];
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const within = (v: unknown, [min, max]: readonly [number, number], fallback: number) =>
@@ -137,7 +144,7 @@ export const trayWanted = (t: TaskbarSettings): boolean => t.enabled && trayOnBa
 export const statusWanted = (t: TaskbarSettings): boolean => t.enabled && ZONES.some((z) => t.zones[z].includes("status"));
 
 /**
- * Each fixed item in exactly one zone and each widget in one at most: unknown ids dropped, a duplicate kept at its first place
+ * Each fixed item in exactly one zone and each widget in one at most: unknown ids dropped (a tool button for a tool the bar does not offer too), a duplicate kept at its first place
  * reading left, center, right, and a missing fixed item back in its default zone at its default index (the end when the zone is
  * shorter). A missing widget, tray or Stato is off the bar; `seed` puts the default widgets back the same way (the tray and Stato come with normalizeTaskbar).
  */

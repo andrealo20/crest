@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   COMPACT_PAD,
   TASKBAR_DEFAULTS,
+  TOOL_BUTTONS,
   applyWindowsPins,
   barButtons,
   clickAction,
@@ -225,4 +226,18 @@ test("the notch tells Rust whether a zone holds the tray, whether the bar is on 
   assert.equal(trayOnBar(TASKBAR_DEFAULTS.zones), true);
   assert.equal(trayOnBar({ left: ["tray"], center: ["start", "apps"], right: ["crest"] }), true);
   assert.equal(trayOnBar({ left: [], center: ["start", "apps"], right: ["crest"] }), false);
+});
+
+test("the bar offers every tool but the six whose widget opens the same panel, and Find on screen last", () => {
+  assert.equal(TOOL_BUTTONS.length, 27);
+  for (const id of ["timer", "discord", "github", "leetcode", "calendar", "weather"]) assert.equal(TOOL_BUTTONS.includes(id), false, id);
+  for (const id of ["overview", "media", "notes", "clipboard", "agents", "calc"]) assert.equal(TOOL_BUTTONS.includes(id), true, id);
+  assert.equal(TOOL_BUTTONS.at(-1), "find");
+});
+
+test("a tool button enters the bar only for a tool the bar offers, and once", () => {
+  assert.deepEqual(
+    normalizeZones({ left: ["tool:notes", "tool:x", "tool:timer", "tool:plugin:abc", "tool:settings", "tool:", "notes"], center: ["start", "apps", "tool:notes"], right: ["timer", "tool:find", "crest"] }),
+    { left: ["tool:notes"], center: ["start", "apps"], right: ["timer", "tool:find", "crest"] },
+  );
 });

@@ -18,6 +18,8 @@ export interface OpenPanel {
 
 /** The tools the closed row's parts open (partTool in src/notch/row/parts.ts): the same parts on the bar open them in its panel. */
 export const BAR_TOOLS: readonly string[] = ["media", "timer", "usage", "system", "notices", "overview", "shelf", "weather", "discord", "github", "leetcode", "calendar"];
+/** The tools that open in the bar's panel: the widgets' (BAR_TOOLS) and six that keep their data in the saved stores every window shares (storeCore.ts), which work there as they are; the notch runs nothing for those six (barPanels.ts reads BAR_TOOLS). */
+export const PANEL_TOOLS: readonly string[] = [...BAR_TOOLS, "notes", "todos", "water", "scratchpad", "habits", "clocks"];
 
 /** The tool's id, or the kind ("tray", "apps", "quick") for any other content: the panel crossfades when it changes. */
 export const panelKey = (c: PanelContent) => (c.kind === "tool" ? c.tool : c.kind);
@@ -28,8 +30,8 @@ export const sameContent = (a: PanelContent, b: PanelContent) => a.kind === b.ki
  * centre zone recentres as window buttons come and go, a clock widens), while two items never overlap. A zero-width span overlaps nothing.
  */
 export const sameAnchor = (a: PanelAnchor, b: PanelAnchor) => a.w > 0 && b.w > 0 && a.x < b.x + b.w && b.x < a.x + a.w;
-/** The tray, the quick panel and the widgets' tools open in the bar; any other tool opens in the notch, so a widget added later still opens somewhere. */
-export const opensInBar = (c: PanelContent) => c.kind !== "tool" || BAR_TOOLS.includes(c.tool);
+/** The tray, the quick panel and the PANEL_TOOLS open in the bar; any other tool opens in the notch, where it works whole. */
+export const opensInBar = (c: PanelContent) => c.kind !== "tool" || PANEL_TOOLS.includes(c.tool);
 
 /**
  * The notch's record of what each bar's panel shows, by the bar window's label, after a `bar://panel` event (`taskbar_panel`,
