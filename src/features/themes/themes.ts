@@ -232,10 +232,28 @@ export const BUILT_IN_THEMES: readonly ThemeFile[] = [
   ),
 ];
 
-export const isBuiltIn = (id: string) => BUILT_IN_THEMES.some((t) => t.id === id);
+/** The System card's id: Dark or Light by the system's side, with the system's accent (systemTheme). */
+export const SYSTEM_THEME = "system";
 
-/** The theme an id names, among the built-ins and the custom themes; a missing one (a deleted file) falls back to Dark. */
-export function findTheme(id: string, custom: readonly ThemeFile[]): ThemeFile {
+export const isBuiltIn = (id: string) => id === SYSTEM_THEME || BUILT_IN_THEMES.some((t) => t.id === id);
+
+/** The ids a new theme cannot take: the built-ins, the System card's and the custom themes'. */
+export const takenIds = (custom: readonly ThemeFile[]): Set<string> => new Set([...BUILT_IN_THEMES.map((t) => t.id), SYSTEM_THEME, ...custom.map((t) => t.id)]);
+
+/** The System card from the system's reading; null without one, and then there is no card. */
+export function systemTheme(a: { accent: string; dark: boolean } | null): ThemeFile | null {
+  // The reading may come back from storage, written by an older version or by hand.
+  if (!a || !parseColor(a.accent)) return null;
+  const side = BUILT_IN_THEMES[a.dark ? 0 : 1];
+  return { format: 1, id: SYSTEM_THEME, name: "System", colors: { ...side.colors, accent: a.accent } };
+}
+
+/**
+ * The theme an id names, among the built-ins, the System card (`system`, the card's theme when the system was read) and the
+ * custom themes; a missing one (a deleted file, a System card never read) falls back to Dark.
+ */
+export function findTheme(id: string, custom: readonly ThemeFile[], system: ThemeFile | null = null): ThemeFile {
+  if (id === SYSTEM_THEME) return system ?? BUILT_IN_THEMES[0];
   return BUILT_IN_THEMES.find((t) => t.id === id) ?? custom.find((t) => t.id === id) ?? BUILT_IN_THEMES[0];
 }
 
@@ -613,7 +631,7 @@ export function importThemes(custom: readonly ThemeFile[], files: { file: string
       result.unchanged++;
       continue;
     }
-    const taken = new Set([...BUILT_IN_THEMES, ...next].map((t) => t.id));
+    const taken = takenIds(next);
     const added = taken.has(theme.id) ? { ...theme, id: uniqueId(theme.id, taken) } : theme;
     next.push(added);
     result.added.push(added);
@@ -652,8 +670,15 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
   const custom: ThemeFile[] = [];
   for (const t of Array.isArray(s.custom) ? s.custom : []) {
     const check = validateTheme(t);
-    if (check.theme && !isBuiltIn(check.theme.id) && !custom.some((c) => c.id === check.theme!.id)) custom.push(check.theme);
+    const id = check.theme?.id ?? "";
+    if (check.theme && (id === SYSTEM_THEME || !isBuiltIn(id)) && !custom.some((c) => c.id === id)) custom.push(check.theme);
   }
+  // A theme of one's own saved as "system" before the System card took the id: it keeps its colours under a new id, and the
+  // choices that named it follow it.
+  const clash = custom.findIndex((c) => c.id === SYSTEM_THEME);
+  const renamed = clash < 0 ? null : uniqueId(SYSTEM_THEME, takenIds(custom));
+  if (renamed) custom[clash] = { ...custom[clash], id: renamed };
+  const chosen = (v: string) => (renamed && v === SYSTEM_THEME ? renamed : v);
   const d = THEME_DEFAULTS.schedule;
   const sc = (typeof s.schedule === "object" && s.schedule !== null ? s.schedule : {}) as Partial<ThemeSettings["schedule"]>;
   const text = (v: unknown, fallback: string) => (typeof v === "string" && v ? v : fallback);
@@ -665,12 +690,12 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
   };
   const font = typeof s.font === "string" && Object.hasOwn(FONT_NAMES, s.font) ? s.font : THEME_DEFAULTS.font;
   return {
-    id: text(s.id, THEME_DEFAULTS.id),
+    id: chosen(text(s.id, THEME_DEFAULTS.id)),
     custom,
     schedule: {
       on: sc.on === true,
-      day: text(sc.day, d.day),
-      night: text(sc.night, d.night),
+      day: chosen(text(sc.day, d.day)),
+      night: chosen(text(sc.night, d.night)),
       dayStart: time(sc.dayStart, d.dayStart),
       nightStart: time(sc.nightStart, d.nightStart),
       sun: sc.sun === true,

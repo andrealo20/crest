@@ -20,18 +20,22 @@ import {
   glassVeil,
   glassVeilAt,
   importThemes,
+  isBuiltIn,
   normalizeId,
   normalizeThemeSettings,
   parseThemeText,
   readableAccent,
   resolveTheme,
   setThemeColor,
+  systemTheme,
+  takenIds,
   themeToText,
   uniqueId,
   validateTheme,
   type ResolvedTheme,
   type ThemeFile,
 } from "./themes.ts";
+import { resolveMaterial } from "./material.ts";
 
 const dark = BUILT_IN_THEMES[0];
 const light = BUILT_IN_THEMES[1];
@@ -503,4 +507,40 @@ test("the closed glass's ink keeps its minimum over the closed veil", () => {
       assert.ok(lowest(value) >= min, `${t.id} ${name} ${value}`);
     }
   }
+});
+
+test("the System card: Dark or Light by the system's side, with the system's accent", () => {
+  const sys = systemTheme({ accent: "#0078d4", dark: true })!;
+  assert.equal(sys.id, "system");
+  assert.deepEqual(sys.colors, { ...dark.colors, accent: "#0078d4" });
+  assert.deepEqual(systemTheme({ accent: "#0078d4", dark: false })!.colors, { ...light.colors, accent: "#0078d4" });
+  assert.equal(systemTheme(null), null);
+  // Never read: a saved "system" is Dark, like any id that is gone.
+  assert.equal(findTheme("system", [], null).id, "dark");
+  assert.equal(findTheme("system", [], sys), sys);
+  assert.equal(isBuiltIn("system"), true);
+  const m = resolveMaterial(systemTheme({ accent: "#0078d4", dark: false })!);
+  assert.equal(m.dark, false);
+  assert.deepEqual(m.adjustments, []);
+});
+
+test("a file or a theme of one's own with the id \"system\" never takes the System card's place", () => {
+  const file = { file: "s.json", text: JSON.stringify({ id: "system", name: "System", colors: { accent: "#ff0000" } }) };
+  assert.notEqual(importThemes([], [file]).added[0].id, "system");
+  // Saved before the card existed: the theme stays under a new id, and the choices that named it follow it.
+  const s = normalizeThemeSettings({
+    id: "system",
+    custom: [{ id: "system", name: "System", colors: { accent: "#ff0000" } }],
+    schedule: { on: true, day: "system", night: "dark" },
+  });
+  const renamed = uniqueId("system", takenIds([]));
+  assert.notEqual(renamed, "system");
+  assert.deepEqual(s.custom.map((t) => [t.id, t.colors.accent]), [[renamed, "#ff0000"]]);
+  assert.deepEqual([s.id, s.schedule.day, s.schedule.night], [renamed, renamed, "dark"]);
+  // The ids a new theme cannot take: every built-in, the System card's and the custom ones.
+  const taken = takenIds([]);
+  assert.ok(taken.has("system") && BUILT_IN_THEMES.every((t) => taken.has(t.id)));
+  assert.equal(taken.size, BUILT_IN_THEMES.length + 1);
+  assert.ok(takenIds([{ format: 1, id: "mine", name: "Mine", colors: {} }]).has("mine"));
+  assert.notEqual(uniqueId("System", takenIds([])), "system");
 });

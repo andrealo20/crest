@@ -47,7 +47,7 @@ pub(crate) fn radio_on(list: &[Radio], kind: RadioKind) -> Option<bool> {
     (!states.is_empty()).then(|| states.contains(&RadioState::On))
 }
 
-fn dark() -> bool {
+pub(crate) fn dark() -> bool {
     let mut value = 1u32;
     let mut size = std::mem::size_of::<u32>() as u32;
     let read = unsafe { RegGetValueW(HKEY_CURRENT_USER, PERSONALIZE, w!("AppsUseLightTheme"), RRF_RT_REG_DWORD, None, Some(&mut value as *mut u32 as *mut _), Some(&mut size)) };

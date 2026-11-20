@@ -1,3 +1,4 @@
+mod accent;
 mod agents;
 pub mod ai;
 #[cfg(windows)]
@@ -541,6 +542,7 @@ pub fn run() {
             themes::themes_folder,
             themes::themes_read,
             themes::themes_write,
+            accent::system_accent,
             #[cfg(windows)]
             launcher::launcher_apps,
             #[cfg(windows)]
@@ -756,6 +758,7 @@ pub fn run() {
             sysevents::spawn(app.handle().clone());
             #[cfg(windows)]
             brightness::spawn(app.handle().clone());
+            accent::watch(app.handle().clone());
             // A run that ended without restoring the Windows indicator (and whose guard was ended with it) is cleaned up here.
             #[cfg(windows)]
             osd::restore();

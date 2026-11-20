@@ -1258,6 +1258,33 @@ const mockThemeFiles: ThemeFileText[] = [
   },
 ];
 
+/** The system's accent colour and its light or dark side (src-tauri/src/accent.rs), for the System theme card. */
+export interface SystemAccent {
+  accent: string;
+  dark: boolean;
+}
+
+/**
+ * The dev server's answer, outside the demo, to try the card without Rust: Windows' default blue on the browser's side,
+ * `?accent=none` for no reading, `?accent=%23rrggbb` for another colour. The published demo and any other browser have none.
+ */
+function mockAccent(): SystemAccent | null {
+  if (!import.meta.env.DEV || demo) return null;
+  const asked = new URLSearchParams(location.search).get("accent");
+  if (asked === "none") return null;
+  return { accent: asked ?? "#0078d4", dark: matchMedia("(prefers-color-scheme: dark)").matches };
+}
+
+export const systemAccent = {
+  get: (): Promise<SystemAccent | null> => (isNative ? invoke<SystemAccent | null>("system_accent") : Promise.resolve(mockAccent())),
+  /** Each change of the reading, sent only when it differs. */
+  listen(cb: (a: SystemAccent | null) => void): () => void {
+    if (!isNative) return () => {};
+    const off = listen<SystemAccent | null>("theme://system-accent", (e) => cb(e.payload));
+    return () => void off.then((f) => f());
+  },
+};
+
 export const themeFiles = {
   folder: (): Promise<string> => (isNative ? invoke<string>("themes_folder") : Promise.resolve("")),
   read: (): Promise<ThemeFileText[]> => (isNative ? invoke<ThemeFileText[]>("themes_read") : Promise.resolve(mockThemeFiles)),

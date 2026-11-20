@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { createStore } from "../../lib/store";
 import { isNotchWindow } from "../../lib/windowKind";
-import { themeFiles } from "../../platform/services";
+import { systemAccent, themeFiles, type SystemAccent } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { design, type Design } from "../../design/design";
 import { setMotionDesign } from "../../design/motion";
@@ -21,6 +21,8 @@ import {
   readableAccent,
   resolveTheme,
   setThemeColor,
+  systemTheme,
+  takenIds,
   themeToText,
   uniqueId,
   type ImportResult,
@@ -48,14 +50,21 @@ export const darkInk = (): Record<string, string> => inkTheme.get().vars;
 /** The theme on screen now (the draft while editing). */
 export const activeTheme = createStore<ResolvedTheme>(DARK);
 
+/** The system's last accent and side, saved, so a window that starts draws the System card before Rust answers. */
+const lastAccent = createStore<SystemAccent | null>(null, { persist: "system-accent" });
+/** The System card's theme; null while the system gives no reading, and then the card is not there. */
+export const systemFile = createStore<ThemeFile | null>(systemTheme(lastAccent.get()));
+
 /** The saved theme due now (day/night included, by the sun at the Weather place when the schedule follows it). */
 export function savedTheme(now = new Date()): ThemeFile {
   const { themes, weather } = settings.get();
-  return findTheme(activeThemeId(themes, now, weather), themes.custom);
+  return findTheme(activeThemeId(themes, now, weather), themes.custom, systemFile.get());
 }
 
 /** The system asks for more contrast (Increase contrast on macOS): Material takes its scheme at contrast 1. */
 const moreContrast = typeof matchMedia === "function" ? matchMedia("(prefers-contrast: more)") : null;
+/** The system's side changes: read the accent again, for where its change event does not carry the side. */
+const darkScheme = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
 /** In development `?design=material` or `crest` sets the style of this page alone, unsaved, for screenshots. */
 const pageDesign = import.meta.env.DEV ? new URLSearchParams(location.search).get("design") : null;
 
@@ -137,6 +146,16 @@ export function startThemes() {
   });
   draft.subscribe(apply);
   moreContrast?.addEventListener("change", apply);
+  const take = (a: SystemAccent | null) => {
+    lastAccent.set(a);
+    systemFile.set(systemTheme(a));
+    apply();
+  };
+  // A failed read keeps the last one.
+  const read = () => void systemAccent.get().then(take, () => {});
+  read();
+  systemAccent.listen(take);
+  darkScheme?.addEventListener("change", read);
 }
 
 /** Windows high contrast is on (forced colours): the system's colours replace every theme. */
@@ -220,8 +239,7 @@ export const discardEdits = () => draft.set(null);
 export function saveAsNew(name: string) {
   const h = draft.get();
   if (!h) return;
-  const taken = new Set(allThemes().map((t) => t.id));
-  const id = uniqueId(name, taken);
+  const id = uniqueId(name, takenIds(settings.get().themes.custom));
   const { colors, closedNotch } = h.present;
   const theme: ThemeFile = { format: 1, id, name: name.trim().slice(0, 60) || id, colors, ...(closedNotch ? { closedNotch } : {}) };
   updateSettings((s) => ({ themes: chooseTheme({ ...s.themes, custom: [...s.themes.custom, theme] }, id, new Date(), s.weather) }));
@@ -249,7 +267,7 @@ export function exportTheme(): Promise<string> {
   let theme = h?.present ?? savedTheme();
   if (h && h.past.length > 0 && isBuiltIn(theme.id)) {
     const name = draftName.get().trim().slice(0, 60) || theme.name;
-    theme = { format: 1, id: uniqueId(name, new Set(BUILT_IN_THEMES.map((t) => t.id))), name, colors: theme.colors, ...(theme.closedNotch ? { closedNotch: theme.closedNotch } : {}) };
+    theme = { format: 1, id: uniqueId(name, takenIds([])), name, colors: theme.colors, ...(theme.closedNotch ? { closedNotch: theme.closedNotch } : {}) };
   }
   return themeFiles.write(theme.id, themeToText(theme));
 }
