@@ -97,6 +97,20 @@ export function glassShapes(shape: BarShape, all: Box[]): { rects: Box[]; plain:
 }
 
 /**
+ * The tiles' places in the order they are drawn, glass among the first LOOK.maxTiles (as glassShapes draws them) and plain past them:
+ * `take(n)` reserves the next n places and answers for each by its index, the same on every call, so a part that draws its tiles in
+ * its own render, and again alone (Stato on a battery change, the tray), keeps its places instead of counting on past the glass.
+ */
+export function tilePlaces(): (n: number) => (i: number) => boolean {
+  let next = 0;
+  return (n) => {
+    const at = next;
+    next += n;
+    return (i) => at + i < LOOK.maxTiles;
+  };
+}
+
+/**
  * The rectangles Liquid Glass + draws: as `glassShapes`, but a docked bar is its real box with only its top edge bending (`top`): the
  * lens reaches across the shape, and the BLEED box's centre would sit 2000 px down.
  */

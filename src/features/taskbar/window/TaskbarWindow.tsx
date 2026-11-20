@@ -16,7 +16,7 @@ import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
 import { zones as hitZones, type Rect } from "../autoHide";
 import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
-import { LOOK, barGap, groupBoxes, hitBoxes, itemGap, labelRise, type Box } from "../look";
+import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
 import { closePanel, panel, togglePanel } from "../panel";
 import { opensInBar } from "../panelModel";
 import { barShown, barWindows, groupIcons } from "../store";
@@ -161,9 +161,14 @@ export function TaskbarWindow() {
   const look = useBarSurface(boxes, down);
   // The shape slides out of its still box by its height and the gap under it, off the screen (useAutoHide).
   const slide = { initial: false, animate: { y: down ? height + gap : 0 }, transition: springs.snappy } as const;
-  // In the order the tiles are drawn and measured: past LOOK.maxTiles the glass does not draw them, and they keep the veil.
-  let tileCount = 0;
-  const tile = () => (tiles ? { background: tileCount++ < LOOK.maxTiles ? look.background : look.plain, radius: look.radius } : undefined);
+  // In the order the tiles are drawn and measured: past LOOK.maxTiles the glass does not draw them, and they keep the veil. The tray
+  // and Stato draw their tiles in their own render, and again alone, so they get places reserved here (tilePlaces).
+  const take = tilePlaces();
+  const tilesFor = (n: number) => {
+    const glass = take(n);
+    return (i: number) => (tiles ? { background: glass(i) ? look.background : look.plain, radius: look.radius } : undefined);
+  };
+  const tile = () => tilesFor(1)(0);
 
   /** Opens a menu over its button, or closes it on a second click there; another button's menu takes the place of an open one. */
   const toggle = (next: Menu, anchor: HTMLElement) => {
@@ -325,26 +330,30 @@ export function TaskbarWindow() {
         </Item>
       );
     }
-    if (id === "tray")
+    if (id === "tray") {
+      const visible = fit.trayBack ? [] : trayVisible;
       return (
         <Tray
-          visible={fit.trayBack ? [] : trayVisible}
+          visible={visible}
           size={size}
           item={item}
-          tile={tile}
+          // Its icons, then ^.
+          tile={tilesFor(visible.length + 1)}
           tiles={tiles}
           more={trayMore}
           // No menu of its own, as a widget: the Crest menu over the pointer.
           onMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
         />
       );
+    }
     if (id === "status")
       return (
         <Status
           size={size}
           height={height}
           item={item}
-          tile={tile}
+          // Its tile, or none while it shows no glyph and draws nothing.
+          tile={tilesFor(glyphs ? 1 : 0)}
           expanded={open?.content.kind === "quick"}
           onClick={(e) => {
             setError(null);

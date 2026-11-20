@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { BarShape } from "./model.ts";
-import { LOOK, barGap, barLook, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, itemGap, labelRise, magnify, plusShapes, themeVeils } from "./look.ts";
+import { LOOK, barGap, barLook, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, itemGap, labelRise, magnify, plusShapes, themeVeils, tilePlaces } from "./look.ts";
 import { GLASS, liveZone } from "../../notch/glass/params.ts";
 
 test("the surface's veil", () => {
@@ -61,6 +61,17 @@ test("the shapes the glass draws", () => {
   const t = glassShapes("tiles", tiles);
   assert.equal(t.rects.length, LOOK.maxTiles);
   assert.deepEqual(t.plain, tiles.slice(LOOK.maxTiles));
+});
+
+test("a tile's place, glass or plain, holds however often its part draws again", () => {
+  const take = tilePlaces();
+  const first = take(LOOK.maxTiles - 2);
+  assert.equal(first(0), true);
+  // Stato draws its tile in its own render, and again alone on each battery change: its place stays the 23rd.
+  const status = take(1);
+  for (let i = 0; i < 30; i++) assert.equal(status(0), true);
+  const rest = take(3);
+  assert.deepEqual([rest(0), rest(1), rest(2)], [true, false, false]);
 });
 
 test("Liquid Glass +'s shapes: a docked bar as its real box with only its top bending, the others as Glass draws them", () => {
