@@ -53,12 +53,12 @@ interface Props { shape: BarShape; boxes: Box[]; radius: number; veil: number; d
  * unless the theme colours the closed notch, useClosedInk), `radius` the corners for the shape and its look; both follow the look
  * (barLook: the choice and whether the live copy can run), never whether the glass shows. A bar `slid` off the screen (useAutoHide)
  * runs no glass, as a hidden one. `panel` is what the panels above the bar wear: under Liquid Glass + (the look, not whether it shows)
- * the bar's ink, fill included, and a CSS rim light; otherwise nothing, and they keep the theme's colours.
+ * the bar's ink, fill included, and a CSS rim light; otherwise nothing, and they keep the theme's colours. `look` is barLook's.
  */
 export function useBarSurface(
   boxes: Box[],
   slid: boolean,
-): { background: string; plain: string; ink: Record<string, string> | undefined; radius: number; panel: PanelSurface | undefined; glass: Props | null } {
+): { look: BarLook; background: string; plain: string; ink: Record<string, string> | undefined; radius: number; panel: PanelSurface | undefined; glass: Props | null } {
   const { taskbar, themes, behavior } = settings.use();
   const { shape, surface, transparency, glass, height } = taskbar;
   const theme = activeTheme.use();
@@ -81,6 +81,7 @@ export function useBarSurface(
   const color = surface === "notch" ? "var(--notch-closed)" : "var(--color-notch)";
   const plain = `color-mix(in srgb, ${color} ${veil * 100}%, transparent)`;
   return {
+    look,
     background: on && live ? "transparent" : plain,
     plain,
     ink,

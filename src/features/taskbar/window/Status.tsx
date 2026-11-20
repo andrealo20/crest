@@ -17,7 +17,8 @@ export function Status(props: {
   height: number;
   /** What every button has in common, by the key it is hovered under (TaskbarWindow's `item`). */
   item: (key: string, name: string) => Common;
-  tile: () => ItemProps["tile"];
+  /** Its tile (TaskbarWindow reserves its place). */
+  tile: (i: number) => ItemProps["tile"];
   /** Whether the panel shows the quick panel. */
   expanded: boolean;
   onClick: MouseEventHandler<HTMLButtonElement>;
@@ -36,7 +37,7 @@ export function Status(props: {
   if (battery && s.power)
     parts.push(["battery", <BatteryGlyph percent={s.power.percent} charging={s.power.charging} warning={battery === "warning"} saver={s.power.saver === true} size={size} />]);
   if (!parts.length) return null;
-  const tile = props.tile();
+  const tile = props.tile(0);
   const pill = tile ? null : statusPill(props.height);
   const name = statusParts(s).map(([k, p]) => t(k, p)).join(", ") || t("Status");
   return (

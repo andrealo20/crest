@@ -98,7 +98,7 @@ export function AddWidget({ zone }: { zone: Zone }) {
       trigger={{
         label: t("Widget hinzufügen"),
         menuWidth: 220,
-        className: "pressable pressable-fill flex h-7 items-center gap-1.5 rounded-full bg-fill-2 px-2.5 text-label",
+        className: "pressable pressable-fill flex h-7 items-center gap-1.5 rounded-full bg-fill-2 px-2.5 text-footnote font-medium text-label",
         content: (
           <>
             <Plus size={13} weight="bold" />
@@ -124,7 +124,7 @@ export function AddTool({ zone }: { zone: Zone }) {
       trigger={{
         label: t("Tool hinzufügen"),
         menuWidth: 220,
-        className: "pressable pressable-fill flex h-7 items-center gap-1.5 rounded-full bg-fill-2 px-2.5 text-label",
+        className: "pressable pressable-fill flex h-7 items-center gap-1.5 rounded-full bg-fill-2 px-2.5 text-footnote font-medium text-label",
         content: (
           <>
             <Plus size={13} weight="bold" />

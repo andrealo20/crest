@@ -108,7 +108,8 @@ export function Tray({
   size: number;
   /** What every button has in common, by the key it is hovered under (TaskbarWindow's `item`). */
   item: (key: string, name: string) => Common;
-  tile: () => ItemProps["tile"];
+  /** Each tile by its index, ^ last (TaskbarWindow reserves their places). */
+  tile: (i: number) => ItemProps["tile"];
   /** The Tiles shape, whose tiles stay as wide as the apps' (size + 16). */
   tiles: boolean;
   /** The ^ button, where TrayDrop finds the end of the tray. */
@@ -129,11 +130,11 @@ export function Tray({
   return (
     <>
       {visible.map((icon, i) => (
-        <Item key={icon.key} {...item(`tray:${icon.key}`, icon.tip || t("Infobereich"))} tile={tile()} tray={i} width={slot} {...trayButton(icon, "bar")}>
+        <Item key={icon.key} {...item(`tray:${icon.key}`, icon.tip || t("Infobereich"))} tile={tile(i)} tray={i} width={slot} {...trayButton(icon, "bar")}>
           <AppIcon src={icon.img === null ? null : pictures[icon.img]} size={glyph} />
         </Item>
       ))}
-      <Item {...item("tray-more", more)} ref={moreRef} tile={tile()} expanded={open?.content.kind === "tray"} width={slot} onClick={toggle} onContextMenu={onMenu}>
+      <Item {...item("tray-more", more)} ref={moreRef} tile={tile(visible.length)} expanded={open?.content.kind === "tray"} width={slot} onClick={toggle} onContextMenu={onMenu}>
         <CaretUp size={glyph} weight="regular" />
       </Item>
     </>
