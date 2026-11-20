@@ -6,7 +6,7 @@ import { createStore } from "../../../lib/store";
 import { HEADER_HEIGHT } from "../../../notch/geometry";
 import { ToolScope, activeTool, headerSlot } from "../../../notch/header";
 import { CoverBackdrop, coverBackdrop } from "../../now-playing/CoverBackdrop";
-import { darkInk } from "../../themes/store";
+import { inkTheme } from "../../themes/store";
 
 type Tabs = typeof import("../../../notch/tabs");
 
@@ -39,6 +39,7 @@ export function ToolPanel({ tool }: { tool: string }) {
   const tab = useTabs(true)?.findTab(tool);
   const id = tab?.id;
   const backdrop = coverBackdrop.use() !== null;
+  const ink = inkTheme.use();
   // The header's buttons follow the tool on screen (header.tsx).
   useLayoutEffect(() => {
     if (id) activeTool.set(id);
@@ -46,8 +47,8 @@ export function ToolPanel({ tool }: { tool: string }) {
   if (!tab) return null;
   return (
     // Its own stacking context, so the cover below the content stays above the panel's shape. While the cover shows, the panel takes
-    // the Dark theme's light text, as the notch's does.
-    <div className="relative isolate flex h-full flex-col" style={backdrop ? darkInk() : undefined}>
+    // the closed notch's ink, as the notch's does, read as a store so a change of theme redraws it.
+    <div className="relative isolate flex h-full flex-col" style={backdrop ? ink.vars : undefined}>
       {/* The bar's panel has no glass: the cover is drawn whole. */}
       <CoverBackdrop glass={false} />
       {/* The title's colour is body's, worked out from the theme's label: set again here so the cover's ink reaches it. */}

@@ -20,3 +20,11 @@ test("a menu row keeps Material's focus ring inside itself, without the press sc
   assert.ok(classes.includes("pressable-wide"));
   assert.ok(!classes.includes("pressable"));
 });
+
+test("the tool panel reads the closed notch's ink as a store, so a cover's colours follow a change of theme", () => {
+  const src = window("ToolPanel.tsx");
+  const body = src.slice(src.indexOf("export function ToolPanel("), src.indexOf("if (!tab) return null"));
+  assert.match(body, /inkTheme\.use\(\)/);
+  assert.match(src, /ink\.vars/);
+  assert.ok(!src.includes("darkInk("));
+});
