@@ -71,3 +71,8 @@ test("Crest's own icons have a Material Symbol too: memory, a board and a rising
 test("the lyrics button draws Material's lyrics symbol, since mic_external_on's looping cord reads as a paperclip at 14 px", () => {
   assert.equal(MATERIAL_NAMES.MicrophoneStage, "lyrics");
 });
+
+test("the dim brightness sun is a plain sun like the bright one, lighter and without brightness_5's ring that reads as the settings cog", () => {
+  // flare is light_mode's rays round a smaller disc. brightness_7, the ring's bright partner, is the settings cog when filled.
+  assert.deepEqual({ Sun: MATERIAL_NAMES.Sun, SunDim: MATERIAL_NAMES.SunDim }, { Sun: "light_mode", SunDim: "flare" });
+});

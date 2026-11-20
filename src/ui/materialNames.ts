@@ -184,7 +184,7 @@ export const MATERIAL_NAMES: Record<string, string> = {
   Star: "star",
   Stop: "stop",
   Sun: "light_mode",
-  SunDim: "brightness_5",
+  SunDim: "flare",
   SunHorizon: "wb_twilight",
   Table: "table",
   TerminalWindow: "terminal",
