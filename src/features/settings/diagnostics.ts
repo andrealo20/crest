@@ -12,6 +12,8 @@ export interface Diagnostics {
   machine: string | null;
   /** Windows scale of each monitor, 1 = 100 %. */
   scales: number[];
+  /** Windows' Text size (Settings, Accessibility), 1 = 100 %: WebView2 draws Crest that much larger. */
+  textScale: number;
   /** Panel scale from Settings, Window, in percent. */
   panelScale: number;
   tools: string[];
@@ -43,6 +45,7 @@ export function diagnosticsText(d: Diagnostics): string {
     `App: ${d.version} (${d.build}, ${d.arch})`,
     `OS: ${d.os ?? "unknown"}, build ${d.osBuild ?? "unknown"}, PC ${d.machine ?? "unknown"}`,
     `Monitors: ${d.scales.length} (${d.scales.map(percent).join(", ") || "none"})`,
+    `Text size: ${percent(d.textScale)}`,
     `Panel scale: ${d.panelScale} %`,
     `Tools: ${d.tools.join(", ") || "none"}`,
     `Closed: ${d.closedStyle}, edge ${d.edge} (${d.anchor})`,

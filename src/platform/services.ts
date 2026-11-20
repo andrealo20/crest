@@ -359,13 +359,15 @@ export interface SystemDiagnostics {
   arch: string;
   machine: string | null;
   scales: number[];
+  /** Windows' Text size, 1 = 100 % (text_scale.rs). */
+  textScale: number;
 }
 
-/** Windows, architecture and monitor scales for Copy diagnostics (lib.rs diagnostics_info). */
+/** Windows, architecture, monitor scales and Text size for Copy diagnostics (lib.rs diagnostics_info). */
 export const systemDiagnostics = (): Promise<SystemDiagnostics> =>
   isNative
     ? invoke<SystemDiagnostics>("diagnostics_info")
-    : Promise.resolve({ os: "Windows 11 Pro", build: "26100", arch: "x86_64", machine: "x86_64", scales: [1.5, 1] });
+    : Promise.resolve({ os: "Windows 11 Pro", build: "26100", arch: "x86_64", machine: "x86_64", scales: [1.5, 1], textScale: 1 });
 
 /** A found update: version + install (downloads, installs, restarts). */
 export interface UpdateHandle {
@@ -506,6 +508,10 @@ export const display = {
     along?: number;
   }) => {
     if (isNative) void invoke("display_apply", { config });
+  },
+  /** The page's scale changed: Rust reads Windows' Text size again and, when it changed, resizes and moves the window (display_rescale). */
+  rescale: () => {
+    if (isNative) void invoke("display_rescale");
   },
   /** With "follow" or "all", the monitor Rust last reported for the pointer (mirror.rs): where it stayed, or whose copy it is over. */
   cursorMonitor: (): Promise<string | null> => (isNative ? invoke<string | null>("display_cursor_monitor") : Promise.resolve(null)),

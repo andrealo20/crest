@@ -535,6 +535,7 @@ function DiagnosticsRow() {
         arch: sys.arch,
         machine: sys.machine,
         scales: sys.scales,
+        textScale: sys.textScale ?? 1,
         panelScale: s.behavior.scale,
         tools: s.tools.filter((x) => x.enabled).map((x) => x.id),
         closedStyle: s.display.idleStyle,

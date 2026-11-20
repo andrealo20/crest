@@ -286,7 +286,7 @@ fn mirrored(spots: &[Spot], placed: Option<&str>, primary: Option<&str>, present
 /// Is the pointer (physical px) over the closed notch's hit zone on this mirror?
 fn over_spot(window: &WebviewWindow, at: (i32, i32), rect: &HitRect, zoom: f64) -> bool {
     let (Ok(origin), Ok(scale)) = (window.outer_position(), window.scale_factor()) else { return false };
-    in_rect(at, (origin.x, origin.y), scale * zoom, rect)
+    in_rect(at, (origin.x, origin.y), scale * zoom * crate::text_scale::get(), rect)
 }
 
 fn in_rect((x, y): (i32, i32), (ox, oy): (i32, i32), scale: f64, rect: &HitRect) -> bool {

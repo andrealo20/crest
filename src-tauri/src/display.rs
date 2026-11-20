@@ -12,7 +12,8 @@
 //! until the notch closes; the floating timer hides and shows with the notch.
 //!
 //! `offset` moves the notch along its edge (dragging), clamped to the monitor. `zoom` is the panel scale:
-//! the page is zoomed and the window grown by it, so CSS px times DPI times zoom are device pixels.
+//! the page is zoomed and the window grown by it. Windows' Text size makes WebView2 draw the page larger again
+//! (text_scale.rs) and the window grows with it too, so CSS px times DPI times zoom times Text size are device pixels.
 //! `edge` and `line` put the window on another screen edge (bottom, left, right).
 //!
 //! `mode` "follow" or "all" (mirror.rs): the frontend picks `monitor` from where the pointer is, and with "all" sends a `spot`
@@ -216,7 +217,7 @@ fn named_monitors(window: &WebviewWindow) -> Vec<(String, tauri::Monitor)> {
 
 #[tauri::command]
 pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -> Vec<MonitorInfo> {
-    let zoom = state.config.lock().unwrap().zoom;
+    let zoom = state.config.lock().unwrap().zoom * crate::text_scale::get();
     let primary = window.primary_monitor().ok().flatten().map(|m| *m.position());
     named_monitors(&window)
         .into_iter()
@@ -260,6 +261,16 @@ pub fn display_apply(mut config: Config, window: WebviewWindow, state: State<'_,
         let _ = place(&window, &state);
     }
     if moved || zoomed || mirrored {
+        crate::mirror::wake(window.app_handle());
+    }
+}
+
+/// The page's own scale changed (another monitor, or Windows' Text size): with a new Text size the window and the copies on the
+/// other monitors grow or shrink with it, so the page keeps its size in CSS px and the hit test its units (text_scale.rs).
+#[tauri::command]
+pub fn display_rescale(window: WebviewWindow, state: State<'_, DisplayState>) {
+    if crate::text_scale::refresh() {
+        let _ = place(&window, &state);
         crate::mirror::wake(window.app_handle());
     }
 }
@@ -473,7 +484,8 @@ impl DisplayState {
 
 /// `place` for any window: on `wanted` (the primary monitor when it is missing), with `line` and `y` for that monitor and the rest of `c`.
 pub(crate) fn put(window: &WebviewWindow, wanted: Option<&str>, c: &Config, line: f64, y: f64) -> tauri::Result<()> {
-    let (offset, zoom, edge, along) = (c.offset, c.zoom, c.edge.as_str(), fit_along(c.along));
+    // Text size zooms the page as the panel scale does (text_scale.rs).
+    let (offset, zoom, edge, along) = (c.offset, c.zoom * crate::text_scale::get(), c.edge.as_str(), fit_along(c.along));
     let side = edge == "left" || edge == "right";
     let monitor = wanted
         .and_then(|name| named_monitors(window).into_iter().find(|(n, _)| n == name).map(|(_, m)| m))
@@ -507,7 +519,7 @@ fn kept_along(along: f64) -> f64 {
     fit_along(along) - (ALONG - PANEL_ALONG)
 }
 
-/// Where the window goes on its monitor; CSS px values, `scale` = monitor DPI x zoom.
+/// Where the window goes on its monitor; CSS px values, `scale` = monitor DPI x zoom x Text size.
 struct Placement<'a> {
     edge: &'a str,
     offset: f64,

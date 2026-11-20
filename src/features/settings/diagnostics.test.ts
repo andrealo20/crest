@@ -11,6 +11,7 @@ const base: Diagnostics = {
   arch: "x86_64",
   machine: "aarch64",
   scales: [1.5, 1],
+  textScale: 1.25,
   panelScale: 100,
   tools: ["overview", "now-playing", "timer"],
   closedStyle: "notch",
@@ -29,6 +30,8 @@ test("diagnostics list the build, Windows, monitors and settings", () => {
   assert.match(text, /App: 0\.3\.0 \(portable, x86_64\)/);
   assert.match(text, /OS: Windows 11 Home, build 26100, PC aarch64/);
   assert.match(text, /Monitors: 2 \(150 %, 100 %\)/);
+  // Windows' Text size makes WebView2 draw Crest larger, and the hit zone has to follow it (issue #61).
+  assert.match(text, /Text size: 125 %/);
   assert.match(text, /Tools: overview, now-playing, timer/);
   assert.match(text, /Closed: notch, edge top \(auto\)/);
   assert.match(text, /Errors: update check-failed; github token-rejected\n$/);
