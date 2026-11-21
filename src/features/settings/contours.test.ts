@@ -219,7 +219,8 @@ test("the contour files keep the style's CSS rules and credit Stellaria, whose h
   }
   const head = read("./contours.ts").split("\n").slice(0, 8).join("\n");
   for (const s of ["Adapted from Stellaria (GPL-3.0", "dcc2f10", "hash3", "Modified for Crest, 2026-11-21"]) assert.ok(head.includes(s), s);
-  // Stellaria's hash3 at dcc2f10, launcher/ui/launcher.js:653-659: no code from elsewhere, so no licence beyond Stellaria's.
+  // Stellaria's hash3 at dcc2f10, launcher/ui/launcher.js:653-659. Its first constants match David Hoskins's hash33 (Hash without Sine, MIT):
+  // whether that code is his, and needs his notice here and in the READMEs, is open until shadertoy.com/view/4djSRW is read.
   const hash3 = [
     "vec3 hash3(vec3 p) {",
     "  uvec3 q = uvec3(ivec3(p)) * uvec3(1597334673u, 3812015801u, 2798796415u);",
@@ -230,7 +231,6 @@ test("the contour files keep the style's CSS rules and credit Stellaria, whose h
     "}",
   ].join("\n");
   assert.ok(CONTOUR_FS.includes(hash3), "hash3 as in Stellaria");
-  for (const file of ["./contours.ts", "../../../README.md"]) assert.ok(!read(file).includes("Hoskins"), file);
   const readme = read("../../../README.md").replace(/\s+/g, " ");
   assert.ok(readme.includes("the contour background and the navigation mark of the settings window and the load shapes of the Hardware tool are adapted from Stellaria's code"));
 });
