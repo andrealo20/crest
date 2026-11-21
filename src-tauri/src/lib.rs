@@ -155,7 +155,7 @@ const SETTINGS_DENIED: &[&str] = &[
     "taskbar_auto_hide", "taskbar_slid", "taskbar_shell", "taskbar_windows_pins", "taskbar_tray_on", "taskbar_tray_click",
     "taskbar_settings", "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect",
     "taskbar_bt_devices", "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_own_pins_keep",
-    "display_rescale", "taskbar_input", "taskbar_app_volume",
+    "display_rescale", "taskbar_input", "taskbar_app_volume", "taskbar_spread",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, pinning a listed window,
@@ -167,7 +167,7 @@ const SETTINGS_DENIED: &[&str] = &[
 /// settings pages (`taskbar_settings`), the tray's icons with their pictures and clicks, the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
 /// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), and what the notch's
 /// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
-/// `taskbar_tray_on`).
+/// `taskbar_tray_on`, `taskbar_spread`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "taskbar_tray", "taskbar_tray_images", "taskbar_tray_click",
@@ -629,6 +629,8 @@ pub fn run() {
             taskbar::input::taskbar_input,
             #[cfg(windows)]
             taskbar::tasks::taskbar_app_volume,
+            #[cfg(windows)]
+            taskbar::screens::taskbar_spread,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,
@@ -1289,6 +1291,8 @@ mod tests {
         assert!(ok("taskbar-1", "taskbar_input") && ok("taskbar", "taskbar_input") && !ok("settings", "taskbar_input"));
         // A wheel step on an app's button: the bars' own.
         assert!(ok("taskbar", "taskbar_app_volume") && ok("taskbar-1", "taskbar_app_volume") && !ok("settings", "taskbar_app_volume"));
+        // Which monitors get a bar and which windows each lists: a setting, so the notch's alone.
+        assert!(ok("notch", "taskbar_spread") && !ok("taskbar", "taskbar_spread") && !ok("settings", "taskbar_spread"));
         // Each bar says when its page slid it off the screen, for its own label; no other window has a bar to slide.
         assert!(ok("taskbar", "taskbar_slid") && ok("taskbar-1", "taskbar_slid") && !ok("settings", "taskbar_slid"));
         // The settings' note on a bar that cannot slide away; the bar has no use for it.

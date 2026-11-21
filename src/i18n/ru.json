@@ -1927,5 +1927,11 @@
  "{name} spielt keinen Ton ab": "{name} не воспроизводит звук",
  "Mikrofon wird verwendet": "Микрофон используется",
  "Kamera wird verwendet": "Камера используется",
- "Standort wird verwendet": "Местоположение используется"
+ "Standort wird verwendet": "Местоположение используется",
+ "Auf allen Bildschirmen anzeigen": "Показывать на всех дисплеях",
+ "Apps anzeigen auf": "Показывать приложения на",
+ "Allen Taskleisten": "Все панели задач",
+ "Haupttaskleiste und Taskleiste mit dem Fenster": "Основная панель и панель, где открыто окно",
+ "Taskleiste mit dem Fenster": "Панель, где открыто окно",
+ "Uhr auf allen Taskleisten": "Часы на каждой панели задач"
 }

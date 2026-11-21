@@ -1927,5 +1927,11 @@
  "{name} spielt keinen Ton ab": "{name} ne joue aucun son",
  "Mikrofon wird verwendet": "Microphone utilisé",
  "Kamera wird verwendet": "Caméra utilisée",
- "Standort wird verwendet": "Position utilisée"
+ "Standort wird verwendet": "Position utilisée",
+ "Auf allen Bildschirmen anzeigen": "Afficher sur tous les écrans",
+ "Apps anzeigen auf": "Afficher les applications sur",
+ "Allen Taskleisten": "Toutes les barres des tâches",
+ "Haupttaskleiste und Taskleiste mit dem Fenster": "Barre des tâches principale et barre où la fenêtre est ouverte",
+ "Taskleiste mit dem Fenster": "Barre où la fenêtre est ouverte",
+ "Uhr auf allen Taskleisten": "Horloge sur chaque barre des tâches"
 }

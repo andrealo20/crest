@@ -1927,5 +1927,11 @@
  "{name} spielt keinen Ton ab": "{name} plays no sound",
  "Mikrofon wird verwendet": "Microphone in use",
  "Kamera wird verwendet": "Camera in use",
- "Standort wird verwendet": "Location in use"
+ "Standort wird verwendet": "Location in use",
+ "Auf allen Bildschirmen anzeigen": "Show on all displays",
+ "Apps anzeigen auf": "Show apps on",
+ "Allen Taskleisten": "All taskbars",
+ "Haupttaskleiste und Taskleiste mit dem Fenster": "Main taskbar and taskbar where the window is open",
+ "Taskleiste mit dem Fenster": "Taskbar where the window is open",
+ "Uhr auf allen Taskleisten": "Clock on every taskbar"
 }

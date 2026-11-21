@@ -4,6 +4,7 @@
 //! primary's does (`bar::put`), and show and hide each on its own (`sync_shown`): all with the hide hotkey, each over a
 //! full-screen app on its monitor. Their first draw never hides Windows' taskbar; the primary's does (bar.rs).
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
 use tauri::{AppHandle, Manager, WebviewWindow};
@@ -15,6 +16,8 @@ use crate::hit_test::{self, HitState};
 /// Held through each `sync`, so `taskbar_apply` and the mirror's check never build or take down bars at the same time. Never
 /// taken on the main thread, which `sync` waits for.
 static SYNC: Mutex<()> = Mutex::new(());
+/// Whether the other monitors get a bar (Settings → Taskbar → Show on all displays); off, only the primary has one.
+static ALL: AtomicBool = AtomicBool::new(true);
 /// The bars on the other monitors. Held only to read or write the list, never across a window call.
 static OTHERS: Mutex<Vec<Other>> = Mutex::new(Vec::new());
 
@@ -47,7 +50,7 @@ pub(crate) fn sync(app: &AppHandle) {
     };
     let names: Vec<String> = monitors.iter().filter_map(|m| m.name().cloned()).collect();
     // With the primary's bar there, no monitor or no primary is Windows not answering, not a change: the bars stay as they are.
-    let Some(names) = wanted(on, &names, primary.as_deref()) else { return };
+    let Some(names) = wanted(on, ALL.load(Ordering::SeqCst), &names, primary.as_deref()) else { return };
     let wanted: Vec<(String, String)> =
         names.into_iter().enumerate().map(|(i, name)| (format!("{}-{}", bar::LABEL, i + 1), name)).collect();
     let extra: Vec<String> = bars().iter().map(|o| o.label.clone()).filter(|label| wanted.iter().all(|(l, _)| l != label)).collect();
@@ -173,6 +176,15 @@ pub(crate) fn is_bar(hwnd: isize) -> bool {
     hwnd != 0 && (bar::hwnd() == hwnd || bars().iter().any(|o| o.hwnd == hwnd))
 }
 
+/// Whether the other monitors get a bar, and which windows each bar lists (tasks.rs `set_apps_on`: "own", "main" or "all").
+/// The notch only; the bars and their lists follow at once, off the main thread (`sync` waits for it).
+#[tauri::command]
+pub async fn taskbar_spread(all: bool, apps: String, app: AppHandle) {
+    ALL.store(all, Ordering::SeqCst);
+    super::tasks::set_apps_on(&apps);
+    sync(&app);
+}
+
 /// The monitors that get a bar of their own, in the order given: every one but the primary. None while the primary is not
 /// known, so its monitor never gets a second bar.
 fn others(names: &[String], primary: Option<&str>) -> Vec<String> {
@@ -180,10 +192,10 @@ fn others(names: &[String], primary: Option<&str>) -> Vec<String> {
     names.iter().filter(|name| name.as_str() != primary).cloned().collect()
 }
 
-/// The monitors that get a bar of their own (`others`) while the primary's bar is there, none while it is off. None for a
-/// read that failed with the primary's bar there (no monitor or no primary listed): the bars stay as they are.
-fn wanted(on: bool, names: &[String], primary: Option<&str>) -> Option<Vec<String>> {
-    if !on {
+/// The monitors that get a bar of their own (`others`) while the primary's bar is there and `all` is on, none otherwise. None
+/// for a read that failed with the primary's bar there (no monitor or no primary listed): the bars stay as they are.
+fn wanted(on: bool, all: bool, names: &[String], primary: Option<&str>) -> Option<Vec<String>> {
+    if !on || !all {
         return Some(Vec::new());
     }
     (!names.is_empty() && primary.is_some()).then(|| others(names, primary))
@@ -206,10 +218,11 @@ mod tests {
     fn a_monitor_read_that_fails_leaves_the_bars_as_they_are() {
         let n = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
         let two = n(&[r"\\.\DISPLAY1", r"\\.\DISPLAY2"]);
-        assert_eq!(wanted(true, &two, Some(r"\\.\DISPLAY1")), Some(n(&[r"\\.\DISPLAY2"]))); // a good read
-        assert_eq!(wanted(true, &[], Some(r"\\.\DISPLAY1")), None); // no monitor listed: Windows not answering
-        assert_eq!(wanted(true, &two, None), None); // no primary named: the same
-        assert_eq!(wanted(false, &[], None), Some(Vec::new())); // the bar off, nothing read: every other bar goes
+        assert_eq!(wanted(true, true, &two, Some(r"\\.\DISPLAY1")), Some(n(&[r"\\.\DISPLAY2"]))); // a good read
+        assert_eq!(wanted(true, true, &[], Some(r"\\.\DISPLAY1")), None); // no monitor listed: Windows not answering
+        assert_eq!(wanted(true, true, &two, None), None); // no primary named: the same
+        assert_eq!(wanted(false, true, &[], None), Some(Vec::new())); // the bar off, nothing read: every other bar goes
+        assert_eq!(wanted(true, false, &two, Some(r"\\.\DISPLAY1")), Some(Vec::new())); // Show on all displays off: the same
     }
 
     #[test]

@@ -73,7 +73,16 @@ export interface TaskbarSettings {
   windowCount: boolean;
   /** The wheel over the whole bar changes the volume: an app's own over its button, Windows' elsewhere (over Stato it always does). */
   wheelVolume: boolean;
+  /** The other monitors get a bar too, as Windows' "Show my taskbar on all displays". */
+  allScreens: boolean;
+  /** Where an app's button shows with several bars: the bar of its window's monitor, that one and the main bar, or every bar. */
+  appsOn: AppsOn;
+  /** The clock shows on the other monitors' bars too; the other widgets stay on the main bar. */
+  clockAll: boolean;
 }
+
+export type AppsOn = "own" | "main" | "all";
+const APPS_ONS: AppsOn[] = ["own", "main", "all"];
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
   enabled: false,
@@ -102,6 +111,9 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   middleClick: "new",
   windowCount: false,
   wheelVolume: false,
+  allScreens: true,
+  appsOn: "own",
+  clockAll: false,
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -186,6 +198,9 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     middleClick: s.middleClick === "close" ? "close" : "new",
     windowCount: s.windowCount === true,
     wheelVolume: s.wheelVolume === true,
+    allScreens: s.allScreens !== false,
+    appsOn: APPS_ONS.includes(s.appsOn as AppsOn) ? (s.appsOn as AppsOn) : d.appsOn,
+    clockAll: s.clockAll === true,
   };
 }
 

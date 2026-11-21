@@ -9,7 +9,7 @@
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::atomic::{AtomicIsize, Ordering};
+use std::sync::atomic::{AtomicIsize, AtomicU8, Ordering};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
 use serde::Serialize;
@@ -109,6 +109,24 @@ static FOREGROUND: AtomicIsize = AtomicIsize::new(0);
 /// The last listed window in front, for when Start has held the front since (`release`); 0 once the desktop or a Crest window
 /// came after it, as then there is no app to go back to.
 static LAST_APP: AtomicIsize = AtomicIsize::new(0);
+
+/// Where the apps' buttons show (Settings → Taskbar → Show apps on): `OWN` on the bar of the window's monitor, `MAIN` there and on
+/// the primary's bar, `ALL` on every bar.
+const OWN: u8 = 0;
+const MAIN: u8 = 1;
+const ALL: u8 = 2;
+static APPS_ON: AtomicU8 = AtomicU8::new(OWN);
+
+/// From the notch (screens.rs `taskbar_spread`); anything else is `OWN`, today's bar.
+pub(super) fn set_apps_on(mode: &str) {
+    APPS_ON.store(match mode { "main" => MAIN, "all" => ALL, _ => OWN }, Ordering::SeqCst);
+}
+
+/// Whether a bar shows a listed window on `window_monitor` (None: not listed): on its own monitor's bar always; with `MAIN`
+/// also on the primary's; with `ALL` on every bar.
+fn shows(mode: u8, primary_bar: bool, window_monitor: Option<&isize>, bar_monitor: isize) -> bool {
+    window_monitor.is_some_and(|&m| m == bar_monitor || mode == ALL || (mode == MAIN && primary_bar))
+}
 
 thread_local! {
     /// The list's state on the taskbar thread, from `begin` until the thread ends.
@@ -344,7 +362,9 @@ pub(super) fn on_timer(window: HWND) {
         .into_iter()
         .map(|(label, bar)| {
             let monitor = monitor_of(HWND(bar as _));
-            (label, for_monitor(&list, |id| monitors.get(&id) == Some(&monitor)))
+            let (mode, primary) = (APPS_ON.load(Ordering::SeqCst), label == super::bar::LABEL);
+            let here = for_monitor(&list, |id| shows(mode, primary, monitors.get(&id), monitor));
+            (label, here)
         })
         .collect();
     let mut last = last();
@@ -545,17 +565,17 @@ fn last() -> MutexGuard<'static, Last> {
     LAST.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Whether `id` was listed, with the process that has its handle now (`pid_now`), on `monitor`.
-fn listed_on(pids: &[(isize, u32)], monitors: &HashMap<isize, isize>, id: isize, pid_now: u32, monitor: isize) -> bool {
-    pids.contains(&(id, pid_now)) && monitors.get(&id) == Some(&monitor)
+/// Whether `id` was listed, with the process that has its handle now (`pid_now`), where a bar on `monitor` shows it (`shows`).
+fn listed_on(pids: &[(isize, u32)], monitors: &HashMap<isize, isize>, id: isize, pid_now: u32, (mode, primary): (u8, bool), monitor: isize) -> bool {
+    pids.contains(&(id, pid_now)) && shows(mode, primary, monitors.get(&id), monitor)
 }
 
-/// Whether a bar on `monitor` may show `id`'s live preview (preview.rs): a listed window, still of the process it was listed
-/// with, on that bar's monitor. The pid is read before the lock is taken, so no call to Windows runs under it.
-pub(super) fn previewable(id: isize, monitor: isize) -> bool {
+/// Whether bar `label` on `monitor` may show `id`'s live preview (preview.rs): a listed window, still of the process it was
+/// listed with, that this bar shows a button for. The pid is read before the lock is taken, so no call to Windows runs under it.
+pub(super) fn previewable(id: isize, label: &str, monitor: isize) -> bool {
     let pid_now = display::window_pid(HWND(id as _));
     let last = last();
-    listed_on(&last.pids, &last.monitors, id, pid_now, monitor)
+    listed_on(&last.pids, &last.monitors, id, pid_now, (APPS_ON.load(Ordering::SeqCst), label == super::bar::LABEL), monitor)
 }
 
 /// The calling bar's windows, those on its monitor, for a bar page that has just loaded; `taskbar://windows` brings each change.
@@ -564,8 +584,9 @@ pub fn taskbar_windows(window: WebviewWindow) -> WindowList {
     // A sync command runs on the main thread, where the handle is read without a wait.
     let Ok(hwnd) = window.hwnd() else { return WindowList::default() };
     let monitor = monitor_of(hwnd);
+    let (mode, primary) = (APPS_ON.load(Ordering::SeqCst), window.label() == super::bar::LABEL);
     let last = last();
-    for_monitor(&last.list, |id| last.monitors.get(&id) == Some(&monitor))
+    for_monitor(&last.list, |id| shows(mode, primary, last.monitors.get(&id), monitor))
 }
 
 /// The process of listed window `id`, while the window is still of the process it was listed with: None once it is gone, or
@@ -855,9 +876,21 @@ mod tests {
     fn a_preview_shows_only_a_listed_window_of_its_own_process_on_the_callers_monitor() {
         let pids = [(10, 1), (20, 2)];
         let monitors = HashMap::from([(10, 100), (20, 200)]);
-        assert!(listed_on(&pids, &monitors, 10, 1, 100));
-        assert!(!listed_on(&pids, &monitors, 10, 1, 200)); // on another monitor
-        assert!(!listed_on(&pids, &monitors, 10, 3, 100)); // its handle reused by another process
-        assert!(!listed_on(&pids, &monitors, 30, 1, 100)); // not listed
+        let own = (OWN, false);
+        assert!(listed_on(&pids, &monitors, 10, 1, own, 100));
+        assert!(!listed_on(&pids, &monitors, 10, 1, own, 200)); // on another monitor
+        assert!(!listed_on(&pids, &monitors, 10, 3, own, 100)); // its handle reused by another process
+        assert!(!listed_on(&pids, &monitors, 30, 1, own, 100)); // not listed
+        assert!(listed_on(&pids, &monitors, 10, 1, (MAIN, true), 200)); // the primary's bar under Main shows it too
+        assert!(!listed_on(&pids, &monitors, 30, 1, (ALL, false), 200)); // never one not listed
+    }
+
+    #[test]
+    fn show_apps_on_picks_the_bars_a_window_shows_on() {
+        let (here, there) = (Some(&1), Some(&2));
+        assert!(shows(OWN, false, here, 1) && !shows(OWN, true, there, 1)); // its own monitor's bar only
+        assert!(shows(MAIN, true, there, 1) && !shows(MAIN, false, there, 1)); // and the primary's
+        assert!(shows(ALL, false, there, 1)); // every bar
+        assert!(!shows(ALL, true, None, 1)); // never one not listed
     }
 }

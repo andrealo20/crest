@@ -282,6 +282,15 @@ test("the wheel moves the volume by whole notches, keeping what is left", () => 
   assert.equal(normalizeTaskbar({ wheelVolume: true }).wheelVolume, true);
 });
 
+test("the displays' settings keep today's bars until changed", () => {
+  const d = normalizeTaskbar({});
+  assert.deepEqual([d.allScreens, d.appsOn, d.clockAll], [true, "own", false]);
+  const set = normalizeTaskbar({ allScreens: false, appsOn: "main", clockAll: true });
+  assert.deepEqual([set.allScreens, set.appsOn, set.clockAll], [false, "main", true]);
+  const junk = normalizeTaskbar({ allScreens: 0, appsOn: "x", clockAll: "yes" });
+  assert.deepEqual([junk.allScreens, junk.appsOn, junk.clockAll], [true, "own", false]);
+});
+
 test("Shift, the middle button and Ctrl+Shift start a new instance", () => {
   const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
   const entry = { key: "k", name: "n", pin: null, pins: [{ id: "x", name: "X" }], windows: [w(4)] } satisfies BarButton;

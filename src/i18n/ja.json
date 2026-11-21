@@ -1927,5 +1927,11 @@
  "{name} spielt keinen Ton ab": "{name} は音を再生していません",
  "Mikrofon wird verwendet": "マイクを使用中",
  "Kamera wird verwendet": "カメラを使用中",
- "Standort wird verwendet": "位置情報を使用中"
+ "Standort wird verwendet": "位置情報を使用中",
+ "Auf allen Bildschirmen anzeigen": "すべてのディスプレイに表示",
+ "Apps anzeigen auf": "アプリを表示する場所",
+ "Allen Taskleisten": "すべてのタスク バー",
+ "Haupttaskleiste und Taskleiste mit dem Fenster": "メイン タスク バーとウィンドウが開いているタスク バー",
+ "Taskleiste mit dem Fenster": "ウィンドウが開いているタスク バー",
+ "Uhr auf allen Taskleisten": "すべてのタスク バーに時計"
 }

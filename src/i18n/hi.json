@@ -1927,5 +1927,11 @@
  "{name} spielt keinen Ton ab": "{name} कोई आवाज़ नहीं चला रहा",
  "Mikrofon wird verwendet": "माइक्रोफ़ोन उपयोग में है",
  "Kamera wird verwendet": "कैमरा उपयोग में है",
- "Standort wird verwendet": "स्थान उपयोग में है"
+ "Standort wird verwendet": "स्थान उपयोग में है",
+ "Auf allen Bildschirmen anzeigen": "सभी डिस्प्ले पर दिखाएं",
+ "Apps anzeigen auf": "ऐप्स यहां दिखाएं",
+ "Allen Taskleisten": "सभी टास्कबार",
+ "Haupttaskleiste und Taskleiste mit dem Fenster": "मुख्य टास्कबार और वह टास्कबार जहां विंडो खुली है",
+ "Taskleiste mit dem Fenster": "वह टास्कबार जहां विंडो खुली है",
+ "Uhr auf allen Taskleisten": "हर टास्कबार पर घड़ी"
 }

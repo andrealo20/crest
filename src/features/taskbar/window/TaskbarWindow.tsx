@@ -210,6 +210,7 @@ export function TaskbarWindow() {
     count: buttons.length,
     trayCount: trayVisible.length,
     primary,
+    clockAll: s.taskbar.clockAll,
     glyphs,
     split: combine === "always" ? null : { count: perWindow.length, titled: perWindow.filter((b) => b.title !== undefined).length, ...labelSpan(size), never: combine === "never" },
   });
@@ -544,7 +545,8 @@ export function TaskbarWindow() {
       ];
     }
     if (isWidget(id)) {
-      if (!primary || fit.hide.includes(id)) return null;
+      // The clock alone may show on the other bars; it draws from the local time, not from the notch's feed.
+      if ((!primary && !(id === "clock" && s.taskbar.clockAll)) || fit.hide.includes(id)) return null;
       const tool = widgetTool(id);
       return (
         <WidgetItem

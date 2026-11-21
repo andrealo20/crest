@@ -15,7 +15,7 @@ const same = (a: Fit, b: Fit) => a.mode === b.mode && a.visible === b.visible &&
  */
 export function useAppFit(
   bar: RefObject<HTMLElement | null>,
-  i: { zones: Record<Zone, BarItem[]>; shape: BarShape; size: number; count: number; trayCount: number; primary: boolean; glyphs: number; split: FitMeasure["split"] },
+  i: { zones: Record<Zone, BarItem[]>; shape: BarShape; size: number; count: number; trayCount: number; primary: boolean; clockAll: boolean; glyphs: number; split: FitMeasure["split"] },
 ): Fit {
   const widths = useRef(new Map<string, number>());
   const was = useRef<Fit | null>(null);
@@ -25,13 +25,13 @@ export function useAppFit(
   const measure = useCallback(() => {
     const el = bar.current;
     if (!el) return;
-    const { zones, shape, size, count, trayCount, primary, split } = now.current;
+    const { zones, shape, size, count, trayCount, primary, clockAll, split } = now.current;
     const slot = shape === "tiles" ? size + 16 : trayIcon(size) + 16;
     const entries = (id: BarItem): FitEntry[] => {
       if (id === "apps") return [];
       if (id === "tray") return [...Array.from({ length: trayCount }, () => ({ id: "tray", w: slot, gives: "tray" as const })), { id: "tray-more", w: slot }];
-      // A bar on another monitor draws neither widgets nor tool buttons, nor Windows widgets.
-      if ((isWidget(id) || isTool(id) || (isSys(id) && sysPrimaryOnly(id))) && !primary) return [];
+      // A bar on another monitor draws neither widgets nor tool buttons, nor Windows widgets; the clock with clockAll.
+      if ((isWidget(id) || isTool(id) || (isSys(id) && sysPrimaryOnly(id))) && !primary && !(id === "clock" && clockAll)) return [];
       const found = el.querySelectorAll<HTMLElement>(`[data-kind="${id}"]`);
       if (found.length) widths.current.set(id, [...found].reduce((n, x) => n + x.offsetWidth, 0));
       return [{ id, w: widths.current.get(id) ?? 0, gives: isWidget(id) || isTool(id) || isSys(id) ? "widget" : undefined }];
@@ -53,7 +53,7 @@ export function useAppFit(
     was.current = next;
     setFit((f) => (same(f, next) ? f : next));
   }, [bar]);
-  const key = `${JSON.stringify(i.zones)}|${i.shape}|${i.size}|${i.count}|${i.trayCount}|${i.primary}|${i.glyphs}|${JSON.stringify(i.split)}`;
+  const key = `${JSON.stringify(i.zones)}|${i.shape}|${i.size}|${i.count}|${i.trayCount}|${i.primary}|${i.clockAll}|${i.glyphs}|${JSON.stringify(i.split)}`;
   useLayoutEffect(() => {
     now.current = i;
     measure();

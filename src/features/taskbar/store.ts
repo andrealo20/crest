@@ -33,6 +33,7 @@ export function startTaskbar() {
   let hides: boolean | null = null;
   let tray: boolean | null = null;
   let statusOn: boolean | null = null;
+  let spread: string | null = null;
   let queue = Promise.resolve();
   let seeded = false;
   let kept = false;
@@ -63,12 +64,17 @@ export function startTaskbar() {
       });
   };
   const sync = () => {
-    const { enabled, height, shape, pinned, autoHide } = settings.get().taskbar;
+    const { enabled, height, shape, pinned, autoHide, allScreens, appsOn } = settings.get().taskbar;
     const wantTray = trayOnBar(settings.get().taskbar.zones);
     // Outside the queue: a flag the display poll reads, which never waits for a bar to be built or taken down.
     if (autoHide !== hides) {
       hides = autoHide;
       void taskbar.autoHide(autoHide);
+    }
+    // Likewise, the other monitors' bars and which windows each lists: Rust takes the bars down or builds them and lists again.
+    if (`${allScreens}|${appsOn}` !== spread) {
+      spread = `${allScreens}|${appsOn}`;
+      void taskbar.spread(allScreens, appsOn).catch(() => {});
     }
     // Likewise, whether a zone holds the tray: Rust runs the spy while it does and the bar is on, so the bar turned off stops the
     // spy in Rust after Windows' taskbar is back (mod.rs `stop`), and the tray taken off stops it here, giving Explorer every icon back.

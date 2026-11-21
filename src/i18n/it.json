@@ -1927,5 +1927,11 @@
  "{name} spielt keinen Ton ab": "{name} non riproduce audio",
  "Mikrofon wird verwendet": "Microfono in uso",
  "Kamera wird verwendet": "Fotocamera in uso",
- "Standort wird verwendet": "Posizione in uso"
+ "Standort wird verwendet": "Posizione in uso",
+ "Auf allen Bildschirmen anzeigen": "Mostra su tutti gli schermi",
+ "Apps anzeigen auf": "Mostra le app su",
+ "Allen Taskleisten": "Tutte le barre delle applicazioni",
+ "Haupttaskleiste und Taskleiste mit dem Fenster": "Barra principale e barra dove è aperta la finestra",
+ "Taskleiste mit dem Fenster": "Barra dove è aperta la finestra",
+ "Uhr auf allen Taskleisten": "Orologio su tutte le barre"
 }

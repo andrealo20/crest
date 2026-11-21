@@ -1927,5 +1927,11 @@
  "{name} spielt keinen Ton ab": "{name} لا يشغّل أي صوت",
  "Mikrofon wird verwendet": "الميكروفون قيد الاستخدام",
  "Kamera wird verwendet": "الكاميرا قيد الاستخدام",
- "Standort wird verwendet": "الموقع قيد الاستخدام"
+ "Standort wird verwendet": "الموقع قيد الاستخدام",
+ "Auf allen Bildschirmen anzeigen": "إظهار على كل الشاشات",
+ "Apps anzeigen auf": "إظهار التطبيقات على",
+ "Allen Taskleisten": "كل أشرطة المهام",
+ "Haupttaskleiste und Taskleiste mit dem Fenster": "شريط المهام الرئيسي والشريط الذي فُتحت عليه النافذة",
+ "Taskleiste mit dem Fenster": "الشريط الذي فُتحت عليه النافذة",
+ "Uhr auf allen Taskleisten": "الساعة على كل شريط مهام"
 }

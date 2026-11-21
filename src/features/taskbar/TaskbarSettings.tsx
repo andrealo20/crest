@@ -22,7 +22,7 @@ import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
-import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type BarShape, type Combine, type EmptyDouble, type SysItem, type ToolItem, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type AppsOn, type BarShape, type Combine, type EmptyDouble, type SysItem, type ToolItem, type Zone } from "./model";
 import { demoBarOffered, setTaskbar } from "./store";
 import { AddSys, AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
 import { toolInfo } from "./toolInfo";
@@ -51,10 +51,11 @@ const ITEM_LABEL: Record<Exclude<BarItem, PartId | ToolItem | SysItem>, string> 
 const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "Schwebend", capsule: "Kapsel", tiles: "Kacheln" };
 const COMBINE_LABEL: Record<Combine, string> = { always: "Immer", full: "Wenn die Taskleiste voll ist", never: "Nie" };
 const EMPTY_DOUBLE_LABEL: Record<EmptyDouble, string> = { none: "Nichts", desktop: "Desktop anzeigen", taskmgr: "Task-Manager" };
+const APPS_ON_LABEL: Record<AppsOn, string> = { all: "Allen Taskleisten", main: "Haupttaskleiste und Taskleiste mit dem Fenster", own: "Taskleiste mit dem Fenster" };
 
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, what a double click beside its buttons does, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
-  const { enabled, autoHide, shape, emptyDouble, flashing, wheelVolume } = settings.use().taskbar;
+  const { enabled, autoHide, shape, emptyDouble, flashing, wheelVolume, allScreens, appsOn, clockAll } = settings.use().taskbar;
   // Bars that stay up with auto-hide on (Rust front.rs `stays_up`), read as the page opens and when the switch changes.
   const [blocked, setBlocked] = useState(0);
   useEffect(() => void taskbar.slideBlocked().then(setBlocked, () => {}), [autoHide]);
@@ -93,6 +94,24 @@ export function TaskbarGeneral() {
       >
         <Switch label={t("Automatisch ausblenden")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
       </Row>
+      <Row icon="desktop_windows" label={t("Auf allen Bildschirmen anzeigen")}>
+        <Switch label={t("Auf allen Bildschirmen anzeigen")} checked={allScreens} onChange={(on) => setTaskbar({ allScreens: on })} />
+      </Row>
+      {allScreens && (
+        <>
+          <Row icon="apps" label={t("Apps anzeigen auf")}>
+            <Select
+              width="w-56"
+              value={appsOn}
+              options={(Object.keys(APPS_ON_LABEL) as AppsOn[]).map((v) => ({ value: v, label: t(APPS_ON_LABEL[v]) }))}
+              onChange={(appsOn) => setTaskbar({ appsOn })}
+            />
+          </Row>
+          <Row icon="schedule" label={t("Uhr auf allen Taskleisten")}>
+            <Switch label={t("Uhr auf allen Taskleisten")} checked={clockAll} onChange={(on) => setTaskbar({ clockAll: on })} />
+          </Row>
+        </>
+      )}
       <Row icon="notification_important" label={t("Blinkende Apps anzeigen")}>
         <Switch label={t("Blinkende Apps anzeigen")} checked={flashing} onChange={(on) => setTaskbar({ flashing: on })} />
       </Row>

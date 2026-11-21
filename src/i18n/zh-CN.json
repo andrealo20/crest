@@ -1927,5 +1927,11 @@
  "{name} spielt keinen Ton ab": "{name} 未播放声音",
  "Mikrofon wird verwendet": "麦克风正在使用",
  "Kamera wird verwendet": "摄像头正在使用",
- "Standort wird verwendet": "位置正在使用"
+ "Standort wird verwendet": "位置正在使用",
+ "Auf allen Bildschirmen anzeigen": "在所有显示器上显示",
+ "Apps anzeigen auf": "应用显示位置",
+ "Allen Taskleisten": "所有任务栏",
+ "Haupttaskleiste und Taskleiste mit dem Fenster": "主任务栏和窗口所在的任务栏",
+ "Taskleiste mit dem Fenster": "窗口所在的任务栏",
+ "Uhr auf allen Taskleisten": "每个任务栏都显示时钟"
 }
