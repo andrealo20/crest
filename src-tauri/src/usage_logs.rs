@@ -258,6 +258,8 @@ fn scan(cache: &mut Cache, claude: &[PathBuf], codex: &[PathBuf], now: u64) -> (
                         parsed |= read;
                         item.len = len;
                         item.mtime = mtime;
+                        // A log written for longer than the window: what it holds from before is never counted again.
+                        item.recs.retain(|_, r| r.0 >= since);
                     }
                     Err(_) => {
                         cache.files.remove(&key);
@@ -648,6 +650,24 @@ mod tests {
     fn append(path: &Path, text: &str) {
         use std::io::Write;
         File::options().append(true).open(path).unwrap().write_all(text.as_bytes()).unwrap();
+    }
+
+    /// A log written for longer than the window: what it holds from before the window leaves the state as the log grows,
+    /// so the file on disk keeps only what the report can count.
+    #[test]
+    fn records_older_than_the_window_leave_the_state() {
+        let dir = temp("prune");
+        let (root, codex) = (dir.0.join("projects"), dir.0.join("none"));
+        std::fs::create_dir_all(&root).unwrap();
+        let log = root.join("s.jsonl");
+        let scan_at = |cache: &mut Cache, at: &str| scan(cache, std::slice::from_ref(&root), std::slice::from_ref(&codex), parse_iso_ms(at).unwrap()).0;
+        std::fs::write(&log, line("msg_1", "2026-10-01T11:00:00Z", 10)).unwrap();
+        let mut cache = Cache::default();
+        assert_eq!(outputs(&scan_at(&mut cache, "2026-10-01T12:00:00Z")), 10);
+        // 35 days on the log grows: October 1 is out of the window.
+        append(&log, &line("msg_2", "2026-11-05T11:00:00Z", 20));
+        assert_eq!(outputs(&scan_at(&mut cache, "2026-11-05T12:00:00Z")), 20);
+        assert_eq!(cache.files.values().map(|f| f.recs.len()).sum::<usize>(), 1);
     }
 
     /// The state file is written whole, so it waits SAVE_EVERY between writes; quitting writes what is left.
