@@ -230,7 +230,7 @@ export function TaskbarWindow() {
             setHovered(null);
             pointer.set(Infinity);
           }
-          itemDrag.set({ id, x, y });
+          itemDrag.set({ id, x, y, pointerId: e.pointerId });
         },
         onEnd: () => itemDrag.set(null),
       });

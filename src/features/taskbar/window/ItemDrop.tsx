@@ -54,9 +54,10 @@ export function ItemDrop({ bar, size, gap }: { bar: RefObject<HTMLElement | null
   // A layout effect, so a release right after the drag starts is never missed; taken on the way down, before the press ends the drag.
   useLayoutEffect(() => {
     if (!dragging) return;
-    const onUp = () => {
+    const onUp = (m: PointerEvent) => {
       const d = itemDrag.get();
-      const at = d && placeAt(bar.current, d, size + 16, gap);
+      // Another finger's release is not the drag's.
+      const at = d && d.pointerId === m.pointerId && placeAt(bar.current, d, size + 16, gap);
       if (!d || !at) return;
       // The page and the release run in one task, so these are the saved zones of this moment; an unchanged move writes nothing.
       const cur = settings.get().taskbar.zones, next = moveBefore(cur, d.id, at.zone, at.before);

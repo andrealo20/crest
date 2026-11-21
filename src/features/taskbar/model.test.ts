@@ -300,6 +300,14 @@ test("an empty middle zone takes a drop on a band one item wide round its centre
   assert.deepEqual(dropPlace("tool:notes", items, grid, 700, 40, 6), { zone: "right", before: "weather", line: 996 });
 });
 
+test("an empty side zone takes a drop anywhere in it, the line at the edge its items start from", () => {
+  const items = [slot("start", "center", 560), slot("apps", "center", 606), slot("weather", "right", 1000)];
+  const sides = [{ zone: "left", x: 0, w: 560 }, { zone: "center", x: 560, w: 86 }, { zone: "right", x: 646, w: 554 }] as { zone: Zone; x: number; w: number }[];
+  assert.deepEqual(dropPlace("weather", items, sides, 30, 40, 6), { zone: "left", before: null, line: 0 });
+  assert.deepEqual(dropPlace("weather", items, sides, 120, 40, 6), { zone: "left", before: null, line: 0 });
+  assert.deepEqual(dropPlace("start", [slot("start", "center", 560), slot("apps", "center", 606)], sides, 1150, 40, 6), { zone: "right", before: null, line: 1198 });
+});
+
 test("in the capsule a drop joins the zone of the item it goes before, or of the last one at the end", () => {
   const items = [slot("start", "center", 500), slot("apps", "center", 546), slot("weather", "right", 592), slot("clock", "right", 638)];
   assert.deepEqual(dropPlace("clock", items, null, 560, 40, 6), { zone: "center", before: "apps", line: 542 });

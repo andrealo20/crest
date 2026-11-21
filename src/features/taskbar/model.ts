@@ -220,21 +220,22 @@ export type DropSlot = { id: BarItem; zone: Zone; x: number; w: number };
 export type ZoneBox = { zone: Zone; x: number; w: number };
 
 /**
- * Where an item dragged to `x` lands: in the zone whose box holds `x` (an empty one widened to `unit` round its centre, checked
- * first), or without zone boxes (the capsule) in the zone of the item it goes before, of the last one at the end; before the first
+ * Where an item dragged to `x` lands: in the zone whose box holds `x` (an empty one narrower than `unit`, the grid's middle,
+ * widened to `unit` round its centre and checked first), or without zone boxes (the capsule) in the zone of the item it goes before, of the last one at the end; before the first
  * item whose centre is right of `x`. `line` is the left edge of the 2 px insertion line, centred in the `gap` between buttons. Null
  * outside the zones and on its own place (before itself or its next neighbour, or at the end it already is at): nothing to write.
  */
 export function dropPlace(id: BarItem, items: DropSlot[], zones: ZoneBox[] | null, x: number, unit: number, gap: number): { zone: Zone; before: BarItem | null; line: number } | null {
   let zone: Zone, inZone: DropSlot[], at: number;
   if (zones) {
-    const empty = (z: ZoneBox) => !items.some((s) => s.zone === z.zone);
-    const box = (z: ZoneBox) => (empty(z) ? { x: z.x + z.w / 2 - unit / 2, w: unit } : z);
-    const hit = [...zones.filter(empty), ...zones.filter((z) => !empty(z))].find((z) => x >= box(z).x && x <= box(z).x + box(z).w);
+    const narrow = (z: ZoneBox) => z.w < unit && !items.some((s) => s.zone === z.zone);
+    const box = (z: ZoneBox) => (narrow(z) ? { x: z.x + z.w / 2 - unit / 2, w: unit } : z);
+    const hit = [...zones.filter(narrow), ...zones.filter((z) => !narrow(z))].find((z) => x >= box(z).x && x <= box(z).x + box(z).w);
     if (!hit) return null;
     zone = hit.zone;
     inZone = items.filter((s) => s.zone === zone);
-    if (!inZone.length) return { zone, before: null, line: hit.x + hit.w / 2 - 1 };
+    // An empty zone's line is where its first item will draw: its left edge, its right edge, its centre.
+    if (!inZone.length) return { zone, before: null, line: zone === "left" ? hit.x : zone === "right" ? hit.x + hit.w - 2 : hit.x + hit.w / 2 - 1 };
     at = dropSlot(inZone, x);
   } else {
     if (!items.length) return null;
