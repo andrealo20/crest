@@ -108,6 +108,7 @@ import { HUE_PILL } from "../themes/themes";
 import { ClipboardSettings } from "../clipboard/ClipboardSettings";
 import { TaskbarApps, TaskbarGeneral, TaskbarItems, TaskbarLook, useTaskbarShown } from "../taskbar/TaskbarSettings";
 import { WidgetsPage } from "../taskbar/WidgetsPage";
+import { demoBarOffered } from "../taskbar/store";
 
 type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins" | "taskbar" | "taskbar-items" | "taskbar-widgets" | "taskbar-apps" | "taskbar-look";
 
@@ -230,6 +231,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const deepLink = nav.use();
   const saved = savedPage.use();
   const taskbarShown = useTaskbarShown();
+  const demoBar = demoBarOffered.use();
   const material = design.use() === "material";
   const reduced = useReducedMotion() === true;
   // Plugin pages are served over http://crestplugin.localhost, which only works on Windows, and live notices have no Mac
@@ -381,9 +383,9 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   );
 
   const scopePages = pages.filter((p) => scopeOf(p.id) === scopeOf(page));
-  // In the notch's panel, where no settings window draws it (the site's full-screen demo, src/dev/demoBar.tsx): the window's Notch |
-  // Taskbar switch, over the pages.
-  const scopeSwitch = !chrome && taskbarShown && (
+  // The site's full-screen demo shows the settings in the notch's panel (src/dev/demoBar.tsx): the Notch | Taskbar switch the app's
+  // settings window draws in its title row goes over the page there. Never in the app, whose window has its own.
+  const scopeSwitch = demoBar && taskbarShown && (
     <Segmented
       id="settings-scope"
       label={t("Einstellungen")}
@@ -408,7 +410,6 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
       ) : (
         searchPill("mb-2 w-full")
       )}
-      {!compact && scopeSwitch && <div className="mb-2 flex shrink-0 justify-center">{scopeSwitch}</div>}
       {scopePages.map((p) => {
         const active = p.id === page && !searching;
         const name = t(p.label);
@@ -551,6 +552,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
             {layout !== "top" && header}
             {/* The panel has no header: the opened field takes a row of its own above the content. */}
             {!chrome && compact && fieldShown && <div className="flex shrink-0 px-2 pb-2">{searchPill("min-w-0 flex-1")}</div>}
+            {scopeSwitch && <div className="flex shrink-0 justify-center pb-2">{scopeSwitch}</div>}
             {pageArea}
           </div>
           {hiddenIndex}
@@ -568,7 +570,6 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
             <MagnifyingGlass size={12} weight="bold" className="shrink-0" />
             {input}
           </label>
-          {scopeSwitch && <div className="mb-1 flex shrink-0 justify-center">{scopeSwitch}</div>}
           {scopePages.map((p) => {
             const active = p.id === page && !searching;
             return (
@@ -598,7 +599,14 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
             <span className="relative leading-tight">{t("Fehler melden")}</span>
           </button>
         </nav>
-        {pageArea}
+        {scopeSwitch ? (
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="flex shrink-0 justify-center pb-2">{scopeSwitch}</div>
+            {pageArea}
+          </div>
+        ) : (
+          pageArea
+        )}
         {hiddenIndex}
       </div>
     </RoomyContext>

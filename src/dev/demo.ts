@@ -141,9 +141,12 @@ export function startDemo() {
   seedNotices();
   navigate(params.get("tool") ?? "overview");
   // The demo on its own page, with a mouse and the room of a desktop: Crest's bar too (src/dev/demoBar.tsx). Not on the site's stage.
-  if (!bare && !coarse && innerWidth >= 1000) {
-    demoBarOffered.set(true);
-    void import("./demoBar").then((m) => m.mountDemoBar());
+  // Behind build constants the bundler folds, so the app's build carries no import of the demo's bar, nor the chunks it would split.
+  if (import.meta.env.MODE === "demo" || import.meta.env.DEV) {
+    if (!bare && !coarse && innerWidth >= 1000) {
+      demoBarOffered.set(true);
+      void import("./demoBar").then((m) => m.mountDemoBar());
+    }
   }
 
   // The sample plugin is installed (src/platform/services.ts); its tool is on once the list has been read.
