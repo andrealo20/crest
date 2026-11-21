@@ -3,6 +3,30 @@
 // first eight page views (topoFields). Stellaria ports Caelestia (GPL-3.0, github.com/caelestia-dots/shell).
 // Modified for Crest, 2026-11-21: an alpha uniform, a 1.2 million pixel cap, a 30 fps loop at rest that stops without focus,
 // input or visibility, page views from a table with a hash for new pages, Crest's springs for the drift and the theme's fade.
+//
+// The first two lines of hash3 are David Hoskins's integer hash (constants 1597334673, 3812015801, 2798796415), credited to him in
+// public copies of it. Its own Shadertoy page could not be read, so its licence is taken from his MIT hash collection, Hash without
+// Sine (licenses/HashWithoutSine-MIT.txt):
+//
+// Copyright (c)2014 David Hoskins.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 import { animate, motionValue, type AnimationPlaybackControls } from "motion";
 import { springs, themeFade } from "../../design/motion.ts";

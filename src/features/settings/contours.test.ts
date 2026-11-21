@@ -217,10 +217,21 @@ test("the contour files keep the style's CSS rules and credit Stellaria, whose h
     for (const s of ["blur(", "color-mix(", "linear(", ":dir("]) assert.ok(!src.includes(s), `${file}: ${s}`);
     assert.doesNotMatch(src, /\b(bg|text|fill|stroke|ring|border)-[\w-]+\/\d/, file);
   }
-  const head = read("./contours.ts").split("\n").slice(0, 8).join("\n");
+  const src = read("./contours.ts");
+  // The header up to the first import, without its comment marks, on one line.
+  const head = src.slice(0, src.indexOf("import ")).replace(/^\/\/ ?/gm, "").replace(/\s+/g, " ");
   for (const s of ["Adapted from Stellaria (GPL-3.0", "dcc2f10", "hash3", "Modified for Crest, 2026-11-21"]) assert.ok(head.includes(s), s);
-  // Stellaria's hash3 at dcc2f10, launcher/ui/launcher.js:653-659. Its first constants match David Hoskins's hash33 (Hash without Sine, MIT):
-  // whether that code is his, and needs his notice here and in the READMEs, is open until shadertoy.com/view/4djSRW is read.
+  // The first two lines of hash3 are David Hoskins's integer hash: his MIT notice, as in Hash without Sine, in the header and in licenses/.
+  const notice = read("../../../licenses/HashWithoutSine-MIT.txt").replace(/\s+/g, " ");
+  for (const s of [
+    "Copyright (c)2014 David Hoskins.",
+    'Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:',
+  ]) {
+    assert.ok(head.includes(s), s);
+    assert.ok(notice.includes(s), s);
+  }
+  for (const file of ["../../../README.md", "../../../README.zh-CN.md"]) assert.ok(read(file).includes("licenses/HashWithoutSine-MIT.txt"), file);
+  // Stellaria's hash3 at dcc2f10, launcher/ui/launcher.js:653-659.
   const hash3 = [
     "vec3 hash3(vec3 p) {",
     "  uvec3 q = uvec3(ivec3(p)) * uvec3(1597334673u, 3812015801u, 2798796415u);",
