@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, ArrowCounterClockwise, Check, CheckCircle, Pause, PencilSimple, PictureInPicture, Play, SpeakerSimpleHigh, SpeakerSimpleSlash, X } from "@phosphor-icons/react";
+import { AlarmIcon, ArrowCounterClockwise, Check, CheckCircle, Pause, PencilSimple, PictureInPicture, Play, SpeakerSimpleHigh, SpeakerSimpleSlash, X } from "../../ui/iconset";
 import { content, pulse, springs } from "../../design/motion";
 import {
   MAX_MINUTES,
@@ -9,6 +9,8 @@ import {
   formatClock,
   presets,
   ringing,
+  setFocusMuted,
+  stopRinging,
   timer,
   timerActions,
   useRemaining,
@@ -20,9 +22,13 @@ import { detached, toggleDetached } from "./detach";
 import { settings } from "../../settings/store";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { isNative } from "../../platform/native";
+import { isNotchWindow } from "../../lib/windowKind";
 import { t } from "../../i18n";
 
 const modeLabel: Record<TimerMode, string> = { focus: "Fokus", break: "Pause" };
+
+/** The detached window is the notch's to open and close (`timer_window_open`), so the bar's panel shows no button for it. */
+const detachable = isNative && isNotchWindow;
 
 /*
  *   [Focus | Break]               15  25  45  [37]  [✎]
@@ -46,15 +52,15 @@ function TimerHeader() {
   const open = detached.use();
   const sound = settings.use().timer.focusSound;
   const muted = focusMuted.use();
-  if (!isNative && sound === "off") return null;
+  if (!detachable && sound === "off") return null;
   return (
     <HeaderActions>
       {sound !== "off" && (
-        <HeaderButton label={muted ? t("Fokus-Klang einschalten") : t("Fokus-Klang stummschalten")} onClick={() => focusMuted.set(!muted)}>
+        <HeaderButton label={muted ? t("Fokus-Klang einschalten") : t("Fokus-Klang stummschalten")} onClick={() => setFocusMuted(!muted)}>
           {muted ? <SpeakerSimpleSlash size={14} weight="bold" /> : <SpeakerSimpleHigh size={14} weight="bold" />}
         </HeaderButton>
       )}
-      {isNative && (
+      {detachable && (
         <HeaderButton label={open ? t("Timer-Fenster schließen") : t("Timer abdocken")} active={open} onClick={toggleDetached}>
           <PictureInPicture size={14} weight="bold" />
         </HeaderButton>
@@ -108,7 +114,7 @@ function FinishedView() {
             transition={content.exit}
           >
             {ring ? (
-              <RoundButton label={t("Alarm stoppen")} onClick={timerActions.silence} tint={tint}>
+              <RoundButton label={t("Alarm stoppen")} onClick={stopRinging} tint={tint}>
                 <SpeakerSimpleSlash size={17} weight="fill" />
               </RoundButton>
             ) : (
@@ -301,18 +307,18 @@ function MinutesInput(props: { initial: number; tint: string; onDone: (minutes: 
 
 function Segmented({ value, onChange, disabled }: { value: TimerMode; onChange: (m: TimerMode) => void; disabled?: boolean }) {
   return (
-    <div className="flex rounded-full bg-fill-1 p-0.5">
+    <div className="flex rounded-full bg-fill-1 p-0.5 material:overflow-hidden material:bg-transparent material:shadow-[inset_0_0_0_1px_var(--color-label-3)]">
       {(Object.keys(modeLabel) as TimerMode[]).map((m) => (
         <button
           key={m}
           onClick={() => onChange(m)}
           disabled={disabled}
           className={`relative h-6 rounded-full px-3 text-caption font-medium transition-colors duration-150 disabled:opacity-40 ${
-            m === value ? "text-label" : "text-label-3 hover:text-label-2"
+            m === value ? "text-on-secondary-container" : "text-label-3 hover:text-label-2"
           }`}
         >
           {m === value && (
-            <motion.span layoutId="timer-mode" className="absolute inset-0 rounded-full bg-fill-3" transition={springs.snappy} />
+            <motion.span layoutId="timer-mode" className="absolute inset-0 rounded-full bg-secondary-container" transition={springs.snappy} />
           )}
           <span className="relative">{t(modeLabel[m])}</span>
         </button>

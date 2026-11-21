@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight } from "@phosphor-icons/react";
+import { ArrowRight } from "../../ui/iconset";
 import { content } from "../../design/motion";
 import { t } from "../../i18n";
 import { QUOTES, quoteIndex } from "./quotes";

@@ -86,13 +86,13 @@ const flush = async () => {
 
 let pages = 0;
 /** A page just loaded with Glass and the switch as given: a new copy of live.ts, a glass layer that draws, Rust saying it can run. */
-async function load(themes = { glass: true, glassLive: true }) {
+async function load(themes = { glass: true, glassLive: true }, wants?: () => boolean) {
   Object.assign(page, { settings: createStore({ themes }), calls: [], log: [] });
   const live = (await import(`./live.ts?page=${++pages}`)) as typeof import("./live");
   const drawn: LiveMeta[] = [];
   const layer = { uploadLive: (meta: LiveMeta) => (drawn.push(meta), true), freeLive() {} };
   live.setLiveRenderer(layer);
-  live.startGlassLive();
+  live.startGlassLive(wants);
   await flush();
   const take = (name: Call["name"]) => {
     const call = page.calls.shift();
@@ -125,6 +125,16 @@ async function load(themes = { glass: true, glassLive: true }) {
   };
 }
 const last = () => page.calls.at(-1);
+
+test("a window's own condition (the bar's switch) asks for the exclusion with the notch's glass off", async () => {
+  await load({ glass: false, glassLive: false }, () => true);
+  assert.deepEqual(page.log, ["exclude true"]);
+});
+
+test("the notch's condition asks for no exclusion with its glass off", async () => {
+  await load({ glass: false, glassLive: false });
+  assert.deepEqual(page.log, ["exclude false"]);
+});
 
 test("at load: the exclusion first, then a stop for the session a page before may have left", async () => {
   const t = await load();

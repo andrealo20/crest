@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Lightning, LockSimple, SignOut, Thermometer, type Icon } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Lightning, LockSimple, SignOut, Thermometer, type Icon } from "../../../ui/iconset";
 import { t } from "../../../i18n";
 import { fps, useFpsPolling } from "../../../features/system/gaming";
 import { batteryLevel } from "../../../features/system/battery";
@@ -9,7 +9,7 @@ import { tempLevel } from "../../../features/system/temps";
 import { settings } from "../../../settings/store";
 import { activeTheme } from "../../../features/themes/store";
 import type { ClosedSettings } from "../parts";
-import { CAPTION_FONT, measureText } from "../measure";
+import { CAPTION_FONT, measureTabular, measureText } from "../measure";
 
 export type ReadingId = "fps" | "cpu" | "ram" | "gpu" | "down" | "up" | "power" | "battery" | "temp";
 /** `source`: which sensor a temperature comes from; `estimate`: power summed from parts, not measured. */
@@ -20,14 +20,14 @@ export const READING_GAP = 6;
 const DIAL = 16, DIAL_GAP = 3, GLYPH = 11, MARK = 6;
 const LETTER: Partial<Record<ReadingId, string>> = { cpu: "C", ram: "M", gpu: "G" };
 /** Settings, Tools, Hardware, "Coloured icons". Tuned for the black closed notch; a theme that paints the closed notch keeps its own ink. */
-const ICON_COLORS: Partial<Record<ReadingId, string>> = {
+export const ICON_COLORS: Partial<Record<ReadingId, string>> = {
   cpu: "#ff665e", ram: "#9d7aff", gpu: "#00b38f", down: "#3ec7ff", up: "#ff48b0", power: "#ffb511", battery: "#00c26a", temp: "#ff7c2f",
 };
 const GLYPHS: Partial<Record<ReadingId, Icon>> = { down: ArrowDown, up: ArrowUp, power: Lightning, temp: Thermometer };
 
 /** Each reading reserves its widest figure (tabular digits are each as wide as an 8), so the row never shifts. */
 const widest = (id: ReadingId) => (id === "down" || id === "up" ? WIDEST.rate : id === "power" ? WIDEST.watts : id === "temp" ? WIDEST.temp : WIDEST.percent);
-const digits = (id: ReadingId) => measureText(widest(id).replace(/[0-9]/g, "8"));
+export const digits = (id: ReadingId) => measureTabular(widest(id).replace(/[0-9]/g, "8"));
 const lead = (id: ReadingId) => (id === "fps" ? measureText("FPS", CAPTION_FONT) : id === "battery" ? BATTERY_W : LETTER[id] ? DIAL : id === "temp" ? GLYPH + MARK : GLYPH);
 export const readingWidth = (id: ReadingId) => lead(id) + DIAL_GAP + digits(id);
 
@@ -123,7 +123,7 @@ export function ReadingView({ reading }: { reading: Reading }) {
 }
 
 /** `arc`: the value's colour when the icon has a colour of its own, so a red CPU letter never reads as high load. */
-function Dial({ letter, value, arc }: { letter: string; value: number; arc?: string }) {
+export function Dial({ letter, value, arc }: { letter: string; value: number; arc?: string }) {
   const v = Math.min(100, Math.max(0, value)) * 0.75;
   return (
     <svg width={DIAL} height={DIAL} viewBox="0 0 16 16" className="shrink-0" aria-hidden>

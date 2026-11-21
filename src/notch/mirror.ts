@@ -43,13 +43,14 @@ export function useMirror(root: RefObject<HTMLElement | null>, closed: boolean) 
       if (!el || !hit || el.querySelector("[data-open-panel]")) return;
       const { html, images } = picture(el);
       const doc = document.documentElement, css = doc.style.cssText, theme = doc.dataset.theme ?? "", { lang, dir } = doc;
+      const design = doc.dataset.design ?? "crest";
       const same = sent !== null && images.length === sent.length && images.every((src, i) => src === sent![i]);
-      const key = `${theme}|${lang}|${dir}|${css}|${html}`;
+      const key = `${theme}|${design}|${lang}|${dir}|${css}|${html}`;
       if (key === last && same) return;
       last = key;
       sent = images;
       const r = hit.getBoundingClientRect();
-      display.mirror({ html, root: css, theme, lang, dir, images: same ? null : images }, { x: r.x, y: r.y, w: r.width, h: r.height });
+      display.mirror({ html, root: css, theme, design, lang, dir, images: same ? null : images }, { x: r.x, y: r.y, w: r.width, h: r.height });
     };
     take();
     const id = window.setInterval(take, EVERY_MS);

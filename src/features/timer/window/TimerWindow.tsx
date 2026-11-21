@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Check, Pause, Play, X } from "@phosphor-icons/react";
+import { Check, Pause, Play, X } from "../../../ui/iconset";
 import { content, pulse } from "../../../design/motion";
 import { settings } from "../../../settings/store";
 import { closeTimerWindow, onTimerPlaced } from "../../../platform/services";

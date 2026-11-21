@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Plus, X } from "@phosphor-icons/react";
+import { Plus, X } from "../../ui/iconset";
 import { isMac } from "../../platform/native";
 import { secrets } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
@@ -34,7 +34,7 @@ export function CalendarSettings() {
         const error = status.find((x) => x.id === s.id)?.error;
         const where = s.kind === "ics" ? s.host : `${s.user} · ${linkHost(s.url)}`;
         return (
-          <Row
+          <Row icon="calendar_month"
             key={s.id}
             label={
               <span className="flex items-center gap-2">
@@ -56,17 +56,18 @@ export function CalendarSettings() {
       {draft ? (
         <SourceForm draft={draft} onChange={setDraft} onDone={() => setDraft(null)} />
       ) : (
-        <Row label={c.sources.length ? "" : t("Noch kein Kalender")} hint={c.sources.length ? undefined : t("Nur lesen: Crest ändert keine Termine")}>
+        <Row icon="add" label={c.sources.length ? "" : t("Noch kein Kalender")} hint={c.sources.length ? undefined : t("Nur lesen: Crest ändert keine Termine")}>
           <Button icon={Plus} disabled={c.sources.length >= MAX_SOURCES} onClick={() => setDraft({ id: null, kind: "ics", name: "", color: nextColor(c.sources), url: "", user: "", secret: "" })}>
             {t("Kalender hinzufügen")}
           </Button>
         </Row>
       )}
-      <Row label={t("Mitteilung vor Terminen")} hint={t("In der geschlossenen Notch, bis der Termin beginnt")}>
+      <Row icon="event_upcoming" label={t("Mitteilung vor Terminen")} hint={t("In der geschlossenen Notch, bis der Termin beginnt")}>
         <div className="flex items-center gap-2">
           {c.notice && (
             <Segmented
               id="calendar-notice"
+              label={t("Mitteilung vor Terminen")}
               size="sm"
               value={String(c.noticeMin) as "5" | "10"}
               onChange={(v) => setCalendar(() => ({ noticeMin: v === "5" ? 5 : 10 }))}
@@ -79,7 +80,7 @@ export function CalendarSettings() {
           <Switch label={t("Mitteilung vor Terminen")} checked={c.notice} onChange={(notice) => setCalendar(() => ({ notice }))} />
         </div>
       </Row>
-      <Row label={t("Nächster Termin in der Notch")} hint={t("Ab so viel vorher; den Teil unter Darstellung einschalten")}>
+      <Row icon="event" label={t("Nächster Termin in der Notch")} hint={t("Ab so viel vorher; den Teil unter Darstellung einschalten")}>
         <Select
           value={String(c.horizonMin)}
           options={HORIZONS.map((m) => ({ value: String(m), label: horizonLabel(m) }))}
@@ -121,9 +122,10 @@ function SourceForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
   return (
     <div className="bg-fill-1">
       {isNew && (
-        <Row label={t("Art")}>
+        <Row icon="category" label={t("Art")}>
           <Segmented
             id="calendar-kind"
+            label={t("Art")}
             size="sm"
             value={d.kind}
             onChange={(kind) => set({ kind, secret: "" })}
@@ -135,7 +137,7 @@ function SourceForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
         </Row>
       )}
       {d.kind === "ics" ? (
-        <Row
+        <Row icon="link"
           label={t("Link")}
           hint={isMac ? t("Die geheime iCal-Adresse aus Google, Outlook oder iCloud; liegt im Schlüsselbund") : t("Die geheime iCal-Adresse aus Google, Outlook oder iCloud; liegt in der Anmeldeinformationsverwaltung")}
         >
@@ -143,21 +145,21 @@ function SourceForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
         </Row>
       ) : (
         <>
-          <Row label={t("Server")} hint={t("z. B. https://caldav.icloud.com oder die Adresse des Kalenders")}>
+          <Row icon="dns" label={t("Server")} hint={t("z. B. https://caldav.icloud.com oder die Adresse des Kalenders")}>
             <TextField value={d.url} onChange={(url) => set({ url })} placeholder="https://…" width="w-52" autoFocus />
           </Row>
-          <Row label={t("Nutzername")}>
+          <Row icon="person" label={t("Nutzername")}>
             <TextField value={d.user} onChange={(user) => set({ user })} width="w-52" />
           </Row>
-          <Row label={t("App-Passwort")} hint={isMac ? t("Ein App-Passwort, nicht das Konto-Passwort; liegt im Schlüsselbund") : t("Ein App-Passwort, nicht das Konto-Passwort; liegt in der Anmeldeinformationsverwaltung")}>
+          <Row icon="password" label={t("App-Passwort")} hint={isMac ? t("Ein App-Passwort, nicht das Konto-Passwort; liegt im Schlüsselbund") : t("Ein App-Passwort, nicht das Konto-Passwort; liegt in der Anmeldeinformationsverwaltung")}>
             <TextField secret value={d.secret} onChange={(secret) => set({ secret })} placeholder={isNew ? "" : t("Gespeichert")} width="w-52" onSubmit={() => void save()} />
           </Row>
         </>
       )}
-      <Row label={t("Name")} hint={t("Optional")}>
+      <Row icon="label" label={t("Name")} hint={t("Optional")}>
         <TextField value={d.name} onChange={(name) => set({ name })} width="w-52" />
       </Row>
-      <Row label={t("Farbe")} hint={d.kind === "caldav" ? t("Für Kalender ohne eigene Farbe") : undefined}>
+      <Row icon="palette" label={t("Farbe")} hint={d.kind === "caldav" ? t("Für Kalender ohne eigene Farbe") : undefined}>
         <div className="flex gap-1.5" role="radiogroup" aria-label={t("Farbe")}>
           {PALETTE.map((color) => (
             <button
@@ -172,7 +174,7 @@ function SourceForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
           ))}
         </div>
       </Row>
-      <Row label="">
+      <Row icon="check" label="">
         <div className="flex gap-1.5">
           <Button onClick={onDone}>{t("Abbrechen")}</Button>
           <Button primary disabled={!valid} onClick={() => void save()}>

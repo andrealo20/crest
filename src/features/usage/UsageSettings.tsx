@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Reorder } from "motion/react";
-import { Check, DotsSixVertical, PencilSimple } from "@phosphor-icons/react";
+import { Check, DotsSixVertical, PencilSimple } from "../../ui/iconset";
 import { springs } from "../../design/motion";
 import type { SecretName, UsageId } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
@@ -97,7 +97,7 @@ export function UsageSettings() {
                   move(id, e.key === "ArrowUp" ? -1 : 1);
                 }}
                 className={`group relative flex min-h-11 cursor-grab items-center gap-2.5 px-3 py-1.5 outline-none focus-visible:bg-fill-2 active:cursor-grabbing ${
-                  dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
+                  dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)] material:shadow-level4 m3-dragged" : ""
                 }`}
               >
                 <span title={t("Ziehen oder Alt+Pfeil hoch/runter zum Verschieben")} className="-ms-1 shrink-0">
@@ -140,7 +140,7 @@ export function UsageSettings() {
             );
           })}
         </Reorder.Group>
-        <Row
+        <Row icon="cloud"
           label={
             <span className="flex items-center gap-2 text-label-3">
               <BrandLogo id="grok" size={14} /> {brandName.grok}
@@ -155,7 +155,7 @@ export function UsageSettings() {
         <Group title={t("Schlüssel für die AI-Nutzung")}>
           {keyed.map((id) => (
             // Saving a key asks the source again at once, so an old "no key" or "key rejected" does not linger.
-            <SecretRow key={id} name={keys[id]!} label={names[id] || brandName[id]} hint={keyHints[id] && t(keyHints[id])} onSaved={() => void refreshUsage()} />
+            <SecretRow key={id} name={keys[id]!} icon="key" label={names[id] || brandName[id]} hint={keyHints[id] && t(keyHints[id])} onSaved={() => void refreshUsage()} />
           ))}
         </Group>
       )}

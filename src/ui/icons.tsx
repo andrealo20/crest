@@ -1,9 +1,10 @@
 import { forwardRef, type ReactElement } from "react";
-import { IconBase, type Icon, type IconWeight } from "@phosphor-icons/react";
+import { IconBase, material, type Icon, type IconWeight } from "./iconset";
 
 /**
  * Custom icons on the Phosphor grid (256 viewBox, round caps) where Phosphor
- * is too playful. Same API as Phosphor (`size`, `weight`, `className`).
+ * is too playful. Same API as Phosphor (`size`, `weight`, `className`), and
+ * drawn as the Material Symbol materialNames.ts gives each under Material.
  */
 const stroke: Record<IconWeight, number> = { thin: 8, light: 12, regular: 16, bold: 24, fill: 24, duotone: 16 };
 
@@ -18,7 +19,7 @@ function make(name: string, draw: (w: number) => ReactElement): Icon {
   );
   const C = forwardRef<SVGSVGElement, Parameters<Icon>[0]>((props, ref) => <IconBase ref={ref} {...props} weights={weights} />);
   C.displayName = name;
-  return C as Icon;
+  return material(C as Icon, name);
 }
 
 /** RAM: slim stick with four contacts and a notch in the middle. */

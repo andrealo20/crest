@@ -44,7 +44,7 @@ export function HeaderButton(props: { label: string; onClick: () => void; active
       onClick={props.onClick}
       disabled={props.disabled}
       className={`pressable pressable-fill flex size-7 items-center justify-center rounded-full disabled:opacity-30 ${
-        props.active ? "bg-fill-3 text-label" : "text-label-3 hover:text-label-2"
+        props.active ? "bg-secondary-container text-on-secondary-container" : "text-label-3 hover:text-label-2"
       }`}
     >
       {props.children}

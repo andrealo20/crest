@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { BLACK, WHITE, contrast, formatColor, over, parseColor, withAlpha, type Rgba } from "./color.ts";
 import {
   BUILT_IN_THEMES,
+  EDITOR_KEYS,
+  FONTS,
   GLASS_EDGE,
   GRAPHIC,
   HUE_PALETTE,
@@ -11,24 +13,32 @@ import {
   TERTIARY,
   TEXT,
   THEME_DEFAULTS,
+  captionSpacing,
   closedGlassInk,
+  editorKeys,
   findTheme,
+  fontStack,
   glassInk,
   glassVeil,
   glassVeilAt,
   importThemes,
+  isBuiltIn,
   normalizeId,
   normalizeThemeSettings,
   parseThemeText,
   readableAccent,
   resolveTheme,
   setThemeColor,
+  systemTheme,
+  takenIds,
+  themeChoices,
   themeToText,
   uniqueId,
   validateTheme,
   type ResolvedTheme,
   type ThemeFile,
 } from "./themes.ts";
+import { resolveMaterial } from "./material.ts";
 
 const dark = BUILT_IN_THEMES[0];
 const light = BUILT_IN_THEMES[1];
@@ -73,6 +83,44 @@ test("Dark resolves to exactly the tokens in tokens.css", () => {
     assert.ok(got, `${name} missing`);
     assert.deepEqual({ ...got, a: Math.round(got.a * 1000) }, { ...want, a: Math.round(want.a * 1000) }, name);
   }
+});
+
+test("Crest style: every theme resolves to the recorded variables", () => {
+  // Recorded before the Material style, in a file the resolver cannot rewrite: the Crest style must keep every colour.
+  const recorded: Record<string, Record<string, string>> = JSON.parse(readFileSync(new URL("./crest-vars.fixture.json", import.meta.url), "utf8"));
+  // The only variables the Material style may add: its role tokens, which repeat colours Crest already paints.
+  const roles = ["--color-primary", "--color-on-primary", "--color-secondary-container", "--color-on-secondary-container", "--color-tertiary"];
+  assert.deepEqual(Object.keys(recorded).sort(), BUILT_IN_THEMES.map((t) => t.id).sort());
+  for (const t of BUILT_IN_THEMES) {
+    const vars = resolveTheme(t).vars, want = recorded[t.id];
+    for (const [name, value] of Object.entries(want)) assert.equal(vars[name], value, `${t.id} ${name}`);
+    const known = new Set([...Object.keys(want), ...roles]);
+    assert.deepEqual(Object.keys(vars).filter((name) => !known.has(name)), [], `${t.id}: variables not recorded`);
+  }
+});
+
+test("Crest style: the five role tokens repeat label, black, fill-3, label and label", () => {
+  for (const t of BUILT_IN_THEMES) {
+    const v = resolveTheme(t).vars;
+    assert.deepEqual(
+      [v["--color-primary"], v["--color-on-primary"], v["--color-secondary-container"], v["--color-on-secondary-container"], v["--color-tertiary"]],
+      [v["--color-label"], v["--color-black"], v["--color-fill-3"], v["--color-label"], v["--color-label"]],
+      t.id,
+    );
+  }
+});
+
+test("forced colours list every colour token", () => {
+  const tokens = readFileSync(new URL("../../styles/tokens.css", import.meta.url), "utf8");
+  const css = readFileSync(new URL("./themes.css", import.meta.url), "utf8");
+  // The block ends at the first brace in the first column: the rules inside it are indented.
+  const block = /@media \(forced-colors: active\) \{([\s\S]*?)\n\}/.exec(css)![1];
+  // Without !important the inline theme on <html> wins and the row does nothing.
+  const forced = new Set([...block.matchAll(/(--[\w-]+):[^;]*!important;/g)].map(([, name]) => name));
+  const names = [...tokens.matchAll(/(--color-[\w-]+):\s*([^;]+);/g)];
+  assert.ok(names.length >= 16);
+  // --color-accent only points at --accent, so the row for --accent covers it.
+  for (const [, name, value] of names) assert.ok(forced.has(/^var\((--[\w-]+)\)$/.exec(value)?.[1] ?? name), `${name} has no forced colour`);
 });
 
 test("light themes flip the ink on label fills", () => {
@@ -226,10 +274,39 @@ test("cover tint: off by default, on only when saved as true", () => {
   assert.equal(normalizeThemeSettings({}).coverTint, false);
   assert.equal(normalizeThemeSettings({ coverTint: true }).coverTint, true);
   assert.equal(normalizeThemeSettings({ coverTint: "true" }).coverTint, false);
-  assert.equal(normalizeThemeSettings({}).font, "inter");
+});
+
+test("the Style: Crest by default and for anything unknown, Material only when saved", () => {
+  assert.equal(normalizeThemeSettings({}).design, "crest");
+  assert.equal(normalizeThemeSettings({ design: "material" }).design, "material");
+  assert.equal(normalizeThemeSettings({ design: "fancy" }).design, "crest");
+});
+
+test("the font: the style's own by default, and an Inter saved before the Style setting becomes it, once", () => {
+  assert.equal(normalizeThemeSettings({}).font, "auto");
   assert.equal(normalizeThemeSettings({ font: "georgia" }).font, "georgia");
-  assert.equal(normalizeThemeSettings({ font: "Papyrus" }).font, "inter");
-  assert.equal(normalizeThemeSettings({ font: "toString" }).font, "inter");
+  assert.equal(normalizeThemeSettings({ font: "Papyrus" }).font, "auto");
+  assert.equal(normalizeThemeSettings({ font: "toString" }).font, "auto");
+  // Before the Style setting Inter was the default nobody chose; saved beside a style, it was picked.
+  const migrated = normalizeThemeSettings({ font: "inter" });
+  assert.equal(migrated.font, "auto");
+  assert.equal(normalizeThemeSettings({ font: "inter", design: "crest" }).font, "inter");
+  assert.equal(normalizeThemeSettings({ ...migrated, font: "inter" }).font, "inter");
+});
+
+test("fontStack: auto is Inter in the Crest style and Google Sans Flex before Inter in Material, a chosen font stays", () => {
+  assert.equal(fontStack("auto", "crest"), FONTS.inter);
+  const material = fontStack("auto", "material");
+  assert.ok(material.startsWith('"Google Sans Flex"'), material);
+  assert.ok(material.includes(FONTS.inter), material);
+  assert.equal(fontStack("georgia", "material"), FONTS.georgia);
+});
+
+test("captionSpacing: the caption's tracking measure.ts adds, text-caption's 0.01em of 11 px in the Crest style and none in Material", () => {
+  assert.equal(captionSpacing("crest"), 0.11);
+  assert.equal(captionSpacing("material"), 0);
+  // What Material's rule in global.css sets, so the measured caption is the drawn one.
+  assert.match(readFileSync(new URL("../../styles/global.css", import.meta.url), "utf8"), /\[data-design="material"\] \{[^}]*--text-caption--letter-spacing: 0;/);
 });
 
 test("over keeps the pop-up colours opaque", () => {
@@ -253,6 +330,13 @@ test("status alerts as glass: on by default, off only when saved as false", () =
   assert.equal(normalizeThemeSettings({}).glassAlerts, true);
   assert.equal(normalizeThemeSettings({ glassAlerts: false }).glassAlerts, false);
   assert.equal(normalizeThemeSettings({ glassAlerts: "false" }).glassAlerts, true);
+});
+
+test("the settings window's contour lines: on by default, off only when saved as false, and only Material themes carry a tertiary for them", () => {
+  assert.equal(normalizeThemeSettings({}).contours, true);
+  assert.equal(normalizeThemeSettings({ contours: false }).contours, false);
+  assert.equal(normalizeThemeSettings({ contours: "no" }).contours, true);
+  assert.equal(resolveTheme(BUILT_IN_THEMES[0]).m3Tertiary, undefined);
 });
 
 const veilOf = (t: ThemeFile) => parseColor(resolveTheme(t).vars["--glass-tint"])!;
@@ -433,4 +517,52 @@ test("the closed glass's ink keeps its minimum over the closed veil", () => {
       assert.ok(lowest(value) >= min, `${t.id} ${name} ${value}`);
     }
   }
+});
+
+test("the System card: Dark or Light by the system's side, with the system's accent", () => {
+  const sys = systemTheme({ accent: "#0078d4", dark: true })!;
+  assert.equal(sys.id, "system");
+  assert.deepEqual(sys.colors, { ...dark.colors, accent: "#0078d4" });
+  assert.deepEqual(systemTheme({ accent: "#0078d4", dark: false })!.colors, { ...light.colors, accent: "#0078d4" });
+  assert.equal(systemTheme(null), null);
+  // Never read: a saved "system" is Dark, like any id that is gone.
+  assert.equal(findTheme("system", [], null).id, "dark");
+  assert.equal(findTheme("system", [], sys), sys);
+  assert.equal(isBuiltIn("system"), true);
+  const m = resolveMaterial(systemTheme({ accent: "#0078d4", dark: false })!);
+  assert.equal(m.dark, false);
+  assert.deepEqual(m.adjustments, []);
+});
+
+test("a file or a theme of one's own with the id \"system\" never takes the System card's place", () => {
+  const file = { file: "s.json", text: JSON.stringify({ id: "system", name: "System", colors: { accent: "#ff0000" } }) };
+  assert.notEqual(importThemes([], [file]).added[0].id, "system");
+  // Saved before the card existed: the theme stays under a new id, and the choices that named it follow it.
+  const s = normalizeThemeSettings({
+    id: "system",
+    custom: [{ id: "system", name: "System", colors: { accent: "#ff0000" } }],
+    schedule: { on: true, day: "system", night: "dark" },
+  });
+  const renamed = uniqueId("system", takenIds([]));
+  assert.notEqual(renamed, "system");
+  assert.deepEqual(s.custom.map((t) => [t.id, t.colors.accent]), [[renamed, "#ff0000"]]);
+  assert.deepEqual([s.id, s.schedule.day, s.schedule.night], [renamed, renamed, "dark"]);
+  // The ids a new theme cannot take: every built-in, the System card's and the custom ones.
+  const taken = takenIds([]);
+  assert.ok(taken.has("system") && BUILT_IN_THEMES.every((t) => taken.has(t.id)));
+  assert.equal(taken.size, BUILT_IN_THEMES.length + 1);
+  assert.ok(takenIds([{ format: 1, id: "mine", name: "Mine", colors: {} }]).has("mine"));
+  assert.notEqual(uniqueId("System", takenIds([])), "system");
+});
+
+test("the editor's colours: all five in Crest, in Material the starting colour first, then the background's side", () => {
+  assert.deepEqual(editorKeys("crest"), EDITOR_KEYS);
+  assert.deepEqual(editorKeys("material"), ["accent", "background"]);
+});
+
+test("the theme cards: the System card first when the system was read, then the built-ins, then one's own", () => {
+  assert.deepEqual(themeChoices(null, []), BUILT_IN_THEMES);
+  const sys = systemTheme({ accent: "#0078d4", dark: true })!;
+  const mine: ThemeFile = { format: 1, id: "mine", name: "Mine", colors: {} };
+  assert.deepEqual(themeChoices(sys, [mine]), [sys, ...BUILT_IN_THEMES, mine]);
 });

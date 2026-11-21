@@ -1,3 +1,4 @@
+import { askNotch } from "../../lib/tauriTransport";
 import { isNotchWindow } from "../../lib/windowKind";
 import { useEffect, useState } from "react";
 import { createStore } from "../../lib/store";
@@ -87,6 +88,21 @@ export const timerActions = {
     });
   },
 };
+
+/**
+ * The view's Stop alarm. Only the notch rings, and it stops by itself only once the shared timer is no longer finished, which Stop
+ * keeps; so another window (the bar's panel) asks the notch.
+ */
+export function stopRinging() {
+  if (!isNotchWindow) return askNotch({ kind: "timerSilence" });
+  timerActions.silence();
+}
+
+/** The view's mute. The notch alone plays the focus sound and holds `focusMuted`, so another window asks the notch. */
+export function setFocusMuted(on: boolean) {
+  if (!isNotchWindow) return askNotch({ kind: "focusMute", on });
+  focusMuted.set(on);
+}
 
 // Watch for the end (one place for the whole app): one timeout at `endsAt`, no
 // polling while nothing runs.

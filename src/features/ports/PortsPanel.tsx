@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowSquareOut, CaretDown, CaretUp, Check, Copy, Globe, LockSimple, PlugsConnected, X } from "@phosphor-icons/react";
+import { ArrowSquareOut, CaretDown, CaretUp, Check, Copy, Globe, LockSimple, PlugsConnected, X } from "../../ui/iconset";
 import { fade } from "../../design/motion";
 import { t } from "../../i18n";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -111,7 +111,7 @@ function PortsSheet({ onClose }: { onClose: () => void }) {
       tabIndex={-1}
       // Escape closes the sheet first and stops there, so it does not also close the notch; the next Escape does.
       onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), onClose())}
-      className="absolute inset-x-4 top-1 bottom-2 z-20 flex flex-col overflow-hidden rounded-[14px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)] outline-none"
+      className="absolute inset-x-4 top-1 bottom-2 z-20 flex flex-col overflow-hidden rounded-[14px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)] material:shadow-level3 outline-none"
       initial={{ opacity: 0, transform: "translateY(6px)" }}
       animate={{ opacity: 1, transform: "translateY(0px)" }}
       exit={{ opacity: 0, transform: "translateY(4px)" }}

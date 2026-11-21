@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { AlarmIcon, Check, ClockClockwise } from "@phosphor-icons/react";
+import { AlarmIcon, Check, ClockClockwise } from "../../ui/iconset";
 import { pulse } from "../../design/motion";
 import { openOn } from "../../notch/nav";
 import { NOTICE_BUTTON as BUTTON, NoticeButton } from "../../notch/row/NoticeButton";

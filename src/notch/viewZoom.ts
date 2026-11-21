@@ -1,13 +1,15 @@
 import { createStore } from "../lib/store";
+import { isTaskbarWindow } from "../lib/windowKind";
 import { isNative } from "../platform/native";
 import { settings } from "../settings/store";
 
 /**
- * The panel scale as the page sees it. Natively Rust zooms the whole WebView (display.rs), so CSS px, pointer positions and the monitor
- * all scale together and this is 1. In the browser the notch's layer is drawn with CSS zoom instead: pointer moves and viewport sizes
- * come in unzoomed px and are divided by this to reach the layer's px.
+ * The panel scale as the page sees it. Natively Rust zooms the notch's whole WebView (display.rs), so CSS px, pointer positions and the
+ * monitor all scale together and this is 1. In the browser the notch's layer is drawn with CSS zoom instead, and so is the panel above
+ * the bar in the bar's window, whose bar stays at 100 %: pointer moves and viewport sizes come in unzoomed px and are divided by this to
+ * reach the layer's px.
  */
-export const viewZoom = (): number => (isNative ? 1 : settings.get().behavior.scale / 100);
+export const viewZoom = (): number => (isNative && !isTaskbarWindow ? 1 : settings.get().behavior.scale / 100);
 
 /**
  * The page's scale and size as a store: what a render works out in physical px (the live glass's zone, Notch.tsx) is worked out again

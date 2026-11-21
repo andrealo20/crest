@@ -12,13 +12,14 @@ import type { ColorScheme } from "../features/system/levels";
 import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
 import { NOTICE_DEFAULTS, normalizeNotices, type NoticeSettings } from "../features/notices/rules";
 import { WINDOW_DEFAULTS, normalizeWindow, type WindowSettings } from "../features/window/model";
-import { DOCK_DEFAULTS, normalizeDock, type Dock } from "../notch/edge";
+import { DOCK_DEFAULTS, dockBesideBar, normalizeDock, type Dock } from "../notch/edge";
 import { normalizeMonitorMode, type MonitorMode } from "../notch/follow";
 import { CALENDAR_DEFAULTS, normalizeCalendar, type CalendarSettings } from "../features/calendar/model";
 import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
 import { DEFAULT_OFF, TOOL_IDS } from "./tools";
 import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
 import { normalizeSearch, type SearchSetting } from "../features/overview/search";
+import { TASKBAR_DEFAULTS, normalizeTaskbar, type TaskbarSettings } from "../features/taskbar/model";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "off" | "low" | "medium" | "high" | "xhigh";
@@ -167,6 +168,8 @@ export interface Settings {
   clipChips: boolean;
   /** Clipboard tool: a click on an entry also pastes it into the app that had the keyboard before the notch opened (clipboard.rs). Off by default: it changes what a click does. */
   clipPaste: boolean;
+  /** Crest's bar in place of Windows' taskbar (Windows only, off by default): its zones, size, background and pinned apps (src/features/taskbar). */
+  taskbar: TaskbarSettings;
 }
 
 const defaults: Settings = {
@@ -233,6 +236,7 @@ const defaults: Settings = {
   setup: { done: false },
   clipChips: true,
   clipPaste: false,
+  taskbar: TASKBAR_DEFAULTS,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -274,6 +278,16 @@ try {
   settings.set(defaults);
 }
 
+/** Crest's bar is on. Windows only: a Mac, which has no bar, never reads it on from a restored backup. */
+export function barOn(s: Settings): boolean {
+  return s.taskbar.enabled && !isMac;
+}
+
+/** The notch leaves the bottom edge to Crest's bar (edge.ts dockBesideBar), as the settings load (a restored backup too) and on every update (the bar turned on). */
+function besideBar(s: Settings): Settings {
+  return { ...s, dock: dockBesideBar(s.dock, barOn(s)) };
+}
+
 function migrate({ language: _old, ...s }: Settings & { language?: unknown }): Settings {
   const known = new Set<string>(TOOL_IDS);
   // Plugin tools stay; src/features/plugins/store.ts drops those no longer installed once it has read the list.
@@ -284,7 +298,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     if (id === "overview") tools.unshift({ id, enabled: true });
     else tools.push({ id, enabled: !DEFAULT_OFF.has(id) });
   }
-  return {
+  return besideBar({
     ...defaults,
     ...s,
     // The old `language` was forced to English, never a choice: those settings start from the system language.
@@ -337,7 +351,8 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     dock: normalizeDock(s.dock),
     // Only a fresh install starts from the defaults (done: false); settings saved by 0.2.x have no `setup` and never see it.
     setup: { done: s.setup ? s.setup.done === true : true },
-  };
+    taskbar: normalizeTaskbar(s.taskbar),
+  });
 }
 
 /** Migrates the old shape ({ provider: "demo", model }) and adds missing providers. */
@@ -354,5 +369,5 @@ export function updateAsk(provider: AskProvider, patch: Partial<AskProviderConfi
 }
 
 export function updateSettings(patch: Partial<Settings> | ((s: Settings) => Partial<Settings>)) {
-  settings.set((s) => ({ ...s, ...(typeof patch === "function" ? patch(s) : patch) }));
+  settings.set((s) => besideBar({ ...s, ...(typeof patch === "function" ? patch(s) : patch) }));
 }

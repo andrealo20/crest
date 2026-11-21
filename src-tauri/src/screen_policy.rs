@@ -97,12 +97,16 @@ pub fn lenient_rules<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Rules, D:
     Ok(Rules::from_value(&serde_json::Value::deserialize(d)?))
 }
 
-/// The context of one window. A frameless window across the monitor is borderless even when
-/// maximized; a framed one covering it without being maximized (old games) is borderless too.
-pub fn classify(exclusive: bool, covers_monitor: bool, has_caption: bool, maximized: bool) -> Context {
+/// The context of one window. A window without a caption across the monitor is borderless unless
+/// it is maximized inside the work area and keeps its resize frame: where the work area is the
+/// whole monitor (Windows' taskbar on auto-hide, or a monitor without a taskbar), a maximized app
+/// that draws its own title bar covers the monitor but keeps its resize frame, while full-screen
+/// modes (F11 in Firefox and Chromium) drop it. A window with a caption covering the monitor
+/// without being maximized (old games) is borderless too.
+pub fn classify(exclusive: bool, covers_monitor: bool, has_caption: bool, maximized: bool, within_work: bool, resizable: bool) -> Context {
     if exclusive {
         Context::Exclusive
-    } else if covers_monitor && !has_caption {
+    } else if covers_monitor && !has_caption && !(maximized && within_work && resizable) {
         Context::Borderless
     } else if maximized {
         Context::Maximized
@@ -177,11 +181,21 @@ mod tests {
 
     #[test]
     fn classifies_the_four_contexts() {
-        assert_eq!(classify(true, false, true, false), Context::Exclusive);
-        assert_eq!(classify(false, true, false, true), Context::Borderless);
-        assert_eq!(classify(false, false, true, true), Context::Maximized);
-        assert_eq!(classify(false, true, true, false), Context::Borderless);
-        assert_eq!(classify(false, false, true, false), Context::Desktop);
+        assert_eq!(classify(true, false, true, false, false, false), Context::Exclusive);
+        assert_eq!(classify(false, true, false, true, false, false), Context::Borderless);
+        assert_eq!(classify(false, false, true, true, false, false), Context::Maximized);
+        assert_eq!(classify(false, true, true, false, false, false), Context::Borderless);
+        assert_eq!(classify(false, false, true, false, false, false), Context::Desktop);
+    }
+
+    #[test]
+    fn a_maximized_window_inside_the_work_area_is_not_full_screen() {
+        use Context::*;
+        assert_eq!(classify(false, true, false, true, true, true), Maximized); // auto-hide taskbar, maximized app that draws its own title bar
+        assert_eq!(classify(false, true, false, true, false, true), Borderless); // maximized over a reserved taskbar band
+        assert_eq!(classify(false, true, false, false, true, false), Borderless); // F11 in Chromium, borderless game
+        assert_eq!(classify(false, true, false, true, true, false), Borderless); // full screen entered from a maximized window (Firefox F11)
+        assert_eq!(classify(true, true, false, true, true, true), Exclusive);
     }
 
     #[test]

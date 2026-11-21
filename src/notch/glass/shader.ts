@@ -30,6 +30,49 @@ void main() {
 }`;
 
 /**
+ * What every glass shader shares (MAIN_FS here, the bar's BAR_FS in src/features/taskbar/window/glassShader.ts): the bend's and the
+ * light's constants, the rounded box's distance, luma, the bend along a rim and its light.
+ */
+export const GLASS_GLSL = `const float IOR = 1.5;
+const float SLOPE = 1.6;
+const float SAT = 1.2;
+const vec2 LIGHT = vec2(-0.6, -0.8);
+const vec4 SPEC = vec4(1.0, 0.5, 1.4, 1.5);
+const vec2 GLOSS = vec2(0.22, 5.0);
+
+float sdRound(vec2 p, vec2 c, vec2 b, float r) {
+  vec2 q = abs(p - c) - b + r;
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+}
+
+float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// The backdrop's shift at inward px into a rim w wide with outward normal n: the slope of the profile, refract(), along the ray through
+// glass thick px, at most most. The slope comes back for the light.
+vec2 bend(float inward, float w, vec2 n, float thick, float most, out float slope) {
+  slope = 0.0;
+  float b = clamp(inward / w, 0.0, 1.0);
+  if (b >= 1.0) return vec2(0.0);
+  float u = 1.0 - b;
+  float u3 = u * u * u;
+  slope = min(SLOPE * u3 * pow(max(1.0 - u3 * u, 1e-4), -0.75), 12.0);
+  vec3 ray = refract(vec3(0.0, 0.0, -1.0), normalize(vec3(n * slope, 1.0)), 1.0 / IOR);
+  vec2 s = ray.z < 0.0 ? ray.xy / -ray.z * (thick + inward * 0.5) : vec2(0.0);
+  float len = length(s);
+  return len > most ? s * (most / len) : s;
+}
+
+// The rim light and the gloss of a rim with outward normal n, at inward px and band (0 at the edge, 1 past the rim).
+float shine(vec2 n, float slope, float inward, float band) {
+  vec2 light = normalize(LIGHT);
+  float rl = exp(-(inward * inward) / (SPEC.z * SPEC.z));
+  float lit = pow(max(dot(n, light), 0.0), SPEC.w) * SPEC.x + pow(max(dot(n, -light), 0.0), SPEC.w) * SPEC.y;
+  vec3 rv = reflect(vec3(0.0, 0.0, -1.0), normalize(vec3(n * slope, 1.0)));
+  float gloss = pow(max(dot(rv, normalize(vec3(light, 0.75))), 0.0), GLOSS.y) * GLOSS.x * (1.0 - band);
+  return rl * lit + gloss;
+}`;
+
+/**
  * The glass: the open panel over the copy taken as it opens, the closed notch and the capsule over the live copy (live.ts), bent along the
  * rim and blurred in the middle, under a veil. The tool bar and its drop (bar.ts) are glass of their own inside the panel, from the same copy.
  */
@@ -63,23 +106,14 @@ uniform vec4 uFill;            // --color-fill-3, the drop's tint
 uniform vec2 uLens;            // the drop's bend at its rim in px and its magnification, fully lifted (params.ts dropLens)
 out vec4 o;
 
-const float IOR = 1.5;
-const float SLOPE = 1.6;
-const float SAT = 1.2;
-const vec2 LIGHT = vec2(-0.6, -0.8);
-const vec4 SPEC = vec4(1.0, 0.5, 1.4, 1.5);
-const vec2 GLOSS = vec2(0.22, 5.0);
+${GLASS_GLSL}
+
 const float BAR_BAND = 8.0;    // the bar's rim that bends; clear of its icons (11 px from its long sides on buttons from about 32 px)
 const float DROP_BAND = 6.0;   // the drop's; clear of the icon under it, but for a press at high Refraction
 const float BAR_THICK = 10.0;  // the bar's and the drop's glass, thinner than the panel's
 const float BAR_SHADOW = 0.12; // the bar's soft shadow on the panel around it, inside the tool bar's strip
 const float MERGE = 6.0;       // the lifted drop's smooth union with the bar, WinIsland's 6 px
 const float HEAD = 36.0;       // the header's rows, HEADER_HEIGHT + 4 (Notch.tsx Header)
-
-float sdRound(vec2 p, vec2 c, vec2 b, float r) {
-  vec2 q = abs(p - c) - b + r;
-  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
-}
 
 // Signed distance to the open panel (CSS px, negative inside). Hanging from y = 0 the body runs on past the screen edge, so that edge
 // has no rim, and the ears are the two corners between body and screen edge (NotchShape.tsx draws them with radial-gradient).
@@ -102,8 +136,6 @@ float sdPanel(vec2 p) {
   return d;
 }
 
-float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
-
 // Polynomial smooth minimum (Inigo Quilez), as WinIsland joins its shapes; k 0 is min().
 float smin(float a, float b, float k) {
   if (k <= 0.0) return min(a, b);
@@ -119,31 +151,6 @@ float sdBar(vec2 p) {
   float b = sdRound(p, uBar.xy, uBar.zw, uBar.w);
   if (uDrop.z > 0.0) b = smin(b, sdRound(p, uDrop.xy, uDrop.zw, min(uDrop.z, uDrop.w)), MERGE * uLift);
   return max(b, sdPanel(p));
-}
-
-// The backdrop's shift at inward px into a rim w wide with outward normal n: the slope of the profile, refract(), along the ray through
-// glass thick px, at most most. The slope comes back for the light.
-vec2 bend(float inward, float w, vec2 n, float thick, float most, out float slope) {
-  slope = 0.0;
-  float b = clamp(inward / w, 0.0, 1.0);
-  if (b >= 1.0) return vec2(0.0);
-  float u = 1.0 - b;
-  float u3 = u * u * u;
-  slope = min(SLOPE * u3 * pow(max(1.0 - u3 * u, 1e-4), -0.75), 12.0);
-  vec3 ray = refract(vec3(0.0, 0.0, -1.0), normalize(vec3(n * slope, 1.0)), 1.0 / IOR);
-  vec2 s = ray.z < 0.0 ? ray.xy / -ray.z * (thick + inward * 0.5) : vec2(0.0);
-  float len = length(s);
-  return len > most ? s * (most / len) : s;
-}
-
-// The rim light and the gloss of a rim with outward normal n, at inward px and band (0 at the edge, 1 past the rim).
-float shine(vec2 n, float slope, float inward, float band) {
-  vec2 light = normalize(LIGHT);
-  float rl = exp(-(inward * inward) / (SPEC.z * SPEC.z));
-  float lit = pow(max(dot(n, light), 0.0), SPEC.w) * SPEC.x + pow(max(dot(n, -light), 0.0), SPEC.w) * SPEC.y;
-  vec3 rv = reflect(vec3(0.0, 0.0, -1.0), normalize(vec3(n * slope, 1.0)));
-  float gloss = pow(max(dot(rv, normalize(vec3(light, 0.75))), 0.0), GLOSS.y) * GLOSS.x * (1.0 - band);
-  return rl * lit + gloss;
 }
 
 void main() {

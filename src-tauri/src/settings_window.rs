@@ -7,6 +7,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use tauri::window::Color;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewWindowBuilder, WindowEvent};
 
 const LABEL: &str = "settings";
@@ -20,6 +21,8 @@ static OPENING: AtomicBool = AtomicBool::new(false);
 static PENDING: Mutex<Option<String>> = Mutex::new(None);
 /// The window has the keyboard. Read by the hit-test poll (lib.rs), which must not ask the main thread.
 static FOCUSED: AtomicBool = AtomicBool::new(false);
+/// The theme's background, from the notch, so a new window opens in it instead of tauri.conf.json's black.
+static BACKGROUND: Mutex<Option<[u8; 3]>> = Mutex::new(None);
 
 #[tauri::command]
 pub async fn settings_window_open(section: Option<String>, app: AppHandle) -> Result<(), String> {
@@ -48,6 +51,10 @@ pub async fn settings_window_open(section: Option<String>, app: AppHandle) -> Re
     // A portable copy gives this window the notch's WebView2 folder too (portable.rs).
     let window = WebviewWindowBuilder::from_config(&app, &config)
         .map(|b| b.on_navigation(crate::own_page))
+        .map(|builder| match *BACKGROUND.lock().unwrap() {
+            Some([r, g, b]) => builder.background_color(Color(r, g, b, 255)),
+            None => builder,
+        })
         .map(|b| match crate::portable::data_dir() {
             Some(dir) => b.data_directory(dir),
             None => b,
@@ -82,6 +89,20 @@ pub async fn settings_window_open(section: Option<String>, app: AppHandle) -> Re
 #[tauri::command]
 pub fn settings_window_section() -> Option<String> {
     PENDING.lock().unwrap().take()
+}
+
+/// The theme's background (`--color-notch`), sent by the notch when it changes. Only the next window takes it: a page already
+/// open draws its own.
+#[tauri::command]
+pub fn settings_window_background(color: String) {
+    *BACKGROUND.lock().unwrap() = parse_hex(&color);
+}
+
+/// "#rrggbb", the form the theme writes its colours in; anything else leaves the window black.
+fn parse_hex(s: &str) -> Option<[u8; 3]> {
+    let hex = s.strip_prefix('#').filter(|h| h.len() == 6 && h.bytes().all(|b| b.is_ascii_hexdigit()))?;
+    let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).ok();
+    Some([byte(0)?, byte(2)?, byte(4)?])
 }
 
 /// Tray "Settings …" and a second launch.
@@ -143,6 +164,15 @@ mod tests {
         assert!(section_ok("updates") && section_ok("ai-usage") && section_ok("a1"));
         assert!(!section_ok("") && !section_ok("Updates") && !section_ok("x\"]") && !section_ok("a b"));
         assert!(!section_ok(&"a".repeat(41)));
+    }
+
+    #[test]
+    fn only_six_digit_hex_colours_parse() {
+        assert_eq!(parse_hex("#111318"), Some([0x11, 0x13, 0x18]));
+        assert_eq!(parse_hex("#F9F9FF"), Some([0xf9, 0xf9, 0xff]));
+        assert_eq!(parse_hex("rgb(0 0 0)"), None);
+        assert_eq!(parse_hex("#fff"), None);
+        assert_eq!(parse_hex(""), None);
     }
 
     #[test]

@@ -34,7 +34,7 @@ const CANCELED: u32 = 3054;
 /// Toasts were cleared (by the user in the notification centre, or by their app); the entry does not say which.
 const CLEARED: u32 = 3055;
 /// Notifications Crest itself might raise (the identifier in tauri.conf.json).
-const OWN_APP: &str = "io.github.andrealo20.crest";
+pub(crate) const OWN_APP: &str = "io.github.andrealo20.crest";
 const ICON_PX: f32 = 48.0;
 
 pub struct NoticesState {

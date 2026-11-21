@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
-import { ArrowUpRight, ImageSquare, MicrophoneStage, MusicNoteSimple, Pause, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward } from "@phosphor-icons/react";
+import { ArrowUpRight, ImageSquare, MicrophoneStage, MusicNoteSimple, Pause, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward } from "../../ui/iconset";
 import { artwork as artworkSwap, content, springs } from "../../design/motion";
 import { useSmoothArtwork, useTinyArtwork } from "./artwork";
 import { coverBackdrop } from "./CoverBackdrop";
@@ -20,6 +20,9 @@ import { offersSources } from "./sources";
 import { setMusic } from "./music";
 import { sinePath } from "./shapes";
 import { settings } from "../../settings/store";
+import { design } from "../../design/design";
+import { filledPress } from "../../ui/press";
+import { M3Layers } from "../../ui/controls";
 import { t } from "../../i18n";
 
 type Panel = "mixer" | "sources" | "lyrics" | null;
@@ -352,7 +355,7 @@ function Progress({ np, wavy }: { np: NowPlaying; wavy: boolean }) {
             className={`relative w-full overflow-hidden rounded-full bg-fill-2 transition-[height] duration-150 ease-out ${active ? "h-[9px]" : "h-[5px]"}`}
           >
             <motion.div
-              className={`absolute inset-0 rounded-full transition-colors duration-150 ${active ? "bg-label" : "bg-label-2"}`}
+              className={`absolute inset-0 rounded-full transition-colors duration-150 ${active ? "bg-primary" : "bg-label-2 material:bg-primary"}`}
               style={{ transform }}
             />
           </div>
@@ -380,9 +383,7 @@ function Controls({ np }: { np: NowPlaying }) {
       <IconButton label={t("Vorheriger Titel")} onClick={media.previous}>
         <SkipBack size={20} weight="fill" />
       </IconButton>
-      <IconButton label={playing ? t("Pause") : t("Abspielen")} onClick={media.toggle}>
-        <PlayPauseIcon playing={playing} size={26} />
-      </IconButton>
+      <PlayButton playing={playing} />
       <IconButton label={t("Nächster Titel")} onClick={media.next}>
         <SkipForward size={20} weight="fill" />
       </IconButton>
@@ -432,8 +433,35 @@ function ModeButton(props: { label: string; active: boolean; offered: boolean; o
       }`}
     >
       {props.children}
-      <span className={`absolute bottom-0.5 size-1 rounded-full bg-label transition-opacity duration-150 ${props.active ? "opacity-100" : "opacity-0"}`} />
+      <span className={`absolute bottom-0.5 size-1 rounded-full bg-primary transition-opacity duration-150 ${props.active ? "opacity-100" : "opacity-0"}`} />
     </button>
+  );
+}
+
+/** Play and Pause: a bare glyph in Crest, a filled primary circle under Material, with its tone, pressed corners and spring. */
+function PlayButton({ playing }: { playing: boolean }) {
+  const style = design.use();
+  const press = filledPress(style, useReducedMotion() === true);
+  const label = playing ? t("Pause") : t("Abspielen");
+  if (style !== "material") {
+    return (
+      <IconButton label={label} onClick={media.toggle}>
+        <PlayPauseIcon playing={playing} size={26} />
+      </IconButton>
+    );
+  }
+  return (
+    <motion.button
+      aria-label={label}
+      onClick={media.toggle}
+      {...press}
+      // Motion springs back to the transform it read at rest, and the computed "none" reads as scale(0).
+      style={press.whileTap && { transform: "scale(1)" }}
+      className="pressable m3-morph m3-lift m3-filled flex size-10 items-center justify-center rounded-full bg-primary text-on-primary"
+    >
+      <M3Layers />
+      <PlayPauseIcon playing={playing} size={24} />
+    </motion.button>
   );
 }
 

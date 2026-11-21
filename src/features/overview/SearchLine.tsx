@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MagnifyingGlass } from "@phosphor-icons/react";
+import { MagnifyingGlass } from "../../ui/iconset";
 import { webSearch } from "../../platform/services";
 import { TextField } from "../../ui/controls";
 import { t } from "../../i18n";

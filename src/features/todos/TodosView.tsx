@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, Broom, Check, Clock, ClockClockwise, Plus, Star, X } from "@phosphor-icons/react";
+import { AlarmIcon, Broom, Check, Clock, ClockClockwise, Plus, Star, X } from "../../ui/iconset";
 import { springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { Segmented } from "../../ui/controls";
@@ -380,6 +380,7 @@ function TaskDetails({ task, onClose }: { task: Task; onClose: () => void }) {
       />
       <Segmented
         id={`due-day-${task.id}`}
+        label={t("Tag")}
         size="sm"
         value={chosenDay as "0" | "1"}
         onChange={(v) => setDay(v)}
@@ -388,7 +389,7 @@ function TaskDetails({ task, onClose }: { task: Task; onClose: () => void }) {
           { value: "1", label: t("Morgen") },
         ]}
       />
-      <button onClick={save} disabled={!parsed} className="pressable h-6 rounded-full bg-label px-2.5 text-caption font-medium text-black disabled:opacity-35">
+      <button onClick={save} disabled={!parsed} className="pressable m3-morph h-6 rounded-full bg-primary px-2.5 text-caption font-medium text-on-primary disabled:opacity-35">
         {t("Erinnern")}
       </button>
       {task.due !== null && (

@@ -116,6 +116,6 @@ export function moveFavorite(favorites: Favorite[], index: number, delta: number
 }
 
 /** Pins or unpins; a new pin goes to the end. */
-export function toggleFavorite(favorites: Favorite[], app: LauncherApp): Favorite[] {
+export function toggleFavorite(favorites: Favorite[], app: Favorite): Favorite[] {
   return favorites.some((f) => f.id === app.id) ? favorites.filter((f) => f.id !== app.id) : [...favorites, { id: app.id, name: app.name }];
 }

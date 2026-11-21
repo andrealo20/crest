@@ -29,7 +29,7 @@ import { WeatherPart, useWeatherNow, weatherWidth } from "./parts/WeatherPart";
 import { NextEventPart, nextEventWidth, useNextEvent } from "./parts/NextEventPart";
 import { ScriptParts, scriptPartsWidth } from "./parts/ScriptPart";
 import { scriptParts } from "../../features/notices/store";
-import { Coffee } from "@phosphor-icons/react";
+import { Coffee } from "../../ui/iconset";
 import { t } from "../../i18n";
 import { awake } from "../../features/overview/store";
 import { DownloadsPart, downloadsCaption, downloadsWidth } from "./parts/DownloadsPart";
@@ -200,7 +200,7 @@ function Slot({ x, width, tool, children }: { x: number; width: number; tool: st
       initial={{ scale: 0.82, x }}
       animate={{ scale: 1, x }}
       exit={{ scale: 0.82 }}
-      transition={{ ...springs.morph, scale: springs.snappy }}
+      transition={{ default: springs.morph, scale: springs.snappy }}
     >
       {children}
     </motion.div>

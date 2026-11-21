@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { ArrowCounterClockwise, Check, Copy, Trash, X } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, Check, Copy, Trash, X } from "../../ui/iconset";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { createStore } from "../../lib/store";
 import { Select } from "../../ui/controls";

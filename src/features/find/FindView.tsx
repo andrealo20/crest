@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Crosshair, MagnifyingGlass } from "@phosphor-icons/react";
+import { Crosshair, MagnifyingGlass } from "../../ui/iconset";
 import { capture } from "../../platform/services";
 import { Button, Skeleton, TextField } from "../../ui/controls";
 import { t } from "../../i18n";

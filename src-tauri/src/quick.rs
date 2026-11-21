@@ -33,7 +33,7 @@ fn kind_of(name: &str) -> Option<RadioKind> {
     }
 }
 
-fn radios() -> windows::core::Result<Vec<Radio>> {
+pub(crate) fn radios() -> windows::core::Result<Vec<Radio>> {
     Ok(Radio::GetRadiosAsync()?.join()?.into_iter().collect())
 }
 
@@ -42,20 +42,20 @@ fn of_kind(list: &[Radio], kind: RadioKind) -> impl Iterator<Item = &Radio> {
 }
 
 /// On when any radio of that kind is (a USB adapter next to the built-in one); None when there is none.
-fn radio_on(list: &[Radio], kind: RadioKind) -> Option<bool> {
+pub(crate) fn radio_on(list: &[Radio], kind: RadioKind) -> Option<bool> {
     let states: Vec<_> = of_kind(list, kind).filter_map(|r| r.State().ok()).collect();
     (!states.is_empty()).then(|| states.contains(&RadioState::On))
 }
 
-fn dark() -> bool {
+pub(crate) fn dark() -> bool {
     let mut value = 1u32;
     let mut size = std::mem::size_of::<u32>() as u32;
     let read = unsafe { RegGetValueW(HKEY_CURRENT_USER, PERSONALIZE, w!("AppsUseLightTheme"), RRF_RT_REG_DWORD, None, Some(&mut value as *mut u32 as *mut _), Some(&mut size)) };
     read.is_ok() && value == 0
 }
 
-/// Runs `job` with COM on a thread of its own: the radio calls wait on WinRT operations.
-async fn blocking<T: Send + 'static>(job: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
+/// Runs `job` with COM on a thread of its own: the radio calls wait on WinRT operations (and the bar's Wi-Fi page's, taskbar/wifi.rs).
+pub(crate) async fn blocking<T: Send + 'static>(job: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(move || {
         unsafe {
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);

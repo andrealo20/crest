@@ -1,4 +1,4 @@
-import { CheckCircle, FolderOpen, Tray } from "@phosphor-icons/react";
+import { CheckCircle, FolderOpen, Tray } from "../../ui/iconset";
 import { NOTICE_BUTTON as BUTTON, NoticeButton } from "../../notch/row/NoticeButton";
 import { noticeCard } from "../../notch/row/NoticeCard";
 import { revealFile, type DownloadFinished } from "../../platform/services";

@@ -26,25 +26,25 @@ export function TerminalSettings() {
 
   return (
     <Group title={t("Terminal")} id="settings-terminal">
-      <Row
+      <Row icon="terminal"
         label={t("Shell")}
         hint={prefs.shell === "pwsh" && !hasPwsh ? t("PowerShell 7 nicht gefunden, startet Windows PowerShell") : t("Gilt ab der nächsten Sitzung")}
       >
         <Select width="w-44" value={prefs.shell} onChange={(shell) => set({ shell })} options={shells.map((o) => ({ ...o, label: t(o.label) }))} />
       </Row>
-      <Row label={t("Schriftgröße")}>
+      <Row icon="format_size" label={t("Schriftgröße")}>
         <div className="flex w-52 items-center gap-2">
           <Slider label={t("Schriftgröße")} value={prefs.fontSize} min={10} max={18} step={1} onChange={(fontSize) => set({ fontSize })} />
           <span className="tabular w-8 text-end text-caption text-label-2">{prefs.fontSize}</span>
         </div>
       </Row>
-      <Row label={t("Startordner")} hint={t("Leer = Benutzerordner, ~ steht für ihn")}>
+      <Row icon="folder" label={t("Startordner")} hint={t("Leer = Benutzerordner, ~ steht für ihn")}>
         <div className="flex items-center gap-1.5">
           <TextField value={dir} onChange={setDir} onSubmit={saveDir} placeholder="~" width="w-44" />
           {dir.trim() !== prefs.startDir && <Button onClick={saveDir}>{t("Sichern")}</Button>}
         </div>
       </Row>
-      <Row label={t("Beim Schließen beenden")} hint={t("Sonst läuft die Sitzung weiter, wenn die Notch zugeht")}>
+      <Row icon="stop_circle" label={t("Beim Schließen beenden")} hint={t("Sonst läuft die Sitzung weiter, wenn die Notch zugeht")}>
         <Switch label={t("Beim Schließen beenden")} checked={prefs.endOnClose} onChange={(endOnClose) => set({ endOnClose })} />
       </Row>
     </Group>

@@ -15,7 +15,7 @@ export function GithubSettings() {
   const save = () => updateSettings((s) => ({ github: { ...s.github, user: clean } }));
   return (
     <Group title="GitHub" id="settings-github">
-      <Row label={t("Nutzername")} hint={t("Liest die öffentliche Beitragsseite, einmal pro Stunde")}>
+      <Row icon="person" label={t("Nutzername")} hint={t("Liest die öffentliche Beitragsseite, einmal pro Stunde")}>
         <div className="flex items-center gap-1.5">
           <TextField value={user} onChange={setUser} onSubmit={save} placeholder="octocat" width="w-40" />
           {clean !== saved && <Button onClick={save}>{t("Sichern")}</Button>}
@@ -23,6 +23,7 @@ export function GithubSettings() {
       </Row>
       <SecretRow
         name="github.token"
+        icon="key"
         label={t("Token (optional)")}
         hint={
           rejected

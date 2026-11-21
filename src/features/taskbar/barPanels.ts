@@ -1,0 +1,44 @@
+import { createStore } from "../../lib/store";
+import { tauriTransport } from "../../lib/tauriTransport";
+import { isNotchWindow } from "../../lib/windowKind";
+import { isNative } from "../../platform/native";
+import { settings } from "../../settings/store";
+import { BAR_TOOLS, withPanel } from "./panelModel";
+
+/*
+ * The notch's side of the bars' panels. A tool open in a bar needs what only the notch does for it (its polls and fetches, the Rust
+ * switches only the notch turns on): it reads the tool each bar's panel shows from here.
+ */
+
+/** In the notch's window: the tool each bar's panel shows, by the bar window's label; a panel closed or showing no tool has no entry. */
+export const barPanels = createStore<Record<string, string>>({});
+
+/** Any bar's panel shows the tool `id`. */
+export const barShows = (id: string) => Object.values(barPanels.get()).includes(id);
+/** Any bar's panel is open. */
+export const anyBarPanel = () => Object.keys(barPanels.get()).length > 0;
+/** Any bar's panel shows a tool, not the tray, the apps behind … or another kind. */
+export const anyBarTool = () => Object.values(barPanels.get()).some((open) => BAR_TOOLS.includes(open));
+
+/**
+ * Calls `act` only when `barShows(id)` changes, starting from false (`barPanels` notifies unchanged values too), so the notch starts
+ * and stops what it runs for a bar's tool once. Returns the unsubscribe.
+ */
+export function onBarShows(id: string, act: (shown: boolean) => void): () => void {
+  let shown = false;
+  return barPanels.subscribe(() => {
+    if (barShows(id) === shown) return;
+    shown = !shown;
+    act(shown);
+  });
+}
+
+/** In the app's notch window only: follows what the bars report through Rust (`taskbar_panel`, src-tauri/src/taskbar/panel.rs). */
+export function startBarPanels() {
+  if (!isNative || !isNotchWindow) return;
+  tauriTransport.listen("bar://panel", (payload) => barPanels.set((s) => withPanel(s, payload)));
+  // A bar that goes away cannot report its close: with the bar off, no panel is open.
+  settings.subscribe(() => {
+    if (!settings.get().taskbar.enabled && anyBarPanel()) barPanels.set({});
+  });
+}

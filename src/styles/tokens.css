@@ -30,6 +30,12 @@
   --color-caution: #ffd60a;
   /* Links (Apple's dark mode link color). */
   --color-link: #419cff;
+  /* Roles a Material component needs besides text and fills; in the Crest style they repeat label, black and fill-3. */
+  --color-primary: rgb(255 255 255 / 0.96);
+  --color-on-primary: #000;
+  --color-secondary-container: rgb(255 255 255 / 0.16);
+  --color-on-secondary-container: rgb(255 255 255 / 0.96);
+  --color-tertiary: rgb(255 255 255 / 0.96);
 
   --font-sans: "Inter Variable", "Segoe UI Variable Text", system-ui, sans-serif;
 
@@ -60,6 +66,22 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
+}
+
+/* Material 3 elevation (material-web's two black layers, key at 0.3 and ambient at 0.15), as shadow-level1 to shadow-level4.
+   static: Tailwind would drop a level no class names yet, and var(--shadow-panel) and .m3-lift reach them through var() only. */
+@theme static {
+  --shadow-level1: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px 1px rgb(0 0 0 / 0.15);
+  --shadow-level2: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15);
+  --shadow-level3: 0 1px 3px rgb(0 0 0 / 0.3), 0 4px 8px 3px rgb(0 0 0 / 0.15);
+  --shadow-level4: 0 2px 3px rgb(0 0 0 / 0.3), 0 6px 10px 4px rgb(0 0 0 / 0.15);
+  /* The open panel's shadow (NotchShape). Within the window's margin around the largest panel (10 px on the sides, 20 below,
+     display.rs), or a wide panel shows the shadow cut off in a straight line on a light wallpaper. */
+  --shadow-panel: 0 10px 20px -10px rgb(0 0 0 / 0.7), 0 3px 8px rgb(0 0 0 / 0.35);
+}
+/* Level 4 leaves about as much black at the window's edge as Crest's shadow does. */
+[data-design="material"] {
+  --shadow-panel: var(--shadow-level4);
 }
 
 /* The accent comes from the cover at runtime (--accent on the notch container).

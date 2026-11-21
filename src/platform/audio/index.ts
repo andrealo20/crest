@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { isNotchWindow } from "../../lib/windowKind";
 import { isNative } from "../native";
 
 export type Levels = [number, number, number, number];
@@ -8,6 +9,7 @@ type Listener<T> = (levels: T) => void;
 /*
  * Real levels from the Rust loopback (src-tauri/src/audio.rs): 4 bands as `audio://levels`, 12 thinner
  * ones as `audio://spectrum`. Capture only runs while at least one visible equalizer asks for either.
+ * Only the notch turns it on and off: the bar's window may not call `audio_levels`, so it listens while the notch captures for it.
  */
 const channels = new Map<string, { listeners: Set<Listener<never>>; unlisten: Promise<() => void> }>();
 let wanted = 0;
@@ -25,7 +27,7 @@ function subscribe<T>(event: string, listener: Listener<T>): () => void {
   const own = channel;
   own.listeners.add(listener);
   wanted++;
-  if (wanted === 1) void invoke("audio_levels", { enabled: true });
+  if (wanted === 1 && isNotchWindow) void invoke("audio_levels", { enabled: true });
   return () => {
     own.listeners.delete(listener);
     if (own.listeners.size === 0 && channels.get(event) === own) {
@@ -33,7 +35,7 @@ function subscribe<T>(event: string, listener: Listener<T>): () => void {
       void own.unlisten.then((f) => f());
     }
     wanted--;
-    if (wanted === 0) void invoke("audio_levels", { enabled: false });
+    if (wanted === 0 && isNotchWindow) void invoke("audio_levels", { enabled: false });
   };
 }
 

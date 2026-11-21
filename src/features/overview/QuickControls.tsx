@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowClockwise, Bed, Bluetooth, Lock, Microphone, MicrophoneSlash, Power, WifiHigh, MoonStars, type Icon } from "@phosphor-icons/react";
+import { ArrowClockwise, Bed, Lock, Microphone, MicrophoneSlash, Power, MoonStars, type Icon } from "../../ui/iconset";
 import { springs } from "../../design/motion";
 import { systemControls, type PowerAction, type QuickState } from "../../platform/services";
-import { HUE_PALETTE } from "../themes/themes";
 import type { Hue } from "../themes/hues";
+import { design } from "../../design/design";
+import { discLook } from "./quickDisc";
 import { t } from "../../i18n";
+import { BluetoothGlyph, NetGlyph } from "../../ui/glyphs";
 
 /*
  * Overview's quick controls, like the quick settings: Wi-Fi, Bluetooth, the dark theme and the microphone mute as switches, then
@@ -42,7 +44,10 @@ export function useQuick(): [QuickState | null, () => void] {
   return [state, load.current];
 }
 
-export function QuickControls({ state, reload }: { state: QuickState; reload: () => void }) {
+/** A switch's command under way and what went wrong with the last one, shared by the switches of one view. */
+export type SwitchJob = { busy: boolean; note: string | null; run: (job: Promise<void>) => void; fail: (e: unknown) => void };
+
+export function useSwitchJob(reload: () => void): SwitchJob {
   // A switch is off limits while its command runs (a radio can take a second or two), so a second click cannot repeat it.
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -53,33 +58,71 @@ export function QuickControls({ state, reload }: { state: QuickState; reload: ()
     window.clearTimeout(noteTimer.current);
     noteTimer.current = window.setTimeout(() => setNote(null), NOTE_MS);
   };
-  const toggle = (job: Promise<void>) => {
+  const run = (job: Promise<void>) => {
     setBusy(true);
     void job.catch(fail).finally(() => {
       setBusy(false);
       reload();
     });
   };
+  return { busy, note, run, fail };
+}
+
+export function QuickControls({ state, reload }: { state: QuickState; reload: () => void }) {
+  const job = useSwitchJob(reload);
   return (
-    <div className="flex h-11 shrink-0 items-center gap-1.5 rounded-[12px] bg-fill-1 px-1.5">
-      {state.wifi !== null && <Switch icon={WifiHigh} hue="blue" label={t("WLAN")} on={state.wifi} busy={busy} onToggle={() => toggle(systemControls.setRadio("wifi", !state.wifi))} />}
-      {state.bluetooth !== null && <Switch icon={Bluetooth} hue="indigo" label={t("Bluetooth")} on={state.bluetooth} busy={busy} onToggle={() => toggle(systemControls.setRadio("bluetooth", !state.bluetooth))} />}
-      <Switch icon={MoonStars} hue="violet" label={t("Dunkles Design")} on={state.dark} busy={busy} onToggle={() => toggle(systemControls.setDark(!state.dark))} />
+    <div className="flex h-11 shrink-0 items-center gap-1.5 rounded-[12px] bg-fill-1 px-1.5 material:rounded-full">
+      {state.wifi !== null && <RadioSwitch kind="wifi" on={state.wifi} job={job} />}
+      {state.bluetooth !== null && <RadioSwitch kind="bluetooth" on={state.bluetooth} job={job} />}
+      <Switch icon={MoonStars} hue="violet" label={t("Dunkles Design")} on={state.dark} busy={job.busy} onToggle={() => job.run(systemControls.setDark(!state.dark))} />
       {/* Lit while muted, like the mute button of a call. */}
-      {state.micMuted !== null && <Switch icon={state.micMuted ? MicrophoneSlash : Microphone} hue="red" label={t("Mikrofon stummschalten")} on={state.micMuted} busy={busy} onToggle={() => toggle(systemControls.setMicMuted(!state.micMuted))} />}
+      {state.micMuted !== null && <Switch icon={state.micMuted ? MicrophoneSlash : Microphone} hue="red" label={t("Mikrofon stummschalten")} on={state.micMuted} busy={job.busy} onToggle={() => job.run(systemControls.setMicMuted(!state.micMuted))} />}
       {/* Switches on one end, the power actions on the other; between them, what went wrong. */}
       <span role="status" className="min-w-0 flex-1 truncate ps-1 text-caption text-label-3">
-        {note}
+        {job.note}
       </span>
-      <PowerButton icon={Lock} label={t("Sperren")} action="lock" onError={fail} />
-      <PowerButton icon={Bed} label={t("Energie sparen")} action="sleep" confirm onError={fail} />
-      <PowerButton icon={ArrowClockwise} label={t("Neu starten")} action="restart" confirm onError={fail} />
-      <PowerButton icon={Power} label={t("Herunterfahren")} action="shutdown" confirm onError={fail} />
+      <PowerButton icon={Lock} label={t("Sperren")} action="lock" onError={job.fail} />
+      <PowerButton icon={Bed} label={t("Energie sparen")} action="sleep" confirm onError={job.fail} />
+      <PowerButton icon={ArrowClockwise} label={t("Neu starten")} action="restart" confirm onError={job.fail} />
+      <PowerButton icon={Power} label={t("Herunterfahren")} action="shutdown" confirm onError={job.fail} />
     </div>
   );
 }
 
-function Switch({ icon: I, hue, label, on, busy, onToggle }: { icon: Icon; hue: Hue; label: string; on: boolean; busy: boolean; onToggle: () => void }) {
+/** The Wi-Fi or the Bluetooth switch, in Overview's row and in the bar's quick panel. */
+export function RadioSwitch({ kind, on, job }: { kind: "wifi" | "bluetooth"; on: boolean; job: SwitchJob }) {
+  const wifi = kind === "wifi";
+  return (
+    <Switch
+      glyph={<RadioGlyph kind={kind} size={16} />}
+      hue={wifi ? "blue" : "indigo"}
+      label={wifi ? t("WLAN") : t("Bluetooth")}
+      on={on}
+      busy={job.busy}
+      onToggle={() => job.run(systemControls.setRadio(kind, !on))}
+    />
+  );
+}
+
+/** A radio's glyph, the same shape on and off: the full fan for Wi-Fi, the rune for Bluetooth. */
+export function RadioGlyph({ kind, size }: { kind: "wifi" | "bluetooth"; size: number }) {
+  return kind === "wifi" ? <NetGlyph glyph="wifi-3" size={size} /> : <BluetoothGlyph size={size} />;
+}
+
+/** A radio's disc as Switch draws it, for a glyph that is not a button of its own: only its colour says on. */
+export function RadioDisc({ kind, on, children }: { kind: "wifi" | "bluetooth"; on: boolean; children: ReactNode }) {
+  const look = discLook(design.use(), kind === "wifi" ? "blue" : "indigo", on);
+  // relative: the tile's button is pressed with the disc inside it, and the pressed corners (.m3-morph::before) must stay on the disc.
+  return (
+    <span className={`relative flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-200 ${look.className}`} style={look.style}>
+      {children}
+    </span>
+  );
+}
+
+/** A round switch: its Phosphor icon (filled when on), or a glyph of Crest's own drawn as it is. */
+function Switch({ icon: I, glyph, hue, label, on, busy, onToggle }: { icon?: Icon; glyph?: ReactNode; hue: Hue; label: string; on: boolean; busy: boolean; onToggle: () => void }) {
+  const look = discLook(design.use(), hue, on);
   return (
     <button
       aria-label={label}
@@ -87,10 +130,10 @@ function Switch({ icon: I, hue, label, on, busy, onToggle }: { icon: Icon; hue: 
       title={label}
       disabled={busy}
       onClick={onToggle}
-      className={`pressable flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-200 disabled:opacity-60 ${on ? "text-white" : "bg-fill-2 text-label-2 hover:text-label"}`}
-      style={on ? { background: HUE_PALETTE[hue][1] } : undefined}
+      className={`pressable flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-200 disabled:opacity-60 ${look.className} ${on ? "" : "hover:text-label"}`}
+      style={look.style}
     >
-      <I size={15} weight={on ? "fill" : "bold"} />
+      {glyph ?? (I && <I size={15} weight={on ? "fill" : "bold"} />)}
     </button>
   );
 }

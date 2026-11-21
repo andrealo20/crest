@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
 import { isMac } from "../../platform/native";
-import { rowVisible } from "../../notch/row/visibility";
+import { barParts, rowVisible } from "../../notch/row/visibility";
 import { fetchSystem, type GpuReading, type ProcReading, type SystemStats, type SystemWant } from "../../platform/services";
 import { settings } from "../../settings/store";
+import { onBarShows } from "../taskbar/barPanels";
 import { fullscreen, gamingLive } from "./gaming";
 import { buildBattery, discharge, type BatterySample } from "./battery";
 import { pickGpu } from "./levels";
@@ -45,11 +46,12 @@ const emptyHistory = (): Record<SystemKey, number[]> => ({ cpu: [], mem: [], gpu
 /**
  * Runs in the background from app start (not only while the tool is open), so the
  * history is a minute long when opened and gaming mode shares the same values.
- * Only pauses when neither the Hardware tool, gaming mode nor readings in the closed row are on.
+ * Only pauses when neither the Hardware tool, a bar's panel showing it, gaming mode nor readings in the closed row or on Crest's
+ * bar are on.
  *
  * Three rhythms, slow ones filled in linearly so the history keeps one value per second:
- * - shown (Hardware tool open): everything once a second;
- * - GPU reading in the closed row (or gaming there): CPU, RAM and GPU every 2 s, without waking the ping;
+ * - shown (Hardware tool open, here or in a bar's panel): everything once a second;
+ * - GPU reading in the closed row (or gaming there) or on the bar: CPU, RAM and GPU every 2 s, without waking the ping;
  * - background: CPU and RAM every 3 s; GPU and ping stay gaps (their counters are the expensive part).
  * The closed row's opt-in readings (network, power, battery, temperature) ride on the 2 s / 3 s rhythms, and only
  * the ones switched on are read.
@@ -75,7 +77,7 @@ const GPU_MS = 2000;
 const BACKGROUND_MS = 3000;
 
 let timer: ReturnType<typeof setInterval> | null = null;
-/** Mounted views that show the values (see `useSystemShown`). */
+/** Mounted views that show the values (see `useSystemShown`), plus one while a bar's panel shows Hardware (startSystemPolling). */
 const shown = createStore(0);
 /** The pointer is over the process list: rows keep their rank. */
 export const holdProcesses = createStore(false);
@@ -87,9 +89,9 @@ let lastProcesses: number | null = null;
 const zones = new SteadyZones();
 const byCpu = SteadyRanking.cpu(), byMem = SteadyRanking.memory();
 
-/** What the closed row reads besides CPU, RAM and GPU. */
+/** What the closed row, or the bar's readings widget, reads besides CPU, RAM and GPU. */
 function rowWant(): SystemWant {
-  const s = settings.get(), on = s.closed.parts.readings && rowVisible.get(), r = s.closed.readings;
+  const s = settings.get(), on = (s.closed.parts.readings && rowVisible.get()) || barParts.get().includes("readings"), r = s.closed.readings;
   return { net: on && r.net, temps: on && r.temp, power: on && r.power, battery: on && (r.battery || r.power) };
 }
 
@@ -175,16 +177,18 @@ function poll(ms: number) {
 function wanted(): boolean {
   // system_stats has no Mac backend.
   if (isMac) return false;
+  // A bar's panel can show Hardware while the tool is off here.
+  if (shown.get() > 0) return true;
   const s = settings.get();
   // The nest's pet runs with the CPU load, so it reads the background rhythm too.
-  return s.tools.some((x) => x.id === "system" && x.enabled) || s.gaming.mode !== "off" || ((s.closed.parts.readings || s.closed.pet.id !== null) && rowVisible.get());
+  return s.tools.some((x) => x.id === "system" && x.enabled) || s.gaming.mode !== "off" || ((s.closed.parts.readings || s.closed.pet.id !== null) && rowVisible.get()) || barParts.get().includes("readings");
 }
 
 function rhythm(): number {
   if (shown.get() > 0) return SHOWN_MS;
   const s = settings.get();
   // Gaming puts the GPU in the row even with the readings part off.
-  const gpu = rowVisible.get() && ((s.closed.parts.readings && s.closed.readings.gpu) || gamingLive(s.gaming.mode, fullscreen.get()));
+  const gpu = (rowVisible.get() && ((s.closed.parts.readings && s.closed.readings.gpu) || gamingLive(s.gaming.mode, fullscreen.get()))) || (barParts.get().includes("readings") && s.closed.readings.gpu);
   return gpu ? GPU_MS : BACKGROUND_MS;
 }
 
@@ -213,7 +217,11 @@ export function startSystemPolling() {
   settings.subscribe(apply);
   shown.subscribe(apply);
   rowVisible.subscribe(apply);
+  barParts.subscribe(apply);
   fullscreen.subscribe(apply);
+  // A bar's panel showing Hardware counts as one more shown view: the notch reads for it as for its own, once a second with the
+  // process list, since the bar may not read system_stats itself and gets these values from the notch.
+  onBarShows("system", (on) => shown.set((n) => n + (on ? 1 : -1)));
 }
 
 /** For views that show the values: full polling once a second while mounted. */

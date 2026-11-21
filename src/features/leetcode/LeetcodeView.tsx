@@ -3,7 +3,7 @@ import {
   ArrowClockwise,
   SlidersHorizontal,
   WarningCircle,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { content, spin } from "../../design/motion";
 import { formatAgo } from "../../lib/format";
 import { HeaderActions, HeaderButton } from "../../notch/header";

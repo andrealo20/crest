@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useAnimate } from "motion/react";
-import { LockSimple, ShieldCheck } from "@phosphor-icons/react";
+import { LockSimple, ShieldCheck } from "../../ui/iconset";
 import { content, shake, springs } from "../../design/motion";
 import { keyboardFocus } from "../../platform/native";
 import { t } from "../../i18n";
@@ -95,7 +95,7 @@ export function PinEntry(props: {
             <span key={i} className="relative size-3">
               <span className={`absolute inset-0 rounded-full border-[1.5px] ${error && !filled ? "border-red/70" : "border-label-3"}`} />
               <motion.span
-                className="absolute inset-0 rounded-full bg-label"
+                className="absolute inset-0 rounded-full bg-primary"
                 initial={false}
                 animate={{ opacity: filled ? 1 : 0, transform: filled ? "scale(1)" : "scale(0.6)" }}
                 transition={springs.snappy}

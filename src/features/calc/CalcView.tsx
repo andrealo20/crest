@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowCounterClockwise, Trash } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, Trash } from "../../ui/iconset";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { createStore } from "../../lib/store";
 import { locale, t } from "../../i18n";

@@ -1,40 +1,36 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AnimatePresence, LayoutGroup, motion, Reorder } from "motion/react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { AnimatePresence, LayoutGroup, motion, Reorder, useReducedMotion, type MotionStyle, type Variants } from "motion/react";
 import {
   AppWindow,
   ArrowsInLineHorizontal,
   BellSimple,
-  CalendarBlank,
-  ChartDonut,
-  CloudSun,
   CheckCircle,
-  Clock,
-  Cpu,
-  DownloadSimple,
-  GithubLogo,
+  Columns,
   DotsSixVertical,
   Keyboard,
   LockSimple,
   MagnifyingGlass,
   Monitor,
-  MusicNote,
+  PaintBrush,
   Palette,
   Play,
   Plugs,
   PuzzlePiece,
   Bug,
-  TerminalWindow,
   SlidersHorizontal,
   Sparkle,
+  Star,
   SquaresFour,
   SignOut,
   Stop,
   Timer,
-  Waveform,
+  X,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
+import { design } from "../../design/design";
 import { content, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, type AlarmDuration } from "../../lib/sound";
+import { createStore } from "../../lib/store";
 import { nav, navigate } from "../../notch/nav";
 import { findTab, setupTab } from "../../notch/tabs";
 import { PluginSettings } from "../plugins/PluginSettings";
@@ -54,14 +50,21 @@ import {
   type SecretName,
 } from "../../platform/services";
 import { BackupSettings } from "./BackupSettings";
+// The suffix tells it from contours.ts on a disk that ignores case.
+import { Contours } from "./Contours.tsx";
+import { brandOf, shapePoints } from "../system/hero";
+import { MorphPath } from "../system/Morph";
 import { diagnosticsText } from "./diagnostics";
+import { cascades, shellLayout, showsHeaderTitle } from "./shell";
+import { cascadeDelay } from "../../ui/cascade";
 import { searchSettings, type SearchEntry } from "./search";
 import { github } from "../github/store";
 import { leetcode } from "../leetcode/store";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
-import { DiscordLogo, LeetcodeLogo } from "../../ui/brands";
-import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
+import { Button, Group, RoomyContext, Row, Segmented, Select, Slider, StyleCards, SubSwitch, Switch, TextField } from "../../ui/controls";
+import type { RowSymbol } from "../../ui/materialNames";
 import { PET_IDS, PET_SIZE, type ClosedSettings, type PartId, type PetId } from "../../notch/row/parts";
+import { partInfo } from "../../notch/row/partInfo";
 import { PetArt } from "../../notch/pet/Nest";
 import { PET_NAMES } from "../../notch/pet/art";
 import { effortLevels, providerInfo } from "../ask/providers";
@@ -101,9 +104,12 @@ import { isMac } from "../../platform/native";
 import { ThemeSettings } from "../themes/ThemeSettings";
 import { HideFromSharingRow } from "../meeting/HideFromSharingRow";
 import { hueVar, useIconColors, type Hue } from "../themes/hues";
+import { HUE_PILL } from "../themes/themes";
 import { ClipboardSettings } from "../clipboard/ClipboardSettings";
+import { TaskbarApps, TaskbarGeneral, TaskbarItems, TaskbarLook, useTaskbarShown } from "../taskbar/TaskbarSettings";
+import { WidgetsPage } from "../taskbar/WidgetsPage";
 
-type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins";
+type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins" | "taskbar" | "taskbar-items" | "taskbar-widgets" | "taskbar-apps" | "taskbar-look";
 
 const allPages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
   { id: "general", label: "Allgemein", icon: SlidersHorizontal, hue: "slate" },
@@ -116,10 +122,16 @@ const allPages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
   { id: "themes", label: "Themen", icon: Palette, hue: "pink" },
   { id: "notices", label: "Mitteilungen", icon: BellSimple, hue: "red" },
   { id: "plugins", label: "Plugins", icon: PuzzlePiece, hue: "green" },
+  { id: "taskbar", label: "Allgemein", icon: SlidersHorizontal, hue: "slate" },
+  { id: "taskbar-items", label: "Elemente", icon: Columns, hue: "blue" },
+  { id: "taskbar-widgets", label: "Widgets", icon: SquaresFour, hue: "teal" },
+  { id: "taskbar-apps", label: "Apps und Fenster", icon: AppWindow, hue: "indigo" },
+  { id: "taskbar-look", label: "Aussehen", icon: PaintBrush, hue: "pink" },
 ];
-// Plugin pages are served over http://crestplugin.localhost, which only works on Windows, and live notices have no Mac
-// version (the tool is in WINDOWS_ONLY, src/notch/tabs.ts).
-const pages = allPages.filter((p) => !(isMac && (p.id === "plugins" || p.id === "notices")));
+
+/** The settings window's switch shows one scope's pages: the notch's, with those of the whole app, or the taskbar's. */
+type Scope = "notch" | "taskbar";
+const scopeOf = (page: PageId): Scope => (page.startsWith("taskbar") ? "taskbar" : "notch");
 
 /** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. */
 const sectionPage: Record<string, PageId> = {
@@ -138,6 +150,7 @@ const sectionPage: Record<string, PageId> = {
   water: "tools",
   terminal: "tools",
   themes: "themes",
+  design: "themes",
   system: "tools",
   launcher: "tools",
   github: "accounts",
@@ -145,10 +158,36 @@ const sectionPage: Record<string, PageId> = {
   calendar: "accounts",
   notices: "notices",
   plugins: "plugins",
+  taskbar: "taskbar",
+  "taskbar-items": "taskbar-items",
+  "taskbar-widgets": "taskbar-widgets",
+  "taskbar-apps": "taskbar-apps",
+  "taskbar-look": "taskbar-look",
 };
 
-/** Last open page survives closing/opening the notch (the component is rebuilt). */
-let savedPage: PageId = "general";
+/**
+ * The open scope and the last page of each, which the settings window's switch reads and sets. They survive closing/opening the
+ * notch (the component is rebuilt).
+ */
+export const savedPage = createStore<{ scope: Scope } & Record<Scope, PageId>>({ scope: "notch", notch: "general", taskbar: "taskbar" });
+
+/** Opens a page, which becomes the last one of its scope. */
+function openPage(page: PageId) {
+  const scope = scopeOf(page);
+  savedPage.set((s) => ({ ...s, scope, [scope]: page }));
+}
+
+// A section asked for opens its page as it comes, so a view built after it shows that page from its first frame (the settings
+// window gets its first section while it loads). The view scrolls to the section.
+nav.subscribe(() => {
+  const page = sectionPage[nav.get().section ?? ""];
+  if (!page) return;
+  linkedPage = page;
+  openPage(page);
+});
+
+/** The page a deep link opened last, until a click opens one: a page opened at its section does not cascade (6.11). */
+let linkedPage: PageId | null = null;
 
 type Hit = SearchEntry & { page: PageId; groupId: string };
 
@@ -177,26 +216,68 @@ function readRows(root: HTMLElement): Hit[] {
   );
 }
 
+/** The settings window's own actions, which Material draws in the page's header instead of the window's title row. */
+type Chrome = { onClose: () => void; onDrag: (e: React.MouseEvent) => void; center?: ReactNode };
+
+/** A page's groups wait for the cascade's labels, and start one after another. */
+const PAGE_CASCADE = { shown: { transition: { delayChildren: cascadeDelay } } } satisfies Variants;
+
 /**
  * Settings like macOS: categories on the left, only their content on the right.
  * Other tools jump straight to their section via `navigate("settings", "<section>")`.
  */
-export function SettingsView() {
+export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const deepLink = nav.use();
-  const [page, setPageState] = useState<PageId>(() => (deepLink.section && sectionPage[deepLink.section]) || savedPage);
+  const saved = savedPage.use();
+  const taskbarShown = useTaskbarShown();
+  const material = design.use() === "material";
+  const reduced = useReducedMotion() === true;
+  // Plugin pages are served over http://crestplugin.localhost, which only works on Windows, and live notices have no Mac
+  // version (the tool is in WINDOWS_ONLY, src/notch/tabs.ts). The Taskbar's pages show only where the bar can run.
+  const pages = allPages.filter((p) => (scopeOf(p.id) === "taskbar" ? taskbarShown : !(isMac && (p.id === "plugins" || p.id === "notices"))));
+  // A page the list does not show (the Taskbar's, once they hide) falls back to General.
+  const page = pages.some((p) => p.id === saved[saved.scope]) ? saved[saved.scope] : "general";
   const iconColors = useIconColors();
+  const root = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
-  const setPage = (p: PageId) => {
-    savedPage = p;
-    setPageState(p);
-  };
+  const [width, setWidth] = useState(820);
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [rows, setRows] = useState<Hit[]>([]);
   const [target, setTarget] = useState<Hit | null>(null);
   const field = useRef<HTMLInputElement>(null);
   const hidden = useRef<HTMLDivElement>(null);
   const searching = query.trim() !== "";
   const results = searching ? searchSettings(rows, query) : [];
+  const layout = material ? shellLayout(width) : "list";
+  const contours = settings.use().themes.contours;
+  const backdrop = !!chrome && contours;
+  const [contoursFailed, setContoursFailed] = useState(false);
+  // Switched off by choice keeps today's light in the list; WebGL missing or lost gives the light in every layout.
+  const light = backdrop ? (contoursFailed ? layout : null) : layout === "list" ? "list" : null;
+  // In the rail and the row on top the search is a button, which opens the field.
+  const compact = layout !== "list";
+  const fieldShown = !compact || searchOpen || searching;
+
+  // Decided once when the page shown changes, so a later render cannot take the labels away from groups still rising. Back from
+  // the search to the same page is not a change of page.
+  const viewKey = searching ? "search" : page;
+  let [view, setView] = useState({ key: viewKey, page, cascade: false });
+  if (view.key !== viewKey) {
+    const changed = !searching && page !== view.page;
+    const aimed = target?.page === page || linkedPage === page;
+    view = { key: viewKey, page: searching ? view.page : page, cascade: changed && cascades({ material, reduced, searching, target: aimed }) };
+    setView(view);
+  }
+
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    setWidth(el.getBoundingClientRect().width);
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [material]);
 
   // The index is the real pages, rendered hidden while searching and read again on every keystroke, so it never goes stale.
   useLayoutEffect(() => {
@@ -223,6 +304,8 @@ export function SettingsView() {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "f") return;
       e.preventDefault();
+      // A field not shown yet takes the focus as it mounts (autoFocus).
+      setSearchOpen(true);
       field.current?.focus();
       field.current?.select();
     };
@@ -230,9 +313,15 @@ export function SettingsView() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const openHit = (h: Hit) => {
+  const show = (p: PageId) => {
     setQuery("");
-    setPage(h.page);
+    setSearchOpen(false);
+    linkedPage = null;
+    openPage(p);
+  };
+
+  const openHit = (h: Hit) => {
+    show(h.page);
     setTarget(h);
   };
 
@@ -240,6 +329,8 @@ export function SettingsView() {
     if (!target) return;
     // Like the deep link below: the row only exists after the page switch.
     const id = window.setTimeout(() => {
+      // Spent once it has scrolled: a target left set would keep every later change of page out of the cascade.
+      setTarget(null);
       const box = scroller.current;
       const row = box && findRow(box, target);
       if (!row) return;
@@ -255,8 +346,7 @@ export function SettingsView() {
   useEffect(() => {
     const { section } = deepLink;
     if (!section || !sectionPage[section]) return;
-    setPage(sectionPage[section]);
-    // The section only exists after the page switch.
+    // The section only exists after the page switch (openPage, from the nav subscription above).
     const id = window.setTimeout(
       () => scroller.current?.querySelector<HTMLElement>(`#settings-${section}`)?.scrollIntoView({ behavior: "smooth", block: "start" }),
       120,
@@ -264,110 +354,278 @@ export function SettingsView() {
     return () => window.clearTimeout(id);
   }, [deepLink]);
 
-  return (
-    <div className="flex h-full gap-3 px-4 pt-1 pb-3">
-      <nav className="flex w-[136px] shrink-0 flex-col gap-0.5">
-        <label className="mb-1 flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] bg-fill-1 px-2 text-label-3 focus-within:bg-fill-2">
-          <MagnifyingGlass size={12} weight="bold" className="shrink-0" />
-          <input
-            ref={field}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== "Escape" || !query) return;
-              // Esc clears first; only an empty field lets it through to close the notch.
-              e.stopPropagation();
-              setQuery("");
-            }}
-            placeholder={t("Suchen")}
-            aria-label={t("Suchen")}
-            spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent text-footnote text-label outline-none placeholder:text-label-4"
-          />
-        </label>
-        {pages.map((p) => {
-          const active = p.id === page && !searching;
-          return (
-            <button
-              key={p.id}
-              onClick={() => {
-                setQuery("");
-                setPage(p.id);
-              }}
-              aria-current={active ? "page" : undefined}
-              className={`pressable relative flex h-8 items-center gap-2 rounded-[8px] px-2.5 text-start text-body transition-colors duration-150 ${
-                active ? "text-label" : "text-label-3 hover:text-label-2"
-              }`}
-            >
-              {active && <motion.span layoutId="settings-page" className="absolute inset-0 rounded-[8px] bg-fill-2" transition={springs.snappy} />}
-              <p.icon size={15} weight={active ? "fill" : "bold"} className="relative shrink-0" style={iconColors ? { color: hueVar(p.hue) } : undefined} />
-              <span className="relative truncate">{t(p.label)}</span>
-            </button>
-          );
-        })}
-        {/* Not a page: opens GitHub's form, with this version filled in. */}
-        <button
-          onClick={openBugReport}
-          title={t("Öffnet das Formular auf GitHub, mit deiner Crest-Version schon eingetragen")}
-          className="pressable relative flex min-h-8 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body text-label-3 transition-colors duration-150 hover:text-label-2"
-        >
-          <Bug size={15} weight="bold" className="relative shrink-0" style={iconColors ? { color: hueVar("rose") } : undefined} />
-          {/* Longer in some languages than the pages' names: it wraps rather than being cut. */}
-          <span className="relative leading-tight">{t("Fehler melden")}</span>
+  const input = (
+    <input
+      ref={field}
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key !== "Escape" || !query) return;
+        // Esc clears first; only an empty field lets it through to close the notch.
+        e.stopPropagation();
+        setQuery("");
+      }}
+      onBlur={(e) => !e.currentTarget.value && setSearchOpen(false)}
+      autoFocus={compact}
+      placeholder={t("Suchen")}
+      aria-label={t("Suchen")}
+      spellCheck={false}
+      className={`min-w-0 flex-1 bg-transparent text-label outline-none ${material ? "text-body placeholder:text-label-3" : "text-footnote placeholder:text-label-4"}`}
+    />
+  );
+  const searchPill = (place: string) => (
+    <label className={`flex h-10 shrink-0 items-center gap-2.5 rounded-full bg-fill-2 px-3.5 text-label-2 focus-within:ring-2 focus-within:ring-primary ${place}`}>
+      <MagnifyingGlass size={20} className="shrink-0" />
+      {input}
+    </label>
+  );
+
+  const scopePages = pages.filter((p) => scopeOf(p.id) === scopeOf(page));
+  // Material's items: pills with their name in the list, round icons in the rail and the row on top.
+  const item = compact ? "size-10 shrink-0 justify-center" : "h-12 shrink gap-3 px-3 text-start text-body font-medium";
+  const materialNav = (
+    <>
+      {/* Out of the row on top, where it would sit beside the active item and take width from a row that scrolls. */}
+      {chrome && layout !== "top" && <NavMark id={viewKey} size={compact ? 40 : 54} />}
+      {compact ? (
+        <button aria-label={t("Suchen")} title={t("Suchen")} onClick={() => setSearchOpen(true)} className="pressable flex size-10 shrink-0 items-center justify-center rounded-full text-label-2">
+          <MagnifyingGlass size={20} />
         </button>
-      </nav>
-      {/* Ref on the stable container: popLayout doesn't pass refs to the child. */}
-      <div ref={scroller} className="relative min-w-0 flex-1">
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.div
-            key={searching ? "search" : page}
-            className="absolute inset-0 flex flex-col gap-4 overflow-y-auto pb-6 [scrollbar-width:none]"
-            style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 28px), transparent)" }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: content.enter }}
-            exit={{ opacity: 0, transition: content.exit }}
-          >
-            {searching ? <SearchResults hits={results} onOpen={openHit} /> : <PageContent page={page} />}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-      {searching && (
-        // Every page, never shown: only read for the index. The LayoutGroup keeps their layoutIds apart from the visible ones.
-        <div ref={hidden} hidden inert>
-          <LayoutGroup id="settings-search">
-            {pages.map((p) => (
-              <div key={p.id} data-page={p.id}>
-                <PageContent page={p.id} />
-              </div>
-            ))}
-          </LayoutGroup>
-        </div>
+      ) : (
+        searchPill("mb-2 w-full")
       )}
+      {scopePages.map((p) => {
+        const active = p.id === page && !searching;
+        const name = t(p.label);
+        return (
+          <button
+            key={p.id}
+            onClick={() => show(p.id)}
+            aria-current={active ? "page" : undefined}
+            aria-label={compact ? name : undefined}
+            title={compact ? name : undefined}
+            className={`pressable relative flex items-center rounded-full ${item} ${active ? "text-on-secondary-container" : "text-label-2"}`}
+          >
+            {active && (
+              <motion.span
+                layoutId="settings-page"
+                // Under the items it crosses on its way; the nav's isolate keeps it above the nav's own background.
+                className="-z-10 absolute inset-0 rounded-full bg-secondary-container"
+                style={iconColors ? { background: hueVar(p.hue), opacity: HUE_PILL } : undefined}
+                transition={springs.snappy}
+              />
+            )}
+            <p.icon size={20} weight={active ? "fill" : "bold"} className="relative shrink-0" style={iconColors ? { color: hueVar(p.hue) } : undefined} />
+            {!compact && <span className="relative">{name}</span>}
+          </button>
+        );
+      })}
+      {/* Still the last item, the way people reach Andrea; its name wraps in the long languages. */}
+      <button
+        onClick={openBugReport}
+        aria-label={compact ? t("Fehler melden") : undefined}
+        title={compact ? t("Fehler melden") : t("Öffnet das Formular auf GitHub, mit deiner Crest-Version schon eingetragen")}
+        className={`pressable relative flex items-center rounded-full text-label-2 ${item}`}
+      >
+        <Bug size={20} weight="bold" className="relative shrink-0" style={iconColors ? { color: hueVar("rose") } : undefined} />
+        {!compact && <span className="relative">{t("Fehler melden")}</span>}
+      </button>
+    </>
+  );
+
+  const header = chrome && (
+    // The window is dragged by the header's and the navigation's empty parts.
+    <header className="relative flex h-14 shrink-0 items-center gap-2 ps-4 pe-2" onMouseDown={chrome.onDrag}>
+      {compact && fieldShown
+        ? searchPill("min-w-0 flex-1")
+        : showsHeaderTitle(width, !!chrome.center) && <h2 className="truncate text-display font-medium text-label">{t(allPages.find((p) => p.id === page)!.label)}</h2>}
+      {chrome.center && !(compact && fieldShown) && <div className="absolute left-1/2 -translate-x-1/2">{chrome.center}</div>}
+      <button
+        aria-label={t("Schließen")}
+        title={t("Schließen")}
+        onClick={chrome.onClose}
+        className="pressable ms-auto flex size-10 shrink-0 items-center justify-center rounded-full text-label-2"
+      >
+        <X size={18} weight="bold" />
+      </button>
+    </header>
+  );
+
+  const pageArea = (
+    // Ref on the stable container: popLayout doesn't pass refs to the child. A container only under Material: it also contains
+    // layout and style, a new stacking context and a containing block for fixed elements, which Crest must not get.
+    <div ref={scroller} className="relative min-w-0 flex-1 roomy:ms-2 roomy:me-4 roomy:@container">
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.div
+          key={viewKey}
+          className="absolute inset-0 flex flex-col gap-4 overflow-y-auto pb-6 [scrollbar-width:none] roomy:gap-3"
+          // The rows' icon circles take the page's hue from here (Row in controls.tsx).
+          data-row-hues={iconColors || undefined}
+          style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 28px), transparent)", "--row-hue": hueVar(allPages.find((p) => p.id === page)!.hue) } as MotionStyle}
+          {...(view.cascade
+            ? { initial: "hidden", animate: "shown", variants: PAGE_CASCADE }
+            : { initial: { opacity: 0 }, animate: { opacity: 1, transition: content.enter } })}
+          exit={{ opacity: 0, transition: content.exit }}
+        >
+          {searching ? <SearchResults hits={results} onOpen={openHit} /> : <PageContent page={page} />}
+        </motion.div>
+      </AnimatePresence>
     </div>
+  );
+
+  const hiddenIndex = searching && (
+    // Every page, never shown: only read for the index. The LayoutGroup keeps their layoutIds apart from the visible ones.
+    <div ref={hidden} hidden inert>
+      <LayoutGroup id="settings-search">
+        {pages.map((p) => (
+          <div key={p.id} data-page={p.id}>
+            <PageContent page={p.id} />
+          </div>
+        ))}
+      </LayoutGroup>
+    </div>
+  );
+
+  if (material)
+    return (
+      <RoomyContext value={true}>
+        <div
+          ref={root}
+          data-roomy
+          className={`relative flex h-full ${layout === "top" ? "flex-col" : ""} ${backdrop ? "isolate" : ""}`}
+          data-contours={(backdrop && !contoursFailed) || undefined}
+        >
+          {backdrop && <Contours page={viewKey} onFail={setContoursFailed} />}
+          {/* A still light of the theme's colour behind the navigation. */}
+          {light === "list" && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 start-0 w-[176px]"
+              style={{ background: "radial-gradient(closest-side, var(--color-primary), transparent)", opacity: 0.1 }}
+            />
+          )}
+          {light === "rail" && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 start-0 w-14"
+              style={{ background: "radial-gradient(closest-side, var(--color-primary), transparent)", opacity: 0.1 }}
+            />
+          )}
+          {light === "top" && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-14 h-14"
+              style={{ background: "radial-gradient(closest-side, var(--color-primary), transparent)", opacity: 0.1 }}
+            />
+          )}
+          {layout === "top" ? (
+            <>
+              {header}
+              <nav className="isolate flex h-14 shrink-0 items-center gap-0.5 overflow-x-auto px-2 [scrollbar-width:none]">{materialNav}</nav>
+            </>
+          ) : (
+            // Scrolls when the items do not fit, keeping 4 px around a focused one for its ring.
+            <nav
+              className={`relative isolate flex shrink-0 flex-col overflow-y-auto p-2 scroll-py-1 [scrollbar-width:none] ${layout === "rail" ? "w-14 items-center gap-0.5" : "w-[176px] contours:bg-elevated"}`}
+              onMouseDown={chrome?.onDrag}
+            >
+              {materialNav}
+            </nav>
+          )}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {layout !== "top" && header}
+            {/* The panel has no header: the opened field takes a row of its own above the content. */}
+            {!chrome && compact && fieldShown && <div className="flex shrink-0 px-2 pb-2">{searchPill("min-w-0 flex-1")}</div>}
+            {pageArea}
+          </div>
+          {hiddenIndex}
+        </div>
+      </RoomyContext>
+    );
+
+  return (
+    // Roomy in both styles: the roomy: variant and the context only change anything under Material.
+    <RoomyContext value={true}>
+      <div ref={root} data-roomy className="flex h-full gap-3 px-4 pt-1 pb-3">
+        {/* Scrolls when the pages are taller than the room (the notch's settings tab, the window at its smallest), keeping 4 px around a focused item for its ring; shrink-0 keeps a wrapped name on its two lines. */}
+        <nav className="-mx-1 flex w-[144px] shrink-0 flex-col gap-0.5 overflow-y-auto px-1 pb-1 scroll-py-1 [scrollbar-width:none]">
+          <label className="mb-1 flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] bg-fill-1 px-2 text-label-3 focus-within:bg-fill-2">
+            <MagnifyingGlass size={12} weight="bold" className="shrink-0" />
+            {input}
+          </label>
+          {scopePages.map((p) => {
+            const active = p.id === page && !searching;
+            return (
+              <button
+                key={p.id}
+                onClick={() => show(p.id)}
+                aria-current={active ? "page" : undefined}
+                className={`pressable relative flex min-h-8 shrink-0 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body transition-colors duration-150 ${
+                  active ? "text-label" : "text-label-3 hover:text-label-2"
+                }`}
+              >
+                {active && <motion.span layoutId="settings-page" className="absolute inset-0 rounded-[8px] bg-fill-2" transition={springs.snappy} />}
+                <p.icon size={15} weight={active ? "fill" : "bold"} className="relative shrink-0" style={iconColors ? { color: hueVar(p.hue) } : undefined} />
+                {/* Wraps like the bug report below: "Apps und Fenster" is longer than the column in most languages. */}
+                <span className="relative leading-tight">{t(p.label)}</span>
+              </button>
+            );
+          })}
+          {/* Not a page: opens GitHub's form, with this version filled in. */}
+          <button
+            onClick={openBugReport}
+            title={t("Öffnet das Formular auf GitHub, mit deiner Crest-Version schon eingetragen")}
+            className="pressable relative flex min-h-8 shrink-0 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body text-label-3 transition-colors duration-150 hover:text-label-2"
+          >
+            <Bug size={15} weight="bold" className="relative shrink-0" style={iconColors ? { color: hueVar("rose") } : undefined} />
+            {/* Longer in some languages than the pages' names: it wraps rather than being cut. */}
+            <span className="relative leading-tight">{t("Fehler melden")}</span>
+          </button>
+        </nav>
+        {pageArea}
+        {hiddenIndex}
+      </div>
+    </RoomyContext>
   );
 }
 
 function SearchResults({ hits, onOpen }: { hits: Hit[]; onOpen: (h: Hit) => void }) {
   if (!hits.length) return <div className="px-3 pt-2 text-caption text-label-3">{t("Nichts gefunden")}</div>;
   return (
-    <div className="flex flex-col divide-y divide-separator overflow-hidden rounded-[12px] bg-fill-1">
+    <div className="flex flex-col divide-y divide-separator overflow-hidden rounded-[12px] bg-fill-1 material:divide-y-0 material:rounded-[24px] material:p-2">
       {hits.map((h) => {
-        const pageName = t(pages.find((p) => p.id === h.page)!.label);
+        const pageName = t(allPages.find((p) => p.id === h.page)!.label);
+        // The Taskbar's General and the Notch's would read alike.
+        const scopeName = scopeOf(h.page) === "taskbar" ? t("Taskleiste") : "";
         return (
           <button
             key={`${h.page}|${h.groupId}|${h.label}`}
             onClick={() => onOpen(h)}
-            className="flex min-h-9 flex-col items-stretch px-3 py-1.5 text-start outline-none hover:bg-fill-2 focus-visible:bg-fill-2"
+            className="flex min-h-9 flex-col items-stretch px-3 py-1.5 text-start outline-none hover:bg-fill-2 focus-visible:bg-fill-2 material:min-h-12 material:rounded-[16px]"
           >
             <span className="flex items-baseline justify-between gap-3">
               <span className="truncate text-body text-label">{h.label}</span>
-              <span className="shrink-0 text-caption text-label-4">{[...new Set([pageName, h.group])].filter(Boolean).join(" · ")}</span>
+              <span className="shrink-0 text-caption text-label-4 material:text-label-2">{[...new Set([scopeName, pageName, h.group])].filter(Boolean).join(" · ")}</span>
             </span>
             {h.hint && <span className="text-caption text-label-3">{h.hint}</span>}
           </button>
         );
       })}
     </div>
+  );
+}
+
+/** The settings window's mark: a shape for each page that morphs into the next, under one glyph no page has, as Stellaria's brand. */
+function NavMark({ id, size }: { id: string; size: 40 | 54 }) {
+  const points = useMemo(() => shapePoints(...brandOf(id)), [id]);
+  return (
+    // 54 is the list's size, where the mark stands above the search pill; the rail and the row on top place it themselves.
+    <span aria-hidden className={`relative flex shrink-0 items-center justify-center ${size === 54 ? "mb-2 self-start" : ""}`} style={{ width: size, height: size }}>
+      <svg viewBox="0 0 100 100" className="absolute inset-0 size-full">
+        <MorphPath points={points} className="fill-primary forced-colors:fill-[CanvasText]" />
+      </svg>
+      <Star size={size === 54 ? 24 : 20} weight="fill" className="relative text-on-primary forced-colors:text-[Canvas]" />
+    </span>
   );
 }
 
@@ -432,6 +690,11 @@ function PageContent({ page }: { page: PageId }) {
         </>
       )}
       {page === "themes" && <ThemeSettings />}
+      {page === "taskbar" && <TaskbarGeneral />}
+      {page === "taskbar-items" && <TaskbarItems />}
+      {page === "taskbar-widgets" && <WidgetsPage />}
+      {page === "taskbar-apps" && <TaskbarApps />}
+      {page === "taskbar-look" && <TaskbarLook />}
     </>
   );
 }
@@ -457,23 +720,23 @@ function Updates() {
 
   return (
     <Group title={t("Updates")} id="settings-updates">
-      <Row label={t("Version {v}", { v: u.current ?? "–" })} hint={status}>
+      <Row icon="info" label={t("Version {v}", { v: u.current ?? "–" })} hint={status}>
         {!u.store && (
           <Button disabled={busy} onClick={() => void checkForUpdate()}>
             {t("Jetzt suchen")}
           </Button>
         )}
       </Row>
-      {u.store && <Row label={t("Updates kommen über den Microsoft Store")} />}
+      {u.store && <Row icon="storefront" label={t("Updates kommen über den Microsoft Store")} />}
       <DiagnosticsRow />
       <PortableNote />
       <AnimatePresence initial={false}>
         {(u.phase === "available" || u.phase === "downloading") && u.version && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={fade} className="overflow-hidden">
-            <Row label={t("Version {v} verfügbar", { v: u.version })} hint={t("Lädt, installiert und startet neu")}>
+            <Row icon="download" label={t("Version {v} verfügbar", { v: u.version })} hint={t("Lädt, installiert und startet neu")}>
               {u.phase === "downloading" ? (
                 <div className="h-1.5 w-28 overflow-hidden rounded-full bg-fill-2">
-                  <div className="h-full origin-left rtl:origin-right rounded-full bg-label transition-transform duration-150 ease-linear" style={{ transform: `scaleX(${u.progress})` }} />
+                  <div className="h-full origin-left rtl:origin-right rounded-full bg-primary transition-transform duration-150 ease-linear" style={{ transform: `scaleX(${u.progress})` }} />
                 </div>
               ) : (
                 <Button primary onClick={() => void installUpdate()}>
@@ -485,7 +748,7 @@ function Updates() {
           </motion.div>
         )}
       </AnimatePresence>
-      <Row
+      <Row icon="campaign"
         label={
           <span className="flex items-center gap-1.5">
             {t("Neuerungen")}
@@ -511,7 +774,7 @@ function Updates() {
         )}
       </AnimatePresence>
       {!u.store && (
-        <Row label={t("Automatisch suchen")} hint={t("Alle 4 Stunden, anonym bei GitHub, ohne deine Daten")}>
+        <Row icon="update" label={t("Automatisch suchen")} hint={t("Alle 4 Stunden, anonym bei GitHub, ohne deine Daten")}>
           <Switch label={t("Automatisch suchen")} checked={auto} onChange={(on) => updateSettings({ updates: { auto: on } })} />
         </Row>
       )}
@@ -563,7 +826,7 @@ function DiagnosticsRow() {
         ? t("Kopieren fehlgeschlagen")
         : t("Version, Windows, Bildschirme und Einstellungen für einen Fehlerbericht, ohne persönliche Daten");
   return (
-    <Row label={t("Diagnose kopieren")} hint={hint}>
+    <Row icon="troubleshoot" label={t("Diagnose kopieren")} hint={hint}>
       <Button onClick={() => void copy()}>{t("Kopieren")}</Button>
     </Row>
   );
@@ -573,11 +836,11 @@ function Support() {
   const { store } = update.use();
   return (
     <Group title={t("Unterstützen")} id="settings-support">
-      <Row label={t("Crest unterstützen")} hint={t("Kostenlos und ohne Werbung. Spenden über GitHub Sponsors sind freiwillig")}>
+      <Row icon="favorite" label={t("Crest unterstützen")} hint={t("Kostenlos und ohne Werbung. Spenden über GitHub Sponsors sind freiwillig")}>
         <Button onClick={openSponsors}>{t("Sponsern")}</Button>
       </Row>
       {store && (
-        <Row label={t("Crest bewerten")} hint={t("Eine Bewertung im Microsoft Store hilft anderen, Crest zu finden")}>
+        <Row icon="star" label={t("Crest bewerten")} hint={t("Eine Bewertung im Microsoft Store hilft anderen, Crest zu finden")}>
           <Button onClick={openStoreReview}>{t("Bewerten")}</Button>
         </Row>
       )}
@@ -599,9 +862,10 @@ function Ask() {
   const s = settings.use();
   return (
     <Group title={t("AI-Chat")} id="settings-ask">
-      <Row label={t("Anbieter")}>
+      <Row icon="cloud" label={t("Anbieter")}>
         <Segmented<AskProvider>
           id="ask-provider"
+          label={t("Anbieter")}
           size="sm"
           value={s.ask.provider}
           onChange={(provider) => updateSettings({ ask: { ...s.ask, provider } })}
@@ -609,7 +873,7 @@ function Ask() {
         />
       </Row>
       {s.ask.provider === "custom" && (
-        <Row label={t("Base-URL")} hint={t("OpenAI-kompatibel, endet meist auf /v1")}>
+        <Row icon="link" label={t("Base-URL")} hint={t("OpenAI-kompatibel, endet meist auf /v1")}>
           <TextField
             value={s.ask.configs.custom.baseUrl}
             onChange={(baseUrl) => updateAsk("custom", { baseUrl: baseUrl.trim() })}
@@ -620,10 +884,11 @@ function Ask() {
       )}
       <SecretRow
         name={`ai.${s.ask.provider}` as SecretName}
+        icon="key"
         label={t("API-Schlüssel")}
         hint={s.ask.provider === "custom" ? t("Für einen Server auf diesem Computer wie LM Studio oder Ollama nicht nötig") : undefined}
       />
-      <Row label={t("Modell")} hint={s.ask.provider === "openrouter" ? t("Modell-ID von openrouter.ai/models") : undefined}>
+      <Row icon="smart_toy" label={t("Modell")} hint={s.ask.provider === "openrouter" ? t("Modell-ID von openrouter.ai/models") : undefined}>
         <TextField
           value={s.ask.configs[s.ask.provider].model}
           onChange={(model) => updateAsk(s.ask.provider, { model: model.trim() })}
@@ -631,9 +896,10 @@ function Ask() {
           width="w-52"
         />
       </Row>
-      <Row label={t("Denkaufwand")} hint={t("Wie gründlich das Modell nachdenkt")}>
+      <Row icon="psychology" label={t("Denkaufwand")} hint={t("Wie gründlich das Modell nachdenkt")}>
         <Segmented
           id="ask-effort-settings"
+          label={t("Denkaufwand")}
           size="sm"
           value={s.ask.configs[s.ask.provider].effort}
           onChange={(effort) => updateAsk(s.ask.provider, { effort })}
@@ -649,9 +915,10 @@ export function OpenRows() {
   const s = settings.use();
   return (
     <>
-      <Row label={t("Öffnen")}>
+      <Row icon="touch_app" label={t("Öffnen")}>
         <Segmented
           id="open-mode"
+          label={t("Öffnen")}
           size="sm"
           value={s.openMode}
           onChange={(openMode) => updateSettings({ openMode })}
@@ -664,9 +931,10 @@ export function OpenRows() {
       <AnimatePresence initial={false}>
         {s.openMode === "hover" && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={fade} className="overflow-hidden">
-            <Row label={t("Hover-Verzögerung")}>
+            <Row icon="hourglass_top" label={t("Hover-Verzögerung")}>
               <Segmented
                 id="hover-delay"
+                label={t("Hover-Verzögerung")}
                 size="sm"
                 value={s.hoverDelay}
                 onChange={(hoverDelay) => updateSettings({ hoverDelay })}
@@ -677,7 +945,7 @@ export function OpenRows() {
                 ]}
               />
             </Row>
-            <Row label={t("Darüberfahren öffnet das Tool des Teils")} hint={t("Aus öffnet sich die Notch wie sonst; ein Klick auf einen Teil öffnet sein Tool immer")}>
+            <Row icon="arrow_selector_tool" label={t("Darüberfahren öffnet das Tool des Teils")} hint={t("Aus öffnet sich die Notch wie sonst; ein Klick auf einen Teil öffnet sein Tool immer")}>
               <Switch
                 label={t("Darüberfahren öffnet das Tool des Teils")}
                 checked={s.behavior.hoverParts}
@@ -692,11 +960,12 @@ export function OpenRows() {
 }
 
 /** The open shortcut as keycaps, with a warning when another program holds it. */
-export function ShortcutRow() {
+export function ShortcutRow({ icon }: { icon?: RowSymbol }) {
   const keys = settings.use().behavior.hotkeys.open;
   const openKey = hotkeyStatus.use().open;
   return (
     <Row
+      icon={icon}
       label={t("Tastenkürzel")}
       hint={
         !keys ? (
@@ -713,7 +982,7 @@ export function ShortcutRow() {
         <Keyboard size={13} weight="bold" className="text-label-3" />
         {keys ? (
           keycaps(keys).map(keyText).map((k) => (
-            <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">{k}</kbd>
+            <kbd key={k} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption material:rounded-[8px] material:bg-fill-3 material:border-b-2 material:border-separator material:font-semibold">{k}</kbd>
           ))
         ) : (
           t("Nicht gesetzt")
@@ -734,7 +1003,7 @@ function General() {
 
   return (
     <Group>
-      <Row label={t("Sprache")}>
+      <Row icon="language" label={t("Sprache")}>
         <Select<LanguageSetting>
           width="w-40"
           value={s.lang}
@@ -742,9 +1011,10 @@ function General() {
           options={[{ value: "system", label: t("Systemsprache") }, ...LANGUAGES.map((l) => ({ value: l, label: LANGUAGE_NAMES[l] }))]}
         />
       </Row>
-      <Row label={t("Uhrzeit")}>
+      <Row icon="schedule" label={t("Uhrzeit")}>
         <Segmented
           id="clock-format"
+          label={t("Uhrzeit")}
           size="sm"
           value={s.units.clock}
           onChange={(clock) => updateSettings((p) => ({ units: { ...p.units, clock } }))}
@@ -755,9 +1025,10 @@ function General() {
         />
       </Row>
       <OpenRows />
-      <Row label={t("Schließen-Verzögerung")} hint={t("Wie lange die Notch offen bleibt, nachdem der Zeiger sie verlassen hat")}>
+      <Row icon="hourglass_bottom" label={t("Schließen-Verzögerung")} hint={t("Wie lange die Notch offen bleibt, nachdem der Zeiger sie verlassen hat")}>
         <Segmented
           id="close-delay"
+          label={t("Schließen-Verzögerung")}
           size="sm"
           value={s.behavior.closeDelay}
           onChange={(closeDelay) => updateSettings((cur) => ({ behavior: { ...cur.behavior, closeDelay } }))}
@@ -768,7 +1039,7 @@ function General() {
           ]}
         />
       </Row>
-      <Row label={autostartLabel} hint={autoError ?? undefined}>
+      <Row icon="power_settings_new" label={autostartLabel} hint={autoError ?? undefined}>
         {auto !== null && (
           <Switch
             label={autostartLabel}
@@ -785,31 +1056,31 @@ function General() {
           />
         )}
       </Row>
-      <ShortcutRow />
-      <Row label={t("Einrichtung")} hint={t("Voreinstellung, Aussehen und Öffnen noch einmal wählen")}>
+      <ShortcutRow icon="keyboard" />
+      <Row icon="tune" label={t("Einrichtung")} hint={t("Voreinstellung, Aussehen und Öffnen noch einmal wählen")}>
         <Button onClick={() => navigate(setupTab.id)}>{t("Erneut starten")}</Button>
       </Row>
     </Group>
   );
 }
 
-const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string][] = [
-  ["power", "Ladegerät und Akku", "Beim Ein- und Ausstecken, Akku bei 20 und 10 % und wenn er am Ladegerät fertig geladen ist"],
-  ["saver", "Energiesparen und Energiemodus", "Wenn das Energiesparen an- oder ausgeht oder du den Energiemodus wechselst"],
-  ["net", "Netzwerk", "Wenn das Internet wegfällt und zurückkommt"],
-  ["airplane", "Flugzeugmodus", "Wenn der Flugzeugmodus an- oder ausgeht"],
-  ["bt", "Bluetooth-Geräte", "Beim Verbinden oder Trennen, mit Akku, wenn das Gerät ihn meldet"],
-  ["output", "Ausgabegerät", "Wenn Windows den Ton auf andere Lautsprecher oder Kopfhörer legt; ein Wechsel in Crest zählt nicht"],
-  ["display", "Bildschirme", "Wenn ein Bildschirm angeschlossen oder getrennt wird, mit seiner Bildwiederholrate"],
-  ["volume", "Lautstärke", "Mit Pegel, wenn sich die Lautstärke oder Stummschaltung ändert"],
-  ["brightness", "Helligkeit", "Eingebauter Bildschirm sofort, externe Monitore über DDC/CI alle 2 Sekunden"],
-  ["lock", "Feststell- und Num-Taste", "Wenn die Feststelltaste oder die Num-Taste umgeschaltet wird"],
-  ["insert", "Einfg-Taste", "Wenn sie allein gedrückt wird; Tastenkürzel wie Umschalt+Einfg zählen nicht"],
-  ["mic", "Mikrofon", "Wenn das Mikrofon stumm- oder wieder eingeschaltet wird: mit dem Tastenkürzel, einer Taste am Laptop oder in Windows"],
-  ["focus", "Nicht stören", "Wenn Nicht stören oder eine Fokussitzung an- oder ausgeht"],
-  ["clip", "Kopieren", "Wenn du Text, einen Link, ein Bild oder Dateien kopierst; braucht das Werkzeug Zwischenablage"],
-  ["hideOsd", "Windows-Anzeige ausblenden", "Blendet die Lautstärke- und Helligkeitsanzeige von Windows aus, solange Crest läuft; braucht Lautstärke und Helligkeit"],
-  ["everywhere", "Überall anzeigen", "Lautstärke, Helligkeit, die Sperrtasten, das Mikrofon und das Kopieren auch über Vollbild-Apps und wenn Crest ausgeblendet ist; mit Windows-Anzeige ausblenden erscheint die von Windows nie"],
+const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string, RowSymbol][] = [
+  ["power", "Ladegerät und Akku", "Beim Ein- und Ausstecken, Akku bei 20 und 10 % und wenn er am Ladegerät fertig geladen ist", "battery_charging_full"],
+  ["saver", "Energiesparen und Energiemodus", "Wenn das Energiesparen an- oder ausgeht oder du den Energiemodus wechselst", "energy_savings_leaf"],
+  ["net", "Netzwerk", "Wenn das Internet wegfällt und zurückkommt", "wifi"],
+  ["airplane", "Flugzeugmodus", "Wenn der Flugzeugmodus an- oder ausgeht", "flight"],
+  ["bt", "Bluetooth-Geräte", "Beim Verbinden oder Trennen, mit Akku, wenn das Gerät ihn meldet", "bluetooth"],
+  ["output", "Ausgabegerät", "Wenn Windows den Ton auf andere Lautsprecher oder Kopfhörer legt; ein Wechsel in Crest zählt nicht", "speaker"],
+  ["display", "Bildschirme", "Wenn ein Bildschirm angeschlossen oder getrennt wird, mit seiner Bildwiederholrate", "desktop_windows"],
+  ["volume", "Lautstärke", "Mit Pegel, wenn sich die Lautstärke oder Stummschaltung ändert", "volume_up"],
+  ["brightness", "Helligkeit", "Eingebauter Bildschirm sofort, externe Monitore über DDC/CI alle 2 Sekunden", "brightness_5"],
+  ["lock", "Feststell- und Num-Taste", "Wenn die Feststelltaste oder die Num-Taste umgeschaltet wird", "keyboard_capslock"],
+  ["insert", "Einfg-Taste", "Wenn sie allein gedrückt wird; Tastenkürzel wie Umschalt+Einfg zählen nicht", "keyboard_alt"],
+  ["mic", "Mikrofon", "Wenn das Mikrofon stumm- oder wieder eingeschaltet wird: mit dem Tastenkürzel, einer Taste am Laptop oder in Windows", "mic"],
+  ["focus", "Nicht stören", "Wenn Nicht stören oder eine Fokussitzung an- oder ausgeht", "do_not_disturb_on"],
+  ["clip", "Kopieren", "Wenn du Text, einen Link, ein Bild oder Dateien kopierst; braucht das Werkzeug Zwischenablage", "content_copy"],
+  ["hideOsd", "Windows-Anzeige ausblenden", "Blendet die Lautstärke- und Helligkeitsanzeige von Windows aus, solange Crest läuft; braucht Lautstärke und Helligkeit", "layers_clear"],
+  ["everywhere", "Überall anzeigen", "Lautstärke, Helligkeit, die Sperrtasten, das Mikrofon und das Kopieren auch über Vollbild-Apps und wenn Crest ausgeblendet ist; mit Windows-Anzeige ausblenden erscheint die von Windows nie", "all_inclusive"],
 ];
 
 /** Where and when the notch shows up. */
@@ -829,7 +1100,7 @@ function Display() {
     <Group id="settings-display">
       {/* Also with one monitor while "follow" or "all" is saved (a laptop undocked), or it could not be changed back. */}
       {(monitors.length > 1 || d.monitorMode !== "chosen") && (
-        <Row
+        <Row icon="desktop_windows"
           label={t("Monitor")}
           hint={d.monitorMode === "follow" ? t("Geschlossen wandert die Notch auf den Bildschirm mit dem Mauszeiger") : d.monitorMode === "all" ? t("Eine geschlossene Notch auf jedem Bildschirm; sie öffnet sich dort, wo du sie berührst") : undefined}
         >
@@ -853,7 +1124,7 @@ function Display() {
       )}
       <EdgeSettings />
       {(d.offset !== 0 || d.y !== 5) && (
-        <Row label={t("Position")} hint={t("Notch an der Kopfzeile oder geschlossen ziehen, um sie zu verschieben")}>
+        <Row icon="open_with" label={t("Position")} hint={t("Notch an der Kopfzeile oder geschlossen ziehen, um sie zu verschieben")}>
           <Button onClick={() => updateSettings((cur) => ({ display: { ...cur.display, offset: 0, y: 5 } }))}>
             <span className="flex items-center gap-1.5">
               <ArrowsInLineHorizontal size={13} weight="bold" /> {t("Zur Mitte")}
@@ -865,36 +1136,37 @@ function Display() {
       <SizeSettings />
       <ClosedParts />
       {d.idleStyle !== "line" && <PetSettingsRows />}
-      <Row label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>
+      <Row icon="linear_scale" label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>
         <Switch label={t("Fortschritt auf der Linie")} checked={s.closed.lineProgress} onChange={(lineProgress) => updateSettings((cur) => ({ closed: { ...cur.closed, lineProgress } }))} />
       </Row>
-      <Row label={t("Hinweis bei Kontingent 70 und 90 %")} hint={t("Braucht den Teil AI-Nutzung")}>
+      <Row icon="data_usage" label={t("Hinweis bei Kontingent 70 und 90 %")} hint={t("Braucht den Teil AI-Nutzung")}>
         <Switch label={t("Hinweis bei Kontingent 70 und 90 %")} checked={s.closed.quotaAlerts} onChange={(quotaAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, quotaAlerts } }))} />
       </Row>
       {/* The download watcher and the status events (power, network, Bluetooth, volume, brightness, lock keys) have no Mac backend. */}
       {!isMac && (
         <>
-          <Row label={t("Hinweis bei fertigem Download")} hint={t("Mit Im Ordner zeigen und Zur Ablage, nicht in den Ruhezeiten")}>
+          <Row icon="download_done" label={t("Hinweis bei fertigem Download")} hint={t("Mit Im Ordner zeigen und Zur Ablage, nicht in den Ruhezeiten")}>
             <Switch label={t("Hinweis bei fertigem Download")} checked={s.closed.downloadAlerts} onChange={(downloadAlerts) => updateSettings((cur) => ({ closed: { ...cur.closed, downloadAlerts } }))} />
           </Row>
-          <Row label={t("Statusmeldungen")} />
-          {statusAlerts.map(([k, label, hint]) => (
-            <Row key={k} label={t(label)} hint={t(hint)}>
+          <Row icon="notification_important" label={t("Statusmeldungen")} />
+          {statusAlerts.map(([k, label, hint, icon]) => (
+            <Row key={k} icon={icon} label={t(label)} hint={t(hint)}>
               <Switch label={t(label)} checked={s.closed.statusAlerts[k]} onChange={(v) => updateSettings((cur) => ({ closed: { ...cur.closed, statusAlerts: { ...cur.closed.statusAlerts, [k]: v } } }))} />
             </Row>
           ))}
         </>
       )}
-      <Row label={t("Fokus-Modus mit drei Klicks")} hint={t("Drei schnelle Klicks auf die geschlossene Notch machen sie halb durchsichtig oder zur Linie und lassen Klicks durch. Drei weitere Klicks, das Öffnen per Tastenkürzel oder ein Neustart holen sie zurück.")}>
+      <Row icon="filter_center_focus" label={t("Fokus-Modus mit drei Klicks")} hint={t("Drei schnelle Klicks auf die geschlossene Notch machen sie halb durchsichtig oder zur Linie und lassen Klicks durch. Drei weitere Klicks, das Öffnen per Tastenkürzel oder ein Neustart holen sie zurück.")}>
         <Switch label={t("Fokus-Modus mit drei Klicks")} checked={d.focusClicks} onChange={(focusClicks) => updateSettings((cur) => ({ display: { ...cur.display, focusClicks } }))} />
       </Row>
       {d.focusClicks && (
-        <Row
+        <Row icon="opacity"
           label={t("Fokus-Darstellung")}
           hint={d.focusStyle === "line" ? t("Nur eine dünne Linie am Rand, ohne Musik und Co.") : t("Halb durchsichtig")}
         >
           <Segmented
             id="focus-style"
+            label={t("Fokus-Darstellung")}
             size="sm"
             value={d.focusStyle}
             onChange={(focusStyle) => updateSettings((cur) => ({ display: { ...cur.display, focusStyle } }))}
@@ -908,12 +1180,13 @@ function Display() {
       {/* Hardware readings and FPS have no Mac backend yet. */}
       {!isMac && (
         <>
-          <Row
+          <Row icon="sports_esports"
             label={t("Gaming-Modus")}
             hint={t("FPS und Auslastung in der geschlossenen Notch")}
           >
             <Segmented
               id="gaming-mode"
+              label={t("Gaming-Modus")}
               size="sm"
               value={s.gaming.mode}
               onChange={(mode) => updateSettings({ gaming: { mode } })}
@@ -926,7 +1199,7 @@ function Display() {
           </Row>
           {fpsError === "no-admin" && <FpsUnlockRow />}
           {fpsError === "relogin" && (
-            <Row label={t("FPS freischalten")} hint={t("Fertig: einmal ab- und wieder anmelden, dann laufen die FPS")}>
+            <Row icon="speed" label={t("FPS freischalten")} hint={t("Fertig: einmal ab- und wieder anmelden, dann laufen die FPS")}>
               <SignOut size={18} weight="bold" className="text-orange" />
             </Row>
           )}
@@ -934,7 +1207,7 @@ function Display() {
       )}
       {/* macOS shows its own recording dots, and Crest cannot read the state there. */}
       {!isMac && (
-        <Row label={t("Aufnahme-Punkte")} hint={t("Grün: Mikrofon/Kamera aktiv · Rot: Bildschirm wird aufgenommen")}>
+        <Row icon="fiber_manual_record" label={t("Aufnahme-Punkte")} hint={t("Grün: Mikrofon/Kamera aktiv · Rot: Bildschirm wird aufgenommen")}>
           <Switch label={t("Aufnahme-Punkte")} checked={s.privacyDots} onChange={(privacyDots) => updateSettings({ privacyDots })} />
         </Row>
       )}
@@ -947,7 +1220,7 @@ export function ClosedStyle() {
   const style = settings.use().display.idleStyle;
   return (
     <div className="pb-3">
-      <Row
+      <Row icon="rounded_corner"
         label={t("Geschlossen")}
         hint={
           style === "line"
@@ -982,39 +1255,13 @@ function ShapePreview({ d }: { d: string }) {
   );
 }
 
-const partInfo: Record<PartId, { label: string; icon: Icon; hue: Hue }> = {
-  timer: { label: "Timer", icon: Timer, hue: "orange" },
-  discord: { label: "Discord", icon: DiscordLogo, hue: "indigo" },
-  rings: { label: "AI-Nutzung", icon: ChartDonut, hue: "purple" },
-  title: { label: "Songtitel", icon: MusicNote, hue: "pink" },
-  readings: { label: "Auslastung", icon: Cpu, hue: "red" },
-  equalizer: { label: "Equalizer", icon: Waveform, hue: "pink" },
-  clock: { label: "Uhrzeit", icon: Clock, hue: "blue" },
-  github: { label: "GitHub heute", icon: GithubLogo, hue: "violet" },
-  leetcode: { label: "LeetCode heute", icon: LeetcodeLogo, hue: "amber" },
-  calendar: { label: "Nächster Termin", icon: CalendarBlank, hue: "red" },
-  script: { label: "Skript-Anzeigen (crest-notify)", icon: TerminalWindow, hue: "slate" },
-  downloads: { label: "Downloads", icon: DownloadSimple, hue: "teal" },
-  weather: { label: "Wetter", icon: CloudSun, hue: "sky" },
-};
-
-/** Small labelled switch for a part's own options, next to its main switch. */
-function SubSwitch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <span className="flex items-center gap-1.5 text-caption text-label-3 select-none">
-      {label}
-      <Switch label={label} checked={checked} onChange={onChange} />
-    </span>
-  );
-}
-
 /** The nest beside the closed notch: which pet (or none), its size, independent of the notch's, and the side it sits on. */
 function PetSettingsRows() {
   const { closed: { pet }, dock } = settings.use();
   const setPet = (patch: Partial<ClosedSettings["pet"]>) => updateSettings((cur) => ({ closed: { ...cur.closed, pet: { ...cur.closed.pet, ...patch } } }));
   return (
     <>
-      <Row
+      <Row icon="pets"
         label={t("Haustier")}
         hint={isMac ? t("Neben der Notch: tanzt zur Musik, freut sich über Erledigtes und schläft, wenn nichts los ist") : t("Neben der Notch: tanzt zur Musik, rennt mit der CPU, freut sich über Erledigtes und schläft, wenn nichts los ist")}
       >
@@ -1030,14 +1277,14 @@ function PetSettingsRows() {
       </Row>
       {pet.id && (
         <>
-          <Row label={t("Größe des Haustiers")} hint={t("Unabhängig von der Größe der Notch")}>
+          <Row icon="aspect_ratio" label={t("Größe des Haustiers")} hint={t("Unabhängig von der Größe der Notch")}>
             <div className="flex w-52 items-center gap-2">
               <Slider label={t("Größe des Haustiers")} value={pet.size} min={PET_SIZE.min} max={PET_SIZE.max} step={2} onChange={(size) => setPet({ size })} />
               <span className="tabular w-8 text-end text-caption text-label-2">{pet.size}</span>
             </div>
           </Row>
-          <Row label={t("Seite")}>
-            <Segmented id="pet-side" size="sm" value={pet.side} options={across(dock.edge) ? [{ value: "left", label: t("Oben") }, { value: "right", label: t("Unten") }] : [{ value: "left", label: t("Linke Seite") }, { value: "right", label: t("Rechte Seite") }]} onChange={(side) => setPet({ side })} />
+          <Row icon="swap_horiz" label={t("Seite")}>
+            <Segmented label={t("Seite")} id="pet-side" size="sm" value={pet.side} options={across(dock.edge) ? [{ value: "left", label: t("Oben") }, { value: "right", label: t("Unten") }] : [{ value: "left", label: t("Linke Seite") }, { value: "right", label: t("Rechte Seite") }]} onChange={(side) => setPet({ side })} />
           </Row>
         </>
       )}
@@ -1069,7 +1316,7 @@ function ClosedParts() {
 
   return (
     <div>
-      <Row label={t("Inhalt")} hint={t("Gilt für Notch und Kapsel, zum Sortieren ziehen")} />
+      <Row icon="widgets" label={t("Inhalt")} hint={t("Gilt für Notch und Kapsel, zum Sortieren ziehen")} />
       {/* Parts a Mac does not show keep their place at the end of the order. */}
       <Reorder.Group
         as="div"
@@ -1091,7 +1338,7 @@ function ClosedParts() {
               onDragEnd={() => setDragging(null)}
               whileDrag={{ scale: 1.02 }}
               className={`group relative flex h-9 cursor-grab items-center gap-2.5 px-3 active:cursor-grabbing ${
-                dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
+                dragging === id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)] material:shadow-level4 m3-dragged" : ""
               }`}
             >
               <DotsSixVertical size={13} weight="bold" className="-ms-1 text-label-4 transition-colors group-hover:text-label-3" />
@@ -1133,14 +1380,14 @@ function Presentation() {
   const recording = privacy.use().screen;
   return (
     <Group title={t("Präsentationsmodus")} id="settings-presentation">
-      <Row
+      <Row icon="present_to_all"
         label={t("Präsentationsmodus")}
         hint={presenting && !manual ? t("Aktiv, Bildschirmaufnahme erkannt") : t("Blendet Zwischenablage, Kontostände, Tresor, Aufnahmen und Ablage aus")}
       >
         <Switch label={t("Präsentationsmodus")} checked={presenting} onChange={togglePresentation} />
       </Row>
       {!isMac && (
-        <Row label={t("Bei Bildschirmaufnahme")} hint={t("Teams, Discord, OBS … schaltet sich danach wieder ab")}>
+        <Row icon="screen_record" label={t("Bei Bildschirmaufnahme")} hint={t("Teams, Discord, OBS … schaltet sich danach wieder ab")}>
           <Switch
             label={t("Bei Bildschirmaufnahme")}
             checked={auto}
@@ -1149,7 +1396,7 @@ function Presentation() {
         </Row>
       )}
       {auto && recording && !presenting && (
-        <Row label={t("Für diese Aufnahme aus")} hint={t("Schaltet sich bei der nächsten wieder ein")} />
+        <Row icon="stop_screen_share" label={t("Für diese Aufnahme aus")} hint={t("Schaltet sich bei der nächsten wieder ein")} />
       )}
       <HideFromSharingRow />
     </Group>
@@ -1174,16 +1421,16 @@ function Discord() {
   const save = () => updateSettings({ discord: { clientId: id.trim() } });
   return (
     <Group title="Discord" id="settings-discord">
-      <Row label={t("Status")} hint={state.error ? tBackend(state.error) : undefined}>
+      <Row icon="cable" label={t("Status")} hint={state.error ? tBackend(state.error) : undefined}>
         <span className={`text-caption ${state.status === "ready" ? "text-green" : "text-label-2"}`}>{t(discordStatus[state.status] ?? state.status)}</span>
       </Row>
-      <Row label={t("Client-ID")}>
+      <Row icon="badge" label={t("Client-ID")}>
         <div className="flex items-center gap-1.5">
           <TextField value={id} onChange={setId} onSubmit={save} placeholder="123456789012345678" width="w-40" />
           {id.trim() !== s.discord.clientId && <Button onClick={save}>{t("Sichern")}</Button>}
         </div>
       </Row>
-      <SecretRow name="discord.secret" label={t("Client-Secret")} onSaved={reconnectDiscord} />
+      <SecretRow name="discord.secret" icon="key" label={t("Client-Secret")} onSaved={reconnectDiscord} />
       <div className="px-3 py-2 text-caption text-label-3">
         {t("discord.com/developers → New Application → OAuth2: Client-ID und Client-Secret kopieren und unter Redirects http://localhost eintragen und speichern. Beim ersten Verbinden fragt Discord einmal nach.")}
       </div>
@@ -1218,7 +1465,7 @@ function Alarm() {
 
   return (
     <Group id="settings-alarm">
-      <Row label={t("Alarm-Ton")}>
+      <Row icon="alarm" label={t("Alarm-Ton")}>
         <div className="flex items-center gap-1.5">
           <button
             aria-label={previewing ? t("Stopp") : t("Probehören")}
@@ -1243,14 +1490,14 @@ function Alarm() {
           />
         </div>
       </Row>
-      <Row label={t("Lautstärke")}>
+      <Row icon="volume_up" label={t("Lautstärke")}>
         <div className="flex w-52 items-center gap-2">
           <Slider label={t("Lautstärke")} value={Math.round(a.volume * 100)} min={5} max={100} step={5} onChange={(v) => set({ volume: v / 100 })} />
           <span className="tabular w-8 text-end text-caption text-label-2">{Math.round(a.volume * 100)}</span>
         </div>
       </Row>
-      <Row label={t("Dauer")} hint={t("Wie lange der Alarm klingelt")}>
-        <Segmented id="alarm-duration" size="sm" value={String(a.duration)} onChange={(v) => set({ duration: Number(v) as AlarmDuration })} options={durations.map((o) => ({ ...o, label: t(o.label, { n: o.value }) }))} />
+      <Row icon="timelapse" label={t("Dauer")} hint={t("Wie lange der Alarm klingelt")}>
+        <Segmented label={t("Dauer")} id="alarm-duration" size="sm" value={String(a.duration)} onChange={(v) => set({ duration: Number(v) as AlarmDuration })} options={durations.map((o) => ({ ...o, label: t(o.label, { n: o.value }) }))} />
       </Row>
     </Group>
   );
@@ -1262,10 +1509,10 @@ function FocusSoundSettings() {
   const set = (patch: Partial<{ focusSound: FocusSound; focusVolume: number }>) => updateSettings((cur) => ({ timer: { ...cur.timer, ...patch } }));
   return (
     <Group id="settings-focus-sound">
-      <Row label={t("Fokus-Klang")} hint={t("Spielt, solange ein Fokus-Timer läuft")}>
+      <Row icon="headphones" label={t("Fokus-Klang")} hint={t("Spielt, solange ein Fokus-Timer läuft")}>
         <Select width="w-44" value={focusSound} onChange={(v) => set({ focusSound: v })} options={focusSounds.map((o) => ({ ...o, label: t(o.label) }))} />
       </Row>
-      <Row label={t("Lautstärke")}>
+      <Row icon="volume_up" label={t("Lautstärke")}>
         <div className="flex w-52 items-center gap-2">
           <Slider label={t("Lautstärke")} value={Math.round(focusVolume * 100)} min={5} max={100} step={5} onChange={(v) => set({ focusVolume: v / 100 })} />
           <span className="tabular w-8 text-end text-caption text-label-2">{Math.round(focusVolume * 100)}</span>
@@ -1287,7 +1534,7 @@ function FpsUnlockRow() {
     failed: t("Hat nicht geklappt, Crest einmal als Administrator starten"),
   }[state];
   return (
-    <Row label={t("FPS freischalten")} hint={hint}>
+    <Row icon="speed" label={t("FPS freischalten")} hint={hint}>
       {state === "ok" || state === "relogin" ? (
         <CheckCircle size={18} weight="fill" className="text-green" />
       ) : (
@@ -1311,9 +1558,10 @@ function Weather() {
   const [searching, setSearching] = useState(false);
   return (
     <Group title={t("Wetter")} id="settings-weather">
-      <Row label={t("Standort")} hint={w?.auto ? t("Ungefähr, aus deiner IP-Adresse") : undefined}>
+      <Row icon="my_location" label={t("Standort")} hint={w?.auto ? t("Ungefähr, aus deiner IP-Adresse") : undefined}>
         <Segmented<"auto" | "manual">
           id="weather-mode"
+          label={t("Standort")}
           size="sm"
           value={!w || w.auto ? "auto" : "manual"}
           onChange={(m) => {
@@ -1328,9 +1576,10 @@ function Weather() {
           ]}
         />
       </Row>
-      <Row label={t("Einheit")}>
+      <Row icon="device_thermostat" label={t("Einheit")}>
         <Segmented
           id="temp-unit"
+          label={t("Einheit")}
           size="sm"
           value={units.temp}
           onChange={(temp) => updateSettings((p) => ({ units: { ...p.units, temp } }))}
@@ -1340,7 +1589,7 @@ function Weather() {
           ]}
         />
       </Row>
-      <Row label={t("Ort")}>
+      <Row icon="location_on" label={t("Ort")}>
         <Button onClick={() => setSearching((v) => !v)}>{w?.name ?? t("Wird erkannt …")}</Button>
       </Row>
       <AnimatePresence initial={false}>
@@ -1387,7 +1636,7 @@ function Tools() {
               onDragEnd={() => setDragging(null)}
               whileDrag={{ scale: 1.02 }}
               className={`group relative flex h-9 cursor-grab items-center gap-2.5 px-3 active:cursor-grabbing ${
-                dragging === tool.id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)]" : ""
+                dragging === tool.id ? "z-10 rounded-[10px] bg-elevated shadow-[0_6px_18px_rgb(0_0_0/0.45)] material:shadow-level4 m3-dragged" : ""
               }`}
             >
               <DotsSixVertical size={13} weight="bold" className="-ms-1 text-label-4 transition-colors group-hover:text-label-3" />
@@ -1415,7 +1664,7 @@ function Tools() {
  * Field for a key. Stored values are never read back, it only shows
  * "saved ✓". Typing a new one overwrites it, saving empty deletes it.
  */
-export function SecretRow({ name, label, hint, onSaved }: { name: SecretName; label: string; hint?: string; onSaved?: () => void }) {
+export function SecretRow({ name, label, hint, icon, onSaved }: { name: SecretName; label: string; hint?: string; icon?: RowSymbol; onSaved?: () => void }) {
   const [stored, setStored] = useState(false);
   const [value, setValue] = useState("");
   const [saved, setSaved] = useState(false);
@@ -1443,7 +1692,7 @@ export function SecretRow({ name, label, hint, onSaved }: { name: SecretName; la
   };
 
   return (
-    <Row label={label} hint={hint}>
+    <Row icon={icon} label={label} hint={hint}>
       <div className="flex items-center gap-1.5">
         <AnimatePresence>
           {(saved || (stored && !value)) && (

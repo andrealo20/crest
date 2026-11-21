@@ -1,7 +1,9 @@
+import { invoke } from "@tauri-apps/api/core";
 import { emit, emitTo } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { isNative } from "../platform/native";
 import { sendAction, type BridgeAction, type Transport } from "./bridge";
+import { isTaskbarWindow } from "./windowKind";
 
 /*
  * The bridge's transport over Tauri events, between Crest's windows. A listen registers asynchronously: `ready` waits for
@@ -24,7 +26,14 @@ export const tauriTransport: Transport = {
   },
 };
 
-/** From a window other than the notch: asks the notch to do it (src/features/settings/window/shared.ts runs it). */
+/** Settles once every `listen` started so far has registered, for a window whose hello does not go through `emit`. */
+export const listening = (): Promise<unknown> => ready;
+
+/**
+ * From a window other than the notch: asks the notch to do it (src/features/settings/window/shared.ts runs it). The bar's window
+ * may not emit events, so it asks through Rust, which passes on only the bar's requests (src-tauri/src/taskbar/panel.rs).
+ */
 export function askNotch(action: BridgeAction) {
+  if (isTaskbarWindow) return void invoke("taskbar_ask", { action }).catch(() => {});
   sendAction(tauriTransport, action);
 }

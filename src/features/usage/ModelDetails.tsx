@@ -1,7 +1,7 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck/ModelDetails.cs (table layout: input, cache write, cache read, output, total, cost).
 import { useState, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { PencilSimple, Table } from "@phosphor-icons/react";
+import { PencilSimple, Table } from "../../ui/iconset";
 import { content } from "../../design/motion";
 import { settings, updateSettings } from "../../settings/store";
 import { BrandLogo } from "../../ui/brands";
@@ -66,14 +66,14 @@ export function ModelDetails({ state }: { state: { report: TokenReport | null; l
   return (
     <div className="flex h-full flex-col px-4 pt-1 pb-2">
       <div className="mb-2 flex items-center gap-2">
-        <Segmented id="usage-range" size="sm" value={range} onChange={setRange} options={ranges.map((r) => ({ ...r, label: t(r.label) }))} />
+        <Segmented label={t("AI-Nutzung")} id="usage-range" size="sm" value={range} onChange={setRange} options={ranges.map((r) => ({ ...r, label: t(r.label) }))} />
         <div className="flex gap-1">
           {report.tools.map((x) => (
             <button
               key={x.id}
               aria-pressed={tools.has(x.id)}
               onClick={() => toggleTool(x.id)}
-              className={`pressable flex h-6 items-center gap-1 rounded-full px-2 text-caption font-medium transition-colors ${tools.has(x.id) ? "bg-fill-3 text-label" : "bg-fill-1 text-label-3 hover:text-label-2"}`}
+              className={`pressable flex h-6 items-center gap-1 rounded-full px-2 text-caption font-medium transition-colors ${tools.has(x.id) ? "bg-secondary-container text-on-secondary-container" : "bg-fill-1 text-label-3 hover:text-label-2"}`}
             >
               <BrandLogo id={x.id} size={11} />
               {toolNames[x.id]}

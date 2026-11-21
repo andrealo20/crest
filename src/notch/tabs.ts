@@ -26,7 +26,7 @@ import {
   Vault,
   TerminalWindow,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../ui/iconset";
 import { DepotIcon } from "../ui/icons";
 import type { Hue } from "../features/themes/hues";
 import { DiscordLogo, LeetcodeLogo } from "../ui/brands";
@@ -60,19 +60,19 @@ import { CalendarView } from "../features/calendar/CalendarView";
 import { CaptureView } from "../features/capture/CaptureView";
 import { SetupView } from "../features/setup/SetupView";
 import { WhatsNewView } from "../features/whatsnew/WhatsNewView";
-import { Camera, VideoCamera, Waveform } from "@phosphor-icons/react";
+import { Camera, VideoCamera, Waveform } from "../ui/iconset";
 import { RecorderView } from "../features/recorder/RecorderView";
 import { CameraView } from "../features/camera/CameraView";
 import { FindView } from "../features/find/FindView";
-import { CalendarCheck } from "@phosphor-icons/react";
+import { CalendarCheck } from "../ui/iconset";
 import { HabitsView } from "../features/habits/HabitsView";
 import { ColourView } from "../features/colour/ColourView";
-import { Eyedropper } from "@phosphor-icons/react";
-import { GlobeHemisphereWest } from "@phosphor-icons/react";
+import { Eyedropper } from "../ui/iconset";
+import { GlobeHemisphereWest } from "../ui/iconset";
 import { ClocksView } from "../features/clocks/ClocksView";
-import { Scroll } from "@phosphor-icons/react";
+import { Scroll } from "../ui/iconset";
 import { TeleprompterView } from "../features/teleprompter/TeleprompterView";
-import { Robot } from "@phosphor-icons/react";
+import { Robot } from "../ui/iconset";
 import { AgentsView } from "../features/agents/AgentsView";
 import { CalcView } from "../features/calc/CalcView";
 import { pluginTab } from "../features/plugins/tabs";

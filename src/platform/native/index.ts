@@ -21,6 +21,8 @@ export const settingsWindow = {
   },
   /** Opens the notch from another window, on a tool, as the tray does. */
   notchOpen: (tab: string | null): Promise<void> => (isNative ? invoke("notch_open", { tab }) : Promise.resolve()),
+  /** The theme's background ("#rrggbb"), which the next settings window opens in instead of black. */
+  background: (color: string): Promise<void> => (isNative ? invoke("settings_window_background", { color }) : Promise.resolve()),
 };
 
 /** The app on a Mac, where the tools built on Windows APIs are hidden (src/notch/tabs.ts). */
@@ -130,10 +132,14 @@ export const glassLive = {
   stop: (): Promise<void> => invoke("glass_live_stop"),
 };
 
-/** Rust stopped the live copy on its own (`glass://live`): that session's gen, and why. */
+/** Rust stopped this window's live copy on its own (`glass://live`): that session's gen, and why. Another window's are left out:
+ *  the global `listen` hears them too. */
 export function onGlassLiveStop(handler: (e: { gen: number; reason: string }) => void): () => void {
   if (!isNative) return () => {};
-  const off = listen<{ gen: number; reason: string }>("glass://live", (e) => handler(e.payload));
+  const label = getCurrentWebviewWindow().label;
+  const off = listen<{ label: string; gen: number; reason: string }>("glass://live", (e) => {
+    if (e.payload.label === label) handler(e.payload);
+  });
   return () => void off.then((f) => f());
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { motion } from "motion/react";
-import { MicrophoneStage } from "@phosphor-icons/react";
+import { MicrophoneStage } from "../../ui/iconset";
 import { content } from "../../design/motion";
 import { media, type NowPlaying } from "../../platform/media";
 import { settings } from "../../settings/store";

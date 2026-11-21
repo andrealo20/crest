@@ -13,6 +13,7 @@ import { settings } from "../../settings/store";
 import { DOCK_HEIGHT, HEADER_HEIGHT, type NotchGeometry } from "../geometry";
 import { viewMetrics, viewZoom } from "../viewZoom";
 import { barBox, drop } from "./bar";
+import { freeCopy, storeCopy, type Copy } from "./copy";
 import { dropLive, setLiveRenderer } from "./live";
 import { GLASS, canvasBox, dropLens, dropShape, lodFor, parseTint, shapeUniform, textureMap } from "./params";
 import { DOWN_FS, MAIN_FS, program } from "./shader";
@@ -42,9 +43,6 @@ interface Shape { w: MotionValue<number>; h: MotionValue<number>; r: MotionValue
 interface Live { target: NotchGeometry; hangs: boolean; reduced: boolean; look: "panel" | "closed"; hud: boolean }
 interface Glass { show(on: boolean): void; fit(): void; relook(): void; stop(): void }
 type Tint = NonNullable<ReturnType<typeof parseTint>>;
-type Gpu = NonNullable<ReturnType<typeof setup>>;
-/** A copy in a texture, its mip levels the blur pyramid; `meta` is the area of the window it holds. */
-interface Copy { tex: WebGLTexture | null; w: number; h: number; levels: number; meta: GlassZone | null }
 
 /** The canvas under the open panel's content and under the closed row. Armed it rests at 1x1 with its context alive, so a peek pays no setup. */
 export function GlassLayer({ mode, look, w, h, r, ear, rt, top, target, hangs, hud }: Shape & { mode: "armed" | "shown"; look: Live["look"]; target: NotchGeometry; hangs: boolean; hud: boolean }) {
@@ -118,7 +116,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
   /**
    * The closed shapes' glass: its veil's colour is the closed notch's; no side bands, no tool bar, no brow (draw). A theme that colours
    * the closed notch takes the CSS's tokens, which crossfade with the theme as the closed row's ink over them does. The black notch takes
-   * Dark's from memory: its row's ink is Dark's too, and that is not on <html>.
+   * its ink's (darkInk) from memory: its row is drawn in that ink too, and that is not on <html>.
    */
   const closedTokens = () => {
     const theme = activeTheme.get();
@@ -127,7 +125,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     if (!tint || !clear || !rim) return null;
     return { tint, edge: tint[3], clear: clear[3], rim, fill: [0, 0, 0, 0] as Tint, dark: true };
   };
-  /** The tool bar's veil (the side bands', --glass-tint-edge) for a status alert on a closed shape: the closed notch's theme's, else Dark's. */
+  /** The tool bar's veil (the side bands', --glass-tint-edge) for a status alert on a closed shape: the closed notch's theme's, else its ink's (darkInk). */
   const barVeil = () => (activeTheme.get().closedNotch ? tokens?.edge : parseTint(darkInk()["--glass-tint-edge"])?.[3]) ?? GLASS_EDGE;
 
   const paint = () => {
@@ -265,51 +263,9 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     frame.render(draw);
   };
 
-  // The blur pyramid in the texture's mip levels, each from the one above (dual filter, shader.ts).
-  const pyramid = ({ down, fbo }: Gpu, c: Copy) => {
-    gl.useProgram(down.p);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    for (let k = 1; k < c.levels; k++) {
-      // Only level k - 1 is visible to the sampler while level k is the target: no feedback loop.
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, k - 1);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, k - 1);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, c.tex, k);
-      gl.viewport(0, 0, Math.max(1, c.w >> k), Math.max(1, c.h >> k));
-      gl.uniform2f(down.u.uStep, 1 / Math.max(1, c.w >> (k - 1)), 1 / Math.max(1, c.h >> (k - 1)));
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-    }
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, 0);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, c.levels - 1);
-    // Detached, or the framebuffer would keep the texture, and the copy in it, alive after free().
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  };
-
-  /** Puts `bytes` (BGRA, uploaded as RGBA) into `c`'s texture, allocated again only for a new size, and blurs it into its levels. */
-  const store = (g: Gpu, c: Copy, m: GlassZone, bytes: Uint8Array) => {
-    if (!c.tex || m.w !== c.w || m.h !== c.h) {
-      if (c.tex) gl.deleteTexture(c.tex);
-      c.tex = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, c.tex);
-      c.levels = Math.floor(Math.log2(Math.max(m.w, m.h))) + 1;
-      gl.texStorage2D(gl.TEXTURE_2D, c.levels, gl.RGBA8, m.w, m.h);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      // The bend and a window partly off its monitor sample past the copy: they get its edge, not the far side.
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      c.w = m.w;
-      c.h = m.h;
-    }
-    gl.bindTexture(gl.TEXTURE_2D, c.tex);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, m.w, m.h, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
-    pyramid(g, c);
-    c.meta = m;
-  };
-
   const upload = (m: GlassZone, bytes: Uint8Array) => {
     if (!gpu || gl.isContextLost() || Math.max(m.w, m.h) > maxSize || !readTokens()) return false;
-    store(gpu, snap, m, bytes);
+    storeCopy(gl, gpu, snap, m, bytes);
     rect = canvas.getBoundingClientRect();
     topAt = shape.top.get();
     frame.render(draw);
@@ -319,7 +275,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
   // Up to 10 a second, so no DOM read but a first one: the canvas is placed by fit, and the shape's top springs on its own (draw).
   const uploadLive = (m: GlassZone, bytes: Uint8Array) => {
     if (!gpu || gl.isContextLost() || Math.max(m.w, m.h) > maxSize) return false;
-    store(gpu, liveCopy, m, bytes);
+    storeCopy(gl, gpu, liveCopy, m, bytes);
     if (!rect) {
       rect = canvas.getBoundingClientRect();
       topAt = shape.top.get();
@@ -328,12 +284,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     return true;
   };
 
-  // A texture freed and its size forgotten: the next copy allocates again, even at the same size.
-  const free = (c: Copy) => {
-    if (c.tex) gl.deleteTexture(c.tex);
-    c.tex = null;
-    c.w = c.h = 0;
-  };
+  const free = (c: Copy) => freeCopy(gl, c);
   const freeLive = () => {
     free(liveCopy);
     liveCopy.meta = null;

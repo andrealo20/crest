@@ -53,11 +53,12 @@ tauri-plugin-process = "2"
 
 # macOS (src/macos/): Keychain for the API keys; AppKit for the window level above the menu bar, the frontmost app,
 # the pasteboard and the colour sampler (with block2 for its handler); a Foundation dictionary for the Accessibility
-# check a paste needs. All of them are already in the tree through tauri and native-tls.
+# check a paste needs; user defaults and a notification observer for the System theme's accent (accent.rs). All of them
+# are already in the tree through tauri and native-tls.
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3"
 block2 = "0.6"
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSDictionary", "NSObject", "NSString", "NSValue"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "block2", "NSArray", "NSDictionary", "NSNotification", "NSObject", "NSOperation", "NSString", "NSUserDefaults", "NSValue"] }
 objc2-app-kit = { version = "0.3", default-features = false, features = [
   "std",
   "libc",
@@ -93,6 +94,8 @@ windows = { version = "0.62", features = [
   "Globalization",
   "Networking_Connectivity",
   "UI_Shell",
+  # The System theme's accent and its changes (accent.rs).
+  "UI_ViewManagement",
   "Storage_Streams",
   "Win32_Foundation",
   "Win32_Devices_DeviceAndDriverInstallation",
@@ -125,12 +128,20 @@ windows = { version = "0.62", features = [
   # Overview quick controls (quick.rs).
   "Win32_System_Shutdown",
   "Devices_Radios",
+  # The quick panel's Wi-Fi page (taskbar/wifi.rs).
+  "Devices_WiFi",
+  # Stato follows the Wi-Fi signal (sysevents.rs watch_signal): types only, wlanapi.dll's calls are looked up at run time.
+  "Win32_NetworkManagement_WiFi",
   "Win32_System_SystemInformation",
   "Win32_System_DataExchange",
   "Win32_System_Memory",
   "Win32_System_LibraryLoader",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_WindowsAndMessaging",
+  # SetWinEventHook: Crest's bar hides Windows' taskbar again when Windows shows it (taskbar/mod.rs).
+  "Win32_UI_Accessibility",
+  # GetApplicationUserModelId: the bar groups a packaged app's windows by its AppUserModelID (taskbar/tasks.rs).
+  "Win32_Storage_Packaging_Appx",
   "Win32_System_Ole",
   "Win32_UI_Shell_Common",
   "Win32_System_Console",

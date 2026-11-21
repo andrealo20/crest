@@ -1,7 +1,7 @@
 import { askNotch } from "../lib/tauriTransport";
 import { isNotchWindow } from "../lib/windowKind";
 import { useEffect, useRef } from "react";
-import { Check } from "@phosphor-icons/react";
+import { Check } from "../ui/iconset";
 import { createStore } from "../lib/store";
 import { settings, updateSettings } from "../settings/store";
 import { t } from "../i18n";
@@ -114,7 +114,7 @@ export function ClosedResizeBar({ style, edge }: { style: "notch" | "capsule" | 
       {/* On a side edge the turned bar would run away from the edge, past the hit zone: stacked, its long side runs along it. */}
       <div className={`flex items-center gap-2 whitespace-nowrap ${across(edge) ? "flex-col" : ""}`} style={{ transform: uprightCss(edge) }}>
         <span className="tabular rounded-full bg-black/80 px-2 py-0.5 text-caption text-label">{`${w} × ${h} px`}</span>
-        <button data-no-drag className="pressable flex items-center gap-1 rounded-full bg-label px-2.5 py-0.5 text-caption font-medium text-black" onClick={() => closedEdit.set(false)}>
+        <button data-no-drag className="pressable m3-morph flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-caption font-medium text-on-primary" onClick={() => closedEdit.set(false)}>
           <Check size={11} weight="bold" />
           {t("Fertig")}
         </button>

@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, BatteryLow, BatteryWarning, CheckCircle, FilmStrip, Pause, Play, Stop, Waveform, ArrowSquareOut, ImageSquare } from "@phosphor-icons/react";
+import { AlarmIcon, BatteryLow, BatteryWarning, CheckCircle, FilmStrip, Pause, Play, Stop, Waveform, ArrowSquareOut, ImageSquare } from "../../ui/iconset";
 import { STATUS_ICON } from "./statusIcons";
 import { pauseRecording, recording, saved, stopRecording, type Saved } from "../../features/capture/store";
 import { elapsedAt, formatElapsed } from "../../features/capture/clock";
 import { openFile } from "../../platform/services";
 import { openOn } from "../nav";
-import { content, fade, pulse, springs } from "../../design/motion";
+import { card as cardIn, content, fade, pulse, springs } from "../../design/motion";
 import { hueVar } from "../../features/themes/hues";
 import { useNowPlaying } from "../../platform/media";
 import type { UsageId } from "../../platform/services";
@@ -30,7 +30,7 @@ import { formatIn } from "../../lib/format";
 import { t } from "../../i18n";
 import { QUOTA, SAVED, TRACK, armTrack, detectRise, newQuotaTracker, observeTrack, topNotice, type QuotaRise, type TrackGate } from "./notices";
 import { trackCaption } from "./parts";
-import { fontEpoch, measureText } from "./measure";
+import { fontEpoch, measureTabular, measureText } from "./measure";
 import { Marquee } from "./Marquee";
 import { NOTICE_BUTTON as REC_BUTTON, NoticeButton, useNoticeHover } from "./NoticeButton";
 import { Ring } from "./parts/Rings";
@@ -44,14 +44,13 @@ import { downloadNotice } from "../../features/downloads/DownloadNotice";
 import { noticeCard } from "./NoticeCard";
 
 const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76, REC_DOT = 8, THUMB_W = 56, THUMB_H = 32, LEVEL_BAR = 56, ROW_H = 30;
-/** The card's way in, after the shape has started growing; the overshoot is an entrance only, it leaves with a plain fade. */
-const CARD_IN = { opacity: { duration: 0.25, delay: 0.08 }, transform: { type: "spring" as const, stiffness: 420, damping: 26, delay: 0.08 } };
 const TONE = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" } as const;
 /** A status icon that changes in place (louder, muted, Caps Lock off) leaves and comes in with a little scale and blur. */
 const ICON_SWAP = {
   from: { opacity: 0, transform: "scale(0.6)", filter: "blur(2px)" },
   to: { opacity: 1, transform: "scale(1)", filter: "blur(0px)" },
-  transition: { ...springs.snappy, opacity: fade, filter: fade },
+  // The presets themselves, not a copy made at import, so a change of Style reaches them (motion.ts setMotionDesign).
+  transition: { default: springs.snappy, opacity: fade, filter: fade },
 };
 
 /** The capture saved in the last SAVED.showMs (also one taken while the notch was open, for what is left of its time). */
@@ -175,7 +174,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly, mono = false }: { 
   if (kind === "recording") {
     const label = formatElapsed(elapsedAt(rec, Date.now()));
     // Measured with zeros so the width only changes when a digit is added, not every second.
-    width = REC_DOT + GAP + measureText(label.replace(/\d/g, "0")) + GAP + 2 * REC_BUTTON + 4;
+    width = REC_DOT + GAP + measureTabular(label.replace(/\d/g, "0")) + GAP + 2 * REC_BUTTON + 4;
     key = "recording";
     // A click or hover on the notice opens the tool that records (data-open, as the row's parts), its buttons excepted.
     body = (
@@ -255,8 +254,8 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly, mono = false }: { 
     // The volume and brightness HUD adds a level bar; its text keeps the width of "100 %", so the notch holds still while the level moves.
     const bar = status.level === undefined ? 0 : LEVEL_BAR + GAP;
     // Its digits are tabular, each as wide as an 8, which the canvas does not know.
-    const tab = (text: string) => (bar ? text.replace(/\d/g, "8") : text);
-    const textW = Math.min(Math.max(measureText(tab(status.text)), bar && measureText(tab(t("{p} %", { p: 100 })))), max - ICON - GAP - bar);
+    const tab = (text: string) => (bar ? measureTabular(text.replace(/\d/g, "8")) : measureText(text));
+    const textW = Math.min(Math.max(tab(status.text), bar && tab(t("{p} %", { p: 100 }))), max - ICON - GAP - bar);
     width = ICON + GAP + bar + textW;
     // One key per kind: a newer alert of the same kind swaps its text in place instead of cross-fading.
     key = `status:${status.kind}`;
@@ -343,7 +342,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly, mono = false }: { 
             // A card waits for the notch to grow, then comes in from a little smaller with a soft overshoot; a status alert settles
             // in from a touch smaller and softer while the shape springs to its size.
             initial={card ? { opacity: 0, transform: "scale(0.94)" } : exact ? { opacity: 0, transform: `scale(${0.96 * k})`, filter: "blur(2px)" } : { opacity: 0 }}
-            animate={card ? { opacity: 1, transform: "scale(1)", transition: CARD_IN } : exact ? { opacity: 1, transform: `scale(${k})`, filter: "blur(0px)", transition: content.enter } : { opacity: 1, transition: content.enter }}
+            animate={card ? { opacity: 1, transform: "scale(1)", transition: cardIn } : exact ? { opacity: 1, transform: `scale(${k})`, filter: "blur(0px)", transition: content.enter } : { opacity: 1, transition: content.enter }}
             exit={{ opacity: 0, transition: content.exit }}
           >
             {body}

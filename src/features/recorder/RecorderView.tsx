@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { FolderOpen, Microphone, MicrophoneSlash, Play, Record, SpeakerHigh, SpeakerSlash, Trash, Waveform } from "@phosphor-icons/react";
+import { FolderOpen, Microphone, MicrophoneSlash, Play, Record, SpeakerHigh, SpeakerSlash, Trash, Waveform } from "../../ui/iconset";
 import { fade, springs } from "../../design/motion";
 import { formatBytes } from "../../lib/format";
 import { capture, openFile, revealFile, type CaptureFile } from "../../platform/services";

@@ -8,13 +8,13 @@ export function ClipboardSettings() {
   const s = settings.use();
   return (
     <Group id="settings-clipboard" title={t("Zwischenablage")}>
-      <Row
+      <Row icon="data_object"
         label={t("Chips zum Dekodieren")}
         hint={t("Ein kleiner Chip an Einträgen, die ein JWT, Unix-Zeit, Base64, eine UUID, JSON, eine Farbe oder ein Link mit Tracking sind. Alles bleibt auf dem Rechner.")}
       >
         <Switch label={t("Chips zum Dekodieren")} checked={s.clipChips !== false} onChange={(clipChips) => updateSettings({ clipChips })} />
       </Row>
-      <Row
+      <Row icon="content_paste"
         label={t("Direkt einfügen")}
         hint={
           isMac

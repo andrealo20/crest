@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Check, Drop, Flame, Plus } from "@phosphor-icons/react";
+import { Check, Drop, Flame, Plus } from "../../ui/iconset";
 import { fade, springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { Button, Empty } from "../../ui/controls";

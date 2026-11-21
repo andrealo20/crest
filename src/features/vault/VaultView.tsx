@@ -15,7 +15,7 @@ import {
   User,
   WarningCircle,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { content, tick } from "../../design/motion";
 import { createStore } from "../../lib/store";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -247,7 +247,7 @@ function VaultContent() {
             animate={{ opacity: 1, transform: "translateY(0px)", transition: content.enter }}
             exit={{ opacity: 0, transition: content.exit }}
           >
-            <span className="flex items-center gap-1.5 rounded-full bg-elevated px-3 py-1 text-caption text-label-2 shadow-[0_6px_18px_rgb(0_0_0/0.45)]">
+            <span className="flex items-center gap-1.5 rounded-full bg-elevated px-3 py-1 text-caption text-label-2 shadow-[0_6px_18px_rgb(0_0_0/0.45)] material:shadow-level3">
               <WarningCircle size={12} weight="bold" className="text-orange" />
               {notice}
             </span>
@@ -333,6 +333,7 @@ function List(props: {
       <div className="flex shrink-0 items-center gap-2">
         <Segmented
           id="vault-kind"
+          label={t("Tresor")}
           value={props.kind}
           onChange={props.setKind}
           options={[

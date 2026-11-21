@@ -1,4 +1,4 @@
-import { ArrowCircleUp, Gift, X } from "@phosphor-icons/react";
+import { ArrowCircleUp, Gift, X } from "../../ui/iconset";
 import { openOn } from "../../notch/nav";
 import { NOTICE_BUTTON as BUTTON, NoticeButton } from "../../notch/row/NoticeButton";
 import { noticeCard } from "../../notch/row/NoticeCard";

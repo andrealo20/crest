@@ -2,6 +2,7 @@
 // PanelThemes.Derive.cs and Themes/*.json (the palettes of One Dark Pro, GitHub, Dracula and Night Owl, all MIT, see docs/themes.md).
 
 import { BLACK, WHITE, contrast, contrastScore, ensureContrast, formatColor, isDark, luminance, mix, over, parseColor, toHex, withAlpha, type ContrastNeed, type Rgba } from "./color.ts";
+import type { Design } from "../../design/design.ts";
 
 /**
  * Panel themes. A theme names a few colours (THEME_KEYS); the rest of Crest's tokens follow from
@@ -12,6 +13,8 @@ export const THEME_KEYS = ["background", "foreground", "secondary", "tertiary", 
 export type ThemeKey = (typeof THEME_KEYS)[number];
 /** The colours the settings editor offers. */
 export const EDITOR_KEYS = ["background", "foreground", "accent", "warning", "critical"] as const satisfies readonly ThemeKey[];
+/** The editor's colours in a style: Material's scheme takes only the accent as its seed and the background's side, and works out the rest. */
+export const editorKeys = (design: Design): readonly (typeof EDITOR_KEYS)[number][] => (design === "material" ? ["accent", "background"] : EDITOR_KEYS);
 
 export interface ThemeFile {
   format: 1;
@@ -48,7 +51,11 @@ export interface ThemeSettings {
   glassLive: boolean;
   /** Status alerts (volume, brightness, a copy and the others) drawn as clear glass over a live copy of the screen, while Glass is on (src/notch/Notch.tsx). */
   glassAlerts: boolean;
-  /** The whole app's font (FONTS), set as --font-sans; the terminal and the timer looks keep their monospace. */
+  /** The style of every window and of the copies on other monitors: Crest's own, or Material 3 seeded by the theme's accent (material.ts). */
+  design: Design;
+  /** The settings window's contour lines under the Material style (src/features/settings/contours.ts); the Crest style never draws them. */
+  contours: boolean;
+  /** The whole app's font (FONTS, or "auto" for the style's own: fontStack), set as --font-sans; the terminal and the timer looks keep their monospace. */
   font: FontId;
 }
 
@@ -72,13 +79,22 @@ export const FONTS = {
   mvboli: '"Crest Digits", "MV Boli", Noteworthy, cursive',
   gabriola: '"Crest Digits", Gabriola, "Apple Chancery", cursive',
 } as const;
-export type FontId = keyof typeof FONTS;
-/** Names in the menu: font names, never translated. */
+export type FontId = keyof typeof FONTS | "auto";
+/** Names in the menu: font names, never translated; "auto" under the font it draws in the Crest style. */
 export const FONT_NAMES: Record<FontId, string> = {
-  inter: "Inter", segoe: "Segoe UI", bahnschrift: "Bahnschrift", franklin: "Franklin Gothic", impact: "Impact", georgia: "Georgia",
+  auto: "Inter", inter: "Inter", segoe: "Segoe UI", bahnschrift: "Bahnschrift", franklin: "Franklin Gothic", impact: "Impact", georgia: "Georgia",
   sitka: "Sitka", palatino: "Palatino", cascadia: "Cascadia", courier: "Courier New", comic: "Comic Sans MS", inkfree: "Ink Free",
   print: "Segoe Print", script: "Segoe Script", mvboli: "MV Boli", gabriola: "Gabriola",
 };
+
+/** The stack a font id draws in a style: "auto" is Inter in Crest's, and in Material Google Sans Flex with Inter after it for what it lacks (Cyrillic). */
+export function fontStack(id: FontId, design: Design): string {
+  if (id !== "auto") return FONTS[id];
+  return design === "material" ? `"Google Sans Flex", ${FONTS.inter}` : FONTS.inter;
+}
+
+/** The caption's tracking in px, which measure.ts adds since the canvas leaves it out: text-caption's 0.01em of 11 px, none in Material (global.css). */
+export const captionSpacing = (design: Design): number => (design === "material" ? 0 : 0.11);
 
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
 /** Tertiary text (hints, inactive icons): Crest's own dark tertiary, white at 34 %, is 2.9:1 on black. */
@@ -94,7 +110,7 @@ export const MAX_FILE_BYTES = 64 * 1024;
 export const DEFAULT_THEME = "dark";
 
 /** Defaults of a dark and a light surface: what a file leaves out, and the alphas of the derived tokens. */
-const MODES = {
+export const MODES = {
   dark: {
     foreground: "rgb(255 255 255 / 0.96)",
     accent: "#0a84ff",
@@ -220,10 +236,31 @@ export const BUILT_IN_THEMES: readonly ThemeFile[] = [
   ),
 ];
 
-export const isBuiltIn = (id: string) => BUILT_IN_THEMES.some((t) => t.id === id);
+/** The System card's id: Dark or Light by the system's side, with the system's accent (systemTheme). */
+export const SYSTEM_THEME = "system";
 
-/** The theme an id names, among the built-ins and the custom themes; a missing one (a deleted file) falls back to Dark. */
-export function findTheme(id: string, custom: readonly ThemeFile[]): ThemeFile {
+export const isBuiltIn = (id: string) => id === SYSTEM_THEME || BUILT_IN_THEMES.some((t) => t.id === id);
+
+/** The ids a new theme cannot take: the built-ins, the System card's and the custom themes'. */
+export const takenIds = (custom: readonly ThemeFile[]): Set<string> => new Set([...BUILT_IN_THEMES.map((t) => t.id), SYSTEM_THEME, ...custom.map((t) => t.id)]);
+
+/** The System card from the system's reading; null without one, and then there is no card. */
+export function systemTheme(a: { accent: string; dark: boolean } | null): ThemeFile | null {
+  // The reading may come back from storage, written by an older version or by hand.
+  if (!a || !parseColor(a.accent)) return null;
+  const side = BUILT_IN_THEMES[a.dark ? 0 : 1];
+  return { format: 1, id: SYSTEM_THEME, name: "System", colors: { ...side.colors, accent: a.accent } };
+}
+
+/** The themes to pick from, in the order of their cards: the System card first when the system was read, the built-ins, one's own. */
+export const themeChoices = (system: ThemeFile | null, custom: readonly ThemeFile[]): ThemeFile[] => [...(system ? [system] : []), ...BUILT_IN_THEMES, ...custom];
+
+/**
+ * The theme an id names, among the built-ins, the System card (`system`, the card's theme when the system was read) and the
+ * custom themes; a missing one (a deleted file, a System card never read) falls back to Dark.
+ */
+export function findTheme(id: string, custom: readonly ThemeFile[], system: ThemeFile | null = null): ThemeFile {
+  if (id === SYSTEM_THEME) return system ?? BUILT_IN_THEMES[0];
   return BUILT_IN_THEMES.find((t) => t.id === id) ?? custom.find((t) => t.id === id) ?? BUILT_IN_THEMES[0];
 }
 
@@ -246,14 +283,16 @@ export interface ResolvedTheme {
   colors: Record<ThemeKey, Rgba>;
   adjustments: Adjustment[];
   closedNotch: boolean;
+  /** Material's tertiary role, for what draws its colours outside CSS (the contour lines); colors.tertiary is the third text level. */
+  m3Tertiary?: string;
 }
 
-/** From a theme file to Crest's tokens. */
-export function resolveTheme(file: ThemeFile): ResolvedTheme {
+/** From a theme file to Crest's tokens. `override.yellow` replaces the side's yellow, which no theme file writes: the Material style brings its own. */
+export function resolveTheme(file: ThemeFile, override: { yellow?: string } = {}): ResolvedTheme {
   const written = (k: ThemeKey) => parseColor(file.colors[k]);
   const bg = over(written("background") ?? BLACK, BLACK);
   const dark = isDark(bg);
-  const mode = dark ? MODES.dark : MODES.light;
+  const mode = { ...(dark ? MODES.dark : MODES.light), ...override };
   const ink = written("foreground") ?? parseColor(mode.foreground)!;
   const elevated = over(written("elevated") ?? (dark ? mix(bg, over(ink, bg), 0.11) : mix(bg, WHITE, 0.8)), bg);
 
@@ -326,6 +365,12 @@ export function resolveTheme(file: ThemeFile): ResolvedTheme {
     "--color-caution": formatColor(caution),
     "--color-link": formatColor(colors.link),
     "--color-black": formatColor(onLabel),
+    // The roles Material components paint; the Crest style repeats today's colours, so a class can move to its role without a change on screen.
+    "--color-primary": formatColor(colors.foreground),
+    "--color-on-primary": formatColor(onLabel),
+    "--color-secondary-container": formatColor(fill[2]),
+    "--color-on-secondary-container": formatColor(colors.foreground),
+    "--color-tertiary": formatColor(colors.foreground),
     "--theme-accent": formatColor(colors.accent),
     "--notch-closed": closedNotch ? formatColor(bg) : "#000000",
     "--glass-tint": formatColor(veil),
@@ -390,11 +435,14 @@ export const HUE_PALETTE = {
   slate: ["#9aa3ad", "#6d757f"],
 } as const;
 export type Hue = keyof typeof HUE_PALETTE;
+/** Material's tinted pill under a hue (Dock, chosen settings entry, coloured row icons): at 18 % the Dock's capsule drops to 2.87:1, at 14 % every hue keeps 3:1. */
+export const HUE_PILL = 0.14;
 
 /**
- * The closed row's ink over the closed shapes' glass (src/notch/glass/live.ts). The closed veil holds the text levels of `ink` (Dark's, or
- * the theme's when it colours the closed notch); the album colour, the link, the readings' yellow and, with coloured icons, every hue are
- * held to 3:1 over that veil on black and on white, and the warning, error and success colours take the glass's.
+ * The closed row's ink over the closed shapes' glass (src/notch/glass/live.ts). The closed veil holds the text levels of `ink` (the black
+ * notch's, store.ts inkTheme, or the theme's when it colours the closed notch); the album colour, the link, the readings' yellow and,
+ * with coloured icons, every hue are held to 3:1 over that veil on black and on white, and the warning, error and success colours take
+ * the glass's.
  */
 export function closedGlassInk(ink: ResolvedTheme, accent: string, hues: boolean): Record<string, string> {
   const veil = parseColor(ink.vars["--glass-tint"])!;
@@ -593,7 +641,7 @@ export function importThemes(custom: readonly ThemeFile[], files: { file: string
       result.unchanged++;
       continue;
     }
-    const taken = new Set([...BUILT_IN_THEMES, ...next].map((t) => t.id));
+    const taken = takenIds(next);
     const added = taken.has(theme.id) ? { ...theme, id: uniqueId(theme.id, taken) } : theme;
     next.push(added);
     result.added.push(added);
@@ -617,7 +665,9 @@ export const THEME_DEFAULTS: ThemeSettings = {
   glassRim: 100,
   glassLive: false,
   glassAlerts: true,
-  font: "inter",
+  design: "crest",
+  contours: true,
+  font: "auto",
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -631,8 +681,15 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
   const custom: ThemeFile[] = [];
   for (const t of Array.isArray(s.custom) ? s.custom : []) {
     const check = validateTheme(t);
-    if (check.theme && !isBuiltIn(check.theme.id) && !custom.some((c) => c.id === check.theme!.id)) custom.push(check.theme);
+    const id = check.theme?.id ?? "";
+    if (check.theme && (id === SYSTEM_THEME || !isBuiltIn(id)) && !custom.some((c) => c.id === id)) custom.push(check.theme);
   }
+  // A theme of one's own saved as "system" before the System card took the id: it keeps its colours under a new id, and the
+  // choices that named it follow it.
+  const clash = custom.findIndex((c) => c.id === SYSTEM_THEME);
+  const renamed = clash < 0 ? null : uniqueId(SYSTEM_THEME, takenIds(custom));
+  if (renamed) custom[clash] = { ...custom[clash], id: renamed };
+  const chosen = (v: string) => (renamed && v === SYSTEM_THEME ? renamed : v);
   const d = THEME_DEFAULTS.schedule;
   const sc = (typeof s.schedule === "object" && s.schedule !== null ? s.schedule : {}) as Partial<ThemeSettings["schedule"]>;
   const text = (v: unknown, fallback: string) => (typeof v === "string" && v ? v : fallback);
@@ -642,13 +699,14 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     const v: unknown = s[k], [lo, hi] = GLASS_RANGE[k];
     return typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(hi, Math.max(lo, v))) : THEME_DEFAULTS[k];
   };
+  const font = typeof s.font === "string" && Object.hasOwn(FONT_NAMES, s.font) ? s.font : THEME_DEFAULTS.font;
   return {
-    id: text(s.id, THEME_DEFAULTS.id),
+    id: chosen(text(s.id, THEME_DEFAULTS.id)),
     custom,
     schedule: {
       on: sc.on === true,
-      day: text(sc.day, d.day),
-      night: text(sc.night, d.night),
+      day: chosen(text(sc.day, d.day)),
+      night: chosen(text(sc.night, d.night)),
       dayStart: time(sc.dayStart, d.dayStart),
       nightStart: time(sc.nightStart, d.nightStart),
       sun: sc.sun === true,
@@ -662,6 +720,10 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     glassRim: look("glassRim"),
     glassLive: s.glassLive === true,
     glassAlerts: s.glassAlerts !== false,
-    font: typeof s.font === "string" && Object.hasOwn(FONTS, s.font) ? s.font : THEME_DEFAULTS.font,
+    design: s.design === "material" ? "material" : "crest",
+    contours: s.contours !== false,
+    // Saved before the Style setting (no `design`), "inter" was the default nobody picked: it becomes the style's font. Saved beside a
+    // style, it was picked, and stays.
+    font: font === "inter" && s.design === undefined ? "auto" : font,
   };
 }

@@ -7,7 +7,7 @@ export const coverBackdrop = createStore<string | null>(null);
 
 /**
  * Behind the open panel (Notch.tsx, under the content like the ambience tint): the tiny cover stretched over the panel,
- * which reads as blurred, darkened so the Dark theme's light text stays readable, and darker at the bottom where the
+ * which reads as blurred, darkened so the closed notch's light ink (darkInk) stays readable, and darker at the bottom where the
  * controls and the dock sit. A new cover fades in over the old one. Over the glass (dark themes only) it is partly see-through, so the glass shows under it.
  */
 export function CoverBackdrop({ glass }: { glass: boolean }) {

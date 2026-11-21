@@ -4,8 +4,10 @@
 //! recordings in Videos\Crest\Recordings as MP4, audio-only ones in Music\Crest\Recordings as M4A.
 //! While a screenshot or screen recording is taken, Crest's own window is excluded from capture
 //! (WDA_EXCLUDEFROMCAPTURE), and only then, unless "Hide Crest from screen sharing" is on (sharing.rs): then it stays out.
+//! The bar (taskbar/bar.rs) stays in Crest's own captures, as Windows' taskbar does in the system's, and follows only that switch
+//! and its own live glass.
 //! The glass's copy of the screen behind the notch (backdrop.rs) leaves out the notch window alone, through the same lock.
-//! While the live glass is on (glass_live.rs) the notch window stays out of every capture.
+//! While the live glass is on (glass_live.rs) the notch window stays out of every capture, and the bars while theirs is.
 //! Recording state goes to the frontend as `capture://state`. Find on screen (find.rs)
 //! reads the screens with OCR from in-memory copies.
 
@@ -55,6 +57,20 @@ pub struct CaptureState {
     holds: AtomicUsize,
     /// The live glass is switched on (glass_live.rs): the notch window stays out of capture until it is switched off.
     live: AtomicBool,
+    /// The bars' live glass is switched on: every bar stays out of capture until it is switched off. One for all of them, as
+    /// the setting is one.
+    /// shortcut: with several bars the first one switched off lowers it while another bar's copy may still run; one flag per
+    /// label when phase 5 brings bars to other monitors.
+    bar_live: AtomicBool,
+}
+
+/// The flag that keeps `label` out of captures while its live glass is on; None for a window without a live glass.
+pub(super) fn glass_flag<'a>(state: &'a CaptureState, label: &str) -> Option<&'a AtomicBool> {
+    match label {
+        "notch" => Some(&state.live),
+        bar if bar.starts_with("taskbar") => Some(&state.bar_live),
+        _ => None,
+    }
 }
 
 impl CaptureState {
@@ -182,12 +198,20 @@ fn new_file(dir: &Path, prefix: &str, ext: &str) -> Result<PathBuf, String> {
     Ok(dir.join(file_name(prefix, ext, stamp(), |n| dir.join(n).exists())))
 }
 
-/// For a Crest window opened while a recording runs or while Crest is hidden from screen sharing (the floating timer, a copy
-/// on another monitor): exclude it too.
+/// For a Crest window opened while a recording or a screenshot runs, while Crest is hidden from screen sharing or while the
+/// bars' live glass is on (the floating timer, a copy on another monitor, a bar): exclude it too.
 pub(crate) fn exclude_if_capturing(app: &AppHandle) {
-    if app.state::<CaptureState>().excluded() || crate::sharing::hidden() {
-        exclude(app, true);
+    let state = app.state::<CaptureState>();
+    let held = state.excluded() || state.holds.load(Ordering::SeqCst) > 0;
+    if let Some(on) = on_open(held, crate::sharing::hidden(), state.bar_live.load(Ordering::SeqCst)) {
+        exclude(app, on);
     }
+}
+
+/// What `exclude_if_capturing` passes to `exclude`, None when nothing keeps a window out. The bars' glass alone passes false:
+/// the bar goes out on its own flag (`window_affinity`), the other windows stay in.
+fn on_open(held: bool, hidden: bool, bar_live: bool) -> Option<bool> {
+    (held || hidden || bar_live).then_some(held)
 }
 
 /// Every Crest window (the notch, the floating timer, ...) in or out of captures. "Out" ends at the user's choice
@@ -197,10 +221,11 @@ fn exclude(app: &AppHandle, on: bool) {
     // nor the notch over the live glass.
     let _one = one_at_a_time();
     let hidden = crate::sharing::hidden();
-    let live = app.state::<CaptureState>().live.load(Ordering::SeqCst);
+    let state = app.state::<CaptureState>();
+    let (live, bar_live) = (state.live.load(Ordering::SeqCst), state.bar_live.load(Ordering::SeqCst));
     for (label, w) in app.webview_windows() {
         if let Ok(hwnd) = w.hwnd() {
-            let _ = unsafe { SetWindowDisplayAffinity(hwnd, window_affinity(on, hidden, live, label == "notch")) };
+            let _ = unsafe { SetWindowDisplayAffinity(hwnd, window_affinity(on, hidden, live, bar_live, &label)) };
         }
     }
 }
@@ -217,9 +242,15 @@ fn affinity(on: bool, hidden: bool) -> WINDOW_DISPLAY_AFFINITY {
     if on || hidden { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }
 }
 
-/// A window's flag in `exclude`: the notch also stays out while the live glass is on, or it would show in its own glass.
-fn window_affinity(on: bool, hidden: bool, live: bool, notch: bool) -> WINDOW_DISPLAY_AFFINITY {
-    affinity(on || (live && notch), hidden)
+/// A window's flag in `exclude`, by its label: the notch also stays out while its live glass is on, or it would show in its own
+/// glass, and the bar while its own is; otherwise the bar stays in Crest's own screenshots and recordings, as Windows' taskbar
+/// does in the system's.
+fn window_affinity(on: bool, hidden: bool, live: bool, bar_live: bool, label: &str) -> WINDOW_DISPLAY_AFFINITY {
+    match label {
+        "notch" => affinity(on || live, hidden),
+        bar if bar.starts_with("taskbar") => affinity(bar_live, hidden),
+        _ => affinity(on, hidden),
+    }
 }
 
 /// The setting changed (sharing.rs). A recording or a screenshot of Crest's own keeps the windows out until it ends, whatever
@@ -789,10 +820,48 @@ mod affinity_tests {
 
     #[test]
     fn the_notch_alone_stays_out_while_the_live_glass_is_on() {
-        assert_eq!(window_affinity(false, false, true, true), WDA_EXCLUDEFROMCAPTURE);
-        assert_eq!(window_affinity(false, false, true, false), WDA_NONE);
-        assert_eq!(window_affinity(false, false, false, true), WDA_NONE);
-        assert_eq!(window_affinity(true, false, false, false), WDA_EXCLUDEFROMCAPTURE);
+        assert_eq!(window_affinity(false, false, true, false, "notch"), WDA_EXCLUDEFROMCAPTURE);
+        assert_eq!(window_affinity(false, false, true, true, "settings"), WDA_NONE);
+    }
+
+    #[test]
+    fn the_bar_stays_in_crests_own_captures_but_not_in_shared_screens() {
+        assert_eq!(window_affinity(true, false, false, false, "taskbar"), WDA_NONE);
+        assert_eq!(window_affinity(false, true, false, false, "taskbar"), WDA_EXCLUDEFROMCAPTURE);
+        // A capture of Crest's own still leaves the other windows out.
+        assert_eq!(window_affinity(true, false, false, false, "settings"), WDA_EXCLUDEFROMCAPTURE);
+    }
+
+    #[test]
+    fn the_bar_stays_out_while_its_own_glass_is_on() {
+        assert_eq!(window_affinity(false, false, false, true, "taskbar"), WDA_EXCLUDEFROMCAPTURE);
+        assert_eq!(window_affinity(false, false, false, true, "taskbar-2"), WDA_EXCLUDEFROMCAPTURE);
+        // The notch's glass does not take the bar out, nor the bar's the notch.
+        assert_eq!(window_affinity(false, false, true, false, "taskbar"), WDA_NONE);
+        assert_eq!(window_affinity(false, false, false, true, "notch"), WDA_NONE);
+        // Off, the bar is back in Crest's own captures.
+        assert_eq!(window_affinity(true, false, false, false, "taskbar"), WDA_NONE);
+    }
+
+    #[test]
+    fn a_bar_built_while_its_glass_is_on_starts_out_of_captures() {
+        let on = on_open(false, false, true).expect("the bar's glass keeps it out");
+        assert_eq!(window_affinity(on, false, false, true, "taskbar"), WDA_EXCLUDEFROMCAPTURE);
+        // The other windows stay in.
+        assert_eq!(window_affinity(on, false, false, true, "settings"), WDA_NONE);
+        assert_eq!(on_open(false, false, false), None);
+        // A recording or a screenshot under way still takes every window out.
+        assert_eq!(on_open(true, false, true), Some(true));
+        assert_eq!(on_open(false, true, false), Some(false));
+    }
+
+    #[test]
+    fn each_window_has_its_own_glass_flag() {
+        let s = CaptureState::default();
+        assert!(std::ptr::eq(glass_flag(&s, "notch").unwrap(), &s.live));
+        assert!(std::ptr::eq(glass_flag(&s, "taskbar").unwrap(), &s.bar_live));
+        assert!(std::ptr::eq(glass_flag(&s, "taskbar-1").unwrap(), &s.bar_live));
+        assert!(glass_flag(&s, "settings").is_none() && glass_flag(&s, "mirror-1").is_none());
     }
 }
 

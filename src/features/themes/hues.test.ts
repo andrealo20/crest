@@ -2,8 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { contrast, over, parseColor } from "./color.ts";
-import { BUILT_IN_THEMES, GRAPHIC, HUE_PALETTE, legacyIconColors, resolveTheme } from "./themes.ts";
+import { contrast, over, parseColor, withAlpha } from "./color.ts";
+import { resolveMaterial } from "./material.ts";
+import { BUILT_IN_THEMES, GRAPHIC, HUE_PALETTE, HUE_PILL, legacyIconColors, resolveTheme } from "./themes.ts";
 
 // The modules that use hues touch localStorage or React on import, so they are read from the source.
 const read = (path: string) => readFileSync(join(import.meta.dirname, path), "utf8");
@@ -19,6 +20,24 @@ test("every hue reads at 3:1 on every built-in theme: panel, cards, Hardware row
       const c = parseColor(r.vars[`--hue-${hue}`]);
       assert.ok(c, `${theme.id} ${hue}`);
       for (const g of grounds) assert.ok(contrast(c, g) >= GRAPHIC - 0.01, `${theme.id} ${hue} ${contrast(c, g).toFixed(2)}`);
+    }
+  }
+});
+
+test("in Material every hue reads at 3:1 on its own pill: on the panel, on the Dock's capsule and on a settings group", () => {
+  assert.equal(HUE_PILL, 0.14);
+  for (const theme of BUILT_IN_THEMES) {
+    for (const level of [0, 1] as const) {
+      const r = resolveMaterial(theme, { contrast: level });
+      const bg = r.colors.background;
+      const grounds = [bg, over(parseColor(r.vars["--color-fill-2"])!, bg), over(parseColor(r.vars["--color-fill-1"])!, bg)];
+      for (const hue of HUES) {
+        const c = parseColor(r.vars[`--hue-${hue}`])!;
+        for (const g of grounds) {
+          const ratio = contrast(c, over(withAlpha(c, HUE_PILL), g));
+          assert.ok(ratio >= GRAPHIC - 0.01, `${theme.id}, contrast ${level}, ${hue} ${ratio.toFixed(2)}`);
+        }
+      }
     }
   }
 });

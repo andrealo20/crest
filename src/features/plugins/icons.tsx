@@ -40,7 +40,7 @@ import {
   Warning,
   WifiHigh,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import type { IconName } from "./model";
 
 /** The icons a plugin or a crest-notify part may name; nothing is ever loaded from the plugin for the dock. */

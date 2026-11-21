@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Check, Checks, Prohibit, X } from "@phosphor-icons/react";
+import { Check, Checks, Prohibit, X } from "../../ui/iconset";
 import { t } from "../../i18n";
 import { measureText } from "../../notch/row/measure";
 import { NOTICE_BUTTON as BUTTON, NOTICE_BUTTON_PAD as PAD, NoticeButton } from "../../notch/row/NoticeButton";

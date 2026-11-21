@@ -1,4 +1,5 @@
 import { createStore } from "../../lib/store";
+import { barParts } from "../../notch/row/visibility";
 import { downloadWatch, type DownloadFinished, type DownloadProgress } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { presentingNow } from "../privacy/store";
@@ -6,7 +7,7 @@ import { inQuiet } from "../notices/rules";
 
 /*
  * Downloads in the Downloads folder (downloads.rs): the ones running, for the closed row's Downloads part, and the one just
- * finished, for its notice. Rust watches only while the part or the notice is on.
+ * finished, for its notice. Rust watches only while the part, the notice or the bar's Downloads widget is on.
  */
 
 /** How long the finished notice stays. */
@@ -37,7 +38,7 @@ export function startDownloads() {
   let last: boolean | null = null;
   const apply = () => {
     const c = settings.get().closed;
-    const on = c.parts.downloads || c.downloadAlerts;
+    const on = c.parts.downloads || c.downloadAlerts || barParts.get().includes("downloads");
     if (on === last) return;
     last = on;
     downloadWatch.configure(on);
@@ -48,4 +49,5 @@ export function startDownloads() {
   };
   apply();
   settings.subscribe(apply);
+  barParts.subscribe(apply);
 }

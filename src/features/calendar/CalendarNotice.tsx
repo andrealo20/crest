@@ -1,4 +1,4 @@
-import { CalendarBlank, VideoCamera, X } from "@phosphor-icons/react";
+import { CalendarBlank, VideoCamera, X } from "../../ui/iconset";
 import { formatTime } from "../../lib/format";
 import { openOn } from "../../notch/nav";
 import { NOTICE_BUTTON as BUTTON, NoticeButton } from "../../notch/row/NoticeButton";

@@ -121,7 +121,7 @@ pub fn after_update(args: &[String]) {
 }
 
 #[cfg(windows)]
-fn wait_for_exit(pid: u32) {
+pub(crate) fn wait_for_exit(pid: u32) {
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Threading::{OpenProcess, WaitForSingleObject, INFINITE, PROCESS_SYNCHRONIZE};
     unsafe {

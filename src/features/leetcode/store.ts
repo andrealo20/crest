@@ -5,6 +5,7 @@ import { createStore } from "../../lib/store";
 import { rowVisible } from "../../notch/row/visibility";
 import { fetchLeetcode, type LeetcodeStats } from "../../platform/services";
 import { settings } from "../../settings/store";
+import { onBarShows } from "../taskbar/barPanels";
 
 /** Rust caches for an hour; asking more often would only return the cache. */
 const POLL_MS = 3_600_000;
@@ -107,6 +108,8 @@ export function startLeetcode() {
   settings.subscribe(apply);
   rowVisible.subscribe(apply);
   viewers.subscribe(apply);
+  // A bar's panel showing LeetCode counts as one more open view, so the notch fetches for it.
+  onBarShows("leetcode", (shown) => viewers.set((n) => n + (shown ? 1 : -1)));
 }
 
 /** For views that show LeetCode stats: triggers polling while mounted. */

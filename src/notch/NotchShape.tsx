@@ -113,9 +113,8 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", thin 
           borderTopRightRadius: rt,
           borderBottomLeftRadius: r,
           borderBottomRightRadius: r,
-          // Within the window's margin around the largest panel (10 px on the sides, 20 below, display.rs), or a wide panel shows
-          // the shadow cut off in a straight line on a light wallpaper.
-          boxShadow: "0 10px 20px -10px rgb(0 0 0 / 0.7), 0 3px 8px rgb(0 0 0 / 0.35)",
+          // Crest's own or Material's level 4 (tokens.css), both within the window's margin around the largest panel.
+          boxShadow: "var(--shadow-panel)",
         }}
       />
       <motion.div

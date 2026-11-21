@@ -13,15 +13,8 @@ export const snapshot = createStore({ seq: 0, ready: false, pending: false, take
 /** WebGL refused or broken for this session (no context, failIfMajorPerformanceCaveat, programs that do not link). */
 export const glassBroken = createStore(false);
 
-function mediaStore(query: string) {
-  const q = typeof matchMedia === "function" ? matchMedia(query) : null;
-  const store = createStore(q?.matches ?? false);
-  q?.addEventListener("change", (e) => store.set(e.matches));
-  return store;
-}
-/** Media the glass turns off with; WebView2 and the browser follow the system's setting. */
-export const contrastMore = mediaStore("(prefers-contrast: more)");
-export const reducedTransparency = mediaStore("(prefers-reduced-transparency: reduce)");
+/** Media the glass turns off with (media.ts), where they have always been imported from. */
+export { contrastMore, reducedTransparency } from "./media";
 
 /** The glass layer (GlassLayer.tsx): `upload` puts a copy in its texture and says whether it can be drawn, `free` drops the texture. */
 export interface GlassRenderer { upload(meta: SnapshotMeta, bytes: Uint8Array): boolean; free(): void }
@@ -80,7 +73,13 @@ function receive(meta: unknown, data: ArrayBuffer) {
   if (import.meta.env.DEV) console.debug("glass", `${Math.round(performance.now() - askedAt)} ms`);
 }
 
-if (isNative && !isMac) onSharedBuffer(receive);
+/**
+ * At start, in the notch's page only (main.tsx): the page's one listener for Rust's buffers. Not on import, as the bar's panel draws
+ * a NotchShape, which loads this file, and the bar's page has a listener of its own for its live frames (taskbar/window/main.tsx).
+ */
+export function startSnapshots() {
+  if (isNative && !isMac) onSharedBuffer(receive);
+}
 
 /** The browser's stand-in for Rust: the fake desktop as BGRA bytes after ?glassDelay ms (30 by default). */
 async function fake(seq: number) {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, Copy, X } from "@phosphor-icons/react";
+import { Check, Copy, X } from "../../ui/iconset";
 import { content } from "../../design/motion";
 import { HeaderButton } from "../../notch/header";
 import { requestSize } from "../../notch/size";

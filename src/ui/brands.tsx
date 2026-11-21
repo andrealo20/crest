@@ -1,5 +1,5 @@
 import { forwardRef, type ReactNode } from "react";
-import type { Icon, IconProps } from "@phosphor-icons/react";
+import type { Icon, IconProps } from "./iconset";
 
 /*
  * Provider logos, single color (currentColor) like OmniNotch. These are the official

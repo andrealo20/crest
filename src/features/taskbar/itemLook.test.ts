@@ -1,0 +1,82 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { itemLayer, marks } from "./itemLook.ts";
+import { contrast, parseColor } from "../themes/color.ts";
+import { materialInk, resolveMaterial } from "../themes/material.ts";
+import { BUILT_IN_THEMES } from "../themes/themes.ts";
+
+test("the marks under an app: Crest's of today, and Material's pill in place of the long mark in front", () => {
+  const none = { dot: false, bar: false, pill: false };
+  assert.deepEqual(marks("open", "crest"), { dot: true, bar: false, pill: false });
+  assert.deepEqual(marks("front", "crest"), { dot: false, bar: true, pill: false });
+  assert.deepEqual(marks("attention", "crest"), { dot: false, bar: true, pill: false });
+  assert.deepEqual(marks("none", "crest"), none);
+  assert.deepEqual(marks("open", "material"), { dot: true, bar: false, pill: false });
+  assert.deepEqual(marks("front", "material"), { dot: false, bar: false, pill: true });
+  assert.deepEqual(marks("attention", "material"), { dot: false, bar: true, pill: false });
+  assert.deepEqual(marks("none", "material"), none);
+});
+
+test("the pill and the state layer: as wide as the button, centred, as tall as an M3 indicator, or the whole tile", () => {
+  assert.deepEqual(itemLayer({ size: 24, width: 40 }), { left: 0, right: 0, top: "50%", height: 32, marginTop: -16, borderRadius: 16 });
+  assert.deepEqual(itemLayer({ size: 24, width: 30 }), { left: 0, right: 0, top: "50%", height: 30, marginTop: -15, borderRadius: 15 });
+  assert.deepEqual(itemLayer({ size: 24, width: 120, layer: 30 }), { left: 0, right: 0, top: "50%", height: 30, marginTop: -15, borderRadius: 15 });
+  assert.deepEqual(itemLayer({ size: 24, width: 40, tile: { radius: 16 } }), { inset: 0, borderRadius: 16 });
+});
+
+const window = (name: string) => readFileSync(join(import.meta.dirname, "window", name), "utf8");
+
+test("Item draws the pill and the state layer only under Material, the layer lit by the bar's hovered state and never by :hover", () => {
+  const item = window("Item.tsx");
+  assert.match(item, /\{material &&[^}]*data-front-pill/);
+  const layer = /material && <span[^\n]*m3-layer[^\n]*/.exec(item);
+  assert.ok(layer, "no state layer drawn under a material && branch");
+  assert.match(layer[0], /data-hover=\{props\.lifted \|\| undefined\}/);
+  // The window lets the pointer through off its zones and the page never sees pointerleave there, so a :hover would stay lit.
+  assert.doesNotMatch(layer[0], /hover:/);
+  assert.equal(item.match(/data-front-pill/g)?.length, 1);
+  assert.equal(item.match(/m3-layer/g)?.length, 1);
+  assert.match(window("Status.tsx"), /layer=\{pill\?\.height\}/);
+});
+
+test("the bar's name reads at 4.5:1 as an M3 tooltip, on the page's theme and on the closed notch's ink", () => {
+  for (const t of BUILT_IN_THEMES) {
+    for (const level of [0, 1] as const) {
+      for (const r of [resolveMaterial(t, { contrast: level }), materialInk(t, { contrast: level })]) {
+        const notch = parseColor(r.vars["--color-notch"])!;
+        for (const bg of ["--color-label", "--color-red"]) {
+          const ratio = contrast(notch, parseColor(r.vars[bg])!);
+          assert.ok(ratio >= 4.5, `${t.id}, contrast ${level}: notch on ${bg} is ${ratio.toFixed(2)}:1`);
+        }
+      }
+    }
+  }
+});
+
+test("the name bubble turns into an M3 tooltip under Material and keeps every Crest class", () => {
+  const bubble = /function Bubble[\s\S]*?className=\{`([^`]*)`\}/.exec(window("Item.tsx"));
+  assert.ok(bubble, "no Bubble class string");
+  const classes = bubble[1];
+  for (const c of ["material:rounded-[4px]", "material:shadow-none", "material:ring-0", "material:text-notch"]) assert.ok(classes.includes(c), c);
+  assert.ok(classes.includes('${failed ? "text-red material:bg-red" : "text-label material:bg-label"}'));
+  for (const c of ["rounded-[8px]", "bg-elevated", "shadow-[0_4px_14px_rgb(0_0_0/0.4)]", "ring-1 ring-separator", "px-2 py-1 text-footnote font-medium"]) assert.ok(classes.includes(c), c);
+});
+
+test("under Liquid Glass + a tile keeps its glass: the pill and the state layer are the centred M3 indicator, not the whole tile", () => {
+  assert.match(window("Item.tsx"), /itemLayer\(\{ size: props\.size, width: props\.width \?\? props\.size \+ 16, layer: props\.layer, tile: props\.plus \? undefined : props\.tile \}\)/);
+  assert.deepEqual(itemLayer({ size: 24, width: 40, tile: undefined }), { left: 0, right: 0, top: "50%", height: 32, marginTop: -16, borderRadius: 16 });
+  // Every item takes it from the bar's common props: the apps, the tray, Stato, the widgets and the tools.
+  assert.match(window("TaskbarWindow.tsx"), /const item = \(key: string, name: string\) => \(\{[^}]*plus: look\.look === "plus",/);
+  assert.match(window("Tray.tsx"), /Pick<ItemProps, [^>]*"plus"/);
+  assert.match(window("Widget.tsx"), /Pick<ItemProps, [^>]*"plus"/);
+});
+
+test("Stato's state layer rides in the lifted pill, over its fill, so it never shows as a band under it", () => {
+  const item = window("Item.tsx");
+  assert.match(item, /const inPill = props\.layer !== undefined;/);
+  assert.match(item, /className=\{`m3-layer absolute\$\{inPill \? " inset-0 rounded-full" : ""\}`\} style=\{inPill \? undefined : shape\}/);
+  assert.match(item, /\{!inPill && layer\}/);
+  assert.match(item, /\{props\.children\}\s*\{inPill && layer\}\s*<\/motion\.span>/);
+});

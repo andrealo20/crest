@@ -1,7 +1,7 @@
-import { Coffee, Eye } from "@phosphor-icons/react";
+import { Coffee, Eye } from "../../ui/iconset";
 import { NOTICE_BUTTON_PAD as PAD, NoticeButton } from "../../notch/row/NoticeButton";
 import { noticeCard } from "../../notch/row/NoticeCard";
-import { measureText } from "../../notch/row/measure";
+import { measureTabular, measureText } from "../../notch/row/measure";
 import { t } from "../../i18n";
 import { useSecondTick } from "../timer/store";
 import { formatLeft, secondsLeft, type ShownBreak } from "./breaks";
@@ -38,7 +38,7 @@ export function breaksNotice(b: ShownBreak, max: number) {
   const skipLabel = t("Überspringen"), snoozeLabel = t("5 Min. später");
   const pill = (label: string) => Math.min(LABEL_MAX, measureText(label)) + 2 * PAD;
   // Measured with zeros so the width does not change as the digits do.
-  const timeW = measureText(formatLeft(Math.round((b.endsAt - b.startedAt) / 1000)).replace(/\d/g, "0"));
+  const timeW = measureTabular(formatLeft(Math.round((b.endsAt - b.startedAt) / 1000)).replace(/\d/g, "0"));
   const label = (text: string) => <span className="truncate text-footnote font-medium" style={{ maxWidth: LABEL_MAX }}>{text}</span>;
   return noticeCard(
     {

@@ -2,6 +2,7 @@ import { askNotch } from "../../lib/tauriTransport";
 import { isNotchWindow } from "../../lib/windowKind";
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
+import { barParts } from "../../notch/row/visibility";
 import { fetchCalendar, openMeetingLink, type CalendarData, type CalendarEvent } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { dueEvent, nextChange, nextEvent } from "./model";
@@ -14,12 +15,21 @@ export const calendar = createStore<{ data: CalendarData | null; error: string |
 
 /** The event announced in the closed notch, set by the scheduler; null while none is due or the notice or tool is off. */
 export const calendarDue = createStore<CalendarEvent | null>(null);
-/** The next event within the part's horizon (only while the part is on). */
+/** The next event within the part's horizon (only while the part is on with the tool, or Crest's bar shows it). */
 export const calendarNext = createStore<CalendarEvent | null>(null);
 
 /** Closed notices survive a restart (stored ids are pruned to the agenda's events on each close). */
 const dismissedIds = createStore<string[]>([], { persist: "calendar-dismissed" });
 const dismissed = new Set(dismissedIds.get());
+// A close in another window (a join in the bar's panel) arrives as a storage event, after the store's own listener (added with the
+// store above) has read the new list. Its ids are added to this window's set, so the notch takes that reminder down and neither
+// window's next close drops the other's. Adding keeps this window's own ids too, since each window prunes what it saves to the
+// events it knows.
+window.addEventListener("storage", (e) => {
+  if (e.key !== "notch:calendar-dismissed") return;
+  for (const id of dismissedIds.get()) dismissed.add(id);
+  schedule();
+});
 let latest = 0;
 
 const toolOn = () => settings.get().tools.some((t) => t.id === "calendar" && t.enabled);
@@ -59,15 +69,18 @@ export function joinMeeting(id: string, link: string) {
 // One timeout to the next moment the notice or the part changes (at most a minute, for standby and clock changes).
 let timeout: number | undefined;
 function schedule() {
+  // The notice and the closed part show only in the notch, so the bar's panel and the settings window keep no timer for them.
+  if (!isNotchWindow) return;
   window.clearTimeout(timeout);
   const now = Date.now();
   const s = settings.get();
-  const on = toolOn();
-  const events = on ? (calendar.get().data?.events ?? []) : [];
+  const on = toolOn(), bar = barParts.get().includes("calendar");
+  const events = on || bar ? (calendar.get().data?.events ?? []) : [];
   const { notice, noticeMin, horizonMin } = s.calendar;
-  const due = notice ? dueEvent(events, now, noticeMin, dismissed) : null;
+  // The bar's widget reads the events with the tool off; the notice stays the tool's.
+  const due = notice && on ? dueEvent(events, now, noticeMin, dismissed) : null;
   if (due?.id !== calendarDue.get()?.id) calendarDue.set(due);
-  const next = s.closed.parts.calendar ? nextEvent(events, now) : null;
+  const next = (s.closed.parts.calendar && on) || bar ? nextEvent(events, now) : null;
   const shown = next && next.start - now <= horizonMin * 60_000 ? next : null;
   if (shown !== calendarNext.get()) calendarNext.set(shown);
   const at = nextChange(events, now, [noticeMin * 60_000, horizonMin * 60_000]);
@@ -79,7 +92,7 @@ let lastSources = "";
 function apply() {
   const s = settings.get();
   const key = JSON.stringify(s.calendar.sources);
-  const wanted = toolOn() && s.calendar.sources.length > 0;
+  const wanted = (toolOn() || barParts.get().includes("calendar")) && s.calendar.sources.length > 0;
   if (key !== lastSources) {
     // Added, edited or removed: fetch at once (an empty list also clears Rust's cache file).
     lastSources = key;
@@ -99,6 +112,7 @@ function apply() {
 export function startCalendar() {
   apply();
   settings.subscribe(apply);
+  barParts.subscribe(apply);
   calendar.subscribe(schedule);
 }
 

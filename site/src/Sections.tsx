@@ -281,7 +281,7 @@ export function Footer() {
         </div>
       </div>
       <p className="legal">
-        Crest is free software under the GPL-3.0 licence, a fork of L4-Notchbar 1.6.0 by Linux5Real, made by Andrea Loroni. It is not made, sponsored or endorsed by Microsoft or Apple. Text set in Inter and icons by Phosphor, both bundled with this page.
+        Crest is free software under the GPL-3.0 licence, a fork of L4-Notchbar 1.6.0 by Linux5Real, made by Andrea Loroni. It is not made, sponsored or endorsed by Microsoft, Apple or Google. Text set in Inter and Google Sans Flex (OFL), icons by Phosphor and Material Symbols (Apache-2.0), all bundled with this page.
       </p>
       <p className="wordmark" aria-hidden="true">Crest</p>
     </footer>

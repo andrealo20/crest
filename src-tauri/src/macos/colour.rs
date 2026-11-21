@@ -29,7 +29,7 @@ pub async fn colour_pick(app: AppHandle) -> Result<Option<String>, String> {
 }
 
 /// The colour in sRGB as "#rrggbb", like the Windows eyedropper and the browser's.
-fn srgb_hex(color: &NSColor) -> Option<String> {
+pub(crate) fn srgb_hex(color: &NSColor) -> Option<String> {
     let c = color.colorUsingColorSpace(&NSColorSpace::sRGBColorSpace())?;
     Some(format!("#{:02x}{:02x}{:02x}", byte(c.redComponent()), byte(c.greenComponent()), byte(c.blueComponent())))
 }

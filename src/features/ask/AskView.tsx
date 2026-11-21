@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUp, Copy, Check, NotePencil, Stop, Translate, TextAlignLeft, X, type Icon } from "@phosphor-icons/react";
+import { ArrowUp, Copy, Check, NotePencil, Stop, Translate, TextAlignLeft, X, type Icon } from "../../ui/iconset";
 import { content, fade } from "../../design/motion";
 import { createStore } from "../../lib/store";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -202,7 +202,7 @@ export function AskView() {
             type="submit"
             aria-label={t("Senden")}
             disabled={!draft.trim()}
-            className="pressable flex size-6 shrink-0 items-center justify-center rounded-full bg-label text-black transition-opacity duration-150 disabled:opacity-25"
+            className="pressable m3-morph flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition-opacity duration-150 disabled:opacity-25"
           >
             <ArrowUp size={13} weight="bold" />
           </button>

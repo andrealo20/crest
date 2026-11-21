@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Play } from "@phosphor-icons/react";
+import { Play } from "../../ui/iconset";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { locale, t } from "../../i18n";
 import { MAX_CHARS, countWords, formatClock, clampText } from "./model";

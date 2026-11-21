@@ -1,13 +1,16 @@
-import { Fragment, useMemo, useState, type ReactNode } from "react";
-import { ArrowCounterClockwise, WarningCircle } from "@phosphor-icons/react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ArrowCounterClockwise, WarningCircle } from "../../ui/iconset";
 import { Button, Group, Row, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
+import type { RowSymbol } from "../../ui/materialNames";
 import { formatTime } from "../../lib/format";
 import { isMac } from "../../platform/native";
+import { windowKind } from "../../lib/windowKind";
 import { openFile, revealFile } from "../../platform/services";
 import { demo } from "../../dev/showcase-data";
 import { glassShape } from "../../notch/glass/params";
 import { liveSupport } from "../../notch/glass/live";
 import { settings, updateSettings } from "../../settings/store";
+import { design, type Design } from "../../design/design";
 import { t } from "../../i18n";
 import { contrast, parseColor, toHex, withAlpha, type Rgba } from "./color";
 import { ColorPicker } from "./ColorPicker";
@@ -15,7 +18,6 @@ import { HALF_HOURS, activeThemeId, isNight, sunHours } from "./daynight";
 import { original } from "./history";
 import {
   activeTheme,
-  allThemes,
   deleteCustomTheme,
   discardEdits,
   draft,
@@ -27,22 +29,28 @@ import {
   importFromFolder,
   overwriteTheme,
   pickTheme,
+  previewFor,
+  previewTheme,
   saveAsNew,
   savedTheme,
   startEditing,
+  systemFile,
   themesFolder,
   undoEdit,
 } from "./store";
+import { resolveMaterial } from "./material";
 import {
-  BUILT_IN_THEMES,
   EDITOR_KEYS,
-  FONTS,
   FONT_NAMES,
   GLASS_RANGE,
+  SYSTEM_THEME,
+  editorKeys,
   findTheme,
+  fontStack,
   glassVeilAt,
   isBuiltIn,
   resolveTheme,
+  themeChoices,
   type Adjustment,
   type FontId,
   type ThemeFile,
@@ -50,12 +58,14 @@ import {
 } from "./themes";
 
 /** The two plain built-ins are named after their look; the ported editor themes keep their own names. */
-const themeName = (theme: ThemeFile) => (!isBuiltIn(theme.id) ? theme.name : theme.id === "dark" ? t("Dunkel") : theme.id === "light" ? t("Hell") : theme.name);
+const themeName = (theme: ThemeFile) =>
+  !isBuiltIn(theme.id) ? theme.name : theme.id === "dark" ? t("Dunkel") : theme.id === "light" ? t("Hell") : theme.id === SYSTEM_THEME ? t("System") : theme.name;
 
 /** Settings → Themes: the theme, day and night, the colour editor and theme files. */
 export function ThemeSettings() {
   return (
     <>
+      {!demo && <StyleChoice />}
       <ThemeChoice />
       <DayNight />
       <ThemeEditor />
@@ -78,22 +88,145 @@ const KEY_LABELS: Record<Adjustment["key"], string> = {
   yellow: "Gelb",
 };
 
+/**
+ * Crest's own look or Material, for the whole app. The cards are drawn, never made of real controls: under a Material window a
+ * real Crest control would come out Material.
+ */
+function StyleChoice() {
+  const { themes } = settings.use();
+  const chosen = themes.design;
+  activeTheme.use(); // the drawings follow the theme in use and the draft
+  const file = draft.use()?.present ?? savedTheme();
+  return (
+    <Group title={t("Stil")} id="settings-design">
+      {/* Only for the search, which reads rows: one text per hint node, so "Material" is found too. */}
+      <div data-row aria-hidden className="sr-only">
+        <div data-row-label>{t("Stil")}</div>
+        <div data-row-hint>
+          <span>{t("Formen, Farben, Symbole und Bewegung der ganzen App")}</span>
+          <span>Crest · Material</span>
+        </div>
+      </div>
+      <div className="p-2">
+        <StyleCards<Design>
+          columns={2}
+          label={t("Stil")}
+          value={chosen}
+          onChange={(design) => updateSettings((cur) => ({ themes: { ...cur.themes, design } }))}
+          options={[
+            { value: "crest", label: "Crest", hint: t("Das gewohnte Aussehen"), preview: <CrestThumb file={file} /> },
+            { value: "material", label: "Material", hint: t("Farben aus dem Theme, weiche Formen"), preview: <MaterialThumb file={file} /> },
+          ]}
+        />
+      </div>
+      {chosen === "material" && (
+        <Row icon="wallpaper" label={t("Bewegter Hintergrund")} hint={t("Höhenlinien in den Farben des Themes hinter dem Einstellungsfenster, die bei jedem Seitenwechsel weiterziehen")}>
+          <Switch
+            label={t("Bewegter Hintergrund")}
+            checked={themes.contours}
+            onChange={(contours) => updateSettings((cur) => ({ themes: { ...cur.themes, contours } }))}
+          />
+        </Row>
+      )}
+    </Group>
+  );
+}
+
+/** A pill button and the green switch on the theme's panel, as the Crest style draws them. */
+function CrestThumb({ file }: { file: ThemeFile }) {
+  const v = useMemo(() => resolveTheme(file).vars, [file]);
+  return (
+    <span className="flex h-full w-full items-center justify-center gap-2 forced-color-adjust-none" style={{ background: v["--color-notch"] }}>
+      <span className="flex h-3 w-7 items-center justify-center rounded-full" style={{ background: v["--color-fill-2"] }}>
+        <span className="h-1 w-4 rounded-full" style={{ background: v["--color-label"] }} />
+      </span>
+      <span className="flex h-3 w-5 items-center justify-end rounded-full px-0.5" style={{ background: v["--color-green"] }}>
+        <span className="size-2 rounded-full bg-white" />
+      </span>
+    </span>
+  );
+}
+
+/** A tonal button and the M3 switch on the theme's surface, as the Material style draws them. */
+function MaterialThumb({ file }: { file: ThemeFile }) {
+  const v = useMemo(() => resolveMaterial(file).vars, [file]);
+  return (
+    <span className="flex h-full w-full items-center justify-center gap-2 forced-color-adjust-none" style={{ background: v["--color-notch"] }}>
+      <span className="flex h-3.5 w-7 items-center justify-center rounded-full" style={{ background: v["--color-secondary-container"] }}>
+        <span className="h-1 w-4 rounded-full" style={{ background: v["--color-on-secondary-container"] }} />
+      </span>
+      <span className="flex h-3.5 w-6 items-center justify-end rounded-full px-0.5" style={{ background: v["--color-primary"] }}>
+        <span className="size-2.5 rounded-full" style={{ background: v["--color-on-primary"] }} />
+      </span>
+    </span>
+  );
+}
+
 function ThemeChoice() {
   const s = settings.use();
   const { themes, weather } = s;
   activeTheme.use(); // re-render when day turns to night
+  const style = design.use();
   const forced = forcedColors.use();
   const editing = draft.use();
   const [pending, setPending] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const current = findTheme(activeThemeId(themes, new Date(), weather), themes.custom);
-  const list = [...BUILT_IN_THEMES, ...themes.custom];
+  const system = systemFile.use();
+  const current = findTheme(activeThemeId(themes, new Date(), weather), themes.custom, system);
+  const list = themeChoices(system, themes.custom);
+
+  // The preview only shows in Material's settings window (previewFor); elsewhere the grid schedules and writes nothing.
+  const previews = style === "material" && windowKind === "settings";
+  const timer = useRef(0);
+  const stopPreview = () => {
+    window.clearTimeout(timer.current);
+    // storeCore's set always notifies, and each notify runs apply().
+    if (previewTheme.get() !== null) previewTheme.set(null);
+  };
+  const hover = (id: string | null) => {
+    if (id === null) return stopPreview();
+    window.clearTimeout(timer.current);
+    // Stellaria's delay, so crossing the grid flashes no colours; the last preview stays until this one fires.
+    timer.current = window.setTimeout(
+      () =>
+        previewTheme.set(
+          previewFor(list.find((x) => x.id === id) ?? null, {
+            current: current.id,
+            material: style === "material",
+            settingsWindow: windowKind === "settings",
+            focused: document.hasFocus(),
+            editing: editing !== null,
+            forced,
+          }),
+        ),
+      220,
+    );
+  };
+  useEffect(() => {
+    if (pending) stopPreview();
+  }, [pending]);
+  useEffect(() => {
+    if (!previews) return;
+    window.addEventListener("blur", stopPreview);
+    // Any key: the keyboard moves on from the card the pointer rests on.
+    window.addEventListener("keydown", stopPreview);
+    return () => {
+      window.removeEventListener("blur", stopPreview);
+      window.removeEventListener("keydown", stopPreview);
+      stopPreview();
+    };
+  }, [previews]);
 
   const choose = (id: string) => {
     setConfirmDelete(false);
-    if (editing && editing.past.length > 0) return setPending(id);
+    if (editing && editing.past.length > 0) {
+      stopPreview();
+      return setPending(id);
+    }
     discardEdits();
     pickTheme(id);
+    // After the pick: updateSettings is synchronous, so ending the preview first would draw the old theme for a moment.
+    stopPreview();
   };
   // For the saved look; a window rule can change it for a while (Notch.tsx works from the look on screen).
   const fits = glassShape(s.display.idleStyle, s.dock.edge);
@@ -102,17 +235,21 @@ function ThemeChoice() {
 
   return (
     <Group title={t("Theme")} id="settings-themes">
-      {forced && <Row label={t("Windows-Kontrastdesign ist an")} hint={t("Crest zeigt die Systemfarben, bis es ausgeschaltet wird")} />}
+      {forced && <Row icon="contrast" label={t("Windows-Kontrastdesign ist an")} hint={t("Crest zeigt die Systemfarben, bis es ausgeschaltet wird")} />}
       <div className="p-2">
         <StyleCards
           label={t("Theme")}
           value={current.id}
           onChange={choose}
-          options={list.map((theme) => ({ value: theme.id, label: themeName(theme), preview: <ThemePreview theme={theme} /> }))}
+          onHover={previews ? hover : undefined}
+          options={list.map((theme) => ({ value: theme.id, label: themeName(theme), preview: <ThemePreview theme={theme} style={style} /> }))}
         />
+        {style === "material" && (
+          <p className="px-1 pt-2 text-caption text-label-2">{t("In Material gibt jedes Theme seinen Akzent und die helle oder dunkle Seite vor; die Farbe änderst du unter Farben")}</p>
+        )}
       </div>
       {pending && (
-        <Row label={t("Ungespeicherte Farben verwerfen?")}>
+        <Row icon="warning" label={t("Ungespeicherte Farben verwerfen?")}>
           <div className="flex gap-1.5">
             <Button onClick={() => setPending(null)}>{t("Weiter bearbeiten")}</Button>
             <Button
@@ -129,9 +266,9 @@ function ThemeChoice() {
         </Row>
       )}
       {isBuiltIn(current.id) ? (
-        current.author && <Row label={themeName(current)} hint={t("Farben von {author}, {license}-Lizenz", { author: current.author, license: current.license ?? "" })} />
+        current.author && <Row icon="style" label={themeName(current)} hint={t("Farben von {author}, {license}-Lizenz", { author: current.author, license: current.license ?? "" })} />
       ) : (
-        <Row label={themeName(current)} hint={t("Eigenes Theme")}>
+        <Row icon="style" label={themeName(current)} hint={t("Eigenes Theme")}>
           <Button
             onClick={() => {
               if (!confirmDelete) return setConfirmDelete(true);
@@ -144,21 +281,27 @@ function ThemeChoice() {
           </Button>
         </Row>
       )}
-      <Row label={t("Schrift")} hint={t("Für die ganze App. Terminal und Timer behalten ihre Schrift")}>
+      <Row icon="font_download" label={t("Schrift")} hint={t("Für die ganze App. Terminal und Timer behalten ihre Schrift")}>
         <Select
+          // Wide enough for "Automatic (Google Sans Flex)" in Russian, the longest.
+          width="w-60"
           value={themes.font}
-          options={(Object.keys(FONT_NAMES) as FontId[]).map((value) => ({ value, label: FONT_NAMES[value], font: FONTS[value] }))}
+          options={(Object.keys(FONT_NAMES) as FontId[]).map((value) => ({
+            value,
+            label: value === "auto" ? t("Automatisch ({font})", { font: style === "material" ? "Google Sans Flex" : FONT_NAMES.auto }) : FONT_NAMES[value],
+            font: fontStack(value, style),
+          }))}
           onChange={(font) => updateSettings((cur) => ({ themes: { ...cur.themes, font } }))}
         />
       </Row>
-      <Row label={t("Farbige Symbole")} hint={t("Werkzeugleiste, Einstellungen, Wetter und Werte der geschlossenen Notch in eigenen Farben")}>
+      <Row icon="colors" label={t("Farbige Symbole")} hint={t("Werkzeugleiste, Einstellungen, Wetter und Werte der geschlossenen Notch in eigenen Farben")}>
         <Switch
           label={t("Farbige Symbole")}
           checked={themes.iconColors}
           onChange={(iconColors) => updateSettings((cur) => ({ themes: { ...cur.themes, iconColors } }))}
         />
       </Row>
-      <Row label={t("Tönung vom Albumcover")} hint={t("Das offene Panel nimmt leicht die Farbe des laufenden Songs an")}>
+      <Row icon="album" label={t("Tönung vom Albumcover")} hint={t("Das offene Panel nimmt leicht die Farbe des laufenden Songs an")}>
         <Switch
           label={t("Tönung vom Albumcover")}
           checked={themes.coverTint}
@@ -166,7 +309,7 @@ function ThemeChoice() {
         />
       </Row>
       {!isMac && !demo && (
-        <Row
+        <Row icon="blur_on"
           label={t("Glas")}
           hint={fits ? t("Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas") : t("Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt")}
         >
@@ -185,7 +328,7 @@ function GlassAlerts() {
   const on = settings.use().themes.glassAlerts;
   const label = t("Statusmeldungen");
   return (
-    <Row label={label} hint={t("Lautstärke, Helligkeit und die anderen Meldungen als klares Glas. Solange eine zu sehen ist und ein paar Sekunden danach, fehlt die Notch in Screenshots und Aufnahmen.")}>
+    <Row icon="blur_circular" label={label} hint={t("Lautstärke, Helligkeit und die anderen Meldungen als klares Glas. Solange eine zu sehen ist und ein paar Sekunden danach, fehlt die Notch in Screenshots und Aufnahmen.")}>
       <Switch label={`${t("Glas")}: ${label}`} checked={on} onChange={(glassAlerts) => updateSettings((cur) => ({ themes: { ...cur.themes, glassAlerts } }))} />
     </Row>
   );
@@ -196,7 +339,7 @@ function GlassLive() {
   const on = settings.use().themes.glassLive;
   const label = t("Auch geschlossene Notch und Kapsel");
   return (
-    <Row
+    <Row icon="blur_linear"
       label={label}
       hint={
         <>
@@ -226,6 +369,7 @@ function GlassLook() {
     <>
       <GlassSlider
         label={t("Transparenz")}
+        icon="opacity"
         // A status, so crossing the mark is read out.
         hint={
           <span role="status" className={past ? "text-label" : undefined}>
@@ -237,9 +381,9 @@ function GlassLook() {
         mark={0}
         text={`${percent(glassVeilAt(safe, transparency, alpha("--glass-tint-clear")))} %`}
       />
-      <GlassSlider label={t("Lichtbrechung")} hint={t("Wie stark der Rand den Hintergrund biegt")} field="glassRefraction" step={10} />
-      <GlassSlider label={t("Mattierung")} hint={t("Wie stark der Hintergrund in der Mitte verschwimmt")} field="glassFrost" step={10} />
-      <GlassSlider label={t("Licht am Rand")} hint={t("Wie hell der Rand des Glases leuchtet")} field="glassRim" step={10} />
+      <GlassSlider label={t("Lichtbrechung")} hint={t("Wie stark der Rand den Hintergrund biegt")} icon="ripples" field="glassRefraction" step={10} />
+      <GlassSlider label={t("Mattierung")} hint={t("Wie stark der Hintergrund in der Mitte verschwimmt")} icon="lens_blur" field="glassFrost" step={10} />
+      <GlassSlider label={t("Licht am Rand")} hint={t("Wie hell der Rand des Glases leuchtet")} icon="flare" field="glassRim" step={10} />
     </>
   );
 }
@@ -248,12 +392,12 @@ function GlassLook() {
  * A slider of the glass's look, with its value beside it; saved on every step, like the other sliders in the settings. A drag repeats
  * the same step over a few px, and each save would draw the whole panel again.
  */
-function GlassSlider(props: { label: string; hint: ReactNode; field: keyof typeof GLASS_RANGE; step: number; mark?: number; text?: string }) {
+export function GlassSlider(props: { label: string; hint: ReactNode; icon?: RowSymbol; field: keyof typeof GLASS_RANGE; step: number; mark?: number; text?: string }) {
   const value = settings.use().themes[props.field];
   const [min, max] = GLASS_RANGE[props.field];
   const text = props.text ?? `${value} %`;
   return (
-    <Row label={props.label} hint={props.hint}>
+    <Row icon={props.icon} label={props.label} hint={props.hint}>
       <div className="flex w-52 shrink-0 items-center gap-2">
         <Slider label={props.label} value={value} min={min} max={max} step={props.step} mark={props.mark} valueText={text} onChange={(v) => v !== value && updateSettings((cur) => ({ themes: { ...cur.themes, [props.field]: v } }))} />
         <span className="tabular w-10 shrink-0 text-end text-caption text-label-2">{text}</span>
@@ -262,9 +406,9 @@ function GlassSlider(props: { label: string; hint: ReactNode; field: keyof typeo
   );
 }
 
-/** A tiny panel in the theme's colours: accent dot, two text lines, warning and critical dots. */
-function ThemePreview({ theme }: { theme: ThemeFile }) {
-  const v = useMemo(() => resolveTheme(theme).vars, [theme]);
+/** A tiny panel in the theme's colours as the style draws them: accent dot, two text lines, warning and critical dots. */
+function ThemePreview({ theme, style }: { theme: ThemeFile; style: Design }) {
+  const v = useMemo(() => (style === "material" ? resolveMaterial(theme) : resolveTheme(theme)).vars, [theme, style]);
   return (
     <span className="flex h-full w-full items-center gap-1.5 px-2 forced-color-adjust-none" style={{ background: v["--color-notch"] }}>
       <span className="size-2 shrink-0 rounded-full" style={{ background: v["--theme-accent"] }} />
@@ -283,7 +427,9 @@ function DayNight() {
   activeTheme.use(); // the "now" hint follows the change
   const s = themes.schedule;
   const set = (patch: Partial<typeof s>) => updateSettings((x) => ({ themes: { ...x.themes, schedule: { ...x.themes.schedule, ...patch } } }));
-  const options = allThemes().map((theme) => ({ value: theme.id, label: themeName(theme) }));
+  // The System card too, so a day or night set to it has a name in its menu.
+  const system = systemFile.use();
+  const options = themeChoices(system, themes.custom).map((theme) => ({ value: theme.id, label: themeName(theme) }));
   // formatTime follows the 12 or 24 hour setting.
   const clock = (minutes: number) => formatTime(new Date(2000, 0, 1, Math.floor(minutes / 60), minutes % 60));
   const times = HALF_HOURS.map((v) => ({ value: v, label: clock(Number(v.slice(0, 2)) * 60 + Number(v.slice(3))) }));
@@ -297,13 +443,13 @@ function DayNight() {
   const turnOn = (on: boolean) => {
     if (!on) return set({ on });
     // Start from the theme in use: it keeps its place by day if it is light, by night if it is dark.
-    const currentDark = resolveTheme(findTheme(themes.id, themes.custom)).dark;
+    const currentDark = resolveTheme(findTheme(themes.id, themes.custom, system)).dark;
     set(currentDark ? { on, night: themes.id } : { on, day: themes.id });
   };
 
   return (
     <Group title={t("Tag und Nacht")} id="settings-daynight">
-      <Row
+      <Row icon="routine"
         label={t("Nach Uhrzeit wechseln")}
         hint={s.on ? (isNight(s, now, weather) ? t("Jetzt gilt das Nacht-Theme") : t("Jetzt gilt das Tag-Theme")) : t("Ein Theme für den Tag, eins für die Nacht")}
       >
@@ -312,16 +458,16 @@ function DayNight() {
       {s.on && (
         <>
           {/* The place whose sun it is, or where to set one (issue #41). */}
-          <Row label={t("Bei Sonnenaufgang und Sonnenuntergang")} hint={s.sun ? (weather ? weather.name : t("Lege zuerst deinen Ort unter Wetter fest")) : undefined}>
+          <Row icon="wb_twilight" label={t("Bei Sonnenaufgang und Sonnenuntergang")} hint={s.sun ? (weather ? weather.name : t("Lege zuerst deinen Ort unter Wetter fest")) : undefined}>
             <Switch checked={s.sun} onChange={(sun) => set({ sun })} label={t("Bei Sonnenaufgang und Sonnenuntergang")} />
           </Row>
-          <Row label={t("Tag ab")}>
+          <Row icon="light_mode" label={t("Tag ab")}>
             <div className="flex gap-1.5">
               {start(sun?.[0], s.dayStart, (dayStart) => set({ dayStart }))}
               <Select width="w-32" value={s.day} options={options} onChange={(day) => set({ day })} />
             </div>
           </Row>
-          <Row label={t("Nacht ab")}>
+          <Row icon="dark_mode" label={t("Nacht ab")}>
             <div className="flex gap-1.5">
               {start(sun?.[1], s.nightStart, (nightStart) => set({ nightStart }))}
               <Select width="w-32" value={s.night} options={options} onChange={(night) => set({ night })} />
@@ -340,11 +486,12 @@ function ThemeEditor() {
   const theme = activeTheme.use();
   const [open, setOpen] = useState<ThemeKey | null>(null);
   const name = draftName.use();
+  const material = design.use() === "material";
 
   if (!h)
     return (
       <Group title={t("Farben")} id="settings-colors">
-        <Row label={t("Farben anpassen")} hint={t("Beginnt beim aktuellen Theme, jede Änderung ist sofort zu sehen")}>
+        <Row icon="brush" label={t("Farben anpassen")} hint={t("Beginnt beim aktuellen Theme, jede Änderung ist sofort zu sehen")}>
           <Button
             onClick={() => {
               startEditing(t("{name} (eigenes)", { name: themeName(savedTheme()) }));
@@ -373,7 +520,7 @@ function ThemeEditor() {
         <span className="text-orange">{t("Warnung")}</span>
         <span className="text-red">{t("Kritisch")}</span>
       </div>
-      {EDITOR_KEYS.map((key) => {
+      {editorKeys(material ? "material" : "crest").map((key) => {
         const shown = theme.colors[key];
         const written = parseColor(file.colors[key]) ?? shown;
         return (
@@ -384,15 +531,17 @@ function ThemeEditor() {
               className="pressable pressable-fill flex min-h-9 w-full items-center gap-2.5 px-3 py-1.5 text-start"
             >
               <span className="size-4 shrink-0 rounded-full ring-1 ring-separator forced-color-adjust-none" style={{ background: theme.vars[varFor[key]] }} />
-              <span className="flex-1 text-body text-label">{t(KEY_LABELS[key])}</span>
+              <span className="flex-1 text-body text-label">{material && key === "accent" ? t("Startfarbe") : t(KEY_LABELS[key])}</span>
               {key !== "background" && <span className="tabular text-caption text-label-3">{ratio(contrast(shown, bg))}</span>}
               <span className="tabular w-16 text-end text-caption text-label-2">{hexOf(written)}</span>
             </button>
+            {/* Lined up with the label: 12 px of padding, the 16 px swatch and its 10 px gap. */}
+            {material && key === "background" && <div className="pe-3 pb-1.5 ps-[38px] text-caption text-label-2">{t("In Material zählt nur, ob er hell oder dunkel ist")}</div>}
             {open === key && <ColorPicker value={withAlpha(written, 1)} onChange={(c) => editColor(key, c)} swatches={swatches} />}
           </Fragment>
         );
       })}
-      <Row label={t("Geschlossene Notch einfärben")} hint={t("Sonst bleibt sie schwarz wie der Bildschirmrand")}>
+      <Row icon="format_color_fill" label={t("Geschlossene Notch einfärben")} hint={t("Sonst bleibt sie schwarz wie der Bildschirmrand")}>
         <Switch checked={file.closedNotch === "background"} onChange={editClosedNotch} label={t("Geschlossene Notch einfärben")} />
       </Row>
       {theme.adjustments.length > 0 && (
@@ -407,7 +556,7 @@ function ThemeEditor() {
           ))}
         </div>
       )}
-      <Row label={t("Änderungen")} hint={changed ? t("Nicht gespeichert") : t("Noch keine")}>
+      <Row icon="difference" label={t("Änderungen")} hint={changed ? t("Nicht gespeichert") : t("Noch keine")}>
         <div className="flex gap-1.5">
           <Button disabled={!changed} onClick={undoEdit} icon={ArrowCounterClockwise}>
             {t("Rückgängig")}
@@ -453,7 +602,7 @@ function ThemeFiles() {
 
   return (
     <Group title={t("Theme-Dateien")} id="settings-theme-files">
-      <Row label={t("Aktuelles Theme exportieren")} hint={t("Als JSON-Datei in den Theme-Ordner")}>
+      <Row icon="file_export" label={t("Aktuelles Theme exportieren")} hint={t("Als JSON-Datei in den Theme-Ordner")}>
         <Button
           disabled={busy}
           onClick={() =>
@@ -472,7 +621,7 @@ function ThemeFiles() {
           {t("Exportieren")}
         </Button>
       </Row>
-      <Row label={t("Aus dem Theme-Ordner importieren")} hint={t("Liest jede .json-Datei im Ordner")}>
+      <Row icon="file_open" label={t("Aus dem Theme-Ordner importieren")} hint={t("Liest jede .json-Datei im Ordner")}>
         <div className="flex gap-1.5">
           <Button disabled={busy} onClick={() => void themesFolder().then((dir) => (dir ? openFile(dir) : undefined))}>
             {t("Ordner öffnen")}

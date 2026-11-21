@@ -33,7 +33,7 @@ function Item({ part: p }: { part: ScriptPart }) {
       {p.text && <span className="truncate" style={{ maxWidth: MAX }}>{p.text}</span>}
       {p.progress !== null && (
         <span className="relative h-[3px] shrink-0 overflow-hidden rounded-full bg-fill-3" style={{ width: BAR }}>
-          <span className="absolute inset-y-0 left-0 rounded-full bg-label" style={{ width: `${p.progress}%` }} />
+          <span className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: `${p.progress}%` }} />
         </span>
       )}
     </>

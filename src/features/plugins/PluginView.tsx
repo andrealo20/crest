@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { PuzzlePiece } from "@phosphor-icons/react";
+import { PuzzlePiece } from "../../ui/iconset";
 import { isNative } from "../../platform/native";
 import { demo } from "../../dev/showcase-data";
 import { pluginApi } from "../../platform/services";

@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CircleNotch, Drop, MagnifyingGlass, MapPin, NavigationArrow, SunHorizon, Umbrella, Wind, type Icon } from "@phosphor-icons/react";
+import { CircleNotch, Drop, MagnifyingGlass, MapPin, NavigationArrow, SunHorizon, Umbrella, Wind, type Icon } from "../../ui/iconset";
 import { useHue, type Hue } from "../themes/hues";
 import { content, fade, spin } from "../../design/motion";
 import { settings } from "../../settings/store";
-import { Skeleton } from "../../ui/controls";
+import { isNotchWindow } from "../../lib/windowKind";
+import { navigate } from "../../notch/nav";
+import { Button, Empty, Skeleton } from "../../ui/controls";
 import { formatAgo, formatTemp, formatTime, formatWind } from "../../lib/format";
 import { locale, t } from "../../i18n";
 import { choosePlace, describe, detectPlace, searchPlaces, useForecast, type Forecast, type Place } from "./store";
 import { hourStart } from "./hours";
+import { windArrow } from "./wind";
+import { design } from "../../design/design";
+import { MaterialWeather } from "./MaterialWeather";
 
 /*
  * Weather via Open-Meteo (data and location detection: ./store.ts).
@@ -19,18 +24,20 @@ import { hourStart } from "./hours";
  *   │ wind · hum … │  …                          (the week)
  *   └──────────────┘
  */
-const weekday = () => new Intl.DateTimeFormat(locale(), { weekday: "short" });
-const LRM = String.fromCharCode(0x200e);
+export const weekday = () => new Intl.DateTimeFormat(locale(), { weekday: "short" });
+export const LRM = String.fromCharCode(0x200e);
 
 export function WeatherView() {
   const place = settings.use().weather;
   const data = useForecast();
   const [searching, setSearching] = useState(false);
   const [detectFailed, setDetectFailed] = useState(false);
+  const material = design.use() === "material";
 
-  // First start without a location: detect via IP; if that fails, show the search.
+  // First start without a location: detect via IP; if that fails, show the search. Only the notch looks it up and searches: without a
+  // place the bar sends to the settings window, as its place button does.
   useEffect(() => {
-    if (!place) void detectPlace().then((ok) => setDetectFailed(!ok));
+    if (!place && isNotchWindow) void detectPlace().then((ok) => setDetectFailed(!ok));
   }, [place]);
 
   return (
@@ -39,6 +46,10 @@ export function WeatherView() {
         {searching || (!place && detectFailed) ? (
           <motion.div key="search" className="h-full" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: content.enter }} exit={{ opacity: 0, transition: content.exit }}>
             <PlaceSearch onDone={() => setSearching(false)} canCancel={!!place} />
+          </motion.div>
+        ) : !place && !isNotchWindow ? (
+          <motion.div key="noplace" className="h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={fade}>
+            <Empty icon={MapPin} title={t("Für welchen Ort soll das Wetter angezeigt werden?")} action={<Button onClick={() => navigate("settings", "weather")}>{t("Einstellungen")}</Button>} />
           </motion.div>
         ) : data === "error" ? (
           <motion.div key="error" className="flex h-full items-center justify-center text-body text-label-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={fade}>
@@ -49,9 +60,14 @@ export function WeatherView() {
             <Skeleton className="h-10 w-48" />
             <Skeleton className="h-20 w-full" />
           </motion.div>
+        ) : material ? (
+          <motion.div key="data" className="h-full" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: content.enter }}>
+            <MaterialWeather data={data} place={place} onChangePlace={() => (isNotchWindow ? setSearching(true) : navigate("settings", "weather"))} />
+          </motion.div>
         ) : (
           <motion.div key="data" className="flex h-full gap-2" initial={{ opacity: 0, filter: "blur(4px)" }} animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}>
-            <Now data={data} name={place.name} detail={place.detail} auto={!!place.auto} onChangePlace={() => setSearching(true)} />
+            {/* The search asks Open-Meteo and the IP lookup: from the bar the place changes in the settings window. */}
+            <Now data={data} name={place.name} detail={place.detail} auto={!!place.auto} onChangePlace={() => (isNotchWindow ? setSearching(true) : navigate("settings", "weather"))} />
             {/* A size container: Hours (66 px) steps aside below 226 px, what it and the seven days (152 px) need. */}
             <div className="flex min-w-0 flex-1 flex-col gap-2 [container-type:size]">
               <Hours data={data} />
@@ -65,9 +81,9 @@ export function WeatherView() {
 }
 
 /** A weather glyph, in its own colour while coloured icons are on (sun amber, rain blue …), else in `className`'s. */
-export function WeatherIcon({ icon: I, hue, size, className }: { icon: Icon; hue: Hue; size: number; className: string }) {
+export function WeatherIcon({ icon: I, hue, size, className, weight = "fill" }: { icon: Icon; hue: Hue; size: number; className: string; weight?: "fill" | "regular" }) {
   const color = useHue(hue);
-  return <I size={size} weight="fill" className={color ? undefined : className} style={color ? { color } : undefined} />;
+  return <I size={size} weight={weight} className={color ? undefined : className} style={color ? { color } : undefined} />;
 }
 
 /** Behind the current weather, a sky like it: clear by day, cloud, rain, snow, a storm, or night. Dark enough for the white text on it (4.5:1). */
@@ -85,6 +101,7 @@ function Now({ data, name, detail, auto, onChangePlace }: { data: Forecast; name
   const { icon: I, text } = describe(data.current.code, data.current.day);
   const today = data.daily[0];
   const c = data.current;
+  const style = design.use();
   return (
     <div className="flex w-[212px] shrink-0 flex-col rounded-[16px] p-3 text-white" style={{ background: sky(c.code, c.day) }}>
       <button onClick={onChangePlace} className="flex min-w-0 items-center gap-1 self-start text-footnote font-semibold hover:opacity-80" title={detail ? `${detail} · ${t("Ort ändern")}` : t("Ort ändern")}>
@@ -106,8 +123,8 @@ function Now({ data, name, detail, auto, onChangePlace }: { data: Forecast; name
         <Chip title={t("Wind")}>
           <Wind size={12} weight="bold" />
           {formatWind(c.wind)}
-          {/* Where the wind blows to: the arrow points away from where it comes from; the icon itself points north-west. */}
-          {c.windDir !== undefined && <NavigationArrow size={10} weight="fill" style={{ transform: `rotate(${c.windDir - 135}deg)` }} />}
+          {/* Where the wind blows to: the arrow points away from where it comes from. */}
+          {c.windDir !== undefined && <NavigationArrow size={10} weight="fill" style={{ transform: `rotate(${windArrow(c.windDir, style)}deg)` }} />}
         </Chip>
         {c.humidity !== undefined && (
           <Chip title={t("Luftfeuchtigkeit")}>
@@ -145,7 +162,7 @@ function Chip({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-const mm = (v: number) => `${new Intl.NumberFormat(locale(), { maximumFractionDigits: v >= 10 ? 0 : 1 }).format(v)} mm`;
+export const mm = (v: number) => `${new Intl.NumberFormat(locale(), { maximumFractionDigits: v >= 10 ? 0 : 1 }).format(v)} mm`;
 
 /** The next eight hours, from now: time, icon and temperature. Older saved hours are left out. */
 function Hours({ data }: { data: Forecast }) {

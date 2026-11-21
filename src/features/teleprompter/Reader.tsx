@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowCounterClockwise, FlipHorizontal, Gauge, Pause, PencilSimple, Play, TextAa } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, FlipHorizontal, Gauge, Pause, PencilSimple, Play, TextAa } from "../../ui/iconset";
 import { fade, springs } from "../../design/motion";
 import { HeaderActions, HeaderButton, activeTool } from "../../notch/header";
 import { holdOpen } from "../../notch/useNotchState";

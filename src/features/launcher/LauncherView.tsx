@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Check, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal, SquaresFour } from "@phosphor-icons/react";
+import { Check, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal } from "../../ui/iconset";
 import { content } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
@@ -10,6 +10,7 @@ import { settings, updateSettings } from "../../settings/store";
 import { Button, Empty, Skeleton, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
 import { aiKey, searchApps, toggleFavorite, type Favorite } from "./apps";
+import { AppIcon } from "./AppIcon";
 import { slotStatus, type SlotStatus } from "./shortcuts";
 import { hotkeysResting, launchError, launcherApps, loadApps, shortcutResult, showLaunchError, useIcons } from "./store";
 
@@ -161,15 +162,6 @@ function ShortcutBadge({ status }: { status: SlotStatus | undefined }) {
       className={`tabular h-4 rounded-[5px] px-1 text-[10px] leading-4 font-medium ${status.taken ? "bg-red/20 text-red line-through" : "bg-fill-2 text-label-3"}`}
     >
       {status.label}
-    </span>
-  );
-}
-
-export function AppIcon({ src, size }: { src: string | null | undefined; size: number }) {
-  if (src) return <img src={src} alt="" draggable={false} className="shrink-0" style={{ width: size, height: size }} />;
-  return (
-    <span className="flex shrink-0 items-center justify-center rounded-[8px] bg-fill-2 text-label-3" style={{ width: size, height: size }}>
-      <SquaresFour size={size / 2} weight="bold" />
     </span>
   );
 }

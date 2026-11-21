@@ -96,6 +96,10 @@ await crest.notify("Countdown finished", "Optional text");
 await crest.resize(560, 300);               // returns the size it got
 ```
 
+Under the Material style the same 16 colours carry Material's scheme: `notch` is its surface, `label` its on-surface, `accent` and `link` its primary, `red` its error. The API has no keys for Material's other roles.
+
+`font` is the stack Crest draws with, so it names Crest's own faces (Inter, and Google Sans Flex under Material). A page cannot load them from Crest: it ships the face in its own folder or lets the stack fall back to the next one.
+
 | Call | Needs | Limits |
 | --- | --- | --- |
 | `storage.*` | `storage: true` | Keys 1 to 128 characters; a value up to 32 KB as JSON; 256 keys and 256 KB in all |

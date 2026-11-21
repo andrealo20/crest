@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ArrowClockwise } from "@phosphor-icons/react";
+import { ArrowClockwise } from "../../ui/iconset";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { nav } from "../../notch/nav";
 import { keyboardFocus } from "../../platform/native";

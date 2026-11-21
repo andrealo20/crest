@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { MusicNoteSimple } from "@phosphor-icons/react";
+import { MusicNoteSimple } from "../../ui/iconset";
 import { artwork as artworkSwap } from "../../design/motion";
 import { useSmoothArtwork } from "./artwork";
 

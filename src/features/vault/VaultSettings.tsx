@@ -49,7 +49,7 @@ export function VaultSettings() {
   if (!status.hasPin) {
     return (
       <Group title={t("Tresor")} id="settings-vault">
-        <Row label={t("Passwörter & 2FA")} hint={t("Noch nicht eingerichtet")}>
+        <Row icon="lock" label={t("Passwörter & 2FA")} hint={t("Noch nicht eingerichtet")}>
           <Button
             onClick={() => {
               updateSettings((s) => ({ tools: s.tools.map((x) => (x.id === "vault" ? { ...x, enabled: true } : x)) }));
@@ -117,7 +117,7 @@ export function VaultSettings() {
   return (
     <Group title={t("Tresor")} id="settings-vault">
       {helloSupported && (
-        <Row
+        <Row icon="fingerprint"
           label={t("Windows Hello")}
           hint={
             status.hello
@@ -130,18 +130,18 @@ export function VaultSettings() {
       )}
       {!status.hello && (
         <>
-          <Row label={t("PIN für Passwörter")} hint={t("Vor Anzeigen und Kopieren")}>
+          <Row icon="password" label={t("PIN für Passwörter")} hint={t("Vor Anzeigen und Kopieren")}>
             <Switch label={t("PIN für Passwörter")} checked={status.pinPasswords} onChange={(on) => void run(() => vault.options(on, status.pinTotp))} />
           </Row>
-          <Row label={t("PIN für 2FA-Codes")} hint={t("Vor Anzeigen und Kopieren")}>
+          <Row icon="shield_lock" label={t("PIN für 2FA-Codes")} hint={t("Vor Anzeigen und Kopieren")}>
             <Switch label={t("PIN für 2FA-Codes")} checked={status.pinTotp} onChange={(on) => void run(() => vault.options(status.pinPasswords, on))} />
           </Row>
-          <Row label={t("PIN ändern")} hint={notice ?? undefined}>
+          <Row icon="pin" label={t("PIN ändern")} hint={notice ?? undefined}>
             <Button onClick={() => setFlow({ step: "unlock", then: async () => setFlow({ step: "new" }) })}>{t("Ändern")}</Button>
           </Row>
         </>
       )}
-      <Row label={t("Tresor zurücksetzen")} hint={status.hello ? t("Löscht alle Einträge.") : t("PIN vergessen? Löscht alle Einträge.")}>
+      <Row icon="lock_reset" label={t("Tresor zurücksetzen")} hint={status.hello ? t("Löscht alle Einträge.") : t("PIN vergessen? Löscht alle Einträge.")}>
         <Button onClick={() => (confirmReset ? void vault.reset().then(refreshVault) : setConfirmReset(true))}>
           <span className={confirmReset ? "text-red" : undefined}>{confirmReset ? t("Wirklich alles löschen?") : t("Zurücksetzen")}</span>
         </Button>
