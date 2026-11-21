@@ -180,7 +180,7 @@ export function PreviewCard(props: {
                 </span>
               </span>
               {/* Material's rounded frame around the square slot, as far out as it pads in: the slot keeps its box, Rust's thumbnail its rect. */}
-              <span className="flex material:-m-1 material:p-1 material:rounded-[8px] material:bg-fill-1">
+              <span className="flex material:-m-0.5 material:p-0.5 material:rounded-[6px] material:bg-fill-1">
                 <span data-slot={win.id} className="flex flex-col items-center justify-center gap-1 text-label-3" style={{ width: layout.w, height: layout.h }}>
                   {failed.has(win.id) && (
                     <>

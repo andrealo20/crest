@@ -71,8 +71,8 @@ export function ItemDrop({ bar, size, gap }: { bar: RefObject<HTMLElement | null
   const at = placeAt(bar.current, drag, size + 16, gap);
   return (
     <>
-      {/* Under Material lifted on a tonal disc at level 4, as a dragged row is; as far out as it pads in, so the icon stays centred. */}
-      <span className="pointer-events-none fixed top-0 left-0 flex text-label material:-m-1.5 material:p-1.5 material:rounded-full material:bg-secondary-container material:text-on-secondary-container material:shadow-level4" style={{ transform: `translate(${drag.x - size / 2}px, ${drag.y - size / 2}px)` }}>
+      {/* Under Material lifted on a tonal disc at level 4, as a dragged row is, and over the line; as far out as it pads in, so the icon stays centred. */}
+      <span className="pointer-events-none fixed top-0 left-0 flex text-label material:z-10 material:-m-1.5 material:p-1.5 material:rounded-full material:bg-secondary-container material:text-on-secondary-container material:shadow-level4" style={{ transform: `translate(${drag.x - size / 2}px, ${drag.y - size / 2}px)` }}>
         <Ghost id={drag.id} size={size} />
       </span>
       {at && (

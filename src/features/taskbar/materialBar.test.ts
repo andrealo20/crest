@@ -103,7 +103,8 @@ test("the preview card's tiles are menu rows under Material, the focus ring insi
   // The frame: as far out as it pads in, so the slot inside keeps its place and size; the slot itself stays square.
   const frame = /<span className="([^"]*)">\s*<span data-slot/.exec(src);
   assert.ok(frame, "no frame right around the slot");
-  hasAll(frame[1].split(/\s+/), "flex material:-m-1 material:p-1 material:rounded-[8px] material:bg-fill-1");
+  // 2 px, not 4: the frame then ends 4 px inside the tile, clear of the focus ring drawn 3 px inside it.
+  hasAll(frame[1].split(/\s+/), "flex material:-m-0.5 material:p-0.5 material:rounded-[6px] material:bg-fill-1");
   const slot = /<span data-slot=\{win\.id\} className="([^"]*)"/.exec(src);
   assert.ok(slot && !/rounded/.test(slot[1]), "the slot is never rounded");
 });
@@ -147,4 +148,13 @@ test("a widget dragged along the bar is lifted under Material: its ghost on a to
   const ghost = list(src, "pointer-events-none", "text-label");
   hasAll(ghost, "material:-m-1.5 material:p-1.5 material:rounded-full material:bg-secondary-container material:text-on-secondary-container material:shadow-level4");
   hasAll(list(src, "w-0.5", "bg-accent"), "material:bg-primary");
+  // Over the line only under Material: Crest keeps its order, the line after the ghost.
+  assert.ok(ghost.includes("material:z-10") && !ghost.includes("z-10"), "the disc over the line under Material only");
+});
+
+test("the tray's drag matches the bar's under Material: the same tonal disc, the line in primary and under the disc", () => {
+  const src = window("Tray.tsx");
+  hasAll(list(src, "pointer-events-none", "fixed", "flex"), "material:z-10 material:-m-1.5 material:p-1.5 material:rounded-full material:bg-secondary-container material:shadow-level4");
+  hasAll(list(src, "w-0.5", "bg-accent"), "material:bg-primary");
+  assert.ok(list(src, "pointer-events-none", "fixed", "flex").includes("material:z-10"), "the disc over the line under Material only");
 });

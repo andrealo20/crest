@@ -153,12 +153,13 @@ export function TrayDrop({ bar, more, size, gap }: { bar: RefObject<HTMLElement 
   const at = dropAt(bar.current, more.current, drag);
   return (
     <>
-      <span className="pointer-events-none fixed top-0 left-0 flex" style={{ transform: `translate(${drag.x - size / 2}px, ${drag.y - size / 2}px)` }}>
+      {/* The bar's drag under Material (ItemDrop): a tonal disc at level 4 over the line, as far out as it pads in. */}
+      <span className="pointer-events-none fixed top-0 left-0 flex material:z-10 material:-m-1.5 material:p-1.5 material:rounded-full material:bg-secondary-container material:shadow-level4" style={{ transform: `translate(${drag.x - size / 2}px, ${drag.y - size / 2}px)` }}>
         <AppIcon src={drag.img === null ? null : pictures[drag.img]} size={size} />
       </span>
       {at && !at.hide && (
         <span
-          className="pointer-events-none fixed top-0 left-0 w-0.5 rounded-full bg-accent"
+          className="pointer-events-none fixed top-0 left-0 w-0.5 rounded-full bg-accent material:bg-primary"
           // Centred in the gap between two buttons (itemGap), 2 px wide.
           style={{ height: size, transform: `translate(${at.before.left - gap / 2 - 1}px, ${at.before.top + (at.before.height - size) / 2}px)` }}
         />
