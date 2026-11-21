@@ -353,17 +353,17 @@ function samplePicture(path: string): string {
 
 // ---------- Updates ----------
 
-/** `taskbarPreview`: a Windows build outside the Store with a file `Crest.taskbar` next to the exe, which shows the Taskbar settings. */
+/** `taskbar`: the build offers Crest's taskbar, every Windows build but the Store one. */
 interface BuildInfo {
   store: boolean;
-  taskbarPreview: boolean;
+  taskbar: boolean;
 }
 
 let buildInfo: Promise<BuildInfo> | undefined;
 
 /** Which build runs, asked once: the Microsoft Store build (Cargo feature `store`) is updated by the Store only. */
 export const build = {
-  info: (): Promise<BuildInfo> => (buildInfo ??= isNative ? invoke<BuildInfo>("build_info") : Promise.resolve({ store: false, taskbarPreview: false })),
+  info: (): Promise<BuildInfo> => (buildInfo ??= isNative ? invoke<BuildInfo>("build_info") : Promise.resolve({ store: false, taskbar: false })),
 };
 
 export interface SystemDiagnostics {

@@ -33,12 +33,12 @@ import { addWidget, isTool, isWidget, removeWidget, shownZones, toolOf } from ".
  * only save: the notch applies the bar's settings to Rust (store.ts) and the bar redraws on them.
  */
 
-/** Whether the Taskbar settings show here (model.ts taskbarShown); as without the preview file until the build has answered. */
+/** Whether the Taskbar settings show here (model.ts taskbarShown); as in a build without the bar until the build has answered. */
 export function useTaskbarShown(): boolean {
   const enabled = settings.use().taskbar.enabled;
-  const [preview, setPreview] = useState(false);
-  useEffect(() => void build.info().then((b) => setPreview(b.taskbarPreview)), []);
-  return taskbarShown({ native: isNative, mac: isMac, dev: import.meta.env.DEV, preview, enabled });
+  const [offered, setOffered] = useState(false);
+  useEffect(() => void build.info().then((b) => setOffered(b.taskbar)), []);
+  return taskbarShown({ native: isNative, mac: isMac, dev: import.meta.env.DEV, offered, enabled });
 }
 
 /** The bar's zones, physical: left stays left in a right-to-left language. */

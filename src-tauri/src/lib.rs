@@ -940,12 +940,11 @@ fn app_quit(app: AppHandle) {
     app.exit(0)
 }
 
-/// Which build runs: the Microsoft Store one leaves updates to the Store. The Taskbar settings show in a Windows build with a
-/// file `Crest.taskbar` next to the exe (as `Crest.portable` marks a portable copy), never in the Store build.
+/// Which build runs: the Microsoft Store one leaves updates to the Store. `taskbar`: the build offers Crest's taskbar, every
+/// Windows build but the Store one, which never turns the bar on (taskbar/bar.rs).
 #[tauri::command]
 fn build_info() -> serde_json::Value {
-    let marked = std::env::current_exe().is_ok_and(|exe| exe.with_file_name("Crest.taskbar").is_file());
-    serde_json::json!({ "store": cfg!(feature = "store"), "taskbarPreview": cfg!(windows) && !cfg!(feature = "store") && marked })
+    serde_json::json!({ "store": cfg!(feature = "store"), "taskbar": cfg!(windows) && !cfg!(feature = "store") })
 }
 
 /// For Copy diagnostics (Settings, General): Windows edition and build, the architecture of this build and of the PC
@@ -1153,6 +1152,13 @@ fn build_tray(app: &App) -> tauri::Result<()> {
 
 #[cfg(all(test, windows))]
 mod tests {
+    #[test]
+    fn a_windows_build_outside_the_store_offers_the_taskbar_with_no_file_beside_it() {
+        let info = super::build_info();
+        assert_eq!(info["taskbar"], serde_json::json!(cfg!(windows) && !cfg!(feature = "store")));
+        assert_eq!(info["store"], serde_json::json!(cfg!(feature = "store")));
+    }
+
     #[test]
     fn native_machine_is_known_and_matches_a_native_build() {
         let native = super::native_machine();

@@ -202,9 +202,9 @@ test("the preview card's tiles step with Right and Left along the bar, mirrored 
 });
 
 test("the taskbar settings show only where the bar can run", () => {
-  const p = { native: true, mac: false, dev: false, preview: false, enabled: false };
-  assert.equal(taskbarShown(p), false);
-  assert.equal(taskbarShown({ ...p, preview: true }), true);
+  const p = { native: true, mac: false, dev: false, offered: false, enabled: false };
+  assert.equal(taskbarShown(p), false); // the Store build
+  assert.equal(taskbarShown({ ...p, offered: true }), true);
   assert.equal(taskbarShown({ ...p, dev: true }), true);
   assert.equal(taskbarShown({ ...p, enabled: true }), true); // turned on through a backup: it can be turned off
   assert.equal(taskbarShown({ ...p, mac: true, dev: true }), false);
