@@ -381,6 +381,20 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   );
 
   const scopePages = pages.filter((p) => scopeOf(p.id) === scopeOf(page));
+  // In the notch's panel, where no settings window draws it (the site's full-screen demo, src/dev/demoBar.tsx): the window's Notch |
+  // Taskbar switch, over the pages.
+  const scopeSwitch = !chrome && taskbarShown && (
+    <Segmented
+      id="settings-scope"
+      label={t("Einstellungen")}
+      value={saved.scope}
+      onChange={(next) => savedPage.set((s) => ({ ...s, scope: next }))}
+      options={[
+        { value: "notch", label: t("Notch") },
+        { value: "taskbar", label: t("Taskleiste") },
+      ]}
+    />
+  );
   // Material's items: pills with their name in the list, round icons in the rail and the row on top.
   const item = compact ? "size-10 shrink-0 justify-center" : "h-12 shrink gap-3 px-3 text-start text-body font-medium";
   const materialNav = (
@@ -394,6 +408,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
       ) : (
         searchPill("mb-2 w-full")
       )}
+      {!compact && scopeSwitch && <div className="mb-2 flex shrink-0 justify-center">{scopeSwitch}</div>}
       {scopePages.map((p) => {
         const active = p.id === page && !searching;
         const name = t(p.label);
@@ -553,6 +568,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
             <MagnifyingGlass size={12} weight="bold" className="shrink-0" />
             {input}
           </label>
+          {scopeSwitch && <div className="mb-1 flex shrink-0 justify-center">{scopeSwitch}</div>}
           {scopePages.map((p) => {
             const active = p.id === page && !searching;
             return (

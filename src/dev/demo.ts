@@ -28,6 +28,7 @@ import { PART_IDS, PET_IDS } from "../notch/row/parts";
 import { viewZoom } from "../notch/viewZoom";
 import { PANEL_SCALES } from "../features/window/panelSize";
 import { normalizeSearch } from "../features/overview/search";
+import { demoBarOffered } from "../features/taskbar/store";
 import { TIMER_LOOKS } from "../features/timer/looks";
 
 /*
@@ -139,6 +140,11 @@ export function startDemo() {
   timerActions.start();
   seedNotices();
   navigate(params.get("tool") ?? "overview");
+  // The demo on its own page, with a mouse and the room of a desktop: Crest's bar too (src/dev/demoBar.tsx). Not on the site's stage.
+  if (!bare && !coarse && innerWidth >= 1000) {
+    demoBarOffered.set(true);
+    void import("./demoBar").then((m) => m.mountDemoBar());
+  }
 
   // The sample plugin is installed (src/platform/services.ts); its tool is on once the list has been read.
   const offPlugins = plugins.subscribe(() => {

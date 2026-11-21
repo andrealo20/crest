@@ -116,7 +116,7 @@ export function Stage({ frame, tool, open, size, edge, pet, onLoad, onOpen }: Pr
           {open ? `Showing ${label}` : "Closed notch"}
         </p>
         <a className="stage-full" href={DEMO_FULL}>
-          Open the demo full screen <ArrowSquareOut size={18} weight="bold" aria-hidden="true" />
+          Open the demo full screen, with the taskbar <ArrowSquareOut size={18} weight="bold" aria-hidden="true" />
         </a>
       </div>
     </div>
