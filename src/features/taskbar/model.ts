@@ -236,7 +236,8 @@ export type ZoneBox = { zone: Zone; x: number; w: number };
  * Where an item dragged to `x` lands: in the zone whose box holds `x` (an empty one narrower than `unit`, the grid's middle,
  * widened to `unit` round its centre and checked first), or without zone boxes (the capsule) in the zone of the item it goes before, of the last one at the end; before the first
  * item whose centre is right of `x`. `line` is the left edge of the 2 px insertion line, centred in the `gap` between buttons. Null
- * outside the zones and on its own place (before itself or its next neighbour, or at the end it already is at): nothing to write.
+ * outside the zones and on its own place (before itself or its next neighbour, in the capsule even of another zone, or at the end it
+ * already is at): nothing to write.
  */
 export function dropPlace(id: BarItem, items: DropSlot[], zones: ZoneBox[] | null, x: number, unit: number, gap: number): { zone: Zone; before: BarItem | null; line: number } | null {
   let zone: Zone, inZone: DropSlot[], at: number;
@@ -253,6 +254,9 @@ export function dropPlace(id: BarItem, items: DropSlot[], zones: ZoneBox[] | nul
   } else {
     if (!items.length) return null;
     at = dropSlot(items, x);
+    // Without zone boxes the room before or after the item is its own place whatever zone the neighbour is in.
+    const own = items.findIndex((s) => s.id === id);
+    if (own >= 0 && (at === own || at === own + 1)) return null;
     zone = (items[at] ?? items[items.length - 1]).zone;
     inZone = items.filter((s) => s.zone === zone);
     at = items[at] ? inZone.indexOf(items[at]) : inZone.length;

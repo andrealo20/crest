@@ -349,6 +349,17 @@ test("in the capsule a drop joins the zone of the item it goes before, or of the
   assert.deepEqual(dropPlace("weather", items, null, 700, 40, 6), { zone: "right", before: null, line: 680 });
 });
 
+test("in the capsule a drop inside the item's own room changes nothing, at the boundary between two zones too", () => {
+  // The weather last on the left, the clock first in the middle: right of the weather's centre is still where it is.
+  const items = [slot("start", "left", 500), slot("weather", "left", 546), slot("clock", "center", 592), slot("apps", "center", 638)];
+  assert.equal(dropPlace("weather", items, null, 580, 40, 6), null);
+  assert.equal(dropPlace("weather", items, null, 550, 40, 6), null);
+  // The clock left of its centre, next to the weather: still its own place.
+  assert.equal(dropPlace("clock", items, null, 590, 40, 6), null);
+  // Past the clock's centre the weather does move, into the clock's zone after it.
+  assert.deepEqual(dropPlace("weather", items, null, 620, 40, 6), { zone: "center", before: "apps", line: 634 });
+});
+
 test("a preview shows a 192 x 120 thumbnail per window, narrower with many, and the titles once they would be too small", () => {
   assert.deepEqual(previewLayout(1, 1920), { kind: "tiles", w: 192, h: 120 });
   assert.deepEqual(previewLayout(8, 1920), { kind: "tiles", w: 192, h: 120 });
