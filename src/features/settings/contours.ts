@@ -162,10 +162,18 @@ export function startContours(canvas: HTMLCanvasElement, opts: ContourOpts): Con
     powerPreference: "low-power",
     failIfMajorPerformanceCaveat: true,
   });
+  // StrictMode mounts the same canvas again at once, and a lost context cannot be had back from it. Left to the collector, old
+  // contexts would keep their buffers, and notch, bars and settings share the renderer's 16 live contexts, past which the oldest
+  // (a notch's or a bar's glass) is lost: closed on stop, only once the canvas is gone, also when the program did not link.
+  const release = () => {
+    window.setTimeout(() => {
+      if (!canvas.isConnected) gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    }, 0);
+  };
   let gpu = gl ? setup(gl) : null;
   if (!gl || !gpu) {
     onFail(true);
-    return { page() {}, tints() {}, forced() {}, stop() {} };
+    return { page() {}, tints() {}, forced() {}, stop() { release(); } };
   }
   // The failed state lives in SettingsView and outlives a canvas: a new one that links clears it.
   onFail(false);
@@ -231,8 +239,10 @@ export function startContours(canvas: HTMLCanvasElement, opts: ContourOpts): Con
     if (!raf && !dead && !forced) raf = requestAnimationFrame(tick);
   };
 
+  // Back from Alt+Tab after more than a minute, lastInput is old: coming back is input too.
   const onFocus = () => {
     focused = true;
+    lastInput = performance.now();
     wake();
   };
   const onBlur = () => {
@@ -371,12 +381,7 @@ export function startContours(canvas: HTMLCanvasElement, opts: ContourOpts): Con
         gl.deleteProgram(gpu.prog.p);
         gl.deleteVertexArray(gpu.vao);
       }
-      // StrictMode mounts the same canvas again at once, and a lost context cannot be had back from it. Left to the collector, old
-      // contexts would keep their buffers, and notch, bars and settings share the renderer's 16 live contexts, past which the oldest
-      // (a notch's or a bar's glass) is lost: closed here, only once the canvas is gone.
-      window.setTimeout(() => {
-        if (!canvas.isConnected) gl.getExtension("WEBGL_lose_context")?.loseContext();
-      }, 0);
+      release();
     },
   };
 }

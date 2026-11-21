@@ -174,6 +174,22 @@ test("the canvas survives a lost context, closes its own only once detached, and
   assert.match(src, /if \(import\.meta\.env\.DEV\) \{[^}]*console\.debug\("contours"/);
 });
 
+test("a context whose program does not link is closed on stop like any other", () => {
+  const src = read("./contours.ts");
+  const failed = src.slice(src.indexOf("if (!gl || !gpu) {"), src.indexOf("\n  }\n", src.indexOf("if (!gl || !gpu) {")));
+  assert.match(failed, /stop\(\) \{\s*release\(\);?\s*\}/, failed);
+  const stop = src.slice(src.lastIndexOf("    stop() {"));
+  assert.match(stop, /release\(\);/);
+  assert.equal(count(src, "loseContext()"), 1);
+});
+
+test("focus coming back counts as input, so the loop runs again after more than a minute away", () => {
+  const src = read("./contours.ts");
+  const onFocus = src.slice(src.indexOf("const onFocus"), src.indexOf("};", src.indexOf("const onFocus")));
+  assert.ok(onFocus.includes("focused = true"), onFocus);
+  assert.ok(onFocus.includes("lastInput = performance.now()") || onFocus.includes("onInput()"), onFocus);
+});
+
 test("the contour component is a hidden canvas that fades in, follows the theme and forced colours, and stops on unmount", () => {
   const src = read("./Contours.tsx");
   for (const s of ["aria-hidden", 'className="pointer-events-none absolute inset-0 -z-10 size-full forced-colors:hidden"', "transition={crossfade}", "activeTheme.subscribe", "forcedColors.subscribe"]) {
