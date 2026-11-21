@@ -19,6 +19,7 @@ import {
   Bug,
   SlidersHorizontal,
   Sparkle,
+  Star,
   SquaresFour,
   SignOut,
   Stop,
@@ -27,7 +28,7 @@ import {
   type Icon,
 } from "../../ui/iconset";
 import { design } from "../../design/design";
-import { content, crossfade, fade, springs } from "../../design/motion";
+import { content, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, type AlarmDuration } from "../../lib/sound";
 import { createStore } from "../../lib/store";
 import { nav, navigate } from "../../notch/nav";
@@ -384,7 +385,8 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const item = compact ? "size-10 shrink-0 justify-center" : "h-12 shrink gap-3 px-3 text-start text-body font-medium";
   const materialNav = (
     <>
-      {chrome && <NavMark id={viewKey} icon={viewKey === "search" ? MagnifyingGlass : allPages.find((p) => p.id === viewKey)!.icon} size={compact ? 40 : 54} />}
+      {/* Out of the row on top, where it would sit beside the active item and take width from a row that scrolls. */}
+      {chrome && layout !== "top" && <NavMark id={viewKey} size={compact ? 40 : 54} />}
       {compact ? (
         <button aria-label={t("Suchen")} title={t("Suchen")} onClick={() => setSearchOpen(true)} className="pressable flex size-10 shrink-0 items-center justify-center rounded-full text-label-2">
           <MagnifyingGlass size={20} />
@@ -612,8 +614,8 @@ function SearchResults({ hits, onOpen }: { hits: Hit[]; onOpen: (h: Hit) => void
   );
 }
 
-/** The settings window's mark: a shape for each page that morphs into the next, with the page's icon over it. */
-function NavMark({ id, icon: Glyph, size }: { id: string; icon: Icon; size: 40 | 54 }) {
+/** The settings window's mark: a shape for each page that morphs into the next, under one glyph no page has, as Stellaria's brand. */
+function NavMark({ id, size }: { id: string; size: 40 | 54 }) {
   const points = useMemo(() => shapePoints(...brandOf(id)), [id]);
   return (
     // 54 is the list's size, where the mark stands above the search pill; the rail and the row on top place it themselves.
@@ -621,18 +623,7 @@ function NavMark({ id, icon: Glyph, size }: { id: string; icon: Icon; size: 40 |
       <svg viewBox="0 0 100 100" className="absolute inset-0 size-full">
         <MorphPath points={points} className="fill-primary forced-colors:fill-[CanvasText]" />
       </svg>
-      <AnimatePresence initial={false}>
-        <motion.span
-          key={id}
-          className="absolute inset-0 flex items-center justify-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={crossfade}
-        >
-          <Glyph size={size === 54 ? 24 : 20} weight="fill" className="text-on-primary forced-colors:text-[Canvas]" />
-        </motion.span>
-      </AnimatePresence>
+      <Star size={size === 54 ? 24 : 20} weight="fill" className="relative text-on-primary forced-colors:text-[Canvas]" />
     </span>
   );
 }

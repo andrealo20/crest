@@ -70,12 +70,14 @@ test("the switch for the backdrop sits under the style cards, under Material onl
   assert.ok(rest.includes("themes: { ...cur.themes, contours }"));
 });
 
-test("the navigation's mark morphs per page in the settings window only, with the page's icon over it", () => {
+test("the navigation's mark morphs per page in the settings window's list and rail only, with one fixed glyph over it", () => {
   const at = view.indexOf("function NavMark(");
   assert.ok(at > 0, "NavMark found");
   const body = view.slice(at, view.indexOf("\nfunction ", at + 1));
-  for (const s of ["brandOf(id)", "shapePoints(", "<MorphPath", "fill-primary", "forced-colors:fill-[CanvasText]", "text-on-primary", "forced-colors:text-[Canvas]", "aria-hidden", "transition={crossfade}"])
+  for (const s of ["brandOf(id)", "shapePoints(", "<MorphPath", "fill-primary", "forced-colors:fill-[CanvasText]", "text-on-primary", "forced-colors:text-[Canvas]", "aria-hidden", "<Star "])
     assert.ok(body.includes(s), s);
+  // A glyph no page has, so the mark never repeats the item next to it; only the shape follows the page.
+  assert.ok(!body.includes("Glyph") && !body.includes("AnimatePresence"), "one fixed glyph");
   assert.doesNotMatch(body, /\bt\(/, "no new text in the mark");
   const navAt = view.indexOf("const materialNav = (");
   const nav = view.slice(navAt, view.indexOf("const header =", navAt));
@@ -84,12 +86,13 @@ test("the navigation's mark morphs per page in the settings window only, with th
   for (const use of uses) {
     assert.ok(use > navAt && use < navAt + nav.length, "only inside materialNav");
     const before = view.slice(0, use);
-    assert.ok(/\{chrome && \(?\s*$/.test(before), "only after chrome &&");
+    assert.ok(/\{chrome && layout !== "top" && $/.test(before), "only in the settings window, out of the row on top");
     const tag = view.slice(use, view.indexOf("/>", use));
     assert.ok(tag.includes("id={viewKey}"), tag);
-    assert.ok(tag.includes("size={compact ? 40 : 54}"), tag);
+    assert.ok(tag.includes("size={compact ? 40 : 54}") && !tag.includes("icon="), tag);
   }
   // Each of the two functions keeps its own doc comment right above it.
   assert.match(view, /\n\/\*\* The settings window's mark[^\n]*\*\/\nfunction NavMark\(/);
   assert.match(view, /\n\/\*\* One settings page's groups[^\n]*\*\/\nfunction PageContent\(/);
 });
+
