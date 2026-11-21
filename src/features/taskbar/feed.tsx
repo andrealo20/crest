@@ -11,7 +11,6 @@ import { useLeetcodeToday } from "../../notch/row/parts/LeetcodePart";
 import { useNextEvent } from "../../notch/row/parts/NextEventPart";
 import { useReadings } from "../../notch/row/parts/Readings";
 import { ringLabel, ringProviders, ringValue } from "../../notch/row/parts/Rings";
-import { useWeatherNow } from "../../notch/row/parts/WeatherPart";
 import { barParts } from "../../notch/row/visibility";
 import { subscribeLevels } from "../../platform/audio";
 import { useNowPlaying } from "../../platform/media";
@@ -25,9 +24,14 @@ import { useLeetcodeViewer } from "../leetcode/store";
 import { scriptParts } from "../notices/store";
 import { RELEASE_CAPTURE_MS } from "../now-playing/Equalizer";
 import { useLyricLine } from "../now-playing/lyrics";
+import { system } from "../system/store";
 import { usage, useUsageViewer } from "../usage/store";
+import { nextHours } from "../weather/hours";
+import { isStale } from "../weather/stale";
+import { useForecast } from "../weather/store";
 import { anyBarTool, barPanels, onBarShows } from "./barPanels";
 import { barFeed, feedStores, panelOpen, panelStores, type BarFeed } from "./barStores";
+import { variantOf } from "./model";
 import { SLIDE_KEEP_MS, barPartsFor, barSources, barWidgets, sourcesAfter, type BarSeen } from "./widgets";
 
 /*
@@ -78,7 +82,13 @@ function useSlice<K extends keyof BarFeed>(key: K, value: BarFeed[K]) {
 }
 
 function WeatherSource() {
-  useSlice("weather", useWeatherNow(true));
+  const f = useForecast(15 * 60_000, true);
+  const hours = variantOf(settings.use().taskbar.variants, "weather") === "hours";
+  const ok = f && f !== "error" && !isStale(f.savedAt, Date.now()) ? f : null;
+  // As useWeatherNow: none from a saved forecast hours old.
+  useSlice("weather", ok ? ok.current : null);
+  // Read again with each forecast refresh, 15 min at most, so just after the hour the face may still show the hour that has begun: accepted.
+  useSlice("weatherHours", ok && hours ? nextHours(ok.hourly, ok.offset, Date.now()).map(({ time, temp, code, day }) => ({ time, temp, code, day })) : []);
   return null;
 }
 
@@ -114,6 +124,10 @@ function ReadingsSource() {
   const closed = settings.use().closed;
   // The part forced on: the bar shows readings with the notch's part off. No gaming: the bar hides over full-screen apps.
   useSlice("readings", useReadings({ ...closed, parts: { ...closed.parts, readings: true } }, false));
+  const line = variantOf(settings.use().taskbar.variants, "readings") === "line";
+  const cpu = system.use().history.cpu;
+  // The history is filled linearly once a second when only the bar asks, every 2 to 3 s (design 2D); gaps go as null, since NaN crosses the bridge as JSON null.
+  useSlice("spark", line ? cpu.slice(-30).map((v) => (Number.isNaN(v) ? null : Math.round(v))) : []);
   return null;
 }
 

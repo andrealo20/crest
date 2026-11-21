@@ -5,3 +5,8 @@
 export function hourStart(time: string, offset?: number): number {
   return offset === undefined ? new Date(time).getTime() : Date.parse(`${time}Z`) - offset * 1000;
 }
+
+/** The hours after now, as the bar's face shows them: Open-Meteo's list starts at the hour of the fetch, and a saved forecast may be hours old. */
+export function nextHours<H extends { time: string }>(hourly: H[] | undefined, offset: number | undefined, now: number, n = 3): H[] {
+  return (hourly ?? []).filter((h) => hourStart(h.time, offset) > now).slice(0, n);
+}

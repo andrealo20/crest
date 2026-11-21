@@ -39,6 +39,8 @@ export interface TaskbarSettings {
   /** Under `glass`, the look of the bar's glass, Crest's or Liquid Glass + (look.ts `barLook`); `glass` alone gates the live copy and its exclusion from captures (contract point 1). */
   glassLook: "crest" | "plus";
   clock: { date: boolean; seconds: boolean };
+  /** The version of each widget that has more than one, by widget; the clock's date stays in `clock`, the only source for the notch and older copies. */
+  variants: Partial<WidgetVariants>;
   widgetsSeeded: boolean;
   traySeeded: boolean;
   statusSeeded: boolean;
@@ -59,6 +61,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   glass: false,
   glassLook: "crest",
   clock: { date: true, seconds: false },
+  variants: {},
   widgetsSeeded: true,
   traySeeded: true,
   statusSeeded: true,
@@ -88,7 +91,22 @@ export const TOOL_BUTTONS: readonly string[] = [...TOOL_IDS.filter((id) => !WIDG
 /** Every item a zone may hold. */
 const ITEMS: string[] = [...FIXED_ITEMS, "tray", "status", ...PART_IDS, ...TOOL_BUTTONS.map((id) => `tool:${id}`)];
 
+/** The versions a widget offers on the bar, today's first; the id stays bare in the zones, so the fit, the sources and `barParts` do not change. */
+export type WidgetVariants = { weather: "temp" | "icon" | "condition" | "hours"; clock: "digital" | "analog" | "zones"; readings: "dials" | "bars" | "line"; timer: "countdown" | "ring" };
+export const WIDGET_VARIANTS: { [K in keyof WidgetVariants]: readonly WidgetVariants[K][] } = {
+  weather: ["temp", "icon", "condition", "hours"],
+  clock: ["digital", "analog", "zones"],
+  readings: ["dials", "bars", "line"],
+  timer: ["countdown", "ring"],
+};
+
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+/** Whether `variants` names a version `id` has, as its own key: other windows get the raw JSON (widgets.ts). */
+const isVariant = (variants: unknown, id: keyof WidgetVariants): boolean =>
+  isObj(variants) && Object.hasOwn(variants, id) && (WIDGET_VARIANTS[id] as readonly unknown[]).includes(variants[id]);
+/** The version a widget draws: its saved one, or today's look for anything it does not know. */
+export const variantOf = <K extends keyof WidgetVariants>(variants: unknown, id: K): WidgetVariants[K] =>
+  isVariant(variants, id) ? ((variants as Record<string, unknown>)[id] as WidgetVariants[K]) : WIDGET_VARIANTS[id][0];
 const within = (v: unknown, [min, max]: readonly [number, number], fallback: number) =>
   typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(max, Math.max(min, v))) : fallback;
 
@@ -116,6 +134,10 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     glass: s.glass === true,
     glassLook: s.glassLook === "plus" ? "plus" : "crest",
     clock: { date: clock.date !== false, seconds: clock.seconds === true },
+    // A copy older than this rebuilds the settings field by field and drops `variants` at its first save (design 6D): accepted.
+    variants: Object.fromEntries(
+      (Object.keys(WIDGET_VARIANTS) as (keyof WidgetVariants)[]).filter((id) => isVariant(s.variants, id)).map((id) => [id, (s.variants as Record<string, unknown>)[id]]),
+    ),
     widgetsSeeded: true,
     traySeeded: true,
     statusSeeded: true,

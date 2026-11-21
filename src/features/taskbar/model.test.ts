@@ -4,6 +4,7 @@ import {
   COMPACT_PAD,
   TASKBAR_DEFAULTS,
   TOOL_BUTTONS,
+  WIDGET_VARIANTS,
   applyWindowsPins,
   barButtons,
   clickAction,
@@ -21,6 +22,7 @@ import {
   trayIcon,
   trayOnBar,
   trayWanted,
+  variantOf,
   type BarButton,
   type BarItem,
   type Group,
@@ -97,6 +99,24 @@ test("the default widgets arrive once", () => {
 test("the bar's clock has its own date and seconds", () => {
   assert.deepEqual(normalizeTaskbar({}).clock, { date: true, seconds: false });
   assert.deepEqual(normalizeTaskbar({ clock: { date: false, seconds: "x" } }).clock, { date: false, seconds: false });
+});
+
+test("each widget with versions starts on today's look", () => {
+  assert.deepEqual(Object.fromEntries(Object.entries(WIDGET_VARIANTS).map(([id, v]) => [id, v[0]])), { weather: "temp", clock: "digital", readings: "dials", timer: "countdown" });
+  assert.deepEqual(TASKBAR_DEFAULTS.variants, {});
+});
+
+test("a saved version is kept only for a widget that has it, and anything else is dropped", () => {
+  assert.deepEqual(normalizeTaskbar({ variants: { weather: "hours", clock: "nope", readings: 3, title: "x", bogus: "line", timer: "ring" } }).variants, { weather: "hours", timer: "ring" });
+  for (const v of [undefined, null, "x", [], 1]) assert.deepEqual(normalizeTaskbar({ variants: v }).variants, {});
+  assert.deepEqual(normalizeTaskbar({ variants: { clock: "analog" }, clock: { date: false } }).clock, { date: false, seconds: false });
+});
+
+test("a widget draws its saved version, today's look for one it does not know, as another window may send raw JSON", () => {
+  assert.equal(variantOf({ weather: "hours" }, "weather"), "hours");
+  assert.equal(variantOf({ weather: "zzz" }, "weather"), "temp");
+  assert.equal(variantOf({ readings: "line" }, "clock"), "digital");
+  for (const v of [undefined, null, "x", [], { clock: 1 }, JSON.parse('{"__proto__":{"clock":"analog"}}')]) assert.equal(variantOf(v, "clock"), "digital");
 });
 
 test("items move between zones", () => {
