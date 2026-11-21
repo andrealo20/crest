@@ -4,7 +4,15 @@ import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 import { DEFAULT_OFF, TOOL_IDS } from "../../settings/tools.ts";
 import { TASKBAR_DEFAULTS, TOOL_BUTTONS, type BarItem, type Zone } from "./model.ts";
 import { statusPill } from "./statusModel.ts";
-import { SLIDE_KEEP_MS, addWidget, addableTools, applyChoice, chosenChoice, barPartsFor, barSources, barWidgets, isTool, isWidget, pillWidget, removeWidget, shownZones, sourcesAfter, toolOf, toolShown, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
+import { SLIDE_KEEP_MS, addWidget, addableTools, applyChoice, chosenChoice, clockHasSeconds, barPartsFor, barSources, barWidgets, isTool, isWidget, pillWidget, previewInk, removeWidget, shownZones, sourcesAfter, toolOf, toolShown, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
+
+test("a widget's preview wears the bar's ink: Dark's under Liquid Glass + whatever the surface, the closed notch's on Notch, the theme's otherwise", () => {
+  const dark = { "--color-label": "white", "--theme-accent": "blue" }, closed = { "--color-label": "white", "--accent": "red" };
+  assert.deepEqual(previewInk("plus", "theme", closed, dark), { ...dark, "--accent": "blue" });
+  assert.deepEqual(previewInk("plus", "notch", undefined, dark), { ...dark, "--accent": "blue" });
+  assert.equal(previewInk("crest", "notch", closed, dark), closed);
+  assert.equal(previewInk("crest", "theme", closed, dark), undefined);
+});
 
 test("a widget opens its tool, the clock Windows' calendar", () => {
   // Every part: one without a tool would open Windows' calendar.
@@ -147,6 +155,24 @@ test("picking a version writes the version, and the clock's digital ones its dat
   // Another window may hand over raw JSON without variants (storeCore.ts:51-57): the pick still works.
   assert.deepEqual(applyChoice({ variants: undefined as never, clock: { date: true, seconds: false } }, "clock", { variant: "digital", date: false }), { variants: {}, clock: { date: false, seconds: false } });
   assert.deepEqual(applyChoice({ variants: "x" as never, clock: { date: true, seconds: false } }, "weather", { variant: "icon" }), { variants: { weather: "icon" } });
+});
+
+test("a pick writes only what differs from the saved settings, so Two time zones saved without a zone gives way to the digital clock shown", () => {
+  const clock = { date: true, seconds: false };
+  // Shown as Time and date (no zone), saved as Two time zones: picking what is shown saves it.
+  assert.deepEqual(applyChoice({ variants: { clock: "zones" }, clock }, "clock", { variant: "digital", date: true }), { variants: {}, clock });
+  // Saved as shown: nothing to write.
+  assert.deepEqual(applyChoice({ variants: {}, clock }, "clock", { variant: "digital", date: true }), {});
+  assert.deepEqual(applyChoice({ variants: { weather: "hours" }, clock }, "weather", { variant: "hours" }), {});
+});
+
+test("only the digital clock has seconds to switch: not Analog, not Two time zones while a zone draws them", () => {
+  assert.equal(clockHasSeconds({}, false), true);
+  assert.equal(clockHasSeconds({ clock: "analog" }, true), false);
+  assert.equal(clockHasSeconds({ clock: "zones" }, true), false);
+  // Without a zone the bar draws the digital clock for Two time zones.
+  assert.equal(clockHasSeconds({ clock: "zones" }, false), true);
+  assert.equal(clockHasSeconds("x", true), true);
 });
 
 test("the arrows move through a widget's versions and wrap, mirrored right to left", () => {

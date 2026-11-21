@@ -9,13 +9,15 @@ import { settings, type Settings } from "../../settings/store";
 import { Group, Row, Select } from "../../ui/controls";
 import { clocks } from "../clocks/store";
 import { isZone } from "../clocks/zones";
-import { useClosedInk } from "../themes/store";
+import { liveSupport } from "../../notch/glass/live";
+import { darkInk, useClosedInk } from "../themes/store";
+import { barLook } from "./look";
 import type { Zone } from "./model";
 import { SAMPLE_AT, SAMPLE_TIMER, sampleFeed } from "./sampleFeed";
 import { statusPill } from "./statusModel";
 import { setTaskbar } from "./store";
 import { widgetNeeds } from "./WidgetRows";
-import { addWidget, applyChoice, barWidgets, chosenChoice, pillWidget, removeWidget, variantKey, widgetChoices, type WidgetChoice } from "./widgets";
+import { addWidget, applyChoice, barWidgets, chosenChoice, pillWidget, previewInk, removeWidget, variantKey, widgetChoices, type WidgetChoice } from "./widgets";
 import { widgetBody } from "./window/Widget";
 
 /*
@@ -112,9 +114,8 @@ function Versions({ id, s, zone }: { id: PartId; s: Settings; zone: string | nul
         <Preview id={id} choice={choices[0]} s={s} zone={zone} />
       </div>
     );
-  // Decision 17: the version already chosen, or an empty patch, writes nothing.
+  // Decision 17: a pick that changes nothing saved writes nothing; the version shown may differ from the saved one (applyChoice).
   const pick = (i: number) => {
-    if (i === chosen) return;
     const p = applyChoice(settings.get().taskbar, id, choices[i]);
     if (Object.keys(p).length) setTaskbar(p);
   };
@@ -147,14 +148,17 @@ function Versions({ id, s, zone }: { id: PartId; s: Settings; zone: string | nul
 }
 
 /**
- * One version on the bar's surface, as the bar draws it (decision 16): the closed notch's ink on its colour with Background Notch,
- * the theme's otherwise; 44 px tall, at scale 1, on the pill where the bar has one. Sample data only: the equalizer rests (paused),
+ * One version on the bar's surface, as the bar draws it (decision 16): the bar's ink (previewInk: Dark's under Liquid Glass +, the
+ * closed notch's with Background Notch, the theme's otherwise) on the surface's colour; 44 px tall, at scale 1, on the pill where the bar has one. Sample data only: the equalizer rests (paused),
  * the timer is SAMPLE_TIMER and the clocks show SAMPLE_AT, so the page never starts the audio capture, reads the real timer or ticks.
  */
 function Preview({ id, choice, s, zone }: { id: PartId; choice: WidgetChoice; s: Settings; zone: string | null }) {
   const { taskbar, units, music } = s;
   const closed = useClosedInk(undefined);
-  const surface: CSSProperties = taskbar.surface === "notch" ? { ...closed, background: "var(--notch-closed)" } : { background: "var(--color-notch)" };
+  const supported = liveSupport.use()?.supported === true;
+  // The colour read through the ink's own tokens, as on the bar: Dark's surface under Liquid Glass +, so white text stays on dark.
+  const ink = previewInk(barLook(taskbar, supported), taskbar.surface, closed, darkInk());
+  const surface: CSSProperties = { ...ink, background: taskbar.surface === "notch" ? "var(--notch-closed)" : "var(--color-notch)" };
   const { node, width } = widgetBody(id, {
     feed: sampleFeed(s.closed.readings),
     paused: true,

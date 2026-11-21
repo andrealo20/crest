@@ -4,6 +4,7 @@
 import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
 import { TASKBAR_DEFAULTS, TOOL_BUTTONS, WIDGET_VARIANTS, fitIcon, isObj, variantOf, type BarItem, type TaskbarSettings, type ToolItem, type WidgetVariants, type Zone } from "./model.ts";
 import { opensInBar } from "./panelModel.ts";
+import type { BarLook } from "./look.ts";
 
 /** What the settings take off the bar and put back like a widget: the widgets, the tray, Stato and the tool buttons. */
 export type Removable = PartId | "tray" | "status" | ToolItem;
@@ -14,6 +15,15 @@ export const isTool = (id: string): id is ToolItem => id.startsWith("tool:");
 export const toolOf = (id: ToolItem): string => id.slice("tool:".length);
 /** A tool switched on or off in the notch's settings (settings.tools). */
 export type ToolSwitch = { id: string; enabled: boolean };
+
+/**
+ * The ink a widget's preview on the Widgets page wears, as the bar's own (useBarSurface in window/BarGlass.tsx): Dark's (`dark`)
+ * under Liquid Glass + whatever the surface, the closed notch's (`closed`) on the Notch surface, the theme's (undefined) otherwise.
+ */
+// shortcut: a copy of useBarSurface's ink line, BarGlass.tsx being Material's; one helper for both once the contract lets it move.
+export function previewInk(look: BarLook, surface: TaskbarSettings["surface"], closed: Record<string, string> | undefined, dark: Record<string, string>): Record<string, string> | undefined {
+  return look === "plus" ? { ...dark, "--accent": dark["--theme-accent"] } : surface === "notch" ? closed : undefined;
+}
 
 /** The tool a widget opens in the panel over the bar; null for the clock, which opens Windows' calendar instead. */
 export const widgetTool = (id: PartId): string | null => (id === "clock" ? null : partTool(id));
@@ -130,18 +140,24 @@ export function chosenChoice(id: PartId, variants: unknown, date: boolean, zones
   return hasVersions(id) ? (WIDGET_VARIANTS[id] as readonly string[]).indexOf(variantOf(variants, id)) : 0;
 }
 
+/** Whether the clock the bar draws has seconds to switch: the digital one, also for Two time zones saved while no zone draws them. */
+export const clockHasSeconds = (variants: unknown, zones: boolean): boolean => chosenChoice("clock", variants, true, zones) < 2;
+
 /**
  * The settings patch for picking `c` for `id`: the version in variants, the digital clock's date in clock (and no clock in
- * variants), nothing for a widget without versions. `cur.variants` may be raw JSON from another window (storeCore.ts:51-57).
+ * variants), nothing for a widget without versions or when the saved settings already say so, compared with what is saved, not
+ * with the version shown (Two time zones saved without a zone shows the digital clock). `cur.variants` may be raw JSON from
+ * another window (storeCore.ts:51-57).
  */
 export function applyChoice(cur: Pick<TaskbarSettings, "variants" | "clock">, id: PartId, c: WidgetChoice): Partial<TaskbarSettings> {
   const variants = (isObj(cur.variants) ? cur.variants : {}) as TaskbarSettings["variants"];
   if (!hasVersions(id) || c.variant === null) return {};
-  if (id === "clock" && c.variant === "digital") {
-    const { clock: _, ...rest } = variants;
-    return { variants: rest, clock: { ...cur.clock, date: c.date ?? cur.clock.date } };
-  }
-  return { variants: { ...variants, [id]: c.variant } };
+  const patch: Partial<TaskbarSettings> =
+    id === "clock" && c.variant === "digital"
+      ? { variants: (({ clock: _, ...rest }) => rest)(variants), clock: { ...cur.clock, date: c.date ?? cur.clock.date } }
+      : { variants: { ...variants, [id]: c.variant } };
+  const same = Object.entries(patch).every(([k, v]) => JSON.stringify(v) === JSON.stringify(cur[k as keyof typeof cur]));
+  return same ? {} : patch;
 }
 
 /**

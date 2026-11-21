@@ -3,13 +3,15 @@ import { t } from "../../i18n";
 import { PART_IDS } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
 import { settings, updateSettings, type Settings } from "../../settings/store";
+import { clocks } from "../clocks/store";
+import { isZone } from "../clocks/zones";
 import { Select, SubSwitch } from "../../ui/controls";
 import { setMusic } from "../now-playing/music";
 import { shownIds } from "../usage/cards";
 import { TOOL_BUTTONS, type ToolItem, type Zone } from "./model";
 import { setTaskbar } from "./store";
 import { toolInfo } from "./toolInfo";
-import { addableTools, addWidget, barWidgets, isTool, isWidget, removeWidget, toolOf, toolShown, type Removable } from "./widgets";
+import { addableTools, addWidget, barWidgets, clockHasSeconds, isTool, isWidget, removeWidget, toolOf, toolShown, type Removable } from "./widgets";
 
 /*
  * The widgets' pieces of Settings → Taskbar → Items (TaskbarItems draws the rows): a widget's or a tool button's options in its row
@@ -30,14 +32,18 @@ export const widgetNeeds = (s: Settings): Partial<Record<Removable, string | fal
   discord: !s.discord.clientId.trim() && t("Client-ID und Secret fehlen"),
 });
 
-/** A widget's switches, what it shows nothing without, and the button that takes it off the bar. The clock's date is picked on the Widgets page, with its versions. */
+/**
+ * A widget's switches, what it shows nothing without, and the button that takes it off the bar. The clock's date is picked on the
+ * Widgets page, with its versions; its seconds only where the version drawn has them (not Analog or Two time zones).
+ */
 export function WidgetOptions({ id }: { id: Removable }) {
   const s = settings.use();
   const readingsOn = MAIN_READINGS.filter((k) => s.closed.readings[k]).length;
   const needs = widgetNeeds(s);
+  const zoned = isZone(clocks.use()[0]);
   const switches =
     id === "clock" ? (
-      <SubSwitch label={t("Sekunden")} checked={s.taskbar.clock.seconds} onChange={(seconds) => setTaskbar((cur) => ({ clock: { ...cur.clock, seconds } }))} />
+      clockHasSeconds(s.taskbar.variants, zoned) && <SubSwitch label={t("Sekunden")} checked={s.taskbar.clock.seconds} onChange={(seconds) => setTaskbar((cur) => ({ clock: { ...cur.clock, seconds } }))} />
     ) : id === "readings" ? (
       MAIN_READINGS.map((k) => (
         <SubSwitch

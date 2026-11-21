@@ -20,7 +20,7 @@ import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
-import { fitIcon, HEIGHT, ICON, moveItem, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type BarShape, type ToolItem, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type BarShape, type ToolItem, type Zone } from "./model";
 import { setTaskbar } from "./store";
 import { AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
 import { toolInfo } from "./toolInfo";
@@ -98,6 +98,21 @@ export function TaskbarItems() {
   const zones = shownZones(saved, TOOL_BUTTONS.map((id) => ({ id, enabled: true })));
   const [dragging, setDragging] = useState<BarItem | null>(null);
   const options = ZONES.map((z) => ({ value: z, label: t(ZONE_LABEL[z]) }));
+  // React moves a row stepped down in the DOM, which drops its arrow's focus: given back to that row's arrow once the step is saved.
+  const stepped = useRef<{ id: BarItem; by: -1 | 1 } | null>(null);
+  const step = (id: BarItem, shown: BarItem[], by: -1 | 1) => {
+    const cur = settings.get().taskbar.zones, next = stepItem(cur, shown, id, by);
+    if (next === cur) return;
+    stepped.current = { id, by };
+    setTaskbar({ zones: next });
+  };
+  useEffect(() => {
+    const s = stepped.current, zone = s && ZONES.find((z) => zones[z].includes(s.id));
+    if (!s || !zone) return;
+    stepped.current = null;
+    const to = stepFocus(s.by, zones[zone].indexOf(s.id), zones[zone].length);
+    document.querySelectorAll<HTMLElement>(`[data-steps="${s.id}"] button`)[to < 0 ? 0 : 1]?.focus();
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Group id="settings-taskbar-items">
       {ZONES.map((zone) => (
@@ -136,11 +151,11 @@ export function TaskbarItems() {
                   {id === "start" && <div className="text-caption text-label-3">{t("Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste")}</div>}
                 </div>
                 {(isWidget(id) || isTool(id) || id === "tray" || id === "status") && <WidgetOptions id={id} />}
-                <div onPointerDown={(e) => e.stopPropagation()} className="flex items-center">
-                  <MoveButton label={t("Nach oben")} disabled={i === 0} onClick={() => { const cur = settings.get().taskbar.zones, next = stepItem(cur, zones[zone], id, -1); if (next !== cur) setTaskbar({ zones: next }); }}>
+                <div data-steps={id} onPointerDown={(e) => e.stopPropagation()} className="flex items-center">
+                  <MoveButton label={t("Nach oben")} disabled={i === 0} onClick={() => step(id, zones[zone], -1)}>
                     <CaretUp size={12} weight="bold" />
                   </MoveButton>
-                  <MoveButton label={t("Nach unten")} disabled={i === zones[zone].length - 1} onClick={() => { const cur = settings.get().taskbar.zones, next = stepItem(cur, zones[zone], id, 1); if (next !== cur) setTaskbar({ zones: next }); }}>
+                  <MoveButton label={t("Nach unten")} disabled={i === zones[zone].length - 1} onClick={() => step(id, zones[zone], 1)}>
                     <CaretDown size={12} weight="bold" />
                   </MoveButton>
                 </div>

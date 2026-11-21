@@ -224,6 +224,9 @@ export function stepItem(zones: Record<Zone, BarItem[]>, shown: BarItem[], id: B
   return moveBefore(zones, id, zone, by < 0 ? shown[i - 1] : (shown[i + 2] ?? null));
 }
 
+/** The arrow that takes the keyboard after a step `by` left the row at `at` of `count`: the one pressed, or the other once it is disabled at that end. */
+export const stepFocus = (by: -1 | 1, at: number, count: number): -1 | 1 => (by < 0 ? (at === 0 ? 1 : -1) : at === count - 1 ? -1 : 1);
+
 /** An item drawn on the bar, in DOM order: its zone and its box's left edge and width, CSS px. */
 export type DropSlot = { id: BarItem; zone: Zone; x: number; w: number };
 /** A zone's box on the grid shapes, CSS px. */
@@ -233,7 +236,8 @@ export type ZoneBox = { zone: Zone; x: number; w: number };
  * Where an item dragged to `x` lands: in the zone whose box holds `x` (an empty one narrower than `unit`, the grid's middle,
  * widened to `unit` round its centre and checked first), or without zone boxes (the capsule) in the zone of the item it goes before, of the last one at the end; before the first
  * item whose centre is right of `x`. `line` is the left edge of the 2 px insertion line, centred in the `gap` between buttons. Null
- * outside the zones and on its own place (before itself or its next neighbour, or at the end it already is at): nothing to write.
+ * outside the zones and on its own place (before itself or its next neighbour, in the capsule even of another zone, or at the end it
+ * already is at): nothing to write.
  */
 export function dropPlace(id: BarItem, items: DropSlot[], zones: ZoneBox[] | null, x: number, unit: number, gap: number): { zone: Zone; before: BarItem | null; line: number } | null {
   let zone: Zone, inZone: DropSlot[], at: number;
@@ -250,6 +254,9 @@ export function dropPlace(id: BarItem, items: DropSlot[], zones: ZoneBox[] | nul
   } else {
     if (!items.length) return null;
     at = dropSlot(items, x);
+    // Without zone boxes the room before or after the item is its own place whatever zone the neighbour is in.
+    const own = items.findIndex((s) => s.id === id);
+    if (own >= 0 && (at === own || at === own + 1)) return null;
     zone = (items[at] ?? items[items.length - 1]).zone;
     inZone = items.filter((s) => s.zone === zone);
     at = items[at] ? inZone.indexOf(items[at]) : inZone.length;
@@ -385,6 +392,9 @@ export function previewLayout(count: number, viewW: number): PreviewLayout {
 
 /** An app with several windows whose thumbnails all failed lists their titles instead; one window, or only some failing, keep the icon in the box. */
 export const previewFallsBack = (answers: readonly unknown[], count: number): boolean => count > 1 && answers.length > 0 && answers.every((a) => a === null);
+
+/** What a preview card sends its boxes again on: its windows in order and which are minimized, since Rust draws no thumbnail for those. */
+export const previewSet = (windows: readonly Win[]): string => windows.map((w) => `${w.id}${w.minimized ? "m" : ""}`).join();
 
 /** The row a key moves to among a menu's `count` rows from row `at` (-1: none): Up and Down wrap, Home and End go to the ends; undefined for any other key. */
 export function menuKey(key: string, at: number, count: number): number | undefined {
