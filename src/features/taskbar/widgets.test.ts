@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 import { DEFAULT_OFF, TOOL_IDS } from "../../settings/tools.ts";
 import { TASKBAR_DEFAULTS, TOOL_BUTTONS, type BarItem, type Zone } from "./model.ts";
-import { SLIDE_KEEP_MS, addWidget, addableTools, barPartsFor, barSources, barWidgets, isTool, isWidget, removeWidget, shownZones, sourcesAfter, toolOf, toolShown, widgetScale, widgetTool } from "./widgets.ts";
+import { statusPill } from "./statusModel.ts";
+import { SLIDE_KEEP_MS, addWidget, addableTools, barPartsFor, barSources, barWidgets, isTool, isWidget, pillWidget, removeWidget, shownZones, sourcesAfter, toolOf, toolShown, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
 
 test("a widget opens its tool, the clock Windows' calendar", () => {
   // Every part: one without a tool would open Windows' calendar.
@@ -16,6 +17,20 @@ test("widgets grow and shrink with the icons", () => {
   assert.equal(widgetScale(44, 24), 1);
   assert.equal(widgetScale(64, 40), 40 / 24);
   assert.equal(widgetScale(32, 24), 20 / 24);
+});
+
+test("weather and hardware sit in Stato's pill off Tiles, as wide as their content and the pill's two sides", () => {
+  assert.equal(pillWidget("weather", false), true);
+  assert.equal(pillWidget("readings", false), true);
+  assert.equal(pillWidget("weather", true), false);
+  assert.equal(pillWidget("clock", false), false);
+  assert.equal(pillWidget("title", false), false);
+  // Without the pill a button keeps 8 px each side; in it, the pill's own sides: 14, 20 and 30 px at 32, 44 and 64 px.
+  assert.equal(widgetWidth(48, 1, null), 64);
+  assert.equal(widgetWidth(47, 1, null), 64);
+  assert.equal(widgetWidth(48, 1, statusPill(44).pad), 68);
+  assert.equal(widgetWidth(48, 20 / 24, statusPill(32).pad), 54);
+  assert.equal(widgetWidth(48, 1, statusPill(64).pad), 78);
 });
 
 test("an added widget goes last in its zone, before the Crest button at its end", () => {

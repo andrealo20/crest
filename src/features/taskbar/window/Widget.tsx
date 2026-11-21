@@ -22,7 +22,8 @@ import { LiveLyric } from "../../now-playing/LiveLyric";
 import { timer } from "../../timer/store";
 import { EMPTY_FEED, barFeed, type BarFeed } from "../barStores";
 import type { TaskbarSettings } from "../model";
-import { widgetScale } from "../widgets";
+import { statusPill } from "../statusModel";
+import { pillWidget, widgetScale, widgetWidth } from "../widgets";
 import { BarClock, barClockWidth } from "./BarClock";
 import { Item, type ItemProps } from "./Item";
 
@@ -178,12 +179,16 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu }: {
     timerRunning: endsAt !== null,
     timerDuration: duration,
   });
+  const pill = pillWidget(id, item.tile !== undefined) ? statusPill(taskbar.height) : null;
   return (
-    // An even width keeps a centred zone, and the buttons after it, on whole pixels, as the apps' even widths already do.
-    <Item {...item} width={Math.round((width * k) / 2) * 2 + 16} describedBy={desc} onClick={onClick} onContextMenu={onContextMenu}>
-      {/* As tall as the closed row the parts are drawn for; one grid cell, so a part and its icon fade over each other centred; clipped, so a wider part fading out never covers its neighbours. */}
-      <span id={desc} className="grid h-[30px] overflow-clip" style={{ zoom: k, width }}>
-        <AnimatePresence initial={false}>{node}</AnimatePresence>
+    <Item {...item} width={widgetWidth(width, k, pill?.pad ?? null)} describedBy={desc} onClick={onClick} onContextMenu={onContextMenu}>
+      {/* The pill wraps the content, not the cell (design 2E): the zoomed 30 px cell stays centred in a lower pill and overflows it
+          equally. When Material's Item lands, pass layer={pill.height} as Stato does. */}
+      <span className={pill ? "flex items-center rounded-full bg-fill-2" : "flex"} style={pill ? { height: pill.height, paddingInline: pill.pad } : undefined}>
+        {/* As tall as the closed row the parts are drawn for; one grid cell, so a part and its icon fade over each other centred; clipped, so a wider part fading out never covers its neighbours. */}
+        <span id={desc} className="grid h-[30px] overflow-clip" style={{ zoom: k, width }}>
+          <AnimatePresence initial={false}>{node}</AnimatePresence>
+        </span>
       </span>
     </Item>
   );

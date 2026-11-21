@@ -21,6 +21,18 @@ export const widgetTool = (id: PartId): string | null => (id === "clock" ? null 
 /** A widget's size against the notch's: 1 with the default icons, growing and shrinking with the icons the bar draws. */
 export const widgetScale = (height: number, iconSize: number): number => fitIcon(height, iconSize) / TASKBAR_DEFAULTS.iconSize;
 
+/**
+ * Whether a widget sits on Stato's pill: weather and hardware, which Andrea named, off Tiles, whose tile is already one. Windows 11's
+ * clock has no pill, and a long title in one would change the bar more than asked.
+ */
+export const pillWidget = (id: PartId, tiles: boolean): boolean => !tiles && (id === "weather" || id === "readings");
+
+/**
+ * A widget button's width for a body `width` wide at scale `k`: even, so a centred zone stays on whole pixels, plus the 8 px a bar
+ * button keeps on each side, or in the pill (`pad`, statusPill) the pill's own sides, as the pill is the whole button, as Stato's.
+ */
+export const widgetWidth = (width: number, k: number, pad: number | null): number => Math.round((width * k) / 2) * 2 + (pad === null ? 16 : 2 * pad);
+
 /** The widgets on the bar, reading left, center, right. */
 export const barWidgets = (zones: Record<Zone, BarItem[]>): PartId[] => [...zones.left, ...zones.center, ...zones.right].filter(isWidget);
 
