@@ -53,6 +53,15 @@ test("the Material weather measures its body and lays out Stellaria's dashboard 
   assert.ok(rect > layout && rect < material.indexOf("new ResizeObserver(", layout), "the rect is read before the observer");
 });
 
+test("the Material weather renders again only when the fit changes, and keeps the wind's unit in a narrow tile", () => {
+  const layout = material.slice(material.indexOf("useLayoutEffect("), material.indexOf("}, []);"));
+  assert.equal(layout.match(/setFit\(\(prev\) => keepFit\(prev, weatherFit\(/g)?.length, 1, layout);
+  assert.ok(!/setFit\(weatherFit\(/.test(material), "no setFit without keepFit");
+  // At Compatto a tile is 58 px inside: "18 km/h" all at 15 px is 63, so the unit goes to the caption size beside the number.
+  assert.ok(material.includes('const [speed, unit] = formatWind(c.wind).split(" ")'));
+  assert.ok(material.includes('<span className="ms-0.5 text-caption font-medium text-label-2">{unit}</span>'));
+});
+
 test("the Material weather leaves Crest's skies, heat bar and hover behind", () => {
   for (const part of ["sky(", "heat(", "hover:opacity-80", ":hover", "blur(", "color-mix(", "linear(", ":dir("]) assert.ok(!material.includes(part), part);
   assert.doesNotMatch(material, /\b(bg|text|fill|stroke|ring|border)-[\w-]+\/\d/);

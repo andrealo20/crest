@@ -8,7 +8,7 @@ import type { Settings } from "../../settings/store";
 import { describe, type Forecast } from "./store";
 import { hourStart } from "./hours";
 import { windArrow } from "./wind";
-import { weatherFit } from "./fit";
+import { keepFit, weatherFit } from "./fit";
 import { LRM, WeatherIcon, mm, weekday } from "./WeatherView";
 
 // The place as the settings keep it, with the automatic flag that the search results do not carry.
@@ -29,9 +29,10 @@ export function MaterialWeather({ data, place, onChangePlace }: { data: Forecast
   useLayoutEffect(() => {
     const el = body.current;
     if (!el) return;
+    const measure = (w: number, h: number) => setFit((prev) => keepFit(prev, weatherFit(w, h)));
     const rect = el.getBoundingClientRect();
-    setFit(weatherFit(rect.width, rect.height));
-    const observer = new ResizeObserver(([entry]) => setFit(weatherFit(entry.contentRect.width, entry.contentRect.height)));
+    measure(rect.width, rect.height);
+    const observer = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height));
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
@@ -107,13 +108,16 @@ function SideBlock({ data, place, details, onChangePlace }: { data: Forecast; pl
         {sun}
       </div>
     );
-  const tiles: { icon: Icon; label: string; value: string; beside?: ReactNode }[] = [
+  // At Compatto a tile is 58 px inside and "18 km/h" at 15 px is 63: the unit goes beside the number at the caption's size.
+  const [speed, unit] = formatWind(c.wind).split(" ");
+  const tiles: { icon: Icon; label: string; value: string; unit?: string; beside?: ReactNode }[] = [
     ...(c.humidity !== undefined ? [{ icon: Drop, label: t("Luftfeuchtigkeit"), value: `${Math.round(c.humidity)} %` }] : []),
     { icon: Thermometer, label: t("Gefühlt"), value: `${LRM}${formatTemp(c.feels)}` },
     {
       icon: Wind,
       label: t("Wind"),
-      value: formatWind(c.wind),
+      value: speed,
+      unit,
       // Where the wind blows to: the arrow points away from where it comes from. Beside the icon, so a narrow tile never cuts it off.
       beside: c.windDir !== undefined && <NavigationArrow size={10} weight="fill" className="text-primary" style={{ transform: `rotate(${windArrow(c.windDir, "material")}deg)` }} />,
     },
@@ -125,7 +129,7 @@ function SideBlock({ data, place, details, onChangePlace }: { data: Forecast; pl
         {sun}
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-[repeat(auto-fit,minmax(0,1fr))] gap-1.5">
-        {tiles.map(({ icon: I, label, value, beside }, i) => (
+        {tiles.map(({ icon: I, label, value, unit, beside }, i) => (
           <motion.div
             key={label}
             className="flex min-w-0 flex-col justify-center rounded-[16px] bg-fill-1 p-2"
@@ -138,7 +142,10 @@ function SideBlock({ data, place, details, onChangePlace }: { data: Forecast; pl
               {beside}
             </span>
             {/* One line: a wrapped value would push the tile over the hours below. */}
-            <span className="truncate text-[15px] leading-5 font-semibold tabular text-label">{value}</span>
+            <span className="truncate text-[15px] leading-5 font-semibold tabular text-label">
+              {value}
+              {unit && <span className="ms-0.5 text-caption font-medium text-label-2">{unit}</span>}
+            </span>
             <span className="truncate text-caption text-label-2">{label}</span>
           </motion.div>
         ))}
