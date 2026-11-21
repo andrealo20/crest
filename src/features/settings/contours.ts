@@ -81,6 +81,7 @@ export const FIELDS: Record<string, readonly [x: number, y: number, scale: numbe
   plugins: [24, 30, 3.1],
   taskbar: [48, 14, 2.7],
   "taskbar-items": [10, 20, 3.5],
+  "taskbar-widgets": [55, 2, 2.9],
   "taskbar-apps": [31, 4, 2.2],
   "taskbar-look": [44, 36, 3.0],
   search: [2, 48, 2.5],

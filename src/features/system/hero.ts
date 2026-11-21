@@ -62,6 +62,7 @@ export const MARKS: Record<string, readonly [lobes: number, amplitude: number]> 
   plugins: [6, 0.12],
   taskbar: [9, 0.07],
   "taskbar-items": [5, 0.1],
+  "taskbar-widgets": [8, 0.11],
   "taskbar-apps": [12, 0.05],
   "taskbar-look": [10, 0.06],
   search: [7, 0.12],
