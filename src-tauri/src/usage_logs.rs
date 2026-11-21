@@ -222,8 +222,7 @@ fn scan(cache: &mut Cache, claude: &[PathBuf], codex: &[PathBuf], now: u64) -> (
         }
         let mut keys = Vec::new();
         let mut unreadable = 0;
-        for path in paths {
-            let Ok(meta) = std::fs::metadata(&path) else { continue };
+        for (path, meta) in paths {
             let mtime = meta.modified().ok().and_then(|m| m.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_millis() as u64);
             if mtime < since {
                 continue;
@@ -288,7 +287,10 @@ fn scan(cache: &mut Cache, claude: &[PathBuf], codex: &[PathBuf], now: u64) -> (
     (report, parsed)
 }
 
-fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+/// Every log under `dir`, with its size and time. On Windows these come with the folder listing, so no log is opened just to
+/// ask (4,000 of them a minute on a busy PC). For a file held open the listing can trail by a few seconds: its new lines
+/// then come with the next refresh, as `read_new` reads to the file's real end.
+fn walk(dir: &Path, out: &mut Vec<(PathBuf, std::fs::Metadata)>) {
     let Ok(read) = std::fs::read_dir(dir) else { return };
     for entry in read.flatten() {
         let Ok(kind) = entry.file_type() else { continue };
@@ -296,7 +298,9 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
         if kind.is_dir() {
             walk(&path, out);
         } else if kind.is_file() && path.extension().is_some_and(|e| e == "jsonl") {
-            out.push(path);
+            if let Ok(meta) = entry.metadata() {
+                out.push((path, meta));
+            }
         }
     }
 }
