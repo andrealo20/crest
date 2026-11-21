@@ -1871,5 +1871,6 @@
  "Keine gekoppelten Geräte": "Aucun appareil couplé",
  "Verbunden · {p} %": "Connecté · {p} %",
  "Verbindung wird getrennt …": "Déconnexion…",
- "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "En bas se trouve la barre des tâches Crest : le bord du bas revient quand elle est désactivée"
+ "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "En bas se trouve la barre des tâches Crest : le bord du bas revient quand elle est désactivée",
+  "Task-Manager": "Gestionnaire des tâches"
 }

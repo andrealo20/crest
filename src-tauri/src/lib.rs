@@ -158,7 +158,7 @@ const SETTINGS_DENIED: &[&str] = &[
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, opening the notch and
 /// the settings, the Crest menu, its own glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
 /// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
-/// (`taskbar_slid`), Windows' Start, its Win+X menu and its quick settings (`taskbar_shell`), four of its settings pages
+/// (`taskbar_slid`), Windows' Start, its Win+X menu, its quick settings and Task Manager (`taskbar_shell`), four of its settings pages
 /// (`taskbar_settings`), the tray's icons with their pictures and clicks, the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
 /// Bluetooth page (taskbar/bluetooth.rs), and what the notch's tools in its panel read or do on a click. Its settings reach Rust
 /// only through the notch (`taskbar_apply`, `taskbar_auto_hide`, `taskbar_tray_on`).

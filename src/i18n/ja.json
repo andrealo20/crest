@@ -1871,5 +1871,6 @@
  "Keine gekoppelten Geräte": "ペアリングされたデバイスはありません",
  "Verbunden · {p} %": "接続済み · {p}%",
  "Verbindung wird getrennt …": "切断中…",
- "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "下には Crest タスクバーがあります。オフにすると下の端に戻せます"
+ "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "下には Crest タスクバーがあります。オフにすると下の端に戻せます",
+  "Task-Manager": "タスク マネージャー"
 }
