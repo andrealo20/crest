@@ -434,10 +434,14 @@ export function TaskbarWindow() {
     togglePanel({ kind: "tool", tool }, { x: r.x, w: r.width });
   };
 
-  /** A widget opens its tool in the panel over it; the clock opens Windows' calendar instead, as Windows' own clock does. */
+  /** A widget opens its tool in the panel over it, the disk widget its drives; the clock opens Windows' calendar instead, as Windows' own clock does. */
   const clickWidget = (id: PartId, button: HTMLElement) => {
     setError(null);
     setMenu(null);
+    if (id === "disk") {
+      const r = button.getBoundingClientRect();
+      return togglePanel({ kind: "disks" }, { x: r.x, w: r.width });
+    }
     const tool = widgetTool(id);
     // Windows may refuse to open it; nothing changes then. The bar stays up while it comes to the front.
     if (tool === null) {
@@ -618,7 +622,7 @@ export function TaskbarWindow() {
         <WidgetItem
           id={id}
           // A widget that opens a tool says whether the panel shows it, so a press on it is left to its click and the panel moves in place.
-          item={{ ...item(id, t(partInfo[id].label)), kind: id, tile: tile(), expanded: tool === null ? undefined : open?.content.kind === "tool" && open.content.tool === tool }}
+          item={{ ...item(id, t(partInfo[id].label)), kind: id, tile: tile(), expanded: id === "disk" ? open?.content.kind === "disks" : tool === null ? undefined : open?.content.kind === "tool" && open.content.tool === tool }}
           paused={paused}
           onClick={(e) => afterDrag(e) || clickWidget(id, e.currentTarget)}
           onPointerDown={dragFrom(id)}

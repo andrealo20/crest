@@ -28,6 +28,8 @@ import { countBadge, variantOf, type TaskbarSettings } from "../model";
 import { SAMPLE_TIMER } from "../sampleFeed";
 import { statusPill } from "../statusModel";
 import { pillWidget, widgetScale, widgetWidth } from "../widgets";
+import { barDisks } from "../disks";
+import { DiskFace, disksWidth } from "./DiskFaces";
 import { ANALOG, BarAnalog, BarClock, BarZones, barClockWidth, zonesWidth } from "./BarClock";
 import { Item, type ItemProps } from "./Item";
 import { ReadingBars, ReadingLine, barsWidth, lineWidth } from "./ReadingFaces";
@@ -128,6 +130,10 @@ function part(id: PartId, { feed: f, paused, hovered, clock, h12, titleLoop, tim
       return f.github && { node: <GithubPart count={f.github.count} level={f.github.level} />, width: githubWidth(f.github.count) };
     case "leetcode":
       return f.leetcode && { node: <LeetcodePart count={f.leetcode.count} level={f.leetcode.level} />, width: leetcodeWidth(f.leetcode.count) };
+    case "disk": {
+      const list = barDisks(f.disks, variantOf(variants, "disk"));
+      return list.length ? { node: <DiskFace list={list} />, width: disksWidth(list) } : null;
+    }
     case "script": {
       // No button inside the widget's own: a click anywhere on the widget opens the tool.
       const parts = f.script.map((p) => ({ ...p, open: null }));
@@ -173,6 +179,7 @@ const SLICES: Record<PartId, (keyof BarFeed)[]> = {
   github: ["github"],
   leetcode: ["leetcode"],
   script: ["script"],
+  disk: ["disks"],
 };
 
 /**

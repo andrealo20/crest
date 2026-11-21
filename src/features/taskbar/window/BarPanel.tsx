@@ -13,7 +13,8 @@ import { useToolSize } from "../../window/panel";
 import { limits } from "../../window/panelSize";
 import { fitIcon, placeMenu } from "../model";
 import { closePanel, panel, panelHeld, quickLayout, quickPage, trayDrag, type OpenPanel, type PanelContent } from "../panel";
-import { PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, TOOL_FALLBACK, TRAY_SIZE, fitPanel, toolPanelSize } from "../panelModel";
+import { DISKS_SIZE, PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, TOOL_FALLBACK, TRAY_SIZE, fitPanel, toolPanelSize } from "../panelModel";
+import { barFeed } from "../barStores";
 import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
 import { beyond, innerOff, popupAt, popupY } from "../position";
@@ -22,6 +23,7 @@ import type { HitRect } from "./BarMenu";
 import { useBarEdge } from "./barEdge";
 import { TOOL_TITLE_ID, ToolPanel, useTabs } from "./ToolPanel";
 import { TrayPanel } from "./TrayPanel";
+import { DisksPanel, panelDisks } from "./DisksPanel";
 
 /** The panel's corners at 100 %, CSS px: the notch's open panel where it floats, without ears. */
 const RADIUS = 30;
@@ -76,6 +78,8 @@ function usePanelSize(shows: PanelContent, apps: number): { w: number; h: number
   const folded = trayFolded.use();
   const quick = quickLayout.use();
   const page = quickPage.use();
+  const disks = panelDisks.use();
+  if (shows.kind === "disks") return DISKS_SIZE((disks ?? barFeed.get().disks).length);
   if (shows.kind === "tray") return TRAY_SIZE(fitIcon(height, iconSize), (folded ? icons : splitTray(icons, trayShown).hidden).length);
   if (shows.kind === "apps") return TRAY_SIZE(fitIcon(height, iconSize), apps);
   if (shows.kind === "quick") return page ? QUICK_PAGE_SIZE(page.rows, page.extra) : QUICK_SIZE(quick);
@@ -223,7 +227,7 @@ function Panel({
       data-notch-hit
       role="dialog"
       aria-label={
-        open.content.kind === "tray" ? t("Infobereich") : open.content.kind === "apps" ? t("Weitere Apps") : open.content.kind === "quick" ? t("Schnelleinstellungen") : undefined
+        open.content.kind === "tray" ? t("Infobereich") : open.content.kind === "apps" ? t("Weitere Apps") : open.content.kind === "quick" ? t("Schnelleinstellungen") : open.content.kind === "disks" ? t("Speicherplatz") : undefined
       }
       aria-labelledby={open.content.kind === "tool" ? TOOL_TITLE_ID : undefined}
       // Closing, it takes no key and no click: its zone is already gone.
@@ -260,6 +264,8 @@ function Panel({
                     apps.grid
                   ) : open.content.kind === "tool" ? (
                     <ToolPanel tool={open.content.tool} />
+                  ) : open.content.kind === "disks" ? (
+                    <DisksPanel />
                   ) : (
                     <Suspense fallback={null}>
                       <QuickPanel />

@@ -1,4 +1,11 @@
 {
+ "Speicherplatz": "Место на диске",
+ "Systemlaufwerk": "Системный диск",
+ "Alle Laufwerke": "Все диски",
+ "Vollstes Laufwerk": "Самый заполненный диск",
+ "USB-Laufwerk": "USB-накопитель",
+ "Lokaler Datenträger": "Локальный диск",
+ "{free} frei von {total}": "Свободно {free} из {total}",
  "Markierung offener Apps": "Метка открытых приложений",
  "Punkt": "Точка",
  "Großer Punkt": "Крупная точка",

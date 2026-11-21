@@ -161,12 +161,13 @@ export const TOOL_BUTTONS: readonly string[] = [...TOOL_IDS.filter((id) => !WIDG
 const ITEMS: string[] = [...FIXED_ITEMS, "tray", "status", ...PART_IDS, ...TOOL_BUTTONS.map((id) => `tool:${id}`), ...SYS_IDS.map((id) => `sys:${id}`)];
 
 /** The versions a widget offers on the bar, today's first; the id stays bare in the zones, so the fit, the sources and `barParts` do not change. */
-export type WidgetVariants = { weather: "temp" | "icon" | "condition" | "hours"; clock: "digital" | "analog" | "zones"; readings: "dials" | "bars" | "line"; timer: "countdown" | "ring" };
+export type WidgetVariants = { weather: "temp" | "icon" | "condition" | "hours"; clock: "digital" | "analog" | "zones"; readings: "dials" | "bars" | "line"; timer: "countdown" | "ring"; disk: "system" | "all" | "fullest" };
 export const WIDGET_VARIANTS: { [K in keyof WidgetVariants]: readonly WidgetVariants[K][] } = {
   weather: ["temp", "icon", "condition", "hours"],
   clock: ["digital", "analog", "zones"],
   readings: ["dials", "bars", "line"],
   timer: ["countdown", "ring"],
+  disk: ["system", "all", "fullest"],
 };
 
 export const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);

@@ -137,7 +137,7 @@ test("the bar's clock has its own date and seconds", () => {
 });
 
 test("each widget with versions starts on today's look", () => {
-  assert.deepEqual(Object.fromEntries(Object.entries(WIDGET_VARIANTS).map(([id, v]) => [id, v[0]])), { weather: "temp", clock: "digital", readings: "dials", timer: "countdown" });
+  assert.deepEqual(Object.fromEntries(Object.entries(WIDGET_VARIANTS).map(([id, v]) => [id, v[0]])), { weather: "temp", clock: "digital", readings: "dials", timer: "countdown", disk: "system" });
   assert.deepEqual(TASKBAR_DEFAULTS.variants, {});
 });
 

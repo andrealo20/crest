@@ -63,7 +63,7 @@ import { leetcode } from "../leetcode/store";
 import { settings, updateAsk, updateSettings, type AskProvider } from "../../settings/store";
 import { Button, Group, RoomyContext, Row, Segmented, Select, Slider, StyleCards, SubSwitch, Switch, TextField } from "../../ui/controls";
 import type { RowSymbol } from "../../ui/materialNames";
-import { PET_IDS, PET_SIZE, type ClosedSettings, type PartId, type PetId } from "../../notch/row/parts";
+import { BAR_ONLY, PET_IDS, PET_SIZE, type ClosedSettings, type PartId, type PetId } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
 import { PetArt } from "../../notch/pet/Nest";
 import { PET_NAMES } from "../../notch/pet/art";
@@ -1327,7 +1327,7 @@ function ClosedParts() {
   // Only these always show; battery, power and temperature can be missing, so they cannot keep the part alone. The network
   // counts too, so the part can show only the download and upload speed (issue #11).
   const mainReadings = ["cpu", "ram", "gpu", "net"] as const;
-  const shown = c.order.filter((id) => !(isMac && NO_MAC_PARTS.has(id)));
+  const shown = c.order.filter((id) => !BAR_ONLY.includes(id) && !(isMac && NO_MAC_PARTS.has(id)));
   const readingsOn = mainReadings.filter((k) => c.readings[k]).length;
   const iconColors = useIconColors();
   // What a part shows nothing without; the part itself says so while it is on.

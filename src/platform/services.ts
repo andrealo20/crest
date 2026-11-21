@@ -16,6 +16,7 @@ import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
 import type { BarKey, JumpList, TrayState, WindowList, WindowState } from "../features/taskbar/model";
 import type { Decor } from "../features/taskbar/decorModel";
+import type { DiskDrive } from "../features/taskbar/disks";
 import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
 import type { Rect } from "../features/taskbar/autoHide";
 import type { BtDevice, WifiList } from "../features/taskbar/quickPages";
@@ -1555,6 +1556,10 @@ export const taskbar = {
   },
   /** Opens the bin in Explorer, or empties it after Windows' own confirmation. The bar only. */
   recycleDo: (action: "open" | "empty"): Promise<void> => (isNative ? invoke("taskbar_recycle_do", { action }) : Promise.resolve()),
+  /** The lettered drives and their free space (taskbar/disks.rs), read now; null in the browser and where it fails. */
+  disks: (): Promise<DiskDrive[] | null> => (isNative ? invoke<DiskDrive[]>("taskbar_disks").catch(() => null) : Promise.resolve(null)),
+  /** Opens a drive of the last listing in File Explorer, by its letter. The bar only. */
+  diskOpen: (letter: string): Promise<void> => (isNative ? invoke("taskbar_disk_open", { letter }) : Promise.resolve()),
   /** One of Windows' settings pages, by name (Rust maps it to its URI). */
   settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location" | "microphone" | "camera" | "mixer" | "night" | "dnd" | "access"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
   /**

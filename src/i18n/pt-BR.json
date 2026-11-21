@@ -1,4 +1,11 @@
 {
+ "Speicherplatz": "Espaço em disco",
+ "Systemlaufwerk": "Unidade do sistema",
+ "Alle Laufwerke": "Todas as unidades",
+ "Vollstes Laufwerk": "Unidade mais cheia",
+ "USB-Laufwerk": "Unidade USB",
+ "Lokaler Datenträger": "Disco local",
+ "{free} frei von {total}": "{free} livres de {total}",
  "Markierung offener Apps": "Marca de apps abertos",
  "Punkt": "Ponto",
  "Großer Punkt": "Ponto grande",

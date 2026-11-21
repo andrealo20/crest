@@ -157,7 +157,7 @@ const SETTINGS_DENIED: &[&str] = &[
     "taskbar_bt_devices", "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_own_pins_keep",
     "display_rescale", "taskbar_input", "taskbar_app_volume", "taskbar_spread", "taskbar_jump_list", "taskbar_jump_open",
     "taskbar_keys", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_all_desktops", "taskbar_window_menu", "taskbar_arrange",
-    "taskbar_window_order", "taskbar_end_task", "taskbar_decor", "taskbar_decor_images",
+    "taskbar_window_order", "taskbar_end_task", "taskbar_decor", "taskbar_decor_images", "taskbar_disks", "taskbar_disk_open",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, pinning a listed window,
@@ -170,7 +170,7 @@ const SETTINGS_DENIED: &[&str] = &[
 /// (taskbar/taskband.rs), the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
 /// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), the jump list of an
 /// app's menu and its rows opened (taskbar/jumplist.rs), the keyboard after one of its Windows keys (`taskbar_focus`), the Recycle Bin
-/// (taskbar/recycle.rs), the window and group menus and the previews' order (taskbar/tasks.rs), and what the notch's
+/// (taskbar/recycle.rs), the drives of its disk space widget and opening one (taskbar/disks.rs), the window and group menus and the previews' order (taskbar/tasks.rs), and what the notch's
 /// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
 /// `taskbar_tray_on`, `taskbar_spread`, `taskbar_all_desktops`, `taskbar_end_task`).
 const TASKBAR_ALLOWED: &[&str] = &[
@@ -191,7 +191,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
     "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_input", "taskbar_app_volume",
     "taskbar_jump_list", "taskbar_jump_open", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_window_menu", "taskbar_arrange",
-    "taskbar_window_order",
+    "taskbar_window_order", "taskbar_disks", "taskbar_disk_open",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -586,6 +586,10 @@ pub fn run() {
             taskbar::recycle::taskbar_recycle,
             #[cfg(windows)]
             taskbar::recycle::taskbar_recycle_do,
+            #[cfg(windows)]
+            taskbar::disks::taskbar_disks,
+            #[cfg(windows)]
+            taskbar::disks::taskbar_disk_open,
             #[cfg(windows)]
             taskbar::tasks::taskbar_all_desktops,
             taskbar::tasks::taskbar_end_task,
@@ -1332,8 +1336,8 @@ mod tests {
         assert!(ok("notch", "taskbar_keys") && !ok("settings", "taskbar_keys") && !ok("taskbar", "taskbar_keys"));
         assert!(ok("settings", "taskbar_keys_status") && !ok("taskbar", "taskbar_keys_status"));
         assert!(ok("taskbar", "taskbar_focus") && ok("taskbar-1", "taskbar_focus") && !ok("settings", "taskbar_focus"));
-        // The Recycle Bin, the window and group menus and the previews' order: the bars' own, never the settings window's.
-        for c in ["taskbar_recycle", "taskbar_recycle_do", "taskbar_window_menu", "taskbar_arrange", "taskbar_window_order"] {
+        // The Recycle Bin, the window and group menus, the previews' order and the disk widget's drives: the bars' own, never the settings window's.
+        for c in ["taskbar_recycle", "taskbar_recycle_do", "taskbar_window_menu", "taskbar_arrange", "taskbar_window_order", "taskbar_disks", "taskbar_disk_open"] {
             assert!(ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c), "{c}");
         }
         // Windows of every desktop: a setting, so the notch's alone.

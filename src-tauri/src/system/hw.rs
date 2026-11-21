@@ -1,7 +1,7 @@
 //! Readings that need no administrator rights and no driver of Crest's own: graphics temperatures (D3DKMT, as Task
 //! Manager), NVIDIA board power and temperature (NVML from System32, desktops only), the machine's battery (WinRT
 //! report + GetSystemPowerStatus), and internal drives with SSD temperatures (storage properties, on a thread of their
-//! own). Raw values only; src/features/system/*.ts decides what they mean.
+//! own). The same drives, without temperatures, for the bar's disk space widget (`bar_drives`). Raw values only; src/features/system/*.ts decides what they mean.
 //!
 //! Translated in part from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck): src/BrimDeck/Native/TemperatureSensors.cs
 //! (D3DKMT perf data layout, retry pauses) and src/BrimDeck/Native/StorageReader.cs (storage property layouts).
@@ -17,7 +17,7 @@ use windows::core::{s, w, HSTRING, PCSTR};
 use windows::Devices::Power::Battery;
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HMODULE, LUID};
 use windows::Win32::Storage::FileSystem::{
-    CreateFileW, GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDriveStringsW, GetVolumeNameForVolumeMountPointW, QueryDosDeviceW,
+    CreateFileW, GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDriveStringsW, GetVolumeInformationW, GetVolumeNameForVolumeMountPointW, QueryDosDeviceW,
     FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
 use windows::Win32::System::Diagnostics::Debug::{SetThreadErrorMode, SEM_FAILCRITICALERRORS, THREAD_ERROR_MODE};
@@ -352,6 +352,8 @@ const DRIVE_REMOVABLE: u32 = 2;
 const DRIVE_FIXED: u32 = 3;
 /// A drive behind a RAID controller is never asked for its temperature: the controller's driver answers for it and may hang.
 const BUS_RAID: u32 = 8;
+/// STORAGE_BUS_TYPE values of drives that plug in: USB, SD, MMC (as PLUG_BUS in src/features/system/storage.ts).
+const PLUG_BUS: [u32; 3] = [7, 12, 13];
 
 #[derive(Default)]
 struct DriveCache {
@@ -375,6 +377,9 @@ pub struct Volume {
     free: u64,
     /// \\.\PhysicalDriveN; None when the volume spans drives.
     disk: Option<u32>,
+    /// The name File Explorer shows, empty when the volume has none; the bar's alone (bar_drives).
+    #[serde(skip)]
+    label: String,
 }
 
 #[derive(Serialize, Clone)]
@@ -438,11 +443,53 @@ fn volumes() -> Vec<Volume> {
                 continue;
             }
             let Some(disk) = extents(&letter) else { continue };
-            list.push(Volume { letter, total, free, disk });
+            let mut name = [0u16; 261];
+            let label = if GetVolumeInformationW(&root_h, Some(&mut name), None, None, None, None).is_ok() {
+                String::from_utf16_lossy(&name[..name.iter().position(|&c| c == 0).unwrap_or(name.len())])
+            } else {
+                String::new()
+            };
+            list.push(Volume { letter, total, free, disk, label });
         }
         let _ = SetThreadErrorMode(old_mode, None);
     }
     list
+}
+
+/// A lettered drive for the bar's disk space widget (taskbar/disks.rs).
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct BarDrive {
+    /// "C:"
+    pub letter: String,
+    /// The volume's label, else the drive's model; may be empty.
+    name: String,
+    total: u64,
+    free: u64,
+    /// A USB stick, a card or a USB disk.
+    removable: bool,
+    /// The drive Windows runs from.
+    system: bool,
+}
+
+/// Whether a drive plugs in: removable media (a USB stick, a card) or a fixed disk on a USB, SD or MMC bus (a USB disk). A
+/// volume whose drive is not known (it spans drives) counts as internal.
+fn plugs_in(disk: Option<&Disk>) -> bool {
+    disk.is_some_and(|d| d.removable || PLUG_BUS.contains(&d.bus))
+}
+
+/// Every lettered volume the Hardware tool reads, without temperatures, so no drive is asked for one. Read on a call, not
+/// cached: the bar asks every few minutes and as its panel opens.
+pub fn bar_drives() -> Vec<BarDrive> {
+    let Drives { volumes, disks } = read_drives(false);
+    let system = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
+    volumes
+        .into_iter()
+        .map(|v| {
+            let disk = v.disk.and_then(|n| disks.iter().find(|d| d.number == n));
+            let name = if v.label.is_empty() { disk.map(|d| d.model.clone()).unwrap_or_default() } else { v.label };
+            BarDrive { system: v.letter.eq_ignore_ascii_case(&system), removable: plugs_in(disk), name, total: v.total, free: v.free, letter: v.letter }
+        })
+        .collect()
 }
 
 /// A letter whose DOS device is a disk volume; a subst target (`\??\`) and a virtual file system are not.
@@ -531,5 +578,17 @@ mod tests {
         assert!(disk_volume(r"\Device\HarddiskVolume3"));
         assert!(!disk_volume(r"\Device\Volume{042dcf0d-1a8b-3c45-87b7-1a3469d2a54b}"));
         assert!(!disk_volume(r"\??\C:\some\folder"));
+    }
+
+    #[test]
+    fn usb_sticks_and_disks_plug_in() {
+        let d = |bus: u32, removable: bool| Disk { number: 0, model: String::new(), bus, removable, ssd: true, temp: None };
+        // NVMe, SATA and a virtual disk are internal; so is a volume whose drive is not known.
+        assert!(!plugs_in(Some(&d(17, false))) && !plugs_in(Some(&d(11, false))) && !plugs_in(Some(&d(14, false))));
+        assert!(!plugs_in(None));
+        // A USB stick (removable media), a USB disk (fixed, on USB), an SD and an MMC card.
+        assert!(plugs_in(Some(&d(7, true))) && plugs_in(Some(&d(7, false))) && plugs_in(Some(&d(12, false))) && plugs_in(Some(&d(13, false))));
+        // Removable media on any bus.
+        assert!(plugs_in(Some(&d(11, true))));
     }
 }

@@ -1,4 +1,11 @@
 {
+ "Speicherplatz": "磁盘空间",
+ "Systemlaufwerk": "系统驱动器",
+ "Alle Laufwerke": "所有驱动器",
+ "Vollstes Laufwerk": "最满的驱动器",
+ "USB-Laufwerk": "U 盘",
+ "Lokaler Datenträger": "本地磁盘",
+ "{free} frei von {total}": "{total} 中可用 {free}",
  "Markierung offener Apps": "已打开应用的标记",
  "Punkt": "圆点",
  "Großer Punkt": "大圆点",

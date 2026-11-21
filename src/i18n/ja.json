@@ -1,4 +1,11 @@
 {
+ "Speicherplatz": "ディスク容量",
+ "Systemlaufwerk": "システム ドライブ",
+ "Alle Laufwerke": "すべてのドライブ",
+ "Vollstes Laufwerk": "最も空きの少ないドライブ",
+ "USB-Laufwerk": "USB ドライブ",
+ "Lokaler Datenträger": "ローカル ディスク",
+ "{free} frei von {total}": "{total} 中 {free} 空き",
  "Markierung offener Apps": "開いているアプリのマーク",
  "Punkt": "ドット",
  "Großer Punkt": "大きいドット",

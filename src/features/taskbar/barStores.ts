@@ -13,6 +13,7 @@ import { system } from "../system/store";
 import { focusMuted, ringing } from "../timer/store";
 import { usage } from "../usage/store";
 import type { Forecast } from "../weather/store";
+import type { DiskDrive } from "./disks";
 
 /*
  * What the notch sends Crest's bar over the bridge (src/lib/bridge.ts), read by both windows: the widgets' data, computed in the
@@ -36,6 +37,8 @@ export interface BarFeed {
   downloads: DownloadProgress[];
   call: DiscordCall | null;
   script: ScriptPart[];
+  /** The drives, read every few minutes (feed.tsx DiskSource). */
+  disks: DiskDrive[];
 }
 
 export const EMPTY_FEED: BarFeed = {
@@ -52,6 +55,7 @@ export const EMPTY_FEED: BarFeed = {
   downloads: [],
   call: null,
   script: [],
+  disks: [],
 };
 
 export const barFeed = createStore<BarFeed>(EMPTY_FEED);

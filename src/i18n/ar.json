@@ -1,4 +1,11 @@
 {
+ "Speicherplatz": "مساحة القرص",
+ "Systemlaufwerk": "محرك أقراص النظام",
+ "Alle Laufwerke": "كل محركات الأقراص",
+ "Vollstes Laufwerk": "محرك الأقراص الأكثر امتلاءً",
+ "USB-Laufwerk": "محرك أقراص USB",
+ "Lokaler Datenträger": "قرص محلي",
+ "{free} frei von {total}": "{free} متاحة من {total}",
  "Markierung offener Apps": "علامة التطبيقات المفتوحة",
  "Punkt": "نقطة",
  "Großer Punkt": "نقطة كبيرة",

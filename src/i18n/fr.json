@@ -1,4 +1,11 @@
 {
+ "Speicherplatz": "Espace disque",
+ "Systemlaufwerk": "Lecteur système",
+ "Alle Laufwerke": "Tous les lecteurs",
+ "Vollstes Laufwerk": "Lecteur le plus plein",
+ "USB-Laufwerk": "Lecteur USB",
+ "Lokaler Datenträger": "Disque local",
+ "{free} frei von {total}": "{free} libres sur {total}",
  "Markierung offener Apps": "Repère des apps ouvertes",
  "Punkt": "Point",
  "Großer Punkt": "Gros point",

@@ -1,4 +1,11 @@
 {
+ "Speicherplatz": "Disk space",
+ "Systemlaufwerk": "System drive",
+ "Alle Laufwerke": "All drives",
+ "Vollstes Laufwerk": "Fullest drive",
+ "USB-Laufwerk": "USB drive",
+ "Lokaler Datenträger": "Local disk",
+ "{free} frei von {total}": "{free} free of {total}",
  "Markierung offener Apps": "Open app marker",
  "Punkt": "Dot",
  "Großer Punkt": "Large dot",

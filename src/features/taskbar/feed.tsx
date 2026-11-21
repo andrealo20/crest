@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useReducedMotion } from "motion/react";
 import { language } from "../../i18n";
 import { shareStores } from "../../lib/bridge";
@@ -165,6 +165,26 @@ function ScriptSource() {
   return null;
 }
 
+/** How often the disk widget's drives are read: never a tight poll, so an idle disk is not kept awake. */
+const DISKS_EVERY = 5 * 60_000;
+
+/** The drives now and every DISKS_EVERY; Crest hears no device change, so a drive plugged in shows on the next read (or in the panel, which reads as it opens). */
+function DiskSource() {
+  const [list, setList] = useState(() => barFeed.get().disks);
+  useEffect(() => {
+    let on = true;
+    const read = () => void taskbar.disks().then((d) => on && d && setList(d));
+    read();
+    const id = window.setInterval(read, DISKS_EVERY);
+    return () => {
+      on = false;
+      window.clearInterval(id);
+    };
+  }, []);
+  useSlice("disks", list);
+  return null;
+}
+
 /** The clock and the timer have none: the bar counts the time itself, and the timer is a saved store. */
 const SOURCES: Partial<Record<PartId, () => null>> = {
   weather: WeatherSource,
@@ -178,6 +198,7 @@ const SOURCES: Partial<Record<PartId, () => null>> = {
   github: GithubSource,
   leetcode: LeetcodeSource,
   script: ScriptSource,
+  disk: DiskSource,
 };
 
 /**

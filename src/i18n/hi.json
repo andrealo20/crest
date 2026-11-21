@@ -1,4 +1,11 @@
 {
+ "Speicherplatz": "डिस्क स्थान",
+ "Systemlaufwerk": "सिस्टम ड्राइव",
+ "Alle Laufwerke": "सभी ड्राइव",
+ "Vollstes Laufwerk": "सबसे भरी ड्राइव",
+ "USB-Laufwerk": "USB ड्राइव",
+ "Lokaler Datenträger": "लोकल डिस्क",
+ "{free} frei von {total}": "{total} में से {free} खाली",
  "Markierung offener Apps": "खुले ऐप्स का निशान",
  "Punkt": "बिंदु",
  "Großer Punkt": "बड़ा बिंदु",

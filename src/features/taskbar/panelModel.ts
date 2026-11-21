@@ -3,8 +3,8 @@
 
 import { DOCK_HEIGHT } from "../../notch/geometry.ts";
 
-/** What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, the apps behind "…", or Stato's quick panel. */
-export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "apps" } | { kind: "quick" };
+/** What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, the apps behind "…", Stato's quick panel, or the disk widget's drives. */
+export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "apps" } | { kind: "quick" } | { kind: "disks" };
 /** The item the panel opens over: its left edge and its width, CSS px. */
 export interface PanelAnchor {
   x: number;
@@ -93,6 +93,11 @@ export const PASSWORD_ROW = 44;
  * scroll) plus `extra`, and the footer (32), 10 px between the three.
  */
 export const QUICK_PAGE_SIZE = (rows: number, extra: number) => ({ w: 360, h: 24 + 32 + 10 + Math.min(Math.max(rows, 1), PAGE_MAX_ROWS) * PAGE_ROW + extra + 10 + 32 });
+
+/** A drive's row in the disk widget's panel, CSS px. */
+export const DISK_ROW = 52;
+/** The disk widget's panel at 100 %: 8 px round its rows, one at least, PAGE_MAX_ROWS at most, past which they scroll. */
+export const DISKS_SIZE = (rows: number) => ({ w: 340, h: 16 + Math.min(Math.max(rows, 1), PAGE_MAX_ROWS) * DISK_ROW });
 
 /** The page the quick panel keeps: none once the page's radio is gone (adapter removed), the same while it is only off or not read yet; the mixer whatever the radios read. */
 export function pageAfter(page: QuickPage | null, quick: { wifi: boolean | null; bluetooth: boolean | null } | null): QuickPage | null {
