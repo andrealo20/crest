@@ -612,7 +612,6 @@ function SearchResults({ hits, onOpen }: { hits: Hit[]; onOpen: (h: Hit) => void
   );
 }
 
-/** One settings page's groups; also rendered hidden for the search index. */
 /** The settings window's mark: a shape for each page that morphs into the next, with the page's icon over it. */
 function NavMark({ id, icon: Glyph, size }: { id: string; icon: Icon; size: 40 | 54 }) {
   const points = useMemo(() => shapePoints(...brandOf(id)), [id]);
@@ -638,6 +637,7 @@ function NavMark({ id, icon: Glyph, size }: { id: string; icon: Icon; size: 40 |
   );
 }
 
+/** One settings page's groups; also rendered hidden for the search index. */
 function PageContent({ page }: { page: PageId }) {
   return (
     <>

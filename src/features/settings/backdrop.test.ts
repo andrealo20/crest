@@ -89,4 +89,7 @@ test("the navigation's mark morphs per page in the settings window only, with th
     assert.ok(tag.includes("id={viewKey}"), tag);
     assert.ok(tag.includes("size={compact ? 40 : 54}"), tag);
   }
+  // Each of the two functions keeps its own doc comment right above it.
+  assert.match(view, /\n\/\*\* The settings window's mark[^\n]*\*\/\nfunction NavMark\(/);
+  assert.match(view, /\n\/\*\* One settings page's groups[^\n]*\*\/\nfunction PageContent\(/);
 });
