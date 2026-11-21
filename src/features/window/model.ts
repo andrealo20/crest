@@ -161,3 +161,13 @@ export function cycle(ids: string[], current: string, step: 1 | -1): string | nu
   if (i < 0) return ids[0];
   return ids[(i + step + ids.length) % ids.length];
 }
+
+/**
+ * How far a wheel moves a horizontal strip's scrollLeft: the vertical wheel turns sideways, toward the end in either text direction.
+ * 0 leaves it alone: a sideways wheel scrolls the strip by itself, and with nothing hidden (`room` = scrollWidth - clientWidth) the notch switches tools.
+ */
+export function stripScroll(dx: number, dy: number, room: number, rtl: boolean): number {
+  if (Math.abs(dy) <= Math.abs(dx) || room <= 1) return 0;
+  // Right to left, scrollLeft runs from 0 down to negative values.
+  return rtl ? -dy : dy;
+}

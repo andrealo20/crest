@@ -23,6 +23,7 @@ import { refreshTokens, refreshUsage, usage, useTokens, useUsageViewer } from ".
 import { formatAmount, formatCost, formatTokens } from "./format";
 import { dayStart, totals, type Totals } from "./tokens";
 import { usePresenting } from "../privacy/store";
+import { wheelSideways } from "../window/panel";
 
 /** What a stale card adds: its reason on up to two lines and the renew link. */
 const STALE_ROWS = 56;
@@ -168,7 +169,7 @@ export function UsageView() {
   const list: (Partial<UsageProvider> & { id: UsageId })[] = updatedAt === null ? ids.map((id) => ({ id })) : providers;
   const today = dayStart(now, 0), week = dayStart(now, 6);
   return (
-    <div className="flex h-full gap-2 overflow-x-auto px-4 pt-1 pb-2 [scrollbar-width:none]">
+    <div ref={wheelSideways} className="flex h-full gap-2 overflow-x-auto px-4 pt-1 pb-2 [scrollbar-width:none]">
       {actions}
       {list.map((p, i) => {
         const tool = TOKEN_TOOL[p.id];

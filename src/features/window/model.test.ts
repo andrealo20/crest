@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { altGrRisk } from "./hotkeys.ts";
-import { MAX_APP_RULES, MAX_TOOL_HOTKEYS, WINDOW_DEFAULTS, addRule, cycle, exeName, newRule, normalizeWindow, ruleKey } from "./model.ts";
+import { MAX_APP_RULES, MAX_TOOL_HOTKEYS, WINDOW_DEFAULTS, addRule, cycle, exeName, newRule, normalizeWindow, ruleKey, stripScroll } from "./model.ts";
 
 test("without a saved group the rules follow the old visibility setting", () => {
   assert.deepEqual(normalizeWindow(undefined).rules, WINDOW_DEFAULTS.rules);
@@ -79,4 +79,18 @@ test("saved text sizes per tool survive a reload; a fresh install has none", () 
   assert.deepEqual(WINDOW_DEFAULTS.textSizes, {});
   assert.deepEqual(normalizeWindow({ textSizes: { notes: 150, calc: 42 } }).textSizes, { notes: 150 });
   assert.deepEqual(normalizeWindow({}).textSizes, {});
+});
+
+test("a vertical wheel scrolls a strip that overflows sideways, toward its end in either text direction", () => {
+  assert.equal(stripScroll(0, 100, 240, false), 100);
+  assert.equal(stripScroll(0, -100, 240, false), -100);
+  // Right to left, scrollLeft runs from 0 down to negative values.
+  assert.equal(stripScroll(4, 100, 240, true), -100);
+});
+
+test("a strip leaves the wheel alone when nothing is hidden or the wheel already runs sideways", () => {
+  assert.equal(stripScroll(0, 100, 0, false), 0);
+  assert.equal(stripScroll(0, 100, 1, false), 0);
+  assert.equal(stripScroll(120, 30, 240, false), 0);
+  assert.equal(stripScroll(0, 0, 240, false), 0);
 });
