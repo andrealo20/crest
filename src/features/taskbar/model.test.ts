@@ -20,6 +20,7 @@ import {
   normalizeZones,
   placeMenu,
   statusWanted,
+  stepItem,
   taskbarShown,
   trayIcon,
   trayOnBar,
@@ -280,6 +281,20 @@ test("a drop where the item already is changes nothing, so nothing is written", 
   assert.equal(moveBefore(z, "weather", "right", "weather"), z);
   assert.equal(moveBefore(z, "github", "right", "tray"), z); // not on the bar
   assert.equal(moveBefore(z, "clock", "left", "tray"), z); // its neighbour is not in that zone
+});
+
+test("Up and Down move an item one row among the ones the page lists, and stop at the ends", () => {
+  const z = Z([], ["start", "apps"], ["weather", "tray", "clock", "crest"]);
+  assert.deepEqual(stepItem(z, z.right, "tray", -1).right, ["tray", "weather", "clock", "crest"]);
+  assert.deepEqual(stepItem(z, z.right, "tray", 1).right, ["weather", "clock", "tray", "crest"]);
+  assert.deepEqual(stepItem(z, z.right, "clock", 1).right, ["weather", "tray", "crest", "clock"]);
+  assert.equal(stepItem(z, z.right, "weather", -1), z);
+  assert.equal(stepItem(z, z.right, "crest", 1), z);
+  assert.equal(stepItem(z, z.right, "github", 1), z);
+  // A saved tool the page does not list never swallows a step.
+  const h = Z([], [], ["weather", "tool:notes", "tray"]);
+  assert.deepEqual(stepItem(h, ["weather", "tray"], "weather", 1).right, ["tool:notes", "tray", "weather"]);
+  assert.deepEqual(stepItem(h, ["weather", "tray"], "tray", -1).right, ["tray", "weather", "tool:notes"]);
 });
 
 const slot = (id: BarItem, zone: Zone, x: number, w = 40) => ({ id, zone, x, w });

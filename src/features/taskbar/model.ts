@@ -214,6 +214,16 @@ export function moveBefore(zones: Record<Zone, BarItem[]>, id: BarItem, zone: Zo
   return JSON.stringify(next) === JSON.stringify(zones) ? zones : next;
 }
 
+/**
+ * Items' Up (-1) and Down (1): `id` moved one row among `shown`, its zone as the page lists it, on the saved zones (moveBefore), so a
+ * saved item the page does not list never takes a step; the same object at the ends or for an id not shown.
+ */
+export function stepItem(zones: Record<Zone, BarItem[]>, shown: BarItem[], id: BarItem, by: -1 | 1): Record<Zone, BarItem[]> {
+  const i = shown.indexOf(id), zone = ZONES.find((z) => zones[z].includes(id));
+  if (i < 0 || !zone || (by < 0 ? i === 0 : i === shown.length - 1)) return zones;
+  return moveBefore(zones, id, zone, by < 0 ? shown[i - 1] : (shown[i + 2] ?? null));
+}
+
 /** An item drawn on the bar, in DOM order: its zone and its box's left edge and width, CSS px. */
 export type DropSlot = { id: BarItem; zone: Zone; x: number; w: number };
 /** A zone's box on the grid shapes, CSS px. */
