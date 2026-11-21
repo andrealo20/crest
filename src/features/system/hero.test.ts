@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { MARKS, SHAPES, brandOf, idHash, loadShape, mixPoints, pathOf, shapePoints, type ShapeName } from "./hero.ts";
+import { MARKS, SHAPES, brandOf, idHash, loadShape, mixPoints, niceMax, pathOf, shapePoints, systemFit, type ShapeName } from "./hero.ts";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
@@ -79,4 +79,34 @@ test("the morph writes its path from JavaScript on Material's spring, and jumps 
   assert.doesNotMatch(src, /transition[:=-]|transitionProperty/);
   for (const s of ["blur(", "color-mix(", "linear(", ":dir("]) assert.ok(!src.includes(s), s);
   assert.doesNotMatch(src, /\b(bg|text|fill|stroke|ring|border)-[\w-]+\/\d/);
+});
+
+test("the Material hardware drops the cores first, then folds the tiles into chips, at every tool size", () => {
+  assert.deepEqual(systemFit(544, 210), { cores: false, tiles: "chips", rows: 2, ring: 64, shape: 48, tempBar: false });
+  assert.deepEqual(systemFit(580, 229), { cores: false, tiles: "chips", rows: 3, ring: 64, shape: 48, tempBar: false });
+  assert.deepEqual(systemFit(688, 286), { cores: true, tiles: "cards", rows: 5, ring: 76, shape: 60, tempBar: true });
+  assert.deepEqual(systemFit(708, 362), { cores: true, tiles: "cards", rows: 6, ring: 76, shape: 60, tempBar: true });
+  assert.deepEqual(systemFit(708, 446), { cores: true, tiles: "cards", rows: 8, ring: 96, shape: 72, tempBar: true });
+});
+
+test("the process rows always fit their card", () => {
+  assert.equal(systemFit(708, 417).rows, 7);
+  assert.equal(systemFit(708, 418).rows, 8);
+  assert.equal(systemFit(708, 329).rows, 5);
+  assert.equal(systemFit(708, 330).rows, 6);
+  for (let h = 192; h <= 600; h++) {
+    const card = h - 8 - Math.max(104, ((h - 8) * 126) / 278);
+    assert.ok(32 + 24 * systemFit(708, h).rows <= card, `h ${h}`);
+  }
+});
+
+test("the network graph's scale rounds up to 1, 2 or 5 times a power of ten, at least 1 MB/s", () => {
+  assert.equal(niceMax([3e5]), 1e6);
+  assert.equal(niceMax([1.2e6]), 2e6);
+  assert.equal(niceMax([4.1e7, NaN]), 5e7);
+  assert.equal(niceMax([6e7, 1e3]), 1e8);
+  assert.equal(niceMax([]), 1e6);
+  assert.equal(niceMax([1e6]), 1e6);
+  assert.equal(niceMax([2e6]), 2e6);
+  assert.equal(niceMax([5e7]), 5e7);
 });

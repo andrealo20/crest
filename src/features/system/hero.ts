@@ -74,3 +74,26 @@ export function brandOf(id: string): [lobes: number, amplitude: number] {
   const h = idHash(id);
   return [4 + (h % 9), 0.05 + ((h >>> 8) % 11) / 100];
 }
+
+/** What the Material hardware shows in a body of w x h CSS px: the cores go first, then the three tiles fold into a row of chips. */
+export function systemFit(
+  w: number,
+  h: number,
+): { cores: boolean; tiles: "cards" | "chips"; rows: number; ring: 64 | 76 | 96; shape: 48 | 60 | 72; tempBar: boolean } {
+  return {
+    cores: h >= 280,
+    tiles: h >= 258 ? "cards" : "chips",
+    // The rows that fit the processes card: its grid row (the RAM and drive row keeps its 104 px) less the 28 px header and pb-1, 24 px each.
+    rows: Math.min(8, Math.max(2, Math.floor((h - 8 - Math.max(104, ((h - 8) * 126) / 278) - 32) / 24))),
+    ring: h >= 420 ? 96 : h >= 280 ? 76 : 64,
+    shape: h >= 420 ? 72 : h >= 280 ? 60 : 48,
+    tempBar: w >= 600,
+  };
+}
+
+/** The network graph's scale target, at least 1 MB/s and rounded up to 1, 2 or 5 times a power of ten, so it changes only when the traffic crosses one. */
+export function niceMax(values: readonly number[]): number {
+  const top = Math.max(1e6, ...values.filter(Number.isFinite));
+  const p = 10 ** Math.floor(Math.log10(top));
+  return [p, 2 * p, 5 * p].find((n) => n >= top) ?? 10 * p;
+}
