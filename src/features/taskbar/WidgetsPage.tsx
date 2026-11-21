@@ -139,7 +139,7 @@ function Versions({ id, s, zone }: { id: PartId; s: Settings; zone: string | nul
           className={`flex flex-col items-center gap-1 rounded-[10px] outline-offset-2 outline-label-2 focus-visible:outline-2 ${i === chosen ? "ring-2 ring-accent" : ""}`}
         >
           <Preview id={id} choice={c} s={s} zone={zone} />
-          <span className={`pb-1 text-caption ${i === chosen ? "text-label" : "text-label-2"}`}>{choiceLabel(c)}</span>
+          <span className={`px-1.5 pb-1 text-caption ${i === chosen ? "text-label" : "text-label-2"}`}>{choiceLabel(c)}</span>
         </button>
       ))}
     </div>
