@@ -4,7 +4,7 @@ import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 import { DEFAULT_OFF, TOOL_IDS } from "../../settings/tools.ts";
 import { TASKBAR_DEFAULTS, TOOL_BUTTONS, type BarItem, type Zone } from "./model.ts";
 import { statusPill } from "./statusModel.ts";
-import { SLIDE_KEEP_MS, addWidget, addableTools, applyChoice, chosenChoice, barPartsFor, barSources, barWidgets, isTool, isWidget, pillWidget, previewInk, removeWidget, shownZones, sourcesAfter, toolOf, toolShown, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
+import { SLIDE_KEEP_MS, addWidget, addableTools, applyChoice, chosenChoice, clockHasSeconds, barPartsFor, barSources, barWidgets, isTool, isWidget, pillWidget, previewInk, removeWidget, shownZones, sourcesAfter, toolOf, toolShown, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
 
 test("a widget's preview wears the bar's ink: Dark's under Liquid Glass + whatever the surface, the closed notch's on Notch, the theme's otherwise", () => {
   const dark = { "--color-label": "white", "--theme-accent": "blue" }, closed = { "--color-label": "white", "--accent": "red" };
@@ -164,6 +164,15 @@ test("a pick writes only what differs from the saved settings, so Two time zones
   // Saved as shown: nothing to write.
   assert.deepEqual(applyChoice({ variants: {}, clock }, "clock", { variant: "digital", date: true }), {});
   assert.deepEqual(applyChoice({ variants: { weather: "hours" }, clock }, "weather", { variant: "hours" }), {});
+});
+
+test("only the digital clock has seconds to switch: not Analog, not Two time zones while a zone draws them", () => {
+  assert.equal(clockHasSeconds({}, false), true);
+  assert.equal(clockHasSeconds({ clock: "analog" }, true), false);
+  assert.equal(clockHasSeconds({ clock: "zones" }, true), false);
+  // Without a zone the bar draws the digital clock for Two time zones.
+  assert.equal(clockHasSeconds({ clock: "zones" }, false), true);
+  assert.equal(clockHasSeconds("x", true), true);
 });
 
 test("the arrows move through a widget's versions and wrap, mirrored right to left", () => {

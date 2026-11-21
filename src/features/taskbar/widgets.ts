@@ -140,6 +140,9 @@ export function chosenChoice(id: PartId, variants: unknown, date: boolean, zones
   return hasVersions(id) ? (WIDGET_VARIANTS[id] as readonly string[]).indexOf(variantOf(variants, id)) : 0;
 }
 
+/** Whether the clock the bar draws has seconds to switch: the digital one, also for Two time zones saved while no zone draws them. */
+export const clockHasSeconds = (variants: unknown, zones: boolean): boolean => chosenChoice("clock", variants, true, zones) < 2;
+
 /**
  * The settings patch for picking `c` for `id`: the version in variants, the digital clock's date in clock (and no clock in
  * variants), nothing for a widget without versions or when the saved settings already say so, compared with what is saved, not
