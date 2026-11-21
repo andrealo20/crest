@@ -24,6 +24,28 @@ function press(e: ReactPointerEvent<HTMLButtonElement>, icon: TrayIcon, from: "p
   startPress(e, { threshold: DRAG, onDrag: (x, y) => trayDrag.set({ id: icon.id, img: icon.img, x, y, from }), onEnd: () => trayDrag.set(null) });
 }
 
+/** How long the pointer rests on a tray icon before its app hears it, as Windows' tray waits before a popup, ms. */
+const TRAY_REST = 400;
+/** The icon whose app heard the pointer rest on it, with the box it was told, and the rest still to run out. */
+const rest: { timer?: number; sent: { key: string; rect: { x: number; y: number; w: number; h: number } } | null } = { sent: null };
+
+/** The pointer onto a tray icon: after TRAY_REST its app hears it, so an app that draws its own popup shows it. */
+export function trayEnter(icon: TrayIcon, el: HTMLElement): void {
+  window.clearTimeout(rest.timer);
+  rest.timer = window.setTimeout(() => {
+    const r = el.getBoundingClientRect();
+    rest.sent = { key: icon.key, rect: { x: r.x, y: r.y, w: r.width, h: r.height } };
+    taskbar.trayClick(icon.key, "hover", rest.sent.rect).catch(() => {});
+  }, TRAY_REST);
+}
+
+/** The pointer off it: a rest not run out is dropped, and an app that heard one hears the leave. */
+export function trayLeave(): void {
+  window.clearTimeout(rest.timer);
+  if (rest.sent) taskbar.trayClick(rest.sent.key, "leave", rest.sent.rect).catch(() => {});
+  rest.sent = null;
+}
+
 /**
  * What a tray icon does, on the bar and in the panel, as in Windows' tray: one left click, then the double click (the browser's
  * click, click, dblclick send left, nothing, double), and the right click, each with the box the icon is drawn in; a press that
@@ -93,11 +115,29 @@ export function Tray({
   const slot = tiles ? undefined : glyph + 16;
   return (
     <>
-      {visible.map((icon, i) => (
-        <Item key={icon.key} {...item(`tray:${icon.key}`, icon.tip || t("Infobereich"))} tile={tile(i)} tray={i} width={slot} {...trayButton(icon, "bar")}>
-          <AppIcon src={icon.img === null ? null : pictures[icon.img]} size={glyph} />
-        </Item>
-      ))}
+      {visible.map((icon, i) => {
+        const common = item(`tray:${icon.key}`, icon.tip || t("Infobereich"));
+        return (
+          <Item
+            key={icon.key}
+            {...common}
+            onEnter={(e) => {
+              common.onEnter(e);
+              trayEnter(icon, e.currentTarget);
+            }}
+            onLeave={() => {
+              common.onLeave();
+              trayLeave();
+            }}
+            tile={tile(i)}
+            tray={i}
+            width={slot}
+            {...trayButton(icon, "bar")}
+          >
+            <AppIcon src={icon.img === null ? null : pictures[icon.img]} size={glyph} />
+          </Item>
+        );
+      })}
       <Item {...item("tray-more", more)} ref={moreRef} tile={tile(visible.length)} expanded={open?.content.kind === "tray"} width={slot} onClick={toggle} onContextMenu={onMenu}>
         <CaretUp size={glyph} weight="regular" />
       </Item>

@@ -8,7 +8,7 @@ import { fitIcon, trayIcon } from "../model";
 import { trayFolded, trayPictures, trayState } from "../tray";
 import { closePanel, panelHeld } from "../panel";
 import { splitTray } from "../trayModel";
-import { trayButton } from "./Tray";
+import { trayButton, trayEnter, trayLeave } from "./Tray";
 
 /**
  * The tray's hidden icons in the panel above the bar, sized by TRAY_SIZE: five to a row at the bar's icon size, scrolling past four
@@ -61,6 +61,8 @@ export function TrayPanel() {
           aria-label={icon.tip || t("Infobereich")}
           title={icon.tip || undefined}
           {...trayButton(icon, "panel")}
+          onPointerEnter={(e) => trayEnter(icon, e.currentTarget)}
+          onPointerLeave={trayLeave}
           className="flex items-center justify-center rounded-[8px] outline-none hover:bg-fill-2 focus-visible:bg-fill-2 material:rounded-full pressable-wide"
         >
           <AppIcon src={icon.img === null ? null : pictures[icon.img]} size={trayIcon(size)} />

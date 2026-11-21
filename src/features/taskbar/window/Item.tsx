@@ -40,7 +40,7 @@ export function Item(props: {
   labelled?: boolean;
   /** Grow as a dock's icon with the pointer near, in place of the lift. */
   magnify?: Magnify;
-  onEnter: () => void;
+  onEnter: PointerEventHandler<HTMLButtonElement>;
   onLeave: () => void;
   onClick: MouseEventHandler<HTMLButtonElement>;
   onDoubleClick?: MouseEventHandler<HTMLButtonElement>;

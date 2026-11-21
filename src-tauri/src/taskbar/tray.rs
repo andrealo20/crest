@@ -270,8 +270,8 @@ pub async fn taskbar_tray_images(keys: Vec<String>) -> HashMap<String, Option<St
     .unwrap_or_default()
 }
 
-/// A click on the icon `key` (`TrayIcon.key`) at `rect`, in the calling bar's CSS px: its app gets the messages Windows' tray
-/// sends, and the rect answers its position request. Never waits: the messages are notifications. Errors: gone (no such icon
+/// A click on the icon `key` (`TrayIcon.key`) at `rect`, in the calling bar's CSS px, or the pointer resting on it ("hover")
+/// and leaving it ("leave"): its app gets the messages Windows' tray sends, and the rect answers its position request. Never waits: the messages are notifications. Errors: gone (no such icon
 /// shown, or its window is no more), unknown-button.
 #[tauri::command]
 pub fn taskbar_tray_click(key: String, button: String, rect: HitRect, window: WebviewWindow) -> Result<(), String> {
@@ -279,6 +279,8 @@ pub fn taskbar_tray_click(key: String, button: String, rect: HitRect, window: We
         "left" => Button::Left,
         "right" => Button::Right,
         "double" => Button::Double,
+        "hover" => Button::Hover,
+        "leave" => Button::Leave,
         _ => return Err("unknown-button".into()),
     };
     // A sync command runs on the main thread, where the handle is read without a wait; the bar's place and DPI come from Win32.
@@ -300,8 +302,10 @@ pub fn taskbar_tray_click(key: String, button: String, rect: HitRect, window: We
     }
     let (x, y) = ((rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2);
     unsafe {
-        // So the app may bring its window or menu forward, as Windows' tray lets it.
-        let _ = AllowSetForegroundWindow(owner);
+        // So the app may bring its window or menu forward, as Windows' tray lets it; a rest on the icon brings nothing forward.
+        if !matches!(button, Button::Hover | Button::Leave) {
+            let _ = AllowSetForegroundWindow(owner);
+        }
         for msg in traywire::click_messages(button, version) {
             let (wparam, lparam) = traywire::callback_args(version, uid, msg, x, y);
             let _ = SendNotifyMessageW(hwnd, callback, WPARAM(wparam), LPARAM(lparam));
