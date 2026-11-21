@@ -95,6 +95,8 @@ struct Last {
     pids: Vec<(isize, u32)>,
     /// Each listed window's monitor (`monitor_of`).
     monitors: HashMap<isize, isize>,
+    /// Listed ghost windows and the hung window each stands in for (`source`).
+    ghosts: HashMap<isize, isize>,
     /// By the bar's label.
     sent: HashMap<String, WindowList>,
 }
@@ -324,6 +326,7 @@ pub(super) fn on_timer(window: HWND) {
     let Some(mut track) = TRACK.with_borrow_mut(Option::take) else { return };
     track.armed = false;
     let (list, pids, monitors) = track.recompute();
+    let ghosts = track.ghosts.clone();
     let app = track.app.clone();
     TRACK.with_borrow_mut(|t| *t = Some(track));
     let lists: Vec<(String, WindowList)> = screens::all()
@@ -337,6 +340,7 @@ pub(super) fn on_timer(window: HWND) {
     last.list = list;
     last.pids = pids;
     last.monitors = monitors;
+    last.ghosts = ghosts;
     let changed: Vec<(String, WindowList)> = lists.iter().filter(|(label, here)| last.sent.get(label) != Some(here)).cloned().collect();
     // A bar gone leaves the record.
     last.sent = lists.into_iter().collect();
@@ -402,8 +406,8 @@ impl Track {
             match groups.iter_mut().find(|(group, _)| group.key == key) {
                 Some((group, _)) => group.windows.push(win),
                 None => {
-                    let relaunch = relaunch.as_ref().zip(window_aumid.as_deref()).map(|((command, name), aumid)| (aumid, command.as_str(), name.as_str()));
-                    let spawnable = ownpins::decide(relaunch, package_aumid.is_some(), &exe).is_some();
+                    let relaunch = relaunch.as_ref().map(|(command, name)| (command.as_str(), name.as_str()));
+                    let spawnable = ownpins::decide(window_aumid.as_deref(), relaunch, package_aumid.is_some(), &exe).is_some();
                     let aumid = window_aumid.or(package_aumid.filter(|s| !s.is_empty()));
                     // Pinnable until an entry turns up below.
                     let group = Group { key, name: String::new(), pins: Vec::new(), windows: vec![win], spawnable, pinnable: spawnable && !prevent, exe };
@@ -560,6 +564,12 @@ pub(super) fn listed_pid(id: isize) -> Option<u32> {
     (pid == display::window_pid(HWND(id as _))).then_some(pid)
 }
 
+/// The window whose app listed window `id` shows: the hung window a ghost stands in for, else `id` itself. A ghost is drawn by a
+/// system process, so a command on the app (End task, a pin, a new instance, its file) reads the app from here.
+pub(super) fn source(id: isize) -> HWND {
+    HWND(last().ghosts.get(&id).copied().unwrap_or(id) as _)
+}
+
 /// The first pin of listed window `id`'s app, as (id, name): its Start entry, or an own pin made of it before.
 pub(super) fn first_pin(id: isize) -> Option<(String, String)> {
     let last = last();
@@ -582,7 +592,10 @@ pub async fn taskbar_window(id: isize, action: String) -> Result<(), String> {
         "toggle" => activate(hwnd),
         "minimize" => minimize(hwnd, pid, &listed),
         "close" => close(hwnd, pid, &listed),
-        "end" => end(hwnd, pid),
+        "end" => {
+            let source = source(id);
+            end(source, display::window_pid(source))
+        }
         _ => Err("unknown-action".into()),
     }
 }

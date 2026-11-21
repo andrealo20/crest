@@ -25,7 +25,8 @@ use crate::{display, mixer};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub(crate) enum Target {
-    Exe { path: String },
+    /// `aumid`: the window's own AppUserModelID, which Windows stamps on its pin of that exe so the window groups with it.
+    Exe { path: String, aumid: Option<String> },
     Command { file: String, params: String, aumid: String },
     Link { path: String, aumid: Option<String>, exe: Option<String> },
 }
@@ -148,7 +149,7 @@ pub(crate) fn launch_spec(id: &str) -> Option<(String, Option<String>)> {
 /// The file and parameters a pin starts with: an exe as it is, a command split, a shortcut from the shortcut.
 fn start_of(pin: &OwnPin) -> (String, Option<String>) {
     match &pin.target {
-        Target::Exe { path } => (path.clone(), None),
+        Target::Exe { path, .. } => (path.clone(), None),
         Target::Command { file, params, .. } => (file.clone(), Some(params.clone()).filter(|p| !p.trim().is_empty())),
         Target::Link { .. } => (pin.id.clone(), None),
     }
@@ -158,7 +159,7 @@ fn start_of(pin: &OwnPin) -> (String, Option<String>) {
 /// there to draw it.
 pub(crate) fn icon_source(id: &str) -> Option<String> {
     match find(id).map(|p| p.target) {
-        Some(Target::Exe { path }) => Some(path),
+        Some(Target::Exe { path, .. }) => Some(path),
         Some(Target::Command { file, .. }) => Some(file),
         Some(Target::Link { exe, .. }) => (!exe.as_deref().is_some_and(super::pins::remote)).then(|| id.to_string()),
         // A shortcut in Windows' folder not read yet: Windows' own taskbar draws it the same way.
@@ -171,20 +172,20 @@ pub(crate) fn icon_source(id: &str) -> Option<String> {
 #[allow(dead_code)] // for files dropped on an app's button
 pub(crate) fn exe_of(id: &str) -> Option<String> {
     match find(id)?.target {
-        Target::Exe { path } => Some(path),
+        Target::Exe { path, .. } => Some(path),
         _ => None,
     }
 }
 
-/// Whether `pin` belongs to a window, by `launcher::entries_for`'s rule: with an AppUserModelID only a command or a shortcut
-/// of that id, never a pin by exe (a web app's window must not light up its browser); without one, an exe pin or a shortcut
-/// that starts this exe. ASCII case-insensitive, as Windows compares them.
+/// Whether `pin` belongs to a window, by `launcher::entries_for`'s rule: with an AppUserModelID only a pin of that id, never one
+/// by exe alone (a web app's window must not light up its browser); without one, an exe pin without an id or a shortcut that
+/// starts this exe. ASCII case-insensitive, as Windows compares them.
 fn matches(pin: &OwnPin, aumid: Option<&str>, exe: &str) -> bool {
     let same = |a: &str, b: &str| a.eq_ignore_ascii_case(b);
     match (&pin.target, aumid) {
         (Target::Command { aumid: id, .. }, Some(aumid)) => same(id, aumid),
-        (Target::Link { aumid: Some(id), .. }, Some(aumid)) => same(id, aumid),
-        (Target::Exe { path }, None) => same(path, exe),
+        (Target::Link { aumid: Some(id), .. } | Target::Exe { aumid: Some(id), .. }, Some(aumid)) => same(id, aumid),
+        (Target::Exe { path, aumid: None }, None) => same(path, exe),
         (Target::Link { aumid: None, exe: Some(e), .. }, None) => same(e, exe),
         _ => false,
     }
@@ -201,14 +202,15 @@ fn split_command(cmd: &str) -> Option<(String, String)> {
     (!file.trim().is_empty()).then(|| (file.to_string(), rest.trim().to_string()))
 }
 
-/// The pin Windows would make of a window: its relaunch command, given as (AppUserModelID, command, display name resource) and
-/// used only with all three set, as Windows ignores it otherwise; else the exe of an unpackaged process on this machine. None
-/// for a packaged app without a command, or a process whose exe is unknown.
-pub(super) fn decide(relaunch: Option<(&str, &str, &str)>, packaged: bool, exe: &str) -> Option<Target> {
-    let command = relaunch
-        .filter(|(aumid, _, name)| !aumid.is_empty() && !name.is_empty())
-        .and_then(|(aumid, cmd, _)| split_command(cmd).map(|(file, params)| Target::Command { file, params, aumid: aumid.into() }));
-    command.or_else(|| (!packaged && !exe.is_empty() && !super::pins::remote(exe)).then(|| Target::Exe { path: exe.into() }))
+/// The pin Windows would make of a window with AppUserModelID `aumid`: its relaunch command, given as (command, display name
+/// resource) and used only with the id and both set, as Windows ignores it otherwise; else the exe of an unpackaged process on
+/// this machine, with the window's id. None for a packaged app without a command, or a process whose exe is unknown.
+pub(super) fn decide(aumid: Option<&str>, relaunch: Option<(&str, &str)>, packaged: bool, exe: &str) -> Option<Target> {
+    let aumid = aumid.filter(|id| !id.is_empty());
+    let command = aumid
+        .zip(relaunch.filter(|(_, name)| !name.is_empty()))
+        .and_then(|(aumid, (cmd, _))| split_command(cmd).map(|(file, params)| Target::Command { file, params, aumid: aumid.into() }));
+    command.or_else(|| (!packaged && !exe.is_empty() && !super::pins::remote(exe)).then(|| Target::Exe { path: exe.into(), aumid: aumid.map(Into::into) }))
 }
 
 /// The pin of an open window (`decide`), named as Windows names it: a command by its display name resource (the text itself when
@@ -221,14 +223,14 @@ fn from_window(hwnd: HWND, check_prevent: bool) -> Result<OwnPin, &'static str> 
     }
     let pid = display::app_pid(hwnd);
     let exe = mixer::process_path(pid).unwrap_or_default();
-    let relaunch = props.relaunch.as_ref().zip(props.aumid.as_deref()).map(|((command, name), aumid)| (aumid, command.as_str(), name.as_str()));
-    let target = decide(relaunch, tasks::package_app_id(pid).is_some(), &exe).ok_or("unknown")?;
+    let relaunch = props.relaunch.as_ref().map(|(command, name)| (command.as_str(), name.as_str()));
+    let target = decide(props.aumid.as_deref(), relaunch, tasks::package_app_id(pid).is_some(), &exe).ok_or("unknown")?;
     let (id, name) = match (&target, relaunch) {
-        (Target::Command { file, .. }, Some((_, command, resource))) => {
+        (Target::Command { file, .. }, Some((command, resource))) => {
             let name = indirect(resource).or_else(|| (!resource.starts_with('@')).then(|| resource.to_string()));
             (command_id(command), name.unwrap_or_else(|| mixer::display_name(file)))
         }
-        (Target::Exe { path }, _) => (path.clone(), mixer::display_name(path)),
+        (Target::Exe { path, .. }, _) => (path.clone(), mixer::display_name(path)),
         _ => return Err("unknown"),
     };
     Ok(OwnPin { id, name, target })
@@ -278,7 +280,7 @@ fn pin_of(apps: &[App], path: &str) -> Option<(App, Option<OwnPin>)> {
     } else if let Some(app) = launcher::entries_for(apps, None, path).into_iter().next() {
         return Some((app, None));
     } else {
-        (path.to_string(), Some(OwnPin { id: path.to_string(), name: mixer::display_name(path), target: Target::Exe { path: path.to_string() } }))
+        (path.to_string(), Some(OwnPin { id: path.to_string(), name: mixer::display_name(path), target: Target::Exe { path: path.to_string(), aumid: None } }))
     };
     match own {
         Some(pin) => Some((launcher::pinned_app(pin.id.clone(), pin.name.clone()), Some(pin))),
@@ -312,7 +314,7 @@ pub async fn taskbar_pin_window(id: isize) -> Result<App, String> {
     if let Some((id, name)) = tasks::first_pin(id) {
         return Ok(launcher::pinned_app(id, name));
     }
-    let made = tauri::async_runtime::spawn_blocking(move || launcher::on_sta(move || from_window(HWND(id as _), true))).await;
+    let made = tauri::async_runtime::spawn_blocking(move || launcher::on_sta(move || from_window(tasks::source(id), true))).await;
     let pin = made.ok().flatten().ok_or("unknown")??;
     let app = launcher::pinned_app(pin.id.clone(), pin.name.clone());
     add(pin);
@@ -325,8 +327,9 @@ pub async fn taskbar_pin_window(id: isize) -> Result<App, String> {
 pub async fn taskbar_launch_window(id: isize, admin: bool, window: WebviewWindow) -> Result<(), String> {
     tasks::listed_pid(id).ok_or("not-found")?;
     let monitor = launcher::launch_monitor(&window);
+    let source = tasks::source(id).0 as isize;
     tauri::async_runtime::spawn_blocking(move || {
-        let pin = launcher::on_sta(move || from_window(HWND(id as _), false)).ok_or("unknown")??;
+        let pin = launcher::on_sta(move || from_window(HWND(source as _), false)).ok_or("unknown")??;
         let (file, params) = start_of(&pin);
         launcher::execute(&file, params.as_deref(), admin.then_some("runas"), monitor)
     })
@@ -339,7 +342,7 @@ pub async fn taskbar_launch_window(id: isize, admin: bool, window: WebviewWindow
 #[tauri::command(async)]
 pub fn taskbar_reveal(id: isize) -> Result<(), String> {
     tasks::listed_pid(id).ok_or("not-found")?;
-    let pid = display::app_pid(HWND(id as _));
+    let pid = display::app_pid(tasks::source(id));
     let exe = mixer::process_path(pid).filter(|p| !p.is_empty() && tasks::package_app_id(pid).is_none()).ok_or("unknown")?;
     crate::convert::reveal_file(exe)
 }
@@ -386,7 +389,8 @@ mod tests {
     #[test]
     fn own_pins_match_windows_as_start_entries_do() {
         let pin = |target: Target| OwnPin { id: "x".into(), name: "x".into(), target };
-        let exe = pin(Target::Exe { path: r"C:\Tools\Tool.exe".into() });
+        let exe = pin(Target::Exe { path: r"C:\Tools\Tool.exe".into(), aumid: None });
+        let stamped = pin(Target::Exe { path: r"C:\Tools\Tool.exe".into(), aumid: Some("Tool".into()) });
         let command = pin(Target::Command { file: r"C:\Chrome\chrome.exe".into(), params: "--profile-directory=Work".into(), aumid: "Chrome.Work".into() });
         let site = pin(Target::Link { path: r"C:\p\Site.lnk".into(), aumid: Some("MSEdge._crx_site".into()), exe: None });
         let portable = pin(Target::Link { path: r"C:\p\Tool.lnk".into(), aumid: None, exe: Some(r"C:\Tools\Tool.exe".into()) });
@@ -400,6 +404,10 @@ mod tests {
         assert!(matches(&site, Some("MSEdge._crx_site"), ""));
         assert!(!matches(&site, None, ""));
         assert!(!matches(&exe, None, r"C:\Tools\Other.exe"));
+        // An exe pin made of a window with an id matches by that id only.
+        assert!(matches(&stamped, Some("TOOL"), r"C:\Tools\Tool.exe"));
+        assert!(!matches(&stamped, None, r"C:\Tools\Tool.exe"));
+        assert!(!matches(&stamped, Some("Other"), r"C:\Tools\Tool.exe"));
     }
 
     #[test]
@@ -418,14 +426,17 @@ mod tests {
     fn a_window_pins_its_relaunch_command_else_its_exe() {
         let exe = r"C:\Chrome\chrome.exe";
         assert_eq!(
-            decide(Some(("Chrome.Work", r#""C:\Chrome\chrome.exe" --profile-directory=Work"#, "Work")), false, exe),
+            decide(Some("Chrome.Work"), Some((r#""C:\Chrome\chrome.exe" --profile-directory=Work"#, "Work")), false, exe),
             Some(Target::Command { file: exe.into(), params: "--profile-directory=Work".into(), aumid: "Chrome.Work".into() })
         );
-        // Without a display name Windows ignores the command, and so does Crest.
-        assert_eq!(decide(Some(("Chrome.Work", "chrome.exe --x", "")), false, exe), Some(Target::Exe { path: exe.into() }));
-        assert_eq!(decide(None, true, r"C:\Program Files\WindowsApps\a\a.exe"), None); // packaged without a command
-        assert_eq!(decide(None, false, ""), None);
-        assert_eq!(decide(None, false, r"\\host\share\tool.exe"), None);
+        // Without a display name Windows ignores the command, and so does Crest: the exe pin keeps the window's id.
+        let stamped = Some(Target::Exe { path: exe.into(), aumid: Some("Chrome.Work".into()) });
+        assert_eq!(decide(Some("Chrome.Work"), Some(("chrome.exe --x", "")), false, exe), stamped);
+        assert_eq!(decide(Some("Chrome.Work"), None, false, exe), stamped);
+        assert_eq!(decide(None, Some(("chrome.exe --x", "Work")), false, exe), Some(Target::Exe { path: exe.into(), aumid: None }));
+        assert_eq!(decide(None, None, true, r"C:\Program Files\WindowsApps\a\a.exe"), None); // packaged without a command
+        assert_eq!(decide(None, None, false, ""), None);
+        assert_eq!(decide(None, None, false, r"\\host\share\tool.exe"), None);
     }
 
     #[test]
