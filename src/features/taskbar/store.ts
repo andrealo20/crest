@@ -6,7 +6,7 @@ import { status, taskbar } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { normalizeFavorites } from "../launcher/apps";
 import { feedStores, panelStores } from "./barStores";
-import { applyWindowsPins, statusWanted, trayOnBar, type TaskbarSettings, type WindowList } from "./model";
+import { applyWindowsPins, keysWanted, statusWanted, trayOnBar, type TaskbarSettings, type WindowList } from "./model";
 
 /** In the bar's window: the open windows grouped by app, as Rust last sent them. */
 export const barWindows = createStore<WindowList>({ groups: [], active: null });
@@ -34,6 +34,8 @@ export function startTaskbar() {
   let tray: boolean | null = null;
   let statusOn: boolean | null = null;
   let spread: string | null = null;
+  let keys: boolean | null = null;
+  let keysQueue = Promise.resolve();
   let queue = Promise.resolve();
   let seeded = false;
   let kept = false;
@@ -87,6 +89,14 @@ export function startTaskbar() {
     if (wantStatus !== statusOn) {
       statusOn = wantStatus;
       void status.barOn(wantStatus).catch(() => {});
+    }
+    // Likewise, the bar's Windows keys, in a queue of their own so two changes never overlap (each may restart Explorer). The first
+    // sync sends the saved state, so a start after a crash with the switch or the bar off gives the keys back.
+    const wantKeys = keysWanted(settings.get().taskbar);
+    if (wantKeys !== keys) {
+      keys = wantKeys;
+      const send = () => taskbar.keys(wantKeys).then(() => {}, () => {});
+      keysQueue = keysQueue.then(send, send);
     }
     // One try per start: a failed read leaves the list to the next start, and an app pinned meanwhile is never overwritten.
     if (enabled && pinned === null && !seeded) {

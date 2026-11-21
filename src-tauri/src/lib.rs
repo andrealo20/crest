@@ -156,6 +156,7 @@ const SETTINGS_DENIED: &[&str] = &[
     "taskbar_settings", "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect",
     "taskbar_bt_devices", "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_own_pins_keep",
     "display_rescale", "taskbar_input", "taskbar_app_volume", "taskbar_spread", "taskbar_jump_list", "taskbar_jump_open",
+    "taskbar_keys", "taskbar_focus",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, pinning a listed window,
@@ -167,7 +168,7 @@ const SETTINGS_DENIED: &[&str] = &[
 /// settings pages (`taskbar_settings`), the tray's icons with their pictures and clicks, the badges and progress apps report
 /// (taskbar/taskband.rs), the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
 /// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), the jump list of an
-/// app's menu and its rows opened (taskbar/jumplist.rs), and what the notch's
+/// app's menu and its rows opened (taskbar/jumplist.rs), the keyboard after one of its Windows keys (`taskbar_focus`), and what the notch's
 /// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
 /// `taskbar_tray_on`, `taskbar_spread`).
 const TASKBAR_ALLOWED: &[&str] = &[
@@ -187,7 +188,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "quick_dark", "mic_mute", "quick_power", "web_search",
     "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
     "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_input", "taskbar_app_volume",
-    "taskbar_jump_list", "taskbar_jump_open",
+    "taskbar_jump_list", "taskbar_jump_open", "taskbar_focus",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -276,7 +277,9 @@ pub fn taskbar_guard(pid: &str) -> i32 {
 /// For main.rs: the uninstaller gives Windows' taskbar back before it closes Crest and its guard (see taskbar/explorer.rs).
 #[cfg(windows)]
 pub fn restore_taskbar() {
-    taskbar::explorer::restore()
+    taskbar::explorer::restore();
+    // No Explorer restart: Crest still runs and holds the keys; Windows has them again from the next sign-in.
+    taskbar::keys::restore_value();
 }
 
 /// For main.rs: the uninstaller gives back the Windows banners Crest turned off (see banners.rs).
@@ -579,6 +582,12 @@ pub fn run() {
             #[cfg(windows)]
             taskbar::tasks::taskbar_release,
             #[cfg(windows)]
+            taskbar::bar::taskbar_focus,
+            #[cfg(windows)]
+            taskbar::keys::taskbar_keys,
+            #[cfg(windows)]
+            taskbar::keys::taskbar_keys_status,
+            #[cfg(windows)]
             taskbar::start::taskbar_shell,
             #[cfg(windows)]
             taskbar::preview::taskbar_preview,
@@ -826,6 +835,7 @@ pub fn run() {
 fn on_exit(app: &AppHandle) {
     // First, before a recording's finish can wait 5 s.
     taskbar::shutdown();
+    taskbar::keys::on_exit(app);
     // A recording still running when Crest quits is finished, so the file is complete.
     capture::finish_on_exit(app);
     osd::set(false, false);
@@ -1301,6 +1311,10 @@ mod tests {
         assert!(ok("taskbar", "taskbar_decor") && ok("taskbar-1", "taskbar_decor_images"));
         // The jump lists, on every bar, never in the settings window; the commands refuse any window but a bar's, the notch too.
         assert!(["taskbar_jump_list", "taskbar_jump_open"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));
+        // The bar's Windows keys: set by the notch, read by the settings; the keyboard taken by a bar after one of them.
+        assert!(ok("notch", "taskbar_keys") && !ok("settings", "taskbar_keys") && !ok("taskbar", "taskbar_keys"));
+        assert!(ok("settings", "taskbar_keys_status") && !ok("taskbar", "taskbar_keys_status"));
+        assert!(ok("taskbar", "taskbar_focus") && ok("taskbar-1", "taskbar_focus") && !ok("settings", "taskbar_focus"));
         // The input language is the bars' own: drawn by the main one, read by any as it starts.
         assert!(ok("taskbar-1", "taskbar_input") && ok("taskbar", "taskbar_input") && !ok("settings", "taskbar_input"));
         // A wheel step on an app's button: the bars' own.

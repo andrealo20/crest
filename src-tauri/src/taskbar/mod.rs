@@ -15,6 +15,7 @@ pub(crate) mod explorer;
 pub(crate) mod front;
 pub(crate) mod input;
 pub(crate) mod jumplist;
+pub(crate) mod keys;
 pub(crate) mod ownpins;
 pub(crate) mod panel;
 pub(crate) mod pins;

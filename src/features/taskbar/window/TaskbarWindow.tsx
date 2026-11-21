@@ -17,7 +17,7 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
 import { PREVIEW_CLOSE, PREVIEW_DELAY, bridge, zones as hitZones, type Rect } from "../autoHide";
-import { COMPACT_PAD, DRAG_REST, WHEEL_STEP, appKey, barButtons, clickAction, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, wheelSteps, windowBadge, windowButtons, type BarButton, type BarItem, type BarShape, type Click, type ClickMods, type Zone } from "../model";
+import { COMPACT_PAD, DRAG_REST, WHEEL_STEP, appKey, appState, barArrow, barButtons, buttonAt, clickAction, cycleKey, numberKey, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, wheelSteps, windowBadge, windowButtons, type BarButton, type BarItem, type BarKey, type BarShape, type Click, type ClickMods, type Zone } from "../model";
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
 import { closePanel, fileDrag, itemDrag, panel, pinDrag, togglePanel } from "../panel";
 import { dragThreshold, opensInBar } from "../panelModel";
@@ -92,6 +92,11 @@ export function TaskbarWindow() {
   const bar = useRef<HTMLDivElement>(null);
   // The tray's ^ button: a tray icon dragged onto the bar lands between the first kept icon and it.
   const trayMore = useRef<HTMLButtonElement>(null);
+  // The apps' "…" button: Win+number on an app behind it opens over it.
+  const appsMore = useRef<HTMLButtonElement>(null);
+  // The keyboard is in the bar after one of its Windows keys, Tab or an arrow (not after a click): it holds a bar that slides away up.
+  const keyNav = useRef(false);
+  const [focusIn, setFocusIn] = useState(false);
   // The button under the pointer, and a launch that failed (in its button's label for a while).
   const [hovered, setHovered] = useState<string | null>(null);
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
@@ -248,7 +253,7 @@ export function TaskbarWindow() {
   // An open menu or panel holds the bar up, and so does an app asking for attention.
   const layout = `${laid.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${fit.mode}:${fit.visible}:${fit.trayBack}:${fit.hide}|${glyphs}`;
   const { down, place: placeMenuZone, placePreview } = useHitZone(bar, shape, setBoxes, layout, {
-    open: menu !== null || open !== null || preview !== null,
+    open: menu !== null || open !== null || preview !== null || focusIn,
     attention: buttons.some((b) => indicator(b, active, flashing) === "attention"),
     dragging,
   });
@@ -381,6 +386,41 @@ export function TaskbarWindow() {
     run(b, clickAction(b, mods, { active, middle: middleClick }), inPanel ? button : undefined);
   };
 
+  /**
+   * A Windows key Rust sent this bar (keys.rs). Win+number counts every app button, those behind "…" too: it acts as a click, and
+   * the previews or the menu it opens take the keyboard. Win+T goes round the apps' buttons, Win+B to the tray's ^ (Stato without it).
+   */
+  const onKey = async (k: BarKey) => {
+    keyNav.current = true;
+    if (k.kind === "number") {
+      const b = buttonAt(laid, k.n);
+      const c = numberKey(b, k.mods, active);
+      if (!b || c.kind === "none") return;
+      if (c.kind !== "list" && c.kind !== "menu") return run(b, c);
+      await taskbar.focus().catch(() => {});
+      const el = appButtons.current.get(b.key);
+      const over = el ?? appsMore.current;
+      if (!over) return;
+      if (c.kind === "menu") return toggle({ kind: "app", b }, over);
+      return el ? run(b, c) : toggle({ kind: "list", b }, over);
+    }
+    await taskbar.focus().catch(() => {});
+    const target =
+      k.kind === "apps"
+        ? (() => {
+            const all = [...shownButtons.flatMap((b) => appButtons.current.get(b.key) ?? []), ...(appsMore.current ? [appsMore.current] : [])];
+            return all[cycleKey(all.indexOf(document.activeElement as HTMLButtonElement), all.length, k.by)];
+          })()
+        : (trayMore.current ?? bar.current?.querySelector<HTMLElement>('[data-kind="status"]'));
+    if (target) target.focus({ preventScroll: true });
+    else void taskbar.release();
+  };
+  const keyHandler = useRef(onKey);
+  useEffect(() => {
+    keyHandler.current = onKey;
+  });
+  useEffect(() => taskbar.onKey((k) => void keyHandler.current(k)), []);
+
   /** Opens `tool` over its button, or closes it on a second click there: in the panel, or in the notch for a tool the panel does not show (openPanel). */
   const openTool = (tool: string, button: HTMLElement) => {
     const r = button.getBoundingClientRect();
@@ -474,7 +514,7 @@ export function TaskbarWindow() {
         const entry = launchId(b);
         const d = buttonDecor(b.windows, decor, active);
         const overlay = d.overlay && decorPics[d.overlay.img];
-        const said = [d.overlay?.tip, d.progress && progressText(d.progress)].filter(Boolean).join(", ");
+        const said = [stateText(b, active), d.overlay?.tip, d.progress && progressText(d.progress)].filter(Boolean).join(", ");
         return (
           <Item
             key={b.key}
@@ -543,6 +583,7 @@ export function TaskbarWindow() {
         <Item
           key="apps-more"
           {...item("apps-more", t(n === 1 ? "{n} weitere App" : "{n} weitere Apps", { n }))}
+          ref={appsMore}
           {...(failed && { label: menu || open ? null : error.text, failed })}
           tile={tile()}
           width={appWidth}
@@ -730,6 +771,30 @@ export function TaskbarWindow() {
           ref={bar}
           // The site's demo lets the pointer through its layer except here (src/dev/demoBar.tsx), as Rust does around the bar.
           data-bar
+          role="toolbar"
+          aria-label={t("Crest-Taskleiste")}
+          onPointerDownCapture={() => {
+            keyNav.current = false;
+            setFocusIn(false);
+          }}
+          onFocus={() => keyNav.current && setFocusIn(true)}
+          onBlur={(e) => setFocusIn(keyNav.current && e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget))}
+          // Arrows, Home and End go from button to button in the zones' order (laid out left to right in every language); Esc gives the
+          // keyboard back to the app in front. Tab, Enter, Space and the menu key work as on any button.
+          onKeyDown={(e) => {
+            const el = e.target;
+            if (!(el instanceof HTMLButtonElement) || !bar.current || e.altKey || e.ctrlKey || e.metaKey) return;
+            keyNav.current = true;
+            if (e.key === "Escape") {
+              el.blur();
+              return void taskbar.release();
+            }
+            const all = [...bar.current.querySelectorAll("button")];
+            const to = barArrow(e.key, all.indexOf(el), all.length);
+            if (to === undefined) return;
+            e.preventDefault();
+            all[to].focus({ preventScroll: true });
+          }}
           className={shape === "capsule" ? "self-center" : undefined}
           style={{ margin: shape === "capsule" ? `0 0 ${gap}px` : `0 ${gap}px ${gap}px` }}
           // The bar only, never a menu or the panel above it.
@@ -958,6 +1023,13 @@ function useHitZone(
 function ToolGlyph({ tool, size, plus }: { tool: string; size: number; plus: boolean }) {
   const I = toolInfo[tool].icon;
   return <I size={size} weight="regular" className={plus ? "text-label-2" : "text-label-3"} style={{ color: useHue(toolInfo[tool].hue) }} />;
+}
+
+/** What a screen reader hears after an app's name (N1): pinned, its open windows, in front, asking for attention. */
+function stateText(b: BarButton, active: number | null): string {
+  const n = b.windows.length;
+  const word = { pinned: () => t("Angeheftet"), one: () => t("1 Fenster geöffnet"), many: () => t("{n} Fenster geöffnet", { n }), front: () => t("Im Vordergrund"), attention: () => t("Möchte deine Aufmerksamkeit") };
+  return appState(b, active).map((s) => word[s]()).join(", ");
 }
 
 /** What a screen reader says for an app's progress line. */

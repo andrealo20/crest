@@ -386,6 +386,15 @@ pub(crate) fn from_bar(window: &WebviewWindow) -> Result<(), String> {
     if is_bar_label(window.label()) { Ok(()) } else { Err("denied".into()) }
 }
 
+/// The calling bar takes the keyboard after one of its Windows keys (keys.rs): a plain `SetForegroundWindow`, which Windows allows
+/// just after a hotkey went to Crest and refuses otherwise. Never tao's `set_focus`, which taps Alt into the app in front.
+#[tauri::command]
+pub fn taskbar_focus(window: WebviewWindow) -> Result<(), String> {
+    from_bar(&window)?;
+    let hwnd = window.hwnd().map_err(|_| "failed")?;
+    if unsafe { windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(windows::Win32::Foundation::HWND(hwnd.0)) }.as_bool() { Ok(()) } else { Err("refused".into()) }
+}
+
 /// The bar's window, 0 while there is none.
 pub(crate) fn hwnd() -> isize {
     HANDLE.load(Ordering::SeqCst)

@@ -10,7 +10,7 @@ import { nav } from "../../notch/nav";
 import type { PartId } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
 import { isMac, isNative } from "../../platform/native";
-import { build, taskbar } from "../../platform/services";
+import { build, taskbar, type KeysStatus } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { CrestMark } from "../../ui/CrestMark";
 import { WindowsMark } from "../../ui/WindowsMark";
@@ -55,13 +55,29 @@ const APPS_ON_LABEL: Record<AppsOn, string> = { all: "Allen Taskleisten", main: 
 
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, what a double click beside its buttons does, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
-  const { enabled, autoHide, shape, emptyDouble, flashing, wheelVolume, allScreens, appsOn, clockAll } = settings.use().taskbar;
+  const { enabled, autoHide, shape, emptyDouble, flashing, wheelVolume, allScreens, appsOn, clockAll, winKeys } = settings.use().taskbar;
   // Bars that stay up with auto-hide on (Rust front.rs `stays_up`), read as the page opens and when the switch changes.
   const [blocked, setBlocked] = useState(0);
   useEffect(() => void taskbar.slideBlocked().then(setBlocked, () => {}), [autoHide]);
   // Whether a docked bar can reserve its strip (Rust reserve.rs), read as the page opens and when shape or auto-hide change.
   const [reachable, setReachable] = useState(true);
   useEffect(() => void taskbar.reserveReachable().then(setReachable, () => {}), [autoHide, shape]);
+  // Where the bar's Windows keys stand (Rust keys.rs), read as the page opens and followed as Rust applies them.
+  const [keys, setKeys] = useState<KeysStatus>("off");
+  useEffect(() => {
+    void taskbar.keysStatus().then(setKeys, () => {});
+    return taskbar.onKeys(setKeys);
+  }, []);
+  const keysNote =
+    keys === "busy"
+      ? t("Der Explorer startet neu …")
+      : keys === "partial"
+        ? t("Ein anderes Programm belegt einige dieser Tasten")
+        : keys === "held"
+          ? t("Windows gibt diese Tasten auf diesem PC nicht frei, sie bleiben bei Windows")
+          : keys === "failed"
+            ? t("Der Explorer ließ sich nicht neu starten, die Tasten bleiben bei Windows")
+            : null;
   return (
     <Group id="settings-taskbar">
       <Row
@@ -93,6 +109,23 @@ export function TaskbarGeneral() {
         }
       >
         <Switch label={t("Automatisch ausblenden")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
+      </Row>
+      <Row
+        icon="keyboard"
+        label={t("Windows-Tasten auf der Leiste")}
+        hint={
+          <>
+            {t("Win+1 bis Win+9 und Win+0 öffnen die Apps der Leiste, Win+T springt zu ihren Apps und Win+B zum Infobereich. Beim Ein- und Ausschalten startet der Windows-Explorer neu, offene Explorer-Fenster können sich dabei schließen")}
+            {enabled && winKeys && keysNote && (
+              <span className="mt-1 flex items-start gap-1 text-caution">
+                <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
+                {keysNote}
+              </span>
+            )}
+          </>
+        }
+      >
+        <Switch label={t("Windows-Tasten auf der Leiste")} checked={winKeys} onChange={(on) => setTaskbar({ winKeys: on })} />
       </Row>
       <Row icon="desktop_windows" label={t("Auf allen Bildschirmen anzeigen")}>
         <Switch label={t("Auf allen Bildschirmen anzeigen")} checked={allScreens} onChange={(on) => setTaskbar({ allScreens: on })} />

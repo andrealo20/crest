@@ -115,6 +115,8 @@ windows = { version = "0.62", features = [
   # Drives: no "no disk in the drive" dialog for an empty card reader (system/hw.rs).
   "Win32_System_Diagnostics_Debug",
   "Win32_System_Registry",
+  # The bar's Windows keys: Explorer restarted as installers do (taskbar/keys.rs).
+  "Win32_System_RestartManager",
   "Win32_System_Time",
   "Win32_Security_Credentials",
   "Win32_Security_Cryptography",

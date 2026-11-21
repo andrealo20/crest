@@ -1,4 +1,5 @@
-//! Shell: the global shortcuts (Crest's own, the tools' own and the launcher's Alt+N, all in one registry), a
+//! Shell: the global shortcuts (Crest's own, the tools' own, the launcher's Alt+N and the bar's Windows keys from
+//! taskbar/keys.rs, all in one registry), a
 //! second launch, and the crash log.
 //!
 //! Shortcuts arrive from the settings as "Ctrl+Alt+Shift+Win+<KeyboardEvent.code>"; the resize
@@ -44,6 +45,8 @@ struct Bound {
     tools: Vec<(Shortcut, String)>,
     /// The launcher's Alt+N keys and the app id each opens.
     launch: Vec<(Shortcut, String)>,
+    /// The bar's Windows keys (taskbar/keys.rs) and the name of each.
+    taskbar: Vec<(Shortcut, String)>,
     /// The tray's "Open Crest" item, which shows the open shortcut.
     tray_open: Option<MenuItem<Wry>>,
     /// Its text in the interface language ("" = English) and the shortcut shown after it.
@@ -184,22 +187,38 @@ pub fn bind_launch(app: &AppHandle, keys: Vec<(Shortcut, String)>) -> Vec<bool> 
         old.extend(lost.into_iter().map(|(s, _)| s));
         old
     };
+    let (held, ok) = register_all(app, old, keys);
+    state.0.lock().unwrap().launch = held;
+    ok
+}
+
+/// The bar's Windows keys (taskbar/keys.rs): frees the ones held before and registers these. Crest's own shortcuts do not yield:
+/// one the user put on Win+T keeps it, and the bar's Win+T reports false.
+pub fn bind_taskbar(app: &AppHandle, keys: Vec<(Shortcut, String)>) -> Vec<bool> {
+    let state = app.state::<Hotkeys>();
+    let old = std::mem::take(&mut state.0.lock().unwrap().taskbar).into_iter().map(|(s, _)| s).collect();
+    let (held, ok) = register_all(app, old, keys);
+    state.0.lock().unwrap().taskbar = held;
+    ok
+}
+
+/// Unregisters `old`, then registers `keys`: those Windows gave, and per key whether it did.
+fn register_all(app: &AppHandle, old: Vec<Shortcut>, keys: Vec<(Shortcut, String)>) -> (Vec<(Shortcut, String)>, Vec<bool>) {
     for s in old {
         let _ = app.global_shortcut().unregister(s);
     }
     let mut held = Vec::new();
     let ok = keys
         .into_iter()
-        .map(|(shortcut, id)| {
+        .map(|(shortcut, name)| {
             let ok = app.global_shortcut().register(shortcut).is_ok();
             if ok {
-                held.push((shortcut, id));
+                held.push((shortcut, name));
             }
             ok
         })
         .collect();
-    state.0.lock().unwrap().launch = held;
-    ok
+    (held, ok)
 }
 
 /// For the global-shortcut plugin's handler.
@@ -208,7 +227,7 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
         return;
     }
     let id = shortcut.id();
-    let (open, hide, resize, find, mic, tool, launch) = {
+    let (open, hide, resize, find, mic, tool, launch, bar_key) = {
         let b = app.state::<Hotkeys>();
         let b = b.0.lock().unwrap();
         (
@@ -219,9 +238,16 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
             b.mic.is_some_and(|s| s.id() == id),
             b.tools.iter().find(|(s, _)| s.id() == id).map(|(_, tool)| tool.clone()),
             b.launch.iter().find(|(s, _)| s.id() == id).map(|(_, app_id)| app_id.clone()),
+            b.taskbar.iter().find(|(s, _)| s.id() == id).map(|(_, name)| name.clone()),
         )
     };
-    if let Some(app_id) = launch {
+    if let Some(name) = bar_key {
+        // Only the bar binds these, and it is Windows-only.
+        #[cfg(windows)]
+        crate::taskbar::keys::pressed(app, &name);
+        #[cfg(not(windows))]
+        let _ = name;
+    } else if let Some(app_id) = launch {
         // Only the launcher binds these, and it is Windows-only.
         #[cfg(windows)]
         crate::launcher::launch_from_key(app, app_id);

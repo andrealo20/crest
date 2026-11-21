@@ -79,6 +79,8 @@ export interface TaskbarSettings {
   appsOn: AppsOn;
   /** The clock shows on the other monitors' bars too; the other widgets stay on the main bar. */
   clockAll: boolean;
+  /** Win+1..9, Win+0, Win+T and Win+B go to the bar (keys.rs); off by default, since turning it on or off restarts Explorer. */
+  winKeys: boolean;
 }
 
 export type AppsOn = "own" | "main" | "all";
@@ -114,6 +116,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   allScreens: true,
   appsOn: "own",
   clockAll: false,
+  winKeys: false,
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -201,6 +204,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     allScreens: s.allScreens !== false,
     appsOn: APPS_ONS.includes(s.appsOn as AppsOn) ? (s.appsOn as AppsOn) : d.appsOn,
     clockAll: s.clockAll === true,
+    winKeys: s.winKeys === true,
   };
 }
 
@@ -220,6 +224,9 @@ export const trayOnBar = (zones: Record<Zone, BarItem[]>): boolean => ZONES.some
 
 /** Whether the spy that records the tray's icons runs: while the bar is on and a zone holds the tray; otherwise Explorer keeps the tray alone. */
 export const trayWanted = (t: TaskbarSettings): boolean => t.enabled && trayOnBar(t.zones);
+
+/** Whether the bar takes Windows' keys (`taskbar.keys`): while the bar is on and its switch is on. */
+export const keysWanted = (t: TaskbarSettings): boolean => t.enabled && t.winKeys;
 
 /** Whether Rust follows the network and the volume for the bar (`status.barOn`): while the bar is on and a zone holds Stato. */
 export const statusWanted = (t: TaskbarSettings): boolean => t.enabled && ZONES.some((z) => t.zones[z].includes("status"));
@@ -517,6 +524,44 @@ export function clickAction(b: BarButton, mods: ClickMods = {}, o: { active?: nu
   if (b.windows.length === 1) return { kind: "toggle", id: b.windows[0].id };
   const id = launchId(b);
   return id === null ? { kind: "none" } : { kind: "launch", id };
+}
+
+/** A Windows key Rust sends the bar (keys.rs Key): Win+number with its modifiers, Win+T (by 1) and Win+Shift+T (by -1), Win+B. */
+export type BarKeyMods = "plain" | "shift" | "ctrl" | "ctrlShift" | "alt";
+export type BarKey = { kind: "number"; n: number; mods: BarKeyMods } | { kind: "apps"; by: 1 | -1 } | { kind: "tray" };
+
+/** The button Win+n acts on, counting every button in the bar's order, those behind "…" too, as Windows counts its own; Win+0 is the tenth. */
+export const buttonAt = (buttons: BarButton[], n: number): BarButton | undefined => buttons[n - 1];
+
+/** What Win+n does: what a click with the same keys does (Shift, Ctrl+Shift, Ctrl); Alt opens the app's menu. */
+export function numberKey(b: BarButton | undefined, mods: BarKeyMods, active: number | null): Click | { kind: "menu" } {
+  if (!b) return { kind: "none" };
+  if (mods === "alt") return { kind: "menu" };
+  return clickAction(b, { shift: mods === "shift" || mods === "ctrlShift", ctrl: mods === "ctrl" || mods === "ctrlShift" }, { active });
+}
+
+/** Win+T among `count` app buttons from `at` (-1: none focused): the first (by 1) or the last (by -1), then round. */
+export const cycleKey = (at: number, count: number, by: 1 | -1): number => (at < 0 ? (by > 0 ? 0 : count - 1) : (at + by + count) % count);
+
+/** The bar's arrows among `count` buttons from `at`: Left and Up step back, Right and Down on, Home and End go to the ends; no wrap; undefined for other keys or none. */
+export function barArrow(key: string, at: number, count: number): number | undefined {
+  if (count <= 0) return undefined;
+  if (key === "Home") return 0;
+  if (key === "End") return count - 1;
+  const by = key === "ArrowLeft" || key === "ArrowUp" ? -1 : key === "ArrowRight" || key === "ArrowDown" ? 1 : 0;
+  return by ? Math.min(count - 1, Math.max(0, at + by)) : undefined;
+}
+
+/** What a screen reader hears after an app's name (N1), in this order: pinned, one window or several open, in front, asking for attention. */
+export type AppState = "pinned" | "one" | "many" | "front" | "attention";
+export function appState(b: BarButton, active: number | null): AppState[] {
+  const n = b.windows.length;
+  return [
+    ...(b.pin ? (["pinned"] as const) : []),
+    ...(n === 1 ? (["one"] as const) : n > 1 ? (["many"] as const) : []),
+    ...(b.windows.some((w) => w.id === active) ? (["front"] as const) : []),
+    ...(b.windows.some((w) => w.flashing) ? (["attention"] as const) : []),
+  ];
 }
 
 /** The mark under a button: a window asks for attention, one is in front, some are open, or none. */

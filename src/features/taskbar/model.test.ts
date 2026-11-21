@@ -8,7 +8,13 @@ import {
   WIDGET_VARIANTS,
   appKey,
   applyWindowsPins,
+  appState,
+  barArrow,
   barButtons,
+  buttonAt,
+  cycleKey,
+  keysWanted,
+  numberKey,
   clickAction,
   compactIcon,
   countBadge,
@@ -620,4 +626,57 @@ test("a jump group's heading is Windows' word, or the app's own", () => {
   assert.deepEqual(jumpHeading(g("tasks")), { key: "Aufgaben" });
   assert.deepEqual(jumpHeading(g("custom", "Most visited")), { text: "Most visited" });
   assert.deepEqual(jumpHeading(g("custom")), { text: "" });
+});
+
+test("the bar's Windows keys are off until both switches are on", () => {
+  assert.equal(normalizeTaskbar(undefined).winKeys, false);
+  assert.equal(normalizeTaskbar({ winKeys: "yes" }).winKeys, false);
+  assert.equal(normalizeTaskbar({ winKeys: true }).winKeys, true);
+  assert.equal(keysWanted(normalizeTaskbar({ winKeys: true })), false);
+  assert.equal(keysWanted(normalizeTaskbar({ enabled: true })), false);
+  assert.equal(keysWanted(normalizeTaskbar({ enabled: true, winKeys: true })), true);
+});
+
+test("Win+number acts as a click with the same keys, Alt opens the menu", () => {
+  const w = (id: number): Win => ({ id, title: "", minimized: false, flashing: false });
+  const pin = { id: "p", name: "P" };
+  const b = (windows: Win[]): BarButton => ({ key: "p", name: "P", pin, pins: [pin], windows });
+  const all = [b([]), b([w(1)]), b([w(2), w(3)])];
+  assert.equal(buttonAt(all, 1), all[0]);
+  assert.equal(buttonAt(all, 3), all[2]);
+  assert.equal(buttonAt(all, 10), undefined); // Win+0 with fewer than ten buttons
+  assert.deepEqual(numberKey(undefined, "plain", null), { kind: "none" });
+  assert.deepEqual(numberKey(all[0], "plain", null), { kind: "launch", id: "p" });
+  assert.deepEqual(numberKey(all[1], "plain", null), { kind: "toggle", id: 1 });
+  assert.deepEqual(numberKey(all[2], "plain", null), { kind: "list" });
+  assert.deepEqual(numberKey(all[2], "shift", null), { kind: "launch", id: "p" });
+  assert.deepEqual(numberKey(all[2], "ctrlShift", null), { kind: "launch", id: "p", admin: true });
+  assert.deepEqual(numberKey(all[2], "ctrl", 2), { kind: "activate", id: 3 });
+  assert.deepEqual(numberKey(all[2], "ctrl", 3), { kind: "activate", id: 2 }); // round to the first
+  assert.deepEqual(numberKey(all[0], "ctrl", null), { kind: "launch", id: "p" }); // no windows: a plain click
+  assert.deepEqual(numberKey(all[1], "alt", null), { kind: "menu" });
+});
+
+test("Win+T goes round the apps and the arrows stop at the ends", () => {
+  assert.equal(cycleKey(-1, 3, 1), 0);
+  assert.equal(cycleKey(-1, 3, -1), 2);
+  assert.equal(cycleKey(2, 3, 1), 0);
+  assert.equal(cycleKey(0, 3, -1), 2);
+  assert.equal(barArrow("ArrowRight", 1, 3), 2);
+  assert.equal(barArrow("ArrowDown", 1, 3), 2);
+  assert.equal(barArrow("ArrowLeft", 1, 3), 0);
+  assert.equal(barArrow("ArrowUp", 0, 3), 0);
+  assert.equal(barArrow("ArrowRight", 2, 3), 2);
+  assert.equal(barArrow("Home", 2, 3), 0);
+  assert.equal(barArrow("End", 0, 3), 2);
+  assert.equal(barArrow("Tab", 0, 3), undefined);
+  assert.equal(barArrow("ArrowRight", 0, 0), undefined);
+});
+
+test("a screen reader hears an app's state after its name", () => {
+  const w = (id: number, flashing = false): Win => ({ id, title: "", minimized: false, flashing });
+  const pin = { id: "p", name: "P" };
+  assert.deepEqual(appState({ key: "p", name: "P", pin, pins: [pin], windows: [] }, null), ["pinned"]);
+  assert.deepEqual(appState({ key: "g", name: "G", pin: null, pins: [], windows: [w(1), w(2)] }, 2), ["many", "front"]);
+  assert.deepEqual(appState({ key: "g", name: "G", pin: null, pins: [], windows: [w(1, true)] }, null), ["one", "attention"]);
 });

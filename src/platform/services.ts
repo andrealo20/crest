@@ -14,7 +14,7 @@ import type { RulesPayload } from "../features/window/model";
 import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
-import type { JumpList, TrayState, WindowList } from "../features/taskbar/model";
+import type { BarKey, JumpList, TrayState, WindowList } from "../features/taskbar/model";
 import type { Decor } from "../features/taskbar/decorModel";
 import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
 import type { Rect } from "../features/taskbar/autoHide";
@@ -1362,6 +1362,9 @@ export interface WindowsPins {
   removed: string[];
 }
 
+/** Where the bar's Windows keys stand (taskbar/keys.rs). */
+export type KeysStatus = "off" | "busy" | "on" | "partial" | "held" | "failed";
+
 /** The input language as Windows' indicator by the tray writes it: "ITA" over "IT" (taskbar/input.rs). */
 export type InputLang = { lang: string; region: string };
 
@@ -1414,6 +1417,24 @@ export const taskbar = {
   keepPins: (ids: string[]): Promise<void> => (isNative ? invoke("taskbar_own_pins_keep", { ids }) : Promise.resolve()),
   /** The preview card's live thumbnails in its slots (CSS px of this page), each call the whole set: `[]` takes them all away. Each answer is where that thumbnail shows, or null where none does (in the browser, always). */
   preview: (slots: { id: number; x: number; y: number; w: number; h: number }[]): Promise<({ x: number; y: number; w: number; h: number } | null)[]> => (isNative ? invoke("taskbar_preview", { slots }) : Promise.resolve(slots.map(() => null))),
+  /** The bar's Windows keys wanted or not (keysWanted); Rust writes Explorer's value, restarts Explorer when needed and answers the status. The notch only. */
+  keys: (on: boolean): Promise<KeysStatus> => (isNative ? invoke<KeysStatus>("taskbar_keys", { on }) : Promise.resolve("off")),
+  /** Where the keys stand: "busy" while Explorer restarts. The settings only. */
+  keysStatus: (): Promise<KeysStatus> => (isNative ? invoke<KeysStatus>("taskbar_keys_status") : Promise.resolve("off")),
+  /** The keys' status each time it changes; Rust sends it to every window. */
+  onKeys(handler: (s: KeysStatus) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<KeysStatus>("taskbar://keys", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** One of the bar's Windows keys, to this bar only. */
+  onKey(handler: (k: BarKey) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<BarKey>("taskbar://key", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** This bar takes the keyboard after one of its keys; Windows may refuse. */
+  focus: (): Promise<void> => (isNative ? invoke("taskbar_focus") : Promise.resolve()),
   /** Gives the keyboard back to the app in front, or the last one if only Start came after it (none after the desktop or a Crest window), after a menu or panel closed from the bar. */
   release: (): Promise<void> => (isNative ? invoke("taskbar_release") : Promise.resolve()),
   /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu, "quick" its quick settings (Win+A), "taskmgr" Task Manager; the Windows buttons: "search" Search, "taskview" Task view, "widgets" Windows' widgets, "input" Windows' input language switcher (Win+Space), "desktop" shows or hides the desktop. */
