@@ -108,7 +108,7 @@
  "Kein API-Schlüssel für {p}, in den Einstellungen eintragen.": "No API key for {p}, enter one in Settings.",
  "Kein lokales Netzwerk gefunden": "No local network found",
  "Kein Platz, um das Backup bereitzulegen": "Not enough space to get the backup ready",
- "Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support) oder LibreHardwareMonitor läuft, liest Crest sie dort.": "No CPU temperature from Windows. While HWiNFO (with Shared Memory Support) or LibreHardwareMonitor runs, Crest reads it from there.",
+ "Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support), LibreHardwareMonitor oder Core Temp läuft, liest Crest sie dort.": "No CPU temperature from Windows. While HWiNFO (with Shared Memory Support), LibreHardwareMonitor or Core Temp runs, Crest reads it from there.",
  "Kelvin": "Kelvin",
  "Klappt es nicht? VPN, Firewall oder Gast-WLAN prüfen.": "Not working? Check VPN, firewall or guest Wi-Fi.",
  "km/h": "km/h",

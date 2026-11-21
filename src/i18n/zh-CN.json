@@ -108,7 +108,7 @@
  "Kein API-Schlüssel für {p}, in den Einstellungen eintragen.": "没有 {p} 的 API 密钥，请在设置中填写。",
  "Kein lokales Netzwerk gefunden": "未找到本地网络",
  "Kein Platz, um das Backup bereitzulegen": "空间不足，无法准备备份",
- "Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support) oder LibreHardwareMonitor läuft, liest Crest sie dort.": "Windows 没有提供 CPU 温度。HWiNFO（开启 Shared Memory Support）或 LibreHardwareMonitor 运行时，Crest 会从中读取。",
+ "Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support), LibreHardwareMonitor oder Core Temp läuft, liest Crest sie dort.": "Windows 没有提供 CPU 温度。HWiNFO（开启 Shared Memory Support）、LibreHardwareMonitor 或 Core Temp 运行时，Crest 会从中读取。",
  "Kelvin": "开尔文",
  "Klappt es nicht? VPN, Firewall oder Gast-WLAN prüfen.": "无法连接？请检查 VPN、防火墙或访客 Wi-Fi。",
  "km/h": "公里/小时",

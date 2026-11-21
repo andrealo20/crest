@@ -194,7 +194,7 @@ export interface SystemStats {
   energy: [string, number][];
   meter: [string, number][];
   nvml: { name: string; watts: number | null; temp: number | null }[];
-  /** From HWiNFO or LibreHardwareMonitor while one of them runs; `source` is the program's name. */
+  /** From HWiNFO, LibreHardwareMonitor or Core Temp while one of them runs; `source` is the program's name. */
   external: { source: string; cpuTemp: number | null; cpuWatts: number | null; gpus: { name: string; temp: number | null; watts: number | null }[] } | null;
   battery: BatteryRaw | null;
   drives: DrivesRaw | null;
