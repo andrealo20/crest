@@ -45,8 +45,8 @@ pub struct Shown {
     h: f64,
 }
 
-/// A cap at the trust boundary, not a layout: the card lists titles well before this many windows.
-const MAX_SLOTS: usize = 12;
+/// A cap at the trust boundary, not a layout: above the most tiles the card lays out (56 on an 8K screen at 100%).
+const MAX_SLOTS: usize = 64;
 /// Layered and transparent: mouse input passes to whatever lies below, across threads and processes, so WebView2's input
 /// window under the card keeps the pointer (`HTTRANSPARENT` alone only reaches windows of the same thread).
 const POPUP_EX: WINDOW_EX_STYLE = WINDOW_EX_STYLE(WS_EX_LAYERED.0 | WS_EX_TRANSPARENT.0 | WS_EX_TOPMOST.0 | WS_EX_TOOLWINDOW.0 | WS_EX_NOACTIVATE.0);
@@ -66,10 +66,12 @@ thread_local! {
     static SHOWN: RefCell<HashMap<String, HashMap<isize, Thumb>>> = RefCell::default();
 }
 
-/// The page's slots as Rust takes them: finite, of a positive size, the first of each window, at most `MAX_SLOTS`.
-fn sanitize(slots: Vec<Slot>) -> Vec<Slot> {
+/// The page's slots as Rust takes them, one entry per slot sent: finite, of a positive size, the first of each window, at most
+/// `MAX_SLOTS`; None for any other, so the answers keep the page's order.
+fn sanitize(slots: Vec<Slot>) -> Vec<Option<Slot>> {
     let mut seen = HashSet::new();
-    slots.into_iter().filter(|s| [s.x, s.y, s.w, s.h].iter().all(|v| v.is_finite()) && s.w > 0.0 && s.h > 0.0 && seen.insert(s.id)).take(MAX_SLOTS).collect()
+    let ok = |s: &Slot| [s.x, s.y, s.w, s.h].iter().all(|v| v.is_finite()) && s.w > 0.0 && s.h > 0.0;
+    slots.into_iter().map(|s| (ok(&s) && seen.len() < MAX_SLOTS && seen.insert(s.id)).then_some(s)).collect()
 }
 
 /// Whether a slot lies wholly inside the bar's client area (`view`, CSS px). The card always lies in the bar's window, so a box
@@ -123,7 +125,7 @@ pub fn taskbar_preview(window: WebviewWindow, slots: Vec<Slot>) -> Result<Vec<Op
     let size = window.inner_size().map_err(|_| "failed")?;
     let view = (size.width as f64 / scale, size.height as f64 / scale);
     let mut thumbs = SHOWN.with_borrow_mut(|m| m.remove(&label)).unwrap_or_default();
-    let ids: Vec<isize> = slots.iter().map(|s| s.id).collect();
+    let ids: Vec<isize> = slots.iter().flatten().map(|s| s.id).collect();
     for id in gone(&thumbs.keys().copied().collect::<Vec<_>>(), &ids) {
         if let Some(t) = thumbs.remove(&id) {
             drop_thumb(t);
@@ -132,6 +134,7 @@ pub fn taskbar_preview(window: WebviewWindow, slots: Vec<Slot>) -> Result<Vec<Op
     let answers = slots
         .iter()
         .map(|slot| {
+            let slot = slot.as_ref()?;
             let source = HWND(slot.id as _);
             // A minimized window has no live picture: DWM would compose only its minimized caption.
             let wanted = inside(slot, view) && tasks::previewable(slot.id, monitor) && !unsafe { IsIconic(source) }.as_bool();
@@ -205,15 +208,25 @@ fn place(t: &Thumb, source: HWND, slot: &Slot, origin: PhysicalPosition<i32>, sc
 /// The source's visible frame, relative to its window rect, and its size: without the invisible resize borders of Windows 10
 /// and 11, which would compose as a dark band and skew the proportions. When that cannot be read, the whole window.
 fn visible_frame(source: HWND, thumb: isize) -> Option<(Option<RECT>, (i32, i32))> {
+    let size = unsafe { DwmQueryThumbnailSourceSize(thumb) }.ok()?;
     let (mut frame, mut rect) = (RECT::default(), RECT::default());
     let framed = unsafe { DwmGetWindowAttribute(source, DWMWA_EXTENDED_FRAME_BOUNDS, &mut frame as *mut _ as *mut _, size_of::<RECT>() as u32) }.is_ok()
         && unsafe { GetWindowRect(source, &mut rect) }.is_ok();
-    if framed {
-        let r = RECT { left: frame.left - rect.left, top: frame.top - rect.top, right: frame.right - rect.left, bottom: frame.bottom - rect.top };
-        return Some((Some(r), (r.right - r.left, r.bottom - r.top)));
+    match framed.then(|| crop(frame, rect, (size.cx, size.cy))).flatten() {
+        Some(r) => Some((Some(r), (r.right - r.left, r.bottom - r.top))),
+        None => Some((None, (size.cx, size.cy))),
     }
-    let size = unsafe { DwmQueryThumbnailSourceSize(thumb) }.ok()?;
-    Some((None, (size.cx, size.cy)))
+}
+
+/// The frame (screen px) relative to the window rect, only when DWM's source measures as that rect: a DPI-virtualized window's
+/// surface is its unscaled size, where physical px would cut or shift it, so it composes whole.
+fn crop(frame: RECT, rect: RECT, (sw, sh): (i32, i32)) -> Option<RECT> {
+    (rect.right - rect.left == sw && rect.bottom - rect.top == sh).then_some(RECT {
+        left: frame.left - rect.left,
+        top: frame.top - rect.top,
+        right: frame.right - rect.left,
+        bottom: frame.bottom - rect.top,
+    })
 }
 
 /// Unregisters a thumbnail and destroys its popup; always None, for the slot's answer.
@@ -254,9 +267,29 @@ mod tests {
     #[test]
     fn the_pages_slots_are_finite_positive_once_each_and_few() {
         let s = |id, w| Slot { id, x: 0.0, y: 0.0, w, h: 10.0 };
+        // One entry per slot the page sent, in order, so each answer stays on its own box.
         let kept = sanitize(vec![s(1, 10.0), s(1, 10.0), s(2, f64::NAN), s(3, -1.0), s(4, 10.0)]);
-        assert_eq!(kept.iter().map(|s| s.id).collect::<Vec<_>>(), [1, 4]);
-        assert_eq!(sanitize((0..40).map(|i| s(i, 10.0)).collect()).len(), MAX_SLOTS);
+        assert_eq!(kept.iter().map(|s| s.map(|s| s.id)).collect::<Vec<_>>(), [Some(1), None, None, None, Some(4)]);
+        let many = sanitize((0..100).map(|i| s(i, 10.0)).collect());
+        assert_eq!((many.len(), many.iter().flatten().count()), (100, MAX_SLOTS));
+        assert!(many[MAX_SLOTS - 1].is_some() && many[MAX_SLOTS].is_none());
+    }
+
+    #[test]
+    fn the_cap_holds_every_tile_the_card_can_lay_out() {
+        // R8's previewLayout keeps tiles while (viewW - 24 - 4 (n - 1)) / n - 12 >= 120: 56 at 7680 CSS px (8K at 100%).
+        let tiles = |view: i64| (1..).take_while(|n| (view - 24 - 4 * (n - 1)) / n - 12 >= 120).last().unwrap_or(0) as usize;
+        assert_eq!(tiles(1920), 13);
+        assert!(tiles(7680) <= MAX_SLOTS);
+    }
+
+    #[test]
+    fn a_frame_is_cropped_only_when_the_source_measures_as_its_window() {
+        let r = |left, top, right, bottom| RECT { left, top, right, bottom };
+        let (frame, rect) = (r(107, 100, 1007, 700), r(100, 100, 1014, 707));
+        assert_eq!(crop(frame, rect, (914, 607)), Some(r(7, 0, 907, 600)));
+        // A DPI-virtualized source: DWM's surface is its unscaled size, so the physical frame would cut or shift it.
+        assert_eq!(crop(frame, rect, (457, 303)), None);
     }
 
     #[test]

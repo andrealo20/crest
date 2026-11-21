@@ -205,9 +205,9 @@ pub(super) fn build(app: &AppHandle, label: &str, on_destroyed: impl Fn() + Send
             // needed. The payload is `taskbar_panel`'s (panel.rs).
             let _ = handle.emit_to("notch", "bar://panel", serde_json::json!({ "label": label, "open": null }));
         }
-        // The thumbnails sit where the page's slots were: a move that keeps the size (a work area changed, a monitor rearranged)
-        // or a new scale gives the page no resize to send others.
-        WindowEvent::Moved(_) | WindowEvent::ScaleFactorChanged { .. } => super::preview::clear(&label),
+        // The thumbnails sit where the page's slots were: a move, a new size (the card's own observer does not see the window
+        // change) or a new scale gives the page nothing to send others.
+        WindowEvent::Moved(_) | WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => super::preview::clear(&label),
         _ => {}
     });
     Ok(window)
