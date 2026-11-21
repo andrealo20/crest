@@ -19,7 +19,7 @@ const SYS_ITEMS: readonly string[] = SYS_IDS.map((id) => `sys:${id}`);
 export const isSys = (id: string): id is SysItem => SYS_ITEMS.includes(id);
 /** A Windows button's id. */
 export const sysOf = (id: SysItem): SysId => id.slice("sys:".length) as SysId;
-/** Whether a Windows button shows on the primary bar only: Windows widgets, the input language and the privacy indicators, which Windows keeps on the main taskbar; the others are on every bar. */
+/** Whether a Windows button shows on the primary bar only: Windows widgets, the input language, the privacy indicators and the Recycle Bin, which Windows keeps on the main taskbar; the others are on every bar. */
 export const sysPrimaryOnly = (id: SysItem): boolean => sysOf(id) !== "search" && sysOf(id) !== "taskview" && sysOf(id) !== "desktop";
 /** Whether the notch polls the privacy state for the bar: on, with its privacy button on it. */
 export const privacyOnBar = (t: TaskbarSettings): boolean => t.enabled && Object.values(t.zones).some((items) => items.includes("sys:privacy"));

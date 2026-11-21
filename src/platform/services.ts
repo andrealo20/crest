@@ -14,7 +14,7 @@ import type { RulesPayload } from "../features/window/model";
 import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
-import type { BarKey, JumpList, TrayState, WindowList } from "../features/taskbar/model";
+import type { BarKey, JumpList, TrayState, WindowList, WindowState } from "../features/taskbar/model";
 import type { Decor } from "../features/taskbar/decorModel";
 import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
 import type { Rect } from "../features/taskbar/autoHide";
@@ -1364,6 +1364,8 @@ export interface WindowsPins {
 
 /** Where the bar's Windows keys stand (taskbar/keys.rs). */
 export type KeysStatus = "off" | "busy" | "on" | "partial" | "held" | "failed";
+/** What the Recycle Bin holds, by Windows' count (taskbar/recycle.rs). */
+export type RecycleBin = { items: number; bytes: number };
 
 /** The input language as Windows' indicator by the tray writes it: "ITA" over "IT" (taskbar/input.rs). */
 export type InputLang = { lang: string; region: string };
@@ -1406,7 +1408,14 @@ export const taskbar = {
     return () => void off.then((f) => f());
   },
   /** Acts on a listed window; "end" is End task, which ends its process. An error (a window of an app run as administrator) changes nothing. */
-  window: (id: number, action: "activate" | "toggle" | "minimize" | "close" | "end"): Promise<void> => (isNative ? invoke("taskbar_window", { id, action }) : Promise.resolve()),
+  window: (id: number, action: "activate" | "toggle" | "minimize" | "close" | "end" | "restore" | "maximize" | "move" | "size"): Promise<void> => (isNative ? invoke("taskbar_window", { id, action }) : Promise.resolve()),
+  /** What listed window `id`'s menu enables. */
+  windowMenu: (id: number): Promise<WindowState> =>
+    isNative ? invoke<WindowState>("taskbar_window_menu", { id }) : Promise.resolve({ minimized: false, maximized: false, canMinimize: true, canMaximize: true, canSize: true }),
+  /** An app's windows in this order on the bar, until Crest restarts (a preview dragged in its card). The bar only. */
+  windowOrder: (ids: number[]): Promise<void> => (isNative ? invoke("taskbar_window_order", { ids }) : Promise.resolve()),
+  /** An app's windows arranged on the calling bar's monitor, or all restored or minimized. The bar only. */
+  arrange: (ids: number[], how: "cascade" | "stack" | "side" | "restore" | "minimize"): Promise<void> => (isNative ? invoke("taskbar_arrange", { ids, how }) : Promise.resolve()),
   /** Pins listed window `id`: the entry to put in `pinned`. Errors: not-found, prevented, unknown. The bar only. */
   pinWindow: (id: number): Promise<Favorite> => (isNative ? invoke<Favorite>("taskbar_pin_window", { id }) : Promise.resolve({ id: `demo:${id}`, name: "App" })),
   /** A new instance from listed window `id`, as administrator with `admin`. Errors: not-found, unknown, cancelled, failed. The bar only. */
@@ -1437,8 +1446,8 @@ export const taskbar = {
   focus: (): Promise<void> => (isNative ? invoke("taskbar_focus") : Promise.resolve()),
   /** Gives the keyboard back to the app in front, or the last one if only Start came after it (none after the desktop or a Crest window), after a menu or panel closed from the bar. */
   release: (): Promise<void> => (isNative ? invoke("taskbar_release") : Promise.resolve()),
-  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu, "quick" its quick settings (Win+A), "taskmgr" Task Manager; the Windows buttons: "search" Search, "taskview" Task view, "widgets" Windows' widgets, "input" Windows' input language switcher (Win+Space), "desktop" shows or hides the desktop. */
-  shell: (action: "start" | "winx" | "quick" | "taskmgr" | "search" | "taskview" | "widgets" | "input" | "desktop"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
+  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu, "quick" its quick settings (Win+A), "taskmgr" Task Manager; the Windows buttons: "search" Search, "taskview" Task view, "widgets" Windows' widgets, "input" Windows' input language switcher (Win+Space), "desktop" shows or hides the desktop; the quick panel's "cast" Windows' Cast panel (Win+K). */
+  shell: (action: "start" | "winx" | "quick" | "taskmgr" | "search" | "taskview" | "widgets" | "input" | "desktop" | "cast"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
   /** The keyboard language of the window in front, as Windows' indicator writes it; null with one layout installed. */
   input: (): Promise<InputLang | null> => (isNative ? invoke<InputLang | null>("taskbar_input") : Promise.resolve(null)),
   /** The input language each time it changes; Rust sends it to the primary bar only. */
@@ -1532,8 +1541,20 @@ export const taskbar = {
     const off = listen("status://bt", () => handler());
     return () => void off.then((f) => f());
   },
+  /** Whether the bars list the windows of every virtual desktop. The notch only. */
+  allDesktops: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_all_desktops", { on }) : Promise.resolve()),
+  /** The Recycle Bin's count, null when Windows could not say. */
+  recycle: (): Promise<RecycleBin | null> => (isNative ? invoke<RecycleBin | null>("taskbar_recycle") : Promise.resolve(null)),
+  /** A new count each time the shell reports a change in the bin; to the primary bar. */
+  onRecycle(handler: (r: RecycleBin) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<RecycleBin>("taskbar://recycle", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Opens the bin in Explorer, or empties it after Windows' own confirmation. The bar only. */
+  recycleDo: (action: "open" | "empty"): Promise<void> => (isNative ? invoke("taskbar_recycle_do", { action }) : Promise.resolve()),
   /** One of Windows' settings pages, by name (Rust maps it to its URI). */
-  settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location" | "microphone" | "camera" | "mixer"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
+  settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location" | "microphone" | "camera" | "mixer" | "night" | "dnd" | "access"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
   /**
    * In a bar: it shows or hides (a full-screen app, the hide hotkey, slid off the screen); Rust sends each bar its own, which pauses
    * its widgets. On this window only: a listener for any target would also hear the other bars'.

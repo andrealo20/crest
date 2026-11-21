@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -119,9 +119,17 @@ test("Stato's quick panel opens in the bar's panel, apart from the tray and any 
 
 test("the quick panel is as tall as its rows", () => {
   // 12 px padding top and bottom, rows 56 (radios), 40 (volume), 40 (brightness), 40 (saver and airplane), 32 (footer), 10 px between rows.
-  assert.deepEqual(QUICK_SIZE({ radios: true, brightness: true, list: 0 }), { w: 360, h: 272 });
-  assert.deepEqual(QUICK_SIZE({ radios: false, brightness: false, list: 0 }), { w: 360, h: 156 });
-  assert.equal(QUICK_SIZE({ radios: true, brightness: true, list: 90 }).h, 362);
+  assert.deepEqual(QUICK_SIZE({ radios: true, brightness: true, list: 0, chips: 3 }), { w: 360, h: 272 });
+  assert.deepEqual(QUICK_SIZE({ radios: false, brightness: false, list: 0, chips: 3 }), { w: 360, h: 156 });
+  assert.equal(QUICK_SIZE({ radios: true, brightness: true, list: 90, chips: 3 }).h, 362);
+  // Three chips to a row, 8 px between the rows.
+  assert.equal(QUICK_SIZE({ radios: true, brightness: true, list: 0, chips: 7 }).h, 272 + 2 * 48);
+  assert.equal(QUICK_SIZE({ radios: true, brightness: true, list: 0, chips: 6 }).h, 272 + 48);
+});
+
+test("the quick chips keep their order, Ethernet only on a cable and the microphone only where there is one", () => {
+  assert.deepEqual(quickChips({ wired: false, mic: false }), ["saver", "airplane", "cast", "night", "dnd", "access"]);
+  assert.deepEqual(quickChips({ wired: true, mic: true }), ["saver", "airplane", "ethernet", "mic", "cast", "night", "dnd", "access"]);
 });
 
 test("a quick page is as tall as its rows, six at most before it scrolls", () => {

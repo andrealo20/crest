@@ -83,9 +83,10 @@ test("Windows' buttons are the six the bar knows, Windows widgets, the input lan
   assert.equal(isSys("tool:notes"), false);
   assert.deepEqual((["sys:search", "sys:taskview", "sys:widgets", "sys:desktop", "sys:input", "sys:privacy"] as const).filter(sysPrimaryOnly), ["sys:widgets", "sys:input", "sys:privacy"]);
   const zones: Record<Zone, BarItem[]> = { left: ["sys:taskview"], center: ["start", "apps"], right: ["crest"] };
-  assert.deepEqual(addableSys(zones), ["sys:search", "sys:widgets", "sys:desktop", "sys:input", "sys:privacy"]);
+  assert.deepEqual(addableSys(zones), ["sys:search", "sys:widgets", "sys:desktop", "sys:input", "sys:privacy", "sys:recycle"]);
+  assert.equal(sysPrimaryOnly("sys:recycle"), true);
   assert.deepEqual(addWidget(zones, "sys:desktop", "right").right, ["sys:desktop", "crest"]);
-  assert.deepEqual(addableSys({ left: ["sys:search", "sys:taskview", "sys:widgets"], center: ["sys:desktop"], right: ["sys:input", "sys:privacy"] }), []);
+  assert.deepEqual(addableSys({ left: ["sys:search", "sys:taskview", "sys:widgets"], center: ["sys:desktop"], right: ["sys:input", "sys:privacy", "sys:recycle"] }), []);
 });
 
 test("the privacy button polls only while on the bar, and shows the microphone, the camera and the location in that order", () => {

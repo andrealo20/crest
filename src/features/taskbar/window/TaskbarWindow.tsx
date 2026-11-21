@@ -17,7 +17,7 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
 import { PREVIEW_CLOSE, PREVIEW_DELAY, bridge, zones as hitZones, type Rect } from "../autoHide";
-import { COMPACT_PAD, DRAG_REST, WHEEL_STEP, appKey, appState, barArrow, barButtons, buttonAt, clickAction, cycleKey, numberKey, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, wheelSteps, windowBadge, windowButtons, type BarButton, type BarEdge, type BarItem, type BarKey, type BarShape, type Click, type ClickMods, type Zone } from "../model";
+import { COMPACT_PAD, DRAG_REST, shiftMenu, WHEEL_STEP, appKey, appState, barArrow, barButtons, buttonAt, clickAction, cycleKey, numberKey, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, wheelSteps, windowBadge, windowButtons, type BarButton, type BarEdge, type BarItem, type BarKey, type BarShape, type Click, type ClickMods, type Zone } from "../model";
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
 import { barMargin, slideBy, toEdge } from "../position";
 import { BarEdgeContext, barEdgeNow } from "./barEdge";
@@ -36,10 +36,11 @@ import { useHue } from "../../themes/hues";
 import { BarGlass, useBarSurface } from "./BarGlass";
 import { Capsule } from "./Capsule";
 import { AppsPanel } from "./AppsPanel";
-import { AppMenu, BarMenu, CrestMenu, WindowList, closeWindows, type HitRect } from "./BarMenu";
+import { AppMenu, BarMenu, CrestMenu, GroupMenu, RecycleMenu, WindowList, WindowMenu, closeWindows, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
 import { holdBriefly } from "./hold";
-import { Item, MARK, type ItemProps } from "./Item";
+import { Item, type ItemProps } from "./Item";
+import { markThick } from "../itemLook";
 import { ItemDrop } from "./ItemDrop";
 import { PinDrop, placeAt } from "./PinDrop";
 import { pressDragged, startPress } from "./press";
@@ -62,7 +63,7 @@ const ZONES: [Zone, string][] = [
 export const primary = !isNative || getCurrentWebviewWindow().label === "taskbar";
 
 /** What a menu lists: an app's right-click menu, an app's windows (as they were when it opened), or the Crest menu. */
-type Menu = { kind: "app" | "list"; b: BarButton } | { kind: "crest" };
+type Menu = { kind: "app" | "list" | "window" | "group"; b: BarButton } | { kind: "crest" } | { kind: "recycle" };
 /** An open menu, the button it opened from (null: a right click beside the buttons) and the span it opens over, CSS px. */
 type OpenMenu = Menu & { anchor: Element | null; x: number; w: number };
 /** The open preview card: the app's button, the span it opens over, CSS px, and whether a rest on the button or a click opened it. */
@@ -80,7 +81,7 @@ type Card = { key: string; x: number; w: number; by: "hover" | "click" };
  */
 export function TaskbarWindow() {
   const s = settings.use();
-  const { zones: saved, height, iconSize, pinned, shape, trayShown, combine, flashing, middleClick, windowCount, wheelVolume } = s.taskbar;
+  const { zones: saved, height, iconSize, pinned, shape, trayShown, combine, flashing, middleClick, windowCount, wheelVolume, marks } = s.taskbar;
   // The site's demo lays the bar over its own page and keeps the bottom.
   const edge = barEdgeNow();
   // Without the buttons whose tool cannot open: the notch opens its first tool in place of one switched off there (widgets.ts toolShown).
@@ -204,7 +205,7 @@ export function TaskbarWindow() {
   const ownIcons = groupIcons.use();
   const size = fitIcon(height, iconSize);
   // The mark sits in the middle of the room under the icon, on whole pixels.
-  const markAt = Math.round(((height - size) / 2 - MARK) / 2);
+  const markAt = Math.round(((height - size) / 2 - markThick(marks)) / 2);
   const gap = barGap(shape);
   const tiles = shape === "tiles";
   const between = itemGap(shape);
@@ -557,7 +558,7 @@ export function TaskbarWindow() {
               if (e.button === 1) e.preventDefault();
               else if (b.pin) dragPin(b.pin.id, e);
             }}
-            onContextMenu={(e) => toggle({ kind: "app", b }, e.currentTarget)}
+            onContextMenu={(e) => toggle({ kind: e.shiftKey ? shiftMenu(b) : "app", b }, e.currentTarget)}
           >
             <span className="relative flex">
               <AppIcon src={entry === null ? ownIcons[appKey(b)] : icons[entry]} size={appIcon} />
@@ -664,8 +665,8 @@ export function TaskbarWindow() {
             tile: tile(),
             magnify: mag,
             onPointerDown: dragFrom(id),
-            // No menu of its own, as a widget: the Crest menu over the pointer.
-            onContextMenu: (e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 }),
+            // No menu of its own, as a widget: the Crest menu over the pointer; the Recycle Bin has Open and Empty.
+            onContextMenu: (e) => (sys === "recycle" ? toggle({ kind: "recycle" }, e.currentTarget) : setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })),
           }}
           dragged={afterDrag}
         />
@@ -845,7 +846,7 @@ export function TaskbarWindow() {
           {menu && !open && (
             <BarMenu
               key={`${menu.kind}@${menu.x}`}
-              title={menu.kind === "crest" ? t("Crest-Menü") : menu.b.name}
+              title={menu.kind === "crest" ? t("Crest-Menü") : menu.kind === "recycle" ? t("Papierkorb") : menu.b.name}
               x={menu.x}
               w={menu.w}
               off={gap + height + MENU_GAP}
@@ -855,6 +856,12 @@ export function TaskbarWindow() {
             >
               {menu.kind === "crest" ? (
                 <CrestMenu close={closeMenu} />
+              ) : menu.kind === "recycle" ? (
+                <RecycleMenu close={closeMenu} />
+              ) : menu.kind === "window" ? (
+                <WindowMenu win={menu.b.windows[0]} close={closeMenu} />
+              ) : menu.kind === "group" ? (
+                <GroupMenu b={menu.b} close={closeMenu} />
               ) : menu.kind === "app" ? (
                 <AppMenu b={menu.b} act={(c) => run(menu.b, c)} close={closeMenu} fail={(text) => setError({ key: menu.b.key, text })} />
               ) : (
@@ -899,13 +906,13 @@ export function TaskbarWindow() {
               })}
               size={size}
               // In the middle of the 8 px under the cell's icon, as markAt is under the bar's.
-              markAt={Math.round((8 - MARK) / 2)}
+              markAt={Math.round((8 - markThick(marks)) / 2)}
               // A click does what the bar's does, over the cell: a window list or an app menu takes the panel's place.
               onClick={(b, cell) => {
                 closePanel();
                 click(b, cell, true);
               }}
-              onMenu={(b, cell) => toggle({ kind: "app", b }, cell)}
+              onMenu={(b, cell, shift) => toggle({ kind: shift ? shiftMenu(b) : "app", b }, cell)}
             />
           ),
         }}

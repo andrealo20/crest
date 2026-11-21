@@ -2,7 +2,8 @@ import { useLayoutEffect, useRef, useState, type DragEventHandler, type MouseEve
 import { AnimatePresence, motion, useReducedMotion, useSpring, useTransform, type MotionValue } from "motion/react";
 import { design } from "../../../design/design";
 import { fade, popover, pulse, springs } from "../../../design/motion";
-import { itemLayer, marks } from "../itemLook";
+import { itemLayer, markShape, markThick, marks } from "../itemLook";
+import { settings } from "../../../settings/store";
 import { magnify } from "../look";
 import { placeMenu, type BarEdge, type Indicator } from "../model";
 import { nudge } from "../position";
@@ -163,25 +164,27 @@ const ATTENTION = { ...pulse, repeat: 5 };
  */
 export function Mark({ kind, at, side = "bottom" }: { kind: Indicator; at: number; side?: BarEdge }) {
   const appDesign = design.use();
+  const style = settings.use().taskbar.marks;
+  const shape = markShape(style);
   const { dot, bar } = marks(kind, appDesign);
   return (
     // No initial={false} here: a mark that appears asking for attention pulses too, where initial={false} would leave it dim.
     <motion.span
-      className="absolute inset-x-0 flex justify-center"
-      style={{ [side]: at, height: MARK }}
+      className="absolute inset-x-0 flex items-center justify-center"
+      style={{ [side]: at, height: markThick(style) }}
       animate={{ opacity: kind === "attention" ? [1, 0.35] : 1 }}
       transition={kind === "attention" ? ATTENTION : fade}
     >
       <motion.span
         className="absolute rounded-full bg-label-2"
-        style={{ width: MARK, height: MARK }}
+        style={{ width: shape.dot.w, height: shape.dot.h }}
         initial={false}
         animate={{ opacity: dot ? 1 : 0, transform: `scale(${dot ? 1 : 0.5})` }}
         transition={springs.snappy}
       />
       <motion.span
-        className={`absolute w-4 rounded-full ${kind === "attention" ? "bg-accent" : "bg-label"}`}
-        style={{ height: MARK }}
+        className={`absolute rounded-full ${kind === "attention" ? "bg-accent" : "bg-label"}`}
+        style={{ width: shape.bar.w, height: shape.bar.h }}
         initial={false}
         animate={{ opacity: bar ? 1 : 0, transform: `scaleX(${bar ? 1 : 0.25})` }}
         transition={springs.snappy}

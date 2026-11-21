@@ -1,5 +1,5 @@
 import type { Design } from "../../design/design.ts";
-import type { Indicator } from "./model.ts";
+import type { Indicator, MarkStyle } from "./model.ts";
 
 /**
  * Which marks an app shows: the dot while open, the long mark while it asks for attention and, in Crest, while in front. Material
@@ -29,3 +29,16 @@ export function itemLayer(o: { size: number; width: number; layer?: number; tile
   const h = Math.min(o.layer ?? o.size + 8, o.width);
   return { left: 0, right: 0, top: "50%", height: h, marginTop: -h / 2, borderRadius: h / 2 };
 }
+
+type Size = { w: number; h: number };
+const SHAPES: Record<MarkStyle, { dot: Size; bar: Size }> = {
+  dot: { dot: { w: 3, h: 3 }, bar: { w: 16, h: 3 } },
+  large: { dot: { w: 6, h: 6 }, bar: { w: 18, h: 4 } },
+  line: { dot: { w: 8, h: 3 }, bar: { w: 16, h: 3 } },
+};
+
+/** The open mark and the longer one in front, CSS px, by the setting's style. */
+export const markShape = (style: MarkStyle) => SHAPES[style];
+
+/** The row the marks take: the taller of the two. */
+export const markThick = (style: MarkStyle) => Math.max(SHAPES[style].dot.h, SHAPES[style].bar.h);

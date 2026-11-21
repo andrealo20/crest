@@ -2,10 +2,19 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { itemLayer, marks } from "./itemLook.ts";
+import { itemLayer, markShape, markThick, marks } from "./itemLook.ts";
 import { contrast, parseColor } from "../themes/color.ts";
 import { materialInk, resolveMaterial } from "../themes/material.ts";
 import { BUILT_IN_THEMES } from "../themes/themes.ts";
+
+test("each mark style: the mark in front is wider than the open one, and Dot keeps today's 3 and 16", () => {
+  for (const style of ["dot", "large", "line"] as const) {
+    const { dot, bar } = markShape(style);
+    assert.ok(bar.w > dot.w, style);
+    assert.ok(markThick(style) >= 3, style);
+  }
+  assert.deepEqual(markShape("dot"), { dot: { w: 3, h: 3 }, bar: { w: 16, h: 3 } });
+});
 
 test("the marks under an app: Crest's of today, and Material's pill in place of the long mark in front", () => {
   const none = { dot: false, bar: false, pill: false };

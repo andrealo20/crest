@@ -15,7 +15,8 @@ export function AppsPanel(props: {
   size: number;
   markAt: number;
   onClick: (b: BarButton, cell: HTMLElement) => void;
-  onMenu: (b: BarButton, cell: HTMLElement) => void;
+  /** `shift`: Shift+right-click, the window or group menu. */
+  onMenu: (b: BarButton, cell: HTMLElement, shift: boolean) => void;
 }) {
   const appDesign = design.use();
   const material = appDesign === "material";
@@ -29,7 +30,7 @@ export function AppsPanel(props: {
           onClick={(e) => props.onClick(b, e.currentTarget)}
           onContextMenu={(e) => {
             e.preventDefault();
-            props.onMenu(b, e.currentTarget);
+            props.onMenu(b, e.currentTarget, e.shiftKey);
           }}
           className="relative flex items-center justify-center rounded-[8px] outline-none hover:bg-fill-2 focus-visible:bg-fill-2 material:rounded-full pressable-wide"
         >

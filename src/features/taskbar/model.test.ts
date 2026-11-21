@@ -2,6 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   jumpHeading,
+  GROUP_MENU,
+  movedOrder,
+  previewDrop,
+  recycleName,
+  shiftMenu,
+  windowMenuRows,
   COMPACT_PAD,
   TASKBAR_DEFAULTS,
   TOOL_BUTTONS,
@@ -685,4 +691,45 @@ test("the bar stands on the bottom unless the top is saved", () => {
   assert.equal(normalizeTaskbar({}).position, "bottom");
   assert.equal(normalizeTaskbar({ position: "top" }).position, "top");
   for (const v of ["middle", 1, "left", "right"]) assert.equal(normalizeTaskbar({ position: v }).position, "bottom");
+  assert.equal(normalizeTaskbar({}).marks, "dot");
+  assert.equal(normalizeTaskbar({ marks: "line" }).marks, "line");
+  for (const v of ["big", 3]) assert.equal(normalizeTaskbar({ marks: v }).marks, "dot");
+  assert.equal(normalizeTaskbar({}).allDesktops, false);
+  assert.equal(normalizeTaskbar({ allDesktops: "yes" }).allDesktops, false);
+  assert.equal(normalizeTaskbar({ allDesktops: true }).allDesktops, true);
+});
+
+test("the window menu enables what Windows' own system menu would, and the group menu keeps Windows' order", () => {
+  const base = { minimized: false, maximized: false, canMinimize: true, canMaximize: true, canSize: true };
+  const on = (s: Parameters<typeof windowMenuRows>[0]) => windowMenuRows(s).filter((r) => r.enabled).map((r) => r.entry);
+  assert.deepEqual(on(base), ["move", "size", "minimize", "maximize", "close"]);
+  assert.deepEqual(on({ ...base, minimized: true }), ["restore", "maximize", "close"]);
+  assert.deepEqual(on({ ...base, maximized: true }), ["restore", "minimize", "close"]);
+  assert.deepEqual(on({ ...base, canMinimize: false, canMaximize: false, canSize: false }), ["move", "close"]);
+  assert.deepEqual(on(null), ["close"]);
+  assert.deepEqual(GROUP_MENU, ["cascade", "stack", "side", "restoreAll", "minimizeAll", "closeAll"]);
+  const w = { id: 1, title: "", minimized: false, flashing: false };
+  const b = { key: "a", name: "A", pin: null, pins: [], windows: [] as (typeof w)[] };
+  assert.equal(shiftMenu(b), "app");
+  assert.equal(shiftMenu({ ...b, windows: [w] }), "window");
+  assert.equal(shiftMenu({ ...b, windows: [w, { ...w, id: 2 }] }), "group");
+});
+
+test("a preview dragged in its card: its own place and the next one do nothing, and the window takes the place it is let go at", () => {
+  const slots = [0, 100, 200, 300].map((x) => ({ x, w: 96 }));
+  assert.equal(previewDrop(slots, 1, 120), null);
+  assert.equal(previewDrop(slots, 1, 160), null);
+  assert.equal(previewDrop(slots, 1, 10), 0);
+  assert.equal(previewDrop(slots, 1, 390), 4);
+  assert.equal(previewDrop(slots, 3, 900), null);
+  assert.deepEqual(movedOrder([1, 2, 3, 4], 0, 4), [2, 3, 4, 1]);
+  assert.deepEqual(movedOrder([1, 2, 3, 4], 3, 0), [4, 1, 2, 3]);
+  assert.deepEqual(movedOrder([1, 2, 3, 4], 0, 2), [2, 1, 3, 4]);
+});
+
+test("the Recycle Bin's name says empty before the first count, then the count", () => {
+  assert.deepEqual(recycleName(null), ["Papierkorb ist leer"]);
+  assert.deepEqual(recycleName(0), ["Papierkorb ist leer"]);
+  assert.deepEqual(recycleName(1), ["Papierkorb: 1 Element"]);
+  assert.deepEqual(recycleName(7), ["Papierkorb: {n} Elemente", { n: 7 }]);
 });

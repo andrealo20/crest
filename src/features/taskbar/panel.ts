@@ -37,7 +37,7 @@ export const pinDrag = createStore<{ id: string; x: number; y: number; pointerId
 export const fileDrag = createStore<{ x: number; y: number } | null>(null);
 
 /** The quick panel's rows that come and go (QuickPanel.tsx), for its size (QUICK_SIZE): the radios, the brightness, the open output list's px. */
-export const quickLayout = createStore<{ radios: boolean; brightness: boolean; list: number }>({ radios: true, brightness: false, list: 0 });
+export const quickLayout = createStore<{ radios: boolean; brightness: boolean; list: number; chips: number }>({ radios: true, brightness: false, list: 0, chips: 7 });
 
 /** The page open in the quick panel and the rows it asks room for (QUICK_PAGE_SIZE), null on the main page; the panel reopens on the main page. */
 export const quickPage = createStore<{ page: QuickPage; rows: number; extra: number } | null>(null);

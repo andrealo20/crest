@@ -24,7 +24,7 @@ use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitiali
 use windows::Win32::System::Threading::{CreateEventW, SetEvent, WaitForMultipleObjects, INFINITE};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_A, VK_LWIN, VK_S, VK_SPACE, VK_TAB,
-    VK_W, VK_X,
+    VK_K, VK_W, VK_X,
 };
 use windows::Win32::UI::Shell::{
     AppVisibility, IAppVisibility, IAppVisibilityEvents, IAppVisibilityEvents_Impl, IShellDispatch4, Shell, ShellExecuteW,
@@ -251,6 +251,7 @@ pub fn taskbar_shell(action: String) -> Result<(), String> {
         "taskview" => &[VK_LWIN, VK_TAB],
         "widgets" => &[VK_LWIN, VK_W],
         "input" => &[VK_LWIN, VK_SPACE],
+        "cast" => &[VK_LWIN, VK_K],
         _ => return Err("unknown".into()),
     };
     let inputs = keys(vks);

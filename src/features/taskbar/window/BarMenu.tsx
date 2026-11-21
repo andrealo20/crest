@@ -9,14 +9,16 @@ import { autostart, taskbar } from "../../../platform/services";
 import { settings, updateSettings } from "../../../settings/store";
 import { MENU_PANEL_CLASS, MENU_ROW_CLASS } from "../../../ui/menu";
 import { toggleFavorite, type Favorite } from "../../launcher/apps";
-import { appKey, jumpHeading, menuFor, menuKey, newInstance, placeMenu, type BarButton, type Click, type JumpList } from "../model";
+import { recycleBin } from "../store";
+import { holdBriefly } from "./hold";
+import { GROUP_MENU, appKey, jumpHeading, menuFor, menuKey, newInstance, placeMenu, windowMenuRows, type BarButton, type Click, type GroupEntry, type JumpList, type Win, type WindowEntry, type WindowState } from "../model";
 import { growFrom, nudge, popupAt, popupY } from "../position";
 import { useBarEdge } from "./barEdge";
 
 /** Room a menu keeps from the window's top edge, CSS px, as placeMenu keeps from its sides. */
 const EDGE = 8;
 /** A menu's rows: its commands and its settings. */
-const ROWS = "[role^=menuitem]";
+const ROWS = "[role^=menuitem]:not(:disabled)";
 
 /** A zone of the page that takes the pointer, CSS px. */
 export interface HitRect {
@@ -123,13 +125,15 @@ export function BarMenu(props: {
 }
 
 /** A command, or a setting with its check (`checked`), whose place is kept while it is off so the menu never changes width. */
-function Row(props: { label: string; onClick: () => void; checked?: boolean; icon?: string | null }) {
+function Row(props: { label: string; onClick: () => void; checked?: boolean; icon?: string | null; disabled?: boolean }) {
   return (
     <button
       role={props.checked === undefined ? "menuitem" : "menuitemcheckbox"}
       aria-checked={props.checked}
+      disabled={props.disabled}
+      aria-disabled={props.disabled}
       onClick={props.onClick}
-      className={`${MENU_ROW_CLASS} gap-2 text-label outline-none focus-visible:bg-fill-2`}
+      className={`${MENU_ROW_CLASS} gap-2 text-label outline-none focus-visible:bg-fill-2 disabled:text-label-3`}
     >
       {props.icon !== undefined &&
         (props.icon ? <img src={props.icon} alt="" draggable={false} className="size-4 shrink-0" /> : <span className="size-4 shrink-0" />)}
@@ -288,6 +292,87 @@ export function CrestMenu({ close }: { close: () => void }) {
         onClick={() => updateSettings((s) => ({ taskbar: { ...s.taskbar, autoHide: !s.taskbar.autoHide } }))}
       />
       <Row label={t("Crest beenden")} onClick={run(taskbar.quit)} />
+    </>
+  );
+}
+
+/** The Recycle Bin's menu: Open, and Empty while it holds anything, which Windows confirms first. */
+export function RecycleMenu({ close }: { close: () => void }) {
+  const items = recycleBin.use()?.items ?? 0;
+  const run = (action: "open" | "empty") => () => {
+    close();
+    holdBriefly();
+    void taskbar.recycleDo(action).catch(() => {});
+  };
+  return (
+    <>
+      <Row label={t("Öffnen")} onClick={run("open")} />
+      <Row label={t("Papierkorb leeren")} disabled={!items} onClick={run("empty")} />
+    </>
+  );
+}
+
+const WINDOW_LABEL: Record<WindowEntry, string> = {
+  restore: "Wiederherstellen",
+  move: "Verschieben",
+  size: "Größe ändern",
+  minimize: "Minimieren",
+  maximize: "Maximieren",
+  close: "Schließen",
+};
+
+/** One window's menu (Shift+right-click), as Windows' own: each row enabled as the window allows, read as the menu opens. */
+export function WindowMenu({ win, close }: { win: Win; close: () => void }) {
+  const [state, setState] = useState<WindowState | null>(null);
+  useEffect(() => void taskbar.windowMenu(win.id).then(setState, () => {}), [win.id]);
+  // The menu focused its only enabled row, Close, as it opened: the keyboard moves to the first one the state enables.
+  useEffect(() => void (state && document.querySelector<HTMLElement>(`[role=menu] ${ROWS}`)?.focus({ preventScroll: true })), [state]);
+  return (
+    <>
+      {windowMenuRows(state).map(({ entry, enabled }) => (
+        <Row
+          key={entry}
+          label={t(WINDOW_LABEL[entry])}
+          disabled={!enabled}
+          onClick={() => {
+            close();
+            taskbar.window(win.id, entry).catch(() => {});
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+const GROUP_LABEL: Record<GroupEntry, string> = {
+  cascade: "Überlappend",
+  stack: "Fenster gestapelt anzeigen",
+  side: "Fenster nebeneinander anzeigen",
+  restoreAll: "Alle Fenster wiederherstellen",
+  minimizeAll: "Alle Fenster minimieren",
+  closeAll: "Alle Fenster schließen",
+};
+const GROUP_HOW = { cascade: "cascade", stack: "stack", side: "side", restoreAll: "restore", minimizeAll: "minimize" } as const;
+
+/** The menu of an app with several windows (Shift+right-click): arranged on this bar's monitor, restored, minimized or closed. */
+export function GroupMenu({ b, close }: { b: BarButton; close: () => void }) {
+  return (
+    <>
+      {GROUP_MENU.map((entry) => (
+        <Row
+          key={entry}
+          label={t(GROUP_LABEL[entry])}
+          onClick={() => {
+            close();
+            if (entry === "closeAll") closeWindows(b);
+            else
+              taskbar.arrange(
+                b.windows.map((w) => w.id),
+                GROUP_HOW[entry],
+              ).catch(() => {});
+          }}
+        />
+      ))}
     </>
   );
 }

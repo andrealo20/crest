@@ -1,11 +1,12 @@
 import { useEffect } from "react";
-import { Copy, MagnifyingGlass, MapPin, Microphone, Monitor, SquaresFour, Translate, VideoCamera, type Icon } from "../../../ui/iconset";
+import { Copy, MagnifyingGlass, MapPin, Microphone, Monitor, SquaresFour, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
 import { t } from "../../../i18n";
 import { taskbar } from "../../../platform/services";
 import { privacy } from "../../privacy/store";
 import { inputLang, startInput } from "../input";
 import { privacyParts } from "../widgets";
-import type { SysId } from "../model";
+import { recycleName, type SysId } from "../model";
+import { recycleBin } from "../store";
 import { holdBriefly } from "./hold";
 import { Item, type ItemProps } from "./Item";
 
@@ -17,6 +18,7 @@ export const SYS_INFO: Record<SysId, { label: string; icon: Icon }> = {
   desktop: { label: "Desktop anzeigen", icon: Monitor },
   input: { label: "Eingabesprache", icon: Translate },
   privacy: { label: "Datenschutzanzeigen", icon: Microphone },
+  recycle: { label: "Papierkorb", icon: Trash },
 };
 
 /** The privacy button's glyph, name and Windows' settings page for each use. */
@@ -38,6 +40,7 @@ const LINE = "block whitespace-nowrap text-center text-footnote leading-tight fo
 export function SysButton({ id, item, dragged }: { id: SysId; item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean }) {
   if (id === "input") return <InputButton item={item} dragged={dragged} />;
   if (id === "privacy") return <PrivacyButton item={item} dragged={dragged} />;
+  if (id === "recycle") return <RecycleButton item={item} dragged={dragged} />;
   const I = SYS_INFO[id].icon;
   const narrow = Math.round(item.size / 2);
   return (
@@ -108,6 +111,33 @@ function PrivacyButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "c
           return <I key={p} size={size} weight="regular" />;
         })}
       </span>
+    </Item>
+  );
+}
+
+/**
+ * The Recycle Bin, empty or full, with its count in its name; Rust sends a new count when the shell reports a change (recycle.rs). A
+ * click opens it in Explorer; its menu (TaskbarWindow) empties it through Windows' own confirmation.
+ */
+function RecycleButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean }) {
+  useEffect(() => {
+    const off = taskbar.onRecycle(recycleBin.set);
+    taskbar.recycle().then((r) => r && recycleBin.set(r), () => {});
+    return off;
+  }, []);
+  const n = recycleBin.use()?.items ?? null;
+  const [key, values] = recycleName(n);
+  return (
+    <Item
+      {...item}
+      name={t(key, values)}
+      onClick={(e) => {
+        if (dragged(e)) return;
+        holdBriefly();
+        void taskbar.recycleDo("open").catch(() => {});
+      }}
+    >
+      <Trash size={Math.round(item.size * 0.8)} weight={n ? "fill" : "regular"} />
     </Item>
   );
 }

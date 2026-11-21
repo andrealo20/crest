@@ -2,7 +2,7 @@ import { followStores } from "../../lib/bridge";
 import { createStore } from "../../lib/store";
 import { listening, tauriTransport } from "../../lib/tauriTransport";
 import { isMac, isNative } from "../../platform/native";
-import { status, taskbar } from "../../platform/services";
+import { status, taskbar, type RecycleBin } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { normalizeFavorites } from "../launcher/apps";
 import { feedStores, panelStores } from "./barStores";
@@ -16,6 +16,8 @@ export const groupIcons = createStore<Record<string, string | null>>({});
 export const barShown = createStore(true);
 /** The site's full-screen demo offers a bar of its own, in the notch's page (src/dev/demo.ts); never set in the app. */
 export const demoBarOffered = createStore(false);
+/** In the primary bar's window, while its Recycle Bin button shows: the bin's count as Rust last sent it. */
+export const recycleBin = createStore<RecycleBin | null>(null);
 
 /** A change to the bar's settings, from the Taskbar pages and their widget rows; the notch applies on/off and the height to Rust (startTaskbar), the bar reads the rest itself. */
 export function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSettings) => Partial<TaskbarSettings>)) {
@@ -35,6 +37,7 @@ export function startTaskbar() {
   let statusOn: boolean | null = null;
   let spread: string | null = null;
   let keys: boolean | null = null;
+  let desktops: boolean | null = null;
   let keysQueue = Promise.resolve();
   let queue = Promise.resolve();
   let seeded = false;
@@ -66,7 +69,7 @@ export function startTaskbar() {
       });
   };
   const sync = () => {
-    const { enabled, height, shape, pinned, autoHide, allScreens, appsOn, position } = settings.get().taskbar;
+    const { enabled, height, shape, pinned, autoHide, allScreens, appsOn, position, allDesktops } = settings.get().taskbar;
     const wantTray = trayOnBar(settings.get().taskbar.zones);
     // Outside the queue: a flag the display poll reads, which never waits for a bar to be built or taken down.
     if (autoHide !== hides) {
@@ -77,6 +80,11 @@ export function startTaskbar() {
     if (`${allScreens}|${appsOn}` !== spread) {
       spread = `${allScreens}|${appsOn}`;
       void taskbar.spread(allScreens, appsOn).catch(() => {});
+    }
+    // Likewise, whether the list takes the windows of the other virtual desktops.
+    if (allDesktops !== desktops) {
+      desktops = allDesktops;
+      void taskbar.allDesktops(allDesktops).catch(() => {});
     }
     // Likewise, whether a zone holds the tray: Rust runs the spy while it does and the bar is on, so the bar turned off stops the
     // spy in Rust after Windows' taskbar is back (mod.rs `stop`), and the tray taken off stops it here, giving Explorer every icon back.

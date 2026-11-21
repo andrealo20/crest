@@ -7,7 +7,9 @@ import { onNativeBlur } from "../../../platform/native";
 import { taskbar } from "../../../platform/services";
 import { MENU_PANEL_CLASS } from "../../../ui/menu";
 import { AppIcon } from "../../launcher/AppIcon";
-import { menuKey, placeMenu, previewFallsBack, previewKey, previewLayout, previewSet, type BarButton } from "../model";
+import { menuKey, movedOrder, placeMenu, previewDrop, previewFallsBack, previewKey, previewLayout, previewSet, type BarButton } from "../model";
+import { dragThreshold } from "../panelModel";
+import { pressDragged, startPress } from "./press";
 import { popupAt, popupY } from "../position";
 import { WindowList, type HitRect } from "./BarMenu";
 import { useBarEdge } from "./barEdge";
@@ -56,6 +58,19 @@ export function PreviewCard(props: {
   const list = layout.kind === "list" || fellBack;
   // The last call's number: an answer to an older one is dropped.
   const sent = useRef(0);
+  // A tile dragged sideways: its index and where its window would go (null: nowhere new), with the line's place in the card.
+  const [drag, setDrag] = useState<{ from: number; at: number | null; line: number } | null>(null);
+  const dropAt = (from: number, x: number, y: number) => {
+    const card = ref.current?.getBoundingClientRect();
+    const tiles = [...(ref.current?.querySelectorAll<HTMLElement>("[data-window]") ?? [])].map((el) => el.getBoundingClientRect());
+    if (!card || !tiles.length || y < card.top || y > card.bottom || x < card.left || x > card.right) return { at: null, line: 0 };
+    // In a right-to-left language the tiles run from the right: mirrored, so the slots read in order.
+    const rtl = document.documentElement.dir === "rtl";
+    const at = previewDrop(tiles.map((r) => (rtl ? { x: -r.right, w: r.width } : { x: r.x, w: r.width })), from, rtl ? -x : x);
+    if (at === null) return { at, line: 0 };
+    const edge = at < tiles.length ? (rtl ? tiles[at].right + 2 : tiles[at].x - 2) : rtl ? tiles[tiles.length - 1].x - 2 : tiles[tiles.length - 1].right + 2;
+    return { at, line: edge - card.x - 1 };
+  };
 
   const send = useCallback(() => {
     const el = ref.current;
@@ -160,17 +175,36 @@ export function PreviewCard(props: {
       onPointerEnter={props.onEnter}
       onPointerLeave={props.onLeave}
     >
+      {drag && drag.at !== null && <span aria-hidden className="pointer-events-none absolute inset-y-2 w-0.5 rounded-full bg-accent" style={{ left: drag.line }} />}
       {list ? (
         <WindowList b={b} close={onClose} />
       ) : (
-        b.windows.map((win) => (
+        b.windows.map((win, i) => (
           // Two sibling buttons, never one in the other: the tile brings the window forward, the cross closes it.
-          <div key={win.id} className="relative rounded-[6px] hover:bg-fill-2 material:rounded-[12px]" style={{ width: layout.w + 12 }}>
+          <div key={win.id} className="relative rounded-[6px] hover:bg-fill-2 material:rounded-[12px]" style={{ width: layout.w + 12, opacity: drag?.from === i ? 0.4 : undefined }}>
             <button
               data-window
               aria-label={win.title || b.name}
-              className="flex w-full flex-col gap-1.5 rounded-[6px] p-1.5 outline-none focus-visible:bg-fill-2 material:rounded-[12px] pressable-wide"
-              onClick={() => {
+              className="flex w-full touch-none flex-col gap-1.5 rounded-[6px] p-1.5 outline-none focus-visible:bg-fill-2 material:rounded-[12px] pressable-wide"
+              // Dragged sideways, the tile moves its window in the row; the bar keeps that order until Crest restarts.
+              onPointerDown={(e) => {
+                if (b.windows.length < 2) return;
+                let last = { at: null as number | null, line: 0 };
+                startPress(e, {
+                  threshold: dragThreshold(e.pointerType),
+                  onDrag: (x, y) => {
+                    last = dropAt(i, x, y);
+                    setDrag({ from: i, ...last });
+                  },
+                  onEnd: (cancelled) => {
+                    setDrag(null);
+                    if (!cancelled && last.at !== null)
+                      taskbar.windowOrder(movedOrder(b.windows.map((w) => w.id), i, last.at)).catch(() => {});
+                  },
+                });
+              }}
+              onClick={(e) => {
+                if (e.detail > 0 && pressDragged()) return;
                 // A window of an app run as administrator may refuse; nothing changes then.
                 taskbar.window(win.id, "activate").catch(() => {});
                 onClose();

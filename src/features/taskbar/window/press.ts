@@ -12,7 +12,7 @@ let dragged = false;
  * go: past `threshold` CSS px it drags, and `onDrag` gets each move. It ends on the release, a cancel, a lost capture (its button
  * taken away meanwhile) or Esc while dragging, then `onEnd` runs; `dragged` outlives it. A second press ends the first.
  */
-export function startPress(e: ReactPointerEvent<HTMLElement>, o: { threshold: number; onDrag: (x: number, y: number) => void; onEnd: () => void }): void {
+export function startPress(e: ReactPointerEvent<HTMLElement>, o: { threshold: number; onDrag: (x: number, y: number) => void; onEnd: (cancelled: boolean) => void }): void {
   if (e.button !== 0) return;
   endPress?.();
   const { pointerId, clientX, clientY } = e;
@@ -30,15 +30,15 @@ export function startPress(e: ReactPointerEvent<HTMLElement>, o: { threshold: nu
   const onKey = (k: KeyboardEvent) => {
     if (k.key !== "Escape" || !dragged) return;
     k.preventDefault();
-    end();
+    end(true);
   };
-  const end = () => {
+  const end = (cancelled = false) => {
     removeEventListener("pointermove", onMove);
     for (const type of PRESS_ENDS) removeEventListener(type, onEnd);
     removeEventListener("keydown", onKey, true);
     if (button.hasPointerCapture(pointerId)) button.releasePointerCapture(pointerId);
     endPress = null;
-    o.onEnd();
+    o.onEnd(cancelled);
   };
   addEventListener("pointermove", onMove);
   for (const type of PRESS_ENDS) addEventListener(type, onEnd);

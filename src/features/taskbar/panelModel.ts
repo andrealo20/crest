@@ -63,13 +63,21 @@ export const TRAY_SIZE = (icon: number, count: number) => ({ w: 5 * (icon + 16) 
 
 /**
  * The quick panel's size at 100 %: 12 px round its rows, 10 px between them. The radios (56) and the brightness (40) only where they
- * apply; the volume, the saver and airplane chips (40 each) and the footer (32) always; `list` is the open output list, with its own
+ * apply; the volume (40), the chips (rows of three, 40 each with 8 between) and the footer (32) always; `list` is the open output list, with its own
  * separator and no gap of its own.
  */
-export function QUICK_SIZE(rows: { radios: boolean; brightness: boolean; list: number }): { w: number; h: number } {
-  const heights = [rows.radios ? 56 : 0, 40, rows.brightness ? 40 : 0, 40, 32].filter((h) => h > 0);
+export function QUICK_SIZE(rows: { radios: boolean; brightness: boolean; list: number; chips: number }): { w: number; h: number } {
+  const lines = Math.max(1, Math.ceil(rows.chips / 3));
+  const heights = [rows.radios ? 56 : 0, 40, rows.brightness ? 40 : 0, lines * 40 + (lines - 1) * 8, 32].filter((h) => h > 0);
   return { w: 360, h: 24 + heights.reduce((a, b) => a + b, 0) + 10 * (heights.length - 1) + rows.list };
 }
+
+/** The quick panel's chips, three to a row. */
+export type QuickChip = "saver" | "airplane" | "ethernet" | "mic" | "cast" | "night" | "dnd" | "access";
+
+/** The chips in their order: Ethernet only while a cable carries the internet, the microphone only where there is one. */
+export const quickChips = (s: { wired: boolean; mic: boolean }): QuickChip[] =>
+  (["saver", "airplane", "ethernet", "mic", "cast", "night", "dnd", "access"] as const).filter((c) => (c === "ethernet" ? s.wired : c === "mic" ? s.mic : true));
 
 /** A page inside the quick panel: the Wi-Fi networks or the Bluetooth devices, opened by its tile's chevron, or the volume mixer. */
 export type QuickPage = "wifi" | "bluetooth" | "mixer";

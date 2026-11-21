@@ -11,10 +11,14 @@ export type Zone = "left" | "center" | "right";
 /** A button that opens a tool, by the id the notch opens it with: `tool:notes`. The prefix keeps it apart from a part of the same id. */
 export type ToolItem = `tool:${string}`;
 /** Windows' own buttons the bar can hold: Search, Task view, Windows widgets, Show desktop, the input language and the privacy indicators. Not in the default zones: an update changes no bar. */
-export const SYS_IDS = ["search", "taskview", "widgets", "desktop", "input", "privacy"] as const;
+export const SYS_IDS = ["search", "taskview", "widgets", "desktop", "input", "privacy", "recycle"] as const;
 export type SysId = (typeof SYS_IDS)[number];
 /** A Windows button, by its id: `sys:search`. */
 export type SysItem = `sys:${SysId}`;
+
+/** The Recycle Bin button's name: a key for t() and its values; null, before the first count, reads as empty. */
+export const recycleName = (n: number | null): [string, Record<string, number>?] =>
+  !n ? ["Papierkorb ist leer"] : n === 1 ? ["Papierkorb: 1 Element"] : ["Papierkorb: {n} Elemente", { n }];
 /** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button, the notification area ("tray"), Stato (network, volume and battery, "status"), the closed notch's parts as widgets, buttons that open a tool (`tool:<id>`) and Windows' own buttons (`sys:<id>`). */
 export type BarItem = "start" | "apps" | "crest" | "tray" | "status" | PartId | ToolItem | SysItem;
 /** The items every bar has: one missing from the zones is put back in its default place. The tray, Stato and the widgets can be taken off. */
@@ -85,7 +89,14 @@ export interface TaskbarSettings {
   winKeys: boolean;
   /** The screen edge every bar stands on (position.ts). */
   position: BarEdge;
+  /** The mark under an open app (itemLook.ts markShape). */
+  marks: MarkStyle;
+  /** The bar lists the windows of every virtual desktop, as Windows' "Show taskbar apps on all desktops". */
+  allDesktops: boolean;
 }
+
+export type MarkStyle = "dot" | "large" | "line";
+export const MARK_STYLES: readonly MarkStyle[] = ["dot", "large", "line"];
 
 export type AppsOn = "own" | "main" | "all";
 const APPS_ONS: AppsOn[] = ["own", "main", "all"];
@@ -122,6 +133,8 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   clockAll: false,
   winKeys: false,
   position: "bottom",
+  marks: "dot",
+  allDesktops: false,
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -211,6 +224,8 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     clockAll: s.clockAll === true,
     winKeys: s.winKeys === true,
     position: s.position === "top" ? "top" : "bottom",
+    marks: MARK_STYLES.includes(s.marks as MarkStyle) ? (s.marks as MarkStyle) : "dot",
+    allDesktops: s.allDesktops === true,
   };
 }
 
@@ -682,3 +697,40 @@ export const previewKey = (key: string, rtl: boolean): string =>
  */
 export const taskbarShown = (p: { native: boolean; mac: boolean; dev: boolean; offered: boolean; enabled: boolean; demo: boolean }): boolean =>
   p.demo || (p.native && !p.mac && (p.dev || p.offered || p.enabled));
+
+/** A window's state for its menu (Shift+right-click), as Rust reads it (tasks.rs `taskbar_window_menu`). */
+export type WindowState = { minimized: boolean; maximized: boolean; canMinimize: boolean; canMaximize: boolean; canSize: boolean };
+export type WindowEntry = "restore" | "move" | "size" | "minimize" | "maximize" | "close";
+
+/** The window menu's rows, each enabled as Windows' own system menu enables it; before the state comes, only Close. */
+export function windowMenuRows(s: WindowState | null): { entry: WindowEntry; enabled: boolean }[] {
+  const normal = !!s && !s.minimized && !s.maximized;
+  return [
+    { entry: "restore", enabled: !!s && (s.minimized || s.maximized) },
+    { entry: "move", enabled: normal },
+    { entry: "size", enabled: normal && s.canSize },
+    { entry: "minimize", enabled: !!s && s.canMinimize && !s.minimized },
+    { entry: "maximize", enabled: !!s && s.canMaximize && !s.maximized },
+    { entry: "close", enabled: true },
+  ];
+}
+
+export type GroupEntry = "cascade" | "stack" | "side" | "restoreAll" | "minimizeAll" | "closeAll";
+/** The group menu of an app with several windows, in Windows' order. */
+export const GROUP_MENU: readonly GroupEntry[] = ["cascade", "stack", "side", "restoreAll", "minimizeAll", "closeAll"];
+
+/** What Shift+right-click on an app opens: its window's menu with one window, the group's with several, its usual menu with none. */
+export const shiftMenu = (b: BarButton): "window" | "group" | "app" => (b.windows.length === 1 ? "window" : b.windows.length ? "group" : "app");
+
+/** Where a preview dragged from tile `from` lands among the tiles (`slots`, in reading order) at `x`: null on its own place or the one after it. */
+export function previewDrop(slots: { x: number; w: number }[], from: number, x: number): number | null {
+  const at = dropSlot(slots, x);
+  return at === from || at === from + 1 ? null : at;
+}
+
+/** `ids` with the one at `from` put before the one at `at` (indexes in `ids` as it is; `ids.length` puts it last). */
+export function movedOrder(ids: number[], from: number, at: number): number[] {
+  const rest = ids.filter((_, i) => i !== from);
+  rest.splice(at > from ? at - 1 : at, 0, ids[from]);
+  return rest;
+}

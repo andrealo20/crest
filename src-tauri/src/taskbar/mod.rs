@@ -7,7 +7,8 @@
 //! window is not message-only. The thread never waits for explorer's lock: what finds it taken is done again by a short timer
 //! (`defer`, `retry`). The docked bars' appbars live on this thread too (reserve.rs): every change to them comes as a posted
 //! `REAPPBAR`, never from inside a call. The tray's spy (tray.rs) has a thread of its own, which runs only while this one does;
-//! the spy also carries `TaskbandHWND` (taskband.rs).
+//! the spy also carries `TaskbandHWND` (taskband.rs). The thread's window also gets the shell's notifications for the Recycle
+//! Bin (recycle.rs).
 
 pub(crate) mod bar;
 pub(crate) mod bluetooth;
@@ -20,6 +21,7 @@ pub(crate) mod ownpins;
 pub(crate) mod panel;
 pub(crate) mod pins;
 pub(crate) mod preview;
+pub(crate) mod recycle;
 pub(crate) mod reserve;
 pub(crate) mod screens;
 pub(crate) mod start;
@@ -74,6 +76,8 @@ const STOP: u32 = WM_APP + 2;
 /// Posted by `reserve::refresh`, the work area, `TaskbarCreated` and the appbars' own callbacks, with reserve.rs' flags as the
 /// wparam: the docked bars' appbars are brought in line (`reserve::reconcile`).
 const REAPPBAR: u32 = WM_APP + 3;
+/// Posted by `reorder`: an app's windows take the order a bar asked for (tasks.rs `on_reorder`). WM_APP + 4 is recycle.rs'.
+const REORDER: u32 = WM_APP + 5;
 /// Auto-hide a hide could not set is tried again this often while it is still to do (`try_autohide`).
 const AUTOHIDE_TIMER: usize = 3;
 const AUTOHIDE_MS: u32 = 5000;
@@ -139,6 +143,11 @@ pub(crate) fn start(app: &AppHandle) {
 }
 
 /// The windows are listed again on the running thread (`RELIST`): the Start list has been read, or the bars have changed.
+/// A bar moved one of an app's windows in its preview card (tasks.rs `taskbar_window_order`).
+pub(crate) fn reorder() {
+    post_to_thread(REORDER, 0);
+}
+
 pub(crate) fn relist() {
     post_to_thread(RELIST, 0);
 }
@@ -213,7 +222,8 @@ unsafe fn run(ready: Sender<isize>, app: AppHandle) {
                 eprintln!("taskbar: a WinEvent hook failed");
             }
             listen(window);
-            tasks::begin(app, window);
+            tasks::begin(app.clone(), window);
+            recycle::begin(app, window);
             let _ = ready.send(window.0 as isize);
             let mut msg = MSG::default();
             while GetMessageW(&mut msg, None, 0, 0).0 > 0 {
@@ -277,6 +287,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             let _ = KillTimer(Some(hwnd), RETRY_TIMER);
             let _ = KillTimer(Some(hwnd), tasks::LIST_TIMER);
             let _ = KillTimer(Some(hwnd), AUTOHIDE_TIMER);
+            recycle::end(hwnd);
             let _ = DeregisterShellHookWindow(hwnd);
             PostQuitMessage(0);
         }
@@ -290,12 +301,24 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         tasks::on_timer(hwnd);
         return LRESULT(0);
     }
+    if msg == WM_TIMER && wparam.0 == recycle::RECYCLE_TIMER {
+        recycle::on_timer(hwnd);
+        return LRESULT(0);
+    }
+    if msg == recycle::RECYCLE_MSG {
+        recycle::on_notify(hwnd, wparam, lparam);
+        return LRESULT(0);
+    }
     if msg == WM_TIMER && wparam.0 == AUTOHIDE_TIMER {
         try_autohide(hwnd);
         return LRESULT(0);
     }
     if msg == RELIST {
         tasks::arm();
+        return LRESULT(0);
+    }
+    if msg == REORDER {
+        tasks::on_reorder();
         return LRESULT(0);
     }
     if msg == AUTOHIDE {

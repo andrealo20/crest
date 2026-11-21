@@ -22,7 +22,7 @@ import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
-import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type AppsOn, type BarEdge, type BarShape, type Combine, type EmptyDouble, type SysItem, type ToolItem, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type AppsOn, type BarEdge, type BarShape, type Combine, type EmptyDouble, type MarkStyle, type SysItem, type ToolItem, type Zone } from "./model";
 import { demoBarOffered, setTaskbar } from "./store";
 import { AddSys, AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
 import { toolInfo } from "./toolInfo";
@@ -284,7 +284,7 @@ function ItemIcon({ id }: { id: BarItem }) {
  * 3 s), and an empty answer leaves it.
  */
 export function TaskbarApps() {
-  const { pinned: saved, endTask, combine, middleClick, windowCount } = settings.use().taskbar;
+  const { pinned: saved, endTask, combine, middleClick, windowCount, allDesktops } = settings.use().taskbar;
   const pinned = saved ?? [];
   const [confirm, setConfirm] = useState(false);
   const [outcome, setOutcome] = useState<"none" | "failed" | null>(null);
@@ -325,6 +325,9 @@ export function TaskbarApps() {
           options={(Object.keys(COMBINE_LABEL) as Combine[]).map((c) => ({ value: c, label: t(COMBINE_LABEL[c]) }))}
           onChange={(combine) => setTaskbar({ combine })}
         />
+      </Row>
+      <Row icon="layers" label={t("Fenster aller Desktops zeigen")} hint={t("Ein Klick auf ein Fenster eines anderen Desktops wechselt dorthin")}>
+        <Switch label={t("Fenster aller Desktops zeigen")} checked={allDesktops} onChange={(on) => setTaskbar({ allDesktops: on })} />
       </Row>
       <Row icon="keep" label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Über Start, mit Rechtsklick auf eine App in der Taskleiste oder durch Ziehen auf die Taskleiste anheften")} />
       {pinned.length > 0 && <FavoriteList favorites={pinned} onChange={(next) => setTaskbar({ pinned: next })} />}
@@ -382,7 +385,7 @@ export function TaskbarApps() {
  * the glass's sliders are the ones of Notch → Themes.
  */
 export function TaskbarLook() {
-  const { shape, height, iconSize, surface, transparency, glass, glassLook, autoHide, position } = settings.use().taskbar;
+  const { shape, height, iconSize, surface, transparency, glass, glassLook, autoHide, position, marks } = settings.use().taskbar;
   const theme = activeTheme.use();
   const appDesign = design.use();
   // The glass's switch only where the live glass can run (src/notch/glass/live.ts), as in Notch → Themes.
@@ -424,6 +427,19 @@ export function TaskbarLook() {
           value={shape}
           onChange={(shape) => setTaskbar({ shape })}
           options={(Object.keys(SHAPE_LABEL) as BarShape[]).map((s) => ({ value: s, label: t(SHAPE_LABEL[s]) }))}
+        />
+      </Row>
+      <Row icon="fiber_manual_record" label={t("Markierung offener Apps")}>
+        <Segmented<MarkStyle>
+          id="taskbar-marks"
+          size="sm"
+          value={marks}
+          onChange={(marks) => setTaskbar({ marks })}
+          options={[
+            { value: "dot", label: t("Punkt") },
+            { value: "large", label: t("Großer Punkt") },
+            { value: "line", label: t("Linie") },
+          ]}
         />
       </Row>
       {/* A reserving bar's height moves its strip and resizes maximized windows: written once, on release. */}

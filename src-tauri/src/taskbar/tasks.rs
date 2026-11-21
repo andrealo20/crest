@@ -9,7 +9,7 @@
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::atomic::{AtomicIsize, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU8, Ordering};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
 use serde::Serialize;
@@ -17,19 +17,22 @@ use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use windows::core::{w, GUID, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, ERROR_SUCCESS, HWND, LPARAM, PROPERTYKEY, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
-use windows::Win32::Graphics::Gdi::{MonitorFromWindow, MONITOR_DEFAULTTONEAREST};
+use windows::Win32::Graphics::Gdi::{MonitorFromWindow, HMONITOR, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::Storage::Packaging::Appx::{GetApplicationUserModelId, APPLICATION_USER_MODEL_ID_MAX_LENGTH};
 use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToBoolean, PropVariantToStringAlloc};
+use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
 use windows::Win32::System::Threading::{GetCurrentProcessId, OpenProcess, TerminateProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE};
 use windows::Win32::UI::Input::KeyboardAndMouse::IsWindowEnabled;
 use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow};
+use windows::Win32::UI::Shell::{IVirtualDesktopManager, VirtualDesktopManager};
 use windows::Win32::UI::WindowsAndMessaging::{
     AllowSetForegroundWindow, GetAncestor, GetDesktopWindow, GetForegroundWindow, GetLastActivePopup, GetPropW, GetShellWindow, GetWindow, GetWindowLongPtrW,
-    GetWindowTextW, IsIconic, IsWindowVisible, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED,
+    CascadeWindows, GetWindowTextW, IsIconic, IsWindowVisible, IsZoomed, TileWindows, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED,
     EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND,
     EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, GA_ROOT, GA_ROOTOWNER, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HSHELL_HIGHBIT,
-    HSHELL_LANGUAGE, HSHELL_MONITORCHANGED, HSHELL_REDRAW, HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, SC_CLOSE, SC_MINIMIZE, SW_RESTORE, WM_SYSCOMMAND,
-    WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_MINIMIZEBOX,
+    HSHELL_LANGUAGE, HSHELL_MONITORCHANGED, HSHELL_REDRAW, HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, MDITILE_HORIZONTAL, MDITILE_VERTICAL, MDITILE_ZORDER,
+    SC_CLOSE, SC_MAXIMIZE, SC_MINIMIZE, SC_MOVE, SC_RESTORE, SC_SIZE, SW_RESTORE, WM_SYSCOMMAND, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_WINDOWEDGE, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_THICKFRAME,
 };
 
 use super::{input, ownpins, screens};
@@ -132,9 +135,73 @@ fn shows(mode: u8, primary_bar: bool, window_monitor: Option<&isize>, bar_monito
     window_monitor.is_some_and(|&m| m == bar_monitor || mode == ALL || (mode == MAIN && primary_bar))
 }
 
+/// The order a bar last asked for an app's windows, until the taskbar thread takes it (`on_reorder`).
+static REORDER: Mutex<Option<Vec<isize>>> = Mutex::new(None);
+
+/// The places `order` gives to the windows in `ids`, filled with them in `ids`' order; every other window keeps its place and ids
+/// not in `order` are ignored. A group keeps its first place, so groups never swap.
+fn reorder(order: &[isize], ids: &[isize]) -> Vec<isize> {
+    let mut moved = ids.iter().filter(|id| order.contains(id));
+    order.iter().map(|&h| if ids.contains(&h) { *moved.next().unwrap_or(&h) } else { h }).collect()
+}
+
+/// A preview dragged in its card: listed windows of one app, 2 to 64 of them, that the calling bar shows, in their new order. The
+/// list keeps it until Crest restarts.
+#[tauri::command]
+pub fn taskbar_window_order(window: WebviewWindow, ids: Vec<isize>) -> Result<(), String> {
+    super::bar::from_bar(&window)?;
+    let monitor = monitor_of(window.hwnd().map_err(|e| e.to_string())?);
+    let unique: HashSet<isize> = ids.iter().copied().collect();
+    if ids.len() < 2 || ids.len() > 64 || unique.len() != ids.len() || !ids.iter().all(|&id| previewable(id, window.label(), monitor)) {
+        return Err("not-found".into());
+    }
+    *REORDER.lock().unwrap_or_else(|e| e.into_inner()) = Some(ids);
+    super::reorder();
+    Ok(())
+}
+
+/// On the taskbar thread (mod.rs): the order asked for goes into the list, which is made again shortly.
+pub(super) fn on_reorder() {
+    let Some(ids) = REORDER.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
+    TRACK.with_borrow_mut(|t| {
+        if let Some(t) = t {
+            t.order = reorder(&t.order, &ids);
+        }
+    });
+    arm();
+}
+
+/// Settings → Taskbar → Show windows from all desktops: the list takes the windows of the other virtual desktops too.
+static ALL_DESKTOPS: AtomicBool = AtomicBool::new(false);
+
+/// From the notch; a change lists again at once.
+#[tauri::command]
+pub fn taskbar_all_desktops(on: bool) {
+    if ALL_DESKTOPS.swap(on, Ordering::SeqCst) != on {
+        super::relist();
+    }
+}
+
 thread_local! {
     /// The list's state on the taskbar thread, from `begin` until the thread ends.
     static TRACK: RefCell<Option<Track>> = const { RefCell::new(None) };
+    /// Windows' virtual desktop manager, made once on the taskbar thread (STA) the first time the setting asks for it.
+    static DESKTOPS: std::cell::OnceCell<Option<IVirtualDesktopManager>> = const { std::cell::OnceCell::new() };
+}
+
+/// Whether a window is hidden because it is on another virtual desktop: cloaked, not on this desktop, and on a real one. A
+/// suspended Store app or a window the shell hides is cloaked on this desktop or has no desktop, so it never counts.
+fn on_other_desktop(cloaked: bool, on_current: Option<bool>, desktop: Option<GUID>) -> bool {
+    cloaked && on_current == Some(false) && desktop.is_some_and(|g| g != GUID::zeroed())
+}
+
+/// A window of another virtual desktop that would get a button there.
+fn elsewhere(mgr: &IVirtualDesktopManager, hwnd: HWND, own: u32) -> bool {
+    let look = look_of(hwnd, own);
+    look.visible
+        && look.cloaked
+        && eligible(&Look { cloaked: false, ..look })
+        && on_other_desktop(true, unsafe { mgr.IsWindowOnCurrentVirtualDesktop(hwnd) }.ok().map(|b| b.as_bool()), unsafe { mgr.GetWindowDesktopId(hwnd) }.ok())
 }
 
 struct Track {
@@ -414,7 +481,13 @@ impl Track {
             }
         }
         let own = unsafe { GetCurrentProcessId() };
-        let now: Vec<isize> = display::top_windows().into_iter().filter(|&h| listable(h, own)).map(|h| h.0 as isize).collect();
+        let all = ALL_DESKTOPS.load(Ordering::SeqCst);
+        let mgr = if all { DESKTOPS.with(|d| d.get_or_init(|| unsafe { CoCreateInstance(&VirtualDesktopManager, None, CLSCTX_ALL) }.ok()).clone()) } else { None };
+        let now: Vec<isize> = display::top_windows()
+            .into_iter()
+            .filter(|&h| listable(h, own) || mgr.as_ref().is_some_and(|m| elsewhere(m, h, own)))
+            .map(|h| h.0 as isize)
+            .collect();
         self.order = merge_order(&self.order, &now);
         let order = &self.order;
         self.ghosts.retain(|ghost, _| order.contains(ghost));
@@ -488,19 +561,21 @@ pub(super) fn monitor_of(hwnd: HWND) -> isize {
     unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) }.0 as isize
 }
 
-/// Whether a top-level window gets a button now (`eligible`). Few are visible, so only those are read further.
+/// Whether a top-level window gets a button now (`eligible`), on this virtual desktop. Few are visible, so only those are read further.
 pub(super) fn listable(hwnd: HWND, own: u32) -> bool {
-    let visible = unsafe { IsWindowVisible(hwnd) }.as_bool();
-    visible
-        && eligible(&Look {
-            visible,
-            cloaked: cloaked(hwnd),
-            own: display::window_pid(hwnd) == own,
-            owned: unsafe { GetWindow(hwnd, GW_OWNER) }.is_ok_and(|o| !o.is_invalid()),
-            ex: unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32,
-            immersive: IMMERSIVE.contains(&display::class_name(hwnd).as_str()),
-            deleted: !unsafe { GetPropW(hwnd, w!("ITaskList_Deleted")) }.is_invalid(),
-        })
+    unsafe { IsWindowVisible(hwnd) }.as_bool() && eligible(&look_of(hwnd, own))
+}
+
+fn look_of(hwnd: HWND, own: u32) -> Look {
+    Look {
+        visible: unsafe { IsWindowVisible(hwnd) }.as_bool(),
+        cloaked: cloaked(hwnd),
+        own: display::window_pid(hwnd) == own,
+        owned: unsafe { GetWindow(hwnd, GW_OWNER) }.is_ok_and(|o| !o.is_invalid()),
+        ex: unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32,
+        immersive: IMMERSIVE.contains(&display::class_name(hwnd).as_str()),
+        deleted: !unsafe { GetPropW(hwnd, w!("ITaskList_Deleted")) }.is_invalid(),
+    }
 }
 
 /// Whether the window an event names could get a button: a top-level window that is `listable`.
@@ -627,7 +702,8 @@ pub(super) fn app_of(key: &str) -> Option<(String, String)> {
 }
 
 /// What a click on a window's button, or its app's menu, does: "activate", "toggle" (minimizes the app in front, else brings it
-/// forward), "minimize", "close" or "end" (End task). Only a listed window, still of the process it was listed with. An app
+/// forward), "minimize", "close" or "end" (End task); from the window menu also "restore", "maximize", and "move" and "size",
+/// which bring it forward and start Windows' keyboard move or size. Only a listed window, still of the process it was listed with. An app
 /// running as administrator may refuse a minimize, a close or an end (UIPI, access denied): the error comes back and nothing
 /// else happens.
 #[tauri::command]
@@ -641,12 +717,110 @@ pub async fn taskbar_window(id: isize, action: String) -> Result<(), String> {
         "toggle" => activate(hwnd),
         "minimize" => minimize(hwnd, pid, &listed),
         "close" => close(hwnd, pid, &listed),
+        "restore" => sys(hwnd, SC_RESTORE).and_then(|_| activate(hwnd)),
+        "maximize" if style(hwnd) & WS_MAXIMIZEBOX.0 != 0 => sys(hwnd, SC_MAXIMIZE).and_then(|_| activate(hwnd)),
+        "move" => activate(hwnd).and_then(|_| sys(hwnd, SC_MOVE)),
+        "size" if style(hwnd) & WS_THICKFRAME.0 != 0 => activate(hwnd).and_then(|_| sys(hwnd, SC_SIZE)),
         "end" => {
             let source = source(id);
             end(source, display::window_pid(source))
         }
         _ => Err("unknown-action".into()),
     }
+}
+
+/// What the window menu enables, as Windows' own system menu does.
+#[derive(Serialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowMenu {
+    minimized: bool,
+    maximized: bool,
+    can_minimize: bool,
+    can_maximize: bool,
+    can_size: bool,
+}
+
+fn menu_state(style: u32, iconic: bool, zoomed: bool) -> WindowMenu {
+    WindowMenu {
+        minimized: iconic,
+        maximized: zoomed,
+        can_minimize: style & WS_MINIMIZEBOX.0 != 0,
+        can_maximize: style & WS_MAXIMIZEBOX.0 != 0,
+        can_size: style & WS_THICKFRAME.0 != 0,
+    }
+}
+
+fn style(hwnd: HWND) -> u32 {
+    unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) as u32 }
+}
+
+/// The state of listed window `id` for its menu (Shift+right-click).
+#[tauri::command]
+pub fn taskbar_window_menu(id: isize) -> Result<WindowMenu, String> {
+    listed_pid(id).ok_or("not-found")?;
+    let hwnd = HWND(id as _);
+    Ok(menu_state(style(hwnd), unsafe { IsIconic(hwnd) }.as_bool(), unsafe { IsZoomed(hwnd) }.as_bool()))
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+enum How {
+    Cascade,
+    Stack,
+    Side,
+    Restore,
+    Minimize,
+}
+
+fn arrange_how(s: &str) -> Option<How> {
+    Some(match s {
+        "cascade" => How::Cascade,
+        "stack" => How::Stack,
+        "side" => How::Side,
+        "restore" => How::Restore,
+        "minimize" => How::Minimize,
+        _ => return None,
+    })
+}
+
+/// The group menu: an app's windows cascaded, stacked or side by side in the work area of the calling bar's monitor, or all
+/// restored or minimized. Only windows the calling bar lists (`previewable`), 1 to 64 of them.
+#[tauri::command]
+pub async fn taskbar_arrange(window: WebviewWindow, ids: Vec<isize>, how: String) -> Result<(), String> {
+    super::bar::from_bar(&window)?;
+    let how = arrange_how(&how).ok_or("unknown")?;
+    let monitor = monitor_of(window.hwnd().map_err(|e| e.to_string())?);
+    let unique: HashSet<isize> = ids.iter().copied().collect();
+    if ids.is_empty() || ids.len() > 64 || unique.len() != ids.len() || !ids.iter().all(|&id| previewable(id, window.label(), monitor)) {
+        return Err("not-found".into());
+    }
+    // CascadeWindows and TileWindows wait on each window's answer: never on the main thread.
+    tauri::async_runtime::spawn_blocking(move || arrange(&ids, how, monitor)).await.map_err(|e| e.to_string())?
+}
+
+fn arrange(ids: &[isize], how: How, monitor: isize) -> Result<(), String> {
+    let hwnds: Vec<HWND> = ids.iter().map(|&id| HWND(id as _)).collect();
+    let post = |h: HWND, sc: u32| drop(unsafe { PostMessageW(Some(h), WM_SYSCOMMAND, WPARAM(sc as usize), LPARAM(0)) });
+    match how {
+        How::Restore => hwnds.iter().for_each(|&h| post(h, SC_RESTORE)),
+        How::Minimize => hwnds.iter().filter(|&&h| style(h) & WS_MINIMIZEBOX.0 != 0).for_each(|&h| post(h, SC_MINIMIZE)),
+        _ => unsafe {
+            for &h in &hwnds {
+                if IsIconic(h).as_bool() {
+                    let _ = ShowWindowAsync(h, SW_RESTORE);
+                }
+            }
+            let (_, work) = display::monitor_rect(HMONITOR(monitor as _)).ok_or("failed")?;
+            let done = match how {
+                How::Cascade => CascadeWindows(None, MDITILE_ZORDER, Some(&work), Some(&hwnds)),
+                How::Stack => TileWindows(None, MDITILE_HORIZONTAL, Some(&work), Some(&hwnds)),
+                _ => TileWindows(None, MDITILE_VERTICAL, Some(&work), Some(&hwnds)),
+            };
+            if done == 0 {
+                return Err("failed".into());
+            }
+        },
+    }
+    Ok(())
 }
 
 /// One wheel step on an app's button: every audio session of the listed window's program moves by `step` (-1..1). Its new
@@ -759,6 +933,11 @@ fn end(hwnd: HWND, window_pid: u32) -> Result<(), String> {
     }
 }
 
+/// Posts a window command, never waiting on a hung app, and leaves the keyboard where it is.
+fn sys(hwnd: HWND, sc: u32) -> Result<(), String> {
+    unsafe { PostMessageW(Some(hwnd), WM_SYSCOMMAND, WPARAM(sc as usize), LPARAM(0)) }.map_err(|_| "failed".to_string())
+}
+
 /// Posts a window command, never waiting on a hung app, then the keyboard goes to the next window, as when Windows minimizes or
 /// closes one.
 fn command(hwnd: HWND, sc: u32, listed: &[isize]) -> Result<(), String> {
@@ -774,6 +953,37 @@ fn command(hwnd: HWND, sc: u32, listed: &[isize]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_preview_dragged_moves_its_window_among_its_apps_places() {
+        assert_eq!(reorder(&[1, 5, 2, 6, 3], &[3, 1, 2]), [3, 5, 1, 6, 2]);
+        assert_eq!(reorder(&[1, 5, 2], &[2, 9, 1]), [2, 5, 1]);
+        assert_eq!(reorder(&[1, 5, 2], &[1, 2]), [1, 5, 2]);
+        assert_eq!(reorder(&[1, 5, 2], &[]), [1, 5, 2]);
+    }
+
+    #[test]
+    fn the_window_menu_enables_what_the_window_allows() {
+        let all = WS_MINIMIZEBOX.0 | WS_MAXIMIZEBOX.0 | WS_THICKFRAME.0;
+        assert_eq!(menu_state(all, false, false), WindowMenu { minimized: false, maximized: false, can_minimize: true, can_maximize: true, can_size: true });
+        assert!(menu_state(all, true, false).minimized);
+        assert!(menu_state(all, false, true).maximized);
+        assert_eq!(menu_state(0, false, false), WindowMenu { minimized: false, maximized: false, can_minimize: false, can_maximize: false, can_size: false });
+        for (name, how) in [("cascade", How::Cascade), ("stack", How::Stack), ("side", How::Side), ("restore", How::Restore), ("minimize", How::Minimize)] {
+            assert_eq!(arrange_how(name), Some(how));
+        }
+        assert_eq!(arrange_how("tile"), None);
+    }
+
+    #[test]
+    fn only_windows_hidden_on_another_desktop_count_as_there() {
+        let g = GUID::from_u128(7);
+        assert!(on_other_desktop(true, Some(false), Some(g)));
+        assert!(!on_other_desktop(false, Some(false), Some(g)));
+        assert!(!on_other_desktop(true, Some(true), Some(g)));
+        assert!(!on_other_desktop(true, Some(false), Some(GUID::zeroed())));
+        assert!(!on_other_desktop(true, None, None));
+    }
 
     #[test]
     fn only_taskbar_windows_get_a_button() {
