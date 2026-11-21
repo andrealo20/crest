@@ -16,6 +16,9 @@ export type BarItem = "start" | "apps" | "crest" | "tray" | "status" | PartId | 
 export const FIXED_ITEMS = ["start", "apps", "crest"] as const;
 /** The bar's shape: along the screen's edge with no gaps, floating above it, a capsule, or a tile per item. */
 export type BarShape = "docked" | "floating" | "capsule" | "tiles";
+/** How the apps' buttons combine, as Windows' "Combine taskbar buttons and hide labels": one per app with no label, one per window with its title while they fit, or one per window always. */
+export type Combine = "always" | "full" | "never";
+const COMBINES: Combine[] = ["always", "full", "never"];
 
 /**
  * The bar: on or off, the items in each zone, the bar's height and its icons' size in CSS px, its background (the closed
@@ -50,6 +53,8 @@ export interface TaskbarSettings {
   trayHidden: string[];
   /** The app menu has End task (off by default, as in Windows: it ends the app without saving). */
   endTask: boolean;
+  /** One button per app ("always", Windows' default), one per window while titles fit ("full"), or one per window ("never"); the same on every bar. */
+  combine: Combine;
 }
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
@@ -73,6 +78,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   trayShown: [],
   trayHidden: [],
   endTask: false,
+  combine: "always",
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -151,6 +157,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     trayShown: Array.isArray(s.trayShown) ? [...new Set(s.trayShown.filter((x): x is string => typeof x === "string"))] : [],
     trayHidden: Array.isArray(s.trayHidden) ? [...new Set(s.trayHidden.filter((x): x is string => typeof x === "string"))] : [],
     endTask: s.endTask === true,
+    combine: COMBINES.includes(s.combine as Combine) ? (s.combine as Combine) : d.combine,
   };
 }
 
@@ -376,6 +383,8 @@ export interface BarButton {
   spawnable?: boolean;
   /** As `Group.pinnable`: never for a pinned app. */
   pinnable?: boolean;
+  /** A button of one window (windowButtons): its title, the app's name when the window has none. Unset on an app's button. */
+  title?: string;
 }
 
 /**
@@ -395,6 +404,21 @@ export function barButtons(pinned: Favorite[] | null, groups: Group[]): BarButto
   }
   return buttons;
 }
+
+/**
+ * One button per window, for "When full" and "Never": each app's windows in the list's order, side by side where the app's button
+ * was, each with the app's pins and name; a pinned app with no window keeps its button, with no title. The key ends with the window's
+ * handle after a newline, which no group key or launcher id holds.
+ */
+export function windowButtons(buttons: BarButton[]): BarButton[] {
+  return buttons.flatMap((b) => (b.windows.length ? b.windows.map((w) => ({ ...b, key: `${b.key}\n${w.id}`, windows: [w], title: w.title || b.name })) : [b]));
+}
+
+/** The app's key of a button, also on a window's button: what goes to Rust for the app. */
+export const appKey = (b: BarButton) => b.key.split("\n")[0];
+
+/** A titled button's width at icon `size`, CSS px: seven icons wide while there is room, down to four (168 to 96 at 24). */
+export const labelSpan = (size: number) => ({ min: size * 4, max: size * 7 });
 
 /** The entry that starts the app, or null for a program Crest cannot start. */
 export const launchId = (b: BarButton): string | null => b.pin?.id ?? b.pins[0]?.id ?? null;

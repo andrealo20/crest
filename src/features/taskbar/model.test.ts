@@ -5,6 +5,7 @@ import {
   TASKBAR_DEFAULTS,
   TOOL_BUTTONS,
   WIDGET_VARIANTS,
+  appKey,
   applyWindowsPins,
   barButtons,
   clickAction,
@@ -13,6 +14,7 @@ import {
   fitIcon,
   indicator,
   insertPinned,
+  labelSpan,
   menuFor,
   menuKey,
   newInstance,
@@ -35,6 +37,7 @@ import {
   trayOnBar,
   trayWanted,
   variantOf,
+  windowButtons,
   type BarButton,
   type BarItem,
   type Group,
@@ -156,6 +159,52 @@ test("pinned apps come first and own their open windows", () => {
   assert.equal(b[0].windows.length, 0);
   assert.equal(b[2].windows.length, 0); // pinned and closed
   assert.deepEqual(barButtons(null, groups).map((x) => x.key), ["chrome", "c:\\users\\u\\code.exe", "window:9"]);
+});
+
+test("the combine setting is repaired and defaults to one button per app", () => {
+  assert.equal(normalizeTaskbar({}).combine, "always");
+  for (const c of ["never", "full"]) assert.equal(normalizeTaskbar({ combine: c }).combine, c);
+  for (const c of ["x", 1, null]) assert.equal(normalizeTaskbar({ combine: c }).combine, "always");
+});
+
+test("one button per window keeps the app's place, pins and name", () => {
+  const w = (id: number, title: string): Win => ({ id, title, minimized: false, flashing: false });
+  const pin = { id: "pin", name: "App" }, idle = { id: "idle", name: "Idle" };
+  const groups: Group[] = [
+    { key: "app", name: "App", pins: [pin], windows: [w(1, "Doc A"), w(2, "")] },
+    { key: "group", name: "Group", pins: [], windows: [w(3, "Group title")] },
+  ];
+  const apps = barButtons([pin, idle], groups);
+  const b = windowButtons(apps);
+  assert.deepEqual(b.map((x) => x.key), ["pin\n1", "pin\n2", "idle", "group\n3"]);
+  assert.deepEqual(b.map((x) => x.windows.map((v) => v.id)), [[1], [2], [], [3]]);
+  assert.deepEqual(b.map((x) => x.title), ["Doc A", "App", undefined, "Group title"]);
+  for (const x of b.slice(0, 2)) assert.deepEqual([x.pin, x.pins, x.name], [pin, [pin], "App"]);
+  assert.deepEqual(b[2], apps[1]); // a pinned app with no window, unchanged and untitled
+  assert.equal("title" in b[2], false);
+  assert.deepEqual([b[3].pin, b[3].pins, b[3].name], [null, [], "Group"]);
+});
+
+test("a window's button clicks, marks and menus as an app with one window", () => {
+  const w = (id: number, flashing = false): Win => ({ id, title: "t", minimized: false, flashing });
+  const pin = { id: "pin", name: "App" };
+  const [one, two] = windowButtons(barButtons([pin], [{ key: "app", name: "App", pins: [pin], windows: [w(1), w(2, true)] }]));
+  assert.deepEqual(clickAction(one), { kind: "toggle", id: 1 });
+  assert.deepEqual(clickAction(two), { kind: "toggle", id: 2 });
+  for (const b of [one, two]) assert.deepEqual(menuFor(b, { endTask: false }), ["launch", "unpin", "close"]);
+  assert.equal(indicator(one, null), "open");
+  assert.equal(indicator(two, null), "attention");
+});
+
+test("a titled button is four to seven icons wide", () => {
+  assert.deepEqual(labelSpan(24), { min: 96, max: 168 });
+});
+
+test("a window's button sends its app's key", () => {
+  const pin = { id: "pin", name: "App" };
+  const apps = barButtons([pin], [{ key: "app", name: "App", pins: [pin], windows: [{ id: 5, title: "t", minimized: false, flashing: false }] }]);
+  assert.equal(appKey(apps[0]), "pin");
+  assert.equal(appKey(windowButtons(apps)[0]), "pin");
 });
 
 test("an open app is pinnable and spawnable as Rust says, a pinned one never pinnable", () => {
