@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PATHS } from "../../ui/material-paths.ts";
-import { ROW_SYMBOLS } from "../../ui/materialNames.ts";
+import { MATERIAL_NAMES, ROW_SYMBOLS } from "../../ui/materialNames.ts";
 
 const FILES = [
   "features/settings/SettingsView.tsx",
@@ -95,4 +95,16 @@ test("every row symbol has its outline among the generated paths", () => {
 test("ROW_SYMBOLS has no name twice and is in alphabetical order", () => {
   assert.equal(new Set(ROW_SYMBOLS).size, ROW_SYMBOLS.length);
   assert.deepEqual([...ROW_SYMBOLS], [...ROW_SYMBOLS].sort());
+});
+
+test("the Widgets page gives each widget the Material name of the icon the notch's Content list and the bar's Items page draw", () => {
+  const icon = Object.fromEntries([...read("notch/row/partInfo.ts").matchAll(/^\s*(\w+): \{ label: "[^"]*", icon: (\w+),/gm)].map((m) => [m[1], m[2]]));
+  const page = read("features/taskbar/WidgetsPage.tsx");
+  const map = page.slice(page.indexOf("const SYMBOL"), page.indexOf("};", page.indexOf("const SYMBOL")));
+  const symbol = Object.fromEntries([...map.matchAll(/^\s*(\w+): "([^"]*)",/gm)].map((m) => [m[1], m[2]]));
+  assert.deepEqual(Object.keys(symbol).sort(), Object.keys(icon).sort());
+  // The brand logos have no Material glyph; their rows keep a symbol of their own.
+  const drift = Object.keys(icon).filter((id) => MATERIAL_NAMES[icon[id]] && symbol[id] !== MATERIAL_NAMES[icon[id]]).map((id) => `${id}: ${symbol[id]}, not ${MATERIAL_NAMES[icon[id]]}`);
+  assert.deepEqual(drift, []);
+  assert.deepEqual(Object.keys(icon).filter((id) => !MATERIAL_NAMES[icon[id]]).sort(), ["discord", "github", "leetcode"]);
 });

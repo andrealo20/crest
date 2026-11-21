@@ -47,21 +47,21 @@ const VARIANT_LABEL: Record<string, string> = {
   countdown: "Countdown",
   ring: "Ring",
 };
-/** Each widget's row symbol under Material, the one the notch's pages give the same thing where they have it. */
+/** Each widget's row symbol under Material: the Material name of its partInfo icon, as the Content and Items lists draw it; the brand logos have none and keep a symbol of their own. */
 const SYMBOL: Record<PartId, RowSymbol> = {
-  timer: "timelapse",
+  timer: "timer",
   discord: "record_voice_over",
-  rings: "data_usage",
+  rings: "donut_large",
   title: "music_note",
-  readings: "monitoring",
-  equalizer: "equalizer",
+  readings: "memory",
+  equalizer: "graphic_eq",
   clock: "schedule",
   github: "trending_up",
   leetcode: "data_object",
-  calendar: "event_upcoming",
-  script: "code",
+  calendar: "calendar_today",
+  script: "terminal",
   downloads: "download",
-  weather: "device_thermostat",
+  weather: "partly_cloudy_day",
 };
 const choiceLabel = (c: WidgetChoice) => t(c.variant === "digital" ? (c.date ? "Uhrzeit und Datum" : "Nur Uhrzeit") : VARIANT_LABEL[c.variant ?? ""]);
 
