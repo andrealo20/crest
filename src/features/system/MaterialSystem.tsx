@@ -96,7 +96,7 @@ export function MaterialSystemLayout(p: {
               {st.cpuTemp !== null ? (
                 <Reading icon={Thermometer} text={`${degrees(st.cpuTemp)} °C`} color={tone(tempLevel("cpu", st.cpuTemp))} fraction={st.cpuTemp / 100} bar={fit.tempBar} title={st.cpuTempFrom ?? undefined} />
               ) : (
-                p.noCpuTemp && <Reading icon={Thermometer} text="- °C" color="var(--color-label-3)" fraction={0} bar={false} title={p.noCpuTemp} />
+                p.noCpuTemp && <Reading icon={Thermometer} text="- °C" color="var(--color-label-3)" fraction={0} bar={false} title={p.noCpuTemp} label={p.noCpuTemp} />
               )}
               {fit.cores && cores > 0 && (
                 <div className="min-h-0 max-h-10 flex-1">
@@ -172,9 +172,10 @@ function GaugeCard(p: { i: number; icon: Icon; hue: Hue; label: string; detail: 
 }
 
 /** A reading under the gauge: icon, value in its level's colour, and with `bar` a bar filled to `fraction` from the start. */
-function Reading({ icon: I, text, color, fraction, bar, title }: { icon: Icon; text: string; color: string; fraction: number; bar: boolean; title?: string }) {
+/** `label`: what a screen reader says instead of the icon and text, for a reading whose meaning is in its `title`. */
+function Reading({ icon: I, text, color, fraction, bar, title, label }: { icon: Icon; text: string; color: string; fraction: number; bar: boolean; title?: string; label?: string }) {
   return (
-    <div className="flex h-4 min-w-0 shrink-0 items-center gap-1.5" title={title}>
+    <div className="flex h-4 min-w-0 shrink-0 items-center gap-1.5" title={title} role={label ? "img" : undefined} aria-label={label}>
       <I size={14} weight="regular" className="shrink-0 text-label-3" />
       <span dir="ltr" className="tabular shrink-0 text-caption font-medium" style={{ color }}>
         {text}
