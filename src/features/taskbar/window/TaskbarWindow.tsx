@@ -662,7 +662,10 @@ export function TaskbarWindow() {
           ),
         }}
       />
-      <TrayDrop bar={bar} more={trayMore} size={trayIcon(size)} gap={between} />
+      {/* In the bar's ink as ItemDrop is, so Liquid Glass +'s dark ink reaches its disc and line; after the panel, which an icon is dragged out of. */}
+      <div data-theme-ink dir="ltr" className="contents" style={look.ink}>
+        <TrayDrop bar={bar} more={trayMore} size={trayIcon(size)} gap={between} />
+      </div>
       {/* The launch error for screen readers too: a button's label is not read out. */}
       <span role="status" aria-live="polite" className="sr-only">
         {error?.text}

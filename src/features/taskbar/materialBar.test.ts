@@ -158,3 +158,9 @@ test("the tray's drag matches the bar's under Material: the same tonal disc, the
   hasAll(list(src, "w-0.5", "bg-accent"), "material:bg-primary");
   assert.ok(list(src, "pointer-events-none", "fixed", "flex").includes("material:z-10"), "the disc over the line under Material only");
 });
+
+test("the tray's drag is drawn in the bar's ink as the widgets' drag is, so Liquid Glass +'s dark ink reaches its disc and line, and still after the panel it may leave", () => {
+  const src = window("TaskbarWindow.tsx");
+  assert.match(src, /<div data-theme-ink dir="ltr" className="contents" style=\{look\.ink\}>\s*(\{\/\*[^]*?\*\/\}\s*)?<TrayDrop [^>]*\/>\s*<\/div>/);
+  assert.ok(src.indexOf("<TrayDrop ") > src.indexOf("<BarPanel"), "over the panel an icon is dragged out of");
+});
