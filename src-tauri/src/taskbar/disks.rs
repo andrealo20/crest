@@ -2,6 +2,7 @@
 //! in File Explorer by a letter this module listed, never a path from the page. Read on a call only: the notch asks every few
 //! minutes for the widget and a bar as its panel opens; Crest hears no device change, so a drive plugged in shows on the next.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use tauri::WebviewWindow;
@@ -11,13 +12,20 @@ use crate::system::{bar_drives, BarDrive};
 
 /// The letters of the last listing: the only drives a bar may open.
 static LISTED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+/// A read is under way. One at a time, so a drive that stops answering holds one thread, not one per call, and an older
+/// read never overwrites a newer listing.
+static READING: AtomicBool = AtomicBool::new(false);
 
-/// The drives now, read off the calling thread.
+/// The drives now, read off the calling thread; None while another call reads them, and the caller keeps what it has.
 #[tauri::command]
-pub async fn taskbar_disks() -> Vec<BarDrive> {
+pub async fn taskbar_disks() -> Option<Vec<BarDrive>> {
+    if READING.swap(true, Ordering::AcqRel) {
+        return None;
+    }
     let list = tauri::async_runtime::spawn_blocking(bar_drives).await.unwrap_or_default();
     *LISTED.lock().unwrap_or_else(|e| e.into_inner()) = list.iter().map(|d| d.letter.clone()).collect();
-    list
+    READING.store(false, Ordering::Release);
+    Some(list)
 }
 
 /// A letter the last listing had.

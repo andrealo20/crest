@@ -91,7 +91,7 @@ impl Hardware {
             let shared = self.drives.clone();
             let temps_due = cache.temps_at.is_none_or(|t| t.elapsed() > DRIVE_TEMPS_EVERY);
             thread::spawn(move || {
-                let fresh = read_drives(temps_due);
+                let fresh = read_drives(temps_due, false);
                 if let Ok(mut c) = shared.lock() {
                     let now = Instant::now();
                     // Temperatures not due this time keep the last ones.
@@ -354,6 +354,9 @@ const DRIVE_FIXED: u32 = 3;
 const BUS_RAID: u32 = 8;
 /// STORAGE_BUS_TYPE values of drives that plug in: USB, SD, MMC (as PLUG_BUS in src/features/system/storage.ts).
 const PLUG_BUS: [u32; 3] = [7, 12, 13];
+/// BusTypeFileBackedVirtual, a VHD; and the smallest volume shown (both as in src/features/system/storage.ts).
+const VIRTUAL_BUS: u32 = 14;
+const SMALLEST_VOLUME: u64 = 1 << 30;
 
 #[derive(Default)]
 struct DriveCache {
@@ -377,7 +380,7 @@ pub struct Volume {
     free: u64,
     /// \\.\PhysicalDriveN; None when the volume spans drives.
     disk: Option<u32>,
-    /// The name File Explorer shows, empty when the volume has none; the bar's alone (bar_drives).
+    /// The name File Explorer shows, empty when the volume has none; read for the bar alone (bar_drives).
     #[serde(skip)]
     label: String,
 }
@@ -395,19 +398,20 @@ pub struct Disk {
     temp: Option<[i16; 3]>,
 }
 
-fn read_drives(temps: bool) -> Drives {
-    let volumes = volumes();
+/// `bar`: for the bar's widget, which wants the labels and not the seek penalty (whether a drive is an SSD).
+fn read_drives(temps: bool, bar: bool) -> Drives {
+    let volumes = volumes(bar);
     let mut numbers: Vec<u32> = volumes.iter().filter_map(|v| v.disk).collect();
     numbers.sort_unstable();
     numbers.dedup();
-    let disks = numbers.into_iter().filter_map(|n| disk(n, temps)).collect();
+    let disks = numbers.into_iter().filter_map(|n| disk(n, temps, !bar)).collect();
     Drives { volumes, disks }
 }
 
 /// Every fixed or removable lettered volume on a disk, each once. Subst letters, virtual file systems (Google Drive),
 /// empty card readers and volumes whose extents cannot be read (a VeraCrypt or ImDisk volume lives inside another
-/// drive) are left out.
-fn volumes() -> Vec<Volume> {
+/// drive) are left out, and so are drives locked by BitLocker, whose free space cannot be read.
+fn volumes(labels: bool) -> Vec<Volume> {
     let mut list = Vec::new();
     let mut seen = Vec::<String>::new();
     unsafe {
@@ -444,7 +448,7 @@ fn volumes() -> Vec<Volume> {
             }
             let Some(disk) = extents(&letter) else { continue };
             let mut name = [0u16; 261];
-            let label = if GetVolumeInformationW(&root_h, Some(&mut name), None, None, None, None).is_ok() {
+            let label = if labels && GetVolumeInformationW(&root_h, Some(&mut name), None, None, None, None).is_ok() {
                 String::from_utf16_lossy(&name[..name.iter().position(|&c| c == 0).unwrap_or(name.len())])
             } else {
                 String::new()
@@ -477,17 +481,25 @@ fn plugs_in(disk: Option<&Disk>) -> bool {
     disk.is_some_and(|d| d.removable || PLUG_BUS.contains(&d.bus))
 }
 
-/// Every lettered volume the Hardware tool reads, without temperatures, so no drive is asked for one. Read on a call, not
-/// cached: the bar asks every few minutes and as its panel opens.
+/// The volumes the Hardware tool shows, without temperatures, so no drive is asked for one. Read on a call, not cached:
+/// the bar asks every few minutes and as its panel opens.
 pub fn bar_drives() -> Vec<BarDrive> {
-    let Drives { volumes, disks } = read_drives(false);
-    let system = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
+    let Drives { volumes, disks } = read_drives(false, true);
+    bar_list(volumes, &disks, &std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into()))
+}
+
+/// The Hardware tool's rule (groupDrives in storage.ts): no volume under 1 GiB, none on a virtual disk or on a drive that
+/// could not be read. The drive Windows runs from never plugs in, though eMMC reports the SD or MMC bus.
+fn bar_list(volumes: Vec<Volume>, disks: &[Disk], system: &str) -> Vec<BarDrive> {
+    let system_disk = volumes.iter().find(|v| v.letter.eq_ignore_ascii_case(system)).and_then(|v| v.disk);
     volumes
         .into_iter()
+        .filter(|v| v.total >= SMALLEST_VOLUME && v.disk.is_none_or(|n| disks.iter().any(|d| d.number == n && d.bus != VIRTUAL_BUS)))
         .map(|v| {
             let disk = v.disk.and_then(|n| disks.iter().find(|d| d.number == n));
             let name = if v.label.is_empty() { disk.map(|d| d.model.clone()).unwrap_or_default() } else { v.label };
-            BarDrive { system: v.letter.eq_ignore_ascii_case(&system), removable: plugs_in(disk), name, total: v.total, free: v.free, letter: v.letter }
+            let removable = plugs_in(disk) && v.disk != system_disk;
+            BarDrive { system: v.letter.eq_ignore_ascii_case(system), removable, name, total: v.total, free: v.free, letter: v.letter }
         })
         .collect()
 }
@@ -536,7 +548,8 @@ fn property(h: HANDLE, id: u32) -> Option<Vec<u8>> {
     }
 }
 
-fn disk(number: u32, temps: bool) -> Option<Disk> {
+/// `seek`: whether to ask the seek penalty (`ssd` is false when not asked; temperatures need it).
+fn disk(number: u32, temps: bool, seek: bool) -> Option<Disk> {
     let h = open(&format!("\\\\.\\PhysicalDrive{number}"))?;
     let result = (|| {
         // STORAGE_DEVICE_DESCRIPTOR: RemovableMedia at 10, ProductIdOffset at 16, BusType at 28.
@@ -552,7 +565,7 @@ fn disk(number: u32, temps: bool) -> Option<Disk> {
         let bus = u32_at(&d, 28);
         let removable = d[10] != 0;
         // DEVICE_SEEK_PENALTY_DESCRIPTOR: IncursSeekPenalty at 8. A drive that does not say is taken for a spinning disk.
-        let ssd = property(h, SEEK_PENALTY_PROPERTY).is_some_and(|p| p.len() >= 9 && p[8] == 0);
+        let ssd = seek && property(h, SEEK_PENALTY_PROPERTY).is_some_and(|p| p.len() >= 9 && p[8] == 0);
         // Hard disks are not asked (it could spin one up), nor drives behind RAID.
         let temp = (temps && ssd && bus != BUS_RAID && !removable)
             .then(|| property(h, TEMPERATURE_PROPERTY))
@@ -590,5 +603,20 @@ mod tests {
         assert!(plugs_in(Some(&d(7, true))) && plugs_in(Some(&d(7, false))) && plugs_in(Some(&d(12, false))) && plugs_in(Some(&d(13, false))));
         // Removable media on any bus.
         assert!(plugs_in(Some(&d(11, true))));
+    }
+
+    #[test]
+    fn the_bar_lists_what_the_hardware_tool_shows() {
+        const GB: u64 = 1 << 30;
+        let v = |letter: &str, total: u64, disk: Option<u32>| Volume { letter: letter.into(), total, free: 0, disk, label: String::new() };
+        let d = |number: u32, bus: u32| Disk { number, model: format!("model {number}"), bus, removable: false, ssd: false, temp: None };
+        // C: on eMMC (bus 13), a 500 MB recovery partition with a letter, a VHD, a drive that could not be read, a USB disk
+        // and a volume spanning drives.
+        let volumes = vec![v("C:", 64 * GB, Some(0)), v("R:", GB / 2, Some(0)), v("V:", 10 * GB, Some(1)), v("X:", 10 * GB, Some(5)), v("E:", 32 * GB, Some(2)), v("S:", 100 * GB, None)];
+        let list = bar_list(volumes, &[d(0, 13), d(1, VIRTUAL_BUS), d(2, 7)], "c:");
+        let letters: Vec<_> = list.iter().map(|b| b.letter.as_str()).collect();
+        assert_eq!(letters, ["C:", "E:", "S:"]);
+        assert!(list[0].system && !list[0].removable && list[0].name == "model 0");
+        assert!(!list[1].system && list[1].removable && !list[2].removable && list[2].name.is_empty());
     }
 }

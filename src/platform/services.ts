@@ -1557,7 +1557,7 @@ export const taskbar = {
   /** Opens the bin in Explorer, or empties it after Windows' own confirmation. The bar only. */
   recycleDo: (action: "open" | "empty"): Promise<void> => (isNative ? invoke("taskbar_recycle_do", { action }) : Promise.resolve()),
   /** The lettered drives and their free space (taskbar/disks.rs), read now; null in the browser and where it fails. */
-  disks: (): Promise<DiskDrive[] | null> => (isNative ? invoke<DiskDrive[]>("taskbar_disks").catch(() => null) : Promise.resolve(null)),
+  disks: (): Promise<DiskDrive[] | null> => (isNative ? invoke<DiskDrive[] | null>("taskbar_disks").catch(() => null) : Promise.resolve(null)),
   /** Opens a drive of the last listing in File Explorer, by its letter. The bar only. */
   diskOpen: (letter: string): Promise<void> => (isNative ? invoke("taskbar_disk_open", { letter }) : Promise.resolve()),
   /** One of Windows' settings pages, by name (Rust maps it to its URI). */
