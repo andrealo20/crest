@@ -81,7 +81,7 @@ Caps Lock and Num Lock show the same way: switching either key says "Caps Lock o
 
 ## Music and lyrics
 
-- **Now Playing** controls anything with a Windows media session (Spotify, browser players and so on) and shows cover, title, progress and a live equalizer.
+- **Now Playing** controls anything with a Windows media session (Spotify, browser players and so on) and shows cover, title, progress and a live equalizer. A player shows when Windows' own media controls show it (a volume key or Win + A); Spotify appears there only with its desktop overlay for media keys turned on. On a Mac, Crest follows the Spotify and Music apps and needs permission to control them under Privacy & Security → Automation. With nothing playing, Now Playing says this.
 - The equalizer is driven by the playing app's own audio, so a notification or a call doesn't move it (on Windows builds before 20348 it follows the whole output).
 - **Cover as background**: the button at the top right of the Music tool (or **Settings → Music**) puts the album cover, blurred and darkened, behind the whole panel; the text stays light on any theme. The cover itself grows as you make the Music panel taller, from 56 up to 140 px, and opening the lyrics adds room below the size you chose, so the panel can still be resized while they are open.
 - **Equalizer style** (Bars, Spectrum with 12 thin bars, or Wave) and **Progress bar** (Line, or Wavy, which moves while a song plays and goes flat on pause) in **Settings → Display → Music** change the Music tool; the closed row keeps its four bars.

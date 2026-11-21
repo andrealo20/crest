@@ -58,6 +58,8 @@
  "Buchstaben und Ziffern brauchen Ctrl, Option oder Cmd; F1 bis F24 gehen allein": "Буквам и цифрам нужен Ctrl, Option или Cmd; клавиши с F1 по F24 работают сами по себе",
  "Celsius": "Цельсий",
  "Cover als Hintergrund": "Обложка как фон",
+ "Crest folgt den Apps Spotify und Musik. Spielt eine davon, erlaube Crest die Steuerung unter Datenschutz & Sicherheit → Automation.": "Crest следит за приложениями Spotify и «Музыка». Если одно из них играет, разрешите Crest управлять им в разделе «Конфиденциальность и безопасность» → «Автоматизация».",
+ "Crest zeigt, was die Mediensteuerung von Windows zeigt (eine Lautstärketaste oder Win + A). Spotify erscheint dort nur mit eingeschaltetem Desktop-Overlay für Medientasten.": "Crest показывает то же, что элементы управления мультимедиа Windows (клавиша громкости или Win + A). Spotify появляется там, только если в нём включён оверлей на рабочем столе для мультимедийных клавиш.",
  "Das Backup konnte nicht gespeichert werden": "Не удалось сохранить резервную копию",
  "Das Backup konnte nicht wiederhergestellt werden; die bisherigen Daten sind geblieben": "Не удалось восстановить копию; прежние данные сохранены",
  "Das hat nicht geklappt": "Не получилось",

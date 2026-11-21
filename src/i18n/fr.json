@@ -58,6 +58,8 @@
  "Buchstaben und Ziffern brauchen Ctrl, Option oder Cmd; F1 bis F24 gehen allein": "Les lettres et les chiffres nécessitent Ctrl, Option ou Cmd ; F1 à F24 fonctionnent seules",
  "Celsius": "Celsius",
  "Cover als Hintergrund": "Pochette en arrière-plan",
+ "Crest folgt den Apps Spotify und Musik. Spielt eine davon, erlaube Crest die Steuerung unter Datenschutz & Sicherheit → Automation.": "Crest suit les apps Spotify et Musique. Si l'une d'elles joue, autorisez Crest à la contrôler dans Confidentialité et sécurité → Automatisation.",
+ "Crest zeigt, was die Mediensteuerung von Windows zeigt (eine Lautstärketaste oder Win + A). Spotify erscheint dort nur mit eingeschaltetem Desktop-Overlay für Medientasten.": "Crest affiche ce qu'affichent les commandes multimédias de Windows (une touche de volume ou Win + A). Spotify n'y apparaît qu'avec sa superposition de bureau pour les touches multimédias activée.",
  "Das Backup konnte nicht gespeichert werden": "La sauvegarde n'a pas pu être enregistrée",
  "Das Backup konnte nicht wiederhergestellt werden; die bisherigen Daten sind geblieben": "La sauvegarde n'a pas pu être restaurée ; les données précédentes sont conservées",
  "Das hat nicht geklappt": "Ça n'a pas fonctionné",

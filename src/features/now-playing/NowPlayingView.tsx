@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
-import { ArrowUpRight, ImageSquare, MicrophoneStage, MusicNoteSimple, Pause, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward } from "../../ui/iconset";
+import { ArrowUpRight, ImageSquare, MicrophoneStage, MusicNoteSimple, MusicNotesSimple, Pause, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward } from "../../ui/iconset";
 import { artwork as artworkSwap, content, springs } from "../../design/motion";
 import { useSmoothArtwork, useTinyArtwork } from "./artwork";
 import { coverBackdrop } from "./CoverBackdrop";
@@ -22,7 +22,7 @@ import { sinePath } from "./shapes";
 import { settings } from "../../settings/store";
 import { design } from "../../design/design";
 import { filledPress } from "../../ui/press";
-import { M3Layers } from "../../ui/controls";
+import { Empty as EmptyState, M3Layers } from "../../ui/controls";
 import { t } from "../../i18n";
 
 type Panel = "mixer" | "sources" | "lyrics" | null;
@@ -477,9 +477,18 @@ function IconButton(props: { label: string; onClick: () => void; children: React
   );
 }
 
+/** No player: what to check when one plays but Crest does not see it, the commonest reason first (Spotify's overlay, the Mac's Automation permission). */
 function Empty() {
   return (
-    <div className="flex h-full items-center justify-center text-body text-label-3">{t("Gerade läuft nichts")}</div>
+    <EmptyState
+      icon={MusicNotesSimple}
+      title={t("Gerade läuft nichts")}
+      text={
+        isMac
+          ? t("Crest folgt den Apps Spotify und Musik. Spielt eine davon, erlaube Crest die Steuerung unter Datenschutz & Sicherheit → Automation.")
+          : t("Crest zeigt, was die Mediensteuerung von Windows zeigt (eine Lautstärketaste oder Win + A). Spotify erscheint dort nur mit eingeschaltetem Desktop-Overlay für Medientasten.")
+      }
+    />
   );
 }
 

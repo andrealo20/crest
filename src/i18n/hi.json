@@ -58,6 +58,8 @@
  "Buchstaben und Ziffern brauchen Ctrl, Option oder Cmd; F1 bis F24 gehen allein": "अक्षरों और अंकों के लिए Ctrl, Option या Cmd चाहिए; F1 से F24 अकेले काम करते हैं",
  "Celsius": "सेल्सियस",
  "Cover als Hintergrund": "कवर को बैकग्राउंड बनाएँ",
+ "Crest folgt den Apps Spotify und Musik. Spielt eine davon, erlaube Crest die Steuerung unter Datenschutz & Sicherheit → Automation.": "Crest, Spotify और Music ऐप्स को फ़ॉलो करता है। अगर इनमें से कोई चल रहा है, तो Privacy & Security → Automation में Crest को उसे नियंत्रित करने की अनुमति दें।",
+ "Crest zeigt, was die Mediensteuerung von Windows zeigt (eine Lautstärketaste oder Win + A). Spotify erscheint dort nur mit eingeschaltetem Desktop-Overlay für Medientasten.": "Crest वही दिखाता है जो Windows के मीडिया नियंत्रण दिखाते हैं (वॉल्यूम की या Win + A)। Spotify वहाँ तभी दिखता है जब उसमें मीडिया कुंजियों के लिए डेस्कटॉप ओवरले चालू हो।",
  "Das Backup konnte nicht gespeichert werden": "बैकअप सहेजा नहीं जा सका",
  "Das Backup konnte nicht wiederhergestellt werden; die bisherigen Daten sind geblieben": "बैकअप बहाल नहीं हो सका; पिछला डेटा बना रहा",
  "Das hat nicht geklappt": "यह काम नहीं किया",

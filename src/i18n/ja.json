@@ -58,6 +58,8 @@
  "Buchstaben und Ziffern brauchen Ctrl, Option oder Cmd; F1 bis F24 gehen allein": "文字と数字には Ctrl、Option、Cmd のいずれかが必要です。F1〜F24 は単独で使えます",
  "Celsius": "摂氏",
  "Cover als Hintergrund": "カバーを背景に",
+ "Crest folgt den Apps Spotify und Musik. Spielt eine davon, erlaube Crest die Steuerung unter Datenschutz & Sicherheit → Automation.": "Crest は Spotify と「ミュージック」アプリに対応しています。どちらかが再生中なら、「プライバシーとセキュリティ」→「オートメーション」で Crest による操作を許可してください。",
+ "Crest zeigt, was die Mediensteuerung von Windows zeigt (eine Lautstärketaste oder Win + A). Spotify erscheint dort nur mit eingeschaltetem Desktop-Overlay für Medientasten.": "Crest は Windows のメディア コントロール（音量キーまたは Win + A）に出るものを表示します。Spotify がそこに出るのは、メディアキー用のデスクトップ オーバーレイをオンにしているときだけです。",
  "Das Backup konnte nicht gespeichert werden": "バックアップを保存できませんでした",
  "Das Backup konnte nicht wiederhergestellt werden; die bisherigen Daten sind geblieben": "バックアップを復元できませんでした。以前のデータはそのままです",
  "Das hat nicht geklappt": "うまくいきませんでした",
