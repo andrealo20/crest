@@ -29,6 +29,8 @@ export function Item(props: {
   kind?: string;
   /** A tray icon kept visible: its place among them (`data-tray`). */
   tray?: number;
+  /** A pinned app: its pin id (`data-pin`), which the drag among the pinned apps measures it by (PinDrop). */
+  pin?: string;
   ref?: Ref<HTMLButtonElement>;
   /** The button's width when its content is not an icon of `size`. */
   width?: number;
@@ -70,6 +72,7 @@ export function Item(props: {
       aria-describedby={props.describedBy}
       data-kind={props.kind}
       data-tray={props.tray}
+      data-pin={props.pin}
       onPointerEnter={props.onEnter}
       onPointerLeave={props.onLeave}
       onClick={props.onClick}

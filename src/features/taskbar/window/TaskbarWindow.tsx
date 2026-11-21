@@ -18,7 +18,7 @@ import { useThemedAccent } from "../../themes/store";
 import { PREVIEW_CLOSE, PREVIEW_DELAY, bridge, zones as hitZones, type Rect } from "../autoHide";
 import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Click, type ClickMods, type Zone } from "../model";
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
-import { closePanel, itemDrag, panel, togglePanel } from "../panel";
+import { closePanel, itemDrag, panel, pinDrag, togglePanel } from "../panel";
 import { dragThreshold, opensInBar } from "../panelModel";
 import { barShown, barWindows, groupIcons } from "../store";
 import { splitApps } from "../fit";
@@ -37,6 +37,7 @@ import { BarPanel } from "./BarPanel";
 import { holdBriefly } from "./hold";
 import { Item, MARK, type ItemProps } from "./Item";
 import { ItemDrop } from "./ItemDrop";
+import { PinDrop } from "./PinDrop";
 import { pressDragged, startPress } from "./press";
 import { PreviewCard } from "./Preview";
 import { Status } from "./Status";
@@ -133,6 +134,9 @@ export function TaskbarWindow() {
   }, [open, setMenu, setCard]);
   // The item dragged along the bar, only its id: the pointer's moves would draw the whole bar again (ItemDrop follows them).
   const dragged = useSyncExternalStore(itemDrag.subscribe, () => itemDrag.get()?.id ?? null);
+  // The pinned app dragged along the bar, by its pin id, for the same reason (PinDrop follows it).
+  const pinDragged = useSyncExternalStore(pinDrag.subscribe, () => pinDrag.get()?.id ?? null);
+  const dragging = dragged !== null || pinDragged !== null;
   // The shape's boxes, for its glass: new ones only when they change, so a hover does not draw the glass again.
   const [boxes, setBoxes] = useState<Box[]>([]);
   const reduced = useReducedMotion() === true;
@@ -216,7 +220,7 @@ export function TaskbarWindow() {
   const { down, place: placeMenuZone, placePreview } = useHitZone(bar, shape, setBoxes, layout, {
     open: menu !== null || open !== null || preview !== null,
     attention: buttons.some((b) => indicator(b, active) === "attention"),
-    dragging: dragged !== null,
+    dragging,
   });
   // Down, Rust tells this bar, and the notch for the primary's, that it is hidden (bar.rs taskbar_slid): the widgets and their sources
   // rest as when it hides. Once per change, and once on load, which clears a slide the page left behind before a reload.
@@ -259,7 +263,7 @@ export function TaskbarWindow() {
   };
   /** The pointer onto an app with windows: its card after a rest, or at once in place of another app's; nothing over a menu, the panel or a drag. */
   const showPreview = (b: BarButton) => {
-    if (!b.windows.length || menu || open || dragged) return;
+    if (!b.windows.length || menu || open || dragging) return;
     window.clearTimeout(cardTimer.current);
     if (card.current?.key === b.key) return;
     if (card.current) return openCard(b, "hover");
@@ -325,33 +329,42 @@ export function TaskbarWindow() {
   };
 
   /**
-   * A press on a widget, a tool button or Stato: past dragThreshold it drags the item along the bar (ItemDrop), closing the panel and
-   * the menus and stopping the names and the magnifying for the drag.
+   * A press on a widget, a tool button, Stato or a pinned app: past dragThreshold it drags along the bar (`move` gets each move, `end`
+   * the release), closing the panel and the menus and stopping the names and the magnifying for the drag.
    */
+  const dragPress = (e: Parameters<typeof startPress>[0], move: (x: number, y: number) => void, end: () => void) => {
+    let first = true;
+    startPress(e, {
+      threshold: dragThreshold(e.pointerType),
+      onDrag: (x, y) => {
+        if (first) {
+          first = false;
+          closePanel();
+          setMenu(null);
+          setCard(null);
+          setHovered(null);
+          pointer.set(Infinity);
+        }
+        move(x, y);
+      },
+      onEnd: end,
+    });
+  };
+  /** A widget, a tool button or Stato dragged (ItemDrop). */
   const dragFrom =
     (id: BarItem): ItemProps["onPointerDown"] =>
     (e) =>
-      startPress(e, {
-        threshold: dragThreshold(e.pointerType),
-        onDrag: (x, y) => {
-          if (!itemDrag.get()) {
-            closePanel();
-            setMenu(null);
-            setCard(null);
-            setHovered(null);
-            pointer.set(Infinity);
-          }
-          itemDrag.set({ id, x, y, pointerId: e.pointerId });
-        },
-        onEnd: () => itemDrag.set(null),
-      });
+      dragPress(e, (x, y) => itemDrag.set({ id, x, y, pointerId: e.pointerId }), () => itemDrag.set(null));
+  /** A pinned app dragged among the pinned ones (PinDrop), by its pin: a split button's key names a window, its pin the app. */
+  const dragPin = (pin: string, e: Parameters<typeof startPress>[0]) =>
+    dragPress(e, (x, y) => pinDrag.set({ id: pin, x, y, pointerId: e.pointerId }), () => pinDrag.set(null));
   /** The click a drag's release makes; a key's click (no count) never ends a drag. */
   const afterDrag = (e: { detail: number }) => e.detail > 0 && pressDragged();
 
   const item = (key: string, name: string) => ({
     name,
     // An open menu or panel hides the names, which would show around it, and so does a drag.
-    label: menu || open || dragged || preview ? null : error?.key === key ? error.text : hovered === key ? name : null,
+    label: menu || open || dragging || preview ? null : error?.key === key ? error.text : hovered === key ? name : null,
     failed: error?.key === key,
     lifted: hovered === key,
     size,
@@ -408,13 +421,16 @@ export function TaskbarWindow() {
             width={appWidth}
             magnify={mag}
             mark={indicator(b, active)}
-            onClick={(e) => click(b, e.currentTarget, false, { shift: e.shiftKey, ctrl: e.ctrlKey })}
+            pin={b.pin?.id}
+            // Only a pinned app's press can have dragged; another app's click never follows one.
+            onClick={(e) => (b.pin !== null && afterDrag(e)) || click(b, e.currentTarget, false, { shift: e.shiftKey, ctrl: e.ctrlKey })}
             onAuxClick={(e) => {
               if (e.button === 1) click(b, e.currentTarget, false, { middle: true });
             }}
-            // The middle button would start WebView2's autoscroll circle.
+            // The middle button would start WebView2's autoscroll circle; the left one drags a pinned app.
             onPointerDown={(e) => {
               if (e.button === 1) e.preventDefault();
+              else if (b.pin) dragPin(b.pin.id, e);
             }}
             onContextMenu={(e) => toggle({ kind: "app", b }, e.currentTarget)}
           >
@@ -541,7 +557,7 @@ export function TaskbarWindow() {
 
   /** Each item in a box-less span the drop measures it by (ItemDrop); the draggable ones keep touch for the drag, the dragged one dims. */
   const place = (id: BarItem) => (
-    <span key={id} data-item={id} className={`contents ${isWidget(id) || isTool(id) || id === "status" ? "*:touch-none" : ""} ${dragged === id ? "*:opacity-40" : ""}`}>
+    <span key={id} data-item={id} className={`contents ${isWidget(id) || isTool(id) || id === "status" || id === "apps" ? "*:touch-none" : ""} ${dragged === id ? "*:opacity-40" : ""}`}>
       {render(id)}
     </span>
   );
@@ -554,7 +570,7 @@ export function TaskbarWindow() {
       style={{ ["--accent" as string]: accent }}
       // A right click during a drag opens nothing, on any button or beside them.
       onContextMenuCapture={(e) => {
-        if (!itemDrag.get()) return;
+        if (!itemDrag.get() && !pinDrag.get()) return;
         e.preventDefault();
         e.stopPropagation();
       }}
@@ -579,7 +595,7 @@ export function TaskbarWindow() {
           // Nor while a preview card is open: the icons hold still round its button.
           onPointerMove={(e) => {
             lastX.current = e.clientX;
-            if (!itemDrag.get() && !card.current) pointer.set(e.clientX);
+            if (!itemDrag.get() && !pinDrag.get() && !card.current) pointer.set(e.clientX);
           }}
           onPointerLeave={() => {
             lastX.current = Infinity;
@@ -610,6 +626,7 @@ export function TaskbarWindow() {
         </div>
         {/* In the bar's ink, so the ghost has the bar's colours. */}
         <ItemDrop bar={bar} size={trayIcon(size)} gap={between} />
+        <PinDrop bar={bar} size={appIcon} gap={between} icons={icons} />
         <AnimatePresence>
           {/* Gone in the very commit the panel opens in, so its zone is cleared before the panel's box goes in, never after. */}
           {menu && !open && (

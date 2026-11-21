@@ -276,6 +276,36 @@ export function dropPlace(id: BarItem, items: DropSlot[], zones: ZoneBox[] | nul
   return { zone, before, line: before === null ? last.x + last.w + gap / 2 - 1 : inZone[at].x - gap / 2 - 1 };
 }
 
+/** A pinned button drawn on the bar: its pin id and box, CSS px. */
+export type PinSlot = { id: string; x: number; w: number };
+
+/**
+ * Where pin `id` dragged (or files dropped, id null) to `x` lands among the shown pinned buttons: before the first whose centre is
+ * right of `x` (dropSlot), null past the last, and the left edge of the 2 px line, centred in the `gap`. Null with no pinned button
+ * shown, and on the pin's own place (before itself or right after it): nothing to write.
+ */
+export function pinDrop(slots: PinSlot[], id: string | null, x: number, gap: number): { before: string | null; line: number } | null {
+  if (!slots.length) return null;
+  const at = dropSlot(slots, x);
+  const own = id === null ? -1 : slots.findIndex((s) => s.id === id);
+  if (own >= 0 && (at === own || at === own + 1)) return null;
+  const last = slots[slots.length - 1];
+  return at < slots.length ? { before: slots[at].id, line: slots[at].x - gap / 2 - 1 } : { before: null, line: last.x + last.w + gap / 2 - 1 };
+}
+
+/**
+ * `pinned` with `id` moved before `before` (to the end with null, past the pins behind "…" too); the same array when nothing changes
+ * or either id is not pinned, so nothing is written.
+ */
+export function movePinned(pinned: Favorite[], id: string, before: string | null): Favorite[] {
+  const from = pinned.findIndex((f) => f.id === id);
+  if (from < 0 || before === id) return pinned;
+  const rest = pinned.filter((_, i) => i !== from);
+  const at = before === null ? rest.length : rest.findIndex((f) => f.id === before);
+  if (at < 0 || at === from) return pinned;
+  return [...rest.slice(0, at), pinned[from], ...rest.slice(at)];
+}
+
 /** What changed on Windows' taskbar, on the bar's pinned apps: those pinned there at the end unless already pinned, those unpinned there taken off; the rest keep their order. */
 export function applyWindowsPins(pinned: Favorite[], change: { added: Favorite[]; removed: string[] }): Favorite[] {
   const kept = pinned.filter((f) => !change.removed.includes(f.id));

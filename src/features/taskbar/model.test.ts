@@ -17,8 +17,10 @@ import {
   newInstance,
   moveBefore,
   moveItem,
+  movePinned,
   normalizeTaskbar,
   normalizeZones,
+  pinDrop,
   placeMenu,
   previewFallsBack,
   previewKey,
@@ -411,6 +413,35 @@ test("in the capsule a drop joins the zone of the item it goes before, or of the
   const items = [slot("start", "center", 500), slot("apps", "center", 546), slot("weather", "right", 592), slot("clock", "right", 638)];
   assert.deepEqual(dropPlace("clock", items, null, 560, 40, 6), { zone: "center", before: "apps", line: 542 });
   assert.deepEqual(dropPlace("weather", items, null, 700, 40, 6), { zone: "right", before: null, line: 680 });
+});
+
+test("a dragged pin lands before the first pin whose centre is right of the pointer, after the last past them", () => {
+  // Three pinned buttons 40 px wide, 6 px apart.
+  const slots = [{ id: "a", x: 100, w: 40 }, { id: "b", x: 146, w: 40 }, { id: "c", x: 192, w: 40 }];
+  assert.deepEqual(pinDrop(slots, "c", 110, 6), { before: "a", line: 96 });
+  assert.deepEqual(pinDrop(slots, "a", 170, 6), { before: "c", line: 188 });
+  assert.deepEqual(pinDrop(slots, "a", 300, 6), { before: null, line: 234 });
+  // Its own place, before itself or right after it.
+  assert.equal(pinDrop(slots, "b", 130, 6), null);
+  assert.equal(pinDrop(slots, "b", 200, 6), null);
+  assert.equal(pinDrop(slots, "c", 300, 6), null);
+  // Files have no place of their own: every gap takes them.
+  assert.deepEqual(pinDrop(slots, null, 130, 6), { before: "b", line: 142 });
+  assert.deepEqual(pinDrop(slots, null, 213, 6), { before: null, line: 234 });
+  assert.equal(pinDrop([], null, 130, 6), null);
+});
+
+test("a pin moves before another or to the end, and an unchanged move gives the same array", () => {
+  const f = (id: string) => ({ id, name: id });
+  const pinned = [f("a"), f("b"), f("c")];
+  assert.deepEqual(movePinned(pinned, "c", "a").map((p) => p.id), ["c", "a", "b"]);
+  assert.deepEqual(movePinned(pinned, "a", "c").map((p) => p.id), ["b", "a", "c"]);
+  assert.deepEqual(movePinned(pinned, "a", null).map((p) => p.id), ["b", "c", "a"]);
+  assert.equal(movePinned(pinned, "a", "b"), pinned);
+  assert.equal(movePinned(pinned, "b", "b"), pinned);
+  assert.equal(movePinned(pinned, "c", null), pinned);
+  assert.equal(movePinned(pinned, "x", "a"), pinned);
+  assert.equal(movePinned(pinned, "a", "x"), pinned);
 });
 
 test("in the capsule a drop inside the item's own room changes nothing, at the boundary between two zones too", () => {
