@@ -142,16 +142,19 @@ export function chosenChoice(id: PartId, variants: unknown, date: boolean, zones
 
 /**
  * The settings patch for picking `c` for `id`: the version in variants, the digital clock's date in clock (and no clock in
- * variants), nothing for a widget without versions. `cur.variants` may be raw JSON from another window (storeCore.ts:51-57).
+ * variants), nothing for a widget without versions or when the saved settings already say so, compared with what is saved, not
+ * with the version shown (Two time zones saved without a zone shows the digital clock). `cur.variants` may be raw JSON from
+ * another window (storeCore.ts:51-57).
  */
 export function applyChoice(cur: Pick<TaskbarSettings, "variants" | "clock">, id: PartId, c: WidgetChoice): Partial<TaskbarSettings> {
   const variants = (isObj(cur.variants) ? cur.variants : {}) as TaskbarSettings["variants"];
   if (!hasVersions(id) || c.variant === null) return {};
-  if (id === "clock" && c.variant === "digital") {
-    const { clock: _, ...rest } = variants;
-    return { variants: rest, clock: { ...cur.clock, date: c.date ?? cur.clock.date } };
-  }
-  return { variants: { ...variants, [id]: c.variant } };
+  const patch: Partial<TaskbarSettings> =
+    id === "clock" && c.variant === "digital"
+      ? { variants: (({ clock: _, ...rest }) => rest)(variants), clock: { ...cur.clock, date: c.date ?? cur.clock.date } }
+      : { variants: { ...variants, [id]: c.variant } };
+  const same = Object.entries(patch).every(([k, v]) => JSON.stringify(v) === JSON.stringify(cur[k as keyof typeof cur]));
+  return same ? {} : patch;
 }
 
 /**

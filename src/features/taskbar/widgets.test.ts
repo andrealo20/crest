@@ -157,6 +157,15 @@ test("picking a version writes the version, and the clock's digital ones its dat
   assert.deepEqual(applyChoice({ variants: "x" as never, clock: { date: true, seconds: false } }, "weather", { variant: "icon" }), { variants: { weather: "icon" } });
 });
 
+test("a pick writes only what differs from the saved settings, so Two time zones saved without a zone gives way to the digital clock shown", () => {
+  const clock = { date: true, seconds: false };
+  // Shown as Time and date (no zone), saved as Two time zones: picking what is shown saves it.
+  assert.deepEqual(applyChoice({ variants: { clock: "zones" }, clock }, "clock", { variant: "digital", date: true }), { variants: {}, clock });
+  // Saved as shown: nothing to write.
+  assert.deepEqual(applyChoice({ variants: {}, clock }, "clock", { variant: "digital", date: true }), {});
+  assert.deepEqual(applyChoice({ variants: { weather: "hours" }, clock }, "weather", { variant: "hours" }), {});
+});
+
 test("the arrows move through a widget's versions and wrap, mirrored right to left", () => {
   assert.equal(variantKey("ArrowRight", 0, 4, false), 1);
   assert.equal(variantKey("ArrowDown", 3, 4, false), 0);

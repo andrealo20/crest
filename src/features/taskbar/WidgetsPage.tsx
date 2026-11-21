@@ -114,9 +114,8 @@ function Versions({ id, s, zone }: { id: PartId; s: Settings; zone: string | nul
         <Preview id={id} choice={choices[0]} s={s} zone={zone} />
       </div>
     );
-  // Decision 17: the version already chosen, or an empty patch, writes nothing.
+  // Decision 17: a pick that changes nothing saved writes nothing; the version shown may differ from the saved one (applyChoice).
   const pick = (i: number) => {
-    if (i === chosen) return;
     const p = applyChoice(settings.get().taskbar, id, choices[i]);
     if (Object.keys(p).length) setTaskbar(p);
   };
