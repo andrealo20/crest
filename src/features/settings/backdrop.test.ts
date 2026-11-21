@@ -76,7 +76,7 @@ test("the navigation's mark morphs per page in the settings window only, with th
   const body = view.slice(at, view.indexOf("\nfunction ", at + 1));
   for (const s of ["brandOf(id)", "shapePoints(", "<MorphPath", "fill-primary", "forced-colors:fill-[CanvasText]", "text-on-primary", "forced-colors:text-[Canvas]", "aria-hidden", "transition={crossfade}"])
     assert.ok(body.includes(s), s);
-  assert.ok(!body.includes("t("), "no new text in the mark");
+  assert.doesNotMatch(body, /\bt\(/, "no new text in the mark");
   const navAt = view.indexOf("const materialNav = (");
   const nav = view.slice(navAt, view.indexOf("const header =", navAt));
   const uses = [...view.matchAll(/<NavMark/g)].map((m) => m.index!);
