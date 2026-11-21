@@ -31,7 +31,7 @@ export interface SystemState {
   /** CPU from a thermal zone that moves (frozen-sensor guard), GPU of the adapter shown; °C. */
   cpuTemp: number | null;
   gpuTemp: number | null;
-  /** The program a temperature came from (HWiNFO, LibreHardwareMonitor); null for Windows' own sensors. */
+  /** The program a temperature came from (HWiNFO, LibreHardwareMonitor, Core Temp); null for Windows' own sensors. */
   cpuTempFrom: string | null;
   gpuTempFrom: string | null;
   power: PowerSample | null;
@@ -114,7 +114,7 @@ function poll(ms: number) {
     const zone = want.temps ? (zones.choose(raw.zones, raw.at / 1000)?.celsius ?? null) : null;
     const same = (n: { name: string }) => gpu != null && n.name !== "" && (n.name.includes(gpu.name) || gpu.name.includes(n.name));
     const nv = raw.nvml.find(same);
-    // HWiNFO or LibreHardwareMonitor, while one runs, before Windows' own sensors.
+    // HWiNFO, LibreHardwareMonitor or Core Temp, while one runs, before Windows' own sensors.
     const ext = raw.external, extGpu = ext?.gpus.find(same);
     const extCpuTemp = want.temps ? plausible(ext?.cpuTemp) : null, extGpuTemp = want.temps ? plausible(extGpu?.temp) : null;
     const cpuTemp = extCpuTemp ?? zone;

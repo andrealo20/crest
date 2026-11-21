@@ -112,7 +112,7 @@ export function SystemView() {
     : "";
   const batteryHealth = b && b.health !== null ? { text: `${t("Zustand")} ${Math.round(b.health * 100)} %`, color: tone(healthLevel(b.health)) } : null;
   // Many PCs give Windows no CPU temperature (temps.ts); the panel says where Crest can read one instead of leaving a gap (issue #67).
-  const noCpuTemp = noCpuSensor ? t("Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support) oder LibreHardwareMonitor läuft, liest Crest sie dort.") : undefined;
+  const noCpuTemp = noCpuSensor ? t("Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support), LibreHardwareMonitor oder Core Temp läuft, liest Crest sie dort.") : undefined;
 
   if (material) return <MaterialSystemLayout st={st} tone={tone} roles={colors === "calm"} cpuDetail={join(cpuDetail)} noCpuTemp={noCpuTemp} gpuDetail={join(gpuDetail)} gpuBadge={gpuBadge} onGpu={gpus.length > 1 ? cycleGpu : undefined} memLevel={memLevel} powerDetail={powerDetail} batteryDetail={batteryDetail} batteryHealth={batteryHealth} plan={plan} detail={detail} setDetail={setDetail} />;
 

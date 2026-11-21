@@ -108,7 +108,7 @@
  "Kein API-Schlüssel für {p}, in den Einstellungen eintragen.": "لا يوجد مفتاح API لـ {p}، أدخله في الإعدادات.",
  "Kein lokales Netzwerk gefunden": "لم يتم العثور على شبكة محلية",
  "Kein Platz, um das Backup bereitzulegen": "لا توجد مساحة كافية لتجهيز النسخة الاحتياطية",
- "Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support) oder LibreHardwareMonitor läuft, liest Crest sie dort.": "لا يوفّر Windows درجة حرارة CPU. ما دام HWiNFO (مع Shared Memory Support) أو LibreHardwareMonitor يعمل، يقرؤها Crest منه.",
+ "Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support), LibreHardwareMonitor oder Core Temp läuft, liest Crest sie dort.": "لا يوفّر Windows درجة حرارة CPU. ما دام HWiNFO (مع Shared Memory Support) أو LibreHardwareMonitor أو Core Temp يعمل، يقرؤها Crest منه.",
  "Kelvin": "كلفن",
  "Klappt es nicht? VPN, Firewall oder Gast-WLAN prüfen.": "لا يعمل؟ تحقق من VPN أو جدار الحماية أو شبكة الضيوف.",
  "km/h": "كم/س",

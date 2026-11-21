@@ -10,7 +10,7 @@
 //!   VRAM from "GPU Adapter Memory(*)\Dedicated Usage", sizes and names from DXGI.
 //! - CPU: sysinfo per core, core kinds from the CPU set efficiency class, frequency from "Processor Information".
 //! - Network: cumulative byte counters of the hardware interfaces (GetIfTable2); the page computes the rate.
-//! - Temperatures, power, battery and drives: see `hw`; from HWiNFO or LibreHardwareMonitor when one runs: see `external`.
+//! - Temperatures, power, battery and drives: see `hw`; from HWiNFO, LibreHardwareMonitor or Core Temp when one runs: see `external`.
 //! - Ping: ICMP echo to 1.1.1.1 on its own thread (every 2 s, only while polled).
 
 mod external;
@@ -189,7 +189,7 @@ pub struct Stats {
     energy: Vec<(String, f64)>,
     meter: Vec<(String, f64)>,
     nvml: Vec<hw::NvmlGpu>,
-    /// CPU and GPU temperature and power from HWiNFO or LibreHardwareMonitor.
+    /// CPU and GPU temperature and power from HWiNFO or LibreHardwareMonitor, or the CPU's from Core Temp.
     external: Option<external::Reading>,
     battery: Option<hw::BatteryRaw>,
     drives: Option<hw::Drives>,
