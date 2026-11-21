@@ -162,11 +162,11 @@ export function PreviewCard(props: {
       ) : (
         b.windows.map((win) => (
           // Two sibling buttons, never one in the other: the tile brings the window forward, the cross closes it.
-          <div key={win.id} className="relative rounded-[6px] hover:bg-fill-2" style={{ width: layout.w + 12 }}>
+          <div key={win.id} className="relative rounded-[6px] hover:bg-fill-2 material:rounded-[12px]" style={{ width: layout.w + 12 }}>
             <button
               data-window
               aria-label={win.title || b.name}
-              className="flex w-full flex-col gap-1.5 rounded-[6px] p-1.5 outline-none focus-visible:bg-fill-2"
+              className="flex w-full flex-col gap-1.5 rounded-[6px] p-1.5 outline-none focus-visible:bg-fill-2 material:rounded-[12px] pressable-wide"
               onClick={() => {
                 // A window of an app run as administrator may refuse; nothing changes then.
                 taskbar.window(win.id, "activate").catch(() => {});
@@ -179,20 +179,23 @@ export function PreviewCard(props: {
                   {win.title || b.name}
                 </span>
               </span>
-              <span data-slot={win.id} className="flex flex-col items-center justify-center gap-1 text-label-3" style={{ width: layout.w, height: layout.h }}>
-                {failed.has(win.id) && (
-                  <>
-                    <AppIcon src={props.icon} size={32} />
-                    <span dir="auto" className="max-w-full truncate px-2 text-footnote">
-                      {win.title || b.name}
-                    </span>
-                  </>
-                )}
+              {/* Material's rounded frame around the square slot, as far out as it pads in: the slot keeps its box, Rust's thumbnail its rect. */}
+              <span className="flex material:-m-1 material:p-1 material:rounded-[8px] material:bg-fill-1">
+                <span data-slot={win.id} className="flex flex-col items-center justify-center gap-1 text-label-3" style={{ width: layout.w, height: layout.h }}>
+                  {failed.has(win.id) && (
+                    <>
+                      <AppIcon src={props.icon} size={32} />
+                      <span dir="auto" className="max-w-full truncate px-2 text-footnote">
+                        {win.title || b.name}
+                      </span>
+                    </>
+                  )}
+                </span>
               </span>
             </button>
             <button
               aria-label={t("Fenster schließen")}
-              className="absolute end-1.5 top-1.5 flex size-5 items-center justify-center rounded-[4px] text-label-2 outline-none hover:bg-fill-2 focus-visible:bg-fill-2"
+              className="absolute end-1.5 top-1.5 flex size-5 items-center justify-center rounded-[4px] text-label-2 outline-none hover:bg-fill-2 focus-visible:bg-fill-2 material:rounded-full"
               onClick={() => void taskbar.window(win.id, "close").catch(() => {})}
             >
               <X size={12} weight="regular" />

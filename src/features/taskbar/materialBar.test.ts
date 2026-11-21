@@ -91,3 +91,19 @@ test("with reduced motion the bar's menus and the select menus open from Crest's
   assert.ok(body.includes('scale(${style === "material" && !reduced ? 0.8 : 0.96})'));
   assert.ok(!select.includes('scale(${style === "material" ? 0.8'));
 });
+
+test("the preview card's tiles are menu rows under Material, the focus ring inside them, the cross round, and each square slot in a rounded frame that leaves its box where it was", () => {
+  const src = window("Preview.tsx");
+  assert.match(src, /className=\{`\$\{MENU_PANEL_CLASS\}/);
+  hasAll(list(src, "relative", "hover:bg-fill-2"), "rounded-[6px] material:rounded-[12px]");
+  const tile = list(src, "w-full", "flex-col", "gap-1.5");
+  hasAll(tile, "rounded-[6px] material:rounded-[12px] pressable-wide focus-visible:bg-fill-2");
+  assert.ok(!tile.includes("pressable"), "no .pressable: its press scale would move the slots under the thumbnails");
+  hasAll(list(src, "absolute", "end-1.5"), "rounded-[4px] material:rounded-full");
+  // The frame: as far out as it pads in, so the slot inside keeps its place and size; the slot itself stays square.
+  const frame = /<span className="([^"]*)">\s*<span data-slot/.exec(src);
+  assert.ok(frame, "no frame right around the slot");
+  hasAll(frame[1].split(/\s+/), "flex material:-m-1 material:p-1 material:rounded-[8px] material:bg-fill-1");
+  const slot = /<span data-slot=\{win\.id\} className="([^"]*)"/.exec(src);
+  assert.ok(slot && !/rounded/.test(slot[1]), "the slot is never rounded");
+});
