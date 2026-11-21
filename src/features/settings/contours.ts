@@ -91,7 +91,7 @@ export function fieldOf(id: string): [x: number, y: number, scale: number] {
   const known = FIELDS[id];
   if (known) return [...known];
   const h = idHash(id);
-  return [(h % 6000) / 100, ((h >>> 8) % 5000) / 100, 2.1 + ((h >>> 16) % 19) / 10];
+  return [(h % 6000) / 100, ((h >>> 8) % 5000) / 100, (21 + ((h >>> 16) % 19)) / 10];
 }
 
 export const FRAME = 1000 / 30;

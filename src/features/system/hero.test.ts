@@ -64,6 +64,10 @@ test("every settings page has a mark, and no two pages in a row share a lobe cou
   // A page added later (the bar's Widget page) falls back to the hash.
   assert.deepEqual(brandOf("widgets"), brandOf("widgets"));
   assert.ok(inRange(brandOf("widgets")), String(brandOf("widgets")));
+  // The hash's amplitudes stay in 0.05..0.15 exactly, ends included, with no float left over (0.05 + 0.1 is 0.15000000000000002).
+  const amplitudes = new Set(Array.from({ length: 2000 }, (_, i) => brandOf(`page-${i}`)[1]));
+  for (const a of amplitudes) assert.ok(inRange([4, a]), String(a));
+  assert.ok(amplitudes.has(0.05) && amplitudes.has(0.15), [...amplitudes].sort().join(", "));
 });
 
 test("the id hash is stable and an unsigned 32-bit integer", () => {

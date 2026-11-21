@@ -72,7 +72,7 @@ export function brandOf(id: string): [lobes: number, amplitude: number] {
   const mark = MARKS[id];
   if (mark) return [mark[0], mark[1]];
   const h = idHash(id);
-  return [4 + (h % 9), 0.05 + ((h >>> 8) % 11) / 100];
+  return [4 + (h % 9), (5 + ((h >>> 8) % 11)) / 100];
 }
 
 /** What the Material hardware shows in a body of w x h CSS px: the cores go first, then the three tiles fold into a row of chips. */

@@ -35,6 +35,10 @@ test("every settings page and the search have a view of the field, far from the 
   // A page added later (the bar's Widget page) falls back to the hash.
   assert.deepEqual(fieldOf("widgets"), fieldOf("widgets"));
   assert.ok(inField(fieldOf("widgets")), String(fieldOf("widgets")));
+  // The hash's scales stay in 2.1..3.9 exactly, ends included (2.1 + 1.8 is 3.9000000000000004).
+  const scales = new Set(Array.from({ length: 2000 }, (_, i) => fieldOf(`page-${i}`)[2]));
+  for (const s of scales) assert.ok(s >= 2.1 && s <= 3.9, String(s));
+  assert.ok(scales.has(2.1) && scales.has(3.9), [...scales].sort().join(", "));
 });
 
 /** A fixed-seed linear congruential generator in [0, 1), so the jitter is the same on every run. */
