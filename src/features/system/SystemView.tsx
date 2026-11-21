@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { AppWindow, ArrowDown, ArrowsDownUp, ArrowUp, BatteryHigh, CaretDown, Cpu, HardDrives, Lightning, WifiHigh, X, type Icon } from "../../ui/iconset";
 import { GpuIcon, RamIcon } from "../../ui/icons";
@@ -439,8 +439,8 @@ export function Trend({ values, second, max, color, secondColor = color, tick, w
   const scaleY = useTransform(scale, (s) => s / 100);
   const prev = useRef(max);
   const reduced = useReducedMotion() === true;
-  useEffect(() => {
-    // Crest's network, power and ping change max almost every sample: no spring for them.
+  useLayoutEffect(() => {
+    // Before the paint: the new max must not draw one frame at the old scale. Crest's network, power and ping change max almost every sample: no spring for them.
     if (!area) return;
     const from = prev.current;
     prev.current = max;

@@ -37,7 +37,7 @@ test("the graph draws its path from the tested helpers, and its area and scale o
   assert.ok(crestBlock.includes('className="h-[22px] min-w-0 flex-1 overflow-hidden"'), crestBlock);
   assert.ok(trend.includes("useTransform(scale, (s) => s / 100)"));
   assert.ok(trend.includes("springs.value"));
-  const effect = trend.slice(trend.indexOf("useEffect("));
+  const effect = trend.slice(trend.indexOf("useLayoutEffect("));
   const out = effect.indexOf("if (!area) return");
   assert.ok(out > 0, "the effect leaves without an area");
   assert.ok(effect.indexOf("animate(scale") > out, "the spring starts only with an area");
@@ -202,4 +202,11 @@ test("at the largest sizes the CPU and GPU cards stop at 150 px, the network tak
   // The cards' row and the tiles' row are 42 % and 26 % of the column up to 150 and 74 px: at Standard 120 and 74, as before.
   assert.ok(materialView.includes('"grid-rows-[minmax(100px,min(150px,42%))_minmax(64px,1fr)_minmax(64px,min(74px,26%))]"'));
   for (const name of ["MemoryCard", "DriveCard"]) assert.match(part(name), /flex-col items-center justify-center rounded-\[24px\]/, name);
+});
+
+test("the network graph's new scale is set before the paint, so the graph never draws one frame at half its height", () => {
+  const trend = body("export function Trend(");
+  // The jump to the old height runs in the same commit the new max draws in, then the spring stretches it out.
+  assert.match(trend, /useLayoutEffect\(\(\) => \{\s*\/\/[^\n]*\n\s*if \(!area\) return;[^]*?scale\.jump\(\(scale\.get\(\) \* max\) \/ from\);/);
+  assert.ok(!/useEffect\(\(\) => \{\s*\/\/[^\n]*\n\s*if \(!area\) return;/.test(trend), "not after the paint");
 });
