@@ -21,6 +21,8 @@ export type BarItem = "start" | "apps" | "crest" | "tray" | "status" | PartId | 
 export const FIXED_ITEMS = ["start", "apps", "crest"] as const;
 /** The bar's shape: along the screen's edge with no gaps, floating above it, a capsule, or a tile per item. */
 export type BarShape = "docked" | "floating" | "capsule" | "tiles";
+/** The screen edge the bars stand on. */
+export type BarEdge = "bottom" | "top";
 /** How the apps' buttons combine, as Windows' "Combine taskbar buttons and hide labels": one per app with no label, one per window with its title while they fit, or one per window always. */
 export type Combine = "always" | "full" | "never";
 const COMBINES: Combine[] = ["always", "full", "never"];
@@ -81,6 +83,8 @@ export interface TaskbarSettings {
   clockAll: boolean;
   /** Win+1..9, Win+0, Win+T and Win+B go to the bar (keys.rs); off by default, since turning it on or off restarts Explorer. */
   winKeys: boolean;
+  /** The screen edge every bar stands on (position.ts). */
+  position: BarEdge;
 }
 
 export type AppsOn = "own" | "main" | "all";
@@ -117,6 +121,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   appsOn: "own",
   clockAll: false,
   winKeys: false,
+  position: "bottom",
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -205,6 +210,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     appsOn: APPS_ONS.includes(s.appsOn as AppsOn) ? (s.appsOn as AppsOn) : d.appsOn,
     clockAll: s.clockAll === true,
     winKeys: s.winKeys === true,
+    position: s.position === "top" ? "top" : "bottom",
   };
 }
 

@@ -10,6 +10,8 @@ import { settings, updateSettings } from "../../../settings/store";
 import { MENU_PANEL_CLASS, MENU_ROW_CLASS } from "../../../ui/menu";
 import { toggleFavorite, type Favorite } from "../../launcher/apps";
 import { appKey, jumpHeading, menuFor, menuKey, newInstance, placeMenu, type BarButton, type Click, type JumpList } from "../model";
+import { growFrom, nudge, popupAt, popupY } from "../position";
+import { useBarEdge } from "./barEdge";
 
 /** Room a menu keeps from the window's top edge, CSS px, as placeMenu keeps from its sides. */
 const EDGE = 8;
@@ -25,7 +27,7 @@ export interface HitRect {
 }
 
 /**
- * A menu over the bar in the Select menu's look: it opens upward, centred over what opened it and kept inside the window. The
+ * A menu over the bar in the Select menu's look: it opens away from the bar, centred on what opened it and kept inside the window. The
  * keyboard moves into it (Up and Down, Home and End; Enter and Space are the rows' own clicks). It closes on Esc (the keyboard then
  * goes back to the app in front), on a pointerdown anywhere else in the bar and when the window loses the focus; a pointerdown on
  * the button it opened from is left to that button's click, which closes it or opens another.
@@ -36,15 +38,16 @@ export function BarMenu(props: {
   /** What it opens over, CSS px from the window's left edge: its button, or the pointer (w 0). */
   x: number;
   w: number;
-  /** Its bottom edge, CSS px above the window's bottom edge. */
-  bottom: number;
+  /** Its edge towards the bar, CSS px from the window's edge on the bar's side (position.ts). */
+  off: number;
   anchor: Element | null;
   onClose: () => void;
   /** Its box each time it places itself, null once it closes: the bar's hit zone takes it in. */
   onPlace: (box: HitRect | null) => void;
   children: ReactNode;
 }) {
-  const { x, w, bottom, anchor, onClose, onPlace } = props;
+  const { x, w, off, anchor, onClose, onPlace } = props;
+  const edge = useBarEdge();
   // Fading out after it closed, it takes no key, no click and no place in the hit zone.
   const present = useIsPresent();
   const appDesign = design.use();
@@ -62,14 +65,14 @@ export function BarMenu(props: {
       const { inlineSize: width, blockSize: height } = entry.borderBoxSize[0];
       const left = placeMenu(x, w, width, window.innerWidth);
       el.style.left = `${left}px`;
-      onPlace({ x: left, y: window.innerHeight - bottom - height, w: width, h: height });
+      onPlace({ x: left, y: popupY(edge, off, height, window.innerHeight), w: width, h: height });
     });
     observer.observe(el);
     return () => {
       observer.disconnect();
       onPlace(null);
     };
-  }, [present, x, w, bottom, onPlace]);
+  }, [present, x, w, off, edge, onPlace]);
   useEffect(() => {
     if (!present) return;
     ref.current?.querySelector<HTMLElement>(ROWS)?.focus({ preventScroll: true });
@@ -109,8 +112,8 @@ export function BarMenu(props: {
       className={`${MENU_PANEL_CLASS} w-max max-w-80 min-w-40`}
       // The focus leaves its rows, so a second Enter while it fades does not run one again.
       inert={!present}
-      style={{ bottom, maxHeight: window.innerHeight - bottom - EDGE, transformOrigin: "50% 100%", pointerEvents: present ? undefined : "none" }}
-      initial={{ opacity: 0, transform: `scale(${appDesign === "material" && !reduced ? 0.8 : 0.96}) translateY(2px)` }}
+      style={{ ...popupAt(edge, off), maxHeight: window.innerHeight - off - EDGE, transformOrigin: growFrom(edge), pointerEvents: present ? undefined : "none" }}
+      initial={{ opacity: 0, transform: `scale(${appDesign === "material" && !reduced ? 0.8 : 0.96}) translateY(${nudge(edge)}px)` }}
       animate={{ opacity: 1, transform: "scale(1) translateY(0px)", transition: popover.enter }}
       exit={{ opacity: 0, transform: "scale(0.98)", transition: popover.exit }}
     >

@@ -38,7 +38,7 @@ export function AppsPanel(props: {
           <span className="relative flex">
             <AppIcon src={icon} size={props.size} />
           </span>
-          <Mark kind={mark} bottom={props.markAt} />
+          <Mark kind={mark} at={props.markAt} />
         </button>
       ))}
     </div>

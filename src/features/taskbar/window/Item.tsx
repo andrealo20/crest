@@ -4,7 +4,9 @@ import { design } from "../../../design/design";
 import { fade, popover, pulse, springs } from "../../../design/motion";
 import { itemLayer, marks } from "../itemLook";
 import { magnify } from "../look";
-import { placeMenu, type Indicator } from "../model";
+import { placeMenu, type BarEdge, type Indicator } from "../model";
+import { nudge } from "../position";
+import { useBarEdge } from "./barEdge";
 import { lineUnder, type Progress } from "../decorModel";
 
 /** Thickness of the mark under an app, CSS px. */
@@ -61,6 +63,7 @@ export function Item(props: {
   children: ReactNode;
 }) {
   const material = design.use() === "material";
+  const edge = useBarEdge();
   const shape = itemLayer({ size: props.size, width: props.width ?? props.size + 16, layer: props.layer, tile: props.plus ? undefined : props.tile });
   const pill = props.mark !== undefined && marks(props.mark, "material").pill;
   // Stato draws a pill of its own, inside the lifted span: its layer rides there, over the pill's fill, as the pill lifts.
@@ -68,7 +71,7 @@ export function Item(props: {
   // Lit by the bar's hovered state, which Rust clears when the pointer leaves the window; :hover would stay on.
   const layer = material && <span aria-hidden data-hover={props.lifted || undefined} className={`m3-layer absolute${inPill ? " inset-0 rounded-full" : ""}`} style={inPill ? undefined : shape} />;
   return (
-    // The gap under the bar (GAP, h-1) belongs to the button above it, so a click with the pointer pushed against the screen's
+    // The gap at the screen's edge (GAP, h-1) belongs to the button beside it, so a click with the pointer pushed against the screen's
     // edge, left or right, lands on the button; the gap itself stays empty. A press shrinks only the icon, by `scale` (Motion's
     // lift owns its transform): shrinking the whole button, as .pressable does, would lift that strip off the edge while the
     // button is held, and the release would land beside it.
@@ -91,36 +94,38 @@ export function Item(props: {
       onDragEnter={props.onDragEnter}
       onDragLeave={props.onDragLeave}
       data-tile={props.tile ? "" : undefined}
-      className={`group relative flex shrink-0 items-center ${props.labelled ? "justify-start px-2" : "justify-center"} after:absolute after:inset-x-0 after:top-full after:h-1`}
+      className={`group relative flex shrink-0 items-center ${props.labelled ? "justify-start px-2" : "justify-center"} after:absolute after:inset-x-0 ${edge === "top" ? "after:bottom-full" : "after:top-full"} after:h-1`}
       style={{ width: props.width ?? props.size + 16, background: props.tile?.background, borderRadius: props.tile?.radius }}
     >
       {material && props.mark && <motion.span aria-hidden data-front-pill className="absolute bg-secondary-container" style={shape} initial={false} animate={{ opacity: pill ? 1 : 0, transform: `scaleX(${pill ? 1 : 0.6})` }} transition={springs.snappy} />}
       {!inPill && layer}
       {props.magnify ? (
-        <Magnified {...props.magnify}>{props.children}</Magnified>
+        <Magnified {...props.magnify} top={edge === "top"}>
+          {props.children}
+        </Magnified>
       ) : (
         <motion.span
           className={`relative flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94${props.labelled ? " min-w-0" : ""}`}
           initial={false}
-          animate={{ transform: `translateY(${props.lifted ? -2 : 0}px)` }}
+          animate={{ transform: `translateY(${props.lifted ? -nudge(edge) : 0}px)` }}
           transition={springs.peek}
         >
           {props.children}
           {inPill && layer}
         </motion.span>
       )}
-      {props.progress && lineUnder(props.mark, props.progress) === "progress" ? <ProgressLine p={props.progress} bottom={props.markAt} width={props.size} /> : props.mark && <Mark kind={props.mark} bottom={props.markAt} />}
-      <Label text={props.label} failed={props.failed} rise={props.magnify?.rise ?? 0} />
+      {props.progress && lineUnder(props.mark, props.progress) === "progress" ? <ProgressLine p={props.progress} at={props.markAt} side={edge} width={props.size} /> : props.mark && <Mark kind={props.mark} at={props.markAt} side={edge} />}
+      <Label text={props.label} failed={props.failed} rise={props.magnify?.rise ?? 0} edge={edge} />
     </button>
   );
 }
 
 /**
- * The icon grown from its bottom by its distance to the pointer, through a spring that keeps its velocity as the pointer moves on.
+ * The icon grown from its side on the screen's edge (`top` for a top bar) by its distance to the pointer, through a spring that keeps its velocity as the pointer moves on.
  * Motion values only: React draws nothing while the pointer moves. The button's centre is measured once each time the pointer comes
  * onto the bar and after a render (the scale never moves the button).
  */
-function Magnified({ pointer, unit, children }: Magnify & { children: ReactNode }) {
+function Magnified({ pointer, unit, top, children }: Magnify & { top: boolean; children: ReactNode }) {
   const ref = useRef<HTMLSpanElement>(null);
   const centre = useRef<number | null>(null);
   // Measured again after each render too: an app launched from the bar moves the buttons while the pointer stays on it.
@@ -140,7 +145,7 @@ function Magnified({ pointer, unit, children }: Magnify & { children: ReactNode 
   const scale = useSpring(target, springs.glide);
   return (
     // The press keeps a span of its own, so its scale and the magnify's never write the same property.
-    <motion.span ref={ref} className="relative flex origin-bottom" style={{ scale }}>
+    <motion.span ref={ref} className={`relative flex ${top ? "origin-top" : "origin-bottom"}`} style={{ scale }}>
       <span className="flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94">{children}</span>
     </motion.span>
   );
@@ -152,17 +157,18 @@ export type ItemProps = Parameters<typeof Item>[0];
 const ATTENTION = { ...pulse, repeat: 5 };
 
 /**
- * Under an app: a dot while it is open, a longer mark while it is in front (in Crest; Material puts a pill behind it), the accent
- * while a window asks for attention, pulsing when that starts. Both shapes are drawn whole and change by opacity and scale only.
+ * Under an app (over it on a top bar: `at` px from its `side`): a dot while it is open, a longer mark while it is in front (in Crest;
+ * Material puts a pill behind it), the accent while a window asks for attention, pulsing when that starts. Both shapes are drawn whole
+ * and change by opacity and scale only.
  */
-export function Mark({ kind, bottom }: { kind: Indicator; bottom: number }) {
+export function Mark({ kind, at, side = "bottom" }: { kind: Indicator; at: number; side?: BarEdge }) {
   const appDesign = design.use();
   const { dot, bar } = marks(kind, appDesign);
   return (
     // No initial={false} here: a mark that appears asking for attention pulses too, where initial={false} would leave it dim.
     <motion.span
       className="absolute inset-x-0 flex justify-center"
-      style={{ bottom, height: MARK }}
+      style={{ [side]: at, height: MARK }}
       animate={{ opacity: kind === "attention" ? [1, 0.35] : 1 }}
       transition={kind === "attention" ? ATTENTION : fade}
     >
@@ -190,11 +196,11 @@ const FILL = { normal: "bg-green", paused: "bg-caution", error: "bg-red", indete
  * An app's progress as Windows shows it, as wide as the icon: green, yellow while paused, red after an error; a third-wide segment
  * moving to and fro while the app cannot say how far it is, still under reduced motion. Transform only.
  */
-function ProgressLine({ p, bottom, width }: { p: Progress; bottom: number; width: number }) {
+function ProgressLine({ p, at, side, width }: { p: Progress; at: number; side: BarEdge; width: number }) {
   const still = useReducedMotion();
   const moving = p.state === "indeterminate";
   return (
-    <span aria-hidden className="absolute inset-x-0 flex justify-center" style={{ bottom, height: MARK }}>
+    <span aria-hidden className="absolute inset-x-0 flex justify-center" style={{ [side]: at, height: MARK }}>
       {/* Mirrored in a right-to-left language, so the fill grows and the segment moves from the inline start. */}
       <span className="relative overflow-hidden rounded-full bg-fill-2 rtl:-scale-x-100" style={{ width, height: MARK }}>
         <motion.span
@@ -208,13 +214,13 @@ function ProgressLine({ p, bottom, width }: { p: Progress; bottom: number; width
   );
 }
 
-/** A button's name above it, or what went wrong; never takes the pointer. */
-function Label({ text, failed, rise }: { text: string | null; failed: boolean; rise: number }) {
-  return <AnimatePresence>{text !== null && <Bubble key={text} text={text} failed={failed} rise={rise} />}</AnimatePresence>;
+/** A button's name on the screen's side of it, or what went wrong; never takes the pointer. */
+function Label({ text, failed, rise, edge }: { text: string | null; failed: boolean; rise: number; edge: BarEdge }) {
+  return <AnimatePresence>{text !== null && <Bubble key={text} text={text} failed={failed} rise={rise} edge={edge} />}</AnimatePresence>;
 }
 
-/** `rise`: px above the usual 8 over the button, clear of a magnified icon. */
-function Bubble({ text, failed, rise }: { text: string; failed: boolean; rise: number }) {
+/** `rise`: px past the usual 8 from the button, clear of a magnified icon. */
+function Bubble({ text, failed, rise, edge }: { text: string; failed: boolean; rise: number; edge: BarEdge }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [shift, setShift] = useState(0);
   // Centred over its button, and moved only as far as it must to stay inside the window, as the menus do.
@@ -229,9 +235,9 @@ function Bubble({ text, failed, rise }: { text: string; failed: boolean; rise: n
     <motion.span
       ref={ref}
       dir="auto"
-      className={`pointer-events-none absolute bottom-full left-1/2 max-w-80 -translate-x-1/2 truncate rounded-[8px] bg-elevated px-2 py-1 text-footnote font-medium shadow-[0_4px_14px_rgb(0_0_0/0.4)] ring-1 ring-separator material:rounded-[4px] material:shadow-none material:ring-0 material:text-notch ${failed ? "text-red material:bg-red" : "text-label material:bg-label"}`}
-      style={{ marginLeft: shift, marginBottom: 8 + rise }}
-      initial={{ opacity: 0, transform: "translateY(2px) scale(0.96)" }}
+      className={`pointer-events-none absolute ${edge === "top" ? "top-full" : "bottom-full"} left-1/2 max-w-80 -translate-x-1/2 truncate rounded-[8px] bg-elevated px-2 py-1 text-footnote font-medium shadow-[0_4px_14px_rgb(0_0_0/0.4)] ring-1 ring-separator material:rounded-[4px] material:shadow-none material:ring-0 material:text-notch ${failed ? "text-red material:bg-red" : "text-label material:bg-label"}`}
+      style={{ marginLeft: shift, [edge === "top" ? "marginTop" : "marginBottom"]: 8 + rise }}
+      initial={{ opacity: 0, transform: `translateY(${nudge(edge)}px) scale(0.96)` }}
       animate={{ opacity: 1, transform: "translateY(0px) scale(1)", transition: popover.enter }}
       exit={{ opacity: 0, transform: "scale(0.98)", transition: popover.exit }}
     >

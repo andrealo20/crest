@@ -22,7 +22,7 @@ import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
-import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type AppsOn, type BarShape, type Combine, type EmptyDouble, type SysItem, type ToolItem, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type AppsOn, type BarEdge, type BarShape, type Combine, type EmptyDouble, type SysItem, type ToolItem, type Zone } from "./model";
 import { demoBarOffered, setTaskbar } from "./store";
 import { AddSys, AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
 import { toolInfo } from "./toolInfo";
@@ -92,11 +92,11 @@ export function TaskbarGeneral() {
         label={t("Automatisch ausblenden")}
         hint={
           <>
-            {t("Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt")}
+            {t("Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger ihren Bildschirmrand berührt")}
             {autoHide && blocked > 0 && (
               <span className="mt-1 flex items-start gap-1 text-caution">
                 <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
-                {t("Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm")}
+                {t("Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich vor dem Rand, oder dahinter liegt ein anderer Bildschirm")}
               </span>
             )}
             {enabled && shape === "docked" && !autoHide && !reachable && (
@@ -382,7 +382,7 @@ export function TaskbarApps() {
  * the glass's sliders are the ones of Notch → Themes.
  */
 export function TaskbarLook() {
-  const { shape, height, iconSize, surface, transparency, glass, glassLook, autoHide } = settings.use().taskbar;
+  const { shape, height, iconSize, surface, transparency, glass, glassLook, autoHide, position } = settings.use().taskbar;
   const theme = activeTheme.use();
   const appDesign = design.use();
   // The glass's switch only where the live glass can run (src/notch/glass/live.ts), as in Notch → Themes.
@@ -404,6 +404,18 @@ export function TaskbarLook() {
     <Group id="settings-taskbar-look">
       <Row icon="style" label={t("Stil")} hint={t("Gilt für die ganze App; ändern unter Themen")}>
         <Button onClick={() => nav.set({ tabId: "settings", section: "design" })}>{appDesign === "material" ? "Material" : "Crest"}</Button>
+      </Row>
+      <Row icon="open_with" label={t("Position")} hint={t("Gilt für die Leiste auf jedem Bildschirm. Die Notch weicht dem Rand der Leiste aus. Start und die Bereiche von Windows öffnen sich weiter am Rand der Windows-Taskleiste")}>
+        <Segmented<BarEdge>
+          id="taskbar-position"
+          size="sm"
+          value={position}
+          onChange={(position) => setTaskbar({ position })}
+          options={[
+            { value: "bottom", label: t("Rand unten") },
+            { value: "top", label: t("Rand oben") },
+          ]}
+        />
       </Row>
       <Row icon="rounded_corner" label={t("Form")}>
         <Segmented

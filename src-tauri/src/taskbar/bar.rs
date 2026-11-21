@@ -1,6 +1,7 @@
 //! Crest's bar: the window `taskbar` (tauri.conf.json, page taskbar.html) along the bottom of the primary monitor's work
-//! area, as wide as it and much taller than the bar, so menus and name labels have room above the bar. Every other monitor
-//! gets a bar of its own from the same template (screens.rs). The page lays the bar at the window's bottom and reports where
+//! area, or along its top when the settings say so (`top`), as wide as it and much taller than the bar, so menus and name labels
+//! have room on the screen's side of the bar. Every other monitor gets a bar of its own from the same template (screens.rs). The
+//! page lays the bar at the window's edge on the screen's edge and reports where
 //! it draws (`taskbar_hit_rects`); the pointer poll (hit_test.rs) lets clicks through everywhere else. The band the bar takes
 //! (its height and gaps) comes off every monitor's work area for the notch (`display_monitors`). A bar that reserves its strip
 //! with Windows (reserve.rs) stands on that strip instead, and while any does no band comes off: Windows' work area has it.
@@ -57,6 +58,8 @@ static SHOWN: AtomicBool = AtomicBool::new(false);
 static USER_HIDDEN: AtomicBool = AtomicBool::new(false);
 /// The band the bar takes off the work area, CSS px, as f64 bits; 0 while it is off.
 static BAND: AtomicU64 = AtomicU64::new(0);
+/// The bars stand on the top edge of the work area instead of the bottom, as the notch last applied them.
+static TOP: AtomicBool = AtomicBool::new(false);
 /// The window once built and placed, 0 otherwise. For threads that must not ask the main thread for it.
 static HANDLE: AtomicIsize = AtomicIsize::new(0);
 
@@ -75,20 +78,32 @@ fn on_screen(shown: bool, slid: &[String], label: &str) -> bool {
 }
 
 /// The window in physical px (x, y, width, height) for a work area (x, y, width, height) at `scale`: as wide as the work area
-/// and standing on its bottom, at most three quarters of its height (a transparent window over the whole monitor would
-/// count as a full-screen app to the shell). For a reserving bar the area is `ground`'s, its strip included.
-pub(crate) fn bar_rect((x, y, width, height): (i32, i32, u32, u32), scale: f64) -> (i32, i32, u32, u32) {
+/// and standing on its bottom (hanging from its top for a `top` bar), at most three quarters of its height (a transparent window
+/// over the whole monitor would count as a full-screen app to the shell). For a reserving bar the area is `ground`'s, its strip
+/// included.
+pub(crate) fn bar_rect((x, y, width, height): (i32, i32, u32, u32), scale: f64, top: bool) -> (i32, i32, u32, u32) {
     let tall = (((WINDOW_BAND + ROOM) * scale).round() as u32).min(height * 3 / 4);
-    (x, y + height as i32 - tall as i32, width, tall)
+    if top { (x, y, width, tall) } else { (x, y + height as i32 - tall as i32, width, tall) }
 }
 
 /// The area a bar stands in, physical px (x, y, width, height): the work area, or for a bar reserving `strip` the strip's
-/// left, width and bottom under the work area's top, since Windows has taken the strip off the work area.
-fn ground(work: (i32, i32, u32, u32), strip: Option<RECT>) -> (i32, i32, u32, u32) {
+/// left and width, from the strip's outer edge to the work area's far one, since Windows has taken the strip off the work area.
+fn ground(work: (i32, i32, u32, u32), strip: Option<RECT>, top: bool) -> (i32, i32, u32, u32) {
     match strip {
+        Some(s) if top => (s.left, s.top, (s.right - s.left) as u32, (work.1 + work.3 as i32 - s.top) as u32),
         Some(s) => (s.left, work.1, (s.right - s.left) as u32, (s.bottom - work.1) as u32),
         None => work,
     }
+}
+
+/// Whether the bars stand on the top edge.
+pub(crate) fn top() -> bool {
+    TOP.load(Ordering::SeqCst)
+}
+
+/// A work area's top and height (the notch's CSS px) with the bar's band taken off the edge it stands on.
+pub(crate) fn band_off(top: bool, (work_top, height): (f64, f64), band: f64) -> (f64, f64) {
+    (if top { work_top + band } else { work_top }, height - band)
 }
 
 /// The band a bar `height` CSS px tall takes off the work area: the bar alone when docked to the screen's edge, the bar and
@@ -99,11 +114,12 @@ fn band_for(height: f64, docked: bool) -> f64 {
 }
 
 /// Turns the bar on or off and sets its height, and whether it is docked to the screen's edge (`None`, from an older
-/// caller: not docked), which takes the gaps out of its band. The notch only, from the Taskbar settings; the Height slider
+/// caller: not docked), which takes the gaps out of its band, and its edge (`"top"`; anything else, or none, the bottom). The
+/// notch only, from the Taskbar settings; the Height slider
 /// calls it on every step. One call at a time (`APPLYING`), and the notch sends the next only once this one has returned
 /// (store.ts), so they run in their order.
 #[tauri::command]
-pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, app: AppHandle) -> Result<(), String> {
+pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, edge: Option<String>, app: AppHandle) -> Result<(), String> {
     // To the end of the call, which never awaits.
     let _applying = APPLYING.lock().unwrap_or_else(|e| e.into_inner());
     if !enabled {
@@ -125,8 +141,14 @@ pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, app
         return Ok(());
     }
     ENABLED.store(true, Ordering::SeqCst);
+    let top = edge.as_deref() == Some("top");
+    let moved = TOP.swap(top, Ordering::SeqCst) != top;
     set_band(&app, band_for(height, docked.unwrap_or(false)));
-    super::reserve::wish(docked.unwrap_or(false), band_for(height, true));
+    super::reserve::wish(docked.unwrap_or(false), band_for(height, true), top);
+    // The band went to the other edge, maybe at the same size: the notch reads the work area again.
+    if moved {
+        let _ = app.emit("notch://monitors", ());
+    }
     if app.get_webview_window(LABEL).is_some() {
         place(&app);
         return Ok(());
@@ -334,7 +356,7 @@ pub(crate) fn set_fullscreen(app: &AppHandle, on: bool) {
     }
 }
 
-/// The bar along the bottom of the primary monitor's work area, and the other bars along theirs.
+/// The bar along its edge of the primary monitor's work area, and the other bars along theirs.
 pub(crate) fn place(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(LABEL) {
         if let Ok(Some(monitor)) = window.primary_monitor() {
@@ -344,11 +366,11 @@ pub(crate) fn place(app: &AppHandle) {
     super::screens::place(app);
 }
 
-/// Along the bottom of `monitor`'s work area, or on the strip the bar reserves (`ground`, `bar_rect`).
+/// Along the bar's edge of `monitor`'s work area, or on the strip the bar reserves (`ground`, `bar_rect`).
 pub(super) fn put(window: &WebviewWindow, monitor: &tauri::Monitor) {
     let area = monitor.work_area();
     let work = (area.position.x, area.position.y, area.size.width, area.size.height);
-    let (x, y, width, height) = bar_rect(ground(work, super::reserve::strip(window.label())), monitor.scale_factor());
+    let (x, y, width, height) = bar_rect(ground(work, super::reserve::strip(window.label()), top()), monitor.scale_factor(), top());
     // Twice, as display::put does: moved onto a monitor with another scale, the window takes its size only after the first move.
     for _ in 0..2 {
         let _ = window.set_position(PhysicalPosition::new(x, y));
@@ -483,26 +505,44 @@ mod tests {
 
     #[test]
     fn the_bar_window_sits_on_the_work_area_bottom() {
-        assert_eq!(bar_rect((0, 0, 1920, 1080), 1.0), (0, 448, 1920, 632));
-        assert_eq!(bar_rect((0, 0, 2560, 1440), 1.5), (0, 492, 2560, 948));
-        assert_eq!(bar_rect((0, 0, 3840, 2160), 2.0), (0, 896, 3840, 1264));
-        assert_eq!(bar_rect((0, 0, 1920, 1032), 1.0), (0, 400, 1920, 632)); // Windows' taskbar still reserving its band
-        assert_eq!(bar_rect((64, 0, 1856, 1080), 1.0), (64, 448, 1856, 632)); // an appbar on the left
+        assert_eq!(bar_rect((0, 0, 1920, 1080), 1.0, false), (0, 448, 1920, 632));
+        assert_eq!(bar_rect((0, 0, 2560, 1440), 1.5, false), (0, 492, 2560, 948));
+        assert_eq!(bar_rect((0, 0, 3840, 2160), 2.0, false), (0, 896, 3840, 1264));
+        assert_eq!(bar_rect((0, 0, 1920, 1032), 1.0, false), (0, 400, 1920, 632)); // Windows' taskbar still reserving its band
+        assert_eq!(bar_rect((64, 0, 1856, 1080), 1.0, false), (64, 448, 1856, 632)); // an appbar on the left
     }
 
     #[test]
     fn the_bar_window_never_covers_its_monitor() {
-        assert_eq!(bar_rect((0, 0, 1366, 768), 1.0), (0, 192, 1366, 576)); // capped at three quarters
+        assert_eq!(bar_rect((0, 0, 1366, 768), 1.0, false), (0, 192, 1366, 576)); // capped at three quarters
     }
 
     #[test]
     fn a_reserving_bar_stands_on_its_strip_not_on_the_work_area() {
         let s = |left, top, right, bottom| RECT { left, top, right, bottom };
-        assert_eq!(ground((0, 0, 1920, 1080), None), (0, 0, 1920, 1080));
-        assert_eq!(ground((0, 0, 1920, 1036), Some(s(0, 1036, 1920, 1080))), (0, 0, 1920, 1080));
+        assert_eq!(ground((0, 0, 1920, 1080), None, false), (0, 0, 1920, 1080));
+        assert_eq!(ground((0, 0, 1920, 1036), Some(s(0, 1036, 1920, 1080)), false), (0, 0, 1920, 1080));
         // The window's bottom on the screen's edge, not one band above it.
-        assert_eq!(bar_rect(ground((0, 0, 1920, 1036), Some(s(0, 1036, 1920, 1080))), 1.0), (0, 448, 1920, 632));
-        assert_eq!(ground((64, 0, 1856, 1036), Some(s(64, 1036, 1920, 1080))), (64, 0, 1856, 1080)); // a side appbar narrows both
+        assert_eq!(bar_rect(ground((0, 0, 1920, 1036), Some(s(0, 1036, 1920, 1080)), false), 1.0, false), (0, 448, 1920, 632));
+        assert_eq!(ground((64, 0, 1856, 1036), Some(s(64, 1036, 1920, 1080)), false), (64, 0, 1856, 1080)); // a side appbar narrows both
+    }
+
+    #[test]
+    fn a_top_bar_hangs_from_the_work_area_top_or_its_strip() {
+        let s = |left, top, right, bottom| RECT { left, top, right, bottom };
+        assert_eq!(bar_rect((0, 0, 1920, 1080), 1.0, true), (0, 0, 1920, 632));
+        assert_eq!(bar_rect((0, 48, 1920, 1032), 1.0, true), (0, 48, 1920, 632)); // another appbar on top
+        assert_eq!(bar_rect((0, 0, 1366, 768), 1.0, true), (0, 0, 1366, 576));
+        // Windows took the strip off the work area's top: the window starts on the screen's edge again.
+        assert_eq!(ground((0, 44, 1920, 1036), Some(s(0, 0, 1920, 44)), true), (0, 0, 1920, 1080));
+        assert_eq!(bar_rect(ground((0, 44, 1920, 1036), Some(s(0, 0, 1920, 44)), true), 1.0, true), (0, 0, 1920, 632));
+        assert_eq!(ground((64, 44, 1856, 1036), Some(s(64, 0, 1920, 44)), true), (64, 0, 1856, 1080)); // a side appbar narrows both
+    }
+
+    #[test]
+    fn the_band_comes_off_the_edge_the_bar_stands_on() {
+        assert_eq!(band_off(false, (0.0, 1080.0), 52.0), (0.0, 1028.0));
+        assert_eq!(band_off(true, (0.0, 1080.0), 52.0), (52.0, 1028.0));
     }
 
     #[test]

@@ -42,8 +42,11 @@ export function normalizeDock(saved: unknown): Dock {
   const s = typeof saved === "object" && saved !== null ? (saved as Record<string, unknown>) : {};
   return { edge: isEdge(s.edge) ? s.edge : DOCK_DEFAULTS.edge, anchor: isAnchor(s.anchor) ? s.anchor : DOCK_DEFAULTS.anchor };
 }
-/** With Crest's bar on, the bottom edge is the bar's: a dock saved there moves to the top with its default anchor (the offset along the edge stays, the top running the same way). */
-export const dockBesideBar = (dock: Dock, barOn: boolean): Dock => (barOn && dock.edge === "bottom" ? DOCK_DEFAULTS : dock);
+/**
+ * With Crest's bar on, its edge (`bar`, null while it is off) is the bar's: a dock saved there moves to the top with its default anchor,
+ * or to the bottom from a top bar (the offset along the edge stays, both running the same way).
+ */
+export const dockBesideBar = (dock: Dock, bar: Edge | null): Dock => (bar && dock.edge === bar ? (bar === "top" ? { edge: "bottom", anchor: "auto" } : DOCK_DEFAULTS) : dock);
 
 export const overTaskbar =(edge: Edge, anchor: Anchor) => (anchor === "auto" ? edge === "top" : anchor === "screen");
 
@@ -143,7 +146,7 @@ export const upright = (edge: Edge) => UPRIGHT[edge];
 
 /**
  * The edge a dragged notch hangs from for a pointer at (x, y): the nearest side of the screen, unless the current one is less than EDGE_HYSTERESIS farther.
- * A pointer nearest to `shut` (the bottom while Crest's bar is on) leaves it on the current one.
+ * A pointer nearest to `shut` (the bar's edge while Crest's bar is on) leaves it on the current one.
  */
 export function nearestEdge(x: number, y: number, screenW: number, screenH: number, current: Edge, shut?: Edge): Edge {
   const dist = (e: Edge) => (e === "bottom" ? Math.abs(fin(screenH) - y) : e === "left" ? Math.abs(x) : e === "right" ? Math.abs(fin(screenW) - x) : Math.abs(y));

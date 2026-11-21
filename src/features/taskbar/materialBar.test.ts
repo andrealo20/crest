@@ -9,7 +9,7 @@ const window = (name: string) => readFileSync(join(import.meta.dirname, "window"
 test("the bar's menus open from Material's 0.8 scale as the select menus do, in the shared menu look", () => {
   const src = window("BarMenu.tsx");
   assert.match(src, /const appDesign = design\.use\(\);/);
-  assert.ok(src.includes('scale(${appDesign === "material" && !reduced ? 0.8 : 0.96}) translateY(2px)'));
+  assert.ok(src.includes('scale(${appDesign === "material" && !reduced ? 0.8 : 0.96}) translateY(${nudge(edge)}px)'));
   assert.match(src, /exit=\{\{ opacity: 0, transform: "scale\(0\.98\)"/);
   assert.match(src, /\$\{MENU_PANEL_CLASS\}/);
   assert.match(src, /\$\{MENU_ROW_CLASS\}/);

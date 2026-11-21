@@ -1,5 +1,5 @@
 import { useEffect, type MouseEvent, type MouseEventHandler, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
-import { CaretUp } from "../../../ui/iconset";
+import { CaretDown, CaretUp } from "../../../ui/iconset";
 import { t } from "../../../i18n";
 import { taskbar } from "../../../platform/services";
 import { updateSettings } from "../../../settings/store";
@@ -9,6 +9,8 @@ import { panel, panelHeld, togglePanel, trayDrag } from "../panel";
 import { dropSlot, gridSlot } from "../panelModel";
 import { startTray, trayFolded, trayPictures, trayState } from "../tray";
 import { demote, placeHidden, promote, shownSlot, splitTray } from "../trayModel";
+import { beyond } from "../position";
+import { barEdgeNow, useBarEdge } from "./barEdge";
 import { holdBriefly } from "./hold";
 import { Item, type ItemProps } from "./Item";
 import { startPress, pressDragged } from "./press";
@@ -112,6 +114,7 @@ export function Tray({
   };
   const more = t("Ausgeblendete Symbole anzeigen");
   const glyph = trayIcon(size);
+  const edge = useBarEdge();
   const slot = tiles ? undefined : glyph + 16;
   return (
     <>
@@ -139,7 +142,7 @@ export function Tray({
         );
       })}
       <Item {...item("tray-more", more)} ref={moreRef} tile={tile(visible.length)} expanded={open?.content.kind === "tray"} width={slot} onClick={toggle} onContextMenu={onMenu}>
-        <CaretUp size={glyph} weight="regular" />
+        {edge === "top" ? <CaretDown size={glyph} weight="regular" /> : <CaretUp size={glyph} weight="regular" />}
       </Item>
     </>
   );
@@ -176,7 +179,7 @@ function dropAt(bar: HTMLElement | null, more: HTMLElement | null, d: { x: numbe
     const slot = gridSlot(rects, d.x, d.y, rtl);
     return { hide: true, slot, line: panelLine(cells, slot, rtl) } as const;
   }
-  if (!bar || !more || d.y < bar.getBoundingClientRect().top) return null;
+  if (!bar || !more || beyond(barEdgeNow(), d.y, bar.getBoundingClientRect())) return null;
   const caret = more.getBoundingClientRect();
   if (d.from === "bar" && d.x >= caret.left && d.x <= caret.right) return { hide: true } as const;
   // While the bar's tray is folded behind ^ (fit.ts) an icon kept on the bar would not be drawn: no place to keep it.

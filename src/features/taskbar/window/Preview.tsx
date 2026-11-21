@@ -8,7 +8,9 @@ import { taskbar } from "../../../platform/services";
 import { MENU_PANEL_CLASS } from "../../../ui/menu";
 import { AppIcon } from "../../launcher/AppIcon";
 import { menuKey, placeMenu, previewFallsBack, previewKey, previewLayout, previewSet, type BarButton } from "../model";
+import { popupAt, popupY } from "../position";
 import { WindowList, type HitRect } from "./BarMenu";
+import { useBarEdge } from "./barEdge";
 
 /** Room the card keeps from the window's top edge, CSS px, as a menu does. */
 const EDGE = 8;
@@ -30,8 +32,8 @@ export function PreviewCard(props: {
   /** Its button, CSS px from the window's left edge. */
   x: number;
   w: number;
-  /** Its bottom edge, CSS px above the window's bottom edge. */
-  bottom: number;
+  /** Its edge towards the bar, CSS px from the window's edge on the bar's side (position.ts). */
+  off: number;
   /** Opened by a click, it takes the keyboard as a menu does; by a rest, it leaves it where it is. */
   by: "hover" | "click";
   /** The app's button: a press there is left to its own click. */
@@ -42,7 +44,8 @@ export function PreviewCard(props: {
   onLeave: () => void;
   onClose: () => void;
 }) {
-  const { b, x, w, bottom, by, anchor, onPlace, onClose } = props;
+  const { b, x, w, off, by, anchor, onPlace, onClose } = props;
+  const edge = useBarEdge();
   const present = useIsPresent();
   const ref = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
@@ -86,7 +89,7 @@ export function PreviewCard(props: {
       const { inlineSize: width, blockSize: height } = entry.borderBoxSize[0];
       const left = placeMenu(x, w, width, window.innerWidth);
       el.style.left = `${left}px`;
-      onPlace({ x: left, y: window.innerHeight - bottom - height, w: width, h: height });
+      onPlace({ x: left, y: popupY(edge, off, height, window.innerHeight), w: width, h: height });
       sendNow.current();
     });
     observer.observe(el);
@@ -94,7 +97,7 @@ export function PreviewCard(props: {
       observer.disconnect();
       onPlace(null);
     };
-  }, [present, x, w, bottom, onPlace]);
+  }, [present, x, w, off, edge, onPlace]);
   // A window coming, going, minimized or restored, or the card ready: the whole set again.
   // shortcut: a source window resized or moved while the card is open keeps its old crop until the card opens again; upgrade with a
   // location-change hook on the shown sources only (EVENT_OBJECT_LOCATIONCHANGE fires on every move of every window).
@@ -149,7 +152,7 @@ export function PreviewCard(props: {
       dir={document.documentElement.dir}
       className={`${MENU_PANEL_CLASS} w-max flex ${list ? "min-w-40 max-w-80 flex-col" : "gap-1"}`}
       inert={!present}
-      style={{ bottom, maxHeight: window.innerHeight - bottom - EDGE, pointerEvents: present ? undefined : "none" }}
+      style={{ ...popupAt(edge, off), maxHeight: window.innerHeight - off - EDGE, pointerEvents: present ? undefined : "none" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1, transition: fade }}
       exit={{ opacity: 0, transition: fade }}

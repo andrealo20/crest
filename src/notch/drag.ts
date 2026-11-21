@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { display } from "../platform/services";
-import { barOn, settings, updateSettings } from "../settings/store";
+import { barEdge, settings, updateSettings } from "../settings/store";
 import { effectiveIdleStyle } from "../features/window/store";
 import { toPageCss, toSaved } from "../features/window/panelSize";
 import { capsuleY, snapCapsule, windowYFor } from "./capsule";
@@ -132,8 +132,8 @@ export function useDragToMove(status: NotchStatus, shape: () => { w: number; h: 
 
     // Where the pointer is on the monitor: the notch's place on its edge plus the pointer's place in the hit zone, which hangs from the edge.
     const m0 = dragArea(), work0 = workOf(m0), edge0 = from.dock.edge;
-    // Crest's bar takes the bottom edge: a pointer nearest to it leaves the notch on its own (edge.ts nearestEdge).
-    const shut = barOn(settings.get()) ? "bottom" : undefined;
+    // Crest's bar takes its edge: a pointer nearest to it leaves the notch on its own (edge.ts nearestEdge).
+    const shut = barEdge(settings.get()) ?? undefined;
     const hit = document.querySelector("[data-notch-hit]")?.getBoundingClientRect();
     const z = viewZoom();
     const raw = hit ? pointerIn(edge0, hit, e.clientX, e.clientY) : { depth: 0, along: 0 };

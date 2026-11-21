@@ -36,5 +36,5 @@ test("only Liquid Glass + picks another program, so switching between Crest's an
   assert.equal(setup[1], 'props.look === "plus"');
   assert.match(paint, /program\(gl, look === "plus" \? BAR_PLUS_FS : BAR_FS\)/);
   // The radius still changes with the look, and a new look's first paint clears the old one's last frame.
-  assert.match(paint, /\[shape, boxes, radius, veil, dark, reduced, dpr, look\]\);/);
+  assert.match(paint, /\[shape, boxes, radius, veil, dark, reduced, dpr, look, edge\]\);/);
 });

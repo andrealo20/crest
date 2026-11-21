@@ -3,13 +3,15 @@ import { settings } from "../../../settings/store";
 import { AppIcon } from "../../launcher/AppIcon";
 import { movePinned, pinDrop, type PinSlot } from "../model";
 import { fileDrag, pinDrag } from "../panel";
+import { beyond } from "../position";
 import { setTaskbar } from "../store";
+import { barEdgeNow } from "./barEdge";
 
-/** Where a pin (or files, id null) dragged to (x, y) lands among this bar's pinned buttons (`[data-pin]`, in DOM order): null off the bar, above its top edge, on its own place or with no pinned button. */
+/** Where a pin (or files, id null) dragged to (x, y) lands among this bar's pinned buttons (`[data-pin]`, in DOM order): null off the bar, past it on the screen's side, on its own place or with no pinned button. */
 export function placeAt(bar: HTMLElement | null, d: { id: string | null; x: number; y: number }, gap: number) {
   if (!bar) return null;
   const r = bar.getBoundingClientRect();
-  if (d.y < r.top || d.x < r.left || d.x > r.right) return null;
+  if (beyond(barEdgeNow(), d.y, r) || d.x < r.left || d.x > r.right) return null;
   const slots = [...bar.querySelectorAll<HTMLElement>("[data-pin]")].map((el): PinSlot => {
     const b = el.getBoundingClientRect();
     return { id: el.dataset.pin!, x: b.left, w: b.width };

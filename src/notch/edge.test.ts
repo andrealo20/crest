@@ -117,12 +117,15 @@ test("saved dock: valid values kept, anything else falls back", () => {
   assert.deepEqual(normalizeDock([1, 2]), { edge: "top", anchor: "auto" });
 });
 
-test("with Crest's bar on, a dock on the bottom edge moves to the top with its default anchor, any other stays", () => {
-  assert.deepEqual(dockBesideBar({ edge: "bottom", anchor: "screen" }, true), { edge: "top", anchor: "auto" });
-  assert.deepEqual(dockBesideBar({ edge: "bottom", anchor: "taskbar" }, false), { edge: "bottom", anchor: "taskbar" });
-  assert.deepEqual(dockBesideBar({ edge: "top", anchor: "taskbar" }, true), { edge: "top", anchor: "taskbar" });
+test("with Crest's bar on, a dock on the bar's edge moves away with its default anchor, any other stays", () => {
+  assert.deepEqual(dockBesideBar({ edge: "bottom", anchor: "screen" }, "bottom"), { edge: "top", anchor: "auto" });
+  assert.deepEqual(dockBesideBar({ edge: "bottom", anchor: "taskbar" }, null), { edge: "bottom", anchor: "taskbar" });
+  assert.deepEqual(dockBesideBar({ edge: "top", anchor: "taskbar" }, "bottom"), { edge: "top", anchor: "taskbar" });
+  assert.deepEqual(dockBesideBar({ edge: "top", anchor: "screen" }, "top"), { edge: "bottom", anchor: "auto" });
+  assert.deepEqual(dockBesideBar({ edge: "bottom", anchor: "taskbar" }, "top"), { edge: "bottom", anchor: "taskbar" });
   const left = { edge: "left", anchor: "screen" } as const;
-  assert.equal(dockBesideBar(left, true), left); // the very object: nothing new to save
+  assert.equal(dockBesideBar(left, "bottom"), left); // the very object: nothing new to save
+  assert.equal(dockBesideBar(left, "top"), left);
 });
 
 test("pointer in a hanging rectangle: depth from the edge side, along from the centre", () => {

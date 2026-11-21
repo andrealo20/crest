@@ -283,9 +283,14 @@ export function barOn(s: Settings): boolean {
   return s.taskbar.enabled && !isMac;
 }
 
-/** The notch leaves the bottom edge to Crest's bar (edge.ts dockBesideBar), as the settings load (a restored backup too) and on every update (the bar turned on). */
+/** The screen edge Crest's bar takes while it is on, null while it is off. */
+export function barEdge(s: Settings): "bottom" | "top" | null {
+  return barOn(s) ? s.taskbar.position : null;
+}
+
+/** The notch leaves the bar's edge to Crest's bar (edge.ts dockBesideBar), as the settings load (a restored backup too) and on every update (the bar turned on or moved). */
 function besideBar(s: Settings): Settings {
-  return { ...s, dock: dockBesideBar(s.dock, barOn(s)) };
+  return { ...s, dock: dockBesideBar(s.dock, barEdge(s)) };
 }
 
 function migrate({ language: _old, ...s }: Settings & { language?: unknown }): Settings {

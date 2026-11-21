@@ -17,8 +17,10 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
 import { PREVIEW_CLOSE, PREVIEW_DELAY, bridge, zones as hitZones, type Rect } from "../autoHide";
-import { COMPACT_PAD, DRAG_REST, WHEEL_STEP, appKey, appState, barArrow, barButtons, buttonAt, clickAction, cycleKey, numberKey, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, wheelSteps, windowBadge, windowButtons, type BarButton, type BarItem, type BarKey, type BarShape, type Click, type ClickMods, type Zone } from "../model";
+import { COMPACT_PAD, DRAG_REST, WHEEL_STEP, appKey, appState, barArrow, barButtons, buttonAt, clickAction, cycleKey, numberKey, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, wheelSteps, windowBadge, windowButtons, type BarButton, type BarEdge, type BarItem, type BarKey, type BarShape, type Click, type ClickMods, type Zone } from "../model";
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
+import { barMargin, slideBy, toEdge } from "../position";
+import { BarEdgeContext, barEdgeNow } from "./barEdge";
 import { closePanel, fileDrag, itemDrag, panel, pinDrag, togglePanel } from "../panel";
 import { dragThreshold, opensInBar } from "../panelModel";
 import { barShown, barWindows, groupIcons, setTaskbar } from "../store";
@@ -79,6 +81,8 @@ type Card = { key: string; x: number; w: number; by: "hover" | "click" };
 export function TaskbarWindow() {
   const s = settings.use();
   const { zones: saved, height, iconSize, pinned, shape, trayShown, combine, flashing, middleClick, windowCount, wheelVolume } = s.taskbar;
+  // The site's demo lays the bar over its own page and keeps the bottom.
+  const edge = barEdgeNow();
   // Without the buttons whose tool cannot open: the notch opens its first tool in place of one switched off there (widgets.ts toolShown).
   const zones = shownZones(saved, s.tools);
   const { visible: trayVisible } = splitTray(trayState.use().icons, trayShown);
@@ -252,7 +256,7 @@ export function TaskbarWindow() {
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
   // An open menu or panel holds the bar up, and so does an app asking for attention.
   const layout = `${laid.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${fit.mode}:${fit.visible}:${fit.trayBack}:${fit.hide}|${glyphs}`;
-  const { down, place: placeMenuZone, placePreview } = useHitZone(bar, shape, setBoxes, layout, {
+  const { down, place: placeMenuZone, placePreview } = useHitZone(bar, shape, edge, setBoxes, layout, {
     open: menu !== null || open !== null || preview !== null || focusIn,
     attention: buttons.some((b) => indicator(b, active, flashing) === "attention"),
     dragging,
@@ -271,8 +275,8 @@ export function TaskbarWindow() {
   // Slid off the screen, the bar runs no glass, as when it hides.
   const look = useBarSurface(boxes, down);
   const appDesign = design.use();
-  // The shape slides out of its still box by its height and the gap under it, off the screen (useAutoHide).
-  const slide = { initial: false, animate: { y: down ? height + gap : 0 }, transition: springs.snappy } as const;
+  // The shape slides out of its still box by its height and the gap at the edge, off the screen (useAutoHide).
+  const slide = { initial: false, animate: { y: down ? slideBy(edge, height + gap) : 0 }, transition: springs.snappy } as const;
   // In the order the tiles are drawn and measured: past LOOK.maxTiles the glass does not draw them, and they keep the veil. The tray
   // and Stato draw their tiles in their own render, and again alone, so they get places reserved here (tilePlaces).
   const take = tilePlaces();
@@ -740,9 +744,10 @@ export function TaskbarWindow() {
 
   const drop = <TrayDrop bar={bar} more={trayMore} size={trayIcon(size)} gap={between} />;
   return (
+    <BarEdgeContext value={edge}>
     <div
       // Clipped, so the bar slid off the screen leaves #root nothing to scroll to when one of its buttons takes the focus.
-      className="flex h-full flex-col justify-end overflow-clip"
+      className={`flex h-full flex-col ${edge === "top" ? "justify-start" : "justify-end"} overflow-clip`}
       style={{ ["--accent" as string]: accent }}
       // A right click during a drag opens nothing, on any button or beside them.
       onContextMenuCapture={(e) => {
@@ -796,7 +801,7 @@ export function TaskbarWindow() {
             all[to].focus({ preventScroll: true });
           }}
           className={shape === "capsule" ? "self-center" : undefined}
-          style={{ margin: shape === "capsule" ? `0 0 ${gap}px` : `0 ${gap}px ${gap}px` }}
+          style={{ margin: barMargin(edge, gap, shape === "capsule") }}
           // The bar only, never a menu or the panel above it.
           // Not while dragging: no icon grows under the ghost.
           // Nor while a preview card is open: the icons hold still round its button.
@@ -843,7 +848,7 @@ export function TaskbarWindow() {
               title={menu.kind === "crest" ? t("Crest-Menü") : menu.b.name}
               x={menu.x}
               w={menu.w}
-              bottom={gap + height + MENU_GAP}
+              off={gap + height + MENU_GAP}
               anchor={menu.anchor}
               onClose={closeMenu}
               onPlace={placeMenuZone}
@@ -867,7 +872,7 @@ export function TaskbarWindow() {
               icon={cardIcon}
               x={preview.x}
               w={preview.w}
-              bottom={gap + height + MENU_GAP}
+              off={gap + height + MENU_GAP}
               by={preview.by}
               anchor={appButtons.current.get(preview.key) ?? null}
               onPlace={placeCard}
@@ -919,6 +924,7 @@ export function TaskbarWindow() {
         {error?.text}
       </span>
     </div>
+    </BarEdgeContext>
   );
 }
 
@@ -932,7 +938,7 @@ const boxOf = (el: Element): Box => {
  * Tells Rust where the page takes the pointer (autoHide.ts zones): the bar (or the capsule) and the gap under it, so a click in the gap
  * never reaches the app behind, or for the tiles one box per zone round its tiles, so a click between the zones does; the open menu or
  * panel, whose box comes through `place` each time it places itself (null once it closes); with "hide when a window touches it" on,
- * the strip at the bottom edge too, alone while the bar is down. The bar counts only once it has a size: the first report says it has
+ * the strip at the screen's edge too, alone while the bar is down. The bar counts only once it has a size: the first report says it has
  * drawn, and Windows' taskbar hides then. The boxes are where the shape rests, up or down: `ref` is its still box, the band that
  * decides whether it is down (useAutoHide), and the tiles are taken back by the slide. They go to its glass too. `layout` changes when
  * the tiles may have moved inside a bar that kept its size.
@@ -940,6 +946,7 @@ const boxOf = (el: Element): Box => {
 function useHitZone(
   ref: RefObject<HTMLDivElement | null>,
   shape: BarShape,
+  edge: BarEdge,
   setBoxes: Dispatch<SetStateAction<Box[]>>,
   layout: string,
   hold: { open: boolean; attention: boolean; dragging: boolean },
@@ -959,7 +966,7 @@ function useHitZone(
     const el = ref.current;
     if (!el || el.offsetWidth <= 0 || el.offsetHeight <= 0) return;
     const rest = boxOf(el);
-    const box = { ...rest, h: window.innerHeight - rest.y };
+    const box = toEdge(edge, rest, window.innerHeight);
     setBand((b) => (b?.x === box.x && b.y === box.y && b.w === box.w && b.h === box.h ? b : box));
     // The sliding layer inside the still box: how far down it is now, which the tiles' boxes give back.
     const layer = el.firstElementChild;
@@ -969,12 +976,12 @@ function useHitZone(
       return { ...b, y: b.y - dy };
     };
     const groups = shape === "tiles" && layer ? [...layer.children].map((zone) => [...zone.querySelectorAll("[data-tile]")].map(tile)) : [[rest]];
-    const bands = hitBoxes(groupBoxes(groups), window.innerHeight);
+    const bands = hitBoxes(groupBoxes(groups), window.innerHeight, edge);
     const open = [...(menu.current ? [menu.current] : []), ...(preview.current ? [preview.current] : []), ...(drag.current ? [{ x: 0, y: 0, w: window.innerWidth, h: window.innerHeight }] : [])];
-    void taskbar.hitRects(hitZones({ bands, open, ...now.current, width: window.innerWidth, height: window.innerHeight }));
+    void taskbar.hitRects(hitZones({ bands, open, ...now.current, edge, width: window.innerWidth, height: window.innerHeight }));
     const next = groups.flat();
     setBoxes((b) => (JSON.stringify(b) === JSON.stringify(next) ? b : next));
-  }, [ref, shape, setBoxes]);
+  }, [ref, shape, edge, setBoxes]);
   useLayoutEffect(report, [report, layout]);
   useEffect(() => {
     const el = ref.current;

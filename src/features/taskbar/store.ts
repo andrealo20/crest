@@ -66,7 +66,7 @@ export function startTaskbar() {
       });
   };
   const sync = () => {
-    const { enabled, height, shape, pinned, autoHide, allScreens, appsOn } = settings.get().taskbar;
+    const { enabled, height, shape, pinned, autoHide, allScreens, appsOn, position } = settings.get().taskbar;
     const wantTray = trayOnBar(settings.get().taskbar.zones);
     // Outside the queue: a flag the display poll reads, which never waits for a bar to be built or taken down.
     if (autoHide !== hides) {
@@ -121,12 +121,12 @@ export function startTaskbar() {
     }
     // A docked bar takes no gaps off the work area; the other shapes differ only in the bar's page.
     const docked = shape === "docked";
-    const key = `${enabled}|${height}|${docked}`;
+    const key = `${enabled}|${height}|${docked}|${position}`;
     if (key === last) return;
     last = key;
     // One change at a time, in their order: Rust finishes each (an Off once its window is gone) before the next is sent, after a
     // failed one too.
-    const apply = () => taskbar.apply(enabled, height, docked);
+    const apply = () => taskbar.apply(enabled, height, docked, position);
     queue = queue.then(apply, apply);
   };
   sync();

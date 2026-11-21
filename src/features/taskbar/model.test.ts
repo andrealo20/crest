@@ -680,3 +680,9 @@ test("a screen reader hears an app's state after its name", () => {
   assert.deepEqual(appState({ key: "g", name: "G", pin: null, pins: [], windows: [w(1), w(2)] }, 2), ["many", "front"]);
   assert.deepEqual(appState({ key: "g", name: "G", pin: null, pins: [], windows: [w(1, true)] }, null), ["one", "attention"]);
 });
+
+test("the bar stands on the bottom unless the top is saved", () => {
+  assert.equal(normalizeTaskbar({}).position, "bottom");
+  assert.equal(normalizeTaskbar({ position: "top" }).position, "top");
+  for (const v of ["middle", 1, "left", "right"]) assert.equal(normalizeTaskbar({ position: v }).position, "bottom");
+});

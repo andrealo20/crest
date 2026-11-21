@@ -10,7 +10,8 @@
 //! touches it" is on (`taskbar_auto_hide`), each bar is also sent that window's frame in its CSS px when it changes
 //! (`taskbar://front`): the page knows the bar's shape and decides whether the frame touches it. A bar the pointer could not
 //! bring back is sent none, so it never slides away (`stays_up`): one whose work area ends above its monitor's bottom edge,
-//! or with another monitor below it. Crest's own reserved strip (reserve.rs) is left out of that edge (`own_band_off`): it is
+//! or with another monitor below it, and the same at the top for a bar there (every rect `flip`ped, so the rules read the top
+//! edge as the bottom). Crest's own reserved strip (reserve.rs) is left out of that edge (`own_band_off`): it is
 //! the bar's, and auto-hide turned on removes it. The settings say when a bar stays up (`taskbar_slide_blocked`). While the
 //! option is on, each bar is also told when one of Windows' own surfaces holds it up (`taskbar://hold`, `held`): Start, Win+X,
 //! the calendar, the notification centre, an app's tray menu.
@@ -143,6 +144,12 @@ fn own_band_off(work: RECT, strips: &[RECT]) -> RECT {
     }
 }
 
+/// A rect mirrored top to bottom for a bar on the top edge, so the bottom edge's rules (`below`, `stays_up`, `own_band_off`)
+/// read its top edge; as it is otherwise.
+fn flip(top: bool, r: RECT) -> RECT {
+    if top { RECT { top: -r.bottom, bottom: -r.top, ..r } } else { r }
+}
+
 /// How many of `monitors`, each bar's monitor and work area, keep their bar up (`stays_up`) among `all` the monitors.
 fn blocked_count(monitors: &[(RECT, RECT)], all: &[RECT]) -> usize {
     monitors.iter().filter(|&&(monitor, work)| stays_up(monitor, work, all)).count()
@@ -225,8 +232,9 @@ pub(crate) fn poll(app: &AppHandle, raw: HWND, foreground: HWND) {
 fn rect_for(ahead: Option<isize>, bar: HWND, monitor: isize, monitors: &[(isize, RECT, RECT)]) -> Option<Rect> {
     let ahead = HWND(ahead? as _);
     let &(_, here, work) = monitors.iter().find(|&&(m, _, _)| m == monitor)?;
-    let work = own_band_off(work, &reserve::strips());
-    if stays_up(here, work, &monitors.iter().map(|&(_, rect, _)| rect).collect::<Vec<_>>()) {
+    let f = |r| flip(super::bar::top(), r);
+    let work = own_band_off(f(work), &reserve::strips().into_iter().map(f).collect::<Vec<_>>());
+    if stays_up(f(here), work, &monitors.iter().map(|&(_, rect, _)| f(rect)).collect::<Vec<_>>()) {
         return None;
     }
     let mut origin = RECT::default();
@@ -301,13 +309,14 @@ pub fn taskbar_auto_hide(on: bool) {
 pub async fn taskbar_slide_blocked() -> usize {
     let count = || {
         let read = monitors();
-        let all: Vec<RECT> = read.iter().map(|&(_, rect, _)| rect).collect();
-        let strips = reserve::strips();
+        let f = |r| flip(super::bar::top(), r);
+        let all: Vec<RECT> = read.iter().map(|&(_, rect, _)| f(rect)).collect();
+        let strips: Vec<RECT> = reserve::strips().into_iter().map(f).collect();
         let bars: Vec<(RECT, RECT)> = screens::all()
             .into_iter()
             .filter_map(|(_, hwnd)| {
                 let m = tasks::monitor_of(HWND(hwnd as _));
-                read.iter().find(|&&(h, _, _)| h == m).map(|&(_, rect, work)| (rect, own_band_off(work, &strips)))
+                read.iter().find(|&&(h, _, _)| h == m).map(|&(_, rect, work)| (f(rect), own_band_off(f(work), &strips)))
             })
             .collect();
         blocked_count(&bars, &all)
@@ -397,6 +406,21 @@ mod tests {
         assert!(stays_up(screen, own_band_off(r(0, 0, 1920, 992), &[r(0, 992, 1920, 1036)]), &[screen])); // another program's band below Crest's still counts
         assert_eq!(own_band_off(r(0, 0, 1920, 1036), &[r(1920, 1036, 3840, 1080)]), r(0, 0, 1920, 1036)); // another monitor's strip
         assert_eq!(blocked_count(&[(screen, own_band_off(r(0, 0, 1920, 1036), &[own]))], &[screen]), 0);
+    }
+
+    #[test]
+    fn a_top_bar_reads_its_top_edge_through_the_flip() {
+        let r = |left, top, right, bottom| RECT { left, top, right, bottom };
+        let f = |r| flip(true, r);
+        let (top, laptop) = (r(0, -1080, 1920, 0), r(320, 0, 1760, 900));
+        assert!(stays_up(f(laptop), f(laptop), &[f(top), f(laptop)])); // an external monitor above the laptop's top bar
+        assert!(!stays_up(f(top), f(top), &[f(top), f(laptop)]));
+        let screen = r(0, 0, 1920, 1080);
+        assert!(stays_up(f(screen), f(r(0, 48, 1920, 1080)), &[f(screen)])); // another program's band at the top
+        assert!(!stays_up(f(screen), f(r(0, 0, 1920, 1032)), &[f(screen)])); // a band at the bottom leaves the top edge as it is
+        // Crest's own top strip is given back.
+        assert_eq!(own_band_off(f(r(0, 44, 1920, 1080)), &[f(r(0, 0, 1920, 44))]), f(screen));
+        assert_eq!(flip(false, screen), screen);
     }
 
     #[test]
