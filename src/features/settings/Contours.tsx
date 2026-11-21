@@ -1,16 +1,24 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import { motion } from "motion/react";
 import { crossfade } from "../../design/motion";
 import { activeTheme, forcedColors } from "../themes/store";
 import { startContours, tintsOf, type ContourHandle, type Rgb } from "./contours";
 
 const GREY: [Rgb, Rgb] = [[0.5, 0.5, 0.5], [0.5, 0.5, 0.5]];
 
+// Motion's reduced motion hook reads the query once at mount; this one follows a change while the window is open (design 1.4).
+const reducedQuery = matchMedia("(prefers-reduced-motion: reduce)");
+const onReduced = (cb: () => void) => {
+  reducedQuery.addEventListener("change", cb);
+  return () => reducedQuery.removeEventListener("change", cb);
+};
+const isReduced = () => reducedQuery.matches;
+
 /** Stellaria's contour lines behind the settings window under Material, drifting to each page's view (contours.ts). */
 export function Contours({ page, onFail }: { page: string; onFail: (failed: boolean) => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const handle = useRef<ContourHandle | null>(null);
-  const reduced = useReducedMotion() === true;
+  const reduced = useSyncExternalStore(onReduced, isReduced);
 
   // The page of this render starts the field there; later pages drift through page() on the same context.
   useLayoutEffect(() => {

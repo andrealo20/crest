@@ -203,6 +203,14 @@ test("the contour component is a hidden canvas that fades in, follows the theme 
   assert.match(cleanup, /^return \(\) => \{[^}]*\.stop\(\)/);
 });
 
+test("the contour component follows reduced motion turned on or off while the window is open", () => {
+  const src = read("./Contours.tsx");
+  // Motion's useReducedMotion reads the query once at mount.
+  assert.ok(!src.includes("useReducedMotion"));
+  for (const s of ['matchMedia("(prefers-reduced-motion: reduce)")', 'addEventListener("change"', 'removeEventListener("change"', "useSyncExternalStore("]) assert.ok(src.includes(s), s);
+  assert.match(src, /\}, \[reduced\]\);/);
+});
+
 test("the contour files keep the style's CSS rules and credit Stellaria, whose hash3 the shader keeps as it is", () => {
   for (const file of ["./contours.ts", "./Contours.tsx"]) {
     const src = read(file);
