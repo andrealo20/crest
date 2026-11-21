@@ -50,7 +50,8 @@
 .highlight-body p {
   max-width: 38em;
 }
-.highlight .textlink {
+/* .sec outranks .page-body .textlink, so What's new keeps each item's hue too. */
+.sec .highlight .textlink {
   color: var(--hue);
 }
 

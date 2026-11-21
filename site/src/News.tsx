@@ -1,16 +1,28 @@
-import { useReducedMotion } from "motion/react";
+import { useInView, useReducedMotion } from "motion/react";
+import { useEffect, useRef } from "react";
 import { ArrowUpRight } from "./icons";
 import { FILM, HAS_FILM, HIGHLIGHTS } from "./release";
 import { Rise } from "./Sections";
 
-/** The release's film, muted and looping, with its poster; nothing at all until both files are in public/media. */
+/**
+ * The release's film, muted and looping, with its poster; nothing at all until both files are in public/media. It loads only once
+ * played (autoplay would fetch the whole file on every visit), and plays while in view unless motion is reduced.
+ */
 export function Film() {
   const still = useReducedMotion();
+  const ref = useRef<HTMLVideoElement>(null);
+  const seen = useInView(ref, { amount: 0.5 });
+  useEffect(() => {
+    const v = ref.current;
+    if (!v || still) return;
+    if (seen) v.play().catch(() => {});
+    else v.pause();
+  }, [seen, still]);
   if (!HAS_FILM) return null;
   return (
     <Rise className="film">
       <figure>
-        <video src={FILM.src} poster={FILM.poster} width={1920} height={1080} muted loop playsInline controls autoPlay={!still} preload={still ? "none" : "metadata"} aria-label={FILM.caption} />
+        <video ref={ref} src={FILM.src} poster={FILM.poster} width={FILM.width} height={FILM.height} muted loop playsInline controls preload="none" />
         <figcaption>{FILM.caption}</figcaption>
       </figure>
     </Rise>

@@ -6,12 +6,15 @@ export const RELEASE = "1.3";
 
 /**
  * The release's short film, from public/media. The page shows it only once both files are there at build time (vite.config.ts
- * lists the folder), so a build without them has no empty player.
+ * lists the folder, so a running dev server needs a restart), and a build without them has no empty player. Set width and height
+ * to the clip's own size. Liquid Glass + keeps the bar out of every screen recording, so write the caption from the final cut.
  */
 export const FILM = {
   src: "/media/crest-1.3.mp4",
   poster: "/media/crest-1.3.jpg",
-  caption: "Crest's own taskbar with Liquid Glass +, over windows moving behind it.",
+  width: 1920,
+  height: 1080,
+  caption: "Crest's own taskbar on a Windows desktop, with live previews, the Crest menu and a widget dragged along the bar.",
 };
 export const HAS_FILM = [FILM.src, FILM.poster].every((f) => __SITE_MEDIA__.includes(f.replace("/media/", "")));
 
@@ -19,7 +22,7 @@ export const HAS_FILM = [FILM.src, FILM.poster].every((f) => __SITE_MEDIA__.incl
 export const HIGHLIGHTS: { title: string; text: string; chapter: string; hue: string; demo?: false }[] = [
   {
     title: "Crest's own taskbar",
-    text: "On Windows, Crest can take the place of the taskbar with a bar in its own style. Settings, Taskbar, Appearance sets its shape: Docked, Floating, Capsule or Tiles. Pinned apps and open windows sit on it with a live preview of each window, next to the Notification area, tool buttons and widgets made from the notch's tools, and a widget drags along the bar to a new place. Turn it off and the Windows taskbar is back.",
+    text: "On Windows, Crest can take the place of the taskbar with a bar in its own style (off by default, not in the Microsoft Store version). Settings, Taskbar, Appearance sets its shape: Docked, Floating, Capsule or Tiles. Pinned apps and open windows sit on it, and resting the pointer on an app shows a live preview of each of its windows. Next to them come the Notification area, tool buttons and widgets made from the notch's tools, and a widget drags along the bar to a new place. Turn it off and the Windows taskbar is back.",
     chapter: "yours",
     hue: "#4fa8ff",
     demo: false,
@@ -39,7 +42,7 @@ export const HIGHLIGHTS: { title: string; text: string; chapter: string; hue: st
   },
   {
     title: "Status and quick settings",
-    text: "Status shows the network, the volume and the battery on the bar as one button. A click opens a quick panel with Wi-Fi and Bluetooth, each with a page of its own, the volume and its output, the brightness, Energy saver and Airplane mode.",
+    text: "Status shows the network, the volume and the battery as one button on Crest's taskbar. A click opens a quick panel with Wi-Fi and Bluetooth, each with a page of its own, the volume and its output, the brightness, Energy saver and Airplane mode.",
     chapter: "yours",
     hue: "#ffb511",
     demo: false,
@@ -53,21 +56,21 @@ export const HIGHLIGHTS: { title: string; text: string; chapter: string; hue: st
   },
   {
     title: "Focus mode is back",
-    text: "Turn on Focus mode with three clicks in Settings, Display, and three quick clicks on the notch put it aside, half transparent or as a thin line, while clicks pass through to the app below. Three more bring it back.",
+    text: "In Settings, Display, the switch Focus mode with three clicks is off by default. Turned on, it lets three quick clicks on the notch put it aside, half transparent or as a thin line, while clicks pass through to the app below. Three more bring it back.",
     chapter: "yours",
     hue: "#ff7c2f",
     demo: false,
   },
   {
     title: "Both limits in each quota ring",
-    text: "Each AI quota ring shows the weekly limit outside and the 5-hour session in a thinner ring inside, so the session no longer hides behind the weekly number.",
+    text: "Each AI quota ring shows the weekly (or other longer) limit outside and the 5-hour session in a thinner ring inside, so the session no longer hides behind the weekly number.",
     chapter: "ai",
     hue: "#c069ff",
     demo: false,
   },
   {
     title: "Status alerts everywhere",
-    text: "Volume, brightness, the lock keys and the microphone can show over full-screen apps too, with Show everywhere, off by default. With Glass on they come as glass, and new alerts cover the output device, Do not disturb, Energy saver, airplane mode and monitors.",
+    text: "Volume, brightness, the lock keys and the microphone can show over full-screen apps too, with Show everywhere, off by default. With Glass on they come as glass (Windows 11 24H2 or later on x64, not in the Microsoft Store version for now), and new alerts cover Copy, the output device, Do not disturb, Energy saver, airplane mode and monitors.",
     chapter: "closed",
     hue: "#ff5c87",
     demo: false,
@@ -77,6 +80,6 @@ export const HIGHLIGHTS: { title: string; text: string; chapter: string; hue: st
 export const FIXES = [
   "The notch no longer stays open when you switch tools while typing on WebKit, which is mostly the Mac.",
   "A picture copied twice shows once in the clipboard history.",
-  "The notch's hit zone, its window and its copies follow Windows' Text size, and the detached timer grows with it and stays on its monitor.",
-  "Windows' own volume slider stays hidden even when another app registers a taskbar window.",
+  "The notch's window, its hit zone and the screen copy behind its glass follow Windows' Text size, and the detached timer grows with it and stays on its monitor.",
+  "With Hide the Windows indicator on, Windows' own volume slider stays hidden even when another app registers a window of the taskbar's kind.",
 ];
