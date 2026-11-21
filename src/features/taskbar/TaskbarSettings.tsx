@@ -204,11 +204,13 @@ function ItemIcon({ id }: { id: BarItem }) {
 }
 
 /**
- * Taskbar → Apps and windows: the pinned apps in the bar's order. An app is pinned on the bar, from its right-click menu; Windows'
- * pinned apps replace the list from here (one that is not empty only on a second click within 3 s), and an empty answer leaves it.
+ * Taskbar → Apps and windows: the pinned apps in the bar's order, and whether the app menu has End task. An app is pinned on the bar,
+ * from its right-click menu; Windows' pinned apps replace the list from here (one that is not empty only on a second click within
+ * 3 s), and an empty answer leaves it.
  */
 export function TaskbarApps() {
-  const pinned = settings.use().taskbar.pinned ?? [];
+  const { pinned: saved, endTask } = settings.use().taskbar;
+  const pinned = saved ?? [];
   const [confirm, setConfirm] = useState(false);
   const [outcome, setOutcome] = useState<"none" | "failed" | null>(null);
   const [reading, setReading] = useState(false);
@@ -266,6 +268,9 @@ export function TaskbarApps() {
             </span>
           </span>
         </Button>
+      </Row>
+      <Row icon="stop_circle" label={t("Task beenden im App-Menü")} hint={t("Beendet die App sofort, ohne zu speichern")}>
+        <Switch label={t("Task beenden im App-Menü")} checked={endTask} onChange={(on) => setTaskbar({ endTask: on })} />
       </Row>
     </Group>
   );

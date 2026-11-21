@@ -41,6 +41,8 @@ export function Item(props: {
   onClick: MouseEventHandler<HTMLButtonElement>;
   onDoubleClick?: MouseEventHandler<HTMLButtonElement>;
   onContextMenu: MouseEventHandler<HTMLButtonElement>;
+  /** A click of another button than the left one: the middle one, for an app. */
+  onAuxClick?: MouseEventHandler<HTMLButtonElement>;
   onPointerDown?: PointerEventHandler<HTMLButtonElement>;
   /** Under Material, the height of the pill and the state layer off Tiles, when the item draws a pill of its own (Stato). */
   layer?: number;
@@ -73,6 +75,7 @@ export function Item(props: {
       onClick={props.onClick}
       onDoubleClick={props.onDoubleClick}
       onContextMenu={props.onContextMenu}
+      onAuxClick={props.onAuxClick}
       onPointerDown={props.onPointerDown}
       data-tile={props.tile ? "" : undefined}
       className="group relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"

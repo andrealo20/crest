@@ -16,7 +16,7 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
 import { PREVIEW_CLOSE, PREVIEW_DELAY, bridge, zones as hitZones, type Rect } from "../autoHide";
-import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
+import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Click, type ClickMods, type Zone } from "../model";
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
 import { closePanel, itemDrag, panel, togglePanel } from "../panel";
 import { dragThreshold, opensInBar } from "../panelModel";
@@ -32,7 +32,7 @@ import { useHue } from "../../themes/hues";
 import { BarGlass, useBarSurface } from "./BarGlass";
 import { Capsule } from "./Capsule";
 import { AppsPanel } from "./AppsPanel";
-import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
+import { AppMenu, BarMenu, CrestMenu, WindowList, closeWindows, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
 import { holdBriefly } from "./hold";
 import { Item, MARK, type ItemProps } from "./Item";
@@ -250,9 +250,6 @@ export function TaskbarWindow() {
   };
   const openCrestMenu: MouseEventHandler<HTMLButtonElement> = (e) => toggle({ kind: "crest" }, e.currentTarget);
 
-  const launch = (b: BarButton, id: string) =>
-    launcher.open(id).catch((code) => setError({ key: b.key, text: t(code === "not-found" ? "{name} ist nicht mehr installiert" : "{name} startet nicht", { name: b.name }) }));
-
   /** Opens the card over an app's button at once, by a rest on it or a click: its previews, its button's centre holding the icons still. */
   const openCard = (b: BarButton, by: Card["by"]) => {
     const r = appButtons.current.get(b.key)?.getBoundingClientRect();
@@ -279,12 +276,10 @@ export function TaskbarWindow() {
       }, PREVIEW_CLOSE);
   };
 
-  /** A click on an app; `inPanel` for a cell of the "…" panel, which keeps the list of an app's windows. */
-  const click = (b: BarButton, button: HTMLElement, inPanel = false) => {
-    setError(null);
-    const action = clickAction(b);
-    if (action.kind === "list") {
-      if (inPanel) return toggle({ kind: "list", b }, button);
+  /** Runs click `c` on app `b`; `cell` for a cell of the "…" panel, which keeps the list of an app's windows. */
+  const run = (b: BarButton, c: Click, cell?: HTMLElement) => {
+    if (c.kind === "list") {
+      if (cell) return toggle({ kind: "list", b }, cell);
       // A card the rest opened stays and becomes the click's, so resting then clicking keeps the previews; a second click closes it.
       const now = card.current;
       if (now?.key === b.key) return setCard(now.by === "click" ? null : { ...now, by: "click" });
@@ -294,9 +289,20 @@ export function TaskbarWindow() {
     }
     setCard(null);
     setMenu(null);
-    if (action.kind === "launch") launch(b, action.id);
+    // A declined administrator prompt is no error; "not-found" from a window means only that it closed meanwhile.
+    const failed = (code: unknown) => {
+      if (code !== "cancelled") setError({ key: b.key, text: t(c.kind === "launch" && code === "not-found" ? "{name} ist nicht mehr installiert" : "{name} startet nicht", { name: b.name }) });
+    };
+    if (c.kind === "launch") launcher.open(c.id, c.admin === true).catch(failed);
+    else if (c.kind === "spawn") taskbar.launchWindow(c.id, c.admin === true).catch(failed);
     // A window of an app run as administrator may refuse; nothing changes then.
-    else if (action.kind === "toggle") taskbar.window(action.id, "toggle").catch(() => {});
+    else if (c.kind === "toggle" || c.kind === "activate") taskbar.window(c.id, c.kind).catch(() => {});
+    else if (c.kind === "closeAll") closeWindows(b);
+  };
+  /** A click on an app, with the keys held; `inPanel` for a cell of the "…" panel. */
+  const click = (b: BarButton, button: HTMLElement, inPanel = false, mods: ClickMods = {}) => {
+    setError(null);
+    run(b, clickAction(b, mods), inPanel ? button : undefined);
   };
 
   /** Opens `tool` over its button, or closes it on a second click there: in the panel, or in the notch for a tool the panel does not show (openPanel). */
@@ -402,7 +408,14 @@ export function TaskbarWindow() {
             width={appWidth}
             magnify={mag}
             mark={indicator(b, active)}
-            onClick={(e) => click(b, e.currentTarget)}
+            onClick={(e) => click(b, e.currentTarget, false, { shift: e.shiftKey, ctrl: e.ctrlKey })}
+            onAuxClick={(e) => {
+              if (e.button === 1) click(b, e.currentTarget, false, { middle: true });
+            }}
+            // The middle button would start WebView2's autoscroll circle.
+            onPointerDown={(e) => {
+              if (e.button === 1) e.preventDefault();
+            }}
             onContextMenu={(e) => toggle({ kind: "app", b }, e.currentTarget)}
           >
             <AppIcon src={entry === null ? ownIcons[b.key] : icons[entry]} size={appIcon} />
@@ -613,7 +626,7 @@ export function TaskbarWindow() {
               {menu.kind === "crest" ? (
                 <CrestMenu close={closeMenu} />
               ) : menu.kind === "app" ? (
-                <AppMenu b={menu.b} launch={(id) => launch(menu.b, id)} close={closeMenu} />
+                <AppMenu b={menu.b} act={(c) => run(menu.b, c)} close={closeMenu} fail={(text) => setError({ key: menu.b.key, text })} />
               ) : (
                 <WindowList b={menu.b} close={closeMenu} />
               )}

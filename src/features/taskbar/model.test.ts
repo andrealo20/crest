@@ -14,6 +14,7 @@ import {
   indicator,
   menuFor,
   menuKey,
+  newInstance,
   moveBefore,
   moveItem,
   normalizeTaskbar,
@@ -44,6 +45,8 @@ test("any saved value becomes valid bar settings", () => {
   assert.equal(normalizeTaskbar({ enabled: true }).enabled, true);
   assert.equal(normalizeTaskbar({ autoHide: true }).autoHide, true);
   assert.equal(normalizeTaskbar({ autoHide: "yes" }).autoHide, false);
+  assert.equal(normalizeTaskbar({ endTask: true }).endTask, true);
+  assert.equal(normalizeTaskbar({ endTask: "yes" }).endTask, false);
   assert.equal(normalizeTaskbar({ height: 100 }).height, 64);
   assert.equal(normalizeTaskbar({ height: -5 }).height, 32);
   assert.equal(normalizeTaskbar({ height: 40, iconSize: 40 }).iconSize, 40); // fitIcon shrinks it where it is drawn, not in the saved setting
@@ -183,12 +186,41 @@ test("a click launches, toggles or lists", () => {
   assert.equal(indicator({ ...base, windows: [] }, null), "none");
 });
 
-test("the right-click menu offers what the app allows", () => {
+test("Shift, the middle button and Ctrl+Shift start a new instance", () => {
+  const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
+  const entry = { key: "k", name: "n", pin: null, pins: [{ id: "x", name: "X" }], windows: [w(4)] } satisfies BarButton;
+  const own = { key: "c:\\tools\\tool.exe", name: "Tool", pin: null, pins: [], windows: [w(7), w(8)], spawnable: true } satisfies BarButton;
+  const plain = { key: "window:9", name: "x", pin: null, pins: [], windows: [w(9)] } satisfies BarButton;
+  for (const mods of [{ shift: true }, { middle: true }]) {
+    assert.deepEqual(clickAction(entry, mods), { kind: "launch", id: "x" });
+    assert.deepEqual(clickAction(own, mods), { kind: "spawn", id: 7 });
+    assert.deepEqual(clickAction(plain, mods), { kind: "none" });
+  }
+  assert.deepEqual(clickAction(entry, { shift: true, ctrl: true }), { kind: "launch", id: "x", admin: true });
+  assert.deepEqual(clickAction(own, { shift: true, ctrl: true }), { kind: "spawn", id: 7, admin: true });
+  // Ctrl alone, and no keys, are a plain click.
+  assert.deepEqual(clickAction(entry, { ctrl: true }), { kind: "toggle", id: 4 });
+  assert.deepEqual(clickAction(own, { ctrl: true }), { kind: "list" });
+  assert.deepEqual(clickAction(own), { kind: "list" });
+  assert.deepEqual(newInstance({ ...own, spawnable: false }), { kind: "none" });
+  assert.deepEqual(newInstance({ ...own, windows: [] }), { kind: "none" });
+});
+
+test("the right-click menu offers what the app allows, in Windows' order", () => {
   const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
   const pin = { id: "p", name: "P" };
-  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [] }), ["newWindow", "unpin"]);
-  assert.deepEqual(menuFor({ key: "k", name: "K", pin: null, pins: [pin], windows: [w(1)] }), ["newWindow", "pin", "close"]);
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [] }), ["launch", "unpin"]);
+  assert.deepEqual(menuFor({ key: "k", name: "K", pin: null, pins: [pin], windows: [w(1)] }), ["launch", "pin", "close"]);
   assert.deepEqual(menuFor({ key: "k", name: "K", pin: null, pins: [], windows: [w(1), w(2)] }), ["closeAll"]);
+  const own = { key: "c:\\tools\\tool.exe", name: "Tool", pin: null, pins: [], windows: [w(1)], spawnable: true, pinnable: true } satisfies BarButton;
+  assert.deepEqual(menuFor(own), ["launch", "pin", "reveal", "close"]);
+  assert.deepEqual(menuFor(own, { endTask: true }), ["launch", "pin", "reveal", "endTask", "close"]);
+  // An app that asks never to be pinned (PreventPinning) is spawnable but not pinnable.
+  assert.deepEqual(menuFor({ ...own, pinnable: false }), ["launch", "reveal", "close"]);
+  // End task needs a window, Open file location a window and spawnable.
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [] }, { endTask: true }), ["launch", "unpin"]);
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [w(1), w(2)] }, { endTask: true }), ["launch", "unpin", "endTask", "closeAll"]);
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [w(1)], spawnable: true }), ["launch", "unpin", "reveal", "close"]);
 });
 
 test("a menu opens over its button and stays inside the window", () => {

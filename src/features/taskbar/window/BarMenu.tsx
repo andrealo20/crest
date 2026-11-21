@@ -9,7 +9,7 @@ import { autostart, taskbar } from "../../../platform/services";
 import { settings, updateSettings } from "../../../settings/store";
 import { MENU_PANEL_CLASS, MENU_ROW_CLASS } from "../../../ui/menu";
 import { toggleFavorite, type Favorite } from "../../launcher/apps";
-import { launchId, menuFor, menuKey, placeMenu, type BarButton } from "../model";
+import { menuFor, menuKey, newInstance, placeMenu, type BarButton, type Click } from "../model";
 
 /** Room a menu keeps from the window's top edge, CSS px, as placeMenu keeps from its sides. */
 const EDGE = 8;
@@ -139,20 +139,31 @@ function Row(props: { label: string; onClick: () => void; checked?: boolean }) {
 /** Pins or unpins an app; the other windows follow the saved settings. */
 export const togglePin = (app: Favorite) => updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: toggleFavorite(s.taskbar.pinned ?? [], app) } }));
 
-/** An app's right-click menu, as menuFor allows it. `launch` starts the app as a click on its button does, errors included. */
-export function AppMenu({ b, launch, close }: { b: BarButton; launch: (id: string) => void; close: () => void }) {
-  // A window of an app run as administrator may refuse to close; nothing changes then.
-  const closeWindows = () => b.windows.forEach((win) => void taskbar.window(win.id, "close").catch(() => {}));
+/** Closes all of an app's windows; a window of an app run as administrator may refuse, and nothing changes then. */
+export const closeWindows = (b: BarButton) => b.windows.forEach((win) => void taskbar.window(win.id, "close").catch(() => {}));
+
+/**
+ * An app's right-click menu, as menuFor allows it. `act` runs a click as a click on its button does, errors included; `fail` shows
+ * what went wrong in the button's label.
+ */
+export function AppMenu({ b, act, close, fail }: { b: BarButton; act: (c: Click) => void; close: () => void; fail: (text: string) => void }) {
+  const endTask = settings.use().taskbar.endTask;
+  // An app with an entry pins it; one without asks Rust to pin its window.
+  const pin = () =>
+    b.pins.length ? togglePin(b.pins[0]) : void taskbar.pinWindow(b.windows[0].id).then(togglePin, () => fail(t("{name} lässt sich nicht anheften", { name: b.name })));
   const entries = {
-    newWindow: [t("Neues Fenster"), () => launch(launchId(b)!)],
-    pin: [t("Anheften"), () => togglePin(b.pins[0])],
-    unpin: [t("Lösen"), () => togglePin(b.pin!)],
-    close: [t("Fenster schließen"), closeWindows],
-    closeAll: [t("Alle Fenster schließen"), closeWindows],
+    launch: [b.name, () => act(newInstance(b))],
+    pin: [t("An Taskleiste anheften"), pin],
+    unpin: [t("Von Taskleiste lösen"), () => togglePin(b.pin!)],
+    reveal: [t("Dateipfad öffnen"), () => void taskbar.reveal(b.windows[0].id).catch(() => {})],
+    // Several windows of one process: the calls after the first find it gone and do nothing.
+    endTask: [t("Task beenden"), () => b.windows.forEach((win) => void taskbar.window(win.id, "end").catch(() => {}))],
+    close: [t("Fenster schließen"), () => closeWindows(b)],
+    closeAll: [t("Alle Fenster schließen"), () => closeWindows(b)],
   } as const;
   return (
     <>
-      {menuFor(b).map((e) => {
+      {menuFor(b, { endTask }).map((e) => {
         const [label, run] = entries[e];
         return (
           <Row

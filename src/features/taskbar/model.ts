@@ -48,6 +48,8 @@ export interface TaskbarSettings {
   statusSeeded: boolean;
   trayShown: string[];
   trayHidden: string[];
+  /** The app menu has End task (off by default, as in Windows: it ends the app without saving). */
+  endTask: boolean;
 }
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
@@ -70,6 +72,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   statusSeeded: true,
   trayShown: [],
   trayHidden: [],
+  endTask: false,
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -147,6 +150,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     statusSeeded: true,
     trayShown: Array.isArray(s.trayShown) ? [...new Set(s.trayShown.filter((x): x is string => typeof x === "string"))] : [],
     trayHidden: Array.isArray(s.trayHidden) ? [...new Set(s.trayHidden.filter((x): x is string => typeof x === "string"))] : [],
+    endTask: s.endTask === true,
   };
 }
 
@@ -357,10 +361,38 @@ export function barButtons(pinned: Favorite[] | null, groups: Group[]): BarButto
 /** The entry that starts the app, or null for a program Crest cannot start. */
 export const launchId = (b: BarButton): string | null => b.pin?.id ?? b.pins[0]?.id ?? null;
 
-/** A left click: start the app, bring its one window forward or minimize it, list its windows, or nothing. */
-export type Click = { kind: "launch"; id: string } | { kind: "toggle"; id: number } | { kind: "list" } | { kind: "none" };
+/**
+ * What a click on an app does: start an entry (as administrator with `admin`), start a new instance from listed window `id`
+ * (taskbar.launchWindow), bring its one window forward or minimize it, list its windows, nothing, bring window `id` forward, or
+ * close all its windows.
+ */
+export type Click =
+  | { kind: "launch"; id: string; admin?: true }
+  | { kind: "spawn"; id: number; admin?: true }
+  | { kind: "toggle"; id: number }
+  | { kind: "list" }
+  | { kind: "none" }
+  | { kind: "activate"; id: number }
+  | { kind: "closeAll" };
+/** The keys held with a click, and whether it came from the middle button. */
+export type ClickMods = { shift?: boolean; ctrl?: boolean; middle?: boolean };
 
-export function clickAction(b: BarButton): Click {
+/** A new instance, as the menu's first row, Shift+click and a middle click start it: its entry, else from its first window when Rust can, else none. */
+export function newInstance(b: BarButton, admin = false): Click {
+  const as = admin ? { admin: true as const } : {};
+  const id = launchId(b);
+  if (id !== null) return { kind: "launch", id, ...as };
+  return b.spawnable && b.windows.length ? { kind: "spawn", id: b.windows[0].id, ...as } : { kind: "none" };
+}
+
+/**
+ * A click: Shift or the middle button starts a new instance, Ctrl+Shift one as administrator; otherwise start the app, bring its one
+ * window forward or minimize it, or list its windows. Ctrl alone is a plain click. `o` is for the options later blocks add (the app in
+ * front, what the middle button does).
+ */
+export function clickAction(b: BarButton, mods: ClickMods = {}, _o: { active?: number | null; middle?: "new" | "close" } = {}): Click {
+  if (mods.middle) return newInstance(b);
+  if (mods.shift) return newInstance(b, mods.ctrl === true);
   if (b.windows.length > 1) return { kind: "list" };
   if (b.windows.length === 1) return { kind: "toggle", id: b.windows[0].id };
   const id = launchId(b);
@@ -377,14 +409,20 @@ export function indicator(b: BarButton, active: number | null): Indicator {
 }
 
 /** The right-click menu's entries, in order. */
-export type MenuEntry = "newWindow" | "pin" | "unpin" | "close" | "closeAll";
+export type MenuEntry = "launch" | "pin" | "unpin" | "reveal" | "endTask" | "close" | "closeAll";
 
-/** New window and Pin only for an app Crest can start (it has an entry), Unpin for a pinned one, Close for its open windows. */
-export function menuFor(b: BarButton): MenuEntry[] {
+/**
+ * Windows' order: the app's name (a new instance) when newInstance has one; Unpin for a pinned app, Pin with an entry or a pinnable
+ * window; Open file location for an open app Rust can start from its window; End task with the switch on and a window open; Close
+ * for one window, Close all for more.
+ */
+export function menuFor(b: BarButton, o: { endTask: boolean } = { endTask: false }): MenuEntry[] {
   const entries: MenuEntry[] = [];
-  if (launchId(b) !== null) entries.push("newWindow");
+  if (newInstance(b).kind !== "none") entries.push("launch");
   if (b.pin) entries.push("unpin");
-  else if (b.pins.length) entries.push("pin");
+  else if (b.pins.length || b.pinnable) entries.push("pin");
+  if (b.windows.length && b.spawnable) entries.push("reveal");
+  if (b.windows.length && o.endTask) entries.push("endTask");
   if (b.windows.length === 1) entries.push("close");
   else if (b.windows.length > 1) entries.push("closeAll");
   return entries;
