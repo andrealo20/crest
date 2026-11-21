@@ -220,11 +220,23 @@ pub async fn usage_tokens(app: AppHandle) -> Result<logs::TokenReport, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<UsageState>();
         let mut cache = state.logs.lock().unwrap();
-        let disk = crate::portable::app_data_dir(&app).ok().filter(|d| std::fs::create_dir_all(d).is_ok()).map(|d| d.join("usage-logs.json"));
-        logs::report(&mut cache, disk.as_deref())
+        logs::report(&mut cache, logs_path(&app).as_deref())
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+/// As Crest quits: the token state read since its last write. A refresh still running keeps the lock, and its state.
+pub fn save_tokens(app: &AppHandle) {
+    let state = app.state::<UsageState>();
+    let Ok(mut cache) = state.logs.try_lock() else { return };
+    if let Some(path) = logs_path(app) {
+        logs::flush(&mut cache, &path);
+    }
+}
+
+fn logs_path(app: &AppHandle) -> Option<PathBuf> {
+    crate::portable::app_data_dir(app).ok().filter(|d| std::fs::create_dir_all(d).is_ok()).map(|d| d.join("usage-logs.json"))
 }
 
 struct Fail {

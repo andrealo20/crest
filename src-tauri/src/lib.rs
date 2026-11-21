@@ -780,12 +780,12 @@ pub fn run() {
         .run(|app, event| {
             // tao turns WM_ENDSESSION(TRUE) into RunEvent::Exit, so this also runs at sign-out, Store updates and the installer's
             // Restart Manager close.
-            #[cfg(windows)]
             if let tauri::RunEvent::Exit = event {
+                #[cfg(windows)]
                 on_exit(app);
+                #[cfg(not(windows))]
+                usage::save_tokens(app);
             }
-            #[cfg(not(windows))]
-            let _ = (app, event);
         });
 }
 
@@ -803,6 +803,8 @@ fn on_exit(app: &AppHandle) {
     // Nothing pops notices up once Crest is gone; the next start hides the banners again.
     banners::restore();
     vault::clear_on_exit();
+    // Last, after what shows on screen: on a busy PC this writes some MB.
+    usage::save_tokens(app);
 }
 
 /// Window that was in the foreground before the shortcut opened the notch.
