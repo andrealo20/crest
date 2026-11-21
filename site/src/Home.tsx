@@ -145,7 +145,7 @@ function Hero() {
         </PixelReveal>
         <motion.div className="hero-side" initial={reduce ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}>
           <p className="lead">
-            Crest is a free, open source Dynamic Island for Windows and macOS. The notch at the top of this page is the real app: point at it, or tap it on a phone, and use every tool.
+            Crest is a free, open source Dynamic Island for Windows and macOS, and on Windows it can take the place of the taskbar too. The notch at the top of this page is the real app: point at it, or tap it on a phone, and use every tool.
           </p>
           <div className="actions">
             <a className="btn" href="/try/">Try it in your browser</a>

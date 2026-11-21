@@ -79,7 +79,7 @@ export default function App() {
             <div className="lede">
               <Rise>
                 <p className="lead">
-                  Crest is a free, open source Dynamic Island for Windows and macOS. The notch on this page is the real app, running here on sample data. Open it and try every tool, including what version {RELEASE} added.
+                  Crest is a free, open source Dynamic Island for Windows and macOS, with a taskbar of its own on Windows. The notch on this page is the real app, running here on sample data. Open it and try every tool, including what version {RELEASE} added.
                 </p>
               </Rise>
               <Rise i={1} className="actions">

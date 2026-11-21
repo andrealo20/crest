@@ -49,9 +49,9 @@ function Press() {
       <section className="sec prose" aria-labelledby="about-title">
         <h2 id="about-title">About Crest</h2>
         <p className="lead">
-          Crest is a free, open source Dynamic Island for Windows and macOS. It sits at the top of the screen as a small notch and opens into a panel with music and synced lyrics, a timer, to-dos, notes, the clipboard history, a converter, screenshots and recordings, hardware readings, an AI chat and more than twenty other tools. Scripts can post notices to it, and plugins add tools of their own. Everything stays on the computer: no account, no server, no tracking.
+          Crest is a free, open source Dynamic Island for Windows and macOS, and on Windows it can take the place of the taskbar too. It sits at the top of the screen as a small notch and opens into a panel with music and synced lyrics, a timer, to-dos, notes, the clipboard history, a converter, screenshots and recordings, hardware readings, an AI chat and more than twenty other tools. Scripts can post notices to it, and plugins add tools of their own. Everything stays on the computer: no account, no server, no tracking.
         </p>
-        <p>Short version: Crest puts a Dynamic Island on your Windows or Mac screen, with more than thirty tools and no account.</p>
+        <p>Short version: Crest puts a Dynamic Island on your Windows or Mac screen, and a taskbar of its own on Windows, with more than thirty tools and no account.</p>
         <dl className="press-facts">
           {FACTS.map(([k, v]) => (
             <div key={k}>
