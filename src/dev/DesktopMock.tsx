@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { media, useNowPlaying } from "../platform/media";
 import { demoOpen } from "../platform/native";
 import { mockApps, mockDiscord, mockPrivacy, mockStatus } from "../platform/services";
+import { settings } from "../settings/store";
+import { demoBarOffered } from "../features/taskbar/store";
 import { bare, demo, showcase } from "./showcase-data";
 
 /** Mixer: the playing app moves to the next one in the list (tests the reorder). */
@@ -17,6 +19,10 @@ function switchSource() {
 export function DesktopMock() {
   const [light, setLight] = useState(false);
   const np = useNowPlaying();
+  // The full-screen demo's own bar (src/dev/demoBar.tsx): Windows' fake one gives way to it while it is on, and comes back when it is turned off.
+  const barOffered = demoBarOffered.use();
+  const barEnabled = settings.use().taskbar.enabled;
+  const crestBar = barOffered && barEnabled;
   // The demo shows the clean desktop of the showcase, without the dev buttons.
   const clean = showcase || demo;
   if (bare) return null;
@@ -79,26 +85,34 @@ export function DesktopMock() {
       {/* The demo on its own page: the notch opens on hover, and this is the way in without a mouse. */}
       {demo && (
         <div className="absolute inset-x-0 top-28 flex flex-col items-center gap-3 text-center text-sm text-white">
-          <p className="opacity-80">Point at the notch to open it.</p>
+          <p className="opacity-80">{crestBar ? "Point at the notch to open it, and try Crest's taskbar at the bottom." : "Point at the notch to open it."}</p>
           <DevButton onClick={() => demoOpen(null)}>Open the notch</DevButton>
         </div>
       )}
 
+      {/* With Crest's bar on the desktop, the way back takes the top left corner, clear of the bar and the notch. */}
+      {demo && barOffered && <a href="../" className={`absolute top-3 left-4 text-sm ${BACK}`}>Back to the site</a>}
+
       {/* Fake taskbar */}
-      <div
-        className="fixed inset-x-0 bottom-0 h-12 backdrop-blur-xl"
-        style={{ background: light ? "rgb(243 243 243 / 0.8)" : "rgb(28 28 28 / 0.8)" }}
-      >
-        {clean && <WindowsLogo />}
-        {/* The demo on its own page (not the project page's stage): the way back. */}
-        {demo && <a href="../" className="absolute inset-y-0 left-0 flex items-center px-4 text-sm pointer-coarse:text-xl text-white/80 underline underline-offset-2 hover:text-white">Back to the site</a>}
-      </div>
+      {!crestBar && (
+        <div
+          className="fixed inset-x-0 bottom-0 h-12 backdrop-blur-xl"
+          style={{ background: light ? "rgb(243 243 243 / 0.8)" : "rgb(28 28 28 / 0.8)" }}
+        >
+          {clean && <WindowsLogo />}
+          {/* The demo on its own page (not the project page's stage): the way back. */}
+          {demo && !barOffered && <a href="../" className={`absolute inset-y-0 left-0 flex items-center px-4 text-sm pointer-coarse:text-xl ${BACK}`}>Back to the site</a>}
+        </div>
+      )}
     </div>
     {/* Outside the desktop's stacking context so it can sit above the notch. */}
     {showcase && <ShowcaseCursor />}
     </>
   );
 }
+
+/** The "Back to the site" link's look, wherever it sits. */
+const BACK = "text-white/80 underline underline-offset-2 hover:text-white";
 
 /** Start button in the middle of the fake taskbar. */
 function WindowsLogo() {

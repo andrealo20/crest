@@ -23,7 +23,7 @@ import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
 import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type BarShape, type ToolItem, type Zone } from "./model";
-import { setTaskbar } from "./store";
+import { demoBarOffered, setTaskbar } from "./store";
 import { AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
 import { toolInfo } from "./toolInfo";
 import { addWidget, isTool, isWidget, removeWidget, shownZones, toolOf } from "./widgets";
@@ -36,9 +36,10 @@ import { addWidget, isTool, isWidget, removeWidget, shownZones, toolOf } from ".
 /** Whether the Taskbar settings show here (model.ts taskbarShown); as in a build without the bar until the build has answered. */
 export function useTaskbarShown(): boolean {
   const enabled = settings.use().taskbar.enabled;
+  const demo = demoBarOffered.use();
   const [offered, setOffered] = useState(false);
   useEffect(() => void build.info().then((b) => setOffered(b.taskbar)), []);
-  return taskbarShown({ native: isNative, mac: isMac, dev: import.meta.env.DEV, offered, enabled });
+  return taskbarShown({ native: isNative, mac: isMac, dev: import.meta.env.DEV, offered, enabled, demo });
 }
 
 /** The bar's zones, physical: left stays left in a right-to-left language. */

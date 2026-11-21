@@ -30,7 +30,8 @@ function WhatsNew() {
               <div className="version-head">
                 <h3>{v.version}</h3>
                 <p><time dateTime={v.date}>{date(v.date)}</time></p>
-                <a className="textlink" href={`${REPO}/releases/tag/v${v.version}`}>Release notes <ArrowUpRight size={16} weight="bold" aria-hidden="true" /></a>
+                {/* 0.1.0 never had a release on GitHub: the first one is 0.2.0. */}
+                {v.version !== "0.1.0" && <a className="textlink" href={`${REPO}/releases/tag/v${v.version}`}>Release notes <ArrowUpRight size={16} weight="bold" aria-hidden="true" /></a>}
               </div>
               <ul>
                 {v.items.map((it) => <li key={it.en}>{it.en}</li>)}

@@ -406,6 +406,9 @@ export function menuKey(key: string, at: number, count: number): number | undefi
 export const previewKey = (key: string, rtl: boolean): string =>
   key === "ArrowRight" ? (rtl ? "ArrowUp" : "ArrowDown") : key === "ArrowLeft" ? (rtl ? "ArrowDown" : "ArrowUp") : key;
 
-/** The Taskbar settings show in the Windows app only: in a dev build, in a build that offers the bar (not the Store one), and while the bar is on, so it can be turned off. */
-export const taskbarShown = (p: { native: boolean; mac: boolean; dev: boolean; offered: boolean; enabled: boolean }): boolean =>
-  p.native && !p.mac && (p.dev || p.offered || p.enabled);
+/**
+ * The Taskbar settings show in the Windows app only: in a dev build, in a build that offers the bar (not the Store one), and while the
+ * bar is on, so it can be turned off. In the browser, only the site's full-screen demo, which offers a bar of its own (src/dev/demoBar.tsx).
+ */
+export const taskbarShown = (p: { native: boolean; mac: boolean; dev: boolean; offered: boolean; enabled: boolean; demo: boolean }): boolean =>
+  p.demo || (p.native && !p.mac && (p.dev || p.offered || p.enabled));

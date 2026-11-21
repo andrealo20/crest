@@ -557,6 +557,8 @@ export function TaskbarWindow() {
         {/* The shape's place stays still, so its box is the band at rest while the shape slides out of it (useHitZone measures this box). */}
         <div
           ref={bar}
+          // The site's demo lets the pointer through its layer except here (src/dev/demoBar.tsx), as Rust does around the bar.
+          data-bar
           className={shape === "capsule" ? "self-center" : undefined}
           style={{ margin: shape === "capsule" ? `0 0 ${gap}px` : `0 ${gap}px ${gap}px` }}
           // The bar only, never a menu or the panel above it.
