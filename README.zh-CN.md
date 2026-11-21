@@ -136,7 +136,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 - **AI 用量**：Claude、ChatGPT、Antigravity、Cursor 等的额度，附带一行预测每项额度的走向，额度重置时可选择通知你。
 - **提问**：用你自己的密钥与你选择的 AI 服务对话，或通过 LM Studio 或 Ollama 使用你电脑上的模型。
 - **Agents**：电脑上正在运行的 Claude Code 会话、每个会话在等什么，以及恢复它的命令。
-- **GitHub** 和 **LeetCode** 贡献日历和连续天数（只读取 github.com 和 leetcode.com），以及固定应用的**启动器**。
+- **GitHub** 和 **LeetCode** 的活动日历和连续天数（只读取 github.com 和 leetcode.com），以及固定应用的**启动器**。
 - **crest-notify** 让脚本和构建发送通知、用按钮提问，或在收起的一行里放入自己的部分。
 
 ### 截图与录制
@@ -165,7 +165,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 - **Microsoft Store：** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS)，由 Microsoft 签名，并由应用商店自动更新。商店版暂时没有任务栏和 Liquid Glass +。
 - **安装程序：** 从[最新版本](https://github.com/andrealo20/crest/releases/latest)下载 `Crest_x.y.z_x64-setup.exe`（Windows on ARM 电脑请下载 `Crest_x.y.z_arm64-setup.exe`）并运行。它只为当前用户安装。安装程序暂未进行代码签名，首次运行时 SmartScreen 可能会提示：点击 **更多信息 → 仍要运行**。
 - **便携版：** 把 `Crest-x.y.z-Portable-x64.zip`（或 `-Portable-arm64.zip`）解压到任意可写的位置，运行 `Crest.exe`。不会安装任何东西。
-- **Mac（预览版）：** Apple 芯片请下载 `Crest_x.y.z_aarch64.dmg`，Intel 请下载 `Crest_x.y.z_x64.dmg`，然后把 Crest 拖到“应用程序”文件夹。应用暂未经过公证，首次打开时 macOS 会拒绝运行：请打开 **系统设置 → 隐私与安全性 → 仍要打开**。1.2.1 及更早的版本完全没有签名，macOS 会提示应用已损坏：请在“终端”中运行一次 `xattr -dr com.apple.quarantine /Applications/Crest.app`。暂存区、硬件、Discord、保险库、终端、启动器、通知、录制、录音机、摄像头、插件和任务栏目前只支持 Windows，在 Mac 上不会显示；概览里的专注、保持唤醒和音量磁贴、FPS、录制指示点，以及“跟随鼠标指针”和“所有显示器”两种显示器模式也不会出现。“在屏幕上查找”在 Mac 上没有快捷键。
+- **Mac（预览版）：** Apple 芯片请下载 `Crest_x.y.z_aarch64.dmg`，Intel 请下载 `Crest_x.y.z_x64.dmg`，然后把 Crest 拖到“应用程序”文件夹。应用暂未经过公证，首次打开时 macOS 会拒绝运行：请打开 **系统设置 → 隐私与安全性 → 仍要打开**。1.2.1 及更早的版本完全没有签名，macOS 会提示应用已损坏：请在“终端”中运行一次 `xattr -dr com.apple.quarantine /Applications/Crest.app`。暂存区、硬件、Discord、保险库、终端、启动器、通知、截取、录音机、摄像头、插件和任务栏目前只支持 Windows，在 Mac 上不会显示；概览里的专注、保持唤醒和音量磁贴、FPS、录制指示点，以及“跟随鼠标指针”和“所有显示器”两种显示器模式也不会出现。“在屏幕上查找”在 Mac 上没有快捷键。
 
 每个版本都附带 `SHA256SUMS` 文件，列出每个下载文件的 SHA-256，可以用 `sha256sum -c SHA256SUMS --ignore-missing` 或 `Get-FileHash` 校验。
 
@@ -173,7 +173,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 
 ## 数据只留在你的电脑上
 
-不需要账户，没有统计分析，没有跟踪。设置和数据保存在你的电脑上，密钥存放在 Windows 凭据管理器里（Mac 上是钥匙串）。Crest 只会自己联网获取概览里的天气、每 4 小时检查一次更新，以及你已登录的服务的 AI 额度环；其他功能都要等你设置之后才会联网。哪些内容会经过网络、什么时候：[PRIVACY.md](PRIVACY.md)（英文）。
+不需要账户，没有统计分析，没有跟踪。设置和数据保存在你的电脑上，密钥存放在 Windows 凭据管理器里（Mac 上是钥匙串）。Crest 只会为概览里的天气、每 4 小时一次的更新检查，以及你已登录服务的 AI 额度环自行联网；其他功能都要等你设置之后才会联网。哪些内容会经过网络、什么时候：[PRIVACY.md](PRIVACY.md)（英文）。
 
 ## 支持这个项目
 
