@@ -167,3 +167,12 @@ test("the Material hardware uses none of the CSS the style avoids", () => {
   for (const s of ["blur(", "color-mix(", "linear(", ":dir(", ":hover"]) assert.ok(!materialView.includes(s), s);
   assert.doesNotMatch(materialView, /\b(bg|text|fill|stroke|ring|border)-[\w-]+\/\d/);
 });
+
+test("the drive counter follows the drive letters, as the GPU's badge follows its name, and covers no part of the ring", () => {
+  const drive = part("DriveCard");
+  assert.ok(!drive.includes("absolute"), "no absolute badge");
+  const letters = drive.indexOf("{d.letters}");
+  const badge = drive.indexOf("(index % drives.length) + 1");
+  assert.ok(letters > 0 && badge > letters, "after the letters");
+  assert.ok(drive.includes('className="tabular shrink-0 rounded-full bg-fill-2 px-1.5 text-[10px] text-label-2"'), drive);
+});

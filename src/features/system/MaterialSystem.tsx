@@ -329,12 +329,12 @@ function DriveCard({ drives, tone, ring }: { drives: SystemState["drives"]; tone
       title={many ? `${d.model} · ${t("Klicken für das nächste Laufwerk")}` : d.model}
       className={`relative flex min-h-0 min-w-0 flex-col items-center rounded-[24px] bg-fill-1 pt-2.5 pb-1.5 ${many ? "pressable cursor-pointer" : ""}`}
     >
-      {many && <span className="tabular absolute end-2.5 top-2 rounded-full bg-fill-2 px-1.5 text-[10px] text-label-2">{`${(index % drives.length) + 1}/${drives.length}`}</span>}
       <Ring size={ring} stroke={8} sweep={270} arcs={[{ value: glided, color: tone(ofShare(share)) }]}>
         <Glide value={glided} format={percent} className="text-[15px] leading-5 font-semibold tabular text-label" />
       </Ring>
       <span className="-mt-2 flex max-w-full items-center gap-1 px-2 text-caption font-medium">
         <span className="tabular truncate text-label">{d.letters}</span>
+        {many && <span className="tabular shrink-0 rounded-full bg-fill-2 px-1.5 text-[10px] text-label-2">{`${(index % drives.length) + 1}/${drives.length}`}</span>}
         {d.temp !== null && (
           <span className="tabular shrink-0" style={{ color: tone(d.tempLevel) }}>
             {degrees(d.temp)}°
