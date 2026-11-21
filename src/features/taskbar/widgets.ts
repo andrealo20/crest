@@ -4,6 +4,7 @@
 import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
 import { TASKBAR_DEFAULTS, TOOL_BUTTONS, WIDGET_VARIANTS, fitIcon, isObj, variantOf, type BarItem, type TaskbarSettings, type ToolItem, type WidgetVariants, type Zone } from "./model.ts";
 import { opensInBar } from "./panelModel.ts";
+import type { BarLook } from "./look.ts";
 
 /** What the settings take off the bar and put back like a widget: the widgets, the tray, Stato and the tool buttons. */
 export type Removable = PartId | "tray" | "status" | ToolItem;
@@ -14,6 +15,15 @@ export const isTool = (id: string): id is ToolItem => id.startsWith("tool:");
 export const toolOf = (id: ToolItem): string => id.slice("tool:".length);
 /** A tool switched on or off in the notch's settings (settings.tools). */
 export type ToolSwitch = { id: string; enabled: boolean };
+
+/**
+ * The ink a widget's preview on the Widgets page wears, as the bar's own (useBarSurface in window/BarGlass.tsx): Dark's (`dark`)
+ * under Liquid Glass + whatever the surface, the closed notch's (`closed`) on the Notch surface, the theme's (undefined) otherwise.
+ */
+// shortcut: a copy of useBarSurface's ink line, BarGlass.tsx being Material's; one helper for both once the contract lets it move.
+export function previewInk(look: BarLook, surface: TaskbarSettings["surface"], closed: Record<string, string> | undefined, dark: Record<string, string>): Record<string, string> | undefined {
+  return look === "plus" ? { ...dark, "--accent": dark["--theme-accent"] } : surface === "notch" ? closed : undefined;
+}
 
 /** The tool a widget opens in the panel over the bar; null for the clock, which opens Windows' calendar instead. */
 export const widgetTool = (id: PartId): string | null => (id === "clock" ? null : partTool(id));

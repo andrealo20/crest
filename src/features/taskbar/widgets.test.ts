@@ -4,7 +4,15 @@ import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 import { DEFAULT_OFF, TOOL_IDS } from "../../settings/tools.ts";
 import { TASKBAR_DEFAULTS, TOOL_BUTTONS, type BarItem, type Zone } from "./model.ts";
 import { statusPill } from "./statusModel.ts";
-import { SLIDE_KEEP_MS, addWidget, addableTools, applyChoice, chosenChoice, barPartsFor, barSources, barWidgets, isTool, isWidget, pillWidget, removeWidget, shownZones, sourcesAfter, toolOf, toolShown, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
+import { SLIDE_KEEP_MS, addWidget, addableTools, applyChoice, chosenChoice, barPartsFor, barSources, barWidgets, isTool, isWidget, pillWidget, previewInk, removeWidget, shownZones, sourcesAfter, toolOf, toolShown, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
+
+test("a widget's preview wears the bar's ink: Dark's under Liquid Glass + whatever the surface, the closed notch's on Notch, the theme's otherwise", () => {
+  const dark = { "--color-label": "white", "--theme-accent": "blue" }, closed = { "--color-label": "white", "--accent": "red" };
+  assert.deepEqual(previewInk("plus", "theme", closed, dark), { ...dark, "--accent": "blue" });
+  assert.deepEqual(previewInk("plus", "notch", undefined, dark), { ...dark, "--accent": "blue" });
+  assert.equal(previewInk("crest", "notch", closed, dark), closed);
+  assert.equal(previewInk("crest", "theme", closed, dark), undefined);
+});
 
 test("a widget opens its tool, the clock Windows' calendar", () => {
   // Every part: one without a tool would open Windows' calendar.
