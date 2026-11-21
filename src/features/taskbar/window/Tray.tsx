@@ -6,9 +6,9 @@ import { updateSettings } from "../../../settings/store";
 import { AppIcon } from "../../launcher/AppIcon";
 import { trayIcon, type TrayIcon } from "../model";
 import { panel, togglePanel, trayDrag } from "../panel";
-import { dropSlot } from "../panelModel";
+import { dropSlot, gridSlot } from "../panelModel";
 import { startTray, trayFolded, trayPictures, trayState } from "../tray";
-import { demote, promote, shownSlot, splitTray } from "../trayModel";
+import { demote, placeHidden, promote, shownSlot, splitTray } from "../trayModel";
 import { holdBriefly } from "./hold";
 import { Item, type ItemProps } from "./Item";
 import { startPress, pressDragged } from "./press";
@@ -54,7 +54,8 @@ export function trayButton(icon: TrayIcon, from: "panel" | "bar") {
 
 /**
  * The notification area on the bar: each icon kept visible as a button of its own, then the ^ button, which opens the others in the
- * panel above the bar (TrayPanel). An icon dragged along the bar moves there, dragged onto ^ or into the panel it goes to the panel.
+ * panel above the bar (TrayPanel). An icon dragged along the bar moves there, dragged onto ^ or into the panel it goes to the panel,
+ * and dragged inside the panel it moves there.
  */
 export function Tray({
   visible,
@@ -106,12 +107,33 @@ export function Tray({
 const within = (r: DOMRect, x: number, y: number) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
 
 /**
+ * The line where an icon let go in the panel goes: at the leading edge of the slot's cell, past the last at the trailing edge of the last
+ * (a row runs from the right in a right-to-left language), as tall as the cell's icon; none in an empty panel.
+ */
+function panelLine(cells: Element[], slot: number, rtl: boolean) {
+  const cell = cells[slot] ?? cells[cells.length - 1];
+  if (!cell) return null;
+  const r = cell.getBoundingClientRect();
+  const icon = (cell.firstElementChild ?? cell).getBoundingClientRect();
+  return { x: slot < cells.length !== rtl ? r.left : r.right, y: icon.top, h: icon.height };
+}
+
+/**
  * Where a tray icon dragged to (x, y) lands: kept on the bar at a slot among the icons kept there (`[data-tray]`), over them or ^,
- * with the box it goes in front of; hidden, from the bar onto ^ or into the panel; elsewhere null, which changes nothing.
+ * with the box it goes in front of; hidden, from the bar onto ^, or into the panel at a slot among its cells (`[data-tray-slot]`),
+ * where an icon from the panel moves too, with the line drawn there; elsewhere null, which changes nothing.
  */
 function dropAt(bar: HTMLElement | null, more: HTMLElement | null, d: { x: number; y: number; from: "panel" | "bar" }) {
   const box = document.querySelector("[data-tray-panel]")?.getBoundingClientRect();
-  if (box && within(box, d.x, d.y)) return d.from === "bar" ? ({ hide: true } as const) : null;
+  if (box && within(box, d.x, d.y)) {
+    // While the bar's tray is folded the panel shows every icon, the kept ones too: no order among the hidden ones to change.
+    if (trayFolded.get()) return d.from === "bar" ? ({ hide: true } as const) : null;
+    const cells = [...document.querySelectorAll("[data-tray-slot]")];
+    const rtl = document.documentElement.dir === "rtl";
+    const rects = cells.map((el) => el.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y, w: r.width, h: r.height }));
+    const slot = gridSlot(rects, d.x, d.y, rtl);
+    return { hide: true, slot, line: panelLine(cells, slot, rtl) } as const;
+  }
   if (!bar || !more || d.y < bar.getBoundingClientRect().top) return null;
   const caret = more.getBoundingClientRect();
   if (d.from === "bar" && d.x >= caret.left && d.x <= caret.right) return { hide: true } as const;
@@ -124,9 +146,9 @@ function dropAt(bar: HTMLElement | null, more: HTMLElement | null, d: { x: numbe
 }
 
 /**
- * A tray icon dragged (trayDrag): its picture under the pointer and, where it would be kept on the bar, a line in the gap it goes in.
- * Let go there it is kept there, onto ^ or into the panel from the bar it is hidden, anywhere else nothing changes: `trayShown` is
- * written once per drop. Nothing of it runs while no icon is dragged.
+ * A tray icon dragged (trayDrag): its picture under the pointer and, where it would be kept on the bar or placed in the panel, a line
+ * in the gap it goes in. Let go there it is kept there, onto ^ from the bar it is hidden, in the panel it goes to that place there,
+ * anywhere else nothing changes: `trayShown` and `trayHidden` are written once per drop. Nothing of it runs while no icon is dragged.
  */
 export function TrayDrop({ bar, more, size, gap }: { bar: RefObject<HTMLElement | null>; more: RefObject<HTMLElement | null>; size: number; gap: number }) {
   const drag = trayDrag.use();
@@ -140,9 +162,12 @@ export function TrayDrop({ bar, more, size, gap }: { bar: RefObject<HTMLElement 
       const at = d && dropAt(bar.current, more.current, d);
       if (!d || !at) return;
       updateSettings((s) => {
-        const shown = s.taskbar.trayShown;
-        const next = at.hide ? demote(shown, d.id) : promote(shown, d.id, shownSlot(shown, splitTray(trayState.get().icons, shown).visible, at.slot));
-        return { taskbar: { ...s.taskbar, trayShown: next } };
+        const { trayShown: shown, trayHidden } = s.taskbar;
+        const icons = trayState.get().icons;
+        if (!at.hide) return { taskbar: { ...s.taskbar, trayShown: promote(shown, d.id, shownSlot(shown, splitTray(icons, shown).visible, at.slot)) } };
+        const next = { ...s.taskbar, trayShown: demote(shown, d.id) };
+        if (at.slot === undefined) return { taskbar: next };
+        return { taskbar: { ...next, trayHidden: placeHidden(trayHidden, shown, splitTray(icons, shown, trayHidden).hidden, d.id, at.slot) } };
       });
     };
     addEventListener("pointerup", onUp, true);
@@ -151,18 +176,17 @@ export function TrayDrop({ bar, more, size, gap }: { bar: RefObject<HTMLElement 
   if (!drag) return null;
 
   const at = dropAt(bar.current, more.current, drag);
+  // Centred in the gap between two buttons on the bar (itemGap), on the cell's edge in the panel, whose cells touch.
+  const line = !at ? null : !at.hide ? { x: at.before.left - gap / 2, y: at.before.top + (at.before.height - size) / 2, h: size } : (at.line ?? null);
   return (
     <>
       {/* The bar's drag under Material (ItemDrop): a tonal disc at level 4 over the line, as far out as it pads in. */}
       <span className="pointer-events-none fixed top-0 left-0 flex material:z-10 material:-m-1.5 material:p-1.5 material:rounded-full material:bg-secondary-container material:shadow-level4" style={{ transform: `translate(${drag.x - size / 2}px, ${drag.y - size / 2}px)` }}>
         <AppIcon src={drag.img === null ? null : pictures[drag.img]} size={size} />
       </span>
-      {at && !at.hide && (
-        <span
-          className="pointer-events-none fixed top-0 left-0 w-0.5 rounded-full bg-accent material:bg-primary"
-          // Centred in the gap between two buttons (itemGap), 2 px wide.
-          style={{ height: size, transform: `translate(${at.before.left - gap / 2 - 1}px, ${at.before.top + (at.before.height - size) / 2}px)` }}
-        />
+      {line && (
+        // 2 px wide, centred on its place.
+        <span className="pointer-events-none fixed top-0 left-0 w-0.5 rounded-full bg-accent material:bg-primary" style={{ height: line.h, transform: `translate(${line.x - 1}px, ${line.y}px)` }} />
       )}
     </>
   );

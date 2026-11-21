@@ -260,6 +260,13 @@ test("the icons kept visible are strings, once each", () => {
   assert.deepEqual(normalizeTaskbar({ trayShown: ["a", 2, "a", "b"] }).trayShown, ["a", "b"]);
 });
 
+test("the panel's order is strings, once each, and empty at first", () => {
+  assert.deepEqual(TASKBAR_DEFAULTS.trayHidden, []);
+  assert.deepEqual(normalizeTaskbar({}).trayHidden, []);
+  assert.deepEqual(normalizeTaskbar({ trayHidden: "a" }).trayHidden, []);
+  assert.deepEqual(normalizeTaskbar({ trayHidden: ["b", null, "a", "b"] }).trayHidden, ["b", "a"]);
+});
+
 test("the spy runs only while a bar shows the tray", () => {
   assert.equal(trayWanted({ ...TASKBAR_DEFAULTS, enabled: true }), true);
   assert.equal(trayWanted({ ...TASKBAR_DEFAULTS, enabled: false }), false);

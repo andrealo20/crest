@@ -110,5 +110,18 @@ export function dropSlot(slots: { x: number; w: number }[], x: number): number {
   return i < 0 ? slots.length : i;
 }
 
+/**
+ * The slot a dragged icon lands in among the panel's cells (`cells`, in their order, row by row): in the first row that does not end above
+ * `y`, as dropSlot finds it along that row (mirrored with `rtl`, where a row runs from the right), past its last cell the next row's first;
+ * below every row the end.
+ */
+export function gridSlot(cells: { x: number; y: number; w: number; h: number }[], x: number, y: number, rtl = false): number {
+  const start = cells.findIndex((c) => c.y + c.h >= y);
+  if (start < 0) return cells.length;
+  const end = cells.findIndex((c, i) => i > start && c.y !== cells[start].y);
+  const row = cells.slice(start, end < 0 ? cells.length : end);
+  return start + (rtl ? dropSlot(row.map((c) => ({ x: -(c.x + c.w), w: c.w })), -x) : dropSlot(row, x));
+}
+
 /** How far a press moves before it drags a widget, a tool button or Stato, CSS px: 4 with a mouse, 10 by touch or with a pen, so a tap that opens a panel never moves it. */
 export const dragThreshold = (pointerType: string): number => (pointerType === "mouse" ? 4 : 10);

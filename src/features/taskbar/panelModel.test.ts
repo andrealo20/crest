@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -87,6 +87,27 @@ test("a dragged icon lands in the slot under the pointer", () => {
   const slots = [100, 140, 180].map((x) => ({ x, w: 40 }));
   assert.deepEqual([90, 125, 165, 500].map((x) => dropSlot(slots, x)), [0, 1, 2, 3]);
   assert.equal(dropSlot([], 300), 0);
+});
+
+test("an icon dragged in the panel lands in the slot under the pointer, row by row", () => {
+  // Two rows of 40 px cells: three, then two.
+  const cells = [0, 1, 2, 0, 1].map((col, i) => ({ x: 10 + col * 40, y: i < 3 ? 10 : 50, w: 40, h: 40 }));
+  // Left half, right half of the first cell; the second row's first cell.
+  assert.deepEqual([15, 45].map((x) => gridSlot(cells, x, 30)), [0, 1]);
+  assert.equal(gridSlot(cells, 15, 70), 3);
+  // Past the end of the first row: before the second row's first cell.
+  assert.equal(gridSlot(cells, 300, 30), 3);
+  // On the line between the rows the upper one, above them the first, past the last cell and below every row the end.
+  assert.equal(gridSlot(cells, 15, 50), 0);
+  assert.equal(gridSlot(cells, 15, 0), 0);
+  assert.equal(gridSlot(cells, 300, 70), 5);
+  assert.equal(gridSlot(cells, 15, 200), 5);
+  assert.equal(gridSlot([], 15, 30), 0);
+});
+
+test("in a right-to-left panel a row runs from the right", () => {
+  const cells = [0, 1, 2].map((col) => ({ x: 90 - col * 40, y: 10, w: 40, h: 40 }));
+  assert.deepEqual([125, 100, 15, 0].map((x) => gridSlot(cells, x, 30, true)), [0, 1, 3, 3]);
 });
 
 test("Stato's quick panel opens in the bar's panel, apart from the tray and any tool", () => {

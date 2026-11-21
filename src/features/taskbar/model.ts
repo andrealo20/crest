@@ -22,7 +22,8 @@ export type BarShape = "docked" | "floating" | "capsule" | "tiles";
  * notch's or the theme's), the pinned apps (null: never seeded), the ids Windows' taskbar had pinned when the notch last read them,
  * with those a read missed (null: never read; store.ts follows what changes there), its shape, its transparency in percent, its glass
  * and the glass's look, the bar clock's own date and seconds, and whether the default widgets, the tray and Stato were placed (once, so one taken off
- * stays off). The tray keeps the icons in `trayShown` (TrayIcon.id) on the bar; the others are in the panel behind its ^ button.
+ * stays off). The tray keeps the icons in `trayShown` (TrayIcon.id) on the bar; the others are in the panel behind its ^ button, those
+ * in `trayHidden` first in its order.
  */
 export interface TaskbarSettings {
   enabled: boolean;
@@ -46,6 +47,7 @@ export interface TaskbarSettings {
   traySeeded: boolean;
   statusSeeded: boolean;
   trayShown: string[];
+  trayHidden: string[];
 }
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
@@ -67,6 +69,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   traySeeded: true,
   statusSeeded: true,
   trayShown: [],
+  trayHidden: [],
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -143,6 +146,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     traySeeded: true,
     statusSeeded: true,
     trayShown: Array.isArray(s.trayShown) ? [...new Set(s.trayShown.filter((x): x is string => typeof x === "string"))] : [],
+    trayHidden: Array.isArray(s.trayHidden) ? [...new Set(s.trayHidden.filter((x): x is string => typeof x === "string"))] : [],
   };
 }
 
