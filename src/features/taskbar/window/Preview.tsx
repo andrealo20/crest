@@ -17,7 +17,8 @@ const EDGE = 8;
  * above a box where Rust draws the window's live thumbnail (taskbar/preview.rs), in a small window of its own over the page. Nothing
  * HTML draws over a box. The boxes go to Rust once the card has faded in and again each time they move; a box Rust answers null for
  * shows the app's icon instead, and with no thumbnail at all, or too many windows for the room, the card lists the titles. The card
- * never clears the thumbnails: TaskbarWindow does when it closes or changes app, so an old card fading out cannot wipe the new one's.
+ * clears the thumbnails only when its own tiles turn into the list; TaskbarWindow does when it closes or changes app, so an old card
+ * fading out cannot wipe the new one's.
  */
 export function PreviewCard(props: {
   b: BarButton;
@@ -84,6 +85,13 @@ export function PreviewCard(props: {
   // A window coming or going, or the card ready: the whole set again.
   const ids = b.windows.map((win) => win.id).join();
   useLayoutEffect(send, [send, ids]);
+  // Tiles turned into the list while open: this card's thumbnails go, since no close or new app will clear them. A card being
+  // replaced is no longer present, so it never wipes the next one's.
+  useLayoutEffect(() => {
+    if (!list || !present || sent.current === 0) return;
+    sent.current++;
+    void taskbar.preview([]).catch(() => {});
+  }, [list, present]);
 
   return (
     <motion.div
