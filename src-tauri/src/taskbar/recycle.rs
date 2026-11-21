@@ -92,6 +92,8 @@ pub(super) fn end(window: HWND) {
     }
     ARMED.set(false);
     APP.set(None);
+    // The bin may change while the bar is off: the next bar's first ask reads it again.
+    *LAST.lock().unwrap_or_else(|e| e.into_inner()) = None;
 }
 
 pub(super) fn on_notify(window: HWND, wparam: WPARAM, lparam: LPARAM) {

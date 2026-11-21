@@ -457,6 +457,7 @@ unsafe fn vanish(spy: HWND) {
     publish();
     if ANNOUNCED.replace(0) != 0 {
         announce();
+        taskband::tell_buttons();
     }
 }
 

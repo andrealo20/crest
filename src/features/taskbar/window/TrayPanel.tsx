@@ -25,6 +25,7 @@ export function TrayPanel() {
   const pictures = trayPictures.use();
   const hidden = trayFolded.use() ? icons : splitTray(icons, trayShown, trayHidden).hidden;
   const size = fitIcon(height, iconSize);
+  useEffect(() => trayLeave, []);
   useEffect(() => {
     const release = () => panelHeld.set(false);
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && release();

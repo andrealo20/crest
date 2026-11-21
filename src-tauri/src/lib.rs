@@ -157,7 +157,7 @@ const SETTINGS_DENIED: &[&str] = &[
     "taskbar_bt_devices", "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_own_pins_keep",
     "display_rescale", "taskbar_input", "taskbar_app_volume", "taskbar_spread", "taskbar_jump_list", "taskbar_jump_open",
     "taskbar_keys", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_all_desktops", "taskbar_window_menu", "taskbar_arrange",
-    "taskbar_window_order",
+    "taskbar_window_order", "taskbar_end_task", "taskbar_decor", "taskbar_decor_images",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, pinning a listed window,
@@ -172,7 +172,7 @@ const SETTINGS_DENIED: &[&str] = &[
 /// app's menu and its rows opened (taskbar/jumplist.rs), the keyboard after one of its Windows keys (`taskbar_focus`), the Recycle Bin
 /// (taskbar/recycle.rs), the window and group menus and the previews' order (taskbar/tasks.rs), and what the notch's
 /// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
-/// `taskbar_tray_on`, `taskbar_spread`, `taskbar_all_desktops`).
+/// `taskbar_tray_on`, `taskbar_spread`, `taskbar_all_desktops`, `taskbar_end_task`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "taskbar_tray", "taskbar_tray_images", "taskbar_tray_click", "taskbar_decor", "taskbar_decor_images",
@@ -588,6 +588,7 @@ pub fn run() {
             taskbar::recycle::taskbar_recycle_do,
             #[cfg(windows)]
             taskbar::tasks::taskbar_all_desktops,
+            taskbar::tasks::taskbar_end_task,
             #[cfg(windows)]
             taskbar::tasks::taskbar_window_menu,
             #[cfg(windows)]
@@ -1324,6 +1325,7 @@ mod tests {
         assert!(ok("taskbar", "taskbar_tray") && ok("taskbar-1", "taskbar_tray_images") && ok("taskbar", "taskbar_tray_click"));
         assert!(ok("notch", "taskbar_tray_click") && !ok("settings", "taskbar_tray_click"));
         assert!(ok("taskbar", "taskbar_decor") && ok("taskbar-1", "taskbar_decor_images"));
+        assert!(!ok("settings", "taskbar_decor") && !ok("settings", "taskbar_decor_images"));
         // The jump lists, on every bar, never in the settings window; the commands refuse any window but a bar's, the notch too.
         assert!(["taskbar_jump_list", "taskbar_jump_open"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));
         // The bar's Windows keys: set by the notch, read by the settings; the keyboard taken by a bar after one of them.
@@ -1336,6 +1338,7 @@ mod tests {
         }
         // Windows of every desktop: a setting, so the notch's alone.
         assert!(ok("notch", "taskbar_all_desktops") && !ok("taskbar", "taskbar_all_desktops") && !ok("settings", "taskbar_all_desktops"));
+        assert!(ok("notch", "taskbar_end_task") && !ok("taskbar", "taskbar_end_task") && !ok("settings", "taskbar_end_task"));
         // The input language is the bars' own: drawn by the main one, read by any as it starts.
         assert!(ok("taskbar-1", "taskbar_input") && ok("taskbar", "taskbar_input") && !ok("settings", "taskbar_input"));
         // A wheel step on an app's button: the bars' own.

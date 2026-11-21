@@ -47,7 +47,7 @@ import { pressDragged, startPress } from "./press";
 import { PreviewCard } from "./Preview";
 import { Status } from "./Status";
 import { SYS_INFO, SysButton } from "./SysItems";
-import { Tray, TrayDrop } from "./Tray";
+import { Tray, TrayDrop, trayLeave } from "./Tray";
 import { useAppFit } from "./useAppFit";
 import { useAutoHide } from "./useAutoHide";
 import { WidgetItem } from "./Widget";
@@ -165,6 +165,8 @@ export function TaskbarWindow() {
     () =>
       taskbar.onHover((inside) => {
         if (inside) return;
+        // No pointerleave reaches a click-through window: a tray icon's app hears the leave here.
+        trayLeave();
         setHovered(null);
         lastX.current = Infinity;
         setCard(null);

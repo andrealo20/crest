@@ -182,6 +182,15 @@ pub fn taskbar_all_desktops(on: bool) {
     }
 }
 
+/// Settings → Taskbar → End task in the app menu: off, "end" is refused here, whatever a bar page sends.
+static END_TASK: AtomicBool = AtomicBool::new(false);
+
+/// From the notch.
+#[tauri::command]
+pub fn taskbar_end_task(on: bool) {
+    END_TASK.store(on, Ordering::SeqCst);
+}
+
 thread_local! {
     /// The list's state on the taskbar thread, from `begin` until the thread ends.
     static TRACK: RefCell<Option<Track>> = const { RefCell::new(None) };
@@ -721,6 +730,7 @@ pub async fn taskbar_window(id: isize, action: String) -> Result<(), String> {
         "maximize" if style(hwnd) & WS_MAXIMIZEBOX.0 != 0 => sys(hwnd, SC_MAXIMIZE).and_then(|_| activate(hwnd)),
         "move" => activate(hwnd).and_then(|_| sys(hwnd, SC_MOVE)),
         "size" if style(hwnd) & WS_THICKFRAME.0 != 0 => activate(hwnd).and_then(|_| sys(hwnd, SC_SIZE)),
+        "end" if !END_TASK.load(Ordering::SeqCst) => Err("end-task-off".into()),
         "end" => {
             let source = source(id);
             end(source, display::window_pid(source))

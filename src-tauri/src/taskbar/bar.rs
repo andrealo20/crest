@@ -88,11 +88,13 @@ pub(crate) fn bar_rect((x, y, width, height): (i32, i32, u32, u32), scale: f64, 
 
 /// The area a bar stands in, physical px (x, y, width, height): the work area, or for a bar reserving `strip` the strip's
 /// left and width, from the strip's outer edge to the work area's far one, since Windows has taken the strip off the work area.
+/// A strip still on the other edge (the bar just moved, the strip not yet asked again) counts as none.
 fn ground(work: (i32, i32, u32, u32), strip: Option<RECT>, top: bool) -> (i32, i32, u32, u32) {
+    let bottom = work.1 + work.3 as i32;
     match strip {
-        Some(s) if top => (s.left, s.top, (s.right - s.left) as u32, (work.1 + work.3 as i32 - s.top) as u32),
-        Some(s) => (s.left, work.1, (s.right - s.left) as u32, (s.bottom - work.1) as u32),
-        None => work,
+        Some(s) if top && s.bottom <= work.1 => (s.left, s.top, (s.right - s.left) as u32, (bottom - s.top) as u32),
+        Some(s) if !top && s.top >= bottom => (s.left, work.1, (s.right - s.left) as u32, (s.bottom - work.1) as u32),
+        _ => work,
     }
 }
 
@@ -537,6 +539,13 @@ mod tests {
         assert_eq!(ground((0, 44, 1920, 1036), Some(s(0, 0, 1920, 44)), true), (0, 0, 1920, 1080));
         assert_eq!(bar_rect(ground((0, 44, 1920, 1036), Some(s(0, 0, 1920, 44)), true), 1.0, true), (0, 0, 1920, 632));
         assert_eq!(ground((64, 44, 1856, 1036), Some(s(64, 0, 1920, 44)), true), (64, 0, 1856, 1080)); // a side appbar narrows both
+    }
+
+    #[test]
+    fn a_strip_on_the_other_edge_is_ignored() {
+        let s = |left, top, right, bottom| RECT { left, top, right, bottom };
+        assert_eq!(ground((0, 0, 1920, 1036), Some(s(0, 1036, 1920, 1080)), true), (0, 0, 1920, 1036));
+        assert_eq!(ground((0, 44, 1920, 1036), Some(s(0, 0, 1920, 44)), false), (0, 44, 1920, 1036));
     }
 
     #[test]

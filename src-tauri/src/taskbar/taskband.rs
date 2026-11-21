@@ -250,9 +250,14 @@ pub(super) unsafe fn vanish(spy: HWND) {
 /// Apps that hear this report their progress and overlay again, now through the spy (tray.rs `keep_first`, once the spy is first
 /// for an Explorer tray). A notify to each window with a button: no wait on any app.
 pub(super) fn announce_buttons() {
-    if PROXY.load(Ordering::SeqCst) == 0 {
-        return;
+    if PROXY.load(Ordering::SeqCst) != 0 {
+        tell_buttons();
     }
+}
+
+/// The same notify once the spy is gone (tray.rs `vanish`): apps report again to Explorer, whose copy of a block made for Crest
+/// (thumbnail buttons, tooltips, the overlay's text) may have been lost on the way.
+pub(super) fn tell_buttons() {
     let msg = unsafe { RegisterWindowMessageW(w!("TaskbarButtonCreated")) };
     if msg == 0 {
         return;
@@ -317,9 +322,13 @@ unsafe fn read(proxy: HWND, op: Op, wparam: WPARAM, lparam: LPARAM) {
     if pid == 0 {
         return;
     }
-    // Read before the lock: a shared block is mapped from another process.
+    // Read before the lock: a shared block is mapped from another process. Never for a sender below medium integrity, which
+    // could name a section of Crest's own and have it shown.
     let tip = match op {
-        Op::OverlayTip => Some(unsafe { shared_tip(lparam.0, [pid, std::process::id()]) }.unwrap_or_default()),
+        Op::OverlayTip if crate::notify_wire::pid_token(pid).is_some_and(|(_, level)| level >= 0x2000) => {
+            Some(unsafe { shared_tip(lparam.0, [std::process::id(), pid]) }.unwrap_or_default())
+        }
+        Op::OverlayTip => Some(String::new()),
         _ => None,
     };
     let icon = handle(lparam.0 as usize);
@@ -358,7 +367,8 @@ unsafe fn read(proxy: HWND, op: Op, wparam: WPARAM, lparam: LPARAM) {
     arm(proxy);
 }
 
-/// The string in a shared block, cut at `TIP_UNITS`: mapped for each process of `pids` in turn (the sender's, then Crest's),
+/// The string in a shared block, cut at `TIP_UNITS`: mapped for each process of `pids` in turn (Crest's, as the app makes the
+/// block for the process of the `TaskbandHWND` it found, then the sender's),
 /// the first that maps it wins. A view is at least a page, so the read stays inside it.
 unsafe fn shared_tip(block: isize, pids: [u32; 2]) -> Option<String> {
     if block == 0 {

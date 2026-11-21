@@ -38,6 +38,7 @@ export function startTaskbar() {
   let spread: string | null = null;
   let keys: boolean | null = null;
   let desktops: boolean | null = null;
+  let ends: boolean | null = null;
   let keysQueue = Promise.resolve();
   let queue = Promise.resolve();
   let seeded = false;
@@ -69,7 +70,7 @@ export function startTaskbar() {
       });
   };
   const sync = () => {
-    const { enabled, height, shape, pinned, autoHide, allScreens, appsOn, position, allDesktops } = settings.get().taskbar;
+    const { enabled, height, shape, pinned, autoHide, allScreens, appsOn, position, allDesktops, endTask } = settings.get().taskbar;
     const wantTray = trayOnBar(settings.get().taskbar.zones);
     // Outside the queue: a flag the display poll reads, which never waits for a bar to be built or taken down.
     if (autoHide !== hides) {
@@ -86,6 +87,11 @@ export function startTaskbar() {
       desktops = allDesktops;
       void taskbar.allDesktops(allDesktops).catch(() => {});
     }
+    // Likewise, whether Rust lets a bar end an app.
+    if (endTask !== ends) {
+      ends = endTask;
+      void taskbar.endTask(endTask).catch(() => {});
+    }
     // Likewise, whether a zone holds the tray: Rust runs the spy while it does and the bar is on, so the bar turned off stops the
     // spy in Rust after Windows' taskbar is back (mod.rs `stop`), and the tray taken off stops it here, giving Explorer every icon back.
     if (wantTray !== tray) {
@@ -97,14 +103,6 @@ export function startTaskbar() {
     if (wantStatus !== statusOn) {
       statusOn = wantStatus;
       void status.barOn(wantStatus).catch(() => {});
-    }
-    // Likewise, the bar's Windows keys, in a queue of their own so two changes never overlap (each may restart Explorer). The first
-    // sync sends the saved state, so a start after a crash with the switch or the bar off gives the keys back.
-    const wantKeys = keysWanted(settings.get().taskbar);
-    if (wantKeys !== keys) {
-      keys = wantKeys;
-      const send = () => taskbar.keys(wantKeys).then(() => {}, () => {});
-      keysQueue = keysQueue.then(send, send);
     }
     // One try per start: a failed read leaves the list to the next start, and an app pinned meanwhile is never overwritten.
     if (enabled && pinned === null && !seeded) {
@@ -130,12 +128,23 @@ export function startTaskbar() {
     // A docked bar takes no gaps off the work area; the other shapes differ only in the bar's page.
     const docked = shape === "docked";
     const key = `${enabled}|${height}|${docked}|${position}`;
-    if (key === last) return;
-    last = key;
-    // One change at a time, in their order: Rust finishes each (an Off once its window is gone) before the next is sent, after a
-    // failed one too.
-    const apply = () => taskbar.apply(enabled, height, docked, position);
-    queue = queue.then(apply, apply);
+    if (key !== last) {
+      last = key;
+      // One change at a time, in their order: Rust finishes each (an Off once its window is gone) before the next is sent, after a
+      // failed one too.
+      const apply = () => taskbar.apply(enabled, height, docked, position);
+      queue = queue.then(apply, apply);
+    }
+    // The bar's Windows keys, in a queue of their own so two changes never overlap (each may restart Explorer), and each only after
+    // the bar's changes sent so far: the bar turned off gives Windows' taskbar back before the keys' Explorer restart. The first
+    // sync sends the saved state, so a start after a crash with the switch or the bar off gives the keys back.
+    const wantKeys = keysWanted(settings.get().taskbar);
+    if (wantKeys !== keys) {
+      keys = wantKeys;
+      const send = () => taskbar.keys(wantKeys).then(() => {}, () => {});
+      const bar = queue;
+      keysQueue = keysQueue.then(() => bar).then(send, send);
+    }
   };
   sync();
   settings.subscribe(sync);

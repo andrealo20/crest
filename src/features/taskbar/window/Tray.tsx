@@ -106,6 +106,7 @@ export function Tray({
   onMenu: MouseEventHandler<HTMLButtonElement>;
 }) {
   useEffect(() => startTray(), []);
+  useEffect(() => trayLeave, []);
   const pictures = trayPictures.use();
   const open = panel.use();
   const toggle: MouseEventHandler<HTMLButtonElement> = (e) => {

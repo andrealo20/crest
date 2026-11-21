@@ -3,7 +3,8 @@
 //!
 //! Explorer holds those keys for its own taskbar. Crest adds their characters to Explorer's `DisabledHotkeys` value (under
 //! `HKCU\...\Explorer\Advanced`), which Microsoft does not document: Explorer reads it as it starts and leaves the keys alone.
-//! It is the second undocumented thing Crest writes into Explorer's world, after `RegisterShellHookWindow`. Before it writes the
+//! The others Crest relies on are the `TaskbandHWND` property on its tray spy (taskband.rs) and the `ITaskList_Deleted`
+//! property it reads on apps' windows (tasks.rs). Before it writes the
 //! value it writes a record, `taskbar-keys` beside `taskbar-hidden` (explorer.rs): whether the value existed and which characters
 //! Crest added, so only those go again. Then it restarts Explorer through the Restart Manager, as installers do, and registers
 //! the keys with `RegisterHotKey` through the global-shortcut plugin (shell.rs). No keyboard hook.
@@ -263,6 +264,11 @@ fn wait_for(old: u32, limit: Duration) -> bool {
 /// Restarts Explorer so it reads the value again. The taskbar thread hides the new taskbars again (`TaskbarCreated`, mod.rs).
 /// True once a new shell is there.
 pub(crate) fn restart_explorer() -> bool {
+    // An Explorer started from an elevated Crest would be an elevated shell, and every app started from it too.
+    if crate::notify_wire::own_token().is_none_or(|(_, level)| level >= 0x3000) {
+        eprintln!("taskbar: Crest runs as administrator, Explorer is not restarted");
+        return false;
+    }
     let pid = explorer::shell_pid();
     if pid != 0 && !shut_down(pid) {
         return false;
