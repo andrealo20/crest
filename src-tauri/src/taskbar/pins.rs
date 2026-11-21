@@ -76,12 +76,17 @@ fn favorites() -> Option<Vec<u8>> {
     Some(value)
 }
 
+/// Windows' `User Pinned\TaskBar` folder, where its taskbar keeps a shortcut for each pinned app.
+pub(super) fn taskbar_folder() -> Option<PathBuf> {
+    let dir = unsafe { SHGetKnownFolderPath(&FOLDERID_UserPinned, KF_FLAG_DEFAULT, None) }.ok().and_then(|p| unsafe { crate::controls::take(p) })?;
+    Some(Path::new(&dir).join("TaskBar"))
+}
+
 /// The shortcuts in `User Pinned\TaskBar` by file name, as the ids of their entries in the Start list: by the shortcut's
 /// AppUserModelID, else by the exe it starts with no arguments. A shortcut without an entry (a portable exe) is left out. None
 /// when the folder cannot be read.
 fn folder(apps: &[App]) -> Option<Vec<String>> {
-    let dir = unsafe { SHGetKnownFolderPath(&FOLDERID_UserPinned, KF_FLAG_DEFAULT, None) }.ok().and_then(|p| unsafe { crate::controls::take(p) });
-    let Some(Ok(files)) = dir.map(|dir| std::fs::read_dir(Path::new(&dir).join("TaskBar"))) else { return None };
+    let Some(Ok(files)) = taskbar_folder().map(std::fs::read_dir) else { return None };
     let mut links: Vec<PathBuf> = files.flatten().map(|f| f.path()).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk"))).collect();
     links.sort();
     let ids = links
@@ -143,7 +148,7 @@ fn remembered(last: Option<&[String]>, now: &[String], removed: &[String]) -> Ve
 }
 
 /// A path on another machine (`\\host\share\x.exe`, from a restored backup, say): probing it would open a connection there.
-fn remote(id: &str) -> bool {
+pub(super) fn remote(id: &str) -> bool {
     id.as_bytes().get(..2).is_some_and(|start| start.iter().all(|b| matches!(b, b'\\' | b'/')))
 }
 

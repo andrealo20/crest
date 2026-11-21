@@ -19,7 +19,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
 use windows::core::{Interface, GUID, HSTRING, PCWSTR, PWSTR};
-use windows::Win32::Foundation::{ERROR_MORE_DATA, ERROR_SUCCESS, HANDLE, PROPERTYKEY, SIZE};
+use windows::Win32::Foundation::{GetLastError, ERROR_CANCELLED, ERROR_MORE_DATA, ERROR_SUCCESS, HANDLE, PROPERTYKEY, SIZE};
 use windows::Win32::Graphics::Gdi::{
     CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW, MonitorFromWindow, BITMAP, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
     HBITMAP, MONITOR_DEFAULTTONEAREST,
@@ -48,11 +48,16 @@ const LINK_ARGUMENTS: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0x436f2
 pub struct App {
     pub(crate) id: String,
     pub(crate) name: String,
-    /// "start" or "apppaths".
+    /// "start", "apppaths" or "pinned" (the bar's own pins, taskbar/ownpins.rs).
     source: &'static str,
     /// The exe the entry starts with no arguments, which an open window of that exe matches (`entries_for`).
     #[serde(skip)]
     exe: Option<String>,
+}
+
+/// One of the bar's own pins as an entry: the notch's launcher shows none of this source (apps.ts `mergeApps`).
+pub(crate) fn pinned_app(id: String, name: String) -> App {
+    App { id, name, source: "pinned", exe: None }
 }
 
 /// An unknown id reads the list again at most this often.
@@ -92,7 +97,7 @@ fn list_apps() -> Result<Vec<App>, String> {
     Ok(apps)
 }
 
-unsafe fn display_name(item: &IShellItem, kind: SIGDN) -> Option<String> {
+pub(crate) unsafe fn display_name(item: &IShellItem, kind: SIGDN) -> Option<String> {
     let p: PWSTR = item.GetDisplayName(kind).ok()?;
     let s = p.to_string().ok();
     CoTaskMemFree(Some(p.0 as *const _));
@@ -214,8 +219,14 @@ pub(crate) fn read_lately(state: &LauncherState) -> bool {
     state.scanned.lock().unwrap().is_some_and(|t| t.elapsed() < RESCAN_GAP)
 }
 
-fn is_known(state: &LauncherState, id: &str) -> bool {
+/// In the Start list as last read.
+fn listed(state: &LauncherState, id: &str) -> bool {
     state.apps.lock().unwrap().as_ref().is_some_and(|apps| apps.iter().any(|a| a.id == id))
+}
+
+/// In the Start list, or one of the bar's own pins.
+fn is_known(state: &LauncherState, id: &str) -> bool {
+    listed(state, id) || crate::taskbar::ownpins::known(id)
 }
 
 /// Blocking work (the list takes a moment, a few hundred entries) off the async runtime.
@@ -239,7 +250,10 @@ pub async fn launcher_icons(ids: Vec<String>, app: AppHandle) -> Result<HashMap<
             ids.iter().filter(|id| !cache.contains_key(*id)).cloned().collect()
         };
         if !missing.is_empty() {
-            let fresh = on_sta(move || missing.into_iter().map(|id| (icon_png(&id), id)).map(|(icon, id)| (id, icon)).collect::<HashMap<_, _>>());
+            // An own pin is drawn from its exe or shortcut (`icon_source`), a listed entry from its id.
+            let sources: Vec<(Option<String>, String)> =
+                missing.into_iter().map(|id| (crate::taskbar::ownpins::icon_source(&id).or_else(|| listed(state, &id).then(|| id.clone())), id)).collect();
+            let fresh = on_sta(move || sources.into_iter().map(|(source, id)| (id, source.and_then(|s| icon_png(&s)))).collect::<HashMap<_, _>>());
             state.icons.lock().unwrap().extend(fresh.unwrap_or_default());
         }
         let cache = state.icons.lock().unwrap();
@@ -248,14 +262,15 @@ pub async fn launcher_icons(ids: Vec<String>, app: AppHandle) -> Result<HashMap<
     .await?
 }
 
-/// From a bar, the app opens on the bar's monitor; from the notch, where Windows puts it.
+/// From a bar, the app opens on the bar's monitor; from the notch, where Windows puts it. With `admin`, as administrator after
+/// Windows asks. Errors: not-found, cancelled (the prompt was declined), failed.
 #[tauri::command]
-pub async fn launcher_open(id: String, window: WebviewWindow, app: AppHandle) -> Result<(), String> {
+pub async fn launcher_open(id: String, admin: Option<bool>, window: WebviewWindow, app: AppHandle) -> Result<(), String> {
     let monitor = on_its_monitor(window.label())
         .then(|| window.hwnd().ok())
         .flatten()
         .map(|hwnd| unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) }.0 as isize);
-    blocking(app, move |state| open(state, id, monitor)).await?
+    blocking(app, move |state| open(state, id, admin == Some(true), monitor)).await?
 }
 
 /// The windows whose launches open on their own monitor: the bars, `taskbar` and `taskbar-<n>`.
@@ -263,35 +278,55 @@ fn on_its_monitor(label: &str) -> bool {
     label == "taskbar" || label.starts_with("taskbar-")
 }
 
-/// Starts a listed app, on `monitor` when one is given; an app that keeps its own place keeps it.
-fn open(state: &LauncherState, id: String, monitor: Option<isize>) -> Result<(), String> {
+/// Starts one of the bar's own pins as it is (`ownpins::launch_spec`), else a listed app, on `monitor` when one is given; an app
+/// that keeps its own place keeps it. With `admin`, verb `runas`: on the entry's exe when it has one, else on the id itself (a
+/// Store app has no `runas`, and nothing starts, as on Windows' taskbar).
+fn open(state: &LauncherState, id: String, admin: bool, monitor: Option<isize>) -> Result<(), String> {
+    let verb = admin.then_some("runas");
+    if let Some((file, params)) = crate::taskbar::ownpins::launch_spec(&id) {
+        return execute(&file, params.as_deref(), verb, monitor);
+    }
     apps(state, false)?;
     // Not in the cached list: it may be new since. Read the list again, at most once a minute.
-    if !is_known(state, &id) {
-        if read_lately(state) || apps(state, true).is_err() || !is_known(state, &id) {
+    if !listed(state, &id) {
+        if read_lately(state) || apps(state, true).is_err() || !listed(state, &id) {
             return Err("not-found".into());
         }
     }
+    let exe = admin.then(|| cached(state, |apps| apps.iter().find(|a| a.id == id).and_then(|a| a.exe.clone()))).flatten();
+    execute(exe.as_deref().unwrap_or(&id), None, verb, monitor)
+}
+
+/// Runs `file` with `params` and `verb` through the shell, on `monitor` when one is given. Errors: cancelled (a declined
+/// administrator prompt), failed.
+pub(crate) fn execute(file: &str, params: Option<&str>, verb: Option<&str>, monitor: Option<isize>) -> Result<(), String> {
+    let (file, params, verb) = (HSTRING::from(file), params.map(HSTRING::from), verb.map(HSTRING::from));
     let ok = on_sta(move || unsafe {
         // Lets an already running single-instance app (which only gets a message) take the foreground.
         let _ = AllowSetForegroundWindow(ASFW_ANY);
-        let file = HSTRING::from(id);
-        let Some(monitor) = monitor else {
-            return ShellExecuteW(None, PCWSTR::null(), &file, PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL).0 as isize > 32;
+        let text = |s: &Option<HSTRING>| s.as_ref().map_or(PCWSTR::null(), |s| PCWSTR(s.as_ptr()));
+        let ok = match monitor {
+            None => ShellExecuteW(None, text(&verb), &file, text(&params), PCWSTR::null(), SW_SHOWNORMAL).0 as isize > 32,
+            Some(monitor) => {
+                let mut info = SHELLEXECUTEINFOW {
+                    cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
+                    // NOASYNC: this thread ends right after, so the launch finishes before the call returns.
+                    fMask: SEE_MASK_NOASYNC | SEE_MASK_HMONITOR,
+                    lpVerb: text(&verb),
+                    lpFile: PCWSTR(file.as_ptr()),
+                    lpParameters: text(&params),
+                    nShow: SW_SHOWNORMAL.0,
+                    Anonymous: SHELLEXECUTEINFOW_0 { hMonitor: HANDLE(monitor as _) },
+                    ..Default::default()
+                };
+                ShellExecuteExW(&mut info).is_ok()
+            }
         };
-        let mut info = SHELLEXECUTEINFOW {
-            cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
-            // NOASYNC: this thread ends right after, so the launch finishes before the call returns.
-            fMask: SEE_MASK_NOASYNC | SEE_MASK_HMONITOR,
-            lpFile: PCWSTR(file.as_ptr()),
-            nShow: SW_SHOWNORMAL.0,
-            Anonymous: SHELLEXECUTEINFOW_0 { hMonitor: HANDLE(monitor as _) },
-            ..Default::default()
-        };
-        ShellExecuteExW(&mut info).is_ok()
+        // Read at once, before another call can set it again.
+        ok.then_some(()).ok_or_else(|| GetLastError() == ERROR_CANCELLED)
     })
-    .unwrap_or(false);
-    if ok { Ok(()) } else { Err("failed".into()) }
+    .unwrap_or(Err(false));
+    ok.map_err(|cancelled| if cancelled { "cancelled" } else { "failed" }.into())
 }
 
 /// Registers Alt+1.. for these ids (slot = index, at most six) through the shell's shortcut registry,
@@ -307,7 +342,7 @@ pub fn launch_from_key(app: &AppHandle, id: String) {
     let app = app.clone();
     // Off the main thread: the first launch may have to read the app list.
     std::thread::spawn(move || {
-        if let Err(code) = open(&app.state::<LauncherState>(), id.clone(), None) {
+        if let Err(code) = open(&app.state::<LauncherState>(), id.clone(), false, None) {
             // The frontend names the app; open the notch so the message is seen.
             let _ = app.emit("launcher://missing", serde_json::json!({ "id": id, "code": code }));
             crate::shell::open(&app, Some("launcher"));
@@ -413,6 +448,24 @@ mod tests {
         assert_eq!(ids(entries_for(&apps, None, r"c:\users\u\code.exe")), ["shell:AppsFolder\\VSCode", r"C:\Users\u\Code.exe"]);
         assert_eq!(ids(entries_for(&apps, Some("Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"), "")), ["shell:AppsFolder\\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"]);
         assert!(entries_for(&apps, None, r"C:\tools\portable.exe").is_empty());
+    }
+
+    #[test]
+    fn only_listed_ids_and_own_pins_launch() {
+        let state = LauncherState::default();
+        let here = std::env::current_exe().unwrap().to_string_lossy().into_owned();
+        let gone = r"C:\Crest\Test\gone.exe";
+        let pin = |path: &str| serde_json::json!({ "id": path, "name": "Pin", "kind": "exe", "path": path });
+        crate::taskbar::ownpins::set_saved(&serde_json::json!([pin(&here), pin(gone)]).to_string());
+        assert!(is_known(&state, &here) && is_known(&state, gone));
+        assert_eq!(crate::taskbar::ownpins::launch_spec(&here), Some((here.clone(), None)));
+        // A pin whose exe is gone falls through to the Start list, which does not have it.
+        assert_eq!(crate::taskbar::ownpins::launch_spec(gone), None);
+        assert!(open(&state, gone.into(), false, None).is_err());
+        // Neither list knows it.
+        assert!(!is_known(&state, r"C:\Crest\Test\other.exe"));
+        assert!(open(&state, r"C:\Crest\Test\other.exe".into(), false, None).is_err());
+        crate::taskbar::ownpins::set_saved("[]");
     }
 
     #[test]

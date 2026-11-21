@@ -770,6 +770,9 @@ pub fn run() {
             // bar's first hide, which runs it first when it comes earlier.
             #[cfg(windows)]
             std::thread::spawn(taskbar::explorer::restore_at_start);
+            // The bar's own pins, for a launch or the settings window's icons while the bar is off.
+            #[cfg(windows)]
+            taskbar::ownpins::load(app.handle());
 
             enable_autostart_once(app.handle());
             build_tray(app)?;
