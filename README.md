@@ -49,9 +49,7 @@ A notch at the edge of your Windows or Mac screen that opens on hover, click or 
 
 The video above shows them in under two minutes, and [the demo on the project page](https://crestisland.app/) lets you try every tool in your browser before you install anything.
 
-<p align="center"><img src="docs/media/features/closed-capsule.png" alt="The closed capsule at the top of the screen: the cover of the song playing, a focus timer, the AI quota ring, CPU, RAM and GPU load, the clock and the weather" width="760" /></p>
-
-<p align="center"><img src="docs/media/features/taskbar.png" alt="Crest's taskbar in Liquid Glass + at the bottom of the screen: CPU, RAM and GPU load, the weather, GitHub, downloads and the AI quota rings on the left, Start and the apps in the middle, two tool buttons, the tray, Wi-Fi, volume and battery and the clock with the date on the right" width="960" /></p>
+<p align="center"><img src="docs/media/features/desktop.png" alt="Crest on a Windows desktop: the notch open on Hardware, with CPU, GPU, RAM, the drive, network, power, battery, ping and the busiest processes, in the Material style with Liquid Glass, and Crest's taskbar along the bottom with its widgets, Start and the apps in the middle, the tray and the clock" width="960" /></p>
 
 Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, RAM and GPU, the network, the battery, the clock, the weather, the next meeting. When something happens it turns into a card for a few seconds, then goes back. On Windows the taskbar can stand in for the Windows one: Start and your apps in the middle, live previews of their windows, and the same readings and tools as widgets around them (not in the Microsoft Store version for now).
 

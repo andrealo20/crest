@@ -49,9 +49,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 
 上面的视频用不到两分钟展示了它们，[项目主页上的演示](https://crestisland.app/)让你在安装之前就能在浏览器里试用每一个工具。
 
-<p align="center"><img src="docs/media/features/closed-capsule.png" alt="屏幕顶部收起的胶囊：正在播放的歌曲封面、专注计时器、AI 额度环、CPU、内存和 GPU 负载、时钟和天气" width="760" /></p>
-
-<p align="center"><img src="docs/media/features/taskbar.png" alt="屏幕底部 Liquid Glass + 样式的 Crest 任务栏：左边是 CPU、内存和 GPU 负载、天气、GitHub、下载和 AI 额度环，中间是开始按钮和应用，右边是两个工具按钮、通知区域、Wi-Fi、音量和电池，以及带日期的时钟" width="960" /></p>
+<p align="center"><img src="docs/media/features/desktop.png" alt="Windows 桌面上的 Crest：刘海展开在硬件页面，显示 CPU、GPU、内存、磁盘、网络、功耗、电池、延迟和占用最多的进程，采用 Material 样式和 Liquid Glass；屏幕底部是 Crest 的任务栏，带有小组件，中间是开始按钮和应用，右边是通知区域和时钟" width="960" /></p>
 
 收起时，Crest 只是一行：歌曲、正在运行的计时器、你的 AI 额度、CPU、内存和 GPU、网络、电池、时钟、天气、下一个会议。有事发生时，它会变成一张卡片停留几秒，然后恢复原样。在 Windows 上，它的任务栏可以代替系统任务栏：开始按钮和应用在中间，可以看到各个窗口的实时预览，同样的读数和工具作为小组件排在两侧（微软商店版暂不提供）。
 
