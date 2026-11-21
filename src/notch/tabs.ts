@@ -32,6 +32,8 @@ import type { Hue } from "../features/themes/hues";
 import { DiscordLogo, LeetcodeLogo } from "../ui/brands";
 import { OverviewView } from "../features/overview/OverviewView";
 import { NowPlayingView } from "../features/now-playing/NowPlayingView";
+import { MIN_HEIGHT as MUSIC_MIN_H } from "../features/now-playing/coverSize";
+import type { ToolSize } from "../features/window/panelSize";
 import { TimerView } from "../features/timer/TimerView";
 import { TodosView } from "../features/todos/TodosView";
 import { NotesView } from "../features/notes/NotesView";
@@ -96,7 +98,7 @@ export interface NotchTab {
   icon: Icon;
   /** Its colour in the tool bar while coloured icons are on (Settings, Themes); plugins have none. */
   hue?: Hue;
-  size: { w: number; h: number };
+  size: ToolSize;
   View: ComponentType;
 }
 
@@ -113,7 +115,7 @@ export const tabs: NotchTab[] = ([
     },
     View: OverviewView,
   },
-  { id: "media", hue: "pink", label: "Wiedergabe", icon: MusicNotesSimple, size: { w: 520, h: 232 }, View: NowPlayingView },
+  { id: "media", hue: "pink", label: "Wiedergabe", icon: MusicNotesSimple, size: { w: 520, h: 232, minH: MUSIC_MIN_H }, View: NowPlayingView },
   { id: "timer", hue: "orange", label: "Timer", icon: Timer, size: { w: 520, h: 192 }, View: TimerView },
   { id: "todos", hue: "green", label: "To-Dos", icon: CheckCircle, size: { w: 600, h: 276 }, View: TodosView },
   { id: "notes", hue: "yellow", label: "Notiz", icon: NotePencil, size: { w: 520, h: 260 }, View: NotesView },
