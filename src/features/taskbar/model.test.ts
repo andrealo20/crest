@@ -161,6 +161,18 @@ test("pinned apps come first and own their open windows", () => {
   assert.deepEqual(barButtons(null, groups).map((x) => x.key), ["chrome", "c:\\users\\u\\code.exe", "window:9"]);
 });
 
+test("Windows' buttons stay where they were put, once each, and an unknown one is dropped", () => {
+  const z = normalizeZones({ left: ["sys:search", "sys:nope"], center: ["start", "apps", "sys:search"], right: ["sys:desktop", "crest"] });
+  assert.deepEqual(z, { left: ["sys:search"], center: ["start", "apps"], right: ["sys:desktop", "crest"] });
+  assert.equal(Object.values(TASKBAR_DEFAULTS.zones).flat().some((id) => id.startsWith("sys:")), false); // opt-in: an update adds none
+});
+
+test("a double click on the empty bar does nothing at first, and junk is repaired", () => {
+  assert.equal(normalizeTaskbar({}).emptyDouble, "none");
+  for (const v of ["desktop", "taskmgr"]) assert.equal(normalizeTaskbar({ emptyDouble: v }).emptyDouble, v);
+  for (const v of ["x", 1, null, true]) assert.equal(normalizeTaskbar({ emptyDouble: v }).emptyDouble, "none");
+});
+
 test("the combine setting is repaired and defaults to one button per app", () => {
   assert.equal(normalizeTaskbar({}).combine, "always");
   for (const c of ["never", "full"]) assert.equal(normalizeTaskbar({ combine: c }).combine, c);

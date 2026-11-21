@@ -8,14 +8,15 @@ import { isZone } from "../clocks/zones";
 import { Select, SubSwitch } from "../../ui/controls";
 import { setMusic } from "../now-playing/music";
 import { shownIds } from "../usage/cards";
-import { TOOL_BUTTONS, type ToolItem, type Zone } from "./model";
+import { TOOL_BUTTONS, type SysItem, type ToolItem, type Zone } from "./model";
 import { setTaskbar } from "./store";
 import { toolInfo } from "./toolInfo";
-import { addableTools, addWidget, barWidgets, clockHasSeconds, isTool, isWidget, removeWidget, toolOf, toolShown, type Removable } from "./widgets";
+import { addableSys, addableTools, addWidget, barWidgets, clockHasSeconds, isSys, isTool, isWidget, removeWidget, sysOf, toolOf, toolShown, type Removable } from "./widgets";
+import { SYS_INFO } from "./window/SysItems";
 
 /*
  * The widgets' pieces of Settings → Taskbar → Items (TaskbarItems draws the rows): a widget's or a tool button's options in its row
- * and each zone's Add widget and Add tool. Only the clock's switches are the bar's own; the others are the closed notch's settings,
+ * and each zone's Add widget, Add tool and Add Windows button. Only the clock's switches are the bar's own; the others are the closed notch's settings,
  * as its parts page sets them.
  */
 
@@ -91,7 +92,7 @@ export function WidgetOptions({ id }: { id: Removable }) {
 export function AddWidget({ zone }: { zone: Zone }) {
   const zones = settings.use().taskbar.zones;
   const on = barWidgets(zones);
-  const off: Exclude<Removable, ToolItem>[] = PART_IDS.filter((id) => !on.includes(id));
+  const off: Exclude<Removable, ToolItem | SysItem>[] = PART_IDS.filter((id) => !on.includes(id));
   for (const id of ["tray", "status"] as const) if (!Object.values(zones).some((items) => items.includes(id))) off.push(id);
   if (!off.length) return null;
   return (
@@ -136,6 +137,32 @@ export function AddTool({ zone }: { zone: Zone }) {
           <>
             <Plus size={13} weight="bold" />
             <span>{t("Tool hinzufügen")}</span>
+          </>
+        ),
+      }}
+    />
+  );
+}
+
+/** A zone's Add Windows button: Search, Task view, Windows widgets and Show desktop, those not on the bar (widgets.ts addableSys); the one picked goes where Add widget puts a widget. */
+export function AddSys({ zone }: { zone: Zone }) {
+  const offered = addableSys(settings.use().taskbar.zones);
+  if (!offered.length) return null;
+  return (
+    <Select<string>
+      width="shrink-0"
+      value=""
+      menuMax={480}
+      options={offered.map((id) => ({ value: id, label: t(SYS_INFO[sysOf(id)].label) }))}
+      onChange={(id) => isSys(id) && setTaskbar((cur) => ({ zones: addWidget(cur.zones, id, zone) }))}
+      trigger={{
+        label: t("Windows-Schaltfläche hinzufügen"),
+        menuWidth: 220,
+        className: "pressable pressable-fill flex h-7 items-center gap-1.5 rounded-full bg-fill-2 px-2.5 text-footnote font-medium text-label",
+        content: (
+          <>
+            <Plus size={13} weight="bold" />
+            <span>{t("Windows-Schaltfläche hinzufügen")}</span>
           </>
         ),
       }}

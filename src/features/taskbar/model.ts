@@ -10,8 +10,13 @@ import { dropSlot } from "./panelModel.ts";
 export type Zone = "left" | "center" | "right";
 /** A button that opens a tool, by the id the notch opens it with: `tool:notes`. The prefix keeps it apart from a part of the same id. */
 export type ToolItem = `tool:${string}`;
-/** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button, the notification area ("tray"), Stato (network, volume and battery, "status"), the closed notch's parts as widgets and buttons that open a tool (`tool:<id>`). */
-export type BarItem = "start" | "apps" | "crest" | "tray" | "status" | PartId | ToolItem;
+/** Windows' own buttons the bar can hold: Search, Task view, Windows widgets and Show desktop. Not in the default zones: an update changes no bar. */
+export const SYS_IDS = ["search", "taskview", "widgets", "desktop"] as const;
+export type SysId = (typeof SYS_IDS)[number];
+/** A Windows button, by its id: `sys:search`. */
+export type SysItem = `sys:${SysId}`;
+/** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button, the notification area ("tray"), Stato (network, volume and battery, "status"), the closed notch's parts as widgets, buttons that open a tool (`tool:<id>`) and Windows' own buttons (`sys:<id>`). */
+export type BarItem = "start" | "apps" | "crest" | "tray" | "status" | PartId | ToolItem | SysItem;
 /** The items every bar has: one missing from the zones is put back in its default place. The tray, Stato and the widgets can be taken off. */
 export const FIXED_ITEMS = ["start", "apps", "crest"] as const;
 /** The bar's shape: along the screen's edge with no gaps, floating above it, a capsule, or a tile per item. */
@@ -19,6 +24,9 @@ export type BarShape = "docked" | "floating" | "capsule" | "tiles";
 /** How the apps' buttons combine, as Windows' "Combine taskbar buttons and hide labels": one per app with no label, one per window with its title while they fit, or one per window always. */
 export type Combine = "always" | "full" | "never";
 const COMBINES: Combine[] = ["always", "full", "never"];
+/** What a double click on the bar's empty space does: nothing, Show desktop, or Task Manager. */
+export type EmptyDouble = "none" | "desktop" | "taskmgr";
+const EMPTY_DOUBLES: EmptyDouble[] = ["none", "desktop", "taskmgr"];
 
 /**
  * The bar: on or off, the items in each zone, the bar's height and its icons' size in CSS px, its background (the closed
@@ -55,6 +63,8 @@ export interface TaskbarSettings {
   endTask: boolean;
   /** One button per app ("always", Windows' default), one per window while titles fit ("full"), or one per window ("never"); the same on every bar. */
   combine: Combine;
+  /** A double click on the bar beside its buttons, or in the gap under it. */
+  emptyDouble: EmptyDouble;
 }
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
@@ -79,6 +89,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   trayHidden: [],
   endTask: false,
   combine: "always",
+  emptyDouble: "none",
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -102,7 +113,7 @@ const WIDGET_TOOLS: readonly string[] = PART_IDS.filter((p) => partTool(p) === p
 /** The tools a button on the bar can open: Crest's tools but those, then Find on screen, a page (tabs.ts findOnScreenTab). */
 export const TOOL_BUTTONS: readonly string[] = [...TOOL_IDS.filter((id) => !WIDGET_TOOLS.includes(id)), "find"];
 /** Every item a zone may hold. */
-const ITEMS: string[] = [...FIXED_ITEMS, "tray", "status", ...PART_IDS, ...TOOL_BUTTONS.map((id) => `tool:${id}`)];
+const ITEMS: string[] = [...FIXED_ITEMS, "tray", "status", ...PART_IDS, ...TOOL_BUTTONS.map((id) => `tool:${id}`), ...SYS_IDS.map((id) => `sys:${id}`)];
 
 /** The versions a widget offers on the bar, today's first; the id stays bare in the zones, so the fit, the sources and `barParts` do not change. */
 export type WidgetVariants = { weather: "temp" | "icon" | "condition" | "hours"; clock: "digital" | "analog" | "zones"; readings: "dials" | "bars" | "line"; timer: "countdown" | "ring" };
@@ -158,6 +169,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     trayHidden: Array.isArray(s.trayHidden) ? [...new Set(s.trayHidden.filter((x): x is string => typeof x === "string"))] : [],
     endTask: s.endTask === true,
     combine: COMBINES.includes(s.combine as Combine) ? (s.combine as Combine) : d.combine,
+    emptyDouble: EMPTY_DOUBLES.includes(s.emptyDouble as EmptyDouble) ? (s.emptyDouble as EmptyDouble) : d.emptyDouble,
   };
 }
 
@@ -182,7 +194,7 @@ export const trayWanted = (t: TaskbarSettings): boolean => t.enabled && trayOnBa
 export const statusWanted = (t: TaskbarSettings): boolean => t.enabled && ZONES.some((z) => t.zones[z].includes("status"));
 
 /**
- * Each fixed item in exactly one zone and each widget in one at most: unknown ids dropped (a tool button for a tool the bar does not offer too), a duplicate kept at its first place
+ * Each fixed item in exactly one zone and each widget, tool or Windows button in one at most: unknown ids dropped (a tool button for a tool the bar does not offer too), a duplicate kept at its first place
  * reading left, center, right, and a missing fixed item back in its default zone at its default index (the end when the zone is
  * shorter). A missing widget, tray or Stato is off the bar; `seed` puts the default widgets back the same way (the tray and Stato come with normalizeTaskbar).
  */

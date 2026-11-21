@@ -4,7 +4,7 @@ import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 import { DEFAULT_OFF, TOOL_IDS } from "../../settings/tools.ts";
 import { TASKBAR_DEFAULTS, TOOL_BUTTONS, type BarItem, type Zone } from "./model.ts";
 import { statusPill } from "./statusModel.ts";
-import { SLIDE_KEEP_MS, addWidget, addableTools, applyChoice, chosenChoice, clockHasSeconds, barPartsFor, barSources, barWidgets, isTool, isWidget, pillWidget, previewInk, removeWidget, shownZones, sourcesAfter, toolOf, toolShown, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
+import { SLIDE_KEEP_MS, addWidget, addableSys, addableTools, applyChoice, chosenChoice, clockHasSeconds, barPartsFor, barSources, barWidgets, isSys, isTool, isWidget, pillWidget, previewInk, removeWidget, shownZones, sourcesAfter, sysPrimaryOnly, toolOf, toolShown, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
 
 test("a widget's preview wears the bar's ink: Dark's under Liquid Glass + whatever the surface, the closed notch's on Notch, the theme's otherwise", () => {
   const dark = { "--color-label": "white", "--theme-accent": "blue" }, closed = { "--color-label": "white", "--accent": "red" };
@@ -74,6 +74,18 @@ test("the tray can be added back like a widget", () => {
   const zones: Record<Zone, BarItem[]> = { left: [], center: ["start", "apps"], right: ["clock", "crest"] };
   assert.deepEqual(addWidget(zones, "tray", "right").right, ["clock", "tray", "crest"]);
   assert.equal(addWidget(TASKBAR_DEFAULTS.zones, "tray", "left"), TASKBAR_DEFAULTS.zones);
+});
+
+test("Windows' buttons are the four the bar knows, Windows widgets on the main bar only, offered while off the bar", () => {
+  assert.equal(isSys("sys:search"), true);
+  assert.equal(isSys("sys:nope"), false);
+  assert.equal(isSys("search"), false);
+  assert.equal(isSys("tool:notes"), false);
+  assert.deepEqual((["sys:search", "sys:taskview", "sys:widgets", "sys:desktop"] as const).filter(sysPrimaryOnly), ["sys:widgets"]);
+  const zones: Record<Zone, BarItem[]> = { left: ["sys:taskview"], center: ["start", "apps"], right: ["crest"] };
+  assert.deepEqual(addableSys(zones), ["sys:search", "sys:widgets", "sys:desktop"]);
+  assert.deepEqual(addWidget(zones, "sys:desktop", "right").right, ["sys:desktop", "crest"]);
+  assert.deepEqual(addableSys({ left: ["sys:search", "sys:taskview", "sys:widgets"], center: ["sys:desktop"], right: [] }), []);
 });
 
 test("Stato can be added back like the tray", () => {

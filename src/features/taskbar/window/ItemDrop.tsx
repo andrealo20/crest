@@ -6,7 +6,8 @@ import { dropPlace, moveBefore, type BarItem, type DropSlot, type Zone, type Zon
 import { itemDrag } from "../panel";
 import { setTaskbar } from "../store";
 import { toolInfo } from "../toolInfo";
-import { isTool, isWidget, toolOf } from "../widgets";
+import { isSys, isTool, isWidget, sysOf, toolOf } from "../widgets";
+import { SYS_INFO } from "./SysItems";
 
 const ZONES: Zone[] = ["left", "center", "right"];
 
@@ -36,10 +37,10 @@ function placeAt(bar: HTMLElement | null, d: { id: BarItem; x: number; y: number
   return at && { ...at, top: r.top + r.height / 2 };
 }
 
-/** What the ghost shows: the widget's or the tool's icon, Stato's Wi-Fi glyph. */
+/** What the ghost shows: the widget's, the tool's or the Windows button's icon, Stato's Wi-Fi glyph. */
 function Ghost({ id, size }: { id: BarItem; size: number }) {
   if (id === "status") return <NetGlyph glyph="wifi-3" size={size} />;
-  const I = isWidget(id) ? partInfo[id].icon : isTool(id) ? toolInfo[toolOf(id)]?.icon : undefined;
+  const I = isWidget(id) ? partInfo[id].icon : isTool(id) ? toolInfo[toolOf(id)]?.icon : isSys(id) ? SYS_INFO[sysOf(id)].icon : undefined;
   return I ? <I size={size} weight="regular" /> : null;
 }
 

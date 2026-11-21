@@ -162,7 +162,8 @@ const SETTINGS_DENIED: &[&str] = &[
 /// a new instance or File Explorer from one (taskbar/ownpins.rs), opening the notch and the settings, the Crest menu, its own
 /// glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
 /// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
-/// (`taskbar_slid`), Windows' Start, its Win+X menu, its quick settings and Task Manager (`taskbar_shell`), four of its settings pages
+/// (`taskbar_slid`), Windows' Start, its Win+X menu, its quick settings, Task Manager, Search, Task view, its widgets and Show
+/// desktop (`taskbar_shell`), four of its settings pages
 /// (`taskbar_settings`), the tray's icons with their pictures and clicks, the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
 /// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), and what the notch's
 /// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
@@ -1286,7 +1287,7 @@ mod tests {
         assert!(!ok("taskbar", "taskbar_slide_blocked") && ok("settings", "taskbar_slide_blocked"));
         // The settings' line on a docked bar another program keeps from reserving; the bar has no use for it.
         assert!(ok("settings", "taskbar_reserve_reachable") && !ok("taskbar", "taskbar_reserve_reachable"));
-        // The Start button opens Windows' Start and its Win+X menu; no other window has the button.
+        // The Start button opens Windows' Start and its Win+X menu, the Windows buttons Search, Task view, the widgets and Show desktop; no other window has them.
         assert!(ok("taskbar", "taskbar_shell") && ok("taskbar-1", "taskbar_shell") && !ok("settings", "taskbar_shell"));
         // The quick panel's Wi-Fi and Bluetooth pages, on every bar, never in the settings window; the commands refuse any window but a bar's, the notch too.
         assert!(["taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));

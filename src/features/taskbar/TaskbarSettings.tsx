@@ -22,11 +22,12 @@ import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
-import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type BarShape, type Combine, type ToolItem, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type BarShape, type Combine, type EmptyDouble, type SysItem, type ToolItem, type Zone } from "./model";
 import { demoBarOffered, setTaskbar } from "./store";
-import { AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
+import { AddSys, AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
 import { toolInfo } from "./toolInfo";
-import { addWidget, isTool, isWidget, removeWidget, shownZones, toolOf } from "./widgets";
+import { addWidget, isSys, isTool, isWidget, removeWidget, shownZones, sysOf, toolOf } from "./widgets";
+import { SYS_INFO } from "./window/SysItems";
 
 /*
  * Settings → Taskbar: the pages of Crest's bar, behind the settings window's Notch | Taskbar switch (SettingsView lists them). They
@@ -45,14 +46,15 @@ export function useTaskbarShown(): boolean {
 /** The bar's zones, physical: left stays left in a right-to-left language. */
 const ZONES: Zone[] = ["left", "center", "right"];
 const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte", right: "Rechte Seite" };
-/** What the bar draws for each fixed item: Windows' Start button, the apps' buttons, the button of the Crest menu, the notification area and Stato. A widget has its part's name. */
-const ITEM_LABEL: Record<Exclude<BarItem, PartId | ToolItem>, string> = { start: "Startmenü", apps: "Apps und Fenster", crest: "Crest-Menü", tray: "Infobereich", status: "Status" };
+/** What the bar draws for each fixed item: Windows' Start button, the apps' buttons, the button of the Crest menu, the notification area and Stato. A widget has its part's name, a tool button its tool's, a Windows button its own (SysItems.tsx SYS_INFO). */
+const ITEM_LABEL: Record<Exclude<BarItem, PartId | ToolItem | SysItem>, string> = { start: "Startmenü", apps: "Apps und Fenster", crest: "Crest-Menü", tray: "Infobereich", status: "Status" };
 const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "Schwebend", capsule: "Kapsel", tiles: "Kacheln" };
 const COMBINE_LABEL: Record<Combine, string> = { always: "Immer", full: "Wenn die Taskleiste voll ist", never: "Nie" };
+const EMPTY_DOUBLE_LABEL: Record<EmptyDouble, string> = { none: "Nichts", desktop: "Desktop anzeigen", taskmgr: "Task-Manager" };
 
-/** Taskbar → General: the bar on or off, whether it slides away when a window touches it, and where the system icons it leaves out are. */
+/** Taskbar → General: the bar on or off, whether it slides away when a window touches it, what a double click beside its buttons does, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
-  const { enabled, autoHide, shape } = settings.use().taskbar;
+  const { enabled, autoHide, shape, emptyDouble } = settings.use().taskbar;
   // Bars that stay up with auto-hide on (Rust front.rs `stays_up`), read as the page opens and when the switch changes.
   const [blocked, setBlocked] = useState(0);
   useEffect(() => void taskbar.slideBlocked().then(setBlocked, () => {}), [autoHide]);
@@ -91,6 +93,14 @@ export function TaskbarGeneral() {
       >
         <Switch label={t("Automatisch ausblenden")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
       </Row>
+      <Row icon="mouse" label={<span className="whitespace-normal">{t("Doppelklick auf eine freie Stelle")}</span>}>
+        <Select
+          width="w-44"
+          value={emptyDouble}
+          options={(Object.keys(EMPTY_DOUBLE_LABEL) as EmptyDouble[]).map((v) => ({ value: v, label: t(EMPTY_DOUBLE_LABEL[v]) }))}
+          onChange={(emptyDouble) => setTaskbar({ emptyDouble })}
+        />
+      </Row>
       {/* A sentence, not a setting's name: it wraps instead of being cut. Width 0 under Material keeps it beside its icon, as the hints. */}
       <Row icon="keyboard" label={<span className="whitespace-normal roomy:block roomy:w-0 roomy:min-w-full">{t("Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N")}</span>} />
     </Group>
@@ -127,6 +137,7 @@ export function TaskbarItems() {
             <div className="flex flex-wrap justify-end gap-2">
               <AddWidget zone={zone} />
               <AddTool zone={zone} />
+              <AddSys zone={zone} />
             </div>
           </Row>
           <Reorder.Group
@@ -153,10 +164,10 @@ export function TaskbarItems() {
                 <ItemIcon id={id} />
                 {/* From its own width, so a narrow page shrinks it along with a widget's options instead of first. */}
                 <div className="min-w-0 flex-auto select-none">
-                  <div className="truncate text-body text-label">{t(isWidget(id) ? partInfo[id].label : isTool(id) ? toolInfo[toolOf(id)].label : ITEM_LABEL[id])}</div>
+                  <div className="truncate text-body text-label">{t(isWidget(id) ? partInfo[id].label : isTool(id) ? toolInfo[toolOf(id)].label : isSys(id) ? SYS_INFO[sysOf(id)].label : ITEM_LABEL[id])}</div>
                   {id === "start" && <div className="text-caption text-label-3">{t("Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste")}</div>}
                 </div>
-                {(isWidget(id) || isTool(id) || id === "tray" || id === "status") && <WidgetOptions id={id} />}
+                {(isWidget(id) || isTool(id) || isSys(id) || id === "tray" || id === "status") && <WidgetOptions id={id} />}
                 <div data-steps={id} onPointerDown={(e) => e.stopPropagation()} className="flex items-center">
                   <MoveButton label={t("Nach oben")} disabled={i === 0} onClick={() => step(id, zones[zone], -1)}>
                     <CaretUp size={12} weight="bold" />
@@ -171,7 +182,7 @@ export function TaskbarItems() {
                     width="w-36"
                     value={zone}
                     options={options}
-                    onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: isWidget(id) || isTool(id) || id === "tray" || id === "status" ? addWidget(removeWidget(cur.zones, id), id, to) : moveItem(cur.zones, id, to) }))}
+                    onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: isWidget(id) || isTool(id) || isSys(id) || id === "tray" || id === "status" ? addWidget(removeWidget(cur.zones, id), id, to) : moveItem(cur.zones, id, to) }))}
                   />
                 </div>
               </Reorder.Item>
@@ -186,7 +197,7 @@ export function TaskbarItems() {
   );
 }
 
-/** An item's icon: Crest's mark, Windows' mark, the apps' window, the tray's ^, Stato's Wi-Fi, a widget's part as the settings show it or a tool's icon. A new fixed item does not compile without one. */
+/** An item's icon: Crest's mark, Windows' mark, the apps' window, the tray's ^, Stato's Wi-Fi, a widget's part as the settings show it, a tool's or a Windows button's icon. A new fixed item does not compile without one. */
 function ItemIcon({ id }: { id: BarItem }) {
   if (isWidget(id)) {
     const I = partInfo[id].icon;
@@ -194,6 +205,10 @@ function ItemIcon({ id }: { id: BarItem }) {
   }
   if (isTool(id)) {
     const I = toolInfo[toolOf(id)].icon;
+    return <I size={15} weight="bold" className="shrink-0 text-label-2" />;
+  }
+  if (isSys(id)) {
+    const I = SYS_INFO[sysOf(id)].icon;
     return <I size={15} weight="bold" className="shrink-0 text-label-2" />;
   }
   if (id === "start") return <WindowsMark size={15} className="shrink-0 text-label-2" />;

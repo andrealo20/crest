@@ -1,4 +1,5 @@
-//! Windows' own Start and its Win+X menu, opened from the bar's Start button (Windows only).
+//! Windows' own Start and its Win+X menu, opened from the bar's Start button, and Windows' Search, Task view, widgets and Show
+//! desktop from the bar's Windows buttons (Windows only).
 //!
 //! The button sends the Windows key, or Win+X for a right click, once Explorer's process may take the front: no taskbar window
 //! is looked for, so it works with Windows' taskbar hidden, and Windows picks where Start opens. A click on the bar brings the
@@ -22,10 +23,12 @@ use windows::Win32::Graphics::Gdi::HMONITOR;
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
 use windows::Win32::System::Threading::{CreateEventW, SetEvent, WaitForMultipleObjects, INFINITE};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_A, VK_LWIN, VK_X,
+    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_A, VK_LWIN, VK_S, VK_TAB, VK_W,
+    VK_X,
 };
 use windows::Win32::UI::Shell::{
-    AppVisibility, IAppVisibility, IAppVisibilityEvents, IAppVisibilityEvents_Impl, ShellExecuteW, MONITOR_APP_VISIBILITY,
+    AppVisibility, IAppVisibility, IAppVisibilityEvents, IAppVisibilityEvents_Impl, IShellDispatch4, Shell, ShellExecuteW,
+    MONITOR_APP_VISIBILITY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{AllowSetForegroundWindow, ASFW_ANY, SW_SHOWNORMAL};
 
@@ -205,7 +208,9 @@ fn task_manager_path(root: Option<std::ffi::OsString>) -> PathBuf {
 
 /// The Start button: "start" opens Windows' Start, unless that click hid it (`start_click`): then the keyboard goes back to
 /// the app (tasks.rs `release`), the click being handled. "winx" opens its Win+X menu, "quick" its quick settings (Win+A),
-/// "taskmgr" Task Manager. Sync, on the main thread: nothing waits; Task Manager starts on a thread of its own.
+/// "taskmgr" Task Manager. The Windows buttons: "search" Search (Win+S), "taskview" Task view (Win+Tab), "widgets" Windows'
+/// widgets (Win+W), "desktop" shows or hides the desktop (`IShellDispatch4::ToggleDesktop`). Sync, on the main thread:
+/// nothing waits; Task Manager and Show desktop run on a thread of their own.
 #[tauri::command]
 pub fn taskbar_shell(action: String) -> Result<(), String> {
     let vks: &[VIRTUAL_KEY] = match action.as_str() {
@@ -222,6 +227,19 @@ pub fn taskbar_shell(action: String) -> Result<(), String> {
             });
             return Ok(());
         }
+        "desktop" => {
+            // The Shell object is COM, and Explorer shows the desktop: on a thread of its own, Explorer let take the front.
+            // Nothing reports back, as for Task Manager.
+            std::thread::spawn(|| {
+                launcher::on_sta(|| unsafe {
+                    if let Ok(shell) = CoCreateInstance::<_, IShellDispatch4>(&Shell, None, CLSCTX_INPROC_SERVER) {
+                        let _ = AllowSetForegroundWindow(ASFW_ANY);
+                        let _ = shell.ToggleDesktop();
+                    }
+                })
+            });
+            return Ok(());
+        }
         "start" if start_click(open(), closed_ms_ago()) == Click::Close => {
             tasks::release();
             return Ok(());
@@ -229,10 +247,13 @@ pub fn taskbar_shell(action: String) -> Result<(), String> {
         "start" => &[VK_LWIN],
         "winx" => &[VK_LWIN, VK_X],
         "quick" => &[VK_LWIN, VK_A],
+        "search" => &[VK_LWIN, VK_S],
+        "taskview" => &[VK_LWIN, VK_TAB],
+        "widgets" => &[VK_LWIN, VK_W],
         _ => return Err("unknown".into()),
     };
     let inputs = keys(vks);
-    // Start and the menu are Explorer's: it may take the front from Crest.
+    // Start, the menu, Search, Task view and the widgets are Explorer's: it may take the front from Crest.
     let _ = unsafe { AllowSetForegroundWindow(explorer::shell_pid()) };
     // Fewer sent: another program's input in between, or a window that blocks it (UIPI).
     if (unsafe { SendInput(&inputs, size_of::<INPUT>() as i32) } as usize) < inputs.len() {
@@ -289,6 +310,32 @@ mod tests {
             pairs(&keys(&[VK_LWIN, VK_X])),
             [(VK_LWIN, KEYBD_EVENT_FLAGS(0)), (VK_X, KEYBD_EVENT_FLAGS(0)), (VK_X, KEYEVENTF_KEYUP), (VK_LWIN, KEYEVENTF_KEYUP)]
         );
+    }
+
+    #[test]
+    fn show_desktop_toggles_off_the_main_thread() {
+        // As Task Manager's arm: a thread, COM's STA there, Explorer let take the front, then the toggle; no key, no Command.
+        let src = include_str!("start.rs");
+        let code = &src[..src.find("#[cfg(test)]").unwrap()];
+        let arm = &code[code.find("\"desktop\" =>").unwrap()..];
+        let arm = &arm[..arm.find("\"start\"").unwrap()];
+        let at = |s: &str| arm.find(s).unwrap_or_else(|| panic!("{s} missing"));
+        assert!(at("std::thread::spawn") < at("launcher::on_sta"));
+        assert!(at("launcher::on_sta") < at("AllowSetForegroundWindow(ASFW_ANY)"));
+        assert!(at("AllowSetForegroundWindow(ASFW_ANY)") < at("ToggleDesktop"));
+        assert!(!arm.contains("SendInput") && !arm.contains("Command::new"));
+    }
+
+    #[test]
+    fn search_task_view_and_widgets_let_go_of_their_key_before_the_windows_key() {
+        for vk in [VK_S, VK_TAB, VK_W] {
+            assert_eq!(pairs(&keys(&[VK_LWIN, vk])), [(VK_LWIN, KEYBD_EVENT_FLAGS(0)), (vk, KEYBD_EVENT_FLAGS(0)), (vk, KEYEVENTF_KEYUP), (VK_LWIN, KEYEVENTF_KEYUP)]);
+        }
+    }
+
+    #[test]
+    fn an_unknown_action_is_refused() {
+        assert!(taskbar_shell("nope".into()).is_err());
     }
 
     #[test]

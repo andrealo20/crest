@@ -27,7 +27,7 @@ import { barStatus } from "../status";
 import { batteryGlyph, netGlyph, soundGlyph } from "../statusModel";
 import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
-import { isTool, isWidget, shownZones, toolOf, widgetTool } from "../widgets";
+import { isSys, isTool, isWidget, shownZones, sysOf, sysPrimaryOnly, toolOf, widgetTool } from "../widgets";
 import { toolInfo } from "../toolInfo";
 import { useHue } from "../../themes/hues";
 import { BarGlass, useBarSurface } from "./BarGlass";
@@ -42,6 +42,7 @@ import { PinDrop, placeAt } from "./PinDrop";
 import { pressDragged, startPress } from "./press";
 import { PreviewCard } from "./Preview";
 import { Status } from "./Status";
+import { SYS_INFO, SysButton } from "./SysItems";
 import { Tray, TrayDrop } from "./Tray";
 import { useAppFit } from "./useAppFit";
 import { useAutoHide } from "./useAutoHide";
@@ -230,7 +231,7 @@ export function TaskbarWindow() {
   useEffect(() => {
     if (fit.mode !== "overflow" && panel.get()?.content.kind === "apps") closePanel();
   }, [fit.mode]);
-  // Start, the apps, "…" and Crest grow as a dock's icons, by the pitch of the apps in use; widgets and tray icons only lift.
+  // Start, the apps, "…", Crest and Windows' buttons grow as a dock's icons, by the pitch of the apps in use; widgets and tray icons only lift.
   const mag = reduced ? undefined : { pointer, unit: (narrow ? compactIcon(size) + COMPACT_PAD : size + 16) + between, rise: labelRise(size, height) };
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
   // An open menu or panel holds the bar up, and so does an app asking for attention.
@@ -368,7 +369,7 @@ export function TaskbarWindow() {
       onEnd: end,
     });
   };
-  /** A widget, a tool button or Stato dragged (ItemDrop). */
+  /** A widget, a tool button, a Windows button or Stato dragged (ItemDrop). */
   const dragFrom =
     (id: BarItem): ItemProps["onPointerDown"] =>
     (e) =>
@@ -534,6 +535,26 @@ export function TaskbarWindow() {
         </Item>
       );
     }
+    if (isSys(id)) {
+      // Windows widgets on the primary bar only, as Windows has it; each hidden once the bar runs out of room (useAppFit).
+      if ((!primary && sysPrimaryOnly(id)) || fit.hide.includes(id)) return null;
+      const sys = sysOf(id);
+      return (
+        <SysButton
+          id={sys}
+          item={{
+            ...item(id, t(SYS_INFO[sys].label)),
+            kind: id,
+            tile: tile(),
+            magnify: mag,
+            onPointerDown: dragFrom(id),
+            // No menu of its own, as a widget: the Crest menu over the pointer.
+            onContextMenu: (e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 }),
+          }}
+          dragged={afterDrag}
+        />
+      );
+    }
     if (id === "tray") {
       const visible = fit.trayBack ? [] : trayVisible;
       return (
@@ -600,7 +621,7 @@ export function TaskbarWindow() {
 
   /** Each item in a box-less span the drop measures it by (ItemDrop); the draggable ones keep touch for the drag, the dragged one dims. */
   const place = (id: BarItem) => (
-    <span key={id} data-item={id} className={`contents ${isWidget(id) || isTool(id) || id === "status" || id === "apps" ? "*:touch-none" : ""} ${dragged === id ? "*:opacity-40" : ""}`} {...(id === "apps" ? fileDrop : {})}>
+    <span key={id} data-item={id} className={`contents ${isWidget(id) || isTool(id) || isSys(id) || id === "status" || id === "apps" ? "*:touch-none" : ""} ${dragged === id ? "*:opacity-40" : ""}`} {...(id === "apps" ? fileDrop : {})}>
       {render(id)}
     </span>
   );
@@ -621,6 +642,13 @@ export function TaskbarWindow() {
       onContextMenu={(e) => {
         if ((e.target as Element).closest("button, [role=menu], [role=dialog]")) return;
         setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 });
+      }}
+      // A double click there, as Windows' taskbar takes one: Show desktop or Task Manager when the setting says so. Not in the panel.
+      onDoubleClick={(e) => {
+        const act = s.taskbar.emptyDouble;
+        if (act === "none" || (e.target as Element).closest("button, [role=menu], [role=dialog], [data-tray-panel]")) return;
+        holdBriefly();
+        void taskbar.shell(act).catch(() => {});
       }}
     >
       {/* On the closed notch's black, and always under Liquid Glass +, the bar and its menus keep the closed notch's ink whatever the theme (useBarSurface), and its zones keep their sides in any language. */}

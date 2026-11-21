@@ -2,17 +2,27 @@
 // opens, their size, and adding or removing one. Pure, so the rules are tested without the app around them.
 
 import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
-import { TASKBAR_DEFAULTS, TOOL_BUTTONS, WIDGET_VARIANTS, fitIcon, isObj, variantOf, type BarItem, type TaskbarSettings, type ToolItem, type WidgetVariants, type Zone } from "./model.ts";
+import { SYS_IDS, TASKBAR_DEFAULTS, TOOL_BUTTONS, WIDGET_VARIANTS, fitIcon, isObj, variantOf, type BarItem, type SysId, type SysItem, type TaskbarSettings, type ToolItem, type WidgetVariants, type Zone } from "./model.ts";
 import { opensInBar } from "./panelModel.ts";
 import type { BarLook } from "./look.ts";
 
-/** What the settings take off the bar and put back like a widget: the widgets, the tray, Stato and the tool buttons. */
-export type Removable = PartId | "tray" | "status" | ToolItem;
+/** What the settings take off the bar and put back like a widget: the widgets, the tray, Stato, the tool buttons and Windows' buttons. */
+export type Removable = PartId | "tray" | "status" | ToolItem | SysItem;
 
 export const isWidget = (id: string): id is PartId => PART_IDS.includes(id as PartId);
 export const isTool = (id: string): id is ToolItem => id.startsWith("tool:");
 /** A tool button's tool. */
 export const toolOf = (id: ToolItem): string => id.slice("tool:".length);
+const SYS_ITEMS: readonly string[] = SYS_IDS.map((id) => `sys:${id}`);
+/** One of Windows' buttons the bar knows; another window may send a raw `sys:` id it does not (storeCore.ts:51-57). */
+export const isSys = (id: string): id is SysItem => SYS_ITEMS.includes(id);
+/** A Windows button's id. */
+export const sysOf = (id: SysItem): SysId => id.slice("sys:".length) as SysId;
+/** Whether a Windows button shows on the primary bar only: Windows widgets, which Windows keeps on the main taskbar; the others are on every bar. */
+export const sysPrimaryOnly = (id: SysItem): boolean => sysOf(id) === "widgets";
+/** What Add Windows button offers, in SYS_IDS' order: the buttons not on the bar. */
+export const addableSys = (zones: Record<Zone, BarItem[]>): SysItem[] =>
+  SYS_IDS.map((id): SysItem => `sys:${id}`).filter((id) => !Object.values(zones).some((items) => items.includes(id)));
 /** A tool switched on or off in the notch's settings (settings.tools). */
 export type ToolSwitch = { id: string; enabled: boolean };
 
