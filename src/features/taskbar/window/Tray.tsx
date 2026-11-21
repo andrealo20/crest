@@ -5,7 +5,7 @@ import { taskbar } from "../../../platform/services";
 import { updateSettings } from "../../../settings/store";
 import { AppIcon } from "../../launcher/AppIcon";
 import { trayIcon, type TrayIcon } from "../model";
-import { panel, togglePanel, trayDrag } from "../panel";
+import { panel, panelHeld, togglePanel, trayDrag } from "../panel";
 import { dropSlot, gridSlot } from "../panelModel";
 import { startTray, trayFolded, trayPictures, trayState } from "../tray";
 import { demote, placeHidden, promote, shownSlot, splitTray } from "../trayModel";
@@ -46,6 +46,8 @@ export function trayButton(icon: TrayIcon, from: "panel" | "bar") {
     onDoubleClick: (e: MouseEvent<HTMLButtonElement>) => send("double", e),
     onContextMenu: (e: MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
+      // The app's menu takes the focus, and the panel stays open under it (TrayPanel ends the hold).
+      if (from === "panel") panelHeld.set(true);
       send("right", e);
     },
     onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => press(e, icon, from),

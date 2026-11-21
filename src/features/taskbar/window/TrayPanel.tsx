@@ -1,8 +1,11 @@
+import { useEffect } from "react";
 import { t } from "../../../i18n";
 import { settings } from "../../../settings/store";
 import { AppIcon } from "../../launcher/AppIcon";
 import { fitIcon, trayIcon } from "../model";
 import { trayFolded, trayPictures, trayState } from "../tray";
+import { closePanel, panelHeld } from "../panel";
+import { barWindows } from "../store";
 import { splitTray } from "../trayModel";
 import { trayButton } from "./Tray";
 
@@ -11,6 +14,8 @@ import { trayButton } from "./Tray";
  * rows, in the order of `trayHidden` first, each taking the clicks as on the bar, dragged onto it to keep it there and among the others
  * to move it; every icon while the bar has folded the tray (trayFolded). A line instead while another program has the tray, or while no
  * icon is hidden. Its box (`data-tray-panel`) is where an icon dragged off the bar is hidden, at the cell (`data-tray-slot`) it is let go on.
+ * A right click on an icon holds the panel open while the app's menu has the focus (panelHeld), until the next press in the page, Esc,
+ * or another app coming to the front, which closes it.
  */
 export function TrayPanel() {
   const { yielded, icons } = trayState.use();
@@ -18,6 +23,27 @@ export function TrayPanel() {
   const pictures = trayPictures.use();
   const hidden = trayFolded.use() ? icons : splitTray(icons, trayShown, trayHidden).hidden;
   const size = fitIcon(height, iconSize);
+  useEffect(() => {
+    let seen = barWindows.get().active;
+    const release = () => panelHeld.set(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && release();
+    // The right click's own pointerdown comes before its contextmenu, so it never ends the hold it starts.
+    addEventListener("pointerdown", release);
+    addEventListener("keydown", onKey);
+    const offHeld = panelHeld.subscribe(() => void (seen = barWindows.get().active));
+    const offWindows = barWindows.subscribe(() => {
+      if (!panelHeld.get() || barWindows.get().active === seen) return;
+      release();
+      closePanel();
+    });
+    return () => {
+      removeEventListener("pointerdown", release);
+      removeEventListener("keydown", onKey);
+      offHeld();
+      offWindows();
+      release();
+    };
+  }, []);
   if (yielded || !hidden.length)
     return (
       <p data-tray-panel className="flex h-full items-center justify-center px-5 text-center text-caption text-label-3">
