@@ -78,6 +78,8 @@ The [1.3.0 release](https://github.com/andrealo20/crest/releases/tag/v1.3.0) has
 
 Every tool below lives in the same notch, and on Windows the taskbar can carry them too, as widgets and buttons. Pick yours in **Settings → Tools** and drag them into the order you like; the rest stays out of the way. The full guide, with the setup steps of each integration, is in [docs/features.md](docs/features.md).
 
+<p align="center"><img src="docs/media/features/tools.png" alt="Settings, Tools, in the Material style: every tool with its switch: Overview, Now Playing, Timer, To-Dos, Note, Clipboard, Shelf, Ask, Converter, Portfolio, AI Usage, Weather, Hardware, Discord, Vault, Water, Code scratchpad, Terminal, Launcher, GitHub, LeetCode, Calendar, Notices, Capture, Recorder, Camera, Habits, Colour, Clocks, Prompter, Agents and Calc" width="720" /></p>
+
 ### The closed notch
 
 - **Three looks**: a notch that hugs the edge, a capsule you drag to any height, or a thin line with the song's progress. On the top, bottom, left or right edge, in the size you choose.
@@ -150,6 +152,8 @@ Every tool below lives in the same notch, and on Windows the taskbar can carry t
 - **Presentation mode** hides the clipboard, balances, the vault and your captures while you share the screen, and **Hide Crest from screen sharing** keeps every Crest window out of Teams, Zoom, Discord and OBS.
 
 ### Make it yours
+
+<p align="center"><img src="docs/media/features/settings-material.png" alt="The settings window in the Material style on Themes: the Crest and Material styles, contour lines behind the page, the fifteen themes, the font and coloured icons" width="760" /></p>
 
 - **Themes**: fifteen built in, an editor, sixteen fonts, coloured icons, a day and night switch that can follow the sun, and Liquid Glass on Windows.
 - **Window rules** for full-screen apps and games, any **monitor** or all of them, and every panel resized to taste.

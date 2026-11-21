@@ -78,6 +78,8 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 
 下面的每个工具都在同一个刘海里，在 Windows 上任务栏也能以小组件和按钮的形式放下它们。在 **设置 → 工具** 中选择你要的工具，拖动排成你喜欢的顺序，其余的不会打扰你。完整指南以及每项集成的设置步骤见 [docs/features.md](docs/features.md)（英文）。
 
+<p align="center"><img src="docs/media/features/tools.png" alt="Material 样式的设置窗口，工具页面：列出 Crest 的每一个工具和它的开关" width="720" /></p>
+
 ### 收起的刘海
 
 - **三种样式**：贴住屏幕边缘的刘海、可以拖到任意高度的胶囊，或显示歌曲进度的细线。可放在上、下、左、右任一边缘，大小由你决定。
@@ -150,6 +152,8 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 - **演示模式**在你共享屏幕时隐藏剪贴板、余额、保险库和你的截图录屏；**在屏幕共享中隐藏 Crest** 让 Teams、Zoom、Discord 和 OBS 都看不到任何 Crest 窗口。
 
 ### 个性化
+
+<p align="center"><img src="docs/media/features/settings-material.png" alt="Material 样式的设置窗口，主题页面：Crest 和 Material 两种样式、页面背后的等高线、十五个主题、字体和彩色图标" width="760" /></p>
 
 - **主题**：十五个内置主题、主题编辑器、十六种字体、彩色图标、可随日出日落切换的昼夜主题，以及 Windows 上的液态玻璃。
 - 全屏应用和游戏的**窗口规则**，可放在任意**显示器**或所有显示器上，每个面板的大小都可以调整。
