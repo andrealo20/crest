@@ -10,7 +10,7 @@ const note = createStore("", { persist: "note" });
 /** A single note that saves itself, no save button. Ctrl + and Ctrl - change the size of its text. */
 export function NotesView() {
   const value = note.use();
-  const size = useToolText("notes");
+  const scale = useToolText("notes");
   const [saved, setSaved] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   // Segmenter, not a split on spaces: Japanese and Chinese have none.
@@ -19,7 +19,7 @@ export function NotesView() {
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   return (
-    <div className="flex h-full flex-col px-4 pt-1 pb-1" onKeyDown={size.onKeyDown}>
+    <div className="flex h-full flex-col px-4 pt-1 pb-1">
       <textarea
         value={value}
         maxLength={1_000_000}
@@ -32,7 +32,7 @@ export function NotesView() {
           window.clearTimeout(timer.current);
           timer.current = window.setTimeout(() => setSaved(false), 1200);
         }}
-        style={{ fontSize: `calc(var(--text-body) * ${size.scale})`, lineHeight: `calc(var(--text-body--line-height) * ${size.scale})` }}
+        style={{ fontSize: `calc(var(--text-body) * ${scale})`, lineHeight: `calc(var(--text-body--line-height) * ${scale})` }}
         className="flex-1 resize-none rounded-[12px] bg-fill-1 px-3 py-2.5 text-body text-label outline-none [scrollbar-width:none] placeholder:text-label-4"
       />
       <div className="mt-1.5 flex h-4 items-center justify-between px-1 text-caption text-label-3">

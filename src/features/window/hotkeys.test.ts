@@ -122,3 +122,12 @@ test("Ctrl + and Ctrl - change a tool's text size and Ctrl 0 resets it, on any l
   assert.equal(textStep(ev("+", "NumpadAdd", { ctrlKey: false, metaKey: true }), true), 1);
   assert.equal(textStep(ev("+", "NumpadAdd"), true), null);
 });
+
+test("the text size keys leave Ctrl+Ins on the keypad alone and still grow where the = key types a letter", () => {
+  const ev = (k: string, code: string, mods: Partial<KeyLike> = {}) => ({ ...key(code, { ctrlKey: true, ...mods }), key: k });
+  // NumLock off: the keypad's 0 is Insert, and Ctrl+Ins copies.
+  assert.equal(textStep(ev("Insert", "Numpad0"), false), null);
+  // Hindi INSCRIPT puts a vowel sign on the = key.
+  assert.equal(textStep(ev("ृ", "Equal"), false), 1);
+  assert.equal(textStep(ev("ü", "BracketLeft"), false), null);
+});

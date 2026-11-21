@@ -1,5 +1,6 @@
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef } from "react";
 import { createStore } from "../../lib/store";
+import { activeTool } from "../../notch/header";
 import { holdOpen } from "../../notch/useNotchState";
 import { monitor, monitorMetrics } from "../../notch/monitor";
 import { viewZoom } from "../../notch/viewZoom";
@@ -22,16 +23,25 @@ export function useToolSize(id: string, def: Size): Size {
   return sizeFor(def, saved, monitorMetrics().height);
 }
 
-/** A tool's text size as a factor (1 = 100 %), and the key handler for its root: Ctrl + and Ctrl - step it, Ctrl 0 resets it. */
-export function useToolText(id: string): { scale: number; onKeyDown: (e: KeyboardEvent) => void } {
+/**
+ * A tool's text size as a factor (1 = 100 %): Ctrl + and Ctrl - step it, Ctrl 0 resets it. Heard on the window, not the tool's own
+ * elements, so it works wherever the focus is: a tool opened from the dock or a shortcut has none inside it yet. Only the tool shown
+ * answers (activeTool), not one fading out after a switch.
+ */
+export function useToolText(id: string): number {
   const size = settings.use().behavior.textSizes[id] ?? 100;
-  const onKeyDown = (e: KeyboardEvent) => {
-    const step = textStep(e, isMac);
-    if (step === null) return;
-    e.preventDefault();
-    updateBehavior((b) => ({ textSizes: stepTextSize(b.textSizes, id, step) }));
-  };
-  return { scale: size / 100, onKeyDown };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || activeTool.get() !== id) return;
+      const step = textStep(e, isMac);
+      if (step === null) return;
+      e.preventDefault();
+      updateBehavior((b) => ({ textSizes: stepTextSize(b.textSizes, id, step) }));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [id]);
+  return size / 100;
 }
 
 function save(id: string, size: Size | null) {

@@ -8,10 +8,10 @@ import { settings } from "../../settings/store";
 import { effectiveBase } from "../trading/base";
 import type { Rates } from "../trading/portfolio";
 import { convertMoney } from "../convert/fx";
+import { useToolText } from "../window/panel";
 import { evaluate } from "./engine";
 import { formatValue } from "./format";
 import { describe } from "./messages";
-import { useToolText } from "../window/panel";
 
 /** The sheet, saved on every keystroke (localStorage, nothing leaves the PC). */
 const sheet = createStore<{ text: string }>({ text: "" }, { persist: "calc" });
@@ -64,10 +64,10 @@ export function CalcView() {
   const flashTimer = useRef(0);
   const canUndo = !text && cleared !== null;
   const lang = locale();
-  const size = useToolText("calc");
+  const scale = useToolText("calc");
   // Whole px per row, so the result rows stay level with the textarea's lines all the way down.
-  const rowPx = Math.round(ROW * size.scale);
-  const metrics = { fontSize: FONT * size.scale, lineHeight: `${rowPx}px` };
+  const rowPx = Math.round(ROW * scale);
+  const metrics = { fontSize: FONT * scale, lineHeight: `${rowPx}px` };
 
   // Whether a line names a currency does not depend on the rates, so the answer from the first pass can ask for them.
   const [wantRates, setWantRates] = useState(false);
@@ -125,7 +125,7 @@ export function CalcView() {
 
   const rows = result.lines;
   return (
-    <div className="flex h-full flex-col px-4 pt-1 pb-1" onKeyDown={size.onKeyDown}>
+    <div className="flex h-full flex-col px-4 pt-1 pb-1">
       <HeaderActions>
         <HeaderButton label={canUndo ? t("Leeren rückgängig") : t("Leeren")} disabled={!text && !canUndo} onClick={clearOrUndo}>
           {canUndo ? <ArrowCounterClockwise size={14} weight="bold" /> : <Trash size={14} weight="bold" />}
@@ -155,7 +155,7 @@ export function CalcView() {
             aria-label={t("Rechnungen")}
             placeholder={t("Rechnung eingeben, z. B. 5 km in miles")}
             style={{ ...metrics, minHeight: rows.length * rowPx }}
-            className={`relative block min-w-0 font-mono flex-1 resize-none overflow-x-auto overflow-y-hidden bg-transparent p-0 pl-3 text-label caret-label outline-none [scrollbar-width:none] placeholder:text-label-4 selection:bg-link/40`}
+            className="relative block min-w-0 flex-1 resize-none overflow-x-auto overflow-y-hidden bg-transparent p-0 pl-3 font-mono text-label caret-label outline-none [scrollbar-width:none] placeholder:text-label-4 selection:bg-link/40"
           />
           <div className="relative w-[42%] shrink-0 pr-3 pl-2 text-right font-mono" style={metrics}>
             {rows.map((r, i) => {

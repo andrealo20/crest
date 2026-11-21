@@ -208,13 +208,16 @@ export function label(text: string): string {
 
 /**
  * Ctrl + and Ctrl - (Cmd on a Mac) in a tool with a text size (Notes, Calc): 1 bigger, -1 smaller, 0 back to 100 % (Ctrl 0), null for
- * any other key. By the character typed, so each layout's own + and - keys work, and by the key's place for the 0 (French types à there).
- * Alt is left out: AltGr is Ctrl+Alt, and AltGr+0 types } on some layouts.
+ * any other key. By the character typed, so each layout's own + and - keys work, and by the key's place where a layout puts a letter
+ * there instead (French types à on the 0 key, Hindi INSCRIPT a vowel sign on the = key).
+ * Alt is left out: AltGr is Ctrl+Alt, and AltGr+0 types } on some layouts. The keypad's 0 counts by its character only: with NumLock off
+ * it is Insert, and Ctrl+Ins copies.
  */
 export function textStep(e: KeyLike, mac: boolean): 1 | -1 | 0 | null {
   if (!(mac ? e.metaKey : e.ctrlKey) || e.altKey) return null;
-  if (e.key === "+" || e.key === "=" || e.code === "NumpadAdd") return 1;
+  const letter = !/^[!-~]$/.test(e.key ?? "");
+  if (e.key === "+" || e.key === "=" || e.code === "NumpadAdd" || (e.code === "Equal" && letter)) return 1;
   if (e.key === "-" || e.code === "NumpadSubtract") return -1;
-  if (e.key === "0" || e.code === "Digit0" || e.code === "Numpad0") return 0;
+  if (e.key === "0" || e.code === "Digit0") return 0;
   return null;
 }
