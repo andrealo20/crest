@@ -97,3 +97,32 @@ export function niceMax(values: readonly number[]): number {
   const p = 10 ** Math.floor(Math.log10(top));
   return [p, 2 * p, 5 * p].find((n) => n >= top) ?? 10 * p;
 }
+
+// The graph's points, one run per stretch without a gap: right = now, and the newest point one step past w, where the scroll brings it in.
+function runs(values: number[], max: number, w: number, h: number, slots: number): [x: string, y: string][][] {
+  const step = w / (slots - 2);
+  const offset = slots - values.length;
+  const out: [string, string][][] = [];
+  let run: [string, string][] | null = null;
+  values.forEach((v, i) => {
+    if (!Number.isFinite(v)) return void (run = null);
+    if (!run) out.push((run = []));
+    run.push([((offset + i) * step).toFixed(1), (h - 2 - (Math.min(v, max) / max) * (h - 4)).toFixed(1)]);
+  });
+  return out;
+}
+
+/** The history line in a w x h box; the pen lifts over a sample with no value. */
+export function trendLine(values: number[], max: number, w: number, h: number, slots: number): string {
+  return runs(values, max, w, h, slots)
+    .map((run) => run.map(([x, y], i) => `${i ? "L" : "M"}${x},${y}`).join(""))
+    .join("");
+}
+
+/** The area under the history line, each run closed down to the base. */
+export function trendArea(values: number[], max: number, w: number, h: number, slots: number): string {
+  const base = h.toFixed(1);
+  return runs(values, max, w, h, slots)
+    .map((run) => `M${run[0][0]},${base}${run.map(([x, y]) => `L${x},${y}`).join("")}L${run[run.length - 1][0]},${base}Z`)
+    .join("");
+}

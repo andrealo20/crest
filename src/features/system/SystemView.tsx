@@ -1,9 +1,9 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { AppWindow, ArrowDown, ArrowsDownUp, ArrowUp, BatteryHigh, CaretDown, Cpu, HardDrives, Lightning, WifiHigh, X, type Icon } from "../../ui/iconset";
 import { GpuIcon, RamIcon } from "../../ui/icons";
 import { Segmented, Select } from "../../ui/controls";
-import { content } from "../../design/motion";
+import { content, springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { powerPlans, revealFile, systemIcon, type PowerPlans, type ProcReading } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
@@ -12,6 +12,7 @@ import { compactRate, driveSizes, duration, ghz, gigabytes, processMemory, proce
 import { memoryLevel, nextGpu, ofRate, ofShare, schemeColor, type Level } from "./levels";
 import { tempLevel, degrees } from "./temps";
 import { HISTORY, holdProcesses, system, useSystemShown } from "./store";
+import { trendArea, trendLine } from "./hero";
 import { useHue, type Hue } from "../themes/hues";
 import { PortsEntry } from "../ports/PortsPanel";
 
@@ -220,7 +221,7 @@ export function SystemView() {
   );
 }
 
-const join = (parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ");
+export const join = (parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ");
 
 function Row(props: {
   i: number;
@@ -293,18 +294,20 @@ function Row(props: {
 }
 
 /** One column per logical processor, grouped by kind of core (P fastest, E slowest) where the CPU has more than one kind. */
-function CoreColumns({ cores, tone }: { cores: { usage: number; kind: number }[]; tone: (l: Level) => string }) {
+export function CoreColumns({ cores, tone, fill = false }: { cores: { usage: number; kind: number }[]; tone: (l: Level) => string; fill?: boolean }) {
   const kinds = [...new Set(cores.map((c) => c.kind))].sort();
   const letter = (k: number) => (kinds.length < 2 ? null : k === kinds[0] ? "P" : k === kinds.at(-1) ? "E" : "M");
+  // Filling a box, the columns share its width up to 4 px each, a pixel apart past 16 (64 threads go to a pixel).
+  const gap = fill && cores.length > 16 ? "gap-px" : "gap-[2px]";
   return (
-    <div className="flex h-[16px] items-end gap-2" aria-hidden>
+    <div className={fill ? "flex h-full items-end gap-2" : "flex h-[16px] items-end gap-2"} aria-hidden>
       {kinds.map((k) => (
-        <div key={k} className="flex h-full min-w-0 items-end gap-[2px]">
+        <div key={k} className={`flex h-full min-w-0 items-end ${fill ? "flex-1 " : ""}${gap}`}>
           {letter(k) && <span className="me-0.5 self-center text-[9px] font-semibold text-label-4">{letter(k)}</span>}
           {cores
             .filter((c) => c.kind === k)
             .map((c, n) => (
-              <span key={n} className="relative h-full w-[4px] overflow-hidden rounded-[1.5px] bg-fill-2">
+              <span key={n} className={`relative h-full ${fill ? "min-w-0 flex-1 max-w-[4px]" : "w-[4px]"} overflow-hidden rounded-[1.5px] bg-fill-2`}>
                 <span className="absolute inset-0 rounded-[1.5px] transition-transform duration-500" style={{ transform: `translateY(${100 - Math.max(6, Math.min(100, c.usage))}%)`, background: tone(ofShare(c.usage)) }} />
               </span>
             ))}
@@ -335,7 +338,7 @@ function MemoryBar(p: { used: number; cached: number; total: number; commit: num
   );
 }
 
-function NetDetail({ down, up }: { down: number; up: number }) {
+export function NetDetail({ down, up }: { down: number; up: number }) {
   const d = rate(down), u = rate(up);
   return (
     <span className="inline-flex items-center gap-2">
@@ -371,7 +374,7 @@ function AppIcon({ path, size }: { path: string | null; size: number }) {
   return src ? <img src={src} width={size} height={size} className="shrink-0" alt="" /> : <AppWindow size={size} weight="bold" className="shrink-0 text-label-3" />;
 }
 
-function ProcessRow({ proc, value, onClick }: { proc: ProcReading; value: string; onClick: () => void }) {
+export function ProcessRow({ proc, value, onClick }: { proc: ProcReading; value: string; onClick: () => void }) {
   return (
     <motion.button layout="position" transition={{ duration: 0.25 }} onClick={onClick} className="pressable flex h-[24px] w-full items-center gap-2 px-3 text-start hover:bg-fill-2">
       <AppIcon path={proc.path} size={14} />
@@ -382,7 +385,7 @@ function ProcessRow({ proc, value, onClick }: { proc: ProcReading; value: string
   );
 }
 
-function ProcessCard({ proc, cores, onClose }: { proc: ProcReading; cores: number; onClose: () => void }) {
+export function ProcessCard({ proc, cores, onClose }: { proc: ProcReading; cores: number; onClose: () => void }) {
   return (
     <motion.div className="absolute inset-x-0 top-0 z-10 rounded-[14px] bg-elevated p-3 shadow-[0_6px_18px_rgb(0_0_0/0.45)] material:shadow-level2">
       <div className="flex items-center gap-2">
@@ -416,48 +419,63 @@ function ProcessCard({ proc, cores, onClose }: { proc: ProcReading; cores: numbe
 /**
  * One minute of history; gaps (no value) stay open. Right = now. `second` is drawn fainter (upload under download).
  * The line is drawn one step to the right and glides left by that step every second, so it scrolls smoothly instead of jumping.
+ * With `area` it fills its box in a w x h viewBox, with an area under each line and a scale that eases to a new `max`.
  */
-function Trend({ values, second, max, color, tick }: { values: number[]; second?: number[]; max: number; color: string; tick: number }) {
-  const w = 160;
-  const h = 22;
+export function Trend({ values, second, max, color, tick, w = 160, h = 22, area = false, className }: { values: number[]; second?: number[]; max: number; color: string; tick: number; w?: number; h?: number; area?: boolean; className?: string }) {
   const step = w / (HISTORY - 2);
-  const path = (vals: number[]) => {
-    const offset = HISTORY - vals.length;
-    let d = "";
-    let pen = false;
-    vals.forEach((v, i) => {
-      if (!Number.isFinite(v)) {
-        pen = false;
-        return;
-      }
-      const x = (offset + i) * step;
-      const y = h - 2 - (Math.min(v, max) / max) * (h - 4);
-      d += `${pen ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
-      pen = true;
-    });
-    return d;
-  };
-  const line = (d: string, opacity: number, key: string) => (
+  // In hundredths, not 1..2: springs.value rests within 0.5, which holds at the scale of the numbers it was made for.
+  const scale = useMotionValue(100);
+  const scaleY = useTransform(scale, (s) => s / 100);
+  const prev = useRef(max);
+  const reduced = useReducedMotion() === true;
+  useEffect(() => {
+    // Crest's network, power and ping change max almost every sample: no spring for them.
+    if (!area) return;
+    const from = prev.current;
+    prev.current = max;
+    if (max === from) return;
+    if (reduced) return void scale.jump(100);
+    // The new max draws at once at the old height, then stretches out; from where the scale is, if a spring is still running.
+    scale.jump((scale.get() * max) / from);
+    animate(scale, 100, springs.value);
+  }, [max, area]);
+  const line = (vals: number[], opacity: number, key: string) => (
     <path
       // New value → new animation (key); before that the line sits one step to the right.
       key={`${key}${tick}`}
       className="trend-scroll"
-      d={d}
+      d={trendLine(vals, max, w, h, HISTORY)}
       fill="none"
       stroke={color}
       strokeOpacity={opacity}
-      strokeWidth="1.5"
+      strokeWidth={area ? "2" : "1.5"}
       strokeLinejoin="round"
       strokeLinecap="round"
       vectorEffect="non-scaling-stroke"
       style={{ ["--step" as string]: `${step}px` }}
     />
   );
+  const fill = (vals: number[], opacity: number, key: string) => (
+    <path key={`${key}${tick}`} className="trend-scroll" d={trendArea(vals, max, w, h, HISTORY)} fill={color} fillOpacity={opacity} style={{ ["--step" as string]: `${step}px` }} />
+  );
+  const base = <line x1="0" x2={w} y1={h - 1} y2={h - 1} stroke="var(--color-separator)" strokeWidth="1" vectorEffect="non-scaling-stroke" />;
+  if (area)
+    return (
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className={`${className ?? "size-full"} overflow-hidden`}>
+        {base}
+        <motion.g style={{ scaleY, originY: 1, transformBox: "view-box" }}>
+          {second && fill(second, 0.15, "fb")}
+          {fill(values, 0.2, "fa")}
+          {second && line(second, 0.35, "b")}
+          {line(values, 0.8, "a")}
+        </motion.g>
+      </svg>
+    );
   return (
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-[22px] min-w-0 flex-1 overflow-hidden">
-      <line x1="0" x2={w} y1={h - 1} y2={h - 1} stroke="var(--color-separator)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-      {second && line(path(second), 0.35, "b")}
-      {line(path(values), 0.8, "a")}
+      {base}
+      {second && line(second, 0.35, "b")}
+      {line(values, 0.8, "a")}
     </svg>
   );
 }
