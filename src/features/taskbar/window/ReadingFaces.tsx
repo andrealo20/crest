@@ -35,7 +35,7 @@ function Bar({ reading: r }: { reading: Reading }) {
       <span className="text-[8px] leading-none font-bold" style={{ width: MARK, color: icon }}>
         {LETTER[r.id as keyof typeof LETTER]}
       </span>
-      <span className="relative block h-1 overflow-hidden rounded-full" style={{ width: BAR, background: "color-mix(in srgb, currentColor 25%, transparent)" }}>
+      <span className="relative block h-1 overflow-hidden rounded-full material:bg-secondary-container!" style={{ width: BAR, background: "color-mix(in srgb, currentColor 25%, transparent)" }}>
         <span className="absolute inset-y-0 left-0 block rounded-full bg-current" style={{ width: (BAR * share) / 100 }} />
       </span>
     </span>

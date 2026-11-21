@@ -118,3 +118,23 @@ test("the Widgets page's versions are Material radio cards: rounded, the chosen 
   // The sample's surface inside a 16 px card with 4 px around it: 12 px corners under Material.
   assert.match(src, /className="flex h-11 items-center rounded-\[10px\] px-2 material:rounded-\[12px\]"/);
 });
+
+test("the bar's new faces measure their tabular figures as the page draws them, which under Material is Google Sans Flex's tnum", () => {
+  const weather = window("WeatherFaces.tsx");
+  assert.match(weather, /const widestTemp = \(font\?: string\) => measureTabular\(WIDEST\.temp\.replace\(\/\[0-9\]\/g, "8"\), font\);/);
+  const clock = window("BarClock.tsx");
+  assert.match(clock, /measureTabular\(formatDiff\(zoneDiff\(Date\.now\(\), zone\)\)\.replace\("-", "\+"\)\)/);
+  assert.doesNotMatch(clock, /measureText/);
+});
+
+test("under Material the bar's new faces draw on role tokens: tracks and the analog dial in secondary-container, the dial's hands in primary", () => {
+  const ring = window("TimerRing.tsx");
+  assert.match(ring, /strokeOpacity=\{0\.25\} strokeWidth="2" className="material:stroke-secondary-container material:\[stroke-opacity:1\]"/);
+  const analog = from(window("BarClock.tsx"), "BarAnalog");
+  assert.match(analog, /<circle r="19" fill="var\(--color-fill-2\)" className="material:fill-secondary-container" \/>/);
+  assert.match(analog, /stroke="var\(--color-label-3\)"[^>]*className="material:stroke-on-secondary-container"/);
+  assert.equal([...analog.matchAll(/stroke="var\(--color-label\)"[^>]*className="material:stroke-primary"/g)].length, 2);
+  assert.match(analog, /<circle r="2\.4" fill="var\(--color-label\)" className="material:fill-primary" \/>/);
+  // The inline colour-mix track gives way to secondary-container only under Material, so Crest's stays as it is.
+  assert.match(window("ReadingFaces.tsx"), /className="relative block h-1 overflow-hidden rounded-full material:bg-secondary-container!"/);
+});

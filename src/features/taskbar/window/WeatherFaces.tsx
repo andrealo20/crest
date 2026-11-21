@@ -1,5 +1,5 @@
 import { formatTemp } from "../../../lib/format";
-import { CAPTION_FONT, measureText } from "../../../notch/row/measure";
+import { CAPTION_FONT, measureTabular, measureText } from "../../../notch/row/measure";
 import { WIDEST } from "../../system/format";
 import { useHue } from "../../themes/hues";
 import { describe, type Forecast } from "../../weather/store";
@@ -12,8 +12,8 @@ import type { BarFeed } from "../barStores";
 
 export const WEATHER_ICON = 15;
 const GAP = 6, HOUR_ICON = 12;
-/** The widest temperature, every digit an 8. */
-const widestTemp = (font?: string) => measureText(WIDEST.temp.replace(/[0-9]/g, "8"), font);
+/** The widest temperature, every digit an 8, as the page draws .tabular figures (in Material its own tnum widths). */
+const widestTemp = (font?: string) => measureTabular(WIDEST.temp.replace(/[0-9]/g, "8"), font);
 
 /** The condition's icon alone, in its colour while coloured icons are on. */
 export function WeatherIcon({ now }: { now: Forecast["current"] }) {

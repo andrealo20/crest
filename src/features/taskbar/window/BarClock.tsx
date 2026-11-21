@@ -1,5 +1,5 @@
 import { locale } from "../../../i18n";
-import { measureText } from "../../../notch/row/measure";
+import { measureTabular } from "../../../notch/row/measure";
 import { clockFormat, clockWidth, dateFormat, dateWidth, useMinuteTick } from "../../../notch/row/parts/Clock";
 import { formatDiff, formatClock as zoneClock, localZone, wallTime, zoneOffset } from "../../clocks/zones";
 import { handAngles } from "../../timer/looks";
@@ -30,18 +30,18 @@ export function BarClock({ seconds, h12, date, paused, at }: { seconds: boolean;
 
 export const ANALOG = 22;
 
-/** An analog dial: four ticks, the hour and minute hands. Ticks with the minute; `at` shows that time and never ticks. */
+/** An analog dial: four ticks, the hour and minute hands, under Material on secondary-container with the hands in primary. Ticks with the minute; `at` shows that time and never ticks. */
 export function BarAnalog({ h12, paused, at }: { h12: boolean; paused: boolean; at?: number }) {
   const minute = useMinuteTick(!paused && at === undefined);
   const d = new Date(at ?? minute);
   const hands = handAngles(`${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`)!;
   return (
     <svg width={ANALOG} height={ANALOG} viewBox="-20 -20 40 40" className="shrink-0" role="img" aria-label={clockFormat(false, h12, false).format(d)}>
-      <circle r="19" fill="var(--color-fill-2)" />
-      {[0, 90, 180, 270].map((a) => <line key={a} y1="-14.5" y2="-17" stroke="var(--color-label-3)" strokeWidth="2" strokeLinecap="round" transform={`rotate(${a})`} />)}
-      <line y2="-9.5" stroke="var(--color-label)" strokeWidth="3.4" strokeLinecap="round" transform={`rotate(${hands.hour})`} />
-      <line y2="-14" stroke="var(--color-label)" strokeWidth="2.2" strokeLinecap="round" transform={`rotate(${hands.minute})`} />
-      <circle r="2.4" fill="var(--color-label)" />
+      <circle r="19" fill="var(--color-fill-2)" className="material:fill-secondary-container" />
+      {[0, 90, 180, 270].map((a) => <line key={a} y1="-14.5" y2="-17" stroke="var(--color-label-3)" strokeWidth="2" strokeLinecap="round" transform={`rotate(${a})`} className="material:stroke-on-secondary-container" />)}
+      <line y2="-9.5" stroke="var(--color-label)" strokeWidth="3.4" strokeLinecap="round" transform={`rotate(${hands.hour})`} className="material:stroke-primary" />
+      <line y2="-14" stroke="var(--color-label)" strokeWidth="2.2" strokeLinecap="round" transform={`rotate(${hands.minute})`} className="material:stroke-primary" />
+      <circle r="2.4" fill="var(--color-label)" className="material:fill-primary" />
     </svg>
   );
 }
@@ -52,7 +52,7 @@ const DIFF_GAP = 4;
 
 /** Room for the time over the zone's difference and time, with the zone's offset now. The difference measured with a plus: Inter draws a hyphen before a figure as a minus, as wide as the plus. */
 export const zonesWidth = (h12: boolean, zone: string) =>
-  Math.max(clockWidth(false, h12, false), measureText(formatDiff(zoneDiff(Date.now(), zone)).replace("-", "+")) + DIFF_GAP + clockWidth(false, h12, false));
+  Math.max(clockWidth(false, h12, false), measureTabular(formatDiff(zoneDiff(Date.now(), zone)).replace("-", "+")) + DIFF_GAP + clockWidth(false, h12, false));
 
 /** Two time zones: the time here over the difference ("-6 h") and the time in `zone`, the Clocks tool's first. `at` shows that time and never ticks. */
 export function BarZones({ h12, zone, paused, at }: { h12: boolean; zone: string; paused: boolean; at?: number }) {
