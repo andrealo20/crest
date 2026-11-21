@@ -54,6 +54,29 @@
   color: var(--hue);
 }
 
+/* The release's film, full width above the highlights. */
+.film {
+  margin-bottom: clamp(48px, 6vw, 88px);
+}
+.film figure {
+  margin: 0;
+}
+.film video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  background: var(--fill-1);
+}
+.film figcaption {
+  margin-top: 12px;
+  color: var(--label-2);
+  font-size: var(--step-small);
+}
+.news-page .film {
+  margin-top: clamp(28px, 3vw, 44px);
+}
+
 /* ---------- Pages beyond the home page ---------- */
 
 .page-head {

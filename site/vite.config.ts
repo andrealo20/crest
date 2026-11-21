@@ -1,3 +1,4 @@
+import { existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -5,9 +6,12 @@ import react from "@vitejs/plugin-react";
 // The website on crestisland.app (Cloudflare Pages). `npm run site:build` builds it into dist-site/ and then the app itself, in
 // demo mode, into dist-site/demo/ (see src/dev/demo.ts). One HTML file per page; public/_headers sets the security headers.
 const page = (path: string) => resolve(import.meta.dirname, path);
+// What public/media holds now, so a page shows a film only once its files are there (src/release.ts).
+const media = resolve(import.meta.dirname, "public/media");
 
 export default defineConfig({
   plugins: [react()],
+  define: { __SITE_MEDIA__: JSON.stringify(existsSync(media) ? readdirSync(media) : []) },
   root: "site",
   base: "/",
   publicDir: "public",

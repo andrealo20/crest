@@ -1,6 +1,21 @@
+import { useReducedMotion } from "motion/react";
 import { ArrowUpRight } from "./icons";
-import { HIGHLIGHTS } from "./release";
+import { FILM, HAS_FILM, HIGHLIGHTS } from "./release";
 import { Rise } from "./Sections";
+
+/** The release's film, muted and looping, with its poster; nothing at all until both files are in public/media. */
+export function Film() {
+  const still = useReducedMotion();
+  if (!HAS_FILM) return null;
+  return (
+    <Rise className="film">
+      <figure>
+        <video src={FILM.src} poster={FILM.poster} width={1920} height={1080} muted loop playsInline controls autoPlay={!still} preload={still ? "none" : "metadata"} aria-label={FILM.caption} />
+        <figcaption>{FILM.caption}</figcaption>
+      </figure>
+    </Rise>
+  );
+}
 
 /** The latest release, one row per highlight: the title in its colour, what it does, and where the demo shows it. */
 export function Highlights({ base = "/try/" }: { base?: string }) {
@@ -34,6 +49,7 @@ export function News({ release }: { release: string }) {
           <a className="textlink" href="/whats-new/">Every change, version by version <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
         </Rise>
       </div>
+      <Film />
       <Highlights />
     </section>
   );
