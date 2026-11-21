@@ -10,7 +10,7 @@ import { t } from "../../i18n";
 import type { ProcReading } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { batteryLevel } from "./battery";
-import { compactRate, driveSizes, gigabytes, processMemory, processShare } from "./format";
+import { compactRate, driveSizes, gigabytes, processMemory, processShare, watts } from "./format";
 import { ofRate, ofShare, type Level } from "./levels";
 import { degrees, tempLevel } from "./temps";
 import { holdProcesses, type SystemState } from "./store";
@@ -33,7 +33,8 @@ const enter = (i: number) => ({
 const press = (click: (() => void) | undefined) =>
   click ? { role: "button", tabIndex: 0, onClick: click, onKeyDown: (e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), click()) } : {};
 
-const percent = (n: number) => `${n}%`;
+// Crest writes a space before the percent sign (SystemView.tsx).
+const percent = (n: number) => `${n} %`;
 
 /*
  * The hardware under Material, laid out like the hardware page of Stellaria's dashboard:
@@ -225,15 +226,15 @@ function Tiles(p: { st: SystemState; tone: (l: Level) => string; chips: boolean;
           icon={Lightning}
           hue="amber"
           label={t("Leistung")}
-          value={pw ? pw.watts : null}
-          format={(n) => `${pw?.estimate ? "~" : ""}${n} W`}
+          value={pw ? pw.watts * 10 : null}
+          format={(n) => `${pw?.estimate ? "~" : ""}${watts(n / 10)} W`}
           empty="-"
           color={tone(0)}
           detail={p.powerDetail}
           control={p.plan}
         />
       )}
-      {b && <Tile i={i++} chips={p.chips} icon={BatteryHigh} hue="green" label={t("Akku")} value={b.percent} format={(n) => `${n} %`} empty="-" color={tone(batteryLevel(b))} detail={p.batteryDetail} title={p.batteryHealth?.text} />}
+      {b && <Tile i={i++} chips={p.chips} icon={BatteryHigh} hue="green" label={t("Akku")} value={b.percent} format={percent} empty="-" color={tone(batteryLevel(b))} detail={p.batteryDetail} title={p.batteryHealth?.text} />}
       <Tile i={i++} chips={p.chips} icon={WifiHigh} hue="sky" label="Ping" value={ping} format={(n) => `${n} ms`} empty={t("Offline")} color={tone(ping === null ? 2 : ping >= 150 ? 2 : ping >= 60 ? 1 : 0)} detail="1.1.1.1" />
     </div>
   );
@@ -243,7 +244,7 @@ function Tiles(p: { st: SystemState; tone: (l: Level) => string; chips: boolean;
 function Tile(p: { i: number; chips: boolean; icon: Icon; hue: Hue; label: string; value: number | null; format: (n: number) => string; empty: string; color: string; detail: string; title?: string; control?: ReactNode }) {
   const I = p.icon;
   const iconColor = useHue(p.hue);
-  const glided = useGlide(p.value ?? 0);
+  const glided = useGlide(p.value);
   const icon = <I size={14} weight="regular" className={`shrink-0 ${iconColor ? "" : "text-label-2"}`} style={iconColor ? { color: iconColor } : undefined} />;
   const value = (className: string) =>
     p.value === null ? (

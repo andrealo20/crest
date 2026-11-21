@@ -133,6 +133,20 @@ test("the Material hardware fills its rings and gauges from 0 on opening, and th
   assert.match(materialView, /<Ring\b[^>]*sweep=\{270\}/);
 });
 
+test("the Material hardware writes its readings as Crest does: a space before %, watts with one decimal under 100", () => {
+  assert.ok(materialView.includes("const percent = (n: number) => `${n} %`;"));
+  assert.ok(!/\$\{n\}%/.test(materialView), "no percent without its space");
+  assert.equal(materialView.match(/\$\{n\} %/g)?.length, 1, "every percent through percent()");
+  const tiles = part("Tiles");
+  assert.ok(tiles.includes("format={percent}"), "the battery through percent()");
+  // The glide rounds to whole units, so watts glide in tenths and watts() writes one decimal under 100 as Crest's row does.
+  assert.ok(tiles.includes("value={pw ? pw.watts * 10 : null}"), tiles);
+  assert.ok(tiles.includes("watts(n / 10)"), tiles);
+  assert.match(materialView, /import \{[^}]*\bwatts\b[^}]*\} from "\.\/format"/);
+  // A tile with no reading yet hands null to the glide, which starts at the first value instead of 0.
+  assert.ok(part("Tile").includes("useGlide(p.value)"), part("Tile"));
+});
+
 test("the load shape follows the gliding percent and stays readable in forced colours", () => {
   for (const s of ["<LoadShape", "loadShape(", "useMotionValueEvent("]) assert.ok(materialView.includes(s), s);
   const shape = part("LoadShape");

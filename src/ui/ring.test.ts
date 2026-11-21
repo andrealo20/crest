@@ -15,8 +15,12 @@ test("a 270 degree ring starts at 135 degrees and stays open at the bottom", () 
 
 test("a gliding value springs on Material's value preset, jumps under reduced motion and never renders React to change", () => {
   const src = read("./Glide.tsx");
-  for (const s of ["useSpring(reduced ? value : from, springs.value)", "jump(", "useTransform(", "Math.round"]) assert.ok(src.includes(s), s);
-  assert.match(src, /reduced \?[^;]*jump\(/);
+  for (const s of ["useSpring(reduced ? (value ?? 0) : from, springs.value)", "jump(", "useTransform(", "Math.round"]) assert.ok(src.includes(s), s);
+  assert.match(src, /reduced \|\| !started\.current \?[^;]*jump\(/);
+  // A reading null at mount (a ping before its first answer) starts at its first value, not at 0; null later keeps the last one.
+  assert.ok(src.includes("value: number | null, from = value ?? 0"));
+  assert.ok(src.includes("useRef(value !== null)"));
+  assert.match(src, /if \(value === null\) return;/);
   assert.ok(!src.includes("useState"));
 });
 
