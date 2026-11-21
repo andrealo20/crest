@@ -407,6 +407,12 @@ h1 {
   min-height: 44px;
   text-underline-offset: 4px;
 }
+/* The same test the demo makes before it shows the taskbar (src/dev/demo.ts). */
+@media (max-width: 999px), (pointer: coarse) {
+  .stage-full-bar {
+    display: none;
+  }
+}
 
 .chapters {
   display: flex;
