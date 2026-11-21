@@ -60,6 +60,12 @@ pub(crate) fn pinned_app(id: String, name: String) -> App {
     App { id, name, source: "pinned", exe: None }
 }
 
+/// A Start entry of this id that starts `exe`, for other modules' tests.
+#[cfg(test)]
+pub(crate) fn fixture(id: &str, exe: Option<&str>) -> App {
+    App { id: id.into(), name: id.into(), source: "start", exe: exe.map(Into::into) }
+}
+
 /// An unknown id reads the list again at most this often.
 const RESCAN_GAP: Duration = Duration::from_secs(60);
 

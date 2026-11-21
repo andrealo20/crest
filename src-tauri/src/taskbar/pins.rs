@@ -4,7 +4,8 @@
 //!   pinned on its taskbar, Store apps included, in their order. Its format is undocumented: Crest never parses it, it only
 //!   searches it, read-only, for the ids of Start entries as whole strings (`find_whole`).
 //! - The `User Pinned\TaskBar` folder (the documented known folder `FOLDERID_UserPinned`): each shortcut names its Start entry by
-//!   its AppUserModelID or by the exe it starts, as an open window does (`launcher::entries_for`).
+//!   its AppUserModelID or by the exe it starts, as an open window does (`launcher::entries_for`). A shortcut without an entry
+//!   (a site pinned from Edge, a portable exe) is a pin of its own, by its path (ownpins.rs).
 //!
 //! The apps come in the value's order, then those only the folder has, by file name. Without the value (missing, or changed by a
 //! Windows update) the folder alone remains.
@@ -26,8 +27,9 @@ use windows::Win32::System::Registry::{
     RegCloseKey, RegGetValueW, RegNotifyChangeKeyValue, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, KEY_NOTIFY, REG_NOTIFY_CHANGE_LAST_SET, RRF_RT_REG_BINARY,
 };
 use windows::Win32::System::Threading::{CreateEventW, SetEvent, WaitForMultipleObjects, WaitForSingleObject, INFINITE};
-use windows::Win32::UI::Shell::{FOLDERID_UserPinned, IShellItem2, SHCreateItemFromParsingName, SHGetKnownFolderPath, KF_FLAG_DEFAULT};
+use windows::Win32::UI::Shell::{FOLDERID_UserPinned, IShellItem2, SHCreateItemFromParsingName, SHGetKnownFolderPath, KF_FLAG_DEFAULT, SIGDN_NORMALDISPLAY};
 
+use super::ownpins::{self, OwnPin, Target};
 use super::tasks::APP_USER_MODEL_ID;
 use crate::launcher::{self, App, LauncherState};
 
@@ -82,24 +84,45 @@ pub(super) fn taskbar_folder() -> Option<PathBuf> {
     Some(Path::new(&dir).join("TaskBar"))
 }
 
-/// The shortcuts in `User Pinned\TaskBar` by file name, as the ids of their entries in the Start list: by the shortcut's
-/// AppUserModelID, else by the exe it starts with no arguments. A shortcut without an entry (a portable exe) is left out. None
-/// when the folder cannot be read.
-fn folder(apps: &[App]) -> Option<Vec<String>> {
+/// A shortcut's id on the bar: its Start entry's, by the shortcut's AppUserModelID, else by the exe it starts with no arguments
+/// (`launcher::entries_for`). Without an entry, its own path, with the pin it stays as, started from the shortcut.
+fn link_or_entry(apps: &[App], path: &str, aumid: Option<String>, exe: Option<String>) -> (String, Option<Target>) {
+    let entry = (aumid.is_some() || exe.is_some()).then(|| launcher::entries_for(apps, aumid.as_deref(), exe.as_deref().unwrap_or_default())).and_then(|e| e.into_iter().next());
+    match entry {
+        Some(app) => (app.id, None),
+        None => (path.to_string(), Some(Target::Link { path: path.to_string(), aumid, exe })),
+    }
+}
+
+/// The shortcuts in `User Pinned\TaskBar` by file name, as ids (`link_or_entry`), and those without a Start entry as pins, named
+/// as File Explorer names them, which go to ownpins.rs at each read (`set_links`). None when the folder cannot be read.
+fn folder(apps: &[App]) -> Option<(Vec<String>, Vec<OwnPin>)> {
     let Some(Ok(files)) = taskbar_folder().map(std::fs::read_dir) else { return None };
-    let mut links: Vec<PathBuf> = files.flatten().map(|f| f.path()).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk"))).collect();
-    links.sort();
-    let ids = links
-        .iter()
-        .filter_map(|link| unsafe {
-            let item: IShellItem2 = SHCreateItemFromParsingName(&HSTRING::from(link.as_path()), None).ok()?;
-            // An empty id is none, as on a window (tasks.rs).
-            let aumid = item.GetString(&APP_USER_MODEL_ID).ok().and_then(|p| crate::controls::take(p)).filter(|id| !id.is_empty());
-            let exe = if aumid.is_some() { String::new() } else { launcher::shortcut_exe(&item)? };
-            launcher::entries_for(apps, aumid.as_deref(), &exe).into_iter().next().map(|a| a.id)
-        })
-        .collect();
-    Some(ids)
+    let mut paths: Vec<PathBuf> = files.flatten().map(|f| f.path()).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk"))).collect();
+    paths.sort();
+    let (mut ids, mut links) = (Vec::new(), Vec::new());
+    for path in &paths {
+        let Some(text) = path.to_str() else { continue };
+        let Ok(item) = (unsafe { SHCreateItemFromParsingName::<_, _, IShellItem2>(&HSTRING::from(path.as_path()), None) }) else { continue };
+        // An empty id is none, as on a window (tasks.rs).
+        let aumid = unsafe { item.GetString(&APP_USER_MODEL_ID) }.ok().and_then(|p| unsafe { crate::controls::take(p) }).filter(|id| !id.is_empty());
+        let exe = unsafe { launcher::shortcut_exe(&item) };
+        let (id, link) = link_or_entry(apps, text, aumid, exe);
+        if let Some(target) = link {
+            let name = unsafe { launcher::display_name(&item, SIGDN_NORMALDISPLAY) };
+            let name = name.or_else(|| path.file_stem().map(|s| s.to_string_lossy().into_owned())).unwrap_or_default();
+            links.push(OwnPin { id: id.clone(), name, target });
+        }
+        ids.push(id);
+    }
+    ownpins::set_links(links.clone());
+    Some((ids, links))
+}
+
+/// The entry of a pinned id: the Start list's, else the folder's shortcut as one of the bar's own pins.
+fn app_of(apps: &[App], links: &[OwnPin], id: &str) -> Option<App> {
+    let link = || links.iter().find(|l| l.id == id).map(|l| launcher::pinned_app(l.id.clone(), l.name.clone()));
+    apps.iter().find(|a| a.id == id).cloned().or_else(link)
 }
 
 /// The ids of the Start list's entries in the value and the folder, in Windows' order (`order`).
@@ -108,20 +131,23 @@ fn ids(apps: &[App], value: &[u8], folder: Vec<String>) -> Vec<String> {
     order(found, folder)
 }
 
-/// The Start list's entries pinned on Windows' taskbar, in Windows' order, from what of the two sources can be read. Needs COM:
-/// run it through `launcher::on_sta`.
+/// The apps pinned on Windows' taskbar (`app_of`), in Windows' order, from what of the two sources can be read. Needs COM: run
+/// it through `launcher::on_sta`.
 fn pinned(apps: &[App]) -> Vec<App> {
-    let ids = ids(apps, &favorites().unwrap_or_default(), folder(apps).unwrap_or_default());
-    ids.into_iter().filter_map(|id| apps.iter().find(|a| a.id == id).cloned()).collect()
+    let (folder, links) = folder(apps).unwrap_or_default();
+    let ids = ids(apps, &favorites().unwrap_or_default(), folder);
+    ids.into_iter().filter_map(|id| app_of(apps, &links, &id)).collect()
 }
 
-/// The ids pinned on Windows' taskbar now, in Windows' order; None unless both sources and the Start list are read, so a failed
-/// read never looks like apps unpinned. Needs COM: run it through `launcher::on_sta`.
-fn read(apps: &[App]) -> Option<Vec<String>> {
+/// The ids pinned on Windows' taskbar now, in Windows' order, and the folder's shortcuts without an entry; None unless both
+/// sources and the Start list are read, so a failed read never looks like apps unpinned. Needs COM: run it through
+/// `launcher::on_sta`.
+fn read(apps: &[App]) -> Option<(Vec<String>, Vec<OwnPin>)> {
     if apps.is_empty() {
         return None;
     }
-    Some(ids(apps, &favorites()?, folder(apps)?))
+    let (folder, links) = folder(apps)?;
+    Some((ids(apps, &favorites()?, folder), links))
 }
 
 /// What changed on Windows' taskbar since `last`, the ids remembered the time before (`remembered`): the ids new in `now`, and
@@ -152,7 +178,7 @@ pub(super) fn remote(id: &str) -> bool {
     id.as_bytes().get(..2).is_some_and(|start| start.iter().all(|b| matches!(b, b'\\' | b'/')))
 }
 
-/// The Start entries pinned on Windows' taskbar, in Windows' order, for the bar's pinned list. An error only when the Start list
+/// The apps pinned on Windows' taskbar, in Windows' order, for the bar's pinned list. An error only when the Start list
 /// cannot be read; an empty list when nothing is pinned or nothing can be read.
 #[tauri::command]
 pub async fn taskbar_import_pins(app: AppHandle) -> Result<Vec<App>, String> {
@@ -193,8 +219,10 @@ pub async fn taskbar_windows_pins(app: AppHandle, last: Option<Vec<String>>) -> 
             .ok()
             .or_else(|| launcher::cached(&state, |apps| (!apps.is_empty()).then(|| apps.to_vec())))?;
         launcher::on_sta(move || {
-            let now = read(&apps)?;
-            let known = |id: &str| apps.iter().any(|a| a.id == id);
+            let (now, links) = read(&apps)?;
+            // A shortcut of Windows' folder gone from the read left Windows' taskbar, or has a Start entry of its own by now.
+            let folder = taskbar_folder();
+            let known = |id: &str| apps.iter().any(|a| a.id == id) || folder.as_deref().is_some_and(|f| ownpins::in_folder(Path::new(id), f));
             // A remote path counts as installed and is never probed.
             let installed = |id: &str| match id.strip_prefix(launcher::APPS_PREFIX) {
                 Some(aumid) => launcher::in_apps_folder(aumid),
@@ -209,7 +237,7 @@ pub async fn taskbar_windows_pins(app: AppHandle, last: Option<Vec<String>>) -> 
                 }
             };
             refused.clear();
-            let added = added.iter().filter_map(|id| apps.iter().find(|a| &a.id == id).cloned()).collect();
+            let added = added.iter().filter_map(|id| app_of(&apps, &links, id)).collect();
             let now = remembered(last.as_deref(), &now, &removed);
             Some(WindowsPins { ok: true, now, added, removed })
         })?
@@ -378,6 +406,23 @@ mod tests {
         assert_eq!(remembered(None, &ids(&["a", "b"]), &[]), ids(&["a", "b"]));
         // Now's order, then the kept ones in last's order; the removed one is forgotten.
         assert_eq!(remembered(Some(&ids(&["x", "a", "y", "z"])[..]), &ids(&["b", "a"]), &ids(&["y"])), ids(&["b", "a", "x", "z"]));
+    }
+
+    #[test]
+    fn a_shortcut_without_an_entry_is_kept_by_its_path() {
+        let notepad = r"shell:AppsFolder\Notepad";
+        let apps = [launcher::fixture(notepad, Some(r"C:\Windows\notepad.exe"))];
+        let link = r"C:\p\TaskBar\Tool.lnk";
+        // An entry by the exe it starts: the entry's id, no pin of its own.
+        assert_eq!(link_or_entry(&apps, link, None, Some(r"c:\windows\NOTEPAD.EXE".into())), (notepad.to_string(), None));
+        // No entry: the shortcut's own path, started from the shortcut.
+        let tool = Some(r"C:\Tools\tool.exe".to_string());
+        assert_eq!(link_or_entry(&apps, link, None, tool.clone()), (link.to_string(), Some(Target::Link { path: link.into(), aumid: None, exe: tool })));
+        // A site pinned from Edge: an AppUserModelID no entry has, never matched by its exe.
+        let (site, edge) = (Some("MSEdge._crx_site".to_string()), Some(r"C:\Windows\notepad.exe".to_string()));
+        assert_eq!(link_or_entry(&apps, link, site.clone(), edge.clone()).1, Some(Target::Link { path: link.into(), aumid: site, exe: edge }));
+        // A shortcut with arguments and no AppUserModelID still starts from itself.
+        assert_eq!(link_or_entry(&apps, link, None, None).0, link);
     }
 
     #[test]

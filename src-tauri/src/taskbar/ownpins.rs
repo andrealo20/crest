@@ -29,7 +29,7 @@ pub(crate) struct OwnPin {
     pub(crate) id: String,
     pub(crate) name: String,
     #[serde(flatten)]
-    target: Target,
+    pub(super) target: Target,
 }
 
 const FILE: &str = "taskbar-pins.json";
@@ -59,7 +59,7 @@ fn find(id: &str) -> Option<OwnPin> {
 }
 
 /// A shortcut directly in `folder`, ASCII case-insensitive. A path with `..` has another parent and is refused.
-fn in_folder(path: &Path, folder: &Path) -> bool {
+pub(super) fn in_folder(path: &Path, folder: &Path) -> bool {
     path.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk")) && path.parent().is_some_and(|p| p.as_os_str().eq_ignore_ascii_case(folder.as_os_str()))
 }
 
@@ -148,6 +148,17 @@ pub(super) fn decide(relaunch: Option<(&str, &str, &str)>, packaged: bool, exe: 
         .filter(|(aumid, _, name)| !aumid.is_empty() && !name.is_empty())
         .and_then(|(aumid, cmd, _)| split_command(cmd).map(|(file, params)| Target::Command { file, params, aumid: aumid.into() }));
     command.or_else(|| (!packaged && !exe.is_empty() && !super::pins::remote(exe)).then(|| Target::Exe { path: exe.into() }))
+}
+
+/// Puts in place the folder's shortcuts without a Start entry, after each read of the folder (pins.rs `folder`). The windows are
+/// listed again when they changed, so their buttons find these pins.
+pub(super) fn set_links(links: Vec<OwnPin>) {
+    let mut now = LINKS.lock().unwrap_or_else(|e| e.into_inner());
+    if *now != links {
+        *now = links;
+        drop(now);
+        super::relist();
+    }
 }
 
 /// The own pins of an open window (`matches`), saved ones first, as launcher entries.
