@@ -103,7 +103,10 @@ test("the Material hardware measures its body and lays out Stellaria's dashboard
   const observer = materialView.indexOf("new ResizeObserver(", layout);
   assert.ok(rect > layout && rect < observer, "the rect is read before the observer");
   assert.ok(materialView.slice(layout, observer).includes("systemFit("), "systemFit from the layout effect");
-  assert.ok(materialView.slice(observer).includes("systemFit("), "systemFit from the observer");
+  assert.ok(materialView.slice(observer).includes("measure(entry.contentRect.width, entry.contentRect.height)"), "the same measure from the observer");
+  // A drag of the panel's edge renders the dashboard again only when something it shows changes.
+  assert.equal(materialView.match(/setFit\(\(prev\) => keepFit\(prev, systemFit\(/g)?.length, 1, "one measure through keepFit");
+  assert.ok(!/setFit\(systemFit\(/.test(materialView), "no setFit without keepFit");
   for (const s of [
     "grid-cols-[minmax(0,1.93fr)_minmax(0,1fr)]",
     "minmax(100px,120fr)",

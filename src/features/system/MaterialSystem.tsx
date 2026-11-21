@@ -19,6 +19,7 @@ import { MorphPath } from "./Morph";
 import { CoreColumns, NetDetail, ProcessCard, ProcessRow, Trend } from "./SystemView";
 import { useHue, type Hue } from "../themes/hues";
 import { PortsEntry } from "../ports/PortsPanel";
+import { keepFit } from "../weather/fit";
 
 type Fit = ReturnType<typeof systemFit>;
 
@@ -65,9 +66,10 @@ export function MaterialSystemLayout(p: {
   useLayoutEffect(() => {
     const el = body.current;
     if (!el) return;
+    const measure = (w: number, h: number) => setFit((prev) => keepFit(prev, systemFit(w, h)));
     const rect = el.getBoundingClientRect();
-    setFit(systemFit(rect.width, rect.height));
-    const observer = new ResizeObserver(([entry]) => setFit(systemFit(entry.contentRect.width, entry.contentRect.height)));
+    measure(rect.width, rect.height);
+    const observer = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height));
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
