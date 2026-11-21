@@ -15,6 +15,7 @@ import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
 import type { TrayState, WindowList } from "../features/taskbar/model";
+import type { Decor } from "../features/taskbar/decorModel";
 import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
 import type { Rect } from "../features/taskbar/autoHide";
 import type { BtDevice, WifiList } from "../features/taskbar/quickPages";
@@ -1442,6 +1443,16 @@ export const taskbar = {
   /** A click on the tray icon `key` (`TrayIcon.key`) drawn at `rect` (this page's CSS px): its app gets it as from Windows' tray. Errors: gone, unknown-button. */
   trayClick: (key: string, button: "left" | "right" | "double" | "hover" | "leave", rect: { x: number; y: number; w: number; h: number }): Promise<void> =>
     isNative ? invoke("taskbar_tray_click", { key, button, rect }) : Promise.resolve(),
+  /** The badges and progress apps report to the taskbar, as Rust last sent them: none while Crest's tray does not run. */
+  decor: (): Promise<Decor[]> => (isNative ? invoke<Decor[]>("taskbar_decor") : Promise.resolve([])),
+  /** Those decorations each time they change, at most every 250 ms; Rust sends them to every bar. */
+  onDecor(handler: (list: Decor[]) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<Decor[]>("taskbar://decor", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** The overlays' pictures by their key (PNG data URL, null = no window shows it any more). */
+  decorImages: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_decor_images", { keys }) : Promise.resolve({})),
   /** Where the page draws (the bar, an open menu) in its CSS px; clicks pass through the rest of the window. */
   hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
   /** Tells the notch the tool the bar's panel shows, or null once it closes or shows the tray, the apps or the quick panel. */
@@ -1452,9 +1463,9 @@ export const taskbar = {
   slideBlocked: (): Promise<number> => (isNative ? invoke<number>("taskbar_slide_blocked") : Promise.resolve(0)),
   /** Whether a docked bar with auto-hide off can reserve its strip: false while another program stands in for Windows' taskbar. The settings only. */
   reserveReachable: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_reserve_reachable") : Promise.resolve(true)),
-  /** Whether a zone of the bar holds the tray (trayOnBar), sent on or off; Rust adds whether the bar runs and runs Crest's tray (the spy that records the notification area's icons) while both hold. The notch only. */
   /** Whether the other monitors get a bar, and where the apps' buttons show; the notch sends it, the bars follow at once. */
   spread: (all: boolean, apps: "own" | "main" | "all"): Promise<void> => (isNative ? invoke("taskbar_spread", { all, apps }) : Promise.resolve()),
+  /** Whether a zone of the bar holds the tray (trayOnBar), sent on or off; Rust adds whether the bar runs and runs Crest's tray (the spy that records the notification area's icons) while both hold. The notch only. */
   trayOn: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_tray_on", { on }) : Promise.resolve()),
   /** This bar slid off the screen (useAutoHide) or back up: Rust tells this bar that it is hidden while down (onShown), and the notch the primary's slide (onBarSeen). */
   slid: (down: boolean): Promise<void> => (isNative ? invoke("taskbar_slid", { down }) : Promise.resolve()),

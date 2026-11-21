@@ -6,7 +6,8 @@
 //! area (auto-hide turned on or off, an appbar) places the bar again at once. Only top-level windows get broadcasts, so the
 //! window is not message-only. The thread never waits for explorer's lock: what finds it taken is done again by a short timer
 //! (`defer`, `retry`). The docked bars' appbars live on this thread too (reserve.rs): every change to them comes as a posted
-//! `REAPPBAR`, never from inside a call. The tray's spy (tray.rs) has a thread of its own, which runs only while this one does.
+//! `REAPPBAR`, never from inside a call. The tray's spy (tray.rs) has a thread of its own, which runs only while this one does;
+//! the spy also carries `TaskbandHWND` (taskband.rs).
 
 pub(crate) mod bar;
 pub(crate) mod bluetooth;
@@ -20,6 +21,7 @@ pub(crate) mod preview;
 pub(crate) mod reserve;
 pub(crate) mod screens;
 pub(crate) mod start;
+pub(crate) mod taskband;
 pub(crate) mod tasks;
 pub(crate) mod tray;
 pub(crate) mod traywire;

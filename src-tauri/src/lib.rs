@@ -164,13 +164,14 @@ const SETTINGS_DENIED: &[&str] = &[
 /// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
 /// (`taskbar_slid`), Windows' Start, its Win+X menu, its quick settings, Task Manager, Search, Task view, its widgets, its
 /// input language switcher and Show desktop (`taskbar_shell`), the input language it shows (taskbar/input.rs), an app's volume from its button, some of its
-/// settings pages (`taskbar_settings`), the tray's icons with their pictures and clicks, the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
+/// settings pages (`taskbar_settings`), the tray's icons with their pictures and clicks, the badges and progress apps report
+/// (taskbar/taskband.rs), the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
 /// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), and what the notch's
 /// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
 /// `taskbar_tray_on`, `taskbar_spread`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
-    "taskbar_tray", "taskbar_tray_images", "taskbar_tray_click",
+    "taskbar_tray", "taskbar_tray_images", "taskbar_tray_click", "taskbar_decor", "taskbar_decor_images",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log", "taskbar_front",
     "taskbar_slid", "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
     "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "translate_status", "taskbar_shell", "taskbar_settings",
@@ -625,6 +626,10 @@ pub fn run() {
             taskbar::tray::taskbar_tray_images,
             #[cfg(windows)]
             taskbar::tray::taskbar_tray_click,
+            #[cfg(windows)]
+            taskbar::taskband::taskbar_decor,
+            #[cfg(windows)]
+            taskbar::taskband::taskbar_decor_images,
             #[cfg(windows)]
             taskbar::input::taskbar_input,
             #[cfg(windows)]
@@ -1287,6 +1292,7 @@ mod tests {
         // which the settings window is not.
         assert!(ok("taskbar", "taskbar_tray") && ok("taskbar-1", "taskbar_tray_images") && ok("taskbar", "taskbar_tray_click"));
         assert!(ok("notch", "taskbar_tray_click") && !ok("settings", "taskbar_tray_click"));
+        assert!(ok("taskbar", "taskbar_decor") && ok("taskbar-1", "taskbar_decor_images"));
         // The input language is the bars' own: drawn by the main one, read by any as it starts.
         assert!(ok("taskbar-1", "taskbar_input") && ok("taskbar", "taskbar_input") && !ok("settings", "taskbar_input"));
         // A wheel step on an app's button: the bars' own.

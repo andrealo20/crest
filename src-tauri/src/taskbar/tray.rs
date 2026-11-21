@@ -5,7 +5,8 @@
 //! Explorer's own `Shell_TrayWnd`, found by the shell's process, and Explorer's answer goes back to the app: Explorer keeps every
 //! icon, so nothing needs giving back however Crest ends. Only the icon position request is Crest's to answer. Another program's
 //! own `Shell_TrayWnd` (lumabar, say) wins: while one is there, ahead of the spy or behind, the spy has no window, and looks again
-//! every few seconds.
+//! every few seconds. While it has its window it also carries `TaskbandHWND`, so the badges and progress apps report to the
+//! taskbar pass Crest too (taskband.rs).
 //!
 //! A forward waits on Explorer at most `FORWARD_MS`, so no app waits long on a busy Explorer through Crest. Crest's own appbar
 //! calls (explorer.rs, auto-hide) are the exception: they wait for Explorer's answer as they did before the spy.
@@ -45,16 +46,16 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_CLOSE, WM_COPYDATA, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 
-use super::explorer;
+use super::{explorer, taskband};
 use super::traywire::{self, Button, IconData, IconKey, IconOp, Msg, ABD_LEN};
 use crate::display::window_pid;
 use crate::hit_test::HitRect;
 use crate::mixer;
 
 /// A forward gives up after this: the app that called `Shell_NotifyIcon` waits for the answer.
-const FORWARD_MS: u32 = 500;
+pub(super) const FORWARD_MS: u32 = 500;
 /// And at once when Explorer hangs.
-const FORWARD_FLAGS: SEND_MESSAGE_TIMEOUT_FLAGS = SEND_MESSAGE_TIMEOUT_FLAGS(SMTO_ABORTIFHUNG.0 | SMTO_NORMAL.0);
+pub(super) const FORWARD_FLAGS: SEND_MESSAGE_TIMEOUT_FLAGS = SEND_MESSAGE_TIMEOUT_FLAGS(SMTO_ABORTIFHUNG.0 | SMTO_NORMAL.0);
 /// The window's check that it is still the first `Shell_TrayWnd`.
 const FIRST_TIMER: usize = 1;
 const FIRST_MS: u32 = 250;
@@ -84,7 +85,7 @@ static YIELDED: AtomicBool = AtomicBool::new(false);
 /// The window class, registered once: a second `RegisterClassW` fails.
 static CLASS: Once = Once::new();
 /// For the spy's emits.
-static APP: OnceLock<AppHandle> = OnceLock::new();
+pub(super) static APP: OnceLock<AppHandle> = OnceLock::new();
 /// The icons, their pictures, the rect last clicked and what the bars last heard.
 static STORE: Mutex<Store> = Mutex::new(Store { icons: Vec::new(), images: BTreeMap::new(), clicked: None, sent: (false, Vec::new()) });
 /// The menu a right click asked for: its app's process, the bar that sent the click and how many of the app's pop-up menus are
@@ -149,7 +150,7 @@ pub struct TrayState {
 }
 
 /// A copy of an app's icon, destroyed when dropped: on every path, converted, replaced by a newer one or left in a queue.
-struct Copied(HICON);
+pub(super) struct Copied(pub(super) HICON);
 
 // An icon handle is the window manager's, usable from any thread.
 unsafe impl Send for Copied {}
@@ -263,8 +264,7 @@ pub async fn taskbar_tray_images(keys: Vec<String>) -> HashMap<String, Option<St
             let store = store();
             keys.into_iter().map(|key| (key.clone(), store.images.get(&key).cloned())).collect()
         };
-        let url = |png: Vec<u8>| format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png));
-        found.into_iter().map(|(key, png)| (key, png.map(url))).collect()
+        found.into_iter().map(|(key, png)| (key, png.map(data_url))).collect()
     })
     .await
     .unwrap_or_default()
@@ -436,6 +436,7 @@ unsafe fn appear() {
         let _ = ChangeWindowMessageFilterEx(spy, WM_COPYDATA, MSGFLT_ALLOW, None);
         let _ = SetTimer(Some(spy), FIRST_TIMER, FIRST_MS, None);
         let _ = SetTimer(Some(spy), SWEEP_TIMER, SWEEP_MS, None);
+        taskband::appear(spy);
         keep_first(spy);
     }
 }
@@ -443,6 +444,7 @@ unsafe fn appear() {
 /// The window goes, and with it the icons: the bars hear so. Apps that announced their icons to it hear `TaskbarCreated` and
 /// add them again to the tray now first, so an icon whose forward timed out reaches Explorer after all.
 unsafe fn vanish(spy: HWND) {
+    unsafe { taskband::vanish(spy) };
     let _ = unsafe { DestroyWindow(spy) };
     SPY.store(0, Ordering::SeqCst);
     ARMED.set(false);
@@ -486,6 +488,7 @@ unsafe fn keep_first(spy: HWND) {
     if let Some(explorer) = explorer::explorer_tray() {
         if ANNOUNCED.replace(explorer.0 as isize) != explorer.0 as isize {
             announce();
+            taskband::announce_buttons();
         }
     }
 }
@@ -714,11 +717,7 @@ fn convert(pictures: Receiver<(IconKey, Option<Copied>)>) {
 /// The icon `key` shows `png`, kept under a hash of its bytes; none for None. Whether its picture changed. An icon gone
 /// meanwhile takes none.
 fn picture(key: &IconKey, png: Option<Vec<u8>>) -> bool {
-    let img = png.as_ref().map(|png| {
-        let mut hash = DefaultHasher::new();
-        png.hash(&mut hash);
-        format!("{:016x}", hash.finish())
-    });
+    let img = png.as_deref().map(png_key);
     let mut guard = store();
     let store = &mut *guard;
     let Some(e) = store.icons.iter_mut().find(|e| e.key == *key) else { return false };
@@ -731,6 +730,18 @@ fn picture(key: &IconKey, png: Option<Vec<u8>>) -> bool {
     }
     prune(store);
     true
+}
+
+/// A picture's key: a hash of its PNG's bytes.
+pub(super) fn png_key(png: &[u8]) -> String {
+    let mut hash = DefaultHasher::new();
+    png.hash(&mut hash);
+    format!("{:016x}", hash.finish())
+}
+
+/// A PNG as a data URL, for the page.
+pub(super) fn data_url(png: Vec<u8>) -> String {
+    format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png))
 }
 
 /// Sets the one-shot `EMIT_TIMER` unless it is set.
@@ -785,7 +796,7 @@ fn forward(msg: u32, wparam: WPARAM, lparam: LPARAM, wait: bool) -> isize {
 
 /// Sends to Explorer's tray, waiting at most `FORWARD_MS` and not at all on a hung Explorer: its answer, None without one. With
 /// `wait`, for as long as Explorer takes; the messages apps send to the spy meanwhile still run, each with the cap.
-fn send(to: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, wait: bool) -> Option<isize> {
+pub(super) fn send(to: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, wait: bool) -> Option<isize> {
     if wait {
         return Some(unsafe { SendMessageW(to, msg, Some(wparam), Some(lparam)) }.0);
     }

@@ -14,7 +14,7 @@ use std::sync::{LazyLock, Mutex, MutexGuard};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
-use windows::core::{GUID, PWSTR};
+use windows::core::{w, GUID, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, ERROR_SUCCESS, HWND, LPARAM, PROPERTYKEY, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::Graphics::Gdi::{MonitorFromWindow, MONITOR_DEFAULTTONEAREST};
@@ -24,7 +24,7 @@ use windows::Win32::System::Threading::{GetCurrentProcessId, OpenProcess, Termin
 use windows::Win32::UI::Input::KeyboardAndMouse::IsWindowEnabled;
 use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow};
 use windows::Win32::UI::WindowsAndMessaging::{
-    AllowSetForegroundWindow, GetAncestor, GetDesktopWindow, GetForegroundWindow, GetLastActivePopup, GetShellWindow, GetWindow, GetWindowLongPtrW,
+    AllowSetForegroundWindow, GetAncestor, GetDesktopWindow, GetForegroundWindow, GetLastActivePopup, GetPropW, GetShellWindow, GetWindow, GetWindowLongPtrW,
     GetWindowTextW, IsIconic, IsWindowVisible, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED,
     EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND,
     EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, GA_ROOT, GA_ROOTOWNER, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HSHELL_HIGHBIT,
@@ -162,12 +162,16 @@ struct Look {
     ex: u32,
     /// One of the `IMMERSIVE` classes.
     immersive: bool,
+    /// Taken off the taskbar by its app (`ITaskList_Deleted`).
+    deleted: bool,
 }
 
 /// Whether a window gets a button: visible, not cloaked, not Crest's, not a tool window, and marked for the taskbar
-/// (WS_EX_APPWINDOW) or unowned and activatable; a shell surface only as a Store app's frame.
+/// (WS_EX_APPWINDOW) or unowned and activatable; a shell surface only as a Store app's frame; and not taken off the taskbar by its
+/// app (`ITaskList_Deleted`, set by `ITaskbarList::DeleteTab`, undocumented).
 fn eligible(look: &Look) -> bool {
     look.visible
+        && !look.deleted
         && !look.cloaked
         && !look.own
         && look.ex & WS_EX_TOOLWINDOW.0 == 0
@@ -490,6 +494,7 @@ pub(super) fn listable(hwnd: HWND, own: u32) -> bool {
             owned: unsafe { GetWindow(hwnd, GW_OWNER) }.is_ok_and(|o| !o.is_invalid()),
             ex: unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32,
             immersive: IMMERSIVE.contains(&display::class_name(hwnd).as_str()),
+            deleted: !unsafe { GetPropW(hwnd, w!("ITaskList_Deleted")) }.is_invalid(),
         })
 }
 
@@ -760,7 +765,8 @@ mod tests {
 
     #[test]
     fn only_taskbar_windows_get_a_button() {
-        let l = |ex: u32, owned: bool| Look { visible: true, cloaked: false, own: false, owned, ex, immersive: false };
+        let l = |ex: u32, owned: bool| Look { visible: true, cloaked: false, own: false, owned, ex, immersive: false, deleted: false };
+        assert!(!eligible(&Look { deleted: true, ..l(WS_EX_APPWINDOW.0, false) })); // taken off the taskbar by its app
         assert!(eligible(&l(0, false))); // plain unowned
         assert!(!eligible(&l(0, true))); // owned dialog
         assert!(eligible(&l(WS_EX_APPWINDOW.0, true)));

@@ -25,7 +25,8 @@ import { barShown, barWindows, groupIcons, setTaskbar } from "../store";
 import { splitApps } from "../fit";
 import { barStatus } from "../status";
 import { batteryGlyph, netGlyph, soundGlyph } from "../statusModel";
-import { trayFolded, trayState } from "../tray";
+import { barDecor, decorPictures, trayFolded, trayState } from "../tray";
+import { buttonDecor, type Progress } from "../decorModel";
 import { splitTray } from "../trayModel";
 import { isSys, isTool, isWidget, shownZones, sysOf, sysPrimaryOnly, toolOf, widgetTool } from "../widgets";
 import { toolInfo } from "../toolInfo";
@@ -82,6 +83,8 @@ export function TaskbarWindow() {
   const zones = shownZones(saved, s.tools);
   const { visible: trayVisible } = splitTray(trayState.use().icons, trayShown);
   const { groups, active } = barWindows.use();
+  const decor = barDecor.use();
+  const decorPics = decorPictures.use();
   const accent = useThemedAccent(undefined);
   // Rust hides the window without telling WebView2 the page is out of sight, so the widgets rest by this instead. It reads false
   // while the bar is slid off the screen too (taskbar.slid below).
@@ -467,8 +470,11 @@ export function TaskbarWindow() {
         </Item>
       );
     if (id === "apps") {
-      const apps = shownButtons.map((b) => {
+      const apps = shownButtons.map((b, i) => {
         const entry = launchId(b);
+        const d = buttonDecor(b.windows, decor, active);
+        const overlay = d.overlay && decorPics[d.overlay.img];
+        const said = [d.overlay?.tip, d.progress && progressText(d.progress)].filter(Boolean).join(", ");
         return (
           <Item
             key={b.key}
@@ -492,6 +498,9 @@ export function TaskbarWindow() {
             magnify={titled ? undefined : mag}
             labelled={titled && b.title !== undefined}
             mark={indicator(b, active, flashing)}
+            progress={d.progress}
+            // By index: group keys hold characters an id list cannot.
+            describedBy={said ? `decor-${i}` : undefined}
             pin={b.pin?.id}
             {...dragRest(b)}
             // Only a pinned app's press can have dragged; another app's click never follows one.
@@ -506,7 +515,16 @@ export function TaskbarWindow() {
             }}
             onContextMenu={(e) => toggle({ kind: "app", b }, e.currentTarget)}
           >
-            <AppIcon src={entry === null ? ownIcons[appKey(b)] : icons[entry]} size={appIcon} />
+            <span className="relative flex">
+              <AppIcon src={entry === null ? ownIcons[appKey(b)] : icons[entry]} size={appIcon} />
+              {/* The app's badge, two thirds of the icon at its bottom end corner, as Windows draws it. */}
+              {overlay && <img alt="" src={overlay} className="absolute -end-0.5 -bottom-0.5" style={{ width: trayIcon(appIcon), height: trayIcon(appIcon) }} />}
+              {said && (
+                <span id={`decor-${i}`} className="sr-only">
+                  {said}
+                </span>
+              )}
+            </span>
             {windowCount && <Badge text={windowBadge(b.windows.length)} />}
             {titled && b.title !== undefined && (
               <span dir="auto" className="ms-2 min-w-0 truncate text-footnote">
@@ -940,6 +958,14 @@ function useHitZone(
 function ToolGlyph({ tool, size, plus }: { tool: string; size: number; plus: boolean }) {
   const I = toolInfo[tool].icon;
   return <I size={size} weight="regular" className={plus ? "text-label-2" : "text-label-3"} style={{ color: useHue(toolInfo[tool].hue) }} />;
+}
+
+/** What a screen reader says for an app's progress line. */
+function progressText(p: Progress): string {
+  if (p.state === "paused") return t("Fortschritt angehalten");
+  if (p.state === "error") return t("Fortschritt mit Fehler");
+  if (p.state === "indeterminate") return t("Fortschritt läuft");
+  return t("Fortschritt {n} %", { n: Math.round(p.value * 100) });
 }
 
 /** The window count at the icon's top end corner, growing with it; read in the button's name, so hidden from screen readers. */

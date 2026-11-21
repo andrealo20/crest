@@ -1,10 +1,11 @@
 import { useLayoutEffect, useRef, useState, type DragEventHandler, type MouseEventHandler, type PointerEventHandler, type ReactNode, type Ref } from "react";
-import { AnimatePresence, motion, useSpring, useTransform, type MotionValue } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion, useSpring, useTransform, type MotionValue } from "motion/react";
 import { design } from "../../../design/design";
 import { fade, popover, pulse, springs } from "../../../design/motion";
 import { itemLayer, marks } from "../itemLook";
 import { magnify } from "../look";
 import { placeMenu, type Indicator } from "../model";
+import { lineUnder, type Progress } from "../decorModel";
 
 /** Thickness of the mark under an app, CSS px. */
 export const MARK = 3;
@@ -21,6 +22,8 @@ export function Item(props: {
   size: number;
   markAt: number;
   mark?: Indicator;
+  /** An app's progress (taskband.rs): a line in the mark's place. */
+  progress?: Progress | null;
   /** The Tiles shape: the button draws its own tile, as tall as the bar, and carries data-tile (the bar measures the tiles by it). */
   tile?: { background: string; radius: number };
   /** An item that opens the panel above the bar: whether the panel shows what it opens. */
@@ -106,7 +109,7 @@ export function Item(props: {
           {inPill && layer}
         </motion.span>
       )}
-      {props.mark && <Mark kind={props.mark} bottom={props.markAt} />}
+      {props.progress && lineUnder(props.mark, props.progress) === "progress" ? <ProgressLine p={props.progress} bottom={props.markAt} width={props.size} /> : props.mark && <Mark kind={props.mark} bottom={props.markAt} />}
       <Label text={props.label} failed={props.failed} rise={props.magnify?.rise ?? 0} />
     </button>
   );
@@ -178,6 +181,30 @@ export function Mark({ kind, bottom }: { kind: Indicator; bottom: number }) {
         transition={springs.snappy}
       />
     </motion.span>
+  );
+}
+
+const FILL = { normal: "bg-green", paused: "bg-caution", error: "bg-red", indeterminate: "bg-green" } as const;
+
+/**
+ * An app's progress as Windows shows it, as wide as the icon: green, yellow while paused, red after an error; a third-wide segment
+ * moving to and fro while the app cannot say how far it is, still under reduced motion. Transform only.
+ */
+function ProgressLine({ p, bottom, width }: { p: Progress; bottom: number; width: number }) {
+  const still = useReducedMotion();
+  const moving = p.state === "indeterminate";
+  return (
+    <span aria-hidden className="absolute inset-x-0 flex justify-center" style={{ bottom, height: MARK }}>
+      {/* Mirrored in a right-to-left language, so the fill grows and the segment moves from the inline start. */}
+      <span className="relative overflow-hidden rounded-full bg-fill-2 rtl:-scale-x-100" style={{ width, height: MARK }}>
+        <motion.span
+          className={`absolute inset-y-0 left-0 origin-left rounded-full ${FILL[p.state]} ${moving ? "w-1/3" : "w-full"}`}
+          initial={false}
+          animate={moving ? (still ? { transform: "translateX(0%)" } : { transform: ["translateX(0%)", "translateX(200%)"] }) : { transform: `scaleX(${p.value})` }}
+          transition={moving && !still ? { duration: 1.2, ease: "easeInOut", repeat: Infinity, repeatType: "reverse" } : springs.snappy}
+        />
+      </span>
+    </span>
   );
 }
 

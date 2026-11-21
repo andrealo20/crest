@@ -12,6 +12,7 @@ import { startCrashLog } from "../../window/store";
 import { taskbar } from "../../../platform/services";
 import { startPanelReport } from "../panel";
 import { followBar, startBarWindows } from "../store";
+import { startDecor } from "../tray";
 import { TaskbarWindow, primary } from "./TaskbarWindow";
 
 /*
@@ -43,6 +44,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 startBarWindows();
+startDecor();
 // A reloaded page starts with its panel closed: the notch forgets what the page before it had open.
 void taskbar.panel(null);
 // Nor does it keep the window previews the page before it showed (Preview.tsx).
