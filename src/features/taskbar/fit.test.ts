@@ -5,11 +5,11 @@ import { FIT_MARGIN, fitBar, splitApps, type Fit, type FitEntry, type FitMeasure
 const e = (id: string, w: number, gives?: FitEntry["gives"]): FitEntry => ({ id, w, gives });
 // A floating bar on a 1440 px screen (1440 - 2 * 4 - 8), Start before the apps, the Crest button on the right, apps 40 px or 30 narrow.
 const bar = (o: Partial<FitMeasure> = {}): FitMeasure => ({
-  inner: 1424, gap: 2, row: false, apps: "center", count: 0, full: 40, compact: 30,
+  inner: 1424, gap: 2, row: false, apps: "center", count: 0, full: 40, compact: 30, split: null,
   zones: { left: [], center: [e("start", 40)], right: [e("crest", 40)] },
   ...o,
 });
-const fit = (mode: Fit["mode"], visible: number, o: Partial<Fit> = {}): Fit => ({ mode, visible, trayBack: false, hide: [], ...o });
+const fit = (mode: Fit["mode"], visible: number, o: Partial<Fit> = {}): Fit => ({ mode, visible, trayBack: false, hide: [], split: false, label: 0, ...o });
 
 test("the apps keep their full size while they fit, then narrow, then the last ones go behind the button", () => {
   assert.deepEqual(fitBar(bar({ count: 31 }), null), fit("full", 31));
@@ -76,6 +76,48 @@ test("when one app and the button do not fit, the tray's kept icons go back behi
   // With the tray back 76 px are left: one app and the button (64), not FIT_MARGIN more, so a hidden clock stays hidden.
   assert.deepEqual(fitBar(small(552), null), fit("overflow", 1, { trayBack: true }));
   assert.deepEqual(fitBar(small(552), fit("overflow", 4, { trayBack: true, hide: ["clock"] })), fit("overflow", 5, { trayBack: true, hide: ["clock"] }));
+});
+
+// One button per window: `count` of them, `titled` with a window, titles 96 to 168 px wide.
+const split = (count: number, titled: number, never: boolean): FitMeasure["split"] => ({ count, titled, min: 96, max: 168, never });
+
+test("never: titles while they fit, as wide as max, then narrower to an exact width, then icons one per window", () => {
+  // 1424 - 2 * 40 - 40 = 1304 for the apps.
+  assert.deepEqual(fitBar(bar({ count: 3, split: split(5, 5, true) }), null), fit("labels", 5, { split: true, label: 168 }));
+  // floor(1304 / 10) - 2 = 128.
+  assert.deepEqual(fitBar(bar({ count: 3, split: split(10, 10, true) }), null), fit("labels", 10, { split: true, label: 128 }));
+  // 13 titles at 96 + 2 take 1274: with 1274 they fit at 96, one px less and the windows turn into icons.
+  assert.deepEqual(fitBar(bar({ inner: 1274 + 120, count: 3, split: split(13, 13, true) }), null), fit("labels", 13, { split: true, label: 96 }));
+  assert.deepEqual(fitBar(bar({ inner: 1273 + 120, count: 3, split: split(13, 13, true) }), null), fit("full", 13, { split: true }));
+});
+
+test("pinned apps with no window keep an icon's width beside titles", () => {
+  // Two icons take 2 * 42 first: floor((1304 - 84) / 10) - 2 = 120.
+  assert.deepEqual(fitBar(bar({ count: 5, split: split(12, 10, true) }), null), fit("labels", 12, { split: true, label: 120 }));
+});
+
+test("never folds one window at a time, counted in window buttons", () => {
+  assert.deepEqual(fitBar(bar({ count: 3, split: split(41, 41, true) }), null), fit("overflow", 39, { split: true }));
+});
+
+test("when full: titles, then one button per app, titles coming back FIT_MARGIN px later", () => {
+  assert.deepEqual(fitBar(bar({ count: 5, split: split(20, 20, false) }), null), fit("full", 5));
+  // 13 titles need 1274, and 1298 coming back from the combined bar.
+  const room = (r: number) => bar({ inner: r + 120, count: 5, split: split(13, 13, false) });
+  assert.deepEqual(fitBar(room(1297), null), fit("labels", 13, { split: true, label: 97 }));
+  assert.deepEqual(fitBar(room(1297), fit("full", 5)), fit("full", 5));
+  assert.deepEqual(fitBar(room(1298), fit("full", 5)), fit("labels", 13, { split: true, label: 96 }));
+});
+
+test("from titles to icons takes no margin", () => {
+  // 31 icons take 1302 of the 1304.
+  assert.deepEqual(fitBar(bar({ count: 3, split: split(31, 31, true) }), fit("labels", 20, { split: true, label: 96 })), fit("full", 31, { split: true }));
+});
+
+test("a widget never hides for titles", () => {
+  // 400 - 2 * (86 + 2 + 40) - 40 = 104: two icons and "…" fit, two titles only with the clock gone (280).
+  const right = [e("clock", 86, "widget"), e("crest", 40)];
+  assert.deepEqual(fitBar(bar({ inner: 400, count: 1, zones: { left: [], center: [e("start", 40)], right }, split: split(2, 2, true) }), null), fit("full", 2, { split: true }));
 });
 
 test("the last apps go first, and the app in front and those asking for attention take the last places shown", () => {

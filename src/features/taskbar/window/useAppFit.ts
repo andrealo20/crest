@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { fitBar, type Fit, type FitEntry } from "../fit";
+import { fitBar, type Fit, type FitEntry, type FitMeasure } from "../fit";
 import { barGap, itemGap } from "../look";
 import { COMPACT_PAD, compactIcon, trayIcon, type BarItem, type BarShape, type Zone } from "../model";
 import { isTool, isWidget } from "../widgets";
 
 const ZONES: Zone[] = ["left", "center", "right"];
-const same = (a: Fit, b: Fit) => a.mode === b.mode && a.visible === b.visible && a.trayBack === b.trayBack && a.hide.join() === b.hide.join();
+const same = (a: Fit, b: Fit) => a.mode === b.mode && a.visible === b.visible && a.trayBack === b.trayBack && a.hide.join() === b.hide.join() && a.split === b.split && a.label === b.label;
 
 /**
  * How the bar's apps fit (fit.ts), from what the bar holds and the widths its items have: each item other than the apps is measured
@@ -15,17 +15,17 @@ const same = (a: Fit, b: Fit) => a.mode === b.mode && a.visible === b.visible &&
  */
 export function useAppFit(
   bar: RefObject<HTMLElement | null>,
-  i: { zones: Record<Zone, BarItem[]>; shape: BarShape; size: number; count: number; trayCount: number; primary: boolean; glyphs: number },
+  i: { zones: Record<Zone, BarItem[]>; shape: BarShape; size: number; count: number; trayCount: number; primary: boolean; glyphs: number; split: FitMeasure["split"] },
 ): Fit {
   const widths = useRef(new Map<string, number>());
   const was = useRef<Fit | null>(null);
-  const [fit, setFit] = useState<Fit>(() => ({ mode: "full", visible: i.count, trayBack: false, hide: [] }));
+  const [fit, setFit] = useState<Fit>(() => ({ mode: "full", visible: i.count, trayBack: false, hide: [], split: false, label: 0 }));
   // As of the last render, for the measures the observers make.
   const now = useRef(i);
   const measure = useCallback(() => {
     const el = bar.current;
     if (!el) return;
-    const { zones, shape, size, count, trayCount, primary } = now.current;
+    const { zones, shape, size, count, trayCount, primary, split } = now.current;
     const slot = shape === "tiles" ? size + 16 : trayIcon(size) + 16;
     const entries = (id: BarItem): FitEntry[] => {
       if (id === "apps") return [];
@@ -46,13 +46,14 @@ export function useAppFit(
         count,
         full: size + 16,
         compact: compactIcon(size) + COMPACT_PAD,
+        split,
       },
       was.current,
     );
     was.current = next;
     setFit((f) => (same(f, next) ? f : next));
   }, [bar]);
-  const key = `${JSON.stringify(i.zones)}|${i.shape}|${i.size}|${i.count}|${i.trayCount}|${i.primary}|${i.glyphs}`;
+  const key = `${JSON.stringify(i.zones)}|${i.shape}|${i.size}|${i.count}|${i.trayCount}|${i.primary}|${i.glyphs}|${JSON.stringify(i.split)}`;
   useLayoutEffect(() => {
     now.current = i;
     measure();

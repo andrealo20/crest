@@ -194,7 +194,7 @@ export function TaskbarWindow() {
     const s = barStatus.get();
     return [s.network && netGlyph(s.network), soundGlyph(s.sound), batteryGlyph(s.power)].filter(Boolean).length;
   });
-  const fit = useAppFit(bar, { zones, shape, size, count: buttons.length, trayCount: trayVisible.length, primary, glyphs });
+  const fit = useAppFit(bar, { zones, shape, size, count: buttons.length, trayCount: trayVisible.length, primary, glyphs, split: null });
   const kept = [...buttons.filter((b) => b.windows.some((w) => w.id === active)), ...buttons.filter((b) => indicator(b, active) === "attention")].map((b) => b.key);
   const shown = new Set(splitApps(buttons.map((b) => b.key), fit.mode === "overflow" ? fit.visible : buttons.length, kept).shown);
   const shownButtons = buttons.filter((b) => shown.has(b.key));
@@ -208,7 +208,7 @@ export function TaskbarWindow() {
   useEffect(() => {
     if (cardGone) setCard(null);
   }, [cardGone, setCard]);
-  const narrow = fit.mode !== "full";
+  const narrow = fit.mode === "compact" || fit.mode === "overflow";
   const appIcon = narrow ? compactIcon(size) : size;
   const appWidth = narrow ? compactIcon(size) + COMPACT_PAD : undefined;
   useEffect(() => trayFolded.set(fit.trayBack), [fit.trayBack]);
