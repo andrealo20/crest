@@ -85,7 +85,7 @@ export function DesktopMock() {
       {/* The demo on its own page: the notch opens on hover, and this is the way in without a mouse. */}
       {demo && (
         <div className="absolute inset-x-0 top-28 flex flex-col items-center gap-3 text-center text-sm text-white">
-          <p className="opacity-80">{barOffered ? "Point at the notch to open it, and try Crest's taskbar at the bottom." : "Point at the notch to open it."}</p>
+          <p className="opacity-80">{crestBar ? "Point at the notch to open it, and try Crest's taskbar at the bottom." : "Point at the notch to open it."}</p>
           <DevButton onClick={() => demoOpen(null)}>Open the notch</DevButton>
         </div>
       )}

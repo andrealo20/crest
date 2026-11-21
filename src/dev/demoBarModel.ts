@@ -1,7 +1,7 @@
 import type { Group, Win, WindowList } from "../features/taskbar/model";
 
 /*
- * The site's full-screen demo: the apps on Crest's bar and what becomes of their windows, standing in for Windows (taskbar/windows.rs) as
+ * The site's full-screen demo: the apps on Crest's bar and what becomes of their windows, standing in for Windows (taskbar/tasks.rs) as
  * pure functions over the bar's list. src/dev/demoBar.tsx stores what they return.
  */
 
