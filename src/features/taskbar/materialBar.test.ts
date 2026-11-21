@@ -127,16 +127,19 @@ test("the bar's new faces measure their tabular figures as the page draws them, 
   assert.doesNotMatch(clock, /measureText/);
 });
 
-test("under Material the bar's new faces draw on role tokens: tracks and the analog dial in secondary-container, the dial's hands in primary", () => {
+test("under Material the bar's new faces keep their tracks and the analog dial on a neutral fill, as the Slider does, the dial's hands in primary", () => {
+  // Not secondary-container: at raised contrast it turns light in the dark and primary beside it drops to 1.54:1 (Everforest).
+  const faces = ["TimerRing.tsx", "BarClock.tsx", "ReadingFaces.tsx"].map((f) => window(f)).join("\n");
+  assert.doesNotMatch(faces, /secondary-container/);
   const ring = window("TimerRing.tsx");
-  assert.match(ring, /strokeOpacity=\{0\.25\} strokeWidth="2" className="material:stroke-secondary-container material:\[stroke-opacity:1\]"/);
+  assert.match(ring, /strokeOpacity=\{0\.25\} strokeWidth="2" className="material:stroke-fill-3 material:\[stroke-opacity:1\]"/);
   const analog = from(window("BarClock.tsx"), "BarAnalog");
-  assert.match(analog, /<circle r="19" fill="var\(--color-fill-2\)" className="material:fill-secondary-container" \/>/);
-  assert.match(analog, /stroke="var\(--color-label-3\)"[^>]*className="material:stroke-on-secondary-container"/);
+  assert.match(analog, /<circle r="19" fill="var\(--color-fill-2\)" className="material:fill-fill-3" \/>/);
+  assert.match(analog, /stroke="var\(--color-label-3\)"[^>]*className="material:stroke-label"/);
   assert.equal([...analog.matchAll(/stroke="var\(--color-label\)"[^>]*className="material:stroke-primary"/g)].length, 2);
   assert.match(analog, /<circle r="2\.4" fill="var\(--color-label\)" className="material:fill-primary" \/>/);
-  // The inline colour-mix track gives way to secondary-container only under Material, so Crest's stays as it is.
-  assert.match(window("ReadingFaces.tsx"), /className="relative block h-1 overflow-hidden rounded-full material:bg-secondary-container!"/);
+  // The inline colour-mix track gives way to fill-3 only under Material, so Crest's stays as it is.
+  assert.match(window("ReadingFaces.tsx"), /className="relative block h-1 overflow-hidden rounded-full material:bg-fill-3!"/);
 });
 
 test("a widget dragged along the bar is lifted under Material: its ghost on a tonal disc at level 4, centred as before, and the line where it lands in primary", () => {
