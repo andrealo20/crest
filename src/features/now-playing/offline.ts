@@ -79,3 +79,6 @@ export function lostPair(loaded: Iterable<string>, downloaded: [string, number, 
   const have = new Set(downloaded.map(([pair]) => pair));
   return [...loaded].some((pair) => !have.has(pair));
 }
+
+/** Does the translator lack a pair this song needs? Then it starts afresh with only the song's models (offlineEngine.ts). */
+export const lacksPair = (loaded: Set<string>, pairs: [string, string][]) => pairs.some(([from, to]) => !loaded.has(`${from}-${to}`));
