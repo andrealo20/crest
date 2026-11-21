@@ -161,6 +161,8 @@ test("the tray's drag matches the bar's under Material: the same tonal disc, the
 
 test("the tray's drag is drawn in the bar's ink as the widgets' drag is, so Liquid Glass +'s dark ink reaches its disc and line, and still after the panel it may leave", () => {
   const src = window("TaskbarWindow.tsx");
-  assert.match(src, /<div data-theme-ink dir="ltr" className="contents" style=\{look\.ink\}>\s*(\{\/\*[^]*?\*\/\}\s*)?<TrayDrop [^>]*\/>\s*<\/div>/);
-  assert.ok(src.indexOf("<TrayDrop ") > src.indexOf("<BarPanel"), "over the panel an icon is dragged out of");
+  // Under Material only: in Crest the Notch surface's ink would give its line the closed notch's accent, which it never had.
+  assert.match(src, /appDesign === "material" \? \(\s*<div data-theme-ink dir="ltr" className="contents" style=\{look\.ink\}>\s*\{drop\}\s*<\/div>\s*\) : \(\s*drop\s*\)/);
+  assert.match(src, /const drop = <TrayDrop [^>]*\/>;/);
+  assert.ok(src.indexOf("{drop}") > src.indexOf("<BarPanel"), "over the panel an icon is dragged out of");
 });

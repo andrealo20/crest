@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { DotsThree } from "../../../ui/iconset";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { design } from "../../../design/design";
 import { springs } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { partInfo } from "../../../notch/row/partInfo";
@@ -230,6 +231,7 @@ export function TaskbarWindow() {
   );
   // Slid off the screen, the bar runs no glass, as when it hides.
   const look = useBarSurface(boxes, down);
+  const appDesign = design.use();
   // The shape slides out of its still box by its height and the gap under it, off the screen (useAutoHide).
   const slide = { initial: false, animate: { y: down ? height + gap : 0 }, transition: springs.snappy } as const;
   // In the order the tiles are drawn and measured: past LOOK.maxTiles the glass does not draw them, and they keep the veil. The tray
@@ -531,6 +533,7 @@ export function TaskbarWindow() {
     </span>
   );
 
+  const drop = <TrayDrop bar={bar} more={trayMore} size={trayIcon(size)} gap={between} />;
   return (
     <div
       // Clipped, so the bar slid off the screen leaves #root nothing to scroll to when one of its buttons takes the focus.
@@ -662,10 +665,15 @@ export function TaskbarWindow() {
           ),
         }}
       />
-      {/* In the bar's ink as ItemDrop is, so Liquid Glass +'s dark ink reaches its disc and line; after the panel, which an icon is dragged out of. */}
-      <div data-theme-ink dir="ltr" className="contents" style={look.ink}>
-        <TrayDrop bar={bar} more={trayMore} size={trayIcon(size)} gap={between} />
-      </div>
+      {/* Under Material in the bar's ink as ItemDrop is, so Liquid Glass +'s dark ink reaches its disc and line; Crest's as before, outside it.
+          After the panel, which an icon is dragged out of. */}
+      {appDesign === "material" ? (
+        <div data-theme-ink dir="ltr" className="contents" style={look.ink}>
+          {drop}
+        </div>
+      ) : (
+        drop
+      )}
       {/* The launch error for screen readers too: a button's label is not read out. */}
       <span role="status" aria-live="polite" className="sr-only">
         {error?.text}
