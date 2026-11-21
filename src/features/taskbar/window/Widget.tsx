@@ -191,12 +191,13 @@ function useSlices(keys: (keyof BarFeed)[]): BarFeed {
  * A widget on Crest's bar: a bar button holding the part, sized with the bar's icons by CSS zoom, which keeps the text sharp and
  * the room real. Its content is the button's description, so a screen reader says the value after the name.
  */
-export function WidgetItem({ id, item, paused, onClick, onContextMenu }: {
+export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointerDown }: {
   id: PartId;
   item: Pick<ItemProps, "name" | "label" | "failed" | "lifted" | "size" | "markAt" | "tile" | "expanded" | "kind" | "onEnter" | "onLeave">;
   paused: boolean;
   onClick: MouseEventHandler<HTMLButtonElement>;
   onContextMenu: MouseEventHandler<HTMLButtonElement>;
+  onPointerDown: ItemProps["onPointerDown"];
 }) {
   fontEpoch.use();
   const { taskbar, units, music } = settings.use();
@@ -220,7 +221,7 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu }: {
   });
   const pill = pillWidget(id, item.tile !== undefined) ? statusPill(taskbar.height) : null;
   return (
-    <Item {...item} width={widgetWidth(width, k, pill?.pad ?? null)} describedBy={desc} onClick={onClick} onContextMenu={onContextMenu}>
+    <Item {...item} width={widgetWidth(width, k, pill?.pad ?? null)} describedBy={desc} onClick={onClick} onContextMenu={onContextMenu} onPointerDown={onPointerDown}>
       {/* The pill wraps the content, not the cell (design 2E): the zoomed 30 px cell stays centred in a lower pill and overflows it
           equally. When Material's Item lands, pass layer={pill.height} as Stato does. */}
       <span className={pill ? "flex items-center rounded-full bg-fill-2" : "flex"} style={pill ? { height: pill.height, paddingInline: pill.pad } : undefined}>

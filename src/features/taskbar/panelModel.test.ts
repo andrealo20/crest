@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, TRAY_SIZE, dropSlot, fitPanel, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -126,4 +126,10 @@ test("the six tools on saved stores open in the panel too, the half-working and 
   for (const id of saved) assert.equal(BAR_TOOLS.includes(id), false, id);
   for (const id of ["clipboard", "ask", "trading", "vault", "terminal", "capture", "recorder", "camera", "calc", "convert", "launcher", "colour", "teleprompter", "agents", "find"]) assert.equal(opensInBar(tool(id)), false, id);
   assert.equal(PANEL_TOOLS.length, 18);
+});
+
+test("a widget drags past 4 px with a mouse and 10 px with touch or a pen, so a tap that opens a panel never moves it", () => {
+  assert.equal(dragThreshold("mouse"), 4);
+  assert.equal(dragThreshold("touch"), 10);
+  assert.equal(dragThreshold("pen"), 10);
 });

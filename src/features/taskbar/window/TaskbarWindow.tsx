@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { DotsThree } from "@phosphor-icons/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -17,8 +17,8 @@ import { useThemedAccent } from "../../themes/store";
 import { zones as hitZones, type Rect } from "../autoHide";
 import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
-import { closePanel, panel, togglePanel } from "../panel";
-import { opensInBar } from "../panelModel";
+import { closePanel, itemDrag, panel, togglePanel } from "../panel";
+import { dragThreshold, opensInBar } from "../panelModel";
 import { barShown, barWindows, groupIcons } from "../store";
 import { splitApps } from "../fit";
 import { barStatus } from "../status";
@@ -34,7 +34,9 @@ import { AppsPanel } from "./AppsPanel";
 import { AppMenu, BarMenu, CrestMenu, WindowList, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
 import { holdBriefly } from "./hold";
-import { Item, MARK } from "./Item";
+import { Item, MARK, type ItemProps } from "./Item";
+import { ItemDrop } from "./ItemDrop";
+import { pressDragged, startPress } from "./press";
 import { Status } from "./Status";
 import { Tray, TrayDrop } from "./Tray";
 import { useAppFit } from "./useAppFit";
@@ -95,6 +97,8 @@ export function TaskbarWindow() {
   useEffect(() => {
     if (open) setMenu(null);
   }, [open]);
+  // The item dragged along the bar, only its id: the pointer's moves would draw the whole bar again (ItemDrop follows them).
+  const dragged = useSyncExternalStore(itemDrag.subscribe, () => itemDrag.get()?.id ?? null);
   // The shape's boxes, for its glass: new ones only when they change, so a hover does not draw the glass again.
   const [boxes, setBoxes] = useState<Box[]>([]);
   // The pointer's x over the bar, Infinity off it: the magnified icons follow it without React drawing anything.
@@ -153,6 +157,7 @@ export function TaskbarWindow() {
   const { down, place: placeMenuZone } = useHitZone(bar, shape, setBoxes, layout, {
     open: menu !== null || open !== null,
     attention: buttons.some((b) => indicator(b, active) === "attention"),
+    dragging: dragged !== null,
   });
   // Down, Rust tells this bar, and the notch for the primary's, that it is hidden (bar.rs taskbar_slid): the widgets and their sources
   // rest as when it hides. Once per change, and once on load, which clears a slide the page left behind before a reload.
@@ -209,10 +214,33 @@ export function TaskbarWindow() {
     openTool(tool, button);
   };
 
+  /**
+   * A press on a widget, a tool button or Stato: past dragThreshold it drags the item along the bar (ItemDrop), closing the panel and
+   * the menus and stopping the names and the magnifying for the drag.
+   */
+  const dragFrom =
+    (id: BarItem): ItemProps["onPointerDown"] =>
+    (e) =>
+      startPress(e, {
+        threshold: dragThreshold(e.pointerType),
+        onDrag: (x, y) => {
+          if (!itemDrag.get()) {
+            closePanel();
+            setMenu(null);
+            setHovered(null);
+            pointer.set(Infinity);
+          }
+          itemDrag.set({ id, x, y });
+        },
+        onEnd: () => itemDrag.set(null),
+      });
+  /** The click a drag's release makes; a key's click (no count) never ends a drag. */
+  const afterDrag = (e: { detail: number }) => e.detail > 0 && pressDragged();
+
   const item = (key: string, name: string) => ({
     name,
-    // An open menu or panel hides the names, which would show around it.
-    label: menu || open ? null : error?.key === key ? error.text : hovered === key ? name : null,
+    // An open menu or panel hides the names, which would show around it, and so does a drag.
+    label: menu || open || dragged ? null : error?.key === key ? error.text : hovered === key ? name : null,
     failed: error?.key === key,
     lifted: hovered === key,
     size,
@@ -299,7 +327,8 @@ export function TaskbarWindow() {
           // A widget that opens a tool says whether the panel shows it, so a press on it is left to its click and the panel moves in place.
           item={{ ...item(id, t(partInfo[id].label)), kind: id, tile: tile(), expanded: tool === null ? undefined : open?.content.kind === "tool" && open.content.tool === tool }}
           paused={paused}
-          onClick={(e) => clickWidget(id, e.currentTarget)}
+          onClick={(e) => afterDrag(e) || clickWidget(id, e.currentTarget)}
+          onPointerDown={dragFrom(id)}
           // No menu of its own: the Crest menu over the pointer, as beside the buttons.
           onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
         />
@@ -319,10 +348,12 @@ export function TaskbarWindow() {
           // Only a tool the panel shows says whether it is open; one the notch opens leaves the bar's panel closed.
           expanded={opensInBar({ kind: "tool", tool }) ? open?.content.kind === "tool" && open.content.tool === tool : undefined}
           onClick={(e) => {
+            if (afterDrag(e)) return;
             setError(null);
             setMenu(null);
             openTool(tool, e.currentTarget);
           }}
+          onPointerDown={dragFrom(id)}
           // No menu of its own, as a widget: the Crest menu over the pointer.
           onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
         >
@@ -356,11 +387,13 @@ export function TaskbarWindow() {
           tile={tilesFor(glyphs ? 1 : 0)}
           expanded={open?.content.kind === "quick"}
           onClick={(e) => {
+            if (afterDrag(e)) return;
             setError(null);
             setMenu(null);
             const r = e.currentTarget.getBoundingClientRect();
             togglePanel({ kind: "quick" }, { x: r.x, w: r.width });
           }}
+          onPointerDown={dragFrom(id)}
           // No menu of its own, as a widget: the Crest menu over the pointer.
           onMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
         />
@@ -374,11 +407,24 @@ export function TaskbarWindow() {
     return id satisfies never;
   };
 
+  /** Each item in a box-less span the drop measures it by (ItemDrop); the draggable ones keep touch for the drag, the dragged one dims. */
+  const place = (id: BarItem) => (
+    <span key={id} data-item={id} className={`contents ${isWidget(id) || isTool(id) || id === "status" ? "*:touch-none" : ""} ${dragged === id ? "*:opacity-40" : ""}`}>
+      {render(id)}
+    </span>
+  );
+
   return (
     <div
       // Clipped, so the bar slid off the screen leaves #root nothing to scroll to when one of its buttons takes the focus.
       className="flex h-full flex-col justify-end overflow-clip"
       style={{ ["--accent" as string]: accent }}
+      // A right click during a drag opens nothing, on any button or beside them.
+      onContextMenuCapture={(e) => {
+        if (!itemDrag.get()) return;
+        e.preventDefault();
+        e.stopPropagation();
+      }}
       // A right click beside the buttons, on the bar or in the gap under it: the Crest menu, over the pointer. Not in the panel.
       onContextMenu={(e) => {
         if ((e.target as Element).closest("button, [role=menu], [role=dialog]")) return;
@@ -394,14 +440,15 @@ export function TaskbarWindow() {
           className={shape === "capsule" ? "self-center" : undefined}
           style={{ margin: shape === "capsule" ? `0 0 ${gap}px` : `0 ${gap}px ${gap}px` }}
           // The bar only, never a menu or the panel above it.
-          onPointerMove={(e) => pointer.set(e.clientX)}
+          // Not while dragging: no icon grows under the ghost.
+          onPointerMove={(e) => itemDrag.get() || pointer.set(e.clientX)}
           onPointerLeave={() => pointer.set(Infinity)}
         >
           {/* Positioned, so it draws over the glass's canvas. The capsule puts the three zones in a row, as close as its buttons. */}
           {shape === "capsule" ? (
             <motion.div {...slide}>
               <Capsule style={{ height, borderRadius: look.radius, background: look.background }} gap={between}>
-                {ZONES.map(([zone]) => zones[zone].map((id) => <Fragment key={id}>{render(id)}</Fragment>))}
+                {ZONES.map(([zone]) => zones[zone].map(place))}
               </Capsule>
             </motion.div>
           ) : (
@@ -412,15 +459,15 @@ export function TaskbarWindow() {
             >
               {ZONES.map(([zone, justify]) => (
                 // A side zone holding the apps grows to them and moves the centre aside; the fit leaves the other side its room.
-                <div key={zone} className={`flex ${justify} ${zone !== "center" && zones[zone].includes("apps") ? "" : "min-w-0"}`} style={{ gap: between }}>
-                  {zones[zone].map((id) => (
-                    <Fragment key={id}>{render(id)}</Fragment>
-                  ))}
+                <div key={zone} data-zone={zone} className={`flex ${justify} ${zone !== "center" && zones[zone].includes("apps") ? "" : "min-w-0"}`} style={{ gap: between }}>
+                  {zones[zone].map(place)}
                 </div>
               ))}
             </motion.div>
           )}
         </div>
+        {/* In the bar's ink, so the ghost has the bar's colours. */}
+        <ItemDrop bar={bar} size={trayIcon(size)} gap={between} />
         <AnimatePresence>
           {/* Gone in the very commit the panel opens in, so its zone is cleared before the panel's box goes in, never after. */}
           {menu && !open && (
@@ -496,11 +543,20 @@ const boxOf = (el: Element): Box => {
  * decides whether it is down (useAutoHide), and the tiles are taken back by the slide. They go to its glass too. `layout` changes when
  * the tiles may have moved inside a bar that kept its size.
  */
-function useHitZone(ref: RefObject<HTMLDivElement | null>, shape: BarShape, setBoxes: Dispatch<SetStateAction<Box[]>>, layout: string, hold: { open: boolean; attention: boolean }) {
+function useHitZone(
+  ref: RefObject<HTMLDivElement | null>,
+  shape: BarShape,
+  setBoxes: Dispatch<SetStateAction<Box[]>>,
+  layout: string,
+  hold: { open: boolean; attention: boolean; dragging: boolean },
+) {
   const on = settings.use().taskbar.autoHide;
   const [band, setBand] = useState<Rect | null>(null);
-  const down = useAutoHide({ band, ...hold });
+  // A drag keeps the bar up.
+  const down = useAutoHide({ band, open: hold.open || hold.dragging, attention: hold.attention });
   const menu = useRef<HitRect | null>(null);
+  // While an item is dragged the whole window, in a ref of its own: a closing panel overwrites the menus' one.
+  const drag = useRef(false);
   // As of the last render, for the reports the observers make.
   const now = useRef({ on, down });
   const report = useCallback(() => {
@@ -518,7 +574,8 @@ function useHitZone(ref: RefObject<HTMLDivElement | null>, shape: BarShape, setB
     };
     const groups = shape === "tiles" && layer ? [...layer.children].map((zone) => [...zone.querySelectorAll("[data-tile]")].map(tile)) : [[rest]];
     const bands = hitBoxes(groupBoxes(groups), window.innerHeight);
-    void taskbar.hitRects(hitZones({ bands, open: menu.current ? [menu.current] : [], ...now.current, width: window.innerWidth, height: window.innerHeight }));
+    const open = [...(menu.current ? [menu.current] : []), ...(drag.current ? [{ x: 0, y: 0, w: window.innerWidth, h: window.innerHeight }] : [])];
+    void taskbar.hitRects(hitZones({ bands, open, ...now.current, width: window.innerWidth, height: window.innerHeight }));
     const next = groups.flat();
     setBoxes((b) => (JSON.stringify(b) === JSON.stringify(next) ? b : next));
   }, [ref, shape, setBoxes]);
@@ -542,6 +599,10 @@ function useHitZone(ref: RefObject<HTMLDivElement | null>, shape: BarShape, setB
     now.current = { on, down };
     report();
   }, [on, down, report]);
+  useLayoutEffect(() => {
+    drag.current = hold.dragging;
+    report();
+  }, [hold.dragging, report]);
   const place = useCallback(
     (box: HitRect | null) => {
       menu.current = box;

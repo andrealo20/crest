@@ -24,6 +24,7 @@ export function Status(props: {
   onClick: MouseEventHandler<HTMLButtonElement>;
   /** A right click, which has no menu of its own: the Crest menu over the pointer. */
   onMenu: MouseEventHandler<HTMLButtonElement>;
+  onPointerDown: ItemProps["onPointerDown"];
 }) {
   useEffect(() => startStatus(), []);
   const s = barStatus.use();
@@ -49,6 +50,7 @@ export function Status(props: {
       expanded={props.expanded}
       onClick={props.onClick}
       onContextMenu={props.onMenu}
+      onPointerDown={props.onPointerDown}
     >
       {/* The button's own lift and press move the pill with the glyphs; it adds no hover fill of its own. */}
       <span

@@ -11,56 +11,17 @@ import { startTray, trayFolded, trayPictures, trayState } from "../tray";
 import { demote, promote, shownSlot, splitTray } from "../trayModel";
 import { holdBriefly } from "./hold";
 import { Item, type ItemProps } from "./Item";
+import { startPress, pressDragged } from "./press";
 
 /** What every bar button has in common (TaskbarWindow's `item`). */
 export type Common = Pick<ItemProps, "name" | "label" | "failed" | "lifted" | "size" | "markAt" | "onEnter" | "onLeave">;
 
 /** How far a press on an icon moves before it drags the icon, CSS px; less is still a click. */
 const DRAG = 4;
-/** The ways a press ends without a key. */
-const PRESS_ENDS = ["pointerup", "pointercancel", "lostpointercapture"] as const;
 
-// The press being followed (its end), and whether the last press dragged its icon: the click its release makes sends nothing.
-let endPress: (() => void) | null = null;
-let dragged = false;
-
-/**
- * A press on a tray icon, on the bar or in the panel, followed until the pointer lets go: past DRAG it drags the icon (trayDrag),
- * which TrayDrop keeps on the bar or hides where it is let go. It ends on the release, a cancel, a lost capture (its button taken
- * away meanwhile) or Esc while dragging; `dragged` outlives it.
- */
+/** A press on a tray icon, on the bar or in the panel: past DRAG it drags the icon (trayDrag), which TrayDrop keeps on the bar or hides where it is let go. */
 function press(e: ReactPointerEvent<HTMLButtonElement>, icon: TrayIcon, from: "panel" | "bar") {
-  if (e.button !== 0) return;
-  endPress?.();
-  const { pointerId, clientX, clientY } = e;
-  const button = e.currentTarget;
-  // The button gets every move and the release, wherever the pointer goes, and the window gets them from it.
-  button.setPointerCapture(pointerId);
-  dragged = false;
-  const onMove = (m: PointerEvent) => {
-    if (m.pointerId !== pointerId || (!dragged && Math.hypot(m.clientX - clientX, m.clientY - clientY) <= DRAG)) return;
-    dragged = true;
-    trayDrag.set({ id: icon.id, img: icon.img, x: m.clientX, y: m.clientY, from });
-  };
-  const onEnd = (m: PointerEvent) => m.pointerId === pointerId && end();
-  // Taken on the way down, before the panel's own Esc, which then leaves the panel open.
-  const onKey = (k: KeyboardEvent) => {
-    if (k.key !== "Escape" || !dragged) return;
-    k.preventDefault();
-    end();
-  };
-  const end = () => {
-    removeEventListener("pointermove", onMove);
-    for (const type of PRESS_ENDS) removeEventListener(type, onEnd);
-    removeEventListener("keydown", onKey, true);
-    if (button.hasPointerCapture(pointerId)) button.releasePointerCapture(pointerId);
-    endPress = null;
-    trayDrag.set(null);
-  };
-  addEventListener("pointermove", onMove);
-  for (const type of PRESS_ENDS) addEventListener(type, onEnd);
-  addEventListener("keydown", onKey, true);
-  endPress = end;
+  startPress(e, { threshold: DRAG, onDrag: (x, y) => trayDrag.set({ id: icon.id, img: icon.img, x, y, from }), onEnd: () => trayDrag.set(null) });
 }
 
 /**
@@ -79,7 +40,7 @@ export function trayButton(icon: TrayIcon, from: "panel" | "bar") {
   return {
     onClick: (e: MouseEvent<HTMLButtonElement>) => {
       // A key's click (no count) never ends a drag.
-      if (e.detail > 1 || (e.detail > 0 && dragged)) return;
+      if (e.detail > 1 || (e.detail > 0 && pressDragged())) return;
       send("left", e);
     },
     onDoubleClick: (e: MouseEvent<HTMLButtonElement>) => send("double", e),

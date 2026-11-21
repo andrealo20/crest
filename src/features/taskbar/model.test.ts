@@ -9,10 +9,12 @@ import {
   barButtons,
   clickAction,
   compactIcon,
+  dropPlace,
   fitIcon,
   indicator,
   menuFor,
   menuKey,
+  moveBefore,
   moveItem,
   normalizeTaskbar,
   normalizeZones,
@@ -27,6 +29,7 @@ import {
   type BarItem,
   type Group,
   type Win,
+  type Zone,
 } from "./model.ts";
 
 test("any saved value becomes valid bar settings", () => {
@@ -260,4 +263,45 @@ test("a tool button enters the bar only for a tool the bar offers, and once", ()
     normalizeZones({ left: ["tool:notes", "tool:x", "tool:timer", "tool:plugin:abc", "tool:settings", "tool:", "notes"], center: ["start", "apps", "tool:notes"], right: ["timer", "tool:find", "crest"] }),
     { left: ["tool:notes"], center: ["start", "apps"], right: ["timer", "tool:find", "crest"] },
   );
+});
+
+const Z = (left: BarItem[], center: BarItem[], right: BarItem[]) => ({ left, center, right });
+
+test("a drop puts the item before its neighbour in the saved zones, the hidden ones kept where they were", () => {
+  const z = Z([], ["start", "apps"], ["weather", "tool:notes", "tray", "status", "clock", "crest"]);
+  assert.deepEqual(moveBefore(z, "clock", "right", "tray"), Z([], ["start", "apps"], ["weather", "tool:notes", "clock", "tray", "status", "crest"]));
+  assert.deepEqual(moveBefore(z, "weather", "center", null), Z([], ["start", "apps", "weather"], ["tool:notes", "tray", "status", "clock", "crest"]));
+  assert.deepEqual(moveBefore(z, "status", "left", null), Z(["status"], ["start", "apps"], ["weather", "tool:notes", "tray", "clock", "crest"]));
+});
+
+test("a drop where the item already is changes nothing, so nothing is written", () => {
+  const z = Z([], ["start", "apps"], ["weather", "tray", "clock", "crest"]);
+  assert.equal(moveBefore(z, "weather", "right", "tray"), z);
+  assert.equal(moveBefore(z, "weather", "right", "weather"), z);
+  assert.equal(moveBefore(z, "github", "right", "tray"), z); // not on the bar
+  assert.equal(moveBefore(z, "clock", "left", "tray"), z); // its neighbour is not in that zone
+});
+
+const slot = (id: BarItem, zone: Zone, x: number, w = 40) => ({ id, zone, x, w });
+const grid = [{ zone: "left", x: 0, w: 600 }, { zone: "center", x: 600, w: 0 }, { zone: "right", x: 600, w: 600 }] as { zone: Zone; x: number; w: number }[];
+
+test("a dragged item lands before the item under the pointer's half, in that zone", () => {
+  const items = [slot("start", "left", 10), slot("apps", "left", 56), slot("weather", "right", 1000), slot("tray", "right", 1046), slot("clock", "right", 1092)];
+  assert.deepEqual(dropPlace("clock", items, grid, 1050, 40, 6), { zone: "right", before: "tray", line: 1042 });
+  assert.deepEqual(dropPlace("weather", items, grid, 1140, 40, 6), { zone: "right", before: null, line: 1134 });
+  assert.equal(dropPlace("tray", items, grid, 1050, 40, 6), null); // its own place
+  assert.equal(dropPlace("weather", items, grid, 1050, 40, 6), null); // right before tray, where it is
+  assert.equal(dropPlace("clock", items, grid, 1140, 40, 6), null); // past the end, where it is
+});
+
+test("an empty middle zone takes a drop on a band one item wide round its centre", () => {
+  const items = [slot("start", "left", 10), slot("weather", "right", 1000), slot("tool:notes", "right", 1046)];
+  assert.deepEqual(dropPlace("weather", items, grid, 610, 40, 6), { zone: "center", before: null, line: 599 });
+  assert.deepEqual(dropPlace("tool:notes", items, grid, 700, 40, 6), { zone: "right", before: "weather", line: 996 });
+});
+
+test("in the capsule a drop joins the zone of the item it goes before, or of the last one at the end", () => {
+  const items = [slot("start", "center", 500), slot("apps", "center", 546), slot("weather", "right", 592), slot("clock", "right", 638)];
+  assert.deepEqual(dropPlace("clock", items, null, 560, 40, 6), { zone: "center", before: "apps", line: 542 });
+  assert.deepEqual(dropPlace("weather", items, null, 700, 40, 6), { zone: "right", before: null, line: 680 });
 });

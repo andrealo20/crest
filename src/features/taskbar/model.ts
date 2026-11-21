@@ -4,6 +4,7 @@
 import { normalizeFavorites, type Favorite } from "../launcher/apps.ts";
 import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
 import { TOOL_IDS } from "../../settings/tools.ts";
+import { dropSlot } from "./panelModel.ts";
 
 /** The bar's zones. Physical, as the closed row's: left stays left in a right-to-left language. */
 export type Zone = "left" | "center" | "right";
@@ -198,6 +199,55 @@ export function moveItem(zones: Record<Zone, BarItem[]>, id: BarItem, to: Zone, 
   const next = { left: zones.left.filter((x) => x !== id), center: zones.center.filter((x) => x !== id), right: zones.right.filter((x) => x !== id) };
   next[to].splice(Math.max(0, index ?? next[to].length), 0, id);
   return next;
+}
+
+/**
+ * The zones with `id` moved into `zone` before `before` (at its end with null), on the saved zones, so the items the bar hides (by
+ * the fit, on a secondary bar, a tool switched off) keep their places; the same object when nothing changes, so nothing is written.
+ */
+export function moveBefore(zones: Record<Zone, BarItem[]>, id: BarItem, zone: Zone, before: BarItem | null): Record<Zone, BarItem[]> {
+  if (before === id || !ZONES.some((z) => zones[z].includes(id))) return zones;
+  const next = { left: zones.left.filter((x) => x !== id), center: zones.center.filter((x) => x !== id), right: zones.right.filter((x) => x !== id) };
+  const at = before === null ? next[zone].length : next[zone].indexOf(before);
+  if (at < 0) return zones;
+  next[zone].splice(at, 0, id);
+  return JSON.stringify(next) === JSON.stringify(zones) ? zones : next;
+}
+
+/** An item drawn on the bar, in DOM order: its zone and its box's left edge and width, CSS px. */
+export type DropSlot = { id: BarItem; zone: Zone; x: number; w: number };
+/** A zone's box on the grid shapes, CSS px. */
+export type ZoneBox = { zone: Zone; x: number; w: number };
+
+/**
+ * Where an item dragged to `x` lands: in the zone whose box holds `x` (an empty one widened to `unit` round its centre, checked
+ * first), or without zone boxes (the capsule) in the zone of the item it goes before, of the last one at the end; before the first
+ * item whose centre is right of `x`. `line` is the left edge of the 2 px insertion line, centred in the `gap` between buttons. Null
+ * outside the zones and on its own place (before itself or its next neighbour, or at the end it already is at): nothing to write.
+ */
+export function dropPlace(id: BarItem, items: DropSlot[], zones: ZoneBox[] | null, x: number, unit: number, gap: number): { zone: Zone; before: BarItem | null; line: number } | null {
+  let zone: Zone, inZone: DropSlot[], at: number;
+  if (zones) {
+    const empty = (z: ZoneBox) => !items.some((s) => s.zone === z.zone);
+    const box = (z: ZoneBox) => (empty(z) ? { x: z.x + z.w / 2 - unit / 2, w: unit } : z);
+    const hit = [...zones.filter(empty), ...zones.filter((z) => !empty(z))].find((z) => x >= box(z).x && x <= box(z).x + box(z).w);
+    if (!hit) return null;
+    zone = hit.zone;
+    inZone = items.filter((s) => s.zone === zone);
+    if (!inZone.length) return { zone, before: null, line: hit.x + hit.w / 2 - 1 };
+    at = dropSlot(inZone, x);
+  } else {
+    if (!items.length) return null;
+    at = dropSlot(items, x);
+    zone = (items[at] ?? items[items.length - 1]).zone;
+    inZone = items.filter((s) => s.zone === zone);
+    at = items[at] ? inZone.indexOf(items[at]) : inZone.length;
+  }
+  const before = inZone[at]?.id ?? null;
+  const own = inZone.findIndex((s) => s.id === id);
+  if (own >= 0 && (at === own || at === own + 1)) return null;
+  const last = inZone[inZone.length - 1];
+  return { zone, before, line: before === null ? last.x + last.w + gap / 2 - 1 : inZone[at].x - gap / 2 - 1 };
 }
 
 /** What changed on Windows' taskbar, on the bar's pinned apps: those pinned there at the end unless already pinned, those unpinned there taken off; the rest keep their order. */
