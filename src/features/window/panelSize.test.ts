@@ -81,3 +81,12 @@ test("scale and saved sizes are repaired", () => {
   assert.deepEqual(normalizeSizes({ a: { w: 500.4, h: 200 }, b: { w: -1, h: 2 }, c: null, d: { w: "x", h: 1 } }), { a: { w: 500, h: 200 } });
   assert.deepEqual(normalizeSizes(null), {});
 });
+
+test("a tool whose layout needs its whole height cannot be made shorter (#64, the Music tool's controls)", () => {
+  const music = { w: 520, h: 232, minH: 232 };
+  assert.equal(limits(music).minH, 232);
+  // A height saved before, below it, comes back up; the width keeps its 80 %.
+  assert.deepEqual(sizeFor(music, { w: 416, h: 186 }), { w: 416, h: 232 });
+  assert.equal(quickSize(music, "compact").h, 232);
+  assert.equal(limits({ w: 520, h: 232 }).minH, 186);
+});
