@@ -15,6 +15,8 @@ import { HISTORY, holdProcesses, system, useSystemShown } from "./store";
 import { trendArea, trendLine } from "./hero";
 import { useHue, type Hue } from "../themes/hues";
 import { PortsEntry } from "../ports/PortsPanel";
+import { design } from "../../design/design";
+import { MaterialSystemLayout } from "./MaterialSystem";
 
 /*
  *   ┌───────────────────────────────────────────────┬──────────────────────────┐
@@ -41,6 +43,7 @@ export function SystemView() {
   // Closed with the pointer still over the list: the next opening ranks freely again.
   useEffect(() => () => holdProcesses.set(false), []);
   const driveColor = useHue("orange");
+  const material = design.use() === "material";
   const s = st.stats;
   if (!s) return null;
   const tone = (l: Level) => schemeColor(colors, l);
@@ -81,6 +84,17 @@ export function SystemView() {
       }}
     />
   );
+  const gpuBadge = gpus.length > 1 && g ? `${gpus.findIndex((x) => x.key === g.key) + 1}/${gpus.length}` : undefined;
+  const powerDetail = p ? join([p.source === "parts" && p.via ? p.via : t(p.source === "meter" ? "Gemessen" : p.source === "battery" ? "Akku-Entladung" : "Schätzung"), p.cpu !== null ? `CPU ${watts(p.cpu)} W` : null, p.gpu !== null ? `GPU ${watts(p.gpu)} W` : null]) : "";
+  const batteryDetail = b
+    ? join([
+        b.state === "charging" ? (b.toFull !== null ? t("Voll in {time}", { time: duration(b.toFull, t) }) : t("Lädt")) : b.state === "discharging" ? (b.left !== null ? t("{time} übrig", { time: duration(b.left, t) }) : t("Entlädt")) : b.state === "full" ? t("Voll") : t("Angeschlossen"),
+        b.saver ? t("Energiesparen") : null,
+      ])
+    : "";
+  const batteryHealth = b && b.health !== null ? { text: `${t("Zustand")} ${Math.round(b.health * 100)} %`, color: tone(healthLevel(b.health)) } : null;
+
+  if (material) return <MaterialSystemLayout st={st} tone={tone} cpuDetail={join(cpuDetail)} gpuDetail={join(gpuDetail)} gpuBadge={gpuBadge} onGpu={gpus.length > 1 ? cycleGpu : undefined} memLevel={memLevel} powerDetail={powerDetail} batteryDetail={batteryDetail} batteryHealth={batteryHealth} plan={plan} detail={detail} setDetail={setDetail} />;
 
   let i = 0;
   return (
@@ -106,7 +120,7 @@ export function SystemView() {
           value={g?.usage == null ? "-" : `${Math.round(g.usage)} %`}
           level={ofShare(g?.usage ?? 0)}
           onClick={gpus.length > 1 ? cycleGpu : undefined}
-          badge={gpus.length > 1 && g ? `${gpus.findIndex((x) => x.key === g.key) + 1}/${gpus.length}` : undefined}
+          badge={gpuBadge}
         />
         {net && (
           <Row
@@ -131,7 +145,7 @@ export function SystemView() {
             icon={Lightning}
             hue="amber"
             label={t("Leistung")}
-            detail={p ? join([p.source === "parts" && p.via ? p.via : t(p.source === "meter" ? "Gemessen" : p.source === "battery" ? "Akku-Entladung" : "Schätzung"), p.cpu !== null ? `CPU ${watts(p.cpu)} W` : null, p.gpu !== null ? `GPU ${watts(p.gpu)} W` : null]) : ""}
+            detail={powerDetail}
             control={plan}
             tone={tone}
             values={p ? st.history.power : undefined}
@@ -147,11 +161,8 @@ export function SystemView() {
             icon={BatteryHigh}
             hue="green"
             label={t("Akku")}
-            detail={join([
-              b.state === "charging" ? (b.toFull !== null ? t("Voll in {time}", { time: duration(b.toFull, t) }) : t("Lädt")) : b.state === "discharging" ? (b.left !== null ? t("{time} übrig", { time: duration(b.left, t) }) : t("Entlädt")) : b.state === "full" ? t("Voll") : t("Angeschlossen"),
-              b.saver ? t("Energiesparen") : null,
-            ])}
-            health={b.health !== null ? { text: `${t("Zustand")} ${Math.round(b.health * 100)} %`, color: tone(healthLevel(b.health)) } : null}
+            detail={batteryDetail}
+            health={batteryHealth}
             tone={tone}
             value={`${Math.round(b.percent)} %`}
             level={batteryLevel(b)}
