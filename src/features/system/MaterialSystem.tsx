@@ -53,6 +53,8 @@ export function MaterialSystemLayout(p: {
   tone: (l: Level) => string;
   roles: boolean;
   cpuDetail: string;
+  /** Why the CPU has no temperature, on hover over "- °C"; undefined while it has one. */
+  noCpuTemp: string | undefined;
   gpuDetail: string;
   gpuBadge: string | undefined;
   onGpu: (() => void) | undefined;
@@ -91,7 +93,11 @@ export function MaterialSystemLayout(p: {
         <div className={`grid min-h-0 min-w-0 gap-2 ${chips ? "grid-rows-[minmax(100px,120fr)_minmax(64px,76fr)_28px]" : "grid-rows-[minmax(100px,min(150px,42%))_minmax(64px,1fr)_minmax(64px,min(74px,26%))]"}`}>
           <div className="grid min-h-0 grid-cols-2 gap-2">
             <GaugeCard i={0} icon={Cpu} hue="red" label="CPU" detail={p.cpuDetail} percent={s.cpu} tone={at(PRIMARY)} fit={fit}>
-              {st.cpuTemp !== null && <Reading icon={Thermometer} text={`${degrees(st.cpuTemp)} °C`} color={tone(tempLevel("cpu", st.cpuTemp))} fraction={st.cpuTemp / 100} bar={fit.tempBar} title={st.cpuTempFrom ?? undefined} />}
+              {st.cpuTemp !== null ? (
+                <Reading icon={Thermometer} text={`${degrees(st.cpuTemp)} °C`} color={tone(tempLevel("cpu", st.cpuTemp))} fraction={st.cpuTemp / 100} bar={fit.tempBar} title={st.cpuTempFrom ?? undefined} />
+              ) : (
+                p.noCpuTemp && <Reading icon={Thermometer} text="- °C" color="var(--color-label-3)" fraction={0} bar={false} title={p.noCpuTemp} />
+              )}
               {fit.cores && cores > 0 && (
                 <div className="min-h-0 max-h-10 flex-1">
                   <CoreColumns cores={s.cores} tone={tone} fill />

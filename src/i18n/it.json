@@ -106,6 +106,7 @@
  "Kein API-Schlüssel für {p}, in den Einstellungen eintragen.": "Nessuna chiave API per {p}, inseriscila nelle Impostazioni.",
  "Kein lokales Netzwerk gefunden": "Nessuna rete locale trovata",
  "Kein Platz, um das Backup bereitzulegen": "Non c'è spazio per preparare il backup",
+ "Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support) oder LibreHardwareMonitor läuft, liest Crest sie dort.": "Nessuna temperatura della CPU da Windows. Finché HWiNFO (con Shared Memory Support) o LibreHardwareMonitor è in esecuzione, Crest la legge da lì.",
  "Kelvin": "Kelvin",
  "Klappt es nicht? VPN, Firewall oder Gast-WLAN prüfen.": "Non funziona? Controlla VPN, firewall o Wi-Fi ospiti.",
  "km/h": "km/h",

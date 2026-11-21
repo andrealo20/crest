@@ -106,6 +106,7 @@
  "Kein API-Schlüssel für {p}, in den Einstellungen eintragen.": "Нет ключа API для {p}, введите его в настройках.",
  "Kein lokales Netzwerk gefunden": "Локальная сеть не найдена",
  "Kein Platz, um das Backup bereitzulegen": "Недостаточно места, чтобы подготовить копию",
+ "Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support) oder LibreHardwareMonitor läuft, liest Crest sie dort.": "Windows не даёт температуру CPU. Пока запущен HWiNFO (с Shared Memory Support) или LibreHardwareMonitor, Crest берёт её оттуда.",
  "Kelvin": "Кельвин",
  "Klappt es nicht? VPN, Firewall oder Gast-WLAN prüfen.": "Не работает? Проверьте VPN, брандмауэр или гостевой Wi-Fi.",
  "km/h": "км/ч",

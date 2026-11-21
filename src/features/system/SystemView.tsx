@@ -93,14 +93,16 @@ export function SystemView() {
       ])
     : "";
   const batteryHealth = b && b.health !== null ? { text: `${t("Zustand")} ${Math.round(b.health * 100)} %`, color: tone(healthLevel(b.health)) } : null;
+  // Many PCs give Windows no CPU temperature (temps.ts); the panel says where Crest can read one instead of leaving a gap (issue #67).
+  const noCpuTemp = st.cpuTemp === null ? t("Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support) oder LibreHardwareMonitor läuft, liest Crest sie dort.") : undefined;
 
-  if (material) return <MaterialSystemLayout st={st} tone={tone} roles={colors === "calm"} cpuDetail={join(cpuDetail)} gpuDetail={join(gpuDetail)} gpuBadge={gpuBadge} onGpu={gpus.length > 1 ? cycleGpu : undefined} memLevel={memLevel} powerDetail={powerDetail} batteryDetail={batteryDetail} batteryHealth={batteryHealth} plan={plan} detail={detail} setDetail={setDetail} />;
+  if (material) return <MaterialSystemLayout st={st} tone={tone} roles={colors === "calm"} cpuDetail={join(cpuDetail)} noCpuTemp={noCpuTemp} gpuDetail={join(gpuDetail)} gpuBadge={gpuBadge} onGpu={gpus.length > 1 ? cycleGpu : undefined} memLevel={memLevel} powerDetail={powerDetail} batteryDetail={batteryDetail} batteryHealth={batteryHealth} plan={plan} detail={detail} setDetail={setDetail} />;
 
   let i = 0;
   return (
     <div className="flex h-full gap-2 px-4 pt-1 pb-2">
       <div className="min-w-0 flex-1 divide-y divide-separator rounded-[14px] bg-fill-1">
-        <Row i={i++} tick={st.tick} icon={Cpu} hue="red" label="CPU" detail={join(cpuDetail)} temp={st.cpuTemp !== null ? { c: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp), from: st.cpuTempFrom } : null} tone={tone} values={st.history.cpu} max={100} value={`${Math.round(s.cpu)} %`} level={ofShare(s.cpu)}>
+        <Row i={i++} tick={st.tick} icon={Cpu} hue="red" label="CPU" detail={join(cpuDetail)} temp={st.cpuTemp !== null ? { c: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp), from: st.cpuTempFrom } : null} noTemp={noCpuTemp} tone={tone} values={st.history.cpu} max={100} value={`${Math.round(s.cpu)} %`} level={ofShare(s.cpu)}>
           {cores > 0 && <CoreColumns cores={s.cores} tone={tone} />}
         </Row>
         <Row i={i++} tick={st.tick} icon={RamIcon} hue="violet" label="RAM" detail={`${gb(s.memUsed)} / ${gb(s.memTotal)} GB`} tone={tone} values={st.history.mem} max={100} value={`${Math.round(mem)} %`} level={memLevel}>
@@ -244,6 +246,8 @@ function Row(props: {
   detail: ReactNode;
   /** `from`: the program that gave it, shown on hover. */
   temp?: { c: number; level: Level; from?: string | null } | null;
+  /** With no `temp`: "- °C", and this on hover saying why. */
+  noTemp?: string;
   health?: { text: string; color: string } | null;
   tone: (l: Level) => string;
   values?: number[];
@@ -281,10 +285,16 @@ function Row(props: {
           <span className="tabular truncate" title={typeof props.detail === "string" ? props.detail : undefined}>
             {props.detail}
           </span>
-          {props.temp && (
+          {props.temp ? (
             <span dir="ltr" className="tabular shrink-0 font-medium" style={{ color: props.tone(props.temp.level) }} title={props.temp.from ?? undefined}>
               {degrees(props.temp.c)} °C
             </span>
+          ) : (
+            props.noTemp && (
+              <span dir="ltr" role="img" aria-label={props.noTemp} className="tabular shrink-0 font-medium" title={props.noTemp}>
+                - °C
+              </span>
+            )
           )}
           {props.health && (
             <span className="tabular shrink-0 font-medium" style={{ color: props.health.color }}>

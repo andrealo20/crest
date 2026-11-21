@@ -106,6 +106,7 @@
  "Kein API-Schlüssel für {p}, in den Einstellungen eintragen.": "{p} の API キーがありません。設定で入力してください。",
  "Kein lokales Netzwerk gefunden": "ローカルネットワークが見つかりません",
  "Kein Platz, um das Backup bereitzulegen": "バックアップを準備する空き容量がありません",
+ "Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support) oder LibreHardwareMonitor läuft, liest Crest sie dort.": "Windows から CPU 温度が届いていません。HWiNFO（Shared Memory Support を有効にしたもの）か LibreHardwareMonitor の実行中は、Crest がそこから読み取ります。",
  "Kelvin": "ケルビン",
  "Klappt es nicht? VPN, Firewall oder Gast-WLAN prüfen.": "つながらない場合は、VPN、ファイアウォール、ゲスト Wi-Fi を確認してください。",
  "km/h": "km/h",
