@@ -10,8 +10,8 @@ import { dropSlot } from "./panelModel.ts";
 export type Zone = "left" | "center" | "right";
 /** A button that opens a tool, by the id the notch opens it with: `tool:notes`. The prefix keeps it apart from a part of the same id. */
 export type ToolItem = `tool:${string}`;
-/** Windows' own buttons the bar can hold: Search, Task view, Windows widgets and Show desktop. Not in the default zones: an update changes no bar. */
-export const SYS_IDS = ["search", "taskview", "widgets", "desktop"] as const;
+/** Windows' own buttons the bar can hold: Search, Task view, Windows widgets, Show desktop and the input language. Not in the default zones: an update changes no bar. */
+export const SYS_IDS = ["search", "taskview", "widgets", "desktop", "input"] as const;
 export type SysId = (typeof SYS_IDS)[number];
 /** A Windows button, by its id: `sys:search`. */
 export type SysItem = `sys:${SysId}`;

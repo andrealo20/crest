@@ -1359,6 +1359,9 @@ export interface WindowsPins {
   removed: string[];
 }
 
+/** The input language as Windows' indicator by the tray writes it: "ITA" over "IT" (taskbar/input.rs). */
+export type InputLang = { lang: string; region: string };
+
 /**
  * Crest's bar on Windows (src-tauri/src/taskbar). The notch turns it on and sets its height; the bar's own window reads the open
  * windows and acts on clicks (the command filter keeps each window to its part). In the browser nothing happens: the demo has no bar.
@@ -1410,8 +1413,16 @@ export const taskbar = {
   preview: (slots: { id: number; x: number; y: number; w: number; h: number }[]): Promise<({ x: number; y: number; w: number; h: number } | null)[]> => (isNative ? invoke("taskbar_preview", { slots }) : Promise.resolve(slots.map(() => null))),
   /** Gives the keyboard back to the app in front, or the last one if only Start came after it (none after the desktop or a Crest window), after a menu or panel closed from the bar. */
   release: (): Promise<void> => (isNative ? invoke("taskbar_release") : Promise.resolve()),
-  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu, "quick" its quick settings (Win+A), "taskmgr" Task Manager; the Windows buttons: "search" Search, "taskview" Task view, "widgets" Windows' widgets, "desktop" shows or hides the desktop. */
-  shell: (action: "start" | "winx" | "quick" | "taskmgr" | "search" | "taskview" | "widgets" | "desktop"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
+  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu, "quick" its quick settings (Win+A), "taskmgr" Task Manager; the Windows buttons: "search" Search, "taskview" Task view, "widgets" Windows' widgets, "input" Windows' input language switcher (Win+Space), "desktop" shows or hides the desktop. */
+  shell: (action: "start" | "winx" | "quick" | "taskmgr" | "search" | "taskview" | "widgets" | "input" | "desktop"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
+  /** The keyboard language of the window in front, as Windows' indicator writes it; null with one layout installed. */
+  input: (): Promise<InputLang | null> => (isNative ? invoke<InputLang | null>("taskbar_input") : Promise.resolve(null)),
+  /** The input language each time it changes; Rust sends it to the primary bar only. */
+  onInput(handler: (lang: InputLang | null) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<InputLang | null>("taskbar://input", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** Icons of the groups without an entry, by group key (PNG data URL, null = none). */
   icons: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_icons", { keys }) : Promise.resolve({})),
   /** The tray's icons as Rust last listed them: none while Crest's tray does not run. */

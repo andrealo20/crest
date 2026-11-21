@@ -12,6 +12,7 @@ pub(crate) mod bar;
 pub(crate) mod bluetooth;
 pub(crate) mod explorer;
 pub(crate) mod front;
+pub(crate) mod input;
 pub(crate) mod ownpins;
 pub(crate) mod panel;
 pub(crate) mod pins;

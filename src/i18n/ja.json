@@ -573,6 +573,7 @@
  "Windows-Widgets": "Windows ウィジェット",
  "Desktop anzeigen": "デスクトップの表示",
  "Eingabesprache": "入力言語",
+ "Eingabesprache: {lang}": "入力言語: {lang}",
  "Datenschutzanzeigen": "プライバシー インジケーター",
  "Doppelklick auf eine freie Stelle": "空いている場所をダブルクリック",
  "Nichts": "何もしない",

@@ -28,11 +28,11 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowTextW, IsIconic, IsWindowVisible, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED,
     EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND,
     EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, GA_ROOT, GA_ROOTOWNER, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HSHELL_HIGHBIT,
-    HSHELL_MONITORCHANGED, HSHELL_REDRAW, HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, SC_CLOSE, SC_MINIMIZE, SW_RESTORE, WM_SYSCOMMAND,
+    HSHELL_LANGUAGE, HSHELL_MONITORCHANGED, HSHELL_REDRAW, HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, SC_CLOSE, SC_MINIMIZE, SW_RESTORE, WM_SYSCOMMAND,
     WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_MINIMIZEBOX,
 };
 
-use super::{ownpins, screens};
+use super::{input, ownpins, screens};
 use crate::launcher::{self, LauncherState};
 use crate::{display, mixer};
 
@@ -282,6 +282,8 @@ pub(super) fn on_event(event: u32, hwnd: HWND) {
         }
         FOREGROUND.store(id, Ordering::SeqCst);
         super::tray::on_front(hwnd);
+        // Each thread has its layout: the one in front decides what the bar's input language shows.
+        language_changed();
     }
     let (armed, listed) = TRACK.with_borrow(|t| t.as_ref().map_or((true, false), |t| (t.armed, t.order.contains(&id))));
     if event == EVENT_SYSTEM_FOREGROUND {
@@ -304,7 +306,7 @@ fn desktop_itself(hwnd: HWND) -> bool {
 }
 
 /// A shell hook code (mod.rs): flashing and ghost windows wait for the next list; a window moved to another monitor only needs
-/// one, which moves its button to that monitor's bar.
+/// one, which moves its button to that monitor's bar. A new keyboard layout goes to the bar's input language.
 pub(super) fn on_shell(code: u32, hwnd: isize) {
     if matches!(code, HSHELL_FLASH | HSHELL_REDRAW | HSHELL_WINDOWREPLACING | HSHELL_WINDOWREPLACED) {
         TRACK.with_borrow_mut(|t| {
@@ -315,6 +317,15 @@ pub(super) fn on_shell(code: u32, hwnd: isize) {
         arm();
     } else if code == HSHELL_MONITORCHANGED {
         arm();
+    } else if code == HSHELL_LANGUAGE {
+        language_changed();
+    }
+}
+
+/// The bar's input language is read again (input.rs). Not while `on_timer` holds the list: the next event reads it.
+fn language_changed() {
+    if let Some(app) = TRACK.with_borrow(|t| t.as_ref().map(|t| t.app.clone())) {
+        input::changed(&app);
     }
 }
 

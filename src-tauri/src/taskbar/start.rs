@@ -23,8 +23,8 @@ use windows::Win32::Graphics::Gdi::HMONITOR;
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
 use windows::Win32::System::Threading::{CreateEventW, SetEvent, WaitForMultipleObjects, INFINITE};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_A, VK_LWIN, VK_S, VK_TAB, VK_W,
-    VK_X,
+    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_A, VK_LWIN, VK_S, VK_SPACE, VK_TAB,
+    VK_W, VK_X,
 };
 use windows::Win32::UI::Shell::{
     AppVisibility, IAppVisibility, IAppVisibilityEvents, IAppVisibilityEvents_Impl, IShellDispatch4, Shell, ShellExecuteW,
@@ -209,7 +209,7 @@ fn task_manager_path(root: Option<std::ffi::OsString>) -> PathBuf {
 /// The Start button: "start" opens Windows' Start, unless that click hid it (`start_click`): then the keyboard goes back to
 /// the app (tasks.rs `release`), the click being handled. "winx" opens its Win+X menu, "quick" its quick settings (Win+A),
 /// "taskmgr" Task Manager. The Windows buttons: "search" Search (Win+S), "taskview" Task view (Win+Tab), "widgets" Windows'
-/// widgets (Win+W), "desktop" shows or hides the desktop (`IShellDispatch4::ToggleDesktop`). Sync, on the main thread:
+/// widgets (Win+W), "input" Windows' input language switcher (Win+Space), "desktop" shows or hides the desktop (`IShellDispatch4::ToggleDesktop`). Sync, on the main thread:
 /// nothing waits; Task Manager and Show desktop run on a thread of their own.
 #[tauri::command]
 pub fn taskbar_shell(action: String) -> Result<(), String> {
@@ -250,10 +250,11 @@ pub fn taskbar_shell(action: String) -> Result<(), String> {
         "search" => &[VK_LWIN, VK_S],
         "taskview" => &[VK_LWIN, VK_TAB],
         "widgets" => &[VK_LWIN, VK_W],
+        "input" => &[VK_LWIN, VK_SPACE],
         _ => return Err("unknown".into()),
     };
     let inputs = keys(vks);
-    // Start, the menu, Search, Task view and the widgets are Explorer's: it may take the front from Crest.
+    // Start, the menu, Search, Task view, the widgets and the language switcher are Explorer's: it may take the front from Crest.
     let _ = unsafe { AllowSetForegroundWindow(explorer::shell_pid()) };
     // Fewer sent: another program's input in between, or a window that blocks it (UIPI).
     if (unsafe { SendInput(&inputs, size_of::<INPUT>() as i32) } as usize) < inputs.len() {
@@ -327,8 +328,8 @@ mod tests {
     }
 
     #[test]
-    fn search_task_view_and_widgets_let_go_of_their_key_before_the_windows_key() {
-        for vk in [VK_S, VK_TAB, VK_W] {
+    fn search_task_view_widgets_and_input_let_go_of_their_key_before_the_windows_key() {
+        for vk in [VK_S, VK_TAB, VK_W, VK_SPACE] {
             assert_eq!(pairs(&keys(&[VK_LWIN, vk])), [(VK_LWIN, KEYBD_EVENT_FLAGS(0)), (vk, KEYBD_EVENT_FLAGS(0)), (vk, KEYEVENTF_KEYUP), (VK_LWIN, KEYEVENTF_KEYUP)]);
         }
     }

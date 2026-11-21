@@ -76,16 +76,16 @@ test("the tray can be added back like a widget", () => {
   assert.equal(addWidget(TASKBAR_DEFAULTS.zones, "tray", "left"), TASKBAR_DEFAULTS.zones);
 });
 
-test("Windows' buttons are the four the bar knows, Windows widgets on the main bar only, offered while off the bar", () => {
+test("Windows' buttons are the five the bar knows, Windows widgets and the input language on the main bar only, offered while off the bar", () => {
   assert.equal(isSys("sys:search"), true);
   assert.equal(isSys("sys:nope"), false);
   assert.equal(isSys("search"), false);
   assert.equal(isSys("tool:notes"), false);
-  assert.deepEqual((["sys:search", "sys:taskview", "sys:widgets", "sys:desktop"] as const).filter(sysPrimaryOnly), ["sys:widgets"]);
+  assert.deepEqual((["sys:search", "sys:taskview", "sys:widgets", "sys:desktop", "sys:input"] as const).filter(sysPrimaryOnly), ["sys:widgets", "sys:input"]);
   const zones: Record<Zone, BarItem[]> = { left: ["sys:taskview"], center: ["start", "apps"], right: ["crest"] };
-  assert.deepEqual(addableSys(zones), ["sys:search", "sys:widgets", "sys:desktop"]);
+  assert.deepEqual(addableSys(zones), ["sys:search", "sys:widgets", "sys:desktop", "sys:input"]);
   assert.deepEqual(addWidget(zones, "sys:desktop", "right").right, ["sys:desktop", "crest"]);
-  assert.deepEqual(addableSys({ left: ["sys:search", "sys:taskview", "sys:widgets"], center: ["sys:desktop"], right: [] }), []);
+  assert.deepEqual(addableSys({ left: ["sys:search", "sys:taskview", "sys:widgets"], center: ["sys:desktop"], right: ["sys:input"] }), []);
 });
 
 test("Stato can be added back like the tray", () => {

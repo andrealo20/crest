@@ -573,6 +573,7 @@
  "Windows-Widgets": "Windows 小组件",
  "Desktop anzeigen": "显示桌面",
  "Eingabesprache": "输入语言",
+ "Eingabesprache: {lang}": "输入语言：{lang}",
  "Datenschutzanzeigen": "隐私指示器",
  "Doppelklick auf eine freie Stelle": "双击空白处",
  "Nichts": "无操作",

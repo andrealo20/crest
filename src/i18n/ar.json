@@ -573,6 +573,7 @@
  "Windows-Widgets": "عناصر واجهة Windows",
  "Desktop anzeigen": "إظهار سطح المكتب",
  "Eingabesprache": "لغة الإدخال",
+ "Eingabesprache: {lang}": "لغة الإدخال: {lang}",
  "Datenschutzanzeigen": "مؤشرات الخصوصية",
  "Doppelklick auf eine freie Stelle": "النقر المزدوج على مساحة فارغة",
  "Nichts": "لا شيء",

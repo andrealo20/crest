@@ -18,8 +18,8 @@ const SYS_ITEMS: readonly string[] = SYS_IDS.map((id) => `sys:${id}`);
 export const isSys = (id: string): id is SysItem => SYS_ITEMS.includes(id);
 /** A Windows button's id. */
 export const sysOf = (id: SysItem): SysId => id.slice("sys:".length) as SysId;
-/** Whether a Windows button shows on the primary bar only: Windows widgets, which Windows keeps on the main taskbar; the others are on every bar. */
-export const sysPrimaryOnly = (id: SysItem): boolean => sysOf(id) === "widgets";
+/** Whether a Windows button shows on the primary bar only: Windows widgets and the input language, which Windows keeps on the main taskbar; the others are on every bar. */
+export const sysPrimaryOnly = (id: SysItem): boolean => sysOf(id) === "widgets" || sysOf(id) === "input";
 /** What Add Windows button offers, in SYS_IDS' order: the buttons not on the bar. */
 export const addableSys = (zones: Record<Zone, BarItem[]>): SysItem[] =>
   SYS_IDS.map((id): SysItem => `sys:${id}`).filter((id) => !Object.values(zones).some((items) => items.includes(id)));

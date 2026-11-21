@@ -573,6 +573,7 @@
  "Windows-Widgets": "Windows widgets",
  "Desktop anzeigen": "Show desktop",
  "Eingabesprache": "Input language",
+ "Eingabesprache: {lang}": "Input language: {lang}",
  "Datenschutzanzeigen": "Privacy indicators",
  "Doppelklick auf eine freie Stelle": "Double click on empty space",
  "Nichts": "Nothing",

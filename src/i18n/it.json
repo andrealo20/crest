@@ -573,6 +573,7 @@
  "Windows-Widgets": "Widget di Windows",
  "Desktop anzeigen": "Mostra desktop",
  "Eingabesprache": "Lingua di input",
+ "Eingabesprache: {lang}": "Lingua di input: {lang}",
  "Datenschutzanzeigen": "Indicatori di privacy",
  "Doppelklick auf eine freie Stelle": "Doppio clic su uno spazio vuoto",
  "Nichts": "Niente",

@@ -573,6 +573,7 @@
  "Windows-Widgets": "Widgets Windows",
  "Desktop anzeigen": "Afficher le Bureau",
  "Eingabesprache": "Langue de saisie",
+ "Eingabesprache: {lang}": "Langue de saisie : {lang}",
  "Datenschutzanzeigen": "Indicateurs de confidentialité",
  "Doppelklick auf eine freie Stelle": "Double-clic sur un espace vide",
  "Nichts": "Rien",

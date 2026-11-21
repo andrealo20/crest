@@ -573,6 +573,7 @@
  "Windows-Widgets": "Мини-приложения Windows",
  "Desktop anzeigen": "Показать рабочий стол",
  "Eingabesprache": "Язык ввода",
+ "Eingabesprache: {lang}": "Язык ввода: {lang}",
  "Datenschutzanzeigen": "Индикаторы конфиденциальности",
  "Doppelklick auf eine freie Stelle": "Двойной щелчок по пустому месту",
  "Nichts": "Ничего",
