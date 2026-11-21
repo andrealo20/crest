@@ -60,19 +60,19 @@ Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, R
   <img src="docs/media/features/caps-lock.png" alt="Caps Lock on, shown for a moment in the closed notch" width="236" />
 </p>
 
-## What's new in 1.2.0
+## What's new in 1.3.0
 
-<p align="center"><img src="docs/media/features/liquid-glass.gif" alt="Liquid Glass: a window dragged under the glass capsule shows through it, the panel opens as glass over it, and a drop of glass follows the pointer along the tool bar and bounces after a click" width="760" /></p>
+<p align="center"><img src="docs/media/features/crest-1.3.gif" alt="Crest 1.3.0: a window slides under the taskbar's Liquid Glass + and bends through it, holding the pointer on an app shows live previews of its windows, the Crest menu opens with Task Manager, a widget is dragged along the bar, and the settings window in the Material style has contour lines moving behind its pages" width="760" /></p>
 
-- **Liquid Glass**: Settings → Themes → Glass turns the open panel into glass. The screen behind it shows through, bent along the sides and blurred in the middle, and four sliders set Transparency, Refraction, Frost and Rim light. On Windows, off by default.
-- **Glass on the closed notch and the capsule** too, over a live copy of the screen just around them, on Windows 11 24H2 and later. While it is on, the notch stays out of screenshots and screen sharing.
-- **A tool bar that follows the pointer**: the highlight slides to the tool you point at, grows under it and bounces back after a click. A drop of glass over the glass, a brighter pill without it and on the Mac.
-- **Themes at sunrise and sunset**: day and night can change with the sun at the place set for the Weather, worked out on your computer.
-- **The date beside the clock** in the closed notch, and a click on a notice there opens its app right away.
-- **Overview** has play/pause and next beside the song, and synced lyrics stay through short pauses.
-- **Fixes** for a browser tooltip that stayed on screen while Crest was open, and for the privacy dot during Snipping Tool recordings.
+- **A taskbar of its own**: Settings → Taskbar puts Crest's bar in place of the Windows taskbar, in four shapes (Docked, Floating, Capsule and Tiles), with your pinned apps and open windows, the Notification area and a quick panel for Wi-Fi, Bluetooth and the volume. On Windows, off by default, not in the Microsoft Store version for now.
+- **Live previews** of an app's windows above its button, and a Crest menu with Task Manager, Add widget and Auto-hide.
+- **Widgets from your tools** on the bar: Weather, Clock, Hardware and Timer, each in the version you pick, and buttons for the other tools. Drag them along the bar to move them.
+- **Liquid Glass +** for the bar, a strong lens along its edge over a live copy of the screen, so the windows moving under it bend through. On Windows 11 24H2 and later on x64, not in the Microsoft Store version for now.
+- **A Material style** for every Crest window: Material 3 colours from your theme, Google Sans Flex and Material Symbols, with contour lines moving behind the settings. On Windows and Mac.
+- **Settings in a window of their own**, and focus mode is back: three quick clicks put the notch aside, behind a switch that is off by default.
+- **AI quota rings** show the 5-hour session inside the weekly limit, and volume, brightness and the other indicators can show over full-screen apps too.
 
-The [1.2.0 release](https://github.com/andrealo20/crest/releases/tag/v1.2.0) has the downloads and the full notes, with the issue behind each change.
+The [1.3.0 release](https://github.com/andrealo20/crest/releases/tag/v1.3.0) has the downloads and the full notes, with the issue behind each change.
 
 ## Features
 
@@ -144,6 +144,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 ### Make it yours
 
 - **Themes**: fifteen built in, an editor, sixteen fonts, coloured icons, a day and night switch that can follow the sun, and Liquid Glass on Windows.
+- **A taskbar** in place of the Windows one, in four shapes, with live window previews, widgets from your tools and Liquid Glass + (Windows, not in the Microsoft Store version for now).
 - **Window rules** for full-screen apps and games, any **monitor** or all of them, and every panel resized to taste.
 - **11 languages**: English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German and Italian.
 - **Plugins**: your own tools in HTML, CSS and JavaScript, sandboxed ([docs/plugins.md](docs/plugins.md)).

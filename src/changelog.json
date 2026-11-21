@@ -1,5 +1,35 @@
 [
   {
+    "version": "1.3.0",
+    "date": "2026-11-21",
+    "items": [
+      {
+        "en": "Crest's own taskbar in four shapes, with live window previews, widgets and the Crest menu. On Windows, off by default, not in the Microsoft Store version"
+      },
+      {
+        "en": "Glass and Liquid Glass + for the taskbar, over a live copy of the screen, on Windows 11 24H2 and later on x64, not in the Microsoft Store version"
+      },
+      {
+        "en": "A Material style for every Crest window, with moving contour lines behind the settings, on Windows and Mac"
+      },
+      {
+        "en": "The settings open in a window of their own"
+      },
+      {
+        "en": "Focus mode is back: three quick clicks put the notch aside, behind a switch that is off by default"
+      },
+      {
+        "en": "AI quota rings show the 5-hour session inside the weekly limit"
+      },
+      {
+        "en": "Volume, brightness and other indicators can show over full-screen apps, and there are new status alerts for Copy, the output device and more"
+      },
+      {
+        "en": "Fixes for Windows' Text size above 100%, a notch that stayed open while typing on the Mac and pictures copied twice"
+      }
+    ]
+  },
+  {
     "version": "1.2.2",
     "date": "2026-11-16",
     "items": [
