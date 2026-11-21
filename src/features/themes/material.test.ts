@@ -1,10 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { Hct, argbFromHex, hexFromArgb, labFromArgb } from "@material/material-color-utilities";
-import { BLACK, contrast, over, parseColor, type Rgba } from "./color.ts";
+import {
+  Hct,
+  MaterialDynamicColors,
+  SchemeMonochrome,
+  SchemeTonalSpot,
+  argbFromHex,
+  argbFromRgb,
+  hexFromArgb,
+  labFromArgb,
+} from "@material/material-color-utilities";
+import { BLACK, contrast, isDark, over, parseColor, type Rgba } from "./color.ts";
 import { materialInk, resolveMaterial } from "./material.ts";
-import { BUILT_IN_THEMES, GRAPHIC, HUE_PALETTE, STRONG_TEXT, TERTIARY, TEXT, resolveTheme, type ThemeFile } from "./themes.ts";
+import { BUILT_IN_THEMES, GRAPHIC, HUE_PALETTE, MODES, STRONG_TEXT, TERTIARY, TEXT, resolveTheme, type ThemeFile } from "./themes.ts";
 
 const [dark, light] = BUILT_IN_THEMES;
 const seeded = (t: ThemeFile, accent: string): ThemeFile => ({ ...t, id: `${t.id} seeded ${accent}`, colors: { ...t.colors, accent } });
@@ -63,6 +72,27 @@ test("Material: the inks on the role fills, the status colours, the slider's tra
     const fill3 = over(c("--color-fill-3"), m.colors.background);
     assert.ok(contrast(c("--color-primary"), fill3) >= GRAPHIC, `${name} primary beside fill-3`);
     assert.ok(contrast(c("--color-label"), fill3) >= TEXT, `${name} label on fill-3`);
+  }
+});
+
+test("Material keeps the scheme's tertiary role beside the variables, not among them", () => {
+  const tertiaryKeys = (vars: Record<string, string>) => Object.keys(vars).filter((k) => k.includes("tertiary"));
+  for (const { t, level, name } of CASES) {
+    // The scheme rebuilt as resolveMaterial builds it, so the test does not read the role through the code under test.
+    const dark = isDark(over(parseColor(t.colors.background) ?? BLACK, BLACK));
+    const accent = parseColor(t.colors.accent) ?? parseColor(MODES[dark ? "dark" : "light"].accent)!;
+    const source = Hct.fromInt(argbFromRgb(accent.r, accent.g, accent.b));
+    const scheme = new (source.chroma < 8 ? SchemeMonochrome : SchemeTonalSpot)(source, dark, level);
+    const m = resolveMaterial(t, { contrast: level });
+    assert.equal(m.m3Tertiary, hexFromArgb(MaterialDynamicColors.tertiary.getArgb(scheme)), name);
+    assert.deepEqual(tertiaryKeys(m.vars), tertiaryKeys(resolveTheme(t).vars), name);
+  }
+});
+
+test("the primary reads at 3:1 on a tile over the surface, for the weather's big temperature", () => {
+  for (const { t, level, name } of CASES) {
+    const c = (n: string) => parseColor(resolveMaterial(t, { contrast: level }).vars[n])!;
+    assert.ok(contrast(c("--color-primary"), over(c("--color-fill-1"), c("--color-notch"))) >= GRAPHIC, name);
   }
 });
 

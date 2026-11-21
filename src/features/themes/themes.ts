@@ -53,6 +53,8 @@ export interface ThemeSettings {
   glassAlerts: boolean;
   /** The style of every window and of the copies on other monitors: Crest's own, or Material 3 seeded by the theme's accent (material.ts). */
   design: Design;
+  /** The settings window's contour lines under the Material style (src/features/settings/contours.ts); the Crest style never draws them. */
+  contours: boolean;
   /** The whole app's font (FONTS, or "auto" for the style's own: fontStack), set as --font-sans; the terminal and the timer looks keep their monospace. */
   font: FontId;
 }
@@ -281,6 +283,8 @@ export interface ResolvedTheme {
   colors: Record<ThemeKey, Rgba>;
   adjustments: Adjustment[];
   closedNotch: boolean;
+  /** Material's tertiary role, for what draws its colours outside CSS (the contour lines); colors.tertiary is the third text level. */
+  m3Tertiary?: string;
 }
 
 /** From a theme file to Crest's tokens. `override.yellow` replaces the side's yellow, which no theme file writes: the Material style brings its own. */
@@ -661,6 +665,7 @@ export const THEME_DEFAULTS: ThemeSettings = {
   glassLive: false,
   glassAlerts: true,
   design: "crest",
+  contours: true,
   font: "auto",
 };
 
@@ -715,6 +720,7 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     glassLive: s.glassLive === true,
     glassAlerts: s.glassAlerts !== false,
     design: s.design === "material" ? "material" : "crest",
+    contours: s.contours !== false,
     // Saved before the Style setting (no `design`), "inter" was the default nobody picked: it becomes the style's font. Saved beside a
     // style, it was picked, and stays.
     font: font === "inter" && s.design === undefined ? "auto" : font,

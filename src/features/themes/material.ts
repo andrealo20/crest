@@ -52,6 +52,7 @@ export function resolveMaterial(file: ThemeFile, { contrast = 0 }: { contrast?: 
   const r = resolveTheme({ ...file, colors }, { yellow: toned(argbFromHex(MODES.dark.yellow), dark) });
   return {
     ...r,
+    m3Tertiary: role(M.tertiary),
     vars: {
       ...r.vars,
       "--color-label-4": formatColor(withAlpha(r.colors.foreground, DISABLED)),

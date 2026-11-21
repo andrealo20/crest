@@ -332,6 +332,13 @@ test("status alerts as glass: on by default, off only when saved as false", () =
   assert.equal(normalizeThemeSettings({ glassAlerts: "false" }).glassAlerts, true);
 });
 
+test("the settings window's contour lines: on by default, off only when saved as false, and only Material themes carry a tertiary for them", () => {
+  assert.equal(normalizeThemeSettings({}).contours, true);
+  assert.equal(normalizeThemeSettings({ contours: false }).contours, false);
+  assert.equal(normalizeThemeSettings({ contours: "no" }).contours, true);
+  assert.equal(resolveTheme(BUILT_IN_THEMES[0]).m3Tertiary, undefined);
+});
+
 const veilOf = (t: ThemeFile) => parseColor(resolveTheme(t).vars["--glass-tint"])!;
 const GLASS_STATUS = ["--glass-orange", "--glass-red", "--glass-green"];
 const GREYS = Array.from({ length: 256 }, (_, g): Rgba => ({ r: g, g, b: g, a: 1 }));
