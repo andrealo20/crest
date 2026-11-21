@@ -39,6 +39,12 @@ export function clampSize(w: number, h: number): { w: number; h: number } {
   return { w: clamp(w, SIZE.minW, SIZE.maxW), h: clamp(h, SIZE.minH, SIZE.maxH) };
 }
 
+export interface PluginPill {
+  text?: string;
+  icon?: IconName;
+  color?: string;
+}
+
 export type ReqId = number | string;
 
 export type PluginRequest =
@@ -50,7 +56,9 @@ export type PluginRequest =
   | { type: "storage.set"; key: string; value: unknown }
   | { type: "fetch"; url: string; method?: string; headers?: Record<string, string>; body?: string }
   | { type: "notify"; title: string; body?: string }
-  | { type: "resize"; w: number; h: number };
+  | { type: "resize"; w: number; h: number }
+  | { type: "pill.set"; text?: string; icon?: IconName; color?: string }
+  | { type: "pill.clear" };
 
 /** `ignore`: not a Crest message, or one without an id to answer; `error`: answered with the code. */
 export type Parsed = { kind: "ignore" } | { kind: "error"; id: ReqId; error: string } | { kind: "ok"; id: ReqId; req: PluginRequest };
@@ -73,6 +81,8 @@ const json = (v: unknown) => {
 };
 const headers = (v: unknown) => isPlain(v) && Object.keys(v).length <= 16 && Object.values(v).every(str(2048));
 const method = (v: unknown) => typeof v === "string" && METHODS.includes(v);
+const iconCheck = (v: unknown) => typeof v === "string" && (ICON_NAMES as readonly string[]).includes(v);
+const colorCheck = (v: unknown) => typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v);
 
 type Check = (v: unknown) => boolean;
 /** Per type: its fields, each with its check and whether it must be there. Anything else in a message refuses it. */
@@ -86,6 +96,8 @@ const SPEC: Record<PluginRequest["type"], Record<string, [Check, boolean]>> = {
   fetch: { url: [str(2048, 1), true], method: [method, false], headers: [headers, false], body: [str(64 * 1024), false] },
   notify: { title: [str(80, 1), true], body: [str(300), false] },
   resize: { w: [finite, true], h: [finite, true] },
+  "pill.set": { text: [str(32), false], icon: [iconCheck, false], color: [colorCheck, false] },
+  "pill.clear": {},
 };
 
 /** Checks one message from a plugin page. The caller has already checked it came from that plugin's frame. */
