@@ -4,7 +4,7 @@ import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 import { DEFAULT_OFF, TOOL_IDS } from "../../settings/tools.ts";
 import { TASKBAR_DEFAULTS, TOOL_BUTTONS, type BarItem, type Zone } from "./model.ts";
 import { statusPill } from "./statusModel.ts";
-import { SLIDE_KEEP_MS, addWidget, addableSys, addableTools, applyChoice, chosenChoice, clockHasSeconds, barPartsFor, barSources, barWidgets, isSys, isTool, isWidget, pillWidget, previewInk, removeWidget, shownZones, sourcesAfter, sysPrimaryOnly, toolOf, toolShown, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
+import { SLIDE_KEEP_MS, addWidget, addableSys, addableTools, applyChoice, chosenChoice, privacyOnBar, privacyParts, clockHasSeconds, barPartsFor, barSources, barWidgets, isSys, isTool, isWidget, pillWidget, previewInk, removeWidget, shownZones, sourcesAfter, sysPrimaryOnly, toolOf, toolShown, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
 
 test("a widget's preview wears the bar's ink: Dark's under Liquid Glass + whatever the surface, the closed notch's on Notch, the theme's otherwise", () => {
   const dark = { "--color-label": "white", "--theme-accent": "blue" }, closed = { "--color-label": "white", "--accent": "red" };
@@ -76,16 +76,25 @@ test("the tray can be added back like a widget", () => {
   assert.equal(addWidget(TASKBAR_DEFAULTS.zones, "tray", "left"), TASKBAR_DEFAULTS.zones);
 });
 
-test("Windows' buttons are the five the bar knows, Windows widgets and the input language on the main bar only, offered while off the bar", () => {
+test("Windows' buttons are the six the bar knows, Windows widgets, the input language and privacy on the main bar only, offered while off the bar", () => {
   assert.equal(isSys("sys:search"), true);
   assert.equal(isSys("sys:nope"), false);
   assert.equal(isSys("search"), false);
   assert.equal(isSys("tool:notes"), false);
-  assert.deepEqual((["sys:search", "sys:taskview", "sys:widgets", "sys:desktop", "sys:input"] as const).filter(sysPrimaryOnly), ["sys:widgets", "sys:input"]);
+  assert.deepEqual((["sys:search", "sys:taskview", "sys:widgets", "sys:desktop", "sys:input", "sys:privacy"] as const).filter(sysPrimaryOnly), ["sys:widgets", "sys:input", "sys:privacy"]);
   const zones: Record<Zone, BarItem[]> = { left: ["sys:taskview"], center: ["start", "apps"], right: ["crest"] };
-  assert.deepEqual(addableSys(zones), ["sys:search", "sys:widgets", "sys:desktop", "sys:input"]);
+  assert.deepEqual(addableSys(zones), ["sys:search", "sys:widgets", "sys:desktop", "sys:input", "sys:privacy"]);
   assert.deepEqual(addWidget(zones, "sys:desktop", "right").right, ["sys:desktop", "crest"]);
-  assert.deepEqual(addableSys({ left: ["sys:search", "sys:taskview", "sys:widgets"], center: ["sys:desktop"], right: ["sys:input"] }), []);
+  assert.deepEqual(addableSys({ left: ["sys:search", "sys:taskview", "sys:widgets"], center: ["sys:desktop"], right: ["sys:input", "sys:privacy"] }), []);
+});
+
+test("the privacy button polls only while on the bar, and shows the microphone, the camera and the location in that order", () => {
+  const on = { ...TASKBAR_DEFAULTS, enabled: true };
+  assert.equal(privacyOnBar(on), false);
+  assert.equal(privacyOnBar({ ...on, zones: { ...on.zones, left: ["sys:privacy"] } }), true);
+  assert.equal(privacyOnBar({ ...on, enabled: false, zones: { ...on.zones, left: ["sys:privacy"] } }), false);
+  assert.deepEqual(privacyParts({ mic: true, camera: true, screen: true, location: true }), ["mic", "camera", "location"]);
+  assert.deepEqual(privacyParts({ mic: false, camera: false, screen: true, location: true }), ["location"]);
 });
 
 test("Stato can be added back like the tray", () => {

@@ -788,10 +788,12 @@ export interface PrivacyState {
   mic: boolean;
   camera: boolean;
   screen: boolean;
+  /** Read for the bar's privacy button; the notch's dots leave it out. */
+  location: boolean;
 }
 
 /** Toggled from the dev panel in the browser. */
-export const mockPrivacy: PrivacyState = { mic: false, camera: false, screen: false };
+export const mockPrivacy: PrivacyState = { mic: false, camera: false, screen: false, location: false };
 
 export function fetchPrivacy(): Promise<PrivacyState> {
   return isNative ? invoke<PrivacyState>("privacy_state") : Promise.resolve({ ...mockPrivacy });
@@ -1493,7 +1495,7 @@ export const taskbar = {
     return () => void off.then((f) => f());
   },
   /** One of Windows' settings pages, by name (Rust maps it to its URI). */
-  settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
+  settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location" | "microphone" | "camera"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
   /**
    * In a bar: it shows or hides (a full-screen app, the hide hotkey, slid off the screen); Rust sends each bar its own, which pauses
    * its widgets. On this window only: a listener for any target would also hear the other bars'.

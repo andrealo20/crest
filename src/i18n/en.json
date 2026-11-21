@@ -1924,5 +1924,8 @@
  "Mausrad ändert die Lautstärke": "Mouse wheel changes the volume",
  "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "Over an app its own, elsewhere Windows' volume. Over Status always",
  "Lautstärke: {n} %": "Volume: {n} %",
- "{name} spielt keinen Ton ab": "{name} plays no sound"
+ "{name} spielt keinen Ton ab": "{name} plays no sound",
+ "Mikrofon wird verwendet": "Microphone in use",
+ "Kamera wird verwendet": "Camera in use",
+ "Standort wird verwendet": "Location in use"
 }

@@ -1924,5 +1924,8 @@
  "Mausrad ändert die Lautstärke": "マウスホイールで音量を変更",
  "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "アプリの上ではそのアプリの音量、それ以外では Windows の音量。ステータスの上では常に",
  "Lautstärke: {n} %": "音量: {n} %",
- "{name} spielt keinen Ton ab": "{name} は音を再生していません"
+ "{name} spielt keinen Ton ab": "{name} は音を再生していません",
+ "Mikrofon wird verwendet": "マイクを使用中",
+ "Kamera wird verwendet": "カメラを使用中",
+ "Standort wird verwendet": "位置情報を使用中"
 }

@@ -4,6 +4,7 @@ import { createStore } from "../../lib/store";
 import { isMac } from "../../platform/native";
 import { fetchPrivacy, type PrivacyState } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
+import { privacyOnBar } from "../taskbar/widgets";
 
 /*
  * Mic/camera/screen use, polled once for the privacy dots and the presentation mode.
@@ -11,7 +12,8 @@ import { settings, updateSettings } from "../../settings/store";
  */
 const POLL_MS = 1500;
 
-export const privacy = createStore<PrivacyState>({ mic: false, camera: false, screen: false });
+const NONE: PrivacyState = { mic: false, camera: false, screen: false, location: false };
+export const privacy = createStore<PrivacyState>(NONE);
 
 /** "Off for now" during an auto-detected recording; resets when the recording ends. */
 export const snoozed = createStore(false);
@@ -20,12 +22,12 @@ let poll: number | undefined;
 
 function syncPolling() {
   const s = settings.get();
-  const needed = !isMac && (s.privacyDots || s.presentation.auto);
+  const needed = !isMac && (s.privacyDots || s.presentation.auto || privacyOnBar(s.taskbar));
   if (needed && poll === undefined) {
     const load = () =>
       void fetchPrivacy().then((next) => {
         const prev = privacy.get();
-        if (prev.mic === next.mic && prev.camera === next.camera && prev.screen === next.screen) return;
+        if (prev.mic === next.mic && prev.camera === next.camera && prev.screen === next.screen && prev.location === next.location) return;
         if (!next.screen) snoozed.set(false);
         privacy.set(next);
       });
@@ -35,7 +37,7 @@ function syncPolling() {
     window.clearInterval(poll);
     poll = undefined;
     snoozed.set(false);
-    privacy.set({ mic: false, camera: false, screen: false });
+    privacy.set(NONE);
   }
 }
 // The notch alone polls; the settings window gets the result through the bridge (src/features/settings/window/shared.ts).

@@ -1924,5 +1924,8 @@
  "Mausrad ändert die Lautstärke": "La rotellina cambia il volume",
  "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "Su un'app il suo volume, altrove quello di Windows. Su Stato sempre",
  "Lautstärke: {n} %": "Volume: {n} %",
- "{name} spielt keinen Ton ab": "{name} non riproduce audio"
+ "{name} spielt keinen Ton ab": "{name} non riproduce audio",
+ "Mikrofon wird verwendet": "Microfono in uso",
+ "Kamera wird verwendet": "Fotocamera in uso",
+ "Standort wird verwendet": "Posizione in uso"
 }

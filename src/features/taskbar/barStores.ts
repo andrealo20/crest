@@ -59,7 +59,8 @@ export const barFeed = createStore<BarFeed>(EMPTY_FEED);
 /** True while a bar's panel shows a tool; the notch sets it from barPanels.ts (feed.tsx). */
 export const panelOpen = createStore(false);
 
-export const feedStores = { barFeed };
+/** `privacy` too, for the bar's privacy button: it changes only when a poll finds a change. */
+export const feedStores = { barFeed, privacy };
 
 /** Sent only while `panelOpen`: `system` changes every few seconds and would wake the bar with nobody looking. */
-export const panelStores = { calendar, github, leetcode, usage, discordState, system, history, awake, ringing, focusMuted, privacy, snoozed };
+export const panelStores = { calendar, github, leetcode, usage, discordState, system, history, awake, ringing, focusMuted, snoozed };

@@ -1924,5 +1924,8 @@
  "Mausrad ändert die Lautstärke": "鼠标滚轮调节音量",
  "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "在应用上调节该应用的音量，其他位置调节 Windows 音量。在状态上始终可用",
  "Lautstärke: {n} %": "音量：{n} %",
- "{name} spielt keinen Ton ab": "{name} 未播放声音"
+ "{name} spielt keinen Ton ab": "{name} 未播放声音",
+ "Mikrofon wird verwendet": "麦克风正在使用",
+ "Kamera wird verwendet": "摄像头正在使用",
+ "Standort wird verwendet": "位置正在使用"
 }

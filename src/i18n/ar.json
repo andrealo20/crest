@@ -1924,5 +1924,8 @@
  "Mausrad ändert die Lautstärke": "عجلة الماوس تغيّر مستوى الصوت",
  "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "فوق تطبيق مستوى صوته، وفي غير ذلك مستوى صوت Windows. فوق الحالة دائمًا",
  "Lautstärke: {n} %": "مستوى الصوت: {n} %",
- "{name} spielt keinen Ton ab": "{name} لا يشغّل أي صوت"
+ "{name} spielt keinen Ton ab": "{name} لا يشغّل أي صوت",
+ "Mikrofon wird verwendet": "الميكروفون قيد الاستخدام",
+ "Kamera wird verwendet": "الكاميرا قيد الاستخدام",
+ "Standort wird verwendet": "الموقع قيد الاستخدام"
 }

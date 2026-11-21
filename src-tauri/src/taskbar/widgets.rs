@@ -32,6 +32,8 @@ fn settings_page(page: &str) -> Option<&'static str> {
         "wifi" => Some("ms-settings:network-wifi"),
         "bluetooth" => Some("ms-settings:bluetooth"),
         "location" => Some("ms-settings:privacy-location"),
+        "microphone" => Some("ms-settings:privacy-microphone"),
+        "camera" => Some("ms-settings:privacy-webcam"),
         _ => None,
     }
 }
@@ -49,6 +51,8 @@ mod tests {
     #[test]
     fn only_known_settings_pages_open() {
         assert_eq!(settings_page("home"), Some("ms-settings:"));
+        assert_eq!(settings_page("microphone"), Some("ms-settings:privacy-microphone"));
+        assert_eq!(settings_page("camera"), Some("ms-settings:privacy-webcam"));
         assert_eq!(settings_page("saver"), Some("ms-settings:batterysaver"));
         assert_eq!(settings_page("airplane"), Some("ms-settings:network-airplanemode"));
         assert_eq!(settings_page("ethernet"), Some("ms-settings:network-ethernet"));

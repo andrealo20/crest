@@ -1924,5 +1924,8 @@
  "Mausrad ändert die Lautstärke": "माउस व्हील से आवाज़ बदलें",
  "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "किसी ऐप पर उसकी अपनी आवाज़, बाकी जगह Windows की। स्थिति पर हमेशा",
  "Lautstärke: {n} %": "आवाज़: {n} %",
- "{name} spielt keinen Ton ab": "{name} कोई आवाज़ नहीं चला रहा"
+ "{name} spielt keinen Ton ab": "{name} कोई आवाज़ नहीं चला रहा",
+ "Mikrofon wird verwendet": "माइक्रोफ़ोन उपयोग में है",
+ "Kamera wird verwendet": "कैमरा उपयोग में है",
+ "Standort wird verwendet": "स्थान उपयोग में है"
 }

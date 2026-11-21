@@ -1,4 +1,4 @@
-//! Dots like on iPhone: is anything using the mic or camera, or recording the screen?
+//! Dots like on iPhone: is anything using the mic or camera, or recording the screen? And, for the bar, the location.
 //!
 //! Windows tracks this itself (Settings → Privacy → "Recent activity") under
 //! `HKCU\…\CapabilityAccessManager\ConsentStore\<capability>`: one key per app with
@@ -23,6 +23,8 @@ pub struct Privacy {
     mic: bool,
     camera: bool,
     screen: bool,
+    /// For the bar's privacy button only; the notch's dots read the other three.
+    location: bool,
 }
 
 /// Crest's own entries: its exe path as the consent store spells it (`\` as `#`) and, in the Store build, its
@@ -56,7 +58,7 @@ const SCREEN: [&str; 2] = ["graphicsCaptureProgrammatic", "graphicsCaptureWithou
 #[tauri::command(async)]
 pub fn privacy_state() -> Privacy {
     let busy = |caps: &[&str]| any_in_use(BASE, caps, Own::get());
-    Privacy { mic: busy(&["microphone"]), camera: busy(&["webcam"]), screen: busy(&SCREEN) }
+    Privacy { mic: busy(&["microphone"]), camera: busy(&["webcam"]), screen: busy(&SCREEN), location: busy(&["location"]) }
 }
 
 fn any_in_use(base: &str, caps: &[&str], own: &Own) -> bool {

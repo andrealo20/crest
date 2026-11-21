@@ -1924,5 +1924,8 @@
  "Mausrad ändert die Lautstärke": "A roda do mouse muda o volume",
  "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "Sobre um aplicativo, o volume dele; fora disso, o do Windows. Sobre Status, sempre",
  "Lautstärke: {n} %": "Volume: {n} %",
- "{name} spielt keinen Ton ab": "{name} não está reproduzindo som"
+ "{name} spielt keinen Ton ab": "{name} não está reproduzindo som",
+ "Mikrofon wird verwendet": "Microfone em uso",
+ "Kamera wird verwendet": "Câmera em uso",
+ "Standort wird verwendet": "Localização em uso"
 }

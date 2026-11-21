@@ -1924,5 +1924,8 @@
  "Mausrad ändert die Lautstärke": "Колесо мыши меняет громкость",
  "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "Над приложением его громкость, в остальных местах громкость Windows. Над «Статусом» всегда",
  "Lautstärke: {n} %": "Громкость: {n} %",
- "{name} spielt keinen Ton ab": "{name} не воспроизводит звук"
+ "{name} spielt keinen Ton ab": "{name} не воспроизводит звук",
+ "Mikrofon wird verwendet": "Микрофон используется",
+ "Kamera wird verwendet": "Камера используется",
+ "Standort wird verwendet": "Местоположение используется"
 }
