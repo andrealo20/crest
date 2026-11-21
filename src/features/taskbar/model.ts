@@ -386,6 +386,9 @@ export function previewLayout(count: number, viewW: number): PreviewLayout {
 /** An app with several windows whose thumbnails all failed lists their titles instead; one window, or only some failing, keep the icon in the box. */
 export const previewFallsBack = (answers: readonly unknown[], count: number): boolean => count > 1 && answers.length > 0 && answers.every((a) => a === null);
 
+/** What a preview card sends its boxes again on: its windows in order and which are minimized, since Rust draws no thumbnail for those. */
+export const previewSet = (windows: readonly Win[]): string => windows.map((w) => `${w.id}${w.minimized ? "m" : ""}`).join();
+
 /** The row a key moves to among a menu's `count` rows from row `at` (-1: none): Up and Down wrap, Home and End go to the ends; undefined for any other key. */
 export function menuKey(key: string, at: number, count: number): number | undefined {
   const to = key === "ArrowDown" ? at + 1 : key === "ArrowUp" ? (at < 0 ? count : at) - 1 : key === "Home" ? 0 : key === "End" ? count - 1 : undefined;

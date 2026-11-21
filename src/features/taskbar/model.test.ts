@@ -22,6 +22,7 @@ import {
   previewFallsBack,
   previewKey,
   previewLayout,
+  previewSet,
   statusWanted,
   stepItem,
   taskbarShown,
@@ -354,4 +355,12 @@ test("an app with several windows and no thumbnail at all lists their titles; on
   assert.equal(previewFallsBack([null], 1), false);
   assert.equal(previewFallsBack([box, null, null], 3), false);
   assert.equal(previewFallsBack([], 3), false);
+});
+
+test("a preview sends its boxes again when a window comes, goes, is minimized or restored, not when only a title changes", () => {
+  const w = (id: number, minimized = false, title = "t"): Win => ({ id, title, minimized, flashing: false });
+  assert.equal(previewSet([w(1), w(2)]), previewSet([w(1, false, "other"), w(2)]));
+  assert.notEqual(previewSet([w(1), w(2)]), previewSet([w(1), w(2, true)]));
+  assert.notEqual(previewSet([w(1), w(2)]), previewSet([w(1)]));
+  assert.notEqual(previewSet([w(1), w(2)]), previewSet([w(2), w(1)]));
 });

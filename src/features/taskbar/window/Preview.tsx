@@ -7,7 +7,7 @@ import { onNativeBlur } from "../../../platform/native";
 import { taskbar } from "../../../platform/services";
 import { MENU_PANEL_CLASS } from "../../../ui/menu";
 import { AppIcon } from "../../launcher/AppIcon";
-import { menuKey, placeMenu, previewFallsBack, previewKey, previewLayout, type BarButton } from "../model";
+import { menuKey, placeMenu, previewFallsBack, previewKey, previewLayout, previewSet, type BarButton } from "../model";
 import { WindowList, type HitRect } from "./BarMenu";
 
 /** Room the card keeps from the window's top edge, CSS px, as a menu does. */
@@ -95,9 +95,11 @@ export function PreviewCard(props: {
       onPlace(null);
     };
   }, [present, x, w, bottom, onPlace]);
-  // A window coming or going, or the card ready: the whole set again.
-  const ids = b.windows.map((win) => win.id).join();
-  useLayoutEffect(send, [send, ids]);
+  // A window coming, going, minimized or restored, or the card ready: the whole set again.
+  // shortcut: a source window resized or moved while the card is open keeps its old crop until the card opens again; upgrade with a
+  // location-change hook on the shown sources only (EVENT_OBJECT_LOCATIONCHANGE fires on every move of every window).
+  const set = previewSet(b.windows);
+  useLayoutEffect(send, [send, set]);
   // Tiles turned into the list while open: this card's thumbnails go, since no close or new app will clear them. A card being
   // replaced is no longer present, so it never wipes the next one's.
   useLayoutEffect(() => {
