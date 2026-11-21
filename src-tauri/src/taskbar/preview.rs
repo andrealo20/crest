@@ -136,7 +136,8 @@ pub fn taskbar_preview(window: WebviewWindow, slots: Vec<Slot>) -> Result<Vec<Op
         .map(|slot| {
             let slot = slot.as_ref()?;
             let source = HWND(slot.id as _);
-            // A minimized window has no live picture: DWM would compose only its minimized caption.
+            // A minimized window has no live picture: DWM would compose only its minimized caption. Its iconic bitmap is its own
+            // app's to give the shell (DwmSetIconicThumbnail takes only a window of the calling process), so the page shows the icon.
             let wanted = inside(slot, view) && tasks::previewable(slot.id, monitor) && !unsafe { IsIconic(source) }.as_bool();
             let thumb = match (thumbs.remove(&slot.id), wanted) {
                 (Some(t), true) => t,
