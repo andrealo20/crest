@@ -5,8 +5,11 @@
 // input or visibility, page views from a table with a hash for new pages, Crest's springs for the drift and the theme's fade.
 // hash3 starts from David Hoskins's integer hash33 of "Hash without Sine" (shadertoy.com/view/4djSRW), MIT License.
 
+import { animate, motionValue, type AnimationPlaybackControls } from "motion";
+import { springs, themeFade } from "../../design/motion.ts";
 import { idHash } from "../system/hero.ts";
 import { parseTint } from "../../notch/glass/params.ts";
+import { program, type Program } from "../../notch/glass/shader.ts";
 import type { ResolvedTheme } from "../themes/themes.ts";
 
 export const CONTOUR_FS = `#version 300 es
@@ -130,4 +133,251 @@ export function tintsOf(theme: Pick<ResolvedTheme, "vars" | "m3Tertiary">): [Rgb
   const b = parseTint(theme.m3Tertiary ?? theme.vars["--color-primary"]);
   if (!a || !b) return null;
   return [[a[0], a[1], a[2]], [b[0], b[1], b[2]]];
+}
+
+export interface ContourOpts { page: string; tints: [Rgb, Rgb]; reduced: boolean; forced: boolean; onFail: (failed: boolean) => void }
+export interface ContourHandle { page(id: string): void; tints(next: [Rgb, Rgb]): void; forced(on: boolean): void; stop(): void }
+
+/** The program and the empty vertex array the full canvas triangle draws from; null when the program does not link. */
+function setup(gl: WebGL2RenderingContext): { prog: Program; vao: WebGLVertexArrayObject } | null {
+  const prog = program(gl, CONTOUR_FS);
+  if (!prog) return null;
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  return { prog, vao };
+}
+
+const mix = (from: Rgb, to: Rgb, p: number): Rgb => [from[0] + (to[0] - from[0]) * p, from[1] + (to[1] - from[1]) * p, from[2] + (to[2] - from[2]) * p];
+
+/** Draws the contour field into `canvas` until `stop()`: 30 frames a second at rest, every frame while it drifts or fades. */
+export function startContours(canvas: HTMLCanvasElement, opts: ContourOpts): ContourHandle {
+  const { onFail, reduced } = opts;
+  // Software rendering gives no context (failIfMajorPerformanceCaveat): the settings window shows its still light instead.
+  const gl = canvas.getContext("webgl2", {
+    alpha: true,
+    premultipliedAlpha: true,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    preserveDrawingBuffer: false,
+    powerPreference: "low-power",
+    failIfMajorPerformanceCaveat: true,
+  });
+  let gpu = gl ? setup(gl) : null;
+  if (!gl || !gpu) {
+    onFail(true);
+    return { page() {}, tints() {}, forced() {}, stop() {} };
+  }
+  // The failed state lives in SettingsView and outlives a canvas: a new one that links clears it.
+  onFail(false);
+
+  let current = opts.page;
+  const view = fieldOf(current);
+  const x = motionValue(view[0]), y = motionValue(view[1]), scale = motionValue(view[2]);
+  let [a, b] = opts.tints;
+  let fade: AnimationPlaybackControls | null = null, fading = false;
+  let time = 0, last = -Infinity, lastDrawn = performance.now(), lastInput = performance.now();
+  let focused = document.hasFocus(), visible = document.visibilityState === "visible", forced = opts.forced;
+  // dead: the context is lost, a draw threw or the canvas stopped. pending: one draw asked for, whatever the loop does.
+  let raf = 0, dead = false, pending = true, wasBusy = false, draws = 0;
+  let css = { w: canvas.clientWidth, h: canvas.clientHeight }, size = canvasSize(devicePixelRatio, css.w, css.h);
+
+  const runs = (now: number) => loopRuns({ focused, visible, reduced, forced, now, lastInput });
+  const busyNow = () => x.isAnimating() || y.isAnimating() || scale.isAnimating() || fading;
+
+  const draw = () => {
+    const { p, u } = gpu!.prog;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(p);
+    gl.uniform2f(u.uRes, canvas.width, canvas.height);
+    gl.uniform1f(u.uTime, time);
+    gl.uniform2f(u.uOffset, x.get(), y.get());
+    gl.uniform1f(u.uScale, scale.get());
+    gl.uniform1f(u.uDpr, size.k);
+    gl.uniform3f(u.uA, ...a);
+    gl.uniform3f(u.uB, ...b);
+    gl.uniform1f(u.uAlpha, CONTOUR_ALPHA);
+    // No clear: the triangle covers every pixel.
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  };
+
+  const tick = (now: number) => {
+    raf = 0;
+    if (dead) return;
+    const running = runs(now), busy = busyNow();
+    // The last step of a drift or a fade lands after the frame that saw it moving: one more draw where it settled.
+    if (wasBusy && !busy) pending = true;
+    wasBusy = busy;
+    if (running || busy || pending) {
+      const next = pending ? { draw: true, last: now } : nextDraw(now, last, busy);
+      last = next.last;
+      if (next.draw) {
+        // Only the running loop moves the field, at most two frames' worth: back after minutes without focus, it goes on from where it was.
+        if (running) time += (Math.min(now - lastDrawn, 2 * FRAME) / 1000) * 0.045;
+        lastDrawn = now;
+        pending = false;
+        try {
+          draw();
+          draws++;
+        } catch {
+          dead = true;
+          onFail(true);
+          return;
+        }
+      }
+    }
+    if (running || busy) raf = requestAnimationFrame(tick);
+  };
+  const wake = () => {
+    if (!raf && !dead && !forced) raf = requestAnimationFrame(tick);
+  };
+
+  const onFocus = () => {
+    focused = true;
+    wake();
+  };
+  const onBlur = () => {
+    focused = false;
+  };
+  const onVisibility = () => {
+    visible = document.visibilityState === "visible";
+    wake();
+  };
+  const onInput = () => {
+    lastInput = performance.now();
+    wake();
+  };
+  // Setting width or height clears the drawing buffer, so a resize always draws again, with the loop stopped too.
+  const resize = () => {
+    size = canvasSize(devicePixelRatio, css.w, css.h);
+    if (canvas.width !== size.w) canvas.width = size.w;
+    if (canvas.height !== size.h) canvas.height = size.h;
+    pending = true;
+    wake();
+  };
+  const observer = new ResizeObserver(([entry]) => {
+    css = { w: entry.contentRect.width, h: entry.contentRect.height };
+    resize();
+  });
+  // A change of the screen's scale, which the observer does not see.
+  let query: MediaQueryList | null = null;
+  const onScale = () => {
+    resize();
+    watchScale();
+  };
+  const unwatchScale = () => query?.removeEventListener("change", onScale);
+  const watchScale = () => {
+    unwatchScale();
+    // WebKit before 16 (macOS 12 with Safari 15) has no resolution in dppx and would never send change.
+    const dppx = matchMedia(`(resolution: ${devicePixelRatio}dppx)`);
+    query = dppx.matches ? dppx : matchMedia(`(-webkit-device-pixel-ratio: ${devicePixelRatio})`);
+    query.addEventListener("change", onScale);
+  };
+  const onLost = (e: Event) => {
+    e.preventDefault();
+    dead = true;
+    cancelAnimationFrame(raf);
+    raf = 0;
+    onFail(true);
+  };
+  const onRestored = () => {
+    gpu = setup(gl);
+    if (!gpu) return;
+    dead = false;
+    onFail(false);
+    pending = true;
+    wake();
+  };
+
+  window.addEventListener("focus", onFocus);
+  window.addEventListener("blur", onBlur);
+  document.addEventListener("visibilitychange", onVisibility);
+  window.addEventListener("pointermove", onInput, { passive: true });
+  window.addEventListener("keydown", onInput, { passive: true });
+  window.addEventListener("wheel", onInput, { passive: true });
+  canvas.addEventListener("webglcontextlost", onLost);
+  canvas.addEventListener("webglcontextrestored", onRestored);
+  observer.observe(canvas);
+  watchScale();
+  resize();
+
+  let counter = 0;
+  if (import.meta.env.DEV) {
+    counter = window.setInterval(() => {
+      console.debug("contours", draws / 5);
+      draws = 0;
+    }, 5000);
+  }
+
+  return {
+    page(id) {
+      if (id === current) return;
+      current = id;
+      const target = fieldOf(id);
+      [x, y, scale].forEach((v, i) => {
+        if (reduced) v.jump(target[i]);
+        else animate(v, target[i], springs.drift);
+      });
+      if (reduced) pending = true;
+      wake();
+    },
+    tints(next) {
+      fade?.stop();
+      if (reduced) {
+        [a, b] = next;
+        pending = true;
+      } else {
+        // From the colours drawn now, also halfway through the last fade.
+        const from = [a, b];
+        fading = true;
+        fade = animate(0, 1, {
+          ...themeFade,
+          onUpdate: (p) => {
+            a = mix(from[0], next[0], p);
+            b = mix(from[1], next[1], p);
+          },
+          onComplete: () => {
+            fading = false;
+          },
+        });
+      }
+      wake();
+    },
+    forced(on) {
+      forced = on;
+      if (on) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      } else wake();
+    },
+    stop() {
+      dead = true;
+      cancelAnimationFrame(raf);
+      window.clearInterval(counter);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pointermove", onInput);
+      window.removeEventListener("keydown", onInput);
+      window.removeEventListener("wheel", onInput);
+      canvas.removeEventListener("webglcontextlost", onLost);
+      canvas.removeEventListener("webglcontextrestored", onRestored);
+      observer.disconnect();
+      unwatchScale();
+      x.stop();
+      y.stop();
+      scale.stop();
+      fade?.stop();
+      if (gpu) {
+        gl.deleteProgram(gpu.prog.p);
+        gl.deleteVertexArray(gpu.vao);
+      }
+      // StrictMode mounts the same canvas again at once, and a lost context cannot be had back from it. Left to the collector, old
+      // contexts would keep their buffers, and notch, bars and settings share the renderer's 16 live contexts, past which the oldest
+      // (a notch's or a bar's glass) is lost: closed here, only once the canvas is gone.
+      window.setTimeout(() => {
+        if (!canvas.isConnected) gl.getExtension("WEBGL_lose_context")?.loseContext();
+      }, 0);
+    },
+  };
 }

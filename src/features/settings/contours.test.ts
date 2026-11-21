@@ -134,3 +134,63 @@ test("text over the contour lines keeps its contrast on every theme", () => {
   }
   assert.deepEqual(misses, []);
 });
+
+const count = (src: string, s: string) => src.split(s).length - 1;
+
+test("the canvas asks for the glass's context, links through program() and draws in a loop of its own", () => {
+  const src = read("./contours.ts");
+  const ask = src.slice(src.indexOf('getContext("webgl2"'), src.indexOf("});", src.indexOf('getContext("webgl2"')));
+  assert.ok(ask.length > 0, "getContext");
+  for (const a of ['alpha: true', 'premultipliedAlpha: true', 'antialias: false', 'depth: false', 'stencil: false', 'preserveDrawingBuffer: false', 'powerPreference: "low-power"', 'failIfMajorPerformanceCaveat: true']) {
+    assert.ok(ask.includes(a), a);
+  }
+  assert.ok(src.includes("program(gl, CONTOUR_FS)"));
+  for (const s of ["requestAnimationFrame(", "nextDraw(", "loopRuns("]) assert.ok(src.includes(s), s);
+  // An exception inside Motion's frame loop would stop every animation of the window.
+  for (const s of ["frame.render", "frame.update"]) assert.ok(!src.includes(s), s);
+  assert.match(src, /try \{[^}]*draw\(\);[^}]*\} catch \{[^}]*onFail\(true\)/);
+  assert.equal(count(src, "onFail(false)"), 2);
+  assert.ok(src.indexOf("onFail(false)") > src.indexOf("program("), "onFail(false) after the first link");
+  const restored = src.slice(src.indexOf("const onRestored"), src.indexOf("\n  };", src.indexOf("const onRestored")));
+  assert.ok(restored.includes("onFail(false)"), "onFail(false) on webglcontextrestored");
+  assert.match(src, /Math\.min\([^)]*2 \* FRAME\)/);
+});
+
+test("the canvas survives a lost context, closes its own only once detached, and removes everything it listens to", () => {
+  const src = read("./contours.ts");
+  assert.ok(src.includes('"webglcontextlost"') && src.includes("preventDefault()"));
+  assert.ok(src.includes('"webglcontextrestored"'));
+  assert.equal(count(src, "loseContext()"), 1);
+  assert.match(src, /setTimeout\(\(\) => \{\s*if \(!canvas\.isConnected\)[^\n]*loseContext\(\)/);
+  for (const name of ["focus", "blur", "visibilitychange", "pointermove", "keydown", "wheel", "change", "webglcontextlost", "webglcontextrestored"]) {
+    const on = count(src, `addEventListener("${name}"`), off = count(src, `removeEventListener("${name}"`);
+    assert.ok(on >= 1 && on === off, `${name}: ${on} added, ${off} removed`);
+  }
+  assert.ok(src.includes("new ResizeObserver(") && src.includes("disconnect()"));
+  assert.ok(src.includes("matchMedia(`(resolution: ${"));
+  assert.ok(src.includes("matchMedia(`(-webkit-device-pixel-ratio: ${"));
+  assert.ok(src.includes("springs.drift") && src.includes("themeFade"));
+  assert.equal(count(src, 'console.debug("contours"'), 1);
+  assert.match(src, /if \(import\.meta\.env\.DEV\) \{[^}]*console\.debug\("contours"/);
+});
+
+test("the contour component is a hidden canvas that fades in, follows the theme and forced colours, and stops on unmount", () => {
+  const src = read("./Contours.tsx");
+  for (const s of ["aria-hidden", 'className="pointer-events-none absolute inset-0 -z-10 size-full forced-colors:hidden"', "transition={crossfade}", "activeTheme.subscribe", "forcedColors.subscribe"]) {
+    assert.ok(src.includes(s), s);
+  }
+  const cleanup = src.slice(src.indexOf("return () =>", src.indexOf("useLayoutEffect(")));
+  assert.match(cleanup, /^return \(\) => \{[^}]*\.stop\(\)/);
+});
+
+test("the contour files keep the style's CSS rules and credit Stellaria and Hoskins", () => {
+  for (const file of ["./contours.ts", "./Contours.tsx"]) {
+    const src = read(file);
+    for (const s of ["blur(", "color-mix(", "linear(", ":dir("]) assert.ok(!src.includes(s), `${file}: ${s}`);
+    assert.doesNotMatch(src, /\b(bg|text|fill|stroke|ring|border)-[\w-]+\/\d/, file);
+  }
+  const head = read("./contours.ts").split("\n").slice(0, 8).join("\n");
+  for (const s of ["Adapted from Stellaria (GPL-3.0", "dcc2f10", "Hash without Sine", "Modified for Crest, 2026-11-21"]) assert.ok(head.includes(s), s);
+  const readme = read("../../../README.md").replace(/\s+/g, " ");
+  assert.ok(readme.includes("the contour background and the navigation mark of the settings window and the load shapes of the Hardware tool are adapted from Stellaria's code"));
+});
