@@ -409,7 +409,8 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
             {active && (
               <motion.span
                 layoutId="settings-page"
-                className="absolute inset-0 rounded-full bg-secondary-container"
+                // Under the items it crosses on its way; the nav's isolate keeps it above the nav's own background.
+                className="-z-10 absolute inset-0 rounded-full bg-secondary-container"
                 style={iconColors ? { background: hueVar(p.hue), opacity: HUE_PILL } : undefined}
                 transition={springs.snappy}
               />
@@ -520,12 +521,12 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
           {layout === "top" ? (
             <>
               {header}
-              <nav className="flex h-14 shrink-0 items-center gap-0.5 overflow-x-auto px-2 [scrollbar-width:none]">{materialNav}</nav>
+              <nav className="isolate flex h-14 shrink-0 items-center gap-0.5 overflow-x-auto px-2 [scrollbar-width:none]">{materialNav}</nav>
             </>
           ) : (
             // Scrolls when the items do not fit, keeping 4 px around a focused one for its ring.
             <nav
-              className={`relative flex shrink-0 flex-col overflow-y-auto p-2 scroll-py-1 [scrollbar-width:none] ${layout === "rail" ? "w-14 items-center gap-0.5" : "w-[176px] contours:bg-elevated"}`}
+              className={`relative isolate flex shrink-0 flex-col overflow-y-auto p-2 scroll-py-1 [scrollbar-width:none] ${layout === "rail" ? "w-14 items-center gap-0.5" : "w-[176px] contours:bg-elevated"}`}
               onMouseDown={chrome?.onDrag}
             >
               {materialNav}

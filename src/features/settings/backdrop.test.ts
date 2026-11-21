@@ -96,3 +96,13 @@ test("the navigation's mark morphs per page in the settings window's list and ra
   assert.match(view, /\n\/\*\* One settings page's groups[^\n]*\*\/\nfunction PageContent\(/);
 });
 
+test("the Material navigation's pill slides under the items it crosses, inside the navigation only", () => {
+  const navAt = view.indexOf("const materialNav = (");
+  const nav = view.slice(navAt, view.indexOf("const header =", navAt));
+  const pill = nav.slice(nav.indexOf('layoutId="settings-page"'), nav.indexOf("/>", nav.indexOf('layoutId="settings-page"')));
+  assert.match(pill, /className="-z-10 /, pill);
+  // Each nav that holds the items is its own stacking context, so the pill never drops behind the window.
+  const holders = [...view.matchAll(/<nav\b[^>]*>\s*\{materialNav\}/g)].map((m) => m[0]);
+  assert.equal(holders.length, 2);
+  for (const h of holders) assert.match(h, /\bisolate\b/, h);
+});
