@@ -5,7 +5,7 @@
 <h1 align="center">Crest</h1>
 
 <p align="center">
-  <b>屏幕顶部的灵动岛，支持 Windows 和 macOS。</b>
+  <b>屏幕顶部的灵动岛，支持 Windows 和 macOS；在 Windows 上还有自己的任务栏。</b>
 </p>
 
 <p align="center">
@@ -45,13 +45,15 @@ https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
 
 ## 这是什么
 
-Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具：大约三十个，每个都可以随意开关。免费、开源，无需账号，也不用付费。
+Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具：大约三十个，每个都可以随意开关。在 Windows 上，Crest 还可以代替任务栏，把同样的工具作为小组件放在你的应用旁边。免费、开源，无需账号，也不用付费。
 
 上面的视频用不到两分钟展示了它们，[项目主页上的演示](https://crestisland.app/)让你在安装之前就能在浏览器里试用每一个工具。
 
 <p align="center"><img src="docs/media/features/closed-capsule.png" alt="屏幕顶部收起的胶囊：正在播放的歌曲封面、专注计时器、AI 额度环、CPU、内存和 GPU 负载、时钟和天气" width="760" /></p>
 
-收起时，Crest 只是一行：歌曲、正在运行的计时器、你的 AI 额度、CPU、内存和 GPU、网络、电池、时钟、天气、下一个会议。有事发生时，它会变成一张卡片停留几秒，然后恢复原样。
+<p align="center"><img src="docs/media/features/taskbar.png" alt="屏幕底部 Liquid Glass + 样式的 Crest 任务栏：左边是 CPU、内存和 GPU 负载、天气、GitHub、下载和 AI 额度环，中间是开始按钮和应用，右边是两个工具按钮、通知区域、Wi-Fi、音量和电池，以及带日期的时钟" width="960" /></p>
+
+收起时，Crest 只是一行：歌曲、正在运行的计时器、你的 AI 额度、CPU、内存和 GPU、网络、电池、时钟、天气、下一个会议。有事发生时，它会变成一张卡片停留几秒，然后恢复原样。在 Windows 上，它的任务栏可以代替系统任务栏：开始按钮和应用在中间，可以看到各个窗口的实时预览，同样的读数和工具作为小组件排在两侧（微软商店版暂不提供）。
 
 <p align="center">
   <img src="docs/media/features/notice-code.png" alt="收起的刘海里来自银行应用的通知，带有一次性验证码和“复制验证码”按钮" width="560" /><br />
@@ -76,7 +78,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 
 ## 功能
 
-下面的每个工具都在同一个刘海里。在 **设置 → 工具** 中选择你要的工具，拖动排成你喜欢的顺序，其余的不会打扰你。完整指南以及每项集成的设置步骤见 [docs/features.md](docs/features.md)（英文）。
+下面的每个工具都在同一个刘海里，在 Windows 上任务栏也能以小组件和按钮的形式放下它们。在 **设置 → 工具** 中选择你要的工具，拖动排成你喜欢的顺序，其余的不会打扰你。完整指南以及每项集成的设置步骤见 [docs/features.md](docs/features.md)（英文）。
 
 ### 收起的刘海
 
@@ -85,6 +87,14 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 - **通知**会短暂占用这一行：计时结束、待办到期、会议即将开始、刚保存的下载或截图、额度提醒、充电器、蓝牙、网络、大写锁定、音量和亮度。
 - **隐私圆点**在麦克风或摄像头使用时变绿，屏幕被录制时变红（在 Windows 上仅限系统自带的截图录屏工具和商店应用，因为 Windows 不为桌面录屏软件留下记录）。
 - **宠物**住在刘海旁边的小窝里（如果你想要）：随音乐跳舞，CPU 越忙跑得越快。
+
+### 任务栏
+
+- **代替 Windows 任务栏**（设置 → 任务栏，默认关闭，仅限 Windows，微软商店版暂不提供）：Windows 的开始按钮、固定的应用和打开的窗口、通知区域，以及带任务管理器的 Crest 菜单，每个显示器上都有。关掉它或退出 Crest，Windows 任务栏就会回来。
+- **四种形状**：沿整个边缘停靠、悬浮、和按钮一样宽的胶囊，或磁贴。高度、图标大小、背景和透明度都由你决定。
+- **实时预览**：指针停在一个应用上时，显示它各个窗口的实时预览，和 Windows 11 一样。
+- **来自你的工具的小组件**：天气、时钟、硬件和计时器可以选择样式，其他工具可以放成按钮，还有状态按钮，打开 Wi-Fi、蓝牙、音量和亮度的快速面板。沿着任务栏拖动即可调整位置。
+- **Liquid Glass +**：在屏幕的实时画面上，沿任务栏边缘形成一道很强的透镜，需要 x64 上的 Windows 11 24H2 或更高版本。
 
 ### 音乐
 
@@ -144,7 +154,6 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 ### 个性化
 
 - **主题**：十五个内置主题、主题编辑器、十六种字体、彩色图标、可随日出日落切换的昼夜主题，以及 Windows 上的液态玻璃。
-- **任务栏**：代替 Windows 任务栏，有四种形状，带窗口实时预览、来自你的工具的小组件和 Liquid Glass +（Windows，微软商店版暂不提供）。
 - 全屏应用和游戏的**窗口规则**，可放在任意**显示器**或所有显示器上，每个面板的大小都可以调整。
 - **11 种语言**：英语、简体中文、西班牙语、印地语、从右到左的阿拉伯语、法语、葡萄牙语、俄语、日语、德语和意大利语。
 - **插件**：用 HTML、CSS 和 JavaScript 编写你自己的工具，在沙盒中运行（[docs/plugins.md](docs/plugins.md)）。
@@ -153,10 +162,10 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 
 ## 安装
 
-- **Microsoft Store：** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS)，由 Microsoft 签名，并由应用商店自动更新。
+- **Microsoft Store：** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS)，由 Microsoft 签名，并由应用商店自动更新。商店版暂时没有任务栏和 Liquid Glass +。
 - **安装程序：** 从[最新版本](https://github.com/andrealo20/crest/releases/latest)下载 `Crest_x.y.z_x64-setup.exe`（Windows on ARM 电脑请下载 `Crest_x.y.z_arm64-setup.exe`）并运行。它只为当前用户安装。安装程序暂未进行代码签名，首次运行时 SmartScreen 可能会提示：点击 **更多信息 → 仍要运行**。
 - **便携版：** 把 `Crest-x.y.z-Portable-x64.zip`（或 `-Portable-arm64.zip`）解压到任意可写的位置，运行 `Crest.exe`。不会安装任何东西。
-- **Mac（预览版）：** Apple 芯片请下载 `Crest_x.y.z_aarch64.dmg`，Intel 请下载 `Crest_x.y.z_x64.dmg`，然后把 Crest 拖到“应用程序”文件夹。应用暂未经过公证，首次打开时 macOS 会拒绝运行：请打开 **系统设置 → 隐私与安全性 → 仍要打开**。1.2.1 及更早的版本完全没有签名，macOS 会提示应用已损坏：请在“终端”中运行一次 `xattr -dr com.apple.quarantine /Applications/Crest.app`。文件架、硬件、Discord、保险库、终端、启动器、通知、录制、录音机和摄像头目前只支持 Windows，在 Mac 上不会显示，“在屏幕上查找”也没有快捷键。
+- **Mac（预览版）：** Apple 芯片请下载 `Crest_x.y.z_aarch64.dmg`，Intel 请下载 `Crest_x.y.z_x64.dmg`，然后把 Crest 拖到“应用程序”文件夹。应用暂未经过公证，首次打开时 macOS 会拒绝运行：请打开 **系统设置 → 隐私与安全性 → 仍要打开**。1.2.1 及更早的版本完全没有签名，macOS 会提示应用已损坏：请在“终端”中运行一次 `xattr -dr com.apple.quarantine /Applications/Crest.app`。文件架、硬件、Discord、保险库、终端、启动器、通知、录制、录音机、摄像头和任务栏目前只支持 Windows，在 Mac 上不会显示，“在屏幕上查找”也没有快捷键。
 
 每个版本都附带 `SHA256SUMS` 文件，列出每个下载文件的 SHA-256，可以用 `sha256sum -c SHA256SUMS --ignore-missing` 或 `Get-FileHash` 校验。
 

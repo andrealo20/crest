@@ -5,7 +5,7 @@
 <h1 align="center">Crest</h1>
 
 <p align="center">
-  <b>A Dynamic Island for the top of your screen, on Windows and macOS.</b>
+  <b>A Dynamic Island for the top of your screen on Windows and macOS, and a taskbar of its own on Windows.</b>
 </p>
 
 <p align="center">
@@ -45,13 +45,15 @@ https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
 
 ## What it is
 
-A notch at the edge of your Windows or Mac screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day: about thirty of them, each one on or off as you like. Free and open source, no account, nothing to pay.
+A notch at the edge of your Windows or Mac screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day: about thirty of them, each one on or off as you like. On Windows, Crest can also take the place of the taskbar, with the same tools as widgets beside your apps. Free and open source, no account, nothing to pay.
 
 The video above shows them in under two minutes, and [the demo on the project page](https://crestisland.app/) lets you try every tool in your browser before you install anything.
 
 <p align="center"><img src="docs/media/features/closed-capsule.png" alt="The closed capsule at the top of the screen: the cover of the song playing, a focus timer, the AI quota ring, CPU, RAM and GPU load, the clock and the weather" width="760" /></p>
 
-Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, RAM and GPU, the network, the battery, the clock, the weather, the next meeting. When something happens it turns into a card for a few seconds, then goes back.
+<p align="center"><img src="docs/media/features/taskbar.png" alt="Crest's taskbar in Liquid Glass + at the bottom of the screen: CPU, RAM and GPU load, the weather, GitHub, downloads and the AI quota rings on the left, Start and the apps in the middle, two tool buttons, the tray, Wi-Fi, volume and battery and the clock with the date on the right" width="960" /></p>
+
+Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, RAM and GPU, the network, the battery, the clock, the weather, the next meeting. When something happens it turns into a card for a few seconds, then goes back. On Windows the taskbar can stand in for the Windows one: Start and your apps in the middle, live previews of their windows, and the same readings and tools as widgets around them (not in the Microsoft Store version for now).
 
 <p align="center">
   <img src="docs/media/features/notice-code.png" alt="A notice from a bank app in the closed notch with a one-time code and a Copy code button" width="560" /><br />
@@ -76,7 +78,7 @@ The [1.3.0 release](https://github.com/andrealo20/crest/releases/tag/v1.3.0) has
 
 ## Features
 
-Every tool below lives in the same notch. Pick yours in **Settings → Tools** and drag them into the order you like; the rest stays out of the way. The full guide, with the setup steps of each integration, is in [docs/features.md](docs/features.md).
+Every tool below lives in the same notch, and on Windows the taskbar can carry them too, as widgets and buttons. Pick yours in **Settings → Tools** and drag them into the order you like; the rest stays out of the way. The full guide, with the setup steps of each integration, is in [docs/features.md](docs/features.md).
 
 ### The closed notch
 
@@ -85,6 +87,14 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 - **Notices** take the row for a moment: a finished timer, a due to-do, a meeting about to start, a download or screenshot just saved, a quota alert, the charger, Bluetooth, the internet, Caps Lock, volume and brightness.
 - **Privacy dots** turn green while the microphone or camera is in use and red while the screen is recorded (on Windows only by its own capture tools and Store apps, since Windows keeps no record for desktop recorders).
 - **A pet** in a nest beside the notch, if you want one: it dances to the music and runs faster the busier the CPU is.
+
+### The taskbar
+
+- **In place of the Windows taskbar** (Settings → Taskbar, off by default, Windows only, not in the Microsoft Store version for now): Windows' Start, your pinned apps and open windows, the Notification area and the Crest menu with Task Manager, on every monitor. Turn it off, or quit Crest, and the Windows taskbar comes back.
+- **Four shapes**: Docked along the whole edge, Floating, a Capsule as wide as its buttons, or Tiles. Height, icon size, background and transparency are yours.
+- **Live previews** of an app's windows when the pointer rests on it, as in Windows 11.
+- **Widgets from your tools**: Weather, Clock, Hardware and Timer in the version you pick, buttons for the other tools, and Status, with a quick panel for Wi-Fi, Bluetooth, volume and brightness. Drag them along the bar to move them.
+- **Liquid Glass +**: a strong lens along the bar's edge over a live copy of the screen, on Windows 11 24H2 and later on x64.
 
 ### Music
 
@@ -144,7 +154,6 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 ### Make it yours
 
 - **Themes**: fifteen built in, an editor, sixteen fonts, coloured icons, a day and night switch that can follow the sun, and Liquid Glass on Windows.
-- **A taskbar** in place of the Windows one, in four shapes, with live window previews, widgets from your tools and Liquid Glass + (Windows, not in the Microsoft Store version for now).
 - **Window rules** for full-screen apps and games, any **monitor** or all of them, and every panel resized to taste.
 - **11 languages**: English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German and Italian.
 - **Plugins**: your own tools in HTML, CSS and JavaScript, sandboxed ([docs/plugins.md](docs/plugins.md)).
@@ -153,10 +162,10 @@ What changed in each version is in the [release notes](docs/releases).
 
 ## Install
 
-- **Microsoft Store:** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS), signed by Microsoft and kept up to date by the Store.
+- **Microsoft Store:** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS), signed by Microsoft and kept up to date by the Store. The Store version does not have the taskbar and Liquid Glass + for now.
 - **Installer:** download `Crest_x.y.z_x64-setup.exe` (or `Crest_x.y.z_arm64-setup.exe` on a Windows on ARM PC) from the [latest release](https://github.com/andrealo20/crest/releases/latest) and run it. It installs for your user only. The installer is not code-signed yet, so SmartScreen may warn on first launch: click **More info → Run anyway**.
 - **Portable:** unzip `Crest-x.y.z-Portable-x64.zip` (or `-Portable-arm64.zip`) anywhere you can write to and run `Crest.exe`. Nothing is installed.
-- **Mac (preview):** download `Crest_x.y.z_aarch64.dmg` for Apple silicon or `Crest_x.y.z_x64.dmg` for Intel and drag Crest to Applications. The app is not notarized yet, so macOS refuses it on first launch: open **System Settings → Privacy & Security → Open Anyway**. Up to 1.2.1 the app is not signed at all and macOS calls it damaged instead: run `xattr -dr com.apple.quarantine /Applications/Crest.app` once in Terminal. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder, Camera and Plugins are Windows-only for now and don't show on a Mac, nor do the Focus, Keep awake and volume tiles in Overview, FPS, the recording dots and the monitor modes Follow the cursor and All monitors. Find on screen has no shortcut there.
+- **Mac (preview):** download `Crest_x.y.z_aarch64.dmg` for Apple silicon or `Crest_x.y.z_x64.dmg` for Intel and drag Crest to Applications. The app is not notarized yet, so macOS refuses it on first launch: open **System Settings → Privacy & Security → Open Anyway**. Up to 1.2.1 the app is not signed at all and macOS calls it damaged instead: run `xattr -dr com.apple.quarantine /Applications/Crest.app` once in Terminal. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder, Camera, Plugins and the taskbar are Windows-only for now and don't show on a Mac, nor do the Focus, Keep awake and volume tiles in Overview, FPS, the recording dots and the monitor modes Follow the cursor and All monitors. Find on screen has no shortcut there.
 
 Every release has a `SHA256SUMS` file with the SHA-256 of each download, to check with `sha256sum -c SHA256SUMS --ignore-missing` or `Get-FileHash`.
 
