@@ -1902,5 +1902,9 @@
   "Zwei Zeitzonen": "Dois fusos horários",
   "Rundanzeigen": "Mostradores",
   "CPU-Verlauf": "Linha da CPU",
-  "Countdown": "Contagem regressiva"
+  "Countdown": "Contagem regressiva",
+  "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "Combinar botões e ocultar rótulos",
+  "Wenn die Taskleiste voll ist": "Quando a barra de tarefas estiver cheia",
+  "Nie": "Nunca",
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Nunca: cada janela tem seu próprio botão com o título. Quando a barra de tarefas estiver cheia: enquanto houver espaço"
 }

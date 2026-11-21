@@ -1902,5 +1902,9 @@
   "Zwei Zeitzonen": "दो समय क्षेत्र",
   "Rundanzeigen": "डायल",
   "CPU-Verlauf": "CPU रेखा",
-  "Countdown": "उलटी गिनती"
+  "Countdown": "उलटी गिनती",
+  "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "बटन मिलाएँ और लेबल छिपाएँ",
+  "Wenn die Taskleiste voll ist": "जब टास्कबार भर जाए",
+  "Nie": "कभी नहीं",
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "कभी नहीं: हर विंडो का अपना बटन, उसके शीर्षक के साथ। जब टास्कबार भर जाए: जब तक जगह हो"
 }

@@ -1902,5 +1902,9 @@
   "Zwei Zeitzonen": "两个时区",
   "Rundanzeigen": "表盘",
   "CPU-Verlauf": "CPU 曲线",
-  "Countdown": "倒计时"
+  "Countdown": "倒计时",
+  "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "合并按钮并隐藏标签",
+  "Wenn die Taskleiste voll ist": "任务栏已满时",
+  "Nie": "从不",
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "从不：每个窗口都有自己的按钮和标题。任务栏已满时：直到空间不够为止"
 }

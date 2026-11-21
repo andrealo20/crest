@@ -1902,5 +1902,9 @@
   "Zwei Zeitzonen": "Два часовых пояса",
   "Rundanzeigen": "Циферблаты",
   "CPU-Verlauf": "График ЦП",
-  "Countdown": "Обратный отсчёт"
+  "Countdown": "Обратный отсчёт",
+  "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "Группировать кнопки и скрывать метки",
+  "Wenn die Taskleiste voll ist": "Когда панель задач заполнена",
+  "Nie": "Никогда",
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Никогда: у каждого окна своя кнопка с заголовком. Когда панель задач заполнена: пока хватает места"
 }

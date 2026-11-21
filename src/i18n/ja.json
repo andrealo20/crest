@@ -1902,5 +1902,9 @@
   "Zwei Zeitzonen": "2 つのタイムゾーン",
   "Rundanzeigen": "ダイヤル",
   "CPU-Verlauf": "CPU の推移",
-  "Countdown": "カウントダウン"
+  "Countdown": "カウントダウン",
+  "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "ボタンをまとめてラベルを非表示にする",
+  "Wenn die Taskleiste voll ist": "タスク バーがいっぱいのとき",
+  "Nie": "しない",
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "しない: ウィンドウごとにタイトル付きのボタンを表示します。タスク バーがいっぱいのとき: 入りきる間だけ"
 }

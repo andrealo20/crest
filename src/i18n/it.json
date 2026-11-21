@@ -1902,5 +1902,9 @@
   "Zwei Zeitzonen": "Due fusi orari",
   "Rundanzeigen": "Quadranti",
   "CPU-Verlauf": "Linea della CPU",
-  "Countdown": "Conto alla rovescia"
+  "Countdown": "Conto alla rovescia",
+  "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "Combina i pulsanti e nascondi le etichette",
+  "Wenn die Taskleiste voll ist": "Quando la barra è piena",
+  "Nie": "Mai",
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Mai: ogni finestra ha un pulsante suo con il titolo. Quando la barra è piena: finché c'è posto"
 }

@@ -1902,5 +1902,9 @@
   "Zwei Zeitzonen": "منطقتان زمنيتان",
   "Rundanzeigen": "مؤشرات دائرية",
   "CPU-Verlauf": "منحنى المعالج",
-  "Countdown": "العد التنازلي"
+  "Countdown": "العد التنازلي",
+  "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "دمج الأزرار وإخفاء التسميات",
+  "Wenn die Taskleiste voll ist": "عند امتلاء شريط المهام",
+  "Nie": "أبدًا",
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "أبدًا: لكل نافذة زر خاص بها مع عنوانها. عند امتلاء شريط المهام: ما دامت هناك مساحة"
 }

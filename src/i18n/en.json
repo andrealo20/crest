@@ -1902,5 +1902,9 @@
   "Zwei Zeitzonen": "Two time zones",
   "Rundanzeigen": "Dials",
   "CPU-Verlauf": "CPU line",
-  "Countdown": "Countdown"
+  "Countdown": "Countdown",
+  "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "Combine taskbar buttons and hide labels",
+  "Wenn die Taskleiste voll ist": "When taskbar is full",
+  "Nie": "Never",
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Never: each window has a button of its own with its title. When taskbar is full: until the room runs out"
 }

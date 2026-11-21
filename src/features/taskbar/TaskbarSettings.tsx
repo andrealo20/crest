@@ -22,7 +22,7 @@ import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
-import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type BarShape, type ToolItem, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type BarShape, type Combine, type ToolItem, type Zone } from "./model";
 import { demoBarOffered, setTaskbar } from "./store";
 import { AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
 import { toolInfo } from "./toolInfo";
@@ -48,6 +48,7 @@ const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte",
 /** What the bar draws for each fixed item: Windows' Start button, the apps' buttons, the button of the Crest menu, the notification area and Stato. A widget has its part's name. */
 const ITEM_LABEL: Record<Exclude<BarItem, PartId | ToolItem>, string> = { start: "Startmenü", apps: "Apps und Fenster", crest: "Crest-Menü", tray: "Infobereich", status: "Status" };
 const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "Schwebend", capsule: "Kapsel", tiles: "Kacheln" };
+const COMBINE_LABEL: Record<Combine, string> = { always: "Immer", full: "Wenn die Taskleiste voll ist", never: "Nie" };
 
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
@@ -204,12 +205,13 @@ function ItemIcon({ id }: { id: BarItem }) {
 }
 
 /**
- * Taskbar → Apps and windows: the pinned apps in the bar's order, and whether the app menu has End task. An app is pinned on the bar,
+ * Taskbar → Apps and windows: whether the apps' buttons combine (Windows' "Combine taskbar buttons and hide labels"), the pinned apps
+ * in the bar's order, and whether the app menu has End task. An app is pinned on the bar,
  * from its right-click menu; Windows' pinned apps replace the list from here (one that is not empty only on a second click within
  * 3 s), and an empty answer leaves it.
  */
 export function TaskbarApps() {
-  const { pinned: saved, endTask } = settings.use().taskbar;
+  const { pinned: saved, endTask, combine } = settings.use().taskbar;
   const pinned = saved ?? [];
   const [confirm, setConfirm] = useState(false);
   const [outcome, setOutcome] = useState<"none" | "failed" | null>(null);
@@ -239,6 +241,18 @@ export function TaskbarApps() {
 
   return (
     <Group id="settings-taskbar-apps">
+      <Row
+        icon="label"
+        label={<span className="whitespace-normal">{t("Schaltflächen zusammenfassen und Beschriftungen ausblenden")}</span>}
+        hint={t("Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt")}
+      >
+        <Select
+          width="w-56"
+          value={combine}
+          options={(Object.keys(COMBINE_LABEL) as Combine[]).map((c) => ({ value: c, label: t(COMBINE_LABEL[c]) }))}
+          onChange={(combine) => setTaskbar({ combine })}
+        />
+      </Row>
       <Row icon="keep" label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Über Start, mit Rechtsklick auf eine App in der Taskleiste oder durch Ziehen auf die Taskleiste anheften")} />
       {pinned.length > 0 && <FavoriteList favorites={pinned} onChange={(next) => setTaskbar({ pinned: next })} />}
       {/* Long in some languages beside the button: the name wraps instead of being cut. */}
