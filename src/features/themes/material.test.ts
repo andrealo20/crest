@@ -51,12 +51,12 @@ function misses(vars: Record<string, string>, ground: Rgba): string[] {
   );
 }
 
-test("Material: every built-in theme and a grey seed resolve with no correction to resolveTheme's 48 variables", () => {
+test("Material: every built-in theme and a grey seed resolve with no correction to resolveTheme's 49 variables", () => {
   for (const { t, level, name } of CASES) {
     const m = resolveMaterial(t, { contrast: level });
     assert.deepEqual(m.adjustments, [], name);
     assert.deepEqual(Object.keys(m.vars), Object.keys(resolveTheme(t).vars), name);
-    assert.equal(Object.keys(m.vars).length, 48, name);
+    assert.equal(Object.keys(m.vars).length, 49, name);
   }
 });
 
@@ -75,8 +75,7 @@ test("Material: the inks on the role fills, the status colours, the slider's tra
   }
 });
 
-test("Material keeps the scheme's tertiary role beside the variables, not among them", () => {
-  const tertiaryKeys = (vars: Record<string, string>) => Object.keys(vars).filter((k) => k.includes("tertiary"));
+test("Material gives the scheme's tertiary role to drawing outside CSS and to --color-tertiary", () => {
   for (const { t, level, name } of CASES) {
     // The scheme rebuilt as resolveMaterial builds it, so the test does not read the role through the code under test.
     const dark = isDark(over(parseColor(t.colors.background) ?? BLACK, BLACK));
@@ -85,14 +84,15 @@ test("Material keeps the scheme's tertiary role beside the variables, not among 
     const scheme = new (source.chroma < 8 ? SchemeMonochrome : SchemeTonalSpot)(source, dark, level);
     const m = resolveMaterial(t, { contrast: level });
     assert.equal(m.m3Tertiary, hexFromArgb(MaterialDynamicColors.tertiary.getArgb(scheme)), name);
-    assert.deepEqual(tertiaryKeys(m.vars), tertiaryKeys(resolveTheme(t).vars), name);
+    assert.equal(m.vars["--color-tertiary"], m.m3Tertiary, name);
   }
 });
 
-test("the primary reads at 3:1 on a tile over the surface, for the weather's big temperature", () => {
+test("the primary and the tertiary read at 3:1 on a tile over the surface, for the weather's big temperature and the hardware's rings", () => {
   for (const { t, level, name } of CASES) {
     const c = (n: string) => parseColor(resolveMaterial(t, { contrast: level }).vars[n])!;
     assert.ok(contrast(c("--color-primary"), over(c("--color-fill-1"), c("--color-notch"))) >= GRAPHIC, name);
+    assert.ok(contrast(c("--color-tertiary"), over(c("--color-fill-1"), c("--color-notch"))) >= GRAPHIC, `${name} tertiary`);
   }
 });
 

@@ -26,7 +26,9 @@ test("the graph draws its path from the tested helpers, and its area and scale o
   assert.ok(trend.includes('strokeWidth={area ? "2" : "1.5"}'), "stroke width");
   assert.ok(trend.includes('vectorEffect="non-scaling-stroke"'));
   assert.match(trend, /fillOpacity=\{opacity\}/);
-  assert.match(areaBlock, /fill\(second, 0\.15, "\w+"\)/);
+  assert.match(areaBlock, /fill\(second, 0\.15, "\w+", secondColor\)/);
+  // The second series takes its own colour only where a caller gives one; Crest's rows draw both in one.
+  assert.ok(trend.includes("secondColor = color"), "the second colour defaults to the first");
   assert.match(areaBlock, /fill\(values, 0\.2, "\w+"\)/);
   // The areas scroll with their lines: a new key every sample.
   assert.equal(trend.match(/key=\{`\$\{key\}\$\{tick\}`\}/g)?.length, 2, "lines and areas key on tick");
@@ -181,4 +183,16 @@ test("the Material network graph says it is reading until it has two samples, as
   const net = part("NetCard");
   assert.ok(net.includes("st.history.down.filter(Number.isFinite).length < 2"), net);
   assert.match(net, /<span className="[^"]*\babsolute inset-0 flex items-center justify-center text-caption text-label-3[^"]*">\{t\("Wird gelesen …"\)\}<\/span>/);
+});
+
+test("under the calm scheme the Material readings at rest take the theme's roles, and the high levels keep orange and red", () => {
+  const sv = body("export function SystemView(");
+  assert.ok(sv.includes('roles={colors === "calm"}'), "only under the calm scheme");
+  assert.ok(materialView.includes('const PRIMARY = "var(--color-primary)", TERTIARY = "var(--color-tertiary)";'));
+  assert.ok(materialView.includes("const at = (role: string) => (l: Level) => (p.roles && l === 0 ? role : tone(l));"));
+  for (const s of ['label="CPU" detail={p.cpuDetail} percent={s.cpu} tone={at(PRIMARY)}', "tone={at(TERTIARY)} fit={fit} onClick={p.onGpu}", "<NetCard st={st} tone={at(PRIMARY)} up={at(TERTIARY)} />", "<MemoryCard st={st} tone={at(PRIMARY)}", "ringTone={at(TERTIARY)}"])
+    assert.ok(materialView.includes(s), s);
+  assert.ok(part("NetCard").includes("secondColor={up(level)}"));
+  // The drive's temperature keeps the scheme's colour; only its ring takes the role.
+  assert.ok(part("DriveCard").includes("color: ringTone(ofShare(share))") && part("DriveCard").includes("color: tone(d.tempLevel)"));
 });

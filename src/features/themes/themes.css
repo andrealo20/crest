@@ -25,6 +25,7 @@
 @property --color-on-primary { syntax: "<color>"; inherits: true; initial-value: #000; }
 @property --color-secondary-container { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.16); }
 @property --color-on-secondary-container { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.96); }
+@property --color-tertiary { syntax: "<color>"; inherits: true; initial-value: rgb(255 255 255 / 0.96); }
 @property --shape { syntax: "<color>"; inherits: true; initial-value: #000; }
 /* The glass's veils, rim and status colours (src/notch/glass), crossfaded with the theme like the colours above. */
 @property --glass-tint { syntax: "<color>"; inherits: true; initial-value: rgb(0 0 0 / 0.78); }
@@ -59,6 +60,7 @@
     --color-on-primary 500ms ease,
     --color-secondary-container 500ms ease,
     --color-on-secondary-container 500ms ease,
+    --color-tertiary 500ms ease,
     --glass-tint 500ms ease,
     --glass-tint-edge 500ms ease,
     --glass-tint-clear 500ms ease,
@@ -136,6 +138,7 @@
     --color-on-primary: Canvas !important;
     --color-secondary-container: color-mix(in srgb, CanvasText 22%, Canvas) !important;
     --color-on-secondary-container: CanvasText !important;
+    --color-tertiary: CanvasText !important;
     /* The glass is off with forced colours (src/notch/glass); these keep it opaque and in the system's colours all the same. */
     --glass-tint: Canvas !important;
     --glass-tint-edge: Canvas !important;

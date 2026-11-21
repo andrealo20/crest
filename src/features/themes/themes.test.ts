@@ -89,7 +89,7 @@ test("Crest style: every theme resolves to the recorded variables", () => {
   // Recorded before the Material style, in a file the resolver cannot rewrite: the Crest style must keep every colour.
   const recorded: Record<string, Record<string, string>> = JSON.parse(readFileSync(new URL("./crest-vars.fixture.json", import.meta.url), "utf8"));
   // The only variables the Material style may add: its role tokens, which repeat colours Crest already paints.
-  const roles = ["--color-primary", "--color-on-primary", "--color-secondary-container", "--color-on-secondary-container"];
+  const roles = ["--color-primary", "--color-on-primary", "--color-secondary-container", "--color-on-secondary-container", "--color-tertiary"];
   assert.deepEqual(Object.keys(recorded).sort(), BUILT_IN_THEMES.map((t) => t.id).sort());
   for (const t of BUILT_IN_THEMES) {
     const vars = resolveTheme(t).vars, want = recorded[t.id];
@@ -99,12 +99,12 @@ test("Crest style: every theme resolves to the recorded variables", () => {
   }
 });
 
-test("Crest style: the four role tokens repeat label, black, fill-3 and label", () => {
+test("Crest style: the five role tokens repeat label, black, fill-3, label and label", () => {
   for (const t of BUILT_IN_THEMES) {
     const v = resolveTheme(t).vars;
     assert.deepEqual(
-      [v["--color-primary"], v["--color-on-primary"], v["--color-secondary-container"], v["--color-on-secondary-container"]],
-      [v["--color-label"], v["--color-black"], v["--color-fill-3"], v["--color-label"]],
+      [v["--color-primary"], v["--color-on-primary"], v["--color-secondary-container"], v["--color-on-secondary-container"], v["--color-tertiary"]],
+      [v["--color-label"], v["--color-black"], v["--color-fill-3"], v["--color-label"], v["--color-label"]],
       t.id,
     );
   }

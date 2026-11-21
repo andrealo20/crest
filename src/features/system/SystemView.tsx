@@ -94,7 +94,7 @@ export function SystemView() {
     : "";
   const batteryHealth = b && b.health !== null ? { text: `${t("Zustand")} ${Math.round(b.health * 100)} %`, color: tone(healthLevel(b.health)) } : null;
 
-  if (material) return <MaterialSystemLayout st={st} tone={tone} cpuDetail={join(cpuDetail)} gpuDetail={join(gpuDetail)} gpuBadge={gpuBadge} onGpu={gpus.length > 1 ? cycleGpu : undefined} memLevel={memLevel} powerDetail={powerDetail} batteryDetail={batteryDetail} batteryHealth={batteryHealth} plan={plan} detail={detail} setDetail={setDetail} />;
+  if (material) return <MaterialSystemLayout st={st} tone={tone} roles={colors === "calm"} cpuDetail={join(cpuDetail)} gpuDetail={join(gpuDetail)} gpuBadge={gpuBadge} onGpu={gpus.length > 1 ? cycleGpu : undefined} memLevel={memLevel} powerDetail={powerDetail} batteryDetail={batteryDetail} batteryHealth={batteryHealth} plan={plan} detail={detail} setDetail={setDetail} />;
 
   let i = 0;
   return (
@@ -432,7 +432,7 @@ export function ProcessCard({ proc, cores, onClose }: { proc: ProcReading; cores
  * The line is drawn one step to the right and glides left by that step every second, so it scrolls smoothly instead of jumping.
  * With `area` it fills its box in a w x h viewBox, with an area under each line and a scale that eases to a new `max`.
  */
-export function Trend({ values, second, max, color, tick, w = 160, h = 22, area = false, className }: { values: number[]; second?: number[]; max: number; color: string; tick: number; w?: number; h?: number; area?: boolean; className?: string }) {
+export function Trend({ values, second, max, color, secondColor = color, tick, w = 160, h = 22, area = false, className }: { values: number[]; second?: number[]; max: number; color: string; secondColor?: string; tick: number; w?: number; h?: number; area?: boolean; className?: string }) {
   const step = w / (HISTORY - 2);
   // In hundredths, not 1..2: springs.value rests within 0.5, which holds at the scale of the numbers it was made for.
   const scale = useMotionValue(100);
@@ -450,14 +450,14 @@ export function Trend({ values, second, max, color, tick, w = 160, h = 22, area 
     scale.jump((scale.get() * max) / from);
     animate(scale, 100, springs.value);
   }, [max, area]);
-  const line = (vals: number[], opacity: number, key: string) => (
+  const line = (vals: number[], opacity: number, key: string, stroke = color) => (
     <path
       // New value → new animation (key); before that the line sits one step to the right.
       key={`${key}${tick}`}
       className="trend-scroll"
       d={trendLine(vals, max, w, h, HISTORY)}
       fill="none"
-      stroke={color}
+      stroke={stroke}
       strokeOpacity={opacity}
       strokeWidth={area ? "2" : "1.5"}
       strokeLinejoin="round"
@@ -466,8 +466,8 @@ export function Trend({ values, second, max, color, tick, w = 160, h = 22, area 
       style={{ ["--step" as string]: `${step}px` }}
     />
   );
-  const fill = (vals: number[], opacity: number, key: string) => (
-    <path key={`${key}${tick}`} className="trend-scroll" d={trendArea(vals, max, w, h, HISTORY)} fill={color} fillOpacity={opacity} style={{ ["--step" as string]: `${step}px` }} />
+  const fill = (vals: number[], opacity: number, key: string, paint = color) => (
+    <path key={`${key}${tick}`} className="trend-scroll" d={trendArea(vals, max, w, h, HISTORY)} fill={paint} fillOpacity={opacity} style={{ ["--step" as string]: `${step}px` }} />
   );
   const base = <line x1="0" x2={w} y1={h - 1} y2={h - 1} stroke="var(--color-separator)" strokeWidth="1" vectorEffect="non-scaling-stroke" />;
   if (area)
@@ -475,9 +475,9 @@ export function Trend({ values, second, max, color, tick, w = 160, h = 22, area 
       <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className={`${className ?? "size-full"} overflow-hidden`}>
         {base}
         <motion.g style={{ scaleY, originY: 1, transformBox: "view-box" }}>
-          {second && fill(second, 0.15, "fb")}
+          {second && fill(second, 0.15, "fb", secondColor)}
           {fill(values, 0.2, "fa")}
-          {second && line(second, 0.35, "b")}
+          {second && line(second, 0.35, "b", secondColor)}
           {line(values, 0.8, "a")}
         </motion.g>
       </svg>

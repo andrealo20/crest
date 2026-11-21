@@ -35,6 +35,7 @@
   --color-on-primary: #000;
   --color-secondary-container: rgb(255 255 255 / 0.16);
   --color-on-secondary-container: rgb(255 255 255 / 0.96);
+  --color-tertiary: rgb(255 255 255 / 0.96);
 
   --font-sans: "Inter Variable", "Segoe UI Variable Text", system-ui, sans-serif;
 

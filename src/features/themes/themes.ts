@@ -370,6 +370,7 @@ export function resolveTheme(file: ThemeFile, override: { yellow?: string } = {}
     "--color-on-primary": formatColor(onLabel),
     "--color-secondary-container": formatColor(fill[2]),
     "--color-on-secondary-container": formatColor(colors.foreground),
+    "--color-tertiary": formatColor(colors.foreground),
     "--theme-accent": formatColor(colors.accent),
     "--notch-closed": closedNotch ? formatColor(bg) : "#000000",
     "--glass-tint": formatColor(veil),

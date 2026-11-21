@@ -34,6 +34,9 @@ const enter = (i: number) => ({
 const press = (click: (() => void) | undefined) =>
   click ? { role: "button", tabIndex: 0, onClick: click, onKeyDown: (e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), click()) } : {};
 
+// Under the calm scheme the readings at rest take the theme's roles, as in Stellaria's dashboard; orange and red still mark the high levels.
+const PRIMARY = "var(--color-primary)", TERTIARY = "var(--color-tertiary)";
+
 // Crest writes a space before the percent sign (SystemView.tsx).
 const percent = (n: number) => `${n} %`;
 
@@ -48,6 +51,7 @@ const percent = (n: number) => `${n} %`;
 export function MaterialSystemLayout(p: {
   st: SystemState;
   tone: (l: Level) => string;
+  roles: boolean;
   cpuDetail: string;
   gpuDetail: string;
   gpuBadge: string | undefined;
@@ -75,6 +79,7 @@ export function MaterialSystemLayout(p: {
   }, []);
 
   const { st, tone } = p;
+  const at = (role: string) => (l: Level) => (p.roles && l === 0 ? role : tone(l));
   const s = st.stats!;
   const g = st.gpu;
   const cores = s.cores.length;
@@ -85,7 +90,7 @@ export function MaterialSystemLayout(p: {
       <div ref={body} className="grid min-w-0 flex-1 grid-cols-[minmax(0,1.93fr)_minmax(0,1fr)] gap-2">
         <div className={`grid min-h-0 min-w-0 gap-2 ${chips ? "grid-rows-[minmax(100px,120fr)_minmax(64px,76fr)_28px]" : "grid-rows-[minmax(100px,120fr)_minmax(64px,76fr)_minmax(64px,74fr)]"}`}>
           <div className="grid min-h-0 grid-cols-2 gap-2">
-            <GaugeCard i={0} icon={Cpu} hue="red" label="CPU" detail={p.cpuDetail} percent={s.cpu} tone={tone} fit={fit}>
+            <GaugeCard i={0} icon={Cpu} hue="red" label="CPU" detail={p.cpuDetail} percent={s.cpu} tone={at(PRIMARY)} fit={fit}>
               {st.cpuTemp !== null && <Reading icon={Thermometer} text={`${degrees(st.cpuTemp)} °C`} color={tone(tempLevel("cpu", st.cpuTemp))} fraction={st.cpuTemp / 100} bar={fit.tempBar} title={st.cpuTempFrom ?? undefined} />}
               {fit.cores && cores > 0 && (
                 <div className="min-h-0 max-h-10 flex-1">
@@ -93,19 +98,19 @@ export function MaterialSystemLayout(p: {
                 </div>
               )}
             </GaugeCard>
-            <GaugeCard i={1} icon={GpuIcon} hue="emerald" label="GPU" detail={p.gpuDetail} badge={p.gpuBadge} percent={g?.usage ?? null} tone={tone} fit={fit} onClick={p.onGpu}>
+            <GaugeCard i={1} icon={GpuIcon} hue="emerald" label="GPU" detail={p.gpuDetail} badge={p.gpuBadge} percent={g?.usage ?? null} tone={at(TERTIARY)} fit={fit} onClick={p.onGpu}>
               {st.gpuTemp !== null && <Reading icon={Thermometer} text={`${degrees(st.gpuTemp)} °C`} color={tone(tempLevel("gpu", st.gpuTemp))} fraction={st.gpuTemp / 100} bar={fit.tempBar} title={st.gpuTempFrom ?? undefined} />}
               {g && g.memTotal > 0 && <Reading icon={RamIcon} text={`${gigabytes(g.memUsed)} / ${gigabytes(g.memTotal)} GB`} color={tone(ofShare((g.memUsed / g.memTotal) * 100))} fraction={g.memUsed / g.memTotal} bar={fit.tempBar} />}
             </GaugeCard>
           </div>
-          <NetCard st={st} tone={tone} />
+          <NetCard st={st} tone={at(PRIMARY)} up={at(TERTIARY)} />
           <Tiles st={st} tone={tone} chips={chips} plan={p.plan} powerDetail={p.powerDetail} batteryDetail={p.batteryDetail} batteryHealth={p.batteryHealth} />
         </div>
 
         <div className="relative grid min-h-0 min-w-0 grid-rows-[minmax(104px,126fr)_minmax(80px,152fr)] gap-2">
           <div className={`grid min-h-0 gap-2 ${st.drives.length ? "grid-cols-2" : "grid-cols-1"}`}>
-            <MemoryCard st={st} tone={tone} level={p.memLevel} ring={fit.ring} />
-            {st.drives.length > 0 && <DriveCard drives={st.drives} tone={tone} ring={fit.ring} />}
+            <MemoryCard st={st} tone={at(PRIMARY)} level={p.memLevel} ring={fit.ring} />
+            {st.drives.length > 0 && <DriveCard drives={st.drives} tone={tone} ringTone={at(TERTIARY)} ring={fit.ring} />}
           </div>
           <ProcessesCard st={st} fit={fit} cores={cores} setDetail={p.setDetail} />
           <AnimatePresence>{p.detail && <ProcessCard key="card" proc={st.processes?.cpu.find((x) => x.id === p.detail!.id) ?? p.detail} cores={cores} onClose={() => p.setDetail(null)} />}</AnimatePresence>
@@ -193,10 +198,11 @@ function LoadShape({ value, size }: { value: MotionValue<number> | null; size: 4
 }
 
 /** The network: rates on one line, and the minute's graph with its area filling the rest of the card. */
-function NetCard({ st, tone }: { st: SystemState; tone: (l: Level) => string }) {
+function NetCard({ st, tone, up }: { st: SystemState; tone: (l: Level) => string; up: (l: Level) => string }) {
   const net = st.net;
   const iconColor = useHue("cyan");
-  const color = tone(ofRate(net ? Math.max(net.down, net.up) : 0));
+  const level = ofRate(net ? Math.max(net.down, net.up) : 0);
+  const color = tone(level);
   return (
     <motion.div {...enter(2)} className="flex min-h-0 min-w-0 flex-col rounded-[20px] bg-fill-1 px-3 pt-2 pb-2">
       <div className="flex h-5 shrink-0 items-center gap-2">
@@ -208,7 +214,7 @@ function NetCard({ st, tone }: { st: SystemState; tone: (l: Level) => string }) 
         </span>
       </div>
       <div className="relative mt-1 min-h-0 flex-1">
-        <Trend area w={424} h={40} values={st.history.down} second={st.history.up} max={niceMax([...st.history.down, ...st.history.up])} color={color} tick={st.tick} className="block size-full" />
+        <Trend area w={424} h={40} values={st.history.down} second={st.history.up} max={niceMax([...st.history.down, ...st.history.up])} color={color} secondColor={up(level)} tick={st.tick} className="block size-full" />
         {/* Right after Crest starts the graph is only a baseline. */}
         {st.history.down.filter(Number.isFinite).length < 2 && <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-caption text-label-3">{t("Wird gelesen …")}</span>}
       </div>
@@ -317,7 +323,7 @@ function MemoryCard({ st, tone, level, ring }: { st: SystemState; tone: (l: Leve
 }
 
 /** One drive at a time, like Stellaria's button; with more than one a click goes to the next and the ring glides to its share. */
-function DriveCard({ drives, tone, ring }: { drives: SystemState["drives"]; tone: (l: Level) => string; ring: Fit["ring"] }) {
+function DriveCard({ drives, tone, ringTone, ring }: { drives: SystemState["drives"]; tone: (l: Level) => string; ringTone: (l: Level) => string; ring: Fit["ring"] }) {
   const [index, setIndex] = useState(0);
   const d = drives[index % drives.length];
   const share = d.total ? (d.used / d.total) * 100 : 0;
@@ -331,7 +337,7 @@ function DriveCard({ drives, tone, ring }: { drives: SystemState["drives"]; tone
       title={many ? `${d.model} · ${t("Klicken für das nächste Laufwerk")}` : d.model}
       className={`relative flex min-h-0 min-w-0 flex-col items-center rounded-[24px] bg-fill-1 pt-2.5 pb-1.5 ${many ? "pressable cursor-pointer" : ""}`}
     >
-      <Ring size={ring} stroke={8} sweep={270} arcs={[{ value: glided, color: tone(ofShare(share)) }]}>
+      <Ring size={ring} stroke={8} sweep={270} arcs={[{ value: glided, color: ringTone(ofShare(share)) }]}>
         <Glide value={glided} format={percent} className="text-[15px] leading-5 font-semibold tabular text-label" />
       </Ring>
       <span className="-mt-2 flex max-w-full items-center gap-1 px-2 text-caption font-medium">

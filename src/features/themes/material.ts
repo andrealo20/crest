@@ -61,6 +61,7 @@ export function resolveMaterial(file: ThemeFile, { contrast = 0 }: { contrast?: 
       "--color-on-primary": role(M.onPrimary),
       "--color-secondary-container": role(M.secondaryContainer),
       "--color-on-secondary-container": role(M.onSecondaryContainer),
+      "--color-tertiary": role(M.tertiary),
     },
   };
 }
