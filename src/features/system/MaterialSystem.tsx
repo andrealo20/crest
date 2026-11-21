@@ -207,8 +207,10 @@ function NetCard({ st, tone }: { st: SystemState; tone: (l: Level) => string }) 
           {net ? compactRate(net.down) : "-"}
         </span>
       </div>
-      <div className="mt-1 min-h-0 flex-1">
+      <div className="relative mt-1 min-h-0 flex-1">
         <Trend area w={424} h={40} values={st.history.down} second={st.history.up} max={niceMax([...st.history.down, ...st.history.up])} color={color} tick={st.tick} className="block size-full" />
+        {/* Right after Crest starts the graph is only a baseline. */}
+        {st.history.down.filter(Number.isFinite).length < 2 && <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-caption text-label-3">{t("Wird gelesen …")}</span>}
       </div>
     </motion.div>
   );

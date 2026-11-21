@@ -176,3 +176,9 @@ test("the drive counter follows the drive letters, as the GPU's badge follows it
   assert.ok(letters > 0 && badge > letters, "after the letters");
   assert.ok(drive.includes('className="tabular shrink-0 rounded-full bg-fill-2 px-1.5 text-[10px] text-label-2"'), drive);
 });
+
+test("the Material network graph says it is reading until it has two samples, as Stellaria's collecting text does", () => {
+  const net = part("NetCard");
+  assert.ok(net.includes("st.history.down.filter(Number.isFinite).length < 2"), net);
+  assert.match(net, /<span className="[^"]*\babsolute inset-0 flex items-center justify-center text-caption text-label-3[^"]*">\{t\("Wird gelesen …"\)\}<\/span>/);
+});
