@@ -1920,5 +1920,9 @@
  "Mittlere Maustaste": "Средняя кнопка мыши",
  "Neue Instanz": "Новый экземпляр",
  "Anzahl der Fenster zeigen": "Показывать число окон",
- "{name}, {n} Fenster": "{name}, окон: {n}"
+ "{name}, {n} Fenster": "{name}, окон: {n}",
+ "Mausrad ändert die Lautstärke": "Колесо мыши меняет громкость",
+ "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "Над приложением его громкость, в остальных местах громкость Windows. Над «Статусом» всегда",
+ "Lautstärke: {n} %": "Громкость: {n} %",
+ "{name} spielt keinen Ton ab": "{name} не воспроизводит звук"
 }

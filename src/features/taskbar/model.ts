@@ -71,6 +71,8 @@ export interface TaskbarSettings {
   middleClick: "new" | "close";
   /** A small count of its windows on an app with two or more. */
   windowCount: boolean;
+  /** The wheel over the whole bar changes the volume: an app's own over its button, Windows' elsewhere (over Stato it always does). */
+  wheelVolume: boolean;
 }
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
@@ -99,6 +101,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   flashing: true,
   middleClick: "new",
   windowCount: false,
+  wheelVolume: false,
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -182,6 +185,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     flashing: s.flashing !== false,
     middleClick: s.middleClick === "close" ? "close" : "new",
     windowCount: s.windowCount === true,
+    wheelVolume: s.wheelVolume === true,
   };
 }
 
@@ -512,6 +516,17 @@ export function indicator(b: BarButton, active: number | null, flashing = true):
 
 /** The count on an app's icon: none under two windows, "9+" past nine. */
 export const windowBadge = (n: number): string | null => (n < 2 ? null : n > 9 ? "9+" : String(n));
+
+/** A mouse's wheel notch in deltaY, and the volume one notch moves, in percent. */
+export const WHEEL_NOTCH = 100;
+export const WHEEL_STEP = 2;
+
+/** Whole notches in `rest` plus `deltaY`, up the wheel being louder, and what is left over: a touchpad's small deltas add up to one. */
+export function wheelSteps(rest: number, deltaY: number): { steps: number; rest: number } {
+  const total = rest - deltaY;
+  const steps = Math.trunc(total / WHEEL_NOTCH) || 0; // never -0
+  return { steps, rest: total - steps * WHEEL_NOTCH };
+}
 
 /** How long a file held over an app waits before its window comes forward, ms. */
 export const DRAG_REST = 600;

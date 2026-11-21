@@ -1920,5 +1920,9 @@
  "Mittlere Maustaste": "鼠标中键",
  "Neue Instanz": "新实例",
  "Anzahl der Fenster zeigen": "显示窗口数量",
- "{name}, {n} Fenster": "{name}，{n} 个窗口"
+ "{name}, {n} Fenster": "{name}，{n} 个窗口",
+ "Mausrad ändert die Lautstärke": "鼠标滚轮调节音量",
+ "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "在应用上调节该应用的音量，其他位置调节 Windows 音量。在状态上始终可用",
+ "Lautstärke: {n} %": "音量：{n} %",
+ "{name} spielt keinen Ton ab": "{name} 未播放声音"
 }

@@ -1920,5 +1920,9 @@
  "Mittlere Maustaste": "النقر الأوسط",
  "Neue Instanz": "نسخة جديدة",
  "Anzahl der Fenster zeigen": "إظهار عدد النوافذ",
- "{name}, {n} Fenster": "{name}، {n} نوافذ"
+ "{name}, {n} Fenster": "{name}، {n} نوافذ",
+ "Mausrad ändert die Lautstärke": "عجلة الماوس تغيّر مستوى الصوت",
+ "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "فوق تطبيق مستوى صوته، وفي غير ذلك مستوى صوت Windows. فوق الحالة دائمًا",
+ "Lautstärke: {n} %": "مستوى الصوت: {n} %",
+ "{name} spielt keinen Ton ab": "{name} لا يشغّل أي صوت"
 }

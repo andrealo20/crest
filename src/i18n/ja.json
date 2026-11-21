@@ -1920,5 +1920,9 @@
  "Mittlere Maustaste": "中クリック",
  "Neue Instanz": "新しいインスタンス",
  "Anzahl der Fenster zeigen": "ウィンドウの数を表示",
- "{name}, {n} Fenster": "{name}、{n} 個のウィンドウ"
+ "{name}, {n} Fenster": "{name}、{n} 個のウィンドウ",
+ "Mausrad ändert die Lautstärke": "マウスホイールで音量を変更",
+ "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "アプリの上ではそのアプリの音量、それ以外では Windows の音量。ステータスの上では常に",
+ "Lautstärke: {n} %": "音量: {n} %",
+ "{name} spielt keinen Ton ab": "{name} は音を再生していません"
 }

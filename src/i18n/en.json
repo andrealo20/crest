@@ -1920,5 +1920,9 @@
  "Mittlere Maustaste": "Middle click",
  "Neue Instanz": "New instance",
  "Anzahl der Fenster zeigen": "Show the number of windows",
- "{name}, {n} Fenster": "{name}, {n} windows"
+ "{name}, {n} Fenster": "{name}, {n} windows",
+ "Mausrad ändert die Lautstärke": "Mouse wheel changes the volume",
+ "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "Over an app its own, elsewhere Windows' volume. Over Status always",
+ "Lautstärke: {n} %": "Volume: {n} %",
+ "{name} spielt keinen Ton ab": "{name} plays no sound"
 }

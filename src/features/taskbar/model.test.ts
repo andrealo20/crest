@@ -11,6 +11,7 @@ import {
   clickAction,
   compactIcon,
   cycleWindow,
+  wheelSteps,
   dropPlace,
   fitIcon,
   indicator,
@@ -266,6 +267,19 @@ test("Ctrl+click goes round an app's windows, and the count shows from two", () 
   assert.equal(cycleWindow(three, null), 1);
   assert.equal(cycleWindow([], 1), null);
   assert.deepEqual([1, 2, 9, 10].map(windowBadge), [null, "2", "9", "9+"]);
+});
+
+test("the wheel moves the volume by whole notches, keeping what is left", () => {
+  assert.deepEqual(wheelSteps(0, -100), { steps: 1, rest: 0 });
+  assert.deepEqual(wheelSteps(0, 300), { steps: -3, rest: 0 });
+  let r = { steps: 0, rest: 0 };
+  for (const d of [-40, -40]) r = wheelSteps(r.rest, d);
+  assert.deepEqual(r, { steps: 0, rest: 80 });
+  assert.deepEqual(wheelSteps(r.rest, -40), { steps: 1, rest: 20 });
+  // Turned back, the rest goes down before a step the other way.
+  assert.deepEqual(wheelSteps(20, 60), { steps: 0, rest: -40 });
+  assert.equal(normalizeTaskbar({}).wheelVolume, false);
+  assert.equal(normalizeTaskbar({ wheelVolume: true }).wheelVolume, true);
 });
 
 test("Shift, the middle button and Ctrl+Shift start a new instance", () => {

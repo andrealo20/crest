@@ -9,7 +9,7 @@ import { partInfo } from "../../../notch/row/partInfo";
 import type { PartId } from "../../../notch/row/parts";
 import { isNative } from "../../../platform/native";
 import { postFiles } from "../../../platform/drop";
-import { launcher, taskbar } from "../../../platform/services";
+import { launcher, systemControls, taskbar } from "../../../platform/services";
 import { settings } from "../../../settings/store";
 import { CrestMark } from "../../../ui/CrestMark";
 import { WindowsMark } from "../../../ui/WindowsMark";
@@ -17,7 +17,7 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
 import { PREVIEW_CLOSE, PREVIEW_DELAY, bridge, zones as hitZones, type Rect } from "../autoHide";
-import { COMPACT_PAD, DRAG_REST, appKey, barButtons, clickAction, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, windowBadge, windowButtons, type BarButton, type BarItem, type BarShape, type Click, type ClickMods, type Zone } from "../model";
+import { COMPACT_PAD, DRAG_REST, WHEEL_STEP, appKey, barButtons, clickAction, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, wheelSteps, windowBadge, windowButtons, type BarButton, type BarItem, type BarShape, type Click, type ClickMods, type Zone } from "../model";
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
 import { closePanel, fileDrag, itemDrag, panel, pinDrag, togglePanel } from "../panel";
 import { dragThreshold, opensInBar } from "../panelModel";
@@ -77,7 +77,7 @@ type Card = { key: string; x: number; w: number; by: "hover" | "click" };
  */
 export function TaskbarWindow() {
   const s = settings.use();
-  const { zones: saved, height, iconSize, pinned, shape, trayShown, combine, flashing, middleClick, windowCount } = s.taskbar;
+  const { zones: saved, height, iconSize, pinned, shape, trayShown, combine, flashing, middleClick, windowCount, wheelVolume } = s.taskbar;
   // Without the buttons whose tool cannot open: the notch opens its first tool in place of one switched off there (widgets.ts toolShown).
   const zones = shownZones(saved, s.tools);
   const { visible: trayVisible } = splitTray(trayState.use().icons, trayShown);
@@ -92,6 +92,8 @@ export function TaskbarWindow() {
   // The button under the pointer, and a launch that failed (in its button's label for a while).
   const [hovered, setHovered] = useState<string | null>(null);
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
+  // An app's new volume after a wheel step, in its button's label for a moment.
+  const [note, setNote] = useState<{ key: string; text: string } | null>(null);
   // The pointer's x over the bar, Infinity off it: the magnified icons follow it without React drawing anything.
   const pointer = useMotionValue(Infinity);
   // Where the pointer last was over the bar, for the icons once a preview card stops holding them still.
@@ -178,6 +180,11 @@ export function TaskbarWindow() {
     const id = window.setTimeout(() => setError(null), 3000);
     return () => window.clearTimeout(id);
   }, [error]);
+  useEffect(() => {
+    if (!note) return;
+    const id = window.setTimeout(() => setNote(null), 1500);
+    return () => window.clearTimeout(id);
+  }, [note]);
 
   const buttons = barButtons(pinned, groups);
   const perWindow = combine === "always" ? buttons : windowButtons(buttons);
@@ -337,6 +344,33 @@ export function TaskbarWindow() {
       if (!(e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget))) window.clearTimeout(dragTimer.current);
     },
   });
+  /**
+   * The wheel on the bar (J4): over Stato Windows' volume always; with the switch on, over an app that app's own, elsewhere Windows'.
+   * The notches add up per target, and the steps run one after the other so none reads a level another is about to change.
+   */
+  const wheel = useRef({ target: "", rest: 0, queue: Promise.resolve() });
+  const onWheel = (e: { target: EventTarget; deltaY: number }) => {
+    const el = e.target as Element;
+    const app = laid.find((b) => appButtons.current.get(b.key)?.contains(el));
+    const status = el.closest('[data-kind="status"]') !== null;
+    if (!status && !wheelVolume) return;
+    const target = app && !status ? app.key : "windows";
+    if (wheel.current.target !== target) wheel.current = { ...wheel.current, target, rest: 0 };
+    const { steps, rest } = wheelSteps(wheel.current.rest, e.deltaY);
+    wheel.current.rest = rest;
+    if (!steps) return;
+    const step = (steps * WHEEL_STEP) / 100;
+    const win = app && (app.windows.find((w) => w.id === active) ?? app.windows[0]);
+    wheel.current.queue = wheel.current.queue.then(async () => {
+      if (target === "windows") {
+        const v = await systemControls.volume();
+        await systemControls.setVolume({ level: Math.min(1, Math.max(0, v.level + step)) });
+      } else if (app && win) {
+        const n = await taskbar.appVolume(win.id, step);
+        setNote({ key: app.key, text: n === null ? t("{name} spielt keinen Ton ab", { name: app.name }) : t("Lautstärke: {n} %", { n }) });
+      }
+    }).catch(() => {});
+  };
   /** A click on an app, with the keys held; `inPanel` for a cell of the "…" panel. */
   const click = (b: BarButton, button: HTMLElement, inPanel = false, mods: ClickMods = {}) => {
     setError(null);
@@ -398,7 +432,7 @@ export function TaskbarWindow() {
   const item = (key: string, name: string) => ({
     name,
     // An open menu or panel hides the names, which would show around it, and so does a drag.
-    label: menu || open || dragging || preview ? null : error?.key === key ? error.text : hovered === key ? name : null,
+    label: menu || open || dragging || preview ? null : error?.key === key ? error.text : note?.key === key ? note.text : hovered === key ? name : null,
     failed: error?.key === key,
     lifted: hovered === key,
     size,
@@ -689,6 +723,7 @@ export function TaskbarWindow() {
             lastX.current = Infinity;
             if (!card.current) pointer.set(Infinity);
           }}
+          onWheel={onWheel}
         >
           {/* Positioned, so it draws over the glass's canvas. The capsule puts the three zones in a row, as close as its buttons. */}
           {shape === "capsule" ? (

@@ -209,6 +209,29 @@ pub async fn mixer_set(id: String, level: Option<f32>, muted: Option<bool>) -> R
     .map_err(|e| e.message())
 }
 
+/// `level` moved by `step`, kept in 0..1 and on a whole percent.
+fn stepped(level: f32, step: f32) -> f32 {
+    ((level + step).clamp(0.0, 1.0) * 100.0).round() / 100.0
+}
+
+/// One wheel step on the bar (taskbar/tasks.rs `taskbar_app_volume`): every session of the program at `exe_path` moves by `step`
+/// from the first one's level, unmuted when it goes up. The new level, None when the program has no session. Blocking.
+pub(crate) fn step_app(exe_path: &str, step: f32) -> windows::core::Result<Option<f32>> {
+    let id = file_name(exe_path);
+    let all: Vec<Entry> = sessions(false)?.into_iter().filter(|e| file_name(&e.exe_path) == id).collect();
+    let Some(first) = all.first() else { return Ok(None) };
+    let level = stepped(unsafe { first.volume.GetMasterVolume() }?, step);
+    for e in &all {
+        unsafe {
+            e.volume.SetMasterVolume(level, std::ptr::null())?;
+            if step > 0.0 {
+                let _ = e.volume.SetMute(false, std::ptr::null());
+            }
+        }
+    }
+    Ok(Some(level))
+}
+
 /// "Google Chrome" from the exe's version info, otherwise the file name ("Spotify").
 pub(crate) fn display_name(path: &str) -> String {
     description(path).filter(|d| !d.trim().is_empty()).unwrap_or_else(|| {
@@ -469,6 +492,14 @@ fn bring_to_front(hwnd: HWND) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_wheel_step_stays_in_range_on_whole_percent() {
+        assert_eq!(stepped(0.5, 0.02), 0.52);
+        assert_eq!(stepped(0.99, 0.02), 1.0);
+        assert_eq!(stepped(0.01, -0.02), 0.0);
+        assert_eq!(stepped(0.333, 0.0), 0.33);
+    }
 
     #[test]
     fn the_tree_holds_children_and_grandchildren() {

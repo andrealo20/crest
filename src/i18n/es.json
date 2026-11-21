@@ -1920,5 +1920,9 @@
  "Mittlere Maustaste": "Clic central",
  "Neue Instanz": "Nueva instancia",
  "Anzahl der Fenster zeigen": "Mostrar el número de ventanas",
- "{name}, {n} Fenster": "{name}, {n} ventanas"
+ "{name}, {n} Fenster": "{name}, {n} ventanas",
+ "Mausrad ändert die Lautstärke": "La rueda del ratón cambia el volumen",
+ "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "Sobre una aplicación, su volumen; en otro sitio, el de Windows. Sobre Estado, siempre",
+ "Lautstärke: {n} %": "Volumen: {n} %",
+ "{name} spielt keinen Ton ab": "{name} no reproduce sonido"
 }

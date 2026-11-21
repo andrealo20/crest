@@ -611,6 +611,23 @@ pub async fn taskbar_window(id: isize, action: String) -> Result<(), String> {
     }
 }
 
+/// One wheel step on an app's button: every audio session of the listed window's program moves by `step` (-1..1). Its new
+/// level in percent, None when the program plays nothing. Only a listed window, still of its process.
+#[tauri::command]
+pub async fn taskbar_app_volume(id: isize, step: f32) -> Result<Option<u8>, String> {
+    if listed_pid(id).is_none() {
+        return Err("not-found".into());
+    }
+    // The app behind a Store app's frame, as the list reads it.
+    let Some(exe) = mixer::process_path(display::app_pid(source(id))) else { return Ok(None) };
+    let step = step.clamp(-1.0, 1.0);
+    tauri::async_runtime::spawn_blocking(move || mixer::step_app(&exe, step))
+        .await
+        .map_err(|e| e.to_string())?
+        .map(|level| level.map(|l| (l * 100.0).round() as u8))
+        .map_err(|e| e.message())
+}
+
 /// A bar menu or panel closed from the bar (Esc, a second click on its item): the keyboard goes back (`release`).
 #[tauri::command]
 pub fn taskbar_release() {

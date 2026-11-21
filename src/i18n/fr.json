@@ -1920,5 +1920,9 @@
  "Mittlere Maustaste": "Clic du milieu",
  "Neue Instanz": "Nouvelle instance",
  "Anzahl der Fenster zeigen": "Afficher le nombre de fenêtres",
- "{name}, {n} Fenster": "{name}, {n} fenêtres"
+ "{name}, {n} Fenster": "{name}, {n} fenêtres",
+ "Mausrad ändert die Lautstärke": "La molette change le volume",
+ "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "Sur une application son volume, ailleurs celui de Windows. Sur État toujours",
+ "Lautstärke: {n} %": "Volume : {n} %",
+ "{name} spielt keinen Ton ab": "{name} ne joue aucun son"
 }

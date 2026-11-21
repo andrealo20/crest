@@ -1423,6 +1423,8 @@ export const taskbar = {
     const off = getCurrentWebviewWindow().listen<InputLang | null>("taskbar://input", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
+  /** One wheel step on an app's button: its audio moves by `step` (-1..1); its new level in percent, null when it plays nothing. */
+  appVolume: (id: number, step: number): Promise<number | null> => (isNative ? invoke<number | null>("taskbar_app_volume", { id, step }) : Promise.resolve(null)),
   /** Icons of the groups without an entry, by group key (PNG data URL, null = none). */
   icons: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_icons", { keys }) : Promise.resolve({})),
   /** The tray's icons as Rust last listed them: none while Crest's tray does not run. */

@@ -155,7 +155,7 @@ const SETTINGS_DENIED: &[&str] = &[
     "taskbar_auto_hide", "taskbar_slid", "taskbar_shell", "taskbar_windows_pins", "taskbar_tray_on", "taskbar_tray_click",
     "taskbar_settings", "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect",
     "taskbar_bt_devices", "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_own_pins_keep",
-    "display_rescale", "taskbar_input",
+    "display_rescale", "taskbar_input", "taskbar_app_volume",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, pinning a listed window,
@@ -163,7 +163,7 @@ const SETTINGS_DENIED: &[&str] = &[
 /// glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
 /// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
 /// (`taskbar_slid`), Windows' Start, its Win+X menu, its quick settings, Task Manager, Search, Task view, its widgets, its
-/// input language switcher and Show desktop (`taskbar_shell`), the input language it shows (taskbar/input.rs), four of its
+/// input language switcher and Show desktop (`taskbar_shell`), the input language it shows (taskbar/input.rs), an app's volume from its button, four of its
 /// settings pages (`taskbar_settings`), the tray's icons with their pictures and clicks, the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
 /// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), and what the notch's
 /// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
@@ -184,7 +184,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "audio_outputs", "audio_set_output", "brightness_get", "brightness_set", "focus_get", "focus_set", "quick_get", "quick_radio",
     "quick_dark", "mic_mute", "quick_power", "web_search",
     "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
-    "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_input",
+    "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_input", "taskbar_app_volume",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -627,6 +627,8 @@ pub fn run() {
             taskbar::tray::taskbar_tray_click,
             #[cfg(windows)]
             taskbar::input::taskbar_input,
+            #[cfg(windows)]
+            taskbar::tasks::taskbar_app_volume,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,
@@ -1285,6 +1287,8 @@ mod tests {
         assert!(ok("notch", "taskbar_tray_click") && !ok("settings", "taskbar_tray_click"));
         // The input language is the bars' own: drawn by the main one, read by any as it starts.
         assert!(ok("taskbar-1", "taskbar_input") && ok("taskbar", "taskbar_input") && !ok("settings", "taskbar_input"));
+        // A wheel step on an app's button: the bars' own.
+        assert!(ok("taskbar", "taskbar_app_volume") && ok("taskbar-1", "taskbar_app_volume") && !ok("settings", "taskbar_app_volume"));
         // Each bar says when its page slid it off the screen, for its own label; no other window has a bar to slide.
         assert!(ok("taskbar", "taskbar_slid") && ok("taskbar-1", "taskbar_slid") && !ok("settings", "taskbar_slid"));
         // The settings' note on a bar that cannot slide away; the bar has no use for it.

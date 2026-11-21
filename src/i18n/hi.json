@@ -1920,5 +1920,9 @@
  "Mittlere Maustaste": "मध्य क्लिक",
  "Neue Instanz": "नया इंस्टेंस",
  "Anzahl der Fenster zeigen": "विंडो की संख्या दिखाएं",
- "{name}, {n} Fenster": "{name}, {n} विंडो"
+ "{name}, {n} Fenster": "{name}, {n} विंडो",
+ "Mausrad ändert die Lautstärke": "माउस व्हील से आवाज़ बदलें",
+ "Über einer App ihre eigene, sonst die von Windows. Über Status immer": "किसी ऐप पर उसकी अपनी आवाज़, बाकी जगह Windows की। स्थिति पर हमेशा",
+ "Lautstärke: {n} %": "आवाज़: {n} %",
+ "{name} spielt keinen Ton ab": "{name} कोई आवाज़ नहीं चला रहा"
 }

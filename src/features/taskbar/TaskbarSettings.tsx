@@ -54,7 +54,7 @@ const EMPTY_DOUBLE_LABEL: Record<EmptyDouble, string> = { none: "Nichts", deskto
 
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, what a double click beside its buttons does, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
-  const { enabled, autoHide, shape, emptyDouble, flashing } = settings.use().taskbar;
+  const { enabled, autoHide, shape, emptyDouble, flashing, wheelVolume } = settings.use().taskbar;
   // Bars that stay up with auto-hide on (Rust front.rs `stays_up`), read as the page opens and when the switch changes.
   const [blocked, setBlocked] = useState(0);
   useEffect(() => void taskbar.slideBlocked().then(setBlocked, () => {}), [autoHide]);
@@ -95,6 +95,9 @@ export function TaskbarGeneral() {
       </Row>
       <Row icon="notification_important" label={t("Blinkende Apps anzeigen")}>
         <Switch label={t("Blinkende Apps anzeigen")} checked={flashing} onChange={(on) => setTaskbar({ flashing: on })} />
+      </Row>
+      <Row icon="volume_up" label={<span className="whitespace-normal">{t("Mausrad ändert die Lautstärke")}</span>} hint={t("Über einer App ihre eigene, sonst die von Windows. Über Status immer")}>
+        <Switch label={t("Mausrad ändert die Lautstärke")} checked={wheelVolume} onChange={(on) => setTaskbar({ wheelVolume: on })} />
       </Row>
       <Row icon="mouse" label={<span className="whitespace-normal">{t("Doppelklick auf eine freie Stelle")}</span>}>
         <Select
