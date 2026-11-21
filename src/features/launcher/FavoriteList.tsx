@@ -63,7 +63,7 @@ export function FavoriteList({ favorites, onChange, badge }: { favorites: Favori
 }
 
 /** Keyboard way to reorder (the drag handle needs a mouse). */
-function MoveButton({ label, disabled, onClick, children }: { label: string; disabled: boolean; onClick: () => void; children: ReactNode }) {
+export function MoveButton({ label, disabled, onClick, children }: { label: string; disabled: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       aria-label={label}

@@ -15,6 +15,10 @@ export const STRIP = 2;
 export const SLIDE_DELAY = 300;
 /** How long a click on Start or the clock holds the bar up, ms: Windows' surface takes a moment to come to the front (window/hold.ts). */
 export const BRIEF_HOLD = 800;
+/** How long the pointer rests on an app before its window previews show, ms: Windows' own hover time (SPI_GETMOUSEHOVERTIME) as it ships. */
+export const PREVIEW_DELAY = 400;
+/** The wait before the previews close once the pointer left the button and the card, ms, as the slide's. */
+export const PREVIEW_CLOSE = SLIDE_DELAY;
 
 /** The window in front overlaps the bar's band by at least a pixel; edges that only meet do not touch. */
 export function touches(front: Rect | null, band: Rect): boolean {
@@ -39,4 +43,11 @@ export function zones(p: { bands: Rect[]; open: Rect[]; on: boolean; down: boole
   const strip = { x: 0, y: p.height - STRIP, w: p.width, h: STRIP };
   if (p.down) return [strip];
   return [...p.bands, ...p.open, ...(p.on ? [strip] : [])];
+}
+
+/** The box round both a preview card and its button, so the gap between them stays in the page's zone. */
+export function bridge(card: Rect, button: Rect): Rect {
+  const x = Math.min(card.x, button.x);
+  const y = Math.min(card.y, button.y);
+  return { x, y, w: Math.max(card.x + card.w, button.x + button.w) - x, h: Math.max(card.y + card.h, button.y + button.h) - y };
 }

@@ -22,10 +22,14 @@ import type { Forecast } from "../weather/store";
 /** One slice per widget, as the closed row draws it: empty until the widget's source first runs, then its last value while the source does not (feed.tsx). */
 export interface BarFeed {
   weather: Forecast["current"] | null;
+  /** The next 3 hours (weather/hours.ts nextHours), sent only while the weather's version is "hours": the bar wakes for nothing else. */
+  weatherHours: { time: string; temp: number; code: number; day: boolean }[];
   title: { text: string; lyric: boolean } | null;
   playing: boolean;
   rings: { id: UsageId; value: number; label: string }[];
   readings: Reading[];
+  /** CPU % over the last 30 s, one a second, sent only while the hardware's version is "line"; null for a gap, since the feed crosses the windows as JSON and NaN arrives as null. */
+  spark: (number | null)[];
   github: { count: number; level: number } | null;
   leetcode: { count: number; level: number } | null;
   next: { text: string; color: string } | null;
@@ -36,10 +40,12 @@ export interface BarFeed {
 
 export const EMPTY_FEED: BarFeed = {
   weather: null,
+  weatherHours: [],
   title: null,
   playing: false,
   rings: [],
   readings: [],
+  spark: [],
   github: null,
   leetcode: null,
   next: null,

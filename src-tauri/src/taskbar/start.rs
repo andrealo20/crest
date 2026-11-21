@@ -10,12 +10,13 @@
 //! (`rearm`) and every `RETRY_MS` while it cannot be. The sink runs on a COM thread: it only stores Start's state, so it never
 //! waits.
 
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 use std::time::Instant;
 
-use windows::core::{implement, BOOL};
+use windows::core::{implement, w, BOOL, HSTRING, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_EVENT, WAIT_OBJECT_0, WAIT_TIMEOUT};
 use windows::Win32::Graphics::Gdi::HMONITOR;
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
@@ -23,10 +24,13 @@ use windows::Win32::System::Threading::{CreateEventW, SetEvent, WaitForMultipleO
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_A, VK_LWIN, VK_X,
 };
-use windows::Win32::UI::Shell::{AppVisibility, IAppVisibility, IAppVisibilityEvents, IAppVisibilityEvents_Impl, MONITOR_APP_VISIBILITY};
-use windows::Win32::UI::WindowsAndMessaging::AllowSetForegroundWindow;
+use windows::Win32::UI::Shell::{
+    AppVisibility, IAppVisibility, IAppVisibilityEvents, IAppVisibilityEvents_Impl, ShellExecuteW, MONITOR_APP_VISIBILITY,
+};
+use windows::Win32::UI::WindowsAndMessaging::{AllowSetForegroundWindow, ASFW_ANY, SW_SHOWNORMAL};
 
 use super::{explorer, tasks};
+use crate::launcher;
 
 /// A click this soon after Start hid came while it showed: the click on the bar hid it on its way.
 const JUST_CLOSED_MS: u64 = 500;
@@ -193,11 +197,31 @@ impl IAppVisibilityEvents_Impl for Sink_Impl {
     }
 }
 
+/// Task Manager by its full path in `root` (`SystemRoot`), never the bare name, which ShellExecute would look up beside
+/// crest.exe first, a folder a portable copy may leave writable.
+fn task_manager_path(root: Option<std::ffi::OsString>) -> PathBuf {
+    PathBuf::from(root.unwrap_or_else(|| r"C:\Windows".into())).join("System32").join("Taskmgr.exe")
+}
+
 /// The Start button: "start" opens Windows' Start, unless that click hid it (`start_click`): then the keyboard goes back to
-/// the app (tasks.rs `release`), the click being handled. "winx" opens its Win+X menu, "quick" its quick settings (Win+A). Sync, on the main thread: nothing waits.
+/// the app (tasks.rs `release`), the click being handled. "winx" opens its Win+X menu, "quick" its quick settings (Win+A),
+/// "taskmgr" Task Manager. Sync, on the main thread: nothing waits; Task Manager starts on a thread of its own.
 #[tauri::command]
 pub fn taskbar_shell(action: String) -> Result<(), String> {
     let vks: &[VIRTUAL_KEY] = match action.as_str() {
+        "taskmgr" => {
+            // ShellExecute wants COM, and where Task Manager's manifest asks for elevation (older builds) it may wait on the
+            // UAC prompt: never on the main thread. An open Task Manager only comes to the front, which `ASFW_ANY` lets it do.
+            // Nothing reports back: a refusal changes nothing, as for Start.
+            let file = task_manager_path(std::env::var_os("SystemRoot"));
+            std::thread::spawn(move || {
+                launcher::on_sta(move || unsafe {
+                    let _ = AllowSetForegroundWindow(ASFW_ANY);
+                    let _ = ShellExecuteW(None, w!("open"), &HSTRING::from(file.as_os_str()), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL);
+                })
+            });
+            return Ok(());
+        }
         "start" if start_click(open(), closed_ms_ago()) == Click::Close => {
             tasks::release();
             return Ok(());
@@ -220,6 +244,27 @@ pub fn taskbar_shell(action: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn task_manager_opens_by_its_full_path_in_system32() {
+        use std::path::PathBuf;
+        assert_eq!(task_manager_path(Some(r"D:\Win".into())), PathBuf::from(r"D:\Win\System32\Taskmgr.exe"));
+        assert_eq!(task_manager_path(None), PathBuf::from(r"C:\Windows\System32\Taskmgr.exe"));
+    }
+
+    #[test]
+    fn task_manager_starts_off_the_main_thread() {
+        // The module's code above its tests, read as text: the arm spawns, runs COM's STA there, lets Task Manager take the front, then opens it; no key, no Command.
+        let src = include_str!("start.rs");
+        let code = &src[..src.find("#[cfg(test)]").unwrap()];
+        let arm = &code[code.find("\"taskmgr\" =>").unwrap()..];
+        let arm = &arm[..arm.find("\"start\"").unwrap()];
+        let at = |s: &str| arm.find(s).unwrap_or_else(|| panic!("{s} missing"));
+        assert!(at("std::thread::spawn") < at("launcher::on_sta"));
+        assert!(at("launcher::on_sta") < at("AllowSetForegroundWindow(ASFW_ANY)"));
+        assert!(at("AllowSetForegroundWindow(ASFW_ANY)") < at("ShellExecuteW"));
+        assert!(!arm.contains("SendInput") && !arm.contains("Command::new"));
+    }
 
     fn pairs(inputs: &[INPUT]) -> Vec<(VIRTUAL_KEY, KEYBD_EVENT_FLAGS)> {
         inputs.iter().map(|i| unsafe { (i.Anonymous.ki.wVk, i.Anonymous.ki.dwFlags) }).collect()

@@ -491,6 +491,19 @@ fn last() -> MutexGuard<'static, Last> {
     LAST.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// Whether `id` was listed, with the process that has its handle now (`pid_now`), on `monitor`.
+fn listed_on(pids: &[(isize, u32)], monitors: &HashMap<isize, isize>, id: isize, pid_now: u32, monitor: isize) -> bool {
+    pids.contains(&(id, pid_now)) && monitors.get(&id) == Some(&monitor)
+}
+
+/// Whether a bar on `monitor` may show `id`'s live preview (preview.rs): a listed window, still of the process it was listed
+/// with, on that bar's monitor. The pid is read before the lock is taken, so no call to Windows runs under it.
+pub(super) fn previewable(id: isize, monitor: isize) -> bool {
+    let pid_now = display::window_pid(HWND(id as _));
+    let last = last();
+    listed_on(&last.pids, &last.monitors, id, pid_now, monitor)
+}
+
 /// The calling bar's windows, those on its monitor, for a bar page that has just loaded; `taskbar://windows` brings each change.
 #[tauri::command]
 pub fn taskbar_windows(window: WebviewWindow) -> WindowList {
@@ -711,5 +724,15 @@ mod tests {
         assert_eq!(here.active, None); // the window in front is on another monitor, so this bar's list names none
         assert_eq!(for_monitor(&list, |id| id == 3).active, Some(3)); // the bar on its monitor keeps it
         assert!(for_monitor(&list, |_| false).groups.is_empty());
+    }
+
+    #[test]
+    fn a_preview_shows_only_a_listed_window_of_its_own_process_on_the_callers_monitor() {
+        let pids = [(10, 1), (20, 2)];
+        let monitors = HashMap::from([(10, 100), (20, 200)]);
+        assert!(listed_on(&pids, &monitors, 10, 1, 100));
+        assert!(!listed_on(&pids, &monitors, 10, 1, 200)); // on another monitor
+        assert!(!listed_on(&pids, &monitors, 10, 3, 100)); // its handle reused by another process
+        assert!(!listed_on(&pids, &monitors, 30, 1, 100)); // not listed
     }
 }

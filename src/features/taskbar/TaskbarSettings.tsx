@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Reorder } from "motion/react";
 import { AppWindow, CaretUp, DotsSixVertical, WarningCircle, WifiHigh } from "@phosphor-icons/react";
+import { CaretDown } from "@phosphor-icons/react";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { liveSupport } from "../../notch/glass/live";
@@ -14,11 +15,12 @@ import { CrestMark } from "../../ui/CrestMark";
 import { WindowsMark } from "../../ui/WindowsMark";
 import { Button, Group, Row, Segmented, Select, Slider, Switch } from "../../ui/controls";
 import { FavoriteList } from "../launcher/FavoriteList";
+import { MoveButton } from "../launcher/FavoriteList";
 import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
-import { fitIcon, HEIGHT, ICON, moveItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type BarShape, type ToolItem, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type BarShape, type ToolItem, type Zone } from "./model";
 import { setTaskbar } from "./store";
 import { AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
 import { toolInfo } from "./toolInfo";
@@ -113,7 +115,7 @@ export function TaskbarItems() {
             onReorder={(order: BarItem[]) => setTaskbar((cur) => ({ zones: { ...cur.zones, [zone]: order } }))}
             className="divide-y divide-separator"
           >
-            {zones[zone].map((id) => (
+            {zones[zone].map((id, i) => (
               <Reorder.Item
                 key={id}
                 value={id}
@@ -134,6 +136,14 @@ export function TaskbarItems() {
                   {id === "start" && <div className="text-caption text-label-3">{t("Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste")}</div>}
                 </div>
                 {(isWidget(id) || isTool(id) || id === "tray" || id === "status") && <WidgetOptions id={id} />}
+                <div onPointerDown={(e) => e.stopPropagation()} className="flex items-center">
+                  <MoveButton label={t("Nach oben")} disabled={i === 0} onClick={() => { const cur = settings.get().taskbar.zones, next = stepItem(cur, zones[zone], id, -1); if (next !== cur) setTaskbar({ zones: next }); }}>
+                    <CaretUp size={12} weight="bold" />
+                  </MoveButton>
+                  <MoveButton label={t("Nach unten")} disabled={i === zones[zone].length - 1} onClick={() => { const cur = settings.get().taskbar.zones, next = stepItem(cur, zones[zone], id, 1); if (next !== cur) setTaskbar({ zones: next }); }}>
+                    <CaretDown size={12} weight="bold" />
+                  </MoveButton>
+                </div>
                 <div onPointerDown={(e) => e.stopPropagation()}>
                   {/* The menu also reports its current zone when picked again, which would send the item to that zone's end. A widget goes in as "+" puts it, before the Crest button. */}
                   <Select

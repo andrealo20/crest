@@ -197,8 +197,9 @@ export function CrestMenu({ close }: { close: () => void }) {
   return (
     <>
       <Row label={t("Crest öffnen")} onClick={run(() => settingsWindow.notchOpen(null))} />
+      <Row label={t("Task-Manager")} onClick={run(() => taskbar.shell("taskmgr"))} />
       <Row label={t("Einstellungen …")} onClick={run(() => settingsWindow.open("taskbar"))} />
-      <Row label={t("Widget hinzufügen …")} onClick={run(() => settingsWindow.open("taskbar-items"))} />
+      <Row label={t("Widget hinzufügen …")} onClick={run(() => settingsWindow.open("taskbar-widgets"))} />
       <Row
         label={t("Mit Windows starten")}
         checked={auto === true}

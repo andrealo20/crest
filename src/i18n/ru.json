@@ -1871,5 +1871,18 @@
  "Keine gekoppelten Geräte": "Нет сопряженных устройств",
  "Verbunden · {p} %": "Подключено · {p}%",
  "Verbindung wird getrennt …": "Отключение…",
- "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "Внизу находится панель задач Crest: нижний край вернётся, когда её выключат"
+ "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "Внизу находится панель задач Crest: нижний край вернётся, когда её выключат",
+  "Task-Manager": "Диспетчер задач",
+  "Besprechung": "Встреча",
+  "Widgets": "Виджеты",
+  "Version": "Вариант",
+  "Nur Symbol": "Только значок",
+  "Symbol und Wetterlage": "Значок и погода",
+  "Nächste Stunden": "Ближайшие часы",
+  "Uhrzeit und Datum": "Время и дата",
+  "Nur Uhrzeit": "Только время",
+  "Zwei Zeitzonen": "Два часовых пояса",
+  "Rundanzeigen": "Циферблаты",
+  "CPU-Verlauf": "График ЦП",
+  "Countdown": "Обратный отсчёт"
 }

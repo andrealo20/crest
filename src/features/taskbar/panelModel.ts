@@ -109,3 +109,6 @@ export function dropSlot(slots: { x: number; w: number }[], x: number): number {
   const i = slots.findIndex((s) => s.x + s.w / 2 > x);
   return i < 0 ? slots.length : i;
 }
+
+/** How far a press moves before it drags a widget, a tool button or Stato, CSS px: 4 with a mouse, 10 by touch or with a pen, so a tap that opens a panel never moves it. */
+export const dragThreshold = (pointerType: string): number => (pointerType === "mouse" ? 4 : 10);

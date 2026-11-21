@@ -4,6 +4,7 @@
 import { normalizeFavorites, type Favorite } from "../launcher/apps.ts";
 import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
 import { TOOL_IDS } from "../../settings/tools.ts";
+import { dropSlot } from "./panelModel.ts";
 
 /** The bar's zones. Physical, as the closed row's: left stays left in a right-to-left language. */
 export type Zone = "left" | "center" | "right";
@@ -39,6 +40,8 @@ export interface TaskbarSettings {
   /** Under `glass`, the look of the bar's glass, Crest's or Liquid Glass + (look.ts `barLook`); `glass` alone gates the live copy and its exclusion from captures (contract point 1). */
   glassLook: "crest" | "plus";
   clock: { date: boolean; seconds: boolean };
+  /** The version of each widget that has more than one, by widget; the clock's date stays in `clock`, the only source for the notch and older copies. */
+  variants: Partial<WidgetVariants>;
   widgetsSeeded: boolean;
   traySeeded: boolean;
   statusSeeded: boolean;
@@ -59,6 +62,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   glass: false,
   glassLook: "crest",
   clock: { date: true, seconds: false },
+  variants: {},
   widgetsSeeded: true,
   traySeeded: true,
   statusSeeded: true,
@@ -88,7 +92,22 @@ export const TOOL_BUTTONS: readonly string[] = [...TOOL_IDS.filter((id) => !WIDG
 /** Every item a zone may hold. */
 const ITEMS: string[] = [...FIXED_ITEMS, "tray", "status", ...PART_IDS, ...TOOL_BUTTONS.map((id) => `tool:${id}`)];
 
-const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+/** The versions a widget offers on the bar, today's first; the id stays bare in the zones, so the fit, the sources and `barParts` do not change. */
+export type WidgetVariants = { weather: "temp" | "icon" | "condition" | "hours"; clock: "digital" | "analog" | "zones"; readings: "dials" | "bars" | "line"; timer: "countdown" | "ring" };
+export const WIDGET_VARIANTS: { [K in keyof WidgetVariants]: readonly WidgetVariants[K][] } = {
+  weather: ["temp", "icon", "condition", "hours"],
+  clock: ["digital", "analog", "zones"],
+  readings: ["dials", "bars", "line"],
+  timer: ["countdown", "ring"],
+};
+
+export const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+/** Whether `variants` names a version `id` has, as its own key: other windows get the raw JSON (widgets.ts). */
+const isVariant = (variants: unknown, id: keyof WidgetVariants): boolean =>
+  isObj(variants) && Object.hasOwn(variants, id) && (WIDGET_VARIANTS[id] as readonly unknown[]).includes(variants[id]);
+/** The version a widget draws: its saved one, or today's look for anything it does not know. */
+export const variantOf = <K extends keyof WidgetVariants>(variants: unknown, id: K): WidgetVariants[K] =>
+  isVariant(variants, id) ? ((variants as Record<string, unknown>)[id] as WidgetVariants[K]) : WIDGET_VARIANTS[id][0];
 const within = (v: unknown, [min, max]: readonly [number, number], fallback: number) =>
   typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(max, Math.max(min, v))) : fallback;
 
@@ -116,6 +135,10 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     glass: s.glass === true,
     glassLook: s.glassLook === "plus" ? "plus" : "crest",
     clock: { date: clock.date !== false, seconds: clock.seconds === true },
+    // A copy older than this rebuilds the settings field by field and drops `variants` at its first save (design 6D): accepted.
+    variants: Object.fromEntries(
+      (Object.keys(WIDGET_VARIANTS) as (keyof WidgetVariants)[]).filter((id) => isVariant(s.variants, id)).map((id) => [id, (s.variants as Record<string, unknown>)[id]]),
+    ),
     widgetsSeeded: true,
     traySeeded: true,
     statusSeeded: true,
@@ -176,6 +199,66 @@ export function moveItem(zones: Record<Zone, BarItem[]>, id: BarItem, to: Zone, 
   const next = { left: zones.left.filter((x) => x !== id), center: zones.center.filter((x) => x !== id), right: zones.right.filter((x) => x !== id) };
   next[to].splice(Math.max(0, index ?? next[to].length), 0, id);
   return next;
+}
+
+/**
+ * The zones with `id` moved into `zone` before `before` (at its end with null), on the saved zones, so the items the bar hides (by
+ * the fit, on a secondary bar, a tool switched off) keep their places; the same object when nothing changes, so nothing is written.
+ */
+export function moveBefore(zones: Record<Zone, BarItem[]>, id: BarItem, zone: Zone, before: BarItem | null): Record<Zone, BarItem[]> {
+  if (before === id || !ZONES.some((z) => zones[z].includes(id))) return zones;
+  const next = { left: zones.left.filter((x) => x !== id), center: zones.center.filter((x) => x !== id), right: zones.right.filter((x) => x !== id) };
+  const at = before === null ? next[zone].length : next[zone].indexOf(before);
+  if (at < 0) return zones;
+  next[zone].splice(at, 0, id);
+  return JSON.stringify(next) === JSON.stringify(zones) ? zones : next;
+}
+
+/**
+ * Items' Up (-1) and Down (1): `id` moved one row among `shown`, its zone as the page lists it, on the saved zones (moveBefore), so a
+ * saved item the page does not list never takes a step; the same object at the ends or for an id not shown.
+ */
+export function stepItem(zones: Record<Zone, BarItem[]>, shown: BarItem[], id: BarItem, by: -1 | 1): Record<Zone, BarItem[]> {
+  const i = shown.indexOf(id), zone = ZONES.find((z) => zones[z].includes(id));
+  if (i < 0 || !zone || (by < 0 ? i === 0 : i === shown.length - 1)) return zones;
+  return moveBefore(zones, id, zone, by < 0 ? shown[i - 1] : (shown[i + 2] ?? null));
+}
+
+/** An item drawn on the bar, in DOM order: its zone and its box's left edge and width, CSS px. */
+export type DropSlot = { id: BarItem; zone: Zone; x: number; w: number };
+/** A zone's box on the grid shapes, CSS px. */
+export type ZoneBox = { zone: Zone; x: number; w: number };
+
+/**
+ * Where an item dragged to `x` lands: in the zone whose box holds `x` (an empty one narrower than `unit`, the grid's middle,
+ * widened to `unit` round its centre and checked first), or without zone boxes (the capsule) in the zone of the item it goes before, of the last one at the end; before the first
+ * item whose centre is right of `x`. `line` is the left edge of the 2 px insertion line, centred in the `gap` between buttons. Null
+ * outside the zones and on its own place (before itself or its next neighbour, or at the end it already is at): nothing to write.
+ */
+export function dropPlace(id: BarItem, items: DropSlot[], zones: ZoneBox[] | null, x: number, unit: number, gap: number): { zone: Zone; before: BarItem | null; line: number } | null {
+  let zone: Zone, inZone: DropSlot[], at: number;
+  if (zones) {
+    const narrow = (z: ZoneBox) => z.w < unit && !items.some((s) => s.zone === z.zone);
+    const box = (z: ZoneBox) => (narrow(z) ? { x: z.x + z.w / 2 - unit / 2, w: unit } : z);
+    const hit = [...zones.filter(narrow), ...zones.filter((z) => !narrow(z))].find((z) => x >= box(z).x && x <= box(z).x + box(z).w);
+    if (!hit) return null;
+    zone = hit.zone;
+    inZone = items.filter((s) => s.zone === zone);
+    // An empty zone's line is where its first item will draw: its left edge, its right edge, its centre.
+    if (!inZone.length) return { zone, before: null, line: zone === "left" ? hit.x : zone === "right" ? hit.x + hit.w - 2 : hit.x + hit.w / 2 - 1 };
+    at = dropSlot(inZone, x);
+  } else {
+    if (!items.length) return null;
+    at = dropSlot(items, x);
+    zone = (items[at] ?? items[items.length - 1]).zone;
+    inZone = items.filter((s) => s.zone === zone);
+    at = items[at] ? inZone.indexOf(items[at]) : inZone.length;
+  }
+  const before = inZone[at]?.id ?? null;
+  const own = inZone.findIndex((s) => s.id === id);
+  if (own >= 0 && (at === own || at === own + 1)) return null;
+  const last = inZone[inZone.length - 1];
+  return { zone, before, line: before === null ? last.x + last.w + gap / 2 - 1 : inZone[at].x - gap / 2 - 1 };
 }
 
 /** What changed on Windows' taskbar, on the bar's pinned apps: those pinned there at the end unless already pinned, those unpinned there taken off; the rest keep their order. */
@@ -287,11 +370,31 @@ export function menuFor(b: BarButton): MenuEntry[] {
 export const placeMenu = (anchorX: number, anchorW: number, menuW: number, viewW: number, edge = 8) =>
   Math.max(edge, Math.min(anchorX + anchorW / 2 - menuW / 2, viewW - edge - menuW));
 
+/** How an app's window previews lay out: a thumbnail box per window of `w` x `h` CSS px, or their titles as a list. */
+export type PreviewLayout = { kind: "tiles"; w: number; h: number } | { kind: "list" };
+
+/**
+ * 192 x 120 boxes (16:10), narrower so `count` of them fit the window less 8 px each side, the menu panel's 4 px padding, 4 px
+ * between tiles and 6 px inside each; the list once a box would fall under 120 px wide, or with no window.
+ */
+export function previewLayout(count: number, viewW: number): PreviewLayout {
+  if (count < 1) return { kind: "list" };
+  const w = Math.min(192, Math.floor((viewW - 16 - 8 - (count - 1) * 4) / count) - 12);
+  return w < 120 ? { kind: "list" } : { kind: "tiles", w, h: Math.round((w * 120) / 192) };
+}
+
+/** An app with several windows whose thumbnails all failed lists their titles instead; one window, or only some failing, keep the icon in the box. */
+export const previewFallsBack = (answers: readonly unknown[], count: number): boolean => count > 1 && answers.length > 0 && answers.every((a) => a === null);
+
 /** The row a key moves to among a menu's `count` rows from row `at` (-1: none): Up and Down wrap, Home and End go to the ends; undefined for any other key. */
 export function menuKey(key: string, at: number, count: number): number | undefined {
   const to = key === "ArrowDown" ? at + 1 : key === "ArrowUp" ? (at < 0 ? count : at) - 1 : key === "Home" ? 0 : key === "End" ? count - 1 : undefined;
   return to === undefined || !count ? undefined : (to + count) % count;
 }
+
+/** The preview card's tiles run along the bar: Right and Left step as menuKey's Down and Up (mirrored right to left); other keys pass as they are. */
+export const previewKey = (key: string, rtl: boolean): string =>
+  key === "ArrowRight" ? (rtl ? "ArrowUp" : "ArrowDown") : key === "ArrowLeft" ? (rtl ? "ArrowDown" : "ArrowUp") : key;
 
 /** The Taskbar settings show in the Windows app only: in a dev build, in a build marked for the preview, and while the bar is on, so it can be turned off. */
 export const taskbarShown = (p: { native: boolean; mac: boolean; dev: boolean; preview: boolean; enabled: boolean }): boolean =>

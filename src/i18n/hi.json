@@ -1871,5 +1871,18 @@
  "Keine gekoppelten Geräte": "कोई युग्मित डिवाइस नहीं",
  "Verbunden · {p} %": "कनेक्ट है · {p}%",
  "Verbindung wird getrennt …": "डिस्कनेक्ट हो रहा है …",
- "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "नीचे Crest टास्कबार है: उसे बंद करने पर नीचे का किनारा फिर से चुना जा सकता है"
+ "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "नीचे Crest टास्कबार है: उसे बंद करने पर नीचे का किनारा फिर से चुना जा सकता है",
+  "Task-Manager": "कार्य प्रबंधक",
+  "Besprechung": "बैठक",
+  "Widgets": "विजेट",
+  "Version": "संस्करण",
+  "Nur Symbol": "केवल आइकन",
+  "Symbol und Wetterlage": "आइकन और मौसम",
+  "Nächste Stunden": "अगले घंटे",
+  "Uhrzeit und Datum": "समय और तारीख़",
+  "Nur Uhrzeit": "केवल समय",
+  "Zwei Zeitzonen": "दो समय क्षेत्र",
+  "Rundanzeigen": "डायल",
+  "CPU-Verlauf": "CPU रेखा",
+  "Countdown": "उलटी गिनती"
 }

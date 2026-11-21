@@ -1,6 +1,7 @@
 import { createStore } from "../../lib/store";
 import { settingsWindow } from "../../platform/native";
 import { taskbar } from "../../platform/services";
+import type { BarItem } from "./model";
 import { opensInBar, sameAnchor, sameContent, type OpenPanel, type PanelAnchor, type PanelContent, type QuickPage } from "./panelModel";
 
 /*
@@ -19,6 +20,12 @@ export const panel = createStore<OpenPanel | null>(null);
  * and the panel lets the window take the pointer meanwhile.
  */
 export const trayDrag = createStore<{ id: string; img: string | null; x: number; y: number; from: "panel" | "bar" } | null>(null);
+
+/**
+ * A widget, a tool button or Stato dragged along the bar (TaskbarWindow), by its item, and the pointer, in the window's CSS px; null
+ * while none is. The bar draws its icon under the pointer and moves it in the saved zones where it is let go (ItemDrop).
+ */
+export const itemDrag = createStore<{ id: BarItem; x: number; y: number; pointerId: number } | null>(null);
 
 /** The quick panel's rows that come and go (QuickPanel.tsx), for its size (QUICK_SIZE): the radios, the brightness, the open output list's px. */
 export const quickLayout = createStore<{ radios: boolean; brightness: boolean; list: number }>({ radios: true, brightness: false, list: 0 });

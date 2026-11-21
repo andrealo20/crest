@@ -1871,5 +1871,18 @@
  "Keine gekoppelten Geräte": "ペアリングされたデバイスはありません",
  "Verbunden · {p} %": "接続済み · {p}%",
  "Verbindung wird getrennt …": "切断中…",
- "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "下には Crest タスクバーがあります。オフにすると下の端に戻せます"
+ "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "下には Crest タスクバーがあります。オフにすると下の端に戻せます",
+  "Task-Manager": "タスク マネージャー",
+  "Besprechung": "会議",
+  "Widgets": "ウィジェット",
+  "Version": "バージョン",
+  "Nur Symbol": "アイコンのみ",
+  "Symbol und Wetterlage": "アイコンと天気",
+  "Nächste Stunden": "この先の時間",
+  "Uhrzeit und Datum": "時刻と日付",
+  "Nur Uhrzeit": "時刻のみ",
+  "Zwei Zeitzonen": "2 つのタイムゾーン",
+  "Rundanzeigen": "ダイヤル",
+  "CPU-Verlauf": "CPU の推移",
+  "Countdown": "カウントダウン"
 }

@@ -1871,5 +1871,18 @@
  "Keine gekoppelten Geräte": "没有已配对的设备",
  "Verbunden · {p} %": "已连接 · {p}%",
  "Verbindung wird getrennt …": "正在断开连接…",
- "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "底部是 Crest 任务栏：关闭它后可重新选择底部"
+ "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "底部是 Crest 任务栏：关闭它后可重新选择底部",
+  "Task-Manager": "任务管理器",
+  "Besprechung": "会议",
+  "Widgets": "小组件",
+  "Version": "版本",
+  "Nur Symbol": "仅图标",
+  "Symbol und Wetterlage": "图标和天气",
+  "Nächste Stunden": "未来几小时",
+  "Uhrzeit und Datum": "时间和日期",
+  "Nur Uhrzeit": "仅时间",
+  "Zwei Zeitzonen": "两个时区",
+  "Rundanzeigen": "表盘",
+  "CPU-Verlauf": "CPU 曲线",
+  "Countdown": "倒计时"
 }

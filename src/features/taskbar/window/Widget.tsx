@@ -19,14 +19,25 @@ import { WeatherPart, weatherWidth } from "../../../notch/row/parts/WeatherPart"
 import { settings } from "../../../settings/store";
 import { Equalizer } from "../../now-playing/Equalizer";
 import { LiveLyric } from "../../now-playing/LiveLyric";
+import { clocks } from "../../clocks/store";
+import { isZone } from "../../clocks/zones";
 import { timer } from "../../timer/store";
 import { EMPTY_FEED, barFeed, type BarFeed } from "../barStores";
-import type { TaskbarSettings } from "../model";
-import { widgetScale } from "../widgets";
-import { BarClock, barClockWidth } from "./BarClock";
+import { variantOf, type TaskbarSettings } from "../model";
+import { SAMPLE_TIMER } from "../sampleFeed";
+import { statusPill } from "../statusModel";
+import { pillWidget, widgetScale, widgetWidth } from "../widgets";
+import { ANALOG, BarAnalog, BarClock, BarZones, barClockWidth, zonesWidth } from "./BarClock";
 import { Item, type ItemProps } from "./Item";
+import { ReadingBars, ReadingLine, barsWidth, lineWidth } from "./ReadingFaces";
+import { RING_FACE, TimerRing } from "./TimerRing";
+import { WEATHER_ICON, WeatherCondition, WeatherHours, WeatherIcon, conditionWidth, hoursWidth } from "./WeatherFaces";
 
-/** What a widget's body is drawn from: its slices of the feed, whether the bar rests or the pointer is on it, and the settings it follows. */
+/**
+ * What a widget's body is drawn from: its slices of the feed, whether the bar rests or the pointer is on it, and the settings it follows:
+ * the widgets' versions (raw: read through variantOf) and the Clocks tool's first zone. `at` and `sample`: the Widgets page's previews,
+ * a fixed time and the sample timer, so they never read the real timer or tick.
+ */
 interface WidgetContext {
   feed: BarFeed;
   paused: boolean;
@@ -36,6 +47,10 @@ interface WidgetContext {
   titleLoop: boolean;
   timerRunning: boolean;
   timerDuration: number;
+  variants: TaskbarSettings["variants"];
+  zone: string | null;
+  at?: number;
+  sample?: boolean;
 }
 
 interface Body {
@@ -50,14 +65,25 @@ const inRow = (gap: number, widths: number[], nodes: ReactNode[]): Body => ({
 });
 
 /** The part as the closed row draws it, and its width there; null while it has nothing to show. */
-function part(id: PartId, { feed: f, paused, hovered, clock, h12, titleLoop, timerRunning, timerDuration }: WidgetContext): Body | null {
+// Every version not known falls back through variantOf to today's look, never to a branch that draws nothing.
+function part(id: PartId, { feed: f, paused, hovered, clock, h12, titleLoop, timerRunning, timerDuration, variants, zone, at, sample }: WidgetContext): Body | null {
   switch (id) {
-    case "clock":
-      return { node: <BarClock seconds={clock.seconds} h12={h12} date={clock.date} paused={paused} />, width: barClockWidth(clock.seconds, h12, clock.date) };
+    case "clock": {
+      const v = variantOf(variants, "clock");
+      if (v === "analog") return { node: <BarAnalog h12={h12} paused={paused} at={at} />, width: ANALOG };
+      if (v === "zones" && zone) return { node: <BarZones h12={h12} zone={zone} paused={paused} at={at} />, width: zonesWidth(h12, zone) };
+      return { node: <BarClock seconds={clock.seconds} h12={h12} date={clock.date} paused={paused} at={at} />, width: barClockWidth(clock.seconds, h12, clock.date) };
+    }
     case "equalizer":
       return { node: <Equalizer playing={f.playing && !paused} />, width: 16 };
-    case "weather":
-      return f.weather && { node: <WeatherPart now={f.weather} />, width: weatherWidth() };
+    case "weather": {
+      if (!f.weather) return null;
+      const v = variantOf(variants, "weather");
+      if (v === "icon") return { node: <WeatherIcon now={f.weather} />, width: WEATHER_ICON };
+      if (v === "condition") return { node: <WeatherCondition now={f.weather} />, width: conditionWidth(f.weather) };
+      if (v === "hours" && f.weatherHours.length) return { node: <WeatherHours hours={f.weatherHours} />, width: hoursWidth() };
+      return { node: <WeatherPart now={f.weather} />, width: weatherWidth() };
+    }
     case "title": {
       if (!f.title) return null;
       // Always titleMax, as the notch counts it (layout.ts naturalWidth): a new line or song never moves the buttons beside it.
@@ -74,10 +100,20 @@ function part(id: PartId, { feed: f, paused, hovered, clock, h12, titleLoop, tim
     }
     case "rings":
       return f.rings.length ? inRow(RING_GAP, f.rings.map(() => RING), f.rings.map((r) => <Ring key={r.id} id={r.id} value={r.value} label={r.label} />)) : null;
-    case "readings":
-      return f.readings.length ? inRow(READING_GAP, f.readings.map((r) => readingWidth(r.id)), f.readings.map((r) => <ReadingView key={r.id} reading={r} />)) : null;
-    case "timer":
-      return timerRunning ? { node: <TimerPart paused={paused} />, width: timerWidth(timerDuration) } : null;
+    case "readings": {
+      if (!f.readings.length) return null;
+      const v = variantOf(variants, "readings");
+      if (v === "bars") return { node: <ReadingBars readings={f.readings} />, width: barsWidth(f.readings) };
+      if (v === "line" && f.spark.length && f.readings.some((r) => r.id === "cpu")) return { node: <ReadingLine readings={f.readings} spark={f.spark} />, width: lineWidth(f.readings) };
+      return inRow(READING_GAP, f.readings.map((r) => readingWidth(r.id)), f.readings.map((r) => <ReadingView key={r.id} reading={r} />));
+    }
+    case "timer": {
+      if (!timerRunning && !sample) return null;
+      const st = sample ? SAMPLE_TIMER : undefined;
+      return variantOf(variants, "timer") === "ring"
+        ? { node: <TimerRing paused={paused} sample={st} />, width: RING_FACE }
+        : { node: <TimerPart paused={paused} sample={st} />, width: timerWidth(st ? st.duration : timerDuration) };
+    }
     case "calendar":
       return f.next && { node: <NextEventPart text={f.next.text} color={f.next.color} />, width: nextEventWidth(f.next.text) };
     case "downloads": {
@@ -127,9 +163,9 @@ const SLICES: Record<PartId, (keyof BarFeed)[]> = {
   timer: [],
   equalizer: ["playing"],
   title: ["title", "playing"],
-  weather: ["weather"],
+  weather: ["weather", "weatherHours"],
   rings: ["rings"],
-  readings: ["readings"],
+  readings: ["readings", "spark"],
   calendar: ["next"],
   downloads: ["downloads"],
   discord: ["call"],
@@ -155,17 +191,20 @@ function useSlices(keys: (keyof BarFeed)[]): BarFeed {
  * A widget on Crest's bar: a bar button holding the part, sized with the bar's icons by CSS zoom, which keeps the text sharp and
  * the room real. Its content is the button's description, so a screen reader says the value after the name.
  */
-export function WidgetItem({ id, item, paused, onClick, onContextMenu }: {
+export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointerDown }: {
   id: PartId;
   item: Pick<ItemProps, "name" | "label" | "failed" | "lifted" | "size" | "markAt" | "tile" | "expanded" | "kind" | "onEnter" | "onLeave">;
   paused: boolean;
   onClick: MouseEventHandler<HTMLButtonElement>;
   onContextMenu: MouseEventHandler<HTMLButtonElement>;
+  onPointerDown: ItemProps["onPointerDown"];
 }) {
   fontEpoch.use();
   const { taskbar, units, music } = settings.use();
   const { endsAt, duration } = timer.use();
   const feed = useSlices(SLICES[id]);
+  // Checked here too: the list another window saved arrives as it is, and an unknown zone would throw while drawing.
+  const first = clocks.use()[0], zone = isZone(first) ? first : null;
   const desc = useId();
   const k = widgetScale(taskbar.height, taskbar.iconSize);
   const { node, width } = widgetBody(id, {
@@ -177,13 +216,19 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu }: {
     titleLoop: music.titleLoop,
     timerRunning: endsAt !== null,
     timerDuration: duration,
+    variants: taskbar.variants,
+    zone,
   });
+  const pill = pillWidget(id, item.tile !== undefined) ? statusPill(taskbar.height) : null;
   return (
-    // An even width keeps a centred zone, and the buttons after it, on whole pixels, as the apps' even widths already do.
-    <Item {...item} width={Math.round((width * k) / 2) * 2 + 16} describedBy={desc} onClick={onClick} onContextMenu={onContextMenu}>
-      {/* As tall as the closed row the parts are drawn for; one grid cell, so a part and its icon fade over each other centred; clipped, so a wider part fading out never covers its neighbours. */}
-      <span id={desc} className="grid h-[30px] overflow-clip" style={{ zoom: k, width }}>
-        <AnimatePresence initial={false}>{node}</AnimatePresence>
+    <Item {...item} width={widgetWidth(width, k, pill?.pad ?? null)} describedBy={desc} onClick={onClick} onContextMenu={onContextMenu} onPointerDown={onPointerDown}>
+      {/* The pill wraps the content, not the cell (design 2E): the zoomed 30 px cell stays centred in a lower pill and overflows it
+          equally. When Material's Item lands, pass layer={pill.height} as Stato does. */}
+      <span className={pill ? "flex items-center rounded-full bg-fill-2" : "flex"} style={pill ? { height: pill.height, paddingInline: pill.pad } : undefined}>
+        {/* As tall as the closed row the parts are drawn for; one grid cell, so a part and its icon fade over each other centred; clipped, so a wider part fading out never covers its neighbours. */}
+        <span id={desc} className="grid h-[30px] overflow-clip" style={{ zoom: k, width }}>
+          <AnimatePresence initial={false}>{node}</AnimatePresence>
+        </span>
       </span>
     </Item>
   );

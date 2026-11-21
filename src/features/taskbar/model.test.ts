@@ -4,27 +4,36 @@ import {
   COMPACT_PAD,
   TASKBAR_DEFAULTS,
   TOOL_BUTTONS,
+  WIDGET_VARIANTS,
   applyWindowsPins,
   barButtons,
   clickAction,
   compactIcon,
+  dropPlace,
   fitIcon,
   indicator,
   menuFor,
   menuKey,
+  moveBefore,
   moveItem,
   normalizeTaskbar,
   normalizeZones,
   placeMenu,
+  previewFallsBack,
+  previewKey,
+  previewLayout,
   statusWanted,
+  stepItem,
   taskbarShown,
   trayIcon,
   trayOnBar,
   trayWanted,
+  variantOf,
   type BarButton,
   type BarItem,
   type Group,
   type Win,
+  type Zone,
 } from "./model.ts";
 
 test("any saved value becomes valid bar settings", () => {
@@ -99,6 +108,24 @@ test("the bar's clock has its own date and seconds", () => {
   assert.deepEqual(normalizeTaskbar({ clock: { date: false, seconds: "x" } }).clock, { date: false, seconds: false });
 });
 
+test("each widget with versions starts on today's look", () => {
+  assert.deepEqual(Object.fromEntries(Object.entries(WIDGET_VARIANTS).map(([id, v]) => [id, v[0]])), { weather: "temp", clock: "digital", readings: "dials", timer: "countdown" });
+  assert.deepEqual(TASKBAR_DEFAULTS.variants, {});
+});
+
+test("a saved version is kept only for a widget that has it, and anything else is dropped", () => {
+  assert.deepEqual(normalizeTaskbar({ variants: { weather: "hours", clock: "nope", readings: 3, title: "x", bogus: "line", timer: "ring" } }).variants, { weather: "hours", timer: "ring" });
+  for (const v of [undefined, null, "x", [], 1]) assert.deepEqual(normalizeTaskbar({ variants: v }).variants, {});
+  assert.deepEqual(normalizeTaskbar({ variants: { clock: "analog" }, clock: { date: false } }).clock, { date: false, seconds: false });
+});
+
+test("a widget draws its saved version, today's look for one it does not know, as another window may send raw JSON", () => {
+  assert.equal(variantOf({ weather: "hours" }, "weather"), "hours");
+  assert.equal(variantOf({ weather: "zzz" }, "weather"), "temp");
+  assert.equal(variantOf({ readings: "line" }, "clock"), "digital");
+  for (const v of [undefined, null, "x", [], { clock: 1 }, JSON.parse('{"__proto__":{"clock":"analog"}}')]) assert.equal(variantOf(v, "clock"), "digital");
+});
+
 test("items move between zones", () => {
   const z = normalizeZones({});
   assert.deepEqual(moveItem(z, "crest", "left"), { left: ["crest"], center: ["start", "apps"], right: [] });
@@ -162,6 +189,14 @@ test("the keys move through a menu's rows and wrap at its ends", () => {
   assert.equal(menuKey("End", 0, 3), 2);
   assert.equal(menuKey("Enter", 0, 3), undefined);
   assert.equal(menuKey("ArrowDown", -1, 0), undefined);
+});
+
+test("the preview card's tiles step with Right and Left along the bar, mirrored right to left", () => {
+  assert.equal(previewKey("ArrowRight", false), "ArrowDown");
+  assert.equal(previewKey("ArrowLeft", false), "ArrowUp");
+  assert.equal(previewKey("ArrowRight", true), "ArrowUp");
+  assert.equal(previewKey("ArrowLeft", true), "ArrowDown");
+  for (const key of ["ArrowDown", "ArrowUp", "Home", "End", "Enter"]) assert.equal(previewKey(key, true), key);
 });
 
 test("the taskbar settings show only where the bar can run", () => {
@@ -240,4 +275,83 @@ test("a tool button enters the bar only for a tool the bar offers, and once", ()
     normalizeZones({ left: ["tool:notes", "tool:x", "tool:timer", "tool:plugin:abc", "tool:settings", "tool:", "notes"], center: ["start", "apps", "tool:notes"], right: ["timer", "tool:find", "crest"] }),
     { left: ["tool:notes"], center: ["start", "apps"], right: ["timer", "tool:find", "crest"] },
   );
+});
+
+const Z = (left: BarItem[], center: BarItem[], right: BarItem[]) => ({ left, center, right });
+
+test("a drop puts the item before its neighbour in the saved zones, the hidden ones kept where they were", () => {
+  const z = Z([], ["start", "apps"], ["weather", "tool:notes", "tray", "status", "clock", "crest"]);
+  assert.deepEqual(moveBefore(z, "clock", "right", "tray"), Z([], ["start", "apps"], ["weather", "tool:notes", "clock", "tray", "status", "crest"]));
+  assert.deepEqual(moveBefore(z, "weather", "center", null), Z([], ["start", "apps", "weather"], ["tool:notes", "tray", "status", "clock", "crest"]));
+  assert.deepEqual(moveBefore(z, "status", "left", null), Z(["status"], ["start", "apps"], ["weather", "tool:notes", "tray", "clock", "crest"]));
+});
+
+test("a drop where the item already is changes nothing, so nothing is written", () => {
+  const z = Z([], ["start", "apps"], ["weather", "tray", "clock", "crest"]);
+  assert.equal(moveBefore(z, "weather", "right", "tray"), z);
+  assert.equal(moveBefore(z, "weather", "right", "weather"), z);
+  assert.equal(moveBefore(z, "github", "right", "tray"), z); // not on the bar
+  assert.equal(moveBefore(z, "clock", "left", "tray"), z); // its neighbour is not in that zone
+});
+
+test("Up and Down move an item one row among the ones the page lists, and stop at the ends", () => {
+  const z = Z([], ["start", "apps"], ["weather", "tray", "clock", "crest"]);
+  assert.deepEqual(stepItem(z, z.right, "tray", -1).right, ["tray", "weather", "clock", "crest"]);
+  assert.deepEqual(stepItem(z, z.right, "tray", 1).right, ["weather", "clock", "tray", "crest"]);
+  assert.deepEqual(stepItem(z, z.right, "clock", 1).right, ["weather", "tray", "crest", "clock"]);
+  assert.equal(stepItem(z, z.right, "weather", -1), z);
+  assert.equal(stepItem(z, z.right, "crest", 1), z);
+  assert.equal(stepItem(z, z.right, "github", 1), z);
+  // A saved tool the page does not list never swallows a step.
+  const h = Z([], [], ["weather", "tool:notes", "tray"]);
+  assert.deepEqual(stepItem(h, ["weather", "tray"], "weather", 1).right, ["tool:notes", "tray", "weather"]);
+  assert.deepEqual(stepItem(h, ["weather", "tray"], "tray", -1).right, ["tray", "weather", "tool:notes"]);
+});
+
+const slot = (id: BarItem, zone: Zone, x: number, w = 40) => ({ id, zone, x, w });
+const grid = [{ zone: "left", x: 0, w: 600 }, { zone: "center", x: 600, w: 0 }, { zone: "right", x: 600, w: 600 }] as { zone: Zone; x: number; w: number }[];
+
+test("a dragged item lands before the item under the pointer's half, in that zone", () => {
+  const items = [slot("start", "left", 10), slot("apps", "left", 56), slot("weather", "right", 1000), slot("tray", "right", 1046), slot("clock", "right", 1092)];
+  assert.deepEqual(dropPlace("clock", items, grid, 1050, 40, 6), { zone: "right", before: "tray", line: 1042 });
+  assert.deepEqual(dropPlace("weather", items, grid, 1140, 40, 6), { zone: "right", before: null, line: 1134 });
+  assert.equal(dropPlace("tray", items, grid, 1050, 40, 6), null); // its own place
+  assert.equal(dropPlace("weather", items, grid, 1050, 40, 6), null); // right before tray, where it is
+  assert.equal(dropPlace("clock", items, grid, 1140, 40, 6), null); // past the end, where it is
+});
+
+test("an empty middle zone takes a drop on a band one item wide round its centre", () => {
+  const items = [slot("start", "left", 10), slot("weather", "right", 1000), slot("tool:notes", "right", 1046)];
+  assert.deepEqual(dropPlace("weather", items, grid, 610, 40, 6), { zone: "center", before: null, line: 599 });
+  assert.deepEqual(dropPlace("tool:notes", items, grid, 700, 40, 6), { zone: "right", before: "weather", line: 996 });
+});
+
+test("an empty side zone takes a drop anywhere in it, the line at the edge its items start from", () => {
+  const items = [slot("start", "center", 560), slot("apps", "center", 606), slot("weather", "right", 1000)];
+  const sides = [{ zone: "left", x: 0, w: 560 }, { zone: "center", x: 560, w: 86 }, { zone: "right", x: 646, w: 554 }] as { zone: Zone; x: number; w: number }[];
+  assert.deepEqual(dropPlace("weather", items, sides, 30, 40, 6), { zone: "left", before: null, line: 0 });
+  assert.deepEqual(dropPlace("weather", items, sides, 120, 40, 6), { zone: "left", before: null, line: 0 });
+  assert.deepEqual(dropPlace("start", [slot("start", "center", 560), slot("apps", "center", 606)], sides, 1150, 40, 6), { zone: "right", before: null, line: 1198 });
+});
+
+test("in the capsule a drop joins the zone of the item it goes before, or of the last one at the end", () => {
+  const items = [slot("start", "center", 500), slot("apps", "center", 546), slot("weather", "right", 592), slot("clock", "right", 638)];
+  assert.deepEqual(dropPlace("clock", items, null, 560, 40, 6), { zone: "center", before: "apps", line: 542 });
+  assert.deepEqual(dropPlace("weather", items, null, 700, 40, 6), { zone: "right", before: null, line: 680 });
+});
+
+test("a preview shows a 192 x 120 thumbnail per window, narrower with many, and the titles once they would be too small", () => {
+  assert.deepEqual(previewLayout(1, 1920), { kind: "tiles", w: 192, h: 120 });
+  assert.deepEqual(previewLayout(8, 1920), { kind: "tiles", w: 192, h: 120 });
+  assert.deepEqual(previewLayout(3, 640), { kind: "tiles", w: 190, h: 119 });
+  assert.deepEqual(previewLayout(10, 1280), { kind: "list" });
+  assert.deepEqual(previewLayout(0, 1920), { kind: "list" });
+});
+
+test("an app with several windows and no thumbnail at all lists their titles; one window or a partial failure keeps the tiles", () => {
+  const box = { x: 0, y: 0, w: 192, h: 120 };
+  assert.equal(previewFallsBack([null, null, null], 3), true);
+  assert.equal(previewFallsBack([null], 1), false);
+  assert.equal(previewFallsBack([box, null, null], 3), false);
+  assert.equal(previewFallsBack([], 3), false);
 });
