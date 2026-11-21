@@ -1,7 +1,8 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck.Core/Temperatures.cs.
 // Temperatures as Windows reports them without a driver or administrator rights: the CPU from the ACPI thermal zones
 // (defined by the firmware, possibly the board's rather than the processor's), the GPU as Task Manager reads it, SSDs
-// as they report themselves. A value no working sensor gives is no reading: the tool hides it rather than show a zero.
+// as they report themselves. A value no working sensor gives is no reading: the tool hides it rather than show a zero,
+// and a CPU without one for a while shows - °C with where Crest can read it (SystemView.tsx).
 
 import type { Level } from "./levels.ts";
 

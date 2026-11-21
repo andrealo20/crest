@@ -1,11 +1,14 @@
 import { useEffect, useRef } from "react";
 import { createStore } from "../../lib/store";
+import { activeTool } from "../../notch/header";
 import { holdOpen } from "../../notch/useNotchState";
 import { monitor, monitorMetrics } from "../../notch/monitor";
 import { viewZoom } from "../../notch/viewZoom";
+import { isMac } from "../../platform/native";
 import { settings } from "../../settings/store";
 import { t } from "../../i18n";
-import { dragSize, limits, sizeFor, stepSize, type Direction, type Edge, type Size } from "./panelSize";
+import { textStep } from "./hotkeys";
+import { dragSize, limits, sizeFor, stepSize, stepTextSize, type Direction, type Edge, type Size } from "./panelSize";
 import { updateBehavior } from "./store";
 
 /** The size while an edge is being dragged; saved on release. */
@@ -18,6 +21,27 @@ export function useToolSize(id: string, def: Size): Size {
   monitor.use();
   if (dragging?.tabId === id) return dragging;
   return sizeFor(def, saved, monitorMetrics().height);
+}
+
+/**
+ * A tool's text size as a factor (1 = 100 %): Ctrl + and Ctrl - step it, Ctrl 0 resets it. Heard on the window, not the tool's own
+ * elements, so it works wherever the focus is: a tool opened from the dock or a shortcut has none inside it yet. Only the tool shown
+ * answers (activeTool), not one fading out after a switch.
+ */
+export function useToolText(id: string): number {
+  const size = settings.use().behavior.textSizes[id] ?? 100;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || activeTool.get() !== id) return;
+      const step = textStep(e, isMac);
+      if (step === null) return;
+      e.preventDefault();
+      updateBehavior((b) => ({ textSizes: stepTextSize(b.textSizes, id, step) }));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [id]);
+  return size / 100;
 }
 
 function save(id: string, size: Size | null) {

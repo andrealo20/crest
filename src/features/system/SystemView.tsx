@@ -31,8 +31,25 @@ import { MaterialSystemLayout } from "./MaterialSystem";
  *   │ ◠ Ping  1.1.1.1                      ___ 14 ms│                          │
  *   └───────────────────────────────────────────────┴──────────────────────────┘
  * Rows keep one minute of history as a line (store.ts collects from app start). Readings a machine cannot give
- * (battery on a desktop, power without any meter, temperatures without a sensor) are left out rather than shown as 0.
+ * (battery on a desktop, power without any meter, temperatures without a sensor) are left out rather than shown as 0,
+ * except the CPU's temperature: missing for a while, it shows as - °C with where Crest can read one (issue #67).
  */
+
+/** How long the CPU has to be without a temperature before the row says so: a thermal zone counts only once it moves (temps.ts). */
+const NO_SENSOR_MS = 10_000;
+
+/** True once `on` has held for `ms`, false again as soon as it stops. */
+function useLasting(on: boolean, ms: number): boolean {
+  const [lasted, setLasted] = useState(false);
+  useEffect(() => {
+    setLasted(false);
+    if (!on) return;
+    const id = window.setTimeout(() => setLasted(true), ms);
+    return () => window.clearTimeout(id);
+  }, [on, ms]);
+  return on && lasted;
+}
+
 export function SystemView() {
   useSystemShown();
   const st = system.use();
@@ -44,6 +61,7 @@ export function SystemView() {
   useEffect(() => () => holdProcesses.set(false), []);
   const driveColor = useHue("orange");
   const material = design.use() === "material";
+  const noCpuSensor = useLasting(st.cpuTemp === null, NO_SENSOR_MS);
   const s = st.stats;
   if (!s) return null;
   const tone = (l: Level) => schemeColor(colors, l);
@@ -93,14 +111,16 @@ export function SystemView() {
       ])
     : "";
   const batteryHealth = b && b.health !== null ? { text: `${t("Zustand")} ${Math.round(b.health * 100)} %`, color: tone(healthLevel(b.health)) } : null;
+  // Many PCs give Windows no CPU temperature (temps.ts); the panel says where Crest can read one instead of leaving a gap (issue #67).
+  const noCpuTemp = noCpuSensor ? t("Keine CPU-Temperatur von Windows. Solange HWiNFO (mit Shared Memory Support) oder LibreHardwareMonitor läuft, liest Crest sie dort.") : undefined;
 
-  if (material) return <MaterialSystemLayout st={st} tone={tone} roles={colors === "calm"} cpuDetail={join(cpuDetail)} gpuDetail={join(gpuDetail)} gpuBadge={gpuBadge} onGpu={gpus.length > 1 ? cycleGpu : undefined} memLevel={memLevel} powerDetail={powerDetail} batteryDetail={batteryDetail} batteryHealth={batteryHealth} plan={plan} detail={detail} setDetail={setDetail} />;
+  if (material) return <MaterialSystemLayout st={st} tone={tone} roles={colors === "calm"} cpuDetail={join(cpuDetail)} noCpuTemp={noCpuTemp} gpuDetail={join(gpuDetail)} gpuBadge={gpuBadge} onGpu={gpus.length > 1 ? cycleGpu : undefined} memLevel={memLevel} powerDetail={powerDetail} batteryDetail={batteryDetail} batteryHealth={batteryHealth} plan={plan} detail={detail} setDetail={setDetail} />;
 
   let i = 0;
   return (
     <div className="flex h-full gap-2 px-4 pt-1 pb-2">
       <div className="min-w-0 flex-1 divide-y divide-separator rounded-[14px] bg-fill-1">
-        <Row i={i++} tick={st.tick} icon={Cpu} hue="red" label="CPU" detail={join(cpuDetail)} temp={st.cpuTemp !== null ? { c: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp), from: st.cpuTempFrom } : null} tone={tone} values={st.history.cpu} max={100} value={`${Math.round(s.cpu)} %`} level={ofShare(s.cpu)}>
+        <Row i={i++} tick={st.tick} icon={Cpu} hue="red" label="CPU" detail={join(cpuDetail)} temp={st.cpuTemp !== null ? { c: st.cpuTemp, level: tempLevel("cpu", st.cpuTemp), from: st.cpuTempFrom } : null} noTemp={noCpuTemp} tone={tone} values={st.history.cpu} max={100} value={`${Math.round(s.cpu)} %`} level={ofShare(s.cpu)}>
           {cores > 0 && <CoreColumns cores={s.cores} tone={tone} />}
         </Row>
         <Row i={i++} tick={st.tick} icon={RamIcon} hue="violet" label="RAM" detail={`${gb(s.memUsed)} / ${gb(s.memTotal)} GB`} tone={tone} values={st.history.mem} max={100} value={`${Math.round(mem)} %`} level={memLevel}>
@@ -244,6 +264,8 @@ function Row(props: {
   detail: ReactNode;
   /** `from`: the program that gave it, shown on hover. */
   temp?: { c: number; level: Level; from?: string | null } | null;
+  /** With no `temp`: "- °C", and this on hover saying why. */
+  noTemp?: string;
   health?: { text: string; color: string } | null;
   tone: (l: Level) => string;
   values?: number[];
@@ -281,10 +303,19 @@ function Row(props: {
           <span className="tabular truncate" title={typeof props.detail === "string" ? props.detail : undefined}>
             {props.detail}
           </span>
-          {props.temp && (
+          {props.temp ? (
             <span dir="ltr" className="tabular shrink-0 font-medium" style={{ color: props.tone(props.temp.level) }} title={props.temp.from ?? undefined}>
               {degrees(props.temp.c)} °C
             </span>
+          ) : (
+            props.noTemp && (
+              // The reason keeps the page's direction (Arabic reads right to left); only the reading itself is left to right.
+              <span role="img" aria-label={props.noTemp} className="shrink-0" title={props.noTemp}>
+                <span dir="ltr" className="tabular font-medium">
+                  - °C
+                </span>
+              </span>
+            )
           )}
           {props.health && (
             <span className="tabular shrink-0 font-medium" style={{ color: props.health.color }}>

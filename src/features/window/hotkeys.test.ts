@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { altGrRisk, combinations, conflicts, launcherKeys, keycaps, label, normalize, parse, record, toolConflicts, type KeyLike } from "./hotkeys.ts";
+import { altGrRisk, combinations, conflicts, launcherKeys, keycaps, label, normalize, parse, record, textStep, toolConflicts, type KeyLike } from "./hotkeys.ts";
 
 const key = (code: string, mods: Partial<KeyLike> = {}): KeyLike => ({ code, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
 
@@ -99,4 +99,35 @@ test("labels", () => {
   assert.equal(label("Ctrl+Shift+Digit1"), "Ctrl+Shift+1");
   assert.equal(label("Win+Backquote"), "Win+`");
   assert.deepEqual(keycaps(""), []);
+});
+
+test("Ctrl + and Ctrl - change a tool's text size and Ctrl 0 resets it, on any layout, without taking AltGr's characters", () => {
+  const ev = (k: string, code: string, mods: Partial<KeyLike> = {}) => ({ ...key(code, { ctrlKey: true, ...mods }), key: k });
+  assert.equal(textStep(ev("=", "Equal"), false), 1);
+  assert.equal(textStep(ev("+", "Equal", { shiftKey: true }), false), 1);
+  // German and Italian keyboards have a + key of their own.
+  assert.equal(textStep(ev("+", "BracketRight"), false), 1);
+  assert.equal(textStep(ev("+", "NumpadAdd"), false), 1);
+  assert.equal(textStep(ev("-", "Minus"), false), -1);
+  assert.equal(textStep(ev("-", "NumpadSubtract"), false), -1);
+  assert.equal(textStep(ev("0", "Digit0"), false), 0);
+  // French: the 0 key types à without Shift.
+  assert.equal(textStep(ev("à", "Digit0"), false), 0);
+  assert.equal(textStep(ev("0", "Numpad0"), false), 0);
+  // AltGr is Ctrl+Alt: AltGr+0 types } on some layouts.
+  assert.equal(textStep(ev("}", "Digit0", { altKey: true }), false), null);
+  assert.equal(textStep(ev("+", "NumpadAdd", { ctrlKey: false }), false), null);
+  assert.equal(textStep(ev("a", "KeyA"), false), null);
+  // On a Mac it is Cmd.
+  assert.equal(textStep(ev("+", "NumpadAdd", { ctrlKey: false, metaKey: true }), true), 1);
+  assert.equal(textStep(ev("+", "NumpadAdd"), true), null);
+});
+
+test("the text size keys leave Ctrl+Ins on the keypad alone and still grow where the = key types a letter", () => {
+  const ev = (k: string, code: string, mods: Partial<KeyLike> = {}) => ({ ...key(code, { ctrlKey: true, ...mods }), key: k });
+  // NumLock off: the keypad's 0 is Insert, and Ctrl+Ins copies.
+  assert.equal(textStep(ev("Insert", "Numpad0"), false), null);
+  // Hindi INSCRIPT puts a vowel sign on the = key.
+  assert.equal(textStep(ev("ृ", "Equal"), false), 1);
+  assert.equal(textStep(ev("ü", "BracketLeft"), false), null);
 });

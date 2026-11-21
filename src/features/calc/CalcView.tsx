@@ -8,6 +8,7 @@ import { settings } from "../../settings/store";
 import { effectiveBase } from "../trading/base";
 import type { Rates } from "../trading/portfolio";
 import { convertMoney } from "../convert/fx";
+import { useToolText } from "../window/panel";
 import { evaluate } from "./engine";
 import { formatValue } from "./format";
 import { describe } from "./messages";
@@ -20,8 +21,8 @@ sheet.set((s) => ({ text: typeof s?.text === "string" ? s.text : "" }));
 let cleared: string | null = null;
 
 const MAX_CHARS = 20_000;
-/** Same metrics on the textarea and the result rows, or the two columns drift apart. */
-const TEXT = "font-mono text-[12px] leading-[18px]";
+/** Same metrics on the textarea and the result rows, or the two columns drift apart; both follow the text size (Ctrl + and Ctrl -). */
+const FONT = 12;
 const ROW = 18;
 /** The sheet's own top and bottom padding (py-2). */
 const PAD = 8;
@@ -63,6 +64,10 @@ export function CalcView() {
   const flashTimer = useRef(0);
   const canUndo = !text && cleared !== null;
   const lang = locale();
+  const scale = useToolText("calc");
+  // Whole px per row, so the result rows stay level with the textarea's lines all the way down.
+  const rowPx = Math.round(ROW * scale);
+  const metrics = { fontSize: FONT * scale, lineHeight: `${rowPx}px` };
 
   // Whether a line names a currency does not depend on the rates, so the answer from the first pass can ask for them.
   const [wantRates, setWantRates] = useState(false);
@@ -77,10 +82,10 @@ export function CalcView() {
   useLayoutEffect(() => {
     const box = scroller.current;
     if (caret === null || !box) return;
-    const top = PAD + caret * ROW;
+    const top = PAD + caret * rowPx;
     if (top - PAD < box.scrollTop) box.scrollTop = top - PAD;
-    else if (top + ROW + PAD > box.scrollTop + box.clientHeight) box.scrollTop = top + ROW + PAD - box.clientHeight;
-  }, [caret, result.lines.length]);
+    else if (top + rowPx + PAD > box.scrollTop + box.clientHeight) box.scrollTop = top + rowPx + PAD - box.clientHeight;
+  }, [caret, result.lines.length, rowPx]);
 
   const edit = (value: string, at: number) => {
     cleared = null;
@@ -132,7 +137,7 @@ export function CalcView() {
           {/* A faint red band behind a line that failed; the line being typed is left alone until the caret moves on. */}
           <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0">
             {rows.map((r, i) => (
-              <div key={i} style={{ height: ROW }} className={r.kind === "error" && i !== caret && !(r.code === "rates" && loading) ? "bg-red/10" : ""} />
+              <div key={i} style={{ height: rowPx }} className={r.kind === "error" && i !== caret && !(r.code === "rates" && loading) ? "bg-red/10" : ""} />
             ))}
           </div>
           <textarea
@@ -149,17 +154,17 @@ export function CalcView() {
             maxLength={MAX_CHARS}
             aria-label={t("Rechnungen")}
             placeholder={t("Rechnung eingeben, z. B. 5 km in miles")}
-            style={{ minHeight: rows.length * ROW }}
-            className={`${TEXT} relative block min-w-0 flex-1 resize-none overflow-x-auto overflow-y-hidden bg-transparent p-0 pl-3 text-label caret-label outline-none [scrollbar-width:none] placeholder:text-label-4 selection:bg-link/40`}
+            style={{ ...metrics, minHeight: rows.length * rowPx }}
+            className="relative block min-w-0 flex-1 resize-none overflow-x-auto overflow-y-hidden bg-transparent p-0 pl-3 font-mono text-label caret-label outline-none [scrollbar-width:none] placeholder:text-label-4 selection:bg-link/40"
           />
-          <div className={`${TEXT} relative w-[42%] shrink-0 pr-3 pl-2 text-right`}>
+          <div className="relative w-[42%] shrink-0 pr-3 pl-2 text-right font-mono" style={metrics}>
             {rows.map((r, i) => {
-              if (r.kind === "empty") return <div key={i} style={{ height: ROW }} />;
+              if (r.kind === "empty") return <div key={i} style={{ height: rowPx }} />;
               if (r.kind === "error") {
                 const soft = i === caret || (r.code === "rates" && loading);
                 const message = r.code === "rates" && loading ? "…" : describe(r.code, r.vars);
                 return (
-                  <div key={i} style={{ height: ROW }} title={message} className={`truncate ${soft ? "text-label-3" : "text-red"}`}>
+                  <div key={i} style={{ height: rowPx }} title={message} className={`truncate ${soft ? "text-label-3" : "text-red"}`}>
                     {message}
                   </div>
                 );
@@ -170,7 +175,7 @@ export function CalcView() {
                 <button
                   key={i}
                   type="button"
-                  style={{ height: ROW }}
+                  style={{ height: rowPx }}
                   title={shown}
                   aria-label={t("Ergebnis kopieren: {text}", { text: shown })}
                   onClick={(e) => {

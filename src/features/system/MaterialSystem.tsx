@@ -53,6 +53,8 @@ export function MaterialSystemLayout(p: {
   tone: (l: Level) => string;
   roles: boolean;
   cpuDetail: string;
+  /** Why the CPU has no temperature, on hover over "- °C"; undefined while it has one. */
+  noCpuTemp: string | undefined;
   gpuDetail: string;
   gpuBadge: string | undefined;
   onGpu: (() => void) | undefined;
@@ -91,7 +93,11 @@ export function MaterialSystemLayout(p: {
         <div className={`grid min-h-0 min-w-0 gap-2 ${chips ? "grid-rows-[minmax(100px,120fr)_minmax(64px,76fr)_28px]" : "grid-rows-[minmax(100px,min(150px,42%))_minmax(64px,1fr)_minmax(64px,min(74px,26%))]"}`}>
           <div className="grid min-h-0 grid-cols-2 gap-2">
             <GaugeCard i={0} icon={Cpu} hue="red" label="CPU" detail={p.cpuDetail} percent={s.cpu} tone={at(PRIMARY)} fit={fit}>
-              {st.cpuTemp !== null && <Reading icon={Thermometer} text={`${degrees(st.cpuTemp)} °C`} color={tone(tempLevel("cpu", st.cpuTemp))} fraction={st.cpuTemp / 100} bar={fit.tempBar} title={st.cpuTempFrom ?? undefined} />}
+              {st.cpuTemp !== null ? (
+                <Reading icon={Thermometer} text={`${degrees(st.cpuTemp)} °C`} color={tone(tempLevel("cpu", st.cpuTemp))} fraction={st.cpuTemp / 100} bar={fit.tempBar} title={st.cpuTempFrom ?? undefined} />
+              ) : (
+                p.noCpuTemp && <Reading icon={Thermometer} text="- °C" color="var(--color-label-3)" fraction={0} bar={false} title={p.noCpuTemp} label={p.noCpuTemp} />
+              )}
               {fit.cores && cores > 0 && (
                 <div className="min-h-0 max-h-10 flex-1">
                   <CoreColumns cores={s.cores} tone={tone} fill />
@@ -166,9 +172,10 @@ function GaugeCard(p: { i: number; icon: Icon; hue: Hue; label: string; detail: 
 }
 
 /** A reading under the gauge: icon, value in its level's colour, and with `bar` a bar filled to `fraction` from the start. */
-function Reading({ icon: I, text, color, fraction, bar, title }: { icon: Icon; text: string; color: string; fraction: number; bar: boolean; title?: string }) {
+/** `label`: what a screen reader says instead of the icon and text, for a reading whose meaning is in its `title`. */
+function Reading({ icon: I, text, color, fraction, bar, title, label }: { icon: Icon; text: string; color: string; fraction: number; bar: boolean; title?: string; label?: string }) {
   return (
-    <div className="flex h-4 min-w-0 shrink-0 items-center gap-1.5" title={title}>
+    <div className="flex h-4 min-w-0 shrink-0 items-center gap-1.5" title={title} role={label ? "img" : undefined} aria-label={label}>
       <I size={14} weight="regular" className="shrink-0 text-label-3" />
       <span dir="ltr" className="tabular shrink-0 text-caption font-medium" style={{ color }}>
         {text}
