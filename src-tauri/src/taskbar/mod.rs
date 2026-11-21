@@ -14,6 +14,7 @@ pub(crate) mod explorer;
 pub(crate) mod front;
 pub(crate) mod panel;
 pub(crate) mod pins;
+pub(crate) mod preview;
 pub(crate) mod reserve;
 pub(crate) mod screens;
 pub(crate) mod start;

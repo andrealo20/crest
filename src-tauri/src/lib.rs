@@ -152,7 +152,7 @@ const SETTINGS_DENIED: &[&str] = &[
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
     "taskbar_auto_hide", "taskbar_slid", "taskbar_shell", "taskbar_windows_pins", "taskbar_tray_on", "taskbar_tray_click",
     "taskbar_settings", "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect",
-    "taskbar_bt_devices",
+    "taskbar_bt_devices", "taskbar_preview",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, opening the notch and
@@ -160,8 +160,9 @@ const SETTINGS_DENIED: &[&str] = &[
 /// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
 /// (`taskbar_slid`), Windows' Start, its Win+X menu, its quick settings and Task Manager (`taskbar_shell`), four of its settings pages
 /// (`taskbar_settings`), the tray's icons with their pictures and clicks, the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
-/// Bluetooth page (taskbar/bluetooth.rs), and what the notch's tools in its panel read or do on a click. Its settings reach Rust
-/// only through the notch (`taskbar_apply`, `taskbar_auto_hide`, `taskbar_tray_on`).
+/// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), and what the notch's
+/// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
+/// `taskbar_tray_on`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
     "taskbar_tray", "taskbar_tray_images", "taskbar_tray_click",
@@ -178,6 +179,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "audio_outputs", "audio_set_output", "brightness_get", "brightness_set", "focus_get", "focus_set", "quick_get", "quick_radio",
     "quick_dark", "mic_mute", "quick_power", "web_search",
     "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
+    "taskbar_preview",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -563,6 +565,8 @@ pub fn run() {
             taskbar::tasks::taskbar_release,
             #[cfg(windows)]
             taskbar::start::taskbar_shell,
+            #[cfg(windows)]
+            taskbar::preview::taskbar_preview,
             #[cfg(windows)]
             taskbar::panel::taskbar_panel,
             #[cfg(windows)]
@@ -1256,6 +1260,8 @@ mod tests {
         assert!(ok("taskbar", "taskbar_shell") && ok("taskbar-1", "taskbar_shell") && !ok("settings", "taskbar_shell"));
         // The quick panel's Wi-Fi and Bluetooth pages, on every bar, never in the settings window; the commands refuse any window but a bar's, the notch too.
         assert!(["taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));
+        // The window previews, on every bar, never in the settings window; the command refuses any window but a bar's, the notch too (taskbar/preview.rs).
+        assert!(ok("taskbar", "taskbar_preview") && ok("taskbar-1", "taskbar_preview") && !ok("settings", "taskbar_preview") && !ok("timer", "taskbar_preview"));
     }
 
     #[test]
