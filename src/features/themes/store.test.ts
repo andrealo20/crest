@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { FONTS, THEME_DEFAULTS, fontStack, systemTheme } from "./themes.ts";
+import { BUILT_IN_THEMES, FONTS, THEME_DEFAULTS, fontStack, resolveTheme, systemTheme } from "./themes.ts";
 import { resolveMaterial } from "./material.ts";
 
 const STORE = new URL("./store.ts", import.meta.url).href;
@@ -75,7 +75,9 @@ export const systemAccent = {
   },
 };
 export const settings = createStore({ themes: { ...THEME_DEFAULTS, id: "light" }, weather: null });
-export const updateSettings = () => {};
+/** How often store.ts wrote the settings: a preview never does. */
+let writes = 0;
+export const updateSettings = () => void writes++;
 /** What applyFont() last gave measure.ts: the row's family, the caption's tracking, and whether tabular text is measured in the page. */
 let family = "", spacing = -1, tabular: boolean | null = null;
 export function setRowFamily(f: string, s: number) {
@@ -270,4 +272,36 @@ test("an older crossfade that ends while a newer one runs leaves the colours' bl
   await settle();
   assert.equal("designSwitching" in dataset, false);
   crossfades = false;
+});
+
+test("a preview counts only under Material, in the settings window with focus, while not editing, without forced colours, for another theme", async () => {
+  const { previewFor } = (await import("./store.ts")) as typeof import("./store");
+  const light = BUILT_IN_THEMES.find((t) => t.id === "light")!;
+  const ok = { current: "dark", material: true, settingsWindow: true, focused: true, editing: false, forced: false };
+  assert.equal(previewFor(light, ok), light);
+  for (const change of [{ material: false }, { settingsWindow: false }, { focused: false }, { editing: true }, { forced: true }, { current: "light" }])
+    assert.equal(previewFor(light, { ...ok, ...change }), null, JSON.stringify(change));
+  assert.equal(previewFor(null, ok), null);
+});
+
+test("a preview draws its theme under Material and back, without writing the settings, and the Crest style ignores it", async () => {
+  const store = (await import("./store.ts")) as typeof import("./store");
+  const theme = (id: string) => BUILT_IN_THEMES.find((t) => t.id === id)!;
+  store.startThemes();
+  more.matches = false;
+  more.change();
+  settings.set({ ...settings.get(), themes: { ...settings.get().themes, id: "light", design: "material" } });
+  const light = vars["--color-notch"];
+  assert.equal(light, resolveMaterial(theme("light")).vars["--color-notch"]);
+  store.previewTheme.set(theme("dracula"));
+  assert.equal(vars["--color-notch"], resolveMaterial(theme("dracula")).vars["--color-notch"]);
+  assert.notEqual(vars["--color-notch"], light);
+  store.previewTheme.set(null);
+  assert.equal(vars["--color-notch"], light);
+  assert.equal(writes, 0);
+  // Another window puts the Style on Crest while the preview is still set: the saved theme shows, not the preview.
+  store.previewTheme.set(theme("dracula"));
+  pick("crest");
+  assert.equal(vars["--color-notch"], resolveTheme(theme("light")).vars["--color-notch"]);
+  store.previewTheme.set(null);
 });

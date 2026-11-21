@@ -1,9 +1,10 @@
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowCounterClockwise, WarningCircle } from "../../ui/iconset";
 import { Button, Group, Row, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
 import type { RowSymbol } from "../../ui/materialNames";
 import { formatTime } from "../../lib/format";
 import { isMac } from "../../platform/native";
+import { windowKind } from "../../lib/windowKind";
 import { openFile, revealFile } from "../../platform/services";
 import { demo } from "../../dev/showcase-data";
 import { glassShape } from "../../notch/glass/params";
@@ -28,6 +29,8 @@ import {
   importFromFolder,
   overwriteTheme,
   pickTheme,
+  previewFor,
+  previewTheme,
   saveAsNew,
   savedTheme,
   startEditing,
@@ -172,11 +175,51 @@ function ThemeChoice() {
   const current = findTheme(activeThemeId(themes, new Date(), weather), themes.custom, system);
   const list = themeChoices(system, themes.custom);
 
+  const timer = useRef(0);
+  const stopPreview = () => {
+    window.clearTimeout(timer.current);
+    previewTheme.set(null);
+  };
+  const hover = (id: string | null) => {
+    if (id === null) return stopPreview();
+    window.clearTimeout(timer.current);
+    // Stellaria's delay, so crossing the grid flashes no colours; the last preview stays until this one fires.
+    timer.current = window.setTimeout(
+      () =>
+        previewTheme.set(
+          previewFor(list.find((x) => x.id === id) ?? null, {
+            current: current.id,
+            material: style === "material",
+            settingsWindow: windowKind === "settings",
+            focused: document.hasFocus(),
+            editing: editing !== null,
+            forced,
+          }),
+        ),
+      220,
+    );
+  };
+  useEffect(() => {
+    if (pending) stopPreview();
+  }, [pending]);
+  useEffect(() => {
+    window.addEventListener("blur", stopPreview);
+    return () => {
+      window.removeEventListener("blur", stopPreview);
+      stopPreview();
+    };
+  }, []);
+
   const choose = (id: string) => {
     setConfirmDelete(false);
-    if (editing && editing.past.length > 0) return setPending(id);
+    if (editing && editing.past.length > 0) {
+      stopPreview();
+      return setPending(id);
+    }
     discardEdits();
     pickTheme(id);
+    // After the pick: updateSettings is synchronous, so ending the preview first would draw the old theme for a moment.
+    stopPreview();
   };
   // For the saved look; a window rule can change it for a while (Notch.tsx works from the look on screen).
   const fits = glassShape(s.display.idleStyle, s.dock.edge);
@@ -191,6 +234,7 @@ function ThemeChoice() {
           label={t("Theme")}
           value={current.id}
           onChange={choose}
+          onHover={hover}
           options={list.map((theme) => ({ value: theme.id, label: themeName(theme), preview: <ThemePreview theme={theme} style={style} /> }))}
         />
         {style === "material" && (

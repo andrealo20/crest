@@ -42,6 +42,17 @@ import "./themes.css";
  */
 export const draft = createStore<History<ThemeFile> | null>(null, { persist: "theme-draft" });
 
+/** The theme card under the pointer in the settings window, drawn there alone while it rests (not saved, so no other window sees it). */
+export const previewTheme = createStore<ThemeFile | null>(null);
+
+/** The theme a card under the pointer previews: none in the Crest style, outside the settings window or without focus, while editing, with forced colours, or for the theme in use. */
+export function previewFor(
+  hovered: ThemeFile | null,
+  c: { current: string; material: boolean; settingsWindow: boolean; focused: boolean; editing: boolean; forced: boolean },
+): ThemeFile | null {
+  return hovered && c.material && c.settingsWindow && c.focused && !c.editing && !c.forced && hovered.id !== c.current ? hovered : null;
+}
+
 const DARK = resolveTheme(BUILT_IN_THEMES[0]);
 /**
  * The black closed notch's ink, which keeps light text whatever the theme: Dark's tokens in the Crest style, in Material the dark
@@ -76,8 +87,9 @@ let lastNotch = "";
 /** The crossfade of the latest change of style. */
 let switching: ViewTransition | null = null;
 function apply() {
-  const file = draft.get()?.present ?? savedTheme();
   const style: Design = pageDesign === "material" || pageDesign === "crest" ? pageDesign : settings.get().themes.design;
+  // The style first: a preview left over when another window switches to Crest must not show there.
+  const file = (style === "material" ? previewTheme.get() : null) ?? draft.get()?.present ?? savedTheme();
   const more = moreContrast?.matches ?? false;
   const key = JSON.stringify([style, more, file]);
   if (key === lastKey) return;
@@ -170,6 +182,7 @@ export function startThemes() {
     scheduleNext();
   });
   draft.subscribe(apply);
+  previewTheme.subscribe(apply);
   moreContrast?.addEventListener("change", apply);
   // The saved reading, this window's own or another's: the timer and the bar cannot read the system, so they follow the notch's.
   lastAccent.subscribe(() => {

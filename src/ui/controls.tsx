@@ -92,6 +92,8 @@ export function StyleCards<T extends string>(props: {
   label?: string;
   /** Cards per row (default 3); with 2 each card lays its drawing beside its name and hint. */
   columns?: 2 | 3 | 4;
+  /** The card the pointer enters, and null as it leaves the grid. */
+  onHover?: (value: T | null) => void;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const wide = props.columns === 2;
@@ -104,6 +106,7 @@ export function StyleCards<T extends string>(props: {
     <div
       role="radiogroup"
       aria-label={props.label}
+      onPointerLeave={() => props.onHover?.(null)}
       className={`grid gap-2 ${
         wide ? "grid-cols-2" : `${props.columns === 4 ? "grid-cols-4" : "grid-cols-3"} roomy:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]`
       }`}
@@ -118,6 +121,7 @@ export function StyleCards<T extends string>(props: {
             aria-checked={active}
             tabIndex={active ? 0 : -1}
             onClick={() => props.onChange(o.value)}
+            onPointerEnter={() => props.onHover?.(o.value)}
             onKeyDown={(e) => {
               const step = arrowStep(e.key, getComputedStyle(e.currentTarget).direction === "rtl");
               if (!step) return;
