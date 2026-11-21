@@ -481,6 +481,18 @@ test("a dragged pin lands before the first pin whose centre is right of the poin
   assert.equal(pinDrop([], null, 130, 6), null);
 });
 
+test("the window buttons of one pinned app are one slot for a dragged pin or files", () => {
+  // Pinned a with three window buttons (one button per window), then pinned b.
+  const slots = [{ id: "a", x: 100, w: 40 }, { id: "a", x: 146, w: 40 }, { id: "a", x: 192, w: 40 }, { id: "b", x: 238, w: 40 }];
+  // Between a's windows it lands before or after all of them, never inside.
+  assert.deepEqual(pinDrop(slots, "b", 140, 6), { before: "a", line: 96 });
+  assert.deepEqual(pinDrop(slots, null, 180, 6), { before: "b", line: 234 });
+  // Anywhere among its own windows, or right after the last, is a's own place.
+  assert.equal(pinDrop(slots, "a", 189, 6), null);
+  assert.equal(pinDrop(slots, "a", 250, 6), null);
+  assert.deepEqual(pinDrop(slots, "a", 300, 6), { before: null, line: 280 });
+});
+
 test("a pin moves before another or to the end, and an unchanged move gives the same array", () => {
   const f = (id: string) => ({ id, name: id });
   const pinned = [f("a"), f("b"), f("c")];

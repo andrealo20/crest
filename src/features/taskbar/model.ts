@@ -289,9 +289,16 @@ export type PinSlot = { id: string; x: number; w: number };
 /**
  * Where pin `id` dragged (or files dropped, id null) to `x` lands among the shown pinned buttons: before the first whose centre is
  * right of `x` (dropSlot), null past the last, and the left edge of the 2 px line, centred in the `gap`. Null with no pinned button
- * shown, and on the pin's own place (before itself or right after it): nothing to write.
+ * shown, and on the pin's own place (before itself or right after it): nothing to write. The window buttons of one pinned app side by
+ * side (one button per window) are one slot, since a pin lands only before or after all of them.
  */
-export function pinDrop(slots: PinSlot[], id: string | null, x: number, gap: number): { before: string | null; line: number } | null {
+export function pinDrop(shown: PinSlot[], id: string | null, x: number, gap: number): { before: string | null; line: number } | null {
+  const slots: PinSlot[] = [];
+  for (const s of shown) {
+    const l = slots[slots.length - 1];
+    if (l?.id === s.id) slots[slots.length - 1] = { ...l, w: s.x + s.w - l.x };
+    else slots.push(s);
+  }
   if (!slots.length) return null;
   const at = dropSlot(slots, x);
   const own = id === null ? -1 : slots.findIndex((s) => s.id === id);
