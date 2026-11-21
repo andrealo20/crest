@@ -2,7 +2,7 @@ import { Plus, X } from "@phosphor-icons/react";
 import { t } from "../../i18n";
 import { PART_IDS } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
-import { settings, updateSettings } from "../../settings/store";
+import { settings, updateSettings, type Settings } from "../../settings/store";
 import { Select, SubSwitch } from "../../ui/controls";
 import { setMusic } from "../now-playing/music";
 import { shownIds } from "../usage/cards";
@@ -20,25 +20,24 @@ import { addableTools, addWidget, barWidgets, isTool, isWidget, removeWidget, to
 /** As on the closed notch's parts page: only these readings always show, so one of them stays on. */
 const MAIN_READINGS = ["cpu", "ram", "gpu", "net"] as const;
 
-/** A widget's switches, what it shows nothing without, and the button that takes it off the bar. */
+/** What a widget shows nothing without, in the words of the notch's settings; false when it has it. */
+export const widgetNeeds = (s: Settings): Partial<Record<Removable, string | false>> => ({
+  github: !s.github.user.trim() && t("Braucht deinen GitHub-Namen"),
+  leetcode: !s.leetcode.user.trim() && t("Braucht deinen LeetCode-Namen"),
+  script: !(s.notices.enabled && s.notices.cli) && t("Braucht Live-Mitteilungen und crest-notify"),
+  calendar: !s.calendar.sources.length && t("Kein Kalender verbunden"),
+  rings: !shownIds(s.aiUsage.order, s.usage).length && t("Keine Anbieter aktiv"),
+  discord: !s.discord.clientId.trim() && t("Client-ID und Secret fehlen"),
+});
+
+/** A widget's switches, what it shows nothing without, and the button that takes it off the bar. The clock's date is picked on the Widgets page, with its versions. */
 export function WidgetOptions({ id }: { id: Removable }) {
   const s = settings.use();
   const readingsOn = MAIN_READINGS.filter((k) => s.closed.readings[k]).length;
-  // In the words of the notch's settings.
-  const needs: Partial<Record<Removable, string | false>> = {
-    github: !s.github.user.trim() && t("Braucht deinen GitHub-Namen"),
-    leetcode: !s.leetcode.user.trim() && t("Braucht deinen LeetCode-Namen"),
-    script: !(s.notices.enabled && s.notices.cli) && t("Braucht Live-Mitteilungen und crest-notify"),
-    calendar: !s.calendar.sources.length && t("Kein Kalender verbunden"),
-    rings: !shownIds(s.aiUsage.order, s.usage).length && t("Keine Anbieter aktiv"),
-    discord: !s.discord.clientId.trim() && t("Client-ID und Secret fehlen"),
-  };
+  const needs = widgetNeeds(s);
   const switches =
     id === "clock" ? (
-      <>
-        <SubSwitch label={t("Datum")} checked={s.taskbar.clock.date} onChange={(date) => setTaskbar((cur) => ({ clock: { ...cur.clock, date } }))} />
-        <SubSwitch label={t("Sekunden")} checked={s.taskbar.clock.seconds} onChange={(seconds) => setTaskbar((cur) => ({ clock: { ...cur.clock, seconds } }))} />
-      </>
+      <SubSwitch label={t("Sekunden")} checked={s.taskbar.clock.seconds} onChange={(seconds) => setTaskbar((cur) => ({ clock: { ...cur.clock, seconds } }))} />
     ) : id === "readings" ? (
       MAIN_READINGS.map((k) => (
         <SubSwitch

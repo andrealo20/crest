@@ -2,7 +2,7 @@
 // opens, their size, and adding or removing one. Pure, so the rules are tested without the app around them.
 
 import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
-import { TASKBAR_DEFAULTS, TOOL_BUTTONS, fitIcon, type BarItem, type ToolItem, type Zone } from "./model.ts";
+import { TASKBAR_DEFAULTS, TOOL_BUTTONS, WIDGET_VARIANTS, fitIcon, isObj, variantOf, type BarItem, type TaskbarSettings, type ToolItem, type WidgetVariants, type Zone } from "./model.ts";
 import { opensInBar } from "./panelModel.ts";
 
 /** What the settings take off the bar and put back like a widget: the widgets, the tray, Stato and the tool buttons. */
@@ -106,3 +106,51 @@ export const removeWidget = (zones: Record<Zone, BarItem[]>, id: Removable): Rec
   center: zones.center.filter((x) => x !== id),
   right: zones.right.filter((x) => x !== id),
 });
+
+/** One version a widget offers on the Widgets page: its variant (null for a widget with only today's look), and for the digital clock its date. */
+export type WidgetChoice = { variant: string | null; date?: boolean };
+
+const hasVersions = (id: PartId): id is keyof WidgetVariants => Object.hasOwn(WIDGET_VARIANTS, id);
+
+/**
+ * The versions the Widgets page offers for `id`, today's first. The clock's "time and date" and "time only" are the digital clock with
+ * taskbar.clock.date, its only source (design 3D); two zones only while the Clocks tool has a zone (`zones`).
+ */
+export function widgetChoices(id: PartId, zones: boolean): WidgetChoice[] {
+  if (id === "clock") return [{ variant: "digital", date: true }, { variant: "digital", date: false }, { variant: "analog" }, ...(zones ? [{ variant: "zones" }] : [])];
+  return hasVersions(id) ? WIDGET_VARIANTS[id].map((variant) => ({ variant })) : [{ variant: null }];
+}
+
+/** The index in widgetChoices of the version the bar draws: the saved one (through variantOf), the clock's digital ones by its date. */
+export function chosenChoice(id: PartId, variants: unknown, date: boolean, zones: boolean): number {
+  if (id === "clock") {
+    const v = variantOf(variants, "clock");
+    return v === "analog" ? 2 : v === "zones" && zones ? 3 : date ? 0 : 1;
+  }
+  return hasVersions(id) ? (WIDGET_VARIANTS[id] as readonly string[]).indexOf(variantOf(variants, id)) : 0;
+}
+
+/**
+ * The settings patch for picking `c` for `id`: the version in variants, the digital clock's date in clock (and no clock in
+ * variants), nothing for a widget without versions. `cur.variants` may be raw JSON from another window (storeCore.ts:51-57).
+ */
+export function applyChoice(cur: Pick<TaskbarSettings, "variants" | "clock">, id: PartId, c: WidgetChoice): Partial<TaskbarSettings> {
+  const variants = (isObj(cur.variants) ? cur.variants : {}) as TaskbarSettings["variants"];
+  if (!hasVersions(id) || c.variant === null) return {};
+  if (id === "clock" && c.variant === "digital") {
+    const { clock: _, ...rest } = variants;
+    return { variants: rest, clock: { ...cur.clock, date: c.date ?? cur.clock.date } };
+  }
+  return { variants: { ...variants, [id]: c.variant } };
+}
+
+/**
+ * The version an arrow key moves to from `at` of `count`: Right and Down the next, Left and Up the previous (Left and Right swapped
+ * right to left), wrapping; Home the first, End the last; undefined for any other key.
+ */
+// shortcut: local until material-style's src/ui/radioKeys.ts arrowStep lands with the merge, then use it.
+export function variantKey(key: string, at: number, count: number, rtl: boolean): number | undefined {
+  const step = key === "ArrowDown" || key === (rtl ? "ArrowLeft" : "ArrowRight") ? 1 : key === "ArrowUp" || key === (rtl ? "ArrowRight" : "ArrowLeft") ? -1 : 0;
+  if (step) return (at + step + count) % count;
+  return key === "Home" ? 0 : key === "End" ? count - 1 : undefined;
+}

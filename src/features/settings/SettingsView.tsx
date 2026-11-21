@@ -96,8 +96,9 @@ import { HideFromSharingRow } from "../meeting/HideFromSharingRow";
 import { hueVar, useIconColors, type Hue } from "../themes/hues";
 import { ClipboardSettings } from "../clipboard/ClipboardSettings";
 import { TaskbarApps, TaskbarGeneral, TaskbarItems, TaskbarLook, useTaskbarShown } from "../taskbar/TaskbarSettings";
+import { WidgetsPage } from "../taskbar/WidgetsPage";
 
-type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins" | "taskbar" | "taskbar-items" | "taskbar-apps" | "taskbar-look";
+type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins" | "taskbar" | "taskbar-items" | "taskbar-widgets" | "taskbar-apps" | "taskbar-look";
 
 const allPages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
   { id: "general", label: "Allgemein", icon: SlidersHorizontal, hue: "slate" },
@@ -112,6 +113,7 @@ const allPages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
   { id: "plugins", label: "Plugins", icon: PuzzlePiece, hue: "green" },
   { id: "taskbar", label: "Allgemein", icon: SlidersHorizontal, hue: "slate" },
   { id: "taskbar-items", label: "Elemente", icon: Columns, hue: "blue" },
+  { id: "taskbar-widgets", label: "Widgets", icon: SquaresFour, hue: "teal" },
   { id: "taskbar-apps", label: "Apps und Fenster", icon: AppWindow, hue: "indigo" },
   { id: "taskbar-look", label: "Aussehen", icon: PaintBrush, hue: "pink" },
 ];
@@ -146,6 +148,7 @@ const sectionPage: Record<string, PageId> = {
   plugins: "plugins",
   taskbar: "taskbar",
   "taskbar-items": "taskbar-items",
+  "taskbar-widgets": "taskbar-widgets",
   "taskbar-apps": "taskbar-apps",
   "taskbar-look": "taskbar-look",
 };
@@ -458,6 +461,7 @@ function PageContent({ page }: { page: PageId }) {
       {page === "themes" && <ThemeSettings />}
       {page === "taskbar" && <TaskbarGeneral />}
       {page === "taskbar-items" && <TaskbarItems />}
+      {page === "taskbar-widgets" && <WidgetsPage />}
       {page === "taskbar-apps" && <TaskbarApps />}
       {page === "taskbar-look" && <TaskbarLook />}
     </>

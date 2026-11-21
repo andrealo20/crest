@@ -1873,5 +1873,16 @@
  "Verbindung wird getrennt …": "Déconnexion…",
  "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "En bas se trouve la barre des tâches Crest : le bord du bas revient quand elle est désactivée",
   "Task-Manager": "Gestionnaire des tâches",
-  "Besprechung": "Réunion"
+  "Besprechung": "Réunion",
+  "Widgets": "Widgets",
+  "Version": "Version",
+  "Nur Symbol": "Icône seule",
+  "Symbol und Wetterlage": "Icône et conditions",
+  "Nächste Stunden": "Prochaines heures",
+  "Uhrzeit und Datum": "Heure et date",
+  "Nur Uhrzeit": "Heure seule",
+  "Zwei Zeitzonen": "Deux fuseaux horaires",
+  "Rundanzeigen": "Cadrans",
+  "CPU-Verlauf": "Courbe du CPU",
+  "Countdown": "Compte à rebours"
 }

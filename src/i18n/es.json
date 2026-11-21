@@ -1873,5 +1873,16 @@
  "Verbindung wird getrennt …": "Desconectando …",
  "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "Abajo está la barra de tareas de Crest: el borde inferior vuelve al desactivarla",
   "Task-Manager": "Administrador de tareas",
-  "Besprechung": "Reunión"
+  "Besprechung": "Reunión",
+  "Widgets": "Widgets",
+  "Version": "Versión",
+  "Nur Symbol": "Solo icono",
+  "Symbol und Wetterlage": "Icono y condiciones",
+  "Nächste Stunden": "Próximas horas",
+  "Uhrzeit und Datum": "Hora y fecha",
+  "Nur Uhrzeit": "Solo hora",
+  "Zwei Zeitzonen": "Dos zonas horarias",
+  "Rundanzeigen": "Indicadores",
+  "CPU-Verlauf": "Línea de CPU",
+  "Countdown": "Cuenta atrás"
 }

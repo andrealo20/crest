@@ -1873,5 +1873,16 @@
  "Verbindung wird getrennt …": "جارٍ قطع الاتصال …",
  "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "في الأسفل شريط مهام Crest: تعود الحافة السفلية عند إيقافه",
   "Task-Manager": "إدارة المهام",
-  "Besprechung": "اجتماع"
+  "Besprechung": "اجتماع",
+  "Widgets": "الأدوات المصغّرة",
+  "Version": "الشكل",
+  "Nur Symbol": "الأيقونة فقط",
+  "Symbol und Wetterlage": "الأيقونة والطقس",
+  "Nächste Stunden": "الساعات القادمة",
+  "Uhrzeit und Datum": "الوقت والتاريخ",
+  "Nur Uhrzeit": "الوقت فقط",
+  "Zwei Zeitzonen": "منطقتان زمنيتان",
+  "Rundanzeigen": "مؤشرات دائرية",
+  "CPU-Verlauf": "منحنى المعالج",
+  "Countdown": "العد التنازلي"
 }

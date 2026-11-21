@@ -100,7 +100,7 @@ export const WIDGET_VARIANTS: { [K in keyof WidgetVariants]: readonly WidgetVari
   timer: ["countdown", "ring"],
 };
 
-const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+export const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 /** Whether `variants` names a version `id` has, as its own key: other windows get the raw JSON (widgets.ts). */
 const isVariant = (variants: unknown, id: keyof WidgetVariants): boolean =>
   isObj(variants) && Object.hasOwn(variants, id) && (WIDGET_VARIANTS[id] as readonly unknown[]).includes(variants[id]);

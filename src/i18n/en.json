@@ -1873,5 +1873,16 @@
  "Verbindung wird getrennt …": "Disconnecting …",
  "Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist": "The Crest taskbar is at the bottom: the bottom edge comes back when it is off",
   "Task-Manager": "Task Manager",
-  "Besprechung": "Meeting"
+  "Besprechung": "Meeting",
+  "Widgets": "Widgets",
+  "Version": "Version",
+  "Nur Symbol": "Icon only",
+  "Symbol und Wetterlage": "Icon and conditions",
+  "Nächste Stunden": "Next hours",
+  "Uhrzeit und Datum": "Time and date",
+  "Nur Uhrzeit": "Time only",
+  "Zwei Zeitzonen": "Two time zones",
+  "Rundanzeigen": "Dials",
+  "CPU-Verlauf": "CPU line",
+  "Countdown": "Countdown"
 }

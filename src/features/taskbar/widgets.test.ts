@@ -4,7 +4,7 @@ import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 import { DEFAULT_OFF, TOOL_IDS } from "../../settings/tools.ts";
 import { TASKBAR_DEFAULTS, TOOL_BUTTONS, type BarItem, type Zone } from "./model.ts";
 import { statusPill } from "./statusModel.ts";
-import { SLIDE_KEEP_MS, addWidget, addableTools, barPartsFor, barSources, barWidgets, isTool, isWidget, pillWidget, removeWidget, shownZones, sourcesAfter, toolOf, toolShown, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
+import { SLIDE_KEEP_MS, addWidget, addableTools, applyChoice, chosenChoice, barPartsFor, barSources, barWidgets, isTool, isWidget, pillWidget, removeWidget, shownZones, sourcesAfter, toolOf, toolShown, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
 
 test("a widget opens its tool, the clock Windows' calendar", () => {
   // Every part: one without a tool would open Windows' calendar.
@@ -117,4 +117,46 @@ test("a tool button is added and taken off like a widget, apart from the widget 
   assert.ok(isTool("tool:media") && !isTool("media") && !isTool("timer"));
   assert.equal(toolOf("tool:find"), "find");
   assert.deepEqual(barWidgets(addWidget(z, "tool:media", "left")), ["weather", "clock"]);
+});
+
+test("the clock's versions: time and date, time alone, analog, and two zones only with a zone in Clocks", () => {
+  assert.deepEqual(widgetChoices("clock", false), [{ variant: "digital", date: true }, { variant: "digital", date: false }, { variant: "analog" }]);
+  assert.deepEqual(widgetChoices("clock", true).at(-1), { variant: "zones" });
+  assert.deepEqual(widgetChoices("weather", false).map((c) => c.variant), ["temp", "icon", "condition", "hours"]);
+  assert.deepEqual(widgetChoices("readings", true).map((c) => c.variant), ["dials", "bars", "line"]);
+  assert.deepEqual(widgetChoices("title", true), [{ variant: null }]);
+});
+
+test("the chosen version is the saved one, the clock's digital ones by its date, two zones without a zone back on the digital clock", () => {
+  assert.equal(chosenChoice("clock", {}, true, false), 0);
+  assert.equal(chosenChoice("clock", {}, false, false), 1);
+  assert.equal(chosenChoice("clock", { clock: "analog" }, true, false), 2);
+  assert.equal(chosenChoice("clock", { clock: "zones" }, true, true), 3);
+  assert.equal(chosenChoice("clock", { clock: "zones" }, false, false), 1);
+  assert.equal(chosenChoice("weather", { weather: "hours" }, true, false), 3);
+  assert.equal(chosenChoice("weather", "x", true, false), 0);
+  assert.equal(chosenChoice("title", {}, true, false), 0);
+});
+
+test("picking a version writes the version, and the clock's digital ones its date, nothing else", () => {
+  const cur = { variants: { weather: "hours", clock: "analog" }, clock: { date: true, seconds: true } } as const;
+  assert.deepEqual(applyChoice(cur, "clock", { variant: "digital", date: false }), { variants: { weather: "hours" }, clock: { date: false, seconds: true } });
+  assert.deepEqual(applyChoice(cur, "clock", { variant: "zones" }), { variants: { weather: "hours", clock: "zones" } });
+  assert.deepEqual(applyChoice(cur, "weather", { variant: "icon" }), { variants: { weather: "icon", clock: "analog" } });
+  assert.deepEqual(applyChoice(cur, "title", { variant: null }), {});
+  // Another window may hand over raw JSON without variants (storeCore.ts:51-57): the pick still works.
+  assert.deepEqual(applyChoice({ variants: undefined as never, clock: { date: true, seconds: false } }, "clock", { variant: "digital", date: false }), { variants: {}, clock: { date: false, seconds: false } });
+  assert.deepEqual(applyChoice({ variants: "x" as never, clock: { date: true, seconds: false } }, "weather", { variant: "icon" }), { variants: { weather: "icon" } });
+});
+
+test("the arrows move through a widget's versions and wrap, mirrored right to left", () => {
+  assert.equal(variantKey("ArrowRight", 0, 4, false), 1);
+  assert.equal(variantKey("ArrowDown", 3, 4, false), 0);
+  assert.equal(variantKey("ArrowLeft", 0, 4, false), 3);
+  assert.equal(variantKey("ArrowUp", 1, 4, false), 0);
+  assert.equal(variantKey("ArrowRight", 0, 4, true), 3);
+  assert.equal(variantKey("ArrowLeft", 0, 4, true), 1);
+  assert.equal(variantKey("Home", 2, 4, false), 0);
+  assert.equal(variantKey("End", 0, 4, false), 3);
+  assert.equal(variantKey("Enter", 0, 4, false), undefined);
 });
