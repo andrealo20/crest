@@ -295,6 +295,10 @@ export interface Group {
   name: string;
   pins: Pin[];
   windows: Win[];
+  /** Rust can start a new instance from its first window (a relaunch command, or an unpackaged exe). Missing reads as false. */
+  spawnable?: boolean;
+  /** Rust can pin it from its window: spawnable, without entries, and not asking never to be pinned. Missing reads as false. */
+  pinnable?: boolean;
 }
 /** The groups in the bar's order, and the listed window in front (null: none). */
 export interface WindowList {
@@ -326,18 +330,27 @@ export interface BarButton {
   pin: Favorite | null;
   pins: Favorite[];
   windows: Win[];
+  /** As `Group.spawnable`: from any group a pinned app owns. */
+  spawnable?: boolean;
+  /** As `Group.pinnable`: never for a pinned app. */
+  pinnable?: boolean;
 }
 
 /**
  * The pinned apps first, in their order and with their saved names, each owning every group whose first pinned entry it is;
- * then the groups no pinned app owns, in Rust's order.
+ * then the groups no pinned app owns, in Rust's order. `spawnable` and `pinnable` are set only when true.
  */
 export function barButtons(pinned: Favorite[] | null, groups: Group[]): BarButton[] {
   const pins = pinned ?? [];
   const ids = new Set(pins.map((f) => f.id));
   const owner = (g: Group) => g.pins.find((p) => ids.has(p.id))?.id;
-  const buttons: BarButton[] = pins.map((f) => ({ key: f.id, name: f.name, pin: f, pins: [f], windows: groups.filter((g) => owner(g) === f.id).flatMap((g) => g.windows) }));
-  for (const g of groups) if (owner(g) === undefined) buttons.push({ key: g.key, name: g.name, pin: null, pins: g.pins, windows: g.windows });
+  const buttons: BarButton[] = pins.map((f) => {
+    const owned = groups.filter((g) => owner(g) === f.id);
+    return { key: f.id, name: f.name, pin: f, pins: [f], windows: owned.flatMap((g) => g.windows), ...(owned.some((g) => g.spawnable) && { spawnable: true }) };
+  });
+  for (const g of groups) {
+    if (owner(g) === undefined) buttons.push({ key: g.key, name: g.name, pin: null, pins: g.pins, windows: g.windows, ...(g.spawnable && { spawnable: true }), ...(g.pinnable && { pinnable: true }) });
+  }
   return buttons;
 }
 

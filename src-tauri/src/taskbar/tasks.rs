@@ -19,8 +19,8 @@ use windows::Win32::Foundation::{CloseHandle, ERROR_SUCCESS, HWND, LPARAM, PROPE
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::Graphics::Gdi::{MonitorFromWindow, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::Storage::Packaging::Appx::{GetApplicationUserModelId, APPLICATION_USER_MODEL_ID_MAX_LENGTH};
-use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToStringAlloc};
-use windows::Win32::System::Threading::{GetCurrentProcessId, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToBoolean, PropVariantToStringAlloc};
+use windows::Win32::System::Threading::{GetCurrentProcessId, OpenProcess, TerminateProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE};
 use windows::Win32::UI::Input::KeyboardAndMouse::IsWindowEnabled;
 use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow};
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -32,7 +32,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_MINIMIZEBOX,
 };
 
-use super::screens;
+use super::{ownpins, screens};
 use crate::launcher::{self, LauncherState};
 use crate::{display, mixer};
 
@@ -40,6 +40,10 @@ use crate::{display, mixer};
 const HSHELL_FLASH: u32 = HSHELL_REDRAW | HSHELL_HIGHBIT;
 /// System.AppUserModel.ID, defined here so one key does not need the EnhancedStorage feature.
 pub(super) const APP_USER_MODEL_ID: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0x9f4c2855_9f79_4b39_a8d0_e1d42de1d5f3), pid: 5 };
+/// System.AppUserModel.RelaunchCommand, RelaunchDisplayNameResource and PreventPinning, of the same set.
+pub(super) const RELAUNCH_COMMAND: PROPERTYKEY = PROPERTYKEY { pid: 2, ..APP_USER_MODEL_ID };
+pub(super) const RELAUNCH_NAME: PROPERTYKEY = PROPERTYKEY { pid: 4, ..APP_USER_MODEL_ID };
+pub(super) const PREVENT_PINNING: PROPERTYKEY = PROPERTYKEY { pid: 9, ..APP_USER_MODEL_ID };
 /// The list's one-shot timer on the thread's window (mod.rs routes it), with an id of its own.
 pub(super) const LIST_TIMER: usize = 2;
 const LIST_MS: u32 = 100;
@@ -61,7 +65,11 @@ pub struct Group {
     name: String,
     pins: Vec<Pin>,
     windows: Vec<Win>,
-    /// An app without Start entries gets its icon from its exe (`taskbar_icons`).
+    /// A new instance can start from its first window: a relaunch command, or the exe of an unpackaged process (`ownpins::decide`).
+    spawnable: bool,
+    /// Spawnable, without entries, and its window does not ask never to be pinned (PreventPinning).
+    pinnable: bool,
+    /// An app without entries gets its icon from its exe (`taskbar_icons`).
     #[serde(skip)]
     exe: String,
 }
@@ -384,7 +392,7 @@ impl Track {
         for &id in &self.order {
             let hwnd = HWND(id as _);
             let source = HWND(self.ghosts.get(&id).copied().unwrap_or(id) as _);
-            let window_aumid = window_app_id(source);
+            let Props { aumid: window_aumid, relaunch, prevent } = window_props(source);
             let pid = display::app_pid(source);
             let (package_aumid, exe) = processes.entry(pid).or_insert_with(|| (package_app_id(pid), mixer::process_path(pid).unwrap_or_default())).clone();
             let key = group_key(window_aumid.as_deref(), package_aumid.as_deref(), &exe, id);
@@ -394,8 +402,12 @@ impl Track {
             match groups.iter_mut().find(|(group, _)| group.key == key) {
                 Some((group, _)) => group.windows.push(win),
                 None => {
-                    let aumid = window_aumid.filter(|s| !s.is_empty()).or(package_aumid.filter(|s| !s.is_empty()));
-                    groups.push((Group { key, name: String::new(), pins: Vec::new(), windows: vec![win], exe }, aumid));
+                    let relaunch = relaunch.as_ref().zip(window_aumid.as_deref()).map(|((command, name), aumid)| (aumid, command.as_str(), name.as_str()));
+                    let spawnable = ownpins::decide(relaunch, package_aumid.is_some(), &exe).is_some();
+                    let aumid = window_aumid.or(package_aumid.filter(|s| !s.is_empty()));
+                    // Pinnable until an entry turns up below.
+                    let group = Group { key, name: String::new(), pins: Vec::new(), windows: vec![win], spawnable, pinnable: spawnable && !prevent, exe };
+                    groups.push((group, aumid));
                 }
             }
         }
@@ -405,6 +417,13 @@ impl Track {
                 group.pins = launcher::entries_for(apps, aumid.as_deref(), &group.exe).into_iter().map(|a| Pin { id: a.id, name: a.name }).collect();
             }
         });
+        // Out of the Start list's lock: an app without a Start entry takes the bar's own pins, which name it and draw its icon.
+        for (group, aumid) in &mut groups {
+            if group.pins.is_empty() {
+                group.pins = ownpins::entries_for(aumid.as_deref(), &group.exe).into_iter().map(|a| Pin { id: a.id, name: a.name }).collect();
+            }
+            group.pinnable &= group.pins.is_empty();
+        }
         let groups = groups
             .into_iter()
             .map(|(mut group, _)| {
@@ -465,19 +484,38 @@ fn title(hwnd: HWND) -> String {
     String::from_utf16_lossy(&buf[..len])
 }
 
-/// The AppUserModelID an app set on its window (a browser profile, a web app, a Store app's frame).
-fn window_app_id(hwnd: HWND) -> Option<String> {
+/// What an app set on its window for the taskbar.
+#[derive(Default)]
+pub(super) struct Props {
+    /// Its AppUserModelID (a browser profile, a web app, a Store app's frame).
+    pub(super) aumid: Option<String>,
+    /// The relaunch command and its display name resource, only when both are set.
+    pub(super) relaunch: Option<(String, String)>,
+    /// PreventPinning: the window asks never to be pinned.
+    pub(super) prevent: bool,
+}
+
+/// The window's `Props`, from one property store; empty strings read as unset.
+pub(super) fn window_props(hwnd: HWND) -> Props {
     unsafe {
-        let store: IPropertyStore = SHGetPropertyStoreForWindow(hwnd).ok()?;
-        let mut value = store.GetValue(&APP_USER_MODEL_ID).ok()?;
-        let id = PropVariantToStringAlloc(&value).ok().and_then(|p| crate::controls::take(p));
-        let _ = PropVariantClear(&mut value);
-        id
+        let Ok(store) = SHGetPropertyStoreForWindow::<IPropertyStore>(hwnd) else { return Props::default() };
+        let text = |key: &PROPERTYKEY| {
+            let mut value = store.GetValue(key).ok()?;
+            let text = PropVariantToStringAlloc(&value).ok().and_then(|p| crate::controls::take(p));
+            let _ = PropVariantClear(&mut value);
+            text.filter(|s| !s.is_empty())
+        };
+        let prevent = store.GetValue(&PREVENT_PINNING).is_ok_and(|mut value| {
+            let on = PropVariantToBoolean(&value).is_ok_and(|b| b.as_bool());
+            let _ = PropVariantClear(&mut value);
+            on
+        });
+        Props { aumid: text(&APP_USER_MODEL_ID), relaunch: text(&RELAUNCH_COMMAND).zip(text(&RELAUNCH_NAME)), prevent }
     }
 }
 
 /// The AppUserModelID of a packaged app's process; None for any other.
-fn package_app_id(pid: u32) -> Option<String> {
+pub(super) fn package_app_id(pid: u32) -> Option<String> {
     unsafe {
         let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
         let mut buf = [0u16; APPLICATION_USER_MODEL_ID_MAX_LENGTH as usize];
@@ -515,24 +553,29 @@ pub fn taskbar_windows(window: WebviewWindow) -> WindowList {
     for_monitor(&last.list, |id| last.monitors.get(&id) == Some(&monitor))
 }
 
-/// What a click on a window's button does: "activate", "toggle" (minimizes the app in front, else brings it forward),
-/// "minimize" or "close". Only a listed window, still of the process it was listed with. An app running as administrator may
-/// refuse a minimize or a close (UIPI): the error comes back and nothing else happens.
+/// The process of listed window `id`, while the window is still of the process it was listed with: None once it is gone, or
+/// its handle was reused by another process since the list was made. Every command on a listed window starts here.
+pub(super) fn listed_pid(id: isize) -> Option<u32> {
+    let pid = last().pids.iter().find(|&&(h, _)| h == id).map(|&(_, pid)| pid)?;
+    (pid == display::window_pid(HWND(id as _))).then_some(pid)
+}
+
+/// What a click on a window's button, or its app's menu, does: "activate", "toggle" (minimizes the app in front, else brings it
+/// forward), "minimize", "close" or "end" (End task). Only a listed window, still of the process it was listed with. An app
+/// running as administrator may refuse a minimize, a close or an end (UIPI, access denied): the error comes back and nothing
+/// else happens.
 #[tauri::command]
 pub async fn taskbar_window(id: isize, action: String) -> Result<(), String> {
-    let (pid, listed) = {
-        let last = last();
-        (last.pids.iter().find(|&&(h, _)| h == id).map(|&(_, pid)| pid), last.pids.iter().map(|&(h, _)| h).collect::<Vec<_>>())
-    };
+    let Some(pid) = listed_pid(id) else { return Err("not-found".into()) };
+    let listed: Vec<isize> = last().pids.iter().map(|&(h, _)| h).collect();
     let hwnd = HWND(id as _);
-    // Gone, or its handle reused by another process since the list was made.
-    let Some(pid) = pid.filter(|&pid| pid == display::window_pid(hwnd)) else { return Err("not-found".into()) };
     match action.as_str() {
         "activate" => activate(hwnd),
         "toggle" if toggle_minimizes(id, active_now(&listed), unsafe { IsIconic(hwnd) }.as_bool()) => minimize(hwnd, pid, &listed),
         "toggle" => activate(hwnd),
         "minimize" => minimize(hwnd, pid, &listed),
         "close" => close(hwnd, pid, &listed),
+        "end" => end(hwnd, pid),
         _ => Err("unknown-action".into()),
     }
 }
@@ -603,6 +646,31 @@ fn minimize(hwnd: HWND, pid: u32, listed: &[isize]) -> Result<(), String> {
 fn close(hwnd: HWND, pid: u32, listed: &[isize]) -> Result<(), String> {
     let _ = unsafe { AllowSetForegroundWindow(pid) };
     command(hwnd, SC_CLOSE, listed)
+}
+
+/// Whether End task may end process `pid`: never Crest itself, never the shell's explorer.exe (it draws the desktop, and File
+/// Explorer's windows usually live in it), never ApplicationFrameHost, which every Store app's frame shares (`frame_host`: a
+/// frame whose app process was not found).
+fn may_end(pid: u32, own: u32, shell: u32, frame_host: bool) -> bool {
+    pid != own && pid != shell && !frame_host
+}
+
+/// End task, as on Windows' taskbar: the window's app process ends at once, without saving, and not its children.
+/// `window_pid` is the process the window was listed with.
+fn end(hwnd: HWND, window_pid: u32) -> Result<(), String> {
+    let pid = display::app_pid(hwnd);
+    let frame_host = display::class_name(hwnd) == "ApplicationFrameWindow" && pid == window_pid;
+    let shell = display::window_pid(unsafe { GetShellWindow() });
+    if !may_end(pid, unsafe { GetCurrentProcessId() }, shell, frame_host) {
+        return Err("failed".into());
+    }
+    unsafe {
+        // An app running as administrator refuses the open.
+        let process = OpenProcess(PROCESS_TERMINATE, false, pid).map_err(|_| "failed".to_string())?;
+        let ended = TerminateProcess(process, 1);
+        let _ = CloseHandle(process);
+        ended.map_err(|_| "failed".into())
+    }
 }
 
 /// Posts a window command, never waiting on a hung app, then the keyboard goes to the next window, as when Windows minimizes or
@@ -717,7 +785,7 @@ mod tests {
     #[test]
     fn each_bar_lists_its_own_monitors_windows() {
         let w = |id| Win { id, title: String::new(), minimized: false, flashing: false };
-        let g = |key: &str, ids: &[isize]| Group { key: key.into(), name: key.into(), pins: vec![], windows: ids.iter().map(|&i| w(i)).collect(), exe: String::new() };
+        let g = |key: &str, ids: &[isize]| Group { key: key.into(), name: key.into(), pins: vec![], windows: ids.iter().map(|&i| w(i)).collect(), spawnable: false, pinnable: false, exe: String::new() };
         let list = WindowList { groups: vec![g("chrome", &[1, 2]), g("code", &[3])], active: Some(3) };
         let here = for_monitor(&list, |id| id == 2);
         assert_eq!(here.groups.len(), 1);
@@ -725,6 +793,14 @@ mod tests {
         assert_eq!(here.active, None); // the window in front is on another monitor, so this bar's list names none
         assert_eq!(for_monitor(&list, |id| id == 3).active, Some(3)); // the bar on its monitor keeps it
         assert!(for_monitor(&list, |_| false).groups.is_empty());
+    }
+
+    #[test]
+    fn end_task_spares_crest_the_shell_and_the_frame_host() {
+        assert!(!may_end(10, 10, 20, false)); // Crest
+        assert!(!may_end(20, 10, 20, false)); // the shell's explorer.exe
+        assert!(!may_end(30, 10, 20, true)); // ApplicationFrameHost
+        assert!(may_end(30, 10, 20, false));
     }
 
     #[test]

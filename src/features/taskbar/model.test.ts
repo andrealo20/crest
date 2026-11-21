@@ -152,6 +152,24 @@ test("pinned apps come first and own their open windows", () => {
   assert.deepEqual(barButtons(null, groups).map((x) => x.key), ["chrome", "c:\\users\\u\\code.exe", "window:9"]);
 });
 
+test("an open app is pinnable and spawnable as Rust says, a pinned one never pinnable", () => {
+  const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
+  const chrome = { id: "shell:AppsFolder\\Chrome", name: "Chrome" };
+  const groups: Group[] = [
+    { key: "chrome", name: "Chrome", pins: [chrome], windows: [w(1)] },
+    { key: "chrome.work", name: "Work", pins: [chrome], windows: [w(2)], spawnable: true, pinnable: false },
+    { key: "c:\\tools\\tool.exe", name: "Tool", pins: [], windows: [w(3)], spawnable: true, pinnable: true },
+    { key: "window:4", name: "x", pins: [], windows: [w(4)], spawnable: false, pinnable: false },
+  ];
+  const [pinned, tool, plain] = barButtons([chrome], groups);
+  assert.equal(pinned.spawnable, true); // from the second group it owns
+  assert.equal(pinned.pinnable, undefined);
+  assert.equal(tool.spawnable, true);
+  assert.equal(tool.pinnable, true);
+  assert.equal("spawnable" in plain || "pinnable" in plain, false); // set only when true
+  assert.equal(barButtons([chrome], groups.slice(0, 1))[0].spawnable, undefined);
+});
+
 test("a click launches, toggles or lists", () => {
   const w = (id: number, flashing = false): Win => ({ id, title: "t", minimized: false, flashing });
   const base = { key: "k", name: "n", pin: null, pins: [{ id: "x", name: "X" }] } satisfies Omit<BarButton, "windows">;

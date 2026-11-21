@@ -129,8 +129,28 @@ fn matches(pin: &OwnPin, aumid: Option<&str>, exe: &str) -> bool {
     }
 }
 
+/// A command line's file and parameters: the first token, quoted with `"` or up to the first space, and the rest trimmed. None
+/// for a blank command or an unterminated quote. Not CommandLineToArgvW, which would lose the parameters' own quoting.
+fn split_command(cmd: &str) -> Option<(String, String)> {
+    let cmd = cmd.trim();
+    let (file, rest) = match cmd.strip_prefix('"') {
+        Some(quoted) => quoted.split_once('"')?,
+        None => cmd.split_once(char::is_whitespace).unwrap_or((cmd, "")),
+    };
+    (!file.trim().is_empty()).then(|| (file.to_string(), rest.trim().to_string()))
+}
+
+/// The pin Windows would make of a window: its relaunch command, given as (AppUserModelID, command, display name resource) and
+/// used only with all three set, as Windows ignores it otherwise; else the exe of an unpackaged process on this machine. None
+/// for a packaged app without a command, or a process whose exe is unknown.
+pub(super) fn decide(relaunch: Option<(&str, &str, &str)>, packaged: bool, exe: &str) -> Option<Target> {
+    let command = relaunch
+        .filter(|(aumid, _, name)| !aumid.is_empty() && !name.is_empty())
+        .and_then(|(aumid, cmd, _)| split_command(cmd).map(|(file, params)| Target::Command { file, params, aumid: aumid.into() }));
+    command.or_else(|| (!packaged && !exe.is_empty() && !super::pins::remote(exe)).then(|| Target::Exe { path: exe.into() }))
+}
+
 /// The own pins of an open window (`matches`), saved ones first, as launcher entries.
-#[allow(dead_code)] // for the window list
 pub(crate) fn entries_for(aumid: Option<&str>, exe: &str) -> Vec<App> {
     let saved = SAVED.lock().unwrap_or_else(|e| e.into_inner()).1.clone();
     let links = LINKS.lock().unwrap_or_else(|e| e.into_inner()).clone();
@@ -177,6 +197,32 @@ mod tests {
         assert!(matches(&site, Some("MSEdge._crx_site"), ""));
         assert!(!matches(&site, None, ""));
         assert!(!matches(&exe, None, r"C:\Tools\Other.exe"));
+    }
+
+    #[test]
+    fn a_command_splits_into_its_file_and_parameters() {
+        assert_eq!(
+            split_command(r#""C:\Program Files\Chrome\chrome.exe" --profile-directory="Profile 1" --x"#),
+            Some((r"C:\Program Files\Chrome\chrome.exe".into(), r#"--profile-directory="Profile 1" --x"#.into()))
+        );
+        assert_eq!(split_command(r"C:\Tools\tool.exe  -a b "), Some((r"C:\Tools\tool.exe".into(), "-a b".into())));
+        assert_eq!(split_command(r"C:\Tools\tool.exe"), Some((r"C:\Tools\tool.exe".into(), String::new())));
+        assert_eq!(split_command("   "), None);
+        assert_eq!(split_command(r#""C:\Program Files\x.exe --a"#), None); // unterminated quote
+    }
+
+    #[test]
+    fn a_window_pins_its_relaunch_command_else_its_exe() {
+        let exe = r"C:\Chrome\chrome.exe";
+        assert_eq!(
+            decide(Some(("Chrome.Work", r#""C:\Chrome\chrome.exe" --profile-directory=Work"#, "Work")), false, exe),
+            Some(Target::Command { file: exe.into(), params: "--profile-directory=Work".into(), aumid: "Chrome.Work".into() })
+        );
+        // Without a display name Windows ignores the command, and so does Crest.
+        assert_eq!(decide(Some(("Chrome.Work", "chrome.exe --x", "")), false, exe), Some(Target::Exe { path: exe.into() }));
+        assert_eq!(decide(None, true, r"C:\Program Files\WindowsApps\a\a.exe"), None); // packaged without a command
+        assert_eq!(decide(None, false, ""), None);
+        assert_eq!(decide(None, false, r"\\host\share\tool.exe"), None);
     }
 
     #[test]
