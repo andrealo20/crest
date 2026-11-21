@@ -107,3 +107,14 @@ test("the preview card's tiles are menu rows under Material, the focus ring insi
   const slot = /<span data-slot=\{win\.id\} className="([^"]*)"/.exec(src);
   assert.ok(slot && !/rounded/.test(slot[1]), "the slot is never rounded");
 });
+
+test("the Widgets page's versions are Material radio cards: rounded, the chosen one tonal in secondary-container with a primary ring", () => {
+  const src = readFileSync(join(import.meta.dirname, "WidgetsPage.tsx"), "utf8");
+  const card = /role="radio"[\s\S]*?className=\{`([^`]*)`\}/.exec(src);
+  assert.ok(card, "no version card");
+  const classes = card[1];
+  for (const c of ["rounded-[10px]", "material:rounded-[16px]", "material:p-1", "ring-2 ring-accent", "material:bg-secondary-container material:ring-primary", "material:hover:bg-fill-2"]) assert.ok(classes.includes(c), c);
+  assert.match(src, /i === chosen \? "text-label material:text-on-secondary-container" : "text-label-2"/);
+  // The sample's surface inside a 16 px card with 4 px around it: 12 px corners under Material.
+  assert.match(src, /className="flex h-11 items-center rounded-\[10px\] px-2 material:rounded-\[12px\]"/);
+});

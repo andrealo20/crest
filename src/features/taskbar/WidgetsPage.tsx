@@ -6,6 +6,7 @@ import { fontEpoch } from "../../notch/row/measure";
 import { PART_IDS, type PartId } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
 import { settings, type Settings } from "../../settings/store";
+import type { RowSymbol } from "../../ui/materialNames";
 import { Group, Row, Select } from "../../ui/controls";
 import { clocks } from "../clocks/store";
 import { isZone } from "../clocks/zones";
@@ -46,6 +47,22 @@ const VARIANT_LABEL: Record<string, string> = {
   countdown: "Countdown",
   ring: "Ring",
 };
+/** Each widget's row symbol under Material, the one the notch's pages give the same thing where they have it. */
+const SYMBOL: Record<PartId, RowSymbol> = {
+  timer: "timelapse",
+  discord: "record_voice_over",
+  rings: "data_usage",
+  title: "music_note",
+  readings: "monitoring",
+  equalizer: "equalizer",
+  clock: "schedule",
+  github: "trending_up",
+  leetcode: "data_object",
+  calendar: "event_upcoming",
+  script: "code",
+  downloads: "download",
+  weather: "device_thermostat",
+};
 const choiceLabel = (c: WidgetChoice) => t(c.variant === "digital" ? (c.date ? "Uhrzeit und Datum" : "Nur Uhrzeit") : VARIANT_LABEL[c.variant ?? ""]);
 
 export function WidgetsPage() {
@@ -68,7 +85,7 @@ export function WidgetsPage() {
 function WidgetRow({ id, s }: { id: PartId; s: Settings }) {
   const on = barWidgets(s.taskbar.zones).includes(id);
   return (
-    <Row label={t(partInfo[id].label)} hint={widgetNeeds(s)[id] || undefined}>
+    <Row icon={SYMBOL[id]} label={t(partInfo[id].label)} hint={widgetNeeds(s)[id] || undefined}>
       {on ? (
         <button
           aria-label={t("Entfernen")}
@@ -136,11 +153,14 @@ function Versions({ id, s, zone }: { id: PartId; s: Settings; zone: string | nul
           tabIndex={i === chosen ? 0 : -1}
           onClick={() => pick(i)}
           onKeyDown={(e) => onKey(e, i)}
-          // The ring marks the version chosen, an outline outside it the focus, which lands on that same version.
-          className={`flex flex-col items-center gap-1 rounded-[10px] outline-offset-2 outline-label-2 focus-visible:outline-2 ${i === chosen ? "ring-2 ring-accent" : ""}`}
+          // The ring marks the version chosen, an outline outside it the focus, which lands on that same version. Under Material a
+          // radio card as StyleCards draws it: the chosen one tonal with a primary ring, the others lit by a state layer on hover.
+          className={`flex flex-col items-center gap-1 rounded-[10px] outline-offset-2 outline-label-2 focus-visible:outline-2 material:rounded-[16px] material:p-1 ${
+            i === chosen ? "ring-2 ring-accent material:bg-secondary-container material:ring-primary" : "material:hover:bg-fill-2"
+          }`}
         >
           <Preview id={id} choice={c} s={s} zone={zone} />
-          <span className={`px-1.5 pb-1 text-caption ${i === chosen ? "text-label" : "text-label-2"}`}>{choiceLabel(c)}</span>
+          <span className={`px-1.5 pb-1 text-caption ${i === chosen ? "text-label material:text-on-secondary-container" : "text-label-2"}`}>{choiceLabel(c)}</span>
         </button>
       ))}
     </div>
@@ -176,7 +196,7 @@ function Preview({ id, choice, s, zone }: { id: PartId; choice: WidgetChoice; s:
   const pill = pillWidget(id, taskbar.shape === "tiles") ? statusPill(44) : null;
   return (
     // Hidden from screen readers: a radio is named by its version, not by the sample's figures. Left to right, as the bar's ink is.
-    <span aria-hidden dir="ltr" className="flex h-11 items-center rounded-[10px] px-2" style={surface}>
+    <span aria-hidden dir="ltr" className="flex h-11 items-center rounded-[10px] px-2 material:rounded-[12px]" style={surface}>
       <span className={pill ? "flex items-center rounded-full bg-fill-2" : "flex"} style={pill ? { height: pill.height, paddingInline: pill.pad } : undefined}>
         <span className="grid h-[30px] overflow-clip" style={{ width }}>
           <AnimatePresence initial={false}>{node}</AnimatePresence>

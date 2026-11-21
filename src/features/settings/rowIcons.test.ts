@@ -35,6 +35,7 @@ const FILES = [
   "features/leetcode/LeetcodeSettings.tsx",
   "features/github/GithubSettings.tsx",
   "features/taskbar/TaskbarSettings.tsx",
+  "features/taskbar/WidgetsPage.tsx",
 ];
 
 const read = (file: string) => readFileSync(join(import.meta.dirname, "../..", file), "utf8");
