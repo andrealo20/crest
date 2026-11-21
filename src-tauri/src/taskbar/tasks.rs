@@ -271,6 +271,7 @@ pub(super) fn on_event(event: u32, hwnd: HWND) {
             return;
         }
         FOREGROUND.store(id, Ordering::SeqCst);
+        super::tray::on_front(hwnd);
     }
     let (armed, listed) = TRACK.with_borrow(|t| t.as_ref().map_or((true, false), |t| (t.armed, t.order.contains(&id))));
     if event == EVENT_SYSTEM_FOREGROUND {

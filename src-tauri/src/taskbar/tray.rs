@@ -87,6 +87,15 @@ static CLASS: Once = Once::new();
 static APP: OnceLock<AppHandle> = OnceLock::new();
 /// The icons, their pictures, the rect last clicked and what the bars last heard.
 static STORE: Mutex<Store> = Mutex::new(Store { icons: Vec::new(), images: BTreeMap::new(), clicked: None, sent: (false, Vec::new()) });
+/// The menu a right click asked for: its app's process, the bar that sent the click and how many of the app's pop-up menus are
+/// open. Set by `taskbar_tray_click`, taken by `on_menu` and `on_front` from the bar's thread (mod.rs) when the menu is over.
+static MENU: Mutex<Option<Menu>> = Mutex::new(None);
+
+struct Menu {
+    owner: u32,
+    bar: String,
+    open: u32,
+}
 
 thread_local! {
     /// Explorer's tray the spy last announced itself to with `TaskbarCreated`, 0 for none.
@@ -157,6 +166,10 @@ fn thread() -> MutexGuard<'static, Option<(u32, JoinHandle<()>)>> {
 
 fn store() -> MutexGuard<'static, Store> {
     STORE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn menu() -> MutexGuard<'static, Option<Menu>> {
+    MENU.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 /// A window handle from the payload, 32 bits from 32- and 64-bit apps alike: widened with its sign, as Windows does.
@@ -282,6 +295,9 @@ pub fn taskbar_tray_click(key: String, button: String, rect: HitRect, window: We
     if window_pid(hwnd) != owner {
         return Err("gone".into());
     }
+    if button == Button::Right {
+        *menu() = Some(Menu { owner, bar: window.label().to_owned(), open: 0 });
+    }
     let (x, y) = ((rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2);
     unsafe {
         // So the app may bring its window or menu forward, as Windows' tray lets it.
@@ -292,6 +308,53 @@ pub fn taskbar_tray_click(key: String, button: String, rect: HitRect, window: We
         }
     }
     Ok(())
+}
+
+/// A Win32 pop-up menu shown or closed (mod.rs): once the last one of the app a right click waits on has closed, submenus
+/// included, that bar hears `taskbar://menu-end`. An app that draws its menu as a window of its own fires none of these.
+pub(super) fn on_menu(start: bool, hwnd: HWND) {
+    let pid = window_pid(hwnd);
+    let bar = {
+        let mut menu = menu();
+        let over = menu.as_mut().is_some_and(|m| m.owner == pid && menu_closed(&mut m.open, start));
+        if over {
+            menu.take().map(|m| m.bar)
+        } else {
+            None
+        }
+    };
+    end_menu(bar);
+}
+
+/// A window other than a bar came to the front (tasks.rs): one of another process (the desktop, another app) means the menu is
+/// over too. The app's own windows do not: its menu takes the front to show.
+pub(super) fn on_front(hwnd: HWND) {
+    let pid = window_pid(hwnd);
+    let bar = {
+        let mut menu = menu();
+        if menu.as_ref().is_some_and(|m| m.owner != pid) {
+            menu.take().map(|m| m.bar)
+        } else {
+            None
+        }
+    };
+    end_menu(bar);
+}
+
+/// Whether a pop-up menu shown (`start`) or closed leaves none of the app's open, counting them in `open`.
+fn menu_closed(open: &mut u32, start: bool) -> bool {
+    if start {
+        *open += 1;
+        return false;
+    }
+    *open = open.saturating_sub(1);
+    *open == 0
+}
+
+fn end_menu(bar: Option<String>) {
+    if let (Some(app), Some(bar)) = (APP.get(), bar) {
+        let _ = app.emit_to(bar.as_str(), "taskbar://menu-end", ());
+    }
 }
 
 /// `r`, in the CSS px of the bar `bar`, in physical screen px, from the bar's place and DPI as Win32 has them (hit_test.rs
@@ -771,6 +834,18 @@ mod tests {
 
     const APP: u32 = 10;
     const CREST: u32 = 20;
+
+    #[test]
+    fn a_menu_is_over_when_its_last_popup_closes() {
+        let mut open = 0;
+        assert!(!menu_closed(&mut open, true));
+        // A submenu opens and closes: the menu is still there.
+        assert!(!menu_closed(&mut open, true));
+        assert!(!menu_closed(&mut open, false));
+        assert!(menu_closed(&mut open, false));
+        // A close without a start seen (the menu was already open) ends it too.
+        assert!(menu_closed(&mut open, false));
+    }
 
     /// What an app sends for its icon 7 of window 0x1234.
     fn icon(tip: Option<&str>, hidden: Option<bool>) -> IconData {
