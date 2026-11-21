@@ -69,3 +69,24 @@ test("the switch for the backdrop sits under the style cards, under Material onl
   assert.match(rest, /<Switch\s+label=\{t\("Bewegter Hintergrund"\)\}\s+checked=\{[\w.]*contours\}/);
   assert.ok(rest.includes("themes: { ...cur.themes, contours }"));
 });
+
+test("the navigation's mark morphs per page in the settings window only, with the page's icon over it", () => {
+  const at = view.indexOf("function NavMark(");
+  assert.ok(at > 0, "NavMark found");
+  const body = view.slice(at, view.indexOf("\nfunction ", at + 1));
+  for (const s of ["brandOf(id)", "shapePoints(", "<MorphPath", "fill-primary", "forced-colors:fill-[CanvasText]", "text-on-primary", "forced-colors:text-[Canvas]", "aria-hidden", "transition={crossfade}"])
+    assert.ok(body.includes(s), s);
+  assert.ok(!body.includes("t("), "no new text in the mark");
+  const navAt = view.indexOf("const materialNav = (");
+  const nav = view.slice(navAt, view.indexOf("const header =", navAt));
+  const uses = [...view.matchAll(/<NavMark/g)].map((m) => m.index!);
+  assert.ok(uses.length > 0, "NavMark used");
+  for (const use of uses) {
+    assert.ok(use > navAt && use < navAt + nav.length, "only inside materialNav");
+    const before = view.slice(0, use);
+    assert.ok(/\{chrome && \(?\s*$/.test(before), "only after chrome &&");
+    const tag = view.slice(use, view.indexOf("/>", use));
+    assert.ok(tag.includes("id={viewKey}"), tag);
+    assert.ok(tag.includes("size={compact ? 40 : 54}"), tag);
+  }
+});

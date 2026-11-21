@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, LayoutGroup, motion, Reorder, useReducedMotion, type MotionStyle, type Variants } from "motion/react";
 import {
   AppWindow,
@@ -27,7 +27,7 @@ import {
   type Icon,
 } from "../../ui/iconset";
 import { design } from "../../design/design";
-import { content, fade, springs } from "../../design/motion";
+import { content, crossfade, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, type AlarmDuration } from "../../lib/sound";
 import { createStore } from "../../lib/store";
 import { nav, navigate } from "../../notch/nav";
@@ -51,6 +51,8 @@ import {
 import { BackupSettings } from "./BackupSettings";
 // The suffix tells it from contours.ts on a disk that ignores case.
 import { Contours } from "./Contours.tsx";
+import { brandOf, shapePoints } from "../system/hero";
+import { MorphPath } from "../system/Morph";
 import { diagnosticsText } from "./diagnostics";
 import { cascades, shellLayout, showsHeaderTitle } from "./shell";
 import { cascadeDelay } from "../../ui/cascade";
@@ -382,6 +384,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const item = compact ? "size-10 shrink-0 justify-center" : "h-12 shrink gap-3 px-3 text-start text-body font-medium";
   const materialNav = (
     <>
+      {chrome && <NavMark id={viewKey} icon={viewKey === "search" ? MagnifyingGlass : allPages.find((p) => p.id === viewKey)!.icon} size={compact ? 40 : 54} />}
       {compact ? (
         <button aria-label={t("Suchen")} title={t("Suchen")} onClick={() => setSearchOpen(true)} className="pressable flex size-10 shrink-0 items-center justify-center rounded-full text-label-2">
           <MagnifyingGlass size={20} />
@@ -610,6 +613,31 @@ function SearchResults({ hits, onOpen }: { hits: Hit[]; onOpen: (h: Hit) => void
 }
 
 /** One settings page's groups; also rendered hidden for the search index. */
+/** The settings window's mark: a shape for each page that morphs into the next, with the page's icon over it. */
+function NavMark({ id, icon: Glyph, size }: { id: string; icon: Icon; size: 40 | 54 }) {
+  const points = useMemo(() => shapePoints(...brandOf(id)), [id]);
+  return (
+    // 54 is the list's size, where the mark stands above the search pill; the rail and the row on top place it themselves.
+    <span aria-hidden className={`relative flex shrink-0 items-center justify-center ${size === 54 ? "mb-2 self-start" : ""}`} style={{ width: size, height: size }}>
+      <svg viewBox="0 0 100 100" className="absolute inset-0 size-full">
+        <MorphPath points={points} className="fill-primary forced-colors:fill-[CanvasText]" />
+      </svg>
+      <AnimatePresence initial={false}>
+        <motion.span
+          key={id}
+          className="absolute inset-0 flex items-center justify-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={crossfade}
+        >
+          <Glyph size={size === 54 ? 24 : 20} weight="fill" className="text-on-primary forced-colors:text-[Canvas]" />
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
+
 function PageContent({ page }: { page: PageId }) {
   return (
     <>
