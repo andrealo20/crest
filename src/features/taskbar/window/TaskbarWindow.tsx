@@ -17,7 +17,7 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
 import { PREVIEW_CLOSE, PREVIEW_DELAY, bridge, zones as hitZones, type Rect } from "../autoHide";
-import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, insertPinned, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Click, type ClickMods, type Zone } from "../model";
+import { COMPACT_PAD, appKey, barButtons, clickAction, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, windowButtons, type BarButton, type BarItem, type BarShape, type Click, type ClickMods, type Zone } from "../model";
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
 import { closePanel, fileDrag, itemDrag, panel, pinDrag, togglePanel } from "../panel";
 import { dragThreshold, opensInBar } from "../panelModel";
@@ -76,7 +76,7 @@ type Card = { key: string; x: number; w: number; by: "hover" | "click" };
  */
 export function TaskbarWindow() {
   const s = settings.use();
-  const { zones: saved, height, iconSize, pinned, shape, trayShown } = s.taskbar;
+  const { zones: saved, height, iconSize, pinned, shape, trayShown, combine } = s.taskbar;
   // Without the buttons whose tool cannot open: the notch opens its first tool in place of one switched off there (widgets.ts toolShown).
   const zones = shownZones(saved, s.tools);
   const { visible: trayVisible } = splitTray(trayState.use().icons, trayShown);
@@ -179,6 +179,7 @@ export function TaskbarWindow() {
   }, [error]);
 
   const buttons = barButtons(pinned, groups);
+  const perWindow = combine === "always" ? buttons : windowButtons(buttons);
   const icons = useIcons(buttons.flatMap((b) => launchId(b) ?? []));
   const ownIcons = groupIcons.use();
   const size = fitIcon(height, iconSize);
@@ -194,21 +195,34 @@ export function TaskbarWindow() {
     const s = barStatus.get();
     return [s.network && netGlyph(s.network), soundGlyph(s.sound), batteryGlyph(s.power)].filter(Boolean).length;
   });
-  const fit = useAppFit(bar, { zones, shape, size, count: buttons.length, trayCount: trayVisible.length, primary, glyphs, split: null });
-  const kept = [...buttons.filter((b) => b.windows.some((w) => w.id === active)), ...buttons.filter((b) => indicator(b, active) === "attention")].map((b) => b.key);
-  const shown = new Set(splitApps(buttons.map((b) => b.key), fit.mode === "overflow" ? fit.visible : buttons.length, kept).shown);
-  const shownButtons = buttons.filter((b) => shown.has(b.key));
-  const hiddenButtons = buttons.filter((b) => !shown.has(b.key));
+  const fit = useAppFit(bar, {
+    zones,
+    shape,
+    size,
+    count: buttons.length,
+    trayCount: trayVisible.length,
+    primary,
+    glyphs,
+    split: combine === "always" ? null : { count: perWindow.length, titled: perWindow.filter((b) => b.title !== undefined).length, ...labelSpan(size), never: combine === "never" },
+  });
+  // The buttons as drawn: one per window while the fit says so.
+  const laid = fit.split ? perWindow : buttons;
+  const kept = [...laid.filter((b) => b.windows.some((w) => w.id === active)), ...laid.filter((b) => indicator(b, active) === "attention")].map((b) => b.key);
+  const shown = new Set(splitApps(laid.map((b) => b.key), fit.mode === "overflow" ? fit.visible : laid.length, kept).shown);
+  const shownButtons = laid.filter((b) => shown.has(b.key));
+  const hiddenButtons = laid.filter((b) => !shown.has(b.key));
   // The card's app as it is now; its last window closed, or its button gone behind "…", the card goes.
   const cardButton = preview ? shownButtons.find((b) => b.key === preview.key && b.windows.length) : undefined;
   const cardEntry = cardButton && launchId(cardButton);
-  const cardIcon = cardButton && (cardEntry ? icons[cardEntry] : ownIcons[cardButton.key]);
+  const cardIcon = cardButton && (cardEntry ? icons[cardEntry] : ownIcons[appKey(cardButton)]);
   const cardGone = preview !== null && !cardButton;
   const closeCard = useCallback(() => setCard(null), [setCard]);
   useEffect(() => {
     if (cardGone) setCard(null);
   }, [cardGone, setCard]);
   const narrow = fit.mode === "compact" || fit.mode === "overflow";
+  // Each window's button with its title, as wide as the fit gives them; a pinned app with no window keeps its icon's width.
+  const titled = fit.mode === "labels";
   const appIcon = narrow ? compactIcon(size) : size;
   const appWidth = narrow ? compactIcon(size) + COMPACT_PAD : undefined;
   useEffect(() => trayFolded.set(fit.trayBack), [fit.trayBack]);
@@ -220,7 +234,7 @@ export function TaskbarWindow() {
   const mag = reduced ? undefined : { pointer, unit: (narrow ? compactIcon(size) + COMPACT_PAD : size + 16) + between, rise: labelRise(size, height) };
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
   // An open menu or panel holds the bar up, and so does an app asking for attention.
-  const layout = `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${fit.mode}:${fit.visible}:${fit.trayBack}:${fit.hide}|${glyphs}`;
+  const layout = `${laid.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${fit.mode}:${fit.visible}:${fit.trayBack}:${fit.hide}|${glyphs}`;
   const { down, place: placeMenuZone, placePreview } = useHitZone(bar, shape, setBoxes, layout, {
     open: menu !== null || open !== null || preview !== null,
     attention: buttons.some((b) => indicator(b, active) === "attention"),
@@ -407,7 +421,7 @@ export function TaskbarWindow() {
         return (
           <Item
             key={b.key}
-            {...item(b.key, b.name)}
+            {...item(b.key, b.title ?? b.name)}
             // Over an app with windows the pointer also rests for its previews.
             onEnter={() => {
               setHovered(b.key);
@@ -422,8 +436,10 @@ export function TaskbarWindow() {
               else appButtons.current.delete(b.key);
             }}
             tile={tile()}
-            width={appWidth}
-            magnify={mag}
+            width={titled && b.title !== undefined ? fit.label : appWidth}
+            // A wide button growing as a dock's icon would cover its neighbours; Windows' titled buttons do not grow.
+            magnify={titled ? undefined : mag}
+            labelled={titled && b.title !== undefined}
             mark={indicator(b, active)}
             pin={b.pin?.id}
             // Only a pinned app's press can have dragged; another app's click never follows one.
@@ -438,7 +454,12 @@ export function TaskbarWindow() {
             }}
             onContextMenu={(e) => toggle({ kind: "app", b }, e.currentTarget)}
           >
-            <AppIcon src={entry === null ? ownIcons[b.key] : icons[entry]} size={appIcon} />
+            <AppIcon src={entry === null ? ownIcons[appKey(b)] : icons[entry]} size={appIcon} />
+            {titled && b.title !== undefined && (
+              <span dir="auto" className="ms-2 min-w-0 truncate text-footnote">
+                {b.title}
+              </span>
+            )}
           </Item>
         );
       });
@@ -704,7 +725,7 @@ export function TaskbarWindow() {
             <AppsPanel
               apps={hiddenButtons.map((b) => {
                 const entry = launchId(b);
-                return { b, icon: entry === null ? ownIcons[b.key] : icons[entry], mark: indicator(b, active) };
+                return { b, icon: entry === null ? ownIcons[appKey(b)] : icons[entry], mark: indicator(b, active) };
               })}
               size={size}
               // In the middle of the 8 px under the cell's icon, as markAt is under the bar's.

@@ -36,6 +36,8 @@ export function Item(props: {
   width?: number;
   /** The id of what a screen reader says after the name: a widget's content. */
   describedBy?: string;
+  /** An icon and a title: content from the start edge, the title cut to the width. */
+  labelled?: boolean;
   /** Grow as a dock's icon with the pointer near, in place of the lift. */
   magnify?: Magnify;
   onEnter: () => void;
@@ -81,7 +83,7 @@ export function Item(props: {
       onAuxClick={props.onAuxClick}
       onPointerDown={props.onPointerDown}
       data-tile={props.tile ? "" : undefined}
-      className="group relative flex shrink-0 items-center justify-center after:absolute after:inset-x-0 after:top-full after:h-1"
+      className={`group relative flex shrink-0 items-center ${props.labelled ? "justify-start px-2" : "justify-center"} after:absolute after:inset-x-0 after:top-full after:h-1`}
       style={{ width: props.width ?? props.size + 16, background: props.tile?.background, borderRadius: props.tile?.radius }}
     >
       {material && props.mark && <motion.span aria-hidden data-front-pill className="absolute bg-secondary-container" style={shape} initial={false} animate={{ opacity: pill ? 1 : 0, transform: `scaleX(${pill ? 1 : 0.6})` }} transition={springs.snappy} />}
@@ -90,7 +92,7 @@ export function Item(props: {
         <Magnified {...props.magnify}>{props.children}</Magnified>
       ) : (
         <motion.span
-          className="relative flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94"
+          className={`relative flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94${props.labelled ? " min-w-0" : ""}`}
           initial={false}
           animate={{ transform: `translateY(${props.lifted ? -2 : 0}px)` }}
           transition={springs.peek}

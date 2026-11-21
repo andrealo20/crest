@@ -24,8 +24,8 @@ export function AppsPanel(props: {
       {props.apps.map(({ b, icon, mark }) => (
         <button
           key={b.key}
-          aria-label={b.name}
-          title={b.name}
+          aria-label={b.title ?? b.name}
+          title={b.title ?? b.name}
           onClick={(e) => props.onClick(b, e.currentTarget)}
           onContextMenu={(e) => {
             e.preventDefault();
