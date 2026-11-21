@@ -113,7 +113,8 @@ test("the Material hardware measures its body and lays out Stellaria's dashboard
     "grid-cols-[minmax(0,1.93fr)_minmax(0,1fr)]",
     "minmax(100px,120fr)",
     "minmax(64px,76fr)",
-    "minmax(64px,74fr)",
+    "minmax(100px,min(150px,42%))",
+    "minmax(64px,min(74px,26%))",
     "minmax(104px,126fr)",
     "minmax(80px,152fr)",
     "text-on-secondary-container",
@@ -195,4 +196,10 @@ test("under the calm scheme the Material readings at rest take the theme's roles
   assert.ok(part("NetCard").includes("secondColor={up(level)}"));
   // The drive's temperature keeps the scheme's colour; only its ring takes the role.
   assert.ok(part("DriveCard").includes("color: ringTone(ofShare(share))") && part("DriveCard").includes("color: tone(d.tempLevel)"));
+});
+
+test("at the largest sizes the CPU and GPU cards stop at 150 px, the network takes the height, and RAM and drive centre their rings", () => {
+  // The cards' row and the tiles' row are 42 % and 26 % of the column up to 150 and 74 px: at Standard 120 and 74, as before.
+  assert.ok(materialView.includes('"grid-rows-[minmax(100px,min(150px,42%))_minmax(64px,1fr)_minmax(64px,min(74px,26%))]"'));
+  for (const name of ["MemoryCard", "DriveCard"]) assert.match(part(name), /flex-col items-center justify-center rounded-\[24px\]/, name);
 });

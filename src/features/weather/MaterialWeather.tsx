@@ -42,7 +42,7 @@ export function MaterialWeather({ data, place, onChangePlace }: { data: Forecast
   const strip = fit.hours > 0 && hours.length > 0;
 
   return (
-    <div ref={body} className={`grid h-full gap-2 ${strip ? "grid-rows-[minmax(84px,96fr)_auto_minmax(56px,68fr)]" : "grid-rows-[minmax(84px,1fr)_minmax(56px,1fr)]"}`}>
+    <div ref={body} className={`grid h-full gap-2 ${strip ? "grid-rows-[minmax(84px,1fr)_auto_minmax(56px,auto)]" : "grid-rows-[minmax(84px,1fr)_minmax(56px,auto)]"}`}>
       <div className="grid min-h-0 grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-2">
         <NowCard data={data} big={fit.big} />
         <SideBlock data={data} place={place} details={fit.details} onChangePlace={onChangePlace} />
@@ -60,7 +60,8 @@ function NowCard({ data, big }: { data: Forecast; big: boolean }) {
   const { icon, text, hue } = describe(c.code, c.day);
   return (
     <motion.div
-      className="flex min-h-0 min-w-0 items-center gap-3 rounded-full bg-fill-1 ps-4 pe-6"
+      // A pill up to 96 px tall; taller, near the largest size, a card with the same corners instead of a stadium.
+      className="flex min-h-0 min-w-0 items-center gap-3 rounded-[48px] bg-fill-1 ps-4 pe-6"
       initial={{ opacity: 0, transform: "scale(0.96)" }}
       animate={{ opacity: 1, transform: "scale(1)" }}
       transition={card}
@@ -123,12 +124,12 @@ function SideBlock({ data, place, details, onChangePlace }: { data: Forecast; pl
     },
   ];
   return (
-    <div className="flex min-h-0 min-w-0 flex-col gap-2">
+    <div className="flex min-h-0 min-w-0 flex-col justify-center gap-2">
       <div className="flex h-5 shrink-0 items-center justify-between gap-2">
         {button}
         {sun}
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[repeat(auto-fit,minmax(0,1fr))] gap-1.5">
+      <div className="grid min-h-0 grid-cols-[repeat(auto-fit,minmax(0,1fr))] gap-1.5">
         {tiles.map(({ icon: I, label, value, unit, beside }, i) => (
           <motion.div
             key={label}

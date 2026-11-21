@@ -88,7 +88,7 @@ export function MaterialSystemLayout(p: {
   return (
     <div className="flex h-full px-4 pt-1 pb-2">
       <div ref={body} className="grid min-w-0 flex-1 grid-cols-[minmax(0,1.93fr)_minmax(0,1fr)] gap-2">
-        <div className={`grid min-h-0 min-w-0 gap-2 ${chips ? "grid-rows-[minmax(100px,120fr)_minmax(64px,76fr)_28px]" : "grid-rows-[minmax(100px,120fr)_minmax(64px,76fr)_minmax(64px,74fr)]"}`}>
+        <div className={`grid min-h-0 min-w-0 gap-2 ${chips ? "grid-rows-[minmax(100px,120fr)_minmax(64px,76fr)_28px]" : "grid-rows-[minmax(100px,min(150px,42%))_minmax(64px,1fr)_minmax(64px,min(74px,26%))]"}`}>
           <div className="grid min-h-0 grid-cols-2 gap-2">
             <GaugeCard i={0} icon={Cpu} hue="red" label="CPU" detail={p.cpuDetail} percent={s.cpu} tone={at(PRIMARY)} fit={fit}>
               {st.cpuTemp !== null && <Reading icon={Thermometer} text={`${degrees(st.cpuTemp)} °C`} color={tone(tempLevel("cpu", st.cpuTemp))} fraction={st.cpuTemp / 100} bar={fit.tempBar} title={st.cpuTempFrom ?? undefined} />}
@@ -301,7 +301,7 @@ function MemoryCard({ st, tone, level, ring }: { st: SystemState; tone: (l: Leve
   return (
     <motion.div
       {...enter(0)}
-      className="flex min-h-0 min-w-0 flex-col items-center rounded-[24px] bg-fill-1 pt-2.5 pb-1.5"
+      className="flex min-h-0 min-w-0 flex-col items-center justify-center rounded-[24px] bg-fill-1 pt-2.5 pb-1.5"
       title={`${t("Cache")} ${gigabytes(s.memCached)} · ${t("Zugesichert")} ${gigabytes(s.memCommit)} / ${gigabytes(s.memCommitLimit)} GB`}
     >
       <Ring size={ring} stroke={8} sweep={270} arcs={[{ value: usedGlide, color }, { value: cacheGlide, offset: usedGlide, color, opacity: 0.35 }]}>
@@ -335,7 +335,7 @@ function DriveCard({ drives, tone, ringTone, ring }: { drives: SystemState["driv
       {...enter(1)}
       {...press(many ? () => setIndex((i) => (i + 1) % drives.length) : undefined)}
       title={many ? `${d.model} · ${t("Klicken für das nächste Laufwerk")}` : d.model}
-      className={`relative flex min-h-0 min-w-0 flex-col items-center rounded-[24px] bg-fill-1 pt-2.5 pb-1.5 ${many ? "pressable cursor-pointer" : ""}`}
+      className={`relative flex min-h-0 min-w-0 flex-col items-center justify-center rounded-[24px] bg-fill-1 pt-2.5 pb-1.5 ${many ? "pressable cursor-pointer" : ""}`}
     >
       <Ring size={ring} stroke={8} sweep={270} arcs={[{ value: glided, color: ringTone(ofShare(share)) }]}>
         <Glide value={glided} format={percent} className="text-[15px] leading-5 font-semibold tabular text-label" />

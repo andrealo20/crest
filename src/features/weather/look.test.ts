@@ -29,7 +29,8 @@ test("the Material weather measures its body and lays out Stellaria's dashboard 
   for (const part of [
     "weatherFit(",
     "new ResizeObserver(",
-    "grid-rows-[minmax(84px,96fr)_auto_minmax(56px,68fr)]",
+    "grid-rows-[minmax(84px,1fr)_auto_minmax(56px,auto)]",
+    "grid-rows-[minmax(84px,1fr)_minmax(56px,auto)]",
     "grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]",
     "grid-cols-7",
     't("Gefühlt")',
@@ -65,4 +66,13 @@ test("the Material weather renders again only when the fit changes, and keeps th
 test("the Material weather leaves Crest's skies, heat bar and hover behind", () => {
   for (const part of ["sky(", "heat(", "hover:opacity-80", ":hover", "blur(", "color-mix(", "linear(", ":dir("]) assert.ok(!material.includes(part), part);
   assert.doesNotMatch(material, /\b(bg|text|fill|stroke|ring|border)-[\w-]+\/\d/);
+});
+
+test("at the largest sizes the extra height goes to the now card, and the detail and day tiles keep their content's height", () => {
+  // Every row but the now card's sizes to its content, so nothing else stretches (Stellaria's 60 px details and its forecast tiles).
+  assert.equal(material.match(/grid-rows-\[minmax\(84px,1fr\)/g)?.length, 2);
+  assert.ok(!/grid-rows-\[[^\]]*\d+fr[^\]]*\]/.test(material.replace(/minmax\(84px,1fr\)/g, "")), "no fr row but the now card's");
+  assert.ok(material.includes('<div className="flex min-h-0 min-w-0 flex-col justify-center gap-2">'), "the side block centres place, sun and tiles");
+  assert.ok(material.includes('<div className="grid min-h-0 grid-cols-[repeat(auto-fit,minmax(0,1fr))] gap-1.5">'), "the detail tiles do not stretch");
+  assert.ok(material.includes("rounded-[48px] bg-fill-1 ps-4 pe-6"), "a pill at the usual sizes, never a stadium");
 });
