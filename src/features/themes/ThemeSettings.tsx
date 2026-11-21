@@ -208,8 +208,11 @@ function ThemeChoice() {
   useEffect(() => {
     if (!previews) return;
     window.addEventListener("blur", stopPreview);
+    // Any key: the keyboard moves on from the card the pointer rests on.
+    window.addEventListener("keydown", stopPreview);
     return () => {
       window.removeEventListener("blur", stopPreview);
+      window.removeEventListener("keydown", stopPreview);
       stopPreview();
     };
   }, [previews]);

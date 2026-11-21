@@ -88,8 +88,9 @@ let lastNotch = "";
 let switching: ViewTransition | null = null;
 function apply() {
   const style: Design = pageDesign === "material" || pageDesign === "crest" ? pageDesign : settings.get().themes.design;
-  // The style first: a preview left over when another window switches to Crest must not show there.
-  const file = (style === "material" ? previewTheme.get() : null) ?? draft.get()?.present ?? savedTheme();
+  // The style first: a preview left over when another window switches to Crest must not show there. The draft over the preview:
+  // the colour editor shows its own colours whatever card the pointer rests on.
+  const file = draft.get()?.present ?? (style === "material" ? previewTheme.get() : null) ?? savedTheme();
   const more = moreContrast?.matches ?? false;
   const key = JSON.stringify([style, more, file]);
   if (key === lastKey) return;
@@ -255,6 +256,8 @@ export function deleteCustomTheme(id: string) {
 export const draftName = createStore("", { persist: "theme-draft-name" });
 
 export function startEditing(name: string) {
+  // storeCore's set always notifies, and each notify runs apply().
+  if (previewTheme.get() !== null) previewTheme.set(null);
   draftName.set(name);
   draft.set(startHistory(savedTheme()));
 }

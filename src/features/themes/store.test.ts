@@ -305,3 +305,21 @@ test("a preview draws its theme under Material and back, without writing the set
   assert.equal(vars["--color-notch"], resolveTheme(theme("light")).vars["--color-notch"]);
   store.previewTheme.set(null);
 });
+
+test("a draft ends the preview when it starts, and wins over a preview still set, so the colour editor shows its own colours", async () => {
+  const store = (await import("./store.ts")) as typeof import("./store");
+  const theme = (id: string) => BUILT_IN_THEMES.find((t) => t.id === id)!;
+  store.startThemes();
+  settings.set({ ...settings.get(), themes: { ...settings.get().themes, id: "light", design: "material" } });
+  const light = resolveMaterial(theme("light")).vars["--color-notch"];
+  store.previewTheme.set(theme("dracula"));
+  store.startEditing("Mine");
+  assert.equal(store.previewTheme.get(), null);
+  assert.equal(vars["--color-notch"], light);
+  // A preview that fires after the draft started (its 220 ms timer was already running): the draft still shows.
+  store.previewTheme.set(theme("dracula"));
+  assert.equal(vars["--color-notch"], light);
+  store.previewTheme.set(null);
+  store.discardEdits();
+  assert.equal(vars["--color-notch"], light);
+});

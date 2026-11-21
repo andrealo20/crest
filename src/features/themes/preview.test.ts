@@ -40,7 +40,14 @@ test("the theme grid previews after 220 ms in the focused settings window, and e
   assert.ok(choice.includes('window.addEventListener("blur", stopPreview)'), "blur");
   assert.ok(choice.includes('window.removeEventListener("blur", stopPreview)'), "blur removed");
   assert.match(choice, /useEffect\(\(\) => \{\s*if \(pending\) stopPreview\(\);\s*\}, \[pending\]\);/);
-  assert.match(choice, /return \(\) => \{\s*window\.removeEventListener\("blur", stopPreview\);\s*stopPreview\(\);\s*\};/);
+  assert.match(choice, /return \(\) => \{\s*window\.removeEventListener\("blur", stopPreview\);\s*window\.removeEventListener\("keydown", stopPreview\);\s*stopPreview\(\);\s*\};/);
+});
+
+test("any key pressed in the settings window ends the preview, under the same Material-only condition as blur", () => {
+  const choice = between(read("./ThemeSettings.tsx"), "function ThemeChoice(", "\nfunction ");
+  const effect = between(choice, "useEffect(() => {\n    if (!previews) return;", "}, [previews]);");
+  assert.ok(effect.includes('window.addEventListener("keydown", stopPreview)'), effect);
+  assert.ok(effect.includes('window.removeEventListener("keydown", stopPreview)'), effect);
 });
 
 test("under Crest, and outside the settings window, the theme grid schedules no preview and writes no store", () => {
@@ -61,7 +68,8 @@ test("apply() reads the style first and the preview under Material alone, and re
   const style = apply.indexOf("const style: Design =");
   const file = apply.indexOf("const file =");
   assert.ok(style > 0 && file > style, apply.slice(0, 300));
-  assert.ok(apply.includes('const file = (style === "material" ? previewTheme.get() : null) ?? draft.get()?.present ?? savedTheme();'), "file");
+  // The draft over the preview: the colour editor shows its own colours whatever card the pointer rests on.
+  assert.ok(apply.includes('const file = draft.get()?.present ?? (style === "material" ? previewTheme.get() : null) ?? savedTheme();'), "file");
   const start = between(store, "export function startThemes() {", "\n}\n");
   assert.ok(start.includes("previewTheme.subscribe(apply);"), "subscribe");
 });
