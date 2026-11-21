@@ -34,9 +34,11 @@ test("a wheel notch moves 2 % of the range in whole steps, never less than one s
   assert.equal(wheelAmount(0.1, 0, 1), 0.1);
 });
 
-test("a wheel gesture belongs to the slider only with the focus or the pointer resting on it 400 ms", () => {
+test("a wheel gesture belongs to the slider only with the focus and the pointer moved over it, or the pointer resting on it 400 ms", () => {
   const now = 10_000;
-  assert.equal(wheelTakes({ focused: true, now, pointerRestSince: null, lastWheel: now - 10 }), true);
+  assert.equal(wheelTakes({ focused: true, now, pointerRestSince: now - 10, lastWheel: now - 10 }), true);
+  // A focused slider that the page scrolls under a still pointer has had no pointermove, so the page keeps scrolling.
+  assert.equal(wheelTakes({ focused: true, now, pointerRestSince: null, lastWheel: now - 5000 }), false);
   assert.equal(wheelTakes({ focused: false, now, pointerRestSince: now - 400, lastWheel: now - 5000 }), true);
   assert.equal(wheelTakes({ focused: false, now, pointerRestSince: now - 399, lastWheel: now - 5000 }), false);
   assert.equal(wheelTakes({ focused: false, now, pointerRestSince: now - 50, lastWheel: now - 5000 }), false);

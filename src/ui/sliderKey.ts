@@ -16,8 +16,10 @@ export function wheelAmount(step: number, min: number, max: number): number {
   return Math.max(step, Math.round(((max - min) * 0.02) / step) * step);
 }
 
-/** Whether a wheel gesture starting now belongs to the slider: focused, or the pointer resting on it 400 ms with no wheel since. */
+/** Whether a wheel gesture starting now belongs to the slider: the pointer moved over it and it has the focus, or the pointer rested on it 400 ms with no wheel since. */
 export function wheelTakes(c: { focused: boolean; now: number; pointerRestSince: number | null; lastWheel: number }): boolean {
+  // A slider the page scrolls under a still pointer gets no pointermove, so a focused one does not take the page's scroll either.
+  if (c.pointerRestSince === null) return false;
   // A pointer that lands on a slider while the page scrolls under it has not rested, so the page keeps scrolling.
-  return c.focused || (c.pointerRestSince !== null && c.now - Math.max(c.pointerRestSince, c.lastWheel) >= 400);
+  return c.focused || c.now - Math.max(c.pointerRestSince, c.lastWheel) >= 400;
 }
