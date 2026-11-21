@@ -31,6 +31,7 @@ import { addFiles, addText, dragPayload, isText, keyOf, normalizeItems, removeKe
 import { NONE, clickSelect, dragKeys, prune, type Selection } from "./selection";
 import { lang, t, tBackend } from "../../i18n";
 import { usePresenting } from "../privacy/store";
+import { wheelSideways } from "../window/panel";
 import { HUE_PALETTE } from "../themes/themes";
 import { Redacted } from "../../ui/controls";
 
@@ -350,7 +351,7 @@ export function ShelfView() {
           </>
         )}
       </HeaderActions>
-      <div role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
+      <div ref={wheelSideways} role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
         <AnimatePresence initial={false} mode="popLayout">
           {items.map((item) => {
             const key = keyOf(item);

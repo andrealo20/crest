@@ -9,6 +9,7 @@ import { settings } from "../../settings/store";
 import { t } from "../../i18n";
 import { textStep } from "./hotkeys";
 import { dragSize, limits, sizeFor, stepSize, stepTextSize, type Direction, type Edge, type Size } from "./panelSize";
+import { stripScroll } from "./model";
 import { updateBehavior } from "./store";
 
 /** The size while an edge is being dragged; saved on release. */
@@ -139,4 +140,19 @@ export function wheelTaken(target: EventTarget | null, root: Element, dx: number
     if (vertical ? el.scrollHeight > el.clientHeight + 1 : el.scrollWidth > el.clientWidth + 1) return true;
   }
   return false;
+}
+
+/** A horizontal strip's ref (or call it from an effect): the vertical wheel scrolls it sideways. Returns the cleanup. */
+export function wheelSideways(el: HTMLElement | null) {
+  if (!el) return;
+  const onWheel = (e: WheelEvent) => {
+    if (wheelTaken(e.target, el, e.deltaX, e.deltaY)) return;
+    const dx = stripScroll(e.deltaX, e.deltaY, el.scrollWidth - el.clientWidth, getComputedStyle(el).direction === "rtl");
+    if (!dx) return;
+    // Also keeps the notch from switching tools with this wheel (Notch.tsx reads defaultPrevented).
+    e.preventDefault();
+    el.scrollLeft += dx;
+  };
+  el.addEventListener("wheel", onWheel, { passive: false });
+  return () => el.removeEventListener("wheel", onWheel);
 }

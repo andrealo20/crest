@@ -9,6 +9,7 @@ import { settings, updateSettings, type Settings } from "../../settings/store";
 import { Button, Empty, Segmented, Select } from "../../ui/controls";
 import { useSecondTick } from "../timer/store";
 import { usePresenting } from "../privacy/store";
+import { wheelSideways } from "../window/panel";
 import { locale, t } from "../../i18n";
 import { elapsedAt, formatElapsed } from "./clock";
 import { libraryEpoch, pauseRecording, recording, startRecording, stopRecording, takeShot } from "./store";
@@ -253,7 +254,7 @@ function Library() {
           <Empty icon={filter === "video" ? FilmStrip : ImageSquare} title={t("Noch nichts aufgenommen")} text={t("Bildschirmfotos und Videos erscheinen hier")} />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
+        <div ref={wheelSideways} className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
           <AnimatePresence initial={false} mode="popLayout">
             {shown.map((f) => (
               <motion.div
