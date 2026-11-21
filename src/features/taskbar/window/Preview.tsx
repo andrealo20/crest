@@ -1,16 +1,19 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion, useIsPresent } from "motion/react";
 import { X } from "@phosphor-icons/react";
 import { fade } from "../../../design/motion";
 import { t } from "../../../i18n";
+import { onNativeBlur } from "../../../platform/native";
 import { taskbar } from "../../../platform/services";
 import { MENU_PANEL_CLASS } from "../../../ui/menu";
 import { AppIcon } from "../../launcher/AppIcon";
-import { placeMenu, previewFallsBack, previewLayout, type BarButton } from "../model";
+import { menuKey, placeMenu, previewFallsBack, previewKey, previewLayout, type BarButton } from "../model";
 import { WindowList, type HitRect } from "./BarMenu";
 
 /** Room the card keeps from the window's top edge, CSS px, as a menu does. */
 const EDGE = 8;
+/** What the arrows step through: the tiles, or the list's rows. */
+const ROWS = "[data-window],[role^=menuitem]";
 
 /**
  * The previews of an app's windows over its button, as Windows 11 shows them: per window a tile with its icon, title and a cross
@@ -29,13 +32,17 @@ export function PreviewCard(props: {
   w: number;
   /** Its bottom edge, CSS px above the window's bottom edge. */
   bottom: number;
+  /** Opened by a click, it takes the keyboard as a menu does; by a rest, it leaves it where it is. */
+  by: "hover" | "click";
+  /** The app's button: a press there is left to its own click. */
+  anchor: Element | null;
   /** Its box each time it places itself, null once it closes: the bar's hit zone takes it in. */
   onPlace: (box: HitRect | null) => void;
   onEnter: () => void;
   onLeave: () => void;
   onClose: () => void;
 }) {
-  const { b, x, w, bottom, onPlace, onClose } = props;
+  const { b, x, w, bottom, by, anchor, onPlace, onClose } = props;
   const present = useIsPresent();
   const ref = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
@@ -64,6 +71,12 @@ export function PreviewCard(props: {
       () => {},
     );
   }, [present, ready, list, b.windows.length]);
+  // Read through a ref by the observer: a new `send` (a window closed, the fade done) must not re-run the effect below, whose
+  // cleanup drops the card from the hit zone for a moment, and a poll in that gap would close the card under the pointer.
+  const sendNow = useRef(send);
+  useLayoutEffect(() => {
+    sendNow.current = send;
+  }, [send]);
 
   // Placed as a menu places itself, from its own size, and the boxes sent again whenever that moves them.
   useLayoutEffect(() => {
@@ -74,14 +87,14 @@ export function PreviewCard(props: {
       const left = placeMenu(x, w, width, window.innerWidth);
       el.style.left = `${left}px`;
       onPlace({ x: left, y: window.innerHeight - bottom - height, w: width, h: height });
-      send();
+      sendNow.current();
     });
     observer.observe(el);
     return () => {
       observer.disconnect();
       onPlace(null);
     };
-  }, [present, x, w, bottom, onPlace, send]);
+  }, [present, x, w, bottom, onPlace]);
   // A window coming or going, or the card ready: the whole set again.
   const ids = b.windows.map((win) => win.id).join();
   useLayoutEffect(send, [send, ids]);
@@ -92,11 +105,44 @@ export function PreviewCard(props: {
     sent.current++;
     void taskbar.preview([]).catch(() => {});
   }, [list, present]);
+  // Opened by a click, the keyboard moves in as BarMenu's does: the first window focused (again when the tiles turn into the list),
+  // Right and Left or Up and Down between them, Home and End; Esc closes it and gives the keyboard back, and a press elsewhere in
+  // the bar or the window losing the focus closes it.
+  useEffect(() => {
+    if (!present || by !== "click") return;
+    const rows = () => [...(ref.current?.querySelectorAll<HTMLElement>(ROWS) ?? [])];
+    rows()[0]?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        void taskbar.release();
+        return;
+      }
+      const all = rows();
+      const to = menuKey(previewKey(e.key, document.documentElement.dir === "rtl"), all.indexOf(document.activeElement as HTMLElement), all.length);
+      if (to === undefined) return;
+      e.preventDefault();
+      all[to].focus({ preventScroll: true });
+    };
+    const onDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (!ref.current?.contains(target) && !anchor?.contains(target)) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onDown);
+    const offBlur = onNativeBlur(onClose);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onDown);
+      offBlur();
+    };
+  }, [present, by, anchor, onClose, list]);
 
   return (
     <motion.div
       ref={ref}
-      role="dialog"
+      // As a list its rows are a menu's, so they sit in one.
+      role={list ? "menu" : "dialog"}
       aria-label={b.name}
       dir={document.documentElement.dir}
       className={`${MENU_PANEL_CLASS} w-max flex ${list ? "min-w-40 max-w-80 flex-col" : "gap-1"}`}
@@ -116,6 +162,7 @@ export function PreviewCard(props: {
           // Two sibling buttons, never one in the other: the tile brings the window forward, the cross closes it.
           <div key={win.id} className="relative rounded-[6px] hover:bg-fill-2" style={{ width: layout.w + 12 }}>
             <button
+              data-window
               aria-label={win.title || b.name}
               className="flex w-full flex-col gap-1.5 rounded-[6px] p-1.5 outline-none focus-visible:bg-fill-2"
               onClick={() => {

@@ -70,7 +70,7 @@ function part(id: PartId, { feed: f, paused, hovered, clock, h12, titleLoop, tim
   switch (id) {
     case "clock": {
       const v = variantOf(variants, "clock");
-      if (v === "analog") return { node: <BarAnalog paused={paused} at={at} />, width: ANALOG };
+      if (v === "analog") return { node: <BarAnalog h12={h12} paused={paused} at={at} />, width: ANALOG };
       if (v === "zones" && zone) return { node: <BarZones h12={h12} zone={zone} paused={paused} at={at} />, width: zonesWidth(h12, zone) };
       return { node: <BarClock seconds={clock.seconds} h12={h12} date={clock.date} paused={paused} at={at} />, width: barClockWidth(clock.seconds, h12, clock.date) };
     }

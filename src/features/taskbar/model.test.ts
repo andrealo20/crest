@@ -20,6 +20,7 @@ import {
   normalizeZones,
   placeMenu,
   previewFallsBack,
+  previewKey,
   previewLayout,
   statusWanted,
   stepItem,
@@ -188,6 +189,14 @@ test("the keys move through a menu's rows and wrap at its ends", () => {
   assert.equal(menuKey("End", 0, 3), 2);
   assert.equal(menuKey("Enter", 0, 3), undefined);
   assert.equal(menuKey("ArrowDown", -1, 0), undefined);
+});
+
+test("the preview card's tiles step with Right and Left along the bar, mirrored right to left", () => {
+  assert.equal(previewKey("ArrowRight", false), "ArrowDown");
+  assert.equal(previewKey("ArrowLeft", false), "ArrowUp");
+  assert.equal(previewKey("ArrowRight", true), "ArrowUp");
+  assert.equal(previewKey("ArrowLeft", true), "ArrowDown");
+  for (const key of ["ArrowDown", "ArrowUp", "Home", "End", "Enter"]) assert.equal(previewKey(key, true), key);
 });
 
 test("the taskbar settings show only where the bar can run", () => {

@@ -31,12 +31,12 @@ export function BarClock({ seconds, h12, date, paused, at }: { seconds: boolean;
 export const ANALOG = 22;
 
 /** An analog dial: four ticks, the hour and minute hands. Ticks with the minute; `at` shows that time and never ticks. */
-export function BarAnalog({ paused, at }: { paused: boolean; at?: number }) {
+export function BarAnalog({ h12, paused, at }: { h12: boolean; paused: boolean; at?: number }) {
   const minute = useMinuteTick(!paused && at === undefined);
   const d = new Date(at ?? minute);
   const hands = handAngles(`${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`)!;
   return (
-    <svg width={ANALOG} height={ANALOG} viewBox="-20 -20 40 40" className="shrink-0" role="img" aria-label={clockFormat(false, false, false).format(d)}>
+    <svg width={ANALOG} height={ANALOG} viewBox="-20 -20 40 40" className="shrink-0" role="img" aria-label={clockFormat(false, h12, false).format(d)}>
       <circle r="19" fill="var(--color-fill-2)" />
       {[0, 90, 180, 270].map((a) => <line key={a} y1="-14.5" y2="-17" stroke="var(--color-label-3)" strokeWidth="2" strokeLinecap="round" transform={`rotate(${a})`} />)}
       <line y2="-9.5" stroke="var(--color-label)" strokeWidth="3.4" strokeLinecap="round" transform={`rotate(${hands.hour})`} />

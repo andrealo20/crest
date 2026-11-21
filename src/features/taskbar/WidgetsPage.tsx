@@ -135,7 +135,8 @@ function Versions({ id, s, zone }: { id: PartId; s: Settings; zone: string | nul
           tabIndex={i === chosen ? 0 : -1}
           onClick={() => pick(i)}
           onKeyDown={(e) => onKey(e, i)}
-          className={`flex flex-col items-center gap-1 rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${i === chosen ? "ring-2 ring-accent" : ""}`}
+          // The ring marks the version chosen, an outline outside it the focus, which lands on that same version.
+          className={`flex flex-col items-center gap-1 rounded-[10px] outline-offset-2 outline-label-2 focus-visible:outline-2 ${i === chosen ? "ring-2 ring-accent" : ""}`}
         >
           <Preview id={id} choice={c} s={s} zone={zone} />
           <span className={`pb-1 text-caption ${i === chosen ? "text-label" : "text-label-2"}`}>{choiceLabel(c)}</span>
@@ -170,8 +171,8 @@ function Preview({ id, choice, s, zone }: { id: PartId; choice: WidgetChoice; s:
   });
   const pill = pillWidget(id, taskbar.shape === "tiles") ? statusPill(44) : null;
   return (
-    // Hidden from screen readers: a radio is named by its version, not by the sample's figures.
-    <span aria-hidden className="flex h-11 items-center rounded-[10px] px-2" style={surface}>
+    // Hidden from screen readers: a radio is named by its version, not by the sample's figures. Left to right, as the bar's ink is.
+    <span aria-hidden dir="ltr" className="flex h-11 items-center rounded-[10px] px-2" style={surface}>
       <span className={pill ? "flex items-center rounded-full bg-fill-2" : "flex"} style={pill ? { height: pill.height, paddingInline: pill.pad } : undefined}>
         <span className="grid h-[30px] overflow-clip" style={{ width }}>
           <AnimatePresence initial={false}>{node}</AnimatePresence>

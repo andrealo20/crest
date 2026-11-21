@@ -269,7 +269,12 @@ export function TaskbarWindow() {
   /** The pointer off the button or the card: a rest that has not opened one is dropped, an open card closes after a wait unless the pointer comes back. */
   const leavePreview = () => {
     window.clearTimeout(cardTimer.current);
-    if (card.current) cardTimer.current = window.setTimeout(() => setCard(null), PREVIEW_CLOSE);
+    if (card.current)
+      cardTimer.current = window.setTimeout(() => {
+        // The click that opened it took the keyboard: left without a pick, it goes back to the app in front, as Esc gives it.
+        if (card.current?.by === "click" && document.hasFocus()) void taskbar.release();
+        setCard(null);
+      }, PREVIEW_CLOSE);
   };
 
   /** A click on an app; `inPanel` for a cell of the "…" panel, which keeps the list of an app's windows. */
@@ -619,6 +624,8 @@ export function TaskbarWindow() {
               x={preview.x}
               w={preview.w}
               bottom={gap + height + MENU_GAP}
+              by={preview.by}
+              anchor={appButtons.current.get(preview.key) ?? null}
               onPlace={placeCard}
               onEnter={() => window.clearTimeout(cardTimer.current)}
               onLeave={leavePreview}
