@@ -183,14 +183,26 @@ test("the contour component is a hidden canvas that fades in, follows the theme 
   assert.match(cleanup, /^return \(\) => \{[^}]*\.stop\(\)/);
 });
 
-test("the contour files keep the style's CSS rules and credit Stellaria and Hoskins", () => {
+test("the contour files keep the style's CSS rules and credit Stellaria, whose hash3 the shader keeps as it is", () => {
   for (const file of ["./contours.ts", "./Contours.tsx"]) {
     const src = read(file);
     for (const s of ["blur(", "color-mix(", "linear(", ":dir("]) assert.ok(!src.includes(s), `${file}: ${s}`);
     assert.doesNotMatch(src, /\b(bg|text|fill|stroke|ring|border)-[\w-]+\/\d/, file);
   }
   const head = read("./contours.ts").split("\n").slice(0, 8).join("\n");
-  for (const s of ["Adapted from Stellaria (GPL-3.0", "dcc2f10", "Hash without Sine", "Modified for Crest, 2026-11-21"]) assert.ok(head.includes(s), s);
+  for (const s of ["Adapted from Stellaria (GPL-3.0", "dcc2f10", "hash3", "Modified for Crest, 2026-11-21"]) assert.ok(head.includes(s), s);
+  // Stellaria's hash3 at dcc2f10, launcher/ui/launcher.js:653-659: no code from elsewhere, so no licence beyond Stellaria's.
+  const hash3 = [
+    "vec3 hash3(vec3 p) {",
+    "  uvec3 q = uvec3(ivec3(p)) * uvec3(1597334673u, 3812015801u, 2798796415u);",
+    "  q = (q.x ^ q.y ^ q.z) * uvec3(1597334673u, 3812015801u, 2798796415u);",
+    "  q ^= q >> 16u;",
+    "  q *= uvec3(2246822519u, 3266489917u, 668265263u);",
+    "  return -1.0 + 2.0 * vec3(q >> 8u) / 16777215.0;",
+    "}",
+  ].join("\n");
+  assert.ok(CONTOUR_FS.includes(hash3), "hash3 as in Stellaria");
+  for (const file of ["./contours.ts", "../../../README.md"]) assert.ok(!read(file).includes("Hoskins"), file);
   const readme = read("../../../README.md").replace(/\s+/g, " ");
   assert.ok(readme.includes("the contour background and the navigation mark of the settings window and the load shapes of the Hardware tool are adapted from Stellaria's code"));
 });

@@ -1,9 +1,8 @@
 // Adapted from Stellaria (GPL-3.0, github.com/SMIDR76/stellaria-windows), launcher/ui/launcher.js at dcc2f10: the contour
-// shader (three octaves of fBm, 30 levels, lines from fwidth), its 1.5 cap on the pixel ratio and the first eight page views
-// (topoFields). Stellaria ports Caelestia (GPL-3.0, github.com/caelestia-dots/shell).
+// shader (its hash3 unchanged, three octaves of fBm, 30 levels, lines from fwidth), its 1.5 cap on the pixel ratio and the
+// first eight page views (topoFields). Stellaria ports Caelestia (GPL-3.0, github.com/caelestia-dots/shell).
 // Modified for Crest, 2026-11-21: an alpha uniform, a 1.2 million pixel cap, a 30 fps loop at rest that stops without focus,
 // input or visibility, page views from a table with a hash for new pages, Crest's springs for the drift and the theme's fade.
-// hash3 starts from David Hoskins's integer hash33 of "Hash without Sine" (shadertoy.com/view/4djSRW), MIT License.
 
 import { animate, motionValue, type AnimationPlaybackControls } from "motion";
 import { springs, themeFade } from "../../design/motion.ts";
