@@ -3,7 +3,7 @@
 // The rules themselves are resolved in Rust (src-tauri/src/screen_policy.rs), which reads the same shape.
 
 import { normalize, type HotkeyKind } from "./hotkeys.ts";
-import { fitScale, normalizeSizes, type PanelScale, type Size } from "./panelSize.ts";
+import { fitScale, normalizeSizes, normalizeTextSizes, type PanelScale, type Size } from "./panelSize.ts";
 
 /** What the notch does in a context: keep its style, switch to the line, or hide. */
 export type Behavior = "normal" | "line" | "hide";
@@ -30,6 +30,8 @@ export interface WindowSettings {
   toolHotkeys: Record<string, string>;
   /** Open size per tool id, dragged at the panel's edges; missing = the tool's default. */
   sizes: Record<string, Size>;
+  /** Text size per tool id in %, set with Ctrl + and Ctrl - in the tool (Notes, Calc); missing = 100. */
+  textSizes: Record<string, number>;
   scale: PanelScale;
   closeDelay: CloseDelay;
   rightClickSettings: boolean;
@@ -51,6 +53,7 @@ export const WINDOW_DEFAULTS: WindowSettings = {
   hotkeys: { open: "Ctrl+Alt+Space", hide: "", resize: "", find: "Ctrl+Alt+Shift+KeyF", mic: "" },
   toolHotkeys: {},
   sizes: {},
+  textSizes: {},
   scale: 100,
   closeDelay: "fast",
   rightClickSettings: true,
@@ -141,6 +144,7 @@ export function normalizeWindow(saved: unknown, legacyVisibility?: string): Wind
     },
     toolHotkeys: toolHotkeys(s.toolHotkeys),
     sizes: normalizeSizes(s.sizes),
+    textSizes: normalizeTextSizes(s.textSizes),
     scale: fitScale(s.scale),
     closeDelay: (Object.keys(closeDelayMs) as CloseDelay[]).includes(s.closeDelay as CloseDelay) ? (s.closeDelay as CloseDelay) : d.closeDelay,
     rightClickSettings: bool(s.rightClickSettings, d.rightClickSettings),

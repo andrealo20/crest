@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PANEL_MAX, clampSize, currentQuick, dragSize, fitScale, limits, normalizeSizes, quickSize, sizeFor, stepScale, stepSize, toPageCss, toSaved } from "./panelSize.ts";
+import { PANEL_MAX, clampSize, currentQuick, dragSize, fitScale, limits, normalizeSizes, normalizeTextSizes, quickSize, sizeFor, stepScale, stepSize, stepTextSize, toPageCss, toSaved } from "./panelSize.ts";
 
 const def = { w: 520, h: 250 };
 
@@ -89,4 +89,18 @@ test("a tool whose layout needs its whole height cannot be made shorter (#64, th
   assert.deepEqual(sizeFor(music, { w: 416, h: 186 }), { w: 416, h: 232 });
   assert.equal(quickSize(music, "compact").h, 232);
   assert.equal(limits({ w: 520, h: 232 }).minH, 186);
+});
+
+test("a tool's text size keeps only the scale steps other than 100 %", () => {
+  assert.deepEqual(normalizeTextSizes({ notes: 125, calc: 200, todos: 100, odd: 133, text: "150", none: null }), { notes: 125, calc: 200 });
+  assert.deepEqual(normalizeTextSizes(null), {});
+  assert.deepEqual(normalizeTextSizes("notes"), {});
+});
+
+test("Ctrl + and Ctrl - walk a tool's text size through the scale steps; Ctrl 0 and 100 % leave no entry", () => {
+  assert.deepEqual(stepTextSize({}, "notes", 1), { notes: 110 });
+  assert.deepEqual(stepTextSize({ notes: 110, calc: 150 }, "notes", -1), { calc: 150 });
+  assert.deepEqual(stepTextSize({ notes: 200 }, "notes", 1), { notes: 200 });
+  assert.deepEqual(stepTextSize({ notes: 80 }, "notes", -1), { notes: 80 });
+  assert.deepEqual(stepTextSize({ notes: 175, calc: 90 }, "notes", 0), { calc: 90 });
 });

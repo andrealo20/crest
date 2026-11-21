@@ -127,3 +127,23 @@ export function normalizeSizes(v: unknown): Record<string, Size> {
   }
   return out;
 }
+
+/** Saved text sizes per tool (Notes, Calc): the scale steps other than 100 %, which is left out. */
+export function normalizeTextSizes(v: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!v || typeof v !== "object") return out;
+  for (const [id, s] of Object.entries(v as Record<string, unknown>)) {
+    const fit = fitScale(s);
+    if (fit === s && fit !== 100) out[id] = fit;
+  }
+  return out;
+}
+
+/** The text sizes after Ctrl + (1), Ctrl - (-1) or Ctrl 0 (0) in tool `id`, through the scale steps; 100 % is left out. */
+export function stepTextSize(sizes: Record<string, number>, id: string, step: 1 | -1 | 0): Record<string, number> {
+  const out = { ...sizes };
+  const next = step === 0 ? 100 : stepScale(sizes[id] ?? 100, step);
+  if (next === 100) delete out[id];
+  else out[id] = next;
+  return out;
+}

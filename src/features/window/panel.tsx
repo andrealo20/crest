@@ -1,11 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { createStore } from "../../lib/store";
 import { holdOpen } from "../../notch/useNotchState";
 import { monitor, monitorMetrics } from "../../notch/monitor";
 import { viewZoom } from "../../notch/viewZoom";
+import { isMac } from "../../platform/native";
 import { settings } from "../../settings/store";
 import { t } from "../../i18n";
-import { dragSize, limits, sizeFor, stepSize, type Direction, type Edge, type Size } from "./panelSize";
+import { textStep } from "./hotkeys";
+import { dragSize, limits, sizeFor, stepSize, stepTextSize, type Direction, type Edge, type Size } from "./panelSize";
 import { updateBehavior } from "./store";
 
 /** The size while an edge is being dragged; saved on release. */
@@ -18,6 +20,18 @@ export function useToolSize(id: string, def: Size): Size {
   monitor.use();
   if (dragging?.tabId === id) return dragging;
   return sizeFor(def, saved, monitorMetrics().height);
+}
+
+/** A tool's text size as a factor (1 = 100 %), and the key handler for its root: Ctrl + and Ctrl - step it, Ctrl 0 resets it. */
+export function useToolText(id: string): { scale: number; onKeyDown: (e: KeyboardEvent) => void } {
+  const size = settings.use().behavior.textSizes[id] ?? 100;
+  const onKeyDown = (e: KeyboardEvent) => {
+    const step = textStep(e, isMac);
+    if (step === null) return;
+    e.preventDefault();
+    updateBehavior((b) => ({ textSizes: stepTextSize(b.textSizes, id, step) }));
+  };
+  return { scale: size / 100, onKeyDown };
 }
 
 function save(id: string, size: Size | null) {

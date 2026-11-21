@@ -74,3 +74,9 @@ test("cycling tools wraps and skips when there is nothing to switch to", () => {
 test("no default shortcut is one an AltGr layout would type with", () => {
   for (const kind of ["open", "hide", "resize", "find"] as const) assert.equal(altGrRisk(kind, WINDOW_DEFAULTS.hotkeys[kind]), false, kind);
 });
+
+test("saved text sizes per tool survive a reload; a fresh install has none", () => {
+  assert.deepEqual(WINDOW_DEFAULTS.textSizes, {});
+  assert.deepEqual(normalizeWindow({ textSizes: { notes: 150, calc: 42 } }).textSizes, { notes: 150 });
+  assert.deepEqual(normalizeWindow({}).textSizes, {});
+});
