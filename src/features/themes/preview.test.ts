@@ -43,6 +43,18 @@ test("the theme grid previews after 220 ms in the focused settings window, and e
   assert.match(choice, /return \(\) => \{\s*window\.removeEventListener\("blur", stopPreview\);\s*stopPreview\(\);\s*\};/);
 });
 
+test("under Crest, and outside the settings window, the theme grid schedules no preview and writes no store", () => {
+  const choice = between(read("./ThemeSettings.tsx"), "function ThemeChoice(", "\nfunction ");
+  assert.ok(choice.includes('const previews = style === "material" && windowKind === "settings";'), "previews");
+  assert.match(choice, /<StyleCards[^>]*onHover=\{previews \? hover : undefined\}/);
+  const stop = between(choice, "const stopPreview = () => {", "\n  };");
+  // storeCore's set always notifies, and each notify runs apply().
+  assert.ok(stop.includes("if (previewTheme.get() !== null) previewTheme.set(null);"), stop);
+  const blur = choice.slice(choice.lastIndexOf("useEffect(", choice.indexOf('window.addEventListener("blur"')));
+  assert.match(blur, /^useEffect\(\(\) => \{\s*if \(!previews\) return;/);
+  assert.match(blur, /\}, \[previews\]\);/);
+});
+
 test("apply() reads the style first and the preview under Material alone, and redraws when the preview changes", () => {
   const store = read("./store.ts");
   const apply = between(store, "function apply() {", "\n}\n");

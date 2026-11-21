@@ -175,10 +175,13 @@ function ThemeChoice() {
   const current = findTheme(activeThemeId(themes, new Date(), weather), themes.custom, system);
   const list = themeChoices(system, themes.custom);
 
+  // The preview only shows in Material's settings window (previewFor); elsewhere the grid schedules and writes nothing.
+  const previews = style === "material" && windowKind === "settings";
   const timer = useRef(0);
   const stopPreview = () => {
     window.clearTimeout(timer.current);
-    previewTheme.set(null);
+    // storeCore's set always notifies, and each notify runs apply().
+    if (previewTheme.get() !== null) previewTheme.set(null);
   };
   const hover = (id: string | null) => {
     if (id === null) return stopPreview();
@@ -203,12 +206,13 @@ function ThemeChoice() {
     if (pending) stopPreview();
   }, [pending]);
   useEffect(() => {
+    if (!previews) return;
     window.addEventListener("blur", stopPreview);
     return () => {
       window.removeEventListener("blur", stopPreview);
       stopPreview();
     };
-  }, []);
+  }, [previews]);
 
   const choose = (id: string) => {
     setConfirmDelete(false);
@@ -234,7 +238,7 @@ function ThemeChoice() {
           label={t("Theme")}
           value={current.id}
           onChange={choose}
-          onHover={hover}
+          onHover={previews ? hover : undefined}
           options={list.map((theme) => ({ value: theme.id, label: themeName(theme), preview: <ThemePreview theme={theme} style={style} /> }))}
         />
         {style === "material" && (
