@@ -17,7 +17,7 @@ import { MENU_PANEL_CLASS, MENU_ROW_CLASS } from "./menu";
 import { filledPress } from "./press";
 import { GROUP_IN } from "./cascade";
 import { arrowStep } from "./radioKeys";
-import { sliderKey } from "./sliderKey";
+import { sliderKey, wheelAmount, wheelStep, wheelTakes } from "./sliderKey";
 import { MaterialSymbol } from "./iconset";
 import type { RowSymbol } from "./materialNames";
 import { HUE_PILL } from "../features/themes/themes";
@@ -482,6 +482,45 @@ export function Slider(props: {
         (props.max - props.min);
     props.onChange(Math.round(raw / step) * step);
   };
+  const material = design.use() === "material";
+  const rest = useRef<number | null>(null);
+  const gesture = useRef({ at: -Infinity, takes: false, acc: 0 });
+  const release = useRef(0);
+  // The native handler stays the same from one render to the next, so it reads the props through this.
+  const live = useRef(props);
+  live.current = props;
+  // Only under Material: a wheel listener that is not passive makes every scroll over a slider wait for the main thread.
+  useEffect(() => {
+    if (!material) return;
+    const el = track.current!;
+    const onWheel = (e: WheelEvent) => {
+      // The style can change between a render and this event.
+      if (design.get() !== "material") return;
+      const now = e.timeStamp;
+      // The verdict is taken at a gesture's first event and holds for all of it, so a page scroll that reaches a slider keeps scrolling.
+      if (now - gesture.current.at > 300) {
+        gesture.current.takes = wheelTakes({ focused: document.activeElement === el, now, pointerRestSince: rest.current, lastWheel: gesture.current.at });
+        gesture.current.acc = 0;
+      }
+      gesture.current.at = now;
+      if (!gesture.current.takes) return;
+      // Also keeps the notch from switching tools with this wheel (Notch.tsx reads defaultPrevented).
+      e.preventDefault();
+      const { dir, acc } = wheelStep(gesture.current.acc, e.deltaY, e.deltaMode);
+      gesture.current.acc = acc;
+      const p = live.current;
+      const s = p.step ?? 1;
+      if (dir !== 0) p.onChange(Math.min(p.max, Math.max(p.min, p.value + dir * wheelAmount(s, p.min, p.max))));
+      // For a setting written once: the gesture ends after 300 ms without a wheel event.
+      window.clearTimeout(release.current);
+      release.current = window.setTimeout(() => live.current.onRelease?.(), 300);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      window.clearTimeout(release.current);
+    };
+  }, [material]);
   return (
     <div
       ref={track}
@@ -499,9 +538,11 @@ export function Slider(props: {
         e.currentTarget.setPointerCapture(e.pointerId);
         set(e.clientX);
       }}
-      onPointerMove={(e) =>
-        e.currentTarget.hasPointerCapture(e.pointerId) && set(e.clientX)
-      }
+      onPointerMove={(e) => {
+        rest.current = e.timeStamp;
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) set(e.clientX);
+      }}
+      onPointerLeave={() => (rest.current = null)}
       onLostPointerCapture={props.onRelease}
       onKeyDown={(e) => {
         const to = sliderKey(e.key, props.value, step, props.min, props.max);
