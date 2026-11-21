@@ -1,4 +1,8 @@
 {
+ "Häufig verwendet": "Frequent",
+ "Zuletzt verwendet": "Recent",
+ "Aufgaben": "Tasks",
+ "{name} kann das nicht öffnen": "{name} can't open that",
  "{app} stummschalten": "Mute {app}",
  "{n} % drüber": "{n} % over",
  "{n} % übrig": "{n} % left",

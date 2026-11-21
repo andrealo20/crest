@@ -72,6 +72,10 @@ pub struct Group {
     /// An app without entries gets its icon from its exe (`taskbar_icons`).
     #[serde(skip)]
     exe: String,
+    /// The id Windows keys the app's jump list on: its window's or package's AppUserModelID, else its first Start entry's parsing
+    /// name (jumplist.rs).
+    #[serde(skip)]
+    app_id: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Serialize)]
@@ -445,7 +449,7 @@ impl Track {
                     let spawnable = ownpins::decide(window_aumid.as_deref(), relaunch, package_aumid.is_some(), &exe).is_some();
                     let aumid = window_aumid.or(package_aumid.filter(|s| !s.is_empty()));
                     // Pinnable until an entry turns up below.
-                    let group = Group { key, name: String::new(), pins: Vec::new(), windows: vec![win], spawnable, pinnable: spawnable && !prevent, exe };
+                    let group = Group { key, name: String::new(), pins: Vec::new(), windows: vec![win], spawnable, pinnable: spawnable && !prevent, exe, app_id: None };
                     groups.push((group, aumid));
                 }
             }
@@ -462,6 +466,7 @@ impl Track {
                 group.pins = ownpins::entries_for(aumid.as_deref(), &group.exe).into_iter().map(|a| Pin { id: a.id, name: a.name }).collect();
             }
             group.pinnable &= group.pins.is_empty();
+            group.app_id = aumid.clone().or_else(|| group.pins.iter().find_map(|p| p.id.strip_prefix(launcher::APPS_PREFIX).map(str::to_string)));
         }
         let groups = groups
             .into_iter()
@@ -612,6 +617,13 @@ pub(super) fn first_pin(id: isize) -> Option<(String, String)> {
     let last = last();
     let group = last.list.groups.iter().find(|g| g.windows.iter().any(|w| w.id == id))?;
     group.pins.first().map(|p| (p.id.clone(), p.name.clone()))
+}
+
+/// The jump-list id and the exe of listed group `key` (jumplist.rs), when Windows keys a list for it.
+pub(super) fn app_of(key: &str) -> Option<(String, String)> {
+    let last = last();
+    let group = last.list.groups.iter().find(|g| g.key == key)?;
+    Some((group.app_id.clone()?, group.exe.clone()))
 }
 
 /// What a click on a window's button, or its app's menu, does: "activate", "toggle" (minimizes the app in front, else brings it
@@ -860,7 +872,7 @@ mod tests {
     #[test]
     fn each_bar_lists_its_own_monitors_windows() {
         let w = |id| Win { id, title: String::new(), minimized: false, flashing: false };
-        let g = |key: &str, ids: &[isize]| Group { key: key.into(), name: key.into(), pins: vec![], windows: ids.iter().map(|&i| w(i)).collect(), spawnable: false, pinnable: false, exe: String::new() };
+        let g = |key: &str, ids: &[isize]| Group { key: key.into(), name: key.into(), pins: vec![], windows: ids.iter().map(|&i| w(i)).collect(), spawnable: false, pinnable: false, exe: String::new(), app_id: None };
         let list = WindowList { groups: vec![g("chrome", &[1, 2]), g("code", &[3])], active: Some(3) };
         let here = for_monitor(&list, |id| id == 2);
         assert_eq!(here.groups.len(), 1);

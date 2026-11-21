@@ -1,4 +1,8 @@
 {
+ "Häufig verwendet": "Frecuentes",
+ "Zuletzt verwendet": "Recientes",
+ "Aufgaben": "Tareas",
+ "{name} kann das nicht öffnen": "{name} no puede abrirlo",
  "{app} stummschalten": "Silenciar {app}",
  "{n} % drüber": "{n} % excedido",
  "{n} % übrig": "{n} % restante",

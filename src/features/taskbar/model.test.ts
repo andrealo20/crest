@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  jumpHeading,
   COMPACT_PAD,
   TASKBAR_DEFAULTS,
   TOOL_BUTTONS,
@@ -610,4 +611,13 @@ test("a preview sends its boxes again when a window comes, goes, is minimized or
   assert.notEqual(previewSet([w(1), w(2)]), previewSet([w(1), w(2, true)]));
   assert.notEqual(previewSet([w(1), w(2)]), previewSet([w(1)]));
   assert.notEqual(previewSet([w(1), w(2)]), previewSet([w(2), w(1)]));
+});
+
+test("a jump group's heading is Windows' word, or the app's own", () => {
+  const g = (kind: "frequent" | "recent" | "custom" | "tasks", title = "") => ({ kind, title, items: [] });
+  assert.deepEqual(jumpHeading(g("recent")), { key: "Zuletzt verwendet" });
+  assert.deepEqual(jumpHeading(g("frequent")), { key: "Häufig verwendet" });
+  assert.deepEqual(jumpHeading(g("tasks")), { key: "Aufgaben" });
+  assert.deepEqual(jumpHeading(g("custom", "Most visited")), { text: "Most visited" });
+  assert.deepEqual(jumpHeading(g("custom")), { text: "" });
 });

@@ -14,7 +14,7 @@ import type { RulesPayload } from "../features/window/model";
 import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
-import type { TrayState, WindowList } from "../features/taskbar/model";
+import type { JumpList, TrayState, WindowList } from "../features/taskbar/model";
 import type { Decor } from "../features/taskbar/decorModel";
 import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
 import type { Rect } from "../features/taskbar/autoHide";
@@ -1430,6 +1430,10 @@ export const taskbar = {
   appVolume: (id: number, step: number): Promise<number | null> => (isNative ? invoke<number | null>("taskbar_app_volume", { id, step }) : Promise.resolve(null)),
   /** Icons of the groups without an entry, by group key (PNG data URL, null = none). */
   icons: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_icons", { keys }) : Promise.resolve({})),
+  /** The jump list of the app behind button `key` (a listed group's key or a Start entry's id); "none" for an app Windows keeps none for under an id Crest knows. */
+  jumpList: (key: string): Promise<JumpList> => (isNative ? invoke<JumpList>("taskbar_jump_list", { key }) : Promise.reject("none")),
+  /** Opens row `id` of the list `token` with its app. */
+  jumpOpen: (token: number, id: number): Promise<void> => (isNative ? invoke("taskbar_jump_open", { token, id }) : Promise.resolve()),
   /** The tray's icons as Rust last listed them: none while Crest's tray does not run. */
   tray: (): Promise<TrayState> => (isNative ? invoke<TrayState>("taskbar_tray") : Promise.resolve({ yielded: false, icons: [] })),
   /** The tray's icons each time they change, at most every 250 ms; Rust sends them to every bar. */

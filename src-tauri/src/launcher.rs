@@ -55,6 +55,12 @@ pub struct App {
     exe: Option<String>,
 }
 
+impl App {
+    pub(crate) fn exe(&self) -> Option<&str> {
+        self.exe.as_deref()
+    }
+}
+
 /// One of the bar's own pins as an entry: the notch's launcher shows none of this source (apps.ts `mergeApps`).
 pub(crate) fn pinned_app(id: String, name: String) -> App {
     App { id, name, source: "pinned", exe: None }
@@ -369,8 +375,14 @@ pub(crate) fn in_apps_folder(app_id: &str) -> bool {
 
 /// The entry's icon as a PNG data URL (works for `shell:AppsFolder\…` ids and exe paths).
 pub(crate) fn icon_png(id: &str) -> Option<String> {
+    let item: IShellItem = unsafe { SHCreateItemFromParsingName(&HSTRING::from(id), None) }.ok()?;
+    item_png(&item)
+}
+
+/// A shell item's icon as a PNG data URL.
+pub(crate) fn item_png(item: &IShellItem) -> Option<String> {
     unsafe {
-        let factory: IShellItemImageFactory = SHCreateItemFromParsingName(&HSTRING::from(id), None).ok()?;
+        let factory: IShellItemImageFactory = item.cast().ok()?;
         let bitmap = factory.GetImage(SIZE { cx: ICON_PX, cy: ICON_PX }, SIIGBF_ICONONLY).ok()?;
         let png = bitmap_to_png(bitmap);
         let _ = DeleteObject(bitmap.into());

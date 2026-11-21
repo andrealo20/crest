@@ -1,4 +1,8 @@
 {
+ "Häufig verwendet": "متكرر",
+ "Zuletzt verwendet": "الأخيرة",
+ "Aufgaben": "المهام",
+ "{name} kann das nicht öffnen": "لا يستطيع {name} فتح هذا",
  "{app} stummschalten": "كتم صوت {app}",
  "{n} % drüber": "{n} % تجاوز",
  "{n} % übrig": "{n} % متبقٍ",

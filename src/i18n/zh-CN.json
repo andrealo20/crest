@@ -1,4 +1,8 @@
 {
+ "Häufig verwendet": "常用",
+ "Zuletzt verwendet": "最近",
+ "Aufgaben": "任务",
+ "{name} kann das nicht öffnen": "{name} 无法打开此项",
  "{app} stummschalten": "将 {app} 静音",
  "{n} % drüber": "超出 {n}%",
  "{n} % übrig": "剩余 {n}%",

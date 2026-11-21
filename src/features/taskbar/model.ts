@@ -569,6 +569,29 @@ export function menuFor(b: BarButton, o: { endTask: boolean } = { endTask: false
   return entries;
 }
 
+/** What Rust sends for an app's jump list (src-tauri/src/taskbar/jumplist.rs): rows by group, each opened by `token` and `id`. */
+export type JumpKind = "frequent" | "recent" | "custom" | "tasks";
+export interface JumpItem {
+  id: number;
+  title: string;
+  icon: string | null;
+  separator: boolean;
+}
+/** `title` is the app's own name for a custom category, untranslated; empty for the others. */
+export interface JumpGroup {
+  kind: JumpKind;
+  title: string;
+  items: JumpItem[];
+}
+export interface JumpList {
+  token: number;
+  groups: JumpGroup[];
+}
+
+const JUMP_HEADINGS: Record<Exclude<JumpKind, "custom">, string> = { frequent: "Häufig verwendet", recent: "Zuletzt verwendet", tasks: "Aufgaben" };
+/** A group's heading: Windows' words through t() (`key`), or the app's own words as they are (`text`). */
+export const jumpHeading = (g: JumpGroup): { key: string } | { text: string } => (g.kind === "custom" ? { text: g.title } : { key: JUMP_HEADINGS[g.kind] });
+
 /** The left edge of a menu centred over its anchor and kept `edge` px inside the window; a menu wider than the window starts at the left edge. */
 export const placeMenu = (anchorX: number, anchorW: number, menuW: number, viewW: number, edge = 8) =>
   Math.max(edge, Math.min(anchorX + anchorW / 2 - menuW / 2, viewW - edge - menuW));

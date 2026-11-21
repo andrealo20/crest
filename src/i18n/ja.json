@@ -1,4 +1,8 @@
 {
+ "Häufig verwendet": "よく使うもの",
+ "Zuletzt verwendet": "最近使ったもの",
+ "Aufgaben": "タスク",
+ "{name} kann das nicht öffnen": "{name} で開けません",
  "{app} stummschalten": "{app} をミュート",
  "{n} % drüber": "{n}% 超過",
  "{n} % übrig": "残り {n}%",

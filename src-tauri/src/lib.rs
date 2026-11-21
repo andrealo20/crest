@@ -155,7 +155,7 @@ const SETTINGS_DENIED: &[&str] = &[
     "taskbar_auto_hide", "taskbar_slid", "taskbar_shell", "taskbar_windows_pins", "taskbar_tray_on", "taskbar_tray_click",
     "taskbar_settings", "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect",
     "taskbar_bt_devices", "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_own_pins_keep",
-    "display_rescale", "taskbar_input", "taskbar_app_volume", "taskbar_spread",
+    "display_rescale", "taskbar_input", "taskbar_app_volume", "taskbar_spread", "taskbar_jump_list", "taskbar_jump_open",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, pinning a listed window,
@@ -166,7 +166,8 @@ const SETTINGS_DENIED: &[&str] = &[
 /// input language switcher and Show desktop (`taskbar_shell`), the input language it shows (taskbar/input.rs), an app's volume from its button, some of its
 /// settings pages (`taskbar_settings`), the tray's icons with their pictures and clicks, the badges and progress apps report
 /// (taskbar/taskband.rs), the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
-/// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), and what the notch's
+/// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), the jump list of an
+/// app's menu and its rows opened (taskbar/jumplist.rs), and what the notch's
 /// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
 /// `taskbar_tray_on`, `taskbar_spread`).
 const TASKBAR_ALLOWED: &[&str] = &[
@@ -186,6 +187,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "quick_dark", "mic_mute", "quick_power", "web_search",
     "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
     "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_input", "taskbar_app_volume",
+    "taskbar_jump_list", "taskbar_jump_open",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -570,6 +572,10 @@ pub fn run() {
             taskbar::tasks::taskbar_window,
             #[cfg(windows)]
             taskbar::tasks::taskbar_icons,
+            #[cfg(windows)]
+            taskbar::jumplist::taskbar_jump_list,
+            #[cfg(windows)]
+            taskbar::jumplist::taskbar_jump_open,
             #[cfg(windows)]
             taskbar::tasks::taskbar_release,
             #[cfg(windows)]
@@ -1293,6 +1299,8 @@ mod tests {
         assert!(ok("taskbar", "taskbar_tray") && ok("taskbar-1", "taskbar_tray_images") && ok("taskbar", "taskbar_tray_click"));
         assert!(ok("notch", "taskbar_tray_click") && !ok("settings", "taskbar_tray_click"));
         assert!(ok("taskbar", "taskbar_decor") && ok("taskbar-1", "taskbar_decor_images"));
+        // The jump lists, on every bar, never in the settings window; the commands refuse any window but a bar's, the notch too.
+        assert!(["taskbar_jump_list", "taskbar_jump_open"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));
         // The input language is the bars' own: drawn by the main one, read by any as it starts.
         assert!(ok("taskbar-1", "taskbar_input") && ok("taskbar", "taskbar_input") && !ok("settings", "taskbar_input"));
         // A wheel step on an app's button: the bars' own.

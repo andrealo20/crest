@@ -1,4 +1,8 @@
 {
+ "Häufig verwendet": "Часто используемые",
+ "Zuletzt verwendet": "Последние",
+ "Aufgaben": "Задачи",
+ "{name} kann das nicht öffnen": "{name} не может это открыть",
  "{app} stummschalten": "Отключить звук {app}",
  "{n} % drüber": "{n} % сверх",
  "{n} % übrig": "осталось {n} %",

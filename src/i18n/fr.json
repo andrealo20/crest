@@ -1,4 +1,8 @@
 {
+ "Häufig verwendet": "Fréquents",
+ "Zuletzt verwendet": "Récents",
+ "Aufgaben": "Tâches",
+ "{name} kann das nicht öffnen": "{name} ne peut pas l'ouvrir",
  "{app} stummschalten": "Couper le son de {app}",
  "{n} % drüber": "{n} % en trop",
  "{n} % übrig": "{n} % restant",

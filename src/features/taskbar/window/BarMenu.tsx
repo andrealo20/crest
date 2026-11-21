@@ -9,7 +9,7 @@ import { autostart, taskbar } from "../../../platform/services";
 import { settings, updateSettings } from "../../../settings/store";
 import { MENU_PANEL_CLASS, MENU_ROW_CLASS } from "../../../ui/menu";
 import { toggleFavorite, type Favorite } from "../../launcher/apps";
-import { menuFor, menuKey, newInstance, placeMenu, type BarButton, type Click } from "../model";
+import { appKey, jumpHeading, menuFor, menuKey, newInstance, placeMenu, type BarButton, type Click, type JumpList } from "../model";
 
 /** Room a menu keeps from the window's top edge, CSS px, as placeMenu keeps from its sides. */
 const EDGE = 8;
@@ -120,7 +120,7 @@ export function BarMenu(props: {
 }
 
 /** A command, or a setting with its check (`checked`), whose place is kept while it is off so the menu never changes width. */
-function Row(props: { label: string; onClick: () => void; checked?: boolean }) {
+function Row(props: { label: string; onClick: () => void; checked?: boolean; icon?: string | null }) {
   return (
     <button
       role={props.checked === undefined ? "menuitem" : "menuitemcheckbox"}
@@ -128,6 +128,8 @@ function Row(props: { label: string; onClick: () => void; checked?: boolean }) {
       onClick={props.onClick}
       className={`${MENU_ROW_CLASS} gap-2 text-label outline-none focus-visible:bg-fill-2`}
     >
+      {props.icon !== undefined &&
+        (props.icon ? <img src={props.icon} alt="" draggable={false} className="size-4 shrink-0" /> : <span className="size-4 shrink-0" />)}
       <span dir="auto" className="truncate">
         {props.label}
       </span>
@@ -141,6 +143,57 @@ export const togglePin = (app: Favorite) => updateSettings((s) => ({ taskbar: { 
 
 /** Closes all of an app's windows; a window of an app run as administrator may refuse, and nothing changes then. */
 export const closeWindows = (b: BarButton) => b.windows.forEach((win) => void taskbar.window(win.id, "close").catch(() => {}));
+
+/**
+ * The app's jump list over its entries, as Windows 11 puts it: nothing until Rust answers, then each group under its heading and
+ * a line before the entries. A row opens with the app; when it cannot, `fail` says so in the button's label.
+ */
+function JumpRows({ b, close, fail }: { b: BarButton; close: () => void; fail: (text: string) => void }) {
+  const [list, setList] = useState<JumpList | null>(null);
+  const key = appKey(b);
+  useEffect(() => {
+    let live = true;
+    taskbar.jumpList(key).then(
+      (l) => live && setList(l),
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [key]);
+  if (!list?.groups.length) return null;
+  return (
+    <>
+      {list.groups.map((g) => {
+        const h = jumpHeading(g);
+        const heading = "key" in h ? t(h.key) : h.text;
+        return (
+          <div key={`${g.kind}:${g.title}`} role="group" aria-label={heading}>
+            <div dir="auto" aria-hidden className="text-caption text-label-3 px-2 pt-1.5 pb-0.5 truncate">
+              {heading}
+            </div>
+            {g.items.map((item) =>
+              item.separator ? (
+                <div key={item.id} className="h-px bg-separator my-1" />
+              ) : (
+                <Row
+                  key={item.id}
+                  label={item.title}
+                  icon={item.icon}
+                  onClick={() => {
+                    close();
+                    taskbar.jumpOpen(list.token, item.id).catch(() => fail(t("{name} kann das nicht öffnen", { name: b.name })));
+                  }}
+                />
+              ),
+            )}
+          </div>
+        );
+      })}
+      <div className="h-px bg-separator my-1" />
+    </>
+  );
+}
 
 /**
  * An app's right-click menu, as menuFor allows it. `act` runs a click as a click on its button does, errors included; `fail` shows
@@ -163,6 +216,7 @@ export function AppMenu({ b, act, close, fail }: { b: BarButton; act: (c: Click)
   } as const;
   return (
     <>
+      <JumpRows b={b} close={close} fail={fail} />
       {menuFor(b, { endTask }).map((e) => {
         const [label, run] = entries[e];
         return (
