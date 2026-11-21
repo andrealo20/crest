@@ -43,6 +43,8 @@ window.addEventListener("keydown", (e) => {
 startBarWindows();
 // A reloaded page starts with its panel closed: the notch forgets what the page before it had open.
 void taskbar.panel(null);
+// Nor does it keep the window previews the page before it showed (Preview.tsx).
+void taskbar.preview([]).catch(() => {});
 startPanelReport();
 // Whether this bar shows, in every bar (its glass stops while Rust hides it); the notch's data, in the primary only.
 followBar(primary);

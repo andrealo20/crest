@@ -14,7 +14,7 @@ import { WindowsMark } from "../../../ui/WindowsMark";
 import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
-import { zones as hitZones, type Rect } from "../autoHide";
+import { PREVIEW_CLOSE, PREVIEW_DELAY, bridge, zones as hitZones, type Rect } from "../autoHide";
 import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Zone } from "../model";
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
 import { closePanel, itemDrag, panel, togglePanel } from "../panel";
@@ -37,6 +37,7 @@ import { holdBriefly } from "./hold";
 import { Item, MARK, type ItemProps } from "./Item";
 import { ItemDrop } from "./ItemDrop";
 import { pressDragged, startPress } from "./press";
+import { PreviewCard } from "./Preview";
 import { Status } from "./Status";
 import { Tray, TrayDrop } from "./Tray";
 import { useAppFit } from "./useAppFit";
@@ -57,6 +58,8 @@ export const primary = !isNative || getCurrentWebviewWindow().label === "taskbar
 type Menu = { kind: "app" | "list"; b: BarButton } | { kind: "crest" };
 /** An open menu, the button it opened from (null: a right click beside the buttons) and the span it opens over, CSS px. */
 type OpenMenu = Menu & { anchor: Element | null; x: number; w: number };
+/** The open preview card: the app's button, the span it opens over, CSS px, and whether a rest on the button or a click opened it. */
+type Card = { key: string; x: number; w: number; by: "hover" | "click" };
 
 /*
  *   ╭──────────────────────────────────────────────────────────────╮
@@ -85,24 +88,52 @@ export function TaskbarWindow() {
   // The button under the pointer, and a launch that failed (in its button's label for a while).
   const [hovered, setHovered] = useState<string | null>(null);
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
+  // The pointer's x over the bar, Infinity off it: the magnified icons follow it without React drawing anything.
+  const pointer = useMotionValue(Infinity);
+  // Where the pointer last was over the bar, for the icons once a preview card stops holding them still.
+  const lastX = useRef(Infinity);
+  const [preview, setPreview] = useState<Card | null>(null);
+  const card = useRef<Card | null>(null);
+  // The apps' buttons by key, and the one timer of the card: the rest before it opens, or the wait before it closes.
+  const appButtons = useRef(new Map<string, HTMLButtonElement>());
+  const cardTimer = useRef<number | undefined>(undefined);
+  // Every change of the card goes through here. Closing it or moving it to another app first takes its thumbnails away, so none
+  // outlives its card; each call is the whole set, so the next card's slots replace this one in Rust. Nothing else clears them.
+  const setCard = useCallback(
+    (next: Card | null) => {
+      window.clearTimeout(cardTimer.current);
+      if (card.current && next?.key !== card.current.key) void taskbar.preview([]).catch(() => {});
+      if (!next && card.current) pointer.set(lastX.current);
+      card.current = next;
+      setPreview(next);
+    },
+    [pointer],
+  );
   const [menu, setOpenMenu] = useState<OpenMenu | null>(null);
   // The panel above the bar shares the menus' place in the hit zone: opening one closes the other. Every menu closes the panel here,
-  // wherever it is set from, or one set while the panel is open would wait hidden behind it and pop up once it closes.
-  const setMenu = useCallback((next: OpenMenu | null) => {
-    if (next) closePanel();
-    setOpenMenu(next);
-  }, []);
+  // wherever it is set from, or one set while the panel is open would wait hidden behind it and pop up once it closes. A menu closes
+  // the preview card too.
+  const setMenu = useCallback(
+    (next: OpenMenu | null) => {
+      if (next) {
+        closePanel();
+        setCard(null);
+      }
+      setOpenMenu(next);
+    },
+    [setCard],
+  );
   const closeMenu = useCallback(() => setMenu(null), [setMenu]);
   const open = panel.use();
   useEffect(() => {
-    if (open) setMenu(null);
-  }, [open]);
+    if (!open) return;
+    setMenu(null);
+    setCard(null);
+  }, [open, setMenu, setCard]);
   // The item dragged along the bar, only its id: the pointer's moves would draw the whole bar again (ItemDrop follows them).
   const dragged = useSyncExternalStore(itemDrag.subscribe, () => itemDrag.get()?.id ?? null);
   // The shape's boxes, for its glass: new ones only when they change, so a hover does not draw the glass again.
   const [boxes, setBoxes] = useState<Box[]>([]);
-  // The pointer's x over the bar, Infinity off it: the magnified icons follow it without React drawing anything.
-  const pointer = useMotionValue(Infinity);
   const reduced = useReducedMotion() === true;
   // Once the window lets the pointer through, the page sees no pointerleave: Rust says when the pointer left the bar.
   useEffect(
@@ -110,10 +141,28 @@ export function TaskbarWindow() {
       taskbar.onHover((inside) => {
         if (inside) return;
         setHovered(null);
+        lastX.current = Infinity;
+        setCard(null);
         pointer.set(Infinity);
       }),
-    [pointer],
+    [pointer, setCard],
   );
+  // The card closes when the bar hides, changes size or moves (a work area, a monitor rearranged): its thumbnails sit where its
+  // boxes were. On unmount it takes them away, as a reload does at load (main.tsx).
+  useEffect(() => {
+    if (paused) setCard(null);
+  }, [paused, setCard]);
+  useEffect(() => {
+    const close = () => setCard(null);
+    window.addEventListener("resize", close);
+    const moved = isNative ? getCurrentWebviewWindow().onMoved(close) : null;
+    return () => {
+      window.removeEventListener("resize", close);
+      void moved?.then((off) => off());
+      window.clearTimeout(cardTimer.current);
+      void taskbar.preview([]).catch(() => {});
+    };
+  }, [setCard]);
   useEffect(() => {
     if (!error) return;
     const id = window.setTimeout(() => setError(null), 3000);
@@ -141,6 +190,15 @@ export function TaskbarWindow() {
   const shown = new Set(splitApps(buttons.map((b) => b.key), fit.mode === "overflow" ? fit.visible : buttons.length, kept).shown);
   const shownButtons = buttons.filter((b) => shown.has(b.key));
   const hiddenButtons = buttons.filter((b) => !shown.has(b.key));
+  // The card's app as it is now; its last window closed, or its button gone behind "…", the card goes.
+  const cardButton = preview ? shownButtons.find((b) => b.key === preview.key && b.windows.length) : undefined;
+  const cardEntry = cardButton && launchId(cardButton);
+  const cardIcon = cardButton && (cardEntry ? icons[cardEntry] : ownIcons[cardButton.key]);
+  const cardGone = preview !== null && !cardButton;
+  const closeCard = useCallback(() => setCard(null), [setCard]);
+  useEffect(() => {
+    if (cardGone) setCard(null);
+  }, [cardGone, setCard]);
   const narrow = fit.mode !== "full";
   const appIcon = narrow ? compactIcon(size) : size;
   const appWidth = narrow ? compactIcon(size) + COMPACT_PAD : undefined;
@@ -154,14 +212,22 @@ export function TaskbarWindow() {
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
   // An open menu or panel holds the bar up, and so does an app asking for attention.
   const layout = `${buttons.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${fit.mode}:${fit.visible}:${fit.trayBack}:${fit.hide}|${glyphs}`;
-  const { down, place: placeMenuZone } = useHitZone(bar, shape, setBoxes, layout, {
-    open: menu !== null || open !== null,
+  const { down, place: placeMenuZone, placePreview } = useHitZone(bar, shape, setBoxes, layout, {
+    open: menu !== null || open !== null || preview !== null,
     attention: buttons.some((b) => indicator(b, active) === "attention"),
     dragging: dragged !== null,
   });
   // Down, Rust tells this bar, and the notch for the primary's, that it is hidden (bar.rs taskbar_slid): the widgets and their sources
   // rest as when it hides. Once per change, and once on load, which clears a slide the page left behind before a reload.
   useEffect(() => void taskbar.slid(down), [down]);
+  // The card's box with its button's, so the gap between them keeps the pointer on the bar.
+  const placeCard = useCallback(
+    (box: HitRect | null) => {
+      const button = card.current && appButtons.current.get(card.current.key);
+      placePreview(box && button ? bridge(box, boxOf(button)) : box);
+    },
+    [placePreview],
+  );
   // Slid off the screen, the bar runs no glass, as when it hides.
   const look = useBarSurface(boxes, down);
   // The shape slides out of its still box by its height and the gap under it, off the screen (useAutoHide).
@@ -185,10 +251,41 @@ export function TaskbarWindow() {
   const launch = (b: BarButton, id: string) =>
     launcher.open(id).catch((code) => setError({ key: b.key, text: t(code === "not-found" ? "{name} ist nicht mehr installiert" : "{name} startet nicht", { name: b.name }) }));
 
-  const click = (b: BarButton, button: HTMLElement) => {
+  /** Opens the card over an app's button at once, by a rest on it or a click: its previews, its button's centre holding the icons still. */
+  const openCard = (b: BarButton, by: Card["by"]) => {
+    const r = appButtons.current.get(b.key)?.getBoundingClientRect();
+    if (!r) return;
+    pointer.set(r.x + r.width / 2);
+    setCard({ key: b.key, x: r.x, w: r.width, by });
+  };
+  /** The pointer onto an app with windows: its card after a rest, or at once in place of another app's; nothing over a menu, the panel or a drag. */
+  const showPreview = (b: BarButton) => {
+    if (!b.windows.length || menu || open || dragged) return;
+    window.clearTimeout(cardTimer.current);
+    if (card.current?.key === b.key) return;
+    if (card.current) return openCard(b, "hover");
+    cardTimer.current = window.setTimeout(() => openCard(b, "hover"), PREVIEW_DELAY);
+  };
+  /** The pointer off the button or the card: a rest that has not opened one is dropped, an open card closes after a wait unless the pointer comes back. */
+  const leavePreview = () => {
+    window.clearTimeout(cardTimer.current);
+    if (card.current) cardTimer.current = window.setTimeout(() => setCard(null), PREVIEW_CLOSE);
+  };
+
+  /** A click on an app; `inPanel` for a cell of the "…" panel, which keeps the list of an app's windows. */
+  const click = (b: BarButton, button: HTMLElement, inPanel = false) => {
     setError(null);
     const action = clickAction(b);
-    if (action.kind === "list") return toggle({ kind: "list", b }, button);
+    if (action.kind === "list") {
+      if (inPanel) return toggle({ kind: "list", b }, button);
+      // A card the rest opened stays and becomes the click's, so resting then clicking keeps the previews; a second click closes it.
+      const now = card.current;
+      if (now?.key === b.key) return setCard(now.by === "click" ? null : { ...now, by: "click" });
+      setMenu(null);
+      closePanel();
+      return openCard(b, "click");
+    }
+    setCard(null);
     setMenu(null);
     if (action.kind === "launch") launch(b, action.id);
     // A window of an app run as administrator may refuse; nothing changes then.
@@ -227,6 +324,7 @@ export function TaskbarWindow() {
           if (!itemDrag.get()) {
             closePanel();
             setMenu(null);
+            setCard(null);
             setHovered(null);
             pointer.set(Infinity);
           }
@@ -240,7 +338,7 @@ export function TaskbarWindow() {
   const item = (key: string, name: string) => ({
     name,
     // An open menu or panel hides the names, which would show around it, and so does a drag.
-    label: menu || open || dragged ? null : error?.key === key ? error.text : hovered === key ? name : null,
+    label: menu || open || dragged || preview ? null : error?.key === key ? error.text : hovered === key ? name : null,
     failed: error?.key === key,
     lifted: hovered === key,
     size,
@@ -279,6 +377,19 @@ export function TaskbarWindow() {
           <Item
             key={b.key}
             {...item(b.key, b.name)}
+            // Over an app with windows the pointer also rests for its previews.
+            onEnter={() => {
+              setHovered(b.key);
+              showPreview(b);
+            }}
+            onLeave={() => {
+              setHovered((h) => (h === b.key ? null : h));
+              leavePreview();
+            }}
+            ref={(el) => {
+              if (el) appButtons.current.set(b.key, el);
+              else appButtons.current.delete(b.key);
+            }}
             tile={tile()}
             width={appWidth}
             magnify={mag}
@@ -441,8 +552,15 @@ export function TaskbarWindow() {
           style={{ margin: shape === "capsule" ? `0 0 ${gap}px` : `0 ${gap}px ${gap}px` }}
           // The bar only, never a menu or the panel above it.
           // Not while dragging: no icon grows under the ghost.
-          onPointerMove={(e) => itemDrag.get() || pointer.set(e.clientX)}
-          onPointerLeave={() => pointer.set(Infinity)}
+          // Nor while a preview card is open: the icons hold still round its button.
+          onPointerMove={(e) => {
+            lastX.current = e.clientX;
+            if (!itemDrag.get() && !card.current) pointer.set(e.clientX);
+          }}
+          onPointerLeave={() => {
+            lastX.current = Infinity;
+            if (!card.current) pointer.set(Infinity);
+          }}
         >
           {/* Positioned, so it draws over the glass's canvas. The capsule puts the three zones in a row, as close as its buttons. */}
           {shape === "capsule" ? (
@@ -491,6 +609,23 @@ export function TaskbarWindow() {
             </BarMenu>
           )}
         </AnimatePresence>
+        {/* In the bar's ink as the menus, so Liquid Glass +'s dark ink reaches it too; never over a menu or the panel. */}
+        <AnimatePresence>
+          {preview && cardButton && !menu && !open && (
+            <PreviewCard
+              key={preview.key}
+              b={cardButton}
+              icon={cardIcon}
+              x={preview.x}
+              w={preview.w}
+              bottom={gap + height + MENU_GAP}
+              onPlace={placeCard}
+              onEnter={() => window.clearTimeout(cardTimer.current)}
+              onLeave={leavePreview}
+              onClose={closeCard}
+            />
+          )}
+        </AnimatePresence>
       </div>
       {/* Outside the bar's ink, which would lay an Arabic panel out left to right: the panel has the theme's colours whatever the bar's
           background, as the notch's open panel has, and under Liquid Glass + the bar's ink and a rim light (useBarSurface). */}
@@ -512,7 +647,7 @@ export function TaskbarWindow() {
               // A click does what the bar's does, over the cell: a window list or an app menu takes the panel's place.
               onClick={(b, cell) => {
                 closePanel();
-                click(b, cell);
+                click(b, cell, true);
               }}
               onMenu={(b, cell) => toggle({ kind: "app", b }, cell)}
             />
@@ -555,6 +690,8 @@ function useHitZone(
   // A drag keeps the bar up.
   const down = useAutoHide({ band, open: hold.open || hold.dragging, attention: hold.attention });
   const menu = useRef<HitRect | null>(null);
+  // The preview card's zone, in a ref beside the menus': the panel closing would overwrite theirs.
+  const preview = useRef<HitRect | null>(null);
   // While an item is dragged the whole window, in a ref of its own: a closing panel overwrites the menus' one.
   const drag = useRef(false);
   // As of the last render, for the reports the observers make.
@@ -574,7 +711,7 @@ function useHitZone(
     };
     const groups = shape === "tiles" && layer ? [...layer.children].map((zone) => [...zone.querySelectorAll("[data-tile]")].map(tile)) : [[rest]];
     const bands = hitBoxes(groupBoxes(groups), window.innerHeight);
-    const open = [...(menu.current ? [menu.current] : []), ...(drag.current ? [{ x: 0, y: 0, w: window.innerWidth, h: window.innerHeight }] : [])];
+    const open = [...(menu.current ? [menu.current] : []), ...(preview.current ? [preview.current] : []), ...(drag.current ? [{ x: 0, y: 0, w: window.innerWidth, h: window.innerHeight }] : [])];
     void taskbar.hitRects(hitZones({ bands, open, ...now.current, width: window.innerWidth, height: window.innerHeight }));
     const next = groups.flat();
     setBoxes((b) => (JSON.stringify(b) === JSON.stringify(next) ? b : next));
@@ -610,7 +747,14 @@ function useHitZone(
     },
     [report],
   );
-  return { down, place };
+  const placePreview = useCallback(
+    (box: HitRect | null) => {
+      preview.current = box;
+      report();
+    },
+    [report],
+  );
+  return { down, place, placePreview };
 }
 
 /**

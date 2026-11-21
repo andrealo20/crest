@@ -19,6 +19,8 @@ import {
   normalizeTaskbar,
   normalizeZones,
   placeMenu,
+  previewFallsBack,
+  previewLayout,
   statusWanted,
   stepItem,
   taskbarShown,
@@ -327,4 +329,20 @@ test("in the capsule a drop joins the zone of the item it goes before, or of the
   const items = [slot("start", "center", 500), slot("apps", "center", 546), slot("weather", "right", 592), slot("clock", "right", 638)];
   assert.deepEqual(dropPlace("clock", items, null, 560, 40, 6), { zone: "center", before: "apps", line: 542 });
   assert.deepEqual(dropPlace("weather", items, null, 700, 40, 6), { zone: "right", before: null, line: 680 });
+});
+
+test("a preview shows a 192 x 120 thumbnail per window, narrower with many, and the titles once they would be too small", () => {
+  assert.deepEqual(previewLayout(1, 1920), { kind: "tiles", w: 192, h: 120 });
+  assert.deepEqual(previewLayout(8, 1920), { kind: "tiles", w: 192, h: 120 });
+  assert.deepEqual(previewLayout(3, 640), { kind: "tiles", w: 190, h: 119 });
+  assert.deepEqual(previewLayout(10, 1280), { kind: "list" });
+  assert.deepEqual(previewLayout(0, 1920), { kind: "list" });
+});
+
+test("an app with several windows and no thumbnail at all lists their titles; one window or a partial failure keeps the tiles", () => {
+  const box = { x: 0, y: 0, w: 192, h: 120 };
+  assert.equal(previewFallsBack([null, null, null], 3), true);
+  assert.equal(previewFallsBack([null], 1), false);
+  assert.equal(previewFallsBack([box, null, null], 3), false);
+  assert.equal(previewFallsBack([], 3), false);
 });

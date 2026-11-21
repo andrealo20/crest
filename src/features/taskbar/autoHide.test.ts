@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { slides, touches, zones } from "./autoHide.ts";
+import { bridge, slides, touches, zones } from "./autoHide.ts";
 
 test("a window touches the bar only where they overlap", () => {
   const band = { x: 4, y: 556, w: 1912, h: 76 };
@@ -34,4 +34,9 @@ test("a bar that slid away keeps only the strip at the bottom edge", () => {
   const left = { x: 4, y: 556, w: 120, h: 76 }, right = { x: 1700, y: 556, w: 216, h: 76 };
   assert.deepEqual(zones({ bands: [left, right], open: [menu], on: true, down: false, width: 1920, height: 632 }), [left, right, menu, strip]);
   assert.deepEqual(zones({ bands: [left, right], open: [], on: true, down: true, width: 1920, height: 632 }), [strip]);
+});
+
+test("a preview's zone reaches down to its button, so the pointer crossing the gap stays on the bar", () => {
+  assert.deepEqual(bridge({ x: 100, y: 600, w: 400, h: 160 }, { x: 280, y: 820, w: 40, h: 44 }), { x: 100, y: 600, w: 400, h: 264 });
+  assert.deepEqual(bridge({ x: 0, y: 600, w: 200, h: 100 }, { x: 180, y: 720, w: 40, h: 44 }), { x: 0, y: 600, w: 220, h: 164 });
 });

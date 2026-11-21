@@ -370,6 +370,22 @@ export function menuFor(b: BarButton): MenuEntry[] {
 export const placeMenu = (anchorX: number, anchorW: number, menuW: number, viewW: number, edge = 8) =>
   Math.max(edge, Math.min(anchorX + anchorW / 2 - menuW / 2, viewW - edge - menuW));
 
+/** How an app's window previews lay out: a thumbnail box per window of `w` x `h` CSS px, or their titles as a list. */
+export type PreviewLayout = { kind: "tiles"; w: number; h: number } | { kind: "list" };
+
+/**
+ * 192 x 120 boxes (16:10), narrower so `count` of them fit the window less 8 px each side, the menu panel's 4 px padding, 4 px
+ * between tiles and 6 px inside each; the list once a box would fall under 120 px wide, or with no window.
+ */
+export function previewLayout(count: number, viewW: number): PreviewLayout {
+  if (count < 1) return { kind: "list" };
+  const w = Math.min(192, Math.floor((viewW - 16 - 8 - (count - 1) * 4) / count) - 12);
+  return w < 120 ? { kind: "list" } : { kind: "tiles", w, h: Math.round((w * 120) / 192) };
+}
+
+/** An app with several windows whose thumbnails all failed lists their titles instead; one window, or only some failing, keep the icon in the box. */
+export const previewFallsBack = (answers: readonly unknown[], count: number): boolean => count > 1 && answers.length > 0 && answers.every((a) => a === null);
+
 /** The row a key moves to among a menu's `count` rows from row `at` (-1: none): Up and Down wrap, Home and End go to the ends; undefined for any other key. */
 export function menuKey(key: string, at: number, count: number): number | undefined {
   const to = key === "ArrowDown" ? at + 1 : key === "ArrowUp" ? (at < 0 ? count : at) - 1 : key === "Home" ? 0 : key === "End" ? count - 1 : undefined;
