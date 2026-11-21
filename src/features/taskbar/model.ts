@@ -543,6 +543,9 @@ export function wheelSteps(rest: number, deltaY: number): { steps: number; rest:
   return { steps, rest: total - steps * WHEEL_NOTCH };
 }
 
+/** The count on the clock: none at 0, "99+" past 99. */
+export const countBadge = (n: number | null): string | null => (!n ? null : n > 99 ? "99+" : String(n));
+
 /** How long a file held over an app waits before its window comes forward, ms. */
 export const DRAG_REST = 600;
 

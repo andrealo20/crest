@@ -395,6 +395,14 @@ fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx
     let mut retry_at = Instant::now() + resubscribe_after(failures);
     let mode = |on: bool| if on { "event-log" } else { "polling" };
     set_status(&app, |s| s.mode = mode(subscription.is_some()).into());
+    // The toasts in the notification centre, for the bar's clock: sent when it changes, and null once this watcher stops.
+    let mut count = None;
+    let mut tell_count = |now: Option<usize>| {
+        if let Some(n) = count_change(&mut count, now) {
+            let _ = app.emit("notices://count", n);
+        }
+    };
+    tell_count(Some(known.len()));
 
     while current(&app, generation) {
         // Without the log the list is read every POLL; with it nothing happens until an entry arrives.
@@ -471,7 +479,17 @@ fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx
             }
             let _ = app.emit("notices://gone", gone);
         }
+        tell_count(Some(known.len()));
     }
+    tell_count(None);
+}
+
+/// What to send the bar's clock: `now` when it differs from the `last` sent, which it becomes.
+fn count_change(last: &mut Option<usize>, now: Option<usize>) -> Option<Option<usize>> {
+    (*last != now).then(|| {
+        *last = now;
+        now
+    })
 }
 
 fn read_all(
@@ -1050,6 +1068,16 @@ async fn wait_for_answer(pipe: &mut NamedPipeServer, r: notify_wire::Request, as
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_count_goes_to_the_bar_only_when_it_changes() {
+        let mut last = None;
+        assert_eq!(count_change(&mut last, Some(0)), Some(Some(0))); // the first count
+        assert_eq!(count_change(&mut last, Some(0)), None);
+        assert_eq!(count_change(&mut last, Some(3)), Some(Some(3)));
+        assert_eq!(count_change(&mut last, None), Some(None)); // the watcher stopped
+        assert_eq!(count_change(&mut last, None), None);
+    }
 
     #[cfg(windows)]
     #[test]

@@ -1934,5 +1934,7 @@
  "Haupttaskleiste und Taskleiste mit dem Fenster": "मुख्य टास्कबार और वह टास्कबार जहां विंडो खुली है",
  "Taskleiste mit dem Fenster": "वह टास्कबार जहां विंडो खुली है",
  "Uhr auf allen Taskleisten": "हर टास्कबार पर घड़ी",
- "Lautstärkemixer": "वॉल्यूम मिक्सर"
+ "Lautstärkemixer": "वॉल्यूम मिक्सर",
+ "{n} Mitteilung": "{n} सूचना",
+ "{n} Mitteilungen": "{n} सूचनाएं"
 }

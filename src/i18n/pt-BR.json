@@ -1934,5 +1934,7 @@
  "Haupttaskleiste und Taskleiste mit dem Fenster": "Barra de tarefas principal e barra onde a janela está aberta",
  "Taskleiste mit dem Fenster": "Barra onde a janela está aberta",
  "Uhr auf allen Taskleisten": "Relógio em todas as barras de tarefas",
- "Lautstärkemixer": "Mixer de volume"
+ "Lautstärkemixer": "Mixer de volume",
+ "{n} Mitteilung": "{n} notificação",
+ "{n} Mitteilungen": "{n} notificações"
 }

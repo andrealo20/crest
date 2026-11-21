@@ -59,8 +59,11 @@ export const barFeed = createStore<BarFeed>(EMPTY_FEED);
 /** True while a bar's panel shows a tool; the notch sets it from barPanels.ts (feed.tsx). */
 export const panelOpen = createStore(false);
 
-/** `privacy` too, for the bar's privacy button: it changes only when a poll finds a change. */
-export const feedStores = { barFeed, privacy };
+/** The toasts in Windows' notification centre, for the bar's clock: null while Notices does not read Windows' notifications. */
+export const noticeCount = createStore<number | null>(null);
+
+/** `privacy` too, for the bar's privacy button, and the count: each changes only when Windows' state does. */
+export const feedStores = { barFeed, privacy, noticeCount };
 
 /** Sent only while `panelOpen`: `system` changes every few seconds and would wake the bar with nobody looking. */
 export const panelStores = { calendar, github, leetcode, usage, discordState, system, history, awake, ringing, focusMuted, snoozed };

@@ -1699,6 +1699,12 @@ export const noticeSource = {
     const off = listen<IncomingNotice>("notices://in", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
+  /** How many toasts wait in Windows' notification centre while Notices reads them; null once it stops reading. */
+  onCount: (handler: (n: number | null) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<number | null>("notices://count", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   onStatus: (handler: (s: NoticeSourceStatus) => void): (() => void) => {
     if (!isNative) return () => {};
     const off = listen<NoticeSourceStatus>("notices://status", (e) => handler(e.payload));

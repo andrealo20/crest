@@ -1934,5 +1934,7 @@
  "Haupttaskleiste und Taskleiste mit dem Fenster": "Barre des tâches principale et barre où la fenêtre est ouverte",
  "Taskleiste mit dem Fenster": "Barre où la fenêtre est ouverte",
  "Uhr auf allen Taskleisten": "Horloge sur chaque barre des tâches",
- "Lautstärkemixer": "Mélangeur de volume"
+ "Lautstärkemixer": "Mélangeur de volume",
+ "{n} Mitteilung": "{n} notification",
+ "{n} Mitteilungen": "{n} notifications"
 }

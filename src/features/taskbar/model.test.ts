@@ -10,6 +10,7 @@ import {
   barButtons,
   clickAction,
   compactIcon,
+  countBadge,
   cycleWindow,
   wheelSteps,
   dropPlace,
@@ -267,6 +268,7 @@ test("Ctrl+click goes round an app's windows, and the count shows from two", () 
   assert.equal(cycleWindow(three, null), 1);
   assert.equal(cycleWindow([], 1), null);
   assert.deepEqual([1, 2, 9, 10].map(windowBadge), [null, "2", "9", "9+"]);
+  assert.deepEqual([null, 0, 99, 100].map(countBadge), [null, null, "99", "99+"]);
 });
 
 test("the wheel moves the volume by whole notches, keeping what is left", () => {

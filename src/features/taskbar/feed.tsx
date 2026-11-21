@@ -15,7 +15,7 @@ import { barParts } from "../../notch/row/visibility";
 import { subscribeLevels } from "../../platform/audio";
 import { useNowPlaying } from "../../platform/media";
 import { isMac, isNative } from "../../platform/native";
-import { build, taskbar } from "../../platform/services";
+import { build, noticeSource, taskbar } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { useDiscordCall } from "../discord/store";
 import { downloads } from "../downloads/store";
@@ -30,7 +30,7 @@ import { nextHours } from "../weather/hours";
 import { isStale } from "../weather/stale";
 import { useForecast } from "../weather/store";
 import { anyBarTool, barPanels, onBarShows } from "./barPanels";
-import { barFeed, feedStores, panelOpen, panelStores, type BarFeed } from "./barStores";
+import { barFeed, feedStores, noticeCount, panelOpen, panelStores, type BarFeed } from "./barStores";
 import { variantOf } from "./model";
 import { SLIDE_KEEP_MS, barPartsFor, barSources, barWidgets, sourcesAfter, type BarSeen } from "./widgets";
 
@@ -55,6 +55,7 @@ export function startBarShare() {
   // The panel's raw stores go to the bar only while a tool shows there.
   barPanels.subscribe(() => panelOpen.set(anyBarTool()));
   onBarShows("media", (on) => barMedia.set(on));
+  noticeSource.onCount((n) => noticeCount.set(n));
   shareStores(tauriTransport, feedStores, { to: "taskbar", hello: "bar://hello" });
   shareStores(tauriTransport, panelStores, { to: "taskbar", hello: "bar://hello", when: panelOpen });
   // Rust tells the primary bar's window and its slide apart (bar.rs `tell_notch`): a slide keeps the sources SLIDE_KEEP_MS, a hide stops

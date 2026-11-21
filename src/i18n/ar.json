@@ -1934,5 +1934,7 @@
  "Haupttaskleiste und Taskleiste mit dem Fenster": "شريط المهام الرئيسي والشريط الذي فُتحت عليه النافذة",
  "Taskleiste mit dem Fenster": "الشريط الذي فُتحت عليه النافذة",
  "Uhr auf allen Taskleisten": "الساعة على كل شريط مهام",
- "Lautstärkemixer": "خالط مستوى الصوت"
+ "Lautstärkemixer": "خالط مستوى الصوت",
+ "{n} Mitteilung": "{n} إشعار",
+ "{n} Mitteilungen": "{n} إشعارات"
 }

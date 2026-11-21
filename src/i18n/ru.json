@@ -1934,5 +1934,7 @@
  "Haupttaskleiste und Taskleiste mit dem Fenster": "Основная панель и панель, где открыто окно",
  "Taskleiste mit dem Fenster": "Панель, где открыто окно",
  "Uhr auf allen Taskleisten": "Часы на каждой панели задач",
- "Lautstärkemixer": "Микшер громкости"
+ "Lautstärkemixer": "Микшер громкости",
+ "{n} Mitteilung": "Уведомлений: {n}",
+ "{n} Mitteilungen": "Уведомлений: {n}"
 }

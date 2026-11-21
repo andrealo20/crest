@@ -1934,5 +1934,7 @@
  "Haupttaskleiste und Taskleiste mit dem Fenster": "メイン タスク バーとウィンドウが開いているタスク バー",
  "Taskleiste mit dem Fenster": "ウィンドウが開いているタスク バー",
  "Uhr auf allen Taskleisten": "すべてのタスク バーに時計",
- "Lautstärkemixer": "音量ミキサー"
+ "Lautstärkemixer": "音量ミキサー",
+ "{n} Mitteilung": "{n} 件の通知",
+ "{n} Mitteilungen": "{n} 件の通知"
 }
