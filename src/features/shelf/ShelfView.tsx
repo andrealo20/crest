@@ -132,6 +132,21 @@ export function ShelfView() {
   const press = useRef<{ x: number; y: number; key: string } | null>(null);
   const swallowClick = useRef(false);
 
+  // Vertical wheel → horizontal scroll.
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      e.preventDefault();
+      // Right to left, scrollLeft runs from 0 down to negative values.
+      el.scrollLeft += getComputedStyle(el).direction === "rtl" ? -e.deltaY : e.deltaY;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [items.length === 0]);
+
   usePasteFiles(() => void pasteTextFallback().then((ok) => !ok && flash(setNothing)));
 
   useEffect(() => {
@@ -350,7 +365,7 @@ export function ShelfView() {
           </>
         )}
       </HeaderActions>
-      <div role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
+      <div ref={scroller} role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
         <AnimatePresence initial={false} mode="popLayout">
           {items.map((item) => {
             const key = keyOf(item);
