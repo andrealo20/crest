@@ -71,12 +71,13 @@ export function ItemDrop({ bar, size, gap }: { bar: RefObject<HTMLElement | null
   const at = placeAt(bar.current, drag, size + 16, gap);
   return (
     <>
-      <span className="pointer-events-none fixed top-0 left-0 flex text-label" style={{ transform: `translate(${drag.x - size / 2}px, ${drag.y - size / 2}px)` }}>
+      {/* Under Material lifted on a tonal disc at level 4, as a dragged row is; as far out as it pads in, so the icon stays centred. */}
+      <span className="pointer-events-none fixed top-0 left-0 flex text-label material:-m-1.5 material:p-1.5 material:rounded-full material:bg-secondary-container material:text-on-secondary-container material:shadow-level4" style={{ transform: `translate(${drag.x - size / 2}px, ${drag.y - size / 2}px)` }}>
         <Ghost id={drag.id} size={size} />
       </span>
       {at && (
         // 2 px wide, as the tray's line (TrayDrop).
-        <span className="pointer-events-none fixed top-0 left-0 w-0.5 rounded-full bg-accent" style={{ height: size, transform: `translate(${at.line}px, ${at.top - size / 2}px)` }} />
+        <span className="pointer-events-none fixed top-0 left-0 w-0.5 rounded-full bg-accent material:bg-primary" style={{ height: size, transform: `translate(${at.line}px, ${at.top - size / 2}px)` }} />
       )}
     </>
   );

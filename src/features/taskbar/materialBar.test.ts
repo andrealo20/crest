@@ -138,3 +138,10 @@ test("under Material the bar's new faces draw on role tokens: tracks and the ana
   // The inline colour-mix track gives way to secondary-container only under Material, so Crest's stays as it is.
   assert.match(window("ReadingFaces.tsx"), /className="relative block h-1 overflow-hidden rounded-full material:bg-secondary-container!"/);
 });
+
+test("a widget dragged along the bar is lifted under Material: its ghost on a tonal disc at level 4, centred as before, and the line where it lands in primary", () => {
+  const src = window("ItemDrop.tsx");
+  const ghost = list(src, "pointer-events-none", "text-label");
+  hasAll(ghost, "material:-m-1.5 material:p-1.5 material:rounded-full material:bg-secondary-container material:text-on-secondary-container material:shadow-level4");
+  hasAll(list(src, "w-0.5", "bg-accent"), "material:bg-primary");
+});
