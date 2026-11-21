@@ -1915,5 +1915,10 @@
   "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "دمج الأزرار وإخفاء التسميات",
   "Wenn die Taskleiste voll ist": "عند امتلاء شريط المهام",
   "Nie": "أبدًا",
-  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "أبدًا: لكل نافذة زر خاص بها مع عنوانها. عند امتلاء شريط المهام: ما دامت هناك مساحة"
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "أبدًا: لكل نافذة زر خاص بها مع عنوانها. عند امتلاء شريط المهام: ما دامت هناك مساحة",
+ "Blinkende Apps anzeigen": "إظهار وميض التطبيقات",
+ "Mittlere Maustaste": "النقر الأوسط",
+ "Neue Instanz": "نسخة جديدة",
+ "Anzahl der Fenster zeigen": "إظهار عدد النوافذ",
+ "{name}, {n} Fenster": "{name}، {n} نوافذ"
 }

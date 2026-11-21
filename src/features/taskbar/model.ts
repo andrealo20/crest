@@ -65,6 +65,12 @@ export interface TaskbarSettings {
   combine: Combine;
   /** A double click on the bar beside its buttons, or in the gap under it. */
   emptyDouble: EmptyDouble;
+  /** An app asking for attention pulses and holds the bar up, as Windows' "Show flashing on taskbar apps". */
+  flashing: boolean;
+  /** The middle button on an app with windows: a new instance (Windows' default) or close them all. */
+  middleClick: "new" | "close";
+  /** A small count of its windows on an app with two or more. */
+  windowCount: boolean;
 }
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
@@ -90,6 +96,9 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   endTask: false,
   combine: "always",
   emptyDouble: "none",
+  flashing: true,
+  middleClick: "new",
+  windowCount: false,
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -170,6 +179,9 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     endTask: s.endTask === true,
     combine: COMBINES.includes(s.combine as Combine) ? (s.combine as Combine) : d.combine,
     emptyDouble: EMPTY_DOUBLES.includes(s.emptyDouble as EmptyDouble) ? (s.emptyDouble as EmptyDouble) : d.emptyDouble,
+    flashing: s.flashing !== false,
+    middleClick: s.middleClick === "close" ? "close" : "new",
+    windowCount: s.windowCount === true,
   };
 }
 
@@ -466,14 +478,22 @@ export function newInstance(b: BarButton, admin = false): Click {
   return b.spawnable && b.windows.length ? { kind: "spawn", id: b.windows[0].id, ...as } : { kind: "none" };
 }
 
+/** Ctrl+click's window: the one after `active` in the app's order, round to the first; the first when none of its is in front. */
+export function cycleWindow(windows: Win[], active: number | null): number | null {
+  if (!windows.length) return null;
+  return windows[(windows.findIndex((w) => w.id === active) + 1) % windows.length].id;
+}
+
 /**
- * A click: Shift or the middle button starts a new instance, Ctrl+Shift one as administrator; otherwise start the app, bring its one
- * window forward or minimize it, or list its windows. Ctrl alone is a plain click. `o` is for the options later blocks add (the app in
- * front, what the middle button does).
+ * A click: Shift or the middle button starts a new instance (the middle one closes the windows with `o.middle` "close"), Ctrl+Shift
+ * one as administrator, Ctrl goes through the app's windows from `o.active`; otherwise start the app, bring its one window forward
+ * or minimize it, or list its windows. Without windows Ctrl is a plain click.
  */
-export function clickAction(b: BarButton, mods: ClickMods = {}, _o: { active?: number | null; middle?: "new" | "close" } = {}): Click {
-  if (mods.middle) return newInstance(b);
+export function clickAction(b: BarButton, mods: ClickMods = {}, o: { active?: number | null; middle?: "new" | "close" } = {}): Click {
+  if (mods.middle) return o.middle === "close" && b.windows.length ? { kind: "closeAll" } : newInstance(b);
   if (mods.shift) return newInstance(b, mods.ctrl === true);
+  const next = mods.ctrl ? cycleWindow(b.windows, o.active ?? null) : null;
+  if (next !== null) return { kind: "activate", id: next };
   if (b.windows.length > 1) return { kind: "list" };
   if (b.windows.length === 1) return { kind: "toggle", id: b.windows[0].id };
   const id = launchId(b);
@@ -483,11 +503,18 @@ export function clickAction(b: BarButton, mods: ClickMods = {}, _o: { active?: n
 /** The mark under a button: a window asks for attention, one is in front, some are open, or none. */
 export type Indicator = "attention" | "front" | "open" | "none";
 
-export function indicator(b: BarButton, active: number | null): Indicator {
-  if (b.windows.some((w) => w.flashing)) return "attention";
+/** With `flashing` off an app asking for attention shows as any other. */
+export function indicator(b: BarButton, active: number | null, flashing = true): Indicator {
+  if (flashing && b.windows.some((w) => w.flashing)) return "attention";
   if (b.windows.some((w) => w.id === active)) return "front";
   return b.windows.length ? "open" : "none";
 }
+
+/** The count on an app's icon: none under two windows, "9+" past nine. */
+export const windowBadge = (n: number): string | null => (n < 2 ? null : n > 9 ? "9+" : String(n));
+
+/** How long a file held over an app waits before its window comes forward, ms. */
+export const DRAG_REST = 600;
 
 /** The right-click menu's entries, in order. */
 export type MenuEntry = "launch" | "pin" | "unpin" | "reveal" | "endTask" | "close" | "closeAll";

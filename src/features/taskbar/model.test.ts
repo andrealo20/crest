@@ -10,6 +10,7 @@ import {
   barButtons,
   clickAction,
   compactIcon,
+  cycleWindow,
   dropPlace,
   fitIcon,
   indicator,
@@ -37,6 +38,7 @@ import {
   trayOnBar,
   trayWanted,
   variantOf,
+  windowBadge,
   windowButtons,
   type BarButton,
   type BarItem,
@@ -169,6 +171,9 @@ test("Windows' buttons stay where they were put, once each, and an unknown one i
 
 test("a double click on the empty bar does nothing at first, and junk is repaired", () => {
   assert.equal(normalizeTaskbar({}).emptyDouble, "none");
+  assert.deepEqual([normalizeTaskbar({}).flashing, normalizeTaskbar({}).middleClick, normalizeTaskbar({}).windowCount], [true, "new", false]);
+  assert.deepEqual([normalizeTaskbar({ flashing: false }).flashing, normalizeTaskbar({ middleClick: "close" }).middleClick, normalizeTaskbar({ windowCount: true }).windowCount], [false, "close", true]);
+  assert.deepEqual([normalizeTaskbar({ flashing: 0 }).flashing, normalizeTaskbar({ middleClick: "x" }).middleClick, normalizeTaskbar({ windowCount: 1 }).windowCount], [true, "new", false]);
   for (const v of ["desktop", "taskmgr"]) assert.equal(normalizeTaskbar({ emptyDouble: v }).emptyDouble, v);
   for (const v of ["x", 1, null, true]) assert.equal(normalizeTaskbar({ emptyDouble: v }).emptyDouble, "none");
 });
@@ -248,6 +253,19 @@ test("a click launches, toggles or lists", () => {
   assert.equal(indicator({ ...base, windows: [w(4)] }, 4), "front");
   assert.equal(indicator({ ...base, windows: [w(4)] }, 7), "open");
   assert.equal(indicator({ ...base, windows: [] }, null), "none");
+  assert.equal(indicator({ ...base, windows: [w(4, true)] }, 4, false), "front");
+  assert.equal(indicator({ ...base, windows: [w(4, true)] }, null, false), "open");
+});
+
+test("Ctrl+click goes round an app's windows, and the count shows from two", () => {
+  const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
+  const three = [w(1), w(2), w(3)];
+  assert.equal(cycleWindow(three, 1), 2);
+  assert.equal(cycleWindow(three, 3), 1);
+  assert.equal(cycleWindow(three, 9), 1);
+  assert.equal(cycleWindow(three, null), 1);
+  assert.equal(cycleWindow([], 1), null);
+  assert.deepEqual([1, 2, 9, 10].map(windowBadge), [null, "2", "9", "9+"]);
 });
 
 test("Shift, the middle button and Ctrl+Shift start a new instance", () => {
@@ -262,10 +280,15 @@ test("Shift, the middle button and Ctrl+Shift start a new instance", () => {
   }
   assert.deepEqual(clickAction(entry, { shift: true, ctrl: true }), { kind: "launch", id: "x", admin: true });
   assert.deepEqual(clickAction(own, { shift: true, ctrl: true }), { kind: "spawn", id: 7, admin: true });
-  // Ctrl alone, and no keys, are a plain click.
-  assert.deepEqual(clickAction(entry, { ctrl: true }), { kind: "toggle", id: 4 });
-  assert.deepEqual(clickAction(own, { ctrl: true }), { kind: "list" });
+  // Ctrl alone goes to the window after the one in front; without windows it is a plain click.
+  assert.deepEqual(clickAction(entry, { ctrl: true }), { kind: "activate", id: 4 });
+  assert.deepEqual(clickAction(own, { ctrl: true }, { active: 7 }), { kind: "activate", id: 8 });
+  assert.deepEqual(clickAction({ ...entry, windows: [] }, { ctrl: true }), { kind: "launch", id: "x" });
   assert.deepEqual(clickAction(own), { kind: "list" });
+  // The middle button with "close" closes an app's windows, and starts one as before without any.
+  assert.deepEqual(clickAction(own, { middle: true }, { middle: "close" }), { kind: "closeAll" });
+  assert.deepEqual(clickAction(entry, { middle: true }, { middle: "close" }), { kind: "closeAll" });
+  assert.deepEqual(clickAction({ ...entry, windows: [] }, { middle: true }, { middle: "close" }), { kind: "launch", id: "x" });
   assert.deepEqual(newInstance({ ...own, spawnable: false }), { kind: "none" });
   assert.deepEqual(newInstance({ ...own, windows: [] }), { kind: "none" });
 });

@@ -17,7 +17,7 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
 import { PREVIEW_CLOSE, PREVIEW_DELAY, bridge, zones as hitZones, type Rect } from "../autoHide";
-import { COMPACT_PAD, appKey, barButtons, clickAction, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, windowButtons, type BarButton, type BarItem, type BarShape, type Click, type ClickMods, type Zone } from "../model";
+import { COMPACT_PAD, DRAG_REST, appKey, barButtons, clickAction, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, windowBadge, windowButtons, type BarButton, type BarItem, type BarShape, type Click, type ClickMods, type Zone } from "../model";
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
 import { closePanel, fileDrag, itemDrag, panel, pinDrag, togglePanel } from "../panel";
 import { dragThreshold, opensInBar } from "../panelModel";
@@ -77,7 +77,7 @@ type Card = { key: string; x: number; w: number; by: "hover" | "click" };
  */
 export function TaskbarWindow() {
   const s = settings.use();
-  const { zones: saved, height, iconSize, pinned, shape, trayShown, combine } = s.taskbar;
+  const { zones: saved, height, iconSize, pinned, shape, trayShown, combine, flashing, middleClick, windowCount } = s.taskbar;
   // Without the buttons whose tool cannot open: the notch opens its first tool in place of one switched off there (widgets.ts toolShown).
   const zones = shownZones(saved, s.tools);
   const { visible: trayVisible } = splitTray(trayState.use().icons, trayShown);
@@ -208,7 +208,7 @@ export function TaskbarWindow() {
   });
   // The buttons as drawn: one per window while the fit says so.
   const laid = fit.split ? perWindow : buttons;
-  const kept = [...laid.filter((b) => b.windows.some((w) => w.id === active)), ...laid.filter((b) => indicator(b, active) === "attention")].map((b) => b.key);
+  const kept = [...laid.filter((b) => b.windows.some((w) => w.id === active)), ...laid.filter((b) => indicator(b, active, flashing) === "attention")].map((b) => b.key);
   const shown = new Set(splitApps(laid.map((b) => b.key), fit.mode === "overflow" ? fit.visible : laid.length, kept).shown);
   const shownButtons = laid.filter((b) => shown.has(b.key));
   const hiddenButtons = laid.filter((b) => !shown.has(b.key));
@@ -238,7 +238,7 @@ export function TaskbarWindow() {
   const layout = `${laid.map((b) => b.key)}|${JSON.stringify(zones)}|${size}|${trayVisible.map((i) => i.key)}|${fit.mode}:${fit.visible}:${fit.trayBack}:${fit.hide}|${glyphs}`;
   const { down, place: placeMenuZone, placePreview } = useHitZone(bar, shape, setBoxes, layout, {
     open: menu !== null || open !== null || preview !== null,
-    attention: buttons.some((b) => indicator(b, active) === "attention"),
+    attention: buttons.some((b) => indicator(b, active, flashing) === "attention"),
     dragging,
   });
   // Down, Rust tells this bar, and the notch for the primary's, that it is hidden (bar.rs taskbar_slid): the widgets and their sources
@@ -322,10 +322,25 @@ export function TaskbarWindow() {
     else if (c.kind === "toggle" || c.kind === "activate") taskbar.window(c.id, c.kind).catch(() => {});
     else if (c.kind === "closeAll") closeWindows(b);
   };
+  /** A file held over an app (K1): after DRAG_REST its one window comes forward, or its previews open for several. */
+  const dragTimer = useRef<number | undefined>(undefined);
+  const dragRest = (b: BarButton): Pick<ItemProps, "onDragEnter" | "onDragLeave"> => ({
+    onDragEnter: () => {
+      window.clearTimeout(dragTimer.current);
+      dragTimer.current = window.setTimeout(() => {
+        if (b.windows.length === 1) void taskbar.window(b.windows[0].id, "activate").catch(() => {});
+        else if (b.windows.length > 1) openCard(b, "hover");
+      }, DRAG_REST);
+    },
+    // Into the icon inside the same button is no leave.
+    onDragLeave: (e) => {
+      if (!(e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget))) window.clearTimeout(dragTimer.current);
+    },
+  });
   /** A click on an app, with the keys held; `inPanel` for a cell of the "…" panel. */
   const click = (b: BarButton, button: HTMLElement, inPanel = false, mods: ClickMods = {}) => {
     setError(null);
-    run(b, clickAction(b, mods), inPanel ? button : undefined);
+    run(b, clickAction(b, mods, { active, middle: middleClick }), inPanel ? button : undefined);
   };
 
   /** Opens `tool` over its button, or closes it on a second click there: in the panel, or in the notch for a tool the panel does not show (openPanel). */
@@ -422,7 +437,7 @@ export function TaskbarWindow() {
         return (
           <Item
             key={b.key}
-            {...item(b.key, b.title ?? b.name)}
+            {...item(b.key, windowCount && windowBadge(b.windows.length) ? t("{name}, {n} Fenster", { name: b.title ?? b.name, n: b.windows.length }) : (b.title ?? b.name))}
             // Over an app with windows the pointer also rests for its previews.
             onEnter={() => {
               setHovered(b.key);
@@ -441,8 +456,9 @@ export function TaskbarWindow() {
             // A wide button growing as a dock's icon would cover its neighbours; Windows' titled buttons do not grow.
             magnify={titled ? undefined : mag}
             labelled={titled && b.title !== undefined}
-            mark={indicator(b, active)}
+            mark={indicator(b, active, flashing)}
             pin={b.pin?.id}
+            {...dragRest(b)}
             // Only a pinned app's press can have dragged; another app's click never follows one.
             onClick={(e) => (b.pin !== null && afterDrag(e)) || click(b, e.currentTarget, false, { shift: e.shiftKey, ctrl: e.ctrlKey })}
             onAuxClick={(e) => {
@@ -456,6 +472,7 @@ export function TaskbarWindow() {
             onContextMenu={(e) => toggle({ kind: "app", b }, e.currentTarget)}
           >
             <AppIcon src={entry === null ? ownIcons[appKey(b)] : icons[entry]} size={appIcon} />
+            {windowCount && <Badge text={windowBadge(b.windows.length)} />}
             {titled && b.title !== undefined && (
               <span dir="auto" className="ms-2 min-w-0 truncate text-footnote">
                 {b.title}
@@ -478,7 +495,7 @@ export function TaskbarWindow() {
           width={appWidth}
           magnify={mag}
           // Open or asking for attention, as one app with every hidden app's windows.
-          mark={indicator({ key: "", name: "", pin: null, pins: [], windows: hiddenButtons.flatMap((b) => b.windows) }, active)}
+          mark={indicator({ key: "", name: "", pin: null, pins: [], windows: hiddenButtons.flatMap((b) => b.windows) }, active, flashing)}
           expanded={open?.content.kind === "apps"}
           onClick={(e) => {
             setError(null);
@@ -753,7 +770,7 @@ export function TaskbarWindow() {
             <AppsPanel
               apps={hiddenButtons.map((b) => {
                 const entry = launchId(b);
-                return { b, icon: entry === null ? ownIcons[appKey(b)] : icons[entry], mark: indicator(b, active) };
+                return { b, icon: entry === null ? ownIcons[appKey(b)] : icons[entry], mark: indicator(b, active, flashing) };
               })}
               size={size}
               // In the middle of the 8 px under the cell's icon, as markAt is under the bar's.
@@ -886,4 +903,14 @@ function useHitZone(
 function ToolGlyph({ tool, size, plus }: { tool: string; size: number; plus: boolean }) {
   const I = toolInfo[tool].icon;
   return <I size={size} weight="regular" className={plus ? "text-label-2" : "text-label-3"} style={{ color: useHue(toolInfo[tool].hue) }} />;
+}
+
+/** The window count at the icon's top end corner, growing with it; read in the button's name, so hidden from screen readers. */
+function Badge({ text }: { text: string | null }) {
+  if (text === null) return null;
+  return (
+    <span aria-hidden className="absolute -end-1.5 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-label px-1 text-[10px] font-semibold leading-none text-notch">
+      {text}
+    </span>
+  );
 }

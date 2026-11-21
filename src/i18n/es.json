@@ -1915,5 +1915,10 @@
   "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "Combinar botones y ocultar etiquetas",
   "Wenn die Taskleiste voll ist": "Cuando la barra de tareas está llena",
   "Nie": "Nunca",
-  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Nunca: cada ventana tiene su propio botón con su título. Cuando la barra de tareas está llena: mientras haya espacio"
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Nunca: cada ventana tiene su propio botón con su título. Cuando la barra de tareas está llena: mientras haya espacio",
+ "Blinkende Apps anzeigen": "Mostrar parpadeo en las aplicaciones",
+ "Mittlere Maustaste": "Clic central",
+ "Neue Instanz": "Nueva instancia",
+ "Anzahl der Fenster zeigen": "Mostrar el número de ventanas",
+ "{name}, {n} Fenster": "{name}, {n} ventanas"
 }

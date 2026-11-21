@@ -1915,5 +1915,10 @@
   "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "Combine taskbar buttons and hide labels",
   "Wenn die Taskleiste voll ist": "When taskbar is full",
   "Nie": "Never",
-  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Never: each window has a button of its own with its title. When taskbar is full: until the room runs out"
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Never: each window has a button of its own with its title. When taskbar is full: until the room runs out",
+ "Blinkende Apps anzeigen": "Show flashing on apps",
+ "Mittlere Maustaste": "Middle click",
+ "Neue Instanz": "New instance",
+ "Anzahl der Fenster zeigen": "Show the number of windows",
+ "{name}, {n} Fenster": "{name}, {n} windows"
 }

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type MouseEventHandler, type PointerEventHandler, type ReactNode, type Ref } from "react";
+import { useLayoutEffect, useRef, useState, type DragEventHandler, type MouseEventHandler, type PointerEventHandler, type ReactNode, type Ref } from "react";
 import { AnimatePresence, motion, useSpring, useTransform, type MotionValue } from "motion/react";
 import { design } from "../../../design/design";
 import { fade, popover, pulse, springs } from "../../../design/motion";
@@ -48,6 +48,9 @@ export function Item(props: {
   /** A click of another button than the left one: the middle one, for an app. */
   onAuxClick?: MouseEventHandler<HTMLButtonElement>;
   onPointerDown?: PointerEventHandler<HTMLButtonElement>;
+  /** A file held over an app: its window comes forward after a rest (TaskbarWindow `dragRest`). */
+  onDragEnter?: DragEventHandler<HTMLButtonElement>;
+  onDragLeave?: DragEventHandler<HTMLButtonElement>;
   /** Under Material, the height of the pill and the state layer off Tiles, when the item draws a pill of its own (Stato). */
   layer?: number;
   /** Liquid Glass + owns the bar's surface: a tile keeps its glass, and the pill and the state layer take the centred indicator's shape. */
@@ -82,6 +85,8 @@ export function Item(props: {
       onContextMenu={props.onContextMenu}
       onAuxClick={props.onAuxClick}
       onPointerDown={props.onPointerDown}
+      onDragEnter={props.onDragEnter}
+      onDragLeave={props.onDragLeave}
       data-tile={props.tile ? "" : undefined}
       className={`group relative flex shrink-0 items-center ${props.labelled ? "justify-start px-2" : "justify-center"} after:absolute after:inset-x-0 after:top-full after:h-1`}
       style={{ width: props.width ?? props.size + 16, background: props.tile?.background, borderRadius: props.tile?.radius }}

@@ -1915,5 +1915,10 @@
   "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "बटन मिलाएँ और लेबल छिपाएँ",
   "Wenn die Taskleiste voll ist": "जब टास्कबार भर जाए",
   "Nie": "कभी नहीं",
-  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "कभी नहीं: हर विंडो का अपना बटन, उसके शीर्षक के साथ। जब टास्कबार भर जाए: जब तक जगह हो"
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "कभी नहीं: हर विंडो का अपना बटन, उसके शीर्षक के साथ। जब टास्कबार भर जाए: जब तक जगह हो",
+ "Blinkende Apps anzeigen": "ऐप्स पर टिमटिमाना दिखाएं",
+ "Mittlere Maustaste": "मध्य क्लिक",
+ "Neue Instanz": "नया इंस्टेंस",
+ "Anzahl der Fenster zeigen": "विंडो की संख्या दिखाएं",
+ "{name}, {n} Fenster": "{name}, {n} विंडो"
 }

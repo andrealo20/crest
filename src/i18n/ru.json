@@ -1915,5 +1915,10 @@
   "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "Группировать кнопки и скрывать метки",
   "Wenn die Taskleiste voll ist": "Когда панель задач заполнена",
   "Nie": "Никогда",
-  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Никогда: у каждого окна своя кнопка с заголовком. Когда панель задач заполнена: пока хватает места"
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Никогда: у каждого окна своя кнопка с заголовком. Когда панель задач заполнена: пока хватает места",
+ "Blinkende Apps anzeigen": "Показывать мигание приложений",
+ "Mittlere Maustaste": "Средняя кнопка мыши",
+ "Neue Instanz": "Новый экземпляр",
+ "Anzahl der Fenster zeigen": "Показывать число окон",
+ "{name}, {n} Fenster": "{name}, окон: {n}"
 }

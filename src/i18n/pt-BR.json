@@ -1915,5 +1915,10 @@
   "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "Combinar botões e ocultar rótulos",
   "Wenn die Taskleiste voll ist": "Quando a barra de tarefas estiver cheia",
   "Nie": "Nunca",
-  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Nunca: cada janela tem seu próprio botão com o título. Quando a barra de tarefas estiver cheia: enquanto houver espaço"
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Nunca: cada janela tem seu próprio botão com o título. Quando a barra de tarefas estiver cheia: enquanto houver espaço",
+ "Blinkende Apps anzeigen": "Mostrar o piscar nos aplicativos",
+ "Mittlere Maustaste": "Clique do meio",
+ "Neue Instanz": "Nova instância",
+ "Anzahl der Fenster zeigen": "Mostrar o número de janelas",
+ "{name}, {n} Fenster": "{name}, {n} janelas"
 }

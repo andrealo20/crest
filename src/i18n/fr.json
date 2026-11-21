@@ -1915,5 +1915,10 @@
   "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "Combiner les boutons et masquer les étiquettes",
   "Wenn die Taskleiste voll ist": "Lorsque la barre des tâches est pleine",
   "Nie": "Jamais",
-  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Jamais : chaque fenêtre a son propre bouton avec son titre. Lorsque la barre des tâches est pleine : tant qu'il y a de la place"
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Jamais : chaque fenêtre a son propre bouton avec son titre. Lorsque la barre des tâches est pleine : tant qu'il y a de la place",
+ "Blinkende Apps anzeigen": "Afficher le clignotement des applications",
+ "Mittlere Maustaste": "Clic du milieu",
+ "Neue Instanz": "Nouvelle instance",
+ "Anzahl der Fenster zeigen": "Afficher le nombre de fenêtres",
+ "{name}, {n} Fenster": "{name}, {n} fenêtres"
 }

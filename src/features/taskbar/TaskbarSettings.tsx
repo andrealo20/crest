@@ -54,7 +54,7 @@ const EMPTY_DOUBLE_LABEL: Record<EmptyDouble, string> = { none: "Nichts", deskto
 
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, what a double click beside its buttons does, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
-  const { enabled, autoHide, shape, emptyDouble } = settings.use().taskbar;
+  const { enabled, autoHide, shape, emptyDouble, flashing } = settings.use().taskbar;
   // Bars that stay up with auto-hide on (Rust front.rs `stays_up`), read as the page opens and when the switch changes.
   const [blocked, setBlocked] = useState(0);
   useEffect(() => void taskbar.slideBlocked().then(setBlocked, () => {}), [autoHide]);
@@ -92,6 +92,9 @@ export function TaskbarGeneral() {
         }
       >
         <Switch label={t("Automatisch ausblenden")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
+      </Row>
+      <Row icon="notification_important" label={t("Blinkende Apps anzeigen")}>
+        <Switch label={t("Blinkende Apps anzeigen")} checked={flashing} onChange={(on) => setTaskbar({ flashing: on })} />
       </Row>
       <Row icon="mouse" label={<span className="whitespace-normal">{t("Doppelklick auf eine freie Stelle")}</span>}>
         <Select
@@ -226,7 +229,7 @@ function ItemIcon({ id }: { id: BarItem }) {
  * 3 s), and an empty answer leaves it.
  */
 export function TaskbarApps() {
-  const { pinned: saved, endTask, combine } = settings.use().taskbar;
+  const { pinned: saved, endTask, combine, middleClick, windowCount } = settings.use().taskbar;
   const pinned = saved ?? [];
   const [confirm, setConfirm] = useState(false);
   const [outcome, setOutcome] = useState<"none" | "failed" | null>(null);
@@ -300,6 +303,20 @@ export function TaskbarApps() {
       </Row>
       <Row icon="stop_circle" label={t("Task beenden im App-Menü")} hint={t("Beendet die App sofort, ohne zu speichern")}>
         <Switch label={t("Task beenden im App-Menü")} checked={endTask} onChange={(on) => setTaskbar({ endTask: on })} />
+      </Row>
+      <Row icon="mouse" label={t("Mittlere Maustaste")}>
+        <Select
+          width="w-44"
+          value={middleClick}
+          options={[
+            { value: "new" as const, label: t("Neue Instanz") },
+            { value: "close" as const, label: t("Schließen") },
+          ]}
+          onChange={(middleClick) => setTaskbar({ middleClick })}
+        />
+      </Row>
+      <Row icon="numbers" label={t("Anzahl der Fenster zeigen")}>
+        <Switch label={t("Anzahl der Fenster zeigen")} checked={windowCount} onChange={(on) => setTaskbar({ windowCount: on })} />
       </Row>
     </Group>
   );

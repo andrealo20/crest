@@ -1915,5 +1915,10 @@
   "Schaltflächen zusammenfassen und Beschriftungen ausblenden": "Combina i pulsanti e nascondi le etichette",
   "Wenn die Taskleiste voll ist": "Quando la barra è piena",
   "Nie": "Mai",
-  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Mai: ogni finestra ha un pulsante suo con il titolo. Quando la barra è piena: finché c'è posto"
+  "Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt": "Mai: ogni finestra ha un pulsante suo con il titolo. Quando la barra è piena: finché c'è posto",
+ "Blinkende Apps anzeigen": "Mostra il lampeggio sulle app",
+ "Mittlere Maustaste": "Clic centrale",
+ "Neue Instanz": "Nuova istanza",
+ "Anzahl der Fenster zeigen": "Mostra il numero di finestre",
+ "{name}, {n} Fenster": "{name}, {n} finestre"
 }
