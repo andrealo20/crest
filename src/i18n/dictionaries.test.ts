@@ -40,3 +40,27 @@ test("English and Italian say what the design says", () => {
 test("every translation of Automatisch ({font}) keeps {font}", () => {
   for (const l of LANGS) assert.match(read(l)["Automatisch ({font})"] ?? "", /\{font\}/, l);
 });
+
+const INTERACTIVE: [string, string, string][] = [
+  ["Bewegter Hintergrund", "Animated background", "Sfondo animato"],
+  [
+    "Höhenlinien in den Farben des Themes hinter dem Einstellungsfenster, die bei jedem Seitenwechsel weiterziehen",
+    "Contour lines in the theme's colours behind the settings window, drifting on at every change of page",
+    "Curve di livello nei colori del tema dietro la finestra delle impostazioni, che si spostano a ogni cambio di pagina",
+  ],
+  ["Klicken für das nächste Laufwerk", "Click for the next drive", "Clic per il disco successivo"],
+  ["Gefühlt", "Feels like", "Percepita"],
+];
+
+test("every dictionary has the interactive Material style's strings, and English and Italian say what the design says", () => {
+  for (const l of LANGS) {
+    const d = read(l);
+    for (const [k] of INTERACTIVE) assert.ok(typeof d[k] === "string" && d[k] !== "" && d[k] !== "TODO", `${l}: ${k}`);
+  }
+  const en = read("en");
+  const it = read("it");
+  for (const [k, e, i] of INTERACTIVE) {
+    assert.equal(en[k], e, k);
+    assert.equal(it[k], i, k);
+  }
+});
