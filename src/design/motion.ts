@@ -52,6 +52,10 @@ export const springs = {
   rebound: spring(0.32, 0.6),
   /** A control's own quick move (a switch's knob, a menu's scale, a press): snappy here, Material's fast spring in its style. */
   pop: spring(0.24, 0.12),
+  /** A reading that glides to its new sample (Hardware): no bounce, at rest within half a unit so a sample a second does not keep it moving. */
+  value: { ...physics(0.6, 0), restDelta: 0.5, restSpeed: 2 },
+  /** The settings window's contour field drifting to the next page's view. */
+  drift: physics(1.2, 0),
 } as const;
 
 const easeOut = [0.23, 1, 0.32, 1] as const;
@@ -61,6 +65,9 @@ export const fade: Transition = { duration: 0.16 * slow, ease: easeOut };
 
 /** Crossfade for large areas (covers, charts), a bit calmer. */
 export const crossfade = { duration: 0.4 * slow, ease: "easeInOut" } satisfies Transition;
+
+/** The theme's colour crossfade (themes.css, 500 ms ease), for what draws its colours outside CSS. */
+export const themeFade = { duration: 0.5 * slow, ease: [0.25, 0.1, 0.25, 1] } satisfies Transition;
 
 /**
  * Cover swap: the new image fades in on top, the old one leaves a beat later, so
@@ -133,6 +140,8 @@ function material(): Presets {
     glide: physics(0.269, 0.2),
     rebound: spring(0.185, 0.4), // expressive fast spatial, k 800 ζ 0.6
     pop: spring(0.185, 0.4),
+    value: { ...physics(0.6, 0), restDelta: 0.5, restSpeed: 2 }, // Crest's numbers: the readings glide the same in both styles
+    drift: physics(1.2, 0),
     fade: effect(0.085), // fast effects, k 3800
     card: { opacity: { ...effect(0.131), delay: 0.08 * slow }, transform: { ...spring(0.185, 0.4), delay: 0.08 * slow } }, // default effects, k 1600
     contentEnter: { ...effect(0.131), delay: 0.05 * slow },

@@ -3,6 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spring as motionSpring } from "motion";
 
 /** motion.ts's spring() and physics() with neither ?slow nor reduced motion, as a page without a window has them. */
 const spring = (visualDuration: number, bounce: number) => ({ type: "spring", visualDuration, bounce });
@@ -35,6 +36,8 @@ test("the Style rewrites the motion presets in place, and Crest's come back key 
     glide: physics(0.269, 0.2),
     rebound: spring(0.185, 0.4),
     pop: spring(0.185, 0.4),
+    value: { ...physics(0.6, 0), restDelta: 0.5, restSpeed: 2 },
+    drift: physics(1.2, 0),
   });
   assert.deepEqual(fade, spring(0.085, 0));
   assert.deepEqual(content, { enter: { ...spring(0.131, 0), delay: 0.05 }, exit: spring(0.085, 0) });
@@ -44,4 +47,15 @@ test("the Style rewrites the motion presets in place, and Crest's come back key 
   // Strict and deep: no stiffness or damping left on a spring that had none, no per-value entry on a tween.
   setMotionDesign("crest");
   assert.deepEqual(presets, crest);
+});
+
+test("a reading's spring is at rest before the next sample, for a step of 3 and of 50", async () => {
+  const { springs, themeFade } = await import("./motion.ts");
+  for (const to of [3, 50]) {
+    const gen = motionSpring({ keyframes: [0, to], ...springs.value });
+    let t = 0;
+    while (!gen.next(t).done && t < 1000) t += 10;
+    assert.ok(t < 1000, `a step of ${to} still moves at ${t} ms`);
+  }
+  assert.deepEqual(themeFade, { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] });
 });
