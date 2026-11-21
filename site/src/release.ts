@@ -14,7 +14,7 @@ export const FILM = {
   poster: "/media/crest-1.3.jpg",
   width: 1920,
   height: 1080,
-  caption: "Crest's own taskbar on a Windows desktop, with live previews, the Crest menu and a widget dragged along the bar.",
+  caption: "Crest 1.3: Liquid Glass + on the bar, live window previews, the Crest menu, widgets dragged along the bar and the Material style. A bar with Liquid Glass + stays out of every screen recording, so here Crest's own code draws it over a recording of the desktop.",
 };
 export const HAS_FILM = [FILM.src, FILM.poster].every((f) => __SITE_MEDIA__.includes(f.replace("/media/", "")));
 
