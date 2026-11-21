@@ -84,9 +84,12 @@ body {
 }
 
 /* Material's classes, after @import "tailwindcss" so they compile: material:rounded-full wins over rounded-[8px] under Material
-   only, and roomy: where a [data-roomy] container gives Material its wider rows. */
+   only, and roomy: where a [data-roomy] container gives Material its wider rows. contours: makes groups and the navigation
+   opaque over the settings window's contour lines; it comes after roomy because Tailwind orders variants as it finds them, and
+   at equal specificity the last one wins. */
 @custom-variant material (&:where([data-design="material"], [data-design="material"] *));
 @custom-variant roomy (&:where([data-design="material"] [data-roomy], [data-design="material"] [data-roomy] *));
+@custom-variant contours (&:where([data-design="material"] [data-contours] *));
 
 /* Numbers that change (times, timers, values) must not jump. */
 .tabular {

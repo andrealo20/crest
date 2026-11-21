@@ -275,7 +275,7 @@ export function Group({
 }) {
   return (
     // Only animates when a parent gives the variant labels: never in Crest or in the search's hidden index.
-    <motion.section id={id} variants={GROUP_IN} className="scroll-mt-2 roomy:rounded-[24px] roomy:bg-fill-1 roomy:p-2">
+    <motion.section id={id} variants={GROUP_IN} className="scroll-mt-2 roomy:rounded-[24px] roomy:bg-fill-1 roomy:p-2 contours:bg-elevated">
       {title && (
         <h3 className="mb-1 px-3 text-caption font-medium tracking-wide text-label-3 uppercase roomy:mb-0 roomy:px-[14px] roomy:pt-[10px] roomy:pb-[6px] roomy:text-body roomy:font-semibold roomy:tracking-normal roomy:text-primary roomy:normal-case">
           {title}

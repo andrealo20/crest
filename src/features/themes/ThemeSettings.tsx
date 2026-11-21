@@ -90,7 +90,8 @@ const KEY_LABELS: Record<Adjustment["key"], string> = {
  * real Crest control would come out Material.
  */
 function StyleChoice() {
-  const chosen = settings.use().themes.design;
+  const { themes } = settings.use();
+  const chosen = themes.design;
   activeTheme.use(); // the drawings follow the theme in use and the draft
   const file = draft.use()?.present ?? savedTheme();
   return (
@@ -115,6 +116,15 @@ function StyleChoice() {
           ]}
         />
       </div>
+      {chosen === "material" && (
+        <Row icon="wallpaper" label={t("Bewegter Hintergrund")} hint={t("Höhenlinien in den Farben des Themes hinter dem Einstellungsfenster, die bei jedem Seitenwechsel weiterziehen")}>
+          <Switch
+            label={t("Bewegter Hintergrund")}
+            checked={themes.contours}
+            onChange={(contours) => updateSettings((cur) => ({ themes: { ...cur.themes, contours } }))}
+          />
+        </Row>
+      )}
     </Group>
   );
 }

@@ -54,6 +54,12 @@ test("the material and roomy variants are declared as the design writes them", (
   assert.ok(css.includes('@custom-variant roomy (&:where([data-design="material"] [data-roomy], [data-design="material"] [data-roomy] *));'));
 });
 
+test("the contours variant follows roomy, so an opaque group wins over the roomy fill", () => {
+  const contours = css.indexOf('@custom-variant contours (&:where([data-design="material"] [data-contours] *));');
+  assert.ok(contours >= 0);
+  assert.ok(contours > css.indexOf("@custom-variant roomy"));
+});
+
 test("nothing macOS 12 cannot read: no linear() easing and no color-mix()", () => {
   assert.doesNotMatch(css, /linear\(/);
   assert.doesNotMatch(css, /color-mix\(/);

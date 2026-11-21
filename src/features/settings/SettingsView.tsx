@@ -49,6 +49,8 @@ import {
   type SecretName,
 } from "../../platform/services";
 import { BackupSettings } from "./BackupSettings";
+// The suffix tells it from contours.ts on a disk that ignores case.
+import { Contours } from "./Contours.tsx";
 import { diagnosticsText } from "./diagnostics";
 import { cascades, shellLayout, showsHeaderTitle } from "./shell";
 import { cascadeDelay } from "../../ui/cascade";
@@ -245,6 +247,11 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const searching = query.trim() !== "";
   const results = searching ? searchSettings(rows, query) : [];
   const layout = material ? shellLayout(width) : "list";
+  const contours = settings.use().themes.contours;
+  const backdrop = !!chrome && contours;
+  const [contoursFailed, setContoursFailed] = useState(false);
+  // Switched off by choice keeps today's light in the list; WebGL missing or lost gives the light in every layout.
+  const light = backdrop ? (contoursFailed ? layout : null) : layout === "list" ? "list" : null;
   // In the rail and the row on top the search is a button, which opens the field.
   const compact = layout !== "list";
   const fieldShown = !compact || searchOpen || searching;
@@ -476,12 +483,32 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   if (material)
     return (
       <RoomyContext value={true}>
-        <div ref={root} data-roomy className={`relative flex h-full ${layout === "top" ? "flex-col" : ""}`}>
-          {layout === "list" && (
-            // A still light of the theme's colour behind the navigation.
+        <div
+          ref={root}
+          data-roomy
+          className={`relative flex h-full ${layout === "top" ? "flex-col" : ""} ${backdrop ? "isolate" : ""}`}
+          data-contours={(backdrop && !contoursFailed) || undefined}
+        >
+          {backdrop && <Contours page={viewKey} onFail={setContoursFailed} />}
+          {/* A still light of the theme's colour behind the navigation. */}
+          {light === "list" && (
             <div
               aria-hidden
               className="pointer-events-none absolute inset-y-0 start-0 w-[176px]"
+              style={{ background: "radial-gradient(closest-side, var(--color-primary), transparent)", opacity: 0.1 }}
+            />
+          )}
+          {light === "rail" && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 start-0 w-14"
+              style={{ background: "radial-gradient(closest-side, var(--color-primary), transparent)", opacity: 0.1 }}
+            />
+          )}
+          {light === "top" && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-14 h-14"
               style={{ background: "radial-gradient(closest-side, var(--color-primary), transparent)", opacity: 0.1 }}
             />
           )}
@@ -493,7 +520,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
           ) : (
             // Scrolls when the items do not fit, keeping 4 px around a focused one for its ring.
             <nav
-              className={`relative flex shrink-0 flex-col overflow-y-auto p-2 scroll-py-1 [scrollbar-width:none] ${layout === "rail" ? "w-14 items-center gap-0.5" : "w-[176px]"}`}
+              className={`relative flex shrink-0 flex-col overflow-y-auto p-2 scroll-py-1 [scrollbar-width:none] ${layout === "rail" ? "w-14 items-center gap-0.5" : "w-[176px] contours:bg-elevated"}`}
               onMouseDown={chrome?.onDrag}
             >
               {materialNav}
