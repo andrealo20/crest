@@ -163,7 +163,7 @@ const SETTINGS_DENIED: &[&str] = &[
 /// glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
 /// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
 /// (`taskbar_slid`), Windows' Start, its Win+X menu, its quick settings, Task Manager, Search, Task view, its widgets, its
-/// input language switcher and Show desktop (`taskbar_shell`), the input language it shows (taskbar/input.rs), an app's volume from its button, four of its
+/// input language switcher and Show desktop (`taskbar_shell`), the input language it shows (taskbar/input.rs), an app's volume from its button, some of its
 /// settings pages (`taskbar_settings`), the tray's icons with their pictures and clicks, the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
 /// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), and what the notch's
 /// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,

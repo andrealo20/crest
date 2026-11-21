@@ -71,8 +71,8 @@ export function QUICK_SIZE(rows: { radios: boolean; brightness: boolean; list: n
   return { w: 360, h: 24 + heights.reduce((a, b) => a + b, 0) + 10 * (heights.length - 1) + rows.list };
 }
 
-/** A page inside the quick panel: the Wi-Fi networks or the Bluetooth devices, opened by its tile's chevron. */
-export type QuickPage = "wifi" | "bluetooth";
+/** A page inside the quick panel: the Wi-Fi networks or the Bluetooth devices, opened by its tile's chevron, or the volume mixer. */
+export type QuickPage = "wifi" | "bluetooth" | "mixer";
 /** A page's row, CSS px. */
 export const PAGE_ROW = 40;
 /** The rows a page shows before it scrolls. */
@@ -86,9 +86,9 @@ export const PASSWORD_ROW = 44;
  */
 export const QUICK_PAGE_SIZE = (rows: number, extra: number) => ({ w: 360, h: 24 + 32 + 10 + Math.min(Math.max(rows, 1), PAGE_MAX_ROWS) * PAGE_ROW + extra + 10 + 32 });
 
-/** The page the quick panel keeps: none once the page's radio is gone (adapter removed), the same while it is only off or not read yet. */
+/** The page the quick panel keeps: none once the page's radio is gone (adapter removed), the same while it is only off or not read yet; the mixer whatever the radios read. */
 export function pageAfter(page: QuickPage | null, quick: { wifi: boolean | null; bluetooth: boolean | null } | null): QuickPage | null {
-  if (page === null || (quick !== null && quick[page] === null)) return null;
+  if (page === null || (page !== "mixer" && quick !== null && quick[page] === null)) return null;
   return page;
 }
 

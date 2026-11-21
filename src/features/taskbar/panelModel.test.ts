@@ -138,6 +138,7 @@ test("a page goes back to the panel when its radio is gone, and stays while it i
   assert.equal(pageAfter("bluetooth", { wifi: true, bluetooth: null }), null);
   assert.equal(pageAfter("bluetooth", null), "bluetooth"); // the radios are not read yet
   assert.equal(pageAfter(null, { wifi: true, bluetooth: true }), null);
+  assert.equal(pageAfter("mixer", { wifi: null, bluetooth: null }), "mixer");
 });
 
 test("the six tools on saved stores open in the panel too, the half-working and notch-only ones and Find on screen in the notch", () => {

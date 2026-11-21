@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CaretRight } from "../../../ui/iconset";
+import { CaretRight, SlidersHorizontal } from "../../../ui/iconset";
 import { content } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { systemControls, taskbar } from "../../../platform/services";
@@ -13,6 +13,7 @@ import { pageAfter, type QuickPage } from "../panelModel";
 import { barStatus } from "../status";
 import { wifiTile } from "../statusModel";
 import { BluetoothPage } from "./BluetoothPage";
+import { MixerPage } from "./MixerPage";
 import { away } from "./QuickPage";
 import { WifiPage } from "./WifiPage";
 
@@ -67,6 +68,8 @@ export default function QuickPanel() {
           <WifiPage on={quick?.wifi === true} job={job} />
         ) : page?.page === "bluetooth" ? (
           <BluetoothPage on={quick?.bluetooth === true} job={job} />
+        ) : page?.page === "mixer" ? (
+          <MixerPage />
         ) : (
           <div className="flex h-full flex-col gap-2.5 p-3">
             {radios && (
@@ -79,8 +82,16 @@ export default function QuickPanel() {
                 )}
               </div>
             )}
-            <div className="flex shrink-0">
+            <div className="flex shrink-0 gap-2">
               <VolumeTile device={device} open={listOpen} onDevices={toggle} />
+              <button
+                aria-label={t("Lautstärkemixer")}
+                title={t("Lautstärkemixer")}
+                onClick={() => open("mixer")}
+                className="pressable flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-fill-1 text-label-2 hover:bg-fill-2 hover:text-label material:rounded-full"
+              >
+                <SlidersHorizontal size={16} weight="regular" />
+              </button>
             </div>
             {listOpen && <OutputList outputs={outputs} rows={rows} onPick={pick} />}
             {brightness && (bright === null ? <div className="h-10 shrink-0" /> : <BrightnessTile level={bright} busy={busy} hold={hold} onLevel={setBright} />)}

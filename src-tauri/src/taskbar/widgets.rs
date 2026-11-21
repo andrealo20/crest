@@ -34,6 +34,7 @@ fn settings_page(page: &str) -> Option<&'static str> {
         "location" => Some("ms-settings:privacy-location"),
         "microphone" => Some("ms-settings:privacy-microphone"),
         "camera" => Some("ms-settings:privacy-webcam"),
+        "mixer" => Some("ms-settings:apps-volume"),
         _ => None,
     }
 }
@@ -53,6 +54,7 @@ mod tests {
         assert_eq!(settings_page("home"), Some("ms-settings:"));
         assert_eq!(settings_page("microphone"), Some("ms-settings:privacy-microphone"));
         assert_eq!(settings_page("camera"), Some("ms-settings:privacy-webcam"));
+        assert_eq!(settings_page("mixer"), Some("ms-settings:apps-volume"));
         assert_eq!(settings_page("saver"), Some("ms-settings:batterysaver"));
         assert_eq!(settings_page("airplane"), Some("ms-settings:network-airplanemode"));
         assert_eq!(settings_page("ethernet"), Some("ms-settings:network-ethernet"));
