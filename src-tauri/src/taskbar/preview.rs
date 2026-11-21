@@ -18,8 +18,8 @@ use windows::Win32::Graphics::Dwm::{
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, GetWindowRect, IsIconic, IsWindowVisible, RegisterClassW, SetLayeredWindowAttributes,
-    SetWindowDisplayAffinity, SetWindowPos, HTTRANSPARENT, LWA_ALPHA, MA_NOACTIVATE, SWP_NOACTIVATE, SWP_NOZORDER, SWP_SHOWWINDOW,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, GetWindow, GetWindowRect, IsIconic, IsWindowVisible, RegisterClassW, SetLayeredWindowAttributes,
+    SetWindowDisplayAffinity, SetWindowPos, GW_HWNDPREV, HTTRANSPARENT, HWND_TOPMOST, LWA_ALPHA, MA_NOACTIVATE, SWP_NOACTIVATE, SWP_NOZORDER, SWP_SHOWWINDOW,
     WDA_EXCLUDEFROMCAPTURE, WINDOW_EX_STYLE, WM_ERASEBKGND, WM_MOUSEACTIVATE, WM_NCHITTEST, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE,
     WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
@@ -90,6 +90,17 @@ fn fit((bx, by, bw, bh): (i32, i32, i32, i32), (sw, sh): (i32, i32)) -> Option<(
     (w > 0 && h > 0).then_some((bx + (bw - w) / 2, by + (bh - h) / 2, w, h))
 }
 
+/// The window a thumbnail's `popup` goes under: the one just above the bar (`above_bar`), so it sits right above the bar and under
+/// any window that covers the bar's card, as a topmost Picture-in-Picture; the top of the topmost band when nothing is above the
+/// bar; None when the popup is already that window, where it stays.
+fn insert_after(above_bar: Option<isize>, popup: isize) -> Option<isize> {
+    match above_bar {
+        Some(h) if h == popup => None,
+        Some(h) => Some(h),
+        None => Some(HWND_TOPMOST.0 as isize),
+    }
+}
+
 /// The windows shown before that a new set no longer names, in order.
 fn gone(old: &[isize], new: &[isize]) -> Vec<isize> {
     old.iter().copied().filter(|id| !new.contains(id)).collect()
@@ -145,7 +156,7 @@ pub fn taskbar_preview(window: WebviewWindow, slots: Vec<Slot>) -> Result<Vec<Op
                 (None, true) => make(owner, source)?,
                 (None, false) => return None,
             };
-            match place(&thumb, source, slot, origin, scale) {
+            match place(&thumb, owner, source, slot, origin, scale) {
                 Some(shown) => {
                     thumbs.insert(slot.id, thumb);
                     Some(shown)
@@ -184,9 +195,9 @@ fn make(owner: HWND, source: HWND) -> Option<Thumb> {
     }
 }
 
-/// Moves a thumbnail's popup onto its slot (`origin`: the bar's client area on the screen, physical px) and composes the source
-/// in it, answering where it shows in CSS px; None on any failure or when the source measures nothing.
-fn place(t: &Thumb, source: HWND, slot: &Slot, origin: PhysicalPosition<i32>, scale: f64) -> Option<Shown> {
+/// Moves a thumbnail's popup onto its slot (`origin`: the bar's client area on the screen, physical px) right above the bar
+/// (`owner`) and composes the source in it, answering where it shows in CSS px; None on any failure or when the source measures nothing.
+fn place(t: &Thumb, owner: HWND, source: HWND, slot: &Slot, origin: PhysicalPosition<i32>, scale: f64) -> Option<Shown> {
     let (frame, size) = visible_frame(source, t.thumb)?;
     let px = |v: f64| (v * scale).round() as i32;
     let (x, y, w, h) = fit((origin.x + px(slot.x), origin.y + px(slot.y), px(slot.w), px(slot.h)), size)?;
@@ -201,7 +212,13 @@ fn place(t: &Thumb, source: HWND, slot: &Slot, origin: PhysicalPosition<i32>, sc
     unsafe {
         // The thumbnail first, then the popup shows: never an empty popup for a frame.
         DwmUpdateThumbnailProperties(t.thumb, &props).ok()?;
-        SetWindowPos(HWND(t.hwnd as _), None, x, y, w, h, SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW).ok()?;
+        // Created topmost, the popup would sit at the top of the topmost band, over a window that covers the card.
+        let above = GetWindow(owner, GW_HWNDPREV).ok().map(|h| h.0 as isize);
+        let (after, keep) = match insert_after(above, t.hwnd) {
+            Some(h) => (Some(HWND(h as _)), SWP_NOACTIVATE),
+            None => (None, SWP_NOACTIVATE | SWP_NOZORDER),
+        };
+        SetWindowPos(HWND(t.hwnd as _), after, x, y, w, h, keep | SWP_SHOWWINDOW).ok()?;
     }
     Some(Shown { x: (x - origin.x) as f64 / scale, y: (y - origin.y) as f64 / scale, w: w as f64 / scale, h: h as f64 / scale })
 }
@@ -301,6 +318,16 @@ mod tests {
         assert!(!inside(&s(5000.0, -3000.0, 192.0, 120.0), (1920.0, 604.0)));
         assert!(!inside(&s(0.0, 0.0, 3000.0, 2000.0), (1920.0, 604.0)));
         assert!(!inside(&s(-1.0, 10.0, 192.0, 120.0), (1920.0, 604.0)));
+    }
+
+    #[test]
+    fn a_thumbnail_goes_right_above_the_bar_never_over_a_window_that_covers_it() {
+        // Under the window just above the bar (a Picture-in-Picture over the card stays over the thumbnail too).
+        assert_eq!(insert_after(Some(42), 7), Some(42));
+        // The bar on top of everything: the top of the topmost band is right above it.
+        assert_eq!(insert_after(None, 7), Some(HWND_TOPMOST.0 as isize));
+        // Already the window just above the bar: left where it is.
+        assert_eq!(insert_after(Some(7), 7), None);
     }
 
     #[test]
