@@ -94,6 +94,23 @@ fn link_or_entry(apps: &[App], path: &str, aumid: Option<String>, exe: Option<St
     }
 }
 
+/// A shortcut as the bar takes it: its id (`link_or_entry`) and, without a Start entry, the pin it stays as, named as File Explorer
+/// names it. None when the shell cannot read it. Needs COM.
+pub(super) fn shortcut(apps: &[App], path: &Path) -> Option<(String, Option<OwnPin>)> {
+    let text = path.to_str()?;
+    let item = unsafe { SHCreateItemFromParsingName::<_, _, IShellItem2>(&HSTRING::from(path), None) }.ok()?;
+    // An empty id is none, as on a window (tasks.rs).
+    let aumid = unsafe { item.GetString(&APP_USER_MODEL_ID) }.ok().and_then(|p| unsafe { crate::controls::take(p) }).filter(|id| !id.is_empty());
+    let exe = unsafe { launcher::shortcut_exe(&item) };
+    let (id, link) = link_or_entry(apps, text, aumid, exe);
+    let pin = link.map(|target| {
+        let name = unsafe { launcher::display_name(&item, SIGDN_NORMALDISPLAY) };
+        let name = name.or_else(|| path.file_stem().map(|s| s.to_string_lossy().into_owned())).unwrap_or_default();
+        OwnPin { id: id.clone(), name, target }
+    });
+    Some((id, pin))
+}
+
 /// The shortcuts in `User Pinned\TaskBar` by file name, as ids (`link_or_entry`), and those without a Start entry as pins, named
 /// as File Explorer names them, which go to ownpins.rs at each read (`set_links`). None when the folder cannot be read.
 fn folder(apps: &[App]) -> Option<(Vec<String>, Vec<OwnPin>)> {
@@ -102,17 +119,8 @@ fn folder(apps: &[App]) -> Option<(Vec<String>, Vec<OwnPin>)> {
     paths.sort();
     let (mut ids, mut links) = (Vec::new(), Vec::new());
     for path in &paths {
-        let Some(text) = path.to_str() else { continue };
-        let Ok(item) = (unsafe { SHCreateItemFromParsingName::<_, _, IShellItem2>(&HSTRING::from(path.as_path()), None) }) else { continue };
-        // An empty id is none, as on a window (tasks.rs).
-        let aumid = unsafe { item.GetString(&APP_USER_MODEL_ID) }.ok().and_then(|p| unsafe { crate::controls::take(p) }).filter(|id| !id.is_empty());
-        let exe = unsafe { launcher::shortcut_exe(&item) };
-        let (id, link) = link_or_entry(apps, text, aumid, exe);
-        if let Some(target) = link {
-            let name = unsafe { launcher::display_name(&item, SIGDN_NORMALDISPLAY) };
-            let name = name.or_else(|| path.file_stem().map(|s| s.to_string_lossy().into_owned())).unwrap_or_default();
-            links.push(OwnPin { id: id.clone(), name, target });
-        }
+        let Some((id, link)) = shortcut(apps, path) else { continue };
+        links.extend(link);
         ids.push(id);
     }
     ownpins::set_links(links.clone());

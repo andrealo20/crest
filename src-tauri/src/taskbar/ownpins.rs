@@ -12,13 +12,13 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use windows::core::HSTRING;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::Shell::SHLoadIndirectString;
 
 use super::tasks;
-use crate::launcher::{self, App};
+use crate::launcher::{self, App, LauncherState};
 use crate::{display, mixer};
 
 /// What a pin starts, and how it is matched to a window.
@@ -260,6 +260,50 @@ pub(crate) fn entries_for(aumid: Option<&str>, exe: &str) -> Vec<App> {
     saved.into_iter().chain(links).filter(|p| matches(p, aumid, exe)).map(|p| launcher::pinned_app(p.id, p.name)).collect()
 }
 
+/// A dropped file the bar may pin: an exe or a shortcut, ASCII case-insensitive, on this machine (the shell would open a
+/// connection to another one to read it).
+fn accept_drop(path: &str) -> bool {
+    Path::new(path).extension().is_some_and(|e| e.eq_ignore_ascii_case("exe") || e.eq_ignore_ascii_case("lnk")) && !super::pins::remote(path)
+}
+
+/// What a dropped file pins: the entry the bar puts in its list and, without a Start or App Paths entry, the own pin saved for it.
+/// None for a file that is no app on this machine. Needs COM.
+fn pin_of(apps: &[App], path: &str) -> Option<(App, Option<OwnPin>)> {
+    if !accept_drop(path) || !Path::new(path).is_file() {
+        return None;
+    }
+    // A shortcut is read as Windows' pinned ones are (pins.rs), an exe matched as a window without AppUserModelID.
+    let (id, own) = if path.to_ascii_lowercase().ends_with(".lnk") {
+        super::pins::shortcut(apps, Path::new(path))?
+    } else if let Some(app) = launcher::entries_for(apps, None, path).into_iter().next() {
+        return Some((app, None));
+    } else {
+        (path.to_string(), Some(OwnPin { id: path.to_string(), name: mixer::display_name(path), target: Target::Exe { path: path.to_string() } }))
+    };
+    match own {
+        Some(pin) => Some((launcher::pinned_app(pin.id.clone(), pin.name.clone()), Some(pin))),
+        None => apps.iter().find(|a| a.id == id).cloned().map(|app| (app, None)),
+    }
+}
+
+/// Pins the apps among the files dropped on a bar's apps (drop.rs `install_bar`), on the thread drop.rs starts (`pin_of`). The bar
+/// hears the accepted ones as `taskbar://pinned`, in drop order, and nothing when none was.
+pub(crate) fn dropped(window: &WebviewWindow, paths: Vec<String>) {
+    let apps = launcher::cached(&window.state::<LauncherState>(), |apps| apps.to_vec());
+    let made = launcher::on_sta(move || paths.iter().filter_map(|p| pin_of(&apps, p)).collect::<Vec<_>>()).unwrap_or_default();
+    if made.is_empty() {
+        return;
+    }
+    let mut pinned = Vec::new();
+    for (app, own) in made {
+        if let Some(pin) = own {
+            add(pin);
+        }
+        pinned.push(serde_json::json!({ "id": app.id, "name": app.name }));
+    }
+    let _ = window.emit_to(window.label(), "taskbar://pinned", pinned);
+}
+
 /// Pins listed window `id`: its app's Start entry (or an own pin made of it before) if it has one, else the pin Rust makes of the
 /// window, saved. Errors: not-found, prevented, unknown.
 #[tauri::command]
@@ -316,6 +360,15 @@ pub(crate) fn set_saved(json: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_exes_and_shortcuts_on_this_machine_are_taken_from_a_drop() {
+        assert!(accept_drop(r"C:\Tools\APP.EXE"));
+        assert!(accept_drop(r"C:\Users\a\Desktop\App.lnk"));
+        assert!(!accept_drop(r"C:\Users\a\notes.txt"));
+        assert!(!accept_drop(r"C:\Users\a\Folder"));
+        assert!(!accept_drop(r"\\host\share\x.exe"));
+    }
 
     #[test]
     fn a_bad_entry_never_empties_the_file() {

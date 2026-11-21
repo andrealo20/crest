@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type Dispatch, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type Dispatch, type DragEvent, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { DotsThree } from "../../../ui/iconset";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -8,6 +8,7 @@ import { t } from "../../../i18n";
 import { partInfo } from "../../../notch/row/partInfo";
 import type { PartId } from "../../../notch/row/parts";
 import { isNative } from "../../../platform/native";
+import { postFiles } from "../../../platform/drop";
 import { launcher, taskbar } from "../../../platform/services";
 import { settings } from "../../../settings/store";
 import { CrestMark } from "../../../ui/CrestMark";
@@ -16,11 +17,11 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
 import { PREVIEW_CLOSE, PREVIEW_DELAY, bridge, zones as hitZones, type Rect } from "../autoHide";
-import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Click, type ClickMods, type Zone } from "../model";
+import { COMPACT_PAD, barButtons, clickAction, compactIcon, fitIcon, indicator, insertPinned, launchId, trayIcon, type BarButton, type BarItem, type BarShape, type Click, type ClickMods, type Zone } from "../model";
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
-import { closePanel, itemDrag, panel, pinDrag, togglePanel } from "../panel";
+import { closePanel, fileDrag, itemDrag, panel, pinDrag, togglePanel } from "../panel";
 import { dragThreshold, opensInBar } from "../panelModel";
-import { barShown, barWindows, groupIcons } from "../store";
+import { barShown, barWindows, groupIcons, setTaskbar } from "../store";
 import { splitApps } from "../fit";
 import { barStatus } from "../status";
 import { batteryGlyph, netGlyph, soundGlyph } from "../statusModel";
@@ -37,7 +38,7 @@ import { BarPanel } from "./BarPanel";
 import { holdBriefly } from "./hold";
 import { Item, MARK, type ItemProps } from "./Item";
 import { ItemDrop } from "./ItemDrop";
-import { PinDrop } from "./PinDrop";
+import { PinDrop, placeAt } from "./PinDrop";
 import { pressDragged, startPress } from "./press";
 import { PreviewCard } from "./Preview";
 import { Status } from "./Status";
@@ -137,6 +138,9 @@ export function TaskbarWindow() {
   // The pinned app dragged along the bar, by its pin id, for the same reason (PinDrop follows it).
   const pinDragged = useSyncExternalStore(pinDrag.subscribe, () => pinDrag.get()?.id ?? null);
   const dragging = dragged !== null || pinDragged !== null;
+  // Where the last files dropped on the apps go once Rust has pinned those that are apps: before this pin, or at the end with null.
+  const dropBefore = useRef<string | null>(null);
+  useEffect(() => taskbar.onPinned((apps) => setTaskbar((t) => ({ pinned: insertPinned(t.pinned ?? [], apps, dropBefore.current) }))), []);
   // The shape's boxes, for its glass: new ones only when they change, so a hover does not draw the glass again.
   const [boxes, setBoxes] = useState<Box[]>([]);
   const reduced = useReducedMotion() === true;
@@ -555,9 +559,27 @@ export function TaskbarWindow() {
     return id satisfies never;
   };
 
+  /** Files from File Explorer on the apps: the line shows where they go, and Rust pins those that are apps (ownpins.rs `dropped`). Which ones are is Rust's call: during a drag the page cannot tell an exe from its name. */
+  const fileDrop = {
+    onDragOver: (e: DragEvent) => {
+      if (!e.dataTransfer.types.includes("Files")) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "link";
+      fileDrag.set({ x: e.clientX, y: e.clientY });
+    },
+    onDragLeave: () => fileDrag.set(null),
+    onDrop: (e: DragEvent) => {
+      fileDrag.set(null);
+      if (!e.dataTransfer.types.includes("Files")) return;
+      e.preventDefault();
+      dropBefore.current = placeAt(bar.current, { id: null, x: e.clientX, y: e.clientY }, between)?.before ?? null;
+      postFiles("taskbar-drop", [...e.dataTransfer.files]);
+    },
+  };
+
   /** Each item in a box-less span the drop measures it by (ItemDrop); the draggable ones keep touch for the drag, the dragged one dims. */
   const place = (id: BarItem) => (
-    <span key={id} data-item={id} className={`contents ${isWidget(id) || isTool(id) || id === "status" || id === "apps" ? "*:touch-none" : ""} ${dragged === id ? "*:opacity-40" : ""}`}>
+    <span key={id} data-item={id} className={`contents ${isWidget(id) || isTool(id) || id === "status" || id === "apps" ? "*:touch-none" : ""} ${dragged === id ? "*:opacity-40" : ""}`} {...(id === "apps" ? fileDrop : {})}>
       {render(id)}
     </span>
   );

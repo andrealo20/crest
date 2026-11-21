@@ -239,7 +239,7 @@ export function TaskbarApps() {
 
   return (
     <Group id="settings-taskbar-apps">
-      <Row icon="keep" label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften")} />
+      <Row icon="keep" label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Über Start, mit Rechtsklick auf eine App in der Taskleiste oder durch Ziehen auf die Taskleiste anheften")} />
       {pinned.length > 0 && <FavoriteList favorites={pinned} onChange={(next) => setTaskbar({ pinned: next })} />}
       {/* Long in some languages beside the button: the name wraps instead of being cut. */}
       <Row

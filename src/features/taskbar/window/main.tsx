@@ -30,8 +30,10 @@ startCrashLog();
 window.addEventListener("contextmenu", (e) => {
   if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) e.preventDefault();
 });
-// WebView2 would open a dropped file or link in this window; nothing can be dropped here.
+// WebView2 would open a dropped file or link in this window; nothing can be dropped here but files on the apps, whose own
+// handler ran first.
 window.addEventListener("dragover", (e) => {
+  if (e.defaultPrevented) return;
   e.preventDefault();
   if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
 });

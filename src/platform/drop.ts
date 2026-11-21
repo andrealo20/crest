@@ -87,6 +87,13 @@ export function usePasteFiles(onEmpty?: () => void) {
 /** WebView2 bridge (app only). */
 const webview = (window as { chrome?: { webview?: { postMessageWithAdditionalObjects(msg: string, objects: unknown[]): void } } }).chrome?.webview;
 
+/** Hands dropped `files` to Rust under `message` (src-tauri/src/drop.rs), which reads their paths; false in the browser, where a page gets none. */
+export function postFiles(message: string, files: File[]): boolean {
+  if (!webview) return false;
+  webview.postMessageWithAdditionalObjects(message, files);
+  return true;
+}
+
 let started = false;
 
 export function startDropListener() {
@@ -127,10 +134,9 @@ export function startDropListener() {
     e.preventDefault();
     depth = 0;
     const files = [...(e.dataTransfer?.files ?? [])];
-    if (webview) {
-      // Paths come back asynchronously as "notch://drop".
+    // Paths come back asynchronously as "notch://drop".
+    if (postFiles("notch-drop", files)) {
       drop.set((s) => ({ ...s, dragging: false }));
-      webview.postMessageWithAdditionalObjects("notch-drop", files);
       return;
     }
     drop.set({ dragging: false, dropped: files.map(demoPath) });

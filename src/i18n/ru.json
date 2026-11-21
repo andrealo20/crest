@@ -1845,7 +1845,7 @@
  "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "На одном мониторе панель не может уехать: там рабочая область заканчивается выше края или под ним есть другой монитор",
  "Startmenü": "Пуск",
  "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "Пуск открывается там, где его размещает Windows, в зависимости от выравнивания его панели задач",
- "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "Закрепите приложение из меню «Пуск» Windows или щёлкните правой кнопкой открытое приложение на панели задач",
+ "Über Start, mit Rechtsklick auf eine App in der Taskleiste oder durch Ziehen auf die Taskleiste anheften": "Закрепляйте из «Пуска», правым щелчком по приложению на панели или перетащив его на панель",
  "Infobereich": "Область уведомлений",
  "Ausgeblendete Symbole anzeigen": "Показать скрытые значки",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Значками панели задач управляет другая программа.",

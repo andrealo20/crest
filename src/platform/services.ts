@@ -1384,6 +1384,12 @@ export const taskbar = {
     const off = getCurrentWebviewWindow().listen<WindowList>("taskbar://windows", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
+  /** Files dropped on this bar that Rust pinned, in drop order; Rust sends them to this bar only. */
+  onPinned(handler: (apps: Favorite[]) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<Favorite[]>("taskbar://pinned", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** The pointer came onto the bar or an open menu, or left them; from the Rust poll, since the page sees no pointerleave once the window lets the pointer through. */
   onHover(handler: (inside: boolean) => void): () => void {
     if (!isNative) return () => {};

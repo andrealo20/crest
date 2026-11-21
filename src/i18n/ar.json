@@ -1845,7 +1845,7 @@
  "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "لا يستطيع الشريط أن ينزلق بعيدًا على إحدى الشاشات: فمساحة العمل هناك تنتهي فوق الحافة، أو توجد تحتها شاشة أخرى",
  "Startmenü": "ابدأ",
  "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "تُفتح قائمة ابدأ حيث يضعها Windows، بحسب محاذاة شريط المهام الخاص به",
- "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "ثبّت تطبيقًا من قائمة ابدأ في Windows أو بالنقر بزر الماوس الأيمن على تطبيق مفتوح في شريط المهام",
+ "Über Start, mit Rechtsklick auf eine App in der Taskleiste oder durch Ziehen auf die Taskleiste anheften": "ثبّت من ابدأ، أو بالنقر بزر الماوس الأيمن على تطبيق في الشريط، أو بسحبه إلى الشريط",
  "Infobereich": "منطقة الإشعارات",
  "Ausgeblendete Symbole anzeigen": "إظهار الرموز المخفية",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "برنامج آخر يدير رموز شريط المهام.",

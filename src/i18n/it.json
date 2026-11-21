@@ -1845,7 +1845,7 @@
  "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "Su un monitor la barra non può scendere: lì l'area di lavoro finisce sopra il bordo, o sotto c'è un altro monitor",
  "Startmenü": "Start",
  "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "Lo Start si apre dove lo mette Windows, secondo l'allineamento della sua barra",
- "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "Fissa un'app dallo Start di Windows o con un clic destro su un'app aperta nella barra",
+ "Über Start, mit Rechtsklick auf eine App in der Taskleiste oder durch Ziehen auf die Taskleiste anheften": "Aggiungi da Start, con il tasto destro su un'app nella barra o trascinandola sulla barra",
  "Infobereich": "Area di notifica",
  "Ausgeblendete Symbole anzeigen": "Mostra icone nascoste",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "Un altro programma gestisce le icone della barra.",

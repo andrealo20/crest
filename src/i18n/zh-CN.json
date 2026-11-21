@@ -1845,7 +1845,7 @@
  "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "某台显示器上的任务栏无法滑出：那里的工作区在屏幕边缘上方就结束了，或者下方还有另一台显示器",
  "Startmenü": "开始",
  "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "“开始”菜单会在 Windows 放置它的位置打开，具体取决于其任务栏的对齐方式",
- "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "从 Windows 开始菜单固定应用，或在任务栏中右键单击已打开的应用",
+ "Über Start, mit Rechtsklick auf eine App in der Taskleiste oder durch Ziehen auf die Taskleiste anheften": "从“开始”固定，在栏上右键单击应用，或把应用拖到栏上",
  "Infobereich": "通知区域",
  "Ausgeblendete Symbole anzeigen": "显示隐藏的图标",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "另一个程序正在管理任务栏的图标。",

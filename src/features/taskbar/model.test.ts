@@ -12,6 +12,7 @@ import {
   dropPlace,
   fitIcon,
   indicator,
+  insertPinned,
   menuFor,
   menuKey,
   newInstance,
@@ -442,6 +443,17 @@ test("a pin moves before another or to the end, and an unchanged move gives the 
   assert.equal(movePinned(pinned, "c", null), pinned);
   assert.equal(movePinned(pinned, "x", "a"), pinned);
   assert.equal(movePinned(pinned, "a", "x"), pinned);
+});
+
+test("dropped apps go in before a pin in their order, once each, and one already pinned stays where it is", () => {
+  const f = (id: string) => ({ id, name: id });
+  const pinned = [f("a"), f("b"), f("c")];
+  assert.deepEqual(insertPinned(pinned, [f("x"), f("y")], "b").map((p) => p.id), ["a", "x", "y", "b", "c"]);
+  assert.deepEqual(insertPinned(pinned, [f("c"), f("x"), f("x")], "a").map((p) => p.id), ["x", "a", "b", "c"]);
+  assert.deepEqual(insertPinned(pinned, [f("x")], null).map((p) => p.id), ["a", "b", "c", "x"]);
+  assert.deepEqual(insertPinned(pinned, [f("x")], "gone").map((p) => p.id), ["a", "b", "c", "x"]);
+  assert.equal(insertPinned(pinned, [f("b")], "a"), pinned);
+  assert.deepEqual(insertPinned([], [f("x")], null).map((p) => p.id), ["x"]);
 });
 
 test("in the capsule a drop inside the item's own room changes nothing, at the boundary between two zones too", () => {

@@ -33,6 +33,9 @@ export const itemDrag = createStore<{ id: BarItem; x: number; y: number; pointer
  */
 export const pinDrag = createStore<{ id: string; x: number; y: number; pointerId: number } | null>(null);
 
+/** Files from File Explorer over the bar's apps (TaskbarWindow), at the pointer in CSS px; null while none are. PinDrop draws where they would be pinned. */
+export const fileDrag = createStore<{ x: number; y: number } | null>(null);
+
 /** The quick panel's rows that come and go (QuickPanel.tsx), for its size (QUICK_SIZE): the radios, the brightness, the open output list's px. */
 export const quickLayout = createStore<{ radios: boolean; brightness: boolean; list: number }>({ radios: true, brightness: false, list: 0 });
 

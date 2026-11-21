@@ -1845,7 +1845,7 @@
  "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm": "一部のモニターではバーが画面外へ滑り出せません: 作業領域が下端より上で終わっているか、下に別のモニターがあります",
  "Startmenü": "スタート",
  "Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste": "スタートは、Windowsのタスクバーの配置に応じて、Windowsが決めた位置に開きます",
- "Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften": "Windowsのスタートから、またはタスクバーで開いているアプリを右クリックして、アプリを固定します",
+ "Über Start, mit Rechtsklick auf eine App in der Taskleiste oder durch Ziehen auf die Taskleiste anheften": "スタートから、バーのアプリを右クリックして、またはアプリをバーにドラッグしてピン留めします",
  "Infobereich": "通知領域",
  "Ausgeblendete Symbole anzeigen": "隠れているアイコンを表示",
  "Ein anderes Programm verwaltet die Symbole der Taskleiste.": "別のプログラムがタスクバーのアイコンを管理しています。",

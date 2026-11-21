@@ -12,28 +12,41 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2File, ICoreWebV
 use webview2_com::WebMessageReceivedEventHandler;
 use windows::core::{Interface, PWSTR};
 
-/// Message the frontend sends with the files (see `src/platform/drop.ts`).
-const MESSAGE: &str = "notch-drop";
-
+/// The notch's drops (see `src/platform/drop.ts`): the paths go to every window as `notch://drop`, for the Shelf.
 pub fn install(window: &WebviewWindow) {
+    on_message(window, "notch-drop", |w, paths| {
+        let _ = w.emit("notch://drop", paths);
+    });
+}
+
+/// A bar's drops on its apps (TaskbarWindow.tsx): Rust pins the apps among them, on a thread of its own (`ownpins::dropped`).
+/// A message of its own, so a drop on a bar never opens the notch's Shelf.
+pub fn install_bar(window: &WebviewWindow) {
+    on_message(window, "taskbar-drop", |w, paths| {
+        let w = w.clone();
+        std::thread::spawn(move || crate::taskbar::ownpins::dropped(&w, paths));
+    });
+}
+
+/// Runs `f` with the paths of the files the page sends with `message`; nothing for no file.
+fn on_message(window: &WebviewWindow, message: &'static str, f: impl Fn(&WebviewWindow, Vec<String>) + Send + 'static) {
     let target = window.clone();
     let _ = window.with_webview(move |webview| unsafe {
         let Ok(core) = webview.controller().CoreWebView2() else { return };
-        let target = target.clone();
         let handler = WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
             let Some(args) = args else { return Ok(()) };
             let mut text = PWSTR::null();
             if args.TryGetWebMessageAsString(&mut text).is_err() || text.is_null() {
                 return Ok(());
             }
-            let is_drop = text.to_string().is_ok_and(|t| t == MESSAGE);
+            let ours = text.to_string().is_ok_and(|t| t == message);
             windows::Win32::System::Com::CoTaskMemFree(Some(text.0 as _));
-            if !is_drop {
+            if !ours {
                 return Ok(());
             }
             let paths = paths(&args);
             if !paths.is_empty() {
-                let _ = target.emit("notch://drop", paths);
+                f(&target, paths);
             }
             Ok(())
         }));

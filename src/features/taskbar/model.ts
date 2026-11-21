@@ -306,6 +306,14 @@ export function movePinned(pinned: Favorite[], id: string, before: string | null
   return [...rest.slice(0, at), pinned[from], ...rest.slice(at)];
 }
 
+/** `pinned` with `add` put before `before` (at the end with null, or when `before` is no longer pinned), each id once: one already pinned stays where it is. */
+export function insertPinned(pinned: Favorite[], add: Favorite[], before: string | null): Favorite[] {
+  const fresh = add.filter((f, i) => !pinned.some((p) => p.id === f.id) && add.findIndex((a) => a.id === f.id) === i);
+  if (!fresh.length) return pinned;
+  const at = before === null ? -1 : pinned.findIndex((f) => f.id === before);
+  return at < 0 ? [...pinned, ...fresh] : [...pinned.slice(0, at), ...fresh, ...pinned.slice(at)];
+}
+
 /** What changed on Windows' taskbar, on the bar's pinned apps: those pinned there at the end unless already pinned, those unpinned there taken off; the rest keep their order. */
 export function applyWindowsPins(pinned: Favorite[], change: { added: Favorite[]; removed: string[] }): Favorite[] {
   const kept = pinned.filter((f) => !change.removed.includes(f.id));
