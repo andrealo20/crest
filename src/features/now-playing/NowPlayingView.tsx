@@ -486,7 +486,8 @@ function Empty() {
       text={
         isMac
           ? t("Crest folgt den Apps Spotify und Musik. Spielt eine davon, erlaube Crest die Steuerung unter Datenschutz & Sicherheit → Automation.")
-          : t("Crest zeigt, was die Mediensteuerung von Windows zeigt (eine Lautstärketaste oder Win + A). Spotify erscheint dort nur mit eingeschaltetem Desktop-Overlay für Medientasten.")
+          : // Windows 11 shows the media controls in Quick Settings (Win + A) and its volume key only the level; Windows 10 the other way round.
+            t("Crest zeigt, was die Mediensteuerung von Windows zeigt (Win + A, unter Windows 10 eine Lautstärketaste). Spotify erscheint dort nur, wenn in Spotify das Desktop-Overlay für Medientasten eingeschaltet ist.")
       }
     />
   );

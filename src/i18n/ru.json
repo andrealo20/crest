@@ -59,7 +59,7 @@
  "Celsius": "Цельсий",
  "Cover als Hintergrund": "Обложка как фон",
  "Crest folgt den Apps Spotify und Musik. Spielt eine davon, erlaube Crest die Steuerung unter Datenschutz & Sicherheit → Automation.": "Crest следит за приложениями Spotify и «Музыка». Если одно из них играет, разрешите Crest управлять им в разделе «Конфиденциальность и безопасность» → «Автоматизация».",
- "Crest zeigt, was die Mediensteuerung von Windows zeigt (eine Lautstärketaste oder Win + A). Spotify erscheint dort nur mit eingeschaltetem Desktop-Overlay für Medientasten.": "Crest показывает то же, что элементы управления мультимедиа Windows (клавиша громкости или Win + A). Spotify появляется там, только если в нём включён оверлей на рабочем столе для мультимедийных клавиш.",
+ "Crest zeigt, was die Mediensteuerung von Windows zeigt (Win + A, unter Windows 10 eine Lautstärketaste). Spotify erscheint dort nur, wenn in Spotify das Desktop-Overlay für Medientasten eingeschaltet ist.": "Crest показывает то же, что элементы управления мультимедиа Windows (Win + A; в Windows 10 клавиша громкости). Spotify появляется там, только если в его настройках включён оверлей на рабочем столе для мультимедийных клавиш.",
  "Das Backup konnte nicht gespeichert werden": "Не удалось сохранить резервную копию",
  "Das Backup konnte nicht wiederhergestellt werden; die bisherigen Daten sind geblieben": "Не удалось восстановить копию; прежние данные сохранены",
  "Das hat nicht geklappt": "Не получилось",
