@@ -14,6 +14,8 @@ export const barWindows = createStore<WindowList>({ groups: [], active: null });
 export const groupIcons = createStore<Record<string, string | null>>({});
 /** In the bar's window: whether this bar shows (followBar); its widgets rest and its glass stops while it does not. */
 export const barShown = createStore(true);
+/** The site's full-screen demo offers a bar of its own, in the notch's page (src/dev/demo.ts); never set in the app. */
+export const demoBarOffered = createStore(false);
 
 /** A change to the bar's settings, from the Taskbar pages and their widget rows; the notch applies on/off and the height to Rust (startTaskbar), the bar reads the rest itself. */
 export function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSettings) => Partial<TaskbarSettings>)) {

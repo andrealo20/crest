@@ -202,13 +202,20 @@ test("the preview card's tiles step with Right and Left along the bar, mirrored 
 });
 
 test("the taskbar settings show only where the bar can run", () => {
-  const p = { native: true, mac: false, dev: false, offered: false, enabled: false };
+  const p = { native: true, mac: false, dev: false, offered: false, enabled: false, demo: false };
   assert.equal(taskbarShown(p), false); // the Store build
   assert.equal(taskbarShown({ ...p, offered: true }), true);
   assert.equal(taskbarShown({ ...p, dev: true }), true);
   assert.equal(taskbarShown({ ...p, enabled: true }), true); // turned on through a backup: it can be turned off
   assert.equal(taskbarShown({ ...p, mac: true, dev: true }), false);
   assert.equal(taskbarShown({ ...p, native: false, dev: true }), false);
+});
+
+test("the site's full-screen demo shows the taskbar settings in the browser, only where it offers its bar", () => {
+  const browser = { native: false, mac: false, dev: false, offered: false, enabled: false };
+  assert.equal(taskbarShown({ ...browser, demo: true }), true);
+  assert.equal(taskbarShown({ ...browser, demo: false }), false);
+  assert.equal(taskbarShown({ ...browser, enabled: true, demo: false }), false);
 });
 
 test("windows pins are added at the end and removed, Crest's own pins and order untouched", () => {
