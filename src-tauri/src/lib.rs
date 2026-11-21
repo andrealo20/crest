@@ -154,12 +154,13 @@ const SETTINGS_DENIED: &[&str] = &[
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
     "taskbar_auto_hide", "taskbar_slid", "taskbar_shell", "taskbar_windows_pins", "taskbar_tray_on", "taskbar_tray_click",
     "taskbar_settings", "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect",
-    "taskbar_bt_devices", "taskbar_preview",
+    "taskbar_bt_devices", "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_own_pins_keep",
     "display_rescale",
 ];
 
-/// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, opening the notch and
-/// the settings, the Crest menu, its own glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
+/// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, pinning a listed window,
+/// a new instance or File Explorer from one (taskbar/ownpins.rs), opening the notch and the settings, the Crest menu, its own
+/// glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
 /// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
 /// (`taskbar_slid`), Windows' Start, its Win+X menu, its quick settings and Task Manager (`taskbar_shell`), four of its settings pages
 /// (`taskbar_settings`), the tray's icons with their pictures and clicks, the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
@@ -182,7 +183,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "audio_outputs", "audio_set_output", "brightness_get", "brightness_set", "focus_get", "focus_set", "quick_get", "quick_radio",
     "quick_dark", "mic_mute", "quick_power", "web_search",
     "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
-    "taskbar_preview",
+    "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -599,6 +600,14 @@ pub fn run() {
             taskbar::pins::taskbar_import_pins,
             #[cfg(windows)]
             taskbar::pins::taskbar_windows_pins,
+            #[cfg(windows)]
+            taskbar::ownpins::taskbar_pin_window,
+            #[cfg(windows)]
+            taskbar::ownpins::taskbar_launch_window,
+            #[cfg(windows)]
+            taskbar::ownpins::taskbar_reveal,
+            #[cfg(windows)]
+            taskbar::ownpins::taskbar_own_pins_keep,
             #[cfg(windows)]
             taskbar::front::taskbar_auto_hide,
             #[cfg(windows)]
@@ -1259,6 +1268,10 @@ mod tests {
         assert!(ok("notch", "taskbar_import_pins") && ok("settings", "taskbar_import_pins") && !ok("taskbar", "taskbar_import_pins"));
         // Windows' pins reach the bar through the notch, which applies them to the settings.
         assert!(ok("notch", "taskbar_windows_pins") && !ok("taskbar", "taskbar_windows_pins"));
+        // A bar pins a listed window, starts a new instance from one or shows its exe; only the notch forgets the own pins it no
+        // longer has, and the settings window pins nothing.
+        assert!(["taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c)));
+        assert!(ok("notch", "taskbar_own_pins_keep") && !ok("taskbar", "taskbar_own_pins_keep") && !ok("settings", "taskbar_own_pins_keep"));
         assert!(ok("taskbar", "taskbar_front") && ok("taskbar-1", "taskbar_front") && !ok("taskbar", "taskbar_auto_hide"));
         assert!(ok("notch", "taskbar_auto_hide") && !ok("settings", "taskbar_auto_hide"));
         // The tray's spy runs while the notch says a bar shows the tray, as it applies the bar's other settings.

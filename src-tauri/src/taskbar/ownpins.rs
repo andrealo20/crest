@@ -11,9 +11,15 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use sha2::{Digest, Sha256};
+use tauri::{AppHandle, WebviewWindow};
+use windows::core::HSTRING;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::Shell::SHLoadIndirectString;
 
+use super::tasks;
 use crate::launcher::{self, App};
+use crate::{display, mixer};
 
 /// What a pin starts, and how it is matched to a window.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -44,12 +50,59 @@ fn parse(json: &str) -> Vec<OwnPin> {
     serde_json::from_str::<Vec<serde_json::Value>>(json).map(|all| all.into_iter().filter_map(|pin| serde_json::from_value(pin).ok()).collect()).unwrap_or_default()
 }
 
+/// The id of a pin of a relaunch command: `crest-pin:` and 16 hex digits of its SHA-256, the same for any case of the command.
+fn command_id(cmd: &str) -> String {
+    format!("crest-pin:{}", &format!("{:x}", Sha256::digest(cmd.to_lowercase().as_bytes()))[..16])
+}
+
 /// Reads the saved pins. Once, from the setup in lib.rs, so the settings window's icons and a launch work while the bar is off.
 pub(crate) fn load(app: &AppHandle) {
     let Ok(dir) = crate::portable::app_data_dir(app) else { return };
     let path = dir.join(FILE);
     let pins = std::fs::read_to_string(&path).map(|json| parse(&json)).unwrap_or_default();
     *SAVED.lock().unwrap_or_else(|e| e.into_inner()) = (Some(path), pins);
+}
+
+/// Writes the saved pins. An error leaves the file as it was, and the pins live in memory for this session.
+fn save(path: Option<&Path>, pins: &[OwnPin]) {
+    if let (Some(path), Ok(bytes)) = (path, serde_json::to_vec_pretty(pins)) {
+        let _ = crate::write_atomic(path, &bytes);
+    }
+}
+
+/// Saves `pin` in place of one of the same id; the windows are listed again so its app's buttons find it at once.
+fn add(pin: OwnPin) {
+    {
+        let mut saved = SAVED.lock().unwrap_or_else(|e| e.into_inner());
+        let (path, pins) = &mut *saved;
+        pins.retain(|p| p.id != pin.id);
+        pins.push(pin);
+        save(path.as_deref(), pins);
+    }
+    super::relist();
+}
+
+/// The pins of `pins` whose id is in `ids`, in their order.
+fn listed_only(pins: &[OwnPin], ids: &[String]) -> Vec<OwnPin> {
+    pins.iter().filter(|p| ids.contains(&p.id)).cloned().collect()
+}
+
+/// Forgets the saved pins the bar no longer has. Only saved ones: the folder's shortcuts are Windows' to keep.
+fn keep(ids: &[String]) {
+    let changed = {
+        let mut saved = SAVED.lock().unwrap_or_else(|e| e.into_inner());
+        let (path, pins) = &mut *saved;
+        let kept = listed_only(pins, ids);
+        let changed = kept.len() != pins.len();
+        if changed {
+            *pins = kept;
+            save(path.as_deref(), pins);
+        }
+        changed
+    };
+    if changed {
+        super::relist();
+    }
 }
 
 /// The saved pin or the folder's shortcut with this id.
@@ -84,13 +137,21 @@ pub(crate) fn launch_spec(id: &str) -> Option<(String, Option<String>)> {
     if !known(id) {
         return None;
     }
-    let (file, params) = match find(id).map(|p| p.target) {
-        Some(Target::Exe { path }) => (path, None),
-        Some(Target::Command { file, params, .. }) => (file, Some(params).filter(|p| !p.trim().is_empty())),
-        // A shortcut, saved or in Windows' folder, starts from the shortcut.
-        Some(Target::Link { .. }) | None => (id.to_string(), None),
+    let (file, params) = match find(id) {
+        Some(pin) => start_of(&pin),
+        // A shortcut in Windows' folder starts from the shortcut.
+        None => (id.to_string(), None),
     };
     Path::new(&file).is_file().then_some((file, params))
+}
+
+/// The file and parameters a pin starts with: an exe as it is, a command split, a shortcut from the shortcut.
+fn start_of(pin: &OwnPin) -> (String, Option<String>) {
+    match &pin.target {
+        Target::Exe { path } => (path.clone(), None),
+        Target::Command { file, params, .. } => (file.clone(), Some(params.clone()).filter(|p| !p.trim().is_empty())),
+        Target::Link { .. } => (pin.id.clone(), None),
+    }
 }
 
 /// What `launcher::icon_png` draws an own pin from. None for a shortcut to another machine: the shell would open a connection
@@ -150,6 +211,37 @@ pub(super) fn decide(relaunch: Option<(&str, &str, &str)>, packaged: bool, exe: 
     command.or_else(|| (!packaged && !exe.is_empty() && !super::pins::remote(exe)).then(|| Target::Exe { path: exe.into() }))
 }
 
+/// The pin of an open window (`decide`), named as Windows names it: a command by its display name resource (the text itself when
+/// it reads as no resource), an exe by its version info. Errors: prevented (with `check_prevent`, a window that asks never to be
+/// pinned), unknown (nothing to start it from). Needs COM: run it through `launcher::on_sta`.
+fn from_window(hwnd: HWND, check_prevent: bool) -> Result<OwnPin, &'static str> {
+    let props = tasks::window_props(hwnd);
+    if check_prevent && props.prevent {
+        return Err("prevented");
+    }
+    let pid = display::app_pid(hwnd);
+    let exe = mixer::process_path(pid).unwrap_or_default();
+    let relaunch = props.relaunch.as_ref().zip(props.aumid.as_deref()).map(|((command, name), aumid)| (aumid, command.as_str(), name.as_str()));
+    let target = decide(relaunch, tasks::package_app_id(pid).is_some(), &exe).ok_or("unknown")?;
+    let (id, name) = match (&target, relaunch) {
+        (Target::Command { file, .. }, Some((_, command, resource))) => {
+            let name = indirect(resource).or_else(|| (!resource.starts_with('@')).then(|| resource.to_string()));
+            (command_id(command), name.unwrap_or_else(|| mixer::display_name(file)))
+        }
+        (Target::Exe { path }, _) => (path.clone(), mixer::display_name(path)),
+        _ => return Err("unknown"),
+    };
+    Ok(OwnPin { id, name, target })
+}
+
+/// The text of an indirect string (`@file,-id`, `ms-resource:`); a plain one comes back as it is. None when it cannot be read.
+fn indirect(source: &str) -> Option<String> {
+    let mut buf = [0u16; 512];
+    unsafe { SHLoadIndirectString(&HSTRING::from(source), &mut buf, None) }.ok()?;
+    let text = String::from_utf16_lossy(&buf[..buf.iter().position(|&c| c == 0).unwrap_or(buf.len())]);
+    (!text.trim().is_empty()).then_some(text)
+}
+
 /// Puts in place the folder's shortcuts without a Start entry, after each read of the folder (pins.rs `folder`). The windows are
 /// listed again when they changed, so their buttons find these pins.
 pub(super) fn set_links(links: Vec<OwnPin>) {
@@ -166,6 +258,53 @@ pub(crate) fn entries_for(aumid: Option<&str>, exe: &str) -> Vec<App> {
     let saved = SAVED.lock().unwrap_or_else(|e| e.into_inner()).1.clone();
     let links = LINKS.lock().unwrap_or_else(|e| e.into_inner()).clone();
     saved.into_iter().chain(links).filter(|p| matches(p, aumid, exe)).map(|p| launcher::pinned_app(p.id, p.name)).collect()
+}
+
+/// Pins listed window `id`: its app's Start entry (or an own pin made of it before) if it has one, else the pin Rust makes of the
+/// window, saved. Errors: not-found, prevented, unknown.
+#[tauri::command]
+pub async fn taskbar_pin_window(id: isize) -> Result<App, String> {
+    tasks::listed_pid(id).ok_or("not-found")?;
+    if let Some((id, name)) = tasks::first_pin(id) {
+        return Ok(launcher::pinned_app(id, name));
+    }
+    let made = tauri::async_runtime::spawn_blocking(move || launcher::on_sta(move || from_window(HWND(id as _), true))).await;
+    let pin = made.ok().flatten().ok_or("unknown")??;
+    let app = launcher::pinned_app(pin.id.clone(), pin.name.clone());
+    add(pin);
+    Ok(app)
+}
+
+/// Starts a new instance from listed window `id`, as administrator with `admin`, on the calling bar's monitor; nothing is saved.
+/// PreventPinning does not stop it: Windows' own taskbar starts such an app too. Errors: not-found, unknown, cancelled, failed.
+#[tauri::command]
+pub async fn taskbar_launch_window(id: isize, admin: bool, window: WebviewWindow) -> Result<(), String> {
+    tasks::listed_pid(id).ok_or("not-found")?;
+    let monitor = launcher::launch_monitor(&window);
+    tauri::async_runtime::spawn_blocking(move || {
+        let pin = launcher::on_sta(move || from_window(HWND(id as _), false)).ok_or("unknown")??;
+        let (file, params) = start_of(&pin);
+        launcher::execute(&file, params.as_deref(), admin.then_some("runas"), monitor)
+    })
+    .await
+    .map_err(|_| "failed".to_string())?
+}
+
+/// File Explorer with the exe of listed window `id`'s process selected. Not for a packaged app, whose folder (WindowsApps) does
+/// not open. Errors: not-found, unknown, and those of `convert::reveal_file`.
+#[tauri::command(async)]
+pub fn taskbar_reveal(id: isize) -> Result<(), String> {
+    tasks::listed_pid(id).ok_or("not-found")?;
+    let pid = display::app_pid(HWND(id as _));
+    let exe = mixer::process_path(pid).filter(|p| !p.is_empty() && tasks::package_app_id(pid).is_none()).ok_or("unknown")?;
+    crate::convert::reveal_file(exe)
+}
+
+/// The notch, once per start: the saved pins no longer in the bar's pinned list are forgotten. Once only, as a later call could
+/// come between a pin just saved and the settings change that names it.
+#[tauri::command]
+pub fn taskbar_own_pins_keep(ids: Vec<String>) {
+    keep(&ids);
 }
 
 /// Puts fixture pins in place of the saved ones.
@@ -234,6 +373,28 @@ mod tests {
         assert_eq!(decide(None, true, r"C:\Program Files\WindowsApps\a\a.exe"), None); // packaged without a command
         assert_eq!(decide(None, false, ""), None);
         assert_eq!(decide(None, false, r"\\host\share\tool.exe"), None);
+    }
+
+    #[test]
+    fn a_command_id_is_the_same_for_any_case() {
+        let id = command_id(r#""C:\Chrome\chrome.exe" --profile-directory=Work"#);
+        let hex = id.strip_prefix("crest-pin:").unwrap();
+        assert!(hex.len() == 16 && hex.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_eq!(id, command_id(r#""c:\chrome\CHROME.EXE" --PROFILE-DIRECTORY=work"#));
+        assert_ne!(id, command_id(r#""C:\Chrome\chrome.exe" --profile-directory=Home"#));
+    }
+
+    #[test]
+    fn keep_forgets_the_saved_pins_no_longer_listed() {
+        let pins = parse(
+            r#"[{"id":"C:\\a.exe","name":"A","kind":"exe","path":"C:\\a.exe"},
+                {"id":"crest-pin:1","name":"B","kind":"command","file":"C:\\b.exe","params":"","aumid":"B"},
+                {"id":"C:\\c.lnk","name":"C","kind":"link","path":"C:\\c.lnk"}]"#,
+        );
+        let ids = |pins: &[OwnPin]| pins.iter().map(|p| p.id.clone()).collect::<Vec<_>>();
+        assert_eq!(ids(&listed_only(&pins, &[r"C:\c.lnk".into(), r"C:\a.exe".into()])), [r"C:\a.exe", r"C:\c.lnk"]);
+        assert!(listed_only(&pins, &[]).is_empty());
+        assert_eq!(listed_only(&pins, &ids(&pins)), pins);
     }
 
     #[test]

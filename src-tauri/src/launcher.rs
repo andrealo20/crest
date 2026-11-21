@@ -272,11 +272,16 @@ pub async fn launcher_icons(ids: Vec<String>, app: AppHandle) -> Result<HashMap<
 /// Windows asks. Errors: not-found, cancelled (the prompt was declined), failed.
 #[tauri::command]
 pub async fn launcher_open(id: String, admin: Option<bool>, window: WebviewWindow, app: AppHandle) -> Result<(), String> {
-    let monitor = on_its_monitor(window.label())
+    let monitor = launch_monitor(&window);
+    blocking(app, move |state| open(state, id, admin == Some(true), monitor)).await?
+}
+
+/// Where a launch from `window` opens: a bar's monitor, or None from the notch, where Windows puts it.
+pub(crate) fn launch_monitor(window: &WebviewWindow) -> Option<isize> {
+    on_its_monitor(window.label())
         .then(|| window.hwnd().ok())
         .flatten()
-        .map(|hwnd| unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) }.0 as isize);
-    blocking(app, move |state| open(state, id, admin == Some(true), monitor)).await?
+        .map(|hwnd| unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) }.0 as isize)
 }
 
 /// The windows whose launches open on their own monitor: the bars, `taskbar` and `taskbar-<n>`.

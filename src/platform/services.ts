@@ -1337,8 +1337,8 @@ export const launcher = {
   apps: (refresh = false): Promise<LauncherAppEntry[]> => (isNative ? invoke<LauncherAppEntry[]>("launcher_apps", { refresh }) : Promise.resolve(mockLauncherApps)),
   icons: (ids: string[]): Promise<Record<string, string | null>> =>
     isNative ? invoke("launcher_icons", { ids }) : Promise.resolve(Object.fromEntries(ids.map((id) => [id, mockLauncherIcon(id.split("\\").pop() ?? "?")]))),
-  /** Errors: not-found (no longer installed), failed. */
-  open: (id: string): Promise<void> => (isNative ? invoke("launcher_open", { id }) : Promise.resolve()),
+  /** As administrator with `admin`, after Windows asks. Errors: not-found (no longer installed), cancelled (the prompt was declined), failed. */
+  open: (id: string, admin = false): Promise<void> => (isNative ? invoke("launcher_open", { id, admin }) : Promise.resolve()),
   /** Registers Alt+1.. for these ids; per slot whether Windows gave the key. */
   shortcuts: (ids: string[]): Promise<boolean[]> => (isNative ? invoke<boolean[]>("launcher_shortcuts", { ids }) : Promise.resolve(ids.map((_, i) => i !== 2))),
   /** A hotkey was pressed for an app that did not start (code as in `open`). */
@@ -1390,8 +1390,16 @@ export const taskbar = {
     const off = getCurrentWebviewWindow().listen<boolean>("taskbar://hover", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
-  /** Acts on a listed window. An error (a window of an app run as administrator) changes nothing. */
-  window: (id: number, action: "activate" | "toggle" | "minimize" | "close"): Promise<void> => (isNative ? invoke("taskbar_window", { id, action }) : Promise.resolve()),
+  /** Acts on a listed window; "end" is End task, which ends its process. An error (a window of an app run as administrator) changes nothing. */
+  window: (id: number, action: "activate" | "toggle" | "minimize" | "close" | "end"): Promise<void> => (isNative ? invoke("taskbar_window", { id, action }) : Promise.resolve()),
+  /** Pins listed window `id`: the entry to put in `pinned`. Errors: not-found, prevented, unknown. The bar only. */
+  pinWindow: (id: number): Promise<Favorite> => (isNative ? invoke<Favorite>("taskbar_pin_window", { id }) : Promise.resolve({ id: `demo:${id}`, name: "App" })),
+  /** A new instance from listed window `id`, as administrator with `admin`. Errors: not-found, unknown, cancelled, failed. The bar only. */
+  launchWindow: (id: number, admin: boolean): Promise<void> => (isNative ? invoke("taskbar_launch_window", { id, admin }) : Promise.resolve()),
+  /** File Explorer with the exe of listed window `id` selected. The bar only. */
+  reveal: (id: number): Promise<void> => (isNative ? invoke("taskbar_reveal", { id }) : Promise.resolve()),
+  /** The notch, once per start: Rust forgets its own pins that are not in `ids`. */
+  keepPins: (ids: string[]): Promise<void> => (isNative ? invoke("taskbar_own_pins_keep", { ids }) : Promise.resolve()),
   /** The preview card's live thumbnails in its slots (CSS px of this page), each call the whole set: `[]` takes them all away. Each answer is where that thumbnail shows, or null where none does (in the browser, always). */
   preview: (slots: { id: number; x: number; y: number; w: number; h: number }[]): Promise<({ x: number; y: number; w: number; h: number } | null)[]> => (isNative ? invoke("taskbar_preview", { slots }) : Promise.resolve(slots.map(() => null))),
   /** Gives the keyboard back to the app in front, or the last one if only Start came after it (none after the desktop or a Crest window), after a menu or panel closed from the bar. */

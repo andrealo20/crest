@@ -560,6 +560,13 @@ pub(super) fn listed_pid(id: isize) -> Option<u32> {
     (pid == display::window_pid(HWND(id as _))).then_some(pid)
 }
 
+/// The first pin of listed window `id`'s app, as (id, name): its Start entry, or an own pin made of it before.
+pub(super) fn first_pin(id: isize) -> Option<(String, String)> {
+    let last = last();
+    let group = last.list.groups.iter().find(|g| g.windows.iter().any(|w| w.id == id))?;
+    group.pins.first().map(|p| (p.id.clone(), p.name.clone()))
+}
+
 /// What a click on a window's button, or its app's menu, does: "activate", "toggle" (minimizes the app in front, else brings it
 /// forward), "minimize", "close" or "end" (End task). Only a listed window, still of the process it was listed with. An app
 /// running as administrator may refuse a minimize, a close or an end (UIPI, access denied): the error comes back and nothing

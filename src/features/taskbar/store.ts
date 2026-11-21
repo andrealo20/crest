@@ -35,6 +35,7 @@ export function startTaskbar() {
   let statusOn: boolean | null = null;
   let queue = Promise.resolve();
   let seeded = false;
+  let kept = false;
   let offPins: (() => void) | null = null;
   let reading = false;
   let again = false;
@@ -87,6 +88,12 @@ export function startTaskbar() {
       void taskbar.importPins().then((apps) => {
         if (settings.get().taskbar.pinned === null) updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: normalizeFavorites(apps) } }));
       }, () => {});
+    }
+    // Once per start: Rust forgets the own pins taken off the bar. Never again, as a later call could come between a pin Rust just
+    // saved and the settings change that names it.
+    if (enabled && pinned !== null && !kept) {
+      kept = true;
+      void taskbar.keepPins(pinned.map((f) => f.id)).catch(() => {});
     }
     // Once as the bar comes on, for what changed while Crest was closed, then on each change Rust hears.
     if (enabled && !offPins) {
