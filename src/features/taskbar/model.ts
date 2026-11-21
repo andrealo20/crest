@@ -224,6 +224,9 @@ export function stepItem(zones: Record<Zone, BarItem[]>, shown: BarItem[], id: B
   return moveBefore(zones, id, zone, by < 0 ? shown[i - 1] : (shown[i + 2] ?? null));
 }
 
+/** The arrow that takes the keyboard after a step `by` left the row at `at` of `count`: the one pressed, or the other once it is disabled at that end. */
+export const stepFocus = (by: -1 | 1, at: number, count: number): -1 | 1 => (by < 0 ? (at === 0 ? 1 : -1) : at === count - 1 ? -1 : 1);
+
 /** An item drawn on the bar, in DOM order: its zone and its box's left edge and width, CSS px. */
 export type DropSlot = { id: BarItem; zone: Zone; x: number; w: number };
 /** A zone's box on the grid shapes, CSS px. */

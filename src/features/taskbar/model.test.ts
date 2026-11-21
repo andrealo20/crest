@@ -24,6 +24,7 @@ import {
   previewLayout,
   previewSet,
   statusWanted,
+  stepFocus,
   stepItem,
   taskbarShown,
   trayIcon,
@@ -293,6 +294,13 @@ test("a drop where the item already is changes nothing, so nothing is written", 
   assert.equal(moveBefore(z, "weather", "right", "weather"), z);
   assert.equal(moveBefore(z, "github", "right", "tray"), z); // not on the bar
   assert.equal(moveBefore(z, "clock", "left", "tray"), z); // its neighbour is not in that zone
+});
+
+test("after a step the keyboard stays on the arrow pressed, or goes to the other one once the row reaches that end", () => {
+  assert.equal(stepFocus(1, 1, 3), 1);
+  assert.equal(stepFocus(1, 2, 3), -1);
+  assert.equal(stepFocus(-1, 1, 3), -1);
+  assert.equal(stepFocus(-1, 0, 3), 1);
 });
 
 test("Up and Down move an item one row among the ones the page lists, and stop at the ends", () => {
