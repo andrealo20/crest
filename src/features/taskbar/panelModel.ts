@@ -138,3 +138,13 @@ export function gridSlot(cells: { x: number; y: number; w: number; h: number }[]
 
 /** How far a press moves before it drags a widget, a tool button or Stato, CSS px: 4 with a mouse, 10 by touch or with a pen, so a tap that opens a panel never moves it. */
 export const dragThreshold = (pointerType: string): number => (pointerType === "mouse" ? 4 : 10);
+
+/**
+ * How long the pointer rests on the trash before a drop there removes, ms. A drag that only crosses it, or lets go there on its way
+ * off the bar (which used to cancel, and still does elsewhere), takes nothing away: there is no undo.
+ */
+export const TRASH_ARM_MS = 300;
+/** When the pointer came onto the trash (`inside`), ms: kept while it stays on it, null once it leaves, so coming back waits again. */
+export const trashRest = (since: number | null, inside: boolean, now: number): number | null => (inside ? (since ?? now) : null);
+/** Whether the trash is armed at `now`: the pointer has rested on it TRASH_ARM_MS. */
+export const trashArmed = (since: number | null, now: number): boolean => since !== null && now - since >= TRASH_ARM_MS;

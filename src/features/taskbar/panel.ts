@@ -22,8 +22,9 @@ export const panel = createStore<OpenPanel | null>(null);
 export const trayDrag = createStore<{ id: string; img: string | null; x: number; y: number; from: "panel" | "bar" } | null>(null);
 
 /**
- * A widget, a tool button or Stato dragged along the bar (TaskbarWindow), by its item, and the pointer, in the window's CSS px; null
- * while none is. The bar draws its icon under the pointer and moves it in the saved zones where it is let go (ItemDrop).
+ * A widget, a tool button, a Windows button or Stato dragged along the bar (TaskbarWindow), by its item, and the pointer, in the
+ * window's CSS px; null while none is. The bar draws its icon under the pointer and moves it in the saved zones where it is let go,
+ * or takes it off the bar when it is let go on the armed trash (ItemDrop).
  */
 export const itemDrag = createStore<{ id: BarItem; x: number; y: number; pointerId: number } | null>(null);
 

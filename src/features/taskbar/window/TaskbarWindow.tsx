@@ -844,8 +844,8 @@ export function TaskbarWindow() {
             </motion.div>
           )}
         </div>
-        {/* In the bar's ink, so the ghost has the bar's colours. */}
-        <ItemDrop bar={bar} size={trayIcon(size)} gap={between} />
+        {/* In the bar's ink, so the ghost has the bar's colours, and so has the trash, over the bare desktop like the menus. */}
+        <ItemDrop bar={bar} size={trayIcon(size)} gap={between} off={gap + height + MENU_GAP} />
         <PinDrop bar={bar} size={appIcon} gap={between} icons={icons} />
         <AnimatePresence>
           {/* Gone in the very commit the panel opens in, so its zone is cleared before the panel's box goes in, never after. */}

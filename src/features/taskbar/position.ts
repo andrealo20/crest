@@ -3,9 +3,9 @@
  * boxes in the bar window's CSS px. A popup's `off` is the room from the window's edge on the bar's side to the popup's edge towards
  * the bar: the bar, its gaps and the gap before the popup.
  */
-import type { BarEdge } from "./model.ts";
+import { placeMenu, type BarEdge } from "./model.ts";
 
-type Box = { x: number; y: number; w: number; h: number };
+export type Box = { x: number; y: number; w: number; h: number };
 /** A box's top and bottom, as a DOMRect has them. */
 type Span = { top: number; bottom: number };
 
@@ -35,6 +35,25 @@ export const innerOff = (edge: BarEdge, r: Span, height: number) => (edge === "t
 
 /** Whether `y` lies past the bar at `r` on the screen's side, where menus and panels open: false on the bar and in the gap at the edge. */
 export const beyond = (edge: BarEdge, y: number, r: Span) => (edge === "top" ? y > r.bottom : y < r.top);
+
+/** The trash's size, CSS px: a disc as wide as a bar button at the default 44 px bar, whatever the bar's height. */
+export const TRASH_SIZE = 40;
+
+/**
+ * The trash a dragged item is dropped on to take it off the bar (ItemDrop): over the item's own place (`item`, its span), centred
+ * on it and kept 8 px inside the window as a menu is, `off` px from the window's edge on the bar's side as the menus are, so past the
+ * bar on the screen's side, where no drop moves an item. It always fits: the bar's window is 632 CSS px tall whatever the bar's
+ * height, capped at three quarters of the work area (bar.rs bar_rect), and the trash needs 48 px past the bar.
+ */
+export const trashBox = (edge: BarEdge, item: { x: number; w: number }, off: number, width: number, height: number): Box => ({
+  x: placeMenu(item.x, item.w, TRASH_SIZE, width),
+  y: popupY(edge, off, TRASH_SIZE, height),
+  w: TRASH_SIZE,
+  h: TRASH_SIZE,
+});
+
+/** Whether (x, y) lies in `b`, its edges included and no slack round it, so a swell drawn over it never moves where it ends. */
+export const inBox = (b: Box, x: number, y: number) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
 
 /** The bar's CSS margin: off the sides and its screen edge (a capsule only off its edge). */
 export const barMargin = (edge: BarEdge, gap: number, capsule: boolean) => {

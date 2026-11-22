@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -162,4 +162,22 @@ test("a widget drags past 4 px with a mouse and 10 px with touch or a pen, so a 
   assert.equal(dragThreshold("mouse"), 4);
   assert.equal(dragThreshold("touch"), 10);
   assert.equal(dragThreshold("pen"), 10);
+});
+
+test("the trash arms once the pointer has rested on it 300 ms, and leaving it starts the wait over", () => {
+  assert.equal(TRASH_ARM_MS, 300);
+  // Onto it at 1000; a move inside keeps that time.
+  let since = trashRest(null, true, 1000);
+  assert.equal(since, 1000);
+  since = trashRest(since, true, 1200);
+  assert.equal(since, 1000);
+  assert.equal(trashArmed(since, 1299), false);
+  assert.equal(trashArmed(since, 1300), true);
+  // Off it before the time: not armed, and back on it the wait starts again.
+  since = trashRest(since, false, 1250);
+  assert.equal(since, null);
+  assert.equal(trashArmed(since, 5000), false);
+  since = trashRest(since, true, 2000);
+  assert.equal(trashArmed(since, 2299), false);
+  assert.equal(trashArmed(since, 2300), true);
 });

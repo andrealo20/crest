@@ -4,7 +4,7 @@ import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 import { DEFAULT_OFF, TOOL_IDS } from "../../settings/tools.ts";
 import { TASKBAR_DEFAULTS, TOOL_BUTTONS, type BarItem, type Zone } from "./model.ts";
 import { statusPill } from "./statusModel.ts";
-import { SLIDE_KEEP_MS, addWidget, addableSys, addableTools, applyChoice, chosenChoice, privacyOnBar, privacyParts, clockHasSeconds, barPartsFor, barSources, barWidgets, isSys, isTool, isWidget, pillWidget, previewInk, removeWidget, shownZones, sourcesAfter, sysPrimaryOnly, toolOf, toolShown, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
+import { SLIDE_KEEP_MS, addWidget, addableSys, addableTools, applyChoice, chosenChoice, privacyOnBar, privacyParts, clockHasSeconds, barPartsFor, barSources, barWidgets, isSys, isTool, isWidget, pillWidget, previewInk, removeWidget, shownZones, sourcesAfter, sysPrimaryOnly, toolOf, toolShown, trashable, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
 
 test("a widget's preview wears the bar's ink: Dark's under Liquid Glass + whatever the surface, the closed notch's on Notch, the theme's otherwise", () => {
   const dark = { "--color-label": "white", "--theme-accent": "blue" }, closed = { "--color-label": "white", "--accent": "red" };
@@ -207,4 +207,18 @@ test("the arrows move through a widget's versions and wrap, mirrored right to le
   assert.equal(variantKey("Home", 2, 4, false), 0);
   assert.equal(variantKey("End", 0, 4, false), 3);
   assert.equal(variantKey("Enter", 0, 4, false), undefined);
+});
+
+test("the trash takes widgets, tool buttons, Windows buttons and Stato, never the tray, Start, the apps or the Crest button", () => {
+  for (const id of ["clock", "weather", "disk", "tool:media", "sys:recycle", "sys:search", "status"]) assert.equal(trashable(id), true, id);
+  for (const id of ["tray", "start", "apps", "crest"]) assert.equal(trashable(id), false, id);
+});
+
+test("a tool button or a Windows button dropped on the trash leaves every zone as Remove does, and Add puts it back last before the Crest button", () => {
+  const z = TASKBAR_DEFAULTS.zones;
+  const on: Record<Zone, BarItem[]> = { ...z, left: ["tool:media"], center: [...z.center, "sys:search"] };
+  const off = removeWidget(removeWidget(on, "tool:media"), "sys:search");
+  assert.deepEqual(off, z);
+  assert.deepEqual(addWidget(off, "tool:media", "right").right, ["weather", "tray", "status", "clock", "tool:media", "crest"]);
+  assert.deepEqual(addWidget(off, "sys:search", "right").right, ["weather", "tray", "status", "clock", "sys:search", "crest"]);
 });
