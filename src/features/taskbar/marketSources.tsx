@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchRates } from "../../platform/portfolio";
+import { fetchCoin, fetchRates } from "../../platform/portfolio";
 import { settings } from "../../settings/store";
 import { lastPair } from "../convert/currency";
 import { convertMoney, pairOf } from "../convert/fx";
@@ -11,6 +11,8 @@ import { useSlice } from "./slice";
 
 /** How often the exchange rate is read: the reference rates change once a working day, and the Converter's own read shares Rust's cache. */
 const CURRENCY_EVERY = 60 * 60_000;
+/** How often the coin is read: CoinGecko's keyless limit is shared with the Depot, and Rust answers from its cache within a minute. */
+const COIN_EVERY = 2 * 60_000;
 
 /**
  * The Converter's pair at one unit's rate, in the feed's currency slice: read now, every CURRENCY_EVERY, and again when the base or
@@ -42,7 +44,24 @@ export function CurrencySource(): null {
   return null;
 }
 
-/** The crypto widget's coin in the Depot's base currency, in the feed's crypto slice. */
+/**
+ * The crypto widget's coin (picked in Items) in the Depot's base currency, in the feed's crypto slice: read now and every COIN_EVERY.
+ * A coin CoinGecko does not know empties it, so the widget shows its icon; an error keeps the last value, of this coin and base only.
+ */
 export function CryptoSource(): null {
+  const s = settings.use();
+  const base = effectiveBase(s.trading.base), symbol = s.taskbar.coin;
+  const [coin, setCoin] = useState(() => barFeed.get().crypto);
+  useEffect(() => {
+    let on = true;
+    const read = () => void fetchCoin(base, symbol).then((d) => on && setCoin(d && { symbol, base, ...d }), () => {});
+    read();
+    const id = window.setInterval(read, COIN_EVERY);
+    return () => {
+      on = false;
+      window.clearInterval(id);
+    };
+  }, [base, symbol]);
+  useSlice("crypto", coin && coin.symbol === symbol && coin.base === base ? coin : null);
   return null;
 }

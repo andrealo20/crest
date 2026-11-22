@@ -204,6 +204,14 @@ pub async fn portfolio_prices(base: String, crypto: Vec<String>, fiats: Vec<Stri
     prices::fetch(&client()?, &mut cache, &base, &crypto, &fiats).await
 }
 
+/// One coin's price in `base`, its change over 24 h and its hourly prices over 7 days, for the bar's crypto widget, which the notch
+/// reads for it; None for a coin CoinGecko does not know. Public, no key, cached as the prices are.
+#[tauri::command]
+pub async fn portfolio_coin(base: String, symbol: String, state: State<'_, TradingState>) -> Result<Option<prices::CoinDay>, String> {
+    let mut cache = state.prices.lock().await;
+    prices::coin_day(&client()?, &mut cache, &base, &symbol).await
+}
+
 /// The key of `provider` was deleted: drop its cache, its Kraken ledger and its history files.
 #[tauri::command]
 pub async fn portfolio_forget(provider: String, app: AppHandle, state: State<'_, TradingState>) -> Result<(), String> {

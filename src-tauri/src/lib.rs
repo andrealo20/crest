@@ -369,6 +369,7 @@ pub fn run() {
             secrets::secret_has,
             trading::portfolio_fetch,
             trading::portfolio_prices,
+            trading::portfolio_coin,
             trading::portfolio_record,
             trading::portfolio_forget,
             usage::usage_fetch,
@@ -1318,8 +1319,9 @@ mod tests {
         assert!(ok("taskbar", "audio_outputs") && ok("taskbar", "audio_set_output") && ok("taskbar", "brightness_get") && ok("taskbar", "brightness_set"));
         assert!(ok("taskbar", "focus_get") && ok("taskbar", "focus_set") && ok("taskbar", "quick_get") && ok("taskbar", "quick_radio"));
         assert!(ok("taskbar", "quick_dark") && ok("taskbar", "mic_mute") && ok("taskbar", "quick_power") && ok("taskbar", "web_search"));
-        // The bar's Converter reads the public reference rates itself; the accounts are the notch's.
-        assert!(ok("taskbar", "portfolio_prices") && ok("taskbar-1", "portfolio_prices") && !ok("taskbar", "portfolio_fetch"));
+        // The bar's Converter reads the public reference rates itself; the accounts and the crypto widget's coin are the notch's.
+        assert!(ok("taskbar", "portfolio_prices") && ok("taskbar-1", "portfolio_prices"));
+        assert!(!ok("taskbar", "portfolio_fetch") && !ok("taskbar", "portfolio_coin") && ok("notch", "portfolio_coin"));
         // Keep awake's state lives in the notch, which shows it in the closed notch: a bar that set it in Rust would leave the notch
         // showing the old state, so the bar asks the notch (taskbar_ask).
         assert!(!ok("taskbar", "keep_awake_set"));
