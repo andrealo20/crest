@@ -1205,6 +1205,8 @@
  "Launcher": "مشغّل التطبيقات",
  "Launcher-Einstellungen": "إعدادات مشغّل التطبيقات",
  "Neu einlesen": "إعادة الفحص",
+ "Aus Datei hinzufügen": "إضافة من ملف",
+ "Diese Datei ist keine App auf diesem PC": "هذا الملف ليس تطبيقًا على هذا الكمبيوتر",
  "Von einer anderen App belegt: {keys}. Diese App dort umstellen oder hier die Reihenfolge ändern.": "يستخدمها تطبيق آخر: {keys}. غيّرها في ذلك التطبيق أو أعد ترتيب التطبيقات هنا.",
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} يستخدمه تطبيق آخر ولا يشغّل هذا التطبيق",
  "{name} ist nicht mehr installiert": "{name} لم يعد مثبّتًا",

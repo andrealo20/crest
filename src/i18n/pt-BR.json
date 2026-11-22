@@ -1205,6 +1205,8 @@
  "Launcher": "Launcher",
  "Launcher-Einstellungen": "Configurações do launcher",
  "Neu einlesen": "Escanear de novo",
+ "Aus Datei hinzufügen": "Adicionar de um arquivo",
+ "Diese Datei ist keine App auf diesem PC": "Este arquivo não é um app deste PC",
  "Von einer anderen App belegt: {keys}. Diese App dort umstellen oder hier die Reihenfolge ändern.": "Em uso por outro app: {keys}. Altere naquele app ou reordene os apps aqui.",
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} é usado por outro app e não inicia este",
  "{name} ist nicht mehr installiert": "{name} não está mais instalado",

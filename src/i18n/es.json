@@ -1205,6 +1205,8 @@
  "Launcher": "Lanzador",
  "Launcher-Einstellungen": "Configuración del lanzador",
  "Neu einlesen": "Volver a escanear",
+ "Aus Datei hinzufügen": "Añadir desde archivo",
+ "Diese Datei ist keine App auf diesem PC": "Este archivo no es una app de este PC",
  "Von einer anderen App belegt: {keys}. Diese App dort umstellen oder hier die Reihenfolge ändern.": "En uso por otra app: {keys}. Cámbialo en esa app o reordena las apps aquí.",
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} lo usa otra app y no inicia esta",
  "{name} ist nicht mehr installiert": "{name} ya no está instalada",

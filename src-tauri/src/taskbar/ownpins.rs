@@ -1,8 +1,9 @@
-//! The bar's own pins (Windows only): apps pinned on Crest's bar that have no Start entry, kept by Rust so a pin stays an id
-//! the launcher knows and the page never names a path or a command line.
+//! The bar's own pins (Windows only): apps pinned on Crest's bar or the notch's Launcher that have no Start entry, kept by Rust so
+//! a pin stays an id the launcher knows and the page never names a path or a command line.
 //!
 //! - Saved pins, in `taskbar-pins.json` in Crest's data folder: an exe (its full path is the id), a window's relaunch command
-//!   (`crest-pin:` and a hash) or a dropped shortcut (its path).
+//!   (`crest-pin:` and a hash) or a dropped or picked shortcut, internet shortcuts too (its path). The notch keeps those of the
+//!   bar's pinned apps and the Launcher's (`taskbar_own_pins_keep`).
 //! - Windows' pinned shortcuts in `User Pinned\TaskBar` without a Start entry, as pins.rs last read the folder (never saved).
 //!
 //! An own pin matches an open window as a Start entry does (`entries_for`), and `launcher::open` starts it (`launch_spec`).
@@ -262,10 +263,13 @@ pub(crate) fn entries_for(aumid: Option<&str>, exe: &str) -> Vec<App> {
     saved.into_iter().chain(links).filter(|p| matches(p, aumid, exe)).map(|p| launcher::pinned_app(p.id, p.name)).collect()
 }
 
-/// A dropped file the bar may pin: an exe or a shortcut, ASCII case-insensitive, on this machine (the shell would open a
+/// The kinds of file an app is pinned from: an exe, a shortcut, an internet shortcut (a Steam game's `steam://` link, say).
+pub(crate) const APP_FILES: &[&str] = &["exe", "lnk", "url"];
+
+/// A file the bar or the Launcher may pin: one of `APP_FILES`, ASCII case-insensitive, on this machine (the shell would open a
 /// connection to another one to read it).
 fn accept_drop(path: &str) -> bool {
-    Path::new(path).extension().is_some_and(|e| e.eq_ignore_ascii_case("exe") || e.eq_ignore_ascii_case("lnk")) && !super::pins::remote(path)
+    Path::new(path).extension().is_some_and(|e| APP_FILES.iter().any(|kind| e.eq_ignore_ascii_case(kind))) && !super::pins::remote(path)
 }
 
 /// What a dropped file pins: the entry the bar puts in its list and, without a Start or App Paths entry, the own pin saved for it.
@@ -274,8 +278,9 @@ fn pin_of(apps: &[App], path: &str) -> Option<(App, Option<OwnPin>)> {
     if !accept_drop(path) || !Path::new(path).is_file() {
         return None;
     }
-    // A shortcut is read as Windows' pinned ones are (pins.rs), an exe matched as a window without AppUserModelID.
-    let (id, own) = if path.to_ascii_lowercase().ends_with(".lnk") {
+    // A shortcut (an internet one too) is read as Windows' pinned ones are (pins.rs), an exe matched as a window without
+    // AppUserModelID.
+    let (id, own) = if !path.to_ascii_lowercase().ends_with(".exe") {
         super::pins::shortcut(apps, Path::new(path))?
     } else if let Some(app) = launcher::entries_for(apps, None, path).into_iter().next() {
         return Some((app, None));
@@ -288,22 +293,53 @@ fn pin_of(apps: &[App], path: &str) -> Option<(App, Option<OwnPin>)> {
     }
 }
 
-/// Pins the apps among the files dropped on a bar's apps (drop.rs `install_bar`), on the thread drop.rs starts (`pin_of`). The bar
-/// hears the accepted ones as `taskbar://pinned`, in drop order, and nothing when none was.
-pub(crate) fn dropped(window: &WebviewWindow, paths: Vec<String>) {
+/// Pins the apps among `paths` (`pin_of`), saving the own pins made of them: the entries, as `{ id, name }` in drop order, and the
+/// paths that are no app. Runs on a thread of its own (drop.rs starts one), as the shell reads the files.
+fn pin_files(window: &WebviewWindow, paths: Vec<String>) -> (Vec<serde_json::Value>, Vec<String>) {
     let apps = launcher::cached(&window.state::<LauncherState>(), |apps| apps.to_vec());
-    let made = launcher::on_sta(move || paths.iter().filter_map(|p| pin_of(&apps, p)).collect::<Vec<_>>()).unwrap_or_default();
-    if made.is_empty() {
-        return;
-    }
-    let mut pinned = Vec::new();
-    for (app, own) in made {
+    let made = launcher::on_sta(move || paths.into_iter().map(|p| (pin_of(&apps, &p), p)).collect::<Vec<_>>()).unwrap_or_default();
+    let (mut pinned, mut rest) = (Vec::new(), Vec::new());
+    for (made, path) in made {
+        let Some((app, own)) = made else {
+            rest.push(path);
+            continue;
+        };
         if let Some(pin) = own {
             add(pin);
         }
         pinned.push(serde_json::json!({ "id": app.id, "name": app.name }));
     }
-    let _ = window.emit_to(window.label(), "taskbar://pinned", pinned);
+    (pinned, rest)
+}
+
+/// Pins the apps among the files dropped on a bar's apps (drop.rs `install_bar`). The bar hears the accepted ones as
+/// `taskbar://pinned`, in drop order, and nothing when none was.
+pub(crate) fn dropped(window: &WebviewWindow, paths: Vec<String>) {
+    let (pinned, _) = pin_files(window, paths);
+    if !pinned.is_empty() {
+        let _ = window.emit_to(window.label(), "taskbar://pinned", pinned);
+    }
+}
+
+/// Pins the apps among the files dropped on the notch while the Launcher is open (drop.rs `install`), the same pins as the bar's,
+/// so one app file is one app for both. The notch hears them as `launcher://pinned`; the other files go to the Shelf as any drop.
+pub(crate) fn dropped_on_launcher(window: &WebviewWindow, paths: Vec<String>) {
+    let (pinned, rest) = pin_files(window, paths);
+    if !pinned.is_empty() {
+        let _ = window.emit_to(window.label(), "launcher://pinned", pinned);
+    }
+    if !rest.is_empty() {
+        let _ = window.emit("notch://drop", rest);
+    }
+}
+
+/// The system's picker for one of `APP_FILES`, pinned as a dropped file is (`pin_files`): the Launcher's entry, None when the
+/// picker was cancelled. Errors: unknown (the file is no app on this machine). The notch only.
+#[tauri::command]
+pub async fn launcher_add_file(window: WebviewWindow) -> Result<Option<serde_json::Value>, String> {
+    let Some(path) = crate::picker::pick(crate::picker::Pick::File { name: "Apps", exts: APP_FILES, dir: None }, &window).await else { return Ok(None) };
+    let (pinned, _) = tauri::async_runtime::spawn_blocking(move || pin_files(&window, vec![path])).await.map_err(|_| "failed")?;
+    pinned.into_iter().next().map(Some).ok_or_else(|| "unknown".into())
 }
 
 /// Pins listed window `id`: its app's Start entry (or an own pin made of it before) if it has one, else the pin Rust makes of the
@@ -354,10 +390,14 @@ pub fn taskbar_own_pins_keep(ids: Vec<String>) {
     keep(&ids);
 }
 
-/// Puts fixture pins in place of the saved ones.
+/// Runs `f` with fixture pins in place of the saved ones, one test at a time (they share `SAVED`), then none.
 #[cfg(test)]
-pub(crate) fn set_saved(json: &str) {
+pub(crate) fn with_saved(json: &str, f: impl FnOnce()) {
+    static ONE: Mutex<()> = Mutex::new(());
+    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
     SAVED.lock().unwrap_or_else(|e| e.into_inner()).1 = parse(json);
+    f();
+    SAVED.lock().unwrap_or_else(|e| e.into_inner()).1.clear();
 }
 
 #[cfg(test)]
@@ -368,9 +408,41 @@ mod tests {
     fn only_exes_and_shortcuts_on_this_machine_are_taken_from_a_drop() {
         assert!(accept_drop(r"C:\Tools\APP.EXE"));
         assert!(accept_drop(r"C:\Users\a\Desktop\App.lnk"));
+        assert!(accept_drop(r"C:\Users\a\Desktop\Hades.URL"));
+        assert!(!accept_drop(r"C:\Users\a\setup.msi"));
+        assert!(!accept_drop(r"C:\Users\a\exe"));
         assert!(!accept_drop(r"C:\Users\a\notes.txt"));
         assert!(!accept_drop(r"C:\Users\a\Folder"));
         assert!(!accept_drop(r"\\host\share\x.exe"));
+    }
+
+    #[test]
+    fn an_app_file_is_its_start_entry_else_an_own_pin_that_launches_only_while_it_exists() {
+        let dir = std::env::temp_dir().join(format!("crest-ownpins-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let url = dir.join("Game.url");
+        std::fs::write(&url, "[InternetShortcut]\r\nURL=steam://rungameid/1\r\n").unwrap();
+        let (url, txt) = (url.to_string_lossy().into_owned(), dir.join("notes.txt").to_string_lossy().into_owned());
+        std::fs::write(&txt, "x").unwrap();
+        let here = std::env::current_exe().unwrap().to_string_lossy().into_owned();
+        let entry = launcher::fixture(r"shell:AppsFolder\Crest.Test", Some(&here));
+        let (u, t, h) = (url.clone(), txt.clone(), here.clone());
+        let (from_url, from_txt, from_exe, own_exe) = launcher::on_sta(move || (pin_of(&[], &u), pin_of(&[], &t), pin_of(&[entry], &h), pin_of(&[], &h))).unwrap();
+        // An internet shortcut stays the file itself, started and drawn from it.
+        let (app, own) = from_url.expect("a .url is an app");
+        assert_eq!(app.id, url);
+        assert_eq!(own.unwrap().target, Target::Link { path: url.clone(), aumid: None, exe: None });
+        assert!(from_txt.is_none());
+        // An exe with a Start entry is that entry, no second pin; without one, its own pin.
+        let (app, own) = from_exe.unwrap();
+        assert_eq!((app.id.as_str(), own), (r"shell:AppsFolder\Crest.Test", None));
+        assert_eq!(own_exe.unwrap().1.unwrap().target, Target::Exe { path: here, aumid: None });
+        with_saved(&serde_json::json!([{ "id": url, "name": "Game", "kind": "link", "path": url }]).to_string(), || {
+            assert!(known(&url) && launch_spec(&url) == Some((url.clone(), None)) && icon_source(&url) == Some(url.clone()));
+            std::fs::remove_dir_all(&dir).unwrap();
+            // Gone: no longer an id Rust starts or draws from, so the Launcher says it is not installed any more.
+            assert!(!known(&url) && launch_spec(&url).is_none());
+        });
     }
 
     #[test]

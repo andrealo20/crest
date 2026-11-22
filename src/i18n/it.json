@@ -1205,6 +1205,8 @@
  "Launcher": "Launcher",
  "Launcher-Einstellungen": "Impostazioni del launcher",
  "Neu einlesen": "Ripeti scansione",
+ "Aus Datei hinzufügen": "Aggiungi da file",
+ "Diese Datei ist keine App auf diesem PC": "Questo file non è un'app di questo PC",
  "Von einer anderen App belegt: {keys}. Diese App dort umstellen oder hier die Reihenfolge ändern.": "Usato da un'altra app: {keys}. Cambialo in quell'app o riordina le app qui.",
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} è usato da un'altra app e non avvia questa",
  "{name} ist nicht mehr installiert": "{name} non è più installata",

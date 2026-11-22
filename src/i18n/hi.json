@@ -1205,6 +1205,8 @@
  "Launcher": "लॉन्चर",
  "Launcher-Einstellungen": "लॉन्चर सेटिंग्स",
  "Neu einlesen": "फिर से स्कैन करें",
+ "Aus Datei hinzufügen": "फ़ाइल से जोड़ें",
+ "Diese Datei ist keine App auf diesem PC": "यह फ़ाइल इस PC पर कोई ऐप नहीं है",
  "Von einer anderen App belegt: {keys}. Diese App dort umstellen oder hier die Reihenfolge ändern.": "दूसरे ऐप द्वारा उपयोग में: {keys}। उसे उस ऐप में बदलें या यहाँ ऐप का क्रम बदलें।",
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} दूसरे ऐप द्वारा उपयोग में है और यह ऐप शुरू नहीं करता",
  "{name} ist nicht mehr installiert": "{name} अब इंस्टॉल नहीं है",

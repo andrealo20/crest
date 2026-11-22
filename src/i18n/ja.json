@@ -1205,6 +1205,8 @@
  "Launcher": "ランチャー",
  "Launcher-Einstellungen": "ランチャーの設定",
  "Neu einlesen": "再スキャン",
+ "Aus Datei hinzufügen": "ファイルから追加",
+ "Diese Datei ist keine App auf diesem PC": "このファイルはこの PC のアプリではありません",
  "Von einer anderen App belegt: {keys}. Diese App dort umstellen oder hier die Reihenfolge ändern.": "ほかのアプリが使用中: {keys}。そのアプリで変更するか、ここで並び順を変えてください。",
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} はほかのアプリが使用中のため、このアプリは起動しません",
  "{name} ist nicht mehr installiert": "{name} はインストールされていません",

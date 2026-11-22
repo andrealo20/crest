@@ -12,10 +12,15 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2File, ICoreWebV
 use webview2_com::WebMessageReceivedEventHandler;
 use windows::core::{Interface, PWSTR};
 
-/// The notch's drops (see `src/platform/drop.ts`): the paths go to every window as `notch://drop`, for the Shelf.
+/// The notch's drops (see `src/platform/drop.ts`): the paths go to every window as `notch://drop`, for the Shelf. While the
+/// Launcher is open the page sends them as `launcher-drop`, and Rust pins the apps among them (`ownpins::dropped_on_launcher`).
 pub fn install(window: &WebviewWindow) {
     on_message(window, "notch-drop", |w, paths| {
         let _ = w.emit("notch://drop", paths);
+    });
+    on_message(window, "launcher-drop", |w, paths| {
+        let w = w.clone();
+        std::thread::spawn(move || crate::taskbar::ownpins::dropped_on_launcher(&w, paths));
     });
 }
 

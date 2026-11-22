@@ -5,7 +5,8 @@
 //!   opens directly. App Paths in the registry add exe paths (the frontend uses them only to
 //!   find AI apps missing from the Start menu).
 //! - Icons: `IShellItemImageFactory` for both kinds, as PNG data URLs, cached per id.
-//! - Launch: only ids from the list, so the WebView cannot start an arbitrary command.
+//! - Launch: only ids from the list or Rust's own pins (taskbar/ownpins.rs: apps added from their file, on the bar or here), so
+//!   the WebView cannot start an arbitrary command.
 //! - Shortcuts: Alt+1..6, registered and dispatched by shell.rs with Crest's other shortcuts.
 //! - The taskbar finds an open app's entries here (`entries_for`): a Start shortcut that starts an exe with no arguments
 //!   keeps that exe.
@@ -479,16 +480,16 @@ mod tests {
         let here = std::env::current_exe().unwrap().to_string_lossy().into_owned();
         let gone = r"C:\Crest\Test\gone.exe";
         let pin = |path: &str| serde_json::json!({ "id": path, "name": "Pin", "kind": "exe", "path": path });
-        crate::taskbar::ownpins::set_saved(&serde_json::json!([pin(&here), pin(gone)]).to_string());
-        assert!(is_known(&state, &here) && is_known(&state, gone));
-        assert_eq!(crate::taskbar::ownpins::launch_spec(&here), Some((here.clone(), None)));
-        // A pin whose exe is gone falls through to the Start list, which does not have it.
-        assert_eq!(crate::taskbar::ownpins::launch_spec(gone), None);
-        assert!(open(&state, gone.into(), false, None).is_err());
-        // Neither list knows it.
-        assert!(!is_known(&state, r"C:\Crest\Test\other.exe"));
-        assert!(open(&state, r"C:\Crest\Test\other.exe".into(), false, None).is_err());
-        crate::taskbar::ownpins::set_saved("[]");
+        crate::taskbar::ownpins::with_saved(&serde_json::json!([pin(&here), pin(gone)]).to_string(), || {
+            assert!(is_known(&state, &here) && is_known(&state, gone));
+            assert_eq!(crate::taskbar::ownpins::launch_spec(&here), Some((here.clone(), None)));
+            // A pin whose exe is gone falls through to the Start list, which does not have it.
+            assert_eq!(crate::taskbar::ownpins::launch_spec(gone), None);
+            assert!(open(&state, gone.into(), false, None).is_err());
+            // Neither list knows it.
+            assert!(!is_known(&state, r"C:\Crest\Test\other.exe"));
+            assert!(open(&state, r"C:\Crest\Test\other.exe".into(), false, None).is_err());
+        });
     }
 
     #[test]

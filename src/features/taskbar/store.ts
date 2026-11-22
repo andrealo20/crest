@@ -111,11 +111,11 @@ export function startTaskbar() {
         if (settings.get().taskbar.pinned === null) updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: normalizeFavorites(apps) } }));
       }, () => {});
     }
-    // Once per start: Rust forgets the own pins taken off the bar. Never again, as a later call could come between a pin Rust just
-    // saved and the settings change that names it.
+    // Once per start: Rust forgets the own pins taken off the bar and the Launcher. Never again, as a later call could come between
+    // a pin Rust just saved and the settings change that names it.
     if (enabled && pinned !== null && !kept) {
       kept = true;
-      void taskbar.keepPins(pinned.map((f) => f.id)).catch(() => {});
+      void taskbar.keepPins([...pinned, ...(settings.get().launcher.favorites ?? [])].map((f) => f.id)).catch(() => {});
     }
     // Once as the bar comes on, for what changed while Crest was closed, then on each change Rust hears.
     if (enabled && !offPins) {

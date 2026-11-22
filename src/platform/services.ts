@@ -1345,6 +1345,14 @@ export const launcher = {
   open: (id: string, admin = false): Promise<void> => (isNative ? invoke("launcher_open", { id, admin }) : Promise.resolve()),
   /** Registers Alt+1.. for these ids; per slot whether Windows gave the key. */
   shortcuts: (ids: string[]): Promise<boolean[]> => (isNative ? invoke<boolean[]>("launcher_shortcuts", { ids }) : Promise.resolve(ids.map((_, i) => i !== 2))),
+  /** The system's picker for an exe, a shortcut or an internet shortcut, which Rust pins as its own (taskbar/ownpins.rs): the entry to pin, null when cancelled. Errors: unknown (no app on this PC). The notch only. */
+  addFile: (): Promise<Favorite | null> => (isNative ? invoke<Favorite | null>("launcher_add_file") : Promise.resolve(null)),
+  /** Apps among the files dropped on the open Launcher, which Rust pinned (drop.rs), in drop order; to the notch only. */
+  onPinned(handler: (apps: Favorite[]) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<Favorite[]>("launcher://pinned", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** A hotkey was pressed for an app that did not start (code as in `open`). */
   onMissing: (handler: (id: string, code: string) => void): (() => void) => {
     if (!isNative) return () => {};

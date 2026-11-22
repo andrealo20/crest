@@ -1205,6 +1205,8 @@
  "Launcher": "Launcher",
  "Launcher-Einstellungen": "Launcher settings",
  "Neu einlesen": "Rescan",
+ "Aus Datei hinzufügen": "Add from file",
+ "Diese Datei ist keine App auf diesem PC": "This file is not an app on this PC",
  "Von einer anderen App belegt: {keys}. Diese App dort umstellen oder hier die Reihenfolge ändern.": "Used by another app: {keys}. Change it in that app or reorder the apps here.",
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} is used by another app and does not start this one",
  "{name} ist nicht mehr installiert": "{name} is no longer installed",

@@ -39,7 +39,7 @@ import { CLOSE_SETTLE_MS, HUD_LIVE_LINGER_MS, SNAPSHOT_STALE_MS, dropLens, glass
 import { contrastMore, dropSnapshot, glassBroken, reducedTransparency, requestSnapshot, snapshot } from "./glass/snapshot";
 import { dropLive, liveForHud, liveFrame, liveSession, liveSupport, restartLive, wantLive } from "./glass/live";
 import { ClosedResize, ClosedResizeBar, closedEdit, closedLive } from "./ClosedResize";
-import { drop, takeDropped } from "../platform/drop";
+import { appDrop, drop, takeDropped } from "../platform/drop";
 import { hoverDelayMs, settings } from "../settings/store";
 import { useUnseen } from "../lib/changelog";
 import { nav, navigate, openOn, takeOpenTarget } from "./nav";
@@ -1007,7 +1007,8 @@ function useTransitionFor(status: NotchStatus, shape: NotchGeometry, hud: boolea
 }
 
 /**
- * Quick drop: drag files over the notch and it opens on the Shelf, ahead of a live activity.
+ * Quick drop: drag files over the notch and it opens on the Shelf, ahead of a live activity. Over the open Launcher it stays
+ * there (`appDrop`), and only the files that are no app reach the Shelf, which opens then.
  * A cancelled drag closes it again if it only opened for that. With the Shelf off nothing takes files:
  * the drag is ignored and a drop forgotten, so it cannot turn up when the Shelf is switched on later.
  */
@@ -1028,6 +1029,7 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
           if (dropped) takeDropped();
           return;
         }
+        if (dropped && nav.get().tabId !== "shelf") openOn("shelf");
         if (dragging && !holding.current) {
           holding.current = true;
           holdOpen(true);
@@ -1035,7 +1037,7 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
             openedByDrag.current = true;
             open();
           }
-          if (nav.get().tabId !== "shelf") openOn("shelf");
+          if (nav.get().tabId !== "shelf" && !(appDrop.get() && statusRef.current === "open")) openOn("shelf");
         } else if (!dragging && holding.current) {
           // Drag over: dropped → stay open, cancelled → close again.
           holding.current = false;

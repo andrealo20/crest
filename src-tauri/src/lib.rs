@@ -148,7 +148,7 @@ pub(crate) fn own_page(url: &tauri::Url) -> bool {
 /// glass) or apply the settings to the system. The notch applies what the settings window saves, so only it does that.
 const SETTINGS_DENIED: &[&str] = &[
     "display_apply", "keyboard_focus", "set_hit_rect", "set_pet_rect", "set_pinned", "set_passthrough", "memory_low", "hotkeys_apply",
-    "launcher_shortcuts", "clipboard_mode", "tray_texts", "media_pin", "status_configure", "status_bar", "notices_configure",
+    "launcher_shortcuts", "launcher_add_file", "clipboard_mode", "tray_texts", "media_pin", "status_configure", "status_bar", "notices_configure",
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
@@ -645,6 +645,8 @@ pub fn run() {
             taskbar::ownpins::taskbar_reveal,
             #[cfg(windows)]
             taskbar::ownpins::taskbar_own_pins_keep,
+            #[cfg(windows)]
+            taskbar::ownpins::launcher_add_file,
             #[cfg(windows)]
             taskbar::front::taskbar_auto_hide,
             #[cfg(windows)]
@@ -1320,6 +1322,8 @@ mod tests {
         // longer has, and the settings window pins nothing.
         assert!(["taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c)));
         assert!(ok("notch", "taskbar_own_pins_keep") && !ok("taskbar", "taskbar_own_pins_keep") && !ok("settings", "taskbar_own_pins_keep"));
+        // Only the notch's Launcher pins an app from its file.
+        assert!(ok("notch", "launcher_add_file") && !ok("taskbar", "launcher_add_file") && !ok("settings", "launcher_add_file"));
         assert!(ok("taskbar", "taskbar_front") && ok("taskbar-1", "taskbar_front") && !ok("taskbar", "taskbar_auto_hide"));
         assert!(ok("notch", "taskbar_auto_hide") && !ok("settings", "taskbar_auto_hide"));
         // The tray's spy runs while the notch says a bar shows the tray, as it applies the bar's other settings.

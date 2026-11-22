@@ -1,4 +1,5 @@
-//! The system's picker for a folder or a file, over the notch: for installing a plugin and for restoring a backup.
+//! The system's picker for a folder or a file, over the notch: for installing a plugin, restoring a backup, a notice sound and
+//! an app for the Launcher.
 //! The frontend keeps the notch open meanwhile (`holdOpen`), as the dialog takes the pointer and the focus away from it.
 
 use std::path::PathBuf;
@@ -55,13 +56,15 @@ fn dialog(what: Pick, owner: isize) -> Option<String> {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
     use windows::Win32::UI::Shell::Common::COMDLG_FILTERSPEC;
-    use windows::Win32::UI::Shell::{FileOpenDialog, IFileOpenDialog, IShellItem, SHCreateItemFromParsingName, FOS_FORCEFILESYSTEM, FOS_PICKFOLDERS, SIGDN_FILESYSPATH};
+    use windows::Win32::UI::Shell::{FileOpenDialog, IFileOpenDialog, IShellItem, SHCreateItemFromParsingName, FOS_FORCEFILESYSTEM, FOS_NODEREFERENCELINKS, FOS_PICKFOLDERS, SIGDN_FILESYSPATH};
     // The filter's texts, alive until the dialog is gone.
-    let (filter, dir) = match what {
-        Pick::Folder => (None, None),
+    let (filter, dir, links) = match what {
+        Pick::Folder => (None, None, false),
         Pick::File { name, exts, dir } => {
             let spec = exts.iter().map(|e| format!("*.{e}")).collect::<Vec<_>>().join(";");
-            (Some((HSTRING::from(format!("{name} ({spec})")), HSTRING::from(spec))), dir)
+            // Asking for shortcuts: the shortcut itself, not the file it points to.
+            let links = exts.iter().any(|e| matches!(*e, "lnk" | "url"));
+            (Some((HSTRING::from(format!("{name} ({spec})")), HSTRING::from(spec))), dir, links)
         }
     };
     unsafe {
@@ -78,6 +81,9 @@ fn dialog(what: Pick, owner: isize) -> Option<String> {
             // A folder that cannot be opened is skipped: the dialog then starts where it was last.
             if let Some(folder) = dir.and_then(|d| SHCreateItemFromParsingName::<_, _, IShellItem>(&HSTRING::from(d.as_os_str()), None).ok()) {
                 let _ = dialog.SetFolder(&folder);
+            }
+            if links {
+                options |= FOS_NODEREFERENCELINKS;
             }
             dialog.SetOptions(options).ok()?;
             // Cancelling returns an error.

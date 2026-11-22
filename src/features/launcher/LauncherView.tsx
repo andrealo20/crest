@@ -5,6 +5,7 @@ import { content } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
 import { requestSize } from "../../notch/size";
+import { appDrop } from "../../platform/drop";
 import { launcher } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Empty, Skeleton, TextField } from "../../ui/controls";
@@ -12,7 +13,7 @@ import { t } from "../../i18n";
 import { aiKey, searchApps, toggleFavorite, type Favorite } from "./apps";
 import { AppIcon } from "./AppIcon";
 import { slotStatus, type SlotStatus } from "./shortcuts";
-import { hotkeysResting, launchError, launcherApps, loadApps, shortcutResult, showLaunchError, useIcons } from "./store";
+import { addAppFromFile, hotkeysResting, launchError, launcherApps, loadApps, shortcutResult, showLaunchError, useIcons } from "./store";
 
 const PICKER_SIZE = { w: 520, h: 420 };
 const PICKER_LIMIT = 60;
@@ -23,7 +24,8 @@ const PICKER_LIMIT = 60;
  *   Alt+1  Alt+2   Alt+3  Alt+4
  *
  * Click starts the app. "+" (also in the header) opens the picker: every Start menu entry,
- * detected AI apps first; a click pins or unpins.
+ * detected AI apps first; a click pins or unpins. An app without one comes from its file: "Add from file", or
+ * dropped on the open Launcher (`appDrop`).
  */
 export function LauncherView() {
   const l = settings.use().launcher;
@@ -37,6 +39,10 @@ export function LauncherView() {
     requestSize("launcher", picking ? PICKER_SIZE : null);
   }, [picking]);
   useEffect(() => () => requestSize("launcher", null), []);
+  useEffect(() => {
+    appDrop.set(true);
+    return () => appDrop.set(false);
+  }, []);
 
   const actions = (
     <HeaderActions>
@@ -53,7 +59,7 @@ export function LauncherView() {
     return (
       <>
         {actions}
-        <Picker favorites={favorites} />
+        <Picker favorites={favorites} onAdded={() => setPicking(false)} />
       </>
     );
   }
@@ -166,10 +172,15 @@ function ShortcutBadge({ status }: { status: SlotStatus | undefined }) {
   );
 }
 
-/** Search over every Start menu entry; a click pins or unpins. */
-function Picker({ favorites }: { favorites: Favorite[] }) {
+/** Search over every Start menu entry; a click pins or unpins. "Add from file" pins an app that has none, then shows the tiles (`onAdded`). */
+function Picker({ favorites, onAdded }: { favorites: Favorite[]; onAdded: () => void }) {
   const { apps, loading, failed } = launcherApps.use();
   const [query, setQuery] = useState("");
+  const [notApp, setNotApp] = useState(false);
+  const fromFile = () => {
+    setNotApp(false);
+    addAppFromFile().then((added) => added && onAdded(), () => setNotApp(true));
+  };
   const results = apps ? searchApps(apps, query, PICKER_LIMIT) : [];
   const truncated = !!apps && results.length === PICKER_LIMIT && searchApps(apps, query, Infinity).length > PICKER_LIMIT;
   const icons = useIcons(results.map((a) => a.id));
@@ -183,7 +194,9 @@ function Picker({ favorites }: { favorites: Favorite[] }) {
         <Button onClick={() => void loadApps(true)} disabled={loading}>
           {t("Neu einlesen")}
         </Button>
+        <Button onClick={fromFile}>{t("Aus Datei hinzufügen")}</Button>
       </div>
+      {notApp && <div className="truncate text-caption text-red">{t("Diese Datei ist keine App auf diesem PC")}</div>}
       <div className="min-h-0 flex-1 overflow-y-auto rounded-[12px] bg-fill-1 [scrollbar-width:none]">
         {!apps && failed ? (
           <div className="p-3 text-caption text-label-3">{t("App-Liste nicht lesbar, Neu einlesen versuchen")}</div>

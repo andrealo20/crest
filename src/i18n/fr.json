@@ -1205,6 +1205,8 @@
  "Launcher": "Lanceur",
  "Launcher-Einstellungen": "Paramètres du lanceur",
  "Neu einlesen": "Réanalyser",
+ "Aus Datei hinzufügen": "Ajouter depuis un fichier",
+ "Diese Datei ist keine App auf diesem PC": "Ce fichier n'est pas une application de ce PC",
  "Von einer anderen App belegt: {keys}. Diese App dort umstellen oder hier die Reihenfolge ändern.": "Utilisé par une autre application : {keys}. Modifiez-le dans cette application ou changez l'ordre ici.",
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} est utilisé par une autre application et ne lance pas celle-ci",
  "{name} ist nicht mehr installiert": "{name} n'est plus installé",

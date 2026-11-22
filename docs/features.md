@@ -191,7 +191,7 @@ A teleprompter for calls and recordings, off by default. Turn it on in **Setting
 
 ## Launcher, GitHub and LeetCode
 
-- **Launcher** lists your pinned apps (detected AI apps such as Claude, ChatGPT and Cursor are pinned on first use) and starts them with a click. Any Start menu entry can be pinned.
+- **Launcher** lists your pinned apps (detected AI apps such as Claude, ChatGPT and Cursor are pinned on first use) and starts them with a click. Any Start menu entry can be pinned. On Windows an app without one (a portable `.exe`, a game's `.lnk` or `.url` shortcut) is added with **Add from file** in the list of apps, or by dropping the file on the open Launcher; other files dropped there still go to the Shelf. It is the same pin as on Crest's bar, and it is removed in the Launcher's settings. If its file is gone, a click says the app is no longer installed.
 - If you opt in, the first six also open with **Alt + 1** to **Alt + 6**, which then no longer reach other apps.
 - **GitHub activity** shows the contribution calendar of a public username for the last 36 weeks, with the yearly total, today's count and your current and longest streak. A part in the closed notch shows today's count.
 - It reads the public contribution page once an hour; a token without any rights is only needed if that page cannot be read.

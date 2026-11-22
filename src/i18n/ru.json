@@ -1205,6 +1205,8 @@
  "Launcher": "Лаунчер",
  "Launcher-Einstellungen": "Настройки лаунчера",
  "Neu einlesen": "Обновить список",
+ "Aus Datei hinzufügen": "Добавить из файла",
+ "Diese Datei ist keine App auf diesem PC": "Этот файл не является приложением на этом ПК",
  "Von einer anderen App belegt: {keys}. Diese App dort umstellen oder hier die Reihenfolge ändern.": "Занято другим приложением: {keys}. Измените это в том приложении или поменяйте порядок здесь.",
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} занято другим приложением и не запускает это",
  "{name} ist nicht mehr installiert": "{name} больше не установлено",

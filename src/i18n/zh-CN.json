@@ -1205,6 +1205,8 @@
  "Launcher": "启动器",
  "Launcher-Einstellungen": "启动器设置",
  "Neu einlesen": "重新扫描",
+ "Aus Datei hinzufügen": "从文件添加",
+ "Diese Datei ist keine App auf diesem PC": "此文件不是这台电脑上的应用",
  "Von einer anderen App belegt: {keys}. Diese App dort umstellen oder hier die Reihenfolge ändern.": "已被其他应用占用：{keys}。请在该应用中更改，或在此调整顺序。",
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} 已被其他应用占用，不会启动此应用",
  "{name} ist nicht mehr installiert": "{name} 已卸载",
