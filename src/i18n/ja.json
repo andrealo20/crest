@@ -11,7 +11,7 @@
  "System und nicht lesbar": "システムと読み取り不可",
  "Zurück zu {name}": "{name} に戻る",
  "Es läuft schon ein Scan": "すでにスキャン中です",
- "Scan vorzeitig beendet, nur ein Teil gezählt": "スキャンが途中で終了したため、一部のみ集計しました",
+ "Nur ein Teil gezählt": "一部のみ集計",
  "Markierung offener Apps": "開いているアプリのマーク",
  "Punkt": "ドット",
  "Großer Punkt": "大きいドット",

@@ -441,7 +441,8 @@ export function TaskbarWindow() {
     setMenu(null);
     if (id === "disk") {
       const r = button.getBoundingClientRect();
-      dropStaleScan();
+      // Not on the click that closes it, or the closing panel would turn into the drives as it fades.
+      if (panel.get()?.content.kind !== "disks") dropStaleScan();
       return togglePanel({ kind: "disks" }, { x: r.x, w: r.width });
     }
     const tool = widgetTool(id);

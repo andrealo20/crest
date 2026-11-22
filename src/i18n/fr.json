@@ -11,7 +11,7 @@
  "System und nicht lesbar": "Système et illisible",
  "Zurück zu {name}": "Retour à {name}",
  "Es läuft schon ein Scan": "Une analyse est déjà en cours",
- "Scan vorzeitig beendet, nur ein Teil gezählt": "Analyse terminée trop tôt, une partie seulement comptée",
+ "Nur ein Teil gezählt": "Comptage partiel",
  "Markierung offener Apps": "Repère des apps ouvertes",
  "Punkt": "Point",
  "Großer Punkt": "Gros point",

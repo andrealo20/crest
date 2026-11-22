@@ -154,7 +154,7 @@ pub async fn taskbar_disk_open(window: WebviewWindow, letter: String, folder: Op
 /// Scan now: the largest folders directly in a listed drive's root, or in a folder a scan of it listed, by its id. A level an earlier
 /// complete walk kept answers at once unless `fresh` (Rescan); any other walks that folder on a thread of its own, telling its bar
 /// how far it got (`taskbar://disk-scan`, the bytes counted) every TICK, until it ends or `token` is stopped. "busy" while any
-/// bar's scan runs. The bar only.
+/// bar's scan runs, "gone" for a folder or drive it cannot read. The bar only.
 #[tauri::command]
 pub async fn taskbar_disk_scan(window: WebviewWindow, letter: String, folder: Option<usize>, token: u64, fresh: bool) -> Result<DiskScan, String> {
     bar::from_bar(&window)?;
@@ -166,6 +166,7 @@ pub async fn taskbar_disk_scan(window: WebviewWindow, letter: String, folder: Op
     if token == 0 {
         return Err("unknown".into());
     }
+    stopping().await;
     if RUNNING.compare_exchange(0, token, Ordering::AcqRel, Ordering::Acquire).is_err() {
         return Err("busy".into());
     }
@@ -184,7 +185,8 @@ pub async fn taskbar_disk_scan(window: WebviewWindow, letter: String, folder: Op
     .await;
     // Only once the thread has left the walk: no scan starts beside one still waiting on a dying drive.
     RUNNING.store(0, Ordering::Release);
-    Ok(answers(&mut scans(), &walked.map_err(|e| e.to_string())?))
+    let tally = walked.map_err(|e| e.to_string())?.ok_or("gone")?;
+    Ok(answers(&mut scans(), &tally))
 }
 
 /// Ends the scan `token` names at its next folder, or with none whichever runs: a bar that found another bar's scan running
@@ -194,14 +196,21 @@ pub async fn taskbar_disk_scan_stop(window: WebviewWindow, token: Option<u64>) -
     bar::from_bar(&window)?;
     stop_scan(token);
     if token.is_none() {
-        for _ in 0..40 {
-            if RUNNING.load(Ordering::Acquire) == 0 {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(25)).await;
-        }
+        stopping().await;
     }
     Ok(())
+}
+
+/// Waits up to a second for the scan running to end, if it was told to: a walk sees a Stop only before its next folder, and
+/// Back then Scan now would otherwise find the scan Back just stopped still running and call it another bar's.
+async fn stopping() {
+    for _ in 0..40 {
+        let running = RUNNING.load(Ordering::Acquire);
+        if running == 0 || running != STOP.load(Ordering::Acquire) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
 }
 
 /// Stops the scan `token` names, or with none the one running; also as the bar turns off (taskbar::stop).
@@ -262,10 +271,11 @@ struct Tally {
 /// Adds up the files under `root` without opening one, so no antivirus or cloud provider reads them. `go_on` hears the entries and
 /// bytes so far before each folder, and false ends the walk. A folder Windows keeps from this user (System Volume Information,
 /// other profiles) is skipped, and std's is_dir is false for junctions, folder links and mount points, so none is followed or
-/// counted twice. An explicit stack, as NTFS nests deeper than a thread's stack reaches.
+/// counted twice. An explicit stack, as NTFS nests deeper than a thread's stack reaches. None when the walked folder itself cannot
+/// be read (gone, or its drive pulled), where an empty answer would be kept and shown as all of it unreadable.
 // shortcut: logical sizes, as Explorer's Size column; switch to AllocationSize from GetFileInformationByHandleEx(FileIdExtdDirectoryInfo) if size on disk is wanted (NTFS/ReFS only, bounds-checked parsing under panic=abort)
 // shortcut: hard links count once per link (WinSxS inflates C:\Windows); dedupe by FileId via FileIdExtdDirectoryInfo if the numbers must match the used space
-fn walk(root: &Path, mut go_on: impl FnMut(u64, u64) -> bool) -> Tally {
+fn walk(root: &Path, mut go_on: impl FnMut(u64, u64) -> bool) -> Option<Tally> {
     let mut nodes = vec![Node { path: root.to_path_buf(), parent: 0, depth: 0, own: 0, size: 0 }];
     // The folders still to read, each with the kept folder its bytes go to and its depth.
     let mut stack = vec![(root.to_path_buf(), 0, 0)];
@@ -275,7 +285,12 @@ fn walk(root: &Path, mut go_on: impl FnMut(u64, u64) -> bool) -> Tally {
             partial = true;
             break;
         }
-        let Ok(list) = std::fs::read_dir(&dir) else { continue };
+        let Ok(list) = std::fs::read_dir(&dir) else {
+            if depth == 0 {
+                return None;
+            }
+            continue;
+        };
         for entry in list.flatten() {
             entries += 1;
             let (Ok(kind), Ok(meta)) = (entry.file_type(), entry.metadata()) else { continue };
@@ -304,7 +319,7 @@ fn walk(root: &Path, mut go_on: impl FnMut(u64, u64) -> bool) -> Tally {
             nodes[parent].size += size;
         }
     }
-    Tally { nodes, partial }
+    Some(Tally { nodes, partial })
 }
 
 /// A file's bytes on this PC: none for one only in the cloud (OneDrive's online-only files), or a scan would count gigabytes
@@ -429,7 +444,7 @@ mod tests {
     #[test]
     fn a_walk_adds_up_each_top_folder() {
         let root = tree("walk");
-        let t = walk(&root, |_, _| true);
+        let t = walk(&root, |_, _| true).unwrap();
         assert!(!t.partial);
         assert_eq!((t.nodes[0].size, t.nodes[0].own), (172, 7));
         let mut scans = Scans::default();
@@ -443,30 +458,51 @@ mod tests {
         assert_eq!(kept(r"a\b"), Some((vec![("d".into(), 15)], 50)));
         assert_eq!(kept(r"a\b\d"), None);
         // A folder keeps its id at the next scan.
-        let again = answers(&mut scans, &walk(&root, |_, _| true));
+        let again = answers(&mut scans, &walk(&root, |_, _| true).unwrap());
         assert_eq!(again.folders[0].id, level.folders[0].id);
         assert_eq!(scans.paths.len(), 3);
         // A level past the kept ones walks its own folder.
-        let deep = answers(&mut scans, &walk(&root.join(r"a\b\d"), |_, _| true));
+        let deep = answers(&mut scans, &walk(&root.join(r"a\b\d"), |_, _| true).unwrap());
         assert_eq!((folders(&deep), deep.files), (vec![("e".into(), 5)], 10));
-        // A folder that is gone: nothing in it.
-        let gone = walk(&root.join("gone"), |_, _| true);
-        assert_eq!((gone.nodes.len(), gone.nodes[0].size, gone.partial), (1, 0, false));
+        // A folder that is gone, or its drive pulled: no answer, where an empty one would be kept and shown as all unreadable.
+        assert!(walk(&root.join("gone"), |_, _| true).is_none());
+        // A folder that is there and empty still answers.
+        assert_eq!(walk(&root.join("c"), |_, _| true).map(|t| (t.nodes.len(), t.nodes[0].size, t.partial)), Some((1, 0, false)));
         std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn a_stop_ends_the_walk() {
         let root = tree("stop");
-        let t = walk(&root, |_, _| false);
+        let t = walk(&root, |_, _| false).unwrap();
         assert_eq!((t.partial, t.nodes.len(), t.nodes[0].size), (true, 1, 0));
         // The cap after the first folder: only the root's own files, marked partial and kept for no level.
-        let t = walk(&root, |entries, _| entries == 0);
+        let t = walk(&root, |entries, _| entries == 0).unwrap();
         let mut scans = Scans::default();
         let level = answers(&mut scans, &t);
         assert_eq!((folders(&level), level.files, level.partial), (vec![], 7, true));
         assert!(scans.levels.is_empty());
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_scan_waits_for_the_one_it_stopped() {
+        // Back, then Scan now: the walk Back stopped sees it only before its next folder, a moment later.
+        RUNNING.store(7, Ordering::Release);
+        STOP.store(7, Ordering::Release);
+        let ends = std::thread::spawn(|| {
+            std::thread::sleep(Duration::from_millis(100));
+            RUNNING.store(0, Ordering::Release);
+        });
+        tauri::async_runtime::block_on(stopping());
+        assert_eq!(RUNNING.load(Ordering::Acquire), 0);
+        ends.join().unwrap();
+        // Another bar's scan, which nothing stopped: no wait, that one is busy.
+        RUNNING.store(8, Ordering::Release);
+        let at = Instant::now();
+        tauri::async_runtime::block_on(stopping());
+        assert!(at.elapsed() < Duration::from_millis(500));
+        RUNNING.store(0, Ordering::Release);
     }
 
     #[test]

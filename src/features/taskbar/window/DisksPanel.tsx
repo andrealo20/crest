@@ -93,7 +93,7 @@ export function DisksPanel() {
             share={usedShare(d)}
             low={lowSpace(d)}
             onOpen={() => away(() => taskbar.diskOpen(d.letter))}
-            onScan={() => scanLevel(d.letter, [], { folder: null, title: name, of: Math.max(d.total - Math.max(d.free, 0), 0) }, true)}
+            onScan={() => scanLevel(d.letter, [], { folder: null, title: name, of: Math.max(d.total - Math.max(d.free, 0), 0) }, false)}
           />
         );
       })}
@@ -120,7 +120,7 @@ function ScanPage({ state }: { state: ScanState }) {
     <QuickPageFrame
       title={level.title}
       back={{ label: t("Zurück zu {name}", { name: up }), onClick: back }}
-      note={level.scan?.partial ? t("Scan vorzeitig beendet, nur ein Teil gezählt") : null}
+      note={level.scan?.partial ? t("Nur ein Teil gezählt") : null}
       footer={footer}
     >
       {running ? (
