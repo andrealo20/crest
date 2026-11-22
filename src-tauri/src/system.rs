@@ -4,7 +4,7 @@
 //!
 //! Rhythms (src/features/system/store.ts): ~1×/s with everything while the Hardware tool is shown (`full`); every 2 s
 //! with the GPU counters while the closed row shows a GPU reading (`with_gpu`); otherwise every 3 s with CPU, RAM and
-//! only the extras the closed row asks for (`want`).
+//! only the extras the closed row or the bar's widgets ask for (`want`), the process list among them for the bar's Top apps.
 //!
 //! - GPU: performance counters "GPU Engine(*)" per adapter and engine, the same values as Task Manager, vendor-independent;
 //!   VRAM from "GPU Adapter Memory(*)\Dedicated Usage", sizes and names from DXGI.
@@ -46,8 +46,10 @@ const PING_EVERY: Duration = Duration::from_secs(2);
 const PING_IDLE: Duration = Duration::from_secs(5);
 /// "No ping" (timeout / offline).
 const NO_PING: u64 = u64::MAX;
-/// Listing processes is the costliest read: at most this often, and only while the tool is shown.
+/// Listing processes is the costliest read: at most this often while the tool is shown, and only while a poll wants processes.
 const PROCESS_EVERY: Duration = Duration::from_millis(1800);
+/// Listing processes for the bar's Top apps widget alone, without the tool: at most this often.
+const PROCESS_EVERY_BAR: Duration = Duration::from_secs(5);
 /// Entries kept per ranking (CPU, memory); the page shows fewer, the rest replace rows that leave.
 const PROCESS_KEEP: usize = 12;
 /// DXGI is asked again for a counter adapter it did not list (LUIDs change when a driver restarts), at most this often.
@@ -55,14 +57,15 @@ const ADAPTERS_EVERY: Duration = Duration::from_secs(30);
 
 pub struct SystemState(Arc<Mutex<Probe>>);
 
-/// The process list is dropped this long after the last full poll (tool closed), with sysinfo's process handles.
+/// The process list is dropped this long after the last poll that wanted processes (tool closed, bar hidden), with sysinfo's process handles.
 const PROCESS_LINGER: Duration = Duration::from_secs(10);
 
 struct Probe {
     sys: System,
-    /// Processes only: sysinfo keeps a handle per listed process, so this lives only while the tool is shown
-    /// (created on the first full poll, dropped on a non-full one or by the sweeper after `PROCESS_LINGER`).
+    /// Processes only: sysinfo keeps a handle per listed process, so this lives only while the tool or the bar's Top apps asks
+    /// (created on the first poll that wants processes, dropped on one that does not or by the sweeper after `PROCESS_LINGER`).
     procs: Option<System>,
+    /// The last poll that wanted processes.
     full_at: Instant,
     started: Instant,
     gpu: Option<Pdh>,
@@ -135,7 +138,7 @@ fn lock(m: &Mutex<Probe>) -> std::sync::MutexGuard<'_, Probe> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Polling stops altogether when nothing shows the values, so a closed tool's process handles are let go here.
+/// Polling stops altogether when nothing shows the values, so the process handles of a closed tool or a hidden bar are let go here.
 fn spawn_process_sweeper(probe: Arc<Mutex<Probe>>) {
     thread::spawn(move || loop {
         thread::sleep(Duration::from_secs(5));
@@ -148,7 +151,7 @@ fn spawn_process_sweeper(probe: Arc<Mutex<Probe>>) {
     });
 }
 
-/// Extras the closed row asks for outside the tool (the tool gets everything).
+/// Extras the closed row and the bar's widgets ask for outside the tool (the tool gets everything). A field an older page leaves out is false.
 #[derive(Deserialize, Default, Clone, Copy)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Want {
@@ -156,6 +159,8 @@ pub struct Want {
     temps: bool,
     power: bool,
     battery: bool,
+    /// The process list, for the bar's Top apps widget.
+    processes: bool,
 }
 
 #[derive(Serialize)]
@@ -241,7 +246,7 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
     }
     let mut guard = lock(&state.0);
     let p = &mut *guard;
-    let want = if full { Want { net: true, temps: true, power: true, battery: true } } else { want.unwrap_or_default() };
+    let want = if full { Want { net: true, temps: true, power: true, battery: true, processes: true } } else { want.unwrap_or_default() };
     p.sys.refresh_cpu_usage();
     p.sys.refresh_memory();
     if p.sys.cpus().is_empty() || p.sys.cpus()[0].brand().is_empty() {
@@ -249,9 +254,11 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
     }
     if full {
         *p.ping.wanted_at.lock().unwrap_or_else(|e| e.into_inner()) = Instant::now();
+    }
+    if want.processes {
         p.full_at = Instant::now();
     } else if p.procs.is_some() {
-        // The tool closed: let go of every process handle at once.
+        // Neither the tool nor the bar asks any more: let go of every process handle at once.
         p.procs = None;
         p.processes.clear();
         p.processes_at = None;
@@ -287,7 +294,7 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
     let external = if want.temps || want.power { p.external.read() } else { None };
     let battery = if want.battery || want.power { p.hw.battery() } else { None };
     let drives = if full { p.hw.drives() } else { None };
-    let processes = if full { Some(p.read_processes()) } else { None };
+    let processes = if want.processes { Some(p.read_processes(if full { PROCESS_EVERY } else { PROCESS_EVERY_BAR })) } else { None };
 
     let ping = if full { p.ping.ms.load(Ordering::Relaxed) } else { NO_PING };
     let gpu_name = strongest.map(|i| p.adapters[i].name.clone());
@@ -392,8 +399,9 @@ impl Probe {
         }
     }
 
-    fn read_processes(&mut self) -> Vec<Proc> {
-        if self.processes_at.is_some_and(|t| t.elapsed() < PROCESS_EVERY) {
+    /// The process list, read again only once `every` has passed since the last read.
+    fn read_processes(&mut self, every: Duration) -> Vec<Proc> {
+        if self.processes_at.is_some_and(|t| t.elapsed() < every) {
             return self.processes.clone();
         }
         self.processes_at = Some(Instant::now());
@@ -737,5 +745,13 @@ mod tests {
         let engines = vec![(format!("pid_1_{l}_phys_0_eng_1_engtype_Copy"), 0.0), (format!("pid_1_{l}_phys_0_eng_0_engtype_3D"), 0.0)];
         let (usage, _) = gpu_counters(&engines, &[]);
         assert_eq!(usage["luid_0x00000000_0x00001111"].1, "3D");
+    }
+
+    #[test]
+    fn want_from_an_older_page_lists_no_processes() {
+        let older: Want = serde_json::from_str(r#"{"net":true,"temps":false,"power":false,"battery":true}"#).unwrap();
+        assert!(older.net && older.battery && !older.processes);
+        let bar: Want = serde_json::from_str(r#"{"processes":true}"#).unwrap();
+        assert!(bar.processes && !bar.net);
     }
 }
