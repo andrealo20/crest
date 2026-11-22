@@ -23,7 +23,8 @@ import type { HitRect } from "./BarMenu";
 import { useBarEdge } from "./barEdge";
 import { TOOL_TITLE_ID, ToolPanel, useTabs } from "./ToolPanel";
 import { TrayPanel } from "./TrayPanel";
-import { DisksPanel, panelDisks } from "./DisksPanel";
+import { DisksPanel, diskScan, panelDisks } from "./DisksPanel";
+import { levelRows } from "../disks";
 
 /** The panel's corners at 100 %, CSS px: the notch's open panel where it floats, without ears. */
 const RADIUS = 30;
@@ -79,7 +80,8 @@ function usePanelSize(shows: PanelContent, apps: number): { w: number; h: number
   const quick = quickLayout.use();
   const page = quickPage.use();
   const disks = panelDisks.use();
-  if (shows.kind === "disks") return DISKS_SIZE((disks ?? barFeed.get().disks).length);
+  const scan = diskScan.use();
+  if (shows.kind === "disks") return scan ? DISKS_SIZE(levelRows(scan.levels[scan.levels.length - 1]), true) : DISKS_SIZE((disks ?? barFeed.get().disks).length);
   if (shows.kind === "tray") return TRAY_SIZE(fitIcon(height, iconSize), (folded ? icons : splitTray(icons, trayShown).hidden).length);
   if (shows.kind === "apps") return TRAY_SIZE(fitIcon(height, iconSize), apps);
   if (shows.kind === "quick") return page ? QUICK_PAGE_SIZE(page.rows, page.extra) : QUICK_SIZE(quick);

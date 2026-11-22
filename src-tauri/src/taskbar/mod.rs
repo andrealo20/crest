@@ -174,6 +174,8 @@ fn running() -> bool {
 /// Ends the thread: its window closes, and that ends its loop. Never while holding explorer's lock, which the thread takes.
 /// Both callers have given Windows' taskbar back first (bar.rs `taskbar_apply` off, `shutdown`).
 pub(crate) fn stop() {
+    // Ahead of the return below: a disk scan runs on a thread of its own, so it stops even when the bar's thread is gone.
+    disks::stop_scan(None);
     let Some((window, thread)) = THREAD.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
     // The tray's spy goes with the bar, after that restore, whose appbar call reached Explorer through it.
     tray::stop();

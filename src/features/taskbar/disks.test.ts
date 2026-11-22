@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { diskSize } from "../system/format.ts";
-import { barDisks, lowSpace, orderDisks, usedShare, type DiskDrive } from "./disks.ts";
+import { SCAN_FRESH, barDisks, freshScan, lowSpace, orderDisks, scanProgress, scanRows, usedShare, type DiskDrive, type DiskScan, type ScanLevel, type ScanState } from "./disks.ts";
 
 const GB = 1024 ** 3;
 const drive = (letter: string, free: number, total: number, more: Partial<DiskDrive> = {}): DiskDrive => ({ letter, name: "", total: total * GB, free: free * GB, removable: false, system: false, ...more });
@@ -55,4 +55,56 @@ test("free space reads in at most three figures and a binary unit", () => {
   assert.equal(diskSize(12 * 1024 * GB), "12 TB");
   assert.equal(diskSize(Number.NaN), "0 MB");
   assert.equal(diskSize(-5), "0 MB");
+});
+
+const scanOf = (folders: [string, number][], more: number, files: number, partial = false): DiskScan => ({ folders: folders.map(([name, size], id) => ({ id, name, size: size * GB })), more: more * GB, files: files * GB, partial });
+const shown = (rows: ReturnType<typeof scanRows>) => rows.map((r) => [r.folder?.name ?? r.kind, Math.round(r.size / GB), Math.round(r.share * 1000) / 1000]);
+
+test("a scan lists its folders, the rest, its own files and at a drive's root what no folder holds, largest first", () => {
+  const scan = scanOf([["Users", 182], ["Windows", 31]], 3, 18);
+  assert.deepEqual(shown(scanRows(scan, 255 * GB, true)), [
+    ["Users", 182, 0.714],
+    ["Windows", 31, 0.122],
+    ["other", 21, 0.082],
+    ["files", 18, 0.071],
+    ["more", 3, 0.012],
+  ]);
+  // A folder's page: what no folder holds is the drive's alone.
+  assert.deepEqual(scanRows(scan, 255 * GB, false).map((r) => r.folder?.name ?? r.kind), ["Users", "Windows", "files", "more"]);
+  // A walk that ended early read only part of the drive: the rest is not "System and unreadable".
+  assert.deepEqual(scanRows(scanOf([["Users", 182]], 0, 18, true), 255 * GB, true).map((r) => r.folder?.name ?? r.kind), ["Users", "files"]);
+});
+
+test("what no folder holds never goes below zero", () => {
+  // Hard links count once per link, so the sum can pass the used space: no other row, and the shares are of the sum.
+  const rows = scanRows(scanOf([["Windows", 300], ["Users", 100]], 0, 0), 255 * GB, true);
+  assert.deepEqual(shown(rows), [
+    ["Windows", 300, 0.75],
+    ["Users", 100, 0.25],
+  ]);
+  assert.ok(rows.every((r) => r.share <= 1));
+  // Nothing at all: no rows, and no share divided by zero.
+  assert.deepEqual(scanRows(scanOf([], 0, 0), 0, true), []);
+});
+
+test("a scan's answer stays ten minutes, a running scan always", () => {
+  const level = (more: Partial<ScanLevel> = {}): ScanLevel => ({ token: 1, folder: null, title: "C:", of: 0, counted: 0, scan: null, error: null, ...more });
+  const state = (levels: ScanLevel[]): ScanState => ({ letter: "C:", at: 1000, levels });
+  const done = state([level({ scan: scanOf([], 0, 0) })]);
+  assert.equal(freshScan(done, 1000 + SCAN_FRESH - 1), true);
+  assert.equal(freshScan(done, 1000 + SCAN_FRESH), false);
+  // The level on top runs: the page stays however long it takes.
+  assert.equal(freshScan(state([level({ scan: scanOf([], 0, 0) }), level({ token: 2, folder: 0 })]), 1000 + 3 * SCAN_FRESH), true);
+  // One that went wrong or found another scan running is not running.
+  assert.equal(freshScan(state([level({ error: "busy" })]), 1000 + SCAN_FRESH), false);
+  assert.equal(freshScan(state([level({ error: "failed" })]), 1000 + SCAN_FRESH - 1), true);
+  assert.equal(freshScan(null, 0), false);
+});
+
+test("a scan's progress never passes the end and needs a size to measure against", () => {
+  assert.equal(scanProgress(50, 200), 0.25);
+  // Hard links can count more than the drive holds.
+  assert.equal(scanProgress(300, 200), 1);
+  assert.equal(scanProgress(10, 0), 0);
+  assert.equal(scanProgress(-5, 200), 0);
 });

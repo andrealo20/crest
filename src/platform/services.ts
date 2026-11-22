@@ -16,7 +16,7 @@ import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
 import type { BarKey, JumpList, TrayState, WindowList, WindowState } from "../features/taskbar/model";
 import type { Decor } from "../features/taskbar/decorModel";
-import type { DiskDrive } from "../features/taskbar/disks";
+import type { DiskDrive, DiskScan } from "../features/taskbar/disks";
 import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
 import type { Rect } from "../features/taskbar/autoHide";
 import type { BtDevice, WifiList } from "../features/taskbar/quickPages";
@@ -961,6 +961,18 @@ const SAMPLE_BT: BtDevice[] = [
   { id: "2", name: "MX Master 3S", categories: ["Input.Mouse"], connected: true, battery: null },
   { id: "3", name: "Xbox Wireless Controller", categories: ["Input.Gaming"], connected: false, battery: null },
 ];
+/** Scan now in the dev server: a system drive's root, the same at every level. */
+const SAMPLE_SCAN: DiskScan = {
+  folders: [
+    { id: 0, name: "Users", size: 182 * 1024 ** 3 },
+    { id: 1, name: "Windows", size: 31 * 1024 ** 3 },
+    { id: 2, name: "Program Files", size: 24 * 1024 ** 3 },
+    { id: 3, name: "ProgramData", size: 9 * 1024 ** 3 },
+  ],
+  more: 3.1 * 1024 ** 3,
+  files: 18 * 1024 ** 3,
+  partial: false,
+};
 
 /** One program in the volume mixer (all its audio sessions together). */
 export interface AppVolume {
@@ -1566,8 +1578,25 @@ export const taskbar = {
   recycleDo: (action: "open" | "empty"): Promise<void> => (isNative ? invoke("taskbar_recycle_do", { action }) : Promise.resolve()),
   /** The lettered drives and their free space (taskbar/disks.rs), read now; null in the browser and where it fails. */
   disks: (): Promise<DiskDrive[] | null> => (isNative ? invoke<DiskDrive[] | null>("taskbar_disks").catch(() => null) : Promise.resolve(null)),
-  /** Opens a drive of the last listing in File Explorer, by its letter. The bar only. */
-  diskOpen: (letter: string): Promise<void> => (isNative ? invoke("taskbar_disk_open", { letter }) : Promise.resolve()),
+  /** Opens a drive of the last listing in File Explorer, by its letter, or a folder a scan of it listed, by its id. The bar only. */
+  diskOpen: (letter: string, folder: number | null = null): Promise<void> => (isNative ? invoke("taskbar_disk_open", { letter, folder }) : Promise.resolve()),
+  /**
+   * Scan now (taskbar/disks.rs): the largest folders of a listed drive (`folder` null) or of a folder a scan of it listed, from what
+   * an earlier walk kept unless `fresh`, else walked on a thread of Rust's; `token` is what diskScanStop stops it by. "busy" while
+   * another scan runs, on any bar, "failed" for anything else. In the browser, a sample after a moment.
+   */
+  diskScan: (letter: string, folder: number | null, token: number, fresh: boolean): Promise<DiskScan | "busy" | "failed"> =>
+    isNative
+      ? invoke<DiskScan>("taskbar_disk_scan", { letter, folder, token, fresh }).catch((e: unknown): "busy" | "failed" => (e === "busy" ? "busy" : "failed"))
+      : new Promise((resolve) => setTimeout(() => resolve(SAMPLE_SCAN), 1200)),
+  /** Ends the scan `token` names, or with none the one running on any bar, and then waits a moment for it to end. */
+  diskScanStop: (token: number | null = null): Promise<void> => (isNative ? invoke<void>("taskbar_disk_scan_stop", { token }).catch(() => {}) : Promise.resolve()),
+  /** The bytes this bar's running scan has counted, every 250 ms at most; returns the stop. */
+  onDiskScan(handler: (counted: number) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<number>("taskbar://disk-scan", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** One of Windows' settings pages, by name (Rust maps it to its URI). */
   settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location" | "microphone" | "camera" | "mixer" | "night" | "dnd" | "access"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
   /**
