@@ -28,6 +28,8 @@ const DAY: u64 = 86_400_000;
 const TAIL: u64 = 64;
 /// Bumped when the disk format changes; another version is ignored and the logs read again.
 const DISK_VERSION: u32 = 1;
+/// Least time between two writes of the state while the tool reads (ms).
+const SAVE_EVERY: u64 = 10 * 60_000;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Tool {
@@ -148,6 +150,10 @@ pub struct Cache {
     loaded: bool,
     /// The last report and the window start it was made for.
     last: Option<TokenReport>,
+    /// Read since the last write of the state.
+    dirty: bool,
+    /// When a refresh last wrote the state (Unix ms).
+    saved_at: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -164,24 +170,38 @@ struct Disk {
     files: HashMap<String, FileItem>,
 }
 
-/// The report for the AI usage tool. `disk` is the cache file: read on the first call, written
-/// (tmp + rename) after a scan that parsed new bytes.
+/// The report for the AI usage tool. `disk` is the cache file: read on the first call, written at
+/// most every SAVE_EVERY while refreshes read new lines, and by `flush` as Crest quits.
 pub fn report(cache: &mut Cache, disk: Option<&Path>) -> TokenReport {
+    let claude = [claude_dir().join("projects")];
+    let codex = [codex_dir().join("sessions"), codex_dir().join("archived_sessions")];
+    refresh(cache, disk, &claude, &codex, now_ms())
+}
+
+fn refresh(cache: &mut Cache, disk: Option<&Path>, claude: &[PathBuf], codex: &[PathBuf], now: u64) -> TokenReport {
     if !cache.loaded {
         cache.loaded = true;
         if let Some(path) = disk {
             load(cache, path);
         }
     }
-    let claude = [claude_dir().join("projects")];
-    let codex = [codex_dir().join("sessions"), codex_dir().join("archived_sessions")];
-    let (report, parsed) = scan(cache, &claude, &codex, now_ms());
-    if parsed {
-        if let Some(path) = disk {
-            save(cache, path);
-        }
+    let (report, parsed) = scan(cache, claude, codex, now);
+    cache.dirty |= parsed;
+    // The file is written whole (12 MB on a busy PC), so not after every refresh: a crash only costs reading again what the
+    // logs gained since the last write. A clock set back writes at once rather than wait for it.
+    let due = cache.saved_at.is_none_or(|at| now < at || now - at >= SAVE_EVERY);
+    if let (Some(path), true) = (disk, cache.dirty && due) {
+        cache.saved_at = Some(now);
+        save(cache, path);
     }
     report
+}
+
+/// As Crest quits: what the refreshes read since the last write.
+pub fn flush(cache: &mut Cache, disk: &Path) {
+    if cache.dirty {
+        save(cache, disk);
+    }
 }
 
 fn load(cache: &mut Cache, path: &Path) {
@@ -195,11 +215,11 @@ fn load(cache: &mut Cache, path: &Path) {
     cache.files = disk.files.into_iter().filter(|(_, f)| f.recs.values().all(|r| r.1 < count)).collect();
 }
 
-fn save(cache: &Cache, path: &Path) {
+/// Flushed before the rename: a power cut leaves the last whole file, never a broken one that has every log of the window read again.
+fn save(cache: &mut Cache, path: &Path) {
     let Ok(bytes) = serde_json::to_vec(&DiskRef { v: DISK_VERSION, models: &cache.models.list, files: &cache.files }) else { return };
-    let tmp = path.with_extension("json.tmp");
-    if std::fs::write(&tmp, bytes).is_ok() {
-        let _ = std::fs::rename(&tmp, path);
+    if crate::write_atomic(path, &bytes).is_ok() {
+        cache.dirty = false;
     }
 }
 
@@ -222,8 +242,7 @@ fn scan(cache: &mut Cache, claude: &[PathBuf], codex: &[PathBuf], now: u64) -> (
         }
         let mut keys = Vec::new();
         let mut unreadable = 0;
-        for path in paths {
-            let Ok(meta) = std::fs::metadata(&path) else { continue };
+        for (path, meta) in paths {
             let mtime = meta.modified().ok().and_then(|m| m.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_millis() as u64);
             if mtime < since {
                 continue;
@@ -239,6 +258,8 @@ fn scan(cache: &mut Cache, claude: &[PathBuf], codex: &[PathBuf], now: u64) -> (
                         parsed |= read;
                         item.len = len;
                         item.mtime = mtime;
+                        // A log written for longer than the window: what it holds from before is never counted again.
+                        item.recs.retain(|_, r| r.0 >= since);
                     }
                     Err(_) => {
                         cache.files.remove(&key);
@@ -288,7 +309,10 @@ fn scan(cache: &mut Cache, claude: &[PathBuf], codex: &[PathBuf], now: u64) -> (
     (report, parsed)
 }
 
-fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+/// Every log under `dir`, with its size and time. On Windows these come with the folder listing, so no log is opened just to
+/// ask (4,000 of them a minute on a busy PC). For a file held open the listing can trail by a few seconds: its new lines
+/// then come with the next refresh, as `read_new` reads to the file's real end.
+fn walk(dir: &Path, out: &mut Vec<(PathBuf, std::fs::Metadata)>) {
     let Ok(read) = std::fs::read_dir(dir) else { return };
     for entry in read.flatten() {
         let Ok(kind) = entry.file_type() else { continue };
@@ -296,7 +320,9 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
         if kind.is_dir() {
             walk(&path, out);
         } else if kind.is_file() && path.extension().is_some_and(|e| e == "jsonl") {
-            out.push(path);
+            if let Ok(meta) = entry.metadata() {
+                out.push((path, meta));
+            }
         }
     }
 }
@@ -621,6 +647,75 @@ mod tests {
         r.tools[0].buckets.iter().map(|b| b.output).sum()
     }
 
+    fn append(path: &Path, text: &str) {
+        use std::io::Write;
+        File::options().append(true).open(path).unwrap().write_all(text.as_bytes()).unwrap();
+    }
+
+    /// A log written for longer than the window: what it holds from before the window leaves the state as the log grows,
+    /// so the file on disk keeps only what the report can count.
+    #[test]
+    fn records_older_than_the_window_leave_the_state() {
+        let dir = temp("prune");
+        let (root, codex) = (dir.0.join("projects"), dir.0.join("none"));
+        std::fs::create_dir_all(&root).unwrap();
+        let log = root.join("s.jsonl");
+        let scan_at = |cache: &mut Cache, at: &str| scan(cache, std::slice::from_ref(&root), std::slice::from_ref(&codex), parse_iso_ms(at).unwrap()).0;
+        std::fs::write(&log, line("msg_1", "2026-10-01T11:00:00Z", 10)).unwrap();
+        let mut cache = Cache::default();
+        assert_eq!(outputs(&scan_at(&mut cache, "2026-10-01T12:00:00Z")), 10);
+        // 35 days on the log grows: October 1 is out of the window.
+        append(&log, &line("msg_2", "2026-11-05T11:00:00Z", 20));
+        assert_eq!(outputs(&scan_at(&mut cache, "2026-11-05T12:00:00Z")), 20);
+        assert_eq!(cache.files.values().map(|f| f.recs.len()).sum::<usize>(), 1);
+    }
+
+    /// The state file is written whole, so it waits SAVE_EVERY between writes; quitting writes what is left.
+    #[test]
+    fn state_written_at_most_every_few_minutes_and_on_quit() {
+        let dir = temp("save");
+        let (root, codex) = (dir.0.join("projects"), dir.0.join("none"));
+        std::fs::create_dir_all(&root).unwrap();
+        let (log, disk) = (root.join("s.jsonl"), dir.0.join("usage-logs.json"));
+        let at = "2026-10-31T11:00:00Z";
+        let now = parse_iso_ms("2026-10-31T12:00:00Z").unwrap();
+        let refresh_at = |cache: &mut Cache, t: u64| refresh(cache, Some(&disk), std::slice::from_ref(&root), std::slice::from_ref(&codex), t);
+        // Records in the file on disk, as the next start would find them.
+        let saved = || {
+            let mut fresh = Cache::default();
+            load(&mut fresh, &disk);
+            fresh.files.values().map(|f| f.recs.len()).sum::<usize>()
+        };
+        std::fs::write(&log, line("msg_1", at, 10)).unwrap();
+        let mut cache = Cache::default();
+        // The first refresh of a run keeps what it read at once.
+        refresh_at(&mut cache, now);
+        assert_eq!(saved(), 1);
+        // A minute later the new line is counted, but the file waits.
+        append(&log, &line("msg_2", at, 20));
+        assert_eq!(outputs(&refresh_at(&mut cache, now + 60_000)), 30);
+        assert_eq!(saved(), 1);
+        // SAVE_EVERY after the last write, the next refresh writes, even with nothing new.
+        refresh_at(&mut cache, now + SAVE_EVERY);
+        assert_eq!(saved(), 2);
+        append(&log, &line("msg_3", at, 30));
+        refresh_at(&mut cache, now + SAVE_EVERY + 60_000);
+        assert_eq!(saved(), 2);
+        // Quitting writes what is left, and only once.
+        flush(&mut cache, &disk);
+        assert_eq!(saved(), 3);
+        std::fs::remove_file(&disk).unwrap();
+        flush(&mut cache, &disk);
+        assert!(!disk.exists());
+        // Nothing read since the last write: nothing to write, however late.
+        refresh_at(&mut cache, now + 3 * SAVE_EVERY);
+        assert!(!disk.exists());
+        // A clock set back writes at the next refresh rather than wait for it to catch up.
+        append(&log, &line("msg_4", at, 40));
+        refresh_at(&mut cache, now);
+        assert_eq!(saved(), 4);
+    }
+
     #[test]
     fn scan_dedup_window_reset_and_disk() {
         let dir = temp("scan");
@@ -650,7 +745,7 @@ mod tests {
 
         // Disk round trip: a fresh cache from the file reports the same without parsing.
         let disk = dir.0.join("usage-logs.json");
-        save(&cache, &disk);
+        save(&mut cache, &disk);
         let mut fresh = Cache::default();
         load(&mut fresh, &disk);
         assert_eq!(fresh.files.len(), 2);

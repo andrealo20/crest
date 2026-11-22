@@ -3,14 +3,16 @@ import { isNotchWindow } from "../../lib/windowKind";
 import { invoke } from "@tauri-apps/api/core";
 import { isNative } from "../../platform/native";
 import { createStore } from "../../lib/store";
-import { lostPair } from "./offline";
+import { lacksPair, lostPair } from "./offline";
 
 /*
  * The offline translator's worker and the files it needs (src-tauri/src/translate.rs, public/translate/worker.js).
- * The worker keeps the engine and the models it loaded while songs come in, and is closed after IDLE_MS: the models
- * take a few hundred MB while loaded, and each song is translated only once (the lyrics cache keeps the answer).
+ * The worker keeps the engine and the models it loaded while songs come in, and is closed IDLE_MS after the last
+ * translation: longer than a song, so the next one doesn't read the engine (5 MB) and its models (37 to 52 MB a pair)
+ * again. The models take a few hundred MB while loaded, so a song in another language starts a new worker with only its
+ * own, and each song is translated only once (the lyrics cache keeps the answer).
  */
-const IDLE_MS = 30_000;
+const IDLE_MS = 10 * 60_000;
 
 export interface OfflineStatus {
   engine: boolean;
@@ -81,6 +83,8 @@ const file = (pair: string | null, kind: string) => invoke<ArrayBuffer>("transla
 export async function translateOffline(pairs: [string, string][], lines: string[]): Promise<string[]> {
   if (!isNative) throw new Error("app only");
   window.clearTimeout(idle);
+  // A song in another language starts a new worker, unless a translation still waits on this one: closing it would drop that answer.
+  if (worker && waiting.size === 0 && lacksPair(inWorker, pairs)) closeWorker();
   const fresh = !worker;
   const wasm = fresh ? await file(null, "engine") : null;
   const models = await Promise.all(
