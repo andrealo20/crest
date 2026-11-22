@@ -4,7 +4,31 @@
     "date": "2026-11-22",
     "items": [
       {
+        "en": "Jump lists, Windows' app menu and the badges and progress apps report on Crest's taskbar. On Windows, not in the Microsoft Store version"
+      },
+      {
+        "en": "The taskbar can stand on the top edge, take Win+1 to Win+9 and Win+0, Win+T and Win+B, and combine buttons as Windows does"
+      },
+      {
+        "en": "Pin any open app or a file dropped from File Explorer, and drag pinned apps into a new order"
+      },
+      {
+        "en": "Windows' Search, Task view, Input language, Privacy indicators and Recycle Bin buttons, a volume mixer and a Disk space widget that finds the largest folders"
+      },
+      {
+        "en": "The main bar's clock opens Crest's notices and calendar in one panel"
+      },
+      {
         "en": "The tool bar can sit under the header and lose its background, and each part of Overview has a switch of its own"
+      },
+      {
+        "en": "Text size in Note and Calc, Core Temp as a source of the CPU temperature and apps from a file in the Launcher"
+      },
+      {
+        "en": "A red disc that takes away a dragged bar item or notch tool, a frames per second slider for the live glass, a live Liquid Glass + tool bar in the open notch and six Start icons"
+      },
+      {
+        "en": "Fixes for the hidden icons panel, Windows' pins with no Start entry, a Now Playing tool that got too short, the wheel on the Shelf and AI Usage's disk writes"
       }
     ]
   },
