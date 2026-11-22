@@ -18,11 +18,14 @@ export const dateFormat = () => new Intl.DateTimeFormat(locale(), DATE);
 /** The room with the date, by language, format and font: worked out once, since it takes every weekday of every month. */
 const dateRoom = new Map<string, number>();
 
-/** The widest of `times` as `f` writes them. Digits are tabular, each as wide as an 8 (in the language's own numerals), which the canvas does not know. */
-function widest(f: Intl.DateTimeFormat, times: Date[]): number {
+/**
+ * The widest of `times` as `f` writes them, in `font`. Digits are tabular, each as wide as an 8 (in the language's own numerals), which
+ * the canvas does not know. `f` may shape what Intl writes (the calendar sheet's month in capitals); one without digits (a weekday) is measured as written.
+ */
+export function widest(f: { format(d: Date): string }, times: Date[], font = ROW_FONT): number {
   // The 8th of August at 08:08:08: whatever the format shows, its last digit is an 8.
-  const eight = f.format(new Date(2000, 7, 8, 8, 8, 8)).match(/\p{Nd}/gu)!.at(-1)!;
-  return Math.max(...times.map((d) => measureTabular(f.format(d).replace(/\p{Nd}/gu, eight))));
+  const eight = f.format(new Date(2000, 7, 8, 8, 8, 8)).match(/\p{Nd}/gu)?.at(-1) ?? "8";
+  return Math.max(...times.map((d) => measureTabular(f.format(d).replace(/\p{Nd}/gu, eight), font)));
 }
 
 /** The widest `f` writes in a year, cached by `options` (what else changes the format) and by language and font. */

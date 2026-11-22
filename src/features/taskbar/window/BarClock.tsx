@@ -1,7 +1,7 @@
 import { locale } from "../../../i18n";
 import { measureTabular } from "../../../notch/row/measure";
 import { clockFormat, clockWidth, dateFormat, dateWidth, useMinuteTick } from "../../../notch/row/parts/Clock";
-import { formatDiff, formatClock as zoneClock, localZone, wallTime, zoneOffset } from "../../clocks/zones";
+import { cityName, formatDiff, formatClock as zoneClock, localZone, wallTime, zoneOffset } from "../../clocks/zones";
 import { handAngles } from "../../timer/looks";
 import { useSecondTick } from "../../timer/store";
 
@@ -11,7 +11,7 @@ export function barClockWidth(seconds: boolean, h12: boolean, date: boolean): nu
 }
 
 /** Leading tighter than the footnote's own, so two lines fit in the closed row's 30 px. */
-const LINE = "tabular block whitespace-nowrap text-center text-footnote leading-tight font-medium text-label";
+export const LINE = "tabular block whitespace-nowrap text-center text-footnote leading-tight font-medium text-label";
 
 /**
  * The bar's clock, as Windows' own: the time over the date, or the time alone without `date`. `paused` (the bar hidden) stops
@@ -30,13 +30,20 @@ export function BarClock({ seconds, h12, date, paused, at }: { seconds: boolean;
 
 export const ANALOG = 22;
 
-/** An analog dial: four ticks, the hour and minute hands, under Material on fill-3 with label ticks and the hands in primary. Ticks with the minute; `at` shows that time and never ticks. */
-export function BarAnalog({ h12, paused, at }: { h12: boolean; paused: boolean; at?: number }) {
+/**
+ * An analog dial: four ticks, the hour and minute hands, under Material on fill-3 with label ticks and the hands in primary. Ticks with
+ * the minute; `at` shows that time and never ticks. With `zone`, the time there, named by its city; `size` in px, 22 by default.
+ */
+export function BarAnalog({ h12, paused, at, zone, size = ANALOG }: { h12: boolean; paused: boolean; at?: number; zone?: string; size?: number }) {
   const minute = useMinuteTick(!paused && at === undefined);
-  const d = new Date(at ?? minute);
-  const hands = handAngles(`${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`)!;
+  const now = at ?? minute;
+  // A zone's wall time reads as UTC (zones.ts wallTime), so its hours come from the UTC getters.
+  const d = new Date(zone ? wallTime(now, zone) : now);
+  const [h, m] = zone ? [d.getUTCHours(), d.getUTCMinutes()] : [d.getHours(), d.getMinutes()];
+  const hands = handAngles(`${h}:${String(m).padStart(2, "0")}`)!;
+  const label = zone ? `${cityName(zone)} ${zoneClock(d.getTime(), locale(), h12)}` : clockFormat(false, h12, false).format(d);
   return (
-    <svg width={ANALOG} height={ANALOG} viewBox="-20 -20 40 40" className="shrink-0" role="img" aria-label={clockFormat(false, h12, false).format(d)}>
+    <svg width={size} height={size} viewBox="-20 -20 40 40" className="shrink-0" role="img" aria-label={label}>
       <circle r="19" fill="var(--color-fill-2)" className="material:fill-fill-3" />
       {[0, 90, 180, 270].map((a) => <line key={a} y1="-14.5" y2="-17" stroke="var(--color-label-3)" strokeWidth="2" strokeLinecap="round" transform={`rotate(${a})`} className="material:stroke-label" />)}
       <line y2="-9.5" stroke="var(--color-label)" strokeWidth="3.4" strokeLinecap="round" transform={`rotate(${hands.hour})`} className="material:stroke-primary" />
@@ -47,7 +54,7 @@ export function BarAnalog({ h12, paused, at }: { h12: boolean; paused: boolean; 
 }
 
 /** How far ahead of here `zone` is now, in minutes. */
-const zoneDiff = (now: number, zone: string) => zoneOffset(now, zone) - zoneOffset(now, localZone());
+export const zoneDiff = (now: number, zone: string) => zoneOffset(now, zone) - zoneOffset(now, localZone());
 const DIFF_GAP = 4;
 
 /** Room for the time over the zone's difference and time, with the zone's offset now. The difference measured with a plus: Inter draws a hyphen before a figure as a minus, as wide as the plus. */

@@ -47,6 +47,8 @@ test("in Material widths come from the canvas while it draws the check's line as
   // The caption's tracking, per character, as setRowFamily is told; the row's own text has none.
   m.setRowFamily("Test", 0.11);
   assert.deepEqual([m.measureText("12:45", m.CAPTION_FONT), m.measureText("12:45")], [31, 30]);
+  // The title's font follows the family too: text-title font-semibold, as the bar's large figures draw.
+  assert.equal(m.TITLE_FONT, "600 15px Test");
   m.setRowFamily("Test", 0);
   assert.equal(m.measureText("12:45", m.CAPTION_FONT), 30);
   // A font finishes loading and the canvas draws the line 19 px apart from the page: from then on every width comes from the page.
