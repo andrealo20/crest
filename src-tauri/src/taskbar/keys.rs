@@ -218,23 +218,28 @@ fn shutting_down() -> bool {
     unsafe { GetSystemMetrics(SM_SHUTTINGDOWN) != 0 }
 }
 
-/// Explorer, process `pid`, closed by the Restart Manager and started again. Gracefully unless `force`, which is only for an
-/// Explorer that has already dropped its shell (`stranded`). False when it would not close.
-fn shut_down(pid: u32, force: bool) -> bool {
+/// When process `pid` started: with its pid, what names it to the Restart Manager, so a pid Windows gave to another process
+/// since is never closed.
+fn started(pid: u32) -> Option<FILETIME> {
     unsafe {
-        let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else { return false };
+        let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
         let (mut created, mut exited, mut kernel, mut user) = (FILETIME::default(), FILETIME::default(), FILETIME::default(), FILETIME::default());
         let timed = GetProcessTimes(process, &mut created, &mut exited, &mut kernel, &mut user).is_ok();
         let _ = CloseHandle(process);
-        if !timed {
-            return false;
-        }
+        timed.then_some(created)
+    }
+}
+
+/// Explorer, the process `pid` started at `born`, closed by the Restart Manager and started again. Gracefully unless `force`,
+/// which is only for an Explorer that has already dropped its shell (`stranded`). False when it would not close.
+fn shut_down(pid: u32, born: FILETIME, force: bool) -> bool {
+    unsafe {
         let mut session = 0u32;
         let mut key = [0u16; CCH_RM_SESSION_KEY as usize + 1];
         if RmStartSession(&mut session, None, PWSTR(key.as_mut_ptr())) != ERROR_SUCCESS {
             return false;
         }
-        let app = RM_UNIQUE_PROCESS { dwProcessId: pid, ProcessStartTime: created };
+        let app = RM_UNIQUE_PROCESS { dwProcessId: pid, ProcessStartTime: born };
         let closed = RmRegisterResources(session, None, Some(&[app]), None) == ERROR_SUCCESS && RmShutdown(session, if force { RmForceShutdown.0 as u32 } else { 0 }, None) == ERROR_SUCCESS;
         if closed {
             let _ = RmRestart(session, None, None);
@@ -244,12 +249,13 @@ fn shut_down(pid: u32, force: bool) -> bool {
     }
 }
 
-/// Process `pid` has not ended.
-fn running(pid: u32) -> bool {
+/// The process `pid` started at `born` has not ended.
+fn running(pid: u32, born: FILETIME) -> bool {
+    let same = started(pid).is_some_and(|t| t.dwLowDateTime == born.dwLowDateTime && t.dwHighDateTime == born.dwHighDateTime);
     let Ok(process) = (unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, pid) }) else { return false };
     let waiting = unsafe { WaitForSingleObject(process, 0) } == WAIT_TIMEOUT;
     let _ = unsafe { CloseHandle(process) };
-    waiting
+    same && waiting
 }
 
 /// Process `pid` is the shell, with its taskbar.
@@ -262,10 +268,11 @@ fn kept(closed: bool, up: bool) -> bool {
     !closed && up
 }
 
-/// No new shell came, and the old Explorer still runs without its own: it dropped its taskbar and desktop on the close but lives
-/// on for the File Explorer windows it hosts. While it does, Windows starts no other shell and explorer.exe only opens a folder in it.
-fn stranded(old: u32, alive: bool, up: bool) -> bool {
-    old != 0 && alive && !up
+/// No new shell came, and the old Explorer, `shell` naming it or nobody, still runs without its own: it dropped its taskbar and
+/// desktop on the close but lives on for the File Explorer windows it hosts. While it does, Windows starts no other shell and
+/// explorer.exe only opens a folder in it. Never while another process is the shell, which may still be building its taskbar.
+fn stranded(old: u32, alive: bool, up: bool, shell: u32) -> bool {
+    old != 0 && alive && !up && (shell == 0 || shell == old)
 }
 
 /// A shell other than `old` runs, with its taskbar.
@@ -294,20 +301,28 @@ pub(crate) fn restart_explorer() -> bool {
         return false;
     }
     let pid = explorer::shell_pid();
-    if pid != 0 && !shut_down(pid, false) {
-        // A failed close can still have taken the shell down (`stranded`): look once Explorer has settled.
-        std::thread::sleep(Duration::from_secs(1));
-        if kept(false, shell_up(pid)) {
-            return false;
+    let mut back = false;
+    if pid != 0 {
+        let Some(born) = started(pid) else { return false };
+        if shut_down(pid, born, false) {
+            back = wait_for(pid, Duration::from_secs(15));
+        } else {
+            // A failed close can still have taken the shell down (`stranded`), and asked nobody to start it again: look once
+            // Explorer has settled.
+            std::thread::sleep(Duration::from_secs(1));
+            if kept(false, shell_up(pid)) {
+                return false;
+            }
+        }
+        if !back && stranded(pid, running(pid, born), shell_up(pid), explorer::shell_pid()) {
+            // Closed by force so the Restart Manager starts it again, with the File Explorer windows it had.
+            eprintln!("taskbar: Explorer lost its shell but kept running, it is closed and started again");
+            shut_down(pid, born, true);
+            back = wait_for(pid, Duration::from_secs(15));
         }
     }
-    let mut back = wait_for(pid, Duration::from_secs(15));
-    if !back && stranded(pid, running(pid), shell_up(pid)) {
-        // Closed by force so the Restart Manager starts it again, with the File Explorer windows it had.
-        eprintln!("taskbar: Explorer lost its shell but kept running, it is closed and started again");
-        shut_down(pid, true);
-        back = wait_for(pid, Duration::from_secs(15));
-    }
+    // A new shell may be up already, and explorer.exe would only open a folder in it.
+    back = back || new_shell(pid);
     if !back {
         // Explorer by its full path, no arguments, starts the shell when none runs.
         let _ = crate::opener().spawn();
@@ -467,8 +482,10 @@ mod tests {
         assert!(kept(false, true));
         assert!(!kept(false, false) && !kept(true, true));
         // Forced only while the old Explorer runs without its shell.
-        assert!(stranded(11064, true, false));
-        assert!(!stranded(11064, false, false) && !stranded(11064, true, true) && !stranded(0, true, false));
+        assert!(stranded(11064, true, false, 0) && stranded(11064, true, false, 11064));
+        assert!(!stranded(11064, false, false, 0) && !stranded(11064, true, true, 11064) && !stranded(0, true, false, 0));
+        // Another shell is coming up: the old process only hosts folder windows now and is left alone.
+        assert!(!stranded(11064, true, false, 9576));
     }
 
     #[test]
