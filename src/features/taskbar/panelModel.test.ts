@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, CLOCK_CALENDAR, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRAY_SIZE, dragThreshold, dropSlot, fitClock, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, reportedTool, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -156,6 +156,39 @@ test("the six tools on saved stores open in the panel too, the half-working and 
   for (const id of saved) assert.equal(BAR_TOOLS.includes(id), false, id);
   for (const id of ["clipboard", "ask", "trading", "vault", "terminal", "capture", "recorder", "camera", "calc", "convert", "launcher", "colour", "teleprompter", "agents", "find"]) assert.equal(opensInBar(tool(id)), false, id);
   assert.equal(PANEL_TOOLS.length, 18);
+});
+
+test("the main bar's clock opens a panel of its own in the bar, Crest's notices over its calendar", () => {
+  const clock: PanelContent = { kind: "clock" };
+  assert.equal(opensInBar(clock), true);
+  assert.equal(panelKey(clock), "clock");
+  assert.equal(sameContent(clock, { kind: "clock" }), true);
+  // Not the calendar's own panel, which the Next event widget opens, nor a tool named "clock".
+  assert.equal(sameContent(clock, tool("calendar")), false);
+  assert.equal(sameContent(clock, tool("clock")), false);
+});
+
+test("the clock's panel has the notch send the calendar and the notices, as a tool's does", () => {
+  assert.equal(reportedTool({ kind: "clock" }), "calendar");
+  assert.ok(BAR_TOOLS.includes(reportedTool({ kind: "clock" })!));
+  assert.equal(reportedTool(tool("media")), "media");
+  for (const c of [{ kind: "tray" }, { kind: "apps" }, { kind: "quick" }, { kind: "disks" }] as PanelContent[]) assert.equal(reportedTool(c), null, c.kind);
+  assert.equal(reportedTool(undefined), null);
+});
+
+test("the clock's panel keeps the calendar as tall as its own panel and shows it alone where the notices would get under 120 px", () => {
+  // The Calendar tool's notch size (tabs.ts), less the notch's tool bar.
+  assert.deepEqual(CLOCK_CALENDAR, toolPanelSize({ w: 560, h: 340 }));
+  const room = { w: 1904, h: 568 };
+  assert.deepEqual(fitClock(room, 1), { size: { w: 560, h: 514 }, alone: false });
+  // 454 px: the calendar's 294 and 160 for the notices.
+  assert.deepEqual(fitClock(room, 1.25), { size: { w: 560, h: 454 }, alone: false });
+  // 378 px would leave the notices 84: the calendar alone, whole.
+  assert.deepEqual(fitClock(room, 1.5), { size: { w: 560, h: 294 }, alone: true });
+  // Too short even for the calendar alone: fitted as the calendar's own panel is.
+  assert.deepEqual(fitClock({ w: 1350, h: 512 }, 2), { size: { w: 560, h: 256 }, alone: true });
+  assert.equal(fitClock({ w: 1904, h: 414 }, 1).alone, false);
+  assert.equal(fitClock({ w: 1904, h: 413 }, 1).alone, true);
 });
 
 test("a widget drags past 4 px with a mouse and 10 px with touch or a pen, so a tap that opens a panel never moves it", () => {

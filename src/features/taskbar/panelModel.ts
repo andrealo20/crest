@@ -3,8 +3,8 @@
 
 import { DOCK_HEIGHT } from "../../notch/geometry.ts";
 
-/** What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, the apps behind "…", Stato's quick panel, or the disk widget's drives. */
-export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "apps" } | { kind: "quick" } | { kind: "disks" };
+/** What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, the apps behind "…", Stato's quick panel, the disk widget's drives, or the main bar's clock's Notices over Calendar. */
+export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "apps" } | { kind: "quick" } | { kind: "disks" } | { kind: "clock" };
 /** The item the panel opens over: its left edge and its width, CSS px. */
 export interface PanelAnchor {
   x: number;
@@ -32,6 +32,11 @@ export const sameContent = (a: PanelContent, b: PanelContent) => a.kind === b.ki
 export const sameAnchor = (a: PanelAnchor, b: PanelAnchor) => a.w > 0 && b.w > 0 && a.x < b.x + b.w && b.x < a.x + a.w;
 /** The tray, the quick panel and the PANEL_TOOLS open in the bar; any other tool opens in the notch, where it works whole. */
 export const opensInBar = (c: PanelContent) => c.kind !== "tool" || PANEL_TOOLS.includes(c.tool);
+/**
+ * The tool the notch is told the panel shows (`bar://panel`): a tool's id, the Calendar for the clock's panel, whose calendar and notices
+ * then reach the bar with the other tools' stores (barStores.ts panelStores), null for the rest.
+ */
+export const reportedTool = (c: PanelContent | undefined): string | null => (c?.kind === "tool" ? c.tool : c?.kind === "clock" ? "calendar" : null);
 
 /**
  * The notch's record of what each bar's panel shows, by the bar window's label, after a `bar://panel` event (`taskbar_panel`,
@@ -116,6 +121,23 @@ export const fitPanel = (size: { w: number; h: number }, room: { w: number; h: n
   w: Math.floor(Math.min(size.w, room.w / zoom)),
   h: Math.floor(Math.min(size.h, room.h / zoom)),
 });
+
+/** The clock's Calendar half at 100 %: the Calendar's own panel (its notch size, 560 x 340, less the tool bar), as the month needs all of it. */
+export const CLOCK_CALENDAR = { w: 560, h: 294 };
+/** The least the clock's Notices half keeps, its title and about two notices, CSS px. */
+export const CLOCK_NOTICES_MIN = 120;
+/** The clock's panel at 100 %: the Notices over the Calendar, 220 px for them before the room lowers it. */
+export const CLOCK_SIZE = { w: 560, h: CLOCK_CALENDAR.h + 220 };
+
+/**
+ * The clock's panel fitted to `room` at `zoom`: only the Notices half gives up height, and where it would keep less than
+ * CLOCK_NOTICES_MIN the panel shows the Calendar alone (`alone`), fitted as the Calendar's own panel is.
+ */
+export function fitClock(room: { w: number; h: number }, zoom: number): { size: { w: number; h: number }; alone: boolean } {
+  const both = fitPanel(CLOCK_SIZE, room, zoom);
+  if (both.h >= CLOCK_CALENDAR.h + CLOCK_NOTICES_MIN) return { size: both, alone: false };
+  return { size: fitPanel(CLOCK_CALENDAR, room, zoom), alone: true };
+}
 
 /** The slot a dragged icon lands in among the bar's buttons (`slots`, in their order): before the first whose centre is right of `x`, else after the last. */
 export function dropSlot(slots: { x: number; w: number }[], x: number): number {

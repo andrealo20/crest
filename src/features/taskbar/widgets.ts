@@ -40,7 +40,10 @@ export function previewInk(look: BarLook, surface: TaskbarSettings["surface"], c
   return look === "plus" ? { ...dark, "--accent": dark["--theme-accent"] } : surface === "notch" ? closed : undefined;
 }
 
-/** The tool a widget opens in the panel over the bar; null for the clock, which opens Windows' calendar instead, and the disk widget, whose panel is the bar's own. */
+/**
+ * The tool a widget opens in the panel over the bar; null for the clock, which opens Crest's Notices and Calendar on the main bar and
+ * Windows' notification centre on the others, and the disk widget, whose panels are the bar's own.
+ */
 export const widgetTool = (id: PartId): string | null => (id === "clock" ? null : partTool(id));
 
 /** A widget's size against the notch's: 1 with the default icons, growing and shrinking with the icons the bar draws. */

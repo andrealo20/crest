@@ -14,7 +14,7 @@ test("a widget's preview wears the bar's ink: Dark's under Liquid Glass + whatev
   assert.equal(previewInk("crest", "theme", closed, dark), undefined);
 });
 
-test("a widget opens its tool, the clock Windows' calendar and the disk widget the bar's own panel", () => {
+test("a widget opens its tool and the disk widget the bar's own panel; the clock has no tool (the main bar's opens Notices and Calendar, the others' Windows' centre)", () => {
   // Every part: one without a tool would open Windows' calendar.
   const tools: Record<Exclude<PartId, "clock" | "disk">, string> = { title: "media", equalizer: "media", timer: "timer", rings: "usage", readings: "system", script: "notices", downloads: "shelf", weather: "weather", calendar: "calendar", discord: "discord", github: "github", leetcode: "leetcode" };
   for (const id of PART_IDS) assert.equal(widgetTool(id), id === "clock" || id === "disk" ? null : tools[id], id);

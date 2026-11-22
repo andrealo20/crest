@@ -15,13 +15,13 @@ import { barParts } from "../../notch/row/visibility";
 import { subscribeLevels } from "../../platform/audio";
 import { useNowPlaying } from "../../platform/media";
 import { isMac, isNative } from "../../platform/native";
-import { build, noticeSource, taskbar } from "../../platform/services";
+import { build, taskbar } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { useDiscordCall } from "../discord/store";
 import { downloads } from "../downloads/store";
 import { useGithubViewer } from "../github/store";
 import { useLeetcodeViewer } from "../leetcode/store";
-import { scriptParts } from "../notices/store";
+import { history, scriptParts } from "../notices/store";
 import { RELEASE_CAPTURE_MS } from "../now-playing/Equalizer";
 import { useLyricLine } from "../now-playing/lyrics";
 import { system } from "../system/store";
@@ -55,7 +55,15 @@ export function startBarShare() {
   // The panel's raw stores go to the bar only while a tool shows there.
   barPanels.subscribe(() => panelOpen.set(anyBarTool()));
   onBarShows("media", (on) => barMedia.set(on));
-  noticeSource.onCount((n) => noticeCount.set(n));
+  // The clock's count is the list its panel opens on, Crest's notices, and nothing while Live notices is off. Written only on a change:
+  // each write goes to the bar, and the settings change for much else.
+  const count = () => {
+    const n = settings.get().notices.enabled ? history.get().length : null;
+    if (n !== noticeCount.get()) noticeCount.set(n);
+  };
+  count();
+  history.subscribe(count);
+  settings.subscribe(count);
   shareStores(tauriTransport, feedStores, { to: "taskbar", hello: "bar://hello" });
   shareStores(tauriTransport, panelStores, { to: "taskbar", hello: "bar://hello", when: panelOpen });
   // Rust tells the primary bar's window and its slide apart (bar.rs `tell_notch`): a slide keeps the sources SLIDE_KEEP_MS, a hide stops

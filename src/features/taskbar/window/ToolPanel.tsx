@@ -1,14 +1,16 @@
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { content } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { createStore } from "../../../lib/store";
 import { HEADER_HEIGHT } from "../../../notch/geometry";
-import { ToolScope, activeTool, headerSlot } from "../../../notch/header";
+import { SlotScope, ToolScope, activeTool, headerSlot } from "../../../notch/header";
+import { CLOCK_CALENDAR } from "../panelModel";
 import { CoverBackdrop, coverBackdrop } from "../../now-playing/CoverBackdrop";
 import { inkTheme } from "../../themes/store";
 
 type Tabs = typeof import("../../../notch/tabs");
+type NotchTab = import("../../../notch/tabs").NotchTab;
 
 /** The notch's tool registry once it has loaded, kept for the page's life. */
 const registry = createStore<Tabs | null>(null);
@@ -84,6 +86,48 @@ export function ToolPanel({ tool }: { tool: string }) {
             </ToolScope.Provider>
           </motion.div>
         </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+/** The ids of the clock panel's two titles, which name it for screen readers. */
+export const CLOCK_TITLE_IDS = "bar-panel-notices-title bar-panel-calendar-title";
+
+/**
+ * The main bar's clock's panel: Crest's Notices over its Calendar, the order Windows 11 has, each with its own title and header
+ * buttons (SlotScope). The Calendar keeps its own panel's height, which its month needs; the Notices take what is left and scroll.
+ */
+export function ClockPanel() {
+  const tabs = useTabs(true);
+  const notices = tabs?.findTab("notices");
+  const calendar = tabs?.findTab("calendar");
+  if (!notices || !calendar) return null;
+  return (
+    <div className="flex h-full flex-col">
+      <Half tab={notices} id="bar-panel-notices-title" className="min-h-0 flex-1" />
+      <Half tab={calendar} id="bar-panel-calendar-title" className="shrink-0" height={CLOCK_CALENDAR.h} />
+    </div>
+  );
+}
+
+/** One half of the clock's panel: ToolPanel's header and body, with a header slot of its own. */
+function Half({ tab, id, className, height }: { tab: NotchTab; id: string; className: string; height?: number }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  return (
+    <div className={`flex flex-col ${className}`} style={{ height }}>
+      <div className="flex shrink-0 items-center justify-between gap-3 ps-5 pe-3" style={{ height: HEADER_HEIGHT + 4 }}>
+        <h2 id={id} className="min-w-0 flex-1 truncate text-title font-semibold">
+          {t(tab.label)}
+        </h2>
+        <div ref={setSlot} className="grid" />
+      </div>
+      <div className="relative min-h-0 flex-1 overflow-clip">
+        <div className="absolute inset-0">
+          <SlotScope.Provider value={slot}>
+            <tab.View />
+          </SlotScope.Provider>
+        </div>
       </div>
     </div>
   );
