@@ -80,3 +80,14 @@ export function sortTasks(tasks: Task[]): Task[] {
 export function nextTask(tasks: Task[], projectId: string): Task | null {
   return sortTasks(tasks.filter((t) => t.projectId === projectId && !t.done))[0] ?? null;
 }
+
+/** What the bar's Next to-do shows: the project's next task (id and text empty once all are done) and how many of its tasks are done. */
+export type TodoLine = { id: string; text: string; done: number; total: number };
+
+/** The bar's line for `projectId`, null while it has no tasks. Done tasks count until Clear done removes them. */
+export function todoLine(tasks: Task[], projectId: string): TodoLine | null {
+  const own = tasks.filter((t) => t.projectId === projectId);
+  if (!own.length) return null;
+  const next = nextTask(own, projectId);
+  return { id: next?.id ?? "", text: next?.text ?? "", done: own.filter((t) => t.done).length, total: own.length };
+}

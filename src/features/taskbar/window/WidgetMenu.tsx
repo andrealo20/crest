@@ -2,6 +2,8 @@ import { t } from "../../../i18n";
 import type { PartId } from "../../../notch/row/parts";
 import { MAX_LAPS, idle } from "../../timer/stopwatch";
 import { stopwatch, stopwatchActions, timerTab } from "../../timer/store";
+import { nextTask } from "../../todos/model";
+import { todoActions, todos } from "../../todos/store";
 import { CrestMenu, Row } from "./BarMenu";
 
 /**
@@ -24,6 +26,7 @@ export function WidgetMenu({ id, close, openTool }: { id: PartId; close: () => v
         </>
       )}
       {id === "stopwatch" && <StopwatchRows close={close} openTool={openTool} />}
+      {id === "todo" && <TodoRow close={close} />}
       <CrestMenu close={close} />
     </>
   );
@@ -46,6 +49,25 @@ function StopwatchRows({ close, openTool }: { close: () => void; openTool: (tool
           timerTab.set("stopwatch");
           openTool("timer");
         })}
+      />
+      <div className="h-px bg-separator my-1" />
+    </>
+  );
+}
+
+/** Done for the task the widget shows, the open project's next one. */
+function TodoRow({ close }: { close: () => void }) {
+  const { tasks, active } = todos.use();
+  const next = nextTask(tasks, active);
+  return (
+    <>
+      <Row
+        label={t("Erledigt")}
+        disabled={!next}
+        onClick={() => {
+          close();
+          if (next) todoActions.done(next.id);
+        }}
       />
       <div className="h-px bg-separator my-1" />
     </>
