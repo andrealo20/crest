@@ -6,7 +6,9 @@ test("text per look", () => {
   assert.equal(lookText("clean", 1500), "25:00");
   assert.equal(lookText("clean", 1499.2), "25:00"); // rounds up
   assert.equal(lookText("clean", 1499), "24:59");
-  assert.equal(lookText("clean", 180 * 60), "180:00");
+  assert.equal(lookText("clean", 180 * 60), "3:00:00");
+  assert.equal(lookText("clean", 3599), "59:59");
+  assert.equal(lookText("dots", 24 * 3600), "24:00:00");
   assert.equal(lookText("pixel", 65), "1:05");
   assert.equal(lookText("dots", 0), "0:00");
   assert.equal(lookText("retro", 299), "04:59");
@@ -17,6 +19,7 @@ test("text per look", () => {
   assert.equal(lookText("hud", 1500), "25:00.0");
   assert.equal(lookText("hud", 0.01), "00:00.1");
   assert.equal(lookText("hud", 0), "00:00.0");
+  assert.equal(lookText("hud", 3899.95), "1:05:00.0");
   assert.equal(lookText("zen", 1499), "25 min");
   assert.equal(lookText("zen", 61), "2 min");
   assert.equal(lookText("zen", 59.5), "1 min"); // 60 whole seconds left

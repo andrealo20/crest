@@ -5,6 +5,7 @@ import { createStore } from "../../lib/store";
 import { playAlarm, stopAlarm } from "../../lib/sound";
 import { settings } from "../../settings/store";
 import { focusSoundFor, setFocusSound } from "./focusSound";
+import { clampDuration, customsOf, remember } from "./duration";
 
 export type TimerMode = "focus" | "break";
 
@@ -18,18 +19,19 @@ interface TimerState {
   remaining: number;
   /** Finished: stays until the user dismisses it (timer view + live activity show it). */
   finished: boolean;
-  /** Last custom duration per mode (seconds), shown as its own chip. */
+  /** Last custom duration started per mode (seconds), kept beside `recent` as a single number, which is what an older Crest reads. */
   custom?: Partial<Record<TimerMode, number>>;
+  /** The last custom durations started per mode (seconds), newest first, each shown as its own chip. */
+  recent?: Partial<Record<TimerMode, number[]>>;
 }
-
-/** Limits for custom times (minutes). */
-export const MIN_MINUTES = 1;
-export const MAX_MINUTES = 180;
 
 export const presets: Record<TimerMode, number[]> = {
   focus: [15 * 60, 25 * 60, 45 * 60],
   break: [5 * 60, 10 * 60, 15 * 60],
 };
+
+/** The custom durations remembered for `mode`, newest first; a timer saved by an older Crest has its one `custom` number. */
+export const remembered = (s: TimerState, mode: TimerMode) => customsOf(s.recent?.[mode] ?? s.custom?.[mode], presets[mode]);
 
 const initial: TimerState = { mode: "focus", duration: 25 * 60, endsAt: null, remaining: 25 * 60, finished: false };
 
@@ -66,13 +68,23 @@ export const timerActions = {
     timer.set((s) => {
       if (!s.finished) return s;
       const mode: TimerMode = s.mode === "focus" ? "break" : "focus";
-      const duration = s.custom?.[mode] ?? (mode === "break" ? presets.break[0] : presets.focus[1]);
+      const duration = remembered(s, mode)[0] ?? (mode === "break" ? presets.break[0] : presets.focus[1]);
       return { ...s, mode, duration, remaining: duration, endsAt: null, finished: false };
     });
   },
+  /** A custom duration is remembered here, when it is started, so typing or wheeling through others never pushes one out. */
   start() {
     timerActions.silence();
-    timer.set((s) => ({ ...s, endsAt: Date.now() + s.remaining * 1000, finished: false }));
+    timer.set((s) => {
+      const own = !presets[s.mode].includes(s.duration);
+      return {
+        ...s,
+        endsAt: Date.now() + s.remaining * 1000,
+        finished: false,
+        recent: { ...s.recent, [s.mode]: remember(remembered(s, s.mode), s.duration, presets[s.mode]) },
+        custom: own ? { ...s.custom, [s.mode]: s.duration } : s.custom,
+      };
+    });
   },
   pause() {
     timer.set((s) => ({ ...s, remaining: remainingOf(s), endsAt: null }));
@@ -84,14 +96,10 @@ export const timerActions = {
     timerActions.silence();
     timer.set((s) => ({ ...s, mode, duration, remaining: duration, endsAt: null, finished: false }));
   },
-  /** Sets a custom duration; values outside the presets are remembered as their own chip. */
-  setMinutes(minutes: number) {
-    const m = Math.round(Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, minutes)));
-    timer.set((s) => {
-      const duration = m * 60;
-      const custom = presets[s.mode].includes(duration) ? s.custom : { ...s.custom, [s.mode]: duration };
-      return { ...s, duration, remaining: duration, endsAt: null, finished: false, custom };
-    });
+  /** Sets a duration in seconds, within the limits; it becomes a chip once it is started. */
+  setDuration(seconds: number) {
+    const duration = clampDuration(seconds);
+    timer.set((s) => ({ ...s, duration, remaining: duration, endsAt: null, finished: false }));
   },
 };
 
@@ -205,7 +213,5 @@ export function useSecondTick(active: boolean, phase = 0): number {
   return now;
 }
 
-export function formatClock(seconds: number): string {
-  const s = Math.ceil(seconds);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-}
+/** The countdown as the bar and the Overview write it: "24:59", from an hour "1:05:00". */
+export { formatClock } from "../teleprompter/model";

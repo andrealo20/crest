@@ -57,11 +57,25 @@ const mainText = (p: LookProps, look: TimerLook) => p.clock?.text ?? lookText(lo
 const caption = (p: LookProps) => p.clock?.caption ?? modeName(p.mode);
 const percent = (p: LookProps) => Math.round(progressOf(p.remaining, p.duration) * 100);
 
+/**
+ * The countdown in a box as wide as the duration's own text, its tabular figures as wide as any it counts down through: one started
+ * above an hour keeps its place when it passes 59:59, and the bar beside it does not grow. A clock's text is drawn as it is.
+ */
+function Countdown({ p, look }: { p: LookProps; look: TimerLook }) {
+  if (p.clock) return p.clock.text;
+  return (
+    <span className="grid">
+      <span aria-hidden className="invisible col-start-1 row-start-1">{lookText(look, p.duration)}</span>
+      <span className="col-start-1 row-start-1">{lookText(look, p.remaining)}</span>
+    </span>
+  );
+}
+
 function Clean(p: LookProps) {
   return (
     <div className="flex min-w-0 flex-1 items-center" style={{ gap: p.h * 0.36 }}>
       <span className="tabular shrink-0 leading-none font-semibold tracking-[-0.03em]" style={{ color: p.tint, fontSize: p.h * 0.91 }}>
-        {mainText(p, "clean")}
+        <Countdown p={p} look="clean" />
       </span>
       <div className="relative flex-1 overflow-hidden rounded-full bg-fill-2" style={{ height: Math.max(3, p.h * 0.11) }}>
         <motion.div
@@ -80,7 +94,8 @@ function Clean(p: LookProps) {
 function Pixel(p: LookProps) {
   const matrix = pixelMatrix(mainText(p, "pixel"));
   const cell = (p.h * 0.84) / 5;
-  const cols = matrix[0].length;
+  // As wide as the duration's own text, as Countdown is: every digit has three columns, so none it counts down through is wider.
+  const cols = Math.max(matrix[0].length, p.clock ? 0 : pixelMatrix(lookText("pixel", p.duration))[0].length);
   const blocks = 12;
   const lit = litCells(p.remaining, p.duration, blocks);
   return (
@@ -127,7 +142,7 @@ function Dots(p: LookProps) {
   return (
     <div className="flex min-w-0 flex-1 items-center" style={{ gap: p.h * 0.3 }}>
       <span className="tabular shrink-0 leading-none font-semibold tracking-[-0.02em]" style={{ color: p.tint, fontSize: p.h * 0.55 }}>
-        {mainText(p, "dots")}
+        <Countdown p={p} look="dots" />
       </span>
       <svg className="min-w-0 flex-1" height={rows * dot * 1.6} viewBox={`0 0 ${cols * 16} ${rows * 16}`} preserveAspectRatio="xMaxYMid meet">
         {Array.from({ length: cols * rows }, (_, i) => (

@@ -3,11 +3,10 @@ import { AnimatePresence, motion } from "motion/react";
 import { AlarmIcon, ArrowCounterClockwise, Check, CheckCircle, Pause, PencilSimple, PictureInPicture, Play, SpeakerSimpleHigh, SpeakerSimpleSlash, X } from "../../ui/iconset";
 import { content, pulse, springs } from "../../design/motion";
 import {
-  MAX_MINUTES,
-  MIN_MINUTES,
   focusMuted,
   formatClock,
   presets,
+  remembered,
   ringing,
   setFocusMuted,
   stopRinging,
@@ -18,6 +17,7 @@ import {
 } from "./store";
 import { Look } from "./Look";
 import { modeTint } from "./looks";
+import { durationText, parseDuration, wheelStep } from "./duration";
 import { detached, toggleDetached } from "./detach";
 import { settings } from "../../settings/store";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -31,11 +31,11 @@ const modeLabel: Record<TimerMode, string> = { focus: "Fokus", break: "Pause" };
 const detachable = isNative && isNotchWindow;
 
 /*
- *   [Focus | Break]               15  25  45  [37]  [✎]
+ *   [Focus | Break]               15  25  45  [2:30]  [37]  [✎]
  *   24:59  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  [↺] [⏯]
  *
- * Custom time: ✎ opens a minutes field, or scroll over the big time
- * (±1 min, Shift ±5), only while the timer isn't running.
+ * Custom time: ✎ opens a field for minutes, M:SS or H:MM:SS, or scroll over the big time
+ * (±1 min, Shift ±5), only while the timer isn't running. The last three started stay as chips.
  */
 export function TimerView() {
   const s = timer.use();
@@ -147,14 +147,13 @@ function SetupView() {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const step = (e.shiftKey ? 5 : 1) * (e.deltaY < 0 ? 1 : -1);
-      timerActions.setMinutes(Math.round(timer.get().duration / 60) + step);
+      timerActions.setDuration(wheelStep(timer.get().duration, step));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, [editable]);
 
-  const custom = s.custom?.[s.mode];
-  const chips = custom && !presets[s.mode].includes(custom) ? [...presets[s.mode], custom] : presets[s.mode];
+  const chips = [...presets[s.mode], ...remembered(s, s.mode).sort((a, b) => a - b)];
 
   return (
     <div className="flex h-full flex-col justify-between px-5 pt-1 pb-2">
@@ -164,19 +163,19 @@ function SetupView() {
           value={s.mode}
           onChange={(m) => {
             setEditing(false);
-            timerActions.select(m, s.custom?.[m] ?? presets[m][m === "focus" ? 1 : 0]);
+            timerActions.select(m, remembered(s, m)[0] ?? presets[m][m === "focus" ? 1 : 0]);
           }}
         />
-        {/* Chips and minutes field are stacked right-aligned, so nothing jumps sideways on switch. */}
+        {/* Chips and duration field are stacked right-aligned, so nothing jumps sideways on switch. */}
         <div className="relative flex h-6 flex-1 justify-end">
         <AnimatePresence initial={false}>
           {editing ? (
-            <MinutesInput
+            <DurationInput
               key="input"
-              initial={Math.round(s.duration / 60)}
+              initial={s.duration}
               tint={tint}
-              onDone={(minutes) => {
-                if (minutes !== null) timerActions.setMinutes(minutes);
+              onDone={(seconds) => {
+                if (seconds !== null) timerActions.setDuration(seconds);
                 setEditing(false);
               }}
             />
@@ -193,13 +192,13 @@ function SetupView() {
                   key={d}
                   onClick={() => timerActions.select(s.mode, d)}
                   disabled={running}
-                  aria-label={t("{n} Min.", { n: d / 60 })}
+                  aria-label={d % 60 ? durationText(d) : t("{n} Min.", { n: d / 60 })}
                   aria-pressed={d === s.duration}
                   className={`pressable pressable-fill tabular h-6 min-w-7 rounded-full px-2.5 text-caption font-medium disabled:opacity-40 ${
                     d === s.duration ? "bg-fill-2 text-label" : "text-label-3"
                   }`}
                 >
-                  {d / 60}
+                  {durationText(d)}
                 </button>
               ))}
               <button
@@ -248,12 +247,12 @@ function SetupView() {
   );
 }
 
-/** Minutes field: Enter/✓ applies, Esc or blur cancels. */
-function MinutesInput(props: { initial: number; tint: string; onDone: (minutes: number | null) => void }) {
-  const [value, setValue] = useState(String(props.initial));
+/** Duration field, minutes, M:SS or H:MM:SS (duration.ts parseDuration): Enter/✓ applies, Esc or blur cancels. */
+function DurationInput(props: { initial: number; tint: string; onDone: (seconds: number | null) => void }) {
+  const [value, setValue] = useState(durationText(props.initial));
   const ref = useRef<HTMLInputElement>(null);
-  const minutes = Number(value);
-  const valid = Number.isFinite(minutes) && minutes >= MIN_MINUTES && minutes <= MAX_MINUTES;
+  const seconds = parseDuration(value);
+  const valid = seconds !== null;
 
   useEffect(() => {
     ref.current?.focus({ preventScroll: true });
@@ -268,16 +267,18 @@ function MinutesInput(props: { initial: number; tint: string; onDone: (minutes: 
       exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
       onSubmit={(e) => {
         e.preventDefault();
-        if (valid) props.onDone(minutes);
+        if (valid) props.onDone(seconds);
       }}
     >
       <div className="flex h-6 items-center gap-1 rounded-full bg-fill-2 pe-2.5 ps-2.5">
+        {/* No numeric keyboard: it has no colon. "24:00:00" is the longest the field takes. */}
         <input
           ref={ref}
           value={value}
-          inputMode="numeric"
-          maxLength={3}
-          onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
+          maxLength={8}
+          title={t("Minuten, M:SS oder H:MM:SS")}
+          aria-label={t("Minuten, M:SS oder H:MM:SS")}
+          onChange={(e) => setValue(e.target.value.replace(/[^\d:]/g, ""))}
           onKeyDown={(e) => {
             // Only catch Esc here, don't close the whole notch.
             if (e.key === "Escape") {
@@ -288,9 +289,9 @@ function MinutesInput(props: { initial: number; tint: string; onDone: (minutes: 
           onBlur={(e) => {
             if (!e.currentTarget.form?.contains(e.relatedTarget as Node)) props.onDone(null);
           }}
-          className="tabular w-7 bg-transparent text-end text-caption font-semibold text-label outline-none"
+          className="tabular w-14 bg-transparent text-end text-caption font-semibold text-label outline-none"
         />
-        <span className="text-caption text-label-3">{t("min")}</span>
+        {!value.includes(":") && <span className="text-caption text-label-3">{t("min")}</span>}
       </div>
       <button
         type="submit"
