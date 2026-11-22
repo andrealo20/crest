@@ -9,6 +9,7 @@ import {
   shiftMenu,
   windowMenuRows,
   COMPACT_PAD,
+  START_ICONS,
   TASKBAR_DEFAULTS,
   TOOL_BUTTONS,
   WIDGET_VARIANTS,
@@ -698,6 +699,11 @@ test("the bar stands on the bottom unless the top is saved", () => {
   assert.equal(normalizeTaskbar({}).allDesktops, false);
   assert.equal(normalizeTaskbar({ allDesktops: "yes" }).allDesktops, false);
   assert.equal(normalizeTaskbar({ allDesktops: true }).allDesktops, true);
+  assert.deepEqual([...START_ICONS], ["windows", "crest", "dots", "rocket", "sparkle", "star"]);
+  assert.equal(TASKBAR_DEFAULTS.startIcon, "windows");
+  assert.equal(normalizeTaskbar({}).startIcon, "windows");
+  for (const v of START_ICONS) assert.equal(normalizeTaskbar({ startIcon: v }).startIcon, v);
+  for (const v of ["orb", "Windows", "logo", 1, null, {}]) assert.equal(normalizeTaskbar({ startIcon: v }).startIcon, "windows");
 });
 
 test("the window menu enables what Windows' own system menu would, and the group menu keeps Windows' order", () => {

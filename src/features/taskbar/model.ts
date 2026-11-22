@@ -91,12 +91,17 @@ export interface TaskbarSettings {
   position: BarEdge;
   /** The mark under an open app (itemLook.ts markShape). */
   marks: MarkStyle;
+  /** The Start button's icon on every bar (window/StartMark.tsx). */
+  startIcon: StartIcon;
   /** The bar lists the windows of every virtual desktop, as Windows' "Show taskbar apps on all desktops". */
   allDesktops: boolean;
 }
 
 export type MarkStyle = "dot" | "large" | "line";
 export const MARK_STYLES: readonly MarkStyle[] = ["dot", "large", "line"];
+/** The Start button's icons, the default first. */
+export type StartIcon = "windows" | "crest" | "dots" | "rocket" | "sparkle" | "star";
+export const START_ICONS: readonly StartIcon[] = ["windows", "crest", "dots", "rocket", "sparkle", "star"];
 
 export type AppsOn = "own" | "main" | "all";
 const APPS_ONS: AppsOn[] = ["own", "main", "all"];
@@ -134,6 +139,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   winKeys: false,
   position: "bottom",
   marks: "dot",
+  startIcon: "windows",
   allDesktops: false,
 };
 
@@ -226,6 +232,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     winKeys: s.winKeys === true,
     position: s.position === "top" ? "top" : "bottom",
     marks: MARK_STYLES.includes(s.marks as MarkStyle) ? (s.marks as MarkStyle) : "dot",
+    startIcon: START_ICONS.includes(s.startIcon as StartIcon) ? (s.startIcon as StartIcon) : d.startIcon,
     allDesktops: s.allDesktops === true,
   };
 }
