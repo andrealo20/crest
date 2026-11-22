@@ -7,7 +7,8 @@
 //!
 //! Nothing here runs by itself: the state is read when Overview asks (`quick_get`), and changed on a click or the shortcut.
 //! The shortcut sends `status://mic` so the closed notch can say it (status alert "Microphone"); a mute from anywhere else (a key on the
-//! laptop, Windows' settings, another app) comes from sysevents.rs, which skips the changes made here.
+//! laptop, Windows' settings, another app) comes from sysevents.rs, whose alert skips the changes made here. The bar's Microphone widget
+//! hears every mute through sysevents.rs's `status://microphone`, these included.
 
 use tauri::{AppHandle, Emitter};
 

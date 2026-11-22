@@ -13,6 +13,8 @@
 //! The Bluetooth watcher and the volume and microphone callbacks run only while their alerts are on (`status_configure`).
 //! The bar's Stato item reads the network in use, the Wi-Fi radio and the volume only while a bar shows it (`status_bar`): the radios
 //! are watched then, and the volume callback runs for it even with its alert off (`status://network`, `status://sound`).
+//! Likewise the bar's Microphone widget: the microphone and the volume callbacks run for it while a bar shows it, and it hears every
+//! change, Crest's own included (`status://microphone`, `status://sound`).
 //! Then too, once Windows' location consent for Crest reads allowed (wifi.rs `checked`), the Wi-Fi in use's signal is followed
 //! through wlanapi's signal quality notification (`watch_signal`); without it the bars move with network events only.
 //! Do Not Disturb has no public change event either: a thread reads it every `FOCUS_POLL` while its alert is on and can show. Airplane
@@ -218,9 +220,11 @@ pub struct Seed {
     /// The bar's Stato item, `null` while no bar shows it.
     network: Option<Network>,
     sound: Option<Sound>,
+    /// The bar's Microphone widget: muted or not, null while no bar shows it or without a microphone.
+    microphone: Option<bool>,
 }
 
-static SEED: Mutex<Seed> = Mutex::new(Seed { power: None, online: None, devices: Vec::new(), network: None, sound: None });
+static SEED: Mutex<Seed> = Mutex::new(Seed { power: None, online: None, devices: Vec::new(), network: None, sound: None, microphone: None });
 
 /// The kind of the network in use; any internet profile that is not WLAN counts as wired, a cellular modem included.
 #[derive(Serialize, Clone, Copy, PartialEq, Debug)]
@@ -260,6 +264,8 @@ struct Profile {
 
 /// While a bar shows Stato (`status_bar`).
 static BAR_STATUS: AtomicBool = AtomicBool::new(false);
+/// While a bar shows the Microphone widget (`status_bar`).
+static BAR_MIC: AtomicBool = AtomicBool::new(false);
 
 /// A panic elsewhere must not take the alerts down with it: the seed stays readable.
 fn seed() -> MutexGuard<'static, Seed> {
@@ -351,7 +357,8 @@ fn run(app: AppHandle) {
         let mut enumerated = false;
 
         let volume_client: IAudioEndpointVolumeCallback = LevelWatch(h, WM_VOL).into();
-        // The callback runs for the HUD's alert or for the bar's Stato; `bar_on` turns on through WM_SOURCES, posted below.
+        // The callback runs for the HUD's alert, for the bar's Stato or for its Microphone widget's speaker; `bar_on` and `bar_mic`
+        // turn on through WM_SOURCES, posted below.
         let mut volume_alert = sources & SRC_VOLUME != 0;
         let mut bar_on = false;
         let mut radios: Vec<(Radio, i64)> = Vec::new();
@@ -359,9 +366,12 @@ fn run(app: AppHandle) {
         let mut volume_on = volume_alert;
         let mut volume = devices.as_ref().filter(|_| volume_on).and_then(|d| watch_level(d, eRender, &volume_client));
         let mut last_volume = volume.as_ref().map(|v| v.1);
-        // The default microphone's mute, the same way: a key on the laptop, Windows' settings or another app muting it.
+        // The default microphone's mute, the same way: a key on the laptop, Windows' settings or another app muting it. For the
+        // alert, or for the bar's Microphone widget, which hears Crest's own mutes too.
         let mic_client: IAudioEndpointVolumeCallback = LevelWatch(h, WM_MIC).into();
-        let mut mic_on = sources & SRC_MIC != 0;
+        let mut mic_alert = sources & SRC_MIC != 0;
+        let mut bar_mic = false;
+        let mut mic_on = mic_alert;
         let mut mic = devices.as_ref().filter(|_| mic_on).and_then(|d| watch_level(d, eCapture, &mic_client));
         let mut last_mic = mic.as_ref().map(|m| m.1 .1);
         // The sound output now is the baseline: the alert says where the sound goes next.
@@ -392,7 +402,7 @@ fn run(app: AppHandle) {
 
         let _ = app.emit("status://seed", status_seed());
         // `status_bar` may have come before the loop's window existed.
-        if BAR_STATUS.load(Ordering::SeqCst) {
+        if BAR_STATUS.load(Ordering::SeqCst) || BAR_MIC.load(Ordering::SeqCst) {
             let _ = PostMessageW(Some(hwnd), WM_SOURCES, WPARAM(0), LPARAM(0));
         }
 
@@ -472,7 +482,7 @@ fn run(app: AppHandle) {
                     }
                     // Crest's own change still moves the baseline, so the next outside change compares against it.
                     if volume_changed(&mut last_volume, now) {
-                        let (level, sound) = sound_events(volume_alert, bar_on, own);
+                        let (level, sound) = sound_events(volume_alert, bar_on || bar_mic, own);
                         if level {
                             emit_level(&app, "volume", now.0, now.1);
                         }
@@ -488,7 +498,7 @@ fn run(app: AppHandle) {
                         }
                         volume = devices.as_ref().and_then(|d| watch_level(d, eRender, &volume_client));
                         last_volume = volume.as_ref().map(|v| v.1);
-                        if bar_on {
+                        if bar_on || bar_mic {
                             send_sound(&app, last_volume);
                         }
                     }
@@ -503,9 +513,16 @@ fn run(app: AppHandle) {
                 }
                 WM_MIC if mic_on => {
                     let muted = msg.lParam.0 & 1 != 0;
-                    // Crest's own mute only moves the baseline: the shortcut says it itself, Overview's switch shows it.
-                    if last_mic.replace(muted).is_some_and(|before| before != muted) && msg.lParam.0 & 2 == 0 {
-                        let _ = app.emit("status://mic", serde_json::json!({ "muted": muted }));
+                    let own = msg.lParam.0 & 2 != 0;
+                    // Crest's own mute reaches the bar's widget but not the alert: the shortcut says it itself, Overview's switch shows it.
+                    if last_mic.replace(muted).is_some_and(|before| before != muted) {
+                        let (alert, bar) = sound_events(mic_alert, bar_mic, own);
+                        if alert {
+                            let _ = app.emit("status://mic", serde_json::json!({ "muted": muted }));
+                        }
+                        if bar {
+                            send_microphone(&app, Some(muted));
+                        }
                     }
                 }
                 WM_MICDEV if mic_on => {
@@ -514,6 +531,10 @@ fn run(app: AppHandle) {
                     }
                     mic = devices.as_ref().and_then(|d| watch_level(d, eCapture, &mic_client));
                     last_mic = mic.as_ref().map(|m| m.1 .1);
+                    // The new default microphone's state, or none left at all.
+                    if bar_mic {
+                        send_microphone(&app, last_mic);
+                    }
                 }
                 WM_MODE => {
                     if let Some(mode) = user_mode(&mut last_mode, msg.wParam.0 as i32).filter(|_| !is_own(Own::Plan)) {
@@ -539,7 +560,8 @@ fn run(app: AppHandle) {
                     }
                     volume_alert = sources & SRC_VOLUME != 0;
                     let bar = BAR_STATUS.load(Ordering::SeqCst);
-                    if (volume_alert || bar) != volume_on {
+                    let mic_bar = BAR_MIC.load(Ordering::SeqCst);
+                    if (volume_alert || bar || mic_bar) != volume_on {
                         volume_on = !volume_on;
                         if let Some((endpoint, _)) = volume.take() {
                             let _ = endpoint.UnregisterControlChangeNotify(&volume_client);
@@ -560,7 +582,10 @@ fn run(app: AppHandle) {
                             signal = None;
                             let mut s = seed();
                             s.network = None;
-                            s.sound = None;
+                            // The Microphone widget's speaker still shows it.
+                            if !mic_bar {
+                                s.sound = None;
+                            }
                         }
                     }
                     // The Wi-Fi signal while Stato shows, from the moment the location consent reads allowed: looked at on each
@@ -568,7 +593,8 @@ fn run(app: AppHandle) {
                     if bar_on && signal.is_none() {
                         signal = watch_signal(h);
                     }
-                    if (sources & SRC_MIC != 0) != mic_on {
+                    mic_alert = sources & SRC_MIC != 0;
+                    if (mic_alert || mic_bar) != mic_on {
                         mic_on = !mic_on;
                         if let Some((endpoint, _)) = mic.take() {
                             let _ = endpoint.UnregisterControlChangeNotify(&mic_client);
@@ -577,6 +603,20 @@ fn run(app: AppHandle) {
                             mic = devices.as_ref().and_then(|d| watch_level(d, eCapture, &mic_client));
                         }
                         last_mic = mic.as_ref().map(|m| m.1 .1);
+                    }
+                    // After the callbacks above, so the widget starts from what they read.
+                    if mic_bar != bar_mic {
+                        bar_mic = mic_bar;
+                        if bar_mic {
+                            send_microphone(&app, last_mic);
+                            send_sound(&app, last_volume);
+                        } else {
+                            let mut s = seed();
+                            s.microphone = None;
+                            if !bar_on {
+                                s.sound = None;
+                            }
+                        }
                     }
                 }
                 // The Wi-Fi's signal changed: read at once, not through the network's 2 s settle, which a steady run of these would keep pushing back.
@@ -775,6 +815,14 @@ fn send_sound(app: &AppHandle, level: Option<Level>) {
     if now.is_some() && seed().sound != now {
         seed().sound = now;
         let _ = app.emit("status://sound", now);
+    }
+}
+
+/// Seeds the microphone's mute for the bar's Microphone widget and tells it, only on a change; None (no microphone) too, so it dims.
+fn send_microphone(app: &AppHandle, muted: Option<bool>) {
+    if seed().microphone != muted {
+        seed().microphone = muted;
+        let _ = app.emit("status://microphone", muted);
     }
 }
 
@@ -1077,8 +1125,8 @@ fn volume_changed(last: &mut Option<Level>, now: Level) -> bool {
     changed
 }
 
-/// Which events a volume change sends, (status://level, status://sound): the HUD only with its alert on and only for an outside
-/// change, the bar every change while it shows Stato.
+/// Which events a volume or a microphone change sends, (status://level, status://sound) or (status://mic, status://microphone): the
+/// HUD's alert only with it on and only for an outside change, the bar every change while it shows Stato or the Microphone widget.
 fn sound_events(alert: bool, bar: bool, own: bool) -> (bool, bool) {
     (alert && !own, bar)
 }
@@ -1108,10 +1156,12 @@ pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, insert: bool, bt
     }
 }
 
-/// From the notch: a bar shows Stato (on), or none does (off). The loop then watches the radios and the volume for it.
+/// From the notch: a bar shows Stato (on), or none does (off), and a bar shows the Microphone widget (`mic`). The loop then watches
+/// the radios and the volume for Stato, the microphone and the volume for the widget.
 #[tauri::command]
-pub fn status_bar(on: bool) {
+pub fn status_bar(on: bool, mic: bool) {
     BAR_STATUS.store(on, Ordering::SeqCst);
+    BAR_MIC.store(mic, Ordering::SeqCst);
     let h = LOOP.load(Ordering::SeqCst);
     if h != 0 {
         let _ = unsafe { PostMessageW(Some(HWND(h as _)), WM_SOURCES, WPARAM(0), LPARAM(0)) };
@@ -1409,6 +1459,23 @@ mod tests {
         assert_eq!(sound_events(true, true, true), (false, true));
         assert_eq!(sound_events(false, true, false), (false, true));
         assert_eq!(sound_events(false, false, false), (false, false));
+    }
+
+    #[test]
+    fn the_seed_carries_the_bar_microphone_or_null() {
+        let seed = |microphone| Seed { power: None, online: None, devices: Vec::new(), network: None, sound: None, microphone };
+        assert_eq!(serde_json::to_value(seed(Some(true))).unwrap()["microphone"], true);
+        assert_eq!(serde_json::to_value(seed(None)).unwrap()["microphone"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn a_mute_tells_the_bar_every_change_and_the_alert_only_outside_ones() {
+        // The module's code above its tests, read as text: the microphone goes through the volume's rule, and its callback runs for
+        // the alert or for the bar's Microphone widget.
+        let src = include_str!("sysevents.rs");
+        let code = &src[..src.find("#[cfg(test)]").unwrap()];
+        assert!(code.contains("sound_events(mic_alert, bar_mic, own)"));
+        assert!(code.contains("if (mic_alert || mic_bar) != mic_on"));
     }
 
     #[test]
