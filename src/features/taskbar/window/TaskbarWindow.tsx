@@ -38,6 +38,7 @@ import { Capsule } from "./Capsule";
 import { AppsPanel } from "./AppsPanel";
 import { AppMenu, BarMenu, CrestMenu, GroupMenu, RecycleMenu, WindowList, WindowMenu, closeWindows, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
+import { dropStaleScan } from "./DisksPanel";
 import { holdBriefly } from "./hold";
 import { Item, type ItemProps } from "./Item";
 import { markThick } from "../itemLook";
@@ -440,6 +441,7 @@ export function TaskbarWindow() {
     setMenu(null);
     if (id === "disk") {
       const r = button.getBoundingClientRect();
+      dropStaleScan();
       return togglePanel({ kind: "disks" }, { x: r.x, w: r.width });
     }
     const tool = widgetTool(id);

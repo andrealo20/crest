@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, DISKS_SIZE, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -138,6 +138,16 @@ test("a quick page is as tall as its rows, six at most before it scrolls", () =>
   assert.deepEqual(QUICK_PAGE_SIZE(0, 0), { w: 360, h: 148 });
   assert.equal(QUICK_PAGE_SIZE(10, 0).h, 348);
   assert.equal(QUICK_PAGE_SIZE(3, PASSWORD_ROW).h, 272);
+});
+
+test("the disk panel: its drives, or a scan page with a header and a footer", () => {
+  // 8 px round the drives, 52 each (one at least, six at most); a scan page has the quick pages' frame round its rows instead.
+  assert.deepEqual(DISKS_SIZE(3), { w: 340, h: 172 });
+  assert.equal(DISKS_SIZE(0).h, 68);
+  assert.equal(DISKS_SIZE(10).h, 328);
+  assert.deepEqual(DISKS_SIZE(3, true), { w: 340, h: 264 });
+  assert.equal(DISKS_SIZE(1, true).h, 160);
+  assert.equal(DISKS_SIZE(10, true).h, 420);
 });
 
 test("a page goes back to the panel when its radio is gone, and stays while it is only off", () => {

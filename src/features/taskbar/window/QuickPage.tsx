@@ -12,17 +12,32 @@ export function away(open: () => Promise<void>): void {
 }
 
 /**
- * A page inside the quick panel, sized by QUICK_PAGE_SIZE: a header with the way back to the main page, its title and its `actions`,
- * the rows (scrolling past PAGE_MAX_ROWS), and a footer with what went wrong and a button to Windows' Settings.
+ * A page inside the quick panel, sized by QUICK_PAGE_SIZE: a header with the way back to the main page (or `back`'s), its title and
+ * its `actions`, the rows (scrolling past PAGE_MAX_ROWS), and a footer with what went wrong and a button to Windows' Settings. The
+ * disk panel's scan pages wear it too.
  */
-export function QuickPageFrame({ title, actions, note, footer, children }: { title: string; actions?: ReactNode; note: string | null; footer: { label: string; onClick: () => void }; children?: ReactNode }) {
+export function QuickPageFrame({
+  title,
+  actions,
+  note,
+  footer,
+  back = { label: t("Zurück zu den Schnelleinstellungen"), onClick: () => quickPage.set(null) },
+  children,
+}: {
+  title: string;
+  actions?: ReactNode;
+  note: string | null;
+  footer: { label: string; onClick: () => void };
+  back?: { label: string; onClick: () => void };
+  children?: ReactNode;
+}) {
   return (
     <div className="flex h-full flex-col gap-2.5 p-3">
       <div className="flex h-8 shrink-0 items-center gap-2">
         <button
-          aria-label={t("Zurück zu den Schnelleinstellungen")}
-          title={t("Zurück zu den Schnelleinstellungen")}
-          onClick={() => quickPage.set(null)}
+          aria-label={back.label}
+          title={back.label}
+          onClick={back.onClick}
           className="pressable flex size-8 shrink-0 items-center justify-center rounded-full text-label-2 hover:bg-fill-2 hover:text-label"
         >
           <CaretLeft size={16} weight="regular" className="rtl:-scale-x-100" />
