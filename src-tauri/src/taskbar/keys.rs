@@ -22,10 +22,10 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
 use windows::core::{w, PCWSTR, PWSTR};
-use windows::Win32::Foundation::{CloseHandle, ERROR_SUCCESS, FILETIME, HWND};
+use windows::Win32::Foundation::{CloseHandle, ERROR_SUCCESS, FILETIME, HWND, WAIT_TIMEOUT};
 use windows::Win32::System::Registry::{RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW, HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_SZ};
-use windows::Win32::System::RestartManager::{RmEndSession, RmRegisterResources, RmRestart, RmShutdown, RmStartSession, CCH_RM_SESSION_KEY, RM_UNIQUE_PROCESS};
-use windows::Win32::System::Threading::{GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+use windows::Win32::System::RestartManager::{RmEndSession, RmForceShutdown, RmRegisterResources, RmRestart, RmShutdown, RmStartSession, CCH_RM_SESSION_KEY, RM_UNIQUE_PROCESS};
+use windows::Win32::System::Threading::{GetProcessTimes, OpenProcess, WaitForSingleObject, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE};
 use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey, MOD_NOREPEAT, MOD_WIN};
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetSystemMetrics, IsWindowVisible, SM_SHUTTINGDOWN};
 
@@ -218,9 +218,9 @@ fn shutting_down() -> bool {
     unsafe { GetSystemMetrics(SM_SHUTTINGDOWN) != 0 }
 }
 
-/// Explorer, process `pid`, closed by the Restart Manager (gracefully, never forced) and started again. False when it would not
-/// close: it still runs and still holds the keys.
-fn shut_down(pid: u32) -> bool {
+/// Explorer, process `pid`, closed by the Restart Manager and started again. Gracefully unless `force`, which is only for an
+/// Explorer that has already dropped its shell (`stranded`). False when it would not close.
+fn shut_down(pid: u32, force: bool) -> bool {
     unsafe {
         let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else { return false };
         let (mut created, mut exited, mut kernel, mut user) = (FILETIME::default(), FILETIME::default(), FILETIME::default(), FILETIME::default());
@@ -235,13 +235,37 @@ fn shut_down(pid: u32) -> bool {
             return false;
         }
         let app = RM_UNIQUE_PROCESS { dwProcessId: pid, ProcessStartTime: created };
-        let closed = RmRegisterResources(session, None, Some(&[app]), None) == ERROR_SUCCESS && RmShutdown(session, 0, None) == ERROR_SUCCESS;
+        let closed = RmRegisterResources(session, None, Some(&[app]), None) == ERROR_SUCCESS && RmShutdown(session, if force { RmForceShutdown.0 as u32 } else { 0 }, None) == ERROR_SUCCESS;
         if closed {
             let _ = RmRestart(session, None, None);
         }
         let _ = RmEndSession(session);
         closed
     }
+}
+
+/// Process `pid` has not ended.
+fn running(pid: u32) -> bool {
+    let Ok(process) = (unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, pid) }) else { return false };
+    let waiting = unsafe { WaitForSingleObject(process, 0) } == WAIT_TIMEOUT;
+    let _ = unsafe { CloseHandle(process) };
+    waiting
+}
+
+/// Process `pid` is the shell, with its taskbar.
+fn shell_up(pid: u32) -> bool {
+    explorer::shell_pid() == pid && explorer::explorer_tray().is_some()
+}
+
+/// After the graceful close: Explorer refused it and its shell is still up, so nothing changed.
+fn kept(closed: bool, up: bool) -> bool {
+    !closed && up
+}
+
+/// No new shell came, and the old Explorer still runs without its own: it dropped its taskbar and desktop on the close but lives
+/// on for the File Explorer windows it hosts. While it does, Windows starts no other shell and explorer.exe only opens a folder in it.
+fn stranded(old: u32, alive: bool, up: bool) -> bool {
+    old != 0 && alive && !up
 }
 
 /// A shell other than `old` runs, with its taskbar.
@@ -270,10 +294,20 @@ pub(crate) fn restart_explorer() -> bool {
         return false;
     }
     let pid = explorer::shell_pid();
-    if pid != 0 && !shut_down(pid) {
-        return false;
+    if pid != 0 && !shut_down(pid, false) {
+        // A failed close can still have taken the shell down (`stranded`): look once Explorer has settled.
+        std::thread::sleep(Duration::from_secs(1));
+        if kept(false, shell_up(pid)) {
+            return false;
+        }
     }
     let mut back = wait_for(pid, Duration::from_secs(15));
+    if !back && stranded(pid, running(pid), shell_up(pid)) {
+        // Closed by force so the Restart Manager starts it again, with the File Explorer windows it had.
+        eprintln!("taskbar: Explorer lost its shell but kept running, it is closed and started again");
+        shut_down(pid, true);
+        back = wait_for(pid, Duration::from_secs(15));
+    }
     if !back {
         // Explorer by its full path, no arguments, starts the shell when none runs.
         let _ = crate::opener().spawn();
@@ -425,6 +459,16 @@ mod tests {
         assert!(parse_name("x").is_none() && parse_name("n:11:plain").is_none() && parse_name("apps:2").is_none() && parse_name("tray:1").is_none());
         assert_eq!(serde_json::to_value(Key::Number { n: 3, mods: Mods::CtrlShift }).unwrap(), serde_json::json!({ "kind": "number", "n": 3, "mods": "ctrlShift" }));
         assert_eq!(serde_json::to_value(Key::Apps { by: 1 }).unwrap(), serde_json::json!({ "kind": "apps", "by": 1 }));
+    }
+
+    #[test]
+    fn a_shell_lost_on_a_failed_close_comes_back() {
+        // A refused close leaves a working shell alone; one that took the shell down goes on to the restart.
+        assert!(kept(false, true));
+        assert!(!kept(false, false) && !kept(true, true));
+        // Forced only while the old Explorer runs without its shell.
+        assert!(stranded(11064, true, false));
+        assert!(!stranded(11064, false, false) && !stranded(11064, true, true) && !stranded(0, true, false));
     }
 
     #[test]
