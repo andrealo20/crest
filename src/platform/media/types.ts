@@ -63,3 +63,8 @@ export function livePosition(np: NowPlaying, now = performance.now()): number {
   const pos = np.position + (now - np.updatedAt) / 1000;
   return np.duration > 0 ? Math.min(np.duration, pos) : pos;
 }
+
+/** The share of the song played, 0..1, extrapolated as livePosition; null while its length is unknown (a live stream). */
+export function playedShare(np: NowPlaying, now = performance.now()): number | null {
+  return np.duration > 0 ? Math.min(1, Math.max(0, livePosition(np, now) / np.duration)) : null;
+}
