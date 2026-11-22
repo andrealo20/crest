@@ -67,17 +67,24 @@ export function CalendarView() {
     </HeaderActions>
   );
 
+  const from = picked ?? startOfDay(now);
+  const pick = (d: number) => setPicked(d === startOfDay(now) ? null : d);
+
+  // The month shows without a calendar too: the clock on Crest's bar opens here, and people look there for the date.
   if (!sources.length) {
     return (
-      <>
+      <div className="flex h-full gap-5 px-5 pt-1 pb-2">
         {actions}
-        <Empty
-          icon={CalendarBlank}
-          title={t("Kein Kalender verbunden")}
-          text={t("Füge einen ICS-Link (Google, Outlook, iCloud) oder ein CalDAV-Konto hinzu. Crest liest nur.")}
-          action={<Button onClick={() => navigate("settings", "calendar")}>{t("Kalender hinzufügen")}</Button>}
-        />
-      </>
+        <Month events={[]} colors={new Map()} now={now} picked={from} onPick={pick} />
+        <div className="min-w-0 flex-1">
+          <Empty
+            icon={CalendarBlank}
+            title={t("Kein Kalender verbunden")}
+            text={t("Füge einen ICS-Link (Google, Outlook, iCloud) oder ein CalDAV-Konto hinzu. Crest liest nur.")}
+            action={<Button onClick={() => navigate("settings", "calendar")}>{t("Kalender hinzufügen")}</Button>}
+          />
+        </div>
+      </div>
     );
   }
   if (!data) {
@@ -99,7 +106,6 @@ export function CalendarView() {
 
   const colors = new Map(data.calendars.map((c) => [c.id, c.color]));
   const names = new Map(data.calendars.map((c) => [c.id, c.name]));
-  const from = picked ?? startOfDay(now);
   // The picked day always shows; later days only when something is on.
   const days = agenda(data.events, from, DAYS).filter((d, i) => i === 0 || d.events.length);
   const failing = data.sources.filter((s) => s.error);
@@ -123,7 +129,7 @@ export function CalendarView() {
     >
       {actions}
       <div className="flex min-h-0 flex-1 gap-5">
-        <Month events={data.events} colors={colors} now={now} picked={from} onPick={(d) => setPicked(d === startOfDay(now) ? null : d)} />
+        <Month events={data.events} colors={colors} now={now} picked={from} onPick={pick} />
         <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-width:none]" style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 20px), transparent)" }}>
           {days.map((d) => (
             <section key={d.day} className="pb-2">
