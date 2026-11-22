@@ -138,8 +138,9 @@ export interface Settings {
   /**
    * App launcher: pinned apps, `null` until the first app list arrives, which pins the detected
    * AI apps once. `hotkeys`: the first six on Alt+1 to Alt+6, opt-in (other apps lose those keys).
+   * `hotkeyOffer`: the opt-in under the tiles, until its × hides it for good (the switch stays in Settings).
    */
-  launcher: { favorites: Favorite[] | null; hotkeys: boolean };
+  launcher: { favorites: Favorite[] | null; hotkeys: boolean; hotkeyOffer: boolean };
   /** GitHub activity: the public username. An optional token is stored with the secrets. */
   github: { user: string };
   /** LeetCode activity: the public username. */
@@ -223,7 +224,7 @@ const defaults: Settings = {
   },
   themes: THEME_DEFAULTS,
   system: { colors: "calm", gpu: "", gpuIndex: 0, sort: "cpu" },
-  launcher: { favorites: null, hotkeys: false },
+  launcher: { favorites: null, hotkeys: false, hotkeyOffer: true },
   github: { user: "" },
   leetcode: { user: "" },
   calendar: CALENDAR_DEFAULTS,
@@ -336,7 +337,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     themes: normalizeThemeSettings(s.themes, legacyIconColors(s.system)),
     system: (({ iconColors: _moved, ...rest }: Partial<Settings["system"]> & { iconColors?: unknown }) => ({ ...defaults.system, ...rest }))(s.system ?? {}),
     // Only an explicit opt-in turns the keys on; an older saved `shortcuts: true` does not.
-    launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true },
+    launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true, hotkeyOffer: s.launcher?.hotkeyOffer !== false },
     github: { ...defaults.github, ...s.github },
     leetcode: { ...defaults.leetcode, ...s.leetcode },
     calendar: normalizeCalendar(s.calendar),

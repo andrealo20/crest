@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Check, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal } from "../../ui/iconset";
+import { Check, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal, X } from "../../ui/iconset";
 import { content } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
@@ -86,13 +86,14 @@ export function LauncherView() {
   );
 }
 
-/** Under the tiles: a failed launch, or the Alt+N state with the one-tap opt-in. */
+/** Under the tiles: a failed launch, or the Alt+N state with the one-tap opt-in, which its × hides for good. */
 function Footer() {
-  const { hotkeys } = settings.use().launcher;
+  const { hotkeys, hotkeyOffer } = settings.use().launcher;
   const error = launchError.use();
   const resting = hotkeysResting.use();
   if (error) return <div className="truncate pt-1 text-caption text-red">{error}</div>;
   if (hotkeys) return resting ? <div className="truncate pt-1 text-caption text-label-3">{t("Alt+1 bis Alt+6 ruhen, solange ein Spiel oder eine Vollbild-App läuft")}</div> : null;
+  if (!hotkeyOffer) return null;
   return (
     <div className="flex items-center gap-2 pt-1">
       <button
@@ -101,9 +102,17 @@ function Footer() {
       >
         {t("Alt+1 bis Alt+6 nutzen")}
       </button>
-      <span className="min-w-0 line-clamp-2 text-caption text-label-3" title={t(HOTKEY_HINT)}>
+      <span className="min-w-0 flex-1 line-clamp-2 text-caption text-label-3" title={t(HOTKEY_HINT)}>
         {t(HOTKEY_HINT)}
       </span>
+      <button
+        onClick={() => updateSettings((s) => ({ launcher: { ...s.launcher, hotkeyOffer: false } }))}
+        aria-label={t("Ausblenden")}
+        title={t("Ausblenden")}
+        className="pressable flex size-5 shrink-0 items-center justify-center rounded-full text-label-3 hover:bg-fill-2 hover:text-label-2"
+      >
+        <X size={11} weight="bold" />
+      </button>
     </div>
   );
 }
