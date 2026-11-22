@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  canvasBox, dropLens, dropShape, dropTransform, glassAllowed, glassShape, liveAccepts, liveMetaOk, liveNeed, liveStep, liveZone, lodFor, metaOk, parseTint, sameZone, shapeUniform,
-  snapshotLead, takes, textureMap, visiblePart, zoneHolds, type GlassInput, type LiveMeta, type SnapshotMeta,
+  GLASS, canvasBox, copyHolds, dockNeed, dropLens, dropShape, dropTransform, glassAllowed, glassShape, liveAccepts, liveMetaOk, liveNeed, liveStep, liveZone, lodFor, metaOk, parseTint,
+  sameZone, shapeUniform, snapshotLead, takes, textureMap, visiblePart, zoneHolds, type GlassInput, type LiveMeta, type SnapshotMeta,
 } from "./params.ts";
 
 const near = (a: readonly number[], b: readonly number[]) => assert.ok(a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-9), `${a} vs ${b}`);
@@ -165,6 +165,32 @@ test("live zone: the hover nudge's box with room for the bend, in physical px", 
   assert.deepEqual(liveNeed(peek, 0, false, { mid: 380, zoom: 1, dpr: 1.25 }), { x: 318, y: 0, w: 314, h: 63 });
   // The browser's own zoom of the notch's layer.
   assert.deepEqual(liveNeed(peek, 0, false, { mid: 380, zoom: 1.5, dpr: 2 }), { x: 385, y: 0, w: 750, h: 150 });
+});
+
+test("the tool bar's live zone: its capsule from the panel's centre with room for the bend on every side, in physical px; none until measured", () => {
+  const view = { mid: 380, zoom: 1, dpr: 2 }, zone = dockNeed({ x: 10, top: 500, w: 300, h: 40 }, 0, view);
+  assert.deepEqual(zone, liveNeed({ w: 300, h: 40, ear: 0 }, 500, true, { ...view, mid: 390 }));
+  // The capsule: 600 x 80 physical px about x 780, from y 1000; GLASS.zoneMargin at 200 % around it.
+  const m = GLASS.zoneMargin * 2, capsule = { x: 480 - m, y: 1000 - m, w: 600 + 2 * m, h: 80 + 2 * m };
+  assert.ok(zone && zoneHolds(zone, capsule), JSON.stringify(zone));
+  assert.deepEqual(zone, capsule);
+  // The panel's top in the page and the page's own zoom count as for the closed shape.
+  assert.deepEqual(dockNeed({ x: 10, top: 500, w: 300, h: 40 }, 6, { ...view, zoom: 1.5 }), liveNeed({ w: 300, h: 40, ear: 0 }, 506, true, { mid: 395, zoom: 1.5, dpr: 2 }));
+  assert.equal(dockNeed({ x: 0, top: 0, w: 0, h: 0 }, 0, view), null);
+});
+
+test("a copy holds the tool bar's box only whole", () => {
+  // The copy spans the canvas from x -10 to 190 and y 0 to 60, CSS px.
+  const map = textureMap({ left: 100, top: 0 }, 1, 2, { x: 180, y: 0, w: 400, h: 120 });
+  const bar = { x: 10, y: 0, w: 150, h: 40 };
+  assert.equal(copyHolds(map, bar), true);
+  assert.equal(copyHolds(map, { ...bar, x: -10 }), true);
+  assert.equal(copyHolds(map, { ...bar, w: 180 }), true);
+  // One CSS px past each edge.
+  assert.equal(copyHolds(map, { ...bar, x: -11 }), false);
+  assert.equal(copyHolds(map, { ...bar, y: -1 }), false);
+  assert.equal(copyHolds(map, { ...bar, w: 181 }), false);
+  assert.equal(copyHolds(map, { ...bar, h: 61 }), false);
 });
 
 test("live zone: slack on the sides, kept while it holds the shape, renewed when outgrown or much too big, inside the window", () => {

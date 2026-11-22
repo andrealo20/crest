@@ -1107,6 +1107,7 @@
  "Glas": "ガラス",
  "Liquid Glass +": "Liquid Glass +",
  "Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht": "{name} ではタスクバーの内容は常に白になり、「背景」は適用されません",
+ "Mit {name} ist auch die Werkzeugleiste der offenen Notch live aus Glas, wenn Glas der Notch an ist; solange die Notch dann offen ist, fehlt sie in Screenshots, Aufnahmen und Bildschirmfreigaben": "{name} では、ノッチの「ガラス」がオンのとき開いたノッチのツールバーもリアルタイムのガラスになり、その間ノッチが開いていればスクリーンショット、録画、画面共有に映りません",
  "Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas": "開いたパネルの後ろの画面がガラスのように透けて見えます",
  "Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt": "カプセルのとき、または開いたパネルが画面の上端から下がっているときだけ",
  "Transparenz": "透明度",

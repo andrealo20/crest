@@ -1107,6 +1107,7 @@
  "Glas": "Verre",
  "Liquid Glass +": "Liquid Glass +",
  "Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht": "Avec {name}, le contenu de la barre des tâches est toujours blanc et l'Arrière-plan ne s'applique pas",
+ "Mit {name} ist auch die Werkzeugleiste der offenen Notch live aus Glas, wenn Glas der Notch an ist; solange die Notch dann offen ist, fehlt sie in Screenshots, Aufnahmen und Bildschirmfreigaben": "Avec {name}, la barre d'outils de l'encoche ouverte est elle aussi en verre en direct, si le Verre de l'encoche est activé ; tant que l'encoche est alors ouverte, elle n'apparaît ni dans les captures d'écran, ni dans les enregistrements, ni dans les partages d'écran",
  "Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas": "Le panneau ouvert laisse voir l'écran derrière lui, comme du verre",
  "Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt": "Seulement avec la capsule, ou quand le panneau ouvert pend du bord supérieur de l'écran",
  "Transparenz": "Transparence",

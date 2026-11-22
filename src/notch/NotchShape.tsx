@@ -23,6 +23,8 @@ interface Props {
   hangs: boolean;
   /** A status alert fills the closed shape: its glass is the tool bar's clear one, without frost. */
   hud?: boolean;
+  /** The open panel's tool bar is drawn as the taskbar's Liquid Glass + (Notch.tsx plusDock). */
+  plus?: boolean;
   children?: ReactNode;
 }
 
@@ -35,7 +37,7 @@ interface Props {
  * re-render per frame. Animations are interruptible and keep their velocity
  * (important when hovering in and out quickly).
  */
-export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, glass = "off", look = "panel", top, hangs, hud = false, children }: Props) {
+export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, glass = "off", look = "panel", top, hangs, hud = false, plus = false, children }: Props) {
   const w = useMotionValue(geometry.w);
   const h = useMotionValue(geometry.h);
   const r = useMotionValue(geometry.r);
@@ -81,7 +83,7 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", thin 
       }}
     >
       {/* Under the ears and the shadow like the shape's own colour, so its ears crossfade with --shape too. */}
-      {glass !== "off" && <GlassLayer mode={glass} look={look} w={wPx} h={hPx} r={r} ear={ear} rt={rt} top={top} target={geometry} hangs={hangs} hud={hud} />}
+      {glass !== "off" && <GlassLayer mode={glass} look={look} w={wPx} h={hPx} r={r} ear={ear} rt={rt} top={top} target={geometry} hangs={hangs} hud={hud} plus={plus} />}
       <motion.span
         aria-hidden
         className="absolute top-0"

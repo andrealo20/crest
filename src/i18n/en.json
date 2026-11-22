@@ -1107,6 +1107,7 @@
  "Glas": "Glass",
  "Liquid Glass +": "Liquid Glass +",
  "Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht": "With {name} the taskbar's content is always white, and Background does not apply",
+ "Mit {name} ist auch die Werkzeugleiste der offenen Notch live aus Glas, wenn Glas der Notch an ist; solange die Notch dann offen ist, fehlt sie in Screenshots, Aufnahmen und Bildschirmfreigaben": "With {name} the open notch's tool bar is live glass too, when the notch's Glass is on; while the notch is then open, it is left out of screenshots, recordings and screen sharing",
  "Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas": "The open panel lets the screen behind it show through, like glass",
  "Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt": "Only with the capsule, or when the open panel hangs from the top edge of the screen",
  "Transparenz": "Transparency",

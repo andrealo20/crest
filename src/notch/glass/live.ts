@@ -1,7 +1,8 @@
 // The live glass on the closed notch and the capsule (docs/themes.md, Glass; capture/glass_live.rs, Windows 11 24H2): a capture session
 // around the closed shape, asked for from here one command at a time, its frames uploaded into the glass's second texture (GlassLayer.tsx).
 // While Glass and "Also the closed notch and capsule" are on, the notch window stays out of every capture, running or not; with that
-// switch off, also while a status alert is drawn as glass and a little after (Notch.tsx, liveForHud).
+// switch off, also while a status alert is drawn as glass and a little after (Notch.tsx, liveForHud), and while the open panel's tool
+// bar is drawn as the taskbar's Liquid Glass + over a session around it (liveForDock).
 
 import { createStore } from "../../lib/store";
 import { glassLive, isMac, isNative, onGlassLiveStop, onSessionState, type GlassLiveSupport, type GlassZone } from "../../platform/native";
@@ -34,13 +35,21 @@ let maxGen = 0, floor = 1, ended = 0, last = { gen: 0, seq: 0 };
 // this turn.
 let busy = false, again = false, settle = 0, moved = false, fresh = false;
 
-// A status alert wants the live glass while "Also the closed notch and capsule" is off; `resync` asks for the exclusion it needs.
-let hudWants = false, resync = () => {};
+// A status alert and the open panel's tool bar want the live glass while "Also the closed notch and capsule" is off; `resync` asks for
+// the exclusion they need.
+let hudWants = false, dockWants = false, resync = () => {};
 
 /** A status alert drawn as glass (Notch.tsx) wants the live copy, and so the exclusion, although the closed notch's own glass is off. */
 export function liveForHud(on: boolean) {
   if (on === hudWants) return;
   hudWants = on;
+  resync();
+}
+
+/** The open panel's tool bar under the taskbar's Liquid Glass + (Notch.tsx dockLive) wants the live copy, and so the exclusion, as liveForHud. */
+export function liveForDock(on: boolean) {
+  if (on === dockWants) return;
+  dockWants = on;
   resync();
 }
 
@@ -122,7 +131,7 @@ async function run(call: Api, step: NonNullable<LiveStep>) {
   }
 }
 
-/** The zone the closed shape needs (params.ts liveNeed), or null: a session for it, moved once the shape has settled, or none. */
+/** The zone the closed shape needs (params.ts liveNeed) or the open tool bar (dockNeed), or null: a session for it, moved once the shape has settled, or none. */
 export function wantLive(need: GlassZone | null) {
   window.clearTimeout(settle);
   settle = 0;
@@ -187,10 +196,10 @@ export function receiveLive(meta: unknown, data: ArrayBuffer) {
   if (!liveFrame.get()) liveFrame.set(true);
 }
 
-/** The notch's exclusion: Glass and "Also the closed notch and capsule" on, or a status alert drawn as glass. */
+/** The notch's exclusion: Glass and "Also the closed notch and capsule" on, or a status alert drawn as glass, or the open panel's tool bar. */
 const notchWants = () => {
   const t = settings.get().themes;
-  return t.glass && (t.glassLive || hudWants);
+  return t.glass && (t.glassLive || hudWants || dockWants);
 };
 
 /**
