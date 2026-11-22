@@ -28,6 +28,19 @@ test("broken values fall back, valid ones stay", () => {
   assert.equal(normalizeWindow({ resizeEdges: "no", hoverParts: 0 }).resizeEdges, true);
 });
 
+test("the tool bar stays at the bottom with its background unless saved otherwise (#76)", () => {
+  assert.equal(WINDOW_DEFAULTS.toolBar, "bottom");
+  assert.equal(WINDOW_DEFAULTS.toolBarFill, true);
+  const top = normalizeWindow({ toolBar: "top", toolBarFill: false });
+  assert.equal(top.toolBar, "top");
+  assert.equal(top.toolBarFill, false);
+  const broken = normalizeWindow({ toolBar: "left", toolBarFill: "no" });
+  assert.equal(broken.toolBar, "bottom");
+  assert.equal(broken.toolBarFill, true);
+  assert.equal(normalizeWindow(undefined).toolBar, "bottom");
+  assert.equal(normalizeWindow(undefined).toolBarFill, true);
+});
+
 test("hotkeys: missing open takes the default, an empty one stays unset, invalid ones are dropped", () => {
   assert.equal(normalizeWindow({}).hotkeys.open, "Ctrl+Alt+Space");
   assert.equal(normalizeWindow({ hotkeys: { open: "" } }).hotkeys.open, "");

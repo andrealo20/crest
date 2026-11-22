@@ -27,11 +27,15 @@ function failure(e: unknown): string {
   return t("Das hat nicht geklappt");
 }
 
-/** The controls' state, read while Overview shows (a key or the quick settings may change them); null until read or where none exist. */
-export function useQuick(): [QuickState | null, () => void] {
+/**
+ * The controls' state, read while Overview shows (a key or the quick settings may change them); null until read or where none exist.
+ * `on` false (Overview's Quick controls part switched off) reads nothing and gives null.
+ */
+export function useQuick(on = true): [QuickState | null, () => void] {
   const [state, setState] = useState<QuickState | null>(null);
   const load = useRef(() => void systemControls.quick().then(setState));
   useEffect(() => {
+    if (!on) return;
     load.current();
     const id = setInterval(load.current, 4000);
     // The microphone shortcut changes the mute from outside the page.
@@ -40,8 +44,8 @@ export function useQuick(): [QuickState | null, () => void] {
       clearInterval(id);
       off();
     };
-  }, []);
-  return [state, load.current];
+  }, [on]);
+  return [on ? state : null, load.current];
 }
 
 /** A switch's command under way and what went wrong with the last one, shared by the switches of one view. */

@@ -40,6 +40,10 @@ export interface WindowSettings {
   resizeEdges: boolean;
   /** With Open on hover, the closed-row part under the pointer picks the tool; a click on a part always does. */
   hoverParts: boolean;
+  /** The open panel's tool bar: at its bottom, or under the header (#76). */
+  toolBar: "bottom" | "top";
+  /** The tool bar's capsule behind the icons: its fill, or its glass over the glass (#76). */
+  toolBarFill: boolean;
 }
 
 export const MAX_APP_RULES = 32;
@@ -60,6 +64,8 @@ export const WINDOW_DEFAULTS: WindowSettings = {
   wheelTools: true,
   resizeEdges: true,
   hoverParts: true,
+  toolBar: "bottom",
+  toolBarFill: true,
 };
 
 const BEHAVIORS: Behavior[] = ["normal", "line", "hide"];
@@ -151,6 +157,8 @@ export function normalizeWindow(saved: unknown, legacyVisibility?: string): Wind
     wheelTools: bool(s.wheelTools, d.wheelTools),
     resizeEdges: bool(s.resizeEdges, d.resizeEdges),
     hoverParts: bool(s.hoverParts, d.hoverParts),
+    toolBar: s.toolBar === "top" ? "top" : "bottom",
+    toolBarFill: bool(s.toolBarFill, d.toolBarFill),
   };
 }
 

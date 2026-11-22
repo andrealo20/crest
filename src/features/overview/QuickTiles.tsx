@@ -15,14 +15,14 @@ import { sliderKey } from "../../ui/sliderKey";
  * the hooks hold the state and the reads, which run only while a view that uses them shows.
  */
 
-/** Playback devices: read when the view shows and each time the list opens, so one plugged in meanwhile shows up. `device` is the default output's name, null with nothing to choose from. */
-export function useOutputs(): { outputs: AudioOutput[]; choice: boolean; listOpen: boolean; device: string | null; toggle: () => void; pick: (id: string) => void } {
+/** Playback devices: read when the view shows and each time the list opens, so one plugged in meanwhile shows up. `device` is the default output's name, null with nothing to choose from. `on` false (Overview's Volume part switched off) reads nothing. */
+export function useOutputs(on = true): { outputs: AudioOutput[]; choice: boolean; listOpen: boolean; device: string | null; toggle: () => void; pick: (id: string) => void } {
   const [outputs, setOutputs] = useState<AudioOutput[]>([]);
   const [outputsOpen, setOutputsOpen] = useState(false);
   const loadOutputs = () => void systemControls.outputs().then(setOutputs).catch(() => setOutputs([]));
   useEffect(() => {
-    if (!isMac) loadOutputs();
-  }, []);
+    if (!isMac && on) loadOutputs();
+  }, [on]);
   const choice = outputs.length > 1;
   const listOpen = outputsOpen && choice;
   const pick = (id: string) => {
@@ -42,15 +42,17 @@ const brightMisses = { current: 0 };
 
 /**
  * The calling window's monitor brightness: the row shows only where Crest can set it, read every few seconds (keys, other apps).
- * `read`: the first answer is in, a level or the third miss in a row; until then `bright` is null either way.
+ * `read`: the first answer is in, a level or the third miss in a row; until then `bright` is null either way. `on` false (Overview's
+ * Brightness part switched off) reads nothing and gives null.
  */
-export function useBrightness(): { bright: number | null; read: boolean; setBright: (n: number) => void; busy: { current: boolean }; hold: { current: number } } {
+export function useBrightness(on = true): { bright: number | null; read: boolean; setBright: (n: number) => void; busy: { current: boolean }; hold: { current: number } } {
   const [bright, setBright] = useState<number | null>(null);
   const [read, setRead] = useState(false);
   const brightBusy = useRef(false);
   // Until when a reading would undo the slider: writes still going out, or just landed.
   const brightHold = useRef(0);
   useEffect(() => {
+    if (!on) return;
     const quiet = () => brightBusy.current || Date.now() < brightHold.current;
     let period = 3000;
     let id = 0;
@@ -80,8 +82,8 @@ export function useBrightness(): { bright: number | null; read: boolean; setBrig
       alive = false;
       window.clearInterval(id);
     };
-  }, []);
-  return { bright, read, setBright, busy: brightBusy, hold: brightHold };
+  }, [on]);
+  return { bright: on ? bright : null, read, setBright, busy: brightBusy, hold: brightHold };
 }
 
 const OUTPUT_ICONS = { headphones: Headphones, "speaker-hifi": SpeakerHifi, speaker: SpeakerSimpleHigh };
