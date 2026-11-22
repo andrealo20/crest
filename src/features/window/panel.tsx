@@ -14,6 +14,8 @@ import { updateBehavior } from "./store";
 
 /** The size while an edge is being dragged; saved on release. */
 const live = createStore<({ tabId: string } & Size) | null>(null);
+/** An edge of the open panel is being dragged. */
+export const useResizing = () => live.use() !== null;
 
 /** The open size of a tool: dragging, else saved, else its default, within its limits on this monitor. */
 export function useToolSize(id: string, def: Size): Size {

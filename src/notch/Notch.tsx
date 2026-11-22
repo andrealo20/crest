@@ -18,7 +18,7 @@ import { CARD_H, CARD_INSET } from "./row/NoticeCard";
 import { Nest } from "./pet/Nest";
 import { powerState, statusAlert } from "../features/status/store";
 import { effectiveIdleStyle, screen } from "../features/window/store";
-import { ResizeHandles, stepToolSize, useToolSize, wheelTaken } from "../features/window/panel";
+import { ResizeHandles, stepToolSize, useResizing, useToolSize, wheelTaken } from "../features/window/panel";
 import { cycle } from "../features/window/model";
 import { display, windowShell } from "../platform/services";
 import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
@@ -62,7 +62,7 @@ import { dueTasks } from "../features/todos/store";
 import { asks, popping } from "../features/notices/store";
 import { activeTheme, forcedColors, refreshTheme, useClosedGlassInk, useClosedInk, useThemedAccent } from "../features/themes/store";
 import { useHue, useIconColors, type Hue } from "../features/themes/hues";
-import { HUE_PILL } from "../features/themes/themes";
+import { HUE_PILL, plusInk } from "../features/themes/themes";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
 import { viewMetrics, viewZoom } from "./viewZoom";
@@ -495,10 +495,12 @@ export function Notch() {
   // monitor with another scale they change after `place` has, and the zone, in physical px, is taken again for them.
   const view = viewMetrics.use();
   const reach = peekGeometry(surface, closedW, shapeH);
-  // Open, the tool bar's zone under Liquid Glass +, from its capsule as measured (glass/bar.ts).
+  // Open, the tool bar's zone under Liquid Glass +, from its capsule as measured (glass/bar.ts). None while a grip resizes the panel:
+  // the bar moves with nearly every pointer move, and each new zone would be a new session; one for where it ends, on release.
   const bar = barRect.use();
+  const resizing = useResizing();
   const at = { mid: view.width / 2 + (isNative ? 0 : drag.offset * viewZoom()), zoom: viewZoom(), dpr: view.dpr };
-  const need = liveAllowed && status === "closed" ? liveNeed(reach, top, surface === "capsule", at) : dockLive ? dockNeed(bar, top, at) : null;
+  const need = liveAllowed && status === "closed" ? liveNeed(reach, top, surface === "capsule", at) : dockLive && !resizing ? dockNeed(bar, top, at) : null;
   const needKey = need && `${need.x},${need.y},${need.w},${need.h}`;
   // Before the zone: at a close the exclusion goes back first, and Rust stops the session with it.
   useEffect(() => liveForDock(dockLive), [dockLive]);
@@ -859,9 +861,9 @@ function Dock({ tabs, activeId, liquid, fades, top, plus }: { tabs: NotchTab[]; 
         ref={capsule}
         {...handlers}
         // Over the glass the icons, the mark and the dot take the one ink that reads best over the bar's clear veil (themes.ts glassInk);
-        // over Liquid Glass + the closed notch's, as on the taskbar (BarGlass.tsx). Where the glass does not show, the theme's: an
-        // opaque light panel cannot take white.
-        style={glassBar && plus ? { ...darkInk(), "--accent": darkInk()["--theme-accent"] } : glassBar ? barInk(theme, hues) : undefined}
+        // over Liquid Glass + the closed notch's, as on the taskbar (BarGlass.tsx), its hues and link flattened to its label (plusInk).
+        // Where the glass does not show, the theme's: an opaque light panel cannot take white.
+        style={glassBar && plus ? plusInk(darkInk(), hues) : glassBar ? barInk(theme, hues) : undefined}
         // Round ends by the look, not by whether the glass shows, as on the taskbar (look.ts barRadius).
         className={`relative flex h-10 max-w-full items-center ${plus && fill ? "rounded-full" : "rounded-[14px] material:rounded-[20px]"} p-0.5 ${fades ? FILL_FADE : ""} ${fill && !liquid ? "bg-fill-2" : "bg-transparent"}`}
       >
