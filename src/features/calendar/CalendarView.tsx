@@ -9,7 +9,7 @@ import type { CalendarEvent } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { Button, Empty, Skeleton } from "../../ui/controls";
 import { locale, t } from "../../i18n";
-import { agenda, dayLabel, meetingLink, monthGrid, startOfDay } from "./model";
+import { agenda, dayLabel, firstWeekday, meetingLink, monthGrid, startOfDay } from "./model";
 import { calendar, joinMeeting, refreshCalendar, useCalendarViewer } from "./store";
 
 const DAYS = 7;
@@ -165,17 +165,6 @@ export function CalendarView() {
   );
 }
 
-/** First day of the week for the UI language (Intl week info), Monday when the runtime cannot tell. */
-function firstWeekday(): number {
-  try {
-    const l = new Intl.Locale(locale()) as Intl.Locale & { getWeekInfo?: () => { firstDay: number }; weekInfo?: { firstDay: number } };
-    const info = l.getWeekInfo?.() ?? l.weekInfo;
-    return info ? info.firstDay % 7 : 1;
-  } catch {
-    return 1;
-  }
-}
-
 /*
  *   ‹  November 2026  ›
  *   M  T  W  T  F  S  S
@@ -190,7 +179,7 @@ function Month(p: { events: CalendarEvent[]; colors: Map<string, string>; now: n
   anchor.setDate(1);
   anchor.setMonth(anchor.getMonth() + shift);
   const title = anchor.toLocaleDateString(locale(), { month: "long", year: "numeric" });
-  const cells = monthGrid(p.events, anchor.getTime(), firstWeekday());
+  const cells = monthGrid(p.events, anchor.getTime(), firstWeekday(locale()));
   const step = (by: number) => setShift((s) => Math.min(2, Math.max(-1, s + by)));
   const arrow = "pressable rounded-full p-1 text-label-3 hover:text-label-2 disabled:opacity-30";
   return (

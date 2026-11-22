@@ -136,6 +136,24 @@ export function monthGrid<T extends CalendarEventLike & { calendar: string }>(
   });
 }
 
+/** First day of the week for the language `lang` (Intl week info, 0 Sunday, 1 Monday ...), Monday when the runtime cannot tell. */
+export function firstWeekday(lang: string): number {
+  try {
+    const l = new Intl.Locale(lang) as Intl.Locale & { getWeekInfo?: () => { firstDay: number }; weekInfo?: { firstDay: number } };
+    const info = l.getWeekInfo?.() ?? l.weekInfo;
+    return info ? info.firstDay % 7 : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/** The seven local midnights of the week `now` falls in, from `firstWeekday` (0 Sunday, 1 Monday ...), as monthGrid lays a row. */
+export function weekOf(now: number, firstWeekday: number): number[] {
+  const today = startOfDay(now);
+  const start = addDays(today, -((new Date(today).getDay() - firstWeekday + 7) % 7));
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
 /** The next timed event that has not started yet (all-day events have no time to wait for). */
 export function nextEvent<T extends CalendarEventLike>(events: T[], now: number): T | null {
   let best: T | null = null;

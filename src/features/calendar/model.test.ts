@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CALENDAR_DEFAULTS, PALETTE, agenda, dayLabel, dueEvent, linkHost, meetingLink, newSourceId, nextChange, nextColor, monthGrid, nextEvent, normalizeCalendar } from "./model.ts";
+import { CALENDAR_DEFAULTS, PALETTE, agenda, dayLabel, dueEvent, firstWeekday, linkHost, meetingLink, newSourceId, nextChange, nextColor, monthGrid, nextEvent, normalizeCalendar, weekOf } from "./model.ts";
 
 const at = (d: number, h = 0, m = 0) => new Date(2026, 10, d, h, m).getTime(); // November 2026
 const ev = (id: string, start: number, end: number, allDay = false) => ({ id, start, end, allDay });
@@ -115,6 +115,21 @@ test("month grid: six weeks from the first weekday, calendars per day", () => {
   assert.deepEqual(cell(5).calendars, ["work"]);
   assert.deepEqual(cell(6).calendars, ["work"]);
   assert.deepEqual(cell(7).calendars, []);
+});
+
+test("the week around a day: its seven midnights from the first weekday, across a month's end", () => {
+  // Wednesday 2 December 2026, at noon.
+  const wed = new Date(2026, 11, 2, 12).getTime();
+  assert.deepEqual(weekOf(wed, 1), [30, 31, 32, 33, 34, 35, 36].map((d) => at(d)));
+  assert.deepEqual(weekOf(wed, 0), [29, 30, 31, 32, 33, 34, 35].map((d) => at(d)));
+  // On the first weekday itself the week starts that day.
+  assert.deepEqual(weekOf(at(29, 23, 59), 0)[0], at(29));
+  assert.deepEqual(weekOf(at(29, 23, 59), 1)[6], at(29));
+});
+
+test("the first weekday of a language, Monday when the runtime cannot tell", () => {
+  assert.equal(firstWeekday(""), 1);
+  assert.ok([0, 1, 6].includes(firstWeekday("en-US")));
 });
 
 test("meeting links from the URL, location or description", () => {

@@ -8,6 +8,8 @@ import { FONTS } from "../../features/themes/themes";
 export let ROW_FONT = `500 12px ${FONTS.inter}`;
 /** text-caption font-medium, the FPS label and a card's text. */
 export let CAPTION_FONT = `500 11px ${FONTS.inter}`;
+/** text-title font-semibold, the bar's large figures (the world time, the calendar sheet's day). Measured without text-title's tracking, which only narrows it. */
+export let TITLE_FONT = `600 15px ${FONTS.inter}`;
 /** text-caption's letter-spacing in px, which the canvas leaves out (themes.ts captionSpacing). */
 let captionSpacing = 0.11;
 
@@ -35,6 +37,7 @@ document.fonts?.addEventListener("loadingdone", invalidate);
 export function setRowFamily(family: string, spacing: number) {
   ROW_FONT = `500 12px ${family}`;
   CAPTION_FONT = `500 11px ${family}`;
+  TITLE_FONT = `600 15px ${family}`;
   captionSpacing = spacing;
   invalidate();
 }
