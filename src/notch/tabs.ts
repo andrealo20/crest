@@ -113,7 +113,7 @@ export const tabs: NotchTab[] = ([
     // follows the settings.
     get size() {
       const { quotes, search, overview } = settings.get().productivity;
-      return { w: 520, h: overviewHeight(overview) + (quotes ? QUOTE_LINE_H : 0) + (search !== "off" ? SEARCH_LINE_H : 0) };
+      return { w: 520, h: overviewHeight(overview, isMac) + (quotes ? QUOTE_LINE_H : 0) + (search !== "off" ? SEARCH_LINE_H : 0) };
     },
     View: OverviewView,
   },

@@ -49,7 +49,7 @@ export function OverviewView() {
   // `parts`: which parts show (parts.ts, Settings > Tools); a hidden one reads nothing, and the size getter (tabs.ts) leaves out its row.
   const { quotes, search, overview: parts } = settings.use().productivity;
 
-  const { outputs, listOpen: listWanted, device, toggle, pick } = useOutputs();
+  const { outputs, listOpen: listWanted, device, toggle, pick } = useOutputs(parts.volume);
   // The output list hangs from the volume tile.
   const listOpen = listWanted && parts.volume;
   const { bright, setBright, busy, hold } = useBrightness(parts.brightness);

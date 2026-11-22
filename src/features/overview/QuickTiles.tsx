@@ -15,14 +15,14 @@ import { sliderKey } from "../../ui/sliderKey";
  * the hooks hold the state and the reads, which run only while a view that uses them shows.
  */
 
-/** Playback devices: read when the view shows and each time the list opens, so one plugged in meanwhile shows up. `device` is the default output's name, null with nothing to choose from. */
-export function useOutputs(): { outputs: AudioOutput[]; choice: boolean; listOpen: boolean; device: string | null; toggle: () => void; pick: (id: string) => void } {
+/** Playback devices: read when the view shows and each time the list opens, so one plugged in meanwhile shows up. `device` is the default output's name, null with nothing to choose from. `on` false (Overview's Volume part switched off) reads nothing. */
+export function useOutputs(on = true): { outputs: AudioOutput[]; choice: boolean; listOpen: boolean; device: string | null; toggle: () => void; pick: (id: string) => void } {
   const [outputs, setOutputs] = useState<AudioOutput[]>([]);
   const [outputsOpen, setOutputsOpen] = useState(false);
   const loadOutputs = () => void systemControls.outputs().then(setOutputs).catch(() => setOutputs([]));
   useEffect(() => {
-    if (!isMac) loadOutputs();
-  }, []);
+    if (!isMac && on) loadOutputs();
+  }, [on]);
   const choice = outputs.length > 1;
   const listOpen = outputsOpen && choice;
   const pick = (id: string) => {

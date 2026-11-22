@@ -7,7 +7,7 @@ const only = (...on: (keyof OverviewParts)[]): OverviewParts => Object.fromEntri
 test("every part shows by default, at today's height", () => {
   assert.ok(OVERVIEW_PARTS.every((id) => OVERVIEW_PARTS_DEFAULT[id]));
   assert.deepEqual(normalizeOverviewParts(undefined, false), OVERVIEW_PARTS_DEFAULT);
-  assert.equal(overviewHeight(OVERVIEW_PARTS_DEFAULT), 252);
+  assert.equal(overviewHeight(OVERVIEW_PARTS_DEFAULT, false), 252);
 });
 
 test("saved parts keep their booleans, anything else shows", () => {
@@ -48,7 +48,7 @@ test("the last part that always shows stays on; brightness and quick controls ca
 });
 
 test("a hidden row gives back its height and its gap", () => {
-  const off = (...ids: (keyof OverviewParts)[]) => overviewHeight({ ...OVERVIEW_PARTS_DEFAULT, ...Object.fromEntries(ids.map((id) => [id, false])) });
+  const off = (...ids: (keyof OverviewParts)[]) => overviewHeight({ ...OVERVIEW_PARTS_DEFAULT, ...Object.fromEntries(ids.map((id) => [id, false])) }, false);
   // The weather alone keeps the row, at its own 42 px instead of the clock's 54.
   assert.equal(off("clock"), 240);
   assert.equal(off("weather"), 252);
@@ -59,6 +59,11 @@ test("a hidden row gives back its height and its gap", () => {
   // Brightness and quick controls grow the panel only while they show (OverviewView's requestSize).
   assert.equal(off("brightness", "controls"), 252);
   // Under the 150 px floor, which sizeFor raises it to.
-  assert.equal(overviewHeight(only("clock")), 148);
-  assert.equal(overviewHeight(only("weather")), 136);
+  assert.equal(overviewHeight(only("clock"), false), 148);
+  assert.equal(overviewHeight(only("weather"), false), 136);
+});
+
+test("a Mac never shows the tiles, so their row is never counted there", () => {
+  assert.equal(overviewHeight(OVERVIEW_PARTS_DEFAULT, true), 202);
+  assert.equal(overviewHeight(only("clock", "focus", "awake", "volume"), true), 148);
 });

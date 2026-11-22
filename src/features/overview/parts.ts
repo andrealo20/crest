@@ -32,13 +32,13 @@ export function setOverviewPart(parts: OverviewParts, id: OverviewPart, on: bool
  * Overview's default height with these parts: 252 with all of them, each row hidden giving back its height and the 10 px gap above
  * the next. The header row is 54 px with the standard clock (34 px, mt-1 and a 16 px footnote line; another clock look is 58 px, 4 px
  * over as before) and 42 px with the weather alone (its 22 px row, mt-1 and the footnote). Brightness and the quick controls are added
- * by OverviewView while they show, as the output list is.
+ * by OverviewView while they show, as the output list is. A Mac never shows the tiles, so their row is left out there.
  */
-export function overviewHeight(parts: OverviewParts): number {
+export function overviewHeight(parts: OverviewParts, mac: boolean): number {
   let h = 252;
   if (!parts.clock && !parts.weather) h -= 64;
   else if (!parts.clock) h -= 12;
   if (!parts.activity) h -= 54;
-  if (!TILES.some((id) => parts[id])) h -= 50;
+  if (mac || !TILES.some((id) => parts[id])) h -= 50;
   return h;
 }
