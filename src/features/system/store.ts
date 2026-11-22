@@ -5,6 +5,8 @@ import { barParts, rowVisible } from "../../notch/row/visibility";
 import { fetchSystem, type GpuReading, type ProcReading, type SystemStats, type SystemWant } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { onBarShows } from "../taskbar/barPanels";
+import { variantOf } from "../taskbar/model";
+import { systemWant } from "../taskbar/systemWidgets";
 import { fullscreen, gamingLive } from "./gaming";
 import { buildBattery, discharge, type BatterySample } from "./battery";
 import { pickGpu } from "./levels";
@@ -37,7 +39,7 @@ export interface SystemState {
   power: PowerSample | null;
   battery: BatterySample | null;
   drives: Drive[];
-  /** Ranked steadily; only while the tool is shown. */
+  /** Ranked steadily; only while the tool is shown or the bar's Top apps widget is on the bar. */
   processes: { cpu: ProcReading[]; mem: ProcReading[] } | null;
 }
 
@@ -47,7 +49,7 @@ const emptyHistory = (): Record<SystemKey, number[]> => ({ cpu: [], mem: [], gpu
  * Runs in the background from app start (not only while the tool is open), so the
  * history is a minute long when opened and gaming mode shares the same values.
  * Only pauses when neither the Hardware tool, a bar's panel showing it, gaming mode nor readings in the closed row or on Crest's
- * bar are on.
+ * bar are on. The process list is also kept for the bar's Top apps widget, on the background rhythm and fresh at most every 5 s.
  *
  * Three rhythms, slow ones filled in linearly so the history keeps one value per second:
  * - shown (Hardware tool open, here or in a bar's panel): everything once a second;
@@ -89,10 +91,10 @@ let lastProcesses: number | null = null;
 const zones = new SteadyZones();
 const byCpu = SteadyRanking.cpu(), byMem = SteadyRanking.memory();
 
-/** What the closed row, or the bar's readings widget, reads besides CPU, RAM and GPU. */
+/** What the closed row, or the bar's readings, network line and Top apps widgets, read besides CPU, RAM and GPU. */
 function rowWant(): SystemWant {
-  const s = settings.get(), on = (s.closed.parts.readings && rowVisible.get()) || barParts.get().includes("readings"), r = s.closed.readings;
-  return { net: on && r.net, temps: on && r.temp, power: on && r.power, battery: on && (r.battery || r.power), processes: false };
+  const s = settings.get();
+  return systemWant(s.closed.parts.readings && rowVisible.get(), s.closed.readings, barParts.get(), variantOf(s.taskbar.variants, "readings"));
 }
 
 function poll(ms: number) {
@@ -181,7 +183,7 @@ function wanted(): boolean {
   if (shown.get() > 0) return true;
   const s = settings.get();
   // The nest's pet runs with the CPU load, so it reads the background rhythm too.
-  return s.tools.some((x) => x.id === "system" && x.enabled) || s.gaming.mode !== "off" || ((s.closed.parts.readings || s.closed.pet.id !== null) && rowVisible.get()) || barParts.get().includes("readings");
+  return s.tools.some((x) => x.id === "system" && x.enabled) || s.gaming.mode !== "off" || ((s.closed.parts.readings || s.closed.pet.id !== null) && rowVisible.get()) || barParts.get().includes("readings") || barParts.get().includes("processes");
 }
 
 function rhythm(): number {
