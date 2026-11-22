@@ -65,7 +65,7 @@ use super::{affinity, backdrop, glass_flag, one_at_a_time, own_hwnd, record, Cap
 /// pacing them in the handler loses the end of a burst, which then stays on the glass at a still screen.
 const FIRST_BUILD: u32 = 26100;
 /// Frames a second when the page asks for none, and the fewest it may ask for: fewer would not spare the compositor, which does
-/// most of the work. As many on battery.
+/// most of the work. The rate asked for holds on battery too.
 const FPS: u32 = 10;
 /// The most frames a second the page may ask for (Settings, Frames per second).
 const MAX_FPS: u32 = 30;
