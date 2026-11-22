@@ -9,6 +9,7 @@ import { receivePluginNotice } from "../notices/store";
 import { lang, t } from "../../i18n";
 import { Empty } from "../../ui/controls";
 import { API, allowNotice, clampSize, pageUrl, parseRequest, permitted, plainText, toolId, type PluginManifest, type PluginRequest } from "./model";
+import { setPluginPill, clearPluginPill } from "./store";
 
 /** The theme tokens a page gets: Crest's colour variables by their short name, and the font. */
 const TOKENS = ["accent", "label", "label-2", "label-3", "label-4", "fill-1", "fill-2", "fill-3", "separator", "elevated", "notch", "link", "green", "orange", "red", "yellow"];
@@ -62,6 +63,15 @@ function handler(m: PluginManifest) {
         const size = clampSize(req.w, req.h);
         requestSize(toolId(m.id), size);
         return size;
+      }
+      case "pill.set": {
+        const text = req.text ? plainText(req.text) : undefined;
+        setPluginPill(m.id, { text, icon: req.icon, color: req.color });
+        return null;
+      }
+      case "pill.clear": {
+        clearPluginPill(m.id);
+        return null;
       }
     }
   };

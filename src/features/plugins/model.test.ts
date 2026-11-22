@@ -52,6 +52,22 @@ test("fields are checked", () => {
   assert.equal(msg({ type: "resize", w: "400", h: 300 }).kind, "error");
 });
 
+test("pill requests are checked", () => {
+  assert.equal(msg({ type: "pill.set", text: "BTC $95k", icon: "chart", color: "#10b981" }).kind, "ok");
+  assert.equal(msg({ type: "pill.set", text: "25:00" }).kind, "ok");
+  assert.equal(msg({ type: "pill.set", icon: "clock" }).kind, "ok");
+  assert.equal(msg({ type: "pill.set" }).kind, "ok");
+  assert.equal(msg({ type: "pill.clear" }).kind, "ok");
+
+  // Invalid pill fields
+  assert.equal(msg({ type: "pill.set", text: "x".repeat(33) }).kind, "error", "text over 32 chars");
+  assert.equal(msg({ type: "pill.set", icon: "not-an-icon" }).kind, "error", "unknown icon");
+  assert.equal(msg({ type: "pill.set", color: "red" }).kind, "error", "color must be hex format");
+  assert.equal(msg({ type: "pill.set", color: "#12" }).kind, "error", "color too short");
+  assert.equal(msg({ type: "pill.set", extra: 1 }).kind, "error", "extra field");
+  assert.equal(msg({ type: "pill.clear", extra: 1 }).kind, "error", "extra field");
+});
+
 test("permissions", () => {
   const m: PluginManifest = { id: "a-b", name: "A", version: "1.0.0", author: "", description: "", icon: "puzzle", entry: "index.html", size: { w: 400, h: 300 }, permissions: { network: [], storage: false, notices: false } };
   const req = (o: Record<string, unknown>) => { const p = msg(o); assert.ok(p.kind === "ok"); return p.req; };
@@ -59,10 +75,14 @@ test("permissions", () => {
   assert.equal(permitted(req({ type: "storage.keys" }), m), false);
   assert.equal(permitted(req({ type: "fetch", url: "https://x" }), m), false);
   assert.equal(permitted(req({ type: "notify", title: "x" }), m), false);
+  assert.equal(permitted(req({ type: "pill.set", text: "hi" }), m), true);
+  assert.equal(permitted(req({ type: "pill.clear" }), m), true);
   const all = { ...m, permissions: { network: ["x.com"], storage: true, notices: true } };
   assert.equal(permitted(req({ type: "storage.keys" }), all), true);
   assert.equal(permitted(req({ type: "fetch", url: "https://x" }), all), true);
   assert.equal(permitted(req({ type: "notify", title: "x" }), all), true);
+  assert.equal(permitted(req({ type: "pill.set", text: "hi" }), all), true);
+  assert.equal(permitted(req({ type: "pill.clear" }), all), true);
 });
 
 test("sizes, ids, notices, text", () => {
