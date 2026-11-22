@@ -481,6 +481,18 @@ export function glassInk(theme: ResolvedTheme, hues: boolean): Record<string, st
   return out;
 }
 
+/**
+ * The tool bar's colours over Liquid Glass + (Notch.tsx Dock): the closed notch's ink `vars` (darkInk) with its accent, and the update
+ * dot's link colour and, with coloured icons, every hue its label, as glassInk does: the pill's brightness cap is too coarse for a colour
+ * to keep 3:1 over a live backdrop seen through so thin a veil. Its second label stays, as on the taskbar.
+ */
+export function plusInk(vars: Record<string, string>, hues: boolean): Record<string, string> {
+  const label = vars["--color-label"];
+  const out: Record<string, string> = { ...vars, "--accent": vars["--theme-accent"], "--color-link": label };
+  if (hues) for (const hue of Object.keys(HUE_PALETTE)) out[`--hue-${hue}`] = label;
+  return out;
+}
+
 /** Before 0.3.3 a Hardware switch coloured only the closed-row readings; saved settings that had it on keep coloured icons. */
 export const legacyIconColors = (system: unknown) => typeof system === "object" && system !== null && (system as { iconColors?: unknown }).iconColors === true;
 

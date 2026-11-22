@@ -1107,6 +1107,7 @@
  "Glas": "Стекло",
  "Liquid Glass +": "Liquid Glass +",
  "Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht": "С {name} содержимое панели задач всегда белое, а Фон не действует",
+ "Mit {name} ist auch die Werkzeugleiste der offenen Notch live aus Glas, wenn Glas der Notch an ist; solange die Notch dann offen ist, fehlt sie in Screenshots, Aufnahmen und Bildschirmfreigaben": "С {name} панель инструментов открытого выреза тоже становится живым стеклом, если «Стекло» выреза включено; пока вырез при этом открыт, он не попадает в снимки экрана, записи и демонстрацию экрана",
  "Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas": "Сквозь открытую панель, как сквозь стекло, видно экран за ней",
  "Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt": "Только с капсулой или когда открытая панель свисает с верхнего края экрана",
  "Transparenz": "Прозрачность",

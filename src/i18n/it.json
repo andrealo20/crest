@@ -1107,6 +1107,7 @@
  "Glas": "Vetro",
  "Liquid Glass +": "Liquid Glass +",
  "Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht": "Con {name} il contenuto della barra delle applicazioni è sempre bianco e lo Sfondo non conta",
+ "Mit {name} ist auch die Werkzeugleiste der offenen Notch live aus Glas, wenn Glas der Notch an ist; solange die Notch dann offen ist, fehlt sie in Screenshots, Aufnahmen und Bildschirmfreigaben": "Con {name} anche la barra degli strumenti del notch aperto è di vetro dal vivo, se il Vetro del notch è attivo; finché il notch resta aperto, non compare in screenshot, registrazioni e condivisioni dello schermo",
  "Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas": "Il pannello aperto lascia trasparire lo schermo che ha dietro, come il vetro",
  "Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt": "Solo con la capsula, o quando il pannello aperto è appeso al bordo superiore dello schermo",
  "Transparenz": "Trasparenza",

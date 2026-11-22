@@ -137,6 +137,30 @@ test("the notch's condition asks for no exclusion with its glass off", async () 
   assert.deepEqual(page.log, ["exclude false"]);
 });
 
+test("the open panel's tool bar under Liquid Glass + asks for the exclusion with the closed notch's switch off, and puts it back as it ends", async () => {
+  const t = await load({ glass: true, glassLive: false });
+  await t.answer("exclude");
+  t.live.liveForDock(true);
+  assert.equal(page.log.at(-1), "exclude true");
+  await t.answer("exclude");
+  t.live.wantLive(NEED);
+  assert.deepEqual([last()?.name, last()?.arg], ["start", ZONE]);
+  await t.answer("start", { gen: 3, ...ZONE });
+  // The close, in the order Notch.tsx runs its effects: the exclusion goes back first, and Rust stops the session with it.
+  t.live.liveForDock(false);
+  t.live.wantLive(null);
+  await t.answer("exclude");
+  assert.deepEqual(page.log, ["exclude false", "exclude true", "start", "exclude false"]);
+  assert.equal(page.calls.length, 0);
+});
+
+test("with Glass off the tool bar asks for no exclusion", async () => {
+  const t = await load({ glass: false, glassLive: false });
+  t.live.liveForDock(true);
+  await t.answer("exclude");
+  assert.deepEqual(page.log, ["exclude false"]);
+});
+
 test("at load: the exclusion first, then a stop for the session a page before may have left", async () => {
   const t = await load();
   assert.deepEqual(page.log, ["exclude true"]);

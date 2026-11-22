@@ -30,6 +30,23 @@ test("every uniform Liquid Glass + declares is set by the bar's paint with the c
     assert.ok(own.includes(`gl.${call}`), call);
 });
 
+test("every uniform Liquid Glass + declares is set by the notch's tool bar pass, which turns blending and the scissor off again", () => {
+  const notch = readFileSync(new URL("../../../notch/glass/GlassLayer.tsx", import.meta.url), "utf8");
+  // From the pass's own block, after the panel's draw: the panel's part of paint sets uRes, uLod and others of its own.
+  const at = notch.indexOf("if (plusBar) {"), end = notch.indexOf("const draw = () =>", at);
+  assert.ok(at > 0 && end > at, "no if (plusBar) { ... } before draw in GlassLayer.tsx");
+  assert.ok(notch.lastIndexOf("gl.drawArrays(", at) > 0, "the plus pass comes after the panel's draw");
+  const pass = notch.slice(at, end);
+  for (const call of [
+    "uniform2f(u.uRes,", "uniform1f(u.uDpr,", "uniform2f(u.uTexScale,", "uniform2f(u.uTexOffset,", 'uniform4fv(u["uRects[0]"],', "uniform1i(u.uCount,", "uniform1f(u.uRadius,",
+    "uniform1f(u.uDocked,", "uniform2f(u.uLens,", "uniform2f(u.uLod,", "uniform1f(u.uVeilLod,", "uniform3f(u.uTint,", "uniform1f(u.uTarget,", "uniform1f(u.uSpec,",
+  ])
+    assert.ok(pass.includes(`gl.${call}`), call);
+  const on = pass.indexOf("gl.enable(gl.BLEND)"), drawn = pass.indexOf("gl.drawArrays(");
+  assert.ok(on > 0 && drawn > on, "the pass blends its draw");
+  for (const off of ["gl.disable(gl.BLEND)", "gl.disable(gl.SCISSOR_TEST)"]) assert.ok(pass.indexOf(off) > drawn, off);
+});
+
 test("only Liquid Glass + picks another program, so switching between Crest's and Material's Glass keeps the renderer and its frame", () => {
   const setup = /const g = startBarGlass\([\s\S]*?\}, \[(.*?)\]\);/.exec(paint);
   assert.ok(setup, "no renderer setup effect");

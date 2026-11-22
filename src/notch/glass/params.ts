@@ -197,6 +197,20 @@ export function liveNeed(reach: ShapeSize, top: number, floating: boolean, view:
 }
 
 /**
+ * The zone the open panel's tool bar needs under Liquid Glass + (Notch.tsx): its capsule `bar` (bar.ts barRect, CSS px from the panel's
+ * centre and top) with room for the bend on every side, the panel's top at `top`; `view` as for liveNeed. Null until it is measured.
+ */
+export function dockNeed(bar: { x: number; top: number; w: number; h: number }, top: number, view: { mid: number; zoom: number; dpr: number }): Zone | null {
+  return bar.w > 0 ? liveNeed({ w: bar.w, h: bar.h, ear: 0 }, top + bar.top, true, { ...view, mid: view.mid + bar.x * view.zoom }) : null;
+}
+
+/** Whether a copy placed by textureMap holds the whole of `box` (CSS px of the canvas); a millionth of its size spares rounding. */
+export function copyHolds(map: { scale: [number, number]; offset: [number, number] }, box: { x: number; y: number; w: number; h: number }): boolean {
+  const inside = (from: number, size: number, i: 0 | 1) => from * map.scale[i] + map.offset[i] >= -1e-6 && (from + size) * map.scale[i] + map.offset[i] <= 1 + 1e-6;
+  return inside(box.x, box.w, 0) && inside(box.y, box.h, 1);
+}
+
+/**
  * The zone to capture for `need`, inside the window `win`: `current` while it still holds `need` and is not much wider or taller (a row a
  * few px wider or narrower opens no session), else `need` with `slack` physical px on each side.
  */

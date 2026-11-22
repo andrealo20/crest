@@ -1107,6 +1107,7 @@
  "Glas": "زجاج",
  "Liquid Glass +": "Liquid Glass +",
  "Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht": "مع {name} يكون محتوى شريط المهام أبيض دائمًا، ولا تنطبق الخلفية",
+ "Mit {name} ist auch die Werkzeugleiste der offenen Notch live aus Glas, wenn Glas der Notch an ist; solange die Notch dann offen ist, fehlt sie in Screenshots, Aufnahmen und Bildschirmfreigaben": "مع {name} يصبح شريط أدوات النوتش المفتوح أيضًا زجاجًا مباشرًا إذا كان زجاج النوتش مفعّلًا؛ وما دام النوتش مفتوحًا حينها، لا يظهر في لقطات الشاشة والتسجيلات ومشاركة الشاشة",
  "Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas": "تُظهر اللوحة المفتوحة الشاشة التي خلفها، مثل الزجاج",
  "Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt": "فقط مع الكبسولة، أو عندما تتدلى اللوحة المفتوحة من الحافة العلوية للشاشة",
  "Transparenz": "الشفافية",

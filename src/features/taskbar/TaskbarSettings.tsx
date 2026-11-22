@@ -487,6 +487,7 @@ export function TaskbarLook() {
             <>
               {t("Zeigt live, was hinter der Taskleiste liegt, bis zu {n}-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.", { n: fps })}
               {plus && <span className="mt-1 block">{t("Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht", { name })}</span>}
+              {plus && <span className="mt-1 block">{t("Mit {name} ist auch die Werkzeugleiste der offenen Notch live aus Glas, wenn Glas der Notch an ist; solange die Notch dann offen ist, fehlt sie in Screenshots, Aufnahmen und Bildschirmfreigaben", { name })}</span>}
               <span className="mt-1 flex items-start gap-1 text-caution">
                 <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
                 {t("Braucht mehr Akku: Windows hat bei jeder Änderung auf dem Bildschirm mehr Arbeit")}

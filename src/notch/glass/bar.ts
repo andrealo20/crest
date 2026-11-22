@@ -6,12 +6,15 @@ import { useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type Poi
 import { animate, cancelFrame, frame, motionValue, useReducedMotion, type MotionValue } from "motion/react";
 import { springs } from "../../design/motion";
 import { glassInk, type ResolvedTheme } from "../../features/themes/themes";
+import { createStore } from "../../lib/store";
 import { onNativeHover } from "../../platform/native";
 import { viewZoom } from "../viewZoom";
 import { dropShape, dropTransform, visiblePart } from "./params";
 
 /** The capsule: its centre's x from the open panel's centre, its top in the panel, its size; CSS px. Width 0 until measured. */
 export const barBox = { x: motionValue(0), top: motionValue(0), w: motionValue(0), h: motionValue(0) };
+/** barBox for React (Notch.tsx, the live zone of the tool bar under Liquid Glass +): set only when it changes, width 0 while no Dock is measured. */
+export const barRect = createStore({ x: 0, top: 0, w: 0, h: 0 });
 /**
  * The drop: centre x from the panel's centre, the box of the tool under it (width 0: none), lift (0 resting, 1 a lens under the
  * pointer), press (a click's squash).
@@ -44,10 +47,14 @@ export function useBarDrop(capsule: RefObject<HTMLDivElement | null>, strip: Ref
     if (!cap || !panel) return;
     // Relative to the panel's rect, so its slide in and out cancels out; over the browser's CSS zoom (1 in the app).
     const z = viewZoom(), p = panel.getBoundingClientRect(), c = cap.getBoundingClientRect(), mid = p.left + p.width / 2;
-    barBox.x.jump((c.left + c.width / 2 - mid) / z);
-    barBox.top.jump((c.top - p.top) / z);
-    barBox.w.jump(c.width / z);
-    barBox.h.jump(c.height / z);
+    const rect = { x: (c.left + c.width / 2 - mid) / z, top: (c.top - p.top) / z, w: c.width / z, h: c.height / z };
+    barBox.x.jump(rect.x);
+    barBox.top.jump(rect.top);
+    barBox.w.jump(rect.w);
+    barBox.h.jump(rect.h);
+    // Every hover measures again: not for the 1e-13 px a measure can differ by.
+    const was = barRect.get();
+    if ((Object.keys(rect) as (keyof typeof rect)[]).some((k) => Math.abs(rect[k] - was[k]) > 0.01)) barRect.set(rect);
     const b = cap.querySelector<HTMLElement>(`[data-tool="${CSS.escape(target)}"]`);
     // The layout size, not the rect's: a press scales the button (.pressable) for 140 ms; offsetWidth would round it.
     const css = b && getComputedStyle(b);
@@ -80,6 +87,8 @@ export function useBarDrop(capsule: RefObject<HTMLDivElement | null>, strip: Ref
       list?.removeEventListener("scroll", again);
       drop.lift.jump(0);
       drop.press.jump(0);
+      // The next opening's live zone waits for its own measure, not this tool's size.
+      barRect.set({ x: 0, top: 0, w: 0, h: 0 });
       // Opened again before a spring ends, the first measure jumps instead of sliding on from here.
       [drop.x, drop.w, drop.h].forEach((v) => v.stop());
     };

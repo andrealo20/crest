@@ -18,7 +18,7 @@ import { CARD_H, CARD_INSET } from "./row/NoticeCard";
 import { Nest } from "./pet/Nest";
 import { powerState, statusAlert } from "../features/status/store";
 import { effectiveIdleStyle, screen } from "../features/window/store";
-import { ResizeHandles, stepToolSize, useToolSize, wheelTaken } from "../features/window/panel";
+import { ResizeHandles, stepToolSize, useResizing, useToolSize, wheelTaken } from "../features/window/panel";
 import { cycle } from "../features/window/model";
 import { display, windowShell } from "../platform/services";
 import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
@@ -34,15 +34,16 @@ import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
 import { sizeExtra, sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
 import type { GlassMode } from "./glass/GlassLayer";
-import { barInk, useBarDrop, usePlainDrop } from "./glass/bar";
-import { CLOSE_SETTLE_MS, HUD_LIVE_LINGER_MS, SNAPSHOT_STALE_MS, dropLens, glassAllowed, glassShape, liveNeed, snapshotLead } from "./glass/params";
+import { barInk, barRect, useBarDrop, usePlainDrop } from "./glass/bar";
+import { CLOSE_SETTLE_MS, HUD_LIVE_LINGER_MS, SNAPSHOT_STALE_MS, dockNeed, dropLens, glassAllowed, glassShape, liveNeed, snapshotLead } from "./glass/params";
 import { contrastMore, dropSnapshot, glassBroken, reducedTransparency, requestSnapshot, snapshot } from "./glass/snapshot";
-import { dropLive, liveForHud, liveFrame, liveSession, liveSupport, restartLive, wantLive } from "./glass/live";
+import { dropLive, liveForDock, liveForHud, liveFrame, liveSession, liveSupport, restartLive, wantLive } from "./glass/live";
 import { ClosedResize, ClosedResizeBar, closedEdit, closedLive } from "./ClosedResize";
 import { appDrop, drop, takeDropped } from "../platform/drop";
 import { hoverDelayMs, settings, updateSettings } from "../settings/store";
 import { toolOff } from "../settings/tools";
 import { createStore } from "../lib/store";
+import { barLook } from "../features/taskbar/look";
 import { dragThreshold } from "../features/taskbar/panelModel";
 import { inBox, type Box } from "../features/taskbar/position";
 import { pressDragged, startPress } from "../features/taskbar/window/press";
@@ -61,7 +62,7 @@ import { dueTasks } from "../features/todos/store";
 import { asks, popping } from "../features/notices/store";
 import { activeTheme, forcedColors, refreshTheme, useClosedGlassInk, useClosedInk, useThemedAccent } from "../features/themes/store";
 import { useHue, useIconColors, type Hue } from "../features/themes/hues";
-import { HUE_PILL } from "../features/themes/themes";
+import { HUE_PILL, plusInk } from "../features/themes/themes";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
 import { viewMetrics, viewZoom } from "./viewZoom";
@@ -83,7 +84,7 @@ const toolDrag = createStore<{ id: string; x: number; y: number; pointerId: numb
 export function Notch() {
   const { status, open, close, dismiss, toggle, onPointerEnter, onPointerLeave } = useNotchState();
   const focus = focusMode.use();
-  const { tools: toolSettings, display: displaySettings, behavior, closedSize: savedSizes, themes, closed: closedSettings } = settings.use();
+  const { tools: toolSettings, display: displaySettings, behavior, closedSize: savedSizes, themes, closed: closedSettings, taskbar } = settings.use();
   // Resize mode (ClosedResize.tsx): the closed shape shows grips instead of its parts and neither opens nor moves; a grip's drag draws at once.
   const editing = closedEdit.use();
   const liveSize = closedLive.use();
@@ -263,9 +264,15 @@ export function Notch() {
   // With the closed notch's own glass off, only a status alert shows glass; the session that lingers after it draws nothing. A status alert follows
   // its own switch, the rest of the closed look the closed notch's.
   const glass: GlassMode = !armed ? "off" : closedLook ? (liveAllowed && liveReady && (hud ? themes.glassAlerts : themes.glassLive) ? "shown" : "armed") : allowed && shot.ready ? "shown" : "armed";
+  // The taskbar's Liquid Glass + (look.ts barLook), with the taskbar on and Glass on here, draws the open panel's tool bar its way too:
+  // its shape by the look, whether the glass shows or not, as on the bar. While the panel is open and its glass shows, over a live copy
+  // around the bar (glass/live.ts liveForDock), which also keeps the notch out of captures meanwhile; not under the Music tool's cover,
+  // which leaves little of the glass to see, nor while the session is locked, away on a remote client or asleep.
+  const plusDock = taskbar.enabled && themes.glass && barLook(taskbar, support?.supported === true) === "plus";
+  const dockLive = plusDock && behavior.toolBarFill && glass === "shown" && status === "open" && !backdrop && !session.locked && !session.remote && !session.asleep;
   // The tool bar under the header or at the bottom of the open panel (#76): the same element either way, so it is built once.
   const dockTop = behavior.toolBar === "top";
-  const dock = <Dock tabs={visible} activeId={tab.id} liquid={glass === "shown"} fades={glass !== "off"} top={dockTop} />;
+  const dock = <Dock tabs={visible} activeId={tab.id} liquid={glass === "shown"} fades={glass !== "off"} top={dockTop} plus={plusDock} />;
   const reduced = useReducedMotion();
   // The closed row over the closed glass (themes.ts closedGlassInk); its colours change with --shape's fade while the switch is on,
   // where the live glass can run: elsewhere (a Mac with a Windows backup restored) the row keeps global.css's fade of the accent.
@@ -488,13 +495,25 @@ export function Notch() {
   // monitor with another scale they change after `place` has, and the zone, in physical px, is taken again for them.
   const view = viewMetrics.use();
   const reach = peekGeometry(surface, closedW, shapeH);
-  const need = liveAllowed && status === "closed" ? liveNeed(reach, top, surface === "capsule", { mid: view.width / 2 + (isNative ? 0 : drag.offset * viewZoom()), zoom: viewZoom(), dpr: view.dpr }) : null;
+  // Open, the tool bar's zone under Liquid Glass +, from its capsule as measured (glass/bar.ts). None while a grip resizes the panel:
+  // the bar moves with nearly every pointer move, and each new zone would be a new session; one for where it ends, on release.
+  const bar = barRect.use();
+  const resizing = useResizing();
+  const at = { mid: view.width / 2 + (isNative ? 0 : drag.offset * viewZoom()), zoom: viewZoom(), dpr: view.dpr };
+  const need = liveAllowed && status === "closed" ? liveNeed(reach, top, surface === "capsule", at) : dockLive && !resizing ? dockNeed(bar, top, at) : null;
   const needKey = need && `${need.x},${need.y},${need.w},${need.h}`;
+  // Before the zone: at a close the exclusion goes back first, and Rust stops the session with it.
+  useEffect(() => liveForDock(dockLive), [dockLive]);
   useEffect(() => wantLive(need), [needKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  // The last copy stays on the peek's glass; it goes once the panel opens, and at once when the live glass may not show at all.
+  // The last copy stays on the peek's glass; it goes once the panel opens, at once when the live glass may not show at all, and once
+  // the tool bar's is no longer wanted (the closed look never draws that one). The tool bar's stays while it is wanted, whatever the
+  // closed notch's switch does meanwhile.
   useEffect(() => {
-    if (!liveAllowed || status === "open") dropLive();
-  }, [liveAllowed, status]);
+    if (status === "open") dropLive();
+  }, [status]);
+  useEffect(() => {
+    if (!dockLive) dropLive();
+  }, [liveAllowed, dockLive]);
 
   // The glass's copy of the screen goes at once when presenting, moving or hidden: the full veil covers the panel until --shape is
   // opaque. Hidden, a new copy comes when the window shows again.
@@ -619,6 +638,7 @@ export function Notch() {
           top={topValue}
           hangs={bridged}
           hud={hud && themes.glassAlerts}
+          plus={plusDock}
         >
           {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes), and their order on screen in any language. */}
           <div data-theme-ink dir="ltr" className="contents" style={{ ...closedInk, ...closedGlass, ...(inkFade && { transition: CLOSED_INK_FADE }) }}>
@@ -778,11 +798,12 @@ function Header({ title }: { title: string }) {
  * (#49). A drop under the pointed or the current tool moves the same way with the glass and without (glass/bar.ts). Over the glass (`liquid`) the
  * shader draws the bar as a capsule of glass and the drop on it, and the Dock's own fills step aside. With the background off (behavior.toolBarFill)
  * there is no capsule, of glass or fill: the icons keep the panel's ink, and the plain drop shows only under the pointer or the keyboard's focus.
- * `fades`: the glass is on, so the fills fade with it; without it they follow the theme's crossfade, as before the glass.
+ * `fades`: the glass is on, so the fills fade with it; without it they follow the theme's crossfade, as before the glass. `plus`: the
+ * taskbar's Liquid Glass + (Notch plusDock): a pill, and over the glass the closed notch's ink as on the bar, with the plain drop.
  */
-function Dock({ tabs, activeId, liquid, fades, top }: { tabs: NotchTab[]; activeId: string; liquid: boolean; fades: boolean; top: boolean }) {
+function Dock({ tabs, activeId, liquid, fades, top, plus }: { tabs: NotchTab[]; activeId: string; liquid: boolean; fades: boolean; top: boolean; plus: boolean }) {
   const fill = settings.use().behavior.toolBarFill;
-  // The shader draws the capsule and its drop only with the background on (GlassLayer.tsx uBar).
+  // The shader draws the capsule and its drop only with the background on (GlassLayer.tsx uBar); under Liquid Glass + the capsule alone.
   const glassBar = liquid && fill;
   const inSettings = activeId === settingsTab.id;
   const updateReady = update.use().phase === "available";
@@ -825,22 +846,26 @@ function Dock({ tabs, activeId, liquid, fades, top }: { tabs: NotchTab[]; active
     });
   };
   const pill = useRef<HTMLSpanElement>(null);
-  usePlainDrop(pill, !glassBar);
+  usePlainDrop(pill, !glassBar || plus);
   // Each store hook runs on every render, as for `urgent` in Notch().
   const theme = activeTheme.use();
   const hues = useIconColors();
   const refraction = settings.use().themes.glassRefraction;
   const reduced = useReducedMotion() === true;
-  // Under the drop the pointed icon grows as much as the lens shows; without the glass, where its sliders do not show, as at their default.
-  const mag = reduced ? 1 : dropLens(glassBar ? refraction : 100)[1];
+  // Under the drop the pointed icon grows as much as the lens shows; without the glass, where its sliders do not show, as at their
+  // default; under Liquid Glass + the drop is the plain one.
+  const mag = reduced ? 1 : dropLens(glassBar && !plus ? refraction : 100)[1];
   return (
     <div ref={root} className="relative flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
       <div
         ref={capsule}
         {...handlers}
-        // Over the glass the icons, the mark and the dot take the one ink that reads best over the bar's clear veil (themes.ts glassInk).
-        style={glassBar ? barInk(theme, hues) : undefined}
-        className={`relative flex h-10 max-w-full items-center rounded-[14px] material:rounded-[20px] p-0.5 ${fades ? FILL_FADE : ""} ${fill && !liquid ? "bg-fill-2" : "bg-transparent"}`}
+        // Over the glass the icons, the mark and the dot take the one ink that reads best over the bar's clear veil (themes.ts glassInk);
+        // over Liquid Glass + the closed notch's, as on the taskbar (BarGlass.tsx), its hues and link flattened to its label (plusInk).
+        // Where the glass does not show, the theme's: an opaque light panel cannot take white.
+        style={glassBar && plus ? plusInk(darkInk(), hues) : glassBar ? barInk(theme, hues) : undefined}
+        // Round ends by the look, not by whether the glass shows, as on the taskbar (look.ts barRadius).
+        className={`relative flex h-10 max-w-full items-center ${plus && fill ? "rounded-full" : "rounded-[14px] material:rounded-[20px]"} p-0.5 ${fades ? FILL_FADE : ""} ${fill && !liquid ? "bg-fill-2" : "bg-transparent"}`}
       >
         {/* The drop without the glass (usePlainDrop), behind the buttons and cut to the capsule; not in the strip, which also cuts upwards.
             Under Material it is the state layer that moves with the pointer, so it matches the current tool's pill when it rests there.
@@ -852,7 +877,7 @@ function Dock({ tabs, activeId, liquid, fades, top }: { tabs: NotchTab[]; active
           <span
             ref={pill}
             className={`absolute bottom-0 left-1/2 h-9 w-[42px] rounded-[12px] material:rounded-[18px] material:opacity-[0.08] ${fades ? FILL_FADE : ""} ${
-              glassBar ? "bg-transparent" : "bg-fill-3 material:bg-current"
+              glassBar && !plus ? "bg-transparent" : "bg-fill-3 material:bg-current"
             }`}
           />
         </span>

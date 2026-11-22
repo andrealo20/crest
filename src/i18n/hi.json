@@ -1107,6 +1107,7 @@
  "Glas": "काँच",
  "Liquid Glass +": "Liquid Glass +",
  "Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht": "{name} के साथ टास्कबार की सामग्री हमेशा सफ़ेद रहती है, और पृष्ठभूमि लागू नहीं होती",
+ "Mit {name} ist auch die Werkzeugleiste der offenen Notch live aus Glas, wenn Glas der Notch an ist; solange die Notch dann offen ist, fehlt sie in Screenshots, Aufnahmen und Bildschirmfreigaben": "{name} के साथ, नॉच का काँच चालू होने पर खुले नॉच का टूलबार भी लाइव काँच का होता है; तब जब तक नॉच खुला है, वह स्क्रीनशॉट, रिकॉर्डिंग और स्क्रीन शेयर में नहीं दिखता",
  "Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas": "खुला पैनल अपने पीछे की स्क्रीन को काँच की तरह दिखने देता है",
  "Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt": "केवल कैप्सूल के साथ, या तब जब खुला पैनल स्क्रीन के ऊपरी किनारे से लटका हो",
  "Transparenz": "पारदर्शिता",

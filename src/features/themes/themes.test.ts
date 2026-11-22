@@ -26,6 +26,7 @@ import {
   normalizeId,
   normalizeThemeSettings,
   parseThemeText,
+  plusInk,
   readableAccent,
   resolveTheme,
   setThemeColor,
@@ -489,6 +490,18 @@ test("the tool bar's ink: white or black, the best worst case over its veil and 
     for (const c of [...before, ...GREYS.filter((_, g) => g % 15 === 0)]) assert.ok(score(c) <= best, `${t.id} ${formatColor(c)}`);
     if (quoted[t.id]) assert.deepEqual([ink, round(bare(parseColor(ink)!)), round(drop(parseColor(ink)!))], quoted[t.id], t.id);
   }
+});
+
+test("the tool bar's ink over Liquid Glass +: the closed notch's label for the link and, with coloured icons, every hue", () => {
+  const dark = resolveTheme(BUILT_IN_THEMES.find((t) => t.id === "dark")!).vars, label = dark["--color-label"];
+  const hues = Object.keys(HUE_PALETTE).map((h) => `--hue-${h}`);
+  const on = plusInk(dark, true), off = plusInk(dark, false);
+  assert.equal(on["--accent"], dark["--theme-accent"]);
+  assert.equal(on["--color-link"], label);
+  assert.equal(on["--color-label-2"], dark["--color-label-2"]);
+  assert.ok(hues.every((h) => on[h] === label));
+  assert.ok(hues.every((h) => off[h] === dark[h]));
+  assert.equal(off["--color-link"], label);
 });
 
 test("the yellow warning keeps 4.5:1 on the panel, on its group's fill and under the glass", () => {
