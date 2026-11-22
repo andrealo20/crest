@@ -44,10 +44,14 @@ test("every mapped name has its Material outline, and the ones drawn at the regu
   for (const name of REGULAR) assert.ok(LIGHT[MATERIAL_NAMES[name]], `${name}: no weight 300 outline`);
 });
 
-test("every tool icon the bar draws at the regular weight (TaskbarWindow.tsx) is in REGULAR, beside the bar's other glyphs at 300", () => {
+test("every tool icon and resting widget the bar draws at the regular weight (TaskbarWindow.tsx, Widget.tsx) is in REGULAR, beside the bar's other glyphs at 300", () => {
   const tools = [...read("../features/taskbar/toolInfo.ts").matchAll(/icon: (\w+)[, ]/g)].map((m) => m[1]);
   assert.ok(tools.length > 20);
   assert.deepEqual(tools.filter((name) => !KEEP_PHOSPHOR.includes(name) && !REGULAR.includes(name)), []);
+  // The brands' logos stay Phosphor's, so only mapped names count.
+  const parts = [...read("../notch/row/partInfo.ts").matchAll(/icon: (\w+)[, ]/g)].map((m) => m[1]);
+  assert.ok(parts.length > 20);
+  assert.deepEqual(parts.filter((name) => name in MATERIAL_NAMES && !KEEP_PHOSPHOR.includes(name) && !REGULAR.includes(name)), []);
 });
 
 test("material-paths.ts opens with Google's copyright and the Apache-2.0 notice that the outlines were changed", () => {
