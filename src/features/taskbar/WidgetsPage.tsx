@@ -116,7 +116,7 @@ export function WidgetsPage() {
     <Group id="settings-taskbar-widgets">
       {PART_IDS.map((id) => (
         <div key={id}>
-          <WidgetRow id={id} s={s} />
+          <WidgetRow id={id} s={s} zoned={zones.length > 0} />
           <Versions id={id} s={s} zones={zones} />
         </div>
       ))}
@@ -125,10 +125,10 @@ export function WidgetsPage() {
 }
 
 /** A widget's name, what it shows nothing without, and its Remove button on the bar or its Add menu off it. */
-function WidgetRow({ id, s }: { id: PartId; s: Settings }) {
+function WidgetRow({ id, s, zoned }: { id: PartId; s: Settings; zoned: boolean }) {
   const on = barWidgets(s.taskbar.zones).includes(id);
   return (
-    <Row icon={SYMBOL[id]} label={t(partInfo[id].label)} hint={widgetNeeds(s)[id] || undefined}>
+    <Row icon={SYMBOL[id]} label={t(partInfo[id].label)} hint={widgetNeeds(s, zoned)[id] || undefined}>
       {on ? (
         <button
           aria-label={t("Entfernen")}

@@ -23,14 +23,15 @@ import { SYS_INFO } from "./window/SysItems";
 /** As on the closed notch's parts page: only these readings always show, so one of them stays on. */
 const MAIN_READINGS = ["cpu", "ram", "gpu", "net"] as const;
 
-/** What a widget shows nothing without, in the words of the notch's settings; false when it has it. */
-export const widgetNeeds = (s: Settings): Partial<Record<Removable, string | false>> => ({
+/** What a widget shows nothing without, in the words of the notch's settings; false when it has it. `zoned`: Clocks has a zone. */
+export const widgetNeeds = (s: Settings, zoned: boolean): Partial<Record<Removable, string | false>> => ({
   github: !s.github.user.trim() && t("Braucht deinen GitHub-Namen"),
   leetcode: !s.leetcode.user.trim() && t("Braucht deinen LeetCode-Namen"),
   script: !(s.notices.enabled && s.notices.cli) && t("Braucht Live-Mitteilungen und crest-notify"),
   calendar: !s.calendar.sources.length && t("Kein Kalender verbunden"),
   rings: !shownIds(s.aiUsage.order, s.usage).length && t("Keine Anbieter aktiv"),
   discord: !s.discord.clientId.trim() && t("Client-ID und Secret fehlen"),
+  world: !zoned && t("Braucht eine Zeitzone in Uhren"),
 });
 
 /**
@@ -40,8 +41,8 @@ export const widgetNeeds = (s: Settings): Partial<Record<Removable, string | fal
 export function WidgetOptions({ id }: { id: Removable }) {
   const s = settings.use();
   const readingsOn = MAIN_READINGS.filter((k) => s.closed.readings[k]).length;
-  const needs = widgetNeeds(s);
   const zoned = isZone(clocks.use()[0]);
+  const needs = widgetNeeds(s, zoned);
   const switches =
     id === "clock" ? (
       clockHasSeconds(s.taskbar.variants, zoned) && <SubSwitch label={t("Sekunden")} checked={s.taskbar.clock.seconds} onChange={(seconds) => setTaskbar((cur) => ({ clock: { ...cur.clock, seconds } }))} />
