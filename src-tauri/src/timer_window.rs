@@ -40,6 +40,9 @@ pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, dpr: Option<f64>,
     // Opened during a recording or screenshot, or while Crest is hidden from screen sharing: left out of it like the notch.
     #[cfg(windows)]
     crate::capture::exclude_if_capturing(&app);
+    // Queued ahead of the show() below, which comes from this same thread.
+    #[cfg(windows)]
+    crate::display::keep_out_of_alt_tab(&window);
     #[cfg(not(windows))]
     crate::sharing::protect_new(&app);
 

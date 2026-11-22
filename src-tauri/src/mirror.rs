@@ -285,6 +285,8 @@ fn create(app: &AppHandle, label: &str) -> tauri::Result<WebviewWindow> {
     }
     let window = builder.build()?;
     crate::capture::exclude_if_capturing(app);
+    // Queued ahead of sync's show(), which comes from this same mirror thread.
+    crate::display::keep_out_of_alt_tab(&window);
     Ok(window)
 }
 
