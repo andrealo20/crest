@@ -13,8 +13,7 @@ import { isMac, isNative } from "../../platform/native";
 import { build, taskbar, type KeysStatus } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { CrestMark } from "../../ui/CrestMark";
-import { WindowsMark } from "../../ui/WindowsMark";
-import { Button, Group, Row, Segmented, Select, Slider, Switch } from "../../ui/controls";
+import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch } from "../../ui/controls";
 import type { RowSymbol } from "../../ui/materialNames";
 import { FavoriteList } from "../launcher/FavoriteList";
 import { MoveButton } from "../launcher/FavoriteList";
@@ -22,11 +21,12 @@ import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassFps, GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
-import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type AppsOn, type BarEdge, type BarShape, type Combine, type EmptyDouble, type MarkStyle, type SysItem, type ToolItem, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, START_ICONS, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type AppsOn, type BarEdge, type BarShape, type Combine, type EmptyDouble, type MarkStyle, type StartIcon, type SysItem, type ToolItem, type Zone } from "./model";
 import { demoBarOffered, setTaskbar } from "./store";
 import { AddSys, AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
 import { toolInfo } from "./toolInfo";
 import { addWidget, isSys, isTool, isWidget, removeWidget, shownZones, sysOf, toolOf } from "./widgets";
+import { StartMark } from "./window/StartMark";
 import { SYS_INFO } from "./window/SysItems";
 
 /*
@@ -255,8 +255,9 @@ export function TaskbarItems() {
   );
 }
 
-/** An item's icon: Crest's mark, Windows' mark, the apps' window, the tray's ^, Stato's Wi-Fi, a widget's part as the settings show it, a tool's or a Windows button's icon. A new fixed item does not compile without one. */
+/** An item's icon: Crest's mark, the Start icon chosen under Appearance, the apps' window, the tray's ^, Stato's Wi-Fi, a widget's part as the settings show it, a tool's or a Windows button's icon. A new fixed item does not compile without one. */
 function ItemIcon({ id }: { id: BarItem }) {
+  const { startIcon } = settings.use().taskbar;
   if (isWidget(id)) {
     const I = partInfo[id].icon;
     return <I size={15} weight="bold" className="shrink-0 text-label-2" />;
@@ -269,7 +270,7 @@ function ItemIcon({ id }: { id: BarItem }) {
     const I = SYS_INFO[sysOf(id)].icon;
     return <I size={15} weight="bold" className="shrink-0 text-label-2" />;
   }
-  if (id === "start") return <WindowsMark size={15} className="shrink-0 text-label-2" />;
+  if (id === "start") return <StartMark icon={startIcon} size={15} className="shrink-0 text-label-2" />;
   if (id === "apps") return <AppWindow size={15} weight="bold" className="shrink-0 text-label-2" />;
   if (id === "crest") return <CrestMark size={15} className="shrink-0 text-label-2" />;
   if (id === "tray") return <CaretUp size={15} weight="bold" className="shrink-0 text-label-2" />;
@@ -385,7 +386,9 @@ export function TaskbarApps() {
  * the glass's sliders are the ones of Notch → Themes.
  */
 export function TaskbarLook() {
-  const { shape, height, iconSize, surface, transparency, glass, glassLook, autoHide, position, marks } = settings.use().taskbar;
+  const { shape, height, iconSize, surface, transparency, glass, glassLook, autoHide, position, marks, startIcon } = settings.use().taskbar;
+  // Brand names stay as they are, as the Style row's button writes them.
+  const startLabel: Record<StartIcon, string> = { windows: "Windows", crest: "Crest", dots: t("Punkte"), rocket: t("Rakete"), sparkle: t("Funkeln"), star: t("Stern") };
   const fps = settings.use().themes.glassFps;
   const theme = activeTheme.use();
   const appDesign = design.use();
@@ -443,6 +446,18 @@ export function TaskbarLook() {
           ]}
         />
       </Row>
+      {/* One child: Group draws a divider between its children. */}
+      <div className="pb-3">
+        <Row icon="apps" label={t("Startsymbol")} />
+        <div className="px-3">
+          <StyleCards<StartIcon>
+            label={t("Startsymbol")}
+            value={startIcon}
+            onChange={(startIcon) => setTaskbar({ startIcon })}
+            options={START_ICONS.map((v) => ({ value: v, label: startLabel[v], preview: <StartMark icon={v} size={18} className="self-center" /> }))}
+          />
+        </div>
+      </div>
       {/* A reserving bar's height moves its strip and resizes maximized windows: written once, on release. */}
       <PxRow icon="height" label={t("Höhe")} value={height} min={HEIGHT[0]} max={HEIGHT[1]} live={!(shape === "docked" && !autoHide)} onChange={(height) => setTaskbar({ height })} />
       {/* The size the bar draws: a lower bar keeps the saved one and a taller bar gives it back (fitIcon). */}

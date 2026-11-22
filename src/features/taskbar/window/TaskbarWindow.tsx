@@ -12,7 +12,6 @@ import { postFiles } from "../../../platform/drop";
 import { launcher, systemControls, taskbar } from "../../../platform/services";
 import { settings } from "../../../settings/store";
 import { CrestMark } from "../../../ui/CrestMark";
-import { WindowsMark } from "../../../ui/WindowsMark";
 import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
@@ -21,6 +20,7 @@ import { COMPACT_PAD, DRAG_REST, shiftMenu, WHEEL_STEP, appKey, appState, barArr
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
 import { barMargin, slideBy, toEdge } from "../position";
 import { BarEdgeContext, barEdgeNow } from "./barEdge";
+import { StartMark } from "./StartMark";
 import { closePanel, fileDrag, itemDrag, panel, pinDrag, togglePanel } from "../panel";
 import { dragThreshold, opensInBar } from "../panelModel";
 import { barShown, barWindows, groupIcons, setTaskbar } from "../store";
@@ -82,7 +82,7 @@ type Card = { key: string; x: number; w: number; by: "hover" | "click" };
  */
 export function TaskbarWindow() {
   const s = settings.use();
-  const { zones: saved, height, iconSize, pinned, shape, trayShown, combine, flashing, middleClick, windowCount, wheelVolume, marks } = s.taskbar;
+  const { zones: saved, height, iconSize, pinned, shape, trayShown, combine, flashing, middleClick, windowCount, wheelVolume, marks, startIcon } = s.taskbar;
   // The site's demo lays the bar over its own page and keeps the bottom.
   const edge = barEdgeNow();
   // Without the buttons whose tool cannot open: the notch opens its first tool in place of one switched off there (widgets.ts toolShown).
@@ -523,7 +523,7 @@ export function TaskbarWindow() {
             void taskbar.shell("winx").catch(() => {});
           }}
         >
-          <WindowsMark size={Math.round(size * 0.72)} />
+          <StartMark icon={startIcon} size={Math.round(size * 0.72)} />
         </Item>
       );
     if (id === "apps") {
