@@ -84,10 +84,10 @@ export function progressOf(remaining: number, duration: number): number {
 
 /**
  * Main text of a look. Whole seconds round up, so a countdown never shows 0 while time is left.
- * - clean, pixel, dots: "24:59" (minutes may pass 59, the timer allows up to 180 min)
- * - retro: "24:59", from one hour "1:05:00"
+ * - clean, pixel, dots: "24:59", from one hour "1:05:00" (the timer allows up to 24 hours)
+ * - retro: "04:59", from one hour "1:05:00"
  * - terminal: always "00:24:59"
- * - hud: tenths, "24:59.9"
+ * - hud: tenths, "24:59.9", from one hour "1:05:00.0"
  * - zen: see zenParts
  */
 export function lookText(look: TimerLook, seconds: number): string {
@@ -103,15 +103,16 @@ export function lookText(look: TimerLook, seconds: number): string {
       return `${pad(h)}:${pad(m)}:${pad(sec)}`;
     case "hud": {
       const tenths = Math.max(0, Math.ceil(seconds * 10 - 1e-6));
-      const whole = Math.floor(tenths / 10);
-      return `${pad(Math.floor(whole / 60))}:${pad(whole % 60)}.${tenths % 10}`;
+      const whole = Math.floor(tenths / 10), hours = Math.floor(whole / 3600);
+      const mm = pad(Math.floor((whole % 3600) / 60));
+      return `${hours > 0 ? `${hours}:${mm}` : mm}:${pad(whole % 60)}.${tenths % 10}`;
     }
     case "zen": {
       const z = zenParts(seconds);
       return `${z.value} ${z.unit}`;
     }
     default:
-      return `${Math.floor(s / 60)}:${pad(sec)}`;
+      return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
   }
 }
 

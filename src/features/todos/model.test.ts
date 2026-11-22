@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_PROJECT, migrate, nextTask, sortTasks, type Task } from "./model.ts";
+import { DEFAULT_PROJECT, migrate, nextTask, sortTasks, todoLine, type Task } from "./model.ts";
 
 test("old flat list moves into the default project, order kept", () => {
   const legacy = [
@@ -53,4 +53,12 @@ test("order: starred, due soonest, newest; done last", () => {
   assert.equal(nextTask(list, "p")?.id, "starred");
   assert.equal(nextTask(list, "other"), null);
   assert.equal(nextTask([tk("d", { done: true })], "p"), null);
+});
+
+test("the bar's next to-do: the project's first open task and its share done, null without tasks", () => {
+  const list = [tk("old", { createdAt: 1 }), tk("star", { starred: true }), tk("done", { done: true, doneAt: 3 }), tk("elsewhere", { projectId: "q" })];
+  assert.deepEqual(todoLine(list, "p"), { id: "star", text: "star", done: 1, total: 3 });
+  assert.deepEqual(todoLine(list, "q"), { id: "elsewhere", text: "elsewhere", done: 0, total: 1 });
+  assert.equal(todoLine(list, "none"), null);
+  assert.deepEqual(todoLine([tk("a", { done: true }), tk("b", { done: true })], "p"), { id: "", text: "", done: 2, total: 2 });
 });
