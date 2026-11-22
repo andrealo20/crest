@@ -27,7 +27,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       release: ${{ steps.version.outputs.release }}
-      notes: ${{ steps.version.outputs.notes }}
+      previous: ${{ steps.version.outputs.previous }}
       highlights: ${{ steps.version.outputs.highlights }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -60,17 +60,8 @@ jobs:
             cat "docs/releases/v$version.md" 2>/dev/null && echo || true
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-          # Changes since the previous release tag.
-          previous=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
-          range=${previous:+$previous..HEAD}
-          {
-            echo "notes<<EOF"
-            # Without the version bump commits and README touch-ups, and each subject once. Commits that touch only the
-            # website, its browser demo, the workflows or the READMEs are not changes to the app.
-            git log --no-merges --pretty='- %s' $range -- . ':(exclude)site' ':(exclude)src/dev' ':(exclude).github' ':(exclude)README.md' ':(exclude)README.zh-CN.md' |
-              grep -vE '^- (Merge|Update README|Release [0-9]|Notes for [0-9])' | awk '!seen[$0]++' || true
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          # The previous release tag, for the body's link to every change since.
+          echo "previous=$(git tag --list 'v*' --sort=-v:refname | head -n 1)" >> "$GITHUB_OUTPUT"
 
   # Both architectures in one job, one after the other: the second tauri-action run finds the release by its tag and
   # merges its entries into the latest.json the first one wrote, and nothing else writes latest.json at the same time.
@@ -82,22 +73,17 @@ jobs:
     env:
       # Every tauri-action run (these two and the Mac job's) passes the same body: the release keeps the one it was created
       # with, and latest.json takes its notes from the run that writes it last.
+      # Short, so the downloads are close: the hand-written notes, how to install, and a link to every change instead of the list.
       RELEASE_BODY: &release_body |
-        **Install:** download `Crest_${{ needs.check.outputs.version }}_x64-setup.exe` below and run it. No admin rights or developer tools needed. On a Windows on ARM PC (Snapdragon and other ARM64 laptops), take `Crest_${{ needs.check.outputs.version }}_arm64-setup.exe` instead.
-        Already installed? The app offers this version under **Settings → General → Updates**.
-
-        **Portable:** `Crest-${{ needs.check.outputs.version }}-Portable-x64.zip` (or `-Portable-arm64.zip` on ARM) needs no install: unzip it anywhere you can write to and run Crest.exe. It keeps its data in a `data` folder next to it and updates itself in place.
-
-        **Mac:** `Crest_${{ needs.check.outputs.version }}_aarch64.dmg` for Apple silicon (M1 and later), `Crest_${{ needs.check.outputs.version }}_x64.dmg` for Intel. Drag Crest to Applications. The app is not notarized yet: on first launch macOS refuses it, then **System Settings → Privacy & Security → Open Anyway**. Some tools are Windows-only for now and don't show on a Mac.
-
-        **Checksums:** `SHA256SUMS` lists the SHA-256 of every file of this release. Check a download with `sha256sum -c SHA256SUMS --ignore-missing`, or in PowerShell compare `Get-FileHash <file>` with its line.
-
-        Windows SmartScreen may warn because the installer is not code-signed yet: **More info → Run anyway**.
-
         ${{ needs.check.outputs.highlights }}
 
-        ### Changes
-        ${{ needs.check.outputs.notes }}
+        **Install**
+        - Windows: `Crest_${{ needs.check.outputs.version }}_x64-setup.exe`, or `_arm64-setup.exe` on ARM. Already installed? **Settings → General → Updates**. If SmartScreen warns: **More info → Run anyway**.
+        - Portable: `Crest-${{ needs.check.outputs.version }}-Portable-x64.zip` (or `-arm64.zip`), unzip and run Crest.exe; its data stays in the `data` folder beside it.
+        - Mac: `Crest_${{ needs.check.outputs.version }}_aarch64.dmg` (Apple silicon) or `_x64.dmg` (Intel). Not notarized yet: **System Settings → Privacy & Security → Open Anyway**.
+        - `SHA256SUMS` has the checksum of every file.
+
+        All changes: [${{ needs.check.outputs.previous }}...v${{ needs.check.outputs.version }}](https://github.com/${{ github.repository }}/compare/${{ needs.check.outputs.previous }}...v${{ needs.check.outputs.version }})
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
