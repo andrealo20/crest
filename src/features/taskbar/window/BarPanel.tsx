@@ -13,7 +13,7 @@ import { useToolSize } from "../../window/panel";
 import { limits } from "../../window/panelSize";
 import { fitIcon, placeMenu } from "../model";
 import { closePanel, panel, panelHeld, quickLayout, quickPage, trayDrag, type OpenPanel, type PanelContent } from "../panel";
-import { DISKS_SIZE, PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, TOOL_FALLBACK, TRAY_SIZE, fitPanel, toolPanelSize } from "../panelModel";
+import { CLOCK_SIZE, DISKS_SIZE, PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, TOOL_FALLBACK, TRAY_SIZE, fitClock, fitPanel, toolPanelSize } from "../panelModel";
 import { barFeed } from "../barStores";
 import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
@@ -21,7 +21,7 @@ import { beyond, innerOff, popupAt, popupY } from "../position";
 import type { BarEdge } from "../model";
 import type { HitRect } from "./BarMenu";
 import { useBarEdge } from "./barEdge";
-import { TOOL_TITLE_ID, ToolPanel, useTabs } from "./ToolPanel";
+import { CLOCK_TITLE_IDS, ClockPanel, TOOL_TITLE_ID, ToolPanel, useTabs } from "./ToolPanel";
 import { TrayPanel } from "./TrayPanel";
 import { DisksPanel, diskScan, panelDisks } from "./DisksPanel";
 import { levelRows } from "../disks";
@@ -85,6 +85,7 @@ function usePanelSize(shows: PanelContent, apps: number): { w: number; h: number
   if (shows.kind === "tray") return TRAY_SIZE(fitIcon(height, iconSize), (folded ? icons : splitTray(icons, trayShown).hidden).length);
   if (shows.kind === "apps") return TRAY_SIZE(fitIcon(height, iconSize), apps);
   if (shows.kind === "quick") return page ? QUICK_PAGE_SIZE(page.rows, page.extra) : QUICK_SIZE(quick);
+  if (shows.kind === "clock") return CLOCK_SIZE;
   if (!tab) return null;
   // The notch's own rule (Notch.tsx): the tool's runtime request wins over the size it was given, an extra height rides on top of
   // that size, and both are held to the monitor.
@@ -127,7 +128,9 @@ function Panel({
   const kept = useRef(asked);
   if (asked) kept.current = asked;
   const natural = asked ?? kept.current;
-  const size = natural && fitPanel(natural, { w: view.width - 2 * PANEL_EDGE, h: view.height - view.off - PANEL_GAP - PANEL_EDGE }, zoom);
+  const room = { w: view.width - 2 * PANEL_EDGE, h: view.height - view.off - PANEL_GAP - PANEL_EDGE };
+  const clock = open.content.kind === "clock" ? fitClock(room, zoom) : null;
+  const size = clock ? clock.size : natural && fitPanel(natural, room, zoom);
 
   // Its final box on screen, which the hit zone takes in full as soon as it opens and gives up as soon as it starts closing. While a
   // tray icon is dragged the zone is the whole window, or the window would let the pointer go as it left the panel.
@@ -231,7 +234,7 @@ function Panel({
       aria-label={
         open.content.kind === "tray" ? t("Infobereich") : open.content.kind === "apps" ? t("Weitere Apps") : open.content.kind === "quick" ? t("Schnelleinstellungen") : open.content.kind === "disks" ? t("Speicherplatz") : undefined
       }
-      aria-labelledby={open.content.kind === "tool" ? TOOL_TITLE_ID : undefined}
+      aria-labelledby={open.content.kind === "tool" || clock?.alone ? TOOL_TITLE_ID : clock ? CLOCK_TITLE_IDS : undefined}
       // Closing, it takes no key and no click: its zone is already gone.
       inert={!present}
       className="fixed left-0 -translate-x-1/2"
@@ -268,6 +271,9 @@ function Panel({
                     <ToolPanel tool={open.content.tool} />
                   ) : open.content.kind === "disks" ? (
                     <DisksPanel />
+                  ) : clock ? (
+                    // Too short for both halves (fitClock): the Calendar alone, as the Next event widget opens it.
+                    clock.alone ? <ToolPanel tool="calendar" /> : <ClockPanel />
                   ) : (
                     <Suspense fallback={null}>
                       <QuickPanel />

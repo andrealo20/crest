@@ -16,7 +16,8 @@ pub fn taskbar_hello(app: AppHandle, window: WebviewWindow) -> bool {
     bar::shown(window.label())
 }
 
-/// The clock's click opens Windows 11's notification centre, which holds the calendar, as a click on Windows' own clock does.
+/// A click on the clock of a bar on another monitor opens Windows 11's notification centre, which holds the calendar, as a click on
+/// Windows' own clock does; the main bar's clock opens Crest's notices and calendar instead.
 #[tauri::command]
 pub fn taskbar_calendar() -> Result<(), String> {
     crate::open_url("ms-actioncenter:")

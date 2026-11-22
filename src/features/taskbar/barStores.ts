@@ -63,10 +63,10 @@ export const barFeed = createStore<BarFeed>(EMPTY_FEED);
 /** True while a bar's panel shows a tool; the notch sets it from barPanels.ts (feed.tsx). */
 export const panelOpen = createStore(false);
 
-/** The toasts in Windows' notification centre, for the bar's clock: null while Notices does not read Windows' notifications. */
+/** The notices in Crest's list (notices/store.ts history), which the bar's clock opens: null while Live notices is off. */
 export const noticeCount = createStore<number | null>(null);
 
-/** `privacy` too, for the bar's privacy button, and the count: each changes only when Windows' state does. */
+/** `privacy` too, for the bar's privacy button, and the clock's count: both change rarely, privacy with Windows' state and the count with Crest's notices. */
 export const feedStores = { barFeed, privacy, noticeCount };
 
 /** Sent only while `panelOpen`: `system` changes every few seconds and would wake the bar with nobody looking. */

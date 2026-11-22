@@ -228,7 +228,7 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
     zone,
   });
   const pill = pillWidget(id, item.tile !== undefined) ? statusPill(taskbar.height) : null;
-  // The clock carries the notification centre's count, as Windows' does; only the main bar hears it (barStores feedStores).
+  // The clock carries the count of the notices its panel lists, as Windows' carries its centre's; only the main bar hears it (barStores feedStores).
   const count = noticeCount.use();
   const badge = id === "clock" ? countBadge(count) : null;
   const name = badge ? `${item.name}, ${t(count === 1 ? "{n} Mitteilung" : "{n} Mitteilungen", { n: count ?? 0 })}` : item.name;

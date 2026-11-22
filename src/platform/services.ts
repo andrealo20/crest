@@ -1542,7 +1542,7 @@ export const taskbar = {
   quit: (): Promise<void> => (isNative ? invoke("app_quit") : Promise.resolve()),
   /** In the primary bar, has the notch send the widgets' data (`bar://hello`); call it once the page listens. Whether this bar shows now, so the page starts paused or not. */
   hello: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_hello") : Promise.resolve(true)),
-  /** The clock's click: Windows' notification centre, with the calendar. */
+  /** The click on a clock on the other monitors' bars: Windows' notification centre, with the calendar (the main bar's opens Crest's own). */
   calendar: (): Promise<void> => (isNative ? invoke("taskbar_calendar") : Promise.resolve()),
   /** The Wi-Fi page's networks, after a fresh scan when `scan` (the page's first read and its refresh); only the state until Windows' location consent is given. */
   wifiScan: (scan: boolean): Promise<WifiList> => (isNative ? invoke<WifiList>("taskbar_wifi_scan", { scan }) : Promise.resolve(SAMPLE_WIFI)),

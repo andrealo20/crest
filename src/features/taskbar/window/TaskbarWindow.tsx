@@ -435,15 +435,18 @@ export function TaskbarWindow() {
     togglePanel({ kind: "tool", tool }, { x: r.x, w: r.width });
   };
 
-  /** A widget opens its tool in the panel over it, the disk widget its drives; the clock opens Windows' calendar instead, as Windows' own clock does. */
+  /**
+   * A widget opens its tool in the panel over it, the disk widget its drives. The main bar's clock opens Crest's Notices over its Calendar;
+   * on the other bars, which get no notices or calendar from the notch, it opens Windows' notification centre, as Windows' own clock does.
+   */
   const clickWidget = (id: PartId, button: HTMLElement) => {
     setError(null);
     setMenu(null);
-    if (id === "disk") {
+    if (id === "disk" || (id === "clock" && primary)) {
       const r = button.getBoundingClientRect();
       // Not on the click that closes it, or the closing panel would turn into the drives as it fades.
-      if (panel.get()?.content.kind !== "disks") dropStaleScan();
-      return togglePanel({ kind: "disks" }, { x: r.x, w: r.width });
+      if (id === "disk" && panel.get()?.content.kind !== "disks") dropStaleScan();
+      return togglePanel({ kind: id === "disk" ? "disks" : "clock" }, { x: r.x, w: r.width });
     }
     const tool = widgetTool(id);
     // Windows may refuse to open it; nothing changes then. The bar stays up while it comes to the front.
@@ -625,7 +628,13 @@ export function TaskbarWindow() {
         <WidgetItem
           id={id}
           // A widget that opens a tool says whether the panel shows it, so a press on it is left to its click and the panel moves in place.
-          item={{ ...item(id, t(partInfo[id].label)), kind: id, tile: tile(), expanded: id === "disk" ? open?.content.kind === "disks" : tool === null ? undefined : open?.content.kind === "tool" && open.content.tool === tool }}
+          item={{
+            ...item(id, t(partInfo[id].label)),
+            kind: id,
+            tile: tile(),
+            expanded:
+              id === "disk" ? open?.content.kind === "disks" : id === "clock" && primary ? open?.content.kind === "clock" : tool === null ? undefined : open?.content.kind === "tool" && open.content.tool === tool,
+          }}
           paused={paused}
           onClick={(e) => afterDrag(e) || clickWidget(id, e.currentTarget)}
           onPointerDown={dragFrom(id)}
