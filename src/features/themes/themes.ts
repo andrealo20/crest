@@ -47,6 +47,8 @@ export interface ThemeSettings {
   glassRefraction: number;
   glassFrost: number;
   glassRim: number;
+  /** The live copy's frames a second, for the notch and every bar (capture/glass_live.rs `interval`). */
+  glassFps: number;
   /** The closed notch and the capsule drawn as glass too, over a live copy of the screen around them (Windows 11, src/notch/glass/live.ts). */
   glassLive: boolean;
   /** Status alerts (volume, brightness, a copy and the others) drawn as clear glass over a live copy of the screen, while Glass is on (src/notch/Notch.tsx). */
@@ -105,7 +107,7 @@ export const TERTIARY = 2.8;
  */
 export const GLASS_EDGE = 0.35;
 /** The glass's sliders' ends (Settings › Themes, under Glass); saved values are held to them. */
-export const GLASS_RANGE = { glassTransparency: [-100, 100], glassRefraction: [0, 200], glassFrost: [0, 200], glassRim: [0, 200] } as const;
+export const GLASS_RANGE = { glassTransparency: [-100, 100], glassRefraction: [0, 200], glassFrost: [0, 200], glassRim: [0, 200], glassFps: [10, 30] } as const;
 export const MAX_FILE_BYTES = 64 * 1024;
 export const DEFAULT_THEME = "dark";
 
@@ -663,6 +665,7 @@ export const THEME_DEFAULTS: ThemeSettings = {
   glassRefraction: 80,
   glassFrost: 0,
   glassRim: 100,
+  glassFps: 10,
   glassLive: false,
   glassAlerts: true,
   design: "crest",
@@ -718,6 +721,7 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     glassRefraction: look("glassRefraction"),
     glassFrost: look("glassFrost"),
     glassRim: look("glassRim"),
+    glassFps: look("glassFps"),
     glassLive: s.glassLive === true,
     glassAlerts: s.glassAlerts !== false,
     design: s.design === "material" ? "material" : "crest",

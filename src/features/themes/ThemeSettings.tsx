@@ -319,6 +319,7 @@ function ThemeChoice() {
       {!isMac && !demo && themes.glass && <GlassLook />}
       {!isMac && !demo && themes.glass && support?.supported === true && <GlassLive />}
       {!isMac && !demo && themes.glass && support?.supported === true && <GlassAlerts />}
+      {!isMac && !demo && themes.glass && support?.supported === true && <GlassFps />}
     </Group>
   );
 }
@@ -336,14 +337,14 @@ function GlassAlerts() {
 
 /** The live glass's switch (src/notch/glass/live.ts), with the battery warning always under it, so it is read before switching on. */
 function GlassLive() {
-  const on = settings.use().themes.glassLive;
+  const { glassLive: on, glassFps } = settings.use().themes;
   const label = t("Auch geschlossene Notch und Kapsel");
   return (
     <Row icon="blur_linear"
       label={label}
       hint={
         <>
-          {t("Zeigt live, was hinter der geschlossenen Notch und der Kapsel liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlen Notch und Kapsel in Screenshots, Aufnahmen und Bildschirmfreigaben.")}
+          {t("Zeigt live, was hinter der geschlossenen Notch und der Kapsel liegt, bis zu {n}-mal pro Sekunde. Solange das an ist, fehlen Notch und Kapsel in Screenshots, Aufnahmen und Bildschirmfreigaben.", { n: glassFps })}
           <span className="mt-1 flex items-start gap-1 text-caution">
             <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
             {t("Braucht mehr Akku: Windows hat bei jeder Änderung auf dem Bildschirm mehr Arbeit")}
@@ -385,6 +386,29 @@ function GlassLook() {
       <GlassSlider label={t("Mattierung")} hint={t("Wie stark der Hintergrund in der Mitte verschwimmt")} icon="lens_blur" field="glassFrost" step={10} />
       <GlassSlider label={t("Licht am Rand")} hint={t("Wie hell der Rand des Glases leuchtet")} icon="flare" field="glassRim" step={10} />
     </>
+  );
+}
+
+/** The live copy's frames a second, one setting for the notch and every bar (src/notch/glass/live.ts), with the battery warning. */
+export function GlassFps(props: { note?: string }) {
+  const fps = settings.use().themes.glassFps;
+  return (
+    <GlassSlider
+      label={t("Bilder pro Sekunde")}
+      icon="speed"
+      hint={
+        <>
+          {props.note}
+          <span className={`${props.note ? "mt-1 " : ""}flex items-start gap-1 text-caution`}>
+            <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
+            {t("Ein höherer Wert braucht mehr Akku")}
+          </span>
+        </>
+      }
+      field="glassFps"
+      step={5}
+      text={String(fps)}
+    />
   );
 }
 

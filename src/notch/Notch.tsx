@@ -464,7 +464,7 @@ export function Notch() {
 
   // Closed for a while → WebView2 may trim memory; back to normal on the first touch
   // (peek), so the hover delay covers paging it back in before the notch opens; not while the closed notch draws a live copy, which
-  // uploads and draws up to 10 times a second.
+  // uploads and draws up to 30 times a second (Frames per second).
   useEffect(() => {
     if (status !== "closed" || liveReady) return setMemoryLow(false);
     const id = window.setTimeout(() => setMemoryLow(true), MEMORY_LOW_AFTER_MS);

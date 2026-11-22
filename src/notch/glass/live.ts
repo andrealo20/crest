@@ -93,7 +93,8 @@ async function run(call: Api, step: NonNullable<LiveStep>) {
     }
   } else if (step.do === "start") {
     floor = maxGen + 1;
-    await call.start(step.zone).then(
+    // Whole: Rust reads no other, and the other windows adopt a hand edit as saved.
+    await call.start(step.zone, Math.round(settings.get().themes.glassFps)).then(
       (r) => {
         maxGen = Math.max(maxGen, r.gen);
         floor = Math.max(floor, r.gen);
@@ -247,4 +248,11 @@ export function startGlassLive(wants: () => boolean = notchWants) {
   settings.subscribe(sync);
   liveSupport.subscribe(sync);
   sync();
+  // A new rate is a new session, as a new zone is.
+  let fps = settings.get().themes.glassFps;
+  settings.subscribe(() => {
+    if (settings.get().themes.glassFps === fps) return;
+    fps = settings.get().themes.glassFps;
+    restartLive();
+  });
 }

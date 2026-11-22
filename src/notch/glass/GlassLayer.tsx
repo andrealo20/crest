@@ -272,7 +272,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     return true;
   };
 
-  // Up to 10 a second, so no DOM read but a first one: the canvas is placed by fit, and the shape's top springs on its own (draw).
+  // Up to 30 a second, so no DOM read but a first one: the canvas is placed by fit, and the shape's top springs on its own (draw).
   const uploadLive = (m: GlassZone, bytes: Uint8Array) => {
     if (!gpu || gl.isContextLost() || Math.max(m.w, m.h) > maxSize) return false;
     storeCopy(gl, gpu, liveCopy, m, bytes);

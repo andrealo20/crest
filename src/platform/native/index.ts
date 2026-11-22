@@ -128,7 +128,7 @@ export interface GlassZone { x: number; y: number; w: number; h: number }
 export const glassLive = {
   supported: (): Promise<GlassLiveSupport> => invoke("glass_live_supported"),
   exclude: (on: boolean): Promise<void> => invoke("glass_live_exclude", { on }),
-  start: (zone: GlassZone): Promise<GlassZone & { gen: number }> => invoke("glass_live_start", { zone }),
+  start: (zone: GlassZone, fps?: number): Promise<GlassZone & { gen: number }> => invoke("glass_live_start", { zone, fps }),
   stop: (): Promise<void> => invoke("glass_live_stop"),
 };
 

@@ -20,7 +20,7 @@ import { FavoriteList } from "../launcher/FavoriteList";
 import { MoveButton } from "../launcher/FavoriteList";
 import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
-import { GlassSlider } from "../themes/ThemeSettings";
+import { GlassFps, GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
 import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type AppsOn, type BarEdge, type BarShape, type Combine, type EmptyDouble, type MarkStyle, type SysItem, type ToolItem, type Zone } from "./model";
 import { demoBarOffered, setTaskbar } from "./store";
@@ -386,6 +386,7 @@ export function TaskbarApps() {
  */
 export function TaskbarLook() {
   const { shape, height, iconSize, surface, transparency, glass, glassLook, autoHide, position, marks } = settings.use().taskbar;
+  const fps = settings.use().themes.glassFps;
   const theme = activeTheme.use();
   const appDesign = design.use();
   // The glass's switch only where the live glass can run (src/notch/glass/live.ts), as in Notch → Themes.
@@ -469,7 +470,7 @@ export function TaskbarLook() {
           label={t("Glas")}
           hint={
             <>
-              {t("Zeigt live, was hinter der Taskleiste liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.")}
+              {t("Zeigt live, was hinter der Taskleiste liegt, bis zu {n}-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.", { n: fps })}
               {plus && <span className="mt-1 block">{t("Mit {name} ist der Inhalt der Taskleiste immer weiß, und der Hintergrund gilt nicht", { name })}</span>}
               <span className="mt-1 flex items-start gap-1 text-caution">
                 <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
@@ -495,6 +496,7 @@ export function TaskbarLook() {
           <GlassSlider label={t("Lichtbrechung")} hint={t("Wie stark der Rand den Hintergrund biegt")} icon="ripples" field="glassRefraction" step={10} />
           <GlassSlider label={t("Mattierung")} hint={t("Wie stark der Hintergrund in der Mitte verschwimmt")} icon="lens_blur" field="glassFrost" step={10} />
           <GlassSlider label={t("Licht am Rand")} hint={t("Wie hell der Rand des Glases leuchtet")} icon="flare" field="glassRim" step={10} />
+          <GlassFps note={t("Gilt auch für die Notch")} />
         </>
       )}
       <Row icon="palette" label={<span className="whitespace-normal">{t("Farben und Thema gelten auch für die Taskleiste")}</span>}>
