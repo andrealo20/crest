@@ -19,7 +19,7 @@ export interface NotchGeometry {
 /** Header height when open = height of the closed notch. */
 export const HEADER_HEIGHT = 32;
 
-/** Tool bar at the bottom of the open notch (like OmniNotch). */
+/** Tool bar of the open notch, at its bottom (like OmniNotch) or under the header (behavior.toolBar). */
 export const DOCK_HEIGHT = 46;
 
 /** Padding when open. Inner radii = r − PADDING (concentric). */

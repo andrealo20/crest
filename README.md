@@ -122,7 +122,7 @@ Every tool below lives in the same notch, and on Windows the taskbar can carry t
 
 ### Everyday tools
 
-- **Overview**: time, weather, the song playing, focus, keep awake, volume, brightness, and quick switches for Wi-Fi, Bluetooth, the dark theme and the microphone.
+- **Overview**: time, weather, the song playing, focus, keep awake, volume, brightness, and quick switches for Wi-Fi, Bluetooth, the dark theme and the microphone, each with a switch to hide it.
 - **Calc**: a notebook calculator that reads units, dates, percentages, currencies and variables.
 - **Converter** for units, and about 160 currencies at central bank reference rates.
 - **Colour**: pick a colour anywhere on the screen, copy it as HEX, RGB, HSL or OKLCH, check its contrast and see its harmonies.
@@ -175,7 +175,7 @@ Windows 11 or Windows 10, 64-bit (x64 or ARM64), or macOS 12 or later on Apple s
 
 ## Your data stays on your PC
 
-No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Crest goes online by itself only for the weather in Overview, the update check every 4 hours and the AI usage rings of the services you are signed in to; everything else waits until you set it up. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
+No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Crest goes online by itself only for the weather in Overview (which has its own switch), the update check every 4 hours and the AI usage rings of the services you are signed in to; everything else waits until you set it up. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
 
 ## Support the project
 

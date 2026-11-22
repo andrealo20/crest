@@ -162,7 +162,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     gl.uniform1f(u.uThick, closed ? GLASS.closedThick : GLASS.thick);
     gl.uniform1f(u.uShadow, closed ? 0 : GLASS.shadow);
     gl.uniform1f(u.uEdgeFade, closed && src.meta ? 1 : 0);
-    const look = settings.get().themes, reduced = live.current.reduced;
+    const look = settings.get().themes, behavior = settings.get().behavior, reduced = live.current.reduced;
     // Covering, the veil at full strength hides the copy while --shape comes back. Else Transparency (themes.ts glassVeilAt): the
     // content down to the theme's clearest, the side bands never clearer than their own; the tool bar keeps its own.
     const veil = (safe: number, clearest?: number) => (covering ? 1 : glassVeilAt(safe, look.glassTransparency, clearest));
@@ -175,7 +175,8 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     // The closed shapes keep one veil all over: their row runs up to the sides, so no clearer side bands.
     gl.uniform1f(u.uVeilEdge, closed ? inside : veil(t.edge));
     gl.uniform1f(u.uBarVeil, covering ? 1 : t.edge);
-    gl.uniform1f(u.uDock, DOCK_HEIGHT);
+    // Negative: the tool bar's strip is the one under the header (#76).
+    gl.uniform1f(u.uDock, behavior.toolBar === "top" ? -DOCK_HEIGHT : DOCK_HEIGHT);
     // The header is glass like the rest (issue #49). The brow, the veil's colour over it, is left only while covering and round top
     // corners and ears meet (a capsule near the edge springing): there it hides the top rim, and over the full veil it does not show.
     const brow = !closed && live.current.hangs && covering && rt >= 0.5 && shape.ear.get() > 0;
@@ -187,9 +188,10 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
       gl.uniform4f(u.uDrop, 0, 0, 0, 0);
       gl.uniform1f(u.uLift, 0);
     } else {
-      // The tool bar and its drop, in the canvas: x from its centre, which is the panel's. Covering, the Dock's own fills are back.
+      // The tool bar and its drop, in the canvas: x from its centre, which is the panel's. Covering, the Dock's own fills are back;
+      // with its background off there is no capsule, and so no drop of glass either: the Dock draws its plain drop (Notch.tsx glassBar).
       const mid = box.w / 2, bh = barBox.h.get(), bottom = barBox.top.get() + bh, lift = drop.lift.get();
-      gl.uniform4f(u.uBar, mid + barBox.x.get(), bottom - bh / 2, covering ? 0 : barBox.w.get() / 2, bh / 2);
+      gl.uniform4f(u.uBar, mid + barBox.x.get(), bottom - bh / 2, covering || !behavior.toolBarFill ? 0 : barBox.w.get() / 2, bh / 2);
       // At rest no stretch: a spring's last frame snaps to its target, and that snap would read as speed.
       const speed = reduced || !drop.x.isAnimating() ? 0 : Math.abs(drop.x.getVelocity());
       const [rise, hw, hh] = dropShape(drop.w.get(), drop.h.get(), bh, lift, drop.press.get(), speed);

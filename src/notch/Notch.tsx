@@ -263,6 +263,9 @@ export function Notch() {
   // With the closed notch's own glass off, only a status alert shows glass; the session that lingers after it draws nothing. A status alert follows
   // its own switch, the rest of the closed look the closed notch's.
   const glass: GlassMode = !armed ? "off" : closedLook ? (liveAllowed && liveReady && (hud ? themes.glassAlerts : themes.glassLive) ? "shown" : "armed") : allowed && shot.ready ? "shown" : "armed";
+  // The tool bar under the header or at the bottom of the open panel (#76): the same element either way, so it is built once.
+  const dockTop = behavior.toolBar === "top";
+  const dock = <Dock tabs={visible} activeId={tab.id} liquid={glass === "shown"} fades={glass !== "off"} top={dockTop} />;
   const reduced = useReducedMotion();
   // The closed row over the closed glass (themes.ts closedGlassInk); its colours change with --shape's fade while the switch is on,
   // where the live glass can run: elsewhere (a Mac with a Windows backup restored) the row keeps global.css's fade of the accent.
@@ -665,8 +668,10 @@ export function Notch() {
                 <div aria-hidden data-ambience={tinted && glass !== "shown" ? "on" : "off"} className="pointer-events-none absolute inset-0 -z-10" style={tinted ? { ["--ambience" as string]: accent } : undefined} />
                 {/* The Music tool's cover behind the whole panel; while it shows, the panel takes the closed notch's light ink (darkInk). On a dark
                     theme it stays over the glass, see-through so the glass shows; on a light theme the glass turns off (blocks above). */}
-                <CoverBackdrop glass={glass === "shown"} />
+                <CoverBackdrop glass={glass === "shown"} top={dockTop} />
                 <Header title={t(tab.label)} />
+                {/* Moved in the tree, not by CSS order, so Tab reaches the tools in the order they show (#76). */}
+                {dockTop && dock}
                 <div className="relative min-h-0 flex-1 overflow-clip">
                   <AnimatePresence mode="popLayout" initial={false}>
                     <motion.div
@@ -683,7 +688,7 @@ export function Notch() {
                     </motion.div>
                   </AnimatePresence>
                 </div>
-                <Dock tabs={visible} activeId={tab.id} liquid={glass === "shown"} fades={glass !== "off"} />
+                {!dockTop && dock}
                 {/* The grips and their sizes assume a panel hanging from the top edge. */}
                 {/* The grips size the user's own size; an extra height (sizeExtra) stays on top of it. */}
                 {!overridden && edge === "top" && behavior.resizeEdges && <ResizeHandles id={tab.id} def={tab.size} size={toolSize} />}
@@ -769,12 +774,16 @@ function Header({ title }: { title: string }) {
 }
 
 /**
- * Tool bar at the bottom (like OmniNotch). The gear at the end opens settings like any tool, also when they are open (#49). A drop under the pointed or
- * the current tool moves the same way with the glass and without (glass/bar.ts). Over the glass (`liquid`) the shader draws the bar as a
- * capsule of glass and the drop on it, and the Dock's own fills step aside.
+ * Tool bar at the bottom (like OmniNotch), or under the header (`top`, #76). The gear at the end opens settings like any tool, also when they are open
+ * (#49). A drop under the pointed or the current tool moves the same way with the glass and without (glass/bar.ts). Over the glass (`liquid`) the
+ * shader draws the bar as a capsule of glass and the drop on it, and the Dock's own fills step aside. With the background off (behavior.toolBarFill)
+ * there is no capsule, of glass or fill: the icons keep the panel's ink, and the plain drop shows only under the pointer or the keyboard's focus.
  * `fades`: the glass is on, so the fills fade with it; without it they follow the theme's crossfade, as before the glass.
  */
-function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: string; liquid: boolean; fades: boolean }) {
+function Dock({ tabs, activeId, liquid, fades, top }: { tabs: NotchTab[]; activeId: string; liquid: boolean; fades: boolean; top: boolean }) {
+  const fill = settings.use().behavior.toolBarFill;
+  // The shader draws the capsule and its drop only with the background on (GlassLayer.tsx uBar).
+  const glassBar = liquid && fill;
   const inSettings = activeId === settingsTab.id;
   const updateReady = update.use().phase === "available";
   // Dot on the gear = update ready or unseen changes → jump straight to that section.
@@ -816,30 +825,34 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
     });
   };
   const pill = useRef<HTMLSpanElement>(null);
-  usePlainDrop(pill, !liquid);
+  usePlainDrop(pill, !glassBar);
   // Each store hook runs on every render, as for `urgent` in Notch().
   const theme = activeTheme.use();
   const hues = useIconColors();
   const refraction = settings.use().themes.glassRefraction;
   const reduced = useReducedMotion() === true;
   // Under the drop the pointed icon grows as much as the lens shows; without the glass, where its sliders do not show, as at their default.
-  const mag = reduced ? 1 : dropLens(liquid ? refraction : 100)[1];
+  const mag = reduced ? 1 : dropLens(glassBar ? refraction : 100)[1];
   return (
     <div ref={root} className="relative flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
       <div
         ref={capsule}
         {...handlers}
         // Over the glass the icons, the mark and the dot take the one ink that reads best over the bar's clear veil (themes.ts glassInk).
-        style={liquid ? barInk(theme, hues) : undefined}
-        className={`relative flex h-10 max-w-full items-center rounded-[14px] material:rounded-[20px] p-0.5 ${fades ? FILL_FADE : ""} ${liquid ? "bg-transparent" : "bg-fill-2"}`}
+        style={glassBar ? barInk(theme, hues) : undefined}
+        className={`relative flex h-10 max-w-full items-center rounded-[14px] material:rounded-[20px] p-0.5 ${fades ? FILL_FADE : ""} ${fill && !liquid ? "bg-fill-2" : "bg-transparent"}`}
       >
         {/* The drop without the glass (usePlainDrop), behind the buttons and cut to the capsule; not in the strip, which also cuts upwards.
-            Under Material it is the state layer that moves with the pointer, so it matches the current tool's pill when it rests there. */}
-        <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+            Under Material it is the state layer that moves with the pointer, so it matches the current tool's pill when it rests there.
+            Without the background it shows only while a tool is pointed: no grey behind the current tool, which keeps its mark (#76). */}
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] transition-opacity duration-150 motion-reduce:transition-none ${!fill && pointed === null ? "opacity-0" : ""}`}
+        >
           <span
             ref={pill}
             className={`absolute bottom-0 left-1/2 h-9 w-[42px] rounded-[12px] material:rounded-[18px] material:opacity-[0.08] ${fades ? FILL_FADE : ""} ${
-              liquid ? "bg-transparent" : "bg-fill-3 material:bg-current"
+              glassBar ? "bg-transparent" : "bg-fill-3 material:bg-current"
             }`}
           />
         </span>
@@ -853,7 +866,7 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
               hue={tab.hue}
               active={tab.id === activeId}
               pointed={pointed === tab.id}
-              liquid={liquid}
+              liquid={glassBar}
               lens={pointed === tab.id ? mag : 1}
               onPointerDown={tabs.length > 1 ? dragFrom(tab.id) : undefined}
               dimmed={dragged === tab.id}
@@ -868,23 +881,24 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
           icon={GearSix}
           active={inSettings}
           pointed={pointed === settingsTab.id}
-          liquid={liquid}
+          liquid={glassBar}
           lens={pointed === settingsTab.id ? mag : 1}
           badge={badge}
           onClick={() => navigate(settingsTab.id, badge ? "updates" : null)}
         />
       </div>
-      <DockDrop root={root} tabs={tabs} />
+      <DockDrop root={root} tabs={tabs} top={top} />
     </div>
   );
 }
 
 /**
- * A tool dragged off the tool bar (toolDrag): its icon under the pointer and, above the Dock, the trash. Let go on the trash once
- * it is armed (useTrashArmed) and the tool is switched off in its place, as its switch in Settings > Tools does; anywhere else
- * nothing changes, as the order is Settings' to change. Both inside the panel, which the shape clips, over the tool view.
+ * A tool dragged off the tool bar (toolDrag): its icon under the pointer and, beside the Dock on the tool view's side (above it, or
+ * below it with the bar on top), the trash. Let go on the trash once it is armed (useTrashArmed) and the tool is switched off in its
+ * place, as its switch in Settings > Tools does; anywhere else nothing changes, as the order is Settings' to change. Both inside the
+ * panel, which the shape clips, over the tool view.
  */
-function DockDrop({ root, tabs }: { root: RefObject<HTMLDivElement | null>; tabs: NotchTab[] }) {
+function DockDrop({ root, tabs, top }: { root: RefObject<HTMLDivElement | null>; tabs: NotchTab[]; top: boolean }) {
   const drag = toolDrag.use();
   const dragging = drag !== null;
   const disc = useRef<HTMLSpanElement>(null);
@@ -926,8 +940,8 @@ function DockDrop({ root, tabs }: { root: RefObject<HTMLDivElement | null>; tabs
         ref={disc}
         shown={dragging}
         armed={armed}
-        edge="bottom"
-        className="absolute bottom-full left-1/2 z-30 mb-2 -ml-5"
+        edge={top ? "top" : "bottom"}
+        className={`absolute left-1/2 z-30 -ml-5 ${top ? "top-full mt-2" : "bottom-full mb-2"}`}
         style={backdrop ? undefined : { ["--color-red" as string]: theme.vars["--color-red"] }}
       />
       {drag && at && I && (
@@ -1004,7 +1018,7 @@ function DockButton(props: {
       onClick={(e) => {
         if (!(props.onPointerDown && e.detail > 0 && pressDragged())) props.onClick();
       }}
-      // A draggable one keeps a sideways swipe for scrolling the strip; a move up drags it.
+      // A draggable one keeps a sideways swipe for scrolling the strip; a move off the strip drags it.
       className={`pressable relative flex h-9 w-[42px] min-w-6 shrink items-center justify-center rounded-[12px] material:rounded-[18px] transition-colors duration-150 ${
         props.active ? "text-label material:text-on-secondary-container" : props.pointed ? "text-label" : color ? "" : "text-label-2 hover:text-label"
       } ${props.onPointerDown ? "touch-pan-x" : ""} ${props.dimmed ? "opacity-40" : ""}`}
@@ -1044,7 +1058,7 @@ function DockButton(props: {
 }
 
 /**
- * With the dock at the bottom, a shorter tool moves it up, so the cursor would
+ * A shorter tool moves the panel's bottom up (with the dock at the bottom, the dock with it), so the cursor would
  * suddenly be outside and the notch would close. So the hit zone only shrinks
  * once the cursor is back over the shape (or the notch closes).
  * Applies natively too: Rust gets this zone's rectangle.

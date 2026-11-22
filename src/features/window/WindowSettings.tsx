@@ -434,6 +434,23 @@ function Panel() {
       <Row icon="open_in_full" label={t("Größe an den Rändern ziehen")} hint={t("Aus ändert sich die Größe nur hier und mit dem Tastenkürzel dafür")}>
         <Switch label={t("Größe an den Rändern ziehen")} checked={b.resizeEdges} onChange={(resizeEdges) => updateBehavior({ resizeEdges })} />
       </Row>
+      {/* #76: under the header or at the bottom, with or without the capsule behind its icons. */}
+      <Row icon="dock_to_bottom" label={t("Werkzeugleiste")}>
+        <Segmented<"bottom" | "top">
+          id="panel-tool-bar"
+          label={t("Werkzeugleiste")}
+          size="sm"
+          value={b.toolBar}
+          onChange={(toolBar) => updateBehavior({ toolBar })}
+          options={[
+            { value: "bottom", label: t("Unten") },
+            { value: "top", label: t("Oben") },
+          ]}
+        />
+      </Row>
+      <Row icon="format_color_fill" label={t("Hintergrund der Werkzeugleiste")}>
+        <Switch label={t("Hintergrund der Werkzeugleiste")} checked={b.toolBarFill} onChange={(toolBarFill) => updateBehavior({ toolBarFill })} />
+      </Row>
       <Row icon="zoom_in" label={t("Skalierung")} hint={t("Zeichnet Crest größer, wie eine höhere Windows-Skalierung nur für Crest")}>
         {/* Steps instead of a slider: the scale redraws the whole page, so a dragged thumb would move under the pointer. */}
         <div id="panel-scale" className="flex shrink-0 items-center gap-2">

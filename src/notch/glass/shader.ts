@@ -91,7 +91,7 @@ uniform float uMaxShift;       // lower with reduced motion, times Refraction
 uniform vec2 uLod;             // blur level at the rim and in the middle, with Frost (params.ts lodFor)
 uniform vec4 uVeil;            // --glass-tint's colour, and the content's veil after Transparency (themes.ts glassVeilAt)
 uniform float uVeilEdge;       // the side bands' veil after Transparency
-uniform float uDock;           // DOCK_HEIGHT: no side bands along the tool bar's strip
+uniform float uDock;           // DOCK_HEIGHT: no side bands along the tool bar's strip; negative, the strip is under the header
 uniform vec4 uBrow;            // the veil's colour and HEADER_HEIGHT while a covering panel near the edge springs; -1 elsewhere
 uniform vec4 uRim;             // --glass-rim, its strength times Rim light
 uniform float uHair;           // the outline, stronger on light themes
@@ -226,10 +226,10 @@ void main() {
   // Clamped before the veil, so the veil's worst case stays a white or a black backdrop (themes.ts glassVeil).
   col = clamp(mix(vec3(luma(col)), col, SAT), 0.0, 1.0);
 
-  // The veil: the theme's background, lighter in the side bands above the tool bar, thinner in the bar, with the drop's tint on it.
-  // The bands start below the header, whose buttons sit close to the sides.
+  // The veil: the theme's background, lighter in the side bands beside the content (above the tool bar, or below it with the bar under
+  // the header), thinner in the bar, with the drop's tint on it. The bands start below the header, whose buttons sit close to the sides.
   float side = smoothstep(0.35, 0.75, abs(g.x));
-  float strip = smoothstep(uShape.z - uDock - 8.0, uShape.z - uDock, p.y);
+  float strip = uDock > 0.0 ? smoothstep(uShape.z - uDock - 8.0, uShape.z - uDock, p.y) : 1.0 - smoothstep(HEAD - uDock, HEAD - uDock + 8.0, p.y);
   float head = smoothstep(HEAD, HEAD + 8.0, p.y);
   float edge = (1.0 - smoothstep(0.5 * uBand, uBand, inward)) * side * (1.0 - strip) * head;
   col = mix(col, uVeil.rgb, mix(mix(uVeil.a, uVeilEdge, edge), uBarVeil, inB));
@@ -244,8 +244,10 @@ void main() {
 
   if (rim) {
     vec2 light = normalize(LIGHT);
-    // Not inside the bar: its ink is worked out over the veil alone (themes.ts glassInk).
-    col *= 1.0 - uShadow * exp(-inward / 5.0) * (0.55 + 0.45 * max(dot(g, -light), 0.0)) * (1.0 - inB);
+    // Not inside the bar: its ink is worked out over the veil alone (themes.ts glassInk). Nor along the bottom with the bar under the
+    // header, where the tools' content now reaches the rim: darker than the veil's black end, text there would drop below its minimum.
+    float low = uDock < 0.0 ? max(g.y, 0.0) : 0.0;
+    col *= 1.0 - uShadow * exp(-inward / 5.0) * (0.55 + 0.45 * max(dot(g, -light), 0.0)) * (1.0 - inB) * (1.0 - low);
     col += uRim.rgb * uRim.a * shine(g, slope, inward, band);
     col = mix(col, vec3(0.0), uHair * (1.0 - smoothstep(0.0, 1.0, inward * uDpr)));
   }

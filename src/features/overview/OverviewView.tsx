@@ -32,6 +32,7 @@ import { AWAKE_MINUTES, awakeLeft, awakeOn, formatLeft } from "./awake";
 import { CONTROLS_ROW, QuickControls, useQuick } from "./QuickControls";
 import { BRIGHTNESS_ROW, BrightnessTile, OutputList, VolumeTile, useBrightness, useOutputs } from "./QuickTiles";
 import { awake, startAwake, stopAwake } from "./store";
+import { TILES } from "./parts";
 
 /*
  *   14:32                                    ☀ 18°
@@ -45,13 +46,16 @@ import { awake, startAwake, stopAwake } from "./store";
  */
 export function OverviewView() {
   const presenting = usePresenting();
-  const { quotes, search } = settings.use().productivity;
+  // `parts`: which parts show (parts.ts, Settings > Tools); a hidden one reads nothing, and the size getter (tabs.ts) leaves out its row.
+  const { quotes, search, overview: parts } = settings.use().productivity;
 
-  const { outputs, listOpen, device, toggle, pick } = useOutputs();
-  const { bright, setBright, busy, hold } = useBrightness();
+  const { outputs, listOpen: listWanted, device, toggle, pick } = useOutputs();
+  // The output list hangs from the volume tile.
+  const listOpen = listWanted && parts.volume;
+  const { bright, setBright, busy, hold } = useBrightness(parts.brightness);
 
   // The open list grows the notch by its rows, like the player menu in Now Playing; the brightness row by its height and gap.
-  const [quick, reloadQuick] = useQuick();
+  const [quick, reloadQuick] = useQuick(parts.controls);
   // The list gets the rows left under the window's maximum (it scrolls past them).
   const others = (bright !== null ? BRIGHTNESS_ROW : 0) + (quick ? CONTROLS_ROW : 0);
   const rows = listOpen ? Math.max(1, Math.min(MIXER_MAX_ROWS, outputs.length, Math.floor((MAX_SIZE.h - findTab("overview")!.size.h - others - 14) / MIXER_ROW))) : 0;
@@ -60,7 +64,7 @@ export function OverviewView() {
     if (!extra) return requestSize("overview", null);
     const base = findTab("overview")!.size;
     requestSize("overview", { w: base.w, h: base.h + extra });
-  }, [extra, quotes, search]);
+  }, [extra, quotes, search, parts]);
   useEffect(() => () => requestSize("overview", null), []);
 
   return (
@@ -70,14 +74,14 @@ export function OverviewView() {
           {presenting ? <EyeSlash size={14} weight="fill" /> : <Eye size={14} weight="bold" />}
         </HeaderButton>
       </HeaderActions>
-      <Header />
-      <Activity />
-      {/* Focus, keep awake and volume have no backend on a Mac yet. */}
-      {!isMac && (
+      {(parts.clock || parts.weather) && <Header clock={parts.clock} weather={parts.weather} />}
+      {parts.activity && <Activity />}
+      {/* Focus, keep awake and volume have no backend on a Mac yet. Without the volume, the others share its room. */}
+      {!isMac && TILES.some((id) => parts[id]) && (
         <div className="flex gap-2">
-          <FocusTile />
-          <AwakeTile />
-          <VolumeTile device={device} open={listOpen} onDevices={toggle} />
+          {parts.focus && <FocusTile grow={!parts.volume} />}
+          {parts.awake && <AwakeTile grow={!parts.volume} />}
+          {parts.volume && <VolumeTile device={device} open={listOpen} onDevices={toggle} />}
         </div>
       )}
       {listOpen && <OutputList outputs={outputs} rows={rows} onPick={pick} />}
@@ -98,9 +102,10 @@ function useNow(): Date {
   return now;
 }
 
-function Header() {
+/** The clock and the weather, each while its part is on; a hidden weather loads nothing. */
+function Header({ clock, weather: weatherOn }: { clock: boolean; weather: boolean }) {
   const now = useNow();
-  const forecast = useForecast();
+  const forecast = useForecast(0, weatherOn);
   const place = settings.use().weather;
   const weather = forecast && forecast !== "error" ? describe(forecast.current.code, forecast.current.day) : null;
   // A forecast saved hours ago says how old it is, as in the weather tool.
@@ -111,39 +116,44 @@ function Header() {
 
   return (
     <div className="flex items-end justify-between gap-4">
-      <div className={clockLook === "standard" ? undefined : "flex min-w-0 flex-1 flex-col"}>
-        {clockLook === "standard" ? (
-          <div className="tabular text-[34px] leading-none font-semibold tracking-[-0.03em] text-label" style={{ color: lookTint(clockColor) }}>
-            {time}
-            {period && <span className="ms-1 text-title font-semibold tracking-normal text-label-3">{period}</span>}
-          </div>
-        ) : (
-          <div className="flex max-w-[340px]">
-            <Look look={clockLook} {...clockFace(now)} running mode="focus" tint={lookTint(clockColor)} h={38} />
-          </div>
-        )}
-        <div className="mt-1 text-footnote text-label-3">{date}</div>
-      </div>
-      <button onClick={() => navigate("weather")} className="pressable flex flex-col items-end text-end" title={t("Wetter öffnen")}>
-        <AnimatePresence mode="popLayout" initial={false}>
-          {weather && forecast && forecast !== "error" ? (
-            <motion.div
-              key="w"
-              className="flex items-center gap-1.5"
-              initial={{ opacity: 0, filter: "blur(4px)" }}
-              animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
-            >
-              <WeatherIcon icon={weather.icon} hue={weather.hue} size={22} className="text-label" />
-              <span className="tabular text-[22px] leading-none font-semibold tracking-[-0.02em] text-label">{formatTemp(forecast.current.temp)}</span>
-            </motion.div>
+      {clock && (
+        <div className={clockLook === "standard" ? undefined : "flex min-w-0 flex-1 flex-col"}>
+          {clockLook === "standard" ? (
+            <div className="tabular text-[34px] leading-none font-semibold tracking-[-0.03em] text-label" style={{ color: lookTint(clockColor) }}>
+              {time}
+              {period && <span className="ms-1 text-title font-semibold tracking-normal text-label-3">{period}</span>}
+            </div>
           ) : (
-            <motion.div key="s" className="h-[22px] w-16 rounded-[6px] bg-fill-1" exit={{ opacity: 0, transition: content.exit }} />
+            <div className="flex max-w-[340px]">
+              <Look look={clockLook} {...clockFace(now)} running mode="focus" tint={lookTint(clockColor)} h={38} />
+            </div>
           )}
-        </AnimatePresence>
-        <div className="mt-1 max-w-[220px] truncate text-footnote text-label-3">
-          {place ? `${place.name}${weather ? ` · ${old ?? weather.text}` : ""}` : t("Ort wird erkannt …")}
+          <div className="mt-1 text-footnote text-label-3">{date}</div>
         </div>
-      </button>
+      )}
+      {/* At the end also alone: justify-between would put a single child at the start. */}
+      {weatherOn && (
+        <button onClick={() => navigate("weather")} className="pressable ms-auto flex flex-col items-end text-end" title={t("Wetter öffnen")}>
+          <AnimatePresence mode="popLayout" initial={false}>
+            {weather && forecast && forecast !== "error" ? (
+              <motion.div
+                key="w"
+                className="flex items-center gap-1.5"
+                initial={{ opacity: 0, filter: "blur(4px)" }}
+                animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
+              >
+                <WeatherIcon icon={weather.icon} hue={weather.hue} size={22} className="text-label" />
+                <span className="tabular text-[22px] leading-none font-semibold tracking-[-0.02em] text-label">{formatTemp(forecast.current.temp)}</span>
+              </motion.div>
+            ) : (
+              <motion.div key="s" className="h-[22px] w-16 rounded-[6px] bg-fill-1" exit={{ opacity: 0, transition: content.exit }} />
+            )}
+          </AnimatePresence>
+          <div className="mt-1 max-w-[220px] truncate text-footnote text-label-3">
+            {place ? `${place.name}${weather ? ` · ${old ?? weather.text}` : ""}` : t("Ort wird erkannt …")}
+          </div>
+        </button>
+      )}
     </div>
   );
 }
@@ -252,8 +262,8 @@ function Activity() {
   );
 }
 
-/** Windows focus on/off. Light = on (like Control Center). */
-function FocusTile() {
+/** Windows focus on/off. Light = on (like Control Center). `grow`: takes the room the hidden volume tile leaves. */
+function FocusTile({ grow }: { grow: boolean }) {
   const [focus, setFocus] = useState<FocusState | null>(null);
   useEffect(() => {
     const load = () => void systemControls.focus().then(setFocus).catch(() => setFocus(null));
@@ -274,7 +284,7 @@ function FocusTile() {
         setFocus((f) => f && { ...f, active: !active });
         void systemControls.setFocus(!active).then(setFocus).catch(() => systemControls.focus().then(setFocus));
       }}
-      className={`pressable flex h-10 min-w-[150px] shrink-0 items-center gap-2.5 rounded-[12px] px-2.5 transition-colors material:rounded-full duration-200 disabled:opacity-40 ${
+      className={`pressable flex h-10 min-w-[150px] ${grow ? "flex-1" : "shrink-0"} items-center gap-2.5 rounded-[12px] px-2.5 transition-colors material:rounded-full duration-200 disabled:opacity-40 ${
         active ? "bg-primary text-on-primary" : "bg-fill-1 text-label"
       }`}
     >
@@ -293,8 +303,8 @@ function FocusTile() {
   );
 }
 
-/** Keeps the PC and the display awake. A tap is until turned off; the caret picks a duration, shown as the time left. */
-function AwakeTile() {
+/** Keeps the PC and the display awake. A tap is until turned off; the caret picks a duration, shown as the time left. `grow` as FocusTile's. */
+function AwakeTile({ grow }: { grow: boolean }) {
   const a = awake.use();
   const now = useNow().getTime();
   const active = awakeOn(a, now);
@@ -308,7 +318,7 @@ function AwakeTile() {
   ];
 
   return (
-    <div className={`flex h-10 min-w-[150px] shrink-0 items-center rounded-[12px] transition-colors material:rounded-full duration-200 ${active ? "bg-primary text-on-primary" : "bg-fill-1 text-label"}`}>
+    <div className={`flex h-10 min-w-[150px] ${grow ? "flex-1" : "shrink-0"} items-center rounded-[12px] transition-colors material:rounded-full duration-200 ${active ? "bg-primary text-on-primary" : "bg-fill-1 text-label"}`}>
       <button aria-pressed={active} onClick={() => (active ? stopAwake() : startAwake(null))} className="pressable flex h-full min-w-0 flex-1 items-center gap-2.5 ps-2.5">
         <motion.span
           className={`flex size-6 shrink-0 items-center justify-center rounded-full ${active ? "bg-black/10" : "bg-fill-2"}`}

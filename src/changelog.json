@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.3.1",
+    "date": "2026-11-22",
+    "items": [
+      {
+        "en": "The tool bar can sit under the header and lose its background, and each part of Overview has a switch of its own"
+      }
+    ]
+  },
+  {
     "version": "1.3.0",
     "date": "2026-11-21",
     "items": [

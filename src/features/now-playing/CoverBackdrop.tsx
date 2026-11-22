@@ -8,9 +8,11 @@ export const coverBackdrop = createStore<string | null>(null);
 /**
  * Behind the open panel (Notch.tsx, under the content like the ambience tint): the tiny cover stretched over the panel,
  * which reads as blurred, darkened so the closed notch's light ink (darkInk) stays readable, and darker at the bottom where the
- * controls and the dock sit. A new cover fades in over the old one. Over the glass (dark themes only) it is partly see-through, so the glass shows under it.
+ * controls and the dock sit. With the dock under the header (`top`) the top is darker too: over a white cover the dock's grey icons
+ * keep 3:1 there (about 3.1:1 at the icons' lower edge, 69 px down), where the plain 45% gives them about 2.2:1. A new cover fades in over the old
+ * one. Over the glass (dark themes only) it is partly see-through, so the glass shows under it.
  */
-export function CoverBackdrop({ glass }: { glass: boolean }) {
+export function CoverBackdrop({ glass, top = false }: { glass: boolean; top?: boolean }) {
   const src = coverBackdrop.use();
   return (
     <AnimatePresence initial={false}>
@@ -38,6 +40,7 @@ export function CoverBackdrop({ glass }: { glass: boolean }) {
           </AnimatePresence>
           <div className="absolute inset-0 bg-black/45" />
           <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/60 to-transparent" />
+          {top && <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/60 to-transparent" />}
         </motion.div>
       )}
     </AnimatePresence>

@@ -260,9 +260,12 @@ function useSavedForecast(): Forecast | null {
  */
 export const useForecast: (everyMs?: number, on?: boolean) => Forecast | null | "error" = isNotchWindow ? useLoadedForecast : useSavedForecast;
 
+/** Overview shows the weather in its header unless that part is switched off (overview/parts.ts). */
+const overviewWeather = () => settings.get().productivity.overview.weather;
+
 // On start, only when the weather shows somewhere (its tool or the Overview header): first run or "automatic"
 // → location from IP (detectPlace leaves a hand-picked one alone).
-const shown = settings.get().tools.some((x) => (x.id === "weather" || x.id === "overview") && x.enabled);
+const shown = settings.get().tools.some((x) => (x.id === "weather" || (x.id === "overview" && overviewWeather())) && x.enabled);
 // The notch alone looks the place up, and writes it to the settings the other windows follow.
 if (shown && isNotchWindow) void detectPlace();
 
@@ -295,7 +298,7 @@ function loadForBars() {
 /** Starts when a bar begins to show the weather or the place changes, and stops when none shows it; the settings notify on any change. */
 function followBars() {
   const p = settings.get().weather;
-  const key = !barShows("weather") && !barShows("overview") ? "" : p ? `${p.lat},${p.lon}` : "?";
+  const key = !barShows("weather") && !(barShows("overview") && overviewWeather()) ? "" : p ? `${p.lat},${p.lon}` : "?";
   if (key === barKey) return;
   barKey = key;
   loadForBars();

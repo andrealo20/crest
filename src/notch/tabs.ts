@@ -51,6 +51,7 @@ import { WaterView } from "../features/water/WaterView";
 import { ScratchpadView } from "../features/scratchpad/ScratchpadView";
 import { QUOTE_LINE_H } from "../features/quotes/QuoteLine";
 import { SEARCH_LINE_H } from "../features/overview/SearchLine";
+import { overviewHeight } from "../features/overview/parts";
 import { settings } from "../settings/store";
 import { NoticesView } from "../features/notices/NoticesView";
 import { SettingsView } from "../features/settings/SettingsView";
@@ -108,10 +109,11 @@ export const tabs: NotchTab[] = ([
     hue: "blue",
     label: "Übersicht",
     icon: SquaresFour,
-    // Taller while the quote line or the search line is on; read on every render, so the shape follows the settings.
+    // Taller while the quote line or the search line is on, shorter for each part switched off; read on every render, so the shape
+    // follows the settings.
     get size() {
-      const { quotes, search } = settings.get().productivity;
-      return { w: 520, h: 252 + (quotes ? QUOTE_LINE_H : 0) + (search !== "off" ? SEARCH_LINE_H : 0) };
+      const { quotes, search, overview } = settings.get().productivity;
+      return { w: 520, h: overviewHeight(overview) + (quotes ? QUOTE_LINE_H : 0) + (search !== "off" ? SEARCH_LINE_H : 0) };
     },
     View: OverviewView,
   },
