@@ -50,14 +50,23 @@ pub fn convert_probe(paths: Vec<String>) -> Probe {
     Probe { files }
 }
 
-/// Opens a file with its default app.
+/// Opens a file with its default app, off the main thread: a path on a network share that does not answer stalls both the check
+/// and the open for seconds.
 #[tauri::command]
-pub fn open_path(path: String) -> Result<(), String> {
-    if !Path::new(&path).exists() {
-        return Err("Datei nicht mehr vorhanden".into());
-    }
-    // The associated app; not through `explorer <file>`, which splits a name with a comma.
-    crate::open_url(&path)
+pub async fn open_path(path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if !Path::new(&path).exists() {
+            return Err("Datei nicht mehr vorhanden".into());
+        }
+        // The associated app; not through `explorer <file>`, which splits a name with a comma. On an STA thread, as the main
+        // thread was, since shell extensions expect one.
+        #[cfg(windows)]
+        return crate::launcher::on_sta(move || crate::open_url(&path)).unwrap_or_else(|| Err("open-failed".into()));
+        #[cfg(not(windows))]
+        crate::open_url(&path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Puts files on the clipboard (Ctrl+V in Explorer pastes them).
