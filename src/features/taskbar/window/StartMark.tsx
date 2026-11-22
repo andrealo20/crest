@@ -17,5 +17,7 @@ export function StartMark({ icon, size, className }: { icon: StartIcon; size: nu
       </svg>
     );
   const G = GLYPH[icon];
-  return <G size={size} weight="fill" className={className} aria-hidden />;
+  // Drawn larger, as their padding leaves the ink 70 to 91% of the box; the negative margin keeps the layout box at `size`.
+  const s = Math.round(size * 1.12);
+  return <G size={s} weight="fill" className={className} style={{ margin: (size - s) / 2 }} aria-hidden />;
 }
