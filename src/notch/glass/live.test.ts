@@ -45,7 +45,7 @@ export const settings = { get: () => page.settings.get(), subscribe: (l: () => v
 export const glassLive: typeof import("../../platform/native").glassLive = {
   supported: async () => ({ supported: true, reason: null }),
   exclude: (on) => command("exclude", on),
-  start: (zone) => command("start", zone),
+  start: (zone, fps) => command("start", zone, fps),
   stop: () => command("stop"),
 };
 export function onGlassLiveStop(handler: typeof page.stopped) {
@@ -59,9 +59,10 @@ export function onSessionState(handler: typeof page.session) {
 
 // ---------- The fake Rust and the page ----------
 
-interface Call { name: "exclude" | "start" | "stop"; arg?: unknown; resolve(value?: unknown): void; reject(code: string): void }
+interface Call { name: "exclude" | "start" | "stop"; arg?: unknown; fps?: unknown; resolve(value?: unknown): void; reject(code: string): void }
+interface Themes { glass: boolean; glassLive: boolean; glassFps?: number }
 const page = {
-  settings: createStore({ themes: { glass: true, glassLive: true } }),
+  settings: createStore<{ themes: Themes }>({ themes: { glass: true, glassLive: true } }),
   /** The commands not answered yet, and every command sent. */
   calls: [] as Call[],
   log: [] as string[],
@@ -69,10 +70,10 @@ const page = {
   stopped: (_: { gen: number; reason: string }) => {},
   session: (_: { locked: boolean; remote: boolean; asleep: boolean }) => {},
 };
-function command<T>(name: Call["name"], arg?: unknown): Promise<T> {
+function command<T>(name: Call["name"], arg?: unknown, fps?: unknown): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     page.log.push(name === "exclude" ? `exclude ${arg}` : name);
-    page.calls.push({ name, arg, resolve: resolve as Call["resolve"], reject });
+    page.calls.push({ name, arg, fps, resolve: resolve as Call["resolve"], reject });
   });
 }
 
@@ -86,7 +87,7 @@ const flush = async () => {
 
 let pages = 0;
 /** A page just loaded with Glass and the switch as given: a new copy of live.ts, a glass layer that draws, Rust saying it can run. */
-async function load(themes = { glass: true, glassLive: true }, wants?: () => boolean) {
+async function load(themes: Themes = { glass: true, glassLive: true }, wants?: () => boolean) {
   Object.assign(page, { settings: createStore({ themes }), calls: [], log: [] });
   const live = (await import(`./live.ts?page=${++pages}`)) as typeof import("./live");
   const drawn: LiveMeta[] = [];
@@ -409,5 +410,29 @@ test("the window moved while a zone change waited, and the change went through: 
   await new Promise((done) => setTimeout(done, LIVE_SETTLE_MS + 30));
   await t.answer("start", { gen: 5, x: 512, y: 0, w: 496, h: 100 });
   t.live.wantLive({ x: 560, y: 0, w: 400, h: 100 });
+  assert.equal(page.calls.length, 0);
+});
+
+test("a start carries the frames a second set, as a whole number: Rust reads no other", async () => {
+  // A hand edit, which the other windows adopt as saved.
+  const t = await load({ glass: true, glassLive: true, glassFps: 29.6 });
+  await t.ready();
+  t.live.wantLive(NEED);
+  assert.deepEqual([last()?.name, last()?.arg, last()?.fps], ["start", ZONE, 30]);
+});
+
+test("a new rate is a new session for the same zone; the same rate, or a rate with no zone wanted, asks for nothing", async () => {
+  const t = await load({ glass: true, glassLive: true, glassFps: 10 });
+  await t.ready();
+  await t.run(3);
+  page.settings.set({ themes: { glass: true, glassLive: true, glassFps: 30 } });
+  assert.equal(page.calls.length, 1);
+  assert.deepEqual([last()?.name, last()?.arg, last()?.fps], ["start", ZONE, 30]);
+  await t.answer("start", { gen: 5, ...ZONE });
+  page.settings.set({ themes: { glass: true, glassLive: true, glassFps: 30 } });
+  assert.equal(page.calls.length, 0);
+  t.live.wantLive(null);
+  await t.answer("stop");
+  page.settings.set({ themes: { glass: true, glassLive: true, glassFps: 20 } });
   assert.equal(page.calls.length, 0);
 });

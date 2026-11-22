@@ -1,6 +1,6 @@
 //! The live glass on the closed notch and the capsule (src/notch/glass) and on the bar, Windows 11 only, behind its own switch
-//! in Settings › Themes, off by default: a copy of the screen just around the closed notch, the capsule or the bar, up to 10
-//! times a second.
+//! in Settings › Themes, off by default: a copy of the screen just around the closed notch, the capsule or the bar, up to as
+//! many times a second as Frames per second says (10 to 30, 10 by default).
 //!
 //! - One session per window, the notch and each bar, and the commands always act on the window that calls them.
 //! - While the switch is on the window stays out of every capture, its own included, whether the copy runs or not:
@@ -9,8 +9,9 @@
 //!   and the copy for the open panel (backdrop.rs) finds the notch out.
 //! - The copy is Windows.Graphics.Capture of the window's monitor, without the yellow border and the cursor, on the GPU that
 //!   drives that monitor, into frames that hold the monitor from its top left corner to the zone's far corner (Windows clips
-//!   the rest). Windows sends at most 10 frames a second. One D3D11 device is kept for each GPU a window's glass is on, its copy
-//!   paused or not, until no window's is: a new one for each session cost 0.2 to 2.5 s and memory that did not all come back.
+//!   the rest). Windows sends at most that many frames a second (`interval`). One D3D11 device is kept for each GPU a window's
+//!   glass is on, its copy paused or not, until no window's is: a new one for each session cost 0.2 to 2.5 s and memory that
+//!   did not all come back.
 //! - 8-bit frames on an HDR monitor too: what Windows shows in SDR comes out exact, HDR content is cut at SDR white.
 //! - A frame goes to the page only when the zone's bytes differ from the last ones sent, a session's first always: the notch
 //!   redrawing itself marks the zone dirty with nothing changed behind it, and the glass would redraw itself for ever. At a
@@ -63,8 +64,17 @@ use super::{affinity, backdrop, glass_flag, one_at_a_time, own_hwnd, record, Cap
 /// Windows 11 24H2, the first with MinUpdateInterval and DirtyRegions. Before it every composition sends a frame, and
 /// pacing them in the handler loses the end of a burst, which then stays on the glass at a still screen.
 const FIRST_BUILD: u32 = 26100;
-/// Frames a second, as many on battery: fewer would not spare the compositor, which does most of the work.
+/// Frames a second when the page asks for none, and the fewest it may ask for: fewer would not spare the compositor, which does
+/// most of the work. The rate asked for holds on battery too.
 const FPS: u32 = 10;
+/// The most frames a second the page may ask for (Settings, Frames per second).
+const MAX_FPS: u32 = 30;
+
+/// The least time between two frames, in 100 ns, for the rate the page asks for, held to FPS..=MAX_FPS. 1 ms under the frame's
+/// time: Windows sends at a vblank, and one that comes a little early would wait for the next.
+fn interval(fps: Option<u32>) -> i64 {
+    10_000_000 / i64::from(fps.unwrap_or(FPS).clamp(FPS, MAX_FPS)) - 10_000
+}
 
 /// The running sessions by window label, at most the notch's and one per bar. Held through a whole start, so starts, stops
 /// and a switch going off come one at a time; the frame handler never takes it.
@@ -135,13 +145,14 @@ pub async fn glass_live_exclude(on: bool, app: AppHandle, window: WebviewWindow)
 
 /// The live copy of `zone` (px inside the calling window, as in backdrop.rs), in a new session that replaces that window's
 /// other one: also the way to change the zone, since at a still screen only a new session sends a frame. Resolves with its gen
-/// and the zone as kept; the frames follow, the first one possibly before this answer. Rejects with a short code (`refusal`,
-/// then `begin`).
+/// and the zone as kept; the frames follow, the first one possibly before this answer. `fps` is the rate set in Settings, 10 to
+/// 30 (`interval`); none is 10. Rejects with a short code (`refusal`, then `begin`).
 #[tauri::command]
-pub async fn glass_live_start(zone: Rect, app: AppHandle, window: WebviewWindow) -> Result<Started, String> {
+pub async fn glass_live_start(zone: Rect, fps: Option<u32>, app: AppHandle, window: WebviewWindow) -> Result<Started, String> {
     let hwnd = own(&app, &window)?;
     let support = support(&window).await;
-    tauri::async_runtime::spawn_blocking(move || begin(&app, &window, hwnd, zone, support)).await.unwrap_or(Err("failed")).map_err(String::from)
+    let every = interval(fps);
+    tauri::async_runtime::spawn_blocking(move || begin(&app, &window, hwnd, zone, every, support)).await.unwrap_or(Err("failed")).map_err(String::from)
 }
 
 /// Stops the calling window's live copy, if it runs; the window stays out of captures while the switch is on.
@@ -322,7 +333,7 @@ fn clip(zone: Rect, window: Rect, monitor: Rect) -> Option<(Rect, Rect, SizeInt3
     Some((Rect { x: on.x - window.x, y: on.y - window.y, ..on }, there, SizeInt32 { Width: there.right(), Height: there.bottom() }))
 }
 
-fn begin(app: &AppHandle, window: &WebviewWindow, hwnd: isize, zone: Rect, support: Option<&'static str>) -> Result<Started, &'static str> {
+fn begin(app: &AppHandle, window: &WebviewWindow, hwnd: isize, zone: Rect, every: i64, support: Option<&'static str>) -> Result<Started, &'static str> {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         let _ = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -357,7 +368,7 @@ fn begin(app: &AppHandle, window: &WebviewWindow, hwnd: isize, zone: Rect, suppo
     let gen = GEN.fetch_add(1, Ordering::SeqCst).wrapping_add(1);
     let alive = Arc::new(AtomicBool::new(true));
     let sink = to_page(window.clone(), alive.clone(), gen, at, win);
-    let session = open(handle, zone, size, gen, alive, sink, halt_later(app.clone(), gen))?;
+    let session = open(handle, zone, size, every, gen, alive, sink, halt_later(app.clone(), gen))?;
     // The window may have moved to a monitor on another GPU. Read back, as the frame handler may have made the device again.
     let luid = lock(&session.frames).gpu.luid;
     claim(label, luid);
@@ -518,9 +529,11 @@ struct Live {
 // WinRT capture objects are agile.
 unsafe impl Send for Live {}
 
-/// Starts capturing `zone` (px in `monitor`) into frames of `size`: frames for the page to `send`, a reason to stop on its own
-/// to `fault`. Access refused (Settings › Privacy & security, or a policy, for a packaged Crest) is `capture-denied`.
-fn open(monitor: HMONITOR, zone: Rect, size: SizeInt32, gen: u32, alive: Arc<AtomicBool>, send: Sink, fault: Fault) -> Result<Live, &'static str> {
+/// Starts capturing `zone` (px in `monitor`) into frames of `size`, at most one `every` (`interval`): frames for the page to
+/// `send`, a reason to stop on its own to `fault`. Access refused (Settings › Privacy & security, or a policy, for a packaged
+/// Crest) is `capture-denied`.
+#[allow(clippy::too_many_arguments)]
+fn open(monitor: HMONITOR, zone: Rect, size: SizeInt32, every: i64, gen: u32, alive: Arc<AtomicBool>, send: Sink, fault: Fault) -> Result<Live, &'static str> {
     let failed = |_| "failed";
     let denied = |e: windows::core::Error| if e.code() == E_ACCESSDENIED { "capture-denied" } else { "failed" };
     let gpu = gpu(monitor, true).map_err(failed)?;
@@ -533,7 +546,7 @@ fn open(monitor: HMONITOR, zone: Rect, size: SizeInt32, gen: u32, alive: Arc<Ato
     let session = pool.CreateCaptureSession(&item).map_err(denied)?;
     let _ = session.SetIsCursorCaptureEnabled(false);
     session.SetIsBorderRequired(false).map_err(|_| "border-denied")?;
-    session.SetMinUpdateInterval(TimeSpan { Duration: 10_000_000 / FPS as i64 }).map_err(failed)?;
+    session.SetMinUpdateInterval(TimeSpan { Duration: every }).map_err(failed)?;
     let frames = Arc::new(Mutex::new(Frames {
         done: false,
         seq: 0,
@@ -819,6 +832,21 @@ mod tests {
         assert_eq!(unsupported(19045, Some("aarch64"), true), Some("old-windows"));
         assert_eq!(unsupported(26100, Some("aarch64"), true), Some("arm64"));
         assert_eq!(unsupported(26100, None, true), Some("store"));
+    }
+
+    #[test]
+    fn the_rate_the_page_asks_for_is_held_to_10_to_30_frames_a_second() {
+        // In 100 ns, 1 ms under a frame's time.
+        assert_eq!(interval(None), 990_000);
+        assert_eq!(interval(Some(10)), 990_000);
+        assert_eq!(interval(Some(15)), 656_666);
+        assert_eq!(interval(Some(20)), 490_000);
+        assert_eq!(interval(Some(30)), 323_333);
+        // No division by zero, nor a rate past the ends.
+        assert_eq!(interval(Some(0)), 990_000);
+        assert_eq!(interval(Some(5)), 990_000);
+        assert_eq!(interval(Some(31)), 323_333);
+        assert_eq!(interval(Some(u32::MAX)), 323_333);
     }
 
     #[test]
@@ -1121,7 +1149,7 @@ mod live {
         let start = || {
             let (sent, failed) = (frames.clone(), faults.clone());
             let send: Sink = Box::new(move |seq, px| lock(&sent).push((seq, px)));
-            open(handle, zone, size, 1, Arc::new(AtomicBool::new(true)), send, Arc::new(move |why| lock(&failed).push(why))).unwrap()
+            open(handle, zone, size, interval(None), 1, Arc::new(AtomicBool::new(true)), send, Arc::new(move |why| lock(&failed).push(why))).unwrap()
         };
         let count = || lock(&frames).len();
 

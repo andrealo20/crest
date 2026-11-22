@@ -411,6 +411,12 @@ test("glass look: defaults, held to the sliders' ends and whole, anything else b
   assert.equal(normalizeThemeSettings({ glassFrost: NaN }).glassFrost, 0);
 });
 
+test("frames per second: 10 by default, held to 10..30 and whole, anything else back to 10", () => {
+  const fps = (glassFps: unknown) => normalizeThemeSettings({ glassFps }).glassFps;
+  assert.equal(normalizeThemeSettings({}).glassFps, 10);
+  assert.deepEqual([25, 45, 3, 19.6, "30", NaN].map(fps), [25, 30, 10, 20, 10, 10]);
+});
+
 test("Transparency: 0 is the safe veil, -100 opaque, 100 the clearest", () => {
   const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-9, `${a} vs ${b}`);
   near(glassVeilAt(0.78, 0, 0.59), 0.78);
