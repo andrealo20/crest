@@ -3,10 +3,13 @@ import { Dial, ICON_COLORS, READING_GAP, ReadingView, digits, readingWidth, type
 import { settings } from "../../../settings/store";
 import { schemeColor } from "../../system/levels";
 import { activeTheme } from "../../themes/store";
+import type { BarFeed } from "../barStores";
+import { linePoints, netMax } from "../systemWidgets";
 
 /*
- * The hardware's versions on Crest's bar beside today's dials: CPU, RAM and GPU as bars, and CPU's last 30 s as a line. The readings
- * are the ones switched on for the notch; those a version has no shape for follow as today's dials. Fixed widths for their input.
+ * The hardware's versions on Crest's bar beside today's dials: CPU, RAM and GPU as bars, CPU's last 30 s as a line, and the network's
+ * download and upload over the last 30 s as a line. The readings are the ones switched on for the notch (the network's line adds
+ * download and upload); those a version has no shape for follow as today's dials. Fixed widths for their input.
  */
 
 const BARRED = ["cpu", "ram", "gpu"] as const;
@@ -64,17 +67,13 @@ export function ReadingBars({ readings }: { readings: Reading[] }) {
 
 export const lineWidth = (readings: Reading[]) => sum([DIAL + LINE_GAP + LINE_W + LINE_GAP + digits("cpu"), ...readings.filter((r) => r.id !== "cpu").map((r) => readingWidth(r.id))]);
 
-/** The line's points in a 40 x 16 box, 0 % at the bottom and 100 % at the top; anything but a number is a gap and skipped (the dev sample may keep NaN). */
-function linePoints(spark: (number | null)[]): [number, number][] {
-  const step = LINE_W / Math.max(1, spark.length - 1);
-  return spark.flatMap((v, i) => (typeof v !== "number" || Number.isNaN(v) ? [] : [[+(i * step).toFixed(1), +(15 - (Math.min(100, Math.max(0, v)) / 100) * 14).toFixed(1)] as [number, number]]));
-}
+const polyline = (pts: [number, number][]) => pts.map((p) => p.join(",")).join(" ");
 
 /** CPU's dial, its last 30 s as a line and its figure; the other readings as dials after it. The caller draws it only with CPU among `readings`. */
 export function ReadingLine({ readings, spark }: { readings: Reading[]; spark: (number | null)[] }) {
   const cpu = readings.find((r) => r.id === "cpu")!;
   const { color, icon } = useColors(cpu);
-  const pts = linePoints(spark), line = pts.map((p) => p.join(",")).join(" ");
+  const pts = linePoints(spark, 100, LINE_W, LINE_H), line = polyline(pts);
   return inRow([
     <span key="cpu" className="flex shrink-0 items-center" style={{ gap: LINE_GAP, color }} role="img" aria-label={`CPU ${percent(cpu)}`}>
       <span className="flex shrink-0" style={{ color: icon }}>
@@ -93,5 +92,36 @@ export function ReadingLine({ readings, spark }: { readings: Reading[]; spark: (
       </span>
     </span>,
     ...rest(readings.filter((r) => r.id !== "cpu")),
+  ]);
+}
+
+const net = (r: Reading) => r.id === "down" || r.id === "up";
+
+export const netLineWidth = (readings: Reading[]) =>
+  sum([LINE_W + LINE_GAP + readingWidth("down") + READING_GAP + readingWidth("up"), ...readings.filter((r) => !net(r)).map((r) => readingWidth(r.id))]);
+
+/**
+ * The network's last 30 s as a line, both scaled to the busier: download over its faint area in its reading's colour, upload fainter
+ * behind it; then download and upload as today's readings, the other readings as dials after them. The caller draws it only with
+ * download among `readings`; under 2 points the line stays empty and keeps its room.
+ */
+export function NetLine({ readings, spark }: { readings: Reading[]; spark: BarFeed["netSpark"] }) {
+  const down = readings.find((r) => r.id === "down")!, up = readings.find((r) => r.id === "up");
+  const { color } = useColors(down);
+  const max = netMax(spark.down, spark.up);
+  const d = linePoints(spark.down, max, LINE_W, LINE_H), u = linePoints(spark.up, max, LINE_W, LINE_H);
+  return inRow([
+    <span key="net" className="flex shrink-0 items-center" style={{ gap: LINE_GAP }}>
+      <svg width={LINE_W} height={LINE_H} viewBox={`0 0 ${LINE_W} ${LINE_H}`} className="shrink-0" style={{ color }} aria-hidden>
+        {d.length > 1 && <polygon points={`${d[0][0]},${LINE_H} ${polyline(d)} ${d[d.length - 1][0]},${LINE_H}`} fill="currentColor" fillOpacity={0.15} />}
+        {u.length > 1 && <polyline points={polyline(u)} fill="none" stroke="currentColor" strokeWidth={1.25} strokeOpacity={0.55} strokeLinejoin="round" strokeLinecap="round" />}
+        {d.length > 1 && <polyline points={polyline(d)} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />}
+      </svg>
+      <span className="flex shrink-0 items-center" style={{ gap: READING_GAP }}>
+        <ReadingView reading={down} />
+        {up && <ReadingView reading={up} />}
+      </span>
+    </span>,
+    ...rest(readings.filter((r) => !net(r))),
   ]);
 }
