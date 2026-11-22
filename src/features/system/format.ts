@@ -77,3 +77,11 @@ export function driveSizes(used: number, total: number): { used: string; total: 
   const fig = (b: number) => (tb || b / scale < 9.95 ? one(b / scale) : whole(b / scale));
   return { used: fig(finite(used)), total: fig(finite(total)), unit: tb ? "TB" : "GB" };
 }
+
+/** A drive's free space in at most three figures and a binary unit, as File Explorer counts: "512 MB", "9.5 GB", "120 GB", "1.2 TB". */
+export function diskSize(bytes: number): string {
+  const v = finite(bytes), fig = (x: number) => (x < 9.95 ? one(x) : whole(x));
+  if (v >= 999.5 * 1024 ** 3) return `${fig(v / 1024 ** 4)} TB`;
+  if (v >= 999.5 * 1024 ** 2) return `${fig(v / 1024 ** 3)} GB`;
+  return `${whole(v / 1024 ** 2)} MB`;
+}

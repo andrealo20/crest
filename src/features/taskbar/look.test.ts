@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { BarShape } from "./model.ts";
-import { LOOK, barGap, barLook, barNeed, barRadius, barVeil, glassShapes, groupBoxes, hitBoxes, itemGap, labelRise, magnify, plusShapes, themeVeils, tilePlaces } from "./look.ts";
+import { LOOK, barGap, barLook, barNeed, barRadius, barVeil, glassArea, glassShapes, groupBoxes, hitBoxes, itemGap, labelRise, magnify, plusShapes, themeVeils, tilePlaces } from "./look.ts";
 import { GLASS, liveZone } from "../../notch/glass/params.ts";
 
 test("the surface's veil", () => {
@@ -84,13 +84,22 @@ test("a tile's place, glass or plain, holds however often its part draws again",
   assert.deepEqual([rest(0), rest(1), rest(2)], [true, false, false]);
 });
 
-test("Liquid Glass +'s shapes: a docked bar as its real box with only its top bending, the others as Glass draws them", () => {
+test("Liquid Glass +'s shapes: a docked bar as its real box with only its inner edge bending, the others as Glass draws them", () => {
   const box = { x: 0, y: 8, w: 1440, h: 44 }, empty = { x: 0, y: 0, w: 0, h: 0 };
-  assert.deepEqual(plusShapes("docked", [box, empty]), { rects: [box], top: true });
-  assert.deepEqual(plusShapes("docked", []), { rects: [], top: true });
-  assert.deepEqual(plusShapes("floating", [box]), { rects: [box], top: false });
+  assert.deepEqual(plusShapes("docked", [box, empty]), { rects: [box], dock: 1 });
+  assert.deepEqual(plusShapes("docked", [box], "top"), { rects: [box], dock: -1 });
+  assert.deepEqual(plusShapes("docked", []), { rects: [], dock: 1 });
+  assert.deepEqual(plusShapes("floating", [box], "top"), { rects: [box], dock: 0 });
   const tiles = Array.from({ length: 30 }, (_, i) => ({ x: i * 46, y: 8, w: 40, h: 44 }));
-  assert.deepEqual(plusShapes("tiles", tiles), { rects: tiles.slice(0, LOOK.maxTiles), top: false });
+  assert.deepEqual(plusShapes("tiles", tiles), { rects: tiles.slice(0, LOOK.maxTiles), dock: 0 });
+});
+
+test("a top bar's glass bleeds up past the screen's edge and its canvas runs from the window's top", () => {
+  const box = { x: 0, y: 4, w: 1440, h: 44 };
+  assert.deepEqual(glassShapes("docked", [box], "top").rects, [{ x: -4000, y: -3996, w: 9440, h: 4044 }]);
+  assert.deepEqual(hitBoxes([box], 632, "top"), [{ x: 0, y: 0, w: 1440, h: 48 }]);
+  assert.deepEqual(glassArea("top", [box], 632, 16), { top: 0, h: 64 });
+  assert.deepEqual(glassArea("bottom", [{ ...box, y: 584 }], 632, 16), { top: 568, h: 64 });
 });
 
 test("an empty box (a hidden element's at 0, 0) counts nowhere", () => {

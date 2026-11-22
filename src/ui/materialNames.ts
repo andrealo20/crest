@@ -298,7 +298,7 @@ export const ROW_SYMBOLS = [
   "open_with", "padding", "palette", "partly_cloudy_day", "password", "person", "pets", "pin", "power_settings_new", "present_to_all", "psychology",
   "receipt_long", "record_voice_over", "repeat", "right_click", "ripples", "rounded_corner", "routine", "schedule",
   "screen_record", "screen_search_desktop", "sell", "settings_backup_restore", "shield_lock", "show_chart", "smart_toy",
-  "speaker", "speed", "sports_esports", "star", "stop_circle", "stop_screen_share", "storefront", "straighten", "style",
+  "speaker", "speed", "sports_esports", "star", "stop_circle", "stop_screen_share", "storage", "storefront", "straighten", "style",
   "swap_horiz", "tag", "terminal", "thermometer", "timelapse", "timer", "touch_app", "translate", "travel_explore", "trending_up",
   "troubleshoot", "tune", "update", "usb", "visibility", "visibility_off", "volume_up", "wallpaper", "warning", "water_drop",
   "water_full", "wb_twilight", "web_asset", "widgets", "wifi", "zoom_in",

@@ -17,8 +17,9 @@ import { status } from "../../../platform/services";
 import { settings } from "../../../settings/store";
 import { activeTheme, darkInk, forcedColors, useClosedInk } from "../../themes/store";
 import { GLASS_PLUS, plusPanelRim, plusSliders, plusTarget } from "../glassPlus";
-import { barLook, barNeed, barRadius, barVeil, glassShapes, plusShapes, themeVeils, type BarLook, type Box } from "../look";
-import type { BarShape } from "../model";
+import { barLook, barNeed, barRadius, barVeil, glassArea, glassShapes, plusShapes, themeVeils, type BarLook, type Box } from "../look";
+import { useBarEdge } from "./barEdge";
+import type { BarEdge, BarShape } from "../model";
 import { barShown } from "../store";
 import type { PanelSurface } from "./BarPanel";
 import { BAR_PLUS_FS } from "./glassPlusShader";
@@ -98,10 +99,11 @@ export function useBarSurface(
 export function BarGlass(props: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const reduced = useReducedMotion() === true;
+  const edge = useBarEdge();
   const { dpr } = viewMetrics.use();
   // Read by the drawing, which runs outside React.
-  const now = useRef({ ...props, reduced });
-  now.current = { ...props, reduced };
+  const now = useRef({ ...props, reduced, edge });
+  now.current = { ...props, reduced, edge };
   const redraw = useRef(() => {});
   // Liquid Glass + links its own program, so turning it on or off sets the canvas up again, as for a slide (the same canvas gives back
   // the same context, and `stop` loses it only once the canvas is gone). Crest's and Material's Glass share one, and keep it.
@@ -115,8 +117,8 @@ export function BarGlass(props: Props) {
   }, [props.look === "plus"]);
   const { shape, boxes, radius, veil, dark, look } = props;
   // A new look's first paint finds no copy and clears, so the old look's last frame goes at once.
-  useLayoutEffect(() => redraw.current(), [shape, boxes, radius, veil, dark, reduced, dpr, look]);
-  return <canvas ref={canvas} aria-hidden width={1} height={1} className="pointer-events-none absolute bottom-0 left-0" />;
+  useLayoutEffect(() => redraw.current(), [shape, boxes, radius, veil, dark, reduced, dpr, look, edge]);
+  return <canvas ref={canvas} aria-hidden width={1} height={1} className="pointer-events-none absolute left-0" />;
 }
 
 type Tint = NonNullable<ReturnType<typeof parseTint>>;
@@ -129,7 +131,7 @@ function setup(gl: WebGL2RenderingContext, look: BarLook) {
   return { down, main, vao, fbo: gl.createFramebuffer() };
 }
 
-function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { reduced: boolean } }) {
+function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { reduced: boolean; edge: BarEdge } }) {
   // One context per element: StrictMode's second mount of the same canvas gets the same one back. Without one no renderer is set, no
   // copy runs and the bar keeps its CSS surface.
   const gl = canvas.getContext("webgl2", ATTRS);
@@ -155,19 +157,19 @@ function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { redu
       tokens = tint && rim ? { tint, rim } : null;
       stale = false;
     }
-    const { shape, boxes, radius, veil, dark, reduced, look } = now.current;
+    const { shape, boxes, radius, veil, dark, reduced, look, edge } = now.current;
     const plus = look === "plus";
-    const drawn = plus ? plusShapes(shape, boxes) : { rects: glassShapes(shape, boxes).rects, top: false };
+    const drawn = plus ? plusShapes(shape, boxes, edge) : { rects: glassShapes(shape, boxes, edge).rects, dock: 0 };
     const shapes = drawn.rects.slice(0, MAX_RECTS);
     // No shapes (every box zero-sized) would put the top at Infinity.
     if (!shapes.length) return clear();
     // Sized here, when the shapes change: never per frame.
-    const dpr = devicePixelRatio, top = Math.max(0, Math.min(...shapes.map((r) => r.y)) - GLASS.zoneMargin), h = innerHeight - top;
+    const dpr = devicePixelRatio, { top, h } = glassArea(edge, shapes, innerHeight, GLASS.zoneMargin);
     const pw = Math.round(innerWidth * dpr), ph = Math.max(1, Math.round(h * dpr));
-    if (canvas.width !== pw || canvas.height !== ph) {
+    if (canvas.width !== pw || canvas.height !== ph || canvas.style.top !== `${top}px`) {
       canvas.width = pw;
       canvas.height = ph;
-      Object.assign(canvas.style, { width: `${innerWidth}px`, height: `${h}px` });
+      Object.assign(canvas.style, { top: `${top}px`, width: `${innerWidth}px`, height: `${h}px` });
     }
     if (!copy.meta || !tokens) return clear();
     const { u, p } = gpu.main, map = textureMap({ left: 0, top }, 1, dpr, copy.meta), sliders = settings.get().themes;
@@ -186,7 +188,7 @@ function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { redu
     gl.uniform1f(u.uRadius, radius);
     if (plus) {
       const s = plusSliders(sliders, dpr);
-      gl.uniform1f(u.uDocked, drawn.top ? 1 : 0);
+      gl.uniform1f(u.uDocked, drawn.dock);
       gl.uniform2f(u.uLens, s.strength, reduced ? GLASS.maxShiftReduced : 1e4);
       gl.uniform2f(u.uLod, ...s.lod);
       gl.uniform1f(u.uVeilLod, Math.log2(dpr) + GLASS_PLUS.veilLevel);

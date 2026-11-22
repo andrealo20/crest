@@ -61,6 +61,11 @@ export function sampleFeed(on: ClosedSettings["readings"]): BarFeed {
       speaking: false,
       members: [{ id: "2", name: "mira.codes", avatar: avatar("mira.codes"), speaking: true, muted: false }],
     },
+    disks: [
+      { letter: "C:", name: "Windows", total: 953 * 1024 ** 3, free: 214 * 1024 ** 3, removable: false, system: true },
+      { letter: "D:", name: "Data", total: 1863 * 1024 ** 3, free: 140 * 1024 ** 3, removable: false, system: false },
+      { letter: "E:", name: "USB", total: 58 * 1024 ** 3, free: 31 * 1024 ** 3, removable: true, system: false },
+    ],
     script: [{ id: "deploy", source: "deploy.sh", text: "Deploy 3/5", icon: "rocket", progress: 60, open: null, expires: null, at: Date.now() }],
   };
 }

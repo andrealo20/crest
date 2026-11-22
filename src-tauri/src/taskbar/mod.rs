@@ -6,18 +6,27 @@
 //! area (auto-hide turned on or off, an appbar) places the bar again at once. Only top-level windows get broadcasts, so the
 //! window is not message-only. The thread never waits for explorer's lock: what finds it taken is done again by a short timer
 //! (`defer`, `retry`). The docked bars' appbars live on this thread too (reserve.rs): every change to them comes as a posted
-//! `REAPPBAR`, never from inside a call. The tray's spy (tray.rs) has a thread of its own, which runs only while this one does.
+//! `REAPPBAR`, never from inside a call. The tray's spy (tray.rs) has a thread of its own, which runs only while this one does;
+//! the spy also carries `TaskbandHWND` (taskband.rs). The thread's window also gets the shell's notifications for the Recycle
+//! Bin (recycle.rs).
 
 pub(crate) mod bar;
 pub(crate) mod bluetooth;
+pub(crate) mod disks;
 pub(crate) mod explorer;
 pub(crate) mod front;
+pub(crate) mod input;
+pub(crate) mod jumplist;
+pub(crate) mod keys;
+pub(crate) mod ownpins;
 pub(crate) mod panel;
 pub(crate) mod pins;
 pub(crate) mod preview;
+pub(crate) mod recycle;
 pub(crate) mod reserve;
 pub(crate) mod screens;
 pub(crate) mod start;
+pub(crate) mod taskband;
 pub(crate) mod tasks;
 pub(crate) mod tray;
 pub(crate) mod traywire;
@@ -40,7 +49,7 @@ use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVE
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DeregisterShellHookWindow, DestroyWindow, DispatchMessageW, GetMessageW, KillTimer, PostMessageW, PostQuitMessage, RegisterClassW,
     RegisterShellHookWindow, RegisterWindowMessageW, SetTimer, CHILDID_SELF, EVENT_OBJECT_CLOAKED, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE,
-    EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, MSG,
+    EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MENUPOPUPEND, EVENT_SYSTEM_MENUPOPUPSTART, EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, MSG,
     OBJID_WINDOW, SPI_SETWORKAREA, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_APP, WM_CLOSE, WM_DESTROY, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW,
     WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP,
 };
@@ -68,6 +77,8 @@ const STOP: u32 = WM_APP + 2;
 /// Posted by `reserve::refresh`, the work area, `TaskbarCreated` and the appbars' own callbacks, with reserve.rs' flags as the
 /// wparam: the docked bars' appbars are brought in line (`reserve::reconcile`).
 const REAPPBAR: u32 = WM_APP + 3;
+/// Posted by `reorder`: an app's windows take the order a bar asked for (tasks.rs `on_reorder`). WM_APP + 4 is recycle.rs'.
+const REORDER: u32 = WM_APP + 5;
 /// Auto-hide a hide could not set is tried again this often while it is still to do (`try_autohide`).
 const AUTOHIDE_TIMER: usize = 3;
 const AUTOHIDE_MS: u32 = 5000;
@@ -133,6 +144,11 @@ pub(crate) fn start(app: &AppHandle) {
 }
 
 /// The windows are listed again on the running thread (`RELIST`): the Start list has been read, or the bars have changed.
+/// A bar moved one of an app's windows in its preview card (tasks.rs `taskbar_window_order`).
+pub(crate) fn reorder() {
+    post_to_thread(REORDER, 0);
+}
+
 pub(crate) fn relist() {
     post_to_thread(RELIST, 0);
 }
@@ -199,6 +215,7 @@ unsafe fn run(ready: Sender<isize>, app: AppHandle) {
                 SetWinEventHook(EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_NAMECHANGE, None, Some(on_event), 0, 0, others),
                 SetWinEventHook(EVENT_OBJECT_CLOAKED, EVENT_OBJECT_UNCLOAKED, None, Some(on_event), 0, 0, others),
                 SetWinEventHook(EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MINIMIZEEND, None, Some(on_event), 0, 0, others),
+                SetWinEventHook(EVENT_SYSTEM_MENUPOPUPSTART, EVENT_SYSTEM_MENUPOPUPEND, None, Some(on_menu), 0, 0, others),
                 // Crest's own windows too: one of them in front means no app is.
                 SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, None, Some(on_event), 0, 0, WINEVENT_OUTOFCONTEXT),
             ];
@@ -206,7 +223,8 @@ unsafe fn run(ready: Sender<isize>, app: AppHandle) {
                 eprintln!("taskbar: a WinEvent hook failed");
             }
             listen(window);
-            tasks::begin(app, window);
+            tasks::begin(app.clone(), window);
+            recycle::begin(app, window);
             let _ = ready.send(window.0 as isize);
             let mut msg = MSG::default();
             while GetMessageW(&mut msg, None, 0, 0).0 > 0 {
@@ -270,6 +288,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             let _ = KillTimer(Some(hwnd), RETRY_TIMER);
             let _ = KillTimer(Some(hwnd), tasks::LIST_TIMER);
             let _ = KillTimer(Some(hwnd), AUTOHIDE_TIMER);
+            recycle::end(hwnd);
             let _ = DeregisterShellHookWindow(hwnd);
             PostQuitMessage(0);
         }
@@ -283,12 +302,24 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         tasks::on_timer(hwnd);
         return LRESULT(0);
     }
+    if msg == WM_TIMER && wparam.0 == recycle::RECYCLE_TIMER {
+        recycle::on_timer(hwnd);
+        return LRESULT(0);
+    }
+    if msg == recycle::RECYCLE_MSG {
+        recycle::on_notify(hwnd, wparam, lparam);
+        return LRESULT(0);
+    }
     if msg == WM_TIMER && wparam.0 == AUTOHIDE_TIMER {
         try_autohide(hwnd);
         return LRESULT(0);
     }
     if msg == RELIST {
         tasks::arm();
+        return LRESULT(0);
+    }
+    if msg == REORDER {
+        tasks::on_reorder();
         return LRESULT(0);
     }
     if msg == AUTOHIDE {
@@ -343,6 +374,11 @@ unsafe extern "system" fn on_event(_: HWINEVENTHOOK, event: u32, hwnd: HWND, obj
         });
     }
     tasks::on_event(event, hwnd);
+}
+
+/// A pop-up menu of another process shown or closed, for the tray icon whose menu a right click opened (tray.rs).
+unsafe extern "system" fn on_menu(_: HWINEVENTHOOK, event: u32, hwnd: HWND, _: i32, _: i32, _: u32, _: u32) {
+    tray::on_menu(event == EVENT_SYSTEM_MENUPOPUPSTART, hwnd);
 }
 
 /// Keeps what found explorer's lock taken, and arms `retry` unless it is armed (a timer armed again would only come later).

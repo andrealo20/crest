@@ -4,8 +4,10 @@ import { isNotchWindow } from "../../lib/windowKind";
 import { launcher } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { fullscreen } from "../system/gaming";
+import { insertPinned } from "../taskbar/model";
+import { holdOpen } from "../../notch/useNotchState";
 import { t } from "../../i18n";
-import { detectAi, mergeApps, type LauncherApp } from "./apps";
+import { detectAi, mergeApps, type Favorite, type LauncherApp } from "./apps";
 import { hotkeysPaused, shortcutIds } from "./shortcuts";
 
 /** The merged app list; null until it was read once (on first open of the tool). `readAt`: when it was last read without a failure, 0 before. */
@@ -29,6 +31,27 @@ export function showLaunchError(id: string, code: unknown) {
   launchError.set(t(code === "not-found" ? "{name} ist nicht mehr installiert" : "{name} startet nicht", { name }));
   window.clearTimeout(errorTimer);
   errorTimer = window.setTimeout(() => launchError.set(null), 5000);
+}
+
+/** Pins apps Rust made of their files at the end, each once; one already pinned stays where it is. */
+async function pinApps(apps: Favorite[]) {
+  // Not seeded yet: the first list pins the AI apps before these, or it never would (it only seeds while favorites is null).
+  // shortcut: after a failed first read the AI apps are not seeded any more; a "seeded" flag in settings would keep them for a later read.
+  if (settings.get().launcher.favorites === null) await loadApps();
+  updateSettings((s) => ({ launcher: { ...s.launcher, favorites: insertPinned(s.launcher.favorites ?? [], apps, null) } }));
+}
+
+/** Asks for an app's file and pins it: true when one was pinned, false when cancelled. Errors: unknown (no app on this PC). */
+export async function addAppFromFile(): Promise<boolean> {
+  // The picker takes the pointer off the notch; it stays open meanwhile.
+  holdOpen(true);
+  try {
+    const app = await launcher.addFile();
+    if (app) await pinApps([app]);
+    return app !== null;
+  } finally {
+    holdOpen(false);
+  }
 }
 
 let loading: Promise<void> | null = null;
@@ -109,4 +132,6 @@ export function startLauncher() {
   fullscreen.subscribe(syncShortcuts);
   // A hotkey whose app did not start: Rust opens the notch on this tool, the message says why.
   launcher.onMissing(showLaunchError);
+  // Exes and shortcuts dropped on the open Launcher, pinned by Rust.
+  launcher.onPinned((apps) => void pinApps(apps));
 }

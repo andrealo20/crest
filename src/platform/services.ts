@@ -14,7 +14,9 @@ import type { RulesPayload } from "../features/window/model";
 import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
-import type { TrayState, WindowList } from "../features/taskbar/model";
+import type { BarKey, JumpList, TrayState, WindowList, WindowState } from "../features/taskbar/model";
+import type { Decor } from "../features/taskbar/decorModel";
+import type { DiskDrive } from "../features/taskbar/disks";
 import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
 import type { Rect } from "../features/taskbar/autoHide";
 import type { BtDevice, WifiList } from "../features/taskbar/quickPages";
@@ -788,10 +790,12 @@ export interface PrivacyState {
   mic: boolean;
   camera: boolean;
   screen: boolean;
+  /** Read for the bar's privacy button; the notch's dots leave it out. */
+  location: boolean;
 }
 
 /** Toggled from the dev panel in the browser. */
-export const mockPrivacy: PrivacyState = { mic: false, camera: false, screen: false };
+export const mockPrivacy: PrivacyState = { mic: false, camera: false, screen: false, location: false };
 
 export function fetchPrivacy(): Promise<PrivacyState> {
   return isNative ? invoke<PrivacyState>("privacy_state") : Promise.resolve({ ...mockPrivacy });
@@ -1337,10 +1341,18 @@ export const launcher = {
   apps: (refresh = false): Promise<LauncherAppEntry[]> => (isNative ? invoke<LauncherAppEntry[]>("launcher_apps", { refresh }) : Promise.resolve(mockLauncherApps)),
   icons: (ids: string[]): Promise<Record<string, string | null>> =>
     isNative ? invoke("launcher_icons", { ids }) : Promise.resolve(Object.fromEntries(ids.map((id) => [id, mockLauncherIcon(id.split("\\").pop() ?? "?")]))),
-  /** Errors: not-found (no longer installed), failed. */
-  open: (id: string): Promise<void> => (isNative ? invoke("launcher_open", { id }) : Promise.resolve()),
+  /** As administrator with `admin`, after Windows asks. Errors: not-found (no longer installed), cancelled (the prompt was declined), failed. */
+  open: (id: string, admin = false): Promise<void> => (isNative ? invoke("launcher_open", { id, admin }) : Promise.resolve()),
   /** Registers Alt+1.. for these ids; per slot whether Windows gave the key. */
   shortcuts: (ids: string[]): Promise<boolean[]> => (isNative ? invoke<boolean[]>("launcher_shortcuts", { ids }) : Promise.resolve(ids.map((_, i) => i !== 2))),
+  /** The system's picker for an exe, a shortcut or an internet shortcut, which Rust pins as its own (taskbar/ownpins.rs): the entry to pin, null when cancelled. Errors: unknown (no app on this PC). The notch only. */
+  addFile: (): Promise<Favorite | null> => (isNative ? invoke<Favorite | null>("launcher_add_file") : Promise.resolve(null)),
+  /** Apps among the files dropped on the open Launcher, which Rust pinned (drop.rs), in drop order; to the notch only. */
+  onPinned(handler: (apps: Favorite[]) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<Favorite[]>("launcher://pinned", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** A hotkey was pressed for an app that did not start (code as in `open`). */
   onMissing: (handler: (id: string, code: string) => void): (() => void) => {
     if (!isNative) return () => {};
@@ -1359,13 +1371,21 @@ export interface WindowsPins {
   removed: string[];
 }
 
+/** Where the bar's Windows keys stand (taskbar/keys.rs). */
+export type KeysStatus = "off" | "busy" | "on" | "partial" | "held" | "failed";
+/** What the Recycle Bin holds, by Windows' count (taskbar/recycle.rs). */
+export type RecycleBin = { items: number; bytes: number };
+
+/** The input language as Windows' indicator by the tray writes it: "ITA" over "IT" (taskbar/input.rs). */
+export type InputLang = { lang: string; region: string };
+
 /**
  * Crest's bar on Windows (src-tauri/src/taskbar). The notch turns it on and sets its height; the bar's own window reads the open
  * windows and acts on clicks (the command filter keeps each window to its part). In the browser nothing happens: the demo has no bar.
  */
 export const taskbar = {
-  /** On or off, `height` CSS px tall, docked to the screen's edge (no gaps) or not. The notch only. */
-  apply: (enabled: boolean, height: number, docked: boolean): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height, docked }) : Promise.resolve()),
+  /** On or off, `height` CSS px tall, docked to the screen's edge (no gaps) or not, on the bottom or the top edge. The notch only. */
+  apply: (enabled: boolean, height: number, docked: boolean, edge: "bottom" | "top"): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height, docked, edge }) : Promise.resolve()),
   /** The Start entries pinned on Windows' taskbar, in Windows' order; empty when none is pinned or none can be read, an error only when the Start list cannot be read. The notch and the settings only. */
   importPins: (): Promise<Favorite[]> => (isNative ? invoke<Favorite[]>("taskbar_import_pins") : Promise.resolve([])),
   /** The ids to remember (those pinned on Windows' taskbar now, then those the read missed but kept), the apps pinned there and the ids unpinned since `last` (the `now` of the answer before; null the first time, which changes nothing); `ok` false with all else empty when that cannot be read, and nothing is to change. The notch only. */
@@ -1384,22 +1404,75 @@ export const taskbar = {
     const off = getCurrentWebviewWindow().listen<WindowList>("taskbar://windows", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
+  /** Files dropped on this bar that Rust pinned, in drop order; Rust sends them to this bar only. */
+  onPinned(handler: (apps: Favorite[]) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<Favorite[]>("taskbar://pinned", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** The pointer came onto the bar or an open menu, or left them; from the Rust poll, since the page sees no pointerleave once the window lets the pointer through. */
   onHover(handler: (inside: boolean) => void): () => void {
     if (!isNative) return () => {};
     const off = getCurrentWebviewWindow().listen<boolean>("taskbar://hover", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
-  /** Acts on a listed window. An error (a window of an app run as administrator) changes nothing. */
-  window: (id: number, action: "activate" | "toggle" | "minimize" | "close"): Promise<void> => (isNative ? invoke("taskbar_window", { id, action }) : Promise.resolve()),
+  /** Acts on a listed window; "end" is End task, which ends its process. An error (a window of an app run as administrator) changes nothing. */
+  window: (id: number, action: "activate" | "toggle" | "minimize" | "close" | "end" | "restore" | "maximize" | "move" | "size"): Promise<void> => (isNative ? invoke("taskbar_window", { id, action }) : Promise.resolve()),
+  /** What listed window `id`'s menu enables. */
+  windowMenu: (id: number): Promise<WindowState> =>
+    isNative ? invoke<WindowState>("taskbar_window_menu", { id }) : Promise.resolve({ minimized: false, maximized: false, canMinimize: true, canMaximize: true, canSize: true }),
+  /** An app's windows in this order on the bar, until Crest restarts (a preview dragged in its card). The bar only. */
+  windowOrder: (ids: number[]): Promise<void> => (isNative ? invoke("taskbar_window_order", { ids }) : Promise.resolve()),
+  /** An app's windows arranged on the calling bar's monitor, or all restored or minimized. The bar only. */
+  arrange: (ids: number[], how: "cascade" | "stack" | "side" | "restore" | "minimize"): Promise<void> => (isNative ? invoke("taskbar_arrange", { ids, how }) : Promise.resolve()),
+  /** Pins listed window `id`: the entry to put in `pinned`. Errors: not-found, prevented, unknown. The bar only. */
+  pinWindow: (id: number): Promise<Favorite> => (isNative ? invoke<Favorite>("taskbar_pin_window", { id }) : Promise.resolve({ id: `demo:${id}`, name: "App" })),
+  /** A new instance from listed window `id`, as administrator with `admin`. Errors: not-found, unknown, cancelled, failed. The bar only. */
+  launchWindow: (id: number, admin: boolean): Promise<void> => (isNative ? invoke("taskbar_launch_window", { id, admin }) : Promise.resolve()),
+  /** File Explorer with the exe of listed window `id` selected. The bar only. */
+  reveal: (id: number): Promise<void> => (isNative ? invoke("taskbar_reveal", { id }) : Promise.resolve()),
+  /** The notch, once per start: Rust forgets its own pins that are not in `ids`. */
+  keepPins: (ids: string[]): Promise<void> => (isNative ? invoke("taskbar_own_pins_keep", { ids }) : Promise.resolve()),
   /** The preview card's live thumbnails in its slots (CSS px of this page), each call the whole set: `[]` takes them all away. Each answer is where that thumbnail shows, or null where none does (in the browser, always). */
   preview: (slots: { id: number; x: number; y: number; w: number; h: number }[]): Promise<({ x: number; y: number; w: number; h: number } | null)[]> => (isNative ? invoke("taskbar_preview", { slots }) : Promise.resolve(slots.map(() => null))),
+  /** The bar's Windows keys wanted or not (keysWanted); Rust writes Explorer's value, restarts Explorer when needed and answers the status. The notch only. */
+  keys: (on: boolean): Promise<KeysStatus> => (isNative ? invoke<KeysStatus>("taskbar_keys", { on }) : Promise.resolve("off")),
+  /** Where the keys stand: "busy" while Explorer restarts. The settings only. */
+  keysStatus: (): Promise<KeysStatus> => (isNative ? invoke<KeysStatus>("taskbar_keys_status") : Promise.resolve("off")),
+  /** The keys' status each time it changes; Rust sends it to every window. */
+  onKeys(handler: (s: KeysStatus) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<KeysStatus>("taskbar://keys", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** One of the bar's Windows keys, to this bar only. */
+  onKey(handler: (k: BarKey) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<BarKey>("taskbar://key", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** This bar takes the keyboard after one of its keys; Windows may refuse. */
+  focus: (): Promise<void> => (isNative ? invoke("taskbar_focus") : Promise.resolve()),
   /** Gives the keyboard back to the app in front, or the last one if only Start came after it (none after the desktop or a Crest window), after a menu or panel closed from the bar. */
   release: (): Promise<void> => (isNative ? invoke("taskbar_release") : Promise.resolve()),
-  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu, "quick" its quick settings (Win+A), "taskmgr" Task Manager. */
-  shell: (action: "start" | "winx" | "quick" | "taskmgr"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
+  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu, "quick" its quick settings (Win+A), "taskmgr" Task Manager; the Windows buttons: "search" Search, "taskview" Task view, "widgets" Windows' widgets, "input" Windows' input language switcher (Win+Space), "desktop" shows or hides the desktop; the quick panel's "cast" Windows' Cast panel (Win+K). */
+  shell: (action: "start" | "winx" | "quick" | "taskmgr" | "search" | "taskview" | "widgets" | "input" | "desktop" | "cast"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
+  /** The keyboard language of the window in front, as Windows' indicator writes it; null with one layout installed. */
+  input: (): Promise<InputLang | null> => (isNative ? invoke<InputLang | null>("taskbar_input") : Promise.resolve(null)),
+  /** The input language each time it changes; Rust sends it to the primary bar only. */
+  onInput(handler: (lang: InputLang | null) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<InputLang | null>("taskbar://input", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** One wheel step on an app's button: its audio moves by `step` (-1..1); its new level in percent, null when it plays nothing. */
+  appVolume: (id: number, step: number): Promise<number | null> => (isNative ? invoke<number | null>("taskbar_app_volume", { id, step }) : Promise.resolve(null)),
   /** Icons of the groups without an entry, by group key (PNG data URL, null = none). */
   icons: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_icons", { keys }) : Promise.resolve({})),
+  /** The jump list of the app behind button `key` (a listed group's key or a Start entry's id); "none" for an app Windows keeps none for under an id Crest knows. */
+  jumpList: (key: string): Promise<JumpList> => (isNative ? invoke<JumpList>("taskbar_jump_list", { key }) : Promise.reject("none")),
+  /** Opens row `id` of the list `token` with its app. */
+  jumpOpen: (token: number, id: number): Promise<void> => (isNative ? invoke("taskbar_jump_open", { token, id }) : Promise.resolve()),
   /** The tray's icons as Rust last listed them: none while Crest's tray does not run. */
   tray: (): Promise<TrayState> => (isNative ? invoke<TrayState>("taskbar_tray") : Promise.resolve({ yielded: false, icons: [] })),
   /** The tray's icons each time they change, at most every 250 ms; Rust sends them to every bar. */
@@ -1411,8 +1484,18 @@ export const taskbar = {
   /** The tray icons' pictures by their `img` key (PNG data URL, null = no icon shows it any more). */
   trayImages: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_tray_images", { keys }) : Promise.resolve({})),
   /** A click on the tray icon `key` (`TrayIcon.key`) drawn at `rect` (this page's CSS px): its app gets it as from Windows' tray. Errors: gone, unknown-button. */
-  trayClick: (key: string, button: "left" | "right" | "double", rect: { x: number; y: number; w: number; h: number }): Promise<void> =>
+  trayClick: (key: string, button: "left" | "right" | "double" | "hover" | "leave", rect: { x: number; y: number; w: number; h: number }): Promise<void> =>
     isNative ? invoke("taskbar_tray_click", { key, button, rect }) : Promise.resolve(),
+  /** The badges and progress apps report to the taskbar, as Rust last sent them: none while Crest's tray does not run. */
+  decor: (): Promise<Decor[]> => (isNative ? invoke<Decor[]>("taskbar_decor") : Promise.resolve([])),
+  /** Those decorations each time they change, at most every 250 ms; Rust sends them to every bar. */
+  onDecor(handler: (list: Decor[]) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<Decor[]>("taskbar://decor", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** The overlays' pictures by their key (PNG data URL, null = no window shows it any more). */
+  decorImages: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_decor_images", { keys }) : Promise.resolve({})),
   /** Where the page draws (the bar, an open menu) in its CSS px; clicks pass through the rest of the window. */
   hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
   /** Tells the notch the tool the bar's panel shows, or null once it closes or shows the tray, the apps or the quick panel. */
@@ -1423,6 +1506,8 @@ export const taskbar = {
   slideBlocked: (): Promise<number> => (isNative ? invoke<number>("taskbar_slide_blocked") : Promise.resolve(0)),
   /** Whether a docked bar with auto-hide off can reserve its strip: false while another program stands in for Windows' taskbar. The settings only. */
   reserveReachable: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_reserve_reachable") : Promise.resolve(true)),
+  /** Whether the other monitors get a bar, and where the apps' buttons show; the notch sends it, the bars follow at once. */
+  spread: (all: boolean, apps: "own" | "main" | "all"): Promise<void> => (isNative ? invoke("taskbar_spread", { all, apps }) : Promise.resolve()),
   /** Whether a zone of the bar holds the tray (trayOnBar), sent on or off; Rust adds whether the bar runs and runs Crest's tray (the spy that records the notification area's icons) while both hold. The notch only. */
   trayOn: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_tray_on", { on }) : Promise.resolve()),
   /** This bar slid off the screen (useAutoHide) or back up: Rust tells this bar that it is hidden while down (onShown), and the notch the primary's slide (onBarSeen). */
@@ -1465,8 +1550,26 @@ export const taskbar = {
     const off = listen("status://bt", () => handler());
     return () => void off.then((f) => f());
   },
+  /** Whether the bars list the windows of every virtual desktop. The notch only. */
+  allDesktops: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_all_desktops", { on }) : Promise.resolve()),
+  /** Whether Rust lets a bar end an app (End task in the app menu). The notch only. */
+  endTask: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_end_task", { on }) : Promise.resolve()),
+  /** The Recycle Bin's count, null when Windows could not say. */
+  recycle: (): Promise<RecycleBin | null> => (isNative ? invoke<RecycleBin | null>("taskbar_recycle") : Promise.resolve(null)),
+  /** A new count each time the shell reports a change in the bin; to the primary bar. */
+  onRecycle(handler: (r: RecycleBin) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<RecycleBin>("taskbar://recycle", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Opens the bin in Explorer, or empties it after Windows' own confirmation. The bar only. */
+  recycleDo: (action: "open" | "empty"): Promise<void> => (isNative ? invoke("taskbar_recycle_do", { action }) : Promise.resolve()),
+  /** The lettered drives and their free space (taskbar/disks.rs), read now; null in the browser and where it fails. */
+  disks: (): Promise<DiskDrive[] | null> => (isNative ? invoke<DiskDrive[] | null>("taskbar_disks").catch(() => null) : Promise.resolve(null)),
+  /** Opens a drive of the last listing in File Explorer, by its letter. The bar only. */
+  diskOpen: (letter: string): Promise<void> => (isNative ? invoke("taskbar_disk_open", { letter }) : Promise.resolve()),
   /** One of Windows' settings pages, by name (Rust maps it to its URI). */
-  settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
+  settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location" | "microphone" | "camera" | "mixer" | "night" | "dnd" | "access"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
   /**
    * In a bar: it shows or hides (a full-screen app, the hide hotkey, slid off the screen); Rust sends each bar its own, which pauses
    * its widgets. On this window only: a listener for any target would also hear the other bars'.
@@ -1666,6 +1769,12 @@ export const noticeSource = {
       return () => void mockNoticeHandlers.delete(handler);
     }
     const off = listen<IncomingNotice>("notices://in", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** How many toasts wait in Windows' notification centre while Notices reads them; null once it stops reading. */
+  onCount: (handler: (n: number | null) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<number | null>("notices://count", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
   onStatus: (handler: (s: NoticeSourceStatus) => void): (() => void) => {

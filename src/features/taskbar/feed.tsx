@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useReducedMotion } from "motion/react";
 import { language } from "../../i18n";
 import { shareStores } from "../../lib/bridge";
@@ -15,7 +15,7 @@ import { barParts } from "../../notch/row/visibility";
 import { subscribeLevels } from "../../platform/audio";
 import { useNowPlaying } from "../../platform/media";
 import { isMac, isNative } from "../../platform/native";
-import { build, taskbar } from "../../platform/services";
+import { build, noticeSource, taskbar } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { useDiscordCall } from "../discord/store";
 import { downloads } from "../downloads/store";
@@ -30,7 +30,7 @@ import { nextHours } from "../weather/hours";
 import { isStale } from "../weather/stale";
 import { useForecast } from "../weather/store";
 import { anyBarTool, barPanels, onBarShows } from "./barPanels";
-import { barFeed, feedStores, panelOpen, panelStores, type BarFeed } from "./barStores";
+import { barFeed, feedStores, noticeCount, panelOpen, panelStores, type BarFeed } from "./barStores";
 import { variantOf } from "./model";
 import { SLIDE_KEEP_MS, barPartsFor, barSources, barWidgets, sourcesAfter, type BarSeen } from "./widgets";
 
@@ -55,6 +55,7 @@ export function startBarShare() {
   // The panel's raw stores go to the bar only while a tool shows there.
   barPanels.subscribe(() => panelOpen.set(anyBarTool()));
   onBarShows("media", (on) => barMedia.set(on));
+  noticeSource.onCount((n) => noticeCount.set(n));
   shareStores(tauriTransport, feedStores, { to: "taskbar", hello: "bar://hello" });
   shareStores(tauriTransport, panelStores, { to: "taskbar", hello: "bar://hello", when: panelOpen });
   // Rust tells the primary bar's window and its slide apart (bar.rs `tell_notch`): a slide keeps the sources SLIDE_KEEP_MS, a hide stops
@@ -164,6 +165,26 @@ function ScriptSource() {
   return null;
 }
 
+/** How often the disk widget's drives are read: never a tight poll, so an idle disk is not kept awake. */
+const DISKS_EVERY = 5 * 60_000;
+
+/** The drives now and every DISKS_EVERY; Crest hears no device change, so a drive plugged in shows on the next read (or in the panel, which reads as it opens). */
+function DiskSource() {
+  const [list, setList] = useState(() => barFeed.get().disks);
+  useEffect(() => {
+    let on = true;
+    const read = () => void taskbar.disks().then((d) => on && d && setList(d));
+    read();
+    const id = window.setInterval(read, DISKS_EVERY);
+    return () => {
+      on = false;
+      window.clearInterval(id);
+    };
+  }, []);
+  useSlice("disks", list);
+  return null;
+}
+
 /** The clock and the timer have none: the bar counts the time itself, and the timer is a saved store. */
 const SOURCES: Partial<Record<PartId, () => null>> = {
   weather: WeatherSource,
@@ -177,6 +198,7 @@ const SOURCES: Partial<Record<PartId, () => null>> = {
   github: GithubSource,
   leetcode: LeetcodeSource,
   script: ScriptSource,
+  disk: DiskSource,
 };
 
 /**

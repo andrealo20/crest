@@ -115,6 +115,8 @@ windows = { version = "0.62", features = [
   # Drives: no "no disk in the drive" dialog for an empty card reader (system/hw.rs).
   "Win32_System_Diagnostics_Debug",
   "Win32_System_Registry",
+  # The bar's Windows keys: Explorer restarted as installers do (taskbar/keys.rs).
+  "Win32_System_RestartManager",
   "Win32_System_Time",
   "Win32_Security_Credentials",
   "Win32_Security_Cryptography",
@@ -137,6 +139,8 @@ windows = { version = "0.62", features = [
   "Win32_System_Memory",
   "Win32_System_LibraryLoader",
   "Win32_UI_Input_KeyboardAndMouse",
+  # The bar's input language: a keyboard layout's ISO names (taskbar/input.rs).
+  "Win32_Globalization",
   "Win32_UI_WindowsAndMessaging",
   # SetWinEventHook: Crest's bar hides Windows' taskbar again when Windows shows it (taskbar/mod.rs).
   "Win32_UI_Accessibility",

@@ -2,11 +2,11 @@ import { followStores } from "../../lib/bridge";
 import { createStore } from "../../lib/store";
 import { listening, tauriTransport } from "../../lib/tauriTransport";
 import { isMac, isNative } from "../../platform/native";
-import { status, taskbar } from "../../platform/services";
+import { status, taskbar, type RecycleBin } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { normalizeFavorites } from "../launcher/apps";
 import { feedStores, panelStores } from "./barStores";
-import { applyWindowsPins, statusWanted, trayOnBar, type TaskbarSettings, type WindowList } from "./model";
+import { applyWindowsPins, keptPinIds, keysWanted, statusWanted, trayOnBar, type TaskbarSettings, type WindowList } from "./model";
 
 /** In the bar's window: the open windows grouped by app, as Rust last sent them. */
 export const barWindows = createStore<WindowList>({ groups: [], active: null });
@@ -16,6 +16,8 @@ export const groupIcons = createStore<Record<string, string | null>>({});
 export const barShown = createStore(true);
 /** The site's full-screen demo offers a bar of its own, in the notch's page (src/dev/demo.ts); never set in the app. */
 export const demoBarOffered = createStore(false);
+/** In the primary bar's window, while its Recycle Bin button shows: the bin's count as Rust last sent it. */
+export const recycleBin = createStore<RecycleBin | null>(null);
 
 /** A change to the bar's settings, from the Taskbar pages and their widget rows; the notch applies on/off and the height to Rust (startTaskbar), the bar reads the rest itself. */
 export function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSettings) => Partial<TaskbarSettings>)) {
@@ -33,8 +35,14 @@ export function startTaskbar() {
   let hides: boolean | null = null;
   let tray: boolean | null = null;
   let statusOn: boolean | null = null;
+  let spread: string | null = null;
+  let keys: boolean | null = null;
+  let desktops: boolean | null = null;
+  let ends: boolean | null = null;
+  let keysQueue = Promise.resolve();
   let queue = Promise.resolve();
   let seeded = false;
+  let kept = false;
   let offPins: (() => void) | null = null;
   let reading = false;
   let again = false;
@@ -62,12 +70,27 @@ export function startTaskbar() {
       });
   };
   const sync = () => {
-    const { enabled, height, shape, pinned, autoHide } = settings.get().taskbar;
+    const { enabled, height, shape, pinned, autoHide, allScreens, appsOn, position, allDesktops, endTask } = settings.get().taskbar;
     const wantTray = trayOnBar(settings.get().taskbar.zones);
     // Outside the queue: a flag the display poll reads, which never waits for a bar to be built or taken down.
     if (autoHide !== hides) {
       hides = autoHide;
       void taskbar.autoHide(autoHide);
+    }
+    // Likewise, the other monitors' bars and which windows each lists: Rust takes the bars down or builds them and lists again.
+    if (`${allScreens}|${appsOn}` !== spread) {
+      spread = `${allScreens}|${appsOn}`;
+      void taskbar.spread(allScreens, appsOn).catch(() => {});
+    }
+    // Likewise, whether the list takes the windows of the other virtual desktops.
+    if (allDesktops !== desktops) {
+      desktops = allDesktops;
+      void taskbar.allDesktops(allDesktops).catch(() => {});
+    }
+    // Likewise, whether Rust lets a bar end an app.
+    if (endTask !== ends) {
+      ends = endTask;
+      void taskbar.endTask(endTask).catch(() => {});
     }
     // Likewise, whether a zone holds the tray: Rust runs the spy while it does and the bar is on, so the bar turned off stops the
     // spy in Rust after Windows' taskbar is back (mod.rs `stop`), and the tray taken off stops it here, giving Explorer every icon back.
@@ -88,6 +111,12 @@ export function startTaskbar() {
         if (settings.get().taskbar.pinned === null) updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: normalizeFavorites(apps) } }));
       }, () => {});
     }
+    // Once per start: Rust forgets the own pins taken off the bar and the Launcher. Never again, as a later call could come between
+    // a pin Rust just saved and the settings change that names it.
+    if (enabled && pinned !== null && !kept) {
+      kept = true;
+      void taskbar.keepPins(keptPinIds(pinned, settings.get().launcher.favorites)).catch(() => {});
+    }
     // Once as the bar comes on, for what changed while Crest was closed, then on each change Rust hears.
     if (enabled && !offPins) {
       offPins = taskbar.onWindowsPins(followPins);
@@ -98,13 +127,24 @@ export function startTaskbar() {
     }
     // A docked bar takes no gaps off the work area; the other shapes differ only in the bar's page.
     const docked = shape === "docked";
-    const key = `${enabled}|${height}|${docked}`;
-    if (key === last) return;
-    last = key;
-    // One change at a time, in their order: Rust finishes each (an Off once its window is gone) before the next is sent, after a
-    // failed one too.
-    const apply = () => taskbar.apply(enabled, height, docked);
-    queue = queue.then(apply, apply);
+    const key = `${enabled}|${height}|${docked}|${position}`;
+    if (key !== last) {
+      last = key;
+      // One change at a time, in their order: Rust finishes each (an Off once its window is gone) before the next is sent, after a
+      // failed one too.
+      const apply = () => taskbar.apply(enabled, height, docked, position);
+      queue = queue.then(apply, apply);
+    }
+    // The bar's Windows keys, in a queue of their own so two changes never overlap (each may restart Explorer), and each only after
+    // the bar's changes sent so far: the bar turned off gives Windows' taskbar back before the keys' Explorer restart. The first
+    // sync sends the saved state, so a start after a crash with the switch or the bar off gives the keys back.
+    const wantKeys = keysWanted(settings.get().taskbar);
+    if (wantKeys !== keys) {
+      keys = wantKeys;
+      const send = () => taskbar.keys(wantKeys).then(() => {}, () => {});
+      const bar = queue;
+      keysQueue = keysQueue.then(() => bar).then(send, send);
+    }
   };
   sync();
   settings.subscribe(sync);

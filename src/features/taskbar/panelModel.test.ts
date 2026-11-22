@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
+import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, withPanel, type PanelContent } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -89,6 +89,27 @@ test("a dragged icon lands in the slot under the pointer", () => {
   assert.equal(dropSlot([], 300), 0);
 });
 
+test("an icon dragged in the panel lands in the slot under the pointer, row by row", () => {
+  // Two rows of 40 px cells: three, then two.
+  const cells = [0, 1, 2, 0, 1].map((col, i) => ({ x: 10 + col * 40, y: i < 3 ? 10 : 50, w: 40, h: 40 }));
+  // Left half, right half of the first cell; the second row's first cell.
+  assert.deepEqual([15, 45].map((x) => gridSlot(cells, x, 30)), [0, 1]);
+  assert.equal(gridSlot(cells, 15, 70), 3);
+  // Past the end of the first row: before the second row's first cell.
+  assert.equal(gridSlot(cells, 300, 30), 3);
+  // On the line between the rows the upper one, above them the first, past the last cell and below every row the end.
+  assert.equal(gridSlot(cells, 15, 50), 0);
+  assert.equal(gridSlot(cells, 15, 0), 0);
+  assert.equal(gridSlot(cells, 300, 70), 5);
+  assert.equal(gridSlot(cells, 15, 200), 5);
+  assert.equal(gridSlot([], 15, 30), 0);
+});
+
+test("in a right-to-left panel a row runs from the right", () => {
+  const cells = [0, 1, 2].map((col) => ({ x: 90 - col * 40, y: 10, w: 40, h: 40 }));
+  assert.deepEqual([125, 100, 15, 0].map((x) => gridSlot(cells, x, 30, true)), [0, 1, 3, 3]);
+});
+
 test("Stato's quick panel opens in the bar's panel, apart from the tray and any tool", () => {
   assert.equal(opensInBar({ kind: "quick" }), true);
   assert.equal(panelKey({ kind: "quick" }), "quick");
@@ -98,9 +119,17 @@ test("Stato's quick panel opens in the bar's panel, apart from the tray and any 
 
 test("the quick panel is as tall as its rows", () => {
   // 12 px padding top and bottom, rows 56 (radios), 40 (volume), 40 (brightness), 40 (saver and airplane), 32 (footer), 10 px between rows.
-  assert.deepEqual(QUICK_SIZE({ radios: true, brightness: true, list: 0 }), { w: 360, h: 272 });
-  assert.deepEqual(QUICK_SIZE({ radios: false, brightness: false, list: 0 }), { w: 360, h: 156 });
-  assert.equal(QUICK_SIZE({ radios: true, brightness: true, list: 90 }).h, 362);
+  assert.deepEqual(QUICK_SIZE({ radios: true, brightness: true, list: 0, chips: 3 }), { w: 360, h: 272 });
+  assert.deepEqual(QUICK_SIZE({ radios: false, brightness: false, list: 0, chips: 3 }), { w: 360, h: 156 });
+  assert.equal(QUICK_SIZE({ radios: true, brightness: true, list: 90, chips: 3 }).h, 362);
+  // Three chips to a row, 8 px between the rows.
+  assert.equal(QUICK_SIZE({ radios: true, brightness: true, list: 0, chips: 7 }).h, 272 + 2 * 48);
+  assert.equal(QUICK_SIZE({ radios: true, brightness: true, list: 0, chips: 6 }).h, 272 + 48);
+});
+
+test("the quick chips keep their order, Ethernet only on a cable and the microphone only where there is one", () => {
+  assert.deepEqual(quickChips({ wired: false, mic: false }), ["saver", "airplane", "cast", "night", "dnd", "access"]);
+  assert.deepEqual(quickChips({ wired: true, mic: true }), ["saver", "airplane", "ethernet", "mic", "cast", "night", "dnd", "access"]);
 });
 
 test("a quick page is as tall as its rows, six at most before it scrolls", () => {
@@ -117,6 +146,7 @@ test("a page goes back to the panel when its radio is gone, and stays while it i
   assert.equal(pageAfter("bluetooth", { wifi: true, bluetooth: null }), null);
   assert.equal(pageAfter("bluetooth", null), "bluetooth"); // the radios are not read yet
   assert.equal(pageAfter(null, { wifi: true, bluetooth: true }), null);
+  assert.equal(pageAfter("mixer", { wifi: null, bluetooth: null }), "mixer");
 });
 
 test("the six tools on saved stores open in the panel too, the half-working and notch-only ones and Find on screen in the notch", () => {

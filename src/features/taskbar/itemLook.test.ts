@@ -2,10 +2,19 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { itemLayer, marks } from "./itemLook.ts";
+import { itemLayer, markShape, markThick, marks } from "./itemLook.ts";
 import { contrast, parseColor } from "../themes/color.ts";
 import { materialInk, resolveMaterial } from "../themes/material.ts";
 import { BUILT_IN_THEMES } from "../themes/themes.ts";
+
+test("each mark style: the mark in front is wider than the open one, and Dot keeps today's 3 and 16", () => {
+  for (const style of ["dot", "large", "line"] as const) {
+    const { dot, bar } = markShape(style);
+    assert.ok(bar.w > dot.w, style);
+    assert.ok(markThick(style) >= 3, style);
+  }
+  assert.deepEqual(markShape("dot"), { dot: { w: 3, h: 3 }, bar: { w: 16, h: 3 } });
+});
 
 test("the marks under an app: Crest's of today, and Material's pill in place of the long mark in front", () => {
   const none = { dot: false, bar: false, pill: false };
@@ -79,4 +88,17 @@ test("Stato's state layer rides in the lifted pill, over its fill, so it never s
   assert.match(item, /className=\{`m3-layer absolute\$\{inPill \? " inset-0 rounded-full" : ""\}`\} style=\{inPill \? undefined : shape\}/);
   assert.match(item, /\{!inPill && layer\}/);
   assert.match(item, /\{props\.children\}\s*\{inPill && layer\}\s*<\/motion\.span>/);
+});
+
+test("a window's button draws its title from the start edge, cut to its width, and finds its app's own icon by the app's key", () => {
+  const item = window("Item.tsx");
+  assert.match(item, /\$\{props\.labelled \? "justify-start px-2" : "justify-center"\}/);
+  assert.match(item, /\$\{props\.labelled \? " min-w-0" : ""\}/);
+  const bar = window("TaskbarWindow.tsx");
+  assert.match(bar, /<span dir="auto" className="ms-2 min-w-0 truncate text-footnote">/);
+  assert.match(bar, /magnify=\{titled \? undefined : mag\}/);
+  // A window's key ends with its handle, which no icon is stored under (model.ts windowButtons).
+  assert.doesNotMatch(bar, /ownIcons\[(b|cardButton)\.key\]/);
+  assert.equal(bar.match(/ownIcons\[appKey\(/g)?.length, 3);
+  assert.match(window("AppsPanel.tsx"), /aria-label=\{b\.title \?\? b\.name\}\s*title=\{b\.title \?\? b\.name\}/);
 });

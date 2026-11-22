@@ -27,8 +27,17 @@ export const trayDrag = createStore<{ id: string; img: string | null; x: number;
  */
 export const itemDrag = createStore<{ id: BarItem; x: number; y: number; pointerId: number } | null>(null);
 
+/**
+ * A pinned app dragged along the bar (TaskbarWindow), by its pin id, and the pointer, in the window's CSS px; null while none is. The
+ * bar draws its icon under the pointer and moves it among the pinned apps where it is let go (PinDrop).
+ */
+export const pinDrag = createStore<{ id: string; x: number; y: number; pointerId: number } | null>(null);
+
+/** Files from File Explorer over the bar's apps (TaskbarWindow), at the pointer in CSS px; null while none are. PinDrop draws where they would be pinned. */
+export const fileDrag = createStore<{ x: number; y: number } | null>(null);
+
 /** The quick panel's rows that come and go (QuickPanel.tsx), for its size (QUICK_SIZE): the radios, the brightness, the open output list's px. */
-export const quickLayout = createStore<{ radios: boolean; brightness: boolean; list: number }>({ radios: true, brightness: false, list: 0 });
+export const quickLayout = createStore<{ radios: boolean; brightness: boolean; list: number; chips: number }>({ radios: true, brightness: false, list: 0, chips: 7 });
 
 /** The page open in the quick panel and the rows it asks room for (QUICK_PAGE_SIZE), null on the main page; the panel reopens on the main page. */
 export const quickPage = createStore<{ page: QuickPage; rows: number; extra: number } | null>(null);

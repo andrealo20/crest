@@ -1,4 +1,4 @@
-import { CalendarBlank, ChartDonut, Clock, CloudSun, Cpu, DownloadSimple, GithubLogo, MusicNote, TerminalWindow, Timer, Waveform, type Icon } from "../../ui/iconset";
+import { CalendarBlank, ChartDonut, Clock, CloudSun, Cpu, DownloadSimple, HardDrives, GithubLogo, MusicNote, TerminalWindow, Timer, Waveform, type Icon } from "../../ui/iconset";
 import type { Hue } from "../../features/themes/hues";
 import { DiscordLogo, LeetcodeLogo } from "../../ui/brands";
 import type { PartId } from "./parts";
@@ -18,4 +18,5 @@ export const partInfo: Record<PartId, { label: string; icon: Icon; hue: Hue }> =
   script: { label: "Skript-Anzeigen (crest-notify)", icon: TerminalWindow, hue: "slate" },
   downloads: { label: "Downloads", icon: DownloadSimple, hue: "teal" },
   weather: { label: "Wetter", icon: CloudSun, hue: "sky" },
+  disk: { label: "Speicherplatz", icon: HardDrives, hue: "slate" },
 };

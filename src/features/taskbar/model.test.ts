@@ -1,23 +1,46 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  jumpHeading,
+  GROUP_MENU,
+  movedOrder,
+  previewDrop,
+  recycleName,
+  shiftMenu,
+  windowMenuRows,
   COMPACT_PAD,
   TASKBAR_DEFAULTS,
   TOOL_BUTTONS,
   WIDGET_VARIANTS,
+  appKey,
   applyWindowsPins,
+  appState,
+  barArrow,
   barButtons,
+  buttonAt,
+  cycleKey,
+  keysWanted,
+  numberKey,
   clickAction,
   compactIcon,
+  countBadge,
+  cycleWindow,
+  wheelSteps,
   dropPlace,
   fitIcon,
   indicator,
+  insertPinned,
+  keptPinIds,
+  labelSpan,
   menuFor,
   menuKey,
+  newInstance,
   moveBefore,
   moveItem,
+  movePinned,
   normalizeTaskbar,
   normalizeZones,
+  pinDrop,
   placeMenu,
   previewFallsBack,
   previewKey,
@@ -31,6 +54,8 @@ import {
   trayOnBar,
   trayWanted,
   variantOf,
+  windowBadge,
+  windowButtons,
   type BarButton,
   type BarItem,
   type Group,
@@ -44,6 +69,8 @@ test("any saved value becomes valid bar settings", () => {
   assert.equal(normalizeTaskbar({ enabled: true }).enabled, true);
   assert.equal(normalizeTaskbar({ autoHide: true }).autoHide, true);
   assert.equal(normalizeTaskbar({ autoHide: "yes" }).autoHide, false);
+  assert.equal(normalizeTaskbar({ endTask: true }).endTask, true);
+  assert.equal(normalizeTaskbar({ endTask: "yes" }).endTask, false);
   assert.equal(normalizeTaskbar({ height: 100 }).height, 64);
   assert.equal(normalizeTaskbar({ height: -5 }).height, 32);
   assert.equal(normalizeTaskbar({ height: 40, iconSize: 40 }).iconSize, 40); // fitIcon shrinks it where it is drawn, not in the saved setting
@@ -111,7 +138,7 @@ test("the bar's clock has its own date and seconds", () => {
 });
 
 test("each widget with versions starts on today's look", () => {
-  assert.deepEqual(Object.fromEntries(Object.entries(WIDGET_VARIANTS).map(([id, v]) => [id, v[0]])), { weather: "temp", clock: "digital", readings: "dials", timer: "countdown" });
+  assert.deepEqual(Object.fromEntries(Object.entries(WIDGET_VARIANTS).map(([id, v]) => [id, v[0]])), { weather: "temp", clock: "digital", readings: "dials", timer: "countdown", disk: "system" });
   assert.deepEqual(TASKBAR_DEFAULTS.variants, {});
 });
 
@@ -152,6 +179,85 @@ test("pinned apps come first and own their open windows", () => {
   assert.deepEqual(barButtons(null, groups).map((x) => x.key), ["chrome", "c:\\users\\u\\code.exe", "window:9"]);
 });
 
+test("Windows' buttons stay where they were put, once each, and an unknown one is dropped", () => {
+  const z = normalizeZones({ left: ["sys:search", "sys:nope"], center: ["start", "apps", "sys:search"], right: ["sys:desktop", "crest"] });
+  assert.deepEqual(z, { left: ["sys:search"], center: ["start", "apps"], right: ["sys:desktop", "crest"] });
+  assert.equal(Object.values(TASKBAR_DEFAULTS.zones).flat().some((id) => id.startsWith("sys:")), false); // opt-in: an update adds none
+});
+
+test("a double click on the empty bar does nothing at first, and junk is repaired", () => {
+  assert.equal(normalizeTaskbar({}).emptyDouble, "none");
+  assert.deepEqual([normalizeTaskbar({}).flashing, normalizeTaskbar({}).middleClick, normalizeTaskbar({}).windowCount], [true, "new", false]);
+  assert.deepEqual([normalizeTaskbar({ flashing: false }).flashing, normalizeTaskbar({ middleClick: "close" }).middleClick, normalizeTaskbar({ windowCount: true }).windowCount], [false, "close", true]);
+  assert.deepEqual([normalizeTaskbar({ flashing: 0 }).flashing, normalizeTaskbar({ middleClick: "x" }).middleClick, normalizeTaskbar({ windowCount: 1 }).windowCount], [true, "new", false]);
+  for (const v of ["desktop", "taskmgr"]) assert.equal(normalizeTaskbar({ emptyDouble: v }).emptyDouble, v);
+  for (const v of ["x", 1, null, true]) assert.equal(normalizeTaskbar({ emptyDouble: v }).emptyDouble, "none");
+});
+
+test("the combine setting is repaired and defaults to one button per app", () => {
+  assert.equal(normalizeTaskbar({}).combine, "always");
+  for (const c of ["never", "full"]) assert.equal(normalizeTaskbar({ combine: c }).combine, c);
+  for (const c of ["x", 1, null]) assert.equal(normalizeTaskbar({ combine: c }).combine, "always");
+});
+
+test("one button per window keeps the app's place, pins and name", () => {
+  const w = (id: number, title: string): Win => ({ id, title, minimized: false, flashing: false });
+  const pin = { id: "pin", name: "App" }, idle = { id: "idle", name: "Idle" };
+  const groups: Group[] = [
+    { key: "app", name: "App", pins: [pin], windows: [w(1, "Doc A"), w(2, "")] },
+    { key: "group", name: "Group", pins: [], windows: [w(3, "Group title")] },
+  ];
+  const apps = barButtons([pin, idle], groups);
+  const b = windowButtons(apps);
+  assert.deepEqual(b.map((x) => x.key), ["pin\n1", "pin\n2", "idle", "group\n3"]);
+  assert.deepEqual(b.map((x) => x.windows.map((v) => v.id)), [[1], [2], [], [3]]);
+  assert.deepEqual(b.map((x) => x.title), ["Doc A", "App", undefined, "Group title"]);
+  for (const x of b.slice(0, 2)) assert.deepEqual([x.pin, x.pins, x.name], [pin, [pin], "App"]);
+  assert.deepEqual(b[2], apps[1]); // a pinned app with no window, unchanged and untitled
+  assert.equal("title" in b[2], false);
+  assert.deepEqual([b[3].pin, b[3].pins, b[3].name], [null, [], "Group"]);
+});
+
+test("a window's button clicks, marks and menus as an app with one window", () => {
+  const w = (id: number, flashing = false): Win => ({ id, title: "t", minimized: false, flashing });
+  const pin = { id: "pin", name: "App" };
+  const [one, two] = windowButtons(barButtons([pin], [{ key: "app", name: "App", pins: [pin], windows: [w(1), w(2, true)] }]));
+  assert.deepEqual(clickAction(one), { kind: "toggle", id: 1 });
+  assert.deepEqual(clickAction(two), { kind: "toggle", id: 2 });
+  for (const b of [one, two]) assert.deepEqual(menuFor(b, { endTask: false }), ["launch", "unpin", "close"]);
+  assert.equal(indicator(one, null), "open");
+  assert.equal(indicator(two, null), "attention");
+});
+
+test("a titled button is four to seven icons wide", () => {
+  assert.deepEqual(labelSpan(24), { min: 96, max: 168 });
+});
+
+test("a window's button sends its app's key", () => {
+  const pin = { id: "pin", name: "App" };
+  const apps = barButtons([pin], [{ key: "app", name: "App", pins: [pin], windows: [{ id: 5, title: "t", minimized: false, flashing: false }] }]);
+  assert.equal(appKey(apps[0]), "pin");
+  assert.equal(appKey(windowButtons(apps)[0]), "pin");
+});
+
+test("an open app is pinnable and spawnable as Rust says, a pinned one never pinnable", () => {
+  const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
+  const chrome = { id: "shell:AppsFolder\\Chrome", name: "Chrome" };
+  const groups: Group[] = [
+    { key: "chrome", name: "Chrome", pins: [chrome], windows: [w(1)] },
+    { key: "chrome.work", name: "Work", pins: [chrome], windows: [w(2)], spawnable: true, pinnable: false },
+    { key: "c:\\tools\\tool.exe", name: "Tool", pins: [], windows: [w(3)], spawnable: true, pinnable: true },
+    { key: "window:4", name: "x", pins: [], windows: [w(4)], spawnable: false, pinnable: false },
+  ];
+  const [pinned, tool, plain] = barButtons([chrome], groups);
+  assert.equal(pinned.spawnable, true); // from the second group it owns
+  assert.equal(pinned.pinnable, undefined);
+  assert.equal(tool.spawnable, true);
+  assert.equal(tool.pinnable, true);
+  assert.equal("spawnable" in plain || "pinnable" in plain, false); // set only when true
+  assert.equal(barButtons([chrome], groups.slice(0, 1))[0].spawnable, undefined);
+});
+
 test("a click launches, toggles or lists", () => {
   const w = (id: number, flashing = false): Win => ({ id, title: "t", minimized: false, flashing });
   const base = { key: "k", name: "n", pin: null, pins: [{ id: "x", name: "X" }] } satisfies Omit<BarButton, "windows">;
@@ -163,14 +269,84 @@ test("a click launches, toggles or lists", () => {
   assert.equal(indicator({ ...base, windows: [w(4)] }, 4), "front");
   assert.equal(indicator({ ...base, windows: [w(4)] }, 7), "open");
   assert.equal(indicator({ ...base, windows: [] }, null), "none");
+  assert.equal(indicator({ ...base, windows: [w(4, true)] }, 4, false), "front");
+  assert.equal(indicator({ ...base, windows: [w(4, true)] }, null, false), "open");
 });
 
-test("the right-click menu offers what the app allows", () => {
+test("Ctrl+click goes round an app's windows, and the count shows from two", () => {
+  const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
+  const three = [w(1), w(2), w(3)];
+  assert.equal(cycleWindow(three, 1), 2);
+  assert.equal(cycleWindow(three, 3), 1);
+  assert.equal(cycleWindow(three, 9), 1);
+  assert.equal(cycleWindow(three, null), 1);
+  assert.equal(cycleWindow([], 1), null);
+  assert.deepEqual([1, 2, 9, 10].map(windowBadge), [null, "2", "9", "9+"]);
+  assert.deepEqual([null, 0, 99, 100].map(countBadge), [null, null, "99", "99+"]);
+});
+
+test("the wheel moves the volume by whole notches, keeping what is left", () => {
+  assert.deepEqual(wheelSteps(0, -100), { steps: 1, rest: 0 });
+  assert.deepEqual(wheelSteps(0, 300), { steps: -3, rest: 0 });
+  let r = { steps: 0, rest: 0 };
+  for (const d of [-40, -40]) r = wheelSteps(r.rest, d);
+  assert.deepEqual(r, { steps: 0, rest: 80 });
+  assert.deepEqual(wheelSteps(r.rest, -40), { steps: 1, rest: 20 });
+  // Turned back, the rest goes down before a step the other way.
+  assert.deepEqual(wheelSteps(20, 60), { steps: 0, rest: -40 });
+  assert.equal(normalizeTaskbar({}).wheelVolume, false);
+  assert.equal(normalizeTaskbar({ wheelVolume: true }).wheelVolume, true);
+});
+
+test("the displays' settings keep today's bars until changed", () => {
+  const d = normalizeTaskbar({});
+  assert.deepEqual([d.allScreens, d.appsOn, d.clockAll], [true, "own", false]);
+  const set = normalizeTaskbar({ allScreens: false, appsOn: "main", clockAll: true });
+  assert.deepEqual([set.allScreens, set.appsOn, set.clockAll], [false, "main", true]);
+  const junk = normalizeTaskbar({ allScreens: 0, appsOn: "x", clockAll: "yes" });
+  assert.deepEqual([junk.allScreens, junk.appsOn, junk.clockAll], [true, "own", false]);
+});
+
+test("Shift, the middle button and Ctrl+Shift start a new instance", () => {
+  const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
+  const entry = { key: "k", name: "n", pin: null, pins: [{ id: "x", name: "X" }], windows: [w(4)] } satisfies BarButton;
+  const own = { key: "c:\\tools\\tool.exe", name: "Tool", pin: null, pins: [], windows: [w(7), w(8)], spawnable: true } satisfies BarButton;
+  const plain = { key: "window:9", name: "x", pin: null, pins: [], windows: [w(9)] } satisfies BarButton;
+  for (const mods of [{ shift: true }, { middle: true }]) {
+    assert.deepEqual(clickAction(entry, mods), { kind: "launch", id: "x" });
+    assert.deepEqual(clickAction(own, mods), { kind: "spawn", id: 7 });
+    assert.deepEqual(clickAction(plain, mods), { kind: "none" });
+  }
+  assert.deepEqual(clickAction(entry, { shift: true, ctrl: true }), { kind: "launch", id: "x", admin: true });
+  assert.deepEqual(clickAction(own, { shift: true, ctrl: true }), { kind: "spawn", id: 7, admin: true });
+  // Ctrl alone goes to the window after the one in front; without windows it is a plain click.
+  assert.deepEqual(clickAction(entry, { ctrl: true }), { kind: "activate", id: 4 });
+  assert.deepEqual(clickAction(own, { ctrl: true }, { active: 7 }), { kind: "activate", id: 8 });
+  assert.deepEqual(clickAction({ ...entry, windows: [] }, { ctrl: true }), { kind: "launch", id: "x" });
+  assert.deepEqual(clickAction(own), { kind: "list" });
+  // The middle button with "close" closes an app's windows, and starts one as before without any.
+  assert.deepEqual(clickAction(own, { middle: true }, { middle: "close" }), { kind: "closeAll" });
+  assert.deepEqual(clickAction(entry, { middle: true }, { middle: "close" }), { kind: "closeAll" });
+  assert.deepEqual(clickAction({ ...entry, windows: [] }, { middle: true }, { middle: "close" }), { kind: "launch", id: "x" });
+  assert.deepEqual(newInstance({ ...own, spawnable: false }), { kind: "none" });
+  assert.deepEqual(newInstance({ ...own, windows: [] }), { kind: "none" });
+});
+
+test("the right-click menu offers what the app allows, in Windows' order", () => {
   const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
   const pin = { id: "p", name: "P" };
-  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [] }), ["newWindow", "unpin"]);
-  assert.deepEqual(menuFor({ key: "k", name: "K", pin: null, pins: [pin], windows: [w(1)] }), ["newWindow", "pin", "close"]);
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [] }), ["launch", "unpin"]);
+  assert.deepEqual(menuFor({ key: "k", name: "K", pin: null, pins: [pin], windows: [w(1)] }), ["launch", "pin", "close"]);
   assert.deepEqual(menuFor({ key: "k", name: "K", pin: null, pins: [], windows: [w(1), w(2)] }), ["closeAll"]);
+  const own = { key: "c:\\tools\\tool.exe", name: "Tool", pin: null, pins: [], windows: [w(1)], spawnable: true, pinnable: true } satisfies BarButton;
+  assert.deepEqual(menuFor(own), ["launch", "pin", "reveal", "close"]);
+  assert.deepEqual(menuFor(own, { endTask: true }), ["launch", "pin", "reveal", "endTask", "close"]);
+  // An app that asks never to be pinned (PreventPinning) is spawnable but not pinnable.
+  assert.deepEqual(menuFor({ ...own, pinnable: false }), ["launch", "reveal", "close"]);
+  // End task needs a window, Open file location a window and spawnable.
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [] }, { endTask: true }), ["launch", "unpin"]);
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [w(1), w(2)] }, { endTask: true }), ["launch", "unpin", "endTask", "closeAll"]);
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [w(1)], spawnable: true }), ["launch", "unpin", "reveal", "close"]);
 });
 
 test("a menu opens over its button and stays inside the window", () => {
@@ -258,6 +434,13 @@ test("Rust follows the network and the volume for the bar only while it is on an
 
 test("the icons kept visible are strings, once each", () => {
   assert.deepEqual(normalizeTaskbar({ trayShown: ["a", 2, "a", "b"] }).trayShown, ["a", "b"]);
+});
+
+test("the panel's order is strings, once each, and empty at first", () => {
+  assert.deepEqual(TASKBAR_DEFAULTS.trayHidden, []);
+  assert.deepEqual(normalizeTaskbar({}).trayHidden, []);
+  assert.deepEqual(normalizeTaskbar({ trayHidden: "a" }).trayHidden, []);
+  assert.deepEqual(normalizeTaskbar({ trayHidden: ["b", null, "a", "b"] }).trayHidden, ["b", "a"]);
 });
 
 test("the spy runs only while a bar shows the tray", () => {
@@ -356,6 +539,58 @@ test("in the capsule a drop joins the zone of the item it goes before, or of the
   assert.deepEqual(dropPlace("weather", items, null, 700, 40, 6), { zone: "right", before: null, line: 680 });
 });
 
+test("a dragged pin lands before the first pin whose centre is right of the pointer, after the last past them", () => {
+  // Three pinned buttons 40 px wide, 6 px apart.
+  const slots = [{ id: "a", x: 100, w: 40 }, { id: "b", x: 146, w: 40 }, { id: "c", x: 192, w: 40 }];
+  assert.deepEqual(pinDrop(slots, "c", 110, 6), { before: "a", line: 96 });
+  assert.deepEqual(pinDrop(slots, "a", 170, 6), { before: "c", line: 188 });
+  assert.deepEqual(pinDrop(slots, "a", 300, 6), { before: null, line: 234 });
+  // Its own place, before itself or right after it.
+  assert.equal(pinDrop(slots, "b", 130, 6), null);
+  assert.equal(pinDrop(slots, "b", 200, 6), null);
+  assert.equal(pinDrop(slots, "c", 300, 6), null);
+  // Files have no place of their own: every gap takes them.
+  assert.deepEqual(pinDrop(slots, null, 130, 6), { before: "b", line: 142 });
+  assert.deepEqual(pinDrop(slots, null, 213, 6), { before: null, line: 234 });
+  assert.equal(pinDrop([], null, 130, 6), null);
+});
+
+test("the window buttons of one pinned app are one slot for a dragged pin or files", () => {
+  // Pinned a with three window buttons (one button per window), then pinned b.
+  const slots = [{ id: "a", x: 100, w: 40 }, { id: "a", x: 146, w: 40 }, { id: "a", x: 192, w: 40 }, { id: "b", x: 238, w: 40 }];
+  // Between a's windows it lands before or after all of them, never inside.
+  assert.deepEqual(pinDrop(slots, "b", 140, 6), { before: "a", line: 96 });
+  assert.deepEqual(pinDrop(slots, null, 180, 6), { before: "b", line: 234 });
+  // Anywhere among its own windows, or right after the last, is a's own place.
+  assert.equal(pinDrop(slots, "a", 189, 6), null);
+  assert.equal(pinDrop(slots, "a", 250, 6), null);
+  assert.deepEqual(pinDrop(slots, "a", 300, 6), { before: null, line: 280 });
+});
+
+test("a pin moves before another or to the end, and an unchanged move gives the same array", () => {
+  const f = (id: string) => ({ id, name: id });
+  const pinned = [f("a"), f("b"), f("c")];
+  assert.deepEqual(movePinned(pinned, "c", "a").map((p) => p.id), ["c", "a", "b"]);
+  assert.deepEqual(movePinned(pinned, "a", "c").map((p) => p.id), ["b", "a", "c"]);
+  assert.deepEqual(movePinned(pinned, "a", null).map((p) => p.id), ["b", "c", "a"]);
+  assert.equal(movePinned(pinned, "a", "b"), pinned);
+  assert.equal(movePinned(pinned, "b", "b"), pinned);
+  assert.equal(movePinned(pinned, "c", null), pinned);
+  assert.equal(movePinned(pinned, "x", "a"), pinned);
+  assert.equal(movePinned(pinned, "a", "x"), pinned);
+});
+
+test("dropped apps go in before a pin in their order, once each, and one already pinned stays where it is", () => {
+  const f = (id: string) => ({ id, name: id });
+  const pinned = [f("a"), f("b"), f("c")];
+  assert.deepEqual(insertPinned(pinned, [f("x"), f("y")], "b").map((p) => p.id), ["a", "x", "y", "b", "c"]);
+  assert.deepEqual(insertPinned(pinned, [f("c"), f("x"), f("x")], "a").map((p) => p.id), ["x", "a", "b", "c"]);
+  assert.deepEqual(insertPinned(pinned, [f("x")], null).map((p) => p.id), ["a", "b", "c", "x"]);
+  assert.deepEqual(insertPinned(pinned, [f("x")], "gone").map((p) => p.id), ["a", "b", "c", "x"]);
+  assert.equal(insertPinned(pinned, [f("b")], "a"), pinned);
+  assert.deepEqual(insertPinned([], [f("x")], null).map((p) => p.id), ["x"]);
+});
+
 test("in the capsule a drop inside the item's own room changes nothing, at the boundary between two zones too", () => {
   // The weather last on the left, the clock first in the middle: right of the weather's centre is still where it is.
   const items = [slot("start", "left", 500), slot("weather", "left", 546), slot("clock", "center", 592), slot("apps", "center", 638)];
@@ -389,4 +624,119 @@ test("a preview sends its boxes again when a window comes, goes, is minimized or
   assert.notEqual(previewSet([w(1), w(2)]), previewSet([w(1), w(2, true)]));
   assert.notEqual(previewSet([w(1), w(2)]), previewSet([w(1)]));
   assert.notEqual(previewSet([w(1), w(2)]), previewSet([w(2), w(1)]));
+});
+
+test("a jump group's heading is Windows' word, or the app's own", () => {
+  const g = (kind: "frequent" | "recent" | "custom" | "tasks", title = "") => ({ kind, title, items: [] });
+  assert.deepEqual(jumpHeading(g("recent")), { key: "Zuletzt verwendet" });
+  assert.deepEqual(jumpHeading(g("frequent")), { key: "Häufig verwendet" });
+  assert.deepEqual(jumpHeading(g("tasks")), { key: "Aufgaben" });
+  assert.deepEqual(jumpHeading(g("custom", "Most visited")), { text: "Most visited" });
+  assert.deepEqual(jumpHeading(g("custom")), { text: "" });
+});
+
+test("the bar's Windows keys are off until both switches are on", () => {
+  assert.equal(normalizeTaskbar(undefined).winKeys, false);
+  assert.equal(normalizeTaskbar({ winKeys: "yes" }).winKeys, false);
+  assert.equal(normalizeTaskbar({ winKeys: true }).winKeys, true);
+  assert.equal(keysWanted(normalizeTaskbar({ winKeys: true })), false);
+  assert.equal(keysWanted(normalizeTaskbar({ enabled: true })), false);
+  assert.equal(keysWanted(normalizeTaskbar({ enabled: true, winKeys: true })), true);
+});
+
+test("Win+number acts as a click with the same keys, Alt opens the menu", () => {
+  const w = (id: number): Win => ({ id, title: "", minimized: false, flashing: false });
+  const pin = { id: "p", name: "P" };
+  const b = (windows: Win[]): BarButton => ({ key: "p", name: "P", pin, pins: [pin], windows });
+  const all = [b([]), b([w(1)]), b([w(2), w(3)])];
+  assert.equal(buttonAt(all, 1), all[0]);
+  assert.equal(buttonAt(all, 3), all[2]);
+  assert.equal(buttonAt(all, 10), undefined); // Win+0 with fewer than ten buttons
+  assert.deepEqual(numberKey(undefined, "plain", null), { kind: "none" });
+  assert.deepEqual(numberKey(all[0], "plain", null), { kind: "launch", id: "p" });
+  assert.deepEqual(numberKey(all[1], "plain", null), { kind: "toggle", id: 1 });
+  assert.deepEqual(numberKey(all[2], "plain", null), { kind: "list" });
+  assert.deepEqual(numberKey(all[2], "shift", null), { kind: "launch", id: "p" });
+  assert.deepEqual(numberKey(all[2], "ctrlShift", null), { kind: "launch", id: "p", admin: true });
+  assert.deepEqual(numberKey(all[2], "ctrl", 2), { kind: "activate", id: 3 });
+  assert.deepEqual(numberKey(all[2], "ctrl", 3), { kind: "activate", id: 2 }); // round to the first
+  assert.deepEqual(numberKey(all[0], "ctrl", null), { kind: "launch", id: "p" }); // no windows: a plain click
+  assert.deepEqual(numberKey(all[1], "alt", null), { kind: "menu" });
+});
+
+test("Win+T goes round the apps and the arrows stop at the ends", () => {
+  assert.equal(cycleKey(-1, 3, 1), 0);
+  assert.equal(cycleKey(-1, 3, -1), 2);
+  assert.equal(cycleKey(2, 3, 1), 0);
+  assert.equal(cycleKey(0, 3, -1), 2);
+  assert.equal(barArrow("ArrowRight", 1, 3), 2);
+  assert.equal(barArrow("ArrowDown", 1, 3), 2);
+  assert.equal(barArrow("ArrowLeft", 1, 3), 0);
+  assert.equal(barArrow("ArrowUp", 0, 3), 0);
+  assert.equal(barArrow("ArrowRight", 2, 3), 2);
+  assert.equal(barArrow("Home", 2, 3), 0);
+  assert.equal(barArrow("End", 0, 3), 2);
+  assert.equal(barArrow("Tab", 0, 3), undefined);
+  assert.equal(barArrow("ArrowRight", 0, 0), undefined);
+});
+
+test("a screen reader hears an app's state after its name", () => {
+  const w = (id: number, flashing = false): Win => ({ id, title: "", minimized: false, flashing });
+  const pin = { id: "p", name: "P" };
+  assert.deepEqual(appState({ key: "p", name: "P", pin, pins: [pin], windows: [] }, null), ["pinned"]);
+  assert.deepEqual(appState({ key: "g", name: "G", pin: null, pins: [], windows: [w(1), w(2)] }, 2), ["many", "front"]);
+  assert.deepEqual(appState({ key: "g", name: "G", pin: null, pins: [], windows: [w(1, true)] }, null), ["one", "attention"]);
+});
+
+test("the bar stands on the bottom unless the top is saved", () => {
+  assert.equal(normalizeTaskbar({}).position, "bottom");
+  assert.equal(normalizeTaskbar({ position: "top" }).position, "top");
+  for (const v of ["middle", 1, "left", "right"]) assert.equal(normalizeTaskbar({ position: v }).position, "bottom");
+  assert.equal(normalizeTaskbar({}).marks, "dot");
+  assert.equal(normalizeTaskbar({ marks: "line" }).marks, "line");
+  for (const v of ["big", 3]) assert.equal(normalizeTaskbar({ marks: v }).marks, "dot");
+  assert.equal(normalizeTaskbar({}).allDesktops, false);
+  assert.equal(normalizeTaskbar({ allDesktops: "yes" }).allDesktops, false);
+  assert.equal(normalizeTaskbar({ allDesktops: true }).allDesktops, true);
+});
+
+test("the window menu enables what Windows' own system menu would, and the group menu keeps Windows' order", () => {
+  const base = { minimized: false, maximized: false, canMinimize: true, canMaximize: true, canSize: true };
+  const on = (s: Parameters<typeof windowMenuRows>[0]) => windowMenuRows(s).filter((r) => r.enabled).map((r) => r.entry);
+  assert.deepEqual(on(base), ["move", "size", "minimize", "maximize", "close"]);
+  assert.deepEqual(on({ ...base, minimized: true }), ["restore", "maximize", "close"]);
+  assert.deepEqual(on({ ...base, maximized: true }), ["restore", "minimize", "close"]);
+  assert.deepEqual(on({ ...base, canMinimize: false, canMaximize: false, canSize: false }), ["move", "close"]);
+  assert.deepEqual(on(null), ["close"]);
+  assert.deepEqual(GROUP_MENU, ["cascade", "stack", "side", "restoreAll", "minimizeAll", "closeAll"]);
+  const w = { id: 1, title: "", minimized: false, flashing: false };
+  const b = { key: "a", name: "A", pin: null, pins: [], windows: [] as (typeof w)[] };
+  assert.equal(shiftMenu(b), "app");
+  assert.equal(shiftMenu({ ...b, windows: [w] }), "window");
+  assert.equal(shiftMenu({ ...b, windows: [w, { ...w, id: 2 }] }), "group");
+});
+
+test("a preview dragged in its card: its own place and the next one do nothing, and the window takes the place it is let go at", () => {
+  const slots = [0, 100, 200, 300].map((x) => ({ x, w: 96 }));
+  assert.equal(previewDrop(slots, 1, 120), null);
+  assert.equal(previewDrop(slots, 1, 160), null);
+  assert.equal(previewDrop(slots, 1, 10), 0);
+  assert.equal(previewDrop(slots, 1, 390), 4);
+  assert.equal(previewDrop(slots, 3, 900), null);
+  assert.deepEqual(movedOrder([1, 2, 3, 4], 0, 4), [2, 3, 4, 1]);
+  assert.deepEqual(movedOrder([1, 2, 3, 4], 3, 0), [4, 1, 2, 3]);
+  assert.deepEqual(movedOrder([1, 2, 3, 4], 0, 2), [2, 1, 3, 4]);
+});
+
+test("the Recycle Bin's name says empty before the first count, then the count", () => {
+  assert.deepEqual(recycleName(null), ["Papierkorb ist leer"]);
+  assert.deepEqual(recycleName(0), ["Papierkorb ist leer"]);
+  assert.deepEqual(recycleName(1), ["Papierkorb: 1 Element"]);
+  assert.deepEqual(recycleName(7), ["Papierkorb: {n} Elemente", { n: 7 }]);
+});
+
+test("Rust keeps the own pins of the Launcher's apps along with the bar's", () => {
+  const f = (id: string) => ({ id, name: id });
+  assert.deepEqual(keptPinIds([f("tool.exe")], [f("Hades.url"), f("Claude")]), ["tool.exe", "Hades.url", "Claude"]);
+  assert.deepEqual(keptPinIds([f("a")], null), ["a"]);
 });

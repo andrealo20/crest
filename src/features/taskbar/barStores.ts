@@ -13,6 +13,7 @@ import { system } from "../system/store";
 import { focusMuted, ringing } from "../timer/store";
 import { usage } from "../usage/store";
 import type { Forecast } from "../weather/store";
+import type { DiskDrive } from "./disks";
 
 /*
  * What the notch sends Crest's bar over the bridge (src/lib/bridge.ts), read by both windows: the widgets' data, computed in the
@@ -36,6 +37,8 @@ export interface BarFeed {
   downloads: DownloadProgress[];
   call: DiscordCall | null;
   script: ScriptPart[];
+  /** The drives, read every few minutes (feed.tsx DiskSource). */
+  disks: DiskDrive[];
 }
 
 export const EMPTY_FEED: BarFeed = {
@@ -52,6 +55,7 @@ export const EMPTY_FEED: BarFeed = {
   downloads: [],
   call: null,
   script: [],
+  disks: [],
 };
 
 export const barFeed = createStore<BarFeed>(EMPTY_FEED);
@@ -59,7 +63,11 @@ export const barFeed = createStore<BarFeed>(EMPTY_FEED);
 /** True while a bar's panel shows a tool; the notch sets it from barPanels.ts (feed.tsx). */
 export const panelOpen = createStore(false);
 
-export const feedStores = { barFeed };
+/** The toasts in Windows' notification centre, for the bar's clock: null while Notices does not read Windows' notifications. */
+export const noticeCount = createStore<number | null>(null);
+
+/** `privacy` too, for the bar's privacy button, and the count: each changes only when Windows' state does. */
+export const feedStores = { barFeed, privacy, noticeCount };
 
 /** Sent only while `panelOpen`: `system` changes every few seconds and would wake the bar with nobody looking. */
-export const panelStores = { calendar, github, leetcode, usage, discordState, system, history, awake, ringing, focusMuted, privacy, snoozed };
+export const panelStores = { calendar, github, leetcode, usage, discordState, system, history, awake, ringing, focusMuted, snoozed };

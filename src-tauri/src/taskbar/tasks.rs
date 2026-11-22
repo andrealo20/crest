@@ -9,30 +9,33 @@
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::atomic::{AtomicIsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU8, Ordering};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
-use windows::core::{GUID, PWSTR};
+use windows::core::{w, GUID, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, ERROR_SUCCESS, HWND, LPARAM, PROPERTYKEY, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
-use windows::Win32::Graphics::Gdi::{MonitorFromWindow, MONITOR_DEFAULTTONEAREST};
+use windows::Win32::Graphics::Gdi::{MonitorFromWindow, HMONITOR, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::Storage::Packaging::Appx::{GetApplicationUserModelId, APPLICATION_USER_MODEL_ID_MAX_LENGTH};
-use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToStringAlloc};
-use windows::Win32::System::Threading::{GetCurrentProcessId, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToBoolean, PropVariantToStringAlloc};
+use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
+use windows::Win32::System::Threading::{GetCurrentProcessId, OpenProcess, TerminateProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE};
 use windows::Win32::UI::Input::KeyboardAndMouse::IsWindowEnabled;
 use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow};
+use windows::Win32::UI::Shell::{IVirtualDesktopManager, VirtualDesktopManager};
 use windows::Win32::UI::WindowsAndMessaging::{
-    AllowSetForegroundWindow, GetAncestor, GetDesktopWindow, GetForegroundWindow, GetLastActivePopup, GetShellWindow, GetWindow, GetWindowLongPtrW,
-    GetWindowTextW, IsIconic, IsWindowVisible, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED,
+    AllowSetForegroundWindow, GetAncestor, GetDesktopWindow, GetForegroundWindow, GetLastActivePopup, GetPropW, GetShellWindow, GetWindow, GetWindowLongPtrW,
+    CascadeWindows, GetWindowTextW, IsIconic, IsWindowVisible, IsZoomed, TileWindows, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED,
     EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND,
     EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, GA_ROOT, GA_ROOTOWNER, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HSHELL_HIGHBIT,
-    HSHELL_MONITORCHANGED, HSHELL_REDRAW, HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, SC_CLOSE, SC_MINIMIZE, SW_RESTORE, WM_SYSCOMMAND,
-    WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_MINIMIZEBOX,
+    HSHELL_LANGUAGE, HSHELL_MONITORCHANGED, HSHELL_REDRAW, HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, MDITILE_HORIZONTAL, MDITILE_VERTICAL, MDITILE_ZORDER,
+    SC_CLOSE, SC_MAXIMIZE, SC_MINIMIZE, SC_MOVE, SC_RESTORE, SC_SIZE, SW_RESTORE, WM_SYSCOMMAND, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_WINDOWEDGE, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_THICKFRAME,
 };
 
-use super::screens;
+use super::{input, ownpins, screens};
 use crate::launcher::{self, LauncherState};
 use crate::{display, mixer};
 
@@ -40,6 +43,10 @@ use crate::{display, mixer};
 const HSHELL_FLASH: u32 = HSHELL_REDRAW | HSHELL_HIGHBIT;
 /// System.AppUserModel.ID, defined here so one key does not need the EnhancedStorage feature.
 pub(super) const APP_USER_MODEL_ID: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0x9f4c2855_9f79_4b39_a8d0_e1d42de1d5f3), pid: 5 };
+/// System.AppUserModel.RelaunchCommand, RelaunchDisplayNameResource and PreventPinning, of the same set.
+pub(super) const RELAUNCH_COMMAND: PROPERTYKEY = PROPERTYKEY { pid: 2, ..APP_USER_MODEL_ID };
+pub(super) const RELAUNCH_NAME: PROPERTYKEY = PROPERTYKEY { pid: 4, ..APP_USER_MODEL_ID };
+pub(super) const PREVENT_PINNING: PROPERTYKEY = PROPERTYKEY { pid: 9, ..APP_USER_MODEL_ID };
 /// The list's one-shot timer on the thread's window (mod.rs routes it), with an id of its own.
 pub(super) const LIST_TIMER: usize = 2;
 const LIST_MS: u32 = 100;
@@ -61,9 +68,17 @@ pub struct Group {
     name: String,
     pins: Vec<Pin>,
     windows: Vec<Win>,
-    /// An app without Start entries gets its icon from its exe (`taskbar_icons`).
+    /// A new instance can start from its first window: a relaunch command, or the exe of an unpackaged process (`ownpins::decide`).
+    spawnable: bool,
+    /// Spawnable, without entries, and its window does not ask never to be pinned (PreventPinning).
+    pinnable: bool,
+    /// An app without entries gets its icon from its exe (`taskbar_icons`).
     #[serde(skip)]
     exe: String,
+    /// The id Windows keys the app's jump list on: its window's or package's AppUserModelID, else its first Start entry's parsing
+    /// name (jumplist.rs).
+    #[serde(skip)]
+    app_id: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Serialize)]
@@ -87,6 +102,8 @@ struct Last {
     pids: Vec<(isize, u32)>,
     /// Each listed window's monitor (`monitor_of`).
     monitors: HashMap<isize, isize>,
+    /// Listed ghost windows and the hung window each stands in for (`source`).
+    ghosts: HashMap<isize, isize>,
     /// By the bar's label.
     sent: HashMap<String, WindowList>,
 }
@@ -100,9 +117,100 @@ static FOREGROUND: AtomicIsize = AtomicIsize::new(0);
 /// came after it, as then there is no app to go back to.
 static LAST_APP: AtomicIsize = AtomicIsize::new(0);
 
+/// Where the apps' buttons show (Settings → Taskbar → Show apps on): `OWN` on the bar of the window's monitor, `MAIN` there and on
+/// the primary's bar, `ALL` on every bar.
+const OWN: u8 = 0;
+const MAIN: u8 = 1;
+const ALL: u8 = 2;
+static APPS_ON: AtomicU8 = AtomicU8::new(OWN);
+
+/// From the notch (screens.rs `taskbar_spread`); anything else is `OWN`, today's bar.
+pub(super) fn set_apps_on(mode: &str) {
+    APPS_ON.store(match mode { "main" => MAIN, "all" => ALL, _ => OWN }, Ordering::SeqCst);
+}
+
+/// Whether a bar shows a listed window on `window_monitor` (None: not listed): on its own monitor's bar always; with `MAIN`
+/// also on the primary's; with `ALL` on every bar.
+fn shows(mode: u8, primary_bar: bool, window_monitor: Option<&isize>, bar_monitor: isize) -> bool {
+    window_monitor.is_some_and(|&m| m == bar_monitor || mode == ALL || (mode == MAIN && primary_bar))
+}
+
+/// The order a bar last asked for an app's windows, until the taskbar thread takes it (`on_reorder`).
+static REORDER: Mutex<Option<Vec<isize>>> = Mutex::new(None);
+
+/// The places `order` gives to the windows in `ids`, filled with them in `ids`' order; every other window keeps its place and ids
+/// not in `order` are ignored. A group keeps its first place, so groups never swap.
+fn reorder(order: &[isize], ids: &[isize]) -> Vec<isize> {
+    let mut moved = ids.iter().filter(|id| order.contains(id));
+    order.iter().map(|&h| if ids.contains(&h) { *moved.next().unwrap_or(&h) } else { h }).collect()
+}
+
+/// A preview dragged in its card: listed windows of one app, 2 to 64 of them, that the calling bar shows, in their new order. The
+/// list keeps it until Crest restarts.
+#[tauri::command]
+pub fn taskbar_window_order(window: WebviewWindow, ids: Vec<isize>) -> Result<(), String> {
+    super::bar::from_bar(&window)?;
+    let monitor = monitor_of(window.hwnd().map_err(|e| e.to_string())?);
+    let unique: HashSet<isize> = ids.iter().copied().collect();
+    if ids.len() < 2 || ids.len() > 64 || unique.len() != ids.len() || !ids.iter().all(|&id| previewable(id, window.label(), monitor)) {
+        return Err("not-found".into());
+    }
+    *REORDER.lock().unwrap_or_else(|e| e.into_inner()) = Some(ids);
+    super::reorder();
+    Ok(())
+}
+
+/// On the taskbar thread (mod.rs): the order asked for goes into the list, which is made again shortly.
+pub(super) fn on_reorder() {
+    let Some(ids) = REORDER.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
+    TRACK.with_borrow_mut(|t| {
+        if let Some(t) = t {
+            t.order = reorder(&t.order, &ids);
+        }
+    });
+    arm();
+}
+
+/// Settings → Taskbar → Show windows from all desktops: the list takes the windows of the other virtual desktops too.
+static ALL_DESKTOPS: AtomicBool = AtomicBool::new(false);
+
+/// From the notch; a change lists again at once.
+#[tauri::command]
+pub fn taskbar_all_desktops(on: bool) {
+    if ALL_DESKTOPS.swap(on, Ordering::SeqCst) != on {
+        super::relist();
+    }
+}
+
+/// Settings → Taskbar → End task in the app menu: off, "end" is refused here, whatever a bar page sends.
+static END_TASK: AtomicBool = AtomicBool::new(false);
+
+/// From the notch.
+#[tauri::command]
+pub fn taskbar_end_task(on: bool) {
+    END_TASK.store(on, Ordering::SeqCst);
+}
+
 thread_local! {
     /// The list's state on the taskbar thread, from `begin` until the thread ends.
     static TRACK: RefCell<Option<Track>> = const { RefCell::new(None) };
+    /// Windows' virtual desktop manager, made once on the taskbar thread (STA) the first time the setting asks for it.
+    static DESKTOPS: std::cell::OnceCell<Option<IVirtualDesktopManager>> = const { std::cell::OnceCell::new() };
+}
+
+/// Whether a window is hidden because it is on another virtual desktop: cloaked, not on this desktop, and on a real one. A
+/// suspended Store app or a window the shell hides is cloaked on this desktop or has no desktop, so it never counts.
+fn on_other_desktop(cloaked: bool, on_current: Option<bool>, desktop: Option<GUID>) -> bool {
+    cloaked && on_current == Some(false) && desktop.is_some_and(|g| g != GUID::zeroed())
+}
+
+/// A window of another virtual desktop that would get a button there.
+fn elsewhere(mgr: &IVirtualDesktopManager, hwnd: HWND, own: u32) -> bool {
+    let look = look_of(hwnd, own);
+    look.visible
+        && look.cloaked
+        && eligible(&Look { cloaked: false, ..look })
+        && on_other_desktop(true, unsafe { mgr.IsWindowOnCurrentVirtualDesktop(hwnd) }.ok().map(|b| b.as_bool()), unsafe { mgr.GetWindowDesktopId(hwnd) }.ok())
 }
 
 struct Track {
@@ -134,12 +242,16 @@ struct Look {
     ex: u32,
     /// One of the `IMMERSIVE` classes.
     immersive: bool,
+    /// Taken off the taskbar by its app (`ITaskList_Deleted`).
+    deleted: bool,
 }
 
 /// Whether a window gets a button: visible, not cloaked, not Crest's, not a tool window, and marked for the taskbar
-/// (WS_EX_APPWINDOW) or unowned and activatable; a shell surface only as a Store app's frame.
+/// (WS_EX_APPWINDOW) or unowned and activatable; a shell surface only as a Store app's frame; and not taken off the taskbar by its
+/// app (`ITaskList_Deleted`, set by `ITaskbarList::DeleteTab`, undocumented).
 fn eligible(look: &Look) -> bool {
     look.visible
+        && !look.deleted
         && !look.cloaked
         && !look.own
         && look.ex & WS_EX_TOOLWINDOW.0 == 0
@@ -271,6 +383,9 @@ pub(super) fn on_event(event: u32, hwnd: HWND) {
             return;
         }
         FOREGROUND.store(id, Ordering::SeqCst);
+        super::tray::on_front(hwnd);
+        // Each thread has its layout: the one in front decides what the bar's input language shows.
+        language_changed();
     }
     let (armed, listed) = TRACK.with_borrow(|t| t.as_ref().map_or((true, false), |t| (t.armed, t.order.contains(&id))));
     if event == EVENT_SYSTEM_FOREGROUND {
@@ -293,7 +408,7 @@ fn desktop_itself(hwnd: HWND) -> bool {
 }
 
 /// A shell hook code (mod.rs): flashing and ghost windows wait for the next list; a window moved to another monitor only needs
-/// one, which moves its button to that monitor's bar.
+/// one, which moves its button to that monitor's bar. A new keyboard layout goes to the bar's input language.
 pub(super) fn on_shell(code: u32, hwnd: isize) {
     if matches!(code, HSHELL_FLASH | HSHELL_REDRAW | HSHELL_WINDOWREPLACING | HSHELL_WINDOWREPLACED) {
         TRACK.with_borrow_mut(|t| {
@@ -304,6 +419,15 @@ pub(super) fn on_shell(code: u32, hwnd: isize) {
         arm();
     } else if code == HSHELL_MONITORCHANGED {
         arm();
+    } else if code == HSHELL_LANGUAGE {
+        language_changed();
+    }
+}
+
+/// The bar's input language is read again (input.rs). Not while `on_timer` holds the list: the next event reads it.
+fn language_changed() {
+    if let Some(app) = TRACK.with_borrow(|t| t.as_ref().map(|t| t.app.clone())) {
+        input::changed(&app);
     }
 }
 
@@ -315,19 +439,23 @@ pub(super) fn on_timer(window: HWND) {
     let Some(mut track) = TRACK.with_borrow_mut(Option::take) else { return };
     track.armed = false;
     let (list, pids, monitors) = track.recompute();
+    let ghosts = track.ghosts.clone();
     let app = track.app.clone();
     TRACK.with_borrow_mut(|t| *t = Some(track));
     let lists: Vec<(String, WindowList)> = screens::all()
         .into_iter()
         .map(|(label, bar)| {
             let monitor = monitor_of(HWND(bar as _));
-            (label, for_monitor(&list, |id| monitors.get(&id) == Some(&monitor)))
+            let (mode, primary) = (APPS_ON.load(Ordering::SeqCst), label == super::bar::LABEL);
+            let here = for_monitor(&list, |id| shows(mode, primary, monitors.get(&id), monitor));
+            (label, here)
         })
         .collect();
     let mut last = last();
     last.list = list;
     last.pids = pids;
     last.monitors = monitors;
+    last.ghosts = ghosts;
     let changed: Vec<(String, WindowList)> = lists.iter().filter(|(label, here)| last.sent.get(label) != Some(here)).cloned().collect();
     // A bar gone leaves the record.
     last.sent = lists.into_iter().collect();
@@ -362,7 +490,13 @@ impl Track {
             }
         }
         let own = unsafe { GetCurrentProcessId() };
-        let now: Vec<isize> = display::top_windows().into_iter().filter(|&h| listable(h, own)).map(|h| h.0 as isize).collect();
+        let all = ALL_DESKTOPS.load(Ordering::SeqCst);
+        let mgr = if all { DESKTOPS.with(|d| d.get_or_init(|| unsafe { CoCreateInstance(&VirtualDesktopManager, None, CLSCTX_ALL) }.ok()).clone()) } else { None };
+        let now: Vec<isize> = display::top_windows()
+            .into_iter()
+            .filter(|&h| listable(h, own) || mgr.as_ref().is_some_and(|m| elsewhere(m, h, own)))
+            .map(|h| h.0 as isize)
+            .collect();
         self.order = merge_order(&self.order, &now);
         let order = &self.order;
         self.ghosts.retain(|ghost, _| order.contains(ghost));
@@ -383,7 +517,7 @@ impl Track {
         for &id in &self.order {
             let hwnd = HWND(id as _);
             let source = HWND(self.ghosts.get(&id).copied().unwrap_or(id) as _);
-            let window_aumid = window_app_id(source);
+            let Props { aumid: window_aumid, relaunch, prevent } = window_props(source);
             let pid = display::app_pid(source);
             let (package_aumid, exe) = processes.entry(pid).or_insert_with(|| (package_app_id(pid), mixer::process_path(pid).unwrap_or_default())).clone();
             let key = group_key(window_aumid.as_deref(), package_aumid.as_deref(), &exe, id);
@@ -393,8 +527,12 @@ impl Track {
             match groups.iter_mut().find(|(group, _)| group.key == key) {
                 Some((group, _)) => group.windows.push(win),
                 None => {
-                    let aumid = window_aumid.filter(|s| !s.is_empty()).or(package_aumid.filter(|s| !s.is_empty()));
-                    groups.push((Group { key, name: String::new(), pins: Vec::new(), windows: vec![win], exe }, aumid));
+                    let relaunch = relaunch.as_ref().map(|(command, name)| (command.as_str(), name.as_str()));
+                    let spawnable = ownpins::decide(window_aumid.as_deref(), relaunch, package_aumid.is_some(), &exe).is_some();
+                    let aumid = window_aumid.or(package_aumid.filter(|s| !s.is_empty()));
+                    // Pinnable until an entry turns up below.
+                    let group = Group { key, name: String::new(), pins: Vec::new(), windows: vec![win], spawnable, pinnable: spawnable && !prevent, exe, app_id: None };
+                    groups.push((group, aumid));
                 }
             }
         }
@@ -404,6 +542,14 @@ impl Track {
                 group.pins = launcher::entries_for(apps, aumid.as_deref(), &group.exe).into_iter().map(|a| Pin { id: a.id, name: a.name }).collect();
             }
         });
+        // Out of the Start list's lock: an app without a Start entry takes the bar's own pins, which name it and draw its icon.
+        for (group, aumid) in &mut groups {
+            if group.pins.is_empty() {
+                group.pins = ownpins::entries_for(aumid.as_deref(), &group.exe).into_iter().map(|a| Pin { id: a.id, name: a.name }).collect();
+            }
+            group.pinnable &= group.pins.is_empty();
+            group.app_id = aumid.clone().or_else(|| group.pins.iter().find_map(|p| p.id.strip_prefix(launcher::APPS_PREFIX).map(str::to_string)));
+        }
         let groups = groups
             .into_iter()
             .map(|(mut group, _)| {
@@ -424,18 +570,21 @@ pub(super) fn monitor_of(hwnd: HWND) -> isize {
     unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) }.0 as isize
 }
 
-/// Whether a top-level window gets a button now (`eligible`). Few are visible, so only those are read further.
+/// Whether a top-level window gets a button now (`eligible`), on this virtual desktop. Few are visible, so only those are read further.
 pub(super) fn listable(hwnd: HWND, own: u32) -> bool {
-    let visible = unsafe { IsWindowVisible(hwnd) }.as_bool();
-    visible
-        && eligible(&Look {
-            visible,
-            cloaked: cloaked(hwnd),
-            own: display::window_pid(hwnd) == own,
-            owned: unsafe { GetWindow(hwnd, GW_OWNER) }.is_ok_and(|o| !o.is_invalid()),
-            ex: unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32,
-            immersive: IMMERSIVE.contains(&display::class_name(hwnd).as_str()),
-        })
+    unsafe { IsWindowVisible(hwnd) }.as_bool() && eligible(&look_of(hwnd, own))
+}
+
+fn look_of(hwnd: HWND, own: u32) -> Look {
+    Look {
+        visible: unsafe { IsWindowVisible(hwnd) }.as_bool(),
+        cloaked: cloaked(hwnd),
+        own: display::window_pid(hwnd) == own,
+        owned: unsafe { GetWindow(hwnd, GW_OWNER) }.is_ok_and(|o| !o.is_invalid()),
+        ex: unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32,
+        immersive: IMMERSIVE.contains(&display::class_name(hwnd).as_str()),
+        deleted: !unsafe { GetPropW(hwnd, w!("ITaskList_Deleted")) }.is_invalid(),
+    }
 }
 
 /// Whether the window an event names could get a button: a top-level window that is `listable`.
@@ -464,19 +613,38 @@ fn title(hwnd: HWND) -> String {
     String::from_utf16_lossy(&buf[..len])
 }
 
-/// The AppUserModelID an app set on its window (a browser profile, a web app, a Store app's frame).
-fn window_app_id(hwnd: HWND) -> Option<String> {
+/// What an app set on its window for the taskbar.
+#[derive(Default)]
+pub(super) struct Props {
+    /// Its AppUserModelID (a browser profile, a web app, a Store app's frame).
+    pub(super) aumid: Option<String>,
+    /// The relaunch command and its display name resource, only when both are set.
+    pub(super) relaunch: Option<(String, String)>,
+    /// PreventPinning: the window asks never to be pinned.
+    pub(super) prevent: bool,
+}
+
+/// The window's `Props`, from one property store; empty strings read as unset.
+pub(super) fn window_props(hwnd: HWND) -> Props {
     unsafe {
-        let store: IPropertyStore = SHGetPropertyStoreForWindow(hwnd).ok()?;
-        let mut value = store.GetValue(&APP_USER_MODEL_ID).ok()?;
-        let id = PropVariantToStringAlloc(&value).ok().and_then(|p| crate::controls::take(p));
-        let _ = PropVariantClear(&mut value);
-        id
+        let Ok(store) = SHGetPropertyStoreForWindow::<IPropertyStore>(hwnd) else { return Props::default() };
+        let text = |key: &PROPERTYKEY| {
+            let mut value = store.GetValue(key).ok()?;
+            let text = PropVariantToStringAlloc(&value).ok().and_then(|p| crate::controls::take(p));
+            let _ = PropVariantClear(&mut value);
+            text.filter(|s| !s.is_empty())
+        };
+        let prevent = store.GetValue(&PREVENT_PINNING).is_ok_and(|mut value| {
+            let on = PropVariantToBoolean(&value).is_ok_and(|b| b.as_bool());
+            let _ = PropVariantClear(&mut value);
+            on
+        });
+        Props { aumid: text(&APP_USER_MODEL_ID), relaunch: text(&RELAUNCH_COMMAND).zip(text(&RELAUNCH_NAME)), prevent }
     }
 }
 
 /// The AppUserModelID of a packaged app's process; None for any other.
-fn package_app_id(pid: u32) -> Option<String> {
+pub(super) fn package_app_id(pid: u32) -> Option<String> {
     unsafe {
         let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
         let mut buf = [0u16; APPLICATION_USER_MODEL_ID_MAX_LENGTH as usize];
@@ -491,17 +659,17 @@ fn last() -> MutexGuard<'static, Last> {
     LAST.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Whether `id` was listed, with the process that has its handle now (`pid_now`), on `monitor`.
-fn listed_on(pids: &[(isize, u32)], monitors: &HashMap<isize, isize>, id: isize, pid_now: u32, monitor: isize) -> bool {
-    pids.contains(&(id, pid_now)) && monitors.get(&id) == Some(&monitor)
+/// Whether `id` was listed, with the process that has its handle now (`pid_now`), where a bar on `monitor` shows it (`shows`).
+fn listed_on(pids: &[(isize, u32)], monitors: &HashMap<isize, isize>, id: isize, pid_now: u32, (mode, primary): (u8, bool), monitor: isize) -> bool {
+    pids.contains(&(id, pid_now)) && shows(mode, primary, monitors.get(&id), monitor)
 }
 
-/// Whether a bar on `monitor` may show `id`'s live preview (preview.rs): a listed window, still of the process it was listed
-/// with, on that bar's monitor. The pid is read before the lock is taken, so no call to Windows runs under it.
-pub(super) fn previewable(id: isize, monitor: isize) -> bool {
+/// Whether bar `label` on `monitor` may show `id`'s live preview (preview.rs): a listed window, still of the process it was
+/// listed with, that this bar shows a button for. The pid is read before the lock is taken, so no call to Windows runs under it.
+pub(super) fn previewable(id: isize, label: &str, monitor: isize) -> bool {
     let pid_now = display::window_pid(HWND(id as _));
     let last = last();
-    listed_on(&last.pids, &last.monitors, id, pid_now, monitor)
+    listed_on(&last.pids, &last.monitors, id, pid_now, (APPS_ON.load(Ordering::SeqCst), label == super::bar::LABEL), monitor)
 }
 
 /// The calling bar's windows, those on its monitor, for a bar page that has just loaded; `taskbar://windows` brings each change.
@@ -510,30 +678,176 @@ pub fn taskbar_windows(window: WebviewWindow) -> WindowList {
     // A sync command runs on the main thread, where the handle is read without a wait.
     let Ok(hwnd) = window.hwnd() else { return WindowList::default() };
     let monitor = monitor_of(hwnd);
+    let (mode, primary) = (APPS_ON.load(Ordering::SeqCst), window.label() == super::bar::LABEL);
     let last = last();
-    for_monitor(&last.list, |id| last.monitors.get(&id) == Some(&monitor))
+    for_monitor(&last.list, |id| shows(mode, primary, last.monitors.get(&id), monitor))
 }
 
-/// What a click on a window's button does: "activate", "toggle" (minimizes the app in front, else brings it forward),
-/// "minimize" or "close". Only a listed window, still of the process it was listed with. An app running as administrator may
-/// refuse a minimize or a close (UIPI): the error comes back and nothing else happens.
+/// The process of listed window `id`, while the window is still of the process it was listed with: None once it is gone, or
+/// its handle was reused by another process since the list was made. Every command on a listed window starts here.
+pub(super) fn listed_pid(id: isize) -> Option<u32> {
+    let pid = last().pids.iter().find(|&&(h, _)| h == id).map(|&(_, pid)| pid)?;
+    (pid == display::window_pid(HWND(id as _))).then_some(pid)
+}
+
+/// The window whose app listed window `id` shows: the hung window a ghost stands in for, else `id` itself. A ghost is drawn by a
+/// system process, so a command on the app (End task, a pin, a new instance, its file) reads the app from here.
+pub(super) fn source(id: isize) -> HWND {
+    HWND(last().ghosts.get(&id).copied().unwrap_or(id) as _)
+}
+
+/// The first pin of listed window `id`'s app, as (id, name): its Start entry, or an own pin made of it before.
+pub(super) fn first_pin(id: isize) -> Option<(String, String)> {
+    let last = last();
+    let group = last.list.groups.iter().find(|g| g.windows.iter().any(|w| w.id == id))?;
+    group.pins.first().map(|p| (p.id.clone(), p.name.clone()))
+}
+
+/// The jump-list id and the exe of listed group `key` (jumplist.rs), when Windows keys a list for it.
+pub(super) fn app_of(key: &str) -> Option<(String, String)> {
+    let last = last();
+    let group = last.list.groups.iter().find(|g| g.key == key)?;
+    Some((group.app_id.clone()?, group.exe.clone()))
+}
+
+/// What a click on a window's button, or its app's menu, does: "activate", "toggle" (minimizes the app in front, else brings it
+/// forward), "minimize", "close" or "end" (End task); from the window menu also "restore", "maximize", and "move" and "size",
+/// which bring it forward and start Windows' keyboard move or size. Only a listed window, still of the process it was listed with. An app
+/// running as administrator may refuse a minimize, a close or an end (UIPI, access denied): the error comes back and nothing
+/// else happens.
 #[tauri::command]
 pub async fn taskbar_window(id: isize, action: String) -> Result<(), String> {
-    let (pid, listed) = {
-        let last = last();
-        (last.pids.iter().find(|&&(h, _)| h == id).map(|&(_, pid)| pid), last.pids.iter().map(|&(h, _)| h).collect::<Vec<_>>())
-    };
+    let Some(pid) = listed_pid(id) else { return Err("not-found".into()) };
+    let listed: Vec<isize> = last().pids.iter().map(|&(h, _)| h).collect();
     let hwnd = HWND(id as _);
-    // Gone, or its handle reused by another process since the list was made.
-    let Some(pid) = pid.filter(|&pid| pid == display::window_pid(hwnd)) else { return Err("not-found".into()) };
     match action.as_str() {
         "activate" => activate(hwnd),
         "toggle" if toggle_minimizes(id, active_now(&listed), unsafe { IsIconic(hwnd) }.as_bool()) => minimize(hwnd, pid, &listed),
         "toggle" => activate(hwnd),
         "minimize" => minimize(hwnd, pid, &listed),
         "close" => close(hwnd, pid, &listed),
+        "restore" => sys(hwnd, SC_RESTORE).and_then(|_| activate(hwnd)),
+        "maximize" if style(hwnd) & WS_MAXIMIZEBOX.0 != 0 => sys(hwnd, SC_MAXIMIZE).and_then(|_| activate(hwnd)),
+        "move" => activate(hwnd).and_then(|_| sys(hwnd, SC_MOVE)),
+        "size" if style(hwnd) & WS_THICKFRAME.0 != 0 => activate(hwnd).and_then(|_| sys(hwnd, SC_SIZE)),
+        "end" if !END_TASK.load(Ordering::SeqCst) => Err("end-task-off".into()),
+        "end" => {
+            let source = source(id);
+            end(source, display::window_pid(source))
+        }
         _ => Err("unknown-action".into()),
     }
+}
+
+/// What the window menu enables, as Windows' own system menu does.
+#[derive(Serialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowMenu {
+    minimized: bool,
+    maximized: bool,
+    can_minimize: bool,
+    can_maximize: bool,
+    can_size: bool,
+}
+
+fn menu_state(style: u32, iconic: bool, zoomed: bool) -> WindowMenu {
+    WindowMenu {
+        minimized: iconic,
+        maximized: zoomed,
+        can_minimize: style & WS_MINIMIZEBOX.0 != 0,
+        can_maximize: style & WS_MAXIMIZEBOX.0 != 0,
+        can_size: style & WS_THICKFRAME.0 != 0,
+    }
+}
+
+fn style(hwnd: HWND) -> u32 {
+    unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) as u32 }
+}
+
+/// The state of listed window `id` for its menu (Shift+right-click).
+#[tauri::command]
+pub fn taskbar_window_menu(id: isize) -> Result<WindowMenu, String> {
+    listed_pid(id).ok_or("not-found")?;
+    let hwnd = HWND(id as _);
+    Ok(menu_state(style(hwnd), unsafe { IsIconic(hwnd) }.as_bool(), unsafe { IsZoomed(hwnd) }.as_bool()))
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+enum How {
+    Cascade,
+    Stack,
+    Side,
+    Restore,
+    Minimize,
+}
+
+fn arrange_how(s: &str) -> Option<How> {
+    Some(match s {
+        "cascade" => How::Cascade,
+        "stack" => How::Stack,
+        "side" => How::Side,
+        "restore" => How::Restore,
+        "minimize" => How::Minimize,
+        _ => return None,
+    })
+}
+
+/// The group menu: an app's windows cascaded, stacked or side by side in the work area of the calling bar's monitor, or all
+/// restored or minimized. Only windows the calling bar lists (`previewable`), 1 to 64 of them.
+#[tauri::command]
+pub async fn taskbar_arrange(window: WebviewWindow, ids: Vec<isize>, how: String) -> Result<(), String> {
+    super::bar::from_bar(&window)?;
+    let how = arrange_how(&how).ok_or("unknown")?;
+    let monitor = monitor_of(window.hwnd().map_err(|e| e.to_string())?);
+    let unique: HashSet<isize> = ids.iter().copied().collect();
+    if ids.is_empty() || ids.len() > 64 || unique.len() != ids.len() || !ids.iter().all(|&id| previewable(id, window.label(), monitor)) {
+        return Err("not-found".into());
+    }
+    // CascadeWindows and TileWindows wait on each window's answer: never on the main thread.
+    tauri::async_runtime::spawn_blocking(move || arrange(&ids, how, monitor)).await.map_err(|e| e.to_string())?
+}
+
+fn arrange(ids: &[isize], how: How, monitor: isize) -> Result<(), String> {
+    let hwnds: Vec<HWND> = ids.iter().map(|&id| HWND(id as _)).collect();
+    let post = |h: HWND, sc: u32| drop(unsafe { PostMessageW(Some(h), WM_SYSCOMMAND, WPARAM(sc as usize), LPARAM(0)) });
+    match how {
+        How::Restore => hwnds.iter().for_each(|&h| post(h, SC_RESTORE)),
+        How::Minimize => hwnds.iter().filter(|&&h| style(h) & WS_MINIMIZEBOX.0 != 0).for_each(|&h| post(h, SC_MINIMIZE)),
+        _ => unsafe {
+            for &h in &hwnds {
+                if IsIconic(h).as_bool() {
+                    let _ = ShowWindowAsync(h, SW_RESTORE);
+                }
+            }
+            let (_, work) = display::monitor_rect(HMONITOR(monitor as _)).ok_or("failed")?;
+            let done = match how {
+                How::Cascade => CascadeWindows(None, MDITILE_ZORDER, Some(&work), Some(&hwnds)),
+                How::Stack => TileWindows(None, MDITILE_HORIZONTAL, Some(&work), Some(&hwnds)),
+                _ => TileWindows(None, MDITILE_VERTICAL, Some(&work), Some(&hwnds)),
+            };
+            if done == 0 {
+                return Err("failed".into());
+            }
+        },
+    }
+    Ok(())
+}
+
+/// One wheel step on an app's button: every audio session of the listed window's program moves by `step` (-1..1). Its new
+/// level in percent, None when the program plays nothing. Only a listed window, still of its process.
+#[tauri::command]
+pub async fn taskbar_app_volume(id: isize, step: f32) -> Result<Option<u8>, String> {
+    if listed_pid(id).is_none() {
+        return Err("not-found".into());
+    }
+    // The app behind a Store app's frame, as the list reads it.
+    let Some(exe) = mixer::process_path(display::app_pid(source(id))) else { return Ok(None) };
+    let step = step.clamp(-1.0, 1.0);
+    tauri::async_runtime::spawn_blocking(move || mixer::step_app(&exe, step))
+        .await
+        .map_err(|e| e.to_string())?
+        .map(|level| level.map(|l| (l * 100.0).round() as u8))
+        .map_err(|e| e.message())
 }
 
 /// A bar menu or panel closed from the bar (Esc, a second click on its item): the keyboard goes back (`release`).
@@ -604,6 +918,36 @@ fn close(hwnd: HWND, pid: u32, listed: &[isize]) -> Result<(), String> {
     command(hwnd, SC_CLOSE, listed)
 }
 
+/// Whether End task may end process `pid`: never Crest itself, never the shell's explorer.exe (it draws the desktop, and File
+/// Explorer's windows usually live in it), never ApplicationFrameHost, which every Store app's frame shares (`frame_host`: a
+/// frame whose app process was not found).
+fn may_end(pid: u32, own: u32, shell: u32, frame_host: bool) -> bool {
+    pid != own && pid != shell && !frame_host
+}
+
+/// End task, as on Windows' taskbar: the window's app process ends at once, without saving, and not its children.
+/// `window_pid` is the process the window was listed with.
+fn end(hwnd: HWND, window_pid: u32) -> Result<(), String> {
+    let pid = display::app_pid(hwnd);
+    let frame_host = display::class_name(hwnd) == "ApplicationFrameWindow" && pid == window_pid;
+    let shell = display::window_pid(unsafe { GetShellWindow() });
+    if !may_end(pid, unsafe { GetCurrentProcessId() }, shell, frame_host) {
+        return Err("failed".into());
+    }
+    unsafe {
+        // An app running as administrator refuses the open.
+        let process = OpenProcess(PROCESS_TERMINATE, false, pid).map_err(|_| "failed".to_string())?;
+        let ended = TerminateProcess(process, 1);
+        let _ = CloseHandle(process);
+        ended.map_err(|_| "failed".into())
+    }
+}
+
+/// Posts a window command, never waiting on a hung app, and leaves the keyboard where it is.
+fn sys(hwnd: HWND, sc: u32) -> Result<(), String> {
+    unsafe { PostMessageW(Some(hwnd), WM_SYSCOMMAND, WPARAM(sc as usize), LPARAM(0)) }.map_err(|_| "failed".to_string())
+}
+
 /// Posts a window command, never waiting on a hung app, then the keyboard goes to the next window, as when Windows minimizes or
 /// closes one.
 fn command(hwnd: HWND, sc: u32, listed: &[isize]) -> Result<(), String> {
@@ -621,8 +965,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_preview_dragged_moves_its_window_among_its_apps_places() {
+        assert_eq!(reorder(&[1, 5, 2, 6, 3], &[3, 1, 2]), [3, 5, 1, 6, 2]);
+        assert_eq!(reorder(&[1, 5, 2], &[2, 9, 1]), [2, 5, 1]);
+        assert_eq!(reorder(&[1, 5, 2], &[1, 2]), [1, 5, 2]);
+        assert_eq!(reorder(&[1, 5, 2], &[]), [1, 5, 2]);
+    }
+
+    #[test]
+    fn the_window_menu_enables_what_the_window_allows() {
+        let all = WS_MINIMIZEBOX.0 | WS_MAXIMIZEBOX.0 | WS_THICKFRAME.0;
+        assert_eq!(menu_state(all, false, false), WindowMenu { minimized: false, maximized: false, can_minimize: true, can_maximize: true, can_size: true });
+        assert!(menu_state(all, true, false).minimized);
+        assert!(menu_state(all, false, true).maximized);
+        assert_eq!(menu_state(0, false, false), WindowMenu { minimized: false, maximized: false, can_minimize: false, can_maximize: false, can_size: false });
+        for (name, how) in [("cascade", How::Cascade), ("stack", How::Stack), ("side", How::Side), ("restore", How::Restore), ("minimize", How::Minimize)] {
+            assert_eq!(arrange_how(name), Some(how));
+        }
+        assert_eq!(arrange_how("tile"), None);
+    }
+
+    #[test]
+    fn only_windows_hidden_on_another_desktop_count_as_there() {
+        let g = GUID::from_u128(7);
+        assert!(on_other_desktop(true, Some(false), Some(g)));
+        assert!(!on_other_desktop(false, Some(false), Some(g)));
+        assert!(!on_other_desktop(true, Some(true), Some(g)));
+        assert!(!on_other_desktop(true, Some(false), Some(GUID::zeroed())));
+        assert!(!on_other_desktop(true, None, None));
+    }
+
+    #[test]
     fn only_taskbar_windows_get_a_button() {
-        let l = |ex: u32, owned: bool| Look { visible: true, cloaked: false, own: false, owned, ex, immersive: false };
+        let l = |ex: u32, owned: bool| Look { visible: true, cloaked: false, own: false, owned, ex, immersive: false, deleted: false };
+        assert!(!eligible(&Look { deleted: true, ..l(WS_EX_APPWINDOW.0, false) })); // taken off the taskbar by its app
         assert!(eligible(&l(0, false))); // plain unowned
         assert!(!eligible(&l(0, true))); // owned dialog
         assert!(eligible(&l(WS_EX_APPWINDOW.0, true)));
@@ -716,7 +1092,7 @@ mod tests {
     #[test]
     fn each_bar_lists_its_own_monitors_windows() {
         let w = |id| Win { id, title: String::new(), minimized: false, flashing: false };
-        let g = |key: &str, ids: &[isize]| Group { key: key.into(), name: key.into(), pins: vec![], windows: ids.iter().map(|&i| w(i)).collect(), exe: String::new() };
+        let g = |key: &str, ids: &[isize]| Group { key: key.into(), name: key.into(), pins: vec![], windows: ids.iter().map(|&i| w(i)).collect(), spawnable: false, pinnable: false, exe: String::new(), app_id: None };
         let list = WindowList { groups: vec![g("chrome", &[1, 2]), g("code", &[3])], active: Some(3) };
         let here = for_monitor(&list, |id| id == 2);
         assert_eq!(here.groups.len(), 1);
@@ -727,12 +1103,32 @@ mod tests {
     }
 
     #[test]
+    fn end_task_spares_crest_the_shell_and_the_frame_host() {
+        assert!(!may_end(10, 10, 20, false)); // Crest
+        assert!(!may_end(20, 10, 20, false)); // the shell's explorer.exe
+        assert!(!may_end(30, 10, 20, true)); // ApplicationFrameHost
+        assert!(may_end(30, 10, 20, false));
+    }
+
+    #[test]
     fn a_preview_shows_only_a_listed_window_of_its_own_process_on_the_callers_monitor() {
         let pids = [(10, 1), (20, 2)];
         let monitors = HashMap::from([(10, 100), (20, 200)]);
-        assert!(listed_on(&pids, &monitors, 10, 1, 100));
-        assert!(!listed_on(&pids, &monitors, 10, 1, 200)); // on another monitor
-        assert!(!listed_on(&pids, &monitors, 10, 3, 100)); // its handle reused by another process
-        assert!(!listed_on(&pids, &monitors, 30, 1, 100)); // not listed
+        let own = (OWN, false);
+        assert!(listed_on(&pids, &monitors, 10, 1, own, 100));
+        assert!(!listed_on(&pids, &monitors, 10, 1, own, 200)); // on another monitor
+        assert!(!listed_on(&pids, &monitors, 10, 3, own, 100)); // its handle reused by another process
+        assert!(!listed_on(&pids, &monitors, 30, 1, own, 100)); // not listed
+        assert!(listed_on(&pids, &monitors, 10, 1, (MAIN, true), 200)); // the primary's bar under Main shows it too
+        assert!(!listed_on(&pids, &monitors, 30, 1, (ALL, false), 200)); // never one not listed
+    }
+
+    #[test]
+    fn show_apps_on_picks_the_bars_a_window_shows_on() {
+        let (here, there) = (Some(&1), Some(&2));
+        assert!(shows(OWN, false, here, 1) && !shows(OWN, true, there, 1)); // its own monitor's bar only
+        assert!(shows(MAIN, true, there, 1) && !shows(MAIN, false, there, 1)); // and the primary's
+        assert!(shows(ALL, false, there, 1)); // every bar
+        assert!(!shows(ALL, true, None, 1)); // never one not listed
     }
 }

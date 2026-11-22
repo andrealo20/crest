@@ -10,7 +10,7 @@ import { nav } from "../../notch/nav";
 import type { PartId } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
 import { isMac, isNative } from "../../platform/native";
-import { build, taskbar } from "../../platform/services";
+import { build, taskbar, type KeysStatus } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { CrestMark } from "../../ui/CrestMark";
 import { WindowsMark } from "../../ui/WindowsMark";
@@ -22,11 +22,12 @@ import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
-import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type BarShape, type ToolItem, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type AppsOn, type BarEdge, type BarShape, type Combine, type EmptyDouble, type MarkStyle, type SysItem, type ToolItem, type Zone } from "./model";
 import { demoBarOffered, setTaskbar } from "./store";
-import { AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
+import { AddSys, AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
 import { toolInfo } from "./toolInfo";
-import { addWidget, isTool, isWidget, removeWidget, shownZones, toolOf } from "./widgets";
+import { addWidget, isSys, isTool, isWidget, removeWidget, shownZones, sysOf, toolOf } from "./widgets";
+import { SYS_INFO } from "./window/SysItems";
 
 /*
  * Settings → Taskbar: the pages of Crest's bar, behind the settings window's Notch | Taskbar switch (SettingsView lists them). They
@@ -45,19 +46,38 @@ export function useTaskbarShown(): boolean {
 /** The bar's zones, physical: left stays left in a right-to-left language. */
 const ZONES: Zone[] = ["left", "center", "right"];
 const ZONE_LABEL: Record<Zone, string> = { left: "Linke Seite", center: "Mitte", right: "Rechte Seite" };
-/** What the bar draws for each fixed item: Windows' Start button, the apps' buttons, the button of the Crest menu, the notification area and Stato. A widget has its part's name. */
-const ITEM_LABEL: Record<Exclude<BarItem, PartId | ToolItem>, string> = { start: "Startmenü", apps: "Apps und Fenster", crest: "Crest-Menü", tray: "Infobereich", status: "Status" };
+/** What the bar draws for each fixed item: Windows' Start button, the apps' buttons, the button of the Crest menu, the notification area and Stato. A widget has its part's name, a tool button its tool's, a Windows button its own (SysItems.tsx SYS_INFO). */
+const ITEM_LABEL: Record<Exclude<BarItem, PartId | ToolItem | SysItem>, string> = { start: "Startmenü", apps: "Apps und Fenster", crest: "Crest-Menü", tray: "Infobereich", status: "Status" };
 const SHAPE_LABEL: Record<BarShape, string> = { docked: "Angedockt", floating: "Schwebend", capsule: "Kapsel", tiles: "Kacheln" };
+const COMBINE_LABEL: Record<Combine, string> = { always: "Immer", full: "Wenn die Taskleiste voll ist", never: "Nie" };
+const EMPTY_DOUBLE_LABEL: Record<EmptyDouble, string> = { none: "Nichts", desktop: "Desktop anzeigen", taskmgr: "Task-Manager" };
+const APPS_ON_LABEL: Record<AppsOn, string> = { all: "Allen Taskleisten", main: "Haupttaskleiste und Taskleiste mit dem Fenster", own: "Taskleiste mit dem Fenster" };
 
-/** Taskbar → General: the bar on or off, whether it slides away when a window touches it, and where the system icons it leaves out are. */
+/** Taskbar → General: the bar on or off, whether it slides away when a window touches it, what a double click beside its buttons does, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
-  const { enabled, autoHide, shape } = settings.use().taskbar;
+  const { enabled, autoHide, shape, emptyDouble, flashing, wheelVolume, allScreens, appsOn, clockAll, winKeys } = settings.use().taskbar;
   // Bars that stay up with auto-hide on (Rust front.rs `stays_up`), read as the page opens and when the switch changes.
   const [blocked, setBlocked] = useState(0);
   useEffect(() => void taskbar.slideBlocked().then(setBlocked, () => {}), [autoHide]);
   // Whether a docked bar can reserve its strip (Rust reserve.rs), read as the page opens and when shape or auto-hide change.
   const [reachable, setReachable] = useState(true);
   useEffect(() => void taskbar.reserveReachable().then(setReachable, () => {}), [autoHide, shape]);
+  // Where the bar's Windows keys stand (Rust keys.rs), read as the page opens and followed as Rust applies them.
+  const [keys, setKeys] = useState<KeysStatus>("off");
+  useEffect(() => {
+    void taskbar.keysStatus().then(setKeys, () => {});
+    return taskbar.onKeys(setKeys);
+  }, []);
+  const keysNote =
+    keys === "busy"
+      ? t("Der Explorer startet neu …")
+      : keys === "partial"
+        ? t("Ein anderes Programm belegt einige dieser Tasten")
+        : keys === "held"
+          ? t("Windows gibt diese Tasten auf diesem PC nicht frei, sie bleiben bei Windows")
+          : keys === "failed"
+            ? t("Der Explorer ließ sich nicht neu starten, die Tasten bleiben bei Windows")
+            : null;
   return (
     <Group id="settings-taskbar">
       <Row
@@ -72,11 +92,11 @@ export function TaskbarGeneral() {
         label={t("Automatisch ausblenden")}
         hint={
           <>
-            {t("Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger den unteren Rand berührt")}
+            {t("Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger ihren Bildschirmrand berührt")}
             {autoHide && blocked > 0 && (
               <span className="mt-1 flex items-start gap-1 text-caution">
                 <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
-                {t("Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich über dem Rand, oder darunter liegt ein anderer Bildschirm")}
+                {t("Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich vor dem Rand, oder dahinter liegt ein anderer Bildschirm")}
               </span>
             )}
             {enabled && shape === "docked" && !autoHide && !reachable && (
@@ -89,6 +109,55 @@ export function TaskbarGeneral() {
         }
       >
         <Switch label={t("Automatisch ausblenden")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
+      </Row>
+      <Row
+        icon="keyboard"
+        label={t("Windows-Tasten auf der Leiste")}
+        hint={
+          <>
+            {t("Win+1 bis Win+9 und Win+0 öffnen die Apps der Leiste, Win+T springt zu ihren Apps und Win+B zum Infobereich. Beim Ein- und Ausschalten startet der Windows-Explorer neu, offene Explorer-Fenster können sich dabei schließen")}
+            {enabled && winKeys && keysNote && (
+              <span className="mt-1 flex items-start gap-1 text-caution">
+                <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
+                {keysNote}
+              </span>
+            )}
+          </>
+        }
+      >
+        <Switch label={t("Windows-Tasten auf der Leiste")} checked={winKeys} onChange={(on) => setTaskbar({ winKeys: on })} />
+      </Row>
+      <Row icon="desktop_windows" label={t("Auf allen Bildschirmen anzeigen")}>
+        <Switch label={t("Auf allen Bildschirmen anzeigen")} checked={allScreens} onChange={(on) => setTaskbar({ allScreens: on })} />
+      </Row>
+      {allScreens && (
+        <>
+          <Row icon="apps" label={t("Apps anzeigen auf")}>
+            <Select
+              width="w-56"
+              value={appsOn}
+              options={(Object.keys(APPS_ON_LABEL) as AppsOn[]).map((v) => ({ value: v, label: t(APPS_ON_LABEL[v]) }))}
+              onChange={(appsOn) => setTaskbar({ appsOn })}
+            />
+          </Row>
+          <Row icon="schedule" label={t("Uhr auf allen Taskleisten")}>
+            <Switch label={t("Uhr auf allen Taskleisten")} checked={clockAll} onChange={(on) => setTaskbar({ clockAll: on })} />
+          </Row>
+        </>
+      )}
+      <Row icon="notification_important" label={t("Blinkende Apps anzeigen")}>
+        <Switch label={t("Blinkende Apps anzeigen")} checked={flashing} onChange={(on) => setTaskbar({ flashing: on })} />
+      </Row>
+      <Row icon="volume_up" label={<span className="whitespace-normal">{t("Mausrad ändert die Lautstärke")}</span>} hint={t("Über einer App ihre eigene, sonst die von Windows. Über Status immer")}>
+        <Switch label={t("Mausrad ändert die Lautstärke")} checked={wheelVolume} onChange={(on) => setTaskbar({ wheelVolume: on })} />
+      </Row>
+      <Row icon="mouse" label={<span className="whitespace-normal">{t("Doppelklick auf eine freie Stelle")}</span>}>
+        <Select
+          width="w-44"
+          value={emptyDouble}
+          options={(Object.keys(EMPTY_DOUBLE_LABEL) as EmptyDouble[]).map((v) => ({ value: v, label: t(EMPTY_DOUBLE_LABEL[v]) }))}
+          onChange={(emptyDouble) => setTaskbar({ emptyDouble })}
+        />
       </Row>
       {/* A sentence, not a setting's name: it wraps instead of being cut. Width 0 under Material keeps it beside its icon, as the hints. */}
       <Row icon="keyboard" label={<span className="whitespace-normal roomy:block roomy:w-0 roomy:min-w-full">{t("Lautstärke, Netzwerk, Akku und Mitteilungen erreichst du mit Win+A und Win+N")}</span>} />
@@ -126,6 +195,7 @@ export function TaskbarItems() {
             <div className="flex flex-wrap justify-end gap-2">
               <AddWidget zone={zone} />
               <AddTool zone={zone} />
+              <AddSys zone={zone} />
             </div>
           </Row>
           <Reorder.Group
@@ -152,10 +222,10 @@ export function TaskbarItems() {
                 <ItemIcon id={id} />
                 {/* From its own width, so a narrow page shrinks it along with a widget's options instead of first. */}
                 <div className="min-w-0 flex-auto select-none">
-                  <div className="truncate text-body text-label">{t(isWidget(id) ? partInfo[id].label : isTool(id) ? toolInfo[toolOf(id)].label : ITEM_LABEL[id])}</div>
+                  <div className="truncate text-body text-label">{t(isWidget(id) ? partInfo[id].label : isTool(id) ? toolInfo[toolOf(id)].label : isSys(id) ? SYS_INFO[sysOf(id)].label : ITEM_LABEL[id])}</div>
                   {id === "start" && <div className="text-caption text-label-3">{t("Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste")}</div>}
                 </div>
-                {(isWidget(id) || isTool(id) || id === "tray" || id === "status") && <WidgetOptions id={id} />}
+                {(isWidget(id) || isTool(id) || isSys(id) || id === "tray" || id === "status") && <WidgetOptions id={id} />}
                 <div data-steps={id} onPointerDown={(e) => e.stopPropagation()} className="flex items-center">
                   <MoveButton label={t("Nach oben")} disabled={i === 0} onClick={() => step(id, zones[zone], -1)}>
                     <CaretUp size={12} weight="bold" />
@@ -170,7 +240,7 @@ export function TaskbarItems() {
                     width="w-36"
                     value={zone}
                     options={options}
-                    onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: isWidget(id) || isTool(id) || id === "tray" || id === "status" ? addWidget(removeWidget(cur.zones, id), id, to) : moveItem(cur.zones, id, to) }))}
+                    onChange={(to) => to !== zone && setTaskbar((cur) => ({ zones: isWidget(id) || isTool(id) || isSys(id) || id === "tray" || id === "status" ? addWidget(removeWidget(cur.zones, id), id, to) : moveItem(cur.zones, id, to) }))}
                   />
                 </div>
               </Reorder.Item>
@@ -185,7 +255,7 @@ export function TaskbarItems() {
   );
 }
 
-/** An item's icon: Crest's mark, Windows' mark, the apps' window, the tray's ^, Stato's Wi-Fi, a widget's part as the settings show it or a tool's icon. A new fixed item does not compile without one. */
+/** An item's icon: Crest's mark, Windows' mark, the apps' window, the tray's ^, Stato's Wi-Fi, a widget's part as the settings show it, a tool's or a Windows button's icon. A new fixed item does not compile without one. */
 function ItemIcon({ id }: { id: BarItem }) {
   if (isWidget(id)) {
     const I = partInfo[id].icon;
@@ -193,6 +263,10 @@ function ItemIcon({ id }: { id: BarItem }) {
   }
   if (isTool(id)) {
     const I = toolInfo[toolOf(id)].icon;
+    return <I size={15} weight="bold" className="shrink-0 text-label-2" />;
+  }
+  if (isSys(id)) {
+    const I = SYS_INFO[sysOf(id)].icon;
     return <I size={15} weight="bold" className="shrink-0 text-label-2" />;
   }
   if (id === "start") return <WindowsMark size={15} className="shrink-0 text-label-2" />;
@@ -204,11 +278,14 @@ function ItemIcon({ id }: { id: BarItem }) {
 }
 
 /**
- * Taskbar → Apps and windows: the pinned apps in the bar's order. An app is pinned on the bar, from its right-click menu; Windows'
- * pinned apps replace the list from here (one that is not empty only on a second click within 3 s), and an empty answer leaves it.
+ * Taskbar → Apps and windows: whether the apps' buttons combine (Windows' "Combine taskbar buttons and hide labels"), the pinned apps
+ * in the bar's order, and whether the app menu has End task. An app is pinned on the bar,
+ * from its right-click menu; Windows' pinned apps replace the list from here (one that is not empty only on a second click within
+ * 3 s), and an empty answer leaves it.
  */
 export function TaskbarApps() {
-  const pinned = settings.use().taskbar.pinned ?? [];
+  const { pinned: saved, endTask, combine, middleClick, windowCount, allDesktops } = settings.use().taskbar;
+  const pinned = saved ?? [];
   const [confirm, setConfirm] = useState(false);
   const [outcome, setOutcome] = useState<"none" | "failed" | null>(null);
   const [reading, setReading] = useState(false);
@@ -237,7 +314,22 @@ export function TaskbarApps() {
 
   return (
     <Group id="settings-taskbar-apps">
-      <Row icon="keep" label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Über Start oder mit Rechtsklick auf eine offene App in der Taskleiste anheften")} />
+      <Row
+        icon="label"
+        label={<span className="whitespace-normal">{t("Schaltflächen zusammenfassen und Beschriftungen ausblenden")}</span>}
+        hint={t("Nie: Jedes Fenster hat eine eigene Schaltfläche mit seinem Titel. Wenn die Taskleiste voll ist: so lange, bis der Platz fehlt")}
+      >
+        <Select
+          width="w-56"
+          value={combine}
+          options={(Object.keys(COMBINE_LABEL) as Combine[]).map((c) => ({ value: c, label: t(COMBINE_LABEL[c]) }))}
+          onChange={(combine) => setTaskbar({ combine })}
+        />
+      </Row>
+      <Row icon="layers" label={t("Fenster aller Desktops zeigen")} hint={t("Ein Klick auf ein Fenster eines anderen Desktops wechselt dorthin")}>
+        <Switch label={t("Fenster aller Desktops zeigen")} checked={allDesktops} onChange={(on) => setTaskbar({ allDesktops: on })} />
+      </Row>
+      <Row icon="keep" label={t("Angeheftete Apps")} hint={pinned.length ? t("Zum Sortieren ziehen") : t("Über Start, mit Rechtsklick auf eine App in der Taskleiste oder durch Ziehen auf die Taskleiste anheften")} />
       {pinned.length > 0 && <FavoriteList favorites={pinned} onChange={(next) => setTaskbar({ pinned: next })} />}
       {/* Long in some languages beside the button: the name wraps instead of being cut. */}
       <Row
@@ -267,6 +359,23 @@ export function TaskbarApps() {
           </span>
         </Button>
       </Row>
+      <Row icon="stop_circle" label={t("Task beenden im App-Menü")} hint={t("Beendet die App sofort, ohne zu speichern")}>
+        <Switch label={t("Task beenden im App-Menü")} checked={endTask} onChange={(on) => setTaskbar({ endTask: on })} />
+      </Row>
+      <Row icon="mouse" label={t("Mittlere Maustaste")}>
+        <Select
+          width="w-44"
+          value={middleClick}
+          options={[
+            { value: "new" as const, label: t("Neue Instanz") },
+            { value: "close" as const, label: t("Schließen") },
+          ]}
+          onChange={(middleClick) => setTaskbar({ middleClick })}
+        />
+      </Row>
+      <Row icon="numbers" label={t("Anzahl der Fenster zeigen")}>
+        <Switch label={t("Anzahl der Fenster zeigen")} checked={windowCount} onChange={(on) => setTaskbar({ windowCount: on })} />
+      </Row>
     </Group>
   );
 }
@@ -276,7 +385,7 @@ export function TaskbarApps() {
  * the glass's sliders are the ones of Notch → Themes.
  */
 export function TaskbarLook() {
-  const { shape, height, iconSize, surface, transparency, glass, glassLook, autoHide } = settings.use().taskbar;
+  const { shape, height, iconSize, surface, transparency, glass, glassLook, autoHide, position, marks } = settings.use().taskbar;
   const theme = activeTheme.use();
   const appDesign = design.use();
   // The glass's switch only where the live glass can run (src/notch/glass/live.ts), as in Notch → Themes.
@@ -299,6 +408,18 @@ export function TaskbarLook() {
       <Row icon="style" label={t("Stil")} hint={t("Gilt für die ganze App; ändern unter Themen")}>
         <Button onClick={() => nav.set({ tabId: "settings", section: "design" })}>{appDesign === "material" ? "Material" : "Crest"}</Button>
       </Row>
+      <Row icon="open_with" label={t("Position")} hint={t("Gilt für die Leiste auf jedem Bildschirm. Die Notch weicht dem Rand der Leiste aus. Start und die Bereiche von Windows öffnen sich weiter am Rand der Windows-Taskleiste")}>
+        <Segmented<BarEdge>
+          id="taskbar-position"
+          size="sm"
+          value={position}
+          onChange={(position) => setTaskbar({ position })}
+          options={[
+            { value: "bottom", label: t("Rand unten") },
+            { value: "top", label: t("Rand oben") },
+          ]}
+        />
+      </Row>
       <Row icon="rounded_corner" label={t("Form")}>
         <Segmented
           id="taskbar-shape"
@@ -306,6 +427,19 @@ export function TaskbarLook() {
           value={shape}
           onChange={(shape) => setTaskbar({ shape })}
           options={(Object.keys(SHAPE_LABEL) as BarShape[]).map((s) => ({ value: s, label: t(SHAPE_LABEL[s]) }))}
+        />
+      </Row>
+      <Row icon="fiber_manual_record" label={t("Markierung offener Apps")}>
+        <Segmented<MarkStyle>
+          id="taskbar-marks"
+          size="sm"
+          value={marks}
+          onChange={(marks) => setTaskbar({ marks })}
+          options={[
+            { value: "dot", label: t("Punkt") },
+            { value: "large", label: t("Großer Punkt") },
+            { value: "line", label: t("Linie") },
+          ]}
         />
       </Row>
       {/* A reserving bar's height moves its strip and resizes maximized windows: written once, on release. */}

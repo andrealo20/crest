@@ -40,3 +40,9 @@ test("a preview's zone reaches down to its button, so the pointer crossing the g
   assert.deepEqual(bridge({ x: 100, y: 600, w: 400, h: 160 }, { x: 280, y: 820, w: 40, h: 44 }), { x: 100, y: 600, w: 400, h: 264 });
   assert.deepEqual(bridge({ x: 0, y: 600, w: 200, h: 100 }, { x: 180, y: 720, w: 40, h: 44 }), { x: 0, y: 600, w: 220, h: 164 });
 });
+
+test("a top bar that slid away keeps only the strip at the top edge", () => {
+  const band = { x: 4, y: 0, w: 1912, h: 52 }, strip = { x: 0, y: 0, w: 1920, h: 2 };
+  assert.deepEqual(zones({ bands: [band], open: [], on: true, down: true, edge: "top", width: 1920, height: 632 }), [strip]);
+  assert.deepEqual(zones({ bands: [band], open: [], on: true, down: false, edge: "top", width: 1920, height: 632 }), [band, strip]);
+});

@@ -5,7 +5,8 @@
 //! Explorer's own `Shell_TrayWnd`, found by the shell's process, and Explorer's answer goes back to the app: Explorer keeps every
 //! icon, so nothing needs giving back however Crest ends. Only the icon position request is Crest's to answer. Another program's
 //! own `Shell_TrayWnd` (lumabar, say) wins: while one is there, ahead of the spy or behind, the spy has no window, and looks again
-//! every few seconds.
+//! every few seconds. While it has its window it also carries `TaskbandHWND`, so the badges and progress apps report to the
+//! taskbar pass Crest too (taskband.rs).
 //!
 //! A forward waits on Explorer at most `FORWARD_MS`, so no app waits long on a busy Explorer through Crest. Crest's own appbar
 //! calls (explorer.rs, auto-hide) are the exception: they wait for Explorer's answer as they did before the spy.
@@ -45,16 +46,16 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_CLOSE, WM_COPYDATA, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 
-use super::explorer;
+use super::{explorer, taskband};
 use super::traywire::{self, Button, IconData, IconKey, IconOp, Msg, ABD_LEN};
 use crate::display::window_pid;
 use crate::hit_test::HitRect;
 use crate::mixer;
 
 /// A forward gives up after this: the app that called `Shell_NotifyIcon` waits for the answer.
-const FORWARD_MS: u32 = 500;
+pub(super) const FORWARD_MS: u32 = 500;
 /// And at once when Explorer hangs.
-const FORWARD_FLAGS: SEND_MESSAGE_TIMEOUT_FLAGS = SEND_MESSAGE_TIMEOUT_FLAGS(SMTO_ABORTIFHUNG.0 | SMTO_NORMAL.0);
+pub(super) const FORWARD_FLAGS: SEND_MESSAGE_TIMEOUT_FLAGS = SEND_MESSAGE_TIMEOUT_FLAGS(SMTO_ABORTIFHUNG.0 | SMTO_NORMAL.0);
 /// The window's check that it is still the first `Shell_TrayWnd`.
 const FIRST_TIMER: usize = 1;
 const FIRST_MS: u32 = 250;
@@ -84,9 +85,18 @@ static YIELDED: AtomicBool = AtomicBool::new(false);
 /// The window class, registered once: a second `RegisterClassW` fails.
 static CLASS: Once = Once::new();
 /// For the spy's emits.
-static APP: OnceLock<AppHandle> = OnceLock::new();
+pub(super) static APP: OnceLock<AppHandle> = OnceLock::new();
 /// The icons, their pictures, the rect last clicked and what the bars last heard.
 static STORE: Mutex<Store> = Mutex::new(Store { icons: Vec::new(), images: BTreeMap::new(), clicked: None, sent: (false, Vec::new()) });
+/// The menu a right click asked for: its app's process, the bar that sent the click and how many of the app's pop-up menus are
+/// open. Set by `taskbar_tray_click`, taken by `on_menu` and `on_front` from the bar's thread (mod.rs) when the menu is over.
+static MENU: Mutex<Option<Menu>> = Mutex::new(None);
+
+struct Menu {
+    owner: u32,
+    bar: String,
+    open: u32,
+}
 
 thread_local! {
     /// Explorer's tray the spy last announced itself to with `TaskbarCreated`, 0 for none.
@@ -140,7 +150,7 @@ pub struct TrayState {
 }
 
 /// A copy of an app's icon, destroyed when dropped: on every path, converted, replaced by a newer one or left in a queue.
-struct Copied(HICON);
+pub(super) struct Copied(pub(super) HICON);
 
 // An icon handle is the window manager's, usable from any thread.
 unsafe impl Send for Copied {}
@@ -157,6 +167,10 @@ fn thread() -> MutexGuard<'static, Option<(u32, JoinHandle<()>)>> {
 
 fn store() -> MutexGuard<'static, Store> {
     STORE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn menu() -> MutexGuard<'static, Option<Menu>> {
+    MENU.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 /// A window handle from the payload, 32 bits from 32- and 64-bit apps alike: widened with its sign, as Windows does.
@@ -250,15 +264,14 @@ pub async fn taskbar_tray_images(keys: Vec<String>) -> HashMap<String, Option<St
             let store = store();
             keys.into_iter().map(|key| (key.clone(), store.images.get(&key).cloned())).collect()
         };
-        let url = |png: Vec<u8>| format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png));
-        found.into_iter().map(|(key, png)| (key, png.map(url))).collect()
+        found.into_iter().map(|(key, png)| (key, png.map(data_url))).collect()
     })
     .await
     .unwrap_or_default()
 }
 
-/// A click on the icon `key` (`TrayIcon.key`) at `rect`, in the calling bar's CSS px: its app gets the messages Windows' tray
-/// sends, and the rect answers its position request. Never waits: the messages are notifications. Errors: gone (no such icon
+/// A click on the icon `key` (`TrayIcon.key`) at `rect`, in the calling bar's CSS px, or the pointer resting on it ("hover")
+/// and leaving it ("leave"): its app gets the messages Windows' tray sends, and the rect answers its position request. Never waits: the messages are notifications. Errors: gone (no such icon
 /// shown, or its window is no more), unknown-button.
 #[tauri::command]
 pub fn taskbar_tray_click(key: String, button: String, rect: HitRect, window: WebviewWindow) -> Result<(), String> {
@@ -266,6 +279,8 @@ pub fn taskbar_tray_click(key: String, button: String, rect: HitRect, window: We
         "left" => Button::Left,
         "right" => Button::Right,
         "double" => Button::Double,
+        "hover" => Button::Hover,
+        "leave" => Button::Leave,
         _ => return Err("unknown-button".into()),
     };
     // A sync command runs on the main thread, where the handle is read without a wait; the bar's place and DPI come from Win32.
@@ -282,16 +297,68 @@ pub fn taskbar_tray_click(key: String, button: String, rect: HitRect, window: We
     if window_pid(hwnd) != owner {
         return Err("gone".into());
     }
+    if button == Button::Right {
+        *menu() = Some(Menu { owner, bar: window.label().to_owned(), open: 0 });
+    }
     let (x, y) = ((rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2);
     unsafe {
-        // So the app may bring its window or menu forward, as Windows' tray lets it.
-        let _ = AllowSetForegroundWindow(owner);
+        // So the app may bring its window or menu forward, as Windows' tray lets it; a rest on the icon brings nothing forward.
+        if !matches!(button, Button::Hover | Button::Leave) {
+            let _ = AllowSetForegroundWindow(owner);
+        }
         for msg in traywire::click_messages(button, version) {
             let (wparam, lparam) = traywire::callback_args(version, uid, msg, x, y);
             let _ = SendNotifyMessageW(hwnd, callback, WPARAM(wparam), LPARAM(lparam));
         }
     }
     Ok(())
+}
+
+/// A Win32 pop-up menu shown or closed (mod.rs): once the last one of the app a right click waits on has closed, submenus
+/// included, that bar hears `taskbar://menu-end`. An app that draws its menu as a window of its own fires none of these.
+pub(super) fn on_menu(start: bool, hwnd: HWND) {
+    let pid = window_pid(hwnd);
+    let bar = {
+        let mut menu = menu();
+        let over = menu.as_mut().is_some_and(|m| m.owner == pid && menu_closed(&mut m.open, start));
+        if over {
+            menu.take().map(|m| m.bar)
+        } else {
+            None
+        }
+    };
+    end_menu(bar);
+}
+
+/// A window other than a bar came to the front (tasks.rs): one of another process (the desktop, another app) means the menu is
+/// over too. The app's own windows do not: its menu takes the front to show.
+pub(super) fn on_front(hwnd: HWND) {
+    let pid = window_pid(hwnd);
+    let bar = {
+        let mut menu = menu();
+        if menu.as_ref().is_some_and(|m| m.owner != pid) {
+            menu.take().map(|m| m.bar)
+        } else {
+            None
+        }
+    };
+    end_menu(bar);
+}
+
+/// Whether a pop-up menu shown (`start`) or closed leaves none of the app's open, counting them in `open`.
+fn menu_closed(open: &mut u32, start: bool) -> bool {
+    if start {
+        *open += 1;
+        return false;
+    }
+    *open = open.saturating_sub(1);
+    *open == 0
+}
+
+fn end_menu(bar: Option<String>) {
+    if let (Some(app), Some(bar)) = (APP.get(), bar) {
+        let _ = app.emit_to(bar.as_str(), "taskbar://menu-end", ());
+    }
 }
 
 /// `r`, in the CSS px of the bar `bar`, in physical screen px, from the bar's place and DPI as Win32 has them (hit_test.rs
@@ -369,6 +436,7 @@ unsafe fn appear() {
         let _ = ChangeWindowMessageFilterEx(spy, WM_COPYDATA, MSGFLT_ALLOW, None);
         let _ = SetTimer(Some(spy), FIRST_TIMER, FIRST_MS, None);
         let _ = SetTimer(Some(spy), SWEEP_TIMER, SWEEP_MS, None);
+        taskband::appear(spy);
         keep_first(spy);
     }
 }
@@ -376,6 +444,7 @@ unsafe fn appear() {
 /// The window goes, and with it the icons: the bars hear so. Apps that announced their icons to it hear `TaskbarCreated` and
 /// add them again to the tray now first, so an icon whose forward timed out reaches Explorer after all.
 unsafe fn vanish(spy: HWND) {
+    unsafe { taskband::vanish(spy) };
     let _ = unsafe { DestroyWindow(spy) };
     SPY.store(0, Ordering::SeqCst);
     ARMED.set(false);
@@ -388,6 +457,7 @@ unsafe fn vanish(spy: HWND) {
     publish();
     if ANNOUNCED.replace(0) != 0 {
         announce();
+        taskband::tell_buttons();
     }
 }
 
@@ -419,6 +489,7 @@ unsafe fn keep_first(spy: HWND) {
     if let Some(explorer) = explorer::explorer_tray() {
         if ANNOUNCED.replace(explorer.0 as isize) != explorer.0 as isize {
             announce();
+            taskband::announce_buttons();
         }
     }
 }
@@ -647,11 +718,7 @@ fn convert(pictures: Receiver<(IconKey, Option<Copied>)>) {
 /// The icon `key` shows `png`, kept under a hash of its bytes; none for None. Whether its picture changed. An icon gone
 /// meanwhile takes none.
 fn picture(key: &IconKey, png: Option<Vec<u8>>) -> bool {
-    let img = png.as_ref().map(|png| {
-        let mut hash = DefaultHasher::new();
-        png.hash(&mut hash);
-        format!("{:016x}", hash.finish())
-    });
+    let img = png.as_deref().map(png_key);
     let mut guard = store();
     let store = &mut *guard;
     let Some(e) = store.icons.iter_mut().find(|e| e.key == *key) else { return false };
@@ -664,6 +731,18 @@ fn picture(key: &IconKey, png: Option<Vec<u8>>) -> bool {
     }
     prune(store);
     true
+}
+
+/// A picture's key: a hash of its PNG's bytes.
+pub(super) fn png_key(png: &[u8]) -> String {
+    let mut hash = DefaultHasher::new();
+    png.hash(&mut hash);
+    format!("{:016x}", hash.finish())
+}
+
+/// A PNG as a data URL, for the page.
+pub(super) fn data_url(png: Vec<u8>) -> String {
+    format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png))
 }
 
 /// Sets the one-shot `EMIT_TIMER` unless it is set.
@@ -718,7 +797,7 @@ fn forward(msg: u32, wparam: WPARAM, lparam: LPARAM, wait: bool) -> isize {
 
 /// Sends to Explorer's tray, waiting at most `FORWARD_MS` and not at all on a hung Explorer: its answer, None without one. With
 /// `wait`, for as long as Explorer takes; the messages apps send to the spy meanwhile still run, each with the cap.
-fn send(to: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, wait: bool) -> Option<isize> {
+pub(super) fn send(to: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, wait: bool) -> Option<isize> {
     if wait {
         return Some(unsafe { SendMessageW(to, msg, Some(wparam), Some(lparam)) }.0);
     }
@@ -771,6 +850,18 @@ mod tests {
 
     const APP: u32 = 10;
     const CREST: u32 = 20;
+
+    #[test]
+    fn a_menu_is_over_when_its_last_popup_closes() {
+        let mut open = 0;
+        assert!(!menu_closed(&mut open, true));
+        // A submenu opens and closes: the menu is still there.
+        assert!(!menu_closed(&mut open, true));
+        assert!(!menu_closed(&mut open, false));
+        assert!(menu_closed(&mut open, false));
+        // A close without a start seen (the menu was already open) ends it too.
+        assert!(menu_closed(&mut open, false));
+    }
 
     /// What an app sends for its icon 7 of window 0x1234.
     fn icon(tip: Option<&str>, hidden: Option<bool>) -> IconData {

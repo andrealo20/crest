@@ -7,10 +7,12 @@
 use windows::core::GUID;
 use windows::Win32::Foundation::RECT;
 use windows::Win32::UI::Shell::{
-    ABM_GETTASKBARPOS, ABM_QUERYPOS, ABM_SETPOS, NIF_GUID, NIF_ICON, NIF_MESSAGE, NIF_STATE, NIF_TIP, NIN_SELECT, NIS_HIDDEN,
+    ABM_GETTASKBARPOS, ABM_QUERYPOS, ABM_SETPOS, NIF_GUID, NIF_ICON, NIF_MESSAGE, NIF_STATE, NIF_TIP, NIN_POPUPCLOSE, NIN_POPUPOPEN, NIN_SELECT,
+    NIS_HIDDEN,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    WM_ACTIVATEAPP, WM_COMMAND, WM_CONTEXTMENU, WM_COPYDATA, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_USER,
+    WM_ACTIVATEAPP, WM_COMMAND, WM_CONTEXTMENU, WM_COPYDATA, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_RBUTTONDOWN, WM_RBUTTONUP,
+    WM_USER,
 };
 
 /// `COPYDATASTRUCT.dwData` of `Shell_NotifyIcon`.
@@ -79,6 +81,9 @@ pub(crate) enum Button {
     Left,
     Right,
     Double,
+    /// The pointer rested on the icon, and left it after: an app that draws its own popup shows and hides it (version 4).
+    Hover,
+    Leave,
 }
 
 fn u32_at(b: &[u8], at: usize) -> Option<u32> {
@@ -200,6 +205,8 @@ pub(crate) fn click_messages(button: Button, version: u32) -> Vec<u32> {
         Button::Left => vec![WM_LBUTTONDOWN, WM_LBUTTONUP],
         Button::Right => vec![WM_RBUTTONDOWN, WM_RBUTTONUP],
         Button::Double => return vec![WM_LBUTTONDBLCLK, WM_LBUTTONUP],
+        Button::Hover => return if version >= 4 { vec![WM_MOUSEMOVE, NIN_POPUPOPEN] } else { vec![WM_MOUSEMOVE] },
+        Button::Leave => return if version >= 4 { vec![NIN_POPUPCLOSE] } else { Vec::new() },
     };
     if version >= 3 {
         v.push(if button == Button::Left { NIN_SELECT } else { WM_CONTEXTMENU });
@@ -372,6 +379,10 @@ mod tests {
         assert_eq!(click_messages(Button::Right, 4), [WM_RBUTTONDOWN, WM_RBUTTONUP, WM_CONTEXTMENU]);
         assert_eq!(click_messages(Button::Left, 0), [WM_LBUTTONDOWN, WM_LBUTTONUP]);
         assert_eq!(click_messages(Button::Double, 4), [WM_LBUTTONDBLCLK, WM_LBUTTONUP]);
+        assert_eq!(click_messages(Button::Hover, 4), [WM_MOUSEMOVE, NIN_POPUPOPEN]);
+        assert_eq!(click_messages(Button::Hover, 3), [WM_MOUSEMOVE]);
+        assert_eq!(click_messages(Button::Leave, 4), [NIN_POPUPCLOSE]);
+        assert!(click_messages(Button::Leave, 0).is_empty());
     }
 
     #[test]

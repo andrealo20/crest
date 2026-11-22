@@ -17,6 +17,9 @@
 //! again (Start, Win+T, a notification) is hidden again at once, and so are a restarted Explorer's new ones (mod.rs). A hide
 //! whose appbar calls Explorer's taskbar did not answer (none yet, or another program's `Shell_TrayWnd` first) writes "0", and
 //! the taskbar thread tries auto-hide again once it answers (`retry_autohide`).
+//!
+//! Beside them, `taskbar-keys` is the record of the bar's Windows keys (keys.rs). The guard stays while it exists and, after the
+//! taskbar, gives the keys back with an Explorer restart (`keys::after_crest`).
 
 use std::fs;
 use std::io::ErrorKind;
@@ -93,9 +96,9 @@ fn given_back(record: Record) -> bool {
 }
 
 /// Whether an `Off` left nothing to give back, so the guard can go; otherwise it restores when Crest ends. `listed`: the
-/// appbars record still exists.
-fn nothing_left(hid_here: bool, record: Record, listed: bool) -> bool {
-    !hid_here && record == Record::Missing && !listed
+/// appbars record still exists; `keys`: the keys record does (keys.rs).
+fn nothing_left(hid_here: bool, record: Record, listed: bool, keys: bool) -> bool {
+    !hid_here && record == Record::Missing && !listed && !keys
 }
 
 /// Whether a restore removes the appbars the record `listed`: only while Explorer's taskbar answers the appbar calls
@@ -164,6 +167,15 @@ fn appbars_beside(record: &Path) -> PathBuf {
 
 pub(crate) fn appbars_path() -> Option<PathBuf> {
     record_path().map(|p| appbars_beside(&p))
+}
+
+/// The record of the bar's Windows keys (keys.rs), in the same folder.
+fn keys_beside(record: &Path) -> PathBuf {
+    record.with_file_name("taskbar-keys")
+}
+
+pub(crate) fn keys_path() -> Option<PathBuf> {
+    record_path().map(|p| keys_beside(&p))
 }
 
 fn record_now() -> Record {
@@ -320,7 +332,8 @@ fn set_mode_locked(scan: &mut Scan, wanted: Mode) {
             restore_locked(HID_HERE.load(Ordering::SeqCst));
             // Kept while anything is left to give back (no Explorer, the appbar calls answered by another program): it
             // restores when Crest ends.
-            if nothing_left(HID_HERE.load(Ordering::SeqCst), record_now(), appbars_path().is_some_and(|p| p.exists())) {
+            let exists = |p: Option<PathBuf>| p.is_some_and(|p| p.exists());
+            if nothing_left(HID_HERE.load(Ordering::SeqCst), record_now(), exists(appbars_path()), exists(keys_path())) {
                 if let Some((mut guard, _)) = scan.guard.take() {
                     let _ = guard.kill();
                     let _ = guard.wait();
@@ -487,9 +500,17 @@ pub(crate) fn guard(pid: &str) -> i32 {
     if let Ok(pid) = pid.parse() {
         portable::wait_for_exit(pid);
     }
-    let _scan = lock();
+    let scan = lock();
     restore_locked(true);
+    drop(scan);
+    // After the taskbar is back, so Explorer's restart never lands between the record's removal and the auto-hide reset.
+    super::keys::after_crest();
     0
+}
+
+/// Whether the guard runs, to give the keys back once Crest is gone (keys.rs `on_exit`).
+pub(crate) fn guard_alive() -> bool {
+    alive(&mut lock().guard)
 }
 
 /// Explorer's process, from its desktop window rather than from a taskbar class another program can register too.
@@ -627,11 +648,12 @@ mod tests {
 
     #[test]
     fn the_guard_stays_while_anything_is_left_to_give_back() {
-        assert!(nothing_left(false, Record::Missing, false));
-        assert!(!nothing_left(true, Record::Missing, false)); // no Explorer to show the taskbars to
-        assert!(!nothing_left(false, Record::Saved(true), false)); // Crest's auto-hide still on: another program answers the appbar calls
-        assert!(!nothing_left(false, Record::Saved(false), false) && !nothing_left(false, Record::Unreadable, false));
-        assert!(!nothing_left(false, Record::Missing, true)); // an appbar another program kept Crest from removing
+        assert!(nothing_left(false, Record::Missing, false, false));
+        assert!(!nothing_left(true, Record::Missing, false, false)); // no Explorer to show the taskbars to
+        assert!(!nothing_left(false, Record::Saved(true), false, false)); // Crest's auto-hide still on: another program answers the appbar calls
+        assert!(!nothing_left(false, Record::Saved(false), false, false) && !nothing_left(false, Record::Unreadable, false, false));
+        assert!(!nothing_left(false, Record::Missing, true, false)); // an appbar another program kept Crest from removing
+        assert!(!nothing_left(false, Record::Missing, false, true)); // the Windows keys, given back after Crest is gone
     }
 
     #[test]
@@ -644,6 +666,7 @@ mod tests {
     #[test]
     fn the_appbars_record_lives_beside_the_taskbar_record() {
         assert_eq!(appbars_beside(Path::new(r"C:\Crest\data\taskbar-hidden")), PathBuf::from(r"C:\Crest\data\taskbar-appbars"));
+        assert_eq!(keys_beside(Path::new(r"C:\Crest\data\taskbar-hidden")), PathBuf::from(r"C:\Crest\data\taskbar-keys"));
     }
 
     #[test]

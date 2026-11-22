@@ -148,27 +148,34 @@ pub(crate) fn own_page(url: &tauri::Url) -> bool {
 /// glass) or apply the settings to the system. The notch applies what the settings window saves, so only it does that.
 const SETTINGS_DENIED: &[&str] = &[
     "display_apply", "keyboard_focus", "set_hit_rect", "set_pet_rect", "set_pinned", "set_passthrough", "memory_low", "hotkeys_apply",
-    "launcher_shortcuts", "clipboard_mode", "tray_texts", "media_pin", "status_configure", "status_bar", "notices_configure",
+    "launcher_shortcuts", "launcher_add_file", "clipboard_mode", "tray_texts", "media_pin", "status_configure", "status_bar", "notices_configure",
     "notices_banners", "notices_sounds", "discord_configure", "downloads_configure", "sharing_hide", "keep_awake_set",
     "mirror_picture_set", "glass_backdrop", "glass_live_start", "glass_live_stop", "glass_live_exclude", "display_alert",
     "timer_window_open", "taskbar_apply", "taskbar_hit_rects", "taskbar_window", "taskbar_release", "taskbar_panel", "taskbar_ask",
     "taskbar_auto_hide", "taskbar_slid", "taskbar_shell", "taskbar_windows_pins", "taskbar_tray_on", "taskbar_tray_click",
     "taskbar_settings", "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect",
-    "taskbar_bt_devices", "taskbar_preview",
-    "display_rescale",
+    "taskbar_bt_devices", "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_own_pins_keep",
+    "display_rescale", "taskbar_input", "taskbar_app_volume", "taskbar_spread", "taskbar_jump_list", "taskbar_jump_open",
+    "taskbar_keys", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_all_desktops", "taskbar_window_menu", "taskbar_arrange",
+    "taskbar_window_order", "taskbar_end_task", "taskbar_decor", "taskbar_decor_images", "taskbar_disks", "taskbar_disk_open",
 ];
 
-/// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, opening the notch and
-/// the settings, the Crest menu, its own glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
+/// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, pinning a listed window,
+/// a new instance or File Explorer from one (taskbar/ownpins.rs), opening the notch and the settings, the Crest menu, its own
+/// glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
 /// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
-/// (`taskbar_slid`), Windows' Start, its Win+X menu, its quick settings and Task Manager (`taskbar_shell`), four of its settings pages
-/// (`taskbar_settings`), the tray's icons with their pictures and clicks, the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
-/// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), and what the notch's
+/// (`taskbar_slid`), Windows' Start, its Win+X menu, its quick settings, Task Manager, Search, Task view, its widgets, its
+/// input language switcher and Show desktop (`taskbar_shell`), the input language it shows (taskbar/input.rs), an app's volume from its button, some of its
+/// settings pages (`taskbar_settings`), the tray's icons with their pictures and clicks, the badges and progress apps report
+/// (taskbar/taskband.rs), the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
+/// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), the jump list of an
+/// app's menu and its rows opened (taskbar/jumplist.rs), the keyboard after one of its Windows keys (`taskbar_focus`), the Recycle Bin
+/// (taskbar/recycle.rs), the drives of its disk space widget and opening one (taskbar/disks.rs), the window and group menus and the previews' order (taskbar/tasks.rs), and what the notch's
 /// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
-/// `taskbar_tray_on`).
+/// `taskbar_tray_on`, `taskbar_spread`, `taskbar_all_desktops`, `taskbar_end_task`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
-    "taskbar_tray", "taskbar_tray_images", "taskbar_tray_click",
+    "taskbar_tray", "taskbar_tray_images", "taskbar_tray_click", "taskbar_decor", "taskbar_decor_images",
     "notch_open", "settings_window_open", "autostart_get", "autostart_set", "app_quit", "build_info", "crash_log", "taskbar_front",
     "taskbar_slid", "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
     "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "translate_status", "taskbar_shell", "taskbar_settings",
@@ -182,7 +189,9 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "audio_outputs", "audio_set_output", "brightness_get", "brightness_set", "focus_get", "focus_set", "quick_get", "quick_radio",
     "quick_dark", "mic_mute", "quick_power", "web_search",
     "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
-    "taskbar_preview",
+    "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_input", "taskbar_app_volume",
+    "taskbar_jump_list", "taskbar_jump_open", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_window_menu", "taskbar_arrange",
+    "taskbar_window_order", "taskbar_disks", "taskbar_disk_open",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -271,7 +280,9 @@ pub fn taskbar_guard(pid: &str) -> i32 {
 /// For main.rs: the uninstaller gives Windows' taskbar back before it closes Crest and its guard (see taskbar/explorer.rs).
 #[cfg(windows)]
 pub fn restore_taskbar() {
-    taskbar::explorer::restore()
+    taskbar::explorer::restore();
+    // No Explorer restart: Crest still runs and holds the keys; Windows has them again from the next sign-in.
+    taskbar::keys::restore_value();
 }
 
 /// For main.rs: the uninstaller gives back the Windows banners Crest turned off (see banners.rs).
@@ -568,7 +579,34 @@ pub fn run() {
             #[cfg(windows)]
             taskbar::tasks::taskbar_icons,
             #[cfg(windows)]
+            taskbar::jumplist::taskbar_jump_list,
+            #[cfg(windows)]
+            taskbar::jumplist::taskbar_jump_open,
+            #[cfg(windows)]
+            taskbar::recycle::taskbar_recycle,
+            #[cfg(windows)]
+            taskbar::recycle::taskbar_recycle_do,
+            #[cfg(windows)]
+            taskbar::disks::taskbar_disks,
+            #[cfg(windows)]
+            taskbar::disks::taskbar_disk_open,
+            #[cfg(windows)]
+            taskbar::tasks::taskbar_all_desktops,
+            taskbar::tasks::taskbar_end_task,
+            #[cfg(windows)]
+            taskbar::tasks::taskbar_window_menu,
+            #[cfg(windows)]
+            taskbar::tasks::taskbar_arrange,
+            #[cfg(windows)]
+            taskbar::tasks::taskbar_window_order,
+            #[cfg(windows)]
             taskbar::tasks::taskbar_release,
+            #[cfg(windows)]
+            taskbar::bar::taskbar_focus,
+            #[cfg(windows)]
+            taskbar::keys::taskbar_keys,
+            #[cfg(windows)]
+            taskbar::keys::taskbar_keys_status,
             #[cfg(windows)]
             taskbar::start::taskbar_shell,
             #[cfg(windows)]
@@ -600,6 +638,16 @@ pub fn run() {
             #[cfg(windows)]
             taskbar::pins::taskbar_windows_pins,
             #[cfg(windows)]
+            taskbar::ownpins::taskbar_pin_window,
+            #[cfg(windows)]
+            taskbar::ownpins::taskbar_launch_window,
+            #[cfg(windows)]
+            taskbar::ownpins::taskbar_reveal,
+            #[cfg(windows)]
+            taskbar::ownpins::taskbar_own_pins_keep,
+            #[cfg(windows)]
+            taskbar::ownpins::launcher_add_file,
+            #[cfg(windows)]
             taskbar::front::taskbar_auto_hide,
             #[cfg(windows)]
             taskbar::front::taskbar_front,
@@ -615,6 +663,16 @@ pub fn run() {
             taskbar::tray::taskbar_tray_images,
             #[cfg(windows)]
             taskbar::tray::taskbar_tray_click,
+            #[cfg(windows)]
+            taskbar::taskband::taskbar_decor,
+            #[cfg(windows)]
+            taskbar::taskband::taskbar_decor_images,
+            #[cfg(windows)]
+            taskbar::input::taskbar_input,
+            #[cfg(windows)]
+            taskbar::tasks::taskbar_app_volume,
+            #[cfg(windows)]
+            taskbar::screens::taskbar_spread,
             github::github_contributions,
             github::github_open_profile,
             leetcode::leetcode_stats,
@@ -770,6 +828,9 @@ pub fn run() {
             // bar's first hide, which runs it first when it comes earlier.
             #[cfg(windows)]
             std::thread::spawn(taskbar::explorer::restore_at_start);
+            // The bar's own pins, for a launch or the settings window's icons while the bar is off.
+            #[cfg(windows)]
+            taskbar::ownpins::load(app.handle());
 
             enable_autostart_once(app.handle());
             build_tray(app)?;
@@ -796,6 +857,7 @@ pub fn run() {
 fn on_exit(app: &AppHandle) {
     // First, before a recording's finish can wait 5 s.
     taskbar::shutdown();
+    taskbar::keys::on_exit(app);
     // A recording still running when Crest quits is finished, so the file is complete.
     capture::finish_on_exit(app);
     osd::set(false, false);
@@ -1258,6 +1320,12 @@ mod tests {
         assert!(ok("notch", "taskbar_import_pins") && ok("settings", "taskbar_import_pins") && !ok("taskbar", "taskbar_import_pins"));
         // Windows' pins reach the bar through the notch, which applies them to the settings.
         assert!(ok("notch", "taskbar_windows_pins") && !ok("taskbar", "taskbar_windows_pins"));
+        // A bar pins a listed window, starts a new instance from one or shows its exe; only the notch forgets the own pins it no
+        // longer has, and the settings window pins nothing.
+        assert!(["taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c)));
+        assert!(ok("notch", "taskbar_own_pins_keep") && !ok("taskbar", "taskbar_own_pins_keep") && !ok("settings", "taskbar_own_pins_keep"));
+        // Only the notch's Launcher pins an app from its file.
+        assert!(ok("notch", "launcher_add_file") && !ok("taskbar", "launcher_add_file") && !ok("settings", "launcher_add_file"));
         assert!(ok("taskbar", "taskbar_front") && ok("taskbar-1", "taskbar_front") && !ok("taskbar", "taskbar_auto_hide"));
         assert!(ok("notch", "taskbar_auto_hide") && !ok("settings", "taskbar_auto_hide"));
         // The tray's spy runs while the notch says a bar shows the tray, as it applies the bar's other settings.
@@ -1266,13 +1334,34 @@ mod tests {
         // which the settings window is not.
         assert!(ok("taskbar", "taskbar_tray") && ok("taskbar-1", "taskbar_tray_images") && ok("taskbar", "taskbar_tray_click"));
         assert!(ok("notch", "taskbar_tray_click") && !ok("settings", "taskbar_tray_click"));
+        assert!(ok("taskbar", "taskbar_decor") && ok("taskbar-1", "taskbar_decor_images"));
+        assert!(!ok("settings", "taskbar_decor") && !ok("settings", "taskbar_decor_images"));
+        // The jump lists, on every bar, never in the settings window; the commands refuse any window but a bar's, the notch too.
+        assert!(["taskbar_jump_list", "taskbar_jump_open"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));
+        // The bar's Windows keys: set by the notch, read by the settings; the keyboard taken by a bar after one of them.
+        assert!(ok("notch", "taskbar_keys") && !ok("settings", "taskbar_keys") && !ok("taskbar", "taskbar_keys"));
+        assert!(ok("settings", "taskbar_keys_status") && !ok("taskbar", "taskbar_keys_status"));
+        assert!(ok("taskbar", "taskbar_focus") && ok("taskbar-1", "taskbar_focus") && !ok("settings", "taskbar_focus"));
+        // The Recycle Bin, the window and group menus, the previews' order and the disk widget's drives: the bars' own, never the settings window's.
+        for c in ["taskbar_recycle", "taskbar_recycle_do", "taskbar_window_menu", "taskbar_arrange", "taskbar_window_order", "taskbar_disks", "taskbar_disk_open"] {
+            assert!(ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c), "{c}");
+        }
+        // Windows of every desktop: a setting, so the notch's alone.
+        assert!(ok("notch", "taskbar_all_desktops") && !ok("taskbar", "taskbar_all_desktops") && !ok("settings", "taskbar_all_desktops"));
+        assert!(ok("notch", "taskbar_end_task") && !ok("taskbar", "taskbar_end_task") && !ok("settings", "taskbar_end_task"));
+        // The input language is the bars' own: drawn by the main one, read by any as it starts.
+        assert!(ok("taskbar-1", "taskbar_input") && ok("taskbar", "taskbar_input") && !ok("settings", "taskbar_input"));
+        // A wheel step on an app's button: the bars' own.
+        assert!(ok("taskbar", "taskbar_app_volume") && ok("taskbar-1", "taskbar_app_volume") && !ok("settings", "taskbar_app_volume"));
+        // Which monitors get a bar and which windows each lists: a setting, so the notch's alone.
+        assert!(ok("notch", "taskbar_spread") && !ok("taskbar", "taskbar_spread") && !ok("settings", "taskbar_spread"));
         // Each bar says when its page slid it off the screen, for its own label; no other window has a bar to slide.
         assert!(ok("taskbar", "taskbar_slid") && ok("taskbar-1", "taskbar_slid") && !ok("settings", "taskbar_slid"));
         // The settings' note on a bar that cannot slide away; the bar has no use for it.
         assert!(!ok("taskbar", "taskbar_slide_blocked") && ok("settings", "taskbar_slide_blocked"));
         // The settings' line on a docked bar another program keeps from reserving; the bar has no use for it.
         assert!(ok("settings", "taskbar_reserve_reachable") && !ok("taskbar", "taskbar_reserve_reachable"));
-        // The Start button opens Windows' Start and its Win+X menu; no other window has the button.
+        // The Start button opens Windows' Start and its Win+X menu, the Windows buttons Search, Task view, the widgets and Show desktop; no other window has them.
         assert!(ok("taskbar", "taskbar_shell") && ok("taskbar-1", "taskbar_shell") && !ok("settings", "taskbar_shell"));
         // The quick panel's Wi-Fi and Bluetooth pages, on every bar, never in the settings window; the commands refuse any window but a bar's, the notch too.
         assert!(["taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));

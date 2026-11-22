@@ -6,18 +6,21 @@ import { dropPlace, moveBefore, type BarItem, type DropSlot, type Zone, type Zon
 import { itemDrag } from "../panel";
 import { setTaskbar } from "../store";
 import { toolInfo } from "../toolInfo";
-import { isTool, isWidget, toolOf } from "../widgets";
+import { isSys, isTool, isWidget, sysOf, toolOf } from "../widgets";
+import { beyond } from "../position";
+import { barEdgeNow } from "./barEdge";
+import { SYS_INFO } from "./SysItems";
 
 const ZONES: Zone[] = ["left", "center", "right"];
 
 /**
  * Where an item dragged to (x, y) lands among the bar's items (`[data-item]` spans, each as wide as its buttons together, in DOM
- * order) and zones (`[data-zone]`, none on the capsule): null off the bar, above its top edge or on the item's own place.
+ * order) and zones (`[data-zone]`, none on the capsule): null off the bar, past it on the screen's side or on the item's own place.
  */
 function placeAt(bar: HTMLElement | null, d: { id: BarItem; x: number; y: number }, unit: number, gap: number) {
   if (!bar) return null;
   const r = bar.getBoundingClientRect();
-  if (d.y < r.top || d.x < r.left || d.x > r.right) return null;
+  if (beyond(barEdgeNow(), d.y, r) || d.x < r.left || d.x > r.right) return null;
   const saved = settings.get().taskbar.zones;
   const items = [...bar.querySelectorAll<HTMLElement>("[data-item]")].flatMap((span): DropSlot[] => {
     const id = span.dataset.item as BarItem;
@@ -36,10 +39,10 @@ function placeAt(bar: HTMLElement | null, d: { id: BarItem; x: number; y: number
   return at && { ...at, top: r.top + r.height / 2 };
 }
 
-/** What the ghost shows: the widget's or the tool's icon, Stato's Wi-Fi glyph. */
+/** What the ghost shows: the widget's, the tool's or the Windows button's icon, Stato's Wi-Fi glyph. */
 function Ghost({ id, size }: { id: BarItem; size: number }) {
   if (id === "status") return <NetGlyph glyph="wifi-3" size={size} />;
-  const I = isWidget(id) ? partInfo[id].icon : isTool(id) ? toolInfo[toolOf(id)]?.icon : undefined;
+  const I = isWidget(id) ? partInfo[id].icon : isTool(id) ? toolInfo[toolOf(id)]?.icon : isSys(id) ? SYS_INFO[sysOf(id)].icon : undefined;
   return I ? <I size={size} weight="regular" /> : null;
 }
 

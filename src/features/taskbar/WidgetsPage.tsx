@@ -46,6 +46,9 @@ const VARIANT_LABEL: Record<string, string> = {
   line: "CPU-Verlauf",
   countdown: "Countdown",
   ring: "Ring",
+  system: "Systemlaufwerk",
+  all: "Alle Laufwerke",
+  fullest: "Vollstes Laufwerk",
 };
 /** Each widget's row symbol under Material: the Material name of its partInfo icon, as the Content and Items lists draw it; the brand logos have none and keep a symbol of their own. */
 const SYMBOL: Record<PartId, RowSymbol> = {
@@ -62,6 +65,7 @@ const SYMBOL: Record<PartId, RowSymbol> = {
   script: "terminal",
   downloads: "download",
   weather: "partly_cloudy_day",
+  disk: "storage",
 };
 const choiceLabel = (c: WidgetChoice) => t(c.variant === "digital" ? (c.date ? "Uhrzeit und Datum" : "Nur Uhrzeit") : VARIANT_LABEL[c.variant ?? ""]);
 

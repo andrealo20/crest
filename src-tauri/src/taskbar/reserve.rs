@@ -1,4 +1,4 @@
-//! When a docked bar reserves its strip at the bottom of its monitor, as Windows' taskbar does, and how big that strip is.
+//! When a docked bar reserves its strip at the bottom (or top) of its monitor, as Windows' taskbar does, and how big that strip is.
 //!
 //! A bar reserves only when its shape is docked, "hide automatically" is off, and its appbar calls reach Explorer: Explorer or
 //! Crest's own tray spy is first. With another program's `Shell_TrayWnd` first (lumabar, say) the calls would reach that
@@ -11,7 +11,7 @@
 //! The appbar of each reserving bar is a hidden helper window on the taskbar thread (mod.rs), never the bar's own window.
 //! `reconcile` runs there on a posted `REAPPBAR` only, under explorer's lock taken without waiting: it removes, registers and
 //! places the helpers, and asks Windows for a strip only when one is new, Windows says the appbars moved, Explorer restarted,
-//! or a bar's monitor or height changed. An answer equal to the strip held is not set again, so maximized windows resize once.
+//! or a bar's monitor, height or edge changed. An answer equal to the strip held is not set again, so maximized windows resize once.
 
 use std::cell::RefCell;
 use std::path::Path;
@@ -24,7 +24,7 @@ use windows::Win32::Graphics::Gdi::HMONITOR;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::Shell::{
-    SHAppBarMessage, ABE_BOTTOM, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS, ABN_POSCHANGED, ABN_STATECHANGE, APPBARDATA,
+    SHAppBarMessage, ABE_BOTTOM, ABE_TOP, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS, ABN_POSCHANGED, ABN_STATECHANGE, APPBARDATA,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, RegisterClassW, SetWindowPos, SWP_NOACTIVATE, SWP_NOZORDER, WM_APP, WNDCLASSW,
@@ -43,8 +43,8 @@ pub(super) const FORCE: usize = 4;
 const CALLBACK: u32 = WM_APP + 1;
 /// The helpers' window class, registered once.
 static CLASS: Once = Once::new();
-/// What the notch last applied: the bar is docked, and its height in CSS px.
-static WISH: Mutex<(bool, f64)> = Mutex::new((false, 0.0));
+/// What the notch last applied: the bar is docked, its height in CSS px, and it stands on the top edge.
+static WISH: Mutex<(bool, f64, bool)> = Mutex::new((false, 0.0, false));
 
 /// The strip each reserving bar stands on, by bar label, physical px. Held only to read or write.
 static STRIPS: Mutex<Vec<(String, RECT)>> = Mutex::new(Vec::new());
@@ -81,9 +81,9 @@ fn publish(label: &str, strip: Option<RECT>) {
     strips.extend(strip.map(|s| (label.to_owned(), s)));
 }
 
-/// The notch applied the bar (bar.rs `taskbar_apply`): docked or not, and its height in CSS px. The appbars follow.
-pub(crate) fn wish(docked: bool, band_css: f64) {
-    *WISH.lock().unwrap_or_else(|e| e.into_inner()) = (docked, band_css);
+/// The notch applied the bar (bar.rs `taskbar_apply`): docked or not, its height in CSS px, and its edge. The appbars follow.
+pub(crate) fn wish(docked: bool, band_css: f64, top: bool) {
+    *WISH.lock().unwrap_or_else(|e| e.into_inner()) = (docked, band_css, top);
     refresh();
 }
 
@@ -101,9 +101,10 @@ thread_local! {
 struct Reg {
     label: String,
     helper: HWND,
-    /// The bar's monitor and height in px when its strip was last asked for.
+    /// The bar's monitor, height in px and edge when its strip was last asked for.
     monitor: RECT,
     band: i32,
+    top: bool,
     /// What Windows set (`ABM_SETPOS`).
     strip: RECT,
 }
@@ -116,7 +117,7 @@ pub(super) fn reconcile(app: &AppHandle, flags: usize) -> bool {
 
 fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
     let reachable = explorer::appbar_reachable();
-    let (docked, band_css) = *WISH.lock().unwrap_or_else(|e| e.into_inner());
+    let (docked, band_css, top) = *WISH.lock().unwrap_or_else(|e| e.into_inner());
     let wanted = reserves(docked, front::auto_hide(), reachable) && hiding;
     let mut bars: Vec<(String, RECT, i32)> = screens::all()
         .into_iter()
@@ -140,7 +141,7 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
             // Never while another program's Shell_TrayWnd is first: the removal would reach it.
             if reachable {
                 publish(&reg.label, None);
-                call(reg.helper, ABM_REMOVE, RECT::default());
+                call(reg.helper, ABM_REMOVE, RECT::default(), top);
             }
             let _ = unsafe { DestroyWindow(reg.helper) };
         }
@@ -152,8 +153,8 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
         if regs.iter().any(|r| r.label == *label) || step(wanted, false, reachable) != Step::Register {
             continue;
         }
-        if let Some(helper) = helper(strip_for(*monitor, *band)) {
-            fresh.push(Reg { label: label.clone(), helper, monitor: *monitor, band: *band, strip: RECT::default() });
+        if let Some(helper) = helper(strip_for(*monitor, *band, top)) {
+            fresh.push(Reg { label: label.clone(), helper, monitor: *monitor, band: *band, top, strip: RECT::default() });
         }
     }
     // The record first, with every helper, so no registration is ever missing from it.
@@ -171,7 +172,7 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
         }
     }
     fresh.retain(|reg| {
-        let registered = call(reg.helper, ABM_NEW, RECT::default()).0 != 0;
+        let registered = call(reg.helper, ABM_NEW, RECT::default(), top).0 != 0;
         if !registered {
             let _ = unsafe { DestroyWindow(reg.helper) };
             dirty = true;
@@ -184,20 +185,22 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
         let Some(&(_, monitor, band)) = bars.iter().find(|(l, ..)| *l == reg.label) else { continue };
         // A restarted Explorer registers a kept helper again; FALSE means it was still registered. TRUE: it has no strip
         // there yet, so it is set as a new one.
-        let renewed = flags & RENEW != 0 && reachable && i < kept && call(reg.helper, ABM_NEW, RECT::default()).0 != 0;
+        let renewed = flags & RENEW != 0 && reachable && i < kept && call(reg.helper, ABM_NEW, RECT::default(), top).0 != 0;
         let new = i >= kept || renewed;
-        if !reachable || !(new || flags & (FORCE | RENEW) != 0 || reg.monitor != monitor || reg.band != band) {
+        // A new edge is asked for on the kept registration: Windows moves an appbar to the edge its ABM_SETPOS names.
+        if !reachable || !(new || flags & (FORCE | RENEW) != 0 || reg.monitor != monitor || reg.band != band || reg.top != top) {
             continue;
         }
-        let strip = settle(call(reg.helper, ABM_QUERYPOS, strip_for(monitor, band)).1, band);
+        let strip = settle(call(reg.helper, ABM_QUERYPOS, strip_for(monitor, band, top), top).1, band, top);
         if new || strip != reg.strip {
             publish(&reg.label, Some(strip));
-            let s = call(reg.helper, ABM_SETPOS, strip).1;
+            let s = call(reg.helper, ABM_SETPOS, strip, top).1;
             reg.strip = s;
             let _ = unsafe { SetWindowPos(reg.helper, None, s.left, s.top, s.right - s.left, s.bottom - s.top, SWP_NOZORDER | SWP_NOACTIVATE) };
         }
         reg.monitor = monitor;
         reg.band = band;
+        reg.top = top;
     }
     // After removals the record holds the helpers left, or goes with the last.
     if let (true, Some(p)) = (dirty, path.as_deref()) {
@@ -215,13 +218,13 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
     }
 }
 
-/// `SHAppBarMessage` for a helper on the bottom edge with `rc`: the answer, and the rect Windows gives back.
-fn call(helper: HWND, message: u32, rc: RECT) -> (usize, RECT) {
+/// `SHAppBarMessage` for a helper on the bottom edge (the top one for `top`) with `rc`: the answer, and the rect Windows gives back.
+fn call(helper: HWND, message: u32, rc: RECT, top: bool) -> (usize, RECT) {
     let mut data = APPBARDATA {
         cbSize: std::mem::size_of::<APPBARDATA>() as u32,
         hWnd: helper,
         uCallbackMessage: CALLBACK,
-        uEdge: ABE_BOTTOM,
+        uEdge: if top { ABE_TOP } else { ABE_BOTTOM },
         rc,
         ..Default::default()
     };
@@ -300,15 +303,15 @@ pub(crate) fn band_px(height_css: f64, dpi: u32) -> i32 {
     (height_css * dpi as f64 / 96.0).round() as i32
 }
 
-/// The strip asked of Windows: the monitor's bottom `band` px, edge to edge.
-pub(crate) fn strip_for(monitor: RECT, band: i32) -> RECT {
-    RECT { top: monitor.bottom - band, ..monitor }
+/// The strip asked of Windows: the monitor's bottom `band` px (its top ones for `top`), edge to edge.
+pub(crate) fn strip_for(monitor: RECT, band: i32, top: bool) -> RECT {
+    if top { RECT { bottom: monitor.top + band, ..monitor } } else { RECT { top: monitor.bottom - band, ..monitor } }
 }
 
-/// The strip taken from Windows' answer: its left, right and bottom (narrowed by a side appbar, raised above another bottom
-/// one), with the bar's own height.
-pub(crate) fn settle(answer: RECT, band: i32) -> RECT {
-    RECT { top: answer.bottom - band, ..answer }
+/// The strip taken from Windows' answer: its left, right and outer edge (narrowed by a side appbar, moved in past another one on
+/// the same edge), with the bar's own height.
+pub(crate) fn settle(answer: RECT, band: i32, top: bool) -> RECT {
+    if top { RECT { bottom: answer.top + band, ..answer } } else { RECT { top: answer.bottom - band, ..answer } }
 }
 
 /// The record's text: one decimal handle per line.
@@ -357,10 +360,19 @@ mod tests {
         assert_eq!(band_px(44.0, 192), 88);
         assert_eq!(band_px(44.0, 144), 66);
         assert_eq!(band_px(40.0, 120), 50);
-        assert_eq!(strip_for(r(0, 0, 3840, 2160), 88), r(0, 2072, 3840, 2160));
-        assert_eq!(strip_for(r(-1920, 0, 0, 1080), 44), r(-1920, 1036, 0, 1080)); // a monitor left of the primary
-        assert_eq!(settle(r(64, 1036, 1920, 1080), 44), r(64, 1036, 1920, 1080)); // narrowed by a side appbar
-        assert_eq!(settle(r(0, 900, 1920, 1036), 44), r(0, 992, 1920, 1036)); // above another bottom appbar: Windows' bottom, the bar's height
+        assert_eq!(strip_for(r(0, 0, 3840, 2160), 88, false), r(0, 2072, 3840, 2160));
+        assert_eq!(strip_for(r(-1920, 0, 0, 1080), 44, false), r(-1920, 1036, 0, 1080)); // a monitor left of the primary
+        assert_eq!(settle(r(64, 1036, 1920, 1080), 44, false), r(64, 1036, 1920, 1080)); // narrowed by a side appbar
+        assert_eq!(settle(r(0, 900, 1920, 1036), 44, false), r(0, 992, 1920, 1036)); // above another bottom appbar: Windows' bottom, the bar's height
+    }
+
+    #[test]
+    fn a_top_strip_is_the_bars_height_at_the_monitors_top() {
+        let r = |left, top, right, bottom| RECT { left, top, right, bottom };
+        assert_eq!(strip_for(r(0, 0, 1920, 1080), 44, true), r(0, 0, 1920, 44));
+        assert_eq!(strip_for(r(0, -1080, 1920, 0), 44, true), r(0, -1080, 1920, -1036)); // a monitor above the primary
+        assert_eq!(settle(r(64, 0, 1920, 44), 44, true), r(64, 0, 1920, 44)); // narrowed by a side appbar
+        assert_eq!(settle(r(0, 48, 1920, 200), 44, true), r(0, 48, 1920, 92)); // under another top appbar: Windows' top, the bar's height
     }
 
     #[test]

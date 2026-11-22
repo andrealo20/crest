@@ -32,6 +32,12 @@ fn settings_page(page: &str) -> Option<&'static str> {
         "wifi" => Some("ms-settings:network-wifi"),
         "bluetooth" => Some("ms-settings:bluetooth"),
         "location" => Some("ms-settings:privacy-location"),
+        "microphone" => Some("ms-settings:privacy-microphone"),
+        "camera" => Some("ms-settings:privacy-webcam"),
+        "mixer" => Some("ms-settings:apps-volume"),
+        "night" => Some("ms-settings:nightlight"),
+        "dnd" => Some("ms-settings:notifications"),
+        "access" => Some("ms-settings:easeofaccess"),
         _ => None,
     }
 }
@@ -49,12 +55,18 @@ mod tests {
     #[test]
     fn only_known_settings_pages_open() {
         assert_eq!(settings_page("home"), Some("ms-settings:"));
+        assert_eq!(settings_page("microphone"), Some("ms-settings:privacy-microphone"));
+        assert_eq!(settings_page("camera"), Some("ms-settings:privacy-webcam"));
+        assert_eq!(settings_page("mixer"), Some("ms-settings:apps-volume"));
         assert_eq!(settings_page("saver"), Some("ms-settings:batterysaver"));
         assert_eq!(settings_page("airplane"), Some("ms-settings:network-airplanemode"));
         assert_eq!(settings_page("ethernet"), Some("ms-settings:network-ethernet"));
         assert_eq!(settings_page("wifi"), Some("ms-settings:network-wifi"));
         assert_eq!(settings_page("bluetooth"), Some("ms-settings:bluetooth"));
         assert_eq!(settings_page("location"), Some("ms-settings:privacy-location"));
+        assert_eq!(settings_page("night"), Some("ms-settings:nightlight"));
+        assert_eq!(settings_page("dnd"), Some("ms-settings:notifications"));
+        assert_eq!(settings_page("access"), Some("ms-settings:easeofaccess"));
         assert_eq!(settings_page("ms-availablenetworks:"), None);
         assert_eq!(settings_page("ms-settings:privacy"), None);
         assert_eq!(settings_page(""), None);

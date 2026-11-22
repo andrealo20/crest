@@ -3,8 +3,8 @@
 
 import { DOCK_HEIGHT } from "../../notch/geometry.ts";
 
-/** What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, the apps behind "…", or Stato's quick panel. */
-export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "apps" } | { kind: "quick" };
+/** What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, the apps behind "…", Stato's quick panel, or the disk widget's drives. */
+export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "apps" } | { kind: "quick" } | { kind: "disks" };
 /** The item the panel opens over: its left edge and its width, CSS px. */
 export interface PanelAnchor {
   x: number;
@@ -63,16 +63,24 @@ export const TRAY_SIZE = (icon: number, count: number) => ({ w: 5 * (icon + 16) 
 
 /**
  * The quick panel's size at 100 %: 12 px round its rows, 10 px between them. The radios (56) and the brightness (40) only where they
- * apply; the volume, the saver and airplane chips (40 each) and the footer (32) always; `list` is the open output list, with its own
+ * apply; the volume (40), the chips (rows of three, 40 each with 8 between) and the footer (32) always; `list` is the open output list, with its own
  * separator and no gap of its own.
  */
-export function QUICK_SIZE(rows: { radios: boolean; brightness: boolean; list: number }): { w: number; h: number } {
-  const heights = [rows.radios ? 56 : 0, 40, rows.brightness ? 40 : 0, 40, 32].filter((h) => h > 0);
+export function QUICK_SIZE(rows: { radios: boolean; brightness: boolean; list: number; chips: number }): { w: number; h: number } {
+  const lines = Math.max(1, Math.ceil(rows.chips / 3));
+  const heights = [rows.radios ? 56 : 0, 40, rows.brightness ? 40 : 0, lines * 40 + (lines - 1) * 8, 32].filter((h) => h > 0);
   return { w: 360, h: 24 + heights.reduce((a, b) => a + b, 0) + 10 * (heights.length - 1) + rows.list };
 }
 
-/** A page inside the quick panel: the Wi-Fi networks or the Bluetooth devices, opened by its tile's chevron. */
-export type QuickPage = "wifi" | "bluetooth";
+/** The quick panel's chips, three to a row. */
+export type QuickChip = "saver" | "airplane" | "ethernet" | "mic" | "cast" | "night" | "dnd" | "access";
+
+/** The chips in their order: Ethernet only while a cable carries the internet, the microphone only where there is one. */
+export const quickChips = (s: { wired: boolean; mic: boolean }): QuickChip[] =>
+  (["saver", "airplane", "ethernet", "mic", "cast", "night", "dnd", "access"] as const).filter((c) => (c === "ethernet" ? s.wired : c === "mic" ? s.mic : true));
+
+/** A page inside the quick panel: the Wi-Fi networks or the Bluetooth devices, opened by its tile's chevron, or the volume mixer. */
+export type QuickPage = "wifi" | "bluetooth" | "mixer";
 /** A page's row, CSS px. */
 export const PAGE_ROW = 40;
 /** The rows a page shows before it scrolls. */
@@ -86,9 +94,14 @@ export const PASSWORD_ROW = 44;
  */
 export const QUICK_PAGE_SIZE = (rows: number, extra: number) => ({ w: 360, h: 24 + 32 + 10 + Math.min(Math.max(rows, 1), PAGE_MAX_ROWS) * PAGE_ROW + extra + 10 + 32 });
 
-/** The page the quick panel keeps: none once the page's radio is gone (adapter removed), the same while it is only off or not read yet. */
+/** A drive's row in the disk widget's panel, CSS px. */
+export const DISK_ROW = 52;
+/** The disk widget's panel at 100 %: 8 px round its rows, one at least, PAGE_MAX_ROWS at most, past which they scroll. */
+export const DISKS_SIZE = (rows: number) => ({ w: 340, h: 16 + Math.min(Math.max(rows, 1), PAGE_MAX_ROWS) * DISK_ROW });
+
+/** The page the quick panel keeps: none once the page's radio is gone (adapter removed), the same while it is only off or not read yet; the mixer whatever the radios read. */
 export function pageAfter(page: QuickPage | null, quick: { wifi: boolean | null; bluetooth: boolean | null } | null): QuickPage | null {
-  if (page === null || (quick !== null && quick[page] === null)) return null;
+  if (page === null || (page !== "mixer" && quick !== null && quick[page] === null)) return null;
   return page;
 }
 
@@ -108,6 +121,19 @@ export const fitPanel = (size: { w: number; h: number }, room: { w: number; h: n
 export function dropSlot(slots: { x: number; w: number }[], x: number): number {
   const i = slots.findIndex((s) => s.x + s.w / 2 > x);
   return i < 0 ? slots.length : i;
+}
+
+/**
+ * The slot a dragged icon lands in among the panel's cells (`cells`, in their order, row by row): in the first row that does not end above
+ * `y`, as dropSlot finds it along that row (mirrored with `rtl`, where a row runs from the right), past its last cell the next row's first;
+ * below every row the end.
+ */
+export function gridSlot(cells: { x: number; y: number; w: number; h: number }[], x: number, y: number, rtl = false): number {
+  const start = cells.findIndex((c) => c.y + c.h >= y);
+  if (start < 0) return cells.length;
+  const end = cells.findIndex((c, i) => i > start && c.y !== cells[start].y);
+  const row = cells.slice(start, end < 0 ? cells.length : end);
+  return start + (rtl ? dropSlot(row.map((c) => ({ x: -(c.x + c.w), w: c.w })), -x) : dropSlot(row, x));
 }
 
 /** How far a press moves before it drags a widget, a tool button or Stato, CSS px: 4 with a mouse, 10 by touch or with a pen, so a tap that opens a panel never moves it. */

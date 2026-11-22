@@ -12,6 +12,7 @@ import { startCrashLog } from "../../window/store";
 import { taskbar } from "../../../platform/services";
 import { startPanelReport } from "../panel";
 import { followBar, startBarWindows } from "../store";
+import { startDecor } from "../tray";
 import { TaskbarWindow, primary } from "./TaskbarWindow";
 
 /*
@@ -30,8 +31,10 @@ startCrashLog();
 window.addEventListener("contextmenu", (e) => {
   if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) e.preventDefault();
 });
-// WebView2 would open a dropped file or link in this window; nothing can be dropped here.
+// WebView2 would open a dropped file or link in this window; nothing can be dropped here but files on the apps, whose own
+// handler ran first.
 window.addEventListener("dragover", (e) => {
+  if (e.defaultPrevented) return;
   e.preventDefault();
   if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
 });
@@ -41,6 +44,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 startBarWindows();
+startDecor();
 // A reloaded page starts with its panel closed: the notch forgets what the page before it had open.
 void taskbar.panel(null);
 // Nor does it keep the window previews the page before it showed (Preview.tsx).

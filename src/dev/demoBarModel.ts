@@ -42,11 +42,11 @@ export function launchApp(list: WindowList, app: App): WindowList {
   return { groups, active: id };
 }
 
-/** What Windows does on the bar's actions: a window brought forward (and restored), minimized, toggled between the two, or closed. */
-export function windowAction(list: WindowList, id: number, action: "activate" | "toggle" | "minimize" | "close"): WindowList {
+/** What Windows does on the bar's actions: a window brought forward (and restored; the window menu's restore, maximize, move and size too), minimized, toggled between the two, or closed (End task too). */
+export function windowAction(list: WindowList, id: number, action: "activate" | "toggle" | "minimize" | "close" | "end" | "restore" | "maximize" | "move" | "size"): WindowList {
   if (!list.groups.some((g) => g.windows.some((w) => w.id === id))) return list;
   const behind = list.active === id ? null : list.active;
-  if (action === "close") return { groups: list.groups.map((g) => ({ ...g, windows: g.windows.filter((w) => w.id !== id) })).filter((g) => g.windows.length), active: behind };
+  if (action === "close" || action === "end") return { groups: list.groups.map((g) => ({ ...g, windows: g.windows.filter((w) => w.id !== id) })).filter((g) => g.windows.length), active: behind };
   const edit = (patch: Partial<Win>) => list.groups.map((g) => ({ ...g, windows: g.windows.map((w) => (w.id === id ? { ...w, ...patch } : w)) }));
   if (action === "minimize" || (action === "toggle" && list.active === id)) return { groups: edit({ minimized: true }), active: behind };
   return { groups: edit({ minimized: false, flashing: false }), active: id };

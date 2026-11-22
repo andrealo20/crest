@@ -3,10 +3,16 @@
 
 import type { TrayIcon } from "./model.ts";
 
-/** The icons whose id is in `shown`, in the order of `shown` (icons sharing an id stay in their own order), and the rest. */
-export function splitTray(icons: TrayIcon[], shown: string[]): { visible: TrayIcon[]; hidden: TrayIcon[] } {
+/**
+ * The icons whose id is in `shown`, in the order of `shown` (icons sharing an id stay in their own order), and the rest: first those in
+ * `hiddenOrder`, in its order, then the others in Rust's. An id in both lists stays visible; ids with no icon are passed over.
+ */
+export function splitTray(icons: TrayIcon[], shown: string[], hiddenOrder: string[] = []): { visible: TrayIcon[]; hidden: TrayIcon[] } {
   const ids = new Set(shown);
-  return { visible: shown.flatMap((id) => icons.filter((i) => i.id === id)), hidden: icons.filter((i) => !ids.has(i.id)) };
+  const rest = icons.filter((i) => !ids.has(i.id));
+  const listed = new Set(hiddenOrder);
+  const first = [...listed].filter((id) => !ids.has(id)).flatMap((id) => rest.filter((i) => i.id === id));
+  return { visible: shown.flatMap((id) => icons.filter((i) => i.id === id)), hidden: [...first, ...rest.filter((i) => !listed.has(i.id))] };
 }
 
 /**
@@ -25,3 +31,12 @@ export const demote = (shown: string[], id: string): string[] => shown.filter((s
 
 /** The place in `shown` of the gap before the bar's `slot`-th icon (`visible`, as splitTray gives it), the end for the gap after the last. */
 export const shownSlot = (shown: string[], visible: TrayIcon[], slot: number): number => (slot < visible.length ? shown.indexOf(visible[slot].id) : shown.length);
+
+/**
+ * `hiddenOrder` with `id` at the panel's `slot` among the `hidden` icons (as splitTray draws them): the list as the panel shows it, with
+ * the saved ids that have no icon now kept in their places, as `shown` keeps them, and none of `shown`, so an icon from the bar goes in.
+ */
+export function placeHidden(hiddenOrder: string[], shown: string[], hidden: TrayIcon[], id: string, slot: number): string[] {
+  const order = [...new Set([...hiddenOrder.filter((h) => !shown.includes(h)), ...hidden.map((i) => i.id)])];
+  return promote(order, id, shownSlot(order, hidden, slot));
+}

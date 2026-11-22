@@ -22,11 +22,14 @@ import { LiveLyric } from "../../now-playing/LiveLyric";
 import { clocks } from "../../clocks/store";
 import { isZone } from "../../clocks/zones";
 import { timer } from "../../timer/store";
-import { EMPTY_FEED, barFeed, type BarFeed } from "../barStores";
-import { variantOf, type TaskbarSettings } from "../model";
+import { t } from "../../../i18n";
+import { EMPTY_FEED, barFeed, noticeCount, type BarFeed } from "../barStores";
+import { countBadge, variantOf, type TaskbarSettings } from "../model";
 import { SAMPLE_TIMER } from "../sampleFeed";
 import { statusPill } from "../statusModel";
 import { pillWidget, widgetScale, widgetWidth } from "../widgets";
+import { barDisks } from "../disks";
+import { DiskFace, disksWidth } from "./DiskFaces";
 import { ANALOG, BarAnalog, BarClock, BarZones, barClockWidth, zonesWidth } from "./BarClock";
 import { Item, type ItemProps } from "./Item";
 import { ReadingBars, ReadingLine, barsWidth, lineWidth } from "./ReadingFaces";
@@ -127,6 +130,10 @@ function part(id: PartId, { feed: f, paused, hovered, clock, h12, titleLoop, tim
       return f.github && { node: <GithubPart count={f.github.count} level={f.github.level} />, width: githubWidth(f.github.count) };
     case "leetcode":
       return f.leetcode && { node: <LeetcodePart count={f.leetcode.count} level={f.leetcode.level} />, width: leetcodeWidth(f.leetcode.count) };
+    case "disk": {
+      const list = barDisks(f.disks, variantOf(variants, "disk"));
+      return list.length ? { node: <DiskFace list={list} />, width: disksWidth(list) } : null;
+    }
     case "script": {
       // No button inside the widget's own: a click anywhere on the widget opens the tool.
       const parts = f.script.map((p) => ({ ...p, open: null }));
@@ -172,6 +179,7 @@ const SLICES: Record<PartId, (keyof BarFeed)[]> = {
   github: ["github"],
   leetcode: ["leetcode"],
   script: ["script"],
+  disk: ["disks"],
 };
 
 /**
@@ -220,8 +228,17 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
     zone,
   });
   const pill = pillWidget(id, item.tile !== undefined) ? statusPill(taskbar.height) : null;
+  // The clock carries the notification centre's count, as Windows' does; only the main bar hears it (barStores feedStores).
+  const count = noticeCount.use();
+  const badge = id === "clock" ? countBadge(count) : null;
+  const name = badge ? `${item.name}, ${t(count === 1 ? "{n} Mitteilung" : "{n} Mitteilungen", { n: count ?? 0 })}` : item.name;
   return (
-    <Item {...item} width={widgetWidth(width, k, pill?.pad ?? null)} describedBy={desc} onClick={onClick} onContextMenu={onContextMenu} onPointerDown={onPointerDown}>
+    <Item {...item} name={name} width={widgetWidth(width, k, pill?.pad ?? null)} describedBy={desc} onClick={onClick} onContextMenu={onContextMenu} onPointerDown={onPointerDown}>
+      {badge && (
+        <span aria-hidden className="absolute -end-2 -top-1 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-label px-1 text-[10px] font-semibold leading-none text-notch">
+          {badge}
+        </span>
+      )}
       {/* The pill wraps the content, not the cell (design 2E): the zoomed 30 px cell stays centred in a lower pill and overflows it
           equally. When Material's Item lands, pass layer={pill.height} as Stato does. */}
       <span className={pill ? "flex items-center rounded-full bg-fill-2" : "flex"} style={pill ? { height: pill.height, paddingInline: pill.pad } : undefined}>

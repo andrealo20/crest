@@ -1,7 +1,8 @@
 // The rules of the bar's look: gaps, corners, the surface's veil, the pointer's zones, the shapes the glass draws and the zone its
 // live copy needs. Pure, so node --test runs them.
 
-import type { BarShape, TaskbarSettings } from "./model.ts";
+import type { BarEdge, BarShape, TaskbarSettings } from "./model.ts";
+import { toEdge } from "./position.ts";
 import type { Design } from "../../design/design.ts";
 import type { GlassZone } from "../../platform/native";
 import { glassVeilAt } from "../themes/themes.ts";
@@ -71,9 +72,9 @@ export function themeVeils(vars: Record<string, string>): { safe: number; cleare
   return { safe: parseTint(vars["--glass-tint"])?.[3] ?? 1, clearest: parseTint(vars["--glass-tint-clear"])?.[3] ?? 1 };
 }
 
-/** The pointer's zones: each box down to the window's bottom (the strip under the bar takes clicks at the edge), empty boxes dropped. */
-export function hitBoxes(boxes: Box[], windowHeight: number): Box[] {
-  return sized(boxes).map((b) => ({ ...b, h: windowHeight - b.y }));
+/** The pointer's zones: each box out to the window's edge on the bar's side (the strip there takes clicks at the edge), empty boxes dropped. */
+export function hitBoxes(boxes: Box[], windowHeight: number, edge: BarEdge = "bottom"): Box[] {
+  return sized(boxes).map((b) => toEdge(edge, b, windowHeight));
 }
 
 /** One box per group (the bar, the capsule, or a zone's tiles): the union of its boxes, a group with none dropped. */
@@ -85,14 +86,15 @@ export function groupBoxes(groups: Box[][]): Box[] {
 const BLEED = 4000;
 
 /**
- * The rectangles the shader draws, in the coordinates they come in. Docked: one box stretched BLEED px left, right and down, so only
- * its top has the rim that bends (the hanging notch's trick). Tiles: the first LOOK.maxTiles as glass, the rest plain.
+ * The rectangles the shader draws, in the coordinates they come in. Docked: one box stretched BLEED px left, right and past the screen's
+ * edge (down, or up for a top bar), so only its inner side has the rim that bends (the hanging notch's trick). Tiles: the first
+ * LOOK.maxTiles as glass, the rest plain.
  */
-export function glassShapes(shape: BarShape, all: Box[]): { rects: Box[]; plain: Box[] } {
+export function glassShapes(shape: BarShape, all: Box[], edge: BarEdge = "bottom"): { rects: Box[]; plain: Box[] } {
   const boxes = sized(all);
   if (shape === "docked") {
     const u = union(boxes);
-    return { rects: u ? [{ x: u.x - BLEED, y: u.y, w: u.w + 2 * BLEED, h: u.h + BLEED }] : [], plain: [] };
+    return { rects: u ? [{ x: u.x - BLEED, y: edge === "top" ? u.y - BLEED : u.y, w: u.w + 2 * BLEED, h: u.h + BLEED }] : [], plain: [] };
   }
   if (shape === "tiles") return { rects: boxes.slice(0, LOOK.maxTiles), plain: boxes.slice(LOOK.maxTiles) };
   return { rects: boxes, plain: [] };
@@ -113,13 +115,24 @@ export function tilePlaces(): (n: number) => (i: number) => boolean {
 }
 
 /**
- * The rectangles Liquid Glass + draws: as `glassShapes`, but a docked bar is its real box with only its top edge bending (`top`): the
- * lens reaches across the shape, and the BLEED box's centre would sit 2000 px down.
+ * The rectangles Liquid Glass + draws: as `glassShapes`, but a docked bar is its real box with only its inner edge bending (`dock`: 1
+ * its top, on a bottom bar; -1 its bottom, on a top bar; 0 every edge): the lens reaches across the shape, and the BLEED box's centre
+ * would sit 2000 px off.
  */
-export function plusShapes(shape: BarShape, all: Box[]): { rects: Box[]; top: boolean } {
-  if (shape !== "docked") return { rects: glassShapes(shape, all).rects, top: false };
+export function plusShapes(shape: BarShape, all: Box[], edge: BarEdge = "bottom"): { rects: Box[]; dock: number } {
+  if (shape !== "docked") return { rects: glassShapes(shape, all).rects, dock: 0 };
   const u = union(all);
-  return { rects: u ? [u] : [], top: true };
+  return { rects: u ? [u] : [], dock: edge === "top" ? -1 : 1 };
+}
+
+/**
+ * The canvas's top and height, CSS px, for the glass's `shapes` in a window `height` tall: from the shapes' top less `margin` down to
+ * the window's bottom, or for a top bar from the window's top down to the shapes' bottom plus `margin`.
+ */
+export function glassArea(edge: BarEdge, shapes: Box[], height: number, margin: number): { top: number; h: number } {
+  if (edge === "top") return { top: 0, h: Math.min(height, Math.max(...shapes.map((r) => r.y + r.h)) + margin) };
+  const top = Math.max(0, Math.min(...shapes.map((r) => r.y)) - margin);
+  return { top, h: height - top };
 }
 
 /** The zone the bar's live copy needs: the boxes' union with GLASS.zoneMargin around it, physical px at `dpr`, rounded outwards; null without boxes. */

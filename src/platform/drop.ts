@@ -23,6 +23,12 @@ export const drop = createStore<{ dragging: boolean; dropped: string[] | null }>
  */
 export const draggingOut = createStore(false);
 
+/**
+ * The open tool takes apps (the Launcher, while it shows): a drop goes to Rust as "launcher-drop", which pins the exes and
+ * shortcuts among the files and sends the others on to the Shelf as any drop. The drag does not switch to the Shelf meanwhile.
+ */
+export const appDrop = createStore(false);
+
 /** Demo: the files the visitor dropped or pasted, by the made-up path the Shelf shows. They stay in this page's memory. */
 export const demoFiles = new Map<string, File>();
 /** Demo: the text of the last paste, which the Shelf reads like the clipboard (the page may not read the real one). */
@@ -87,6 +93,13 @@ export function usePasteFiles(onEmpty?: () => void) {
 /** WebView2 bridge (app only). */
 const webview = (window as { chrome?: { webview?: { postMessageWithAdditionalObjects(msg: string, objects: unknown[]): void } } }).chrome?.webview;
 
+/** Hands dropped `files` to Rust under `message` (src-tauri/src/drop.rs), which reads their paths; false in the browser, where a page gets none. */
+export function postFiles(message: string, files: File[]): boolean {
+  if (!webview) return false;
+  webview.postMessageWithAdditionalObjects(message, files);
+  return true;
+}
+
 let started = false;
 
 export function startDropListener() {
@@ -127,10 +140,9 @@ export function startDropListener() {
     e.preventDefault();
     depth = 0;
     const files = [...(e.dataTransfer?.files ?? [])];
-    if (webview) {
-      // Paths come back asynchronously as "notch://drop".
+    // Paths come back asynchronously as "notch://drop" (and the Launcher's pins as "launcher://pinned").
+    if (postFiles(appDrop.get() ? "launcher-drop" : "notch-drop", files)) {
       drop.set((s) => ({ ...s, dragging: false }));
-      webview.postMessageWithAdditionalObjects("notch-drop", files);
       return;
     }
     drop.set({ dragging: false, dropped: files.map(demoPath) });

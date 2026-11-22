@@ -22,7 +22,7 @@ uniform vec2 uTexOffset;
 uniform vec4 uRects[${MAX_RECTS}];      // x, y, w, h, CSS px in the canvas (look.ts plusShapes)
 uniform int uCount;
 uniform float uRadius;         // the corners (look.ts barRadius), at most half the box's shorter side
-uniform float uDocked;         // 1 for a docked bar: only its top edge bends
+uniform float uDocked;         // a docked bar: 1 only its top edge bends (a bottom bar), -1 only its bottom edge (a top bar); 0 every edge
 uniform vec2 uLens;            // the lens's strength (glassPlus.ts plusSliders) and the most it may shift, CSS px
 uniform vec2 uLod;             // blur level at the rim and in the middle
 uniform float uVeilLod;        // the coarse read's level, for the veil that rises by itself
@@ -75,8 +75,8 @@ void main() {
   vec2 c, hs;
   float r;
   float d = nearest(p, c, hs, r);
-  bool docked = uDocked > 0.5;
-  if (docked) { d = c.y - hs.y - p.y; c.x = p.x; hs.x = 1e4; } // only the top edge
+  bool docked = abs(uDocked) > 0.5;
+  if (docked) { d = uDocked * (c.y - p.y) - hs.y; c.x = p.x; hs.x = 1e4; } // only the inner edge
   float cover = clamp(0.5 - d * uDpr, 0.0, 1.0);
   if (cover <= 0.0) { o = vec4(0.0); return; }
 
@@ -84,8 +84,8 @@ void main() {
   vec2 rel = p - c;
   float side = 2.0 * min(hs.x, hs.y), band = P_BAND * side, inward = max(-d, 0.0);
   float x = 1.0 - clamp(inward / band, 0.0, 1.0);
-  vec2 dir = docked ? vec2(0.0, -1.0) : rel / max(length(rel), 1e-6);
-  vec2 n = docked ? vec2(0.0, -1.0) : edgeNormal(rel, hs, r);
+  vec2 dir = docked ? vec2(0.0, -uDocked) : rel / max(length(rel), 1e-6);
+  vec2 n = docked ? vec2(0.0, -uDocked) : edgeNormal(rel, hs, r);
   vec2 reach = vec2(min(hs.x, P_REACH * hs.y), min(hs.y, P_REACH * hs.x));
   vec2 shift = -(1.0 - sqrt(max(1.0 - x * x, 0.0))) * dir * reach * uLens.x;
   // The guard: one level per halving of the backdrop squeezed across the edge into a device px, from the first device row in. Where the

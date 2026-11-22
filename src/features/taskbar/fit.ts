@@ -20,9 +20,14 @@ export interface FitMeasure {
   full: number;
   /** And narrow (also the "…" button's). */
   compact: number;
+  /** Under "When full" and "Never": the buttons one per window (`count`), how many of them have a window (`titled`; the rest are pinned apps with none), a titled button's width range, and whether to stay one per window when titles do not fit (`never`). Null under "Always". */
+  split: { count: number; titled: number; min: number; max: number; never: boolean } | null;
 }
-/** How the apps are drawn: `visible` apps (all unless overflowing), the tray's kept icons back behind ^, the widgets hidden. */
-export interface Fit { mode: "full" | "compact" | "overflow"; visible: number; trayBack: boolean; hide: string[] }
+/**
+ * How the apps are drawn: `visible` apps (all unless overflowing), the tray's kept icons back behind ^, the widgets hidden; `split`, one
+ * button per window (windowButtons); `label`, a titled button's width in "labels" mode, 0 otherwise.
+ */
+export interface Fit { mode: "labels" | "full" | "compact" | "overflow"; visible: number; trayBack: boolean; hide: string[]; split: boolean; label: number }
 
 /** Growing back needs this many px more than shrinking, so a few pixels never move an app or a widget in and out. */
 export const FIT_MARGIN = 24;
@@ -41,10 +46,12 @@ function steps(z: Record<Zone, FitEntry[]>, gap: number): string[] {
   return [...tray, ...side.map((x) => x.id), ...centre];
 }
 
-/** How the bar's apps fit, from what was measured and the last fit (null at first): full size, narrow, or the last ones behind "…", and what the other items give up when even one app and "…" do not fit. */
+/** How the bar's apps fit, from what was measured and the last fit (null at first): with titles, full size, narrow, or the last ones behind "…", and what the other items give up when even one app and "…" do not fit. */
 export function fitBar(m: FitMeasure, was: Fit | null): Fit {
   const order = steps(m.zones, m.gap);
-  const apps = m.apps ? m.count : 0;
+  const never = m.split?.never === true;
+  const n = never ? m.split!.count : m.count;
+  const apps = m.apps ? n : 0;
   // A row of n items takes n - 1 gaps; the apps' row counts its buttons among them, each charged its gap in `P` or `p` below.
   const span = (list: FitEntry[], withApps: boolean) => (list.length || (withApps && apps > 0) ? cost(list, m.gap) - m.gap : 0);
   const room = (k: number) => {
@@ -64,9 +71,16 @@ export function fitBar(m: FitMeasure, was: Fit | null): Fit {
   while (k < order.length && room(k) < min + (k < wasK ? FIT_MARGIN : 0)) k++;
   const R = room(k);
   const taken = order.slice(0, k);
-  const out = (mode: Fit["mode"], visible: number): Fit => ({ mode, visible, trayBack: taken.includes("tray"), hide: taken.filter((x) => x !== "tray") });
-  if (apps === 0 || apps * P <= R - (was && was.mode !== "full" ? FIT_MARGIN : 0)) return out("full", m.count);
-  if (apps < 2 || apps * p <= R - (was?.mode === "overflow" ? FIT_MARGIN : 0)) return out("compact", m.count);
+  const out = (mode: Fit["mode"], visible: number, split = never, label = 0): Fit => ({ mode, visible, trayBack: taken.includes("tray"), hide: taken.filter((x) => x !== "tray"), split, label });
+  // Titles while every button fits at least `min` wide: pinned apps with no window keep their icon's width; coming back from icons takes FIT_MARGIN more.
+  const s = m.split;
+  if (s && m.apps && s.titled > 0) {
+    const icons = (s.count - s.titled) * P;
+    const w = Math.min(s.max, Math.floor((R - icons - (was && was.mode !== "labels" ? FIT_MARGIN : 0)) / s.titled) - m.gap);
+    if (w >= s.min) return out("labels", s.count, true, w);
+  }
+  if (apps === 0 || apps * P <= R - (was && (was.mode === "compact" || was.mode === "overflow") ? FIT_MARGIN : 0)) return out("full", n);
+  if (apps < 2 || apps * p <= R - (was?.mode === "overflow" ? FIT_MARGIN : 0)) return out("compact", n);
   let v = Math.floor((R - p) / p);
   if (was?.mode === "overflow" && v > was.visible) v = Math.max(was.visible, Math.floor((R - FIT_MARGIN - p) / p));
   return out("overflow", Math.min(apps - 1, Math.max(1, v)));

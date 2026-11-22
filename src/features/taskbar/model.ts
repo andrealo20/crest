@@ -10,19 +10,37 @@ import { dropSlot } from "./panelModel.ts";
 export type Zone = "left" | "center" | "right";
 /** A button that opens a tool, by the id the notch opens it with: `tool:notes`. The prefix keeps it apart from a part of the same id. */
 export type ToolItem = `tool:${string}`;
-/** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button, the notification area ("tray"), Stato (network, volume and battery, "status"), the closed notch's parts as widgets and buttons that open a tool (`tool:<id>`). */
-export type BarItem = "start" | "apps" | "crest" | "tray" | "status" | PartId | ToolItem;
+/** Windows' own buttons the bar can hold: Search, Task view, Windows widgets, Show desktop, the input language and the privacy indicators. Not in the default zones: an update changes no bar. */
+export const SYS_IDS = ["search", "taskview", "widgets", "desktop", "input", "privacy", "recycle"] as const;
+export type SysId = (typeof SYS_IDS)[number];
+/** A Windows button, by its id: `sys:search`. */
+export type SysItem = `sys:${SysId}`;
+
+/** The Recycle Bin button's name: a key for t() and its values; null, before the first count, reads as empty. */
+export const recycleName = (n: number | null): [string, Record<string, number>?] =>
+  !n ? ["Papierkorb ist leer"] : n === 1 ? ["Papierkorb: 1 Element"] : ["Papierkorb: {n} Elemente", { n }];
+/** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button, the notification area ("tray"), Stato (network, volume and battery, "status"), the closed notch's parts as widgets, buttons that open a tool (`tool:<id>`) and Windows' own buttons (`sys:<id>`). */
+export type BarItem = "start" | "apps" | "crest" | "tray" | "status" | PartId | ToolItem | SysItem;
 /** The items every bar has: one missing from the zones is put back in its default place. The tray, Stato and the widgets can be taken off. */
 export const FIXED_ITEMS = ["start", "apps", "crest"] as const;
 /** The bar's shape: along the screen's edge with no gaps, floating above it, a capsule, or a tile per item. */
 export type BarShape = "docked" | "floating" | "capsule" | "tiles";
+/** The screen edge the bars stand on. */
+export type BarEdge = "bottom" | "top";
+/** How the apps' buttons combine, as Windows' "Combine taskbar buttons and hide labels": one per app with no label, one per window with its title while they fit, or one per window always. */
+export type Combine = "always" | "full" | "never";
+const COMBINES: Combine[] = ["always", "full", "never"];
+/** What a double click on the bar's empty space does: nothing, Show desktop, or Task Manager. */
+export type EmptyDouble = "none" | "desktop" | "taskmgr";
+const EMPTY_DOUBLES: EmptyDouble[] = ["none", "desktop", "taskmgr"];
 
 /**
  * The bar: on or off, the items in each zone, the bar's height and its icons' size in CSS px, its background (the closed
  * notch's or the theme's), the pinned apps (null: never seeded), the ids Windows' taskbar had pinned when the notch last read them,
  * with those a read missed (null: never read; store.ts follows what changes there), its shape, its transparency in percent, its glass
  * and the glass's look, the bar clock's own date and seconds, and whether the default widgets, the tray and Stato were placed (once, so one taken off
- * stays off). The tray keeps the icons in `trayShown` (TrayIcon.id) on the bar; the others are in the panel behind its ^ button.
+ * stays off). The tray keeps the icons in `trayShown` (TrayIcon.id) on the bar; the others are in the panel behind its ^ button, those
+ * in `trayHidden` first in its order.
  */
 export interface TaskbarSettings {
   enabled: boolean;
@@ -46,7 +64,42 @@ export interface TaskbarSettings {
   traySeeded: boolean;
   statusSeeded: boolean;
   trayShown: string[];
+  trayHidden: string[];
+  /** The app menu has End task (off by default, as in Windows: it ends the app without saving). */
+  endTask: boolean;
+  /** One button per app ("always", Windows' default), one per window while titles fit ("full"), or one per window ("never"); the same on every bar. */
+  combine: Combine;
+  /** A double click on the bar beside its buttons, or in the gap under it. */
+  emptyDouble: EmptyDouble;
+  /** An app asking for attention pulses and holds the bar up, as Windows' "Show flashing on taskbar apps". */
+  flashing: boolean;
+  /** The middle button on an app with windows: a new instance (Windows' default) or close them all. */
+  middleClick: "new" | "close";
+  /** A small count of its windows on an app with two or more. */
+  windowCount: boolean;
+  /** The wheel over the whole bar changes the volume: an app's own over its button, Windows' elsewhere (over Stato it always does). */
+  wheelVolume: boolean;
+  /** The other monitors get a bar too, as Windows' "Show my taskbar on all displays". */
+  allScreens: boolean;
+  /** Where an app's button shows with several bars: the bar of its window's monitor, that one and the main bar, or every bar. */
+  appsOn: AppsOn;
+  /** The clock shows on the other monitors' bars too; the other widgets stay on the main bar. */
+  clockAll: boolean;
+  /** Win+1..9, Win+0, Win+T and Win+B go to the bar (keys.rs); off by default, since turning it on or off restarts Explorer. */
+  winKeys: boolean;
+  /** The screen edge every bar stands on (position.ts). */
+  position: BarEdge;
+  /** The mark under an open app (itemLook.ts markShape). */
+  marks: MarkStyle;
+  /** The bar lists the windows of every virtual desktop, as Windows' "Show taskbar apps on all desktops". */
+  allDesktops: boolean;
 }
+
+export type MarkStyle = "dot" | "large" | "line";
+export const MARK_STYLES: readonly MarkStyle[] = ["dot", "large", "line"];
+
+export type AppsOn = "own" | "main" | "all";
+const APPS_ONS: AppsOn[] = ["own", "main", "all"];
 
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
   enabled: false,
@@ -67,6 +120,21 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   traySeeded: true,
   statusSeeded: true,
   trayShown: [],
+  trayHidden: [],
+  endTask: false,
+  combine: "always",
+  emptyDouble: "none",
+  flashing: true,
+  middleClick: "new",
+  windowCount: false,
+  wheelVolume: false,
+  allScreens: true,
+  appsOn: "own",
+  clockAll: false,
+  winKeys: false,
+  position: "bottom",
+  marks: "dot",
+  allDesktops: false,
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -90,15 +158,16 @@ const WIDGET_TOOLS: readonly string[] = PART_IDS.filter((p) => partTool(p) === p
 /** The tools a button on the bar can open: Crest's tools but those, then Find on screen, a page (tabs.ts findOnScreenTab). */
 export const TOOL_BUTTONS: readonly string[] = [...TOOL_IDS.filter((id) => !WIDGET_TOOLS.includes(id)), "find"];
 /** Every item a zone may hold. */
-const ITEMS: string[] = [...FIXED_ITEMS, "tray", "status", ...PART_IDS, ...TOOL_BUTTONS.map((id) => `tool:${id}`)];
+const ITEMS: string[] = [...FIXED_ITEMS, "tray", "status", ...PART_IDS, ...TOOL_BUTTONS.map((id) => `tool:${id}`), ...SYS_IDS.map((id) => `sys:${id}`)];
 
 /** The versions a widget offers on the bar, today's first; the id stays bare in the zones, so the fit, the sources and `barParts` do not change. */
-export type WidgetVariants = { weather: "temp" | "icon" | "condition" | "hours"; clock: "digital" | "analog" | "zones"; readings: "dials" | "bars" | "line"; timer: "countdown" | "ring" };
+export type WidgetVariants = { weather: "temp" | "icon" | "condition" | "hours"; clock: "digital" | "analog" | "zones"; readings: "dials" | "bars" | "line"; timer: "countdown" | "ring"; disk: "system" | "all" | "fullest" };
 export const WIDGET_VARIANTS: { [K in keyof WidgetVariants]: readonly WidgetVariants[K][] } = {
   weather: ["temp", "icon", "condition", "hours"],
   clock: ["digital", "analog", "zones"],
   readings: ["dials", "bars", "line"],
   timer: ["countdown", "ring"],
+  disk: ["system", "all", "fullest"],
 };
 
 export const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -143,6 +212,21 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     traySeeded: true,
     statusSeeded: true,
     trayShown: Array.isArray(s.trayShown) ? [...new Set(s.trayShown.filter((x): x is string => typeof x === "string"))] : [],
+    trayHidden: Array.isArray(s.trayHidden) ? [...new Set(s.trayHidden.filter((x): x is string => typeof x === "string"))] : [],
+    endTask: s.endTask === true,
+    combine: COMBINES.includes(s.combine as Combine) ? (s.combine as Combine) : d.combine,
+    emptyDouble: EMPTY_DOUBLES.includes(s.emptyDouble as EmptyDouble) ? (s.emptyDouble as EmptyDouble) : d.emptyDouble,
+    flashing: s.flashing !== false,
+    middleClick: s.middleClick === "close" ? "close" : "new",
+    windowCount: s.windowCount === true,
+    wheelVolume: s.wheelVolume === true,
+    allScreens: s.allScreens !== false,
+    appsOn: APPS_ONS.includes(s.appsOn as AppsOn) ? (s.appsOn as AppsOn) : d.appsOn,
+    clockAll: s.clockAll === true,
+    winKeys: s.winKeys === true,
+    position: s.position === "top" ? "top" : "bottom",
+    marks: MARK_STYLES.includes(s.marks as MarkStyle) ? (s.marks as MarkStyle) : "dot",
+    allDesktops: s.allDesktops === true,
   };
 }
 
@@ -163,11 +247,14 @@ export const trayOnBar = (zones: Record<Zone, BarItem[]>): boolean => ZONES.some
 /** Whether the spy that records the tray's icons runs: while the bar is on and a zone holds the tray; otherwise Explorer keeps the tray alone. */
 export const trayWanted = (t: TaskbarSettings): boolean => t.enabled && trayOnBar(t.zones);
 
+/** Whether the bar takes Windows' keys (`taskbar.keys`): while the bar is on and its switch is on. */
+export const keysWanted = (t: TaskbarSettings): boolean => t.enabled && t.winKeys;
+
 /** Whether Rust follows the network and the volume for the bar (`status.barOn`): while the bar is on and a zone holds Stato. */
 export const statusWanted = (t: TaskbarSettings): boolean => t.enabled && ZONES.some((z) => t.zones[z].includes("status"));
 
 /**
- * Each fixed item in exactly one zone and each widget in one at most: unknown ids dropped (a tool button for a tool the bar does not offer too), a duplicate kept at its first place
+ * Each fixed item in exactly one zone and each widget, tool or Windows button in one at most: unknown ids dropped (a tool button for a tool the bar does not offer too), a duplicate kept at its first place
  * reading left, center, right, and a missing fixed item back in its default zone at its default index (the end when the zone is
  * shorter). A missing widget, tray or Stato is off the bar; `seed` puts the default widgets back the same way (the tray and Stato come with normalizeTaskbar).
  */
@@ -268,6 +355,56 @@ export function dropPlace(id: BarItem, items: DropSlot[], zones: ZoneBox[] | nul
   return { zone, before, line: before === null ? last.x + last.w + gap / 2 - 1 : inZone[at].x - gap / 2 - 1 };
 }
 
+/** A pinned button drawn on the bar: its pin id and box, CSS px. */
+export type PinSlot = { id: string; x: number; w: number };
+
+/**
+ * Where pin `id` dragged (or files dropped, id null) to `x` lands among the shown pinned buttons: before the first whose centre is
+ * right of `x` (dropSlot), null past the last, and the left edge of the 2 px line, centred in the `gap`. Null with no pinned button
+ * shown, and on the pin's own place (before itself or right after it): nothing to write. The window buttons of one pinned app side by
+ * side (one button per window) are one slot, since a pin lands only before or after all of them.
+ */
+export function pinDrop(shown: PinSlot[], id: string | null, x: number, gap: number): { before: string | null; line: number } | null {
+  const slots: PinSlot[] = [];
+  for (const s of shown) {
+    const l = slots[slots.length - 1];
+    if (l?.id === s.id) slots[slots.length - 1] = { ...l, w: s.x + s.w - l.x };
+    else slots.push(s);
+  }
+  if (!slots.length) return null;
+  const at = dropSlot(slots, x);
+  const own = id === null ? -1 : slots.findIndex((s) => s.id === id);
+  if (own >= 0 && (at === own || at === own + 1)) return null;
+  const last = slots[slots.length - 1];
+  return at < slots.length ? { before: slots[at].id, line: slots[at].x - gap / 2 - 1 } : { before: null, line: last.x + last.w + gap / 2 - 1 };
+}
+
+/**
+ * `pinned` with `id` moved before `before` (to the end with null, past the pins behind "…" too); the same array when nothing changes
+ * or either id is not pinned, so nothing is written.
+ */
+export function movePinned(pinned: Favorite[], id: string, before: string | null): Favorite[] {
+  const from = pinned.findIndex((f) => f.id === id);
+  if (from < 0 || before === id) return pinned;
+  const rest = pinned.filter((_, i) => i !== from);
+  const at = before === null ? rest.length : rest.findIndex((f) => f.id === before);
+  if (at < 0 || at === from) return pinned;
+  return [...rest.slice(0, at), pinned[from], ...rest.slice(at)];
+}
+
+/** `pinned` with `add` put before `before` (at the end with null, or when `before` is no longer pinned), each id once: one already pinned stays where it is. */
+export function insertPinned(pinned: Favorite[], add: Favorite[], before: string | null): Favorite[] {
+  const fresh = add.filter((f, i) => !pinned.some((p) => p.id === f.id) && add.findIndex((a) => a.id === f.id) === i);
+  if (!fresh.length) return pinned;
+  const at = before === null ? -1 : pinned.findIndex((f) => f.id === before);
+  return at < 0 ? [...pinned, ...fresh] : [...pinned.slice(0, at), ...fresh, ...pinned.slice(at)];
+}
+
+/** The ids whose own pins Rust keeps at start (`taskbar.keepPins`): the bar's pinned apps and the Launcher's, which share them. */
+export function keptPinIds(pinned: Favorite[], launcher: Favorite[] | null): string[] {
+  return [...pinned, ...(launcher ?? [])].map((f) => f.id);
+}
+
 /** What changed on Windows' taskbar, on the bar's pinned apps: those pinned there at the end unless already pinned, those unpinned there taken off; the rest keep their order. */
 export function applyWindowsPins(pinned: Favorite[], change: { added: Favorite[]; removed: string[] }): Favorite[] {
   const kept = pinned.filter((f) => !change.removed.includes(f.id));
@@ -291,6 +428,10 @@ export interface Group {
   name: string;
   pins: Pin[];
   windows: Win[];
+  /** Rust can start a new instance from its first window (a relaunch command, or an unpackaged exe). Missing reads as false. */
+  spawnable?: boolean;
+  /** Rust can pin it from its window: spawnable, without entries, and not asking never to be pinned. Missing reads as false. */
+  pinnable?: boolean;
 }
 /** The groups in the bar's order, and the listed window in front (null: none). */
 export interface WindowList {
@@ -322,56 +463,206 @@ export interface BarButton {
   pin: Favorite | null;
   pins: Favorite[];
   windows: Win[];
+  /** As `Group.spawnable`: from any group a pinned app owns. */
+  spawnable?: boolean;
+  /** As `Group.pinnable`: never for a pinned app. */
+  pinnable?: boolean;
+  /** A button of one window (windowButtons): its title, the app's name when the window has none. Unset on an app's button. */
+  title?: string;
 }
 
 /**
  * The pinned apps first, in their order and with their saved names, each owning every group whose first pinned entry it is;
- * then the groups no pinned app owns, in Rust's order.
+ * then the groups no pinned app owns, in Rust's order. `spawnable` and `pinnable` are set only when true.
  */
 export function barButtons(pinned: Favorite[] | null, groups: Group[]): BarButton[] {
   const pins = pinned ?? [];
   const ids = new Set(pins.map((f) => f.id));
   const owner = (g: Group) => g.pins.find((p) => ids.has(p.id))?.id;
-  const buttons: BarButton[] = pins.map((f) => ({ key: f.id, name: f.name, pin: f, pins: [f], windows: groups.filter((g) => owner(g) === f.id).flatMap((g) => g.windows) }));
-  for (const g of groups) if (owner(g) === undefined) buttons.push({ key: g.key, name: g.name, pin: null, pins: g.pins, windows: g.windows });
+  const buttons: BarButton[] = pins.map((f) => {
+    const owned = groups.filter((g) => owner(g) === f.id);
+    return { key: f.id, name: f.name, pin: f, pins: [f], windows: owned.flatMap((g) => g.windows), ...(owned.some((g) => g.spawnable) && { spawnable: true }) };
+  });
+  for (const g of groups) {
+    if (owner(g) === undefined) buttons.push({ key: g.key, name: g.name, pin: null, pins: g.pins, windows: g.windows, ...(g.spawnable && { spawnable: true }), ...(g.pinnable && { pinnable: true }) });
+  }
   return buttons;
 }
+
+/**
+ * One button per window, for "When full" and "Never": each app's windows in the list's order, side by side where the app's button
+ * was, each with the app's pins and name; a pinned app with no window keeps its button, with no title. The key ends with the window's
+ * handle after a newline, which no group key or launcher id holds.
+ */
+export function windowButtons(buttons: BarButton[]): BarButton[] {
+  return buttons.flatMap((b) => (b.windows.length ? b.windows.map((w) => ({ ...b, key: `${b.key}\n${w.id}`, windows: [w], title: w.title || b.name })) : [b]));
+}
+
+/** The app's key of a button, also on a window's button: what goes to Rust for the app. */
+export const appKey = (b: BarButton) => b.key.split("\n")[0];
+
+/** A titled button's width at icon `size`, CSS px: seven icons wide while there is room, down to four (168 to 96 at 24). */
+export const labelSpan = (size: number) => ({ min: size * 4, max: size * 7 });
 
 /** The entry that starts the app, or null for a program Crest cannot start. */
 export const launchId = (b: BarButton): string | null => b.pin?.id ?? b.pins[0]?.id ?? null;
 
-/** A left click: start the app, bring its one window forward or minimize it, list its windows, or nothing. */
-export type Click = { kind: "launch"; id: string } | { kind: "toggle"; id: number } | { kind: "list" } | { kind: "none" };
+/**
+ * What a click on an app does: start an entry (as administrator with `admin`), start a new instance from listed window `id`
+ * (taskbar.launchWindow), bring its one window forward or minimize it, list its windows, nothing, bring window `id` forward, or
+ * close all its windows.
+ */
+export type Click =
+  | { kind: "launch"; id: string; admin?: true }
+  | { kind: "spawn"; id: number; admin?: true }
+  | { kind: "toggle"; id: number }
+  | { kind: "list" }
+  | { kind: "none" }
+  | { kind: "activate"; id: number }
+  | { kind: "closeAll" };
+/** The keys held with a click, and whether it came from the middle button. */
+export type ClickMods = { shift?: boolean; ctrl?: boolean; middle?: boolean };
 
-export function clickAction(b: BarButton): Click {
+/** A new instance, as the menu's first row, Shift+click and a middle click start it: its entry, else from its first window when Rust can, else none. */
+export function newInstance(b: BarButton, admin = false): Click {
+  const as = admin ? { admin: true as const } : {};
+  const id = launchId(b);
+  if (id !== null) return { kind: "launch", id, ...as };
+  return b.spawnable && b.windows.length ? { kind: "spawn", id: b.windows[0].id, ...as } : { kind: "none" };
+}
+
+/** Ctrl+click's window: the one after `active` in the app's order, round to the first; the first when none of its is in front. */
+export function cycleWindow(windows: Win[], active: number | null): number | null {
+  if (!windows.length) return null;
+  return windows[(windows.findIndex((w) => w.id === active) + 1) % windows.length].id;
+}
+
+/**
+ * A click: Shift or the middle button starts a new instance (the middle one closes the windows with `o.middle` "close"), Ctrl+Shift
+ * one as administrator, Ctrl goes through the app's windows from `o.active`; otherwise start the app, bring its one window forward
+ * or minimize it, or list its windows. Without windows Ctrl is a plain click.
+ */
+export function clickAction(b: BarButton, mods: ClickMods = {}, o: { active?: number | null; middle?: "new" | "close" } = {}): Click {
+  if (mods.middle) return o.middle === "close" && b.windows.length ? { kind: "closeAll" } : newInstance(b);
+  if (mods.shift) return newInstance(b, mods.ctrl === true);
+  const next = mods.ctrl ? cycleWindow(b.windows, o.active ?? null) : null;
+  if (next !== null) return { kind: "activate", id: next };
   if (b.windows.length > 1) return { kind: "list" };
   if (b.windows.length === 1) return { kind: "toggle", id: b.windows[0].id };
   const id = launchId(b);
   return id === null ? { kind: "none" } : { kind: "launch", id };
 }
 
+/** A Windows key Rust sends the bar (keys.rs Key): Win+number with its modifiers, Win+T (by 1) and Win+Shift+T (by -1), Win+B. */
+export type BarKeyMods = "plain" | "shift" | "ctrl" | "ctrlShift" | "alt";
+export type BarKey = { kind: "number"; n: number; mods: BarKeyMods } | { kind: "apps"; by: 1 | -1 } | { kind: "tray" };
+
+/** The button Win+n acts on, counting every button in the bar's order, those behind "…" too, as Windows counts its own; Win+0 is the tenth. */
+export const buttonAt = (buttons: BarButton[], n: number): BarButton | undefined => buttons[n - 1];
+
+/** What Win+n does: what a click with the same keys does (Shift, Ctrl+Shift, Ctrl); Alt opens the app's menu. */
+export function numberKey(b: BarButton | undefined, mods: BarKeyMods, active: number | null): Click | { kind: "menu" } {
+  if (!b) return { kind: "none" };
+  if (mods === "alt") return { kind: "menu" };
+  return clickAction(b, { shift: mods === "shift" || mods === "ctrlShift", ctrl: mods === "ctrl" || mods === "ctrlShift" }, { active });
+}
+
+/** Win+T among `count` app buttons from `at` (-1: none focused): the first (by 1) or the last (by -1), then round. */
+export const cycleKey = (at: number, count: number, by: 1 | -1): number => (at < 0 ? (by > 0 ? 0 : count - 1) : (at + by + count) % count);
+
+/** The bar's arrows among `count` buttons from `at`: Left and Up step back, Right and Down on, Home and End go to the ends; no wrap; undefined for other keys or none. */
+export function barArrow(key: string, at: number, count: number): number | undefined {
+  if (count <= 0) return undefined;
+  if (key === "Home") return 0;
+  if (key === "End") return count - 1;
+  const by = key === "ArrowLeft" || key === "ArrowUp" ? -1 : key === "ArrowRight" || key === "ArrowDown" ? 1 : 0;
+  return by ? Math.min(count - 1, Math.max(0, at + by)) : undefined;
+}
+
+/** What a screen reader hears after an app's name (N1), in this order: pinned, one window or several open, in front, asking for attention. */
+export type AppState = "pinned" | "one" | "many" | "front" | "attention";
+export function appState(b: BarButton, active: number | null): AppState[] {
+  const n = b.windows.length;
+  return [
+    ...(b.pin ? (["pinned"] as const) : []),
+    ...(n === 1 ? (["one"] as const) : n > 1 ? (["many"] as const) : []),
+    ...(b.windows.some((w) => w.id === active) ? (["front"] as const) : []),
+    ...(b.windows.some((w) => w.flashing) ? (["attention"] as const) : []),
+  ];
+}
+
 /** The mark under a button: a window asks for attention, one is in front, some are open, or none. */
 export type Indicator = "attention" | "front" | "open" | "none";
 
-export function indicator(b: BarButton, active: number | null): Indicator {
-  if (b.windows.some((w) => w.flashing)) return "attention";
+/** With `flashing` off an app asking for attention shows as any other. */
+export function indicator(b: BarButton, active: number | null, flashing = true): Indicator {
+  if (flashing && b.windows.some((w) => w.flashing)) return "attention";
   if (b.windows.some((w) => w.id === active)) return "front";
   return b.windows.length ? "open" : "none";
 }
 
-/** The right-click menu's entries, in order. */
-export type MenuEntry = "newWindow" | "pin" | "unpin" | "close" | "closeAll";
+/** The count on an app's icon: none under two windows, "9+" past nine. */
+export const windowBadge = (n: number): string | null => (n < 2 ? null : n > 9 ? "9+" : String(n));
 
-/** New window and Pin only for an app Crest can start (it has an entry), Unpin for a pinned one, Close for its open windows. */
-export function menuFor(b: BarButton): MenuEntry[] {
+/** A mouse's wheel notch in deltaY, and the volume one notch moves, in percent. */
+export const WHEEL_NOTCH = 100;
+export const WHEEL_STEP = 2;
+
+/** Whole notches in `rest` plus `deltaY`, up the wheel being louder, and what is left over: a touchpad's small deltas add up to one. */
+export function wheelSteps(rest: number, deltaY: number): { steps: number; rest: number } {
+  const total = rest - deltaY;
+  const steps = Math.trunc(total / WHEEL_NOTCH) || 0; // never -0
+  return { steps, rest: total - steps * WHEEL_NOTCH };
+}
+
+/** The count on the clock: none at 0, "99+" past 99. */
+export const countBadge = (n: number | null): string | null => (!n ? null : n > 99 ? "99+" : String(n));
+
+/** How long a file held over an app waits before its window comes forward, ms. */
+export const DRAG_REST = 600;
+
+/** The right-click menu's entries, in order. */
+export type MenuEntry = "launch" | "pin" | "unpin" | "reveal" | "endTask" | "close" | "closeAll";
+
+/**
+ * Windows' order: the app's name (a new instance) when newInstance has one; Unpin for a pinned app, Pin with an entry or a pinnable
+ * window; Open file location for an open app Rust can start from its window; End task with the switch on and a window open; Close
+ * for one window, Close all for more.
+ */
+export function menuFor(b: BarButton, o: { endTask: boolean } = { endTask: false }): MenuEntry[] {
   const entries: MenuEntry[] = [];
-  if (launchId(b) !== null) entries.push("newWindow");
+  if (newInstance(b).kind !== "none") entries.push("launch");
   if (b.pin) entries.push("unpin");
-  else if (b.pins.length) entries.push("pin");
+  else if (b.pins.length || b.pinnable) entries.push("pin");
+  if (b.windows.length && b.spawnable) entries.push("reveal");
+  if (b.windows.length && o.endTask) entries.push("endTask");
   if (b.windows.length === 1) entries.push("close");
   else if (b.windows.length > 1) entries.push("closeAll");
   return entries;
 }
+
+/** What Rust sends for an app's jump list (src-tauri/src/taskbar/jumplist.rs): rows by group, each opened by `token` and `id`. */
+export type JumpKind = "frequent" | "recent" | "custom" | "tasks";
+export interface JumpItem {
+  id: number;
+  title: string;
+  icon: string | null;
+  separator: boolean;
+}
+/** `title` is the app's own name for a custom category, untranslated; empty for the others. */
+export interface JumpGroup {
+  kind: JumpKind;
+  title: string;
+  items: JumpItem[];
+}
+export interface JumpList {
+  token: number;
+  groups: JumpGroup[];
+}
+
+const JUMP_HEADINGS: Record<Exclude<JumpKind, "custom">, string> = { frequent: "Häufig verwendet", recent: "Zuletzt verwendet", tasks: "Aufgaben" };
+/** A group's heading: Windows' words through t() (`key`), or the app's own words as they are (`text`). */
+export const jumpHeading = (g: JumpGroup): { key: string } | { text: string } => (g.kind === "custom" ? { text: g.title } : { key: JUMP_HEADINGS[g.kind] });
 
 /** The left edge of a menu centred over its anchor and kept `edge` px inside the window; a menu wider than the window starts at the left edge. */
 export const placeMenu = (anchorX: number, anchorW: number, menuW: number, viewW: number, edge = 8) =>
@@ -412,3 +703,40 @@ export const previewKey = (key: string, rtl: boolean): string =>
  */
 export const taskbarShown = (p: { native: boolean; mac: boolean; dev: boolean; offered: boolean; enabled: boolean; demo: boolean }): boolean =>
   p.demo || (p.native && !p.mac && (p.dev || p.offered || p.enabled));
+
+/** A window's state for its menu (Shift+right-click), as Rust reads it (tasks.rs `taskbar_window_menu`). */
+export type WindowState = { minimized: boolean; maximized: boolean; canMinimize: boolean; canMaximize: boolean; canSize: boolean };
+export type WindowEntry = "restore" | "move" | "size" | "minimize" | "maximize" | "close";
+
+/** The window menu's rows, each enabled as Windows' own system menu enables it; before the state comes, only Close. */
+export function windowMenuRows(s: WindowState | null): { entry: WindowEntry; enabled: boolean }[] {
+  const normal = !!s && !s.minimized && !s.maximized;
+  return [
+    { entry: "restore", enabled: !!s && (s.minimized || s.maximized) },
+    { entry: "move", enabled: normal },
+    { entry: "size", enabled: normal && s.canSize },
+    { entry: "minimize", enabled: !!s && s.canMinimize && !s.minimized },
+    { entry: "maximize", enabled: !!s && s.canMaximize && !s.maximized },
+    { entry: "close", enabled: true },
+  ];
+}
+
+export type GroupEntry = "cascade" | "stack" | "side" | "restoreAll" | "minimizeAll" | "closeAll";
+/** The group menu of an app with several windows, in Windows' order. */
+export const GROUP_MENU: readonly GroupEntry[] = ["cascade", "stack", "side", "restoreAll", "minimizeAll", "closeAll"];
+
+/** What Shift+right-click on an app opens: its window's menu with one window, the group's with several, its usual menu with none. */
+export const shiftMenu = (b: BarButton): "window" | "group" | "app" => (b.windows.length === 1 ? "window" : b.windows.length ? "group" : "app");
+
+/** Where a preview dragged from tile `from` lands among the tiles (`slots`, in reading order) at `x`: null on its own place or the one after it. */
+export function previewDrop(slots: { x: number; w: number }[], from: number, x: number): number | null {
+  const at = dropSlot(slots, x);
+  return at === from || at === from + 1 ? null : at;
+}
+
+/** `ids` with the one at `from` put before the one at `at` (indexes in `ids` as it is; `ids.length` puts it last). */
+export function movedOrder(ids: number[], from: number, at: number): number[] {
+  const rest = ids.filter((_, i) => i !== from);
+  rest.splice(at > from ? at - 1 : at, 0, ids[from]);
+  return rest;
+}

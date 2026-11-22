@@ -13,12 +13,17 @@ import { useToolSize } from "../../window/panel";
 import { limits } from "../../window/panelSize";
 import { fitIcon, placeMenu } from "../model";
 import { closePanel, panel, panelHeld, quickLayout, quickPage, trayDrag, type OpenPanel, type PanelContent } from "../panel";
-import { PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, TOOL_FALLBACK, TRAY_SIZE, fitPanel, toolPanelSize } from "../panelModel";
+import { DISKS_SIZE, PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, TOOL_FALLBACK, TRAY_SIZE, fitPanel, toolPanelSize } from "../panelModel";
+import { barFeed } from "../barStores";
 import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
+import { beyond, innerOff, popupAt, popupY } from "../position";
+import type { BarEdge } from "../model";
 import type { HitRect } from "./BarMenu";
+import { useBarEdge } from "./barEdge";
 import { TOOL_TITLE_ID, ToolPanel, useTabs } from "./ToolPanel";
 import { TrayPanel } from "./TrayPanel";
+import { DisksPanel, panelDisks } from "./DisksPanel";
 
 /** The panel's corners at 100 %, CSS px: the notch's open panel where it floats, without ears. */
 const RADIUS = 30;
@@ -37,7 +42,7 @@ const QuickPanel = lazy(() => import("./QuickPanel"));
 
 /**
  * The panel above the bar (panel.ts) in the notch's shape and springs: it grows up out of the item it opened from, centred on it and
- * kept inside the window, its bottom edge PANEL_GAP above the bar, the whole of it drawn at Crest's scale. It closes on Esc (the
+ * kept inside the window, PANEL_GAP past the bar on the screen's side, the whole of it drawn at Crest's scale. It closes on Esc (the
  * keyboard then goes back to the app in front), on a pointerdown anywhere else, when the window loses the focus and when the bar
  * hides; a pointerdown on an item that opens a panel is left to that item's click, which closes it or switches it. Its box takes the
  * bar's menu slot in the hit zone: the panel and the bar's menus are never open together. The apps behind "…" come drawn from the bar
@@ -48,8 +53,14 @@ export function BarPanel(props: { bar: RefObject<HTMLElement | null>; onPlace: (
   return <AnimatePresence>{open && <Panel key="panel" open={open} {...props} />}</AnimatePresence>;
 }
 
-/** The bar's top edge and the window's size, CSS px. The edge is measured, not worked out, so the gap holds for any shape of the bar. */
-const measure = (bar: RefObject<HTMLElement | null>) => ({ barTop: bar.current?.getBoundingClientRect().top ?? innerHeight, width: innerWidth, height: innerHeight });
+/**
+ * The bar's top and bottom, the room from the window's edge on the bar's side to its inner edge (position.ts innerOff) and the window's
+ * size, CSS px. The bar is measured, not worked out, so the gap holds for any shape of the bar.
+ */
+const measure = (bar: RefObject<HTMLElement | null>, edge: BarEdge) => {
+  const r = bar.current?.getBoundingClientRect() ?? { top: innerHeight, bottom: 0 };
+  return { span: { top: r.top, bottom: r.bottom }, off: innerOff(edge, r, innerHeight), width: innerWidth, height: innerHeight };
+};
 
 /**
  * The panel's size at 100 % for what it shows, before it is fitted to the room above the bar; null keeps the size the panel has.
@@ -67,6 +78,8 @@ function usePanelSize(shows: PanelContent, apps: number): { w: number; h: number
   const folded = trayFolded.use();
   const quick = quickLayout.use();
   const page = quickPage.use();
+  const disks = panelDisks.use();
+  if (shows.kind === "disks") return DISKS_SIZE((disks ?? barFeed.get().disks).length);
   if (shows.kind === "tray") return TRAY_SIZE(fitIcon(height, iconSize), (folded ? icons : splitTray(icons, trayShown).hidden).length);
   if (shows.kind === "apps") return TRAY_SIZE(fitIcon(height, iconSize), apps);
   if (shows.kind === "quick") return page ? QUICK_PAGE_SIZE(page.rows, page.extra) : QUICK_SIZE(quick);
@@ -97,21 +110,22 @@ function Panel({
   // Only the glass reads the shape's top as it springs, and the panel has no glass: it stays put.
   const top = useMotionValue(0);
   const zoom = settings.use().behavior.scale / 100;
+  const edge = useBarEdge();
 
   // Read as the panel opens and on a resize.
-  const [view, setView] = useState(() => measure(bar));
+  const [view, setView] = useState(() => measure(bar, edge));
   useEffect(() => {
-    const onResize = () => setView(measure(bar));
+    const onResize = () => setView(measure(bar, edge));
     addEventListener("resize", onResize);
     return () => removeEventListener("resize", onResize);
-  }, [bar]);
+  }, [bar, edge]);
 
   // A content whose size is not known yet keeps the size the panel had before it.
   const asked = usePanelSize(open.content, apps.count);
   const kept = useRef(asked);
   if (asked) kept.current = asked;
   const natural = asked ?? kept.current;
-  const size = natural && fitPanel(natural, { w: view.width - 2 * PANEL_EDGE, h: view.barTop - PANEL_GAP - PANEL_EDGE }, zoom);
+  const size = natural && fitPanel(natural, { w: view.width - 2 * PANEL_EDGE, h: view.height - view.off - PANEL_GAP - PANEL_EDGE }, zoom);
 
   // Its final box on screen, which the hit zone takes in full as soon as it opens and gives up as soon as it starts closing. While a
   // tray icon is dragged the zone is the whole window, or the window would let the pointer go as it left the panel.
@@ -121,7 +135,7 @@ function Panel({
   const placed = present && size !== null;
   // Only whether a drag runs: the pointer's moves would draw the whole panel again.
   const dragging = useSyncExternalStore(trayDrag.subscribe, () => trayDrag.get() !== null);
-  const box = !placed ? null : dragging ? { x: 0, y: 0, w: view.width, h: view.height } : { x: left, y: view.barTop - PANEL_GAP - h, w, h };
+  const box = !placed ? null : dragging ? { x: 0, y: 0, w: view.width, h: view.height } : { x: left, y: popupY(edge, view.off + PANEL_GAP, h, view.height), w, h };
   // Null is reported once: a menu can take the slot while the panel fades, and a resize meanwhile must leave its box alone.
   useLayoutEffect(() => {
     onPlace(box);
@@ -185,7 +199,7 @@ function Panel({
       // A tool's select menu is portaled into the body (controls.tsx) but belongs to the panel, as it belongs to the notch (Notch.tsx).
       if (target instanceof Element && target.closest("[data-notch-menu]")) return;
       if (target instanceof Element && target.closest("[aria-haspopup=dialog]")) return;
-      if (e.clientY >= view.barTop && e.clientX >= anchor.x && e.clientX <= anchor.x + anchor.w) return;
+      if (!beyond(edge, e.clientY, view.span) && e.clientX >= anchor.x && e.clientX <= anchor.x + anchor.w) return;
       // A press on a tray icon kept on the bar may drag it into the tray's panel, which stays open for it.
       if (tray && target instanceof Element && target.closest("[data-tray]")) return;
       closePanel();
@@ -203,7 +217,7 @@ function Panel({
       offBlur();
       void offShown?.then((off) => off());
     };
-  }, [present, view.barTop, anchor.x, anchor.w, tray]);
+  }, [present, edge, view.span, anchor.x, anchor.w, tray]);
 
   return (
     <motion.div
@@ -213,13 +227,13 @@ function Panel({
       data-notch-hit
       role="dialog"
       aria-label={
-        open.content.kind === "tray" ? t("Infobereich") : open.content.kind === "apps" ? t("Weitere Apps") : open.content.kind === "quick" ? t("Schnelleinstellungen") : undefined
+        open.content.kind === "tray" ? t("Infobereich") : open.content.kind === "apps" ? t("Weitere Apps") : open.content.kind === "quick" ? t("Schnelleinstellungen") : open.content.kind === "disks" ? t("Speicherplatz") : undefined
       }
       aria-labelledby={open.content.kind === "tool" ? TOOL_TITLE_ID : undefined}
       // Closing, it takes no key and no click: its zone is already gone.
       inert={!present}
       className="fixed left-0 -translate-x-1/2"
-      style={{ bottom: view.height - view.barTop + PANEL_GAP, x, pointerEvents: present ? undefined : "none" }}
+      style={{ ...popupAt(edge, view.off + PANEL_GAP), x, pointerEvents: present ? undefined : "none" }}
     >
       {/* Drawn at Crest's scale, as the notch's panel is; the box around it is in the window's px. An ink of its own sets the text's
           colour again (body's is worked out from the theme's label) and is marked, so forced colours still override it (themes.css).
@@ -237,8 +251,8 @@ function Panel({
                 <motion.div
                   // A switch between two tools keeps the tool panel, which crossfades the tool below its own header (ToolPanel.tsx).
                   key={open.content.kind}
-                  // Laid out at its full size from the bottom centre, so it stays put while the shape grows up around it.
-                  className="absolute bottom-0 left-1/2"
+                  // Laid out at its full size from the centre of its side towards the bar, so it stays put while the shape grows around it.
+                  className={`absolute ${edge === "top" ? "top-0" : "bottom-0"} left-1/2`}
                   style={{ width: size.w, height: size.h, marginLeft: -size.w / 2 }}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1, transition: content.enter }}
@@ -250,6 +264,8 @@ function Panel({
                     apps.grid
                   ) : open.content.kind === "tool" ? (
                     <ToolPanel tool={open.content.tool} />
+                  ) : open.content.kind === "disks" ? (
+                    <DisksPanel />
                   ) : (
                     <Suspense fallback={null}>
                       <QuickPanel />

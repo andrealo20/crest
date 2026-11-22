@@ -1,19 +1,19 @@
 import { t } from "../i18n";
-import { barOn, settings, updateSettings } from "../settings/store";
+import { barEdge, settings, updateSettings } from "../settings/store";
 import { Row, Segmented } from "../ui/controls";
 import { hasTaskbar, overTaskbar, type Edge } from "./edge";
 import { monitor, monitorMetrics } from "./monitor";
 
 /**
  * Settings rows: the screen edge the notch and the line hang from, and (with a taskbar on that edge) whether from the screen's edge or the taskbar's. The capsule floats freely, so it has neither.
- * While Crest's bar is on, the bottom edge is the bar's: the row leaves it out and says so.
+ * While Crest's bar is on, its edge is the bar's: the row leaves it out and says so.
  */
 export function EdgeSettings() {
   const s = settings.use();
   monitor.use();
   if (s.display.idleStyle === "capsule") return null;
   const { edge, anchor } = s.dock;
-  const bar = barOn(s);
+  const bar = barEdge(s);
   const m = monitorMetrics();
   const taskbar = hasTaskbar(edge, m.width, m.height, { x: m.workLeft, y: m.workTop, width: m.workWidth, height: m.workHeight });
   const setDock = (patch: Partial<typeof s.dock>) => updateSettings((cur) => ({ dock: { ...cur.dock, ...patch } }));
@@ -24,7 +24,11 @@ export function EdgeSettings() {
         hint={
           <>
             {t("Geschlossen auch an einen anderen Rand ziehen")}
-            {bar && <span className="mt-1 block">{t("Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist")}</span>}
+            {bar && (
+              <span className="mt-1 block">
+                {bar === "top" ? t("Oben steht die Crest-Taskleiste: Der obere Rand kommt zurück, wenn sie aus ist") : t("Unten steht die Crest-Taskleiste: Der untere Rand kommt zurück, wenn sie aus ist")}
+              </span>
+            )}
           </>
         }
       >
@@ -36,8 +40,8 @@ export function EdgeSettings() {
           // A new edge starts at its middle and with its own default anchor.
           onChange={(next) => updateSettings((cur) => ({ dock: { edge: next, anchor: "auto" }, display: { ...cur.display, offset: 0 } }))}
           options={[
-            { value: "top", label: t("Rand oben") },
-            ...(bar ? [] : [{ value: "bottom" as const, label: t("Rand unten") }]),
+            ...(bar === "top" ? [] : [{ value: "top" as const, label: t("Rand oben") }]),
+            ...(bar === "bottom" ? [] : [{ value: "bottom" as const, label: t("Rand unten") }]),
             { value: "left", label: t("Rand links") },
             { value: "right", label: t("Rand rechts") },
           ]}
