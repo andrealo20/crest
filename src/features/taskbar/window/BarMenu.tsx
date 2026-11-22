@@ -18,7 +18,7 @@ import { useBarEdge } from "./barEdge";
 /** Room a menu keeps from the window's top edge, CSS px, as placeMenu keeps from its sides. */
 const EDGE = 8;
 /** A menu's rows: its commands and its settings. */
-const ROWS = "[role^=menuitem]:not(:disabled)";
+export const ROWS = "[role^=menuitem]:not(:disabled)";
 
 /** A zone of the page that takes the pointer, CSS px. */
 export interface HitRect {

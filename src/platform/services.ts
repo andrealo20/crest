@@ -626,7 +626,8 @@ export const status = {
     const keys = ["power", "network", "sound", "microphone"] as const;
     const heard = new Set<string>();
     const seed = (s: StatusSeed) => {
-      const fresh = keys.filter((k) => s[k] !== null && !heard.has(k));
+      // A null microphone is news as well (none, or the widget not on the bar yet): a face mounted again dims instead of keeping the last state.
+      const fresh = keys.filter((k) => (s[k] !== null || k === "microphone") && !heard.has(k));
       if (fresh.length) handler(Object.fromEntries(fresh.map((k) => [k, s[k]])));
     };
     const offs = [

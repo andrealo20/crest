@@ -148,7 +148,9 @@ function ProcessesSource() {
   const ram = variantOf(settings.use().taskbar.variants, "processes") === "ram";
   const { processes, stats } = system.use();
   const list = processes ? (ram ? processes.mem : processes.cpu) : [];
-  useSlice("topApps", list.slice(0, 3).map((p) => topApp(p, ram, stats?.memTotal ?? 0, navigator.hardwareConcurrency)).filter((a): a is TopApp => a !== null));
+  const apps = list.slice(0, 3).map((p) => topApp(p, ram, stats?.memTotal ?? 0, navigator.hardwareConcurrency)).filter((a): a is TopApp => a !== null);
+  // No list yet, or sysinfo's first one after each rest at 0 % for all: the bar keeps the apps it shows rather than its icon.
+  useSlice("topApps", apps.length ? apps : barFeed.get().topApps);
   return null;
 }
 

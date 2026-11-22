@@ -11,33 +11,46 @@ import { useSlice } from "./slice";
 
 /** How often the exchange rate is read: the reference rates change once a working day, and the Converter's own read shares Rust's cache. */
 const CURRENCY_EVERY = 60 * 60_000;
+/** How soon a failed exchange rate is read again, only while it fails. */
+const RETRY_MS = 60_000;
 /** How often the coin is read: CoinGecko's keyless limit is shared with the Depot, and Rust answers from its cache within a minute. */
 const COIN_EVERY = 2 * 60_000;
 
 /**
  * The Converter's pair at one unit's rate, in the feed's currency slice: read now, every CURRENCY_EVERY, and again when the base or
  * the pair changes (picked in the Converter, which saves it for every window). Through the base, as the Converter converts, so both
- * share the rates. A failed read keeps the last rate; another pair's last rate is not sent under this pair's name.
+ * share the rates. A failed read keeps the last rate and tries again after RETRY_MS (a start before the network is up); another
+ * pair's last rate is not sent under this pair's name.
  */
 export function CurrencySource(): null {
   const base = effectiveBase(settings.use().trading.base);
   const [from, to] = pairOf(lastPair.use(), base);
   const [rate, setRate] = useState(() => barFeed.get().currency);
   useEffect(() => {
-    let on = true;
+    let on = true, retry = 0;
+    const again = () => {
+      window.clearTimeout(retry);
+      retry = window.setTimeout(read, RETRY_MS);
+    };
     const read = () =>
       void fetchRates(base, [], [from, to]).then(
         (r) => {
+          if (!on) return;
           const one = convertMoney(1, from, to, r);
-          if (on && one !== null) setRate({ from, to, rate: one });
+          if (one !== null) setRate({ from, to, rate: one });
+          // Keyed on Frankfurter failing, not on a missing rate, so a pair it does not list is not read once a minute.
+          if (r.failed.includes("frankfurter")) again();
         },
-        () => {},
+        () => {
+          if (on) again();
+        },
       );
     read();
     const id = window.setInterval(read, CURRENCY_EVERY);
     return () => {
       on = false;
       window.clearInterval(id);
+      window.clearTimeout(retry);
     };
   }, [base, from, to]);
   useSlice("currency", rate && rate.from === from && rate.to === to ? rate : null);

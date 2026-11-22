@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { t } from "../../../i18n";
 import { taskbar } from "../../../platform/services";
 import type { JumpList } from "../model";
-import { Row } from "./BarMenu";
+import { ROWS, Row } from "./BarMenu";
 
 /** The rows the menu lists at most, as Rust reads them (jumplist.rs RECENT_ITEMS). */
 const RECENT_ROWS = 12;
@@ -25,6 +25,11 @@ export function RecentMenu({ close }: { close: () => void }) {
     };
   }, []);
   const rows = typeof list === "object" && list ? list.groups.flatMap((g) => g.items).filter((i) => !i.separator).slice(0, RECENT_ROWS) : [];
+  // The rows come after BarMenu's focus on opening found only the disabled loading row: the first one takes focus as they come,
+  // in this menu and not one still fading out (inert), without scrolling as BarMenu focuses.
+  useLayoutEffect(() => {
+    if (rows.length) document.querySelector<HTMLElement>(`[role=menu]:not([inert]) ${ROWS}`)?.focus({ preventScroll: true });
+  }, [rows.length > 0]);
   if (typeof list !== "object" || !list || !rows.length) {
     const why = list === null ? t("Wird geladen …") : list === "off" ? t("Windows merkt sich keine geöffneten Elemente") : t("Nichts zuletzt geöffnet");
     return <Row label={why} disabled onClick={() => {}} />;

@@ -74,6 +74,8 @@ function StopwatchFace({ text, running, laps }: { text: string; running: boolean
       <span className="tabular text-footnote font-medium" style={{ marginInlineStart: SW_GAP, width: digitsWidth(text) }}>
         {text}
       </span>
+      {/* Paused shows only as the dimmed colour: a screen reader hears it too. */}
+      {!running && <span className="sr-only">{` ${t("Pausiert")}`}</span>}
       {laps > 0 && (
         <span className="flex items-center text-label-3" style={{ marginInlineStart: LAPS_GAP, gap: FLAG_GAP }}>
           <Flag size={FLAG} weight="fill" aria-hidden className="shrink-0" />

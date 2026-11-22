@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BellSimple, Copy, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, SquaresFour, Sun, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
 import { fade, springs } from "../../../design/motion";
 import { t } from "../../../i18n";
@@ -80,6 +80,9 @@ export function SysButton({ id, item, dragged, onOpen }: { id: SysId; item: Omit
 function ThemeButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean }) {
   const dark = systemDark.use();
   const size = Math.round(item.size * 0.8);
+  // MotionConfig keeps a transform string, so reduced motion picks no turn here, as BarMenu does: a plain crossfade.
+  const reduced = useReducedMotion() === true;
+  const away = (deg: number) => (reduced ? "rotate(0deg) scale(1)" : `rotate(${deg}deg) scale(0.6)`);
   return (
     <Item
       {...item}
@@ -95,9 +98,9 @@ function ThemeButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "chi
           <motion.span
             key={dark ? "moon" : "sun"}
             className="col-start-1 row-start-1 flex"
-            initial={{ opacity: 0, transform: "rotate(-45deg) scale(0.6)" }}
+            initial={{ opacity: 0, transform: away(-45) }}
             animate={{ opacity: 1, transform: "rotate(0deg) scale(1)", transition: springs.snappy }}
-            exit={{ opacity: 0, transform: "rotate(45deg) scale(0.6)", transition: fade }}
+            exit={{ opacity: 0, transform: away(45), transition: fade }}
           >
             {dark ? <Moon size={size} weight="regular" /> : <Sun size={size} weight="regular" />}
           </motion.span>

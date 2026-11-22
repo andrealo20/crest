@@ -18,7 +18,8 @@ const LINE_W = CRYPTO_SIZE.w - 24, LINE_H = 88;
 export function CryptoPanel() {
   const coin = barFeed.use().crypto;
   const depot = settings.use().tools.some((tool) => tool.id === "trading" && tool.enabled);
-  if (!coin) return <p className="flex h-full items-center justify-center px-5 text-center text-caption text-label-3">{t("Wird geladen …")}</p>;
+  // No coin is what the widget's dimmed icon says too (unknown to CoinGecko, or offline); a read that lands replaces it.
+  if (!coin) return <p className="flex h-full items-center justify-center px-5 text-center text-caption text-label-3">{t("Nicht verfügbar")}</p>;
   const tone = TONE[changeTone(coin.change)];
   const pts = spanPoints(coin.line, LINE_W, LINE_H), line = pts.map((p) => p.join(",")).join(" ");
   return (

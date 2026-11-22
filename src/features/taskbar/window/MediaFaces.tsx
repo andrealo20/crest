@@ -106,8 +106,8 @@ function TrackFace({ variant: v, np, paused, hovered, loop, sample }: {
   loop: boolean;
   sample?: boolean;
 }) {
-  // Only the ring and the line show the time; they step once a second, and never while the bar rests or the song is paused.
-  useSecondTick(!sample && !paused && np.isPlaying && (v === "disc" || v === "track"));
+  // Only the ring and the line show the time; they step once a second, and never while the bar rests, the song is paused or has no length (a stream).
+  useSecondTick(!sample && !paused && np.isPlaying && np.duration > 0 && (v === "disc" || v === "track"));
   const share = playedShare(np, sample ? np.updatedAt : undefined);
   const still = hovered || paused || !np.isPlaying;
   if (v === "play")
