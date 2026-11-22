@@ -8,9 +8,10 @@ let endPress: (() => void) | null = null;
 let dragged = false;
 
 /**
- * A press on a bar button (a tray icon on the bar or in the panel, a widget, a tool button, Stato), followed until the pointer lets
- * go: past `threshold` CSS px it drags, and `onDrag` gets each move. It ends on the release, a cancel, a lost capture (its button
- * taken away meanwhile) or Esc while dragging, then `onEnd` runs; `dragged` outlives it. A second press ends the first.
+ * A press on a bar button (a tray icon on the bar or in the panel, a widget, a tool button, Stato) or on a tool of the notch's tool
+ * bar, followed until the pointer lets go: past `threshold` CSS px it drags, and `onDrag` gets each move. It ends on the release, a
+ * cancel, a lost capture (its button taken away meanwhile) or Esc while dragging, then `onEnd` runs; `dragged` outlives it. A second
+ * press ends the first.
  */
 export function startPress(e: ReactPointerEvent<HTMLElement>, o: { threshold: number; onDrag: (x: number, y: number) => void; onEnd: (cancelled: boolean) => void }): void {
   if (e.button !== 0) return;

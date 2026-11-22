@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { AnimatePresence, animate, frame, motion, useMotionValue, useReducedMotion, useTransform, type MotionValue, type Transition } from "motion/react";
 import { GearSix, PushPin } from "../ui/iconset";
 import { content, springs } from "../design/motion";
@@ -40,7 +40,13 @@ import { contrastMore, dropSnapshot, glassBroken, reducedTransparency, requestSn
 import { dropLive, liveForHud, liveFrame, liveSession, liveSupport, restartLive, wantLive } from "./glass/live";
 import { ClosedResize, ClosedResizeBar, closedEdit, closedLive } from "./ClosedResize";
 import { appDrop, drop, takeDropped } from "../platform/drop";
-import { hoverDelayMs, settings } from "../settings/store";
+import { hoverDelayMs, settings, updateSettings } from "../settings/store";
+import { toolOff } from "../settings/tools";
+import { createStore } from "../lib/store";
+import { dragThreshold } from "../features/taskbar/panelModel";
+import { inBox, type Box } from "../features/taskbar/position";
+import { pressDragged, startPress } from "../features/taskbar/window/press";
+import { DropTrash, useTrashArmed } from "../features/taskbar/window/DropTrash";
 import { useUnseen } from "../lib/changelog";
 import { nav, navigate, openOn, takeOpenTarget } from "./nav";
 import { navRoute } from "./navRoute";
@@ -71,6 +77,8 @@ const POINTED_MS = 1500;
 const MEMORY_LOW_AFTER_MS = 20_000;
 /** After a drag ends without files, the native drop's paths may still be on their way for this long. */
 const DROP_WAIT_MS = 500;
+/** A tool dragged off the open panel's tool bar (Dock), by its id, and the pointer, in client px; null while none is (DockDrop). */
+const toolDrag = createStore<{ id: string; x: number; y: number; pointerId: number } | null>(null);
 
 export function Notch() {
   const { status, open, close, dismiss, toggle, onPointerEnter, onPointerLeave } = useNotchState();
@@ -779,7 +787,34 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
   const more = useScrollEdges(strip);
   const fade = more.start || more.end ? `linear-gradient(90deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
   const capsule = useRef<HTMLDivElement>(null);
-  const { pointed, handlers } = useBarDrop(capsule, strip, activeId, tabs.map((tab) => tab.id).join());
+  const { pointed, handlers, settle } = useBarDrop(capsule, strip, activeId, tabs.map((tab) => tab.id).join());
+  const root = useRef<HTMLDivElement>(null);
+  // The tool dragged, only its id: the pointer's moves would draw the whole bar again (DockDrop follows them).
+  const dragged = useSyncExternalStore(toolDrag.subscribe, () => toolDrag.get()?.id ?? null);
+  /**
+   * A press on a tool: past dragThreshold it drags the tool off the bar (DockDrop), with the panel held open meanwhile. The last
+   * tool on the bar has no press, as its switch in Settings > Tools stays on. Esc ends the drag (press.ts) and, as the notch's own
+   * Esc does not ask whether it was taken, closes the panel too; nothing is written either way.
+   */
+  const dragFrom = (id: string) => (e: ReactPointerEvent<HTMLElement>) => {
+    let held = false;
+    startPress(e, {
+      threshold: dragThreshold(e.pointerType),
+      onDrag: (x, y) => {
+        if (!held) {
+          held = true;
+          holdOpen(true);
+        }
+        toolDrag.set({ id, x, y, pointerId: e.pointerId });
+      },
+      onEnd: () => {
+        if (!held) return;
+        holdOpen(false);
+        toolDrag.set(null);
+        settle();
+      },
+    });
+  };
   const pill = useRef<HTMLSpanElement>(null);
   usePlainDrop(pill, !liquid);
   // Each store hook runs on every render, as for `urgent` in Notch().
@@ -790,7 +825,7 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
   // Under the drop the pointed icon grows as much as the lens shows; without the glass, where its sliders do not show, as at their default.
   const mag = reduced ? 1 : dropLens(liquid ? refraction : 100)[1];
   return (
-    <div className="flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
+    <div ref={root} className="relative flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
       <div
         ref={capsule}
         {...handlers}
@@ -820,6 +855,8 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
               pointed={pointed === tab.id}
               liquid={liquid}
               lens={pointed === tab.id ? mag : 1}
+              onPointerDown={tabs.length > 1 ? dragFrom(tab.id) : undefined}
+              dimmed={dragged === tab.id}
               onClick={() => navigate(tab.id)}
             />
           ))}
@@ -837,7 +874,72 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
           onClick={() => navigate(settingsTab.id, badge ? "updates" : null)}
         />
       </div>
+      <DockDrop root={root} tabs={tabs} />
     </div>
+  );
+}
+
+/**
+ * A tool dragged off the tool bar (toolDrag): its icon under the pointer and, above the Dock, the trash. Let go on the trash once
+ * it is armed (useTrashArmed) and the tool is switched off in its place, as its switch in Settings > Tools does; anywhere else
+ * nothing changes, as the order is Settings' to change. Both inside the panel, which the shape clips, over the tool view.
+ */
+function DockDrop({ root, tabs }: { root: RefObject<HTMLDivElement | null>; tabs: NotchTab[] }) {
+  const drag = toolDrag.use();
+  const dragging = drag !== null;
+  const disc = useRef<HTMLSpanElement>(null);
+  // Where CSS put it, in client px as the pointer is; the outer span, so the armed swell never moves the box.
+  const r = drag && disc.current?.getBoundingClientRect();
+  const trash = r ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;
+  const armed = useTrashArmed(!!drag && !!trash && inBox(trash, drag.x, drag.y));
+  // The trash as drawn, for the release: one not armed yet takes nothing.
+  const armedTrash = useRef<Box | null>(null);
+  armedTrash.current = armed ? trash : null;
+  const shown = useRef<string[]>([]);
+  shown.current = tabs.map((tab) => tab.id);
+  // Over the glass the panel's red is the glass's, held to its veil and not to this glyph's --color-notch; the theme's own red is.
+  // The cover's backdrop gives the panel Dark's ink whole, which holds already.
+  const theme = activeTheme.use();
+  const backdrop = coverBackdrop.use() !== null;
+  // As ItemDrop: a layout effect, taken on the way down, before the press ends the drag.
+  useLayoutEffect(() => {
+    if (!dragging) return;
+    const onUp = (m: PointerEvent) => {
+      const d = toolDrag.get(), box = armedTrash.current;
+      if (!d || d.pointerId !== m.pointerId || !box || !inBox(box, d.x, d.y)) return;
+      // The page and the release run in one task, so these are the saved tools of this moment; the last tool left writes nothing.
+      const cur = settings.get().tools, next = toolOff(cur, d.id, shown.current);
+      if (next !== cur) updateSettings({ tools: next });
+    };
+    addEventListener("pointerup", onUp, true);
+    return () => removeEventListener("pointerup", onUp, true);
+  }, [dragging]);
+
+  const at = drag && root.current?.getBoundingClientRect();
+  const I = drag ? tabs.find((tab) => tab.id === drag.id)?.icon : undefined;
+  // Over the browser's CSS zoom (1 in the app), as glass/bar.ts measures: the panel's slide cancels out against the Dock's rect.
+  const z = viewZoom();
+  return (
+    <>
+      {/* Over anything a tool view lifts (up to z-20), and under the ghost after it. */}
+      <DropTrash
+        ref={disc}
+        shown={dragging}
+        armed={armed}
+        edge="bottom"
+        className="absolute bottom-full left-1/2 z-30 mb-2 -ml-5"
+        style={backdrop ? undefined : { ["--color-red" as string]: theme.vars["--color-red"] }}
+      />
+      {drag && at && I && (
+        // Under Material lifted on a tonal disc at level 4, as on the bar; as far out as it pads in, so the icon stays centred.
+        <span
+          className="pointer-events-none absolute top-0 left-0 z-30 flex text-label material:-m-1.5 material:p-1.5 material:rounded-full material:bg-secondary-container material:text-on-secondary-container material:shadow-level4"
+          style={{ transform: `translate(${(drag.x - at.left) / z - 9}px, ${(drag.y - at.top) / z - 9}px)` }}
+        >
+          <I size={18} weight="bold" />
+        </span>
+      )}
+    </>
   );
 }
 
@@ -878,6 +980,9 @@ function DockButton(props: {
   lens: number;
   onClick: () => void;
   badge?: boolean;
+  /** A tool's press, which can drag it off the bar (Dock), and whether it is the one dragged. */
+  onPointerDown?: (e: ReactPointerEvent<HTMLElement>) => void;
+  dimmed?: boolean;
 }) {
   const I = props.icon;
   const color = useHue(props.hue);
@@ -894,10 +999,15 @@ function DockButton(props: {
       aria-label={props.label}
       aria-current={props.active ? "page" : undefined}
       title={props.label}
-      onClick={props.onClick}
+      onPointerDown={props.onPointerDown}
+      // The click a drag's release makes opens nothing; a key's click (no count) never ends a drag.
+      onClick={(e) => {
+        if (!(props.onPointerDown && e.detail > 0 && pressDragged())) props.onClick();
+      }}
+      // A draggable one keeps a sideways swipe for scrolling the strip; a move up drags it.
       className={`pressable relative flex h-9 w-[42px] min-w-6 shrink items-center justify-center rounded-[12px] material:rounded-[18px] transition-colors duration-150 ${
         props.active ? "text-label material:text-on-secondary-container" : props.pointed ? "text-label" : color ? "" : "text-label-2 hover:text-label"
-      }`}
+      } ${props.onPointerDown ? "touch-pan-x" : ""} ${props.dimmed ? "opacity-40" : ""}`}
       style={color ? { color } : undefined}
     >
       {/* The current tool's mark under the icon, sliding from tool to tool along the bar only: when the panel changes height it stays

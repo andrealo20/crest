@@ -19,6 +19,11 @@ const SYS_ITEMS: readonly string[] = SYS_IDS.map((id) => `sys:${id}`);
 export const isSys = (id: string): id is SysItem => SYS_ITEMS.includes(id);
 /** A Windows button's id. */
 export const sysOf = (id: SysItem): SysId => id.slice("sys:".length) as SysId;
+/**
+ * What the trash takes while it is dragged along the bar (ItemDrop): the widgets, the tool buttons, Windows' buttons and Stato, as
+ * Remove in Settings does. Never the tray, whose icons would all be out of reach, nor Start, the apps or the Crest button.
+ */
+export const trashable = (id: string): id is Removable => isWidget(id) || isTool(id) || isSys(id) || id === "status";
 /** Whether a Windows button shows on the primary bar only: Windows widgets, the input language, the privacy indicators and the Recycle Bin, which Windows keeps on the main taskbar; the others are on every bar. */
 export const sysPrimaryOnly = (id: SysItem): boolean => sysOf(id) !== "search" && sysOf(id) !== "taskview" && sysOf(id) !== "desktop";
 /** Whether the notch polls the privacy state for the bar: on, with its privacy button on it. */

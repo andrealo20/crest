@@ -142,7 +142,13 @@ export function useBarDrop(capsule: RefObject<HTMLDivElement | null>, strip: Ref
       if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(null);
     },
   };
-  return { pointed, handlers };
+  // A drag off the bar (Notch.tsx Dock) keeps the pressed tool pointed and squashed under its capture, and ends with the pointer
+  // anywhere, so neither a pointerleave nor a pointerup reaches the capsule: the drop goes back to the current tool and springs back.
+  const settle = () => {
+    setHovered(null);
+    release();
+  };
+  return { pointed, handlers, settle };
 }
 
 /** The Dock's fills fade for this long as the glass comes and goes (Notch.tsx FILL_FADE), and a frame more. */
