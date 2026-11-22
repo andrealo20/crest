@@ -25,6 +25,9 @@ type Placed = (Origin, (i32, i32), (i32, i32));
 #[tauri::command]
 pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, dpr: Option<f64>, app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(LABEL) {
+        // A second open can find the window before the first one has queued its subclass: queued ahead of this show too.
+        #[cfg(windows)]
+        crate::display::keep_out_of_alt_tab(&window);
         return window.show().map_err(|e| e.to_string());
     }
     let config = app.config().app.windows.iter().find(|w| w.label == LABEL).cloned().ok_or("Timer window missing in config")?;
