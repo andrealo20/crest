@@ -597,6 +597,7 @@ pub fn run() {
             taskbar::disks::taskbar_disk_scan_stop,
             #[cfg(windows)]
             taskbar::tasks::taskbar_all_desktops,
+            #[cfg(windows)]
             taskbar::tasks::taskbar_end_task,
             #[cfg(windows)]
             taskbar::tasks::taskbar_window_menu,
