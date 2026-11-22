@@ -433,8 +433,10 @@ export function Empty(props: {
   action?: ReactNode;
 }) {
   const I = props.icon;
+  // Safe centring starts at the top in a box shorter than its content, so a scrolling parent reaches all of it; plain centring is
+  // the fallback for older WebKit.
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-1 px-6 pb-2 text-center">
+    <div className="flex h-full flex-col items-center justify-center justify-center-safe gap-1 px-6 pb-2 text-center">
       {I && <I size={22} weight="duotone" className="mb-1 text-label-3" />}
       <span className="text-body text-label-2">{props.title}</span>
       {props.text && (

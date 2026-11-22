@@ -105,14 +105,17 @@ export function ClockPanel() {
   if (!notices || !calendar) return null;
   return (
     <div className="flex h-full flex-col">
-      <Half tab={notices} id="bar-panel-notices-title" className="min-h-0 flex-1" />
+      <Half tab={notices} id="bar-panel-notices-title" className="min-h-0 flex-1" scrolls />
       <Half tab={calendar} id="bar-panel-calendar-title" className="shrink-0" height={CLOCK_CALENDAR.h} />
     </div>
   );
 }
 
-/** One half of the clock's panel: ToolPanel's header and body, with a header slot of its own. */
-function Half({ tab, id, className, height }: { tab: NotchTab; id: string; className: string; height?: number }) {
+/**
+ * One half of the clock's panel: ToolPanel's header and body, with a header slot of its own. A half that `scrolls` can get shorter
+ * than its view's empty state (CLOCK_NOTICES_MIN), which then scrolls instead of losing its top and its button.
+ */
+function Half({ tab, id, className, height, scrolls }: { tab: NotchTab; id: string; className: string; height?: number; scrolls?: boolean }) {
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   return (
     <div className={`flex flex-col ${className}`} style={{ height }}>
@@ -122,7 +125,7 @@ function Half({ tab, id, className, height }: { tab: NotchTab; id: string; class
         </h2>
         <div ref={setSlot} className="grid" />
       </div>
-      <div className="relative min-h-0 flex-1 overflow-clip">
+      <div className={`relative min-h-0 flex-1 ${scrolls ? "overflow-y-auto [scrollbar-width:none]" : "overflow-clip"}`}>
         <div className="absolute inset-0">
           <SlotScope.Provider value={slot}>
             <tab.View />

@@ -124,7 +124,7 @@ export const fitPanel = (size: { w: number; h: number }, room: { w: number; h: n
 
 /** The clock's Calendar half at 100 %: the Calendar's own panel (its notch size, 560 x 340, less the tool bar), as the month needs all of it. */
 export const CLOCK_CALENDAR = { w: 560, h: 294 };
-/** The least the clock's Notices half keeps, its title and about two notices, CSS px. */
+/** The least the clock's Notices half keeps, its title and one notice, CSS px; the taller off state with Turn on scrolls there (ToolPanel.tsx). */
 export const CLOCK_NOTICES_MIN = 120;
 /** The clock's panel at 100 %: the Notices over the Calendar, 220 px for them before the room lowers it. */
 export const CLOCK_SIZE = { w: 560, h: CLOCK_CALENDAR.h + 220 };

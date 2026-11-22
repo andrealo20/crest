@@ -177,7 +177,7 @@ test("the clock's panel has the notch send the calendar and the notices, as a to
 });
 
 test("the clock's panel keeps the calendar as tall as its own panel and shows it alone where the notices would get under 120 px", () => {
-  // The Calendar tool's notch size (tabs.ts), less the notch's tool bar.
+  // 560 x 340 as in tabs.ts (kept in step by hand), less the notch's tool bar.
   assert.deepEqual(CLOCK_CALENDAR, toolPanelSize({ w: 560, h: 340 }));
   const room = { w: 1904, h: 568 };
   assert.deepEqual(fitClock(room, 1), { size: { w: 560, h: 514 }, alone: false });

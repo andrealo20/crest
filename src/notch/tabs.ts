@@ -135,6 +135,7 @@ export const tabs: NotchTab[] = ([
   { id: "launcher", hue: "orange", label: "Launcher", icon: RocketLaunch, size: { w: 520, h: 210 }, View: LauncherView },
   { id: "github", hue: "violet", label: "GitHub", icon: GithubLogo, size: { w: 520, h: 236 }, View: GithubView },
   { id: "leetcode", hue: "amber", label: "LeetCode", icon: LeetcodeLogo, size: { w: 520, h: 248 }, View: LeetcodeView },
+  // Its size is the bar clock's Calendar half too (CLOCK_CALENDAR, taskbar/panelModel.ts): change both.
   { id: "calendar", hue: "red", label: "Kalender", icon: CalendarBlank, size: { w: 560, h: 340 }, View: CalendarView },
   { id: "notices", hue: "amber", label: "Mitteilungen", icon: BellSimple, size: { w: 560, h: 320 }, View: NoticesView },
   { id: "capture", hue: "cyan", label: "Erfassen", icon: Camera, size: { w: 620, h: 336 }, View: CaptureView },
