@@ -156,13 +156,13 @@ fn start_of(pin: &OwnPin) -> (String, Option<String>) {
     }
 }
 
-/// What `launcher::icon_png` draws an own pin from. None for a shortcut to another machine: the shell would open a connection
-/// there to draw it.
+/// What `launcher::icon_png` draws an own pin from. None for a shortcut to another machine, or an internet shortcut whose icon
+/// or URL is there: the shell would open a connection there to draw it.
 pub(crate) fn icon_source(id: &str) -> Option<String> {
     match find(id).map(|p| p.target) {
         Some(Target::Exe { path, .. }) => Some(path),
         Some(Target::Command { file, .. }) => Some(file),
-        Some(Target::Link { exe, .. }) => (!exe.as_deref().is_some_and(super::pins::remote)).then(|| id.to_string()),
+        Some(Target::Link { exe, .. }) => (!exe.as_deref().is_some_and(super::pins::remote) && !super::pins::url_remote(Path::new(id))).then(|| id.to_string()),
         // A shortcut in Windows' folder not read yet: Windows' own taskbar draws it the same way.
         None => windows_link(id).then(|| id.to_string()),
     }
@@ -425,20 +425,30 @@ mod tests {
         let (url, txt) = (url.to_string_lossy().into_owned(), dir.join("notes.txt").to_string_lossy().into_owned());
         std::fs::write(&txt, "x").unwrap();
         let here = std::env::current_exe().unwrap().to_string_lossy().into_owned();
+        let away = dir.join("Away.url");
+        std::fs::write(&away, "[InternetShortcut]\r\nURL=steam://rungameid/2\r\nIconFile=\\\\10.0.0.5\\s\\game.ico\r\n").unwrap();
+        let away = away.to_string_lossy().into_owned();
         let entry = launcher::fixture(r"shell:AppsFolder\Crest.Test", Some(&here));
+        let game = launcher::fixture(r"shell:AppsFolder\steam://rungameid/1", None);
         let (u, t, h) = (url.clone(), txt.clone(), here.clone());
-        let (from_url, from_txt, from_exe, own_exe) = launcher::on_sta(move || (pin_of(&[], &u), pin_of(&[], &t), pin_of(&[entry], &h), pin_of(&[], &h))).unwrap();
-        // An internet shortcut stays the file itself, started and drawn from it.
+        let (from_url, listed_url, from_txt, from_exe, own_exe) =
+            launcher::on_sta(move || (pin_of(&[], &u), pin_of(&[game], &u), pin_of(&[], &t), pin_of(&[entry], &h), pin_of(&[], &h))).unwrap();
+        // An internet shortcut stays the file itself, started and drawn from it, unless Start lists its URL.
         let (app, own) = from_url.expect("a .url is an app");
         assert_eq!(app.id, url);
         assert_eq!(own.unwrap().target, Target::Link { path: url.clone(), aumid: None, exe: None });
+        let (app, own) = listed_url.unwrap();
+        assert_eq!((app.id.as_str(), own), (r"shell:AppsFolder\steam://rungameid/1", None));
         assert!(from_txt.is_none());
         // An exe with a Start entry is that entry, no second pin; without one, its own pin.
         let (app, own) = from_exe.unwrap();
         assert_eq!((app.id.as_str(), own), (r"shell:AppsFolder\Crest.Test", None));
         assert_eq!(own_exe.unwrap().1.unwrap().target, Target::Exe { path: here, aumid: None });
-        with_saved(&serde_json::json!([{ "id": url, "name": "Game", "kind": "link", "path": url }]).to_string(), || {
+        let pins = serde_json::json!([{ "id": url, "name": "Game", "kind": "link", "path": url }, { "id": away, "name": "Away", "kind": "link", "path": away }]);
+        with_saved(&pins.to_string(), || {
             assert!(known(&url) && launch_spec(&url) == Some((url.clone(), None)) && icon_source(&url) == Some(url.clone()));
+            // Its icon on another machine: not drawn, so the shell opens no connection there.
+            assert!(known(&away) && icon_source(&away).is_none());
             std::fs::remove_dir_all(&dir).unwrap();
             // Gone: no longer an id Rust starts or draws from, so the Launcher says it is not installed any more.
             assert!(!known(&url) && launch_spec(&url).is_none());

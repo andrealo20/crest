@@ -34,7 +34,10 @@ export function showLaunchError(id: string, code: unknown) {
 }
 
 /** Pins apps Rust made of their files at the end, each once; one already pinned stays where it is. */
-function pinApps(apps: Favorite[]) {
+async function pinApps(apps: Favorite[]) {
+  // Not seeded yet: the first list pins the AI apps before these, or it never would (it only seeds while favorites is null).
+  // shortcut: after a failed first read the AI apps are not seeded any more; a "seeded" flag in settings would keep them for a later read.
+  if (settings.get().launcher.favorites === null) await loadApps();
   updateSettings((s) => ({ launcher: { ...s.launcher, favorites: insertPinned(s.launcher.favorites ?? [], apps, null) } }));
 }
 
@@ -44,7 +47,7 @@ export async function addAppFromFile(): Promise<boolean> {
   holdOpen(true);
   try {
     const app = await launcher.addFile();
-    if (app) pinApps([app]);
+    if (app) await pinApps([app]);
     return app !== null;
   } finally {
     holdOpen(false);
@@ -130,5 +133,5 @@ export function startLauncher() {
   // A hotkey whose app did not start: Rust opens the notch on this tool, the message says why.
   launcher.onMissing(showLaunchError);
   // Exes and shortcuts dropped on the open Launcher, pinned by Rust.
-  launcher.onPinned(pinApps);
+  launcher.onPinned((apps) => void pinApps(apps));
 }

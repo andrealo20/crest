@@ -6,7 +6,7 @@ import { status, taskbar, type RecycleBin } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { normalizeFavorites } from "../launcher/apps";
 import { feedStores, panelStores } from "./barStores";
-import { applyWindowsPins, keysWanted, statusWanted, trayOnBar, type TaskbarSettings, type WindowList } from "./model";
+import { applyWindowsPins, keptPinIds, keysWanted, statusWanted, trayOnBar, type TaskbarSettings, type WindowList } from "./model";
 
 /** In the bar's window: the open windows grouped by app, as Rust last sent them. */
 export const barWindows = createStore<WindowList>({ groups: [], active: null });
@@ -115,7 +115,7 @@ export function startTaskbar() {
     // a pin Rust just saved and the settings change that names it.
     if (enabled && pinned !== null && !kept) {
       kept = true;
-      void taskbar.keepPins([...pinned, ...(settings.get().launcher.favorites ?? [])].map((f) => f.id)).catch(() => {});
+      void taskbar.keepPins(keptPinIds(pinned, settings.get().launcher.favorites)).catch(() => {});
     }
     // Once as the bar comes on, for what changed while Crest was closed, then on each change Rust hears.
     if (enabled && !offPins) {

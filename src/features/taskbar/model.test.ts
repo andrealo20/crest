@@ -30,6 +30,7 @@ import {
   fitIcon,
   indicator,
   insertPinned,
+  keptPinIds,
   labelSpan,
   menuFor,
   menuKey,
@@ -732,4 +733,10 @@ test("the Recycle Bin's name says empty before the first count, then the count",
   assert.deepEqual(recycleName(0), ["Papierkorb ist leer"]);
   assert.deepEqual(recycleName(1), ["Papierkorb: 1 Element"]);
   assert.deepEqual(recycleName(7), ["Papierkorb: {n} Elemente", { n: 7 }]);
+});
+
+test("Rust keeps the own pins of the Launcher's apps along with the bar's", () => {
+  const f = (id: string) => ({ id, name: id });
+  assert.deepEqual(keptPinIds([f("tool.exe")], [f("Hades.url"), f("Claude")]), ["tool.exe", "Hades.url", "Claude"]);
+  assert.deepEqual(keptPinIds([f("a")], null), ["a"]);
 });

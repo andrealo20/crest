@@ -102,6 +102,12 @@ pub(super) fn shortcut(apps: &[App], path: &Path) -> Option<(String, Option<OwnP
     // An empty id is none, as on a window (tasks.rs).
     let aumid = unsafe { item.GetString(&APP_USER_MODEL_ID) }.ok().and_then(|p| unsafe { crate::controls::take(p) }).filter(|id| !id.is_empty());
     let exe = unsafe { launcher::shortcut_exe(&item) };
+    // An internet shortcut's Start entry is listed by its URL (a Steam game's `steam://rungameid/...`).
+    if aumid.is_none() && exe.is_none() {
+        if let Some(app) = url_value(path, "URL").and_then(|url| launcher::entries_for(apps, Some(&url), "").into_iter().next()) {
+            return Some((app.id, None));
+        }
+    }
     let (id, link) = link_or_entry(apps, text, aumid, exe);
     let pin = link.map(|target| {
         let name = unsafe { launcher::display_name(&item, SIGDN_NORMALDISPLAY) };
@@ -184,6 +190,24 @@ fn remembered(last: Option<&[String]>, now: &[String], removed: &[String]) -> Ve
 /// A path on another machine (`\\host\share\x.exe`, from a restored backup, say): probing it would open a connection there.
 pub(super) fn remote(id: &str) -> bool {
     id.as_bytes().get(..2).is_some_and(|start| start.iter().all(|b| matches!(b, b'\\' | b'/')))
+}
+
+/// A value of an internet shortcut (a `.url`, an ini file) such as `URL` or `IconFile`; None for another file or without it.
+fn url_value(path: &Path, key: &str) -> Option<String> {
+    if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("url")) {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&std::fs::read(path).ok()?).into_owned();
+    text.lines().find_map(|line| line.split_once('=').filter(|(k, _)| k.trim().eq_ignore_ascii_case(key)).map(|(_, v)| v.trim().to_string()))
+}
+
+/// Whether an internet shortcut's icon or target is on another machine (`remote`, a `file://host/` URL too), which the shell
+/// would connect to as it draws the file.
+pub(super) fn url_remote(path: &Path) -> bool {
+    ["IconFile", "URL"].iter().filter_map(|key| url_value(path, key)).any(|v| {
+        let v = v.get(..5).filter(|s| s.eq_ignore_ascii_case("file:")).map_or(v.as_str(), |_| &v[5..]);
+        remote(v) && !v.starts_with("///")
+    })
 }
 
 /// The apps pinned on Windows' taskbar, in Windows' order, for the bar's pinned list. An error only when the Start list

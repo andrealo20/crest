@@ -400,6 +400,11 @@ export function insertPinned(pinned: Favorite[], add: Favorite[], before: string
   return at < 0 ? [...pinned, ...fresh] : [...pinned.slice(0, at), ...fresh, ...pinned.slice(at)];
 }
 
+/** The ids whose own pins Rust keeps at start (`taskbar.keepPins`): the bar's pinned apps and the Launcher's, which share them. */
+export function keptPinIds(pinned: Favorite[], launcher: Favorite[] | null): string[] {
+  return [...pinned, ...(launcher ?? [])].map((f) => f.id);
+}
+
 /** What changed on Windows' taskbar, on the bar's pinned apps: those pinned there at the end unless already pinned, those unpinned there taken off; the rest keep their order. */
 export function applyWindowsPins(pinned: Favorite[], change: { added: Favorite[]; removed: string[] }): Favorite[] {
   const kept = pinned.filter((f) => !change.removed.includes(f.id));
