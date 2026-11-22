@@ -31,6 +31,6 @@ export function fillSample(): void {
       })),
       active: apps,
     });
-  barStatus.set({ power: mockStatus.seed().power, network: { kind: "wireless", wifi: true, bars: 4, ssid: "Crest Lab" }, sound: { level: 40, muted: false } });
+  barStatus.set({ power: mockStatus.seed().power, network: { kind: "wireless", wifi: true, bars: 4, ssid: "Crest Lab" }, sound: { level: 40, muted: false }, microphone: false });
   barFeed.set(sampleFeed(settings.get().closed.readings));
 }

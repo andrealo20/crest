@@ -6,7 +6,7 @@ import { status, taskbar, type RecycleBin } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { normalizeFavorites } from "../launcher/apps";
 import { feedStores, panelStores } from "./barStores";
-import { applyWindowsPins, keptPinIds, keysWanted, statusWanted, trayOnBar, type TaskbarSettings, type WindowList } from "./model";
+import { applyWindowsPins, keptPinIds, keysWanted, micWanted, statusWanted, trayOnBar, type TaskbarSettings, type WindowList } from "./model";
 
 /** In the bar's window: the open windows grouped by app, as Rust last sent them. */
 export const barWindows = createStore<WindowList>({ groups: [], active: null });
@@ -35,6 +35,7 @@ export function startTaskbar() {
   let hides: boolean | null = null;
   let tray: boolean | null = null;
   let statusOn: boolean | null = null;
+  let micOn: boolean | null = null;
   let spread: string | null = null;
   let keys: boolean | null = null;
   let desktops: boolean | null = null;
@@ -98,11 +99,14 @@ export function startTaskbar() {
       tray = wantTray;
       void taskbar.trayOn(wantTray).catch(() => {});
     }
-    // Likewise, whether the bar is on and shows Stato: Rust follows the network and the volume for it only then.
+    // Likewise, whether the bar is on and shows Stato, or the Microphone widget: Rust follows the network and the volume, or the
+    // microphone and the volume, only then.
     const wantStatus = statusWanted(settings.get().taskbar);
-    if (wantStatus !== statusOn) {
+    const wantMic = micWanted(settings.get().taskbar);
+    if (wantStatus !== statusOn || wantMic !== micOn) {
       statusOn = wantStatus;
-      void status.barOn(wantStatus).catch(() => {});
+      micOn = wantMic;
+      void status.barOn(wantStatus, wantMic).catch(() => {});
     }
     // One try per start: a failed read leaves the list to the next start, and an app pinned meanwhile is never overwritten.
     if (enabled && pinned === null && !seeded) {
