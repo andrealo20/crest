@@ -6,6 +6,7 @@ import { playAlarm, stopAlarm } from "../../lib/sound";
 import { settings } from "../../settings/store";
 import { focusSoundFor, setFocusSound } from "./focusSound";
 import { clampDuration, customsOf, remember } from "./duration";
+import { STOPWATCH_IDLE, lapAt, toggleAt, type Stopwatch } from "./stopwatch";
 
 export type TimerMode = "focus" | "break";
 
@@ -47,8 +48,15 @@ export const focusMuted = createStore(false);
 /** The Timer tool's page in this window: the countdown or the stopwatch; not saved. */
 export const timerTab = createStore<"timer" | "stopwatch">("timer");
 
+/** The stopwatch, saved as when it started rather than as a count: it keeps counting while Crest is closed, as the timer does, and every window shows the same one. */
+export const stopwatch = createStore<Stopwatch>(STOPWATCH_IDLE, { persist: "stopwatch" });
+
 /** Start or pause, a lap, and back to zero for the stopwatch. */
-export const stopwatchActions = { toggle: () => {}, lap: () => {}, reset: () => {} };
+export const stopwatchActions = {
+  toggle: () => stopwatch.set((s) => toggleAt(s, Date.now())),
+  lap: () => stopwatch.set((s) => lapAt(s, Date.now())),
+  reset: () => stopwatch.set(STOPWATCH_IDLE),
+};
 
 export function remainingOf(s: TimerState, now = Date.now()): number {
   if (s.endsAt === null) return s.remaining;

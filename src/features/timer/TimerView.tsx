@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, ArrowCounterClockwise, Check, CheckCircle, Pause, PencilSimple, PictureInPicture, Play, SpeakerSimpleHigh, SpeakerSimpleSlash, X } from "../../ui/iconset";
+import { AlarmIcon, ArrowCounterClockwise, Check, CheckCircle, ClockClockwise, Flag, Pause, PencilSimple, PictureInPicture, Play, SpeakerSimpleHigh, SpeakerSimpleSlash, X } from "../../ui/iconset";
 import { content, pulse, springs } from "../../design/motion";
 import {
   focusMuted,
@@ -10,19 +10,25 @@ import {
   ringing,
   setFocusMuted,
   stopRinging,
+  stopwatch,
+  stopwatchActions,
   timer,
   timerActions,
+  timerTab,
   useRemaining,
+  useSecondTick,
   type TimerMode,
 } from "./store";
 import { Look } from "./Look";
-import { modeTint } from "./looks";
+import { lookTint, modeTint } from "./looks";
 import { durationText, parseDuration, wheelStep } from "./duration";
+import { MAX_LAPS, elapsedOf, elapsedText, idle, lapText, splits, swPhase } from "./stopwatch";
 import { detached, toggleDetached } from "./detach";
 import { settings } from "../../settings/store";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { isNative } from "../../platform/native";
 import { isNotchWindow } from "../../lib/windowKind";
+import { wheelSideways } from "../window/panel";
 import { t } from "../../i18n";
 
 const modeLabel: Record<TimerMode, string> = { focus: "Fokus", break: "Pause" };
@@ -31,7 +37,7 @@ const modeLabel: Record<TimerMode, string> = { focus: "Fokus", break: "Pause" };
 const detachable = isNative && isNotchWindow;
 
 /*
- *   [Focus | Break]               15  25  45  [2:30]  [37]  [✎]
+ *   [Focus | Break | ⏱]           15  25  45  [2:30]  [37]  [✎]
  *   24:59  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  [↺] [⏯]
  *
  * Custom time: ✎ opens a field for minutes, M:SS or H:MM:SS, or scroll over the big time
@@ -39,12 +45,37 @@ const detachable = isNative && isNotchWindow;
  */
 export function TimerView() {
   const s = timer.use();
+  const tab = timerTab.use();
+  // The bar's Show laps opens the stopwatch; whatever opens the Timer next finds the countdown again.
+  useEffect(() => {
+    views++;
+    return () => {
+      views--;
+      // Later, and only with no view left: StrictMode unmounts a view and mounts it again at once in development.
+      window.setTimeout(() => {
+        if (!views) timerTab.set("timer");
+      });
+    };
+  }, []);
   return (
     <>
       <TimerHeader />
-      {s.finished ? <FinishedView /> : <SetupView />}
+      {tab === "stopwatch" ? <StopwatchView /> : s.finished ? <FinishedView /> : <SetupView />}
     </>
   );
+}
+
+/** Timer views shown in this window. */
+let views = 0;
+
+/**
+ * A segment's click: the stopwatch only shows its page; Focus or Break shows the countdown and selects that mode only when it is
+ * another, with its last remembered or its default duration, so a click on the selected mode keeps the time set.
+ */
+function pickTab(m: TimerMode | "stopwatch") {
+  timerTab.set(m === "stopwatch" ? "stopwatch" : "timer");
+  const s = timer.get();
+  if (m !== "stopwatch" && m !== s.mode) timerActions.select(m, remembered(s, m)[0] ?? presets[m][m === "focus" ? 1 : 0]);
 }
 
 /** Mutes the focus sound for now, and pops the timer into its own small always-on-top window, or takes it back. */
@@ -159,11 +190,11 @@ function SetupView() {
     <div className="flex h-full flex-col justify-between px-5 pt-1 pb-2">
       <div className="flex h-7 items-center justify-between">
         <Segmented
-          disabled={running}
+          locked={running ? s.mode : null}
           value={s.mode}
           onChange={(m) => {
             setEditing(false);
-            timerActions.select(m, remembered(s, m)[0] ?? presets[m][m === "focus" ? 1 : 0]);
+            pickTab(m);
           }}
         />
         {/* Chips and duration field are stacked right-aligned, so nothing jumps sideways on switch. */}
@@ -306,24 +337,115 @@ function DurationInput(props: { initial: number; tint: string; onDone: (seconds:
   );
 }
 
-function Segmented({ value, onChange, disabled }: { value: TimerMode; onChange: (m: TimerMode) => void; disabled?: boolean }) {
+/** Focus, Break and the stopwatch, the last as its icon alone. While a timer runs (`locked`, its mode) the other mode is off; the stopwatch never is. */
+function Segmented({ value, onChange, locked }: { value: TimerMode | "stopwatch"; onChange: (m: TimerMode | "stopwatch") => void; locked: TimerMode | null }) {
   return (
     <div className="flex rounded-full bg-fill-1 p-0.5 material:overflow-hidden material:bg-transparent material:shadow-[inset_0_0_0_1px_var(--color-label-3)]">
-      {(Object.keys(modeLabel) as TimerMode[]).map((m) => (
+      {([...(Object.keys(modeLabel) as TimerMode[]), "stopwatch"] as const).map((m) => (
         <button
           key={m}
           onClick={() => onChange(m)}
-          disabled={disabled}
-          className={`relative h-6 rounded-full px-3 text-caption font-medium transition-colors duration-150 disabled:opacity-40 ${
+          disabled={locked !== null && m !== "stopwatch" && m !== locked}
+          aria-label={m === "stopwatch" ? t("Stoppuhr") : undefined}
+          title={m === "stopwatch" ? t("Stoppuhr") : undefined}
+          className={`relative h-6 rounded-full text-caption font-medium transition-colors duration-150 disabled:opacity-40 ${m === "stopwatch" ? "px-2.5" : "px-3"} ${
             m === value ? "text-on-secondary-container" : "text-label-3 hover:text-label-2"
           }`}
         >
           {m === value && (
             <motion.span layoutId="timer-mode" className="absolute inset-0 rounded-full bg-secondary-container" transition={springs.snappy} />
           )}
-          <span className="relative">{t(modeLabel[m])}</span>
+          {m === "stopwatch" ? (
+            <span className="relative flex">
+              <ClockClockwise size={13} weight="bold" />
+            </span>
+          ) : (
+            <span className="relative">{t(modeLabel[m])}</span>
+          )}
         </button>
       ))}
+    </div>
+  );
+}
+
+/*
+ *   [Focus | Break | ⏱]               3 0:41.2   2 1:03.7   1 0:58.0
+ *   12:34  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  [⚑] [⏯]
+ *
+ * The laps newest first, each its own time; the wheel scrolls them sideways. Lap while it runs, Reset while it is paused.
+ */
+function StopwatchView() {
+  const s = stopwatch.use();
+  const tm = timer.use();
+  const { look, color } = settings.use().timer;
+  const running = s.startedAt !== null;
+  // Ticks when the counted time's own second changes, only while it runs and this page shows.
+  const elapsed = elapsedOf(s, useSecondTick(running, swPhase(s)));
+  const tint = lookTint(color);
+  const laps = splits(s.laps);
+  return (
+    <div className="flex h-full flex-col justify-between px-5 pt-1 pb-2">
+      <div className="flex h-7 items-center gap-3">
+        <Segmented locked={tm.endsAt !== null ? tm.mode : null} value="stopwatch" onChange={pickTab} />
+        <div ref={wheelSideways} role="list" className="flex h-6 min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]">
+          {laps.map((_, i) => {
+            // Newest first, the first pushed to the end of the row by its auto margin; with more than fit it scrolls from the newest.
+            const n = laps.length - i, time = lapText(laps[n - 1]);
+            return (
+              <span
+                key={n}
+                role="listitem"
+                aria-label={t("Runde {n}: {time}", { n, time })}
+                className={`tabular flex h-6 shrink-0 items-center gap-1 rounded-full bg-fill-1 px-2.5 text-caption font-medium whitespace-nowrap text-label-2 ${i ? "" : "ms-auto"}`}
+              >
+                <span aria-hidden className="text-label-3">{n}</span>
+                <span aria-hidden>{time}</span>
+              </span>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="flex min-w-0 flex-1">
+          {/* Analog would read the minutes and seconds as a time of day; its sweep is the second's round of the minute. */}
+          <Look
+            look={look === "analog" ? "clean" : look}
+            remaining={60 - ((elapsed / 1000) % 60)}
+            duration={60}
+            running={running}
+            mode="focus"
+            tint={tint}
+            h={44}
+            clock={{ text: elapsedText(elapsed), caption: t("Stoppuhr") }}
+          />
+        </div>
+        <div className="flex gap-1.5">
+          {running ? (
+            <RoundButton label={t("Runde")} onClick={stopwatchActions.lap} disabled={s.laps.length >= MAX_LAPS}>
+              <Flag size={16} weight="bold" />
+            </RoundButton>
+          ) : (
+            <RoundButton label={t("Zurücksetzen")} onClick={stopwatchActions.reset} disabled={idle(s)}>
+              <ArrowCounterClockwise size={16} weight="bold" />
+            </RoundButton>
+          )}
+          <RoundButton label={running ? t("Pause") : t("Start")} onClick={stopwatchActions.toggle} tint={tint}>
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span
+                key={running ? "pause" : "play"}
+                className="flex"
+                initial={{ opacity: 0, transform: "scale(0.6)" }}
+                animate={{ opacity: 1, transform: "scale(1)" }}
+                exit={{ opacity: 0, transform: "scale(0.6)" }}
+                transition={content.exit}
+              >
+                {running ? <Pause size={18} weight="fill" /> : <Play size={18} weight="fill" />}
+              </motion.span>
+            </AnimatePresence>
+          </RoundButton>
+        </div>
+      </div>
     </div>
   );
 }
