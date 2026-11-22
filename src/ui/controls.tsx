@@ -610,6 +610,7 @@ export function Select<T extends string>(props: {
   trigger?: { content: ReactNode; className: string; label: string; menuWidth?: number };
   /** The menu's tallest height, CSS px, for a long list with room around it; still clamped to the room above or below. MENU_MAX without it. */
   menuMax?: number;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -681,6 +682,7 @@ export function Select<T extends string>(props: {
       {props.trigger ? (
         <button
           onClick={() => setOpen((o) => !o)}
+          disabled={props.disabled}
           aria-label={props.trigger.label}
           aria-expanded={open}
           title={props.trigger.label}
@@ -691,7 +693,8 @@ export function Select<T extends string>(props: {
       ) : (
         <button
           onClick={() => setOpen((o) => !o)}
-          className="pressable pressable-fill flex h-7 w-full items-center justify-between gap-1 rounded-[8px] bg-fill-2 px-2 text-footnote text-label material:rounded-full roomy:h-8"
+          disabled={props.disabled}
+          className="pressable pressable-fill flex h-7 w-full items-center justify-between gap-1 rounded-[8px] bg-fill-2 px-2 text-footnote text-label disabled:opacity-35 material:rounded-full roomy:h-8"
         >
           <span className="truncate" style={current?.font ? { fontFamily: current.font } : undefined}>
             {current?.label}
