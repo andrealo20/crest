@@ -1,5 +1,5 @@
 //! The commands of the bar's widgets (Windows only): the page's hello, which has the notch send it the widgets' data, the
-//! clock's click and the settings pages of the quick panel and its pages.
+//! clock's and the Notification centre button's click, and the settings pages of the quick panel and its pages.
 
 use tauri::{AppHandle, Emitter, WebviewWindow};
 
@@ -16,8 +16,9 @@ pub fn taskbar_hello(app: AppHandle, window: WebviewWindow) -> bool {
     bar::shown(window.label())
 }
 
-/// A click on the clock of a bar on another monitor opens Windows 11's notification centre, which holds the calendar, as a click on
-/// Windows' own clock does; the main bar's clock opens Crest's notices and calendar instead.
+/// A click on the clock of a bar on another monitor, or on the bar's Notification centre button, opens Windows 11's notification
+/// centre, which holds the calendar, as a click on Windows' own clock does; the main bar's clock opens Crest's notices and calendar
+/// instead.
 #[tauri::command]
 pub fn taskbar_calendar() -> Result<(), String> {
     crate::open_url("ms-actioncenter:")

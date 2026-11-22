@@ -1,10 +1,13 @@
 import { useEffect } from "react";
-import { BellSimple, Copy, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, SquaresFour, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
+import { AnimatePresence, motion } from "motion/react";
+import { BellSimple, Copy, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, SquaresFour, Sun, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
+import { fade, springs } from "../../../design/motion";
 import { t } from "../../../i18n";
-import { taskbar } from "../../../platform/services";
+import { systemDark } from "../../../notch/glass/media";
+import { systemControls, taskbar } from "../../../platform/services";
 import { privacy } from "../../privacy/store";
 import { inputLang, startInput } from "../input";
-import { privacyParts } from "../widgets";
+import { privacyParts, widgetWidth } from "../widgets";
 import { recycleName, type SysId } from "../model";
 import { recycleBin } from "../store";
 import { holdBriefly } from "./hold";
@@ -37,17 +40,19 @@ const PRIVACY = {
 const LINE = "block whitespace-nowrap text-center text-footnote leading-tight font-medium text-label";
 
 /**
- * One of Windows' buttons. Search, Task view and Windows widgets are an icon each, grown as Start is; Show desktop is a narrow sliver
- * with a 1 px line on its leading edge, as Windows' corner, without magnifying and without a name above it (a screen reader still
- * reads it). A click opens Windows' own (start.rs `taskbar_shell`), the bar held up while it comes to the front; Windows may refuse,
- * and nothing changes then. `dragged` says the click is a drag's release; `onOpen` opens what a button shows over itself, the
- * Recently opened menu or the search box's field.
+ * One of Windows' buttons. Search, Task view, Windows widgets, the On-Screen Keyboard, the notification centre and Recently opened
+ * are an icon each, grown as Start is; Show desktop is a narrow sliver with a 1 px line on its leading edge, as Windows' corner,
+ * without magnifying and without a name above it (a screen reader still reads it). A click opens Windows' own (start.rs
+ * `taskbar_shell`, the notification centre as the other bars' clock opens it), the bar held up while it comes to the front; Windows
+ * may refuse, and nothing changes then. `dragged` says the click is a drag's release; `onOpen` opens what a button shows over
+ * itself, the Recently opened menu or the search box's field.
  */
-export function SysButton({ id, item, dragged }: { id: SysId; item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean; onOpen?: (anchor: HTMLElement) => void }) {
+export function SysButton({ id, item, dragged, onOpen }: { id: SysId; item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean; onOpen?: (anchor: HTMLElement) => void }) {
   if (id === "input") return <InputButton item={item} dragged={dragged} />;
   if (id === "privacy") return <PrivacyButton item={item} dragged={dragged} />;
   if (id === "recycle") return <RecycleButton item={item} dragged={dragged} />;
-  if (id === "theme" || id === "keyboard" || id === "notifications" || id === "recent" || id === "searchbox") return null;
+  if (id === "theme") return <ThemeButton item={item} dragged={dragged} />;
+  if (id === "searchbox") return <SearchBox item={item} dragged={dragged} onOpen={onOpen} />;
   const I = SYS_INFO[id].icon;
   const narrow = Math.round(item.size / 2);
   return (
@@ -56,11 +61,72 @@ export function SysButton({ id, item, dragged }: { id: SysId; item: Omit<ItemPro
       {...(id === "desktop" && { label: null, magnify: undefined, width: narrow })}
       onClick={(e) => {
         if (dragged(e)) return;
+        // Its menu reads the list as it opens, over the button.
+        if (id === "recent") return onOpen?.(e.currentTarget);
         holdBriefly();
-        void taskbar.shell(id).catch(() => {});
+        void (id === "notifications" ? taskbar.calendar() : taskbar.shell(id)).catch(() => {});
       }}
     >
       {id === "desktop" ? <span aria-hidden className="border-s border-separator" style={{ width: narrow, height: Math.round(item.size * 0.75) }} /> : <I size={Math.round(item.size * 0.8)} weight="regular" />}
+    </Item>
+  );
+}
+
+/**
+ * Windows' dark mode: a sun while Windows is light, a moon while it is dark, as Windows' own setting reads (the WebView follows it, no
+ * poll). A click turns Windows and its apps dark or light, as Settings, Colours does (quick.rs `quick_dark`); the glyph turns once
+ * Windows says it changed. Its name says what the click does.
+ */
+function ThemeButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean }) {
+  const dark = systemDark.use();
+  const size = Math.round(item.size * 0.8);
+  return (
+    <Item
+      {...item}
+      name={t(dark ? "Helles Design einschalten" : "Dunkles Design einschalten")}
+      onClick={(e) => {
+        if (dragged(e)) return;
+        void systemControls.setDark(!dark).catch(() => {});
+      }}
+    >
+      {/* One cell: the old glyph turns away as the new one turns in over it. */}
+      <span className="grid">
+        <AnimatePresence initial={false}>
+          <motion.span
+            key={dark ? "moon" : "sun"}
+            className="col-start-1 row-start-1 flex"
+            initial={{ opacity: 0, transform: "rotate(-45deg) scale(0.6)" }}
+            animate={{ opacity: 1, transform: "rotate(0deg) scale(1)", transition: springs.snappy }}
+            exit={{ opacity: 0, transform: "rotate(45deg) scale(0.6)", transition: fade }}
+          >
+            {dark ? <Moon size={size} weight="regular" /> : <Sun size={size} weight="regular" />}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+    </Item>
+  );
+}
+
+/**
+ * The search box: a 120 px field drawn on the bar, sized with the bar's icons as a widget is (zoom), which only lifts. A click opens the
+ * real field in the panel over it (SearchPanel), where typing goes.
+ */
+function SearchBox({ item, dragged, onOpen }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean; onOpen?: (anchor: HTMLElement) => void }) {
+  const k = item.size / 24;
+  return (
+    <Item
+      {...item}
+      magnify={undefined}
+      width={widgetWidth(120, k, null)}
+      onClick={(e) => {
+        if (dragged(e)) return;
+        onOpen?.(e.currentTarget);
+      }}
+    >
+      <span aria-hidden className="flex h-6 w-[120px] items-center gap-1.5 rounded-full bg-fill-2 px-2.5" style={{ zoom: k }}>
+        <MagnifyingGlass size={14} weight="regular" className="shrink-0 text-label-3" />
+        <span className="truncate text-footnote text-label-3">{t("Suchen oder öffnen")}</span>
+      </span>
     </Item>
   );
 }
