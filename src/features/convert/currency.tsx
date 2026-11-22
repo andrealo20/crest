@@ -7,7 +7,7 @@ import { fetchRates } from "../../platform/portfolio";
 import { settings } from "../../settings/store";
 import { effectiveBase } from "../trading/base";
 import { BASES, type Rates } from "../trading/portfolio";
-import { convertMoney, currencies } from "./fx";
+import { convertMoney, currencies, pairOf } from "./fx";
 import { parseAmount } from "./parse";
 
 /*
@@ -27,16 +27,15 @@ function label(code: string): string {
   }
 }
 
-/** The last pair of currencies: the panel opens on it again. */
-const lastPair = createStore<[string, string] | null>(null, { persist: "convert-currency" });
+/** The last pair of currencies: the panel opens on it again, and the bar's exchange rate shows it (read through pairOf). */
+export const lastPair = createStore<[string, string] | null>(null, { persist: "convert-currency" });
 
 export function CurrencyPanel() {
   const base = effectiveBase(settings.use().trading.base);
   const [rates, setRates] = useState<Rates | null>(null);
   const [offline, setOffline] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const saved = lastPair.use();
-  const [from, to] = Array.isArray(saved) && saved.length === 2 && saved.every((c) => /^[A-Z]{3}$/.test(c)) ? saved : [base, base === "EUR" ? "USD" : "EUR"];
+  const [from, to] = pairOf(lastPair.use(), base);
   const setPair = (p: [string, string]) => lastPair.set(p);
   const [input, setInput] = useState("100");
 

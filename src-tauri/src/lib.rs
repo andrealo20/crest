@@ -172,7 +172,7 @@ const SETTINGS_DENIED: &[&str] = &[
 /// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), the jump list of an
 /// app's menu and its rows opened, and the Recently opened button's list (taskbar/jumplist.rs), the keyboard after one of its Windows keys (`taskbar_focus`), the Recycle Bin
 /// (taskbar/recycle.rs), the drives of its disk space widget, opening one and its Scan now (taskbar/disks.rs), the window and group menus and the previews' order (taskbar/tasks.rs), and what the notch's
-/// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
+/// tools in its panel read or do on a click, the Converter's public rates among them (`portfolio_prices`). Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
 /// `taskbar_tray_on`, `taskbar_spread`, `taskbar_all_desktops`, `taskbar_end_task`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
@@ -184,7 +184,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "notices_open_app", "notices_copy_code",
     "power_plans", "power_plan_set", "system_icon", "reveal_file", "ports_list", "ports_open", "ports_end",
     "convert_probe", "file_preview", "open_path", "copy_files", "shelf_drag_out", "clipboard_paste_files", "shelf_clipboard_text",
-    "phone_share_start", "phone_share_stop",
+    "phone_share_start", "phone_share_stop", "portfolio_prices",
     "media_get", "media_control", "media_open_source", "media_sources", "mixer_list", "volume_get", "mixer_set", "volume_set",
     "lyrics_romanize", "translate_file",
     "audio_outputs", "audio_set_output", "brightness_get", "brightness_set", "focus_get", "focus_set", "quick_get", "quick_radio",
@@ -1318,6 +1318,8 @@ mod tests {
         assert!(ok("taskbar", "audio_outputs") && ok("taskbar", "audio_set_output") && ok("taskbar", "brightness_get") && ok("taskbar", "brightness_set"));
         assert!(ok("taskbar", "focus_get") && ok("taskbar", "focus_set") && ok("taskbar", "quick_get") && ok("taskbar", "quick_radio"));
         assert!(ok("taskbar", "quick_dark") && ok("taskbar", "mic_mute") && ok("taskbar", "quick_power") && ok("taskbar", "web_search"));
+        // The bar's Converter reads the public reference rates itself; the accounts are the notch's.
+        assert!(ok("taskbar", "portfolio_prices") && ok("taskbar-1", "portfolio_prices") && !ok("taskbar", "portfolio_fetch"));
         // Keep awake's state lives in the notch, which shows it in the closed notch: a bar that set it in Rust would leave the notch
         // showing the old state, so the bar asks the notch (taskbar_ask).
         assert!(!ok("taskbar", "keep_awake_set"));
