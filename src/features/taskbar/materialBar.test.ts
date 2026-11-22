@@ -126,11 +126,12 @@ test("the bar's new faces measure their tabular figures as the page draws them, 
   const clock = window("BarClock.tsx");
   assert.match(clock, /measureTabular\(formatDiff\(zoneDiff\(Date\.now\(\), zone\)\)\.replace\("-", "\+"\)\)/);
   assert.doesNotMatch(clock, /measureText/);
+  assert.doesNotMatch(window("SystemFaces.tsx"), /measureText/);
 });
 
 test("under Material the bar's new faces keep their tracks and the analog dial on a neutral fill, as the Slider does, the dial's hands in primary", () => {
   // Not secondary-container: at raised contrast it turns light in the dark and primary beside it drops to 1.54:1 (Everforest).
-  const faces = ["TimerRing.tsx", "BarClock.tsx", "ReadingFaces.tsx"].map((f) => window(f)).join("\n");
+  const faces = ["TimerRing.tsx", "BarClock.tsx", "ReadingFaces.tsx", "SystemFaces.tsx", "MediaFaces.tsx", "ProductivityFaces.tsx", "TimeFaces.tsx", "WeatherFaces.tsx", "MarketFaces.tsx"].map((f) => window(f)).join("\n");
   assert.doesNotMatch(faces, /secondary-container/);
   const ring = window("TimerRing.tsx");
   assert.match(ring, /strokeOpacity=\{0\.25\} strokeWidth="2" className="material:stroke-fill-3 material:\[stroke-opacity:1\]"/);

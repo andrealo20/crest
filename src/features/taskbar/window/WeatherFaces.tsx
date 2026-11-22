@@ -4,6 +4,7 @@ import { WIDEST } from "../../system/format";
 import { useHue } from "../../themes/hues";
 import { describe, type Forecast } from "../../weather/store";
 import type { BarFeed } from "../barStores";
+import type { Body, WidgetContext } from "./Widget";
 
 /*
  * The weather's versions on Crest's bar beside today's temperature (WeatherPart): the icon alone, the icon with the temperature over
@@ -67,4 +68,9 @@ export function WeatherHours({ hours }: { hours: BarFeed["weatherHours"] }) {
       {hours.slice(0, 3).map((h) => <Hour key={h.time} hour={h} />)}
     </span>
   );
+}
+
+/** The weather as Details, Next days or Sunrise and sunset; null draws the temperature. */
+export function weatherPart(_variant: "details" | "forecast" | "sun", _ctx: WidgetContext): Body | null {
+  return null;
 }

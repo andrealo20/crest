@@ -125,7 +125,7 @@ export function BarMenu(props: {
 }
 
 /** A command, or a setting with its check (`checked`), whose place is kept while it is off so the menu never changes width. */
-function Row(props: { label: string; onClick: () => void; checked?: boolean; icon?: string | null; disabled?: boolean }) {
+export function Row(props: { label: string; onClick: () => void; checked?: boolean; icon?: string | null; disabled?: boolean }) {
   return (
     <button
       role={props.checked === undefined ? "menuitem" : "menuitemcheckbox"}

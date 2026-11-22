@@ -9,6 +9,7 @@ import {
   shiftMenu,
   windowMenuRows,
   COMPACT_PAD,
+  CRYPTO_COINS,
   START_ICONS,
   TASKBAR_DEFAULTS,
   TOOL_BUTTONS,
@@ -47,6 +48,7 @@ import {
   previewKey,
   previewLayout,
   previewSet,
+  micWanted,
   statusWanted,
   stepFocus,
   stepItem,
@@ -139,7 +141,7 @@ test("the bar's clock has its own date and seconds", () => {
 });
 
 test("each widget with versions starts on today's look", () => {
-  assert.deepEqual(Object.fromEntries(Object.entries(WIDGET_VARIANTS).map(([id, v]) => [id, v[0]])), { weather: "temp", clock: "digital", readings: "dials", timer: "countdown", disk: "system" });
+  assert.deepEqual(Object.fromEntries(Object.entries(WIDGET_VARIANTS).map(([id, v]) => [id, v[0]])), { weather: "temp", clock: "digital", readings: "dials", timer: "countdown", disk: "system", title: "text", processes: "cpu", battery: "ring", mic: "mic", progress: "day", date: "fulldate", world: "world" });
   assert.deepEqual(TASKBAR_DEFAULTS.variants, {});
 });
 
@@ -147,6 +149,10 @@ test("a saved version is kept only for a widget that has it, and anything else i
   assert.deepEqual(normalizeTaskbar({ variants: { weather: "hours", clock: "nope", readings: 3, title: "x", bogus: "line", timer: "ring" } }).variants, { weather: "hours", timer: "ring" });
   for (const v of [undefined, null, "x", [], 1]) assert.deepEqual(normalizeTaskbar({ variants: v }).variants, {});
   assert.deepEqual(normalizeTaskbar({ variants: { clock: "analog" }, clock: { date: false } }).clock, { date: false, seconds: false });
+  const all = { readings: "net", title: "disc", processes: "ram", battery: "gauge", mic: "both", progress: "year", clock: "segment", weather: "sun", date: "week", world: "cities" };
+  assert.deepEqual(normalizeTaskbar({ variants: all }).variants, all);
+  // The date and the cities left the clock for widgets of their own: saved on the clock they are dropped.
+  assert.deepEqual(normalizeTaskbar({ variants: { processes: "ring", battery: "cpu", progress: "hours", mic: "x", clock: "week", date: "cities", world: "fulldate" } }).variants, {});
 });
 
 test("a widget draws its saved version, today's look for one it does not know, as another window may send raw JSON", () => {
@@ -431,6 +437,21 @@ test("Rust follows the network and the volume for the bar only while it is on an
   assert.equal(statusWanted({ ...TASKBAR_DEFAULTS, enabled: true }), true);
   assert.equal(statusWanted({ ...TASKBAR_DEFAULTS, enabled: false }), false);
   assert.equal(statusWanted({ ...TASKBAR_DEFAULTS, enabled: true, zones: { left: [], center: ["start", "apps"], right: ["crest"] } }), false);
+});
+
+test("Rust follows the microphone for the Microphone widget only while the bar is on and holds it", () => {
+  const zones: Record<Zone, BarItem[]> = { left: ["mic"], center: ["start", "apps"], right: ["crest"] };
+  assert.equal(micWanted({ ...TASKBAR_DEFAULTS, enabled: true }), false);
+  assert.equal(micWanted({ ...TASKBAR_DEFAULTS, enabled: true, zones }), true);
+  assert.equal(micWanted({ ...TASKBAR_DEFAULTS, enabled: false, zones }), false);
+});
+
+test("the crypto coin is one the bar offers, Bitcoin otherwise", () => {
+  assert.equal(TASKBAR_DEFAULTS.coin, "BTC");
+  assert.equal(CRYPTO_COINS[0], "BTC");
+  assert.equal(normalizeTaskbar({}).coin, "BTC");
+  assert.equal(normalizeTaskbar({ coin: "ETH" }).coin, "ETH");
+  for (const coin of ["eth", "PEPE", 3, null]) assert.equal(normalizeTaskbar({ coin }).coin, "BTC", String(coin));
 });
 
 test("the icons kept visible are strings, once each", () => {

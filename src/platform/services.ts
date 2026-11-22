@@ -206,8 +206,8 @@ export interface SystemStats {
 export interface GpuReading { key: string; name: string; memTotal: number; usage: number | null; engine: string | null; memUsed: number; temp: number | null }
 /** One app: its processes folded by executable name. `cpu` is percent of one core. */
 export interface ProcReading { id: string; name: string; path: string | null; count: number; cpu: number; mem: number }
-/** Extras the closed row asks for outside the tool. */
-export interface SystemWant { net: boolean; temps: boolean; power: boolean; battery: boolean }
+/** Extras the closed row asks for outside the tool; `processes`: the process list, for the bar's Top apps widget. */
+export interface SystemWant { net: boolean; temps: boolean; power: boolean; battery: boolean; processes: boolean }
 
 /** A program's icon as a PNG data URL. */
 export const systemIcon = (path: string): Promise<string | null> => (isNative ? invoke<string | null>("system_icon", { path }) : Promise.resolve(null));
@@ -246,7 +246,7 @@ export function fetchSystem(full: boolean, withGpu = false, want?: SystemWant): 
           disks: [{ number: 0, model: "Samsung SSD 990 PRO 1TB", bus: 17, removable: false, ssd: true, temp: [41, 82, 85] }, { number: 1, model: "WD Blue SN580 2TB", bus: 17, removable: false, ssd: true, temp: [38, 0, 0] }],
         }
       : null,
-    processes: full
+    processes: full || want?.processes
       ? [
           { id: "chrome.exe", name: "Google Chrome", path: null, count: 24, cpu: mock.cpu * 2, mem: 3.1 * gb },
           { id: "code.exe", name: "Visual Studio Code", path: null, count: 11, cpu: 22, mem: 1.4 * gb },
@@ -566,8 +566,11 @@ export const display = {
 
 // ---------- Status alerts (sysevents.rs) ----------
 
-/** State at start, so what is already true (charger in, headphones on) does not alert; `network` and `sound` only while a bar shows Stato. */
-export interface StatusSeed { power: PowerState | null; online: boolean | null; devices: string[]; network: NetworkState | null; sound: SoundState | null }
+/**
+ * State at start, so what is already true (charger in, headphones on) does not alert; `network` and `sound` only while a bar shows Stato,
+ * `sound` and `microphone` while a bar shows the Microphone widget.
+ */
+export interface StatusSeed { power: PowerState | null; online: boolean | null; devices: string[]; network: NetworkState | null; sound: SoundState | null; microphone: boolean | null }
 export interface StatusHandlers {
   seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: BluetoothEvent): void; level(e: LevelEvent): void; lock(e: LockEvent): void; mic(e: MicEvent): void;
   output(e: OutputEvent): void; focus(e: FocusEvent): void; mode(e: ModeEvent): void; airplane(on: boolean): void; display(e: DisplayEvent): void;
@@ -614,12 +617,13 @@ export const status = {
     return () => offs.forEach((off) => void off.then((f) => f()));
   },
   /**
-   * The power, the network and the volume for the bar's Stato item, each as it changes, as onPower does for one: the seed passes only
-   * what it knows and no change has said since. Rust sends the network and the volume only while the notch says a bar shows Stato.
+   * The power, the network and the volume for the bar's Stato item, and the microphone for its Microphone widget, each as it changes,
+   * as onPower does for one: the seed passes only what it knows and no change has said since. Rust sends the network and the volume
+   * only while the notch says a bar shows Stato, the microphone and the volume while it says a bar shows the Microphone widget.
    */
   onBar: (handler: (patch: Partial<BarStatus>) => void): (() => void) => {
     if (!isNative) return () => {};
-    const keys = ["power", "network", "sound"] as const;
+    const keys = ["power", "network", "sound", "microphone"] as const;
     const heard = new Set<string>();
     const seed = (s: StatusSeed) => {
       const fresh = keys.filter((k) => s[k] !== null && !heard.has(k));
@@ -642,8 +646,11 @@ export const status = {
   configure: (c: { ddc: boolean; locks: boolean; insert: boolean; bt: boolean; volume: boolean; mic: boolean; focus: boolean; hideOsd: boolean; osdArmed: boolean }) => {
     if (isNative) void invoke("status_configure", c);
   },
-  /** Whether Rust follows the network and the volume for the bar's Stato (model.ts statusWanted); sent by the notch only. */
-  barOn: (on: boolean): Promise<void> => (isNative ? invoke("status_bar", { on }) : Promise.resolve()),
+  /**
+   * Whether Rust follows the network and the volume for the bar's Stato (model.ts statusWanted), and the microphone and the volume for
+   * its Microphone widget (`mic`, model.ts micWanted); sent by the notch only.
+   */
+  barOn: (on: boolean, mic = false): Promise<void> => (isNative ? invoke("status_bar", { on, mic }) : Promise.resolve()),
 };
 
 // ---------- Downloads in progress (downloads.rs) ----------
@@ -698,7 +705,7 @@ export const mockStatus = (() => {
   let output = 0, dnd = false, mode = 2, airplane = false, monitor = false;
   const listeners = new Set<StatusHandlers>();
   return {
-    seed: (): StatusSeed => ({ power, online, devices: buds ? ["Buds"] : [], network: null, sound: null }),
+    seed: (): StatusSeed => ({ power, online, devices: buds ? ["Buds"] : [], network: null, sound: null, microphone: null }),
     subscribe(h: StatusHandlers) {
       listeners.add(h);
       return () => void listeners.delete(h);
@@ -953,6 +960,21 @@ const SAMPLE_WIFI: WifiList = {
     { ssid: "Cafe Rosa", bars: 3, kind: "open", saved: false, connected: false },
     { ssid: "Office", bars: 3, kind: "enterprise", saved: false, connected: false },
     { ssid: "Flat 4B", bars: 1, kind: "personal", saved: false, connected: false },
+  ],
+};
+/** The Recently opened menu in the dev server: a document, a folder and a text file. */
+const SAMPLE_RECENT: JumpList = {
+  token: 0,
+  groups: [
+    {
+      kind: "recent",
+      title: "",
+      items: [
+        { id: 0, title: "Quarterly report.docx", icon: null, separator: false },
+        { id: 1, title: "Holiday photos", icon: null, separator: false },
+        { id: 2, title: "notes.txt", icon: null, separator: false },
+      ],
+    },
   ],
 };
 /** The quick panel's Bluetooth page in the dev server: headphones with their battery, a mouse without, a controller away. */
@@ -1467,8 +1489,8 @@ export const taskbar = {
   focus: (): Promise<void> => (isNative ? invoke("taskbar_focus") : Promise.resolve()),
   /** Gives the keyboard back to the app in front, or the last one if only Start came after it (none after the desktop or a Crest window), after a menu or panel closed from the bar. */
   release: (): Promise<void> => (isNative ? invoke("taskbar_release") : Promise.resolve()),
-  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu, "quick" its quick settings (Win+A), "taskmgr" Task Manager; the Windows buttons: "search" Search, "taskview" Task view, "widgets" Windows' widgets, "input" Windows' input language switcher (Win+Space), "desktop" shows or hides the desktop; the quick panel's "cast" Windows' Cast panel (Win+K). */
-  shell: (action: "start" | "winx" | "quick" | "taskmgr" | "search" | "taskview" | "widgets" | "input" | "desktop" | "cast"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
+  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu, "quick" its quick settings (Win+A), "taskmgr" Task Manager; the Windows buttons: "search" Search, "taskview" Task view, "widgets" Windows' widgets, "input" Windows' input language switcher (Win+Space), "desktop" shows or hides the desktop, "keyboard" Windows' On-Screen Keyboard; the quick panel's "cast" Windows' Cast panel (Win+K). */
+  shell: (action: "start" | "winx" | "quick" | "taskmgr" | "search" | "taskview" | "widgets" | "input" | "desktop" | "keyboard" | "cast"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
   /** The keyboard language of the window in front, as Windows' indicator writes it; null with one layout installed. */
   input: (): Promise<InputLang | null> => (isNative ? invoke<InputLang | null>("taskbar_input") : Promise.resolve(null)),
   /** The input language each time it changes; Rust sends it to the primary bar only. */
@@ -1485,6 +1507,8 @@ export const taskbar = {
   jumpList: (key: string): Promise<JumpList> => (isNative ? invoke<JumpList>("taskbar_jump_list", { key }) : Promise.reject("none")),
   /** Opens row `id` of the list `token` with its app. */
   jumpOpen: (token: number, id: number): Promise<void> => (isNative ? invoke("taskbar_jump_open", { token, id }) : Promise.resolve()),
+  /** The files and folders Windows recorded as opened last, newest first, each opened with jumpOpen; rejects "off" while Windows keeps no list, "failed". The bar only. */
+  recent: (): Promise<JumpList> => (isNative ? invoke<JumpList>("taskbar_recent") : Promise.resolve(SAMPLE_RECENT)),
   /** The tray's icons as Rust last listed them: none while Crest's tray does not run. */
   tray: (): Promise<TrayState> => (isNative ? invoke<TrayState>("taskbar_tray") : Promise.resolve({ yielded: false, icons: [] })),
   /** The tray's icons each time they change, at most every 250 ms; Rust sends them to every bar. */
@@ -1542,7 +1566,7 @@ export const taskbar = {
   quit: (): Promise<void> => (isNative ? invoke("app_quit") : Promise.resolve()),
   /** In the primary bar, has the notch send the widgets' data (`bar://hello`); call it once the page listens. Whether this bar shows now, so the page starts paused or not. */
   hello: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_hello") : Promise.resolve(true)),
-  /** The click on a clock on the other monitors' bars: Windows' notification centre, with the calendar (the main bar's opens Crest's own). */
+  /** The click on a clock on the other monitors' bars and on the Notification centre button: Windows' notification centre, with the calendar (the main bar's clock opens Crest's own). */
   calendar: (): Promise<void> => (isNative ? invoke("taskbar_calendar") : Promise.resolve()),
   /** The Wi-Fi page's networks, after a fresh scan when `scan` (the page's first read and its refresh); only the state until Windows' location consent is given. */
   wifiScan: (scan: boolean): Promise<WifiList> => (isNative ? invoke<WifiList>("taskbar_wifi_scan", { scan }) : Promise.resolve(SAMPLE_WIFI)),

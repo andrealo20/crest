@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Copy, MagnifyingGlass, MapPin, Microphone, Monitor, SquaresFour, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
+import { BellSimple, Copy, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, SquaresFour, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
 import { t } from "../../../i18n";
 import { taskbar } from "../../../platform/services";
 import { privacy } from "../../privacy/store";
@@ -19,6 +19,11 @@ export const SYS_INFO: Record<SysId, { label: string; icon: Icon }> = {
   input: { label: "Eingabesprache", icon: Translate },
   privacy: { label: "Datenschutzanzeigen", icon: Microphone },
   recycle: { label: "Papierkorb", icon: Trash },
+  theme: { label: "Dunkles Design", icon: Moon },
+  keyboard: { label: "Bildschirmtastatur", icon: Keyboard },
+  notifications: { label: "Benachrichtigungscenter", icon: BellSimple },
+  recent: { label: "Zuletzt geöffnet", icon: Files },
+  searchbox: { label: "Suchen oder öffnen", icon: MagnifyingGlass },
 };
 
 /** The privacy button's glyph, name and Windows' settings page for each use. */
@@ -35,12 +40,14 @@ const LINE = "block whitespace-nowrap text-center text-footnote leading-tight fo
  * One of Windows' buttons. Search, Task view and Windows widgets are an icon each, grown as Start is; Show desktop is a narrow sliver
  * with a 1 px line on its leading edge, as Windows' corner, without magnifying and without a name above it (a screen reader still
  * reads it). A click opens Windows' own (start.rs `taskbar_shell`), the bar held up while it comes to the front; Windows may refuse,
- * and nothing changes then. `dragged` says the click is a drag's release.
+ * and nothing changes then. `dragged` says the click is a drag's release; `onOpen` opens what a button shows over itself, the
+ * Recently opened menu or the search box's field.
  */
-export function SysButton({ id, item, dragged }: { id: SysId; item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean }) {
+export function SysButton({ id, item, dragged }: { id: SysId; item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean; onOpen?: (anchor: HTMLElement) => void }) {
   if (id === "input") return <InputButton item={item} dragged={dragged} />;
   if (id === "privacy") return <PrivacyButton item={item} dragged={dragged} />;
   if (id === "recycle") return <RecycleButton item={item} dragged={dragged} />;
+  if (id === "theme" || id === "keyboard" || id === "notifications" || id === "recent" || id === "searchbox") return null;
   const I = SYS_INFO[id].icon;
   const narrow = Math.round(item.size / 2);
   return (

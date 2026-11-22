@@ -1,4 +1,7 @@
-import { CalendarBlank, ChartDonut, Clock, CloudSun, Cpu, DownloadSimple, HardDrives, GithubLogo, MusicNote, TerminalWindow, Timer, Waveform, type Icon } from "../../ui/iconset";
+import {
+  AppWindow, ArrowsLeftRight, BatteryFull, CalendarBlank, ChartDonut, ChartLineUp, CheckCircle, Clock, ClockClockwise, CloudSun, Cpu, DownloadSimple, Gauge, GlobeHemisphereWest, HardDrives,
+  GithubLogo, Microphone, MusicNote, NotePencil, NumberSquareOne, TerminalWindow, Timer, Waveform, type Icon,
+} from "../../ui/iconset";
 import type { Hue } from "../../features/themes/hues";
 import { DiscordLogo, LeetcodeLogo } from "../../ui/brands";
 import type { PartId } from "./parts";
@@ -19,4 +22,15 @@ export const partInfo: Record<PartId, { label: string; icon: Icon; hue: Hue }> =
   downloads: { label: "Downloads", icon: DownloadSimple, hue: "teal" },
   weather: { label: "Wetter", icon: CloudSun, hue: "sky" },
   disk: { label: "Speicherplatz", icon: HardDrives, hue: "slate" },
+  processes: { label: "Top-Apps", icon: AppWindow, hue: "rose" },
+  battery: { label: "Akku", icon: BatteryFull, hue: "green" },
+  mic: { label: "Mikrofon", icon: Microphone, hue: "red" },
+  stopwatch: { label: "Stoppuhr", icon: ClockClockwise, hue: "amber" },
+  todo: { label: "Nächstes To-do", icon: CheckCircle, hue: "green" },
+  note: { label: "Notizvorschau", icon: NotePencil, hue: "yellow" },
+  progress: { label: "Zeitfortschritt", icon: Gauge, hue: "blue" },
+  date: { label: "Datum", icon: NumberSquareOne, hue: "orange" },
+  world: { label: "Weltzeit", icon: GlobeHemisphereWest, hue: "indigo" },
+  currency: { label: "Wechselkurs", icon: ArrowsLeftRight, hue: "cyan" },
+  crypto: { label: "Krypto", icon: ChartLineUp, hue: "emerald" },
 };

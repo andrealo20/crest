@@ -4,7 +4,7 @@ import { PART_IDS, type PartId } from "../../notch/row/parts.ts";
 import { DEFAULT_OFF, TOOL_IDS } from "../../settings/tools.ts";
 import { TASKBAR_DEFAULTS, TOOL_BUTTONS, type BarItem, type Zone } from "./model.ts";
 import { statusPill } from "./statusModel.ts";
-import { SLIDE_KEEP_MS, addWidget, addableSys, addableTools, applyChoice, chosenChoice, privacyOnBar, privacyParts, clockHasSeconds, barPartsFor, barSources, barWidgets, isSys, isTool, isWidget, pillWidget, previewInk, removeWidget, shownZones, sourcesAfter, sysPrimaryOnly, toolOf, toolShown, trashable, variantKey, widgetChoices, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
+import { SLIDE_KEEP_MS, addWidget, addableSys, addableTools, applyChoice, chosenChoice, privacyOnBar, privacyParts, clockHasSeconds, barPartsFor, barSources, barWidgets, hasWidgetMenu, isSys, isTool, isWidget, pillWidget, previewInk, removeWidget, shownZones, sourcesAfter, sysPrimaryOnly, toolOf, toolShown, trashable, variantKey, weatherWanted, widgetChoices, widgetPanel, widgetScale, widgetTool, widgetWidth } from "./widgets.ts";
 
 test("a widget's preview wears the bar's ink: Dark's under Liquid Glass + whatever the surface, the closed notch's on Notch, the theme's otherwise", () => {
   const dark = { "--color-label": "white", "--theme-accent": "blue" }, closed = { "--color-label": "white", "--accent": "red" };
@@ -14,10 +14,14 @@ test("a widget's preview wears the bar's ink: Dark's under Liquid Glass + whatev
   assert.equal(previewInk("crest", "theme", closed, dark), undefined);
 });
 
-test("a widget opens its tool and the disk widget the bar's own panel; the clock has no tool (the main bar's opens Notices and Calendar, the others' Windows' centre)", () => {
-  // Every part: the clock alone has no tool; the disk widget opens the bar's own panel.
-  const tools: Record<Exclude<PartId, "clock" | "disk">, string> = { title: "media", equalizer: "media", timer: "timer", rings: "usage", readings: "system", script: "notices", downloads: "shelf", weather: "weather", calendar: "calendar", discord: "discord", github: "github", leetcode: "leetcode" };
-  for (const id of PART_IDS) assert.equal(widgetTool(id), id === "clock" || id === "disk" ? null : tools[id], id);
+test("a widget opens its tool; the clock, the disk widget, the time progress, the date, the crypto widget, the microphone and the stopwatch have none", () => {
+  // The clock's panel, the drives and the coin's week are the bar's own panels; the microphone's click mutes, the stopwatch's starts and pauses.
+  const none: readonly PartId[] = ["clock", "disk", "progress", "date", "crypto", "mic", "stopwatch"];
+  const tools: Record<Exclude<PartId, "clock" | "disk" | "progress" | "date" | "crypto" | "mic" | "stopwatch">, string> = {
+    title: "media", equalizer: "media", timer: "timer", rings: "usage", readings: "system", script: "notices", downloads: "shelf", weather: "weather", calendar: "calendar", discord: "discord", github: "github", leetcode: "leetcode",
+    processes: "system", battery: "system", todo: "todos", note: "notes", currency: "convert", world: "clocks",
+  };
+  for (const id of PART_IDS) assert.equal(widgetTool(id), none.includes(id) ? null : tools[id as keyof typeof tools], id);
   assert.ok(isWidget("clock") && !isWidget("apps") && !isWidget("crest"));
 });
 
@@ -70,23 +74,37 @@ test("the notch captures the audio for a bar's Now Playing panel as for the equa
   assert.deepEqual(barSources([], true), ["equalizer"]);
 });
 
+test("the clock's Time and weather and the date's week run the weather's source while they are on the bar", () => {
+  assert.equal(weatherWanted(["clock"], { clock: "weather" }), true);
+  assert.equal(weatherWanted(["date"], { date: "week" }), true);
+  assert.equal(weatherWanted(["clock"], { clock: "flip" }), false);
+  assert.equal(weatherWanted(["date"], { date: "sheet" }), false);
+  assert.equal(weatherWanted(["title"], { clock: "weather", date: "week" }), false);
+  assert.equal(weatherWanted(["clock", "date"], "x"), false);
+  assert.deepEqual(barSources(["clock"], false, true), ["clock", "weather"]);
+  assert.deepEqual(barSources(["weather", "clock"], false, true), ["weather", "clock"]);
+  assert.deepEqual(barSources(["title"], false, false), ["title"]);
+  assert.deepEqual(barSources(["clock"], true, true), ["clock", "equalizer", "weather"]);
+});
+
 test("the tray can be added back like a widget", () => {
   const zones: Record<Zone, BarItem[]> = { left: [], center: ["start", "apps"], right: ["clock", "crest"] };
   assert.deepEqual(addWidget(zones, "tray", "right").right, ["clock", "tray", "crest"]);
   assert.equal(addWidget(TASKBAR_DEFAULTS.zones, "tray", "left"), TASKBAR_DEFAULTS.zones);
 });
 
-test("Windows' buttons are the six the bar knows, Windows widgets, the input language and privacy on the main bar only, offered while off the bar", () => {
+test("Windows' buttons are the twelve the bar knows, Windows widgets, the input language, privacy and the Recycle Bin on the main bar only, offered while off the bar", () => {
   assert.equal(isSys("sys:search"), true);
   assert.equal(isSys("sys:nope"), false);
   assert.equal(isSys("search"), false);
   assert.equal(isSys("tool:notes"), false);
   assert.deepEqual((["sys:search", "sys:taskview", "sys:widgets", "sys:desktop", "sys:input", "sys:privacy"] as const).filter(sysPrimaryOnly), ["sys:widgets", "sys:input", "sys:privacy"]);
   const zones: Record<Zone, BarItem[]> = { left: ["sys:taskview"], center: ["start", "apps"], right: ["crest"] };
-  assert.deepEqual(addableSys(zones), ["sys:search", "sys:widgets", "sys:desktop", "sys:input", "sys:privacy", "sys:recycle"]);
+  assert.deepEqual(addableSys(zones), ["sys:search", "sys:widgets", "sys:desktop", "sys:input", "sys:privacy", "sys:recycle", "sys:theme", "sys:keyboard", "sys:notifications", "sys:recent", "sys:searchbox"]);
   assert.equal(sysPrimaryOnly("sys:recycle"), true);
+  for (const id of ["sys:theme", "sys:keyboard", "sys:notifications", "sys:recent", "sys:searchbox"] as const) assert.equal(sysPrimaryOnly(id), false, id);
   assert.deepEqual(addWidget(zones, "sys:desktop", "right").right, ["sys:desktop", "crest"]);
-  assert.deepEqual(addableSys({ left: ["sys:search", "sys:taskview", "sys:widgets"], center: ["sys:desktop"], right: ["sys:input", "sys:privacy", "sys:recycle"] }), []);
+  assert.deepEqual(addableSys({ left: ["sys:search", "sys:taskview", "sys:widgets"], center: ["sys:desktop"], right: ["sys:input", "sys:privacy", "sys:recycle", "sys:theme", "sys:keyboard", "sys:notifications", "sys:recent", "sys:searchbox"] }), []);
 });
 
 test("the privacy button polls only while on the bar, and shows the microphone, the camera and the location in that order", () => {
@@ -149,23 +167,44 @@ test("a tool button is added and taken off like a widget, apart from the widget 
   assert.deepEqual(barWidgets(addWidget(z, "tool:media", "left")), ["weather", "clock"]);
 });
 
-test("the clock's versions: time and date, time alone, analog, and two zones only with a zone in Clocks", () => {
-  assert.deepEqual(widgetChoices("clock", false), [{ variant: "digital", date: true }, { variant: "digital", date: false }, { variant: "analog" }]);
-  assert.deepEqual(widgetChoices("clock", true).at(-1), { variant: "zones" });
-  assert.deepEqual(widgetChoices("weather", false).map((c) => c.variant), ["temp", "icon", "condition", "hours"]);
-  assert.deepEqual(widgetChoices("readings", true).map((c) => c.variant), ["dials", "bars", "line"]);
-  assert.deepEqual(widgetChoices("title", true), [{ variant: null }]);
+test("the clock's versions: time and date, time alone, analog, flip, segments, time and weather, and two zones only with a zone in Clocks", () => {
+  assert.deepEqual(widgetChoices("clock", false), [{ variant: "digital", date: true }, { variant: "digital", date: false }, { variant: "analog" }, { variant: "flip" }, { variant: "segment" }, { variant: "weather" }]);
+  assert.deepEqual(widgetChoices("clock", true).slice(-2), [{ variant: "weather" }, { variant: "zones" }]);
+  const versions = (id: PartId) => widgetChoices(id, false).map((c) => c.variant);
+  assert.deepEqual(versions("weather"), ["temp", "icon", "condition", "hours", "details", "forecast", "sun"]);
+  assert.deepEqual(versions("readings"), ["dials", "bars", "line", "net"]);
+  assert.deepEqual(versions("title"), ["text", "play", "cover", "disc", "track"]);
+  assert.deepEqual(versions("processes"), ["cpu", "ram"]);
+  assert.deepEqual(versions("battery"), ["ring", "cells", "gauge", "dots"]);
+  assert.deepEqual(versions("mic"), ["mic", "both"]);
+  assert.deepEqual(versions("progress"), ["day", "month", "year"]);
+  assert.deepEqual(versions("date"), ["fulldate", "sheet", "week"]);
+  // World time draws from the Clocks tool's zones and offers both versions with or without one; without one it shows its icon.
+  assert.deepEqual(widgetChoices("world", false), widgetChoices("world", true));
+  assert.deepEqual(versions("world"), ["world", "cities"]);
+  assert.deepEqual(widgetChoices("equalizer", true), [{ variant: null }]);
 });
 
 test("the chosen version is the saved one, the clock's digital ones by its date, two zones without a zone back on the digital clock", () => {
   assert.equal(chosenChoice("clock", {}, true, false), 0);
   assert.equal(chosenChoice("clock", {}, false, false), 1);
   assert.equal(chosenChoice("clock", { clock: "analog" }, true, false), 2);
-  assert.equal(chosenChoice("clock", { clock: "zones" }, true, true), 3);
+  assert.equal(chosenChoice("clock", { clock: "zones" }, true, true), 6);
+  assert.equal(chosenChoice("clock", { clock: "flip" }, true, false), 3);
+  assert.equal(chosenChoice("clock", { clock: "segment" }, false, true), 4);
+  assert.equal(chosenChoice("clock", { clock: "weather" }, true, false), 5);
+  // A date or cities saved on the clock by a copy that offered them there draws the digital clock.
+  assert.equal(chosenChoice("clock", { clock: "week" }, false, true), 1);
   assert.equal(chosenChoice("clock", { clock: "zones" }, false, false), 1);
   assert.equal(chosenChoice("weather", { weather: "hours" }, true, false), 3);
   assert.equal(chosenChoice("weather", "x", true, false), 0);
   assert.equal(chosenChoice("title", {}, true, false), 0);
+  assert.equal(chosenChoice("weather", { weather: "sun" }, true, false), 6);
+  assert.equal(chosenChoice("title", { title: "disc" }, true, false), 3);
+  assert.equal(chosenChoice("progress", { progress: "year" }, true, false), 2);
+  assert.equal(chosenChoice("progress", { progress: "week" }, true, false), 0);
+  assert.equal(chosenChoice("date", { date: "week" }, true, false), 2);
+  assert.equal(chosenChoice("world", { world: "cities" }, true, false), 1);
 });
 
 test("picking a version writes the version, and the clock's digital ones its date, nothing else", () => {
@@ -173,7 +212,8 @@ test("picking a version writes the version, and the clock's digital ones its dat
   assert.deepEqual(applyChoice(cur, "clock", { variant: "digital", date: false }), { variants: { weather: "hours" }, clock: { date: false, seconds: true } });
   assert.deepEqual(applyChoice(cur, "clock", { variant: "zones" }), { variants: { weather: "hours", clock: "zones" } });
   assert.deepEqual(applyChoice(cur, "weather", { variant: "icon" }), { variants: { weather: "icon", clock: "analog" } });
-  assert.deepEqual(applyChoice(cur, "title", { variant: null }), {});
+  assert.deepEqual(applyChoice(cur, "equalizer", { variant: null }), {});
+  assert.deepEqual(applyChoice({ variants: {}, clock: { date: true, seconds: false } }, "progress", { variant: "month" }), { variants: { progress: "month" } });
   // Another window may hand over raw JSON without variants (storeCore.ts:51-57): the pick still works.
   assert.deepEqual(applyChoice({ variants: undefined as never, clock: { date: true, seconds: false } }, "clock", { variant: "digital", date: false }), { variants: {}, clock: { date: false, seconds: false } });
   assert.deepEqual(applyChoice({ variants: "x" as never, clock: { date: true, seconds: false } }, "weather", { variant: "icon" }), { variants: { weather: "icon" } });
@@ -195,6 +235,24 @@ test("only the digital clock has seconds to switch: not Analog, not Two time zon
   // Without a zone the bar draws the digital clock for Two time zones.
   assert.equal(clockHasSeconds({ clock: "zones" }, false), true);
   assert.equal(clockHasSeconds("x", true), true);
+  for (const clock of ["flip", "segment", "weather"]) assert.equal(clockHasSeconds({ clock }, false), false, clock);
+  assert.equal(clockHasSeconds({ clock: "cities" }, true), true);
+});
+
+test("the title, the stopwatch and the next to-do have a right-click menu of their own over the Crest menu's rows", () => {
+  assert.deepEqual(PART_IDS.filter(hasWidgetMenu), ["title", "stopwatch", "todo"]);
+});
+
+test("the disk widget, the main bar's clock, the time progress, the date and the crypto widget open panels of the bar's own", () => {
+  assert.equal(widgetPanel("disk", true), "disks");
+  assert.equal(widgetPanel("clock", true), "clock");
+  // The other bars' clock opens Windows' notification centre.
+  assert.equal(widgetPanel("clock", false), null);
+  assert.equal(widgetPanel("progress", true), "clock");
+  assert.equal(widgetPanel("date", true), "clock");
+  assert.equal(widgetPanel("crypto", true), "crypto");
+  assert.deepEqual(PART_IDS.filter((id) => widgetPanel(id, true) !== null), ["clock", "disk", "progress", "date", "crypto"]);
+  for (const id of PART_IDS) if (widgetPanel(id, true)) assert.equal(widgetTool(id), null, id);
 });
 
 test("the arrows move through a widget's versions and wrap, mirrored right to left", () => {

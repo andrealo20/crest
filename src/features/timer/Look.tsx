@@ -156,8 +156,11 @@ const SEGMENT_RECTS: Record<string, [number, number, number, number]> = {
   g: [1.6, 8, 6.8, 2],
 };
 
+/** The width of `text` in seven segment digits `height` px tall, as SegmentDigits draws it: 13 units a digit, 6 a colon, the last gap off. */
+export const segmentsWidth = (text: string, height: number) => (([...text].reduce((x, c) => x + (c === ":" ? 6 : 13), 0) - 1) / 20) * height;
+
 /** Seven segment digits with their unlit ghosts; the colon blinks while running. `ink` fills the lit segments. */
-function SegmentDigits({ text, height, running, ink, ghost, glow }: { text: string; height: number; running: boolean; ink: string; ghost: number; glow: boolean }) {
+export function SegmentDigits({ text, height, running, ink, ghost, glow }: { text: string; height: number; running: boolean; ink: string; ghost: number; glow: boolean }) {
   let x = 0;
   const parts = [...text].map((c) => {
     const at = x;
@@ -166,7 +169,7 @@ function SegmentDigits({ text, height, running, ink, ghost, glow }: { text: stri
   });
   const width = x - 3;
   return (
-    <svg width={((width + 2) / 20) * height} height={height} viewBox={`-1 -1 ${width + 2} 20`} className="shrink-0" role="img" aria-label={text}>
+    <svg width={segmentsWidth(text, height)} height={height} viewBox={`-1 -1 ${width + 2} 20`} className="shrink-0" role="img" aria-label={text}>
       <g transform="skewX(-6) translate(1.5 0)">
         {parts.map(({ c, at }, i) =>
           c === ":" ? (

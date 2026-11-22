@@ -42,6 +42,12 @@ export const ringing = createStore(false);
 /** Focus sound muted from the Timer tool until Crest restarts; the setting stays as it is. */
 export const focusMuted = createStore(false);
 
+/** The Timer tool's page in this window: the countdown or the stopwatch; not saved. */
+export const timerTab = createStore<"timer" | "stopwatch">("timer");
+
+/** Start or pause, a lap, and back to zero for the stopwatch. */
+export const stopwatchActions = { toggle: () => {}, lap: () => {}, reset: () => {} };
+
 export function remainingOf(s: TimerState, now = Date.now()): number {
   if (s.endsAt === null) return s.remaining;
   return Math.max(0, (s.endsAt - now) / 1000);

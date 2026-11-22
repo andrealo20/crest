@@ -10,7 +10,13 @@ export interface NetworkState { kind: "wired" | "wireless" | "none"; wifi: boole
 /** The default output's volume (`status://sound`), 0..100. */
 export interface SoundState { level: number; muted: boolean }
 /** What Stato draws; null where Rust has said nothing yet, or never will (no battery reading). */
-export interface BarStatus { power: PowerState | null; network: NetworkState | null; sound: SoundState | null }
+export interface BarStatus {
+  power: PowerState | null;
+  network: NetworkState | null;
+  sound: SoundState | null;
+  /** The Microphone widget's: muted or not; absent or null until Rust says, and without a microphone. */
+  microphone?: boolean | null;
+}
 
 /** A network's signal (0..5, null unknown) as the fan's level: four bars or more, or none known, light the whole fan. */
 export function barsGlyph(bars: number | null): "wifi-0" | "wifi-1" | "wifi-2" | "wifi-3" {

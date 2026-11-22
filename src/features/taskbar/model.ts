@@ -10,8 +10,12 @@ import { dropSlot } from "./panelModel.ts";
 export type Zone = "left" | "center" | "right";
 /** A button that opens a tool, by the id the notch opens it with: `tool:notes`. The prefix keeps it apart from a part of the same id. */
 export type ToolItem = `tool:${string}`;
-/** Windows' own buttons the bar can hold: Search, Task view, Windows widgets, Show desktop, the input language and the privacy indicators. Not in the default zones: an update changes no bar. */
-export const SYS_IDS = ["search", "taskview", "widgets", "desktop", "input", "privacy", "recycle"] as const;
+/**
+ * Windows' own buttons the bar can hold: Search, Task view, Windows widgets, Show desktop, the input language, the privacy indicators,
+ * the Recycle Bin, Windows' dark theme, the On-Screen Keyboard, the notification centre, the files opened last and a search box.
+ * Not in the default zones: an update changes no bar.
+ */
+export const SYS_IDS = ["search", "taskview", "widgets", "desktop", "input", "privacy", "recycle", "theme", "keyboard", "notifications", "recent", "searchbox"] as const;
 export type SysId = (typeof SYS_IDS)[number];
 /** A Windows button, by its id: `sys:search`. */
 export type SysItem = `sys:${SysId}`;
@@ -95,6 +99,8 @@ export interface TaskbarSettings {
   startIcon: StartIcon;
   /** The bar lists the windows of every virtual desktop, as Windows' "Show taskbar apps on all desktops". */
   allDesktops: boolean;
+  /** The crypto widget's coin, priced in the Depot's base currency. */
+  coin: CryptoCoin;
 }
 
 export type MarkStyle = "dot" | "large" | "line";
@@ -102,6 +108,9 @@ export const MARK_STYLES: readonly MarkStyle[] = ["dot", "large", "line"];
 /** The Start button's icons, the default first. */
 export type StartIcon = "windows" | "crest" | "dots" | "rocket" | "sparkle" | "star";
 export const START_ICONS: readonly StartIcon[] = ["windows", "crest", "dots", "rocket", "sparkle", "star"];
+/** The coins the crypto widget offers, Bitcoin first. */
+export const CRYPTO_COINS = ["BTC", "ETH", "SOL", "XRP", "BNB", "DOGE", "ADA", "LTC"] as const;
+export type CryptoCoin = (typeof CRYPTO_COINS)[number];
 
 export type AppsOn = "own" | "main" | "all";
 const APPS_ONS: AppsOn[] = ["own", "main", "all"];
@@ -141,6 +150,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   marks: "dot",
   startIcon: "windows",
   allDesktops: false,
+  coin: "BTC",
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -167,13 +177,33 @@ export const TOOL_BUTTONS: readonly string[] = [...TOOL_IDS.filter((id) => !WIDG
 const ITEMS: string[] = [...FIXED_ITEMS, "tray", "status", ...PART_IDS, ...TOOL_BUTTONS.map((id) => `tool:${id}`), ...SYS_IDS.map((id) => `sys:${id}`)];
 
 /** The versions a widget offers on the bar, today's first; the id stays bare in the zones, so the fit, the sources and `barParts` do not change. */
-export type WidgetVariants = { weather: "temp" | "icon" | "condition" | "hours"; clock: "digital" | "analog" | "zones"; readings: "dials" | "bars" | "line"; timer: "countdown" | "ring"; disk: "system" | "all" | "fullest" };
+export type WidgetVariants = {
+  weather: "temp" | "icon" | "condition" | "hours" | "details" | "forecast" | "sun";
+  clock: "digital" | "analog" | "zones" | "flip" | "segment" | "weather";
+  readings: "dials" | "bars" | "line" | "net";
+  timer: "countdown" | "ring";
+  disk: "system" | "all" | "fullest";
+  title: "text" | "play" | "cover" | "disc" | "track";
+  processes: "cpu" | "ram";
+  battery: "ring" | "cells" | "gauge" | "dots";
+  mic: "mic" | "both";
+  progress: "day" | "month" | "year";
+  date: "fulldate" | "sheet" | "week";
+  world: "world" | "cities";
+};
 export const WIDGET_VARIANTS: { [K in keyof WidgetVariants]: readonly WidgetVariants[K][] } = {
-  weather: ["temp", "icon", "condition", "hours"],
-  clock: ["digital", "analog", "zones"],
-  readings: ["dials", "bars", "line"],
+  weather: ["temp", "icon", "condition", "hours", "details", "forecast", "sun"],
+  clock: ["digital", "analog", "zones", "flip", "segment", "weather"],
+  readings: ["dials", "bars", "line", "net"],
   timer: ["countdown", "ring"],
   disk: ["system", "all", "fullest"],
+  title: ["text", "play", "cover", "disc", "track"],
+  processes: ["cpu", "ram"],
+  battery: ["ring", "cells", "gauge", "dots"],
+  mic: ["mic", "both"],
+  progress: ["day", "month", "year"],
+  date: ["fulldate", "sheet", "week"],
+  world: ["world", "cities"],
 };
 
 export const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -234,6 +264,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     marks: MARK_STYLES.includes(s.marks as MarkStyle) ? (s.marks as MarkStyle) : "dot",
     startIcon: START_ICONS.includes(s.startIcon as StartIcon) ? (s.startIcon as StartIcon) : d.startIcon,
     allDesktops: s.allDesktops === true,
+    coin: CRYPTO_COINS.includes(s.coin as CryptoCoin) ? (s.coin as CryptoCoin) : d.coin,
   };
 }
 
@@ -259,6 +290,9 @@ export const keysWanted = (t: TaskbarSettings): boolean => t.enabled && t.winKey
 
 /** Whether Rust follows the network and the volume for the bar (`status.barOn`): while the bar is on and a zone holds Stato. */
 export const statusWanted = (t: TaskbarSettings): boolean => t.enabled && ZONES.some((z) => t.zones[z].includes("status"));
+
+/** Whether Rust follows the microphone and the volume for the bar's Microphone widget (`status.barOn`'s `mic`): while the bar is on and a zone holds it. */
+export const micWanted = (t: TaskbarSettings): boolean => t.enabled && ZONES.some((z) => t.zones[z].includes("mic"));
 
 /**
  * Each fixed item in exactly one zone and each widget, tool or Windows button in one at most: unknown ids dropped (a tool button for a tool the bar does not offer too), a duplicate kept at its first place

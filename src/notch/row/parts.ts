@@ -1,9 +1,9 @@
 // Settings model of the closed notch's row: which parts show and in what order. Pure, so the saved shape can be repaired (and tested) without the app around it.
 
-export const PART_IDS = ["timer", "discord", "rings", "title", "readings", "equalizer", "clock", "github", "leetcode", "calendar", "script", "downloads", "weather", "disk"] as const;
+export const PART_IDS = ["timer", "discord", "rings", "title", "readings", "equalizer", "clock", "github", "leetcode", "calendar", "script", "downloads", "weather", "disk", "processes", "battery", "mic", "stopwatch", "todo", "note", "progress", "date", "world", "currency", "crypto"] as const;
 export type PartId = (typeof PART_IDS)[number];
 /** Widgets of Crest's bar alone: the closed row draws nothing for them, and its settings do not list them. */
-export const BAR_ONLY: readonly PartId[] = ["disk"];
+export const BAR_ONLY: readonly PartId[] = ["disk", "processes", "battery", "mic", "stopwatch", "todo", "note", "progress", "date", "world", "currency", "crypto"];
 /** Readings of the closed row; net, power, battery and temp are opt-in. */
 export const READING_KEYS = ["cpu", "ram", "gpu", "net", "power", "battery", "temp"] as const;
 export type ReadingKey = (typeof READING_KEYS)[number];
@@ -30,7 +30,7 @@ export interface StatusAlerts {
 
 export const CLOSED_DEFAULTS: ClosedSettings = {
   order: [...PART_IDS],
-  parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, leetcode: false, calendar: false, script: false, downloads: true, weather: false, disk: false },
+  parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, leetcode: false, calendar: false, script: false, downloads: true, weather: false, disk: false, processes: false, battery: false, mic: false, stopwatch: false, todo: false, note: false, progress: false, date: false, world: false, currency: false, crypto: false },
   readings: { cpu: true, ram: true, gpu: true, net: false, power: false, battery: false, temp: false },
   clockSeconds: false, clockDate: false, lineProgress: true, quotaAlerts: true, downloadAlerts: true,
   statusAlerts: {

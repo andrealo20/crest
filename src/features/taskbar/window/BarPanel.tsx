@@ -13,7 +13,7 @@ import { useToolSize } from "../../window/panel";
 import { limits } from "../../window/panelSize";
 import { fitIcon, placeMenu } from "../model";
 import { closePanel, panel, panelHeld, quickLayout, quickPage, trayDrag, type OpenPanel, type PanelContent } from "../panel";
-import { CLOCK_SIZE, DISKS_SIZE, PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, TOOL_FALLBACK, TRAY_SIZE, fitClock, fitPanel, toolPanelSize } from "../panelModel";
+import { CLOCK_SIZE, CRYPTO_SIZE, DISKS_SIZE, PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, SEARCH_SIZE, TOOL_FALLBACK, TRAY_SIZE, fitClock, fitPanel, toolPanelSize } from "../panelModel";
 import { barFeed } from "../barStores";
 import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
@@ -23,7 +23,9 @@ import type { HitRect } from "./BarMenu";
 import { useBarEdge } from "./barEdge";
 import { CLOCK_TITLE_IDS, ClockPanel, TOOL_TITLE_ID, ToolPanel, useTabs } from "./ToolPanel";
 import { TrayPanel } from "./TrayPanel";
+import { CryptoPanel } from "./CryptoPanel";
 import { DisksPanel, diskScan, panelDisks } from "./DisksPanel";
+import { SearchPanel } from "./SearchPanel";
 import { levelRows } from "../disks";
 
 /** The panel's corners at 100 %, CSS px: the notch's open panel where it floats, without ears. */
@@ -86,6 +88,8 @@ function usePanelSize(shows: PanelContent, apps: number): { w: number; h: number
   if (shows.kind === "apps") return TRAY_SIZE(fitIcon(height, iconSize), apps);
   if (shows.kind === "quick") return page ? QUICK_PAGE_SIZE(page.rows, page.extra) : QUICK_SIZE(quick);
   if (shows.kind === "clock") return CLOCK_SIZE;
+  if (shows.kind === "search") return SEARCH_SIZE;
+  if (shows.kind === "crypto") return CRYPTO_SIZE;
   if (!tab) return null;
   // The notch's own rule (Notch.tsx): the tool's runtime request wins over the size it was given, an extra height rides on top of
   // that size, and both are held to the monitor.
@@ -232,7 +236,19 @@ function Panel({
       data-notch-hit
       role="dialog"
       aria-label={
-        open.content.kind === "tray" ? t("Infobereich") : open.content.kind === "apps" ? t("Weitere Apps") : open.content.kind === "quick" ? t("Schnelleinstellungen") : open.content.kind === "disks" ? t("Speicherplatz") : undefined
+        open.content.kind === "tray"
+          ? t("Infobereich")
+          : open.content.kind === "apps"
+            ? t("Weitere Apps")
+            : open.content.kind === "quick"
+              ? t("Schnelleinstellungen")
+              : open.content.kind === "disks"
+                ? t("Speicherplatz")
+                : open.content.kind === "search"
+                  ? t("Suchen oder öffnen")
+                  : open.content.kind === "crypto"
+                    ? t("Krypto")
+                    : undefined
       }
       aria-labelledby={open.content.kind === "tool" || clock?.alone ? TOOL_TITLE_ID : clock ? CLOCK_TITLE_IDS : undefined}
       // Closing, it takes no key and no click: its zone is already gone.
@@ -271,6 +287,10 @@ function Panel({
                     <ToolPanel tool={open.content.tool} />
                   ) : open.content.kind === "disks" ? (
                     <DisksPanel />
+                  ) : open.content.kind === "search" ? (
+                    <SearchPanel />
+                  ) : open.content.kind === "crypto" ? (
+                    <CryptoPanel />
                   ) : clock ? (
                     // Too short for both halves (fitClock): the Calendar alone, as the Next event widget opens it.
                     clock.alone ? <ToolPanel tool="calendar" /> : <ClockPanel />

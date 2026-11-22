@@ -1,5 +1,6 @@
 import { createStore } from "../../lib/store";
 import type { Reading } from "../../notch/row/parts/Readings";
+import type { PowerState } from "../../notch/row/status";
 import type { DiscordCall, DownloadProgress, UsageId } from "../../platform/services";
 import { calendar } from "../calendar/store";
 import { discordState } from "../discord/store";
@@ -14,6 +15,7 @@ import { focusMuted, ringing } from "../timer/store";
 import { usage } from "../usage/store";
 import type { Forecast } from "../weather/store";
 import type { DiskDrive } from "./disks";
+import type { TopApp } from "./systemWidgets";
 
 /*
  * What the notch sends Crest's bar over the bridge (src/lib/bridge.ts), read by both windows: the widgets' data, computed in the
@@ -39,6 +41,21 @@ export interface BarFeed {
   script: ScriptPart[];
   /** The drives, read every few minutes (feed.tsx DiskSource). */
   disks: DiskDrive[];
+  /** Download and upload in bytes/s over the last 30 s, one a second, sent only while the hardware's version is "net"; null for a gap. */
+  netSpark: { down: (number | null)[]; up: (number | null)[] };
+  /** The three busiest apps for the Top apps widget, busiest first (systemWidgets.ts topApp); fewer while fewer are known. */
+  topApps: TopApp[];
+  /** The power state as Windows last told the notch (status/store.ts powerState), for the battery widget. */
+  power: PowerState | null;
+  /** Today and the next 3 days with the place's UTC offset, sent only while the weather's version is "details", "forecast" or "sun". */
+  weatherDays: Pick<Forecast, "daily" | "offset"> | null;
+  /** The Converter's pair and one unit's rate, read hourly (marketSources.tsx). */
+  currency: { from: string; to: string; rate: number } | null;
+  /**
+   * The crypto widget's coin in the base currency, read every 2 minutes (marketSources.tsx): its price, its change over 24 h in percent,
+   * and its hourly prices over the last 7 days, oldest first, of which the widget draws the last day and its panel all.
+   */
+  crypto: { symbol: string; base: string; price: number; change: number | null; line: number[] } | null;
 }
 
 export const EMPTY_FEED: BarFeed = {
@@ -56,6 +73,12 @@ export const EMPTY_FEED: BarFeed = {
   call: null,
   script: [],
   disks: [],
+  netSpark: { down: [], up: [] },
+  topApps: [],
+  power: null,
+  weatherDays: null,
+  currency: null,
+  crypto: null,
 };
 
 export const barFeed = createStore<BarFeed>(EMPTY_FEED);

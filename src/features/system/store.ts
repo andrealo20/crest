@@ -92,12 +92,12 @@ const byCpu = SteadyRanking.cpu(), byMem = SteadyRanking.memory();
 /** What the closed row, or the bar's readings widget, reads besides CPU, RAM and GPU. */
 function rowWant(): SystemWant {
   const s = settings.get(), on = (s.closed.parts.readings && rowVisible.get()) || barParts.get().includes("readings"), r = s.closed.readings;
-  return { net: on && r.net, temps: on && r.temp, power: on && r.power, battery: on && (r.battery || r.power) };
+  return { net: on && r.net, temps: on && r.temp, power: on && r.power, battery: on && (r.battery || r.power), processes: false };
 }
 
 function poll(ms: number) {
   const full = ms === SHOWN_MS, gpuRhythm = ms === GPU_MS;
-  const want = full ? { net: true, temps: true, power: true, battery: true } : rowWant();
+  const want = full ? { net: true, temps: true, power: true, battery: true, processes: true } : rowWant();
   void fetchSystem(full, gpuRhythm, want).then((raw) => {
     // Seconds since the last answer, at most one poll's worth: a rhythm switch right after an answer adds nothing, a long pause no more than one poll.
     const at = performance.now(), steps = lastAnswer === null ? 1 : Math.min(ms / SHOWN_MS, Math.round((at - lastAnswer) / SHOWN_MS));

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent, DISKS_SIZE, CLOCK_CALENDAR, fitClock, reportedTool } from "./panelModel.ts";
+import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent, CRYPTO_SIZE, DISKS_SIZE, CLOCK_CALENDAR, SEARCH_SIZE, fitClock, reportedTool } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -159,13 +159,14 @@ test("a page goes back to the panel when its radio is gone, and stays while it i
   assert.equal(pageAfter("mixer", { wifi: null, bluetooth: null }), "mixer");
 });
 
-test("the six tools on saved stores open in the panel too, the half-working and notch-only ones and Find on screen in the notch", () => {
-  const saved = ["notes", "todos", "water", "scratchpad", "habits", "clocks"];
+test("the six tools on saved stores and the Converter open in the panel too, the half-working and notch-only ones and Find on screen in the notch", () => {
+  // The Converter reads the public rates itself, as in the notch.
+  const saved = ["notes", "todos", "water", "scratchpad", "habits", "clocks", "convert"];
   for (const id of saved) assert.equal(opensInBar(tool(id)), true, id);
   // The notch runs nothing for them: barPanels.ts reads BAR_TOOLS.
   for (const id of saved) assert.equal(BAR_TOOLS.includes(id), false, id);
-  for (const id of ["clipboard", "ask", "trading", "vault", "terminal", "capture", "recorder", "camera", "calc", "convert", "launcher", "colour", "teleprompter", "agents", "find"]) assert.equal(opensInBar(tool(id)), false, id);
-  assert.equal(PANEL_TOOLS.length, 18);
+  for (const id of ["clipboard", "ask", "trading", "vault", "terminal", "capture", "recorder", "camera", "calc", "launcher", "colour", "teleprompter", "agents", "find"]) assert.equal(opensInBar(tool(id)), false, id);
+  assert.equal(PANEL_TOOLS.length, 19);
 });
 
 test("the main bar's clock opens a panel of its own in the bar, Crest's notices over its calendar", () => {
@@ -182,7 +183,7 @@ test("the clock's panel has the notch send the calendar and the notices, as a to
   assert.equal(reportedTool({ kind: "clock" }), "calendar");
   assert.ok(BAR_TOOLS.includes(reportedTool({ kind: "clock" })!));
   assert.equal(reportedTool(tool("media")), "media");
-  for (const c of [{ kind: "tray" }, { kind: "apps" }, { kind: "quick" }, { kind: "disks" }] as PanelContent[]) assert.equal(reportedTool(c), null, c.kind);
+  for (const c of [{ kind: "tray" }, { kind: "apps" }, { kind: "quick" }, { kind: "disks" }, { kind: "search" }, { kind: "crypto" }] as PanelContent[]) assert.equal(reportedTool(c), null, c.kind);
   assert.equal(reportedTool(undefined), null);
 });
 
@@ -199,6 +200,17 @@ test("the clock's panel keeps the calendar as tall as its own panel and shows it
   assert.deepEqual(fitClock({ w: 1350, h: 512 }, 2), { size: { w: 560, h: 256 }, alone: true });
   assert.equal(fitClock({ w: 1904, h: 414 }, 1).alone, false);
   assert.equal(fitClock({ w: 1904, h: 413 }, 1).alone, true);
+});
+
+test("the search box and the crypto widget open small panels of the bar's own, which need nothing from the notch", () => {
+  for (const c of [{ kind: "search" }, { kind: "crypto" }] as PanelContent[]) {
+    assert.equal(opensInBar(c), true, c.kind);
+    assert.equal(panelKey(c), c.kind);
+    assert.equal(sameContent(c, { kind: "tray" }), false, c.kind);
+  }
+  assert.equal(sameContent({ kind: "crypto" }, tool("trading")), false);
+  assert.deepEqual(SEARCH_SIZE, { w: 360, h: 80 });
+  assert.deepEqual(CRYPTO_SIZE, { w: 320, h: 196 });
 });
 
 test("a widget drags past 4 px with a mouse and 10 px with touch or a pen, so a tap that opens a panel never moves it", () => {

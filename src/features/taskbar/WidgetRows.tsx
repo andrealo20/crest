@@ -8,7 +8,7 @@ import { isZone } from "../clocks/zones";
 import { Select, SubSwitch } from "../../ui/controls";
 import { setMusic } from "../now-playing/music";
 import { shownIds } from "../usage/cards";
-import { TOOL_BUTTONS, type SysItem, type ToolItem, type Zone } from "./model";
+import { CRYPTO_COINS, TOOL_BUTTONS, variantOf, type SysItem, type ToolItem, type Zone } from "./model";
 import { setTaskbar } from "./store";
 import { toolInfo } from "./toolInfo";
 import { addableSys, addableTools, addWidget, barWidgets, clockHasSeconds, isSys, isTool, isWidget, removeWidget, sysOf, toolOf, toolShown, type Removable } from "./widgets";
@@ -56,9 +56,12 @@ export function WidgetOptions({ id }: { id: Removable }) {
       ))
     ) : id === "title" ? (
       <>
-        <SubSwitch label={t("Songtext")} checked={s.music.titleLyrics} onChange={(titleLyrics) => setMusic({ titleLyrics })} />
+        {/* Only the scrolling line sings: the other versions show title and artist. */}
+        {variantOf(s.taskbar.variants, "title") === "text" && <SubSwitch label={t("Songtext")} checked={s.music.titleLyrics} onChange={(titleLyrics) => setMusic({ titleLyrics })} />}
         <SubSwitch label={t("Endlos scrollen")} checked={s.music.titleLoop} onChange={(titleLoop) => setMusic({ titleLoop })} />
       </>
+    ) : id === "crypto" ? (
+      <Select value={s.taskbar.coin} options={CRYPTO_COINS.map((c) => ({ value: c, label: c }))} onChange={(coin) => setTaskbar({ coin })} width="w-24" />
     ) : null;
   // A tool button whose tool is off in the notch stays here, hidden on the bar until the tool is on again.
   const caption =

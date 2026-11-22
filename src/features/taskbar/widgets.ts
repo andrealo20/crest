@@ -24,8 +24,10 @@ export const sysOf = (id: SysItem): SysId => id.slice("sys:".length) as SysId;
  * Remove in Settings does. Never the tray, whose icons would all be out of reach, nor Start, the apps or the Crest button.
  */
 export const trashable = (id: string): id is Removable => isWidget(id) || isTool(id) || isSys(id) || id === "status";
-/** Whether a Windows button shows on the primary bar only: Windows widgets, the input language, the privacy indicators and the Recycle Bin, which Windows keeps on the main taskbar; the others are on every bar. */
-export const sysPrimaryOnly = (id: SysItem): boolean => sysOf(id) !== "search" && sysOf(id) !== "taskview" && sysOf(id) !== "desktop";
+/** The Windows buttons that show on the main bar only, as Windows keeps them; every other one is on every bar. */
+const PRIMARY_SYS: readonly SysId[] = ["widgets", "input", "privacy", "recycle"];
+/** Whether a Windows button shows on the primary bar only: Windows widgets, the input language, the privacy indicators and the Recycle Bin, which Windows keeps on the main taskbar. */
+export const sysPrimaryOnly = (id: SysItem): boolean => PRIMARY_SYS.includes(sysOf(id));
 /** Whether the notch polls the privacy state for the bar: on, with its privacy button on it. */
 export const privacyOnBar = (t: TaskbarSettings): boolean => t.enabled && Object.values(t.zones).some((items) => items.includes("sys:privacy"));
 /** What the privacy button shows, in Windows' order. */
@@ -45,11 +47,26 @@ export function previewInk(look: BarLook, surface: TaskbarSettings["surface"], c
   return look === "plus" ? { ...dark, "--accent": dark["--theme-accent"] } : surface === "notch" ? closed : undefined;
 }
 
+/** The tools the bar's own widgets open, as partTool has none for them: Hardware for Top apps and the battery, To-dos, the note, the Converter and Clocks. */
+const BAR_ONLY_TOOLS: Partial<Record<PartId, string>> = { processes: "system", battery: "system", todo: "todos", note: "notes", currency: "convert", world: "clocks" };
+
 /**
  * The tool a widget opens in the panel over the bar; null for the clock, which opens Crest's Notices and Calendar on the main bar and
- * Windows' notification centre on the others, and the disk widget, whose panels are the bar's own.
+ * Windows' notification centre on the others, for the widgets whose panel is the bar's own (widgetPanel), for the microphone, whose
+ * click mutes it, and for the stopwatch, whose click starts and pauses it.
  */
-export const widgetTool = (id: PartId): string | null => (id === "clock" ? null : partTool(id));
+export const widgetTool = (id: PartId): string | null => (id === "clock" ? null : (BAR_ONLY_TOOLS[id] ?? partTool(id)));
+
+/**
+ * The panel of the bar's own a widget opens in place of a tool: the disk widget its drives, the main bar's clock (and beside it the time
+ * progress and the date, which show on the main bar only) Crest's Notices over its Calendar, the crypto widget its coin's week. Null
+ * for the others, the clock on the other bars among them.
+ */
+export const widgetPanel = (id: PartId, primary: boolean): "disks" | "clock" | "crypto" | null =>
+  id === "disk" ? "disks" : id === "progress" || id === "date" || (id === "clock" && primary) ? "clock" : id === "crypto" ? "crypto" : null;
+
+/** Widgets with a right-click menu of their own over the Crest menu's rows (window/WidgetMenu.tsx). */
+export const hasWidgetMenu = (id: PartId): boolean => id === "title" || id === "stopwatch" || id === "todo";
 
 /** A widget's size against the notch's: 1 with the default icons, growing and shrinking with the icons the bar draws. */
 export const widgetScale = (height: number, iconSize: number): number => fitIcon(height, iconSize) / TASKBAR_DEFAULTS.iconSize;
@@ -96,11 +113,19 @@ export const addableTools = (zones: Record<Zone, BarItem[]>, tools: readonly Too
 export const barPartsFor = (widgets: PartId[], on: boolean, shown: boolean): PartId[] =>
   !on ? [] : shown ? widgets : widgets.filter((id) => id === "discord");
 
+/** Whether a widget on the bar other than Weather draws the weather now (`weather`): the clock's Time and weather, the date's week. */
+export const weatherWanted = (parts: readonly PartId[], variants: unknown): boolean =>
+  (parts.includes("clock") && variantOf(variants, "clock") === "weather") || (parts.includes("date") && variantOf(variants, "date") === "week");
+
 /**
- * The sources the notch runs for the bar (feed.tsx): those of `parts`, and the equalizer's, which keeps the audio capture on, while
- * a bar's panel shows Now Playing (`media`), whose equalizer only listens to the levels.
+ * The sources the notch runs for the bar (feed.tsx): those of `parts`, the equalizer's, which keeps the audio capture on, while a
+ * bar's panel shows Now Playing (`media`), whose equalizer only listens to the levels, and the weather's, which keeps the forecast
+ * fresh, while another widget draws the weather (`weather`, weatherWanted).
  */
-export const barSources = (parts: readonly PartId[], media: boolean): readonly PartId[] => (media && !parts.includes("equalizer") ? [...parts, "equalizer"] : parts);
+export const barSources = (parts: readonly PartId[], media: boolean, weather = false): readonly PartId[] => {
+  const eq = media && !parts.includes("equalizer") ? [...parts, "equalizer" as const] : parts;
+  return weather && !eq.includes("weather") ? [...eq, "weather" as const] : eq;
+};
 
 /** How long the notch keeps the bar's widget sources after the primary bar starts sliding away (auto-hide), ms: back within it, the bar finds them running. */
 export const SLIDE_KEEP_MS = 30_000;
@@ -145,25 +170,33 @@ export type WidgetChoice = { variant: string | null; date?: boolean };
 
 const hasVersions = (id: PartId): id is keyof WidgetVariants => Object.hasOwn(WIDGET_VARIANTS, id);
 
+/** The clock's versions after its two digital ones, in the Widgets page's order; two zones comes last, offered only with a zone. */
+const CLOCK_FACES = ["analog", "flip", "segment", "weather"] as const;
+
 /**
  * The versions the Widgets page offers for `id`, today's first. The clock's "time and date" and "time only" are the digital clock with
  * taskbar.clock.date, its only source (design 3D); two zones only while the Clocks tool has a zone (`zones`).
  */
 export function widgetChoices(id: PartId, zones: boolean): WidgetChoice[] {
-  if (id === "clock") return [{ variant: "digital", date: true }, { variant: "digital", date: false }, { variant: "analog" }, ...(zones ? [{ variant: "zones" }] : [])];
+  if (id === "clock")
+    return [{ variant: "digital", date: true }, { variant: "digital", date: false }, ...CLOCK_FACES.map((variant) => ({ variant })), ...(zones ? [{ variant: "zones" }] : [])];
   return hasVersions(id) ? WIDGET_VARIANTS[id].map((variant) => ({ variant })) : [{ variant: null }];
 }
 
-/** The index in widgetChoices of the version the bar draws: the saved one (through variantOf), the clock's digital ones by its date. */
+/**
+ * The index in widgetChoices of the version the bar draws: the saved one (through variantOf), the clock's digital ones by its date, also
+ * for Two time zones saved while no zone draws them.
+ */
 export function chosenChoice(id: PartId, variants: unknown, date: boolean, zones: boolean): number {
   if (id === "clock") {
     const v = variantOf(variants, "clock");
-    return v === "analog" ? 2 : v === "zones" && zones ? 3 : date ? 0 : 1;
+    const i = v === "digital" ? -1 : widgetChoices("clock", zones).findIndex((c) => c.variant === v);
+    return i >= 0 ? i : date ? 0 : 1;
   }
   return hasVersions(id) ? (WIDGET_VARIANTS[id] as readonly string[]).indexOf(variantOf(variants, id)) : 0;
 }
 
-/** Whether the clock the bar draws has seconds to switch: the digital one, also for Two time zones saved while no zone draws them. */
+/** Whether the clock the bar draws has seconds to switch: the digital one alone, also for Two time zones saved while no zone draws them. */
 export const clockHasSeconds = (variants: unknown, zones: boolean): boolean => chosenChoice("clock", variants, true, zones) < 2;
 
 /**

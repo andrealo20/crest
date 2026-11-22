@@ -3,8 +3,11 @@
 
 import { DOCK_HEIGHT } from "../../notch/geometry.ts";
 
-/** What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, the apps behind "…", Stato's quick panel, the disk widget's drives, or the main bar's clock's Notices over Calendar. */
-export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "apps" } | { kind: "quick" } | { kind: "disks" } | { kind: "clock" };
+/**
+ * What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, the apps behind "…", Stato's quick panel,
+ * the disk widget's drives, the main bar's clock's Notices over Calendar, the search box's field or the crypto widget's coin over 7 days.
+ */
+export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "apps" } | { kind: "quick" } | { kind: "disks" } | { kind: "clock" } | { kind: "search" } | { kind: "crypto" };
 /** The item the panel opens over: its left edge and its width, CSS px. */
 export interface PanelAnchor {
   x: number;
@@ -18,8 +21,12 @@ export interface OpenPanel {
 
 /** The tools the closed row's parts open (partTool in src/notch/row/parts.ts): the same parts on the bar open them in its panel. */
 export const BAR_TOOLS: readonly string[] = ["media", "timer", "usage", "system", "notices", "overview", "shelf", "weather", "discord", "github", "leetcode", "calendar"];
-/** The tools that open in the bar's panel: the widgets' (BAR_TOOLS) and six that keep their data in the saved stores every window shares (storeCore.ts), which work there as they are; the notch runs nothing for those six (barPanels.ts reads BAR_TOOLS). */
-export const PANEL_TOOLS: readonly string[] = [...BAR_TOOLS, "notes", "todos", "water", "scratchpad", "habits", "clocks"];
+/**
+ * The tools that open in the bar's panel: the widgets' (BAR_TOOLS), six that keep their data in the saved stores every window shares
+ * (storeCore.ts), which work there as they are, and the Converter, which reads the public rates itself; the notch runs nothing for
+ * those seven (barPanels.ts reads BAR_TOOLS).
+ */
+export const PANEL_TOOLS: readonly string[] = [...BAR_TOOLS, "notes", "todos", "water", "scratchpad", "habits", "clocks", "convert"];
 
 /** The tool's id, or the kind ("tray", "apps", "quick") for any other content: the panel crossfades when it changes. */
 export const panelKey = (c: PanelContent) => (c.kind === "tool" ? c.tool : c.kind);
@@ -106,6 +113,12 @@ export const DISK_ROW = 52;
  * has the quick pages' frame round them instead: 12 px round it, the header and the footer (32 each) 10 px from the rows.
  */
 export const DISKS_SIZE = (rows: number, page = false) => ({ w: 340, h: (page ? 108 : 16) + Math.min(Math.max(rows, 1), PAGE_MAX_ROWS) * DISK_ROW });
+
+/** The search box's panel at 100 %: 12 px round the field (28 px, 32 in roomy) and its 16 px hint, 8 px between. */
+export const SEARCH_SIZE = { w: 360, h: 80 };
+
+/** The crypto widget's panel at 100 %: 12 px round the coin's price (32), its line over 7 days (88) and the row of the Depot's button (32), 10 px between. */
+export const CRYPTO_SIZE = { w: 320, h: 24 + 32 + 10 + 88 + 10 + 32 };
 
 /** The page the quick panel keeps: none once the page's radio is gone (adapter removed), the same while it is only off or not read yet; the mixer whatever the radios read. */
 export function pageAfter(page: QuickPage | null, quick: { wifi: boolean | null; bluetooth: boolean | null } | null): QuickPage | null {

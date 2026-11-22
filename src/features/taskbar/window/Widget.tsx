@@ -1,4 +1,4 @@
-import { useId, useRef, useSyncExternalStore, type MouseEventHandler, type ReactNode } from "react";
+import { useId, useRef, useSyncExternalStore, type MouseEvent, type MouseEventHandler, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { fade } from "../../../design/motion";
 import { ROW } from "../../../notch/row/layout";
@@ -20,10 +20,12 @@ import { settings } from "../../../settings/store";
 import { Equalizer } from "../../now-playing/Equalizer";
 import { LiveLyric } from "../../now-playing/LiveLyric";
 import { clocks } from "../../clocks/store";
-import { isZone } from "../../clocks/zones";
+import { normalizeZones } from "../../clocks/zones";
+import type { NowPlaying } from "../../../platform/media/types";
 import { timer } from "../../timer/store";
 import { t } from "../../../i18n";
 import { EMPTY_FEED, barFeed, noticeCount, type BarFeed } from "../barStores";
+import { widgetKey, type FaceKey } from "../faceKeys";
 import { countBadge, variantOf, type TaskbarSettings } from "../model";
 import { SAMPLE_TIMER } from "../sampleFeed";
 import { statusPill } from "../statusModel";
@@ -33,15 +35,20 @@ import { DiskFace, disksWidth } from "./DiskFaces";
 import { ANALOG, BarAnalog, BarClock, BarZones, barClockWidth, zonesWidth } from "./BarClock";
 import { Item, type ItemProps } from "./Item";
 import { ReadingBars, ReadingLine, barsWidth, lineWidth } from "./ReadingFaces";
+import { marketPart } from "./MarketFaces";
+import { micPart, trackPart, useTrack } from "./MediaFaces";
+import { productivityPart, useOwn, type Own } from "./ProductivityFaces";
+import { netPart, systemPart } from "./SystemFaces";
+import { clockPart, timePart } from "./TimeFaces";
 import { RING_FACE, TimerRing } from "./TimerRing";
-import { WEATHER_ICON, WeatherCondition, WeatherHours, WeatherIcon, conditionWidth, hoursWidth } from "./WeatherFaces";
+import { WEATHER_ICON, WeatherCondition, WeatherHours, WeatherIcon, conditionWidth, hoursWidth, weatherPart } from "./WeatherFaces";
 
 /**
  * What a widget's body is drawn from: its slices of the feed, whether the bar rests or the pointer is on it, and the settings it follows:
- * the widgets' versions (raw: read through variantOf) and the Clocks tool's first zone. `at` and `sample`: the Widgets page's previews,
- * a fixed time and the sample timer, so they never read the real timer or tick.
+ * the widgets' versions (raw: read through variantOf) and the Clocks tool's zones. `at` and `sample`: the Widgets page's previews,
+ * a fixed time and the sample data, so they never read the real timer, stores or song, or tick.
  */
-interface WidgetContext {
+export interface WidgetContext {
   feed: BarFeed;
   paused: boolean;
   hovered: boolean;
@@ -51,14 +58,21 @@ interface WidgetContext {
   timerRunning: boolean;
   timerDuration: number;
   variants: TaskbarSettings["variants"];
-  zone: string | null;
+  /** The Clocks tool's zones the engine knows, in its order (normalizeZones). */
+  zones: readonly string[];
+  /** The song the bar's window follows itself, read by the song title's versions only. */
+  track?: NowPlaying | null;
+  /** What the stopwatch, the next to-do and the note preview read from their saved stores. */
+  own?: Own;
   at?: number;
   sample?: boolean;
 }
 
-interface Body {
+/** A widget's face and its width at scale 1, and what its name gains in the label above the bar, for a face that shows less than it knows (the Top apps' names). */
+export interface Body {
   node: ReactNode;
   width: number;
+  tip?: string;
 }
 
 /** Side by side, as the closed row's carousel shows them when they all fit. */
@@ -69,12 +83,17 @@ const inRow = (gap: number, widths: number[], nodes: ReactNode[]): Body => ({
 
 /** The part as the closed row draws it, and its width there; null while it has nothing to show. */
 // Every version not known falls back through variantOf to today's look, never to a branch that draws nothing.
-function part(id: PartId, { feed: f, paused, hovered, clock, h12, titleLoop, timerRunning, timerDuration, variants, zone, at, sample }: WidgetContext): Body | null {
+function part(id: PartId, ctx: WidgetContext): Body | null {
+  const { feed: f, paused, hovered, clock, h12, titleLoop, timerRunning, timerDuration, variants, zones, at, sample } = ctx;
   switch (id) {
     case "clock": {
-      const v = variantOf(variants, "clock");
+      const v = variantOf(variants, "clock"), zone = zones[0];
       if (v === "analog") return { node: <BarAnalog h12={h12} paused={paused} at={at} />, width: ANALOG };
       if (v === "zones" && zone) return { node: <BarZones h12={h12} zone={zone} paused={paused} at={at} />, width: zonesWidth(h12, zone) };
+      if (v !== "digital" && v !== "zones") {
+        const b = clockPart(v, ctx);
+        if (b) return b;
+      }
       return { node: <BarClock seconds={clock.seconds} h12={h12} date={clock.date} paused={paused} at={at} />, width: barClockWidth(clock.seconds, h12, clock.date) };
     }
     case "equalizer":
@@ -82,12 +101,18 @@ function part(id: PartId, { feed: f, paused, hovered, clock, h12, titleLoop, tim
     case "weather": {
       if (!f.weather) return null;
       const v = variantOf(variants, "weather");
+      if (v === "details" || v === "forecast" || v === "sun") {
+        const b = weatherPart(v, ctx);
+        if (b) return b;
+      }
       if (v === "icon") return { node: <WeatherIcon now={f.weather} />, width: WEATHER_ICON };
       if (v === "condition") return { node: <WeatherCondition now={f.weather} />, width: conditionWidth(f.weather) };
       if (v === "hours" && f.weatherHours.length) return { node: <WeatherHours hours={f.weatherHours} />, width: hoursWidth() };
       return { node: <WeatherPart now={f.weather} />, width: weatherWidth() };
     }
     case "title": {
+      const v = variantOf(variants, "title");
+      if (v !== "text") return trackPart(v, ctx);
       if (!f.title) return null;
       // Always titleMax, as the notch counts it (layout.ts naturalWidth): a new line or song never moves the buttons beside it.
       const { text, lyric } = f.title, textWidth = measureText(text), width = ROW.titleMax;
@@ -106,6 +131,10 @@ function part(id: PartId, { feed: f, paused, hovered, clock, h12, titleLoop, tim
     case "readings": {
       if (!f.readings.length) return null;
       const v = variantOf(variants, "readings");
+      if (v === "net") {
+        const b = netPart(ctx);
+        if (b) return b;
+      }
       if (v === "bars") return { node: <ReadingBars readings={f.readings} />, width: barsWidth(f.readings) };
       if (v === "line" && f.spark.length && f.readings.some((r) => r.id === "cpu")) return { node: <ReadingLine readings={f.readings} spark={f.spark} />, width: lineWidth(f.readings) };
       return inRow(READING_GAP, f.readings.map((r) => readingWidth(r.id)), f.readings.map((r) => <ReadingView key={r.id} reading={r} />));
@@ -139,14 +168,30 @@ function part(id: PartId, { feed: f, paused, hovered, clock, h12, titleLoop, tim
       const parts = f.script.map((p) => ({ ...p, open: null }));
       return parts.length ? { node: <ScriptParts parts={parts} />, width: scriptPartsWidth(parts) } : null;
     }
+    case "processes":
+    case "battery":
+      return systemPart(id, ctx);
+    case "mic":
+      return micPart(ctx);
+    case "stopwatch":
+    case "todo":
+    case "note":
+      return productivityPart(id, ctx);
+    case "progress":
+    case "date":
+    case "world":
+      return timePart(id, ctx);
+    case "currency":
+    case "crypto":
+      return marketPart(id, ctx);
   }
 }
 
 /**
- * A widget's body at scale 1: its part, or while it has nothing to show the part's icon, dimmed. Keyed by which of the two it is,
- * so under an AnimatePresence the swap fades one over the other, and the width changes at once.
+ * A widget's body at scale 1: its part, or while it has nothing to show the part's icon, dimmed (`drawn` false). Keyed by which of the
+ * two it is, so under an AnimatePresence the swap fades one over the other, and the width changes at once.
  */
-export function widgetBody(id: PartId, ctx: WidgetContext): Body {
+export function widgetBody(id: PartId, ctx: WidgetContext): Body & { drawn: boolean } {
   const body = part(id, ctx), I = partInfo[id].icon;
   return {
     node: (
@@ -161,6 +206,8 @@ export function widgetBody(id: PartId, ctx: WidgetContext): Body {
       </motion.span>
     ),
     width: body ? body.width : 16,
+    tip: body?.tip,
+    drawn: body !== null,
   };
 }
 
@@ -170,9 +217,9 @@ const SLICES: Record<PartId, (keyof BarFeed)[]> = {
   timer: [],
   equalizer: ["playing"],
   title: ["title", "playing"],
-  weather: ["weather", "weatherHours"],
+  weather: ["weather", "weatherHours", "weatherDays"],
   rings: ["rings"],
-  readings: ["readings", "spark"],
+  readings: ["readings", "spark", "netSpark"],
   calendar: ["next"],
   downloads: ["downloads"],
   discord: ["call"],
@@ -180,6 +227,17 @@ const SLICES: Record<PartId, (keyof BarFeed)[]> = {
   leetcode: ["leetcode"],
   script: ["script"],
   disk: ["disks"],
+  processes: ["topApps"],
+  battery: ["power"],
+  mic: [],
+  stopwatch: [],
+  todo: [],
+  note: [],
+  progress: [],
+  date: [],
+  world: [],
+  currency: ["currency"],
+  crypto: ["crypto"],
 };
 
 /**
@@ -203,7 +261,8 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
   id: PartId;
   item: Pick<ItemProps, "name" | "label" | "failed" | "lifted" | "size" | "markAt" | "plus" | "tile" | "expanded" | "kind" | "onEnter" | "onLeave">;
   paused: boolean;
-  onClick: MouseEventHandler<HTMLButtonElement>;
+  /** `key`: the key on the face the click landed on (faceKeys.ts widgetKey), null for none. */
+  onClick: (e: MouseEvent<HTMLButtonElement>, key: FaceKey | null) => void;
   onContextMenu: MouseEventHandler<HTMLButtonElement>;
   onPointerDown: ItemProps["onPointerDown"];
 }) {
@@ -212,10 +271,12 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
   const { endsAt, duration } = timer.use();
   const feed = useSlices(SLICES[id]);
   // Checked here too: the list another window saved arrives as it is, and an unknown zone would throw while drawing.
-  const first = clocks.use()[0], zone = isZone(first) ? first : null;
+  const zones = normalizeZones(clocks.use());
+  const track = useTrack(id);
+  const own = useOwn(id, paused);
   const desc = useId();
   const k = widgetScale(taskbar.height, taskbar.iconSize);
-  const { node, width } = widgetBody(id, {
+  const { node, width, drawn, tip } = widgetBody(id, {
     feed,
     paused,
     hovered: item.lifted,
@@ -225,15 +286,32 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
     timerRunning: endsAt !== null,
     timerDuration: duration,
     variants: taskbar.variants,
-    zone,
+    zones,
+    track,
+    own,
   });
   const pill = pillWidget(id, item.tile !== undefined) ? statusPill(taskbar.height) : null;
   // The clock carries the count of the notices its panel lists, as Windows' carries its centre's; only the main bar hears it (barStores feedStores).
   const count = noticeCount.use();
   const badge = id === "clock" ? countBadge(count) : null;
   const name = badge ? `${item.name}, ${t(count === 1 ? "{n} Mitteilung" : "{n} Mitteilungen", { n: count ?? 0 })}` : item.name;
+  // The name shows above the widget under the pointer; a face that shows less than it knows adds the rest to it there.
+  const label = tip && item.label !== null && item.label === item.name ? `${item.label}: ${tip}` : item.label;
   return (
-    <Item {...item} name={name} width={widgetWidth(width, k, pill?.pad ?? null)} describedBy={desc} onClick={onClick} onContextMenu={onContextMenu} onPointerDown={onPointerDown}>
+    <Item
+      {...item}
+      name={name}
+      label={label}
+      width={widgetWidth(width, k, pill?.pad ?? null)}
+      describedBy={desc}
+      onClick={(e) => {
+        // The pointer in the face's own px: the 30 px cell is centred in the button at zoom k. None by keyboard or while the icon shows.
+        const r = e.currentTarget.getBoundingClientRect();
+        onClick(e, widgetKey(id, taskbar.variants, drawn && e.detail > 0 ? (e.clientX - r.left - r.width / 2) / k + width / 2 : null));
+      }}
+      onContextMenu={onContextMenu}
+      onPointerDown={onPointerDown}
+    >
       {badge && (
         <span aria-hidden className="absolute -end-2 -top-1 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-label px-1 text-[10px] font-semibold leading-none text-notch">
           {badge}

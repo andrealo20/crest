@@ -24,15 +24,19 @@ import { useLeetcodeViewer } from "../leetcode/store";
 import { history, scriptParts } from "../notices/store";
 import { RELEASE_CAPTURE_MS } from "../now-playing/Equalizer";
 import { useLyricLine } from "../now-playing/lyrics";
+import { powerState } from "../status/store";
 import { system } from "../system/store";
 import { usage, useUsageViewer } from "../usage/store";
 import { nextHours } from "../weather/hours";
 import { isStale } from "../weather/stale";
 import { useForecast } from "../weather/store";
 import { anyBarTool, barPanels, onBarShows } from "./barPanels";
-import { barFeed, feedStores, noticeCount, panelOpen, panelStores, type BarFeed } from "./barStores";
+import { EMPTY_FEED, barFeed, feedStores, noticeCount, panelOpen, panelStores } from "./barStores";
+import { CryptoSource, CurrencySource } from "./marketSources";
 import { variantOf } from "./model";
-import { SLIDE_KEEP_MS, barPartsFor, barSources, barWidgets, sourcesAfter, type BarSeen } from "./widgets";
+import { useSlice } from "./slice";
+import { topApp, type TopApp } from "./systemWidgets";
+import { SLIDE_KEEP_MS, barPartsFor, barSources, barWidgets, sourcesAfter, weatherWanted, type BarSeen } from "./widgets";
 
 /*
  * The notch's end of the bar's widgets: it runs the closed row's hooks for each widget on the bar and sends the result to the
@@ -82,32 +86,28 @@ export function startBarShare() {
   void build.info().then((b) => { if (b.store) { sourcesOn.set(false); noBar.set(true); } }, () => {});
 }
 
-/** Writes a widget's slice only when it changed: each write goes to the bar. */
-function useSlice<K extends keyof BarFeed>(key: K, value: BarFeed[K]) {
-  const json = JSON.stringify(value);
-  useEffect(() => {
-    if (JSON.stringify(barFeed.get()[key]) !== json) barFeed.set((f) => ({ ...f, [key]: value }));
-  }, [key, json]);
-}
-
 function WeatherSource() {
   const f = useForecast(15 * 60_000, true);
-  const hours = variantOf(settings.use().taskbar.variants, "weather") === "hours";
+  const v = variantOf(settings.use().taskbar.variants, "weather");
   const ok = f && f !== "error" && !isStale(f.savedAt, Date.now()) ? f : null;
   // As useWeatherNow: none from a saved forecast hours old.
   useSlice("weather", ok ? ok.current : null);
   // Read again with each forecast refresh, 15 min at most, so just after the hour the face may still show the hour that has begun: accepted.
-  useSlice("weatherHours", ok && hours ? nextHours(ok.hourly, ok.offset, Date.now()).map(({ time, temp, code, day }) => ({ time, temp, code, day })) : []);
+  useSlice("weatherHours", ok && v === "hours" ? nextHours(ok.hourly, ok.offset, Date.now()).map(({ time, temp, code, day }) => ({ time, temp, code, day })) : []);
+  // As the hours: up to 15 min after midnight the first day may still be yesterday's, until the next read.
+  useSlice("weatherDays", ok && (v === "details" || v === "forecast" || v === "sun") ? { daily: ok.daily.slice(0, 4), offset: ok.offset } : null);
   return null;
 }
 
 function TitleSource() {
-  const music = settings.use().music;
+  const s = settings.use(), music = s.music;
+  // Only the title line draws this slice: the other versions read the song in the bar's own window and fetch no lyrics.
+  const line = variantOf(s.taskbar.variants, "title") === "text";
   const np = useNowPlaying();
-  const line = useLyricLine(np, music.titleLyrics, { roman: music.closedRoman === true, translation: music.closedTranslation === true });
+  const sung = useLyricLine(np, line && music.titleLyrics, { roman: music.closedRoman === true, translation: music.closedTranslation === true });
   // As in the closed row: the sung line while the song plays, else title and artist.
-  const lyric = !!(music.titleLyrics && np?.isPlaying && line);
-  const text = lyric ? line : np ? trackCaption(np.title ?? "", np.artist ?? "") : "";
+  const lyric = !!(line && music.titleLyrics && np?.isPlaying && sung);
+  const text = !line ? "" : lyric ? sung : np ? trackCaption(np.title ?? "", np.artist ?? "") : "";
   useSlice("title", text ? { text, lyric } : null);
   useSlice("playing", !!np?.isPlaying);
   return null;
@@ -130,13 +130,30 @@ function RingsSource() {
 }
 
 function ReadingsSource() {
-  const closed = settings.use().closed;
-  // The part forced on: the bar shows readings with the notch's part off. No gaming: the bar hides over full-screen apps.
-  useSlice("readings", useReadings({ ...closed, parts: { ...closed.parts, readings: true } }, false));
-  const line = variantOf(settings.use().taskbar.variants, "readings") === "line";
-  const cpu = system.use().history.cpu;
+  const s = settings.use(), closed = s.closed;
+  const v = variantOf(s.taskbar.variants, "readings");
+  // The part forced on: the bar shows readings with the notch's part off; the network's line reads the network with NET off too.
+  // No gaming: the bar hides over full-screen apps.
+  useSlice("readings", useReadings({ ...closed, parts: { ...closed.parts, readings: true }, readings: { ...closed.readings, net: closed.readings.net || v === "net" } }, false));
+  const { cpu, down, up } = system.use().history;
   // The history is filled linearly once a second when only the bar asks, every 2 to 3 s (design 2D); gaps go as null, since NaN crosses the bridge as JSON null.
-  useSlice("spark", line ? cpu.slice(-30).map((v) => (Number.isNaN(v) ? null : Math.round(v))) : []);
+  const last30 = (h: number[]) => h.slice(-30).map((x) => (Number.isNaN(x) ? null : Math.round(x)));
+  useSlice("spark", v === "line" ? last30(cpu) : []);
+  useSlice("netSpark", v === "net" ? { down: last30(down), up: last30(up) } : EMPTY_FEED.netSpark);
+  return null;
+}
+
+/** The three apps using the most CPU, or memory in its other version, in the Hardware tool's steady order. */
+function ProcessesSource() {
+  const ram = variantOf(settings.use().taskbar.variants, "processes") === "ram";
+  const { processes, stats } = system.use();
+  const list = processes ? (ram ? processes.mem : processes.cpu) : [];
+  useSlice("topApps", list.slice(0, 3).map((p) => topApp(p, ram, stats?.memTotal ?? 0, navigator.hardwareConcurrency)).filter((a): a is TopApp => a !== null));
+  return null;
+}
+
+function BatterySource() {
+  useSlice("power", powerState.use());
   return null;
 }
 
@@ -193,7 +210,10 @@ function DiskSource() {
   return null;
 }
 
-/** The clock and the timer have none: the bar counts the time itself, and the timer is a saved store. */
+/**
+ * The clock, the date, the world time, the time progress and the timer have none, nor do the microphone, the stopwatch, the next
+ * to-do and the note: the bar counts the time itself, Rust tells the bar about the microphone, and the others are saved stores.
+ */
 const SOURCES: Partial<Record<PartId, () => null>> = {
   weather: WeatherSource,
   title: TitleSource,
@@ -207,6 +227,10 @@ const SOURCES: Partial<Record<PartId, () => null>> = {
   leetcode: LeetcodeSource,
   script: ScriptSource,
   disk: DiskSource,
+  processes: ProcessesSource,
+  battery: BatterySource,
+  currency: CurrencySource,
+  crypto: CryptoSource,
 };
 
 /**
@@ -215,7 +239,7 @@ const SOURCES: Partial<Record<PartId, () => null>> = {
  */
 export function WidgetSources(): ReactNode {
   language.use();
-  const { enabled, zones } = settings.use().taskbar;
+  const { enabled, zones, variants } = settings.use().taskbar;
   const live = sourcesOn.use();
   const none = noBar.use();
   const parts = barPartsFor(barWidgets(zones), enabled && !none, live);
@@ -226,7 +250,8 @@ export function WidgetSources(): ReactNode {
   // write the slice of a store not yet running (the calendar's null, its widget blinking to its icon).
   const told = barParts.use();
   const media = barMedia.use();
-  return barSources(live ? told : [], media).map((id) => {
+  const shown = live ? told : [];
+  return barSources(shown, media, weatherWanted(shown, variants)).map((id) => {
     const Source = SOURCES[id];
     return Source && <Source key={id} />;
   });

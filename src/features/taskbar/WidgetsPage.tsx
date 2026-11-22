@@ -9,7 +9,7 @@ import { settings, type Settings } from "../../settings/store";
 import type { RowSymbol } from "../../ui/materialNames";
 import { Group, Row, Select } from "../../ui/controls";
 import { clocks } from "../clocks/store";
-import { isZone } from "../clocks/zones";
+import { normalizeZones } from "../clocks/zones";
 import { liveSupport } from "../../notch/glass/live";
 import { darkInk, useClosedInk } from "../themes/store";
 import { barLook } from "./look";
@@ -49,6 +49,34 @@ const VARIANT_LABEL: Record<string, string> = {
   system: "Systemlaufwerk",
   all: "Alle Laufwerke",
   fullest: "Vollstes Laufwerk",
+  net: "Netzwerkverlauf",
+  cpu: "Nach CPU",
+  ram: "Nach Speicher",
+  cells: "Zellen",
+  gauge: "Zeiger",
+  dots: "Punkte",
+  text: "Titelzeile",
+  play: "Mit Wiedergabetaste",
+  cover: "Cover und Tasten",
+  disc: "Rund",
+  track: "Mit Fortschritt",
+  mic: "Nur Mikrofon",
+  both: "Mikrofon und Ton",
+  flip: "Klappzahlen",
+  segment: "Segmentanzeige",
+  weather: "Uhrzeit und Wetter",
+  fulldate: "Wochentag und Datum",
+  sheet: "Kalenderblatt",
+  week: "Woche",
+  world: "Andere Stadt",
+  cities: "Weltuhren",
+  // Today, not "Tag": that key is the daytime of the weather in several languages.
+  day: "Heute",
+  month: "Monat",
+  year: "Jahr",
+  details: "Details",
+  forecast: "Nächste Tage",
+  sun: "Sonnenaufgang und Sonnenuntergang",
 };
 /** Each widget's row symbol under Material: the Material name of its partInfo icon, as the Content and Items lists draw it; the brand logos have none and keep a symbol of their own. */
 const SYMBOL: Record<PartId, RowSymbol> = {
@@ -66,19 +94,30 @@ const SYMBOL: Record<PartId, RowSymbol> = {
   downloads: "download",
   weather: "partly_cloudy_day",
   disk: "storage",
+  processes: "web_asset",
+  battery: "battery_full",
+  mic: "mic",
+  stopwatch: "update",
+  todo: "check_circle",
+  note: "edit_square",
+  progress: "speed",
+  date: "looks_one",
+  world: "public",
+  currency: "swap_horiz",
+  crypto: "show_chart",
 };
 const choiceLabel = (c: WidgetChoice) => t(c.variant === "digital" ? (c.date ? "Uhrzeit und Datum" : "Nur Uhrzeit") : VARIANT_LABEL[c.variant ?? ""]);
 
 export function WidgetsPage() {
   fontEpoch.use();
   const s = settings.use();
-  const first = clocks.use()[0], zone = isZone(first) ? first : null;
+  const zones = normalizeZones(clocks.use());
   return (
     <Group id="settings-taskbar-widgets">
       {PART_IDS.map((id) => (
         <div key={id}>
           <WidgetRow id={id} s={s} />
-          <Versions id={id} s={s} zone={zone} />
+          <Versions id={id} s={s} zones={zones} />
         </div>
       ))}
     </Group>
@@ -126,13 +165,13 @@ function WidgetRow({ id, s }: { id: PartId; s: Settings }) {
 }
 
 /** A widget's previews: one alone, or its versions as a radio group, the saved one checked; the arrows move and pick. */
-function Versions({ id, s, zone }: { id: PartId; s: Settings; zone: string | null }) {
-  const choices = widgetChoices(id, zone !== null);
-  const chosen = chosenChoice(id, s.taskbar.variants, s.taskbar.clock.date, zone !== null);
+function Versions({ id, s, zones }: { id: PartId; s: Settings; zones: readonly string[] }) {
+  const choices = widgetChoices(id, zones.length > 0);
+  const chosen = chosenChoice(id, s.taskbar.variants, s.taskbar.clock.date, zones.length > 0);
   if (choices.length === 1)
     return (
       <div className="flex flex-wrap gap-3 px-3 pb-3">
-        <Preview id={id} choice={choices[0]} s={s} zone={zone} />
+        <Preview id={id} choice={choices[0]} s={s} zones={zones} />
       </div>
     );
   // Decision 17: a pick that changes nothing saved writes nothing; the version shown may differ from the saved one (applyChoice).
@@ -163,7 +202,7 @@ function Versions({ id, s, zone }: { id: PartId; s: Settings; zone: string | nul
             i === chosen ? "ring-2 ring-accent material:bg-secondary-container material:ring-primary" : "material:hover:bg-fill-2"
           }`}
         >
-          <Preview id={id} choice={c} s={s} zone={zone} />
+          <Preview id={id} choice={c} s={s} zones={zones} />
           <span className={`px-1.5 pb-1 text-caption ${i === chosen ? "text-label material:text-on-secondary-container" : "text-label-2"}`}>{choiceLabel(c)}</span>
         </button>
       ))}
@@ -176,7 +215,7 @@ function Versions({ id, s, zone }: { id: PartId; s: Settings; zone: string | nul
  * closed notch's with Background Notch, the theme's otherwise) on the surface's colour; 44 px tall, at scale 1, on the pill where the bar has one. Sample data only: the equalizer rests (paused),
  * the timer is SAMPLE_TIMER and the clocks show SAMPLE_AT, so the page never starts the audio capture, reads the real timer or ticks.
  */
-function Preview({ id, choice, s, zone }: { id: PartId; choice: WidgetChoice; s: Settings; zone: string | null }) {
+function Preview({ id, choice, s, zones }: { id: PartId; choice: WidgetChoice; s: Settings; zones: readonly string[] }) {
   const { taskbar, units, music } = s;
   const closed = useClosedInk(undefined);
   const supported = liveSupport.use()?.supported === true;
@@ -184,7 +223,8 @@ function Preview({ id, choice, s, zone }: { id: PartId; choice: WidgetChoice; s:
   const ink = previewInk(barLook(taskbar, supported), taskbar.surface, closed, darkInk());
   const surface: CSSProperties = { ...ink, background: taskbar.surface === "notch" ? "var(--notch-closed)" : "var(--color-notch)" };
   const { node, width } = widgetBody(id, {
-    feed: sampleFeed(s.closed.readings),
+    // The network's line draws download and upload, so its sample has them with NET off for the notch too.
+    feed: sampleFeed(choice.variant === "net" ? { ...s.closed.readings, net: true } : s.closed.readings),
     paused: true,
     hovered: false,
     clock: { ...taskbar.clock, date: choice.date ?? taskbar.clock.date },
@@ -193,7 +233,7 @@ function Preview({ id, choice, s, zone }: { id: PartId; choice: WidgetChoice; s:
     timerRunning: true,
     timerDuration: SAMPLE_TIMER.duration,
     variants: choice.variant ? { [id]: choice.variant } : {},
-    zone,
+    zones,
     at: SAMPLE_AT,
     sample: true,
   });

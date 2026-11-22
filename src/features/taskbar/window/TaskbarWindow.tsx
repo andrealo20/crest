@@ -15,6 +15,8 @@ import { CrestMark } from "../../../ui/CrestMark";
 import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
+import { convertMode } from "../../convert/mode";
+import { stopwatchActions, timerTab } from "../../timer/store";
 import { PREVIEW_CLOSE, PREVIEW_DELAY, bridge, zones as hitZones, type Rect } from "../autoHide";
 import { COMPACT_PAD, DRAG_REST, shiftMenu, WHEEL_STEP, appKey, appState, barArrow, barButtons, buttonAt, clickAction, cycleKey, numberKey, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, wheelSteps, windowBadge, windowButtons, type BarButton, type BarEdge, type BarItem, type BarKey, type BarShape, type Click, type ClickMods, type Zone } from "../model";
 import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box } from "../look";
@@ -29,8 +31,9 @@ import { barStatus } from "../status";
 import { batteryGlyph, netGlyph, soundGlyph } from "../statusModel";
 import { barDecor, decorPictures, trayFolded, trayState } from "../tray";
 import { buttonDecor, type Progress } from "../decorModel";
+import type { FaceKey } from "../faceKeys";
 import { splitTray } from "../trayModel";
-import { isSys, isTool, isWidget, shownZones, sysOf, sysPrimaryOnly, toolOf, widgetTool } from "../widgets";
+import { hasWidgetMenu, isSys, isTool, isWidget, shownZones, sysOf, sysPrimaryOnly, toolOf, widgetPanel, widgetTool } from "../widgets";
 import { toolInfo } from "../toolInfo";
 import { useHue } from "../../themes/hues";
 import { BarGlass, useBarSurface } from "./BarGlass";
@@ -43,15 +46,18 @@ import { holdBriefly } from "./hold";
 import { Item, type ItemProps } from "./Item";
 import { markThick } from "../itemLook";
 import { ItemDrop } from "./ItemDrop";
+import { runFaceKey } from "./MediaFaces";
 import { PinDrop, placeAt } from "./PinDrop";
 import { pressDragged, startPress } from "./press";
 import { PreviewCard } from "./Preview";
+import { RecentMenu } from "./RecentMenu";
 import { Status } from "./Status";
 import { SYS_INFO, SysButton } from "./SysItems";
 import { Tray, TrayDrop, trayLeave } from "./Tray";
 import { useAppFit } from "./useAppFit";
 import { useAutoHide } from "./useAutoHide";
 import { WidgetItem } from "./Widget";
+import { WidgetMenu } from "./WidgetMenu";
 
 /** Room between the bar and a menu above it, CSS px, as between a button and its name. */
 const MENU_GAP = 8;
@@ -63,8 +69,8 @@ const ZONES: [Zone, string][] = [
 /** The primary bar, the window labelled `taskbar`: only it draws widgets and follows the notch (main.tsx); the bars on other monitors skip both. */
 export const primary = !isNative || getCurrentWebviewWindow().label === "taskbar";
 
-/** What a menu lists: an app's right-click menu, an app's windows (as they were when it opened), or the Crest menu. */
-type Menu = { kind: "app" | "list" | "window" | "group"; b: BarButton } | { kind: "crest" } | { kind: "recycle" };
+/** What a menu lists: an app's right-click menu, an app's windows (as they were when it opened), the Crest menu, the Recycle Bin's, the files opened last or a widget's own. */
+type Menu = { kind: "app" | "list" | "window" | "group"; b: BarButton } | { kind: "crest" } | { kind: "recycle" } | { kind: "recent" } | { kind: "widget"; id: PartId };
 /** An open menu, the button it opened from (null: a right click beside the buttons) and the span it opens over, CSS px. */
 type OpenMenu = Menu & { anchor: Element | null; x: number; w: number };
 /** The open preview card: the app's button, the span it opens over, CSS px, and whether a rest on the button or a click opened it. */
@@ -435,18 +441,31 @@ export function TaskbarWindow() {
     togglePanel({ kind: "tool", tool }, { x: r.x, w: r.width });
   };
 
+  /** The search box's field, in the panel over its button. */
+  const openSearch = (button: HTMLElement) => {
+    setError(null);
+    const r = button.getBoundingClientRect();
+    togglePanel({ kind: "search" }, { x: r.x, w: r.width });
+  };
+
   /**
-   * A widget opens its tool in the panel over it, the disk widget its drives. The main bar's clock opens Crest's Notices over its Calendar;
-   * on the other bars, which get no notices or calendar from the notch, it opens Windows' notification centre, as Windows' own clock does.
+   * A widget opens its tool in the panel over it, or a panel of the bar's own (widgets.ts widgetPanel): the disk widget its drives, the
+   * main bar's clock, the time progress and the date Crest's Notices over its Calendar, the crypto widget its coin's week. On the other
+   * bars, which get no notices or calendar from the notch, the clock opens Windows' notification centre, as Windows' own clock does. A
+   * click on a key of its face (`key`) does what the key does, and so does every click on the microphone; the stopwatch's starts or
+   * pauses it. The timer opens the Timer on its countdown, the exchange rate the Converter on its currencies.
    */
-  const clickWidget = (id: PartId, button: HTMLElement) => {
+  const clickWidget = (id: PartId, button: HTMLElement, key: FaceKey | null) => {
     setError(null);
     setMenu(null);
-    if (id === "disk" || (id === "clock" && primary)) {
+    if (key || id === "mic") return runFaceKey(key ?? "mic", (text) => setError({ key: id, text }));
+    if (id === "stopwatch") return stopwatchActions.toggle();
+    const own = widgetPanel(id, primary);
+    if (own) {
       const r = button.getBoundingClientRect();
       // Not on the click that closes it, or the closing panel would turn into the drives as it fades.
-      if (id === "disk" && panel.get()?.content.kind !== "disks") dropStaleScan();
-      return togglePanel({ kind: id === "disk" ? "disks" : "clock" }, { x: r.x, w: r.width });
+      if (own === "disks" && panel.get()?.content.kind !== "disks") dropStaleScan();
+      return togglePanel({ kind: own }, { x: r.x, w: r.width });
     }
     const tool = widgetTool(id);
     // Windows may refuse to open it; nothing changes then. The bar stays up while it comes to the front.
@@ -454,6 +473,8 @@ export function TaskbarWindow() {
       holdBriefly();
       return void taskbar.calendar().catch(() => {});
     }
+    if (id === "timer") timerTab.set("timer");
+    if (id === "currency") convertMode.set("currency");
     openTool(tool, button);
   };
 
@@ -623,23 +644,27 @@ export function TaskbarWindow() {
     if (isWidget(id)) {
       // The clock alone may show on the other bars; it draws from the local time, not from the notch's feed.
       if ((!primary && !(id === "clock" && s.taskbar.clockAll)) || fit.hide.includes(id)) return null;
-      const tool = widgetTool(id);
+      const tool = widgetTool(id), own = widgetPanel(id, primary);
       return (
         <WidgetItem
           id={id}
-          // A widget that opens a tool says whether the panel shows it, so a press on it is left to its click and the panel moves in place.
+          // A widget that opens a panel in the bar says whether it shows, so a press on it is left to its click and the panel moves in
+          // place; one whose tool opens in the notch, or that opens nothing, says nothing.
           item={{
             ...item(id, t(partInfo[id].label)),
             kind: id,
             tile: tile(),
-            expanded:
-              id === "disk" ? open?.content.kind === "disks" : id === "clock" && primary ? open?.content.kind === "clock" : tool === null ? undefined : open?.content.kind === "tool" && open.content.tool === tool,
+            expanded: own
+              ? open?.content.kind === own
+              : tool === null || !opensInBar({ kind: "tool", tool })
+                ? undefined
+                : open?.content.kind === "tool" && open.content.tool === tool,
           }}
           paused={paused}
-          onClick={(e) => afterDrag(e) || clickWidget(id, e.currentTarget)}
+          onClick={(e, key) => afterDrag(e) || clickWidget(id, e.currentTarget, key)}
           onPointerDown={dragFrom(id)}
-          // No menu of its own: the Crest menu over the pointer, as beside the buttons.
-          onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
+          // A widget with rows of its own opens its menu over it; the others the Crest menu over the pointer, as beside the buttons.
+          onContextMenu={(e) => (hasWidgetMenu(id) ? toggle({ kind: "widget", id }, e.currentTarget) : setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 }))}
         />
       );
     }
@@ -682,11 +707,13 @@ export function TaskbarWindow() {
             kind: id,
             tile: tile(),
             magnify: mag,
+            expanded: sys === "searchbox" ? open?.content.kind === "search" : undefined,
             onPointerDown: dragFrom(id),
             // No menu of its own, as a widget: the Crest menu over the pointer; the Recycle Bin has Open and Empty.
             onContextMenu: (e) => (sys === "recycle" ? toggle({ kind: "recycle" }, e.currentTarget) : setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })),
           }}
           dragged={afterDrag}
+          onOpen={sys === "recent" ? (anchor) => toggle({ kind: "recent" }, anchor) : sys === "searchbox" ? openSearch : undefined}
         />
       );
     }
@@ -864,7 +891,17 @@ export function TaskbarWindow() {
           {menu && !open && (
             <BarMenu
               key={`${menu.kind}@${menu.x}`}
-              title={menu.kind === "crest" ? t("Crest-Menü") : menu.kind === "recycle" ? t("Papierkorb") : menu.b.name}
+              title={
+                menu.kind === "crest"
+                  ? t("Crest-Menü")
+                  : menu.kind === "recycle"
+                    ? t("Papierkorb")
+                    : menu.kind === "recent"
+                      ? t("Zuletzt geöffnet")
+                      : menu.kind === "widget"
+                        ? t(partInfo[menu.id].label)
+                        : menu.b.name
+              }
               x={menu.x}
               w={menu.w}
               off={gap + height + MENU_GAP}
@@ -876,6 +913,16 @@ export function TaskbarWindow() {
                 <CrestMenu close={closeMenu} />
               ) : menu.kind === "recycle" ? (
                 <RecycleMenu close={closeMenu} />
+              ) : menu.kind === "recent" ? (
+                <RecentMenu close={closeMenu} />
+              ) : menu.kind === "widget" ? (
+                <WidgetMenu
+                  id={menu.id}
+                  close={closeMenu}
+                  openTool={(tool) => {
+                    if (menu.anchor instanceof HTMLElement) openTool(tool, menu.anchor);
+                  }}
+                />
               ) : menu.kind === "window" ? (
                 <WindowMenu win={menu.b.windows[0]} close={closeMenu} />
               ) : menu.kind === "group" ? (
