@@ -19,6 +19,18 @@ export function fetchRates(base: string, crypto: string[], fiats: string[]): Pro
   return isNative ? invoke<Rates>("portfolio_prices", { base, crypto, fiats }) : Promise.resolve(mockRates(base));
 }
 
+/** One coin for the bar's crypto widget: its price in the base, its change over 24 h in percent and its hourly prices over 7 days, oldest first. */
+export interface CoinDay {
+  price: number;
+  change: number | null;
+  line: number[];
+}
+
+/** One coin by its symbol in `base` (trading.rs `portfolio_coin`, the notch's only); null for a coin CoinGecko does not know. */
+export function fetchCoin(base: string, symbol: string): Promise<CoinDay | null> {
+  return isNative ? invoke<CoinDay | null>("portfolio_coin", { base, symbol }) : Promise.resolve(mockCoin(base, symbol));
+}
+
 export interface RecordEntry {
   scope: string;
   value: number;
@@ -121,6 +133,15 @@ function mockRates(base: string): Rates {
     dates: Object.fromEntries(Object.keys(eur).map((k) => [k, "2026-10-30"])),
     failed: [],
   };
+}
+
+/** A week of hourly prices climbing in waves to the sample's price, up 1.8 % on the day; the others CoinGecko would not know. */
+function mockCoin(base: string, symbol: string): CoinDay | null {
+  const eurPrice = coinsEur[symbol];
+  if (!eurPrice) return null;
+  const price = eurPrice * (eur[base] ?? 1);
+  const line = Array.from({ length: 168 }, (_, i) => price * (1 - (0.04 * (167 - i)) / 167 + 0.006 * Math.sin((i - 167) / 7)));
+  return { price, change: 1.8, line };
 }
 
 /** 30 days of growth with a dip, ending at today's P&L; intraday from 9:00 every 2 min. */

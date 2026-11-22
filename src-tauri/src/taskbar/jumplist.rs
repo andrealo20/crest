@@ -8,11 +8,14 @@
 //!   are shell links ([MS-SHLLINK]), loaded by Windows' own `ShellLink`. It is read only, and a file that does not parse whole is
 //!   dropped: the app then shows its recent files only.
 //! - The page gets titles and icons only. Rust keeps the rows per bar under a token, and the page sends back a token and a row.
+//! - The Recently opened button's menu is a list of the same kind: the shortcuts in Windows' Recent folder, newest first, under
+//!   the same rule as Recent (`Start_TrackDocs`).
 
 use std::collections::HashMap;
 use std::ops::Range;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{LazyLock, Mutex, MutexGuard};
+use std::time::SystemTime;
 
 use serde::Serialize;
 use tauri::{AppHandle, Manager, WebviewWindow};
@@ -44,6 +47,8 @@ const MAX_CATEGORIES: u32 = 64;
 const MAX_ENTRIES: u32 = 100;
 /// Recent and Frequent: Windows' default count.
 const KNOWN_ITEMS: u32 = 10;
+/// The Recently opened button's rows.
+const RECENT_ITEMS: usize = 12;
 /// CLSID_ShellLink as stored before each entry.
 const SHELL_LINK: [u8; 16] = [0x01, 0x14, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46];
 /// System.Title and System.AppUserModel.IsDestListSeparator, defined here so two keys do not need the EnhancedStorage feature.
@@ -352,6 +357,29 @@ unsafe fn known(app_id: &str, kind: APPDOCLISTTYPE) -> Vec<Entry> {
         .collect()
 }
 
+/// The newest `n` of `rows` by their time, newest first.
+fn newest<T>(mut rows: Vec<(SystemTime, T)>, n: usize) -> Vec<T> {
+    rows.sort_by(|a, b| b.0.cmp(&a.0));
+    rows.into_iter().take(n).map(|(_, row)| row).collect()
+}
+
+/// The files and folders Windows recorded as opened last, newest first: the shortcuts Windows writes in its Recent folder, by
+/// the time each was written, read as the jump lists' links are; one without a target goes. None when the folder cannot be read.
+/// Needs COM: run it through `on_sta`.
+unsafe fn recent_files() -> Option<Vec<Entry>> {
+    let dir = crate::controls::take(SHGetKnownFolderPath(&FOLDERID_Recent, KF_FLAG_DEFAULT, None).ok()?)?;
+    let links = std::fs::read_dir(&dir)
+        .ok()?
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x.eq_ignore_ascii_case("lnk")))
+        .filter_map(|e| {
+            let meta = e.metadata().ok().filter(|m| m.is_file() && m.len() <= MAX_FILE)?;
+            Some((meta.modified().ok()?, e.path()))
+        })
+        .collect();
+    Some(newest(links, RECENT_ITEMS).into_iter().filter_map(|path| link_entry(&std::fs::read(path).ok()?)).filter(|e| e.target.is_some()).collect())
+}
+
 /// The app's list. Needs COM: run it through `on_sta`.
 unsafe fn read(app: &AppRef) -> Vec<(&'static str, String, Vec<Entry>)> {
     let file = (|| {
@@ -475,24 +503,48 @@ pub async fn taskbar_jump_list(key: String, window: WebviewWindow, app: AppHandl
         let who = resolve(&app, &key).ok_or("none")?;
         let reading = who.clone();
         let groups = launcher::on_sta(move || unsafe { read(&reading) }).ok_or("failed")?;
-        let mut targets = Vec::new();
-        let groups = groups
-            .into_iter()
-            .map(|(kind, title, rows)| JumpGroup {
-                kind,
-                title,
-                items: rows
-                    .into_iter()
-                    .map(|e| {
-                        targets.push(e.target);
-                        JumpItem { id: targets.len() - 1, separator: targets.last().is_some_and(Option::is_none), title: e.title, icon: e.icon }
-                    })
-                    .collect(),
-            })
-            .collect();
-        let token = NEXT.fetch_add(1, Ordering::SeqCst);
-        lock(&OPEN).insert(label, Open { token, app: who, targets });
-        Ok(JumpList { token, groups })
+        Ok(keep(label, who, groups))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Keeps `groups`' rows for bar `label` under a new token, the list before it gone, and gives the page their titles and icons.
+fn keep(label: String, who: AppRef, groups: Vec<(&'static str, String, Vec<Entry>)>) -> JumpList {
+    let mut targets = Vec::new();
+    let groups = groups
+        .into_iter()
+        .map(|(kind, title, rows)| JumpGroup {
+            kind,
+            title,
+            items: rows
+                .into_iter()
+                .map(|e| {
+                    targets.push(e.target);
+                    JumpItem { id: targets.len() - 1, separator: targets.last().is_some_and(Option::is_none), title: e.title, icon: e.icon }
+                })
+                .collect(),
+        })
+        .collect();
+    let token = NEXT.fetch_add(1, Ordering::SeqCst);
+    lock(&OPEN).insert(label, Open { token, app: who, targets });
+    JumpList { token, groups }
+}
+
+/// The Recently opened button's menu: the files and folders Windows recorded as opened last, newest first (`recent_files`), read
+/// as the menu opens. Kept for this bar as a jump list is, so a row opens through `taskbar_jump_open`, with its link's default
+/// verb: the app Windows opens that file with. Errors: off (Windows' "Show recently opened items" is off and keeps no list), failed.
+#[tauri::command]
+pub async fn taskbar_recent(window: WebviewWindow) -> Result<JumpList, String> {
+    super::bar::from_bar(&window)?;
+    if !track() {
+        return Err("off".into());
+    }
+    let label = window.label().to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        let rows = launcher::on_sta(|| unsafe { recent_files() }).flatten().ok_or("failed")?;
+        // No app: each row is a link, which opens by itself (`open`).
+        Ok(keep(label, AppRef { app_id: String::new(), exe: None }, vec![("recent", String::new(), rows)]))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -623,6 +675,15 @@ mod tests {
         assert!(take_entry(&open, "taskbar", 4, 0).is_none());
         assert!(take_entry(&open, "taskbar", 5, 1).is_none()); // a separator
         assert!(take_entry(&open, "taskbar", 5, 2).is_none());
+    }
+
+    #[test]
+    fn the_recent_menu_lists_the_newest_links_first() {
+        use std::time::{Duration, UNIX_EPOCH};
+        let at = |s: u64| UNIX_EPOCH + Duration::from_secs(s);
+        assert_eq!(newest(vec![(at(5), "b"), (at(9), "c"), (at(1), "a")], 12), ["c", "b", "a"]);
+        assert_eq!(newest(vec![(at(5), "b"), (at(9), "c"), (at(1), "a"), (at(7), "d")], 2), ["c", "d"]);
+        assert!(newest(Vec::<(std::time::SystemTime, &str)>::new(), 12).is_empty());
     }
 
     #[test]

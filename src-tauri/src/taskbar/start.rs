@@ -1,5 +1,5 @@
-//! Windows' own Start and its Win+X menu, opened from the bar's Start button, and Windows' Search, Task view, widgets and Show
-//! desktop from the bar's Windows buttons (Windows only).
+//! Windows' own Start and its Win+X menu, opened from the bar's Start button, and Windows' Search, Task view, widgets, Show
+//! desktop and On-Screen Keyboard from the bar's Windows buttons (Windows only).
 //!
 //! The button sends the Windows key, or Win+X for a right click, once Explorer's process may take the front: no taskbar window
 //! is looked for, so it works with Windows' taskbar hidden, and Windows picks where Start opens. A click on the bar brings the
@@ -200,25 +200,27 @@ impl IAppVisibilityEvents_Impl for Sink_Impl {
     }
 }
 
-/// Task Manager by its full path in `root` (`SystemRoot`), never the bare name, which ShellExecute would look up beside
-/// crest.exe first, a folder a portable copy may leave writable.
-fn task_manager_path(root: Option<std::ffi::OsString>) -> PathBuf {
-    PathBuf::from(root.unwrap_or_else(|| r"C:\Windows".into())).join("System32").join("Taskmgr.exe")
+/// One of Windows' programs (`exe`) by its full path in `root`'s System32 (`SystemRoot`), never the bare name, which
+/// ShellExecute would look up beside crest.exe first, a folder a portable copy may leave writable.
+fn system_exe(root: Option<std::ffi::OsString>, exe: &str) -> PathBuf {
+    PathBuf::from(root.unwrap_or_else(|| r"C:\Windows".into())).join("System32").join(exe)
 }
 
 /// The Start button: "start" opens Windows' Start, unless that click hid it (`start_click`): then the keyboard goes back to
 /// the app (tasks.rs `release`), the click being handled. "winx" opens its Win+X menu, "quick" its quick settings (Win+A),
 /// "taskmgr" Task Manager. The Windows buttons: "search" Search (Win+S), "taskview" Task view (Win+Tab), "widgets" Windows'
-/// widgets (Win+W), "input" Windows' input language switcher (Win+Space), "desktop" shows or hides the desktop (`IShellDispatch4::ToggleDesktop`). Sync, on the main thread:
-/// nothing waits; Task Manager and Show desktop run on a thread of their own.
+/// widgets (Win+W), "input" Windows' input language switcher (Win+Space), "desktop" shows or hides the desktop (`IShellDispatch4::ToggleDesktop`),
+/// "keyboard" Windows' On-Screen Keyboard (osk.exe). Sync, on the main thread: nothing waits; Task Manager, the On-Screen
+/// Keyboard and Show desktop run on a thread of their own.
 #[tauri::command]
 pub fn taskbar_shell(action: String) -> Result<(), String> {
     let vks: &[VIRTUAL_KEY] = match action.as_str() {
-        "taskmgr" => {
+        "taskmgr" | "keyboard" => {
             // ShellExecute wants COM, and where Task Manager's manifest asks for elevation (older builds) it may wait on the
-            // UAC prompt: never on the main thread. An open Task Manager only comes to the front, which `ASFW_ANY` lets it do.
-            // Nothing reports back: a refusal changes nothing, as for Start.
-            let file = task_manager_path(std::env::var_os("SystemRoot"));
+            // UAC prompt: never on the main thread. The On-Screen Keyboard's manifest asks for UI access, which only ShellExecute
+            // grants. An open one only comes to the front, which `ASFW_ANY` lets it do. Nothing reports back: a refusal changes
+            // nothing, as for Start.
+            let file = system_exe(std::env::var_os("SystemRoot"), if action == "taskmgr" { "Taskmgr.exe" } else { "osk.exe" });
             std::thread::spawn(move || {
                 launcher::on_sta(move || unsafe {
                     let _ = AllowSetForegroundWindow(ASFW_ANY);
@@ -269,18 +271,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn task_manager_opens_by_its_full_path_in_system32() {
+    fn windows_programs_open_by_their_full_path_in_system32() {
         use std::path::PathBuf;
-        assert_eq!(task_manager_path(Some(r"D:\Win".into())), PathBuf::from(r"D:\Win\System32\Taskmgr.exe"));
-        assert_eq!(task_manager_path(None), PathBuf::from(r"C:\Windows\System32\Taskmgr.exe"));
+        assert_eq!(system_exe(Some(r"D:\Win".into()), "Taskmgr.exe"), PathBuf::from(r"D:\Win\System32\Taskmgr.exe"));
+        assert_eq!(system_exe(None, "Taskmgr.exe"), PathBuf::from(r"C:\Windows\System32\Taskmgr.exe"));
+        assert_eq!(system_exe(Some(r"D:\Win".into()), "osk.exe"), PathBuf::from(r"D:\Win\System32\osk.exe"));
+        assert_eq!(system_exe(None, "osk.exe"), PathBuf::from(r"C:\Windows\System32\osk.exe"));
     }
 
     #[test]
-    fn task_manager_starts_off_the_main_thread() {
-        // The module's code above its tests, read as text: the arm spawns, runs COM's STA there, lets Task Manager take the front, then opens it; no key, no Command.
+    fn task_manager_and_the_keyboard_start_off_the_main_thread() {
+        // The module's code above its tests, read as text: the arm spawns, runs COM's STA there, lets the program take the front, then opens it; no key, no Command.
         let src = include_str!("start.rs");
         let code = &src[..src.find("#[cfg(test)]").unwrap()];
-        let arm = &code[code.find("\"taskmgr\" =>").unwrap()..];
+        let arm = &code[code.find("\"taskmgr\" | \"keyboard\" =>").unwrap()..];
         let arm = &arm[..arm.find("\"start\"").unwrap()];
         let at = |s: &str| arm.find(s).unwrap_or_else(|| panic!("{s} missing"));
         assert!(at("std::thread::spawn") < at("launcher::on_sta"));

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { convertMoney, currencies } from "./fx.ts";
+import { convertMoney, currencies, pairOf } from "./fx.ts";
 import type { Rates } from "../trading/portfolio.ts";
 
 /** Reference rate style: units per one GBP. */
@@ -30,4 +30,11 @@ test("lower-case codes work, unknown or missing rates give null", () => {
 test("the list holds the base and every rate, sorted", () => {
   assert.deepEqual(currencies(rates), ["EUR", "GBP", "JPY", "USD"]);
   assert.deepEqual(currencies({ ...rates, fx: {} }), ["GBP"]);
+});
+
+test("the Converter's pair is the saved one while it is two codes, else the base and the euro, or the dollar for the euro", () => {
+  assert.deepEqual(pairOf(["GBP", "JPY"], "EUR"), ["GBP", "JPY"]);
+  assert.deepEqual(pairOf(null, "GBP"), ["GBP", "EUR"]);
+  assert.deepEqual(pairOf(null, "EUR"), ["EUR", "USD"]);
+  for (const saved of [undefined, "GBP", [], ["GBP"], ["GBP", "EUR", "USD"], ["gbp", "EUR"], ["GBPX", "EUR"], ["GBP", 3], { 0: "GBP", 1: "EUR" }]) assert.deepEqual(pairOf(saved, "CHF"), ["CHF", "EUR"]);
 });

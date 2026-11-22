@@ -155,7 +155,7 @@ const SETTINGS_DENIED: &[&str] = &[
     "taskbar_auto_hide", "taskbar_slid", "taskbar_shell", "taskbar_windows_pins", "taskbar_tray_on", "taskbar_tray_click",
     "taskbar_settings", "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect",
     "taskbar_bt_devices", "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_own_pins_keep",
-    "display_rescale", "taskbar_input", "taskbar_app_volume", "taskbar_spread", "taskbar_jump_list", "taskbar_jump_open",
+    "display_rescale", "taskbar_input", "taskbar_app_volume", "taskbar_spread", "taskbar_jump_list", "taskbar_jump_open", "taskbar_recent",
     "taskbar_keys", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_all_desktops", "taskbar_window_menu", "taskbar_arrange",
     "taskbar_window_order", "taskbar_end_task", "taskbar_decor", "taskbar_decor_images", "taskbar_disks", "taskbar_disk_open",
     "taskbar_disk_scan", "taskbar_disk_scan_stop",
@@ -166,13 +166,13 @@ const SETTINGS_DENIED: &[&str] = &[
 /// glass with the power state that stops it in Energy saver (`status_seed`, read-only), its
 /// two ways to reach the notch (taskbar/panel.rs), its widgets' hello and calendar (taskbar/widgets.rs), its slide off the screen
 /// (`taskbar_slid`), Windows' Start, its Win+X menu, its quick settings, Task Manager, Search, Task view, its widgets, its
-/// input language switcher and Show desktop (`taskbar_shell`), the input language it shows (taskbar/input.rs), an app's volume from its button, some of its
+/// input language switcher, Show desktop and the On-Screen Keyboard (`taskbar_shell`), the input language it shows (taskbar/input.rs), an app's volume from its button, some of its
 /// settings pages (`taskbar_settings`), the tray's icons with their pictures and clicks, the badges and progress apps report
 /// (taskbar/taskband.rs), the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
 /// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), the jump list of an
-/// app's menu and its rows opened (taskbar/jumplist.rs), the keyboard after one of its Windows keys (`taskbar_focus`), the Recycle Bin
+/// app's menu and its rows opened, and the Recently opened button's list (taskbar/jumplist.rs), the keyboard after one of its Windows keys (`taskbar_focus`), the Recycle Bin
 /// (taskbar/recycle.rs), the drives of its disk space widget, opening one and its Scan now (taskbar/disks.rs), the window and group menus and the previews' order (taskbar/tasks.rs), and what the notch's
-/// tools in its panel read or do on a click. Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
+/// tools in its panel read or do on a click, the Converter's public rates among them (`portfolio_prices`). Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
 /// `taskbar_tray_on`, `taskbar_spread`, `taskbar_all_desktops`, `taskbar_end_task`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
@@ -184,14 +184,14 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "notices_open_app", "notices_copy_code",
     "power_plans", "power_plan_set", "system_icon", "reveal_file", "ports_list", "ports_open", "ports_end",
     "convert_probe", "file_preview", "open_path", "copy_files", "shelf_drag_out", "clipboard_paste_files", "shelf_clipboard_text",
-    "phone_share_start", "phone_share_stop",
+    "phone_share_start", "phone_share_stop", "portfolio_prices",
     "media_get", "media_control", "media_open_source", "media_sources", "mixer_list", "volume_get", "mixer_set", "volume_set",
     "lyrics_romanize", "translate_file",
     "audio_outputs", "audio_set_output", "brightness_get", "brightness_set", "focus_get", "focus_set", "quick_get", "quick_radio",
     "quick_dark", "mic_mute", "quick_power", "web_search",
     "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
     "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_input", "taskbar_app_volume",
-    "taskbar_jump_list", "taskbar_jump_open", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_window_menu", "taskbar_arrange",
+    "taskbar_jump_list", "taskbar_jump_open", "taskbar_recent", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_window_menu", "taskbar_arrange",
     "taskbar_window_order", "taskbar_disks", "taskbar_disk_open", "taskbar_disk_scan", "taskbar_disk_scan_stop",
 ];
 
@@ -369,6 +369,7 @@ pub fn run() {
             secrets::secret_has,
             trading::portfolio_fetch,
             trading::portfolio_prices,
+            trading::portfolio_coin,
             trading::portfolio_record,
             trading::portfolio_forget,
             usage::usage_fetch,
@@ -583,6 +584,8 @@ pub fn run() {
             taskbar::jumplist::taskbar_jump_list,
             #[cfg(windows)]
             taskbar::jumplist::taskbar_jump_open,
+            #[cfg(windows)]
+            taskbar::jumplist::taskbar_recent,
             #[cfg(windows)]
             taskbar::recycle::taskbar_recycle,
             #[cfg(windows)]
@@ -1316,6 +1319,9 @@ mod tests {
         assert!(ok("taskbar", "audio_outputs") && ok("taskbar", "audio_set_output") && ok("taskbar", "brightness_get") && ok("taskbar", "brightness_set"));
         assert!(ok("taskbar", "focus_get") && ok("taskbar", "focus_set") && ok("taskbar", "quick_get") && ok("taskbar", "quick_radio"));
         assert!(ok("taskbar", "quick_dark") && ok("taskbar", "mic_mute") && ok("taskbar", "quick_power") && ok("taskbar", "web_search"));
+        // The bar's Converter reads the public reference rates itself; the accounts and the crypto widget's coin are the notch's.
+        assert!(ok("taskbar", "portfolio_prices") && ok("taskbar-1", "portfolio_prices"));
+        assert!(!ok("taskbar", "portfolio_fetch") && !ok("taskbar", "portfolio_coin") && ok("notch", "portfolio_coin"));
         // Keep awake's state lives in the notch, which shows it in the closed notch: a bar that set it in Rust would leave the notch
         // showing the old state, so the bar asks the notch (taskbar_ask).
         assert!(!ok("taskbar", "keep_awake_set"));
@@ -1342,8 +1348,9 @@ mod tests {
         assert!(ok("notch", "taskbar_tray_click") && !ok("settings", "taskbar_tray_click"));
         assert!(ok("taskbar", "taskbar_decor") && ok("taskbar-1", "taskbar_decor_images"));
         assert!(!ok("settings", "taskbar_decor") && !ok("settings", "taskbar_decor_images"));
-        // The jump lists, on every bar, never in the settings window; the commands refuse any window but a bar's, the notch too.
-        assert!(["taskbar_jump_list", "taskbar_jump_open"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));
+        // The jump lists and the Recently opened menu, on every bar, never in the settings window; the commands refuse any window
+        // but a bar's, the notch too.
+        assert!(["taskbar_jump_list", "taskbar_jump_open", "taskbar_recent"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));
         // The bar's Windows keys: set by the notch, read by the settings; the keyboard taken by a bar after one of them.
         assert!(ok("notch", "taskbar_keys") && !ok("settings", "taskbar_keys") && !ok("taskbar", "taskbar_keys"));
         assert!(ok("settings", "taskbar_keys_status") && !ok("taskbar", "taskbar_keys_status"));
@@ -1367,7 +1374,8 @@ mod tests {
         assert!(!ok("taskbar", "taskbar_slide_blocked") && ok("settings", "taskbar_slide_blocked"));
         // The settings' line on a docked bar another program keeps from reserving; the bar has no use for it.
         assert!(ok("settings", "taskbar_reserve_reachable") && !ok("taskbar", "taskbar_reserve_reachable"));
-        // The Start button opens Windows' Start and its Win+X menu, the Windows buttons Search, Task view, the widgets and Show desktop; no other window has them.
+        // The Start button opens Windows' Start and its Win+X menu, the Windows buttons Search, Task view, the widgets, Show desktop
+        // and the On-Screen Keyboard; no other window has them.
         assert!(ok("taskbar", "taskbar_shell") && ok("taskbar-1", "taskbar_shell") && !ok("settings", "taskbar_shell"));
         // The quick panel's Wi-Fi and Bluetooth pages, on every bar, never in the settings window; the commands refuse any window but a bar's, the notch too.
         assert!(["taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));
