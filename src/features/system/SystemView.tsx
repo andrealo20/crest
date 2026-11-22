@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
-import { AppWindow, ArrowDown, ArrowsDownUp, ArrowUp, BatteryHigh, CaretDown, Cpu, HardDrives, Lightning, WifiHigh, X, type Icon } from "../../ui/iconset";
+import { ArrowDown, ArrowsDownUp, ArrowUp, BatteryHigh, CaretDown, Cpu, HardDrives, Lightning, WifiHigh, X, type Icon } from "../../ui/iconset";
 import { GpuIcon, RamIcon } from "../../ui/icons";
 import { Segmented, Select } from "../../ui/controls";
 import { content, springs } from "../../design/motion";
 import { t } from "../../i18n";
-import { powerPlans, revealFile, systemIcon, type PowerPlans, type ProcReading } from "../../platform/services";
+import { powerPlans, revealFile, type PowerPlans, type ProcReading } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { batteryLevel, healthLevel } from "./battery";
 import { compactRate, driveSizes, duration, ghz, gigabytes, processMemory, processShare, rate, watts } from "./format";
@@ -17,6 +17,7 @@ import { useHue, type Hue } from "../themes/hues";
 import { PortsEntry } from "../ports/PortsPanel";
 import { design } from "../../design/design";
 import { MaterialSystemLayout } from "./MaterialSystem";
+import { AppIcon } from "./AppIcon";
 
 /*
  *   ┌───────────────────────────────────────────────┬──────────────────────────┐
@@ -394,26 +395,6 @@ export function NetDetail({ down, up }: { down: number; up: number }) {
       </span>
     </span>
   );
-}
-
-/** Icons by executable path, asked once each. */
-const icons = new Map<string, string | null>();
-function useIcon(path: string | null): string | null {
-  const [, redraw] = useState(0);
-  useEffect(() => {
-    if (!path || icons.has(path)) return;
-    icons.set(path, null);
-    void systemIcon(path).then((url) => {
-      icons.set(path, url);
-      redraw((n) => n + 1);
-    });
-  }, [path]);
-  return path ? (icons.get(path) ?? null) : null;
-}
-
-function AppIcon({ path, size }: { path: string | null; size: number }) {
-  const src = useIcon(path);
-  return src ? <img src={src} width={size} height={size} className="shrink-0" alt="" /> : <AppWindow size={size} weight="bold" className="shrink-0 text-label-3" />;
 }
 
 export function ProcessRow({ proc, value, onClick }: { proc: ProcReading; value: string; onClick: () => void }) {
