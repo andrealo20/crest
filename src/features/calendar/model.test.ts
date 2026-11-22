@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CALENDAR_DEFAULTS, PALETTE, agenda, dayLabel, dueEvent, firstWeekday, linkHost, meetingLink, newSourceId, nextChange, nextColor, monthGrid, nextEvent, normalizeCalendar, weekOf } from "./model.ts";
+import { CALENDAR_DEFAULTS, PALETTE, agenda, dayLabel, dueEvent, firstWeekday, linkHost, meetingLink, newSourceId, nextChange, nextColor, monthGrid, nextEvent, normalizeCalendar, startOfDay, weekOf } from "./model.ts";
 
 const at = (d: number, h = 0, m = 0) => new Date(2026, 10, d, h, m).getTime(); // November 2026
 const ev = (id: string, start: number, end: number, allDay = false) => ({ id, start, end, allDay });
@@ -125,6 +125,19 @@ test("the week around a day: its seven midnights from the first weekday, across 
   // On the first weekday itself the week starts that day.
   assert.deepEqual(weekOf(at(29, 23, 59), 0)[0], at(29));
   assert.deepEqual(weekOf(at(29, 23, 59), 1)[6], at(29));
+});
+
+test("a week and a month whose Sunday has no midnight (the clock jumps at 00:00) still hold today", () => {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // Santiago skips 00:00 to 01:00 on Sunday 6 September 2026; node --test runs each file in its own process.
+  process.env.TZ = "America/Santiago";
+  try {
+    const now = new Date(2026, 8, 9, 12).getTime();
+    assert.ok(weekOf(now, 0).includes(startOfDay(now)));
+    assert.ok(monthGrid([], now, 1).some((c) => c.day === startOfDay(now)));
+  } finally {
+    process.env.TZ = zone;
+  }
 });
 
 test("the first weekday of a language, Monday when the runtime cannot tell", () => {

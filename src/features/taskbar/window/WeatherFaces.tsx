@@ -2,6 +2,7 @@ import { locale, t } from "../../../i18n";
 import { formatTemp, formatWind } from "../../../lib/format";
 import { CAPTION_FONT, measureTabular, measureText } from "../../../notch/row/measure";
 import { clockFormat, clockWidth, useMinuteTick } from "../../../notch/row/parts/Clock";
+import { WeatherPart } from "../../../notch/row/parts/WeatherPart";
 import { Umbrella } from "../../../ui/iconset";
 import { WIDEST } from "../../system/format";
 import { useHue } from "../../themes/hues";
@@ -162,11 +163,12 @@ export const sunWidth = (h12: boolean) => SUN + GAP + clockWidth(false, h12, fal
  * sunset, the next of the two brighter; at night the arc alone. The times are the place's own clock, as the Weather tool shows them. Ticks with the minute;
  * `at` shows that time and never ticks.
  */
-export function WeatherSun({ days, h12, paused, at }: { days: NonNullable<BarFeed["weatherDays"]>; h12: boolean; paused: boolean; at?: number }) {
+export function WeatherSun({ days, now, h12, paused, at }: { days: NonNullable<BarFeed["weatherDays"]>; now: Forecast["current"]; h12: boolean; paused: boolean; at?: number }) {
   const minute = useMinuteTick(!paused && at === undefined);
   const color = useHue("amber");
   const sun = sunNow(days.daily, days.offset, at ?? minute);
-  if (!sun) return null;
+  // The sun gone (polar night) or up all day (midnight sun) since the widget last drew: the temperature until it draws again.
+  if (!sun) return <WeatherPart now={now} />;
   const { share } = sun, up = share !== null, a = Math.PI * (1 - (share ?? 0)), f = clockFormat(false, h12, false);
   return (
     <span className="flex items-center whitespace-nowrap text-label" style={{ gap: GAP, width: sunWidth(h12) }}>
@@ -200,5 +202,5 @@ export function weatherPart(variant: "details" | "forecast" | "sun", ctx: Widget
   if (!d || !now) return null;
   if (variant === "details") return d.daily.length ? { node: <WeatherDetails now={now} today={d.daily[0]} />, width: detailsWidth() } : null;
   if (variant === "forecast") return d.daily.length >= 4 ? { node: <WeatherDays now={now} days={d.daily.slice(1, 4)} />, width: daysWidth() } : null;
-  return sunNow(d.daily, d.offset, ctx.at ?? Date.now()) ? { node: <WeatherSun days={d} h12={ctx.h12} paused={ctx.paused} at={ctx.at} />, width: sunWidth(ctx.h12) } : null;
+  return sunNow(d.daily, d.offset, ctx.at ?? Date.now()) ? { node: <WeatherSun days={d} now={now} h12={ctx.h12} paused={ctx.paused} at={ctx.at} />, width: sunWidth(ctx.h12) } : null;
 }

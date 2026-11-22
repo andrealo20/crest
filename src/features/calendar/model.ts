@@ -93,6 +93,8 @@ export function startOfDay(t: number): number {
 export function addDays(day: number, n: number): number {
   const d = new Date(day);
   d.setDate(d.getDate() + n);
+  // A day whose midnight the clock skips starts at 01:00, and the days after it must not keep that hour.
+  d.setHours(0, 0, 0, 0);
   return d.getTime();
 }
 

@@ -44,7 +44,7 @@ test("the sun's times are read in the place's UTC offset, or in the PC's zone wi
   assert.equal(sunNow([day, next], undefined, new Date(2026, 10, 4, 11, 56).getTime())?.share, 0.5);
 });
 
-test("a day without a sunrise and a sunset, or with the same instant for both (polar night, midnight sun), is skipped", () => {
+test("a day without a sunrise and a sunset, or with the same instant for both (polar night), is skipped", () => {
   const polar = { sunrise: "2026-11-04T00:00", sunset: "2026-11-04T00:00" };
   assert.deepEqual(sunNow([polar, next], 0, at("12:00")), { rise: next.sunrise, set: next.sunset, share: null });
   assert.deepEqual(sunNow([{}, next], 0, at("12:00"))?.rise, next.sunrise);
@@ -52,4 +52,11 @@ test("a day without a sunrise and a sunset, or with the same instant for both (p
   assert.equal(sunNow([], 0, at("12:00")), null);
   // After the last sunset the forecast knows no more.
   assert.equal(sunNow([day, next], 0, Date.parse("2026-11-05T17:00Z")), null);
+});
+
+test("midnight sun has no face, and a sunrise past tomorrow is not shown as the next one", () => {
+  // Open-Meteo's midnight sun: 00:00 to the next day's 00:00.
+  assert.equal(sunNow([{ sunrise: "2026-11-23T00:00", sunset: "2026-11-24T00:00" }, next], 0, Date.parse("2026-11-23T12:00Z")), null);
+  const polar = { sunrise: "2026-11-04T00:00", sunset: "2026-11-04T00:00" };
+  assert.equal(sunNow([polar, polar, next], 0, at("12:00")), null);
 });
