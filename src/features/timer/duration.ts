@@ -22,10 +22,10 @@ export function parseDuration(text: string): number | null {
 /** Whole minutes as the minutes ("25"), anything else as the countdown reads it ("2:30", "1:05:30"), so the field reads it back. */
 export const durationText = (s: number) => (s % 60 ? formatClock(s) : String(s / 60));
 
-/** The wheel's step to the next whole minute up or down; a duration under a minute stays as it is rather than going to none. */
+/** The wheel's step to the next whole minute up or down; a step below a minute stops at one, and a duration under a minute stays as it is rather than going to none. */
 export function wheelStep(d: number, step: number): number {
   const m = step > 0 ? Math.floor(d / 60) + step : Math.ceil(d / 60) + step;
-  return m < 1 ? d : clampDuration(m * 60);
+  return m < 1 ? Math.min(d, 60) : clampDuration(m * 60);
 }
 
 /** The remembered durations as saved: a single number from an older Crest, or a list, kept to the limits, never a preset, at most three. */

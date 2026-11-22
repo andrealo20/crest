@@ -42,6 +42,9 @@ test("the wheel moves to the next whole minute and never below one", () => {
   assert.equal(wheelStep(60, -1), 60);
   assert.equal(wheelStep(30, -1), 30);
   assert.equal(wheelStep(30, 1), 60);
+  assert.equal(wheelStep(300, -5), 60);
+  assert.equal(wheelStep(90, -5), 60);
+  assert.equal(wheelStep(30, -5), 30);
   assert.equal(wheelStep(86390, 1), 86400);
   assert.equal(wheelStep(86400, 1), 86400);
 });

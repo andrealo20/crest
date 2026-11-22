@@ -197,8 +197,9 @@ function SetupView() {
             pickTab(m);
           }}
         />
-        {/* Chips and duration field are stacked right-aligned, so nothing jumps sideways on switch. */}
-        <div className="relative flex h-6 flex-1 justify-end">
+        {/* Chips and duration field are stacked right-aligned, so nothing jumps sideways on switch, and kept to the room beside the
+            Segmented: chips past it scroll sideways while the pencil stays. */}
+        <div className="relative ms-2 flex h-6 min-w-0 flex-1 justify-end">
         <AnimatePresence initial={false}>
           {editing ? (
             <DurationInput
@@ -213,30 +214,32 @@ function SetupView() {
           ) : (
             <motion.div
               key="chips"
-              className="absolute top-0 end-0 flex gap-1"
+              className="absolute top-0 end-0 flex max-w-full gap-1"
               initial={{ opacity: 0, filter: "blur(4px)" }}
               animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
               exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
             >
-              {chips.map((d) => (
-                <button
-                  key={d}
-                  onClick={() => timerActions.select(s.mode, d)}
-                  disabled={running}
-                  aria-label={d % 60 ? durationText(d) : t("{n} Min.", { n: d / 60 })}
-                  aria-pressed={d === s.duration}
-                  className={`pressable pressable-fill tabular h-6 min-w-7 rounded-full px-2.5 text-caption font-medium disabled:opacity-40 ${
-                    d === s.duration ? "bg-fill-2 text-label" : "text-label-3"
-                  }`}
-                >
-                  {durationText(d)}
-                </button>
-              ))}
+              <div ref={wheelSideways} className="flex min-w-0 gap-1 overflow-x-auto [scrollbar-width:none]">
+                {chips.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => timerActions.select(s.mode, d)}
+                    disabled={running}
+                    aria-label={d % 60 ? durationText(d) : t("{n} Min.", { n: d / 60 })}
+                    aria-pressed={d === s.duration}
+                    className={`pressable pressable-fill tabular h-6 min-w-7 shrink-0 rounded-full px-2.5 text-caption font-medium disabled:opacity-40 ${
+                      d === s.duration ? "bg-fill-2 text-label" : "text-label-3"
+                    }`}
+                  >
+                    {durationText(d)}
+                  </button>
+                ))}
+              </div>
               <button
                 aria-label={t("Eigene Zeit")}
                 title={t("Eigene Zeit (oder Mausrad über der Zeit)")}
                 onClick={() => setEditing(true)}
-                className="pressable pressable-fill flex size-6 items-center justify-center rounded-full text-label-3 hover:text-label-2"
+                className="pressable pressable-fill flex size-6 shrink-0 items-center justify-center rounded-full text-label-3 hover:text-label-2"
               >
                 <PencilSimple size={12} weight="bold" />
               </button>

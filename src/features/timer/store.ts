@@ -47,6 +47,13 @@ export const focusMuted = createStore(false);
 
 /** The Timer tool's page in this window: the countdown or the stopwatch; not saved. */
 export const timerTab = createStore<"timer" | "stopwatch">("timer");
+// A timer that ends while the stopwatch shows brings its finished view (and its Stop alarm) back.
+let wasFinished = timer.get().finished;
+timer.subscribe(() => {
+  const { finished } = timer.get();
+  if (finished && !wasFinished) timerTab.set("timer");
+  wasFinished = finished;
+});
 
 /** The stopwatch, saved as when it started rather than as a count: it keeps counting while Crest is closed, as the timer does, and every window shows the same one. */
 export const stopwatch = createStore<Stopwatch>(STOPWATCH_IDLE, { persist: "stopwatch" });
