@@ -33,7 +33,7 @@ import { barDecor, decorPictures, trayFolded, trayState } from "../tray";
 import { buttonDecor, type Progress } from "../decorModel";
 import type { FaceKey } from "../faceKeys";
 import { splitTray } from "../trayModel";
-import { hasWidgetMenu, isSys, isTool, isWidget, shownZones, sysOf, sysPrimaryOnly, toolOf, widgetPanel, widgetTool } from "../widgets";
+import { hasWidgetMenu, isSys, isTool, isWidget, shownZones, sysOf, sysPrimaryOnly, toolOf, trashable, widgetPanel, widgetTool } from "../widgets";
 import { toolInfo } from "../toolInfo";
 import { useHue } from "../../themes/hues";
 import { BarGlass, useBarSurface } from "./BarGlass";
@@ -500,7 +500,7 @@ export function TaskbarWindow() {
       onEnd: end,
     });
   };
-  /** A widget, a tool button, a Windows button or Stato dragged (ItemDrop). */
+  /** A widget, a tool button, a Windows button, Stato or the Crest button dragged (ItemDrop). */
   const dragFrom =
     (id: BarItem): ItemProps["onPointerDown"] =>
     (e) =>
@@ -756,7 +756,15 @@ export function TaskbarWindow() {
       );
     if (id === "crest")
       return (
-        <Item {...item("crest", t("Crest-Menü"))} kind="crest" tile={tile()} magnify={mag} onClick={openCrestMenu} onContextMenu={openCrestMenu}>
+        <Item
+          {...item("crest", t("Crest-Menü"))}
+          kind="crest"
+          tile={tile()}
+          magnify={mag}
+          onClick={(e) => afterDrag(e) || openCrestMenu(e)}
+          onPointerDown={dragFrom(id)}
+          onContextMenu={openCrestMenu}
+        >
           <CrestMark size={size} />
         </Item>
       );
@@ -783,7 +791,7 @@ export function TaskbarWindow() {
 
   /** Each item in a box-less span the drop measures it by (ItemDrop); the draggable ones keep touch for the drag, the dragged one dims. */
   const place = (id: BarItem) => (
-    <span key={id} data-item={id} className={`contents ${isWidget(id) || isTool(id) || isSys(id) || id === "status" || id === "apps" ? "*:touch-none" : ""} ${dragged === id ? "*:opacity-40" : ""}`} {...(id === "apps" ? fileDrop : {})}>
+    <span key={id} data-item={id} className={`contents ${trashable(id) || id === "apps" ? "*:touch-none" : ""} ${dragged === id ? "*:opacity-40" : ""}`} {...(id === "apps" ? fileDrop : {})}>
       {render(id)}
     </span>
   );

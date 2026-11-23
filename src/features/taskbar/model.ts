@@ -25,8 +25,8 @@ export const recycleName = (n: number | null): [string, Record<string, number>?]
   !n ? ["Papierkorb ist leer"] : n === 1 ? ["Papierkorb: 1 Element"] : ["Papierkorb: {n} Elemente", { n }];
 /** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button, the notification area ("tray"), Stato (network, volume and battery, "status"), the closed notch's parts as widgets, buttons that open a tool (`tool:<id>`) and Windows' own buttons (`sys:<id>`). */
 export type BarItem = "start" | "apps" | "crest" | "tray" | "status" | PartId | ToolItem | SysItem;
-/** The items every bar has: one missing from the zones is put back in its default place. The tray, Stato and the widgets can be taken off. */
-export const FIXED_ITEMS = ["start", "apps", "crest"] as const;
+/** The items every bar has: one missing from the zones is put back in its default place. The Crest button, the tray, Stato and the widgets can be taken off. */
+export const FIXED_ITEMS = ["start", "apps"] as const;
 /** The bar's shape: along the screen's edge with no gaps, floating above it, a capsule, or a tile per item. */
 export type BarShape = "docked" | "floating" | "capsule" | "tiles";
 /** The screen edge the bars stand on. */
@@ -174,7 +174,7 @@ const WIDGET_TOOLS: readonly string[] = PART_IDS.filter((p) => partTool(p) === p
 /** The tools a button on the bar can open: Crest's tools but those, then Find on screen, a page (tabs.ts findOnScreenTab). */
 export const TOOL_BUTTONS: readonly string[] = [...TOOL_IDS.filter((id) => !WIDGET_TOOLS.includes(id)), "find"];
 /** Every item a zone may hold. */
-const ITEMS: string[] = [...FIXED_ITEMS, "tray", "status", ...PART_IDS, ...TOOL_BUTTONS.map((id) => `tool:${id}`), ...SYS_IDS.map((id) => `sys:${id}`)];
+const ITEMS: string[] = [...FIXED_ITEMS, "crest", "tray", "status", ...PART_IDS, ...TOOL_BUTTONS.map((id) => `tool:${id}`), ...SYS_IDS.map((id) => `sys:${id}`)];
 
 /** The versions a widget offers on the bar, today's first; the id stays bare in the zones, so the fit, the sources and `barParts` do not change. */
 export type WidgetVariants = {
@@ -297,7 +297,8 @@ export const micWanted = (t: TaskbarSettings): boolean => t.enabled && ZONES.som
 /**
  * Each fixed item in exactly one zone and each widget, tool or Windows button in one at most: unknown ids dropped (a tool button for a tool the bar does not offer too), a duplicate kept at its first place
  * reading left, center, right, and a missing fixed item back in its default zone at its default index (the end when the zone is
- * shorter). A missing widget, tray or Stato is off the bar; `seed` puts the default widgets back the same way (the tray and Stato come with normalizeTaskbar).
+ * shorter). A missing widget, tray, Stato or Crest button is off the bar; `seed` puts the default widgets and the Crest button back the same way (the tray and Stato come
+ * with normalizeTaskbar): every bar saved before the Crest button could come off holds it, so only a new bar needs it seeded.
  */
 export function normalizeZones(v: unknown, seed = false): Record<Zone, BarItem[]> {
   const s = isObj(v) ? v : {};
@@ -315,7 +316,7 @@ export function normalizeZones(v: unknown, seed = false): Record<Zone, BarItem[]
     // splice puts an index past the end at the end.
     // Without the tray and Stato, which are no fixed items: they would push the indexes of the others past what they were.
     TASKBAR_DEFAULTS.zones[z].filter((id) => id !== "tray" && id !== "status").forEach((id, i) => {
-      if (!seen.has(id) && (FIXED_ITEMS.includes(id as never) || (seed && PART_IDS.includes(id as PartId)))) zones[z].splice(i, 0, id);
+      if (!seen.has(id) && (FIXED_ITEMS.includes(id as never) || (seed && (PART_IDS.includes(id as PartId) || id === "crest")))) zones[z].splice(i, 0, id);
     });
   }
   return zones;
