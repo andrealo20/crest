@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import { partInfo } from "../../../notch/row/partInfo";
 import { settings } from "../../../settings/store";
+import { CrestMark } from "../../../ui/CrestMark";
 import { NetGlyph } from "../../../ui/glyphs";
 import { dropPlace, moveBefore, type BarEdge, type BarItem, type DropSlot, type Zone, type ZoneBox } from "../model";
 import { itemDrag } from "../panel";
@@ -53,15 +54,16 @@ function trashAt(bar: HTMLElement | null, id: BarItem, edge: BarEdge, off: numbe
   return at ? trashBox(edge, at, off, window.innerWidth, window.innerHeight) : null;
 }
 
-/** What the ghost shows: the widget's, the tool's or the Windows button's icon, Stato's Wi-Fi glyph. */
+/** What the ghost shows: the widget's, the tool's or the Windows button's icon, Stato's Wi-Fi glyph, Crest's mark. */
 function Ghost({ id, size }: { id: BarItem; size: number }) {
   if (id === "status") return <NetGlyph glyph="wifi-3" size={size} />;
+  if (id === "crest") return <CrestMark size={size} />;
   const I = isWidget(id) ? partInfo[id].icon : isTool(id) ? toolInfo[toolOf(id)]?.icon : isSys(id) ? SYS_INFO[sysOf(id)].icon : undefined;
   return I ? <I size={size} weight="regular" /> : null;
 }
 
 /**
- * A widget, a tool button, a Windows button or Stato dragged along the bar (itemDrag): its icon under the pointer, where it would
+ * A widget, a tool button, a Windows button, Stato or the Crest button dragged along the bar (itemDrag): its icon under the pointer, where it would
  * land a line in the gap it goes in, and the trash past the bar over its own place (`off` px from the window's edge on the bar's
  * side, as the menus). Let go on the line it moves there in the saved zones, written once. Let go on the trash once it is armed
  * (the pointer has rested on it, useTrashArmed) and it leaves the bar, as with Remove in Settings > Taskbar > Items. Anywhere else,

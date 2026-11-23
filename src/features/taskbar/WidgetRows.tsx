@@ -88,20 +88,20 @@ export function WidgetOptions({ id }: { id: Removable }) {
   );
 }
 
-/** A zone's "+": the widgets, the tray and Stato not on the bar; the one picked goes last in the zone, before the Crest button (addWidget). */
+/** A zone's "+": the widgets, the tray, Stato and the Crest button not on the bar; the one picked goes last in the zone, before the Crest button (addWidget). */
 export function AddWidget({ zone }: { zone: Zone }) {
   const zones = settings.use().taskbar.zones;
   const on = barWidgets(zones);
   const off: Exclude<Removable, ToolItem | SysItem>[] = PART_IDS.filter((id) => !on.includes(id));
-  for (const id of ["tray", "status"] as const) if (!Object.values(zones).some((items) => items.includes(id))) off.push(id);
+  for (const id of ["tray", "status", "crest"] as const) if (!Object.values(zones).some((items) => items.includes(id))) off.push(id);
   if (!off.length) return null;
   return (
     <Select<string>
       width="shrink-0"
       value=""
       menuMax={480}
-      options={off.map((id) => ({ value: id, label: t(id === "tray" ? "Infobereich" : id === "status" ? "Status" : partInfo[id].label) }))}
-      onChange={(id) => (isWidget(id) || id === "tray" || id === "status") && setTaskbar((cur) => ({ zones: addWidget(cur.zones, id, zone) }))}
+      options={off.map((id) => ({ value: id, label: t(id === "tray" ? "Infobereich" : id === "status" ? "Status" : id === "crest" ? "Crest-Menü" : partInfo[id].label) }))}
+      onChange={(id) => (isWidget(id) || id === "tray" || id === "status" || id === "crest") && setTaskbar((cur) => ({ zones: addWidget(cur.zones, id, zone) }))}
       trigger={{
         label: t("Widget hinzufügen"),
         menuWidth: 220,

@@ -7,8 +7,8 @@ import { opensInBar } from "./panelModel.ts";
 import type { BarLook } from "./look.ts";
 import type { PrivacyState } from "../../platform/services.ts";
 
-/** What the settings take off the bar and put back like a widget: the widgets, the tray, Stato, the tool buttons and Windows' buttons. */
-export type Removable = PartId | "tray" | "status" | ToolItem | SysItem;
+/** What the settings take off the bar and put back like a widget: the widgets, the tray, Stato, the Crest button, the tool buttons and Windows' buttons. */
+export type Removable = PartId | "tray" | "status" | "crest" | ToolItem | SysItem;
 
 export const isWidget = (id: string): id is PartId => PART_IDS.includes(id as PartId);
 export const isTool = (id: string): id is ToolItem => id.startsWith("tool:");
@@ -20,10 +20,11 @@ export const isSys = (id: string): id is SysItem => SYS_ITEMS.includes(id);
 /** A Windows button's id. */
 export const sysOf = (id: SysItem): SysId => id.slice("sys:".length) as SysId;
 /**
- * What the trash takes while it is dragged along the bar (ItemDrop): the widgets, the tool buttons, Windows' buttons and Stato, as
- * Remove in Settings does. Never the tray, whose icons would all be out of reach, nor Start, the apps or the Crest button.
+ * What the trash takes while it is dragged along the bar (ItemDrop): the widgets, the tool buttons, Windows' buttons, Stato and the
+ * Crest button (a right click on the bar still opens its menu), as Remove in Settings does. Never the tray, whose icons would all be
+ * out of reach, nor Start or the apps.
  */
-export const trashable = (id: string): id is Removable => isWidget(id) || isTool(id) || isSys(id) || id === "status";
+export const trashable = (id: string): id is Removable => isWidget(id) || isTool(id) || isSys(id) || id === "status" || id === "crest";
 /** Whether a Windows button shows on the primary bar only: Windows widgets, the input language, the privacy indicators and the Recycle Bin, which Windows keeps on the main taskbar; the others are on every bar. */
 export const sysPrimaryOnly = (id: SysItem): boolean => sysOf(id) !== "search" && sysOf(id) !== "taskview" && sysOf(id) !== "desktop";
 /** Whether the notch polls the privacy state for the bar: on, with its privacy button on it. */
@@ -125,7 +126,7 @@ export function sourcesAfter(before: BarSeen, now: BarSeen): "run" | "keep" | "r
 
 /**
  * The zones with `id` (a widget or a tool button) last in `to`, before the Crest button when the zone ends with it, so the button
- * stays at the edge; a widget or a tool button (or the tray, or Stato) already on the bar leaves them as they are.
+ * stays at the edge (the button itself, taken off, comes back there); one already on the bar leaves them as they are.
  */
 export function addWidget(zones: Record<Zone, BarItem[]>, id: Removable, to: Zone): Record<Zone, BarItem[]> {
   if (Object.values(zones).some((items) => items.includes(id))) return zones;

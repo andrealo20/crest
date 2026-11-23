@@ -108,9 +108,20 @@ test("the look's settings are repaired and default to today's bar", () => {
 });
 
 test("every fixed item sits in exactly one zone", () => {
-  assert.deepEqual(normalizeZones({}), { left: [], center: ["start", "apps"], right: ["crest"] });
+  assert.deepEqual(normalizeZones({}), { left: [], center: ["start", "apps"], right: [] });
   assert.deepEqual(normalizeZones({ left: ["crest", "x"], center: ["apps", "crest"] }), { left: ["crest"], center: ["start", "apps"], right: [] });
-  assert.deepEqual(normalizeZones({ right: ["apps"] }), { left: [], center: ["start"], right: ["apps", "crest"] }); // a missing item returns at its default index, here past the end
+  assert.deepEqual(normalizeZones({ right: ["start"] }), { left: [], center: ["apps"], right: ["start"] }); // a missing item returns at its default index, here past the end
+});
+
+test("the Crest button comes off the bar and stays off, and a bar that has it keeps it where it is", () => {
+  const off: Record<Zone, BarItem[]> = { left: [], center: ["start", "apps"], right: ["clock"] };
+  assert.deepEqual(normalizeZones(off), off);
+  assert.deepEqual(normalizeTaskbar({ zones: off, widgetsSeeded: true, traySeeded: true, statusSeeded: true }).zones, off);
+  // Every bar saved before it could come off has it, wherever it was moved.
+  assert.deepEqual(normalizeZones({ left: ["crest"], center: ["start", "apps"], right: ["clock"] }).left, ["crest"]);
+  // A new bar, and one saved before the widgets, get it at the end of the right zone.
+  assert.equal(normalizeTaskbar(undefined).zones.right.at(-1), "crest");
+  assert.deepEqual(normalizeZones({ left: [], center: ["start", "apps"], right: [] }, true).right, ["weather", "clock", "crest"]);
 });
 
 test("the Start button comes first in the middle, also on a bar saved before it existed", () => {
@@ -157,7 +168,7 @@ test("a widget draws its saved version, today's look for one it does not know, a
 });
 
 test("items move between zones", () => {
-  const z = normalizeZones({});
+  const z = normalizeZones({ right: ["crest"] });
   assert.deepEqual(moveItem(z, "crest", "left"), { left: ["crest"], center: ["start", "apps"], right: [] });
   assert.deepEqual(moveItem(normalizeZones({ center: ["apps", "crest"] }), "crest", "center", 0).center, ["crest", "start", "apps"]);
   assert.deepEqual(moveItem(z, "crest", "left", 99).left, ["crest"]);

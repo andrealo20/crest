@@ -225,7 +225,7 @@ export function TaskbarItems() {
                   <div className="truncate text-body text-label">{t(isWidget(id) ? partInfo[id].label : isTool(id) ? toolInfo[toolOf(id)].label : isSys(id) ? SYS_INFO[sysOf(id)].label : ITEM_LABEL[id])}</div>
                   {id === "start" && <div className="text-caption text-label-3">{t("Start öffnet sich dort, wo Windows es hinsetzt, je nach Ausrichtung seiner Taskleiste")}</div>}
                 </div>
-                {(isWidget(id) || isTool(id) || isSys(id) || id === "tray" || id === "status") && <WidgetOptions id={id} />}
+                {(isWidget(id) || isTool(id) || isSys(id) || id === "tray" || id === "status" || id === "crest") && <WidgetOptions id={id} />}
                 <div data-steps={id} onPointerDown={(e) => e.stopPropagation()} className="flex items-center">
                   <MoveButton label={t("Nach oben")} disabled={i === 0} onClick={() => step(id, zones[zone], -1)}>
                     <CaretUp size={12} weight="bold" />

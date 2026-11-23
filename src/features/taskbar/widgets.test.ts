@@ -209,9 +209,16 @@ test("the arrows move through a widget's versions and wrap, mirrored right to le
   assert.equal(variantKey("Enter", 0, 4, false), undefined);
 });
 
-test("the trash takes widgets, tool buttons, Windows buttons and Stato, never the tray, Start, the apps or the Crest button", () => {
-  for (const id of ["clock", "weather", "disk", "tool:media", "sys:recycle", "sys:search", "status"]) assert.equal(trashable(id), true, id);
-  for (const id of ["tray", "start", "apps", "crest"]) assert.equal(trashable(id), false, id);
+test("the trash takes widgets, tool buttons, Windows buttons, Stato and the Crest button, never the tray, Start or the apps", () => {
+  for (const id of ["clock", "weather", "disk", "tool:media", "sys:recycle", "sys:search", "status", "crest"]) assert.equal(trashable(id), true, id);
+  for (const id of ["tray", "start", "apps"]) assert.equal(trashable(id), false, id);
+});
+
+test("the Crest button taken off goes back at the end of its zone, and without it a widget goes last", () => {
+  const z = TASKBAR_DEFAULTS.zones, off = removeWidget(z, "crest");
+  assert.deepEqual(off.right, ["weather", "tray", "status", "clock"]);
+  assert.deepEqual(addWidget(off, "crest", "right"), z);
+  assert.deepEqual(addWidget(off, "timer", "right").right, ["weather", "tray", "status", "clock", "timer"]);
 });
 
 test("a tool button or a Windows button dropped on the trash leaves every zone as Remove does, and Add puts it back last before the Crest button", () => {
