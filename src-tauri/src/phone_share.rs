@@ -127,14 +127,14 @@ pub fn phone_share_stop(url: String) {
 
 /// The address a phone on the same network reaches this computer on: the one the default route leaves from when it
 /// is a private address of a real LAN adapter, otherwise the first such address. None behind a VPN-only or public link.
-fn lan_ip() -> Option<IpAddr> {
+pub(crate) fn lan_ip() -> Option<IpAddr> {
     let route = route_ip();
     let lan = lan_addresses();
     lan.iter().copied().find(|ip| Some(*ip) == route).or_else(|| lan.first().copied())
 }
 
 /// The source address of the default route. Connecting a UDP socket sends nothing.
-fn route_ip() -> Option<IpAddr> {
+pub(crate) fn route_ip() -> Option<IpAddr> {
     let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
     socket.connect("192.0.2.1:9").ok()?;
     Some(socket.local_addr().ok()?.ip())

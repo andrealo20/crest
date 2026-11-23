@@ -119,7 +119,7 @@ function ColourField(props: { value: string | null; placeholder: string; onShow:
 }
 
 /** Copies on click and says so for a moment ("Copied", or "Copy failed" when the clipboard is refused). */
-function useCopy() {
+export function useCopy() {
   const [done, setDone] = useState<{ id: string; ok: boolean } | null>(null);
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);

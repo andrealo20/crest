@@ -16,7 +16,7 @@ import { degrees, tempLevel } from "./temps";
 import { holdProcesses, type SystemState } from "./store";
 import { SHAPES, loadShape, niceMax, shapePoints, systemFit, type ShapeName } from "./hero";
 import { MorphPath } from "./Morph";
-import { CoreColumns, NetDetail, ProcessCard, ProcessRow, Trend } from "./SystemView";
+import { BatteryHealth, CoreColumns, LocalIpChip, NetDetail, ProcessCard, ProcessRow, PublicIpChip, Trend } from "./SystemView";
 import { useHue, type Hue } from "../themes/hues";
 import { PortsEntry } from "../ports/PortsPanel";
 import { keepFit } from "../weather/fit";
@@ -45,8 +45,8 @@ const percent = (n: number) => `${n} %`;
  *
  *   [◯ CPU  detail     ] [◯ GPU  detail     ]   [ ◠ RAM ] [ ◠ C: ]
  *   [ 54 °C ━━━  ▂▅▂▇ ✿] [ 61 °C ━━━━━━━━ ✿]   [ Processes  CPU|Mem ]
- *   [ ⇅ Net  ↓ ↑          the minute's graph ]   [ ◧ Chrome      12.4 ]
- *   [ Power ] [ Battery ] [ Ping ]                [ …                  ]
+ *   [ ⇅ Net  ↓ ↑ [LAN]    the minute's graph ]   [ ◧ Chrome      12.4 ]
+ *   [ Power ] [ Battery health ] [ Ping [IP] ]    [ …                  ]
  */
 export function MaterialSystemLayout(p: {
   st: SystemState;
@@ -216,6 +216,7 @@ function NetCard({ st, tone, up }: { st: SystemState; tone: (l: Level) => string
         <ArrowsDownUp size={15} weight="regular" className={`shrink-0 ${iconColor ? "" : "text-label-2"}`} style={iconColor ? { color: iconColor } : undefined} />
         <span className="shrink-0 text-footnote font-medium text-label">{t("Netz")}</span>
         <span className="tabular min-w-0 flex-1 truncate text-caption text-label-2">{net && <NetDetail down={net.down} up={net.up} />}</span>
+        {st.stats?.localIp && <LocalIpChip ip={st.stats.localIp} />}
         <span className="tabular shrink-0 text-footnote font-semibold" style={{ color }}>
           {net ? compactRate(net.down) : "-"}
         </span>
@@ -251,14 +252,28 @@ function Tiles(p: { st: SystemState; tone: (l: Level) => string; chips: boolean;
           control={p.plan}
         />
       )}
-      {b && <Tile i={i++} chips={p.chips} icon={BatteryHigh} hue="green" label={t("Akku")} value={b.percent} format={percent} empty="-" color={tone(batteryLevel(b))} detail={p.batteryDetail} title={p.batteryHealth?.text} />}
-      <Tile i={i++} chips={p.chips} icon={WifiHigh} hue="sky" label="Ping" value={ping} format={(n) => `${n} ms`} empty={t("Offline")} color={tone(ping === null ? 2 : ping >= 150 ? 2 : ping >= 60 ? 1 : 0)} detail="1.1.1.1" />
+      {b && (
+        <Tile
+          i={i++}
+          chips={p.chips}
+          icon={BatteryHigh}
+          hue="green"
+          label={t("Akku")}
+          value={b.percent}
+          format={percent}
+          empty="-"
+          color={tone(batteryLevel(b))}
+          detail={p.batteryDetail}
+          control={p.batteryHealth && <BatteryHealth health={p.batteryHealth} className="tabular min-w-0 truncate text-caption font-medium" />}
+        />
+      )}
+      <Tile i={i++} chips={p.chips} icon={WifiHigh} hue="sky" label="Ping" value={ping} format={(n) => `${n} ms`} empty={t("Offline")} color={tone(ping === null ? 2 : ping >= 150 ? 2 : ping >= 60 ? 1 : 0)} detail="1.1.1.1" control={<PublicIpChip />} />
     </div>
   );
 }
 
 // A component of its own so each tile calls its hooks once. Tiles start at their value and glide from sample to sample.
-function Tile(p: { i: number; chips: boolean; icon: Icon; hue: Hue; label: string; value: number | null; format: (n: number) => string; empty: string; color: string; detail: string; title?: string; control?: ReactNode }) {
+function Tile(p: { i: number; chips: boolean; icon: Icon; hue: Hue; label: string; value: number | null; format: (n: number) => string; empty: string; color: string; detail: string; control?: ReactNode }) {
   const I = p.icon;
   const iconColor = useHue(p.hue);
   const glided = useGlide(p.value);
@@ -274,7 +289,7 @@ function Tile(p: { i: number; chips: boolean; icon: Icon; hue: Hue; label: strin
   // Chips grow from their content, so the plan menu in the power chip never squeezes its value.
   if (p.chips)
     return (
-      <motion.div {...enter(p.i)} className="flex h-7 min-w-0 flex-auto items-center gap-1.5 rounded-[14px] bg-fill-1 px-2.5" title={[p.label, p.detail, p.title].filter(Boolean).join(" · ")}>
+      <motion.div {...enter(p.i)} className="flex h-7 min-w-0 flex-auto items-center gap-1.5 rounded-[14px] bg-fill-1 px-2.5" title={[p.label, p.detail].filter(Boolean).join(" · ")}>
         {icon}
         <span className="shrink-0" style={{ color: p.color }}>
           {value("text-footnote font-semibold")}
@@ -283,7 +298,7 @@ function Tile(p: { i: number; chips: boolean; icon: Icon; hue: Hue; label: strin
       </motion.div>
     );
   return (
-    <motion.div {...enter(p.i)} className="flex min-h-0 min-w-0 flex-1 flex-col justify-center rounded-[20px] bg-fill-1 px-3 py-2" title={p.title}>
+    <motion.div {...enter(p.i)} className="flex min-h-0 min-w-0 flex-1 flex-col justify-center rounded-[20px] bg-fill-1 px-3 py-2">
       <div className="flex h-3.5 min-w-0 items-center gap-1">
         {icon}
         <span className="min-w-0 truncate text-caption text-label-2">{p.label}</span>

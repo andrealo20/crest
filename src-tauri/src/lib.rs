@@ -184,7 +184,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "translate_status", "taskbar_shell", "taskbar_settings",
     "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
     "notices_open_app", "notices_copy_code",
-    "power_plans", "power_plan_set", "system_icon", "reveal_file", "ports_list", "ports_open", "ports_end",
+    "power_plans", "power_plan_set", "system_icon", "system_ipconfig", "system_battery_report", "reveal_file", "ports_list", "ports_open", "ports_end",
     "convert_probe", "file_preview", "open_path", "copy_files", "shelf_drag_out", "clipboard_paste_files", "shelf_clipboard_text",
     "phone_share_start", "phone_share_stop", "portfolio_prices",
     "media_get", "media_control", "media_open_source", "media_sources", "mixer_list", "volume_get", "mixer_set", "volume_set",
@@ -390,6 +390,10 @@ pub fn run() {
             sysevents::status_bar,
             #[cfg(windows)]
             system::system_icon,
+            #[cfg(windows)]
+            system::system_ipconfig,
+            #[cfg(windows)]
+            system::system_battery_report,
             convert::convert_probe,
             convert::reveal_file,
             convert::open_path,
@@ -1303,6 +1307,8 @@ mod tests {
         // Explorer, and its ports sheet lists the ports, opens one in the browser and ends the process on one.
         assert!(ok("taskbar", "power_plans") && ok("taskbar", "power_plan_set") && ok("taskbar", "system_icon") && ok("taskbar", "reveal_file"));
         assert!(ok("taskbar", "ports_list") && ok("taskbar", "ports_open") && ok("taskbar", "ports_end"));
+        // A click on its local IP opens ipconfig in a Command Prompt, one on the battery's health opens Windows' battery report.
+        assert!(ok("taskbar", "system_ipconfig") && ok("taskbar", "system_battery_report"));
         // Its readings come from the notch alone: each call measures the CPU since the one before, and a call without the process
         // list drops it, so a second reader would falsify the notch's values.
         assert!(!ok("taskbar", "system_stats"));

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compactRate, compactWatts, driveSizes, duration, ghz, processMemory, processShare, rate as formatRate, watts } from "./format.ts";
+import { compactRate, compactWatts, driveSizes, duration, ghz, processMemory, processShare, publicIpOf, rate as formatRate, watts } from "./format.ts";
 import { netRates, rate } from "./rates.ts";
 import { SteadyRanking } from "./ranking.ts";
 import { SteadyZones, diskLevel, fromKelvin, pickZone, plausible, tempLevel } from "./temps.ts";
@@ -219,4 +219,12 @@ test("decimals follow the app language", () => {
   } finally {
     delete g.document;
   }
+});
+
+test("public IP: only a well-formed address from the service's answer", () => {
+  assert.equal(publicIpOf({ ip: "203.0.113.7" }), "203.0.113.7");
+  assert.equal(publicIpOf({ ip: "2001:db8::1", country: "NL" }), "2001:db8::1");
+  assert.equal(publicIpOf({ ip: "::ffff:203.0.113.7" }), "::ffff:203.0.113.7");
+  for (const bad of [null, undefined, 42, "203.0.113.7", {}, { ip: 1 }, { ip: "" }, { ip: "256.1.1.1" }, { ip: "1.2.3" }, { ip: "01.2.3.4" }, { ip: "1.2.3.4 " }, { ip: "<b>1.2.3.4</b>" }, { ip: "::1]/x[" }, { ip: ":::" }, { ip: "a".repeat(46) }])
+    assert.equal(publicIpOf(bad), null, String(JSON.stringify(bad)));
 });

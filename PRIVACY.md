@@ -14,6 +14,7 @@ Crest is a free, open-source Windows and Mac app by Andrea Loroni. It has no acc
 - Backups you make (Settings, General), in *Documents\Crest\Backups* (*~/Documents/Crest/Backups* on a Mac): your settings, notes, to-dos and the tools' data as plain JSON, without keys, passwords, calendar links or the vault. Crest sends them nowhere; a Documents folder that OneDrive or iCloud Drive syncs takes them along.
 - Plugins you install, in the `plugins` folder of the app's data folder, and the data of those that keep any, in `plugin-data`.
 - A crash log (`crash.log` in the `logs` folder), written only when the app crashes or hits an uncaught error. It is not sent anywhere.
+- Windows' battery report, made only when you click the battery's health in the Hardware tool: Windows writes it to `%TEMP%\crest\battery-report.html`, Crest opens it, and the next click replaces it. It holds the PC's name, the battery's serial number and its usage history. It is not sent anywhere.
 
 The clipboard history and the history of live notices are kept in memory only and are gone when Crest quits.
 
@@ -48,6 +49,7 @@ Every request goes straight from your PC to the service named here. On by defaul
 | LeetCode activity | leetcode.com | Once an hour while it shows, after you set a username |
 | Calendar | The hosts of the ICS links and CalDAV servers you add (for example calendar.google.com, outlook.office365.com or outlook.live.com, p01-caldav.icloud.com or caldav.icloud.com), with your user name and app password for CalDAV; only the time range is sent, nothing else about you | When you add or edit a calendar, then every 12 minutes while the Calendar tool is on, and when you refresh |
 | Hardware | ICMP ping to 1.1.1.1 | Every 2 seconds while the Hardware tool is open |
+| Hardware (public IP) | get.geojs.io (the service the weather already uses; it answers with your public IP, which Crest shows and never saves) | Only when you click **Public IP** in the Hardware tool |
 | Lyrics | The sources you turned on in **Settings → Display → Lyrics**, in their order, each with the title, artist and length of the song: lrclib.net (on by default), lyrics.kugou.com (Kugou) and music.163.com (NetEase Cloud Music), both unofficial APIs and off by default | While the lyrics panel is open or a lyrics option of the closed notch is on, for songs up to 20 minutes; each answer is cached |
 | Lyrics translation | firefox.settings.services.mozilla.com, firefox-settings-attachments.cdn.mozilla.net (Mozilla's translation engine and models, anonymous; the lyrics are translated on your PC and never sent) | Only when you download the engine and a language's models for **Translate offline** |
 | Kanji dictionary | github.com and release-assets.githubusercontent.com (a fixed JMdict release, anonymous) | Only when you press **Download** under Romanisation |
