@@ -59,6 +59,8 @@ tauri-plugin-process = "2"
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3"
 block2 = "0.6"
+# An autorelease pool around each turn of Screen Time's polling thread (screentime.rs).
+objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "block2", "NSArray", "NSDictionary", "NSNotification", "NSError", "NSObject", "NSOperation", "NSString", "NSURL", "NSUserDefaults", "NSValue"] }
 objc2-app-kit = { version = "0.3", default-features = false, features = [
   "std",

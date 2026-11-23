@@ -563,8 +563,9 @@ mod platform {
                 let mut ticks = 0i64;
                 // Dropping the sender ends the wait at once.
                 while let Err(RecvTimeoutError::Timeout) = stopped.recv_timeout(Duration::from_secs(TICK as u64)) {
-                    // Crest itself keeps the app before it.
-                    let app = match crate::macos::frontmost_app() {
+                    // Crest itself keeps the app before it. A pool of its own per turn: this thread lives as long as the recording,
+                    // and what AppKit autoreleases would otherwise pile up until then.
+                    let app = match objc2::rc::autoreleasepool(|_| crate::macos::frontmost_app()) {
                         Some((_, _, pid)) if pid == own => None,
                         Some((key, name, _)) if !key.is_empty() => Some(Some(App { key, name, path: None })),
                         _ => Some(None),
