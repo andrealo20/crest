@@ -2,6 +2,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { motion } from "motion/react";
 import { design } from "../../../design/design";
 import { springs } from "../../../design/motion";
+import { t } from "../../../i18n";
 import { AppIcon } from "../../launcher/AppIcon";
 import { folderGrid, gridKey } from "../folderModel";
 import { marks } from "../itemLook";
@@ -52,6 +53,8 @@ export function AppsPanel(props: {
           data-app-cell
           aria-label={b.title ?? b.name}
           title={b.title ?? b.name}
+          // A folder says it is one, as on the bar.
+          aria-description={b.folder && (b.folder.apps.length === 1 ? t("Ordner, 1 App") : t("Ordner, {n} Apps", { n: b.folder.apps.length }))}
           onClick={(e) => {
             if (props.onPress && e.detail > 0 && pressDragged()) return;
             props.onClick(b, e.currentTarget, { shift: e.shiftKey, ctrl: e.ctrlKey }, e.detail === 0);
