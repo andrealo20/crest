@@ -301,16 +301,19 @@ function DeskIconsButton({ item, dragged, say }: { item: Omit<ItemProps, "onClic
 }
 
 /**
- * Eject, always on the main bar (decision W12): dimmed, and its name says so, while no drive that plugs in is there. A click opens its
- * menu of drives (EjectMenu), never ejecting one by itself.
+ * Eject, always on the main bar: dimmed, and its name and the label over it say so, while no drive that plugs in is there. A click
+ * opens its menu of drives (EjectMenu), never ejecting one by itself.
  */
 function EjectButton({ item, dragged, onOpen }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean; onOpen?: (anchor: HTMLElement) => void }) {
   const list = removables.use();
   const [, onEnter] = useWindowsRead(readRemovables, item.onEnter);
+  const name = ejectName(list, t);
   return (
     <Item
       {...item}
-      name={ejectName(list, t)}
+      name={name}
+      // A note or an error over the button still wins over its name.
+      label={item.label === item.name ? name : item.label}
       onEnter={onEnter}
       onClick={(e) => {
         if (dragged(e)) return;
