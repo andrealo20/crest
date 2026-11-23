@@ -60,6 +60,26 @@ Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, R
   <img src="docs/media/features/caps-lock.png" alt="Caps Lock on, shown for a moment in the closed notch" width="236" />
 </p>
 
+## What's new in 1.3.2
+
+<p align="center">
+  <img src="docs/media/features/taskbar-1.3.2.png" alt="Crest's taskbar in 1.3.2: on the left a song with its cover and controls, Screen Time at 3 h 05 min and the CPU and GPU temperatures with their line; in the middle Start, File Explorer, a folder showing the icons of its four apps, Terminal, Notepad and Calculator; on the right the time in Tokyo, a battery ring at 72, the ^ of the notification area, Wi-Fi, volume and battery, the clock and the Crest button" width="960" /><br />
+  <img src="docs/media/features/folder-1.3.2.png" alt="The Creative folder open in a panel over the bar, with Photos, Paint, Music and Video, above its button among the pinned apps" width="340" />
+  <img src="docs/media/features/widgets-more-1.3.2.png" alt="A crowded bar with a button with four squares at its left end, open on a panel with the widgets that did not fit: an exchange rate, the batteries of three Bluetooth devices, the song with its controls and the battery ring" width="439" /><br />
+  <img src="docs/media/features/screen-time.png" alt="Screen Time for today: a day timeline from midnight to midnight with sunrise, sunset and two events, 4 h 58 min in all with a bar per hour, and the time in each of three apps" width="437" />
+  <img src="docs/media/features/wallpapers.png" alt="Wallpapers on its Collection page: a grid of photos from Unsplash, with Picture fit and Change automatically below" width="340" />
+</p>
+
+- **Folders on the taskbar**: hold a pinned app over another for a moment and both go into a folder, which opens in a panel over the bar. Open apps from a folder still show on the bar. Like everything new on the taskbar, on Windows and not in the Microsoft Store version for now.
+- **New widgets and faces** for the bar: top apps by CPU or memory, battery rings and cells, a network graph, Now Playing with cover and controls, the microphone, a stopwatch, the next to-do, the latest note, day, month and year progress, the date, world time, flip and segment clocks, weather details, the next days, sunrise and sunset, currencies, crypto, Screen Time, the day timeline, unread notifications, device batteries, temperatures with a 10-minute line, Keep awake and a wallpaper switcher.
+- **Windows buttons** for light or dark theme, the on-screen keyboard, the notification center, Do not disturb, recent files, a search box, desktop icons, Eject and the mobile hotspot.
+- **A Widget size slider**, and a button that opens the widgets the bar has no room for, while the clock always stays. Pinned tools such as Portfolio, Calc, Clipboard, Ask, the Launcher and the Recorder open in a panel over the bar.
+- **Screen Time**, off until you turn it on: the time you spend in each app, kept only on this PC for 30 days, with a Day timeline of your focus rounds, events, sunrise and sunset.
+- **Wallpapers** from Crest's collection or a folder of your own, for each screen, changed on a timer if you like. The collection's pictures are downloaded the first time you use them.
+- **In the notch**, the battery of your Bluetooth devices when it is closed, a Timer that goes up to 24 hours with your last three durations and a stopwatch with laps, and your local IP in Hardware, with the public one only when you ask.
+
+The [1.3.2 release](https://github.com/andrealo20/crest/releases/tag/v1.3.2) has the downloads and the full notes, with the issue behind each change.
+
 ## What's new in 1.3.0
 
 <p align="center"><img src="docs/media/features/crest-1.3.gif" alt="Crest 1.3.0: a window slides under the taskbar's Liquid Glass + and bends through it, holding the pointer on an app shows live previews of its windows, the Crest menu opens with Task Manager, a widget is dragged along the bar, and the settings window in the Material style has contour lines moving behind its pages" width="760" /></p>
@@ -93,7 +113,9 @@ Every tool below lives in the same notch, and on Windows the taskbar can carry t
 - **In place of the Windows taskbar** (Settings → Taskbar, off by default, Windows only, not in the Microsoft Store version for now): Windows' Start, your pinned apps and open windows, the Notification area and the Crest menu with Task Manager, on every monitor. Turn it off, or quit Crest, and the Windows taskbar comes back.
 - **Four shapes**: Docked along the whole edge, Floating, a Capsule as wide as its buttons, or Tiles. Height, icon size, background and transparency are yours.
 - **Live previews** of an app's windows when the pointer rests on it, as in Windows 11.
-- **Widgets from your tools**: Weather, Clock, Hardware and Timer in the version you pick, buttons for the other tools, and Status, with a quick panel for Wi-Fi, Bluetooth, volume and brightness. Drag them along the bar to move them.
+- **Folders**: hold a pinned app over another for half a second and the two make a folder, which opens in a panel over the bar. Drag apps in and out, rename it, or ungroup it.
+- **Widgets**: Weather, Clock, Hardware and Timer in the version you pick, and the bar's own, from top apps, batteries, temperatures and disk space to world time, currencies, crypto, Screen Time and unread notifications. Buttons for the other tools, most of which open in a panel over the bar, buttons for Windows' own, and Status, with a quick panel for Wi-Fi, Bluetooth, volume and brightness. Drag them along the bar to move them.
+- **Widget size** from 75 to 125%, and when the bar runs out of room, a button with four squares opens the widgets that did not fit. The clock always stays on the bar.
 - **Liquid Glass +**: a strong lens along the bar's edge over a live copy of the screen, on Windows 11 24H2 and later on x64.
 
 ### Music
