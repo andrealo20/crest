@@ -25,7 +25,7 @@ import type { NowPlaying } from "../../../platform/media/types";
 import { timer } from "../../timer/store";
 import { t } from "../../../i18n";
 import { EMPTY_FEED, barFeed, noticeCount, type BarFeed } from "../barStores";
-import { widgetKey, type FaceKey } from "../faceKeys";
+import { onWeather, widgetKey, type FaceKey } from "../faceKeys";
 import { countBadge, variantOf, type TaskbarSettings } from "../model";
 import { SAMPLE_TIMER } from "../sampleFeed";
 import { statusPill } from "../statusModel";
@@ -68,11 +68,15 @@ export interface WidgetContext {
   sample?: boolean;
 }
 
-/** A widget's face and its width at scale 1, and what its name gains in the label above the bar, for a face that shows less than it knows (the Top apps' names). */
+/**
+ * A widget's face and its width at scale 1, and what its name gains in the label above the bar, for a face that shows less than it knows
+ * (the Top apps' names). `weatherFrom`: where the weather a face draws at its end starts, from its start edge, at the middle of the gap before it.
+ */
 export interface Body {
   node: ReactNode;
   width: number;
   tip?: string;
+  weatherFrom?: number;
 }
 
 /** Side by side, as the closed row's carousel shows them when they all fit. */
@@ -207,6 +211,7 @@ export function widgetBody(id: PartId, ctx: WidgetContext): Body & { drawn: bool
     ),
     width: body ? body.width : 16,
     tip: body?.tip,
+    weatherFrom: body?.weatherFrom,
     drawn: body !== null,
   };
 }
@@ -276,7 +281,7 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
   const own = useOwn(id, paused);
   const desc = useId();
   const k = widgetScale(taskbar.height, taskbar.iconSize, taskbar.widgetSize);
-  const { node, width, drawn, tip } = widgetBody(id, {
+  const { node, width, drawn, tip, weatherFrom } = widgetBody(id, {
     feed,
     paused,
     hovered: item.lifted,
@@ -307,8 +312,10 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
       onClick={(e) => {
         // The pointer in the face's own px, from the 30 px cell as drawn: at zoom k, and in the panel above the bar at Crest's scale too.
         // None by keyboard or while the icon shows.
-        const r = document.getElementById(desc)?.getBoundingClientRect();
-        onClick(e, widgetKey(id, taskbar.variants, r && r.width > 0 && drawn && e.detail > 0 ? ((e.clientX - r.left) * width) / r.width : null));
+        const cell = document.getElementById(desc), r = cell?.getBoundingClientRect();
+        const x = r && r.width > 0 && drawn && e.detail > 0 ? ((e.clientX - r.left) * width) / r.width : null;
+        // The face's own direction, not the page's: the bar's zones are left to right in every language.
+        onClick(e, cell && onWeather(x, weatherFrom, width, getComputedStyle(cell).direction === "rtl") ? "weather" : widgetKey(id, taskbar.variants, x));
       }}
       onContextMenu={onContextMenu}
       onPointerDown={onPointerDown}

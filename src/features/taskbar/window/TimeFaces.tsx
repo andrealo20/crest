@@ -270,7 +270,7 @@ export function clockPart(variant: Exclude<WidgetVariants["clock"], "digital" | 
     case "segment":
       return { node: <BarSegment h12={h12} paused={paused} at={at} />, width: segmentWidth(h12) };
     case "weather":
-      return { node: <BarClockWeather h12={h12} paused={paused} at={at} weather={sampleWeather(ctx)} />, width: clockWeatherWidth(h12) };
+      return { node: <BarClockWeather h12={h12} paused={paused} at={at} weather={sampleWeather(ctx)} />, width: clockWeatherWidth(h12), weatherFrom: barClockWidth(false, h12, true) + CLOCK_WEATHER_GAP / 2 };
   }
 }
 
@@ -284,7 +284,7 @@ export function timePart(id: "progress" | "date" | "world", ctx: WidgetContext):
   if (id === "date") {
     const v = variantOf(ctx.variants, "date");
     if (v === "sheet") return { node: <BarSheet paused={paused} at={at} />, width: sheetWidth() };
-    if (v === "week") return { node: <BarWeek paused={paused} at={at} weather={sampleWeather(ctx)} />, width: weekWidth() };
+    if (v === "week") return { node: <BarWeek paused={paused} at={at} weather={sampleWeather(ctx)} />, width: weekWidth(), weatherFrom: 7 * dayWidth() + WEEK_GAP / 2 };
     return { node: <BarDate paused={paused} at={at} />, width: fullDateWidth() };
   }
   const zone = zones[0];

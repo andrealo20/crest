@@ -33,7 +33,7 @@ import { barDecor, decorPictures, trayFolded, trayState } from "../tray";
 import { buttonDecor, type Progress } from "../decorModel";
 import type { FaceKey } from "../faceKeys";
 import { splitTray } from "../trayModel";
-import { hasWidgetMenu, isSys, isTool, isWidget, shownZones, sysOf, sysPrimaryOnly, toolOf, trashable, widgetPanel, widgetScale, widgetTool } from "../widgets";
+import { hasWidgetMenu, isSys, isTool, isWidget, shownZones, sysOf, sysPrimaryOnly, toolOf, trashable, weatherWanted, widgetPanel, widgetScale, widgetTool } from "../widgets";
 import { toolInfo } from "../toolInfo";
 import { useHue } from "../../themes/hues";
 import { BarGlass, useBarSurface } from "./BarGlass";
@@ -459,12 +459,15 @@ export function TaskbarWindow() {
    * main bar's clock, the time progress and the date Crest's Notices over its Calendar, the crypto widget its coin's week. On the other
    * bars, which get no notices or calendar from the notch, the clock opens Windows' notification centre, as Windows' own clock does. A
    * click on a key of its face (`key`) does what the key does, and so does every click on the microphone; the stopwatch's starts or
-   * pauses it. The timer opens the Timer on its countdown, the exchange rate the Converter on its currencies.
+   * pauses it. The timer opens the Timer on its countdown, the exchange rate the Converter on its currencies. On the main bar the
+   * weather of the clock's Time and weather and of the date's week opens Weather; on the other bars the whole clock does as before.
    */
   const clickWidget = (id: PartId, button: HTMLElement, key: FaceKey | null) => {
     setError(null);
     setMenu(null);
-    if (key || id === "mic") return runFaceKey(key ?? "mic", (text) => setError({ key: id, text }));
+    if (key === "weather") {
+      if (primary) return openTool("weather", button);
+    } else if (key || id === "mic") return runFaceKey(key ?? "mic", (text) => setError({ key: id, text }));
     if (id === "stopwatch") return stopwatchActions.toggle();
     const own = widgetPanel(id, primary);
     if (own) {
@@ -679,7 +682,8 @@ export function TaskbarWindow() {
     if (isWidget(id)) {
       // The clock alone may show on the other bars; it draws from the local time, not from the notch's feed.
       if (!primary && !(id === "clock" && s.taskbar.clockAll)) return null;
-      const tool = widgetTool(id), own = widgetPanel(id, primary);
+      // The clock's Time and weather and the date's week, whose weather opens Weather on the main bar (clickWidget).
+      const tool = widgetTool(id), own = widgetPanel(id, primary), split = primary && weatherWanted([id], s.taskbar.variants);
       return (
         <WidgetItem
           id={id}
@@ -690,7 +694,7 @@ export function TaskbarWindow() {
             kind: id,
             tile: free ? undefined : tile(),
             expanded: own
-              ? open?.content.kind === own
+              ? open?.content.kind === own || (split && open?.content.kind === "tool" && open.content.tool === "weather")
               : tool === null || !opensInBar({ kind: "tool", tool })
                 ? undefined
                 : open?.content.kind === "tool" && open.content.tool === tool,
@@ -699,7 +703,7 @@ export function TaskbarWindow() {
           onClick={(e, key) => (!free && afterDrag(e)) || clickWidget(id, e.currentTarget, key)}
           onPointerDown={free ? undefined : dragFrom(id)}
           // A widget with rows of its own opens its menu over it; the others the Crest menu over the pointer, as beside the buttons.
-          onContextMenu={(e) => (hasWidgetMenu(id) ? toggle({ kind: "widget", id }, e.currentTarget) : setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 }))}
+          onContextMenu={(e) => (hasWidgetMenu(id) || split ? toggle({ kind: "widget", id }, e.currentTarget) : setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 }))}
         />
       );
     }
