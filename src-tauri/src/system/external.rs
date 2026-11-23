@@ -172,6 +172,9 @@ const LHM: Labels = Labels {
 /// A board's CPU fan header by its usual names, matched whole and without case, in this order.
 const CPU_FANS: &[&str] = &["CPU", "CPU Fan", "CPU_FAN", "CPU Fan #1", "CPU Fan 1"];
 
+/// A case fan header's usual name starts, in lower case: "Chassis1", "CHA_FAN2", "System Fan #1", "SYS_FAN1", "Rear", "Radiator".
+const CASE_FANS: &[&str] = &["cha", "sys", "case", "rear", "front", "rad"];
+
 fn fans<'a>(entries: &'a [Entry], device: &'a Device) -> impl Iterator<Item = &'a Entry> {
     entries.iter().filter(move |e| &e.device == device && e.kind == Kind::Fan)
 }
@@ -193,10 +196,11 @@ fn pick(source: &'static str, entries: &[Entry], labels: &Labels) -> Reading {
         }
     }
     let cpu_fan = CPU_FANS.iter().find_map(|l| fans(entries, &Device::Board).find(|e| e.label.eq_ignore_ascii_case(l)).map(|e| e.value));
-    // A second CPU fan (CPU_OPT), a laptop controller's GPU fan or an AIO pump at 2-3000 rpm is no case fan.
+    // Only a header named for the case: a plain "Fan #2" (a board LibreHardwareMonitor has no names for, a PSU's or a fan
+    // controller's fan in HWiNFO) can be the CPU fan or an AIO pump at 2-3000 rpm.
     let case_fan = fastest(fans(entries, &Device::Board).filter(|e| {
         let l = e.label.to_ascii_lowercase();
-        e.value > 0.0 && !l.starts_with("cpu") && !l.starts_with("gpu") && !l.contains("pump")
+        e.value > 0.0 && CASE_FANS.iter().any(|c| l.starts_with(c)) && !l.contains("pump")
     }));
     Reading {
         source,
@@ -558,6 +562,18 @@ mod tests {
         assert_eq!(r.gpus[0].fan, Some(880.0));
         // The board's own "CPU Package" stays out: only fans come from the board.
         assert_eq!(r.cpu_temp, Some(64.5));
+    }
+
+    #[test]
+    fn only_a_fan_named_for_the_case_is_the_case_fan() {
+        let board = |label: &str, value: f64| Entry { device: Device::Board, kind: Kind::Fan, label: label.into(), value };
+        // A board LibreHardwareMonitor has no names for: the CPU fan on Fan #2, an AIO pump on Fan #7.
+        let generic = [board("Fan #1", 0.0), board("Fan #2", 1200.0), board("Fan #7", 2800.0)];
+        let r = pick("LibreHardwareMonitor", &generic, &LHM);
+        assert_eq!((r.cpu_fan, r.case_fan), (None, None));
+        let named = [board("CPU Fan", 1200.0), board("System Fan #1", 650.0), board("Chassis Fan #2", 700.0), board("Water Pump", 2800.0), board("Fan #3", 1500.0)];
+        let r = pick("LibreHardwareMonitor", &named, &LHM);
+        assert_eq!((r.cpu_fan, r.case_fan), (Some(1200.0), Some(700.0)));
     }
 
     #[test]
