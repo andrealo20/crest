@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition, State, WebviewWindow};
 #[cfg(windows)]
-use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
 #[cfg(windows)]
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS};
 #[cfg(windows)]
@@ -39,12 +39,13 @@ use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, HMONITOR
 #[cfg(windows)]
 use windows::Win32::System::Threading::GetCurrentProcessId;
 #[cfg(windows)]
-use windows::Win32::UI::Shell::{SHQueryUserNotificationState, QUNS_RUNNING_D3D_FULL_SCREEN};
+use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SHQueryUserNotificationState, SetWindowSubclass, QUNS_RUNNING_D3D_FULL_SCREEN};
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetDesktopWindow, GetForegroundWindow, GetShellWindow, GetWindow, GetWindowLongPtrW, GetWindowRect,
-    GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SetWindowPos, GWL_EXSTYLE, GWL_STYLE, GW_OWNER,
-    HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_THICKFRAME,
+    GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, GWL_STYLE,
+    GW_OWNER, HWND_TOPMOST, STYLESTRUCT, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WM_NCDESTROY, WM_STYLECHANGING,
+    WS_CAPTION, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_THICKFRAME,
 };
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::FindWindowExW;
@@ -389,6 +390,57 @@ pub(crate) fn raise_topmost(window: &WebviewWindow) {
     }
 }
 
+/// A tool window and not an app window: out of Alt+Tab, Task View and the taskbar. Every other bit stays as tao and hit_test.rs
+/// set it, so click-through, NOACTIVATE and topmost do not change, and the notch and the bars still take the keyboard.
+#[cfg(windows)]
+fn out_of_alt_tab(ex: u32) -> u32 {
+    (ex | WS_EX_TOOLWINDOW.0) & !WS_EX_APPWINDOW.0
+}
+
+/// tao rebuilds the whole ex style from its own flags (APPWINDOW, never TOOLWINDOW) at every show, hide and click-through
+/// change, and set_click_through writes it from the poll thread. Both send WM_STYLECHANGING on the window's thread before the
+/// write lands, and nothing in tao, wry or tauri handles it, so the style is fixed up here. tao reads the ex style back only to
+/// size the frame, and these windows are undecorated: TOOLWINDOW changes only the caption height, which they have none of.
+#[cfg(windows)]
+unsafe extern "system" fn alt_tab_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _: usize, _: usize) -> LRESULT {
+    if msg == WM_STYLECHANGING && wparam.0 as i32 == GWL_EXSTYLE.0 {
+        let style = unsafe { &mut *(lparam.0 as *mut STYLESTRUCT) };
+        style.styleNew = out_of_alt_tab(style.styleNew);
+    } else if msg == WM_NCDESTROY {
+        let _ = unsafe { RemoveWindowSubclass(hwnd, Some(alt_tab_proc), ALT_TAB_SUBCLASS) };
+    }
+    unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) }
+}
+
+#[cfg(windows)]
+const ALT_TAB_SUBCLASS: usize = 1;
+
+/// On the window's own thread: SetWindowSubclass refuses any other. Twice is harmless, the same proc and id only replace the
+/// ref data and the style is already forced.
+#[cfg(windows)]
+fn subclass_out_of_alt_tab(hwnd: HWND) {
+    if !unsafe { SetWindowSubclass(hwnd, Some(alt_tab_proc), ALT_TAB_SUBCLASS, 0) }.as_bool() {
+        eprintln!("alt-tab subclass: SetWindowSubclass failed");
+        return;
+    }
+    let ex = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32;
+    if out_of_alt_tab(ex) != ex {
+        unsafe {
+            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, out_of_alt_tab(ex) as isize);
+            let _ = SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        }
+    }
+}
+
+/// Keeps one of Crest's windows other than settings out of Alt+Tab and Task View (#78). Called before the window's first show:
+/// on the main thread it runs at once, from another thread it is queued in the same order as any show() that thread sends later.
+#[cfg(windows)]
+pub(crate) fn keep_out_of_alt_tab(window: &WebviewWindow) {
+    let Ok(hwnd) = window.hwnd() else { return };
+    let hwnd = hwnd.0 as isize;
+    let _ = window.run_on_main_thread(move || subclass_out_of_alt_tab(HWND(hwnd as _)));
+}
+
 #[derive(Serialize)]
 pub struct RunningApp {
     name: String,
@@ -487,7 +539,14 @@ fn sync(app: &AppHandle) {
     let _ = app.emit("notch://hidden", hide);
     // The timer window exists only while it is open (timer_window.rs destroys it on close).
     if let Some(timer) = app.get_webview_window("timer") {
-        let _ = if hide { timer.hide() } else { timer.show() };
+        if hide {
+            let _ = timer.hide();
+        } else {
+            // Queued ahead of this show from any thread, in case it comes before the one timer_window_open queued after build().
+            #[cfg(windows)]
+            keep_out_of_alt_tab(&timer);
+            let _ = timer.show();
+        }
     }
     let Some(window) = app.get_webview_window("notch") else { return };
     if hide {
@@ -1030,5 +1089,43 @@ mod tests {
         assert_eq!(ruled_front(h(7), false, h(5)), h(7)); // an app in front
         assert_eq!(ruled_front(h(9), true, h(7)), h(7)); // a bar clicked, or one of its menus open
         assert_eq!(ruled_front(h(0), false, h(7)), h(0)); // nothing in front
+    }
+
+    // The ex styles tao and hit_test give a bar or the notch while click-through (read on the PC), the notch taking the pointer,
+    // a mirror and the timer, each with the style it should end up with.
+    #[cfg(windows)]
+    const STYLES: [(u32, u32); 4] = [(0xC0138, 0x801B8), (0x40118, 0x198), (0x080C0138, 0x080801B8), (0x08040118, 0x08000198)];
+
+    #[cfg(windows)]
+    #[test]
+    fn crest_windows_become_tool_windows_and_keep_their_other_bits() {
+        use windows::Win32::UI::WindowsAndMessaging::{WS_EX_ACCEPTFILES, WS_EX_LAYERED, WS_EX_TOPMOST, WS_EX_WINDOWEDGE};
+        let kept = (WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOPMOST | WS_EX_ACCEPTFILES | WS_EX_WINDOWEDGE).0;
+        for (ex, out) in STYLES {
+            assert_eq!(out_of_alt_tab(ex), out, "{ex:#x}");
+            assert_eq!(out_of_alt_tab(out), out, "{ex:#x} twice");
+            assert_eq!(out & kept, ex & kept, "{ex:#x}: click-through, focus and topmost as tao and hit_test set them");
+        }
+    }
+
+    /// tao writes the whole ex style at every show, hide and click-through change, and set_click_through reads and writes it
+    /// back from the poll thread: the subclass keeps the window a tool window through both.
+    #[cfg(windows)]
+    #[test]
+    fn a_subclassed_window_stays_out_of_alt_tab_whatever_is_written() {
+        use windows::core::w;
+        use windows::Win32::UI::WindowsAndMessaging::{CreateWindowExW, DestroyWindow, WS_EX_LAYERED, WS_POPUP};
+        let (tool, app, through) = (WS_EX_TOOLWINDOW.0 as isize, WS_EX_APPWINDOW.0 as isize, (WS_EX_TRANSPARENT | WS_EX_LAYERED).0 as isize);
+        // SetWindowLong cannot set WS_EX_TOPMOST and the system may adjust WINDOWEDGE: only these bits are compared.
+        let bits = |hwnd| unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } & (tool | app | through);
+        let hwnd = unsafe { CreateWindowExW(WS_EX_APPWINDOW, w!("STATIC"), w!("Crest Alt+Tab test"), WS_POPUP, 0, 0, 10, 10, None, None, None, None) }.unwrap();
+        subclass_out_of_alt_tab(hwnd);
+        assert_eq!(bits(hwnd), tool, "forced at once");
+        unsafe { SetWindowLongPtrW(hwnd, GWL_EXSTYLE, app | through) };
+        assert_eq!(bits(hwnd), tool | through, "tao's whole style");
+        let style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) };
+        unsafe { SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style & !through) };
+        assert_eq!(bits(hwnd), tool, "set_click_through's read-modify-write");
+        unsafe { DestroyWindow(hwnd) }.unwrap();
     }
 }

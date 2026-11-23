@@ -311,6 +311,8 @@ pub(crate) fn sync(app: &AppHandle) {
 pub(super) fn reveal(app: &AppHandle, window: WebviewWindow) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
+        // Every show of every bar comes through here, so no thread can show a new bar before this.
+        display::keep_out_of_alt_tab(&window);
         let _ = window.show();
         let _ = window.set_ignore_cursor_events(true);
         display::raise_topmost(&window);
