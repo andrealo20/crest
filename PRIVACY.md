@@ -14,6 +14,7 @@ Crest is a free, open-source Windows and Mac app by Andrea Loroni. It has no acc
 - Backups you make (Settings, General), in *Documents\Crest\Backups* (*~/Documents/Crest/Backups* on a Mac): your settings, notes, to-dos and the tools' data as plain JSON, without keys, passwords, calendar links or the vault. Crest sends them nowhere; a Documents folder that OneDrive or iCloud Drive syncs takes them along.
 - Plugins you install, in the `plugins` folder of the app's data folder, and the data of those that keep any, in `plugin-data`.
 - A crash log (`crash.log` in the `logs` folder), written only when the app crashes or hits an uncaught error. It is not sent anywhere.
+- Windows' battery report, made only when you click the battery's health in the Hardware tool: Windows writes it to `%TEMP%\crest\battery-report.html`, Crest opens it, and the next click replaces it. It holds the PC's name, the battery's serial number and its usage history. It is not sent anywhere.
 
 The clipboard history and the history of live notices are kept in memory only and are gone when Crest quits.
 
