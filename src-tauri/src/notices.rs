@@ -8,7 +8,7 @@
 //! When the log is turned off or the subscription fails, the list is read every POLL instead. Both sources send
 //! `notices://in`; rules, quiet hours and history live in the frontend.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
@@ -77,11 +77,13 @@ pub struct Status {
     pipe: bool,
     /// The crest-notify channel could not be opened (no user id, or another program holds the name).
     pipe_failed: bool,
+    /// The toasts waiting per app as `notices://count` last said, so a notch that reloads has them before the next change.
+    counts: Option<BTreeMap<String, usize>>,
 }
 
 impl Default for Status {
     fn default() -> Self {
-        Status { access: "unspecified".into(), mode: "off".into(), pipe: false, pipe_failed: false }
+        Status { access: "unspecified".into(), mode: "off".into(), pipe: false, pipe_failed: false, counts: None }
     }
 }
 
@@ -384,9 +386,9 @@ fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx
         return set_status(&app, |s| s.mode = "off".into());
     }
     let mut icons: HashMap<String, Option<String>> = HashMap::new();
-    // The first reading is a baseline: toasts already in the action centre are not shown again.
-    let mut known: HashSet<u32> = match read_all(&listener) {
-        Ok(list) => list.iter().filter_map(|n| n.Id().ok()).collect(),
+    // The first reading is a baseline: toasts already in the action centre are not shown again. Each toast's app, for the counts.
+    let mut known: HashMap<u32, String> = match read_all(&listener) {
+        Ok(list) => ids(&list),
         Err(_) => return set_status(&app, |s| s.mode = "failed".into()),
     };
 
@@ -395,14 +397,16 @@ fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx
     let mut retry_at = Instant::now() + resubscribe_after(failures);
     let mode = |on: bool| if on { "event-log" } else { "polling" };
     set_status(&app, |s| s.mode = mode(subscription.is_some()).into());
-    // The toasts in the notification centre, for the bar's clock: sent when it changes, and null once this watcher stops.
+    // The toasts in the notification centre per app, for the bar's Unread widget: sent when they change, and null once this watcher
+    // stops. Kept in the status too, which notices_status returns to a notch that missed the event (it reloaded, or listened late).
     let mut count = None;
-    let mut tell_count = |now: Option<usize>| {
-        if let Some(n) = count_change(&mut count, now) {
-            let _ = app.emit("notices://count", n);
+    let mut tell_count = |now: Option<BTreeMap<String, usize>>| {
+        if let Some(c) = count_change(&mut count, now) {
+            app.state::<NoticesState>().status.lock().unwrap().counts = c.clone();
+            let _ = app.emit("notices://count", c);
         }
     };
-    tell_count(Some(known.len()));
+    tell_count(Some(counts(known.values().map(String::as_str))));
 
     while current(&app, generation) {
         // Without the log the list is read every POLL; with it nothing happens until an entry arrives.
@@ -441,14 +445,15 @@ fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx
         if !full {
             for t in batch {
                 let Trigger::Read(id, app_id) = t else { continue };
-                if known.contains(&id) {
+                if known.contains_key(&id) {
                     continue;
                 }
                 // Known only once shown: a toast Windows cannot return yet, or one whose app does not match the entry,
                 // is left to a full reading of this batch instead of being lost.
                 match listener.GetNotification(id) {
                     Ok(n) if emit_toast(&app, &n, Some(&app_id), &mut icons) => {
-                        known.insert(id);
+                        // The entry's app id, which emit_toast checked against the toast's.
+                        known.insert(id, app_id.to_lowercase());
                     }
                     _ => full = true,
                 }
@@ -460,17 +465,17 @@ fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx
         // A clear never says which toasts went, and a long session prunes the set: one reading answers both.
         if full || known.len() > 1000 {
             if let Ok(list) = read_all(&listener) {
-                let ids: HashSet<u32> = list.iter().filter_map(|n| n.Id().ok()).collect();
+                let now = ids(&list);
                 if full {
                     for n in &list {
-                        if n.Id().is_ok_and(|id| !known.contains(&id)) {
+                        if n.Id().is_ok_and(|id| !known.contains_key(&id)) {
                             emit_toast(&app, n, None, &mut icons);
                         }
                     }
                 }
                 // What left the notification centre since the last reading leaves Crest too, and the set stays its size.
-                gone.extend(known.difference(&ids));
-                known = ids;
+                gone.extend(known.keys().filter(|id| !now.contains_key(id)));
+                known = now;
             }
         }
         if !gone.is_empty() {
@@ -479,17 +484,37 @@ fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx
             }
             let _ = app.emit("notices://gone", gone);
         }
-        tell_count(Some(known.len()));
+        tell_count(Some(counts(known.values().map(String::as_str))));
     }
     tell_count(None);
 }
 
-/// What to send the bar's clock: `now` when it differs from the `last` sent, which it becomes.
-fn count_change(last: &mut Option<usize>, now: Option<usize>) -> Option<Option<usize>> {
+/// What to send the bar: `now` when it differs from the `last` sent, which it becomes.
+fn count_change<T: PartialEq + Clone>(last: &mut Option<T>, now: Option<T>) -> Option<Option<T>> {
     (*last != now).then(|| {
-        *last = now;
+        *last = now.clone();
         now
     })
+}
+
+/// The toasts of a reading by id, each with its app's lower-case id ("" where Windows gives none).
+fn ids(list: &[windows::UI::Notifications::UserNotification]) -> HashMap<u32, String> {
+    list.iter().filter_map(|n| Some((n.Id().ok()?, app_key(n)))).collect()
+}
+
+/// A toast's app id in lower case, read as read_toast reads it; "" where Windows gives none.
+fn app_key(n: &windows::UI::Notifications::UserNotification) -> String {
+    n.AppInfo().and_then(|i| i.AppUserModelId().or_else(|_| i.Id())).map(|id| id.to_string().to_lowercase()).unwrap_or_default()
+}
+
+/// The toasts per app, for the bar's Unread widget: without the ones Windows gave no app id and Crest's own, sorted so the JSON and
+/// the comparison stay the same for the same counts.
+fn counts<'a>(apps: impl Iterator<Item = &'a str>) -> BTreeMap<String, usize> {
+    let mut out = BTreeMap::new();
+    for a in apps.filter(|a| !a.is_empty() && !a.eq_ignore_ascii_case(OWN_APP)) {
+        *out.entry(a.to_string()).or_insert(0) += 1;
+    }
+    out
 }
 
 fn read_all(
@@ -590,12 +615,12 @@ pub async fn notices_open_app(app_id: String) -> Result<(), String> {
     crate::opener().arg(format!("shell:AppsFolder\\{app_id}")).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
-/// An app's icon by its AppUserModelID, for the bar's Unread widget (design I); None where Windows has none.
+/// An app's icon by its AppUserModelID, for the bar's Unread widget: its Start menu entry's, else the one registered for its
+/// notifications (issue #43). Only an icon, and only for an id `valid_app_id` takes (both helpers check it).
 #[cfg(windows)]
 #[tauri::command]
 pub async fn notices_icon(app_id: String) -> Option<String> {
-    let _ = app_id;
-    None
+    tauri::async_runtime::spawn_blocking(move || start_icon(&app_id).or_else(|| registered_icon(&app_id))).await.ok().flatten()
 }
 
 /// Copies the one-time code of a notice the way the Vault copies a secret: marked so no clipboard history takes it
@@ -1085,6 +1110,20 @@ mod tests {
         assert_eq!(count_change(&mut last, Some(3)), Some(Some(3)));
         assert_eq!(count_change(&mut last, None), Some(None)); // the watcher stopped
         assert_eq!(count_change(&mut last, None), None);
+        // The same with the counts by app, as the Unread widget gets them.
+        let map = |v: &[(&str, usize)]| v.iter().map(|&(k, n)| (k.to_string(), n)).collect::<BTreeMap<_, _>>();
+        let mut last = None;
+        assert_eq!(count_change(&mut last, Some(map(&[("a", 1)]))), Some(Some(map(&[("a", 1)]))));
+        assert_eq!(count_change(&mut last, Some(map(&[("a", 1)]))), None);
+        assert_eq!(count_change(&mut last, Some(map(&[("a", 2)]))), Some(Some(map(&[("a", 2)]))));
+        assert_eq!(count_change(&mut last, None), Some(None));
+        assert_eq!(count_change(&mut last, None), None);
+    }
+
+    #[test]
+    fn counts_go_by_app() {
+        let got = counts(["a", "a", "b", "", OWN_APP].into_iter());
+        assert_eq!(got, [("a".to_string(), 2), ("b".to_string(), 1)].into_iter().collect::<BTreeMap<_, _>>());
     }
 
     #[cfg(windows)]
