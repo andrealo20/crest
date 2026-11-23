@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, WIDGETS_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent, CRYPTO_SIZE, DISKS_SIZE, CLOCK_CALENDAR, SEARCH_SIZE, fitClock, reportedTool } from "./panelModel.ts";
+import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, FOLDER_SIZE, folderCols, WIDGETS_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent, CRYPTO_SIZE, DISKS_SIZE, CLOCK_CALENDAR, SEARCH_SIZE, fitClock, reportedTool } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -253,4 +253,29 @@ test("the trash arms once the pointer has rested on it 300 ms, and leaving it st
   since = trashRest(since, true, 2000);
   assert.equal(trashArmed(since, 2299), false);
   assert.equal(trashArmed(since, 2300), true);
+});
+
+test("a folder's panel is three to five apps wide and 200 px at least, its name over up to four rows, past which it scrolls", () => {
+  // A cell is the icon and 16 px: 40 at 24.
+  assert.deepEqual(FOLDER_SIZE(24, 1), { w: 200, h: 36 + 40 + 24 });
+  assert.deepEqual(FOLDER_SIZE(24, 3), { w: 200, h: 100 });
+  assert.deepEqual(FOLDER_SIZE(24, 5), { w: 224, h: 100 });
+  assert.deepEqual(FOLDER_SIZE(24, 12), { w: 224, h: 36 + 3 * 40 + 24 });
+  assert.deepEqual(FOLDER_SIZE(24, 30), { w: 224, h: 36 + 4 * 40 + 24 });
+  assert.deepEqual([1, 3, 4, 5, 30].map(folderCols), [3, 3, 4, 5, 5]);
+});
+
+test("each folder is a content of its own, which the notch never hears of", () => {
+  assert.equal(panelKey({ kind: "folder", id: "f" }), "folder:f");
+  assert.equal(sameContent({ kind: "folder", id: "f" }, { kind: "folder", id: "g" }), false);
+  assert.equal(sameContent({ kind: "folder", id: "f", focus: "first" }, { kind: "folder", id: "f" }), true);
+  assert.equal(opensInBar({ kind: "folder", id: "f" }), true);
+  assert.equal(reportedTool({ kind: "folder", id: "f" }), null);
+});
+
+test("the rest takes its own time when asked, the trash's otherwise", () => {
+  assert.equal(trashArmed(1000, 1499, 500), false);
+  assert.equal(trashArmed(1000, 1500, 500), true);
+  assert.equal(trashArmed(1000, 1000 + TRASH_ARM_MS), true);
+  assert.equal(trashArmed(1000, 1000 + TRASH_ARM_MS - 1), false);
 });

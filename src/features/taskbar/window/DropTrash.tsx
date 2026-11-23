@@ -11,18 +11,25 @@ import { growFrom, nudge } from "../position";
  * Whether the trash is armed with the pointer `inside` it (trashArmed). Each move of the drag renders it again; a pointer resting
  * still on the trash is woken when its time is up, and once more by a wake that comes a little early.
  */
-export function useTrashArmed(inside: boolean): boolean {
+export const useTrashArmed = (inside: boolean): boolean => useRestOn(inside ? "trash" : null, TRASH_ARM_MS);
+
+/**
+ * Whether the pointer has rested `ms` on the place `key` (null: on none), as the trash arms: a new place waits again from its start.
+ * A pinned app held on another place makes a folder this way (PinDrop, FOLDER_REST).
+ */
+export function useRestOn(key: string | null, ms: number): boolean {
   // Written while rendering, as glass/bar.ts writes its `place`: the moves that render it are what it follows.
-  const since = useRef<number | null>(null);
+  const rest = useRef<{ key: string | null; since: number | null }>({ key: null, since: null });
   const now = performance.now();
-  since.current = trashRest(since.current, inside, now);
-  const at = since.current, armed = trashArmed(at, now);
+  if (rest.current.key !== key) rest.current = { key, since: null };
+  rest.current.since = trashRest(rest.current.since, key !== null, now);
+  const at = rest.current.since, armed = trashArmed(at, now, ms);
   const [woken, wake] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
     if (at === null || armed) return;
-    const id = window.setTimeout(wake, at + TRASH_ARM_MS - performance.now());
+    const id = window.setTimeout(wake, at + ms - performance.now());
     return () => window.clearTimeout(id);
-  }, [at, armed, woken]);
+  }, [at, armed, woken, ms]);
   return armed;
 }
 

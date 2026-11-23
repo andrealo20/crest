@@ -27,7 +27,8 @@ import { barMargin, slideBy, toEdge } from "../position";
 import { BarEdgeContext, barEdgeNow } from "./barEdge";
 import { StartMark } from "./StartMark";
 import { closePanel, fileDrag, itemDrag, panel, pinDrag, quickPage, togglePanel } from "../panel";
-import { dragThreshold, opensInBar } from "../panelModel";
+import { dragThreshold, folderCols, opensInBar } from "../panelModel";
+import { folderKey, normalizeFolders, pinBefore } from "../folderModel";
 import { barShown, barWindows, groupIcons, setTaskbar } from "../store";
 import { splitApps } from "../fit";
 import { barStatus } from "../status";
@@ -41,11 +42,12 @@ import { toolInfo } from "../toolInfo";
 import { useHue } from "../../themes/hues";
 import { BarGlass, useBarSurface } from "./BarGlass";
 import { Capsule } from "./Capsule";
-import { AppsPanel } from "./AppsPanel";
-import { AppMenu, BarMenu, CrestMenu, GroupMenu, RecycleMenu, WindowList, WindowMenu, closeWindows, type HitRect } from "./BarMenu";
+import { AppsPanel, FolderIcon } from "./AppsPanel";
+import { AppMenu, BarMenu, CrestMenu, FolderMenu, GroupMenu, MoveMenu, RecycleMenu, WindowList, WindowMenu, closeWindows, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
 import { dropStaleScan } from "./DisksPanel";
 import { EjectMenu } from "./EjectMenu";
+import { FolderPanel } from "./FolderPanel";
 import { holdBriefly } from "./hold";
 import { HotspotMenu } from "./HotspotMenu";
 import { Item, type ItemProps } from "./Item";
@@ -76,14 +78,17 @@ const ZONES: [Zone, string][] = [
 export const primary = !isNative || getCurrentWebviewWindow().label === "taskbar";
 
 /**
- * What a menu lists: an app's right-click menu, an app's windows (as they were when it opened), the Crest menu, the Recycle Bin's, the
- * files opened last, the drives Eject can eject, the hotspot's, or a widget's own.
+ * What a menu lists: an app's right-click menu, an app's windows (as they were when it opened), its window's or its group's, Move to
+ * folder's, a folder's own, the Crest menu, the Recycle Bin's, the files opened last, the drives Eject can eject, the hotspot's, or a
+ * widget's own.
  */
-type Menu = { kind: "app" | "list" | "window" | "group"; b: BarButton } | { kind: "crest" } | { kind: "recycle" } | { kind: "recent" } | { kind: "eject" } | { kind: "hotspot" } | { kind: "widget"; id: PartId };
+type Menu = { kind: "app" | "list" | "window" | "group" | "move" | "folder"; b: BarButton } | { kind: "crest" } | { kind: "recycle" } | { kind: "recent" } | { kind: "eject" } | { kind: "hotspot" } | { kind: "widget"; id: PartId };
 /** An open menu, the button it opened from (null: a right click beside the buttons) and the span it opens over, CSS px. */
 type OpenMenu = Menu & { anchor: Element | null; x: number; w: number };
 /** The open preview card: the app's button, the span it opens over, CSS px, and whether a rest on the button or a click opened it. */
 type Card = { key: string; x: number; w: number; by: "hover" | "click" };
+/** The menu a right click opens on an app's button or cell: a folder's own, with Shift its window's or its group's (shiftMenu), else the app's. */
+const menuKind = (b: BarButton, shift: boolean) => (shift || b.folder ? shiftMenu(b) : "app");
 
 /*
  *   ╭──────────────────────────────────────────────────────────────╮
@@ -172,7 +177,13 @@ export function TaskbarWindow() {
   const dragging = dragged !== null || pinDragged !== null;
   // Where the last files dropped on the apps go once Rust has pinned those that are apps: before this pin, or at the end with null.
   const dropBefore = useRef<string | null>(null);
-  useEffect(() => taskbar.onPinned((apps) => setTaskbar((t) => ({ pinned: insertPinned(t.pinned ?? [], apps, dropBefore.current) }))), []);
+  useEffect(
+    () =>
+      taskbar.onPinned((apps) =>
+        setTaskbar((t) => ({ pinned: insertPinned(t.pinned ?? [], apps, pinBefore({ pinned: t.pinned ?? [], folders: normalizeFolders(t.folders, t.pinned) }, dropBefore.current)) })),
+      ),
+    [],
+  );
   // The shape's boxes, for its glass: new ones only when they change, so a hover does not draw the glass again.
   const [boxes, setBoxes] = useState<Box[]>([]);
   const reduced = useReducedMotion() === true;
@@ -217,9 +228,13 @@ export function TaskbarWindow() {
     return () => window.clearTimeout(id);
   }, [note]);
 
-  const buttons = barButtons(pinned, groups);
+  // Repaired on every draw, as nothing repairs the settings during a session (settings/store.ts), and named.
+  // shortcut: an app unpinned leaves its folder only as drawn; its id stays saved until the next start or folder change, so one pinned
+  // again meanwhile is back in its folder. Fine unless that surprises someone; then drop it from the folders where it is unpinned.
+  const folders = normalizeFolders(s.taskbar.folders, pinned).map((f) => ({ ...f, name: f.name || t("Ordner") }));
+  const buttons = barButtons(pinned, groups, folders);
   const perWindow = combine === "always" ? buttons : windowButtons(buttons);
-  const icons = useIcons(buttons.flatMap((b) => launchId(b) ?? []));
+  const icons = useIcons(buttons.flatMap((b) => (b.folder ? b.folder.apps.flatMap((a) => launchId(a) ?? []) : (launchId(b) ?? []))));
   const ownIcons = groupIcons.use();
   const size = fitIcon(height, iconSize);
   // The mark sits in the middle of the room under the icon, on whole pixels.
@@ -276,6 +291,14 @@ export function TaskbarWindow() {
   useEffect(() => {
     if (!hidden.length && panel.get()?.content.kind === "widgets") closePanel();
   }, [hidden.length]);
+  // The open folder, and with it gone (ungrouped on another bar, its last app unpinned) its panel.
+  const folderId = open?.content.kind === "folder" ? open.content.id : null;
+  const folderFocus = open?.content.kind === "folder" ? open.content.focus : undefined;
+  const openedFolder = folderId === null ? undefined : buttons.find((b) => b.folder?.id === folderId);
+  const folderGone = folderId !== null && !openedFolder;
+  useEffect(() => {
+    if (folderGone) closePanel();
+  }, [folderGone]);
   // Start, the apps, "…", Crest and Windows' buttons grow as a dock's icons, by the pitch of the apps in use; widgets and tray icons only lift.
   const mag = reduced ? undefined : { pointer, unit: (narrow ? compactIcon(size) + COMPACT_PAD : size + 16) + between, rise: labelRise(size, height) };
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
@@ -346,6 +369,7 @@ export function TaskbarWindow() {
 
   /** Runs click `c` on app `b`; `cell` for a cell of the "…" panel, which keeps the list of an app's windows. */
   const run = (b: BarButton, c: Click, cell?: HTMLElement) => {
+    if (c.kind === "folder") return b.folder && openFolder(b.folder.id);
     if (c.kind === "list") {
       if (cell) return toggle({ kind: "list", b }, cell);
       // A card the rest opened stays and becomes the click's, so resting then clicking keeps the previews; a second click closes it.
@@ -409,15 +433,35 @@ export function TaskbarWindow() {
       }
     }).catch(() => {});
   };
-  /** A click on an app, with the keys held; `inPanel` for a cell of the "…" panel. */
+  /** A click on an app, with the keys held; `inPanel` for a cell of the "…" panel or of a folder's. */
   const click = (b: BarButton, button: HTMLElement, inPanel = false, mods: ClickMods = {}) => {
     setError(null);
     run(b, clickAction(b, mods, { active, middle: middleClick }), inPanel ? button : undefined);
   };
+  /**
+   * Opens folder `id` in the panel over its button, over "…" while it is behind it, or closes it on a second click there; `focus` puts the
+   * keyboard on its first app or in its name's field.
+   */
+  const openFolder = (id: string, focus?: "first" | "name") => {
+    const over = appButtons.current.get(folderKey(id)) ?? appsMore.current;
+    if (!over) return;
+    setError(null);
+    const r = over.getBoundingClientRect();
+    togglePanel({ kind: "folder", id, ...(focus && { focus }) }, { x: r.x, w: r.width });
+  };
+  // A folder made from Move to folder opens once it is drawn, with its name ready to type.
+  const fresh = useRef<string | null>(null);
+  useEffect(() => {
+    const id = fresh.current;
+    if (id === null || !buttons.some((b) => b.folder?.id === id)) return;
+    fresh.current = null;
+    openFolder(id, "name");
+  });
 
   /**
    * A Windows key Rust sent this bar (keys.rs). Win+number counts every app button, those behind "…" too: it acts as a click, and
-   * the previews or the menu it opens take the keyboard. Win+T goes round the apps' buttons, Win+B to the tray's ^ (Stato without it).
+   * the previews, the menu or the folder it opens take the keyboard. Win+T goes round the apps' buttons, Win+B to the tray's ^ (Stato
+   * without it).
    */
   const onKey = async (k: BarKey) => {
     keyNav.current = true;
@@ -425,12 +469,13 @@ export function TaskbarWindow() {
       const b = buttonAt(laid, k.n);
       const c = numberKey(b, k.mods, active);
       if (!b || c.kind === "none") return;
-      if (c.kind !== "list" && c.kind !== "menu") return run(b, c);
+      if (c.kind !== "list" && c.kind !== "menu" && c.kind !== "folder") return run(b, c);
       await taskbar.focus().catch(() => {});
+      if (b.folder && c.kind === "folder") return openFolder(b.folder.id, "first");
       const el = appButtons.current.get(b.key);
       const over = el ?? appsMore.current;
       if (!over) return;
-      if (c.kind === "menu") return toggle({ kind: "app", b }, over);
+      if (c.kind === "menu") return toggle({ kind: menuKind(b, false), b }, over);
       return el ? run(b, c) : toggle({ kind: "list", b }, over);
     }
     await taskbar.focus().catch(() => {});
@@ -607,10 +652,52 @@ export function TaskbarWindow() {
       );
     if (id === "apps") {
       const apps = shownButtons.map((b, i) => {
+        if (b.folder) {
+          const { id: fid, apps: inside } = b.folder;
+          // A launch from its panel that failed shows here, as "…" shows its apps'.
+          const failed = error !== null && inside.some((a) => a.key === error.key);
+          return (
+            <Item
+              key={b.key}
+              {...item(b.key, b.name)}
+              {...(failed && { label: menu || open ? null : error.text, failed })}
+              ref={(el) => {
+                if (el) appButtons.current.set(b.key, el);
+                else appButtons.current.delete(b.key);
+              }}
+              tile={tile()}
+              // As a pinned app without windows: an icon's width, and while the bar shows titles it only lifts.
+              width={appWidth}
+              magnify={titled ? undefined : mag}
+              describedBy={`decor-${i}`}
+              pin={b.key}
+              expanded={folderId === fid}
+              // Every click opens it, Shift, Ctrl and the middle button too; Enter or Space with the keyboard on its first app.
+              onClick={(e) => afterDrag(e) || openFolder(fid, e.detail === 0 ? "first" : undefined)}
+              onAuxClick={(e) => {
+                if (e.button === 1) openFolder(fid);
+              }}
+              onPointerDown={(e) => {
+                if (e.button === 1) e.preventDefault();
+                else dragPin(b.key, e);
+              }}
+              onContextMenu={(e) => toggle({ kind: "folder", b }, e.currentTarget)}
+            >
+              <span className="relative flex">
+                <FolderIcon icons={inside.map((a) => icons[a.key])} size={appIcon} />
+                <span id={`decor-${i}`} className="sr-only">
+                  {inside.length === 1 ? t("Ordner, 1 App") : t("Ordner, {n} Apps", { n: inside.length })}
+                </span>
+              </span>
+            </Item>
+          );
+        }
         const entry = launchId(b);
         const d = buttonDecor(b.windows, decor, active);
         const overlay = d.overlay && decorPics[d.overlay.img];
         const said = [stateText(b, active), d.overlay?.tip, d.progress && progressText(d.progress)].filter(Boolean).join(", ");
+        // An open app of a folder is not at its place among the pinned apps: it does not drag.
+        const drags = b.pin !== null && !b.inFolder;
         return (
           <Item
             key={b.key}
@@ -637,19 +724,19 @@ export function TaskbarWindow() {
             progress={d.progress}
             // By index: group keys hold characters an id list cannot.
             describedBy={said ? `decor-${i}` : undefined}
-            pin={b.pin?.id}
+            pin={drags ? b.pin!.id : undefined}
             {...dragRest(b)}
             // Only a pinned app's press can have dragged; another app's click never follows one.
-            onClick={(e) => (b.pin !== null && afterDrag(e)) || click(b, e.currentTarget, false, { shift: e.shiftKey, ctrl: e.ctrlKey })}
+            onClick={(e) => (drags && afterDrag(e)) || click(b, e.currentTarget, false, { shift: e.shiftKey, ctrl: e.ctrlKey })}
             onAuxClick={(e) => {
               if (e.button === 1) click(b, e.currentTarget, false, { middle: true });
             }}
             // The middle button would start WebView2's autoscroll circle; the left one drags a pinned app.
             onPointerDown={(e) => {
               if (e.button === 1) e.preventDefault();
-              else if (b.pin) dragPin(b.pin.id, e);
+              else if (drags) dragPin(b.pin!.id, e);
             }}
-            onContextMenu={(e) => toggle({ kind: e.shiftKey ? shiftMenu(b) : "app", b }, e.currentTarget)}
+            onContextMenu={(e) => toggle({ kind: menuKind(b, e.shiftKey), b }, e.currentTarget)}
           >
             <span className="relative flex">
               <AppIcon src={entry === null ? ownIcons[appKey(b)] : icons[entry]} size={appIcon} />
@@ -673,7 +760,7 @@ export function TaskbarWindow() {
       if (fit.mode !== "overflow") return apps;
       const n = hiddenButtons.length;
       // A launch from the panel that failed shows here, as its app has no button of its own on the bar.
-      const failed = error !== null && hiddenButtons.some((b) => b.key === error.key);
+      const failed = error !== null && hiddenButtons.some((b) => b.key === error.key || b.folder?.apps.some((a) => a.key === error.key));
       return [
         ...apps,
         <Item
@@ -857,6 +944,14 @@ export function TaskbarWindow() {
     </span>
   );
 
+  /** A cell in the panel: an app's icon and mark, a folder's first four apps. */
+  const cellOf = (b: BarButton) => {
+    const entry = launchId(b);
+    return { b, icon: entry === null ? ownIcons[appKey(b)] : icons[entry], mark: indicator(b, active, flashing), ...(b.folder && { minis: b.folder.apps.map((a) => icons[a.key]) }) };
+  };
+  // In the middle of the 8 px under the cell's icon, as markAt is under the bar's.
+  const cellMark = Math.round((8 - markThick(marks)) / 2);
+
   const drop = <TrayDrop bar={bar} more={trayMore} size={trayIcon(size)} gap={between} />;
   return (
     <BarEdgeContext value={edge}>
@@ -971,7 +1066,9 @@ export function TaskbarWindow() {
                         ? t(SYS_INFO[menu.kind].label)
                         : menu.kind === "widget"
                           ? t(partInfo[menu.id].label)
-                          : menu.b.name
+                          : menu.kind === "move"
+                            ? t("In Ordner verschieben …")
+                            : menu.b.name
               }
               x={menu.x}
               w={menu.w}
@@ -1003,7 +1100,11 @@ export function TaskbarWindow() {
               ) : menu.kind === "group" ? (
                 <GroupMenu b={menu.b} close={closeMenu} />
               ) : menu.kind === "app" ? (
-                <AppMenu b={menu.b} act={(c) => run(menu.b, c)} close={closeMenu} fail={(text) => setError({ key: menu.b.key, text })} />
+                <AppMenu b={menu.b} act={(c) => run(menu.b, c)} close={closeMenu} fail={(text) => setError({ key: menu.b.key, text })} move={() => setMenu({ ...menu, kind: "move" })} />
+              ) : menu.kind === "move" ? (
+                <MoveMenu b={menu.b} folders={folders} close={closeMenu} created={(id) => void (fresh.current = id)} />
+              ) : menu.kind === "folder" ? (
+                <FolderMenu id={menu.b.folder!.id} close={closeMenu} rename={() => openFolder(menu.b.folder!.id, "name")} />
               ) : (
                 <WindowList b={menu.b} close={closeMenu} />
               )}
@@ -1053,22 +1154,52 @@ export function TaskbarWindow() {
           count: hiddenButtons.length,
           grid: (
             <AppsPanel
-              apps={hiddenButtons.map((b) => {
-                const entry = launchId(b);
-                return { b, icon: entry === null ? ownIcons[appKey(b)] : icons[entry], mark: indicator(b, active, flashing) };
-              })}
+              apps={hiddenButtons.map(cellOf)}
               size={size}
-              // In the middle of the 8 px under the cell's icon, as markAt is under the bar's.
-              markAt={Math.round((8 - markThick(marks)) / 2)}
-              // A click does what the bar's does, over the cell: a window list or an app menu takes the panel's place.
-              onClick={(b, cell) => {
+              markAt={cellMark}
+              // A click does what the bar's does, over the cell: a window list or an app menu takes the panel's place, and a folder this
+              // one's, the panel changing shape in place.
+              onClick={(b, cell, mods, keyboard) => {
+                if (b.folder) return openFolder(b.folder.id, keyboard ? "first" : undefined);
                 closePanel();
-                click(b, cell, true);
+                click(b, cell, true, mods);
               }}
-              onMenu={(b, cell, shift) => toggle({ kind: shift ? shiftMenu(b) : "app", b }, cell)}
+              onMenu={(b, cell, shift) => toggle({ kind: menuKind(b, shift), b }, cell)}
             />
           ),
         }}
+        folder={
+          openedFolder?.folder
+            ? {
+                name: openedFolder.name,
+                count: openedFolder.folder.apps.length,
+                body: (
+                  <FolderPanel id={openedFolder.folder.id} name={openedFolder.name} focus={folderFocus}>
+                    <AppsPanel
+                      apps={openedFolder.folder.apps.map(cellOf)}
+                      size={size}
+                      markAt={cellMark}
+                      cols={folderCols(openedFolder.folder.apps.length)}
+                      // As in "…": the app starts or comes forward and the panel closes, a window list or the app's menu over the cell.
+                      onClick={(b, cell, mods) => {
+                        closePanel();
+                        click(b, cell, true, mods);
+                      }}
+                      onMenu={(b, cell, shift) => toggle({ kind: menuKind(b, shift), b }, cell)}
+                      // Not dragPress, which closes the panel: the app goes back into it, or onto the bar (PinDrop).
+                      onPress={(b, e) =>
+                        startPress(e, {
+                          threshold: dragThreshold(e.pointerType),
+                          onDrag: (x, y) => pinDrag.set({ id: b.key, x, y, pointerId: e.pointerId, from: "folder" }),
+                          onEnd: () => pinDrag.set(null),
+                        })
+                      }
+                    />
+                  </FolderPanel>
+                ),
+              }
+            : null
+        }
       />
       {/* Under Material in the bar's ink as ItemDrop is, so Liquid Glass +'s dark ink reaches its disc and line; Crest's as before, outside it.
           After the panel, which an icon is dragged out of. */}
