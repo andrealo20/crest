@@ -27,16 +27,18 @@ use crate::loopback::{self, ProcessCapture};
 use crate::media::MediaState;
 
 const FFT_SIZE: usize = 1024;
-/// ~40 fps. The frontend interpolates with CSS.
-const TICK: Duration = Duration::from_millis(25);
+/// About 30 readings a second, as many as the four small bars draw (Equalizer.tsx); the page smooths between them.
+const TICK: Duration = Duration::from_millis(33);
 /// Bass on the left, treble on the right, log-spaced (Hz).
 const BANDS: [(f32, f32); 4] = [(40.0, 160.0), (160.0, 600.0), (600.0, 2400.0), (2400.0, 9000.0)];
 /// Bands of `audio://spectrum`, log-spaced between these frequencies (Hz).
 const SPECTRUM: usize = 12;
 const SPECTRUM_HZ: (f32, f32) = (50.0, 12_000.0);
-/// Fast attack, slower release, like an analog meter.
-const ATTACK: f32 = 0.55;
-const RELEASE: f32 = 0.18;
+/// Fast attack, slower release, like an analog meter: per tick, so they change with TICK (about 31 and 126 ms).
+const ATTACK: f32 = 0.65;
+const RELEASE: f32 = 0.23;
+/// The auto gain's peak falls by this each tick (15% a second).
+const PEAK_FALL: f32 = 0.9947;
 /// How often the shown app and the output device are checked.
 const CHECK: Duration = Duration::from_secs(2);
 /// How often a system-wide capture tries to become a player-only one again: from RETRY, doubling after each miss up
@@ -83,11 +85,21 @@ fn spectrum_edges(bin_hz: f32) -> [usize; SPECTRUM + 1] {
 /// One band: mean magnitude of its bins, auto gain against the band's recent peak, meter smoothing.
 fn meter(bins: &[Complex<f32>], peak: &mut f32, level: &mut f32) {
     let energy = bins.iter().map(|c| c.norm()).sum::<f32>() / bins.len().max(1) as f32;
-    *peak = energy.max(*peak * 0.996).max(1e-3);
+    *peak = energy.max(*peak * PEAK_FALL).max(1e-3);
     // Below the noise floor counts as silence.
     let target = if energy < 2e-3 { 0.0 } else { (energy / *peak).powf(0.8).min(1.0) };
     let k = if target > *level { ATTACK } else { RELEASE };
     *level += (target - *level) * k;
+}
+
+/// The newest FFT_SIZE samples of `ring`, windowed, zero-padded in front (loopback sends nothing during silence).
+fn frame(ring: &VecDeque<f32>, window: &[f32], buffer: &mut [Complex<f32>]) {
+    let missing = FFT_SIZE.saturating_sub(ring.len());
+    let older = ring.len().saturating_sub(FFT_SIZE);
+    for (i, slot) in buffer.iter_mut().enumerate() {
+        let s = if i < missing { 0.0 } else { ring[older + i - missing] };
+        *slot = Complex::new(s * window[i], 0.0);
+    }
 }
 
 fn push(ring: &mut VecDeque<f32>, mono: &mut dyn Iterator<Item = f32>) {
@@ -165,7 +177,7 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                 // Turned on again: a fresh start, not the rest of an old back-off.
                 open_retry_at = Instant::now();
                 open_wait = RETRY;
-                // Sleep until `audio_levels(true)` instead of waking 40×/s. The timeout
+                // Sleep until `audio_levels(true)` instead of waking 30×/s. The timeout
                 // only guards against a missed unpark (turned on before `worker` was set).
                 thread::park_timeout(Duration::from_secs(1));
                 continue;
@@ -240,7 +252,7 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
             if let Some(Capture::Player(player)) = &capture {
                 let mut ring = samples.lock().unwrap();
                 if !player.drain(&mut |mono| push(&mut ring, mono)) {
-                    // A stream that keeps failing would otherwise be reopened 40 times a second.
+                    // A stream that keeps failing would otherwise be reopened 30 times a second.
                     failed.store(true, Ordering::Relaxed);
                     if !waiting {
                         open_retry_at = Instant::now() + open_wait;
@@ -252,14 +264,10 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                 }
             }
 
-            // Take the last FFT_SIZE samples, zero-padded (loopback sends nothing during silence).
             {
                 let mut ring = samples.lock().unwrap();
                 let missing = FFT_SIZE.saturating_sub(ring.len());
-                for (i, slot) in buffer.iter_mut().enumerate() {
-                    let s = if i < missing { 0.0 } else { ring[i - missing] };
-                    *slot = Complex::new(s * window[i], 0.0);
-                }
+                frame(&ring, &window, &mut buffer);
                 // Drop consumed samples so silence is detected as silence.
                 let keep = FFT_SIZE / 2;
                 while ring.len() > keep {
@@ -342,6 +350,36 @@ mod tests {
         // 48 kHz: 50 Hz is the first bin, 12 kHz bin 256.
         let edges = spectrum_edges(48_000.0 / FFT_SIZE as f32);
         assert_eq!((edges[0], edges[SPECTRUM]), (1, 256));
+    }
+
+    #[test]
+    fn the_fft_reads_the_newest_samples() {
+        let window = vec![1.0f32; FFT_SIZE];
+        let mut buffer = vec![Complex::new(0.0f32, 0.0); FFT_SIZE];
+        // More than a window has come: the last FFT_SIZE samples, not the oldest ones.
+        let ring: VecDeque<f32> = (1..=1500).map(|i| i as f32).collect();
+        frame(&ring, &window, &mut buffer);
+        assert_eq!((buffer[0].re, buffer[FFT_SIZE - 1].re), (477.0, 1500.0));
+        // Fewer: zeros in front, then all of them.
+        let ring: VecDeque<f32> = (1..=100).map(|i| i as f32).collect();
+        frame(&ring, &window, &mut buffer);
+        assert_eq!((buffer[FFT_SIZE - 101].re, buffer[FFT_SIZE - 100].re, buffer[FFT_SIZE - 1].re), (0.0, 1.0, 100.0));
+    }
+
+    #[test]
+    fn levels_come_no_faster_than_the_small_bars_draw() {
+        // The four bars draw about 30 frames a second (pacing.ts FRAME_MS): a faster reading only reaches the page to be overwritten.
+        assert!(TICK >= Duration::from_millis(32), "{TICK:?}");
+    }
+
+    #[test]
+    fn the_meter_keeps_its_timing_whatever_the_tick() {
+        // Per tick, as factors; in time: about 31 ms to rise, 126 ms to fall, and the peak 15% lower each second.
+        let tau = |k: f32| -TICK.as_secs_f32() / (1.0 - k).ln();
+        assert!((tau(ATTACK) - 0.031).abs() < 0.002, "{}", tau(ATTACK));
+        assert!((tau(RELEASE) - 0.126).abs() < 0.005, "{}", tau(RELEASE));
+        let per_second = PEAK_FALL.powf(1.0 / TICK.as_secs_f32());
+        assert!((per_second - 0.852).abs() < 0.01, "{per_second}");
     }
 
     #[test]
