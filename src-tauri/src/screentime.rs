@@ -72,18 +72,28 @@ struct Ledger {
     dirty: BTreeSet<Date>,
     today: Date,
     warned: bool,
+    /// A turn saw the PC locked or asleep: the next one that does not starts the count afresh.
+    away: bool,
 }
 
 impl Ledger {
     fn new(dir: Option<PathBuf>, now: i64, tz: &TimeZone) -> Ledger {
-        Ledger { dir, current: None, mark: now, days: BTreeMap::new(), dirty: BTreeSet::new(), today: day_of(now, tz), warned: false }
+        Ledger { dir, current: None, mark: now, days: BTreeMap::new(), dirty: BTreeSet::new(), today: day_of(now, tz), warned: false, away: false }
     }
 
     /// Decides the time up to the last input (`now` - `idle`, or `now` itself under a full-screen app): a stretch since `mark` shorter
-    /// than AWAY goes to the app in front. `idle` None (locked, asleep) counts nothing and leaves `mark`. A clock turned back starts
-    /// over from the last input; a jump forward (the clock, or waking up) is longer than AWAY and counts nothing.
+    /// than AWAY goes to the app in front. `idle` None (locked, asleep) counts nothing, and the first turn after it starts over from
+    /// `now`: a lock shorter than AWAY counts nothing either, even one ended with no input (a face). A clock turned back starts over
+    /// from the last input; a jump forward (the clock, or waking up) is longer than AWAY and counts nothing.
     fn settle(&mut self, now: i64, idle: Option<u64>, full: bool, tz: &TimeZone) {
-        let Some(idle) = idle else { return };
+        let Some(idle) = idle else {
+            self.away = true;
+            return;
+        };
+        if std::mem::take(&mut self.away) {
+            self.mark = now;
+            return;
+        }
         let last = if full { now } else { now.saturating_sub(i64::try_from(idle).unwrap_or(i64::MAX)) };
         // `mark` never passes `now` while the clock runs on, so only a clock turned back puts `now` before it.
         if now < self.mark - 60 {
@@ -512,7 +522,8 @@ mod platform {
     }
 }
 
-/// macOS: a thread that asks for the app in front and the idle time every 5 s. No icons (no path) and no full-screen exception.
+/// macOS: a thread that asks for the app in front and the idle time every 5 s. No icons (no path), no full-screen exception and no
+/// lock or sleep seen: one shorter than AWAY counts as a gap.
 #[cfg(target_os = "macos")]
 mod platform {
     use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
@@ -711,6 +722,28 @@ mod tests {
         let mut l = running(t0, &tz);
         l.settle(t0 + 60, None, false, &tz);
         assert_eq!((sum(&l, "a"), l.mark), (0, t0));
+    }
+
+    #[test]
+    fn a_lock_shorter_than_three_minutes_counts_nothing_either() {
+        let tz = TimeZone::UTC;
+        let t0 = 1_000_000;
+        let mut l = running(t0, &tz);
+        for i in 1..=5 {
+            l.settle(t0 + 30 * i, None, false, &tz);
+        }
+        // Unlocked with a key at t0 + 150.
+        l.settle(t0 + 160, Some(10), false, &tz);
+        assert_eq!(sum(&l, "a"), 0);
+        l.settle(t0 + 190, Some(0), false, &tz);
+        assert_eq!(sum(&l, "a"), 30);
+
+        // Unlocked by face, with no input since the lock.
+        let mut l = running(t0, &tz);
+        l.settle(t0 + 60, None, false, &tz);
+        l.settle(t0 + 100, Some(100), false, &tz);
+        l.settle(t0 + 130, Some(0), false, &tz);
+        assert_eq!(sum(&l, "a"), 30);
     }
 
     #[test]

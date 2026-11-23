@@ -170,7 +170,7 @@ Reminders to rest your eyes and take longer breaks, off by default: switch them 
 - The days are files of a few KB in the `screentime` folder of `%LOCALAPPDATA%\io.github.andrealo20.crest` (of the portable folder for the portable build, of `~/Library/Application Support/io.github.andrealo20.crest` on a Mac), never in the roaming profile. Each holds the seconds per app in each hour of that day. They are written every 2 minutes while something changed, at midnight and as Crest quits, so a crash loses 2 minutes at most. Today and the 29 days before it are kept; older days are deleted. They are not in backups and never leave the PC.
 - Turning it off stops the count and deletes nothing: the days stay until they are 30 days old, or until **Delete Screen Time** in the same place (it asks again first), which also deletes the focus rounds kept for the Day timeline.
 - The page shows one day, back to 29 days ago with the arrows: that day's Day timeline, with sunrise and sunset over it when the Weather tool has a place, and how many focus rounds and events it had; then the day's total, its time per hour, the average of the last 7 days that have any, and the five apps with the most time, the rest together as **Other apps**.
-- On Windows Crest watches which window comes to the front and checks every 30 seconds, only while it records. On a Mac it asks for the app in front every 5 seconds, without app icons and without the full-screen exception.
+- On Windows Crest watches which window comes to the front and checks every 30 seconds, only while it records. On a Mac it asks for the app in front every 5 seconds, without app icons and without the full-screen exception, and a lock or sleep shorter than three minutes counts as any other gap.
 
 ## Capture
 
