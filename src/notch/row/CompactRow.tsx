@@ -33,6 +33,9 @@ import { Coffee } from "../../ui/iconset";
 import { t } from "../../i18n";
 import { awake } from "../../features/overview/store";
 import { DownloadsPart, downloadsCaption, downloadsWidth } from "./parts/DownloadsPart";
+import { useBtPart } from "./parts/BtPart";
+import { useDayPart, useScreenTimePart } from "./parts/ScreenTimePart";
+import { isMac } from "../../platform/native";
 import { downloads } from "../../features/downloads/store";
 
 /** True while `on`, and for `ms` after it turns off: GSMTC reports a short pause on seek and track change. */
@@ -89,6 +92,9 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   const next = useNextEvent();
   const scripted = scriptParts.use();
   const dl = downloads.use();
+  const screen = useScreenTimePart(closed.parts.screentime);
+  const day = useDayPart(closed.parts.timeline);
+  const bt = useBtPart(closed.parts.bluetooth && !isMac);
   const [hovered, setHovered] = useState(false);
   // The title stays while paused, like the cover; it only scrolls while playing.
   const music = s.music;
@@ -120,6 +126,9 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
     else if (id === "weather" && weather) fixed(id, weatherWidth(), () => <WeatherPart now={weather} />);
     else if (id === "calendar" && next) fixed(id, nextEventWidth(next.text), () => <NextEventPart text={next.text} color={next.color} />);
     else if (id === "script" && scripted.length) fixed(id, scriptPartsWidth(scripted), () => <ScriptParts parts={scripted} />);
+    else if (id === "screentime" && screen) fixed(id, screen.width, screen.draw);
+    else if (id === "timeline" && day) fixed(id, day.width, day.draw);
+    else if (id === "bluetooth" && bt) fixed(id, bt.width, bt.draw);
     else if (id === "downloads" && dl.length) {
       const caption = downloadsCaption(dl);
       fixed(id, downloadsWidth(caption), () => <DownloadsPart list={dl} caption={caption} />);

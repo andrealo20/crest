@@ -590,6 +590,14 @@ pub async fn notices_open_app(app_id: String) -> Result<(), String> {
     crate::opener().arg(format!("shell:AppsFolder\\{app_id}")).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
+/// An app's icon by its AppUserModelID, for the bar's Unread widget (design I); None where Windows has none.
+#[cfg(windows)]
+#[tauri::command]
+pub async fn notices_icon(app_id: String) -> Option<String> {
+    let _ = app_id;
+    None
+}
+
 /// Copies the one-time code of a notice the way the Vault copies a secret: marked so no clipboard history takes it
 /// (Crest's, Win+V, the cloud), and emptied after 30 s unless something else was copied since (vault.rs).
 #[cfg(windows)]

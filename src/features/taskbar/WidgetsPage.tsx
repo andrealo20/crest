@@ -17,6 +17,7 @@ import type { Zone } from "./model";
 import { SAMPLE_AT, SAMPLE_TIMER, sampleFeed } from "./sampleFeed";
 import { statusPill } from "./statusModel";
 import { setTaskbar } from "./store";
+import { UnreadPicks } from "./UnreadPicks";
 import { widgetNeeds } from "./WidgetRows";
 import { addWidget, applyChoice, barWidgets, chosenChoice, pillWidget, previewInk, removeWidget, variantKey, widgetChoices, type WidgetChoice } from "./widgets";
 import { widgetBody } from "./window/Widget";
@@ -77,6 +78,21 @@ const VARIANT_LABEL: Record<string, string> = {
   details: "Details",
   forecast: "Nächste Tage",
   sun: "Sonnenaufgang und Sonnenuntergang",
+  history: "Letzte 10 Minuten",
+  fans: "Lüfter",
+  lowest: "Schwächster Akku",
+  devices: "Alle Geräte",
+  left: "Mit Restzeit",
+  badge: "Symbol mit Zähler",
+  // Unread's second version; `apps` is Screen Time's Top apps.
+  each: "Jede App einzeln",
+  total: "Gesamtzeit",
+  apps: "Top-Apps",
+  hourly: "Nach Stunden",
+  fullday: "Ganzer Tag",
+  ahead: "Nächste Stunden",
+  thumb: "Vorschau",
+  keys: "Vorschau und Tasten",
 };
 /** Each widget's row symbol under Material: the Material name of its partInfo icon, as the Content and Items lists draw it; the brand logos have none and keep a symbol of their own. */
 const SYMBOL: Record<PartId, RowSymbol> = {
@@ -105,6 +121,13 @@ const SYMBOL: Record<PartId, RowSymbol> = {
   world: "public",
   currency: "swap_horiz",
   crypto: "show_chart",
+  temps: "thermometer",
+  bluetooth: "bluetooth",
+  keepawake: "coffee",
+  unread: "chat_bubble",
+  screentime: "hourglass_top",
+  timeline: "wb_twilight",
+  wallpaper: "image",
 };
 const choiceLabel = (c: WidgetChoice) => t(c.variant === "digital" ? (c.date ? "Uhrzeit und Datum" : "Nur Uhrzeit") : VARIANT_LABEL[c.variant ?? ""]);
 
@@ -118,6 +141,7 @@ export function WidgetsPage() {
         <div key={id}>
           <WidgetRow id={id} s={s} zoned={zones.length > 0} />
           <Versions id={id} s={s} zones={zones} />
+          {id === "unread" && <UnreadPicks />}
         </div>
       ))}
     </Group>

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MIC, MIC_WIDTH, TRACK, TRACK_WIDTH, onWeather, widgetKey } from "./faceKeys.ts";
+import { MIC, MIC_WIDTH, TRACK, TRACK_WIDTH, WALL, onWeather, widgetKey } from "./faceKeys.ts";
 
 test("the song's and the microphone's faces are as wide as their parts, so a new song or a mute never moves a neighbour", () => {
   assert.deepEqual(TRACK_WIDTH, { play: 160, cover: 192, disc: 22, track: 160 });
@@ -70,4 +70,16 @@ test("right to left the weather is drawn at the left end, and the padding left o
   for (const x of [-6, 0, 15, 30]) assert.equal(onWeather(x, 70, 100, true), true);
   for (const x of [30.5, 50, 100, 108]) assert.equal(onWeather(x, 70, 100, true), false);
   assert.equal(onWeather(null, 70, 100, true), false);
+});
+
+test("the wallpaper's keys step back and on, each out past the padding on its side; the picture between them, its other version and the keyboard open Wallpapers", () => {
+  const v = { wallpaper: "keys" };
+  assert.equal(WALL.width, 2 * WALL.key + WALL.thumb);
+  assert.equal(widgetKey("wallpaper", v, 10), "wallPrevious");
+  assert.equal(widgetKey("wallpaper", v, -3), "wallPrevious");
+  assert.equal(widgetKey("wallpaper", v, 40), null);
+  assert.equal(widgetKey("wallpaper", v, 70), "wallNext");
+  assert.equal(widgetKey("wallpaper", v, 85), "wallNext");
+  assert.equal(widgetKey("wallpaper", v, null), null);
+  for (const x of [-3, 10, 40, 70, 85]) assert.equal(widgetKey("wallpaper", { wallpaper: "thumb" }, x), null);
 });

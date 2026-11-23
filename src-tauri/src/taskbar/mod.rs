@@ -28,6 +28,7 @@ pub(crate) mod screens;
 pub(crate) mod start;
 pub(crate) mod taskband;
 pub(crate) mod tasks;
+pub(crate) mod toggles;
 pub(crate) mod tray;
 pub(crate) mod traywire;
 pub(crate) mod widgets;

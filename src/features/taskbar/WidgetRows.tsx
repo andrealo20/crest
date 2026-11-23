@@ -32,6 +32,8 @@ export const widgetNeeds = (s: Settings, zoned: boolean): Partial<Record<Removab
   rings: !shownIds(s.aiUsage.order, s.usage).length && t("Keine Anbieter aktiv"),
   discord: !s.discord.clientId.trim() && t("Client-ID und Secret fehlen"),
   world: !zoned && t("Braucht eine Zeitzone in Uhren"),
+  unread: !(s.notices.enabled && s.notices.windows) ? t("Braucht Live-Mitteilungen von Windows") : !s.taskbar.unread.length && t("Keine App gewählt"),
+  screentime: !s.screenTime.on && t("Bildschirmzeit ist aus"),
 });
 
 /**

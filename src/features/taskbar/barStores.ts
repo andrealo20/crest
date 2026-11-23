@@ -12,11 +12,14 @@ import { history } from "../notices/store";
 import { awake } from "../overview/store";
 import { privacy, snoozed } from "../privacy/store";
 import { system } from "../system/store";
+import { NO_FANS, type Fans } from "../system/thermals";
 import { focusMuted, ringing } from "../timer/store";
 import { usage } from "../usage/store";
 import type { Forecast } from "../weather/store";
 import type { DiskDrive } from "./disks";
+import type { BtDevice } from "./quickPages";
 import type { TopApp } from "./systemWidgets";
+import type { UnreadApp } from "./unread";
 
 /*
  * What the notch sends Crest's bar over the bridge (src/lib/bridge.ts), read by both windows: the widgets' data, computed in the
@@ -57,6 +60,16 @@ export interface BarFeed {
    * and its hourly prices over the last 7 days, oldest first, of which the widget draws the last day and its panel all.
    */
   crypto: { symbol: string; base: string; price: number; change: number | null; line: number[] } | null;
+  /** Today's Screen Time: the total and the first three apps in seconds, and the seconds per hour, 24 of them; null while it does not record. */
+  screenTime: { total: number; apps: { key: string; name: string; path: string | null; secs: number }[]; hours: number[] } | null;
+  /** The Day timeline's timed events from midnight to tomorrow noon, without titles, and Screen Time per hour while it records. */
+  timeline: { events: { start: number; end: number; color: string }[]; hours: number[] | null };
+  /** The picked apps with their notifications still in Windows' notification centre, in the order picked; null until Windows is read. */
+  unread: UnreadApp[] | null;
+  /** The connected Bluetooth devices that report a battery, at most four, the lowest first: never the other paired devices' names. */
+  btDevices: BtDevice[];
+  /** The CPU's and the GPU's temperature now and over the last 10 minutes (thermals.ts), or the fans, as the widget's version draws. */
+  temps: { cpu: number | null; gpu: number | null; cpuLine: (number | null)[]; gpuLine: (number | null)[]; fans: Fans };
 }
 
 export const EMPTY_FEED: BarFeed = {
@@ -80,6 +93,11 @@ export const EMPTY_FEED: BarFeed = {
   weatherDays: null,
   currency: null,
   crypto: null,
+  screenTime: null,
+  timeline: { events: [], hours: null },
+  unread: null,
+  btDevices: [],
+  temps: { cpu: null, gpu: null, cpuLine: [], gpuLine: [], fans: NO_FANS },
 };
 
 export const barFeed = createStore<BarFeed>(EMPTY_FEED);
@@ -91,10 +109,11 @@ export const panelOpen = createStore(false);
 export const noticeCount = createStore<number | null>(null);
 
 /**
- * `privacy` too, for the bar's privacy button, the clock's count, and the Launcher's Alt+N state (taken keys, resting in a game) for its
- * panel: all change rarely, privacy with Windows' state, the count with Crest's notices and Alt+N with a full-screen app.
+ * `privacy` too, for the bar's privacy button, the clock's count, the Launcher's Alt+N state (taken keys, resting in a game) for its
+ * panel, and Keep awake for its widget: all change rarely, privacy with Windows' state, the count with Crest's notices, Alt+N with a
+ * full-screen app and Keep awake when it is turned on or off or runs out.
  */
-export const feedStores = { barFeed, privacy, noticeCount, shortcutResult, hotkeysResting };
+export const feedStores = { barFeed, privacy, noticeCount, shortcutResult, hotkeysResting, awake };
 
 /** Sent only while `panelOpen`: `system` changes every few seconds and would wake the bar with nobody looking. */
-export const panelStores = { calendar, github, leetcode, usage, discordState, system, history, awake, ringing, focusMuted, snoozed };
+export const panelStores = { calendar, github, leetcode, usage, discordState, system, history, ringing, focusMuted, snoozed };

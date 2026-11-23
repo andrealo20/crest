@@ -6,6 +6,7 @@ import type { Reading } from "../../notch/row/parts/Readings";
 import type { ClosedSettings } from "../../notch/row/parts";
 import type { NowPlaying } from "../../platform/media/types";
 import type { BarFeed } from "./barStores";
+import { WHATSAPP } from "./unread";
 
 /** 14:30 today: the time the sample's clocks show, which never tick. */
 export const SAMPLE_AT = new Date().setHours(14, 30, 0, 0);
@@ -17,6 +18,8 @@ export const SAMPLE_STOPWATCH = { elapsed: 12 * 60_000 + 34_000, running: true, 
 export const sampleTodo = () => ({ id: "sample", text: t("Einkaufen gehen"), done: 2, total: 5 });
 /** The note's first line. */
 export const sampleNote = () => t("Ideen fürs Wochenende");
+/** Keep awake on for two hours, 1:05 of them left. */
+export const SAMPLE_AWAKE = { minutes: 120, endsAt: SAMPLE_AT + 65 * 60_000 };
 
 /** The sample's day n days after today, as the forecast writes it. */
 const dayAt = (n: number) => {
@@ -39,6 +42,14 @@ const NET_UP = [20, 25, 30, 60, 150, 140, 90, 40, 30, 25, 20, 20, 50, 110, 140, 
 const COIN_DAY = [82100, 82350, 82200, 82600, 82900, 82750, 83100, 83400, 83250, 83600, 83500, 83900, 84200, 84050, 83800, 83950, 84300, 84600, 84400, 84150, 84350, 84500, 84250, 84100, 84215];
 /** The coin over 7 days, hourly: six days climbing in waves, then its last day. */
 const COIN_WEEK = [...Array.from({ length: 168 - COIN_DAY.length }, (_, i) => Math.round(78400 + i * 26 + 600 * Math.sin(i / 9))), ...COIN_DAY];
+
+/** Today's Screen Time per hour, 3 h 05 min from 8 to 14:30. */
+const SCREEN_HOURS = Array.from({ length: 24 }, (_, h) => [0, 0, 0, 0, 0, 0, 0, 0, 1800, 3000, 2400, 1500, 600, 1200, 600][h] ?? 0);
+/** A time today, as the sample's day. */
+const todayAt = (h: number, m = 0) => new Date(SAMPLE_AT).setHours(h, m, 0, 0);
+/** The CPU's and the GPU's last 10 minutes, a point each 15 s: slow waves between 48 and 74 °C and between 40 and 62. */
+const CPU_TEMPS = Array.from({ length: 40 }, (_, i) => Math.round(61 + 13 * Math.sin(i / 6)));
+const GPU_TEMPS = Array.from({ length: 40 }, (_, i) => Math.round(51 + 11 * Math.sin(i / 7 + 1)));
 
 /** A cover for the song's versions: a diagonal gradient under a ring, as a disc. */
 const SAMPLE_COVER = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(330 70% 58%)"/><stop offset="1" stop-color="hsl(250 60% 42%)"/></linearGradient></defs><rect width="64" height="64" fill="url(#g)"/><circle cx="32" cy="32" r="12" fill="none" stroke="white" stroke-opacity=".7" stroke-width="3"/></svg>')}`;
@@ -121,5 +132,35 @@ export function sampleFeed(on: ClosedSettings["readings"]): BarFeed {
     },
     currency: { from: "GBP", to: "EUR", rate: 1.1835 },
     crypto: { symbol: "BTC", base: "EUR", price: 84215, change: 2.41, line: COIN_WEEK },
+    // The same three apps as the Top apps.
+    screenTime: {
+      total: 11100,
+      apps: [
+        { key: "code.exe", name: "Visual Studio Code", path: null, secs: 6000 },
+        { key: "chrome.exe", name: "Google Chrome", path: null, secs: 3900 },
+        { key: "spotify.exe", name: "Spotify", path: null, secs: 1200 },
+      ],
+      hours: SCREEN_HOURS,
+    },
+    timeline: {
+      events: [
+        { start: todayAt(11), end: todayAt(11, 30), color: "var(--color-blue)" },
+        { start: todayAt(15), end: todayAt(16), color: "var(--color-green)" },
+      ],
+      hours: SCREEN_HOURS,
+    },
+    // Two apps with notifications waiting and one at zero, so the previews show both versions and the zero.
+    unread: [
+      { id: WHATSAPP, name: "WhatsApp", count: 3 },
+      { id: "microsoft.windowscommunicationsapps_8wekyb3d8bbwe!microsoft.windowslive.mail", name: "Mail", count: 12 },
+      { id: "msteams_8wekyb3d8bbwe!msteams", name: "Teams", count: 0 },
+    ],
+    // The mouse is the lowest and none is red.
+    btDevices: [
+      { id: "1", name: "WH-1000XM5", categories: ["Audio.Headphone"], connected: true, battery: 80 },
+      { id: "2", name: "MX Master 3S", categories: ["Input.Mouse"], connected: true, battery: 35 },
+      { id: "3", name: "Keychron K3", categories: ["Input.Keyboard"], connected: true, battery: 62 },
+    ],
+    temps: { cpu: 63, gpu: 51, cpuLine: CPU_TEMPS, gpuLine: GPU_TEMPS, fans: { cpu: 1240, gpu: 860, case: 720 } },
   };
 }

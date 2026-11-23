@@ -16,6 +16,9 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { useIcons } from "../../launcher/store";
 import { useThemedAccent } from "../../themes/store";
 import { convertMode } from "../../convert/mode";
+import { awakeOn } from "../../overview/awake";
+import { awake, startAwake, stopAwake } from "../../overview/store";
+import { stepWallpaper } from "../../wallpapers/store";
 import { stopwatchActions, timerTab } from "../../timer/store";
 import { PREVIEW_CLOSE, PREVIEW_DELAY, bridge, zones as hitZones, type Rect } from "../autoHide";
 import { COMPACT_PAD, DRAG_REST, shiftMenu, WHEEL_STEP, appKey, appState, barArrow, barButtons, buttonAt, clickAction, cycleKey, numberKey, compactIcon, fitIcon, indicator, insertPinned, labelSpan, launchId, trayIcon, wheelSteps, windowBadge, windowButtons, type BarButton, type BarEdge, type BarItem, type BarKey, type BarShape, type Click, type ClickMods, type Zone } from "../model";
@@ -23,7 +26,7 @@ import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box 
 import { barMargin, slideBy, toEdge } from "../position";
 import { BarEdgeContext, barEdgeNow } from "./barEdge";
 import { StartMark } from "./StartMark";
-import { closePanel, fileDrag, itemDrag, panel, pinDrag, togglePanel } from "../panel";
+import { closePanel, fileDrag, itemDrag, panel, pinDrag, quickPage, togglePanel } from "../panel";
 import { dragThreshold, opensInBar } from "../panelModel";
 import { barShown, barWindows, groupIcons, setTaskbar } from "../store";
 import { splitApps } from "../fit";
@@ -54,6 +57,7 @@ import { RecentMenu } from "./RecentMenu";
 import { Status } from "./Status";
 import { SYS_INFO, SysButton } from "./SysItems";
 import { Tray, TrayDrop, trayLeave } from "./Tray";
+import { openUnread } from "./UnreadFaces";
 import { useAppFit } from "./useAppFit";
 import { useAutoHide } from "./useAutoHide";
 import { WidgetItem } from "./Widget";
@@ -462,23 +466,29 @@ export function TaskbarWindow() {
 
   /**
    * A widget opens its tool in the panel over it, or a panel of the bar's own (widgets.ts widgetPanel): the disk widget its drives, the
-   * main bar's clock, the time progress and the date Crest's Notices over its Calendar, the crypto widget its coin's week. On the other
-   * bars, which get no notices or calendar from the notch, the clock opens Windows' notification centre, as Windows' own clock does. A
-   * click on a key of its face (`key`) does what the key does, and so does every click on the microphone; the stopwatch's starts or
-   * pauses it. The timer opens the Timer on its countdown, the exchange rate the Converter on its currencies. On the main bar the
-   * weather of the clock's Time and weather and of the date's week opens Weather; on the other bars the whole clock does as before.
+   * main bar's clock, the time progress and the date Crest's Notices over its Calendar, the crypto widget its coin's week, Device
+   * batteries the quick panel's Bluetooth page. On the other bars, which get no notices or calendar from the notch, the clock opens
+   * Windows' notification centre, as Windows' own clock does. Unread opens the app under the pointer (`slot`) or the one in front. A
+   * click on a key of its face (`key`) does what the key does, and so does every click on the microphone; a wallpaper step that fails
+   * opens Wallpapers. The stopwatch's click starts or pauses it, Keep awake's turns it on until turned off or off. The timer opens the
+   * Timer on its countdown, the exchange rate the Converter on its currencies. On the main bar the weather of the clock's Time and
+   * weather and of the date's week opens Weather; on the other bars the whole clock does as before.
    */
-  const clickWidget = (id: PartId, button: HTMLElement, key: FaceKey | null) => {
+  const clickWidget = (id: PartId, button: HTMLElement, key: FaceKey | null, slot: number | null = null) => {
     setError(null);
     setMenu(null);
+    if (id === "unread") return openUnread(slot);
+    if (key === "wallPrevious" || key === "wallNext") return void stepWallpaper(key === "wallNext" ? 1 : -1).catch(() => openTool("wallpapers", button));
     if (key === "weather") {
       if (primary) return openTool("weather", button);
     } else if (key || id === "mic") return runFaceKey(key ?? "mic", (text) => setError({ key: id, text }));
     if (id === "stopwatch") return stopwatchActions.toggle();
+    if (id === "keepawake") return awakeOn(awake.get(), Date.now()) ? stopAwake() : startAwake(null);
     const own = widgetPanel(id, primary);
     if (own) {
-      // Not on the click that closes it, or the closing panel would turn into the drives as it fades.
+      // Not on the click that closes it, or the closing panel would turn into the drives, or to its Bluetooth page, as it fades.
       if (own === "disks" && panel.get()?.content.kind !== "disks") dropStaleScan();
+      if (own === "quick" && panel.get()?.content.kind !== "quick") quickPage.set({ page: "bluetooth", rows: 1, extra: 0 });
       return togglePanel({ kind: own }, spanOf(button));
     }
     const tool = widgetTool(id);
@@ -705,7 +715,7 @@ export function TaskbarWindow() {
                 : open?.content.kind === "tool" && open.content.tool === tool,
           }}
           paused={paused}
-          onClick={(e, key) => (!free && afterDrag(e)) || clickWidget(id, e.currentTarget, key)}
+          onClick={(e, key, slot) => (!free && afterDrag(e)) || clickWidget(id, e.currentTarget, key, slot)}
           onPointerDown={free ? undefined : dragFrom(id)}
           // A widget with rows of its own opens its menu over it; the others the Crest menu over the pointer, as beside the buttons.
           onContextMenu={(e) => (hasWidgetMenu(id) || split ? toggle({ kind: "widget", id }, e.currentTarget) : setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 }))}

@@ -22,6 +22,8 @@ import type { Rect } from "../features/taskbar/autoHide";
 import type { BtDevice, WifiList } from "../features/taskbar/quickPages";
 import type { BarSeen } from "../features/taskbar/widgets";
 import type { Favorite } from "../features/launcher/apps";
+import type { WallFit, WallSource } from "../features/wallpapers/model";
+import { COLLECTION } from "../features/wallpapers/collection";
 import bundledChangelog from "../changelog.json";
 import { demo, photo, sample, sampleAvatar, screenshot, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
 import { demoFiles, demoPaste } from "./drop";
@@ -198,14 +200,18 @@ export interface SystemStats {
   energy: [string, number][];
   meter: [string, number][];
   nvml: { name: string; watts: number | null; temp: number | null }[];
-  /** From HWiNFO, LibreHardwareMonitor or Core Temp while one of them runs; `source` is the program's name. */
-  external: { source: string; cpuTemp: number | null; cpuWatts: number | null; gpus: { name: string; temp: number | null; watts: number | null }[] } | null;
+  /**
+   * From HWiNFO, LibreHardwareMonitor or Core Temp while one of them runs; `source` is the program's name. The fans in rpm: the CPU's,
+   * the fastest other one of the board (`caseFan`) and each GPU's; null where the program does not name one.
+   */
+  external: { source: string; cpuTemp: number | null; cpuWatts: number | null; cpuFan: number | null; caseFan: number | null; gpus: { name: string; temp: number | null; watts: number | null; fan: number | null }[] } | null;
   battery: BatteryRaw | null;
   drives: DrivesRaw | null;
   processes: ProcReading[] | null;
 }
 
-export interface GpuReading { key: string; name: string; memTotal: number; usage: number | null; engine: string | null; memUsed: number; temp: number | null }
+/** `fan`: the fan's speed in rpm as the driver reports it; 0 also from a driver that does not report it. */
+export interface GpuReading { key: string; name: string; memTotal: number; usage: number | null; engine: string | null; memUsed: number; temp: number | null; fan: number | null }
 /** One app: its processes folded by executable name. `cpu` is percent of one core. */
 export interface ProcReading { id: string; name: string; path: string | null; count: number; cpu: number; mem: number }
 /** Extras the closed row asks for outside the tool; `processes`: the process list, for the bar's Top apps widget. */
@@ -227,8 +233,8 @@ export function fetchSystem(full: boolean, withGpu = false, want?: SystemWant): 
   const gb = 1024 ** 3;
   const all = { net: true, temps: true, power: true, battery: true, ...want, ...(full ? { net: true, temps: true, power: true, battery: true } : {}) };
   const gpus: GpuReading[] = [
-    { key: "luid_a", name: "GeForce RTX 4070 Ti", memTotal: 12 * gb, usage: full || withGpu ? mock.gpu : null, engine: "3D", memUsed: 2.9 * gb, temp: all.temps ? 54 + mock.gpu / 5 : null },
-    { key: "luid_b", name: "Radeon Graphics", memTotal: 0.5 * gb, usage: full || withGpu ? 2 : null, engine: "VideoDecode", memUsed: 0.2 * gb, temp: null },
+    { key: "luid_a", name: "GeForce RTX 4070 Ti", memTotal: 12 * gb, usage: full || withGpu ? mock.gpu : null, engine: "3D", memUsed: 2.9 * gb, temp: all.temps ? 54 + mock.gpu / 5 : null, fan: all.temps ? Math.round(900 + mock.gpu * 12) : null },
+    { key: "luid_b", name: "Radeon Graphics", memTotal: 0.5 * gb, usage: full || withGpu ? 2 : null, engine: "VideoDecode", memUsed: 0.2 * gb, temp: null, fan: null },
   ];
   return Promise.resolve({
     at: mock.at,
@@ -1422,6 +1428,12 @@ export type RecycleBin = { items: number; bytes: number };
 export type InputLang = { lang: string; region: string };
 
 /**
+ * The mobile hotspot (taskbar/toggles.rs): on, off, switching, or why it cannot be used (no internet, a policy, the system, this PC);
+ * how many devices use it and how many may. Never the network's name or password, nor the devices' names.
+ */
+export type Hotspot = { state: "on" | "off" | "turning" | "offline" | "policy" | "denied" | "unsupported"; clients: number; max: number };
+
+/**
  * Crest's bar on Windows (src-tauri/src/taskbar). The notch turns it on and sets its height; the bar's own window reads the open
  * windows and acts on clicks (the command filter keeps each window to its part). In the browser nothing happens: the demo has no bar.
  */
@@ -1630,7 +1642,7 @@ export const taskbar = {
     return () => void off.then((f) => f());
   },
   /** One of Windows' settings pages, by name (Rust maps it to its URI). */
-  settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location" | "microphone" | "camera" | "mixer" | "night" | "dnd" | "access"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
+  settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location" | "microphone" | "camera" | "mixer" | "night" | "dnd" | "access" | "hotspot"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
   /**
    * In a bar: it shows or hides (a full-screen app, the hide hotkey, slid off the screen); Rust sends each bar its own, which pauses
    * its widgets. On this window only: a listener for any target would also hear the other bars'.
@@ -1647,6 +1659,22 @@ export const taskbar = {
   onBarSeen(handler: (seen: BarSeen) => void): () => void {
     if (!isNative) return () => {};
     const off = getCurrentWebviewWindow().listen<BarSeen>("bar://shown", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Whether the desktop shows its icons; rejects with "desktop" while Explorer's desktop cannot be found. Shown in the browser. */
+  desktopIcons: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_desktop_icons") : Promise.resolve(true)),
+  /** Shows or hides the desktop's icons; rejects with "desktop" or "failed". */
+  desktopIconsSet: (show: boolean): Promise<void> => (isNative ? invoke("taskbar_desktop_icons_set", { show }) : Promise.resolve()),
+  /** Ejects a removable drive of the last listing by its letter; rejects with "busy", "app:<file>", "rights", "fixed", "unknown" or "failed". The bar only. */
+  eject: (letter: string): Promise<void> => (isNative ? invoke("taskbar_eject", { letter }) : Promise.resolve()),
+  /** The mobile hotspot now; off with room for 8 in the browser. */
+  hotspot: (): Promise<Hotspot> => (isNative ? invoke<Hotspot>("taskbar_hotspot") : Promise.resolve({ state: "off", clients: 0, max: 8 })),
+  /** Turns the mobile hotspot on or off; rejects with "wifi-off", "bt-off", "limited", "busy", "operator", "offline" or "failed". */
+  hotspotSet: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_hotspot_set", { on }) : Promise.resolve()),
+  /** In the notch: a bar ejected a drive (`bar://disks`), so the disk widget's drives are read again at once. */
+  onDisks(handler: () => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen("bar://disks", () => handler());
     return () => void off.then((f) => f());
   },
 };
@@ -1787,6 +1815,8 @@ export interface NoticeSourceStatus {
   pipe: boolean;
   /** The crest-notify channel could not be opened. */
   pipeFailed: boolean;
+  /** The toasts waiting per app as `notices://count` last said, so a notch that reloads has them before the next change (the bar's Unread widget). */
+  counts?: Record<string, number> | null;
 }
 
 /** In the browser there is no source; `mockNotice` stands in (from the dev tools console). */
@@ -1822,6 +1852,8 @@ export const noticeSource = {
   readSound: (): Promise<ArrayBuffer> => (isNative && !isMac ? invoke<ArrayBuffer>("notices_sound_read") : Promise.reject(new Error("none"))),
   /** Opens the app a Windows notice came from, on its start page; false when Windows has no app by that id (a system notification, a tray icon's balloon). */
   openApp: (appId: string): Promise<boolean> => (isNative ? invoke("notices_open_app", { appId }).then(() => true, () => false) : Promise.resolve(true)),
+  /** An app's icon by its AppUserModelID as a PNG data URL, for the bar's Unread widget; null where Windows has none, on a Mac and in the browser. */
+  icon: (appId: string): Promise<string | null> => (isNative && !isMac ? invoke<string | null>("notices_icon", { appId }).catch(() => null) : Promise.resolve(null)),
   /** A notice's one-time code on the clipboard, kept out of every clipboard history and emptied after 30 s unless something else was copied (the Vault's way). The browser has only the plain clipboard. */
   copyCode: (code: string): Promise<void> => (isNative ? invoke<void>("notices_copy_code", { code }) : navigator.clipboard.writeText(code)),
   onNotice: (handler: (n: IncomingNotice) => void): (() => void) => {
@@ -1832,10 +1864,13 @@ export const noticeSource = {
     const off = listen<IncomingNotice>("notices://in", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
-  /** How many toasts wait in Windows' notification centre while Notices reads them; null once it stops reading. */
-  onCount: (handler: (n: number | null) => void): (() => void) => {
+  /**
+   * How many toasts wait in Windows' notification centre while Notices reads them, by lower-case app id, for the bar's Unread widget;
+   * null once it stops reading.
+   */
+  onCount: (handler: (counts: Record<string, number> | null) => void): (() => void) => {
     if (!isNative) return () => {};
-    const off = listen<number | null>("notices://count", (e) => handler(e.payload));
+    const off = listen<Record<string, number> | null>("notices://count", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
   onStatus: (handler: (s: NoticeSourceStatus) => void): (() => void) => {
@@ -2038,6 +2073,69 @@ export const windowShell = {
     if (isNative) void invoke("crash_log", { text });
   },
 };
+// ---------- Screen Time (src-tauri/src/screentime.rs) ----------
+
+/** One app's day: its name, its exe's path (null on a Mac) and its seconds in front for each local hour, 24 of them. */
+export interface ScreenApp { name: string; path: string | null; h: number[] }
+/** A local day ("YYYY-MM-DD") of Screen Time, its apps by the exe's lower-case file name ("" for the others past 300). */
+export interface ScreenDay { date: string; apps: Record<string, ScreenApp> }
+
+/** A sample day in the browser: three apps from 8 to 14. */
+const sampleScreenDay = (date: string): ScreenDay => {
+  const hours = (secs: number[]) => Array.from({ length: 24 }, (_, i) => (i >= 8 && i < 8 + secs.length ? secs[i - 8] : 0));
+  return {
+    date,
+    apps: {
+      "code.exe": { name: "Visual Studio Code", path: null, h: hours([1200, 3100, 2900, 1800, 0, 2400]) },
+      "chrome.exe": { name: "Google Chrome", path: null, h: hours([900, 400, 600, 1500, 1200, 700]) },
+      "spotify.exe": { name: "Spotify", path: null, h: hours([300, 0, 0, 0, 900, 0]) },
+    },
+  };
+};
+
+/** Screen Time's recording (screentime.rs): errors are short codes ("bad-range", "app-data", "unsupported"). */
+export const screenTime = {
+  /** Starts or stops recording; also deletes the days past the 30 kept. The notch only. */
+  set: (on: boolean): Promise<void> => (isNative ? invoke("screentime_set", { on }) : Promise.resolve()),
+  /** The days from `from` to `to` ("YYYY-MM-DD", 31 at most), the days without a record left out; in the browser the last day as a sample. */
+  days: (from: string, to: string): Promise<ScreenDay[]> => (isNative ? invoke<ScreenDay[]>("screentime_days", { from, to }) : Promise.resolve([sampleScreenDay(to)])),
+  /** Deletes every day kept; the count goes on from now while it records. */
+  clear: (): Promise<void> => (isNative ? invoke("screentime_clear") : Promise.resolve()),
+};
+
+// ---------- Wallpapers (src-tauri/src/wallpaper.rs) ----------
+
+/** A screen as the wallpaper sees it, from the left: its id, the main one, its picture's path ("" for a plain colour) and the collection's id when the picture is one of Crest's. */
+export interface WallScreen { id: string; primary: boolean; path: string; crest: string | null }
+/** The screens' wallpapers and the main screen's as a small PNG data URL (null without one). */
+export interface WallNow { screens: WallScreen[]; thumb: string | null }
+
+/** The desktop's pictures (wallpaper.rs): errors are short codes ("folder", "empty", "busy", "unavailable", "checksum", "unsupported"). Nothing changes in the browser. */
+export const wallpapers = {
+  current: (): Promise<WallNow> => (isNative ? invoke<WallNow>("wallpaper_current") : Promise.resolve({ screens: [], thumb: null })),
+  /** The collection's ids present on the PC, or a folder's pictures by path; in the browser the whole collection, as if downloaded. */
+  list: (source: WallSource, folder: string): Promise<string[]> =>
+    isNative ? invoke<string[]>("wallpaper_list", { source, folder }) : Promise.resolve(source === "crest" ? COLLECTION.map((p) => p.id) : []),
+  /** A picture of the collection (`crest`) or a file (`path`) on one screen, or on every screen with `screen` null. */
+  set: (pick: { crest?: string; path?: string }, screen: string | null, fit: WallFit): Promise<void> =>
+    isNative ? invoke("wallpaper_set", { crest: pick.crest ?? null, path: pick.path ?? null, screen, fit }) : Promise.resolve(),
+  /** The next (1) or the previous (-1) picture of the source after the main screen's, on every screen. */
+  step: (by: 1 | -1, source: WallSource, folder: string, fit: WallFit): Promise<void> => (isNative ? invoke("wallpaper_step", { by, source, folder, fit }) : Promise.resolve()),
+  fit: (fit: WallFit): Promise<void> => (isNative ? invoke("wallpaper_fit", { fit }) : Promise.resolve()),
+  /** Asks for a folder over the calling window; null when cancelled. */
+  folder: (): Promise<string | null> => (isNative ? invoke<string | null>("wallpaper_folder") : Promise.resolve(null)),
+  /** Downloads the collection's full pictures once; their size in bytes. */
+  download: (): Promise<number> => (isNative ? invoke<number>("wallpaper_pack_download") : Promise.resolve(0)),
+  /** Deletes the downloaded pictures. */
+  remove: (): Promise<void> => (isNative ? invoke("wallpaper_pack_remove") : Promise.resolve()),
+  /** The wallpaper changed, by Crest or by Windows (`wallpaper://changed`); returns the stop. */
+  onChanged: (handler: (now: WallNow) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<WallNow>("wallpaper://changed", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+};
+
 // ---------- Colour ----------
 
 /**

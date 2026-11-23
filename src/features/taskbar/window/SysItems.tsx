@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { BellSimple, Copy, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, SquaresFour, Sun, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
+import { BellSimple, BellSimpleSlash, Broadcast, Copy, DotsNine, Eject, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, SquaresFour, Sun, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
 import { fade, springs } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { systemDark } from "../../../notch/glass/media";
@@ -10,6 +10,7 @@ import { inputLang, startInput } from "../input";
 import { privacyParts, widgetWidth } from "../widgets";
 import { recycleName, type SysId } from "../model";
 import { recycleBin } from "../store";
+import { DndButton } from "./DndButton";
 import { holdBriefly } from "./hold";
 import { Item, type ItemProps } from "./Item";
 
@@ -25,8 +26,12 @@ export const SYS_INFO: Record<SysId, { label: string; icon: Icon }> = {
   theme: { label: "Dunkles Design", icon: Moon },
   keyboard: { label: "Bildschirmtastatur", icon: Keyboard },
   notifications: { label: "Benachrichtigungscenter", icon: BellSimple },
+  dnd: { label: "Nicht stören", icon: BellSimpleSlash },
   recent: { label: "Zuletzt geöffnet", icon: Files },
   searchbox: { label: "Suchen oder öffnen", icon: MagnifyingGlass },
+  deskicons: { label: "Desktopsymbole", icon: DotsNine },
+  eject: { label: "USB-Laufwerk auswerfen", icon: Eject },
+  hotspot: { label: "Mobiler Hotspot", icon: Broadcast },
 };
 
 /** The privacy button's glyph, name and Windows' settings page for each use. */
@@ -53,6 +58,8 @@ export function SysButton({ id, item, dragged, onOpen }: { id: SysId; item: Omit
   if (id === "recycle") return <RecycleButton item={item} dragged={dragged} />;
   if (id === "theme") return <ThemeButton item={item} dragged={dragged} />;
   if (id === "searchbox") return <SearchBox item={item} dragged={dragged} onOpen={onOpen} />;
+  if (id === "dnd") return <DndButton item={item} dragged={dragged} />;
+  if (id === "deskicons" || id === "eject" || id === "hotspot") return null;
   const I = SYS_INFO[id].icon;
   const narrow = Math.round(item.size / 2);
   return (

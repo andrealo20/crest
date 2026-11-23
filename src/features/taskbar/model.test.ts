@@ -65,6 +65,7 @@ import {
   type Win,
   type Zone,
 } from "./model.ts";
+import { WHATSAPP } from "./unread.ts";
 
 test("any saved value becomes valid bar settings", () => {
   for (const v of [undefined, null, 0, "x", [], true, { zones: "x", height: "44", surface: 1, pinned: {}, clock: "x" }]) assert.deepEqual(normalizeTaskbar(v), TASKBAR_DEFAULTS);
@@ -158,8 +159,31 @@ test("the bar's clock has its own date and seconds", () => {
 });
 
 test("each widget with versions starts on today's look", () => {
-  assert.deepEqual(Object.fromEntries(Object.entries(WIDGET_VARIANTS).map(([id, v]) => [id, v[0]])), { weather: "temp", clock: "digital", readings: "dials", timer: "countdown", disk: "system", title: "text", processes: "cpu", battery: "ring", mic: "mic", progress: "day", date: "fulldate", world: "world" });
+  assert.deepEqual(Object.fromEntries(Object.entries(WIDGET_VARIANTS).map(([id, v]) => [id, v[0]])), { weather: "temp", clock: "digital", readings: "dials", timer: "countdown", disk: "system", title: "text", processes: "cpu", battery: "ring", mic: "mic", progress: "day", date: "fulldate", world: "world", temps: "history", bluetooth: "lowest", keepawake: "icon", unread: "badge", screentime: "total", timeline: "fullday", wallpaper: "thumb" });
   assert.deepEqual(TASKBAR_DEFAULTS.variants, {});
+});
+
+test("the second group's versions are kept as saved, anything else dropped", () => {
+  const all = { temps: "fans", bluetooth: "devices", keepawake: "left", unread: "each", screentime: "hourly", timeline: "ahead", wallpaper: "keys" };
+  assert.deepEqual(normalizeTaskbar({ variants: all }).variants, all);
+  // Unread's second version is `each`: `apps` is Screen Time's, and VARIANT_LABEL names a version once for every widget.
+  assert.deepEqual(normalizeTaskbar({ variants: { unread: "apps", wallpaper: "big", keepawake: "x", screentime: "apps" } }).variants, { screentime: "apps" });
+  assert.equal(variantOf(undefined, "unread"), "badge");
+  assert.equal(variantOf({}, "wallpaper"), "thumb");
+});
+
+test("the Unread widget counts WhatsApp until another pick, and a list emptied stays empty", () => {
+  assert.deepEqual(TASKBAR_DEFAULTS.unread, [WHATSAPP]);
+  assert.deepEqual(normalizeTaskbar({}).unread, [WHATSAPP]);
+  assert.deepEqual(normalizeTaskbar({ unread: [] }).unread, []);
+  assert.deepEqual(normalizeTaskbar({ unread: ["A", "b"] }).unread, ["a", "b"]);
+});
+
+test("folders hold pinned apps only, and none before any app is pinned", () => {
+  assert.deepEqual(TASKBAR_DEFAULTS.folders, []);
+  assert.deepEqual(normalizeTaskbar({ folders: [{ id: "f", name: "Work", apps: ["a"] }] }).folders, []);
+  const pinned = [{ id: "a", name: "A" }, { id: "b", name: "B" }];
+  assert.deepEqual(normalizeTaskbar({ pinned, folders: [{ id: "f", name: "Work", apps: ["b", "x"] }] }).folders, [{ id: "f", name: "Work", apps: ["b"] }]);
 });
 
 test("a saved version is kept only for a widget that has it, and anything else is dropped", () => {
@@ -494,10 +518,10 @@ test("the notch tells Rust whether a zone holds the tray, whether the bar is on 
   assert.equal(trayOnBar({ left: [], center: ["start", "apps"], right: ["crest"] }), false);
 });
 
-test("the bar offers every tool but the six whose widget opens the same panel, and Find on screen last", () => {
-  assert.equal(TOOL_BUTTONS.length, 27);
-  for (const id of ["timer", "discord", "github", "leetcode", "calendar", "weather"]) assert.equal(TOOL_BUTTONS.includes(id), false, id);
-  for (const id of ["overview", "media", "notes", "clipboard", "agents", "calc"]) assert.equal(TOOL_BUTTONS.includes(id), true, id);
+test("the bar offers every tool but the seven whose widget opens the same panel, and Find on screen last", () => {
+  assert.equal(TOOL_BUTTONS.length, 28);
+  for (const id of ["timer", "discord", "github", "leetcode", "calendar", "weather", "screentime"]) assert.equal(TOOL_BUTTONS.includes(id), false, id);
+  for (const id of ["overview", "media", "notes", "clipboard", "agents", "calc", "wallpapers"]) assert.equal(TOOL_BUTTONS.includes(id), true, id);
   assert.equal(TOOL_BUTTONS.at(-1), "find");
 });
 

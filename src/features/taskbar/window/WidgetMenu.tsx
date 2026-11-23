@@ -5,11 +5,15 @@ import { stopwatch, stopwatchActions, timerTab } from "../../timer/store";
 import { nextTask } from "../../todos/model";
 import { todoActions, todos } from "../../todos/store";
 import { CrestMenu, Row } from "./BarMenu";
+import { AwakeRows } from "./ProductivityFaces";
+import { UnreadRows } from "./UnreadFaces";
+import { WallpaperRows } from "./WallpaperFace";
 
 /**
  * The right-click menu of a widget that has rows of its own (widgets.ts hasWidgetMenu): those rows, a line, then the Crest menu's. The
  * song title's row opens Now Playing, which its round version, whose whole face plays and pauses, has no other click for; on the main
- * bar the clock's Time and weather and the date's week open Weather, the keyboard's way to what a click on their weather opens.
+ * bar the clock's Time and weather and the date's week open Weather, the keyboard's way to what a click on their weather opens. Keep
+ * awake, Unread and the wallpaper bring rows of their own.
  */
 export function WidgetMenu({ id, close, openTool }: { id: PartId; close: () => void; openTool: (tool: string) => void }) {
   const opens = id === "title" ? { tool: "media", name: t("Wiedergabe") } : id === "clock" || id === "date" ? { tool: "weather", name: t("Wetter") } : null;
@@ -29,6 +33,9 @@ export function WidgetMenu({ id, close, openTool }: { id: PartId; close: () => v
       )}
       {id === "stopwatch" && <StopwatchRows close={close} openTool={openTool} />}
       {id === "todo" && <TodoRow close={close} />}
+      {id === "keepawake" && <AwakeRows close={close} openTool={openTool} />}
+      {id === "unread" && <UnreadRows close={close} openTool={openTool} />}
+      {id === "wallpaper" && <WallpaperRows close={close} openTool={openTool} />}
       <CrestMenu close={close} />
     </>
   );

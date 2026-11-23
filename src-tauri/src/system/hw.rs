@@ -470,7 +470,7 @@ pub struct BarDrive {
     total: u64,
     free: u64,
     /// A USB stick, a card or a USB disk.
-    removable: bool,
+    pub(crate) removable: bool,
     /// The drive Windows runs from.
     system: bool,
 }
@@ -509,13 +509,13 @@ fn disk_volume(target: &str) -> bool {
     target.starts_with(r"\Device\HarddiskVolume")
 }
 
-fn open(path: &str) -> Option<HANDLE> {
+pub(crate) fn open(path: &str) -> Option<HANDLE> {
     // No read or write access: a normal user may open volumes and drives this way.
     unsafe { CreateFileW(&HSTRING::from(path), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, None, OPEN_EXISTING, FILE_FLAGS_AND_ATTRIBUTES(0), None).ok() }
 }
 
 /// Some(Some(n)): the volume lies on drive n; Some(None): it spans drives; None: unreadable.
-fn extents(letter: &str) -> Option<Option<u32>> {
+pub(crate) fn extents(letter: &str) -> Option<Option<u32>> {
     let h = open(&format!("\\\\.\\{letter}"))?;
     // VOLUME_DISK_EXTENTS: count (u32), padding, then 24-byte DISK_EXTENTs with DiskNumber first.
     let mut out = [0u64; (8 + 24 * 32) / 8];

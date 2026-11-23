@@ -42,6 +42,8 @@ import { DISCORD_WIDTH, DiscordPart } from "./parts/DiscordPart";
 import { GithubPart, githubWidth, useGithubToday } from "./parts/GithubPart";
 import { LeetcodePart, leetcodeWidth, useLeetcodeToday } from "./parts/LeetcodePart";
 import { WeatherPart, useWeatherNow, weatherWidth } from "./parts/WeatherPart";
+import { useBtPart } from "./parts/BtPart";
+import { isMac } from "../../platform/native";
 
 interface Line { id: string; w: number; h: number; draw: () => ReactNode }
 
@@ -174,6 +176,8 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
   const lc = useLeetcodeToday();
   const s = settings.use(), closed = s.closed;
   const weather = useWeatherNow(parts && closed.parts.weather);
+  // Screen Time and the Day timeline stay out of the column: a 144 px strip would widen all of it.
+  const bt = useBtPart(parts && closed.parts.bluetooth && !isMac);
   const np = useNowPlaying();
   const playing = useHeld(!!np?.isPlaying, RELEASE_CAPTURE_MS);
   const running = timer.use().endsAt !== null;
@@ -196,6 +200,7 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
     else if (id === "github" && gh) fixed.push({ id, w: githubWidth(gh.count), h: 16, draw: () => <GithubPart count={gh.count} level={gh.level} /> });
     else if (id === "leetcode" && lc) fixed.push({ id, w: leetcodeWidth(lc.count), h: 16, draw: () => <LeetcodePart count={lc.count} level={lc.level} /> });
     else if (id === "weather" && weather) fixed.push({ id, w: weatherWidth(), h: 16, draw: () => <WeatherPart now={weather} /> });
+    else if (id === "bluetooth" && bt) fixed.push({ id, w: bt.width, h: 16, draw: bt.draw });
     else if (id === "clock") fixed.push({ id, w: clockWidth(closed.clockSeconds, h12), h: 16, draw: () => <Clock seconds={closed.clockSeconds} h12={h12} paused={false} /> });
     else if (id === "rings" && rings.length) ringsAt = fixed.length;
     else if (id === "readings" && readings.length) {

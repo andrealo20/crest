@@ -17,7 +17,7 @@
 //! Two clicks in the tool start Windows' own tools: ipconfig in a Command Prompt, and the battery report (powercfg).
 
 mod external;
-mod hw;
+pub(crate) mod hw;
 
 pub(crate) use hw::{bar_drives, BarDrive};
 

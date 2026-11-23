@@ -1,4 +1,4 @@
-// The faces of the bar's Stopwatch, Next to-do and Note preview widgets, which read what Crest already saves.
+// The faces of the bar's Stopwatch, Next to-do, Note preview and Keep awake widgets, which read what Crest already saves or holds.
 
 import { useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -149,9 +149,10 @@ function NoteFace({ text }: { text: string }) {
   );
 }
 
-/** The stopwatch, the next to-do or the note's first line as the bar draws it; null while it has nothing to show. */
-export function productivityPart(id: "stopwatch" | "todo" | "note", ctx: WidgetContext): Body | null {
+/** The stopwatch, the next to-do, the note's first line or Keep awake as the bar draws it; null while it has nothing to show. */
+export function productivityPart(id: "stopwatch" | "todo" | "note" | "keepawake", ctx: WidgetContext): Body | null {
   const { own, sample } = ctx;
+  if (id === "keepawake") return null;
   if (id === "stopwatch") {
     const s = sample ? SAMPLE_STOPWATCH : own && { elapsed: elapsedOf(own.stopwatch, own.now), running: own.stopwatch.startedAt !== null, laps: own.stopwatch.laps.length };
     // Never started or reset: the dimmed icon.
@@ -165,4 +166,9 @@ export function productivityPart(id: "stopwatch" | "todo" | "note", ctx: WidgetC
   }
   const text = sample ? sampleNote() : own?.note;
   return text ? { node: <NoteFace text={text} />, width: NOTE_WIDTH } : null;
+}
+
+/** Keep awake's durations, Until turned off and Off over the widget's Crest menu rows (widgets.ts hasWidgetMenu). */
+export function AwakeRows(_props: { close: () => void; openTool: (tool: string) => void }) {
+  return null;
 }

@@ -22,6 +22,7 @@ import { LiveLyric } from "../../now-playing/LiveLyric";
 import { clocks } from "../../clocks/store";
 import { normalizeZones } from "../../clocks/zones";
 import type { NowPlaying } from "../../../platform/media/types";
+import type { WallNow } from "../../../platform/services";
 import { timer } from "../../timer/store";
 import { t } from "../../../i18n";
 import { EMPTY_FEED, barFeed, noticeCount, type BarFeed } from "../barStores";
@@ -29,18 +30,22 @@ import { onWeather, widgetKey, type FaceKey } from "../faceKeys";
 import { countBadge, variantOf, type TaskbarSettings } from "../model";
 import { SAMPLE_TIMER } from "../sampleFeed";
 import { statusPill } from "../statusModel";
+import { unreadSlot } from "../unread";
 import { pillWidget, widgetScale, widgetWidth } from "../widgets";
 import { barDisks } from "../disks";
 import { DiskFace, disksWidth } from "./DiskFaces";
 import { ANALOG, BarAnalog, BarClock, BarZones, barClockWidth, zonesWidth } from "./BarClock";
+import { dayPart, useDay, type DayOwn } from "./DayFaces";
 import { Item, type ItemProps } from "./Item";
 import { ReadingBars, ReadingLine, barsWidth, lineWidth } from "./ReadingFaces";
 import { marketPart } from "./MarketFaces";
 import { micPart, trackPart, useTrack } from "./MediaFaces";
 import { productivityPart, useOwn, type Own } from "./ProductivityFaces";
-import { netPart, systemPart } from "./SystemFaces";
+import { bluetoothPart, netPart, systemPart } from "./SystemFaces";
 import { clockPart, timePart } from "./TimeFaces";
 import { RING_FACE, TimerRing } from "./TimerRing";
+import { unreadPart } from "./UnreadFaces";
+import { useWall, wallpaperPart } from "./WallpaperFace";
 import { WEATHER_ICON, WeatherCondition, WeatherHours, WeatherIcon, conditionWidth, hoursWidth, weatherPart } from "./WeatherFaces";
 
 /**
@@ -64,6 +69,10 @@ export interface WidgetContext {
   track?: NowPlaying | null;
   /** What the stopwatch, the next to-do and the note preview read from their saved stores. */
   own?: Own;
+  /** What the Day timeline reads in the bar's own window (DayFaces.tsx). */
+  day?: DayOwn;
+  /** The wallpaper the Wallpaper widget follows in the bar's own window (WallpaperFace.tsx). */
+  wall?: WallNow | null;
   at?: number;
   sample?: boolean;
 }
@@ -174,12 +183,16 @@ function part(id: PartId, ctx: WidgetContext): Body | null {
     }
     case "processes":
     case "battery":
+    case "temps":
       return systemPart(id, ctx);
+    case "bluetooth":
+      return bluetoothPart(ctx);
     case "mic":
       return micPart(ctx);
     case "stopwatch":
     case "todo":
     case "note":
+    case "keepawake":
       return productivityPart(id, ctx);
     case "progress":
     case "date":
@@ -188,6 +201,13 @@ function part(id: PartId, ctx: WidgetContext): Body | null {
     case "currency":
     case "crypto":
       return marketPart(id, ctx);
+    case "unread":
+      return unreadPart(ctx);
+    case "screentime":
+    case "timeline":
+      return dayPart(id, ctx);
+    case "wallpaper":
+      return wallpaperPart(ctx);
   }
 }
 
@@ -243,6 +263,13 @@ const SLICES: Record<PartId, (keyof BarFeed)[]> = {
   world: [],
   currency: ["currency"],
   crypto: ["crypto"],
+  temps: ["temps"],
+  bluetooth: ["btDevices"],
+  keepawake: [],
+  unread: ["unread"],
+  screentime: ["screenTime"],
+  timeline: ["timeline"],
+  wallpaper: [],
 };
 
 /**
@@ -266,8 +293,8 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
   id: PartId;
   item: Pick<ItemProps, "name" | "label" | "failed" | "lifted" | "size" | "markAt" | "plus" | "tile" | "expanded" | "kind" | "onEnter" | "onLeave">;
   paused: boolean;
-  /** `key`: the key on the face the click landed on (faceKeys.ts widgetKey), null for none. */
-  onClick: (e: MouseEvent<HTMLButtonElement>, key: FaceKey | null) => void;
+  /** `key`: the key on the face the click landed on (faceKeys.ts widgetKey), null for none; `slot`: the app under the pointer on Unread's version with each app (unread.ts unreadSlot). */
+  onClick: (e: MouseEvent<HTMLButtonElement>, key: FaceKey | null, slot: number | null) => void;
   onContextMenu: MouseEventHandler<HTMLButtonElement>;
   onPointerDown: ItemProps["onPointerDown"];
 }) {
@@ -279,6 +306,8 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
   const zones = normalizeZones(clocks.use());
   const track = useTrack(id);
   const own = useOwn(id, paused);
+  const day = useDay(id, paused);
+  const wall = useWall(id);
   const desc = useId();
   const k = widgetScale(taskbar.height, taskbar.iconSize, taskbar.widgetSize);
   const { node, width, drawn, tip, weatherFrom } = widgetBody(id, {
@@ -294,6 +323,8 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
     zones,
     track,
     own,
+    day,
+    wall,
   });
   // By the bar's shape, not by this cell's tile: a hidden widget drawn without one in the hidden items' panel keeps its width on the bar.
   const pill = pillWidget(id, taskbar.shape === "tiles") ? statusPill(taskbar.height) : null;
@@ -316,9 +347,11 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
         const cell = document.getElementById(desc), r = cell?.getBoundingClientRect();
         const x = r && r.width > 0 && drawn && e.detail > 0 ? ((e.clientX - r.left) * width) / r.width : null;
         // The notices' count sits over the face's end, the weather's, but it is the clock's: a click on it opens the notices.
-        if (e.target instanceof Element && e.target.closest("[data-badge]")) return onClick(e, null);
+        if (e.target instanceof Element && e.target.closest("[data-badge]")) return onClick(e, null, null);
         // The face's own direction, not the page's: the bar's zones are left to right in every language.
-        onClick(e, cell && onWeather(x, weatherFrom, width, getComputedStyle(cell).direction === "rtl") ? "weather" : widgetKey(id, taskbar.variants, x));
+        const rtl = !!cell && getComputedStyle(cell).direction === "rtl";
+        const slot = id === "unread" && variantOf(taskbar.variants, "unread") === "each" ? unreadSlot(x, feed.unread?.length ?? 0, rtl) : null;
+        onClick(e, cell && onWeather(x, weatherFrom, width, rtl) ? "weather" : widgetKey(id, taskbar.variants, x), slot);
       }}
       onContextMenu={onContextMenu}
       onPointerDown={onPointerDown}

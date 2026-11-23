@@ -4,7 +4,9 @@
 import { normalizeFavorites, type Favorite } from "../launcher/apps.ts";
 import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
 import { TOOL_IDS } from "../../settings/tools.ts";
+import { normalizeFolders, type Folder } from "./folderModel.ts";
 import { dropSlot } from "./panelModel.ts";
+import { WHATSAPP, normalizeUnread } from "./unread.ts";
 
 /** The bar's zones. Physical, as the closed row's: left stays left in a right-to-left language. */
 export type Zone = "left" | "center" | "right";
@@ -12,10 +14,10 @@ export type Zone = "left" | "center" | "right";
 export type ToolItem = `tool:${string}`;
 /**
  * Windows' own buttons the bar can hold: Search, Task view, Windows widgets, Show desktop, the input language, the privacy indicators,
- * the Recycle Bin, Windows' dark theme, the On-Screen Keyboard, the notification centre, the files opened last and a search box.
- * Not in the default zones: an update changes no bar.
+ * the Recycle Bin, Windows' dark theme, the On-Screen Keyboard, the notification centre, Do not disturb, the files opened last, a search
+ * box, the desktop's icons, ejecting a USB drive and the mobile hotspot. Not in the default zones: an update changes no bar.
  */
-export const SYS_IDS = ["search", "taskview", "widgets", "desktop", "input", "privacy", "recycle", "theme", "keyboard", "notifications", "recent", "searchbox"] as const;
+export const SYS_IDS = ["search", "taskview", "widgets", "desktop", "input", "privacy", "recycle", "theme", "keyboard", "notifications", "dnd", "recent", "searchbox", "deskicons", "eject", "hotspot"] as const;
 export type SysId = (typeof SYS_IDS)[number];
 /** A Windows button, by its id: `sys:search`. */
 export type SysItem = `sys:${SysId}`;
@@ -103,6 +105,10 @@ export interface TaskbarSettings {
   allDesktops: boolean;
   /** The crypto widget's coin, priced in the Depot's base currency. */
   coin: CryptoCoin;
+  /** The apps the Unread widget counts, lower-case AppUserModelIDs in the order picked, three at most (unread.ts). */
+  unread: string[];
+  /** Folders of pinned apps; the apps stay in `pinned` (folderModel.ts). */
+  folders: Folder[];
 }
 
 export type MarkStyle = "dot" | "large" | "line";
@@ -154,6 +160,8 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   startIcon: "windows",
   allDesktops: false,
   coin: "BTC",
+  unread: [WHATSAPP],
+  folders: [],
 };
 
 /** The heights and icon sizes the settings offer, CSS px. */
@@ -195,6 +203,13 @@ export type WidgetVariants = {
   progress: "day" | "month" | "year";
   date: "fulldate" | "sheet" | "week";
   world: "world" | "cities";
+  temps: "history" | "fans";
+  bluetooth: "lowest" | "devices";
+  keepawake: "icon" | "left";
+  unread: "badge" | "each";
+  screentime: "total" | "apps" | "hourly";
+  timeline: "fullday" | "ahead";
+  wallpaper: "thumb" | "keys";
 };
 export const WIDGET_VARIANTS: { [K in keyof WidgetVariants]: readonly WidgetVariants[K][] } = {
   weather: ["temp", "icon", "condition", "hours", "details", "forecast", "sun"],
@@ -209,6 +224,13 @@ export const WIDGET_VARIANTS: { [K in keyof WidgetVariants]: readonly WidgetVari
   progress: ["day", "month", "year"],
   date: ["fulldate", "sheet", "week"],
   world: ["world", "cities"],
+  temps: ["history", "fans"],
+  bluetooth: ["lowest", "devices"],
+  keepawake: ["icon", "left"],
+  unread: ["badge", "each"],
+  screentime: ["total", "apps", "hourly"],
+  timeline: ["fullday", "ahead"],
+  wallpaper: ["thumb", "keys"],
 };
 
 export const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -231,6 +253,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
   const widgets = normalizeZones(s.zones, s.widgetsSeeded !== true);
   const tray = s.traySeeded === true ? widgets : withItem(widgets, "tray");
   const zones = s.statusSeeded === true ? tray : withItem(tray, "status");
+  const pinned = normalizeFavorites(s.pinned);
   return {
     enabled: s.enabled === true,
     autoHide: s.autoHide === true,
@@ -239,7 +262,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     iconSize: within(s.iconSize, ICON, d.iconSize),
     widgetSize: within(s.widgetSize, WIDGET_SIZE, d.widgetSize),
     surface: s.surface === "theme" ? "theme" : "notch",
-    pinned: normalizeFavorites(s.pinned),
+    pinned,
     windowsPins: Array.isArray(s.windowsPins) ? [...new Set(s.windowsPins.filter((id): id is string => typeof id === "string"))] : null,
     shape: SHAPES.includes(s.shape as BarShape) ? (s.shape as BarShape) : d.shape,
     transparency: within(s.transparency, TRANSPARENCY, d.transparency),
@@ -271,6 +294,8 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     startIcon: START_ICONS.includes(s.startIcon as StartIcon) ? (s.startIcon as StartIcon) : d.startIcon,
     allDesktops: s.allDesktops === true,
     coin: CRYPTO_COINS.includes(s.coin as CryptoCoin) ? (s.coin as CryptoCoin) : d.coin,
+    unread: normalizeUnread(s.unread, d.unread),
+    folders: normalizeFolders(s.folders, pinned),
   };
 }
 

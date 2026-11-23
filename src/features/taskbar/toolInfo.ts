@@ -16,6 +16,7 @@ import {
   Eyedropper,
   Gauge,
   GlobeHemisphereWest,
+  ImageSquare,
   MagnifyingGlass,
   MusicNotesSimple,
   NotePencil,
@@ -61,5 +62,6 @@ export const toolInfo: Record<string, { label: string; icon: Icon; hue?: Hue }> 
   teleprompter: { label: "Prompter", icon: Scroll, hue: "amber" },
   agents: { label: "Agents", icon: Robot, hue: "indigo" },
   calc: { label: "Rechner", icon: Calculator, hue: "indigo" },
+  wallpapers: { label: "Hintergründe", icon: ImageSquare, hue: "sky" },
   find: { label: "Auf dem Bildschirm suchen", icon: MagnifyingGlass },
 };

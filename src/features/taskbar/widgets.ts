@@ -26,8 +26,11 @@ export const sysOf = (id: SysItem): SysId => id.slice("sys:".length) as SysId;
  */
 export const trashable = (id: string): id is Removable => isWidget(id) || isTool(id) || isSys(id) || id === "status" || id === "crest";
 /** The Windows buttons that show on the main bar only, as Windows keeps them; every other one is on every bar. */
-const PRIMARY_SYS: readonly SysId[] = ["widgets", "input", "privacy", "recycle"];
-/** Whether a Windows button shows on the primary bar only: Windows widgets, the input language, the privacy indicators and the Recycle Bin, which Windows keeps on the main taskbar. */
+const PRIMARY_SYS: readonly SysId[] = ["widgets", "input", "privacy", "recycle", "eject", "hotspot"];
+/**
+ * Whether a Windows button shows on the primary bar only: Windows widgets, the input language, the privacy indicators, the Recycle Bin,
+ * ejecting a USB drive and the mobile hotspot, which Windows keeps on the main taskbar.
+ */
 export const sysPrimaryOnly = (id: SysItem): boolean => PRIMARY_SYS.includes(sysOf(id));
 /** Whether the notch polls the privacy state for the bar: on, with its privacy button on it. */
 export const privacyOnBar = (t: TaskbarSettings): boolean => t.enabled && Object.values(t.zones).some((items) => items.includes("sys:privacy"));
@@ -48,26 +51,30 @@ export function previewInk(look: BarLook, surface: TaskbarSettings["surface"], c
   return look === "plus" ? { ...dark, "--accent": dark["--theme-accent"] } : surface === "notch" ? closed : undefined;
 }
 
-/** The tools the bar's own widgets open, as partTool has none for them: Hardware for Top apps and the battery, To-dos, the note, the Converter and Clocks. */
-const BAR_ONLY_TOOLS: Partial<Record<PartId, string>> = { processes: "system", battery: "system", todo: "todos", note: "notes", currency: "convert", world: "clocks" };
+/**
+ * The tools the bar's own widgets open, as partTool has none for them: Hardware for Top apps, the battery and the temperatures, To-dos,
+ * the note, the Converter, Clocks and Wallpapers.
+ */
+const BAR_ONLY_TOOLS: Partial<Record<PartId, string>> = { processes: "system", battery: "system", temps: "system", todo: "todos", note: "notes", currency: "convert", world: "clocks", wallpaper: "wallpapers" };
 
 /**
  * The tool a widget opens in the panel over the bar; null for the clock, which opens Crest's Notices and Calendar on the main bar and
- * Windows' notification centre on the others, for the widgets whose panel is the bar's own (widgetPanel), for the microphone, whose
- * click mutes it, and for the stopwatch, whose click starts and pauses it.
+ * Windows' notification centre on the others, for the widgets whose panel is the bar's own (widgetPanel), Device batteries among them,
+ * whose part opens Overview in the notch, for the microphone, whose click mutes it, for the stopwatch, whose click starts and pauses it,
+ * for Keep awake, whose click turns it on or off, and for Unread, whose click opens an app.
  */
-export const widgetTool = (id: PartId): string | null => (id === "clock" ? null : (BAR_ONLY_TOOLS[id] ?? partTool(id)));
+export const widgetTool = (id: PartId): string | null => (id === "clock" || id === "bluetooth" ? null : (BAR_ONLY_TOOLS[id] ?? partTool(id)));
 
 /**
  * The panel of the bar's own a widget opens in place of a tool: the disk widget its drives, the main bar's clock (and beside it the time
- * progress and the date, which show on the main bar only) Crest's Notices over its Calendar, the crypto widget its coin's week. Null
- * for the others, the clock on the other bars among them.
+ * progress and the date, which show on the main bar only) Crest's Notices over its Calendar, the crypto widget its coin's week, Device
+ * batteries the quick panel on its Bluetooth page. Null for the others, the clock on the other bars among them.
  */
-export const widgetPanel = (id: PartId, primary: boolean): "disks" | "clock" | "crypto" | null =>
-  id === "disk" ? "disks" : id === "progress" || id === "date" || (id === "clock" && primary) ? "clock" : id === "crypto" ? "crypto" : null;
+export const widgetPanel = (id: PartId, primary: boolean): "disks" | "clock" | "crypto" | "quick" | null =>
+  id === "disk" ? "disks" : id === "progress" || id === "date" || (id === "clock" && primary) ? "clock" : id === "crypto" ? "crypto" : id === "bluetooth" ? "quick" : null;
 
 /** Widgets with a right-click menu of their own over the Crest menu's rows (window/WidgetMenu.tsx). */
-export const hasWidgetMenu = (id: PartId): boolean => id === "title" || id === "stopwatch" || id === "todo";
+export const hasWidgetMenu = (id: PartId): boolean => ["title", "stopwatch", "todo", "keepawake", "unread", "wallpaper"].includes(id);
 
 /**
  * A widget's size against the notch's: 1 with the default icons, growing and shrinking with the icons the bar draws, times the widgets'

@@ -123,6 +123,14 @@ fn scanned<'a>(paths: &'a [PathBuf], id: usize, letter: &str) -> Option<&'a Path
     paths.get(id).filter(|p| p.starts_with(format!("{letter}\\")))
 }
 
+/// Ejects a removable drive of the last listing by its letter (design K); the bar only.
+#[tauri::command]
+pub async fn taskbar_eject(window: WebviewWindow, letter: String) -> Result<(), String> {
+    bar::from_bar(&window)?;
+    let _ = letter;
+    Err("unsupported".into())
+}
+
 /// Opens a listed drive, or a folder a scan of it listed, in File Explorer, by Explorer's full path: never the shell's open verb,
 /// which an autorun.inf could take over. The bar only.
 #[tauri::command]

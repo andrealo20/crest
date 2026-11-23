@@ -14,12 +14,14 @@ test("a widget's preview wears the bar's ink: Dark's under Liquid Glass + whatev
   assert.equal(previewInk("crest", "theme", closed, dark), undefined);
 });
 
-test("a widget opens its tool; the clock, the disk widget, the time progress, the date, the crypto widget, the microphone and the stopwatch have none", () => {
-  // The clock's panel, the drives and the coin's week are the bar's own panels; the microphone's click mutes, the stopwatch's starts and pauses.
-  const none: readonly PartId[] = ["clock", "disk", "progress", "date", "crypto", "mic", "stopwatch"];
-  const tools: Record<Exclude<PartId, "clock" | "disk" | "progress" | "date" | "crypto" | "mic" | "stopwatch">, string> = {
+test("a widget opens its tool; the clock, the disk widget, the time progress, the date, the crypto widget, the microphone, the stopwatch, Device batteries, Keep awake and Unread have none", () => {
+  // The clock's panel, the drives, the coin's week and the Bluetooth page are the bar's own panels; the microphone's click mutes, the
+  // stopwatch's starts and pauses, Keep awake's turns it on or off, Unread's opens an app.
+  const none: readonly PartId[] = ["clock", "disk", "progress", "date", "crypto", "mic", "stopwatch", "bluetooth", "keepawake", "unread"];
+  const tools: Record<Exclude<PartId, "clock" | "disk" | "progress" | "date" | "crypto" | "mic" | "stopwatch" | "bluetooth" | "keepawake" | "unread">, string> = {
     title: "media", equalizer: "media", timer: "timer", rings: "usage", readings: "system", script: "notices", downloads: "shelf", weather: "weather", calendar: "calendar", discord: "discord", github: "github", leetcode: "leetcode",
     processes: "system", battery: "system", todo: "todos", note: "notes", currency: "convert", world: "clocks",
+    temps: "system", screentime: "screentime", timeline: "screentime", wallpaper: "wallpapers",
   };
   for (const id of PART_IDS) assert.equal(widgetTool(id), none.includes(id) ? null : tools[id as keyof typeof tools], id);
   assert.ok(isWidget("clock") && !isWidget("apps") && !isWidget("crest"));
@@ -101,18 +103,18 @@ test("the tray can be added back like a widget", () => {
   assert.equal(addWidget(TASKBAR_DEFAULTS.zones, "tray", "left"), TASKBAR_DEFAULTS.zones);
 });
 
-test("Windows' buttons are the twelve the bar knows, Windows widgets, the input language, privacy and the Recycle Bin on the main bar only, offered while off the bar", () => {
+test("Windows' buttons are the sixteen the bar knows, Windows widgets, the input language, privacy, the Recycle Bin, Eject and the hotspot on the main bar only, offered while off the bar", () => {
   assert.equal(isSys("sys:search"), true);
   assert.equal(isSys("sys:nope"), false);
   assert.equal(isSys("search"), false);
   assert.equal(isSys("tool:notes"), false);
   assert.deepEqual((["sys:search", "sys:taskview", "sys:widgets", "sys:desktop", "sys:input", "sys:privacy"] as const).filter(sysPrimaryOnly), ["sys:widgets", "sys:input", "sys:privacy"]);
   const zones: Record<Zone, BarItem[]> = { left: ["sys:taskview"], center: ["start", "apps"], right: ["crest"] };
-  assert.deepEqual(addableSys(zones), ["sys:search", "sys:widgets", "sys:desktop", "sys:input", "sys:privacy", "sys:recycle", "sys:theme", "sys:keyboard", "sys:notifications", "sys:recent", "sys:searchbox"]);
-  assert.equal(sysPrimaryOnly("sys:recycle"), true);
-  for (const id of ["sys:theme", "sys:keyboard", "sys:notifications", "sys:recent", "sys:searchbox"] as const) assert.equal(sysPrimaryOnly(id), false, id);
+  assert.deepEqual(addableSys(zones), ["sys:search", "sys:widgets", "sys:desktop", "sys:input", "sys:privacy", "sys:recycle", "sys:theme", "sys:keyboard", "sys:notifications", "sys:dnd", "sys:recent", "sys:searchbox", "sys:deskicons", "sys:eject", "sys:hotspot"]);
+  for (const id of ["sys:recycle", "sys:eject", "sys:hotspot"] as const) assert.equal(sysPrimaryOnly(id), true, id);
+  for (const id of ["sys:theme", "sys:keyboard", "sys:notifications", "sys:dnd", "sys:recent", "sys:searchbox", "sys:deskicons"] as const) assert.equal(sysPrimaryOnly(id), false, id);
   assert.deepEqual(addWidget(zones, "sys:desktop", "right").right, ["sys:desktop", "crest"]);
-  assert.deepEqual(addableSys({ left: ["sys:search", "sys:taskview", "sys:widgets"], center: ["sys:desktop"], right: ["sys:input", "sys:privacy", "sys:recycle", "sys:theme", "sys:keyboard", "sys:notifications", "sys:recent", "sys:searchbox"] }), []);
+  assert.deepEqual(addableSys({ left: ["sys:search", "sys:taskview", "sys:widgets"], center: ["sys:desktop"], right: ["sys:input", "sys:privacy", "sys:recycle", "sys:theme", "sys:keyboard", "sys:notifications", "sys:dnd", "sys:recent", "sys:searchbox", "sys:deskicons", "sys:eject", "sys:hotspot"] }), []);
 });
 
 test("the privacy button polls only while on the bar, and shows the microphone, the camera and the location in that order", () => {
@@ -164,7 +166,9 @@ test("Add tool offers the tools not on the bar, those of the notch only while on
   assert.equal(offered.includes("clipboard"), false);
   assert.ok(offered.includes("notes") && offered.includes("media") && offered.includes("find"));
   const factory = TOOL_IDS.map((id) => ({ id, enabled: !DEFAULT_OFF.has(id) }));
-  assert.equal(addableTools(TASKBAR_DEFAULTS.zones, factory).length, 24);
+  // Wallpapers, off in the notch by default, opens in the panel all the same.
+  assert.equal(addableTools(TASKBAR_DEFAULTS.zones, factory).length, 25);
+  assert.ok(addableTools(TASKBAR_DEFAULTS.zones, factory).includes("wallpapers"));
   assert.ok(addableTools(TASKBAR_DEFAULTS.zones, factory).every((id) => TOOL_BUTTONS.includes(id)));
 });
 
@@ -192,6 +196,13 @@ test("the clock's versions: time and date, time alone, analog, flip, segments, t
   // World time draws from the Clocks tool's zones and offers both versions with or without one; without one it shows its icon.
   assert.deepEqual(widgetChoices("world", false), widgetChoices("world", true));
   assert.deepEqual(versions("world"), ["world", "cities"]);
+  assert.deepEqual(versions("temps"), ["history", "fans"]);
+  assert.deepEqual(versions("bluetooth"), ["lowest", "devices"]);
+  assert.deepEqual(versions("keepawake"), ["icon", "left"]);
+  assert.deepEqual(versions("unread"), ["badge", "each"]);
+  assert.deepEqual(versions("screentime"), ["total", "apps", "hourly"]);
+  assert.deepEqual(versions("timeline"), ["fullday", "ahead"]);
+  assert.deepEqual(versions("wallpaper"), ["thumb", "keys"]);
   assert.deepEqual(widgetChoices("equalizer", true), [{ variant: null }]);
 });
 
@@ -249,11 +260,11 @@ test("only the digital clock has seconds to switch: not Analog, not Two time zon
   assert.equal(clockHasSeconds({ clock: "cities" }, true), true);
 });
 
-test("the title, the stopwatch and the next to-do have a right-click menu of their own over the Crest menu's rows", () => {
-  assert.deepEqual(PART_IDS.filter(hasWidgetMenu), ["title", "stopwatch", "todo"]);
+test("the title, the stopwatch, the next to-do, Keep awake, Unread and the wallpaper have a right-click menu of their own over the Crest menu's rows", () => {
+  assert.deepEqual(PART_IDS.filter(hasWidgetMenu), ["title", "stopwatch", "todo", "keepawake", "unread", "wallpaper"]);
 });
 
-test("the disk widget, the main bar's clock, the time progress, the date and the crypto widget open panels of the bar's own", () => {
+test("the disk widget, the main bar's clock, the time progress, the date, the crypto widget and Device batteries open panels of the bar's own", () => {
   assert.equal(widgetPanel("disk", true), "disks");
   assert.equal(widgetPanel("clock", true), "clock");
   // The other bars' clock opens Windows' notification centre.
@@ -261,7 +272,8 @@ test("the disk widget, the main bar's clock, the time progress, the date and the
   assert.equal(widgetPanel("progress", true), "clock");
   assert.equal(widgetPanel("date", true), "clock");
   assert.equal(widgetPanel("crypto", true), "crypto");
-  assert.deepEqual(PART_IDS.filter((id) => widgetPanel(id, true) !== null), ["clock", "disk", "progress", "date", "crypto"]);
+  assert.equal(widgetPanel("bluetooth", true), "quick");
+  assert.deepEqual(PART_IDS.filter((id) => widgetPanel(id, true) !== null), ["clock", "disk", "progress", "date", "crypto", "bluetooth"]);
   for (const id of PART_IDS) if (widgetPanel(id, true)) assert.equal(widgetTool(id), null, id);
 });
 

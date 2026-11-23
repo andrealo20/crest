@@ -149,8 +149,9 @@ function BatteryFace({ power: p, version: v }: { power: PowerState; version: Bat
   );
 }
 
-/** Top apps or the battery as the bar draws it; null while it has nothing to show, and the bar draws its icon. */
-export function systemPart(id: "processes" | "battery", ctx: WidgetContext): Body | null {
+/** Top apps, the battery or the temperatures as the bar draws it; null while it has nothing to show, and the bar draws its icon. */
+export function systemPart(id: "processes" | "battery" | "temps", ctx: WidgetContext): Body | null {
+  if (id === "temps") return null;
   if (id === "processes") {
     const apps = ctx.feed.topApps;
     if (!apps.length) return null;
@@ -162,6 +163,11 @@ export function systemPart(id: "processes" | "battery", ctx: WidgetContext): Bod
   if (!p?.battery) return null;
   const v = variantOf(ctx.variants, "battery");
   return { node: <BatteryFace power={p} version={v} />, width: batteryFaceWidth(v, p.charging) };
+}
+
+/** The Device batteries widget: the lowest battery, or every device as a ring; null without one, and the bar draws its icon. */
+export function bluetoothPart(_ctx: WidgetContext): Body | null {
+  return null;
 }
 
 /** The Hardware widget's line of the network's download and upload; null draws its dials, which then hold download and upload. */

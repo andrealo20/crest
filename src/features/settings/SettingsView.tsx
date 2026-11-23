@@ -75,6 +75,7 @@ import { VaultSettings } from "../vault/VaultSettings";
 import { ClockLookSettings, TimerLookSettings } from "../timer/LookSettings";
 import { focusSounds, type FocusSound } from "../timer/focusSound";
 import { ProductivitySettings } from "../water/WaterSettings";
+import { ScreenTimeSettings } from "../screentime/ScreenTimeSettings";
 import { BreaksSettings } from "../breaks/BreaksSettings";
 import { TerminalSettings } from "../terminal/TerminalSettings";
 import { MusicSettings } from "../now-playing/MusicSettings";
@@ -680,6 +681,7 @@ function PageContent({ page }: { page: PageId }) {
           {!isMac && <SystemSettings />}
           {findTab("vault") && <VaultSettings />}
           <ProductivitySettings />
+          <ScreenTimeSettings />
           {findTab("terminal") && <TerminalSettings />}
           {findTab("launcher") && <LauncherSettings />}
           <ClipboardSettings />
@@ -1326,12 +1328,12 @@ function PetSettingsRows() {
   );
 }
 
-/** Closed-row parts fed by Windows-only code (hardware readings, the Discord tool, the download watcher). */
-const NO_MAC_PARTS = new Set<PartId>(["readings", "discord", "downloads"]);
+/** Closed-row parts fed by Windows-only code (hardware readings, the Discord tool, the download watcher, the Bluetooth batteries). */
+const NO_MAC_PARTS = new Set<PartId>(["readings", "discord", "downloads", "bluetooth"]);
 
 /** Parts of the closed row (notch and capsule share them): drag to reorder, switch on/off. Same pattern as `Tools()`. */
 function ClosedParts() {
-  const { closed: c, music, tools, notices, github, leetcode: lcSettings, dock } = settings.use();
+  const { closed: c, music, tools, notices, github, leetcode: lcSettings, dock, screenTime } = settings.use();
   const [dragging, setDragging] = useState<PartId | null>(null);
   const setClosed = (patch: (cur: ClosedSettings) => Partial<ClosedSettings>) => updateSettings((cur) => ({ closed: { ...cur.closed, ...patch(cur.closed) } }));
   // Only these always show; battery, power and temperature can be missing, so they cannot keep the part alone. The network
@@ -1346,6 +1348,7 @@ function ClosedParts() {
     script: !(notices.enabled && notices.cli) && t("Braucht Live-Mitteilungen und crest-notify"),
     github: !github.user.trim() && t("Braucht deinen GitHub-Namen"),
     leetcode: !lcSettings.user.trim() && t("Braucht deinen LeetCode-Namen"),
+    screentime: !screenTime.on && t("Bildschirmzeit ist aus"),
   };
 
   return (

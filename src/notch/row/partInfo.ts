@@ -1,6 +1,7 @@
 import {
-  AppWindow, ArrowsLeftRight, BatteryFull, CalendarBlank, ChartDonut, ChartLineUp, CheckCircle, Clock, ClockClockwise, CloudSun, Cpu, DownloadSimple, Gauge, GlobeHemisphereWest, HardDrives,
-  GithubLogo, Microphone, MusicNote, NotePencil, NumberSquareOne, TerminalWindow, Timer, Waveform, type Icon,
+  AppWindow, ArrowsLeftRight, BatteryFull, Bluetooth, CalendarBlank, ChartDonut, ChartLineUp, ChatCircle, CheckCircle, Clock, ClockClockwise, CloudSun, Coffee, Cpu, DownloadSimple, Gauge,
+  GlobeHemisphereWest, HardDrives, GithubLogo, Hourglass, ImageSquare, Microphone, MusicNote, NotePencil, NumberSquareOne, SunHorizon, TerminalWindow, Thermometer, Timer, Waveform,
+  type Icon,
 } from "../../ui/iconset";
 import type { Hue } from "../../features/themes/hues";
 import { DiscordLogo, LeetcodeLogo } from "../../ui/brands";
@@ -33,4 +34,11 @@ export const partInfo: Record<PartId, { label: string; icon: Icon; hue: Hue }> =
   world: { label: "Weltzeit", icon: GlobeHemisphereWest, hue: "indigo" },
   currency: { label: "Wechselkurs", icon: ArrowsLeftRight, hue: "cyan" },
   crypto: { label: "Krypto", icon: ChartLineUp, hue: "emerald" },
+  temps: { label: "Temperaturen", icon: Thermometer, hue: "orange" },
+  bluetooth: { label: "Geräteakkus", icon: Bluetooth, hue: "blue" },
+  keepawake: { label: "Wach halten", icon: Coffee, hue: "amber" },
+  unread: { label: "Ungelesen", icon: ChatCircle, hue: "red" },
+  screentime: { label: "Bildschirmzeit", icon: Hourglass, hue: "purple" },
+  timeline: { label: "Tagesverlauf", icon: SunHorizon, hue: "amber" },
+  wallpaper: { label: "Hintergrundbild", icon: ImageSquare, hue: "sky" },
 };

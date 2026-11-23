@@ -17,15 +17,15 @@ import {
   Clock as PhClock, ClockClockwise as PhClockClockwise, Cloud as PhCloud, CloudFog as PhCloudFog,
   CloudLightning as PhCloudLightning, CloudMoon as PhCloudMoon, CloudRain as PhCloudRain, CloudSnow as PhCloudSnow,
   CloudSun as PhCloudSun, Code as PhCode, Coffee as PhCoffee, Columns as PhColumns, Copy as PhCopy, Cpu as PhCpu, Crop as PhCrop,
-  Crosshair as PhCrosshair, CurrencyDollar as PhCurrencyDollar, DeviceMobile as PhDeviceMobile,
-  DotsSixVertical as PhDotsSixVertical, DotsThree as PhDotsThree, DownloadSimple as PhDownloadSimple, Drop as PhDrop,
-  EnvelopeSimple as PhEnvelopeSimple, Eye as PhEye, EyeSlash as PhEyeSlash, Eyedropper as PhEyedropper, File as PhFile,
+  Broadcast as PhBroadcast, Crosshair as PhCrosshair, CurrencyDollar as PhCurrencyDollar, DeviceMobile as PhDeviceMobile,
+  DotsNine as PhDotsNine, DotsSixVertical as PhDotsSixVertical, DotsThree as PhDotsThree, DownloadSimple as PhDownloadSimple, Drop as PhDrop,
+  Eject as PhEject, EnvelopeSimple as PhEnvelopeSimple, Eye as PhEye, EyeSlash as PhEyeSlash, Eyedropper as PhEyedropper, File as PhFile,
   FileArchive as PhFileArchive, FileAudio as PhFileAudio, FileDoc as PhFileDoc, FilePdf as PhFilePdf, FileText as PhFileText,
-  FileVideo as PhFileVideo, FileXls as PhFileXls, FileZip as PhFileZip, Files as PhFiles, FilmStrip as PhFilmStrip,
+  Fan as PhFan, FileVideo as PhFileVideo, FileXls as PhFileXls, FileZip as PhFileZip, Files as PhFiles, FilmStrip as PhFilmStrip,
   Fingerprint as PhFingerprint, Fire as PhFire, Flag as PhFlag, Flame as PhFlame, FlipHorizontal as PhFlipHorizontal,
   Folder as PhFolder, FolderOpen as PhFolderOpen, GameController as PhGameController, Gauge as PhGauge, GearSix as PhGearSix,
   Gift as PhGift, Globe as PhGlobe, GlobeHemisphereWest as PhGlobeHemisphereWest, Hammer as PhHammer, HandWaving as PhHandWaving,
-  HardDrives as PhHardDrives, Headphones as PhHeadphones, Heart as PhHeart, House as PhHouse, ImageSquare as PhImageSquare,
+  HardDrives as PhHardDrives, Headphones as PhHeadphones, Heart as PhHeart, Hourglass as PhHourglass, House as PhHouse, ImageSquare as PhImageSquare,
   Key as PhKey, Keyboard as PhKeyboard, Leaf as PhLeaf, Lightning as PhLightning, LinkSimple as PhLinkSimple, Lock as PhLock,
   LockOpen as PhLockOpen, LockSimple as PhLockSimple, LockSimpleOpen as PhLockSimpleOpen, MagnifyingGlass as PhMagnifyingGlass,
   MapPin as PhMapPin, Microphone as PhMicrophone, MicrophoneSlash as PhMicrophoneSlash, MicrophoneStage as PhMicrophoneStage,
@@ -120,6 +120,7 @@ export const BellSimpleSlash = material(PhBellSimpleSlash, "BellSimpleSlash");
 export const Bluetooth = material(PhBluetooth, "Bluetooth");
 export const BookOpen = material(PhBookOpen, "BookOpen");
 export const BoundingBox = material(PhBoundingBox, "BoundingBox");
+export const Broadcast = material(PhBroadcast, "Broadcast");
 export const Broom = material(PhBroom, "Broom");
 export const Bug = material(PhBug, "Bug");
 export const Calculator = material(PhCalculator, "Calculator");
@@ -158,14 +159,17 @@ export const Crop = material(PhCrop, "Crop");
 export const Crosshair = material(PhCrosshair, "Crosshair");
 export const CurrencyDollar = material(PhCurrencyDollar, "CurrencyDollar");
 export const DeviceMobile = material(PhDeviceMobile, "DeviceMobile");
+export const DotsNine = material(PhDotsNine, "DotsNine");
 export const DotsSixVertical = material(PhDotsSixVertical, "DotsSixVertical");
 export const DotsThree = material(PhDotsThree, "DotsThree");
 export const DownloadSimple = material(PhDownloadSimple, "DownloadSimple");
 export const Drop = material(PhDrop, "Drop");
+export const Eject = material(PhEject, "Eject");
 export const EnvelopeSimple = material(PhEnvelopeSimple, "EnvelopeSimple");
 export const Eye = material(PhEye, "Eye");
 export const EyeSlash = material(PhEyeSlash, "EyeSlash");
 export const Eyedropper = material(PhEyedropper, "Eyedropper");
+export const Fan = material(PhFan, "Fan");
 export const File = material(PhFile, "File");
 export const FileArchive = material(PhFileArchive, "FileArchive");
 export const FileAudio = material(PhFileAudio, "FileAudio");
@@ -195,6 +199,7 @@ export const HandWaving = material(PhHandWaving, "HandWaving");
 export const HardDrives = material(PhHardDrives, "HardDrives");
 export const Headphones = material(PhHeadphones, "Headphones");
 export const Heart = material(PhHeart, "Heart");
+export const Hourglass = material(PhHourglass, "Hourglass");
 export const House = material(PhHouse, "House");
 export const ImageSquare = material(PhImageSquare, "ImageSquare");
 export const Key = material(PhKey, "Key");

@@ -30,12 +30,15 @@ import { usage, useUsageViewer } from "../usage/store";
 import { nextHours } from "../weather/hours";
 import { isStale } from "../weather/stale";
 import { useForecast } from "../weather/store";
+import { ScreenTimeSource, TimelineSource } from "../screentime/sources";
 import { anyBarTool, barPanels, onBarShows } from "./barPanels";
 import { EMPTY_FEED, barFeed, feedStores, noticeCount, panelOpen, panelStores } from "./barStores";
+import { BluetoothSource, TempsSource } from "./deviceSources";
 import { CryptoSource, CurrencySource } from "./marketSources";
 import { variantOf } from "./model";
 import { useSlice } from "./slice";
 import { topApp, type TopApp } from "./systemWidgets";
+import { UnreadSource } from "./unreadSource";
 import { SLIDE_KEEP_MS, barPartsFor, barSources, barWidgets, sourcesAfter, weatherWanted, type BarSeen } from "./widgets";
 
 /*
@@ -195,7 +198,10 @@ function ScriptSource() {
 /** How often the disk widget's drives are read: never a tight poll, so an idle disk is not kept awake. */
 const DISKS_EVERY = 5 * 60_000;
 
-/** The drives now and every DISKS_EVERY; Crest hears no device change, so a drive plugged in shows on the next read (or in the panel, which reads as it opens). */
+/**
+ * The drives now, every DISKS_EVERY and when a bar ejected one (`bar://disks`); Crest hears no device change, so a drive plugged in shows
+ * on the next read (or in the panel, which reads as it opens).
+ */
 function DiskSource() {
   const [list, setList] = useState(() => barFeed.get().disks);
   useEffect(() => {
@@ -203,9 +209,11 @@ function DiskSource() {
     const read = () => void taskbar.disks().then((d) => on && d && setList(d));
     read();
     const id = window.setInterval(read, DISKS_EVERY);
+    const off = taskbar.onDisks(read);
     return () => {
       on = false;
       window.clearInterval(id);
+      off();
     };
   }, []);
   useSlice("disks", list);
@@ -214,7 +222,8 @@ function DiskSource() {
 
 /**
  * The clock, the date, the world time, the time progress and the timer have none, nor do the microphone, the stopwatch, the next
- * to-do and the note: the bar counts the time itself, Rust tells the bar about the microphone, and the others are saved stores.
+ * to-do, the note, Keep awake and the wallpaper: the bar counts the time itself, Rust tells the bar about the microphone and the
+ * wallpaper, Keep awake comes with the feed's stores, and the others are saved stores.
  */
 const SOURCES: Partial<Record<PartId, () => null>> = {
   weather: WeatherSource,
@@ -233,6 +242,11 @@ const SOURCES: Partial<Record<PartId, () => null>> = {
   battery: BatterySource,
   currency: CurrencySource,
   crypto: CryptoSource,
+  temps: TempsSource,
+  bluetooth: BluetoothSource,
+  unread: UnreadSource,
+  screentime: ScreenTimeSource,
+  timeline: TimelineSource,
 };
 
 /**

@@ -21,6 +21,7 @@ import { DEFAULT_OFF, TOOL_IDS } from "./tools";
 import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
 import { normalizeSearch, type SearchSetting } from "../features/overview/search";
 import { TASKBAR_DEFAULTS, normalizeTaskbar, type TaskbarSettings } from "../features/taskbar/model";
+import { WALLPAPER_DEFAULTS, normalizeWallpapers, type WallpaperSettings } from "../features/wallpapers/model";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "off" | "low" | "medium" | "high" | "xhigh";
@@ -172,6 +173,10 @@ export interface Settings {
   clipPaste: boolean;
   /** Crest's bar in place of Windows' taskbar (Windows only, off by default): its zones, size, background and pinned apps (src/features/taskbar). */
   taskbar: TaskbarSettings;
+  /** Screen Time records which app is in front, per hour, only on this PC and only once turned on (src/features/screentime). */
+  screenTime: { on: boolean };
+  /** The Wallpapers tool: its source, its folder, the fit and the automatic change (src/features/wallpapers). */
+  wallpapers: WallpaperSettings;
 }
 
 const defaults: Settings = {
@@ -239,6 +244,8 @@ const defaults: Settings = {
   clipChips: true,
   clipPaste: false,
   taskbar: TASKBAR_DEFAULTS,
+  screenTime: { on: false },
+  wallpapers: WALLPAPER_DEFAULTS,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -365,6 +372,9 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     // Only a fresh install starts from the defaults (done: false); settings saved by 0.2.x have no `setup` and never see it.
     setup: { done: s.setup ? s.setup.done === true : true },
     taskbar: normalizeTaskbar(s.taskbar),
+    // Only an explicit true records: the switch is the consent.
+    screenTime: { on: s.screenTime?.on === true },
+    wallpapers: normalizeWallpapers(s.wallpapers),
   });
 }
 

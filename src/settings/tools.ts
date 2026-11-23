@@ -32,6 +32,8 @@ export const TOOL_IDS = [
   "teleprompter",
   "agents",
   "calc",
+  "screentime",
+  "wallpapers",
 ] as const;
 
 /**
@@ -44,4 +46,4 @@ export function toolOff<T extends { id: string; enabled: boolean }>(tools: T[], 
 }
 
 /** The tools that start switched off on a fresh install. */
-export const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "leetcode", "calendar", "notices", "recorder", "camera", "habits", "colour", "clocks", "teleprompter", "agents", "calc"]);
+export const DEFAULT_OFF = new Set<string>(["system", "discord", "trading", "vault", "water", "scratchpad", "terminal", "github", "leetcode", "calendar", "notices", "recorder", "camera", "habits", "colour", "clocks", "teleprompter", "agents", "calc", "screentime", "wallpapers"]);

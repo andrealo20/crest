@@ -67,6 +67,7 @@ mod power;
 mod privacy;
 mod phone_share;
 mod romanize;
+mod screentime;
 mod standby;
 mod translate;
 #[cfg_attr(not(windows), allow(dead_code))]
@@ -95,6 +96,7 @@ pub mod usage;
 mod vault;
 mod mic;
 mod sharing;
+mod wallpaper;
 
 // The Mac's own versions of what the shared modules call into (src/macos/); the other Windows modules have no Mac
 // counterpart yet and their tools are hidden there.
@@ -158,7 +160,9 @@ const SETTINGS_DENIED: &[&str] = &[
     "display_rescale", "taskbar_input", "taskbar_app_volume", "taskbar_spread", "taskbar_jump_list", "taskbar_jump_open", "taskbar_recent",
     "taskbar_keys", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_all_desktops", "taskbar_window_menu", "taskbar_arrange",
     "taskbar_window_order", "taskbar_end_task", "taskbar_decor", "taskbar_decor_images", "taskbar_disks", "taskbar_disk_open",
-    "taskbar_disk_scan", "taskbar_disk_scan_stop",
+    "taskbar_disk_scan", "taskbar_disk_scan_stop", "screentime_set", "wallpaper_set", "wallpaper_step", "wallpaper_fit", "wallpaper_folder",
+    "wallpaper_pack_download", "wallpaper_pack_remove", "taskbar_desktop_icons", "taskbar_desktop_icons_set", "taskbar_eject", "taskbar_hotspot",
+    "taskbar_hotspot_set",
 ];
 
 /// What the bar may call: its own hit zones, window list and window in front, listing and starting apps, pinning a listed window,
@@ -171,10 +175,12 @@ const SETTINGS_DENIED: &[&str] = &[
 /// (taskbar/taskband.rs), the quick panel's Wi-Fi page (taskbar/wifi.rs) and its
 /// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), the jump list of an
 /// app's menu and its rows opened, and the Recently opened button's list (taskbar/jumplist.rs), the keyboard after one of its Windows keys (`taskbar_focus`), the Recycle Bin
-/// (taskbar/recycle.rs), the drives of its disk space widget, opening one and its Scan now (taskbar/disks.rs), the window and group menus and the previews' order (taskbar/tasks.rs), and what the notch's
+/// (taskbar/recycle.rs), the drives of its disk space widget, opening one, ejecting one and its Scan now (taskbar/disks.rs), the window and group menus and the previews' order (taskbar/tasks.rs),
+/// the desktop's icons and the mobile hotspot of its Windows buttons (taskbar/toggles.rs), the app icons of its Unread widget (`notices_icon`), and what the notch's
 /// tools in its panel read or do on a click, the Converter's public rates among them (`portfolio_prices`), and the pinned tools that run
 /// there whole: the Depot's accounts (never a key's value), Agents, Colour's picker, the Clipboard's history, Ask's chat, the Launcher's
-/// apps and the Recorder (sound only, capture/mod.rs `capture_start`). Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
+/// apps, the Recorder (sound only, capture/mod.rs `capture_start`), Screen Time's days (`screentime_days`, never recording or deleting them) and Wallpapers'
+/// pictures, folder and download (wallpaper.rs). Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
 /// `taskbar_tray_on`, `taskbar_spread`, `taskbar_all_desktops`, `taskbar_end_task`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
@@ -183,7 +189,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_slid", "glass_live_supported", "glass_live_exclude", "glass_live_start", "glass_live_stop", "status_seed",
     "taskbar_panel", "taskbar_ask", "taskbar_hello", "taskbar_calendar", "translate_status", "taskbar_shell", "taskbar_settings",
     "calendar_open_link", "github_open_profile", "leetcode_open_profile", "discord_action", "usage_tokens",
-    "notices_open_app", "notices_copy_code",
+    "notices_open_app", "notices_copy_code", "notices_icon",
     "power_plans", "power_plan_set", "system_icon", "system_ipconfig", "system_battery_report", "reveal_file", "ports_list", "ports_open", "ports_end",
     "convert_probe", "file_preview", "open_path", "copy_files", "shelf_drag_out", "clipboard_paste_files", "shelf_clipboard_text",
     "phone_share_start", "phone_share_stop", "portfolio_prices",
@@ -194,11 +200,14 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
     "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_input", "taskbar_app_volume",
     "taskbar_jump_list", "taskbar_jump_open", "taskbar_recent", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_window_menu", "taskbar_arrange",
-    "taskbar_window_order", "taskbar_disks", "taskbar_disk_open", "taskbar_disk_scan", "taskbar_disk_scan_stop",
+    "taskbar_window_order", "taskbar_disks", "taskbar_disk_open", "taskbar_disk_scan", "taskbar_disk_scan_stop", "taskbar_eject",
+    "taskbar_desktop_icons", "taskbar_desktop_icons_set", "taskbar_hotspot", "taskbar_hotspot_set",
     "secret_has", "portfolio_fetch", "portfolio_record", "agents_list", "colour_pick",
     "clipboard_list", "clipboard_copy", "clipboard_paste", "clipboard_preview", "clipboard_text", "clipboard_delete", "clipboard_clear",
     "ai_chat", "ai_cancel", "launcher_apps", "launcher_add_file",
     "capture_list", "capture_details", "capture_start", "capture_stop", "capture_pause", "capture_state", "capture_delete",
+    "screentime_days", "wallpaper_current", "wallpaper_list", "wallpaper_set", "wallpaper_step", "wallpaper_fit", "wallpaper_folder",
+    "wallpaper_pack_download", "wallpaper_pack_remove",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -351,6 +360,9 @@ pub fn run() {
             hit_test::set_pinned,
             hit_test::set_passthrough,
             idle::idle_seconds,
+            screentime::screentime_set,
+            screentime::screentime_days,
+            screentime::screentime_clear,
             media::media_get,
             media::media_control,
             media::media_pin,
@@ -609,6 +621,16 @@ pub fn run() {
             #[cfg(windows)]
             taskbar::disks::taskbar_disk_scan_stop,
             #[cfg(windows)]
+            taskbar::disks::taskbar_eject,
+            #[cfg(windows)]
+            taskbar::toggles::taskbar_desktop_icons,
+            #[cfg(windows)]
+            taskbar::toggles::taskbar_desktop_icons_set,
+            #[cfg(windows)]
+            taskbar::toggles::taskbar_hotspot,
+            #[cfg(windows)]
+            taskbar::toggles::taskbar_hotspot_set,
+            #[cfg(windows)]
             taskbar::tasks::taskbar_all_desktops,
             #[cfg(windows)]
             taskbar::tasks::taskbar_end_task,
@@ -716,6 +738,8 @@ pub fn run() {
             #[cfg(windows)]
             notices::notices_open_app,
             #[cfg(windows)]
+            notices::notices_icon,
+            #[cfg(windows)]
             notices::notices_copy_code,
             backup::backup_save,
             backup::backup_open,
@@ -777,6 +801,14 @@ pub fn run() {
             macos::glass_live_stop,
             #[cfg(target_os = "macos")]
             macos::colour::colour_pick,
+            wallpaper::wallpaper_current,
+            wallpaper::wallpaper_list,
+            wallpaper::wallpaper_set,
+            wallpaper::wallpaper_step,
+            wallpaper::wallpaper_fit,
+            wallpaper::wallpaper_folder,
+            wallpaper::wallpaper_pack_download,
+            wallpaper::wallpaper_pack_remove,
             agents::agents_list,
             mic::mic_mute,
             sharing::sharing_hide,
@@ -1415,6 +1447,21 @@ mod tests {
         assert!(ok("taskbar", "taskbar_preview") && ok("taskbar-1", "taskbar_preview") && !ok("settings", "taskbar_preview") && !ok("timer", "taskbar_preview"));
         // Resizing and moving the notch's window follows the notch's own page.
         assert!(!ok("settings", "display_rescale"));
+        // Screen Time: the bar's panel reads the days; recording is the notch's (the user's switch), deleting the settings'.
+        assert!(ok("taskbar", "screentime_days") && ok("taskbar-1", "screentime_days") && ok("settings", "screentime_days"));
+        assert!(!ok("taskbar", "screentime_set") && !ok("settings", "screentime_set") && ok("notch", "screentime_set"));
+        assert!(!ok("taskbar", "screentime_clear") && ok("settings", "screentime_clear"));
+        // Wallpapers runs whole in the bar's panel; the settings window, which has no such page, changes nothing of the desktop.
+        assert!(ok("taskbar", "wallpaper_current") && ok("taskbar", "wallpaper_list") && ok("settings", "wallpaper_current") && ok("settings", "wallpaper_list"));
+        for c in ["wallpaper_set", "wallpaper_step", "wallpaper_fit", "wallpaper_folder", "wallpaper_pack_download", "wallpaper_pack_remove"] {
+            assert!(ok("taskbar", c) && ok("taskbar-1", c) && ok("notch", c) && !ok("settings", c) && !ok("timer", c), "{c}");
+        }
+        // The Unread widget's app icons: an icon is no data to keep from the bar.
+        assert!(ok("taskbar", "notices_icon") && ok("taskbar-1", "notices_icon"));
+        // The desktop's icons, ejecting a drive and the hotspot: the bars' Windows buttons, never the settings window's.
+        for c in ["taskbar_desktop_icons", "taskbar_desktop_icons_set", "taskbar_eject", "taskbar_hotspot", "taskbar_hotspot_set"] {
+            assert!(ok("taskbar", c) && ok("taskbar-1", c) && ok("notch", c) && !ok("settings", c) && !ok("timer", c), "{c}");
+        }
     }
 
     #[test]

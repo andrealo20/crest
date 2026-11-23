@@ -4,10 +4,12 @@ import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quic
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
-test("the twelve widget tools open in the bar", () => {
+test("the thirteen widget tools open in the bar, and Wallpapers with the tools that run whole there", () => {
   for (const id of BAR_TOOLS) assert.equal(opensInBar(tool(id)), true, id);
   for (const id of ["vault", "terminal", "settings"]) assert.equal(opensInBar(tool(id)), false, id);
-  assert.equal(BAR_TOOLS.length, 12);
+  assert.equal(BAR_TOOLS.length, 13);
+  assert.equal(BAR_TOOLS.at(-1), "screentime");
+  assert.ok(PANEL_TOOLS.includes("wallpapers") && opensInBar(tool("wallpapers")));
 });
 
 test("the same content toggles, another one takes its place", () => {
@@ -176,11 +178,11 @@ test("the six tools on saved stores and the Converter open in the panel too, the
   for (const id of saved) assert.equal(BAR_TOOLS.includes(id), false, id);
   // Secrets and the shell, the full-screen tools and Find on screen, a page, stay in the notch.
   for (const id of ["vault", "terminal", "capture", "teleprompter", "find"]) assert.equal(opensInBar(tool(id)), false, id);
-  assert.equal(PANEL_TOOLS.length, 28);
+  assert.equal(PANEL_TOOLS.length, 30);
 });
 
 test("the pinned tools that work in the bar's window open in its panel too, with nothing of the notch's", () => {
-  const own = ["trading", "calc", "agents", "colour", "camera", "clipboard", "ask", "launcher", "recorder"];
+  const own = ["trading", "calc", "agents", "colour", "camera", "clipboard", "ask", "launcher", "recorder", "wallpapers"];
   for (const id of own) assert.equal(opensInBar(tool(id)), true, id);
   for (const id of own) assert.equal(BAR_TOOLS.includes(id), false, id);
 });

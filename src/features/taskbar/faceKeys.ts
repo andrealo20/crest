@@ -3,8 +3,11 @@
 import type { PartId } from "../../notch/row/parts.ts";
 import { variantOf, type WidgetVariants } from "./model.ts";
 
-/** What a key on a face does: play or pause the song, the previous or the next one, mute the microphone or the sound, open Weather (onWeather). */
-export type FaceKey = "toggle" | "previous" | "next" | "mic" | "sound" | "weather";
+/**
+ * What a key on a face does: play or pause the song, the previous or the next one, mute the microphone or the sound, open Weather
+ * (onWeather), the previous or the next wallpaper.
+ */
+export type FaceKey = "toggle" | "previous" | "next" | "mic" | "sound" | "weather" | "wallPrevious" | "wallNext";
 
 /** The song title's versions, px at scale 1: a key's column, the round play key, the cover, the room after them, each text column. */
 export const TRACK = { key: 22, disc: 24, cover: 20, gap: 6, text: { play: 130, cover: 100, track: 132 } } as const;
@@ -18,6 +21,8 @@ export const TRACK_WIDTH: Record<Exclude<WidgetVariants["title"], "text">, numbe
 /** The microphone's glyph, and each glyph's column when the speaker stands beside it. */
 export const MIC = { glyph: 16, key: 20 } as const;
 export const MIC_WIDTH: Record<WidgetVariants["mic"], number> = { mic: MIC.glyph, both: 2 * MIC.key };
+/** The wallpaper's version with keys: a key's column each side of the picture, and the whole face. */
+export const WALL = { key: 20, thumb: 40, width: 80 } as const;
 
 /** A face's width and its keys as [from, to, key] in its own px, left to right. */
 function faceKeys(id: PartId, variants: unknown): { width: number; keys: [number, number, FaceKey][] } {
@@ -25,6 +30,11 @@ function faceKeys(id: PartId, variants: unknown): { width: number; keys: [number
     return variantOf(variants, "mic") === "both"
       ? { width: MIC_WIDTH.both, keys: [[0, MIC.key, "mic"], [MIC.key, MIC_WIDTH.both, "sound"]] }
       : { width: MIC_WIDTH.mic, keys: [[0, MIC_WIDTH.mic, "mic"]] };
+  }
+  if (id === "wallpaper") {
+    return variantOf(variants, "wallpaper") === "keys"
+      ? { width: WALL.width, keys: [[0, WALL.key, "wallPrevious"], [WALL.width - WALL.key, WALL.width, "wallNext"]] }
+      : { width: 0, keys: [] };
   }
   if (id !== "title") return { width: 0, keys: [] };
   const v = variantOf(variants, "title"), w = v === "text" ? 0 : TRACK_WIDTH[v];
