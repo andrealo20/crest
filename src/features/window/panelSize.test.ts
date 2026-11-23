@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PANEL_MAX, clampSize, currentQuick, dragSize, fitScale, limits, normalizeSizes, normalizeTextSizes, quickSize, sizeFor, stepScale, stepSize, stepTextSize, toPageCss, toSaved } from "./panelSize.ts";
+import { PANEL_MAX, clampSize, currentQuick, dragSize, fitScale, fromShown, limits, normalizeSizes, normalizeTextSizes, quickSize, sizeFor, stepScale, stepSize, stepTextSize, toPageCss, toSaved } from "./panelSize.ts";
 
 const def = { w: 520, h: 250 };
 
@@ -50,6 +50,18 @@ test("the resize shortcut steps", () => {
   assert.deepEqual(stepSize(def, "right", l), { w: 540, h: 250 });
   assert.deepEqual(stepSize(def, "up", l), { w: 520, h: 230 });
   assert.deepEqual(stepSize({ w: 740, h: 540 }, "down", l), { w: 740, h: 540 });
+});
+
+test("a resize of a panel the tool bar holds wider than its tool: growing past it takes the new width, anything else never widens the tool (#82)", () => {
+  const own = { w: 520, h: 250 };
+  // From the 649 px on screen: past them the width is the tool's new one.
+  assert.deepEqual(fromShown({ w: 689, h: 250 }, own, 649), { w: 689, h: 250 });
+  // Narrower or only taller, the tool's own width stays, or the narrower one.
+  assert.deepEqual(fromShown({ w: 629, h: 250 }, own, 649), { w: 520, h: 250 });
+  assert.deepEqual(fromShown({ w: 649, h: 290 }, own, 649), { w: 520, h: 290 });
+  assert.deepEqual(fromShown({ w: 480, h: 250 }, own, 649), { w: 480, h: 250 });
+  // Not held, as wide as its tool: the resize as it is.
+  assert.deepEqual(fromShown({ w: 600, h: 250 }, { w: 700, h: 250 }, 700), { w: 600, h: 250 });
 });
 
 test("positions survive scale round trips exactly and keep their device pixels", () => {
