@@ -21,7 +21,7 @@ import { normalizeFavorites } from "../launcher/apps";
 import { activeTheme, darkInk } from "../themes/store";
 import { GlassFps, GlassSlider } from "../themes/ThemeSettings";
 import { barLook, barVeil, themeVeils } from "./look";
-import { fitIcon, HEIGHT, ICON, moveItem, START_ICONS, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, type BarItem, type AppsOn, type BarEdge, type BarShape, type Combine, type EmptyDouble, type MarkStyle, type StartIcon, type SysItem, type ToolItem, type Zone } from "./model";
+import { fitIcon, HEIGHT, ICON, moveItem, START_ICONS, stepFocus, stepItem, taskbarShown, TOOL_BUTTONS, TRANSPARENCY, WIDGET_SIZE, type BarItem, type AppsOn, type BarEdge, type BarShape, type Combine, type EmptyDouble, type MarkStyle, type StartIcon, type SysItem, type ToolItem, type Zone } from "./model";
 import { demoBarOffered, setTaskbar } from "./store";
 import { AddSys, AddTool, AddWidget, WidgetOptions } from "./WidgetRows";
 import { toolInfo } from "./toolInfo";
@@ -382,11 +382,11 @@ export function TaskbarApps() {
 }
 
 /**
- * Taskbar → Appearance: the bar's shape, height, its icons' size, its background, its transparency and its glass. Colours, theme and
- * the glass's sliders are the ones of Notch → Themes.
+ * Taskbar → Appearance: the bar's shape, height, its icons' and its widgets' size, its background, its transparency and its glass.
+ * Colours, theme and the glass's sliders are the ones of Notch → Themes.
  */
 export function TaskbarLook() {
-  const { shape, height, iconSize, surface, transparency, glass, glassLook, autoHide, position, marks, startIcon } = settings.use().taskbar;
+  const { shape, height, iconSize, widgetSize, surface, transparency, glass, glassLook, autoHide, position, marks, startIcon } = settings.use().taskbar;
   // Brand names stay as they are, as the Style row's button writes them.
   const startLabel: Record<StartIcon, string> = { windows: "Windows", crest: "Crest", dots: t("Punkte"), rocket: t("Rakete"), sparkle: t("Funkeln"), star: t("Stern") };
   const fps = settings.use().themes.glassFps;
@@ -462,6 +462,13 @@ export function TaskbarLook() {
       <PxRow icon="height" label={t("Höhe")} value={height} min={HEIGHT[0]} max={HEIGHT[1]} live={!(shape === "docked" && !autoHide)} onChange={(height) => setTaskbar({ height })} />
       {/* The size the bar draws: a lower bar keeps the saved one and a taller bar gives it back (fitIcon). */}
       <PxRow icon="aspect_ratio" label={t("Symbolgröße")} value={fitIcon(height, iconSize)} min={ICON[0]} max={fitIcon(height, ICON[1])} onChange={(iconSize) => setTaskbar({ iconSize })} />
+      {/* Against the icons' size: at 100 % the widgets follow the icons as before (widgets.ts widgetScale). */}
+      <Row icon="widgets" label={t("Widgetgröße")}>
+        <div className="flex w-52 items-center gap-2">
+          <Slider label={t("Widgetgröße")} value={widgetSize} min={WIDGET_SIZE[0]} max={WIDGET_SIZE[1]} step={5} valueText={`${widgetSize} %`} onChange={(widgetSize) => setTaskbar({ widgetSize })} />
+          <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{widgetSize} %</span>
+        </div>
+      </Row>
       <Row icon="format_color_fill" label={t("Hintergrund")} hint={t("Notch: wie die geschlossene Notch. Theme: die Hintergrundfarbe des Themes")}>
         <Segmented
           id="taskbar-surface"

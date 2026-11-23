@@ -217,6 +217,8 @@ pub(super) fn build(app: &AppHandle, label: &str, on_destroyed: impl Fn() + Send
         .map_err(|e| e.to_string())?;
     // Files dropped on its apps are pinned (ownpins.rs `dropped`).
     crate::drop::install_bar(&window);
+    // The Camera tool in its panel: Crest's own page gets the camera, as in the notch.
+    crate::camera::install(&window);
     // Built during a recording or a screenshot, while Crest is hidden from screen sharing or while the bars' glass is on: as the
     // other windows are.
     crate::capture::exclude_if_capturing(app);

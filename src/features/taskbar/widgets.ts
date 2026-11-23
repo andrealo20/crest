@@ -2,7 +2,7 @@
 // opens, their size, and adding or removing one. Pure, so the rules are tested without the app around them.
 
 import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
-import { SYS_IDS, TASKBAR_DEFAULTS, TOOL_BUTTONS, WIDGET_VARIANTS, fitIcon, isObj, variantOf, type BarItem, type SysId, type SysItem, type TaskbarSettings, type ToolItem, type WidgetVariants, type Zone } from "./model.ts";
+import { ICON, SYS_IDS, TASKBAR_DEFAULTS, TOOL_BUTTONS, WIDGET_VARIANTS, fitIcon, isObj, variantOf, type BarItem, type SysId, type SysItem, type TaskbarSettings, type ToolItem, type WidgetVariants, type Zone } from "./model.ts";
 import { opensInBar } from "./panelModel.ts";
 import type { BarLook } from "./look.ts";
 import type { PrivacyState } from "../../platform/services.ts";
@@ -69,8 +69,15 @@ export const widgetPanel = (id: PartId, primary: boolean): "disks" | "clock" | "
 /** Widgets with a right-click menu of their own over the Crest menu's rows (window/WidgetMenu.tsx). */
 export const hasWidgetMenu = (id: PartId): boolean => id === "title" || id === "stopwatch" || id === "todo";
 
-/** A widget's size against the notch's: 1 with the default icons, growing and shrinking with the icons the bar draws. */
-export const widgetScale = (height: number, iconSize: number): number => fitIcon(height, iconSize) / TASKBAR_DEFAULTS.iconSize;
+/**
+ * A widget's size against the notch's: 1 with the default icons, growing and shrinking with the icons the bar draws, times the widgets'
+ * own size (`size`, percent). Never under 0.75, where the row's 12 px text is 9 px, unless the icons are smaller already, and never over
+ * the largest icons the bar's height draws, so the 30 px cell stays inside the bar.
+ */
+export const widgetScale = (height: number, iconSize: number, size: number): number => {
+  const k = fitIcon(height, iconSize) / TASKBAR_DEFAULTS.iconSize;
+  return Math.min(fitIcon(height, ICON[1]) / TASKBAR_DEFAULTS.iconSize, Math.max(Math.min(k, 0.75), (k * size) / 100));
+};
 
 /**
  * Whether a widget sits on Stato's pill: weather and hardware, which Andrea named, off Tiles, whose tile is already one. Windows 11's
@@ -87,14 +94,18 @@ export const widgetWidth = (width: number, k: number, pad: number | null): numbe
 /** The widgets on the bar, reading left, center, right. */
 export const barWidgets = (zones: Record<Zone, BarItem[]>): PartId[] => [...zones.left, ...zones.center, ...zones.right].filter(isWidget);
 
+/** The panel's tools that still need their switch in the notch, which records the clipboard's history only while one of them is on (main.tsx). */
+const NOTCH_SWITCHED: readonly string[] = ["clipboard", "ask"];
+
 /**
  * Whether a button of `tool` shows on the bar and in Add tool: one the notch opens only while the tool is on there, since the notch
- * opens its first tool in place of one switched off (Notch.tsx:105-108); one the panel opens, and Find on screen, a page without a
- * switch, always. Never one the bar does not offer: another window gets the settings' raw JSON from a storage event, without
- * normalizeZones (storeCore.ts:51-57).
+ * opens its first tool in place of one switched off (Notch.tsx:105-108), and so the Clipboard and Ask (NOTCH_SWITCHED); one the panel
+ * opens, and Find on screen, a page without a switch, always. Never one the bar does not offer: another window gets the settings' raw
+ * JSON from a storage event, without normalizeZones (storeCore.ts:51-57).
  */
 export const toolShown = (tool: string, tools: readonly ToolSwitch[]): boolean =>
-  TOOL_BUTTONS.includes(tool) && (opensInBar({ kind: "tool", tool }) || tool === "find" || tools.some((x) => x.id === tool && x.enabled));
+  TOOL_BUTTONS.includes(tool) &&
+  ((opensInBar({ kind: "tool", tool }) && !NOTCH_SWITCHED.includes(tool)) || tool === "find" || tools.some((x) => x.id === tool && x.enabled));
 
 /** The zones the bar draws and fits: without the buttons whose tool cannot open (toolShown). */
 export function shownZones(zones: Record<Zone, BarItem[]>, tools: readonly ToolSwitch[]): Record<Zone, BarItem[]> {

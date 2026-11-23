@@ -8,18 +8,20 @@ import { CrestMenu, Row } from "./BarMenu";
 
 /**
  * The right-click menu of a widget that has rows of its own (widgets.ts hasWidgetMenu): those rows, a line, then the Crest menu's. The
- * song title's row opens Now Playing, which its round version, whose whole face plays and pauses, has no other click for.
+ * song title's row opens Now Playing, which its round version, whose whole face plays and pauses, has no other click for; on the main
+ * bar the clock's Time and weather and the date's week open Weather, the keyboard's way to what a click on their weather opens.
  */
 export function WidgetMenu({ id, close, openTool }: { id: PartId; close: () => void; openTool: (tool: string) => void }) {
+  const opens = id === "title" ? { tool: "media", name: t("Wiedergabe") } : id === "clock" || id === "date" ? { tool: "weather", name: t("Wetter") } : null;
   return (
     <>
-      {id === "title" && (
+      {opens && (
         <>
           <Row
-            label={t("{name} öffnen", { name: t("Wiedergabe") })}
+            label={t("{name} öffnen", { name: opens.name })}
             onClick={() => {
               close();
-              openTool("media");
+              openTool(opens.tool);
             }}
           />
           <div className="h-px bg-separator my-1" />

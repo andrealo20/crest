@@ -25,7 +25,7 @@ import type { NowPlaying } from "../../../platform/media/types";
 import { timer } from "../../timer/store";
 import { t } from "../../../i18n";
 import { EMPTY_FEED, barFeed, noticeCount, type BarFeed } from "../barStores";
-import { widgetKey, type FaceKey } from "../faceKeys";
+import { onWeather, widgetKey, type FaceKey } from "../faceKeys";
 import { countBadge, variantOf, type TaskbarSettings } from "../model";
 import { SAMPLE_TIMER } from "../sampleFeed";
 import { statusPill } from "../statusModel";
@@ -68,11 +68,15 @@ export interface WidgetContext {
   sample?: boolean;
 }
 
-/** A widget's face and its width at scale 1, and what its name gains in the label above the bar, for a face that shows less than it knows (the Top apps' names). */
+/**
+ * A widget's face and its width at scale 1, and what its name gains in the label above the bar, for a face that shows less than it knows
+ * (the Top apps' names). `weatherFrom`: where the weather a face draws at its end starts, from its start edge, at the middle of the gap before it.
+ */
 export interface Body {
   node: ReactNode;
   width: number;
   tip?: string;
+  weatherFrom?: number;
 }
 
 /** Side by side, as the closed row's carousel shows them when they all fit. */
@@ -207,6 +211,7 @@ export function widgetBody(id: PartId, ctx: WidgetContext): Body & { drawn: bool
     ),
     width: body ? body.width : 16,
     tip: body?.tip,
+    weatherFrom: body?.weatherFrom,
     drawn: body !== null,
   };
 }
@@ -275,8 +280,8 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
   const track = useTrack(id);
   const own = useOwn(id, paused);
   const desc = useId();
-  const k = widgetScale(taskbar.height, taskbar.iconSize);
-  const { node, width, drawn, tip } = widgetBody(id, {
+  const k = widgetScale(taskbar.height, taskbar.iconSize, taskbar.widgetSize);
+  const { node, width, drawn, tip, weatherFrom } = widgetBody(id, {
     feed,
     paused,
     hovered: item.lifted,
@@ -290,7 +295,8 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
     track,
     own,
   });
-  const pill = pillWidget(id, item.tile !== undefined) ? statusPill(taskbar.height) : null;
+  // By the bar's shape, not by this cell's tile: a hidden widget drawn without one in the hidden items' panel keeps its width on the bar.
+  const pill = pillWidget(id, taskbar.shape === "tiles") ? statusPill(taskbar.height) : null;
   // The clock carries the count of the notices its panel lists, as Windows' carries its centre's; only the main bar hears it (barStores feedStores).
   const count = noticeCount.use();
   const badge = id === "clock" ? countBadge(count) : null;
@@ -305,15 +311,20 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
       width={widgetWidth(width, k, pill?.pad ?? null)}
       describedBy={desc}
       onClick={(e) => {
-        // The pointer in the face's own px: the 30 px cell is centred in the button at zoom k. None by keyboard or while the icon shows.
-        const r = e.currentTarget.getBoundingClientRect();
-        onClick(e, widgetKey(id, taskbar.variants, drawn && e.detail > 0 ? (e.clientX - r.left - r.width / 2) / k + width / 2 : null));
+        // The pointer in the face's own px, from the 30 px cell as drawn: at zoom k, and in the panel above the bar at Crest's scale too.
+        // None by keyboard or while the icon shows.
+        const cell = document.getElementById(desc), r = cell?.getBoundingClientRect();
+        const x = r && r.width > 0 && drawn && e.detail > 0 ? ((e.clientX - r.left) * width) / r.width : null;
+        // The notices' count sits over the face's end, the weather's, but it is the clock's: a click on it opens the notices.
+        if (e.target instanceof Element && e.target.closest("[data-badge]")) return onClick(e, null);
+        // The face's own direction, not the page's: the bar's zones are left to right in every language.
+        onClick(e, cell && onWeather(x, weatherFrom, width, getComputedStyle(cell).direction === "rtl") ? "weather" : widgetKey(id, taskbar.variants, x));
       }}
       onContextMenu={onContextMenu}
       onPointerDown={onPointerDown}
     >
       {badge && (
-        <span aria-hidden className="absolute -end-2 -top-1 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-label px-1 text-[10px] font-semibold leading-none text-notch">
+        <span aria-hidden data-badge className="absolute -end-2 -top-1 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-label px-1 text-[10px] font-semibold leading-none text-notch">
           {badge}
         </span>
       )}

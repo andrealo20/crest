@@ -22,6 +22,8 @@ export interface FitMeasure {
   compact: number;
   /** Under "When full" and "Never": the buttons one per window (`count`), how many of them have a window (`titled`; the rest are pinned apps with none), a titled button's width range, and whether to stay one per window when titles do not fit (`never`). Null under "Always". */
   split: { count: number; titled: number; min: number; max: number; never: boolean } | null;
+  /** The width of the button that opens the hidden items, which stands in the first one's place while any is hidden. */
+  more?: number;
 }
 /**
  * How the apps are drawn: `visible` apps (all unless overflowing), the tray's kept icons back behind ^, the widgets hidden; `split`, one
@@ -34,14 +36,17 @@ export const FIT_MARGIN = 24;
 
 const cost = (list: FitEntry[], gap: number) => list.reduce((n, x) => n + x.w + gap, 0);
 
+/** A widget, a tool button or a Windows button that may hide; never the clock. */
+const gives = (x: FitEntry) => x.gives === "widget" && x.id !== "clock";
+
 /** What gives way when one app and "…" do not fit, in order: the tray's kept icons, then the side zones' widgets farthest from the centre first (a tie: the right zone's), then the centre's, last first. */
 function steps(z: Record<Zone, FitEntry[]>, gap: number): string[] {
   const side: { id: string; out: number }[] = [];
   // The farther an outer edge is from the centre, the less there is between it and the bar's end.
-  z.right.forEach((x, i) => x.gives === "widget" && side.push({ id: x.id, out: cost(z.right.slice(i + 1), gap) }));
-  z.left.forEach((x, i) => x.gives === "widget" && side.push({ id: x.id, out: cost(z.left.slice(0, i), gap) }));
+  z.right.forEach((x, i) => gives(x) && side.push({ id: x.id, out: cost(z.right.slice(i + 1), gap) }));
+  z.left.forEach((x, i) => gives(x) && side.push({ id: x.id, out: cost(z.left.slice(0, i), gap) }));
   side.sort((a, b) => a.out - b.out);
-  const centre = z.center.filter((x) => x.gives === "widget").map((x) => x.id).reverse();
+  const centre = z.center.filter(gives).map((x) => x.id).reverse();
   const tray = [...z.left, ...z.center, ...z.right].some((x) => x.gives === "tray") ? ["tray"] : [];
   return [...tray, ...side.map((x) => x.id), ...centre];
 }
@@ -56,7 +61,11 @@ export function fitBar(m: FitMeasure, was: Fit | null): Fit {
   const span = (list: FitEntry[], withApps: boolean) => (list.length || (withApps && apps > 0) ? cost(list, m.gap) - m.gap : 0);
   const room = (k: number) => {
     const gone = new Set(order.slice(0, k));
-    const keep = (z: Zone) => m.zones[z].filter((x) => !(x.gives === "tray" ? gone.has("tray") : gone.has(x.id)));
+    const first = order.slice(0, k).find((x) => x !== "tray");
+    const keep = (z: Zone) => {
+      const kept = m.zones[z].filter((x) => !(x.gives === "tray" ? gone.has("tray") : gone.has(x.id)));
+      return m.more && m.zones[z].some((x) => x.id === first) ? [...kept, { id: "more", w: m.more }] : kept;
+    };
     if (m.row) return m.inner - span([...keep("left"), ...keep("center"), ...keep("right")], true);
     const [l, c, r] = [span(keep("left"), m.apps === "left"), span(keep("center"), m.apps === "center"), span(keep("right"), m.apps === "right")];
     // Apps in the centre keep it centred: the wider side counts on both sides.
@@ -69,6 +78,8 @@ export function fitBar(m: FitMeasure, was: Fit | null): Fit {
   while (was && wasK < order.length && (order[wasK] === "tray" ? was.trayBack : was.hide.includes(order[wasK]))) wasK++;
   let k = 0;
   while (k < order.length && room(k) < min + (k < wasK ? FIT_MARGIN : 0)) k++;
+  // Nothing makes room enough: hide only as far as it pays, since the button can take back what an item gives (ties: fewer hidden).
+  if (room(k) < min) k = [...Array(order.length + 1).keys()].reduce((best, j) => (room(j) > room(best) ? j : best), 0);
   const R = room(k);
   const taken = order.slice(0, k);
   const out = (mode: Fit["mode"], visible: number, split = never, label = 0): Fit => ({ mode, visible, trayBack: taken.includes("tray"), hide: taken.filter((x) => x !== "tray"), split, label });

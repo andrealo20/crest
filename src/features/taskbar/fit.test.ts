@@ -62,20 +62,57 @@ test("the fit is exact: the items in a row take their widths and one gap fewer t
   const row = (inner: number) => bar({ inner, gap: 6, count: 12, row: true, zones: { left: [], center: [e("start", 40)], right } });
   assert.deepEqual(fitBar(row(40 + 12 * 46 + 6 + 204), null), fit("full", 12));
   assert.deepEqual(fitBar(row(40 + 12 * 46 + 6 + 204 - 1), null), fit("compact", 12));
-  // Without apps a widget leaves only when the items alone do not fit, the centre still centred.
+  // Without apps a widget leaves only when the items alone do not fit, the centre still centred; never the clock.
   const none = (inner: number) => bar({ inner, gap: 6, apps: null, zones: { left: [], center: [], right } });
   assert.deepEqual(fitBar(none(2 * 204), null), fit("full", 0));
-  assert.deepEqual(fitBar(none(2 * 204 - 1), null), fit("full", 0, { hide: ["clock"] }));
+  assert.deepEqual(fitBar(none(2 * 204 - 1), null), fit("full", 0, { hide: ["weather"] }));
 });
 
 test("when one app and the button do not fit, the tray's kept icons go back behind ^ first, then the widget farthest from the centre", () => {
-  const right = [e("weather", 60, "widget"), e("tray", 32, "tray"), e("tray", 32, "tray"), e("tray-more", 32), e("clock", 80, "widget"), e("crest", 40)];
+  const right = [e("weather", 60, "widget"), e("tray", 32, "tray"), e("tray", 32, "tray"), e("tray-more", 32), e("timer", 80, "widget"), e("crest", 40)];
   const small = (inner: number) => bar({ inner, count: 10, zones: { left: [], center: [e("start", 40)], right } });
   assert.deepEqual(fitBar(small(600), null), fit("overflow", 2, { trayBack: true }));
-  assert.deepEqual(fitBar(small(500), null), fit("overflow", 4, { trayBack: true, hide: ["clock"] }));
-  // With the tray back 76 px are left: one app and the button (64), not FIT_MARGIN more, so a hidden clock stays hidden.
+  assert.deepEqual(fitBar(small(500), null), fit("overflow", 4, { trayBack: true, hide: ["timer"] }));
+  // With the tray back 76 px are left: one app and the button (64), not FIT_MARGIN more, so a hidden timer stays hidden.
   assert.deepEqual(fitBar(small(552), null), fit("overflow", 1, { trayBack: true }));
-  assert.deepEqual(fitBar(small(552), fit("overflow", 4, { trayBack: true, hide: ["clock"] })), fit("overflow", 5, { trayBack: true, hide: ["clock"] }));
+  assert.deepEqual(fitBar(small(552), fit("overflow", 4, { trayBack: true, hide: ["timer"] })), fit("overflow", 5, { trayBack: true, hide: ["timer"] }));
+});
+
+test("the clock never hides: the other widgets go first, the outermost first", () => {
+  // 40 + 6 + 66 + 6 + 86 + 6 + 40 = 250 on each side, the clock the outermost widget.
+  const right = [e("timer", 40, "widget"), e("weather", 66, "widget"), e("clock", 86, "widget"), e("crest", 40)];
+  const none = (inner: number) => bar({ inner, gap: 6, apps: null, zones: { left: [], center: [], right } });
+  assert.deepEqual(fitBar(none(2 * 250), null), fit("full", 0));
+  assert.deepEqual(fitBar(none(2 * 250 - 1), null), fit("full", 0, { hide: ["weather"] }));
+  // Without the weather 178, without the timer too 132.
+  assert.deepEqual(fitBar(none(2 * 178 - 1), null), fit("full", 0, { hide: ["weather", "timer"] }));
+  assert.deepEqual(fitBar(none(100), null), fit("full", 0, { hide: ["weather", "timer"] }));
+});
+
+test("the button that shows the hidden items takes room of its own, in the first hidden item's place, so one more may hide for it", () => {
+  const right = [e("timer", 40, "widget"), e("weather", 66, "widget"), e("clock", 86, "widget"), e("crest", 40)];
+  const none = (inner: number, more?: number) => bar({ inner, gap: 6, apps: null, more, zones: { left: [], center: [], right } });
+  // Nothing hidden, no button.
+  assert.deepEqual(fitBar(none(2 * 250, 40), null), fit("full", 0));
+  // The weather gone and the button (40) in its place: 40 + 6 + 40 + 6 + 86 + 6 + 40 = 224 on each side, 178 without the button.
+  assert.deepEqual(fitBar(none(2 * 224, 40), null), fit("full", 0, { hide: ["weather"] }));
+  assert.deepEqual(fitBar(none(2 * 224 - 1, 40), null), fit("full", 0, { hide: ["weather", "timer"] }));
+  assert.deepEqual(fitBar(none(2 * 224 - 1), null), fit("full", 0, { hide: ["weather"] }));
+  // The capsule: one row, the button in it once.
+  const row = (inner: number) => bar({ inner, gap: 6, apps: null, row: true, more: 40, zones: { left: [], center: [], right } });
+  assert.deepEqual(fitBar(row(224), null), fit("full", 0, { hide: ["weather"] }));
+  assert.deepEqual(fitBar(row(223), null), fit("full", 0, { hide: ["weather", "timer"] }));
+});
+
+test("an item gives way to the button only when that leaves more room, or the bar would be tighter for nothing", () => {
+  const narrow = (first: FitEntry, inner: number, more?: number) =>
+    bar({ inner, count: 20, more, zones: { left: [], center: [e("start", 40)], right: [first, e("clock", 86, "widget"), e("crest", 40)] } });
+  // 400 - 2 * (32 + 2 + 86 + 2 + 40) - 40 = 36: a Calc button gone gives 104, but the button (32) in its place gives the 36 back.
+  const calc = e("tool:calc", 32, "widget");
+  assert.deepEqual(fitBar(narrow(calc, 400), null), fit("overflow", 2, { hide: ["tool:calc"] }));
+  assert.deepEqual(fitBar(narrow(calc, 400, 32), null), fit("overflow", 1));
+  // Show desktop's 12 px strip: the button would leave 20 px less than keeping it.
+  assert.deepEqual(fitBar(narrow(e("sys:desktop", 12, "widget"), 380, 32), null), fit("overflow", 1));
 });
 
 // One button per window: `count` of them, `titled` with a window, titles 96 to 168 px wide.

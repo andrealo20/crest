@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use arboard::{Clipboard, ImageData};
 use base64::Engine;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 #[cfg(windows)]
 use windows::core::w;
 #[cfg(windows)]
@@ -184,16 +184,25 @@ pub fn clipboard_copy(id: u64, app: AppHandle, state: State<'_, ClipboardState>)
     Ok(())
 }
 
-/// Like `clipboard_copy`, then pastes the entry into the app that had the keyboard before the notch opened, as Win+V does.
+/// Like `clipboard_copy`, then pastes the entry into the app that had the keyboard before the notch opened, as Win+V does; from a
+/// bar's panel, into the app its Esc gives the keyboard back to (taskbar/tasks.rs `release`), as the notch notes only its own.
 /// False when there is no such app, or a Mac has not allowed Crest to press keys: the entry is then only copied.
 #[tauri::command]
-pub fn clipboard_paste(id: u64, app: AppHandle, state: State<'_, ClipboardState>) -> Result<bool, String> {
+pub fn clipboard_paste(id: u64, app: AppHandle, window: WebviewWindow, state: State<'_, ClipboardState>) -> Result<bool, String> {
     clipboard_copy(id, app.clone(), state)?;
     #[cfg(target_os = "macos")]
     if !crate::macos::may_press_keys() {
         return Ok(false);
     }
-    let Some(target) = crate::return_keyboard(&app) else { return Ok(false) };
+    #[cfg(windows)]
+    let back = if crate::taskbar::bar::is_bar_label(window.label()) { crate::taskbar::tasks::release() } else { crate::return_keyboard(&app) };
+    // A Mac has no bar.
+    #[cfg(not(windows))]
+    let back = {
+        let _ = window;
+        crate::return_keyboard(&app)
+    };
+    let Some(target) = back else { return Ok(false) };
     // Off the main thread: a Mac brings the app forward only once that thread runs again.
     thread::spawn(move || {
         #[cfg(windows)]

@@ -53,6 +53,8 @@ export interface TaskbarSettings {
   zones: Record<Zone, BarItem[]>;
   height: number;
   iconSize: number;
+  /** The widgets' size against the icons', percent: at 100 they follow the icons as before (widgets.ts widgetScale). */
+  widgetSize: number;
   surface: "notch" | "theme";
   pinned: Favorite[] | null;
   windowsPins: string[] | null;
@@ -121,6 +123,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   zones: { left: [], center: ["start", "apps"], right: ["weather", "tray", "status", "clock", "crest"] },
   height: 44,
   iconSize: 24,
+  widgetSize: 100,
   surface: "notch",
   pinned: null,
   windowsPins: null,
@@ -156,6 +159,8 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
 /** The heights and icon sizes the settings offer, CSS px. */
 export const HEIGHT = [32, 64] as const;
 export const ICON = [16, 40] as const;
+/** The widgets' sizes the settings offer, percent of the icons'. */
+export const WIDGET_SIZE = [75, 125] as const;
 /** The transparency the settings offer, percent. */
 export const TRANSPARENCY = [0, 100] as const;
 const SHAPES: BarShape[] = ["docked", "floating", "capsule", "tiles"];
@@ -232,6 +237,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     zones,
     height: within(s.height, HEIGHT, d.height),
     iconSize: within(s.iconSize, ICON, d.iconSize),
+    widgetSize: within(s.widgetSize, WIDGET_SIZE, d.widgetSize),
     surface: s.surface === "theme" ? "theme" : "notch",
     pinned: normalizeFavorites(s.pinned),
     windowsPins: Array.isArray(s.windowsPins) ? [...new Set(s.windowsPins.filter((id): id is string => typeof id === "string"))] : null,

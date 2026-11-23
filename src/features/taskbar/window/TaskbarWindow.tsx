@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type Dispatch, type DragEvent, type MouseEventHandler, type RefObject, type SetStateAction } from "react";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from "motion/react";
-import { DotsThree } from "../../../ui/iconset";
+import { DotsThree, SquaresFour } from "../../../ui/iconset";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { design } from "../../../design/design";
 import { springs } from "../../../design/motion";
@@ -33,7 +33,7 @@ import { barDecor, decorPictures, trayFolded, trayState } from "../tray";
 import { buttonDecor, type Progress } from "../decorModel";
 import type { FaceKey } from "../faceKeys";
 import { splitTray } from "../trayModel";
-import { hasWidgetMenu, isSys, isTool, isWidget, shownZones, sysOf, sysPrimaryOnly, toolOf, trashable, widgetPanel, widgetTool } from "../widgets";
+import { hasWidgetMenu, isSys, isTool, isWidget, shownZones, sysOf, sysPrimaryOnly, toolOf, trashable, weatherWanted, widgetPanel, widgetScale, widgetTool } from "../widgets";
 import { toolInfo } from "../toolInfo";
 import { useHue } from "../../themes/hues";
 import { BarGlass, useBarSurface } from "./BarGlass";
@@ -229,6 +229,7 @@ export function TaskbarWindow() {
     zones,
     shape,
     size,
+    scale: widgetScale(height, iconSize, s.taskbar.widgetSize),
     count: buttons.length,
     trayCount: trayVisible.length,
     primary,
@@ -261,6 +262,11 @@ export function TaskbarWindow() {
   useEffect(() => {
     if (fit.mode !== "overflow" && panel.get()?.content.kind === "apps") closePanel();
   }, [fit.mode]);
+  // The same for the hidden widgets' button and its panel, which shows them in the bar's order.
+  const hidden = ZONES.flatMap(([z]) => zones[z]).filter((id) => fit.hide.includes(id));
+  useEffect(() => {
+    if (!hidden.length && panel.get()?.content.kind === "widgets") closePanel();
+  }, [hidden.length]);
   // Start, the apps, "…", Crest and Windows' buttons grow as a dock's icons, by the pitch of the apps in use; widgets and tray icons only lift.
   const mag = reduced ? undefined : { pointer, unit: (narrow ? compactIcon(size) + COMPACT_PAD : size + 16) + between, rise: labelRise(size, height) };
   // The tiles' boxes move without the bar resizing when a button comes or goes, or the icons change size (a tile is size + 16 wide).
@@ -435,17 +441,23 @@ export function TaskbarWindow() {
   });
   useEffect(() => taskbar.onKey((k) => void keyHandler.current(k)), []);
 
-  /** Opens `tool` over its button, or closes it on a second click there: in the panel, or in the notch for a tool the panel does not show (openPanel). */
-  const openTool = (tool: string, button: HTMLElement) => {
-    const r = button.getBoundingClientRect();
-    togglePanel({ kind: "tool", tool }, { x: r.x, w: r.width });
+  /**
+   * The span on the bar a panel opens over, which BarPanel reads as the item it opened from: the button's own, or for a hidden item's
+   * cell, which sits in the hidden items' panel, the span of the button that shows them.
+   */
+  const spanOf = (button: HTMLElement) => {
+    const on = bar.current?.contains(button) ? button : (bar.current?.querySelector<HTMLElement>('[data-kind="widgets-more"]') ?? button);
+    const r = on.getBoundingClientRect();
+    return { x: r.x, w: r.width };
   };
+
+  /** Opens `tool` over its button, or closes it on a second click there: in the panel, or in the notch for a tool the panel does not show (openPanel). */
+  const openTool = (tool: string, button: HTMLElement) => togglePanel({ kind: "tool", tool }, spanOf(button));
 
   /** The search box's field, in the panel over its button. */
   const openSearch = (button: HTMLElement) => {
     setError(null);
-    const r = button.getBoundingClientRect();
-    togglePanel({ kind: "search" }, { x: r.x, w: r.width });
+    togglePanel({ kind: "search" }, spanOf(button));
   };
 
   /**
@@ -453,19 +465,21 @@ export function TaskbarWindow() {
    * main bar's clock, the time progress and the date Crest's Notices over its Calendar, the crypto widget its coin's week. On the other
    * bars, which get no notices or calendar from the notch, the clock opens Windows' notification centre, as Windows' own clock does. A
    * click on a key of its face (`key`) does what the key does, and so does every click on the microphone; the stopwatch's starts or
-   * pauses it. The timer opens the Timer on its countdown, the exchange rate the Converter on its currencies.
+   * pauses it. The timer opens the Timer on its countdown, the exchange rate the Converter on its currencies. On the main bar the
+   * weather of the clock's Time and weather and of the date's week opens Weather; on the other bars the whole clock does as before.
    */
   const clickWidget = (id: PartId, button: HTMLElement, key: FaceKey | null) => {
     setError(null);
     setMenu(null);
-    if (key || id === "mic") return runFaceKey(key ?? "mic", (text) => setError({ key: id, text }));
+    if (key === "weather") {
+      if (primary) return openTool("weather", button);
+    } else if (key || id === "mic") return runFaceKey(key ?? "mic", (text) => setError({ key: id, text }));
     if (id === "stopwatch") return stopwatchActions.toggle();
     const own = widgetPanel(id, primary);
     if (own) {
-      const r = button.getBoundingClientRect();
       // Not on the click that closes it, or the closing panel would turn into the drives as it fades.
       if (own === "disks" && panel.get()?.content.kind !== "disks") dropStaleScan();
-      return togglePanel({ kind: own }, { x: r.x, w: r.width });
+      return togglePanel({ kind: own }, spanOf(button));
     }
     const tool = widgetTool(id);
     // Windows may refuse to open it; nothing changes then. The bar stays up while it comes to the front.
@@ -524,8 +538,37 @@ export function TaskbarWindow() {
     onLeave: () => setHovered((h) => (h === key ? null : h)),
   });
 
-  // Each item draws in a branch of its own: an item added to BarItem without one is a type error, not a second Crest button.
-  const render = (id: BarItem) => {
+  /**
+   * The button in the first hidden item's place, the outermost: the widgets, tool buttons and Windows buttons the bar has no room for, in
+   * rows in the panel over it. Its width is the one the fit charges (useAppFit).
+   */
+  const moreButton = () => {
+    const n = fit.hide.length;
+    return (
+      <Item
+        {...item("widgets-more", t(n === 1 ? "{n} weiteres Widget" : "{n} weitere Widgets", { n }))}
+        kind="widgets-more"
+        tile={tile()}
+        width={tiles ? undefined : trayIcon(size) + 16}
+        expanded={open?.content.kind === "widgets"}
+        onClick={(e) => {
+          setError(null);
+          setMenu(null);
+          const r = e.currentTarget.getBoundingClientRect();
+          togglePanel({ kind: "widgets" }, { x: r.x, w: r.width });
+        }}
+        // No menu of its own, as ^ and "…": the Crest menu over the pointer.
+        onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
+      >
+        <SquaresFour size={trayIcon(size)} weight="regular" />
+      </Item>
+    );
+  };
+
+  // Each item draws in a branch of its own: an item added to BarItem without one is a type error, not a second Crest button. `free`: a
+  // hidden item drawn in moreButton's panel, with no tile, no magnifying and no drag (its cell would go as the panel closes for the drag).
+  const render = (id: BarItem, free = false) => {
+    if (!free && fit.hide.includes(id)) return fit.hide[0] === id ? moreButton() : null;
     if (id === "start")
       return (
         <Item
@@ -643,8 +686,9 @@ export function TaskbarWindow() {
     }
     if (isWidget(id)) {
       // The clock alone may show on the other bars; it draws from the local time, not from the notch's feed.
-      if ((!primary && !(id === "clock" && s.taskbar.clockAll)) || fit.hide.includes(id)) return null;
-      const tool = widgetTool(id), own = widgetPanel(id, primary);
+      if (!primary && !(id === "clock" && s.taskbar.clockAll)) return null;
+      // The clock's Time and weather and the date's week, whose weather opens Weather on the main bar (clickWidget).
+      const tool = widgetTool(id), own = widgetPanel(id, primary), split = primary && weatherWanted([id], s.taskbar.variants);
       return (
         <WidgetItem
           id={id}
@@ -653,41 +697,41 @@ export function TaskbarWindow() {
           item={{
             ...item(id, t(partInfo[id].label)),
             kind: id,
-            tile: tile(),
+            tile: free ? undefined : tile(),
             expanded: own
-              ? open?.content.kind === own
+              ? open?.content.kind === own || (split && open?.content.kind === "tool" && open.content.tool === "weather")
               : tool === null || !opensInBar({ kind: "tool", tool })
                 ? undefined
                 : open?.content.kind === "tool" && open.content.tool === tool,
           }}
           paused={paused}
-          onClick={(e, key) => afterDrag(e) || clickWidget(id, e.currentTarget, key)}
-          onPointerDown={dragFrom(id)}
+          onClick={(e, key) => (!free && afterDrag(e)) || clickWidget(id, e.currentTarget, key)}
+          onPointerDown={free ? undefined : dragFrom(id)}
           // A widget with rows of its own opens its menu over it; the others the Crest menu over the pointer, as beside the buttons.
-          onContextMenu={(e) => (hasWidgetMenu(id) ? toggle({ kind: "widget", id }, e.currentTarget) : setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 }))}
+          onContextMenu={(e) => (hasWidgetMenu(id) || split ? toggle({ kind: "widget", id }, e.currentTarget) : setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 }))}
         />
       );
     }
     if (isTool(id)) {
-      // As a widget: on the primary bar only, and hidden once the bar runs out of room (useAppFit).
-      if (!primary || fit.hide.includes(id)) return null;
+      // As a widget: on the primary bar only.
+      if (!primary) return null;
       const tool = toolOf(id);
       return (
         <Item
           {...item(id, t(toolInfo[tool].label))}
           kind={id}
-          tile={tile()}
+          tile={free ? undefined : tile()}
           // A tray icon's slot, as the tray draws it.
           width={tiles ? undefined : trayIcon(size) + 16}
           // Only a tool the panel shows says whether it is open; one the notch opens leaves the bar's panel closed.
           expanded={opensInBar({ kind: "tool", tool }) ? open?.content.kind === "tool" && open.content.tool === tool : undefined}
           onClick={(e) => {
-            if (afterDrag(e)) return;
+            if (!free && afterDrag(e)) return;
             setError(null);
             setMenu(null);
             openTool(tool, e.currentTarget);
           }}
-          onPointerDown={dragFrom(id)}
+          onPointerDown={free ? undefined : dragFrom(id)}
           // No menu of its own, as a widget: the Crest menu over the pointer.
           onContextMenu={(e) => setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })}
         >
@@ -696,8 +740,8 @@ export function TaskbarWindow() {
       );
     }
     if (isSys(id)) {
-      // Windows widgets on the primary bar only, as Windows has it; each hidden once the bar runs out of room (useAppFit).
-      if ((!primary && sysPrimaryOnly(id)) || fit.hide.includes(id)) return null;
+      // Windows widgets on the primary bar only, as Windows has it.
+      if (!primary && sysPrimaryOnly(id)) return null;
       const sys = sysOf(id);
       return (
         <SysButton
@@ -705,14 +749,14 @@ export function TaskbarWindow() {
           item={{
             ...item(id, t(SYS_INFO[sys].label)),
             kind: id,
-            tile: tile(),
-            magnify: mag,
+            tile: free ? undefined : tile(),
+            magnify: free ? undefined : mag,
             expanded: sys === "searchbox" ? open?.content.kind === "search" : undefined,
-            onPointerDown: dragFrom(id),
+            onPointerDown: free ? undefined : dragFrom(id),
             // No menu of its own, as a widget: the Crest menu over the pointer; the Recycle Bin has Open and Empty.
             onContextMenu: (e) => (sys === "recycle" ? toggle({ kind: "recycle" }, e.currentTarget) : setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })),
           }}
-          dragged={afterDrag}
+          dragged={free ? () => false : afterDrag}
           onOpen={sys === "recent" ? (anchor) => toggle({ kind: "recent" }, anchor) : sys === "searchbox" ? openSearch : undefined}
         />
       );
@@ -927,9 +971,8 @@ export function TaskbarWindow() {
                 <WidgetMenu
                   id={menu.id}
                   close={closeMenu}
-                  openTool={(tool) => {
-                    if (menu.anchor instanceof HTMLElement) openTool(tool, menu.anchor);
-                  }}
+                  // Over the span the menu opened over: a widget in the hidden items' panel is gone once the menu closed that panel.
+                  openTool={(tool) => togglePanel({ kind: "tool", tool }, { x: menu.x, w: menu.w })}
                 />
               ) : menu.kind === "window" ? (
                 <WindowMenu win={menu.b.windows[0]} close={closeMenu} />
@@ -969,6 +1012,19 @@ export function TaskbarWindow() {
         bar={bar}
         surface={look.panel}
         onPlace={placeMenuZone}
+        widgets={{
+          widths: hidden.map((id) => fit.hideW[fit.hide.indexOf(id)]),
+          // Left to right as the bar's zones, as tall as the bar; a click does what it does on the bar, and a panel it opens takes this one's place.
+          rows: (
+            <div dir="ltr" className="flex h-full flex-wrap content-start overflow-y-auto p-3" style={{ gap: between }}>
+              {hidden.map((id) => (
+                <span key={id} className="flex" style={{ height }}>
+                  {render(id, true)}
+                </span>
+              ))}
+            </div>
+          ),
+        }}
         apps={{
           count: hiddenButtons.length,
           grid: (

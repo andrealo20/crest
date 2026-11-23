@@ -12,8 +12,8 @@ const LINE_W = CRYPTO_SIZE.w - 24, LINE_H = 88;
 
 /**
  * The crypto widget's panel over it: the coin, its price and its change over 24 hours, its hourly line over 7 days in the change's
- * colour, and, while the Depot is on in the notch, a button that opens it there (openPanel closes this panel on the way). It draws
- * what the widget was sent, so it opens at once and reads nothing itself.
+ * colour, and, while the Depot is on in the notch, a button that opens the Depot in this panel's place. It draws what the widget was
+ * sent, so it opens at once and reads nothing itself.
  */
 export function CryptoPanel() {
   const coin = barFeed.use().crypto;

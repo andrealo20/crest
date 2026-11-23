@@ -5,6 +5,7 @@ import type { DiscordCall, DownloadProgress, UsageId } from "../../platform/serv
 import { calendar } from "../calendar/store";
 import { discordState } from "../discord/store";
 import { github } from "../github/store";
+import { hotkeysResting, shortcutResult } from "../launcher/store";
 import { leetcode } from "../leetcode/store";
 import type { ScriptPart } from "../notices/scriptParts";
 import { history } from "../notices/store";
@@ -89,8 +90,11 @@ export const panelOpen = createStore(false);
 /** The notices in Crest's list (notices/store.ts history), which the bar's clock opens: null while Live notices is off. */
 export const noticeCount = createStore<number | null>(null);
 
-/** `privacy` too, for the bar's privacy button, and the clock's count: both change rarely, privacy with Windows' state and the count with Crest's notices. */
-export const feedStores = { barFeed, privacy, noticeCount };
+/**
+ * `privacy` too, for the bar's privacy button, the clock's count, and the Launcher's Alt+N state (taken keys, resting in a game) for its
+ * panel: all change rarely, privacy with Windows' state, the count with Crest's notices and Alt+N with a full-screen app.
+ */
+export const feedStores = { barFeed, privacy, noticeCount, shortcutResult, hotkeysResting };
 
 /** Sent only while `panelOpen`: `system` changes every few seconds and would wake the bar with nobody looking. */
 export const panelStores = { calendar, github, leetcode, usage, discordState, system, history, awake, ringing, focusMuted, snoozed };

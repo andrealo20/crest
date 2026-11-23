@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MIC, MIC_WIDTH, TRACK, TRACK_WIDTH, widgetKey } from "./faceKeys.ts";
+import { MIC, MIC_WIDTH, TRACK, TRACK_WIDTH, onWeather, widgetKey } from "./faceKeys.ts";
 
 test("the song's and the microphone's faces are as wide as their parts, so a new song or a mute never moves a neighbour", () => {
   assert.deepEqual(TRACK_WIDTH, { play: 160, cover: 192, disc: 22, track: 160 });
@@ -56,4 +56,18 @@ test("a click anywhere on the microphone mutes it, and beside it the speaker mut
   assert.equal(widgetKey("mic", v, 25), "sound");
   assert.equal(widgetKey("mic", v, 46), "sound");
   assert.equal(widgetKey("mic", v, null), "mic");
+});
+
+test("the weather at the end of Time and weather or of the week opens Weather from the middle of the gap before it, out past the padding; the rest and the keyboard open the clock", () => {
+  // A face 100 px wide whose weather starts 70 px from its start edge.
+  for (const x of [70, 85, 100, 108]) assert.equal(onWeather(x, 70, 100, false), true);
+  for (const x of [-6, 0, 50, 69.5]) assert.equal(onWeather(x, 70, 100, false), false);
+  assert.equal(onWeather(null, 70, 100, false), false);
+  assert.equal(onWeather(85, undefined, 100, false), false);
+});
+
+test("right to left the weather is drawn at the left end, and the padding left of it opens Weather too", () => {
+  for (const x of [-6, 0, 15, 30]) assert.equal(onWeather(x, 70, 100, true), true);
+  for (const x of [30.5, 50, 100, 108]) assert.equal(onWeather(x, 70, 100, true), false);
+  assert.equal(onWeather(null, 70, 100, true), false);
 });

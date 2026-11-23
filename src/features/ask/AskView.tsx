@@ -5,12 +5,12 @@ import { content, fade } from "../../design/motion";
 import { createStore } from "../../lib/store";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
-import { clipboard } from "../../platform/clipboard";
+import { useClipboard } from "../../platform/clipboard";
 import { settings } from "../../settings/store";
 import { providerInfo, streamChat, type ChatMessage } from "./providers";
 import { locale, t, tBackend } from "../../i18n";
 
-/** The conversation only lives until restart (no history on disk); × clears it. */
+/** The conversation only lives until restart (no history on disk), one per window: a bar's panel has its own. × clears it. */
 const chat = createStore<ChatMessage[]>([]);
 // Older versions stored the chat; remove it once.
 localStorage.removeItem("notch:ask-chat");
@@ -51,6 +51,8 @@ export function AskView() {
   const abort = useRef<AbortController | null>(null);
   const list = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  // Read here, so a bar's window loads the history the quick actions need (platform/clipboard).
+  const clips = useClipboard();
 
   useEffect(() => {
     input.current?.focus({ preventScroll: true });
@@ -92,7 +94,7 @@ export function AskView() {
   };
 
   const runQuick = (q: (typeof quick)[number]) => {
-    const latest = clipboard.get().find((c) => c.kind === "text" || c.kind === "link");
+    const latest = clips.find((c) => c.kind === "text" || c.kind === "link");
     if (!latest) {
       setError(t("Zuerst einen Text kopieren. Die Schnellaktionen arbeiten mit der Zwischenablage."));
       return;

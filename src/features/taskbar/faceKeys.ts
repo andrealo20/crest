@@ -3,8 +3,8 @@
 import type { PartId } from "../../notch/row/parts.ts";
 import { variantOf, type WidgetVariants } from "./model.ts";
 
-/** What a key on a face does: play or pause the song, the previous or the next one, mute the microphone or the sound. */
-export type FaceKey = "toggle" | "previous" | "next" | "mic" | "sound";
+/** What a key on a face does: play or pause the song, the previous or the next one, mute the microphone or the sound, open Weather (onWeather). */
+export type FaceKey = "toggle" | "previous" | "next" | "mic" | "sound" | "weather";
 
 /** The song title's versions, px at scale 1: a key's column, the round play key, the cover, the room after them, each text column. */
 export const TRACK = { key: 22, disc: 24, cover: 20, gap: 6, text: { play: 130, cover: 100, track: 132 } } as const;
@@ -55,3 +55,11 @@ export function widgetKey(id: PartId, variants: unknown, x: number | null): Face
   const hit = x === null ? undefined : keys.find(([from, to]) => (from === 0 || x >= from) && (to === width || x < to));
   return hit ? hit[2] : id === "mic" ? "mic" : null;
 }
+
+/**
+ * Whether a click lands on the weather a face draws at its end (the clock's Time and weather, the date's week): `x` as widgetKey takes
+ * it, `from` where the weather starts in px from the face's start edge (undefined: no weather), `width` the face's. The padding beyond
+ * the weather is the weather's too; right to left (`rtl`) the face is mirrored, the weather at its left end.
+ */
+export const onWeather = (x: number | null, from: number | undefined, width: number, rtl: boolean): boolean =>
+  x !== null && from !== undefined && (rtl ? x <= width - from : x >= from);

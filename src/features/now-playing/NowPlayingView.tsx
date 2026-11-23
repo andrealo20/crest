@@ -281,6 +281,18 @@ function Progress({ np, wavy }: { np: NowPlaying; wavy: boolean }) {
   }, [np.isPlaying]);
 
   const hasTrack = np.duration > 0;
+  // Held while scrubbing, and let go as the view closes mid-drag; a track that loses its duration then takes the bar away, which no
+  // pointer event says, so the scrub ends there.
+  useEffect(() => {
+    if (!dragging) return;
+    if (!hasTrack) {
+      scrubRef.current = null;
+      setScrub(null);
+      return;
+    }
+    holdOpen(true);
+    return () => holdOpen(false);
+  }, [dragging, hasTrack]);
   useEffect(() => {
     const el = track.current;
     if (!wavy || !el) return;
@@ -311,7 +323,6 @@ function Progress({ np, wavy }: { np: NowPlaying; wavy: boolean }) {
     if (commit) media.seek(scrubRef.current * np.duration);
     scrubRef.current = null;
     setScrub(null);
-    holdOpen(false);
   };
 
   return (
@@ -329,7 +340,6 @@ function Progress({ np, wavy }: { np: NowPlaying; wavy: boolean }) {
         onPointerDown={(e) => {
           if (!np.canSeek || e.button !== 0) return;
           e.currentTarget.setPointerCapture(e.pointerId);
-          holdOpen(true);
           move(e.clientX);
         }}
         onPointerMove={(e) => scrubRef.current !== null && move(e.clientX)}

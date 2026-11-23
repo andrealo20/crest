@@ -164,14 +164,26 @@ function WidgetRow({ id, s, zoned }: { id: PartId; s: Settings; zoned: boolean }
   );
 }
 
-/** A widget's previews: one alone, or its versions as a radio group, the saved one checked; the arrows move and pick. */
+/**
+ * A widget's previews: one alone, or its versions as a radio group, the saved one checked; the arrows move and pick. Downloads shows
+ * itself during a download and with none, captioned (issue 72): between downloads the bar draws only its dimmed icon.
+ */
 function Versions({ id, s, zones }: { id: PartId; s: Settings; zones: readonly string[] }) {
   const choices = widgetChoices(id, zones.length > 0);
   const chosen = chosenChoice(id, s.taskbar.variants, s.taskbar.clock.date, zones.length > 0);
   if (choices.length === 1)
     return (
       <div className="flex flex-wrap gap-3 px-3 pb-3">
-        <Preview id={id} choice={choices[0]} s={s} zones={zones} />
+        {id === "downloads" ? (
+          [false, true].map((idle) => (
+            <div key={String(idle)} className="flex flex-col items-center gap-1">
+              <Preview id={id} choice={choices[0]} s={s} zones={zones} idle={idle} />
+              <span className="px-1.5 pb-1 text-caption text-label-2">{t(idle ? "Kein Download" : "Während eines Downloads")}</span>
+            </div>
+          ))
+        ) : (
+          <Preview id={id} choice={choices[0]} s={s} zones={zones} />
+        )}
       </div>
     );
   // Decision 17: a pick that changes nothing saved writes nothing; the version shown may differ from the saved one (applyChoice).
@@ -214,17 +226,19 @@ function Versions({ id, s, zones }: { id: PartId; s: Settings; zones: readonly s
  * One version on the bar's surface, as the bar draws it (decision 16): the bar's ink (previewInk: Dark's under Liquid Glass +, the
  * closed notch's with Background Notch, the theme's otherwise) on the surface's colour; 44 px tall, at scale 1, on the pill where the bar has one. Sample data only: the equalizer rests (paused),
  * the timer is SAMPLE_TIMER and the clocks show SAMPLE_AT, so the page never starts the audio capture, reads the real timer or ticks.
+ * `idle` takes the downloads out of the sample, so Downloads draws its dimmed icon as the bar does with none.
  */
-function Preview({ id, choice, s, zones }: { id: PartId; choice: WidgetChoice; s: Settings; zones: readonly string[] }) {
+function Preview({ id, choice, s, zones, idle }: { id: PartId; choice: WidgetChoice; s: Settings; zones: readonly string[]; idle?: boolean }) {
   const { taskbar, units, music } = s;
   const closed = useClosedInk(undefined);
   const supported = liveSupport.use()?.supported === true;
   // The colour read through the ink's own tokens, as on the bar: Dark's surface under Liquid Glass +, so white text stays on dark.
   const ink = previewInk(barLook(taskbar, supported), taskbar.surface, closed, darkInk());
   const surface: CSSProperties = { ...ink, background: taskbar.surface === "notch" ? "var(--notch-closed)" : "var(--color-notch)" };
+  // The network's line draws download and upload, so its sample has them with NET off for the notch too.
+  const feed = sampleFeed(choice.variant === "net" ? { ...s.closed.readings, net: true } : s.closed.readings);
   const { node, width } = widgetBody(id, {
-    // The network's line draws download and upload, so its sample has them with NET off for the notch too.
-    feed: sampleFeed(choice.variant === "net" ? { ...s.closed.readings, net: true } : s.closed.readings),
+    feed: idle ? { ...feed, downloads: [] } : feed,
     paused: true,
     hovered: false,
     clock: { ...taskbar.clock, date: choice.date ?? taskbar.clock.date },
