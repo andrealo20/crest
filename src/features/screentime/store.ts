@@ -50,11 +50,25 @@ function apply() {
   }
 }
 
-/** In the notch (main.tsx): sends the switch now and at each change, and reads today while it is drawn. */
-export function startScreenTime() {
-  // The focus rounds past 30 days go here too, as Rust deletes the days: a timeline taken off logs no new round that would drop them.
+let pruned = "";
+
+/**
+ * At start and at each new local day (checked every hour): the focus rounds past 30 days go, as a timeline taken off logs no new round
+ * that would drop them, and the switch goes to Rust again, which deletes the days past 30 also while it does not record.
+ */
+function prune() {
+  const today = dateKey(Date.now());
+  if (today === pruned) return;
+  if (pruned) void screenTime.set(settings.get().screenTime.on).catch(() => {});
+  pruned = today;
   const rounds = roundsOf(focusLog.get()), fresh = freshRounds(rounds, Date.now());
   if (fresh.length !== rounds.length) focusLog.set(fresh);
+}
+
+/** In the notch (main.tsx): sends the switch now and at each change, and reads today while it is drawn. */
+export function startScreenTime() {
+  prune();
+  window.setInterval(prune, 3_600_000);
   apply();
   settings.subscribe(apply);
   barParts.subscribe(apply);

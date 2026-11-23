@@ -348,7 +348,8 @@ pub(crate) fn stop() {
     }
 }
 
-/// Starts or stops recording, and deletes the days past the 30 kept. The notch only, which calls it at start with the switch's state.
+/// Starts or stops recording, and deletes the days past the 30 kept. The notch only, which calls it at start and at each new day with
+/// the switch's state, so the days go also while it does not record.
 #[tauri::command]
 pub fn screentime_set(app: AppHandle, on: bool) -> Result<(), String> {
     let dir = folder(&app)?;

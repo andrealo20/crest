@@ -11,7 +11,7 @@ test("a finished round is added once, rounds past 30 days go, and 400 at most st
   assert.deepEqual(logRound([one], { ...one }, now), [one]);
   const old = { end: now - 31 * DAY, secs: 1500 };
   assert.deepEqual(logRound([old], one, now), [one]);
-  // Also without a new round: at the notch's start, so turning the timeline off keeps them 30 days, no longer.
+  // Also without a new round: at the notch's start and each day, so turning the timeline off keeps them 30 days, no longer.
   assert.deepEqual(freshRounds([old, one], now), [one]);
   const many: FocusRound[] = Array.from({ length: 400 }, (_, i) => ({ end: now - (400 - i) * 3_600_000, secs: 1500 }));
   const after = logRound(many, one, now);
