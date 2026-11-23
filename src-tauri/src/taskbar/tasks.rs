@@ -102,6 +102,8 @@ struct Last {
     pids: Vec<(isize, u32)>,
     /// Each listed window's monitor (`monitor_of`).
     monitors: HashMap<isize, isize>,
+    /// The monitors that have a bar, as the list last found them.
+    bars: Vec<isize>,
     /// Listed ghost windows and the hung window each stands in for (`source`).
     ghosts: HashMap<isize, isize>,
     /// By the bar's label.
@@ -130,9 +132,10 @@ pub(super) fn set_apps_on(mode: &str) {
 }
 
 /// Whether a bar shows a listed window on `window_monitor` (None: not listed): on its own monitor's bar always; with `MAIN`
-/// also on the primary's; with `ALL` on every bar.
-fn shows(mode: u8, primary_bar: bool, window_monitor: Option<&isize>, bar_monitor: isize) -> bool {
-    window_monitor.is_some_and(|&m| m == bar_monitor || mode == ALL || (mode == MAIN && primary_bar))
+/// also on the primary's; with `ALL` on every bar. A window on a monitor with no bar among `bars` (Show on all displays off, a bar
+/// not built) shows on the primary's, as on Windows' main taskbar.
+fn shows(mode: u8, primary_bar: bool, window_monitor: Option<&isize>, bar_monitor: isize, bars: &[isize]) -> bool {
+    window_monitor.is_some_and(|&m| m == bar_monitor || mode == ALL || (primary_bar && (mode == MAIN || !bars.contains(&m))))
 }
 
 /// The order a bar last asked for an app's windows, until the taskbar thread takes it (`on_reorder`).
@@ -442,12 +445,13 @@ pub(super) fn on_timer(window: HWND) {
     let ghosts = track.ghosts.clone();
     let app = track.app.clone();
     TRACK.with_borrow_mut(|t| *t = Some(track));
-    let lists: Vec<(String, WindowList)> = screens::all()
+    let bars: Vec<(String, isize)> = screens::all().into_iter().map(|(label, bar)| (label, monitor_of(HWND(bar as _)))).collect();
+    let with_bar: Vec<isize> = bars.iter().map(|&(_, monitor)| monitor).collect();
+    let lists: Vec<(String, WindowList)> = bars
         .into_iter()
-        .map(|(label, bar)| {
-            let monitor = monitor_of(HWND(bar as _));
+        .map(|(label, monitor)| {
             let (mode, primary) = (APPS_ON.load(Ordering::SeqCst), label == super::bar::LABEL);
-            let here = for_monitor(&list, |id| shows(mode, primary, monitors.get(&id), monitor));
+            let here = for_monitor(&list, |id| shows(mode, primary, monitors.get(&id), monitor, &with_bar));
             (label, here)
         })
         .collect();
@@ -455,6 +459,7 @@ pub(super) fn on_timer(window: HWND) {
     last.list = list;
     last.pids = pids;
     last.monitors = monitors;
+    last.bars = with_bar;
     last.ghosts = ghosts;
     let changed: Vec<(String, WindowList)> = lists.iter().filter(|(label, here)| last.sent.get(label) != Some(here)).cloned().collect();
     // A bar gone leaves the record.
@@ -660,8 +665,8 @@ fn last() -> MutexGuard<'static, Last> {
 }
 
 /// Whether `id` was listed, with the process that has its handle now (`pid_now`), where a bar on `monitor` shows it (`shows`).
-fn listed_on(pids: &[(isize, u32)], monitors: &HashMap<isize, isize>, id: isize, pid_now: u32, (mode, primary): (u8, bool), monitor: isize) -> bool {
-    pids.contains(&(id, pid_now)) && shows(mode, primary, monitors.get(&id), monitor)
+fn listed_on(pids: &[(isize, u32)], monitors: &HashMap<isize, isize>, id: isize, pid_now: u32, (mode, primary): (u8, bool), monitor: isize, bars: &[isize]) -> bool {
+    pids.contains(&(id, pid_now)) && shows(mode, primary, monitors.get(&id), monitor, bars)
 }
 
 /// Whether bar `label` on `monitor` may show `id`'s live preview (preview.rs): a listed window, still of the process it was
@@ -669,7 +674,7 @@ fn listed_on(pids: &[(isize, u32)], monitors: &HashMap<isize, isize>, id: isize,
 pub(super) fn previewable(id: isize, label: &str, monitor: isize) -> bool {
     let pid_now = display::window_pid(HWND(id as _));
     let last = last();
-    listed_on(&last.pids, &last.monitors, id, pid_now, (APPS_ON.load(Ordering::SeqCst), label == super::bar::LABEL), monitor)
+    listed_on(&last.pids, &last.monitors, id, pid_now, (APPS_ON.load(Ordering::SeqCst), label == super::bar::LABEL), monitor, &last.bars)
 }
 
 /// The calling bar's windows, those on its monitor, for a bar page that has just loaded; `taskbar://windows` brings each change.
@@ -680,7 +685,7 @@ pub fn taskbar_windows(window: WebviewWindow) -> WindowList {
     let monitor = monitor_of(hwnd);
     let (mode, primary) = (APPS_ON.load(Ordering::SeqCst), window.label() == super::bar::LABEL);
     let last = last();
-    for_monitor(&last.list, |id| shows(mode, primary, last.monitors.get(&id), monitor))
+    for_monitor(&last.list, |id| shows(mode, primary, last.monitors.get(&id), monitor, &last.bars))
 }
 
 /// The process of listed window `id`, while the window is still of the process it was listed with: None once it is gone, or
@@ -1115,21 +1120,31 @@ mod tests {
     fn a_preview_shows_only_a_listed_window_of_its_own_process_on_the_callers_monitor() {
         let pids = [(10, 1), (20, 2)];
         let monitors = HashMap::from([(10, 100), (20, 200)]);
-        let own = (OWN, false);
-        assert!(listed_on(&pids, &monitors, 10, 1, own, 100));
-        assert!(!listed_on(&pids, &monitors, 10, 1, own, 200)); // on another monitor
-        assert!(!listed_on(&pids, &monitors, 10, 3, own, 100)); // its handle reused by another process
-        assert!(!listed_on(&pids, &monitors, 30, 1, own, 100)); // not listed
-        assert!(listed_on(&pids, &monitors, 10, 1, (MAIN, true), 200)); // the primary's bar under Main shows it too
-        assert!(!listed_on(&pids, &monitors, 30, 1, (ALL, false), 200)); // never one not listed
+        let (own, bars) = ((OWN, false), &[100, 200][..]);
+        assert!(listed_on(&pids, &monitors, 10, 1, own, 100, bars));
+        assert!(!listed_on(&pids, &monitors, 10, 1, own, 200, bars)); // on another monitor
+        assert!(!listed_on(&pids, &monitors, 10, 3, own, 100, bars)); // its handle reused by another process
+        assert!(!listed_on(&pids, &monitors, 30, 1, own, 100, bars)); // not listed
+        assert!(listed_on(&pids, &monitors, 10, 1, (MAIN, true), 200, bars)); // the primary's bar under Main shows it too
+        assert!(!listed_on(&pids, &monitors, 30, 1, (ALL, false), 200, bars)); // never one not listed
     }
 
     #[test]
     fn show_apps_on_picks_the_bars_a_window_shows_on() {
-        let (here, there) = (Some(&1), Some(&2));
-        assert!(shows(OWN, false, here, 1) && !shows(OWN, true, there, 1)); // its own monitor's bar only
-        assert!(shows(MAIN, true, there, 1) && !shows(MAIN, false, there, 1)); // and the primary's
-        assert!(shows(ALL, false, there, 1)); // every bar
-        assert!(!shows(ALL, true, None, 1)); // never one not listed
+        let (here, there, bars) = (Some(&1), Some(&2), &[1, 2][..]);
+        assert!(shows(OWN, false, here, 1, bars) && !shows(OWN, true, there, 1, bars)); // its own monitor's bar only
+        assert!(shows(MAIN, true, there, 1, bars) && !shows(MAIN, false, there, 1, bars)); // and the primary's
+        assert!(shows(ALL, false, there, 1, bars)); // every bar
+        assert!(!shows(ALL, true, None, 1, bars)); // never one not listed
+    }
+
+    #[test]
+    fn a_window_on_a_monitor_without_a_bar_shows_on_the_main_bar() {
+        // Show on all displays off, or the other bar not built: the primary's bar alone, on monitor 1.
+        assert!(shows(OWN, true, Some(&2), 1, &[1]));
+        assert!(!shows(OWN, false, Some(&2), 3, &[1, 3])); // another bar never takes it
+        assert!(!shows(OWN, true, Some(&2), 1, &[1, 2])); // with a bar of its own it stays there
+        let (pids, monitors) = ([(10, 1)], HashMap::from([(10, 2)]));
+        assert!(listed_on(&pids, &monitors, 10, 1, (OWN, true), 1, &[1])); // so the main bar may preview, reorder and arrange it
     }
 }
