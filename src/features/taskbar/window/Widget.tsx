@@ -295,7 +295,8 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
     track,
     own,
   });
-  const pill = pillWidget(id, item.tile !== undefined) ? statusPill(taskbar.height) : null;
+  // By the bar's shape, not by this cell's tile: a hidden widget drawn without one in the hidden items' panel keeps its width on the bar.
+  const pill = pillWidget(id, taskbar.shape === "tiles") ? statusPill(taskbar.height) : null;
   // The clock carries the count of the notices its panel lists, as Windows' carries its centre's; only the main bar hears it (barStores feedStores).
   const count = noticeCount.use();
   const badge = id === "clock" ? countBadge(count) : null;
