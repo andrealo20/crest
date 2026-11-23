@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useReducedMotion } from "motion/react";
 import { audioLevelsAvailable, subscribeLevels, subscribeSpectrum } from "../../platform/audio";
+import { FRAME_MS, due, moved, rests } from "./pacing";
 import { wavePath } from "./shapes";
 
 /*
@@ -8,13 +9,15 @@ import { wavePath } from "./shapes";
  * also show 12 thinner bars (Spectrum) or a line through those 12 bands (Wave).
  *
  * One animation loop for every state, so nothing ever switches hard:
- * - Playing + real levels (WASAPI loopback, ~40 values/s): bars follow the sound.
+ * - Playing + real levels (WASAPI loopback, ~30 values/s): bars follow the sound.
  * - Silence on track change or seek: gentle "breathing" instead of dropping to zero.
  * - In the browser or without levels: the same soft motion, synthetic.
  * - Paused: bars glide to a calm, even height.
  * - Reduced motion: no capture and no loop, the bars just stand at a middle height while playing.
  * Values go straight to `transform` (no React render per frame) and are smoothed per
- * frame over time: fast attack, slower release, like an analog meter.
+ * frame over time: fast attack, slower release, like an analog meter. The four bars draw
+ * about 30 frames a second, Spectrum and Wave about 60 (pacing.ts); a move too small to
+ * see is not written, and the loop sleeps while nothing moves.
  */
 const MIN = 0.2;
 const IDLE = 0.24;
@@ -28,10 +31,8 @@ const SETTLE = 0.18;
 const PAUSE_DEBOUNCE_MS = 320;
 /** Keep the capture open briefly after pausing so resuming reacts instantly. */
 export const RELEASE_CAPTURE_MS = 2000;
-/** Below one 60 Hz frame with room for timer jitter: 60 Hz draws every frame, 120 Hz
- *  every 2nd (60 fps), 144 Hz every 2nd (72 fps), 165 Hz every 3rd (55 fps), 240 Hz
- *  every 4th (60 fps). Always whole frames, so the pacing stays even. */
-const MIN_FRAME_MS = 13;
+/** Levels older than this count as gone (audio.rs sends an unchanged one every 300 ms). */
+const STALE_MS = 400;
 
 /** Soft fake motion per bar (layered sine waves at different speeds). */
 function synthetic(i: number, t: number): number {
@@ -80,6 +81,8 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
     if (playing && !still) {
       const store = (values: readonly number[]) => {
         levels.current = { values, at: performance.now() };
+        // Asleep on steady levels, the loop waits for the next ones.
+        wake.current();
       };
       off.current ??= look === "bars" ? subscribeLevels(store) : subscribeSpectrum(store);
       return;
@@ -98,63 +101,80 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
     [],
   );
 
-  // Animation loop: runs while something moves, sleeps when paused and settled.
+  // Animation loop: draws while something moves, sleeps once every bar stands where it is heading and nothing moves it on its own
+  // (paused and settled, reduced motion, steady real levels). New levels and a change of `playing` wake it.
   useEffect(() => {
     const value = Array<number>(count).fill(IDLE);
+    const target = value.slice();
+    // What each bar shows; -1 before the first frame, which writes every bar.
+    const drawn = Array<number>(count).fill(-1);
+    const every = FRAME_MS[look];
     let frame = 0;
+    let stale = 0;
     let last = performance.now();
     let quiet = 0;
 
     const tick = (now: number) => {
-      // Cap at ~60 fps: on 120/144/240 Hz screens every 2nd (3rd) frame, evenly
-      // paced. Levels only arrive 40×/s, more frames don't add motion.
-      if (now - last < MIN_FRAME_MS) {
+      // Whole frames only (pacing.ts): the vsyncs in between pass without work.
+      if (!due(now, last, every)) {
         frame = requestAnimationFrame(tick);
         return;
       }
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       const t = now / 1000;
-      const live = levels.current && now - levels.current.at < 400 ? levels.current.values : null;
-      const loud = live ? Math.max(...live) : 0;
+      const heard = levels.current;
+      const live = heard && now - heard.at < STALE_MS ? heard.values : null;
+      const sounding = !!live && Math.max(...live) > 0.06;
       // Silence while playing (track change, seek) → breathe gently after 150 ms.
-      quiet = live && loud > 0.06 ? 0 : quiet + dt;
+      quiet = sounding ? 0 : quiet + dt;
       const breathe = Math.min(1, Math.max(0, (quiet - 0.15) / 0.35));
+      const moving = playingRef.current && !still;
 
-      let settled = true;
+      let changed = false;
       for (let i = 0; i < count; i++) {
-        let target: number;
         let tau: number;
-        if (!playingRef.current || still) {
-          target = playingRef.current ? STILL : IDLE;
+        if (!moving) {
+          target[i] = playingRef.current ? STILL : IDLE;
           tau = SETTLE;
         } else {
           const real = live ? MIN + (1 - MIN) * live[i] : 0;
           const soft = MIN + (live ? 0.3 : 0.75) * synthetic(i, t);
-          target = live ? real * (1 - breathe) + soft * breathe : soft;
-          tau = target > value[i] ? ATTACK : RELEASE;
+          target[i] = live ? real * (1 - breathe) + soft * breathe : soft;
+          tau = target[i] > value[i] ? ATTACK : RELEASE;
         }
-        value[i] += (target - value[i]) * (1 - Math.exp(-dt / tau));
-        if (Math.abs(target - value[i]) > 0.002) settled = false;
+        value[i] += (target[i] - value[i]) * (1 - Math.exp(-dt / tau));
+        if (!moved(value[i], drawn[i])) continue;
+        drawn[i] = value[i];
+        changed = true;
         const bar = bars.current[i];
         if (bar) bar.style.transform = `scaleY(${value[i].toFixed(3)})`;
       }
-      wave.current?.setAttribute("d", wavePath(value, WAVE_WIDTH, height, WAVE_STROKE / 2 + 0.25));
+      if (changed) wave.current?.setAttribute("d", wavePath(value, WAVE_WIDTH, height, WAVE_STROKE / 2 + 0.25));
 
-      frame = (playingRef.current && !still) || !settled ? requestAnimationFrame(tick) : 0;
+      if (!rests(value, target, moving, sounding)) {
+        frame = requestAnimationFrame(tick);
+        return;
+      }
+      frame = 0;
+      // Asleep on steady levels: should no more come, wake when they count as gone, to breathe.
+      if (moving && heard) stale = window.setTimeout(wakeUp, heard.at + STALE_MS - now);
     };
 
-    wake.current = () => {
+    const wakeUp = () => {
       if (frame) return;
+      window.clearTimeout(stale);
       last = performance.now();
       frame = requestAnimationFrame(tick);
     };
-    wake.current();
+    wake.current = wakeUp;
+    wakeUp();
     return () => {
       cancelAnimationFrame(frame);
+      window.clearTimeout(stale);
       wake.current = () => {};
     };
-  }, [count, height, still]);
+  }, [count, height, still, look]);
 
   if (look === "wave")
     return (

@@ -27,7 +27,7 @@ use crate::mixer::{file_name, matches, process_path};
 /// The engine converts whatever the process plays to this.
 pub const RATE: u32 = 44_100;
 const CHANNELS: u16 = 2;
-/// 100 ms: the thread drains every 25 ms, so nothing is lost in between.
+/// 100 ms: the thread drains every 33 ms (audio.rs TICK), so nothing is lost in between.
 const BUFFER: i64 = 1_000_000;
 
 /// First Windows build with process loopback.

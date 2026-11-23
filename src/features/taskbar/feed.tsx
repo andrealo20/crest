@@ -12,7 +12,7 @@ import { useNextEvent } from "../../notch/row/parts/NextEventPart";
 import { useReadings } from "../../notch/row/parts/Readings";
 import { ringProps, ringProviders } from "../../notch/row/parts/Rings";
 import { barParts } from "../../notch/row/visibility";
-import { subscribeLevels } from "../../platform/audio";
+import { holdLevels } from "../../platform/audio";
 import { useNowPlaying } from "../../platform/media";
 import { isMac, isNative } from "../../platform/native";
 import { build, taskbar } from "../../platform/services";
@@ -113,12 +113,12 @@ function TitleSource() {
   return null;
 }
 
-/** Keeps the capture on for the bar's equalizers (the widget's, Now Playing's in a panel), which only listen: while playing and a moment after, never with reduced motion. */
+/** Keeps the capture on for the bar's equalizers (the widget's, Now Playing's in a panel), which only listen: while playing and a moment after, never with reduced motion. The notch does not listen for them. */
 function EqualizerSource() {
   const np = useNowPlaying();
   const still = useReducedMotion();
   const capture = useHeld(!!np?.isPlaying, RELEASE_CAPTURE_MS) && !still;
-  useEffect(() => (capture ? subscribeLevels(() => {}) : undefined), [capture]);
+  useEffect(() => (capture ? holdLevels() : undefined), [capture]);
   useSlice("playing", !!np?.isPlaying);
   return null;
 }
