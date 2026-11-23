@@ -4,10 +4,16 @@
     "date": "2026-11-23",
     "items": [
       {
+        "en": "Folders on the taskbar: hold a pinned app over another to group them, and open the folder in a panel over the bar. On Windows, not in the Microsoft Store version"
+      },
+      {
         "en": "New taskbar widgets and faces: top apps, battery rings and cells, a network graph, Now Playing with cover and controls, the microphone, a stopwatch, the next to-do, the latest note, progress, the date, world time, more clocks, weather details, the next days, sunrise and sunset, currencies and crypto. On Windows, not in the Microsoft Store version"
       },
       {
         "en": "Windows buttons for the theme, the on-screen keyboard, the notification center, recent files and a search box"
+      },
+      {
+        "en": "More taskbar widgets: Screen Time, the day timeline, unread notifications, device batteries, temperatures with a 10-minute line, Keep awake and a wallpaper switcher, and buttons for Do not disturb, desktop icons, Eject and the mobile hotspot"
       },
       {
         "en": "A Widget size slider, and a button that opens the widgets the bar has no room for, while the clock always stays"
@@ -17,6 +23,15 @@
       },
       {
         "en": "A click on the weather of the Time and weather clock opens Weather, the Crest button can be removed, and windows on a monitor without a bar show on the main one"
+      },
+      {
+        "en": "Screen Time, off until you turn it on: the time in each app, kept only on this PC for 30 days, with a Day timeline of focus rounds, events, sunrise and sunset"
+      },
+      {
+        "en": "Wallpapers: a picture from Crest's collection or your own folder for each screen, changed on a timer if you like"
+      },
+      {
+        "en": "The battery of your Bluetooth devices in the closed notch"
       },
       {
         "en": "The Timer goes up to 24 hours, keeps your last three durations and has a stopwatch with laps"
