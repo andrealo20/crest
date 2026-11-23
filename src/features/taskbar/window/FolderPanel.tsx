@@ -3,6 +3,7 @@ import { t } from "../../../i18n";
 import { settings } from "../../../settings/store";
 import { TextField } from "../../../ui/controls";
 import { nextName, renameFolder } from "../folderModel";
+import { panel } from "../panel";
 import { setTaskbar } from "../store";
 
 /** A new folder's name in the current language (decision C3): "Ordner", then "Ordner 2", "Ordner 3" while the name is taken. */
@@ -27,9 +28,16 @@ export function FolderPanel({ id, name, focus, children }: { id: string; name: s
   const editing = useRef(focus === "name");
   const box = useRef<HTMLDivElement>(null);
   const title = useRef<HTMLButtonElement>(null);
+  // At each opening, also one that brings the panel back while it closes, which keeps this FolderPanel with what it had.
+  const opened = panel.use();
   useEffect(() => {
+    if (!opened) return;
     if (focus === "first") box.current?.querySelector<HTMLElement>("[data-app-cell]")?.focus({ preventScroll: true });
-  }, [focus]);
+    else if (focus === "name" && !editing.current) {
+      editing.current = true;
+      setDraft(name);
+    }
+  }, [opened]);
   // The whole name selected as the field opens, so typing replaces it.
   const open = draft !== null;
   useEffect(() => {
