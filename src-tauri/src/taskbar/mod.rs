@@ -51,7 +51,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DeregisterShellHookWindow, DestroyWindow, DispatchMessageW, GetMessageW, KillTimer, PostMessageW, PostQuitMessage, RegisterClassW,
     RegisterShellHookWindow, RegisterWindowMessageW, SetTimer, CHILDID_SELF, EVENT_OBJECT_CLOAKED, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE,
     EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MENUPOPUPEND, EVENT_SYSTEM_MENUPOPUPSTART, EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, MSG,
-    OBJID_WINDOW, SPI_SETWORKAREA, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_APP, WM_CLOSE, WM_DESTROY, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW,
+    OBJID_WINDOW, SPI_SETDESKWALLPAPER, SPI_SETWORKAREA, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_APP, WM_CLOSE, WM_DESTROY, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW,
     WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 
@@ -83,6 +83,9 @@ const REORDER: u32 = WM_APP + 5;
 /// Auto-hide a hide could not set is tried again this often while it is still to do (`try_autohide`).
 const AUTOHIDE_TIMER: usize = 3;
 const AUTOHIDE_MS: u32 = 5000;
+/// A wallpaper change comes as a burst of broadcasts: the windows hear of it once, this long after the last one. Id 4 is recycle.rs'.
+const WALLPAPER_TIMER: usize = 5;
+const WALLPAPER_MS: u32 = 300;
 /// The waits before each read of the Start list: none, then longer after each read that failed or came back empty (a sign-in
 /// where the shell is not ready yet), and none after the last.
 const START_LIST: [Duration; 4] = [Duration::ZERO, Duration::from_secs(5), Duration::from_secs(20), Duration::from_secs(60)];
@@ -291,6 +294,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             let _ = KillTimer(Some(hwnd), RETRY_TIMER);
             let _ = KillTimer(Some(hwnd), tasks::LIST_TIMER);
             let _ = KillTimer(Some(hwnd), AUTOHIDE_TIMER);
+            let _ = KillTimer(Some(hwnd), WALLPAPER_TIMER);
             recycle::end(hwnd);
             let _ = DeregisterShellHookWindow(hwnd);
             PostQuitMessage(0);
@@ -315,6 +319,18 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
     }
     if msg == WM_TIMER && wparam.0 == AUTOHIDE_TIMER {
         try_autohide(hwnd);
+        return LRESULT(0);
+    }
+    // The wallpaper changed, by Crest, Windows' Settings or its slideshow: every window hears of it (wallpaper.rs), off this thread.
+    if msg == WM_SETTINGCHANGE && wparam.0 == SPI_SETDESKWALLPAPER.0 as usize {
+        let _ = unsafe { SetTimer(Some(hwnd), WALLPAPER_TIMER, WALLPAPER_MS, None) };
+        return LRESULT(0);
+    }
+    if msg == WM_TIMER && wparam.0 == WALLPAPER_TIMER {
+        let _ = unsafe { KillTimer(Some(hwnd), WALLPAPER_TIMER) };
+        if let Some(app) = PENDING.with_borrow(|pending| pending.app.clone()) {
+            std::thread::spawn(move || crate::wallpaper::announce(&app));
+        }
         return LRESULT(0);
     }
     if msg == RELIST {

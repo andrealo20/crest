@@ -102,6 +102,7 @@ windows = { version = "0.62", features = [
   "UI_ViewManagement",
   # The Store build keeps the wallpapers in the package's own LocalCache folder, a real path Explorer reads (wallpaper.rs).
   "Storage",
+  "Storage_Search",
   "Storage_Streams",
   "Win32_Foundation",
   "Win32_Devices_DeviceAndDriverInstallation",

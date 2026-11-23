@@ -1,6 +1,6 @@
 # Crest privacy policy
 
-Last updated: 13 November 2026.
+Last updated: 23 November 2026.
 
 Crest is a free, open-source Windows and Mac app by Andrea Loroni. It has no account, no server of its own, no analytics and no tracking. Nothing is sent to the developer.
 
@@ -13,6 +13,7 @@ Crest is a free, open-source Windows and Mac app by Andrea Loroni. It has no acc
 - Screenshots and recordings you take, in *Pictures\Screenshots* and *Videos\Crest\Recordings*; audio-only recordings of the Recorder tool (off by default; the microphone, the system audio or both, only while you record) in *Music\Crest\Recordings*. They stay on the PC.
 - Backups you make (Settings, General), in *Documents\Crest\Backups* (*~/Documents/Crest/Backups* on a Mac): your settings, notes, to-dos and the tools' data as plain JSON, without keys, passwords, calendar links or the vault. Crest sends them nowhere; a Documents folder that OneDrive or iCloud Drive syncs takes them along.
 - Plugins you install, in the `plugins` folder of the app's data folder, and the data of those that keep any, in `plugin-data`.
+- The pictures of the Wallpapers tool's collection (off by default) that you used or downloaded, in the `wallpapers` folder of `%LOCALAPPDATA%\io.github.andrealo20.crest` (never the roaming profile; in the Microsoft Store version the package's own `LocalCache` folder, beside Crest.exe in the portable build, in `~/Library/Application Support/io.github.andrealo20.crest` on a Mac), until you press **Remove**. The folder you pick for your own pictures is saved in the settings; Crest only reads its pictures.
 - A crash log (`crash.log` in the `logs` folder), written only when the app crashes or hits an uncaught error. It is not sent anywhere.
 - Windows' battery report, made only when you click the battery's health in the Hardware tool: Windows writes it to `%TEMP%\crest\battery-report.html`, Crest opens it, and the next click replaces it. It holds the PC's name, the battery's serial number and its usage history. It is not sent anywhere.
 
@@ -53,6 +54,7 @@ Every request goes straight from your PC to the service named here. On by defaul
 | Lyrics | The sources you turned on in **Settings → Display → Lyrics**, in their order, each with the title, artist and length of the song: lrclib.net (on by default), lyrics.kugou.com (Kugou) and music.163.com (NetEase Cloud Music), both unofficial APIs and off by default | While the lyrics panel is open or a lyrics option of the closed notch is on, for songs up to 20 minutes; each answer is cached |
 | Lyrics translation | firefox.settings.services.mozilla.com, firefox-settings-attachments.cdn.mozilla.net (Mozilla's translation engine and models, anonymous; the lyrics are translated on your PC and never sent) | Only when you download the engine and a language's models for **Translate offline** |
 | Kanji dictionary | github.com and release-assets.githubusercontent.com (a fixed JMdict release, anonymous) | Only when you press **Download** under Romanisation |
+| Wallpapers | github.com and release-assets.githubusercontent.com (the pictures of a fixed release of Crest, anonymous) | The first time you use a picture of the collection (a click on it, Next, or Change automatically), and when you press **Download** in the Wallpapers tool; never once a picture is on the PC |
 | Updates | github.com and raw.githubusercontent.com (anonymous) | 15 seconds after Crest starts, then every 4 hours; can be turned off in **Settings → General → Updates** |
 | Plugins | Only the hosts each plugin you install declares in its `crest-plugin.json`, over https, with whatever the plugin sends them | When the plugin's tool is open and it asks; Crest shows these hosts before you install it |
 

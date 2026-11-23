@@ -235,7 +235,7 @@ export function micPart(ctx: WidgetContext): Body | null {
 }
 
 /** Does what a face's key does; `fail` puts what went wrong in the widget's label. No state is guessed ahead: Rust tells it back at once. */
-export function runFaceKey(key: Exclude<FaceKey, "weather">, fail: (text: string) => void): void {
+export function runFaceKey(key: Exclude<FaceKey, "weather" | "wallPrevious" | "wallNext">, fail: (text: string) => void): void {
   switch (key) {
     case "toggle":
       return media.toggle();
