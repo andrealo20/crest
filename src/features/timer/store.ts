@@ -7,6 +7,7 @@ import { settings } from "../../settings/store";
 import { focusSoundFor, setFocusSound } from "./focusSound";
 import { clampDuration, customsOf, remember } from "./duration";
 import { STOPWATCH_IDLE, lapAt, toggleAt, type Stopwatch } from "./stopwatch";
+import { logRound, roundsOf, roundsWanted, type FocusRound } from "./rounds";
 
 export type TimerMode = "focus" | "break";
 
@@ -57,6 +58,9 @@ timer.subscribe(() => {
 
 /** The stopwatch, saved as when it started rather than as a count: it keeps counting while Crest is closed, as the timer does, and every window shows the same one. */
 export const stopwatch = createStore<Stopwatch>(STOPWATCH_IDLE, { persist: "stopwatch" });
+
+/** The focus rounds finished in the last 30 days, for the Day timeline; written only while it or Screen Time is in use (rounds.ts roundsWanted). */
+export const focusLog = createStore<FocusRound[]>([], { persist: "focus-rounds" });
 
 /** Start or pause, a lap, and back to zero for the stopwatch. */
 export const stopwatchActions = {
@@ -145,6 +149,11 @@ function checkEnd() {
   const s = timer.get();
   if (s.endsAt !== null && remainingOf(s) <= 0) {
     timer.set((t) => ({ ...t, remaining: 0, endsAt: null, finished: true }));
+    // Before the stale return: a round that ended while Crest was closed counts too. A round stopped before its end does not.
+    if (s.mode === "focus" && roundsWanted(settings.get())) {
+      const round = { end: s.endsAt, secs: s.duration };
+      focusLog.set((l) => logRound(roundsOf(l), round, Date.now()));
+    }
     // Ended while Crest was closed or the PC slept: finished, but no alarm at the next login (as with reminders).
     if (Date.now() - s.endsAt > STALE_MS) return;
     const { sound, volume, duration: ring } = settings.get().alarm;

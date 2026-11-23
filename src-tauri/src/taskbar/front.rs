@@ -57,9 +57,9 @@ pub struct Rect {
     h: f64,
 }
 
-/// The foreground window as the rule sees it.
+/// The foreground window as the rule sees it; Screen Time reads the app in front the same way (screentime.rs).
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum Fg {
+pub(crate) enum Fg {
     /// The desktop (`display::is_desktop`), which spans every monitor.
     Desktop,
     /// The listed window it stands for: itself, or the app whose dialog it is.
@@ -69,7 +69,7 @@ enum Fg {
 }
 
 impl Fg {
-    fn of(hwnd: HWND, own: u32) -> Fg {
+    pub(crate) fn of(hwnd: HWND, own: u32) -> Fg {
         if display::is_desktop(hwnd) {
             return Fg::Desktop;
         }

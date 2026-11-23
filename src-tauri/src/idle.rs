@@ -16,7 +16,7 @@ fn idle_ms(now_tick: u64, last_input: u32) -> u32 {
 }
 
 #[cfg(windows)]
-fn read() -> Result<u64, String> {
+pub(crate) fn read() -> Result<u64, String> {
     use windows::Win32::System::SystemInformation::GetTickCount64;
     use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
     let mut info = LASTINPUTINFO { cbSize: std::mem::size_of::<LASTINPUTINFO>() as u32, dwTime: 0 };
@@ -29,7 +29,7 @@ fn read() -> Result<u64, String> {
 }
 
 #[cfg(target_os = "macos")]
-fn read() -> Result<u64, String> {
+pub(crate) fn read() -> Result<u64, String> {
     #[link(name = "CoreGraphics", kind = "framework")]
     extern "C" {
         fn CGEventSourceSecondsSinceLastEventType(state: i32, event: u32) -> f64;
@@ -44,7 +44,7 @@ fn read() -> Result<u64, String> {
 }
 
 #[cfg(not(any(windows, target_os = "macos")))]
-fn read() -> Result<u64, String> {
+pub(crate) fn read() -> Result<u64, String> {
     Err("unsupported".into())
 }
 
