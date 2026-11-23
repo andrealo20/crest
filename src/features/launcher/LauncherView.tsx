@@ -29,7 +29,9 @@ const PICKER_LIMIT = 60;
  * dropped on the open Launcher in the notch (`appDrop`).
  */
 export function LauncherView() {
-  const l = settings.use().launcher;
+  const { launcher: l, tools } = settings.use();
+  // Alt+N works only while the tool is on in the notch (store.ts syncShortcuts); the bar's panel opens the Launcher either way.
+  const keys = l.hotkeys && tools.some((x) => x.id === "launcher" && x.enabled);
   const { apps, failed } = launcherApps.use();
   const shortcuts = shortcutResult.use();
   const [picking, setPicking] = useState(false);
@@ -90,7 +92,7 @@ export function LauncherView() {
   return (
     <>
       {actions}
-      <Grid favorites={favorites} status={slotStatus(favorites, l.hotkeys, shortcuts)} onAdd={() => setPicking(true)} />
+      <Grid favorites={favorites} status={slotStatus(favorites, keys, shortcuts)} onAdd={() => setPicking(true)} />
     </>
   );
 }
