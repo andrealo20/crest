@@ -3,7 +3,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { fade } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { measureTabular } from "../../../notch/row/measure";
-import type { PowerState } from "../../../notch/row/status";
+import { BtLowest, btLowestWidth, btSpoken } from "../../../notch/row/parts/BtPart";
+import { btIcon, type PowerState } from "../../../notch/row/status";
+import { STATUS_ICON } from "../../../notch/row/statusIcons";
 import { settings } from "../../../settings/store";
 import { batteryTint } from "../../../ui/glyphModel";
 import { Lightning } from "../../../ui/iconset";
@@ -11,14 +13,15 @@ import { AppIcon } from "../../system/AppIcon";
 import { processMemory } from "../../system/format";
 import { ofShare, schemeColor } from "../../system/levels";
 import { variantOf, type WidgetVariants } from "../model";
+import { btLow, btShown, type BtDevice } from "../quickPages";
 import { batteryGlyph } from "../statusModel";
 import { appFigure, batteryLit, needleAngle, type TopApp } from "../systemWidgets";
-import { NetLine, netLineWidth } from "./ReadingFaces";
+import { FanReadings, NetLine, fanReadings, fansWidth, netLineWidth, tempsBody } from "./ReadingFaces";
 import type { Body, WidgetContext } from "./Widget";
 
 /*
- * The faces of the bar's Top apps and Battery widgets, and the Hardware widget's network line. Top apps keeps three slots of a fixed
- * width, so a third app turning up or a figure growing moves nothing; the battery is as wide as its widest figure.
+ * The faces of the bar's Top apps, Battery and Device batteries widgets, and the Hardware widget's network line. Top apps keeps three
+ * slots of a fixed width, so a third app turning up or a figure growing moves nothing; the battery is as wide as its widest figure.
  */
 
 /** Top apps: the apps shown, each slot's icon, the room after it and between slots. */
@@ -74,8 +77,8 @@ const DIM_STROKE = { stroke: "currentColor", strokeOpacity: 0.25, className: "ma
 const LIT_FILL = { fill: "currentColor" } as const;
 const share = (percent: number | null) => Math.min(100, Math.max(0, percent ?? 0));
 
-/** A ring filling clockwise from the top, the charge written inside it. */
-function Ring({ percent }: { percent: number | null }) {
+/** A ring filling clockwise from the top, the charge written inside it unless `label` is false (Device batteries puts an icon there). */
+function Ring({ percent, label = true }: { percent: number | null; label?: boolean }) {
   const s = share(percent), full = s >= 99.9;
   return (
     <svg width={22} height={22} viewBox="0 0 22 22" className="shrink-0" aria-hidden>
@@ -86,9 +89,11 @@ function Ring({ percent }: { percent: number | null }) {
           pathLength={100} strokeDasharray={full ? "100 0" : `${s} 100`} transform="rotate(-90 11 11)"
         />
       )}
-      <text x="11" y="11.5" textAnchor="middle" dominantBaseline="middle" fontSize="8" fontWeight="700" fill="currentColor" style={{ fontVariantNumeric: "tabular-nums" }}>
-        {percent ?? "-"}
-      </text>
+      {label && (
+        <text x="11" y="11.5" textAnchor="middle" dominantBaseline="middle" fontSize="8" fontWeight="700" fill="currentColor" style={{ fontVariantNumeric: "tabular-nums" }}>
+          {percent ?? "-"}
+        </text>
+      )}
     </svg>
   );
 }
@@ -151,7 +156,12 @@ function BatteryFace({ power: p, version: v }: { power: PowerState; version: Bat
 
 /** Top apps, the battery or the temperatures as the bar draws it; null while it has nothing to show, and the bar draws its icon. */
 export function systemPart(id: "processes" | "battery" | "temps", ctx: WidgetContext): Body | null {
-  if (id === "temps") return null;
+  if (id === "temps") {
+    const temps = ctx.feed.temps;
+    if (variantOf(ctx.variants, "temps") === "history") return tempsBody(temps);
+    const n = fanReadings(temps.fans).length;
+    return n ? { node: <FanReadings fans={temps.fans} />, width: fansWidth(n) } : null;
+  }
   if (id === "processes") {
     const apps = ctx.feed.topApps;
     if (!apps.length) return null;
@@ -165,9 +175,45 @@ export function systemPart(id: "processes" | "battery" | "temps", ctx: WidgetCon
   return { node: <BatteryFace power={p} version={v} />, width: batteryFaceWidth(v, p.charging) };
 }
 
+const RING = 22, RING_GAP = 4, RING_ICON = 11;
+
+/** Each device as the Battery widget's ring with its icon inside, by name; red at 20 % or less. A ring arriving or leaving fades. */
+function BtRings({ list }: { list: BtDevice[] }) {
+  return (
+    <span className="flex shrink-0 items-center" style={{ gap: RING_GAP }} role="img" aria-label={btSpoken(list)}>
+      <AnimatePresence initial={false} mode="popLayout">
+        {list.map((d) => {
+          const Icon = STATUS_ICON[btIcon(d.categories)];
+          return (
+            <motion.span
+              key={d.id}
+              className={`grid shrink-0 place-items-center ${btLow(d.battery ?? 0) ? "text-red" : "text-label"}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, transition: fade }}
+              exit={{ opacity: 0, transition: fade }}
+            >
+              <span className="col-start-1 row-start-1 flex">
+                <Ring percent={d.battery} label={false} />
+              </span>
+              <Icon size={RING_ICON} weight="regular" className="col-start-1 row-start-1" aria-hidden />
+            </motion.span>
+          );
+        })}
+      </AnimatePresence>
+    </span>
+  );
+}
+
+const ringsWidth = (n: number) => n * RING + (n - 1) * RING_GAP;
+
 /** The Device batteries widget: the lowest battery, or every device as a ring; null without one, and the bar draws its icon. */
-export function bluetoothPart(_ctx: WidgetContext): Body | null {
-  return null;
+export function bluetoothPart(ctx: WidgetContext): Body | null {
+  const v = variantOf(ctx.variants, "bluetooth");
+  // Through btShown here too, so the Widgets page's preview, which starts from the sample, shows the lowest.
+  const list = btShown(ctx.feed.btDevices, v);
+  if (!list.length) return null;
+  const tip = btSpoken(list);
+  return v === "lowest" ? { node: <BtLowest device={list[0]} />, width: btLowestWidth(), tip } : { node: <BtRings list={list} />, width: ringsWidth(list.length), tip };
 }
 
 /** The Hardware widget's line of the network's download and upload; null draws its dials, which then hold download and upload. */

@@ -15,6 +15,7 @@ import { SteadyRanking } from "./ranking";
 import { netRates, type NetSample } from "./rates";
 import { groupDrives, type Drive } from "./storage";
 import { plausible, SteadyZones } from "./temps";
+import { addTemps, fansOf, NO_FANS, NO_TEMPS, TEMP_STEP_MS, type Fans, type TempLine } from "./thermals";
 
 /** 60 values = one minute of history at one value per second. */
 export const HISTORY = 60;
@@ -41,6 +42,10 @@ export interface SystemState {
   drives: Drive[];
   /** Ranked steadily; only while the tool is shown or the bar's Top apps widget is on the bar. */
   processes: { cpu: ProcReading[]; mem: ProcReading[] } | null;
+  /** The last 10 minutes of cpuTemp and gpuTemp, for the bar's Temperatures widget; kept in memory only, gaps while nothing reads them. */
+  tempLine: TempLine;
+  /** The fans that widget shows; none while the temperatures are not read. */
+  fans: Fans;
 }
 
 const emptyHistory = (): Record<SystemKey, number[]> => ({ cpu: [], mem: [], gpu: [], ping: [], down: [], up: [], power: [] });
@@ -54,7 +59,8 @@ const emptyHistory = (): Record<SystemKey, number[]> => ({ cpu: [], mem: [], gpu
  * Three rhythms, slow ones filled in linearly so the history keeps one value per second:
  * - shown (Hardware tool open, here or in a bar's panel): everything once a second;
  * - GPU reading in the closed row (or gaming there) or on the bar: CPU, RAM and GPU every 2 s, without waking the ping;
- * - background: CPU and RAM every 3 s; GPU and ping stay gaps (their counters are the expensive part).
+ * - background: CPU and RAM every 3 s; GPU and ping stay gaps (their counters are the expensive part);
+ * - only the bar's Temperatures widget asks: every 15 s, a point of its line each.
  * The closed row's opt-in readings (network, power, battery, temperature) ride on the 2 s / 3 s rhythms, and only
  * the ones switched on are read.
  */
@@ -72,6 +78,8 @@ export const system = createStore<SystemState>({
   battery: null,
   drives: [],
   processes: null,
+  tempLine: NO_TEMPS,
+  fans: NO_FANS,
 });
 
 const SHOWN_MS = 1000;
@@ -89,6 +97,8 @@ let lastAnswer: number | null = null;
 let lastNet: NetSample | null = null;
 let lastProcesses: number | null = null;
 const zones = new SteadyZones();
+/** The adapters whose driver has reported a fan above 0 since Crest started (thermals.ts fansOf). */
+const spun = new Set<string>();
 const byCpu = SteadyRanking.cpu(), byMem = SteadyRanking.memory();
 
 /** What the closed row, or the bar's readings, network line and Top apps widgets, read besides CPU, RAM and GPU. */
@@ -121,6 +131,7 @@ function poll(ms: number) {
     const extCpuTemp = want.temps ? plausible(ext?.cpuTemp) : null, extGpuTemp = want.temps ? plausible(extGpu?.temp) : null;
     const cpuTemp = extCpuTemp ?? zone;
     const gpuTemp = want.temps ? (extGpuTemp ?? plausible(gpu?.temp ?? nv?.temp ?? null)) : null;
+    const fans = want.temps ? fansOf(ext && { cpu: ext.cpuFan, case: ext.caseFan, gpu: extGpu?.fan ?? null }, gpu, nv?.fan ?? null, spun) : NO_FANS;
     const battery = want.battery ? buildBattery(raw.battery) : null;
     const power = want.power ? resolvePower({ energy: raw.energy, meter: raw.meter, battery: discharge(battery, raw.battery?.ac ?? null), gpus: raw.nvml.map((n) => n.watts), external: ext && { source: ext.source, cpu: ext.cpuWatts, gpu: extGpu?.watts ?? null } }) : null;
 
@@ -145,7 +156,8 @@ function poll(ms: number) {
       const gaps = Array<number>(steps).fill(Number.NaN);
       const add = (prev: number[], v: number | null | undefined, read: boolean) => push(prev, read ? fill(prev, v ?? Number.NaN) : gaps);
       // Another adapter shown (picked, or automatic moved on): its line starts fresh rather than continuing the other's.
-      const gpuHistory = counted && cur.gpu && gpu && cur.gpu.key !== gpu.key ? [] : h.gpu;
+      const gpuMoved = counted && cur.gpu && gpu && cur.gpu.key !== gpu.key;
+      const gpuHistory = gpuMoved ? [] : h.gpu;
       return {
         // Slower rhythms: keep the last numbers they skip for the first frame when opened.
         stats: full || !stats ? next : counted ? { ...next, ping: stats.ping } : { ...next, gpu: stats.gpu, gpuMemUsed: stats.gpuMemUsed, ping: stats.ping },
@@ -160,6 +172,9 @@ function poll(ms: number) {
         battery,
         drives: raw.drives ? groupDrives(raw.drives) : cur.drives,
         processes,
+        // Without a read the line stays, and the next read fills the buckets passed with gaps.
+        tempLine: want.temps ? addTemps(gpuMoved ? { ...cur.tempLine, gpu: cur.tempLine.gpu.map(() => null) } : cur.tempLine, raw.at, cpuTemp, gpuTemp) : cur.tempLine,
+        fans,
         history: {
           cpu: push(h.cpu, fill(h.cpu, next.cpu)),
           mem: push(h.mem, fill(h.mem, mem)),
@@ -176,9 +191,8 @@ function poll(ms: number) {
   });
 }
 
-function wanted(): boolean {
-  // system_stats has no Mac backend.
-  if (isMac) return false;
+/** Whether anything but the bar's Temperatures widget asks for the values. */
+function wantedBesidesTemps(): boolean {
   // A bar's panel can show Hardware while the tool is off here.
   if (shown.get() > 0) return true;
   const s = settings.get();
@@ -186,8 +200,13 @@ function wanted(): boolean {
   return s.tools.some((x) => x.id === "system" && x.enabled) || s.gaming.mode !== "off" || ((s.closed.parts.readings || s.closed.pet.id !== null) && rowVisible.get()) || barParts.get().includes("readings") || barParts.get().includes("processes");
 }
 
+// system_stats has no Mac backend.
+const wanted = () => !isMac && (wantedBesidesTemps() || barParts.get().includes("temps"));
+
 function rhythm(): number {
   if (shown.get() > 0) return SHOWN_MS;
+  // Temperatures alone: one read per point of its line, a fifth of the background's reads.
+  if (!wantedBesidesTemps()) return TEMP_STEP_MS;
   const s = settings.get();
   // Gaming puts the GPU in the row even with the readings part off.
   const gpu = (rowVisible.get() && ((s.closed.parts.readings && s.closed.readings.gpu) || gamingLive(s.gaming.mode, fullscreen.get()))) || (barParts.get().includes("readings") && s.closed.readings.gpu);

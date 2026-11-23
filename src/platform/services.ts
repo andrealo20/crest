@@ -199,7 +199,7 @@ export interface SystemStats {
   /** Energy Meter / Power Meter channels: [instance, milliwatts]. */
   energy: [string, number][];
   meter: [string, number][];
-  nvml: { name: string; watts: number | null; temp: number | null }[];
+  nvml: { name: string; watts: number | null; temp: number | null; /** The fan in percent of its top speed (desktops; none on laptops). */ fan?: number | null }[];
   /**
    * From HWiNFO, LibreHardwareMonitor or Core Temp while one of them runs; `source` is the program's name. The fans in rpm: the CPU's,
    * the fastest other one of the board (`caseFan`) and each GPU's; null where the program does not name one.

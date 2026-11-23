@@ -1,5 +1,5 @@
-//! Readings that need no administrator rights and no driver of Crest's own: graphics temperatures (D3DKMT, as Task
-//! Manager), NVIDIA board power and temperature (NVML from System32, desktops only), the machine's battery (WinRT
+//! Readings that need no administrator rights and no driver of Crest's own: graphics temperatures and fans (D3DKMT, as Task
+//! Manager), NVIDIA board power, temperature and fan (NVML from System32, desktops only), the machine's battery (WinRT
 //! report + GetSystemPowerStatus), and internal drives with SSD temperatures (storage properties, on a thread of their
 //! own). The same drives, without temperatures, for the bar's disk space widget (`bar_drives`). Raw values only; src/features/system/*.ts decides what they mean.
 //!
@@ -42,7 +42,7 @@ impl Hardware {
         Self { has_battery: power_status().is_some_and(|s| s.BatteryFlag & 128 == 0 && s.BatteryFlag != 255), gpu: HashMap::new(), nvml: None, drives: Arc::default() }
     }
 
-    /// Fills `temp` for the adapters that may be asked: all on a desktop, only busy ones on a battery machine (an idle
+    /// Fills `temp` and `fan` for the adapters that may be asked: all on a desktop, only busy ones on a battery machine (an idle
     /// discrete GPU in a hybrid laptop stays asleep; a lone adapter has none to wake, and without counters nothing is busy).
     pub fn gpu_temps(&mut self, gpus: &mut [GpuReading]) {
         let now = Instant::now();
@@ -52,7 +52,7 @@ impl Hardware {
                 continue;
             }
             let sensor = self.gpu.entry(g.key.clone()).or_default();
-            g.temp = sensor.read(g.luid, now);
+            (g.temp, g.fan) = sensor.read(g.luid, now);
             // An open handle could keep a hybrid laptop's discrete GPU from its deepest sleep.
             if self.has_battery {
                 sensor.close();
@@ -122,9 +122,12 @@ fn power_status() -> Option<SYSTEM_POWER_STATUS> {
 
 // ---------- GPU temperature (D3DKMT) ----------
 
-/// KMTQAITYPE_ADAPTERPERFDATA; D3DKMT_ADAPTER_PERFDATA is 64 bytes, Temperature (tenths of °C) at 56.
+/// KMTQAITYPE_ADAPTERPERFDATA; D3DKMT_ADAPTER_PERFDATA (d3dkmthk.h) is 64 bytes: PhysicalAdapterIndex and its padding, five
+/// ULONGLONGs (MemoryFrequency, MaxMemoryFrequency, MaxMemoryFrequencyOC, MemoryBandwidth, PCIEBandwidth), then FanRPM at 48,
+/// Power at 52 and Temperature (tenths of °C) at 56.
 const ADAPTER_PERF_DATA: i32 = 62;
 const PERF_DATA_SIZE: usize = 64;
+const FAN_OFFSET: usize = 48;
 const TEMPERATURE_OFFSET: usize = 56;
 const NOT_SUPPORTED: i32 = 0xC00000BBu32 as i32;
 const INVALID_PARAMETER: i32 = 0xC000000Du32 as i32;
@@ -152,6 +155,12 @@ extern "system" {
     fn D3DKMTQueryAdapterInfo(query: *mut QueryAdapterInfo) -> i32;
 }
 
+/// The temperature in tenths of °C and the fan in rpm from the perf data's bytes.
+fn perf_values(bytes: &[u8]) -> (u32, u32) {
+    let at = |offset: usize| u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
+    (at(TEMPERATURE_OFFSET), at(FAN_OFFSET))
+}
+
 /// One adapter's temperature sensor: never asked again once the driver says it does not report it; after any other
 /// failure asked again after a pause growing from 5 s to 5 min.
 #[derive(Default)]
@@ -163,15 +172,16 @@ struct Sensor {
 }
 
 impl Sensor {
-    fn read(&mut self, luid: LUID, now: Instant) -> Option<f64> {
+    /// The temperature, and the fan from the same answer (0 also from a driver that does not report it: the page tells).
+    fn read(&mut self, luid: LUID, now: Instant) -> (Option<f64>, Option<u32>) {
         if self.never || self.retry_at.is_some_and(|t| now < t) {
-            return None;
+            return (None, None);
         }
         unsafe {
             if self.handle == 0 {
                 let mut open = OpenAdapterFromLuid { luid, adapter: 0 };
                 if D3DKMTOpenAdapterFromLuid(&mut open) != 0 {
-                    return self.wait(now);
+                    return (self.wait(now), None);
                 }
                 self.handle = open.adapter;
             }
@@ -179,24 +189,23 @@ impl Sensor {
             let mut query = QueryAdapterInfo { adapter: self.handle, kind: ADAPTER_PERF_DATA, data: data.as_mut_ptr().cast(), size: PERF_DATA_SIZE as u32 };
             let status = D3DKMTQueryAdapterInfo(&mut query);
             if status == 0 {
-                let bytes: &[u8] = std::slice::from_raw_parts(data.as_ptr().cast(), PERF_DATA_SIZE);
-                let deci = u32::from_le_bytes(bytes[TEMPERATURE_OFFSET..TEMPERATURE_OFFSET + 4].try_into().unwrap());
+                let (deci, rpm) = perf_values(std::slice::from_raw_parts(data.as_ptr().cast(), PERF_DATA_SIZE));
                 self.pause = Duration::ZERO;
                 // Zero: no sensor, or an adapter just waking up; asked again shortly.
                 if deci == 0 {
                     self.retry_at = Some(now + FIRST_PAUSE);
-                    return None;
+                    return (None, Some(rpm));
                 }
-                return Some(deci as f64 / 10.0);
+                return (Some(deci as f64 / 10.0), Some(rpm));
             }
             let _ = D3DKMTCloseAdapter(&mut self.handle);
             self.handle = 0;
             if status == NOT_SUPPORTED || status == INVALID_PARAMETER {
                 self.never = true;
-                return None;
+                return (None, None);
             }
         }
-        self.wait(now)
+        (self.wait(now), None)
     }
 
     fn close(&mut self) {
@@ -223,6 +232,8 @@ pub struct NvmlGpu {
     /// Board power in watts.
     watts: Option<f64>,
     temp: Option<f64>,
+    /// The fan in percent of its top speed (it may pass 100); None where the board reports none.
+    fan: Option<u32>,
 }
 
 type NvmlInit = unsafe extern "C" fn() -> i32;
@@ -231,6 +242,7 @@ type NvmlHandle = unsafe extern "C" fn(u32, *mut *mut c_void) -> i32;
 type NvmlName = unsafe extern "C" fn(*mut c_void, *mut u8, u32) -> i32;
 type NvmlPower = unsafe extern "C" fn(*mut c_void, *mut u32) -> i32;
 type NvmlTemp = unsafe extern "C" fn(*mut c_void, u32, *mut u32) -> i32;
+type NvmlFan = unsafe extern "C" fn(*mut c_void, *mut u32) -> i32;
 
 /// The NVIDIA driver's management library, only from System32 (where current drivers install it).
 struct Nvml {
@@ -239,6 +251,8 @@ struct Nvml {
     name: NvmlName,
     power: NvmlPower,
     temp: NvmlTemp,
+    /// Optional: power and temperature still come from a library without it.
+    fan: Option<NvmlFan>,
 }
 
 // Plain function pointers into a library that stays loaded.
@@ -256,6 +270,7 @@ impl Nvml {
                 name: std::mem::transmute(f(s!("nvmlDeviceGetName"))?),
                 power: std::mem::transmute(f(s!("nvmlDeviceGetPowerUsage"))?),
                 temp: std::mem::transmute(f(s!("nvmlDeviceGetTemperature"))?),
+                fan: f(s!("nvmlDeviceGetFanSpeed")).map(|p| std::mem::transmute::<_, NvmlFan>(p)),
             };
             (init() == 0).then_some(nvml)
         }
@@ -284,7 +299,10 @@ impl Nvml {
                 let watts = ((self.power)(dev, &mut mw) == 0).then(|| mw as f64 / 1000.0);
                 // Sensor 0: the GPU die.
                 let temp = ((self.temp)(dev, 0, &mut c) == 0 && c > 0).then_some(c as f64);
-                list.push(NvmlGpu { name, watts, temp });
+                let mut pct = 0u32;
+                // NVML_ERROR_NOT_SUPPORTED on a board whose fan the firmware runs (laptops).
+                let fan = self.fan.and_then(|get| (get(dev, &mut pct) == 0).then_some(pct));
+                list.push(NvmlGpu { name, watts, temp, fan });
             }
         }
         list
@@ -585,6 +603,14 @@ fn disk(number: u32, temps: bool, seek: bool) -> Option<Disk> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_perf_data_gives_the_temperature_and_the_fan() {
+        let mut bytes = [0u8; PERF_DATA_SIZE];
+        bytes[56..60].copy_from_slice(&523u32.to_le_bytes());
+        bytes[48..52].copy_from_slice(&1340u32.to_le_bytes());
+        assert_eq!(perf_values(&bytes), (523, 1340));
+    }
 
     #[test]
     fn only_disk_volumes_are_kept() {

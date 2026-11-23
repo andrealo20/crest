@@ -1441,7 +1441,8 @@ mod tests {
         // The Start button opens Windows' Start and its Win+X menu, the Windows buttons Search, Task view, the widgets, Show desktop
         // and the On-Screen Keyboard; no other window has them.
         assert!(ok("taskbar", "taskbar_shell") && ok("taskbar-1", "taskbar_shell") && !ok("settings", "taskbar_shell"));
-        // The quick panel's Wi-Fi and Bluetooth pages, on every bar, never in the settings window; the commands refuse any window but a bar's, the notch too.
+        // The quick panel's Wi-Fi and Bluetooth pages, on every bar, never in the settings window; the commands refuse any window but a bar's,
+        // the notch too, except taskbar_bt_devices, which the notch reads for Device batteries (taskbar/bluetooth.rs).
         assert!(["taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c) && !ok("timer", c)));
         // The window previews, on every bar, never in the settings window; the command refuses any window but a bar's, the notch too (taskbar/preview.rs).
         assert!(ok("taskbar", "taskbar_preview") && ok("taskbar-1", "taskbar_preview") && !ok("settings", "taskbar_preview") && !ok("timer", "taskbar_preview"));

@@ -80,8 +80,9 @@ export interface BtDevice {
 /** What the Bluetooth page shows in place of its rows, or "list" when it lists them. */
 export type BtView = "off" | "loading" | "failed" | "empty" | "list";
 
-/** The page's view from the radio, the last read (null before the first) and whether the latest read failed. */
-export function btView(on: boolean, devices: BtDevice[] | null, failed: boolean): BtView {
+/** The page's view from the radio (null until read: the page opened from the Device batteries widget), the last read (null before the first) and whether the latest read failed. */
+export function btView(on: boolean | null, devices: BtDevice[] | null, failed: boolean): BtView {
+  if (on === null) return "loading";
   if (!on) return "off";
   if (devices === null) return failed ? "failed" : "loading";
   return devices.length ? "list" : "empty";
@@ -96,4 +97,16 @@ export function btLine(d: BtDevice): [string, Record<string, number>?] | null {
 /** The rows the page asks room for: one per device, one for a line. */
 export function btRows(view: BtView, count: number): number {
   return view === "list" ? count : 1;
+}
+
+/** Device batteries: red at this or less. Crest cannot tell a device charging, and earbuds at 20 % last under an hour. */
+export const BT_LOW = 20;
+/** The rings the `devices` version draws at most. */
+export const BT_RINGS = 4;
+export const btLow = (percent: number) => percent <= BT_LOW;
+
+/** The devices a Device batteries version draws: connected ones that report a battery; `lowest` the lowest alone, `devices` up to four lowest, by name so two levels crossing never swap rings. */
+export function btShown(list: readonly BtDevice[], version: "lowest" | "devices"): BtDevice[] {
+  const charged = list.filter((d) => d.connected && d.battery !== null).sort((a, b) => a.battery! - b.battery! || a.name.localeCompare(b.name));
+  return version === "lowest" ? charged.slice(0, 1) : charged.slice(0, BT_RINGS).sort((a, b) => a.name.localeCompare(b.name));
 }

@@ -225,6 +225,8 @@ pub struct GpuReading {
     engine: Option<String>,
     mem_used: u64,
     temp: Option<f64>,
+    /// The fan's speed in rpm as the driver reports it; 0 also from a driver that does not report it.
+    fan: Option<u32>,
     #[serde(skip)]
     luid: LUID,
 }
@@ -417,6 +419,7 @@ impl Probe {
                     engine: busy.filter(|b| b.0 > 5.0).map(|b| b.1.clone()),
                     mem_used: vram.get(&a.key).copied().unwrap_or(0.0) as u64,
                     temp: None,
+                    fan: None,
                     luid: a.luid,
                 }
             })
