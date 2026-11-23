@@ -793,7 +793,12 @@ fn read_foreground(hwnd: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) 
     // The notification state is global; with the foreground window on our monitor, it is this window.
     let exclusive = unsafe { SHQueryUserNotificationState() }.is_ok_and(|s| s == QUNS_RUNNING_D3D_FULL_SCREEN);
     let frame = frame_rect(hwnd);
-    let context = screen_policy::classify(exclusive, covers(frame, m), has_caption(hwnd), unsafe { IsZoomed(hwnd) }.as_bool(), within(frame, work), has_resize_frame(hwnd));
+    let mut context = screen_policy::classify(exclusive, covers(frame, m), has_caption(hwnd), unsafe { IsZoomed(hwnd) }.as_bool(), within(frame, work), has_resize_frame(hwnd));
+    // A window that is not maximized but reaches up under the notch (snapped to a half or a quarter, or dragged to the top)
+    // follows the maximized rule too, so its title bar and buttons are not left under the notch.
+    if context == Context::Desktop && under_notch(frame, own, m) {
+        context = Context::Maximized;
+    }
     Seen { context, name, path }
 }
 
@@ -937,6 +942,22 @@ pub(crate) fn monitor_rect(monitor: HMONITOR) -> Option<(RECT, RECT)> {
 fn covers(r: RECT, m: RECT) -> bool {
     r.left <= m.left + 2 && r.top <= m.top + 2 && r.right >= m.right - 2 && r.bottom >= m.bottom - 2
 }
+
+#[cfg(windows)]
+/// `screen_policy::under_notch` for this window and the notch's own window (`own`), whose size never changes with its look.
+fn under_notch(frame: RECT, own: HWND, m: RECT) -> bool {
+    let mut notch = RECT::default();
+    if unsafe { GetWindowRect(own, &mut notch) }.is_err() {
+        return false;
+    }
+    let edges = |r: RECT| (r.left, r.top, r.right, r.bottom);
+    let dpi = unsafe { windows::Win32::UI::HiDpi::GetDpiForWindow(own) }.max(96) as i32;
+    screen_policy::under_notch(edges(frame), edges(notch), edges(m), UNDER_NOTCH_BAND * dpi / 96)
+}
+
+#[cfg(windows)]
+/// How far below the top edge, in CSS px at 100 %, a window's top counts as under the notch: about the closed notch's height.
+const UNDER_NOTCH_BAND: i32 = 40;
 
 #[cfg(windows)]
 /// Inside the work area, give or take 2 px.
