@@ -1,6 +1,6 @@
 # Crest privacy policy
 
-Last updated: 13 November 2026.
+Last updated: 23 November 2026.
 
 Crest is a free, open-source Windows and Mac app by Andrea Loroni. It has no account, no server of its own, no analytics and no tracking. Nothing is sent to the developer.
 
@@ -12,6 +12,7 @@ Crest is a free, open-source Windows and Mac app by Andrea Loroni. It has no acc
 - The vault (passwords and 2FA codes, off by default), in one file encrypted with Windows DPAPI and readable only under your Windows account. With Windows Hello turned on it is additionally sealed with a TPM-backed key.
 - Screenshots and recordings you take, in *Pictures\Screenshots* and *Videos\Crest\Recordings*; audio-only recordings of the Recorder tool (off by default; the microphone, the system audio or both, only while you record) in *Music\Crest\Recordings*. They stay on the PC.
 - Backups you make (Settings, General), in *Documents\Crest\Backups* (*~/Documents/Crest/Backups* on a Mac): your settings, notes, to-dos and the tools' data as plain JSON, without keys, passwords, calendar links or the vault. Crest sends them nowhere; a Documents folder that OneDrive or iCloud Drive syncs takes them along.
+- Screen Time, only once you turn it on (Settings, Tools): for each day, which apps were in front and for how many seconds in each hour, by the program's file name, its name and, on Windows, its path; never a window title or a web page. One file per day in the `screentime` folder of `%LOCALAPPDATA%\io.github.andrealo20.crest` (of the `data` folder for the portable build, of `~/Library/Application Support/io.github.andrealo20.crest` on a Mac), never in the roaming profile, kept 30 days. Turning it off keeps them; **Delete Screen Time** deletes them. They are not in backups and are never sent. While Screen Time records, or the Day timeline is on the taskbar or in the closed notch, the end and length of each focus round finished in the last 30 days are kept with the other tool data (and so in backups); Delete Screen Time deletes them too.
 - Plugins you install, in the `plugins` folder of the app's data folder, and the data of those that keep any, in `plugin-data`.
 - A crash log (`crash.log` in the `logs` folder), written only when the app crashes or hits an uncaught error. It is not sent anywhere.
 - Windows' battery report, made only when you click the battery's health in the Hardware tool: Windows writes it to `%TEMP%\crest\battery-report.html`, Crest opens it, and the next click replaces it. It holds the PC's name, the battery's serial number and its usage history. It is not sent anywhere.
@@ -47,7 +48,7 @@ Every request goes straight from your PC to the service named here. On by defaul
 | Discord | The Discord app on your PC, discord.com (sign-in), cdn.discordapp.com (avatars) | After you connect it, while you are in a call |
 | GitHub activity | github.com, or api.github.com with a token; github.com and avatars.githubusercontent.com (profile picture) | Once an hour while it shows, after you set a username |
 | LeetCode activity | leetcode.com | Once an hour while it shows, after you set a username |
-| Calendar | The hosts of the ICS links and CalDAV servers you add (for example calendar.google.com, outlook.office365.com or outlook.live.com, p01-caldav.icloud.com or caldav.icloud.com), with your user name and app password for CalDAV; only the time range is sent, nothing else about you | When you add or edit a calendar, then every 12 minutes while the Calendar tool is on, and when you refresh |
+| Calendar | The hosts of the ICS links and CalDAV servers you add (for example calendar.google.com, outlook.office365.com or outlook.live.com, p01-caldav.icloud.com or caldav.icloud.com), with your user name and app password for CalDAV; only the time range is sent, nothing else about you | When you add or edit a calendar, then every 12 minutes while the Calendar tool is on or the Day timeline is on the taskbar or in the closed notch, and when you refresh |
 | Hardware | ICMP ping to 1.1.1.1 | Every 2 seconds while the Hardware tool is open |
 | Hardware (public IP) | get.geojs.io (the service the weather already uses; it answers with your public IP, which Crest shows and never saves) | Only when you click **Public IP** in the Hardware tool |
 | Lyrics | The sources you turned on in **Settings → Display → Lyrics**, in their order, each with the title, artist and length of the song: lrclib.net (on by default), lyrics.kugou.com (Kugou) and music.163.com (NetEase Cloud Music), both unofficial APIs and off by default | While the lyrics panel is open or a lyrics option of the closed notch is on, for songs up to 20 minutes; each answer is cached |

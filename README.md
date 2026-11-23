@@ -108,6 +108,7 @@ Every tool below lives in the same notch, and on Windows the taskbar can carry t
 - **Timer** with focus and break presets, six alarm sounds, a background sound for focus and a dozen looks, from pixel digits to a flip clock.
 - **Clocks** for up to 12 cities, with a slider that moves the time a day either way, and sunrise, sunset, golden hour and the moon.
 - **Break reminders**: every 20 minutes for the eyes and every hour for a real break, counted from the time you actually spend at the computer. They wait during presentations, full-screen apps and Do Not Disturb.
+- **Screen Time**, off until you turn it on: which apps you use and for how long, hour by hour, kept 30 days on your PC only and never from window titles, with a **Day timeline** of the day's events, focus rounds and daylight.
 - **Habits** with five weeks of dots and a streak that forgives the odd missed day.
 - **Calendar** from ICS links (Google, Outlook, iCloud) or CalDAV, with a notice before each event and a join button for online meetings.
 - **Water** against a daily goal, with reminders between the hours you set.

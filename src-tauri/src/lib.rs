@@ -899,7 +899,10 @@ pub fn run() {
                 #[cfg(windows)]
                 on_exit(app);
                 #[cfg(not(windows))]
-                usage::save_tokens(app);
+                {
+                    screentime::stop();
+                    usage::save_tokens(app);
+                }
             }
         });
 }
@@ -919,6 +922,8 @@ fn on_exit(app: &AppHandle) {
     // Nothing pops notices up once Crest is gone; the next start hides the banners again.
     banners::restore();
     vault::clear_on_exit();
+    // What Screen Time counted since its last write, a few KB.
+    screentime::stop();
     // Last, after what shows on screen: on a busy PC this writes some MB.
     usage::save_tokens(app);
 }

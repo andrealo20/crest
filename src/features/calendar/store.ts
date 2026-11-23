@@ -92,7 +92,8 @@ let lastSources = "";
 function apply() {
   const s = settings.get();
   const key = JSON.stringify(s.calendar.sources);
-  const wanted = (toolOn() || barParts.get().includes("calendar")) && s.calendar.sources.length > 0;
+  // The Day timeline draws the events too, on the bar and in the closed row.
+  const wanted = (toolOn() || barParts.get().includes("calendar") || barParts.get().includes("timeline") || s.closed.parts.timeline) && s.calendar.sources.length > 0;
   if (key !== lastSources) {
     // Added, edited or removed: fetch at once (an empty list also clears Rust's cache file).
     lastSources = key;
