@@ -314,6 +314,8 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
         // None by keyboard or while the icon shows.
         const cell = document.getElementById(desc), r = cell?.getBoundingClientRect();
         const x = r && r.width > 0 && drawn && e.detail > 0 ? ((e.clientX - r.left) * width) / r.width : null;
+        // The notices' count sits over the face's end, the weather's, but it is the clock's: a click on it opens the notices.
+        if (e.target instanceof Element && e.target.closest("[data-badge]")) return onClick(e, null);
         // The face's own direction, not the page's: the bar's zones are left to right in every language.
         onClick(e, cell && onWeather(x, weatherFrom, width, getComputedStyle(cell).direction === "rtl") ? "weather" : widgetKey(id, taskbar.variants, x));
       }}
@@ -321,7 +323,7 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
       onPointerDown={onPointerDown}
     >
       {badge && (
-        <span aria-hidden className="absolute -end-2 -top-1 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-label px-1 text-[10px] font-semibold leading-none text-notch">
+        <span aria-hidden data-badge className="absolute -end-2 -top-1 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-label px-1 text-[10px] font-semibold leading-none text-notch">
           {badge}
         </span>
       )}
