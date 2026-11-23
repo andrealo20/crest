@@ -92,6 +92,16 @@ fn meter(bins: &[Complex<f32>], peak: &mut f32, level: &mut f32) {
     *level += (target - *level) * k;
 }
 
+/// The newest FFT_SIZE samples of `ring`, windowed, zero-padded in front (loopback sends nothing during silence).
+fn frame(ring: &VecDeque<f32>, window: &[f32], buffer: &mut [Complex<f32>]) {
+    let missing = FFT_SIZE.saturating_sub(ring.len());
+    let older = ring.len().saturating_sub(FFT_SIZE);
+    for (i, slot) in buffer.iter_mut().enumerate() {
+        let s = if i < missing { 0.0 } else { ring[older + i - missing] };
+        *slot = Complex::new(s * window[i], 0.0);
+    }
+}
+
 fn push(ring: &mut VecDeque<f32>, mono: &mut dyn Iterator<Item = f32>) {
     for s in mono {
         if ring.len() >= FFT_SIZE * 2 {
@@ -254,14 +264,10 @@ pub fn spawn(app: AppHandle, state: &AudioState) {
                 }
             }
 
-            // Take the last FFT_SIZE samples, zero-padded (loopback sends nothing during silence).
             {
                 let mut ring = samples.lock().unwrap();
                 let missing = FFT_SIZE.saturating_sub(ring.len());
-                for (i, slot) in buffer.iter_mut().enumerate() {
-                    let s = if i < missing { 0.0 } else { ring[i - missing] };
-                    *slot = Complex::new(s * window[i], 0.0);
-                }
+                frame(&ring, &window, &mut buffer);
                 // Drop consumed samples so silence is detected as silence.
                 let keep = FFT_SIZE / 2;
                 while ring.len() > keep {
@@ -344,6 +350,20 @@ mod tests {
         // 48 kHz: 50 Hz is the first bin, 12 kHz bin 256.
         let edges = spectrum_edges(48_000.0 / FFT_SIZE as f32);
         assert_eq!((edges[0], edges[SPECTRUM]), (1, 256));
+    }
+
+    #[test]
+    fn the_fft_reads_the_newest_samples() {
+        let window = vec![1.0f32; FFT_SIZE];
+        let mut buffer = vec![Complex::new(0.0f32, 0.0); FFT_SIZE];
+        // More than a window has come: the last FFT_SIZE samples, not the oldest ones.
+        let ring: VecDeque<f32> = (1..=1500).map(|i| i as f32).collect();
+        frame(&ring, &window, &mut buffer);
+        assert_eq!((buffer[0].re, buffer[FFT_SIZE - 1].re), (477.0, 1500.0));
+        // Fewer: zeros in front, then all of them.
+        let ring: VecDeque<f32> = (1..=100).map(|i| i as f32).collect();
+        frame(&ring, &window, &mut buffer);
+        assert_eq!((buffer[FFT_SIZE - 101].re, buffer[FFT_SIZE - 100].re, buffer[FFT_SIZE - 1].re), (0.0, 1.0, 100.0));
     }
 
     #[test]
