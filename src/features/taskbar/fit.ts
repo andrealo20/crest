@@ -78,6 +78,8 @@ export function fitBar(m: FitMeasure, was: Fit | null): Fit {
   while (was && wasK < order.length && (order[wasK] === "tray" ? was.trayBack : was.hide.includes(order[wasK]))) wasK++;
   let k = 0;
   while (k < order.length && room(k) < min + (k < wasK ? FIT_MARGIN : 0)) k++;
+  // Nothing makes room enough: hide only as far as it pays, since the button can take back what an item gives (ties: fewer hidden).
+  if (room(k) < min) k = [...Array(order.length + 1).keys()].reduce((best, j) => (room(j) > room(best) ? j : best), 0);
   const R = room(k);
   const taken = order.slice(0, k);
   const out = (mode: Fit["mode"], visible: number, split = never, label = 0): Fit => ({ mode, visible, trayBack: taken.includes("tray"), hide: taken.filter((x) => x !== "tray"), split, label });

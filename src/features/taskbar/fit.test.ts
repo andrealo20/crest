@@ -104,6 +104,17 @@ test("the button that shows the hidden items takes room of its own, in the first
   assert.deepEqual(fitBar(row(223), null), fit("full", 0, { hide: ["weather", "timer"] }));
 });
 
+test("an item gives way to the button only when that leaves more room, or the bar would be tighter for nothing", () => {
+  const narrow = (first: FitEntry, inner: number, more?: number) =>
+    bar({ inner, count: 20, more, zones: { left: [], center: [e("start", 40)], right: [first, e("clock", 86, "widget"), e("crest", 40)] } });
+  // 400 - 2 * (32 + 2 + 86 + 2 + 40) - 40 = 36: a Calc button gone gives 104, but the button (32) in its place gives the 36 back.
+  const calc = e("tool:calc", 32, "widget");
+  assert.deepEqual(fitBar(narrow(calc, 400), null), fit("overflow", 2, { hide: ["tool:calc"] }));
+  assert.deepEqual(fitBar(narrow(calc, 400, 32), null), fit("overflow", 1));
+  // Show desktop's 12 px strip: the button would leave 20 px less than keeping it.
+  assert.deepEqual(fitBar(narrow(e("sys:desktop", 12, "widget"), 380, 32), null), fit("overflow", 1));
+});
+
 // One button per window: `count` of them, `titled` with a window, titles 96 to 168 px wide.
 const split = (count: number, titled: number, never: boolean): FitMeasure["split"] => ({ count, titled, min: 96, max: 168, never });
 
