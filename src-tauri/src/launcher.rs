@@ -276,11 +276,12 @@ pub async fn launcher_icons(ids: Vec<String>, app: AppHandle) -> Result<HashMap<
 }
 
 /// From a bar, the app opens on the bar's monitor; from the notch, where Windows puts it. With `admin`, as administrator after
-/// Windows asks. Errors: not-found, cancelled (the prompt was declined), failed.
+/// Windows asks. With `reuse` (the Launcher's tiles), an app already open comes forward instead (`open`); the bar asks for a new
+/// copy here, its buttons bring open windows forward themselves. Errors: not-found, cancelled (the prompt was declined), failed.
 #[tauri::command]
-pub async fn launcher_open(id: String, admin: Option<bool>, window: WebviewWindow, app: AppHandle) -> Result<(), String> {
+pub async fn launcher_open(id: String, admin: Option<bool>, reuse: Option<bool>, window: WebviewWindow, app: AppHandle) -> Result<(), String> {
     let monitor = launch_monitor(&window);
-    blocking(app, move |state| open(state, id, admin == Some(true), monitor)).await?
+    blocking(app, move |state| open(state, id, admin == Some(true), reuse == Some(true), monitor)).await?
 }
 
 /// Where a launch from `window` opens: a bar's monitor, or None from the notch, where Windows puts it.
@@ -297,10 +298,15 @@ fn on_its_monitor(label: &str) -> bool {
 }
 
 /// Starts one of the bar's own pins as it is (`ownpins::launch_spec`), else a listed app, on `monitor` when one is given; an app
-/// that keeps its own place keeps it. With `admin`, verb `runas`: on the entry's exe when it has one, else on the id itself (a
-/// Store app has no `runas`, and nothing starts, as on Windows' taskbar).
-fn open(state: &LauncherState, id: String, admin: bool, monitor: Option<isize>) -> Result<(), String> {
+/// that keeps its own place keeps it. With `reuse` and not `admin`, an app already open comes forward instead, as Win+number does
+/// on Windows' taskbar (#64). With `admin`, verb `runas`: on the entry's exe when it has one, else on the id itself (a Store app
+/// has no `runas`, and nothing starts, as on Windows' taskbar).
+fn open(state: &LauncherState, id: String, admin: bool, reuse: bool, monitor: Option<isize>) -> Result<(), String> {
     let verb = admin.then_some("runas");
+    // The list is read first, so an app open before the Launcher was ever used is still found by its Start entry.
+    if reuse && !admin && bring_forward(&id, apps(state, false).unwrap_or_default()) {
+        return Ok(());
+    }
     if let Some((file, params)) = crate::taskbar::ownpins::launch_spec(&id) {
         return execute(&file, params.as_deref(), verb, monitor);
     }
@@ -313,6 +319,20 @@ fn open(state: &LauncherState, id: String, admin: bool, monitor: Option<isize>) 
     }
     let exe = admin.then(|| cached(state, |apps| apps.iter().find(|a| a.id == id).and_then(|a| a.exe.clone()))).flatten();
     execute(exe.as_deref().unwrap_or(&id), None, verb, monitor)
+}
+
+/// Whether app `id` has a window open (`tasks::open_window`), which is then brought forward. A window that Windows does not let
+/// come forward still counts: a second copy would not help.
+fn bring_forward(id: &str, apps: Vec<App>) -> bool {
+    let id = id.to_string();
+    on_sta(move || match crate::taskbar::tasks::open_window(&apps, &id) {
+        Some(hwnd) => {
+            let _ = crate::taskbar::tasks::activate(hwnd);
+            true
+        }
+        None => false,
+    })
+    .unwrap_or(false)
 }
 
 /// Runs `file` with `params` and `verb` through the shell, on `monitor` when one is given. Errors: cancelled (a declined
@@ -360,7 +380,7 @@ pub fn launch_from_key(app: &AppHandle, id: String) {
     let app = app.clone();
     // Off the main thread: the first launch may have to read the app list.
     std::thread::spawn(move || {
-        if let Err(code) = open(&app.state::<LauncherState>(), id.clone(), false, None) {
+        if let Err(code) = open(&app.state::<LauncherState>(), id.clone(), false, true, None) {
             // The frontend names the app; open the notch so the message is seen.
             let _ = app.emit("launcher://missing", serde_json::json!({ "id": id, "code": code }));
             crate::shell::open(&app, Some("launcher"));
@@ -485,10 +505,12 @@ mod tests {
             assert_eq!(crate::taskbar::ownpins::launch_spec(&here), Some((here.clone(), None)));
             // A pin whose exe is gone falls through to the Start list, which does not have it.
             assert_eq!(crate::taskbar::ownpins::launch_spec(gone), None);
-            assert!(open(&state, gone.into(), false, None).is_err());
+            assert!(open(&state, gone.into(), false, false, None).is_err());
+            // No window answers to it either, so asking to reuse one changes nothing.
+            assert!(open(&state, gone.into(), false, true, None).is_err());
             // Neither list knows it.
             assert!(!is_known(&state, r"C:\Crest\Test\other.exe"));
-            assert!(open(&state, r"C:\Crest\Test\other.exe".into(), false, None).is_err());
+            assert!(open(&state, r"C:\Crest\Test\other.exe".into(), false, false, None).is_err());
         });
     }
 

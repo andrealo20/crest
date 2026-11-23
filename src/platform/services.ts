@@ -1389,8 +1389,9 @@ export const launcher = {
   apps: (refresh = false): Promise<LauncherAppEntry[]> => (isNative ? invoke<LauncherAppEntry[]>("launcher_apps", { refresh }) : Promise.resolve(mockLauncherApps)),
   icons: (ids: string[]): Promise<Record<string, string | null>> =>
     isNative ? invoke("launcher_icons", { ids }) : Promise.resolve(Object.fromEntries(ids.map((id) => [id, mockLauncherIcon(id.split("\\").pop() ?? "?")]))),
-  /** As administrator with `admin`, after Windows asks. Errors: not-found (no longer installed), cancelled (the prompt was declined), failed. */
-  open: (id: string, admin = false): Promise<void> => (isNative ? invoke("launcher_open", { id, admin }) : Promise.resolve()),
+  /** As administrator with `admin`, after Windows asks. With `reuse`, an app already open comes forward instead of a new copy.
+   * Errors: not-found (no longer installed), cancelled (the prompt was declined), failed. */
+  open: (id: string, admin = false, reuse = false): Promise<void> => (isNative ? invoke("launcher_open", { id, admin, reuse }) : Promise.resolve()),
   /** Registers Alt+1.. for these ids; per slot whether Windows gave the key. */
   shortcuts: (ids: string[]): Promise<boolean[]> => (isNative ? invoke<boolean[]>("launcher_shortcuts", { ids }) : Promise.resolve(ids.map((_, i) => i !== 2))),
   /** The system's picker for an exe, a shortcut or an internet shortcut, which Rust pins as its own (taskbar/ownpins.rs): the entry to pin, null when cancelled. Errors: unknown (no app on this PC). The notch only. */

@@ -896,8 +896,29 @@ fn icons() -> MutexGuard<'static, BTreeMap<String, Option<String>>> {
     ICONS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// The window Launcher entry `id` brings forward instead of starting its app again (launcher.rs): the first, in z-order, of the
+/// windows with a button whose app answers to `id` (`answers_to`). Read on its own, as the bar's list exists only while a bar
+/// runs. Needs COM for the windows' property stores: run it through `launcher::on_sta`.
+pub(crate) fn open_window(apps: &[launcher::App], id: &str) -> Option<HWND> {
+    let own = unsafe { GetCurrentProcessId() };
+    let mut processes: HashMap<u32, (Option<String>, String)> = HashMap::new();
+    display::top_windows().into_iter().filter(|&h| listable(h, own)).find(|&h| {
+        let pid = display::app_pid(h);
+        let (package, exe) = processes.entry(pid).or_insert_with(|| (package_app_id(pid), mixer::process_path(pid).unwrap_or_default())).clone();
+        let aumid = window_props(h).aumid.or(package.filter(|s| !s.is_empty()));
+        answers_to(launcher::entries_for(apps, aumid.as_deref(), &exe), || ownpins::entries_for(aumid.as_deref(), &exe), id)
+    })
+}
+
+/// Whether an open app answers to entry `id`, by the pins its button gets (`Track::recompute`): its Start entries, else the
+/// bar's own pins.
+fn answers_to(start: Vec<launcher::App>, own: impl FnOnce() -> Vec<launcher::App>, id: &str) -> bool {
+    let pins = if start.is_empty() { own() } else { start };
+    pins.iter().any(|a| a.id == id)
+}
+
 /// Brings a window forward: restored if minimized, then the dialog it has open, or itself, in front.
-fn activate(hwnd: HWND) -> Result<(), String> {
+pub(crate) fn activate(hwnd: HWND) -> Result<(), String> {
     unsafe {
         if IsIconic(hwnd).as_bool() {
             let _ = ShowWindowAsync(hwnd, SW_RESTORE);
@@ -969,6 +990,18 @@ fn command(hwnd: HWND, sc: u32, listed: &[isize]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_open_app_answers_to_its_start_entries_else_to_the_bars_own_pins() {
+        let start = || vec![launcher::fixture(r"shell:AppsFolder\Chrome", None)];
+        let own = || vec![launcher::pinned_app(r"C:\Tools\tc.exe".into(), "Total Commander".into())];
+        assert!(answers_to(start(), own, r"shell:AppsFolder\Chrome"));
+        // With a Start entry the bar's own pins are not read, as on its button.
+        assert!(!answers_to(start(), || panic!("own pins read"), r"C:\Tools\tc.exe"));
+        assert!(answers_to(Vec::new(), own, r"C:\Tools\tc.exe"));
+        assert!(!answers_to(Vec::new(), own, r"shell:AppsFolder\Chrome"));
+        assert!(!answers_to(Vec::new(), Vec::new, r"C:\Tools\tc.exe"));
+    }
 
     #[test]
     fn a_preview_dragged_moves_its_window_among_its_apps_places() {

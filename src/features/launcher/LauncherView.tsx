@@ -133,9 +133,10 @@ export const HOTKEY_HINT = "Solange an, fehlen diese Tasten anderen Apps wie VS 
 function Grid({ favorites, status, onAdd }: { favorites: Favorite[]; status: SlotStatus[]; onAdd: () => void }) {
   const icons = useIcons(favorites.map((f) => f.id));
 
-  const start = (f: Favorite) => {
+  /** An app already open comes forward; Shift or the middle button starts a new copy, as on Windows' taskbar (#64). */
+  const start = (f: Favorite, fresh: boolean) => {
     launchError.set(null);
-    launcher.open(f.id).catch((e) => showLaunchError(f.id, e));
+    launcher.open(f.id, false, !fresh).catch((e) => showLaunchError(f.id, e));
   };
 
   return (
@@ -144,7 +145,10 @@ function Grid({ favorites, status, onAdd }: { favorites: Favorite[]; status: Slo
         {favorites.map((f, i) => (
           <motion.button
             key={f.id}
-            onClick={() => start(f)}
+            onClick={(e) => start(f, e.shiftKey)}
+            onAuxClick={(e) => e.button === 1 && start(f, true)}
+            // The middle button would start the WebView's autoscroll.
+            onMouseDown={(e) => e.button === 1 && e.preventDefault()}
             title={f.name}
             className="pressable flex w-[76px] flex-col items-center gap-1 rounded-[12px] px-1 pt-2 pb-1.5 hover:bg-fill-2"
             initial={{ opacity: 0, transform: "translateY(4px)" }}
