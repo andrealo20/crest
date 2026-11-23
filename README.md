@@ -157,6 +157,7 @@ Every tool below lives in the same notch, and on Windows the taskbar can carry t
 <p align="center"><img src="docs/media/features/settings-material.png" alt="The settings window in the Material style on Themes: the Crest and Material styles, contour lines behind the page, the fifteen themes, the font and coloured icons" width="760" /></p>
 
 - **Themes**: fifteen built in, an editor, sixteen fonts, coloured icons, a day and night switch that can follow the sun, and Liquid Glass on Windows.
+- **Wallpapers**, off until you turn it on: 24 pictures (18 from Unsplash, each credited) or your own folder, per screen, changing on their own every 15 minutes, hour or day.
 - **Window rules** for full-screen apps and games, any **monitor** or all of them, and every panel resized to taste.
 - **11 languages**: English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German and Italian.
 - **Plugins**: your own tools in HTML, CSS and JavaScript, sandboxed ([docs/plugins.md](docs/plugins.md)).
@@ -207,13 +208,14 @@ Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Wi
 - Its icons are [Material Symbols Rounded](https://github.com/google/material-design-icons) by Google (Apache-2.0, [licenses/MaterialSymbols-Apache-2.0.txt](licenses/MaterialSymbols-Apache-2.0.txt)). Crest ships outlines drawn from the font for the icons it uses.
 - The calendar maps Windows time zone names to IANA names with the table from [jiff](https://github.com/BurntSushi/jiff) (MIT, [licenses/jiff-LICENSE](licenses/jiff-LICENSE)), which also supplies the time zone database.
 - The QR code that sends Shelf files to a phone comes from [qrcodegen](https://www.nayuki.io/page/qr-code-generator-library) by Project Nayuki (MIT, [licenses/qrcodegen-MIT.txt](licenses/qrcodegen-MIT.txt)).
+- The wallpapers are not part of Crest's code and not under its GPL-3.0: 18 photos from [Unsplash](https://unsplash.com) under the Unsplash License, each credited to its photographer, and 6 of unknown source, left out of the Microsoft Store version ([src/assets/wallpapers/CREDITS.md](src/assets/wallpapers/CREDITS.md)). The full-size pictures are downloaded on first use, not shipped with Crest.
 - Weather data is by [Open-Meteo.com](https://open-meteo.com/), under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the installers, the Store package and the portable zip carry the licence texts in `LICENSE` and `licenses/`.
 - The design follows Apple's Dynamic Island and the macOS app OmniNotch. Crest is not affiliated with Apple or OmniNotch.
 - Crest is an independent app by Andrea Loroni. It is not made, sponsored or endorsed by Microsoft or Google.
 
 ## License
 
-[GPL-3.0](LICENSE). You may use, study, change and share this project, also commercially, but any version you distribute must stay open source under the same license and keep the copyright notices.
+[GPL-3.0](LICENSE). You may use, study, change and share this project, also commercially, but any version you distribute must stay open source under the same license and keep the copyright notices. The wallpaper pictures are not covered by it: each keeps its own terms ([src/assets/wallpapers/CREDITS.md](src/assets/wallpapers/CREDITS.md)).
 
 Crest is a fork of L4-Notchbar 1.6.0. The source code of every release, including the Microsoft Store builds, is in this repository: each release has a version tag that points to the exact code it was built from.
 

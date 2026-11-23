@@ -14,6 +14,14 @@ export default defineConfig(({ mode }) => ({
       transformIndexHtml: (html: string) =>
         html.replace('lang="de"', 'lang="en"').replace("<title>Crest</title>", '<title>Crest demo</title>\n    <meta name="robots" content="noindex" />'),
     },
+    // The Store package leaves out the wallpapers of unknown source, the numeric names (scripts/store-package.ps1 sets CREST_STORE):
+    // their thumbnails load as nothing, so none is bundled, and the gallery shows only the pictures it has (thumbs.ts).
+    {
+      name: "store-wallpapers",
+      enforce: "pre" as const,
+      apply: () => !!process.env.CREST_STORE,
+      load: (id: string) => (/[\\/]assets[\\/]wallpapers[\\/]\d+\.jpg$/.test(id) ? 'export default "";' : undefined),
+    },
   ],
   clearScreen: false,
   // More pages: the detached timer window, the copies of the closed notch on other monitors, the settings window and the

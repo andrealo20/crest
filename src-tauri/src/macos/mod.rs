@@ -8,6 +8,7 @@ pub mod colour;
 pub mod media;
 pub mod mirror;
 pub mod quick;
+pub mod wallpaper;
 
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};

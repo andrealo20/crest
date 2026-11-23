@@ -39,6 +39,7 @@ import { startMeeting } from "./features/meeting/store";
 import { startTaskbar } from "./features/taskbar/store";
 import { startBarPanels } from "./features/taskbar/barPanels";
 import { WidgetSources, startBarShare } from "./features/taskbar/feed";
+import { startWallpaperShow } from "./features/wallpapers/store";
 import { startSettingsBridge } from "./features/settings/window/shared";
 import { demo, showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
@@ -80,6 +81,7 @@ startTaskbar();
 startBarPanels();
 startBarShare();
 startSettingsBridge();
+startWallpaperShow();
 
 // Send display settings (monitor, fullscreen, offset, window top, gaming) to Rust on start and on every change.
 // The window top follows the style, the capsule's y, focus mode and the monitor once it has loaded.

@@ -74,6 +74,8 @@ function New-StorePackage([string]$PackageArch) {
     $rustTarget = $rustTargets[$PackageArch]
     $previousTarget = $env:CARGO_TARGET_DIR
     $env:CARGO_TARGET_DIR = $target
+    # The frontend build leaves out the wallpapers of unknown source (vite.config.ts).
+    $env:CREST_STORE = '1'
     Push-Location $root
     try {
         # npx.cmd: the npx.ps1 shim rereads the caller's command line and loses splatted arguments.
@@ -83,6 +85,7 @@ function New-StorePackage([string]$PackageArch) {
     finally {
         Pop-Location
         $env:CARGO_TARGET_DIR = $previousTarget
+        Remove-Item Env:CREST_STORE
     }
 
     $stage = Join-Path $target "store-staging-$PackageArch"

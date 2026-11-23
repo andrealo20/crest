@@ -28,3 +28,19 @@ export function normalizeWallpapers(v: unknown): WallpaperSettings {
     every: EVERY.includes(s.every as WallEvery) ? (s.every as WallEvery) : d.every,
   };
 }
+
+/**
+ * Milliseconds until the automatic change moves on, `at` the last change (0: none yet), `every` its minutes, null while it is off. Never
+ * more than the interval, so a clock set back cannot hold it for days; 0 when it is late.
+ */
+export function dueIn(at: number, every: WallEvery, now: number): number | null {
+  if (!every) return null;
+  const span = every * 60_000;
+  return at ? Math.min(span, Math.max(0, at + span - now)) : span;
+}
+
+/** A path's last part, a file's or a folder's name, whichever separator it uses. */
+export function baseName(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, "");
+  return trimmed.slice(Math.max(trimmed.lastIndexOf("\\"), trimmed.lastIndexOf("/")) + 1) || path;
+}
