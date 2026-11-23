@@ -2,7 +2,8 @@
 //! File Explorer by a letter this module listed or a folder its scan listed, never a path from the page, and Scan now, the largest
 //! folders of a drive or of such a folder. Read on a call only: the notch asks every few minutes for the widget and a bar as its
 //! panel opens; Crest hears no device change, so a drive plugged in shows on the next. A scan runs only on a press and saves
-//! nothing to disk.
+//! nothing to disk. Eject (design K) safely removes a drive that plugs in, by a letter this module listed as removable, through
+//! Windows' own documented request (CM_Request_Device_EjectW), which asks the apps that hold it first.
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;
@@ -15,15 +16,28 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::{Emitter, WebviewWindow};
+use windows::core::{GUID, PCWSTR};
+// The veto kinds go by the module path: bare constant names in a match trip the upper case lint.
+use windows::Win32::Devices::DeviceAndDriverInstallation::{
+    self as pnp, CM_Get_DevNode_Registry_PropertyW, CM_Get_Device_Interface_ListW, CM_Get_Device_Interface_List_SizeW, CM_Get_Device_Interface_PropertyW,
+    CM_Get_Parent, CM_Locate_DevNodeW, CM_Request_Device_EjectW, CM_DEVCAP_REMOVABLE, CM_DRP_CAPABILITIES, CM_GET_DEVICE_INTERFACE_LIST_PRESENT,
+    CM_LOCATE_DEVNODE_NORMAL, CONFIGRET, CR_ACCESS_DENIED, CR_SUCCESS, PNP_VETO_TYPE,
+};
+use windows::Win32::Devices::Properties::{DEVPKEY_Device_InstanceId, DEVPROPTYPE};
+use windows::Win32::Foundation::CloseHandle;
 use windows::Win32::Storage::FileSystem::{FILE_ATTRIBUTE_OFFLINE, FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS, FILE_ATTRIBUTE_RECALL_ON_OPEN};
 use windows::Win32::System::Diagnostics::Debug::{SetThreadErrorMode, SEM_FAILCRITICALERRORS, THREAD_ERROR_MODE};
 use windows::Win32::System::Threading::{GetCurrentThread, GetThreadPriority, SetThreadPriority, THREAD_PRIORITY, THREAD_PRIORITY_BELOW_NORMAL};
+use windows::Win32::System::IO::DeviceIoControl;
 
 use super::bar;
+use crate::system::hw::{extents, open};
 use crate::system::{bar_drives, BarDrive};
 
 /// The letters of the last listing: the only drives a bar may open.
 static LISTED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+/// The letters of the last listing that plug in (BarDrive.removable): the only drives a bar may eject, never the one Windows runs from.
+static EJECTABLE: Mutex<Vec<String>> = Mutex::new(Vec::new());
 /// A read is under way. One at a time, so a drive that stops answering holds one thread, not one per call, and an older
 /// read never overwrites a newer listing.
 static READING: AtomicBool = AtomicBool::new(false);
@@ -98,6 +112,7 @@ pub async fn taskbar_disks() -> Option<Vec<BarDrive>> {
     }
     let list = tauri::async_runtime::spawn_blocking(bar_drives).await.unwrap_or_default();
     *LISTED.lock().unwrap_or_else(|e| e.into_inner()) = list.iter().map(|d| d.letter.clone()).collect();
+    *EJECTABLE.lock().unwrap_or_else(|e| e.into_inner()) = list.iter().filter(|d| d.removable).map(|d| d.letter.clone()).collect();
     READING.store(false, Ordering::Release);
     Some(list)
 }
@@ -123,12 +138,128 @@ fn scanned<'a>(paths: &'a [PathBuf], id: usize, letter: &str) -> Option<&'a Path
     paths.get(id).filter(|p| p.starts_with(format!("{letter}\\")))
 }
 
-/// Ejects a removable drive of the last listing by its letter (design K); the bar only.
+/// The class of disk device interfaces (GUID_DEVINTERFACE_DISK, ntddstor.h), kept here as hw.rs keeps its IOCTLs.
+const DISK_INTERFACES: GUID = GUID::from_u128(0x53f56307_b6bf_11d0_94f2_00a0c91efb8b);
+const IOCTL_STORAGE_GET_DEVICE_NUMBER: u32 = 0x2D1080;
+
+/// A letter the last listing had as one that plugs in; "unknown" for any other.
+fn ejectable(letter: &str) -> Result<(), String> {
+    if listed(&EJECTABLE.lock().unwrap_or_else(|e| e.into_inner()), letter) { Ok(()) } else { Err("unknown".into()) }
+}
+
+/// The number of the disk behind a disk interface (the N of PhysicalDriveN), opened with no access as hw.rs opens drives.
+fn device_number(path: &str) -> Option<u32> {
+    let h = open(path)?;
+    // STORAGE_DEVICE_NUMBER: DeviceType, DeviceNumber, PartitionNumber.
+    let mut out = [0u32; 3];
+    let mut len = 0u32;
+    let ok = unsafe { DeviceIoControl(h, IOCTL_STORAGE_GET_DEVICE_NUMBER, None, 0, Some(out.as_mut_ptr().cast()), 12, Some(&mut len), None) };
+    unsafe {
+        let _ = CloseHandle(h);
+    }
+    (ok.is_ok() && len >= 8).then_some(out[1])
+}
+
+/// The device instance id of disk `number`, NUL-ended, from the disk interfaces Windows lists.
+fn disk_instance(number: u32) -> Option<Vec<u16>> {
+    unsafe {
+        let mut len = 0u32;
+        if CM_Get_Device_Interface_List_SizeW(&mut len, &DISK_INTERFACES, PCWSTR::null(), CM_GET_DEVICE_INTERFACE_LIST_PRESENT) != CR_SUCCESS {
+            return None;
+        }
+        let mut list = vec![0u16; len as usize];
+        if CM_Get_Device_Interface_ListW(&DISK_INTERFACES, PCWSTR::null(), &mut list, CM_GET_DEVICE_INTERFACE_LIST_PRESENT) != CR_SUCCESS {
+            return None;
+        }
+        let path = list.split(|&c| c == 0).filter(|p| !p.is_empty()).find(|p| device_number(&String::from_utf16_lossy(p)) == Some(number))?;
+        let path: Vec<u16> = path.iter().copied().chain([0]).collect();
+        // A device instance id is at most 200 characters (MAX_DEVICE_ID_LEN).
+        let mut id = [0u16; 256];
+        let (mut kind, mut size) = (DEVPROPTYPE(0), (id.len() * 2) as u32);
+        if CM_Get_Device_Interface_PropertyW(PCWSTR(path.as_ptr()), &DEVPKEY_Device_InstanceId, &mut kind, Some(id.as_mut_ptr().cast()), &mut size, 0) != CR_SUCCESS {
+            return None;
+        }
+        Some(id[..id.iter().position(|&c| c == 0)?].iter().copied().chain([0]).collect())
+    }
+}
+
+/// Whether Windows lets the node be removed while running: a USB device, a card.
+fn removable(node: u32) -> bool {
+    let (mut caps, mut len) = (0u32, 4u32);
+    let read = unsafe { CM_Get_DevNode_Registry_PropertyW(node, CM_DRP_CAPABILITIES, None, Some((&mut caps as *mut u32).cast()), &mut len, 0) };
+    read == CR_SUCCESS && caps & CM_DEVCAP_REMOVABLE.0 != 0
+}
+
+/// The node to eject for a letter: its disk's, or the first above it Windows calls removable. "unknown" for a drive gone,
+/// "fixed" for one spanning disks or with nothing removable above it (a card reader built in).
+fn eject_node(letter: &str) -> Result<u32, String> {
+    let number = extents(letter).ok_or("unknown")?.ok_or("fixed")?;
+    let id = disk_instance(number).ok_or("unknown")?;
+    let mut node = 0u32;
+    if unsafe { CM_Locate_DevNodeW(&mut node, PCWSTR(id.as_ptr()), CM_LOCATE_DEVNODE_NORMAL) } != CR_SUCCESS {
+        return Err("unknown".into());
+    }
+    while !removable(node) {
+        let mut parent = 0u32;
+        if unsafe { CM_Get_Parent(&mut parent, node, 0) } != CR_SUCCESS {
+            return Err("fixed".into());
+        }
+        node = parent;
+    }
+    Ok(node)
+}
+
+/// An app's file name from a veto's name (a path, or a name alone), at most 64 characters.
+fn app_name(veto: &str) -> String {
+    Path::new(veto).file_name().map(|n| n.to_string_lossy().chars().take(64).collect()).unwrap_or_default()
+}
+
+/// What an eject request answered, as the bar's words (toggles.ts ejectNote). A veto counts even beside CR_SUCCESS.
+fn veto_code(ret: CONFIGRET, veto: PNP_VETO_TYPE, name: &str) -> Result<(), String> {
+    match veto {
+        pnp::PNP_VetoAlreadyRemoved => Ok(()),
+        pnp::PNP_VetoWindowsApp if !app_name(name).is_empty() => Err(format!("app:{}", app_name(name))),
+        pnp::PNP_VetoWindowsApp
+        | pnp::PNP_VetoOutstandingOpen
+        | pnp::PNP_VetoPendingClose
+        | pnp::PNP_VetoWindowsService
+        | pnp::PNP_VetoDevice
+        | pnp::PNP_VetoDriver
+        | pnp::PNP_VetoLegacyDriver
+        | pnp::PNP_VetoNonDisableable => Err("busy".into()),
+        pnp::PNP_VetoInsufficientRights => Err("rights".into()),
+        pnp::PNP_VetoTypeUnknown if ret == CR_SUCCESS => Ok(()),
+        _ if ret == CR_ACCESS_DENIED => Err("rights".into()),
+        _ => Err("failed".into()),
+    }
+}
+
+/// Asks Windows to remove the drive's device. With a buffer for the veto's name Windows shows nothing of its own: the bar says it.
+/// Outside the PC's own console (Remote Desktop) Windows refuses a normal user: "rights".
+fn eject(letter: &str) -> Result<(), String> {
+    let node = eject_node(letter)?;
+    let mut veto = pnp::PNP_VetoTypeUnknown;
+    let mut name = [0u16; 260];
+    let ret = unsafe { CM_Request_Device_EjectW(node, Some(&mut veto), Some(&mut name), 0) };
+    veto_code(ret, veto, &String::from_utf16_lossy(&name[..name.iter().position(|&c| c == 0).unwrap_or(name.len())]))
+}
+
+/// Ejects a removable drive of the last listing by its letter (design K); the bar only. Rejects with veto_code's words, "unknown"
+/// or "fixed". Off the main thread: Windows asks the apps that hold the drive and may wait seconds for them. Then the notch reads
+/// the drives again (`bar://disks`), so the disk widget drops it now and not at its next read.
 #[tauri::command]
 pub async fn taskbar_eject(window: WebviewWindow, letter: String) -> Result<(), String> {
     bar::from_bar(&window)?;
-    let _ = letter;
-    Err("unsupported".into())
+    ejectable(&letter)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        // A card pulled meanwhile raises no "no disk in the drive" dialog.
+        let _quiet = Quiet::new(false);
+        eject(&letter)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    let _ = window.emit_to("notch", "bar://disks", ());
+    Ok(())
 }
 
 /// Opens a listed drive, or a folder a scan of it listed, in File Explorer, by Explorer's full path: never the shell's open verb,
@@ -401,6 +532,50 @@ mod tests {
     }
 
     #[test]
+    fn only_listed_drives_that_plug_in_eject() {
+        *EJECTABLE.lock().unwrap() = vec!["E:".to_string()];
+        assert_eq!(ejectable("E:"), Ok(()));
+        // The system drive and any internal one are never in the list; a letter gone since is not either.
+        assert_eq!(ejectable("C:"), Err("unknown".to_string()));
+        assert_eq!(ejectable("e:"), Err("unknown".to_string()));
+        assert_eq!(ejectable(""), Err("unknown".to_string()));
+        EJECTABLE.lock().unwrap().clear();
+        assert_eq!(ejectable("E:"), Err("unknown".to_string()));
+    }
+
+    #[test]
+    fn each_veto_has_its_word() {
+        // CR_REMOVE_VETOED.
+        let vetoed = CONFIGRET(0x17);
+        assert_eq!(veto_code(CR_SUCCESS, pnp::PNP_VetoTypeUnknown, ""), Ok(()));
+        // Gone already: what the click asked.
+        assert_eq!(veto_code(vetoed, pnp::PNP_VetoAlreadyRemoved, ""), Ok(()));
+        // An app that holds it: its file only, from a path or a name.
+        assert_eq!(veto_code(vetoed, pnp::PNP_VetoWindowsApp, r"\Device\HarddiskVolume3\Program Files\Microsoft Office\WINWORD.EXE"), Err("app:WINWORD.EXE".into()));
+        assert_eq!(veto_code(vetoed, pnp::PNP_VetoWindowsApp, "notepad.exe"), Err("app:notepad.exe".into()));
+        assert_eq!(veto_code(vetoed, pnp::PNP_VetoWindowsApp, ""), Err("busy".into()));
+        for veto in [pnp::PNP_VetoOutstandingOpen, pnp::PNP_VetoPendingClose, pnp::PNP_VetoWindowsService, pnp::PNP_VetoDevice, pnp::PNP_VetoDriver, pnp::PNP_VetoLegacyDriver, pnp::PNP_VetoNonDisableable] {
+            assert_eq!(veto_code(vetoed, veto, "svc"), Err("busy".into()), "{veto:?}");
+            // A veto counts even if the call says success.
+            assert_eq!(veto_code(CR_SUCCESS, veto, "svc"), Err("busy".into()), "{veto:?}");
+        }
+        assert_eq!(veto_code(vetoed, pnp::PNP_VetoInsufficientRights, ""), Err("rights".into()));
+        assert_eq!(veto_code(CR_ACCESS_DENIED, pnp::PNP_VetoTypeUnknown, ""), Err("rights".into()));
+        assert_eq!(veto_code(vetoed, pnp::PNP_VetoTypeUnknown, ""), Err("failed".into()));
+        // PNP_VetoInsufficientPower and the other kinds no word fits.
+        assert_eq!(veto_code(CR_SUCCESS, PNP_VETO_TYPE(9), ""), Err("failed".into()));
+    }
+
+    #[test]
+    fn an_apps_name_is_its_file_cut_to_64() {
+        assert_eq!(app_name(r"C:\Tools\copy.exe"), "copy.exe");
+        assert_eq!(app_name("copy.exe"), "copy.exe");
+        assert_eq!(app_name(""), "");
+        let long = format!(r"C:\{}.exe", "a".repeat(100));
+        assert_eq!(app_name(&long).chars().count(), 64);
+    }
+
+    #[test]
     fn the_largest_folders_lead() {
         let items = |sizes: &[(&'static str, u64)]| sizes.to_vec();
         // Larger first, the name first on a tie; empty folders carry no size and go.
@@ -529,5 +704,45 @@ mod tests {
             panic!("walk");
         });
         assert_eq!(now(), before);
+    }
+}
+
+#[cfg(test)]
+mod live {
+    //! K3, reads only and ejects nothing (decision W17): `cargo test --lib taskbar::disks::live -- --ignored --nocapture`.
+    use super::*;
+    use windows::Win32::Devices::DeviceAndDriverInstallation::CM_Get_Device_IDW;
+
+    /// Each drive that plugs in, with its disk's node and the nodes above it, their capabilities, and the node Eject would ask for.
+    #[test]
+    #[ignore]
+    fn reads_the_removable_chain() {
+        for d in bar_drives().into_iter().filter(|d| d.removable) {
+            let Some(Some(number)) = extents(&d.letter) else {
+                eprintln!("{}: no single disk", d.letter);
+                continue;
+            };
+            let Some(id) = disk_instance(number) else {
+                eprintln!("{}: disk {number} not among the interfaces", d.letter);
+                continue;
+            };
+            let mut node = 0u32;
+            if unsafe { CM_Locate_DevNodeW(&mut node, PCWSTR(id.as_ptr()), CM_LOCATE_DEVNODE_NORMAL) } != CR_SUCCESS {
+                continue;
+            }
+            loop {
+                let mut name = [0u16; 256];
+                let _ = unsafe { CM_Get_Device_IDW(node, &mut name, 0) };
+                let (mut caps, mut len) = (0u32, 4u32);
+                let _ = unsafe { CM_Get_DevNode_Registry_PropertyW(node, CM_DRP_CAPABILITIES, None, Some((&mut caps as *mut u32).cast()), &mut len, 0) };
+                eprintln!("{}: {} caps {caps:#x} removable {}", d.letter, String::from_utf16_lossy(&name).trim_end_matches('\0'), removable(node));
+                let mut parent = 0u32;
+                if unsafe { CM_Get_Parent(&mut parent, node, 0) } != CR_SUCCESS {
+                    break;
+                }
+                node = parent;
+            }
+            eprintln!("{}: would eject {:?}", d.letter, eject_node(&d.letter));
+        }
     }
 }

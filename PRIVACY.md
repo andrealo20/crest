@@ -20,6 +20,8 @@ The clipboard history and the history of live notices are kept in memory only an
 
 Send to phone (Shelf) opens a small web server on your computer's local network address, only when you press it. It serves the files you picked to whoever opens its link, which holds a random token and is shown as a QR code, and stops after 10 minutes, when the Shelf closes or when you stop it; a download already running finishes. It is plain HTTP, so the files are not encrypted on the Wi-Fi, and nothing goes through a server of anyone else or leaves your network. Your firewall may ask to allow it.
 
+The bar's Mobile hotspot button (Windows only, off the bar by default) turns Windows' mobile hotspot on only when you click it, and then shares your PC's internet connection over Wi-Fi with anyone who has the network's name and password, which you set in Windows. Crest never reads that name or password, nor the devices that connect: it knows only how many there are, and keeps nothing.
+
 The Camera tool (off by default) shows the camera picture only on your screen, while the tool is open. It never records, saves or sends it.
 
 Find on screen reads your screens with Windows' own text recognition, on your PC: the screen copies are dropped as soon as they are read, and the text stays in memory until the page closes. Nothing is saved or sent.

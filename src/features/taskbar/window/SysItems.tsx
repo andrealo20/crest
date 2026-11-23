@@ -1,16 +1,18 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BellSimple, BellSimpleSlash, Broadcast, Copy, DotsNine, Eject, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, SquaresFour, Sun, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
-import { fade, springs } from "../../../design/motion";
+import { fade, pulse, springs } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { systemDark } from "../../../notch/glass/media";
-import { systemControls, taskbar } from "../../../platform/services";
+import { systemControls, taskbar, type Hotspot } from "../../../platform/services";
 import { privacy } from "../../privacy/store";
 import { inputLang, startInput } from "../input";
 import { privacyParts, widgetWidth } from "../widgets";
 import { recycleName, type SysId } from "../model";
-import { recycleBin } from "../store";
+import { barShown, recycleBin } from "../store";
+import { HOTSPOT_EVERY, HOVER_GAP, deskIconsName, deskIconsNote, ejectName, hotspotName, hotspotNote, hotspotOpens } from "../toggles";
 import { DndButton } from "./DndButton";
+import { readRemovables, removables } from "./EjectMenu";
 import { holdBriefly } from "./hold";
 import { Item, type ItemProps } from "./Item";
 
@@ -50,16 +52,25 @@ const LINE = "block whitespace-nowrap text-center text-footnote leading-tight fo
  * without magnifying and without a name above it (a screen reader still reads it). A click opens Windows' own (start.rs
  * `taskbar_shell`, the notification centre as the other bars' clock opens it), the bar held up while it comes to the front; Windows
  * may refuse, and nothing changes then. `dragged` says the click is a drag's release; `onOpen` opens what a button shows over
- * itself, the Recently opened menu or the search box's field.
+ * itself, the Recently opened menu, Eject's menu or the search box's field; `say` puts a note, or what went wrong, in the label above
+ * the button.
  */
-export function SysButton({ id, item, dragged, onOpen }: { id: SysId; item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean; onOpen?: (anchor: HTMLElement) => void }) {
+export function SysButton({ id, item, dragged, onOpen, say }: {
+  id: SysId;
+  item: Omit<ItemProps, "onClick" | "children">;
+  dragged: (e: { detail: number }) => boolean;
+  onOpen?: (anchor: HTMLElement) => void;
+  say: (text: string, failed: boolean) => void;
+}) {
   if (id === "input") return <InputButton item={item} dragged={dragged} />;
   if (id === "privacy") return <PrivacyButton item={item} dragged={dragged} />;
   if (id === "recycle") return <RecycleButton item={item} dragged={dragged} />;
   if (id === "theme") return <ThemeButton item={item} dragged={dragged} />;
   if (id === "searchbox") return <SearchBox item={item} dragged={dragged} onOpen={onOpen} />;
   if (id === "dnd") return <DndButton item={item} dragged={dragged} />;
-  if (id === "deskicons" || id === "eject" || id === "hotspot") return null;
+  if (id === "deskicons") return <DeskIconsButton item={item} dragged={dragged} say={say} />;
+  if (id === "eject") return <EjectButton item={item} dragged={dragged} onOpen={onOpen} />;
+  if (id === "hotspot") return <HotspotButton item={item} dragged={dragged} say={say} />;
   const I = SYS_INFO[id].icon;
   const narrow = Math.round(item.size / 2);
   return (
@@ -221,6 +232,140 @@ function RecycleButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "c
       }}
     >
       <Trash size={Math.round(item.size * 0.8)} weight={n ? "fill" : "regular"} />
+    </Item>
+  );
+}
+
+/** A switch shown off, or a button with nothing to act on: its glyph at this opacity. */
+const DIM = 0.4;
+
+/**
+ * A state of Windows the button reads itself, as Windows tells Crest nothing when it changes: `read` as the button mounts, again as
+ * the pointer comes over it at most every HOVER_GAP, so the look is right before a click, and on `again` after one. No timer.
+ * `read` must be the same function at every render.
+ */
+function useWindowsRead(read: () => unknown, onEnter: ItemProps["onEnter"]): [again: () => void, onEnter: ItemProps["onEnter"]] {
+  const at = useRef(0);
+  const again = useCallback(() => {
+    at.current = Date.now();
+    read();
+  }, [read]);
+  useEffect(again, [again]);
+  return [
+    again,
+    (e) => {
+      onEnter(e);
+      if (Date.now() - at.current >= HOVER_GAP) again();
+    },
+  ];
+}
+
+/** A glyph that fades to `opacity`, or with `pulsing` goes back and forth between full and dimmed (held at 0.6 with reduced motion). */
+function Glyph({ opacity, pulsing = false, children }: { opacity: number; pulsing?: boolean; children: ReactNode }) {
+  const reduced = useReducedMotion() === true;
+  const animate = !pulsing ? { opacity } : reduced ? { opacity: 0.6 } : { opacity: [1, DIM] };
+  return (
+    <motion.span className="flex" initial={false} animate={animate} transition={pulsing && !reduced ? pulse : fade}>
+      {children}
+    </motion.span>
+  );
+}
+
+/**
+ * The desktop's icons, as the desktop menu's Show desktop icons (toggles.rs): the glyph full while they show, dimmed while hidden or
+ * not read. Its name says what the click does; a click not read yet tries to hide them.
+ */
+function DeskIconsButton({ item, dragged, say }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean; say: (text: string, failed: boolean) => void }) {
+  const [shown, setShown] = useState<boolean | null>(null);
+  const read = useCallback(() => taskbar.desktopIcons().then(setShown, () => setShown(null)), []);
+  const [again, onEnter] = useWindowsRead(read, item.onEnter);
+  return (
+    <Item
+      {...item}
+      name={deskIconsName(shown, t)}
+      onEnter={onEnter}
+      onClick={(e) => {
+        if (dragged(e)) return;
+        holdBriefly();
+        void taskbar
+          .desktopIconsSet(shown === false)
+          .catch((code) => say(deskIconsNote(code, t), true))
+          .finally(again);
+      }}
+    >
+      <Glyph opacity={shown ? 1 : DIM}>
+        <DotsNine size={Math.round(item.size * 0.8)} weight="regular" />
+      </Glyph>
+    </Item>
+  );
+}
+
+/**
+ * Eject, always on the main bar (decision W12): dimmed, and its name says so, while no drive that plugs in is there. A click opens its
+ * menu of drives (EjectMenu), never ejecting one by itself.
+ */
+function EjectButton({ item, dragged, onOpen }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean; onOpen?: (anchor: HTMLElement) => void }) {
+  const list = removables.use();
+  const [, onEnter] = useWindowsRead(readRemovables, item.onEnter);
+  return (
+    <Item
+      {...item}
+      name={ejectName(list, t)}
+      onEnter={onEnter}
+      onClick={(e) => {
+        if (dragged(e)) return;
+        onOpen?.(e.currentTarget);
+      }}
+    >
+      <Glyph opacity={list && !list.length ? DIM : 1}>
+        <Eject size={Math.round(item.size * 0.8)} weight="regular" />
+      </Glyph>
+    </Item>
+  );
+}
+
+/**
+ * The mobile hotspot (toggles.rs): full while on, dimmed while off or unusable, pulsing while Windows switches it or a click waits.
+ * Read as the others, and while it is on and the bar shows every HOTSPOT_EVERY too. A click turns it on or off, as the quick
+ * settings' tile does, without asking: sharing the connection is what the click asks for. Unusable, or never read, the click opens
+ * Windows' Mobile hotspot page instead.
+ */
+function HotspotButton({ item, dragged, say }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean; say: (text: string, failed: boolean) => void }) {
+  const [spot, setSpot] = useState<Hotspot | null>(null);
+  const [asking, setAsking] = useState(false);
+  const read = useCallback(() => taskbar.hotspot().then(setSpot, () => setSpot(null)), []);
+  const [again, onEnter] = useWindowsRead(read, item.onEnter);
+  const shown = barShown.use();
+  const on = spot?.state === "on";
+  useEffect(() => {
+    if (!on || !shown) return;
+    const id = window.setInterval(again, HOTSPOT_EVERY);
+    return () => window.clearInterval(id);
+  }, [on, shown, again]);
+  return (
+    <Item
+      {...item}
+      name={hotspotName(spot, t)}
+      onEnter={onEnter}
+      onClick={(e) => {
+        if (dragged(e)) return;
+        if (hotspotOpens(spot)) {
+          holdBriefly();
+          return void taskbar.settings("hotspot").catch(() => {});
+        }
+        setAsking(true);
+        void taskbar
+          .hotspotSet(!on)
+          .catch((code) => say(hotspotNote(code, t), true))
+          .finally(() => {
+            setAsking(false);
+            again();
+          });
+      }}
+    >
+      <Glyph opacity={on ? 1 : DIM} pulsing={asking || spot?.state === "turning"}>
+        <Broadcast size={Math.round(item.size * 0.8)} weight="regular" />
+      </Glyph>
     </Item>
   );
 }

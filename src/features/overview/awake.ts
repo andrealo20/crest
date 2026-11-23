@@ -19,3 +19,9 @@ export function formatLeft(ms: number): string {
   const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = String(s % 60).padStart(2, "0");
   return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
 }
+
+/** "1:05", "0:01": hours and minutes for the bar's widget, which turns once a minute; minutes round up, as formatLeft's seconds. */
+export function formatLeftMinutes(ms: number): string {
+  const m = Math.ceil(ms / 60_000);
+  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+}

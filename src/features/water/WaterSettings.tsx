@@ -37,7 +37,8 @@ function OverviewParts() {
     const cur = settings.get().productivity.overview, next = setOverviewPart(cur, id, on, isMac);
     if (next === cur) return;
     updateSettings((s) => ({ productivity: { ...s.productivity, overview: next } }));
-    // Its tile is keep awake's only switch, and the closed row's cup opens Overview: hidden, it must not keep the PC awake.
+    // Its tile is keep awake's switch in the notch (the bar's Keep awake widget is the other), and the closed row's cup opens
+    // Overview: hidden, it must not keep the PC awake.
     if (id === "awake" && !on) stopAwake();
   };
   return (

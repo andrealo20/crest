@@ -45,7 +45,9 @@ import { AppsPanel } from "./AppsPanel";
 import { AppMenu, BarMenu, CrestMenu, GroupMenu, RecycleMenu, WindowList, WindowMenu, closeWindows, type HitRect } from "./BarMenu";
 import { BarPanel } from "./BarPanel";
 import { dropStaleScan } from "./DisksPanel";
+import { EjectMenu } from "./EjectMenu";
 import { holdBriefly } from "./hold";
+import { HotspotMenu } from "./HotspotMenu";
 import { Item, type ItemProps } from "./Item";
 import { markThick } from "../itemLook";
 import { ItemDrop } from "./ItemDrop";
@@ -73,8 +75,11 @@ const ZONES: [Zone, string][] = [
 /** The primary bar, the window labelled `taskbar`: only it draws widgets and follows the notch (main.tsx); the bars on other monitors skip both. */
 export const primary = !isNative || getCurrentWebviewWindow().label === "taskbar";
 
-/** What a menu lists: an app's right-click menu, an app's windows (as they were when it opened), the Crest menu, the Recycle Bin's, the files opened last or a widget's own. */
-type Menu = { kind: "app" | "list" | "window" | "group"; b: BarButton } | { kind: "crest" } | { kind: "recycle" } | { kind: "recent" } | { kind: "widget"; id: PartId };
+/**
+ * What a menu lists: an app's right-click menu, an app's windows (as they were when it opened), the Crest menu, the Recycle Bin's, the
+ * files opened last, the drives Eject can eject, the hotspot's, or a widget's own.
+ */
+type Menu = { kind: "app" | "list" | "window" | "group"; b: BarButton } | { kind: "crest" } | { kind: "recycle" } | { kind: "recent" } | { kind: "eject" } | { kind: "hotspot" } | { kind: "widget"; id: PartId };
 /** An open menu, the button it opened from (null: a right click beside the buttons) and the span it opens over, CSS px. */
 type OpenMenu = Menu & { anchor: Element | null; x: number; w: number };
 /** The open preview card: the app's button, the span it opens over, CSS px, and whether a rest on the button or a click opened it. */
@@ -763,11 +768,13 @@ export function TaskbarWindow() {
             magnify: free ? undefined : mag,
             expanded: sys === "searchbox" ? open?.content.kind === "search" : undefined,
             onPointerDown: free ? undefined : dragFrom(id),
-            // No menu of its own, as a widget: the Crest menu over the pointer; the Recycle Bin has Open and Empty.
-            onContextMenu: (e) => (sys === "recycle" ? toggle({ kind: "recycle" }, e.currentTarget) : setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 })),
+            // No menu of its own, as a widget: the Crest menu over the pointer; the Recycle Bin has Open and Empty, the hotspot its settings.
+            onContextMenu: (e) =>
+              sys === "recycle" || sys === "hotspot" ? toggle({ kind: sys }, e.currentTarget) : setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 }),
           }}
           dragged={free ? () => false : afterDrag}
-          onOpen={sys === "recent" ? (anchor) => toggle({ kind: "recent" }, anchor) : sys === "searchbox" ? openSearch : undefined}
+          onOpen={sys === "recent" || sys === "eject" ? (anchor) => toggle({ kind: sys }, anchor) : sys === "searchbox" ? openSearch : undefined}
+          say={(text, failed) => (failed ? setError : setNote)({ key: id, text })}
         />
       );
     }
@@ -960,9 +967,11 @@ export function TaskbarWindow() {
                     ? t("Papierkorb")
                     : menu.kind === "recent"
                       ? t("Zuletzt geöffnet")
-                      : menu.kind === "widget"
-                        ? t(partInfo[menu.id].label)
-                        : menu.b.name
+                      : menu.kind === "eject" || menu.kind === "hotspot"
+                        ? t(SYS_INFO[menu.kind].label)
+                        : menu.kind === "widget"
+                          ? t(partInfo[menu.id].label)
+                          : menu.b.name
               }
               x={menu.x}
               w={menu.w}
@@ -977,6 +986,11 @@ export function TaskbarWindow() {
                 <RecycleMenu close={closeMenu} />
               ) : menu.kind === "recent" ? (
                 <RecentMenu close={closeMenu} />
+              ) : menu.kind === "eject" ? (
+                // Its answer goes above the button it opened over, as the button's own would.
+                <EjectMenu close={closeMenu} say={(text, failed) => (failed ? setError : setNote)({ key: "sys:eject", text })} />
+              ) : menu.kind === "hotspot" ? (
+                <HotspotMenu close={closeMenu} />
               ) : menu.kind === "widget" ? (
                 <WidgetMenu
                   id={menu.id}
