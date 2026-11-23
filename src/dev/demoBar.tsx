@@ -205,10 +205,12 @@ function answer() {
     return Promise.resolve(answers);
   };
   const open = launcher.open;
-  launcher.open = (id) => {
+  launcher.open = (id, admin, reuse) => {
     const app = DEMO_APPS.find((a) => a.id === id);
-    if (!app) return open(id);
-    barWindows.set(launchApp(barWindows.get(), app));
+    if (!app) return open(id, admin, reuse);
+    // As in the app, a Launcher tile brings an open app's window forward instead of a second one (launcher.rs `open`).
+    const shown = reuse ? barWindows.get().groups.find((g) => g.key === app.id)?.windows[0] : undefined;
+    barWindows.set(shown ? windowAction(barWindows.get(), shown.id, "activate") : launchApp(barWindows.get(), app));
     return Promise.resolve();
   };
   // The settings open in the notch, on the bar's page the menu asks for; a tool the panel does not show opens there too.

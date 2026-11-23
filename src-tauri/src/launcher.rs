@@ -303,14 +303,17 @@ fn on_its_monitor(label: &str) -> bool {
 /// has no `runas`, and nothing starts, as on Windows' taskbar).
 fn open(state: &LauncherState, id: String, admin: bool, reuse: bool, monitor: Option<isize>) -> Result<(), String> {
     let verb = admin.then_some("runas");
-    // The list is read first, so an app open before the Launcher was ever used is still found by its Start entry.
-    if reuse && !admin && bring_forward(&id, apps(state, false).unwrap_or_default()) {
-        return Ok(());
+    // Read once, before the lookup, so an app open before the Launcher was ever used is still found by its Start entry.
+    let list = (reuse && !admin).then(|| apps(state, false));
+    if let Some(list) = &list {
+        if bring_forward(&id, list.clone().unwrap_or_default()) {
+            return Ok(());
+        }
     }
     if let Some((file, params)) = crate::taskbar::ownpins::launch_spec(&id) {
         return execute(&file, params.as_deref(), verb, monitor);
     }
-    apps(state, false)?;
+    list.unwrap_or_else(|| apps(state, false))?;
     // Not in the cached list: it may be new since. Read the list again, at most once a minute.
     if !listed(state, &id) {
         if read_lately(state) || apps(state, true).is_err() || !listed(state, &id) {

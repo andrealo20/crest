@@ -32,7 +32,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, GA_ROOT, GA_ROOTOWNER, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HSHELL_HIGHBIT,
     HSHELL_LANGUAGE, HSHELL_MONITORCHANGED, HSHELL_REDRAW, HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, MDITILE_HORIZONTAL, MDITILE_VERTICAL, MDITILE_ZORDER,
     SC_CLOSE, SC_MAXIMIZE, SC_MINIMIZE, SC_MOVE, SC_RESTORE, SC_SIZE, SW_RESTORE, WM_SYSCOMMAND, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-    WS_EX_WINDOWEDGE, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_THICKFRAME,
+    WS_EX_TOPMOST, WS_EX_WINDOWEDGE, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_THICKFRAME,
 };
 
 use super::{input, ownpins, screens};
@@ -896,18 +896,40 @@ fn icons() -> MutexGuard<'static, BTreeMap<String, Option<String>>> {
     ICONS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// The window Launcher entry `id` brings forward instead of starting its app again (launcher.rs): the first, in z-order, of the
-/// windows with a button whose app answers to `id` (`answers_to`). Read on its own, as the bar's list exists only while a bar
-/// runs. Needs COM for the windows' property stores: run it through `launcher::on_sta`.
+/// The window Launcher entry `id` brings forward instead of starting its app again (launcher.rs), among the windows with a button
+/// whose app answers to `id` (`answers_to`), those of other desktops too while the bar shows them (`ALL_DESKTOPS`): see
+/// `pick_window`. Read on its own, as the bar's list exists only while a bar runs. Needs COM for the windows' property stores and
+/// the desktop manager: run it through `launcher::on_sta`.
 pub(crate) fn open_window(apps: &[launcher::App], id: &str) -> Option<HWND> {
     let own = unsafe { GetCurrentProcessId() };
+    let mgr: Option<IVirtualDesktopManager> =
+        if ALL_DESKTOPS.load(Ordering::SeqCst) { unsafe { CoCreateInstance(&VirtualDesktopManager, None, CLSCTX_ALL) }.ok() } else { None };
     let mut processes: HashMap<u32, (Option<String>, String)> = HashMap::new();
-    display::top_windows().into_iter().filter(|&h| listable(h, own)).find(|&h| {
-        let pid = display::app_pid(h);
-        let (package, exe) = processes.entry(pid).or_insert_with(|| (package_app_id(pid), mixer::process_path(pid).unwrap_or_default())).clone();
-        let aumid = window_props(h).aumid.or(package.filter(|s| !s.is_empty()));
-        answers_to(launcher::entries_for(apps, aumid.as_deref(), &exe), || ownpins::entries_for(aumid.as_deref(), &exe), id)
-    })
+    let windows: Vec<(isize, bool)> = display::top_windows()
+        .into_iter()
+        .filter(|&h| listable(h, own) || mgr.as_ref().is_some_and(|m| elsewhere(m, h, own)))
+        .filter(|&h| {
+            let pid = display::app_pid(h);
+            let (package, exe) = processes.entry(pid).or_insert_with(|| (package_app_id(pid), mixer::process_path(pid).unwrap_or_default())).clone();
+            let aumid = window_props(h).aumid.or(package.filter(|s| !s.is_empty()));
+            answers_to(launcher::entries_for(apps, aumid.as_deref(), &exe), || ownpins::entries_for(aumid.as_deref(), &exe), id)
+        })
+        .map(|h| (h.0 as isize, unsafe { GetWindowLongPtrW(h, GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST.0 != 0))
+        .collect();
+    pick_window(&windows, unsafe { GetForegroundWindow() }.0 as isize).map(|h| HWND(h as _))
+}
+
+/// Of an app's windows in z-order, as (window, always on top), the one the Launcher brings forward: the first that is not always
+/// on top (a picture in picture or a pinned player sits above the app's main window), else the first. When that one is already in
+/// front, the one furthest back instead, so pressing again goes round the app's windows, as Win+number does.
+fn pick_window(windows: &[(isize, bool)], front: isize) -> Option<isize> {
+    let plain: Vec<isize> = windows.iter().filter(|&&(_, top)| !top).map(|&(h, _)| h).collect();
+    let pool = if plain.is_empty() { windows.iter().map(|&(h, _)| h).collect() } else { plain };
+    match pool.as_slice() {
+        [first, .., last] if *first == front => Some(*last),
+        [first, ..] => Some(*first),
+        [] => None,
+    }
 }
 
 /// Whether an open app answers to entry `id`, by the pins its button gets (`Track::recompute`): its Start entries, else the
@@ -1001,6 +1023,20 @@ mod tests {
         assert!(answers_to(Vec::new(), own, r"C:\Tools\tc.exe"));
         assert!(!answers_to(Vec::new(), own, r"shell:AppsFolder\Chrome"));
         assert!(!answers_to(Vec::new(), Vec::new, r"C:\Tools\tc.exe"));
+    }
+
+    #[test]
+    fn the_launcher_brings_forward_the_apps_window_on_top_else_cycles_from_the_one_in_front() {
+        let plain = [(1, false), (2, false), (3, false)];
+        assert_eq!(pick_window(&plain, 9), Some(1));
+        // With the app in front, its window furthest back, so pressing again goes round them all.
+        assert_eq!(pick_window(&plain, 1), Some(3));
+        // An always-on-top window (picture in picture, a pinned player) sits above the main one but is not the app's window.
+        assert_eq!(pick_window(&[(5, true), (1, false)], 9), Some(1));
+        assert_eq!(pick_window(&[(5, true), (1, false)], 1), Some(1));
+        assert_eq!(pick_window(&[(5, true)], 9), Some(5));
+        assert_eq!(pick_window(&[(1, false)], 1), Some(1));
+        assert_eq!(pick_window(&[], 9), None);
     }
 
     #[test]
