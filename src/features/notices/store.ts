@@ -27,6 +27,17 @@ export const history = createStore<Notice[]>([]);
 /** The notice showing in the closed notch now (NoticeLayer). */
 export const popping = createStore<Notice | null>(null);
 export const sourceStatus = createStore<NoticeSourceStatus>({ access: "unspecified", mode: "off", pipe: false, pipeFailed: false });
+/**
+ * The toasts still in Windows' notification centre per lower-case app id, for the bar's Unread widget; null while the Windows source
+ * does not run. In memory only, like the history.
+ */
+export const waiting = createStore<Record<string, number> | null>(null);
+
+/** A status from Rust, with the last counts it holds: a notch that reloaded, or listened late, has them before the next change. */
+function takeStatus(s: NoticeSourceStatus) {
+  sourceStatus.set(s);
+  if (s.counts !== undefined) waiting.set(s.counts);
+}
 
 let popTimer: number | undefined;
 let nextId = 0;
@@ -260,7 +271,7 @@ export async function requestAccess() {
  */
 export function refreshStatus() {
   if (!isNotchWindow) return askNotch({ kind: "refresh", what: "notices" });
-  void noticeSource.status().then((s) => sourceStatus.set(s));
+  void noticeSource.status().then(takeStatus);
 }
 
 let started = false;
@@ -271,7 +282,8 @@ export function startNotices() {
   started = true;
   noticeSource.onNotice(receive);
   noticeSource.onToastsGone(forgetToasts);
-  noticeSource.onStatus((s) => sourceStatus.set(s));
+  noticeSource.onStatus(takeStatus);
+  noticeSource.onCount(waiting.set);
   noticeSource.onPart(receivePart);
   noticeSource.onAsk(receiveAsk);
   noticeSource.onAskClosed((id) => asks.set((list) => removeAsk(list, id)));

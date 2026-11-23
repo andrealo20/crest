@@ -11,6 +11,8 @@ Turn it on under **Settings → Notices → Live notices**. It is off by default
 | Windows notifications | The toast notifications Windows shows for your account, from any app | On once live notices are on |
 | crest-notify | A small command line program for scripts, builds and coding agents | On once live notices are on |
 
+The bar's **Unread** widget uses the same reading of Windows notifications: it counts, for the apps you pick, the notifications still in the notification centre, and keeps those numbers in memory only.
+
 ### How Crest reads Windows notifications
 
 Windows lets apps read the notifications in the action centre through its notification listener, after you allow it once (the **Allow access** button, or **Windows Settings → Privacy & security → Notifications**). The listener's "a notification arrived" event only reaches apps installed as a package, and Crest is a plain desktop program, so Crest watches a different signal: for every notification delivered to your account, Windows' push notification service writes an entry to the event log **Applications and Services Logs → Microsoft → Windows → PushNotification-Platform → Operational**. The entry holds the notification's number and the app's id. Crest subscribes to that log, filtered to your account, and reads that one notification through the listener. It checks that the notification belongs to the app the entry names, so an entry never brings up another app's text.

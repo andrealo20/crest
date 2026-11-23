@@ -62,7 +62,7 @@ Send to phone (Shelf) serves the files you picked on your PC's Wi-Fi or Ethernet
 
 The web search in Overview (off by default) makes no request itself: Enter opens the results page of the engine you chose in your default browser, which sends the query to that engine.
 
-Live notices read other apps' Windows notifications on your PC, after you allow it, and never send them anywhere. `crest-notify` talks to Crest over a local named pipe and makes no network request.
+Live notices read other apps' Windows notifications on your PC, after you allow it, and never send them anywhere. The bar's Unread widget counts, for the apps you pick, the notifications still in Windows' notification centre; the counts stay in memory and only the apps you picked are saved in the settings. `crest-notify` talks to Crest over a local named pipe and makes no network request.
 
 Plugins you install can contact only the hosts they declare, which Crest lists before you confirm the install; their pages cannot reach the network themselves, and Crest refuses requests to other hosts, to IP addresses and to addresses on your PC or local network. Plugins cannot read your files, keys, vault, clipboard, settings or other plugins. A plugin with storage keeps its data in the `plugin-data` folder of Crest's data folder, removed with the plugin. No plugin is installed by default.
 
