@@ -129,8 +129,13 @@ export function LevelBar(props: { value: number; muted: boolean; label: string; 
     if (!grab) return;
     setGrab(false);
     props.onHold(false);
-    holdOpen(false);
   };
+  // Held while grabbed, and let go if the slider goes mid-drag (its app's sound ending): a removed element hears no pointer event.
+  useEffect(() => {
+    if (!grab) return;
+    holdOpen(true);
+    return () => holdOpen(false);
+  }, [grab]);
 
   return (
     <div
@@ -152,7 +157,6 @@ export function LevelBar(props: { value: number; muted: boolean; label: string; 
         e.currentTarget.setPointerCapture(e.pointerId);
         setGrab(true);
         props.onHold(true);
-        holdOpen(true);
         props.onChange(at(e.clientX));
       }}
       onPointerMove={(e) => {
