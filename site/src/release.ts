@@ -21,6 +21,34 @@ export const HAS_FILM = [FILM.src, FILM.poster].every((f) => __SITE_MEDIA__.incl
 /** `demo: false`: the browser demo cannot show it, so the card only leads to the chapter. */
 export const HIGHLIGHTS: { title: string; text: string; chapter: string; hue: string; demo?: false }[] = [
   {
+    title: "Folders on the bar",
+    text: "New in 1.3.2. Hold a pinned app over another for a moment and both go into a folder, a button with four small icons that opens in a panel over the bar. Open apps from a folder still show on the bar as usual, and a right click moves an app in or out, renames the folder or dissolves it.",
+    chapter: "yours",
+    hue: "#2fd5c4",
+    demo: false,
+  },
+  {
+    title: "Many more widgets, sized to fit",
+    text: "New in 1.3.2. The bar gets Now Playing with its cover, battery rings, top apps, world time, more clocks, weather details, currencies, crypto, unread notifications, device batteries, temperatures and more. A Widget size slider makes them smaller or larger than the icons, and the widgets the bar has no room for open from a button in a panel over it. Pinned tools such as Portfolio, Calc and Clipboard open right there too.",
+    chapter: "yours",
+    hue: "#7b61ff",
+    demo: false,
+  },
+  {
+    title: "Screen Time and the day timeline",
+    text: "New in 1.3.2. Off until you turn it on, Screen Time counts the time you spend in each app, kept only on your PC for 30 days. The day timeline shows your focus rounds, events, sunrise and sunset on one strip, in the closed notch or on the bar.",
+    chapter: "focus",
+    hue: "#b46cff",
+    demo: false,
+  },
+  {
+    title: "Wallpapers",
+    text: "New in 1.3.2. A Wallpapers tool sets a picture from Crest's collection or from a folder of your own, for each screen, and can change it on a timer. The collection's pictures are downloaded the first time you use them.",
+    chapter: "themes",
+    hue: "#ff8a3d",
+    demo: false,
+  },
+  {
     title: "Crest's own taskbar",
     text: "On Windows, Crest can take the place of the taskbar with a bar in its own style (off by default, not in the Microsoft Store version). Settings, Taskbar, Appearance sets its shape: Docked, Floating, Capsule or Tiles. Pinned apps and open windows sit on it, and resting the pointer on an app shows a live preview of each of its windows. Next to them come the Notification area, tool buttons and widgets made from the notch's tools, and a widget drags along the bar to a new place. Turn it off and the Windows taskbar is back.",
     chapter: "yours",
@@ -78,6 +106,8 @@ export const HIGHLIGHTS: { title: string; text: string; chapter: string; hue: st
 ];
 
 export const FIXES = [
+  "Hardware shows your local IP and, when you ask, your public IP, and a click on the battery health opens Windows' battery report.",
+  "The equalizer uses much less CPU, Crest no longer shows up in Alt+Tab, and the tool bar keeps its width so its icons stay put.",
   "The notch no longer stays open when you switch tools while typing on WebKit, which is mostly the Mac.",
   "A picture copied twice shows once in the clipboard history.",
   "The notch's window, its hit zone and the screen copy behind its glass follow Windows' Text size, and the detached timer grows with it and stays on its monitor.",
