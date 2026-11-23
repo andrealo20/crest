@@ -91,6 +91,15 @@ export function stepSize(s: Size, dir: Direction, l: Limits, step = 20): Size {
   return clampSize({ w: s.w + dw, h: s.h + dh }, l);
 }
 
+/**
+ * A drag or a step `next` made from the width on screen, `shownW`, which the tool bar can hold wider than the tool's own size `own`
+ * (notch/geometry.ts openWidth): past it the width is the tool's new one, so the edge follows the pointer; short of it a resize never
+ * widens the tool's own, which a height alone would otherwise save as the bar's.
+ */
+export function fromShown(next: Size, own: Size, shownW: number): Size {
+  return next.w > shownW ? next : { w: Math.min(next.w, own.w), h: next.h };
+}
+
 /** The panel scales the settings step through, in %; display.rs fit_zoom accepts the same list. */
 export const PANEL_SCALES = [80, 90, 100, 110, 125, 150, 175, 200] as const;
 export type PanelScale = (typeof PANEL_SCALES)[number];

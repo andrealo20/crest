@@ -1,3 +1,5 @@
+import { PANEL_MAX } from "../features/window/panelSize.ts";
+
 /*
  * Notch dimensions per state (CSS px = DIPs, scaled with Windows DPI).
  * Derived from NotchDrop (MIT) and the MacBook notch proportions.
@@ -21,6 +23,22 @@ export const HEADER_HEIGHT = 32;
 
 /** Tool bar of the open notch, at its bottom (like OmniNotch) or under the header (behavior.toolBar). */
 export const DOCK_HEIGHT = 46;
+
+/** The tool bar's widths (Notch.tsx Dock: its px-3, the capsule's p-0.5, a button's 42 px, the strip's gap-0.5, the separator's mx-1 w-px). */
+const DOCK = { pad: 2 * 12 + 2 * 2, button: 42, gap: 2, separator: 4 + 1 + 4 } as const;
+
+/** The tool bar with `tools` tools at their full size, then the separator and the gear. */
+export const dockWidth = (tools: number) => DOCK.pad + tools * DOCK.button + Math.max(0, tools - 1) * DOCK.gap + DOCK.separator + DOCK.button;
+
+/**
+ * The open panel's width for a tool `w` wide: at least the tool bar's, so a narrower tool never squeezes the buttons and every such
+ * tool opens as wide, which keeps them in place from tool to tool (#82). Where the monitor's width `room` (CSS px, at the panel scale)
+ * or the widest panel cannot hold the bar, the tool keeps its own width and the bar narrows and scrolls in it as before.
+ */
+export function openWidth(w: number, tools: number, room: number): number {
+  const bar = dockWidth(tools);
+  return bar <= Math.min(PANEL_MAX.w, room) ? Math.max(w, bar) : w;
+}
 
 /** Padding when open. Inner radii = r − PADDING (concentric). */
 export const PADDING = 16;

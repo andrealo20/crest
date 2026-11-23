@@ -21,7 +21,7 @@ import { effectiveIdleStyle, screen } from "../features/window/store";
 import { ResizeHandles, stepToolSize, useResizing, useToolSize, wheelTaken } from "../features/window/panel";
 import { cycle } from "../features/window/model";
 import { display, windowShell } from "../platform/services";
-import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
+import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, openWidth, peekGeometry, type NotchGeometry } from "./geometry";
 import { across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
 import { columnRoom, columnSurface } from "./column";
 import { capsuleY, hasBridge, lineCapsuleY, panelTop, surfaceOf, windowYFor } from "./capsule";
@@ -177,7 +177,9 @@ export function Notch() {
   const extra = sizeExtra.use();
   const extraH = !overridden && extra?.tabId === tab.id ? extra.h : 0;
   const maxH = limits(tab.size, monitorMetrics().height).maxH;
-  const size = overridden ? { w: override.w, h: Math.min(override.h, maxH) } : extraH ? { w: toolSize.w, h: Math.min(toolSize.h + extraH, maxH) } : toolSize;
+  const own = overridden ? { w: override.w, h: Math.min(override.h, maxH) } : extraH ? { w: toolSize.w, h: Math.min(toolSize.h + extraH, maxH) } : toolSize;
+  // Never narrower than the tool bar at full size, where the monitor holds it (#82).
+  const size = { w: openWidth(own.w, visible.length, monitorMetrics().width), h: own.h };
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
@@ -470,9 +472,9 @@ export function Notch() {
         if (status !== "open") {
           open();
           keyboardFocus(true);
-        } else if (!overridden) stepToolSize(tab.id, tab.size, dir);
+        } else if (!overridden) stepToolSize(tab.id, tab.size, dir, size.w);
       }),
-    [open, status, tab, overridden],
+    [open, status, tab, overridden, size.w],
   );
   useEffect(() => {
     if (status === "closed") keyboardFocus(false);
@@ -711,7 +713,7 @@ export function Notch() {
                 {!dockTop && dock}
                 {/* The grips and their sizes assume a panel hanging from the top edge. */}
                 {/* The grips size the user's own size; an extra height (sizeExtra) stays on top of it. */}
-                {!overridden && edge === "top" && behavior.resizeEdges && <ResizeHandles id={tab.id} def={tab.size} size={toolSize} />}
+                {!overridden && edge === "top" && behavior.resizeEdges && <ResizeHandles id={tab.id} def={tab.size} size={toolSize} shownW={size.w} />}
               </motion.div>
             )}
           </AnimatePresence>
@@ -812,7 +814,8 @@ function Dock({ tabs, activeId, liquid, fades, top, plus }: { tabs: NotchTab[]; 
   const badge = updateReady || unseen;
 
   // A strip of its own: buttons share its width up to 42 px each and never go below 24 px (WCAG target size), so a crowded dock
-  // scrolls. The gear stays outside the scrolling part, always in reach, and a fade marks the side with more tools.
+  // scrolls. The gear stays outside the scrolling part, always in reach, and a fade marks the side with more tools. The panel is as
+  // wide as the bar at 42 px where the monitor holds it (geometry.ts openWidth), whose sizes are this bar's: change both.
   const strip = useRef<HTMLDivElement>(null);
   const more = useScrollEdges(strip);
   const fade = more.start || more.end ? `linear-gradient(90deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;

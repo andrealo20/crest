@@ -8,7 +8,7 @@ import { isMac } from "../../platform/native";
 import { settings } from "../../settings/store";
 import { t } from "../../i18n";
 import { textStep } from "./hotkeys";
-import { dragSize, limits, sizeFor, stepSize, stepTextSize, type Direction, type Edge, type Size } from "./panelSize";
+import { dragSize, fromShown, limits, sizeFor, stepSize, stepTextSize, type Direction, type Edge, type Size } from "./panelSize";
 import { stripScroll } from "./model";
 import { updateBehavior } from "./store";
 
@@ -56,10 +56,10 @@ function save(id: string, size: Size | null) {
   });
 }
 
-/** One press of the resize shortcut on the open tool. */
-export function stepToolSize(id: string, def: Size, dir: Direction) {
-  const lim = limits(def, monitorMetrics().height);
-  save(id, stepSize(sizeFor(def, settings.get().behavior.sizes[id], monitorMetrics().height), dir, lim));
+/** One press of the resize shortcut on the open tool, from the width on screen (`shownW`, which the tool bar can hold wider: fromShown). */
+export function stepToolSize(id: string, def: Size, dir: Direction, shownW: number) {
+  const own = sizeFor(def, settings.get().behavior.sizes[id], monitorMetrics().height);
+  save(id, fromShown(stepSize({ ...own, w: shownW }, dir, limits(def, monitorMetrics().height)), own, shownW));
 }
 
 const GRIPS: { edge: Edge; className: string; cursor: string }[] = [
@@ -72,9 +72,10 @@ const GRIPS: { edge: Edge; className: string; cursor: string }[] = [
 
 /**
  * Grips at the open panel's side and bottom edges and bottom corners: dragging sets this tool's size (both sides
- * move, the panel stays centred), a double click goes back to the default. Held open while dragging.
+ * move, the panel stays centred), a double click goes back to the default. Held open while dragging. A drag starts from the width on
+ * screen (`shownW`, which the tool bar can hold wider than the tool's `size`: fromShown).
  */
-export function ResizeHandles({ id, def, size }: { id: string; def: Size; size: Size }) {
+export function ResizeHandles({ id, def, size, shownW }: { id: string; def: Size; size: Size; shownW: number }) {
   // Ends a drag in progress; also on unmount (tab switch, panel closed), so the hold can't stick.
   const end = useRef<(() => void) | null>(null);
   useEffect(() => () => end.current?.(), []);
@@ -87,7 +88,7 @@ export function ResizeHandles({ id, def, size }: { id: string; def: Size; size: 
     const el = e.currentTarget, pointer = e.pointerId;
     el.setPointerCapture(pointer);
     holdOpen(true);
-    const start = size, x0 = e.clientX, y0 = e.clientY, lim = limits(def, monitorMetrics().height);
+    const own = size, start = { ...size, w: shownW }, x0 = e.clientX, y0 = e.clientY, lim = limits(def, monitorMetrics().height);
     let current = start;
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointer) return;
@@ -103,7 +104,7 @@ export function ResizeHandles({ id, def, size }: { id: string; def: Size; size: 
       el.removeEventListener("pointercancel", onUp);
       el.removeEventListener("lostpointercapture", onUp);
       holdOpen(false);
-      if (current !== start) save(id, current);
+      if (current !== start) save(id, fromShown(current, own, shownW));
       live.set(null);
     };
     el.addEventListener("pointermove", onMove);
