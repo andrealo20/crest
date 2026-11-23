@@ -11,11 +11,14 @@
 //! The appbar of each reserving bar is a hidden helper window on the taskbar thread (mod.rs), never the bar's own window.
 //! `reconcile` runs there on a posted `REAPPBAR` only, under explorer's lock taken without waiting: it removes, registers and
 //! places the helpers, and asks Windows for a strip only when one is new, Windows says the appbars moved, Explorer restarted,
-//! or a bar's monitor, height or edge changed. An answer equal to the strip held is not set again, so maximized windows resize once.
+//! or a bar's monitor, height or edge changed. An answer equal to the one last set is not set again, whatever rect Windows set
+//! for it, so maximized windows resize once, and a strip set too often in a short time is set no more for 60 s or until its bar
+//! changes (`Held`).
 
 use std::cell::RefCell;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, Once};
+use std::time::{Duration, Instant};
 
 use tauri::AppHandle;
 use windows::core::w;
@@ -27,8 +30,8 @@ use windows::Win32::UI::Shell::{
     SHAppBarMessage, ABE_BOTTOM, ABE_TOP, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS, ABN_POSCHANGED, ABN_STATECHANGE, APPBARDATA,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, RegisterClassW, SetWindowPos, SWP_NOACTIVATE, SWP_NOZORDER, WM_APP, WNDCLASSW,
-    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, KillTimer, RegisterClassW, SetTimer, SetWindowPos, SWP_NOACTIVATE, SWP_NOZORDER,
+    WM_APP, WM_TIMER, WNDCLASSW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 
 use super::{bar, explorer, front, screens, tasks};
@@ -39,6 +42,16 @@ use crate::display;
 pub(super) const ASK: usize = 1;
 pub(super) const RENEW: usize = 2;
 pub(super) const FORCE: usize = 4;
+/// A bar's strip set this many times within `BURST` is set no more for `PAUSE` or until the bar changes (`Held`). Its
+/// registration and each appbar coming or going on its edge set it once, seconds apart, and a new monitor, height or edge
+/// counts from zero again; appbars answering each other set it many times a second, and the fifth is not set.
+const BURST_SETS: usize = 4;
+const BURST: Duration = Duration::from_secs(10);
+/// A stopped bar is asked for its strip again this long after: what set it again and again may be gone, and an appbar that
+/// came or went meanwhile is followed.
+const PAUSE: Duration = Duration::from_secs(60);
+/// The helper's timer that ends the pause (`helper_proc`).
+const PAUSE_TIMER: usize = 1;
 /// The helpers' callback message (`helper_proc`).
 const CALLBACK: u32 = WM_APP + 1;
 /// The helpers' window class, registered once.
@@ -105,8 +118,49 @@ struct Reg {
     monitor: RECT,
     band: i32,
     top: bool,
-    /// What Windows set (`ABM_SETPOS`).
+    held: Held,
+}
+
+/// A bar's strip as last asked of Windows and as Windows set it, and when it was set lately.
+#[derive(Default)]
+struct Held {
+    /// The settled answer last passed to `ABM_SETPOS`; none on a new or renewed registration.
+    asked: Option<RECT>,
+    /// What Windows set (`ABM_SETPOS`): the strip published and stood on.
     strip: RECT,
+    /// When the strip was set within the last `BURST`, since the bar last changed.
+    sets: Vec<Instant>,
+    /// When it was set `BURST_SETS` times within `BURST`: set no more for `PAUSE` or until the bar changes.
+    stopped: Option<Instant>,
+}
+
+impl Held {
+    /// Sets `settled`, Windows' answer settled to the bar's height, with `set` (`ABM_SETPOS`, which gives back what Windows
+    /// set), unless it equals the answer last set. Never compared with what Windows set: when Windows sets another rect than the
+    /// one it is given (Windows 10 may), every notification would set the strip again and move the work area. True when this
+    /// call stopped the bar.
+    fn place(&mut self, settled: RECT, now: Instant, set: impl FnOnce(RECT) -> RECT) -> bool {
+        if self.asked == Some(settled) || self.stopped.is_some_and(|at| now.duration_since(at) < PAUSE) {
+            return false;
+        }
+        self.stopped = None;
+        self.sets.retain(|&t| now.duration_since(t) < BURST);
+        if self.sets.len() >= BURST_SETS {
+            self.stopped = Some(now);
+            return true;
+        }
+        self.sets.push(now);
+        self.asked = Some(settled);
+        self.strip = set(settled);
+        false
+    }
+
+    /// The bar's monitor, height or edge changed: its strip may be set again. Any other settings change removes the
+    /// registration, and Explorer's restart renews it: both start afresh (`Held::default`).
+    fn changed(&mut self) {
+        self.sets.clear();
+        self.stopped = None;
+    }
 }
 
 /// Brings the appbars in line with the bars, their settings and Explorer, with `REAPPBAR`'s `flags`. The taskbar thread only;
@@ -154,7 +208,7 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
             continue;
         }
         if let Some(helper) = helper(strip_for(*monitor, *band, top)) {
-            fresh.push(Reg { label: label.clone(), helper, monitor: *monitor, band: *band, top, strip: RECT::default() });
+            fresh.push(Reg { label: label.clone(), helper, monitor: *monitor, band: *band, top, held: Held::default() });
         }
     }
     // The record first, with every helper, so no registration is ever missing from it.
@@ -187,16 +241,34 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
         // there yet, so it is set as a new one.
         let renewed = flags & RENEW != 0 && reachable && i < kept && call(reg.helper, ABM_NEW, RECT::default(), top).0 != 0;
         let new = i >= kept || renewed;
+        let moved = reg.monitor != monitor || reg.band != band || reg.top != top;
+        // Renewed, Explorer knows no strip for it: set as a new one's.
+        if renewed {
+            reg.held = Held::default();
+        } else if moved {
+            reg.held.changed();
+        }
         // A new edge is asked for on the kept registration: Windows moves an appbar to the edge its ABM_SETPOS names.
-        if !reachable || !(new || flags & (FORCE | RENEW) != 0 || reg.monitor != monitor || reg.band != band || reg.top != top) {
+        if !reachable || !(new || moved || flags & (FORCE | RENEW) != 0) {
             continue;
         }
-        let strip = settle(call(reg.helper, ABM_QUERYPOS, strip_for(monitor, band, top), top).1, band, top);
-        if new || strip != reg.strip {
-            publish(&reg.label, Some(strip));
-            let s = call(reg.helper, ABM_SETPOS, strip, top).1;
-            reg.strip = s;
-            let _ = unsafe { SetWindowPos(reg.helper, None, s.left, s.top, s.right - s.left, s.bottom - s.top, SWP_NOZORDER | SWP_NOACTIVATE) };
+        let answer = call(reg.helper, ABM_QUERYPOS, strip_for(monitor, band, top), top).1;
+        let strip = settle(answer, band, top);
+        let (label, helper) = (&reg.label, reg.helper);
+        let stopped = reg.held.place(strip, Instant::now(), |strip| {
+            publish(label, Some(strip));
+            let s = call(helper, ABM_SETPOS, strip, top).1;
+            let _ = unsafe { SetWindowPos(helper, None, s.left, s.top, s.right - s.left, s.bottom - s.top, SWP_NOZORDER | SWP_NOACTIVATE) };
+            s
+        });
+        if stopped {
+            // A second past the pause, so the timer never lands inside it. DestroyWindow on the helper kills it.
+            let _ = unsafe { SetTimer(Some(reg.helper), PAUSE_TIMER, (PAUSE + Duration::from_secs(1)).as_millis() as u32, None) };
+            let (secs, pause, asked, set) = (BURST.as_secs(), PAUSE.as_secs(), reg.held.asked.unwrap_or_default(), reg.held.strip);
+            eprintln!(
+                "taskbar: {label}'s strip set {BURST_SETS} times in {secs} s, no more for {pause} s or until the bar changes: \
+                 ABM_QUERYPOS {answer:?}, settled {strip:?}, the last ABM_SETPOS of {asked:?} set {set:?}"
+            );
         }
         reg.monitor = monitor;
         reg.band = band;
@@ -207,7 +279,7 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
         let left: Vec<isize> = regs.iter().map(|r| r.helper.0 as isize).collect();
         let _ = if left.is_empty() { std::fs::remove_file(p) } else { crate::write_atomic(p, format_hwnds(&left).as_bytes()) };
     }
-    let now: Vec<(String, RECT)> = regs.iter().map(|r| (r.label.clone(), r.strip)).collect();
+    let now: Vec<(String, RECT)> = regs.iter().map(|r| (r.label.clone(), r.held.strip)).collect();
     REGS.set(regs);
     // Against the strips at the start, so the writes `publish` made above still count as a change.
     let changed = before != now;
@@ -250,9 +322,14 @@ fn helper(strip: RECT) -> Option<HWND> {
     }
 }
 
-/// Windows moved the appbars or changed its taskbar's state: every strip is asked for again, posted. A full-screen app is
-/// ignored: front.rs already hides a bar over one.
+/// Windows moved the appbars or changed its taskbar's state, or a stopped bar's pause is over: every strip is asked for again,
+/// posted. A full-screen app is ignored: front.rs already hides a bar over one.
 unsafe extern "system" fn helper_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    if msg == WM_TIMER && wparam.0 == PAUSE_TIMER {
+        let _ = unsafe { KillTimer(Some(hwnd), PAUSE_TIMER) };
+        super::post_to_thread(super::REAPPBAR, ASK | FORCE);
+        return LRESULT(0);
+    }
     if msg == CALLBACK {
         if matches!(wparam.0 as u32, ABN_POSCHANGED | ABN_STATECHANGE) {
             super::post_to_thread(super::REAPPBAR, ASK | FORCE);
@@ -373,6 +450,87 @@ mod tests {
         assert_eq!(strip_for(r(0, -1080, 1920, 0), 44, true), r(0, -1080, 1920, -1036)); // a monitor above the primary
         assert_eq!(settle(r(64, 0, 1920, 44), 44, true), r(64, 0, 1920, 44)); // narrowed by a side appbar
         assert_eq!(settle(r(0, 48, 1920, 200), 44, true), r(0, 48, 1920, 92)); // under another top appbar: Windows' top, the bar's height
+    }
+
+    /// `Held::place` with a Windows that sets `windows(asked)`: whether `ABM_SETPOS` was called, and whether the bar stopped.
+    fn place(held: &mut Held, settled: RECT, at: Instant, windows: fn(RECT) -> RECT) -> (bool, bool) {
+        let mut set = false;
+        let stopped = held.place(settled, at, |s| {
+            set = true;
+            windows(s)
+        });
+        (set, stopped)
+    }
+
+    #[test]
+    fn an_answer_equal_to_the_strip_last_asked_for_is_not_set_again_whatever_windows_set() {
+        let r = |left, top, right, bottom| RECT { left, top, right, bottom };
+        let t = Instant::now();
+        let moved_down = |s: RECT| RECT { top: s.top + 1, ..s }; // a Windows that sets a rect other than the one it is given
+        let mut held = Held::default();
+        let answer = settle(r(0, 1036, 1920, 1080), 44, false);
+        assert_eq!(place(&mut held, answer, t, moved_down), (true, false)); // a new registration is set
+        assert_eq!(held.strip, r(0, 1037, 1920, 1080)); // what Windows set is the strip held
+        // ABN_POSCHANGED, and ABM_QUERYPOS repeats its first answer: not set again, the work area stays
+        assert_eq!(place(&mut held, answer, t + Duration::from_secs(1), moved_down), (false, false));
+        assert_eq!(place(&mut held, answer, t + Duration::from_secs(2), moved_down), (false, false));
+        assert_eq!(held.strip, r(0, 1037, 1920, 1080));
+        // another appbar came on the bottom edge: the new answer is set
+        assert_eq!(place(&mut held, r(0, 992, 1920, 1036), t + Duration::from_secs(3), moved_down), (true, false));
+        assert_eq!(held.strip, r(0, 993, 1920, 1036));
+    }
+
+    #[test]
+    fn a_strip_set_again_and_again_is_set_no_more_until_the_bar_changes() {
+        let r = |left, top, right, bottom| RECT { left, top, right, bottom };
+        let same = |s: RECT| s;
+        let t = Instant::now();
+        let ms = |n: u64| t + Duration::from_millis(n);
+        let (a, b) = (r(0, 1036, 1920, 1080), r(0, 1035, 1920, 1079)); // two appbars answering each other
+        let mut held = Held::default();
+        for i in 0..BURST_SETS as u64 {
+            assert_eq!(place(&mut held, if i % 2 == 0 { a } else { b }, ms(100 * i), same), (true, false));
+        }
+        assert_eq!(held.strip, b);
+        assert_eq!(place(&mut held, a, ms(500), same), (false, true)); // one more within BURST: stopped, and told once
+        assert_eq!(place(&mut held, b, ms(600), same), (false, false));
+        assert_eq!(place(&mut held, a, ms(60_000), same), (false, false)); // 59.5 s after, still stopped
+        assert_eq!(held.strip, b); // the bar stays on the last strip Windows set
+        held.changed(); // its monitor, height or edge changed
+        assert_eq!(place(&mut held, a, ms(61_000), same), (true, false));
+        // A new or renewed registration starts afresh
+        let mut held = Held::default();
+        assert_eq!(place(&mut held, a, ms(61_000), same), (true, false));
+    }
+
+    #[test]
+    fn a_stopped_strip_is_set_again_once_the_pause_is_over() {
+        let r = |left, top, right, bottom| RECT { left, top, right, bottom };
+        let same = |s: RECT| s;
+        let t = Instant::now();
+        let (a, b) = (r(0, 1036, 1920, 1080), r(0, 1035, 1920, 1079)); // two appbars answering each other
+        let mut held = Held::default();
+        for i in 0..BURST_SETS as u32 {
+            assert_eq!(place(&mut held, if i % 2 == 0 { a } else { b }, t + Duration::from_millis(100) * i, same), (true, false));
+        }
+        let stop = t + Duration::from_millis(500);
+        assert_eq!(place(&mut held, a, stop, same), (false, true));
+        assert_eq!(place(&mut held, a, stop + PAUSE - Duration::from_millis(1), same), (false, false)); // still paused
+        // the pause is over: what set it again and again may be gone, and the strip is asked for once more
+        assert_eq!(place(&mut held, a, stop + PAUSE, same), (true, false));
+        assert_eq!(held.strip, a);
+    }
+
+    #[test]
+    fn strips_set_seconds_apart_are_never_stopped() {
+        let r = |left, top, right, bottom| RECT { left, top, right, bottom };
+        let same = |s: RECT| s;
+        let t = Instant::now();
+        let (a, b) = (r(0, 1036, 1920, 1080), r(0, 992, 1920, 1036)); // an appbar coming and going on the same edge
+        let mut held = Held::default();
+        for i in 0..12u64 {
+            assert_eq!(place(&mut held, if i % 2 == 0 { a } else { b }, t + Duration::from_secs(3 * i), same), (true, false));
+        }
     }
 
     #[test]

@@ -1159,7 +1159,7 @@ function Display() {
       <ClosedStyle />
       <SizeSettings />
       <ClosedParts />
-      {d.idleStyle !== "line" && <PetSettingsRows />}
+      <PetSettingsRows />
       <Row icon="linear_scale" label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>
         <Switch label={t("Fortschritt auf der Linie")} checked={s.closed.lineProgress} onChange={(lineProgress) => updateSettings((cur) => ({ closed: { ...cur.closed, lineProgress } }))} />
       </Row>
@@ -1281,25 +1281,35 @@ function ShapePreview({ d }: { d: string }) {
 
 /** The nest beside the closed notch: which pet (or none), its size, independent of the notch's, and the side it sits on. */
 function PetSettingsRows() {
-  const { closed: { pet }, dock } = settings.use();
+  const { closed: { pet }, dock, display } = settings.use();
   const setPet = (patch: Partial<ClosedSettings["pet"]>) => updateSettings((cur) => ({ closed: { ...cur.closed, pet: { ...cur.closed.pet, ...patch } } }));
+  // The line has no nest beside it (Notch.tsx), so the row stays, switched off, to say why (issue #80); the chosen pet
+  // is kept and comes back with the notch or the capsule.
+  const line = display.idleStyle === "line";
   return (
     <>
       <Row icon="pets"
         label={t("Haustier")}
-        hint={isMac ? t("Neben der Notch: tanzt zur Musik, freut sich über Erledigtes und schläft, wenn nichts los ist") : t("Neben der Notch: tanzt zur Musik, rennt mit der CPU, freut sich über Erledigtes und schläft, wenn nichts los ist")}
+        hint={
+          line
+            ? t("Braucht Notch oder Kapsel: neben der Linie ist kein Platz für das Nest")
+            : isMac
+              ? t("Neben der Notch: tanzt zur Musik, freut sich über Erledigtes und schläft, wenn nichts los ist")
+              : t("Neben der Notch: tanzt zur Musik, rennt mit der CPU, freut sich über Erledigtes und schläft, wenn nichts los ist")
+        }
       >
         <div className="flex items-center gap-2">
-          {pet.id && <PetArt id={pet.id} mood="idle" pace=".5s" size={30} />}
+          {pet.id && !line && <PetArt id={pet.id} mood="idle" pace=".5s" size={30} />}
           <Select
             value={pet.id ?? "none"}
             width="w-48"
+            disabled={line}
             options={[{ value: "none", label: t("Aus") }, ...PET_IDS.map((p) => ({ value: p, label: t(PET_NAMES[p]) }))]}
             onChange={(v) => setPet({ id: v === "none" ? null : (v as PetId) })}
           />
         </div>
       </Row>
-      {pet.id && (
+      {pet.id && !line && (
         <>
           <Row icon="aspect_ratio" label={t("Größe des Haustiers")} hint={t("Unabhängig von der Größe der Notch")}>
             <div className="flex w-52 items-center gap-2">
