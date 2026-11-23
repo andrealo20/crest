@@ -9,7 +9,9 @@ import { autostart, taskbar } from "../../../platform/services";
 import { settings, updateSettings } from "../../../settings/store";
 import { MENU_PANEL_CLASS, MENU_ROW_CLASS } from "../../../ui/menu";
 import { toggleFavorite, type Favorite } from "../../launcher/apps";
-import { recycleBin } from "../store";
+import { folderKey, intoFolder, newFolder, nextName, normalizeFolders, takeOut, ungroup, type Folder, type Pins } from "../folderModel";
+import { recycleBin, setTaskbar } from "../store";
+import { folderLabel } from "./FolderPanel";
 import { holdBriefly } from "./hold";
 import { GROUP_MENU, appKey, jumpHeading, menuFor, menuKey, newInstance, placeMenu, windowMenuRows, type BarButton, type Click, type GroupEntry, type JumpList, type Win, type WindowEntry, type WindowState } from "../model";
 import { growFrom, nudge, popupAt, popupY } from "../position";
@@ -148,6 +150,15 @@ export function Row(props: { label: string; onClick: () => void; checked?: boole
 /** Pins or unpins an app; the other windows follow the saved settings. */
 export const togglePin = (app: Favorite) => updateSettings((s) => ({ taskbar: { ...s.taskbar, pinned: toggleFavorite(s.taskbar.pinned ?? [], app) } }));
 
+/** A write to the pinned apps and their folders (folderModel.ts), on the settings as they are now with the folders repaired; written only when it changes something. */
+export function editPins(edit: (p: Pins) => Pins): void {
+  const { pinned, folders } = settings.get().taskbar;
+  if (!pinned) return;
+  const p = { pinned, folders: normalizeFolders(folders, pinned) };
+  const next = edit(p);
+  if (next !== p) setTaskbar(next);
+}
+
 /** Closes all of an app's windows; a window of an app run as administrator may refuse, and nothing changes then. */
 export const closeWindows = (b: BarButton) => b.windows.forEach((win) => void taskbar.window(win.id, "close").catch(() => {}));
 
@@ -204,9 +215,9 @@ function JumpRows({ b, close, fail }: { b: BarButton; close: () => void; fail: (
 
 /**
  * An app's right-click menu, as menuFor allows it. `act` runs a click as a click on its button does, errors included; `fail` shows
- * what went wrong in the button's label.
+ * what went wrong in the button's label; `move` opens Move to folder's own menu over the same button.
  */
-export function AppMenu({ b, act, close, fail }: { b: BarButton; act: (c: Click) => void; close: () => void; fail: (text: string) => void }) {
+export function AppMenu({ b, act, close, fail, move }: { b: BarButton; act: (c: Click) => void; close: () => void; fail: (text: string) => void; move: () => void }) {
   const endTask = settings.use().taskbar.endTask;
   // An app with an entry pins it; one without asks Rust to pin its window.
   const pin = () =>
@@ -215,6 +226,8 @@ export function AppMenu({ b, act, close, fail }: { b: BarButton; act: (c: Click)
     launch: [b.name, () => act(newInstance(b))],
     pin: [t("An Taskleiste anheften"), pin],
     unpin: [t("Von Taskleiste lösen"), () => togglePin(b.pin!)],
+    move: [t("In Ordner verschieben …"), move],
+    out: [t("Aus Ordner nehmen"), () => editPins((p) => takeOut(p, b.pin!.id))],
     reveal: [t("Dateipfad öffnen"), () => void taskbar.reveal(b.windows[0].id).catch(() => {})],
     // Several windows of one process: the calls after the first find it gone and do nothing.
     endTask: [t("Task beenden"), () => b.windows.forEach((win) => void taskbar.window(win.id, "end").catch(() => {}))],
@@ -237,6 +250,61 @@ export function AppMenu({ b, act, close, fail }: { b: BarButton; act: (c: Click)
           />
         );
       })}
+    </>
+  );
+}
+
+/**
+ * Move to folder's menu for a pinned app: each folder by its name but the one the app is in, which takes it at its end, then New
+ * folder, a folder of the app alone at its place, which `created` opens with its name ready to type.
+ */
+export function MoveMenu({ b, folders, close, created }: { b: BarButton; folders: Folder[]; close: () => void; created: (id: string) => void }) {
+  const pin = b.pin!.id;
+  return (
+    <>
+      {folders
+        .filter((f) => f.id !== b.inFolder)
+        .map((f) => (
+          <Row
+            key={f.id}
+            label={f.name}
+            onClick={() => {
+              close();
+              editPins((p) => intoFolder(p, pin, folderKey(f.id), "", ""));
+            }}
+          />
+        ))}
+      <Row
+        label={t("Neuer Ordner")}
+        onClick={() => {
+          close();
+          const id = crypto.randomUUID();
+          editPins((p) => newFolder(p, pin, id, nextName(p.folders, folderLabel)));
+          created(id);
+        }}
+      />
+    </>
+  );
+}
+
+/** A folder's menu: Rename, which opens it with its name ready to type, and Ungroup apps, which puts its apps back on the bar in its place. */
+export function FolderMenu({ id, close, rename }: { id: string; close: () => void; rename: () => void }) {
+  return (
+    <>
+      <Row
+        label={t("Umbenennen")}
+        onClick={() => {
+          close();
+          rename();
+        }}
+      />
+      <Row
+        label={t("Ordner auflösen")}
+        onClick={() => {
+          close();
+          editPins((p) => ungroup(p, id));
+        }}
+      />
     </>
   );
 }

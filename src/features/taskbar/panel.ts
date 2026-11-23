@@ -29,10 +29,11 @@ export const trayDrag = createStore<{ id: string; img: string | null; x: number;
 export const itemDrag = createStore<{ id: BarItem; x: number; y: number; pointerId: number } | null>(null);
 
 /**
- * A pinned app dragged along the bar (TaskbarWindow), by its pin id, and the pointer, in the window's CSS px; null while none is. The
- * bar draws its icon under the pointer and moves it among the pinned apps where it is let go (PinDrop).
+ * A pinned app dragged along the bar (TaskbarWindow), by its pin id or a folder's key, and the pointer, in the window's CSS px; null
+ * while none is. `from` "folder" for an app dragged out of its folder's panel, which stays open meanwhile. The bar draws its icon under
+ * the pointer and moves it among the pinned apps, into a folder or inside its folder where it is let go (PinDrop).
  */
-export const pinDrag = createStore<{ id: string; x: number; y: number; pointerId: number } | null>(null);
+export const pinDrag = createStore<{ id: string; x: number; y: number; pointerId: number; from?: "folder" } | null>(null);
 
 /** Files from File Explorer over the bar's apps (TaskbarWindow), at the pointer in CSS px; null while none are. PinDrop draws where they would be pinned. */
 export const fileDrag = createStore<{ x: number; y: number } | null>(null);

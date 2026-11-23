@@ -43,6 +43,7 @@ import {
   normalizeTaskbar,
   normalizeZones,
   pinDrop,
+  pinSlots,
   placeMenu,
   previewFallsBack,
   previewKey,
@@ -272,7 +273,7 @@ test("a window's button clicks, marks and menus as an app with one window", () =
   const [one, two] = windowButtons(barButtons([pin], [{ key: "app", name: "App", pins: [pin], windows: [w(1), w(2, true)] }]));
   assert.deepEqual(clickAction(one), { kind: "toggle", id: 1 });
   assert.deepEqual(clickAction(two), { kind: "toggle", id: 2 });
-  for (const b of [one, two]) assert.deepEqual(menuFor(b, { endTask: false }), ["launch", "unpin", "close"]);
+  for (const b of [one, two]) assert.deepEqual(menuFor(b, { endTask: false }), ["launch", "unpin", "move", "close"]);
   assert.equal(indicator(one, null), "open");
   assert.equal(indicator(two, null), "attention");
 });
@@ -383,7 +384,7 @@ test("Shift, the middle button and Ctrl+Shift start a new instance", () => {
 test("the right-click menu offers what the app allows, in Windows' order", () => {
   const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
   const pin = { id: "p", name: "P" };
-  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [] }), ["launch", "unpin"]);
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [] }), ["launch", "unpin", "move"]);
   assert.deepEqual(menuFor({ key: "k", name: "K", pin: null, pins: [pin], windows: [w(1)] }), ["launch", "pin", "close"]);
   assert.deepEqual(menuFor({ key: "k", name: "K", pin: null, pins: [], windows: [w(1), w(2)] }), ["closeAll"]);
   const own = { key: "c:\\tools\\tool.exe", name: "Tool", pin: null, pins: [], windows: [w(1)], spawnable: true, pinnable: true } satisfies BarButton;
@@ -392,9 +393,11 @@ test("the right-click menu offers what the app allows, in Windows' order", () =>
   // An app that asks never to be pinned (PreventPinning) is spawnable but not pinnable.
   assert.deepEqual(menuFor({ ...own, pinnable: false }), ["launch", "reveal", "close"]);
   // End task needs a window, Open file location a window and spawnable.
-  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [] }, { endTask: true }), ["launch", "unpin"]);
-  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [w(1), w(2)] }, { endTask: true }), ["launch", "unpin", "endTask", "closeAll"]);
-  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [w(1)], spawnable: true }), ["launch", "unpin", "reveal", "close"]);
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [] }, { endTask: true }), ["launch", "unpin", "move"]);
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [w(1), w(2)] }, { endTask: true }), ["launch", "unpin", "move", "endTask", "closeAll"]);
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [w(1)], spawnable: true }), ["launch", "unpin", "move", "reveal", "close"]);
+  // Every pinned app moves to a folder; one in a folder also comes out of it.
+  assert.deepEqual(menuFor({ key: "p", name: "P", pin, pins: [pin], windows: [w(1)], inFolder: "f" }), ["launch", "unpin", "move", "out", "close"]);
 });
 
 test("a menu opens over its button and stays inside the window", () => {
@@ -807,4 +810,55 @@ test("Rust keeps the own pins of the Launcher's apps along with the bar's", () =
   const f = (id: string) => ({ id, name: id });
   assert.deepEqual(keptPinIds([f("tool.exe")], [f("Hades.url"), f("Claude")]), ["tool.exe", "Hades.url", "Claude"]);
   assert.deepEqual(keptPinIds([f("a")], null), ["a"]);
+});
+
+test("a folder stands at its first app's place, and its open apps join the open apps that are not pinned", () => {
+  const w = (id: number): Win => ({ id, title: "t", minimized: false, flashing: false });
+  const f = (id: string) => ({ id, name: id.toUpperCase() });
+  const pinned = ["a", "b", "c", "d"].map(f);
+  const groups: Group[] = [
+    { key: "g-x", name: "X", pins: [], windows: [w(1)] },
+    { key: "g-c", name: "C", pins: [f("c")], windows: [w(2)] },
+    { key: "g-c2", name: "C", pins: [f("c")], windows: [w(3)], spawnable: true },
+    { key: "g-a", name: "A", pins: [f("a")], windows: [w(4)] },
+  ];
+  const folders = [{ id: "f", name: "Work", apps: ["c", "b"] }];
+  const b = barButtons(pinned, groups, folders);
+  assert.deepEqual(b.map((x) => x.key), ["a", "folder:f", "d", "g-x", "c"]);
+  const [folder, open] = [b[1], b[4]];
+  assert.deepEqual([folder.name, folder.pin, folder.pins, folder.windows], ["Work", null, [], []]);
+  // Its apps in the folder's order, each with the windows it owns.
+  assert.deepEqual(folder.folder?.apps.map((x) => [x.key, x.inFolder, x.windows.length]), [["c", "f", 2], ["b", "f", 0]]);
+  // An open app of a folder: its pin's key and every window it owns, where its first group is.
+  assert.deepEqual([open.inFolder, open.pin?.id, open.windows.map((x) => x.id), open.spawnable], ["f", "c", [2, 3], true]);
+  assert.equal(b[0].inFolder, undefined);
+  // Without a window an app of a folder has no button of its own.
+  assert.equal(b.some((x) => x.key === "b"), false);
+  assert.deepEqual(barButtons(null, groups, folders).map((x) => x.key), ["g-x", "g-c", "g-c2", "g-a"]);
+});
+
+test("an app of a folder unpinned is no longer drawn in it, the folder goes with its last app, and Rust keeps every folder app's pin", () => {
+  const f = (id: string) => ({ id, name: id });
+  const pinned = ["a", "b", "c"].map(f);
+  const folders = [{ id: "f", name: "F", apps: ["a", "b"] }];
+  assert.deepEqual(keptPinIds(pinned, null), ["a", "b", "c"]);
+  const after = applyWindowsPins(pinned, { added: [], removed: ["a"] });
+  const b = barButtons(after, [], folders);
+  assert.deepEqual(b.map((x) => x.key), ["folder:f", "c"]);
+  assert.deepEqual(b[0].folder?.apps.map((x) => x.key), ["b"]);
+  assert.deepEqual(barButtons(applyWindowsPins(after, { added: [], removed: ["b"] }), [], folders).map((x) => x.key), ["c"]);
+});
+
+test("every click on a folder opens it, Win+number too, Win+Alt+number and Shift+right-click its menu", () => {
+  const folder: BarButton = { key: "folder:f", name: "F", pin: null, pins: [], windows: [], folder: { id: "f", apps: [] } };
+  for (const mods of [{}, { shift: true }, { ctrl: true }, { middle: true }, { shift: true, ctrl: true }]) assert.deepEqual(clickAction(folder, mods, { middle: "close" }), { kind: "folder" });
+  for (const m of ["plain", "shift", "ctrl", "ctrlShift"] as const) assert.deepEqual(numberKey(folder, m, null), { kind: "folder" });
+  assert.deepEqual(numberKey(folder, "alt", null), { kind: "menu" });
+  assert.equal(shiftMenu(folder), "folder");
+  assert.equal(indicator(folder, null), "none");
+});
+
+test("the window buttons of one app side by side are one place", () => {
+  const slots = [{ id: "a", x: 100, w: 40 }, { id: "a", x: 146, w: 40 }, { id: "b", x: 192, w: 40 }, { id: "a", x: 238, w: 40 }];
+  assert.deepEqual(pinSlots(slots), [{ id: "a", x: 100, w: 86 }, { id: "b", x: 192, w: 40 }, { id: "a", x: 238, w: 40 }]);
 });

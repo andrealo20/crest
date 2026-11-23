@@ -14,7 +14,7 @@ import { useToolSize } from "../../window/panel";
 import { limits } from "../../window/panelSize";
 import { fitIcon, placeMenu } from "../model";
 import { closePanel, panel, panelHeld, quickLayout, quickPage, trayDrag, type OpenPanel, type PanelContent } from "../panel";
-import { CLOCK_SIZE, CRYPTO_SIZE, DISKS_SIZE, PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, SEARCH_SIZE, TOOL_FALLBACK, TRAY_SIZE, WIDGETS_SIZE, fitClock, fitPanel, toolPanelSize } from "../panelModel";
+import { CLOCK_SIZE, CRYPTO_SIZE, DISKS_SIZE, FOLDER_SIZE, PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, SEARCH_SIZE, TOOL_FALLBACK, TRAY_SIZE, WIDGETS_SIZE, fitClock, fitPanel, panelKey, toolPanelSize } from "../panelModel";
 import { barFeed } from "../barStores";
 import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
@@ -50,14 +50,16 @@ const QuickPanel = lazy(() => import("./QuickPanel"));
  * kept inside the window, PANEL_GAP past the bar on the screen's side, the whole of it drawn at Crest's scale. It closes on Esc (the
  * keyboard then goes back to the app in front), on a pointerdown anywhere else, when the window loses the focus and when the bar
  * hides; a pointerdown on an item that opens a panel is left to that item's click, which closes it or switches it. Its box takes the
- * bar's menu slot in the hit zone: the panel and the bar's menus are never open together. The apps behind "…" and the hidden widgets
- * come drawn from the bar (`apps`, `widgets` with their widths), which holds what their clicks do.
+ * bar's menu slot in the hit zone: the panel and the bar's menus are never open together. The apps behind "…", the hidden widgets
+ * and the open folder come drawn from the bar (`apps`, `widgets` with their widths, `folder` with its name), which holds what their
+ * clicks do.
  */
 export function BarPanel(props: {
   bar: RefObject<HTMLElement | null>;
   onPlace: (box: HitRect | null) => void;
   apps: { count: number; grid: ReactNode };
   widgets: { widths: number[]; rows: ReactNode };
+  folder: { name: string; count: number; body: ReactNode } | null;
   surface?: PanelSurface;
 }) {
   const open = panel.use();
@@ -78,7 +80,7 @@ const measure = (bar: RefObject<HTMLElement | null>, edge: BarEdge) => {
  * A tool takes the size the notch gives it, less the notch's tool bar, once the tools' code has loaded. Every hook runs for every
  * content, as a switch between the tray and a tool renders the same panel.
  */
-function usePanelSize(shows: PanelContent, apps: number, widgets: number[]): { w: number; h: number } | null {
+function usePanelSize(shows: PanelContent, apps: number, widgets: number[], folder: number): { w: number; h: number } | null {
   const tabs = useTabs(shows.kind === "tool");
   const tab = shows.kind === "tool" ? tabs?.findTab(shows.tool) : undefined;
   const toolSize = useToolSize(tab?.id ?? "", tab?.size ?? TOOL_FALLBACK);
@@ -94,6 +96,7 @@ function usePanelSize(shows: PanelContent, apps: number, widgets: number[]): { w
   if (shows.kind === "disks") return scan ? DISKS_SIZE(levelRows(scan.levels[scan.levels.length - 1]), true) : DISKS_SIZE((disks ?? barFeed.get().disks).length);
   if (shows.kind === "tray") return TRAY_SIZE(fitIcon(height, iconSize), (folded ? icons : splitTray(icons, trayShown).hidden).length);
   if (shows.kind === "apps") return TRAY_SIZE(fitIcon(height, iconSize), apps);
+  if (shows.kind === "folder") return FOLDER_SIZE(fitIcon(height, iconSize), folder);
   if (shows.kind === "widgets") return WIDGETS_SIZE(widgets, height, itemGap(shape));
   if (shows.kind === "quick") return page ? QUICK_PAGE_SIZE(page.rows, page.extra) : QUICK_SIZE(quick);
   if (shows.kind === "clock") return CLOCK_SIZE;
@@ -113,6 +116,7 @@ function Panel({
   onPlace,
   apps,
   widgets,
+  folder,
   surface = {},
 }: {
   open: OpenPanel;
@@ -120,6 +124,7 @@ function Panel({
   onPlace: (box: HitRect | null) => void;
   apps: { count: number; grid: ReactNode };
   widgets: { widths: number[]; rows: ReactNode };
+  folder: { name: string; count: number; body: ReactNode } | null;
   surface?: PanelSurface;
 }) {
   const { anchor } = open;
@@ -139,7 +144,7 @@ function Panel({
   }, [bar, edge]);
 
   // A content whose size is not known yet keeps the size the panel had before it.
-  const asked = usePanelSize(open.content, apps.count, widgets.widths);
+  const asked = usePanelSize(open.content, apps.count, widgets.widths, folder?.count ?? 1);
   const kept = useRef(asked);
   if (asked) kept.current = asked;
   const natural = asked ?? kept.current;
@@ -262,7 +267,9 @@ function Panel({
                     ? t("Krypto")
                     : open.content.kind === "widgets"
                       ? t("Weitere Widgets")
-                      : undefined
+                      : open.content.kind === "folder"
+                        ? folder?.name
+                        : undefined
       }
       aria-labelledby={open.content.kind === "tool" || clock?.alone ? TOOL_TITLE_ID : clock ? CLOCK_TITLE_IDS : undefined}
       // Closing, it takes no key and no click: its zone is already gone.
@@ -284,8 +291,9 @@ function Panel({
             <AnimatePresence initial={false}>
               {size && (
                 <motion.div
-                  // A switch between two tools keeps the tool panel, which crossfades the tool below its own header (ToolPanel.tsx).
-                  key={open.content.kind}
+                  // A switch between two tools keeps the tool panel, which crossfades the tool below its own header (ToolPanel.tsx);
+                  // one between two folders crossfades the folders.
+                  key={open.content.kind === "folder" ? panelKey(open.content) : open.content.kind}
                   // Laid out at its full size from the centre of its side towards the bar, so it stays put while the shape grows around it.
                   className={`absolute ${edge === "top" ? "top-0" : "bottom-0"} left-1/2`}
                   style={{ width: size.w, height: size.h, marginLeft: -size.w / 2 }}
@@ -299,6 +307,8 @@ function Panel({
                     apps.grid
                   ) : open.content.kind === "widgets" ? (
                     widgets.rows
+                  ) : open.content.kind === "folder" ? (
+                    folder?.body
                   ) : open.content.kind === "tool" ? (
                     <ToolPanel tool={open.content.tool} />
                   ) : open.content.kind === "disks" ? (

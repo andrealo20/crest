@@ -154,13 +154,14 @@ const within = (r: DOMRect, x: number, y: number) => x >= r.left && x <= r.right
 
 /**
  * The line where an icon let go in the panel goes: at the leading edge of the slot's cell, past the last at the trailing edge of the last
- * (a row runs from the right in a right-to-left language), as tall as the cell's icon; none in an empty panel.
+ * (a row runs from the right in a right-to-left language), as tall as the cell's icon, its first child but Material's pill in an app's
+ * cell (`data-front-pill`); none in an empty panel. A folder's panel draws its line so too (PinDrop).
  */
-function panelLine(cells: Element[], slot: number, rtl: boolean) {
+export function panelLine(cells: Element[], slot: number, rtl: boolean) {
   const cell = cells[slot] ?? cells[cells.length - 1];
   if (!cell) return null;
   const r = cell.getBoundingClientRect();
-  const icon = (cell.firstElementChild ?? cell).getBoundingClientRect();
+  const icon = (cell.querySelector(":scope > :not([data-front-pill])") ?? cell).getBoundingClientRect();
   return { x: slot < cells.length !== rtl ? r.left : r.right, y: icon.top, h: icon.height };
 }
 

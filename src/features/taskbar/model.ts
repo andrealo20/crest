@@ -4,7 +4,7 @@
 import { normalizeFavorites, type Favorite } from "../launcher/apps.ts";
 import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
 import { TOOL_IDS } from "../../settings/tools.ts";
-import { normalizeFolders, type Folder } from "./folderModel.ts";
+import { folderKey, normalizeFolders, type Folder } from "./folderModel.ts";
 import { dropSlot } from "./panelModel.ts";
 import { WHATSAPP, normalizeUnread } from "./unread.ts";
 
@@ -438,18 +438,24 @@ export type PinSlot = { id: string; x: number; w: number };
  * side (one button per window) are one slot, since a pin lands only before or after all of them.
  */
 export function pinDrop(shown: PinSlot[], id: string | null, x: number, gap: number): { before: string | null; line: number } | null {
-  const slots: PinSlot[] = [];
-  for (const s of shown) {
-    const l = slots[slots.length - 1];
-    if (l?.id === s.id) slots[slots.length - 1] = { ...l, w: s.x + s.w - l.x };
-    else slots.push(s);
-  }
+  const slots = pinSlots(shown);
   if (!slots.length) return null;
   const at = dropSlot(slots, x);
   const own = id === null ? -1 : slots.findIndex((s) => s.id === id);
   if (own >= 0 && (at === own || at === own + 1)) return null;
   const last = slots[slots.length - 1];
   return at < slots.length ? { before: slots[at].id, line: slots[at].x - gap / 2 - 1 } : { before: null, line: last.x + last.w + gap / 2 - 1 };
+}
+
+/** The pinned buttons as places: the window buttons of one app side by side are one, as wide as all of them. */
+export function pinSlots(shown: PinSlot[]): PinSlot[] {
+  const slots: PinSlot[] = [];
+  for (const s of shown) {
+    const l = slots[slots.length - 1];
+    if (l?.id === s.id) slots[slots.length - 1] = { ...l, w: s.x + s.w - l.x };
+    else slots.push(s);
+  }
+  return slots;
 }
 
 /**
@@ -542,22 +548,49 @@ export interface BarButton {
   pinnable?: boolean;
   /** A button of one window (windowButtons): its title, the app's name when the window has none. Unset on an app's button. */
   title?: string;
+  /** A pinned app in a folder: the folder's id. On the bar only while it has windows, among the open apps. */
+  inFolder?: string;
+  /** A folder's button: its apps' buttons in the folder's order. No windows, no pins of its own. */
+  folder?: { id: string; apps: BarButton[] };
 }
 
 /**
- * The pinned apps first, in their order and with their saved names, each owning every group whose first pinned entry it is;
- * then the groups no pinned app owns, in Rust's order. `spawnable` and `pinnable` are set only when true.
+ * The pinned apps first, in their order and with their saved names, each owning every group whose first pinned entry it is; a folder
+ * (`folders`, repaired and named) in the place of its first app there, with its apps' buttons in its order, and its other apps' places
+ * empty. Then the groups no pinned app owns, in Rust's order, and at its first group's place an app of a folder that has windows, with
+ * all of them (option A: the folder only starts apps). `spawnable` and `pinnable` are set only when true.
  */
-export function barButtons(pinned: Favorite[] | null, groups: Group[]): BarButton[] {
+export function barButtons(pinned: Favorite[] | null, groups: Group[], folders: Folder[] = []): BarButton[] {
   const pins = pinned ?? [];
   const ids = new Set(pins.map((f) => f.id));
   const owner = (g: Group) => g.pins.find((p) => ids.has(p.id))?.id;
-  const buttons: BarButton[] = pins.map((f) => {
-    const owned = groups.filter((g) => owner(g) === f.id);
-    return { key: f.id, name: f.name, pin: f, pins: [f], windows: owned.flatMap((g) => g.windows), ...(owned.some((g) => g.spawnable) && { spawnable: true }) };
-  });
+  const folderOf = new Map<string, Folder>();
+  for (const f of folders) for (const a of f.apps) if (!folderOf.has(a)) folderOf.set(a, f);
+  const app = (f: Favorite): BarButton => {
+    const owned = groups.filter((g) => owner(g) === f.id), folder = folderOf.get(f.id);
+    return { key: f.id, name: f.name, pin: f, pins: [f], windows: owned.flatMap((g) => g.windows), ...(owned.some((g) => g.spawnable) && { spawnable: true }), ...(folder && { inFolder: folder.id }) };
+  };
+  const byId = new Map(pins.map((f) => [f.id, f]));
+  const drawn = new Set<Folder>();
+  const buttons: BarButton[] = [];
+  for (const f of pins) {
+    const folder = folderOf.get(f.id);
+    if (!folder) buttons.push(app(f));
+    else if (!drawn.has(folder)) {
+      drawn.add(folder);
+      const apps = folder.apps.flatMap((a) => (byId.has(a) ? [app(byId.get(a)!)] : []));
+      buttons.push({ key: folderKey(folder.id), name: folder.name, pin: null, pins: [], windows: [], folder: { id: folder.id, apps } });
+    }
+  }
+  const opened = new Set<string>();
   for (const g of groups) {
-    if (owner(g) === undefined) buttons.push({ key: g.key, name: g.name, pin: null, pins: g.pins, windows: g.windows, ...(g.spawnable && { spawnable: true }), ...(g.pinnable && { pinnable: true }) });
+    const o = owner(g);
+    if (o === undefined) buttons.push({ key: g.key, name: g.name, pin: null, pins: g.pins, windows: g.windows, ...(g.spawnable && { spawnable: true }), ...(g.pinnable && { pinnable: true }) });
+    else if (folderOf.has(o) && !opened.has(o)) {
+      opened.add(o);
+      const b = app(byId.get(o)!);
+      if (b.windows.length) buttons.push(b);
+    }
   }
   return buttons;
 }
@@ -582,8 +615,8 @@ export const launchId = (b: BarButton): string | null => b.pin?.id ?? b.pins[0]?
 
 /**
  * What a click on an app does: start an entry (as administrator with `admin`), start a new instance from listed window `id`
- * (taskbar.launchWindow), bring its one window forward or minimize it, list its windows, nothing, bring window `id` forward, or
- * close all its windows.
+ * (taskbar.launchWindow), bring its one window forward or minimize it, list its windows, nothing, bring window `id` forward, close
+ * all its windows, or open a folder.
  */
 export type Click =
   | { kind: "launch"; id: string; admin?: true }
@@ -592,7 +625,8 @@ export type Click =
   | { kind: "list" }
   | { kind: "none" }
   | { kind: "activate"; id: number }
-  | { kind: "closeAll" };
+  | { kind: "closeAll" }
+  | { kind: "folder" };
 /** The keys held with a click, and whether it came from the middle button. */
 export type ClickMods = { shift?: boolean; ctrl?: boolean; middle?: boolean };
 
@@ -613,9 +647,10 @@ export function cycleWindow(windows: Win[], active: number | null): number | nul
 /**
  * A click: Shift or the middle button starts a new instance (the middle one closes the windows with `o.middle` "close"), Ctrl+Shift
  * one as administrator, Ctrl goes through the app's windows from `o.active`; otherwise start the app, bring its one window forward
- * or minimize it, or list its windows. Without windows Ctrl is a plain click.
+ * or minimize it, or list its windows. Without windows Ctrl is a plain click. Any click on a folder opens it.
  */
 export function clickAction(b: BarButton, mods: ClickMods = {}, o: { active?: number | null; middle?: "new" | "close" } = {}): Click {
+  if (b.folder) return { kind: "folder" };
   if (mods.middle) return o.middle === "close" && b.windows.length ? { kind: "closeAll" } : newInstance(b);
   if (mods.shift) return newInstance(b, mods.ctrl === true);
   const next = mods.ctrl ? cycleWindow(b.windows, o.active ?? null) : null;
@@ -695,17 +730,17 @@ export const countBadge = (n: number | null): string | null => (!n ? null : n > 
 export const DRAG_REST = 600;
 
 /** The right-click menu's entries, in order. */
-export type MenuEntry = "launch" | "pin" | "unpin" | "reveal" | "endTask" | "close" | "closeAll";
+export type MenuEntry = "launch" | "pin" | "unpin" | "move" | "out" | "reveal" | "endTask" | "close" | "closeAll";
 
 /**
- * Windows' order: the app's name (a new instance) when newInstance has one; Unpin for a pinned app, Pin with an entry or a pinnable
- * window; Open file location for an open app Rust can start from its window; End task with the switch on and a window open; Close
- * for one window, Close all for more.
+ * Windows' order: the app's name (a new instance) when newInstance has one; Unpin for a pinned app, then Move to folder, and Remove
+ * from folder for one in a folder; Pin with an entry or a pinnable window; Open file location for an open app Rust can start from its
+ * window; End task with the switch on and a window open; Close for one window, Close all for more.
  */
 export function menuFor(b: BarButton, o: { endTask: boolean } = { endTask: false }): MenuEntry[] {
   const entries: MenuEntry[] = [];
   if (newInstance(b).kind !== "none") entries.push("launch");
-  if (b.pin) entries.push("unpin");
+  if (b.pin) entries.push("unpin", "move", ...(b.inFolder ? (["out"] as const) : []));
   else if (b.pins.length || b.pinnable) entries.push("pin");
   if (b.windows.length && b.spawnable) entries.push("reveal");
   if (b.windows.length && o.endTask) entries.push("endTask");
@@ -798,8 +833,8 @@ export type GroupEntry = "cascade" | "stack" | "side" | "restoreAll" | "minimize
 /** The group menu of an app with several windows, in Windows' order. */
 export const GROUP_MENU: readonly GroupEntry[] = ["cascade", "stack", "side", "restoreAll", "minimizeAll", "closeAll"];
 
-/** What Shift+right-click on an app opens: its window's menu with one window, the group's with several, its usual menu with none. */
-export const shiftMenu = (b: BarButton): "window" | "group" | "app" => (b.windows.length === 1 ? "window" : b.windows.length ? "group" : "app");
+/** What Shift+right-click on an app opens: its window's menu with one window, the group's with several, its usual menu with none; a folder's own. */
+export const shiftMenu = (b: BarButton): "window" | "group" | "app" | "folder" => (b.folder ? "folder" : b.windows.length === 1 ? "window" : b.windows.length ? "group" : "app");
 
 /** Where a preview dragged from tile `from` lands among the tiles (`slots`, in reading order) at `x`: null on its own place or the one after it. */
 export function previewDrop(slots: { x: number; w: number }[], from: number, x: number): number | null {

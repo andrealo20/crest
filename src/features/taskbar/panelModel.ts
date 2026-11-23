@@ -6,7 +6,8 @@ import { DOCK_HEIGHT } from "../../notch/geometry.ts";
 /**
  * What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, the apps behind "…", Stato's quick panel,
  * the disk widget's drives, the main bar's clock's Notices over Calendar, the search box's field, the crypto widget's coin over 7 days
- * or the widgets, tool buttons and Windows buttons the bar had no room for.
+ * the widgets, tool buttons and Windows buttons the bar had no room for, or a folder of pinned apps, with the keyboard on its first app
+ * or in its name's field (`focus`).
  */
 export type PanelContent =
   | { kind: "tool"; tool: string }
@@ -17,7 +18,8 @@ export type PanelContent =
   | { kind: "clock" }
   | { kind: "search" }
   | { kind: "crypto" }
-  | { kind: "widgets" };
+  | { kind: "widgets" }
+  | { kind: "folder"; id: string; focus?: "first" | "name" };
 /** The item the panel opens over: its left edge and its width, CSS px. */
 export interface PanelAnchor {
   x: number;
@@ -45,8 +47,8 @@ export const PANEL_TOOLS: readonly string[] = [
   ...["trading", "calc", "agents", "colour", "camera", "clipboard", "ask", "launcher", "recorder", "wallpapers"],
 ];
 
-/** The tool's id, or the kind ("tray", "apps", "quick") for any other content: the panel crossfades when it changes. */
-export const panelKey = (c: PanelContent) => (c.kind === "tool" ? c.tool : c.kind);
+/** The tool's id, a folder's key, or the kind ("tray", "apps", "quick") for any other content: the panel crossfades when it changes. */
+export const panelKey = (c: PanelContent) => (c.kind === "tool" ? c.tool : c.kind === "folder" ? `folder:${c.id}` : c.kind);
 /** The same content closes the panel on a second click, another takes its place. The kind counts too, so no tool id passes for the tray. */
 export const sameContent = (a: PanelContent, b: PanelContent) => a.kind === b.kind && panelKey(a) === panelKey(b);
 /**
@@ -89,6 +91,18 @@ export const PANEL_EDGE = 8;
  * with 12 px round them; one row at least, for the line it shows without icons, and four at most, past which it scrolls.
  */
 export const TRAY_SIZE = (icon: number, count: number) => ({ w: 5 * (icon + 16) + 24, h: Math.min(Math.max(Math.ceil(count / 5), 1), 4) * (icon + 16) + 24 });
+
+/** A folder's panel's columns for `count` apps: three to five. */
+export const folderCols = (count: number) => Math.min(5, Math.max(3, count));
+/**
+ * A folder's panel at 100 % for `count` apps of `icon` px: its name's row (36), then cells as the tray panel's, folderCols to a row,
+ * with 12 px round them, four rows at most, past which they scroll; 200 px wide at least, for the name.
+ */
+export function FOLDER_SIZE(icon: number, count: number): { w: number; h: number } {
+  const cols = folderCols(count);
+  const rows = Math.min(4, Math.max(1, Math.ceil(count / cols)));
+  return { w: Math.max(200, cols * (icon + 16) + 24), h: 36 + rows * (icon + 16) + 24 };
+}
 
 /**
  * The hidden items' panel at 100 % for items `widths` wide, in rows as tall as the bar (`row`) and `gap` apart, as the bar has them: as
@@ -215,5 +229,5 @@ export const dragThreshold = (pointerType: string): number => (pointerType === "
 export const TRASH_ARM_MS = 300;
 /** When the pointer came onto the trash (`inside`), ms: kept while it stays on it, null once it leaves, so coming back waits again. */
 export const trashRest = (since: number | null, inside: boolean, now: number): number | null => (inside ? (since ?? now) : null);
-/** Whether the trash is armed at `now`: the pointer has rested on it TRASH_ARM_MS. */
-export const trashArmed = (since: number | null, now: number): boolean => since !== null && now - since >= TRASH_ARM_MS;
+/** Whether the trash is armed at `now`: the pointer has rested on it `ms`, TRASH_ARM_MS unless asked (a folder's FOLDER_REST). */
+export const trashArmed = (since: number | null, now: number, ms = TRASH_ARM_MS): boolean => since !== null && now - since >= ms;
