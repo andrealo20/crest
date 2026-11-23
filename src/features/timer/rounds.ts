@@ -1,4 +1,4 @@
-// The finished focus rounds the Day timeline draws: kept 30 days, only while the timeline or Screen Time is in use (decision W2).
+// The finished focus rounds the Day timeline draws: kept 30 days, only while the timeline or Screen Time is in use (roundsWanted).
 
 /** A finished focus round: when it ended (ms) and the length it was set to (s). Its start is the end less the length: pauses do not show. */
 export type FocusRound = { end: number; secs: number };
@@ -35,8 +35,13 @@ export const runningSpan = (t: { mode: string; endsAt: number | null; duration: 
   t.mode === "focus" && t.endsAt !== null ? [t.endsAt - t.duration * 1000, Math.min(now, t.endsAt)] : null;
 
 /**
- * Whether a finished round is written (decision W2): while Screen Time records, or while the Day timeline is in one of the bar's
- * zones or on in the closed row. A round is no work hour kept without that consent.
+ * Whether a finished round is written: while Screen Time records, or while the Day timeline is on in the closed row or in one of the
+ * zones of Crest's bar, turned on (hidden for now, over a full-screen app, still counts). A round is no work hour kept without that
+ * consent.
  */
-export const roundsWanted = (s: { screenTime: { on: boolean }; closed: { parts: { timeline?: boolean } }; taskbar: { zones: Record<string, readonly string[]> } }): boolean =>
-  s.screenTime.on || s.closed.parts.timeline === true || Object.values(s.taskbar.zones).some((items) => items.includes("timeline"));
+export const roundsWanted = (s: {
+  screenTime: { on: boolean };
+  closed: { parts: { timeline?: boolean } };
+  taskbar: { enabled: boolean; zones: Record<string, readonly string[]> };
+}): boolean =>
+  s.screenTime.on || s.closed.parts.timeline === true || (s.taskbar.enabled && Object.values(s.taskbar.zones).some((items) => items.includes("timeline")));

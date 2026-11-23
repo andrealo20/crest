@@ -33,13 +33,15 @@ test("a round's span runs from its end less its length to its end, and only thos
   assert.deepEqual(roundSpans(list, now, now + 1), []);
 });
 
-test("rounds are kept only while Screen Time records or the Day timeline is on the bar or in the closed row (decision W2)", () => {
-  const s = (on: boolean, part: boolean, zones: Record<string, string[]>) => ({ screenTime: { on }, closed: { parts: { timeline: part } }, taskbar: { zones } });
+test("rounds are kept only while Screen Time records or the Day timeline is on the bar or in the closed row", () => {
+  const s = (on: boolean, part: boolean, zones: Record<string, string[]>, enabled = true) => ({ screenTime: { on }, closed: { parts: { timeline: part } }, taskbar: { enabled, zones } });
   const empty = { left: [], center: [], right: ["clock"] };
   assert.equal(roundsWanted(s(false, false, empty)), false);
   assert.equal(roundsWanted(s(true, false, empty)), true);
   assert.equal(roundsWanted(s(false, true, empty)), true);
   assert.equal(roundsWanted(s(false, false, { ...empty, center: ["timeline"] })), true);
+  // Crest's bar turned off: a timeline left among its items is shown nowhere.
+  assert.equal(roundsWanted(s(false, false, { ...empty, center: ["timeline"] }, false)), false);
 });
 
 test("the round running now runs from its start to now; a paused timer or a break draws none", () => {
